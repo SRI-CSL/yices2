@@ -458,64 +458,103 @@ static void process_command_line(int argc, char *argv[]) {
    * convert logic and arith solver codes to context architecture + mode
    * also set iflag and qflag
    */
-  switch (logic_code) {
-  case SMT_UNKNOWN:
-    if (arith_code == ARITH_FLOYD_WARSHALL) {
-      fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
-      goto bad_usage;
-    }
-    // use default settings
-    arch = CTX_ARCH_EGFUNSPLXBV;
-    iflag = true;
-    qflag = false;
-    break;
-
-  case QF_IDL:
-    if (arith_code == ARITH_SIMPLEX) {
-      arch = CTX_ARCH_SPLX;
-    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
-      arch = CTX_ARCH_IFW;
+  if (mode_code == EFSOLVER_MODE) {
+    /*
+     * EF mode: if no logic is specified we keep logic_code = SMT_UNKNOWN
+     * and use the default architecture.
+     *
+     * If a logic is specified, we check that it's supported by EF.
+     * Then we store the corresponding qf_fragment in logic_code.
+     */
+    if (logic_code == SMT_UNKNOWN) {
+      if (arith_code == ARITH_FLOYD_WARSHALL) {
+	fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
+	goto bad_usage;
+      }
+      // use default settings
+      arch = CTX_ARCH_EGFUNSPLXBV;
+      iflag = true;
+      qflag = true;
     } else {
-      arch = CTX_ARCH_AUTO_IDL;
+      arch_code = ef_arch_for_logic(logic_code);
+      if (arch_code < 0) {
+	fprintf(stderr, "%s: logic %s is not supported in ef-mode\n", parser.command_name, logic_name);
+	exit(YICES_EXIT_ERROR);
+      }
+      assert(logic_is_supported_by_ef(logic_code));
+      logic_code = qf_fragment(logic_code);
+      arch = (context_arch_t) arch_code;
+      iflag = iflag_for_logic(logic_code);
+      qflag = true;
     }
-    iflag = false; // not relevant in IDL
-    qflag = false;
-    break;
 
-  case QF_RDL:
-    if (arith_code == ARITH_SIMPLEX) {
-      arch = CTX_ARCH_SPLX;
-    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
-      arch = CTX_ARCH_RFW;
-    } else {
-      arch = CTX_ARCH_AUTO_RDL;
-    }
-    iflag = false;
-    qflag = false;
-    break;
+  } else {
+    /*
+     * Not EF
+     */
+    switch (logic_code) {
+    case SMT_UNKNOWN:
+      if (arith_code == ARITH_FLOYD_WARSHALL) {
+	fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
+	goto bad_usage;
+      }
+      // use default settings
+      arch = CTX_ARCH_EGFUNSPLXBV;
+      iflag = true;
+      qflag = false;
+      break;
 
-  default:
-    assert(logic_name != NULL && 0 <= logic_code && logic_code < NUM_SMT_LOGICS);
-    arch_code = arch_for_logic(logic_code);
-    if (arch_code < 0) {
-      fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
-      exit(YICES_EXIT_ERROR);
-    }
-    arch = (context_arch_t) arch_code;
-    iflag = iflag_for_logic(logic_code);
-    qflag = qflag_for_logic(logic_code);
+    case QF_IDL:
+      if (arith_code == ARITH_SIMPLEX) {
+	arch = CTX_ARCH_SPLX;
+      } else if (arith_code == ARITH_FLOYD_WARSHALL) {
+	arch = CTX_ARCH_IFW;
+      } else {
+	arch = CTX_ARCH_AUTO_IDL;
+      }
+      iflag = false; // not relevant in IDL
+      qflag = false;
+      break;
+
+    case QF_RDL:
+      if (arith_code == ARITH_SIMPLEX) {
+	arch = CTX_ARCH_SPLX;
+      } else if (arith_code == ARITH_FLOYD_WARSHALL) {
+	arch = CTX_ARCH_RFW;
+      } else {
+	arch = CTX_ARCH_AUTO_RDL;
+      }
+      iflag = false;
+      qflag = false;
+      break;
+
+    default:
+      assert(logic_name != NULL && 0 <= logic_code && logic_code < NUM_SMT_LOGICS);
+      arch_code = arch_for_logic(logic_code);
+      if (arch_code < 0) {
+	if (logic_is_supported_by_ef(logic_code)) {
+	  fprintf(stderr, "%s: logic %s is supported only in ef-mode\n", parser.command_name, logic_name);
+	} else {
+	  fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
+	}
+	exit(YICES_EXIT_ERROR);
+      }
+      arch = (context_arch_t) arch_code;
+      iflag = iflag_for_logic(logic_code);
+      qflag = qflag_for_logic(logic_code);
 
 #if !HAVE_MCSAT
-    // fail here: MCSAT not built
-    if (arch == CTX_ARCH_MCSAT) {
-      fprintf(stderr, "%s: logic %s is not supported; %s was not compiled with mcsat support\n",
-	      parser.command_name, logic_name, parser.command_name);
-      exit(YICES_EXIT_ERROR);
-    }
+      // fail here: MCSAT not built
+      if (arch == CTX_ARCH_MCSAT) {
+	fprintf(stderr, "%s: logic %s is not supported; %s was not compiled with mcsat support\n",
+		parser.command_name, logic_name, parser.command_name);
+	exit(YICES_EXIT_ERROR);
+      }
 #endif
-
-    break;
+      break;
+    }
   }
+
 
   /*
    * Set the mode

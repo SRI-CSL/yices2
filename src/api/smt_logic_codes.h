@@ -149,6 +149,13 @@ typedef enum smt_logic {
   QF_AUFNRA,   // arrays + uninterpreted functions + non-linear real arithmetic
   QF_AUFNIRA,  // arrays + uninterpreted functions + mixed, non-linear arithmetic
 
+  /*
+   * Added 2018/05/17: special code for the 'ALL' logic
+   * as in (set-logic ALL).
+   *
+   * We interpret this a QF_AUFLIRA + QF_BV
+   */
+  SMT_ALL,
 
   /*
    * Anything else is an error
@@ -205,6 +212,17 @@ extern bool logic_has_arith(smt_logic_t code);
 extern bool logic_has_bv(smt_logic_t code);
 extern bool logic_has_quantifiers(smt_logic_t code);
 extern bool logic_has_uf(smt_logic_t code);
+
+
+/*
+ * Quantifier-free fragment of a logic:
+ * - if code is for a quantifier-free logic, the function
+ *   returns code unchanged
+ * - if code is a quantified logic, this returns the QF variant
+ *   (e.g., qf_fragment(AUFLIA) --> QF_AUFLIA).
+ * - if code is SMT_UNKNOWN, this returns SMT_UNKNOWN
+ */
+extern smt_logic_t qf_fragment(smt_logic_t code);
 
 
 /*

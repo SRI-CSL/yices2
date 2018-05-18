@@ -117,7 +117,7 @@ static void extend_gomory_vector(gomory_vector_t *v) {
  * - is_int: true if x is an integer variable
  * - is_lb:  true if b is a lower bound (i.e., x >= b)
  */
-void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, rational_t *b, 
+void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, rational_t *b,
 			    bool is_int, bool is_lb) {
   uint32_t i;
 
@@ -148,7 +148,7 @@ void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, ration
  */
 static void get_fraction(rational_t *f, const rational_t *a) {
   q_set(f, a);
-  q_floor(f);   
+  q_floor(f);
   q_sub(f, a);   // f is floor(a) - a
   q_neg(f);
 }
@@ -182,11 +182,10 @@ bool make_gomory_cut(gomory_vector_t *v, poly_buffer_t *buffer) {
   uint32_t i, n;
   rational_t *f, *e, *f_i, *c_i;
 
-
-  gomory_add_bounds(v);  
+  gomory_add_bounds(v);
 
   f = &v->fraction;
-  e = &v->ext;         
+  e = &v->ext;          // e is 1 - f
   if (q_is_zero(f)) {
     return false;
   }

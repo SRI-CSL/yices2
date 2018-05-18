@@ -827,6 +827,21 @@ static void eval_smt2_get_unsat_core(tstack_t *stack, stack_elem_t *f, uint32_t 
 
 
 /*
+ * [get-unsat_assumptions]
+ */
+static void check_smt2_get_unsat_assumptions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_GET_UNSAT_ASSUMPTIONS);
+  check_size(stack, n == 0);
+}
+
+static void eval_smt2_get_unsat_assumptions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_get_unsat_assumptions();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * [get-value <term> .... <term>]
  */
 static void check_smt2_get_value(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -1027,6 +1042,22 @@ static void eval_smt2_check_sat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [check-sat-assuming <literal>* ]
+ * TBD
+ */
+static void check_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_CHECK_SAT_ASSUMING);
+}
+
+static void eval_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_check_sat_assuming();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
  * [declare-sort <symbol> <numeral>]
  */
 static void check_smt2_declare_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -1137,10 +1168,6 @@ static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * NON-STANDARD COMMANDS
- */
-
-/*
  * [get-model]
  */
 static void check_smt2_get_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -1170,20 +1197,32 @@ static void eval_smt2_echo(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 /*
- * [reset]
+ * [reset-assertions]
  */
-static void check_smt2_reset(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_RESET);
+static void check_smt2_reset_assertions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_RESET_ASSERTIONS);
   check_size(stack, n == 0);
 }
 
-static void eval_smt2_reset(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  smt2_reset();
+static void eval_smt2_reset_assertions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_reset_assertions();
   tstack_pop_frame(stack);
   no_result(stack);
 }
 
+/*
+ * [reset-all]
+ */
+static void check_smt2_reset_all(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_RESET_ALL);
+  check_size(stack, n == 0);
+}
 
+static void eval_smt2_reset_all(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_reset_all();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
 
 
 /*
@@ -2316,6 +2355,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_GET_ASSIGNMENT, false, eval_smt2_get_assignment, check_smt2_get_assignment);
   tstack_add_op(stack, SMT2_GET_PROOF, false, eval_smt2_get_proof, check_smt2_get_proof);
   tstack_add_op(stack, SMT2_GET_UNSAT_CORE, false, eval_smt2_get_unsat_core, check_smt2_get_unsat_core);
+  tstack_add_op(stack, SMT2_GET_UNSAT_ASSUMPTIONS, false, eval_smt2_get_unsat_assumptions, check_smt2_get_unsat_assumptions);
   tstack_add_op(stack, SMT2_GET_VALUE, false, eval_smt2_get_value, check_smt2_get_value);
   tstack_add_op(stack, SMT2_GET_OPTION, false, eval_smt2_get_option, check_smt2_get_option);
   tstack_add_op(stack, SMT2_GET_INFO, false, eval_smt2_get_info, check_smt2_get_info);
@@ -2326,6 +2366,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_POP, false, eval_smt2_pop, check_smt2_pop);
   tstack_add_op(stack, SMT2_ASSERT, false, eval_smt2_assert, check_smt2_assert);
   tstack_add_op(stack, SMT2_CHECK_SAT, false, eval_smt2_check_sat, check_smt2_check_sat);
+  tstack_add_op(stack, SMT2_CHECK_SAT_ASSUMING, false, eval_smt2_check_sat_assuming, check_smt2_check_sat_assuming);
   tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_smt2_declare_sort, check_smt2_declare_sort);
   tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
   tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);
@@ -2333,7 +2374,8 @@ void init_smt2_tstack(tstack_t *stack) {
 
   tstack_add_op(stack, SMT2_GET_MODEL, false, eval_smt2_get_model, check_smt2_get_model);
   tstack_add_op(stack, SMT2_ECHO, false, eval_smt2_echo, check_smt2_echo);
-  tstack_add_op(stack, SMT2_RESET, false, eval_smt2_reset, check_smt2_reset);
+  tstack_add_op(stack, SMT2_RESET_ASSERTIONS, false, eval_smt2_reset_assertions, check_smt2_reset_assertions);
+  tstack_add_op(stack, SMT2_RESET_ALL, false, eval_smt2_reset_all, check_smt2_reset_all);
 
   tstack_add_op(stack, SMT2_MAKE_ATTR_LIST, false, eval_smt2_make_attr_list, check_smt2_make_attr_list);
   tstack_add_op(stack, SMT2_ADD_ATTRIBUTES, false, eval_smt2_add_attributes, check_smt2_add_attributes);
