@@ -4674,6 +4674,7 @@ void smt2_set_logic(const char *name) {
   } else {
     // in benchmark mode (or exists/forall) set the parameters to defaults for the logic
     // the context is not initialized yet
+    arch = arch_for_logic(code);
     default_ctx_params(&__smt2_globals.ctx_parameters, code, arch, CTX_MODE_ONECHECK);
     yices_set_default_params(&__smt2_globals.parameters, code, arch, CTX_MODE_ONECHECK);
   }

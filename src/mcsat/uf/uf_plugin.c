@@ -16,12 +16,6 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "uf_plugin.h"
 #include "app_reps.h"
 #include "uf_feasible_set_db.h"
