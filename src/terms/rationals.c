@@ -1271,6 +1271,7 @@ void q_lcm(rational_t *r1, const rational_t *r2) {
     mpz_lcm(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r2->num]));
   }
 
+  assert(q_is_pos(r1));
 }
 
 

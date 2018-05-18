@@ -82,7 +82,7 @@ variable_t variable_db_get_variable(variable_db_t* var_db, term_t term);
  * Returns a variable associated with the term. If no variable exists, it
  * returns variable_null.
  */
-variable_t variable_db_get_variable_if_exists(variable_db_t* var_db, term_t term);
+variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_t term);
 
 /**
  * Returns the term associated with the variable. The variable should exist.
@@ -145,6 +145,9 @@ void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars);
 
 /** Prints a variable */
 void variable_db_print_variable(const variable_db_t* var_db, variable_t x, FILE* out);
+
+/** Prints a null-terminated list of variables */
+void variable_db_print_variables(const variable_db_t* var_db, const variable_t* x, FILE* out);
 
 /** Prints the variable database */
 void variable_db_print(const variable_db_t* var_db, FILE* out);

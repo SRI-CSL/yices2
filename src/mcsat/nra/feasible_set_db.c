@@ -298,7 +298,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   assert(db->updates_size == db->updates.size);
 
   // If fixed, put into the fixed array
-  if (lp_feasibility_set_is_point(new_set)) {
+  if (lp_feasibility_set_is_point(intersect)) {
     ivector_push(&db->fixed_variables, x);
     db->fixed_variable_size ++;
   }

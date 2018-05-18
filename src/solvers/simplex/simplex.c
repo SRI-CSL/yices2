@@ -724,6 +724,7 @@ static void interval_update_period(interval_t *s, rational_t *a) {
   } else {
     q_generalized_lcm(&s->period, a);
   }
+  assert(q_is_pos(&s->period));
 }
 
 
