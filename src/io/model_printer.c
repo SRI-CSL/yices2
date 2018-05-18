@@ -28,6 +28,7 @@
 #include "io/model_printer.h"
 #include "model/model_eval.h"
 #include "utils/int_vectors.h"
+#include "utils/int_array_sort.h"
 
 
 /*
@@ -749,8 +750,13 @@ void model_pp(yices_pp_t *printer, model_t *model) {
   init_ivector(&v, 0);
   model_collect_terms(model, false, model->terms, term_to_print, &v);
 
+
   n = v.size;
   a = v.data;
+
+  // sort to help make things consistent when we use MCSAT vs. CDCL
+  int_array_sort(a, n);
+
   model_pp_bool_assignments(printer, model, a, n);
   model_pp_arithmetic_assignments(printer, model, a, n);
   model_pp_bitvector_assignments(printer, model, a, n);
@@ -991,6 +997,11 @@ void model_pp_full(yices_pp_t *printer, model_t *model) {
 
     n = v.size;
     a = v.data;
+
+    // sort the terms so that we have consistent printouts with different
+    // algorithms
+    int_array_sort(a, n);
+
     eval_pp_bool_assignments(printer, &eval, a, n);
     eval_pp_arithmetic_assignments(printer, &eval, a, n);
     eval_pp_bitvector_assignments(printer, &eval, a, n);
