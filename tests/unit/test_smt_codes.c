@@ -97,6 +97,7 @@ static const char * const test_names[NUM_TESTS] = {
   "QF_AUFNIA",
   "QF_AUFNRA",
   "QF_AUFNIRA",
+  "ALL",
   "",
   "badname",
   "ZZZZZZ",
@@ -177,6 +178,7 @@ static const char *const code2string[NUM_SMT_LOGICS+1] = {
   "QF_AUFNIA",
   "QF_AUFNRA",
   "QF_AUFNIRA",
+  "ALL",
   "UNKNOWN"
 };
 

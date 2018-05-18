@@ -2307,6 +2307,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   bool qflag;
 
   assert(logic_is_supported(g->logic_code));
+  assert(!g->efmode);
 
   // default: assume g->benchmark_mode is false
   logic = g->logic_code;
@@ -4632,7 +4633,13 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
-  if (! logic_is_supported(code)) {
+  if (logic_is_supported_by_ef(code)) {
+    __smt2_globals.efmode = true;
+    arch = ef_arch_for_logic(code);
+  } else if (logic_is_supported(code)) {
+    __smt2_globals.efmode = false;
+    arch = arch_for_logic(code);
+  } else {
     print_error("logic %s is not supported", name);
     return;
   }
@@ -4647,15 +4654,14 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
+
   // for logics that require mcsat: check that we're in benchmark mode
-  arch = arch_for_logic(code);
   if (arch == CTX_ARCH_MCSAT && !__smt2_globals.benchmark_mode) {
     print_error("the mcsat solver can't be used in incremental mode");
     return;
   }
   
-  // check to see if we are in efmode 
-  __smt2_globals.efmode = logic_has_quantifiers(code);
+  // in efmode : can't use the mcsat solver and must not be incremental
   if (__smt2_globals.efmode) {
     if (__smt2_globals.mcsat) {
       print_error("the mcsat solver does not support quantifiers");
@@ -4843,7 +4849,9 @@ static void efsolve_cmd(smt2_globals_t *g) {
 
   if (g->efmode) {
 
-    ef_solve(efc, &g->assertions, &g->parameters, g->logic_code, arch_for_logic(g->logic_code), g->tracer);
+    ef_solve(efc, &g->assertions, &g->parameters,
+	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
+	     g->tracer);
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing

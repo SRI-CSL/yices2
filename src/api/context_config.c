@@ -125,15 +125,17 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
  *
  * We don't use AUTO_IDL, AUTO_RDL, IFW or RFW here since
  * the Floyd-Warshall solvers don't support all use modes.
+ *
+ * IMPORTANT: this array is used by the API in config_for_logic.
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_NOSOLVERS,  // NONE
 
   -1,                  // AX
-  CTX_ARCH_BV,         // BV  same as QF_BV
-  -1,                  // IDL
-  CTX_ARCH_SPLX,       // LIA
-  CTX_ARCH_SPLX,       // LRA same as QF_LRA
+  -1,                  // BV  (supported by EF)
+  -1,                  // IDL (supported by EF)
+  -1,                  // LIA (supported by EF)
+  -1,                  // LRA (supported by EF)
   -1,                  // LIRA
   -1,                  // NIA
   -1,                  // NRA
@@ -200,6 +202,8 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   -1,                  // QF_AUFNIA
   -1,                  // QF_AUFNRA
   -1,                  // QF_AUFNIRA
+
+  CTX_ARCH_EGFUNSPLXBV,  // ALL interpreted as QF_AUFLIRA + QF_BV
 };
 
 
@@ -654,11 +658,42 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
 
 
 /*
- * CHECK WHETHER A LOGIC IS SUPPORTED BY THE MCSAT SOLVER
- */
-/*
- * mcsat doesn't support arrays/quantifiers/bitvectors
+ * Check whether a logic is supported by the MCSAT solver
  */
 bool logic_is_supported_by_mcsat(smt_logic_t code) {
   return !(logic_has_arrays(code) || logic_has_bv(code) || logic_has_quantifiers(code));
+}
+
+
+/*
+ * Check whether a logic is supported by the exists/forall solver
+ * - logics with quantifiers and BV or linear arithmetic are supported
+ * - logic "NONE" == purely Boolean is supported too
+ * - LIA is not tested.
+ */
+bool logic_is_supported_by_ef(smt_logic_t code) {
+  return code == NONE || code == BV || code == IDL || code == LRA || code == RDL || code == LIA;
+}
+
+
+/*
+ * Context architecture for a logic supported by EF
+ */
+int32_t ef_arch_for_logic(smt_logic_t code) {
+  switch (code) {
+  case NONE:
+    return CTX_ARCH_NOSOLVERS;
+
+  case BV:
+    return CTX_ARCH_BV;
+
+  case IDL:
+  case LRA:
+  case RDL:
+  case LIA:
+    return CTX_ARCH_SPLX;
+
+  default:
+    return -1;
+  }
 }

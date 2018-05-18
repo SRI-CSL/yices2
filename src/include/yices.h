@@ -2828,7 +2828,15 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  * (arrays + uninterpreted functions + mixed linear arithmetic), but this logic is
  * not currently supported.
  *
+ * Since release 2.6.0, you can also use the name "ALL" as a logic
+ * name.  This has the same interpretation as using "(set-logic ALL)
+ * in yices-smt2. For the current release, this logic name specifies
+ * quantifier-free combination of arrays + uninterpreted functions +
+ * mixed linear arithmetic + bitvectors.
+ *
+ *
  * Error codes:
+ *
  *  CTX_UNKNOWN_LOGIC if logic is not a valid name
  *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
  */

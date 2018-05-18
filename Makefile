@@ -49,8 +49,8 @@ YICES_TOP_DIR=$(shell pwd)
 # - P should not work anymore with libyices 2.1.0 or 3.0.0
 #
 MAJOR = 2
-MINOR = 5
-PATCH_LEVEL = 4
+MINOR = 6
+PATCH_LEVEL = 0
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 

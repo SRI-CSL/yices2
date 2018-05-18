@@ -61,7 +61,17 @@ extern void delete_ef_client(ef_client_t *ef_client);
  */
 extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
 
-
+/*
+ * Call the exists/forall solver on a vector of assertions.
+ * - parameters = search parameters to be used by the two internal contexts
+ * - logic_code = quantifier-free logic for the contexts
+ * - arch = context archtitecture
+ * - tracer = NULL or an optional tracer for verbose output
+ *
+ * logic_code and arch are used to initialize the two internal contexts.
+ * logic_code must be quantifier free and arch must be a context
+ * architecture compatible with this logic.
+ */
 extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
 		     smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer);
 
