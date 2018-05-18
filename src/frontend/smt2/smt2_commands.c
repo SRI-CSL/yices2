@@ -886,8 +886,12 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
   default:
     if (expected_token >= 0) {
       print_out("syntax error: %s expected", smt2_token_to_string(expected_token));
-    } else if (expected_token == -2 && tk == SMT2_TK_SYMBOL) {
+    } else if (expected_token == SMT2_COMMAND_EXPECTED && tk == SMT2_TK_SYMBOL) {
       print_out("syntax error: %s is not a command", tkval(lex));
+    } else if (expected_token == SMT2_NOT_EXPECTED) {
+      print_out("syntax error: '%s' expected", smt2_symbol_to_string(SMT2_SYM_NOT));
+    } else if (expected_token == SMT2_LITERAL_EXPECTED) {
+      print_out("syntax_error: literal expected");
     } else {
       print_out("syntax error");
     }
@@ -1353,6 +1357,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "get-assertions",       // SMT2_GET_ASSERTIONS
   "get-assignment",       // SMT2_GET_ASSIGNMENT
   "get-proof",            // SMT2_GET_PROOF
+  "get-unsat-assumptions",  // SMT2_GET_UNSAT_ASSUMPTIONS
   "get-unsat-core",       // SMT2_GET_UNSAT_CORE
   "get-value",            // SMT2_GET_VALUE
   "get-option",           // SMT2_GET_OPTION
@@ -1364,13 +1369,15 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "pop",                  // SMT2_POP
   "assert",               // SMT2_ASSERT,
   "check-sat",            // SMT2_CHECK_SAT,
+  "check-sat-assuming",   // SMT2_CHECK_SAT_ASSUMING,
   "declare-sort",         // SMT2_DECLARE_SORT
   "define-sort",          // SMT2_DEFINE_SORT
   "declare-fun",          // SMT2_DECLARE_FUN
   "define-fun",           // SMT2_DEFINE_FUN
-  "get-model",            // SMT2_GET_MODEL (not standard)
-  "echo",                 // SMT2_ECHO      (not standard)
-  "reset",                // SMT2_RESET     (not standard)
+  "get-model",            // SMT2_GET_MODEL
+  "echo",                 // SMT2_ECHO
+  "reset-assertions",     // SMT2_RESET_ASSERTIONS
+  "reset",                // SMT2_RESET_ALL
   //
   "attributes",           // SMT2_MAKE_ATTR_LIST
   "term annotation",      // SMT2_ADD_ATTRIBUTES
@@ -3601,6 +3608,16 @@ void smt2_get_unsat_core(void) {
 
 
 /*
+ * Get the unsat assumptions: subset of :named assertions that form an unsat core
+ */
+void smt2_get_unsat_assumptions(void) {
+  if (check_logic()) {
+    print_error("get-unsat-assumptions is not supported");
+  }
+}
+
+
+/*
  * Get the values of terms in the model
  * - the terms are listed in array a
  * - n = number of elements in the array
@@ -3900,16 +3917,33 @@ void smt2_get_option(const char *name) {
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
+  case SMT2_KW_DIAGNOSTIC_OUTPUT:
+    s = g->err_name;
+    if (s == NULL) {
+      assert(g->err == stderr);
+      s = "stderr";
+    }
+    print_string_value(s);
+    break;
+
+  case SMT2_KW_GLOBAL_DECLARATIONS:
+    print_boolean_value(g->global_decls);
+    break;
+
   case SMT2_KW_PRINT_SUCCESS:
     print_boolean_value(g->print_success);
+    break;
+
+  case SMT2_KW_PRODUCE_ASSIGNMENTS:
+    print_boolean_value(g->produce_assignments);
     break;
 
   case SMT2_KW_PRODUCE_MODELS:
     print_boolean_value(g->produce_models);
     break;
 
-  case SMT2_KW_PRODUCE_ASSIGNMENTS:
-    print_boolean_value(g->produce_assignments);
+  case SMT2_KW_RANDOM_SEED:
+    print_uint32_value(g->random_seed);
     break;
 
   case SMT2_KW_REGULAR_OUTPUT:
@@ -3921,31 +3955,20 @@ void smt2_get_option(const char *name) {
     print_string_value(s);
     break;
 
-  case SMT2_KW_DIAGNOSTIC_OUTPUT:
-    s = g->err_name;
-    if (s == NULL) {
-      assert(g->err == stderr);
-      s = "stderr";
-    }
-    print_string_value(s);
-    break;
-
-  case SMT2_KW_RANDOM_SEED:
-    print_uint32_value(g->random_seed);
-    break;
-
   case SMT2_KW_VERBOSITY:
     print_uint32_value(g->verbosity);
     break;
 
-  case SMT2_KW_GLOBAL_DECLS:
-    print_boolean_value(g->global_decls);
-    break;
-
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
+  case SMT2_KW_PRODUCE_ASSERTIONS:
   case SMT2_KW_PRODUCE_PROOFS:
+  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
   case SMT2_KW_PRODUCE_UNSAT_CORES:
+  case SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT:
+    unsupported_option();
+    break;
+
   default:
     // may be a Yices option
     if (is_yices_option(name, &yices_option)) {
@@ -3963,6 +3986,7 @@ void smt2_get_option(const char *name) {
     }
     break;
   }
+
   flush_out();
 }
 
@@ -4000,6 +4024,14 @@ void smt2_get_info(const char *name) {
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
+  case SMT2_KW_ALL_STATISTICS:
+    show_statistics(&__smt2_globals);
+    break;
+
+  case SMT2_KW_AUTHORS:
+    print_kw_string_pair(name, yices_authors);
+    break;
+
   case SMT2_KW_ERROR_BEHAVIOR:
     print_kw_symbol_pair(name, error_behavior);
     break;
@@ -4008,20 +4040,12 @@ void smt2_get_info(const char *name) {
     print_kw_string_pair(name, yices_name);
     break;
 
-  case SMT2_KW_AUTHORS:
-    print_kw_string_pair(name, yices_authors);
-    break;
-
-  case SMT2_KW_VERSION:
-    print_kw_string_pair(name, yices_version);
-    break;
-
   case SMT2_KW_REASON_UNKNOWN:
     explain_unknown_status(&__smt2_globals);
     break;
 
-  case SMT2_KW_ALL_STATISTICS:
-    show_statistics(&__smt2_globals);
+  case SMT2_KW_VERSION:
+    print_kw_string_pair(name, yices_version);
     break;
 
   case SMT2_KW_SMT_LIB_VERSION:
@@ -4498,16 +4522,20 @@ void smt2_set_option(const char *name, aval_t value) {
   kw = smt2_string_to_keyword(name, n);
 
   switch (kw) {
+  case SMT2_KW_DIAGNOSTIC_OUTPUT:
+    // required
+    set_error_file(g, name, value);
+    break;
+
+  case SMT2_KW_GLOBAL_DECLARATIONS:
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->global_decls);
+    }
+    break;
+
   case SMT2_KW_PRINT_SUCCESS:
     // required
     set_boolean_option(g, name, value, &g->print_success);
-    break;
-
-  case SMT2_KW_PRODUCE_MODELS:
-    // optional: if true, get-value can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_models);
-    }
     break;
 
   case SMT2_KW_PRODUCE_ASSIGNMENTS:
@@ -4517,14 +4545,11 @@ void smt2_set_option(const char *name, aval_t value) {
     }
     break;
 
-  case SMT2_KW_REGULAR_OUTPUT:
-    // required
-    set_output_file(g, name, value);
-    break;
-
-  case SMT2_KW_DIAGNOSTIC_OUTPUT:
-    // required
-    set_error_file(g, name, value);
+  case SMT2_KW_PRODUCE_MODELS:
+    // optional: if true, get-value can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_models);
+    }
     break;
 
   case SMT2_KW_RANDOM_SEED:
@@ -4532,22 +4557,23 @@ void smt2_set_option(const char *name, aval_t value) {
     set_uint32_option(g, name, value, &g->random_seed);
     break;
 
+  case SMT2_KW_REGULAR_OUTPUT:
+    // required
+    set_output_file(g, name, value);
+    break;
+
   case SMT2_KW_VERBOSITY:
     // optional
     set_verbosity(g, name, value);
     break;
 
-  case SMT2_KW_GLOBAL_DECLS:
-    // non-standard option (same as MathSAT)
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->global_decls);
-    }
-    break;
-
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
+  case SMT2_KW_PRODUCE_ASSERTIONS:
   case SMT2_KW_PRODUCE_PROOFS:
+  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
   case SMT2_KW_PRODUCE_UNSAT_CORES:
+  case SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT:
     unsupported_option();
     flush_out();
     break;
@@ -4581,12 +4607,13 @@ void smt2_set_info(const char *name, aval_t value) {
   kw = smt2_string_to_keyword(name, n);
 
   switch (kw) {
+  case SMT2_KW_ALL_STATISTICS:
+  case SMT2_KW_ASSERTION_STACK_LEVELS:
+  case SMT2_KW_AUTHORS:
   case SMT2_KW_ERROR_BEHAVIOR:
   case SMT2_KW_NAME:
-  case SMT2_KW_AUTHORS:
-  case SMT2_KW_VERSION:
   case SMT2_KW_REASON_UNKNOWN:
-  case SMT2_KW_ALL_STATISTICS:
+  case SMT2_KW_VERSION:
     print_error("can't overwrite %s", name);
     break;
 
@@ -4898,6 +4925,16 @@ void smt2_check_sat(void) {
 
 
 /*
+ * Check sat with assumptions:
+ * NOT SUPPORTED YET
+ */
+void smt2_check_sat_assuming(void) {
+  if (check_logic()) {
+    print_error("check-sat-assuming is not supported");
+  }
+}
+
+/*
  * Declare a new sort:
  * - name = sort name
  * - arity = arity
@@ -5104,16 +5141,18 @@ void smt2_echo(const char *s) {
 
 
 /*
- * Full reset:
+ * Reset all assertions
  * - delete all assertions, terms, types, and declarations
+ *
+ * TODO: fix this: if g->global_decls is true, we should keep the declarations
  */
-void smt2_reset(void) {
+void smt2_reset_assertions(void) {
   smt2_globals_t *g;
 
   if (check_logic()) {
     g = &__smt2_globals;
     if (g->benchmark_mode) {
-      print_error("reset is not allowed in non-incremental mode");
+      print_error("reset-assertions is not allowed in non-incremental mode");
     } else {
       /*
        * Reset context, model and internal stacks
@@ -5153,6 +5192,14 @@ void smt2_reset(void) {
       report_success();
     }
   }
+}
+
+
+/*
+ * Full reset: to be done
+ */
+void smt2_reset_all(void) {
+  print_error("reset is not supported");
 }
 
 

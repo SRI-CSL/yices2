@@ -134,6 +134,7 @@ enum smt2_opcodes {
   SMT2_GET_ASSERTIONS,                  // [get-assertions]
   SMT2_GET_ASSIGNMENT,                  // [get-assignment]
   SMT2_GET_PROOF,                       // [get-proof]
+  SMT2_GET_UNSAT_ASSUMPTIONS,           // [get-unsat-assumptions]
   SMT2_GET_UNSAT_CORE,                  // [get-unsat-core]
   SMT2_GET_VALUE,                       // [get-value <term> ... <term> ]
   SMT2_GET_OPTION,                      // [get-option <keyword> ]
@@ -145,14 +146,16 @@ enum smt2_opcodes {
   SMT2_POP,                             // [pop <numeral> ]
   SMT2_ASSERT,                          // [assert <term> ]
   SMT2_CHECK_SAT,                       // [check-sat ]
+  SMT2_CHECK_SAT_ASSUMING,              // [check-sat-assuming <literals>* ]
   SMT2_DECLARE_SORT,                    // [declare-sort <symbol> <numeral> ]
   SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
   SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
   SMT2_DEFINE_FUN,                      // [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
-  // non-standard commands
   SMT2_GET_MODEL,                       // [get-model]
   SMT2_ECHO,                            // [echo <string>]
-  SMT2_RESET,                           // [reset]
+  SMT2_RESET_ASSERTIONS,                // [reset-assertions]
+  SMT2_RESET_ALL,                       // [reset]
+
   // attributes
   SMT2_MAKE_ATTR_LIST,                  // [make-attr-list <value> .... <value> ]
   SMT2_ADD_ATTRIBUTES,                  // [add-attribute <term> <keyword> <value> ... <keyword> <value>] (<value> may be omitted)
@@ -539,6 +542,13 @@ extern void smt2_get_unsat_core(void);
 
 
 /*
+ * Get the unsat assumptions: subset of all assumptions in check-sat-assuming
+ * TO BE DONE
+ */
+extern void smt2_get_unsat_assumptions(void);
+
+
+/*
  * Get the values of terms in the model
  * - the terms are listed in array a
  * - n = number of elements in the array
@@ -615,6 +625,11 @@ extern void smt2_assert(term_t t);
  */
 extern void smt2_check_sat(void);
 
+/*
+ * Check satisfiability with assumptions
+ * TO BE DONE.
+ */
+extern void smt2_check_sat_assuming(void);
 
 /*
  * Declare a new sort:
@@ -663,11 +678,6 @@ extern void smt2_declare_fun(const char *name, uint32_t n, type_t *tau);
 extern void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau);
 
 
-
-/*
- * NON-STANDARD COMMANDS
- */
-
 /*
  * Display the model
  */
@@ -679,10 +689,14 @@ extern void smt2_get_model(void);
 extern void smt2_echo(const char *string);
 
 /*
- * Full reset: remove all assertions and declarations
+ * Reset assertions: remove all assertions and declarations
  */
-extern void smt2_reset(void);
+extern void smt2_reset_assertions(void);
 
+/*
+ * Full reset: delete everything
+ */
+extern void smt2_reset_all(void);
 
 
 
@@ -715,7 +729,7 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
 /*
  * Syntax error
  * - lex = lexer
- * - expected_token = either an smt2_token or -1 or -2
+ * - expected_token = either an smt2_token or -1 or a special code <= -2
  *
  * lex is as follows:
  * - current_token(lex) = token that caused the error
@@ -725,7 +739,15 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
  * - lex->reader.name  = name of the input file (NULL means input is stdin)
  *
  * expected token = -2, means 'command expected'
+ * expected token = -3, means 'not expected'
+ * expected token = -4, means 'literal expected'
  */
+enum {
+  SMT2_COMMAND_EXPECTED = -2,
+  SMT2_NOT_EXPECTED = -3,
+  SMT2_LITERAL_EXPECTED = -4,
+};
+
 extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
 
 
