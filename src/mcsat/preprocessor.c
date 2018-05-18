@@ -27,9 +27,12 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   pre->terms = terms;
   init_term_manager(&pre->tm, terms);
   init_int_hmap(&pre->preprocess_map, 0);
+  init_ivector(&pre->preprocess_map_list, 0);
   init_int_hmap(&pre->purification_map, 0);
+  init_ivector(&pre->purification_map_list, 0);
   pre->tracer = NULL;
   pre->exception = handler;
+  scope_holder_construct(&pre->scope);
 }
 
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer) {
@@ -38,8 +41,11 @@ void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer) {
 
 void preprocessor_destruct(preprocessor_t* pre) {
   delete_int_hmap(&pre->purification_map);
+  delete_ivector(&pre->purification_map_list);
   delete_int_hmap(&pre->preprocess_map);
+  delete_ivector(&pre->preprocess_map_list);
   delete_term_manager(&pre->tm);
+  scope_holder_destruct(&pre->scope);
 }
 
 static
@@ -56,6 +62,7 @@ static
 void preprocessor_set(preprocessor_t* pre, term_t t, term_t t_pre) {
   assert(preprocessor_get(pre, t) == NULL_TERM);
   int_hmap_add(&pre->preprocess_map, t, t_pre);
+  ivector_push(&pre->preprocess_map_list, t);
 }
 
 static
@@ -165,6 +172,7 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
     term_t x = new_uninterpreted_term(terms, t_type);
     // Remember for later
     int_hmap_add(&pre->purification_map, t, x);
+    ivector_push(&pre->purification_map_list, t);
     // Add equality to output
     term_t eq = mk_eq(&pre->tm, x, t);
     ivector_push(out, eq);
@@ -532,9 +540,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       break;
     }
 
-
-      break;
-
     default:
       // UNSUPPORTED TERM/THEORY
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
@@ -567,4 +572,38 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
 void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler) {
   pre->exception = handler;
+}
+
+void preprocessor_push(preprocessor_t* pre) {
+  scope_holder_push(&pre->scope,
+      &pre->preprocess_map_list.size,
+      &pre->purification_map_list.size,
+      NULL);
+}
+
+void preprocessor_pop(preprocessor_t* pre) {
+
+  uint32_t preprocess_map_list_size = 0;
+  uint32_t purification_map_list_size = 0;
+
+  scope_holder_pop(&pre->scope,
+      &preprocess_map_list_size,
+      &purification_map_list_size,
+      NULL);
+
+  while (pre->preprocess_map_list.size > preprocess_map_list_size) {
+    term_t t = ivector_last(&pre->preprocess_map_list);
+    ivector_pop(&pre->preprocess_map_list);
+    int_hmap_pair_t* find = int_hmap_find(&pre->preprocess_map, t);
+    assert(find != NULL);
+    int_hmap_erase(&pre->preprocess_map, find);
+  }
+
+  while (pre->purification_map_list.size > purification_map_list_size) {
+    term_t t = ivector_last(&pre->purification_map_list);
+    ivector_pop(&pre->purification_map_list);
+    int_hmap_pair_t* find = int_hmap_find(&pre->purification_map, t);
+    assert(find != NULL);
+    int_hmap_erase(&pre->purification_map, find);
+  }
 }

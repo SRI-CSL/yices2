@@ -560,16 +560,20 @@ static void process_command_line(int argc, char *argv[]) {
    * Set the mode
    */
   if (mode_code < 0) {
-    if (arch == CTX_ARCH_MCSAT) {
-      // PROVISIONAL: MCSAT DOES NOT SUPPORT PUSH-POP YET
-      mode = CTX_MODE_ONECHECK;
-    } else if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
       // Floyd-Warshall or 'Auto' --> mode must be one-shot
       mode = CTX_MODE_ONECHECK;
     } else if (input_filename != NULL) {
       mode = CTX_MODE_PUSHPOP; // non-interactive
     } else {
-      mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
+      // no filename as input: we use interactive mode
+      // unless the logic requires MCSAT
+      if (arch == CTX_ARCH_MCSAT) {
+	// MCSAT does not support interactive mode
+	mode = CTX_MODE_PUSHPOP;
+      } else {
+	mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
+      }
     }
   } else if (mode_code == EFSOLVER_MODE) {
     /*
@@ -587,9 +591,8 @@ static void process_command_line(int argc, char *argv[]) {
         goto bad_usage;
       }
     }
-    if (arch == CTX_ARCH_MCSAT && mode_code != CTX_MODE_ONECHECK) {
-      // PROVISIONAL: MCSAT DOESN'T HAVE PUSH-POP YET
-      fprintf(stderr, "%s: the nonlinear solver supports only mode='one-shot'\n", parser.command_name);
+    if (arch == CTX_ARCH_MCSAT && mode_code == CTX_MODE_INTERACTIVE) {
+      fprintf(stderr, "%s: the nonlinear solver does not support mode='interactive'\n", parser.command_name);
       goto bad_usage;
     }
   }

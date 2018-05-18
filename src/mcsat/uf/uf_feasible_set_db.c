@@ -16,12 +16,6 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/uf/uf_feasible_set_db.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
@@ -467,7 +461,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
 
 void uf_feasible_set_db_gc_mark(uf_feasible_set_db_t* db, gc_info_t* gc_vars) {
 
-  assert(db->trail->decision_level == 0);
+  assert(db->trail->decision_level == db->trail->decision_level_base);
 
   if (gc_vars->level == 0) {
     // We keep all the reasons (start from 1, 0 is not used)
@@ -480,7 +474,7 @@ void uf_feasible_set_db_gc_mark(uf_feasible_set_db_t* db, gc_info_t* gc_vars) {
 }
 
 void uf_feasible_set_db_gc_sweep(uf_feasible_set_db_t* db, const gc_info_t* gc_vars) {
-  // We relocatre all reasons
+  // We reallocate all reasons
   uint32_t element_i;
   for (element_i = 1; element_i < db->memory_size; ++ element_i) {
     uf_feasible_list_element_t* element = db->memory + element_i;
