@@ -259,7 +259,7 @@ static const uint8_t default_value[NSTATES] = {
   error_literal_expected,
   error_not_expected,
   error_symbol_expected,
-  error_symbol_expected,
+  error_rp_expected,
   error,
   push_a1_goto_v0,
   error,
