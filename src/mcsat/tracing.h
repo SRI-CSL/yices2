@@ -24,7 +24,7 @@
 
 /** Check if the tag is enabled */
 static inline
-bool ctx_trace_enabled(plugin_context_t* ctx, const char* tag) {
+bool ctx_trace_enabled(const plugin_context_t* ctx, const char* tag) {
 #ifndef NDEBUG
   return (ctx->tracer != NULL && tracing_tag(ctx->tracer, tag));
 #else
@@ -44,7 +44,7 @@ bool trace_enabled(tracer_t* tracer, const char* tag) {
 
 /** Return the file associated with the trace */
 static inline
-FILE* ctx_trace_out(plugin_context_t* ctx) {
+FILE* ctx_trace_out(const plugin_context_t* ctx) {
   if (ctx->tracer != NULL && ctx->tracer->file != NULL) {
     return ctx->tracer->file;
   } else {
@@ -69,13 +69,13 @@ void term_print_to_file(FILE* out, term_table_t* terms, term_t t);
 void trace_term_ln(tracer_t* tracer, term_table_t* terms, term_t t);
 
 /** Print the term to the trace */
-void ctx_trace_term(plugin_context_t* ctx, term_t t);
+void ctx_trace_term(const plugin_context_t* ctx, term_t t);
 
 /** Print to the trace */
 void mcsat_trace_printf(tracer_t* tracer, const char* format, ...) __attribute__ ((format (printf, 2, 3)));
 
 /** Print to the trace */
-void ctx_trace_printf(plugin_context_t* ctx, const char* format, ...) __attribute__ ((format (printf, 2, 3)));
+void ctx_trace_printf(const plugin_context_t* ctx, const char* format, ...) __attribute__ ((format (printf, 2, 3)));
 
 /** String representation of the kind */
 const char* kind_to_string(term_kind_t kind);

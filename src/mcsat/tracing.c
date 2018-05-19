@@ -34,7 +34,7 @@ void trace_term_ln(tracer_t* tracer, term_table_t* terms, term_t t) {
   trace_pp_term(tracer, 0, terms, t);
 }
 
-void ctx_trace_term(plugin_context_t* ctx, term_t t) {
+void ctx_trace_term(const plugin_context_t* ctx, term_t t) {
   trace_pp_term(ctx->tracer, 0, ctx->terms, t);
 }
 
@@ -104,7 +104,7 @@ void mcsat_trace_printf(tracer_t* tracer, const char* format, ...) {
   }
 }
 
-void ctx_trace_printf(plugin_context_t* ctx, const char* format, ...) {
+void ctx_trace_printf(const plugin_context_t* ctx, const char* format, ...) {
   va_list p;
   int code;
 

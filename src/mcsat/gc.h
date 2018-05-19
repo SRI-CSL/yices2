@@ -96,4 +96,7 @@ void gc_info_sweep_ivector(const gc_info_t* gc, ivector_t* objs);
 /** Collect the keys in the given map */
 void gc_info_sweep_int_hmap_keys(const gc_info_t* gc, int_hmap_t* objs);
 
+/** Collect the values in the given map */
+void gc_info_sweep_int_hmap_values(const gc_info_t* gc, int_hmap_t* objs);
+
 #endif /* MCSAT_GC_H_ */

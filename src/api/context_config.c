@@ -529,10 +529,10 @@ static int32_t arch_add_arith(int32_t a, solver_code_t c) {
 
 /*
  * Check whether the architecture code a is compatible with mode
- * - current restriction: IFW, RFW, and MCSAT don't support PUSH/POP or MULTIPLE CHECKS
+ * - current restriction: IFW and RFW don't support PUSH/POP or MULTIPLE CHECKS
  */
 static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
-  return (a != CTX_ARCH_MCSAT && a != CTX_ARCH_IFW && a != CTX_ARCH_RFW) || mode == CTX_MODE_ONECHECK;
+  return (a != CTX_ARCH_IFW && a != CTX_ARCH_RFW) || mode == CTX_MODE_ONECHECK;
 }
 
 
@@ -590,9 +590,6 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     if (a < 0) {
       // not supported
       r = -2;
-    } else if (a == CTX_ARCH_MCSAT && config->mode != CTX_MODE_ONECHECK) {
-      // MCSAT doesn't support push/pop/multichecks
-      r = -3;
     } else {
       // good configuration
       *logic = logic_code;
@@ -606,16 +603,12 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     /*
      * MCSAT solver/no logic specified
      */
-    if (config->mode != CTX_MODE_ONECHECK) {
-      r = -3; // Can't currently have MCSAT with push/pop or multiple checks
-    } else {
-      *logic = SMT_UNKNOWN;
-      *arch = CTX_ARCH_MCSAT;
-      *mode = CTX_MODE_ONECHECK;
-      *iflag = false;
-      *qflag = false;
-      goto done;
-    }
+    *logic = SMT_UNKNOWN;
+    *arch = CTX_ARCH_MCSAT;
+    *mode = CTX_MODE_PUSHPOP;
+    *iflag = false;
+    *qflag = false;
+    goto done;
 
   } else {
     /*

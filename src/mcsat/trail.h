@@ -107,6 +107,12 @@ bool trail_is_consistent(const mcsat_trail_t* trail) {
   return !trail->inconsistent;
 }
 
+/** Set the trail inconsistent */
+static inline
+void trail_set_inconsistent(mcsat_trail_t* trail) {
+  trail->inconsistent = true;
+}
+
 /** Get the trail element at given position */
 static inline
 variable_t trail_at(const mcsat_trail_t* trail, uint32_t i) {
@@ -151,11 +157,17 @@ bool trail_has_value_at_base(const mcsat_trail_t* trail, variable_t var) {
   return trail->level.data[var] >= 0 && trail->level.data[var] <= trail->decision_level_base;
 }
 
-/** REturns true if the trail is at base level */
+/** Returns true if the trail is at base level */
 static inline
 bool trail_is_at_base_level(const mcsat_trail_t* trail) {
   return trail->decision_level == trail->decision_level_base;
 }
+
+/** Set the trail base level to current decision level */
+void trail_new_base_level(mcsat_trail_t* trail);
+
+/** Pop the base level down, returns the new base level (current-1) */
+uint32_t trail_pop_base_level(mcsat_trail_t* trail);
 
 /** Get the value of the variable */
 static inline

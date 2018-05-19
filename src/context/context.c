@@ -5303,6 +5303,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   /*
    * The core is always needed: allocate it here. It's not initialized yet.
    * The other solver are optionals.
+   *
+   * TODO: we could skip this when we use MCSAT (since then the core is
+   * not needed).
    */
   ctx->core = (smt_core_t *) safe_malloc(sizeof(smt_core_t));
   ctx->egraph = NULL;
@@ -6041,12 +6044,15 @@ int32_t context_process_formula(context_t *ctx, term_t f) {
 
 
 /*
- * Interrupt the search
+ * Interrupt the search:
+ * - this is not supported by mcsat yet
  */
 void context_stop_search(context_t *ctx) {
-  stop_search(ctx->core);
-  if (context_has_simplex_solver(ctx)) {
-    simplex_stop_search(ctx->arith_solver);
+  if (ctx->mcsat == NULL) {
+    stop_search(ctx->core);
+    if (context_has_simplex_solver(ctx)) {
+      simplex_stop_search(ctx->arith_solver);
+    }
   }
 }
 
@@ -6055,11 +6061,14 @@ void context_stop_search(context_t *ctx) {
 /*
  * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
+ * - not supported by mcsat either
  */
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
-  smt_cleanup(ctx->core);
+  if (ctx->mcsat == NULL) {
+    smt_cleanup(ctx->core);
+  }
 }
 
 
@@ -6071,7 +6080,11 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
-  smt_clear(ctx->core);
+  if (ctx->mcsat == NULL) {
+    smt_clear(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
+  }
 }
 
 
