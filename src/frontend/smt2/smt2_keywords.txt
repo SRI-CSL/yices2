@@ -22,7 +22,7 @@ struct keyword_s;
 :reproducible-resource-limit, SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
 :verbosity,                   SMT2_KW_VERBOSITY
 :all-statistics,              SMT2_KW_ALL_STATISTICS
-:assertion-stack-levels	      SMT2_KW_ASSERTION_STACK_LEVELS
+:assertion-stack-levels,      SMT2_KW_ASSERTION_STACK_LEVELS
 :authors,                     SMT2_KW_AUTHORS
 :error-behavior,              SMT2_KW_ERROR_BEHAVIOR
 :name,                        SMT2_KW_NAME

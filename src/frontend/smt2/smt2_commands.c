@@ -2138,16 +2138,17 @@ static void print_kw_symbol_pair(const char *keyword, const char *value) {
   print_out("(%s %s)\n", keyword, value);
 }
 
+static void print_kw_uint64_pair(const char *keyword, uint64_t value) {
+  print_out("(%s %"PRIu64")\n", keyword, value);
+}
+
 static const char * const string_bool[2] = { "false", "true" };
 
 #if 0
 // not used
+
 static void print_kw_boolean_pair(const char *keyword, bool value) {
   print_kw_symbol_pair(keyword, string_bool[value]);
-}
-
-static void print_kw_uint32_pair(const char *keyword, uint32_t value) {
-  print_out("(%s %"PRIu32")\n", keyword, value);
 }
 
 #endif
@@ -4027,6 +4028,10 @@ void smt2_get_info(const char *name) {
     show_statistics(&__smt2_globals);
     break;
 
+  case SMT2_KW_ASSERTION_STACK_LEVELS:
+    print_kw_uint64_pair(name, __smt2_globals.stack.levels);
+    break;
+
   case SMT2_KW_AUTHORS:
     print_kw_string_pair(name, yices_authors);
     break;
@@ -5165,6 +5170,15 @@ void smt2_reset_assertions(void) {
       }
 
       reset_smt2_stack(&g->stack);
+
+      /*
+       * If global_declations is set, then the name stacks
+       * and the named_bools stack are empty. The reset
+       * functions do nothing.
+       *
+       * We remove the named_assertions whether or not
+       * global_declarations is set.
+       */
       reset_smt2_name_stack(&g->term_names);
       reset_smt2_name_stack(&g->type_names);
       reset_smt2_name_stack(&g->macro_names);
@@ -5176,7 +5190,12 @@ void smt2_reset_assertions(void) {
       ivector_reset(&g->token_slices);
       ivector_reset(&g->val_vector);
 
-      yices_reset_tables();
+      /*
+       * Reset the internal name tables, unless global_decls is set
+       */
+      if (!g->global_decls) {
+	yices_reset_tables();
+      }
 
       // build a fresh empty context
       init_smt2_context(g);
@@ -5191,7 +5210,21 @@ void smt2_reset_assertions(void) {
  * Full reset: to be done
  */
 void smt2_reset_all(void) {
-  print_error("reset is not supported");
+  bool benchmark, print_success;
+  uint32_t timeout, verbosity;
+
+  benchmark = __smt2_globals.benchmark_mode;
+  timeout = __smt2_globals.timeout;
+  print_success = __smt2_globals.print_success;
+  verbosity = __smt2_globals.verbosity;
+
+  //  print_error("reset is not supported");
+  delete_smt2_globals(&__smt2_globals);
+  delete_attr_vtbl(&avtbl); // must be done last
+  yices_reset_tables();
+  init_smt2(benchmark, timeout, print_success);
+  smt2_set_verbosity(verbosity);
+  smt2_lexer_reset_logic();
 }
 
 
@@ -5216,11 +5249,15 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
   // special processing for Boolean terms
   if (yices_term_is_bool(t)) {
     // named booleans (for get-assignment)
-    clone = clone_string(name);
-    push_named_term(&__smt2_globals.named_bools, t, clone);
+    clone = NULL;
+    if (!__smt2_globals.global_decls) {
+      clone = clone_string(name);
+      push_named_term(&__smt2_globals.named_bools, t, clone);
+    }
 
     // named assertions (for unsat cores)
     if (op == SMT2_ASSERT && __smt2_globals.produce_unsat_cores) {
+      if (clone == NULL) clone = clone_string(name);
       push_named_term(&__smt2_globals.named_asserts, t, clone);
     }
   }

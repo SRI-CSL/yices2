@@ -367,6 +367,12 @@ extern void smt2_lexer_activate_logic(smt_logic_t logic);
 
 
 /*
+ * Reset: all logic-specific symbols are inactive
+ */
+extern void smt2_lexer_reset_logic(void);
+
+
+/*
  * Check whether a symbol is currently active
  */
 extern bool smt2_symbol_is_active(smt2_symbol_t sym);

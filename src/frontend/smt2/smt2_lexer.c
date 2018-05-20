@@ -431,6 +431,14 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
 
 
 /*
+ * Reset to the defaults: all logic-specific symbols are disactivated
+ */
+void smt2_lexer_reset_logic(void) {
+  smt2_activate_default();
+}
+
+
+/*
  * Switch to version 2.5
  */
 void smt2_lexer_activate_two_dot_five(void) {
