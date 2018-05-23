@@ -653,6 +653,7 @@ typedef struct simplex_stats_s {
   uint32_t num_dioph_recheck_conflicts; // unsat after dioph bounds + recheck
 
   uint32_t num_branch_atoms;            // new branch&bound atoms created
+  uint32_t num_gomory_cuts;             // number of Gomory cuts
 
 } simplex_stats_t;
 

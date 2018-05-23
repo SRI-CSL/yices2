@@ -57,20 +57,25 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "let",                   // SMT2_TK_LET
   "exists",                // SMT2_TK_EXISTS
   "forall",                // SMT2_TK_FORALL
+
   "assert",                // SMT2_TK_ASSERT
   "check-sat",             // SMT2_TK_CHECK_SAT
+  "check-sat-assuming",    // SMT2_TK_CHECK_SAT_ASSUMING
   "declare-sort",          // SMT2_TK_DECLARE_SORT
   "declare-const",         // SMT2_TK_DECLARE_CONST
   "declare-fun",           // SMT2_TK_DECLARE_FUN
   "define-sort",           // SMT2_TK_DEFINE_SORT
   "define-const",          // SMT2_TK_DEFINE_CONST
   "define-fun",            // SMT2_TK_DEFINE_FUN
+  "echo",                  // SMT2_TK_ECHO
   "exit",                  // SMT2_TK_EXIT
   "get-assertions",        // SMT2_TK_GET_ASSERTIONS
   "get-assignment",        // SMT2_TK_GET_ASSIGNMENT
   "get-info",              // SMT2_TK_GET_INFO
+  "get-model",             // SMT2_TK_GET_MODEL
   "get-option",            // SMT2_TK_GET_OPTION
   "get-proof",             // SMT2_TK_GET_PROOF
+  "get-unsat-assumptions", // SMT2_TK_GET_UNSAT_ASSUMPTIONS
   "get-unsat-core",        // SMT2_TK_GET_UNSAT_CORE
   "get-value",             // SMT2_TK_GET_VALUE
   "pop",                   // SMT2_TK_POP
@@ -78,10 +83,8 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "set-logic",             // SMT2_TK_SET_LOGIC
   "set-info",              // SMT2_TK_SET_INFO
   "set-option",            // SMT2_TK_SET_OPTION
-
-  "get-model",             // SMT2_TK_GET_MODEL
-  "echo",                  // SMT2_TK_ECHO
   "reset",                 // SMT2_TK_RESET
+  "reset-assertions",      // SMT2_TK_RESET_ASSERTIONS
 
   "<bad-string>",          // SMT2_TK_INVALID_STRING
   "<invalid-numeral>",     // SMT2_TK_INVALID_NUMERAL
@@ -94,32 +97,40 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
 };
 
 static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
-  ":print-success",           // SMT2_KW_PRINT_SUCCESS
-  ":expand-definitions",      // SMT2_KW_EXPAND_DEFINITIONS
-  ":interactive-mode",        // SMT2_KW_INTERACTIVE_MODE
-  ":produce-proofs",          // SMT2_KW_PRODUCE_PROOFS
-  ":produce-unsat-cores",     // SMT2_KW_PRODUCE_UNSAT_CORES
-  ":produce-models",          // SMT2_KW_PRODUCE_MODELS
-  ":produce-assignments",     // SMT2_KW_PRODUCE_ASSIGNMENTS
-  ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
   ":diagnostic-output-channel",  // SMT2_KW_DIAGNOSTIC_OUTPUT
+  ":expand-definitions",      // SMT2_KW_EXPAND_DEFINITIONS
+  ":global-declarations",     // SMT2_KW_GLOBAL_DECLARATIONS
+  ":interactive-mode",        // SMT2_KW_INTERACTIVE_MODE
+  ":print-success",           // SMT2_KW_PRINT_SUCCESS
+  ":produce-assertions",      // SMT2_KW_PRODUCE_ASSERTIONS
+  ":produce-assignments",     // SMT2_KW_PRODUCE_ASSIGNMENTS
+  ":produce-models",          // SMT2_KW_PRODUCE_MODELS
+  ":produce-proofs",          // SMT2_KW_PRODUCE_PROOFS
+  ":produce-unsat-assumptions",   // SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS
+  ":produce-unsat-cores",     // SMT2_KW_PRODUCE_UNSAT_CORES
   ":random-seed",             // SMT2_KW_RANDOM_SEED
+  ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
+  ":reproducible-resource-limit",  // SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
   ":verbosity",               // SMT2_KW_VERBOSITY
+
+  ":all-statistics",          // SMT2_KW_ALL_STATISTICS
+  ":assertion-stack-levesl",  // SMT2_KM_ASSERTIONS_STACK_LEVELS
+  ":authors",                 // SMT2_KW_AUTHORS
   ":error-behavior",          // SMT2_KW_ERROR_BEHAVIOR
   ":name",                    // SMT2_KW_NAME
-  ":authors",                 // SMT2_KW_AUTHORS
-  ":version",                 // SMT2_KW_VERSION
   ":reason-unknown",          // SMT2_KW_REASON_UNKNOWN
-  ":all-statistics",          // SMT2_KW_ALL_STATISTICS
+  ":version",                 // SMT2_KW_VERSION
+
   ":named",                   // SMT2_KW_NAMED
   ":pattern",                 // SMT2_KW_PATTERN
+
   ":status",                  // SMT2_KW_STATUS
   ":source",                  // SMT2_KW_SOURCE
   ":smt-lib-version",         // SMT2_KW_SMT_LIB_VERSION
   ":category",                // SMT2_KW_CATEGORY
   ":difficulty",              // SMT2_KW_DIFFICULTY
   ":notes",                   // SMT2_KW_NOTES
-  ":global-decls",            // SMT2_KW_GLOBAL_DECLS
+
   "<unknown-keyword>",        // SMT2_KW_UNKNOWN
 };
 
@@ -416,6 +427,14 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
   case ARITH_NONE:
     break;
   }
+}
+
+
+/*
+ * Reset to the defaults: all logic-specific symbols are disactivated
+ */
+void smt2_lexer_reset_logic(void) {
+  smt2_activate_default();
 }
 
 

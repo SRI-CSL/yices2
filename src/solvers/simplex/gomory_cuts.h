@@ -21,7 +21,7 @@
  *
  * A Gomory cut requires:
  *
- * 1) a term  a_1 x_1 + ... + a_n x_n 
+ * 1) a term  a_1 x_1 + ... + a_n x_n
  *    that is required to be integer for all feasible solutions.
  *
  * 2) bounds on all the variables x_i (one bound per variable)
@@ -37,17 +37,17 @@
  * 1) first compute the fractional part f of b. Since b is not an integer,
  *    we have 0 < f < 1.
  *
- * 2) got through all variables x_1, ..., x_n
+ * 2) go through all variables x_1, ..., x_n
  *
  *    if x_i is an integer variable with lower bound (x_i >= l_i)
  *      compute f_i = fractional part of a_i.
- *      if f_i > 1 - f,   replace a_i by f_i       (f_i > 0)
- *      if f_i <= 1 - f,  replace a_i by f_i - 1   (f_i - 1 < 0)
+ *      if f_i > 1 - f,   replace a_i by f_i - 1   (f_i - 1 < 0)
+ *      if f_i <= 1 - f,  replace a_i by f_i       (f_i > 0)
  *
  *    if x_i is an integer variable with upper bound (x_i <= u_i)
  *      compute f_i = fractional part of a_i
  *      if f_i < f,   replace a_i by f_i
- *      if f_i >= f,  replace a_i by f_i - 1 
+ *      if f_i >= f,  replace a_i by f_i - 1
  *
  *
  * 3) after this pass, build a term (c_i * (x_i - l_i)) or (c_i * (x_i - u_i)) for
@@ -59,7 +59,7 @@
  *    if a_i < 0 and the bound on x_i is u_i,  c_i is    a_i/(1-f)
  *
  * 4) the cut is the constraint:
- *    
+ *
  *    c_1 (x_1 - l_1) + ... + c_k (x_k - l_k) + c_k+1 (x_k+1 - u_k+1) + ... + c_n (x_n - u_n) >= 1.
  *
  */
@@ -89,7 +89,7 @@
  * For now, we require the bounds to be rational numbers (although
  * the cut would work too with extended rationals).
  *
- * Flag for variable i are stored in the two lower bits of tag[i]
+ * The flags for variable i are stored in the two lower bits of tag[i]:
  * - bit 0 --> variable type: 1 means integer, 0 means not integer
  * - bit 1 --> bound type: 1 means lower bound, 0 means upper bound
  */
@@ -147,7 +147,7 @@ extern void delete_gomory_vector(gomory_vector_t *v);
  * Important: if x is an integer variable then the bound must be
  * and integer constant.
  */
-extern void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, rational_t *b, 
+extern void gomory_vector_add_elem(gomory_vector_t *v, int32_t x, rational_t *a, rational_t *b,
 				   bool is_int, bool is_lb);
 
 

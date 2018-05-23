@@ -6,23 +6,28 @@
 %define slot-name word
 struct keyword_s;
 %%
-:print-success,               SMT2_KW_PRINT_SUCCESS
-:expand-definitions,          SMT2_KW_EXPAND_DEFINITIONS
-:interactive-mode,            SMT2_KW_INTERACTIVE_MODE
-:produce-proofs,              SMT2_KW_PRODUCE_PROOFS
-:produce-unsat-cores,         SMT2_KW_PRODUCE_UNSAT_CORES
-:produce-models,              SMT2_KW_PRODUCE_MODELS
-:produce-assignments,         SMT2_KW_PRODUCE_ASSIGNMENTS
-:regular-output-channel,      SMT2_KW_REGULAR_OUTPUT
 :diagnostic-output-channel,   SMT2_KW_DIAGNOSTIC_OUTPUT
+:expand-definitions,          SMT2_KW_EXPAND_DEFINITIONS
+:global-declarations,         SMT2_KW_GLOBAL_DECLARATIONS
+:interactive-mode,            SMT2_KW_INTERACTIVE_MODE
+:print-success,               SMT2_KW_PRINT_SUCCESS
+:produce-assertions,          SMT2_KW_PRODUCE_ASSERTIONS
+:produce-assignments,         SMT2_KW_PRODUCE_ASSIGNMENTS
+:produce-models,              SMT2_KW_PRODUCE_MODELS
+:produce-proofs,              SMT2_KW_PRODUCE_PROOFS
+:produce-unsat-assumptions,   SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS
+:produce-unsat-cores,         SMT2_KW_PRODUCE_UNSAT_CORES
 :random-seed,                 SMT2_KW_RANDOM_SEED
+:regular-output-channel,      SMT2_KW_REGULAR_OUTPUT
+:reproducible-resource-limit, SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
 :verbosity,                   SMT2_KW_VERBOSITY
+:all-statistics,              SMT2_KW_ALL_STATISTICS
+:assertion-stack-levels,      SMT2_KW_ASSERTION_STACK_LEVELS
+:authors,                     SMT2_KW_AUTHORS
 :error-behavior,              SMT2_KW_ERROR_BEHAVIOR
 :name,                        SMT2_KW_NAME
-:authors,                     SMT2_KW_AUTHORS
-:version,                     SMT2_KW_VERSION
 :reason-unknown,              SMT2_KW_REASON_UNKNOWN
-:all-statistics,              SMT2_KW_ALL_STATISTICS
+:version,                     SMT2_KW_VERSION
 :named,                       SMT2_KW_NAMED
 :pattern,                     SMT2_KW_PATTERN
 :status,                      SMT2_KW_STATUS
@@ -31,4 +36,3 @@ struct keyword_s;
 :category,                    SMT2_KW_CATEGORY
 :difficulty,                  SMT2_KW_DIFFICULTY
 :notes,                       SMT2_KW_NOTES
-:global-decls,                SMT2_KW_GLOBAL_DECLS

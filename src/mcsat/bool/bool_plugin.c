@@ -823,7 +823,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     gc_info_construct(&bp->gc_clauses, clause_ref_null, false);
 
     // Sort the lemmas based on scores
-    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) &bp->clause_db, bool_plugin_clause_compare_for_removal);
+    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
     // Mark all the variables in half of lemmas as used
     for (i = 0; i < bp->lemmas.size / 2; ++ i) {
@@ -844,7 +844,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   cnf_gc_mark(&bp->cnf, &bp->gc_clauses, gc_vars);
 
   // Mark all variables through the clause database
-  clause_db_gc_mark(&bp->clause_db, &bp->gc_clauses, gc_vars);
+  clause_db_gc_mark(db, &bp->gc_clauses, gc_vars);
 }
 
 void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {

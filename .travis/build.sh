@@ -25,11 +25,10 @@ popd
 autoconf
 ./configure --enable-mcsat
 
-make MODE=gcov 
-
 # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
+make MODE=gcov 
 make MODE=gcov check
 
 RETURN="$?"

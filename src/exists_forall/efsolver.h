@@ -240,6 +240,7 @@ typedef struct ef_solver_s {
  * Initialize solver:
  * - prob = problem descriptor
  * - logic/arch = for context initialization
+ * - the logic must be supported by the context (so it must be QF_XXX).
  */
 extern void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, context_arch_t arch);
 
