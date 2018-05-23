@@ -871,8 +871,7 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
       break;
     }
     case OR_TERM: {
-      composite_term_t* t_comp = or_term_desc(terms, t);
-      assert(children_bdds->size == t_comp->arity);
+      assert(children_bdds->size == or_term_desc(terms, t)->arity);
       bdds_mk_bool_or(cudd, out_bdds, children_bdds);
       break;
     }
