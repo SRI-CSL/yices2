@@ -80,6 +80,7 @@ void bdds_delete(CUDD* cudd) {
     assert(cudd->reserve[i].size == 0);
     delete_pvector(&cudd->reserve[i]);
   }
+  safe_free(cudd);
 }
 
 BDD** bdds_allocate_reserve(CUDD* cudd, uint32_t n) {
@@ -139,6 +140,11 @@ bool bdds_eq(BDD** a, BDD** b, uint32_t n) {
 }
 
 void bdds_print(CUDD* cudd, BDD** a, uint32_t n, FILE* out) {
+  if (n == 1) {
+    fprintf(out, "bdd(%p): ", a[0]);
+  } else {
+    fprintf(out, "bdds(%p): ", a);
+  }
   Cudd_DumpFactoredForm(cudd->cudd, n, a, NULL, NULL, out);
 }
 

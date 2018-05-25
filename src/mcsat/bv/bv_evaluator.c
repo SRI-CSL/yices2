@@ -32,6 +32,12 @@ void bv_evaluator_construct(bv_evaluator_t* evaluator, const plugin_context_t* c
 }
 
 void bv_evaluator_destruct(bv_evaluator_t* evaluator) {
+  uint32_t i;
+  for (i = 0; i < evaluator->value_cache.size; ++ i) {
+    bvconstant_t* value = evaluator->value_cache.data[i];
+    delete_bvconstant(value);
+    safe_free(value);
+  }
   delete_pvector(&evaluator->value_cache);
   delete_int_hmap(&evaluator->term_values);
   delete_int_hmap(&evaluator->atom_values);
@@ -411,6 +417,8 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
     init_bvconstant(out_value);
     uint32_t t_bitsize = term_bitsize(terms, t);
     bvconstant_copy(out_value, t_bitsize, t_value->bv_value.data);
+    // Set the level
+    *eval_level = trail_get_level(trail, t_x);
     break;
   }
   }

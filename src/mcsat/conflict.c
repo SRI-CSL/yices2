@@ -96,7 +96,7 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
   }
   fprintf(out, "\n");
 
-  fprintf(out, "disjuncts");
+  fprintf(out, "disjuncts:\n");
 
   n = conflict->var_to_element_map.size;
   data = conflict->var_to_element_map.data;

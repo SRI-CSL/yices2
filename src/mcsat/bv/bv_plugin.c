@@ -5,6 +5,16 @@
  * license agreement which is downloadable along with this program.
  */
 
+/*
+ * Anything that includes "yices.h" requires these macros.
+ * Otherwise the code doesn't build on Windows or Cygwin.
+ */
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include "bdd_computation.h"
 #include "bv_feasible_set_db.h"
 #include "bv_plugin.h"
@@ -24,6 +34,7 @@
 #include "utils/int_array_sort2.h"
 #include "utils/int_hash_sets.h"
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "yices.h"
 
 typedef struct {
@@ -37,14 +48,14 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
+  /** Term manager */
+  term_manager_t tm;
+
   /** Next index of the trail to process */
   uint32_t trail_i;
 
   /** Scope holder for the int variables */
   scope_holder_t scope;
-
-  /** Conflict  */
-  ivector_t conflict;
 
   /** Conflict variable */
   variable_t conflict_variable;
@@ -92,6 +103,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   bv->ctx = ctx;
+  init_term_manager(&bv->tm, ctx->terms);
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
 
@@ -157,6 +169,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
     ctx_trace_printf(bv->ctx, "bv_plugin_destruct(...)\n");
   }
 
+  delete_term_manager(&bv->tm);
   watch_list_manager_destruct(&bv->wlm);
   delete_int_hmap(&bv->constraint_unit_info);
   delete_int_hmap(&bv->constraint_unit_var);
@@ -496,7 +509,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   // Get the BDD of the constraint (negate constraint if assigned to false)
   if (!constraint_value) { cstr_term = opposite_term(cstr_term); }
   bdd_t cstr_bdd = bv_bdd_manager_get_bdd(bddm, cstr_term, x_term);
-  assert(cstr_bdd.bdd != NULL);
+  assert(cstr_bdd.bdd[0] != NULL);
 
   // Update the infeasible intervals
   bool feasible = bv_feasible_set_db_update(bv->feasible, x, cstr_bdd, &cstr, 1);
@@ -779,6 +792,9 @@ void bv_plugin_push(plugin_t* plugin) {
       &bv->trail_i,
       &bv->processed_variables_size,
       NULL);
+
+  // Push the feasibility information
+  bv_feasible_set_db_push(bv->feasible);
 }
 
 static
@@ -825,6 +841,12 @@ void bv_plugin_pop(plugin_t* plugin) {
     remove_iterator_destruct(&it);
   }
 
+  // Pop the feasibility
+  bv_feasible_set_db_pop(bv->feasible);
+
+  // Undo conflict
+  bv->conflict_variable = variable_null;
+
   // We undid last decision, so we're back to normal
   bv->last_decided_and_unprocessed = variable_null;
 }
@@ -846,7 +868,7 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   bitsize = term_bitsize(bv->ctx->terms, variable_db_get_term(bv->ctx->var_db,x));
   init_bvconstant(&b);
   bvconstant_set_all_zero(&b, bitsize);
-  if (x_bdd.bdd != NULL) {
+  if (x_bdd.bdd[0] != NULL) {
     term_t x_term = variable_db_get_term(bv->ctx->var_db, x);
     bv_bdd_manager_pick_value(bv->bddm, x_term, x_bdd, &b);
   }
@@ -874,50 +896,146 @@ static
 void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
+  uint32_t i;
+  variable_t atom_i_var;
+  term_t atom_i_term;
+  bool atom_i_value;
+
+  const variable_db_t* var_db = bv->ctx->var_db;
+  const mcsat_trail_t* trail = bv->ctx->trail;
+
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_get_conflict: ");
     ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, bv->conflict_variable));
   }
 
-  assert(false);
-
   // Compute the conflict
-  ivector_t core, lemma_reasons;
-  init_ivector(&core, 0);
+  ivector_t conflict_core, lemma_reasons;
+  init_ivector(&conflict_core, 0);
   init_ivector(&lemma_reasons, 0);
-  bv_feasible_set_db_get_conflict_reasons(bv->feasible, bv->conflict_variable, &core, &lemma_reasons);
+  bv_feasible_set_db_get_conflict_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons);
 
-  ivector_swap(conflict, &bv->conflict);
-  ivector_reset(&bv->conflict);
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+    trail_print(trail, ctx_trace_out(bv->ctx));
+    ctx_trace_printf(bv->ctx, "core:\n");
+    for (i = 0; i < conflict_core.size; ++ i) {
+      atom_i_var = conflict_core.data[i];
+      atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+      ctx_trace_printf(bv->ctx, "[%"PRIu32"] (%s): ", i, (atom_i_value ? "T" : "F"));
+      atom_i_term = variable_db_get_term(var_db, atom_i_var);
+      ctx_trace_term(bv->ctx, atom_i_term);
+    }
+  }
 
-  delete_ivector(&core);
+  // Simples conflict resolution: get the variables and say x != v
+  int_mset_t assigned_vars;
+  int_mset_construct(&assigned_vars, 0);
+  for (i = 0; i < conflict_core.size; ++ i) {
+    atom_i_var = conflict_core.data[i];
+    atom_i_term = variable_db_get_term(bv->ctx->var_db, atom_i_var);
+    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+    // Add atom to conflict
+    if (atom_i_value) {
+      ivector_push(conflict, atom_i_term);
+    } else {
+      ivector_push(conflict, opposite_term(atom_i_term));
+    }
+    // Add subvariables to set
+    variable_list_ref_t list_ref = watch_list_manager_get_list_of(&bv->wlm, atom_i_var);
+    variable_t* atom_i_vars = watch_list_manager_get_list(&bv->wlm, list_ref);
+    for (; *atom_i_vars != variable_null; atom_i_vars ++) {
+      if (*atom_i_vars != atom_i_var) {
+        assert(*atom_i_vars == bv->conflict_variable || trail_has_value(trail, *atom_i_vars));
+        if (*atom_i_vars != bv->conflict_variable) {
+          int_mset_add(&assigned_vars, *atom_i_vars);
+        }
+      }
+    }
+  }
+
+  const ivector_t* assigned_vars_vec = int_mset_get_list(&assigned_vars);
+  for (i = 0; i < assigned_vars_vec->size; ++i) {
+    variable_t var = assigned_vars_vec->data[i];
+    term_t var_term = variable_db_get_term(var_db, var);
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+      ctx_trace_printf(bv->ctx, "vars:\n");
+      ctx_trace_printf(bv->ctx, "[%"PRIu32"]: ", i);
+      ctx_trace_term(bv->ctx, var_term);
+    }
+    const mcsat_value_t* value = trail_get_value(trail, var);
+    if (value->type == VALUE_BOOLEAN) {
+      if (value->b) {
+        ivector_push(conflict, var_term);
+      } else {
+        ivector_push(conflict, opposite_term(var_term));
+      }
+    } else if (value->type == VALUE_BV) {
+      term_t var_value = mk_bv_constant(&bv->tm, (bvconstant_t*) &value->bv_value);
+      term_t var_eq_value = mk_eq(&bv->tm, var_term, var_value);
+      ivector_push(conflict, var_eq_value);
+    } else {
+      assert(false);
+    }
+  }
+
+  int_mset_destruct(&assigned_vars);
+
+  delete_ivector(&conflict_core);
   delete_ivector(&lemma_reasons);
 }
 
 static
 term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
-  (void) bv;
 
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation(...) -> assert(false);\n");
+  // We only propagate evaluations, and we explain them using the literal itself
+  term_t atom = variable_db_get_term(bv->ctx->var_db, var);
+  if (ctx_trace_enabled(bv->ctx, "bv::conflict")) {
+    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation():\n");
+    ctx_trace_term(bv->ctx, atom);
   }
-  // TODO
-  assert(false);
+  bool value = trail_get_boolean_value(bv->ctx->trail, var);
+  if (ctx_trace_enabled(bv->ctx, "bv::conflict")) {
+    ctx_trace_printf(bv->ctx, "assigned to %s\n", value ? "true" : "false");
+  }
 
-  return NULL_TERM;
+  if (value) {
+    // atom => atom = true
+    ivector_push(reasons, atom);
+    return bool2term(true);
+  } else {
+    // neg atom => atom = false
+    ivector_push(reasons, opposite_term(atom));
+    return bool2term(false);
+  }
 }
 
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
-  (void) bv;
 
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_explain_evaluation(...) -> assert(false);\n");
+  if (value == NULL) {
+
+    // Get all the variables and make sure they are all assigned.
+    bv_plugin_get_notified_term_subvariables(bv, t, vars);
+
+    // Check if the variables are assigned
+    ivector_t* var_list = int_mset_get_list(vars);
+    size_t i = 0;
+    for (i = 0; i < var_list->size; ++ i) {
+      if (!trail_has_value(bv->ctx->trail, var_list->data[i])) {
+        int_mset_clear(vars);
+        return false;
+      }
+    }
+
+    // All variables assigned
+    return true;
+
+  } else {
+    assert(false);
   }
-  // TODO
-  assert(false);
+
 
   return true;
 }
@@ -967,6 +1085,38 @@ void bv_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
   }
 }
 
+static
+void bv_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
+  bv_plugin_t* bv = (bv_plugin_t*) plugin;
+  // The BV plugin doesn't really need to keep much. The only things we'd
+  // like to keep are
+  // - the lemmas that restrict top level feasibility sets (bv->feasible)
+  // - all the bitvector variables that are in use (bv->wlm)
+  bv_feasible_set_db_gc_mark(bv->feasible, gc_vars);
+  watch_list_manager_gc_mark(&bv->wlm, gc_vars);
+}
+
+static
+void bv_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
+  bv_plugin_t* bv = (bv_plugin_t*) plugin;
+
+  // The feasibility sets keep everything, we just gc the BDDs,
+  // the watchlists and the unit information.
+
+  // The BDDs database works over terms, so we can keep it for now
+  // TODO: copy over the info cache for terms in gc_vars.
+  // bv_bdd_manager_db_gc_sweep(bv->bddm, gc_vars);
+
+  // Feasible sets: everything asserted is in the trail, variables are
+  // also marked by the watch manager... nothing to do
+
+  // Unit information (constraint_unit_info, constraint_unit_var)
+  gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_info);
+  gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_var);
+
+  // Watch list manager
+  watch_list_manager_gc_sweep_lists(&bv->wlm, gc_vars);
+}
 
 plugin_t* bv_plugin_allocator(void) {
   bv_plugin_t* plugin = safe_malloc(sizeof(bv_plugin_t));
@@ -983,8 +1133,8 @@ plugin_t* bv_plugin_allocator(void) {
   plugin->plugin_interface.explain_evaluation    = bv_plugin_explain_evaluation;
   plugin->plugin_interface.push                  = bv_plugin_push;
   plugin->plugin_interface.pop                   = bv_plugin_pop;
-  plugin->plugin_interface.gc_mark               = NULL;
-  plugin->plugin_interface.gc_sweep              = NULL;
+  plugin->plugin_interface.gc_mark               = bv_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep              = bv_plugin_gc_sweep;
   plugin->plugin_interface.set_exception_handler = bv_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;

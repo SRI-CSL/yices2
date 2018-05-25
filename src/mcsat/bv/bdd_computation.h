@@ -51,7 +51,7 @@ void bdds_attach(BDD** a, uint32_t n);
 /** Compare the two BDD vectors. */
 bool bdds_eq(BDD** a, BDD** b, uint32_t n);
 
-/** Print the BDDs to stdout. */
+/** Print the BDDs to out. */
 void bdds_print(CUDD* cudd, BDD** a, uint32_t n, FILE* out);
 
 /** Check if the BDD is a point of given size (only one solution). */

@@ -29,10 +29,15 @@
 #include "mcsat/plugin.h"
 #include "mcsat/tracing.h"
 
+#ifndef NDEBUG
+#define DD_DEBUG
+#define DD_STATS
+#endif
+
 #include <cudd.h>
 
 /** Null BDD */
-const bdd_t bdd_null = { NULL };
+const bdd_t bdd_null = { { NULL } };
 
 /** Null BDDs */
 const bv_bdd_t bv_bdd_null = { NULL };
@@ -55,6 +60,7 @@ typedef struct {
 
 static
 void term_info_construct(term_info_t* term_info, term_t t, uint32_t bdd_index, uint32_t bitsize) {
+  assert(bitsize > 0);
   term_info->t = t;
   term_info->bdd_index = bdd_index;
   term_info->bdd_timestamp = 0;
@@ -148,6 +154,16 @@ bv_bdd_manager_t* bv_bdd_manager_new(const plugin_context_t* ctx) {
   return bddm;
 }
 
+bdd_t bv_bdd_manager_true(const bv_bdd_manager_t* bddm) {
+  bdd_t result = { { bddm->bdd_true } };
+  return result;
+}
+
+bdd_t bv_bdd_manager_false(const bv_bdd_manager_t* bddm) {
+  bdd_t result = { { bddm->bdd_false } };
+  return result;
+}
+
 static inline
 term_info_t* bv_bdd_manager_get_info(const bv_bdd_manager_t* bddm, term_t t) {
   // Destruct the term info
@@ -205,6 +221,7 @@ void bv_bdd_manager_delete(bv_bdd_manager_t* bddm) {
     term_t t = bddm->term_list.data[i];
     uint32_t t_bitsize = bv_term_bitsize(terms, t);
     term_info_t* t_info = bv_bdd_manager_get_info(bddm, t);
+    assert(t_bitsize == t_info->value.bitsize);
     BDD** t_bdd_memory = bv_bdd_manager_get_bdds_from_info(bddm, t_info);
     uint32_t allocated_size = 2*t_bitsize;
     bdds_clear(cudd, t_bdd_memory, allocated_size);
@@ -760,11 +777,11 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
 
   // Term data
   term_info_t* t_info = bv_bdd_manager_get_info(bddm, t);
-  BDD** bdds = bv_bdd_manager_get_bdds_from_info(bddm, t_info);
+  BDD** t_bdds = bv_bdd_manager_get_bdds_from_info(bddm, t_info);
 
   // Remove all previous BDDs
   uint32_t bitsize = bv_term_bitsize(terms, t);
-  bdds_clear(cudd, bdds, bitsize);
+  bdds_clear(cudd, t_bdds, bitsize);
 
   // Negation
   if (is_neg_term(t)) {
@@ -841,7 +858,9 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
   }
 
   // We have the children values compute
-  bdds_compute_bdds(bddm->cudd, terms, t, &children_bdds, bdds);
+  t_info = bv_bdd_manager_get_info(bddm, t);
+  bv_bdd_manager_get_bdds_from_info(bddm, t_info);
+  bdds_compute_bdds(bddm->cudd, terms, t, &children_bdds, t_bdds);
 
   if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
     ctx_trace_printf(bddm->ctx, "bv_bdd_manager: final BDD for ");
@@ -853,7 +872,7 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
     BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
     bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, ctx_trace_out(bddm->ctx));
     ctx_trace_printf(bddm->ctx, "\nt BDDs: ");
-    bdds_print(bddm->cudd, bdds, bitsize, ctx_trace_out(bddm->ctx));
+    bdds_print(bddm->cudd, t_bdds, bitsize, ctx_trace_out(bddm->ctx));
     ctx_trace_printf(bddm->ctx, "\n");
   }
 
@@ -919,7 +938,7 @@ void bv_bdd_manager_set_bv_value(bv_bdd_manager_t* bddm, term_t t, const bvconst
     ctx_trace_printf(bddm->ctx, "\n");
   }
 
-  if (t_info->value_timestamp == 0 || !bvconst_eq(t_info->value.data, value->data, value->bitsize)) {
+  if (t_info->value_timestamp == 0 || !bvconst_eq(t_info->value.data, value->data, value->width)) {
     bvconstant_copy(&t_info->value, value->bitsize, value->data);
     t_info->value_timestamp = ++ bddm->timestamp;
   }
@@ -982,10 +1001,19 @@ bdd_t bv_bdd_manager_get_bdd(bv_bdd_manager_t* bddm, term_t t, term_t x) {
   // Compute
   assert(is_boolean_term(bddm->ctx->terms, t));
   BDD** t_bdds = bv_bdd_manager_get_term_bdds(bddm, t, 1);
-  result.bdd = *t_bdds;
+  result.bdd[0] = t_bdds[0];
 
   // Unset the unit variable
   bddm->unassigned_var = NULL_TERM;
+
+  if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
+    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: BDD for ");
+    ctx_trace_term(bddm->ctx, t);
+    ctx_trace_printf(bddm->ctx, "unit in variable ");
+    ctx_trace_term(bddm->ctx, x);
+    bv_bdd_manager_bdd_print(bddm, result, ctx_trace_out(bddm->ctx));
+    ctx_trace_printf(bddm->ctx, "\n");
+  }
 
   return result;
 }
@@ -1017,40 +1045,40 @@ bv_bdd_t bv_bdd_manager_get_bv_bdd(bv_bdd_manager_t* bddm, term_t t, term_t x) {
 }
 
 void bv_bdd_manager_bdd_detach(bv_bdd_manager_t* bddm, bdd_t bdd) {
-  bdds_clear(bddm->cudd, (BDD**) &bdd.bdd, 1);
+  bdds_clear(bddm->cudd, (BDD**) bdd.bdd, 1);
 }
 
 void bv_bdd_manager_bdd_attach(bv_bdd_manager_t* bddm, bdd_t bdd) {
-  bdds_attach((BDD**) &bdd.bdd, 1);
+  bdds_attach((BDD**) bdd.bdd, 1);
 }
 
-void bv_bdd_manager_bdd_print(const bv_bdd_manager_t* bddm, bdd_t bdd, uint32_t bitsize, FILE* out) {
-  bdds_print(bddm->cudd, (BDD**)&bdd.bdd, 1, 0);
+void bv_bdd_manager_bdd_print(const bv_bdd_manager_t* bddm, bdd_t bdd, FILE* out) {
+  bdds_print(bddm->cudd, (BDD**) bdd.bdd, 1, out);
 }
 
 bool bv_bdd_manager_bdd_is_empty(const bv_bdd_manager_t* bddm, bdd_t bdd) {
   // Check that BDD != false, i.e., there is an assignment so that it is true
-  assert(bdd.bdd != NULL);
-  return bdd.bdd == bddm->bdd_false;
+  assert(bdd.bdd[0] != NULL);
+  return bdd.bdd[0] == bddm->bdd_false;
 }
 
 bool bv_bdd_manager_bdd_is_point(const bv_bdd_manager_t* bddm, bdd_t bdd, uint32_t bitsize) {
 
   if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
     ctx_trace_printf(bddm->ctx, "bv_bdd_manager: checking if point: ");
-    bdds_print(bddm->cudd, (BDD**) &bdd.bdd, 1, ctx_trace_out(bddm->ctx));
+    bdds_print(bddm->cudd, (BDD**) bdd.bdd, 1, ctx_trace_out(bddm->ctx));
     ctx_trace_printf(bddm->ctx, "\n");
   }
 
   // Check if BDD is a point: has to be a cube
-  return bdds_is_point(bddm->cudd, bdd.bdd, bitsize);
+  return bdds_is_point(bddm->cudd, (BDD*) bdd.bdd[0], bitsize);
 }
 
 bdd_t bv_bdd_manager_bdd_intersect(bv_bdd_manager_t* bddm, bdd_t bdd1, bdd_t bdd2) {
-  assert(bdd1.bdd != NULL);
-  assert(bdd2.bdd != NULL);
-  bdd_t bdd = { NULL };
-  bdds_mk_and(bddm->cudd, (BDD**) &bdd.bdd, (BDD**) &bdd1.bdd, (BDD**) &bdd2.bdd, 1);
+  assert(bdd1.bdd[0] != NULL);
+  assert(bdd2.bdd[0] != NULL);
+  bdd_t bdd = { { NULL } };
+  bdds_mk_and(bddm->cudd, (BDD**) bdd.bdd, (BDD**) bdd1.bdd, (BDD**) &bdd2.bdd, 1);
   return bdd;
 }
 
@@ -1059,10 +1087,10 @@ void bv_bdd_manager_pick_value(bv_bdd_manager_t* bddm, term_t x, bdd_t bdd, bvco
   const bvconstant_t* prev_value = &x_info->value;
   BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
   assert(out->bitsize == prev_value->bitsize);
-  if (bdds_is_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd, prev_value)) {
+  if (bdds_is_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd[0], prev_value)) {
     // If cached value works, just use it
     bvconstant_copy(out, out->bitsize, prev_value->data);
   } else {
-    bdds_get_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd, out);
+    bdds_get_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd[0], out);
   }
 }

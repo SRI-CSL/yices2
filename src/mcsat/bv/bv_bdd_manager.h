@@ -42,7 +42,7 @@ typedef struct bv_bdd_manager_s bv_bdd_manager_t;
 
 /** Wrapper for the Cudd BDDs */
 typedef struct {
-  void* bdd;
+  void* bdd[1];
 } bdd_t;
 
 /** Null BDD for convenience (bv_bdd_null.bdd == NULL) */
@@ -50,11 +50,11 @@ extern const bdd_t bdd_null;
 
 /** Swap the two BDDs */
 static inline
-void bdd_swap(bdd_t* x, bdd_t* y) { void* tmp = x->bdd; x->bdd = y->bdd; y->bdd = tmp; }
+void bdd_swap(bdd_t* x, bdd_t* y) { void* tmp = x->bdd[0]; x->bdd[0] = y->bdd[0]; y->bdd[0] = tmp; }
 
 /** Check if the two BDDs represent the same function */
 static inline
-bool bdd_eq(bdd_t x, bdd_t y) { return x.bdd == y.bdd; }
+bool bdd_eq(bdd_t x, bdd_t y) { return x.bdd[0] == y.bdd[0]; }
 
 /** Wrapper for a sequence of Cudd's BDDs */
 typedef struct {
@@ -69,6 +69,12 @@ bv_bdd_manager_t* bv_bdd_manager_new(const plugin_context_t* ctx);
 
 /** Delete the given BDD manager (destruct and deallocate) */
 void bv_bdd_manager_delete(bv_bdd_manager_t* bddm);
+
+/** Constant function true */
+bdd_t bv_bdd_manager_true(const bv_bdd_manager_t* bddm);
+
+/** Constant function false */
+bdd_t bv_bdd_manager_false(const bv_bdd_manager_t* bddm);
 
 /** Add term to the BDD manager (only added terms can be set to a value) */
 void bv_bdd_manager_add_term(bv_bdd_manager_t* bddm, term_t t);
@@ -112,7 +118,7 @@ void bv_bdd_manager_bdd_detach(bv_bdd_manager_t* bddm, bdd_t bdd);
 void bv_bdd_manager_bdd_attach(bv_bdd_manager_t* bddm, bdd_t bdd);
 
 /** Print a BDD with bitsize variables to output */
-void bv_bdd_manager_bdd_print(const bv_bdd_manager_t* bddm, bdd_t bdd, uint32_t bitsize, FILE* out);
+void bv_bdd_manager_bdd_print(const bv_bdd_manager_t* bddm, bdd_t bdd, FILE* out);
 
 /** Check whether the given BDD is an empty set */
 bool bv_bdd_manager_bdd_is_empty(const bv_bdd_manager_t* bddm, bdd_t bdd);
@@ -122,4 +128,3 @@ bool bv_bdd_manager_bdd_is_point(const bv_bdd_manager_t* bddm, bdd_t bdd, uint32
 
 /** Intersect the two BDDs (result attached) */
 bdd_t bv_bdd_manager_bdd_intersect(bv_bdd_manager_t* bddm, bdd_t bdd1, bdd_t bdd2);
-

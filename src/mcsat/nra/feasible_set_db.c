@@ -78,7 +78,7 @@ struct feasible_set_db_struct {
   /** Scope for push/pop */
   scope_holder_t scope;
 
-  /** Nra */
+  /** BV context */
   plugin_context_t* ctx;
 };
 

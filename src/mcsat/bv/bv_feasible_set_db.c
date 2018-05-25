@@ -96,7 +96,6 @@ uint32_t bv_feasible_set_db_get_index(const bv_feasible_set_db_t* db, variable_t
 void bv_feasible_set_db_print_var(const bv_feasible_set_db_t* db, variable_t var, FILE* out) {
 
   const variable_db_t* var_db = db->ctx->var_db;
-  uint32_t bitsize = variable_db_get_bitsize(var_db, var);
 
   fprintf(out, "Feasible sets of ");
   variable_db_print_variable(var_db, var, out);
@@ -105,9 +104,9 @@ void bv_feasible_set_db_print_var(const bv_feasible_set_db_t* db, variable_t var
   while (index != 0) {
     feasibility_list_element_t* current = db->memory + index;
     fprintf(out, "\t");
-    bv_bdd_manager_bdd_print(db->bddm, current->feasible_set, bitsize, out);
+    bv_bdd_manager_bdd_print(db->bddm, current->feasible_set, out);
     fprintf(out, "\n\t\t");
-    bv_bdd_manager_bdd_print(db->bddm, current->reason_feasible_set, bitsize, out);
+    bv_bdd_manager_bdd_print(db->bddm, current->reason_feasible_set, out);
     fprintf(out, "\n");
     if (current->reasons_size > 1) {
       fprintf(out, "\t\tDue to lemma\n");
@@ -139,15 +138,13 @@ void bv_feasible_set_db_print(const bv_feasible_set_db_t* db, FILE* out) {
       fprintf(out, "\n");
     }
 
-    uint32_t var_bitsize = variable_db_get_bitsize(db->ctx->var_db, var);
-
     uint32_t index = it->val;
     while (index != 0) {
       feasibility_list_element_t* current = db->memory + index;
       fprintf(out, "\t");
-      bv_bdd_manager_bdd_print(db->bddm, db->memory[index].feasible_set, var_bitsize, out);
+      bv_bdd_manager_bdd_print(db->bddm, current->feasible_set, out);
       fprintf(out, "\n\t\t");
-      bv_bdd_manager_bdd_print(db->bddm, db->memory[index].reason_feasible_set, var_bitsize, out);
+      bv_bdd_manager_bdd_print(db->bddm, current->reason_feasible_set, out);
       fprintf(out, "\n");
       index = current->prev;
     }
@@ -218,8 +215,11 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   uint32_t x_bitsize = bv_term_bitsize(terms, x_term);
 
   if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
-    fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_update\n");
+    fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_update: before\n");
     bv_feasible_set_db_print(db, ctx_trace_out(db->ctx));
+    fprintf(ctx_trace_out(db->ctx), "adding:");
+    bv_bdd_manager_bdd_print(bddm, new_set,  ctx_trace_out(db->ctx));
+    fprintf(ctx_trace_out(db->ctx), "\n");
   }
 
   // The one we're adding
@@ -228,13 +228,13 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   bdd_t old_set = bv_feasible_set_db_get(db, x);
 
   // Old and new set are managed outside
-  if (old_set.bdd != NULL) {
+  if (old_set.bdd[0] != NULL) {
     if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
       ctx_trace_printf(db->ctx, "bv_feasible_set_db_update()\n");
       ctx_trace_printf(db->ctx, "old_set = ");
-      bv_bdd_manager_bdd_print(bddm, old_set, x_bitsize, ctx_trace_out(db->ctx));
+      bv_bdd_manager_bdd_print(bddm, old_set, ctx_trace_out(db->ctx));
       ctx_trace_printf(db->ctx, "\nnew_set = ");
-      bv_bdd_manager_bdd_print(bddm, new_set, x_bitsize, ctx_trace_out(db->ctx));
+      bv_bdd_manager_bdd_print(bddm, new_set, ctx_trace_out(db->ctx));
       ctx_trace_printf(db->ctx, "\n");
     }
     // Intersect with the precious one
@@ -263,7 +263,7 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   // Allocate new element
   if (db->memory_size == db->memory_capacity) {
     db->memory_capacity = db->memory_capacity + db->memory_capacity/2;
-    db->memory = safe_realloc(db->memory, db->memory_capacity*sizeof(feasibility_list_element_t));
+    db->memory = (feasibility_list_element_t*) safe_realloc(db->memory, db->memory_capacity*sizeof(feasibility_list_element_t));
   }
   db->memory_size ++;
   // Setup the element
@@ -274,7 +274,7 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   new_element->prev = prev;
   // Reasons
   new_element->reasons_size = cstr_count;
-  new_element->reasons = safe_malloc(sizeof(variable_t)*cstr_count);
+  new_element->reasons = (variable_t*) safe_malloc(sizeof(variable_t)*cstr_count);
   uint32_t i;
   for (i = 0; i < cstr_count; ++ i) {
     new_element->reasons[i] = cstr_list[i];
@@ -295,6 +295,11 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
   if (bv_bdd_manager_bdd_is_point(bddm, new_set, x_bitsize)) {
     ivector_push(&db->fixed_variables, x);
     db->fixed_variable_size ++;
+  }
+
+  if (ctx_trace_enabled(db->ctx, "bv::feasible_set_db")) {
+    fprintf(ctx_trace_out(db->ctx), "bv_feasible_set_db_update: after:\n");
+    bv_feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
 
   // Return whether we're feasible
@@ -357,7 +362,7 @@ void bv_feasible_set_db_pop(bv_feasible_set_db_t* db) {
 }
 
 static
-void feasible_set_get_conflict_reason_indices(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_indices) {
+void bv_feasible_set_get_conflict_reason_indices(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_indices) {
   // Go back from the top reason for x and gather the indices
   uint32_t reason_index = bv_feasible_set_db_get_index(db, x);
   assert(reason_index);
@@ -369,7 +374,7 @@ void feasible_set_get_conflict_reason_indices(const bv_feasible_set_db_t* db, va
 }
 
 static
-void feasible_set_quickxplain(const bv_feasible_set_db_t* db, bdd_t current, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
+void bv_feasible_set_quickxplain(const bv_feasible_set_db_t* db, bdd_t current, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
 
   uint32_t i;
   bv_bdd_manager_t* bddm = db->bddm;
@@ -391,6 +396,7 @@ void feasible_set_quickxplain(const bv_feasible_set_db_t* db, bdd_t current, ive
 
   // Assert first half and minimize the second
   bdd_t feasible_A = current;
+  bv_bdd_manager_bdd_attach(bddm, feasible_A);
   for (i = begin; i < begin + n; ++ i) {
     bdd_t feasible_i = db->memory[reasons->data[i]].reason_feasible_set;
     bdd_t intersect = bv_bdd_manager_bdd_intersect(bddm, feasible_A, feasible_i);
@@ -398,23 +404,25 @@ void feasible_set_quickxplain(const bv_feasible_set_db_t* db, bdd_t current, ive
     bv_bdd_manager_bdd_detach(bddm, intersect);
   }
   uint32_t old_out_size = out->size;
-  feasible_set_quickxplain(db, feasible_A, reasons, begin + n, end, out);
+  bv_feasible_set_quickxplain(db, feasible_A, reasons, begin + n, end, out);
   bv_bdd_manager_bdd_detach(bddm, feasible_A);
 
   // Now, assert the minimized second half, and minimize the first half
-  bdd_t feasible_B = current; // TODO: check if you need to attach/detach
+  bdd_t feasible_B = current;
+  bv_bdd_manager_bdd_attach(bddm, feasible_B);
   for (i = old_out_size; i < out->size; ++ i) {
     bdd_t feasible_i = db->memory[out->data[i]].reason_feasible_set;
     bdd_t intersect = bv_bdd_manager_bdd_intersect(bddm, feasible_B, feasible_i);
     bdd_swap(&intersect, &feasible_B);
     bv_bdd_manager_bdd_detach(bddm, intersect);
   }
-  feasible_set_quickxplain(db, feasible_B, reasons, begin, begin + n, out);
+  bv_feasible_set_quickxplain(db, feasible_B, reasons, begin, begin + n, out);
+  bv_bdd_manager_bdd_detach(bddm, feasible_B);
 }
 
 /** Compare variables for picking the best explanation */
 static
-bool compare_reasons(void *bv_feasible_set_db_ptr, int32_t r1, int32_t r2) {
+bool bv_feasible_set_compare_reasons(void *bv_feasible_set_db_ptr, int32_t r1, int32_t r2) {
 
   // TODO: think which constraints are better than others
 
@@ -473,13 +481,10 @@ void print_conflict_reasons(FILE* out, const bv_feasible_set_db_t* db, const ive
 }
 
 static
-void feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivector_t* reasons_indices) {
-
-  // The set we're trying to make empty
-  bdd_t S = bdd_null;
+void bv_feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivector_t* reasons_indices) {
 
   // Sort variables by degree and trail level decreasing
-  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, compare_reasons);
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, bv_feasible_set_compare_reasons);
 
   if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: before\n");
@@ -489,12 +494,13 @@ void feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivector_
   // Minimize the core
   ivector_t out;
   init_ivector(&out, 0);
-  feasible_set_quickxplain(db, S, reasons_indices, 0, reasons_indices->size, &out);
+  bdd_t bdd_true = bv_bdd_manager_true(db->bddm);
+  bv_feasible_set_quickxplain(db, bdd_true, reasons_indices, 0, reasons_indices->size, &out);
   ivector_swap(reasons_indices, &out);
   delete_ivector(&out);
 
   // Sort again for consistency
-  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, compare_reasons);
+  int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, bv_feasible_set_compare_reasons);
 
   if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: after\n");
@@ -509,10 +515,10 @@ void bv_feasible_set_db_get_conflict_reasons(const bv_feasible_set_db_t* db, var
   init_ivector(&reasons_indices, 0);
 
   // Get the indices of the set refinements
-  feasible_set_get_conflict_reason_indices(db, x, &reasons_indices);
+  bv_feasible_set_get_conflict_reason_indices(db, x, &reasons_indices);
 
   // Do a first pass filter from the back
-  feasible_set_filter_reason_indices(db, &reasons_indices);
+  bv_feasible_set_filter_reason_indices(db, &reasons_indices);
 
   // Return the conjunctive reasons
   uint32_t i;
