@@ -38,7 +38,7 @@ Model Construction
      eliminated variables
 
    The context's status must be either :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
-   
+
    When assertions are added to a context, the simplification
    procedures may eliminate variables by substitution (see
    :c:func:`yices_context_enable_option`). If *keep_subst* is true
@@ -57,7 +57,7 @@ Model Construction
    - if *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
-  
+
    **Note**
 
    The returned model captures a snapshot of the context's current
@@ -131,6 +131,37 @@ Model Construction
      -- error code: :c:enum:`MDL_CONSTRUCTION_FAILED`
 
 
+.. c:function::  void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v)
+
+   Collect all the uninterpreted terms that have a value in *mdl* and store them in
+   vector *v*.
+
+   - *v* must be an initalized term vector (see :c:func:`yices_init_term_vector`).
+
+   The set of terms is returned as follows:
+
+   - *v->size* is the number of uninterpreted terms
+
+   - *v->data[0 ... v->size - 1]* contains the terms
+
+   Here is an example use of this function::
+
+      yices_assert_formula(ctx, f);
+      if (yices_check(ctx, ...) == STATUS_SAT) {
+         term_vector_t v;
+         model_t *m = yices_get_model(ctx, true);
+	 yices_init_term_vector(&v);
+	 yices_model_collect_defined_terms(m, &v);
+	 ....
+      }
+
+   At the end of this code fragment, vector *v* typically contains all
+   the uninterpreted terms that occur in *f*. In some rare cases,
+   terms may be eliminated during preprocessing and assertion simplifications.
+   These terms will not be defined in model *m* and will not be stored in
+   vector *v*.
+
+
 .. c:function::  void yices_free_model(model_t* mdl)
 
    Deletes a model.
@@ -156,7 +187,7 @@ model. If the value can't be computed, these functions return -1 and
 report one of the following errors:
 
    - If *t* is not a valid term:
- 
+
      -- error code: :c:enum:`INVALID_TERM`
 
      -- term1 := *t*
@@ -206,12 +237,12 @@ Atomic Values
      -- error code: :c:enum:`TYPE_MISMATCH`
 
      -- term1 := *t*
- 
+
      -- type1 := Bool type
 
    See also :c:func:`yices_formula_true_in_model` and :c:func:`yices_formulas_true_in_model`.
 
- 
+
 .. c:function:: int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val)
 
    Value of an integer (32 bits).
@@ -253,7 +284,7 @@ Atomic Values
    leaves both *\*num* and *\*den* unchanged.
 
    **Error report**
-  
+
    - If *t* is not an arithmetic term:
 
      -- error code: :c:enum:`ARITHTERM_REQUIRED`
@@ -283,7 +314,7 @@ Atomic Values
    *t* is not an arithmetic term. It returns 0 otherwise.
 
     **Error report**
-  
+
    - If *t* is not an arithmetic term:
 
      -- error code: :c:enum:`ARITHTERM_REQUIRED`
@@ -301,7 +332,7 @@ Atomic Values
    value can't be computed or if it's not an integer.
 
     **Error report**
-  
+
    - If *t* is not an arithmetic term:
 
      -- error code: :c:enum:`ARITHTERM_REQUIRED`
@@ -371,8 +402,8 @@ Atomic Values
      -- error code: :c:enum:`EVAL_CONVERSION_FAILED`
 
    **Note**
-   
-   This function is not declared unless you include the libpoly header 
+
+   This function is not declared unless you include the libpoly header
    :file:`algebraic_number.h` before :file:`yices.h` in your code::
 
          #include <poly/algebraic_number.h>
@@ -397,7 +428,7 @@ Atomic Values
          lp_algebraic_number_destruct(&n);
        }
      }
-   
+
 
 .. c:function:: int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[])
 
@@ -551,7 +582,7 @@ For example, consider the function *f* such that:
 
 Then the node that represents this function has three children. Two
 children are mapping nodes for [ 0, 0 |->| 0 ] and [ 3, 1 |->| 1 ], and
-the third child is an atomic node representing the default value -2. 
+the third child is an atomic node representing the default value -2.
 
 
 To support partially-defined values, the following tag is also defined:
@@ -566,7 +597,7 @@ listed in the mappings.
 
 The DAG-exploration API includes a function that returns the node
 for a term value, functions that provide information about a node,
-functions that return the value of leaf nodes, and functions that return 
+functions that return the value of leaf nodes, and functions that return
 the children of non-leaf nodes.
 
 .. c:function:: int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val)
@@ -609,7 +640,7 @@ the children of non-leaf nodes.
    See also :c:func:`yices_val_get_int64`.
 
 .. c:function:: int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v)
- 
+
    Checks whether a node's value is a 32bit rational.
 
    This function returns true if the node described by *\*v* has tag
@@ -642,7 +673,7 @@ the children of non-leaf nodes.
 
    Number of bits in a bitvector constant node.
 
-   If the node described by *\*v* has tag :c:enum:`YVAL_BV`, then this function 
+   If the node described by *\*v* has tag :c:enum:`YVAL_BV`, then this function
    returns the number of bits in the node's value. Otherwise, it returns 0.
 
    See also :c:func:`yices_val_get_bv`.
@@ -688,7 +719,7 @@ the children of non-leaf nodes.
 
    **Error report**
 
-   - If the node is not Boolean 
+   - If the node is not Boolean
 
      -- error code: :c:enum:`YVAL_INVALID_OP`
 
@@ -840,8 +871,8 @@ the children of non-leaf nodes.
      -- error code: :c:enum:`YVAL_INVALID_OP`
 
    **Note**
-   
-   This function is not declared unless you include the libpoly header 
+
+   This function is not declared unless you include the libpoly header
    :file:`algebraic_number.h` before :file:`yices.h` in your code::
 
          #include <poly/algebraic_number.h>
@@ -869,7 +900,7 @@ the children of non-leaf nodes.
    - If the node does not have tag :c:enum:`YVAL_RATIONAL`
 
      -- error code: :c:enum:`YVAL_INVALID_OP`
-   
+
 
 .. c:function:: int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau)
 
@@ -908,7 +939,7 @@ the children of non-leaf nodes.
 
 .. c:function:: int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v)
 
-   Components of a function node.		
+   Components of a function node.
 
    If node *f* has tag :c:enum:`YVAL_FUNCTION`, this function extracts the node's components:
 
@@ -1027,7 +1058,7 @@ Implicants
    *mdl*. The term *t* must be a Boolean term that's true in
    *mdl*. The implicant is a list of Boolean terms a\ |_1| |...| a\
    |_n| such that
-   
+
    - a\ |_i| is a literal (atom or negation of an atom)
 
    - a\ |_i| is true in *mdl*
@@ -1042,7 +1073,7 @@ Implicants
 
    The function  returns 0 if the implicant can be computed. Otherwise, it returns -1 and resets
    *v* to the empty vector (i.e., it sets *v->size* to 0).
-   
+
    **Error report**
 
    - if *t* is not a valid term
@@ -1070,7 +1101,7 @@ Implicants
 
    Implicant for an array of formulas.
 
-   This function constructs an implicant for the conjunction of formulas *a[0]* |and| ... |and| *a[n-1]*. 
+   This function constructs an implicant for the conjunction of formulas *a[0]* |and| ... |and| *a[n-1]*.
    The result is stored in vector *v* as explained for :c:func:`yices_implicant_for_formula`. This function
    has returns 0 if the implicant can be constructed or -1 otherwise. It has the same behavior and reports
    the same errors as :c:func:`yices_implicant_for_formula`.

@@ -53,6 +53,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "NIRA",
   "RDL",
   "UF",
+
   "ABV",
   "ALIA",
   "ALRA",
@@ -61,6 +62,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "ANRA",
   "ANIRA",
   "AUF",
+
   "UFBV",
   "UFIDL",
   "UFLIA",
@@ -70,6 +72,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "UFNRA",
   "UFNIRA",
   "UFRDL",
+
   "AUFBV",
   "AUFLIA",
   "AUFLRA",
@@ -81,14 +84,15 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_AX",
   "QF_BV",
   "QF_IDL",
-  "QF_RDL",
   "QF_LIA",
   "QF_LRA",
   "QF_LIRA",
   "QF_NIA",
   "QF_NRA",
   "QF_NIRA",
+  "QF_RDL",
   "QF_UF",
+
   "QF_ABV",
   "QF_ALIA",
   "QF_ALRA",
@@ -97,6 +101,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_ANRA",
   "QF_ANIRA",
   "QF_AUF",
+
   "QF_UFBV",
   "QF_UFIDL",
   "QF_UFLIA",
@@ -106,6 +111,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_UFNRA",
   "QF_UFNIRA",
   "QF_UFRDL",
+
   "QF_AUFBV",
   "QF_AUFLIA",
   "QF_AUFLRA",
@@ -113,6 +119,8 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_AUFNIA",
   "QF_AUFNRA",
   "QF_AUFNIRA",
+
+  "ALL",
 
   "unknown",
 };
@@ -177,9 +185,9 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_LIA
   true,    // QF_LRA
   true,    // QF_LIRA
-  false,   // QF_NIA
-  false,   // QF_NRA
-  false,   // QF_NIRA
+  true,    // QF_NIA
+  true,    // QF_NRA
+  true,    // QF_NIRA
   true,    // QF_UF
   true,    // QF_ABV
   true,    // QF_ALIA
@@ -194,9 +202,9 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_UFLIA
   true,    // QF_UFLRA
   true,    // QF_UFLIRA
-  false,   // QF_UFNIA
-  false,   // QF_UFNRA
-  false,   // QF_UFNIRA
+  true,    // QF_UFNIA
+  true,    // QF_UFNRA
+  true,    // QF_UFNIRA
   true,    // QF_UFRDL
   true,    // QF_AUFBV
   true,    // QF_AUFLIA
@@ -205,6 +213,8 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // QF_AUFNIA
   false,   // QF_AUFNRA
   false,   // QF_AUFNIRA
+
+  true,    // ALL ==> QF_AUFLIRA + QF+_BV
 };
 
 
@@ -252,7 +262,7 @@ static void test_config_for_logic(ctx_config_t *config, const char *name, int32_
   }
 
   if (code != k) {
-    printf("TEST FAILEDn");
+    printf("TEST FAILED\n");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
     fflush(stdout);
     exit(1);

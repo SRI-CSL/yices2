@@ -257,8 +257,8 @@ Running this example should produce something like this:
 
    You may encounter problems if you compile the example with Visual
    Studio on Windows. These problems are caused by incompatibilities
-   between C runtime libraries of Visual Studio and the one Yices is
-   linked against.  See https://msdn.microsoft.com/en-us/library/ms235460(v=vs.140).aspx
+   between the C runtime library of Visual Studio and the one Yices is
+   linked against. See https://msdn.microsoft.com/en-us/library/ms235460(v=vs.140).aspx
    for a detailed explanation.
 
    To avoid these issues, we recommend compiling with mingw.
