@@ -43,18 +43,8 @@
 #include "terms/terms.h"
 #include "utils/int_hash_map.h"
 
-#include "solvers/egraph/composites.h"
-
 #include "yices_types.h"
 
-typedef struct model_atom_s {
-	value_t value;
-	composite_t *body;
-	bool is_valid;
-
-  occ_t root;
-  class_t root_class;
-} model_atom_t;
 
 /*
  * Model structure:
@@ -74,10 +64,6 @@ struct model_s {
   int_hmap_t *alias_map;
   term_table_t *terms;
   bool has_alias;
-
-  model_atom_t *atoms;
-  uint32_t natoms;
-  arena_t arena;
 };
 
 

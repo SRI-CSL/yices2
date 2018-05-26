@@ -370,40 +370,7 @@ void print_conflict(FILE *f, smt_core_t *core) {
   }
 }
 
-/*
- * Print conflict core
- */
-void print_conflict_core(FILE *f, smt_core_t *core) {
-  literal_t l;
-  uint32_t i, n;
-  ivector_t *conflict_root = &core->conflict_root;
-  ivector_t *conflict_full = &core->conflict_core;
 
-  if (core->inconsistent) {
-    if (core->core_status == core_ready) {
-      fputs("Conflict roots: {", f);
-      n = conflict_root->size;
-      for (i = 0; i < n; i++)
-      {
-        fputc(' ', f);
-        print_bvar(f, conflict_root->data[i]);
-      }
-      fputs("}\n", f);
-      fputs("Conflict core: {", f);
-      n = conflict_full->size;
-      for (i = 0; i < n; i++)
-      {
-        fputc(' ', f);
-        print_bvar(f, conflict_full->data[i]);
-      }
-      fputs("}\n", f);
-    } else {
-      fputs("Conflict core missing\n", f);
-    }
-  } else {
-    fputs("No conflict\n", f);
-  }
-}
 /*
  * Size of a clause vector (deal with the case v == NULL)
  */
@@ -428,18 +395,11 @@ void print_smt_core(FILE *f, smt_core_t *core) {
   print_conflict(f, core);
   fprintf(f, "Assignment:\n");
   print_boolean_assignment(f, core);
-//  fprintf(f, "Unit Clauses:\n");
-//  print_unit_clauses(f, core);
-//  fprintf(f, "Binary Clauses:\n");
-//  print_binary_clauses(f, core);
-//  fprintf(f, "Problem Clauses:\n");
-//  print_problem_clauses(f, core);
-  fprintf(f, "Learned Clauses:\n");
+  fprintf(f, "Clauses:\n");
+  print_unit_clauses(f, core);
+  print_binary_clauses(f, core);
+  print_problem_clauses(f, core);
   print_learned_clauses(f, core);
-
-  if (core->unsat_core_enabled)
-	  print_conflict_core(f, core);
-
   fputc('\n', f);
   fflush(f);
 }

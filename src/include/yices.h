@@ -463,6 +463,18 @@ __YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
 
 
 /*
+ * Check whether tau and sigma are compatible
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns 0 and
+ * sets the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+__YICES_DLLSPEC__ extern int32_t yices_compatible_types(type_t tau, type_t sigma);
+
+
+/*
  * Number of bits for type tau
  * - returns 0 if there's an error
  *
@@ -2816,7 +2828,15 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  * (arrays + uninterpreted functions + mixed linear arithmetic), but this logic is
  * not currently supported.
  *
+ * Since release 2.6.0, you can also use the name "ALL" as a logic
+ * name.  This has the same interpretation as using "(set-logic ALL)
+ * in yices-smt2. For the current release, this logic name specifies
+ * quantifier-free combination of arrays + uninterpreted functions +
+ * mixed linear arithmetic + bitvectors.
+ *
+ *
  * Error codes:
+ *
  *  CTX_UNKNOWN_LOGIC if logic is not a valid name
  *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
  */
@@ -4043,122 +4063,6 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  */
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
-
-/*
- * Collects presearch statistics in ctx
- *
- */
-__YICES_DLLSPEC__ extern bool yices_get_presearch_stats(context_t *ctx, stats_t *st);
-
-
-/*
- * Collects statistics in ctx
- *
- */
-__YICES_DLLSPEC__ extern bool yices_get_statistics(context_t *ctx, stats_t *st);
-
-
-/*
- * Dump context
- *
- */
-__YICES_DLLSPEC__ extern void y2_dump_context(FILE *f, context_t *ctx);
-
-/*
- * Relation between egraph terms t1 and t2: returned as an integer val
- * - val = 1 means t1 is equal to t2 in mdl
- * - val = 0 means t1 is not equal to t2 in mdl
- * - val = -1 means relation is don't care in mdl
- *
- * Error codes:
- * If types of t1 and t2 are not identical
- *   code = TYPE_MISMATCH
- * If t1/t2 is not an egraph term
- *   code = INVALID_TERM
- * + the other evaluation error codes above.
- */
-__YICES_DLLSPEC__ extern int32_t yices_get_eterm_relation(context_t *ctx, model_t *mdl, term_t t1, term_t t2, int32_t *val);
-
-
-/*
- * Enables the unsat core.
- */
-__YICES_DLLSPEC__ extern void y2_enable_unsat_core(context_t *ctx);
-
-/*
- * Computes the unsat core.
- * - return 0 for successful derivation
- * - return -1 in case of an error
- *
- * Error codes:
- * If context status is not STATUS_UNSAT:
- *   code = CTX_INVALID_OPERATION
- * If the check fails for other reasons:
- *   code = INTERNAL_EXCEPTION
- */
-__YICES_DLLSPEC__ extern int32_t y2_derive_unsat_core(context_t *ctx);
-
-/*
- * Checks whether a boolean term is in unsat core or not: returned as an integer val
- * - val = 0 means t is not present
- * - val = 1 means t is present
- * - val = -1 means unable to determine
- *
- * Error codes:
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If the check fails for other reasons:
- *   code = INTERNAL_EXCEPTION
- */
-__YICES_DLLSPEC__ extern int32_t y2_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val);
-
-/*
- * Checks whether a boolean term is in unsat core or not: returned as an integer val
- * - val = 0 means t is not assigned
- * - val = 1 means t = true  is decided
- * - val = 2 means t = true  is implied
- * - val = 3 means t = false is decided
- * - val = 4 means t = false is implied
- * - val = -1 means unable to determine
- *
- * Error codes:
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If the check fails for other reasons:
- *   code = INTERNAL_EXCEPTION
- */
-__YICES_DLLSPEC__ extern int32_t y2_categorize_core_term(context_t *ctx, term_t t, int32_t *val);
-
-/*
- * Traces backwards to collect all root antecedents of t, all terms not a root antecedent are deleted from v
- *
- * Error codes:
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If the check fails for other reasons:
- *   code = INTERNAL_EXCEPTION
- */
-__YICES_DLLSPEC__ extern int32_t y2_trace_implication(context_t *ctx, term_t t);
-
-/*
- * Checks whether a boolean term is present as implication root or not: returned as an integer val
- * - val = 0 means t is not present in unsat core
- * - val = 1 means t is present in unsat core
- * - val = -1 means unable to determine
- *
- * Error codes:
- * If t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * If context status is not STATUS_UNSAT:
- *   code = CTX_INVALID_OPERATION
- * If the check fails for other reasons:
- *   code = INTERNAL_EXCEPTION
- */
-__YICES_DLLSPEC__ extern int32_t y2_term_in_implication_root(context_t *ctx, term_t t, int32_t *val);
 
 #ifdef __cplusplus
 } /* close extern "C" { */

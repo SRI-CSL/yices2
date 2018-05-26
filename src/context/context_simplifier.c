@@ -33,7 +33,7 @@
 #include "terms/poly_buffer_terms.h"
 #include "terms/rba_buffer_terms.h"
 #include "terms/term_utils.h"
-#include "utils/cputime.h"
+
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
@@ -1299,7 +1299,6 @@ static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
  * contradiction is detected.
  */
 void flatten_assertion(context_t *ctx, term_t f) {
-  TIME_START();
   intern_tbl_t *intern;
   int_queue_t *queue;
   term_table_t *terms;
@@ -1496,11 +1495,9 @@ void flatten_assertion(context_t *ctx, term_t f) {
 
   } while (! int_queue_is_empty(queue));
 
-  TIME_END(ctx->stats.flatten_assertion);
   return;
 
  abort:
-  TIME_END(ctx->stats.flatten_assertion);
   assert(exception != 0);
   longjmp(ctx->env, exception);
 }
@@ -2064,109 +2061,77 @@ void analyze_uf(context_t *ctx) {
  ************************************************/
 
 /*
- * Increment the number of variables if t has not been seen before
+ * Buffer to store a difference logic term.
+ *
+ * The difference logic fragment contains terms of the following forms:
+ *   a + x - y
+ *   a + x
+ *   a - y
+ *   a
+ * where x and y are arithmetic variables and a is a constant (possibly a = 0).
+ *
+ * In IDL, x and y must be integer variables and a must be an integer constant.
+ * In RDL, x and y must be real variables.
+ *
+ * To encode the four types of terms, we use zero_term when x or y is missing:
+ *  a + x  -->  a + x - zero_term
+ *  a - y  -->  a + zero_term - y
+ *  a      -->  a + zero_term - zero_term
  */
-static void count_dl_var(context_t *ctx, dl_data_t *stats, term_t t) {
-  int32_t idx;
+typedef struct dl_term_s {
+  term_t x;
+  term_t y;
+  rational_t a;
+} dl_term_t;
 
-  assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t));
 
-  idx = index_of(t);
-  if (int_bvset_add_check(ctx->cache, idx)) {
-    stats->num_vars ++;
-  }
+/*
+ * Initialization and cleanup
+ */
+static void init_dl_term(dl_term_t *triple) {
+  triple->x = zero_term;
+  triple->y = zero_term;
+  q_init(&triple->a);
+}
+
+static void delete_dl_term(dl_term_t *triple) {
+  q_clear(&triple->a);
 }
 
 
 /*
- * Check whether (x - y <= a) or (x - y = a) is a valid IDL or RDL atom
- * If so, update the statistics array stats and return true.
- * Otherwise return false.
- * - x and y are arithmetic terms (x or y or both may be the zero_term).
- * - x and y must be roots in ctx->intern
- * - a is either a rational constant or NULL (if NULL, that's interpreted as zero)
- *
- * TODO: use a hash table? The same atom may be counted twice.
- *
- * NOTE: we could check whether x and y are uninterpreted, but that
- * will be detected in later phases of internalization anyway.
+ * Check whether the triple is in IDL or RDL.
  */
-static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, rational_t *a, bool idl) {
-  assert(is_arithmetic_term(ctx->terms, x) && is_pos_term(x) && intern_tbl_is_root(&ctx->intern, x));
-  assert(is_arithmetic_term(ctx->terms, y) && is_pos_term(y) && intern_tbl_is_root(&ctx->intern, y));
+static bool check_dl_fragment(context_t *ctx, dl_term_t *triple, bool idl) {
+  assert(is_arithmetic_term(ctx->terms, triple->x) && is_pos_term(triple->x) && intern_tbl_is_root(&ctx->intern, triple->x));
+  assert(is_arithmetic_term(ctx->terms, triple->y) && is_pos_term(triple->y) && intern_tbl_is_root(&ctx->intern, triple->y));
 
-  // check the types first
-  if (x != zero_term && is_integer_root(ctx, x) != idl) {
-    return false;
-  }
-  if (y != zero_term && is_integer_root(ctx, y) != idl) {
-    return false;
-  }
-  if (idl && a != NULL && ! q_is_integer(a)) {
-    return false;
-  }
-
-
-  /*
-   * We must count x and y as variables, even the atom simplifies to true or false,
-   * because the diff logic solver will still create a variable for x or y.
-   * Also, we must count zero_term too for the same reason.
-   */
-  count_dl_var(ctx, stats, x);
-  count_dl_var(ctx, stats, y);
-
-  // if x == y, we ignore the atom. It will simplify to true or false anyway.
-  if (x != y) {
-    /*
-     * stats->sum_const is intended to be an upper bound on the
-     * longest path in the difference-logic graph.
-     *
-     * for idl, we add max( |a|, |-a -1|) to sum_const
-     * for rdl, we add |a| to sum_const
-     */
-    if (a != NULL) {
-      if (q_is_neg(a)) {
-        // a < 0  so max(|a|, |-a - 1|) is - a
-        q_sub(&stats->sum_const, a);
-      } else {
-        // a >= 0 so max(|a|, |-a - 1|) is a + 1
-        q_add(&stats->sum_const, a);
-        if (idl) q_add_one(&stats->sum_const);
-      }
-    } else if (idl) {
-      // a = 0
-      q_add_one(&stats->sum_const);
-    }
-  }
-
-  stats->num_atoms ++;
-
-  return true;
+  return (triple->x == zero_term || is_integer_root(ctx, triple->x) == idl)
+    && (triple->y == zero_term || is_integer_root(ctx, triple->y) == idl)
+    && (!idl || q_is_integer(&triple->a));
 }
 
 
 /*
- * Check whether aux contains a difference logic term, i.e.,
- * a term of the form (a + x - y) or (a + x) or (a - y) or (x - y) or +x or -y or a,
- * where a is a constant and x and y are two arithmetic variables.
+ * Check whether aux contains a difference logic term. If so store the term in *triple.
+ * All terms of aux must be roots in ctx->interm.
  *
- * All terms of aux must be roots in ctx->intern.
+ * Return true if aux is in the difference logic fragment, false otherwise.
  */
-static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t *aux, bool idl) {
+static bool dl_convert_poly_buffer(context_t *ctx, dl_term_t *triple, poly_buffer_t *aux) {
   uint32_t n;
-  rational_t *a;
   monomial_t *q;
 
   n = poly_buffer_nterms(aux);
   if (n > 3) return false;
   if (n == 0) return true;
 
-  a = NULL;
   q = poly_buffer_mono(aux);
 
-  // get a pointer to the constant if any
+  // constant
+  q_clear(&triple->a);
   if (q[0].var == const_idx) {
-    a = &q[0].coeff;
+    q_set(&triple->a, &q[0].coeff);
     q ++;
     n --;
   }
@@ -2174,35 +2139,49 @@ static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t
   // deal with the non-constant terms
   if (n == 2 && q_opposite(&q[0].coeff, &q[1].coeff)) {
     if (q_is_one(&q[0].coeff)) {
-      // a_0 + x_1 - x_2 >= 0  <--> (x_2 - x_1 <= a_0)
-      return check_dl_atom(ctx, stats, q[1].var, q[0].var, a, idl);
+      // a_0 + x_1 - x_2
+      triple->x = q[0].var; // x_1
+      triple->y = q[1].var; // x_2
+      return true;
     }
 
     if (q_is_one(&q[1].coeff)) {
-      // a_0 - x_1 + x_2 >= 0  <--> (x_1 - x_2 <= a_0)
-      return check_dl_atom(ctx, stats, q[0].var, q[1].var, a, idl);
+      // a_0 - x_1 + x_2
+      triple->x = q[1].var; // x_2
+      triple->y = q[0].var; // x_1
+      return true;
     }
 
   } else if (n == 1) {
     if (q_is_one(&q[0].coeff)) {
-      // a_0 + x_1 >= 0  <--> (0 - x_1 <= a_0)
-      return check_dl_atom(ctx, stats, zero_term, q[0].var, a, idl);
+      // a_0 + x_1
+      triple->x = q[0].var; // x_1
+      triple->y = zero_term;
+      return true;
     }
 
     if (q_is_minus_one(&q[0].coeff)) {
-      // a_0 - x_1 >= 0  <--> (x_1 - 0 <= a_0)
-      return check_dl_atom(ctx, stats, q[0].var, zero_term, a, idl);
+      // a_0 - x_1
+      triple->x = zero_term;
+      triple->y = q[0].var; // x_1
+      return true;
     }
+
+  } else if (n == 0) {
+    triple->x = zero_term;
+    triple->y = zero_term;
+    return true;
   }
 
-  return n == 0;
+  return false;
 }
 
 
 /*
- * Apply substitutions then check whether p is a difference logic term
+ * Apply substitutions then check whether p can be converted to a dl term.
+ * If so store the result in tiple and return true. Otherwise return false;
  */
-static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t *p, bool idl) {
+static bool dl_convert_poly(context_t *ctx, dl_term_t *triple, polynomial_t *p) {
   poly_buffer_t *aux;
   monomial_t *mono;
   term_table_t *terms;
@@ -2250,14 +2229,15 @@ static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t
     (void) poly_buffer_make_monic(aux);
   }
 
-  return check_dl_poly_buffer(ctx, stats, aux, idl);
+  return dl_convert_poly_buffer(ctx, triple, aux);
 }
 
 
 /*
- * Check whether (x - y) is a difference logic term
+ * Check whether (x - y) is a difference logic term. If so, store the result in triple
+ * and return true. Otherwise return false.
  */
-static bool check_diff_logic_eq(context_t *ctx, dl_data_t *stats, term_t x, term_t y, bool idl) {
+static bool dl_convert_diff(context_t *ctx, dl_term_t *triple, term_t x, term_t y) {
   term_table_t *terms;
   poly_buffer_t *aux;
 
@@ -2274,31 +2254,17 @@ static bool check_diff_logic_eq(context_t *ctx, dl_data_t *stats, term_t x, term
   poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, y));
   normalize_poly_buffer(aux);
 
-  return check_dl_poly_buffer(ctx, stats, aux, idl);
+  return dl_convert_poly_buffer(ctx, triple, aux);
 }
 
 
-
-
 /*
- * Check whether term t is a difference logic term and update stats
- * - if idl is true, check whether t is in the IDL fragment
- * - otherwise, check whether t is in the RDL fragment
- *
- * The difference logic fragment contains terms of the following forms:
- *   a + x - y
- *   a + x
- *   a - y
- *   a
- * where x and y are arithmetic variables and a is a constant (possibly a = 0).
- *
- * In IDL, x and y must be integer variables and 'a' must be an integer constant.
- * (TODO: We could relax that and accept rational a?)
- * In RDL, x and y must be real variables.
+ * Check whether term t is a difference logic term. If so convert t to a dl_term
+ * and store that in triple.
+ * Return true if the conversion succeeds, false otherwise.
  */
-static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
+static bool dl_convert_term(context_t *ctx, dl_term_t *triple, term_t t) {
   term_table_t *terms;
-
 
   assert(is_arithmetic_term(ctx->terms, t));
 
@@ -2312,13 +2278,16 @@ static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bo
 
   switch (term_kind(terms, t)) {
   case ARITH_CONSTANT:
-    return !idl || q_is_integer(rational_term_desc(terms, t));
+    triple->x = zero_term;
+    triple->y = zero_term;
+    q_set(&triple->a, rational_term_desc(terms, t));
+    return true;
 
   case UNINTERPRETED_TERM:
-    return check_diff_logic_eq(ctx, stats, t, zero_term, idl);
+    return dl_convert_diff(ctx, triple, t, zero_term);
 
   case ARITH_POLY:
-    return check_diff_logic_poly(ctx, stats, poly_term_desc(terms, t), idl);
+    return dl_convert_poly(ctx, triple, poly_term_desc(terms, t));
 
   default:
     // TODO: we could accept if-then-else here?
@@ -2327,13 +2296,149 @@ static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bo
 }
 
 
+
 /*
- * Analyze all arithmetic atoms in term t and fill in stats
+ * Increment the number of variables if t has not been seen before
+ */
+static void count_dl_var(context_t *ctx, term_t t) {
+  bool new;
+
+  assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t));
+
+  (void) int_rat_hmap_get(ctx->edge_map, t, &new);
+  ctx->dl_profile->num_vars += new;
+}
+
+/*
+ * Update: edge of weight a from source t
+ * - in the edge_map, we assign to term t the max weight of all potential
+ *   edges of source t. The weight is an absolute value.
+ */
+static void count_dl_var_and_edge(context_t *ctx, term_t t, rational_t *a) {
+  int_rat_hmap_rec_t *d;
+  bool new;
+
+  assert(q_is_nonneg(a));
+  assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t));
+
+  d = int_rat_hmap_get(ctx->edge_map, t, &new);
+  ctx->dl_profile->num_vars += new;
+  if (q_gt(a, &d->value)) {
+    // increase bound on edges of source t
+    q_set(&d->value, a);
+  }
+}
+
+
+/*
+ * Update the difference logic statistics for atom x - y <= a
+ * - this corresponds to an edge x --> y of absolute weight a >= 0
+ * - if the atom is true, the dl solver will add an edge from x to y of weight a
+ * - if the atom if false, the dl solver will and an edge from y to x of weight
+ *    (or - a - 1 in IDL case)
+ */
+static void update_dl_stats(context_t *ctx, term_t x, term_t y, rational_t *a, bool idl) {
+  if (x == y) {
+    /*
+     * The atom simplifies to true or false but we must count x as a variable,
+     * because the diff logic solver will still create a variable for x.
+     */
+    count_dl_var(ctx, x);
+  } else {
+    /*
+     * We use the absolute value as an upper bound:
+     *  x --> y with weight = |a|
+     *  y --> x with weight = |a| or |a|+1 if idl
+     */
+    if (q_is_neg(a)) q_neg(a);
+    count_dl_var_and_edge(ctx, x, a);
+    if (idl) q_add_one(a);
+    count_dl_var_and_edge(ctx, y, a);
+    ctx->dl_profile->num_atoms ++;
+  }
+}
+
+
+/*
+ * Same thing for (x - y == a): the max weight is |a| + 1 for both x and y
+ */
+static void update_dleq_stats(context_t *ctx, term_t x, term_t y, rational_t *a, bool idl) {
+  if (x == y) {
+    count_dl_var(ctx, x);
+  } else {
+    if (q_is_neg(a)) q_neg(a);
+    if (idl) q_add_one(a);
+    count_dl_var_and_edge(ctx, x, a);
+    count_dl_var_and_edge(ctx, y, a);
+    ctx->dl_profile->num_eqs ++;
+    ctx->dl_profile->num_atoms ++;
+  }
+}
+
+/*
+ * Check atom (t == 0) and update statistics
+ * - idl = true to check for IDL, false for RDL
+ */
+static bool check_dl_eq0_atom(context_t *ctx, term_t t, bool idl) {
+  dl_term_t triple;
+  bool result;
+
+  init_dl_term(&triple);
+  result = dl_convert_term(ctx, &triple, t) && check_dl_fragment(ctx, &triple, idl);
+  if (result) {
+    // a + x - y = 0 <--> (y - x = a)
+    update_dleq_stats(ctx, triple.y, triple.x, &triple.a, idl);
+  }
+  delete_dl_term(&triple);
+
+  return result;
+}
+
+/*
+ * Check atom (t >= 0) and update statistics
+ */
+static bool check_dl_geq0_atom(context_t *ctx, term_t t, bool idl) {
+  dl_term_t triple;
+  bool result;
+
+  init_dl_term(&triple);
+  result = dl_convert_term(ctx, &triple, t) && check_dl_fragment(ctx, &triple, idl);
+  if (result) {
+    // a + x - y >= 0 <--> (y - x <= -a)
+    q_neg(&triple.a);
+    update_dl_stats(ctx, triple.y, triple.x, &triple.a, idl);
+  }
+  delete_dl_term(&triple);
+
+  return result;
+}
+
+/*
+ * Check atom (t1 == t2) and update statistics
+ */
+static bool check_dl_eq_atom(context_t *ctx, term_t t1, term_t t2, bool idl) {
+  dl_term_t triple;
+  bool result;
+
+  init_dl_term(&triple);
+  result = dl_convert_diff(ctx, &triple, t1, t2) && check_dl_fragment(ctx, &triple, idl);
+  if (result) {
+    // a + x - y = 0 <--> (y - x = a)
+    update_dleq_stats(ctx, triple.y, triple.x, &triple.a, idl);
+  }
+  delete_dl_term(&triple);
+
+  return result;
+}
+
+
+/*
+ * Analyze all arithmetic atoms in term t and fill ctx->dl_profile
  * - if idl is true, this checks for integer difference logic
  *   otherwise, checks for real difference logic
  * - cache must be initialized and contain all the terms already visited
  */
-static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
+static void analyze_dl(context_t *ctx, term_t t, bool idl) {
   term_table_t *terms;
   composite_term_t *cmp;
   uint32_t i, n;
@@ -2359,7 +2464,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
       // follow the substitutions if any
       r = intern_tbl_get_root(&ctx->intern, pos_term(idx));
       if (r != pos_term(idx)) {
-        analyze_dl(ctx, stats, r, idl);
+        analyze_dl(ctx,  r, idl);
       }
       break;
 
@@ -2370,7 +2475,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
       cmp = composite_for_idx(terms, idx);
       n = cmp->arity;
       for (i=0; i<n; i++) {
-        analyze_dl(ctx, stats, cmp->arg[i], idl);
+        analyze_dl(ctx, cmp->arg[i], idl);
       }
       break;
 
@@ -2379,8 +2484,8 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
       assert(cmp->arity == 2);
       if (is_boolean_term(terms, cmp->arg[0])) {
         // boolean equality
-        analyze_dl(ctx, stats, cmp->arg[0], idl);
-        analyze_dl(ctx, stats, cmp->arg[1], idl);
+        analyze_dl(ctx, cmp->arg[0], idl);
+        analyze_dl(ctx, cmp->arg[1], idl);
       } else {
         goto abort;
       }
@@ -2388,15 +2493,14 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
 
     case ARITH_EQ_ATOM:
       // term (x == 0): check whether x is a difference logic term
-      if (! check_diff_logic_term(ctx, stats, integer_value_for_idx(terms, idx), idl)) {
+      if (! check_dl_eq0_atom(ctx, integer_value_for_idx(terms, idx), idl)) {
         goto abort;
       }
-      stats->num_eqs ++;
       break;
 
     case ARITH_GE_ATOM:
       // term (x >= 0): check whether x is a difference logic term
-      if (! check_diff_logic_term(ctx, stats, integer_value_for_idx(terms, idx), idl)) {
+      if (! check_dl_geq0_atom(ctx, integer_value_for_idx(terms, idx), idl)) {
         goto abort;
       }
       break;
@@ -2405,7 +2509,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
       // term (x == y): check whether x - y is a difference logic term
       cmp = composite_for_idx(terms, idx);
       assert(cmp->arity == 2);
-      if (! check_diff_logic_eq(ctx, stats, cmp->arg[0], cmp->arg[1], idl)) {
+      if (! check_dl_eq_atom(ctx, cmp->arg[0], cmp->arg[1], idl)) {
         goto abort;
       }
       break;
@@ -2426,12 +2530,12 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
 /*
  * Check all terms in vector v
  */
-static void analyze_diff_logic_vector(context_t *ctx, dl_data_t *stats, ivector_t *v, bool idl) {
+static void analyze_diff_logic_vector(context_t *ctx, ivector_t *v, bool idl) {
   uint32_t i, n;
 
   n = v->size;
   for (i=0; i<n; i++) {
-    analyze_dl(ctx, stats, v->data[i], idl);
+    analyze_dl(ctx, v->data[i], idl);
   }
 }
 
@@ -2457,14 +2561,21 @@ static void analyze_diff_logic_vector(context_t *ctx, dl_data_t *stats, ivector_
  */
 void analyze_diff_logic(context_t *ctx, bool idl) {
   dl_data_t *stats;
+  int_rat_hmap_t *edges;
 
+  assert(ctx->dl_profile == NULL && ctx->edge_map == NULL);
+
+  // allocate and initialize dl_profile, edge_map, and cache
   stats = context_get_dl_profile(ctx);
-  (void) context_get_cache(ctx); // allocate and initialize the cache
+  edges = context_get_edge_map(ctx);
+  (void) context_get_cache(ctx);
 
-  analyze_diff_logic_vector(ctx, stats, &ctx->top_eqs, idl);
-  analyze_diff_logic_vector(ctx, stats, &ctx->top_atoms, idl);
-  analyze_diff_logic_vector(ctx, stats, &ctx->top_formulas, idl);
+  analyze_diff_logic_vector(ctx, &ctx->top_eqs, idl);
+  analyze_diff_logic_vector(ctx, &ctx->top_atoms, idl);
+  analyze_diff_logic_vector(ctx, &ctx->top_formulas, idl);
 
+  // compute the bound on path length
+  int_rat_hmap_sum(edges, &stats->path_bound);
 
 #if (TRACE || TRACE_DL)
   printf("==== Difference logic ====\n");
@@ -2476,12 +2587,13 @@ void analyze_diff_logic(context_t *ctx, bool idl) {
   printf("---> %"PRIu32" variables\n", stats->num_vars);
   printf("---> %"PRIu32" atoms\n", stats->num_atoms);
   printf("---> %"PRIu32" equalities\n", stats->num_eqs);
-  printf("---> sum const = ");
-  q_print(stdout, &stats->sum_const);
+  printf("---> path bound = ");
+  q_print(stdout, &stats->path_bound);
   printf("\n");
 #endif
 
   context_free_cache(ctx);
+  context_free_edge_map(ctx);
 }
 
 

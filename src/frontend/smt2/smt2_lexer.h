@@ -70,18 +70,22 @@ enum smt2_token {
   // Commands
   SMT2_TK_ASSERT,
   SMT2_TK_CHECK_SAT,
+  SMT2_TK_CHECK_SAT_ASSUMING,
   SMT2_TK_DECLARE_SORT,
   SMT2_TK_DECLARE_CONST,
   SMT2_TK_DECLARE_FUN,
   SMT2_TK_DEFINE_SORT,
   SMT2_TK_DEFINE_CONST,
   SMT2_TK_DEFINE_FUN,
+  SMT2_TK_ECHO,
   SMT2_TK_EXIT,
   SMT2_TK_GET_ASSERTIONS,
   SMT2_TK_GET_ASSIGNMENT,
   SMT2_TK_GET_INFO,
+  SMT2_TK_GET_MODEL,
   SMT2_TK_GET_OPTION,
   SMT2_TK_GET_PROOF,
+  SMT2_TK_GET_UNSAT_ASSUMPTIONS,
   SMT2_TK_GET_UNSAT_CORE,
   SMT2_TK_GET_VALUE,
   SMT2_TK_POP,
@@ -89,11 +93,8 @@ enum smt2_token {
   SMT2_TK_SET_LOGIC,
   SMT2_TK_SET_INFO,
   SMT2_TK_SET_OPTION,
-
-  // Non-standard commands
-  SMT2_TK_GET_MODEL,
-  SMT2_TK_ECHO,
   SMT2_TK_RESET,
+  SMT2_TK_RESET_ASSERTIONS,
 
   // Errors
   SMT2_TK_INVALID_STRING,
@@ -116,25 +117,30 @@ typedef enum smt2_token smt2_token_t;
  */
 enum smt2_keyword {
   // Predefined keywords for (set-option ...)
-  SMT2_KW_PRINT_SUCCESS,
-  SMT2_KW_EXPAND_DEFINITIONS,
-  SMT2_KW_INTERACTIVE_MODE,
-  SMT2_KW_PRODUCE_PROOFS,
-  SMT2_KW_PRODUCE_UNSAT_CORES,
-  SMT2_KW_PRODUCE_MODELS,
-  SMT2_KW_PRODUCE_ASSIGNMENTS,
-  SMT2_KW_REGULAR_OUTPUT,
   SMT2_KW_DIAGNOSTIC_OUTPUT,
+  SMT2_KW_EXPAND_DEFINITIONS,   // not in 2.5 anymore
+  SMT2_KW_GLOBAL_DECLARATIONS,
+  SMT2_KW_INTERACTIVE_MODE,
+  SMT2_KW_PRINT_SUCCESS,
+  SMT2_KW_PRODUCE_ASSERTIONS,
+  SMT2_KW_PRODUCE_ASSIGNMENTS,
+  SMT2_KW_PRODUCE_MODELS,
+  SMT2_KW_PRODUCE_PROOFS,
+  SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS,
+  SMT2_KW_PRODUCE_UNSAT_CORES,
   SMT2_KW_RANDOM_SEED,
+  SMT2_KW_REGULAR_OUTPUT,
+  SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT,
   SMT2_KW_VERBOSITY,
 
   // Predefined keywords for (get-info ...)
+  SMT2_KW_ALL_STATISTICS,
+  SMT2_KW_ASSERTION_STACK_LEVELS,
+  SMT2_KW_AUTHORS,
   SMT2_KW_ERROR_BEHAVIOR,
   SMT2_KW_NAME,
-  SMT2_KW_AUTHORS,
-  SMT2_KW_VERSION,
   SMT2_KW_REASON_UNKNOWN,
-  SMT2_KW_ALL_STATISTICS,
+  SMT2_KW_VERSION,
 
   // Attribute names for terms
   SMT2_KW_NAMED,
@@ -147,9 +153,6 @@ enum smt2_keyword {
   SMT2_KW_CATEGORY,
   SMT2_KW_DIFFICULTY,
   SMT2_KW_NOTES,
-
-  // Non-standard option keyword to switch to global decls
-  SMT2_KW_GLOBAL_DECLS,
 
   // Any other keyword
   SMT2_KW_UNKNOWN,
@@ -361,6 +364,12 @@ extern void smt2_lexer_activate_two_dot_five(void);
  * - the symbols in the core theory are always active
  */
 extern void smt2_lexer_activate_logic(smt_logic_t logic);
+
+
+/*
+ * Reset: all logic-specific symbols are inactive
+ */
+extern void smt2_lexer_reset_logic(void);
 
 
 /*

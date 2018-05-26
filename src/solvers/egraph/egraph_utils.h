@@ -585,7 +585,6 @@ static inline void egraph_disable_optimistic_final_check(egraph_t *egraph) {
 }
 
 
-bool classes_mergeable(FILE *f, egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, class_t c2);
 
 
 /************************************

@@ -21,6 +21,7 @@
 #include <poly/poly.h>
 
 #include "mcsat/plugin.h"
+#include "mcsat/unit_info.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
@@ -38,15 +39,6 @@ typedef struct poly_constraint_struct poly_constraint_t;
 // Constraint check to track for debugging
 // #define TRACK_CONSTRAINT(x) (x == 2640)
 #define TRACK_CONSTRAINT(x) false
-
-typedef enum {
-  /** The constraint is not unit, nor fully assigned */
-  CONSTRAINT_UNKNOWN,
-  /** The constraint is unit */
-  CONSTRAINT_UNIT,
-  /** All variables of the constraint are assigned */
-  CONSTRAINT_FULLY_ASSIGNED
-} constraint_unit_info_t;
 
 struct nra_plugin_s {
 

@@ -116,6 +116,7 @@ void cnf_convert_or(cnf_t* cnf, term_t or, ivector_t* or_clauses) {
   or_composite = composite_term_desc(cnf->ctx->terms, or);
   or_tag.type = CLAUSE_DEFINITION;
   or_tag.var = variable_db_get_variable(cnf->ctx->var_db, or);
+  or_tag.level = cnf->ctx->trail->decision_level_base;
 
   // Make some space
   or_literals = safe_malloc(sizeof(mcsat_literal_t) * (or_composite->arity + 1));
@@ -165,6 +166,7 @@ void cnf_convert_eq(cnf_t* cnf, term_t eq, ivector_t* eq_clauses) {
 
   eq_tag.type = CLAUSE_DEFINITION;
   eq_tag.var = variable_db_get_variable(cnf->ctx->var_db, eq);
+  eq_tag.level = cnf->ctx->trail->decision_level_base;
 
   // Convert the children
   a = cnf_convert(cnf, eq_composite->arg[0], eq_clauses);
@@ -213,6 +215,7 @@ void cnf_convert_ite(cnf_t* cnf, term_t ite, ivector_t* ite_clauses) {
 
   ite_tag.type = CLAUSE_DEFINITION;
   ite_tag.var = variable_db_get_variable(cnf->ctx->var_db, ite);
+  ite_tag.level = cnf->ctx->trail->decision_level_base;
 
   // Convert the children
   cond = cnf_convert(cnf, ite_composite->arg[0], ite_clauses);
@@ -321,6 +324,8 @@ void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses) {
 
   or_tag.type = CLAUSE_LEMMA;
   or_tag.score = 0;
+  or_tag.level = cnf->ctx->trail->decision_level_base;
+
   cnf_add_clause(cnf, or_literals, lemma->size, clauses, or_tag);
 
   safe_free(or_literals);
@@ -341,7 +346,10 @@ void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {
   // CNF marks only the clauses that are definitions of the variables to keep
   for (; i < gc_vars->marked.size; ++ i) {
     var = gc_vars->marked.data[i];
-    if(cnf_is_converted(cnf, var)) {
+    if (trace_enabled(cnf->ctx->tracer, "mcsat::gc")) {
+      ctx_trace_term(cnf->ctx, variable_db_get_term(cnf->ctx->var_db, var));
+    }
+    if (cnf_is_converted(cnf, var)) {
       int_lset_iterator_construct(&it, &cnf->converted, var);
       while (!int_lset_iterator_done(&it)) {
         clause_ref = *int_lset_iterator_get(&it);

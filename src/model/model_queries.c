@@ -53,29 +53,6 @@ value_t model_get_term_value(model_t *mdl, term_t t) {
 
 
 /*
- * Get the value of t in mdl
- * - it computes t's value in mdl (cf. model_eval.h).
- * - t1 and t2 must be valid terms
- *
- * Returns a negative number if the relation can't be computed
- *    -1  means that the value is not known
- *    other values are evaluation errors defined in model_eval.h
- *
- * Returns an index in mdl->vtbl otherwise (concrete value).
- */
-value_t model_get_eterm_value(context_t *ctx, model_t *mdl, term_t t1, term_t t2) {
-  evaluator_t evaluator;
-  value_t v;
-
-  init_evaluator(&evaluator, mdl);
-  v = eval_eterm_in_model(ctx, &evaluator, t1, t2);
-  delete_evaluator(&evaluator);
-
-  return v;
-}
-
-
-/*
  * Check whether f is true in mdl
  * - f must be a Boolean term
  * - this returns false if the evaluation fails and stores the error code in *code

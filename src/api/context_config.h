@@ -221,4 +221,20 @@ static inline bool logic_is_supported(smt_logic_t code) {
 extern bool logic_is_supported_by_mcsat(smt_logic_t code);
 
 
+/*
+ * Variant for the Exists/Forall solver
+ */
+extern bool logic_is_supported_by_ef(smt_logic_t code);
+
+
+/*
+ * For a logic supported by the exists/forall solver, this gives the
+ * architecture for the two internal contexts used by the ef solver.
+ *
+ * If the logic is not supported by the exists/forall solver, the
+ * function returns -1.
+ */
+extern int32_t ef_arch_for_logic(smt_logic_t code);
+
+
 #endif /* __CONTEXT_CONFIG_H */

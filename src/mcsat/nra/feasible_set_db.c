@@ -298,7 +298,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   assert(db->updates_size == db->updates.size);
 
   // If fixed, put into the fixed array
-  if (lp_feasibility_set_is_point(new_set)) {
+  if (lp_feasibility_set_is_point(intersect)) {
     ivector_push(&db->fixed_variables, x);
     db->fixed_variable_size ++;
   }
@@ -655,7 +655,7 @@ variable_t feasible_set_db_get_cheap_unassigned(feasible_set_db_t* db, lp_value_
 
 void feasible_set_db_gc_mark(feasible_set_db_t* db, gc_info_t* gc_vars) {
 
-  assert(db->ctx->trail->decision_level == 0);
+  assert(db->ctx->trail->decision_level == db->ctx->trail->decision_level_base);
 
   if (gc_vars->level == 0) {
     // We keep all the reasons (start from 1, 0 is not used)

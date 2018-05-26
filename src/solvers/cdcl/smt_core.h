@@ -64,13 +64,6 @@
 // EXPERIMENTAL
 #include "scratch/booleq_table.h"
 
-// Unsat core computation status
-enum {
-  core_init = 0,  // unsat core not computed
-  core_ready = 1,  // unsat core ready
-  core_fail = -1,  // unsat core computation failed
-};
-
 
 /***********
  * CLAUSES *
@@ -808,22 +801,6 @@ typedef struct dpll_stats_s {
   uint64_t subsumed_literals;
 } dpll_stats_t;
 
-typedef struct dpll_detail_stats_s {
-  // Time stats (in us)
-  long long boolean_propagation;
-  long long theory_propagation;
-  long long resolve_conflict;
-  long long smt_restart;
-  long long select_unassigned_literal;
-  long long decide_literal;
-  long long add_all_lemmas;
-  long long delete_irrelevant_variables;
-  long long simplify_clause_database;
-  long long reduce_clause_database;
-
-  uint32_t nassert_atom;                // number of atoms asserted
-
-} dpll_detail_stats_t;
 
 
 /*********************
@@ -1002,12 +979,6 @@ typedef struct smt_core_s {
   clause_t *false_clause;
   uint32_t th_conflict_size;  // number of literals in theory conflicts
 
-  /* Unsat core data */
-  bool unsat_core_enabled;      // true means unsat core enabled (also means no simplification of theory clauses)
-  ivector_t conflict_core;    // complete trace of reason for unsatisfiability, traced till root literals
-  ivector_t conflict_root;    // reason for unsatisfiability, collected root literals
-  int32_t core_status;        // status of conflict_core
-
   /* Auxiliary buffers for conflict resolution */
   ivector_t buffer;
   ivector_t buffer2;
@@ -1018,7 +989,6 @@ typedef struct smt_core_s {
   /* Clause database */
   clause_t **problem_clauses;
   clause_t **learned_clauses;
-  clause_t **buffer_clauses;    // Clause storage (used in conflict resolution for unsat core, not in solving)
 
   ivector_t binary_clauses;  // Keeps a copy of binary clauses added at base_levels>0
 
@@ -1027,8 +997,6 @@ typedef struct smt_core_s {
   antecedent_t *antecedent;
   uint32_t *level;
   byte_t *mark;        // bitvector: for conflict resolution
-
-  antecedent_t *full_antecedent;                // Full antecedant for unsat core tracking
 
   /* Literal-indexed arrays (of size lsize) */
   literal_t **bin;   // array of literal vectors
@@ -1045,9 +1013,6 @@ typedef struct smt_core_s {
 
   /* Statistics */
   dpll_stats_t stats;
-
-  /* Time Statistics */
-  dpll_detail_stats_t tstats;
 
   /* Atom table */
   atom_table_t atoms;
@@ -1253,13 +1218,6 @@ static inline void disable_theory_cache(smt_core_t *s) {
   s->th_cache_enabled = false;
 }
 
-/*
- * Activate unsat core data and initialize core
- */
-static inline void enable_unsat_core(smt_core_t *s) {
-  s->unsat_core_enabled = true;
-}
-
 
 /*
  * Read the current decision level
@@ -1463,14 +1421,6 @@ static inline void *get_bvar_atom(smt_core_t *s, bvar_t x) {
 static inline antecedent_t get_bvar_antecedent(smt_core_t *s, bvar_t x) {
   assert(0 <= x && x < s->nvars);
   return s->antecedent[x];
-}
-
-/*
- * Full antecedent of x
- */
-static inline antecedent_t get_bvar_full_antecedent(smt_core_t *s, bvar_t x) {
-  assert(0 <= x && x < s->nvars);
-  return s->full_antecedent[x];
 }
 
 
@@ -1964,8 +1914,5 @@ extern void delete_free_bool_vars(free_bool_vars_t *fv);
  */
 extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
 
-extern void derive_conflict_core(smt_core_t *s);
-
-extern void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks, bool isTop);
 
 #endif /* __SMT_CORE_H */

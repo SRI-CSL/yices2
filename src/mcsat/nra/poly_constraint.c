@@ -530,7 +530,7 @@ const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, con
     lp_variable_list_t cstr_vars;
     lp_variable_list_construct(&cstr_vars);
     lp_polynomial_get_variables(cstr->polynomial, &cstr_vars);
-    *cstr_level = 0;
+    *cstr_level = nra->ctx->trail->decision_level_base;
     uint32_t i;
     for (i = 0; i < cstr_vars.list_size; ++i) {
       variable_t x = nra_plugin_get_variable_from_lp_variable(nra,

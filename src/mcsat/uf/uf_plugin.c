@@ -16,6 +16,10 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * Anything that includes "yices.h" requires these macros.
+ * Otherwise the code doesn't build on Windows or Cygwin.
+ */
 #if defined(CYGWIN) || defined(MINGW)
 #ifndef __YICES_DLLSPEC__
 #define __YICES_DLLSPEC__ __declspec(dllexport)

@@ -74,8 +74,16 @@ void trail_print(const mcsat_trail_t* trail, FILE* out) {
     }
     var = trail->elements.data[i];
     var_type = trail_get_assignment_type(trail, var);
+
     if (var_type == DECISION) {
       fprintf(out, "\n");
+    } else if (i > 0) {
+      variable_t prev_var = trail->elements.data[i-1];
+      uint32_t l = trail_get_level(trail, prev_var);
+      uint32_t l_end = trail_get_level(trail, var);
+      for (; l < l_end; ++ l) {
+        fprintf(out, "\n ----------- PUSH -------------- \n");
+      }
     }
 
     variable_db_print_variable(trail->var_db, var, out);
@@ -100,6 +108,19 @@ void trail_new_decision(mcsat_trail_t* trail) {
   assert(trail_is_consistent(trail));
   trail->decision_level ++;
   ivector_push(&trail->level_sizes, trail->elements.size);
+}
+
+void trail_new_base_level(mcsat_trail_t* trail) {
+  assert(trail->decision_level == trail->decision_level_base);
+  trail_new_decision(trail);
+  trail->decision_level_base = trail->decision_level;
+}
+
+uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
+  assert(trail->decision_level == trail->decision_level_base);
+  assert(trail->decision_level_base > 0);
+  trail->decision_level_base --;
+  return trail->decision_level_base;
 }
 
 static inline
@@ -173,6 +194,7 @@ void trail_pop_decision(mcsat_trail_t* trail) {
 void trail_add_propagation(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* value, uint32_t id, uint32_t level) {
   assert(x >= 0);
   assert(!trail_has_value(trail, x));
+  assert(level >= trail->decision_level_base);
   // Set the value
   trail_set_value(trail, x, value, id, PROPAGATION, level);
   // Push the element
@@ -198,11 +220,20 @@ void trail_pop_propagation(mcsat_trail_t* trail) {
 }
 
 void trail_pop(mcsat_trail_t* trail) {
-  assert(trail->decision_level > 0);
-  while (trail_get_assignment_type(trail, trail_back(trail)) != DECISION) {
+  assert(trail->decision_level >= trail->decision_level_base);
+  assert(trail->level_sizes.size > 0);
+  uint32_t target_size = ivector_last(&trail->level_sizes);
+  while (trail->elements.size > target_size && trail_get_assignment_type(trail, trail_back(trail)) != DECISION) {
     trail_pop_propagation(trail);
   };
-  trail_pop_decision(trail);
+  if (trail->elements.size > target_size) {
+    trail_pop_decision(trail);
+  } else {
+    // Fake push, no decision, so we just undo
+    trail_undo_decision(trail);
+    // Also, we're back into consistent
+    trail->inconsistent = false;
+  }
 }
 
 void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars) {

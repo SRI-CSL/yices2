@@ -20,6 +20,8 @@
  * ASSERTION CONTEXT
  */
 
+#include <inttypes.h>
+
 #include "context/context.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
@@ -30,12 +32,9 @@
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
-#include "solvers/cdcl/smt_core.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
 #include "utils/memalloc.h"
-#include "utils/cputime.h"
-
 
 #include "mcsat/solver.h"
 
@@ -44,7 +43,6 @@
 #if TRACE
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "io/term_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
@@ -219,7 +217,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
 
 
 /*
- * Internalization error for term t 
+ * Internalization error for term t
  * - t can't be processed because there's no egraph
  * - the error code depends on t's type
  */
@@ -232,7 +230,7 @@ static int32_t uf_error_code(context_t *ctx, term_t t) {
   case UNINTERPRETED_TYPE:
     code = UTYPE_NOT_SUPPORTED;
     break;
-      
+
   case SCALAR_TYPE:
     code = SCALAR_NOT_SUPPORTED;
     break;
@@ -468,8 +466,8 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
      * - we also need a cutoff since the number of branches grows
      *   exponentially.
      */
-    if (is_pos_term(x) && 
-	is_ite_term(ctx->terms, x) && 
+    if (is_pos_term(x) &&
+	is_ite_term(ctx->terms, x) &&
 	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
 	term_is_not_shared(&ctx->sharing, x)) {
       /*
@@ -667,7 +665,7 @@ static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
 static void context_store_diff_poly(polynomial_t *p, thvar_t *map, thvar_t x, thvar_t y) {
   p->nterms = 2;
   p->mono[0].var = 1;
-  q_set_one(&p->mono[0].coeff);       // coeff of x = 1 
+  q_set_one(&p->mono[0].coeff);       // coeff of x = 1
   p->mono[1].var = 2;
   q_set_minus_one(&p->mono[1].coeff); // coeff of y = -1
   p->mono[2].var = max_idx; // end marker
@@ -817,8 +815,8 @@ static void context_store_divmod_eq(polynomial_t *p, thvar_t *map, thvar_t x, th
 
 /*
  * Bound on x = (mod y k) assuming x and k are integer:
- * - the bound is x <= |k| - 1 (i.e., |k| - 1 - x >= 0) 
- *   so we construct |k| - 1 - x 
+ * - the bound is x <= |k| - 1 (i.e., |k| - 1 - x >= 0)
+ *   so we construct |k| - 1 - x
  */
 static void context_store_integer_mod_bound(polynomial_t *p, thvar_t *map, thvar_t x, const rational_t *k) {
   p->nterms = 2;
@@ -867,7 +865,7 @@ static void assert_floor_axioms(context_t *ctx, thvar_t x, thvar_t y) {
   assert(ctx->arith.arith_var_is_int(ctx->arith_solver, x));
 
   p = context_get_aux_poly(ctx, 4);
-  
+
   // assert (y - x >= 0)
   context_store_diff_poly(p, map, y, x);
   ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
@@ -946,7 +944,7 @@ static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const ration
   polynomial_t *p;
   thvar_t map[3];
 
-  p = context_get_aux_poly(ctx, 4);  
+  p = context_get_aux_poly(ctx, 4);
 
   // assert k*x <= y (i.e., y - k*x >= 0)
   context_store_div_lower_bound(p, map, y, x, k);
@@ -957,12 +955,12 @@ static void assert_div_axioms(context_t *ctx, thvar_t x, thvar_t y, const ration
     // assert y <= k*x + |k| - 1 (i.e., - y + k x + |k| - 1 >= 0)
     context_store_integer_div_upper_bound(p, map, y, x, k);
     ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, true);
-    
+
   } else {
     // assert y < k*x + |k| (i.e., y - k*x - |k| < 0) or (not (y - k*x - |k| >= 0))
     context_store_rational_div_upper_bound(p, map, y, x, k);
     ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, map, false);
-  }  
+  }
 }
 
 
@@ -1107,7 +1105,7 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
   while (ite_flattener_is_nonempty(&flattener)) {
     if (ite_flattener_last_lit_false(&flattener)) {
       // dead branch
-      ite_flattener_next_branch(&flattener);      
+      ite_flattener_next_branch(&flattener);
       continue;
     }
     assert(ite_flattener_branch_is_live(&flattener));
@@ -1122,8 +1120,8 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
      * Heuristics: don't push the term if x is already internalized or if it's
      * shared.
      */
-    if (is_pos_term(x) && 
-	is_ite_term(ctx->terms, x) && 
+    if (is_pos_term(x) &&
+	is_ite_term(ctx->terms, x) &&
 	!intern_tbl_root_is_mapped(&ctx->intern, x) &&
 	term_is_not_shared(&ctx->sharing, x)) {
       ite = ite_term_desc(ctx->terms, x);
@@ -1310,9 +1308,9 @@ static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
 
 
 /*
- * Auxiliary function: return y := (floor x) 
+ * Auxiliary function: return y := (floor x)
  * - check the divmod table first.
- *   If there's a record for (floor x), return the corresponding variable. 
+ *   If there's a record for (floor x), return the corresponding variable.
  * - Otherwise, create a fresh integer variable y,
  *   assert the axioms for y = (floor x)
  *   add a record to the divmod table and return y.
@@ -1450,7 +1448,7 @@ static thvar_t map_idiv_to_arith(context_t *ctx, composite_term_t *div) {
   if (is_non_zero_rational(ctx->terms, div->arg[1], &k)) { // k := value of t2
     assert(q_is_nonzero(&k));
     x = internalize_to_arith(ctx, div->arg[0]); // t1
-    y = get_div(ctx, x, &k);    
+    y = get_div(ctx, x, &k);
 
   } else {
     // division by a non-constant or by zero: not supported by default
@@ -1497,7 +1495,7 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
   }
 
   q_clear(&k);
-  
+
   return r;
 }
 
@@ -1832,8 +1830,14 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
     assert(v->size == 0);
     flatten_or_term(ctx, v, or);
 
-    // make a copy of v
+    // try easy simplification
     n = v->size;
+    if (disjunct_is_true(ctx, v->data, n)) {
+      ivector_reset(v);
+      return true_literal;
+    }
+
+    // make a copy of v
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       a[i] = v->data[i];
@@ -1850,6 +1854,10 @@ static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
   } else {
     // no flattening
     n = or->arity;
+    if (disjunct_is_true(ctx, or->arg, n)) {
+      return true_literal;
+    }
+
     a = alloc_istack_array(&ctx->istack, n);
     for (i=0; i<n; i++) {
       l = internalize_to_literal(ctx, or->arg[i]);
@@ -2517,7 +2525,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 	x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
 	u = translate_arithvar_to_eterm(ctx, x);
 	break;
-	
+
       case TUPLE_TERM:
         u = map_tuple_to_eterm(ctx, tuple_term_desc(terms, r), tau);
         break;
@@ -2696,6 +2704,8 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
     case UNINTERPRETED_TERM:
       x = ctx->arith.create_var(ctx->arith_solver, is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      //      printf("mapping: %s --> i!%d\n", term_name(ctx->terms, r), (int) x);
+      //      fflush(stdout);
       break;
 
     case ARITH_FLOOR:
@@ -2711,7 +2721,7 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
     case ARITH_ABS:
       x = map_abs_to_arith(ctx, arith_abs_arg(terms, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
-      break;      
+      break;
 
     case ITE_TERM:
       x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
@@ -2736,17 +2746,17 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 
     case ARITH_RDIV:
       x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ARITH_IDIV:
       x = map_idiv_to_arith(ctx, arith_idiv_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ARITH_MOD:
       x = map_mod_to_arith(ctx, arith_mod_term_desc(terms, r));
-      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));      
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case SELECT_TERM:
@@ -3179,7 +3189,6 @@ static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
  * - t must be a root in the internalization table
  */
 static void assert_toplevel_intern(context_t *ctx, term_t t) {
-  TIME_START();
   int32_t code;
   bool tt;
 
@@ -3192,7 +3201,6 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
   code = intern_tbl_map_of_root(&ctx->intern, t);
 
   assert_internalization_code(ctx, code, tt);
-  TIME_END(ctx->stats.assert_toplevel_intern);
 }
 
 
@@ -4050,7 +4058,7 @@ static void assert_toplevel_arith_divides(context_t *ctx, composite_term_t *divi
   thvar_t map[2];
   thvar_t x, y;
   term_t d;
-  
+
   assert(divides->arity == 2);
 
   d = divides->arg[0];
@@ -4193,8 +4201,14 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
       assert(v->size == 0);
       flatten_or_term(ctx, v, or);
 
-      // make a copy of v
+      // if v contains a true_term, ignore the clause
       n = v->size;
+      if (disjunct_is_true(ctx, v->data, n)) {
+	ivector_reset(v);
+	return;
+      }
+
+      // make a copy of v
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = v->data[i];
@@ -4211,6 +4225,10 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
        * No flattening
        */
       n = or->arity;
+      if (disjunct_is_true(ctx, or->arg, n)) {
+	return;
+      }
+
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
         a[i] = internalize_to_literal(ctx, or->arg[i]);
@@ -4369,7 +4387,6 @@ static void assert_toplevel_bvsge(context_t *ctx, composite_term_t *sge, bool tt
  * - t must be a root in the internalization table and must be mapped to true
  */
 static void assert_toplevel_formula(context_t *ctx, term_t t) {
-  TIME_START();
   term_table_t *terms;
   int32_t code;
   bool tt;
@@ -4411,7 +4428,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   case EQ_TERM:
     assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
     break;
-    
+
   case ARITH_IS_INT_ATOM:
     assert_toplevel_arith_is_int(ctx, arith_is_int_arg(terms, t), tt);
     break;
@@ -4427,7 +4444,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   case ARITH_BINEQ_ATOM:
     assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
     break;
- 
+
   case ARITH_DIVIDES_ATOM:
     assert_toplevel_arith_divides(ctx, arith_divides_atom_desc(terms, t), tt);
     break;
@@ -4476,11 +4493,9 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     goto abort;
   }
 
-  TIME_END(ctx->stats.assert_toplevel_formula);
   return;
 
  abort:
-  TIME_END(ctx->stats.assert_toplevel_formula);
   longjmp(ctx->env, code);
 }
 
@@ -4984,19 +4999,19 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
  */
 static void create_auto_idl_solver(context_t *ctx) {
   dl_data_t *profile;
-  int32_t sum_const;
+  int32_t bound;
   double atom_density;
 
   assert(ctx->dl_profile != NULL);
   profile = ctx->dl_profile;
 
-  if (q_is_smallint(&profile->sum_const)) {
-    sum_const = q_get_smallint(&profile->sum_const);
+  if (q_is_smallint(&profile->path_bound)) {
+    bound = q_get_smallint(&profile->path_bound);
   } else {
-    sum_const = INT32_MAX;
+    bound = INT32_MAX;
   }
 
-  if (sum_const >= 1073741824) {
+  if (bound >= 1073741824) {
     // simplex required because of arithmetic overflow
     create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
@@ -5260,29 +5275,6 @@ static inline bool valid_arch(context_arch_t arch) {
 
 
 /*
- * Initialize a context statistics record
- */
-void init_context_statistics(ctx_stats_t *stat) {
-  stat->base_bool_propagate = 0;
-  stat->base_th_propagate = 0;
-  stat->flatten_assertion = 0;
-  stat->preprocess_assertion = 0;
-  stat->assert_toplevel_formula = 0;
-  stat->assert_toplevel_intern = 0;
-
-  stat->nassert_rounds = 0;
-  stat->nassert = 0;
-}
-
-/*
- * Reset a context statistics record
- */
-void reset_context_statistics(ctx_stats_t *stat) {
-  init_context_statistics(stat);
-}
-
-
-/*
  * Initialize ctx for the given mode and architecture
  * - terms = term table for that context
  * - qflag = true means quantifiers allowed
@@ -5311,6 +5303,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   /*
    * The core is always needed: allocate it here. It's not initialized yet.
    * The other solver are optionals.
+   *
+   * TODO: we could skip this when we use MCSAT (since then the core is
+   * not needed).
    */
   ctx->core = (smt_core_t *) safe_malloc(sizeof(smt_core_t));
   ctx->egraph = NULL;
@@ -5355,15 +5350,11 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_sharing_map(&ctx->sharing, &ctx->intern);
   init_objstore(&ctx->cstore, sizeof(conditional_t), 32);
 
-  /*
-   * Initialize ctx statistics
-   */
-  init_context_statistics(&ctx->stats);
-
   ctx->subst = NULL;
   ctx->marks = NULL;
   ctx->cache = NULL;
   ctx->small_cache = NULL;
+  ctx->edge_map = NULL;
   ctx->eq_cache = NULL;
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
@@ -5513,11 +5504,6 @@ void reset_context(context_t *ctx) {
   context_free_dl_profile(ctx);
 
   q_clear(&ctx->aux);
-
-  /*
-   * Reset ctx statistics
-   */
-  reset_context_statistics(&ctx->stats);
 }
 
 
@@ -5597,9 +5583,6 @@ static void context_build_sharing_data(context_t *ctx) {
  *   a negative error code otherwise.
  */
 static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  ctx->stats.nassert_rounds++;
-  ctx->stats.nassert += n;
-
   ivector_t *v;
   uint32_t i;
   int code;
@@ -5626,6 +5609,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       flatten_assertion(ctx, a[i]);
     }
 
+    trace_printf(ctx->trace, 6, "(done flattening)\n");
+
     /*
      * At this point, the assertions are stored into the vectors
      * top_eqs, top_atoms, top_formulas, and top_interns
@@ -5634,7 +5619,6 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      *   substitutions.
      */
 
-    TIME_START();
     switch (ctx->arch) {
     case CTX_ARCH_EG:
       /*
@@ -5672,6 +5656,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       /*
        * Difference logic, we must process the subst_eqs first
        */
+      trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
 	context_process_candidate_subst(ctx);
       }
@@ -5684,6 +5669,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * Simplex, like EG, may add aux_atoms so we must process
        * subst_eqs last here.
        */
+      trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
 	process_conditional_definitions(ctx);
@@ -5719,11 +5705,6 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      */
     internalization_start(ctx->core);
 
-    TIME_END(ctx->stats.preprocess_assertion);
-    ctx->core->tstats.boolean_propagation = 0;
-    ctx->core->tstats.theory_propagation = 0;
-
-
     /*
      * Assert top_eqs, top_atoms, top_formulas, top_interns
      */
@@ -5733,6 +5714,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_interns;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" existing terms)\n", n);
       i = 0;
       do {
         assert_toplevel_intern(ctx, v->data[i]);
@@ -5750,6 +5732,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_eqs;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level equalities)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5767,6 +5750,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v = &ctx->top_atoms;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level atoms)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5784,6 +5768,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     v =  &ctx->top_formulas;
     n = v->size;
     if (n > 0) {
+      trace_printf(ctx->trace, 6, "(asserting  %"PRIu32" top-level formulas)\n", n);
       i = 0;
       do {
         assert_toplevel_formula(ctx, v->data[i]);
@@ -5809,8 +5794,6 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   }
 
  done:
-  ctx->stats.base_bool_propagate += ctx->core->tstats.boolean_propagation;
-  ctx->stats.base_th_propagate += ctx->core->tstats.theory_propagation;
   return code;
 }
 
@@ -6017,7 +6000,7 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
 	context_process_candidate_subst(ctx);
       }
       break;
-      
+
     default:
       /*
        * Process the candidate variable substitutions if any
@@ -6061,12 +6044,15 @@ int32_t context_process_formula(context_t *ctx, term_t f) {
 
 
 /*
- * Interrupt the search
+ * Interrupt the search:
+ * - this is not supported by mcsat yet
  */
 void context_stop_search(context_t *ctx) {
-  stop_search(ctx->core);
-  if (context_has_simplex_solver(ctx)) {
-    simplex_stop_search(ctx->arith_solver);
+  if (ctx->mcsat == NULL) {
+    stop_search(ctx->core);
+    if (context_has_simplex_solver(ctx)) {
+      simplex_stop_search(ctx->arith_solver);
+    }
   }
 }
 
@@ -6075,11 +6061,14 @@ void context_stop_search(context_t *ctx) {
 /*
  * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
+ * - not supported by mcsat either
  */
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
-  smt_cleanup(ctx->core);
+  if (ctx->mcsat == NULL) {
+    smt_cleanup(ctx->core);
+  }
 }
 
 
@@ -6091,7 +6080,11 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
-  smt_clear(ctx->core);
+  if (ctx->mcsat == NULL) {
+    smt_clear(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
+  }
 }
 
 

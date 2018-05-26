@@ -38,6 +38,7 @@
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph.h"
 #include "terms/conditionals.h"
+#include "terms/int_rational_hash_maps.h"
 #include "terms/poly_buffer.h"
 #include "terms/terms.h"
 #include "utils/int_bv_sets.h"
@@ -602,32 +603,19 @@ typedef struct bv_interface_s {
  * or a specialized Floyd-Warshall solver. The decision is
  * based on the following parameters:
  * - density = number of atoms / number of variables
- * - sum_const = sum of the absolute values of all constants in the
- *   difference logic atoms
+ * - path_bound = an upper bound on the length of any simple
+ *                path between two variables
  * - num_eqs = number of equalities (among all atoms)
  * dl_data stores the relevant data
  */
 typedef struct dl_data_s {
-  rational_t sum_const;
+  rational_t path_bound;
   uint32_t num_vars;
   uint32_t num_atoms;
   uint32_t num_eqs;
 } dl_data_t;
 
 
-
-typedef struct ctx_stats_s {
-  // Time adding assertions (in us)
-  long long base_bool_propagate;
-  long long base_th_propagate;
-  long long flatten_assertion;
-  long long preprocess_assertion;
-  long long assert_toplevel_formula;
-  long long assert_toplevel_intern;
-
-  uint32_t nassert_rounds;  // Count of number of assertion rounds (context_process_assertions)
-  uint32_t nassert;         // Total number of assertions
-} ctx_stats_t;
 
 
 
@@ -697,6 +685,7 @@ struct context_s {
   mark_vector_t *marks;
   int_bvset_t *cache;
   int_hset_t *small_cache;
+  int_rat_hmap_t *edge_map;
   pmap2_t *eq_cache;
   divmod_tbl_t *divmod_table;
   bfs_explorer_t *explorer;
@@ -722,9 +711,6 @@ struct context_s {
 
   // options for the mcsat solver
   mcsat_options_t mcsat_options;
-
-  // statistics
-  ctx_stats_t stats;
 };
 
 
