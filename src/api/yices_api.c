@@ -1306,6 +1306,13 @@ static inline void type_vector_push(type_vector_t *v, type_t tau) {
   ivector_push((ivector_t *) v, tau);
 }
 
+/*
+ * Add data at the end of a vector
+ */
+static inline void term_vector_push(term_vector_t *v, term_t tau) {
+  ivector_push((ivector_t *) v, tau);
+}
+
 
 
 /******************
@@ -9449,3 +9456,192 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
     cleanup_fvar_collector(fvars);
   }
 }
+
+/*
+ * Enables the unsat core.
+ */
+EXPORTED extern void yices_enable_unsat_core(context_t *ctx) {
+  context_enable_unsat_core(ctx);
+}
+
+/*
+ * Disables the unsat core.
+ */
+EXPORTED extern void yices_disable_unsat_core(context_t *ctx) {
+  context_disable_unsat_core(ctx);
+}
+
+/*
+ * Same as yices_check_context, but with assumptions (for unsat core extraction).
+ * - ctx status must :
+ *   - support push/pop
+ *   - have unsat core enabled (using yices_enable_unsat_core)
+ * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
+ * - v: term_vector to return the resulting unsat core if any (equals NULL if unsat core unavailable)
+ *
+ */
+EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v) {
+  smt_status_t stat;
+  uint32_t i;
+
+  yices_reset_term_vector(v);
+
+  stat = context_status(ctx);
+  if (stat == STATUS_IDLE)
+    stat = yices_check_context(ctx, params);
+
+  switch (stat) {
+  case STATUS_SAT:
+    if (! context_supports_pushpop(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_supports_unsatcore(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! check_good_terms(&manager, n, t) ||
+        ! check_boolean_args(&manager, n, t)) {
+      return STATUS_ERROR;
+    }
+
+    yices_push(ctx);
+
+    // create indicator variables and assert assumptions
+    type_t bt = yices_bool_type();
+    term_vector_t indicators;
+    yices_init_term_vector(&indicators);
+    term_t *assertions = (term_t *) safe_malloc(n * sizeof(term_t));
+
+    for (i = 0; i < n; i++) {
+      term_t rhs = t[i];
+      term_t lhs = yices_new_uninterpreted_term(bt);
+
+      term_vector_push(&indicators, lhs);
+      assertions[i] = yices_implies(lhs, rhs);
+    }
+
+    yices_assert_formulas(ctx, n, assertions);
+
+    for (i = 0; i < n; i++) {
+      smt_status_t result = yices_context_status(ctx);
+      if (result == STATUS_UNSAT)
+        break;
+
+      term_t lhs = indicators.data[i];
+      yices_assert_formula(ctx, lhs);
+    }
+
+    // check context with assumptions
+    stat = yices_check_context(ctx, params);
+
+    // if UNSAT, identify indicators and collect unsat core
+    if (stat == STATUS_UNSAT) {
+      int32_t status = yices_derive_unsat_core(ctx);
+      assert(status == 0);
+
+      ivector_t *unsat_core = (ivector_t *) v;
+      bool success = true;
+      for (i = 0; i < n; i++) {
+        term_t lhs = indicators.data[i];
+        term_t rhs = t[i];
+
+        int32_t value = check_term_in_unsat_core(ctx, lhs);
+        if (value != 0)
+          ivector_push(unsat_core, rhs);
+        success &= (value == -1);
+      }
+    }
+    yices_pop(ctx);
+
+    yices_delete_term_vector(&indicators);
+    safe_free(assertions);
+    break;
+  case STATUS_UNKNOWN:
+  case STATUS_UNSAT:
+    break;
+
+  case STATUS_IDLE:
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    stat = STATUS_ERROR;
+    break;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    stat = STATUS_ERROR;
+    break;
+  }
+
+  return stat;
+
+}
+
+/*
+ * Computes the unsat core.
+ * - return 0 for successful derivation
+ * - return -1 in case of an error
+ *
+ * Error codes:
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t yices_derive_unsat_core(context_t *ctx) {
+
+  if (yices_context_status(ctx) != STATUS_UNSAT) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  if (ctx->core->unsat_core_enabled == false) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  int32_t v = derive_unsat_core(ctx);
+  if (v < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Checks whether a boolean term is in unsat core or not: returned as an integer val
+ * - val = 0 means t is not present in unsat core
+ * - val = 1 means t is present in unsat core
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+EXPORTED extern int32_t yices_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val) {
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  if (yices_context_status(ctx) != STATUS_UNSAT) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  *val = check_term_in_unsat_core(ctx, t);
+  if (val < 0) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+  return 0;
+}
+
