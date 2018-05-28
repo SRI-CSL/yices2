@@ -858,8 +858,6 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
   }
 
   // We have the children values compute
-  t_info = bv_bdd_manager_get_info(bddm, t);
-  bv_bdd_manager_get_bdds_from_info(bddm, t_info);
   bdds_compute_bdds(bddm->cudd, terms, t, &children_bdds, t_bdds);
 
   if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
