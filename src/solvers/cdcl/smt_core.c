@@ -2871,7 +2871,7 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
   }
 }
 
-// TODO
+
 /*
  * Add an array of literals a as a new learned clause, after conflict resolution,
  * and update the full_antecedent for unsat core tracking.
@@ -3354,7 +3354,6 @@ static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
 #endif
 }
 
-// TODO
 /*
  * Turn a generic antecedent into a conjunction of literals:
  * - store the literals in s->explanation
@@ -3650,7 +3649,6 @@ do {                                          \
   }                                           \
 } while(0)
 
-// TODO
 #define process_full_literal(l)               \
 do {                                          \
   x = var_of(l);                              \
@@ -3707,7 +3705,7 @@ void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t 
 #if TRACE
     fputs(" stop\n", stdout);
 #endif
-    return false;
+    return;
   }
 
   if (isTop) {
@@ -3816,7 +3814,6 @@ void derive_conflict_core(smt_core_t *s) {
 //      ivector_push(&s->conflict_core, var_of(l));
       add_root_antecedants(s, l, true, &marks, true);
 #if TRACE
-      ivector_remove_duplicates(&s->conflict_core);
       ivector_remove_duplicates(&s->conflict_root);
       print_conflict_core(stdout, s);
       fflush(stdout);

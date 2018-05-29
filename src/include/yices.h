@@ -4075,11 +4075,9 @@ __YICES_DLLSPEC__ extern void yices_disable_unsat_core(context_t *ctx);
 
 /*
  * Same as yices_check_context, but with assumptions (for unsat core extraction).
- * - ctx status must :
- *   - support push/pop
- *   - have unsat core enabled (using yices_enable_unsat_core)
+ * - ctx must support push/pop
  * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
- * - v: term_vector to return the resulting unsat core if any (equals NULL if unsat core unavailable)
+ * - v: term_vector to return the resulting unsat core if any (assumed to be already initialized). Empty if unsat core unavailable.
  *
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v);

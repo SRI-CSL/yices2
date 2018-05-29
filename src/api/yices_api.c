@@ -9473,11 +9473,9 @@ EXPORTED extern void yices_disable_unsat_core(context_t *ctx) {
 
 /*
  * Same as yices_check_context, but with assumptions (for unsat core extraction).
- * - ctx status must :
- *   - support push/pop
- *   - have unsat core enabled (using yices_enable_unsat_core)
+ * - ctx must support push/pop
  * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
- * - v: term_vector to return the resulting unsat core if any (equals NULL if unsat core unavailable)
+ * - v: term_vector to return the resulting unsat core if any (assumed to be already initialized). Empty if unsat core unavailable.
  *
  */
 EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v) {
@@ -9485,18 +9483,11 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
   uint32_t i;
 
   yices_reset_term_vector(v);
-
-  stat = context_status(ctx);
-  if (stat == STATUS_IDLE)
-    stat = yices_check_context(ctx, params);
+  stat = yices_check_context(ctx, params);
 
   switch (stat) {
   case STATUS_SAT:
     if (! context_supports_pushpop(ctx)) {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (! context_supports_unsatcore(ctx)) {
       error.code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
@@ -9506,30 +9497,32 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
     }
 
     yices_push(ctx);
+    yices_enable_unsat_core(ctx);
 
     // create indicator variables and assert assumptions
     type_t bt = yices_bool_type();
     term_vector_t indicators;
+    term_vector_t assertions;
     yices_init_term_vector(&indicators);
-    term_t *assertions = (term_t *) safe_malloc(n * sizeof(term_t));
+    yices_init_term_vector(&assertions);
 
     for (i = 0; i < n; i++) {
-      term_t rhs = t[i];
-      term_t lhs = yices_new_uninterpreted_term(bt);
+      term_t lhsT = yices_new_uninterpreted_term(bt);
+      term_t rhsT = t[i];
 
-      term_vector_push(&indicators, lhs);
-      assertions[i] = yices_implies(lhs, rhs);
+      term_vector_push(&indicators, lhsT);
+      term_vector_push(&assertions, yices_implies(lhsT, rhsT));
     }
 
-    yices_assert_formulas(ctx, n, assertions);
+    yices_assert_formulas(ctx, assertions.size, assertions.data);
 
     for (i = 0; i < n; i++) {
       smt_status_t result = yices_context_status(ctx);
       if (result == STATUS_UNSAT)
         break;
 
-      term_t lhs = indicators.data[i];
-      yices_assert_formula(ctx, lhs);
+      term_t lhsT = indicators.data[i];
+      yices_assert_formula(ctx, lhsT);
     }
 
     // check context with assumptions
@@ -9543,20 +9536,24 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
       ivector_t *unsat_core = (ivector_t *) v;
       bool success = true;
       for (i = 0; i < n; i++) {
-        term_t lhs = indicators.data[i];
-        term_t rhs = t[i];
+        term_t lhsT = indicators.data[i];
 
-        int32_t value = check_term_in_unsat_core(ctx, lhs);
-        if (value != 0)
-          ivector_push(unsat_core, rhs);
+        int32_t value = check_term_in_unsat_core(ctx, lhsT);
+        if (value != 0) {
+          term_t rhsT = t[i];
+          ivector_push(unsat_core, rhsT);
+        }
         success &= (value == -1);
       }
     }
+
+    yices_disable_unsat_core(ctx);
     yices_pop(ctx);
 
     yices_delete_term_vector(&indicators);
-    safe_free(assertions);
+    yices_delete_term_vector(&assertions);
     break;
+
   case STATUS_UNKNOWN:
   case STATUS_UNSAT:
     break;
