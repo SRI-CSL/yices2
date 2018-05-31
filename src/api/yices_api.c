@@ -9482,7 +9482,10 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
   smt_status_t stat;
   uint32_t i;
 
+  // reset the output vector
   yices_reset_term_vector(v);
+
+  // check context before moving to core extraction
   stat = yices_check_context(ctx, params);
 
   switch (stat) {
@@ -9496,7 +9499,12 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
       return STATUS_ERROR;
     }
 
+    // since this function should undo all assertions it adds
     yices_push(ctx);
+
+    // enable unsat core flag
+    //   enables conflict resolution till base level
+    //   disables learned clause simplification
     yices_enable_unsat_core(ctx);
 
     // create indicator variables and assert assumptions
@@ -9514,8 +9522,13 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
       term_vector_push(&assertions, yices_implies(lhsT, rhsT));
     }
 
+    // assert all indicator assertions
     yices_assert_formulas(ctx, assertions.size, assertions.data);
 
+    // to set the base level
+    yices_push(ctx);
+
+    // assert assumptions (indicators) one by one
     for (i = 0; i < n; i++) {
       smt_status_t result = yices_context_status(ctx);
       if (result == STATUS_UNSAT)
@@ -9543,11 +9556,16 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
           term_t rhsT = t[i];
           ivector_push(unsat_core, rhsT);
         }
-        success &= (value == -1);
+        success &= (value != -1);
       }
     }
+    // retract assumptions
+    yices_pop(ctx);
 
+    // disable unsat core flag
     yices_disable_unsat_core(ctx);
+
+    // retract all indicator assertions
     yices_pop(ctx);
 
     yices_delete_term_vector(&indicators);
