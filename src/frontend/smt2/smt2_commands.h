@@ -375,15 +375,16 @@ typedef struct smt2_globals_s {
   tracer_t *tracer;
 
   // options
-  bool print_success;         // default = true
-  bool expand_definitions;    // default = false (not supported)
-  bool interactive_mode;      // default = false (not supported)
-  bool produce_proofs;        // default = false (not supported)
-  bool produce_unsat_cores;   // default = false (not supported)
-  bool produce_models;        // default = false
-  bool produce_assignments;   // default = false
-  uint32_t random_seed;       // default = 0
-  uint32_t verbosity;         // default = 0
+  bool print_success;             // default = true
+  bool expand_definitions;        // default = false (not supported)
+  bool interactive_mode;          // default = false (not supported)
+  bool produce_proofs;            // default = false (not supported)
+  bool produce_unsat_cores;       // default = false
+  bool produce_unsat_assumptions; // default = false
+  bool produce_models;            // default = false
+  bool produce_assignments;       // default = false
+  uint32_t random_seed;           // default = 0
+  uint32_t verbosity;             // default = 0
 
   // yices options
   ctx_param_t ctx_parameters;  // preprocessing options
@@ -615,9 +616,10 @@ extern void smt2_pop(uint32_t n);
 
 /*
  * Assert a formula t
- * - if t is a :named assertion then it should be recorded for unsat-core
+ * - if special is true, then t is a named assertion
+ *   if should be treated specially if support for unsat cores is enabled.
  */
-extern void smt2_assert(term_t t);
+extern void smt2_assert(term_t t, bool special);
 
 
 /*

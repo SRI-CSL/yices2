@@ -2840,6 +2840,7 @@ static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     break;
 
   case TAG_TERM:
+  case TAG_SPECIAL_TERM:
     if (e->val.term == yices_true()) {
       aux.tag = PARAM_VAL_TRUE;
     } else if (e->val.term == yices_false()) {

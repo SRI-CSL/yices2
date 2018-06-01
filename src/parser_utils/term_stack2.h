@@ -80,6 +80,13 @@
  * operators), and the index of the previous operator on the stack.
  *
  * Note: an opcode is stored as just an integer (different from TAG_OP)
+ *
+ * Added 2018/05/31: a new tag to record that a term requires special processing.
+ * ----------------
+ * This is used in the SMT2 front-end to handle named assertions and unsat cores.
+ * In a named assertion: (assert (! <term> :named xxx)), we  mark <term>
+ * as special so that it is can be treated as an assumption and not as a regular
+ * assertion. The only operation that introduces a SPECIAL_TERM is set_special_term_result.
  */
 typedef enum tag_enum {
   TAG_NONE,
@@ -91,6 +98,7 @@ typedef enum tag_enum {
   TAG_BV,               // bit-vector constant (more than 64 bits)
   TAG_RATIONAL,         // rational constant
   TAG_TERM,             // term index + polarity (from the global term table)
+  TAG_SPECIAL_TERM,     // a term marked for special processing
   TAG_TYPE,             // type index (from the global type table)
   TAG_MACRO,            // type macro (index in the type table)
   TAG_ATTRIBUTE,        // attribute value (index in an attribute value table)

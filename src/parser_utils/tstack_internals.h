@@ -320,6 +320,21 @@ static inline void no_result(tstack_t *stack) {
 }
 
 /*
+ * Replace the top stack element by term t and mark it as special.
+ */
+extern void set_special_term_result(tstack_t *stack, term_t t);
+
+/*
+ * Check whether element stored in v is a special term:
+ * - v must be a pointer in the current top frame
+ */
+static inline bool tstack_elem_is_special(stack_elem_t *v) {
+  return v->tag == TAG_SPECIAL_TERM;
+}
+
+
+
+/*
  * Copy v as result in place of the current stack->frame
  * then remove all elements above the top frame index.
  * - v must be a pointer in the current top frame

@@ -133,6 +133,7 @@ static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_TERM:
+  case TAG_SPECIAL_TERM:
     t = e->val.term;
     if (! is_integer_term(__yices_globals.terms, t)) {
       raise_exception(stack, e, SMT2_TERM_NOT_INTEGER);
@@ -1020,7 +1021,7 @@ static void eval_smt2_assert(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  smt2_assert(t);
+  smt2_assert(t, tstack_elem_is_special(f));
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -1301,9 +1302,11 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
   uint32_t np;        // number of terms in the list
   uint32_t i;
   int32_t op;         // enclosing operator
+  bool named;         // true if one of the attributes is :named xxx
 
   t = get_term(stack, f);
   op = get_enclosing_op(stack);
+  named = false;
 
   i = 1;
   while (i<n) {
@@ -1314,6 +1317,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       check_name(stack, f, i, n);
       check_named_attribute(stack, f, t, f[i].val.string);
       smt2_add_name(op, t, f[i].val.string);
+      named = true;
       i ++;
       break;
 
@@ -1343,7 +1347,14 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
   }
 
   tstack_pop_frame(stack);
-  set_term_result(stack, t);
+
+  // if the term is named and the enclosing op is assert
+  // we mark t for special processing
+  if (named && op == SMT2_ASSERT) {
+    set_special_term_result(stack, t);
+  } else {
+    set_term_result(stack, t);
+  }
 }
 
 
@@ -2124,6 +2135,7 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
     return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
 
   case TAG_TERM:
+  case TAG_SPECIAL_TERM:
     return yices_check_term_type(e->val.term, tau);
 
   case TAG_ARITH_BUFFER:

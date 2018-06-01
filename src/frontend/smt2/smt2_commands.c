@@ -3078,11 +3078,22 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
  */
 
 /*
+ * Pretty print name with quotes if needed.
+ */
+static void pp_name(yices_pp_t *printer, const char *name) {
+  if (symbol_needs_quotes(name)) {
+    pp_qstring(printer, '|', '|', name);
+  } else {
+    pp_string(printer, name);
+  }
+}
+
+/*
  * Print pair (name val) where val is a Boolean value
  */
 static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t val) {
   pp_open_block(printer, PP_OPEN_PAR); // '('
-  pp_string(printer, name);
+  pp_name(printer, name);
   if (bval_is_undef(val)) {
     pp_string(printer, "???");
   } else {
@@ -3093,37 +3104,49 @@ static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t 
 
 
 /*
+ * Convert an object v in vtbl to a bval
+ */
+static bval_t obj2bval(value_table_t *vtbl, value_t v) {
+  bval_t b;
+
+  b = VAL_UNDEF_FALSE;
+  if (is_true(vtbl, v)) {
+    b = VAL_TRUE;
+  } else if (is_false(vtbl, v)) {
+    b = VAL_FALSE;
+  }
+  return b;
+}
+
+/*
  * Trivial assignment: this is called when Yices is used in benchmark
  * mode, and all assertions simplify to true. In this case, the
  * assertions are trivially satisfiable but no context is
- * constructed. We just go through the list of all named Booleans and
- * give them the same value (UNDEF), except if any of them is equal to
- * true or false.
+ * constructed. We still need to make sure we give consistent values
+ * to the named Booleans.
+ *
+ * To do this, we create an empty model and print whatever default values
+ * get assigned to the boolean terms in this model.
  */
-static bval_t trivial_bool_value(term_t t) {
-  bval_t v;
-
-  v = VAL_UNDEF_FALSE;
-  if (t == true_term) {
-    v = VAL_TRUE;
-  } else if (t == false_term) {
-    v = VAL_FALSE;
-  }
-
-  return v;
-}
-
 static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s) {
+  evaluator_t evaluator;
+  model_t *mdl;
+  value_table_t *vtbl;
   uint32_t i, n;
-  bval_t v;
+  value_t v;
 
+  mdl = yices_new_model(true);
+  vtbl = model_get_vtbl(mdl);
+  init_evaluator(&evaluator, mdl);
   pp_open_block(printer, PP_OPEN_VPAR);  // open '('
   n = s->top;
   for (i=0; i<n; i++) {
-    v = trivial_bool_value(s->data[i].term);
-    print_bool_assignment(printer, s->data[i].name, v);
+    v = eval_in_model(&evaluator, s->data[i].term);
+    print_bool_assignment(printer, s->data[i].name, obj2bval(vtbl, v));
   }
   pp_close_block(printer, true);  // close ')'
+  delete_evaluator(&evaluator);
+  yices_free_model(mdl);
 }
 
 
@@ -3360,6 +3383,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->interactive_mode = false;
   g->produce_proofs = false;
   g->produce_unsat_cores = false;
+  g->produce_unsat_assumptions = false;
   g->produce_models = false;
   g->produce_assignments = false;
   g->random_seed = 0;  // 0 means any seed is good
@@ -3598,9 +3622,31 @@ void smt2_get_proof(void) {
 
 
 /*
+ * Provisional: print the named assertions
+ */
+static void print_named_assertions(named_term_stack_t *s) {
+  uint32_t i, n;
+  const char *name;
+
+  n = s->top;
+  printf("=== %"PRIu32" named assertions ===\n", n);
+  for (i=0; i<n; i++) {
+    name = s->data[i].name;
+    if (symbol_needs_quotes(name)) {
+      printf("   assertion[%"PRIu32"]: name = |%s|, term = %"PRId32"\n", i, name, s->data[i].term);
+    } else {
+      printf("   assertion[%"PRIu32"]: name = %s, term = %"PRId32"\n", i, name, s->data[i].term);
+    }
+  }
+  printf("\n");
+}
+
+
+/*
  * Get the unsat core: subset of :named assertions that form an unsat core
  */
 void smt2_get_unsat_core(void) {
+  print_named_assertions(&__smt2_globals.named_asserts);
   if (check_logic()) {
     print_error("get-unsat-core is not supported");
   }
@@ -3959,12 +4005,18 @@ void smt2_get_option(const char *name) {
     print_uint32_value(g->verbosity);
     break;
 
+  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
+    print_boolean_value(g->produce_unsat_assumptions);
+    break;
+
+  case SMT2_KW_PRODUCE_UNSAT_CORES:
+    print_boolean_value(g->produce_unsat_cores);
+    break;
+
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
   case SMT2_KW_PRODUCE_ASSERTIONS:
   case SMT2_KW_PRODUCE_PROOFS:
-  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
-  case SMT2_KW_PRODUCE_UNSAT_CORES:
   case SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT:
     unsupported_option();
     break;
@@ -4571,12 +4623,24 @@ void smt2_set_option(const char *name, aval_t value) {
     set_verbosity(g, name, value);
     break;
 
+  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
+    // optional: if true, get-unsat-assumptions can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_unsat_assumptions);
+    }
+    break;
+
+  case SMT2_KW_PRODUCE_UNSAT_CORES:
+    // optional: if true,  get-unsat-cores can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_unsat_cores);
+    }
+    break;
+
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
   case SMT2_KW_PRODUCE_ASSERTIONS:
   case SMT2_KW_PRODUCE_PROOFS:
-  case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
-  case SMT2_KW_PRODUCE_UNSAT_CORES:
   case SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT:
     unsupported_option();
     flush_out();
@@ -4712,7 +4776,6 @@ void smt2_set_logic(const char *name) {
   } else {
     // in benchmark mode (or exists/forall) set the parameters to defaults for the logic
     // the context is not initialized yet
-    arch = arch_for_logic(code);
     default_ctx_params(&__smt2_globals.ctx_parameters, code, arch, CTX_MODE_ONECHECK);
     yices_set_default_params(&__smt2_globals.parameters, code, arch, CTX_MODE_ONECHECK);
   }
@@ -4835,9 +4898,9 @@ void smt2_pop(uint32_t n) {
 
 /*
  * Assert one formula t
- * - if t is a :named assertion then it should be recorded for unsat-core
+ * - special is true if t is a :named assertion
  */
-void smt2_assert(term_t t) {
+void smt2_assert(term_t t, bool special) {
   smt2_globals_t *g;
 
   g = &__smt2_globals;
@@ -4848,6 +4911,9 @@ void smt2_assert(term_t t) {
 
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
+      if (special) {
+	print_out("--> :named assertion %"PRId32"\n", t);
+      }
       if (g->benchmark_mode) {
 	if (g->efmode && g->ef_client.efdone) {
 	  print_error("more assertions are not allowed after solving");
@@ -5140,17 +5206,18 @@ void smt2_echo(const char *s) {
 /*
  * Reset all assertions
  * - delete all assertions, terms, types, and declarations
- *
- * TODO: fix this: if g->global_decls is true, we should keep the declarations
+ * - the standard allows (reset-assertions) even if no logic is set.
+ * - in the latter case, we do nothing and report success. There's no
+ *   initialized context until the logic is set.
  */
 void smt2_reset_assertions(void) {
   smt2_globals_t *g;
 
-  if (check_logic()) {
-    g = &__smt2_globals;
-    if (g->benchmark_mode) {
-      print_error("reset-assertions is not allowed in non-incremental mode");
-    } else {
+  g = &__smt2_globals;
+  if (g->benchmark_mode) {
+    print_error("reset-assertions is not allowed in non-incremental mode");
+  } else {
+    if (g->logic_code !=  SMT_UNKNOWN) {
       /*
        * Reset context, model and internal stacks
        * + all auxiliary vectors
@@ -5199,9 +5266,9 @@ void smt2_reset_assertions(void) {
 
       // build a fresh empty context
       init_smt2_context(g);
-
-      report_success();
     }
+
+    report_success();
   }
 }
 
@@ -5225,6 +5292,8 @@ void smt2_reset_all(void) {
   init_smt2(benchmark, timeout, print_success);
   smt2_set_verbosity(verbosity);
   smt2_lexer_reset_logic();
+
+  report_success();
 }
 
 
@@ -5249,15 +5318,12 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
   // special processing for Boolean terms
   if (yices_term_is_bool(t)) {
     // named booleans (for get-assignment)
-    clone = NULL;
-    if (!__smt2_globals.global_decls) {
-      clone = clone_string(name);
-      push_named_term(&__smt2_globals.named_bools, t, clone);
-    }
+    clone = clone_string(name);
+    push_named_term(&__smt2_globals.named_bools, t, clone);
 
     // named assertions (for unsat cores)
     if (op == SMT2_ASSERT && __smt2_globals.produce_unsat_cores) {
-      if (clone == NULL) clone = clone_string(name);
+      clone = clone_string(name);
       push_named_term(&__smt2_globals.named_asserts, t, clone);
     }
   }
