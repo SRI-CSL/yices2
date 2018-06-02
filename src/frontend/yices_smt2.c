@@ -383,6 +383,9 @@ static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
+  if (show_stats) {
+    smt2_show_stats();
+  }
   _exit(YICES_EXIT_INTERRUPTED);
 }
 

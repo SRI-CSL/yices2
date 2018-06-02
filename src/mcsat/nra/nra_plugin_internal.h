@@ -32,14 +32,6 @@
 typedef struct poly_constraint_db_struct poly_constraint_db_t;
 typedef struct poly_constraint_struct poly_constraint_t;
 
-// Variable check to track for debugging
-// #define TRACK_VAR(x) (x == 731)
-#define TRACK_VAR(x) false
-
-// Constraint check to track for debugging
-// #define TRACK_CONSTRAINT(x) (x == 2640)
-#define TRACK_CONSTRAINT(x) false
-
 struct nra_plugin_s {
 
   /** The plugin interface */
@@ -69,6 +61,9 @@ struct nra_plugin_s {
   /** The conflict variable (one with empty int feasible set) */
   variable_t conflict_variable_int;
 
+  /** Bound variable term */
+  term_t global_bound_term;
+
   /** Variables processed in propagation */
   ivector_t processed_variables;
 
@@ -83,6 +78,9 @@ struct nra_plugin_s {
     uint32_t* conflicts;
     uint32_t* conflicts_int;
     uint32_t* constraints_attached;
+    uint32_t* evaluations;
+    uint32_t* constraint_regular;
+    uint32_t* constraint_root;
   } stats;
 
   /** Database of polynomial constraints */
@@ -110,6 +108,10 @@ struct nra_plugin_s {
     /** Map from mcsat variables to libpoly variables */
     int_hmap_t mcsat_to_lp_var_map;
   } lp_data;
+
+  /** Buffer for evaluation */
+  int_hmap_t evaluation_value_cache;
+  int_hmap_t evaluation_timestamp_cache;
 
   /** Arithmetic buffer for computation */
   rba_buffer_t buffer;

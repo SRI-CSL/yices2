@@ -47,6 +47,7 @@
 #include "terms/terms.h"
 #include "utils/int_array_sort2.h"
 #include "terms/term_explorer.h"
+#include "utils/refcount_strings.h"
 
 #include "yices.h"
 
@@ -62,6 +63,9 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   nra->stats.conflicts = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts");
   nra->stats.conflicts_int = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts_int");
   nra->stats.constraints_attached = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_attached");
+  nra->stats.evaluations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::evaluations");
+  nra->stats.constraint_regular = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_regular");
+  nra->stats.constraint_root = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_root");
 }
 
 static
@@ -89,6 +93,9 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   init_int_hmap(&nra->lp_data.mcsat_to_lp_var_map, 0);
   init_int_hmap(&nra->lp_data.lp_to_mcsat_var_map, 0);
+
+  init_int_hmap(&nra->evaluation_value_cache, 0);
+  init_int_hmap(&nra->evaluation_timestamp_cache, 0);
 
   // Constraint db
   nra->constraint_db = poly_constraint_db_new(nra);
@@ -145,6 +152,11 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
 
+  term_table_t* terms = ctx->terms;
+  type_t reals = int_type(terms->types);
+  nra->global_bound_term = new_uninterpreted_term(terms, reals);
+  set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
+
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
 }
@@ -161,6 +173,9 @@ void nra_plugin_destruct(plugin_t* plugin) {
 
   delete_int_hmap(&nra->lp_data.mcsat_to_lp_var_map);
   delete_int_hmap(&nra->lp_data.lp_to_mcsat_var_map);
+
+  delete_int_hmap(&nra->evaluation_value_cache);
+  delete_int_hmap(&nra->evaluation_timestamp_cache);
 
   poly_constraint_db_delete(nra->constraint_db);
 
@@ -216,11 +231,7 @@ bool nra_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2)
 }
 
 static
-void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t cstr_var) {
-
-  uint32_t cstr_level;
-  const poly_constraint_t* cstr;
-  const mcsat_value_t* cstr_value;
+const mcsat_value_t* nra_plugin_constraint_evaluate(nra_plugin_t* nra, variable_t cstr_var, uint32_t* cstr_level) {
 
   assert(!trail_has_value(nra->ctx->trail, cstr_var));
 
@@ -228,11 +239,89 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
     trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
   }
 
-  // Get the constraint
-  cstr = poly_constraint_db_get(nra->constraint_db, cstr_var);
+  // Check if it is a valid constraints
+  const poly_constraint_t* cstr = poly_constraint_db_get(nra->constraint_db, cstr_var);
+  if (!poly_constraint_is_valid(cstr)) {
+    return NULL;
+  }
 
-  // Evaluate
-  cstr_value = poly_constraint_evaluate(cstr, 0, nra, &cstr_level);
+  // Constraint var list
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, cstr_var);
+  const variable_t* var_list = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+
+  // Get the timestamp and level
+  uint32_t cstr_timestamp = 0;
+  *cstr_level = nra->ctx->trail->decision_level_base;
+  const mcsat_trail_t* trail = nra->ctx->trail;
+  const variable_t* var_i = var_list;
+  while (*var_i != variable_null) {
+    if (nra_plugin_has_assignment(nra, *var_i)) {
+      uint32_t timestamp_i = trail_get_value_timestamp(trail, *var_i);
+      assert(timestamp_i > 0);
+      if (cstr_timestamp < timestamp_i) {
+        cstr_timestamp = timestamp_i;
+      }
+      uint32_t level_i = trail_get_level(trail, *var_i);
+      if (level_i > *cstr_level) {
+        *cstr_level = level_i;
+      }
+    } else {
+      // Doesn't evaluate
+      return NULL;
+    }
+    var_i ++;
+  }
+
+  bool cstr_value = false;
+
+  // Check the cache
+  int_hmap_pair_t* find_value = int_hmap_find(&nra->evaluation_value_cache, cstr_var);
+  int_hmap_pair_t* find_timestamp = NULL;
+  if (find_value != NULL) {
+    find_timestamp = int_hmap_find(&nra->evaluation_timestamp_cache, cstr_var);
+    assert(find_timestamp != NULL);
+    if (find_timestamp->val == cstr_timestamp) {
+      // Can use the cached value;
+      cstr_value = find_value->val;
+      return cstr_value ? &mcsat_value_true : &mcsat_value_false;
+    }
+  }
+
+  // NOTE: with/without caching can change search. Some poly constraints
+  // do not evalute (see ok below, but we can evaluate them in the cache)
+
+  // Compute the evaluation
+  bool ok = poly_constraint_evaluate(cstr, nra, &cstr_value);
+  (void) ok;
+  assert(ok);
+  (*nra->stats.evaluations) ++;
+
+  // Set the cache
+  if (find_value != NULL) {
+    find_value->val = cstr_value;
+    find_timestamp->val = cstr_timestamp;
+  } else {
+    int_hmap_add(&nra->evaluation_value_cache, cstr_var, cstr_value);
+    int_hmap_add(&nra->evaluation_timestamp_cache, cstr_var, cstr_timestamp);
+  }
+
+  return cstr_value ? &mcsat_value_true : &mcsat_value_false;
+}
+
+static
+void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t cstr_var) {
+
+  uint32_t cstr_level = 0;
+  const mcsat_value_t* cstr_value = NULL;
+
+  assert(!trail_has_value(nra->ctx->trail, cstr_var));
+
+  if (ctx_trace_enabled(nra->ctx, "nra::evaluate")) {
+    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+  }
+
+  // Compute the evaluation timestamp
+  cstr_value = nra_plugin_constraint_evaluate(nra, cstr_var, &cstr_level);
 
   // Propagate
   if (cstr_value) {
@@ -387,7 +476,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Sort variables by trail index
     int_array_sort2(t_variables_list->data, t_variables_list->size, (void*) nra->ctx->trail, nra_plugin_trail_variable_compare);
 
-    if (TRACK_CONSTRAINT(t_var) || ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
+    if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
       ctx_trace_printf(nra->ctx, "nra_plugin_new_term_notify: vars: \n");
       for (i = 0; i < t_variables_list->size; ++ i) {
         ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, t_variables_list->data[i]));
@@ -440,6 +529,20 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       if (!nra_plugin_term_has_lp_variable(nra, t)) {
         nra_plugin_add_lp_variable_from_term(nra, t);
       }
+
+      // Add bound lemma b - t >= 0 && t + b >= 0
+      term_t ub_term = yices_sub(nra->global_bound_term, t);
+      term_t lb_term = yices_add(nra->global_bound_term, t);
+      term_t ub = yices_arith_geq0_atom(ub_term);
+      term_t lb = yices_arith_geq0_atom(lb_term);
+      prop->lemma(prop, ub);
+      prop->lemma(prop, lb);
+
+      // If we are at bound variable, set it as main decision
+      if (t == nra->global_bound_term) {
+        nra->ctx->request_top_decision(nra->ctx, t_var);
+      }
+
     } else {
       // Propagate constant value
       lp_rational_t rat_value;
@@ -465,7 +568,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
 
   bool feasible;
 
-  if (TRACK_CONSTRAINT(constraint_var) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: processing unit constraint :\n");
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
   }
@@ -478,19 +581,17 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
 
     // Get the constraint
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+    if (!poly_constraint_is_valid(constraint)) {
+      return;
+    }
 
     // Variable of the constraint
     lp_variable_t lp_x = poly_constraint_get_top_variable(constraint);
     variable_t x = nra_plugin_get_variable_from_lp_variable(nra, lp_x);
 
-    if (TRACK_VAR(x)) {
-      fprintf(stderr, "Processing constraint unit in tracked var.\n");
-      ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
-    }
-
     lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, !constraint_value);
 
-    if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+    if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");
       lp_feasibility_set_print(constraint_feasible, ctx_trace_out(nra->ctx));
       ctx_trace_printf(nra->ctx, "\n");
@@ -499,7 +600,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     // Update the infeasible intervals
     feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
 
-    if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+    if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: new feasible = ");
       lp_feasibility_set_print(feasible_set_db_get(nra->feasible_set_db, x), ctx_trace_out(nra->ctx));
       ctx_trace_printf(nra->ctx, "\n");
@@ -563,7 +664,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
     nra->last_decided_and_unprocessed = variable_null;
   }
 
-  if (TRACK_VAR(var) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: processing var assignment of :\n");
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, var));
   }
@@ -579,7 +680,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
   lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
   nra->lp_data.lp_var_order_size ++;
 
-  if (TRACK_VAR(var) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: var order :");
     lp_variable_order_print(nra->lp_data.lp_var_order, nra->lp_data.lp_var_db, ctx_trace_out(nra->ctx));
     ctx_trace_printf(nra->ctx, "\n");
@@ -602,7 +703,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
     // Constraint variable
     variable_t constraint_var = watch_list_manager_get_constraint(&nra->wlm, var_list_ref);
 
-    if (TRACK_CONSTRAINT(constraint_var) || TRACK_VAR(var) || ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+    if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: processing constraint :");
       ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
 
@@ -653,15 +754,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
         nra_plugin_set_unit_info(nra, constraint_var, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         // Evaluate the constraint and propagate (if not assigned already)
         if (trail_is_consistent(trail) && !trail_has_value(trail, constraint_var)) {
-          uint32_t constraint_level = trail->decision_level_base;
-          const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
-          const mcsat_value_t* constraint_value = poly_constraint_evaluate(constraint, var_list, nra, &constraint_level);
-          // Propagate
-          if (constraint_value) {
-            prop->add_at_level(prop, constraint_var, constraint_value, constraint_level);
-          }
-        } else {
-          // TODO: assert check that the values are the same
+          nra_plugin_process_fully_assigned_constraint(nra, prop, constraint_var);
         }
       }
       // Keep the watch
@@ -738,9 +831,6 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     // Current trail element
     var = trail_at(trail, nra->trail_i);
     nra->trail_i ++;
-    if (TRACK_VAR(var) || TRACK_CONSTRAINT(var)) {
-      fprintf(stderr, "Processing assignment of %d in the trail.\n", var);
-    }
     if (variable_db_is_real(var_db, var) || variable_db_is_int(var_db, var)) {
       // Real variables, detect if the constraint is unit
       nra_plugin_process_variable_assignment(nra, prop, var);
@@ -769,7 +859,7 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
   // Get the feasibility set
   lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
 
-  if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::decide")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::decide")) {
     ctx_trace_printf(nra->ctx, "decide on ");
     variable_db_print_variable(nra->ctx->var_db, x, ctx_trace_out(nra->ctx));
     ctx_trace_printf(nra->ctx, "[%d] at level %d\n", x, nra->ctx->trail->decision_level);
@@ -783,34 +873,33 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
   }
 
   // Pick a value from the set
-  lp_value_t x_value;
+  lp_value_t x_new_lpvalue;
   lp_rational_t x_value_default;
   lp_rational_construct_from_int(&x_value_default, 0, 1);
-  lp_value_construct(&x_value, LP_VALUE_RATIONAL, &x_value_default);
-  // lp_value_construct_zero(&x_value);
+  lp_value_construct(&x_new_lpvalue, LP_VALUE_RATIONAL, &x_value_default);
   lp_rational_destruct(&x_value_default);
 
   // See if the cached value fits
   bool using_cached = false;
+  const mcsat_value_t* x_cached_value = NULL;
   if (trail_has_cached_value(nra->ctx->trail, x)) {
-    const mcsat_value_t* x_cached_value = trail_get_cached_value(nra->ctx->trail, x);
+    x_cached_value = trail_get_cached_value(nra->ctx->trail, x);
     if (feasible == NULL || lp_feasibility_set_contains(feasible, &x_cached_value->lp_value)) {
       using_cached = true;
-      lp_value_assign(&x_value, &x_cached_value->lp_value);
     }
   }
 
   // If the set is 0, we can pick any value, including 0
   if (!using_cached && feasible != NULL) {
     // Otherwise pick from the set
-    lp_feasibility_set_pick_value(feasible, &x_value);
+    lp_feasibility_set_pick_value(feasible, &x_new_lpvalue);
   }
 
   // Decide if not too complex of a rational number
   bool decide = true;
   if (!must) {
-    if (!lp_value_is_rational(&x_value)) {
-      if (lp_upolynomial_degree(x_value.value.a.f) > 2) {
+    if (!lp_value_is_rational(&x_new_lpvalue)) {
+      if (lp_upolynomial_degree(x_new_lpvalue.value.a.f) > 2) {
         decide = false;
       }
     }
@@ -822,28 +911,36 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
       ctx_trace_printf(nra->ctx, "decided on ");
       variable_db_print_variable(nra->ctx->var_db, x, ctx_trace_out(nra->ctx));
       ctx_trace_printf(nra->ctx, "[%d]: ", x);
-      lp_value_print(&x_value, ctx_trace_out(nra->ctx));
+      if (using_cached) {
+        mcsat_value_print(x_cached_value, ctx_trace_out(nra->ctx));
+      } else {
+        lp_value_print(&x_new_lpvalue, ctx_trace_out(nra->ctx));
+      }
       ctx_trace_printf(nra->ctx, "\n");
     }
 
     // Make an mcsat value
-    mcsat_value_t value;
-    mcsat_value_construct_lp_value(&value, &x_value);
-
-    if (variable_db_is_int(nra->ctx->var_db, x)) {
-      assert(lp_value_is_integer(&x_value));
+    mcsat_value_t to_decide_value;
+    if (!using_cached) {
+      mcsat_value_construct_lp_value(&to_decide_value, &x_new_lpvalue);
+      if (variable_db_is_int(nra->ctx->var_db, x)) {
+        assert(lp_value_is_integer(&x_new_lpvalue));
+      }
     }
 
-    // Decide the value
-    decide_token->add(decide_token, x, &value);
+    // Decide the to_decide_value
+    const mcsat_value_t* to_decide_value_ptr = using_cached ? x_cached_value : &to_decide_value;
+    decide_token->add(decide_token, x, to_decide_value_ptr);
 
     // Remember that we've decided this guy
     nra->last_decided_and_unprocessed = x;
 
-    mcsat_value_destruct(&value);
+    if (!using_cached) {
+      mcsat_value_destruct(&to_decide_value);
+    }
   }
 
-  lp_value_destruct(&x_value);
+  lp_value_destruct(&x_new_lpvalue);
 }
 
 /**
@@ -966,7 +1063,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
     variable_t x, ivector_t* conflict) {
   size_t i;
 
-  if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): ");
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, x));
   }
@@ -977,7 +1074,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   init_ivector(&lemma_reasons, 0);
   feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, &core, &lemma_reasons);
 
-  if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): core:\n");
     for (i = 0; i < core.size; ++ i) {
       ctx_trace_printf(nra->ctx, "[%zu] (", i);
@@ -996,7 +1093,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   // Project
   nra_plugin_explain_conflict(nra, pos, neg, &core, &lemma_reasons, conflict);
 
-  if (TRACK_VAR(x) || ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): conflict:\n");
     for (i = 0; i < conflict->size; ++ i) {
       ctx_trace_printf(nra->ctx, "[%zu]: ", i);
@@ -1022,6 +1119,7 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
   poly_constraint_db_add(nra->constraint_db, constraint_var);
   const poly_constraint_t* poly_cstr = poly_constraint_db_get(nra->constraint_db, constraint_var);
+  assert(poly_constraint_is_valid(poly_cstr));
 
   // Check if the constraint is in Boolean conflict
   if (trail_has_value(nra->ctx->trail, constraint_var)) {
@@ -1326,9 +1424,6 @@ void nra_plugin_pop(plugin_t* plugin) {
     variable_t x = ivector_last(&nra->processed_variables);
     ivector_pop(&nra->processed_variables);
     assert(variable_db_is_real(nra->ctx->var_db, x) || variable_db_is_int(nra->ctx->var_db, x));
-    if (TRACK_VAR(x)) {
-      fprintf(stderr, "Undoing tracked variable unit status.\n");
-    }
     // Go through the watch and mark the constraints
     remove_iterator_t it;
     remove_iterator_construct(&it, &nra->wlm, x);
@@ -1362,9 +1457,6 @@ void nra_plugin_pop(plugin_t* plugin) {
     lp_assignment_set_value(assignment, lp_var, 0);
     variable_t var = nra_plugin_get_variable_from_lp_variable(nra, lp_var);
     (void)var;
-    if (TRACK_VAR(var)) {
-      fprintf(stderr, "Undoing tracked variable in lp_assignment.\n");
-    }
   }
 
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
@@ -1407,6 +1499,9 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // - lpdata.mcsat_to_lp_var_map (keys)
   gc_info_sweep_int_hmap_values(gc_vars, &nra->lp_data.lp_to_mcsat_var_map);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->lp_data.mcsat_to_lp_var_map);
+
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_value_cache);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_timestamp_cache);
   
   // Unit information (constraint_unit_info, constraint_unit_var)
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_info);

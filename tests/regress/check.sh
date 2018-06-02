@@ -76,6 +76,8 @@ timefile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
 fail=0
 pass=0
 
+failed_tests=()
+
 if [[ -z "$REGRESS_FILTER" ]];
 then
 	REGRESS_FILTER="." 
@@ -109,8 +111,10 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     then
         options=`cat $file.options`
         echo " [ $options ]"
+    	test_string="$file [ $options ]"
     else
         options=
+	    test_string="$file"
         echo
     fi
 
@@ -122,6 +126,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     else
         echo FAIL: missing file: $file.gold
         fail=`expr $fail + 1`
+        failed_tests+=("$test_string")
         continue
     fi
 
@@ -139,6 +144,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     else
     	echo FAIL
         fail=`expr $fail + 1`
+        failed_tests+=("$test_string")
     fi
     
 done
@@ -153,5 +159,6 @@ if [ $fail -eq 0 ]
 then
     exit 0
 else
+	for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
     exit 1
 fi
