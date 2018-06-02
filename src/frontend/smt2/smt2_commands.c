@@ -4482,6 +4482,24 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
+  case PARAM_MCSAT_NRA_BOUND:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      g->mcsat_options.nra_bound = tt;
+    }
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MIN:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->mcsat_options.nra_bound_min = n;
+    }
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MAX:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->mcsat_options.nra_bound_max = n;
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
     unsupported = true;

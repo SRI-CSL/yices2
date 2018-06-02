@@ -77,6 +77,8 @@ static
 void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
+  // OPTIONS NOT AVAILABLE IN CONSTRUCTOR, THEY ARE SETUP LATER
+
   nra->ctx = ctx;
   nra->last_decided_and_unprocessed = variable_null;
   nra->trail_i = 0;
@@ -152,10 +154,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
 
-  term_table_t* terms = ctx->terms;
-  type_t reals = int_type(terms->types);
-  nra->global_bound_term = new_uninterpreted_term(terms, reals);
-  set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
+  nra->global_bound_term = NULL_TERM;
 
   nra_plugin_stats_init(nra);
   nra_plugin_heuristics_init(nra);
@@ -530,17 +529,45 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
         nra_plugin_add_lp_variable_from_term(nra, t);
       }
 
-      // Add bound lemma b - t >= 0 && t + b >= 0
-      term_t ub_term = yices_sub(nra->global_bound_term, t);
-      term_t lb_term = yices_add(nra->global_bound_term, t);
-      term_t ub = yices_arith_geq0_atom(ub_term);
-      term_t lb = yices_arith_geq0_atom(lb_term);
-      prop->lemma(prop, ub);
-      prop->lemma(prop, lb);
+      if (nra->ctx->options->nra_bound) {
 
-      // If we are at bound variable, set it as main decision
-      if (t == nra->global_bound_term) {
-        nra->ctx->request_top_decision(nra->ctx, t_var);
+        if (nra->global_bound_term == NULL_TERM) {
+          term_table_t* terms = nra->ctx->terms;
+          type_t reals = int_type(terms->types);
+          nra->global_bound_term = new_uninterpreted_term(terms, reals);
+          set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
+        }
+
+        // Add bound lemma b - t >= 0 && t + b >= 0
+        term_t ub_term = yices_sub(nra->global_bound_term, t);
+        term_t lb_term = yices_add(nra->global_bound_term, t);
+        term_t ub = yices_arith_geq0_atom(ub_term);
+        term_t lb = yices_arith_geq0_atom(lb_term);
+        prop->lemma(prop, ub);
+        prop->lemma(prop, lb);
+
+        // If we are at bound variable, set it as main decision
+        if (t == nra->global_bound_term) {
+          nra->ctx->request_top_decision(nra->ctx, t_var);
+          if (nra->ctx->options->nra_bound_min >= 0) {
+            rational_t q;
+            q_init(&q);
+            q_set32(&q, nra->ctx->options->nra_bound_min);
+            term_t min = mk_arith_constant(&nra->tm, &q);
+            term_t min_bound = yices_arith_geq_atom(nra->global_bound_term, min);
+            prop->lemma(prop, min_bound);
+            q_clear(&q);
+          }
+          if (nra->ctx->options->nra_bound_max >= 0) {
+            rational_t q;
+            q_init(&q);
+            q_set32(&q, nra->ctx->options->nra_bound_max);
+            term_t max = mk_arith_constant(&nra->tm, &q);
+            term_t max_bound = yices_arith_leq_atom(nra->global_bound_term, max);
+            prop->lemma(prop, max_bound);
+            q_clear(&q);
+          }
+        }
       }
 
     } else {
