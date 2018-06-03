@@ -221,6 +221,17 @@ static inline int32_t *get_aux_buffer(tstack_t *stack, uint32_t n) {
   return stack->aux_buffer;
 }
 
+/*
+ * Make the symbol buffer large enough for n symbols
+ */
+extern void extend_sbuffer(tstack_t *stack, uint32_t n);
+
+static inline signed_symbol_t *get_sbuffer(tstack_t *stack, uint32_t n) {
+  if (stack->sbuffer_size < n) {
+    extend_sbuffer(stack, n);
+  }
+  return stack->sbuffer;
+}
 
 /*
  * ARITHMETIC AND BITVECTOR OPERATIONS

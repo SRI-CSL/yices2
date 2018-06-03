@@ -191,6 +191,9 @@ static void alloc_tstack(tstack_t *stack, uint32_t nops) {
   stack->aux_buffer = (int32_t *) safe_malloc(DEFAULT_AUX_SIZE * sizeof(int32_t));
   stack->aux_size = DEFAULT_AUX_SIZE;
 
+  stack->sbuffer = NULL;
+  stack->sbuffer_size = 0;
+
   init_bvconstant(&stack->bvconst_buffer);
 
   stack->abuffer = NULL;
@@ -796,6 +799,7 @@ static void recycle_bvlbuffer(tstack_t *stack, bvlogic_buffer_t *b) {
  */
 void extend_aux_buffer(tstack_t *stack, uint32_t n) {
   uint32_t new_size;
+
   assert (stack->aux_size < n);
 
   new_size = stack->aux_size + 1;
@@ -810,6 +814,26 @@ void extend_aux_buffer(tstack_t *stack, uint32_t n) {
   stack->aux_size  = new_size;
 }
 
+
+/*
+ * Make the symbol buffer large enough for n symbols
+ */
+void extend_sbuffer(tstack_t *stack, uint32_t n) {
+  uint32_t new_size;
+
+  assert(stack->sbuffer_size < n);
+
+  new_size = stack->sbuffer_size + 1;
+  new_size += new_size;
+  if (new_size < n) new_size = n;
+
+  if (new_size > MAX_SBUFFER_SIZE) {
+    out_of_memory();
+  }
+
+  stack->sbuffer = (signed_symbol_t *) safe_realloc(stack->sbuffer, new_size * sizeof(signed_symbol_t));
+  stack->sbuffer_size = new_size;
+}
 
 
 
@@ -1124,6 +1148,10 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 
   case TAG_SYMBOL:
     printf("<symbol: %s>", e->val.string);
+    break;
+
+  case TAG_NOT_SYMBOL:
+    printf("<not symbol: %s>", e->val.string);
     break;
 
   case TAG_BV64:

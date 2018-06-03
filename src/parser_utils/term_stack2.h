@@ -87,12 +87,19 @@
  * In a named assertion: (assert (! <term> :named xxx)), we  mark <term>
  * as special so that it is can be treated as an assumption and not as a regular
  * assertion. The only operation that introduces a SPECIAL_TERM is set_special_term_result.
+ *
+ * Added 2018/06/02: another new tag to handle the check-sat-assuming command.
+ * ----------------
+ * The arguments to check-sat-assuming is a list of assumptions. Each assumption
+ * can be either a SYMBOL or of the form (not SYMBOL). We add TAG_NOT_SYMBOL just
+ * for the latter.
  */
 typedef enum tag_enum {
   TAG_NONE,
   TAG_OP,               // operator
   TAG_OPCODE,           // opcode as argument
   TAG_SYMBOL,           // symbol
+  TAG_NOT_SYMBOL,       // negation of a symbol
   TAG_STRING,           // string constant
   TAG_BV64,             // bit-vector constant (1 to 64 bits)
   TAG_BV,               // bit-vector constant (more than 64 bits)
@@ -156,7 +163,7 @@ typedef struct stack_elem_s {
   tag_t tag;
   union {
     opval_t opval;
-    char *string;   // for TAG_STRING and TAG_SYMBOL
+    char *string;
     bv64_t bv64;
     bv_t bv;
     rational_t rational;
@@ -175,6 +182,18 @@ typedef struct stack_elem_s {
   loc_t loc;
 } stack_elem_t ;
 
+
+/*
+ * Symbols/negated symbol in the symbol buffer
+ * - polarity true means 'symbol'
+ * - polarity false means 'not symbol'
+ */
+typedef struct signed_symbol_s {
+  const char *name;
+  bool polarity;
+} signed_symbol_t;
+
+#define MAX_SBUFFER_SIZE (UINT32_MAX/sizeof(signed_symbol_t))
 
 /*
  * Operator table
@@ -246,6 +265,10 @@ struct tstack_s {
   // vector to store types or terms
   int32_t *aux_buffer;
   uint32_t aux_size;
+
+  // vector to store symbols/negated symbols
+  signed_symbol_t *sbuffer;
+  uint32_t sbuffer_size;
 
   // buffer to convert stack elements to bitvector constants
   bvconstant_t bvconst_buffer;
@@ -560,6 +583,11 @@ static inline void tstack_push_string(tstack_t *stack, char *s, uint32_t n, loc_
 static inline void tstack_push_symbol(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
 }
+
+static inline void tstack_push_not_symbol(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  tstack_push_str(stack, TAG_NOT_SYMBOL, s, n, loc);
+}
+
 
 /*
  * These functions are like push_symbol but they raise an exception if

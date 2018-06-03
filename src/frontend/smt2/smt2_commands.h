@@ -52,6 +52,7 @@
 #include "parser_utils/term_stack2.h"
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
+#include "frontend/smt2/assumption_table.h"
 #include "frontend/smt2/smt2_expressions.h"
 #include "frontend/common.h"
 
@@ -277,6 +278,22 @@ typedef struct smt2_stack_s {
 
 
 /*
+ * Data structures to deal with assumptions:
+ * - table: store assumptions + names
+ * - assumptions: vector of assumed terms
+ * - core: unsat core
+ * - status: as returned by check_assuming
+ */
+typedef struct smt2_assumptions_s {
+  assumption_table_t table;
+  ivector_t assumptions;
+  ivector_t core;
+  smt_status_t status;
+} smt2_assumptions_t;
+
+
+
+/*
  * Statistics: keep track of the number of commands
  * executed so far.
  */
@@ -288,10 +305,13 @@ typedef struct smt2_cmd_stats_s {
   uint32_t num_define_fun;
   uint32_t num_assert;
   uint32_t num_check_sat;
+  uint32_t num_check_sat_assuming;
   uint32_t num_push;
   uint32_t num_pop;
   uint32_t num_get_value;
   uint32_t num_get_assignment;
+  uint32_t num_get_unsat_core;
+  uint32_t num_get_unsat_assumptions;
 } smt2_cmd_stats_t;
 
 
@@ -410,6 +430,11 @@ typedef struct smt2_globals_s {
   // stacks for named booleans and named assertions
   named_term_stack_t named_bools;
   named_term_stack_t named_asserts;
+
+  // data structures for unsat cores/unsat assumptions
+  // allocated on demand
+  smt2_assumptions_t *unsat_core;
+  smt2_assumptions_t *unsat_assumptions;
 
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;
@@ -628,10 +653,13 @@ extern void smt2_assert(term_t t, bool special);
 extern void smt2_check_sat(void);
 
 /*
- * Check satisfiability with assumptions
- * TO BE DONE.
+ * Check satisfiability with assumptions:
+ * - n = number of assumptions
+ * - a = array of assumptions
+ * Each assumption is represented as a signed symbol,
+ * i.e., a pair symbol name/polarity.
  */
-extern void smt2_check_sat_assuming(void);
+extern void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a);
 
 /*
  * Declare a new sort:

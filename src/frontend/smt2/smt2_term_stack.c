@@ -1044,14 +1044,38 @@ static void eval_smt2_check_sat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 /*
  * [check-sat-assuming <literal>* ]
- * TBD
  */
 static void check_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_CHECK_SAT_ASSUMING);
 }
 
+static void get_signed_symbol(tstack_t *stack, stack_elem_t *e, signed_symbol_t *s) {
+  switch (e->tag) {
+  case TAG_SYMBOL:
+    s->name = e->val.string;
+    s->polarity = true;
+    break;
+
+  case TAG_NOT_SYMBOL:
+    s->name = e->val.string;
+    s->polarity = false;
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
+    break;
+  }
+}
+
 static void eval_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  smt2_check_sat_assuming();
+  signed_symbol_t *buffer;
+  uint32_t i;
+
+  buffer = get_sbuffer(stack, n);
+  for (i=0; i<n; i++) {
+    get_signed_symbol(stack, f+i, buffer+i);
+  }
+  smt2_check_sat_assuming(n, buffer);
   tstack_pop_frame(stack);
   no_result(stack);
 }

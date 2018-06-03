@@ -439,8 +439,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case symbol_next_goto_c16a:
-      // <symbol> in a literal list (positive literal)
-      // TBD
+      // <symbol> in a positive literal list in check-sat-assuming
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c16a;
       goto loop;
 
@@ -458,8 +458,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case symbol_next_goto_c16d:
-      // TBD: <symbol> is a negated literal in check-sat-assuming
-      // push operator for NOT
+      // <symbol> is a negated literal in check-sat-assuming
+      tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c16d;
       goto loop;
 
