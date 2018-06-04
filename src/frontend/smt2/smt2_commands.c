@@ -2557,7 +2557,7 @@ static smt_status_t check_context_with_assumptions(smt2_globals_t *g, const para
   // TODO: yices_check_assumptions doesn't deal with interrupt
   if (true || g->timeout == 0) {
     // no timeout
-    stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+    stat = yices_check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;
     return stat;
   }
