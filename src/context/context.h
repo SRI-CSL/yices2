@@ -179,6 +179,31 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  */
 extern void context_build_model(model_t *model, context_t *ctx);
 
+/*
+ * Enables unsat core
+ */
+extern void context_enable_unsat_core(context_t *ctx);
+
+/*
+ * Disables unsat core
+ */
+extern void context_disable_unsat_core(context_t *ctx);
+
+/*
+ * Computes unsat core
+ * - returns 0 when t is not present in unsat core
+ * - returns 1 when t is present in unsat core
+ * - returns -1 when unable to determine
+ */
+extern int32_t derive_unsat_core(context_t *ctx);
+
+/*
+ * Checks whether term t is in unsat core.
+ * - returns 0 when t is not present in unsat core
+ * - returns 1 when t is present in unsat core
+ * - returns -1 when unable to determine
+ */
+extern int32_t check_term_in_unsat_core(context_t *ctx, term_t r);
 
 /*
  * Interrupt the search

@@ -715,16 +715,6 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 }
 
 
-// PLACEHOLDER: put some assumptions in core
-static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, int32_t a[], ivector_t *core) {
-  uint32_t i;
-
-  for (i=0; i<n; i+=2) {
-    ivector_push(core, a[i]);
-  }
-  return STATUS_UNSAT;
-}
-
 /*
  * INTERNAL STATISTICS
  */
