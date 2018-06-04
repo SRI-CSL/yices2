@@ -57,7 +57,7 @@ int32_t binary_search_string(const char *s, const char * const *a, int32_t n) {
       h = k;
     } else {
       assert(cmp > 0);
-      l = k;
+      l = k+1;
     }
   }
 }

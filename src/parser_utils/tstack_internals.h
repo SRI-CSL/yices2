@@ -221,6 +221,17 @@ static inline int32_t *get_aux_buffer(tstack_t *stack, uint32_t n) {
   return stack->aux_buffer;
 }
 
+/*
+ * Make the symbol buffer large enough for n symbols
+ */
+extern void extend_sbuffer(tstack_t *stack, uint32_t n);
+
+static inline signed_symbol_t *get_sbuffer(tstack_t *stack, uint32_t n) {
+  if (stack->sbuffer_size < n) {
+    extend_sbuffer(stack, n);
+  }
+  return stack->sbuffer;
+}
 
 /*
  * ARITHMETIC AND BITVECTOR OPERATIONS
@@ -318,6 +329,21 @@ extern void set_aval_result(tstack_t *stack, aval_t v);
 static inline void no_result(tstack_t *stack) {
   stack->top --;
 }
+
+/*
+ * Replace the top stack element by term t and mark it as special.
+ */
+extern void set_special_term_result(tstack_t *stack, term_t t);
+
+/*
+ * Check whether element stored in v is a special term:
+ * - v must be a pointer in the current top frame
+ */
+static inline bool tstack_elem_is_special(stack_elem_t *v) {
+  return v->tag == TAG_SPECIAL_TERM;
+}
+
+
 
 /*
  * Copy v as result in place of the current stack->frame

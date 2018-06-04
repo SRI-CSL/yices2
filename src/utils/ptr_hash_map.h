@@ -120,7 +120,6 @@ typedef bool (*ptr_hmap_filter_t)(void *aux, const ptr_hmap_pair_t *r);
 extern void ptr_hmap_remove_records(ptr_hmap_t *hmap, void *aux, ptr_hmap_filter_t f);
 
 
-
 /*
  * Support for scanning all records:
  * - first gives the first non-null record in the table or NULL
