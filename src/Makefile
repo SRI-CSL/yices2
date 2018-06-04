@@ -346,6 +346,7 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
+	frontend/smt2/assumption_table.c \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
