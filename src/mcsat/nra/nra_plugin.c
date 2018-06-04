@@ -99,6 +99,13 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_int_hmap(&nra->evaluation_value_cache, 0);
   init_int_hmap(&nra->evaluation_timestamp_cache, 0);
 
+  init_int_hmap(&nra->feasible_set_cache_top_var[0], 0);
+  init_int_hmap(&nra->feasible_set_cache_top_var[1], 0);
+  init_int_hmap(&nra->feasible_set_cache_timestamp[0], 0);
+  init_int_hmap(&nra->feasible_set_cache_timestamp[1], 0);
+  init_ptr_hmap(&nra->feasible_set_cache[0], 0);
+  init_ptr_hmap(&nra->feasible_set_cache[1], 0);
+
   // Constraint db
   nra->constraint_db = poly_constraint_db_new(nra);
 
@@ -176,6 +183,23 @@ void nra_plugin_destruct(plugin_t* plugin) {
   delete_int_hmap(&nra->evaluation_value_cache);
   delete_int_hmap(&nra->evaluation_timestamp_cache);
 
+  delete_int_hmap(&nra->feasible_set_cache_top_var[0]);
+  delete_int_hmap(&nra->feasible_set_cache_top_var[1]);
+  delete_int_hmap(&nra->feasible_set_cache_timestamp[0]);
+  delete_int_hmap(&nra->feasible_set_cache_timestamp[1]);
+
+  // delete feasibility objects
+  ptr_hmap_pair_t* it = ptr_hmap_first_record(&nra->feasible_set_cache[0]);
+  for (; it != NULL; it = ptr_hmap_next_record(&nra->feasible_set_cache[0], it)) {
+    lp_feasibility_set_delete(it->val);
+  }
+  delete_ptr_hmap(&nra->feasible_set_cache[0]);
+  it = ptr_hmap_first_record(&nra->feasible_set_cache[1]);
+  for (; it != NULL; it = ptr_hmap_next_record(&nra->feasible_set_cache[1], it)) {
+    lp_feasibility_set_delete(it->val);
+  }
+  delete_ptr_hmap(&nra->feasible_set_cache[1]);
+
   poly_constraint_db_delete(nra->constraint_db);
 
   feasible_set_db_delete(nra->feasible_set_db);
@@ -227,6 +251,73 @@ bool nra_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2)
   } else {
     return t1 < t2;
   }
+}
+
+static
+lp_feasibility_set_t* nra_plugin_get_feasible_set(nra_plugin_t* nra, variable_t cstr_var, variable_t cstr_top_var, bool is_negated) {
+  // TODO:
+  // 1. cache
+  // 2. negation
+  // 3. only compute if current value doesn't satisfy
+
+  // Check if it is a valid constraints
+  const poly_constraint_t* cstr = poly_constraint_db_get(nra->constraint_db, cstr_var);
+
+  // Constraint var list (we only cache if in use)
+  if (!watch_list_manager_has_constraint(&nra->wlm, cstr_var)) {
+    return poly_constraint_get_feasible_set(cstr, nra->lp_data.lp_assignment, is_negated);
+  }
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, cstr_var);
+  const variable_t* var_list = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+
+  // Get the timestamp and level
+  uint32_t cstr_timestamp = 0;
+  const mcsat_trail_t* trail = nra->ctx->trail;
+  const variable_t* var_i = var_list;
+  while (*var_i != variable_null) {
+    if (nra_plugin_has_assignment(nra, *var_i)) {
+      assert(*var_i != cstr_top_var);
+      uint32_t timestamp_i = trail_get_value_timestamp(trail, *var_i);
+      assert(timestamp_i > 0);
+      if (cstr_timestamp < timestamp_i) {
+        cstr_timestamp = timestamp_i;
+      }
+    } else {
+      assert(*var_i == cstr_top_var);
+    }
+    var_i ++;
+  }
+
+  // Cached top variable
+  int_hmap_t* cache_top_var = &nra->feasible_set_cache_top_var[is_negated];\
+  int_hmap_pair_t* find_top_var = int_hmap_get(cache_top_var, cstr_var);
+  // Cached timestamp
+  int_hmap_t* cache_timestamp = &nra->feasible_set_cache_timestamp[is_negated];
+  int_hmap_pair_t* find_timestamp = int_hmap_get(cache_timestamp, cstr_var);
+  // Cached feasible set
+  ptr_hmap_t* cache = &nra->feasible_set_cache[is_negated];
+  ptr_hmap_pair_t* find = ptr_hmap_get(cache, cstr_var);
+
+  // Check if we can use the cached value
+  if (find->val != NULL) {
+    if (find_top_var->val == cstr_top_var && find_timestamp->val == cstr_timestamp) {
+      return lp_feasibility_set_new_copy(find->val);
+    }
+  }
+
+  // Compute
+  lp_feasibility_set_t* feasible = poly_constraint_get_feasible_set(cstr, nra->lp_data.lp_assignment, is_negated);
+
+  // Remember cache
+  find_top_var->val = cstr_top_var;
+  find_timestamp->val = cstr_timestamp;
+  if (find->val != NULL) {
+    lp_feasibility_set_delete(find->val);
+  }
+  find->val = feasible;
+
+  // Done
+  return lp_feasibility_set_new_copy(feasible);
 }
 
 static
@@ -613,10 +704,10 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     }
 
     // Variable of the constraint
-    lp_variable_t lp_x = poly_constraint_get_top_variable(constraint);
-    variable_t x = nra_plugin_get_variable_from_lp_variable(nra, lp_x);
+    int_hmap_pair_t* x_find = int_hmap_find(&nra->constraint_unit_var, constraint_var);
+    variable_t x = x_find->val;
 
-    lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, !constraint_value);
+    lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, x, !constraint_value);
 
     if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");
@@ -1145,8 +1236,6 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   bool negated = constraint != constraint_atom;
   variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
   poly_constraint_db_add(nra->constraint_db, constraint_var);
-  const poly_constraint_t* poly_cstr = poly_constraint_db_get(nra->constraint_db, constraint_var);
-  assert(poly_constraint_is_valid(poly_cstr));
 
   // Check if the constraint is in Boolean conflict
   if (trail_has_value(nra->ctx->trail, constraint_var)) {
@@ -1159,7 +1248,7 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   }
 
   // Compute the feasible set
-  lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(poly_cstr, nra->lp_data.lp_assignment, negated);
+  lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, x, negated);
 
   // Update the infeasible intervals
   bool feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
@@ -1527,9 +1616,20 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   gc_info_sweep_int_hmap_values(gc_vars, &nra->lp_data.lp_to_mcsat_var_map);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->lp_data.mcsat_to_lp_var_map);
 
+  // Evaluation cache
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_value_cache);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_timestamp_cache);
   
+  // Feasible set cache
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_top_var[0]);
+  gc_info_sweep_int_hmap_values(gc_vars, &nra->feasible_set_cache_top_var[0]);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_top_var[1]);
+  gc_info_sweep_int_hmap_values(gc_vars, &nra->feasible_set_cache_top_var[1]);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_timestamp[0]);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_timestamp[1]);
+  gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[0], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
+  gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[0], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
+
   // Unit information (constraint_unit_info, constraint_unit_var)
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_info);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_var);
@@ -1616,11 +1716,8 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       // Is it negated
       bool negated = constraint_term != literal_term;
 
-      // Get the constraint
-      const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
-
       // Compute and add the feasible set
-      lp_feasibility_set_t* constraint_feasible = poly_constraint_get_feasible_set(constraint, nra->lp_data.lp_assignment, negated);
+      lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, unit_var, negated);
 
       if (ctx_trace_enabled(nra->ctx, "nra::lemma")) {
         ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");
