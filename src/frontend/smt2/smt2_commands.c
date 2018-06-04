@@ -715,16 +715,6 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 }
 
 
-// PLACEHOLDER: put some assumptions in core
-static smt_status_t check_assumptions(context_t *ctx, const param_t *params, uint32_t n, int32_t a[], ivector_t *core) {
-  uint32_t i;
-
-  for (i=0; i<n; i+=2) {
-    ivector_push(core, a[i]);
-  }
-  return STATUS_UNSAT;
-}
-
 /*
  * INTERNAL STATISTICS
  */
@@ -2567,7 +2557,7 @@ static smt_status_t check_context_with_assumptions(smt2_globals_t *g, const para
   // TODO: yices_check_assumptions doesn't deal with interrupt
   if (true || g->timeout == 0) {
     // no timeout
-    stat = check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+    stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;
     return stat;
   }
