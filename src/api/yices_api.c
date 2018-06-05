@@ -1306,12 +1306,15 @@ static inline void type_vector_push(type_vector_t *v, type_t tau) {
   ivector_push((ivector_t *) v, tau);
 }
 
+#if 0
+// NOT USED
 /*
  * Add data at the end of a vector
  */
 static inline void term_vector_push(term_vector_t *v, term_t tau) {
   ivector_push((ivector_t *) v, tau);
 }
+#endif
 
 
 
@@ -9457,48 +9460,48 @@ EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
   }
 }
 
+
+/*
+ * UNSAT CORES/SOLVE WITH ASSUMPTIONS
+ */
+
 /*
  * Enables the unsat core.
  */
-EXPORTED extern void yices_enable_unsat_core(context_t *ctx) {
+EXPORTED void yices_enable_unsat_core(context_t *ctx) {
   context_enable_unsat_core(ctx);
 }
 
 /*
  * Disables the unsat core.
  */
-EXPORTED extern void yices_disable_unsat_core(context_t *ctx) {
+EXPORTED void yices_disable_unsat_core(context_t *ctx) {
   context_disable_unsat_core(ctx);
 }
 
-/*
- * Same as yices_check_context, but with assumptions (for unsat core extraction).
- * - ctx must support push/pop
- * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
- * - v: term_vector to return the resulting unsat core if any (assumed to be already initialized). Empty if unsat core unavailable.
- *
- */
-EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v) {
-  smt_status_t stat;
-  uint32_t i;
 
-  // reset the output vector
-  yices_reset_term_vector(v);
+/*
+ * Core function to check with assumptions and build an unsat core
+ * - ctx = context
+ * - params = parameter for calls to check_context
+ * - t = array of n assumptions (must all be Boolean terms)
+ * - v = vector to store the unset core
+ *
+ * This does not check the context supports push/pop or that the
+ * assumptions are all valid Boolean terms.
+ */
+smt_status_t yices_check_with_assumptions(context_t *ctx,  const param_t *params, uint32_t n, const term_t t[], ivector_t *v) {
+  smt_status_t stat;
+  uint32_t i, j;
+
+   // reset the output vector
+  ivector_reset(v);
 
   // check context before moving to core extraction
   stat = yices_check_context(ctx, params);
 
   switch (stat) {
   case STATUS_SAT:
-    if (! context_supports_pushpop(ctx)) {
-      error.code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (! check_good_terms(&manager, n, t) ||
-        ! check_boolean_args(&manager, n, t)) {
-      return STATUS_ERROR;
-    }
-
     // since this function should undo all assertions it adds
     yices_push(ctx);
 
@@ -9509,56 +9512,90 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
 
     // create indicator variables and assert assumptions
     type_t bt = yices_bool_type();
-    term_vector_t indicators;
-    term_vector_t assertions;
-    yices_init_term_vector(&indicators);
-    yices_init_term_vector(&assertions);
+    ivector_t indicators;
+    ivector_t assertions;
+
+    init_ivector(&indicators, n);
+    init_ivector(&assertions, n);
 
     for (i = 0; i < n; i++) {
       term_t lhsT = yices_new_uninterpreted_term(bt);
       term_t rhsT = t[i];
 
-      term_vector_push(&indicators, lhsT);
-      term_vector_push(&assertions, yices_implies(lhsT, rhsT));
+      ivector_push(&indicators, lhsT);
+      ivector_push(&assertions, yices_implies(lhsT, rhsT));
     }
 
-    // assert all indicator assertions
-    yices_assert_formulas(ctx, assertions.size, assertions.data);
+    // assert all assertions: the context should will be IDLE
+    // because the  assertions can't be trivially unsat.
+    assert(context_status(ctx) == STATUS_IDLE);
+    int32_t code = assert_formulas(ctx, assertions.size, assertions.data);
+    assert(code == CTX_NO_ERROR && context_status(ctx) == STATUS_IDLE);
 
     // to set the base level
     yices_push(ctx);
 
     // assert assumptions (indicators) one by one
     for (i = 0; i < n; i++) {
-      smt_status_t result = yices_context_status(ctx);
-      if (result == STATUS_UNSAT)
-        break;
-
       term_t lhsT = indicators.data[i];
-      yices_assert_formula(ctx, lhsT);
+      code = assert_formula(ctx, lhsT);
+      assert(code == CTX_NO_ERROR || code == TRIVIALLY_UNSAT);
+      if (code == TRIVIALLY_UNSAT) break;
     }
 
-    // check context with assumptions
-    stat = yices_check_context(ctx, params);
+    if (i < n) {
+      /*
+       * Special case: we got TRIVIALLY_UNSAT afer asserting indicators.data[i]
+       * We know that the unsat core is included in t[0 ... i].
+       *
+       * Most likely, t[i] is false. In such a case, assertion[i] is
+       * (not indicator[i]). When we assert indicator[i], assert_formula
+       * reports that it's trivially unast.
+       */
+      assert(code == TRIVIALLY_UNSAT);
+      if (t[i] == false_term) {
+	// if t[i] is false, then it's the core.
+	ivector_push(v, t[i]);
+      } else {
+	// just to be sound: we store t[0] ... t[i] as the unsat core
+	for (j=0; j<=i; j++) {
+	  ivector_push(v, t[j]);
+	}
+      }
+      stat = STATUS_UNSAT;
 
-    // if UNSAT, identify indicators and collect unsat core
-    if (stat == STATUS_UNSAT) {
-      int32_t status = yices_derive_unsat_core(ctx);
-      assert(status == 0);
+    } else {
+      /*
+       * No contradiction detected so far.
+       */
+      assert(context_status(ctx) == STATUS_IDLE);
 
-      ivector_t *unsat_core = (ivector_t *) v;
-      bool success = true;
-      for (i = 0; i < n; i++) {
-        term_t lhsT = indicators.data[i];
+      // check context with assumptions
+      //      stat = yices_check_context(ctx, params);
+      stat = check_context(ctx, params);
 
-        int32_t value = check_term_in_unsat_core(ctx, lhsT);
-        if (value != 0) {
-          term_t rhsT = t[i];
-          ivector_push(unsat_core, rhsT);
-        }
-        success &= (value != -1);
+      // if UNSAT, identify indicators and collect unsat core
+      if (stat == STATUS_UNSAT) {
+	// BD: stop a compiler warning: status is used only in debug mode
+#ifndef NDEBUG
+	int32_t status = yices_derive_unsat_core(ctx);
+	assert(status == 0);
+#else
+	(void) yices_derive_unsat_core(ctx);
+#endif
+	//       bool success = true; NOT USED
+	for (i = 0; i < n; i++) {
+	  term_t lhsT = indicators.data[i];
+	  int32_t value = check_term_in_unsat_core(ctx, lhsT);
+	  if (value != 0) {
+	    term_t rhsT = t[i];
+	    ivector_push(v, rhsT);
+	  }
+	  //        success &= (value != -1); NOT USED
+	}
       }
     }
+
     // retract assumptions
     yices_pop(ctx);
 
@@ -9568,8 +9605,8 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
     // retract all indicator assertions
     yices_pop(ctx);
 
-    yices_delete_term_vector(&indicators);
-    yices_delete_term_vector(&assertions);
+    delete_ivector(&indicators);
+    delete_ivector(&assertions);
     break;
 
   case STATUS_UNKNOWN:
@@ -9591,7 +9628,26 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
   }
 
   return stat;
+}
 
+
+/*
+ * Same as yices_check_context, but with assumptions (for unsat core extraction).
+ * - ctx must support push/pop
+ * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
+ * - v: term_vector to return the resulting unsat core if any (assumed to be already initialized). Empty if unsat core unavailable.
+ */
+EXPORTED smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v) {
+  if (! context_supports_pushpop(ctx)) {
+    error.code = CTX_OPERATION_NOT_SUPPORTED;
+    return STATUS_ERROR;
+  }
+  if (! check_good_terms(&manager, n, t) ||
+      ! check_boolean_args(&manager, n, t)) {
+    return STATUS_ERROR;
+  }
+
+  return yices_check_with_assumptions(ctx, params, n, t, (ivector_t *) v);
 }
 
 /*
@@ -9605,14 +9661,14 @@ EXPORTED extern smt_status_t yices_check_assumptions(context_t *ctx, const param
  * If the check fails for other reasons:
  *   code = INTERNAL_EXCEPTION
  */
-EXPORTED extern int32_t yices_derive_unsat_core(context_t *ctx) {
+EXPORTED int32_t yices_derive_unsat_core(context_t *ctx) {
 
   if (yices_context_status(ctx) != STATUS_UNSAT) {
     error.code = CTX_INVALID_OPERATION;
     return -1;
   }
 
-  if (ctx->core->unsat_core_enabled == false) {
+  if (! ctx->core->unsat_core_enabled) {
     error.code = CTX_INVALID_OPERATION;
     return -1;
   }

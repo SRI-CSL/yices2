@@ -2557,7 +2557,7 @@ static smt_status_t check_context_with_assumptions(smt2_globals_t *g, const para
   // TODO: yices_check_assumptions doesn't deal with interrupt
   if (true || g->timeout == 0) {
     // no timeout
-    stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+    stat = yices_check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;
     return stat;
   }
@@ -5396,7 +5396,7 @@ void smt2_assert(term_t t, bool special) {
 	  if (!special || !g->produce_unsat_cores) {
 	    add_delayed_assertion(g, t);
 	  } else {
-	    printf("--> skipping named assertion");
+	    trace_printf(g->tracer, 20, "(skipping named assertion)\n");
 	  }
 	  report_success();
 	}
@@ -5404,7 +5404,7 @@ void smt2_assert(term_t t, bool special) {
 	if (!special || !g->produce_unsat_cores) {
 	  add_assertion(g, t);
 	} else {
-	  printf("--> skipping named assertion");
+	  trace_printf(g->tracer, 20, "(skipping named assertion)\n");
 	}
       }
     } else {
