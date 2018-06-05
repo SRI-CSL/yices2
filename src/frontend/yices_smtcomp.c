@@ -642,6 +642,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
     fprintf(stderr, "Integer arithmetic\n");
     fprintf(stderr, " make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
     fprintf(stderr, " branch atoms            : %"PRIu32"\n", stat->num_branch_atoms);
+    fprintf(stderr, " Gomory cuts             : %"PRIu32"\n", stat->num_gomory_cuts);
     fprintf(stderr, "bound strengthening\n");
     fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->num_bound_conflicts);
     fprintf(stderr, " recheck conflicts       : %"PRIu32"\n", stat->num_bound_recheck_conflicts);

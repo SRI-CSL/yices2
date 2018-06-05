@@ -5,7 +5,7 @@
 Overview
 ========
 
-This section how to compile and link your code with the Yices library.
+This section explains how to compile and link your code with the Yices library.
 
 
 Headers and Compilation

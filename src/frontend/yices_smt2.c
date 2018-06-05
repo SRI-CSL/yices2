@@ -298,12 +298,6 @@ static void parse_command_line(int argc, char *argv[]) {
   }
 
  done:
-  // can't have incremental and mcsat yet
-  if (mcsat && incremental) {
-    fprintf(stderr, "incremental mode is not supported by the mcsat solver\n");
-    code = YICES_EXIT_USAGE;
-    goto exit;
-  }
 
   // force interactive to false if there's a filename
   if (filename != NULL) {

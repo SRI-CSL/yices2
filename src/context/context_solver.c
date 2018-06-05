@@ -35,9 +35,7 @@
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
-#include "solvers/cdcl/smt_core.h"
 
-#define TRACE 0
 
 /*
  * TRACE FUNCTIONS
@@ -573,29 +571,6 @@ smt_status_t precheck_context(context_t *ctx) {
  */
 
 /*
- * Value of eterm e in ctx->core
- */
-static value_t eterm_bvar_value(smt_core_t *core, value_table_t *vtbl, bvar_t x) {
-  value_t v;
-
-  v = null_value; // prevent GCC warning
-  switch (bvar_value(core, x)) {
-  case VAL_FALSE:
-    v = vtbl_mk_false(vtbl);
-    break;
-  case VAL_UNDEF_FALSE:
-  case VAL_UNDEF_TRUE:
-    v = vtbl_mk_unknown(vtbl);
-    break;
-  case VAL_TRUE:
-    v = vtbl_mk_true(vtbl);
-    break;
-  }
-  return v;
-}
-
-
-/*
  * Value of literal l in ctx->core
  */
 static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
@@ -772,149 +747,6 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 }
 
 
-/*
- * Good eterm: valid index in model_atoms
- */
-bool good_eterm(const model_t *model, eterm_t e) {
-  return (e < model->natoms) && (e >= 0);
-}
-
-void rootify_composite(egraph_t *egraph, composite_t *c) {
-  uint32_t i, n;
-  n = composite_arity(c);
-
-  occ_t child, root;
-  eterm_t term;
-  class_t class;
-
-  for (i = 0; i < n; i++)
-  {
-    child = composite_child(c, i);
-    term = term_of_occ(child);
-    class = egraph_term_class(egraph, term);
-    root = egraph_class_root(egraph, class);
-
-    if (is_neg_occ(child))
-      root = opposite_occ(root);
-    c->child[i] = root;
-  }
-}
-
-/*
- * Build table for egraph atoms
- * - attach value mapping from terms in egraph with other terms (for ==/!=) or itself (for apply) in model
- */
-static void build_egraph_atoms(context_t *ctx, model_t *model) {
-//  return;
-
-  value_table_t *vtbl;
-  vtbl = model_get_vtbl(model);
-
-  egraph_t *egraph = ctx->egraph;
-
-  uint32_t i, j, k, l, n;
-  n = egraph->terms.nterms;
-
-
-  /*
-   * Allocate and initialize the model atoms
-   */
-  model_atom_t *tbl = (model_atom_t *) safe_malloc(n * sizeof(model_atom_t));
-  arena_t *a = &model->arena;
-
-  thvar_t x;
-  composite_t *c;
-  composite_kind_t kind;
-  occ_t root;
-
-  for (i=0; i<n; i++) {
-    tbl[i].value = null_value;
-    tbl[i].is_valid = false;
-    root = egraph_class_root(egraph, egraph_term_class(egraph, i));
-    tbl[i].root = root;
-    tbl[i].root_class = egraph_term_class(egraph, term_of_occ(root));
-
-    c = egraph_term_body(egraph, i);
-    if (composite_body(c)) {
-      x = egraph_term_base_thvar(egraph, i);
-      if (x != null_thvar) {
-        if (egraph_term_type(egraph, i) == ETYPE_BOOL) {
-          tbl[i].value = eterm_bvar_value(egraph->core, vtbl, x);
-          kind = composite_kind(c);
-          switch(kind) {
-          case COMPOSITE_EQ:
-            tbl[i].body = arena_eq_composite(a, composite_child(c, 0), composite_child(c, 1));
-            rootify_composite(egraph, tbl[i].body);
-            tbl[i].is_valid = true;
-
-//            if (!is_unknown(vtbl, tbl[i].value)) {
-//              print_composite(stdout, c);
-//              fputc(' ', stdout);
-//              vtbl_print_object(stdout, vtbl, tbl[i].value);
-//              fputc('\n', stdout);
-//            }
-            break;
-          case COMPOSITE_DISTINCT:
-            if (!is_true(vtbl, tbl[i].value)) {
-#if TRACE
-              fputs("invalid value: ", stdout);
-              print_eterm(stdout, egraph, i);
-              fprintf(stdout, "value: %"PRId32, tbl[i].value);
-              fputc('\n', stdout);
-#endif
-              assert (0);
-            }
-            tbl[i].body = arena_distinct_composite(a, composite_arity(c), c->child);
-            rootify_composite(egraph, tbl[i].body);
-            tbl[i].is_valid = true;
-
-//            if (!is_unknown(vtbl, tbl[i].value)) {
-//              print_composite(stdout, c);
-//              fputc(' ', stdout);
-//              vtbl_print_object(stdout, vtbl, tbl[i].value);
-//              fputc('\n', stdout);
-//            }
-            break;
-          case COMPOSITE_APPLY:
-            tbl[i].body = arena_apply_composite(a, c->child[0], (composite_arity(c) - 1), &c->child[1]);
-            rootify_composite(egraph, tbl[i].body);
-
-//            if (!is_unknown(vtbl, tbl[i].value)) {
-//              print_composite(stdout, c);
-//              fputc(' ', stdout);
-//              vtbl_print_object(stdout, vtbl, tbl[i].value);
-//              fputc('\n', stdout);
-//            }
-            break;
-          default:
-#if TRACE
-            fputs("invalid composite: ", stdout);
-            print_eterm(stdout, egraph, i);
-            fprintf(stdout, "kind: %"PRId32, k);
-            fputc('\n', stdout);
-#endif
-            assert (0);
-            break;
-          }
-        }
-      }
-    }
-  }
-
-//  for (i = 0; i < n; i++)
-//  {
-//    if (tbl[i].is_valid)
-//    {
-//      print_composite(stdout, tbl[i].body);
-//      fputc(' ', stdout);
-//      vtbl_print_object(stdout, vtbl, tbl[i].value);
-//      fputc('\n', stdout);
-//    }
-//  }
-
-  model->atoms = tbl;
-  model->natoms = n;
-}
 
 
 /*
@@ -962,16 +794,9 @@ void context_build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-        build_term_value(ctx, model, t);
+	build_term_value(ctx, model, t);
       }
     }
-  }
-
-  /*
-   * Extract the egraph atoms model
-   */
-  if (context_has_egraph(ctx)) {
-    build_egraph_atoms(ctx, model);
   }
 
   /*
@@ -1036,9 +861,17 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 /*
  * Enables unsat core
  */
-extern void context_enable_unsat_core(context_t *ctx) {
+void context_enable_unsat_core(context_t *ctx) {
   smt_core_t *core = ctx->core;
   enable_unsat_core(core);
+}
+
+/*
+ * Disables unsat core
+ */
+void context_disable_unsat_core(context_t *ctx) {
+  smt_core_t *core = ctx->core;
+  disable_unsat_core(core);
 }
 
 /*
@@ -1047,12 +880,9 @@ extern void context_enable_unsat_core(context_t *ctx) {
  * - returns 1 when t is present in unsat core
  * - returns -1 when unable to determine
  */
-extern int32_t derive_unsat_core(context_t *ctx) {
+int32_t derive_unsat_core(context_t *ctx) {
   smt_core_t *core = ctx->core;
   derive_conflict_core(core);
-#if TRACE
-  print_conflict_core(stdout, core);
-#endif
   return core->core_status;
 }
 
@@ -1064,7 +894,7 @@ extern int32_t derive_unsat_core(context_t *ctx) {
  */
 int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
   smt_core_t *core = ctx->core;
-  ivector_t *conflict_core;
+  ivector_t *conflict_roots;
   intern_tbl_t *tbl;
   term_table_t *terms;
   bvar_t x;
@@ -1077,8 +907,7 @@ int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
 #endif
 
   if (core->core_status == core_ready) {
-//    conflict_core = &core->conflict_core;
-    conflict_core = &core->conflict_root;
+    conflict_roots = &core->conflict_root;
     tbl = &ctx->intern;
     terms = tbl->terms;
 
@@ -1093,217 +922,13 @@ int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
           print_bvar(stdout, x);
 #endif
 
-          n = conflict_core->size;
+          n = conflict_roots->size;
           for (i = 0; i < n; i++) {
 
 //          fputs("\nrhs: ", stdout);
 //          print_bvar(stdout, conflict_core->data[i]);
 
-            if (x == conflict_core->data[i])
-            {
-#if TRACE
-              printf(", matched\n");
-              fflush(stdout);
-#endif
-              return 1;
-            }
-          }
-#if TRACE
-          printf(", not matched\n");
-          fflush(stdout);
-#endif
-        } else {
-#if TRACE
-          printf(", invalid\n");
-          fflush(stdout);
-#endif
-        }
-        return 0;
-      }
-    }
-  }
-#if TRACE
-  printf(", fail\n");
-  fflush(stdout);
-#endif
-  return -1;
-}
-
-/*
- * Categorize term t in unsat core.
- * - returns 0 means t is not assigned
- * - returns 1 means t = true  is decided
- * - returns 2 means t = true  is implied
- * - returns 3 means t = false is decided
- * - returns 4 means t = false is implied
- * - returns -1 means unable to determine
- */
-int32_t categorize_term_in_unsat_core(context_t *ctx, term_t r) {
-  smt_core_t *core = ctx->core;
-  intern_tbl_t *tbl;
-  term_table_t *terms;
-  bvar_t x;
-  uint32_t i, n;
-  int32_t code;
-
-#if TRACE
-  printf("term: ");
-  print_term_id(stdout, r);
-#endif
-
-  tbl = &ctx->intern;
-  terms = tbl->terms;
-
-  if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
-    if (intern_tbl_root_is_mapped(tbl, r)) {
-      code = intern_tbl_map_of_root(tbl, r);
-      int32_t val = -2;
-      if (code_is_var(code)) {
-        x = code2bvar(code);
-
-#if TRACE
-        printf(", var: ");
-        print_bvar(stdout, x);
-#endif
-        literal_t l = pos_lit(x);
-        bval_t v = literal_value(core, l);
-
-        if (bval_is_def(v)) {
-          bool value = bval2bool(v);
-          antecedent_t a = core->full_antecedent[x];
-          bool isDecided = (a == mk_literal_antecedent(null_literal));
-
-//#if TRACE
-//          print_antecedents(stdout, core, l, a);
-//#endif
-
-          if (value == true)
-            val = isDecided ? 1 : 2;
-          else
-            val = isDecided ? 3 : 4;
-        }
-        else
-          val = 0;
-
-#if TRACE
-        switch(val) {
-        case  0:  printf(" unassigned\n");  break;
-        case  1:  printf(" decided true\n");  break;
-        case  2:  printf(" implied true\n");  break;
-        case  3:  printf(" decided false\n");  break;
-        case  4:  printf(" implied false\n");  break;
-        default:
-          assert(0);
-        }
-        fflush(stdout);
-#endif
-      } else {
-#if TRACE
-        printf(" invalid\n");
-        fflush(stdout);
-#endif
-        val = -1;
-      }
-      return val;
-    }
-  }
-#if TRACE
-  printf(" fail\n");
-  fflush(stdout);
-#endif
-  return -1;
-}
-
-bool trace_implication(context_t *ctx, term_t r) {
-  smt_core_t *core = ctx->core;
-  intern_tbl_t *tbl;
-  term_table_t *terms;
-  bvar_t x;
-  uint32_t i, m, n;
-  int32_t code;
-
-#if TRACE
-  printf("term: ");
-  print_term_id(stdout, r);
-#endif
-
-  tbl = &ctx->intern;
-  terms = tbl->terms;
-
-  if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
-    if (intern_tbl_root_is_mapped(tbl, r)) {
-      code = intern_tbl_map_of_root(tbl, r);
-      if (code_is_var(code)) {
-        x = code2bvar(code);
-
-#if TRACE
-        printf(", var: ");
-        print_bvar(stdout, x);
-#endif
-
-        literal_t l = pos_lit(x);
-        bool polarity = (literal_value(core, l) == VAL_FALSE);
-
-        int_hmap_t marks;
-        init_int_hmap(&marks, 0);
-
-        core->core_status = core_fail;
-        ivector_reset(&core->conflict_core);
-        ivector_reset(&core->conflict_root);
-        add_root_antecedants(core, l, polarity, &marks, false);
-
-        core->core_status = core_ready;
-        delete_int_hmap(&marks);
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-/*
- * Checks whether term t is in unsat root.
- * - returns 0 when t is not present in unsat core
- * - returns 1 when t is present in unsat core
- * - returns -1 when unable to determine
- */
-int32_t check_term_in_root(context_t *ctx, term_t r) {
-  smt_core_t *core = ctx->core;
-  ivector_t *conflict_root;
-  intern_tbl_t *tbl;
-  term_table_t *terms;
-  bvar_t x;
-  uint32_t i, n;
-  int32_t code;
-
-#if TRACE
-  printf("term: ");
-  print_term_id(stdout, r);
-#endif
-
-  if (core->core_status == core_ready) {
-    conflict_root = &core->conflict_core;
-    tbl = &ctx->intern;
-    terms = tbl->terms;
-
-    if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
-      if (intern_tbl_root_is_mapped(tbl, r)) {
-        code = intern_tbl_map_of_root(tbl, r);
-        if (code_is_var(code)) {
-          x = code2bvar(code);
-
-#if TRACE
-          printf(", var: ");
-          print_bvar(stdout, x);
-#endif
-
-          n = conflict_root->size;
-          for (i = 0; i < n; i++) {
-
-//          fputs("\nrhs: ", stdout);
-//          print_bvar(stdout, conflict_core->data[i]);
-
-            if (x == conflict_root->data[i])
+            if (x == conflict_roots->data[i])
             {
 #if TRACE
               printf(", matched\n");

@@ -197,7 +197,14 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 
   // Variable to the watch list manager
   assert(variable_db_has_variable(bp->ctx->var_db, term));
-  bcp_watch_manager_new_variable_notify(&bp->wlm, variable_db_get_variable(bp->ctx->var_db, term));
+  variable_t term_var = variable_db_get_variable(bp->ctx->var_db, term);
+  bcp_watch_manager_new_variable_notify(&bp->wlm, term_var);
+
+  // If constant true, then propagate it's true
+  if (term == true_term) {
+    prop->add_at_level(prop, term_var, &mcsat_value_true, bp->ctx->trail->decision_level_base);
+  }
+
 }
 
 static
@@ -623,7 +630,9 @@ void bool_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
             break;
           } else {
             // Literal is false, see if at level 0, to push to back
-            if (literal_get_level(clause->literals[k], trail) == trail->decision_level_base) {
+            // TODO: We can check == clause level, but it's not clear
+            // this optimization has any merit
+            if (literal_get_level(clause->literals[k], trail) == 0) {
               clause->size --;
               clause_swap_literals(clause, k, clause->size);
               -- k;
@@ -779,7 +788,6 @@ void bool_plugin_pop(plugin_t* plugin) {
     propagated_var = ivector_pop2(&bp->propagated);
     bool_plugin_set_reason_ref(bp, propagated_var, clause_ref_null);
   }
-
 }
 
 /**
@@ -803,6 +811,7 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
 void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  clause_db_t* db = &bp->clause_db;
 
   uint32_t i;
   variable_t var;
@@ -814,12 +823,12 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     gc_info_construct(&bp->gc_clauses, clause_ref_null, false);
 
     // Sort the lemmas based on scores
-    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) &bp->clause_db, bool_plugin_clause_compare_for_removal);
+    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
     // Mark all the variables in half of lemmas as used
     for (i = 0; i < bp->lemmas.size / 2; ++ i) {
       clause_ref = bp->lemmas.data[i];
-      assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
+      assert(clause_db_is_clause(db, clause_ref, true));
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
@@ -835,7 +844,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   cnf_gc_mark(&bp->cnf, &bp->gc_clauses, gc_vars);
 
   // Mark all variables through the clause database
-  clause_db_gc_mark(&bp->clause_db, &bp->gc_clauses, gc_vars);
+  clause_db_gc_mark(db, &bp->gc_clauses, gc_vars);
 }
 
 void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
@@ -895,6 +904,23 @@ void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
 }
 
 static
+void bool_plugin_remove_stale_clauses(bool_plugin_t* bp) {
+  uint32_t i, to_keep;
+  clause_ref_t clause_ref;
+  clause_db_t* db = &bp->clause_db;
+  uint32_t base_level = bp->ctx->trail->decision_level_base;
+  for (i = 0, to_keep = 0; i < bp->lemmas.size; ++ i) {
+    clause_ref = bp->lemmas.data[i];
+    assert(clause_db_is_clause(db, clause_ref, true));
+    // Keep the lemma if it's at the right level
+    if (clause_db_get_tag(db, clause_ref)->level <= base_level) {
+      bp->lemmas.data[to_keep++] = clause_ref;
+    }
+  }
+  ivector_shrink(&bp->lemmas, to_keep);
+}
+
+static
 void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
 
@@ -913,6 +939,11 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   case MCSAT_SOLVER_CONFLICT:
     // Decay the scores each conflict
     bool_plugin_decay_clause_scores(bp);
+    break;
+  case MCSAT_SOLVER_POP:
+    // Remove all learnt clauses above base level, regular clauses will be
+    // removed trhough garbage collection
+    bool_plugin_remove_stale_clauses(bp);
     break;
   default:
     assert(false);

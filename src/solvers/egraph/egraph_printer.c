@@ -763,43 +763,6 @@ void print_egraph_root_classes_details(FILE *f, egraph_t *egraph) {
 
 
 /*
- * Prints which all egraph classes can be merged
- */
-void print_egraph_mergeable_classes(FILE *f, egraph_t *egraph) {
-  uint32_t i, j, n;
-  int_hset_t roots;
-
-  init_int_hset(&roots, 0);
-  collect_root_classes(egraph, &roots);
-
-  n = roots.nelems;
-  for (i=0; i<n-1; i++) {
-	class_t c1 = roots.data[i];
-	if (!egraph_class_is_bool(egraph, c1)) {
-      occ_t t1 = egraph_class_root(egraph, c1);
-      for (j=i+1; j<n; j++) {
-        class_t c2 = roots.data[j];
-    	if (!egraph_class_is_bool(egraph, c2)) {
-	      occ_t t2 = egraph_class_root(egraph, c2);
-	      print_class_id(f, c1);
-	      if (classes_mergeable(f, egraph, t1, t2, c1, c2)) {
-		      fputs(" can be merged with ", f);
-	      }
-	      else {
-		      fputs(" cannot be merged with ", f);
-	      }
-	      print_class_id(f, c2);
-	      fputs("\n", f);
-    	}
-      }
-    }
-  }
-
-  delete_int_hset(&roots);
-}
-
-
-/*
  * All atoms
  */
 void print_egraph_atoms(FILE *f, egraph_t *egraph) {

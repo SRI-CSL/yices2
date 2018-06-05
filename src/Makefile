@@ -2,17 +2,17 @@
 #
 #  This file is part of the Yices SMT Solver.
 #  Copyright (C) 2017 SRI International.
-# 
+#
 #  Yices is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-# 
+#
 #  Yices is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-# 
+#
 #  You should have received a copy of the GNU General Public License
 #  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
 #
@@ -183,6 +183,7 @@ core_src_c := \
 	solvers/simplex/arith_atomtable.c \
 	solvers/simplex/arith_vartable.c \
 	solvers/simplex/diophantine_systems.c \
+	solvers/simplex/gomory_cuts.c \
 	solvers/simplex/integrality_constraints.c \
 	solvers/simplex/matrices.c \
 	solvers/simplex/offset_equalities.c \
@@ -207,6 +208,7 @@ core_src_c := \
 	terms/extended_rationals.c \
 	terms/free_var_collector.c \
 	terms/full_subst.c \
+	terms/int_rational_hash_maps.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
 	terms/poly_buffer.c \
@@ -344,6 +346,7 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
+	frontend/smt2/assumption_table.c \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
@@ -390,7 +393,7 @@ extra_src_c := \
 
 #
 # base: core + mcsat if MCSAT is enabled or core + fake mcsat
-# 
+#
 ifeq ($(ENABLE_MCSAT),yes)
 base_src_c := $(core_src_c) $(mcsat_src_c)
 else
@@ -905,7 +908,7 @@ $(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
 	   -o $@ $< $(libyices) $(LIBS)
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
-	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
 

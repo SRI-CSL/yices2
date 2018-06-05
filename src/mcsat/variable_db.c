@@ -16,6 +16,10 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * Anything that includes "yices.h" requires these macros.
+ * Otherwise the code doesn't build on Windows or Cygwin.
+ */
 #if defined(CYGWIN) || defined(MINGW)
 #ifndef __YICES_DLLSPEC__
 #define __YICES_DLLSPEC__ __declspec(dllexport)
@@ -121,12 +125,12 @@ void variable_db_remove_variable(variable_db_t* var_db, variable_t x) {
   assert(variable_db_get_variable_if_exists(var_db, t) == variable_null);
 }
 
-variable_t variable_db_get_variable_if_exists(variable_db_t* var_db, term_t term) {
+variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_t term) {
   int_hmap_pair_t* find;
 
   assert(is_pos_term(term));
 
-  find = int_hmap_find(&var_db->term_to_variable_map, term);
+  find = int_hmap_find((int_hmap_t*) &var_db->term_to_variable_map, term);
   if (find != NULL) {
     return find->val;
   } else {
@@ -156,6 +160,17 @@ void variable_db_print_variable(const variable_db_t* var_db, variable_t x, FILE*
   flush_pp(&printer.pp, false);
   delete_yices_pp(&printer, false);
 }
+
+void variable_db_print_variables(const variable_db_t* var_db, const variable_t* x, FILE* out) {
+  bool first = true;
+  while (*x != variable_null) {
+    if (first) { first = false; }
+    else { fprintf(out, " "); }
+    variable_db_print_variable(var_db, *x, out);
+    x ++;
+  }
+}
+
 
 void variable_db_print(const variable_db_t* var_db, FILE* out) {
   uint32_t i;

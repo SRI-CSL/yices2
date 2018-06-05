@@ -41,6 +41,9 @@ smt_status_t mcsat_status(const mcsat_solver_t *mcsat) {
 void mcsat_reset(mcsat_solver_t *mcsat) {
 }
 
+void mcsat_clear(mcsat_solver_t* mcsat) {
+}
+
 void mcsat_push(mcsat_solver_t *mcsat) {
 }
 

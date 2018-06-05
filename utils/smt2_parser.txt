@@ -60,6 +60,7 @@ enum smt2_token {
   // Commands
   SMT2_TK_ASSERT,
   SMT2_TK_CHECK_SAT,
+  SMT2_TK_CHECK_SAT_ASSUMING,
   SMT2_TK_DECLARE_SORT,
   SMT2_TK_DECLARE_CONST,
   SMT2_TK_DECLARE_FUN,
@@ -70,6 +71,7 @@ enum smt2_token {
   SMT2_TK_GET_ASSERTIONS,
   SMT2_TK_GET_ASSIGNMENT,
   SMT2_TK_GET_INFO,
+  SMT2_TK_GET_MODEL,
   SMT2_TK_GET_OPTION,
   SMT2_TK_GET_PROOF,
   SMT2_TK_GET_UNSAT_CORE,
@@ -79,11 +81,9 @@ enum smt2_token {
   SMT2_TK_SET_LOGIC,
   SMT2_TK_SET_INFO,
   SMT2_TK_SET_OPTION,
-
-  // Non-standard commands
-  SMT2_TK_GET_MODEL,
   SMT2_TK_ECHO,
   SMT2_TK_RESET,
+  SMT2_TK_RESET_ASSERTIONS,
 
   // Errors
   SMT2_TK_INVALID_STRING,
@@ -97,7 +97,7 @@ enum smt2_token {
 }
 
 
-Grammar (SMT-LIB 2.0, December 21 2010)
+Grammar (SMT-LIB 2.5, June 28 2015)
 ----------------------------------------
 
    <command> ::= 
@@ -109,10 +109,11 @@ Grammar (SMT-LIB 2.0, December 21 2010)
             | ( push <numeral> )
             | ( pop <numeral> )
             | ( check-sat )
+	    | ( check-sat-assuming ( <literal>* ) )
             | ( get-assertions )
+            | ( get-assignment )
             | ( get-proof )
             | ( get-unsat-core )
-            | ( get-assignment )
             | ( exit )
             | ( get-value ( <term>+ ) )
             | ( declare-sort <symbol> <numeral> )
@@ -122,23 +123,26 @@ Grammar (SMT-LIB 2.0, December 21 2010)
             | ( declare-fun <symbol> ( <sort>* ) <sort> )
             | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
             | ( assert <term> )
-            | ( get-model )
             | ( echo <string> )
             | ( reset )
+	    | ( reset-assertions )
             | EOS
 
 
    <option> ::=
-              :print-success <bool-value>
-            | :expand-definitions <bool-value>
+	      :diagnostic-output-channel <string>
+	    | :global-declarations <bool-value>
             | :interactive-mode <bool-value>
-            | :produce-proofs <bool-value>
-            | :produce-unsat-core <bool-value>
-            | :produce-models <bool-value>
+	    | :print-success <bool-value>
+	    | :produce-assertions <bool-value>
             | :produce-assignments <bool-value>
-            | :regular-output-channel <string>
-            | :diagnostic-output-channel <string>
+            | :produce-models <bool-value>
+            | :produce-proofs <bool-value>
+	    | :produce-unsat-assumptions <bool-value>
+            | :produce-unsat-core <bool-value>
             | :random-seed <numeral>
+            | :regular-output-channel <string>
+	    | :repoducible-resource-limit <numeral>
             | :verbosity <numeral>
             | <attribute>
 
@@ -173,13 +177,14 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 
 
    <info-flag> :=
-              :error-behavior
-            | :name
+              :all-statistics
+	    | :assertion-stack-levels
             | :authors
+            | :error-behavior
+            | :name
+            | :reason-unknown
             | :version
             | :status
-            | :reason-unknown
-            | :all-statistics
             | <keyword>
 
 
@@ -218,7 +223,11 @@ Grammar (SMT-LIB 2.0, December 21 2010)
            | :pattern ( <term>+ )
            | <attribute>            
 
-    
+   <literal> ::=
+             <symbol>
+	   | ( not <symbol> )
+
+
 The EOS part in <command> is non standard but it makes sense to allow it.
 
 
@@ -297,58 +306,70 @@ parse-command:
 c0           (                  c1
              EOS                DONE
 
-c1           check-sat          c2
-             get-assertions     c2
-             get-proof          c2
-             get-unsat-core     c2
-             get-assignment     c2
-             exit               c2
-             push               c3
-             pop                c3
-             get-option         c4
-             get-info           c4
-             set-logic          c5
-             set-option         c6
-             set-info           c6
-             assert             c7
+c1           assert             c7
+             check-sat          c2
+	     check-sat-assuming c16
              declare-sort       c8
-             define-sort        c9
 	     declare-const	c14
-	     define-cons        c15
              declare-fun        c10
+             define-sort        c9
+	     define-const       c15
              define-fun         c11
-             get-value          c12
-             get-model          c2
              echo               c13
+             exit               c2
+	     get-assertions     c2
+             get-assignment     c2
+             get-info           c4
+             get-model          c2
+             get-option         c4
+             get-proof          c2
+             get-unsat-assumptions   c2
+             get-unsat-core     c2
+             get-value          c12
+             pop                c3
+             push               c3
+             set-logic          c5
+             set-info           c6
+             set-option         c6
              reset              c2
+	     reset-assertions   c2
 
 c2           )                  DONE
 
+; push/pop
 c3           <numeral>          c2
 
+; get-info/get-option
 c4           <keyword>          c2
 
+; set-logic
 c5           <symbol>           c2
 
+; set-info/set-option
 c6           <keyword>          c6a
 c6a          )                  DONE
              [attribute-value]  c2
 
+; assert
 c7           [term]             c2
 
+; declare-sort
 c8           <symbol>           c3
 
+; define-sort
 c9           <symbol>           c9a
 c9a          (                  c9b
 c9b          )                  c9c
              <symbol>           c9b
 c9c          [sort]             c2
 
+; declare-fun
 c10          <symbol>           c10a
 c10a         (                  c10b
 c10b         )                  c9c
              [sort]             c10b
 
+; define-fun
 c11          <symbol>           c11a
 c11a         (                  c11b
 c11b         )                  c11c
@@ -358,16 +379,29 @@ c11d         <symbol>           c11e
 c11e         [sort]             c11f
 c11f         )                  c11b
 
+; get-value
 c12          (                  c12a
 c12a         [term]             c12b
 c12b         )                  c2
              [term]             c12b
 
-
+; echo
 c13          <string>           c2
 
+; declare-const
 c14	     <symbol>           c9c
 
+; define-const
+c15	     <symbol>           c11c
+
+; check-sat-assuming
+c16	     (                  c16a
+c16a         <symbol>           c16a
+             (                  c16b
+	     )                  c2
+c16b         not                c16c
+c16c         <symbol>           c16d
+c16d         )                  c16a
 
 
 parse attribute-value:
@@ -562,30 +596,33 @@ state        token              action
 c0           (                  next; goto c1
              EOS                return
 
-c1           check-sat          next; goto r0
-             get-assertions     next; goto r0
-             get-proof          next; goto r0
-             get-unsat-core     next; goto r0
-             get-assignment     next; goto r0
-             exit               next; goto r0
-             push               next; goto c3
-             pop                next; goto c3
-             get-option         next; goto c4
-             get-info           next; goto c4
-             set-logic          next; goto c5
-             set-option         next; goto c6
-             set-info           next; goto c6
-             assert             next; push r0; goto t0
+c1	     assert 		next; push r0; goto t0
+	     check-sat          next; goto r0
+	     check-sat-assuming next; goto c16
              declare-sort       next; goto c8
-             define-sort        next; goto c9
 	     declare-const      next; goto c14
-	     define-const       next; goto c15
              declare-fun        next; goto c10
+             define-sort        next; goto c9
+	     define-const       next; goto c15
              define-fun         next; goto c11
-             get-value          next; goto c12
-             get-model          next; goto r0
              echo               next; goto c13
+             exit               next; goto r0
+	     get-assertions     next; goto r0
+             get-assignment     next; goto r0
+             get-info           next; goto c4
+             get-model          next; goto r0
+             get-option         next; goto c4
+             get-proof          next; goto r0
+             get-unsat-assumptions     next; goto r0
+             get-unsat-core     next; goto r0
+             get-value          next; goto c12
+             pop                next; goto c3
+             push               next; goto c3
+             set-logic          next; goto c5
+             set-info           next; goto c6
+             set-option         next; goto c6
              reset              next; goto r0
+             reset-assertions   next; goto r0
 
 // after '(push' or '(pop' or '(declare-sort <symnbl>'
 c3           <numeral>          next; goto r0
@@ -637,6 +674,15 @@ c14          <symbol>           next; push r0; goto s0
 
 // after '(define-const'
 c15          <symbol>           next; push r0; push t0; goto s0
+
+// after '(check-sat-assuming'
+c16          (                  next; goto c16a
+c16a         <symbol>           next; goto c16a
+             (                  next; goto c16b
+	     )                  next; goto r0
+c16b         not		next; goto c16c
+c16c         <symbol>           next; goto c16d
+c61d         )                  next; goto c16a
 
 // attribute value
 a0           <numeral>          next; return

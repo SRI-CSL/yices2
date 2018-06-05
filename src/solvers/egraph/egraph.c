@@ -36,9 +36,7 @@
 #include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 #include "utils/ptr_partitions.h"
-#include "utils/cputime.h"
 
-#include "model/models.h"
 
 #define TRACE 0
 #define TRACE_FCHECK 0
@@ -914,39 +912,10 @@ static void init_egraph_stats(egraph_stats_t *s) {
 }
 
 /*
- * Initialize time stats
- */
-static void init_egraph_time_stats(egraph_detail_stats_t *s) {
-  s->propagate = 0;
-  s->internal_propagation = 0;
-  s->reactivate_dynamic_terms = 0;
-  s->process_equality = 0;
-  s->inconsistent_edge = 0;
-  s->invert_branch = 0;
-  s->remove_parents = 0;
-  s->assign_new_label = 0;
-  s->collect_eqterms = 0;
-  s->reprocess_parents = 0;
-  s->check_false_eq = 0;
-  s->atom_propagation = 0;
-  s->propagate_boolean_equality = 0;
-
-  s->nprocess_eq = 0;
-  s->nprocess_eq_redundant = 0;
-}
-
-/*
  * Reset: same thing
  */
 static inline void reset_egraph_stats(egraph_stats_t *s) {
   init_egraph_stats(s);
-}
-
-/*
- * Reset: same thing
- */
-static inline void reset_egraph_time_stats(egraph_detail_stats_t *s) {
-  init_egraph_time_stats(s);
 }
 
 
@@ -1094,12 +1063,12 @@ static bool equal_atom_lists(atom_t *atom1, atom_t *atom2) {
  * Aliases for swap_next_atoms
  */
 static inline void merge_atom_lists(atom_t *atom1, atom_t *atom2) {
-//  assert(disjoint_atom_lists(atom1, atom2));
+  assert(disjoint_atom_lists(atom1, atom2));
   swap_next_atoms(atom1, atom2);
 }
 
 static inline void split_atom_lists(atom_t *atom1, atom_t *atom2) {
-//  assert(equal_atom_lists(atom1, atom2));
+  assert(equal_atom_lists(atom1, atom2));
   swap_next_atoms(atom1, atom2);
 }
 
@@ -2334,7 +2303,6 @@ static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar
  * - this must be called after backtracking and before processing any equality
  */
 static void egraph_reactivate_dynamic_terms(egraph_t *egraph) {
-  TIME_START();
   pvector_t *v;
   composite_t *p;
   uint32_t i, n;
@@ -2347,7 +2315,6 @@ static void egraph_reactivate_dynamic_terms(egraph_t *egraph) {
     egraph_activate_composite(egraph, p);
   }
   pvector_reset(v);
-  TIME_END(egraph->tstats.reactivate_dynamic_terms);
 }
 
 
@@ -3737,7 +3704,6 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
  *   so different classes may be mapped to const_bvar.
  */
 static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, int32_t id) {
-  TIME_START();
   atom_t *atm1, *atm2, *atm;
   smt_core_t *core;
   literal_t l;
@@ -3772,7 +3738,6 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2, i
   }
 
   merge_atom_lists(atm1, atm2);
-  TIME_END(egraph->tstats.propagate_boolean_equality);
 }
 
 
@@ -4141,7 +4106,6 @@ static bool check_atom_propagation(egraph_t *egraph, occ_t t) {
  * Invert the edges on the branch from x to its root
  */
 static void invert_branch(egraph_t *egraph, occ_t x) {
-  TIME_START();
   eterm_t t;
   int32_t i, j;
   equeue_elem_t *eq;
@@ -4159,7 +4123,6 @@ static void invert_branch(egraph_t *egraph, occ_t x) {
     t = edge_next(eq + j, t);
     i = j;
   }
-  TIME_END(egraph->tstats.invert_branch);
 }
 
 /*
@@ -4184,7 +4147,6 @@ static void collect_eqterms(use_vector_t *u, pvector_t *v) {
  * check whether they have become false (after change in dmask).
  */
 static void check_false_eq(egraph_t *egraph, pvector_t *v) {
-  TIME_START();
   uint32_t i;
   composite_t *p;
   occ_t t1, t2;
@@ -4210,7 +4172,6 @@ static void check_false_eq(egraph_t *egraph, pvector_t *v) {
       undo_stack_push_composite(&egraph->undo, p);
     }
   }
-  TIME_END(egraph->tstats.check_false_eq);
 }
 
 /*
@@ -4234,9 +4195,6 @@ static bool eq_is_from_satellite(egraph_t *egraph, int32_t i) {
  *   in egraph->expl_vector.
  */
 static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
-  TIME_START();
-  egraph->tstats.nprocess_eq++;
-
   class_t c1, c2;
   int32_t aux;
   use_vector_t *v;
@@ -4264,12 +4222,10 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   // check whether (t1 == t2) is redundant
   if (egraph_equal_occ(egraph, t1, t2)) {
-    egraph->tstats.nprocess_eq_redundant++;
 #if TRACE
     printf("---> redundant\n");
     fflush(stdout);
 #endif
-    TIME_END(egraph->tstats.process_equality);
     return true;
   }
 
@@ -4286,7 +4242,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
       egraph->ack_right = t2;
     }
 
-    goto conflict;
+    return false;
   }
 
 #if TRACE
@@ -4297,8 +4253,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   printf("\n");
   fflush(stdout);
 #endif
-
-  egraph->tstats.nmerge++;
 
   /*
    * Merge class of t2 into class of t1
@@ -4315,9 +4269,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     aux = t1; t1 = t2; t2 = aux;
     aux = c1; c1 = c2; c2 = aux;
   }
-  egraph->tstats.nparents_c1 += egraph_class_nparents(egraph, c1);
-  egraph->tstats.nparents_c2 += egraph_class_nparents(egraph, c2);
-
 
   // save t2 and its current label for backtracking
   undo_stack_push_merge(&egraph->undo, t2, egraph_label(egraph, t2));
@@ -4331,8 +4282,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * remove c2's parents from the congruence table
    * since their signature will change.
    */
-  {
-  TIME_START2();
   v = egraph->classes.parents + c2;
   n = v->last;
   for (j=0; j<n; j++) {
@@ -4345,15 +4294,11 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
       assert(v->data[j] == p);
     }
   }
-  TIME_END2(egraph->tstats.remove_parents);
-  }
 
   /*
    * Assign new label to all terms in t2's class:
    * new label == current label of t1
    */
-  {
-  TIME_START2();
   l = egraph_label(egraph, t1);
   t = t2;
   do {
@@ -4361,8 +4306,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     t = egraph_next(egraph, t);
     assert(term_of_occ(t) != term_of_occ(t2) || t == t2);
   } while (t != t2);
-  TIME_END2(egraph->tstats.assign_new_label);
-  }
 
   // update dmask of c1
   dmask = egraph->classes.dmask[c1];
@@ -4378,14 +4321,9 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * terms in parents[c1] may have become false. Collect them
    * into egraph->cmp_vector.
    */
-  {
-  TIME_START2();
   if (egraph->classes.dmask[c1] != dmask) {
     collect_eqterms(egraph->classes.parents + c1, &egraph->cmp_vector);
   }
-  TIME_END2(egraph->tstats.collect_eqterms);
-  }
-
 
   /*
    * Reprocess all composites in v == all parents of c2
@@ -4395,8 +4333,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * - if p is no longer a congruence root, it's kept as a marked
    *   pointer in v.
    */
-  {
-  TIME_START2();
   for (j=0; j<n; j++) {
     p = v->data[j];
     if (valid_entry(p)) {
@@ -4410,8 +4346,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
         attach_composite(p, egraph->terms.label, egraph->classes.parents);
       }
     }
-  }
-  TIME_END2(egraph->tstats.reprocess_parents);
   }
 
 
@@ -4430,8 +4364,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   if (c1 == bool_constant_class) {
     // atoms to visit = terms that were in t2's class.
     // now they are in the list t1->next ... --> t2
-    {
-    TIME_START2();
     t = t1;
     do {
       t = egraph_next(egraph, t);
@@ -4449,12 +4381,9 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
         v2 = egraph->classes.thvar[c2];
         assert(v1 != null_thvar && v2 != null_thvar);
         fixup_atom_lists(egraph, v1, v2);
-        TIME_END2(egraph->tstats.atom_propagation);
-        goto conflict;
+        return false;
       }
     } while (t != t2);
-    TIME_END2(egraph->tstats.atom_propagation);
-    }
   }
 
   /*
@@ -4485,12 +4414,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     }
   }
 
-  TIME_END(egraph->tstats.process_equality);
   return true;
-
-  conflict:
-  TIME_END(egraph->tstats.process_equality);
-  return false;
 }
 
 
@@ -4522,16 +4446,14 @@ void egraph_start_internalization(egraph_t *egraph) {
  *****************/
 
 void egraph_start_search(egraph_t *egraph) {
-  reset_egraph_time_stats(&egraph->tstats);
-
   uint32_t i;
 
 #if TRACE
   fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
           egraph->decision_level, egraph->core->stats.decisions);
-//  fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
-//  print_egraph_terms(stdout, egraph);
-//  fprintf(stdout, "\n");
+  fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
+  print_egraph_terms(stdout, egraph);
+  fprintf(stdout, "\n");
 #endif
 
   assert(egraph->core != NULL && egraph->decision_level == egraph->base_level);
@@ -4550,9 +4472,9 @@ void egraph_start_search(egraph_t *egraph) {
   }
 
 #if TRACE
-//  printf("\n=== EGRAPH TERMS ===\n");
-//  print_egraph_terms(stdout, egraph);
-//  printf("\n");
+  printf("\n=== EGRAPH TERMS ===\n");
+  print_egraph_terms(stdout, egraph);
+  printf("\n");
 #endif
 
   egraph->presearch = false;
@@ -4636,10 +4558,6 @@ void egraph_push(egraph_t *egraph) {
   egraph->base_level ++;
   egraph_open_decision_level(egraph);
 
-#if TRACE
-  printf("\n*** EGRAPH PUSH ****\n");
-#endif
-
 #if 0
   printf("\n*** EGRAPH PUSH EXIT ****\n");
   print_egraph_root_classes_details(stdout, egraph);
@@ -4670,7 +4588,6 @@ void egraph_reset(egraph_t *egraph) {
   egraph->is_high_order = false;
 
   reset_egraph_stats(&egraph->stats);
-  reset_egraph_time_stats(&egraph->tstats);
   egraph->ack_left = null_occurrence;
   egraph->ack_right = null_occurrence;
 
@@ -5193,10 +5110,6 @@ void egraph_pop(egraph_t *egraph) {
     }
   }
 
-#if TRACE
-  printf("\n*** EGRAPH POP ****\n");
-#endif
-
 #if 0
   printf("\n*** EGRAPH POP: EXIT ****\n");
   print_egraph_root_classes_details(stdout, egraph);
@@ -5217,8 +5130,6 @@ void egraph_pop(egraph_t *egraph) {
  * If there's a conflict, it is stored (as a conjunction of literals) in egraph->expl_vector.
  */
 static bool egraph_internal_propagation(egraph_t *egraph) {
-  TIME_START();
-
   equeue_elem_t *e;
   uint32_t i;
 
@@ -5227,14 +5138,12 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
     egraph_reactivate_dynamic_terms(egraph);
   }
 
-  egraph_stack_t *stack = &egraph->stack;
-
   // process the equality queue
-  i = stack->prop_ptr;
-  while (i < stack->top) {
-    e = stack->eq + i;
+  i = egraph->stack.prop_ptr;
+  while (i < egraph->stack.top) {
+    e = egraph->stack.eq + i;
     if (! process_equality(egraph, e->lhs, e->rhs, i)) {
-#if TRACE
+#if 0
       printf("---> EGRAPH CONFLICT on ");
       print_occurrence(stdout, e->lhs);
       printf(" == ");
@@ -5244,15 +5153,13 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
       printf("\n");
       fflush(stdout);
 #endif
-      stack->prop_ptr = i;
-      TIME_END(egraph->tstats.internal_propagation);
+      egraph->stack.prop_ptr = i;
       return false;
     }
     i ++;
   }
-  stack->prop_ptr = i;
+  egraph->stack.prop_ptr = i;
 
-  TIME_END(egraph->tstats.internal_propagation);
   return true;
 }
 
@@ -5263,7 +5170,6 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
  * If the conflict is in the egraph, report it to the core.
  */
 bool egraph_propagate(egraph_t *egraph) {
-  TIME_START();
   uint32_t i, k;
   ivector_t *conflict;
 
@@ -5289,7 +5195,7 @@ bool egraph_propagate(egraph_t *egraph) {
 
       egraph->stats.th_conflicts ++;
 
-      goto conflict;
+      return false;
     }
 
 
@@ -5301,7 +5207,7 @@ bool egraph_propagate(egraph_t *egraph) {
     for (i=0; i<NUM_SATELLITES; i++) {
       if (egraph->ctrl[i] != NULL) {
         if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
-          goto conflict;
+          return false;
         }
       }
     }
@@ -5310,12 +5216,7 @@ bool egraph_propagate(egraph_t *egraph) {
   } while (egraph->stack.top > k);
 
 
-  TIME_END(egraph->tstats.propagate);
   return true;
-
-  conflict:
-  TIME_END(egraph->tstats.propagate);
-  return false;
 }
 
 
@@ -5671,42 +5572,6 @@ static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, 
   return true;
 }
 
-
-bool classes_mergeable(FILE *f, egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, class_t c2) {
-  uint32_t msk;
-  composite_t *cmp;
-  thvar_t x1, x2;
-
-  if (egraph_opposite_occ(egraph, t1, t2)) {
-	fprintf(f, " cannot due to 1");
-    return false;
-  }
-
-  assert(c1 != c2);
-
-  msk = egraph->classes.dmask[c1] & egraph->classes.dmask[c2];
-  if (msk != 0) {
-	fprintf(f, " cannot due to 2");
-    return false;
-  }
-
-  cmp = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
-  if (cmp != NULL && egraph_occ_is_false(egraph, pos_occ(cmp->id))) {
-	fprintf(f, " cannot due to 3");
-    return false;
-  }
-
-  x1 = egraph_class_thvar(egraph, c1);
-  x2 = egraph_class_thvar(egraph, c2);
-
-  if (x1 != null_thvar && x2 != null_thvar &&
-      diseq_in_model(egraph, egraph_class_type(egraph, c1), x1, x2)) {
-	fprintf(f, " cannot due to 4");
-    return false;
-  }
-
-  return true;
-}
 
 /*
  * Propagate equality v1 == v2 during reconciliation
@@ -6208,8 +6073,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   printf("---> EGRAPH: final check (experimental)\n\n");
   print_egraph_terms(stdout, egraph);
   printf("\n\n");
-  print_egraph_root_classes(stdout, egraph);
-//  print_egraph_root_classes_details(stdout, egraph);
+  print_egraph_root_classes_details(stdout, egraph);
   fflush(stdout);
 #endif
 
@@ -6845,7 +6709,6 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   egraph->is_high_order = false;
 
   init_egraph_stats(&egraph->stats);
-  init_egraph_time_stats(&egraph->tstats);
 
   egraph->options = EGRAPH_DEFAULT_OPTIONS;
   egraph->max_ackermann = DEFAULT_MAX_ACKERMANN;
@@ -7611,41 +7474,6 @@ static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, com
   // they should all be defined
   for (i=0; i<n; i++) {
     aux[i] = egraph_get_value(egraph, vtbl, composite_child(p, i+1));
-  }
-
-  // value of f
-  v = egraph_get_value(egraph, vtbl, pos_occ(p->id));
-
-  // build the mapping object [aux[0] ... aux[n-1] -> v]
-  v = vtbl_mk_map(vtbl, n, aux, v);
-
-  free_istack_array(&egraph->istack, aux);
-
-  return v;
-}
-
-
-/*
- * Convert composite p to a mapping object
- * - we construct the mapping object (v[0] ... v[n-1] |-> r)
- *   where v[i] = value of a[i]
- *            r = value of class of p
- */
-static value_t egraph_any_composite_value(egraph_t *egraph, value_table_t *vtbl, composite_t *p) {
-  value_t *aux;
-  value_t v;
-  uint32_t i, n;
-
-//  assert(composite_kind(p) == COMPOSITE_APPLY);
-  n = composite_arity(p);
-  assert(n >= 2);
-
-  aux = alloc_istack_array(&egraph->istack, n);
-
-  // values of a[0] ... a[n-1]
-  // they should all be defined
-  for (i=0; i<n; i++) {
-    aux[i] = egraph_get_value(egraph, vtbl, composite_child(p, i));
   }
 
   // value of f

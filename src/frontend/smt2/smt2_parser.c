@@ -65,6 +65,17 @@ static smt2_action_t get_action(state_t s, smt2_token_t tk) {
 
 
 /*
+ * Special case: check whether the token is equal to "not"
+ * The lexer returns a code of SMT2_TK_SYMBOL in this case.
+ * - tk = character string
+ * - len = number of characters in the token
+ */
+static bool token_is_not(const char *tk, uint32_t len) {
+  return smt2_string_to_symbol(tk, len) == SMT2_SYM_NOT;
+}
+
+
+/*
  * Main parsing procedure
  * - start = initial state
  * return -1 on error, 0 otherwise
@@ -133,6 +144,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = r0;
       goto loop;
 
+    case check_sat_assuming_next_goto_c16:
+      tstack_push_op(tstack, SMT2_CHECK_SAT_ASSUMING, &loc);
+      state = c16;
+      goto loop;
+
     case get_assertions_next_goto_r0:
       tstack_push_op(tstack, SMT2_GET_ASSERTIONS, &loc);
       state = r0;
@@ -140,6 +156,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case get_proof_next_goto_r0:
       tstack_push_op(tstack, SMT2_GET_PROOF, &loc);
+      state = r0;
+      goto loop;
+
+    case get_unsat_assumptions_next_goto_r0:
+      tstack_push_op(tstack, SMT2_GET_UNSAT_ASSUMPTIONS, &loc);
       state = r0;
       goto loop;
 
@@ -221,7 +242,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case define_const_next_goto_c15:
       tstack_push_op(tstack, SMT2_DEFINE_FUN, &loc);
-      state = c11;
+      state = c15;
       goto loop;
 
     case define_fun_next_goto_c11:
@@ -253,8 +274,13 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = c13;
       goto loop;
 
+    case reset_assertions_next_goto_r0:
+      tstack_push_op(tstack, SMT2_RESET_ASSERTIONS, &loc);
+      state = r0;
+      goto loop;
+
     case reset_next_goto_r0:
-      tstack_push_op(tstack, SMT2_RESET, &loc);
+      tstack_push_op(tstack, SMT2_RESET_ALL, &loc);
       state = r0;
       goto loop;
 
@@ -378,6 +404,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = t0;
       goto loop;
 
+    case next_goto_r0:
+      state = r0;
+      goto loop;
+
+    case push_c12b_goto_t0:
+      parser_push_state(stack, c12b);
+      state = t0;
+      goto skip_token;
+
     case string_next_goto_r0:
       // string argument to echo
       tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
@@ -399,14 +434,34 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = s0;
       goto loop;
 
-    case next_goto_r0:
-      state = r0;
+    case next_goto_c16a:
+      state = c16a;
       goto loop;
 
-    case push_c12b_goto_t0:
-      parser_push_state(stack, c12b);
-      state = t0;
-      goto skip_token;
+    case symbol_next_goto_c16a:
+      // <symbol> in a positive literal list in check-sat-assuming
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      state = c16a;
+      goto loop;
+
+    case next_goto_c16b:
+      state = c16b;
+      goto loop;
+
+    case not_next_goto_c16c:
+      if (! token_is_not(tkval(lex), tklen(lex))) {
+	// syntax error.
+	smt2_syntax_error(lex, -3); // NOT expected
+	goto cleanup;
+      }
+      state = c16c;
+      goto loop;
+
+    case symbol_next_goto_c16d:
+      // <symbol> is a negated literal in check-sat-assuming
+      tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      state = c16d;
+      goto loop;
 
     case numeral_next_return:
       tstack_push_rational(tstack, tkval(lex), &loc);
@@ -830,7 +885,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto cleanup;
 
     case error_command_expected:
-      smt2_syntax_error(lex, -2);
+      smt2_syntax_error(lex, SMT2_COMMAND_EXPECTED);
+      goto cleanup;
+
+    case error_literal_expected:
+      smt2_syntax_error(lex, SMT2_LITERAL_EXPECTED);
+      goto cleanup;
+
+    case error_not_expected:
+      smt2_syntax_error(lex, SMT2_NOT_EXPECTED);
       goto cleanup;
 
     case error:

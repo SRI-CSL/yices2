@@ -301,6 +301,17 @@ extern void add_aux_atom(context_t *ctx, term_t atom);
  */
 
 /*
+ * Map to compute a bound on the length path:
+ * - allocate and initialize the table if needed
+ */
+extern int_rat_hmap_t *context_get_edge_map(context_t *ctx);
+
+/*
+ * Delete the map
+ */
+extern void context_free_edge_map(context_t *ctx);
+
+/*
  * Difference-logic profile:
  * - allocate and initialize the structure if it does not exist
  */
@@ -324,6 +335,11 @@ extern void context_free_dl_profile(context_t *ctx);
 extern bool term_is_true(context_t *ctx, term_t t);
 extern bool term_is_false(context_t *ctx, term_t t);
 
+/*
+ * Check whether (or a[0] ...  a[n-1]) is true by checking whether
+ * one of the a[i] is internalized to a true term
+ */
+extern bool disjunct_is_true(context_t *ctx, term_t *a, uint32_t n);
 
 /*
  * Check whether t is not internalized and of the form (ite c a b) 
@@ -655,6 +671,9 @@ static inline bool context_supports_cleaninterrupt(context_t *ctx) {
   return (ctx->options & CLEANINT_OPTION_MASK) != 0;
 }
 
+static inline bool context_supports_unsatcore(context_t *ctx) {
+  return ctx->core->unsat_core_enabled;
+}
 
 /*
  * Read the mode flag

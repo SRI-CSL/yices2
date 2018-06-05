@@ -1,0 +1,7 @@
+sat
+(= x 0)
+unsat
+sat
+(= x 0)
+sat
+

@@ -57,7 +57,7 @@ extern void print_lemmas(FILE *f, smt_core_t *core);
  */
 extern void print_boolean_assignment(FILE *f, smt_core_t *core);
 extern void print_conflict(FILE *f, smt_core_t *core);
-extern void print_conflict_core(FILE *f, smt_core_t *core);
+extern void print_conflict_roots(FILE *f, smt_core_t *core);
 extern void print_smt_core(FILE *f, smt_core_t *core);
 
 

@@ -31,6 +31,7 @@
 #ifndef MINGW
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
@@ -40,14 +41,6 @@ double get_cpu_time(void) {
   return ru_buffer.ru_utime.tv_sec + ru_buffer.ru_stime.tv_sec
     + (ru_buffer.ru_utime.tv_usec + ru_buffer.ru_stime.tv_usec) * 1e-6;
 }
-
-//void get_user_time(struct timeval *start) {
-//  static struct rusage ru_buffer;
-//  getrusage(RUSAGE_SELF, &ru_buffer);
-//  start->tv_sec = ru_buffer.ru_utime.tv_sec;
-//  start->tv_usec = ru_buffer.ru_utime.tv_usec;
-//}
-//
 
 #else
 

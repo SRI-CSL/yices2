@@ -19,24 +19,12 @@
 #ifndef __CPUTIME_H
 #define __CPUTIME_H
 
-#include <sys/time.h>
-
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <unistd.h>
-
-#ifdef NDEBUG
-  #define TIME  0
-#else
-  #define TIME  1
-#endif
 
 /*
  * get_cpu_time() returns CPU time (user + system time) used
  * by the process since its start. Unit = seconds.
  */
 extern double get_cpu_time(void);
-
 
 
 /*
@@ -50,53 +38,5 @@ static inline double time_diff(double t1, double t2) {
   d = t1 - t2;
   return d < 0.00001 ? 0.0 : d;
 }
-
-static inline long long time_user_diff(struct timeval *end, struct timeval *start) {
-  long long msec;
-  msec = (end->tv_sec - start->tv_sec)*1000000;
-  msec += (end->tv_usec - start->tv_usec);
-  return (msec < 0 ? 0 : msec);
-}
-
-#if TIME
-
-//extern void get_user_time(struct timeval *start);
-static void get_user_time(struct timeval *start) {
-  struct rusage ru_buffer;
-  getrusage(RUSAGE_SELF, &ru_buffer);
-  start->tv_sec = ru_buffer.ru_utime.tv_sec;
-  start->tv_usec = ru_buffer.ru_utime.tv_usec;
-}
-
-  #define TIME_START()    \
-    struct timeval start; \
-    get_user_time(&start);
-
-  #define TIME_END(store) {                \
-    struct timeval end;                    \
-    get_user_time(&end);                   \
-    store += time_user_diff(&end, &start); \
-  }
-
-  #define TIME_START2()    \
-    struct timeval start2; \
-    get_user_time(&start2);
-
-  #define TIME_END2(store) {                 \
-    struct timeval end2;                     \
-    get_user_time(&end2);                    \
-    store += time_user_diff(&end2, &start2); \
-  }
-
-#else
-
-#define TIME_START()        //
-#define TIME_END(store)     //
-#define TIME_START2()       //
-#define TIME_END2(store)    //
-
-#endif
-
-
 
 #endif /* __CPUTIME_H */

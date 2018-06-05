@@ -808,22 +808,6 @@ typedef struct dpll_stats_s {
   uint64_t subsumed_literals;
 } dpll_stats_t;
 
-typedef struct dpll_detail_stats_s {
-  // Time stats (in us)
-  long long boolean_propagation;
-  long long theory_propagation;
-  long long resolve_conflict;
-  long long smt_restart;
-  long long select_unassigned_literal;
-  long long decide_literal;
-  long long add_all_lemmas;
-  long long delete_irrelevant_variables;
-  long long simplify_clause_database;
-  long long reduce_clause_database;
-
-  uint32_t nassert_atom;                // number of atoms asserted
-
-} dpll_detail_stats_t;
 
 
 /*********************
@@ -1003,8 +987,7 @@ typedef struct smt_core_s {
   uint32_t th_conflict_size;  // number of literals in theory conflicts
 
   /* Unsat core data */
-  bool unsat_core_enabled;      // true means unsat core enabled (also means no simplification of theory clauses)
-  ivector_t conflict_core;    // complete trace of reason for unsatisfiability, traced till root literals
+  bool unsat_core_enabled;    // true means unsat core enabled (also means no simplification of theory clauses)
   ivector_t conflict_root;    // reason for unsatisfiability, collected root literals
   int32_t core_status;        // status of conflict_core
 
@@ -1045,9 +1028,6 @@ typedef struct smt_core_s {
 
   /* Statistics */
   dpll_stats_t stats;
-
-  /* Time Statistics */
-  dpll_detail_stats_t tstats;
 
   /* Atom table */
   atom_table_t atoms;
@@ -1258,6 +1238,13 @@ static inline void disable_theory_cache(smt_core_t *s) {
  */
 static inline void enable_unsat_core(smt_core_t *s) {
   s->unsat_core_enabled = true;
+}
+
+/*
+ * Deactivate unsat core data and initialize core
+ */
+static inline void disable_unsat_core(smt_core_t *s) {
+  s->unsat_core_enabled = false;
 }
 
 
@@ -1967,5 +1954,6 @@ extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
 extern void derive_conflict_core(smt_core_t *s);
 
 extern void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks, bool isTop);
+
 
 #endif /* __SMT_CORE_H */

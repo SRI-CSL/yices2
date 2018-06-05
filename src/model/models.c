@@ -61,9 +61,9 @@ void init_model(model_t *model, term_table_t *terms, bool keep_subst) {
   model->alias_map = NULL;
   model->terms = terms;
   model->has_alias = keep_subst;
-  model->atoms = NULL;
-  init_arena(&model->arena);
+
 }
+
 
 /*
  * Delete model: free all memory
@@ -76,12 +76,6 @@ void delete_model(model_t *model) {
     safe_free(model->alias_map);
     model->alias_map = NULL;
   }
-
-  if (model->atoms != NULL) {
-    safe_free(model->atoms);
-    model->atoms = NULL;
-  }
-  delete_arena(&model->arena);
 }
 
 

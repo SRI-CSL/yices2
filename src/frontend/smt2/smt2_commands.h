@@ -52,6 +52,7 @@
 #include "parser_utils/term_stack2.h"
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
+#include "frontend/smt2/assumption_table.h"
 #include "frontend/smt2/smt2_expressions.h"
 #include "frontend/common.h"
 
@@ -134,6 +135,7 @@ enum smt2_opcodes {
   SMT2_GET_ASSERTIONS,                  // [get-assertions]
   SMT2_GET_ASSIGNMENT,                  // [get-assignment]
   SMT2_GET_PROOF,                       // [get-proof]
+  SMT2_GET_UNSAT_ASSUMPTIONS,           // [get-unsat-assumptions]
   SMT2_GET_UNSAT_CORE,                  // [get-unsat-core]
   SMT2_GET_VALUE,                       // [get-value <term> ... <term> ]
   SMT2_GET_OPTION,                      // [get-option <keyword> ]
@@ -145,14 +147,16 @@ enum smt2_opcodes {
   SMT2_POP,                             // [pop <numeral> ]
   SMT2_ASSERT,                          // [assert <term> ]
   SMT2_CHECK_SAT,                       // [check-sat ]
+  SMT2_CHECK_SAT_ASSUMING,              // [check-sat-assuming <literals>* ]
   SMT2_DECLARE_SORT,                    // [declare-sort <symbol> <numeral> ]
   SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
   SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
   SMT2_DEFINE_FUN,                      // [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
-  // non-standard commands
   SMT2_GET_MODEL,                       // [get-model]
   SMT2_ECHO,                            // [echo <string>]
-  SMT2_RESET,                           // [reset]
+  SMT2_RESET_ASSERTIONS,                // [reset-assertions]
+  SMT2_RESET_ALL,                       // [reset]
+
   // attributes
   SMT2_MAKE_ATTR_LIST,                  // [make-attr-list <value> .... <value> ]
   SMT2_ADD_ATTRIBUTES,                  // [add-attribute <term> <keyword> <value> ... <keyword> <value>] (<value> may be omitted)
@@ -274,6 +278,22 @@ typedef struct smt2_stack_s {
 
 
 /*
+ * Data structures to deal with assumptions:
+ * - table: store assumptions + names
+ * - assumptions: vector of assumed terms
+ * - core: unsat core
+ * - status: as returned by check_assuming
+ */
+typedef struct smt2_assumptions_s {
+  assumption_table_t table;
+  ivector_t assumptions;
+  ivector_t core;
+  smt_status_t status;
+} smt2_assumptions_t;
+
+
+
+/*
  * Statistics: keep track of the number of commands
  * executed so far.
  */
@@ -285,10 +305,13 @@ typedef struct smt2_cmd_stats_s {
   uint32_t num_define_fun;
   uint32_t num_assert;
   uint32_t num_check_sat;
+  uint32_t num_check_sat_assuming;
   uint32_t num_push;
   uint32_t num_pop;
   uint32_t num_get_value;
   uint32_t num_get_assignment;
+  uint32_t num_get_unsat_core;
+  uint32_t num_get_unsat_assumptions;
 } smt2_cmd_stats_t;
 
 
@@ -372,15 +395,16 @@ typedef struct smt2_globals_s {
   tracer_t *tracer;
 
   // options
-  bool print_success;         // default = true
-  bool expand_definitions;    // default = false (not supported)
-  bool interactive_mode;      // default = false (not supported)
-  bool produce_proofs;        // default = false (not supported)
-  bool produce_unsat_cores;   // default = false (not supported)
-  bool produce_models;        // default = false
-  bool produce_assignments;   // default = false
-  uint32_t random_seed;       // default = 0
-  uint32_t verbosity;         // default = 0
+  bool print_success;             // default = true
+  bool expand_definitions;        // default = false (not supported)
+  bool interactive_mode;          // default = false (not supported)
+  bool produce_proofs;            // default = false (not supported)
+  bool produce_unsat_cores;       // default = false
+  bool produce_unsat_assumptions; // default = false
+  bool produce_models;            // default = false
+  bool produce_assignments;       // default = false
+  uint32_t random_seed;           // default = 0
+  uint32_t verbosity;             // default = 0
 
   // yices options
   ctx_param_t ctx_parameters;  // preprocessing options
@@ -406,6 +430,11 @@ typedef struct smt2_globals_s {
   // stacks for named booleans and named assertions
   named_term_stack_t named_bools;
   named_term_stack_t named_asserts;
+
+  // data structures for unsat cores/unsat assumptions
+  // allocated on demand
+  smt2_assumptions_t *unsat_core;
+  smt2_assumptions_t *unsat_assumptions;
 
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;
@@ -539,6 +568,13 @@ extern void smt2_get_unsat_core(void);
 
 
 /*
+ * Get the unsat assumptions: subset of all assumptions in check-sat-assuming
+ * TO BE DONE
+ */
+extern void smt2_get_unsat_assumptions(void);
+
+
+/*
  * Get the values of terms in the model
  * - the terms are listed in array a
  * - n = number of elements in the array
@@ -605,9 +641,10 @@ extern void smt2_pop(uint32_t n);
 
 /*
  * Assert a formula t
- * - if t is a :named assertion then it should be recorded for unsat-core
+ * - if special is true, then t is a named assertion
+ *   if should be treated specially if support for unsat cores is enabled.
  */
-extern void smt2_assert(term_t t);
+extern void smt2_assert(term_t t, bool special);
 
 
 /*
@@ -615,6 +652,14 @@ extern void smt2_assert(term_t t);
  */
 extern void smt2_check_sat(void);
 
+/*
+ * Check satisfiability with assumptions:
+ * - n = number of assumptions
+ * - a = array of assumptions
+ * Each assumption is represented as a signed symbol,
+ * i.e., a pair symbol name/polarity.
+ */
+extern void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a);
 
 /*
  * Declare a new sort:
@@ -663,11 +708,6 @@ extern void smt2_declare_fun(const char *name, uint32_t n, type_t *tau);
 extern void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau);
 
 
-
-/*
- * NON-STANDARD COMMANDS
- */
-
 /*
  * Display the model
  */
@@ -679,10 +719,14 @@ extern void smt2_get_model(void);
 extern void smt2_echo(const char *string);
 
 /*
- * Full reset: remove all assertions and declarations
+ * Reset assertions: remove all assertions and declarations
  */
-extern void smt2_reset(void);
+extern void smt2_reset_assertions(void);
 
+/*
+ * Full reset: delete everything
+ */
+extern void smt2_reset_all(void);
 
 
 
@@ -715,7 +759,7 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
 /*
  * Syntax error
  * - lex = lexer
- * - expected_token = either an smt2_token or -1 or -2
+ * - expected_token = either an smt2_token or -1 or a special code <= -2
  *
  * lex is as follows:
  * - current_token(lex) = token that caused the error
@@ -725,7 +769,15 @@ extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
  * - lex->reader.name  = name of the input file (NULL means input is stdin)
  *
  * expected token = -2, means 'command expected'
+ * expected token = -3, means 'not expected'
+ * expected token = -4, means 'literal expected'
  */
+enum {
+  SMT2_COMMAND_EXPECTED = -2,
+  SMT2_NOT_EXPECTED = -3,
+  SMT2_LITERAL_EXPECTED = -4,
+};
+
 extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
 
 

@@ -15,13 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+/*
+ * Anything that includes "yices.h" requires these macros.
+ * Otherwise the code doesn't build on Windows or Cygwin.
+ */
 #if defined(CYGWIN) || defined(MINGW)
 #ifndef __YICES_DLLSPEC__
 #define __YICES_DLLSPEC__ __declspec(dllexport)
 #endif
 #endif
-
+ 
 #include <poly/polynomial.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_db.h>
@@ -256,11 +260,17 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
   assert(!is_neg_term(t));
 
+  term_kind_t t_kind = term_kind(terms, t);
+
+  // Only process power terms if they are real ones
+  if (t_kind == POWER_PRODUCT && !is_arithmetic_term(terms, t)) {
+    return;
+  }
+
   // The variable
   variable_t t_var = variable_db_get_variable(nra->ctx->var_db, t);
 
   // Check for div and mod
-  term_kind_t t_kind = term_kind(terms, t);
   if (t_kind == ARITH_MOD) {
     // Just make sure that the div is registered
     composite_term_t* mod = arith_mod_term_desc(terms, t);
@@ -439,7 +449,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
       mcsat_value_t mcsat_value;
       mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
-      prop->add(prop, t_var, &mcsat_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
       mcsat_value_destruct(&mcsat_value);
       lp_value_destruct(&lp_value);
       lp_rational_destruct(&rat_value);
@@ -519,7 +529,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           lp_feasibility_set_pick_value(feasible, &x_value);
           mcsat_value_t value;
           mcsat_value_construct_lp_value(&value, &x_value);
-          prop->add(prop, x, &value);
+          prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
           mcsat_value_destruct(&value);
           lp_value_destruct(&x_value);
         }
@@ -643,7 +653,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
         nra_plugin_set_unit_info(nra, constraint_var, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         // Evaluate the constraint and propagate (if not assigned already)
         if (trail_is_consistent(trail) && !trail_has_value(trail, constraint_var)) {
-          uint32_t constraint_level = 0;
+          uint32_t constraint_level = trail->decision_level_base;
           const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
           const mcsat_value_t* constraint_value = poly_constraint_evaluate(constraint, var_list, nra, &constraint_level);
           // Propagate
@@ -1387,12 +1397,17 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   // The feasibility sets keep everything, we just gc the constraints,
-  // the watchlists and the unit information. The lp_data mappings stays the
-  // same as we never erase real variables)
-
+  // the watchlists and the unit information. 
+  
   // The constraint database
   poly_constraint_db_gc_sweep(nra->constraint_db, gc_vars);
 
+  // The lp_data mappings:
+  // - lpdata.lp_to_mcsat_var_map (values)
+  // - lpdata.mcsat_to_lp_var_map (keys)
+  gc_info_sweep_int_hmap_values(gc_vars, &nra->lp_data.lp_to_mcsat_var_map);
+  gc_info_sweep_int_hmap_keys(gc_vars, &nra->lp_data.mcsat_to_lp_var_map);
+  
   // Unit information (constraint_unit_info, constraint_unit_var)
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_info);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_var);
@@ -1415,6 +1430,9 @@ void nra_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
     break;
   case MCSAT_SOLVER_CONFLICT:
     // Decay the scores each conflict
+    break;
+  case MCSAT_SOLVER_POP:
+    // Not much to do
     break;
   default:
     assert(false);
@@ -1487,8 +1505,6 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
         lp_feasibility_set_print(constraint_feasible, ctx_trace_out(nra->ctx));
         ctx_trace_printf(nra->ctx, "\n");
       }
-
-
 
       lp_feasibility_set_add(lemma_feasible, constraint_feasible);
       lp_feasibility_set_delete(constraint_feasible);
