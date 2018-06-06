@@ -26,7 +26,6 @@
 
 typedef struct nra_plugin_s nra_plugin_t;
 
-
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct feasible_set_db_struct feasible_set_db_t;
 

@@ -112,6 +112,29 @@ void gc_info_sweep_ivector(const gc_info_t* gc, ivector_t* objs) {
   ivector_shrink(objs, to_keep);
 }
 
+void gc_info_sweep_ptr_hmap_keys(const gc_info_t* gc, ptr_hmap_t* objs, ptr_hmap_ptr_delete ptr_delete) {
+  // New map
+  ptr_hmap_t new_objs;
+  init_ptr_hmap(&new_objs, 0);
+
+  // Relocate
+  ptr_hmap_pair_t* it = ptr_hmap_first_record(objs);
+  for (; it != NULL; it = ptr_hmap_next_record(objs, it)) {
+    int32_t old_key = it->key;
+    int32_t new_key = gc_info_get_reloc(gc, old_key);
+    if (new_key != gc->null_value) {
+      ptr_hmap_pair_t* new_item = ptr_hmap_get(&new_objs, new_key);
+      new_item->val = it->val;
+    } else {
+      (*ptr_delete)(it->val);
+    }
+  }
+
+  // Destroy and swap in
+  delete_ptr_hmap(objs);
+  *objs = new_objs;
+}
+
 void gc_info_sweep_int_hmap_keys(const gc_info_t* gc, int_hmap_t* objs) {
   // New map
   int_hmap_t new_objs;
