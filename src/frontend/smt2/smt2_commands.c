@@ -715,16 +715,6 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 }
 
 
-// PLACEHOLDER: put some assumptions in core
-static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, int32_t a[], ivector_t *core) {
-  uint32_t i;
-
-  for (i=0; i<n; i+=2) {
-    ivector_push(core, a[i]);
-  }
-  return STATUS_UNSAT;
-}
-
 /*
  * INTERNAL STATISTICS
  */
@@ -2567,7 +2557,7 @@ static smt_status_t check_context_with_assumptions(smt2_globals_t *g, const para
   // TODO: yices_check_assumptions doesn't deal with interrupt
   if (true || g->timeout == 0) {
     // no timeout
-    stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+    stat = yices_check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;
     return stat;
   }
@@ -5424,7 +5414,7 @@ void smt2_assert(term_t t, bool special) {
 	  if (!special || !g->produce_unsat_cores) {
 	    add_delayed_assertion(g, t);
 	  } else {
-	    printf("--> skipping named assertion");
+	    trace_printf(g->tracer, 20, "(skipping named assertion)\n");
 	  }
 	  report_success();
 	}
@@ -5432,7 +5422,7 @@ void smt2_assert(term_t t, bool special) {
 	if (!special || !g->produce_unsat_cores) {
 	  add_assertion(g, t);
 	} else {
-	  printf("--> skipping named assertion");
+	  trace_printf(g->tracer, 20, "(skipping named assertion)\n");
 	}
       }
     } else {

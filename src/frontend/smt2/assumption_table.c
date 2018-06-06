@@ -176,7 +176,6 @@ void collect_assumptions(assumption_table_t *table, ivector_t *v) {
  * - returns NULL if there's no such assumption
  */
 assumption_t *assumption_table_get(const assumption_table_t *table, term_t t) {
-  int32_t *index;
   uint32_t l, h, k;
   int32_t i;
   term_t u;
@@ -186,7 +185,6 @@ assumption_t *assumption_table_get(const assumption_table_t *table, term_t t) {
   assert(table->index != NULL && table->index_size > 0);
   
   // binary search in index
-  index = table->index;
   l = 0;
   h = table->index_size;
   for (;;) {

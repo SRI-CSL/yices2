@@ -4063,6 +4063,53 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  */
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
+/*
+ * Enables the unsat core.
+ */
+__YICES_DLLSPEC__ extern void yices_enable_unsat_core(context_t *ctx);
+
+/*
+ * Disables the unsat core.
+ */
+__YICES_DLLSPEC__ extern void yices_disable_unsat_core(context_t *ctx);
+
+/*
+ * Same as yices_check_context, but with assumptions (for unsat core extraction).
+ * - ctx must support push/pop
+ * - t must be an array of n formulas t[0 ... n-1], each formula is a boolean term
+ * - v: term_vector to return the resulting unsat core if any (assumed to be already initialized). Empty if unsat core unavailable.
+ *
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[], term_vector_t *v);
+
+/*
+ * Computes the unsat core.
+ * - return 0 for successful derivation
+ * - return -1 in case of an error
+ *
+ * Error codes:
+ * If context status is not STATUS_UNSAT:
+ *   code = CTX_INVALID_OPERATION
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_derive_unsat_core(context_t *ctx);
+
+/*
+ * Checks whether a boolean term is in unsat core or not: returned as an integer val
+ * - val = 0 means t is not present
+ * - val = 1 means t is present
+ * - val = -1 means unable to determine
+ *
+ * Error codes:
+ * If t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * If the check fails for other reasons:
+ *   code = INTERNAL_EXCEPTION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_term_in_unsat_core(context_t *ctx, term_t t, int32_t *val);
+
 
 #ifdef __cplusplus
 } /* close extern "C" { */

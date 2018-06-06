@@ -671,6 +671,9 @@ static inline bool context_supports_cleaninterrupt(context_t *ctx) {
   return (ctx->options & CLEANINT_OPTION_MASK) != 0;
 }
 
+static inline bool context_supports_unsatcore(context_t *ctx) {
+  return ctx->core->unsat_core_enabled;
+}
 
 /*
  * Read the mode flag

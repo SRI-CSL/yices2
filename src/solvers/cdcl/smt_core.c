@@ -1523,6 +1523,11 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->conflict = NULL;
   s->false_clause = NULL;
 
+  // unsat core data: disabled initially
+  s->unsat_core_enabled = false;
+  s->core_status = core_init;
+  init_ivector(&s->conflict_root, DEF_LBUFFER_SIZE);
+
   // auxiliary buffers
   init_ivector(&s->buffer, DEF_LBUFFER_SIZE);
   init_ivector(&s->buffer2, DEF_LBUFFER_SIZE);
@@ -1531,6 +1536,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   // clause database: all empty
   s->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   s->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
+  s->buffer_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   init_ivector(&s->binary_clauses, 0);
 
 
@@ -1543,6 +1549,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
    */
   s->value = (uint8_t *) safe_malloc((n + 1) * sizeof(uint8_t)) + 1;
   s->antecedent = (antecedent_t *) safe_malloc(n * sizeof(antecedent_t));
+  s->full_antecedent = (antecedent_t *) safe_malloc(n * sizeof(antecedent_t));
   s->level = (uint32_t *) safe_malloc((n + 1) * sizeof(uint32_t)) + 1;
   s->mark = allocate_bitvector(n);
   s->level[-1] = UINT32_MAX;
@@ -1606,6 +1613,7 @@ void delete_smt_core(smt_core_t *s) {
   delete_ivector(&s->buffer);
   delete_ivector(&s->buffer2);
   delete_ivector(&s->explanation);
+  delete_ivector(&s->conflict_root);
 
   // Delete all the clauses
   cl = s->problem_clauses;
@@ -1622,11 +1630,19 @@ void delete_smt_core(smt_core_t *s) {
   }
   delete_clause_vector(cl);
 
+  cl = s->buffer_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_clause(cl[i]);
+  }
+  delete_clause_vector(cl);
+
   delete_ivector(&s->binary_clauses);
 
   // var-indexed arrays
   safe_free(s->value - 1);
   safe_free(s->antecedent);
+  safe_free(s->full_antecedent);
   safe_free(s->level - 1);
   delete_bitvector(s->mark);
 
@@ -1673,6 +1689,13 @@ void reset_smt_core(smt_core_t *s) {
   n = get_cv_size(cl);
   for (i=0; i<n; i++) {
     delete_learned_clause(cl[i]);
+  }
+  reset_clause_vector(cl);
+
+  cl = s->buffer_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_clause(cl[i]);
   }
   reset_clause_vector(cl);
 
@@ -1746,6 +1769,7 @@ static void extend_smt_core(smt_core_t *s, uint32_t n) {
 
   s->value = (uint8_t *) safe_realloc(s->value - 1, (n + 1) * sizeof(uint8_t)) + 1;
   s->antecedent = (antecedent_t *) safe_realloc(s->antecedent, n * sizeof(antecedent_t));
+  s->full_antecedent = (antecedent_t *) safe_realloc(s->full_antecedent, n * sizeof(antecedent_t));
   s->level = (uint32_t *) safe_realloc(s->level - 1, (n + 1) * sizeof(uint32_t)) + 1;
   s->mark = extend_bitvector(s->mark, n);
 
@@ -1822,6 +1846,7 @@ static void init_variable(smt_core_t *s, bvar_t x) {
   clr_bit(s->mark, x);
   s->value[x] = VAL_UNDEF_FALSE;
   s->antecedent[x] = mk_literal_antecedent(null_literal);
+  s->full_antecedent[x] = s->antecedent[x];
   s->level[x] = UINT32_MAX;
 
   // HACK for testing initial order
@@ -1993,6 +2018,7 @@ static void assign_literal(smt_core_t *s, literal_t l) {
   s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->base_level;
   s->antecedent[v] = mk_literal_antecedent(null_literal);
+  s->full_antecedent[v] = s->antecedent[v];
   set_bit(s->mark, v); // assigned at (or below) base_level
 
   assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
@@ -2026,6 +2052,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = k;
   s->antecedent[v] = mk_literal_antecedent(null_literal);
+  s->full_antecedent[v] = s->antecedent[v];
 
   assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 
@@ -2066,6 +2093,7 @@ static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->decision_level;
   s->antecedent[v] = a;
+  s->full_antecedent[v] = s->antecedent[v];
   if (s->decision_level == s->base_level) {
     set_bit(s->mark, v);
     s->nb_unit_clauses ++;
@@ -2097,6 +2125,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->decision_level;
   s->antecedent[v] = mk_generic_antecedent(expl);
+  s->full_antecedent[v] = s->antecedent[v];
   if (s->decision_level == s->base_level) {
     set_bit(s->mark, v);
     s->nb_unit_clauses ++;
@@ -2844,6 +2873,195 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
 
 
 /*
+ * Add an array of literals a as a new learned clause, after conflict resolution,
+ * and update the full_antecedent for unsat core tracking.
+ * - m must be at least 1
+ * - all literals must be assigned to false
+ * - b[0] must be the implied literal: all other literals must have
+ *   a lower assignment level than b[0].
+ */
+static antecedent_t add_full_antecedent(smt_core_t *s, uint32_t m, literal_t *b) {
+  literal_t l0, l1;
+  bvar_t v;
+  antecedent_t a;
+
+  l0 = b[0];
+  v = var_of(l0);
+
+  if (m == 1) {
+    a = mk_literal_antecedent(null_literal);
+    s->nb_unit_clauses ++;
+  }
+  else if (m == 2) {
+    l1 = b[1];
+    direct_binary_clause(s, l0, l1);
+    a = mk_literal_antecedent(l1);
+  }
+  else {
+    l1 = b[1];
+
+    // create the new clause with l0 and l1 as watched literals
+    clause_t *cl;
+
+    cl = new_learned_clause(m, b);
+    add_clause_to_vector(&s->learned_clauses, cl);
+    increase_clause_activity(s, cl);
+
+    // add cl at the start of watch[l0] and watch[l1]
+    s->watch[l0] = cons(0, cl, s->watch[l0]);
+    s->watch[l1] = cons(1, cl, s->watch[l1]);
+
+    s->nb_clauses ++;
+    s->stats.learned_literals += m;
+
+//    cl = new_clause(m, b);
+//    add_clause_to_vector(&s->buffer_clauses, cl);
+
+    a = mk_clause0_antecedent(cl);
+  }
+  s->full_antecedent[v] = a;
+  s->antecedent[v] = a;
+
+//  {
+//    FILE *conflictFile = fopen("conflict.txt", "a");
+//
+//    ivector_t tmp;
+//    init_ivector(&tmp, m);
+//    ivector_copy(&tmp, b, m);
+//
+//    int32_t i, j;
+//    literal_t aux;
+//    for (i = 2; i < m; i++) {
+//      for (j = (i + 1); j < m; j++) {
+//        if (b[i] > b[j]) {
+//          aux = b[j]; b[j] = b[i]; b[i] = aux;
+//        }
+//      }
+//    }
+//    for (i = 0; i < m; i++) {
+//      print_literal(conflictFile, b[i]);
+//      fputc(' ', conflictFile);
+//    }
+//    fputc('\n', conflictFile);
+//    fclose(conflictFile);
+//    delete_ivector(&tmp);
+//  }
+
+#if TRACE
+  printf("---> DPLL:   Updating antecedent ");
+  print_literal(stdout, l0);
+  print_antecedents(stdout, s, l0, a);
+  printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
+#endif
+
+  return a;
+}
+
+
+/*
+ * Same as add_learned_clause, but with no addition of clauses.
+ * A learned clause should be added after calling this function using add_full_antecedent.
+ * - n (m) must be at least 1
+ * - all literals must be assigned to false
+ * - a[0] (b[0]) must be the implied literal: all other literals must have
+ *   a lower assignment level than a[0] (b[0]).
+ * - backtrack to the decision_level where a[0] is implied, then
+ *   add a[0] to the propagation queue
+ */
+static void add_learned_clause_core(smt_core_t *s, uint32_t n, literal_t *a) {
+  clause_t *cl;
+  uint32_t i, j, k, q;
+  literal_t l0, l1;
+
+#if TRACE
+  printf("---> DPLL:   Learned clause: {");
+  for (i=0; i<n; i++) {
+    printf(" ");
+    print_literal(stdout, a[i]);
+  }
+  printf(" }\n\n");
+  fflush(stdout);
+#endif
+
+  l0 = a[0];
+
+  if (n == 1) {
+
+    backtrack_to_base_level(s);
+    if (literal_value(s, l0) == VAL_FALSE) {
+      // conflict (the whole thing is unsat)
+      s->inconsistent = true;
+      s->conflict = s->conflict_buffer;
+      s->conflict_buffer[0] = l0;
+      s->conflict_buffer[1] = end_clause;
+    } else {
+#if TRACE
+      printf("---> DPLL:   Add learned unit clause: { ");
+      print_literal(stdout, l0);
+      printf(" }\n");
+      fflush(stdout);
+#endif
+      assign_literal(s, l0);
+      s->nb_unit_clauses ++;
+    }
+
+  } else if (n == 2) {
+
+    l1 = a[1];
+    k = s->level[var_of(l1)];
+    assert(k < s->level[var_of(l0)]);
+
+//    direct_binary_clause(s, l0, l1);
+    backtrack_to_level(s, k);
+    implied_literal(s, l0, mk_literal_antecedent(l1));
+
+  } else {
+
+    // EXPERIMENTAL
+    //    if (s->etable != NULL) {
+    //      test_eq_clause(s, "after simplification", n, a);
+    //    }
+
+    // find literal of second highest level in a[0 ... n-1]
+    j = 1;
+    k = s->level[var_of(a[1])];
+    for (i=2; i<n; i++) {
+      q = s->level[var_of(a[i])];
+      if (q > k) {
+        k = q;
+        j = i;
+      }
+    }
+
+    // swap a[1] and a[j]
+    l1 = a[j]; a[j] = a[1]; a[1] = l1;
+
+    // create the new clause with l0 and l1 as watched literals
+    cl = new_clause(n, a);
+    add_clause_to_vector(&s->buffer_clauses, cl);
+
+//    cl = new_learned_clause(n, a);
+//    add_clause_to_vector(&s->learned_clauses, cl);
+//    increase_clause_activity(s, cl);
+//
+//    // add cl at the start of watch[l0] and watch[l1]
+//    s->watch[l0] = cons(0, cl, s->watch[l0]);
+//    s->watch[l1] = cons(1, cl, s->watch[l1]);
+//
+//    s->nb_clauses ++;
+//    s->stats.learned_literals += n;
+
+    // backtrack and assert l0
+    assert(k < s->level[var_of(l0)]);
+    backtrack_to_level(s, k);
+
+    implied_literal(s, l0, mk_clause0_antecedent(cl));
+  }
+}
+
+
+/*
  * Add an array of literals a as a new learned clause, after conflict resolution.
  * - n must be at least 1
  * - all literals must be assigned to false
@@ -3050,10 +3268,11 @@ static void try_cache_theory_conflict(smt_core_t *s, uint32_t n, literal_t *a) {
   assert(v->size == 0);
 
   // remove literals false at the base level
+  // don't do the below simplification when tracking unsat cores
   for (i=0; i<n; i++) {
     l = a[i];
     assert(literal_value(s, l) == VAL_FALSE && d_level(s, l) <= s->decision_level);
-    if (d_level(s, l) > s->base_level) {
+    if (s->unsat_core_enabled || d_level(s, l) > s->base_level) {
       ivector_push(v, l);
     }
   }
@@ -3092,10 +3311,11 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
 
   // turn the implication into a clause
   // ignore literals assigned at the base level
+  // don't do the below simplification when tracking unsat cores
   for (i=0; i<n; i++) {
     l = a[i];
     assert(literal_value(s, l) == VAL_TRUE && d_level(s, l) <= s->decision_level);
-    if (d_level(s, l) > s->base_level) {
+    if (s->unsat_core_enabled || d_level(s, l) > s->base_level) {
       ivector_push(v, not(l));
     }
   }
@@ -3134,6 +3354,24 @@ static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
 #endif
 }
 
+/*
+ * Turn a generic antecedent into a conjunction of literals:
+ * - store the literals in s->explanation
+ *
+ * IMPORTANT: the theory solver must ensure causality. All literals in s->explanation
+ * must be before l in the assignment/propagation stack.
+ */
+static void explain_full_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
+  assert(literal_value(s, l) == VAL_TRUE && a == s->full_antecedent[var_of(l)] &&
+         antecedent_tag(a) == generic_tag);
+
+  ivector_reset(&s->explanation);
+  s->th_smt.expand_explanation(s->th_solver, l, generic_antecedent(a), &s->explanation);
+
+#if DEBUG
+  check_theory_explanation(s, l);
+#endif
+}
 
 /*
  * Auxiliary function to accelerate clause simplification (cf. Minisat).
@@ -3411,6 +3649,383 @@ do {                                          \
   }                                           \
 } while(0)
 
+#define process_full_literal(l)               \
+do {                                          \
+  x = var_of(l);                              \
+  if (l != null_literal && !int_hmap_find(&marks, x)) {   \
+    assert(l >= 0);                           \
+    int_hmap_add(&marks, x, x);               \
+    if (s->level[x] <= s->base_level) {       \
+      ivector_push(&buffer2, l);              \
+    }                                         \
+    else if (s->level[x] > s->base_level) {   \
+      ivector_push(&queue, l);                \
+    }                                         \
+  }                                           \
+} while(0)
+
+void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks, bool isTop) {
+  bvar_t x;
+  antecedent_t a;
+  uint32_t i, j;
+  literal_t l1;
+  clause_t *cl;
+  ivector_t *explanation;
+  ivector_t buffer;
+
+
+  if (polarity)
+    l = not(l);
+
+  x = var_of(l);
+
+  if (l != null_literal && !int_hmap_find(marks, x)) {
+    assert(l >= 0);
+    int_hmap_add(marks, x, x);
+  } else {
+    return;
+  }
+
+
+#if TRACE
+  print_literal(stdout, l);
+  fputs(" <- ", stdout);
+  print_bvar(stdout, x);
+  fputs("\t: ", stdout);
+  print_bval(stdout, literal_value(s, pos_lit(x)));
+  fprintf(stdout, " level = %"PRIu32"\t", s->level[x]);
+  fputc('\t', stdout);
+#endif
+
+  a = s->full_antecedent[x];
+
+  if (a == mk_literal_antecedent(null_literal)) {
+    ivector_push(&s->conflict_root, x);
+
+#if TRACE
+    fputs(" stop\n", stdout);
+#endif
+    return;
+  }
+
+  if (isTop) {
+    ivector_push(&s->conflict_root, x);
+  }
+
+#if TRACE
+  print_antecedents(stdout, s, l, a);
+  fputc('\n', stdout);
+#endif
+
+  switch (antecedent_tag(a)) {
+  case clause0_tag:
+    j = 0;
+    i = 0;
+    cl = clause_antecedent(a);
+    l1 = cl->cl[i];
+    while (l1 >= 0) {
+      if (i == j)
+        assert(l1 == l);
+      else
+        add_root_antecedants(s, l1, true, marks, false);
+      i ++;
+      l1 = cl->cl[i];
+    }
+    break;
+
+  case clause1_tag:
+    j = 1;
+    i = 0;
+    cl = clause_antecedent(a);
+    l1 = cl->cl[i];
+    while (l1 >= 0) {
+      if (i == j)
+        assert(l1 == l);
+      else
+        add_root_antecedants(s, l1, true, marks, false);
+      i ++;
+      l1 = cl->cl[i];
+    }
+    break;
+
+  case literal_tag:
+    l1 = literal_antecedent(a);
+    add_root_antecedants(s, l1, true, marks, false);
+    break;
+
+  case generic_tag:
+    explain_full_antecedent(s, l, a);
+    // (and c[0] ... c[n-1]) implies (not l)
+
+    explanation = &s->explanation;
+    init_ivector(&buffer, explanation->capacity);
+    ivector_swap(&buffer, explanation);
+
+    for (i=0; i < buffer.size; i++) {
+        l1 = buffer.data[i];
+        add_root_antecedants(s, l1, false, marks, false);
+    }
+
+    delete_ivector(&buffer);
+    break;
+  }
+}
+
+/*
+ * Traces backwards from conflict (using antecedants), and record root antecedants
+ *
+ * result:
+ * - s->conflict_core is the collection of root antecedants
+ */
+void derive_conflict_core(smt_core_t *s) {
+  literal_t l;
+  uint32_t i;
+
+  assert(s->unsat_core_enabled);
+  assert(s->inconsistent);
+  assert(s->theory_conflict || get_conflict_level(s, s->conflict) == s->base_level);
+
+  s->core_status = core_fail;
+  ivector_reset(&s->conflict_root);
+
+#if TRACE
+  printf("---> Deriving Core for: ");
+  print_conflict(stdout, s);
+#endif
+
+  i = 0;
+  l = s->conflict[i];
+  if (l < 0) {
+    // empty conflict
+#if TRACE
+    printf("---> Failed to derive conflict core\n");
+    fflush(stdout);
+#endif
+    assert(0);
+  } else {
+    int_hmap_t marks;
+    init_int_hmap(&marks, 0);
+
+    while (l >= 0) {
+      // Got literal l
+#if TRACE
+      fputs("head\t", stdout);
+#endif
+//      ivector_push(&s->conflict_core, var_of(l));
+      add_root_antecedants(s, l, true, &marks, true);
+#if TRACE
+      ivector_remove_duplicates(&s->conflict_root);
+      print_conflict_core(stdout, s);
+      fflush(stdout);
+#endif
+      i ++;
+      l = s->conflict[i];
+    }
+    delete_int_hmap(&marks);
+  }
+  s->core_status = core_ready;
+
+#if TRACE
+  print_conflict_core(stdout, s);
+  fflush(stdout);
+#endif
+
+}
+
+static void resolve_conflict_core(smt_core_t *s, uint32_t conflict_level) {
+  uint32_t i, j, k, q;
+  literal_t l, b;
+  bvar_t x;
+  literal_t *c;
+  antecedent_t a;
+  clause_t *cl;
+  ivector_t *buffer;
+
+  c = s->conflict;
+  buffer = &s->buffer;
+
+  ivector_t queue, buffer2;
+  init_ivector(&queue, buffer->capacity);
+  init_ivector(&buffer2, buffer->capacity);
+
+  int_hmap_t marks;
+  init_int_hmap(&marks, 0);
+
+  /*
+   * scan the conflict clause
+   * - all literals of dl < conflict_level are added to buffer
+   * - all literals are marked
+   * - unresolved = number of literals in the conflict
+   *   clause whose decision level is equal to conflict_level
+   */
+
+  l = *c;
+  while (l >= 0) {
+    process_full_literal(l);
+    c ++;
+    l = *c;
+  }
+
+  /*
+   * Scan the assignment stack from top to bottom and process the
+   * antecedent of all marked literals:
+   * - all the literals processed have decision_level == conflict_level
+   */
+
+#if TRACE
+  printf("conflict level: %d\n", conflict_level);
+  printf("base level: %d\n", s->base_level);
+  fflush(stdout);
+#endif
+
+  while (queue.size > 0) {
+    b = ivector_last(&queue);
+    ivector_pop(&queue);
+//    if (b == null_literal)
+//      continue;
+
+    b = not(b);
+
+#if TRACE
+    fputs(" processing ", stdout);
+    print_literal(stdout, b);
+    fputs("\t: ", stdout);
+#endif
+    assert(literal_value(s, b) == VAL_TRUE);
+    assert(d_level(s, b) <= conflict_level);
+    assert(d_level(s, b) > s->base_level);
+
+#if TRACE
+    a = s->antecedent[var_of(b)];
+    fputs(" anc ", stdout);
+    print_antecedents(stdout, s, b, a);
+#endif
+
+    a = s->full_antecedent[var_of(b)];
+#if TRACE
+    fputs(" full_a ", stdout);
+    print_antecedents(stdout, s, b, a);
+#endif
+
+    switch (antecedent_tag(a)) {
+    case clause0_tag:
+    case clause1_tag:
+      cl = clause_antecedent(a);
+      i = clause_index(a);
+      c = cl->cl;
+      assert(c[i] == b);
+      // process other watched literal
+      l = c[i^1];
+      process_full_literal(l);
+      // rest of the clause
+      c += 2;
+      l = *c;
+      while (l >= 0) {
+        process_full_literal(l);
+        c ++;
+        l = *c;
+      }
+      break;
+
+    case literal_tag:
+      l = literal_antecedent(a);
+      process_full_literal(l);
+      break;
+
+    case generic_tag:
+      explain_full_antecedent(s, b, a);
+      c = s->explanation.data;
+      // explanation is c[0] ... c[n-1] where ((and c[0] ... c[n-1]) implies b)
+      for (i=0; i<s->explanation.size; i++) {
+        l = not(c[i]);
+        assert(d_level(s, l) <= conflict_level);
+        process_full_literal(l);
+      }
+      break;
+    }
+
+#if TRACE
+    fputs("\n", stdout);
+#endif
+  }
+
+  delete_ivector(&queue);
+  delete_int_hmap(&marks);
+
+#if 0
+  printf("loop exited\n");
+  fflush(stdout);
+#endif
+
+
+//  ivector_remove_duplicates(&buffer2);
+
+  ivector_t buffer_full;
+  uint32_t m, n;
+  literal_t *base;
+  literal_t *buf;
+
+  m = buffer2.size;
+  n = buffer->size;
+  base = buffer2.data;
+  buf = buffer->data;
+
+  init_ivector(&buffer_full, buffer->capacity);
+  ivector_copy(&buffer_full, buf, n);
+
+  for (i=0; i<m; i++) {
+    for (j=0; j<n; j++) {
+      if (buf[j] == base[i])
+        break;
+    }
+    if (j == n)
+      ivector_push(&buffer_full, base[i]);
+  }
+
+  delete_ivector(&buffer2);
+
+  m = buffer_full.size;
+  base = buffer_full.data;
+
+  // find literal of second highest level in b[0 ... n-1]
+  j = 1;
+  k = s->level[var_of(base[1])];
+  for (i=2; i<m; i++) {
+    q = s->level[var_of(base[i])];
+    if (q > k) {
+      k = q;
+      j = i;
+    }
+  }
+
+  // swap base[1] and base[j]
+  l = base[j]; base[j] = base[1]; base[1] = l;
+
+
+#if TRACE
+  printf("---> DPLL:   Buffer2: {");
+  for (i=0; i<m; i++) {
+    printf(" ");
+    print_literal(stdout, base[i]);
+    printf(" d%d", s->level[var_of(base[i])]);
+  }
+  printf(" }\n");
+  fflush(stdout);
+#endif
+
+  /*
+   * Add the learned clause: this causes backtracking
+   * and assert the implied literal
+   */
+  add_learned_clause_core(s, s->buffer.size, s->buffer.data);
+
+  /*
+   * Add the full antecedent
+   */
+  add_full_antecedent(s, m, base);
+
+  delete_ivector(&buffer_full);
+}
 
 static void resolve_conflict(smt_core_t *s) {
   uint32_t i, j, conflict_level, unresolved;
@@ -3583,11 +4198,17 @@ static void resolve_conflict(smt_core_t *s) {
   s->inconsistent = false;
   s->theory_conflict = false;
 
-  /*
-   * Add the learned clause: this causes backtracking
-   * and assert the implied literal
-   */
-  add_learned_clause(s, s->buffer.size, s->buffer.data);
+
+  if (s->unsat_core_enabled) {
+    resolve_conflict_core(s, conflict_level);
+  }
+  else {
+    /*
+     * Add the learned clause: this causes backtracking
+     * and assert the implied literal
+     */
+    add_learned_clause(s, s->buffer.size, s->buffer.data);
+  }
 }
 
 
