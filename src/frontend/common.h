@@ -135,6 +135,9 @@ typedef enum yices_param {
   // mcsat options
   PARAM_MCSAT_NRA_MGCD,
   PARAM_MCSAT_NRA_NLSAT,
+  PARAM_MCSAT_NRA_BOUND,
+  PARAM_MCSAT_NRA_BOUND_MIN,
+  PARAM_MCSAT_NRA_BOUND_MAX,
   // error
   PARAM_UNKNOWN
 } yices_param_t;

@@ -4,6 +4,8 @@
 (declare-fun y () Real)
 
 ;; SAT
+(assert (> x 0))
+(assert (> y 0))
 (assert (= (* x x) 2))
 (check-sat)
 (get-model)

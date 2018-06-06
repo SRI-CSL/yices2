@@ -21,6 +21,7 @@
 
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
+#include "utils/ptr_hash_map.h"
 
 
 /** Structure containing all he garbage collection data */
@@ -95,6 +96,12 @@ void gc_info_sweep_ivector(const gc_info_t* gc, ivector_t* objs);
 
 /** Collect the keys in the given map */
 void gc_info_sweep_int_hmap_keys(const gc_info_t* gc, int_hmap_t* objs);
+
+/** Deallocator for pointers */
+typedef void (*ptr_hmap_ptr_delete)(void* ptr);
+
+/** Collect the keys in the given map */
+void gc_info_sweep_ptr_hmap_keys(const gc_info_t* gc, ptr_hmap_t* objs, ptr_hmap_ptr_delete ptr_delete);
 
 /** Collect the values in the given map */
 void gc_info_sweep_int_hmap_values(const gc_info_t* gc, int_hmap_t* objs);

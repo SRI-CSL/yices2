@@ -61,6 +61,9 @@ typedef struct {
   /** Map from variable lists to constraints */
   int_hmap_t list_to_constraint_map;
 
+  /** Map from variable constraints to variable lists */
+  int_hmap_t constraint_to_list_map;
+
   /** The variable database */
   variable_db_t* var_db;
 
@@ -87,13 +90,22 @@ variable_list_ref_t watch_list_manager_new_list(watch_list_manager_t* wlm, const
 /** Returns the constraint associated with the variable list. */
 variable_t watch_list_manager_get_constraint(watch_list_manager_t* wlm, variable_list_ref_t var_list);
 
-/** Get the actuall list */
+/** Check if the constraint is managed by this manager */
+bool watch_list_manager_has_constraint(watch_list_manager_t* wlm, variable_t constraint);
+
+/** Returns the variable list associated with the constraint. */
+variable_list_ref_t watch_list_manager_get_list_of(watch_list_manager_t* wlm, variable_t constraint);
+
+/** Get the actual list */
 variable_t* watch_list_manager_get_list(watch_list_manager_t* wlm, variable_list_ref_t var_list);
 
 /**
  * Add the given variable list to the watch-list of the given watcher variable.
  */
 void watch_list_manager_add_to_watch(watch_list_manager_t* wlm, variable_list_ref_t var_list, variable_t watcher);
+
+/** Mark the variables in the lists */
+void watch_list_manager_gc_mark(watch_list_manager_t* wlm, gc_info_t* gc_vars);
 
 /** Sweep the variables in the lists */
 void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_t* gc_vars);
