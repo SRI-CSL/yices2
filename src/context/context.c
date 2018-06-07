@@ -5896,6 +5896,28 @@ int32_t context_internalize(context_t *ctx, term_t t) {
 
 
 /*
+ * Build an assumption for Boolean term t:
+ * - this converts t to a literal l in context ctx
+ *   then create an indicator variable x in the core
+ *   and add the clause (x => l) in the core.
+ * - return a negative code if t can't be internalized
+ * - return the literal x otherwise (where x>=0).
+ */
+int32_t context_add_assumption(context_t *ctx, term_t t) {
+  int32_t l, x;
+
+  l = context_internalize(ctx, t);
+  if (l < 0) return l; // error code
+
+  x = pos_lit(create_boolean_variable(ctx->core));
+  add_binary_clause(ctx->core, not(x), l); // clause (x implies l)
+
+  return x;
+}
+
+
+
+/*
  * PROVISIONAL: FOR TESTING/DEBUGGING
  */
 

@@ -1506,6 +1506,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
 
   s->decision_level = 0;
   s->base_level = 0;
+  s->assumption_level = 0;
 
   // heuristic parameters
   s->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
@@ -1705,6 +1706,7 @@ void reset_smt_core(smt_core_t *s) {
   s->simplify_threshold = 0;
   s->decision_level = 0;
   s->base_level = 0;
+  s->assumption_level = 0;
 
   // heuristic parameters: it makes a difference to reset cla_inc
   s->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
@@ -2000,17 +2002,16 @@ static void assign_literal(smt_core_t *s, literal_t l) {
 
 
 /*
- * Decide literal: increase decision level then
- * assign literal l to true and push it on the stack
+ * Add l to true as a decision or assumption literal:
+ * - assign literal l to true and push it on the stack
+ * - l must not be assigned
  */
-void decide_literal(smt_core_t *s, literal_t l) {
+static void decide_literal_core(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
   assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
   assert(literal_is_unassigned(s, l));
-
-  s->stats.decisions ++;
 
   // Increase decision level
   k = s->decision_level + 1;
@@ -2031,9 +2032,37 @@ void decide_literal(smt_core_t *s, literal_t l) {
 
   // Notify the theory solver
   s->th_ctrl.increase_decision_level(s->th_solver);
+}
+
+/*
+ * Decide literal: increase decision level then
+ * assign literal l to true and push it on the stack
+ */
+void decide_literal(smt_core_t *s, literal_t l) {
+  decide_literal_core(s, l);
+  s->stats.decisions ++;
 
 #if TRACE
   printf("\n---> DPLL:   Decision: literal ");
+  print_literal(stdout, l);
+  printf(", decision level = %"PRIu32"\n", s->decision_level);
+  fflush(stdout);
+#endif
+}
+
+
+/*
+ * Assume literal l: increase decision and assumption level
+ * then assign l to true and push it on the propagation stack.
+ */
+void assume_literal(smt_core_t *s, literal_t l) {
+  assert(s->base_level <= s->assumption_level &&
+	 s->decision_level == s->assumption_level);
+  decide_literal_core(s, l);
+  s->assumption_level ++;
+
+#if TRACE
+  printf("\n---> DPLL:   Assumed literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
   fflush(stdout);
@@ -3423,6 +3452,7 @@ static void resolve_conflict(smt_core_t *s) {
 
   assert(s->inconsistent);
   assert(s->theory_conflict || get_conflict_level(s, s->conflict) == s->decision_level);
+  assert(s->base_level <= s->assumption_level && s->assumption_level <= s->decision_level);
 
   s->stats.conflicts ++;
 
@@ -3445,7 +3475,7 @@ static void resolve_conflict(smt_core_t *s) {
     }
   }
 
-  if (conflict_level == s->base_level) {
+  if (conflict_level <= s->assumption_level) {
     // can't be resolved: unsat problem
     return;
   }
@@ -5563,6 +5593,7 @@ void start_search(smt_core_t *s) {
   }
 
   s->status = STATUS_SEARCHING;
+  s->assumption_level = s->base_level;
   s->inconsistent = false;
   s->theory_conflict = false;
   s->conflict = NULL;

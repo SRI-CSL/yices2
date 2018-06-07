@@ -312,7 +312,7 @@ static void solve(smt_core_t *core, const param_t *params) {
   uint32_t u, v, period;             // for Luby-style
   uint32_t reduce_threshold;
 
-  assert(smt_status(core) == STATUS_IDLE);
+  assert(smt_status(core) == STATUS_SEARCHING);
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
@@ -334,9 +334,6 @@ static void solve(smt_core_t *core, const param_t *params) {
   }
 
   // initialize then do a propagation + simplification step.
-  start_search(core);
-  trace_start(core);
-
   if (smt_status(core) == STATUS_SEARCHING) {
     // loop
     for (;;) {
@@ -407,7 +404,93 @@ static void solve(smt_core_t *core, const param_t *params) {
 }
 
 
+/*
+ * Initialize the search parameters based on params.
+ * If params is NULL, we use default values.
+ */
+static void context_set_search_parameters(context_t *ctx, const param_t *params) {
+  smt_core_t *core;
+  egraph_t *egraph;
+  simplex_solver_t *simplex;
+  fun_solver_t *fsolver;
+  uint32_t quota;
 
+  if (params == NULL) {
+    params = get_default_params();
+  }
+
+  /*
+   * Set core parameters
+   */
+  core = ctx->core;
+  set_randomness(core, params->randomness);
+  set_random_seed(core, params->random_seed);
+  set_var_decay_factor(core, params->var_decay);
+  set_clause_decay_factor(core, params->clause_decay);
+  if (params->cache_tclauses) {
+    enable_theory_cache(core, params->tclause_size);
+  } else {
+    disable_theory_cache(core);
+  }
+
+  /*
+   * Set egraph parameters
+   */
+  egraph = ctx->egraph;
+  if (egraph != NULL) {
+    if (params->use_optimistic_fcheck) {
+      egraph_enable_optimistic_final_check(egraph);
+    } else {
+      egraph_disable_optimistic_final_check(egraph);
+    }
+    if (params->use_dyn_ack) {
+      egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
+      egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
+    } else {
+      egraph_disable_dyn_ackermann(egraph);
+    }
+    if (params->use_bool_dyn_ack) {
+      egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
+      egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
+    } else {
+      egraph_disable_dyn_boolackermann(egraph);
+    }
+    quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
+    if (quota < params->aux_eq_quota) {
+      quota = params->aux_eq_quota;
+    }
+    egraph_set_aux_eq_quota(egraph, quota);
+    egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
+  }
+
+  /*
+   * Set simplex parameters
+   */
+  if (context_has_simplex_solver(ctx)) {
+    simplex = ctx->arith_solver;
+    if (params->use_simplex_prop) {
+      simplex_enable_propagation(simplex);
+      simplex_set_prop_threshold(simplex, params->max_prop_row_size);
+    }
+    if (params->adjust_simplex_model) {
+      simplex_enable_adjust_model(simplex);
+    }
+    simplex_set_bland_threshold(simplex, params->bland_threshold);
+    if (params->integer_check) {
+      simplex_enable_periodic_icheck(simplex);
+      simplex_set_integer_check_period(simplex, params->integer_check_period);
+    }
+  }
+
+  /*
+   * Set array solver parameters
+   */
+  if (context_has_fun_solver(ctx)) {
+    fsolver = ctx->fun_solver;
+    fun_solver_set_max_update_conflicts(fsolver, params->max_update_conflicts);
+    fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
+  }
+}
 
 
 /*
@@ -415,12 +498,8 @@ static void solve(smt_core_t *core, const param_t *params) {
  * - if ctx->status is not IDLE, return the status.
  */
 smt_status_t check_context(context_t *ctx, const param_t *params) {
-  smt_status_t stat;
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
-  uint32_t quota;
+  smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
     mcsat_solve(ctx->mcsat, params);
@@ -428,92 +507,78 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   }
 
   core = ctx->core;
-  egraph = ctx->egraph;
-
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
-    /*
-     * Clean state: search can proceed
-     */
-    if (params == NULL) {
-      params = get_default_params();
-    }
+    // clean state: the search can proceed
+    context_set_search_parameters(ctx, params);
 
-    /*
-     * Set core parameters
-     */
-    set_randomness(core, params->randomness);
-    set_random_seed(core, params->random_seed);
-    set_var_decay_factor(core, params->var_decay);
-    set_clause_decay_factor(core, params->clause_decay);
-    if (params->cache_tclauses) {
-      enable_theory_cache(core, params->tclause_size);
-    } else {
-      disable_theory_cache(core);
-    }
-
-    /*
-     * Set egraph parameters
-     */
-    if (egraph != NULL) {
-      if (params->use_optimistic_fcheck) {
-	egraph_enable_optimistic_final_check(egraph);
-      } else {
-	egraph_disable_optimistic_final_check(egraph);
-      }
-      if (params->use_dyn_ack) {
-        egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
-        egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
-      } else {
-        egraph_disable_dyn_ackermann(egraph);
-      }
-      if (params->use_bool_dyn_ack) {
-        egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
-        egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
-      } else {
-        egraph_disable_dyn_boolackermann(egraph);
-      }
-      quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
-      if (quota < params->aux_eq_quota) {
-        quota = params->aux_eq_quota;
-      }
-      egraph_set_aux_eq_quota(egraph, quota);
-      egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
-    }
-
-    /*
-     * Set simplex parameters
-     */
-    if (context_has_simplex_solver(ctx)) {
-      simplex = ctx->arith_solver;
-      if (params->use_simplex_prop) {
-        simplex_enable_propagation(simplex);
-        simplex_set_prop_threshold(simplex, params->max_prop_row_size);
-      }
-      if (params->adjust_simplex_model) {
-        simplex_enable_adjust_model(simplex);
-      }
-      simplex_set_bland_threshold(simplex, params->bland_threshold);
-      if (params->integer_check) {
-        simplex_enable_periodic_icheck(simplex);
-        simplex_set_integer_check_period(simplex, params->integer_check_period);
-      }
-    }
-
-
-    /*
-     * Set array solver parameters
-     */
-    if (context_has_fun_solver(ctx)) {
-      fsolver = ctx->fun_solver;
-      fun_solver_set_max_update_conflicts(fsolver, params->max_update_conflicts);
-      fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
-    }
-
+    start_search(core);
+    trace_start(core);
     solve(core, params);
     stat = smt_status(core);
   }
 
+  return stat;
+}
+
+
+/*
+ * Check with assumptions a[0] ... a[n-1]
+ * - if ctx->status is not IDLE, return the status.
+ */
+smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params,
+					    uint32_t n, literal_t *a) {
+  smt_core_t *core;
+  smt_status_t stat;
+  uint32_t i;
+  literal_t l;
+
+  assert(ctx->mcsat == NULL); // doesn't support assumptions yet
+
+  core = ctx->core;
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    // clean state
+    context_set_search_parameters(ctx, params);
+
+    // start search + one round of propagation
+    start_search(core);
+    trace_start(core);
+    smt_process(core);
+    stat = smt_status(core);
+    if (stat != STATUS_SEARCHING) goto done;
+    
+    for (i=0; i<n; i++) {
+      l = a[i];
+      switch (literal_value(core, l)) {
+      case VAL_UNDEF_FALSE:
+      case VAL_UNDEF_TRUE:
+	// add l as an assumption
+	assume_literal(core, l);
+	smt_process(core);
+	stat = smt_status(core);
+	if (stat != STATUS_SEARCHING) goto done;
+	break;
+
+      case VAL_FALSE:
+	// l conflicts with previous assumptions/initial ctx
+	// TODO: build unsat core
+	stat = STATUS_UNSAT;
+	goto done;
+
+      case VAL_TRUE:
+	// skip l; it's redundant
+	break;
+      }
+    }
+
+    // continue: normal search
+    solve(core, params);
+    stat = smt_status(core);
+    // TODO: if stat is UNSAT, build an unsat core
+  }
+
+ done:
   return stat;
 }
 

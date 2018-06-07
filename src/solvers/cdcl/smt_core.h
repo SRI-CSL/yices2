@@ -922,6 +922,42 @@ typedef enum smt_mode {
  * - if th_cache is true, th_cache_cl_size specifies which
  *   conflicts/explanations are considered (i.e., if they contain at most
  *   th_cache_cl_size literals, they are turned into clauses).
+ *
+ * Solving with assumptions:
+ * - we can optionally solve the problem under assumptions
+ * - the assumptions are a set of literals l_0 .... l_n
+ * - we check satisfiability under the assumption that l_0, ..., l_n are
+ *   all true.
+ * - to deal with this, we provide function "assume_literal(l_i)" which
+ *   assert that l_i is an assumption and we keep track of an assumption_level.
+ *
+ *     Search under assumptions is as follows:
+ *
+ *       start_search(core)     // set assumption_level := base_level
+ *       smt_process(core)      // this propagate anything implied at base level
+ *
+ *        // add the assumptions one by one
+ *       for i=0 to n:
+ *         if l_i is false in the core
+ *            then the assumptions are inconsistent
+ *         if l_i is true in the core
+ *            then it's redundant; ignore it
+ *         otherwise:
+ *            assume_literal(core, l_i)
+ *            smt_process(core)
+ *       end
+ *
+ *       // at this point,
+ *       // core->assumption_level = base_level + number of assumed literals
+ *
+ *       keep solving using the normal procedures.
+ *
+ *       If we get a conflict at level <= assumption_level, then we
+ *       stop and we return UNSAT. There's an inconsistency between
+ *       the assumptions and we can build an unsat core.
+ *
+ *       If we get sat, then we have a model that satisfies all the
+ *       assumptions.
  */
 typedef struct smt_core_s {
   /* Theory solver */
@@ -952,12 +988,13 @@ typedef struct smt_core_s {
   uint64_t simplify_props;      // value of propagation counter at that point
   uint64_t simplify_threshold;  // number of propagations before simplify is enabled again
 
-  uint64_t aux_literals;        // temporary counter used by simplify_clause
-  uint32_t aux_clauses;         // temporary counter used by simplify_clause
+  uint64_t aux_literals;       // temporary counter used by simplify_clause
+  uint32_t aux_clauses;        // temporary counter used by simplify_clause
 
   /* Current decision level */
   uint32_t decision_level;
-  uint32_t base_level;          // Incremented on push/decremented on pop
+  uint32_t base_level;         // Incremented on push/decremented on pop
+  uint32_t assumption_level;   // Keep track of the number of assumptions above base_level
 
   /* Activity increments and decays for learned clauses */
   float cla_inc;             // Clause activity increment
@@ -1231,6 +1268,13 @@ static inline uint32_t smt_decision_level(smt_core_t *s) {
  */
 static inline uint32_t smt_base_level(smt_core_t *s) {
   return s->base_level;
+}
+
+/*
+ * Read the current assumption level
+ */
+static inline uint32_t smt_assumption_level(smt_core_t *s) {
+  return s->assumption_level;
 }
 
 /*
@@ -1611,6 +1655,7 @@ extern bool base_propagate(smt_core_t *s);
  * - reset the search statistics counters
  * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
+ * - set assumption_level to base_level
  * The current status must be IDLE.
  */
 extern void start_search(smt_core_t *s);
@@ -1635,6 +1680,16 @@ extern void stop_search(smt_core_t *s);
  *   propagation stack with empty antecedent.
  */
 extern void decide_literal(smt_core_t *s, literal_t l);
+
+
+/*
+ * Add l as an assumption:
+ * - this is similar to decide_literal, except that we do not
+ *   want to undo this decision (and explore the not l branch).
+ * - l must be unassigned
+ * - the decision level and assumption level are both incremented
+ */
+extern void assume_literal(smt_core_t *s, literal_t l);
 
 
 /*
@@ -1701,7 +1756,7 @@ extern void smt_checkpoint(smt_core_t *s);
  * repeat
  *   if there's a conflict
  *     try to resolve the conflict
- *     if the conflict can't be resolved,
+ *     if the conflict level <= assumption level, then
  *       change status to UNSAT and exit
  *     else
  *       decay variable and clause activities

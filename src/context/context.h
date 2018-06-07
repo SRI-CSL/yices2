@@ -143,6 +143,17 @@ extern int32_t context_internalize(context_t *ctx, term_t t);
 
 
 /*
+ * Build an assumption for Boolean term t:
+ * - this converts t to a literal l in context ctx
+ *   then create an indicator variable x in the core
+ *   and add the clause (x => l) in the core.
+ * - return a negative code if t can't be internalized
+ * - return the literal x otherwise (where x>=0).
+ */
+extern int32_t context_add_assumption(context_t *ctx, term_t t);
+
+
+/*
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
  * - this collects all decision literals in the current truth assignment
@@ -167,6 +178,22 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
+
+
+/*
+ * Check under assumptions
+ * - parameters = search and heuristic parameters to use
+ * - if parameter is NULL, default values are used
+ * - a = array of n literals = n assumptions
+ * - each a[i] must be defined in ctx->core
+ *
+ * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * STATUS_INTERRUPTED
+ *
+ * If status is STATUS_UNSAT then the assumptions are inconsistent
+ */
+extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters,
+						   uint32_t n, literal_t *a);
 
 
 /*

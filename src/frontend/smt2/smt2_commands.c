@@ -2517,7 +2517,7 @@ static void timeout_handler(void *data) {
  * Call check_context with the given search parameters.
  * - if g->timeout is positive, set a timeout first
  */
-static smt_status_t check_context_with_timeout(smt2_globals_t *g, const param_t *params) {
+static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *params) {
   smt_status_t stat;
 
   if (g->timeout == 0) {
@@ -2561,7 +2561,7 @@ static smt_status_t check_context_with_timeout(smt2_globals_t *g, const param_t 
  * - params = search parameters
  * - a = assumption data structure to use
  */
-static smt_status_t check_context_with_assumptions(smt2_globals_t *g, const param_t *params, smt2_assumptions_t *a) {
+static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, smt2_assumptions_t *a) {
   smt_status_t stat;
 
   // TODO: yices_check_assumptions doesn't deal with interrupt
@@ -2858,7 +2858,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
 
-    status = check_context_with_timeout(g, &g->parameters);
+    status = check_sat_with_timeout(g, &g->parameters);
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
@@ -2985,7 +2985,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
     }
-    status = check_context_with_assumptions(g, &g->parameters, g->unsat_core);
+    status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
     report_status(g, status);
   }
 }
@@ -3019,7 +3019,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       if (g->random_seed != 0) {
 	g->parameters.random_seed = g->random_seed;
       }
-      status = check_context_with_assumptions(g, &g->parameters, assumptions);
+      status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
     }
   }
@@ -3118,7 +3118,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
     }
-    stat = check_context_with_timeout(g, &g->parameters);
+    stat = check_sat_with_timeout(g, &g->parameters);
     show_status(stat);
     break;
 
@@ -3157,7 +3157,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
     }
-    stat = check_context_with_assumptions(g, &g->parameters, g->unsat_core);
+    stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
     show_status(stat);
     break;
 
@@ -3195,7 +3195,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       if (g->random_seed != 0) {
 	g->parameters.random_seed = g->random_seed;
       }
-      status = check_context_with_assumptions(g, &g->parameters, assumptions);
+      status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
       break;
 
@@ -3214,6 +3214,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
   }
   flush_out();
 }
+
 
 /*
  * New assertion scope
