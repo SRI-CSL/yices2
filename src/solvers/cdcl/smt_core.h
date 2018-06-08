@@ -925,39 +925,18 @@ typedef enum smt_mode {
  *
  * Solving with assumptions:
  * - we can optionally solve the problem under assumptions
- * - the assumptions are a set of literals l_0 .... l_n
- * - we check satisfiability under the assumption that l_0, ..., l_n are
- *   all true.
- * - to deal with this, we provide function "assume_literal(l_i)" which
- *   assert that l_i is an assumption and we keep track of an assumption_level.
+ * - the assumptions are a set of literals l_1 .... l_n
+ * - we store them in an assumption_array
+ * - we want to force the search tree to explore only the branches
+ *   where l_1  ... l_n are all true
+ * - to do this, we force the n first decisions to be
+ *   l_1 = true,   ..., l_n = true.
+ * - there's a conflict with when we can't make such a decision
+ *   (i.e., l_i is forced to false by previous assumptions).
  *
- *     Search under assumptions is as follows:
- *
- *       start_search(core)     // set assumption_level := base_level
- *       smt_process(core)      // this propagate anything implied at base level
- *
- *        // add the assumptions one by one
- *       for i=0 to n:
- *         if l_i is false in the core
- *            then the assumptions are inconsistent
- *         if l_i is true in the core
- *            then it's redundant; ignore it
- *         otherwise:
- *            assume_literal(core, l_i)
- *            smt_process(core)
- *       end
- *
- *       // at this point,
- *       // core->assumption_level = base_level + number of assumed literals
- *
- *       keep solving using the normal procedures.
- *
- *       If we get a conflict at level <= assumption_level, then we
- *       stop and we return UNSAT. There's an inconsistency between
- *       the assumptions and we can build an unsat core.
- *
- *       If we get sat, then we have a model that satisfies all the
- *       assumptions.
+ * We can then build an unsat core by keep track of this l_i.
+ * We store in in core->bad_assumption. If there's no conflict,
+ * code->bad_assumption is null_literal.
  */
 typedef struct smt_core_s {
   /* Theory solver */
@@ -994,7 +973,6 @@ typedef struct smt_core_s {
   /* Current decision level */
   uint32_t decision_level;
   uint32_t base_level;         // Incremented on push/decremented on pop
-  uint32_t assumption_level;   // Keep track of the number of assumptions above base_level
 
   /* Activity increments and decays for learned clauses */
   float cla_inc;             // Clause activity increment
@@ -1015,6 +993,13 @@ typedef struct smt_core_s {
   literal_t *conflict;
   clause_t *false_clause;
   uint32_t th_conflict_size;  // number of literals in theory conflicts
+
+  /* Assumptions */
+  bool has_assumptions;
+  uint32_t num_assumptions;
+  uint32_t assumption_index;
+  const literal_t *assumptions;
+  literal_t bad_assumption;
 
   /* Auxiliary buffers for conflict resolution */
   ivector_t buffer;
@@ -1268,13 +1253,6 @@ static inline uint32_t smt_decision_level(smt_core_t *s) {
  */
 static inline uint32_t smt_base_level(smt_core_t *s) {
   return s->base_level;
-}
-
-/*
- * Read the current assumption level
- */
-static inline uint32_t smt_assumption_level(smt_core_t *s) {
-  return s->assumption_level;
 }
 
 /*
@@ -1649,16 +1627,21 @@ extern bool base_propagate(smt_core_t *s);
 
 
 /*
- * Prepare for the search:
+ * Prepare for the search
+ * - a = optional array of assumptions
+ * - n = number of assumptions
+ * - a[0 ... n-1] must all be valid literals in the core
+ *
+ * Effect:
  * - initialize variable heap
+ * - store a ponter to the assumption array
  * - set status to SEARCHING
  * - reset the search statistics counters
  * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
- * - set assumption_level to base_level
  * The current status must be IDLE.
  */
-extern void start_search(smt_core_t *s);
+extern void start_search(smt_core_t *s, uint32_t n, const literal_t *a);
 
 
 /*
@@ -1683,13 +1666,21 @@ extern void decide_literal(smt_core_t *s, literal_t l);
 
 
 /*
- * Add l as an assumption:
- * - this is similar to decide_literal, except that we do not
- *   want to undo this decision (and explore the not l branch).
- * - l must be unassigned
- * - the decision level and assumption level are both incremented
+ * Get the next assumption for the current decision_level
+ * - s->status mut be SEARCHING
+ * - this scans the assumption array to search for an assumption
+ *   that is not already true.
+ * - returns an assumption l or null_literal if all assumptions
+ *   are true (or if there are no assumptions)
  */
-extern void assume_literal(smt_core_t *s, literal_t l);
+extern literal_t get_next_assumption(smt_core_t *s);
+
+/*
+ * Store l as a bad assumption:
+ * - copy l in s->bad_assumption
+ * - mark the context as unsat
+ */
+extern void save_conflicting_assumption(smt_core_t *s, literal_t l);
 
 
 /*
@@ -1756,7 +1747,7 @@ extern void smt_checkpoint(smt_core_t *s);
  * repeat
  *   if there's a conflict
  *     try to resolve the conflict
- *     if the conflict level <= assumption level, then
+ *     if we can't resolve it
  *       change status to UNSAT and exit
  *     else
  *       decay variable and clause activities
@@ -1875,10 +1866,16 @@ extern void smt_clear(smt_core_t *s);
 /*
  * Cleanup after the search returned unsat
  * - s->status must be UNSAT.
- * - if clean_interrupt is enabled, this restores s to its state
+ * - if there are assumpions, this removes them and reset s->status
+ *   to STATUS_IDLE
+ * - if clean_interrupt is enabled, this also restores s to its state
  *   before the search: learned clauses are deleted, lemmas, variables
  *   and atoms created during the search are deleted.
- * - if clean_interrupt is disabled, this does nothing.
+ * - if clean_interrupt is disabled and there are no assumptions,
+ *   this does nothing.
+ *
+ * On exit, s->status is either STATUS_UNSAT (if no assumptions
+ * were removed) or STATUS_IDLE (if assumptions were removed).
  */
 extern void smt_clear_unsat(smt_core_t *s);
 

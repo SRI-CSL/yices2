@@ -192,8 +192,7 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  *
  * If status is STATUS_UNSAT then the assumptions are inconsistent
  */
-extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters,
-						   uint32_t n, literal_t *a);
+extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
 
 
 /*
@@ -242,9 +241,13 @@ extern void context_clear(context_t *ctx);
 
 /*
  * Cleanup after the search returned UNSAT
- * - if the clean_interrupt option is enabled, this restore
- *   the state to what it was at the start of search
+ * - if there are assumptions, they are removed
+ * - if the clean_interrupt option is enabled, the state
+ *   is restored to what it was at the start of search
  * - otherwise, this does nothing.
+ *
+ * On exit, the context's status can be either STATUS_IDLE
+ * (if assumptions were removed) or STATUS_UNSAT otherwise.
  *
  * NOTE: Call this before context_pop(ctx) if the context status
  * is unsat.

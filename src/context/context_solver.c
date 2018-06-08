@@ -100,6 +100,36 @@ static void trace_done(smt_core_t *core) {
 }
 
 
+
+/*
+ * PROCESS AN ASSUMPTION
+ */
+
+/*
+ * l = assumption for the current decision level
+ * If l is unassigned, we assign it and perform one round of propagation
+ * If l is false, we record the conflict. The context is unsat under the
+ * current set of assumptions.
+ */
+static void process_assumption(smt_core_t *core, literal_t l) {
+  switch (literal_value(core, l)) {
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
+    decide_literal(core, l);
+    smt_process(core);
+    break;
+
+  case VAL_TRUE:
+    break;
+
+  case VAL_FALSE:
+    printf("--> inconsistent assumption l!%"PRId32" at decision level %"PRIu32"\n", l, smt_decision_level(core));
+    save_conflicting_assumption(core, l);
+    break;
+  }
+}
+
+
 /*
  * MAIN SEARCH FUNCTIONS
  */
@@ -130,6 +160,15 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -175,6 +214,15 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -225,6 +273,15 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -304,15 +361,14 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
 /*
  * Full solver:
  * - params: heuristic parameters.
- *   If params is NULL, the default settings are used.
+ * - n = number of assumptions
+ * - a = array of n assumptions: a[0 ... n-1] must all be literals
  */
-static void solve(smt_core_t *core, const param_t *params) {
+static void solve(smt_core_t *core, const param_t *params, uint32_t n, const literal_t *a) {
   bool luby;
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t u, v, period;             // for Luby-style
   uint32_t reduce_threshold;
-
-  assert(smt_status(core) == STATUS_SEARCHING);
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
@@ -333,7 +389,12 @@ static void solve(smt_core_t *core, const param_t *params) {
     reduce_threshold = params->r_threshold;
   }
 
+  if (n > 0) {
+    printf("--> %"PRIu32" assumptions\n", n);
+  }
   // initialize then do a propagation + simplification step.
+  start_search(core, n, a);
+  trace_start(core);
   if (smt_status(core) == STATUS_SEARCHING) {
     // loop
     for (;;) {
@@ -511,10 +572,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   if (stat == STATUS_IDLE) {
     // clean state: the search can proceed
     context_set_search_parameters(ctx, params);
-
-    start_search(core);
-    trace_start(core);
-    solve(core, params);
+    solve(core, params, 0, NULL);
     stat = smt_status(core);
   }
 
@@ -526,59 +584,21 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
  * Check with assumptions a[0] ... a[n-1]
  * - if ctx->status is not IDLE, return the status.
  */
-smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params,
-					    uint32_t n, literal_t *a) {
+smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const literal_t *a) {
   smt_core_t *core;
   smt_status_t stat;
-  uint32_t i;
-  literal_t l;
 
-  assert(ctx->mcsat == NULL); // doesn't support assumptions yet
+  assert(ctx->mcsat == NULL); // MC-SAT doesn't support assumptions yet
 
   core = ctx->core;
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
     // clean state
     context_set_search_parameters(ctx, params);
-
-    // start search + one round of propagation
-    start_search(core);
-    trace_start(core);
-    smt_process(core);
+    solve(core, params, n, a);
     stat = smt_status(core);
-    if (stat != STATUS_SEARCHING) goto done;
-    
-    for (i=0; i<n; i++) {
-      l = a[i];
-      switch (literal_value(core, l)) {
-      case VAL_UNDEF_FALSE:
-      case VAL_UNDEF_TRUE:
-	// add l as an assumption
-	assume_literal(core, l);
-	smt_process(core);
-	stat = smt_status(core);
-	if (stat != STATUS_SEARCHING) goto done;
-	break;
-
-      case VAL_FALSE:
-	// l conflicts with previous assumptions/initial ctx
-	// TODO: build unsat core
-	stat = STATUS_UNSAT;
-	goto done;
-
-      case VAL_TRUE:
-	// skip l; it's redundant
-	break;
-      }
-    }
-
-    // continue: normal search
-    solve(core, params);
-    stat = smt_status(core);
-    // TODO: if stat is UNSAT, build an unsat core
   }
 
- done:
   return stat;
 }
 
@@ -611,7 +631,7 @@ smt_status_t precheck_context(context_t *ctx) {
 
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
-    start_search(core);
+    start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 

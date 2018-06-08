@@ -716,13 +716,23 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 
 
 // PLACEHOLDER: put some assumptions in core
-static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, int32_t a[], ivector_t *core) {
+static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, term_t a[], ivector_t *core) {
+  ivector_t assumptions;
+  literal_t l;
   uint32_t i;
 
-  for (i=0; i<n; i+=2) {
-    ivector_push(core, a[i]);
+  // convert a[0] ... a[n-1] to assumptions
+  init_ivector(&assumptions, n);
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(ctx, a[i]);
+    if (l < 0) {
+      // error when processing term a[i]
+      return STATUS_ERROR;
+    }
+    ivector_push(&assumptions, l);
   }
-  return STATUS_UNSAT;
+
+  return check_context_with_assumptions(ctx, params, n, assumptions.data);
 }
 
 /*
@@ -3200,6 +3210,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       break;
 
     case STATUS_UNSAT:
+      // FIX THIS
       // the context is already unsat so the list of unsat assumptions is empty
       assumptions->status = STATUS_UNSAT;
       show_status(STATUS_UNSAT);
