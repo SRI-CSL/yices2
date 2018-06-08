@@ -942,3 +942,11 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 
   return v;
 }
+
+
+/*
+ * Build an unsat core: TBD
+ */
+void context_build_unsat_core(context_t *ctx, ivector_t *core) {
+  // TBD
+}

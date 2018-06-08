@@ -715,24 +715,68 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 }
 
 
-// PLACEHOLDER: put some assumptions in core
+/*
+ * Should go to yices_api
+ */
 static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, term_t a[], ivector_t *core) {
   ivector_t assumptions;
+  int_hmap_t lit2term;
+  int_hmap_pair_t *p;
+  smt_status_t status;
   literal_t l;
   uint32_t i;
 
+  // if ctx is already unsat, the core is empty
+  if (context_status(ctx) == STATUS_UNSAT) {
+    ivector_reset(core);
+    return STATUS_UNSAT;
+  }
+
   // convert a[0] ... a[n-1] to assumptions
+  // we store the reverse mapping: indicator -> a[i]
+  // into the lit2term map
   init_ivector(&assumptions, n);
+  init_int_hmap(&lit2term, 0);
+
   for (i=0; i<n; i++) {
     l = context_add_assumption(ctx, a[i]);
     if (l < 0) {
       // error when processing term a[i]
-      return STATUS_ERROR;
+      status = STATUS_ERROR;
+      goto done;
     }
+
+    // if l is alreay
+    p = int_hmap_get(&lit2term, l);
+    assert(p->key == l && p->val < 0);
+    p->val = a[i];
     ivector_push(&assumptions, l);
   }
 
-  return check_context_with_assumptions(ctx, params, n, assumptions.data);
+  status = check_context_with_assumptions(ctx, params, n, assumptions.data);
+  if (status == STATUS_UNSAT) {
+    context_build_unsat_core(ctx, core);
+
+    // convert from literals to terms
+    n = core->size;
+    for (i=0; i<n; i++) {
+      l = core->data[i];
+      p = int_hmap_find(&lit2term, l);
+      if (p == NULL) {
+	// bug somewhere!
+	status = STATUS_ERROR;
+	goto done;
+      }
+      assert(p->key == l);
+      core->data[i] = p->val;
+    }
+  }
+
+ done:
+  delete_int_hmap(&lit2term);
+  delete_ivector(&assumptions);
+
+  return status;
 }
 
 /*
@@ -2574,8 +2618,7 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
 static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, smt2_assumptions_t *a) {
   smt_status_t stat;
 
-  // TODO: yices_check_assumptions doesn't deal with interrupt
-  if (true || g->timeout == 0) {
+  if (g->timeout == 0) {
     // no timeout
     stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;

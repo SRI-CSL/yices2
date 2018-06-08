@@ -207,6 +207,16 @@ extern void context_build_model(model_t *model, context_t *ctx);
 
 
 /*
+ * Build an unsat core: the context's status must be STATUS_UNSAT
+ * - the unsat core is returned in vector *v
+ * - if there are no assumption, the core is empty
+ * - otherwise, the core is constructed from the bad_assumption
+ *   and copied in v
+ */
+extern void context_build_unsat_core(context_t *ctx, ivector_t *v);
+
+
+/*
  * Interrupt the search
  * - this can be called after check_context from a signal handler
  * - this interrupts the current search
