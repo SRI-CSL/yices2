@@ -3010,6 +3010,43 @@ static void report_status(smt2_globals_t *g, smt_status_t status) {
 }
 
 
+/*
+ * For debugging: check that the unsat core is unsat!
+ */
+static void validate_unsat_core(smt2_globals_t *g) {
+  context_t *saved_context;
+  smt2_assumptions_t *a;
+  ivector_t all;
+  int32_t code;
+  smt_status_t status;
+
+  if (g->unsat_core->status == STATUS_UNSAT) {
+    saved_context = g->ctx;
+    g->ctx = NULL;
+    init_smt2_context(g);
+
+    a = g->unsat_core;
+
+    init_ivector(&all, 100);
+    ivector_add(&all, g->assertions.data, g->assertions.size);
+    ivector_add(&all, a->core.data, a->core.size);
+    code = yices_assert_formulas(g->ctx, all.size, all.data);
+    if (code < 0) {
+      printf("**** BUG: INVALID UNSAT CORE: BAD TERMS ****\n");
+      fflush(stdout);
+    } else {
+      status = check_context(g->ctx, &g->parameters);
+      if (status != STATUS_UNSAT) {
+	printf("**** BUG: INVALID UNSAT CORE ****\n");
+	fflush(stdout);
+      }
+    }
+    delete_ivector(&all);
+    yices_free_context(g->ctx);
+    g->ctx = saved_context;
+  }
+}
+
 
 /*
  * Check and build unsat core for the delayed assertions
@@ -3040,6 +3077,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
     status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
+    validate_unsat_core(g);
     report_status(g, status);
   }
 }

@@ -123,7 +123,6 @@ static void process_assumption(smt_core_t *core, literal_t l) {
     break;
 
   case VAL_FALSE:
-    printf("--> inconsistent assumption l!%"PRId32" at decision level %"PRIu32"\n", l, smt_decision_level(core));
     save_conflicting_assumption(core, l);
     break;
   }
@@ -387,10 +386,6 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
   if (reduce_threshold < params->r_threshold) {
     reduce_threshold = params->r_threshold;
-  }
-
-  if (n > 0) {
-    printf("--> %"PRIu32" assumptions\n", n);
   }
 
   // initialize then do a propagation + simplification step.

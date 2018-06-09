@@ -2366,6 +2366,12 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
   // and if the top checkpoint has level >= the new decision level
   s->cp_flag = non_empty_checkpoint_stack(&s->checkpoints) &&
     top_checkpoint(&s->checkpoints)->dlevel >= back_level;
+
+  // adust the assumption index
+  k = back_level - s->base_level;
+  if (k < s->assumption_index) {
+    s->assumption_index = k;
+  }
 }
 
 
@@ -3619,6 +3625,22 @@ static void resolve_conflict(smt_core_t *s) {
  *  ASSUMPTIONS AND UNSAT CORES  *
  ********************************/
 
+#ifndef NDEBUG
+static bool good_assumption_index(smt_core_t *s) {
+  uint32_t i;
+  literal_t l;
+
+  for (i=0; i<s->assumption_index; i++) {
+    l = s->assumptions[i];
+    if (literal_value(s, l) != VAL_TRUE) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
+
 /*
  * Get the next assumption for the current decision_level
  * - s->status mut be SEARCHING
@@ -3631,13 +3653,18 @@ literal_t get_next_assumption(smt_core_t *s) {
   uint32_t i, n;
   literal_t l;
 
+  assert(good_assumption_index(s));
+
   n = s->num_assumptions;
-  for (i=0; i<n; i++) {
+  for (i=s->assumption_index; i<n; i++) {
     l = s->assumptions[i];
     if (literal_value(s, l) != VAL_TRUE) {
+      s->assumption_index = i+1;
       return l;
     }
   }
+
+  s->assumption_index = n;
   return null_literal;
 }
 
