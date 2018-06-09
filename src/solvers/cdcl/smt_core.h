@@ -1666,24 +1666,6 @@ extern void decide_literal(smt_core_t *s, literal_t l);
 
 
 /*
- * Get the next assumption for the current decision_level
- * - s->status mut be SEARCHING
- * - this scans the assumption array to search for an assumption
- *   that is not already true.
- * - returns an assumption l or null_literal if all assumptions
- *   are true (or if there are no assumptions)
- */
-extern literal_t get_next_assumption(smt_core_t *s);
-
-/*
- * Store l as a bad assumption:
- * - copy l in s->bad_assumption
- * - mark the context as unsat
- */
-extern void save_conflicting_assumption(smt_core_t *s, literal_t l);
-
-
-/*
  * Cause a restart: backtrack to the base_level
  * - s->status must be SEARCHING
  */
@@ -1879,6 +1861,41 @@ extern void smt_clear(smt_core_t *s);
  */
 extern void smt_clear_unsat(smt_core_t *s);
 
+
+
+/*********************************
+ *  ASSUMPTIONS AND UNSAT CORES  *
+ ********************************/
+
+/*
+ * Get the next assumption for the current decision_level
+ * - s->status mut be SEARCHING
+ * - this scans the assumption array to search for an assumption
+ *   that is not already true.
+ * - returns an assumption l or null_literal if all assumptions
+ *   are true (or if there are no assumptions)
+ */
+extern literal_t get_next_assumption(smt_core_t *s);
+
+
+/*
+ * Store l as a bad assumption:
+ * - l must be false in s
+ * - copy l in s->bad_assumption
+ * - mark the context as unsat
+ */
+extern void save_conflicting_assumption(smt_core_t *s, literal_t l);
+
+
+/*
+ * Compute an unsat core:
+ * - the core is stored as a list of literals in vector v:
+ *   (i.e., the conjunction of these literals is unsat in the current context)
+ * - s->status must be UNSAT
+ * - if there are no bad_assumption, an empty core is returned
+ * - otherwise the core is build by resolving the bad_assumption's antecedents
+ */
+extern void build_unsat_core(smt_core_t *s, ivector_t *v);
 
 
 

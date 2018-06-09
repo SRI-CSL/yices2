@@ -3026,6 +3026,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
   if (g->trivially_unsat) {
     // the core is empty
     g->unsat_core->status = STATUS_UNSAT;
+    report_status(g, STATUS_UNSAT);
   } else {
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -3060,6 +3061,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
     if (g->trivially_unsat) {
       // list of unsat assumption is empty
       assumptions->status = STATUS_UNSAT;
+      report_status(g, STATUS_UNSAT);
     } else {
       init_smt2_context(g);
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);

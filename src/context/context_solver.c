@@ -392,6 +392,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
   if (n > 0) {
     printf("--> %"PRIu32" assumptions\n", n);
   }
+
   // initialize then do a propagation + simplification step.
   start_search(core, n, a);
   trace_start(core);
@@ -945,8 +946,13 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 
 
 /*
- * Build an unsat core: TBD
+ * Build an unsat core:
+ * - store the result in v
  */
-void context_build_unsat_core(context_t *ctx, ivector_t *core) {
-  // TBD
+void context_build_unsat_core(context_t *ctx, ivector_t *v) {
+  smt_core_t *core;
+
+  core = ctx->core;
+  assert(core != NULL && core->status == STATUS_UNSAT);
+  build_unsat_core(core, v);
 }
