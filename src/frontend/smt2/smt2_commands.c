@@ -3010,6 +3010,7 @@ static void report_status(smt2_globals_t *g, smt_status_t status) {
 }
 
 
+#if 0
 /*
  * For debugging: check that the unsat core is unsat!
  */
@@ -3046,7 +3047,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
     g->ctx = saved_context;
   }
 }
-
+#endif
 
 /*
  * Check and build unsat core for the delayed assertions
@@ -3077,7 +3078,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
     status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
-    validate_unsat_core(g);
+    //    validate_unsat_core(g);
     report_status(g, status);
   }
 }
