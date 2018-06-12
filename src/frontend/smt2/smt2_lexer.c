@@ -1173,3 +1173,32 @@ smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n) {
   return sym;
 }
 
+
+/*
+ * Check whether a symbol should be printed with quotes | .. |
+ * - return false if s is a simple symbol (as defined in the SMT-LIB standard)
+ * - return true if s contains spaces or other character:
+ *
+ * A simple symbol is a sequence of the following characters:
+ * - digits (in ASCII): '0' to '9
+ * - letters in ASCII: 'a' to 'z' and 'A' to 'Z'
+ * - other characters:  ~ ! @ $ % ^ & * _ - + < > . ? /
+ */
+bool symbol_needs_quotes(const char *s) {
+  int c;
+
+  c = *s++;
+  if (c == '\0') {
+    return true; // empty symbol
+  }
+
+  do {
+    if (!issimple(c)) {
+      return true;
+    }
+    c = *s ++;
+  } while (c != '\0');
+
+  return false;
+}
+

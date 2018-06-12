@@ -1500,27 +1500,6 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
 };
 
 
-/*
- * Check whether a symbol should be printed with quotes | .. |
- */
-static bool symbol_needs_quotes(const char *s) {
-  int c;
-
-  c = *s++;
-  if (c == '\0') {
-    return true; // empty symbol
-  }
-
-  do {
-    if (isspace(c)) {
-      return true;
-    }
-    c = *s ++;
-  } while (c != '\0');
-
-  return false;
-}
-
 
 /*
  * Exception raised by tstack
