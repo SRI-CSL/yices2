@@ -925,17 +925,17 @@ typedef enum smt_mode {
  *
  * Solving with assumptions:
  * - we can optionally solve the problem under assumptions
- * - the assumptions are a set of literals l_1 .... l_n
- * - we store them in an assumption_array
+ * - the assumptions literals l_1 .... l_n
+ * - we store them in an assumptions array
  * - we want to force the search tree to explore only the branches
  *   where l_1  ... l_n are all true
  * - to do this, we force the n first decisions to be
  *   l_1 = true,   ..., l_n = true.
- * - there's a conflict with when we can't make such a decision
+ * - there's a conflict when we can't make such a decision
  *   (i.e., l_i is forced to false by previous assumptions).
  *
- * We can then build an unsat core by keep track of this l_i.
- * We store in in core->bad_assumption. If there's no conflict,
+ * We can then build an unsat core by keeping track of this l_i.
+ * We store it in core->bad_assumption. If there's no conflict,
  * code->bad_assumption is null_literal.
  */
 typedef struct smt_core_s {
