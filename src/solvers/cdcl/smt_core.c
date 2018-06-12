@@ -3689,11 +3689,12 @@ void save_conflicting_assumption(smt_core_t *s, literal_t l) {
  * queue and set if they have not been seen before and if they
  * are assigned at a decision level > base_level.
  *
- * We store var_of(l) in the set: to handle clause antecedents:
+ * We store var_of(l) rather than l in the set. This simplifies the
+ * processing of clause antecedents:
  * - if l is implied by clause c then the clause looks like (l \/ c[0] ... \/ c[n-1])
  * - l is the only true literal in c.
  * - when we visit the clause, we call visit(not(l)), visit(not(c[0])), ..., visit(not c([n-1]))
- * - at this point l has been visited to var_of(l) is in the set.
+ * - at this point l has been visited so var_of(l) is in the set.
  * - since var_of(l) = var_of(not(l)) is already in the set, we don't add not(l) to the queue.
  */
 static void unsat_core_visit_literal(smt_core_t *s, int_hset_t *set, int_queue_t *queue, literal_t l) {
