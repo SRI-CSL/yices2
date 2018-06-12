@@ -3106,8 +3106,13 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
 /*
  * Cleanup before operations that change the context:
  * - delete the model and the core if any
+ * - if the context is SAT or UNKNOWN, clear the current assignment
+ * - if the context is UNSAT, remove assumptions if any
+ *
+ * After this: the status can be either IDLE or UNSAT.
+ * UNSAT means the there were no assumptions.
  */
-static void cleanup_model_and_cores(smt2_globals_t *g) {
+static void cleanup_context(smt2_globals_t *g) {
   if (g->model != NULL) {
     yices_free_model(g->model);
     g->model = NULL;
@@ -3120,18 +3125,6 @@ static void cleanup_model_and_cores(smt2_globals_t *g) {
     free_smt2_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
   }
-}
-
-/*
- * Assert t in g->ctx
- * - t is known to be a Boolean term here
- */
-static void add_assertion(smt2_globals_t *g, term_t t) {
-  int32_t code;
-
-  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-
-  cleanup_model_and_cores(g);
 
   switch (context_status(g->ctx)) {
   case STATUS_UNKNOWN:
@@ -3139,8 +3132,37 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     // return to IDLE
     context_clear(g->ctx);
     assert(context_status(g->ctx) == STATUS_IDLE);
-    // fall-through intended
+    break;
 
+  case STATUS_UNSAT:
+    // try to to remove assertions
+    context_clear_unsat(g->ctx);
+    assert (context_status(g->ctx) == STATUS_IDLE ||
+	    context_status(g->ctx) == STATUS_UNSAT);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
+}
+
+/*
+ * Assert t in g->ctx
+ * - t is known to be a Boolean term here
+ * - the context is either IDLE or UNSAT
+ */
+static void add_assertion(smt2_globals_t *g, term_t t) {
+  int32_t code;
+
+  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+
+  switch (context_status(g->ctx)) {
   case STATUS_IDLE:
     code = assert_formula(g->ctx, t);
     if (code < 0) {
@@ -3159,6 +3181,8 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     report_success();
     break;
 
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
   default:
@@ -3251,19 +3275,15 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
   smt2_assumptions_t *assumptions;
   smt_status_t status;
 
-  cleanup_model_and_cores(g);
+  cleanup_context(g);
 
   assert(g->unsat_assumptions == NULL);
 
   assumptions = collect_named_assumptions(n, a);
+
   if (assumptions != NULL) {
     g->unsat_assumptions = assumptions;
     switch (context_status(g->ctx)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      context_clear(g->ctx);
-      assert(context_status(g->ctx) == STATUS_IDLE);
-      // fall-through intended
     case STATUS_IDLE:
       if (g->random_seed != 0) {
 	g->parameters.random_seed = g->random_seed;
@@ -3273,12 +3293,13 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       break;
 
     case STATUS_UNSAT:
-      // FIX THIS
       // the context is already unsat so the list of unsat assumptions is empty
       assumptions->status = STATUS_UNSAT;
       show_status(STATUS_UNSAT);
       break;
 
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
     default:
@@ -3286,6 +3307,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       break;
     }
   }
+
   flush_out();
 }
 
@@ -3296,15 +3318,9 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
 static void ctx_push(smt2_globals_t *g) {
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
-  cleanup_model_and_cores(g);
+  cleanup_context(g);
 
   switch (context_status(g->ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    // return to IDLE
-    context_clear(g->ctx);
-    assert(context_status(g->ctx) == STATUS_IDLE);
-    // fall-through intended
   case STATUS_IDLE:
     context_push(g->ctx);
     break;
@@ -3313,6 +3329,8 @@ static void ctx_push(smt2_globals_t *g) {
     g->pushes_after_unsat ++;
     break;
 
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
   default:
@@ -3328,14 +3346,9 @@ static void ctx_push(smt2_globals_t *g) {
 static void ctx_pop(smt2_globals_t *g) {
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
-  cleanup_model_and_cores(g);
+  cleanup_context(g);
 
   switch (context_status(g->ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    context_clear(g->ctx);
-    assert(context_status(g->ctx) == STATUS_IDLE);
-    // fall-through intended
   case STATUS_IDLE:
     context_pop(g->ctx);
     break;
@@ -3349,6 +3362,8 @@ static void ctx_pop(smt2_globals_t *g) {
     }
     break;
 
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
   default:
@@ -5486,6 +5501,9 @@ void smt2_assert(term_t t, bool special) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (g->benchmark_mode) {
+	/*
+	 * NOT INCREMENTAL
+	 */
 	if (g->efmode && g->ef_client.efdone) {
 	  print_error("more assertions are not allowed after solving");
 	} else if (g->frozen) {
@@ -5503,11 +5521,17 @@ void smt2_assert(term_t t, bool special) {
 	  }
 	  report_success();
 	}
+
       } else {
+	/*
+	 * INCREMENTAL
+	 */
+	cleanup_context(g);
 	if (!special || !g->produce_unsat_cores) {
 	  add_assertion(g, t);
 	} else {
 	  trace_printf(g->tracer, 20, "(skipping named assertion)\n");
+	  report_success();
 	}
       }
     } else {
