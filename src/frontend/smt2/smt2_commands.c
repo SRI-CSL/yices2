@@ -3238,31 +3238,39 @@ static void ctx_unsat_core(smt2_globals_t *g) {
   assert(g->ctx != NULL && g->produce_unsat_cores &&
 	 context_supports_pushpop(g->ctx));
 
-  stat = context_status(g->ctx);
-  switch (stat) {
-  case STATUS_UNKNOWN:
-  case STATUS_UNSAT:
-  case STATUS_SAT:
-    // already solved: print the status
-    show_status(stat);
-    break;
-
-  case STATUS_IDLE:
-    // change the seed if needed
-    assert(g->unsat_core == NULL);
+  if (g->unsat_core != NULL) {
+    // nothing had changed since the previous call to check_sat
+    show_status(g->unsat_core->status);
+  } else {
+    // we build this first, even if the context is SAT or UNSAT
     g->unsat_core = collect_named_assertions(g);
-    if (g->random_seed != 0) {
-      g->parameters.random_seed = g->random_seed;
-    }
-    stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
-    show_status(stat);
-    break;
+    stat = context_status(g->ctx);
+    switch (stat) {
+    case STATUS_UNSAT:
+      // already solved: store the status and print it
+      // the unsat core is empty
+      g->unsat_core->status = stat;
+      show_status(stat);
+      break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    bad_status_bug(g->err);
-    break;
+    case STATUS_IDLE:
+      // change the seed if needed
+      if (g->random_seed != 0) {
+	g->parameters.random_seed = g->random_seed;
+      }
+      stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
+      show_status(stat);
+      break;
+
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      // this should not happen.
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      bad_status_bug(g->err);
+      break;
+    }
   }
   flush_out();
 }
@@ -4197,7 +4205,6 @@ void smt2_get_unsat_core(void) {
 
   if (check_logic()) {
     show_unsat_core(&__smt2_globals);
-    //    print_error("get-unsat-core is not supported");
   }
 }
 
@@ -4212,7 +4219,6 @@ void smt2_get_unsat_assumptions(void) {
 
   if (check_logic()) {
     show_unsat_assumptions(&__smt2_globals);
-    //    print_error("get-unsat-assumptions is not supported");
   }
 }
 
@@ -5197,7 +5203,6 @@ void smt2_set_option(const char *name, aval_t value) {
 
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     // optional: if true, get-unsat-assumptions can be used
-    // TODO: unsat-assumptions and unsat-cores can't both be true
     if (option_can_be_set(name)) {
       set_boolean_option(g, name, value, &g->produce_unsat_assumptions);
     }
@@ -5580,6 +5585,9 @@ void smt2_check_sat(void) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
+      /*
+       * Non incremental
+       */
       if (__smt2_globals.efmode) {
 	efsolve_cmd(&__smt2_globals);	
       } else if (__smt2_globals.frozen) {
@@ -5590,10 +5598,15 @@ void smt2_check_sat(void) {
 	//	show_delayed_assertions(&__smt2_globals);
 	check_delayed_assertions(&__smt2_globals);
       }
-    } else if (__smt2_globals.produce_unsat_cores) {
-      ctx_unsat_core(&__smt2_globals);
     } else {
-      ctx_check_sat(&__smt2_globals);
+      /*
+       * Incremental
+       */
+      if (__smt2_globals.produce_unsat_cores) {
+	ctx_unsat_core(&__smt2_globals);
+      } else {
+	ctx_check_sat(&__smt2_globals);
+      }
     }
   }
 }
