@@ -27,7 +27,6 @@
 #define EXPORTED __attribute__((visibility("default")))
 #endif
 
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <inttypes.h>
@@ -155,6 +154,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   }
   fprintf(f, "\n");
 }
+
 
 /*
  * Print the context:
@@ -2195,6 +2195,41 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
   q_clear(&aux);
 }
 
+
+/*
+ * Options: produce-unsat-cores and produce-unsat-assumptions.
+ * It's not clear what to do if both were true. So we make
+ * sure only one of them is true,
+ */
+static void set_unsat_core_option(smt2_globals_t *g, const char *name, aval_t value) {
+  bool flag;
+
+  if (aval_is_boolean(g->avtbl, value, &flag)) {
+    if (flag && g->produce_unsat_assumptions) {
+      print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
+    } else {
+      g->produce_unsat_cores = flag;
+      report_success();
+    }
+  } else {
+    print_error("option %s requires a Boolean value", name);
+  }
+}
+
+static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, aval_t value) {
+  bool flag;
+
+  if (aval_is_boolean(g->avtbl, value, &flag)) {
+    if (flag && g->produce_unsat_cores) {
+      print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
+    } else {
+      g->produce_unsat_assumptions = flag;
+      report_success();
+    }
+  } else {
+    print_error("option %s requires a Boolean value", name);
+  }
+}
 
 
 /*
@@ -5204,14 +5239,14 @@ void smt2_set_option(const char *name, aval_t value) {
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     // optional: if true, get-unsat-assumptions can be used
     if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_unsat_assumptions);
+      set_unsat_assumption_option(g, name, value);
     }
     break;
 
   case SMT2_KW_PRODUCE_UNSAT_CORES:
     // optional: if true,  get-unsat-cores can be used
     if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_unsat_cores);
+      set_unsat_core_option(g, name, value);
     }
     break;
 
