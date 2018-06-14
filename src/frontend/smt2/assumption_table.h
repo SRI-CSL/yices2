@@ -21,14 +21,14 @@
  * -----------------------------------------------
  *
  * This is used to print unsat cores in the format required by SMT2.
- * SMT2 requires has two ways of marking formulas as assumptions:
+ * SMT2 has two ways of marking formulas as assumptions:
  * 
  * 1) named assertions as in 
  *
  *       (assert (! t :named AAA))
  *
- *    On a call to (get-unsat-core), we must construct a
- *    list of names.
+ *    On a call to (get-unsat-core), we must construct a list of
+ *    names.
  *
  * 2) positive/negative assumptions as in
  *
@@ -40,7 +40,7 @@
  * To do this, we store two pieces of information for every term t
  * used as an assumption: its name and its polarity. The polarity is
  * always positive for named assertions. For assumptions in
- * check-sat-assuming, the polarity allows us to distinguish B 
+ * check-sat-assuming, the polarity allows us to distinguish between B
  * and (not B).
  */
 
