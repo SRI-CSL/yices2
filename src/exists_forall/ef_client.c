@@ -99,11 +99,10 @@ model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code){
 
   assert(code != NULL);
 
-  efsolver = efc->efsolver;
-  assert(efsolver != NULL);
   mdl = NULL;
+  efsolver = efc->efsolver;
 
-  if (! efc->efdone) {
+  if (efsolver == NULL || !efc->efdone) {
     *code = EFMODEL_CODE_NOT_SOLVED;
   } else if (efsolver->status == EF_STATUS_SAT) {
     *code = EFMODEL_CODE_NO_ERROR;
