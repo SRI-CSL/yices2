@@ -742,6 +742,7 @@ static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *param
     l = context_add_assumption(ctx, a[i]);
     if (l < 0) {
       // error when processing term a[i]
+      yices_internalization_error(l);
       status = STATUS_ERROR;
       goto done;
     }
@@ -1197,88 +1198,16 @@ static void print_yices_error(bool full) {
  * Print an internalization error code
  */
 static void print_internalization_error(int32_t code) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
-  code = - code;
-  print_error(code2error[code]);
+  yices_internalization_error(code);
+  print_yices_error(true);
 }
 
 /*
  * Print the error code returned by ef_analyze
  */
-static void print_ef_analyze_error(ef_code_t code, FILE *err) {
+static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
   print_error(efcode2error[code]);
-}
-
-
-/*
- * Print the efsolver status
- */
-static void print_ef_status(ef_client_t *efc, uint32_t verbosity, FILE *err) {
-  ef_status_t stat;
-  int32_t error;
-  ef_solver_t *efsolver;
-
-  efsolver = efc->efsolver;
-
-  assert(efsolver != NULL && efc->efdone);
-
-  if (verbosity > 0) {
-    printf("exist forall solver: %"PRIu32" iterations\n", efsolver->iters);
-  }
-
-  stat = efsolver->status;
-  error = efsolver->error_code;
-
-  switch (stat) {
-  case EF_STATUS_SAT:
-  case EF_STATUS_UNKNOWN:
-  case EF_STATUS_UNSAT:
-  case EF_STATUS_INTERRUPTED:
-    fputs(ef_status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (verbosity > 0) {
-      if (stat == EF_STATUS_SAT) {
-        print_ef_solution(stdout, efsolver);
-        fputc('\n', stdout);
-      }
-    }
-    fflush(stdout);
-    break;
-
-  case EF_STATUS_SUBST_ERROR:
-    if (error == -1) {
-      print_error("exist forall solver failed: degree overflow in substitution");
-    } else {
-      assert(error == -2);
-      freport_bug(err, "exist forall solver failed: substitution error");
-    }
-    break;
-
-  case EF_STATUS_ASSERT_ERROR:
-    assert(error < 0);
-    print_internalization_error(error);
-    break;
-
-  case EF_STATUS_PROJECTION_ERROR:
-    if (error == PROJ_ERROR_NON_LINEAR) {
-      print_error("exists forall solver failed: non-linear arithmetic is not supported");
-    } else {
-      freport_bug(err, "exists forall solver failed: projection error");
-    }
-    break;
-
-  case EF_STATUS_MDL_ERROR:
-  case EF_STATUS_IMPLICANT_ERROR:    
-  case EF_STATUS_TVAL_ERROR:
-  case EF_STATUS_CHECK_ERROR:
-  case EF_STATUS_ERROR:
-  case EF_STATUS_IDLE:
-  case EF_STATUS_SEARCHING:
-    freport_bug(err, "exists forall solver failed: unexpected status: %s\n", ef_status2string[stat]);
-    break;
-
-  }
 }
 
 
@@ -1643,6 +1572,93 @@ static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
 static void show_status(smt_status_t status) {
   print_out("%s\n", status2string[status]);
 }
+
+
+/*
+ * Status after check_with_assumptions: print an error if the
+ * status is not SAT/UNSAT/UNKNOWN/INTERRUPTED
+ */
+static void report_status(smt2_globals_t *g, smt_status_t status) {
+  switch (status) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+  case STATUS_UNSAT:
+  case STATUS_INTERRUPTED:
+    show_status(status);
+    break;
+
+  case STATUS_ERROR:
+    print_yices_error(true);
+    break;
+
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
+}
+
+
+/*
+ * Print the efsolver status. Print an error if the status
+ * is not SAT/UNSAT/UNKNOWN/INTERRUPTED.
+ */
+static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
+  ef_status_t stat;
+  int32_t error;
+  ef_solver_t *efsolver;
+
+  efsolver = efc->efsolver;
+
+  assert(efsolver != NULL && efc->efdone);
+
+  stat = efsolver->status;
+  error = efsolver->error_code;
+
+  switch (stat) {
+  case EF_STATUS_SAT:
+  case EF_STATUS_UNKNOWN:
+  case EF_STATUS_UNSAT:
+  case EF_STATUS_INTERRUPTED:
+    trace_printf(g->tracer, 3, "(exist/forall solver: %"PRIu32" iterations)\n", efsolver->iters);
+    print_out("%s\n", ef_status2string[stat]);
+    break;
+
+  case EF_STATUS_SUBST_ERROR:
+    if (error == -1) {
+      print_error("the exist/forall solver failed: degree overflow in substitution");
+    } else {
+      assert(error == -2);
+      freport_bug(g->err, "the exist/forall solver failed: substitution error");
+    }
+    break;
+
+  case EF_STATUS_ASSERT_ERROR:
+    assert(error < 0);
+    print_internalization_error(error);
+    break;
+
+  case EF_STATUS_PROJECTION_ERROR:
+    if (error == PROJ_ERROR_NON_LINEAR) {
+      print_error("the exists/forall solver failed: non-linear arithmetic is not supported");
+    } else {
+      freport_bug(g->err, "the exists/forall solver failed: projection error");
+    }
+    break;
+
+  case EF_STATUS_MDL_ERROR:
+  case EF_STATUS_IMPLICANT_ERROR:
+  case EF_STATUS_TVAL_ERROR:
+  case EF_STATUS_CHECK_ERROR:
+  case EF_STATUS_ERROR:
+  case EF_STATUS_IDLE:
+  case EF_STATUS_SEARCHING:
+    freport_bug(g->err, "the exists/forall solver failed: unexpected status: %s\n", ef_status2string[stat]);
+    break;
+
+  }
+}
+
+
 
 
 /*
@@ -2963,7 +2979,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
      */
     code = context_process_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
-      print_yices_error(true);
+      print_internalization_error(code);
       return;
     }
     pp_context(g->out, g->ctx);
@@ -3000,28 +3016,6 @@ static void show_delayed_assertions(smt2_globals_t *g) {
 }
 #endif
 
-
-/*
- * Status after check_with_assumptions: print an error if the
- * status is not SAT/UNSAT/UNKNOWN
- */
-static void report_status(smt2_globals_t *g, smt_status_t status) {
-  switch (status) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_UNSAT:
-    show_status(status);
-    break;
-
-  case STATUS_ERROR:
-    print_yices_error(true);
-    break;
-
-  default:
-    bad_status_bug(g->err);
-    break;
-  }
-}
 
 
 #if 0
@@ -3135,6 +3129,39 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
 
 
 /*
+ * EXISTS/FORALL SOLVER
+ */
+
+/*
+ * Call the exists/forall solver on the delayed assertions
+ * - print the status or an error message.
+ */
+static void efsolve_cmd(smt2_globals_t *g) {
+  ef_client_t *efc;
+
+  if (g->efmode) {
+    efc = &g->ef_client;
+    ef_solve(efc, &g->assertions, &g->parameters,
+	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
+	     g->tracer);
+
+    if (efc->efcode != EF_NO_ERROR) {
+      // error in preprocessing
+      print_ef_analyze_error(efc->efcode);
+    } else {
+      report_ef_status(g, efc);
+    }
+  } else {
+    print_error("(ef-solve) not supported.");
+  }
+}
+
+
+
+
+
+
+/*
  * CONTEXT OPERATIONS: INCREMENTAL MODE
  */
 
@@ -3201,8 +3228,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   case STATUS_IDLE:
     code = assert_formula(g->ctx, t);
     if (code < 0) {
-      yices_internalization_error(code);
-      print_yices_error(true);
+      print_internalization_error(code);
     } else {
       report_success();
     }
@@ -3472,6 +3498,39 @@ static model_t *get_model(smt2_globals_t *g) {
       }
     }
     g->model = mdl;
+  }
+
+  return mdl;
+}
+
+
+/*
+ * Try to construct a model from the exists/forall solver
+ * - return NULL and print an error if the solver's status is not SAT
+ */
+static model_t *get_ef_model(smt2_globals_t *g) {
+  ef_solver_t *efsolver;
+  model_t *mdl;
+  efmodel_error_code_t code;
+
+  efsolver = g->ef_client.efsolver;
+  mdl = ef_get_model(&g->ef_client, &code);
+
+  switch (code) {
+  case EFMODEL_CODE_NO_ERROR:
+    break;
+
+  case EFMODEL_CODE_NO_MODEL:
+    if (efsolver->status == EF_STATUS_UNSAT) {
+      print_error("the context is unsatisfiable");
+    } else {
+      print_error("the exists/forall solver did not find a model");
+    }
+    break;
+
+  case EFMODEL_CODE_NOT_SOLVED:
+    print_error("can't build a model. Call (check-sat) first");
+    break;
   }
 
   return mdl;
@@ -4535,7 +4594,7 @@ static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
 
   case PARAM_UNKNOWN:
   default:
-    freport_bug(stderr,"invalid parameter id in 'yices_get_option'");
+    freport_bug(g->err,"invalid parameter id in 'yices_get_option'");
     break;
   }
 
@@ -5581,34 +5640,6 @@ void smt2_assert(term_t t, bool special) {
   }
 }
 
-static void efsolve_cmd(smt2_globals_t *g) {
-  ef_client_t *efc;
-  efc = &g->ef_client;
-
-  if (g->efmode) {
-
-    ef_solve(efc, &g->assertions, &g->parameters,
-	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
-	     g->tracer);
-
-    if (efc->efcode != EF_NO_ERROR) {
-      // error in preprocessing
-      print_ef_analyze_error(efc->efcode, g->out);
-      
-    } else {
-      print_ef_status(efc, g->verbosity, g->out);
-    }
-    
-
-  } else {
-
-    print_error("(ef-solve) not supported.");
-
-  }
-}
-
-
-
 
 /*
  * Check satisfiability of the current set of assertions
@@ -5843,24 +5874,15 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 void smt2_get_model(void) {
   yices_pp_t printer;
   model_t *mdl;
-  int32_t code;
 
   if (check_logic()) {
-    code = 0;
-    if (__smt2_globals.efmode) {      
-      mdl = ef_get_model(&__smt2_globals.ef_client, &code);
+    if (__smt2_globals.efmode) {
+      mdl = get_ef_model(&__smt2_globals);
     } else {      
       mdl = get_model(&__smt2_globals);
     }
+    if (mdl == NULL) return;
 
-    if (mdl == NULL) {
-      if (__smt2_globals.efmode) {
-	fputs(efmodelcode2error[code], stderr);
-	fflush(stderr);
-      }
-      return;
-    }
-      
     init_pretty_printer(&printer, &__smt2_globals);
     smt2_pp_full_model(&printer, mdl);
     delete_yices_pp(&printer, true);

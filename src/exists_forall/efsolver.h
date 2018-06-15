@@ -258,7 +258,6 @@ extern void delete_ef_solver(ef_solver_t *solver);
 extern void ef_solver_set_trace(ef_solver_t *solver, tracer_t *trace);
 
 
-
 /*
  * Check satisfiability:
  *
