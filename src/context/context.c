@@ -6122,8 +6122,10 @@ void context_clear(context_t *ctx) {
  *   in a state with core base level = context base level + 1.
  */
 void context_clear_unsat(context_t *ctx) {
-  smt_clear_unsat(ctx->core);
-  assert(smt_base_level(ctx->core) == ctx->base_level);
+  if (ctx->mcsat == NULL) {
+    smt_clear_unsat(ctx->core);
+    assert(smt_base_level(ctx->core) == ctx->base_level);
+  }
 }
 
 
