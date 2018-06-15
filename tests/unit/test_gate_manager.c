@@ -103,7 +103,7 @@ static void quick_solve(smt_core_t *core) {
     return;
   }
 
-  start_search(core);
+  start_search(core, 0, NULL);
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING) {
     l = select_unassigned_literal(core);

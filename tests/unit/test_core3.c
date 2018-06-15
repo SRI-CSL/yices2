@@ -249,7 +249,7 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
   }
 
   // initialize then do a propagation + simplification step.
-  start_search(core);
+  start_search(core, 0, NULL);
   smt_process(core);
   if (verbose) {
     show_progress(core, d_threshold, reduce_threshold, true);
