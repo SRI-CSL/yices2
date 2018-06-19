@@ -897,7 +897,6 @@ void context_build_model(model_t *model, context_t *ctx) {
 
 
 
-
 /*
  * Read the value of a Boolean term t
  * - return VAL_TRUE/VAL_FALSE or VAL_UNDEF_FALSE/VAL_UNDEF_TRUE if t's value is not known
@@ -939,6 +938,10 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
   return v;
 }
 
+
+/*
+ * UNSAT CORE
+ */
 
 /*
  * Build an unsat core:

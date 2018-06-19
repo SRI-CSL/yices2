@@ -102,6 +102,7 @@ core_src_c := \
 	api/yices_api.c \
 	api/yices_error.c \
 	api/yval.c \
+	context/assumption_stack.c \
 	context/common_conjuncts.c \
 	context/conditional_definitions.c \
 	context/context.c \
