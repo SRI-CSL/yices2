@@ -305,7 +305,7 @@ static void add_to_hash_index(hash_index_t *index, int32_t k, int32_t x, const a
   for (;;) {
     j = index->data[i];
     if (j < 0) {
-      if (free < 0) free = j; // free slot
+      if (free < 0) free = i; // free slot
       if (j == -1) break;
     } else if (match(a, k, j)) {
       return;
@@ -404,11 +404,8 @@ void assumption_stack_pop(assumption_stack_t *stack) {
   assert(stack->level > 0);
 
   i = stack->top;
-  while (i > 0) {
+  while (i>0 && stack->data[i-1].level == stack->level) {
     i --;
-    if (stack->data[i].level < stack->level) break;
-
-    assert(stack->data[i].level == stack->level);
     remove_from_hash_index(&stack->lit_index, stack->data[i].lit, i);
     remove_from_hash_index(&stack->term_index, stack->data[i].term, i);
   }
