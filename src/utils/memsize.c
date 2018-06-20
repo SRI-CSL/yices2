@@ -143,6 +143,7 @@ double mem_size(void) {
 #include <stdlib.h>
 
 static unsigned long get_pages(void) {
+  char buffer[20];
   int f;
   unsigned long pages;
   ssize_t code;
