@@ -120,7 +120,7 @@ void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...) {
   fprintf(fp, "\n*************************************************************\n");
   fprintf(fp, "FATAL ERROR: ");
   va_start(p, format);
-  vfprintf(fp, format, p);
+  (void) vfprintf(fp, format, p); // added void to shush coverity
   va_end(p);
   fprintf(fp, "\n*************************************************************\n");
   fprintf(fp, "Please report this bug to yices-bugs@csl.sri.com.\n");
