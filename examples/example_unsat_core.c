@@ -166,12 +166,11 @@ static void unsat_core_test(void) {
   check_and_get_core(ctx, 3, assumption);
 
   /*
-   * Only the first two assumptions. Should get a model.
+   * Check only the first two assumptions. Should get a model.
    */
   check_and_get_core(ctx, 2, assumption);
 
-
-  yices_free_context(ctx);  
+  yices_free_context(ctx);
 }
 
 
