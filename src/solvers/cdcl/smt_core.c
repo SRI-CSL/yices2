@@ -3799,6 +3799,7 @@ static void collect_decision_antecedents(smt_core_t *s, int_hset_t *set, int_que
 /*
  * Compute an unsat core from the bad assumption:
  * - we collect all decision literals that are antecedents of the bad assumption
+ * - if there is no bad assumption, we return an empty core
  */
 void build_unsat_core(smt_core_t *s, ivector_t *v) {
   int_hset_t visited;

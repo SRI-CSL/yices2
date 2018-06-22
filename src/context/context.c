@@ -6126,6 +6126,8 @@ void context_clear(context_t *ctx) {
 
 /*
  * Clear_unsat: prepare for pop if the status is UNSAT
+ * - remove assumptions if any
+ *
  * - if clean interrupt is enabled, then there may be a mismatch between
  *   the context's base_level and the core base_level.
  * - it's possible to have ctx->core.base_level = ctx->base_level + 1

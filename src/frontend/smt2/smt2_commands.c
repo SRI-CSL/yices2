@@ -716,9 +716,9 @@ static void free_smt2_assumptions(smt2_assumptions_t *a) {
 
 
 /*
- * Should go to yices_api
+ * Check sat with assumptions and build an unsat core
  */
-static smt_status_t yices_check_assumptions(context_t *ctx, const param_t *params, uint32_t n, term_t a[], ivector_t *core) {
+static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[], ivector_t *core) {
   ivector_t assumptions;
   smt_status_t status;
   literal_t l;
@@ -2600,7 +2600,7 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
    * Attempt to cleanly recover from interrupt
    */
   if (stat == STATUS_INTERRUPTED) {
-    trace_printf(g->tracer, 2, "(check_sat: interrupted)\n");
+    trace_printf(g->tracer, 2, "(check-sat: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
@@ -2624,7 +2624,7 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
 
   if (g->timeout == 0) {
     // no timeout
-    stat = yices_check_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+    stat = check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
     a->status = stat;
     return stat;
   }
@@ -2639,14 +2639,15 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
   }
   g->interrupted = false;
   start_timeout(g->timeout, timeout_handler, g);
-  stat = check_context(g->ctx, params);
+  stat = check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
+  a->status = stat;
   clear_timeout();
 
   /*
    * Attempt to cleanly recover from interrupt
    */
   if (stat == STATUS_INTERRUPTED) {
-    trace_printf(g->tracer, 2, "(check_sat: interrupted)\n");
+    trace_printf(g->tracer, 2, "(check-sat-assuming: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
@@ -3171,7 +3172,7 @@ static void cleanup_context(smt2_globals_t *g) {
     break;
 
   case STATUS_UNSAT:
-    // try to to remove assertions
+    // try to to remove assumptions
     context_clear_unsat(g->ctx);
     assert (context_status(g->ctx) == STATUS_IDLE ||
 	    context_status(g->ctx) == STATUS_UNSAT);
@@ -3265,7 +3266,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
 
 /*
- * Compute an unsat core
+ * Check sat and compute an unsat core
  */
 static void ctx_unsat_core(smt2_globals_t *g) {
   smt_status_t stat;

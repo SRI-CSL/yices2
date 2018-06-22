@@ -3076,7 +3076,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  * problems.  Then you may want to play with the heuristics to see if
  * performance improves.
  *
- * The behavior and returned value depend on ctx's current status:
+ * The behavior and returned value depend on ctx's current status.
  *
  * 1) If ctx's status is STATUS_SAT, STATUS_UNSAT, or STATUS_UNKNOWN, the function
  *    does nothing and just returns the status.
@@ -3102,6 +3102,27 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
+
+
+
+/*
+ * Check satisfiability under assumptions: check whether the
+ * assertions stored in ctx conjoined with n assumptions is
+ * satisfiable.
+ * - params is an optional structure to store heuristic parameters
+ * - if params is NULL, default parameter settings are used.
+ * - n = number of assumptions
+ * - t = array of n assumptions
+ * - the assumptions t[0] ... t[n-1] must all be valid Boolean terms
+ *
+ * It behaves the same as the previous function.
+ *
+ * If this function returns STATUS_UNSAT, then one can construct an unsat core by
+ * calling function yices_get_unsat_core. The unsat core is a subset of t[0] ... t[n-1]
+ * that's inconsistent with ctx.
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params,
+									   uint32_t n, const term_t t[]);
 
 
 /*
@@ -3198,6 +3219,28 @@ __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, 
 __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
 
 
+
+/****************
+ *  UNSAT CORE  *
+ ***************/
+
+/*
+ * Construct an unsat core and store the result in vector *v.
+ * - v must be an initialized term_vector
+ *
+ * If ctx status is unsat, this function stores an unsat core in v,
+ * and returns 0. Otherwise, it sets an error core an returns -1.
+ *
+ * This is intended to be used after a call to
+ * yices_check_context_with_assumptions that returned STATUS_UNSAT. In
+ * this case, the function builds an unsat core, which is a subset of
+ * the assumptions. If there were no assumptions or if the context is UNSAT
+ * for another reason, an empty core is returned (i.e., v->size is set to 0).
+ *
+ * Error code:
+ * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v);
 
 
 

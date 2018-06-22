@@ -945,7 +945,8 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 
 /*
  * Build an unsat core:
- * - store the resulet in v
+ * - store the result in v
+ * - if there are no assumptions, return an empty core
  */
 void context_build_unsat_core(context_t *ctx, ivector_t *v) {
   smt_core_t *core;
