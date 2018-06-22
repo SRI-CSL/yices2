@@ -373,7 +373,7 @@ tarfile: $(distributions) doc
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$|\.cpp$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
