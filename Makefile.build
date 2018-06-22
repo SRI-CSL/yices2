@@ -444,7 +444,7 @@ static-tarfile: $(distributions) doc
 #
 install: install-$(POSIXOS)
 
-install-default: $(build_dir) $(dist_dir)
+install-default:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(libdir)
 	$(MKDIR_P) $(DESTDIR)$(includedir)
