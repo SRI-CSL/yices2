@@ -21,7 +21,6 @@
  * Assumes that keys are non-negative
  */
 
-#include <stdbool.h>
 #include <assert.h>
 
 #include "utils/int_hash_map.h"

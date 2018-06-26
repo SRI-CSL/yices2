@@ -30,7 +30,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -199,6 +199,7 @@ static void bvc_queue_remove_vars(bvc_queue_t *q, uint32_t nv) {
   q->top = j;
 }
 
+// FIX THIS: that's not enough!
 void bv_compiler_remove_vars(bvc_t *c, uint32_t nv) {
   int_hmap_remove_records(&c->cmap, &nv, (int_hmap_filter_t) record_to_remove);
   bvc_queue_remove_vars(&c->elemexp, nv);
@@ -1350,7 +1351,7 @@ static thvar_t bv_compiler_get_bvneg(bvc_t *c, thvar_t x) {
 
 /*
  * Get the variable y that x is compiled to
- * - store the mapping [x --> y] in the vmap
+ * - store the mapping [x --> y] in the cmap
  */
 static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   int_hmap_pair_t *p;
@@ -1387,8 +1388,22 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
 }
 
 
+static void show_cmap(bvc_t *c) {
+  int_hmap_pair_t *p;
+
+  p = int_hmap_first_record(&c->cmap);
+  while (p != NULL) {
+    printf("  [ u!%"PRId32" --> u!%"PRId32" ]\n", p->key, p->val);
+    p = int_hmap_next_record(&c->cmap, p);
+  }
+}
+
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
+
+  printf("\n=== bv compiler: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  printf("Initial compile map\n");
+  show_cmap(c);
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
@@ -1429,6 +1444,7 @@ void bv_compiler_process_queue(bvc_t *c) {
     print_bvc_dag(stdout, &c->dag);
     fflush(stdout);
 #endif
+
   }
 
 
@@ -1447,4 +1463,8 @@ void bv_compiler_process_queue(bvc_t *c) {
   reset_bvc_queue(&c->queue);
   reset_bvc_dag(&c->dag);
   reset_int_bvset(&c->in_queue);
+
+  printf("\n=== done: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  printf("Final compile map\n");
+  show_cmap(c);
 }

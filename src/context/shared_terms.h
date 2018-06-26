@@ -44,7 +44,7 @@
 /*
  * Data structure:
  * - hmap = hash table: this stores parent data based on term index
- *   hmap[i] = unique parent of i, if exacltyone occurrence of i
+ *   hmap[i] = unique parent of i, if exactly one occurrence of i
  *             has been so far
  *   hmap[i] = bool_const if i has more than one occurrence
  * - intern = pointer to the relevant internalization table
@@ -113,7 +113,7 @@ extern bool term_is_not_shared(sharing_map_t *map, term_t t);
 
 /*
  * Get the unique parent of t
- * - if t has been seen only once, this returns t's parent as stored in map->hamp
+ * - if t has been seen only once, this returns t's parent as stored in map->hmap
  * - if t has not been seen at all, this returns NULL_TERM
  * - if t has more than once occurrences, this returns true_term (as a marker).
  */
