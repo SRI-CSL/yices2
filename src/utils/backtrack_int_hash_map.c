@@ -194,6 +194,30 @@ static back_hmap_elem_t *get_clean(back_hmap_data_t *d, int32_t k, uint32_t l, u
 
 
 /*
+ * Mark all elements of d with level >= l as deleted
+ * - n = size of d
+ * return the number of elements removed.
+ */
+static uint32_t erase_level(back_hmap_data_t *d, uint32_t l, uint32_t n) {
+  back_hmap_elem_t *e;
+  uint32_t i, deletions;
+
+  deletions = 0;
+
+  e = d->pair;
+  for (i=0; i<n; i++) {
+    if (e->key >= 0 && d->level[i] >= l) {
+      e->key = BACK_HMAP_DELETED_KEY;
+      deletions ++;
+    }
+    e ++;
+  }
+
+  return deletions;
+}
+
+
+/*
  * HMAP
  */
 
@@ -343,4 +367,20 @@ back_hmap_elem_t *back_hmap_get(back_hmap_t *hmap, int32_t k) {
   }
 
   return aux;
+}
+
+
+/*
+ * Backtrack to the previous level: remove all elements
+ * added at the current level.
+ * - hmap->level must be positive
+ */
+void back_hmap_pop(back_hmap_t *hmap) {
+  assert(hmap->level > 0);
+
+  hmap->ndeleted += erase_level(&hmap->data, hmap->level, hmap->size);
+  hmap->level --;
+  if (hmap->ndeleted >= hmap->cleanup_threshold) {
+    back_hmap_cleanup(hmap);
+  }
 }

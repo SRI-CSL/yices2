@@ -49,6 +49,31 @@
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
 
+
+static void print_solver_state(FILE *f, bv_solver_t *solver) {  
+  fprintf(f, "\n--- Terms ---\n");
+  print_term_table(f, __yices_globals.terms);
+  fprintf(f, "\n--- Bitvector Partition ---\n");
+  print_bv_solver_partition(f, solver);
+  fprintf(f, "\n--- Bitvector Variables ---\n");
+  print_bv_solver_vars(f, solver);
+  fprintf(f, "\n--- Bitvector Atoms ---\n");
+  print_bv_solver_atoms(f, solver);
+  fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
+  fprintf(f, "\n--- Bitvector Bounds ---\n");
+  print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n--- DAG ---\n");
+  print_bv_solver_dag(f, solver);
+  if (solver->blaster != NULL) {
+    fprintf(f, "\n--- Gates ---\n");
+    print_gate_table(f, &solver->blaster->htbl);
+  }
+  fprintf(f, "\n--- Clauses ---\n");
+  print_clauses(f, solver->core);
+  fprintf(f, "\n");
+}
+
+
 #endif
 
 
@@ -1776,6 +1801,10 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
   printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(solver->core));
   printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(solver->core));
 #endif
+
+  //  printf("\nBVSOLVER BITBLAST\n");
+  //  print_solver_state(stdout, solver);
+  //  printf("\nDONE\n\n");
 
   return true;
 }
@@ -8700,6 +8729,5 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
     fclose(f);
   }
 }
-
 
 #endif

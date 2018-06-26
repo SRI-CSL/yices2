@@ -124,7 +124,7 @@ static inline void back_hmap_set_level(back_hmap_t *hmap, uint32_t n) {
 /*
  * Backtrack to the previous level: remove all elements
  * added at the current level.
- * - hmap->base_level must be positive
+ * - hmap->level must be positive
  */
 extern void back_hmap_pop(back_hmap_t *hmap);
 
@@ -140,13 +140,6 @@ extern back_hmap_elem_t *back_hmap_find(const back_hmap_t *hmap, int32_t k);
  * with key = k, val = -1, and level = current hmap level.
  */
 extern back_hmap_elem_t *back_hmap_get(back_hmap_t *hmap, int32_t k);
-
-
-/*
- * Add record {key = k, val = v} to the map. There must not be an existing
- * record with the same key.
- */
-extern void back_hmap_add(back_hmap_t *hmap, int32_t k, int32_t v);
 
 
 #endif /* __BACKTRACK_INT_HASH_MAP_H */

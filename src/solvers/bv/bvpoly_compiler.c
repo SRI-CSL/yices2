@@ -30,7 +30,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1388,6 +1388,7 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
 }
 
 
+#if 0
 static void show_cmap(bvc_t *c) {
   int_hmap_pair_t *p;
 
@@ -1397,13 +1398,14 @@ static void show_cmap(bvc_t *c) {
     p = int_hmap_next_record(&c->cmap, p);
   }
 }
+#endif
 
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
 
-  printf("\n=== bv compiler: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
-  printf("Initial compile map\n");
-  show_cmap(c);
+  //  printf("\n=== bv compiler: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  //  printf("Initial compile map\n");
+  //  show_cmap(c);
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
@@ -1464,7 +1466,7 @@ void bv_compiler_process_queue(bvc_t *c) {
   reset_bvc_dag(&c->dag);
   reset_int_bvset(&c->in_queue);
 
-  printf("\n=== done: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
-  printf("Final compile map\n");
-  show_cmap(c);
+  //  printf("\n=== done: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  //  printf("Final compile map\n");
+  //  show_cmap(c);
 }
