@@ -1391,6 +1391,11 @@ void congruence_table_add(congruence_table_t *tbl, composite_t *c) {
     j &= mask;
   }
 
+  if (tbl->data[j] == DELETED_COMPOSITE) {
+    assert(tbl->ndeleted > 0);
+    tbl->ndeleted --;
+  }
+
   tbl->data[j] = c;
   tbl->nelems ++;
   if (tbl->nelems + tbl->ndeleted > tbl->resize_threshold) {

@@ -286,17 +286,20 @@ strmap_rec_t *strmap_get(strmap_t *hmap, const char *key, bool *is_new) {
   }
 
   aux = d; // this is where the new record will go if needed
-  while(d->key != NULL) {
+  while (d->key != NULL) {
     i ++;
     i &= mask;
     if (d->key != DELETED_KEY && d->hash == h && strcmp(d->key, key) == 0) goto found;
   }
 
   // not found: add a new record
-  hmap->nelems ++;
   clone = clone_string(key);
   string_incref(clone);
-  if (hmap->nelems + hmap->ndeleted > hmap->resize_threshold) {
+  hmap->nelems ++;
+  if (aux->key == DELETED_KEY) {
+    assert(hmap->ndeleted > 0);
+    hmap->ndeleted --;
+  } else if (hmap->nelems + hmap->ndeleted > hmap->resize_threshold) {
     // resize: we can't use the current aux
     strmap_extend(hmap);
     aux = strmap_get_clean(hmap, h);

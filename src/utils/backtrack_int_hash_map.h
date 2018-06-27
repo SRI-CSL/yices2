@@ -107,7 +107,7 @@ extern void reset_back_hmap(back_hmap_t *hmap);
 /*
  * Increase level
  */
-extern inline void back_hmap_push(back_hmap_t *hmap) {
+static inline void back_hmap_push(back_hmap_t *hmap) {
   hmap->level ++;
 }
 

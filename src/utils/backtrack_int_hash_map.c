@@ -257,7 +257,7 @@ void delete_back_hmap(back_hmap_t *hmap) {
  * Empty the table and reset level to 0
  */
 void reset_back_hmap(back_hmap_t *hmap) {
-  reset_data_arrays(&hmap->data, hmap->nelems);
+  reset_data_arrays(&hmap->data, hmap->size);
   hmap->nelems = 0;
   hmap->ndeleted = 0;
   hmap->level = 0;
@@ -359,7 +359,12 @@ back_hmap_elem_t *back_hmap_get(back_hmap_t *hmap, int32_t k) {
   if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
     back_hmap_extend(hmap);
     aux = get_clean(&hmap->data, k, hmap->level, hmap->size - 1);
+    hmap->nelems ++;
   } else {
+    if (aux->key == BACK_HMAP_DELETED_KEY) {
+      assert(hmap->ndeleted > 0);
+      hmap->ndeleted --;
+    }
     hmap->nelems ++;
     aux->key = k;
     aux->val = -1;
@@ -376,9 +381,12 @@ back_hmap_elem_t *back_hmap_get(back_hmap_t *hmap, int32_t k) {
  * - hmap->level must be positive
  */
 void back_hmap_pop(back_hmap_t *hmap) {
+  uint32_t d;
   assert(hmap->level > 0);
 
-  hmap->ndeleted += erase_level(&hmap->data, hmap->level, hmap->size);
+  d = erase_level(&hmap->data, hmap->level, hmap->size);
+  hmap->ndeleted += d;
+  hmap->nelems -= d;
   hmap->level --;
   if (hmap->ndeleted >= hmap->cleanup_threshold) {
     back_hmap_cleanup(hmap);

@@ -246,7 +246,7 @@ uint32_t xq_hmap_multiplicity(xq_hmap_t *hmap, xrational_t *q) {
   xq_hmap_rec_t *r;
   uint32_t i, mask, v;
 
-  assert(hmap->nelems < hmap->size); // otherwise the function may loop
+  assert(hmap->nelems + hmap->ndeleted < hmap->size); // otherwise the function may loop
 
   mask = hmap->size - 1;
   i = hash_xq(q) & mask;
@@ -274,7 +274,7 @@ void xq_hmap_add_entry(xq_hmap_t *hmap, xrational_t *q) {
   xq_hmap_rec_t *r, *s;
   uint32_t i, mask;
 
-  assert(hmap->nelems < hmap->size);
+  assert(hmap->nelems + hmap->ndeleted < hmap->size);
 
   mask = hmap->size - 1;
   i = hash_xq(q) & mask;
@@ -296,12 +296,15 @@ void xq_hmap_add_entry(xq_hmap_t *hmap, xrational_t *q) {
     i ++;
     i &= mask;
     s = hmap->data + i;
-    if (s->value == 0) goto add;
+    if (s->value == 0) break;
     if (s->value != UINT32_MAX && xq_eq(&s->key, q)) {
       s->value ++;
       goto done;
     }
   }
+
+  assert(hmap->ndeleted > 0);
+  hmap->ndeleted --;
 
  add:
   // add a new record in r

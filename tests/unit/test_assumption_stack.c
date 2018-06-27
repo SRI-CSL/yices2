@@ -17,7 +17,6 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
 #include <inttypes.h>
 
 #include "context/assumption_stack.h"

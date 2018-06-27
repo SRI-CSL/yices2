@@ -548,7 +548,7 @@ static inline bool elem_matches(egeq_elem_t *e, int32_t x, int32_t y) {
 }
 
 /*
- * Search for a egeqd element of key <x, y>
+ * Search for a egeq element of key <x, y>
  * - return NULL if it's not in the table
  */
 egeq_elem_t *egeq_find(egeq_t *egeq, int32_t x, int32_t y) {
