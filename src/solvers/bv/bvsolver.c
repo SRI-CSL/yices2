@@ -892,6 +892,7 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
   if (c == NULL) {
     c = (bvc_t *) safe_malloc(sizeof(bvc_t));
     init_bv_compiler(c, &solver->vtbl, &solver->mtbl);
+    bv_compiler_set_level(c, solver->base_level);
     solver->compiler = c;
   }
 }
@@ -7187,6 +7188,10 @@ void bv_solver_push(bv_solver_t *solver) {
 
   mtbl_push(&solver->mtbl);
 
+  if (solver->compiler != NULL) {
+    bv_compiler_push(solver->compiler);
+  }
+
   if (solver->blaster != NULL) {
     bit_blaster_push(solver->blaster);
   }
@@ -7319,7 +7324,7 @@ void bv_solver_pop(bv_solver_t *solver) {
   top = bv_trail_top(&solver->trail_stack);
 
   if (solver->compiler != NULL) {
-    bv_compiler_remove_vars(solver->compiler, top->nvars);
+    bv_compiler_pop(solver->compiler, top->nvars);
   }
 
   if (solver->cache != NULL) {
