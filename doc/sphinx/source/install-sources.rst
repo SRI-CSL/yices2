@@ -18,8 +18,8 @@ you prefer, you can clone our `GitHub
 Dependencies
 ............
 
-To build Yices, you need a C compiler that supports C99. Any recent
-version of GCC or Clang should work.
+To build Yices, you need a C compiler that supports C99. Any
+reasonably recent version of GCC or Clang should work.
 
 
 You also need the `GNU Multiple Precision <http://gmplib.org>`_

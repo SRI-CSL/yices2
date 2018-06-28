@@ -6,14 +6,21 @@
 Content
 =======
 
-Basics
-------
+Download and Installation
+-------------------------
 
 .. toctree::
    :maxdepth: 1
 
    install-binaries
    install-sources
+
+Basics
+------
+
+.. toctree::
+   :maxdepth: 1
+
    overview
    basic-usage
 
