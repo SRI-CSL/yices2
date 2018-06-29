@@ -78,7 +78,7 @@ The latest stable version of Yices~2 can be downloaded at
 the platforms and operating systems listed in Table~\ref{versions}. We
 also provide source code there. For MacOS and Linux, you can also
 install Yices~2 using package managers (i.e., homebrew for the Mac and
-aptitude for Debian/Ubuntu).
+apt for Debian/Ubuntu).
 
 For the latest developments, you can clone our Git repository
 \url{https://github.com/SRI-CSL/yices2}. 
@@ -3434,13 +3434,10 @@ The following command-line options can be given to \texttt{yices-smt}.
 
 You can use Yices in your software via a C-API. The main header file
 is \texttt{yices.h} which includes all the API. The API functions are
-documented in this header file. More complete and detailed
-documentation is provided at the Yices
-website \url{http://yices.csl.sri.com/}.
-
-Since Yices~2.6.0, we also provide Python bindings to this API. These
-are included in the source distributions in directory
-\texttt{src/bindings}.
+documented in this header file and at
+\url{http://yices.csl.sri.com/}. Since Yices~2.6.0, we also provide
+Python bindings to this API. These bindings are included in the source
+distributions in directory \texttt{src/bindings}.
 
 As sketched in Figure~\ref{top-level-architecture}, the API provides
 three main classes of functions:
