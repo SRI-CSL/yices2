@@ -1052,6 +1052,7 @@ typedef struct smt_core_s {
   /* Tracer object (default to NULL) */
   tracer_t *trace;
 
+  bool interrupt_push;
 } smt_core_t;
 
 
