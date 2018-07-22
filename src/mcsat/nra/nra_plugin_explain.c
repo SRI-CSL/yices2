@@ -989,11 +989,7 @@ bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
 void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
 
-  if (TRACK_VAR(nra->conflict_variable)) {
-    fprintf(stderr, "Explaining tracked variable\n.");
-  }
-
-  if (TRACK_VAR(nra->conflict_variable) || ctx_trace_enabled(nra->ctx, "nra::explain")) {
+  if (ctx_trace_enabled(nra->ctx, "nra::explain")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_explain_conflict()\n");
     uint32_t i;
     int_mset_t variables;

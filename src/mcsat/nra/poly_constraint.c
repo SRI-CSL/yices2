@@ -326,12 +326,6 @@ bool poly_constraint_db_check(const poly_constraint_db_t* db) {
 
 const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variable_t constraint_var) {
 
-  if (TRACK_CONSTRAINT(constraint_var)) {
-    fprintf(stderr, "Getting tracked constraint:\n");
-    variable_db_print_variable(db->nra->ctx->var_db, constraint_var, stderr);
-    fprintf(stderr, "\n");
-  }
-
   // assert(poly_constraint_db_check(db));
   int_hmap_pair_t* find;
   find = int_hmap_find(&db->var_to_constraint_map, constraint_var);
@@ -354,12 +348,6 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   term_t t1, t2;
   term_kind_t kind;
   term_t constraint_var_term;
-
-  if (TRACK_CONSTRAINT(constraint_var)) {
-    fprintf(stderr, "Tracked constraint added:\n");
-    variable_db_print_variable(db->nra->ctx->var_db, constraint_var, stderr);
-    fprintf(stderr, "\n");
-  }
 
   // Constraint components
   lp_polynomial_t* cstr_polynomial = 0;
@@ -488,9 +476,12 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   // Create the appropriate constraint
   if (cstr_root_variable == lp_variable_null) {
     cstr = poly_constraint_new_regular(cstr_polynomial, sgn_condition);
+    (*db->nra->stats.constraint_regular) ++;
   } else {
     cstr = poly_constraint_new_root(cstr_polynomial, sgn_condition, cstr_root_variable, cstr_root_index);
+    (*db->nra->stats.constraint_root) ++;
   }
+
 
   if (ctx_trace_enabled(db->nra->ctx, "mcsat::new_term")) {
     ctx_trace_printf(db->nra->ctx, "poly_constraint_add: ");
@@ -507,9 +498,16 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   // assert(poly_constraint_db_check(db));
 }
 
-const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, const variable_t* var_list, nra_plugin_t* nra, uint32_t* cstr_level) {
+bool poly_constraint_is_valid(const poly_constraint_t* cstr) {
+  // Evaluate
+  if (poly_constraint_is_root_constraint(cstr)) {
+    return (cstr->x == lp_polynomial_top_variable(cstr->polynomial));
+  } else {
+    return true;
+  }
+}
 
-  bool eval;
+bool poly_constraint_evaluate(const poly_constraint_t* cstr, nra_plugin_t* nra, bool* value_out) {
 
   assert(poly_constraint_ok(cstr));
 
@@ -517,41 +515,13 @@ const mcsat_value_t* poly_constraint_evaluate(const poly_constraint_t* cstr, con
   if (poly_constraint_is_root_constraint(cstr)) {
     if (cstr->x != lp_polynomial_top_variable(cstr->polynomial)) {
       // if not top, ignore
-      return NULL;
+      return false;
     } else {
-      eval = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, nra->lp_data.lp_assignment);
+      *value_out = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, nra->lp_data.lp_assignment);
     }
   } else {
-    eval = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, nra->lp_data.lp_assignment);
+    *value_out = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, nra->lp_data.lp_assignment);
   }
 
-  // Get the variables if not there
-  if (var_list == NULL) {
-    lp_variable_list_t cstr_vars;
-    lp_variable_list_construct(&cstr_vars);
-    lp_polynomial_get_variables(cstr->polynomial, &cstr_vars);
-    *cstr_level = nra->ctx->trail->decision_level_base;
-    uint32_t i;
-    for (i = 0; i < cstr_vars.list_size; ++i) {
-      variable_t x = nra_plugin_get_variable_from_lp_variable(nra,
-          cstr_vars.list[i]);
-      uint32_t l = trail_get_level(nra->ctx->trail, x);
-      if (l > *cstr_level) {
-        *cstr_level = l;
-      }
-    }
-    lp_variable_list_destruct(&cstr_vars);
-  } else {
-    // Compute the level
-    *cstr_level = 0;
-    while (*var_list != variable_null) {
-      uint32_t l = trail_get_level(nra->ctx->trail, *var_list);
-      if (l > *cstr_level) {
-        *cstr_level = l;
-      }
-      var_list++;
-    }
-  }
-
-  return eval ? &mcsat_value_true : &mcsat_value_false;
+  return true;
 }

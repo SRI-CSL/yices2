@@ -1086,6 +1086,9 @@ static void offset_hash_table_add(offset_hash_table_t *table, int32_t i, uint32_
     j &= mask;
   }
 
+  if (table->data[j].index == -2) {
+    table->ndeleted --;
+  }
   table->data[j].index = i;
   table->data[j].hash = h;
   table->nelems ++;

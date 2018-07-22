@@ -64,13 +64,6 @@
 // EXPERIMENTAL
 #include "scratch/booleq_table.h"
 
-// Unsat core computation status
-enum {
-  core_init = 0,  // unsat core not computed
-  core_ready = 1,  // unsat core ready
-  core_fail = -1,  // unsat core computation failed
-};
-
 
 /***********
  * CLAUSES *
@@ -929,6 +922,21 @@ typedef enum smt_mode {
  * - if th_cache is true, th_cache_cl_size specifies which
  *   conflicts/explanations are considered (i.e., if they contain at most
  *   th_cache_cl_size literals, they are turned into clauses).
+ *
+ * Solving with assumptions:
+ * - we can optionally solve the problem under assumptions
+ * - the assumptions literals l_1 .... l_n
+ * - we store them in an assumptions array
+ * - we want to force the search tree to explore only the branches
+ *   where l_1  ... l_n are all true
+ * - to do this, we force the n first decisions to be
+ *   l_1 = true,   ..., l_n = true.
+ * - there's a conflict when we can't make such a decision
+ *   (i.e., l_i is forced to false by previous assumptions).
+ *
+ * We can then build an unsat core by keeping track of this l_i.
+ * We store it in core->bad_assumption. If there's no conflict,
+ * code->bad_assumption is null_literal.
  */
 typedef struct smt_core_s {
   /* Theory solver */
@@ -959,12 +967,12 @@ typedef struct smt_core_s {
   uint64_t simplify_props;      // value of propagation counter at that point
   uint64_t simplify_threshold;  // number of propagations before simplify is enabled again
 
-  uint64_t aux_literals;        // temporary counter used by simplify_clause
-  uint32_t aux_clauses;         // temporary counter used by simplify_clause
+  uint64_t aux_literals;       // temporary counter used by simplify_clause
+  uint32_t aux_clauses;        // temporary counter used by simplify_clause
 
   /* Current decision level */
   uint32_t decision_level;
-  uint32_t base_level;          // Incremented on push/decremented on pop
+  uint32_t base_level;         // Incremented on push/decremented on pop
 
   /* Activity increments and decays for learned clauses */
   float cla_inc;             // Clause activity increment
@@ -986,10 +994,12 @@ typedef struct smt_core_s {
   clause_t *false_clause;
   uint32_t th_conflict_size;  // number of literals in theory conflicts
 
-  /* Unsat core data */
-  bool unsat_core_enabled;    // true means unsat core enabled (also means no simplification of theory clauses)
-  ivector_t conflict_root;    // reason for unsatisfiability, collected root literals
-  int32_t core_status;        // status of conflict_core
+  /* Assumptions */
+  bool has_assumptions;
+  uint32_t num_assumptions;
+  uint32_t assumption_index;
+  const literal_t *assumptions;
+  literal_t bad_assumption;
 
   /* Auxiliary buffers for conflict resolution */
   ivector_t buffer;
@@ -1001,7 +1011,6 @@ typedef struct smt_core_s {
   /* Clause database */
   clause_t **problem_clauses;
   clause_t **learned_clauses;
-  clause_t **buffer_clauses;    // Clause storage (used in conflict resolution for unsat core, not in solving)
 
   ivector_t binary_clauses;  // Keeps a copy of binary clauses added at base_levels>0
 
@@ -1010,8 +1019,6 @@ typedef struct smt_core_s {
   antecedent_t *antecedent;
   uint32_t *level;
   byte_t *mark;        // bitvector: for conflict resolution
-
-  antecedent_t *full_antecedent;                // Full antecedant for unsat core tracking
 
   /* Literal-indexed arrays (of size lsize) */
   literal_t **bin;   // array of literal vectors
@@ -1233,20 +1240,6 @@ static inline void disable_theory_cache(smt_core_t *s) {
   s->th_cache_enabled = false;
 }
 
-/*
- * Activate unsat core data and initialize core
- */
-static inline void enable_unsat_core(smt_core_t *s) {
-  s->unsat_core_enabled = true;
-}
-
-/*
- * Deactivate unsat core data and initialize core
- */
-static inline void disable_unsat_core(smt_core_t *s) {
-  s->unsat_core_enabled = false;
-}
-
 
 /*
  * Read the current decision level
@@ -1452,14 +1445,6 @@ static inline antecedent_t get_bvar_antecedent(smt_core_t *s, bvar_t x) {
   return s->antecedent[x];
 }
 
-/*
- * Full antecedent of x
- */
-static inline antecedent_t get_bvar_full_antecedent(smt_core_t *s, bvar_t x) {
-  assert(0 <= x && x < s->nvars);
-  return s->full_antecedent[x];
-}
-
 
 /*
  * Set the initial activity of variable x.
@@ -1642,15 +1627,21 @@ extern bool base_propagate(smt_core_t *s);
 
 
 /*
- * Prepare for the search:
+ * Prepare for the search
+ * - a = optional array of assumptions
+ * - n = number of assumptions
+ * - a[0 ... n-1] must all be valid literals in the core
+ *
+ * Effect:
  * - initialize variable heap
+ * - store a ponter to the assumption array
  * - set status to SEARCHING
  * - reset the search statistics counters
  * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
  * The current status must be IDLE.
  */
-extern void start_search(smt_core_t *s);
+extern void start_search(smt_core_t *s, uint32_t n, const literal_t *a);
 
 
 /*
@@ -1738,7 +1729,7 @@ extern void smt_checkpoint(smt_core_t *s);
  * repeat
  *   if there's a conflict
  *     try to resolve the conflict
- *     if the conflict can't be resolved,
+ *     if we can't resolve it
  *       change status to UNSAT and exit
  *     else
  *       decay variable and clause activities
@@ -1857,13 +1848,54 @@ extern void smt_clear(smt_core_t *s);
 /*
  * Cleanup after the search returned unsat
  * - s->status must be UNSAT.
- * - if clean_interrupt is enabled, this restores s to its state
+ * - if there are assumpions, this removes them and reset s->status
+ *   to STATUS_IDLE
+ * - if clean_interrupt is enabled, this also restores s to its state
  *   before the search: learned clauses are deleted, lemmas, variables
  *   and atoms created during the search are deleted.
- * - if clean_interrupt is disabled, this does nothing.
+ * - if clean_interrupt is disabled and there are no assumptions,
+ *   this does nothing.
+ *
+ * On exit, s->status is either STATUS_UNSAT (if no assumptions
+ * were removed) or STATUS_IDLE (if assumptions were removed).
  */
 extern void smt_clear_unsat(smt_core_t *s);
 
+
+
+/*********************************
+ *  ASSUMPTIONS AND UNSAT CORES  *
+ ********************************/
+
+/*
+ * Get the next assumption for the current decision_level
+ * - s->status mut be SEARCHING
+ * - this scans the assumption array to search for an assumption
+ *   that is not already true.
+ * - returns an assumption l or null_literal if all assumptions
+ *   are true (or if there are no assumptions)
+ */
+extern literal_t get_next_assumption(smt_core_t *s);
+
+
+/*
+ * Store l as a bad assumption:
+ * - l must be false in s
+ * - copy l in s->bad_assumption
+ * - mark the context as unsat
+ */
+extern void save_conflicting_assumption(smt_core_t *s, literal_t l);
+
+
+/*
+ * Compute an unsat core:
+ * - the core is stored as a list of literals in vector v:
+ *   (i.e., the conjunction of these literals is unsat in the current context)
+ * - s->status must be UNSAT
+ * - if there are no bad_assumption, an empty core is returned
+ * - otherwise the core is build by resolving the bad_assumption's antecedents
+ */
+extern void build_unsat_core(smt_core_t *s, ivector_t *v);
 
 
 
@@ -1950,10 +1982,6 @@ extern void delete_free_bool_vars(free_bool_vars_t *fv);
  *   all the variables of s
  */
 extern void collect_free_bool_vars(free_bool_vars_t *fv, const smt_core_t *s);
-
-extern void derive_conflict_core(smt_core_t *s);
-
-extern void add_root_antecedants(smt_core_t *s, literal_t l, bool polarity, int_hmap_t *marks, bool isTop);
 
 
 #endif /* __SMT_CORE_H */

@@ -749,7 +749,6 @@ assert formulas, check satisfiability, and query the context's status.
 
 
 
-
 Push and Pop
 ------------
 
@@ -807,6 +806,133 @@ be removed by :c:func:`yices_pop`.
    - if *ctx*'s status is :c:enum:`STATUS_SEARCHING` or if the assertion level is zero:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+
+Check with Assumptions and Unsat Cores
+--------------------------------------
+
+When checking satisfiability, it is possible to treat certain formulas as *assumptions*.
+Assumptions are similar to asserted formulas but they are local to a single call to check.
+Here is an example::
+
+   context_t *ctx = yices_new_context(NULL);
+   yices_assert_formula(ctx, f);
+   status = yices_check_context_with_assumptions(ctx, NULL, 5, a);
+
+In this fragment, we first create a context ``ctx`` then we assert a
+formula ``f``.  In the call to check, we give an array of five
+assumptions ``a[0]``, ..., ``a[4]``.  This amounts to checking the
+conjunction of ``f`` and the five assumptions, but the assumptions are
+local to the call to :c:func:`yices_check_context_with_assumptions`
+and are not added to the context.  We could achieve the same effect by
+using incremental solving::
+
+   context_t *ctx = yices_new_context(NULL);
+   yices_assert_formula(ctx, f);
+   yices_push(ctx);
+   yices_assert_formulas(ctx, 5, a);
+   status = yices_check_context(ctx, NULL);
+   yices_pop(ctx);
+
+However, check with assumptions provides an additional functionality,
+namely, the construction of an *unsatisfiable core*, that is, a subset
+of the five assumptions that's inconsistent. The unsatisfiable core is
+constructed by calling function :c:func:`yices_get_unsat_core`, which
+returns the core in a term vector. A full example is in file
+:file:`examples/example_unsat_core.c` included in the Yices
+distribution.
+
+
+.. c:function:: smt_status_t yices_check_context_with_assumptions(context_t* ctx, const param_t* params, uint32_t n, const term_t t[])
+
+   Checks whether *n* assumptions are satisfiable in a context *ctx*.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *params* is an optional structure to a search-parameter structure.
+
+   - *n* is the number of assumptions
+
+   - *t* is an array of *n* Boolean terms
+
+   The *params* structure controls search heuristics. If *params* is NULL, default
+   settings are used. See :ref:`params` and :c:func:`yices_check_context`.
+
+   The function checks whether all assertions currently asserted in *ctx*
+   together with the *n* assumptions *t[0]* |...| *t[n-1]* are
+   satisfiable, and returns the result as a status code. If the
+   function returns :c:enum:`STATUS_UNSAT` then one can compute an
+   unsat core (i.e., a subset of the assumptions that is
+   unsatisfiable) by calling :c:func:`yices_get_unsat_core`.
+
+   More precisely:
+
+   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`STATUS_UNSAT`.
+
+   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
+     or :c:enum:`STATUS_UNKNOWN` then the function checks whether *ctx* conjoined
+     with the *n* assumptions is satisfiable. This is done even if *n* is zero.
+     The function will then return a code as in :c:func:`yices_check_context`.
+
+   - If *ctx*'status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+
+
+   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   configured for one-shot solving and *ctx*'s status is anything
+   other than :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If *ctx*'s status is wrong:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+   - If the operation is not supported by this context:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+
+.. c:function:: int32_t yices_get_unsat_core(context_t* ctx, term_vector_t* v)
+
+   Construct an unsat core (after a call to :c:func:`yices_check_context_with_assumptions`)
+   and store it in vector *v*.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *v* must be an initialized term vector (see :c:func:`yices_init_term_vector`).
+
+   The function checks whether *ctx*'s status is
+   :c:enum:`STATUS_UNSAT`. If so, it computes and unsat core and store
+   it in vector *v*. The unsat core is an subset of the assumptions
+   passed to the most recent call to :c:func:`yices_check_context_with_assumptions`.
+
+   It is also possible to use this function after a call to :c:func:`yices_check_context`.
+   In this case, the function returns an empty core.
+
+   The unsat core is returned as follows:
+
+   - *v->size* contains the number of elements in the core
+
+   - *v->data[0 ... v->size - 1]* contains the elements. Each term in *v->data[i]* is
+     a Boolean term, equal to one of the assumption that is part of the core.
+
+     There are no duplicates in the *v->data* array.
+
+
+   If *ctx*'s status is anything other than :c:enum:`STATUS_UNSAT`,
+   the function leaves *v* unchanged and returns -1.
+
+   **Error report**
+
+   - If *ctx*'s status is not :c:enum:`STATUS_UNSAT`
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
 
 
 .. _params:

@@ -183,6 +183,14 @@ const mcsat_value_t* trail_get_cached_value(const mcsat_trail_t* trail, variable
   return mcsat_model_get_value(&trail->model, var);
 }
 
+/** Get the value timestamp of the variable */
+static inline
+uint32_t trail_get_value_timestamp(const mcsat_trail_t* trail, variable_t var) {
+  assert(trail_has_value(trail, var));
+  return mcsat_model_get_value_timestamp(&trail->model, var);
+}
+
+
 /** Get the boolean value of the variable */
 static inline
 bool trail_get_boolean_value(const mcsat_trail_t* trail, variable_t var) {

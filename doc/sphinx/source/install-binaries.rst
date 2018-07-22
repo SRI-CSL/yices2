@@ -3,8 +3,8 @@
 .. highlight:: c
 
 
-Installing the Binary Distributions
-===================================
+Binary Distributions
+====================
 
 You can install Yices 2 with homebrew on Mac OS X or with apt on
 Debian-based Linux systems. You can also download precompiled binary

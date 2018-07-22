@@ -370,30 +370,7 @@ void print_conflict(FILE *f, smt_core_t *core) {
   }
 }
 
-/*
- * Print conflict core
- */
-void print_conflict_roots(FILE *f, smt_core_t *core) {
-  uint32_t i, n;
-  ivector_t *conflict_root = &core->conflict_root;
 
-  if (core->inconsistent) {
-    if (core->core_status == core_ready) {
-      fputs("Conflict roots: {", f);
-      n = conflict_root->size;
-      for (i = 0; i < n; i++)
-      {
-        fputc(' ', f);
-        print_bvar(f, conflict_root->data[i]);
-      }
-      fputs("}\n", f);
-    } else {
-      fputs("Conflict core missing\n", f);
-    }
-  } else {
-    fputs("No conflict\n", f);
-  }
-}
 /*
  * Size of a clause vector (deal with the case v == NULL)
  */
@@ -423,10 +400,6 @@ void print_smt_core(FILE *f, smt_core_t *core) {
   print_binary_clauses(f, core);
   print_problem_clauses(f, core);
   print_learned_clauses(f, core);
-
-  if (core->unsat_core_enabled)
-	  print_conflict_roots(f, core);
-
   fputc('\n', f);
   fflush(f);
 }

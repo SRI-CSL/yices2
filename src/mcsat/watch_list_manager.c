@@ -24,12 +24,14 @@ void watch_list_manager_construct(watch_list_manager_t* wlm, variable_db_t* var_
   init_ivector(&wlm->all_watchers, 0);
   init_ivector(&wlm->all_lists, 0);
   init_int_hmap(&wlm->list_to_constraint_map, 0);
+  init_int_hmap(&wlm->constraint_to_list_map, 0);
   wlm->var_db = var_db;
 }
 
 void watch_list_manager_destruct(watch_list_manager_t* wlm) {
   uint32_t i;
   delete_int_hmap(&wlm->list_to_constraint_map);
+  delete_int_hmap(&wlm->constraint_to_list_map);
   for (i = 0; i < wlm->wlist_memory.size; ++ i) {
     ivector_t* list_vector = wlm->wlist_memory.data[i];
     if (list_vector != NULL) {
@@ -66,6 +68,7 @@ variable_list_ref_t watch_list_manager_new_list(watch_list_manager_t* wlm, const
 
   // Remember the association with the constraint
   int_hmap_add(&wlm->list_to_constraint_map, ref, constraint);
+  int_hmap_add(&wlm->constraint_to_list_map, constraint, ref);
 
   // Remember the list
   ivector_push(&wlm->all_lists, ref);
@@ -73,13 +76,31 @@ variable_list_ref_t watch_list_manager_new_list(watch_list_manager_t* wlm, const
   return ref;
 }
 
+void watch_list_manager_gc_mark(watch_list_manager_t* wlm, gc_info_t* gc_vars) {
+  // Look for any lists at the current GC level
+  uint32_t marked_i = 0;
+  for (marked_i = gc_vars->marked_first; marked_i < gc_vars->marked.size; marked_i ++) {
+    variable_t constraint_var = gc_vars->marked.data[marked_i];
+    if (watch_list_manager_has_constraint(wlm, constraint_var)) {
+      variable_list_ref_t list_ref = watch_list_manager_get_list_of(wlm, constraint_var);
+      variable_t* vars = watch_list_manager_get_list(wlm, list_ref);
+      while (*vars != variable_null) {
+        gc_info_mark(gc_vars, *vars);
+        vars ++;
+      }
+    }
+  }
+}
+
 void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_t* gc_vars) {
 
   gc_info_t gc_lists;
   int_hmap_t new_list_to_constraint_map;
+  int_hmap_t new_constraint_to_list_map;
   variable_list_ref_t new_vlist_top = 0;
 
   init_int_hmap(&new_list_to_constraint_map, 0);
+  init_int_hmap(&new_constraint_to_list_map, 0);
 
   // Relocation of lists
   gc_info_construct(&gc_lists, variable_list_ref_null, false);
@@ -97,6 +118,7 @@ void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_
     if (new_constraint != gc_vars->null_value) {
       // Add to map list -> constraint
       int_hmap_add(&new_list_to_constraint_map, new_vlist_top, new_constraint);
+      int_hmap_add(&new_constraint_to_list_map, new_constraint, new_vlist_top);
       // We keep this one
       wlm->all_lists.data[ref_keep ++] = new_vlist_top;
       gc_info_mark(&gc_lists, old_vlist_ref);
@@ -133,6 +155,8 @@ void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_
   // Swap in the map from lists to constraints
   delete_int_hmap(&wlm->list_to_constraint_map);
   wlm->list_to_constraint_map = new_list_to_constraint_map;
+  delete_int_hmap(&wlm->constraint_to_list_map);
+  wlm->constraint_to_list_map = new_constraint_to_list_map;
 
   gc_info_destruct(&gc_lists);
 }
@@ -140,6 +164,17 @@ void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_
 variable_t watch_list_manager_get_constraint(watch_list_manager_t* wlm, variable_list_ref_t var_list) {
   int_hmap_pair_t* find;
   find = int_hmap_find(&wlm->list_to_constraint_map, var_list);
+  assert(find != NULL);
+  return find->val;
+}
+
+bool watch_list_manager_has_constraint(watch_list_manager_t* wlm, variable_t constraint) {
+  return int_hmap_find(&wlm->constraint_to_list_map, constraint) != NULL;
+}
+
+variable_list_ref_t watch_list_manager_get_list_of(watch_list_manager_t* wlm, variable_t constraint) {
+  int_hmap_pair_t* find;
+  find = int_hmap_find(&wlm->constraint_to_list_map, constraint);
   assert(find != NULL);
   return find->val;
 }

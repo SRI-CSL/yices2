@@ -100,6 +100,35 @@ static void trace_done(smt_core_t *core) {
 }
 
 
+
+/*
+ * PROCESS AN ASSUMPTION
+ */
+
+/*
+ * l = assumption for the current decision level
+ * If l is unassigned, we assign it and perform one round of propagation
+ * If l is false, we record the conflict. The context is unsat under the
+ * current set of assumptions.
+ */
+static void process_assumption(smt_core_t *core, literal_t l) {
+  switch (literal_value(core, l)) {
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
+    decide_literal(core, l);
+    smt_process(core);
+    break;
+
+  case VAL_TRUE:
+    break;
+
+  case VAL_FALSE:
+    save_conflicting_assumption(core, l);
+    break;
+  }
+}
+
+
 /*
  * MAIN SEARCH FUNCTIONS
  */
@@ -130,6 +159,15 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -175,6 +213,15 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -225,6 +272,15 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
       trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+    }
+
+    // assumption
+    if (core->has_assumptions) {
+      l = get_next_assumption(core);
+      if (l != null_literal) {
+	process_assumption(core, l);
+	continue;
+      }
     }
 
     // decision
@@ -304,15 +360,14 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
 /*
  * Full solver:
  * - params: heuristic parameters.
- *   If params is NULL, the default settings are used.
+ * - n = number of assumptions
+ * - a = array of n assumptions: a[0 ... n-1] must all be literals
  */
-static void solve(smt_core_t *core, const param_t *params) {
+static void solve(smt_core_t *core, const param_t *params, uint32_t n, const literal_t *a) {
   bool luby;
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t u, v, period;             // for Luby-style
   uint32_t reduce_threshold;
-
-  assert(smt_status(core) == STATUS_IDLE);
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
@@ -334,9 +389,8 @@ static void solve(smt_core_t *core, const param_t *params) {
   }
 
   // initialize then do a propagation + simplification step.
-  start_search(core);
+  start_search(core, n, a);
   trace_start(core);
-
   if (smt_status(core) == STATUS_SEARCHING) {
     // loop
     for (;;) {
@@ -407,7 +461,93 @@ static void solve(smt_core_t *core, const param_t *params) {
 }
 
 
+/*
+ * Initialize the search parameters based on params.
+ * If params is NULL, we use default values.
+ */
+static void context_set_search_parameters(context_t *ctx, const param_t *params) {
+  smt_core_t *core;
+  egraph_t *egraph;
+  simplex_solver_t *simplex;
+  fun_solver_t *fsolver;
+  uint32_t quota;
 
+  if (params == NULL) {
+    params = get_default_params();
+  }
+
+  /*
+   * Set core parameters
+   */
+  core = ctx->core;
+  set_randomness(core, params->randomness);
+  set_random_seed(core, params->random_seed);
+  set_var_decay_factor(core, params->var_decay);
+  set_clause_decay_factor(core, params->clause_decay);
+  if (params->cache_tclauses) {
+    enable_theory_cache(core, params->tclause_size);
+  } else {
+    disable_theory_cache(core);
+  }
+
+  /*
+   * Set egraph parameters
+   */
+  egraph = ctx->egraph;
+  if (egraph != NULL) {
+    if (params->use_optimistic_fcheck) {
+      egraph_enable_optimistic_final_check(egraph);
+    } else {
+      egraph_disable_optimistic_final_check(egraph);
+    }
+    if (params->use_dyn_ack) {
+      egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
+      egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
+    } else {
+      egraph_disable_dyn_ackermann(egraph);
+    }
+    if (params->use_bool_dyn_ack) {
+      egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
+      egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
+    } else {
+      egraph_disable_dyn_boolackermann(egraph);
+    }
+    quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
+    if (quota < params->aux_eq_quota) {
+      quota = params->aux_eq_quota;
+    }
+    egraph_set_aux_eq_quota(egraph, quota);
+    egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
+  }
+
+  /*
+   * Set simplex parameters
+   */
+  if (context_has_simplex_solver(ctx)) {
+    simplex = ctx->arith_solver;
+    if (params->use_simplex_prop) {
+      simplex_enable_propagation(simplex);
+      simplex_set_prop_threshold(simplex, params->max_prop_row_size);
+    }
+    if (params->adjust_simplex_model) {
+      simplex_enable_adjust_model(simplex);
+    }
+    simplex_set_bland_threshold(simplex, params->bland_threshold);
+    if (params->integer_check) {
+      simplex_enable_periodic_icheck(simplex);
+      simplex_set_integer_check_period(simplex, params->integer_check_period);
+    }
+  }
+
+  /*
+   * Set array solver parameters
+   */
+  if (context_has_fun_solver(ctx)) {
+    fsolver = ctx->fun_solver;
+    fun_solver_set_max_update_conflicts(fsolver, params->max_update_conflicts);
+    fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
+  }
+}
 
 
 /*
@@ -415,12 +555,8 @@ static void solve(smt_core_t *core, const param_t *params) {
  * - if ctx->status is not IDLE, return the status.
  */
 smt_status_t check_context(context_t *ctx, const param_t *params) {
-  smt_status_t stat;
   smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
-  uint32_t quota;
+  smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
     mcsat_solve(ctx->mcsat, params);
@@ -428,89 +564,34 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   }
 
   core = ctx->core;
-  egraph = ctx->egraph;
-
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
-    /*
-     * Clean state: search can proceed
-     */
-    if (params == NULL) {
-      params = get_default_params();
-    }
+    // clean state: the search can proceed
+    context_set_search_parameters(ctx, params);
+    solve(core, params, 0, NULL);
+    stat = smt_status(core);
+  }
 
-    /*
-     * Set core parameters
-     */
-    set_randomness(core, params->randomness);
-    set_random_seed(core, params->random_seed);
-    set_var_decay_factor(core, params->var_decay);
-    set_clause_decay_factor(core, params->clause_decay);
-    if (params->cache_tclauses) {
-      enable_theory_cache(core, params->tclause_size);
-    } else {
-      disable_theory_cache(core);
-    }
-
-    /*
-     * Set egraph parameters
-     */
-    if (egraph != NULL) {
-      if (params->use_optimistic_fcheck) {
-	egraph_enable_optimistic_final_check(egraph);
-      } else {
-	egraph_disable_optimistic_final_check(egraph);
-      }
-      if (params->use_dyn_ack) {
-        egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
-        egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
-      } else {
-        egraph_disable_dyn_ackermann(egraph);
-      }
-      if (params->use_bool_dyn_ack) {
-        egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
-        egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
-      } else {
-        egraph_disable_dyn_boolackermann(egraph);
-      }
-      quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
-      if (quota < params->aux_eq_quota) {
-        quota = params->aux_eq_quota;
-      }
-      egraph_set_aux_eq_quota(egraph, quota);
-      egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
-    }
-
-    /*
-     * Set simplex parameters
-     */
-    if (context_has_simplex_solver(ctx)) {
-      simplex = ctx->arith_solver;
-      if (params->use_simplex_prop) {
-        simplex_enable_propagation(simplex);
-        simplex_set_prop_threshold(simplex, params->max_prop_row_size);
-      }
-      if (params->adjust_simplex_model) {
-        simplex_enable_adjust_model(simplex);
-      }
-      simplex_set_bland_threshold(simplex, params->bland_threshold);
-      if (params->integer_check) {
-        simplex_enable_periodic_icheck(simplex);
-        simplex_set_integer_check_period(simplex, params->integer_check_period);
-      }
-    }
+  return stat;
+}
 
 
-    /*
-     * Set array solver parameters
-     */
-    if (context_has_fun_solver(ctx)) {
-      fsolver = ctx->fun_solver;
-      fun_solver_set_max_update_conflicts(fsolver, params->max_update_conflicts);
-      fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
-    }
+/*
+ * Check with assumptions a[0] ... a[n-1]
+ * - if ctx->status is not IDLE, return the status.
+ */
+smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const literal_t *a) {
+  smt_core_t *core;
+  smt_status_t stat;
 
-    solve(core, params);
+  assert(ctx->mcsat == NULL); // MC-SAT doesn't support assumptions yet
+
+  core = ctx->core;
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    // clean state
+    context_set_search_parameters(ctx, params);
+    solve(core, params, n, a);
     stat = smt_status(core);
   }
 
@@ -546,7 +627,7 @@ smt_status_t precheck_context(context_t *ctx) {
 
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
-    start_search(core);
+    start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 
@@ -816,7 +897,6 @@ void context_build_model(model_t *model, context_t *ctx) {
 
 
 
-
 /*
  * Read the value of a Boolean term t
  * - return VAL_TRUE/VAL_FALSE or VAL_UNDEF_FALSE/VAL_UNDEF_TRUE if t's value is not known
@@ -858,103 +938,30 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
   return v;
 }
 
-/*
- * Enables unsat core
- */
-void context_enable_unsat_core(context_t *ctx) {
-  smt_core_t *core = ctx->core;
-  enable_unsat_core(core);
-}
 
 /*
- * Disables unsat core
+ * UNSAT CORE
  */
-void context_disable_unsat_core(context_t *ctx) {
-  smt_core_t *core = ctx->core;
-  disable_unsat_core(core);
-}
 
 /*
- * Computes unsat core
- * - returns 0 when t is not present in unsat core
- * - returns 1 when t is present in unsat core
- * - returns -1 when unable to determine
+ * Build an unsat core:
+ * - store the result in v
+ * - if there are no assumptions, return an empty core
  */
-int32_t derive_unsat_core(context_t *ctx) {
-  smt_core_t *core = ctx->core;
-  derive_conflict_core(core);
-  return core->core_status;
-}
-
-/*
- * Checks whether term t is in unsat core.
- * - returns 0 when t is not present in unsat core
- * - returns 1 when t is present in unsat core
- * - returns -1 when unable to determine
- */
-int32_t check_term_in_unsat_core(context_t *ctx, term_t r) {
-  smt_core_t *core = ctx->core;
-  ivector_t *conflict_roots;
-  intern_tbl_t *tbl;
-  term_table_t *terms;
-  bvar_t x;
+void context_build_unsat_core(context_t *ctx, ivector_t *v) {
+  smt_core_t *core;
   uint32_t i, n;
-  int32_t code;
+  term_t t;
 
-#if TRACE
-  printf("term: ");
-  print_term_id(stdout, r);
-#endif
+  core = ctx->core;
+  assert(core != NULL && core->status == STATUS_UNSAT);
+  build_unsat_core(core, v);
 
-  if (core->core_status == core_ready) {
-    conflict_roots = &core->conflict_root;
-    tbl = &ctx->intern;
-    terms = tbl->terms;
-
-    if (good_term(terms, r) && is_pos_term(r) && intern_tbl_is_root(tbl, r)) {
-      if (intern_tbl_root_is_mapped(tbl, r)) {
-        code = intern_tbl_map_of_root(tbl, r);
-        if (code_is_var(code)) {
-          x = code2bvar(code);
-
-#if TRACE
-          printf(", var: ");
-          print_bvar(stdout, x);
-#endif
-
-          n = conflict_roots->size;
-          for (i = 0; i < n; i++) {
-
-//          fputs("\nrhs: ", stdout);
-//          print_bvar(stdout, conflict_core->data[i]);
-
-            if (x == conflict_roots->data[i])
-            {
-#if TRACE
-              printf(", matched\n");
-              fflush(stdout);
-#endif
-              return 1;
-            }
-          }
-#if TRACE
-          printf(", not matched\n");
-          fflush(stdout);
-#endif
-        } else {
-#if TRACE
-          printf(", invalid\n");
-          fflush(stdout);
-#endif
-        }
-        return 0;
-      }
-    }
+  // convert from literals to terms
+  n = v->size;
+  for (i=0; i<n; i++) {
+    t = assumption_term_for_literal(&ctx->assumptions, v->data[i]);
+    assert(t >= 0);
+    v->data[i] = t;
   }
-#if TRACE
-  printf(", fail\n");
-  fflush(stdout);
-#endif
-  return -1;
 }
-

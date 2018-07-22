@@ -37,8 +37,8 @@
 
 #include "yices.h"
 
-
 #define EF_VERBOSE 0
+
 
 /*
  * PRINT STUFF

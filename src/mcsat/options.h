@@ -28,6 +28,9 @@
 typedef struct mcsat_options_s {
   bool nra_mgcd;
   bool nra_nlsat;
+  bool nra_bound;
+  int32_t nra_bound_min;
+  int32_t nra_bound_max;
 } mcsat_options_t;
 
 /** Initialize options with default values. */

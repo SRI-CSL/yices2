@@ -524,19 +524,6 @@ extern model_t *yices_new_model(bool keep_subst);
 extern void yices_internalization_error(int32_t code);
 
 
-
-/*
- * Core function to check with assumptions and build an unsat core
- * - ctx = context
- * - params = parameter for calls to check_context
- * - t = array of n assumptions (must all be Boolean terms)
- * - v = vector to store the unset core
- *
- * This does not check the context supports push/pop or that the
- * assumptions are all valid Boolean terms.
- */
-extern smt_status_t yices_check_with_assumptions(context_t *ctx,  const param_t *params, uint32_t n, const term_t t[], ivector_t *v);
-
 /*
  * RESET INTERNAL TABLES
  */

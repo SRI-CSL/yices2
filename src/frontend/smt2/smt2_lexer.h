@@ -394,6 +394,18 @@ extern bool smt2_symbol_is_active(smt2_symbol_t sym);
 extern smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n);
 
 
+/*
+ * Check whether a symbol should be printed with quotes | .. |
+ * - return false if s is a simple symbol (as defined in the SMT-LIB standard)
+ * - return true otherwise
+ *
+ * A simple symbol is a sequence of the following characters:
+ * - digits (in ASCII): '0' to '9
+ * - letters in ASCII: 'a' to 'z' and 'A' to 'Z'
+ * - other characters:  ~ ! @ $ % ^ & * _ - + < > . ? /
+ */
+extern bool symbol_needs_quotes(const char *s);
+
 
 
 #endif /* __SMT2_LEXER_H */

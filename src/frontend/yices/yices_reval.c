@@ -2250,22 +2250,55 @@ static bool context_has_model(const char *cmd_name) {
 
 
 /*
+ * A similar helper function but for the exists/forall solver
+ * - this returns NULL if there's no model and print an error message
+ * - otherwise, it returns the ef model
+ */
+static model_t *efsolver_model(void) {
+  efmodel_error_code_t code;
+  model_t *mdl;
+
+  assert(efmode);
+  
+  mdl = ef_get_model(&ef_client_globals, &code);
+  switch (code) {
+  case EFMODEL_CODE_NO_ERROR:
+    assert(mdl != NULL);
+    break;
+
+  case EFMODEL_CODE_NO_MODEL:
+    assert(mdl == NULL);
+    if (ef_client_globals.efsolver->status == EF_STATUS_UNSAT) {
+      fputs("The context is unsat. No model.\n", stderr);
+      fflush(stderr);
+    } else {
+      fputs("The exists/forall solver didn't find a model.\n", stderr);
+      fflush(stderr);
+    }
+    break;
+
+  case EFMODEL_CODE_NOT_SOLVED:
+    assert(mdl == NULL);
+    fputs("Can't build a model. Call (check) first.\n", stderr);
+    fflush(stderr);
+    break;
+  }
+
+  return mdl;
+}
+
+/*
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
   model_t *mdl;
-  int32_t code;
   
   if (efmode) {
-    code = 0;
-    mdl = ef_get_model(&ef_client_globals, &code);
-    if(mdl != NULL){
+    mdl = efsolver_model();
+    if (mdl != NULL) {
       if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
 	report_system_error("stdout");
       }
-    } else {
-      fputs(efmodelcode2error[code], stderr);
-      fflush(stderr);
     }
   } else if (context_has_model("show-model")) {
     // model_print(stdout, model);
@@ -2313,17 +2346,11 @@ static void show_val_in_model(model_t *model, term_t t) {
  */
 static void yices_eval_cmd(term_t t) {
   model_t *mdl;
-  int32_t code;
-
 
   if (efmode) {
-    code = 0;
-    mdl = ef_get_model(&ef_client_globals, &code);
-    if(mdl != NULL){
+    mdl = efsolver_model();
+    if (mdl != NULL){
       show_val_in_model(mdl, t);
-    } else {
-      fputs(efmodelcode2error[code], stderr);
-      fflush(stderr);
     }
   } else if (context_has_model("eval")) {
     show_val_in_model(model, t);

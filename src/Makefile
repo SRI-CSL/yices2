@@ -102,6 +102,7 @@ core_src_c := \
 	api/yices_api.c \
 	api/yices_error.c \
 	api/yval.c \
+	context/assumption_stack.c \
 	context/common_conjuncts.c \
 	context/conditional_definitions.c \
 	context/context.c \
@@ -232,6 +233,7 @@ core_src_c := \
 	terms/variable_renaming.c \
 	utils/arena.c \
 	utils/backtrack_arrays.c \
+	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
 	utils/csets.c \
 	utils/dep_tables.c \

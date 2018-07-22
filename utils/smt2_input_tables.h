@@ -354,6 +354,7 @@ static triple_t triples[] = {
   { c16b, DEFAULT_TOKEN, "error_not_expected" },
 
   { c16c, SMT2_TK_SYMBOL, "symbol_next_goto_c16d" },
+  { c16c, SMT2_TK_QSYMBOL, "symbol_next_goto_c16d" },
   { c16c, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c16d, SMT2_TK_RP, "next_goto_c16a" },

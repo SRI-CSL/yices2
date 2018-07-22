@@ -75,6 +75,9 @@ static char *filename;
 static bool mcsat;
 static bool mcsat_nra_mgcd;
 static bool mcsat_nra_nlsat;
+static bool mcsat_nra_bound;
+static int32_t mcsat_nra_bound_min;
+static int32_t mcsat_nra_bound_max;
 
 static pvector_t trace_tags;
 
@@ -84,17 +87,20 @@ static pvector_t trace_tags;
  ***************************/
 
 typedef enum optid {
-  show_version_opt,       // print version and exit
-  show_help_opt,          // print help and exit
-  show_stats_opt,         // show statistics after all commands are processed
-  verbosity_opt,          // set verbosity on the command line
-  incremental_opt,        // enable incremental mode
-  interactive_opt,        // enable interactive mode
-  timeout_opt,            // give a timeout
-  mcsat_opt,              // enable mcsat
-  mcsat_nra_mgcd_opt,     // use the mgcd instead psc in projection
-  mcsat_nra_nlsat_opt,    // use the nlsat projection instead of brown single-cell
-  trace_opt,              // enable a trace tag
+  show_version_opt,        // print version and exit
+  show_help_opt,           // print help and exit
+  show_stats_opt,          // show statistics after all commands are processed
+  verbosity_opt,           // set verbosity on the command line
+  incremental_opt,         // enable incremental mode
+  interactive_opt,         // enable interactive mode
+  timeout_opt,             // give a timeout
+  mcsat_opt,               // enable mcsat
+  mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
+  mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
+  mcsat_nra_bound_opt,     // search by increasing bound
+  mcsat_nra_bound_min_opt, // set initial bound
+  mcsat_nra_bound_max_opt, // set maximal bound
+  trace_opt,               // enable a trace tag
 } optid_t;
 
 #define NUM_OPTIONS (trace_opt+1)
@@ -113,6 +119,9 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
+  { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
+  { "mcsat-nra-bound-min", '\0', MANDATORY_INT, mcsat_nra_bound_min_opt },
+  { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
@@ -136,19 +145,23 @@ static void print_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
          "    or %s [option]\n", progname, progname);
   printf("Option summary:\n"
-	 "    --version, -V           Show version and exit\n"
-	 "    --help, -h              Print this message and exit\n"
-	 "    --verbosity=<level>     Set verbosity level (default = 0)\n"
+	 "    --version, -V             Show version and exit\n"
+	 "    --help, -h                Print this message and exit\n"
+	 "    --verbosity=<level>       Set verbosity level (default = 0)\n"
 	 "             -v <level>\n"
-	 "    --timeout=<timeout>     Set a timeout in seconds (default = no timeout)\n"
+	 "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
 	 "           -t <timeout>\n"
-	 "    --stats, -s             Print statistics once all commands have been processed\n"
-	 "    --incremental           Enable support for push/pop\n"
-	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
+	 "    --stats, -s               Print statistics once all commands have been processed\n"
+	 "    --incremental             Enable support for push/pop\n"
+	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
 #if HAVE_MCSAT
-         "    --mcsat                 Use the MCSat solver\n"
-         "    --mcsat-nra-mgcd        Use model-based GCD instead of PSC for projection\n"
-         "    --mcsat-nra-nlsat       Use NLSAT projection instead of Brown's single-cell construction"
+   "    --mcsat                   Use the MCSat solver\n"
+   "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
+   "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+   "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
+   "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
+   "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
+   ""
 #endif
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
@@ -184,6 +197,9 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat = false;
   mcsat_nra_mgcd = false;
   mcsat_nra_nlsat = false;
+  mcsat_nra_bound = false;
+  mcsat_nra_bound_min = -1;
+  mcsat_nra_bound_max = -1;
 
   init_pvector(&trace_tags, 5);
 
@@ -283,6 +299,50 @@ static void parse_command_line(int argc, char *argv[]) {
 #endif
         break;
 
+      case mcsat_nra_bound_opt:
+#if HAVE_MCSAT
+        mcsat_nra_bound = true;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
+
+      case mcsat_nra_bound_min_opt:
+#if HAVE_MCSAT
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the min value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        mcsat_nra_bound_min = v;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
+
+      case mcsat_nra_bound_max_opt:
+#if HAVE_MCSAT
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        mcsat_nra_bound_max = v;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
+
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
         break;
@@ -319,7 +379,7 @@ static void setup_mcsat(void) {
     smt2_enable_mcsat();
   }
 
-  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "True");
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
 
   if (mcsat_nra_mgcd) {
     smt2_set_option(":yices-mcsat-nra-mgcd", aval_true);
@@ -327,6 +387,30 @@ static void setup_mcsat(void) {
 
   if (mcsat_nra_nlsat) {
     smt2_set_option(":yices-mcsat-nra-nlsat", aval_true);
+  }
+
+  if (mcsat_nra_bound) {
+    smt2_set_option(":yices-mcsat-nra-bound", aval_true);
+  }
+
+  if (mcsat_nra_bound_min >= 0) {
+    aval_t aval_bound_min;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_nra_bound_min);
+    aval_bound_min = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-nra-bound-min", aval_bound_min);
+    q_clear(&q);
+  }
+
+  if (mcsat_nra_bound_max >= 0) {
+    aval_t aval_bound_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_nra_bound_max);
+    aval_bound_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-nra-bound-max", aval_bound_max);
+    q_clear(&q);
   }
 }
 
@@ -382,6 +466,9 @@ static void write_signum(int signum) {
 static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
+  }
+  if (show_stats) {
+    smt2_show_stats();
   }
   _exit(YICES_EXIT_INTERRUPTED);
 }

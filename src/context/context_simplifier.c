@@ -2433,6 +2433,26 @@ static bool check_dl_eq_atom(context_t *ctx, term_t t1, term_t t2, bool idl) {
 
 
 /*
+ * Check atom (distinct a[0] .... a[n-1]) and update statistics
+ */
+static bool check_dl_distinct_atom(context_t *ctx, term_t *a, uint32_t n, bool idl) {
+  uint32_t i, j;
+
+  assert(n > 2);
+
+  for (i=0; i<n-1; i++) {
+    for (j=i+1; j<n; j++) {
+      if (! check_dl_eq_atom(ctx, a[i], a[j], idl)) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
+/*
  * Analyze all arithmetic atoms in term t and fill ctx->dl_profile
  * - if idl is true, this checks for integer difference logic
  *   otherwise, checks for real difference logic
@@ -2488,6 +2508,13 @@ static void analyze_dl(context_t *ctx, term_t t, bool idl) {
         analyze_dl(ctx, cmp->arg[1], idl);
       } else {
         goto abort;
+      }
+      break;
+
+    case DISTINCT_TERM:
+      cmp = composite_for_idx(terms, idx);
+      if (! check_dl_distinct_atom(ctx, cmp->arg, cmp->arity, idl)) {
+	goto abort;
       }
       break;
 

@@ -373,7 +373,7 @@ tarfile: $(distributions) doc
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$|\.cpp$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
@@ -399,7 +399,7 @@ static-tarfile: $(distributions) doc
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$|\.cpp$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
@@ -444,7 +444,7 @@ static-tarfile: $(distributions) doc
 #
 install: install-$(POSIXOS)
 
-install-default: $(build_dir) $(dist_dir)
+install-default:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(libdir)
 	$(MKDIR_P) $(DESTDIR)$(includedir)
@@ -541,7 +541,7 @@ source-distribution: $(distributions) doc
            utils/remove_trailing_whitespaces \
            $(srcdist_dir)/utils
 	$(MKDIR_P) $(srcdist_dir)/examples
-	for file in `ls examples | $(EGREP) '\.ys$$|\.c$$|\.smt2$$' ` ; do \
+	for file in `ls examples | $(EGREP) '\.ys$$|\.smt$$|\.c$$|\.smt2$$|\.cpp$$' ` ; do \
 	  cp examples/$$file $(srcdist_dir)/examples ; \
 	done || true
 	$(MKDIR_P) $(srcdist_dir)/tests

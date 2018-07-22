@@ -188,6 +188,9 @@ struct mcsat_solver_s {
   /** Number of plugins */
   uint32_t plugins_count;
 
+  /** Variable to decide on first */
+  variable_t top_decision_var;
+
   /** The queue for variable decisions */
   var_queue_t var_queue;
 
@@ -463,6 +466,12 @@ void mcsat_plugin_context_gc(plugin_context_t* self) {
 }
 
 static inline
+void mcsat_set_top_decision(mcsat_solver_t* mcsat, variable_t x) {
+  assert(mcsat->top_decision_var == variable_null);
+  mcsat->top_decision_var = x;
+}
+
+static inline
 void mcsat_bump_variable(mcsat_solver_t* mcsat, variable_t x, uint32_t factor) {
   var_queue_bump_variable(&mcsat->var_queue, x, factor);
 }
@@ -503,9 +512,11 @@ int mcsat_plugin_context_cmp_variables(plugin_context_t* self, variable_t x, var
 }
 
 static
-void mcsat_plugin_context_propagation_calls(plugin_context_t* self) {
-
-}
+void mcsat_plugin_context_request_top_decision(plugin_context_t* self, variable_t x) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  mcsat_set_top_decision(mctx->mcsat, x);
+ }
 
 static
 void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t type) {
@@ -528,11 +539,11 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.request_decision_calls = mcsat_plugin_context_decision_calls;
   ctx->ctx.request_term_notification_by_kind = mcsat_plugin_term_notification_by_kind;
   ctx->ctx.request_term_notification_by_type = mcsat_plugin_term_notification_by_type;
-  ctx->ctx.request_propagation_calls = mcsat_plugin_context_propagation_calls;
   ctx->ctx.request_restart = mcsat_plugin_context_restart;
   ctx->ctx.request_gc = mcsat_plugin_context_gc;
   ctx->ctx.bump_variable = mcsat_plugin_context_bump_variable;
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
+  ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->mcsat = mcsat;
   ctx->plugin_i = plugin_i;
   ctx->plugin_name = plugin_name;
@@ -662,6 +673,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception);
 
   // The variable queue
+  mcsat->top_decision_var = variable_null;
   var_queue_construct(&mcsat->var_queue);
 
   mcsat->pending_requests_all.restart = false;
@@ -985,6 +997,11 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
     }
+  }
+
+  // Mark the top decision variable if any
+  if (mcsat->top_decision_var != variable_null) {
+    gc_info_mark(&gc_vars, mcsat->top_decision_var);
   }
 
   // Mark the trail variables as needed
@@ -1553,18 +1570,23 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
   while (true) {
 
     // Get an unassigned variable from the queue
-    var = variable_null;
+    var = mcsat->top_decision_var;
+    if (var != variable_null && trail_has_value(mcsat->trail, var)) {
+      var = variable_null;
+    }
 
     // Random decision:
-    double* seed = &mcsat->heuristic_params.random_decision_seed;
-    double freq = mcsat->heuristic_params.random_decision_freq;
-    if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
+    if (var == variable_null) {
+      double* seed = &mcsat->heuristic_params.random_decision_seed;
+      double freq = mcsat->heuristic_params.random_decision_freq;
+      if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
         var = var_queue_random(&mcsat->var_queue, seed);
         if (trail_has_value(mcsat->trail, var)) {
           var = variable_null;
         } else {
           // fprintf(stderr, "random\n");
         }
+      }
     }
 
     // Use the queue
@@ -1681,6 +1703,11 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   if (!trail_is_consistent(mcsat->trail)) {
     mcsat->status = STATUS_UNSAT;
     return;
+  }
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::solve")) {
+    static int count = 0;
+    mcsat_trace_printf(mcsat->ctx->trace, "solve %d\n", count ++);
   }
 
   // Remember existing terms
