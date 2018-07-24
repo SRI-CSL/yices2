@@ -73,8 +73,8 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
 
   // Make the lemmas
   term_manager_t* tm = &ite_plugin->tm;
-  term_t eq_true = arith_bineq_atom(ite_plugin->ctx->terms, term, t_true);
-  term_t eq_false = arith_bineq_atom(ite_plugin->ctx->terms, term, t_false);
+  term_t eq_true = mk_eq(tm, term, t_true);
+  term_t eq_false = mk_eq(tm, term, t_false);
   term_t imp1 = mk_implies(tm, c, eq_true);
   term_t imp2 = mk_implies(tm, opposite_term(c), eq_false);
   term_t disj = mk_binary_or(tm, eq_true, eq_false);
