@@ -28,6 +28,7 @@
 #include <setjmp.h>
 
 #include "api/smt_logic_codes.h"
+#include "context/assumption_stack.h"
 #include "context/common_conjuncts.h"
 #include "context/divmod_table.h"
 #include "context/internalization_table.h"
@@ -679,6 +680,9 @@ struct context_s {
 
   // store for the conditional descriptors
   object_store_t cstore;
+
+  // assumption stack
+  assumption_stack_t assumptions;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;

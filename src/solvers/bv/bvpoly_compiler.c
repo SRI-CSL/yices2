@@ -128,7 +128,7 @@ static void delete_bvc_queue(bvc_queue_t *queue) {
 void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
   c->vtbl = vtbl;
   c->mtbl = mtbl;
-  init_int_hmap(&c->cmap, 0);
+  init_back_hmap(&c->cmap, 0);
   init_bvc_queue(&c->elemexp);
 
   init_bvc_dag(&c->dag, 0);
@@ -145,7 +145,7 @@ void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
  * Delete
  */
 void delete_bv_compiler(bvc_t *c) {
-  delete_int_hmap(&c->cmap);
+  delete_back_hmap(&c->cmap);
   delete_bvc_queue(&c->elemexp);
 
   delete_bvc_dag(&c->dag);
@@ -162,7 +162,7 @@ void delete_bv_compiler(bvc_t *c) {
  * Empty
  */
 void reset_bv_compiler(bvc_t *c) {
-  int_hmap_reset(&c->cmap);
+  reset_back_hmap(&c->cmap);
   reset_bvc_queue(&c->elemexp);
 
   reset_bvc_dag(&c->dag);
@@ -175,14 +175,16 @@ void reset_bv_compiler(bvc_t *c) {
 }
 
 
-
 /*
- * For push/pop: remove all variables with index >= nv
+ * Push: prepare a backtrack point
  */
-static bool record_to_remove(uint32_t *nv, int_hmap_pair_t *p) {
-  return p->key >= *nv || p->val >= *nv;
+void bv_compiler_push(bvc_t *c) {
+  back_hmap_push(&c->cmap);
 }
 
+/*
+ * For pop: remove all variables with index >= nv
+ */
 static void bvc_queue_remove_vars(bvc_queue_t *q, uint32_t nv) {
   uint32_t i, n, j;
   thvar_t x;
@@ -199,9 +201,22 @@ static void bvc_queue_remove_vars(bvc_queue_t *q, uint32_t nv) {
   q->top = j;
 }
 
-void bv_compiler_remove_vars(bvc_t *c, uint32_t nv) {
-  int_hmap_remove_records(&c->cmap, &nv, (int_hmap_filter_t) record_to_remove);
+void bv_compiler_pop(bvc_t *c, uint32_t nv) {
+  back_hmap_pop(&c->cmap);
   bvc_queue_remove_vars(&c->elemexp, nv);
+}
+
+
+
+/*
+ * Set level to n:
+ * - this has the same effect as calling push n times
+ * - we use this function to make sure the compiler's internal
+ *   level is the same as the bv_solver when the compiler i
+ *   allocated.
+ */
+void bv_compiler_set_level(bvc_t *c, uint32_t n) {
+  back_hmap_set_level(&c->cmap, n);
 }
 
 
@@ -211,13 +226,13 @@ void bv_compiler_remove_vars(bvc_t *c, uint32_t nv) {
  * - return -1 if nothing is mapped to x
  */
 thvar_t bvvar_compiles_to(bvc_t *c, thvar_t x) {
-  int_hmap_pair_t *p;
+  back_hmap_elem_t *p;
   thvar_t y;
 
   assert(0 < x && x < c->vtbl->nvars);
 
   y = null_thvar;
-  p = int_hmap_find(&c->cmap, x);
+  p = back_hmap_find(&c->cmap, x);
   if (p != NULL) {
     y = p->val;
     assert(0 < y && y < c->vtbl->nvars);
@@ -231,11 +246,11 @@ thvar_t bvvar_compiles_to(bvc_t *c, thvar_t x) {
  * Store the mapping [x --> y] in c->cmap
  */
 static void bv_compiler_store_map(bvc_t *c, thvar_t x, thvar_t y) {
-  int_hmap_pair_t *p;
+  back_hmap_elem_t *p;
 
   assert(0 < x && x < c->vtbl->nvars && 0 < y && y < c->vtbl->nvars && x != y);
 
-  p = int_hmap_get(&c->cmap, x);
+  p = back_hmap_get(&c->cmap, x);
   assert(p->val == -1);
   p->val = y;
 }
@@ -561,7 +576,7 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
  * Check whether x is in cmap
  */
 static inline bool bvvar_is_compiled(bvc_t *c, thvar_t x) {
-  return int_hmap_find(&c->cmap, x) != NULL;
+  return back_hmap_find(&c->cmap, x) != NULL;
 }
 
 
@@ -1350,17 +1365,17 @@ static thvar_t bv_compiler_get_bvneg(bvc_t *c, thvar_t x) {
 
 /*
  * Get the variable y that x is compiled to
- * - store the mapping [x --> y] in the vmap
+ * - store the mapping [x --> y] in the cmap
  */
 static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
-  int_hmap_pair_t *p;
+  back_hmap_elem_t *p;
   node_occ_t r;
   thvar_t y;
   uint32_t sign;
 
   assert(0 < x && x < c->vtbl->nvars);
 
-  p = int_hmap_get(&c->cmap, x);
+  p = back_hmap_get(&c->cmap, x);
   if (p->val >= 0) {
     // x is already compiled (to a constant)
     assert(p->val != x);
@@ -1389,6 +1404,10 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
 
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
+
+  //  printf("\n=== bv compiler: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  //  printf("Initial compile map\n");
+  //  show_cmap(c);
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
@@ -1429,6 +1448,7 @@ void bv_compiler_process_queue(bvc_t *c) {
     print_bvc_dag(stdout, &c->dag);
     fflush(stdout);
 #endif
+
   }
 
 
@@ -1447,4 +1467,8 @@ void bv_compiler_process_queue(bvc_t *c) {
   reset_bvc_queue(&c->queue);
   reset_bvc_dag(&c->dag);
   reset_int_bvset(&c->in_queue);
+
+  //  printf("\n=== done: process-queue: %"PRIu32" variables ===\n", c->vtbl->nvars);
+  //  printf("Final compile map\n");
+  //  show_cmap(c);
 }

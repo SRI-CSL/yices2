@@ -4368,6 +4368,25 @@ def yices_check_context(ctx, params):
     assert(ctx is not None)
     return libyices.yices_check_context(ctx, params)
 
+# smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t t[]);
+libyices.yices_check_context_with_assumptions.restype = smt_status_t
+libyices.yices_check_context_with_assumptions.argtypes = [context_t, param_t, c_uint32, POINTER(term_t)]
+@catch_error(-1)
+def yices_check_context_with_assumptions(ctx, params, n, t):
+    """Checks whether the assertions in the context ctx together with n assumptions are satisfiable.
+
+    - params is an optional structure that stores heuristic parameters.
+    - if params is  NULL, default settings are used.
+
+    The n assumptions t[0], ..., t[n-1] must be Boolean terms.
+
+    If the check returns STATUS_UNSAT, then one can construct an unsat core,
+    that is, a subset of the n assumptions that is inconsistent with ctx.
+    """
+    assert(ctx is not None)
+    return libyices.check_context_with_assumptions(ctx, params, n, t)
+
+
 # int32_t yices_assert_blocking_clause(context_t *ctx)
 libyices.yices_assert_blocking_clause.restype = c_int32
 libyices.yices_assert_blocking_clause.argtypes = [context_t]
@@ -4384,6 +4403,7 @@ def yices_stop_search(ctx):
     """Interupts the search."""
     assert(ctx is not None)
     libyices.yices_stop_search(ctx)
+
 
 #
 # SEARCH PARAMETERS
@@ -4418,6 +4438,24 @@ libyices.yices_free_param_record.argtypes = [param_t]
 def yices_free_param_record(param):
     """Frees an param object."""
     libyices.yices_free_param_record(param)
+
+
+
+#################
+#  UNSAT CORES  #
+#################
+
+# int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v)
+libyices.yices_get_unsat_core.restype = c_int32
+libyices.yices_get_unsat_core.argtypes = [context_t, POINTER(term_vector_t)]
+@catch_error(-1)
+def yices_get_unsat_core(ctx, v):
+    """Compute an unsat core after a call to yices_check_with_assumptions.
+       The unsat core is returned in vector v.
+       returns 0 if successful, -1 otherwise."""
+    assert(ctx is not None)
+    return libyices.yices_get_unsat_core(ctx, v)
+
 
 
 ################

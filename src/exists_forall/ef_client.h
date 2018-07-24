@@ -79,14 +79,21 @@ extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameter
 /*
  * Code to indicate why ef_get_model returned NULL 
  */
+typedef enum {
+  EFMODEL_CODE_NO_ERROR,
+  EFMODEL_CODE_NO_MODEL,
+  EFMODEL_CODE_NOT_SOLVED,
+} efmodel_error_code_t;
+
 #define NUM_EFMODEL_ERROR_CODES 3
 
 extern const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES];
 
 /*
- * Model from the ef client; if there is no model, code  will indicate the reason.
+ * Model from the ef client.
+ * Return NULL if there is no model and set code to indicate the error.
  */
-extern model_t *ef_get_model(ef_client_t *efc, int32_t *code);
+extern model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code);
 
 
 #endif /* __EF_CLIENT_H */

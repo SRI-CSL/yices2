@@ -132,6 +132,9 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
 
 bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
   assert(v1->type == v2->type);
+  if (v1 == v2) {
+    return true;
+  }
   switch (v1->type) {
   case VALUE_BOOLEAN:
     return v1->b == v2->b;

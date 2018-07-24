@@ -7106,8 +7106,6 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
 
 
 
-
-
 /*
  * Allocate and initialize a new context.
  * The configuration is specified by logic/arch/mode/iflag/qflag.
@@ -7172,8 +7170,6 @@ EXPORTED void yices_free_context(context_t *ctx) {
 }
 
 
-
-
 /*
  * Get status: return the context's status flag
  * - return one of the codes defined in yices_types.h
@@ -7212,12 +7208,19 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
+    break;
+
   case STATUS_IDLE:
     break;
 
   case STATUS_UNSAT:
+    // try to remove assumptions
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_IDLE) {
+      break;
+    }
+    assert(context_status(ctx) == STATUS_UNSAT);
+    // fall through
   case STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
     error.code = CTX_INVALID_OPERATION;
@@ -7229,7 +7232,9 @@ EXPORTED int32_t yices_push(context_t *ctx) {
     return -1;
   }
 
+  assert(context_status(ctx) == STATUS_IDLE);
   context_push(ctx);
+
   return 0;
 }
 
@@ -7261,10 +7266,10 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
-  case STATUS_INTERRUPTED: // TODO: check this?
+  case STATUS_INTERRUPTED:
     context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
+    break;
+
   case STATUS_IDLE:
     break;
 
@@ -7282,7 +7287,10 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
     return -1;
   }
 
+  assert(context_status(ctx) == STATUS_IDLE ||
+	 context_status(ctx) == STATUS_UNSAT);
   context_pop(ctx);
+
   return 0;
 }
 
@@ -7378,20 +7386,19 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
       return -1;
     }
     context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
-  case STATUS_IDLE:
-    code = assert_formula(ctx, t);
-    if (code < 0) {
-      // error during internalization
-      convert_internalization_error(code);
-      return -1;
-    }
-    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
-  case STATUS_UNSAT:
-    // nothing to do
     break;
 
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    // try to remove assumptions
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      // nothing to do
+      return 0;
+    }
+    break;
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
@@ -7403,6 +7410,16 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
     error.code = INTERNAL_EXCEPTION;
     return -1;
   }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  code = assert_formula(ctx, t);
+  if (code < 0) {
+    // error during internalization
+    convert_internalization_error(code);
+    return -1;
+  }
+  assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
 
   return 0;
 }
@@ -7428,22 +7445,19 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
       return -1;
     }
     context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-    // fall-through intended
-  case STATUS_IDLE:
-    code = assert_formulas(ctx, n, t);
-    if (code < 0) {
-      // error during internalization
-      convert_internalization_error(code);
-      return -1;
-    }
-    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
-
-  case STATUS_UNSAT:
-    // fall-through intended
-    // nothing to do
     break;
 
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    // try to remove assumptions
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      // nothing to do
+      return 0;
+    }
+    break;
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
@@ -7455,6 +7469,16 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
     error.code = INTERNAL_EXCEPTION;
     return -1;
   }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  code = assert_formulas(ctx, n, t);
+  if (code < 0) {
+    // error during internalization
+    convert_internalization_error(code);
+    return -1;
+  }
+  assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
 
   return 0;
 }
@@ -7488,8 +7512,8 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
       return -1;
     }
 
-  case STATUS_IDLE:
   case STATUS_UNSAT:
+  case STATUS_IDLE:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
     error.code = CTX_INVALID_OPERATION;
@@ -7673,10 +7697,19 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   stat = context_status(ctx);
   switch (stat) {
   case STATUS_UNKNOWN:
-  case STATUS_UNSAT:
   case STATUS_SAT:
     break;
 
+  case STATUS_UNSAT:
+    // remove assumptions if any
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      // no assumptions removed: still unsat
+      break;
+    }
+    assert(context_status(ctx) == STATUS_IDLE);
+
+    // fall through intended
   case STATUS_IDLE:
     if (params == NULL) {
       yices_default_params_for_context(ctx, &default_params);
@@ -7706,6 +7739,95 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
 
 /*
+ * Check context with assumptions
+ * - n = number of assumptions
+ * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
+ */
+EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
+  param_t default_params;
+  ivector_t assumptions;
+  smt_status_t stat;
+  uint32_t i;
+  literal_t l;
+
+  if (! check_good_terms(&manager, n, a) ||
+      ! check_boolean_args(&manager, n, a)) {
+    return STATUS_ERROR; // Bad assumptions
+  }
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    // try to remove the previous assumptions if any
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return STATUS_ERROR;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return STATUS_ERROR;
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // convert the assumptions to n literals
+  init_ivector(&assumptions, n);
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(ctx, a[i]);
+    if (l < 0) {
+      // error when converting a[i] to a literal
+      convert_internalization_error(l);
+      stat = STATUS_ERROR;
+      goto cleanup;
+    }
+    ivector_push(&assumptions, l);
+  }
+  assert(assumptions.size == n);
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+ cleanup:
+  delete_ivector(&assumptions);
+
+  return stat;
+}
+
+
+/*
  * Interrupt the search:
  * - this can be called from a signal handler to stop the search,
  *   after a call to yices_check_context to interrupt the solver.
@@ -7718,6 +7840,28 @@ EXPORTED void yices_stop_search(context_t *ctx) {
   if (context_status(ctx) == STATUS_SEARCHING) {
     context_stop_search(ctx);
   }
+}
+
+
+
+/****************
+ *  UNSAT CORE  *
+ ***************/
+
+/*
+ * Construct an unsat core: store the result in vector *v
+ * - returns 0 if this works
+ * - returns -1 if there's an error
+ */
+EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
+  if (context_status(ctx) != STATUS_UNSAT) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  yices_reset_term_vector(v);
+  context_build_unsat_core(ctx, (ivector_t *) v);
+  return 0;
 }
 
 

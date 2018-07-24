@@ -27,6 +27,8 @@
 #include "solvers/cdcl/smt_core.h"
 #include "utils/gcd.h"
 #include "utils/int_array_sort.h"
+#include "utils/int_hash_sets.h"
+#include "utils/int_queues.h"
 #include "utils/memalloc.h"
 
 
@@ -1485,7 +1487,6 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
     out_of_memory();
   }
 
-
   // counters
   s->nvars = 1;
   s->nlits = 2;
@@ -1527,6 +1528,13 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_ivector(&s->buffer, DEF_LBUFFER_SIZE);
   init_ivector(&s->buffer2, DEF_LBUFFER_SIZE);
   init_ivector(&s->explanation, DEF_LBUFFER_SIZE);
+
+  // assumptions
+  s->has_assumptions = false;
+  s->num_assumptions = 0;
+  s->assumption_index = 0;
+  s->assumptions = NULL;
+  s->bad_assumption = null_literal;
 
   // clause database: all empty
   s->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
@@ -1660,6 +1668,18 @@ void reset_smt_core(smt_core_t *s) {
   clause_t **cl;
 
   s->status = STATUS_IDLE;
+
+  // reset buffers
+  ivector_reset(&s->buffer);
+  ivector_reset(&s->buffer2);
+  ivector_reset(&s->explanation);
+
+  // assumptions
+  s->has_assumptions = false;
+  s->num_assumptions = 0;
+  s->assumption_index = 0;
+  s->assumptions = NULL;
+  s->bad_assumption = null_literal;
 
   // delete the clauses
   cl = s->problem_clauses;
@@ -1999,9 +2019,11 @@ static void assign_literal(smt_core_t *s, literal_t l) {
 }
 
 
+
 /*
  * Decide literal: increase decision level then
  * assign literal l to true and push it on the stack
+ * - l must not be assigned
  */
 void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
@@ -2009,8 +2031,6 @@ void decide_literal(smt_core_t *s, literal_t l) {
 
   assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
   assert(literal_is_unassigned(s, l));
-
-  s->stats.decisions ++;
 
   // Increase decision level
   k = s->decision_level + 1;
@@ -2032,6 +2052,8 @@ void decide_literal(smt_core_t *s, literal_t l) {
   // Notify the theory solver
   s->th_ctrl.increase_decision_level(s->th_solver);
 
+  s->stats.decisions ++;
+
 #if TRACE
   printf("\n---> DPLL:   Decision: literal ");
   print_literal(stdout, l);
@@ -2039,7 +2061,6 @@ void decide_literal(smt_core_t *s, literal_t l) {
   fflush(stdout);
 #endif
 }
-
 
 
 /*
@@ -2104,6 +2125,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
 
   assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 }
+
 
 
 
@@ -2344,6 +2366,12 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
   // and if the top checkpoint has level >= the new decision level
   s->cp_flag = non_empty_checkpoint_stack(&s->checkpoints) &&
     top_checkpoint(&s->checkpoints)->dlevel >= back_level;
+
+  // adust the assumption index
+  k = back_level - s->base_level;
+  if (k < s->assumption_index) {
+    s->assumption_index = k;
+  }
 }
 
 
@@ -2361,7 +2389,6 @@ static void backtrack_to_level(smt_core_t *s, uint32_t back_level) {
 static void backtrack_to_base_level(smt_core_t *s) {
   backtrack_to_level(s, s->base_level);
 }
-
 
 
 /***************
@@ -3423,6 +3450,7 @@ static void resolve_conflict(smt_core_t *s) {
 
   assert(s->inconsistent);
   assert(s->theory_conflict || get_conflict_level(s, s->conflict) == s->decision_level);
+  assert(s->base_level <= s->decision_level);
 
   s->stats.conflicts ++;
 
@@ -3590,6 +3618,214 @@ static void resolve_conflict(smt_core_t *s) {
   add_learned_clause(s, s->buffer.size, s->buffer.data);
 }
 
+
+
+
+/*********************************
+ *  ASSUMPTIONS AND UNSAT CORES  *
+ ********************************/
+
+#ifndef NDEBUG
+static bool good_assumption_index(smt_core_t *s) {
+  uint32_t i;
+  literal_t l;
+
+  for (i=0; i<s->assumption_index; i++) {
+    l = s->assumptions[i];
+    if (literal_value(s, l) != VAL_TRUE) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
+
+/*
+ * Get the next assumption for the current decision_level
+ * - s->status mut be SEARCHING
+ * - this scans the assumption array to search for an assumption
+ *   that is not already true.
+ * - returns an assumption l or null_literal if all assumptions
+ *   are true (or if there are no assumptions)
+ */
+literal_t get_next_assumption(smt_core_t *s) {
+  uint32_t i, n;
+  literal_t l;
+
+  assert(good_assumption_index(s));
+
+  n = s->num_assumptions;
+  for (i=s->assumption_index; i<n; i++) {
+    l = s->assumptions[i];
+    if (literal_value(s, l) != VAL_TRUE) {
+      s->assumption_index = i+1;
+      return l;
+    }
+  }
+
+  s->assumption_index = n;
+  return null_literal;
+}
+
+
+/*
+ * Store l as a bad assumption:
+ */
+void save_conflicting_assumption(smt_core_t *s, literal_t l) {
+  assert(literal_value(s, l) == VAL_FALSE);
+  s->bad_assumption = l;
+  s->status = STATUS_UNSAT;
+}
+
+
+/*
+ * UNSAT CORE CONSTRUCTION
+ */
+
+/*
+ * We use a queue + a hash set to mark all antecedent literals
+ * already seen. The following functions add literals to the
+ * queue and set if they have not been seen before and if they
+ * are assigned at a decision level > base_level.
+ *
+ * We store var_of(l) rather than l in the set. This simplifies the
+ * processing of clause antecedents:
+ * - if l is implied by clause c then the clause looks like (l \/ c[0] ... \/ c[n-1])
+ * - l is the only true literal in c.
+ * - when we visit the clause, we call visit(not(l)), visit(not(c[0])), ..., visit(not c([n-1]))
+ * - at this point l has been visited so var_of(l) is in the set.
+ * - since var_of(l) = var_of(not(l)) is already in the set, we don't add not(l) to the queue.
+ */
+static void unsat_core_visit_literal(smt_core_t *s, int_hset_t *set, int_queue_t *queue, literal_t l) {
+  bvar_t x;
+
+  x = var_of(l);
+  if (s->level[x] > s->base_level && int_hset_add(set, x)) {
+    assert(literal_value(s, l) == VAL_TRUE);
+    int_queue_push(queue, l);
+  }
+}
+
+/*
+ * cl is (l \/ c[1] \/ .... \/ c[n]) where l is the implied literal
+ * c[1] ... c[n] are all false in the current assignment
+ * so the antecedents of l are (not c[0]) ... (not c[n])
+ */
+static void unsat_core_visit_clause(smt_core_t *s, int_hset_t *set, int_queue_t *queue, clause_t *cl) {
+  literal_t *c;
+  literal_t l;
+
+  c = cl->cl;
+  l = *c;
+  while (l >= 0) {
+    unsat_core_visit_literal(s, set, queue, not(l));
+    c ++;
+    l = *c;
+  }
+}
+
+/*
+ * explanation is a vector of n literals c[0] ... c[n-1] such that
+ * (and c[0] ... c[n-1]) implies  some other literal l.
+ */
+static void unsat_core_visit_explanation(smt_core_t *s, int_hset_t *set, int_queue_t *queue, ivector_t *explanation) {
+  uint32_t i, n;
+  literal_t l;
+
+  n = explanation->size;
+  for (i=0; i<n; i++) {
+    l = explanation->data[i];
+    unsat_core_visit_literal(s, set, queue, l);
+  }
+}
+
+
+/*
+ * Visit the antecedents of l
+ */
+static void unsat_core_visit_antecedents(smt_core_t *s, int_hset_t *set, int_queue_t *queue, literal_t l) {
+  antecedent_t a;
+  literal_t q;
+
+  a = s->antecedent[var_of(l)];
+  switch (antecedent_tag(a)) {
+  case clause0_tag:
+  case clause1_tag:
+    unsat_core_visit_clause(s, set, queue, clause_antecedent(a));
+    break;
+
+  case literal_tag:
+    q = literal_antecedent(a);
+    if (q != null_literal) {
+      assert(literal_value(s, q) == VAL_FALSE);
+      unsat_core_visit_literal(s, set, queue, not(q));
+    }
+    break;
+
+  case generic_tag:
+    // ask the theory solver for an explanation
+    explain_antecedent(s, l, a);
+    unsat_core_visit_explanation(s, set, queue, &s->explanation);
+    break;
+  }
+}
+
+
+/*
+ * Visit all literals in queue and compute their antecedents.
+ * Add any antecedent that's a decision literal to vector v.
+ */
+static void collect_decision_antecedents(smt_core_t *s, int_hset_t *set, int_queue_t *queue, ivector_t *v) {
+  antecedent_t a;
+  literal_t l;
+
+  while (! int_queue_is_empty(queue)) {
+    l = int_queue_pop(queue);
+    assert(literal_value(s, l) == VAL_TRUE &&
+	   s->level[var_of(l)] > s->base_level);
+
+    a = s->antecedent[var_of(l)];
+    if (a == mk_literal_antecedent(null_literal)) {
+      // l is a decision
+      ivector_push(v, l);
+    } else {
+      unsat_core_visit_antecedents(s, set, queue, l);
+    }
+  }
+}
+
+
+/*
+ * Compute an unsat core from the bad assumption:
+ * - we collect all decision literals that are antecedents of the bad assumption
+ * - if there is no bad assumption, we return an empty core
+ */
+void build_unsat_core(smt_core_t *s, ivector_t *v) {
+  int_hset_t visited;
+  int_queue_t queue;
+  literal_t l;
+
+  assert(s->status == STATUS_UNSAT);
+  ivector_reset(v);
+  l = s->bad_assumption;
+  if (l != null_literal) {
+    init_int_queue(&queue, 0);
+    init_int_hset(&visited, 0);
+
+    assert(literal_value(s, l) == VAL_FALSE);
+
+    // collect all decision literals that imply not l
+    unsat_core_visit_antecedents(s, &visited, &queue, not(l));
+    collect_decision_antecedents(s, &visited, &queue, v);
+    // the literals in v imply (not l)
+    // the core is (v and l)
+    ivector_push(v, l);
+
+    delete_int_hset(&visited);
+    delete_int_queue(&queue);
+  }
+}
 
 
 
@@ -5141,15 +5377,38 @@ void smt_clear(smt_core_t *s) {
  * Cleanup after unsat.
  */
 void smt_clear_unsat(smt_core_t *s) {
+  smt_status_t saved_status;
+
   assert(s->status == STATUS_UNSAT);
+  saved_status = STATUS_UNSAT;
+
+  /*
+   * Remove assumptions by backtracking to the base_level
+   */
+  if (s->has_assumptions) {
+    backtrack_to_base_level(s);
+
+    // cleanup
+    s->has_assumptions = false;
+    s->num_assumptions = 0;
+    s->assumption_index = 0;
+    s->assumptions = NULL;
+    s->bad_assumption = null_literal;
+
+    // status returns to IDLE
+    s->status = STATUS_IDLE;
+    saved_status = STATUS_IDLE;
+  }
+
+  assert(s->decision_level == s->base_level);
+
   /*
    * In clean-interrupt mode, we restore the state to what it was
-   * before the search started (using pop), but we leave
-   * status UNSAT.
+   * before the search started (using pop).
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
     smt_pop(s);
-    s->status = STATUS_UNSAT;
+    s->status = saved_status;
   }
 }
 
@@ -5541,12 +5800,20 @@ bool base_propagate(smt_core_t *s) {
 
 /*
  * Prepare for the search:
+ * - a = optional array of assumptions
+ * - n = number of assumptions
+ * - a[0 ... n-1] must all be valid literals in the core
+ *
+ * Effect:
+ * - initialize variable heap
+ * - store a ponter to the assumption array
+ * - make an internal copy of the assumptions
  * - initialize variable heap
  * - set status to searching
  * - if clean_interrupt is enabled, save the current state to
  *   enable cleanup after interrupt (this uses push)
  */
-void start_search(smt_core_t *s) {
+void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
   assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
@@ -5577,6 +5844,12 @@ void start_search(smt_core_t *s) {
   s->simplify_bottom = 0;
   s->simplify_props = 0;
   s->simplify_threshold = 0;
+
+  s->has_assumptions = (n > 0);
+  s->num_assumptions = n;
+  s->assumption_index = 0;
+  s->assumptions = a;
+  s->bad_assumption = null_literal;
 
   /*
    * Allow theory solver to do whatever initializations it needs
@@ -5718,6 +5991,7 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+
 /***************
  *  RESTARTS   *
  **************/
@@ -5765,6 +6039,7 @@ static bool level_has_lower_activity(smt_core_t *s, double ax, uint32_t k) {
   bvar_t x;
 
   assert(s->base_level <= k && k <= s->decision_level);
+
   stack = &s->stack;
 
   // i := start of level k
@@ -5793,6 +6068,7 @@ static bool level_has_lower_activity(smt_core_t *s, double ax, uint32_t k) {
  */
 static void full_restart(smt_core_t *s) {
   assert(s->base_level < s->decision_level);
+
   backtrack(s, s->base_level);
   s->th_ctrl.backtrack(s->th_solver, s->base_level);
   // clear the checkpoints

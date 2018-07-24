@@ -329,7 +329,7 @@ string_hash_map.c
 symbol_tables.h:        symbol tables: hash map from strings to integers
 symbol_tables.c		with support for scoping
 
-tuple_hash_map.h:      hash map for arrays of int32 to int32 values
+tuple_hash_map.h:       hash map for arrays of int32 to int32 values
 tuple_hash_map.c
 
 

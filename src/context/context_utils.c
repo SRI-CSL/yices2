@@ -780,9 +780,11 @@ bool term_is_false(context_t *ctx, term_t t) {
  */
 bool disjunct_is_true(context_t *ctx, term_t *a, uint32_t n) {
   uint32_t i;
+  term_t x;
 
   for (i=0; i<n; i++) {
-    if (term_is_true(ctx, a[i])) return true;
+    x = intern_tbl_get_root(&ctx->intern, a[i]);
+    if (term_is_true(ctx, x)) return true;
   }
 
   return false;

@@ -49,7 +49,7 @@
 #include "solvers/bv/merge_table.h"
 #include "terms/bvpoly_buffers.h"
 #include "utils/int_bv_sets.h"
-#include "utils/int_hash_map.h"
+#include "utils/backtrack_int_hash_map.h"
 #include "utils/int_vectors.h"
 
 
@@ -87,7 +87,7 @@ typedef struct bvc_queue_s {
 typedef struct bvc_s {
   bv_vartable_t *vtbl;
   mtbl_t *mtbl;
-  int_hmap_t cmap;
+  back_hmap_t cmap;
   bvc_queue_t elemexp;
 
   // data structures used during compilation
@@ -126,11 +126,27 @@ extern void delete_bv_compiler(bvc_t *c);
  */
 extern void reset_bv_compiler(bvc_t *c);
 
+/*
+ * Push: prepare a backtrack point
+ */
+extern void bv_compiler_push(bvc_t *c);
 
 /*
- * Remove all occurrences of variables with index >= nv
+ * Pop: go back to the previous backtrack point
+ * - nv = number of variables at that point
+ * - all variables with index >= nv are removed from
+ *   the compiler queue
  */
-extern void bv_compiler_remove_vars(bvc_t *c, uint32_t nv);
+extern void bv_compiler_pop(bvc_t *c, uint32_t nv);
+
+/*
+ * Set level to n:
+ * - this has the same effect as calling push n times
+ * - we use this function to make sure the compiler's internal
+ *   level is the same as the bv_solver when the compiler i
+ *   allocated.
+ */
+extern void bv_compiler_set_level(bvc_t *c, uint32_t n);
 
 
 /*

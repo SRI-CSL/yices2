@@ -146,7 +146,7 @@ static void test1(void) {
 
   // start search + propagate + end_search
   printf("---> propagation test 1\n");
-  start_search(&core);
+  start_search(&core, 0, NULL);
   smt_process(&core);
   end_search_unknown(&core);
   print_solver(&egraph, &core);
@@ -157,7 +157,7 @@ static void test1(void) {
 
   // start search + propagate + end_search
   printf("---> propagation test 2\n");
-  start_search(&core);
+  start_search(&core, 0, NULL);
   smt_process(&core);
   end_search_unknown(&core);
   print_solver(&egraph, &core);

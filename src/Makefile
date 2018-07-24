@@ -102,6 +102,7 @@ core_src_c := \
 	api/yices_api.c \
 	api/yices_error.c \
 	api/yval.c \
+	context/assumption_stack.c \
 	context/common_conjuncts.c \
 	context/conditional_definitions.c \
 	context/context.c \
@@ -232,6 +233,7 @@ core_src_c := \
 	terms/variable_renaming.c \
 	utils/arena.c \
 	utils/backtrack_arrays.c \
+	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
 	utils/csets.c \
 	utils/dep_tables.c \
@@ -351,6 +353,7 @@ extra_src_c := \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
+	frontend/smt2/assumption_table.c \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \

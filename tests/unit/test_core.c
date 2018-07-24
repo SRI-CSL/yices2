@@ -210,7 +210,7 @@ int main(void) {
   print_smt_core(stdout, &core);
 
   printf("\n---- Start search ---\n");
-  start_search(&core);
+  start_search(&core, 0, NULL);
   print_smt_core(stdout, &core);
   printf("\n---- Process ----\n");
   smt_process(&core);

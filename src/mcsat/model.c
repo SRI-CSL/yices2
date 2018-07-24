@@ -24,6 +24,7 @@ static inline
 void mcsat_model_ensure_capacity(mcsat_model_t* m, uint32_t capacity) {
   if (capacity > m->capacity) {
     m->values = (mcsat_value_t*) safe_realloc(m->values, sizeof(mcsat_value_t)*capacity);
+    m->timestamps = (uint32_t*) safe_realloc(m->timestamps, sizeof(uint32_t)*capacity);
     m->capacity = capacity;
   }
 }
@@ -40,6 +41,7 @@ void mcsat_model_resize(mcsat_model_t* m, uint32_t size) {
     mcsat_model_ensure_capacity(m, size + size / 2);
     for (i = m->size; i < size; ++ i) {
       mcsat_value_construct_default(m->values + i);
+      m->timestamps[i] = 0;
     }
   }
 
@@ -52,6 +54,8 @@ void mcsat_model_construct(mcsat_model_t* m) {
   m->size = 0;
   m->capacity = 0;
   m->values = NULL;
+  m->timestamps = NULL;
+  m->timestamp = 0;
   mcsat_model_ensure_capacity(m, MCSAT_MODEL_INITIAL_CAPACITY);
 }
 
@@ -60,7 +64,8 @@ void mcsat_model_destruct(mcsat_model_t* m) {
   for (i = 0; i < m->size; ++ i) {
     mcsat_value_destruct(m->values + i);
   }
-  free(m->values);
+  safe_free(m->values);
+  safe_free(m->timestamps);
 }
 
 void mcsat_model_new_variable_notify(mcsat_model_t* m, variable_t x) {
@@ -85,12 +90,24 @@ const mcsat_value_t* mcsat_model_get_value(const mcsat_model_t* m, variable_t x)
   }
 }
 
+uint32_t mcsat_model_get_value_timestamp(const mcsat_model_t* m, variable_t x) {
+  if (x >= m->size) {
+    return 0;
+  } else {
+    return m->timestamps[x];
+  }
+}
+
 void mcsat_model_set_value(mcsat_model_t* m, variable_t x, const mcsat_value_t* value) {
   // Make sure enough space
   if (x >= m->size) {
     mcsat_model_resize(m, x + 1);
   }
-  mcsat_value_assign(m->values + x, value);
+  mcsat_value_t* x_value = m->values + x;
+  if ((x_value->type != value->type) || (!mcsat_value_eq(x_value, value))) {
+    mcsat_value_assign(x_value, value);
+    m->timestamps[x] = ++ m->timestamp;
+  }
 }
 
 void mcsat_model_unset_value(mcsat_model_t* m, variable_t x) {
@@ -98,5 +115,6 @@ void mcsat_model_unset_value(mcsat_model_t* m, variable_t x) {
     assert(m->values[x].type != VALUE_NONE);
     mcsat_value_destruct(m->values + x);
     mcsat_value_construct_default(m->values + x);
+    m->timestamps[x] = ++ m->timestamp;
   }
 }

@@ -211,10 +211,6 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
 
   bool feasible = true;
 
-  if (TRACK_VAR(x)) {
-    fprintf(stderr, "Updating feasible set of tracked variable.\n");
-  }
-
   if (ctx_trace_enabled(db->ctx, "nra::feasible_set_db")) {
     fprintf(ctx_trace_out(db->ctx), "feasible_set_db_update");
     feasible_set_db_print(db, ctx_trace_out(db->ctx));
@@ -228,7 +224,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
 
   if (old_set != 0) {
 
-    if (TRACK_VAR(x) || ctx_trace_enabled(db->ctx, "nra::feasible_set_db")) {
+    if (ctx_trace_enabled(db->ctx, "nra::feasible_set_db")) {
       ctx_trace_printf(db->ctx, "feasible_set_db_update()\n");
       ctx_trace_printf(db->ctx, "old_set = ");
       lp_feasibility_set_print(old_set, ctx_trace_out(db->ctx));
@@ -567,7 +563,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
 
 void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
-  if (TRACK_VAR(x) || ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
+  if (ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
     ctx_trace_printf(db->ctx, "get_reasons of: ");
     variable_db_print_variable(db->ctx->var_db, x, ctx_trace_out(db->ctx));
     ctx_trace_printf(db->ctx, "\n");

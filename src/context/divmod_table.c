@@ -656,6 +656,7 @@ divmod_rec_t *divmod_table_get(divmod_tbl_t *tbl, divmod_tag_t tag, int32_t v, c
     j &= mask;
     e = htbl->data[j];
     if (e == NULL) {
+      assert(htbl->ndeleted > 0);
       htbl->ndeleted --;
       goto add;
     }

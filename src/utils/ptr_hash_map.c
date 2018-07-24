@@ -258,6 +258,11 @@ ptr_hmap_pair_t *ptr_hmap_get(ptr_hmap_t *hmap, int32_t k) {
     if (d->key == k) return d;
   }
 
+  if (aux->key == PHMAP_DEL_KEY) {
+    assert(hmap->ndeleted > 0);
+    hmap->ndeleted --;
+  }
+
   if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
     ptr_hmap_extend(hmap);
     aux = ptr_hmap_get_clean(hmap, k);

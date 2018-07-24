@@ -31,6 +31,10 @@ struct mcsat_model_s {
   uint32_t capacity;
   /** Map from variables to values */
   mcsat_value_t* values;
+  /** Timestamps */
+  uint32_t* timestamps;
+  /** Global timestamp */
+  uint32_t timestamp;
 };
 
 /** Construct a new model */
@@ -44,6 +48,9 @@ void mcsat_model_new_variable_notify(mcsat_model_t* m, variable_t x);
 
 /** Does the variable have a value */
 bool mcsat_model_has_value(const mcsat_model_t* m, variable_t x);
+
+/** Get the timestamp of the variable */
+uint32_t mcsat_model_get_value_timestamp(const mcsat_model_t* m, variable_t x);
 
 /** Get the value of the variable */
 const mcsat_value_t* mcsat_model_get_value(const mcsat_model_t* m, variable_t x);

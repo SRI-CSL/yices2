@@ -236,12 +236,17 @@ void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v) {
   j = k & mask;
   for (;;) {
     r = table->records + j;
-    if (r->value == NULL_VALUE) break;
+    if (r->value == NULL_VALUE) goto add;
+    if (r->value == DELETED_VALUE) break;
     assert(r->value != v);
     j ++;
     j &= mask;
   }
 
+  assert(table->ndeleted > 0);
+  table->ndeleted --;
+
+ add:
   // add <k, v> into record r
   table->nelems ++;
   r->key = k;

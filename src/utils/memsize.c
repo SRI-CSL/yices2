@@ -143,16 +143,13 @@ double mem_size(void) {
 #include <stdlib.h>
 
 static unsigned long get_pages(void) {
-  pid_t pid;
-  char buffer[30];
+  char buffer[20];
   int f;
   unsigned long pages;
   ssize_t code;
 
   pages = 0;
-  pid = getpid();
-  sprintf(buffer, "/proc/%u/statm", (unsigned) pid); // Not sure this is safe?
-  f = open(buffer, O_RDONLY);
+  f = open("/proc/self/statm", O_RDONLY);
   if (f < 0) goto done;
   code = read(f, buffer, 20);
   if (code == 20) {

@@ -86,9 +86,6 @@ struct plugin_context_s {
   /** Request garbage collection */
   void (*request_gc) (plugin_context_t* self);
 
-  /** Request propagation calls */
-  void (*request_propagation_calls) (plugin_context_t* self);
-
   /** Request decision calls for a specific type */
   void (*request_decision_calls) (plugin_context_t* self, type_kind_t type);
 
@@ -98,13 +95,8 @@ struct plugin_context_s {
   /** Compare the heuristic values of the given variables */
   int (*cmp_variables) (plugin_context_t* self, variable_t x, variable_t y);
 
-  /**
-   * Request a split in the current context, i.e. add a lemma
-   *   (l1 or ... or ln)
-   * for li in split_literals. The literals are terms and they should constitute
-   * a valid lemma.
-   */
-  void (*request_split) (plugin_context_t* self, ivector_t* split_literals);
+  /** Request a variable to be a top decision variable */
+  void (*request_top_decision) (plugin_context_t* self, variable_t x);
 
 };
 

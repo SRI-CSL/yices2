@@ -49,6 +49,31 @@
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
 
+
+static void print_solver_state(FILE *f, bv_solver_t *solver) {  
+  fprintf(f, "\n--- Terms ---\n");
+  print_term_table(f, __yices_globals.terms);
+  fprintf(f, "\n--- Bitvector Partition ---\n");
+  print_bv_solver_partition(f, solver);
+  fprintf(f, "\n--- Bitvector Variables ---\n");
+  print_bv_solver_vars(f, solver);
+  fprintf(f, "\n--- Bitvector Atoms ---\n");
+  print_bv_solver_atoms(f, solver);
+  fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
+  fprintf(f, "\n--- Bitvector Bounds ---\n");
+  print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n--- DAG ---\n");
+  print_bv_solver_dag(f, solver);
+  if (solver->blaster != NULL) {
+    fprintf(f, "\n--- Gates ---\n");
+    print_gate_table(f, &solver->blaster->htbl);
+  }
+  fprintf(f, "\n--- Clauses ---\n");
+  print_clauses(f, solver->core);
+  fprintf(f, "\n");
+}
+
+
 #endif
 
 
@@ -867,6 +892,7 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
   if (c == NULL) {
     c = (bvc_t *) safe_malloc(sizeof(bvc_t));
     init_bv_compiler(c, &solver->vtbl, &solver->mtbl);
+    bv_compiler_set_level(c, solver->base_level);
     solver->compiler = c;
   }
 }
@@ -1776,6 +1802,10 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
   printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(solver->core));
   printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(solver->core));
 #endif
+
+  //  printf("\nBVSOLVER BITBLAST\n");
+  //  print_solver_state(stdout, solver);
+  //  printf("\nDONE\n\n");
 
   return true;
 }
@@ -7158,6 +7188,10 @@ void bv_solver_push(bv_solver_t *solver) {
 
   mtbl_push(&solver->mtbl);
 
+  if (solver->compiler != NULL) {
+    bv_compiler_push(solver->compiler);
+  }
+
   if (solver->blaster != NULL) {
     bit_blaster_push(solver->blaster);
   }
@@ -7290,7 +7324,7 @@ void bv_solver_pop(bv_solver_t *solver) {
   top = bv_trail_top(&solver->trail_stack);
 
   if (solver->compiler != NULL) {
-    bv_compiler_remove_vars(solver->compiler, top->nvars);
+    bv_compiler_pop(solver->compiler, top->nvars);
   }
 
   if (solver->cache != NULL) {
@@ -8700,6 +8734,5 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
     fclose(f);
   }
 }
-
 
 #endif

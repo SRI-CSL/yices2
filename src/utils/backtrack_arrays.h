@@ -54,7 +54,7 @@ typedef struct array_undo_stack_s {
 
 /*
  * Trail stack: for each level, we keep
- * - the top of the undo stack on entry to that level
+ * the top of the undo stack on entry to that level
  */
 typedef struct array_trail_s {
   uint32_t size;
@@ -248,7 +248,6 @@ static inline void au8_set(uint8_array_t *a, int32_t i, uint8_t x) {
   assert(0 <= i && i < a->top);
   a->map[i] = x;
 }
-
 
 
 #endif /* __BACKTRACK_ARRAYS_H */

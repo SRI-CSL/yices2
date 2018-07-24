@@ -143,6 +143,17 @@ extern int32_t context_internalize(context_t *ctx, term_t t);
 
 
 /*
+ * Build an assumption for Boolean term t:
+ * - this converts t to a literal l in context ctx
+ *   then create an indicator variable x in the core
+ *   and add the clause (x => l) in the core.
+ * - return a negative code if t can't be internalized
+ * - return the literal x otherwise (where x>=0).
+ */
+extern int32_t context_add_assumption(context_t *ctx, term_t t);
+
+
+/*
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
  * - this collects all decision literals in the current truth assignment
@@ -170,6 +181,21 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 
 
 /*
+ * Check under assumptions
+ * - parameters = search and heuristic parameters to use
+ * - if parameter is NULL, default values are used
+ * - a = array of n literals = n assumptions
+ * - each a[i] must be defined in ctx->core
+ *
+ * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * STATUS_INTERRUPTED
+ *
+ * If status is STATUS_UNSAT then the assumptions are inconsistent
+ */
+extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
+
+
+/*
  * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
  * - model must be initialized (and empty)
  * - the model maps a value to every uninterpreted terms present in ctx's
@@ -178,6 +204,16 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  *   is copied into the model
  */
 extern void context_build_model(model_t *model, context_t *ctx);
+
+
+/*
+ * Build an unsat core: the context's status must be STATUS_UNSAT
+ * - the unsat core is returned in vector *v
+ * - if there are no assumption, the core is empty
+ * - otherwise, the core is constructed from the bad_assumption
+ *   and copied in v
+ */
+extern void context_build_unsat_core(context_t *ctx, ivector_t *v);
 
 
 /*
@@ -215,9 +251,13 @@ extern void context_clear(context_t *ctx);
 
 /*
  * Cleanup after the search returned UNSAT
- * - if the clean_interrupt option is enabled, this restore
- *   the state to what it was at the start of search
+ * - if there are assumptions, they are removed
+ * - if the clean_interrupt option is enabled, the state
+ *   is restored to what it was at the start of search
  * - otherwise, this does nothing.
+ *
+ * On exit, the context's status can be either STATUS_IDLE
+ * (if assumptions were removed) or STATUS_UNSAT otherwise.
  *
  * NOTE: Call this before context_pop(ctx) if the context status
  * is unsat.

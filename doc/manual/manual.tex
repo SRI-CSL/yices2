@@ -43,7 +43,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.5.4}}
+Version 2.6.0}}
 \end{titlepage}
 
 \maketitle
@@ -55,7 +55,9 @@ Version 2.5.4}}
 \pagenumbering{arabic}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 This  manual   is  an  introduction   to  the  logic,   language,  and
 architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
@@ -76,7 +78,7 @@ The latest stable version of Yices~2 can be downloaded at
 the platforms and operating systems listed in Table~\ref{versions}. We
 also provide source code there. For MacOS and Linux, you can also
 install Yices~2 using package managers (i.e., homebrew for the Mac and
-aptitude for Debian/Ubuntu).
+apt for Debian/Ubuntu).
 
 For the latest developments, you can clone our Git repository
 \url{https://github.com/SRI-CSL/yices2}. 
@@ -245,6 +247,21 @@ The usual environment variables (e.g., \texttt{CPPFLAGS} and
 location.
 
 
+\subsection{Python Bindings}
+\label{python-bindings}
+
+Since Yices~2.6.0, we provide Python bindings to the Yices API. The
+easiest way to install these Python bindings is to us \texttt{pip}:
+\begin{small}
+\begin{verbatim}
+  pip install yices
+\end{verbatim}
+\end{small}
+Alternatively, you can clone the Yices repository at
+\url{https://github.com/SRI-CSL/yices2}. Python support and some
+examples are in directory \texttt{src/bindings/python}.
+
+
 \section{Content of the Distributions}
 
 The binary distributions and packages include the Yices executables,
@@ -259,7 +276,7 @@ Four solvers are currently included:
   notation~\cite{SMTLIB12:2006}.
 
 \item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.0
-  notation~\cite{SMTLIB20:2012}.
+  notation~\cite{SMTLIB25:2015}.
 
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
@@ -519,9 +536,10 @@ or program fragment.
 
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Yices~2 Logic}
 \label{language}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Yices~2 specifications are  written in a typed logic.  The language is
 intended to be simple enough  for efficient processing by the tool and
@@ -770,14 +788,15 @@ arbitrary reals, not just integers.
 \label{bitvector-general}
 
 Yices supports all the bitvector operators defined in the SMT-LIB
-standards~\cite{SMTLIB12:2006,SMTLIB20:2012}.  The most commonly used
-operators are listed in Table~\ref{bitvectors}.  They include
-bitvector arithmetic (where bitvectors are interpreted either as
-unsigned integers or as signed integers in two's complement
+standards~\cite{SMTLIB12:2006,SMTLIB20:2012,SMTLIB25:2015}.  The most
+commonly used operators are listed in Table~\ref{bitvectors}.  They
+include bitvector arithmetic (where bitvectors are interpreted either
+as unsigned integers or as signed integers in two's complement
 representation), logical operators such as bitwise OR or AND, logical
 and arithmetic shifts, concatenation, and extraction of
 subvectors. Other operators are defined in the theory QF\_BV of
-SMT-LIB (cf.~\url{http://www.smtlib.org}); Yices~2 supports all of them.
+SMT-LIB (cf.~\url{http://www.smtlib.org}); Yices~2 supports all of
+them.
 
 
 \begin{table}
@@ -907,9 +926,10 @@ where $\mathtt{b}$ is a Boolean term.
 
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Yices~2 Architecture}
 \label{architecture-chapter}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Yices~2 has a modular architecture.  You can select a specific
 combination of theory solvers for your needs using the API or the
@@ -1092,8 +1112,10 @@ the MCSAT solver does not yet support incremental solving (i.e., push
 and pop).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Yices Tool}
 \label{yices-shell}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The Yices~2 distribution includes  a tool for processing input written
 in  the Yices~2  language.  This  tool is  called  \texttt{yices} (or
@@ -3009,23 +3031,25 @@ exits immediately after this command, without parsing or processing the
 rest of the file.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Support for SMT-LIB}
 \label{yices-smt}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The \texttt{yices} tool described in the previous chapter processes
 input given in the Yices~2 language. The distribution includes two
-other tools that can process input in the SMT-LIB~2.0 and the older
+other tools that can process input in the SMT-LIB~2.5 and the older
 SMT-LIB~1.2 notations.
 
-\section{SMT-LIB 2.0}
+\section{SMT-LIB 2.5}
 
-To process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver
+To process SMT-LIB~2.5 input, use the \texttt{yices-smt2} solver
 instead of \texttt{yices}. This tool is included in the \texttt{bin}
 directory in the distribution. In the Windows or Cygwin distribution,
 it is called \texttt{yices-smt2.exe}.
 
 \medskip\noindent
-The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
+The SMT-LIB~2 language is defined in~\cite{SMTLIB25:2015}. More
 information about the various logics defined in SMT-LIB~2.0 is
 available at the SMT-LIB website: \url{http://www.smtlib.org}. David Cok's
 tutorial covers all aspects of the language in
@@ -3042,7 +3066,7 @@ To run \texttt{yices-smt2} on an input file, type
 \end{small}
 Since \texttt{yices-smt2} runs in mode \texttt{one-shot} by default,
 this will work fine as long as the \texttt{<input-file>} does not use
-the commands \texttt{push} and \texttt{pop} of SMT-LIB~2.0
+the commands \texttt{push} and \texttt{pop} of SMT-LIB~2
 (cf. Section~\ref{features}).
 
 \medskip\noindent To enable support for \texttt{push} and
@@ -3066,17 +3090,8 @@ before accepting commands from standard input. In addition, option
 \texttt{:print-success} is set to \texttt{true}. This causes
 \texttt{yices-smt2} to report \texttt{success} after various commands
 that would otherwise be executed silently (as required
-by~\cite{SMTLIB20:2012}).
+by~\cite{SMTLIB25:2015}).
 
-\medskip\noindent The \texttt{yices-smt2} tool can process problems in
-quantifier-free nonlinear real arithmetic (QF\_NRA). This requires
-selecting the MCSAT solver of Yices by giving the option
-\texttt{--mcsat} on the command line:
-\begin{small}
-\begin{verbatim}
-   yices-smt2 --mcsat <input file>
-\end{verbatim}
-\end{small}
 
 
 \subsubsection*{Command-line Options}
@@ -3110,8 +3125,7 @@ Here is the full list of command-line options supported by
 \item[--mcsat] Use the MCSAT solver.
 
    This flag selects the MCSAT solver of Yices instead of the default
-   CDCL-based solver. This flag is required for nonlinear arithmetic
-   problems.
+   CDCL-based solver.
 
 \item[--stats, -s] Display statistics on exit.
 
@@ -3126,9 +3140,9 @@ Here is the full list of command-line options supported by
 \end{options}
 
 
-\subsection{SMT-LIB~2.0 Compliance}
+\subsection{SMT-LIB~2.5 Compliance}
 
-Yices follows the SMT-LIB~2.0 specifications as much as possible. In
+Yices follows the SMT-LIB~2.5 specifications as much as possible. In
 this section, we list the few special cases where Yices may not adhere
 to the standard.
 
@@ -3152,14 +3166,11 @@ used by Yices are explained in Section~\ref{bitvector-general}.
 
 \subsubsection*{Unsupported Commands}
 
-Some commands defined in SMT-LIB 2.0 are optional. This version of
+Some commands defined in SMT-LIB 2.5 are optional. This version of
 Yices supports the basic commands for declaration and definition of
-sorts and terms, assertions, and satisfiability checking. It also
-implements the commands \texttt{push} and \texttt{pop}, and the
-optional commands \texttt{get-value} and \texttt{get-assignment}.
-Yices does not support the other optional commands:
-\texttt{get-assertions}, \texttt{get-proof}, and
-\texttt{get-unsat-core}.
+sorts and terms, assertions, satisfiability checking, unsat cores and
+assumptions. Yices does not support the optional commands
+\texttt{get-assertions} and \texttt{get-proof}.
 
 \medskip\noindent
 The standard requires option \texttt{:produce-assignments} to be set
@@ -3170,9 +3181,15 @@ not enforce these rules. It supports both commands
 \texttt{get-assignment} and \texttt{get-value} even if the
 corresponding option is \texttt{false}.
 
+\medskip\noindent Since version 2.6, Yices supports commands
+\texttt{get-unsat-core} and \texttt{get-unsat-assumptions}. To
+activate these commands, options \texttt{:produce-unsat-cores} or
+\texttt{:produce-unsat-assumptions} must be set. Yices does not allow
+both options to be set to true at the same time.
+
 \subsubsection*{In-line Definitions}
 
-In SMT-LIB 2.0, one can attach annotations to any term. In particular,
+In SMT-LIB 2.x, one can attach annotations to any term. In particular,
 one can give a name to a term using the syntax
 \begin{small}
 \begin{verbatim}
@@ -3217,6 +3234,16 @@ monstrosity will cause Yices to complain
 because the symbol \texttt{x} is bound by the enclosing \texttt{let}
 when the annotated term is processed.
 
+\subsubsection*{Models}
+
+Yices has always provided a command \texttt{get-model} for displaying
+a model when assertions are satisfiable. This command was added to
+SMT-LIB with version 2.5. Yices supports this command, but does not
+display models in the format defined by SMT-LIB~2.5. Insted, Yices
+uses a format similar to the one illustrated in
+Figure~\ref{model-format}, except that constants are printed with
+the SMT-LIB~2 syntax.
+
 
 \subsubsection*{Miscellaneous Issues}
 
@@ -3248,82 +3275,75 @@ use any character string that can be interpreted as a file name by the
 underlying operating system.
 
 
-\subsubsection*{Non-standard Extensions}
 
-Yices provides a few commands that are not defined in SMT-LIB~2.0 but
-should be useful. Similar commands are available in other solvers such
-as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}} and
-Z3\footnote{\url{http://rise4fun.com/z3/tutorial/guide}}.
+%% \subsubsection*{Non-standard Extensions}
 
-\medskip\noindent The primary command to examine models in SMT-LIB~2.0
-is \texttt{get-value}, which prints the value of a list of terms in
-the current model. It is often more convenient to just display the
-whole model.  Yices provides command \texttt{(get-model)} for this
-purpose. It displays the model in a format similar to the one
-illustrated in Figure~\ref{model-format}, except that constants are
-printed with the SMT-LIB~2.0 syntax.
+%% Yices provides a few commands that are not defined in SMT-LIB~2.0 but
+%% should be useful. Similar commands are available in other solvers such
+%% as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}} and
+%% Z3\footnote{\url{http://rise4fun.com/z3/tutorial/guide}}.
 
-\medskip\noindent When Yices is run in incremental mode, a
-\texttt{(reset)} command is available to remove all assertions,
-declarations, and definitions from the context. This command cannot be
-used before \texttt{set-logic} (cf.~\cite{SMTLIB20:2012}). It resets
-the solver to its initial state, but it keeps the logic and all
-options unchanged.
+%% \medskip\noindent When Yices is run in incremental mode, a
+%% \texttt{(reset)} command is available to remove all assertions,
+%% declarations, and definitions from the context. This command cannot be
+%% used before \texttt{set-logic} (cf.~\cite{SMTLIB25:2015}). It resets
+%% the solver to its initial state, but it keeps the logic and all
+%% options unchanged.
 
-\medskip\noindent Yices provides the non-standard command
-\texttt{(echo <string>)} that just prints the given \texttt{<string>}
-on the output channel.
+%% \medskip\noindent Yices provides the non-standard command
+%% \texttt{(echo <string>)} that just prints the given \texttt{<string>}
+%% on the output channel.
 
-\subsubsection*{Global Declarations}
+%% \subsubsection*{Global Declarations}
 
-Yices supports the option \texttt{:global-decls} introduced by MathSAT
-to control the removal of declarations in incremental mode. By
-default, \texttt{:global-decls} is \texttt{false} and Yices follows
-the SMT-LIB~2.0 conventions. In this mode, the command \texttt{(pop
-  ..)}  removes all the terms and sorts declared since the matching
-\texttt{(push ...)}. Here is a small example of this default behavior
-\begin{small}
-\begin{verbatim}
-   (set-logic QF_UF)
-   (declare-sort U 0)
-   (declare-fun a () U)
-   (push 1)
-   (declare-fun b () U)
-   (assert (not (= a b)))
-   (check-sat)
-   (pop 1)
-   (declare-fun f (U) U)
-   (assert (= a (f b))) ;; error: b is not in scope here
-   (check-sat)
-\end{verbatim}
-\end{small}
-In this small script, the command \texttt{(pop 1)} retracts the first
-assertion and removes the declaration of constant \texttt{b}.  The
-second assertion is then incorrect as \texttt{b} is now undefined.
+%% Yices supports the option \texttt{:global-decls} introduced by MathSAT
+%% to control the removal of declarations in incremental mode. By
+%% default, \texttt{:global-decls} is \texttt{false} and Yices follows
+%% the SMT-LIB~2.0 conventions. In this mode, the command \texttt{(pop
+%%   ..)}  removes all the terms and sorts declared since the matching
+%% \texttt{(push ...)}. Here is a small example of this default behavior
+%% \begin{small}
+%% \begin{verbatim}
+%%    (set-logic QF_UF)
+%%    (declare-sort U 0)
+%%    (declare-fun a () U)
+%%    (push 1)
+%%    (declare-fun b () U)
+%%    (assert (not (= a b)))
+%%    (check-sat)
+%%    (pop 1)
+%%    (declare-fun f (U) U)
+%%    (assert (= a (f b))) ;; error: b is not in scope here
+%%    (check-sat)
+%% \end{verbatim}
+%% \end{small}
+%% In this small script, the command \texttt{(pop 1)} retracts the first
+%% assertion and removes the declaration of constant \texttt{b}.  The
+%% second assertion is then incorrect as \texttt{b} is now undefined.
 
-\medskip\noindent Setting \texttt{:global-decls} to \texttt{true}
-makes all declarations global and unaffected by \texttt{push} and
-\texttt{pop}. A small change to the previous scripts shows the difference:
-\begin{small}
-\begin{verbatim}
-   (set-option :global-decls true)
-   (set-logic QF_UF)
-   (declare-sort U 0)
-   (declare-fun a () U)
-   (push 1)
-   (declare-fun b () U)
-   (assert (not (= a b)))
-   (check-sat)
-   (pop 1)
-   (declare-fun f (U) U)
-   (assert (= a (f b))) ;; correct: b is still in scope here
-   (check-sat)
-\end{verbatim}
-\end{small}
-The second assertion is now correct as the command \texttt{(pop 1)}
-just retracts the first assertion but it does not remove the
-declaration of \texttt{b}.  Like other options in SMT-LIB~2.0, the
-\texttt{:global-decls} must be set before \texttt{set-logic}.
+%% \medskip\noindent Setting \texttt{:global-decls} to \texttt{true}
+%% makes all declarations global and unaffected by \texttt{push} and
+%% \texttt{pop}. A small change to the previous scripts shows the difference:
+%% \begin{small}
+%% \begin{verbatim}
+%%    (set-option :global-decls true)
+%%    (set-logic QF_UF)
+%%    (declare-sort U 0)
+%%    (declare-fun a () U)
+%%    (push 1)
+%%    (declare-fun b () U)
+%%    (assert (not (= a b)))
+%%    (check-sat)
+%%    (pop 1)
+%%    (declare-fun f (U) U)
+%%    (assert (= a (f b))) ;; correct: b is still in scope here
+%%    (check-sat)
+%% \end{verbatim}
+%% \end{small}
+%% The second assertion is now correct as the command \texttt{(pop 1)}
+%% just retracts the first assertion but it does not remove the
+%% declaration of \texttt{b}.  Like other options in SMT-LIB~2.0, the
+%% \texttt{:global-decls} must be set before \texttt{set-logic}.
 
 
 \section{SMT-LIB 1.2}
@@ -3400,8 +3420,10 @@ The following command-line options can be given to \texttt{yices-smt}.
 \end{options}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Yices API}
 \label{yices-api}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% The distribution includes a library and header files for embedding
 %% Yices in other software. The main header file is \texttt{yices.h}
@@ -3409,6 +3431,13 @@ The following command-line options can be given to \texttt{yices-smt}.
 %% header file. More complete and detailed documentation on the Yices~2
 %% API will be provided at the Yices website
 %% \url{http://yices.csl.sri.com/}.
+
+You can use Yices in your software via a C-API. The main header file
+is \texttt{yices.h} which includes all the API. The API functions are
+documented in this header file and at
+\url{http://yices.csl.sri.com/}. Since Yices~2.6.0, we also provide
+Python bindings to this API. These bindings are included in the source
+distributions in directory \texttt{src/bindings}.
 
 As sketched in Figure~\ref{top-level-architecture}, the API provides
 three main classes of functions:

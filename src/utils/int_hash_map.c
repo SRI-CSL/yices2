@@ -21,7 +21,6 @@
  * Assumes that keys are non-negative
  */
 
-#include <stdbool.h>
 #include <assert.h>
 
 #include "utils/int_hash_map.h"
@@ -257,6 +256,11 @@ int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k) {
     if (d->key == k) return d;
   }
 
+  if (aux->key == DELETED_KEY) {
+    assert(hmap->ndeleted > 0);
+    hmap->ndeleted --;
+  }
+
   if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
     int_hmap_extend(hmap);
     aux = int_hmap_get_clean(hmap, k);
@@ -277,7 +281,7 @@ int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k) {
 void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v) {
   uint32_t i, mask;
 
-  assert(k >= 0 && hmap->nelems < hmap->size);
+  assert(k >= 0 && hmap->nelems + hmap->ndeleted < hmap->size);
 
   mask = hmap->size - 1;
   i = hash_key(k) & mask;
@@ -288,6 +292,10 @@ void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v) {
   }
 
   // store the new record in data[i]
+  if (hmap->data[i].key == DELETED_KEY) {
+    assert(hmap->ndeleted > 0);
+    hmap->ndeleted --;
+  }
   hmap->data[i].key = k;
   hmap->data[i].val = v;
   hmap->nelems ++;
