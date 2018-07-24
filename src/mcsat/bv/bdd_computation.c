@@ -195,7 +195,7 @@ void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n) {
 void bdds_mk_constant_64(CUDD* cudd, BDD** out, uint32_t n, uint64_t c) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
-    bool bit_i = tst_bit64(c, i);
+    bool bit_i = i < 64 ? tst_bit64(c, i) : false;
     out[i] = bit_i ? Cudd_ReadOne(cudd->cudd) : Cudd_ReadLogicZero(cudd->cudd);
     Cudd_Ref(out[i]);
   }
