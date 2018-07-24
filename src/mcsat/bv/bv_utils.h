@@ -186,6 +186,7 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
     term_kind_t kind = term_kind(terms, t);
     uint32_t bitsize = bv_term_bitsize(terms, t);
     switch (kind) {
+    case EQ_TERM:
     case BV_EQ_ATOM: {
       uint32_t k = children_values[0]->width;
       bool values_eq = bvconst_eq(children_values[0]->data, children_values[1]->data, k);
