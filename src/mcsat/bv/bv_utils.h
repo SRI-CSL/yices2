@@ -196,6 +196,15 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
       }
       break;
     }
+    case BV_GE_ATOM: {
+      bool values_ge = bvconst_ge(children_values[0]->data, children_values[1]->data, bitsize);
+      if (values_ge) {
+        bvconst_set_bit(out_value->data, 0);
+      } else {
+        bvconst_clr_bit(out_value->data, 0);
+      }
+      break;
+    }
     case BV_DIV:
       bvconst_udiv2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
       break;
