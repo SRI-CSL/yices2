@@ -453,6 +453,16 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
   term_table_t* terms = eval->ctx->terms;
   term_kind_t t_kind = term_kind(terms, t);
 
+  if (t_kind == UNINTERPRETED_TERM) {
+    // Get the value from trail
+    variable_t t_x = variable_db_get_variable_if_exists(eval->ctx->var_db, t);
+    assert(t_x != variable_null);
+    const mcsat_value_t* t_value = trail_get_value(eval->ctx->trail, t_x);
+    assert(t_value->type == VALUE_BOOLEAN);
+    *eval_level = trail_get_level(eval->ctx->trail, t_x);
+    return t_value->b;
+  }
+
   if (t_kind == BIT_TERM) {
     select_term_t* desc = bit_term_desc(terms, t);
     term_t child = desc->arg;
