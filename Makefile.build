@@ -223,7 +223,7 @@ lib: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 
-static-lib: static_build_subdirs version
+static-lib: static_build_subdirs build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 
