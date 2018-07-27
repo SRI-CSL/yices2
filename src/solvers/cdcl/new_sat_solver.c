@@ -7569,7 +7569,7 @@ static void sat_search(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
-      if (need_restart(solver)) {
+      if (need_restart(solver) || need_simplify(solver)) {
         break;
       }
       if (need_reduce(solver)) {
