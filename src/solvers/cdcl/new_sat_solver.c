@@ -7203,7 +7203,7 @@ static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint3
 }
 
 /*
- * Extend the current assignment to variable eliminated by substitution
+ * Extend the current assignment to variables eliminated by substitution
  */
 static void extend_assignment_by_substitution(sat_solver_t *solver) {
   uint32_t i, n;
@@ -7232,9 +7232,9 @@ static void extend_assignment(sat_solver_t *solver) {
   uint32_t n, block_size;;
 
   /*
-   * NOTE: this works because we do not alternate
-   * between elimination by substitution and other techniques.
-   * (i.e., we eliminate variables by resolution only as a pre-processing step).
+   * NOTE: this works because we do not alternate between elimination
+   * by substitution and other techniques.  (i.e., we eliminate
+   * variables by resolution only as a pre-processing step).
    */
   extend_assignment_by_substitution(solver);
 
