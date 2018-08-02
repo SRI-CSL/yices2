@@ -278,16 +278,26 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define REDUCE_DELTA    300
 
 /*
+ * Minimal Number of conflicts between two restarts
+ */
+#define RESTART_INTERVAL 10
+
+/*
  * Stacking of learned clauses
  * - clauses of LBD higher than this threshold are not stored in the
  *   data set but in the stack (of temporary clauses).
  */
-#define STACK_THRESHOLD 10
+#define STACK_THRESHOLD 4
 
 /*
- * Minimal Number of conflicts between two restarts
+ * Diving
+ * - first dive = number of conflicts before the first dive
+ * - diving budget = number of conflicts after which we stop
+ * - diving interval = number of conficts between two successive dives
  */
-#define RESTART_INTERVAL 10
+#define FIRST_DIVE 10000
+#define DIVING_BUDGET 10000
+#define DIVING_INTERVAL 10000
 
 /*
  * Parameters to control preprocessing
@@ -2146,9 +2156,11 @@ static void init_stats(solver_stats_t *stat) {
   stat->learned_clauses_deleted = 0;
   stat->subsumed_literals = 0;
   stat->starts = 0;
+  stat->dives = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
   stat->subst_calls = 0;
+  stat->successful_dive = 0;
   stat->scc_calls = 0;
   stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
@@ -2174,6 +2186,9 @@ static void init_params(solver_param_t *params) {
   params->reduce_interval = REDUCE_INTERVAL;
   params->reduce_delta = REDUCE_DELTA;
   params->restart_interval = RESTART_INTERVAL;
+  params->first_dive = FIRST_DIVE;
+  params->diving_budget = DIVING_BUDGET;
+  params->diving_interval = DIVING_INTERVAL;
 
   params->var_elim_skip = VAR_ELIM_SKIP;
   params->subsume_skip = SUBSUME_SKIP;
@@ -2478,6 +2493,28 @@ void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n) {
 void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
   solver->params.stack_threshold = f;
 }
+
+/*
+ * First dive
+ */
+void nsat_set_first_dive(sat_solver_t *solver, uint32_t n) {
+  solver->params.first_dive = n;
+}
+
+/*
+ * Dive bugdet
+ */
+void nsat_set_dive_budget(sat_solver_t *solver, uint32_t n) {
+  solver->params.diving_budget = n;
+}
+
+/*
+ * Number of conflicts between each dive
+ */
+void nsat_set_dive_interval(sat_solver_t *solver, uint32_t n) {
+  solver->params.diving_interval = n;
+}
+
 
 /*
  * PREPROCESSING PARAMETERS
@@ -7058,6 +7095,14 @@ static void update_blocking_ema(sat_solver_t *solver) {
   solver->blocking_count ++;
 }
 
+// update the search depth = number of assigned literals at the time
+// of a conflict
+static void update_max_depth(sat_solver_t *solver) {
+  if (solver->stack.top > solver->max_depth) {
+    solver->max_depth = solver->stack.top;
+    solver->max_depth_conflicts = solver->stats.conflicts;
+  }
+}
 
 /*
  * Resolve a conflict and add a learned clause
@@ -7067,6 +7112,8 @@ static void resolve_conflict(sat_solver_t *solver) {
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
+
+  update_max_depth(solver);
 
   analyze_conflict(solver);
   simplify_learned_clause(solver);
@@ -7088,12 +7135,12 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (true) {
-      cidx = add_learned_clause(solver, n, solver->buffer.data);
-      clause_propagation(solver, l, cidx);
-    } else {
+    if (solver->diving && d >= solver->params.stack_threshold) {
       cidx = push_clause(&solver->stash, n, solver->buffer.data);
       stacked_clause_propagation(solver, l, cidx);
+    } else {
+      cidx = add_learned_clause(solver, n, solver->buffer.data);
+      clause_propagation(solver, l, cidx);
     }
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
@@ -7301,6 +7348,32 @@ static void extend_assignment(sat_solver_t *solver) {
  */
 
 /*
+ * Switching to dive mode
+ */
+static void init_diving(sat_solver_t *solver) {
+  solver->diving = false;
+  solver->max_depth = 0;
+  solver->max_depth_conflicts = 0;
+  solver->dive_next = solver->params.first_dive;
+}
+
+static void switch_to_diving(sat_solver_t *solver) {
+  assert(! solver->diving);
+  if (solver->stats.conflicts >= solver->dive_next) {
+    report(solver, "dive");
+    solver->diving = true;
+    solver->max_depth_conflicts = solver->stats.conflicts;
+    solver->stats.dives ++;
+  }
+}
+
+static void done_diving(sat_solver_t *solver) {
+  solver->diving = false;
+  solver->dive_next = solver->stats.conflicts + solver->params.diving_interval;
+}
+
+
+/*
  * Initialize the restart counters
  */
 static void init_restart(sat_solver_t *solver) {
@@ -7331,7 +7404,11 @@ static void glucose_blocking(sat_solver_t *solver) {
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
 
-  if (solver->stats.conflicts >= solver->restart_next &&
+  if (solver->diving) {
+    if (solver->stats.conflicts >= solver->max_depth_conflicts + solver->params.diving_budget) {
+      return true;
+    }
+  } else if (solver->stats.conflicts >= solver->restart_next &&
       solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
     aux = solver->fast_ema;
     //    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
@@ -7348,66 +7425,51 @@ static void done_restart(sat_solver_t *solver) {
   solver->restart_next = solver->stats.conflicts + solver->params.restart_interval;
 }
 
+
+
 /*
  * WHEN TO REDUCE
  */
 
 /*
- * As in Minisat, we use a geometric progression
- * - we keep a reduce_next.
- * - when the number of learned clauses is bigger than the threshold,
- *   we call reduce.
- * - after every call to reduce, we increase reduce_next by REDUCE_FACTOR (5%)
- *
- * This is not very good for large problems because the first call to delete may
- * be delayed for a long time. Experiment:
- * - start with the threshold = 2000, inc = 300
- * - after every call to reduce database:
- *    threshold = threshold + inc
- *    inc = max(0, inc - 1)
- * This is more or less the heuristic used by cadical.
+ * Heuristic similar to Cadical:
+ * - we keep three counters:
+ *    reduce_next
+ *    reduce_inc
+ *    reduce_inc2
+ * - when the number of conflicts is bigger than reduce_next
+ *   we call reduce
+ * - after reduce, we update the counters:
+ *    reduce_inc = reduce_inc + reduce_inc2
+ *    reduce_next = reduce_next + reduce_inc
+ *    reduce_inc2 = max(0, reduce_inc2 - 1)
  */
 
 /*
- * Initialize the reduce threshold
+ * Initialize the reduce counters
  */
 static void init_reduce(sat_solver_t *solver) {
-#if 0
-  solver->reduce_next = solver->pool.num_prob_clauses/4;
-  if (solver->reduce_next < MIN_REDUCE_NEXT) {
-    solver->reduce_next = MIN_REDUCE_NEXT;
-  }
-#else
   solver->reduce_next = solver->params.reduce_interval;
   solver->reduce_inc = solver->params.reduce_interval;
   solver->reduce_inc2 = solver->params.reduce_delta;
-#endif
 }
 
 /*
  * Check to trigger call to reduce_learned_clause_set
  */
 static inline bool need_reduce(const sat_solver_t *solver) {
-#if 0
-  return solver->pool.num_learned_clauses >= solver->reduce_next;
-#else
   return solver->stats.conflicts >= solver->reduce_next;
-#endif
 }
 
 /*
  * Update counters after a call to reduce
  */
 static void done_reduce(sat_solver_t *solver) {
-#if 0
-  solver->reduce_next = (uint32_t) (solver->reduce_next * REDUCE_FACTOR);
-#else
   solver->reduce_inc += solver->reduce_inc2;
   solver->reduce_next = solver->stats.conflicts + solver->reduce_inc;
   if (solver->reduce_inc2 > 0) {
     solver->reduce_inc2 --;
   }
-#endif
 }
 
 
@@ -7650,6 +7712,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   init_simplify(solver);
   init_reduce(solver);
   init_restart(solver);
+  init_diving(solver);
 
   if (solver->preprocess) {
     // preprocess + one round of simplification
@@ -7681,6 +7744,13 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       partial_restart(solver);
       done_restart(solver);
     }
+
+    // CRUDE: switch to diving mode for testing
+    if (solver->diving) {
+      done_diving(solver);
+    } else {
+      switch_to_diving(solver);
+    }
   }
 
  done:
@@ -7689,6 +7759,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   report(solver, "end");
 
   if (solver->status == STAT_SAT) {
+    solver->stats.successful_dive = solver->diving;
     extend_assignment(solver);
   }
 
