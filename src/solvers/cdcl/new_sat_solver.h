@@ -862,6 +862,8 @@ typedef struct sat_solver_s {
   uint32_t max_depth;
   uint64_t max_depth_conflicts;
   uint64_t dive_next;
+  uint32_t dive_budget;
+
 
   /*
    * Statistics record

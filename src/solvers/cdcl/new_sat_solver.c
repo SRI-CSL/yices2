@@ -296,7 +296,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  * - diving interval = number of conficts between two successive dives
  */
 #define FIRST_DIVE 10000
-#define DIVING_BUDGET 10000
+#define DIVING_BUDGET 2000
 #define DIVING_INTERVAL 10000
 
 /*
@@ -3490,8 +3490,8 @@ static void report(sat_solver_t *solver, const char *code) {
   if (solver->verbosity >= 2) {
     if (solver->reports == 0) {
       fprintf(stderr, "c\n");
-      fprintf(stderr, "c                        level |                   prob.  |   learned  lbd\n");
-      fprintf(stderr, "c        confl.  starts   ema  |   vars     bins  clauses |   clauses  ema   lits/cls\n");
+      fprintf(stderr, "c                        level   max  |                    prob.  |   learned  lbd\n");
+      fprintf(stderr, "c        confl.  starts   ema   depth |    vars     bins  clauses |   clauses  ema   lits/cls\n");
       fprintf(stderr, "c\n");
     }
     solver->reports ++;
@@ -3506,13 +3506,13 @@ static void report(sat_solver_t *solver, const char *code) {
 
     if (solver->decision_level == 0) {
       vars = num_active_vars(solver);
-      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f | %6"PRIu32" %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
-	      code, solver->stats.conflicts, solver->stats.starts, lev,
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f %6"PRIu32" | %7"PRIu32" %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev, solver->max_depth,
 	      vars, solver->binaries, solver->pool.num_prob_clauses,
 	      solver->pool.num_learned_clauses, slow, lits_per_clause);
     } else {
-      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f |        %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
-	      code, solver->stats.conflicts, solver->stats.starts, lev,
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f %6"PRIu32" |         %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev, solver->max_depth,
 	      solver->binaries, solver->pool.num_prob_clauses,
 	      solver->pool.num_learned_clauses, slow, lits_per_clause);
     }
@@ -7135,7 +7135,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (solver->diving && d >= solver->params.stack_threshold) {
+    if (solver->diving && n >= solver->params.stack_threshold) {
       cidx = push_clause(&solver->stash, n, solver->buffer.data);
       stacked_clause_propagation(solver, l, cidx);
     } else {
@@ -7303,6 +7303,20 @@ static void extend_assignment(sat_solver_t *solver) {
  ****************/
 
 /*
+ * Number of literals assigned at level 0
+ * - this is used to decide whether to call simplify_clause_database
+ */
+static uint32_t level0_literals(const sat_solver_t *solver) {
+  uint32_t n;
+
+  n = solver->stack.top;
+  if (solver->decision_level > 0) {
+    n = solver->stack.level_index[1];
+  }
+  return n;
+}
+
+/*
  * WHEN TO RESTART
  */
 
@@ -7355,21 +7369,29 @@ static void init_diving(sat_solver_t *solver) {
   solver->max_depth = 0;
   solver->max_depth_conflicts = 0;
   solver->dive_next = solver->params.first_dive;
+  solver->dive_budget = solver->params.diving_budget;
 }
 
-static void switch_to_diving(sat_solver_t *solver) {
+static bool switch_to_diving(sat_solver_t *solver) {
   assert(! solver->diving);
-  if (solver->stats.conflicts >= solver->dive_next) {
-    report(solver, "dive");
+  if (solver->stats.conflicts >= solver->dive_next &&
+      solver->stats.conflicts >= solver->simplify_next + 10000 &&
+      level0_literals(solver) == solver->simplify_assigned &&
+      solver->binaries == solver->simplify_binaries) {
     solver->diving = true;
     solver->max_depth_conflicts = solver->stats.conflicts;
     solver->stats.dives ++;
+    //    solver->params.randomness = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
+    return true;
   }
+  return false;
 }
 
 static void done_diving(sat_solver_t *solver) {
   solver->diving = false;
   solver->dive_next = solver->stats.conflicts + solver->params.diving_interval;
+  solver->dive_budget += solver->dive_budget >> 2;
+  //  solver->params.randomness = 0;
 }
 
 
@@ -7389,23 +7411,11 @@ static void init_restart(sat_solver_t *solver) {
 /*
  * Check for restart
  */
-static void glucose_blocking(sat_solver_t *solver) {
-  uint64_t aux;
-
-  if (solver->blocking_count >= 5000) {
-    aux = ((uint64_t) solver->stack.top) << 32;  // trail size
-    aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size
-    if (false && aux > solver->blocking_ema) {
-      solver->fast_count = 0; // delay the next restart
-    }
-  }
-}
-
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
 
   if (solver->diving) {
-    if (solver->stats.conflicts >= solver->max_depth_conflicts + solver->params.diving_budget) {
+    if (solver->stats.conflicts >= solver->max_depth_conflicts + solver->dive_budget) {
       return true;
     }
   } else if (solver->stats.conflicts >= solver->restart_next &&
@@ -7458,7 +7468,7 @@ static void init_reduce(sat_solver_t *solver) {
  * Check to trigger call to reduce_learned_clause_set
  */
 static inline bool need_reduce(const sat_solver_t *solver) {
-  return solver->stats.conflicts >= solver->reduce_next;
+  return !solver->diving && solver->stats.conflicts >= solver->reduce_next;
 }
 
 /*
@@ -7476,20 +7486,6 @@ static void done_reduce(sat_solver_t *solver) {
 /*
  * WHEN TO SIMPLIFY
  */
-
-/*
- * Number of literals assigned at level 0
- * - this is used to decide whether to call simplify_clause_database
- */
-static uint32_t level0_literals(const sat_solver_t *solver) {
-  uint32_t n;
-
-  n = solver->stack.top;
-  if (solver->decision_level > 0) {
-    n = solver->stack.level_index[1];
-  }
-  return n;
-}
 
 /*
  * Initialize counters
@@ -7653,7 +7649,6 @@ static void sat_search(sat_solver_t *solver) {
         solver->status = STAT_UNSAT;
         break;
       }
-      glucose_blocking(solver);
       resolve_conflict(solver);
       check_watch_vectors(solver);
 
@@ -7740,16 +7735,19 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       done_restart(solver);
       nsat_simplify(solver);
       done_simplify(solver);
+      if (solver->diving) {
+	done_diving(solver);
+      }
+    } else if (solver->diving) {
+      done_diving(solver);
+      full_restart(solver);
+      report(solver, "");
+    } else if (switch_to_diving(solver)) {
+      full_restart(solver);
+      report(solver, "dive");
     } else {
       partial_restart(solver);
       done_restart(solver);
-    }
-
-    // CRUDE: switch to diving mode for testing
-    if (solver->diving) {
-      done_diving(solver);
-    } else {
-      switch_to_diving(solver);
     }
   }
 
