@@ -611,10 +611,12 @@ typedef struct solver_stats_s {
   uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learned_clause)
 
   uint32_t starts;                   // 1 + number of restarts
+  uint32_t dives;                    // number of dives
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
   uint32_t scc_calls;                // number of calls to try_scc_simplification
   uint32_t subst_calls;              // number of calls to apply_substitution
+  uint32_t successful_dive;          // whether we found sat by diving
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
@@ -648,6 +650,9 @@ typedef struct solver_param_s {
   uint32_t reduce_interval;    // Number of conflicts between two calls to reduce
   uint32_t reduce_delta;       // Adjustment to reduce_interval
   uint32_t restart_interval;   // Minimal number of conflicts between two restarts
+  uint32_t first_dive;         // Number of conflicts before the first dive
+  uint32_t diving_budget;      // Number of conflicts before giving up diving
+  uint32_t diving_interval;    // Number of conflicts before the next dive
 
   /*
    * Heuristics/parameters for preprocessing
@@ -849,6 +854,18 @@ typedef struct sat_solver_s {
   uint32_t blocking_count;
 
   /*
+   * Experimental: in diving mode: attempt to go as deep as possible
+   * in the search tree. We keep track of max search depth
+   * and the number of conflicts when it was reached.
+   */
+  bool diving;
+  uint32_t max_depth;
+  uint64_t max_depth_conflicts;
+  uint64_t dive_next;
+  uint32_t dive_budget;
+
+
+  /*
    * Statistics record
    */
   solver_stats_t stats;
@@ -1024,6 +1041,22 @@ extern void nsat_set_reduce_delta(sat_solver_t *solver, uint32_t d);
  * Minimal number of conflicts between two calls to restart
  */
 extern void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n);
+
+/*
+ * First dive
+ */
+extern void nsat_set_first_dive(sat_solver_t *solver, uint32_t n);
+
+/*
+ * Dive bugdet
+ */
+extern void nsat_set_dive_budget(sat_solver_t *solver, uint32_t n);
+
+/*
+ * Number of conflicts between each dive
+ */
+extern void nsat_set_dive_interval(sat_solver_t *solver, uint32_t n);
+
 
 /*
  * PREPROCESSING PARAMETERS
