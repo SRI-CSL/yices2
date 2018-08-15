@@ -160,9 +160,6 @@ def catch_uninitialized():
     return decorator
 
 
-libyicespath = find_library("yices")
-libyices = None
-
 
 
 #########################################
@@ -172,26 +169,25 @@ libyices = None
 #########################################
 
 def yices_library_name():
-    extension = None
+    lib_basename = 'libyices'
+    extension = '.so'
     if sys.platform == 'win32':
+        extension = '.dll'
+    elif sys.platform == 'cygwin':
+        lib_basename = 'cygyices'
         extension = '.dll'
     elif sys.platform == 'darwin':
         extension = '.dylib'
-    else:
-        extension = '.so'
-    return 'libyices.{0}'.format(extension)
-
+    return '{0}{1}'.format(lib_basename, extension)
 
 #
-# Loading the library is complicated by misbehaviour on Linux
-# So we manually have to go through the LD_LIBRARY_PATH, which may not
-# really help anyway, since we would probably be getting the sudo
-# version not the user's version. Probably the real issue is that
-# on Linux yices installs in /usr/local/lib but the ctype loading probably
-# expects it to be in some x86_64 archified directory. HOWEVER, if find_library
-# can find the name correctly, you would expect that it could also load the
-# puppy correctly.
+# N.B. find_library is not super reliable
 #
+libyicespath = find_library("yices")
+libyices = None
+
+if libyicespath is None: libyicespath = yices_library_name()
+
 def _loadYicesFromPath(path, library):
     global libyices
     try:
@@ -208,25 +204,10 @@ def loadYices():
 
     error_msg = "Yices dynamic library not found."
 
-    if libyicespath is not None:
-        #try first without hackery
-        if _loadYicesFromPath(None, libyicespath):
-            return
-        #on linux we see if the LD_LIBRARY_PATH can help  (may not really help)
-        ld_library_path = os.environ.get('LD_LIBRARY_PATH')
-        if ld_library_path is not None:
-            paths = ld_library_path.split(':')
-            for path in paths:
-                if _loadYicesFromPath(path, libyicespath):
-                    return
-        #try the default install location for yices on linux (this may be the real win)
-        if _loadYicesFromPath('/usr/local/lib', libyicespath):
-            return
-        error_msg = "Yices dynamic library {0} not found. LD_LIBRARY_PATH was {1}".format(libyicespath, ld_library_path)
-    # see if we can just get it with CDLL assuming it is called what we call it
-    else:
-        if _loadYicesFromPath(None, yices_library_name()):
-            return
+    if _loadYicesFromPath(None, libyicespath):
+        return
+    if _loadYicesFromPath('/usr/local/lib', libyicespath):
+        return
     # else we failed
     raise YicesException(error_msg)
 
