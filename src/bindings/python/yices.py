@@ -168,13 +168,13 @@ def catch_uninitialized():
 #                                       #
 #########################################
 
-def yices_library_name():
-    lib_basename = 'libyices'
+def guess_library_name(package_name):
+    lib_basename = 'lib' + package_name
     extension = '.so'
     if sys.platform == 'win32':
         extension = '.dll'
     elif sys.platform == 'cygwin':
-        lib_basename = 'cygyices'
+        lib_basename = 'cyg' + package_name
         extension = '.dll'
     elif sys.platform == 'darwin':
         extension = '.dylib'
@@ -186,7 +186,7 @@ def yices_library_name():
 libyicespath = find_library("yices")
 libyices = None
 
-if libyicespath is None: libyicespath = yices_library_name()
+if libyicespath is None: libyicespath = guess_library_name('yices')
 
 def _loadYicesFromPath(path, library):
     global libyices
@@ -275,7 +275,10 @@ checkYices()
 
 #we are lazy about attempting to load gmp. The user must try
 #to call a routine that needs gmp, otherwise we do not load it.
-libgmppath = find_library("gmp")
+libgmppath = find_library('gmp')
+
+if libgmppath is None: libgmppath = guess_library_name('gmp')
+
 libgmp = None
 libgmpFailed = None
 
