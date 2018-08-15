@@ -171,6 +171,17 @@ libyices = None
 #                                       #
 #########################################
 
+def yices_library_name():
+    extension = None
+    if sys.platform == 'win32':
+        extension = '.dll'
+    elif sys.platform == 'darwin':
+        extension = '.dylib'
+    else:
+        extension = '.so'
+    return 'libyices.{0}'.format(extension)
+
+
 #
 # Loading the library is complicated by misbehaviour on Linux
 # So we manually have to go through the LD_LIBRARY_PATH, which may not
@@ -212,6 +223,10 @@ def loadYices():
         if _loadYicesFromPath('/usr/local/lib', libyicespath):
             return
         error_msg = "Yices dynamic library {0} not found. LD_LIBRARY_PATH was {1}".format(libyicespath, ld_library_path)
+    # see if we can just get it with CDLL assuming it is called what we call it
+    else:
+        if _loadYicesFromPath(None, yices_library_name()):
+            return
     # else we failed
     raise YicesException(error_msg)
 
