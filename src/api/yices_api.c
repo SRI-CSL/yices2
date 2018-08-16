@@ -34,7 +34,7 @@
  *
  * On cygwin/mingw, we have two cases:
  * - static build: NOYICES_DLL is defined.
- * - dynamic build: NOYiCES_DLL is not defined.
+ * - dynamic build: NOYICES_DLL is not defined.
  *
  * We don't want the attribute __declspec(dllexport) when NOYICES_DLL is defined
  * otherwise clang gives compilation warnings

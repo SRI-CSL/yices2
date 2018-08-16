@@ -66,6 +66,10 @@ include $(conf)
 # build/static_lib: libraries (GMP included)
 # build/static_bin: binaries linked statically with GMP (and other libraries if possible)
 #
+# For cygiwn and mingw: we use a third subdirectory to build objects for the
+# dll that includes libgmp.a
+# build/static_dll_obj
+#
 objdir := $(BUILD)/obj
 libdir := $(BUILD)/lib
 bindir := $(BUILD)/bin
@@ -73,6 +77,8 @@ bindir := $(BUILD)/bin
 static_objdir := $(BUILD)/static_obj
 static_libdir := $(BUILD)/static_lib
 static_bindir := $(BUILD)/static_bin
+
+static_dll_objdir := $(BUILD)/static_dll_obj
 
 #
 # Distribution subdirectory: tarfiles are constructed
@@ -453,11 +459,16 @@ bin_dep := $(bin_src_c:%.c=$(objdir)/%.d)
 static_bin_obj = $(bin_src_c:%.c=$(static_objdir)/%.o)
 static_bin_dep = $(bin_src_c:%.c=$(static_objdir)/%.d)
 
-
 version_obj := $(objdir)/api/yices_version.o
 version_dep := $(version_c:%.c=$(objdir)/%.d)
 static_version_obj := $(static_objdir)/api/yices_version.o
 static_version_dep := $(version_c:%.c=$(static_objdir)/%.d)
+
+# extras for mingw and cygwin
+static_dll_obj := $(src_c:%.c=$(static_dll_objdir)/%.o)
+static_dll_dep := $(src_c:%.c=$(static_dll_objdir)/%.d)
+static_dll_version_obj := $(static_dll_objdir)/api/yices_version.o
+static_dll_version_dep := $(version_c:%.c=$(static_dll_objdir)/%.d)
 
 
 #
@@ -726,9 +737,11 @@ endif
 ifeq ($(YICES_MODE),release)
 base_obj := $(base_src_c:%.c=$(objdir)/%.o)
 static_base_obj := $(base_src_c:%.c=$(static_objdir)/%.o)
+static_dll_base_obj := $(base_src_c:%.c=$(static_dll_objdir)/%.o)
 else
 base_obj := $(obj)
 static_base_obj := $(static_obj)
+static_dll_base_obj := $(static_dll_obj)
 endif
 
 
@@ -763,10 +776,18 @@ endif
 
 STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 
+#
+# For building dll linked statically with libgmp.a
+# we use the STATIC_CPPFLAGS (so that we use the right version of gmp.h)
+# For building the binaries linked statically with libgmp.a,
+# we also add the NOYICES_DLL flag.
+#
 ifeq ($(POSIXOS),cygwin)
+  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
   STATIC_CPPFLAGS += -DNOYICES_DLL
 else
 ifeq ($(POSIXOS),mingw)
+  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
   STATIC_CPPFLAGS += -DNOYICES_DLL
 endif
 endif
@@ -807,6 +828,11 @@ $(static_objdir)/%.d: %.c
 	$(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
 	rm -f $@.$$$$
 
+$(static_dll_objdir)/%.d: %.c
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG -MT $*.o $(CFLAGS) $(STATIC_DLL_CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(static_dll_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
 
 ifneq ($(MAKECMDGOALS),clean)
 
@@ -823,6 +849,15 @@ ifneq ($(static_goals),)
  include $(static_dep)
  include $(static_bin_dep)
  include $(static_version_dep)
+ ifeq ($(POSIXOS),mingw)
+   include $(static_dll_dep)
+   include $(static_dll_version_dep)
+ else
+ ifeq ($(POSIXOS),cygwin)
+   include $(static_dll_dep)
+   include $(static_dll_version_dep)
+ endif
+ endif
 endif
 
 endif
@@ -870,8 +905,14 @@ $(objdir)/%.o: %.c
 $(static_version_obj): $(version_c)
 	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c $(version_c) -o $(static_version_obj)
 
+$(static_dll_version_obj): $(version_c)
+	$(CC) -DYICES_STATIC $(STATIC_DLL_CPPFLAGS) $(CFLAGS) -c $(version_c) -o $(static_dll_version_obj)
+
 $(static_objdir)/%.o: %.c
 	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(static_dll_objdir)/%.o: %.c
+	$(CC) $(STATIC_DLL_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 #
 # Static libraries
@@ -970,11 +1011,11 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_dll): $(static_dll_base_obj) $(static_dll_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
+	$(static_dll_base_obj) $(static_dll_version_obj) $(PIC_LIBS)
 ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
@@ -999,18 +1040,18 @@ $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
-ifneq ($(YICES_MODE),debug)
+ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_mingw_dll): $(static_dll_base_obj) $(static_dll_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_LIBS)
-ifneq ($(YICES_MODE),debug)
-	$(STRIP) $@
+	$(static_dll_base_obj) $(static_dll_version_obj) $(PIC_LIBS)
+ifeq ($(YICES_MODE),release)
+	$(STRIP) -x $@
 endif
 
 

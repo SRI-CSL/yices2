@@ -110,6 +110,7 @@ const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
+  "formula not supported by the mc-sat solver",
 };
 
 
