@@ -3313,7 +3313,8 @@ static void ctx_unsat_core(smt2_globals_t *g) {
 
 
 /*
- * Check with assumptions
+ * Check with assumptions:
+ * - not supported by the mcsat solver
  */
 static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_t *a) {
   smt2_assumptions_t *assumptions;
@@ -5654,8 +5655,17 @@ void smt2_check_sat(void) {
 
 
 /*
+ * Check whether the logic requires mcsat or the mcsat flag is set.
+ * In either case, check_sat_assuming is not supported.
+ */
+static bool mcsat_is_required(smt2_globals_t *g) {
+  assert(g->logic_code != SMT_UNKNOWN);
+  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
+}
+
+/*
  * Check sat with assumptions:
-  * - n = number of assumptions
+ * - n = number of assumptions
  * - a = array of assumptions
  * Each assumption is represented as a signed symbol,
  * i.e., a pair symbol name/polarity.
@@ -5666,11 +5676,13 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
   tprint_calls("check-sat-assuming", __smt2_globals.stats.num_check_sat_assuming);
 
   if (check_logic()) {
-    if (__smt2_globals.benchmark_mode) {
+    if (mcsat_is_required(&__smt2_globals)) {
+      print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
+    } else if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
 	print_error("the exists/forall solver does not support check-sat with assumptions");
       } else if (__smt2_globals.frozen) {
-	print_error("mutliple calls to (check-sat) are not allowed in non-incremental mode");
+	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
 	check_delayed_assertions_assuming(&__smt2_globals, n, a);
       }
