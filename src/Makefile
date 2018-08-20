@@ -308,7 +308,8 @@ mcsat_src_c := \
 	mcsat/trail.c \
 	mcsat/conflict.c \
 	mcsat/gc.c \
-	mcsat/equality_graph.c \
+	mcsat/eq/equality_graph.c \
+	mcsat/eq/merge_queue.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/value_hash_map.c \

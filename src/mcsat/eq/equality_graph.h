@@ -22,26 +22,14 @@
 #include <mcsat/utils/value_vector.h>
 #include <stdbool.h>
 
-#include "plugin.h"
-#include "value.h"
+#include "mcsat/plugin.h"
+#include "mcsat/value.h"
 
-#include "utils/scope_holder.h"
+#include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/value_hash_map.h"
 
-/** Nodes in the graph have IDs, this is the type */
-typedef uint32_t equality_graph_node_id;
-
-/** Node in the equality graph */
-typedef struct equality_graph_node_s {
-  /** Id of the representative */
-  equality_graph_node_id find;
-  /** Next node in the class */
-  equality_graph_node_id next;
-  /** Index of the term (positive) or value (negative) */
-  int32_t index;
-  /** Is it a value */
-  bool is_value;
-} equality_graph_node_t;
+#include "equality_graph_types.h"
+#include "merge_queue.h"
 
 /**
  * Traditional functionality:
@@ -81,22 +69,40 @@ typedef struct equality_graph_s {
   /** Name of the equality graph */
   const char* name;
 
-  /** 
-   * The data holding the nodes in the graph:
-   * - terms are in graph_nodes[0 .. ] */
-  equality_graph_node_t* graph_nodes;
+  /* The graph nodes */
+  equality_graph_node_t* nodes;
 
   /** Size of the graph nodes */
-  uint32_t size;
+  uint32_t nodes_size;
 
   /** Capacity of the graph nodes */
-  uint32_t capacity;
+  uint32_t nodes_capacity;
+
+  /** The graph edges in order of addition */
+  equality_graph_edge_t* edges;
+
+  /** Size of the graph nodes */
+  uint32_t edges_size;
+
+  /** Capacity of the graph nodes */
+  uint32_t edges_capacity;
+
+  /** The graph itself (map from node to the last inserted edge) */
+  ivector_t graph;
 
   /** The plugin context */
   plugin_context_t* ctx;
 
-} equality_graph_t;
+  /** Queue for merging */
+  merge_queue_t merge_queue;
 
+  /** Lock when we're in propagation */
+  bool in_propagate;
+
+  /** Flag indiciating a conflict */
+  bool in_conflict;
+
+} equality_graph_t;
 
 /** Construct a new named equality graph. */
 void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const char* name);
@@ -104,17 +110,23 @@ void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const
 /** Destruct the graph */
 void equality_graph_destruct(equality_graph_t* eq);
 
-/** Add the term to the database (returns true if newly added). */
-bool equality_graph_add_term(equality_graph_t* eq, term_t t);
+/** Add the term to the database (if not there) and return id. */
+equality_graph_node_id_t equality_graph_add_term(equality_graph_t* eq, term_t t);
 
-/** Add the value to the database (value managed outside and must survive until pop). */
-bool equality_graph_add_value(equality_graph_t* eq, const mcsat_value_t* v);
+/** Add the value to the database (if not there). */
+equality_graph_node_id_t equality_graph_add_value(equality_graph_t* eq, const mcsat_value_t* v);
 
 /** Is the term already in the graph */
 bool equality_graph_has_term(const equality_graph_t* eq, variable_t t);
 
 /** Is the value already in the graph */
 bool equality_graph_has_value(const equality_graph_t* eq, const mcsat_value_t* v);
+
+/** Get the ID of a term */
+equality_graph_node_id_t equality_graph_term_id(const equality_graph_t* eq, term_t t);
+
+/** Get the ID of a value */
+equality_graph_node_id_t equality_graph_value_id(const equality_graph_t* eq, const mcsat_value_t* v);
 
 /** Push the context */
 void equality_graph_push(equality_graph_t* eq);
@@ -124,4 +136,13 @@ void equality_graph_pop(equality_graph_t* eq);
 
 /** Print the equality graph */
 void equality_graph_print(const equality_graph_t* eq, FILE* out);
+
+/**
+ * Assert equality lhs = rhs with given polarity and associated reason.
+ **/
+void equality_graph_asssert_eq(equality_graph_t* eq,
+    equality_graph_node_id_t lhs,
+    equality_graph_node_id_t rhs,
+    bool polarity,
+    equality_merge_reason_t reason);
 
