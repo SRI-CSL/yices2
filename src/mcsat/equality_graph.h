@@ -19,13 +19,13 @@
 #pragma once
 
 #include <mcsat/utils/value_hash_map.h>
+#include <mcsat/utils/value_vector.h>
 #include <stdbool.h>
 
 #include "plugin.h"
 #include "value.h"
 
 #include "utils/scope_holder.h"
-#include "utils/int_vectors.h"
 #include "mcsat/utils/value_hash_map.h"
 
 /** Nodes in the graph have IDs, this is the type */
@@ -39,8 +39,8 @@ typedef struct equality_graph_node_s {
   equality_graph_node_id next;
   /** Index of the term (positive) or value (negative) */
   int32_t index;
-  /** Is it a constant (values are constants, but so are some terms) */
-  bool is_constant;
+  /** Is it a value */
+  bool is_value;
 } equality_graph_node_t;
 
 /**
@@ -69,11 +69,11 @@ typedef struct equality_graph_s {
   /** Map from values to id */
   value_hmap_t value_to_id;
 
+  /** Vector to store values */
+  value_vector_t values_list;
+
   /** List of the terms added in order */
   ivector_t terms_list;
-
-  /** List of MCSAT values added in order */
-  pvector_t values_list;
 
   /** Scope holder for push/pop */
   scope_holder_t scope_holder;
@@ -121,4 +121,7 @@ void equality_graph_push(equality_graph_t* eq);
 
 /** Pop the context */
 void equality_graph_pop(equality_graph_t* eq);
+
+/** Print the equality graph */
+void equality_graph_print(const equality_graph_t* eq, FILE* out);
 

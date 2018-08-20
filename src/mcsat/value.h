@@ -76,8 +76,29 @@ void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
 
+/** Construct a default value (VALUE_NONE) */
+mcsat_value_t* mcsat_value_new_default();
+
+/** Construct and allocate a boolean */
+mcsat_value_t* mcsat_value_new_bool(bool b);
+
+/** Construct and allcoate a rational */
+mcsat_value_t* mcsat_value_new_rational(const rational_t *q);
+
+/** Construct and allocate a value from the libpoly value */
+mcsat_value_t* mcsat_value_new_lp_value(const lp_value_t *lp_value);
+
+/** Construct and allocate a bv value */
+mcsat_value_t* mcsat_value_new_bv_value(const bvconstant_t *bv_value);
+
+/** Construct and allocate a copy */
+mcsat_value_t* mcsat_value_new_copy(const mcsat_value_t *from);
+
 /** Destruct the value (removes any data and sets back to VALUE_NONE) */
 void mcsat_value_destruct(mcsat_value_t *value);
+
+/** Delete the value */
+void mcsat_value_delete(mcsat_value_t *value);
 
 /** Assign a value */
 void mcsat_value_assign(mcsat_value_t *value, const mcsat_value_t *from);

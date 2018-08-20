@@ -77,6 +77,42 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
   }
 }
 
+mcsat_value_t* mcsat_value_new_default() {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_default(result);
+  return result;
+}
+
+mcsat_value_t* mcsat_value_new_bool(bool b) {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_bool(result, b);
+  return result;
+}
+
+mcsat_value_t* mcsat_value_new_rational(const rational_t *q) {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_rational(result, q);
+  return result;
+}
+
+mcsat_value_t* mcsat_value_new_lp_value(const lp_value_t *lp_value) {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_lp_value(result, lp_value);
+  return result;
+}
+
+mcsat_value_t* mcsat_value_new_bv_value(const bvconstant_t *bv_value) {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_bv_value(result, bv_value);
+  return result;
+}
+
+mcsat_value_t* mcsat_value_new_copy(const mcsat_value_t *from) {
+  mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
+  mcsat_value_construct_copy(result, from);
+  return result;
+}
+
 void mcsat_value_destruct(mcsat_value_t* value) {
   switch (value->type) {
   case VALUE_NONE:
@@ -95,6 +131,11 @@ void mcsat_value_destruct(mcsat_value_t* value) {
   default:
     assert(false);
   }
+}
+
+void mcsat_value_delete(mcsat_value_t* value) {
+  mcsat_value_destruct(value);
+  safe_free(value);
 }
 
 void mcsat_value_assign(mcsat_value_t* value, const mcsat_value_t* from) {
