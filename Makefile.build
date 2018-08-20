@@ -108,10 +108,13 @@ build_dir = build/$(ARCH)-$(YICES_MODE)
 # build/obj: object files (for version without GMP included)
 # build/lib: libraries (GMP not included)
 # build/bin: binaries (GMP not included)
-
+#
 # build/static_obj: object files (for version statically linked with GMP)
 # build/static_lib: libraries (GMP included)
 # build/static_bin: binaries linked statically with GMP (and other libraries if possible)
+#
+# build/static_dll_obj: for mingw and cygwin objectfiles to construct the static
+# variant of cygyices.dll or libyices.dll
 #
 dyn_objdir := $(build_dir)/obj
 dyn_libdir := $(build_dir)/lib
@@ -121,9 +124,11 @@ static_objdir := $(build_dir)/static_obj
 static_libdir := $(build_dir)/static_lib
 static_bindir := $(build_dir)/static_bin
 
+static_dll_objdir := $(build_dir)/static_dll_obj
+
 dyn_objsubdirs := $(srcsubdirs:%=$(dyn_objdir)/%)
 static_objsubdirs := $(srcsubdirs:%=$(static_objdir)/%)
-
+static_dll_objsubdirs := $(srcsubdirs:%=$(static_dll_objdir)/%)
 
 #
 # Binary distributions:
@@ -185,6 +190,12 @@ $(static_objdir):
 $(static_objsubdirs):
 	$(MKDIR_P) $@
 
+$(static_dll_objdir):
+	$(MKDIR_P) $(static_dll_objdir)
+
+$(static_dll_objsubdirs):
+	$(MKDIR_P) $@
+
 $(static_libdir):
 	$(MKDIR_P) $(static_libdir)
 
@@ -200,11 +211,16 @@ $(static_distdir):
 
 build_subdirs: $(build_dir) $(dyn_objsubdirs) $(dyn_libdir) $(dyn_bindir)
 
-static_build_subdirs: $(build_dir) $(static_objsubdirs) $(static_libdir) $(static_bindir)
+static_build_subdirs-mingw static_build_subdirs-cygwin: $(static_dll_objsubdirs)
 
-.PHONY: build_subdirs static_build_subdirs
+static_build_subdirs-darwin static_build_subdirs-linux static_build_subdirs-unix static_build_subdirs-freebsd:
 
+static_build_subdirs: $(build_dir) $(static_objsubdirs) $(static_libdir) $(static_bindir) \
+	static_build_subdirs-$(POSIXOS)
 
+.PHONY: build_subdirs static_build_subdirs static_build_subdirs-darwin static-build_subdirs-cygwin \
+	static_build_subdirs-mingw static_build_subdirs-linux static_build_subdirs-unix \
+	static_build_subdirs-freebsd
 
 #
 # Compilation

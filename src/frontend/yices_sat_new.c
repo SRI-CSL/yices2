@@ -426,9 +426,9 @@ static bool var_elim_skip_given;
 static bool res_clause_limit_given;
 static bool simplify_interval_given;
 static bool simplify_bin_delta_given;
-static bool first_dive_given;
+static bool search_period_given;
+static bool search_counter_given;
 static bool dive_budget_given;
-static bool dive_interval_given;
 
 static double var_decay;
 static double clause_decay;
@@ -444,9 +444,9 @@ static uint32_t var_elim_skip;
 static uint32_t res_clause_limit;
 static uint32_t simplify_interval;
 static uint32_t simplify_bin_delta;
-static uint32_t first_dive;
+static uint32_t search_period;
+static uint32_t search_counter;
 static uint32_t dive_budget;
-static uint32_t dive_interval;
 
 enum {
   version_flag,
@@ -472,9 +472,9 @@ enum {
   res_clause_limit_opt,
   simplify_interval_opt,
   simplify_bin_delta_opt,
-  first_dive_opt,
+  search_period_opt,
+  search_counter_opt,
   dive_budget_opt,
-  dive_interval_opt,
   data_flag,
 };
 
@@ -504,9 +504,9 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
   { "simplify-interval", '\0', MANDATORY_INT,  simplify_interval_opt },
   { "simplify-bin-delta", '\0', MANDATORY_INT, simplify_bin_delta_opt },
-  { "first-dive", '\0', MANDATORY_INT, first_dive_opt },
+  { "search-period", '\0', MANDATORY_INT, search_period_opt },
+  { "search-counter", '\0', MANDATORY_INT, search_counter_opt },
   { "dive-budget", '\0', MANDATORY_INT, dive_budget_opt },
-  { "dive-interval", '\0', MANDATORY_INT, dive_interval_opt },
 
   { "data", '\0', FLAG_OPTION, data_flag },
 };
@@ -585,9 +585,9 @@ static void parse_command_line(int argc, char *argv[]) {
   res_clause_limit_given = false;
   simplify_interval_given = false;
   simplify_bin_delta_given = false;
-  first_dive_given = false;
+  search_period_given = false;
+  search_counter_given = false;
   dive_budget_given = false;
-  dive_interval_given = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -768,13 +768,22 @@ static void parse_command_line(int argc, char *argv[]) {
 	simplify_bin_delta = elem.i_value;
 	break;
 
-      case first_dive_opt:
+      case search_period_opt:
 	if (elem.i_value <= 0) {
-	  fprintf(stderr, "first-dive must be positive.\n");
+	  fprintf(stderr, "search-period must be positive.\n");
 	  goto bad_usage;
 	}
-	first_dive_given = true;
-	first_dive = elem.i_value;
+	search_period_given = true;
+	search_period = elem.i_value;
+	break;
+
+      case search_counter_opt:
+	if (elem.i_value <= 0) {
+	  fprintf(stderr, "search-counter must be positive.\n");
+	  goto bad_usage;
+	}
+	search_counter_given = true;
+	search_counter = elem.i_value;
 	break;
 
       case dive_budget_opt:
@@ -784,15 +793,6 @@ static void parse_command_line(int argc, char *argv[]) {
 	}
 	dive_budget_given = true;
 	dive_budget = elem.i_value;
-	break;
-
-      case dive_interval_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "dive-interval must be positive.\n");
-	  goto bad_usage;
-	}
-	dive_interval_given = true;
-	dive_interval = elem.i_value;
 	break;
 
       case data_flag:
@@ -1153,9 +1153,9 @@ int main(int argc, char* argv[]) {
     if (res_clause_limit_given) nsat_set_res_clause_limit(&solver, res_clause_limit);
     if (simplify_interval_given) nsat_set_simplify_interval(&solver, simplify_interval);
     if (simplify_bin_delta_given) nsat_set_simplify_bin_delta(&solver, simplify_bin_delta);
-    if (first_dive_given) nsat_set_first_dive(&solver, first_dive);
+    if (search_period_given) nsat_set_search_period(&solver, search_period);
+    if (search_counter_given) nsat_set_search_counter(&solver, search_counter);
     if (dive_budget_given) nsat_set_dive_budget(&solver, dive_budget);
-    if (dive_interval_given) nsat_set_dive_interval(&solver, dive_interval);
 
     verb = verbose ? 2 : stats ? 1 : 0;
     nsat_set_verbosity(&solver, verb);
