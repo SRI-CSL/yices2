@@ -137,12 +137,13 @@ void equality_graph_pop(equality_graph_t* eq);
 /** Print the equality graph */
 void equality_graph_print(const equality_graph_t* eq, FILE* out);
 
-/**
- * Assert equality lhs = rhs with given polarity and associated reason.
- **/
+/** Assert equality lhs = rhs with given polarity and associated reason. **/
 void equality_graph_asssert_eq(equality_graph_t* eq,
     equality_graph_node_id_t lhs,
     equality_graph_node_id_t rhs,
     bool polarity,
     equality_merge_reason_t reason);
+
+
+
 

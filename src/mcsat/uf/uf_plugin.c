@@ -36,6 +36,8 @@
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/value.h"
 
+#include "mcsat/eq/equality_graph.h"
+
 #include "utils/int_array_sort2.h"
 #include "model/models.h"
 
@@ -87,6 +89,9 @@ typedef struct {
   /** The term manager (no ITE simplification) */
   term_manager_t tm;
 
+  /** Equality graph */
+  equality_graph_t eq_graph;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -125,6 +130,9 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
 
+  // Equality graph
+  equality_graph_construct(&uf->eq_graph, ctx, "uf");
+
   // Term manager
   init_term_manager(&uf->tm, uf->ctx->terms);
   uf->tm.simplify_ite = false;
@@ -143,6 +151,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
+  equality_graph_destruct(&uf->eq_graph);
   delete_term_manager(&uf->tm);
 }
 

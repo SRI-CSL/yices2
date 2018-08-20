@@ -28,7 +28,11 @@ void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const
 
   eq->nodes_capacity = 0;
   eq->nodes_size = 0;
-  eq->nodes = 0;
+  eq->nodes = NULL;
+
+  eq->edges_capacity = 0;
+  eq->edges_size = 0;
+  eq->edges = NULL;
 
   eq->name = name;
 
@@ -40,6 +44,7 @@ void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const
   init_ivector(&eq->terms_list, 0);
   init_value_vector(&eq->values_list, 0);
   init_merge_queue(&eq->merge_queue, 0);
+  init_ivector(&eq->graph, 0);
 
   scope_holder_construct(&eq->scope_holder);
 
@@ -50,12 +55,14 @@ void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const
 
 void equality_graph_destruct(equality_graph_t* eq) {
   safe_free(eq->nodes);
+  safe_free(eq->edges);
 
   delete_int_hmap(&eq->term_to_id);
   delete_value_hmap(&eq->value_to_id);
   delete_ivector(&eq->terms_list);
   delete_value_vector(&eq->values_list);
   delete_merge_queue(&eq->merge_queue);
+  delete_ivector(&eq->graph);
 }
 
 // Default initial size and max size
