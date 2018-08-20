@@ -74,7 +74,7 @@ extern void value_vector_swap(value_vector_t *v1, value_vector_t *v2);
 /*
  * add x at the end of v (constructs empty)
  */
-static inline void value_vector_push(value_vector_t *v) {
+static inline mcsat_value_t* value_vector_push(value_vector_t *v) {
   uint32_t i;
 
   i = v->size;
@@ -83,6 +83,8 @@ static inline void value_vector_push(value_vector_t *v) {
   }
   mcsat_value_construct_default(v->data + i);
   v->size = i+1;
+
+  return v->data + i;
 }
 
 /*

@@ -30,6 +30,7 @@ typedef int32_t equality_merge_reason_t;
 
 /** Node in the equality graph */
 typedef struct equality_graph_node_s {
+
   /** Id of the representative */
   equality_graph_node_id_t find;
   /** Next node in the class */
@@ -40,12 +41,13 @@ typedef struct equality_graph_node_s {
   bool is_value;
   /** Is it a constant */
   bool is_constant;
+
 } equality_graph_node_t;
 
 /** Edges in the graph have IDs, this is the type */
 typedef uint32_t equality_graph_edge_id_t;
 
-#define equality_graph_edge_null ((equality_graph_edge_id) -1)
+#define equality_graph_edge_null ((equality_graph_edge_id_t) -1)
 
 /** An edge (u, v) in the graph */
 typedef struct equality_graph_edge_s {

@@ -113,6 +113,15 @@ void equality_graph_destruct(equality_graph_t* eq);
 /** Add the term to the database (if not there) and return id. */
 equality_graph_node_id_t equality_graph_add_term(equality_graph_t* eq, term_t t);
 
+/**
+ * Add a function term to the database (if not there) and return id.
+ * @param t the full term itself (e.g., f(x, y, 1))
+ * @param the direct subterms of the term including the function itself
+ *        (e.g., [f, x, y, 1]).
+ */
+equality_graph_node_id_t equality_graph_add_function_term(equality_graph_t* eq,
+    term_t t, uint32_t n_subterms, const term_t* subterms);
+
 /** Add the value to the database (if not there). */
 equality_graph_node_id_t equality_graph_add_value(equality_graph_t* eq, const mcsat_value_t* v);
 

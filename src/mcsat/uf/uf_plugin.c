@@ -249,6 +249,11 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
       prop->add_at_level(prop, eq_term_var, &mcsat_value_false, level);
     }
   }
+
+  // Add to equality graph
+  equality_graph_add_term(&uf->eq_graph, lhs_term);
+  equality_graph_add_term(&uf->eq_graph, rhs_term);
+  equality_graph_node_id_t eq_id = equality_graph_add_term(&uf->eq_graph, eq_term);
 }
 
 static

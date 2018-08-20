@@ -120,6 +120,10 @@ equality_graph_node_id_t equality_graph_add_term(equality_graph_t* eq, term_t t)
   node->is_value = false;
   node->is_constant = is_const_term(eq->ctx->terms, t);
 
+  // No edges
+  ivector_push(&eq->graph, equality_graph_edge_null);
+
+  assert(eq->nodes_size == eq->graph.size);
   assert(eq->terms_list.size + eq->values_list.size == eq->nodes_size);
 
   // Added, done
@@ -136,8 +140,7 @@ equality_graph_node_id_t equality_graph_add_value(equality_graph_t* eq, const mc
   value_hmap_pair_t* find = value_hmap_get(&eq->value_to_id, v);
   if (find->val < 0) {
     find->val = id;
-    value_vector_push(&eq->values_list);
-    mcsat_value_t* v_copy = value_vector_last(&eq->values_list);
+    mcsat_value_t* v_copy = value_vector_push(&eq->values_list);
     mcsat_value_assign(v_copy, v);
   } else {
     return find->val;
@@ -151,11 +154,32 @@ equality_graph_node_id_t equality_graph_add_value(equality_graph_t* eq, const mc
   node->is_value = true;
   node->is_constant = true;
 
+  // No edges
+  ivector_push(&eq->graph, equality_graph_edge_null);
+
   assert(eq->terms_list.size + eq->values_list.size == eq->nodes_size);
+  assert(eq->nodes_size == eq->graph.size);
 
   // Added, done
   return id;
 }
+
+equality_graph_node_id_t equality_graph_add_function_term(equality_graph_t* eq,
+    term_t t, uint32_t n_subterms, const term_t* subterms) {
+
+  assert(n_subterms >= 2);
+
+  uint32_t i;
+
+  equality_graph_node_id_t app_id = equality_graph_add_term(eq, subterms[0]);
+  for (i = 1; i < n_subterms; ++ i) {
+    equality_graph_node_id_t arg_id = equality_graph_add_term(eq, subterms[i]);
+    //app_id = equality_graph_add_application_term(eq, app_id, arg_id);
+  }
+
+  return app_id;
+}
+
 
 equality_graph_node_id_t equality_graph_term_id(const equality_graph_t* eq, term_t t) {
   int_hmap_pair_t* find = int_hmap_find((int_hmap_t*) &eq->term_to_id, t);
