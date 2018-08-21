@@ -868,10 +868,10 @@ typedef struct sat_solver_s {
    * and the number of conflicts when it was reached.
    */
   bool diving;
+  uint32_t dive_budget;
   uint32_t max_depth;
   uint64_t max_depth_conflicts;
-  uint64_t dive_next;
-  uint32_t dive_budget;
+  uint64_t dive_start;
 
 
   /*

@@ -6580,6 +6580,7 @@ static void partial_restart(sat_solver_t *solver) {
   bvar_t x;
   uint32_t i, n;
 
+  solver->stats.starts ++;
   if (solver->decision_level > 0) {
     cleanup_heap(solver);
 
@@ -6606,6 +6607,7 @@ static void partial_restart(sat_solver_t *solver) {
  * Full restart: backtrack to level 0
  */
 static void full_restart(sat_solver_t *solver) {
+  solver->stats.starts ++;
   if (solver->decision_level > 0) {
     backtrack(solver, 0);
   }
@@ -7344,6 +7346,7 @@ static void init_mode(sat_solver_t *solver) {
   solver->dive_budget = solver->params.diving_budget;
   solver->max_depth = 0;
   solver->max_depth_conflicts = 0;
+  solver->dive_start = 0;
 }
 
 /*
@@ -7370,7 +7373,7 @@ static inline bool need_check(const sat_solver_t *solver) {
 static bool switch_to_diving(sat_solver_t *solver) {
   assert(! solver->diving);
 
-  if (made_progress(solver)) {
+  if (true || made_progress(solver)) {
     solver->progress = solver->params.search_counter;
     solver->check_next += solver->params.search_period;
   } else {
@@ -7379,9 +7382,9 @@ static bool switch_to_diving(sat_solver_t *solver) {
     solver->check_next += solver->params.search_period;
     if (solver->progress == 0) {
       solver->diving = true;
-      //      nsat_set_randomness(solver, VAR_RANDOM_FACTOR);
       solver->max_depth_conflicts = solver->stats.conflicts;
       solver->max_depth = 0;
+      solver->dive_start = solver->stats.conflicts;
       solver->stats.dives ++;
       return true;
     }
@@ -7391,16 +7394,23 @@ static bool switch_to_diving(sat_solver_t *solver) {
 }
 
 static void done_diving(sat_solver_t *solver) {
+  uint64_t delta;
+
   solver->diving = false;
-  if (solver->dive_budget <= 2000000) {
+  if (solver->dive_budget <= 200000) {
     solver->dive_budget += solver->dive_budget >> 2;
   }
-  //  nsat_set_randomness(solver, 0.0f);
-  solver->check_next = solver->stats.conflicts + solver->params.search_period;
   solver->progress = solver->params.search_counter;
   solver->progress_units = level0_literals(solver);
   solver->progress_binaries = solver->binaries;
-  solver->reduce_next = solver->stats.conflicts + solver->reduce_inc;
+
+  // adjust reduce_next, restart_next, simplify_next, etc.
+  // delta = number of conflicts in the dive
+  delta = solver->stats.conflicts - solver->dive_start;
+  solver->reduce_next += delta;
+  solver->restart_next += delta;
+  solver->simplify_next += delta;
+  solver->check_next += delta;
 }
 
 
@@ -7665,7 +7675,7 @@ static void sat_search(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
-      if (need_restart(solver)) {
+      if (need_restart(solver) || need_simplify(solver)) {
         break;
       }
       if (need_reduce(solver)) {
@@ -7770,7 +7780,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
   while (! solver->has_empty_clause) {
-    solver->stats.starts ++;
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
 
@@ -7787,13 +7796,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       full_restart(solver);
       report(solver, "");
     } else if (need_check(solver)) {
-      report(solver, "chk");
+      //      report(solver, "chk");
       if (switch_to_diving(solver)) {
 	full_restart(solver);
 	report(solver, "dive");
-      } else {
-	partial_restart(solver);
-	done_restart(solver);
       }
     } else {
       partial_restart(solver);
