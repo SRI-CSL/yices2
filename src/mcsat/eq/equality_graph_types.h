@@ -23,22 +23,29 @@
 /** Nodes in the graph have IDs, this is the type */
 typedef uint32_t equality_graph_node_id_t;
 
-#define equality_graph_node_null ((equality_graph_node_id) -1)
+#define equality_graph_node_null ((equality_graph_node_id_t) -1)
 
 /** Reason for merge (users should use >= 0, negative reserved for internal use */
 typedef int32_t equality_merge_reason_t;
 
+typedef enum {
+  EQ_NODE_TERM,   // Nodes for representing a term
+  EQ_NODE_VALUE,  // Nodes for representing a value
+  EQ_NODE_PAIR    // Nodes for represenging a pair of other nodes
+} equality_graph_node_type_t;
+
 /** Node in the equality graph */
 typedef struct equality_graph_node_s {
+
+  /** Type of the node */
+  equality_graph_node_type_t type;
 
   /** Id of the representative */
   equality_graph_node_id_t find;
   /** Next node in the class */
   equality_graph_node_id_t next;
-  /** Index of the term (positive) or value (negative) */
-  int32_t index;
-  /** Is it a value */
-  bool is_value;
+  /** Index of the term in it's list */
+  uint32_t index;
   /** Is it a constant */
   bool is_constant;
 

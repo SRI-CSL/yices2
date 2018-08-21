@@ -31,6 +31,8 @@
 #include "equality_graph_types.h"
 #include "merge_queue.h"
 
+#include "utils/pair_hash_map2.h"
+
 /**
  * Traditional functionality:
  * - Add terms to the term database
@@ -57,11 +59,17 @@ typedef struct equality_graph_s {
   /** Map from values to id */
   value_hmap_t value_to_id;
 
+  /** Map from pairs to ids */
+  pmap2_t pair_to_id;
+
   /** Vector to store values */
   value_vector_t values_list;
 
   /** List of the terms added in order */
   ivector_t terms_list;
+
+  /** List of pairs added in order */
+  ivector_t pairs_list;
 
   /** Scope holder for push/pop */
   scope_holder_t scope_holder;
@@ -89,6 +97,9 @@ typedef struct equality_graph_s {
 
   /** The graph itself (map from node to the last inserted edge) */
   ivector_t graph;
+
+  /** The hash map of pair representatives. */
+  pmap2_t pair_to_rep;
 
   /** The plugin context */
   plugin_context_t* ctx;
@@ -147,7 +158,7 @@ void equality_graph_pop(equality_graph_t* eq);
 void equality_graph_print(const equality_graph_t* eq, FILE* out);
 
 /** Assert equality lhs = rhs with given polarity and associated reason. **/
-void equality_graph_asssert_eq(equality_graph_t* eq,
+void equality_graph_assert_eq(equality_graph_t* eq,
     equality_graph_node_id_t lhs,
     equality_graph_node_id_t rhs,
     bool polarity,
