@@ -36,6 +36,16 @@ static bool is_power_of_two(uint32_t n) {
 }
 #endif
 
+/*
+ * Markers for empty/deleted pairs
+ */
+#define VALUE_HMAP_EMPTY_KEY ((const mcsat_value_t*) 0)
+#define VALUE_HMAP_DELETED_KEY ((const mcsat_value_t*) 1)
+
+static inline
+bool value_hmap_valid_key(const mcsat_value_t* k) {
+  return k != VALUE_HMAP_DELETED_KEY && k != VALUE_HMAP_EMPTY_KEY;
+}
 
 /*
  * Initialization:
@@ -80,10 +90,9 @@ void delete_value_hmap(value_hmap_t *hmap) {
 }
 
 
-/*
- * Hash of a key (Jenkins hash)
- */
-static uint32_t hash_key(const mcsat_value_t* k) {
+/** Hash of a key */
+static inline
+uint32_t hash_key(const mcsat_value_t* k) {
   return mcsat_value_hash(k);
 }
 
@@ -184,7 +193,11 @@ value_hmap_pair_t *value_hmap_find(const value_hmap_t *hmap, const mcsat_value_t
   j = hash_key(k) & mask;
   for (;;) {
     d = hmap->data + j;
-    if (mcsat_value_eq(d->key, k)) return d;
+    if (value_hmap_valid_key(d->key)) {
+      if (d->key->type == k->type && mcsat_value_eq(d->key, k)) {
+        return d;
+      }
+    }
     if (d->key == VALUE_HMAP_EMPTY_KEY) return NULL;
     j ++;
     j &= mask;

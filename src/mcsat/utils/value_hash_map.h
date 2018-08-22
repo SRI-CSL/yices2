@@ -39,12 +39,6 @@ typedef struct value_hmap_pair_s {
   int32_t val;
 } value_hmap_pair_t;
 
-/*
- * Markers for empty/deleted pairs
- */
-#define VALUE_HMAP_DELETED_KEY ((const mcsat_value_t*) 0)
-#define VALUE_HMAP_EMPTY_KEY ((const mcsat_value_t*) 1)
-
 typedef struct value_hmap_s {
   value_hmap_pair_t *data;
   uint32_t size; // must be a power of 2

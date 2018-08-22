@@ -170,6 +170,9 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
     find->val = id;
     ivector_push(&eq->kind_list, kind);
   } else {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+    }
     return find->val;
   }
 
@@ -187,6 +190,10 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
 
   assert(eq->nodes_size == eq->graph.size);
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+     ctx_trace_printf(eq->ctx, "id: %"PRIi32"\n", id);
+   }
 
   // Added, done
   return id;
@@ -209,6 +216,9 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
     find->val = id;
     ivector_push(&eq->terms_list, t);
   } else {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+    }
     return find->val;
   }
 
@@ -239,6 +249,10 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
     new_merge->reason = REASON_IS_CONSTANT_DEF;
   }
 
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+     ctx_trace_printf(eq->ctx, "id: %"PRIi32"\n", id);
+   }
+
   // Added, done
   return id;
 }
@@ -268,6 +282,9 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
     mcsat_value_t* v_copy = value_vector_push(&eq->values_list);
     mcsat_value_assign(v_copy, v);
   } else {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
+    }
     return find->val;
   }
 
@@ -286,11 +303,19 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
 
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "id: %"PRIi32"\n", id);
+  }
+
   // Added, done
   return id;
 }
 
 eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_add_pair[%s]()\n", eq->name);
+  }
 
   // New id of the node
   eq_node_id_t id = eq->nodes_size;
@@ -303,6 +328,9 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
     ivector_push(&eq->pair_list, p1);
     ivector_push(&eq->pair_list, p2);
   } else {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+    }
     return find->val;
   }
 
@@ -322,6 +350,10 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   assert(eq->nodes_size == eq->graph.size);
 
   // Add to use-lists
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "id: %"PRIi32"\n", id);
+  }
 
   // Added, done
   return id;
