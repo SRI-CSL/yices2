@@ -40,6 +40,8 @@ typedef struct eq_node_s {
 
   /** Type of the node */
   eq_node_type_t type;
+  /** Size of the equivalence class */
+  uint32_t size;
 
   /** Id of the representative */
   eq_node_id_t find;
@@ -59,8 +61,8 @@ typedef uint32_t eq_edge_id_t;
 
 /** An edge (u, v) in the graph */
 typedef struct eq_graph_edge_s {
-  /** Edge goes to node v */
-  eq_node_id_t v;
+  /** Edge from u to v */
+  eq_node_id_t u, v;
   /** Reason of the edge */
   eq_reason_t reason;
   /** Next edge */

@@ -55,6 +55,9 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   eq->name = name;
 
   eq->in_conflict = false;
+  eq->conflict_lhs = eq_node_null;
+  eq->conflict_rhs = eq_node_null;
+
   eq->in_propagate = false;
 
   eq->trail_i = 0;
@@ -173,6 +176,7 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
   // Setup the new node
   eq_node_t* node = eq_graph_new_node(eq);
   node->type = EQ_NODE_KIND;
+  node->size = 1;
   node->find = id;
   node->next = id;
   node->index = index;
@@ -211,6 +215,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   // Setup the new node
   eq_node_t* node = eq_graph_new_node(eq);
   node->type = EQ_NODE_TERM;
+  node->size = 1;
   node->find = id;
   node->next = id;
   node->index = index;
@@ -269,6 +274,7 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
   // Setup the new node
   eq_node_t* node = eq_graph_new_node(eq);
   node->type = EQ_NODE_VALUE;
+  node->size = 1;
   node->find = id;
   node->next = id;
   node->index = index;
@@ -303,6 +309,7 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   // Setup the new node
   eq_node_t* node = eq_graph_new_node(eq);
   node->type = EQ_NODE_PAIR;
+  node->size = 1;
   node->find = id;
   node->next = id;
   node->index = index;
@@ -472,48 +479,6 @@ bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v) {
   return value_hmap_find(&eq->value_to_id, v) != NULL;
 }
 
-void eq_graph_push(eq_graph_t* eq) {
-  scope_holder_push(&eq->scope_holder,
-      &eq->kind_list.size,
-      &eq->terms_list.size,
-      &eq->values_list.size,
-      &eq->pair_list.size,
-      &eq->nodes_size,
-      &eq->edges_size,
-      &eq->trail_i,
-      NULL
-  );
-
-  pmap2_push(&eq->pair_to_id);
-  pmap2_push(&eq->pair_to_rep);
-}
-
-void eq_graph_pop(eq_graph_t* eq) {
-  uint32_t kind_list_size;
-  uint32_t term_list_size;
-  uint32_t value_list_size;
-  uint32_t pair_list_size;
-  uint32_t nodes_size;
-  uint32_t edges_size;
-
-  scope_holder_pop(&eq->scope_holder,
-      &kind_list_size,
-      &term_list_size,
-      &value_list_size,
-      &pair_list_size,
-      &nodes_size,
-      &edges_size,
-      &eq->trail_i,
-      NULL
-  );
-
-  pmap2_pop(&eq->pair_to_id);
-  pmap2_pop(&eq->pair_to_rep);
-
-  // TODO: actually remove data
-  assert(false);
-}
-
 void eq_graph_print_class(const eq_graph_t* eq, eq_node_id_t start_node_id, FILE* out) {
   const eq_node_t* n = eq->nodes + start_node_id;
   eq_node_id_t n_id = eq_graph_get_node_id(eq, n);
@@ -580,21 +545,51 @@ void eq_graph_merge(eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id) {
   eq_node_t* n2 = eq->nodes + n2_id;
 
   assert(n1->find == n1_id);
-  assert(n1->find == n2_id);
+  assert(n2->find == n2_id);
   assert(n1_id != n2_id);
 
   // Update the find in n2's class
   do {
-    n2->find = n1->find;
+    n2->find = n1_id;
     n2 = eq->nodes + n2->next;
-  } while (n2->find != n1->find);
+  } while (n2->find != n1_id);
 
   // Finally merge the lists (circular lists)
   eq_node_id_t tmp = n1->next;
   n1->next = n2->next;
   n2->next = tmp;
 
+  // Update the size
+  n1->size += n2->size;
 }
+
+/** Un-merge node n2 from n1 */
+static
+void eq_graph_unmerge(eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id) {
+
+  eq_node_t* n1 = eq->nodes + n1_id;
+  eq_node_t* n2 = eq->nodes + n2_id;
+
+  assert(n1->find == n1_id);
+  assert(n2->find == n1_id);
+  assert(n1_id != n2_id);
+
+  // Update the size
+  assert(n1->size > n2->size);
+  n1->size -= n2->size;
+
+  // Unmerge the lists (circular lists)
+  eq_node_id_t tmp = n1->next;
+  n1->next = n2->next;
+  n2->next = tmp;
+
+  // Update the find in n2's class
+  do {
+    n2->find = n2_id;
+    n2 = eq->nodes + n2->next;
+  } while (n2->find != n2_id);
+}
+
 
 /** Do we prefer n1 to n2 */
 static inline
@@ -610,8 +605,8 @@ bool eq_graph_merge_preference(const eq_node_t* n1, const eq_node_t* n2) {
     return true;
   }
 
-  // Otherwise we don't prefer n1 (we don't care)
-  return false;
+  // Otherwise we prefer a biger one (so that we update less nodes)
+  return n1->size < n2->size;
 }
 
 /** Allocate a new edge */
@@ -652,6 +647,7 @@ void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reas
   eq_edge_t* n1_new_e = eq_graph_new_edge(eq);
   n1_new_e->next = n1_e_id;
   n1_new_e->reason = reason;
+  n1_new_e->u = n1;
   n1_new_e->v = n2;
   eq->graph.data[n1] = n1_new_e_id;
 
@@ -660,6 +656,7 @@ void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reas
   eq_edge_t* n2_new_e = eq_graph_new_edge(eq);
   n2_new_e->next = n2_e_id;
   n2_new_e->reason = reason;
+  n2_new_e->u = n2;
   n2_new_e->v = n1;
   eq->graph.data[n2] = n2_new_e_id;
 }
@@ -800,4 +797,100 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       eq_graph_assert_eq(eq, v_id, x_id, true, REASON_IS_TRAIL);
     }
   }
+}
+
+void eq_graph_push(eq_graph_t* eq) {
+  scope_holder_push(&eq->scope_holder,
+      &eq->kind_list.size,
+      &eq->terms_list.size,
+      &eq->values_list.size,
+      &eq->pair_list.size,
+      &eq->nodes_size,
+      &eq->edges_size,
+      &eq->graph.size,
+      &eq->trail_i,
+      NULL
+  );
+
+  // Push the pair maps
+  pmap2_push(&eq->pair_to_id);
+  pmap2_push(&eq->pair_to_rep);
+}
+
+void eq_graph_pop(eq_graph_t* eq) {
+  uint32_t kind_list_size;
+  uint32_t term_list_size;
+  uint32_t value_list_size;
+  uint32_t pair_list_size;
+  uint32_t nodes_size;
+  uint32_t edges_size;
+  uint32_t graph_size;
+
+  scope_holder_pop(&eq->scope_holder,
+      &kind_list_size,
+      &term_list_size,
+      &value_list_size,
+      &pair_list_size,
+      &nodes_size,
+      &edges_size,
+      &graph_size,
+      &eq->trail_i,
+      NULL
+  );
+
+  uint32_t i;
+
+  // Remove any added edges
+  const eq_edge_t* edge = eq->edges + eq->edges_size;
+  while (eq->edges_size > edges_size) {
+    // Remove edge: point to the previous edge in list
+    edge = edge - 2;
+    eq->graph.data[edge->u] = edge->next;
+    eq->edges_size -= 2;
+
+    // Un-merge the two nodes
+    eq_graph_unmerge(eq, edge->u, edge->v);
+  }
+
+  // Remove added kinds
+  for (i = kind_list_size; i < eq->kind_list.size; ++ i) {
+    term_kind_t kind = eq->kind_list.data[i];
+    int_hmap_pair_t* find = int_hmap_find(&eq->kind_to_id, kind);
+    int_hmap_erase(&eq->kind_to_id, find);
+  }
+  ivector_shrink(&eq->kind_list, kind_list_size);
+
+  // Remove added terms
+  for (i = term_list_size; i < eq->terms_list.size; ++ i) {
+    term_t t = eq->terms_list.data[i];
+    int_hmap_pair_t* find = int_hmap_find(&eq->term_to_id, t);
+    int_hmap_erase(&eq->term_to_id, find);
+  }
+  ivector_shrink(&eq->terms_list, term_list_size);
+
+  // Remove added values
+  for (i = value_list_size; i < eq->values_list.size; ++ i) {
+    const mcsat_value_t* v = eq->values_list.data + i;
+    value_hmap_pair_t* find = value_hmap_find(&eq->value_to_id, v);
+    value_hmap_erase(&eq->value_to_id, find);
+  }
+  value_vector_shrink(&eq->values_list, value_list_size);
+
+  // Remove added pairs (map pops automatically, see below)
+  ivector_shrink(&eq->pair_list, pair_list_size);
+
+  // Remove the added nodes
+  eq->nodes_size = nodes_size;
+
+  // Pop the graph size
+  ivector_shrink(&eq->graph, graph_size);
+
+  // Pop the pair maps
+  pmap2_pop(&eq->pair_to_id);
+  pmap2_pop(&eq->pair_to_rep);
+
+  // Clear conflict
+  eq->in_conflict = false;
+  eq->conflict_lhs = eq_node_null;
+  eq->conflict_rhs = eq_node_null;
 }
