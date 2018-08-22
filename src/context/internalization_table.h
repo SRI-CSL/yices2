@@ -323,6 +323,7 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
  */
 extern void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2);
 
+
 /*
  * SUPPORT FOR GARBAGE COLLECTION
  */
