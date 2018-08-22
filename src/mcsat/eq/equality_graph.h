@@ -75,7 +75,7 @@ typedef struct eq_graph_s {
   value_vector_t values_list;
 
   /** List of pairs added in order */
-  ivector_t pairs_list;
+  ivector_t pair_list;
 
   /** Scope holder for push/pop */
   scope_holder_t scope_holder;
@@ -127,6 +127,9 @@ typedef struct eq_graph_s {
    * that are deduced to be equal to a constant.
    */
   ivector_t term_value_merges;
+
+  /** Last processed trail index */
+  uint32_t trail_i;
 
 } eq_graph_t;
 
@@ -194,4 +197,7 @@ void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
 /** Get the value of a propagated term */
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t);
+
+/** Propagate the trail */
+void eq_graph_propagate_trail(eq_graph_t* eq);
 

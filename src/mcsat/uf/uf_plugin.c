@@ -733,6 +733,8 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       uf_plugin_propagate_eqs(uf, var, prop);
     }
 
+    // Propagate known terms
+    eq_graph_propagate_trail(&uf->eq_graph);
   }
 }
 
@@ -749,6 +751,7 @@ void uf_plugin_push(plugin_t* plugin) {
 
   app_reps_push(&uf->app_reps);
   uf_feasible_set_db_push(uf->feasible);
+  eq_graph_push(&uf->eq_graph);
 }
 
 static
@@ -778,6 +781,7 @@ void uf_plugin_pop(plugin_t* plugin) {
 
   app_reps_pop(&uf->app_reps);
   uf_feasible_set_db_pop(uf->feasible);
+  eq_graph_pop(&uf->eq_graph);
 }
 
 

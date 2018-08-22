@@ -19,11 +19,14 @@
 #include "equality_graph.h"
 #include "utils/memalloc.h"
 #include "mcsat/tracing.h"
+#include "mcsat/variable_db.h"
+#include "mcsat/trail.h"
 
 enum {
   REASON_IS_FUNCTION_DEF = -1, // f(x, y) = (f (x y))
   REASON_IS_CONSTANT_DEF = -2, // term(5) = value(5)
-  REASON_IS_CONGRUENCE = -3    // x = y -> f(x) = f(y)
+  REASON_IS_CONGRUENCE = -3,   // x = y -> f(x) = f(y)
+  REASON_IS_TRAIL = -4         // x = v recorded in trail
 };
 
 #include <inttypes.h>
@@ -54,6 +57,8 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   eq->in_conflict = false;
   eq->in_propagate = false;
 
+  eq->trail_i = 0;
+
   init_int_hmap(&eq->kind_to_id, 0);
   init_int_hmap(&eq->term_to_id, 0);
   init_value_hmap(&eq->value_to_id, 0);
@@ -62,7 +67,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_ivector(&eq->kind_list, 0);
   init_ivector(&eq->terms_list, 0);
   init_value_vector(&eq->values_list, 0);
-  init_ivector(&eq->pairs_list, 0);
+  init_ivector(&eq->pair_list, 0);
 
   scope_holder_construct(&eq->scope_holder);
 
@@ -100,7 +105,7 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_ivector(&eq->kind_list);
   delete_ivector(&eq->terms_list);
   delete_value_vector(&eq->values_list);
-  delete_ivector(&eq->pairs_list);
+  delete_ivector(&eq->pair_list);
 
   scope_holder_destruct(&eq->scope_holder);
 
@@ -177,7 +182,7 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
   ivector_push(&eq->graph, eq_edge_null);
 
   assert(eq->nodes_size == eq->graph.size);
-  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pairs_list.size / 2 == eq->nodes_size);
+  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
 
   // Added, done
   return id;
@@ -215,7 +220,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   ivector_push(&eq->graph, eq_edge_null);
 
   assert(eq->nodes_size == eq->graph.size);
-  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pairs_list.size / 2 == eq->nodes_size);
+  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
 
   // If the node is a constant, we also create a value for it
   if (node->is_constant) {
@@ -272,7 +277,7 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
 
-  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size == eq->nodes_size);
+  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
 
   // Added, done
@@ -283,14 +288,14 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
 
   // New id of the node
   eq_node_id_t id = eq->nodes_size;
-  uint32_t index = eq->pairs_list.size;
+  uint32_t index = eq->pair_list.size;
 
   // Check if already there
   pmap2_rec_t* find = pmap2_get(&eq->pair_to_id, p1, p2);
   if (find->val < 0) {
     find->val = id;
-    ivector_push(&eq->pairs_list, p1);
-    ivector_push(&eq->pairs_list, p2);
+    ivector_push(&eq->pair_list, p1);
+    ivector_push(&eq->pair_list, p2);
   } else {
     return find->val;
   }
@@ -306,7 +311,7 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
 
-  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size == eq->nodes_size);
+  assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
 
   // Add to use-lists
@@ -320,10 +325,10 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   const eq_node_t* n = eq->nodes + pair_id;
   assert(n->type == EQ_NODE_PAIR);
   // n1
-  eq_node_id_t p1 = eq->pairs_list.data[n->index];
+  eq_node_id_t p1 = eq->pair_list.data[n->index];
   const eq_node_t* n1 = eq->nodes + p1;
   // n2
-  eq_node_id_t p2 = eq->pairs_list.data[n->index + 1];
+  eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
   const eq_node_t* n2 = eq->nodes + p2;
 
   // Store normalized pair or merge if someone is already there
@@ -347,7 +352,6 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_ufun_term[%s](): ", eq->name);
     ctx_trace_term(eq->ctx, t);
-    ctx_trace_printf(eq->ctx, "\n");
   }
 
   assert(n >= 1);
@@ -400,7 +404,6 @@ eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uin
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_ifun_term[%s](): ", eq->name);
     ctx_trace_term(eq->ctx, t);
-    ctx_trace_printf(eq->ctx, "\n");
   }
 
   assert(n >= 1);
@@ -471,20 +474,41 @@ bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v) {
 
 void eq_graph_push(eq_graph_t* eq) {
   scope_holder_push(&eq->scope_holder,
+      &eq->kind_list.size,
       &eq->terms_list.size,
       &eq->values_list.size,
+      &eq->pair_list.size,
+      &eq->nodes_size,
+      &eq->edges_size,
+      &eq->trail_i,
       NULL
   );
+
+  pmap2_push(&eq->pair_to_id);
+  pmap2_push(&eq->pair_to_rep);
 }
 
 void eq_graph_pop(eq_graph_t* eq) {
-  uint32_t term_list_size, value_list_size;
+  uint32_t kind_list_size;
+  uint32_t term_list_size;
+  uint32_t value_list_size;
+  uint32_t pair_list_size;
+  uint32_t nodes_size;
+  uint32_t edges_size;
 
   scope_holder_pop(&eq->scope_holder,
+      &kind_list_size,
       &term_list_size,
       &value_list_size,
+      &pair_list_size,
+      &nodes_size,
+      &edges_size,
+      &eq->trail_i,
       NULL
   );
+
+  pmap2_pop(&eq->pair_to_id);
+  pmap2_pop(&eq->pair_to_rep);
 
   // TODO: actually remove data
   assert(false);
@@ -755,4 +779,25 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
   const eq_node_t* n_find = eq->nodes + n_find_id;
   assert(n_find->type == EQ_NODE_VALUE);
   return eq->values_list.data + n_find->index;
+}
+
+void eq_graph_propagate_trail(eq_graph_t* eq) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s]()\n", eq->name);
+  }
+
+  const mcsat_trail_t* trail = eq->ctx->trail;
+  variable_db_t* var_db = eq->ctx->var_db;
+
+  for (; eq->trail_i < trail_size(trail); ++ eq->trail_i) {
+    variable_t x = trail_at(trail, eq->trail_i);
+    term_t x_term = variable_db_get_term(var_db, x);
+    if (eq_graph_has_term(eq, x_term)) {
+      const mcsat_value_t* v = trail_get_value(trail, x);
+      eq_node_id_t v_id = eq_graph_add_value(eq, v);
+      eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
+      eq_graph_assert_eq(eq, v_id, x_id, true, REASON_IS_TRAIL);
+    }
+  }
 }
