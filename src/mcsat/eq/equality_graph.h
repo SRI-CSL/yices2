@@ -51,7 +51,7 @@
  *   - removes values
  *   - remove terms
  */
-typedef struct equality_graph_s {
+typedef struct eq_graph_s {
 
   /** Map from terms to id */
   int_hmap_t term_to_id;
@@ -78,7 +78,7 @@ typedef struct equality_graph_s {
   const char* name;
 
   /* The graph nodes */
-  equality_graph_node_t* nodes;
+  eq_node_t* nodes;
 
   /** Size of the graph nodes */
   uint32_t nodes_size;
@@ -87,7 +87,7 @@ typedef struct equality_graph_s {
   uint32_t nodes_capacity;
 
   /** The graph edges in order of addition */
-  equality_graph_edge_t* edges;
+  eq_edge_t* edges;
 
   /** Size of the graph nodes */
   uint32_t edges_size;
@@ -114,7 +114,7 @@ typedef struct equality_graph_s {
   bool in_conflict;
 
   /** We have a conflict when two constant nodes are merged, these are the nodes */
-  equality_graph_node_id_t conflict_lhs, conflict_rhs;
+  eq_node_id_t conflict_lhs, conflict_rhs;
 
   /**
    * We don't notify on deductions, instead the user can get the terms
@@ -122,16 +122,16 @@ typedef struct equality_graph_s {
    */
   ivector_t constant_merges;
 
-} equality_graph_t;
+} eq_graph_t;
 
 /** Construct a new named equality graph. */
-void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const char* name);
+void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name);
 
 /** Destruct the graph */
-void equality_graph_destruct(equality_graph_t* eq);
+void eq_graph_destruct(eq_graph_t* eq);
 
 /** Add the term to the database (if not there) and return id. */
-equality_graph_node_id_t equality_graph_add_term(equality_graph_t* eq, term_t t);
+eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 
 /**
  * Add a function term to the database (if not there) and return id.
@@ -139,39 +139,39 @@ equality_graph_node_id_t equality_graph_add_term(equality_graph_t* eq, term_t t)
  * @param the direct subterms of the term including the function itself
  *        (e.g., [f, x, y, 1]).
  */
-equality_graph_node_id_t equality_graph_add_function_term(equality_graph_t* eq,
+eq_node_id_t eq_graph_add_fun_term(eq_graph_t* eq,
     term_t t, uint32_t n_subterms, const term_t* subterms);
 
 /** Add the value to the database (if not there). */
-equality_graph_node_id_t equality_graph_add_value(equality_graph_t* eq, const mcsat_value_t* v);
+eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
 
 /** Is the term already in the graph */
-bool equality_graph_has_term(const equality_graph_t* eq, variable_t t);
+bool eq_graph_has_term(const eq_graph_t* eq, variable_t t);
 
 /** Is the value already in the graph */
-bool equality_graph_has_value(const equality_graph_t* eq, const mcsat_value_t* v);
+bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
 
 /** Get the ID of a term */
-equality_graph_node_id_t equality_graph_term_id(const equality_graph_t* eq, term_t t);
+eq_node_id_t eq_graph_term_id(const eq_graph_t* eq, term_t t);
 
 /** Get the ID of a value */
-equality_graph_node_id_t equality_graph_value_id(const equality_graph_t* eq, const mcsat_value_t* v);
+eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v);
 
 /** Push the context */
-void equality_graph_push(equality_graph_t* eq);
+void eq_graph_push(eq_graph_t* eq);
 
 /** Pop the context */
-void equality_graph_pop(equality_graph_t* eq);
+void eq_graph_pop(eq_graph_t* eq);
 
 /** Print the equality graph */
-void equality_graph_print(const equality_graph_t* eq, FILE* out);
+void eq_graph_print(const eq_graph_t* eq, FILE* out);
 
 /** Assert equality lhs = rhs with given polarity and associated reason. **/
-void equality_graph_assert_eq(equality_graph_t* eq,
-    equality_graph_node_id_t lhs,
-    equality_graph_node_id_t rhs,
+void eq_graph_assert_eq(eq_graph_t* eq,
+    eq_node_id_t lhs,
+    eq_node_id_t rhs,
     bool polarity,
-    equality_merge_reason_t reason);
+    eq_reason_t reason);
 
 
 

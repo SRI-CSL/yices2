@@ -21,47 +21,47 @@
 #include <stdbool.h>
 
 /** Nodes in the graph have IDs, this is the type */
-typedef uint32_t equality_graph_node_id_t;
+typedef uint32_t eq_node_id_t;
 
-#define equality_graph_node_null ((equality_graph_node_id_t) -1)
+#define eq_node_null ((eq_node_id_t) -1)
 
 /** Reason for merge (users should use >= 0, negative reserved for internal use */
-typedef int32_t equality_merge_reason_t;
+typedef int32_t eq_reason_t;
 
 typedef enum {
   EQ_NODE_TERM,   // Nodes for representing a term
   EQ_NODE_VALUE,  // Nodes for representing a value
   EQ_NODE_PAIR    // Nodes for represenging a pair of other nodes
-} equality_graph_node_type_t;
+} eq_node_type_t;
 
 /** Node in the equality graph */
-typedef struct equality_graph_node_s {
+typedef struct eq_node_s {
 
   /** Type of the node */
-  equality_graph_node_type_t type;
+  eq_node_type_t type;
 
   /** Id of the representative */
-  equality_graph_node_id_t find;
+  eq_node_id_t find;
   /** Next node in the class */
-  equality_graph_node_id_t next;
+  eq_node_id_t next;
   /** Index of the term in it's list */
   uint32_t index;
   /** Is it a constant */
   bool is_constant;
 
-} equality_graph_node_t;
+} eq_node_t;
 
 /** Edges in the graph have IDs, this is the type */
-typedef uint32_t equality_graph_edge_id_t;
+typedef uint32_t eq_edge_id_t;
 
-#define equality_graph_edge_null ((equality_graph_edge_id_t) -1)
+#define eq_edge_null ((eq_edge_id_t) -1)
 
 /** An edge (u, v) in the graph */
-typedef struct equality_graph_edge_s {
+typedef struct eq_graph_edge_s {
   /** Edge goes to node v */
-  equality_graph_node_id_t v;
+  eq_node_id_t v;
   /** Reason of the edge */
-  equality_merge_reason_t reason;
+  eq_reason_t reason;
   /** Next edge */
-  equality_graph_edge_id_t next;
-} equality_graph_edge_t;
+  eq_edge_id_t next;
+} eq_edge_t;

@@ -24,9 +24,9 @@
 #include "equality_graph_types.h"
 
 typedef struct merge_data_s {
-  equality_graph_node_id_t lhs;
-  equality_graph_node_id_t rhs;
-  equality_merge_reason_t reason;
+  eq_node_id_t lhs;
+  eq_node_id_t rhs;
+  eq_reason_t reason;
 } merge_data_t;
 
 /*

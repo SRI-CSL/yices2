@@ -90,7 +90,7 @@ typedef struct {
   term_manager_t tm;
 
   /** Equality graph */
-  equality_graph_t eq_graph;
+  eq_graph_t eq_graph;
 
   /** Exception handler */
   jmp_buf* exception;
@@ -131,7 +131,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
 
   // Equality graph
-  equality_graph_construct(&uf->eq_graph, ctx, "uf");
+  eq_graph_construct(&uf->eq_graph, ctx, "uf");
 
   // Term manager
   init_term_manager(&uf->tm, uf->ctx->terms);
@@ -151,7 +151,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
-  equality_graph_destruct(&uf->eq_graph);
+  eq_graph_destruct(&uf->eq_graph);
   delete_term_manager(&uf->tm);
 }
 
@@ -251,9 +251,9 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
   }
 
   // Add to equality graph
-  equality_graph_add_term(&uf->eq_graph, lhs_term);
-  equality_graph_add_term(&uf->eq_graph, rhs_term);
-  equality_graph_node_id_t eq_id = equality_graph_add_term(&uf->eq_graph, eq_term);
+  eq_graph_add_term(&uf->eq_graph, lhs_term);
+  eq_graph_add_term(&uf->eq_graph, rhs_term);
+  eq_node_id_t eq_id = eq_graph_add_term(&uf->eq_graph, eq_term);
 }
 
 static
