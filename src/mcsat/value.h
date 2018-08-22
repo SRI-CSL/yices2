@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <poly/value.h>
 
+#include "terms/terms.h"
 #include "terms/rationals.h"
 #include "terms/bv_constants.h"
 #include "model/concrete_values.h"
@@ -75,6 +76,9 @@ void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv
 
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
+
+/** Construct a value from a constant term */
+void mcsat_value_construct_from_constant_term(mcsat_value_t* value, term_table_t* terms, term_t c);
 
 /** Construct a default value (VALUE_NONE) */
 mcsat_value_t* mcsat_value_new_default();

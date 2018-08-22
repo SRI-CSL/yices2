@@ -77,6 +77,42 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
   }
 }
 
+/** Construct a MCSAT value from a constant term */
+void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table_t* terms, term_t t) {
+  term_kind_t t_kind = term_kind(terms, t);
+  switch (t_kind) {
+  case BV_CONSTANT: {
+    bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
+    bvconstant_t t_bvconst;
+    init_bvconstant(&t_bvconst);
+    bvconstant_set_bitsize(&t_bvconst, t_desc->bitsize);
+    bvconstant_copy(&t_bvconst, t_desc->bitsize, t_desc->data);
+    mcsat_value_construct_bv_value(t_value, &t_bvconst);
+    delete_bvconstant(&t_bvconst);
+    break;
+  }
+  case BV64_CONSTANT: {
+    // Propagate constant value (it's first time we see it, so should be safe
+    bvconst64_term_t* t_desc = bvconst64_term_desc(terms, t);
+    bvconstant_t t_bvconst;
+    init_bvconstant(&t_bvconst);
+    bvconstant_set_bitsize(&t_bvconst, t_desc->bitsize);
+    bvconstant_copy64(&t_bvconst, t_desc->bitsize, t_desc->value);
+    mcsat_value_construct_bv_value(t_value, &t_bvconst);
+    delete_bvconstant(&t_bvconst);
+    break;
+  }
+  case CONSTANT_TERM: {
+    assert(t == true_term || t == false_term);
+    mcsat_value_construct_bool(t_value, t == true_term);
+    break;
+  }
+  default:
+    assert(false);
+  }
+}
+
+
 mcsat_value_t* mcsat_value_new_default() {
   mcsat_value_t* result = (mcsat_value_t*) safe_malloc(sizeof(mcsat_value_t));
   mcsat_value_construct_default(result);

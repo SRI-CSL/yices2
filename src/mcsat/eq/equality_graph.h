@@ -53,6 +53,9 @@
  */
 typedef struct eq_graph_s {
 
+  /** Map from interpreted functions to id */
+  int_hmap_t kind_to_id;
+
   /** Map from terms to id */
   int_hmap_t term_to_id;
 
@@ -62,11 +65,14 @@ typedef struct eq_graph_s {
   /** Map from pairs to ids */
   pmap2_t pair_to_id;
 
-  /** Vector to store values */
-  value_vector_t values_list;
+  /** List of the kinds added in order */
+  ivector_t kind_list;
 
   /** List of the terms added in order */
   ivector_t terms_list;
+
+  /** Vector to store values */
+  value_vector_t values_list;
 
   /** List of pairs added in order */
   ivector_t pairs_list;
@@ -120,7 +126,7 @@ typedef struct eq_graph_s {
    * We don't notify on deductions, instead the user can get the terms
    * that are deduced to be equal to a constant.
    */
-  ivector_t constant_merges;
+  ivector_t term_value_merges;
 
 } eq_graph_t;
 
@@ -130,23 +136,36 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
 /** Destruct the graph */
 void eq_graph_destruct(eq_graph_t* eq);
 
-/** Add the term to the database (if not there) and return id. */
+/** Add the term to the database (if not there) and return id. Runs propagation. */
 eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 
 /**
- * Add a function term to the database (if not there) and return id.
+ * Add an uninterpreted function term to the database (if not there) and
+ * return id. This will also run propagation.
+ *
  * @param t the full term itself (e.g., f(x, y, 1))
+ * @param f the function symbold (e.g. f)
  * @param the direct subterms of the term including the function itself
- *        (e.g., [f, x, y, 1]).
+ *        (e.g., [x, y, 1]).
  */
-eq_node_id_t eq_graph_add_fun_term(eq_graph_t* eq,
-    term_t t, uint32_t n_subterms, const term_t* subterms);
+eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t n, const term_t* children);
 
-/** Add the value to the database (if not there). */
+/**
+ * Add an interpreted function term to the database (if not there) and
+ * return id. This will also run propagation.
+ *
+ * @param t the full term itself (e.g., f(x, y, 1))
+ * @param f the function symbol (e.g. EQ_TERM)
+ * @param the direct subterms of the term including the function itself
+ *        (e.g., [x, y, 1]).
+ */
+eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uint32_t n, const term_t* children);
+
+/** Add the value to the database (if not there). Doesn't run propagation. */
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
 
 /** Is the term already in the graph */
-bool eq_graph_has_term(const eq_graph_t* eq, variable_t t);
+bool eq_graph_has_term(const eq_graph_t* eq, term_t t);
 
 /** Is the value already in the graph */
 bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
@@ -166,13 +185,13 @@ void eq_graph_pop(eq_graph_t* eq);
 /** Print the equality graph */
 void eq_graph_print(const eq_graph_t* eq, FILE* out);
 
-/** Assert equality lhs = rhs with given polarity and associated reason. **/
-void eq_graph_assert_eq(eq_graph_t* eq,
-    eq_node_id_t lhs,
-    eq_node_id_t rhs,
-    bool polarity,
-    eq_reason_t reason);
+/** Assert equality lhs = rhs with given polarity and associated reason. Runs propagation. **/
+void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
+    bool polarity, eq_reason_t reason);
 
+/** Get the terms that have been deduced equal (call once) */
+void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
-
+/** Get the value of a propagated term */
+const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t);
 

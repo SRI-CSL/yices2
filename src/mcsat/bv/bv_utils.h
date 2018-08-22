@@ -138,36 +138,6 @@ bool bv_term_is_variable(term_table_t* terms, term_t t) {
   return bv_term_get_type(terms, t) == BV_TERM_VARIABLE;
 }
 
-/** Construct a MCSAT value from a constant term */
-static inline
-void mcsat_value_construct_from_bv(mcsat_value_t* t_value, term_table_t* terms, term_t t) {
-  term_kind_t t_kind = term_kind(terms, t);
-  if (t_kind == BV_CONSTANT) {
-    // Propagate constant value (it's first time we see it, so should be safe
-    bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
-    bvconstant_t t_bvconst;
-    init_bvconstant(&t_bvconst);
-    bvconstant_set_bitsize(&t_bvconst, t_desc->bitsize);
-    bvconstant_copy(&t_bvconst, t_desc->bitsize, t_desc->data);
-    mcsat_value_construct_bv_value(t_value, &t_bvconst);
-    delete_bvconstant(&t_bvconst);
-  } else if (t_kind == BV64_CONSTANT) {
-    // Propagate constant value (it's first time we see it, so should be safe
-    bvconst64_term_t* t_desc = bvconst64_term_desc(terms, t);
-    bvconstant_t t_bvconst;
-    init_bvconstant(&t_bvconst);
-    bvconstant_set_bitsize(&t_bvconst, t_desc->bitsize);
-    bvconstant_copy64(&t_bvconst, t_desc->bitsize, t_desc->value);
-    mcsat_value_construct_bv_value(t_value, &t_bvconst);
-    delete_bvconstant(&t_bvconst);
-  } else if (t_kind == CONSTANT_TERM) {
-    assert(t == true_term || t == false_term);
-    mcsat_value_construct_bool(t_value, t == true_term);
-  } else {
-    assert(false);
-  }
-}
-
 /**
  * Compute the value of a term, given the value of all the children. Only works
  * for composite terms (i.e.. terms that have children).

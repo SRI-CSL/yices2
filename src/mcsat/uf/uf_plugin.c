@@ -250,10 +250,8 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
     }
   }
 
-  // Add to equality graph
-  eq_graph_add_term(&uf->eq_graph, lhs_term);
-  eq_graph_add_term(&uf->eq_graph, rhs_term);
-  eq_node_id_t eq_id = eq_graph_add_term(&uf->eq_graph, eq_term);
+  // Add terms to equality graph lhs, rhs, and (lhs = rhs)
+  eq_graph_add_ifun_term(&uf->eq_graph, eq_term, EQ_TERM, 2, eq_desc->arg);
 }
 
 static
@@ -315,8 +313,15 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
 
   // Remove temps
   int_mset_destruct(&arguments);
-}
 
+  // Add terms to equality graph
+  term_kind_t app_term_kind = term_kind(terms, app_term);
+  if (app_term_kind == APP_TERM) {
+    eq_graph_add_ufun_term(&uf->eq_graph, app_term, app_desc->arg[0], app_desc->arity, app_desc->arg + 1);
+  } else {
+    eq_graph_add_ifun_term(&uf->eq_graph, app_term, app_term_kind, app_desc->arity, app_desc->arg);
+  }
+}
 
 static
 void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {

@@ -29,9 +29,10 @@ typedef uint32_t eq_node_id_t;
 typedef int32_t eq_reason_t;
 
 typedef enum {
+  EQ_NODE_KIND, // Nodes for representing interpreted functions (kinds)
   EQ_NODE_TERM,   // Nodes for representing a term
   EQ_NODE_VALUE,  // Nodes for representing a value
-  EQ_NODE_PAIR    // Nodes for represenging a pair of other nodes
+  EQ_NODE_PAIR    // Nodes for representing a pair of other nodes
 } eq_node_type_t;
 
 /** Node in the equality graph */
