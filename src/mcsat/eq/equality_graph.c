@@ -31,6 +31,12 @@ enum {
 static
 void equality_graph_propagate(equality_graph_t* eq);
 
+/** Get the id of the node */
+static inline
+equality_graph_node_id_t equality_graph_get_node_id(const equality_graph_t* eq, const equality_graph_node_t* n) {
+  return n - eq->nodes;
+}
+
 void equality_graph_construct(equality_graph_t* eq, plugin_context_t* ctx, const char* name) {
   eq->ctx = ctx;
 
@@ -324,26 +330,24 @@ void equality_graph_pop(equality_graph_t* eq) {
 
 void equality_graph_print_class(const equality_graph_t* eq, equality_graph_node_id_t start_node_id, FILE* out) {
   const equality_graph_node_t* n = eq->nodes + start_node_id;
+  equality_graph_node_id_t n_id = equality_graph_get_node_id(eq, n);
   bool first = true;
   do {
     if (!first) { fprintf(out, ", "); }
     switch (n->type) {
     case EQ_NODE_TERM: {
       const mcsat_value_t* v = eq->values_list.data + n->index;
-      uint32_t n_id = n - eq->nodes;
       mcsat_value_print(v, out);
       fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
       break;
     }
     case EQ_NODE_VALUE: {
       term_t t = eq->terms_list.data[n->index];
-      uint32_t n_id = n - eq->nodes;
       term_print_to_file(out, eq->ctx->terms, t);
       fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
       break;
     }
     case EQ_NODE_PAIR: {
-      uint32_t n_id = n - eq->nodes;
       fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
       break;
     }
@@ -501,14 +505,22 @@ void equality_graph_propagate(equality_graph_t* eq) {
     bool n1_is_const = n1_find->is_constant;
     bool n2_is_const = n2_find->is_constant;
 
-    if (n1_is_const && !n2_is_const) {
-      // Add n2 term nodes to notification list
-      assert(false);
+    // If we merge two nodes that are constant we might have a conflict
+    if (n1_is_const && n2_is_const) {
+      if (!equality_graph_evaluate_eq(eq, n1->find, n2->find)) {
+        eq->in_conflict = true;
+        eq->conflict_lhs = n1->find;
+        eq->conflict_rhs = n2->find;
+      }
     }
 
-    if (n1_is_const && n2_is_const) {
-      // Merging two constants
-      assert(false);
+    if (n1_is_const && !n2_is_const) {
+      // Add n2 term nodes to notification list
+      const equality_graph_node_t* it = n2_find;
+      do {
+        ivector_push(&eq->constant_merges, equality_graph_get_node_id(eq, it));
+        it = eq->nodes + it->next;
+      } while (it != n2_find);
     }
 
     // Merge n2 into n1

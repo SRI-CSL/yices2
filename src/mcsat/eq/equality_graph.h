@@ -110,8 +110,17 @@ typedef struct equality_graph_s {
   /** Lock when we're in propagation */
   bool in_propagate;
 
-  /** Flag indiciating a conflict */
+  /** Flag indicating a conflict */
   bool in_conflict;
+
+  /** We have a conflict when two constant nodes are merged, these are the nodes */
+  equality_graph_node_id_t conflict_lhs, conflict_rhs;
+
+  /**
+   * We don't notify on deductions, instead the user can get the terms
+   * that are deduced to be equal to a constant.
+   */
+  ivector_t constant_merges;
 
 } equality_graph_t;
 
