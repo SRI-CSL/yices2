@@ -317,7 +317,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   // Add terms to equality graph
   term_kind_t app_term_kind = term_kind(terms, app_term);
   if (app_term_kind == APP_TERM) {
-    eq_graph_add_ufun_term(&uf->eq_graph, app_term, app_desc->arg[0], app_desc->arity, app_desc->arg + 1);
+    eq_graph_add_ufun_term(&uf->eq_graph, app_term, app_desc->arg[0], app_desc->arity - 1, app_desc->arg + 1);
   } else {
     eq_graph_add_ifun_term(&uf->eq_graph, app_term, app_term_kind, app_desc->arity, app_desc->arg);
   }

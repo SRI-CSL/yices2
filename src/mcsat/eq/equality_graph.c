@@ -41,6 +41,13 @@ eq_node_id_t eq_graph_get_node_id(const eq_graph_t* eq, const eq_node_t* n) {
   return n - eq->nodes;
 }
 
+/** Get the node given id */
+static inline
+eq_node_t* eq_graph_get_node(eq_graph_t* eq, eq_node_id_t id) {
+  assert (id >= 0 && id < eq->nodes_size);
+  return eq->nodes + id;
+}
+
 void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name) {
   eq->ctx = ctx;
 
@@ -129,7 +136,8 @@ void eq_graph_destruct(eq_graph_t* eq) {
 #define MAX_EDGES_SIZE (UINT32_MAX/sizeof(eq_edge_t))
 
 static
-eq_node_t* eq_graph_new_node(eq_graph_t* eq) {
+eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t index, bool is_constant) {
+
   uint32_t n = eq->nodes_size;
 
   // Check if we need to resize
@@ -149,8 +157,19 @@ eq_node_t* eq_graph_new_node(eq_graph_t* eq) {
     eq->nodes_capacity = n;
   }
 
+  // Construct the new node
+  eq_node_t* new_node = eq->nodes + eq->nodes_size;
+  new_node->find = n;
+  new_node->next = n;
+  new_node->size = 1;
+  new_node->type = type;
+  new_node->index = index;
+
+  // More nodes
+  eq->nodes_size ++;
+
   // Return the new element
-  return &eq->nodes[eq->nodes_size ++];
+  return n;
 }
 
 static
@@ -160,30 +179,22 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
     ctx_trace_printf(eq->ctx, "eq_graph_add_kind[%s](): %s\n", eq->name, kind_to_string(kind));
   }
 
-  // New id of the node
-  eq_node_id_t id = eq->nodes_size;
-  uint32_t index = eq->kind_list.size;
-
   // Check if already there
   int_hmap_pair_t* find = int_hmap_get(&eq->kind_to_id, kind);
-  if (find->val < 0) {
-    find->val = id;
-    ivector_push(&eq->kind_list, kind);
-  } else {
+  if (find->val >= 0) {
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
-      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
     }
     return find->val;
   }
 
+  // Index where we put the kind
+  uint32_t index = eq->kind_list.size;
+  ivector_push(&eq->kind_list, kind);
+
   // Setup the new node
-  eq_node_t* node = eq_graph_new_node(eq);
-  node->type = EQ_NODE_KIND;
-  node->size = 1;
-  node->find = id;
-  node->next = id;
-  node->index = index;
-  node->is_constant = true;
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_KIND, index, true);
+  find->val = id;
 
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
@@ -206,30 +217,23 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
     ctx_trace_term(eq->ctx, t);
   }
 
-  // New id of the node
-  eq_node_id_t id = eq->nodes_size;
-  uint32_t index = eq->terms_list.size;
-
   // Check if already there
   int_hmap_pair_t* find = int_hmap_get(&eq->term_to_id, t);
-  if (find->val < 0) {
-    find->val = id;
-    ivector_push(&eq->terms_list, t);
-  } else {
+  if (find->val >= 0) {
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
-      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
     }
     return find->val;
   }
 
+  // Index where we put the term
+  uint32_t index = eq->terms_list.size;
+  ivector_push(&eq->terms_list, t);
+
   // Setup the new node
-  eq_node_t* node = eq_graph_new_node(eq);
-  node->type = EQ_NODE_TERM;
-  node->size = 1;
-  node->find = id;
-  node->next = id;
-  node->index = index;
-  node->is_constant = is_const_term(eq->ctx->terms, t);
+  bool is_const = is_const_term(eq->ctx->terms, t);
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_TERM, index, is_const);
+  find->val = id;
 
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
@@ -238,7 +242,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
 
   // If the node is a constant, we also create a value for it
-  if (node->is_constant) {
+  if (is_const) {
     mcsat_value_t t_value;
     mcsat_value_construct_from_constant_term(&t_value, eq->ctx->terms, t);
     eq_node_id_t v_id = eq_graph_add_value(eq, &t_value);
@@ -271,31 +275,23 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
     ctx_trace_printf(eq->ctx, "\n");
   }
 
-  // New id of the node
-  eq_node_id_t id = eq->nodes_size;
-  uint32_t index = eq->values_list.size;
-
   // Check if already there
   value_hmap_pair_t* find = value_hmap_get(&eq->value_to_id, v);
-  if (find->val < 0) {
-    find->val = id;
-    mcsat_value_t* v_copy = value_vector_push(&eq->values_list);
-    mcsat_value_assign(v_copy, v);
-  } else {
+  if (find->val >= 0) {
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
       ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
     }
     return find->val;
   }
 
+  // Index where we put the value
+  uint32_t index = eq->values_list.size;
+  mcsat_value_t* v_copy = value_vector_push(&eq->values_list);
+  mcsat_value_assign(v_copy, v);
+
   // Setup the new node
-  eq_node_t* node = eq_graph_new_node(eq);
-  node->type = EQ_NODE_VALUE;
-  node->size = 1;
-  node->find = id;
-  node->next = id;
-  node->index = index;
-  node->is_constant = true;
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_VALUE, index, true);
+  find->val = id;
 
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
@@ -317,31 +313,25 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
     ctx_trace_printf(eq->ctx, "eq_graph_add_pair[%s]()\n", eq->name);
   }
 
-  // New id of the node
-  eq_node_id_t id = eq->nodes_size;
-  uint32_t index = eq->pair_list.size;
-
   // Check if already there
   pmap2_rec_t* find = pmap2_get(&eq->pair_to_id, p1, p2);
-  if (find->val < 0) {
-    find->val = id;
-    ivector_push(&eq->pair_list, p1);
-    ivector_push(&eq->pair_list, p2);
-  } else {
+  if (find->val >= 0) {
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
-      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", id);
+      ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
     }
     return find->val;
   }
 
+  // Index where we put the value
+  uint32_t index = eq->pair_list.size;
+  ivector_push(&eq->pair_list, p1);
+  ivector_push(&eq->pair_list, p2);
+
   // Setup the new node
-  eq_node_t* node = eq_graph_new_node(eq);
-  node->type = EQ_NODE_PAIR;
-  node->size = 1;
-  node->find = id;
-  node->next = id;
-  node->index = index;
-  node->is_constant = eq->nodes[p1].is_constant && eq->nodes[p2].is_constant;
+  eq_node_t* p1_node = eq_graph_get_node(eq, p1);
+  eq_node_t* p2_node = eq_graph_get_node(eq, p2);
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_PAIR, index, p1_node->is_constant && p2_node->is_constant);
+  find->val = id;
 
   // No edges
   ivector_push(&eq->graph, eq_edge_null);
@@ -361,14 +351,14 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
 
 void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   // n = (n1, n2)
-  const eq_node_t* n = eq->nodes + pair_id;
+  const eq_node_t* n = eq_graph_get_node(eq, pair_id);
   assert(n->type == EQ_NODE_PAIR);
   // n1
   eq_node_id_t p1 = eq->pair_list.data[n->index];
-  const eq_node_t* n1 = eq->nodes + p1;
+  const eq_node_t* n1 = eq_graph_get_node(eq, p1);
   // n2
   eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
-  const eq_node_t* n2 = eq->nodes + p2;
+  const eq_node_t* n2 = eq_graph_get_node(eq, p2);
 
   // Store normalized pair or merge if someone is already there
   pmap2_rec_t* find = pmap2_get(&eq->pair_to_rep, n1->find, n2->find);

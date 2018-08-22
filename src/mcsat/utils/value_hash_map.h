@@ -35,7 +35,7 @@
  * - key is >= 0
  */
 typedef struct value_hmap_pair_s {
-  const mcsat_value_t* key;
+  mcsat_value_t* key;
   int32_t val;
 } value_hmap_pair_t;
 

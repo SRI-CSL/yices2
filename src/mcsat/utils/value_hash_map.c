@@ -26,7 +26,6 @@
 #include "value_hash_map.h"
 #include "utils/memalloc.h"
 
-
 /*
  * For debugging: check whether n is 0 or a power of 2
  */
@@ -39,8 +38,8 @@ static bool is_power_of_two(uint32_t n) {
 /*
  * Markers for empty/deleted pairs
  */
-#define VALUE_HMAP_EMPTY_KEY ((const mcsat_value_t*) 0)
-#define VALUE_HMAP_DELETED_KEY ((const mcsat_value_t*) 1)
+#define VALUE_HMAP_EMPTY_KEY ((mcsat_value_t*) 0)
+#define VALUE_HMAP_DELETED_KEY ((mcsat_value_t*) 1)
 
 static inline
 bool value_hmap_valid_key(const mcsat_value_t* k) {
@@ -85,6 +84,7 @@ void init_value_hmap(value_hmap_t *hmap, uint32_t n) {
  * Free memory
  */
 void delete_value_hmap(value_hmap_t *hmap) {
+  value_hmap_reset(hmap);
   safe_free(hmap->data);
   hmap->data = NULL;
 }
@@ -94,6 +94,13 @@ void delete_value_hmap(value_hmap_t *hmap) {
 static inline
 uint32_t hash_key(const mcsat_value_t* k) {
   return mcsat_value_hash(k);
+}
+
+/** Equality */
+static inline
+bool eq_key(const mcsat_value_t* k1, const mcsat_value_t* k2) {
+  if (k1->type != k2->type) { return false; }
+  return mcsat_value_eq(k1, k2);
 }
 
 /*
@@ -130,7 +137,7 @@ static void value_hmap_cleanup(value_hmap_t *hmap) {
   mask = n - 1;
   d = hmap->data;
   for (j=0; j<n; j++) {
-    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+    if (value_hmap_valid_key(d->key)) {
       value_hmap_clean_copy(tmp, d, mask);
     }
     d++;
@@ -163,7 +170,7 @@ static void value_hmap_extend(value_hmap_t *hmap) {
   mask = n2 - 1;
   d = hmap->data;
   for (j=0; j<n; j++) {
-    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+    if (value_hmap_valid_key(d->key)) {
       value_hmap_clean_copy(tmp, d, mask);
     }
     d ++;
@@ -194,7 +201,7 @@ value_hmap_pair_t *value_hmap_find(const value_hmap_t *hmap, const mcsat_value_t
   for (;;) {
     d = hmap->data + j;
     if (value_hmap_valid_key(d->key)) {
-      if (d->key->type == k->type && mcsat_value_eq(d->key, k)) {
+      if (eq_key(d->key, k)) {
         return d;
       }
     }
@@ -218,12 +225,12 @@ static value_hmap_pair_t *value_hmap_get_clean(value_hmap_t *hmap, const mcsat_v
   value_hmap_pair_t *d;
 
   mask = hmap->size - 1;
-  j = mcsat_value_hash(k) & mask;
+  j = hash_key(k) & mask;
   for (;;) {
     d = hmap->data + j;
-    if (d->key == VALUE_HMAP_DELETED_KEY || d->key == VALUE_HMAP_EMPTY_KEY) {
+    if (!value_hmap_valid_key(d->key)) {
       hmap->nelems ++;
-      d->key = k;
+      d->key = mcsat_value_new_copy(k);
       d->val = -1;
       return d;
     }
@@ -244,12 +251,15 @@ value_hmap_pair_t *value_hmap_get(value_hmap_t *hmap, const mcsat_value_t* k) {
   assert(hmap->size > hmap->ndeleted + hmap->nelems);
 
   mask = hmap->size - 1;
-  j = mcsat_value_hash(k) & mask;
+  j = hash_key(k) & mask;
 
   for (;;) {
     d = hmap->data + j;
-    if (d->key == k) return d;
-    if (d->key == VALUE_HMAP_DELETED_KEY || d->key == VALUE_HMAP_EMPTY_KEY) break;
+    if (value_hmap_valid_key(d->key)) {
+      if (eq_key(d->key, k)) return d;
+    } else {
+      break;
+    }
     j ++;
     j &= mask;
   }
@@ -259,7 +269,9 @@ value_hmap_pair_t *value_hmap_get(value_hmap_t *hmap, const mcsat_value_t* k) {
     j ++;
     j &= mask;
     d = hmap->data + j;
-    if (d->key == k) return d;
+    if (value_hmap_valid_key(d->key)) {
+      if (eq_key(d->key, k)) return d;
+    }
   }
 
   if (aux->key == VALUE_HMAP_DELETED_KEY) {
@@ -272,7 +284,7 @@ value_hmap_pair_t *value_hmap_get(value_hmap_t *hmap, const mcsat_value_t* k) {
     aux = value_hmap_get_clean(hmap, k);
   } else {
     hmap->nelems ++;
-    aux->key = k;
+    aux->key = mcsat_value_new_copy(k);
     aux->val = -1;
   }
 
@@ -302,7 +314,7 @@ void value_hmap_add(value_hmap_t *hmap, const mcsat_value_t* k, int32_t v) {
     assert(hmap->ndeleted > 0);
     hmap->ndeleted --;
   }
-  hmap->data[i].key = k;
+  hmap->data[i].key = mcsat_value_new_copy(k);
   hmap->data[i].val = v;
   hmap->nelems ++;
 
@@ -337,6 +349,9 @@ void value_hmap_reset(value_hmap_t *hmap) {
   n = hmap->size;
   d = hmap->data;
   for (i=0; i<n; i++) {
+    if (value_hmap_valid_key(d->key)) {
+      mcsat_value_delete(d->key);
+    }
     d->key = VALUE_HMAP_EMPTY_KEY;
     d ++;
   }
@@ -381,7 +396,6 @@ value_hmap_pair_t *value_hmap_next_record(value_hmap_t *hmap, value_hmap_pair_t 
 
 
 
-
 /*
  * Remove the records that satisfy filter f
  * - calls f(aux, p) on every record p stored in hmap
@@ -395,8 +409,9 @@ void value_hmap_remove_records(value_hmap_t *hmap, void *aux, value_hmap_filter_
   d = hmap->data;
   k = 0;
   for (i=0; i<n; i++) {
-    if ((d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) && f(aux, d)) {
+    if (value_hmap_valid_key(d->key) && f(aux, d)) {
       // mark d as deleted
+      mcsat_value_delete(d->key);
       d->key = VALUE_HMAP_DELETED_KEY;
       k ++;
     }
