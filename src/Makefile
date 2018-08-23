@@ -282,6 +282,7 @@ core_src_c := \
 	utils/ptr_vectors.c \
 	utils/refcount_int_arrays.c \
 	utils/refcount_strings.c \
+	utils/resize_arrays.c \
 	utils/simple_cache.c \
 	utils/sparse_arrays.c \
 	utils/stable_sort.c \
@@ -292,7 +293,8 @@ core_src_c := \
 	utils/uint_array_sort.c \
 	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
-	utils/use_vectors.c
+	utils/use_vectors.c \
+	utils/vector_hash_map.c
 
 
 #
