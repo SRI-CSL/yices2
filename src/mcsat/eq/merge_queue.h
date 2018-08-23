@@ -62,10 +62,16 @@ void delete_merge_queue(merge_queue_t *q);
 
 
 /*
- * Push new element to the queue (at the end) and get reference.
+ * Push new element to the queue (at the end) and get reference to the
+ * uninitialized element.
  */
 merge_data_t* merge_queue_push(merge_queue_t *q);
 
+/*
+ * Push new element to the queue (at the end).
+ */
+void merge_queue_push_init(merge_queue_t *q, eq_node_id_t lhs, eq_node_id_t rhs,
+    eq_reason_t reason);
 
 /*
  * Check whether the queue is empty

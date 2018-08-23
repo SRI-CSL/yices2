@@ -220,7 +220,8 @@ value_hmap_pair_t *value_hmap_find(const value_hmap_t *hmap, const mcsat_value_t
  * - initialize val to -1
  * - we know that no record with key k is present
  */
-static value_hmap_pair_t *value_hmap_get_clean(value_hmap_t *hmap, const mcsat_value_t* k) {
+static
+value_hmap_pair_t *value_hmap_get_clean(value_hmap_t *hmap, const mcsat_value_t* k) {
   uint32_t mask, j;
   value_hmap_pair_t *d;
 
@@ -237,6 +238,9 @@ static value_hmap_pair_t *value_hmap_get_clean(value_hmap_t *hmap, const mcsat_v
     j ++;
     j &= mask;
   }
+
+  // Not reachable
+  return NULL;
 }
 
 
@@ -329,7 +333,9 @@ void value_hmap_add(value_hmap_t *hmap, const mcsat_value_t* k, int32_t v) {
  */
 void value_hmap_erase(value_hmap_t *hmap, value_hmap_pair_t *r) {
   assert(value_hmap_find(hmap, r->key) == r);
+  assert(value_hmap_valid_key(r->key));
 
+  mcsat_value_delete(r->key);
   r->key = VALUE_HMAP_DELETED_KEY;
   hmap->nelems --;
   hmap->ndeleted ++;

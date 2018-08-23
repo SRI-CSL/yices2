@@ -48,6 +48,13 @@ eq_node_t* eq_graph_get_node(eq_graph_t* eq, eq_node_id_t id) {
   return eq->nodes + id;
 }
 
+/** Get the node given id */
+static inline
+const eq_node_t* eq_graph_get_node_const(const eq_graph_t* eq, eq_node_id_t id) {
+  assert (id >= 0 && id < eq->nodes_size);
+  return eq->nodes + id;
+}
+
 void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name) {
   eq->ctx = ctx;
 
@@ -139,6 +146,7 @@ static
 eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t index, bool is_constant) {
 
   uint32_t n = eq->nodes_size;
+  eq_node_id_t id = eq->nodes_size;
 
   // Check if we need to resize
   if (n == eq->nodes_capacity) {
@@ -159,17 +167,18 @@ eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t ind
 
   // Construct the new node
   eq_node_t* new_node = eq->nodes + eq->nodes_size;
-  new_node->find = n;
-  new_node->next = n;
+  new_node->find = id;
+  new_node->next = id;
   new_node->size = 1;
   new_node->type = type;
   new_node->index = index;
+  new_node->is_constant = is_constant;
 
   // More nodes
   eq->nodes_size ++;
 
   // Return the new element
-  return n;
+  return id;
 }
 
 static
@@ -247,10 +256,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
     mcsat_value_construct_from_constant_term(&t_value, eq->ctx->terms, t);
     eq_node_id_t v_id = eq_graph_add_value(eq, &t_value);
     mcsat_value_destruct(&t_value);
-    merge_data_t* new_merge = merge_queue_push(&eq->merge_queue);
-    new_merge->lhs = id;
-    new_merge->rhs = v_id;
-    new_merge->reason = REASON_IS_CONSTANT_DEF;
+    merge_queue_push_init(&eq->merge_queue, id, v_id, REASON_IS_CONSTANT_DEF);
   }
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
@@ -330,7 +336,8 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   // Setup the new node
   eq_node_t* p1_node = eq_graph_get_node(eq, p1);
   eq_node_t* p2_node = eq_graph_get_node(eq, p2);
-  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_PAIR, index, p1_node->is_constant && p2_node->is_constant);
+  bool is_constant = p1_node->is_constant && p2_node->is_constant;
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_PAIR, index, is_constant);
   find->val = id;
 
   // No edges
@@ -351,14 +358,14 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
 
 void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   // n = (n1, n2)
-  const eq_node_t* n = eq_graph_get_node(eq, pair_id);
+  const eq_node_t* n = eq_graph_get_node_const(eq, pair_id);
   assert(n->type == EQ_NODE_PAIR);
   // n1
   eq_node_id_t p1 = eq->pair_list.data[n->index];
-  const eq_node_t* n1 = eq_graph_get_node(eq, p1);
+  const eq_node_t* n1 = eq_graph_get_node_const(eq, p1);
   // n2
   eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
-  const eq_node_t* n2 = eq_graph_get_node(eq, p2);
+  const eq_node_t* n2 = eq_graph_get_node_const(eq, p2);
 
   // Store normalized pair or merge if someone is already there
   pmap2_rec_t* find = pmap2_get(&eq->pair_to_rep, n1->find, n2->find);
@@ -368,10 +375,7 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   } else {
     // Merge with existing representative
     if (find->val != pair_id) {
-      merge_data_t* new_merge = merge_queue_push(&eq->merge_queue);
-      new_merge->lhs = pair_id;
-      new_merge->rhs = find->val;
-      new_merge->reason = REASON_IS_CONGRUENCE;
+      merge_queue_push_init(&eq->merge_queue, pair_id, find->val, REASON_IS_CONGRUENCE);
     }
   }
 }
@@ -417,10 +421,7 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   eq_graph_update_pair_hash(eq, p2);
 
   // Add the equality f = p2
-  merge_data_t* new_merge = merge_queue_push(&eq->merge_queue);
-  new_merge->lhs = f_id;
-  new_merge->rhs = p2;
-  new_merge->reason = REASON_IS_FUNCTION_DEF;
+  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF);
 
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
@@ -469,10 +470,7 @@ eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uin
   eq_graph_update_pair_hash(eq, p2);
 
   // Add the equality f = p2
-  merge_data_t* new_merge = merge_queue_push(&eq->merge_queue);
-  new_merge->lhs = f_id;
-  new_merge->rhs = p2;
-  new_merge->reason = REASON_IS_FUNCTION_DEF;
+  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF);
 
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
@@ -697,8 +695,8 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Get what to merge
     const merge_data_t* merge = merge_queue_first(&eq->merge_queue);
-    eq_node_t* n1 = eq->nodes + merge->lhs;
-    eq_node_t* n2 = eq->nodes + merge->rhs;
+    const eq_node_t* n1 = eq_graph_get_node_const(eq, merge->lhs);
+    const eq_node_t* n2 = eq_graph_get_node_const(eq, merge->rhs);
     eq_reason_t reason = merge->reason;
     merge_queue_pop(&eq->merge_queue);
 
@@ -711,8 +709,8 @@ void eq_graph_propagate(eq_graph_t* eq) {
     eq_graph_add_edge(eq, n1->find, n2->find, reason);
 
     // Swap if we prefer n2_find to be the representative
-    const eq_node_t* n1_find = eq->nodes + n1->find;
-    const eq_node_t* n2_find = eq->nodes + n2->find;
+    const eq_node_t* n1_find = eq_graph_get_node_const(eq, n1->find);
+    const eq_node_t* n2_find = eq_graph_get_node_const(eq, n2->find);
     if (eq_graph_merge_preference(n2_find, n1_find)) {
       const eq_node_t* tmp = n1_find; n1_find = n2_find; n2_find = tmp;
     }
@@ -734,7 +732,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
         if (it->type == EQ_NODE_TERM) {
           ivector_push(&eq->term_value_merges, eq_graph_get_node_id(eq, it));
         }
-        it = eq->nodes + it->next;
+        it = eq_graph_get_node(eq, it->next);
       } while (it != n2_find);
     }
 
@@ -758,10 +756,7 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
     // lhs == rhs
 
     // Enqueue for propagation
-    merge_data_t* m = merge_queue_push(&eq->merge_queue);
-    m->lhs = lhs;
-    m->rhs = rhs;
-    m->reason = reason;
+    merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason);
 
     // Propagate
     eq_graph_propagate(eq);
@@ -779,9 +774,9 @@ void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms) {
   uint32_t i;
   for (i = 0; i < eq->term_value_merges.size; ++ i) {
     eq_node_id_t n_id = eq->term_value_merges.data[i];
-    const eq_node_t* n = eq->nodes + n_id;
+    const eq_node_t* n = eq_graph_get_node(eq, n_id);
     eq_node_id_t n_find_id = n->find;
-    const eq_node_t* n_find = eq->nodes + n_find_id;
+    const eq_node_t* n_find = eq_graph_get_node(eq, n_find_id);
     if (n->type == EQ_NODE_TERM && n_find->type == EQ_NODE_VALUE) {
       ivector_push(out_terms, eq->terms_list.data[n->index]);
     }
@@ -793,9 +788,9 @@ void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms) {
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t) {
   assert(eq_graph_has_term(eq, t));
   eq_node_id_t t_id = eq_graph_term_id(eq, t);
-  const eq_node_t* n = eq->nodes + t_id;
+  const eq_node_t* n = eq_graph_get_node_const(eq, t_id);
   eq_node_id_t n_find_id = n->find;
-  const eq_node_t* n_find = eq->nodes + n_find_id;
+  const eq_node_t* n_find = eq_graph_get_node_const(eq, n_find_id);
   assert(n_find->type == EQ_NODE_VALUE);
   return eq->values_list.data + n_find->index;
 }
@@ -837,6 +832,8 @@ void eq_graph_push(eq_graph_t* eq) {
   // Push the pair maps
   pmap2_push(&eq->pair_to_id);
   pmap2_push(&eq->pair_to_rep);
+
+  assert(merge_queue_is_empty(&eq->merge_queue));
 }
 
 void eq_graph_pop(eq_graph_t* eq) {
@@ -910,6 +907,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   // Pop the pair maps
   pmap2_pop(&eq->pair_to_id);
   pmap2_pop(&eq->pair_to_rep);
+
+  // Reset the merge queue
+  merge_queue_reset(&eq->merge_queue);
 
   // Clear conflict
   eq->in_conflict = false;
