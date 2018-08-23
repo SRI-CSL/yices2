@@ -35,6 +35,16 @@ typedef enum {
   EQ_NODE_PAIR    // Nodes for representing a pair of other nodes
 } eq_node_type_t;
 
+typedef uint32_t eq_uselist_id_t;
+
+#define eq_uselist_null ((eq_uselist_id_t) -1)
+
+/** Element of the use-list */
+typedef struct eq_uselist_s {
+  eq_node_id_t node;    // The node
+  eq_uselist_id_t next; // The rest of the list
+} eq_uselist_t;
+
 /** Node in the equality graph */
 typedef struct eq_node_s {
 
@@ -51,6 +61,9 @@ typedef struct eq_node_s {
   uint32_t index;
   /** Is it a constant */
   bool is_constant;
+
+  /** Uselist for this node */
+  eq_uselist_id_t uselist;
 
 } eq_node_t;
 

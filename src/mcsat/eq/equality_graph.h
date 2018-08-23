@@ -131,6 +131,21 @@ typedef struct eq_graph_s {
   /** Last processed trail index */
   uint32_t trail_i;
 
+  /** The use-list data */
+  eq_uselist_t* uselist_nodes;
+
+  /** Size of the use-list memory */
+  uint32_t uselist_nodes_size;
+
+  /** The capacity of the use-list memory */
+  uint32_t uselist_nodes_capacity;
+
+  /** The actual uselist per node */
+  ivector_t uselist;
+
+  /** Chronological list uf uselist updates */
+  ivector_t uselist_updates;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */

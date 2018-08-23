@@ -66,6 +66,10 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   eq->edges_size = 0;
   eq->edges = NULL;
 
+  eq->uselist_nodes_capacity = 0;
+  eq->uselist_nodes_size = 0;
+  eq->uselist_nodes = NULL;
+
   eq->name = name;
 
   eq->in_conflict = false;
@@ -95,6 +99,9 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_merge_queue(&eq->merge_queue, 0);
 
   init_ivector(&eq->term_value_merges, 0);
+
+  init_ivector(&eq->uselist, 0);
+  init_ivector(&eq->uselist_updates, 0);
 
   // Add true/false
   eq_graph_add_value(eq, &mcsat_value_true);
@@ -133,6 +140,11 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_merge_queue(&eq->merge_queue);
 
   delete_ivector(&eq->term_value_merges);
+
+  safe_free(eq->uselist_nodes);
+
+  delete_ivector(&eq->uselist);
+  delete_ivector(&eq->uselist_updates);
 }
 
 // Default initial size and max size
@@ -141,6 +153,44 @@ void eq_graph_destruct(eq_graph_t* eq) {
 
 #define DEFAULT_EDGES_SIZE 10
 #define MAX_EDGES_SIZE (UINT32_MAX/sizeof(eq_edge_t))
+
+#define DEFAULT_USELIST_NODES_SIZE 10
+#define MAX_USELIST_NODES_SIZE (UINT32_MAX/sizeof(eq_uselist_t))
+
+static
+eq_uselist_id_t eq_graph_new_uselist_node(eq_graph_t* eq, eq_node_id_t node, eq_uselist_id_t next) {
+
+  uint32_t n = eq->uselist_nodes_size;
+  eq_uselist_id_t id = eq->uselist_nodes_size;
+
+  // Check if we need to resize
+  if (n == eq->uselist_nodes_capacity) {
+    // Compute new size
+    if (n == 0) {
+      n = DEFAULT_USELIST_NODES_SIZE;
+    } else {
+      n ++;
+      n += n >> 1;
+      if (n >= MAX_USELIST_NODES_SIZE) {
+        out_of_memory();
+      }
+    }
+    // Resize
+    eq->uselist_nodes = (eq_uselist_t*) safe_realloc(eq->uselist_nodes, n * sizeof(eq_uselist_t));
+    eq->uselist_nodes_capacity = n;
+  }
+
+  // Construct the new node
+  eq_uselist_t* new_node = eq->uselist_nodes + id;
+  new_node->node = node;
+  new_node->next = next;
+
+  // More nodes
+  eq->uselist_nodes_size ++;
+
+  // Return the new element
+  return id;
+}
 
 static
 eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t index, bool is_constant) {
@@ -173,9 +223,15 @@ eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t ind
   new_node->type = type;
   new_node->index = index;
   new_node->is_constant = is_constant;
+  new_node->uselist = eq_uselist_null;
 
   // More nodes
   eq->nodes_size ++;
+
+  // Add empty edge
+  ivector_push(&eq->graph, eq_edge_null);
+  // Add empty uselist
+  ivector_push(&eq->uselist, eq_uselist_null);
 
   // Return the new element
   return id;
@@ -204,9 +260,6 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
   // Setup the new node
   eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_KIND, index, true);
   find->val = id;
-
-  // No edges
-  ivector_push(&eq->graph, eq_edge_null);
 
   assert(eq->nodes_size == eq->graph.size);
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
@@ -243,9 +296,6 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   bool is_const = is_const_term(eq->ctx->terms, t);
   eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_TERM, index, is_const);
   find->val = id;
-
-  // No edges
-  ivector_push(&eq->graph, eq_edge_null);
 
   assert(eq->nodes_size == eq->graph.size);
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
@@ -299,9 +349,6 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
   eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_VALUE, index, true);
   find->val = id;
 
-  // No edges
-  ivector_push(&eq->graph, eq_edge_null);
-
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
 
@@ -311,6 +358,14 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
 
   // Added, done
   return id;
+}
+
+static inline
+void eq_graph_add_to_uselist(eq_graph_t* eq, eq_node_id_t n_id, eq_node_id_t parent_id) {
+  assert(n_id < eq->uselist.size);
+  eq_uselist_id_t n_uselist = eq->uselist.data[n_id];
+  eq->uselist.data[n_id] = eq_graph_new_uselist_node(eq, parent_id, n_uselist);
+  ivector_push(&eq->uselist_updates, n_id);
 }
 
 eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2) {
@@ -340,13 +395,12 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_PAIR, index, is_constant);
   find->val = id;
 
-  // No edges
-  ivector_push(&eq->graph, eq_edge_null);
-
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
 
-  // Add to use-lists
+  // Add to uselists: p1 is used in id, p2 is used in id
+  eq_graph_add_to_uselist(eq, p1, id);
+  eq_graph_add_to_uselist(eq, p2, id);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "id: %"PRIi32"\n", id);
@@ -832,7 +886,7 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
 
 void eq_graph_push(eq_graph_t* eq) {
 
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
     ctx_trace_printf(eq->ctx, "eq_graph_push[%s]()\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
@@ -846,6 +900,9 @@ void eq_graph_push(eq_graph_t* eq) {
       &eq->edges_size,
       &eq->graph.size,
       &eq->trail_i,
+      &eq->uselist_nodes_size,
+      &eq->uselist.size,
+      &eq->uselist_updates.size,
       NULL
   );
 
@@ -862,7 +919,7 @@ void eq_graph_push(eq_graph_t* eq) {
 
 void eq_graph_pop(eq_graph_t* eq) {
 
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): before\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
@@ -874,6 +931,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t nodes_size;
   uint32_t edges_size;
   uint32_t graph_size;
+  uint32_t uselist_nodes_size;
+  uint32_t uselist_size;
+  uint32_t uselist_updates_size;
 
   scope_holder_pop(&eq->scope_holder,
       &kind_list_size,
@@ -884,6 +944,9 @@ void eq_graph_pop(eq_graph_t* eq) {
       &edges_size,
       &graph_size,
       &eq->trail_i,
+      &uselist_nodes_size,
+      &uselist_size,
+      &uselist_updates_size,
       NULL
   );
 
@@ -928,6 +991,18 @@ void eq_graph_pop(eq_graph_t* eq) {
   // Remove added pairs (map pops automatically, see below)
   ivector_shrink(&eq->pair_list, pair_list_size);
 
+  // Revert the uselist updates
+  while (eq->uselist_updates.size > uselist_updates_size) {
+    eq_node_id_t n_id = ivector_pop2(&eq->uselist_updates);
+    assert(n_id < eq->uselist.size);
+    eq_uselist_id_t n_uselist_id = eq->uselist.data[n_id];
+    assert(n_uselist_id < eq->uselist_nodes_size);
+    const eq_uselist_t* n_uselist = eq->uselist_nodes + n_uselist_id;
+    eq->uselist.data[n_id] = n_uselist->next;
+  }
+  eq->uselist_nodes_size = uselist_nodes_size;
+  ivector_shrink(&eq->uselist, uselist_size);
+
   // Remove the added nodes
   eq->nodes_size = nodes_size;
 
@@ -946,7 +1021,7 @@ void eq_graph_pop(eq_graph_t* eq) {
   eq->conflict_lhs = eq_node_null;
   eq->conflict_rhs = eq_node_null;
 
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
