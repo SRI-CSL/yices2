@@ -499,60 +499,74 @@ bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v) {
   return value_hmap_find(&eq->value_to_id, v) != NULL;
 }
 
-void eq_graph_print_class(const eq_graph_t* eq, eq_node_id_t start_node_id, FILE* out) {
-  const eq_node_t* n = eq->nodes + start_node_id;
+void eq_graph_print_node(const eq_graph_t* eq, const eq_node_t* n, FILE* out, bool print_id) {
   eq_node_id_t n_id = eq_graph_get_node_id(eq, n);
+  switch (n->type) {
+  case EQ_NODE_KIND: {
+    term_kind_t kind = eq->kind_list.data[n->index];
+    fprintf(out, "%s", kind_to_string(kind));
+    if (print_id) {
+      fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n_id, n->index);
+    }
+    break;
+  }
+  case EQ_NODE_TERM: {
+    term_t t = eq->terms_list.data[n->index];
+    term_print_to_file(out, eq->ctx->terms, t);
+    if (print_id) {
+      fprintf(out, " (id=%"PRIu32", idx=%"PRIu32")", n_id, n->index);
+    }
+    break;
+  }
+  case EQ_NODE_VALUE: {
+    const mcsat_value_t* v = eq->values_list.data + n->index;
+    mcsat_value_print(v, out);
+    if (print_id) {
+      fprintf(out, " (id=%"PRIu32", idx=%"PRIu32")", n_id, n->index);
+    }
+    break;
+  }
+  case EQ_NODE_PAIR: {
+    fprintf(out, "[");
+    eq_node_id_t p1 = eq->pair_list.data[n->index];
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, p1), out, false);
+    fprintf(out, ", ");
+    eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, p2), out, false);
+    fprintf(out, "]");
+    if (print_id) {
+      fprintf(out, " (id=%"PRIu32", idx=%"PRIu32")", n_id, n->index);
+    }
+    break;
+  }
+  }
+}
+
+void eq_graph_print_class(const eq_graph_t* eq, eq_node_id_t start_node_id, FILE* out) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, start_node_id);
+  eq_node_id_t n_id = start_node_id;
   bool first = true;
   do {
     if (!first) { fprintf(out, ", "); }
-    switch (n->type) {
-    case EQ_NODE_KIND: {
-      term_kind_t kind = eq->kind_list.data[n->index];
-      fprintf(out, "%s (id=%"PRIu32", idx=%"PRIu32")", kind_to_string(kind), n->index, n_id);
-      break;
-    }
-    case EQ_NODE_TERM: {
-      const mcsat_value_t* v = eq->values_list.data + n->index;
-      mcsat_value_print(v, out);
-      fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
-      break;
-    }
-    case EQ_NODE_VALUE: {
-      term_t t = eq->terms_list.data[n->index];
-      term_print_to_file(out, eq->ctx->terms, t);
-      fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
-      break;
-    }
-    case EQ_NODE_PAIR: {
-      fprintf(out, "(id=%"PRIu32", idx=%"PRIu32")", n->index, n_id);
-      break;
-    }
-    }
+    eq_graph_print_node(eq, n, out, true);
     n = eq->nodes + n->next;
+    n_id = eq_graph_get_node_id(eq, n);
     first = false;
-  } while (n->index != start_node_id);
+  } while (n_id != start_node_id);
 }
 
 void eq_graph_print(const eq_graph_t* eq, FILE* out) {
   uint32_t i;
 
-  // Print all the terms
-  for (i = 0; i < eq->terms_list.size; ++ i) {
-    term_t t = eq->terms_list.data[i];
-    term_print_to_file(out, eq->ctx->terms, t);
-    fprintf(out, " (%"PRIu32"): ", i);
-    eq_node_id_t t_id = eq_graph_term_id(eq, t);
-    eq_graph_print_class(eq, t_id, out);
-    fprintf(out, "\n");
-  }
+  fprintf(out, "eq_graph[%s]:\n", eq->name);
+  fprintf(out, "nodes:\n");
 
-  // Print all the values
-  for (i = 0; i < eq->values_list.size; ++ i) {
-    const mcsat_value_t* v = eq->values_list.data + i;
-    mcsat_value_print(v, out);
-    fprintf(out, " (%"PRIu32"): ", i);
-    uint32_t v_id = eq_graph_value_id(eq, v);
-    eq_graph_print_class(eq, v_id, out);
+  for (i = 0; i < eq->nodes_size; ++ i) {
+    const eq_node_t* n = eq_graph_get_node_const(eq, i);
+    fprintf(out, "  ");
+    eq_graph_print_node(eq, n, out, true);
+    fprintf(out, ": ");
+    eq_graph_print_class(eq, n->find, out);
     fprintf(out, "\n");
   }
 }
@@ -817,6 +831,12 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
 }
 
 void eq_graph_push(eq_graph_t* eq) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_push[%s]()\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
   scope_holder_push(&eq->scope_holder,
       &eq->kind_list.size,
       &eq->terms_list.size,
@@ -833,10 +853,20 @@ void eq_graph_push(eq_graph_t* eq) {
   pmap2_push(&eq->pair_to_id);
   pmap2_push(&eq->pair_to_rep);
 
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s]()\n", eq->name);
+  }
+
   assert(merge_queue_is_empty(&eq->merge_queue));
 }
 
 void eq_graph_pop(eq_graph_t* eq) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): before\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
   uint32_t kind_list_size;
   uint32_t term_list_size;
   uint32_t value_list_size;
@@ -915,4 +945,10 @@ void eq_graph_pop(eq_graph_t* eq) {
   eq->in_conflict = false;
   eq->conflict_lhs = eq_node_null;
   eq->conflict_rhs = eq_node_null;
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
 }
