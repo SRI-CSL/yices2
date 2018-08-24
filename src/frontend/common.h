@@ -148,7 +148,7 @@ typedef enum yices_param {
 /*
  * Argument to the setparam command encodes an immediate value
  * - the tag is given by the enumeration below
- * - PARAM_VAL_ERROR means an unexpected value was pushed
+ * - PARAM_VAL_ERROR means an unexpected value was passed
  * - the value is either a pointer to rational or a symbol
  */
 typedef enum param_val_enum {
