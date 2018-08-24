@@ -146,6 +146,12 @@ typedef struct eq_graph_s {
   /** Chronological list uf uselist updates */
   ivector_t uselist_updates;
 
+  /** Vector for storing function children */
+  ivector_t children_list;
+
+  /** Map from nodes to their children (if any) */
+  int_hmap_t node_to_children;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */

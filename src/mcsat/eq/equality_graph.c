@@ -26,7 +26,8 @@ enum {
   REASON_IS_FUNCTION_DEF = -1, // f(x, y) = (f (x y))
   REASON_IS_CONSTANT_DEF = -2, // term(5) = value(5)
   REASON_IS_CONGRUENCE = -3,   // x = y -> f(x) = f(y)
-  REASON_IS_TRAIL = -4         // x = v recorded in trail
+  REASON_IS_TRAIL = -4,        // x = v recorded in trail
+  REASON_IS_TRUE_EQUALITY = -5 // (x = v) merged with true
 };
 
 #include <inttypes.h>
@@ -51,8 +52,19 @@ eq_node_t* eq_graph_get_node(eq_graph_t* eq, eq_node_id_t id) {
 /** Get the node given id */
 static inline
 const eq_node_t* eq_graph_get_node_const(const eq_graph_t* eq, eq_node_id_t id) {
-  assert (id >= 0 && id < eq->nodes_size);
+  assert (id < eq->nodes_size);
   return eq->nodes + id;
+}
+
+static inline
+const eq_node_id_t* eq_graph_get_children(const eq_graph_t* eq, eq_node_id_t id) {
+  assert (id < eq->nodes_size);
+  int_hmap_pair_t* find = int_hmap_find((int_hmap_t*) &eq->node_to_children, id);
+  if (find != NULL) {
+    return (const eq_node_id_t*) eq->children_list.data + find->val;
+  } else {
+    return NULL;
+  }
 }
 
 void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name) {
@@ -103,6 +115,9 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_ivector(&eq->uselist, 0);
   init_ivector(&eq->uselist_updates, 0);
 
+  init_ivector(&eq->children_list, 0);
+  init_int_hmap(&eq->node_to_children, 0);
+
   // Add true/false
   eq_graph_add_value(eq, &mcsat_value_true);
   eq_graph_add_value(eq, &mcsat_value_false);
@@ -145,6 +160,9 @@ void eq_graph_destruct(eq_graph_t* eq) {
 
   delete_ivector(&eq->uselist);
   delete_ivector(&eq->uselist_updates);
+
+  delete_ivector(&eq->children_list);
+  delete_int_hmap(&eq->node_to_children);
 }
 
 // Default initial size and max size
@@ -368,7 +386,11 @@ void eq_graph_add_to_uselist(eq_graph_t* eq, eq_node_id_t n_id, eq_node_id_t par
   ivector_push(&eq->uselist_updates, n_id);
 }
 
-eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2) {
+/**
+ * Adds a pair. If n_children > 0 it will associate the children with the pair
+ * in fun_children_array.
+ */
+eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2, uint32_t n_children, uint32_t children_start) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_add_pair[%s]()\n", eq->name);
@@ -394,6 +416,12 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_id_t p1, eq_node_id_t p2)
   bool is_constant = p1_node->is_constant && p2_node->is_constant;
   eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_PAIR, index, is_constant);
   find->val = id;
+
+  // Remember the children
+  if (n_children > 0) {
+    int_hmap_add(&eq->node_to_children, id, children_start);
+  }
+
 
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
   assert(eq->nodes_size == eq->graph.size);
@@ -462,7 +490,7 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   for (-- i; i >= 0; -- i) {
     eq_node_id_t p1 = eq_graph_add_term_internal(eq, c[i]);
     // Add the graph node (p1, p2)
-    p2 = eq_graph_add_pair(eq, p1, p2);
+    p2 = eq_graph_add_pair(eq, p1, p2, 0, 0);
     // Store in the hash table
     eq_graph_update_pair_hash(eq, p2);
   }
@@ -470,7 +498,7 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   // Add the final function application
   eq_node_id_t p1 = eq_graph_add_term_internal(eq, f);
   // Add the graph node (p1, p2)
-  p2 = eq_graph_add_pair(eq, p1, p2);
+  p2 = eq_graph_add_pair(eq, p1, p2, 0, 0);
   // Store in the hash table
   eq_graph_update_pair_hash(eq, p2);
 
@@ -483,7 +511,7 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   return p2;
 }
 
-eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uint32_t n, const term_t* c) {
+eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uint32_t n, const term_t* c_terms) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_ifun_term[%s](): ", eq->name);
@@ -505,21 +533,35 @@ eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uin
   //
   // These nodes we do congruence over.
 
+  // Where we put the children
+  uint32_t children_start = eq->children_list.size;
+  int32_t i = 0;
+  for (i = 0; i < n; ++ i) {
+    eq_node_id_t c = eq_graph_add_term_internal(eq, c_terms[i]);
+    ivector_push(&eq->children_list, c);
+  }
+  ivector_push(&eq->children_list, eq_node_null);
+  const eq_node_id_t* c_nodes = (const eq_node_id_t*) eq->children_list.data + children_start;
+
   // Add the pairs for children
-  int32_t i = n-1;
-  eq_node_id_t p2 = eq_graph_add_term_internal(eq, c[i]);
+  i = n-1;
+  eq_node_id_t p2 = c_nodes[i];
+  ivector_push(&eq->children_list, p2);
   for (-- i; i >= 0; -- i) {
-    eq_node_id_t p1 = eq_graph_add_term_internal(eq, c[i]);
+    eq_node_id_t p1 = c_nodes[i];
+    ivector_push(&eq->children_list, p1);
     // Add the graph node (p1, p2)
-    p2 = eq_graph_add_pair(eq, p1, p2);
+    p2 = eq_graph_add_pair(eq, p1, p2, 0, 0);
     // Store in the hash table
     eq_graph_update_pair_hash(eq, p2);
   }
 
   // Add the final function application
   eq_node_id_t p1 = eq_graph_add_kind(eq, f);
-  // Add the graph node (p1, p2)
-  p2 = eq_graph_add_pair(eq, p1, p2);
+
+  // Finally, add the graph node (p1, p2) and the children
+  p2 = eq_graph_add_pair(eq, p1, p2, n, children_start);
+
   // Store in the hash table
   eq_graph_update_pair_hash(eq, p2);
 
@@ -594,6 +636,20 @@ void eq_graph_print_node(const eq_graph_t* eq, const eq_node_t* n, FILE* out, bo
     break;
   }
   }
+
+  const eq_node_id_t* children = eq_graph_get_children(eq, n_id);
+  if (children != NULL) {
+    fprintf(out, " {");
+    const eq_node_id_t* it = children;
+    for (; *it != eq_node_null; ++ it) {
+      if (it != children) {
+        fprintf(out, ", ");
+      }
+      const eq_node_t* n = eq_graph_get_node_const(eq, *it);
+      eq_graph_print_node(eq, n, out, false);
+    }
+    fprintf(out, "}");
+  }
 }
 
 void eq_graph_print_class(const eq_graph_t* eq, eq_node_id_t start_node_id, FILE* out) {
@@ -617,65 +673,67 @@ void eq_graph_print(const eq_graph_t* eq, FILE* out) {
 
   for (i = 0; i < eq->nodes_size; ++ i) {
     const eq_node_t* n = eq_graph_get_node_const(eq, i);
-    fprintf(out, "  ");
-    eq_graph_print_node(eq, n, out, true);
-    fprintf(out, ": ");
-    eq_graph_print_class(eq, n->find, out);
-    fprintf(out, "\n");
+    // Only print representatives
+    if (n->find == i) {
+      fprintf(out, "  ");
+      eq_graph_print_node(eq, n, out, true);
+      fprintf(out, ": ");
+      eq_graph_print_class(eq, n->find, out);
+      fprintf(out, "\n");
+    }
   }
+}
+
+static
+void eq_graph_update_find(eq_graph_t* eq, eq_node_id_t n_id, eq_node_id_t find) {
+  // Update the find in n2's class
+  eq_node_t* it = eq_graph_get_node(eq, n_id);
+  assert(it->find != find);
+  do {
+    it->find = find;
+    it = eq_graph_get_node(eq, it->next);
+  } while (it->find != find);
 }
 
 /** Merge node n2 into n1 */
 static
-void eq_graph_merge(eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id) {
+void eq_graph_merge_nodes(eq_graph_t* eq, eq_node_id_t n_into_id, eq_node_id_t n_from_id) {
 
-  eq_node_t* n1 = eq->nodes + n1_id;
-  eq_node_t* n2 = eq->nodes + n2_id;
+  eq_node_t* n_into = eq_graph_get_node(eq, n_into_id);
+  eq_node_t* n_from = eq_graph_get_node(eq, n_from_id);
 
-  assert(n1->find == n1_id);
-  assert(n2->find == n2_id);
-  assert(n1_id != n2_id);
-
-  // Update the find in n2's class
-  do {
-    n2->find = n1_id;
-    n2 = eq->nodes + n2->next;
-  } while (n2->find != n1_id);
+  assert(n_into->find == n_into_id);
+  assert(n_from->find == n_into_id); // Nodes have been updated already
+  assert(n_into_id != n_from_id);
 
   // Finally merge the lists (circular lists)
-  eq_node_id_t tmp = n1->next;
-  n1->next = n2->next;
-  n2->next = tmp;
+  eq_node_id_t tmp = n_into->next;
+  n_into->next = n_from->next;
+  n_from->next = tmp;
 
   // Update the size
-  n1->size += n2->size;
+  n_into->size += n_from->size;
 }
 
 /** Un-merge node n2 from n1 */
 static
-void eq_graph_unmerge(eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id) {
+void eq_graph_unmerge_nodes(eq_graph_t* eq, eq_node_id_t n_into_id, eq_node_id_t n_from_id) {
 
-  eq_node_t* n1 = eq->nodes + n1_id;
-  eq_node_t* n2 = eq->nodes + n2_id;
+  eq_node_t* n_into = eq_graph_get_node(eq, n_into_id);
+  eq_node_t* n_from = eq_graph_get_node(eq, n_from_id);
 
-  assert(n1->find == n1_id);
-  assert(n2->find == n1_id);
-  assert(n1_id != n2_id);
+  assert(n_into->find == n_into_id);
+  assert(n_from->find == n_into_id);
+  assert(n_into_id != n_from_id);
 
   // Update the size
-  assert(n1->size > n2->size);
-  n1->size -= n2->size;
+  assert(n_into->size > n_from->size);
+  n_into->size -= n_from->size;
 
   // Unmerge the lists (circular lists)
-  eq_node_id_t tmp = n1->next;
-  n1->next = n2->next;
-  n2->next = tmp;
-
-  // Update the find in n2's class
-  do {
-    n2->find = n2_id;
-    n2 = eq->nodes + n2->next;
-  } while (n2->find != n2_id);
+  eq_node_id_t tmp = n_into->next;
+  n_into->next = n_from->next;
+  n_from->next = tmp;
 }
 
 
@@ -749,6 +807,53 @@ void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reas
   eq->graph.data[n2] = n2_new_e_id;
 }
 
+/** class of n has been updated, update the pairs */
+static
+void eq_graph_update_lookups(eq_graph_t* eq, eq_node_id_t n_id) {
+  // Go through class of n
+  eq_node_id_t i = n_id;
+  do {
+    // Go through uselist of i
+    eq_uselist_id_t j = eq->uselist.data[i];
+    while (j != eq_uselist_null) {
+      const eq_uselist_t* ul = eq->uselist_nodes + j;
+      // Update the pair
+      eq_graph_update_pair_hash(eq, ul->node);
+      j = ul->next;
+    }
+    i = eq_graph_get_node(eq, i)->next;
+  } while (i != n_id);
+}
+
+static inline
+const mcsat_value_t* eq_graph_get_value(const eq_graph_t* eq, eq_node_id_t n_id) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+  assert(n->type == EQ_NODE_VALUE);
+  return eq->values_list.data + n->index;
+}
+
+static
+void eq_graph_process_interpreted(eq_graph_t* eq, term_kind_t kind, const eq_node_id_t* children, eq_node_id_t v_id) {
+  // Children in eq->fun_children[children_start ... ]
+
+  switch (kind) {
+  case EQ_TERM: {
+    const mcsat_value_t* v = eq_graph_get_value(eq, v_id);
+    if (mcsat_value_is_true(v)) {
+      // x = y -> true, merge x, y
+      eq_node_id_t lhs = children[0];
+      eq_node_id_t rhs = children[1];
+      assert(children[2] == eq_node_null);
+      merge_queue_push_init(&eq->merge_queue, lhs, rhs, REASON_IS_TRUE_EQUALITY);
+    }
+    break;
+  }
+  default:
+    assert(false);
+  }
+}
+
+
 static
 void eq_graph_propagate(eq_graph_t* eq) {
 
@@ -773,39 +878,68 @@ void eq_graph_propagate(eq_graph_t* eq) {
       continue;
     }
 
-    // Add the edge
-    eq_graph_add_edge(eq, n1->find, n2->find, reason);
-
+    // We merge n_from into n_into
+    eq_node_id_t n_into_id = n1->find;
+    const eq_node_t* n_into = eq_graph_get_node_const(eq, n1->find);
+    eq_node_id_t n_from_id = n2->find;
+    const eq_node_t* n_from = eq_graph_get_node_const(eq, n2->find);
     // Swap if we prefer n2_find to be the representative
-    const eq_node_t* n1_find = eq_graph_get_node_const(eq, n1->find);
-    const eq_node_t* n2_find = eq_graph_get_node_const(eq, n2->find);
-    if (eq_graph_merge_preference(n2_find, n1_find)) {
-      const eq_node_t* tmp = n1_find; n1_find = n2_find; n2_find = tmp;
+    if (eq_graph_merge_preference(n_from, n_into)) {
+      const eq_node_t* tmp1 = n_into; n_into = n_from; n_from = tmp1;
+      eq_node_id_t tmp2 = n_into_id; n_into_id = n_from_id; n_from_id = tmp2;
     }
 
-    bool n1_is_const = n1_find->is_constant;
-    bool n2_is_const = n2_find->is_constant;
+    // Add the edge
+    eq_graph_add_edge(eq, n_into_id, n_from_id, reason);
+
+    bool n_into_is_const = n_into->is_constant;
+    bool n_form_is_const = n_from->is_constant;
 
     // If we merge two same-type nodes that are constant we have a conflict
-    if (n1_is_const && n2_is_const && n1->type == n2->type) {
+    if (n_into_is_const && n_form_is_const && n_into->type == n_from->type) {
       eq->in_conflict = true;
       eq->conflict_lhs = n1->find;
       eq->conflict_rhs = n2->find;
     }
     // If we merge into a value we remember all the terms
-    else if (n1->type == EQ_NODE_VALUE) {
-      // Add n2 term nodes to notification list
-      const eq_node_t* it = n2_find;
+    else if (n_into->type == EQ_NODE_VALUE) {
+      // Process the nodes updated to a constant
+      eq_node_id_t it_id = n_from_id;
+      const eq_node_t* it = n_from;
       do {
+
+        // Terms we notify
         if (it->type == EQ_NODE_TERM) {
           ivector_push(&eq->term_value_merges, eq_graph_get_node_id(eq, it));
         }
-        it = eq_graph_get_node(eq, it->next);
-      } while (it != n2_find);
+
+        // Interpreted terms, might propagate something useful
+        if (it->type == EQ_NODE_PAIR) {
+          eq_node_id_t p1 = eq->pair_list.data[it->index];
+          const eq_node_t* p1_node = eq_graph_get_node(eq, p1);
+          if (p1_node->type == EQ_NODE_KIND) {
+            // Interpreted function
+            term_kind_t kind = eq->kind_list.data[p1_node->index];
+            const eq_node_id_t* children = eq_graph_get_children(eq, it_id);
+            eq_graph_process_interpreted(eq, kind, children, n_into_id);
+          }
+        }
+
+        // Next node
+        it_id = it->next;
+        it = eq_graph_get_node(eq, it_id);
+
+      } while (it != n_from);
     }
 
+    // Update finds
+    eq_graph_update_find(eq, n_from_id, n_into_id);
+
+    // Update lookups
+    eq_graph_update_lookups(eq, n_from_id);
+
     // Merge n2 into n1
-    eq_graph_merge(eq, n1->find, n2->find);
+    eq_graph_merge_nodes(eq, n_into_id, n_from_id);
   }
 
   // Done, clear
@@ -819,6 +953,12 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
   assert(lhs < eq->nodes_size);
   assert(rhs < eq->nodes_size);
   assert(lhs != rhs);
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_assert_eq[%s]()\n", eq->name);
+    ctx_trace_printf(eq->ctx, "lhs = "); eq_graph_print_node(eq, eq_graph_get_node(eq, lhs), ctx_trace_out(eq->ctx), true); ctx_trace_printf(eq->ctx, "\n");
+    ctx_trace_printf(eq->ctx, "rhs = "); eq_graph_print_node(eq, eq_graph_get_node(eq, rhs), ctx_trace_out(eq->ctx), true); ctx_trace_printf(eq->ctx, "\n");
+  }
 
   if (polarity) {
     // lhs == rhs
@@ -868,6 +1008,10 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s]()\n", eq->name);
   }
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
+    trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
 
   const mcsat_trail_t* trail = eq->ctx->trail;
   variable_db_t* var_db = eq->ctx->var_db;
@@ -882,6 +1026,12 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       eq_graph_assert_eq(eq, v_id, x_id, true, REASON_IS_TRAIL);
     }
   }
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s](): done\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
 }
 
 void eq_graph_push(eq_graph_t* eq) {
@@ -903,6 +1053,7 @@ void eq_graph_push(eq_graph_t* eq) {
       &eq->uselist_nodes_size,
       &eq->uselist.size,
       &eq->uselist_updates.size,
+      &eq->children_list.size,
       NULL
   );
 
@@ -934,6 +1085,7 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t uselist_nodes_size;
   uint32_t uselist_size;
   uint32_t uselist_updates_size;
+  uint32_t fun_children_size;
 
   scope_holder_pop(&eq->scope_holder,
       &kind_list_size,
@@ -947,6 +1099,7 @@ void eq_graph_pop(eq_graph_t* eq) {
       &uselist_nodes_size,
       &uselist_size,
       &uselist_updates_size,
+      &fun_children_size,
       NULL
   );
 
@@ -961,7 +1114,9 @@ void eq_graph_pop(eq_graph_t* eq) {
     eq->edges_size -= 2;
 
     // Un-merge the two nodes
-    eq_graph_unmerge(eq, edge->u, edge->v);
+    eq_graph_unmerge_nodes(eq, edge->u, edge->v);
+    // Rever the finds
+    eq_graph_update_find(eq, edge->v, edge->v);
   }
 
   // Remove added kinds
@@ -1003,7 +1158,13 @@ void eq_graph_pop(eq_graph_t* eq) {
   eq->uselist_nodes_size = uselist_nodes_size;
   ivector_shrink(&eq->uselist, uselist_size);
 
-  // Remove the added nodes
+  // Remove the added nodes and their children
+  for (i = nodes_size; i < eq->nodes_size; ++ i) {
+    int_hmap_pair_t* find = int_hmap_find(&eq->node_to_children, i);
+    if (find != NULL) {
+      int_hmap_erase(&eq->node_to_children, find);
+    }
+  }
   eq->nodes_size = nodes_size;
 
   // Pop the graph size
@@ -1012,6 +1173,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   // Pop the pair maps
   pmap2_pop(&eq->pair_to_id);
   pmap2_pop(&eq->pair_to_rep);
+
+  // Pop the children
+  ivector_shrink(&eq->children_list, fun_children_size);
 
   // Reset the merge queue
   merge_queue_reset(&eq->merge_queue);
