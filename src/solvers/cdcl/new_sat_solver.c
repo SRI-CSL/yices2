@@ -2797,7 +2797,7 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
   assert(lit_is_true(solver, l));
 
 #if TRACE
-  printf("\n---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
+  printf("---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
   fflush(stdout);
 #endif
 }
@@ -7373,13 +7373,13 @@ static inline bool need_check(const sat_solver_t *solver) {
 static bool switch_to_diving(sat_solver_t *solver) {
   assert(! solver->diving);
 
-  if (true || made_progress(solver)) {
+  solver->check_next += solver->params.search_period;
+
+  if (made_progress(solver)) {
     solver->progress = solver->params.search_counter;
-    solver->check_next += solver->params.search_period;
   } else {
     assert(solver->progress > 0);
     solver->progress --;
-    solver->check_next += solver->params.search_period;
     if (solver->progress == 0) {
       solver->diving = true;
       solver->max_depth_conflicts = solver->stats.conflicts;
@@ -7784,13 +7784,13 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     if (solver->status != STAT_UNKNOWN) break;
 
     if (need_simplify(solver)) {
+      if (solver->diving) {
+	done_diving(solver);
+      }
       full_restart(solver);
       done_restart(solver);
       nsat_simplify(solver);
       done_simplify(solver);
-      if (solver->diving) {
-	done_diving(solver);
-      }
     } else if (solver->diving) {
       done_diving(solver);
       full_restart(solver);
