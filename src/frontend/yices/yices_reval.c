@@ -119,6 +119,8 @@
  *   (well on Windows we can't tell for sure).
  *   If this flag is true, we print a prompt before reading input,
  *   and we don't exit on error.
+ * - print_success: if this flag is true, we print "ok" after every
+ *   command that would otherwise print nothing.
  * - verbosity: verbosity level
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
@@ -152,6 +154,7 @@ static uint32_t include_depth;
 
 static bool interactive;
 static bool done;
+static bool print_success;
 static int32_t verbosity;
 static tracer_t *tracer;
 
@@ -220,6 +223,7 @@ enum {
   mode_option,
   version_flag,
   help_flag,
+  print_success_flag,
   verbosity_option,
 };
 
@@ -231,6 +235,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mode", '\0', MANDATORY_STRING, mode_option },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
+  { "print-success", '\0', FLAG_OPTION, print_success_flag },
   { "verbosity", 'v', MANDATORY_INT, verbosity_option },
 };
 
@@ -262,6 +267,7 @@ static void print_help(char *progname) {
          "  --help, -h                Display this information\n"
 	 "  --verbosity=<level>       Set verbosity level (default = 0)\n"
 	 "           -v <level>\n"
+         "  --print-success           Print 'ok' after commands that would otherwise execute silently\n"
          "  --logic=<name>            Configure for the given logic\n"
          "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
          "                                    or 'NONE' for propositional logic\n"
@@ -357,6 +363,7 @@ static void process_command_line(int argc, char *argv[]) {
   arith_name = NULL;
   mode_name = NULL;
   verbosity = 0;
+  print_success = false;
   tracer = NULL;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
@@ -431,6 +438,10 @@ static void process_command_line(int argc, char *argv[]) {
       case help_flag:
         print_help(parser.command_name);
         goto quick_exit;
+
+      case print_success_flag:
+	print_success = true;
+	break;
 
       case verbosity_option:
 	v = elem.i_value;
@@ -803,7 +814,7 @@ static void report_negative_timeout(int32_t val) {
  * Report that the previous command was executed (if verbose)
  */
 static void print_ok(void) {
-  if (verbosity > 0 && interactive && include_depth == 0) {
+  if (print_success || (verbosity > 0 && interactive && include_depth == 0)) {
     fprintf(stderr, "ok\n");
     fflush(stderr);
   }
@@ -818,7 +829,7 @@ static void print_internalization_code(int32_t code) {
   if (code == TRIVIALLY_UNSAT) {
     fprintf(stderr, "unsat\n");
     fflush(stderr);
-  } else if (verbosity > 0 && code == CTX_NO_ERROR) {
+  } else if (code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
     code = - code;
