@@ -710,6 +710,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   const mcsat_trail_t* trail = uf->ctx->trail;
   variable_db_t* var_db = uf->ctx->var_db;
 
+  ivector_t eq_propagations;
+  init_ivector(&eq_propagations, 0);
+
   // Propagate
   variable_t var;
   for(; trail_is_consistent(trail) && uf->trail_i < trail_size(trail); ++ uf->trail_i) {
@@ -735,7 +738,38 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
     // Propagate known terms
     eq_graph_propagate_trail(&uf->eq_graph);
+    // Check for conflicts
+    if (uf->eq_graph.in_conflict) {
+      // Report conflict
+      prop->conflict(prop);
+      // Construct the conflict
+      eq_graph_get_conflict(&uf->eq_graph, &uf->conflict);
+    } else {
+      // Process any propagated terms
+      eq_graph_get_propagated_terms(&uf->eq_graph, &eq_propagations);
+      if (eq_propagations.size > 0) {
+        if (ctx_trace_enabled(uf->ctx, "mcsat::eq")) {
+          ctx_trace_printf(uf->ctx, "propagated:\n");
+          uint32_t i = 0;
+          for (; i < eq_propagations.size; ++i) {
+            if (i) {
+              fprintf(ctx_trace_out(uf->ctx), ", ");
+            }
+            term_t t = eq_propagations.data[i];
+            const mcsat_value_t* v = eq_graph_get_propagated_term_value(
+                &uf->eq_graph, t);
+            ctx_trace_term(uf->ctx, t);
+            fprintf(ctx_trace_out(uf->ctx), " -> ");
+            mcsat_value_print(v, ctx_trace_out(uf->ctx));
+          }
+          fprintf(ctx_trace_out(uf->ctx), "\n");
+        }
+        ivector_reset(&eq_propagations);
+      }
+    }
   }
+
+  delete_ivector(&eq_propagations);
 }
 
 static

@@ -26,8 +26,7 @@ enum {
   REASON_IS_FUNCTION_DEF = -1, // f(x, y) = (f (x y))
   REASON_IS_CONSTANT_DEF = -2, // term(5) = value(5)
   REASON_IS_CONGRUENCE = -3,   // x = y -> f(x) = f(y)
-  REASON_IS_TRAIL = -4,        // x = v recorded in trail
-  REASON_IS_TRUE_EQUALITY = -5 // (x = v) merged with true
+  REASON_IS_TRUE_EQUALITY = -4 // (x = v) merged with true
 };
 
 #include <inttypes.h>
@@ -741,14 +740,22 @@ void eq_graph_unmerge_nodes(eq_graph_t* eq, eq_node_id_t n_into_id, eq_node_id_t
 static inline
 bool eq_graph_merge_preference(const eq_node_t* n1, const eq_node_t* n2) {
 
-  // If n1 is a value node, then yes
+  // Value terms have precedence (if both values, we have a conflict so we don't care)
+  if (n2->type == EQ_NODE_VALUE) {
+    return false;
+  }
   if (n1->type == EQ_NODE_VALUE) {
     return true;
   }
 
-  // If n1 is a constant then yes
-  if (n1->is_constant) {
-    return true;
+  // Composite constant nodes then (if both constant, we still pick on with bigger size
+  if (n1->is_constant != n2->is_constant) {
+    if (n2->is_constant) {
+      return false;
+    }
+    if (n1->is_constant) {
+      return true;
+    }
   }
 
   // Otherwise we prefer a biger one (so that we update less nodes)
@@ -868,10 +875,18 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Get what to merge
     const merge_data_t* merge = merge_queue_first(&eq->merge_queue);
-    const eq_node_t* n1 = eq_graph_get_node_const(eq, merge->lhs);
-    const eq_node_t* n2 = eq_graph_get_node_const(eq, merge->rhs);
+    eq_node_id_t lhs = merge->lhs;
+    eq_node_id_t rhs = merge->rhs;
+    const eq_node_t* n1 = eq_graph_get_node_const(eq, lhs);
+    const eq_node_t* n2 = eq_graph_get_node_const(eq, rhs);
     eq_reason_t reason = merge->reason;
     merge_queue_pop(&eq->merge_queue);
+
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
+      ctx_trace_printf(eq->ctx, "eq_graph_propagate[%s]()\n", eq->name);
+      ctx_trace_printf(eq->ctx, "n1 = "); eq_graph_print_node(eq, n1, ctx_trace_out(eq->ctx), true); ctx_trace_printf(eq->ctx, "\n");
+      ctx_trace_printf(eq->ctx, "n2 = "); eq_graph_print_node(eq, n2, ctx_trace_out(eq->ctx), true); ctx_trace_printf(eq->ctx, "\n");
+    }
 
     // Check if already equal
     if (n1->find == n2->find) {
@@ -880,17 +895,17 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // We merge n_from into n_into
     eq_node_id_t n_into_id = n1->find;
-    const eq_node_t* n_into = eq_graph_get_node_const(eq, n1->find);
+    const eq_node_t* n_into = eq_graph_get_node_const(eq, n_into_id);
     eq_node_id_t n_from_id = n2->find;
-    const eq_node_t* n_from = eq_graph_get_node_const(eq, n2->find);
+    const eq_node_t* n_from = eq_graph_get_node_const(eq, n_from_id);
     // Swap if we prefer n2_find to be the representative
     if (eq_graph_merge_preference(n_from, n_into)) {
       const eq_node_t* tmp1 = n_into; n_into = n_from; n_from = tmp1;
       eq_node_id_t tmp2 = n_into_id; n_into_id = n_from_id; n_from_id = tmp2;
     }
 
-    // Add the edge
-    eq_graph_add_edge(eq, n_into_id, n_from_id, reason);
+    // Add the edge (original nodes)
+    eq_graph_add_edge(eq, lhs, rhs, reason);
 
     bool n_into_is_const = n_into->is_constant;
     bool n_form_is_const = n_from->is_constant;
@@ -1023,7 +1038,7 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       const mcsat_value_t* v = trail_get_value(trail, x);
       eq_node_id_t v_id = eq_graph_add_value(eq, v);
       eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
-      eq_graph_assert_eq(eq, v_id, x_id, true, REASON_IS_TRAIL);
+      eq_graph_assert_eq(eq, v_id, x_id, true, x);
     }
   }
 
@@ -1040,6 +1055,8 @@ void eq_graph_push(eq_graph_t* eq) {
     ctx_trace_printf(eq->ctx, "eq_graph_push[%s]()\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
+
+  assert(!eq->in_conflict);
 
   scope_holder_push(&eq->scope_holder,
       &eq->kind_list.size,
@@ -1190,4 +1207,108 @@ void eq_graph_pop(eq_graph_t* eq) {
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
 
+}
+
+/** Explain why n1 and n2 are equal */
+static
+void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* conflict) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_explain[%s]()\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
+  // If the nodes are the same, done
+  if (n1_id == n2_id) {
+    return;
+  }
+
+  // Run BFS:
+  // - there has to be a path from n1 to n2 (since equal)
+  // - the graph is a tree hence visit once (since we only merge non-equal)
+
+  ivector_t bfs_queue;
+  init_ivector(&bfs_queue, 0);
+  ivector_push(&bfs_queue, n1_id);
+
+  int_hmap_t edges_used; // Map from node to the edge that got to it
+  init_int_hmap(&edges_used, 0);
+
+  bool path_found = false;
+  uint32_t bfs_i = 0;
+  for (; !path_found; bfs_i ++) {
+
+    // Get the current node
+    assert(bfs_i < bfs_queue.size);
+    eq_node_id_t n_id = bfs_queue.data[bfs_i];
+
+    // Go through the edges
+    eq_edge_id_t n_edge = eq->graph.data[n_id];
+    while (!path_found && n_edge != eq_edge_null) {
+      const eq_edge_t* e = eq->edges + n_edge;
+      assert(n_id == e->u);
+
+      // Did we find a path
+      if (e->v == n2_id) {
+        path_found = true;
+      }
+
+      // Add to queue and record the edge
+      ivector_push(&bfs_queue, e->v);
+      assert(int_hmap_find(&edges_used, e->u) == NULL);
+      int_hmap_add(&edges_used, e->v, n_edge);
+
+      // Next edge
+      n_edge = e->next;
+    }
+  }
+
+  assert(path_found);
+
+  // Reconstruct the path
+  eq_node_id_t n_id = n2_id;
+  while (n_id != n1_id) {
+    int_hmap_pair_t* find = int_hmap_find(&edges_used, n_id);
+    eq_edge_id_t n_edge = find->val;
+    const eq_edge_t* e = eq->edges + n_edge;
+    assert(e->v == n_id);
+
+    // Add to reason
+    if (e->reason >= 0) {
+      ivector_push(conflict, e->reason);
+    } else {
+      switch (e->reason) {
+      case REASON_IS_FUNCTION_DEF:
+      case REASON_IS_CONSTANT_DEF:
+        // No reason, just continue
+        break;
+      case REASON_IS_CONGRUENCE:
+        // Get the reasons of the arguments
+        assert(false);
+        break;
+      case REASON_IS_TRUE_EQUALITY:
+        // Get the reason of the equality
+        assert(false);
+        break;
+      default:
+        assert(false);
+      }
+    }
+
+    // Next back in the path
+    n_id = e->u;
+  }
+
+  delete_int_hmap(&edges_used);
+  delete_ivector(&bfs_queue);
+
+}
+
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::conflict")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_get_conflict[%s]()\n", eq->name);
+  }
+
+  eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict);
 }

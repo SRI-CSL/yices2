@@ -222,3 +222,6 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
 /** Propagate the trail */
 void eq_graph_propagate_trail(eq_graph_t* eq);
 
+/** Explain the reported conflict (sequence of reasons, if from trail, then mcsat variables) */
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict);
+
