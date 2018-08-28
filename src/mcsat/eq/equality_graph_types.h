@@ -25,8 +25,20 @@ typedef uint32_t eq_node_id_t;
 
 #define eq_node_null ((eq_node_id_t) -1)
 
-/** Reason for merge (users should use >= 0, negative reserved for internal use */
-typedef int32_t eq_reason_t;
+typedef enum {
+  REASON_IS_FUNCTION_DEF,  // f(x, y) = (f (x y)), no data
+  REASON_IS_CONSTANT_DEF,  // term(5) = value(5), no data
+  REASON_IS_CONGRUENCE,    // x = y -> f(x) = f(y), no data
+  REASON_IS_TRUE_EQUALITY, // (x = v) merged with true, data = eq id
+  REASON_IS_IN_TRAIL,      // trail propagated, data = variable in trail
+  REASON_IS_USER           // Asserted by user
+} eq_reason_type_t;
+
+/** Reason for a deduction/assertion */
+typedef struct eq_reason_s {
+  eq_reason_type_t type; // Type of reason
+  uint32_t data;         // Aux data
+} eq_reason_t;
 
 typedef enum {
   EQ_NODE_KIND, // Nodes for representing interpreted functions (kinds)

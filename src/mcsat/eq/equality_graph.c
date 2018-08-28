@@ -22,13 +22,6 @@
 #include "mcsat/variable_db.h"
 #include "mcsat/trail.h"
 
-enum {
-  REASON_IS_FUNCTION_DEF = -1, // f(x, y) = (f (x y))
-  REASON_IS_CONSTANT_DEF = -2, // term(5) = value(5)
-  REASON_IS_CONGRUENCE = -3,   // x = y -> f(x) = f(y)
-  REASON_IS_TRUE_EQUALITY = -4 // (x = v) merged with true
-};
-
 #include <inttypes.h>
 #include <assert.h>
 
@@ -118,8 +111,8 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_int_hmap(&eq->node_to_children, 0);
 
   // Add true/false
-  eq_graph_add_value(eq, &mcsat_value_true);
-  eq_graph_add_value(eq, &mcsat_value_false);
+  eq->true_node_id = eq_graph_add_value(eq, &mcsat_value_true);
+  eq->false_node_id = eq_graph_add_value(eq, &mcsat_value_false);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_construct[%s]()\n", eq->name);
@@ -323,7 +316,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
     mcsat_value_construct_from_constant_term(&t_value, eq->ctx->terms, t);
     eq_node_id_t v_id = eq_graph_add_value(eq, &t_value);
     mcsat_value_destruct(&t_value);
-    merge_queue_push_init(&eq->merge_queue, id, v_id, REASON_IS_CONSTANT_DEF);
+    merge_queue_push_init(&eq->merge_queue, id, v_id, REASON_IS_CONSTANT_DEF, 0);
   }
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
@@ -456,7 +449,7 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   } else {
     // Merge with existing representative
     if (find->val != pair_id) {
-      merge_queue_push_init(&eq->merge_queue, pair_id, find->val, REASON_IS_CONGRUENCE);
+      merge_queue_push_init(&eq->merge_queue, pair_id, find->val, REASON_IS_CONGRUENCE, 0);
     }
   }
 }
@@ -502,7 +495,7 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
   eq_graph_update_pair_hash(eq, p2);
 
   // Add the equality f = p2
-  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF);
+  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF, 0);
 
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
@@ -565,7 +558,7 @@ eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uin
   eq_graph_update_pair_hash(eq, p2);
 
   // Add the equality f = p2
-  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF);
+  merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF, 0);
 
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
@@ -840,7 +833,7 @@ const mcsat_value_t* eq_graph_get_value(const eq_graph_t* eq, eq_node_id_t n_id)
 }
 
 static
-void eq_graph_process_interpreted(eq_graph_t* eq, term_kind_t kind, const eq_node_id_t* children, eq_node_id_t v_id) {
+void eq_graph_process_interpreted(eq_graph_t* eq, eq_node_id_t n_id, term_kind_t kind, const eq_node_id_t* children, eq_node_id_t v_id) {
   // Children in eq->fun_children[children_start ... ]
 
   switch (kind) {
@@ -851,7 +844,7 @@ void eq_graph_process_interpreted(eq_graph_t* eq, term_kind_t kind, const eq_nod
       eq_node_id_t lhs = children[0];
       eq_node_id_t rhs = children[1];
       assert(children[2] == eq_node_null);
-      merge_queue_push_init(&eq->merge_queue, lhs, rhs, REASON_IS_TRUE_EQUALITY);
+      merge_queue_push_init(&eq->merge_queue, lhs, rhs, REASON_IS_TRUE_EQUALITY, n_id);
     }
     break;
   }
@@ -936,7 +929,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
             // Interpreted function
             term_kind_t kind = eq->kind_list.data[p1_node->index];
             const eq_node_id_t* children = eq_graph_get_children(eq, it_id);
-            eq_graph_process_interpreted(eq, kind, children, n_into_id);
+            eq_graph_process_interpreted(eq, it_id, kind, children, n_into_id);
           }
         }
 
@@ -963,7 +956,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
 }
 
 void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
-    bool polarity, int32_t reason) {
+    bool polarity, uint32_t reason_data) {
 
   assert(lhs < eq->nodes_size);
   assert(rhs < eq->nodes_size);
@@ -979,7 +972,7 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
     // lhs == rhs
 
     // Enqueue for propagation
-    merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason);
+    merge_queue_push_init(&eq->merge_queue, lhs, rhs, REASON_IS_USER, reason_data);
 
     // Propagate
     eq_graph_propagate(eq);
@@ -1211,7 +1204,7 @@ void eq_graph_pop(eq_graph_t* eq) {
 
 /** Explain why n1 and n2 are equal */
 static
-void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_out) {
+void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
     ctx_trace_printf(eq->ctx, "eq_graph_explain[%s]()\n", eq->name);
@@ -1298,36 +1291,42 @@ void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_
     assert(e->v == n_id);
 
     // Add to reason
-    if (e->reason >= 0) {
-      ivector_push(reasons_out, e->reason);
-    } else {
-      switch (e->reason) {
-      case REASON_IS_FUNCTION_DEF:
-      case REASON_IS_CONSTANT_DEF:
-        // No reason, just definition, just continue
-        break;
-      case REASON_IS_CONGRUENCE: {
-        // Get the reasons of the arguments
-        const eq_node_t* u = eq_graph_get_node_const(eq, e->u);
-        const eq_node_t* v = eq_graph_get_node_const(eq, e->v);
-        assert(u->type == EQ_NODE_PAIR);
-        assert(u->type == EQ_NODE_PAIR);
-        eq_node_id_t u1 = eq->pair_list.data[u->index];
-        eq_node_id_t u2 = eq->pair_list.data[u->index+1];
-        eq_node_id_t v1 = eq->pair_list.data[v->index];
-        eq_node_id_t v2 = eq->pair_list.data[v->index+1];
-        // Get the reasons recursively
-        eq_graph_explain(eq, u1, v1, reasons_out);
-        eq_graph_explain(eq, u2, v2, reasons_out);
-        break;
+    switch (e->reason.type) {
+    case REASON_IS_IN_TRAIL:
+    case REASON_IS_USER: {
+      ivector_push(reasons_data, e->reason.data);
+      if (reasons_type != NULL) {
+        ivector_push(reasons_type, e->reason.type);
       }
-      case REASON_IS_TRUE_EQUALITY:
-        // Get the reason of the equality
-        assert(false);
-        break;
-      default:
-        assert(false);
-      }
+      break;
+    }
+    case REASON_IS_FUNCTION_DEF:
+    case REASON_IS_CONSTANT_DEF:
+      // No reason, just definition, just continue
+      break;
+    case REASON_IS_CONGRUENCE: {
+      // Get the reasons of the arguments
+      const eq_node_t* u = eq_graph_get_node_const(eq, e->u);
+      const eq_node_t* v = eq_graph_get_node_const(eq, e->v);
+      assert(u->type == EQ_NODE_PAIR);
+      assert(u->type == EQ_NODE_PAIR);
+      eq_node_id_t u1 = eq->pair_list.data[u->index];
+      eq_node_id_t u2 = eq->pair_list.data[u->index + 1];
+      eq_node_id_t v1 = eq->pair_list.data[v->index];
+      eq_node_id_t v2 = eq->pair_list.data[v->index + 1];
+      // Get the reasons recursively
+      eq_graph_explain(eq, u1, v1, reasons_data, reasons_type);
+      eq_graph_explain(eq, u2, v2, reasons_data, reasons_type);
+      break;
+    }
+    case REASON_IS_TRUE_EQUALITY: {
+      // Get the reason of the equality
+      eq_node_id_t eq_id = e->reason.data;
+      eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
+      break;
+    }
+    default:
+      assert(false);
     }
 
     // Next back in the path
@@ -1339,11 +1338,11 @@ void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_
 
 }
 
-void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict) {
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::conflict")) {
     ctx_trace_printf(eq->ctx, "eq_graph_get_conflict[%s]()\n", eq->name);
   }
 
-  eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict);
+  eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types);
 }

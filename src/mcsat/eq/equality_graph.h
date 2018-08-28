@@ -152,6 +152,12 @@ typedef struct eq_graph_s {
   /** Map from nodes to their children (if any) */
   int_hmap_t node_to_children;
 
+  /** True node (value) */
+  eq_node_id_t true_node_id;
+
+  /** False node (value) */
+  eq_node_id_t false_node_id;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */
@@ -211,7 +217,7 @@ void eq_graph_print(const eq_graph_t* eq, FILE* out);
 
 /** Assert equality lhs = rhs with given polarity and associated reason. Runs propagation. **/
 void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
-    bool polarity, eq_reason_t reason);
+    bool polarity, uint32_t reason_data);
 
 /** Get the terms that have been deduced equal (call once) */
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
@@ -222,6 +228,10 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
 /** Propagate the trail */
 void eq_graph_propagate_trail(eq_graph_t* eq);
 
-/** Explain the reported conflict (sequence of reasons, if from trail, then mcsat variables) */
-void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict);
+/**
+ * Explain the reported conflict. Returns sequence of reason data, and
+ * associated types. The only returned data is for types that have associated
+ * data. Pass NULL for types if you don't care about types.
+ */
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types);
 

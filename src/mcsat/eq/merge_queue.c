@@ -121,11 +121,12 @@ merge_data_t* merge_queue_push(merge_queue_t *q) {
 }
 
 void merge_queue_push_init(merge_queue_t *q, eq_node_id_t lhs, eq_node_id_t rhs,
-    eq_reason_t reason) {
+    eq_reason_type_t reason_type, uint32_t reason_data) {
   merge_data_t* new_merge = merge_queue_push(q);
   new_merge->lhs = lhs;
   new_merge->rhs = rhs;
-  new_merge->reason = reason;
+  new_merge->reason.type = reason_type;
+  new_merge->reason.data = reason_data;
 }
 
 
