@@ -1211,10 +1211,16 @@ void eq_graph_pop(eq_graph_t* eq) {
 
 /** Explain why n1 and n2 are equal */
 static
-void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* conflict) {
+void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_out) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
     ctx_trace_printf(eq->ctx, "eq_graph_explain[%s]()\n", eq->name);
+    ctx_trace_printf(eq->ctx, "n1 = ");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, n1_id), ctx_trace_out(eq->ctx), true);
+    ctx_trace_printf(eq->ctx, "\n");
+    ctx_trace_printf(eq->ctx, "n2 = ");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, n2_id), ctx_trace_out(eq->ctx), true);
+    ctx_trace_printf(eq->ctx, "\n");
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
 
@@ -1233,6 +1239,7 @@ void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_
 
   int_hmap_t edges_used; // Map from node to the edge that got to it
   init_int_hmap(&edges_used, 0);
+  int_hmap_add(&edges_used, n1_id, eq_edge_null);
 
   bool path_found = false;
   uint32_t bfs_i = 0;
@@ -1242,21 +1249,38 @@ void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_
     assert(bfs_i < bfs_queue.size);
     eq_node_id_t n_id = bfs_queue.data[bfs_i];
 
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+      ctx_trace_printf(eq->ctx, "processing node:");
+      eq_graph_print_node(eq, eq_graph_get_node_const(eq, n_id), ctx_trace_out(eq->ctx), true);
+      ctx_trace_printf(eq->ctx, "\n");
+    }
+
     // Go through the edges
     eq_edge_id_t n_edge = eq->graph.data[n_id];
     while (!path_found && n_edge != eq_edge_null) {
       const eq_edge_t* e = eq->edges + n_edge;
       assert(n_id == e->u);
 
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+        ctx_trace_printf(eq->ctx, "processing edge:");
+        eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
+        ctx_trace_printf(eq->ctx, " -> ");
+        eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
+        ctx_trace_printf(eq->ctx, "\n");
+      }
+
       // Did we find a path
       if (e->v == n2_id) {
         path_found = true;
       }
 
-      // Add to queue and record the edge
-      ivector_push(&bfs_queue, e->v);
-      assert(int_hmap_find(&edges_used, e->u) == NULL);
-      int_hmap_add(&edges_used, e->v, n_edge);
+      // The only way to visit a node again, is through back-edges, skip them
+      int_hmap_pair_t* edge_find = int_hmap_get(&edges_used, e->v);
+      if (edge_find->val < 0) {
+        // Add to queue and record the edge
+        ivector_push(&bfs_queue, e->v);
+        edge_find->val = n_edge;
+      }
 
       // Next edge
       n_edge = e->next;
@@ -1275,17 +1299,28 @@ void eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_
 
     // Add to reason
     if (e->reason >= 0) {
-      ivector_push(conflict, e->reason);
+      ivector_push(reasons_out, e->reason);
     } else {
       switch (e->reason) {
       case REASON_IS_FUNCTION_DEF:
       case REASON_IS_CONSTANT_DEF:
-        // No reason, just continue
+        // No reason, just definition, just continue
         break;
-      case REASON_IS_CONGRUENCE:
+      case REASON_IS_CONGRUENCE: {
         // Get the reasons of the arguments
-        assert(false);
+        const eq_node_t* u = eq_graph_get_node_const(eq, e->u);
+        const eq_node_t* v = eq_graph_get_node_const(eq, e->v);
+        assert(u->type == EQ_NODE_PAIR);
+        assert(u->type == EQ_NODE_PAIR);
+        eq_node_id_t u1 = eq->pair_list.data[u->index];
+        eq_node_id_t u2 = eq->pair_list.data[u->index+1];
+        eq_node_id_t v1 = eq->pair_list.data[v->index];
+        eq_node_id_t v2 = eq->pair_list.data[v->index+1];
+        // Get the reasons recursively
+        eq_graph_explain(eq, u1, v1, reasons_out);
+        eq_graph_explain(eq, u2, v2, reasons_out);
         break;
+      }
       case REASON_IS_TRUE_EQUALITY:
         // Get the reason of the equality
         assert(false);
