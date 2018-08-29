@@ -815,8 +815,8 @@ static void report_negative_timeout(int32_t val) {
  */
 static void print_ok(void) {
   if (print_success || (verbosity > 0 && interactive && include_depth == 0)) {
-    fprintf(stderr, "ok\n");
-    fflush(stderr);
+    fprintf(stdout, "ok\n");
+    fflush(stdout);
   }
 }
 
@@ -827,8 +827,8 @@ static void print_ok(void) {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    fprintf(stderr, "unsat\n");
-    fflush(stderr);
+    fprintf(stdout, "unsat\n");
+    fflush(stdout);
   } else if (code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
@@ -3181,8 +3181,8 @@ int yices_main(int argc, char *argv[]) {
   while (current_token(&lexer) != TK_EOS && !done) {
     if (interactive && include_depth == 0) {
       // prompt
-      fputs("yices> ", stderr);
-      fflush(stderr);
+      fputs("yices> ", stdout);
+      fflush(stdout);
     }
     code = parse_yices_command(&parser, stderr);
     if (code < 0) {
