@@ -33,6 +33,8 @@
 
 #include "utils/pair_hash_map2.h"
 
+#include "terms/term_manager.h"
+
 /**
  * Traditional functionality:
  * - Add terms to the term database
@@ -158,6 +160,9 @@ typedef struct eq_graph_s {
   /** False node (value) */
   eq_node_id_t false_node_id;
 
+  /** Term manager */
+  term_manager_t tm;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */
@@ -171,7 +176,9 @@ eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 
 /**
  * Add an uninterpreted function term to the database (if not there) and
- * return id. This will also run propagation.
+ * return id. This will also run propagation. If the term was added before
+ * as a regular term, it will be now treated as a function. You can associate
+ * several different functions to the same term.
  *
  * @param t the full term itself (e.g., f(x, y, 1))
  * @param f the function symbold (e.g. f)
@@ -182,7 +189,9 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
 
 /**
  * Add an interpreted function term to the database (if not there) and
- * return id. This will also run propagation.
+ * return id. This will also run propagation. If the term was added before
+ * as a regular term, it will be now treated as a function. You can associate
+ * several different functions to the same term.
  *
  * @param t the full term itself (e.g., f(x, y, 1))
  * @param f the function symbol (e.g. EQ_TERM)
@@ -191,20 +200,14 @@ eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t
  */
 eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t f, uint32_t n, const term_t* children);
 
-/** Add the value to the database (if not there). Doesn't run propagation. */
-eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
-
 /** Is the term already in the graph */
 bool eq_graph_has_term(const eq_graph_t* eq, term_t t);
 
-/** Is the value already in the graph */
-bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
-
-/** Get the ID of a term */
+/** Get the ID of a term (assumes that it exists) */
 eq_node_id_t eq_graph_term_id(const eq_graph_t* eq, term_t t);
 
-/** Get the ID of a value */
-eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v);
+/** Get the ID of a term (returns null node if not there) */
+eq_node_id_t eq_graph_term_id_if_exists(const eq_graph_t* eq, term_t t);
 
 /** Push the context */
 void eq_graph_push(eq_graph_t* eq);
@@ -216,10 +219,12 @@ void eq_graph_pop(eq_graph_t* eq);
 void eq_graph_print(const eq_graph_t* eq, FILE* out);
 
 /** Assert equality lhs = rhs with given polarity and associated reason. Runs propagation. **/
-void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
-    bool polarity, uint32_t reason_data);
+void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t reason_data);
 
-/** Get the terms that have been deduced equal (call once) */
+/** Is there any propagated terms */
+bool eq_graph_has_propagated_terms(const eq_graph_t* eq);
+
+/** Get the terms that have been deduced equal and clear them (call once) */
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
 /** Get the value of a propagated term */
@@ -231,7 +236,16 @@ void eq_graph_propagate_trail(eq_graph_t* eq);
 /**
  * Explain the reported conflict. Returns sequence of reason data, and
  * associated types. The only returned data is for types that have associated
- * data. Pass NULL for types if you don't care about types.
+ * data and terms that evaluate to true in trail. Pass NULL for types if you
+ * don't care about types.
  */
 void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types);
 
+/**
+ * Explain a term propagation, i.e., why term is equal to a value. The only
+ * returned data is for types that have associated data and terms that evaluate
+ * to true in trail. Pass NULL for types if you don't care about types.
+ *
+ * Returns the substitution term
+ */
+term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types);

@@ -29,8 +29,10 @@ typedef enum {
   REASON_IS_FUNCTION_DEF,  // f(x, y) = (f (x y)), no data
   REASON_IS_CONSTANT_DEF,  // term(5) = value(5), no data
   REASON_IS_CONGRUENCE,    // x = y -> f(x) = f(y), no data
-  REASON_IS_TRUE_EQUALITY, // (x = v) merged with true, data = eq id
-  REASON_IS_IN_TRAIL,      // trail propagated, data = variable in trail
+  REASON_IS_TRUE_EQUALITY, // (x = y) = true ->  x = y, data = eq id
+  REASON_IS_REFLEXIVITY,   // x = y -> (x = y) = true, data = eq id
+  REASON_IS_EVALUATION,    // x = v1, y = v2 -> (x = y) = false, data = eq id
+  REASON_IS_IN_TRAIL,      // trail propagated, data = term that evaluates to true in trail
   REASON_IS_USER           // Asserted by user
 } eq_reason_type_t;
 
