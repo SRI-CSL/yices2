@@ -43,10 +43,11 @@ typedef struct eq_reason_s {
 } eq_reason_t;
 
 typedef enum {
-  EQ_NODE_KIND, // Nodes for representing interpreted functions (kinds)
-  EQ_NODE_TERM,   // Nodes for representing a term
-  EQ_NODE_VALUE,  // Nodes for representing a value
-  EQ_NODE_PAIR    // Nodes for representing a pair of other nodes
+  EQ_NODE_KIND,     // Nodes for representing interpreted functions (kinds)
+  EQ_NODE_TERM,     // Nodes for representing a term
+  EQ_NODE_VALUE,    // Nodes for representing a value
+  EQ_NODE_PAIR,     // Nodes for representing a pair of other nodes
+  EQ_NODE_EQ_PAIR, // Nodes for representing an equality
 } eq_node_type_t;
 
 typedef uint32_t eq_uselist_id_t;
