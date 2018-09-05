@@ -986,7 +986,6 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
-  const mcsat_trail_t* trail = uf->ctx->trail;
 
   // We only propagate equalities due to evaluation, so the reason is the
   // literal itself
@@ -1003,19 +1002,7 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
   // If equality propagation, just explain it
   int_hmap_pair_t* find = int_hmap_find(&uf->propagation_source, var);
   if (find->val == PROPAGATED_BY_EQ_GRAPH) {
-    // Get conflict in terms of variables
-    eq_graph_explain_term_propagation(&uf->eq_graph, atom, reasons, NULL);
-    // Turn into term explanation
-    uint32_t i;
-    for (i = 0; i < reasons->size; ++ i) {
-      variable_t reason_var = reasons->data[i];
-      bool reason_value = trail_get_boolean_value(trail, reason_var);
-      term_t reason_term = variable_db_get_term(var_db, var);
-      reasons->data[i] = reason_value ? reason_term : opposite_term(reason_term);
-    }
-    // Explanation is reasons => atom = true/false, depending on the propagation
-    bool value = trail_get_boolean_value(uf->ctx->trail, var);
-    return bool2term(value);
+    return bool2term(eq_graph_explain_term_propagation(&uf->eq_graph, atom, reasons, NULL));
   }
 
   if (type_kind == BOOL_TYPE) {

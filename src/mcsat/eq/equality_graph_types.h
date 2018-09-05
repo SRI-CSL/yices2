@@ -74,8 +74,6 @@ typedef struct eq_node_s {
   eq_node_id_t next;
   /** Index of the term in it's list */
   uint32_t index;
-  /** Is it a constant */
-  bool is_constant;
 
   /** Uselist for this node */
   eq_uselist_id_t uselist;

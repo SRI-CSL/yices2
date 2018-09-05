@@ -115,6 +115,9 @@ typedef struct eq_graph_s {
   /** Queue for merging */
   merge_queue_t merge_queue;
 
+  /** List of merged nodes in pairs (into, from) */
+  ivector_t merges;
+
   /** Lock when we're in propagation */
   bool in_propagate;
 

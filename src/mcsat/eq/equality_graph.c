@@ -127,6 +127,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_pmap2(&eq->pair_to_rep);
 
   init_merge_queue(&eq->merge_queue, 0);
+  init_ivector(&eq->merges, 0);
 
   init_ivector(&eq->term_value_merges, 0);
 
@@ -174,6 +175,7 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_pmap2(&eq->pair_to_rep);
 
   delete_merge_queue(&eq->merge_queue);
+  delete_ivector(&eq->merges);
 
   delete_ivector(&eq->term_value_merges);
 
@@ -234,7 +236,7 @@ eq_uselist_id_t eq_graph_new_uselist_node(eq_graph_t* eq, eq_node_id_t node, eq_
 }
 
 static
-eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t index, bool is_constant) {
+eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t index) {
 
   uint32_t n = eq->nodes_size;
   eq_node_id_t id = eq->nodes_size;
@@ -263,7 +265,6 @@ eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t ind
   new_node->size = 1;
   new_node->type = type;
   new_node->index = index;
-  new_node->is_constant = is_constant;
   new_node->uselist = eq_uselist_null;
 
   // More nodes
@@ -299,7 +300,7 @@ eq_node_id_t eq_graph_add_kind(eq_graph_t* eq, term_kind_t kind) {
   ivector_push(&eq->kind_list, kind);
 
   // Setup the new node
-  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_KIND, index, true);
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_KIND, index);
   find->val = id;
 
   assert(eq->nodes_size == eq->graph.size);
@@ -334,14 +335,14 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   ivector_push(&eq->terms_list, t);
 
   // Setup the new node
-  bool is_const = is_const_term(eq->ctx->terms, t);
-  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_TERM, index, is_const);
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_TERM, index);
   find->val = id;
 
   assert(eq->nodes_size == eq->graph.size);
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
 
   // If the node is a constant, we also create a value for it
+  bool is_const = is_const_term(eq->ctx->terms, t);
   if (is_const) {
     mcsat_value_t t_value;
     mcsat_value_construct_from_constant_term(&t_value, eq->ctx->terms, t);
@@ -387,7 +388,7 @@ eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
   mcsat_value_assign(v_copy, v);
 
   // Setup the new node
-  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_VALUE, index, true);
+  eq_node_id_t id = eq_graph_new_node(eq, EQ_NODE_VALUE, index);
   find->val = id;
 
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
@@ -444,8 +445,7 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
   // Setup the new node
   eq_node_t* p1_node = eq_graph_get_node(eq, p1);
   eq_node_t* p2_node = eq_graph_get_node(eq, p2);
-  bool is_constant = p1_node->is_constant && p2_node->is_constant;
-  eq_node_id_t id = eq_graph_new_node(eq, type, index, is_constant);
+  eq_node_id_t id = eq_graph_new_node(eq, type, index);
   find->val = id;
 
   // Remember the children
@@ -751,6 +751,8 @@ void eq_graph_merge_nodes(eq_graph_t* eq, eq_node_id_t n_into_id, eq_node_id_t n
   eq_node_t* n_into = eq_graph_get_node(eq, n_into_id);
   eq_node_t* n_from = eq_graph_get_node(eq, n_from_id);
 
+  assert(n_into->type != EQ_NODE_VALUE || n_from->type != EQ_NODE_VALUE);
+
   assert(n_into->find == n_into_id);
   assert(n_from->find == n_into_id); // Nodes have been updated already
   assert(n_into_id != n_from_id);
@@ -798,16 +800,6 @@ bool eq_graph_merge_preference(const eq_node_t* n1, const eq_node_t* n2) {
     return true;
   }
 
-  // Composite constant nodes then (if both constant, we still pick on with bigger size
-  if (n1->is_constant != n2->is_constant) {
-    if (n2->is_constant) {
-      return false;
-    }
-    if (n1->is_constant) {
-      return true;
-    }
-  }
-
   // Otherwise we prefer a biger one (so that we update less nodes)
   return n1->size < n2->size;
 }
@@ -840,6 +832,8 @@ eq_edge_t* eq_graph_new_edge(eq_graph_t* eq) {
 
 /** Add the edge to the graph */
 void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reason_t reason) {
+
+  assert(!eq->in_conflict);
 
   // Old edges
   eq_edge_id_t n1_e_id = eq->graph.data[n1];
@@ -976,14 +970,13 @@ void eq_graph_propagate(eq_graph_t* eq) {
     // Add the edge (original nodes)
     eq_graph_add_edge(eq, lhs, rhs, reason);
 
-    bool n_into_is_const = n_into->is_constant;
-    bool n_form_is_const = n_from->is_constant;
-
     // If we merge two same-type nodes that are constant we have a conflict
-    if (n_into_is_const && n_form_is_const && n_into->type == n_from->type) {
+    if (n_from->type == EQ_NODE_VALUE && n_into->type == EQ_NODE_VALUE) {
       eq->in_conflict = true;
-      eq->conflict_lhs = n1->find;
-      eq->conflict_rhs = n2->find;
+      eq->conflict_lhs = n_into->find;
+      eq->conflict_rhs = n_from->find;
+      // Done
+      continue;
     }
 
     // If we merge into a value
@@ -1019,6 +1012,10 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Merge n2 into n1
     eq_graph_merge_nodes(eq, n_into_id, n_from_id);
+
+    // Remember the merge
+    ivector_push(&eq->merges, n_into_id);
+    ivector_push(&eq->merges, n_from_id);
   }
 
   // Done, clear
@@ -1144,6 +1141,7 @@ void eq_graph_push(eq_graph_t* eq) {
       &eq->uselist.size,
       &eq->uselist_updates.size,
       &eq->children_list.size,
+      &eq->merges.size,
       NULL
   );
 
@@ -1176,6 +1174,7 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t uselist_size;
   uint32_t uselist_updates_size;
   uint32_t fun_children_size;
+  uint32_t merges_size;
 
   scope_holder_pop(&eq->scope_holder,
       &kind_list_size,
@@ -1190,6 +1189,7 @@ void eq_graph_pop(eq_graph_t* eq) {
       &uselist_size,
       &uselist_updates_size,
       &fun_children_size,
+      &merges_size,
       NULL
   );
 
@@ -1198,15 +1198,22 @@ void eq_graph_pop(eq_graph_t* eq) {
   // Remove any added edges
   const eq_edge_t* edge = eq->edges + eq->edges_size;
   while (eq->edges_size > edges_size) {
-    // Remove edge: point to the previous edge in list
-    edge = edge - 2;
+    // Remove 2 edges: point to the previous edge in list
     eq->graph.data[edge->u] = edge->next;
+    edge --;
+    eq->graph.data[edge->u] = edge->next;
+    edge --;
     eq->edges_size -= 2;
+  }
 
+  // Unmerge the nodes, in order
+  while (eq->merges.size > merges_size) {
+    eq_node_id_t from_id = ivector_pop2(&eq->merges);
+    eq_node_id_t into_id = ivector_pop2(&eq->merges);
     // Un-merge the two nodes
-    eq_graph_unmerge_nodes(eq, edge->u, edge->v);
+    eq_graph_unmerge_nodes(eq, into_id, from_id);
     // Rever the finds
-    eq_graph_update_find(eq, edge->v, edge->v);
+    eq_graph_update_find(eq, from_id, from_id);
   }
 
   // Remove added kinds
