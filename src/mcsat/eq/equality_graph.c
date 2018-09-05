@@ -443,8 +443,6 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
   ivector_push(&eq->pair_list, p2);
 
   // Setup the new node
-  eq_node_t* p1_node = eq_graph_get_node(eq, p1);
-  eq_node_t* p2_node = eq_graph_get_node(eq, p2);
   eq_node_id_t id = eq_graph_new_node(eq, type, index);
   find->val = id;
 
@@ -739,6 +737,7 @@ void eq_graph_update_find(eq_graph_t* eq, eq_node_id_t n_id, eq_node_id_t find) 
   eq_node_t* it = eq_graph_get_node(eq, n_id);
   assert(it->find != find);
   do {
+    assert(it->type != EQ_NODE_VALUE);
     it->find = find;
     it = eq_graph_get_node(eq, it->next);
   } while (it->find != find);
@@ -988,7 +987,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
         // Terms we notify as being propagated to values
         if (it->type == EQ_NODE_TERM) {
-          ivector_push(&eq->term_value_merges, eq_graph_get_node_id(eq, it));
+          ivector_push(&eq->term_value_merges, it_id);
         }
 
         // Interpreted terms, might propagate something useful
@@ -1024,7 +1023,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
 }
 
 void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
-    bool polarity, eq_reason_type_t reason_type, uint32_t reason_data) {
+    eq_reason_type_t reason_type, uint32_t reason_data) {
 
   assert(lhs < eq->nodes_size);
   assert(rhs < eq->nodes_size);
@@ -1037,26 +1036,17 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
     ctx_trace_printf(eq->ctx, "reason = %s\n", eq_graph_reason_to_string(reason_type));
   }
 
-  if (polarity) {
-    // lhs == rhs
+  // Enqueue for propagation
+  merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason_type, reason_data);
 
-    // Enqueue for propagation
-    merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason_type, reason_data);
-
-    // Propagate
-    eq_graph_propagate(eq);
-
-    return;
-  } else {
-    // lhs != rhs
-    assert(false);
-  }
+  // Propagate
+  eq_graph_propagate(eq);
 }
 
 void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t reason_data) {
   eq_node_id_t lhs_id = eq_graph_add_term(eq, lhs);
   eq_node_id_t rhs_id = eq_graph_add_term(eq, rhs);
-  eq_graph_assert_eq(eq, lhs_id, rhs_id, true, REASON_IS_USER, reason_data);
+  eq_graph_assert_eq(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data);
 }
 
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq) {
@@ -1108,7 +1098,7 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       const mcsat_value_t* v = trail_get_value(trail, x);
       eq_node_id_t v_id = eq_graph_add_value(eq, v);
       eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
-      eq_graph_assert_eq(eq, v_id, x_id, true, REASON_IS_IN_TRAIL, x);
+      eq_graph_assert_eq(eq, v_id, x_id, REASON_IS_IN_TRAIL, x);
     }
   }
 
@@ -1127,6 +1117,8 @@ void eq_graph_push(eq_graph_t* eq) {
   }
 
   assert(!eq->in_conflict);
+  assert(eq->term_value_merges.size == 0);
+  assert(merge_queue_is_empty(&eq->merge_queue));
 
   scope_holder_push(&eq->scope_holder,
       &eq->kind_list.size,
@@ -1173,7 +1165,7 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t uselist_nodes_size;
   uint32_t uselist_size;
   uint32_t uselist_updates_size;
-  uint32_t fun_children_size;
+  uint32_t children_list_size;
   uint32_t merges_size;
 
   scope_holder_pop(&eq->scope_holder,
@@ -1188,7 +1180,7 @@ void eq_graph_pop(eq_graph_t* eq) {
       &uselist_nodes_size,
       &uselist_size,
       &uselist_updates_size,
-      &fun_children_size,
+      &children_list_size,
       &merges_size,
       NULL
   );
@@ -1198,12 +1190,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   // Remove any added edges
   const eq_edge_t* edge = eq->edges + eq->edges_size;
   while (eq->edges_size > edges_size) {
-    // Remove 2 edges: point to the previous edge in list
-    eq->graph.data[edge->u] = edge->next;
     edge --;
+    eq->edges_size --;
     eq->graph.data[edge->u] = edge->next;
-    edge --;
-    eq->edges_size -= 2;
   }
 
   // Unmerge the nodes, in order
@@ -1212,7 +1201,7 @@ void eq_graph_pop(eq_graph_t* eq) {
     eq_node_id_t into_id = ivector_pop2(&eq->merges);
     // Un-merge the two nodes
     eq_graph_unmerge_nodes(eq, into_id, from_id);
-    // Rever the finds
+    // Reverse the finds
     eq_graph_update_find(eq, from_id, from_id);
   }
 
@@ -1272,7 +1261,7 @@ void eq_graph_pop(eq_graph_t* eq) {
   pmap2_pop(&eq->pair_to_rep);
 
   // Pop the children
-  ivector_shrink(&eq->children_list, fun_children_size);
+  ivector_shrink(&eq->children_list, children_list_size);
 
   // Reset the merge queue
   merge_queue_reset(&eq->merge_queue);
@@ -1281,6 +1270,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   eq->in_conflict = false;
   eq->conflict_lhs = eq_node_null;
   eq->conflict_rhs = eq_node_null;
+
+  // Reset any propagations
+  ivector_reset(&eq->term_value_merges);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
