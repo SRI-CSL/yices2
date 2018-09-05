@@ -579,7 +579,7 @@ eq_node_id_t eq_graph_add_fun_term(eq_graph_t* eq, term_t t, term_t f_term, term
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
 
-  return p2;
+  return f_id;
 }
 
 eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t n, const term_t* children) {
@@ -1298,13 +1298,28 @@ typedef struct {
 } explain_result_t;
 
 /**
- * Explain why n1 is equal to n2.
+ * Explain why n1 is equal to n2 (both terms or values).
+ *
+ * A path from n1 to n2 goes through edges. Each edge e on this path is either
+ * - in the trail as boolean: add the reason
+ * - in the trail as non-boolean: add the = of closest terms left and right (if they exists)
+ * - requires further explanation: do recursively
+ *
+ * We also remember the term closest to n1 as t1, and term closest to n2 as t2.
+ *
+ * A) If there is no closest left term then n1 is a value, but there must be
+ * closest right term, we record this in t2.
+ *
+ * B) If there is no closest right term then n2 is a value, but there must be
+ * closest left term, we record this in t1.
  *
  * Usage:
  * 1. Conflicts: explain(conflict_lhs, conflict_rhs), both constants
  * 2. Propagations: explain(t, v), t is term deduced equal to value v,
  * 3. Intermediate: when f(x1, x2) = f(y1, y2) we explain why x1 = y1 and x2 = y2
  *                 with x1, x2, y1, y2 all terms
+ *
+ * Example 1: x -t- 0 -t- y in the graph, explain x = y for congruence
  *
  * Returns A => t1 =:= t2 such that
  * (1) A is true in trail/user
@@ -1358,7 +1373,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
   int_hmap_t edges_used; // Map from node to the edge that got to it
   init_int_hmap(&edges_used, 0);
-  int_hmap_add(&edges_used, n1_id, eq_edge_null);
+  int_hmap_add(&edges_used, n1_id, INT32_MAX);
 
   bool path_found = false;
   uint32_t bfs_i = 0;
@@ -1369,7 +1384,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
     eq_node_id_t n_id = bfs_queue.data[bfs_i];
 
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-      ctx_trace_printf(eq->ctx, "processing node:");
+      ctx_trace_printf(eq->ctx, "BFS node:");
       eq_graph_print_node(eq, eq_graph_get_node_const(eq, n_id), ctx_trace_out(eq->ctx), true);
       ctx_trace_printf(eq->ctx, "\n");
     }
@@ -1380,14 +1395,6 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
       const eq_edge_t* e = eq->edges + n_edge;
       assert(n_id == e->u);
 
-      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-        ctx_trace_printf(eq->ctx, "processing edge:");
-        eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
-        ctx_trace_printf(eq->ctx, " -> ");
-        eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
-        ctx_trace_printf(eq->ctx, "\n");
-      }
-
       // Did we find a path
       if (e->v == n2_id) {
         path_found = true;
@@ -1396,6 +1403,13 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
       // The only way to visit a node again, is through back-edges, skip them
       int_hmap_pair_t* edge_find = int_hmap_get(&edges_used, e->v);
       if (edge_find->val < 0) {
+        if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+          ctx_trace_printf(eq->ctx, "BFS edge:");
+          eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
+          ctx_trace_printf(eq->ctx, " -> ");
+          eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
+          ctx_trace_printf(eq->ctx, "\n");
+        }
         // Add to queue and record the edge
         ivector_push(&bfs_queue, e->v);
         edge_find->val = n_edge;
@@ -1410,24 +1424,62 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
   explain_result_t result = { eq_node_null, eq_node_null };
 
-
   const variable_db_t* var_db = eq->ctx->var_db;
   const mcsat_trail_t* trail = eq->ctx->trail;
 
   // Start from the back
   eq_node_id_t n_id = n2_id;
 
+  // First term node before a value
+  eq_node_id_t t_before = eq_node_null;
+  // First term node after a value
+  eq_node_id_t t_after = eq_node_null;
+  // Mark when we passed a value
+  bool passed_value = false;
+
   // Reconstruct the path
   while (n_id != n1_id) {
 
     // The node
     const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
-    // Remember the first and last term nodes on the path
+
     if (n->type == EQ_NODE_TERM) {
+      // Remember the first and last term nodes on the path
       if (result.t1_id == eq_node_null) {
         result.t1_id = n_id;
       }
       result.t2_id = n_id;
+      // Remember the nodes that are left and right from values
+      if (passed_value) {
+        t_after = n_id;
+        if (t_before != eq_node_null) {
+          // We now add to explanation that before = after
+          const eq_node_t* lhs_node = eq_graph_get_node_const(eq, t_before);
+          assert(lhs_node->type == EQ_NODE_TERM);
+          term_t lhs = eq->terms_list.data[lhs_node->index];
+          const eq_node_t* rhs_node = eq_graph_get_node_const(eq, t_after);
+          assert(rhs_node->type == EQ_NODE_TERM);
+          term_t rhs = eq->terms_list.data[rhs_node->index];
+          term_t reason = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
+          ivector_push(reasons_data, reason);
+          if (reasons_type != NULL) {
+            ivector_push(reasons_type, REASON_IS_IN_TRAIL);
+          }
+        }
+        // Reset
+        passed_value = false;
+        t_before = eq_node_null;
+        t_after = eq_node_null;
+      } else {
+        t_before = n_id;
+      }
+    }
+
+    if (n->type == EQ_NODE_VALUE) {
+      // Passing a value, just interested in non-Boolean values
+      if (n_id != eq->true_node_id && n_id != eq->false_node_id) {
+        passed_value = true;
+      }
     }
 
     // Relevant path edge of the node
@@ -1435,6 +1487,14 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
     eq_edge_id_t n_edge = find->val;
     const eq_edge_t* e = eq->edges + n_edge;
     assert(e->v == n_id);
+
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+      ctx_trace_printf(eq->ctx, "explaining:");
+      eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
+      ctx_trace_printf(eq->ctx, " == ");
+      eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
+      ctx_trace_printf(eq->ctx, " because of %s\n", eq_graph_reason_to_string(e->reason.type));
+    }
 
     // Add to reason
     switch (e->reason.type) {
@@ -1450,8 +1510,10 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
         if (reasons_type != NULL) {
           ivector_push(reasons_type, REASON_IS_IN_TRAIL);
         }
+      } else {
+        // Non-Boolean trail variables, we will remember as first and last above
+        assert(t_after == eq_node_null);
       }
-      // Non-Boolean trail variables, we will remember as first and last
       break;
     }
     case REASON_IS_USER: {
@@ -1508,8 +1570,9 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
   }
 
   explain_result_t result = eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types);
-  // Add t1 != t2 in the result
-  if (result.t1_id != result.t2_id) {
+  // Add t1 != t2 in the result if not boolean
+  bool boolean_conflict = eq->conflict_lhs == eq->true_node_id || eq->conflict_rhs == eq->true_node_id;
+  if (!boolean_conflict && result.t1_id != result.t2_id) {
     const eq_node_t* t1_node = eq_graph_get_node_const(eq, result.t1_id);
     assert(t1_node->type == EQ_NODE_TERM);
     term_t t1 = eq->terms_list.data[t1_node->index];
@@ -1520,6 +1583,15 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
     ivector_push(conflict_data, opposite_term(t1_eq_t2));
     if (conflict_types != NULL) {
       ivector_push(conflict_types, REASON_IS_IN_TRAIL);
+    }
+  }
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::conflict")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_get_conflict[%s]()\n", eq->name);
+    uint32_t i = 0;
+    for (i = 0; i < conflict_data->size; ++ i) {
+      ctx_trace_printf(eq->ctx, "[%"PRIu32"]: ", i);
+      ctx_trace_term(eq->ctx, conflict_data->data[i]);
     }
   }
 }
