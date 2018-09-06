@@ -1603,6 +1603,16 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
       eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
       break;
     }
+    case REASON_IS_REFLEXIVITY: {
+      // Get the reason of the equality
+      eq_node_id_t eq_id = e->reason.data;
+      const eq_node_t* eq_node = eq_graph_get_node_const(eq, eq_id);
+      assert(eq_node->type == EQ_NODE_EQ_PAIR);
+      eq_node_id_t lhs_id = eq->pair_list.data[eq_node->index];
+      eq_node_id_t rhs_id = eq->pair_list.data[eq_node->index+1];
+      eq_graph_explain(eq, lhs_id, rhs_id, reasons_data, reasons_type);
+      break;
+    }
     default:
       assert(false);
     }
