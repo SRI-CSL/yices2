@@ -81,6 +81,30 @@ const eq_node_id_t* eq_graph_get_children(const eq_graph_t* eq, eq_node_id_t id)
   }
 }
 
+static inline
+bool eq_graph_has_children(const eq_graph_t* eq, eq_node_id_t id) {
+  return eq_graph_get_children(eq, id) != NULL;
+}
+
+static
+bool eq_graph_is_term(const eq_graph_t* eq, eq_node_id_t n_id) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+  return n->type == EQ_NODE_TERM;
+}
+
+static
+bool eq_graph_is_value(const eq_graph_t* eq, eq_node_id_t n_id) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+  return n->type == EQ_NODE_VALUE;
+}
+
+static
+bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+  return n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR;
+}
+
+
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
 bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v);
@@ -114,6 +138,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_int_hmap(&eq->term_to_id, 0);
   init_value_hmap(&eq->value_to_id, 0);
   init_pmap2(&eq->pair_to_id);
+  init_pmap2(&eq->eq_pair_to_id);
 
   init_ivector(&eq->kind_list, 0);
   init_ivector(&eq->terms_list, 0);
@@ -125,6 +150,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   init_ivector(&eq->graph, 0);
 
   init_pmap2(&eq->pair_to_rep);
+  init_pmap2(&eq->eq_pair_to_rep);
 
   init_merge_queue(&eq->merge_queue, 0);
   init_ivector(&eq->merges, 0);
@@ -162,6 +188,7 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_int_hmap(&eq->term_to_id);
   delete_value_hmap(&eq->value_to_id);
   delete_pmap2(&eq->pair_to_id);
+  delete_pmap2(&eq->eq_pair_to_id);
 
   delete_ivector(&eq->kind_list);
   delete_ivector(&eq->terms_list);
@@ -173,6 +200,7 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_ivector(&eq->graph);
 
   delete_pmap2(&eq->pair_to_rep);
+  delete_pmap2(&eq->eq_pair_to_rep);
 
   delete_merge_queue(&eq->merge_queue);
   delete_ivector(&eq->merges);
@@ -422,9 +450,11 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
   }
 
   assert(type == EQ_NODE_PAIR || type == EQ_NODE_EQ_PAIR);
+  assert(type != EQ_NODE_EQ_PAIR || children_size > 0);
 
   // Check if already there
-  pmap2_rec_t* find = pmap2_get(&eq->pair_to_id, p1, p2);
+  pmap2_t* cache = type == EQ_NODE_PAIR ? &eq->pair_to_id : &eq->eq_pair_to_id;
+  pmap2_rec_t* find = pmap2_get(cache, p1, p2);
   if (find->val >= 0) {
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
       ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
@@ -469,6 +499,7 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
 void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   // n = (n1, n2)
   const eq_node_t* n = eq_graph_get_node_const(eq, pair_id);
+
   assert(n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR);
   // n1
   eq_node_id_t p1 = eq->pair_list.data[n->index];
@@ -478,7 +509,8 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   const eq_node_t* n2 = eq_graph_get_node_const(eq, p2);
 
   // Store normalized pair or merge if someone is already there
-  pmap2_rec_t* find = pmap2_get(&eq->pair_to_rep, n1->find, n2->find);
+  pmap2_t* rep_cache = n->type == EQ_NODE_PAIR ? &eq->pair_to_rep : &eq->eq_pair_to_rep;
+  pmap2_rec_t* find = pmap2_get(rep_cache, n1->find, n2->find);
   if (find->val < 0) {
     // New representative
     find->val = pair_id;
@@ -834,6 +866,15 @@ void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reas
 
   assert(!eq->in_conflict);
 
+  assert(reason.type != REASON_IS_CONGRUENCE || eq_graph_is_pair(eq, n1));
+  assert(reason.type != REASON_IS_CONGRUENCE || eq_graph_is_pair(eq, n2));
+
+  // edge between pairs and terms/values is only acceptable if the pair has children (root pair)
+  assert(!eq_graph_is_term(eq, n1) || !eq_graph_is_pair(eq, n2) || eq_graph_has_children(eq, n2));
+  assert(!eq_graph_is_term(eq, n2) || !eq_graph_is_pair(eq, n1) || eq_graph_has_children(eq, n1));
+  assert(!eq_graph_is_value(eq, n1) || !eq_graph_is_pair(eq, n2) || eq_graph_has_children(eq, n2));
+  assert(!eq_graph_is_value(eq, n2) || !eq_graph_is_pair(eq, n1) || eq_graph_has_children(eq, n1));
+
   // Old edges
   eq_edge_id_t n1_e_id = eq->graph.data[n1];
   eq_edge_id_t n2_e_id = eq->graph.data[n2];
@@ -1037,6 +1078,7 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
   }
 
   // Enqueue for propagation
+  assert(reason_type != REASON_IS_CONGRUENCE || (eq_graph_has_children(eq, lhs) && eq_graph_has_children(eq, rhs)));
   merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason_type, reason_data);
 
   // Propagate
@@ -1139,7 +1181,9 @@ void eq_graph_push(eq_graph_t* eq) {
 
   // Push the pair maps
   pmap2_push(&eq->pair_to_id);
+  pmap2_push(&eq->eq_pair_to_id);
   pmap2_push(&eq->pair_to_rep);
+  pmap2_push(&eq->eq_pair_to_rep);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s]()\n", eq->name);
@@ -1249,6 +1293,9 @@ void eq_graph_pop(eq_graph_t* eq) {
     int_hmap_pair_t* find = int_hmap_find(&eq->node_to_children, i);
     if (find != NULL) {
       int_hmap_erase(&eq->node_to_children, find);
+      assert(eq_graph_is_pair(eq, i));
+    } else {
+      assert(!eq_graph_is_pair(eq, i));
     }
   }
   eq->nodes_size = nodes_size;
@@ -1258,7 +1305,9 @@ void eq_graph_pop(eq_graph_t* eq) {
 
   // Pop the pair maps
   pmap2_pop(&eq->pair_to_id);
+  pmap2_pop(&eq->eq_pair_to_id);
   pmap2_pop(&eq->pair_to_rep);
+  pmap2_pop(&eq->eq_pair_to_rep);
 
   // Pop the children
   ivector_shrink(&eq->children_list, children_list_size);
@@ -1278,7 +1327,6 @@ void eq_graph_pop(eq_graph_t* eq) {
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
-
 }
 
 term_t eq_graph_mk_eq(const eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs) {
@@ -1528,7 +1576,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
       break;
     case REASON_IS_CONGRUENCE: {
       // Get the reasons of the arguments
-      // We are guaranteed that these are top-level funciton nodes
+      // We are guaranteed that these are top-level function nodes
       const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
       const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
       while (*u_c != eq_node_null) {

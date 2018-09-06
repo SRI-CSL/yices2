@@ -67,6 +67,9 @@ typedef struct eq_graph_s {
   /** Map from pairs to ids */
   pmap2_t pair_to_id;
 
+  /** Map from eqality pairs to ids */
+  pmap2_t eq_pair_to_id;
+
   /** List of the kinds added in order */
   ivector_t kind_list;
 
@@ -106,8 +109,11 @@ typedef struct eq_graph_s {
   /** The graph itself (map from node to the last inserted edge) */
   ivector_t graph;
 
-  /** The hash map of pair representatives. */
+  /** The hash map of function pair representatives. */
   pmap2_t pair_to_rep;
+
+  /** The hash map of equality pair representatives. */
+  pmap2_t eq_pair_to_rep;
 
   /** The plugin context */
   plugin_context_t* ctx;
