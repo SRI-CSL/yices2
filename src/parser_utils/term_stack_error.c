@@ -189,6 +189,14 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "bool-to-bv",  // not in SMT
   "bit",         // not in SMT
 
+  "floor",       // not in SMT
+  "ceil",        // not in SMT
+  "abs",         // not in SMT
+  "div",         // not in SMT
+  "mod",         // not in SMT
+  "divides",     // not in SMT
+  "is_int",      // not in SMT
+
   "build term",
   "build type",
 };
@@ -299,6 +307,13 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "bool-to-bv",
   "bit",
 
+  "floor",
+  "ceil",
+  "abs",
+  "div",
+  "mod",
+  "divides"
+  "is_int",
   "build term",
   "build type",
 

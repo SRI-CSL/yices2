@@ -1348,6 +1348,14 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   NULL,                   // MK_BOOL_TO_BV
   NULL,                   // MK_BIT
 
+  "floor",                // MK_FLOOR (not in SMT2)
+  "ceil",                 // MK_CEIL (not in SMT2
+  "abs",                  // MK_ABS
+  "div",                  // MK_IDIV
+  "mod",                  // MK_MOD
+  "divides",              // MK_DIVIDES (not in SMT2 --> divisible)
+  "is_int",               // MK_IS_INT
+
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
   //

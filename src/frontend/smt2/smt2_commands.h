@@ -176,7 +176,6 @@ enum smt2_opcodes {
   SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
   // more arithmetic operators
   SMT2_MK_TO_REAL,
-  // more of them: not implemented yet
   SMT2_MK_DIV,
   SMT2_MK_MOD,
   SMT2_MK_ABS,
