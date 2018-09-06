@@ -104,16 +104,21 @@ bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
   return n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR;
 }
 
+/** Returns true if: no trail value, or value matches given */
 static
-bool eq_graph_has_trail_value(const eq_graph_t* eq, term_t t) {
-  t = unsigned_term(t);
+bool eq_graph_check_trail_value(const eq_graph_t* eq, term_t t1, bool expected) {
+  term_t t = unsigned_term(t1);
+  if (t != t1) { expected = !expected; }
   const variable_db_t* var_db = eq->ctx->var_db;
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
   if (t_var == variable_null) {
-    return false;
+    return true;
   }
   const mcsat_trail_t* trail = eq->ctx->trail;
-  return trail_has_value(trail, t_var);
+  if (!trail_has_value(trail, t_var)) {
+    return true;
+  }
+  return trail_get_boolean_value(trail, t_var) == expected;
 }
 
 /** Add a value node */
@@ -1514,7 +1519,12 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
           assert(rhs_node->type == EQ_NODE_TERM);
           term_t rhs = eq->terms_list.data[rhs_node->index];
           term_t reason = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
-          assert(!eq_graph_has_trail_value(eq, reason));
+          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+            ctx_trace_printf(eq->ctx, "creating new:");
+            ctx_trace_term(eq->ctx, reason);
+            trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
+          }
+          assert(eq_graph_check_trail_value(eq, reason, true));
           ivector_push(reasons_data, reason);
           if (reasons_type != NULL) {
             ivector_push(reasons_type, REASON_IS_IN_TRAIL);
@@ -1644,7 +1654,12 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
     assert(t2_node->type == EQ_NODE_TERM);
     term_t t2 = eq->terms_list.data[t2_node->index];
     term_t t1_eq_t2 = mk_eq((term_manager_t*) &eq->tm, t1, t2);
-    assert(!eq_graph_has_trail_value(eq, t1_eq_t2));
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+      ctx_trace_printf(eq->ctx, "creating new:");
+      ctx_trace_term(eq->ctx, t1_eq_t2);
+      trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
+    }
+    assert(!eq_graph_check_trail_value(eq, t1_eq_t2, false));
     ivector_push(conflict_data, opposite_term(t1_eq_t2));
     if (conflict_types != NULL) {
       ivector_push(conflict_types, REASON_IS_IN_TRAIL);
