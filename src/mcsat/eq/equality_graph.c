@@ -104,9 +104,25 @@ bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
   return n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR;
 }
 
+static
+bool eq_graph_has_trail_value(const eq_graph_t* eq, term_t t) {
+  t = unsigned_term(t);
+  const variable_db_t* var_db = eq->ctx->var_db;
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+  if (t_var == variable_null) {
+    return false;
+  }
+  const mcsat_trail_t* trail = eq->ctx->trail;
+  return trail_has_value(trail, t_var);
+}
 
+/** Add a value node */
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
+
+/** Is this value registered yet? */
 bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
+
+/** Return the id of a value */
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v);
 
 void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name) {
@@ -1329,16 +1345,6 @@ void eq_graph_pop(eq_graph_t* eq) {
   }
 }
 
-term_t eq_graph_mk_eq(const eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs) {
-  const eq_node_t* lhs_node = eq_graph_get_node_const(eq, lhs);
-  const eq_node_t* rhs_node = eq_graph_get_node_const(eq, rhs);
-  assert(lhs_node->type == EQ_NODE_TERM);
-  assert(rhs_node->type == EQ_NODE_TERM);
-  term_t lhs_term = eq->terms_list.data[lhs_node->index];
-  term_t rhs_term = eq->terms_list.data[rhs_node->index];
-  return mk_eq((term_manager_t*) &eq->tm, lhs_term, rhs_term);
-}
-
 typedef struct {
   eq_node_id_t t1_id;
   eq_node_id_t t2_id;
@@ -1508,6 +1514,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
           assert(rhs_node->type == EQ_NODE_TERM);
           term_t rhs = eq->terms_list.data[rhs_node->index];
           term_t reason = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
+          assert(!eq_graph_has_trail_value(eq, reason));
           ivector_push(reasons_data, reason);
           if (reasons_type != NULL) {
             ivector_push(reasons_type, REASON_IS_IN_TRAIL);
@@ -1627,6 +1634,7 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
     assert(t2_node->type == EQ_NODE_TERM);
     term_t t2 = eq->terms_list.data[t2_node->index];
     term_t t1_eq_t2 = mk_eq((term_manager_t*) &eq->tm, t1, t2);
+    assert(!eq_graph_has_trail_value(eq, t1_eq_t2));
     ivector_push(conflict_data, opposite_term(t1_eq_t2));
     if (conflict_types != NULL) {
       ivector_push(conflict_types, REASON_IS_IN_TRAIL);
