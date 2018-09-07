@@ -32,7 +32,7 @@
 /*
  * States
  */
-typedef enum state_s { */
+typedef enum state_s {
   r0,
   c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13,
   c14, c15, c16, c17, c18, c19, c20,
