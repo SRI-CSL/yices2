@@ -20,8 +20,9 @@
 #include "frontend/yices/yices_lexer.h"
 
 typedef enum state_s {
-  r0, 
-  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14, c15,
+  r0,
+  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13,
+  c14, c15, c16, c17, c18, c19, c20,
   td0, td1, td2, td3,
   t0, t1, t4, t6,
   e0, e1, e3, e5, e7, e10, e11, e12, e14, e15, e16, e17, e19, e20,
@@ -43,13 +44,14 @@ enum actions {
   empty_command,
   exit_next_goto_r0,
   check_next_goto_r0,
+  check_assuming_next_goto_c16,
   push_next_goto_r0,
   pop_next_goto_r0,
   reset_next_goto_r0,
   dump_context_next_goto_r0,
   echo_next_goto_c3,
   include_next_goto_c3,
-  assert_next_push_r0_goto_e0,
+  assert_next_push_c20_goto_e0,
   deftype_next_goto_c2,
   defterm_next_goto_c6,
   showmodel_next_goto_r0,
@@ -65,6 +67,9 @@ enum actions {
   efsolve_next_goto_r0,    // New command: (ef-solve)
   export_next_goto_c3,     // New command: (export-to-dimacs filename)
   implicant_next_goto_r0,  // New command: (show-implicant)
+  unsat_core_next_goto_r0, // (show-unsat-core)
+  unsat_assumptions_next_goto_r0, // (show-unsat-assumptions)
+
   typename_next_goto_c10,  // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,     // string argument to echo, include, help, export
   termname_next_goto_c7,   // token must be a free termname (TK_SYMBOL)
@@ -77,6 +82,12 @@ enum actions {
   ret,                     // return
   push_r0_goto_e0,
   push_r0_goto_td0,
+
+  symbol_next_goto_c16,    // positive assumption
+  next_goto_c17,
+  not_next_goto_c18,
+  symbol_next_goto_c19,   // negated assumption
+  next_goto_c16,
 
   int_return,
   real_return,
@@ -160,7 +171,7 @@ enum actions {
   bv_slt_next_push_e3_goto_e0,
   bv_shl_next_push_e3_goto_e0,
   bv_lshr_next_push_e3_goto_e0,
-  bv_ashr_next_push_e3_goto_e0,  
+  bv_ashr_next_push_e3_goto_e0,
   bv_div_next_push_e3_goto_e0,
   bv_rem_next_push_e3_goto_e0,
   bv_sdiv_next_push_e3_goto_e0,
@@ -178,7 +189,7 @@ enum actions {
   mod_next_push_e3_goto_e0,
   divides_next_push_e3_goto_e0,
   is_int_next_push_e3_goto_e0,
-  
+
   update_next_push_e5_goto_e0,
   forall_next_goto_e10,
   exists_next_goto_e10,
@@ -198,7 +209,7 @@ enum actions {
 
   next_goto_e16,
   next_goto_e17,
-  termname_next_push_e19_goto_e0,  // name in binding 
+  termname_next_push_e19_goto_e0,  // name in binding
   next_goto_e20,
 
   error_lpar_expected,
@@ -207,6 +218,8 @@ enum actions {
   error_colon_colon_expected,
   error_rational_expected,
   error_rpar_expected,
+  error_not_expected,
+  error_not_a_command,
   error,
 };
 
@@ -217,13 +230,14 @@ static triple_t triples[] = {
 
   { c1, TK_EXIT, "exit_next_goto_r0" },
   { c1, TK_CHECK, "check_next_goto_r0" },
+  { c1, TK_CHECK_ASSUMING, "check_assuming_next_goto_c16" },
   { c1, TK_PUSH, "push_next_goto_r0" },
   { c1, TK_POP, "pop_next_goto_r0" },
   { c1, TK_RESET, "reset_next_goto_r0" },
   { c1, TK_DUMP_CONTEXT, "dump_context_next_goto_r0" },
   { c1, TK_ECHO, "echo_next_goto_c3" },
   { c1, TK_INCLUDE, "include_next_goto_c3" },
-  { c1, TK_ASSERT, "assert_next_push_r0_goto_e0" },
+  { c1, TK_ASSERT, "assert_next_push_c20_goto_e0" },
   { c1, TK_DEFINE_TYPE, "deftype_next_goto_c2" },
   { c1, TK_DEFINE, "defterm_next_goto_c6" },
   { c1, TK_SHOW_MODEL, "showmodel_next_goto_r0" },
@@ -239,6 +253,9 @@ static triple_t triples[] = {
   { c1, TK_EF_SOLVE, "efsolve_next_goto_r0" },
   { c1, TK_EXPORT_TO_DIMACS, "export_next_goto_c3" },
   { c1, TK_SHOW_IMPLICANT, "implicant_next_goto_r0" },
+  { c1, TK_SHOW_UNSAT_CORE, "unsat_core_next_goto_r0" },
+  { c1, TK_SHOW_UNSAT_ASSUMPTIONS, "unsat_assumptions_next_goto_r0" },
+  { c1, TK_SYMBOL, "error_not_a_command" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -276,6 +293,7 @@ static triple_t triples[] = {
   { c15, TK_DEFINE, "symbol_next_goto_r0" },
   { c15, TK_ASSERT, "symbol_next_goto_r0" },
   { c15, TK_CHECK, "symbol_next_goto_r0" },
+  { c15, TK_CHECK_ASSUMING, "symbol_next_goto_r0" },
   { c15, TK_PUSH, "symbol_next_goto_r0" },
   { c15, TK_POP, "symbol_next_goto_r0" },
   { c15, TK_RESET, "symbol_next_goto_r0" },
@@ -296,6 +314,8 @@ static triple_t triples[] = {
   { c15, TK_EF_SOLVE, "symbol_next_goto_r0" },
   { c15, TK_EXPORT_TO_DIMACS, "symbol_next_goto_r0" },
   { c15, TK_SHOW_IMPLICANT, "symbol_next_goto_r0" },
+  { c15, TK_SHOW_UNSAT_CORE, "symbol_next_goto_r0" },
+  { c15, TK_SHOW_UNSAT_ASSUMPTIONS, "symbol_next_goto_r0" },
   { c15, TK_UPDATE, "symbol_next_goto_r0" },
   { c15, TK_FORALL, "symbol_next_goto_r0" },
   { c15, TK_EXISTS, "symbol_next_goto_r0" },
@@ -389,6 +409,23 @@ static triple_t triples[] = {
   { c15, TK_SYMBOL, "symbol_next_goto_r0" },
   { c15, TK_STRING, "string_next_goto_r0" },
   { c15, TK_RP, "ret" },
+
+  // list of assumptions
+  { c16, TK_RP, "ret" },
+  { c16, TK_SYMBOL, "symbol_next_goto_c16" },
+  { c16, TK_LP, "next_goto_c17" },
+
+  { c17, TK_NOT, "not_next_goto_c18" },
+  { c17, DEFAULT_TOKEN, "error_not_expected" },
+
+  { c18, TK_SYMBOL, "symbol_next_goto_c19" },
+  { c18, DEFAULT_TOKEN, "error_symbol_expected" },
+
+  { c19, TK_RP, "next_goto_c16" },
+  { c19, DEFAULT_TOKEN, "error_rpar_expected" },
+
+  { c20, TK_RP, "ret" },
+  { c20, TK_SYMBOL, "symbol_next_goto_r0" },
 
   { td0, TK_INT, "int_return" },
   { td0, TK_REAL, "real_return" },
@@ -548,7 +585,7 @@ static triple_t triples[] = {
 
   { e19, TK_RP, "next_goto_e20" },
   { e19, DEFAULT_TOKEN, "error_rpar_expected" },
-  
+
   { e20, TK_LP, "next_goto_e17" },
   { e20, TK_RP, "next_push_r0_goto_e0" },
 

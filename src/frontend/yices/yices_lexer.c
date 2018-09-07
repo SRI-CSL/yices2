@@ -163,6 +163,7 @@ static keyword_t yices_keywords[] = {
   { "define", TK_DEFINE },
   { "assert", TK_ASSERT },
   { "check", TK_CHECK },
+  { "check-assuming", TK_CHECK_ASSUMING },
   { "push", TK_PUSH },
   { "pop", TK_POP },
   { "reset", TK_RESET },
@@ -183,6 +184,8 @@ static keyword_t yices_keywords[] = {
   { "ef-solve", TK_EF_SOLVE },
   { "export-to-dimacs", TK_EXPORT_TO_DIMACS },
   { "show-implicant", TK_SHOW_IMPLICANT },
+  { "show-unsat-core", TK_SHOW_UNSAT_CORE },
+  { "show-unsat-assumptions", TK_SHOW_UNSAT_ASSUMPTIONS },
 
   // end-marker
   { NULL, 0 },
