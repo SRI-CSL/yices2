@@ -4383,7 +4383,7 @@ def yices_check_context_with_assumptions(ctx, params, n, t):
     that is, a subset of the n assumptions that is inconsistent with ctx.
     """
     assert(ctx is not None)
-    return libyices.check_context_with_assumptions(ctx, params, n, t)
+    return libyices.yices_check_context_with_assumptions(ctx, params, n, t)
 
 
 # int32_t yices_assert_blocking_clause(context_t *ctx)
