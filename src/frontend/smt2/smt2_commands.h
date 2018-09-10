@@ -54,7 +54,7 @@
 #include "io/tracer.h"
 #include "frontend/smt2/assumption_table.h"
 #include "frontend/smt2/smt2_expressions.h"
-#include "frontend/common.h"
+// #include "frontend/common.h"
 
 #include "context/context_parameters.h"
 #include "exists_forall/ef_client.h"

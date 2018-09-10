@@ -342,9 +342,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case check_assuming_next_goto_c16:
-      // TBD: tstack_push_op(tstack, CHECK_ASSUMING_CMD, &loc);
-      tstack_push_op(tstack, ECHO_CMD, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, CHECK_ASSUMING_CMD, &loc);
       state = c16;
       goto loop;
 
@@ -461,16 +459,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case unsat_core_next_goto_r0:
-      // TBD: tstack_push_op(tstack, SHOW_UNSAT_CORE_CMD, &loc);
-      tstack_push_op(tstack, ECHO_CMD, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SHOW_UNSAT_CORE_CMD, &loc);
       state = r0;
       goto loop;
 
     case unsat_assumptions_next_goto_r0:
-      // TBD: tstack_push_op(tstack, SHOW_UNSAT_ASSUMPTIONS_CMD, &loc);
-      tstack_push_op(tstack, ECHO_CMD, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SHOW_UNSAT_ASSUMPTIONS_CMD, &loc);
       state = r0;
       goto loop;
 
@@ -546,7 +540,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case symbol_next_goto_c16:
       // positive assumption in check-assuming
-      // TBD: tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c16;
       goto loop;
 
@@ -560,7 +554,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case symbol_next_goto_c19:
       // negative assumption in check-assuming
-      // TBD: tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c19;
       goto loop;
 

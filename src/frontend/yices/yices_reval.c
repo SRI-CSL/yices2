@@ -71,7 +71,9 @@
 #include "context/context_parameters.h"
 #include "context/dump_context.h"
 #include "exists_forall/ef_client.h"
-#include "frontend/common.h"
+#include "frontend/common/bug_report.h"
+#include "frontend/common/parameters.h"
+#include "frontend/common/tables.h"
 #include "frontend/yices/arith_solver_codes.h"
 #include "frontend/yices/yices_help.h"
 #include "frontend/yices/yices_lexer.h"
@@ -2648,6 +2650,12 @@ static void yices_show_implicant_cmd(void) {
 }
 
 
+/*
+ * UNSAT CORES
+ */
+
+
+
 /*************************
  *  TERM STACK WRAPPERS  *
  ************************/
@@ -2821,9 +2829,11 @@ static void eval_include_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  */
 static void check_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, ASSERT_CMD);
-  check_size(stack, n == 1);
+  check_size(stack, n == 1 || n == 2);
+  if (n == 2) check_tag(stack, f+1, TAG_SYMBOL);
 }
 
+// TODO: handle tagged assertions
 static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
@@ -3070,6 +3080,50 @@ static void eval_showimplicant_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n)
 
 
 /*
+ * [check-assuming ...]
+ */
+static void check_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, CHECK_ASSUMING_CMD);
+}
+
+static void eval_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  printf("check-assuming\n");
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [show-unsat-core]
+ */
+static void check_show_unsat_core_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_UNSAT_CORE_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_show_unsat_core_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  printf("show-unsat-core\n");
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [show-unsat-assumptions]
+ */
+static void check_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_UNSAT_ASSUMPTIONS_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  printf("show-unsat-assumptions\n");
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * Initialize the term stack and add these commmands
  */
 static void init_yices_tstack(tstack_t *stack) {
@@ -3097,6 +3151,11 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, EFSOLVE_CMD, false, eval_efsolve_cmd, check_efsolve_cmd);
   tstack_add_op(stack, EXPORT_CMD, false, eval_export_cmd, check_export_cmd);
   tstack_add_op(stack, SHOW_IMPLICANT_CMD, false, eval_showimplicant_cmd, check_showimplicant_cmd);
+
+  tstack_add_op(stack, CHECK_ASSUMING_CMD, false, eval_check_assuming_cmd, check_check_assuming_cmd);
+  tstack_add_op(stack, SHOW_UNSAT_CORE_CMD, false, eval_show_unsat_core_cmd, check_show_unsat_core_cmd);
+  tstack_add_op(stack, SHOW_UNSAT_ASSUMPTIONS_CMD, false, eval_show_unsat_assumptions_cmd, check_show_unsat_assumptions_cmd);
+
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }
 

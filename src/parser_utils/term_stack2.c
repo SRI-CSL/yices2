@@ -1594,6 +1594,32 @@ static bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
 }
 
 
+/*
+ * Convert e to a signed symbol (i.e., pair name/polarity).
+ * This does not make a copy of the string.
+ * Raise an exception if e has tag other than TAG_SYMBOL and TAG_NOT_SYMBOL.
+ */
+void get_signed_symbol(tstack_t *stack, stack_elem_t *e, signed_symbol_t *s) {
+  switch (e->tag) {
+  case TAG_SYMBOL:
+    s->name = e->val.string;
+    s->polarity = true;
+    break;
+
+  case TAG_NOT_SYMBOL:
+    s->name = e->val.string;
+    s->polarity = false;
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
+    break;
+  }
+}
+
+
+
+
 
 /*
  * Bitsize of element e

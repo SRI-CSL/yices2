@@ -88,9 +88,9 @@ srcdir = src
 srcsubdirs = \
     io terms utils solvers solvers/floyd_warshall solvers/funs \
     solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
-    parser_utils model scratch api frontend frontend/smt1 \
-    frontend/yices frontend/smt2 context exists_forall \
-    mcsat mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/utils
+    parser_utils model scratch api frontend frontend/common \
+    frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
+    mcsat mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/utils \
 
 testdir = tests/unit
 regressdir = tests/regress
