@@ -352,8 +352,10 @@ extra_src_c := \
 	context/context_printer.c \
 	context/dump_context.c \
 	context/internalization_printer.c \
+	frontend/common/assumptions_and_core.c \
 	frontend/common/assumption_table.c \
 	frontend/common/bug_report.c \
+	frontend/common/named_term_stacks.c \
 	frontend/common/parameters.c \
 	frontend/common/tables.c \
 	frontend/smt1/smt_lexer.c \
