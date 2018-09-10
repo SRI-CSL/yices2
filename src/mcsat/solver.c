@@ -1367,7 +1367,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
   if (consistent) {
     decided = mcsat_decide_one_of(mcsat, &unassigned);
   }
-  if(!(propagated || !consistent || decided)) {
+  if(trace_enabled(mcsat->ctx->trace, "mcsat::lemma") && !(propagated || !consistent || decided)) {
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
   assert(propagated || !consistent || decided);
