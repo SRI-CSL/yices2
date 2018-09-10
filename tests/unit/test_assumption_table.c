@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "frontend/smt2/assumption_table.h"
+#include "frontend/common/assumption_table.h"
 #include "utils/int_vectors.h"
 
 static void print_assumption(FILE *f, assumption_t *a) {

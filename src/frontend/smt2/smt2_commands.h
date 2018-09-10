@@ -52,7 +52,7 @@
 #include "parser_utils/term_stack2.h"
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
-#include "frontend/smt2/assumption_table.h"
+#include "frontend/common/assumption_table.h"
 #include "frontend/smt2/smt2_expressions.h"
 
 #include "context/context_parameters.h"
