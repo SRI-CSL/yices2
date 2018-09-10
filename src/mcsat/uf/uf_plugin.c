@@ -45,8 +45,10 @@
 #include "terms/term_manager.h"
 #include "yices.h"
 
+#include "inttypes.h"
+
 typedef enum {
-  PROPAGATED_BY_EVALUATION,
+  PROPAGATED_BY_UF_PLUGIN,
   PROPAGATED_BY_EQ_GRAPH
 } uf_propagation_source_t;
 
@@ -98,10 +100,10 @@ typedef struct {
   eq_graph_t eq_graph;
 
   /** List of propagated variables */
-  ivector_t propagated_vars;
+  ivector_t propagated_by_eq_graph_list;
 
   /** Map from variables, to reason of propagation */
-  int_hmap_t propagation_source;
+  int_hmap_t propagated_by_eq_graph;
 
   /** Exception handler */
   jmp_buf* exception;
@@ -145,8 +147,8 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
 
   // Propagation
-  init_ivector(&uf->propagated_vars, 0);
-  init_int_hmap(&uf->propagation_source, 0);
+  init_ivector(&uf->propagated_by_eq_graph_list, 0);
+  init_int_hmap(&uf->propagated_by_eq_graph, 0);
 
   // Term manager
   init_term_manager(&uf->tm, uf->ctx->terms);
@@ -167,8 +169,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
   eq_graph_destruct(&uf->eq_graph);
-  delete_ivector(&uf->propagated_vars);
-  delete_int_hmap(&uf->propagation_source);
+  delete_ivector(&uf->propagated_by_eq_graph_list);
+  delete_int_hmap(&uf->propagated_by_eq_graph);
   delete_term_manager(&uf->tm);
 }
 
@@ -219,10 +221,12 @@ void uf_plugin_propagate_var(uf_plugin_t* uf, trail_token_t* prop, variable_t x,
   } else {
     prop->add_at_level(prop, x, v, level);
   }
-  int_hmap_pair_t* find = int_hmap_get(&uf->propagation_source, x);
-  assert(find->val < 0);
-  find->val = source;
-  ivector_push(&uf->propagated_vars, x);
+  if (source == PROPAGATED_BY_EQ_GRAPH) {
+    int_hmap_pair_t* find = int_hmap_get(&uf->propagated_by_eq_graph, x);
+    assert(find->val < 0);
+    find->val = 1;
+    ivector_push(&uf->propagated_by_eq_graph_list, x);
+  }
 }
 
 static
@@ -301,9 +305,9 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
 
     assert (!trail_has_value(trail, eq_term_var));
     if (lhs_eq_rhs) {
-      uf_plugin_propagate_var(uf, prop, eq_term_var, &mcsat_value_true, PROPAGATED_BY_EVALUATION, level);
+      uf_plugin_propagate_var(uf, prop, eq_term_var, &mcsat_value_true, PROPAGATED_BY_UF_PLUGIN, level);
     } else {
-      uf_plugin_propagate_var(uf, prop, eq_term_var, &mcsat_value_false, PROPAGATED_BY_EVALUATION, level);
+      uf_plugin_propagate_var(uf, prop, eq_term_var, &mcsat_value_false, PROPAGATED_BY_UF_PLUGIN, level);
     }
   }
 
@@ -503,9 +507,9 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
         // Evaluate the equality if it doesn't have a value
         if (!trail_has_value(trail, eq_var)) {
           if (lhs_eq_rhs) {
-            uf_plugin_propagate_var(uf, prop, eq_var, &mcsat_value_true, PROPAGATED_BY_EVALUATION, -1);
+            uf_plugin_propagate_var(uf, prop, eq_var, &mcsat_value_true, PROPAGATED_BY_UF_PLUGIN, -1);
           } else {
-            uf_plugin_propagate_var(uf, prop, eq_var, &mcsat_value_false, PROPAGATED_BY_EVALUATION, -1);
+            uf_plugin_propagate_var(uf, prop, eq_var, &mcsat_value_false, PROPAGATED_BY_UF_PLUGIN, -1);
           }
         } else {
           // Equality already has a value, check that it's the right one
@@ -528,7 +532,7 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
         variable_t lhs = var_list[0];
         variable_t rhs = var_list[1] == eq_var ? var_list[2] : var_list[1];
 
-        // Is the equailty true
+        // Is the equality true
         bool eq_true = trail_get_boolean_value(trail, eq_var);
 
         // Get the value of the right-hand side (have to cast, since yices rationals
@@ -551,7 +555,7 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
             q_set32(&q, rhs_val_int);
             mcsat_value_t value;
             mcsat_value_construct_rational(&value, &q);
-            prop->add(prop, lhs, &value);
+            uf_plugin_propagate_var(uf, prop, lhs, &value, PROPAGATED_BY_UF_PLUGIN, -1);
             mcsat_value_destruct(&value);
             q_clear(&q);
           }
@@ -817,7 +821,7 @@ void uf_plugin_push(plugin_t* plugin) {
       &uf->trail_i,
       &uf->app_reps_with_val_rep.size,
       &uf->all_apps.size,
-      &uf->propagated_vars.size,
+      &uf->propagated_by_eq_graph_list.size,
       NULL);
 
   app_reps_push(&uf->app_reps);
@@ -831,14 +835,14 @@ void uf_plugin_pop(plugin_t* plugin) {
 
   uint32_t old_app_reps_with_val_rep_size;
   uint32_t old_all_apps_size;
-  uint32_t propagated_vars_size;
+  uint32_t old_propagated_vars_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
       &uf->trail_i,
       &old_app_reps_with_val_rep_size,
       &old_all_apps_size,
-      &propagated_vars_size,
+      &old_propagated_vars_size,
       NULL);
 
   while (uf->app_reps_with_val_rep.size > old_app_reps_with_val_rep_size) {
@@ -852,11 +856,11 @@ void uf_plugin_pop(plugin_t* plugin) {
     ivector_pop(&uf->all_apps);
   }
 
-  while (uf->propagated_vars.size > propagated_vars_size) {
-    variable_t x = ivector_pop2(&uf->propagated_vars);
-    int_hmap_pair_t* find = int_hmap_find(&uf->propagation_source, x);
+  while (uf->propagated_by_eq_graph_list.size > old_propagated_vars_size) {
+    variable_t x = ivector_pop2(&uf->propagated_by_eq_graph_list);
+    int_hmap_pair_t* find = int_hmap_find(&uf->propagated_by_eq_graph, x);
     assert(find != NULL);
-    int_hmap_erase(&uf->propagation_source, find);
+    int_hmap_erase(&uf->propagated_by_eq_graph, find);
   }
 
   app_reps_pop(&uf->app_reps);
@@ -992,19 +996,20 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
   // We only propagate equalities due to evaluation, so the reason is the
   // literal itself
 
-  term_t atom = variable_db_get_term(var_db, var);
+  term_t var_term = variable_db_get_term(var_db, var);
 
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_explain_propagation():\n");
-    ctx_trace_term(uf->ctx, atom);
+    ctx_trace_term(uf->ctx, var_term);
+    ctx_trace_printf(uf->ctx, "var = %"PRIu32"\n", var);
   }
 
-  type_kind_t type_kind = term_type_kind(terms, atom);
+  type_kind_t type_kind = term_type_kind(terms, var_term);
 
   // If equality propagation, just explain it
-  int_hmap_pair_t* find = int_hmap_find(&uf->propagation_source, var);
-  if (find->val == PROPAGATED_BY_EQ_GRAPH) {
-    return bool2term(eq_graph_explain_term_propagation(&uf->eq_graph, atom, reasons, NULL));
+  int_hmap_pair_t* find = int_hmap_find(&uf->propagated_by_eq_graph, var);
+  if (find != NULL) {
+    return eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL);
   }
 
   if (type_kind == BOOL_TYPE) {
@@ -1016,11 +1021,11 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
     if (value) {
       // atom => atom = true
-      ivector_push(reasons, atom);
+      ivector_push(reasons, var_term);
       return bool2term(true);
     } else {
       // neg atom => atom = false
-      ivector_push(reasons, opposite_term(atom));
+      ivector_push(reasons, opposite_term(var_term));
       return bool2term(false);
     }
   } else {

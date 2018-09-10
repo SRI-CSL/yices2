@@ -944,6 +944,12 @@ const mcsat_value_t* eq_graph_get_value(const eq_graph_t* eq, eq_node_id_t n_id)
   return eq->values_list.data + n->index;
 }
 
+static inline
+term_t eq_graph_get_term(const eq_graph_t* eq, eq_node_id_t n_id) {
+  const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+  assert(n->type == EQ_NODE_TERM);
+  return eq->terms_list.data[n->index];
+}
 static
 void eq_graph_eq_assigned_to_value(eq_graph_t* eq, eq_node_id_t eq_id, eq_node_id_t v_id) {
   const mcsat_value_t* v = eq_graph_get_value(eq, v_id);
@@ -1355,6 +1361,121 @@ typedef struct {
   eq_node_id_t t2_id;
 } explain_result_t;
 
+static
+explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type);
+
+void eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+    ctx_trace_printf(eq->ctx, "explaining:");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
+    ctx_trace_printf(eq->ctx, " == ");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
+    ctx_trace_printf(eq->ctx, " because of %s\n", eq_graph_reason_to_string(e->reason.type));
+  }
+
+  const variable_db_t* var_db = eq->ctx->var_db;
+  const mcsat_trail_t* trail = eq->ctx->trail;
+
+  // Add to reason
+  switch (e->reason.type) {
+  case REASON_IS_IN_TRAIL: {
+    variable_t reason_var = e->reason.data;
+    // Boolean trail variables we just take as reasons
+    if (variable_db_is_boolean(var_db, reason_var)) {
+      bool reason_value = trail_get_boolean_value(trail, reason_var);
+      term_t reason_term = variable_db_get_term(var_db, reason_var);
+      // Negate if false
+      reason_term = reason_value ? reason_term : opposite_term(reason_term);
+      ivector_push(reasons_data, reason_term);
+      if (reasons_type != NULL) {
+        ivector_push(reasons_type, REASON_IS_IN_TRAIL);
+      }
+    }
+    break;
+  }
+  case REASON_IS_USER: {
+    ivector_push(reasons_data, e->reason.data);
+    if (reasons_type != NULL) {
+      ivector_push(reasons_type, REASON_IS_USER);
+    }
+    break;
+  }
+  case REASON_IS_FUNCTION_DEF:
+  case REASON_IS_CONSTANT_DEF:
+    // No reason, just definition, continue
+    break;
+  case REASON_IS_CONGRUENCE: {
+    // Get the reasons of the arguments
+    // We are guaranteed that these are top-level function nodes
+    const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
+    const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
+    while (*u_c != eq_node_null) {
+      assert(*v_c != eq_node_null);
+      if (*u_c != *v_c) {
+        eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type);
+      }
+      u_c ++;
+      v_c ++;
+    }
+    assert (*v_c == eq_node_null);
+    break;
+  }
+  case REASON_IS_TRUE_EQUALITY: {
+    // Get the reason of the equality
+    eq_node_id_t eq_id = e->reason.data;
+    eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
+    break;
+  }
+  case REASON_IS_REFLEXIVITY: {
+    // Get the reason of the equality
+    eq_node_id_t eq_id = e->reason.data;
+    const eq_node_t* eq_node = eq_graph_get_node_const(eq, eq_id);
+    assert(eq_node->type == EQ_NODE_EQ_PAIR);
+    eq_node_id_t lhs_id = eq->pair_list.data[eq_node->index];
+    eq_node_id_t rhs_id = eq->pair_list.data[eq_node->index+1];
+    eq_graph_explain(eq, lhs_id, rhs_id, reasons_data, reasons_type);
+    break;
+  }
+  case REASON_IS_EVALUATION: {
+    // Get the reason of the equality
+    eq_node_id_t eq_id = e->reason.data;
+    const eq_node_t* eq_node = eq_graph_get_node_const(eq, eq_id);
+    assert(eq_node->type == EQ_NODE_EQ_PAIR);
+    eq_node_id_t lhs_id = eq->pair_list.data[eq_node->index];
+    eq_node_id_t rhs_id = eq->pair_list.data[eq_node->index + 1];
+    const eq_node_t* lhs_node = eq_graph_get_node_const(eq, lhs_id);
+    const eq_node_t* rhs_node = eq_graph_get_node_const(eq, rhs_id);
+    // Explain lhs = lhs_value
+    eq_node_id_t lhs_value_id = lhs_node->find;
+    assert(eq_graph_is_value(eq, lhs_value_id));
+    explain_result_t lhs_explain = eq_graph_explain(eq, lhs_id, lhs_value_id, reasons_data, reasons_type);
+    // Explain rhs = rhs_value
+    eq_node_id_t rhs_value_id = rhs_node->find;
+    assert(eq_graph_is_value(eq, rhs_value_id));
+    explain_result_t rhs_explain = eq_graph_explain(eq, rhs_id, rhs_value_id, reasons_data, reasons_type);
+    // Part of explanation also lhs_value != rhs_value
+    assert(lhs_explain.t2_id != eq_node_null);
+    term_t lhs_t = eq_graph_get_term(eq, lhs_explain.t2_id);
+    assert(rhs_explain.t2_id != eq_node_null);
+    term_t rhs_t = eq_graph_get_term(eq, rhs_explain.t2_id);
+    term_t reason_eq = mk_eq((term_manager_t*) &eq->tm, lhs_t, rhs_t);
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+      ctx_trace_printf(eq->ctx, "creating new:");
+      ctx_trace_term(eq->ctx, reason_eq);
+      trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
+    }
+    ivector_push(reasons_data, opposite_term(reason_eq));
+    if (reasons_type != NULL) {
+      ivector_push(reasons_type, REASON_IS_IN_TRAIL);
+    }
+    break;
+  }
+  default:
+    assert(false);
+  }
+}
+
 /**
  * Explain why n1 is equal to n2 (both terms or values).
  *
@@ -1419,6 +1540,8 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
   }
 
   // Don't explain same nodes
+  assert (n1_id != eq_node_null);
+  assert (n2_id != eq_node_null);
   assert (n1_id != n2_id);
 
   // Run BFS:
@@ -1482,9 +1605,6 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
   explain_result_t result = { eq_node_null, eq_node_null };
 
-  const variable_db_t* var_db = eq->ctx->var_db;
-  const mcsat_trail_t* trail = eq->ctx->trail;
-
   // Start from the back
   eq_node_id_t n_id = n2_id;
 
@@ -1496,7 +1616,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
   bool passed_value = false;
 
   // Reconstruct the path
-  while (n_id != n1_id) {
+  for(;;) {
 
     // The node
     const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
@@ -1549,83 +1669,16 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
     // Relevant path edge of the node
     int_hmap_pair_t* find = int_hmap_find(&edges_used, n_id);
     eq_edge_id_t n_edge = find->val;
+    // If we hit the end marker, we're done
+    if (n_edge == INT32_MAX) {
+      break;
+    }
+
     const eq_edge_t* e = eq->edges + n_edge;
     assert(e->v == n_id);
 
-    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-      ctx_trace_printf(eq->ctx, "explaining:");
-      eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
-      ctx_trace_printf(eq->ctx, " == ");
-      eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->v), ctx_trace_out(eq->ctx), true);
-      ctx_trace_printf(eq->ctx, " because of %s\n", eq_graph_reason_to_string(e->reason.type));
-    }
-
-    // Add to reason
-    switch (e->reason.type) {
-    case REASON_IS_IN_TRAIL: {
-      variable_t reason_var = e->reason.data;
-      // Boolean trail variables we just take as reasons
-      if (variable_db_is_boolean(var_db, reason_var)) {
-        bool reason_value = trail_get_boolean_value(trail, reason_var);
-        term_t reason_term = variable_db_get_term(var_db, reason_var);
-        // Negate if false
-        reason_term = reason_value ? reason_term : opposite_term(reason_term);
-        ivector_push(reasons_data, reason_term);
-        if (reasons_type != NULL) {
-          ivector_push(reasons_type, REASON_IS_IN_TRAIL);
-        }
-      } else {
-        // Non-Boolean trail variables, we will remember as first and last above
-        assert(t_after == eq_node_null);
-      }
-      break;
-    }
-    case REASON_IS_USER: {
-      ivector_push(reasons_data, e->reason.data);
-      if (reasons_type != NULL) {
-        ivector_push(reasons_type, REASON_IS_USER);
-      }
-      break;
-    }
-    case REASON_IS_FUNCTION_DEF:
-    case REASON_IS_CONSTANT_DEF:
-      // No reason, just definition, continue
-      break;
-    case REASON_IS_CONGRUENCE: {
-      // Get the reasons of the arguments
-      // We are guaranteed that these are top-level function nodes
-      const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
-      const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
-      while (*u_c != eq_node_null) {
-        assert(*v_c != eq_node_null);
-        if (*u_c != *v_c) {
-          eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type);
-        }
-        u_c ++;
-        v_c ++;
-      }
-      assert (*v_c == eq_node_null);
-      break;
-    }
-    case REASON_IS_TRUE_EQUALITY: {
-      // Get the reason of the equality
-      eq_node_id_t eq_id = e->reason.data;
-      eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
-      break;
-    }
-    case REASON_IS_REFLEXIVITY: {
-      // Get the reason of the equality
-      eq_node_id_t eq_id = e->reason.data;
-      const eq_node_t* eq_node = eq_graph_get_node_const(eq, eq_id);
-      assert(eq_node->type == EQ_NODE_EQ_PAIR);
-      eq_node_id_t lhs_id = eq->pair_list.data[eq_node->index];
-      eq_node_id_t rhs_id = eq->pair_list.data[eq_node->index+1];
-      eq_graph_explain(eq, lhs_id, rhs_id, reasons_data, reasons_type);
-      break;
-    }
-    default:
-      assert(false);
-    }
+    // Explain the edge
+    eq_graph_explain_edge(eq, e, reasons_data, reasons_type);
 
     // Next back in the path
     n_id = e->u;
@@ -1633,6 +1686,8 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
   delete_int_hmap(&edges_used);
   delete_ivector(&bfs_queue);
+
+  assert(result.t2_id != eq_node_null);
 
   return result;
 }
