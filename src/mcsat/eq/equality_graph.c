@@ -1659,7 +1659,11 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
       ctx_trace_term(eq->ctx, t1_eq_t2);
       trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
     }
-    assert(!eq_graph_check_trail_value(eq, t1_eq_t2, false));
+    // This one can have value here: e.g., when f(x) != f(y) is asserted
+    // and f(x) -> 0, f(y) -> 1 is asserted. If the we're explaining why
+    // 0 = 1, if it's due to congruence f(x) = f(y), we need add
+    // explanation f(x) != f(y)
+    // assert(!eq_graph_check_trail_value(eq, t1_eq_t2, false));
     ivector_push(conflict_data, opposite_term(t1_eq_t2));
     if (conflict_types != NULL) {
       ivector_push(conflict_types, REASON_IS_IN_TRAIL);
