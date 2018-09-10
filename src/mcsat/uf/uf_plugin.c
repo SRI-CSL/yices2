@@ -309,7 +309,6 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
 
   // Add terms to equality graph lhs, rhs, and (lhs = rhs)
   eq_graph_add_ifun_term(&uf->eq_graph, eq_term, EQ_TERM, 2, eq_desc->arg);
-  uf_plugin_process_eq_graph_propagations(uf, prop);
 }
 
 static
@@ -765,6 +764,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     return;
   }
 
+  // First, propagate any late equality graph propagation
+  uf_plugin_process_eq_graph_propagations(uf, prop);
+
   // Context
   const mcsat_trail_t* trail = uf->ctx->trail;
   variable_db_t* var_db = uf->ctx->var_db;
@@ -779,7 +781,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       ctx_trace_printf(uf->ctx, "uf_plugin_propagate: ");
       ctx_trace_term(uf->ctx, variable_db_get_term(var_db, var));
       ctx_trace_printf(uf->ctx, "trail: ");
-      trail_print(trail, stderr);
+      trail_print(trail, ctx_trace_out(uf->ctx));
     }
 
     // Propagate function applications

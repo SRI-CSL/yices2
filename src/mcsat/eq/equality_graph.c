@@ -1688,6 +1688,7 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
 
   eq_node_id_t t_id = eq_graph_term_id(eq, t);
   const eq_node_t* t_node = eq_graph_get_node_const(eq, t_id);
+  assert(t_node->type == EQ_NODE_TERM);
   eq_node_id_t v_id = t_node->find;
   assert(eq_graph_get_node_const(eq, v_id)->type == EQ_NODE_VALUE);
   explain_result_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types);
