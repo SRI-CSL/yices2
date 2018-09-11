@@ -1356,15 +1356,28 @@ void eq_graph_pop(eq_graph_t* eq) {
   }
 }
 
+term_t eq_graph_mk_eq(const eq_graph_t* eq, term_t lhs, term_t rhs) {
+  assert(!is_boolean_term(eq->ctx->terms, lhs));
+  assert(!is_boolean_term(eq->ctx->terms, rhs));
+  term_t result = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
+    ctx_trace_printf(eq->ctx, "created new:");
+    ctx_trace_term(eq->ctx, result);
+    trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
+  }
+  return result;
+}
+
 typedef struct {
-  eq_node_id_t t_first_id;
-  eq_node_id_t t_last_id;
+  eq_node_id_t t_first;
+  eq_node_id_t t_last;
 } explain_result_t;
 
 static
 explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type);
 
-void eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type) {
+/** Will update the result. Edges are traversed from the back of the path backwards. */
+void eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type, explain_result_t* r) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
     ctx_trace_printf(eq->ctx, "explaining:");
@@ -1457,16 +1470,9 @@ void eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* 
     assert(eq_graph_is_value(eq, rhs_value_id));
     explain_result_t rhs_explain = eq_graph_explain(eq, rhs_id, rhs_value_id, reasons_data, reasons_type);
     // Part of explanation also lhs_value != rhs_value
-    assert(lhs_explain.t_last_id != eq_node_null);
-    term_t lhs_t = eq_graph_get_term(eq, lhs_explain.t_last_id);
-    assert(rhs_explain.t_last_id != eq_node_null);
-    term_t rhs_t = eq_graph_get_term(eq, rhs_explain.t_last_id);
-    term_t reason_eq = mk_eq((term_manager_t*) &eq->tm, lhs_t, rhs_t);
-    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-      ctx_trace_printf(eq->ctx, "creating new:");
-      ctx_trace_term(eq->ctx, reason_eq);
-      trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
-    }
+    assert(lhs_explain.t_last != NULL_TERM);
+    assert(rhs_explain.t_last != NULL_TERM);
+    term_t reason_eq = eq_graph_mk_eq(eq, lhs_explain.t_last, rhs_explain.t_last);
     ivector_push(reasons_data, opposite_term(reason_eq));
     if (reasons_type != NULL) {
       ivector_push(reasons_type, REASON_IS_IN_TRAIL);
@@ -1609,15 +1615,15 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
   assert(path_found);
 
-  explain_result_t result = { eq_node_null, eq_node_null };
+  explain_result_t result = { NULL_TERM, NULL_TERM };
 
   // Start from the back
   eq_node_id_t n_id = n2_id;
 
   // First term node before a value
-  eq_node_id_t t_before = eq_node_null;
+  term_t t_before_v = NULL_TERM;
   // First term node after a value
-  eq_node_id_t t_after = eq_node_null;
+  term_t t_after_v = NULL_TERM;
   // Mark when we passed a value
   bool passed_value = false;
 
@@ -1635,27 +1641,17 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
 
     if (n->type == EQ_NODE_TERM) {
       // Remember the first and last term nodes on the path (we're going reverse order)
-      if (result.t_last_id == eq_node_null) {
-        result.t_last_id = n_id;
+      term_t n_term = eq_graph_get_term(eq, n_id);
+      if (result.t_last == NULL_TERM) {
+        result.t_last = n_term;
       }
-      result.t_first_id = n_id;
+      result.t_first = n_term;
       // Remember the nodes that are left and right from values
       if (passed_value) {
-        t_after = n_id;
-        if (t_before != eq_node_null) {
+        t_after_v = n_term;
+        if (t_before_v != NULL_TERM) {
           // We now add to explanation that before = after
-          const eq_node_t* lhs_node = eq_graph_get_node_const(eq, t_before);
-          assert(lhs_node->type == EQ_NODE_TERM);
-          term_t lhs = eq->terms_list.data[lhs_node->index];
-          const eq_node_t* rhs_node = eq_graph_get_node_const(eq, t_after);
-          assert(rhs_node->type == EQ_NODE_TERM);
-          term_t rhs = eq->terms_list.data[rhs_node->index];
-          term_t reason = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
-          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-            ctx_trace_printf(eq->ctx, "creating new:");
-            ctx_trace_term(eq->ctx, reason);
-            trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
-          }
+          term_t reason = eq_graph_mk_eq(eq, t_before_v, t_after_v);
           assert(eq_graph_check_trail_value(eq, reason, true));
           ivector_push(reasons_data, reason);
           if (reasons_type != NULL) {
@@ -1664,10 +1660,10 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
         }
         // Reset
         passed_value = false;
-        t_before = eq_node_null;
-        t_after = eq_node_null;
+        t_before_v = NULL_TERM;
+        t_after_v = NULL_TERM;
       } else {
-        t_before = n_id;
+        t_before_v = n_term;
       }
     }
 
@@ -1690,7 +1686,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
     assert(e->v == n_id);
 
     // Explain the edge
-    eq_graph_explain_edge(eq, e, reasons_data, reasons_type);
+    eq_graph_explain_edge(eq, e, reasons_data, reasons_type, &result);
 
     // Next back in the path
     n_id = e->u;
@@ -1699,7 +1695,7 @@ explain_result_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_n
   delete_int_hmap(&edges_used);
   delete_ivector(&bfs_queue);
 
-  assert(result.t_last_id != eq_node_null);
+  assert(result.t_last != NULL_TERM);
 
   // This is false: it can happen, for example
   // (= x y) - [= x y] - false, where last edge is due to evaluation
@@ -1720,19 +1716,8 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
   explain_result_t result = eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types);
   // Add t1 != t2 in the result if not boolean
   bool boolean_conflict = eq->conflict_lhs == eq->true_node_id || eq->conflict_rhs == eq->true_node_id;
-  if (!boolean_conflict && result.t_first_id != result.t_last_id) {
-    const eq_node_t* t1_node = eq_graph_get_node_const(eq, result.t_first_id);
-    assert(t1_node->type == EQ_NODE_TERM);
-    term_t t1 = eq->terms_list.data[t1_node->index];
-    const eq_node_t* t2_node = eq_graph_get_node_const(eq, result.t_last_id);
-    assert(t2_node->type == EQ_NODE_TERM);
-    term_t t2 = eq->terms_list.data[t2_node->index];
-    term_t t1_eq_t2 = mk_eq((term_manager_t*) &eq->tm, t1, t2);
-    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
-      ctx_trace_printf(eq->ctx, "creating new:");
-      ctx_trace_term(eq->ctx, t1_eq_t2);
-      trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
-    }
+  if (!boolean_conflict && result.t_first != result.t_last) {
+    term_t t1_eq_t2 = eq_graph_mk_eq(eq, result.t_first, result.t_last);
     // This one can have value here: e.g., when f(x) != f(y) is asserted
     // and f(x) -> 0, f(y) -> 1 is asserted. If the we're explaining why
     // 0 = 1, if it's due to congruence f(x) = f(y), we need add
@@ -1766,13 +1751,9 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   eq_node_id_t v_id = t_node->find;
   assert(eq_graph_get_node_const(eq, v_id)->type == EQ_NODE_VALUE);
   explain_result_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types);
-  assert(result.t_last_id != eq_node_null);
-  const eq_node_t* t2_node = eq_graph_get_node_const(eq, result.t_last_id);
-  assert(t2_node->type == EQ_NODE_TERM);
-  term_t t2 = eq->terms_list.data[t2_node->index];
+  assert(result.t_last != NULL_TERM);
 
-
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate") && t2 == t) {
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate") && result.t_last == t) {
     ctx_trace_printf(eq->ctx, "eq_graph_explain_term_propagation[%s]()\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
     ctx_trace_printf(eq->ctx, "t = ");
@@ -1789,7 +1770,7 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   // If it doesn't evaluate do false, i.e., if x - a - 0, y - b - 1, we need
   // to return (= a b) as substitution for (= x y).
   //
-  assert(t2 != t);
-  return t2;
+  assert(result.t_last != t);
+  return result.t_last;
 }
 
