@@ -36,6 +36,8 @@
 // EXPERIMENT
 #include <locale.h>
 
+
+#include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
@@ -44,7 +46,6 @@
 
 #include "yices.h"
 #include "yices_exit_codes.h"
-#include "common.h"
 
 
 /*

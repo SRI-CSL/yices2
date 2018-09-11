@@ -100,6 +100,7 @@ define-type,            TK_DEFINE_TYPE
 define,                 TK_DEFINE
 assert,                 TK_ASSERT
 check,                  TK_CHECK
+check-assuming,         TK_CHECK_ASSUMING
 echo,                   TK_ECHO
 push,                   TK_PUSH
 pop,                    TK_POP
@@ -120,3 +121,5 @@ help,                   TK_HELP
 ef-solve,		TK_EF_SOLVE
 export-to-dimacs,       TK_EXPORT_TO_DIMACS
 show-implicant,         TK_SHOW_IMPLICANT
+show-unsat-core,        TK_SHOW_UNSAT_CORE
+show-unsat-assumptions, TK_SHOW_UNSAT_ASSUMPTIONS

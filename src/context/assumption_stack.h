@@ -86,7 +86,7 @@ typedef struct hash_index_s {
 
 
 /*
- * Stack + two index
+ * Stack + two indexes
  * - data = stack content
  * - size = size of the data array
  * - top = index of the top of the stack 

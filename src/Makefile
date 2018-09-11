@@ -352,11 +352,15 @@ extra_src_c := \
 	context/context_printer.c \
 	context/dump_context.c \
 	context/internalization_printer.c \
-	frontend/common.c \
+	frontend/common/assumptions_and_core.c \
+	frontend/common/assumption_table.c \
+	frontend/common/bug_report.c \
+	frontend/common/named_term_stacks.c \
+	frontend/common/parameters.c \
+	frontend/common/tables.c \
 	frontend/smt1/smt_lexer.c \
 	frontend/smt1/smt_parser.c \
 	frontend/smt1/smt_term_stack.c \
-	frontend/smt2/assumption_table.c \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
@@ -366,6 +370,7 @@ extra_src_c := \
 	frontend/smt2/smt2_printer.c \
 	frontend/smt2/smt2_term_stack.c \
 	frontend/yices/arith_solver_codes.c \
+	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
 	model/large_bvsets.c \

@@ -38,7 +38,7 @@ enum yices_opcodes {
   DEF_YICES_TYPE = NUM_BASE_OPCODES, // [define-type ...]
   DEF_YICES_TERM,                    // [define ...]
   EXIT_CMD,                          // [exit]
-  ASSERT_CMD,                        // [assert <term>]
+  ASSERT_CMD,                        // [assert <term>] or [assert <term> <symbol>]
   CHECK_CMD,                         // [check]
   SHOWMODEL_CMD,                     // [show-model]
   EVAL_CMD,                          // [eval <term>]
@@ -58,6 +58,11 @@ enum yices_opcodes {
   EFSOLVE_CMD,                       // [ef-solve]
   EXPORT_CMD,                        // [export <string>]
   SHOW_IMPLICANT_CMD,                // [show-implicant]
+
+  CHECK_ASSUMING_CMD,                // [check-assuming <list of assumptions>]
+  SHOW_UNSAT_CORE_CMD,               // [show-unsat-core]
+  SHOW_UNSAT_ASSUMPTIONS_CMD,        // [show-unsat-assumptions]
+
   DUMP_CMD,                          // [dump]
 };
 
