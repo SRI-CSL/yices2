@@ -71,10 +71,12 @@
 #include "context/context_parameters.h"
 #include "context/dump_context.h"
 #include "exists_forall/ef_client.h"
+#include "frontend/common/assumptions_and_core.h"
 #include "frontend/common/bug_report.h"
 #include "frontend/common/parameters.h"
 #include "frontend/common/tables.h"
 #include "frontend/yices/arith_solver_codes.h"
+#include "frontend/yices/labeled_assertions.h"
 #include "frontend/yices/yices_help.h"
 #include "frontend/yices/yices_lexer.h"
 #include "frontend/yices/yices_parser.h"
@@ -94,13 +96,12 @@
 #include "utils/command_line.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
+#include "utils/refcount_strings.h"
 #include "utils/string_utils.h"
 #include "utils/timeout.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
-
-
 
 
 /********************
@@ -174,6 +175,7 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 
+
 /*
  * Context, model, and solver parameters
  */
@@ -200,7 +202,6 @@ static ivector_t delayed_assertions;
  */
 static double ready_time, check_process_time;
 
-
 /*
  * Parameters for preprocessing and simplifications
  * - these parameters are stored in the context but
@@ -213,6 +214,12 @@ static ctx_param_t ctx_parameters;
  * The exists forall client globals
  */
 static ef_client_t ef_client_globals;
+
+/*
+ * Stack of labeled assertions (for unsat core)
+ */
+static labeled_assertion_stack_t labeled_assertions;
+
 
 
 /**************************
@@ -605,7 +612,7 @@ static void process_command_line(int argc, char *argv[]) {
       }
     }
     if (arch == CTX_ARCH_MCSAT && mode_code == CTX_MODE_INTERACTIVE) {
-      fprintf(stderr, "%s: the nonlinear solver does not support mode='interactive'\n", parser.command_name);
+      fprintf(stderr, "%s: the non-linear solver does not support mode='interactive'\n", parser.command_name);
       goto bad_usage;
     }
   }
@@ -886,6 +893,7 @@ static void report_eval_error(int32_t code) {
   }
 }
 
+
 /*
  * Error code from show-implicant
  */
@@ -913,6 +921,9 @@ static void report_show_implicant_error(error_code_t code) {
     break;
   }
 }
+
+
+
 
 /***************************
  *  MODEL ALLOCATION/FREE  *
@@ -1930,6 +1941,7 @@ static void yices_reset_cmd(void) {
       free_model(model);
       model = NULL;
     }
+    reset_labeled_assertion_stack(&labeled_assertions);
     ivector_reset(&delayed_assertions);
     reset_context(context);
   }
@@ -1960,6 +1972,7 @@ static void yices_push_cmd(void) {
 
     case STATUS_IDLE:
       context_push(context);
+      labeled_assertions_push(&labeled_assertions);
       print_ok();
       break;
 
@@ -2005,6 +2018,8 @@ static void yices_pop_cmd(void) {
       // fall-through intended
     case STATUS_IDLE:
       context_pop(context);
+      assert(!labeled_assertions_empty_trail(&labeled_assertions));
+      labeled_assertions_pop(&labeled_assertions);
       print_ok();
       break;
 
@@ -2094,6 +2109,31 @@ static void yices_assert_cmd(term_t f) {
 	break;
       }
     }
+  }
+}
+
+
+/*
+ * assert with a label
+ */
+static void yices_named_assert_cmd(term_t t, char *label) {
+  char *clone;
+
+  if (efmode) {
+    report_error("labeled assertions are not supported byt the exists/forall solver");
+  } else if (mode == CTX_MODE_ONECHECK) {
+    report_error("labeled assertions are not supported in one-shot mode");
+  } else if (arch == CTX_ARCH_MCSAT) {
+    report_error("the non-linear solver does not support labled assertions");
+  } else if (labeled_assertions_has_name(&labeled_assertions, label)) {
+    report_error("duplicate assertion label"); 
+  } else if (!yices_term_is_bool(t)) {
+    report_error("type error in assert: boolean term required");
+  } else {
+    // TBD
+    printf("adding labeled assertion: name = %s\n", label);
+    clone = clone_string(label);
+    add_labeled_assertion(&labeled_assertions, t, clone);
   }
 }
 
@@ -2825,7 +2865,7 @@ static void eval_include_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [assert <term>]
+ * [assert <term>] or [assert <term> <label> ]
  */
 static void check_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, ASSERT_CMD);
@@ -2838,7 +2878,11 @@ static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  yices_assert_cmd(t);
+  if (n == 1) {
+    yices_assert_cmd(t);
+  } else {
+    yices_named_assert_cmd(t, f[1].val.string);
+  }
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -3213,6 +3257,7 @@ int yices_main(int argc, char *argv[]) {
   init_parameter_name_table();
 
   init_ef_client(&ef_client_globals);
+  init_labeled_assertion_stack(&labeled_assertions);
   
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
@@ -3280,6 +3325,7 @@ int yices_main(int argc, char *argv[]) {
   } else {
     close_lexer(&lexer);
   }
+  delete_labeled_assertion_stack(&labeled_assertions);
   delete_tstack(&stack);
   delete_ivector(&delayed_assertions);
   if (tracer != NULL) {

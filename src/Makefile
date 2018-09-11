@@ -370,6 +370,7 @@ extra_src_c := \
 	frontend/smt2/smt2_printer.c \
 	frontend/smt2/smt2_term_stack.c \
 	frontend/yices/arith_solver_codes.c \
+	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
 	model/large_bvsets.c \
