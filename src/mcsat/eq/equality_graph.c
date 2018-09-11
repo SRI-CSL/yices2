@@ -1751,5 +1751,19 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   const eq_node_t* t2_node = eq_graph_get_node_const(eq, result.t2_id);
   assert(t2_node->type == EQ_NODE_TERM);
   term_t t2 = eq->terms_list.data[t2_node->index];
+
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate") && t2 == t) {
+    ctx_trace_printf(eq->ctx, "eq_graph_explain_term_propagation[%s]()\n", eq->name);
+    eq_graph_print(eq, ctx_trace_out(eq->ctx));
+    ctx_trace_printf(eq->ctx, "t = ");
+    ctx_trace_term(eq->ctx, t);
+    ctx_trace_printf(eq->ctx, "v = ");
+    mcsat_value_print(eq_graph_get_value(eq, v_id), ctx_trace_out(eq->ctx));
+    ctx_trace_printf(eq->ctx, "\n");
+  }
+
+  assert(t2 != t);
   return t2;
 }
+

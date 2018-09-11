@@ -257,6 +257,17 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
 
   // Substitute
   disjunct_subst = variable_db_substitute_subvariable(conflict->var_db, disjunct_pos, var, substitution);
+  if (trace_enabled(conflict->tracer, "mcsat::conflict") && disjunct_pos == disjunct_subst) {
+    mcsat_trace_printf(conflict->tracer, "disjunct_pos = ");
+    trace_term_ln(conflict->tracer, conflict->terms, disjunct_pos);
+    mcsat_trace_printf(conflict->tracer, "var = ");
+    term_t var_term = variable_db_get_term(conflict->var_db, var);
+    trace_term_ln(conflict->tracer, conflict->terms, var_term);
+    mcsat_trace_printf(conflict->tracer, "substitution = ");
+    trace_term_ln(conflict->tracer, conflict->terms, substitution);
+    mcsat_trace_printf(conflict->tracer, "disjunct_subst = ");
+    trace_term_ln(conflict->tracer, conflict->terms, disjunct_subst);
+  }
   assert(disjunct_pos != disjunct_subst);
   if (disjunct_pos != disjunct) {
     disjunct_subst = opposite_term(disjunct_subst);
