@@ -53,7 +53,6 @@
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
 #include "frontend/common/assumptions_and_core.h"
-#include "frontend/common/assumption_table.h"
 #include "frontend/common/named_term_stacks.h"
 #include "frontend/smt2/smt2_expressions.h"
 

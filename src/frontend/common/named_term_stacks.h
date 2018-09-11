@@ -79,4 +79,15 @@ extern void delete_named_term_stack(named_term_stack_t *s);
  */
 extern void reset_named_term_stack(named_term_stack_t *s);
 
+
+/*
+ * Top pointer
+ */
+static inline uint32_t named_term_stack_top(const named_term_stack_t *s) {
+  return s->top;
+}
+
+
+
+
 #endif /* __NAMED_TERM_STACKS_H */
