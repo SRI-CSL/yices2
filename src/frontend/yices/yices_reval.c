@@ -2124,7 +2124,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
   } else if (mode == CTX_MODE_ONECHECK) {
     report_error("labeled assertions are not supported in one-shot mode");
   } else if (arch == CTX_ARCH_MCSAT) {
-    report_error("the non-linear solver does not support labled assertions");
+    report_error("the non-linear solver does not support labeled assertions");
   } else if (labeled_assertions_has_name(&labeled_assertions, label)) {
     report_error("duplicate assertion label"); 
   } else if (!yices_term_is_bool(t)) {
