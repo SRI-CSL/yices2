@@ -4252,7 +4252,6 @@ libyices.yices_new_context.argtypes = [ctx_config_t]
 @catch_error(-1)
 def yices_new_context(config):
     """Returns a newly allocated context; a context is a stack of assertions."""
-    assert(config is not None)
     return libyices.yices_new_context(config)
 
 # void yices_free_context(context_t *ctx)
@@ -4510,6 +4509,17 @@ def yices_model_from_map(n, var, mp):
     the model is no longer used, it must be deleted by calling yices_free_model.
     """
     return libyices.yices_model_from_map(n, var, mp)
+
+#void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v)
+libyices.yices_model_collect_defined_terms.argtypes = [model_t, POINTER(term_vector_t)]
+@catch_error(-1)
+def yices_model_collect_defined_terms(mdl, v):
+    """Collects all the uninterpreted terms that have a value in mdl and store them in v.
+
+    - v must be an initialized term vector
+    """
+    return libyices.yices_model_collect_defined_terms(mdl, v)
+
 
 
 ########################
