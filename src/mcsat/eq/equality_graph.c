@@ -1135,10 +1135,6 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s]()\n", eq->name);
   }
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
-    trail_print(eq->ctx->trail, ctx_trace_out(eq->ctx));
-    eq_graph_print(eq, ctx_trace_out(eq->ctx));
-  }
 
   const mcsat_trail_t* trail = eq->ctx->trail;
   variable_db_t* var_db = eq->ctx->var_db;
@@ -1153,12 +1149,6 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       eq_graph_assert_eq(eq, v_id, x_id, REASON_IS_IN_TRAIL, x);
     }
   }
-
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
-    ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail[%s](): done\n", eq->name);
-    eq_graph_print(eq, ctx_trace_out(eq->ctx));
-  }
-
 }
 
 void eq_graph_push(eq_graph_t* eq) {
@@ -1784,7 +1774,6 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate") && result.t2 == t) {
     ctx_trace_printf(eq->ctx, "eq_graph_explain_term_propagation[%s]()\n", eq->name);
-    eq_graph_print(eq, ctx_trace_out(eq->ctx));
     ctx_trace_printf(eq->ctx, "t = ");
     ctx_trace_term(eq->ctx, t);
     ctx_trace_printf(eq->ctx, "v = ");

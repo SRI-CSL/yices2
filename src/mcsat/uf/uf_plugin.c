@@ -768,8 +768,18 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     return;
   }
 
-  // First, propagate any late equality graph propagation
-  uf_plugin_process_eq_graph_propagations(uf, prop);
+  // Propagate known terms
+  eq_graph_propagate_trail(&uf->eq_graph);
+
+  // Check for conflicts
+  if (uf->eq_graph.in_conflict) {
+    // Report conflict
+    prop->conflict(prop);
+    // Construct the conflict
+    eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL);
+  } else {
+    uf_plugin_process_eq_graph_propagations(uf, prop);
+  }
 
   // Context
   const mcsat_trail_t* trail = uf->ctx->trail;
@@ -796,18 +806,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     // Propagate equalities
     if (trail_is_consistent(trail)) {
       uf_plugin_propagate_eqs(uf, var, prop);
-    }
-
-    // Propagate known terms
-    eq_graph_propagate_trail(&uf->eq_graph);
-    // Check for conflicts
-    if (uf->eq_graph.in_conflict) {
-      // Report conflict
-      prop->conflict(prop);
-      // Construct the conflict
-      eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL);
-    } else {
-      uf_plugin_process_eq_graph_propagations(uf, prop);
     }
   }
 }
