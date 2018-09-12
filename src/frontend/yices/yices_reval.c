@@ -964,6 +964,34 @@ static void report_show_implicant_error(error_code_t code) {
 }
 
 
+/*
+ * Undefined term in an assumption
+ */
+static void report_undefined_term(const char *name) {
+  reader_t *rd;
+
+  rd = &parser.lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  }
+  fprintf(stderr, "undefined term %s\n", name);
+}
+
+
+/*
+ * Not a boolean term
+ */
+static void report_not_boolean_term(const char *name) {
+  reader_t *rd;
+
+  rd = &parser.lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  }
+  fprintf(stderr, "term %s is not Boolean\n", name);
+}
+
+
 
 
 /***************************
@@ -2305,6 +2333,7 @@ static smt_status_t do_check(void) {
 /*
  * Check with assumptions and build a core:
  * - a = assumption structure: every term in a->assumptions must be a valid, boolean term
+ * - return STATUS_ERROR if an assumption can't be processed
  */
 static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   ivector_t aux;
@@ -2369,15 +2398,58 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
  */
 static smt_status_t check_unsat_core(void) {
   assumptions_and_core_t *a;
+  smt_status_t status;
 
   assert(unsat_core == NULL && unsat_assumptions == NULL);
   a = new_assumptions(__yices_globals.terms);
   collect_assumptions_from_stack(a, &labeled_assertions.assertions);
-  unsat_core = a;
 
-  return do_check_with_assumptions(a);
+  status = do_check_with_assumptions(a);
+  if (status == STATUS_ERROR) {
+    // cleanup
+    free_assumptions(a);
+  } else {
+    unsat_core = a;
+  }
+
+  return status;
 }
 
+
+/*
+ * Compute an unsat core from a set of signed assumptions
+ */
+static smt_status_t check_assuming(uint32_t n, const signed_symbol_t *s) {
+  assumptions_and_core_t *a;
+  smt_status_t status;
+  uint32_t index;
+  int32_t code;
+
+  assert(unsat_core == NULL && unsat_assumptions == NULL);
+  a = new_assumptions(__yices_globals.terms);
+
+  code = collect_assumptions_from_signed_symbols(a, n, s, &index);
+  if (code < 0) {
+    // failed to process an assumption
+    assert(0 <= index && index < n);
+    if (code == -1) {
+      report_undefined_term(s[index].name);
+    } else {
+      report_not_boolean_term(s[index].name);
+    }
+    free_assumptions(a);
+    return STATUS_ERROR;
+  }
+
+  status = do_check_with_assumptions(a);
+  if (status == STATUS_ERROR) {
+    free_assumptions(a);
+  } else {
+    unsat_assumptions = a;
+  }
+
+  return status;
+}
 
 
 /*
@@ -2472,6 +2544,7 @@ static void yices_check_cmd(void) {
 	    }
 	  } else {
 	    // force quit
+	    done = true;
 	  }
 	}
       }
@@ -2486,7 +2559,47 @@ static void yices_check_cmd(void) {
     }
 
   }
+}
 
+
+/*
+ * Check with assumptions
+ * - a = array of n assumptions
+ * - each assumption is given by a signed symbol
+ */
+static void yices_check_assuming_cmd(uint32_t n, const signed_symbol_t *a) {
+  smt_status_t status;
+
+  if (efmode) {
+    report_error("(check-assuming) is not supported by the exists/forall solver");
+  } else if (mode == CTX_MODE_ONECHECK) {
+    report_error("(check-assuming) is not supported in one-shot mode");
+  } else if (arch == CTX_ARCH_MCSAT) {
+    report_error("the non-linear solver does not support (check-assuming)");
+  } else if (! labeled_assertion_stack_is_empty(&labeled_assertions)) {
+    report_error("can't use check-assuming when there are labeled assertions");
+  } else {
+    cleanup_context();
+
+    status = check_assuming(n, a);
+    if (status != STATUS_ERROR) {
+      print_status(status);
+    }
+    if (status == STATUS_INTERRUPTED) {
+      if (mode == CTX_MODE_INTERACTIVE) {
+	// recover
+	context_cleanup(context);
+	assert(context_status(context) == STATUS_IDLE);
+	if (unsat_assumptions != NULL) {
+	  free_assumptions(unsat_assumptions);
+	  unsat_assumptions = NULL;
+	}
+      } else {
+	// force exit
+	done = true;
+      }
+    }
+  }
 }
 
 /*
@@ -3466,7 +3579,14 @@ static void check_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t 
 }
 
 static void eval_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  printf("check-assuming\n");
+  signed_symbol_t *buffer;
+  uint32_t i;
+
+  buffer = get_sbuffer(stack, n);
+  for (i=0; i<n; i++) {
+    get_signed_symbol(stack, f+i, buffer+i);
+  }
+  yices_check_assuming_cmd(n, buffer);
   tstack_pop_frame(stack);
   no_result(stack);
 }
