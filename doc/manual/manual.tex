@@ -2535,6 +2535,33 @@ Once the context is unsatisfiable, any new assertion is treated as an
 error.
 
 
+\subsubsection*{Labeled Assertions}
+
+An optional label can be provided for assertions as follows:
+\begin{small}
+\begin{verbatim}
+   (assert formula label)
+\end{verbatim}
+\end{small}
+In this command, the \texttt{formula} must be a Boolean term and the
+\texttt{label} must be a symbol. Yices uses a separate name space for
+storing these labels, so the same symbol can be used as a type name or
+a term name.
+
+\medskip\noindent
+The label identifies the assertion as relevant to unsat core If a call
+to \texttt{(check)} returns \texttt{unsat}, then a corresponding unsat
+core is a subset of all the labeled assertions that is inconsistent
+with the context. Comman \texttt{(show-unsat-core)} displays this
+unsat core by listing the labels of all the assertions in the core.
+
+\medskip\noindent The labeled assertions must have distinct
+labels. Yices will complain if the label provided is already used. The
+set of labeled assertions is maintained in a stack like regular
+assertions. For example, labeled assertions may be removed by a call
+to \texttt{(pop)} or \texttt{(reset)}.
+
+
 \subsubsection*{Check}
 
 The command
@@ -2582,6 +2609,39 @@ examined and modified, using the command \texttt{show-params} and
 interrupted (by CTRL-C), then the result will be displayed as
 \texttt{interrupted}.
 
+\subsubsection*{Check With Assumptions}
+
+The command
+\begin{small}
+\begin{verbatim}
+   (check-assuming <assumption> ... <assumption>)
+\end{verbatim}
+\end{small}
+checks whether the current set of assertions together with a list of
+assumptions is satisfiable. If it is not, command
+\texttt{(show-unsat-assumptions)} will provide an unsat core (i.e., a
+subset of the assumptions that are inconsistent with the context).
+
+\medskip\noindent 
+Each assumption must either be the name of a Boolean term or the
+negation of a named Boolean term.  For example, after the following
+definitions:
+\begin{small}
+\begin{verbatim}
+   (define A::bool <expression>)
+\end{verbatim}
+\end{small}
+then both \texttt{A} and \texttt{(not A)} can be used as assumptions.
+
+\medskip\noindent
+It is allowed for the same name to occur several times in the
+assumption list. It is also allowed to give an empyt list of
+assumptions.
+
+\medskip\noindent
+Mixing assumptions and labeled assertions in a context is not
+supported. Command \texttt{(check-assuming ...)} will fail if there
+are labeled assertions.
 
 \subsubsection*{Push, Pop, Reset}
 
@@ -2755,6 +2815,39 @@ The result is displayed as a function specification such as:
 \end{small}
 Yices creates an internal name of the form \texttt{fun!<number>} to
 display the function value.
+
+
+\subsubsection*{Unsat Cores}
+
+If a call to \texttt{(check)} returns \texttt{unsat}, then one can get
+an unsat core by using command
+\begin{small}
+\begin{verbatim}
+  (show-unsat-core)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsat core is a subset of all the labeled assertions in the
+current context. The command will report an error if there are no
+labeled assertions in the context. Otherwise, it will list the labels
+of all the assertions in the core.
+
+
+\subsubsection*{Unsat Assumptions}
+
+If a check with assumptions returns \texttt{unsat}, the following
+command lists an unsatisfiable subset of the assumptions:
+\begin{small}
+\begin{verbatim}
+  (show-unsat-assumptions)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsatisfiable subset is displayed as a list of assumptions. It is
+possible for this subset to be empty, if the context is unsatisfiable
+on its own.
 
 \subsubsection*{Implicants}
 
