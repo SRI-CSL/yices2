@@ -546,7 +546,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
    (check):  check whether the context is satisfiable
 
-   (check-assuming <assumptions>*):  check with a set of assumptions
+   (check-assuming <assumptions>* ):  check with a set of assumptions
 
    (push):  start a new assertion scope
 
