@@ -572,6 +572,7 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
           ivector_reset(&uf->conflict);
           uf_feasible_set_db_get_conflict(uf->feasible, lhs, &uf->conflict);
           prop->conflict(prop);
+          assert(false); // EQ should catch
         }
       }
 
@@ -717,6 +718,7 @@ void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* pr
             }
             uf_plugin_get_app_conflict(uf, app_var, val_rep_var);
             prop->conflict(prop);
+            assert(false); // EQ should catch
           }
         }
       }
@@ -745,6 +747,7 @@ void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* pr
           }
           uf_plugin_get_app_conflict(uf, var, val_rep_var);
           prop->conflict(prop);
+          assert(false); // EQ should catch
         }
       }
     }
