@@ -2929,6 +2929,11 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
     //    validate_unsat_core(g);
     report_status(g, status);
+
+    if (status == STATUS_ERROR) {
+      free_assumptions(g->unsat_core);
+      g->unsat_core = NULL;
+    }
   }
 }
 
@@ -2964,6 +2969,12 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+
+      if (status == STATUS_ERROR) {
+	// cleanup
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
     }
   }
 }
@@ -3170,6 +3181,10 @@ static void ctx_unsat_core(smt2_globals_t *g) {
       }
       stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
       show_status(stat);
+      if (stat == STATUS_ERROR) {
+	free_assumptions(g->unsat_core);
+	g->unsat_core = NULL;
+      }
       break;
 
     case STATUS_SAT:
@@ -3209,6 +3224,10 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+      if (status == STATUS_ERROR) {
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
       break;
 
     case STATUS_UNSAT:
