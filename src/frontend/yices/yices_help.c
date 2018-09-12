@@ -157,7 +157,6 @@ static const help_record_t help_data[] = {
     "(define x :: int)\n"
     "(define f :: (-> T bool)\n" },
 
-
   { HCOMMAND,
     "(define [name] :: [type] [expr])",
     "Define a new constant",
@@ -172,14 +171,24 @@ static const help_record_t help_data[] = {
     "   [expr] must be a Boolean expression\n",
     "(assert (or (= a (f 10)) (/= x (g (g a)))))\n" },
 
-  // check: index 5
+  { HCOMMAND,
+    "(assert [expr] [label])",
+    "Add a labeled assertion to the logic context",
+    "   [expr] must be a Boolean expression\n"
+    "   [label] must be a symbol\n"
+    "\n"
+    "If a context is unsatisfiable, (show-unsat-core) prints\n"
+    "the labels of assertions that form an unsat core.\n",
+    "(assert (< x 0) X_NEGATIVE)\n" },
+
+  // check: index 6
   { HCOMMAND,
     "(check)",
     "Check whether the logical context is satisfiable",
     NULL,
     NULL  },
 
-  // push: index 6
+  // push: index 7
   { HCOMMAND,
     "(push)",
     "Start a new assertion scope",
@@ -189,7 +198,7 @@ static const help_record_t help_data[] = {
     "'--mode=one-shot' or '--mode=multi-checks'.\n" ,
     NULL },
 
-  // pop: index 7
+  // pop: index 8
   { HCOMMAND,
     "(pop)",
     "Remove all assertions added since the matching (push)",
@@ -199,14 +208,14 @@ static const help_record_t help_data[] = {
     "'--mode=one-shot' or '--mode=multi-checks'\n",
     NULL },
 
-  // reset: index 8
+  // reset: index 9
   { HCOMMAND,
     "(reset)",
     "Reset the logical context (to the empty context)",
     "All assertions are removed, Type and term declarations are kept.\n",
     NULL },
 
-  // show-model: index 9
+  // show-model: index 10
   { HCOMMAND,
     "(show-model)",
     "Show the current model",
@@ -214,28 +223,28 @@ static const help_record_t help_data[] = {
     "that returns 'sat' or 'unknown'.\n",
     NULL },
 
-  // eval: index 10
+  // eval: index 11
   { HCOMMAND,
     "(eval [expr])",
     "Evaluate an expression in the current model",
     "This may be used after a call to (check) that returns 'sat' or 'unknown'.\n",
     "(eval (+ x (* 2 y) -3))\n" },
 
-  // include: index 11
+  // include: index 12
   { HCOMMAND,
     "(include [filename])",
     "Read commands from a file",
     "   [filename] must be given as a string as in \"example.ys\"\n",
     NULL },
 
-  // echo: index 12
+  // echo: index 13
   { HCOMMAND,
     "(echo [string])",
     "Output a message",
     NULL,
     NULL },
 
-  // set-param: index 13
+  // set-param: index 14
   { HCOMMAND,
     "(set-param [name] [value])",
     "Set a parameter",
@@ -249,7 +258,7 @@ static const help_record_t help_data[] = {
     "(set-param flatten false)\n"
   },
 
-  // show-param: index 14
+  // show-param: index 15
   { HCOMMAND,
     "(show-param [name])",
     "Show the value of a parameter",
@@ -258,28 +267,28 @@ static const help_record_t help_data[] = {
     "(show-param branching)\n"
     "(show-param random-seed)\n" },
 
-  // show-params: index 15
+  // show-params: index 16
   { HCOMMAND,
     "(show-params)",
     "Show all parameters and their current value",
     NULL,
     NULL },
 
-  // show-stats: index 16
+  // show-stats: index 17
   { HCOMMAND,
     "(show-stats)",
     "Show statistics",
     "Display various counters and statistics about '(check)'\n",
     NULL},
 
-  // reset-stats: index 17
+  // reset-stats: index 18
   { HCOMMAND,
     "(reset-stats)",
     "Reset the statistics counters",
     NULL,
     NULL },
 
-  // set-timeout: index 18
+  // set-timeout: index 19
   { HCOMMAND,
     "(set-timeout [value])",
     "Give a timeout",
@@ -293,14 +302,14 @@ static const help_record_t help_data[] = {
     NULL,
   },
 
-  // show-timeout: index 19
+  // show-timeout: index 20
   { HCOMMAND,
     "(show-timeout)",
     "Show the timeout value",
     NULL,
     NULL },
 
-  // help: index 20
+  // help: index 21
   { HCOMMAND,
     "(help)",
     "Show a summary of the main commands",
@@ -319,30 +328,30 @@ static const help_record_t help_data[] = {
     "To see the list of all topics: type '(help index)'.\n",
     NULL },
 
-  // exit: index 22
+  // exit: index 23
   { HCOMMAND,
     "(exit)",
     "Quit Yices",
     NULL,
     NULL },
 
-  // bool: index 23
+  // bool: index 24
   { HTYPE, "bool", "Boolean type", NULL, NULL },
 
-  // int: index 24
+  // int: index 25
   { HTYPE, "int", "Integer type", NULL, NULL },
 
-  // real: index 25
+  // real: index 26
   { HTYPE, "real", "Real type", NULL, NULL },
 
-  // bitvector: index 26
+  // bitvector: index 27
   { HTYPE,
     "(bitvector [k])",
     "Bitvectors of [k] bits",
     "   [k] must be positive\n",
     "(bitvector 32)\n" },
 
-  // scalar: index 27
+  // scalar: index 28
   { HTYPE,
     "(define-type [name] (scalar [elem_1] ... [elem_k]))",
     "Enumeration type",
@@ -354,7 +363,7 @@ static const help_record_t help_data[] = {
     "(define-type singleton (scalar A))\n"
     "(define-type day (scalar Mon Tue Wed Thu Fri Sat Sun))\n" },
 
-  // tuple: index 28
+  // tuple: index 29
   { HTYPE,
     "(tuple [type_1] ... [type_n])",
     "Tuple type",
@@ -362,7 +371,7 @@ static const help_record_t help_data[] = {
     "(define p::(tuple int int) (mk-tuple 0 1))\n"
     "(define-type pair (tuple real real))\n" },
 
-  // ->: index 29
+  // ->: index 30
   { HTYPE,
     "(-> [type_1] ... [type_n] [tau])",
     "Function type",
@@ -370,7 +379,7 @@ static const help_record_t help_data[] = {
     "(define-type relation (-> int int bool))\n"
     "(define f :: (-> int int))\n" },
 
-  // ite: index 30
+  // ite: index 31
   { HGENERIC,
     "(ite [condition] [expr1] [expr2])",
     "If-then-else",
@@ -380,28 +389,28 @@ static const help_record_t help_data[] = {
     "The expression '(ite c t1 t2)' means 'if c then t1 else t2'\n",
     "(define min::real (ite (< x y) x y))\n" },
 
-  // if: index 31
+  // if: index 32
   { HGENERIC,
     "(if  [condition] [expr1] [expr2])",
     "If-then-else",
     "'if' is a synonym for 'ite'. Try '(help ite)' for details\n",
     NULL },
 
-  // =: index 32
+  // =: index 33
   { HGENERIC,
     "(=  [expr1] [expr2])",
     "Equality",
     "   [expr1] and [expr2] must have compatible types\n",
     NULL },
 
-  // /=: index 33
+  // /=: index 34
   { HGENERIC,
     "(/= [expr1] [expr2])",
     "Disequality",
     "   [expr1] and [expr2] must have compatible types\n",
     NULL },
 
-  // distinct: index 34
+  // distinct: index 35
   { HGENERIC,
     "(distinct [expr1] [expr2] ... [expr_k])",
     "Distinct",
@@ -410,14 +419,14 @@ static const help_record_t help_data[] = {
     "   (distinct t1 ... tk) is true if t1 ... tk are all different\n",
     NULL },
 
-  // mk-tuple: index 35
+  // mk-tuple: index 36
   { HGENERIC,
     "(mk-tuple [expr1] ... [expr_k])",
     "Tuple constructor",
     NULL,
     NULL },
 
-  // select: index 36
+  // select: index 37
   { HGENERIC,
     "(select [tuple] [index])",
     "Tuple projection",
@@ -426,7 +435,7 @@ static const help_record_t help_data[] = {
     "(select (mk-tuple x y) 2)   is equal to y\n"
     "(select (mk-tuple a) 1)     is equal to a\n" },
 
-  // tuple-update: index 37
+  // tuple-update: index 38
   { HGENERIC,
     "(tuple-update [tuple] [index] [expr])",
     "Tuple update",
@@ -437,7 +446,7 @@ static const help_record_t help_data[] = {
     "   component replaced by e\n",
     "(tuple-update (mk-tuple x y) 2 1)  is equal to (mk-tuple x 1)\n" },
 
-  // update: index 38
+  // update: index 39
   { HGENERIC,
     "(update [function] ([arg_1] ... [arg_n]) [expr])",
     "Function/array update",
@@ -445,41 +454,41 @@ static const help_record_t help_data[] = {
     "   It maps (t_1 ... t_n) to v and agrees with f on all other points.\n",
     NULL },
 
-  // true: index 39
+  // true: index 40
   { HBOOLEAN, "true", "Boolean constant", NULL, NULL },
 
-  // false: index 40
+  // false: index 41
   { HBOOLEAN, "false", "Boolean constant", NULL, NULL },
 
-  // or: index 41
+  // or: index 42
   { HBOOLEAN,
     "(or  [expr_1] ... [expr_n])",
     "Disjunction",
     "   [expr_1] ... [expr_n] must be Boolean expressions\n",
     NULL },
 
-  // and: index 42
+  // and: index 43
   { HBOOLEAN,
     "(and [expr_1] ... [expr_n])",
     "Conjunction",
     "   [expr_1] ... [expr_n] must be Boolean expressions\n",
     NULL },
 
-  // not: index 43
+  // not: index 44
   { HBOOLEAN,
     "(not [expr])",
     "Boolean negation",
     "   [expr] must be a Boolean expression\n",
     NULL },
 
-  // xor: index 44
+  // xor: index 45
   { HBOOLEAN,
     "(xor [expr1] ... [expr_n])",
     "Exclusive or",
     "   [expr_1] ... [expr_n] must be Boolean expressions\n",
     NULL },
 
-  // <=>: index 45
+  // <=>: index 46
   { HBOOLEAN,
     "(<=> [expr1] [expr2])",
     "Boolean equivalence",
@@ -488,7 +497,7 @@ static const help_record_t help_data[] = {
     "   (<=> t1 t2) is the same as (= t1 t2) if t1 and t2 are Boolean\n",
     NULL },
 
-  // =>: index 46
+  // =>: index 47
   { HBOOLEAN,
     "(=>  [expr1] [expr2])",
     "Implication",
@@ -497,14 +506,14 @@ static const help_record_t help_data[] = {
     "'(=> t1 t2)' means 't1 implies t2'\n",
     NULL },
 
-  // +: index 47
+  // +: index 48
   { HARITHMETIC,
     "(+ [expr_1] ... [expr_n])",
     "Addition",
     "   [expr_1] ... [expr_n] must be arithmetic expressions\n",
     NULL },
 
-  // -: index 48
+  // -: index 49
   { HARITHMETIC,
     "(- [expr_1] ... [expr_n])",
     "Subtraction",
@@ -513,21 +522,21 @@ static const help_record_t help_data[] = {
     "   (- t1 t2 t3 ... t_n) is interpreted as t1 - t2 - t3 ... - t_n\n",
     NULL },
 
-  // -: index 49
+  // -: index 50
   { HARITHMETIC,
     "(- [expr])",
     "Negation",
     "   [expr] must be an arithmetic expressions\n",
     NULL },
 
-  // *: index 50
+  // *: index 51
   { HARITHMETIC,
     "(* [expr_1] ... [expr_n])",
     "Product",
     "   [expr_1] ... [expr_n] must be arithmetic expressions\n",
     NULL },
 
-  // /: index 51
+  // /: index 52
   { HARITHMETIC,
     "(/ [expr] [divider])",
     "Division",
@@ -535,7 +544,7 @@ static const help_record_t help_data[] = {
     "   [divider] must be a non-zero arithmetic constant\n",
     "(/ x 2)\n" },
 
-  // ^: index 52
+  // ^: index 53
   { HARITHMETIC,
     "(^ [expr] [exponent])",
     "Exponentiation",
@@ -543,35 +552,35 @@ static const help_record_t help_data[] = {
     "   [exponent] must be a non-negative integer constant\n",
     "(^ (+ x y) 2)\n" },
 
-  // <: index 53
+  // <: index 54
   { HARITHMETIC,
     "(<  [expr1] [expr2])",
     "Less than",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
-  // >: index 54
+  // >: index 55
   { HARITHMETIC,
     "(>  [expr1] [expr2])",
     "Greater than",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
-  // <=: index 55
+  // <=: index 56
   { HARITHMETIC,
     "(<= [expr1] [expr2])",
     "Less than or equal to",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
-  // >=: index 56
+  // >=: index 57
   { HARITHMETIC,
     "(>= [expr1] [expr2])",
     "Greater than or equal to",
     "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
-  // mk-bv: index 57
+  // mk-bv: index 58
   { HBITVECTOR,
     "(mk-bv [size] [value])",
     "Convert an integer into a bitvector constant",
@@ -582,7 +591,7 @@ static const help_record_t help_data[] = {
     "(mk-bv 6 0)     is equal to 0b000000\n"
     "(mk-bv 6 63)    is equal to 0b111111\n"},
 
-  // bv-add: index 58
+  // bv-add: index 59
   { HBITVECTOR,
     "(bv-add [expr1] [expr2])",
     "Bitvector addition",
@@ -590,7 +599,7 @@ static const help_record_t help_data[] = {
     "   the result has the same number of bits as [expr1] and [expr2]\n",
     NULL },
 
-  // bv-sub: index 59
+  // bv-sub: index 60
   { HBITVECTOR,
     "(bv-sub [expr1] [expr2])",
     "Bitvector subtraction",
@@ -598,7 +607,7 @@ static const help_record_t help_data[] = {
     "   the result has the same number of bits as [expr1] and [expr2]\n",
     NULL },
 
-  // bv-mul: index 60
+  // bv-mul: index 61
   { HBITVECTOR,
     "(bv-mul [expr1] [expr2])",
     "Bitvector multiplication",
@@ -606,14 +615,14 @@ static const help_record_t help_data[] = {
     "   the result has the same number of bits as [expr1] and [expr2]\n",
     NULL },
 
-  // bv-neg: index 61
+  // bv-neg: index 62
   { HBITVECTOR,
     "(bv-neg [expr])",
     "Bitvector opposite",
     "   (bv-neg [expr]) is the opposite of [expr] in 2s complement representation\n",
     NULL },
 
-  // bv-pow: index 62
+  // bv-pow: index 63
   { HBITVECTOR,
     "(bv-pow [expr] [exponent])",
     "Bitvector exponentiation",
@@ -622,35 +631,35 @@ static const help_record_t help_data[] = {
     "   the result has the same number of bits as [expr]\n",
     "(bv-pow (bv-add x y) 2)\n" },
 
-  // bv-not: index 63
+  // bv-not: index 64
   { HBITVECTOR,
     "(bv-not [expr])",
     "Bitwise complement",
     NULL,
     NULL },
 
-  // bv-and: index 64
+  // bv-and: index 65
   { HBITVECTOR,
     "(bv-and [expr1] [expr2])",
     "Bitwise and",
     "   [expr1] and [expr2] must be bitvectors of the same size\n",
     NULL },
 
-  // bv-or: index 65
+  // bv-or: index 66
   { HBITVECTOR,
     "(bv-or [expr1] [expr2])",
     "Bitwise or",
     "   [expr1] and [expr2] must be bitvectors of the same size\n",
     NULL },
 
-  // bv-xor: index 66
+  // bv-xor: index 67
   { HBITVECTOR,
     "(bv-xor [expr1] [expr2])",
     "Bitwise exclusive or",
     "   [expr1] and [expr2] must be bitvectors of the same size\n",
     NULL },
 
-  // bv-nand: index 67
+  // bv-nand: index 68
   { HBITVECTOR,
     "(bv-nand [expr1] [expr2])",
     "Bitwise nand",
@@ -659,7 +668,7 @@ static const help_record_t help_data[] = {
     "   (bv-nand x y) is the same as (bv-not (bv-and x y))\n",
     NULL },
 
-  // bv-nor: index 68
+  // bv-nor: index 69
   { HBITVECTOR,
     "(bv-nor [expr1] [expr2])",
     "Bitwise nor",
@@ -668,7 +677,7 @@ static const help_record_t help_data[] = {
     "   (bv-nor x y) is the same as (bv-not (bv-or x y))\n",
     NULL },
 
-  // bv-xnor: index 69
+  // bv-xnor: index 70
   { HBITVECTOR,
     "(bv-xnor [expr1] [expr2])",
     "Bitwise not xor",
@@ -677,7 +686,7 @@ static const help_record_t help_data[] = {
     "   (bv-xnor x y) is the same as (bv-not (bv-xor x y))\n",
     NULL },
 
-  // bv-shift-left0: index 70
+  // bv-shift-left0: index 71
   { HBITVECTOR,
     "(bv-shift-left0 [expr] [shift-amount])",
     "Shift left by a constant, padding with 0",
@@ -685,7 +694,7 @@ static const help_record_t help_data[] = {
     "(bv-shift-left0 0b011000 2)  is equal to 0b100000\n"
     "(bv-shift-left0 0b011000 7)  is incorrect\n" },
 
-  // bv-shift-left1: index 71
+  // bv-shift-left1: index 72
   { HBITVECTOR,
     "(bv-shift-left1 [expr] [shift-amount])",
     "Shift left by a constant, padding with 1",
@@ -693,7 +702,7 @@ static const help_record_t help_data[] = {
     "(bv-shift-left1 0b011000 2)  is equal to 0b100011\n"
     "(bv-shift-left1 0b011000 7)  is incorrect\n" },
 
-  // bv-shift-right0: index 72
+  // bv-shift-right0: index 73
   { HBITVECTOR,
     "(bv-shift-right0 [expr] [shift-amount])",
     "Shift right by a constant, padding with 0",
@@ -701,7 +710,7 @@ static const help_record_t help_data[] = {
     "(bv-shift-right0 0b011000 2)  is equal to 0b000110\n"
     "(bv-shift-right0 0b011000 7)  is incorrect\n" },
 
-  // bv-shift-right1: index 73
+  // bv-shift-right1: index 74
   { HBITVECTOR,
     "(bv-shift-right1 [expr] [shift-amount])",
     "Shift right by a constant, padding with 1",
@@ -709,7 +718,7 @@ static const help_record_t help_data[] = {
     "(bv-shift-right1 0b011000 2)  is equal to 0b110110\n"
     "(bv-shift-right1 0b011000 7)  is incorrect\n" },
 
-  // bv-ashift-right: index 74
+  // bv-ashift-right: index 75
   { HBITVECTOR,
     "(bv-ashift-right [expr] [shift-amount])",
     "Arithmetic shift by a constant",
@@ -719,21 +728,21 @@ static const help_record_t help_data[] = {
     "(bv-ashift-right 0b011000 2)   is equal to 0b000110\n"
     "(bv-ashift-right 0b111000 2)   is equal to 0b111110\n" },
 
-  // bv-rotate-left: index 75
+  // bv-rotate-left: index 76
   { HBITVECTOR,
     "(bv-rotate-left [expr] [shift-amount])",
     "Rotate to the left by a constant amount",
     "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
     "(bv-rotate-left 0b011000 2)  is equal to 0b100001\n" },
 
-  // bv-rotate-right: index 76
+  // bv-rotate-right: index 77
   { HBITVECTOR,
     "(bv-rotate-right [expr] [shift-amount])",
     "Rotate to the right by a constant amount",
     "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
     "(bv-rotate-right 0b011001 2)  is equal to 0b010110\n" },
 
-  // bv-shl: index 77
+  // bv-shl: index 78
   { HBITVECTOR,
     "(bv-shl [expr1] [expr2])",
     "Left shift",
@@ -745,7 +754,7 @@ static const help_record_t help_data[] = {
     "(bv-shl 0b011001 0b000010)  is equal to 0b100100\n"
     "(bv-shl 0b011001 0b110000)  is equal to 0b000000\n" },
 
-  // bv-lshr: index 78
+  // bv-lshr: index 79
   { HBITVECTOR,
     "(bv-lshr [expr1] [expr2])",
     "Logical right shift",
@@ -757,7 +766,7 @@ static const help_record_t help_data[] = {
     "(bv-lshr 0b011001 0b000010)  is equal to 0b000110\n"
     "(bv-lshr 0b011001 0b110000)  is equal to 0b000000\n" },
 
-  // bv-ashr: index 79
+  // bv-ashr: index 80
   { HBITVECTOR,
     "(bv-ashr [expr1] [expr2])",
     "Arithmetic right shift",
@@ -770,7 +779,7 @@ static const help_record_t help_data[] = {
     "(bv-ashr 0b011001 0b000010)  is equal to 0b000110\n"
     "(bv-lshr 0b111001 0b110000)  is equal to 0b111110\n" },
 
-  // bv-extract: index 80
+  // bv-extract: index 81
   { HBITVECTOR,
     "(bv-extract [high] [low] [expr])",
     "Subvector extraction",
@@ -782,14 +791,14 @@ static const help_record_t help_data[] = {
     "(bv-extract 0 3 0b011010)  is equal to 0b1010\n"
     "(bv-extract 1 1 0b011010)  is equal to 0b1\n" },
 
-  /// bv-concat: index 81
+  /// bv-concat: index 82
   { HBITVECTOR,
     "(bv-concat [expr1] [expr2])",
     "Bitvector concatenation",
     NULL,
     "(bv-concat 0b100 0b11101  is equal to 0b10011101\n" },
 
-  // bv-repeat: index 82
+  // bv-repeat: index 83
   { HBITVECTOR,
     "(bv-repeat [expr] [constant])",
     "Repeated concatenation",
@@ -799,7 +808,7 @@ static const help_record_t help_data[] = {
     "(bv-repeat x n) is n copies of x concatenated together\n",
     "(bv-repeat 0b011010 3)   is equal to 0b011010011010011010\n" },
 
-  // bv-sign-extend: index 83
+  // bv-sign-extend: index 84
   { HBITVECTOR,
     "(bv-sign-extend [expr] [constant])",
     "Sign extension",
@@ -811,7 +820,7 @@ static const help_record_t help_data[] = {
     "(bv-sign-extend 0b111010 3) is equal to 0b111111010\n"
     "(bv-sign-extend 0b111010 0) is equal to 0b111010\n" },
 
-  // bv-zero-extend: index 84
+  // bv-zero-extend: index 85
   { HBITVECTOR,
     "(bv-zero-extend [expr] [constant])",
     "Zero extension",
@@ -823,7 +832,7 @@ static const help_record_t help_data[] = {
     "(bv-zero-extend 0b111010 3) is equal to 0b000111010\n"
     "(bv-zero-extend 0b111010 0) is equal to 0b111010\n" },
 
-  // bv-div: index 85
+  // bv-div: index 86
   { HBITVECTOR,
     "(bv-div [expr1] [expr2])",
     "Quotient in unsigned bitvector division",
@@ -835,7 +844,7 @@ static const help_record_t help_data[] = {
     "integer representable using n bits)\n",
     "(bv-div 0b10001 0b00101)  is equal to 0b00011  (i.e., 17 div 5 = 3)\n" },
 
-  // bv-rem: index 86
+  // bv-rem: index 87
   { HBITVECTOR,
     "(bv-rem [expr1] [expr2])",
     "Remainder in unsigned bitvector division",
@@ -846,7 +855,7 @@ static const help_record_t help_data[] = {
     "If y is 0b0...0 then the result is x\n"
     "(bv-rem 0b10001 0b00101)  is equal to 0b00010  (i.e., 17 mod 5 = 2)\n" },
 
-  // bv-sdiv: index 87
+  // bv-sdiv: index 88
   { HBITVECTOR,
     "(bv-sdiv [expr1] [expr2])",
     "Quotient in signed bitvector division (rounding to 0)",
@@ -859,7 +868,7 @@ static const help_record_t help_data[] = {
     "or 0b1...1 (i.e., -1) if x's sign bit is 0.\n",
     NULL },
 
-  // bv-srem: index 88
+  // bv-srem: index 89
   { HBITVECTOR,
     "(bv-srem [expr1] [expr2])",
     "Remainder in signed bitvector division (rounding to 0)",
@@ -871,7 +880,7 @@ static const help_record_t help_data[] = {
     "If y is 0b0...0 then the result is x\n",
     NULL },
 
-  // bv-smod: index 89
+  // bv-smod: index 90
   { HBITVECTOR,
     "(bv-smod [expr1] [expr2])",
     "Remainder in signed bitvector division (rounding to -infinity)",
@@ -883,7 +892,7 @@ static const help_record_t help_data[] = {
     "If y is 0b0...0 then the result is x\n",
     NULL },
 
-  // bv-redand: index 90
+  // bv-redand: index 91
   { HBITVECTOR,
     "(bv-redand [expr])",
     "And reduction",
@@ -894,7 +903,7 @@ static const help_record_t help_data[] = {
     "               or 0b0 otherwise\n",
     NULL },
 
-  // bv-redor: index 91
+  // bv-redor: index 92
   { HBITVECTOR,
     "(bv-redor [expr])",
     "Or reduction",
@@ -905,7 +914,7 @@ static const help_record_t help_data[] = {
     "              or 0b1 otherwise\n",
     NULL },
 
-  // bv-comp: index 92
+  // bv-comp: index 93
   { HBITVECTOR,
     "(bv-comp [expr1] [expr2])",
     "Bitvector comparison",
@@ -916,7 +925,7 @@ static const help_record_t help_data[] = {
     "              or to 0b0 otherwise\n",
     NULL },
 
-  // bv-ge: index 93
+  // bv-ge: index 94
   { HBITVECTOR,
     "(bv-ge [expr1] [expr2])",
     "Unsigned bitvector comparison: greater than or equal to",
@@ -925,7 +934,7 @@ static const help_record_t help_data[] = {
     "(bv-ge x y) is true if x >= y when x and y are interpreted as unsigned integers\n",
     NULL },
 
-  // bv-gt: index 94
+  // bv-gt: index 95
   { HBITVECTOR,
     "(bv-gt [expr1] [expr2])",
     "Unsigned bitvector comparison: greater than",
@@ -934,7 +943,7 @@ static const help_record_t help_data[] = {
     "(bv-gt x y) is true if x > y when x and y are interpreted as unsigned integers\n",
     NULL },
 
-  // bv-le: index 95
+  // bv-le: index 96
   { HBITVECTOR,
     "(bv-le [expr1] [expr2])",
     "Unsigned bitvector comparison: less than or equal to",
@@ -943,7 +952,7 @@ static const help_record_t help_data[] = {
     "(bv-le x y) is true if x <= y when x and y are interpreted as unsigned integers\n",
     NULL },
 
-  // bv-lt: index 96
+  // bv-lt: index 97
   { HBITVECTOR,
     "(bv-lt [expr1] [expr2])",
     "Unsigned bitvector comparison: less than",
@@ -952,7 +961,7 @@ static const help_record_t help_data[] = {
     "(bv-lt x y) is true if x < y when x and y are interpreted as unsigned integers\n",
     NULL },
 
-  // bv-sge: index 97
+  // bv-sge: index 98
   { HBITVECTOR,
     "(bv-sge [expr1] [expr2])",
     "Signed bitvector comparison: greater than or equal to",
@@ -962,7 +971,7 @@ static const help_record_t help_data[] = {
     "in 2s-complement representation\n",
     NULL },
 
-  // bv-sgt: index 98
+  // bv-sgt: index 99
   { HBITVECTOR,
     "(bv-sgt [expr1] [expr2])",
     "Signed bitvector comparison: greater than",
@@ -972,7 +981,7 @@ static const help_record_t help_data[] = {
     "in 2s-complement representation\n",
     NULL },
 
-  // bv-sle: index 99
+  // bv-sle: index 100
   { HBITVECTOR,
     "(bv-sle [expr1] [expr2])",
     "Signed bitvector comparison: less than or equal to",
@@ -982,7 +991,7 @@ static const help_record_t help_data[] = {
     "in 2s-complement representation\n",
     NULL },
 
-  // bv-slt: index 100
+  // bv-slt: index 101
   { HBITVECTOR,
     "(bv-slt [expr1] [expr2])",
     "Signed bitvector comparison: less than",
@@ -992,8 +1001,7 @@ static const help_record_t help_data[] = {
     "in 2s-complement representation\n",
     NULL },
 
-
-  // var-elim: index 101
+  // var-elim: index 102
   { HPARAM,
     "(set-param var-elim [boolean])",
     "Enable/disable variable elimination",
@@ -1001,7 +1009,7 @@ static const help_record_t help_data[] = {
     "redundant variables\n",
     "(and (= x (g a)) (/= (f x) (f b))) is simplified to (/= (f (g a)) (f b))\n" },
 
-  // arith-elim: index 102
+  // arith-elim: index 103
   { HPARAM,
     "(set-param arith-elim [boolean])",
     "Enable/disable simplification by Gaussian elimination",
@@ -1009,14 +1017,14 @@ static const help_record_t help_data[] = {
     "in arithmetic constraints\n",
     "In an assertion such as (= (+ x (* 3 y) 4) 0) Yices eliminates 'x' or 'y'\n" },
 
-  // flatten: index 103
+  // flatten: index 104
   { HPARAM,
     "(set-param flatten [boolean])",
     "Enable/disable flattening of disjunctions",
     "If this parameter is true, Yices will flatten nested 'or' and 'and'\n",
     "(or (or a b c) (or a d e)) is rewritten to (or a b c d e)\n" },
 
-  // learn-eq: index 104
+  // learn-eq: index 105
   { HPARAM,
     "(set-param learn-eq [boolean])",
     "Enable/disable a preprocessing step to learn equalities",
@@ -1024,7 +1032,7 @@ static const help_record_t help_data[] = {
     "hold in all branches of a disjunction.\n",
     "In (assert (or (and (= a b) (= b c) (= c d)) (and (= d e)(= e a)))), Yices will learn (= a d)\n" },
 
-  // keep-ite: index 105
+  // keep-ite: index 106
   { HPARAM,
     "(set-param keep-ite [boolean])",
     "Keep or eliminate if-then-else terms",
@@ -1038,28 +1046,28 @@ static const help_record_t help_data[] = {
     "     not c => t = b\n",
     NULL },
 
-  // fast-restarts: index 106
+  // fast-restarts: index 107
   { HPARAM,
     "(set-param fast-restarts [boolean])",
     "Enable/disable the fast-restarts heuristic in the SAT solver",
     NULL,
     NULL },
 
-  // c-threshold: index 107
+  // c-threshold: index 108
   { HPARAM,
     "(set-param c-threshold [integer])",
     "Initial value of the primary restart counter",
     "   [integer] must be positive\n",
     NULL },
 
-  // c-factor: index 108
+  // c-factor: index 109
   { HPARAM,
     "(set-param c-factor [float])",
     "Increase factor for the primary restart counter",
     "   [float] must be at least 1.0\n",
     NULL },
 
-  // d-threshold: index 109
+  // d-threshold: index 110
   { HPARAM,
     "(set-param d-threshold [integer])",
     "Initial value of the secondary restart counter",
@@ -1068,7 +1076,7 @@ static const help_record_t help_data[] = {
     "This parameter is relevant only if fast-restarts is true\n",
     NULL },
 
-  // d-factor: index 110
+  // d-factor: index 111
   { HPARAM,
     "(set-param d-factor [float])",
     "Increase factor for the secondary restart counter",
@@ -1077,7 +1085,7 @@ static const help_record_t help_data[] = {
     "This parameter is relevant only if fast-restarts is true\n",
     NULL },
 
-  // r-threshold: index 111
+  // r-threshold: index 112
   { HPARAM,
     "(set-param r-threshold [integer])",
     "Clause-reduction threshold",
@@ -1094,7 +1102,7 @@ static const help_record_t help_data[] = {
     "  reduction procedure, then update r to r = r-factor * r.\n",
     NULL },
 
-  // r-fraction: index 112
+  // r-fraction: index 113
   { HPARAM,
     "(set-param r-fraction [float])",
     "Clause-reduction fraction",
@@ -1103,7 +1111,7 @@ static const help_record_t help_data[] = {
     "Try (help r-threshold) for more details\n",
     NULL },
 
-  // r-factor: index 113
+  // r-factor: index 114
   { HPARAM,
     "(set-param r-factor [float])",
     "Clause-reduction increase factor",
@@ -1112,7 +1120,7 @@ static const help_record_t help_data[] = {
     "Try (help r-threshold) for more details\n",
     NULL },
 
-  // var-decay: index 114
+  // var-decay: index 115
   { HPARAM,
     "(set-param var-decay [float])",
     "Variable activity decay factor",
@@ -1125,7 +1133,7 @@ static const help_record_t help_data[] = {
     "     activity[x] := var-decay * activity[x]\n",
     NULL },
 
-  // randomness: index 115
+  // randomness: index 116
   { HPARAM,
     "(set-param randomness [float])",
     "Fraction of random decisions",
@@ -1138,28 +1146,28 @@ static const help_record_t help_data[] = {
     "(set-param randomness 0)     always select decision variables based on activity\n"
     "(set-param randomness 0.02)  2% of decisions are random\n" },
 
-  // random-seed: index 116
+  // random-seed: index 117
   { HPARAM,
     "(set-param random-seed [integer])",
     "Random seed",
     NULL,
     NULL },
 
-  // branching: index 117
+  // branching: index 118
   { HPARAM,
     "(set-param branching [mode])",
     "Select a branching heuristic",
     "   [mode] can be 'default', 'negative', 'positive', 'theory'. 'th-pos', or 'th-neg'\n",
     NULL },
 
-  // clause-decay: index 118
+  // clause-decay: index 119
   { HPARAM,
     "(set-param clause-decay [float])",
     "Clause activity decay factor",
     "   [float] must be between 0 and 1\n",
     NULL },
 
-  // cache-tclauses: index 119
+  // cache-tclauses: index 120
   { HPARAM,
     "(set-param cache-tclauses [boolean])",
     "Enable/disable conversion of theory explanations to clauses",
@@ -1169,7 +1177,7 @@ static const help_record_t help_data[] = {
     "into clauses, thus making them permanent.\n",
     NULL },
 
-  // tclause-size: index 120
+  // tclause-size: index 121
   { HPARAM,
     "(set-param tclause-size [integer])",
     "Bound on the size theory-explanations converted to clauses",
@@ -1180,7 +1188,7 @@ static const help_record_t help_data[] = {
     "(i.e., only small theory explanations may become permanent).\n",
     NULL },
 
-  // dyn-ack: index 121
+  // dyn-ack: index 122
   { HPARAM,
     "(set-param dyn-ack [boolean])",
     "Enable/disable the generation of non-Boolean Ackermann lemmas",
@@ -1188,7 +1196,7 @@ static const help_record_t help_data[] = {
     "lemma for pairs of terms.\n",
     "For the terms (f x y) and (f z t), the lemma is '(x = z) and (y = t) implies (f x y) = (f z l)'\n"},
 
-  // dyn-bool-ack: index 122
+  // dyn-bool-ack: index 123
   { HPARAM,
     "(set-param dyn-bool-ack [boolean])",
     "Enable/disable the generation of Boolean Ackermann lemmas",
@@ -1196,21 +1204,21 @@ static const help_record_t help_data[] = {
     "lemma for Boolean terms. \n",
     "For Boolean terms (P y) and (P z), two clauses are generated: 'z = y and (P x) => (P z)' and 'z = y and (P z) => (P x)'.\n"},
 
-  // max-ack: index 123
+  // max-ack: index 124
   { HPARAM,
     "(set-param max-ack [integer])",
     "Maximal number of non-Boolean Ackermann lemmas",
     "   [integer] must be non-negative\n",
     NULL },
 
-  // max-bool-ack: index 124
+  // max-bool-ack: index 125
   { HPARAM,
     "(set-param max-bool-ack [integer])",
     "Maximal number of Boolean Ackermann lemmas",
     "   [integer] must be non-negative\n",
     NULL },
 
-  // aux-eq-quota: index 125
+  // aux-eq-quota: index 126
   { HPARAM,
     "(set-param aux-eq-quota [integer])",
     "Bound on equality atoms created by Ackermann lemmas",
@@ -1226,14 +1234,14 @@ static const help_record_t help_data[] = {
     "new equality atoms can be created.\n",
     NULL },
 
-  // aux-eq-ratio: index 126
+  // aux-eq-ratio: index 127
   { HPARAM,
     "(set-param aux-eq-ratio [float])",
     "Bound on equality atoms created by Ackermann lemmas",
     "Try '(help aux-eq-quota) for details\n",
     NULL },
 
-  // dyn-ack-threshold: index 127
+  // dyn-ack-threshold: index 128
   { HPARAM,
     "(set-param dyn-ack-threshold [integer])",
     "Threshold for non-Boolean Ackermann lemmas",
@@ -1243,7 +1251,7 @@ static const help_record_t help_data[] = {
     "(i.e., Ackermann lemmas are generated more eagerly).\n",
     NULL },
 
-  // dyn-bool-ack-threshold: index 128
+  // dyn-bool-ack-threshold: index 129
   { HPARAM,
     "(set-param dyn-bool-ack-threshold [integer])",
     "Threshold for Boolean Ackermann lemmas",
@@ -1253,7 +1261,7 @@ static const help_record_t help_data[] = {
     "(i.e., Ackermann lemmas are generated more eagerly).\n",
     NULL },
 
-  // max-interface-eqs: index 129
+  // max-interface-eqs: index 130
   { HPARAM,
     "(set-param max-interface-eqs [integer])",
     "Maximal number of interface equalities per round",
@@ -1266,7 +1274,7 @@ static const help_record_t help_data[] = {
     "Egraph and arithmetic/bitvector models are not compatible.\n",
     NULL },
 
-  // eager-lemmas: index 130
+  // eager-lemmas: index 131
   { HPARAM,
     "(set-param eager-lemmas [boolean])",
     "Enable/disable the generation of simple lemmas by Simplex",
@@ -1275,14 +1283,14 @@ static const help_record_t help_data[] = {
     "two constants such that a > b.\n",
     NULL },
 
-  // simplex-prop: index 131
+  // simplex-prop: index 132
   { HPARAM,
     "(set-param simplex-prop [boolean])",
     "Enable/disable theory propagation in the Simplex solver",
     NULL,
     NULL },
 
-  // prop-threshold: index 132
+  // prop-threshold: index 133
   { HPARAM,
     "(set-param prop-threshold [integer])",
     "Bound for theory propagation in the Simplex solver",
@@ -1295,7 +1303,7 @@ static const help_record_t help_data[] = {
     "lead to more propagation but it's more expensive.\n",
     NULL },
 
-  // simplex-adjust: index 133
+  // simplex-adjust: index 134
   { HPARAM,
     "(set-param simplex-adjust [boolean])",
     "Enable/disable adjustments in Simplex model during model reconciliation",
@@ -1308,7 +1316,7 @@ static const help_record_t help_data[] = {
     "and the Simplex assignments are consistent.\n",
     NULL },
 
-  // bland-threshold: index 134
+  // bland-threshold: index 135
   { HPARAM,
     "(set-param bland-threshold [integer])",
     "Number of pivoting steps before activation of Bland's rule",
@@ -1320,7 +1328,7 @@ static const help_record_t help_data[] = {
     "steps, then Yices switches to Bland's rule.\n",
     NULL },
 
-  // icheck: index 135
+  // icheck: index 136
   { HPARAM,
     "(set-param icheck [boolean])",
     "Enable/disable periodic check for integer feasibility",
@@ -1331,7 +1339,7 @@ static const help_record_t help_data[] = {
     "integer solution.\n",
     NULL },
 
-  // icheck-period: index 136
+  // icheck-period: index 137
   { HPARAM,
     "(set-param icheck-period [integer])",
     "Periodicity of the check for integer feasibility",
@@ -1340,7 +1348,7 @@ static const help_record_t help_data[] = {
     "is called by the Simplex solver.\n",
     NULL },
 
-  // max-update-conflicts: index 137
+  // max-update-conflicts: index 138
   { HPARAM,
     "(set-param max-update-conflicts [integer])",
     "Maximal number of update axioms per round",
@@ -1350,7 +1358,7 @@ static const help_record_t help_data[] = {
     "updates.\n",
     NULL },
 
-  // max-extensionality: index 138
+  // max-extensionality: index 139
   { HPARAM,
     "(set-param max-extensionality [integer])",
     "Maximal number of extensionality axioms per round",
@@ -1359,8 +1367,7 @@ static const help_record_t help_data[] = {
     "This parameter matters only on problems that include equalities between arrays/functions\n",
     NULL },
 
-
-  // bvarith-elim: index 139
+  // bvarith-elim: index 140
   { HPARAM,
     "(set-param bvarith-elim [boolean])",
     "Enable/disable simplification by Gaussian elimination",
@@ -1368,7 +1375,7 @@ static const help_record_t help_data[] = {
     "in bitvector constraints of the form (= <lineary bitvector polynomial> 0b00..0)\n",
     "In an assertion such as (= (bv-add x y z)), then one of 'x', 'y', or 'z' may be eliminated\n" },
 
-  // optimistic-fcheck: index 140
+  // optimistic-fcheck: index 141
   { HPARAM,
     "(set-param optimistic-fcheck [boolean])",
     "Enable/disable an optimistic from of final check",
@@ -1376,14 +1383,14 @@ static const help_record_t help_data[] = {
     "to make it consistent with the arithmetic or bitvector models.\n",
     NULL },
 
-  // ef-solve: index 141
+  // ef-solve: index 142
   { HCOMMAND,
     "(ef-solve)",
     "Invoke the exists/forall solver",
     NULL,
     NULL },
 
-  // bool-to-bv: index 142
+  // bool-to-bv: index 143
   { HBITVECTOR,
     "(bool-to-bv [expr_1] ... [expr_n])",
     "Convert a Boolean array to a bitvector",
@@ -1393,7 +1400,7 @@ static const help_record_t help_data[] = {
     "The low-order bit is [expr_n] and the high-order bit is [expr_1]\n",
     "(bool-to-bv true false false)  is equal to 0b100\n" },
 
-  // bit: index 143
+  // bit: index 144
   { HBITVECTOR,
     "(bit [expr] [index])",
     "Bit extraction",
@@ -1407,7 +1414,7 @@ static const help_record_t help_data[] = {
     "(bit 0b001001 3)  is true\n"
     "(bit 0b001001 4)  is false\n" },
 
-  // export-to-dimacs: index 144
+  // export-to-dimacs: index 145
   { HCOMMAND,
     "(export-to-dimacs [filename])",
     "Convert Boolean and bitvector problems to DIMACS",
@@ -1418,7 +1425,7 @@ static const help_record_t help_data[] = {
     "A mapping form Yices terms to DIMACS literals is also shown in the file.\n",
     NULL },
 
-  // show-implicant: index 145
+  // show-implicant: index 146
   { HCOMMAND,
     "(show-implicant)",
     "Show an implicant build from the model",
@@ -1427,7 +1434,7 @@ static const help_record_t help_data[] = {
     "of these literals implies the assertion.\n",
     NULL },
 
-  // ef-flatten-iff: index 146
+  // ef-flatten-iff: index 147
   { HPARAM,
     "(set-param ef-flatten-iff [boolean])",
     "Enable/disbale flattening of iff in (ef-solve)",
@@ -1437,7 +1444,7 @@ static const help_record_t help_data[] = {
     "In a conjunction, (iff p q) --> (and (=> p q) (=> q p))\n",
     NULL },
 
-  // ef-flatten-ite: index 147
+  // ef-flatten-ite: index 148
   { HPARAM,
     "(set-param ef-flatten-ite [boolean])",
     "Enable/disbale flattening of if-then-else in (ef-solve)",
@@ -1447,7 +1454,7 @@ static const help_record_t help_data[] = {
     "In a conjunction, (ite p q r) --> (and (=> p q) (=> (not p) r))\n",
     NULL },
 
-  // ef-gen-mode: index 148
+  // ef-gen-mode: index 149
   { HPARAM,
     "(set-param ef-gen-mode [mode])",
     "Select the generalization heuristic for the ef-solver",
@@ -1464,7 +1471,7 @@ static const help_record_t help_data[] = {
     "problem does not have arithmetic variables.\n",
     NULL },
 
-  // ef-max-iters: index 149
+  // ef-max-iters: index 150
   { HPARAM,
     "(set-param ef-max-iters [integer])",
     "Set a limit on the number of ef-solver iteration",
@@ -1474,7 +1481,7 @@ static const help_record_t help_data[] = {
     "have no solution).\n",
     NULL },
 
-  // ef-max-samples: index 150
+  // ef-max-samples: index 151
   { HPARAM,
     "(set-param ef-max-samples [integer])",
     "Limit the number of samples when inititalizing the ef-solver",
@@ -1485,14 +1492,14 @@ static const help_record_t help_data[] = {
     "per universal constraints. If the bound is 0, learning is disabled).\n",
     NULL },
 
-  // abs: index 151
+  // abs: index 152
   { HARITHMETIC,
     "(abs [expr])",
     "Absolute value",
     "   [expr] must be an arithmetic expression\n",
     NULL },
 
-  // floor: index 152
+  // floor: index 153
   { HARITHMETIC,
     "(floor [expr])",
     "Floor",
@@ -1502,7 +1509,7 @@ static const help_record_t help_data[] = {
     "We then have (floor x) <= x < (floor x) + 1.\n",
     NULL },
 
-  // ceil: index 153
+  // ceil: index 154
   { HARITHMETIC,
     "(ceil [expr])",
     "Ceiling",
@@ -1512,7 +1519,7 @@ static const help_record_t help_data[] = {
     "We then have (ceil x) - 1 < x <= (ceil x).\n",
     NULL },
 
-  // div: index 154
+  // div: index 155
   { HARITHMETIC,
     "(div [expr] [divider])",
     "Integer division",
@@ -1534,7 +1541,7 @@ static const help_record_t help_data[] = {
     "(div -5  3) = -1\n"
     "(div -5 -3) -  2\n" },
 
-  // mod: index 155
+  // mod: index 156
   { HARITHMETIC,
     "(mod [expr] [divider])",
     "Remainder in integer division",
@@ -1552,7 +1559,7 @@ static const help_record_t help_data[] = {
     "(mod -5  3) = 1\n"
     "(mod -5 -3) = 2\n" },
 
-  // divides: index 156
+  // divides: index 157
   { HARITHMETIC,
     "(divides [constant] [expr])",
     "Divisibility test",
@@ -1567,7 +1574,7 @@ static const help_record_t help_data[] = {
     "(divides 0 0)     is true\n"
     "(divides 0 x)     is false for any non-zero x\n" },
 
-  // is-int: index 157
+  // is-int: index 158
   { HARITHMETIC,
     "(is-int [expr])",
     "Integrality test",
@@ -1576,11 +1583,42 @@ static const help_record_t help_data[] = {
     "The atom (is-int x) is true iff x is an integer.\n",
     NULL },
 
-  // END MARKER: index 158
+  // check-assuming: index 159
+  { HCOMMAND,
+    "(check-assuming [assumption list])",
+    "Check with assumptions",
+    "Check whether the current logical context together with the\n"
+    "specified list of assumptions is satisfiable. If it is not,\n"
+    "one can use (show-unsat-assumptions) to get a subset of the\n"
+    "assumptions that form an unsat core\n"
+    "\n"
+    "Each assumption must be either the name of a Boolean term or\n"
+    "of the form (not <name>) where <name> is a Booelan term.",
+    "(check-assuming A (not B) C)", },
+
+  // show-unsat-core: index 160
+  { HCOMMAND,
+    "(show-unsat-core)",
+    "Print an unsat core",
+    "If labeled assertions are present, and the context is unsatisfiable,\n"
+    "this command will show an unsat core as a list of labels (i.e., the\n"
+    "labels of all labeled assertions included in the unsat core).\n",
+    NULL, },
+
+  // show-unsat-assumptions: index 161
+  { HCOMMAND,
+    "(show-unsat-assumptions)",
+    "Print an unsat list of assumptions",
+    "If (check-assuming ...) returns unsat, then this command can be used\n"
+    "to list an unsatisfiable subset of all the assumptions passed to the\n"
+    "(check-assuming ..) command\n",
+    NULL, },
+
+  // END MARKER: index 162
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 158
+#define END_HELP_DATA 162
 
 
 
@@ -1597,8 +1635,10 @@ static const help_record_t help_data[] = {
   "       | ( define <symbol> :: <type> )\n" \
   "       | ( define <symbol> :: <type> <expr> )\n" \
   "       | ( assert <expr> )\n" \
+  "       | ( assert <expr> <symbol> )\n" \
   "       | ( exit )\n" \
   "       | ( check )\n" \
+  "       | ( check-assuming <assumption list> )\n" \
   "       | ( push )\n" \
   "       | ( pop )\n" \
   "       | ( reset )\n" \
@@ -1619,6 +1659,8 @@ static const help_record_t help_data[] = {
   "       | ( ef-solve )\n" \
   "       | ( export-to-dimacs <string> )\n" \
   "       | ( show-implicant )\n" \
+  "       | ( show-unsat-core )\n" \
+  "       | ( show-unsat-assumptions )\n" \
   "\n"   \
   "  <typedef> ::=\n" \
   "         <type>\n" \
@@ -1657,7 +1699,11 @@ static const help_record_t help_data[] = {
   "\n" \
   "  <immediate-value> ::=  true | false | <number> | <symbol>\n" \
   "\n" \
-  "  <number> ::= <rational> | <float>\n"
+  "  <number> ::= <rational> | <float>\n" \
+  "\n" \
+  "  <assumption> ::= <symbol> | (not <symbol>)\n" \
+  "\n" \
+  "  <assumption list> := <assumption>*\n"
 
 
 #define index_string \
@@ -1909,169 +1955,172 @@ static void help_special(FILE *f, const char *topic, const char *aux, int32_t ix
  * INDEX TABLE
  */
 static const help_index_t help_index[] = {
-  { "*", NULL, 50, help_basic },
-  { "+", NULL, 47, help_basic },
-  { "-", "Subtraction", 48, help_variant },
-  { "->", NULL, 29, help_basic },
-  { "/", NULL, 51, help_basic },
-  { "/=", NULL, 33, help_basic },
-  { "<", NULL, 53, help_basic },
-  { "<=", NULL, 55, help_basic },
-  { "<=>", NULL, 45, help_basic },
-  { "=", NULL, 32, help_basic },
-  { "=>", NULL, 46, help_basic },
-  { ">", NULL, 54, help_basic },
-  { ">=", NULL, 56, help_basic },
-  { "abs", NULL, 151, help_basic },
-  { "and", NULL, 42, help_basic },
-  { "arith-elim", NULL, 102, help_basic },
+  { "*", NULL, 51, help_basic },
+  { "+", NULL, 48, help_basic },
+  { "-", "Subtraction", 49, help_variant },
+  { "->", NULL, 30, help_basic },
+  { "/", NULL, 52, help_basic },
+  { "/=", NULL, 34, help_basic },
+  { "<", NULL, 54, help_basic },
+  { "<=", NULL, 56, help_basic },
+  { "<=>", NULL, 46, help_basic },
+  { "=", NULL, 33, help_basic },
+  { "=>", NULL, 47, help_basic },
+  { ">", NULL, 55, help_basic },
+  { ">=", NULL, 57, help_basic },
+  { "abs", NULL, 152, help_basic },
+  { "and", NULL, 43, help_basic },
+  { "arith-elim", NULL, 103, help_basic },
   { "arithmetic", "Arithmetic Operators", HARITHMETIC, help_for_category },
-  { "assert", NULL, 4, help_basic },
-  { "aux-eq-quota", NULL, 125, help_basic },
-  { "aux-eq-ratio", NULL, 126, help_basic },
-  { "bit", NULL, 143, help_basic },
-  { "bitvector", NULL, 26, help_basic },
+  { "assert", "Assert", 4, help_variant },
+  { "aux-eq-quota", NULL, 126, help_basic },
+  { "aux-eq-ratio", NULL, 127, help_basic },
+  { "bit", NULL, 144, help_basic },
+  { "bitvector", NULL, 27, help_basic },
   { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
-  { "bland-threshold", NULL, 134, help_basic },
-  { "bool", NULL, 23, help_basic },
-  { "bool-to-bv", NULL, 142, help_basic },
+  { "bland-threshold", NULL, 135, help_basic },
+  { "bool", NULL, 24, help_basic },
+  { "bool-to-bv", NULL, 143, help_basic },
   { "booleans", "Boolean Operators", HBOOLEAN, help_for_category },
-  { "branching", NULL, 117, help_basic },
-  { "bv-add", NULL, 58, help_basic },
-  { "bv-and", NULL, 64, help_basic },
-  { "bv-ashift-right", NULL, 74, help_basic },
-  { "bv-ashr", NULL, 79, help_basic },
-  { "bv-comp", NULL, 92, help_basic },
-  { "bv-concat", NULL, 81, help_basic },
-  { "bv-div", NULL, 85, help_basic },
-  { "bv-extract", NULL, 80, help_basic },
-  { "bv-ge", NULL, 93, help_basic },
-  { "bv-gt", NULL, 94, help_basic },
-  { "bv-le", NULL, 95, help_basic },
-  { "bv-lt", NULL, 96, help_basic },
-  { "bv-lshr", NULL, 78, help_basic },
-  { "bv-mul", NULL, 60, help_basic },
-  { "bv-nand", NULL, 67, help_basic },
-  { "bv-neg", NULL, 61, help_basic },
-  { "bv-nor", NULL, 68, help_basic },
-  { "bv-not", NULL, 63, help_basic },
-  { "bv-or", NULL, 65, help_basic },
+  { "branching", NULL, 118, help_basic },
+  { "bv-add", NULL, 59, help_basic },
+  { "bv-and", NULL, 65, help_basic },
+  { "bv-ashift-right", NULL, 75, help_basic },
+  { "bv-ashr", NULL, 80, help_basic },
+  { "bv-comp", NULL, 93, help_basic },
+  { "bv-concat", NULL, 82, help_basic },
+  { "bv-div", NULL, 86, help_basic },
+  { "bv-extract", NULL, 81, help_basic },
+  { "bv-ge", NULL, 94, help_basic },
+  { "bv-gt", NULL, 95, help_basic },
+  { "bv-le", NULL, 96, help_basic },
+  { "bv-lt", NULL, 97, help_basic },
+  { "bv-lshr", NULL, 79, help_basic },
+  { "bv-mul", NULL, 61, help_basic },
+  { "bv-nand", NULL, 68, help_basic },
+  { "bv-neg", NULL, 62, help_basic },
+  { "bv-nor", NULL, 69, help_basic },
+  { "bv-not", NULL, 64, help_basic },
+  { "bv-or", NULL, 66, help_basic },
   { "bv-pow", NULL, 62, help_basic },
-  { "bv-redand", NULL, 90, help_basic },
-  { "bv-redor", NULL, 91, help_basic },
-  { "bv-rem", NULL, 86, help_basic },
-  { "bv-repeat", NULL, 82, help_basic },
-  { "bv-rotate-left", NULL, 75, help_basic },
-  { "bv-rotate-right", NULL, 76, help_basic },
-  { "bv-sdiv", NULL, 87, help_basic },
-  { "bv-sge", NULL, 97, help_basic },
-  { "bv-sgt", NULL, 98, help_basic },
-  { "bv-shift-left0", NULL, 70, help_basic },
-  { "bv-shift-left1", NULL, 71, help_basic },
-  { "bv-shift-right0", NULL, 72, help_basic },
-  { "bv-shift-right1", NULL, 73, help_basic },
-  { "bv-shl", NULL, 77, help_basic },
-  { "bv-sign-extend", NULL, 83, help_basic },
-  { "bv-sle", NULL, 99, help_basic },
-  { "bv-slt", NULL, 100, help_basic },
-  { "bv-smod", NULL, 89, help_basic },
-  { "bv-srem", NULL, 88, help_basic },
-  { "bv-sub", NULL, 59, help_basic },
-  { "bv-xnor", NULL, 69, help_basic },
-  { "bv-xor", NULL, 66, help_basic },
-  { "bv-zero-extend", NULL, 84, help_basic },
-  { "bvarith-elim", NULL, 139, help_basic },
-  { "c-factor", NULL, 108, help_basic },
-  { "c-threshold", NULL, 107, help_basic },
-  { "cache-tclauses", NULL, 119, help_basic },
-  { "ceil", NULL, 153, help_basic },
-  { "check", NULL, 5, help_basic },
-  { "clause-decay", NULL, 118, help_basic },
+  { "bv-redand", NULL, 91, help_basic },
+  { "bv-redor", NULL, 92, help_basic },
+  { "bv-rem", NULL, 87, help_basic },
+  { "bv-repeat", NULL, 83, help_basic },
+  { "bv-rotate-left", NULL, 76, help_basic },
+  { "bv-rotate-right", NULL, 77, help_basic },
+  { "bv-sdiv", NULL, 88, help_basic },
+  { "bv-sge", NULL, 98, help_basic },
+  { "bv-sgt", NULL, 99, help_basic },
+  { "bv-shift-left0", NULL, 71, help_basic },
+  { "bv-shift-left1", NULL, 72, help_basic },
+  { "bv-shift-right0", NULL, 73, help_basic },
+  { "bv-shift-right1", NULL, 74, help_basic },
+  { "bv-shl", NULL, 78, help_basic },
+  { "bv-sign-extend", NULL, 84, help_basic },
+  { "bv-sle", NULL, 100, help_basic },
+  { "bv-slt", NULL, 101, help_basic },
+  { "bv-smod", NULL, 90, help_basic },
+  { "bv-srem", NULL, 89, help_basic },
+  { "bv-sub", NULL, 60, help_basic },
+  { "bv-xnor", NULL, 70, help_basic },
+  { "bv-xor", NULL, 67, help_basic },
+  { "bv-zero-extend", NULL, 85, help_basic },
+  { "bvarith-elim", NULL, 140, help_basic },
+  { "c-factor", NULL, 109, help_basic },
+  { "c-threshold", NULL, 108, help_basic },
+  { "cache-tclauses", NULL, 120, help_basic },
+  { "ceil", NULL, 154, help_basic },
+  { "check", NULL, 6, help_basic },
+  { "check-assuming", NULL, 159, help_basic },
+  { "clause-decay", NULL, 119, help_basic },
   { "commands", "Command Summary", HCOMMAND, help_for_category },
-  { "d-factor", NULL, 110, help_basic },
-  { "d-threshold", NULL, 109, help_basic },
+  { "d-factor", NULL, 111, help_basic },
+  { "d-threshold", NULL, 110, help_basic },
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
-  { "distinct", NULL, 34, help_basic },
-  { "div", NULL, 154, help_basic },
-  { "divides", NULL, 156, help_basic },
-  { "dyn-ack", NULL, 121, help_basic },
-  { "dyn-ack-threshold", NULL, 127, help_basic },
-  { "dyn-bool-ack", NULL, 122, help_basic },
-  { "dyn-bool-ack-threshold", NULL, 128, help_basic },
-  { "eager-lemmas", NULL, 130, help_basic },
-  { "echo", NULL, 12, help_basic },
-  { "ef-flatten-iff", NULL, 146, help_basic },
-  { "ef-flatten-ite", NULL, 147, help_basic },
-  { "ef-gen-mode", NULL, 148, help_basic },
-  { "ef-max-iters", NULL, 149, help_basic },
-  { "ef-max-samples", NULL, 150, help_basic },
-  { "ef-solve", NULL, 141, help_basic },
-  { "eval", NULL, 10, help_basic },
-  { "exit", NULL, 22, help_basic },
-  { "export-to-dimacs", NULL, 144, help_basic },
-  { "false", NULL, 40, help_basic },
-  { "fast-restarts", NULL, 106, help_basic },
-  { "flatten", NULL, 103, help_basic },
-  { "floor", NULL, 152, help_basic },
+  { "distinct", NULL, 35, help_basic },
+  { "div", NULL, 155, help_basic },
+  { "divides", NULL, 157, help_basic },
+  { "dyn-ack", NULL, 122, help_basic },
+  { "dyn-ack-threshold", NULL, 128, help_basic },
+  { "dyn-bool-ack", NULL, 123, help_basic },
+  { "dyn-bool-ack-threshold", NULL, 129, help_basic },
+  { "eager-lemmas", NULL, 131, help_basic },
+  { "echo", NULL, 13, help_basic },
+  { "ef-flatten-iff", NULL, 147, help_basic },
+  { "ef-flatten-ite", NULL, 148, help_basic },
+  { "ef-gen-mode", NULL, 149, help_basic },
+  { "ef-max-iters", NULL, 150, help_basic },
+  { "ef-max-samples", NULL, 151, help_basic },
+  { "ef-solve", NULL, 142, help_basic },
+  { "eval", NULL, 11, help_basic },
+  { "exit", NULL, 23, help_basic },
+  { "export-to-dimacs", NULL, 145, help_basic },
+  { "false", NULL, 41, help_basic },
+  { "fast-restarts", NULL, 107, help_basic },
+  { "flatten", NULL, 104, help_basic },
+  { "floor", NULL, 153, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
-  { "help", "Show help", 20, help_variant },
-  { "icheck", NULL, 135, help_basic },
-  { "icheck-period", NULL, 136, help_basic },
-  { "if", NULL, 31, help_basic },
-  { "include", NULL, 11, help_basic },
+  { "help", "Show help", 21, help_variant },
+  { "icheck", NULL, 136, help_basic },
+  { "icheck-period", NULL, 137, help_basic },
+  { "if", NULL, 32, help_basic },
+  { "include", NULL, 12, help_basic },
   { "index", index_string, 0, help_special },
-  { "int", NULL, 24, help_basic },
-  { "is-int", NULL, 157, help_basic },
-  { "ite", NULL, 30, help_basic },
-  { "keep-ite", NULL, 105, help_basic },
-  { "learn-eq", NULL, 104, help_basic },
-  { "max-ack", NULL, 123, help_basic },
-  { "max-bool-ack", NULL, 124, help_basic },
-  { "max-extensionality", NULL, 138, help_basic },
-  { "max-interface-eqs", NULL, 129, help_basic },
-  { "max-update-conflicts", NULL, 137, help_basic },
-  { "mk-bv", NULL, 57, help_basic },
-  { "mk-tuple", NULL, 35, help_basic },
-  { "mod", NULL, 155, help_basic },
-  { "not", NULL, 43, help_basic },
-  { "optimistic-fcheck", NULL, 140, help_basic },
-  { "or", NULL, 41, help_basic },
+  { "int", NULL, 25, help_basic },
+  { "is-int", NULL, 158, help_basic },
+  { "ite", NULL, 31, help_basic },
+  { "keep-ite", NULL, 106, help_basic },
+  { "learn-eq", NULL, 105, help_basic },
+  { "max-ack", NULL, 124, help_basic },
+  { "max-bool-ack", NULL, 125, help_basic },
+  { "max-extensionality", NULL, 139, help_basic },
+  { "max-interface-eqs", NULL, 130, help_basic },
+  { "max-update-conflicts", NULL, 138, help_basic },
+  { "mk-bv", NULL, 58, help_basic },
+  { "mk-tuple", NULL, 36, help_basic },
+  { "mod", NULL, 156, help_basic },
+  { "not", NULL, 44, help_basic },
+  { "optimistic-fcheck", NULL, 141, help_basic },
+  { "or", NULL, 42, help_basic },
   { "params", "Parameters", HPARAM, help_for_category },
-  { "push", NULL, 6, help_basic },
-  { "pop", NULL, 7, help_basic },
-  { "prop-threshold", NULL, 132, help_basic },
-  { "r-factor", NULL, 113, help_basic },
-  { "r-fraction", NULL, 112, help_basic },
-  { "r-threshold", NULL, 111, help_basic },
-  { "random-seed", NULL, 116, help_basic },
-  { "randomness", NULL, 115, help_basic },
-  { "real", NULL, 25, help_basic },
-  { "reset", NULL, 8, help_basic },
-  { "reset-stats", NULL, 17, help_basic },
-  { "scalar", NULL, 27, help_basic },
-  { "select", NULL, 36, help_basic },
-  { "set-param", NULL, 13, help_basic },
-  { "set-timeout", NULL, 18, help_basic },
-  { "show-implicant", NULL, 145, help_basic },
-  { "show-model", NULL, 9, help_basic },
-  { "show-param", NULL, 14, help_basic },
-  { "show-params", NULL, 15, help_basic },
-  { "show-stats", NULL, 16, help_basic },
-  { "show-timeout", NULL, 19, help_basic },
-  { "simplex-adjust", NULL, 133, help_basic },
-  { "simplex-prop", NULL, 131, help_basic },
+  { "push", NULL, 7, help_basic },
+  { "pop", NULL, 8, help_basic },
+  { "prop-threshold", NULL, 133, help_basic },
+  { "r-factor", NULL, 114, help_basic },
+  { "r-fraction", NULL, 113, help_basic },
+  { "r-threshold", NULL, 112, help_basic },
+  { "random-seed", NULL, 117, help_basic },
+  { "randomness", NULL, 116, help_basic },
+  { "real", NULL, 26, help_basic },
+  { "reset", NULL, 9, help_basic },
+  { "reset-stats", NULL, 18, help_basic },
+  { "scalar", NULL, 28, help_basic },
+  { "select", NULL, 37, help_basic },
+  { "set-param", NULL, 14, help_basic },
+  { "set-timeout", NULL, 19, help_basic },
+  { "show-implicant", NULL, 146, help_basic },
+  { "show-model", NULL, 10, help_basic },
+  { "show-param", NULL, 15, help_basic },
+  { "show-params", NULL, 16, help_basic },
+  { "show-stats", NULL, 17, help_basic },
+  { "show-timeout", NULL, 20, help_basic },
+  { "show-unsat-assumptions", NULL, 161, help_basic },
+  { "show-unsat-core", NULL, 160, help_basic },
+  { "simplex-adjust", NULL, 134, help_basic },
+  { "simplex-prop", NULL, 132, help_basic },
   { "syntax", syntax_summary, 0, help_special },
-  { "tclause-size", NULL, 120, help_basic },
-  { "true", NULL, 39, help_basic },
-  { "tuple", NULL, 28, help_basic },
-  { "tuple-update", NULL, 37, help_basic },
+  { "tclause-size", NULL, 121, help_basic },
+  { "true", NULL, 40, help_basic },
+  { "tuple", NULL, 29, help_basic },
+  { "tuple-update", NULL, 38, help_basic },
   { "types", "Type Constructs", HTYPE, help_for_category },
-  { "update", NULL, 38, help_basic },
-  { "var-decay", NULL, 114, help_basic },
-  { "var-elim", NULL, 101, help_basic },
-  { "xor", NULL, 44, help_basic },
-  { "^", NULL, 52, help_basic },
+  { "update", NULL, 39, help_basic },
+  { "var-decay", NULL, 115, help_basic },
+  { "var-elim", NULL, 102, help_basic },
+  { "xor", NULL, 45, help_basic },
+  { "^", NULL, 53, help_basic },
   // END MARKER
   { NULL, NULL, 0, NULL },
 };
