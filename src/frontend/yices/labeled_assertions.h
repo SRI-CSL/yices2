@@ -124,6 +124,14 @@ static inline bool labeled_assertions_empty_trail(const labeled_assertion_stack_
 }
 
 /*
+ * Check whether there are some assertions
+ */
+static inline bool labeled_assertion_stack_is_empty(const labeled_assertion_stack_t *s) {
+  return named_term_stack_is_empty(&s->assertions);
+}
+
+
+/*
  * Check whether name is present
  */
 extern bool labeled_assertions_has_name(const labeled_assertion_stack_t *s, const char *name);

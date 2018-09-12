@@ -3103,6 +3103,14 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
+  if (g->unsat_assumptions != NULL) {
+    /*
+     * the context's status was based on the assumptions
+     * we reset everything here to be safe.
+     */
+    cleanup_context(g);
+  }
+
   stat = context_status(g->ctx);
   switch (stat) {
   case STATUS_UNKNOWN:

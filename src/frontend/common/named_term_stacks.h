@@ -88,6 +88,13 @@ static inline uint32_t named_term_stack_top(const named_term_stack_t *s) {
 }
 
 
+/*
+ * Check whether it's empty
+ */
+static inline bool named_term_stack_is_empty(const named_term_stack_t *s) {
+  return s->top == 0;
+}
+
 
 
 #endif /* __NAMED_TERM_STACKS_H */
