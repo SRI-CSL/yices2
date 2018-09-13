@@ -99,6 +99,9 @@ typedef struct {
   /** Equality graph */
   eq_graph_t eq_graph;
 
+  /** Stuff added to eq_graph */
+  ivector_t eq_graph_addition_trail;
+
   /** List of propagated variables */
   ivector_t propagated_by_eq_graph_list;
 
@@ -145,6 +148,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Equality graph
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
+  init_ivector(&uf->eq_graph_addition_trail, 0);
 
   // Propagation
   init_ivector(&uf->propagated_by_eq_graph_list, 0);
@@ -169,6 +173,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->conflict);
   uf_feasible_set_db_delete(uf->feasible);
   eq_graph_destruct(&uf->eq_graph);
+  delete_ivector(&uf->eq_graph_addition_trail);
   delete_ivector(&uf->propagated_by_eq_graph_list);
   delete_int_hmap(&uf->propagated_by_eq_graph);
   delete_term_manager(&uf->tm);
@@ -257,6 +262,45 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
 }
 
 static
+void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t) {
+
+  term_table_t* terms = uf->ctx->terms;
+
+  // The kind
+  term_kind_t t_kind = term_kind(terms, t);
+
+  // Add to equality graph
+  composite_term_t* t_desc = NULL;
+  switch (t_kind) {
+  case APP_TERM:
+    t_desc = app_term_desc(terms, t);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+    break;
+  case ARITH_RDIV:
+    t_desc = arith_rdiv_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_RDIV, 2, t_desc->arg);
+    break;
+  case ARITH_IDIV:
+    t_desc = arith_idiv_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_IDIV, 2, t_desc->arg);
+    break;
+  case ARITH_MOD:
+    t_desc = arith_mod_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_MOD, 2, t_desc->arg);
+    break;
+  case EQ_TERM:
+    t_desc = eq_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
+    break;
+  default:
+    assert(false);
+  }
+
+  // Record addition so we can re-add on backracks
+  ivector_push(&uf->eq_graph_addition_trail, t);
+}
+
+static
 void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
 
   variable_db_t* var_db = uf->ctx->var_db;
@@ -311,8 +355,8 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
     }
   }
 
-  // Add terms to equality graph lhs, rhs, and (lhs = rhs)
-  eq_graph_add_ifun_term(&uf->eq_graph, eq_term, EQ_TERM, 2, eq_desc->arg);
+  // Add terms to equality
+  uf_plugin_add_to_eq_graph(uf, eq_term);
 }
 
 static
@@ -376,13 +420,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   int_mset_destruct(&arguments);
 
   // Add terms to equality graph
-  term_kind_t app_term_kind = term_kind(terms, app_term);
-  if (app_term_kind == APP_TERM) {
-    eq_graph_add_ufun_term(&uf->eq_graph, app_term, app_desc->arg[0], app_desc->arity - 1, app_desc->arg + 1);
-  } else {
-    eq_graph_add_ifun_term(&uf->eq_graph, app_term, app_term_kind, app_desc->arity, app_desc->arg);
-  }
-  uf_plugin_process_eq_graph_propagations(uf, prop);
+  uf_plugin_add_to_eq_graph(uf, app_term);
 }
 
 static
@@ -524,6 +562,7 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
             ivector_push(&uf->conflict, eq_term);
             ivector_push(&uf->conflict, opposite_term(eq_term));
             prop->conflict(prop);
+            assert(false); // EQ should catch
           }
         }
       } else {
@@ -823,6 +862,7 @@ void uf_plugin_push(plugin_t* plugin) {
       &uf->app_reps_with_val_rep.size,
       &uf->all_apps.size,
       &uf->propagated_by_eq_graph_list.size,
+      &uf->eq_graph_addition_trail,
       NULL);
 
   app_reps_push(&uf->app_reps);
@@ -837,6 +877,7 @@ void uf_plugin_pop(plugin_t* plugin) {
   uint32_t old_app_reps_with_val_rep_size;
   uint32_t old_all_apps_size;
   uint32_t old_propagated_vars_size;
+  uint32_t old_eq_graph_addition_trail_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
@@ -844,6 +885,7 @@ void uf_plugin_pop(plugin_t* plugin) {
       &old_app_reps_with_val_rep_size,
       &old_all_apps_size,
       &old_propagated_vars_size,
+      &old_eq_graph_addition_trail_size,
       NULL);
 
   while (uf->app_reps_with_val_rep.size > old_app_reps_with_val_rep_size) {
@@ -867,6 +909,13 @@ void uf_plugin_pop(plugin_t* plugin) {
   app_reps_pop(&uf->app_reps);
   uf_feasible_set_db_pop(uf->feasible);
   eq_graph_pop(&uf->eq_graph);
+
+  // Re-add all the terms to eq graph
+//  uint32_t i;
+//  for (i = old_eq_graph_addition_trail_size; i < uf->eq_graph_addition_trail.size; ++ i) {
+//    term_t t = uf->eq_graph_addition_trail.data[i];
+//    uf_plugin_add_to_eq_graph(uf, t);
+//  }
 }
 
 
