@@ -1029,6 +1029,15 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // If we merge two same-type nodes that are constant we have a conflict
     if (n_from->type == EQ_NODE_VALUE && n_into->type == EQ_NODE_VALUE) {
+      if (ctx_trace_enabled(eq->ctx, "mcsat::conflict::check")) {
+        FILE* out = ctx_trace_out(eq->ctx);
+        fprintf(out, "TRAIL\n");
+        trail_print(eq->ctx->trail, out);
+        fprintf(out, "GRAPH\n");
+        eq_graph_print(eq, out);
+        fprintf(out, "into = "); eq_graph_print_node(eq, eq_graph_get_node_const(eq, n_into->find), out, false); fprintf(out, "\n");
+        fprintf(out, "from = "); eq_graph_print_node(eq, eq_graph_get_node_const(eq, n_from->find), out, false); fprintf(out, "\n");
+      }
       eq->in_conflict = true;
       eq->conflict_lhs = n_into->find;
       eq->conflict_rhs = n_from->find;
@@ -1357,6 +1366,7 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
       ctx_trace_printf(eq->ctx, "created new:");
       ctx_trace_term(eq->ctx, to_add);
     }
+    assert(term_kind(eq->ctx->terms, equality) == EQ_TERM);
     ivector_push(reasons_data, to_add);
     if (reasons_type != NULL) {
       ivector_push(reasons_type, REASON_IS_IN_TRAIL);
@@ -1404,6 +1414,7 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
  * - x -t- 1 -t- y: t1 = x, t2 = y
  * - 1 -t- f(x) -c- f(y) -- 0: first = f(x), last = f(y)
  * - (x = y) -d- [= x y] -r- T: first = (x = y), last = true
+ * - [= x y] -d- (x = y) -t- T: last = (x = y), last = (x = y)
  */
 typedef struct {
   term_t t1;
@@ -1459,7 +1470,12 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   case REASON_IS_TRUE_EQUALITY: {
     // Get the reason of the equality and explain why it's true
     eq_node_id_t eq_id = e->reason.data;
-    eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
+    path_terms_t eq_explain = eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
+    assert(eq_explain.t1 != NULL_TERM);
+    ivector_push(reasons_data, eq_explain.t1);
+    if (reasons_type != NULL) {
+      ivector_push(reasons_type, REASON_IS_IN_TRAIL);
+    }
     break;
   }
   case REASON_IS_CONGRUENCE: {
