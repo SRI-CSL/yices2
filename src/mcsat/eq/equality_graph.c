@@ -34,6 +34,7 @@ const char* eq_graph_reason_to_string(eq_reason_type_t reason) {
   case REASON_IS_FUNCTION_DEF: return "function definition";
   case REASON_IS_CONSTANT_DEF: return "constant definition";
   case REASON_IS_CONGRUENCE: return "congruence";
+  case REASON_IS_CONGRUENCE_EQ_SYM: return "eq sym congruence";
   case REASON_IS_TRUE_EQUALITY: return "equality = true";
   case REASON_IS_REFLEXIVITY: return "reflexivity";
   case REASON_IS_EVALUATION: return "eq evaluation";
@@ -527,6 +528,14 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
 
   // If equality we check for propagation
   if (n->type == EQ_NODE_EQ_PAIR) {
+    // Check for symmetry
+    if (n1->find != n2->find) {
+      find = pmap2_find(rep_cache, n2->find, n1->find);
+      if (find != NULL && find->val != pair_id) {
+        merge_queue_push_init(&eq->merge_queue, pair_id, find->val, REASON_IS_CONGRUENCE_EQ_SYM, 0);
+      }
+    }
+    // Check for reflexivity and evaluation
     eq_graph_eq_args_updated(eq, pair_id);
   }
 }
@@ -870,9 +879,6 @@ void eq_graph_add_edge(eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, eq_reas
 
   assert(!eq->in_conflict);
 
-  assert(reason.type != REASON_IS_CONGRUENCE || eq_graph_is_pair(eq, n1));
-  assert(reason.type != REASON_IS_CONGRUENCE || eq_graph_is_pair(eq, n2));
-
   // edge between pairs and terms/values is only acceptable if the pair has children (root pair)
   assert(!eq_graph_is_term(eq, n1) || !eq_graph_is_pair(eq, n2) || eq_graph_has_children(eq, n2));
   assert(!eq_graph_is_term(eq, n2) || !eq_graph_is_pair(eq, n1) || eq_graph_has_children(eq, n1));
@@ -970,6 +976,7 @@ void eq_graph_eq_args_updated(eq_graph_t* eq, eq_node_id_t eq_id) {
       }
     }
   }
+
 }
 
 
@@ -1088,7 +1095,6 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
   }
 
   // Enqueue for propagation
-  assert(reason_type != REASON_IS_CONGRUENCE || (eq_graph_has_children(eq, lhs) && eq_graph_has_children(eq, rhs)));
   merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason_type, reason_data);
 
   // Propagate
@@ -1409,6 +1415,7 @@ static
 path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type);
 
 /** Explain the edge e (from u to v) */
+static
 path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type) {
 
   static int depth = 0;
@@ -1471,6 +1478,19 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
       v_c ++;
     }
     assert (*v_c == eq_node_null);
+    // First last stay null, these are both non-terms
+    break;
+  }
+  case REASON_IS_CONGRUENCE_EQ_SYM: {
+    // Speciall case for eq with symmetry
+    const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
+    const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
+    if (u_c[0] != v_c[1]) {
+      eq_graph_explain(eq, u_c[0], v_c[1], reasons_data, reasons_type);
+    }
+    if (u_c[1] != v_c[0]) {
+      eq_graph_explain(eq, u_c[1], v_c[0], reasons_data, reasons_type);
+    }
     // First last stay null, these are both non-terms
     break;
   }

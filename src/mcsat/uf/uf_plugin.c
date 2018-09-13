@@ -245,8 +245,7 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
     for (; trail_is_consistent(uf->ctx->trail) && i < eq_propagations.size; ++ i) {
       term_t t = eq_propagations.data[i];
       variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-      if (!trail_has_value(uf->ctx->trail, t_var)) {
-        assert(t_var != variable_null);
+      if (t_var != variable_null && !trail_has_value(uf->ctx->trail, t_var)) {
         const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
         if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
           ctx_trace_term(uf->ctx, t);
