@@ -172,6 +172,12 @@ typedef struct eq_graph_s {
   /** Term manager */
   term_manager_t tm;
 
+  /** File to output the graph when debugging */
+  FILE* graph_out;
+
+  /** Explanation id */
+  uint32_t explain_id;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */
