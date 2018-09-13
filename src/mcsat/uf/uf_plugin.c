@@ -262,7 +262,7 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
 }
 
 static
-void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t) {
+void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 
   term_table_t* terms = uf->ctx->terms;
 
@@ -297,7 +297,9 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t) {
   }
 
   // Record addition so we can re-add on backracks
-  ivector_push(&uf->eq_graph_addition_trail, t);
+  if (record) {
+    ivector_push(&uf->eq_graph_addition_trail, t);
+  }
 }
 
 static
@@ -356,7 +358,7 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
   }
 
   // Add terms to equality
-  uf_plugin_add_to_eq_graph(uf, eq_term);
+  uf_plugin_add_to_eq_graph(uf, eq_term, true);
 }
 
 static
@@ -420,7 +422,7 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   int_mset_destruct(&arguments);
 
   // Add terms to equality graph
-  uf_plugin_add_to_eq_graph(uf, app_term);
+  uf_plugin_add_to_eq_graph(uf, app_term, true);
 }
 
 static
@@ -911,11 +913,11 @@ void uf_plugin_pop(plugin_t* plugin) {
   eq_graph_pop(&uf->eq_graph);
 
   // Re-add all the terms to eq graph
-//  uint32_t i;
-//  for (i = old_eq_graph_addition_trail_size; i < uf->eq_graph_addition_trail.size; ++ i) {
-//    term_t t = uf->eq_graph_addition_trail.data[i];
-//    uf_plugin_add_to_eq_graph(uf, t);
-//  }
+  uint32_t i;
+  for (i = old_eq_graph_addition_trail_size; i < uf->eq_graph_addition_trail.size; ++ i) {
+    term_t t = uf->eq_graph_addition_trail.data[i];
+    uf_plugin_add_to_eq_graph(uf, t, false);
+  }
 }
 
 
