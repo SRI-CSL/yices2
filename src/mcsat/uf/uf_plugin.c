@@ -863,7 +863,7 @@ void uf_plugin_push(plugin_t* plugin) {
       &uf->app_reps_with_val_rep.size,
       &uf->all_apps.size,
       &uf->propagated_by_eq_graph_list.size,
-      &uf->eq_graph_addition_trail,
+      &uf->eq_graph_addition_trail.size,
       NULL);
 
   app_reps_push(&uf->app_reps);
