@@ -295,7 +295,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     assert(false);
   }
 
-  // Record addition so we can re-add on backracks
+  // Record addition so we can re-add on backtracks
   if (record) {
     ivector_push(&uf->eq_graph_addition_trail, t);
   }
@@ -327,6 +327,10 @@ void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
   vars[0] = eq_term_var;
   vars[1] = lhs_term_var;
   vars[2] = rhs_term_var;
+
+  // Bump vars
+  uf->ctx->bump_variable(uf->ctx, lhs_term_var);
+  uf->ctx->bump_variable(uf->ctx, rhs_term_var);
 
   // Sort variables by trail index
   int_array_sort2(vars, 3, (void*) trail, uf_plugin_trail_variable_compare);
@@ -383,6 +387,8 @@ void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token
   for (; i < arity; ++ i) {
     variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
     int_mset_add(&arguments, arg_var);
+    // Bump var
+    uf->ctx->bump_variable(uf->ctx, arg_var);
   }
 
   // Is the variable fully assigned
