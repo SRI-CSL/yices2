@@ -16,27 +16,19 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Anything that includes "yices.h" requires these macros.
- * Otherwise the code doesn't build on Windows or Cygwin.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/variable_db.h"
 
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
-#include "yices.h"
-
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
   var_db->types = types;
   var_db->tracer = tracer;
+
+  init_term_manager(&var_db->tm, terms);
+  var_db->tm.simplify_ite = false;
+
   init_ivector(&var_db->variable_to_term_map, 0);
   init_int_hmap(&var_db->term_to_variable_map, 0);
   init_pvector(&var_db->notify_new_variable, 0);
@@ -52,6 +44,7 @@ void variable_db_destruct(variable_db_t* var_db) {
   delete_int_hmap(&var_db->term_to_variable_map);
   delete_ivector(&var_db->variable_to_term_map);
   delete_ivector(&var_db->free_list);
+  delete_term_manager(&var_db->tm);
 }
 
 bool variable_db_has_variable(variable_db_t* var_db, term_t x) {
@@ -229,7 +222,8 @@ term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t,
   if (rhs == x_term) {
     rhs = subst;
   }
-  term_t result = yices_eq(lhs, rhs);
+
+  term_t result = mk_eq((term_manager_t*) &var_db->tm, lhs, rhs);
 
   return result;
 }

@@ -21,6 +21,7 @@
 
 #include "io/tracer.h"
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "utils/ptr_vectors.h"
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
@@ -55,6 +56,8 @@ struct variable_db_s {
   /** Free list */
   ivector_t free_list;
 
+  /** The term manager */
+  term_manager_t tm;
 };
 
 typedef struct variable_db_s variable_db_t;
