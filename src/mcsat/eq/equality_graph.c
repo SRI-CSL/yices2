@@ -106,19 +106,19 @@ bool eq_graph_has_children(const eq_graph_t* eq, eq_node_id_t id) {
   return eq_graph_get_children(eq, id) != NULL;
 }
 
-static
+static inline
 bool eq_graph_is_term(const eq_graph_t* eq, eq_node_id_t n_id) {
   const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
   return n->type == EQ_NODE_TERM;
 }
 
-static
+static inline
 bool eq_graph_is_value(const eq_graph_t* eq, eq_node_id_t n_id) {
   const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
   return n->type == EQ_NODE_VALUE;
 }
 
-static
+static inline
 bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
   const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
   return n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR;
@@ -1203,8 +1203,7 @@ void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms) {
     eq_node_id_t n_id = eq->term_value_merges.data[i];
     const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
     eq_node_id_t n_find_id = n->find;
-    const eq_node_t* n_find = eq_graph_get_node_const(eq, n_find_id);
-    assert(n->type == EQ_NODE_TERM && n_find->type == EQ_NODE_VALUE);
+    assert(n->type == EQ_NODE_TERM && eq_graph_get_node_const(eq, n_find_id)->type == EQ_NODE_VALUE);
     ivector_push(out_terms, eq->terms_list.data[n->index]);
   }
   // Clear the vector
