@@ -16,23 +16,12 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-/*
- * Anything that includes "yices.h" requires these macros.
- * Otherwise the code doesn't build on Windows or Cygwin.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/uf/uf_feasible_set_db.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/tracing.h"
 
 #include "utils/int_array_sort.h"
-
-#include "yices.h"
+#include "terms/term_manager.h"
 
 /**
  * Element in the list. Each element contains a pointer to the previous
@@ -83,6 +72,9 @@ struct uf_feasible_set_db_struct {
 
   /** Terms */
   term_table_t* terms;
+
+  /** Term manager */
+  term_manager_t* tm;
 };
 
 static
@@ -153,6 +145,7 @@ uf_feasible_set_db_t* uf_feasible_set_db_new(term_table_t* terms, variable_db_t*
   db->trail = trail;
   db->var_db = var_db;
   db->terms = terms;
+  db->tm = &var_db->tm;
 
   return db;
 }
@@ -399,7 +392,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
       term_t x_term = variable_db_get_term(db->var_db, x);
       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
+      term_t y_eq_z = mk_eq(db->tm, y_term, z_term);
 
       ivector_push(conflict, x_eq_y);
       ivector_push(conflict, x_eq_z);
@@ -425,7 +418,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
         term_t x_term = variable_db_get_term(db->var_db, x);
         term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
         term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-        term_t y_eq_z = yices_eq(y_term, z_term);
+        term_t y_eq_z = mk_eq(db->tm, y_term, z_term);
 
         ivector_push(conflict, x_eq_y);
         ivector_push(conflict, opposite_term(x_eq_z));
@@ -454,7 +447,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
       term_t x_term = variable_db_get_term(db->var_db, x);
       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
+      term_t y_eq_z = mk_eq(db->tm, y_term, z_term);
 
       ivector_push(conflict, opposite_term(x_eq_y));
       ivector_push(conflict, x_eq_z);
