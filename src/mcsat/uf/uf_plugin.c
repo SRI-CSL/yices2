@@ -32,7 +32,6 @@
 #include "model/models.h"
 
 #include "terms/terms.h"
-#include "terms/term_manager.h"
 
 #include "inttypes.h"
 
@@ -83,7 +82,7 @@ typedef struct {
   uf_feasible_set_db_t* feasible;
 
   /** The term manager (no ITE simplification) */
-  term_manager_t tm;
+  term_manager_t* tm;
 
   /** Equality graph */
   eq_graph_t eq_graph;
@@ -144,8 +143,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_int_hmap(&uf->propagated_by_eq_graph, 0);
 
   // Term manager
-  init_term_manager(&uf->tm, uf->ctx->terms);
-  uf->tm.simplify_ite = false;
+  uf->tm = &ctx->var_db->tm;
 }
 
 static
@@ -165,7 +163,6 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->eq_graph_addition_trail);
   delete_ivector(&uf->propagated_by_eq_graph_list);
   delete_int_hmap(&uf->propagated_by_eq_graph);
-  delete_term_manager(&uf->tm);
 }
 
 static

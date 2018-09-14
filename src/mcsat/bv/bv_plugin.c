@@ -5,16 +5,6 @@
  * license agreement which is downloadable along with this program.
  */
 
-/*
- * Anything that includes "yices.h" requires these macros.
- * Otherwise the code doesn't build on Windows or Cygwin.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "bdd_computation.h"
 #include "bv_feasible_set_db.h"
 #include "bv_plugin.h"
@@ -34,8 +24,6 @@
 #include "utils/int_array_sort2.h"
 #include "utils/int_hash_sets.h"
 #include "terms/terms.h"
-#include "terms/term_manager.h"
-#include "yices.h"
 
 typedef struct {
 
@@ -49,7 +37,7 @@ typedef struct {
   plugin_context_t* ctx;
 
   /** Term manager */
-  term_manager_t tm;
+  term_manager_t* tm;
 
   /** Next index of the trail to process */
   uint32_t trail_i;
@@ -103,7 +91,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   bv->ctx = ctx;
-  init_term_manager(&bv->tm, ctx->terms);
+  bv->tm = &ctx->var_db->tm;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
 
@@ -114,7 +102,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
   }
 
-  // Construct the watch-list datastructures
+  // Construct the watch-list data structures
   watch_list_manager_construct(&bv->wlm, bv->ctx->var_db);
   init_int_hmap(&bv->constraint_unit_info, 0);
   init_int_hmap(&bv->constraint_unit_var, 0);
@@ -169,7 +157,6 @@ void bv_plugin_destruct(plugin_t* plugin) {
     ctx_trace_printf(bv->ctx, "bv_plugin_destruct(...)\n");
   }
 
-  delete_term_manager(&bv->tm);
   watch_list_manager_destruct(&bv->wlm);
   delete_int_hmap(&bv->constraint_unit_info);
   delete_int_hmap(&bv->constraint_unit_var);
@@ -970,8 +957,8 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
         ivector_push(conflict, opposite_term(var_term));
       }
     } else if (value->type == VALUE_BV) {
-      term_t var_value = mk_bv_constant(&bv->tm, (bvconstant_t*) &value->bv_value);
-      term_t var_eq_value = mk_eq(&bv->tm, var_term, var_value);
+      term_t var_value = mk_bv_constant(bv->tm, (bvconstant_t*) &value->bv_value);
+      term_t var_eq_value = mk_eq(bv->tm, var_term, var_value);
       ivector_push(conflict, var_eq_value);
     } else {
       assert(false);
