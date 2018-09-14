@@ -650,7 +650,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
       ivector_push(&uf->conflict, opposite_term(fy));
     }
   } else {
-    term_t fx_eq_fy = mk_eq(&uf->tm, fx, fy);
+    term_t fx_eq_fy = mk_eq(uf->tm, fx, fy);
     ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
   }
 
@@ -679,7 +679,7 @@ void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs)
         ivector_push(&uf->conflict, opposite_term(y));
       }
     } else {
-      term_t x_eq_y = mk_eq(&uf->tm, x, y);
+      term_t x_eq_y = mk_eq(uf->tm, x, y);
       // Don't add trivially true facts
       if (x_eq_y != bool2term(true)) {
         ivector_push(&uf->conflict, x_eq_y);
