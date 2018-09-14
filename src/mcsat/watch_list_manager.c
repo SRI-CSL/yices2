@@ -127,6 +127,7 @@ void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_
       variable_t list_element;
       do {
         list_element = wlm->vlist_memory.data[old_vlist_ref ++];
+        assert(list_element == variable_null || gc_info_get_reloc(gc_vars, list_element) != variable_null);
         wlm->vlist_memory.data[new_vlist_top ++] = list_element;
       } while (list_element != variable_null);
     }

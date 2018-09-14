@@ -439,11 +439,9 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     // Equality terms (for uninterpreted sorts)
     uf_plugin_new_eq(uf, t, prop);
     break;
-  case UNINTERPRETED_TERM:
-    ivector_push(&uf->all_uvars, variable_db_get_variable(uf->ctx->var_db, t));
-    break;
   default:
-    // Noting for now
+    // All other is of uninterpreted sort, and we treat as variables
+    ivector_push(&uf->all_uvars, variable_db_get_variable(uf->ctx->var_db, t));
     break;
   }
 
@@ -948,7 +946,7 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   variable_db_t* var_db = uf->ctx->var_db;
 
   if (gc_vars->level == 0) {
-    // UF only needs to make sure that all the applications are kept
+    // 1: make sure that all the UF applications are kept
     uint32_t i, j, m, n = uf->all_apps.size;
     for (i = 0; i < n; ++ i) {
       variable_t app_var = uf->all_apps.data[i];
