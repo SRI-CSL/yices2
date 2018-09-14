@@ -210,7 +210,15 @@ void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_
 
 term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) {
 
-  // For now, just equality
+  // For now, just equality and trivial substitution
+
+  // Trivial substitution:
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+  if (t_var == x) {
+    return subst;
+  }
+
+  // Equality:
   assert(term_kind(var_db->terms, t) == EQ_TERM);
   term_t x_term = variable_db_get_term(var_db, x);
   composite_term_t* eq = eq_term_desc(var_db->terms, t);
