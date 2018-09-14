@@ -1164,7 +1164,8 @@ void eq_graph_propagate(eq_graph_t* eq) {
   eq->in_propagate = false;
 }
 
-void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
+static
+void eq_graph_assert_eq_and_propagate(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
     eq_reason_type_t reason_type, uint32_t reason_data) {
 
   assert(lhs < eq->nodes_size);
@@ -1188,7 +1189,7 @@ void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
 void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t reason_data) {
   eq_node_id_t lhs_id = eq_graph_add_term(eq, lhs);
   eq_node_id_t rhs_id = eq_graph_add_term(eq, rhs);
-  eq_graph_assert_eq(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data);
+  eq_graph_assert_eq_and_propagate(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data);
 }
 
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq) {
@@ -1229,6 +1230,10 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   const mcsat_trail_t* trail = eq->ctx->trail;
   variable_db_t* var_db = eq->ctx->var_db;
 
+  // Run initial propagation before assertions
+  eq_graph_propagate(eq);
+
+  // Run each assertion and propagate
   for (; eq->trail_i < trail_size(trail); ++ eq->trail_i) {
     variable_t x = trail_at(trail, eq->trail_i);
     term_t x_term = variable_db_get_term(var_db, x);
@@ -1236,7 +1241,7 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       const mcsat_value_t* v = trail_get_value(trail, x);
       eq_node_id_t v_id = eq_graph_add_value(eq, v);
       eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
-      eq_graph_assert_eq(eq, v_id, x_id, REASON_IS_IN_TRAIL, x);
+      eq_graph_assert_eq_and_propagate(eq, v_id, x_id, REASON_IS_IN_TRAIL, x);
     }
   }
 }
