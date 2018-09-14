@@ -25,6 +25,14 @@
 #include <inttypes.h>
 #include <assert.h>
 
+static inline
+void eq_graph_bump_term(const eq_graph_t* eq, term_t t) {
+  variable_t t_var = variable_db_get_variable_if_exists(eq->ctx->var_db, t);
+  if (t_var != variable_null) {
+    eq->ctx->bump_variable(eq->ctx, t_var);
+  }
+}
+
 static
 void eq_graph_propagate(eq_graph_t* eq);
 
@@ -1525,15 +1533,21 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
 
   // Default term results
   path_terms_t terms = { NULL_TERM, NULL_TERM };
-  if (u->type == EQ_NODE_TERM) { terms.t1 = eq_graph_get_term(eq, e->u); }
-  if (v->type == EQ_NODE_TERM) { terms.t2 = eq_graph_get_term(eq, e->v); }
+  if (u->type == EQ_NODE_TERM) {
+    terms.t1 = eq_graph_get_term(eq, e->u);
+    eq_graph_bump_term(eq, terms.t1);
+  }
+  if (v->type == EQ_NODE_TERM) {
+    terms.t2 = eq_graph_get_term(eq, e->v);
+    eq_graph_bump_term(eq, terms.t2);
+  }
 
   // Default: no value
 
   // Add to reason
   switch (e->reason.type) {
-  case REASON_IS_FUNCTION_DEF:
   case REASON_IS_IN_TRAIL:
+  case REASON_IS_FUNCTION_DEF:
   case REASON_IS_CONSTANT_DEF:
     // Nothing to do really, terms already added
     break;
@@ -1785,7 +1799,6 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
       eq_graph_to_gv_edge(eq, e, current_explain_id);
     }
-
 
     // Explain the edge
     path_terms_t e_terms = eq_graph_explain_edge(eq, e, reasons_data, reasons_type);
