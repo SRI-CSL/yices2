@@ -25,6 +25,68 @@
 #include <inttypes.h>
 #include <assert.h>
 
+/* Default initial size and max size */
+#define BFS_VECTOR_DEFAULT_SIZE 10
+#define BFS_VECTOR_MAX_SIZE (UINT32_MAX/sizeof(bfs_entry_t))
+
+static inline
+void bfs_vector_construct(bfs_vector_t *v, uint32_t n) {
+  if (n >= BFS_VECTOR_MAX_SIZE) {
+    out_of_memory();
+  }
+  v->capacity = n;
+  v->size = 0;
+  v->data = NULL;
+  if (n > 0) {
+    v->data = (bfs_entry_t*) safe_malloc(n * sizeof(bfs_entry_t));
+  }
+}
+
+static inline
+void bfs_vector_destruct(bfs_vector_t* v) {
+  safe_free(v->data);
+  v->data = NULL;
+}
+
+static inline
+void bfs_vector_extend(bfs_vector_t *v) {
+  uint32_t n;
+
+  n = v->capacity;
+  if (n == 0) {
+    n = BFS_VECTOR_DEFAULT_SIZE;
+  } else {
+    n ++;
+    n += n >> 1;
+    if (n >= BFS_VECTOR_MAX_SIZE) {
+      out_of_memory();
+    }
+  }
+  v->data = (bfs_entry_t*) safe_realloc(v->data, n * sizeof(bfs_entry_t));
+  v->capacity = n;
+}
+
+static inline
+void bfs_vector_shrink(bfs_vector_t *v, uint32_t n) {
+  assert(n <= v->size);
+  v->size = n;
+}
+
+static inline
+void bfs_vector_push(bfs_vector_t* v, eq_node_id_t n, uint32_t prev, eq_edge_id_t e) {
+  uint32_t i;
+
+  i = v->size;
+  if (i >= v->capacity) {
+    bfs_vector_extend(v);
+  }
+  v->data[i].n = n;
+  v->data[i].prev = prev;
+  v->data[i].e = e;
+  v->size = i+1;
+}
+
+
 static inline
 void eq_graph_bump_term(const eq_graph_t* eq, term_t t) {
   variable_t t_var = variable_db_get_variable_if_exists(eq->ctx->var_db, t);
@@ -204,7 +266,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
 
   eq->graph_out = 0;
 
-  init_ivector(&eq->bfs_queue, 0);
+  bfs_vector_construct(&eq->bfs_queue, 0);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_construct[%s]()\n", eq->name);
@@ -253,7 +315,7 @@ void eq_graph_destruct(eq_graph_t* eq) {
 
   delete_term_manager(&eq->tm);
 
-  delete_ivector(&eq->bfs_queue);
+  bfs_vector_destruct(&eq->bfs_queue);
 }
 
 // Default initial size and max size
@@ -1730,25 +1792,24 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   assert (n1_id != n2_id);
 
   /** Temp, hence nonconst */
-  ivector_t* bfs_queue = &((eq_graph_t*) eq)->bfs_queue;
+  bfs_vector_t* bfs_queue = &((eq_graph_t*) eq)->bfs_queue;
 
   // Run BFS:
   // - there has to be a path from n1 to n2 (since equal)
   // - the graph is a tree hence visit once (since we only merge non-equal)
   uint32_t bfs_queue_original_size = bfs_queue->size;
-  ivector_push(bfs_queue, n1_id);
-
-  int_hmap_t edges_used; // Map from node to the edge that got to it
-  init_int_hmap(&edges_used, 0);
-  int_hmap_add(&edges_used, n1_id, INT32_MAX);
+  bfs_vector_push(bfs_queue, eq_node_null, 0, eq_edge_null); // Marker for start
+  bfs_vector_push(bfs_queue, n1_id, bfs_queue_original_size, eq_edge_null);
 
   bool path_found = false;
-  uint32_t bfs_i = bfs_queue_original_size;
-  for (; !path_found; bfs_i ++) {
+  uint32_t bfs_i;
+  for (bfs_i = bfs_queue_original_size + 1; !path_found; bfs_i ++) {
 
     // Get the current node
     assert(bfs_i < bfs_queue->size);
-    eq_node_id_t n_id = eq->bfs_queue.data[bfs_i];
+    eq_node_id_t n_id = eq->bfs_queue.data[bfs_i].n;
+    uint32_t prev_i = eq->bfs_queue.data[bfs_i].prev;
+    eq_node_id_t prev_id = eq->bfs_queue.data[prev_i].n;
 
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
       ctx_trace_printf(eq->ctx, "BFS node:");
@@ -1768,8 +1829,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
       }
 
       // The only way to visit a node again, is through back-edges, skip them
-      int_hmap_pair_t* edge_find = int_hmap_get(&edges_used, e->v);
-      if (edge_find->val < 0) {
+      if (prev_id != e->v) {
         if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
           ctx_trace_printf(eq->ctx, "BFS edge:");
           eq_graph_print_node(eq, eq_graph_get_node_const(eq, e->u), ctx_trace_out(eq->ctx), true);
@@ -1778,8 +1838,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
           ctx_trace_printf(eq->ctx, "\n");
         }
         // Add to queue and record the edge
-        ivector_push(bfs_queue, e->v);
-        edge_find->val = n_edge;
+        bfs_vector_push(bfs_queue, e->v, bfs_i, n_edge);
       }
 
       // Next edge
@@ -1800,13 +1859,12 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   eq_node_id_t n_id = n2_id;
 
   // Reconstruct the path
-  for(;;) {
+  for(bfs_i = eq->bfs_queue.size - 1;; bfs_i = eq->bfs_queue.data[bfs_i].prev) {
 
     // Relevant path edge of the node
-    int_hmap_pair_t* find = int_hmap_find(&edges_used, n_id);
-    eq_edge_id_t n_edge = find->val;
+    eq_edge_id_t n_edge = eq->bfs_queue.data[bfs_i].e;
     // If we hit the end marker, we're done
-    if (n_edge == INT32_MAX) {
+    if (n_edge == eq_edge_null) {
       break;
     }
 
@@ -1863,9 +1921,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   // last in the path, so it's up to the user to add the explanation
   assert(t2_to_explain == NULL_TERM || t2_to_explain == path_terms.t1);
 
-  delete_int_hmap(&edges_used);
-
-  ivector_shrink(bfs_queue, bfs_queue_original_size);
+  bfs_vector_shrink(bfs_queue, bfs_queue_original_size);
 
   assert(path_terms.t2 != NULL_TERM);
 

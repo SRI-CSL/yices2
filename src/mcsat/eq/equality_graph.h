@@ -35,6 +35,18 @@
 
 #include "terms/term_manager.h"
 
+typedef struct {
+  eq_node_id_t n; // The node to be examined
+  eq_edge_id_t e; // The edge we traversed to get here
+  uint32_t prev; // Index of previous node in the queue
+} bfs_entry_t;
+
+typedef struct {
+  bfs_entry_t* data;
+  uint32_t size;
+  uint32_t capacity;
+} bfs_vector_t;
+
 /**
  * Traditional functionality:
  * - Add terms to the term database
@@ -179,7 +191,7 @@ typedef struct eq_graph_s {
   uint32_t explain_id;
 
   /** The queue for doing BFS */
-  ivector_t bfs_queue;
+  bfs_vector_t bfs_queue;
 
 } eq_graph_t;
 
