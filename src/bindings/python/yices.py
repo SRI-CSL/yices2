@@ -3862,7 +3862,7 @@ def yices_clear_term_name(t):
 # const char *yices_get_type_name(type_t tau)
 libyices.yices_get_type_name.restype = c_char_p
 libyices.yices_get_type_name.argtypes = [type_t]
-@catch_error(-1)
+@catch_error(0)
 def yices_get_type_name(tau):
     """Retrieves the name attached to the type tau."""
     return libyices.yices_get_type_name(tau)
@@ -3870,7 +3870,7 @@ def yices_get_type_name(tau):
 # const char *yices_get_term_name(term_t t)
 libyices.yices_get_term_name.restype = c_char_p
 libyices.yices_get_term_name.argtypes = [term_t]
-@catch_error(-1)
+@catch_error(0)
 def yices_get_term_name(t):
     """Retrieves the name attached to the term t."""
     return libyices.yices_get_term_name(t)
