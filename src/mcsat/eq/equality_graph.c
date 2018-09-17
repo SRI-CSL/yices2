@@ -421,6 +421,10 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   return id;
 }
 
+uint32_t eq_graph_term_size(const eq_graph_t* eq) {
+  return eq->terms_list.size;
+}
+
 eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t) {
   eq_node_id_t id = eq_graph_add_term_internal(eq, t);
   eq_graph_propagate(eq);
@@ -1252,6 +1256,13 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   }
 }
 
+bool eq_graph_is_trail_propagated(const eq_graph_t* eq) {
+  if (!merge_queue_is_empty(&eq->merge_queue)) {
+    return false;
+  }
+  return (eq->trail_i == trail_size(eq->ctx->trail));
+}
+
 void eq_graph_push(eq_graph_t* eq) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
@@ -1951,3 +1962,14 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   return result.t2;
 }
 
+void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars) {
+  variable_db_t* var_db = eq->ctx->var_db;
+
+  uint32_t i;
+  for (i = 0; i < eq->terms_list.size; ++ i) {
+    variable_t x = variable_db_get_variable_if_exists(var_db, eq->terms_list.data[i]);
+    if (x != variable_null) {
+      gc_info_mark(gc_vars, x);
+    }
+  }
+}

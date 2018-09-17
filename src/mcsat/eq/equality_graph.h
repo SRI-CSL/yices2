@@ -189,6 +189,9 @@ void eq_graph_destruct(eq_graph_t* eq);
 /** Add the term to the database (if not there) and return id. Runs propagation. */
 eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 
+/** Returns the number of terms in the graph */
+uint32_t eq_graph_term_size(const eq_graph_t* eq);
+
 /**
  * Add an uninterpreted function term to the database (if not there) and
  * return id. This will also run propagation. If the term was added before
@@ -248,6 +251,9 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
 /** Propagate the trail */
 void eq_graph_propagate_trail(eq_graph_t* eq);
 
+/** Returns true if the trail is fully propagated */
+bool eq_graph_is_trail_propagated(const eq_graph_t* eq);
+
 /**
  * Explain the reported conflict. Returns sequence of reason data, and
  * associated types. The only returned data is for types that have associated
@@ -264,3 +270,6 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
  * Returns the substitution term
  */
 term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types);
+
+/** Mark all terms (as variables). */
+void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars);
