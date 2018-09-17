@@ -204,6 +204,8 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
 
   eq->graph_out = 0;
 
+  init_ivector(&eq->bfs_queue, 0);
+
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_construct[%s]()\n", eq->name);
   }
@@ -250,6 +252,8 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_int_hmap(&eq->node_to_children);
 
   delete_term_manager(&eq->tm);
+
+  delete_ivector(&eq->bfs_queue);
 }
 
 // Default initial size and max size
@@ -1725,25 +1729,26 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   assert (n2_id != eq_node_null);
   assert (n1_id != n2_id);
 
+  /** Temp, hence nonconst */
+  ivector_t* bfs_queue = &((eq_graph_t*) eq)->bfs_queue;
+
   // Run BFS:
   // - there has to be a path from n1 to n2 (since equal)
   // - the graph is a tree hence visit once (since we only merge non-equal)
-
-  ivector_t bfs_queue;
-  init_ivector(&bfs_queue, 0);
-  ivector_push(&bfs_queue, n1_id);
+  uint32_t bfs_queue_original_size = bfs_queue->size;
+  ivector_push(bfs_queue, n1_id);
 
   int_hmap_t edges_used; // Map from node to the edge that got to it
   init_int_hmap(&edges_used, 0);
   int_hmap_add(&edges_used, n1_id, INT32_MAX);
 
   bool path_found = false;
-  uint32_t bfs_i = 0;
+  uint32_t bfs_i = bfs_queue_original_size;
   for (; !path_found; bfs_i ++) {
 
     // Get the current node
-    assert(bfs_i < bfs_queue.size);
-    eq_node_id_t n_id = bfs_queue.data[bfs_i];
+    assert(bfs_i < bfs_queue->size);
+    eq_node_id_t n_id = eq->bfs_queue.data[bfs_i];
 
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
       ctx_trace_printf(eq->ctx, "BFS node:");
@@ -1773,7 +1778,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
           ctx_trace_printf(eq->ctx, "\n");
         }
         // Add to queue and record the edge
-        ivector_push(&bfs_queue, e->v);
+        ivector_push(bfs_queue, e->v);
         edge_find->val = n_edge;
       }
 
@@ -1859,7 +1864,8 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   assert(t2_to_explain == NULL_TERM || t2_to_explain == path_terms.t1);
 
   delete_int_hmap(&edges_used);
-  delete_ivector(&bfs_queue);
+
+  ivector_shrink(bfs_queue, bfs_queue_original_size);
 
   assert(path_terms.t2 != NULL_TERM);
 

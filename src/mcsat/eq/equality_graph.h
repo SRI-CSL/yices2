@@ -178,6 +178,9 @@ typedef struct eq_graph_s {
   /** Explanation id */
   uint32_t explain_id;
 
+  /** The queue for doing BFS */
+  ivector_t bfs_queue;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */
