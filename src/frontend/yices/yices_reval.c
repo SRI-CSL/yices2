@@ -83,6 +83,7 @@
 #include "frontend/yices/yices_reval.h"
 #include "frontend/yices/yices_tstack_ops.h"
 #include "io/concrete_value_printer.h"
+#include "io/yices_pp.h"
 #include "model/model_eval.h"
 #include "model/models.h"
 #include "model/projection.h"
@@ -183,7 +184,10 @@ static context_t *context;
 static model_t *model;
 static param_t parameters;
 
-/* flag to indicate we are in exists forall mode. */
+
+/*
+ * Flag to indicate we are in exists/forall mode.
+ */
 static bool efmode;
 
 
@@ -205,7 +209,7 @@ static double ready_time, check_process_time;
 /*
  * Parameters for preprocessing and simplifications
  * - these parameters are stored in the context but
- *   we want to keep a copy when exists forall solver is used (since then
+ *   we want to keep a copy when the exists/forall solver is used (since then
  *   context is NULL).
  */
 static ctx_param_t ctx_parameters;
@@ -219,6 +223,31 @@ static ef_client_t ef_client_globals;
  * Stack of labeled assertions (for unsat core)
  */
 static labeled_assertion_stack_t labeled_assertions;
+
+/*
+ * Unsat core/unsat assumption results
+ * - only one of these should be non-null
+ * - unsat_core is allocated and filled-in on a call to check (yices_check_cmd)
+ *   if there are labeled assertions
+ * - unsat_assumptions is allocated and filled-in on a call to check_assuming
+ *
+ * Both are deleted when the context is updated: on push/pop/assert/reset
+ */
+static assumptions_and_core_t *unsat_core;
+static assumptions_and_core_t *unsat_assumptions;
+
+
+/*
+ * Pretty printer area:
+ * - width = 140 columns
+ * - height = infinity
+ * - offset = 0
+ * - no stretch
+ * - no truncation
+ */
+static pp_area_t pp_area = {
+  140, UINT32_MAX, 0, false, false
+};
 
 
 
@@ -831,13 +860,22 @@ static void print_ok(void) {
 
 
 /*
+ * Print status
+ */
+static void print_status(smt_status_t stat) {
+  fputs(status2string[stat], stdout);
+  fputc('\n', stdout);
+  fflush(stdout);
+}
+
+
+/*
  * Print the translation code returned by assert
  */
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    fprintf(stdout, "unsat\n");
-    fflush(stdout);
+    print_status(STATUS_UNSAT);
   } else if (code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
@@ -845,6 +883,7 @@ static void print_internalization_code(int32_t code) {
     report_error(code2error[code]);
   }
 }
+
 
 
 /*
@@ -857,6 +896,8 @@ static void print_ef_analyze_code(ef_code_t code) {
     report_error(efcode2error[code]);
   }
 }
+
+
 
 
 
@@ -923,6 +964,34 @@ static void report_show_implicant_error(error_code_t code) {
 }
 
 
+/*
+ * Undefined term in an assumption
+ */
+static void report_undefined_term(const char *name) {
+  reader_t *rd;
+
+  rd = &parser.lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  }
+  fprintf(stderr, "undefined term %s\n", name);
+}
+
+
+/*
+ * Not a boolean term
+ */
+static void report_not_boolean_term(const char *name) {
+  reader_t *rd;
+
+  rd = &parser.lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  }
+  fprintf(stderr, "term %s is not Boolean\n", name);
+}
+
+
 
 
 /***************************
@@ -950,6 +1019,26 @@ static void free_model(model_t *model) {
   safe_free(model);
 }
 
+/*
+ * Delete model/unsat_core/unsat_assumptions before any operation
+ * that modifies the context.
+ */
+static void cleanup_globals(void) {
+  if (model != NULL) {
+    free_model(model);
+    model = NULL;
+  }
+  if (unsat_core != NULL) {
+    free_assumptions(unsat_core);
+    unsat_core = NULL;
+  }
+  if (unsat_assumptions != NULL) {
+    free_assumptions(unsat_assumptions);
+    unsat_assumptions = NULL;
+  }
+}
+
+
 
 
 /****************************
@@ -967,7 +1056,6 @@ static void free_model(model_t *model) {
  * - qflag = true to support quantifiers
  */
 static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
-  model = NULL;
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_default_params_for_context(context, &parameters);
   save_ctx_params(&ctx_parameters, context);
@@ -985,13 +1073,52 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
 static void delete_ctx(void) {
   assert(context != NULL);
   reset_handlers();
-  if (model != NULL) {
-    free_model(model);
-    model = NULL;
-  }
+  cleanup_globals();
   yices_free_context(context);
   context = NULL;
 }
+
+
+/*
+ * Cleanup in incremental mode:
+ * - first delete models/unsat core/unsat assumptions if any
+ * - if the context is SAT or UNKNOWN, clear the current assignment
+ * - if the context is UNSAT, remove assumptions if any
+ *
+ * After this, the context's status is either IDLE or UNSAT.
+ * UNSAT means that no assumptions were present.
+ */
+static void cleanup_context(void) {
+  assert(context != NULL);
+
+  cleanup_globals();
+  switch(context_status(context)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    context_clear(context);
+    assert(context_status(context) == STATUS_IDLE);
+    break;
+
+  case STATUS_UNSAT:
+    // remove assumptions if any
+    context_clear_unsat(context);
+    assert(context_status(context) == STATUS_IDLE ||
+	   context_status(context) == STATUS_UNSAT);
+    break;
+
+  case STATUS_IDLE:
+    // nothing to do
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    // should not happen
+    freport_bug(stderr, "unexpected context status");
+    break;
+  }
+}
+
 
 
 /***************************************
@@ -1297,7 +1424,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   char* reason;
 
   reason = NULL;
-  
+
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
@@ -1909,6 +2036,10 @@ static void yices_showtimeout_cmd(void) {
 }
 
 
+
+/*
+ * Print internals
+ */
 static void yices_dump_cmd(void) {
   if (efmode) {
     report_error("(dump-context) is not supported by the exists/forall solver");
@@ -1937,10 +2068,7 @@ static void yices_reset_cmd(void) {
     ivector_reset(&delayed_assertions);
     model = NULL;
   } else {
-    if (model != NULL) {
-      free_model(model);
-      model = NULL;
-    }
+    cleanup_globals();
     reset_labeled_assertion_stack(&labeled_assertions);
     ivector_reset(&delayed_assertions);
     reset_context(context);
@@ -1958,18 +2086,8 @@ static void yices_push_cmd(void) {
   } else if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else {
+    cleanup_context();
     switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      // cleanup model and return to IDLE
-      if (model != NULL) {
-        free_model(model);
-        model = NULL;
-      }
-      context_clear(context);
-      assert(context_status(context) == STATUS_IDLE);
-      // fall-through intended.
-
     case STATUS_IDLE:
       context_push(context);
       labeled_assertions_push(&labeled_assertions);
@@ -1982,11 +2100,9 @@ static void yices_push_cmd(void) {
       fflush(stderr);
       break;
 
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
     default:
       // should not happen
-      freport_bug(stderr,"unexpected context status in 'push'");
+      freport_bug(stderr, "unexpected context status in 'push'");
       break;
     }
   }
@@ -2005,17 +2121,12 @@ static void yices_pop_cmd(void) {
   } else if (context_base_level(context) == 0) {
     report_error("pop not allowed at bottom level");
   } else {
+    cleanup_context();
     switch (context_status(context)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      // delete the model first
-      if (model != NULL) {
-        free_model(model);
-        model = NULL;
-      }
-      context_clear(context);
-      assert(context_status(context) == STATUS_IDLE);
-      // fall-through intended
+    case STATUS_UNSAT:
+      context_clear_unsat(context);
+      // fall through intended
+
     case STATUS_IDLE:
       context_pop(context);
       assert(!labeled_assertions_empty_trail(&labeled_assertions));
@@ -2023,14 +2134,6 @@ static void yices_pop_cmd(void) {
       print_ok();
       break;
 
-    case STATUS_UNSAT:
-      context_clear_unsat(context);
-      context_pop(context);
-      print_ok();
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
     default:
       freport_bug(stderr,"unexpected context status in 'pop'");
       break;
@@ -2043,13 +2146,12 @@ static void yices_pop_cmd(void) {
  * Assert formula f
  */
 static void yices_assert_cmd(term_t f) {
-  smt_status_t status;
   int32_t code;
 
-  /*
-   * If efmode is true, we add f to the delayed assertions vector
-   */
   if (efmode) {
+    /*
+     * Exists/forall: we add f to the delayed assertions vector
+     */
     if (ef_client_globals.efdone) {
       report_error("more assertions are not allowed after (ef-solve)");
     } else if (yices_term_is_bool(f)) {
@@ -2059,81 +2161,96 @@ static void yices_assert_cmd(term_t f) {
       report_error("type error in assert: boolean term required");
     }
 
-  } else {
-    status = context_status(context);
-    if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
+  } else if (!context_supports_multichecks(context)) {
+    /*
+     * Non-incremental
+     */
+    if (context_status(context) != STATUS_IDLE) {
       report_error("more assertions are not allowed");
+    } else if (yices_term_is_bool(f)) {
+      ivector_push(&delayed_assertions, f);
+      print_ok();
     } else {
-      switch (status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
-	// cleanup then return to the idle state
-	if (model != NULL) {
-	  free_model(model);
-	  model = NULL;
-	}
-	context_clear(context);
-	assert(context_status(context) == STATUS_IDLE);
-	// fall-through intended
+      report_error("type error in assert: boolean term required");
+    }
 
-      case STATUS_IDLE:
-	if (yices_term_is_bool(f)) {
-	  if (mode == CTX_MODE_ONECHECK) {
-	    // delayed assertion
-	    ivector_push(&delayed_assertions, f);
-	    code = CTX_NO_ERROR;
-	  } else {
-	    code = assert_formula(context, f);
-	  }
-	  print_internalization_code(code);
-	} else {
-	  report_error("type error in assert: boolean term required");
-	}
-	break;
-
-      case STATUS_UNSAT:
-	// cannot take more assertions
-	if (context_base_level(context) == 0) {
-	  fputs("The context is unsat. Try (reset).\n", stderr);
-	} else {
-	  fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
-	}
-	fflush(stderr);
-	break;
-
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
-      default:
-	// should not happen
-	freport_bug(stderr,"unexpected context status in 'assert'");
-	break;
+  } else {
+    /*
+     * Incremental
+     */
+    cleanup_context();
+    switch (context_status(context)) {
+    case STATUS_IDLE:
+      if (yices_term_is_bool(f)) {
+	code = assert_formula(context, f);
+	print_internalization_code(code);
+      } else {
+	report_error("type error in assert: boolean term required");
       }
+      break;
+
+    case STATUS_UNSAT:
+      // cannot take more assertions
+      if (context_base_level(context) == 0) {
+	fputs("The context is unsat. Try (reset).\n", stderr);
+      } else {
+	fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
+      }
+      fflush(stderr);
+      break;
+
+    default:
+      // should not happen
+      freport_bug(stderr,"unexpected context status in 'assert'");
+      break;
     }
   }
 }
 
 
 /*
- * assert with a label
+ * Assert with a label
  */
 static void yices_named_assert_cmd(term_t t, char *label) {
   char *clone;
 
   if (efmode) {
-    report_error("labeled assertions are not supported byt the exists/forall solver");
+    report_error("labeled assertions are not supported by the exists/forall solver");
   } else if (mode == CTX_MODE_ONECHECK) {
     report_error("labeled assertions are not supported in one-shot mode");
   } else if (arch == CTX_ARCH_MCSAT) {
-    report_error("the non-linear solver does not support labled assertions");
+    report_error("the non-linear solver does not support labeled assertions");
   } else if (labeled_assertions_has_name(&labeled_assertions, label)) {
-    report_error("duplicate assertion label"); 
+    report_error("duplicate assertion label");
   } else if (!yices_term_is_bool(t)) {
     report_error("type error in assert: boolean term required");
   } else {
-    // TBD
-    printf("adding labeled assertion: name = %s\n", label);
-    clone = clone_string(label);
-    add_labeled_assertion(&labeled_assertions, t, clone);
+
+    cleanup_context();
+    switch (context_status(context)) {
+    case STATUS_IDLE:
+      clone = clone_string(label);
+      add_labeled_assertion(&labeled_assertions, t, clone);
+      print_ok();
+      break;
+
+    case STATUS_UNSAT:
+      // We could add the labeled assertion even though
+      // the context is unsat, but that wouldn't be consistent
+      // with the regular assert.
+      if (context_base_level(context) == 0) {
+	fputs("The context is unsat. Try (reset).\n", stderr);
+      } else {
+	fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
+      }
+      fflush(stderr);
+      break;
+
+    default:
+      // should not happen
+      freport_bug(stderr,"unexpected context status in 'assert'");
+      break;
+    }
   }
 }
 
@@ -2147,9 +2264,36 @@ static void timeout_handler(void *data) {
   if (context_status(data) == STATUS_SEARCHING) {
     context_stop_search(data);
     if (verbosity > 0) {
+      // Fix this: not safe in a handler
       fputs("\nTimeout\n", stderr);
       fflush(stderr);
     }
+  }
+}
+
+/*
+ * Initialize and activate the timeout if needed
+ * We call init_timeout lazily because the internal timeout
+ * consumes resources even if it's never used.
+ */
+static void set_timeout(void) {
+  if (timeout > 0) {
+    if (!timeout_initialized) {
+      init_timeout();
+      timeout_initialized = true;
+    }
+    start_timeout(timeout, timeout_handler, context);
+  }
+}
+
+/*
+ * Clear the timeout and reset it to zero.
+ */
+static void reset_timeout(void) {
+  if (timeout > 0) {
+    assert(timeout_initialized);
+    clear_timeout();
+    timeout = 0;
   }
 }
 
@@ -2165,16 +2309,8 @@ static smt_status_t do_check(void) {
 
   /*
    * Set a timeout if requested.
-   * We call init_timeout only now because the internal timeout
-   * consumes resources even if it's never used.
    */
-  if (timeout > 0) {
-    if (!timeout_initialized) {
-      init_timeout();
-      timeout_initialized = true;
-    }
-    start_timeout(timeout, timeout_handler, context);
-  }
+  set_timeout();
 
   /*
    * Collect runtime statistics + call check
@@ -2189,14 +2325,132 @@ static smt_status_t do_check(void) {
   /*
    * Clear timeout and reset it to 0
    */
-  if (timeout > 0) {
-    assert(timeout_initialized);
-    clear_timeout();
-    timeout = 0;
-  }
+  reset_timeout();
 
   return stat;
 }
+
+/*
+ * Check with assumptions and build a core:
+ * - a = assumption structure: every term in a->assumptions must be a valid, boolean term
+ * - return STATUS_ERROR if an assumption can't be processed
+ */
+static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
+  ivector_t aux;
+  uint32_t i, n;
+  literal_t l;
+  double check_start_time;
+  smt_status_t status;
+
+  ivector_reset(&a->core);
+
+  // if the context is already unsat, there's nothing to do and the core is empty.
+  if (context_status(context) == STATUS_UNSAT) {
+    a->status = STATUS_UNSAT;
+    return STATUS_UNSAT;
+  }
+
+  // add the assumptions to the core
+  n = a->assumptions.size;
+  init_ivector(&aux, n);
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(context, a->assumptions.data[i]);
+    if (l < 0) {
+      // failed to convert data[i]
+      print_internalization_code(l);
+      status = STATUS_ERROR;
+      goto done;
+    }
+    ivector_push(&aux, l);
+  }
+
+  // initialize the timeout if needed
+  set_timeout();
+
+  // runtime statistics + call check_with_assumptions
+  check_start_time = get_cpu_time();
+  status = check_context_with_assumptions(context, &parameters, n, aux.data);
+
+  // clear the timeout and reset it to 0
+  // we do this here because there's no point in trying to interrupt the
+  // unsat core construction.
+  reset_timeout();
+
+  // compute the unsat core and store it in a
+  if (status == STATUS_UNSAT) {
+    context_build_unsat_core(context, &a->core);
+  }
+
+  check_process_time = get_cpu_time() - check_start_time;
+  if (check_process_time < 0.0) {
+    check_process_time = 0.0;
+  }
+
+ done:
+  delete_ivector(&aux);
+  a->status = status;
+  return status;
+}
+
+
+/*
+ * Compute an unsat core: labeled assertions are treated as assumptions
+ */
+static smt_status_t check_unsat_core(void) {
+  assumptions_and_core_t *a;
+  smt_status_t status;
+
+  assert(unsat_core == NULL && unsat_assumptions == NULL);
+  a = new_assumptions(__yices_globals.terms);
+  collect_assumptions_from_stack(a, &labeled_assertions.assertions);
+
+  status = do_check_with_assumptions(a);
+  if (status == STATUS_ERROR) {
+    // cleanup
+    free_assumptions(a);
+  } else {
+    unsat_core = a;
+  }
+
+  return status;
+}
+
+
+/*
+ * Compute an unsat core from a set of signed assumptions
+ */
+static smt_status_t check_assuming(uint32_t n, const signed_symbol_t *s) {
+  assumptions_and_core_t *a;
+  smt_status_t status;
+  uint32_t index;
+  int32_t code;
+
+  assert(unsat_core == NULL && unsat_assumptions == NULL);
+  a = new_assumptions(__yices_globals.terms);
+
+  code = collect_assumptions_from_signed_symbols(a, n, s, &index);
+  if (code < 0) {
+    // failed to process an assumption
+    assert(0 <= index && index < n);
+    if (code == -1) {
+      report_undefined_term(s[index].name);
+    } else {
+      report_not_boolean_term(s[index].name);
+    }
+    free_assumptions(a);
+    return STATUS_ERROR;
+  }
+
+  status = do_check_with_assumptions(a);
+  if (status == STATUS_ERROR) {
+    free_assumptions(a);
+  } else {
+    unsat_assumptions = a;
+  }
+
+  return status;
+}
+
 
 /*
  * Check whether the context is satisfiable
@@ -2205,57 +2459,251 @@ static void yices_check_cmd(void) {
   smt_status_t stat;
   int code;
 
-  if (mode == CTX_MODE_ONECHECK) {
-    if (efmode) {
-      report_error("(check) is not supported by the exist/forall solver");
-      return;
+  if (efmode) {
+    report_error("(check) is not supported by the exists/forall solver");
+
+  } else if (mode == CTX_MODE_ONECHECK) {
+    /*
+     * Non-incremental
+     */
+    // assert the delayed assertions
+    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    if (code == CTX_NO_ERROR) {
+      assert(context_status(context) == STATUS_IDLE);
+      stat = do_check();
+      print_status(stat);
+      // force exit if the check was interrupted
+      done = (stat == STATUS_INTERRUPTED);
+
     } else {
-      code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
-      if (code < 0) {
-	print_internalization_code(code);
-	return;
+      if (code == TRIVIALLY_UNSAT) {
+	timeout = 0; // to be consistent
       }
+      // either an error or trivially unsat
+      print_internalization_code(code);
     }
-  }
 
-  stat = context_status(context);
-  switch (stat) {
-  case STATUS_UNKNOWN:
-  case STATUS_UNSAT:
-  case STATUS_SAT:
-    // already solved: print the status
-    fputs(status2string[stat], stdout);
-    fputc('\n', stdout);
-    fflush(stdout);
-    timeout = 0;  // clear timeout to be consistent
-    break;
+  } else {
+    /*
+     * Incremental
+     */
 
-  case STATUS_IDLE:
-    // call check than print the result
-    // if the search was interrupted, cleanup
-    stat = do_check();
-    fputs(status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (stat == STATUS_INTERRUPTED) {
-      if (mode == CTX_MODE_INTERACTIVE) {
-        context_cleanup(context);
-        assert(context_status(context) == STATUS_IDLE);
+    /*
+     * If check_with_assumptions was called, we can't trust the context status.
+     * (well we could if it's SAT but not if it's UNSAT).
+     */
+    if (unsat_assumptions != NULL) {
+      cleanup_context();
+    }
+
+    stat = context_status(context);
+    switch (stat) {
+    case STATUS_UNKNOWN:
+    case STATUS_UNSAT:
+    case STATUS_SAT:
+      // already solved: print the status
+      print_status(stat);
+      timeout = 0;  // clear timeout to be consistent
+      break;
+
+    case STATUS_IDLE:
+      if (labeled_assertion_stack_is_empty(&labeled_assertions)) {
+	/*
+	 * Regular check: no labeled assertions
+	 */
+	// call check than print the result
+	// if the search was interrupted, cleanup
+	stat = do_check();
+	print_status(stat);
+	if (stat == STATUS_INTERRUPTED) {
+	  if (mode == CTX_MODE_INTERACTIVE) {
+	    context_cleanup(context);
+	    assert(context_status(context) == STATUS_IDLE);
+	  } else {
+	    // force quit
+	    done = true;
+	  }
+	}
       } else {
-        // force quit
-        done = true;
+	/*
+	 * Compute an unsat core; labeled assertions are treated
+	 * as assumptions.
+	 */
+	stat = check_unsat_core();
+	if (stat != STATUS_ERROR) {
+	  print_status(stat);
+	}
+	if (stat == STATUS_INTERRUPTED) {
+	  // try to cleanup if we're in interactive mode
+	  if (mode == CTX_MODE_INTERACTIVE) {
+	    context_cleanup(context);
+	    assert(context_status(context) == STATUS_IDLE);
+	    if (unsat_core != NULL) {
+	      free_assumptions(unsat_core);
+	      unsat_core = NULL;
+	    }
+	  } else {
+	    // force quit
+	    done = true;
+	  }
+	}
       }
-    }
-    fflush(stdout);
-    break;
+      break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // this should not happen
-    freport_bug(stderr,"unexpected context status in 'check'");
-    break;
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // this should not happen
+      freport_bug(stderr,"unexpected context status in 'check'");
+      break;
+    }
+
   }
 }
+
+
+/*
+ * Check with assumptions
+ * - a = array of n assumptions
+ * - each assumption is given by a signed symbol
+ */
+static void yices_check_assuming_cmd(uint32_t n, const signed_symbol_t *a) {
+  smt_status_t status;
+
+  if (efmode) {
+    report_error("(check-assuming) is not supported by the exists/forall solver");
+  } else if (mode == CTX_MODE_ONECHECK) {
+    report_error("(check-assuming) is not supported in one-shot mode");
+  } else if (arch == CTX_ARCH_MCSAT) {
+    report_error("the non-linear solver does not support (check-assuming)");
+  } else if (! labeled_assertion_stack_is_empty(&labeled_assertions)) {
+    report_error("can't use check-assuming when there are labeled assertions");
+  } else {
+    cleanup_context();
+
+    status = check_assuming(n, a);
+    if (status != STATUS_ERROR) {
+      print_status(status);
+    }
+    if (status == STATUS_INTERRUPTED) {
+      if (mode == CTX_MODE_INTERACTIVE) {
+	// recover
+	context_cleanup(context);
+	assert(context_status(context) == STATUS_IDLE);
+	if (unsat_assumptions != NULL) {
+	  free_assumptions(unsat_assumptions);
+	  unsat_assumptions = NULL;
+	}
+      } else {
+	// force exit
+	done = true;
+      }
+    }
+  }
+}
+
+/*
+ * Display an unsat core:
+ * - the core is given in a->core
+ * - the assumption names are in a->table
+ * For each assumption, the name is either a symbol or the negation of a symbol
+ */
+static void show_core(const assumptions_and_core_t *a) {
+  yices_pp_t printer;
+  uint32_t i, n;
+  assumption_t *d;
+
+  init_yices_pp(&printer, stdout, &pp_area, PP_VMODE, 0);
+  pp_open_block(&printer, PP_OPEN_PAR);
+
+  n = a->core.size;
+  for (i=0; i<n; i++) {
+    d = assumption_table_get(&a->table, a->core.data[i]);
+    assert(d != NULL);
+    if (! d->polarity) pp_open_block(&printer, PP_OPEN_NOT);
+    pp_string(&printer, d->name);
+    if (! d->polarity) pp_close_block(&printer, true);
+  }
+
+  pp_close_block(&printer, true);
+  delete_yices_pp(&printer, true);
+}
+
+
+/*
+ * Print the unsat core if any
+ */
+static void yices_show_unsat_core_cmd(void) {
+  if (efmode) {
+    report_error("unsat cores are not supported by the exists/forall solver");
+  } else if (mode == CTX_MODE_ONECHECK) {
+    report_error("unsat cores are not supported in one-shot mode");
+  } else if (arch == CTX_ARCH_MCSAT) {
+    report_error("the non-linear solver does not support unsat cores");
+  } else if (labeled_assertion_stack_is_empty(&labeled_assertions)) {
+    report_error("no labeled assertions: can't build an unsat core");
+  } else {
+    if (unsat_core == NULL) {
+      report_error("can't build an unsat core: call (check) first");
+    } else {
+      switch (unsat_core->status) {
+      case STATUS_UNKNOWN:
+      case STATUS_SAT:
+	report_error("no unsat core: the context is satisfiable");
+	break;
+
+      case STATUS_UNSAT:
+	show_core(unsat_core);
+	break;
+
+      case STATUS_IDLE:
+      case STATUS_SEARCHING:
+      case STATUS_INTERRUPTED:
+      default:
+	freport_bug(stderr, "unexpected context status in 'show-unsat-core'");
+	break;
+      }
+    }
+  }
+}
+
+
+/*
+ * Print the unsat assumptions if any
+ */
+static void yices_show_unsat_assumptions_cmd(void) {
+  if (efmode) {
+    report_error("check with assumptions is not supported by the exists/forall solver");
+  } else if (mode == CTX_MODE_ONECHECK) {
+    report_error("check with assumptions is not supported in one-shot mode");
+  } else if (arch == CTX_ARCH_MCSAT) {
+    report_error("the non-linear solver does not support check with assumptions");
+  } else {
+    if (unsat_assumptions == NULL) {
+      report_error("no unsat assumptions: call (check-assuming) first");
+    } else {
+      switch (unsat_assumptions->status) {
+      case STATUS_UNKNOWN:
+      case STATUS_SAT:
+	report_error("no unsat assumptions: the context is satisfiable");
+	break;
+
+      case STATUS_UNSAT:
+	show_core(unsat_assumptions);
+	break;
+
+      case STATUS_IDLE:
+      case STATUS_SEARCHING:
+      case STATUS_INTERRUPTED:
+      default:
+	freport_bug(stderr, "unexpected context status in 'show-unsat-assumptions'");
+	break;
+      }
+    }
+  }
+}
+
+
 
 
 /*
@@ -2312,7 +2760,7 @@ static model_t *efsolver_model(void) {
   model_t *mdl;
 
   assert(efmode);
-  
+
   mdl = ef_get_model(&ef_client_globals, &code);
   switch (code) {
   case EFMODEL_CODE_NO_ERROR:
@@ -2332,7 +2780,7 @@ static model_t *efsolver_model(void) {
 
   case EFMODEL_CODE_NOT_SOLVED:
     assert(mdl == NULL);
-    fputs("Can't build a model. Call (check) first.\n", stderr);
+    fputs("Can't build a model. Call (ef-solve) first.\n", stderr);
     fflush(stderr);
     break;
   }
@@ -2345,13 +2793,14 @@ static model_t *efsolver_model(void) {
  */
 static void yices_showmodel_cmd(void) {
   model_t *mdl;
-  
+
   if (efmode) {
     mdl = efsolver_model();
     if (mdl != NULL) {
       if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
 	report_system_error("stdout");
       }
+      fflush(stdout);
     }
   } else if (context_has_model("show-model")) {
     // model_print(stdout, model);
@@ -2498,7 +2947,7 @@ static void yices_efsolve_cmd(void) {
       print_ef_analyze_code(ef_client_globals.efcode);
     } else {
       print_ef_status();
-    } 
+    }
   }  else {
     report_error("(ef-solve) not supported. Use option --mode=ef");
   }
@@ -2873,7 +3322,6 @@ static void check_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   if (n == 2) check_tag(stack, f+1, TAG_SYMBOL);
 }
 
-// TODO: handle tagged assertions
 static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
@@ -3131,7 +3579,14 @@ static void check_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t 
 }
 
 static void eval_check_assuming_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  printf("check-assuming\n");
+  signed_symbol_t *buffer;
+  uint32_t i;
+
+  buffer = get_sbuffer(stack, n);
+  for (i=0; i<n; i++) {
+    get_signed_symbol(stack, f+i, buffer+i);
+  }
+  yices_check_assuming_cmd(n, buffer);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -3146,7 +3601,7 @@ static void check_show_unsat_core_cmd(tstack_t *stack, stack_elem_t *f, uint32_t
 }
 
 static void eval_show_unsat_core_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  printf("show-unsat-core\n");
+  yices_show_unsat_core_cmd();
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -3161,7 +3616,7 @@ static void check_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, u
 }
 
 static void eval_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  printf("show-unsat-assumptions\n");
+  yices_show_unsat_assumptions_cmd();
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -3251,22 +3706,24 @@ int yices_main(int argc, char *argv[]) {
   /*
    * The lexer is ready: initialize the other structures
    */
-  init_ivector(&delayed_assertions, 10);
   yices_init();
-  init_yices_tstack(&stack);
-  init_parameter_name_table();
 
+  context = NULL;
+  model = NULL;
+  init_parameter_name_table();
+  init_ivector(&delayed_assertions, 10);
+  init_yices_tstack(&stack);
   init_ef_client(&ef_client_globals);
   init_labeled_assertion_stack(&labeled_assertions);
-  
+  unsat_core = NULL;
+  unsat_assumptions = NULL;
+
   init_parser(&parser, &lexer, &stack);
   if (verbosity > 0) {
     print_version(stderr);
   }
 
   if (efmode) {
-    context = NULL;
-    model = NULL;
     default_ctx_params(&ctx_parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
     yices_set_default_params(&parameters, logic_code, arch, CTX_MODE_ONECHECK);
   } else {

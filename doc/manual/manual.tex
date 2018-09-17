@@ -1302,6 +1302,68 @@ As previously, we can get more detailed output by increasing the verbosity:
 \end{small}
 It is also possible to specify a logic on the command-line.
 
+\section{Unsat Cores}
+
+Since version 2.6.1, the Yices tool can produce unsat cores. This
+feature comes in two flavours, as in SMT-LIB~2.5.
+
+\subsection{Labeled Assertions}
+
+The first method is illustrated in
+Figure~\ref{example:labeled-assertions}. One gives labels to assertions and
+command \texttt{(show-unsat-core)} displays an unsat core when a call
+to \texttt{(check)} returns \texttt{unsat}.  The labels can be any
+symbols; there is a separate name space for these labels.
+
+\begin{figure}[h]
+\begin{footnotesize}
+\begin{verbatim}
+    (define x::real)
+
+    (assert (>= x 0))   ;; regular assertion
+    (assert (> x 3) A)  ;; labeled assertion: A is the label
+    (assert (< x 3) B)  ;; labeled assertion
+    (assert (= x 3) C)  ;; another labeled assertion
+    (check)             ;; will return unsat
+    (show-unsat-core)   ;; display unsat core
+\end{verbatim}
+\end{footnotesize}
+\caption{Unsat cores using labeled assertions}
+\label{example:labeled-assertions}
+\end{figure}
+
+
+\subsection{Check With Assumptions}
+
+The second method uses command \texttt{(check-assuming ...)}, a
+variant of the \texttt{(check)} command that takes a list of
+assumptions as arguments.  This is illustrated in
+Figure~\ref{example:check-assuming}. An assumption is a restricted
+form of terms. It can be either \texttt{<name>} or \texttt{(not
+  <name>)}, where \texttt{<name>} is the name of a Boolean term.  If
+\texttt{(check-assuming)} returns \texttt{unsat}, then one can get an
+unsat core using \texttt{(show-unsat-assumptions)}. This command shows
+a subset of the assumptions that are inconsistent with the context.
+
+\begin{figure}[h]
+\begin{footnotesize}
+\begin{verbatim}
+    (define x::real)
+    (define A::bool (> x 3))
+    (define B::bool (> x 2))
+    (define C::bool (> x 4))
+
+    (assert (and (>= x 0) <= x 5)) ;; regular assertion
+    (check-assuming A (not B) C)   ;; will return unsat
+    (show-unsat-assumptions)       ;; unsat core: (A (not B))
+\end{verbatim}
+\end{footnotesize}
+\caption{Check with assumptions}
+\label{example:check-assuming}
+\end{figure}
+
+
+
 
 
 \section{Tool Invocation}
@@ -1387,6 +1449,9 @@ options are supported.
   simplifications when processing assertions;  this can lead to better
   performance on some problems.
 
+  Unsat cores and checks with assumptions are not supported in mode
+  \texttt{one-shot}.
+
   In interactive mode,  the solver context is saved  before every call
   to  \texttt{(check)}  and  it  is restored  if  \texttt{(check)}  is
   interrupted. This introduces some  overhead, but the solver recovers
@@ -1431,8 +1496,7 @@ form (like \texttt{--verbosity=4}) or in an equivalent short from (like
 \section{Input Language}
 
 The   syntax  of   the   Yices  input   language   is  summarized   in
-Figures~\ref{syntax:commands},~\ref{syntax:types},
-and~\ref{syntax:expressions}.
+Figures~\ref{syntax:commands} to~\ref{syntax:expressions}.
 
 
 \begin{figure}
@@ -1444,8 +1508,10 @@ and~\ref{syntax:expressions}.
             | ( define <symbol> :: <type> )
             | ( define <symbol> :: <type> <expression> )
             | ( assert <expression> )
+            | ( assert <expression> <symbol> )
             | ( exit )
             | ( check )
+            | ( check-assuming <assumption-list> )
             | ( push )
             | ( pop )
             | ( reset )
@@ -1467,21 +1533,38 @@ and~\ref{syntax:expressions}.
             | ( ef-solve )
             | ( export-to-dimacs <string> )
             | ( show-implicant )
+            | ( show-unsat-core )
+            | ( show-unsat-assumptions )
             | EOS
 
+\end{verbatim}
+\end{small}
+\caption{Yices Syntax: Commands}
+\label{syntax:commands}
+\end{figure}
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
    <immediate-value> ::=
               true
             | false
             | <number>
             | <symbol>
 
-   <number> ::=
-              <rational>
-            | <float>
+   <number> ::= <rational> | <float>
+
+   <assumption-list> ::=
+            |
+            | <assumption> <assumption-list>
+
+   <assumption> ::=
+            | <symbol>
+            | ( not <symbol> )
+
 \end{verbatim}
 \end{small}
-\caption{Yices Syntax: Commands}
-\label{syntax:commands}
+\caption{Yices Syntax: Command Arguments}
 \end{figure}
 
 \begin{figure}
@@ -2452,6 +2535,33 @@ Once the context is unsatisfiable, any new assertion is treated as an
 error.
 
 
+\subsubsection*{Labeled Assertions}
+
+An optional label can be provided for assertions as follows:
+\begin{small}
+\begin{verbatim}
+   (assert formula label)
+\end{verbatim}
+\end{small}
+In this command, the \texttt{formula} must be a Boolean term and the
+\texttt{label} must be a symbol. Yices uses a separate name space for
+storing these labels, so the same symbol can be used as a type name or
+a term name.
+
+\medskip\noindent
+The label identifies the assertion as relevant to unsat core If a call
+to \texttt{(check)} returns \texttt{unsat}, then a corresponding unsat
+core is a subset of all the labeled assertions that is inconsistent
+with the context. Comman \texttt{(show-unsat-core)} displays this
+unsat core by listing the labels of all the assertions in the core.
+
+\medskip\noindent The labeled assertions must have distinct
+labels. Yices will complain if the label provided is already used. The
+set of labeled assertions is maintained in a stack like regular
+assertions. For example, labeled assertions may be removed by a call
+to \texttt{(pop)} or \texttt{(reset)}.
+
+
 \subsubsection*{Check}
 
 The command
@@ -2499,6 +2609,39 @@ examined and modified, using the command \texttt{show-params} and
 interrupted (by CTRL-C), then the result will be displayed as
 \texttt{interrupted}.
 
+\subsubsection*{Check With Assumptions}
+
+The command
+\begin{small}
+\begin{verbatim}
+   (check-assuming <assumption> ... <assumption>)
+\end{verbatim}
+\end{small}
+checks whether the current set of assertions together with a list of
+assumptions is satisfiable. If it is not, command
+\texttt{(show-unsat-assumptions)} will provide an unsat core (i.e., a
+subset of the assumptions that are inconsistent with the context).
+
+\medskip\noindent 
+Each assumption must either be the name of a Boolean term or the
+negation of a named Boolean term.  For example, after the following
+definitions:
+\begin{small}
+\begin{verbatim}
+   (define A::bool <expression>)
+\end{verbatim}
+\end{small}
+then both \texttt{A} and \texttt{(not A)} can be used as assumptions.
+
+\medskip\noindent
+It is allowed for the same name to occur several times in the
+assumption list. It is also allowed to give an empyt list of
+assumptions.
+
+\medskip\noindent
+Mixing assumptions and labeled assertions in a context is not
+supported. Command \texttt{(check-assuming ...)} will fail if there
+are labeled assertions.
 
 \subsubsection*{Push, Pop, Reset}
 
@@ -2672,6 +2815,39 @@ The result is displayed as a function specification such as:
 \end{small}
 Yices creates an internal name of the form \texttt{fun!<number>} to
 display the function value.
+
+
+\subsubsection*{Unsat Cores}
+
+If a call to \texttt{(check)} returns \texttt{unsat}, then one can get
+an unsat core by using command
+\begin{small}
+\begin{verbatim}
+  (show-unsat-core)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsat core is a subset of all the labeled assertions in the
+current context. The command will report an error if there are no
+labeled assertions in the context. Otherwise, it will list the labels
+of all the assertions in the core.
+
+
+\subsubsection*{Unsat Assumptions}
+
+If a check with assumptions returns \texttt{unsat}, the following
+command lists an unsatisfiable subset of the assumptions:
+\begin{small}
+\begin{verbatim}
+  (show-unsat-assumptions)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsatisfiable subset is displayed as a list of assumptions. It is
+possible for this subset to be empty, if the context is unsatisfiable
+on its own.
 
 \subsubsection*{Implicants}
 
@@ -3172,7 +3348,8 @@ sorts and terms, assertions, satisfiability checking, unsat cores and
 assumptions. Yices does not support the optional commands
 \texttt{get-assertions} and \texttt{get-proof}.
 
-\medskip\noindent
+\subsubsection*{Ignored Options}
+
 The standard requires option \texttt{:produce-assignments} to be set
 to \texttt{true} before the command \texttt{get-assignment} can be
 issued.  It also requires option \texttt{:produce-models} to be set to
@@ -3181,11 +3358,13 @@ not enforce these rules. It supports both commands
 \texttt{get-assignment} and \texttt{get-value} even if the
 corresponding option is \texttt{false}.
 
-\medskip\noindent Since version 2.6, Yices supports commands
-\texttt{get-unsat-core} and \texttt{get-unsat-assumptions}. To
-activate these commands, options \texttt{:produce-unsat-cores} or
+\subsubsection*{Unsat Cores and Assumptions}
+
+Command \texttt{get-unsat-core} and \texttt{get-unsat-assumptions} are
+supported by Yices since version 2.6.0. To activate these commands,
+options \texttt{:produce-unsat-cores} or
 \texttt{:produce-unsat-assumptions} must be set. Yices does not allow
-both options to be set to true at the same time.
+both options to be true at the same time.
 
 \subsubsection*{In-line Definitions}
 

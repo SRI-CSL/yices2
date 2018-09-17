@@ -1432,7 +1432,7 @@ static void show_status(smt_status_t status) {
 
 
 /*
- * Status after check_with_assumptions: print an error if the
+ * Status after check_with_assumptions or check: print an error if the
  * status is not SAT/UNSAT/UNKNOWN/INTERRUPTED
  */
 static void report_status(smt2_globals_t *g, smt_status_t status) {
@@ -2783,27 +2783,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
 
     status = check_sat_with_timeout(g, &g->parameters);
-    switch (status) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      show_status(status);
-      break;
+    report_status(g, status);
 
-    case STATUS_UNSAT:
-    case STATUS_INTERRUPTED:
-      show_status(status);
-      break;
-
-    case STATUS_ERROR:
-      print_yices_error(true);
-      break;
-
-    case STATUS_IDLE:
-    case STATUS_SEARCHING:
-    default:
-      bad_status_bug(g->err);
-      break;
-    }
 #elif EXPORT_TO_DIMACS
     /*
      * TESTING: EXPORT TO DIMACS
@@ -2929,6 +2910,11 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
     //    validate_unsat_core(g);
     report_status(g, status);
+
+    if (status == STATUS_ERROR) {
+      free_assumptions(g->unsat_core);
+      g->unsat_core = NULL;
+    }
   }
 }
 
@@ -2964,6 +2950,12 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+
+      if (status == STATUS_ERROR) {
+	// cleanup
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
     }
   }
 }
@@ -3103,6 +3095,14 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
+  if (g->unsat_assumptions != NULL) {
+    /*
+     * the context's status was based on the assumptions
+     * we reset everything here to be safe.
+     */
+    cleanup_context(g);
+  }
+
   stat = context_status(g->ctx);
   switch (stat) {
   case STATUS_UNKNOWN:
@@ -3118,7 +3118,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
     stat = check_sat_with_timeout(g, &g->parameters);
-    show_status(stat);
+    report_status(g, stat);
     break;
 
   case STATUS_SEARCHING:
@@ -3161,7 +3161,11 @@ static void ctx_unsat_core(smt2_globals_t *g) {
 	g->parameters.random_seed = g->random_seed;
       }
       stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
-      show_status(stat);
+      report_status(g, stat);
+      if (stat == STATUS_ERROR) {
+	free_assumptions(g->unsat_core);
+	g->unsat_core = NULL;
+      }
       break;
 
     case STATUS_SAT:
@@ -3201,6 +3205,10 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+      if (status == STATUS_ERROR) {
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
       break;
 
     case STATUS_UNSAT:
