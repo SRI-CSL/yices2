@@ -1855,9 +1855,6 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   // Value it was assigned to
   eq_node_id_t value_to_explain = eq_node_null;
 
-  // Start from the back
-  eq_node_id_t n_id = n2_id;
-
   // Reconstruct the path
   for(bfs_i = eq->bfs_queue.size - 1;; bfs_i = eq->bfs_queue.data[bfs_i].prev) {
 
@@ -1869,7 +1866,6 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
     }
 
     const eq_edge_t* e = eq->edges + n_edge;
-    assert(e->v == n_id);
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain")) {
       eq_graph_to_gv_edge(eq, e, current_explain_id);
     }
@@ -1912,9 +1908,6 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
         value_to_explain = e->u;
       }
     }
-
-    // Next back in the path
-    n_id = e->u;
   }
 
   // Finally, if there is an assignment left unexplained, it has to be
