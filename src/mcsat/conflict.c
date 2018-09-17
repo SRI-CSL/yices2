@@ -251,7 +251,8 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
     mcsat_trace_printf(conflict->tracer, "disjunct_subst = ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct_subst);
   }
-  assert(disjunct_pos != disjunct_subst);
+  // This could happen for propagation due to evaluation
+  // assert(disjunct_pos != disjunct_subst);
   if (disjunct_pos != disjunct) {
     disjunct_subst = opposite_term(disjunct_subst);
   }

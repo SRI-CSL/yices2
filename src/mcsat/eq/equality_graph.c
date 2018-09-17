@@ -2013,7 +2013,6 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   // If it doesn't evaluate do false, i.e., if x - a - 0, y - b - 1, we need
   // to return (= a b) as substitution for (= x y).
   //
-  assert(result.t2 != t);
   return result.t2;
 }
 
@@ -2027,4 +2026,10 @@ void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars) {
       gc_info_mark(gc_vars, x);
     }
   }
+}
+
+eq_node_id_t eq_graph_get_term_class_id(const eq_graph_t* eq, term_t t) {
+  eq_node_id_t t_id = eq_graph_term_id(eq, t);
+  const eq_node_t* t_node = eq_graph_get_node_const(eq, t_id);
+  return t_node->find;
 }
