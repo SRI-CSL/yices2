@@ -1536,6 +1536,9 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
     }
     return equality;
   } else {
+    // This also works for situations where the terms lhs = rhs (e.g., when
+    // it is an equality that is asserted in trail and evaluates to different
+    // value in the trail
     if (lhs_value == eq->false_node_id) lhs = opposite_term(lhs);
     if (rhs_value == eq->false_node_id) rhs = opposite_term(rhs);
     ivector_push(reasons_data, lhs);
@@ -1545,7 +1548,8 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
       ivector_push(reasons_type, REASON_IS_IN_TRAIL);
     }
     return NULL_TERM;
-  } }
+  }
+}
 
 /**
  * Terms t1 and t2, corresponding to a path n1 -- n2, such that:
@@ -1943,7 +1947,6 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
   }
 
   path_terms_t result = eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types);
-  assert(result.t1 != result.t2);
   // This one can have value here: e.g., when f(x) != f(y) is asserted
   // and f(x) -> 0, f(y) -> 1 is asserted. If the we're explaining why
   // 0 = 1, if it's due to congruence f(x) = f(y), we need add
