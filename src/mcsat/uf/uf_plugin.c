@@ -298,11 +298,10 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
-  // We only pick uninterpreted sorts, hence we just pick class id
+  // We only pick uninterpreted sorts, hence we just pick a new number
 
   // Get the actual value
-  term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
-  uint32_t int_value = eq_graph_get_term_class_id(&uf->eq_graph, x_term);
+  uint32_t int_value = uf->ctx->trail->decision_level;
 
   // Make the yices rational
   rational_t q;
