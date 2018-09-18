@@ -2019,14 +2019,80 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
   return result.t2;
 }
 
-void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars) {
-  variable_db_t* var_db = eq->ctx->var_db;
+/**
+ * Go through all the terms and mark the ones that are assigned, and their
+ * children recursively.
+ */
+void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars) {
 
-  uint32_t i;
-  for (i = 0; i < eq->terms_list.size; ++ i) {
-    variable_t x = variable_db_get_variable_if_exists(var_db, eq->terms_list.data[i]);
-    if (x != variable_null) {
-      gc_info_mark(gc_vars, x);
+  const variable_db_t* var_db = eq->ctx->var_db;
+  const mcsat_trail_t* trail = eq->ctx->trail;
+
+  // Initially mark and queue all the nodes assigned in the trail and in
+  // user assertions
+  if (gc_vars->level == 0) {
+
+    term_t n_term;
+    variable_t n_var;
+    eq_node_id_t n_id;
+
+    // Terms asserted in trail
+    for (n_id = 0; n_id < eq->terms_list.size; ++ n_id) {
+      term_t n_term = eq_graph_get_term(eq, n_id);
+      variable_t n_var = variable_db_get_variable_if_exists(var_db, n_term);
+      if (n_var != variable_null && trail_has_value(trail, n_var)) {
+        if (!gc_info_is_marked(gc_vars, n_var)) {
+          gc_info_mark(gc_vars, n_var);
+        }
+      }
+    }
+
+    // Terms in user added edges
+    eq_edge_id_t e_id;
+    for(e_id = 0; e_id < eq->edges_size; ++ e_id) {
+      const eq_edge_t* e = eq->edges + e_id;
+      if (e->reason.type == REASON_IS_USER) {
+        n_id = e->u;
+        n_term = eq_graph_get_term(eq, n_id);
+        n_var = variable_db_get_variable_if_exists(var_db, n_term);
+        if (n_var != variable_null && trail_has_value(trail, n_var)) {
+          if (!gc_info_is_marked(gc_vars, n_var)) {
+            gc_info_mark(gc_vars, n_var);
+          }
+        }
+        n_id = e->v;
+        n_term = eq_graph_get_term(eq, n_id);
+        n_var = variable_db_get_variable_if_exists(var_db, n_term);
+        if (n_var != variable_null && trail_has_value(trail, n_var)) {
+          if (!gc_info_is_marked(gc_vars, n_var)) {
+            gc_info_mark(gc_vars, n_var);
+          }
+        }
+      }
+    }
+  }
+
+  // Any term that has children we mark it too
+  uint32_t marked_i;
+  for (marked_i = gc_vars->marked_first; marked_i < gc_vars->marked.size; ++ marked_i) {
+    variable_t x = gc_vars->marked.data[marked_i];
+    term_t x_term = variable_db_get_term(var_db, x);
+    eq_node_id_t n_id = eq_graph_term_id_if_exists(eq, x_term);
+    if (n_id != eq_node_null) {
+      // Mark any children
+      const eq_node_id_t* n_child = eq_graph_get_children(eq, n_id);
+      if (n_child != NULL) {
+        while (*n_child != eq_node_null) {
+          term_t child_term = eq_graph_get_term(eq, *n_child);
+          variable_t child_var = variable_db_get_variable_if_exists(var_db, child_term);
+          if (child_var != variable_null) {
+            if (!gc_info_is_marked(gc_vars, child_var)) {
+              gc_info_mark(gc_vars, child_var);
+            }
+          }
+          n_child ++;
+        }
+      }
     }
   }
 }

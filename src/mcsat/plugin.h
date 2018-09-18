@@ -256,7 +256,7 @@ struct plugin_s {
   void (*gc_mark) (plugin_t* plugin, gc_info_t* gc);
 
   /**
-   * Use the gc info to collect all the useless stuff.
+   * Use the gc info to collect all the useful stuff.
    * @param gc the set of variables marked to keep
    */
   void (*gc_sweep) (plugin_t* plugin, const gc_info_t* gc_vars);

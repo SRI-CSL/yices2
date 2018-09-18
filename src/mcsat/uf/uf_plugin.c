@@ -17,8 +17,6 @@
  */
 
 #include "uf_plugin.h"
-#include "app_reps.h"
-#include "uf_feasible_set_db.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -324,10 +322,8 @@ static
 void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  if (gc_vars->level == 0) {
-    // All terms for now
-    eq_graph_gc_mark_all_terms(&uf->eq_graph, gc_vars);
-  }
+  // Mark all asserted stuff, and all the children of marked stuff
+  eq_graph_gc_mark(&uf->eq_graph, gc_vars);
 }
 
 static

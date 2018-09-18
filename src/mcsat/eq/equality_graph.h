@@ -286,8 +286,13 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
  */
 term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types);
 
-/** Mark all terms (as variables). */
-void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars);
+/**
+ * Mark the minimal set of variables needed to maintain the deductions:
+ * - variables of terms asserted in the trail
+ * - variables of terms asserted by the user
+ * - children of any marked terms
+ */
+void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars);
 
 /** Get class representative ID for the given term */
 eq_node_id_t eq_graph_get_term_class_id(const eq_graph_t* eq, term_t t);
