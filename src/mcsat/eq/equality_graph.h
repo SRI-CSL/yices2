@@ -47,6 +47,15 @@ typedef struct {
   uint32_t capacity;
 } bfs_vector_t;
 
+/** API calls */
+typedef enum {
+  EQ_GRAPH_ADD_TERM, // Add a term (e.g. x)
+  EQ_GRAPH_ADD_UFUN, // Add a term with children (e.g., f(x))
+  EQ_GRAPH_ADD_IFUN, // Add a term with children (e.g., (x = y))
+  EQ_GRAPH_PROPAGATE_TRAIL, // Run propagation of trail
+  EQ_GRAPH_ASSERT_EQ // Assert user added equality
+} eq_graph_api_type_t;
+
 /**
  * Traditional functionality:
  * - Add terms to the term database
@@ -192,6 +201,9 @@ typedef struct eq_graph_s {
 
   /** The queue for doing BFS */
   bfs_vector_t bfs_queue;
+
+  /** Log of API calls */
+  ivector_t api_log;
 
 } eq_graph_t;
 
