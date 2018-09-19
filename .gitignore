@@ -15,3 +15,5 @@
 *.gcda
 *.gcno
 *.pyc
+.directory
+.settings/*
