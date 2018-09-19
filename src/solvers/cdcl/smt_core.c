@@ -5340,16 +5340,16 @@ void smt_pop(smt_core_t *s) {
 }
 
 static void smt_interrupt_push(smt_core_t *s) {
-	assert (!s->interrupt_push);
+  assert (!s->interrupt_push);
   smt_push(s);
   s->interrupt_push = true;
 }
 
 static void smt_interrupt_pop(smt_core_t *s) {
-	if (s->interrupt_push) {
-		smt_pop(s);
-		s->interrupt_push = false;
-	}
+  if (s->interrupt_push) {
+    smt_pop(s);
+    s->interrupt_push = false;
+  }
 }
 
 /*
@@ -5424,7 +5424,7 @@ void smt_clear_unsat(smt_core_t *s) {
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
     smt_interrupt_pop(s);
-  	s->status = saved_status;
+    s->status = saved_status;
   }
 }
 
@@ -5842,7 +5842,7 @@ void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
      * in clean-interrupt mode, save the current state so
      * that it can be restored after a call to stop_search.
      */
-  	smt_interrupt_push(s);
+    smt_interrupt_push(s);
   }
 
   s->status = STATUS_SEARCHING;
