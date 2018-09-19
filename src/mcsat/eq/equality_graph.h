@@ -290,6 +290,9 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
 /** Mark all terms (as variables). */
 void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars);
 
-/** Get list of forbidden values (by disequalitites) for term t */
-void eq_graph_get_forbidden(const eq_graph_t* eq, term_t t, pvector_t* values);
-
+/**
+ * Get list of forbidden values (by disequalitites) for term t. If
+ * values != NULL it will be filled with forbidden values. Result is true
+ * if v == NULL or v != from all values.
+ */
+bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t t, pvector_t* values, const mcsat_value_t* v);

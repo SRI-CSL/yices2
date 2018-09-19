@@ -309,34 +309,50 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
+  // Get the cached value
+  const mcsat_value_t* x_cached_value = NULL;
+  if (trail_has_cached_value(uf->ctx->trail, x)) {
+    x_cached_value = trail_get_cached_value(uf->ctx->trail, x);
+  }
+
   // Pick a value not in the forbidden set
   term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
   pvector_t forbidden;
   init_pvector(&forbidden, 0);
-  eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden);
-  ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
+  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value) && x_cached_value != NULL;
 
-  // Get the actual value (pick smallest not in list)
-  uint32_t i;
-  int32_t int_value = 0;
-  for (i = 0; i < forbidden.size; ++ i) {
-    const mcsat_value_t* v = forbidden.data[i];
-    assert(v->type == VALUE_RATIONAL);
-    int32_t v_int = 0;
-    bool ok = q_get32((rational_t*)&v->q, &v_int);
+  int32_t picked_value = 0;
+  if (!cache_ok) {
+    // Get the actual value (pick smallest not in list)
+    ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
+    uint32_t i;
+    for (i = 0; i < forbidden.size; ++ i) {
+      const mcsat_value_t* v = forbidden.data[i];
+      assert(v->type == VALUE_RATIONAL);
+      int32_t v_int = 0;
+      bool ok = q_get32((rational_t*)&v->q, &v_int);
+      (void) ok;
+      assert(ok);
+      if (picked_value < v_int) {
+        break; // Can use
+      } else {
+        ++ picked_value; // Try next value
+      }
+    }
+  } else {
+    assert(x_cached_value->type == VALUE_RATIONAL);
+    bool ok = q_get32((rational_t*)&x_cached_value->q, &picked_value);
     (void) ok;
     assert(ok);
-    if (int_value < v_int) {
-      break; // Can use
-    } else {
-      ++ int_value; // Try next value
-    }
   }
+
+  // Remove temp
+  delete_pvector(&forbidden);
 
   // Make the yices rational
   rational_t q;
   q_init(&q);
-  q_set32(&q, int_value);
+  q_set32(&q, picked_value);
 
   // Make the mcsat value
   mcsat_value_t value;

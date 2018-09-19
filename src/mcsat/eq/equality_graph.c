@@ -2031,11 +2031,13 @@ void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars) {
   }
 }
 
-void eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values) {
+bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values, const mcsat_value_t* v) {
+
+  bool different = true;
 
   eq_node_id_t x_id = eq_graph_term_id_if_exists(eq, x);
   if (x_id == eq_node_null) {
-    return;
+    return different;
   }
 
   // Go through use-lists look for equalities asserted to false
@@ -2053,11 +2055,15 @@ void eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values) {
       const eq_node_t* y_find = eq_graph_get_node_const(eq, y->find);
       if (y_find->type == EQ_NODE_VALUE) {
         // Add it
-        void* v = (void*) eq_graph_get_value(eq, y->find);
-        pvector_push(values, v);
+        const mcsat_value_t* v_forbidden = eq_graph_get_value(eq, y->find);
+        if (different && v != NULL) {
+          different = !mcsat_value_eq(v, v_forbidden);
+        }
+        pvector_push(values, (void*) v_forbidden);
       }
     }
     i = ul->next;
   }
 
+  return different;
 }
