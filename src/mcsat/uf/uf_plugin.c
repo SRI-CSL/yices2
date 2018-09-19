@@ -126,7 +126,7 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
     ivector_t eq_propagations;
     init_ivector(&eq_propagations, 0);
     eq_graph_get_propagated_terms(&uf->eq_graph, &eq_propagations);
-    for (; trail_is_consistent(uf->ctx->trail) && i < eq_propagations.size; ++ i) {
+    for (; i < eq_propagations.size; ++ i) {
       term_t t = eq_propagations.data[i];
       variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
       if (t_var != variable_null && !trail_has_value(uf->ctx->trail, t_var)) {
@@ -239,6 +239,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
+  uf_plugin_process_eq_graph_propagations(uf, prop);
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
@@ -247,8 +248,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     (*uf->stats.conflicts) ++;
     // Construct the conflict
     eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL);
-  } else {
-    uf_plugin_process_eq_graph_propagations(uf, prop);
   }
 }
 
@@ -317,12 +316,32 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
   pvector_t forbidden;
   init_pvector(&forbidden, 0);
-  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value) && x_cached_value != NULL;
+  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value);
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+    ctx_trace_printf(uf->ctx, "picking !=");
+    uint32_t i;
+    for (i = 0; i < forbidden.size; ++ i) {
+      const mcsat_value_t* v = forbidden.data[i];
+      ctx_trace_printf(uf->ctx, " ");
+      mcsat_value_print(v, ctx_trace_out(uf->ctx));
+    }
+    ctx_trace_printf(uf->ctx, "\n");
+  }
 
   int32_t picked_value = 0;
   if (!cache_ok) {
-    // Get the actual value (pick smallest not in list)
+    // Pick smallest value not in forbidden list
     ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
+    if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+      ctx_trace_printf(uf->ctx, "picking !=");
+      uint32_t i;
+      for (i = 0; i < forbidden.size; ++ i) {
+        const mcsat_value_t* v = forbidden.data[i];
+        ctx_trace_printf(uf->ctx, " ");
+        mcsat_value_print(v, ctx_trace_out(uf->ctx));
+      }
+      ctx_trace_printf(uf->ctx, "\n");
+    }
     uint32_t i;
     for (i = 0; i < forbidden.size; ++ i) {
       const mcsat_value_t* v = forbidden.data[i];
@@ -334,7 +353,9 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       if (picked_value < v_int) {
         break; // Can use
       } else {
-        ++ picked_value; // Try next value
+        if (picked_value == v_int) {
+          ++ picked_value;
+        }
       }
     }
   } else {
@@ -342,6 +363,10 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     bool ok = q_get32((rational_t*)&x_cached_value->q, &picked_value);
     (void) ok;
     assert(ok);
+  }
+
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+    ctx_trace_printf(uf->ctx, "picked %"PRIi32"\n", picked_value);
   }
 
   // Remove temp
@@ -369,7 +394,7 @@ void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   // Mark all asserted stuff, and all the children of marked stuff
-  eq_graph_gc_mark(&uf->eq_graph, gc_vars);
+  eq_graph_gc_mark(&uf->eq_graph, gc_vars, EQ_GRAPH_MARK_ALL);
 }
 
 static

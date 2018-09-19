@@ -299,17 +299,22 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
  */
 term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types);
 
+typedef enum {
+  EQ_GRAPH_MARK_ALL, // Mark all terms with variables, and their children
+  EQ_GRAPH_MARK_ASSIGNED // Mark all terms assigned/asserted, and their children
+} eq_graph_marking_type_t;
+
 /**
  * Mark the minimal set of variables needed to maintain the deductions:
  * - variables of terms asserted in the trail
  * - variables of terms asserted by the user
  * - children of any marked terms
  */
-void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars);
+void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars, eq_graph_marking_type_t type);
 
 /**
  * Get list of forbidden values (by disequalitites) for term t. If
  * values != NULL it will be filled with forbidden values. Result is true
- * if v == NULL or v != from all values.
+ * if v != NULL or v != from all values.
  */
 bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t t, pvector_t* values, const mcsat_value_t* v);

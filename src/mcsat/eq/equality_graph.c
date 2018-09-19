@@ -1092,6 +1092,7 @@ term_t eq_graph_get_term(const eq_graph_t* eq, eq_node_id_t n_id) {
   assert(n->type == EQ_NODE_TERM);
   return eq->terms_list.data[n->index];
 }
+
 static
 void eq_graph_eq_assigned_to_value(eq_graph_t* eq, eq_node_id_t eq_id, eq_node_id_t v_id) {
   const mcsat_value_t* v = eq_graph_get_value(eq, v_id);
@@ -2023,10 +2024,29 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
  * Go through all the terms and mark the ones that are assigned, and their
  * children recursively.
  */
-void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars) {
+void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars, eq_graph_marking_type_t type) {
 
   const variable_db_t* var_db = eq->ctx->var_db;
   const mcsat_trail_t* trail = eq->ctx->trail;
+
+  if (type == EQ_GRAPH_MARK_ALL) {
+    // Just mark all the terms
+    if (gc_vars->level == 0) {
+      uint32_t i;
+      for (i = 0; i < eq->terms_list.size; ++ i) {
+        term_t n_term = eq->terms_list.data[i];
+        variable_t n_var = variable_db_get_variable_if_exists(var_db, n_term);
+        if (n_var != variable_null) {
+          if (!gc_info_is_marked(gc_vars, n_var)) {
+            gc_info_mark(gc_vars, n_var);
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  assert(type == EQ_GRAPH_MARK_ASSIGNED);
 
   // Initially mark and queue all the nodes assigned in the trail and in
   // user assertions
@@ -2099,12 +2119,10 @@ void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars) {
 
 bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values, const mcsat_value_t* v) {
 
-  bool different = true;
+  bool different = v != NULL;
 
   eq_node_id_t x_id = eq_graph_term_id_if_exists(eq, x);
-  if (x_id == eq_node_null) {
-    return different;
-  }
+  assert(x_id != eq_node_null);
 
   // Go through use-lists look for equalities asserted to false
   eq_uselist_id_t i = eq->uselist.data[x_id];
@@ -2122,10 +2140,12 @@ bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values, c
       if (y_find->type == EQ_NODE_VALUE) {
         // Add it
         const mcsat_value_t* v_forbidden = eq_graph_get_value(eq, y->find);
-        if (different && v != NULL) {
+        if (different) {
           different = !mcsat_value_eq(v, v_forbidden);
         }
-        pvector_push(values, (void*) v_forbidden);
+        if (values != NULL) {
+          pvector_push(values, (void*) v_forbidden);
+        }
       }
     }
     i = ul->next;
