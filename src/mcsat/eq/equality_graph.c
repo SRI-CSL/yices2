@@ -2031,8 +2031,33 @@ void eq_graph_gc_mark_all_terms(const eq_graph_t* eq, gc_info_t* gc_vars) {
   }
 }
 
-eq_node_id_t eq_graph_get_term_class_id(const eq_graph_t* eq, term_t t) {
-  eq_node_id_t t_id = eq_graph_term_id(eq, t);
-  const eq_node_t* t_node = eq_graph_get_node_const(eq, t_id);
-  return t_node->find;
+void eq_graph_get_forbidden(const eq_graph_t* eq, term_t x, pvector_t* values) {
+
+  eq_node_id_t x_id = eq_graph_term_id_if_exists(eq, x);
+  if (x_id == eq_node_null) {
+    return;
+  }
+
+  // Go through use-lists look for equalities asserted to false
+  eq_uselist_id_t i = eq->uselist.data[x_id];
+  while (i != eq_uselist_null) {
+    const eq_uselist_t* ul = eq->uselist_nodes + i;
+    eq_node_id_t n_id = ul->node;
+    const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+    if (n->type == EQ_NODE_EQ_PAIR && n->find == eq->false_node_id) {
+      // x = y assigned to false, add value of y to the list
+      eq_node_id_t p1 = eq->pair_list.data[n->index];
+      eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
+      eq_node_id_t y_id = x_id ^ p1 ^ p2;
+      const eq_node_t* y = eq_graph_get_node_const(eq, y_id);
+      const eq_node_t* y_find = eq_graph_get_node_const(eq, y->find);
+      if (y_find->type == EQ_NODE_VALUE) {
+        // Add it
+        void* v = (void*) eq_graph_get_value(eq, y->find);
+        pvector_push(values, v);
+      }
+    }
+    i = ul->next;
+  }
+
 }

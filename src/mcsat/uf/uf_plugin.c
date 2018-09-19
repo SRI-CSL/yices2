@@ -29,6 +29,7 @@
 #include "mcsat/eq/equality_graph.h"
 
 #include "utils/int_array_sort2.h"
+#include "utils/ptr_array_sort2.h"
 #include "model/models.h"
 
 #include "terms/terms.h"
@@ -286,6 +287,16 @@ void uf_plugin_pop(plugin_t* plugin) {
   }
 }
 
+bool value_cmp(void* data, void* v1_void, void* v2_void) {
+
+  const mcsat_value_t* v1 = (mcsat_value_t*) v1_void;
+  const mcsat_value_t* v2 = (mcsat_value_t*) v2_void;
+
+  assert(v1->type == VALUE_RATIONAL);
+  assert(v2->type == VALUE_RATIONAL);
+
+  return q_cmp(&v1->q, &v2->q) < 0;
+}
 
 static
 void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
@@ -298,10 +309,29 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
-  // We only pick uninterpreted sorts, hence we just pick a new number
+  // Pick a value not in the forbidden set
+  term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
+  pvector_t forbidden;
+  init_pvector(&forbidden, 0);
+  eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden);
+  ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
 
-  // Get the actual value
-  uint32_t int_value = uf->ctx->trail->decision_level;
+  // Get the actual value (pick smallest not in list)
+  uint32_t i;
+  int32_t int_value = 0;
+  for (i = 0; i < forbidden.size; ++ i) {
+    const mcsat_value_t* v = forbidden.data[i];
+    assert(v->type == VALUE_RATIONAL);
+    int32_t v_int = 0;
+    bool ok = q_get32((rational_t*)&v->q, &v_int);
+    (void) ok;
+    assert(ok);
+    if (int_value < v_int) {
+      break; // Can use
+    } else {
+      ++ int_value; // Try next value
+    }
+  }
 
   // Make the yices rational
   rational_t q;
