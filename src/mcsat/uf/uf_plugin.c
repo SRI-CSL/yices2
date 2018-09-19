@@ -27,6 +27,7 @@
 #include "mcsat/eq/equality_graph.h"
 
 #include "utils/int_array_sort2.h"
+#include "utils/ptr_array_sort2.h"
 #include "model/models.h"
 
 #include "terms/terms.h"
@@ -284,6 +285,16 @@ void uf_plugin_pop(plugin_t* plugin) {
   }
 }
 
+bool value_cmp(void* data, void* v1_void, void* v2_void) {
+
+  const mcsat_value_t* v1 = (mcsat_value_t*) v1_void;
+  const mcsat_value_t* v2 = (mcsat_value_t*) v2_void;
+
+  assert(v1->type == VALUE_RATIONAL);
+  assert(v2->type == VALUE_RATIONAL);
+
+  return q_cmp(&v1->q, &v2->q) < 0;
+}
 
 static
 void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
@@ -296,15 +307,50 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
-  // We only pick uninterpreted sorts, hence we just pick a new number
+  // Get the cached value
+  const mcsat_value_t* x_cached_value = NULL;
+  if (trail_has_cached_value(uf->ctx->trail, x)) {
+    x_cached_value = trail_get_cached_value(uf->ctx->trail, x);
+  }
 
-  // Get the actual value
-  uint32_t int_value = uf->ctx->trail->decision_level;
+  // Pick a value not in the forbidden set
+  term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
+  pvector_t forbidden;
+  init_pvector(&forbidden, 0);
+  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value) && x_cached_value != NULL;
+
+  int32_t picked_value = 0;
+  if (!cache_ok) {
+    // Get the actual value (pick smallest not in list)
+    ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
+    uint32_t i;
+    for (i = 0; i < forbidden.size; ++ i) {
+      const mcsat_value_t* v = forbidden.data[i];
+      assert(v->type == VALUE_RATIONAL);
+      int32_t v_int = 0;
+      bool ok = q_get32((rational_t*)&v->q, &v_int);
+      (void) ok;
+      assert(ok);
+      if (picked_value < v_int) {
+        break; // Can use
+      } else {
+        ++ picked_value; // Try next value
+      }
+    }
+  } else {
+    assert(x_cached_value->type == VALUE_RATIONAL);
+    bool ok = q_get32((rational_t*)&x_cached_value->q, &picked_value);
+    (void) ok;
+    assert(ok);
+  }
+
+  // Remove temp
+  delete_pvector(&forbidden);
 
   // Make the yices rational
   rational_t q;
   q_init(&q);
-  q_set32(&q, int_value);
+  q_set32(&q, picked_value);
 
   // Make the mcsat value
   mcsat_value_t value;

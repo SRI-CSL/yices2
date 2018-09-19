@@ -32,6 +32,7 @@
 #include "merge_queue.h"
 
 #include "utils/pair_hash_map2.h"
+#include "utils/ptr_vectors.h"
 
 #include "terms/term_manager.h"
 
@@ -306,5 +307,9 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
  */
 void eq_graph_gc_mark(const eq_graph_t* eq, gc_info_t* gc_vars);
 
-/** Get class representative ID for the given term */
-eq_node_id_t eq_graph_get_term_class_id(const eq_graph_t* eq, term_t t);
+/**
+ * Get list of forbidden values (by disequalitites) for term t. If
+ * values != NULL it will be filled with forbidden values. Result is true
+ * if v == NULL or v != from all values.
+ */
+bool eq_graph_get_forbidden(const eq_graph_t* eq, term_t t, pvector_t* values, const mcsat_value_t* v);
