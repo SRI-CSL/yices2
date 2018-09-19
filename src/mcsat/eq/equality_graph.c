@@ -268,6 +268,9 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
 
   bfs_vector_construct(&eq->bfs_queue, 0);
 
+  init_ivector(&eq->explain_cache_list, 0);
+  // init_pmap2(&eq->explain_cache_map): initialized on every call
+
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_construct[%s]()\n", eq->name);
   }
@@ -316,6 +319,9 @@ void eq_graph_destruct(eq_graph_t* eq) {
   delete_term_manager(&eq->tm);
 
   bfs_vector_destruct(&eq->bfs_queue);
+
+  delete_ivector(&eq->explain_cache_list);
+  // delete_pmap2(&eq->explain_cache_map): deleted when done
 }
 
 // Default initial size and max size
@@ -1742,6 +1748,43 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   return terms;
 }
 
+static
+bool eq_graph_explain_check_cache(const eq_graph_t* eq, eq_node_id_t n1, eq_node_id_t n2, path_terms_t* result) {
+  pmap2_rec_t* find = pmap2_find((pmap2_t*)&eq->explain_cache_map, n1, n2);
+  if (find) {
+    uint32_t index = find->val;
+    result->t1 = eq->explain_cache_list.data[index];
+    result->t2 = eq->explain_cache_list.data[index + 1];
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static
+void eq_graph_explain_set_cache(const eq_graph_t* eq_const, eq_node_id_t n1, eq_node_id_t n2, const path_terms_t* result) {
+  pmap2_rec_t* find = pmap2_get((pmap2_t*)&eq_const->explain_cache_map, n1, n2);
+  assert(find->val < 0);
+  uint32_t index = eq_const->explain_cache_list.size;
+  ivector_push((ivector_t*)&eq_const->explain_cache_list, result->t1);
+  ivector_push((ivector_t*)&eq_const->explain_cache_list, result->t2);
+  find->val = index;
+}
+
+static
+void eq_graph_explain_init_cache(const eq_graph_t* eq_const) {
+  eq_graph_t* eq = (eq_graph_t*) eq_const;
+  assert(eq->explain_cache_list.size == 0);
+  init_pmap2(&eq->explain_cache_map);
+}
+
+static
+void eq_graph_explain_clear_cache(const eq_graph_t* eq_const) {
+  eq_graph_t* eq = (eq_graph_t*) eq_const;
+  ivector_reset(&eq->explain_cache_list);
+  delete_pmap2(&eq->explain_cache_map);
+}
+
 /**
  * Explain why n1 is equal to n2 (both terms or values).
  *
@@ -1777,6 +1820,13 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
  */
 static
 path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type) {
+
+  // Check if explained already
+  path_terms_t cached_result;
+  bool cached = eq_graph_explain_check_cache(eq, n1_id, n2_id, &cached_result);
+  if (cached) {
+    return cached_result;
+  }
 
   uint32_t current_explain_id = ((eq_graph_t*)eq)->explain_id ++;
 
@@ -1928,12 +1978,16 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   // x - 0, y - 1.
   // assert(result.t2_id != n1_id);
 
+  eq_graph_explain_set_cache(eq, n1_id, n2_id, &path_terms);
+
   return path_terms;
 }
 
 void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types) {
 
   ((eq_graph_t*)eq)->explain_id = 0;
+
+  eq_graph_explain_init_cache(eq);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::conflict")) {
     ctx_trace_printf(eq->ctx, "eq_graph_get_conflict[%s]()\n", eq->name);
@@ -1964,11 +2018,15 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
     }
     eq_graph_to_gv_done(eq);
   }
+
+  eq_graph_explain_clear_cache(eq);
 }
 
 term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types) {
 
   ((eq_graph_t*) eq)->explain_id = 0;
+
+  eq_graph_explain_init_cache(eq);
 
   eq_node_id_t t_id = eq_graph_term_id(eq, t);
   const eq_node_t* t_node = eq_graph_get_node_const(eq, t_id);
@@ -2009,6 +2067,8 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
     ctx_trace_printf(eq->ctx, "t_out: ");
     ctx_trace_term(eq->ctx, result.t2);
   }
+
+  eq_graph_explain_clear_cache(eq);
 
   // This can happen: for example explain: (= x y) - [= x y] - false because of
   // evaluation x - 0, y - 1. Substitution (= x y) is valid, if it evaluates

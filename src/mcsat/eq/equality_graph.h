@@ -206,6 +206,12 @@ typedef struct eq_graph_s {
   /** Log of API calls */
   ivector_t api_log;
 
+  /** Cache of explanations */
+  ivector_t explain_cache_list;
+
+  /** Map from explain pairs to index in the explain cache */
+  pmap2_t explain_cache_map;
+
 } eq_graph_t;
 
 /** Construct a new named equality graph. */
