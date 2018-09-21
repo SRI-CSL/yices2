@@ -1479,8 +1479,6 @@ void eq_graph_pop(eq_graph_t* eq) {
     if (find != NULL) {
       int_hmap_erase(&eq->node_to_children, find);
       assert(eq_graph_is_pair(eq, i));
-    } else {
-      assert(!eq_graph_is_pair(eq, i));
     }
   }
   eq->nodes_size = nodes_size;
