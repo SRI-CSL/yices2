@@ -95,6 +95,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM);
+  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);
@@ -189,6 +190,10 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case EQ_TERM:
     t_desc = eq_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
+    break;
+  case ARITH_BINEQ_ATOM:
+    t_desc = arith_bineq_atom_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
     break;
   default:
@@ -445,6 +450,11 @@ static
 bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+    ctx_trace_printf(uf->ctx, "uf_plugin_explain_evaluation():\n");
+    ctx_trace_term(uf->ctx, t);
+  }
+
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
@@ -453,8 +463,18 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
     // Get all the variables and make sure they are all assigned.
     term_t atom = unsigned_term(t);
-    assert(term_kind(terms, atom) == EQ_TERM);
-    composite_term_t* eq_desc = eq_term_desc(terms, atom);
+    term_kind_t atom_kind = term_kind(terms, atom);
+    composite_term_t* eq_desc = NULL;
+    switch(atom_kind) {
+    case EQ_TERM:
+      eq_desc = eq_term_desc(terms, atom);
+      break;
+    case ARITH_BINEQ_ATOM:
+      eq_desc = arith_bineq_atom_desc(terms, atom);
+      break;
+    default:
+      assert(false);
+    }
 
     term_t lhs_term = eq_desc->arg[0];
     term_t rhs_term = eq_desc->arg[1];
