@@ -131,17 +131,27 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
     init_ivector(&eq_propagations, 0);
     eq_graph_get_propagated_terms(&uf->eq_graph, &eq_propagations);
     for (; i < eq_propagations.size; ++ i) {
+      // Term to propagate
       term_t t = eq_propagations.data[i];
+      // Variable to propagate
       variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-      if (t_var != variable_null && !trail_has_value(uf->ctx->trail, t_var)) {
-        const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
-        if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
-          ctx_trace_term(uf->ctx, t);
-          fprintf(ctx_trace_out(uf->ctx), " -> ");
-          mcsat_value_print(v, ctx_trace_out(uf->ctx));
-          fprintf(ctx_trace_out(uf->ctx), "\n");
+      if (t_var != variable_null) {
+        // Only set values of uninterpreted and boolean type
+        type_kind_t t_type_kind = term_type_kind(uf->ctx->terms, t);
+        if (t_type_kind == UNINTERPRETED_TYPE || t_type_kind == BOOL_TYPE) {
+          const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
+          if (!trail_has_value(uf->ctx->trail, t_var)) {
+            if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
+              ctx_trace_term(uf->ctx, t);
+              fprintf(ctx_trace_out(uf->ctx), " -> ");
+              mcsat_value_print(v, ctx_trace_out(uf->ctx));
+              fprintf(ctx_trace_out(uf->ctx), "\n");
+            }
+            prop->add(prop, t_var, v);
+          } else {
+            // Ignore, we will report conflict
+          }
         }
-        prop->add(prop, t_var, v);
       }
     }
     delete_ivector(&eq_propagations);

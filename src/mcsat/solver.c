@@ -1845,6 +1845,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat_build_model()\n");
+    trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
 
   // Just copy the trail into the model
