@@ -97,10 +97,10 @@ typedef struct {
   } heuristic_params;
 
   struct {
-    int* propagations;
-    int* conflicts;
-    int* clauses_attached;
-    int* clauses_attached_binary;
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_int_t* clauses_attached;
+    statistic_int_t* clauses_attached_binary;
   } stats;
 
   /** Exception handler */

@@ -79,9 +79,9 @@ typedef struct {
   int_hset_t visited_cache;
 
   struct {
-    int* conflicts;
-    int* propagations;
-    int* constraints_attached;
+    statistic_int_t* conflicts;
+    statistic_int_t* propagations;
+    statistic_int_t* constraints_attached;
   } stats;
 
 } bv_plugin_t;
