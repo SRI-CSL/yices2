@@ -74,13 +74,13 @@ struct nra_plugin_s {
   scope_holder_t scope;
 
   struct {
-    uint32_t* propagations;
-    uint32_t* conflicts;
-    uint32_t* conflicts_int;
-    uint32_t* constraints_attached;
-    uint32_t* evaluations;
-    uint32_t* constraint_regular;
-    uint32_t* constraint_root;
+    int* propagations;
+    int* conflicts;
+    int* conflicts_int;
+    int* constraints_attached;
+    int* evaluations;
+    int* constraint_regular;
+    int* constraint_root;
   } stats;
 
   /** Database of polynomial constraints */

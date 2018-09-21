@@ -58,9 +58,11 @@ typedef struct {
   ivector_t eq_graph_addition_trail;
 
   struct {
-    uint32_t* egraph_terms;
-    uint32_t* propagations;
-    uint32_t* conflicts;
+    statistic_int_t* egraph_terms;
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_avg_t* avg_conflict_size;
+    statistic_avg_t* avg_explanation_size;
   } stats;
 
   /** Exception handler */
@@ -71,9 +73,11 @@ typedef struct {
 static
 void uf_plugin_stats_init(uf_plugin_t* uf) {
   // Add statistics
-  uf->stats.propagations = statistics_new_uint32(uf->ctx->stats, "mcsat::uf::propagations");
-  uf->stats.conflicts = statistics_new_uint32(uf->ctx->stats, "mcsat::uf::conflicts");
-  uf->stats.egraph_terms = statistics_new_uint32(uf->ctx->stats, "mcsat::uf::egraph_terms");
+  uf->stats.propagations = statistics_new_int(uf->ctx->stats, "mcsat::uf::propagations");
+  uf->stats.conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::conflicts");
+  uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
+  uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
+  uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
 }
 
 static
@@ -248,6 +252,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     (*uf->stats.conflicts) ++;
     // Construct the conflict
     eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL);
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
 
@@ -421,7 +426,9 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     ctx_trace_printf(uf->ctx, "var = %"PRIu32"\n", var);
   }
 
-  return eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL);
+  term_t subst = eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL);
+  statistic_avg_add(uf->stats.avg_explanation_size, reasons->size);
+  return subst;
 }
 
 static

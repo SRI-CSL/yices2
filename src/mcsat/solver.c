@@ -209,17 +209,19 @@ struct mcsat_solver_s {
 
   struct {
     // Assertions added
-    uint32_t* assertions;
+    statistic_int_t* assertions;
     // Lemmas added
-    uint32_t* lemmas;
+    statistic_int_t* lemmas;
     // Decisions performed
-    uint32_t* decisions;
+    statistic_int_t* decisions;
     // Restarts performed
-    uint32_t* restarts;
+    statistic_int_t* restarts;
     // Conflicts handled
-    uint32_t* conflicts;
+    statistic_int_t* conflicts;
+    // Average conflict size
+    statistic_avg_t* avg_conflict_size;
     // GC calls
-    uint32_t* gc_calls;
+    statistic_int_t* gc_calls;
   } solver_stats;
 
   struct {
@@ -243,12 +245,13 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma);
 
 static
 void mcsat_stats_init(mcsat_solver_t* mcsat) {
-  mcsat->solver_stats.assertions = statistics_new_uint32(&mcsat->stats, "mcsat::assertions");
-  mcsat->solver_stats.conflicts = statistics_new_uint32(&mcsat->stats, "mcsat::conflicts");
-  mcsat->solver_stats.decisions = statistics_new_uint32(&mcsat->stats, "mcsat::decisions");
-  mcsat->solver_stats.gc_calls = statistics_new_uint32(&mcsat->stats, "mcsat::gc_calls");
-  mcsat->solver_stats.lemmas = statistics_new_uint32(&mcsat->stats, "mcsat::lemmas");
-  mcsat->solver_stats.restarts = statistics_new_uint32(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.assertions = statistics_new_int(&mcsat->stats, "mcsat::assertions");
+  mcsat->solver_stats.conflicts = statistics_new_int(&mcsat->stats, "mcsat::conflicts");
+  mcsat->solver_stats.avg_conflict_size = statistics_new_avg(&mcsat->stats, "mcsat::avg_conflict_size");
+  mcsat->solver_stats.decisions = statistics_new_int(&mcsat->stats, "mcsat::decisions");
+  mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
+  mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
+  mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
 }
 
 static
@@ -1439,6 +1442,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   assert(plugin->get_conflict);
   plugin->get_conflict(plugin, &reason);
   conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, mcsat->ctx->terms, mcsat->ctx->trace);
+  statistic_avg_add(mcsat->solver_stats.avg_conflict_size, conflict.disjuncts.element_list.size);
 
   if (trace_enabled(trace, "mcsat::conflict") || trace_enabled(trace, "mcsat::lemma")) {
     mcsat_trace_printf(trace, "conflict from %s\n", mcsat->plugins[plugin_i].plugin_name);

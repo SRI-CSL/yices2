@@ -59,13 +59,13 @@ bool nra_plugin_has_assignment(const nra_plugin_t* nra, variable_t x) {
 static
 void nra_plugin_stats_init(nra_plugin_t* nra) {
   // Add statistics
-  nra->stats.propagations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::propagations");
-  nra->stats.conflicts = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts");
-  nra->stats.conflicts_int = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts_int");
-  nra->stats.constraints_attached = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_attached");
-  nra->stats.evaluations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::evaluations");
-  nra->stats.constraint_regular = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_regular");
-  nra->stats.constraint_root = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_root");
+  nra->stats.propagations = statistics_new_int(nra->ctx->stats, "mcsat::nra::propagations");
+  nra->stats.conflicts = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts");
+  nra->stats.conflicts_int = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_int");
+  nra->stats.constraints_attached = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_attached");
+  nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
+  nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
+  nra->stats.constraint_root = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_root");
 }
 
 static

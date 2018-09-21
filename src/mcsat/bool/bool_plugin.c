@@ -97,10 +97,10 @@ typedef struct {
   } heuristic_params;
 
   struct {
-    uint32_t* propagations;
-    uint32_t* conflicts;
-    uint32_t* clauses_attached;
-    uint32_t* clauses_attached_binary;
+    int* propagations;
+    int* conflicts;
+    int* clauses_attached;
+    int* clauses_attached_binary;
   } stats;
 
   /** Exception handler */
@@ -110,10 +110,10 @@ typedef struct {
 
 static
 void bool_plugin_stats_init(bool_plugin_t* bp) {
-  bp->stats.propagations = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::propagations");
-  bp->stats.conflicts = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::conflicts");
-  bp->stats.clauses_attached = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::clauses_attached");
-  bp->stats.clauses_attached_binary = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::clauses_attached_binary");
+  bp->stats.propagations = statistics_new_int(bp->ctx->stats, "mcsat::bool::propagations");
+  bp->stats.conflicts = statistics_new_int(bp->ctx->stats, "mcsat::bool::conflicts");
+  bp->stats.clauses_attached = statistics_new_int(bp->ctx->stats, "mcsat::bool::clauses_attached");
+  bp->stats.clauses_attached_binary = statistics_new_int(bp->ctx->stats, "mcsat::bool::clauses_attached_binary");
 }
 
 static

@@ -79,9 +79,9 @@ typedef struct {
   int_hset_t visited_cache;
 
   struct {
-    uint32_t* conflicts;
-    uint32_t* propagations;
-    uint32_t* constraints_attached;
+    int* conflicts;
+    int* propagations;
+    int* constraints_attached;
   } stats;
 
 } bv_plugin_t;
@@ -144,9 +144,9 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, BITVECTOR_TYPE);
 
   // Add statistics
-  bv->stats.conflicts = statistics_new_uint32(bv->ctx->stats, "mcsat::bv::conflicts");
-  bv->stats.propagations = statistics_new_uint32(bv->ctx->stats, "mcsat::bv::propagations");
-  bv->stats.constraints_attached = statistics_new_uint32(bv->ctx->stats, "mcsat::bv::constraints_attached");
+  bv->stats.conflicts = statistics_new_int(bv->ctx->stats, "mcsat::bv::conflicts");
+  bv->stats.propagations = statistics_new_int(bv->ctx->stats, "mcsat::bv::propagations");
+  bv->stats.constraints_attached = statistics_new_int(bv->ctx->stats, "mcsat::bv::constraints_attached");
 }
 
 static

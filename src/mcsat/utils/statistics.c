@@ -20,13 +20,8 @@
 #include "utils/memalloc.h"
 
 #include <inttypes.h>
-
-/** A uint32_t statistic */
-struct statistic_s {
-  const char* name;
-  uint32_t data;
-  statistic_t* next;
-};
+#include <assert.h>
+#include <stdbool.h>
 
 /** Construct the statistics */
 void statistics_construct(statistics_t* stats) {
@@ -46,17 +41,34 @@ void statistics_destruct(statistics_t* stats) {
 }
 
 /** Get a new uint32_t statistic */
-uint32_t* statistics_new_uint32(statistics_t* stats, const char* name) {
+statistic_int_t* statistics_new_int(statistics_t* stats, const char* name) {
   statistic_t* new;
 
   new = safe_malloc(sizeof(statistic_t));
-  new->data = 0;
+  new->type = STATISTIC_INT;
+  new->int_data = 0;
   new->name = name;
   new->next = stats->first;
 
   stats->first = new;
 
-  return &new->data;
+  return &new->int_data;
+}
+
+/** Get a new uint32_t statistic */
+statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name) {
+  statistic_t* new;
+
+  new = safe_malloc(sizeof(statistic_t));
+  new->type = STATISTIC_AVG;
+  new->avg_data.avg = 0;
+  new->avg_data.n = 0;
+  new->name = name;
+  new->next = stats->first;
+
+  stats->first = new;
+
+  return &new->avg_data;
 }
 
 /** Print the statistics */
@@ -65,7 +77,16 @@ void statistics_print(const statistics_t* stats, FILE* out) {
 
   current = stats->first;
   while (current != NULL) {
-    fprintf(out, " :%s %"PRIu32"\n", current->name, current->data);
+    switch (current->type) {
+    case STATISTIC_INT:
+      fprintf(out, " :%s %d\n", current->name, current->int_data);
+      break;
+    case STATISTIC_AVG:
+      fprintf(out, " :%s %f\n", current->name, current->avg_data.avg);
+      break;
+    default:
+      assert(false);
+    }
     current = current->next;
   }
 }
