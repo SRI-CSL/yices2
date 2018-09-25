@@ -86,15 +86,6 @@ void bfs_vector_push(bfs_vector_t* v, eq_node_id_t n, uint32_t prev, eq_edge_id_
   v->size = i+1;
 }
 
-
-static inline
-void eq_graph_bump_term(const eq_graph_t* eq, term_t t) {
-  variable_t t_var = variable_db_get_variable_if_exists(eq->ctx->var_db, t);
-  if (t_var != variable_null) {
-    eq->ctx->bump_variable(eq->ctx, t_var);
-  }
-}
-
 static
 void eq_graph_propagate(eq_graph_t* eq);
 
@@ -633,6 +624,8 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
 
   // If equality we check for propagation
   if (n->type == EQ_NODE_EQ_PAIR) {
+    // Check for reflexivity and evaluation
+    eq_graph_eq_args_updated(eq, pair_id);
     // Check for symmetry
     if (n1->find != n2->find) {
       find = pmap2_find(rep_cache, n2->find, n1->find);
@@ -640,8 +633,6 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
         merge_queue_push_init(&eq->merge_queue, pair_id, find->val, REASON_IS_CONGRUENCE_EQ_SYM, 0);
       }
     }
-    // Check for reflexivity and evaluation
-    eq_graph_eq_args_updated(eq, pair_id);
   }
 }
 
@@ -1250,8 +1241,8 @@ void eq_graph_propagate(eq_graph_t* eq) {
 }
 
 static
-void eq_graph_assert_eq_and_propagate(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
-    eq_reason_type_t reason_type, uint32_t reason_data) {
+void eq_graph_assert_eq(eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
+    eq_reason_type_t reason_type, uint32_t reason_data, bool propagate) {
 
   assert(lhs < eq->nodes_size);
   assert(rhs < eq->nodes_size);
@@ -1268,13 +1259,15 @@ void eq_graph_assert_eq_and_propagate(eq_graph_t* eq, eq_node_id_t lhs, eq_node_
   merge_queue_push_init(&eq->merge_queue, lhs, rhs, reason_type, reason_data);
 
   // Propagate
-  eq_graph_propagate(eq);
+  if (propagate) {
+    eq_graph_propagate(eq);
+  }
 }
 
 void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t reason_data) {
   eq_node_id_t lhs_id = eq_graph_add_term(eq, lhs);
   eq_node_id_t rhs_id = eq_graph_add_term(eq, rhs);
-  eq_graph_assert_eq_and_propagate(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data);
+  eq_graph_assert_eq(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data, true);
 }
 
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq) {
@@ -1313,10 +1306,7 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   const mcsat_trail_t* trail = eq->ctx->trail;
   variable_db_t* var_db = eq->ctx->var_db;
 
-  // Run initial propagation before assertions
-  eq_graph_propagate(eq);
-
-  // Run each assertion and propagate
+  // Assert everything in the trail
   for (; eq->trail_i < trail_size(trail); ++ eq->trail_i) {
     variable_t x = trail_at(trail, eq->trail_i);
     term_t x_term = variable_db_get_term(var_db, x);
@@ -1324,9 +1314,12 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
       const mcsat_value_t* v = trail_get_value(trail, x);
       eq_node_id_t v_id = eq_graph_add_value(eq, v);
       eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
-      eq_graph_assert_eq_and_propagate(eq, v_id, x_id, REASON_IS_IN_TRAIL, x);
+      eq_graph_assert_eq(eq, v_id, x_id, REASON_IS_IN_TRAIL, x, false);
     }
   }
+
+  // Run propagation
+  eq_graph_propagate(eq);
 }
 
 bool eq_graph_is_trail_propagated(const eq_graph_t* eq) {
@@ -1597,11 +1590,11 @@ typedef struct {
 
 /** Explain the path from n1 to n2. */
 static
-path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type);
+path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type, int_mset_t* terms_used);
 
 /** Explain the edge e (from u to v) */
 static
-path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type) {
+path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ivector_t* reasons_data, ivector_t* reasons_type, int_mset_t* terms_used) {
 
   static int depth = 0;
 
@@ -1623,11 +1616,15 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   path_terms_t terms = { NULL_TERM, NULL_TERM };
   if (u->type == EQ_NODE_TERM) {
     terms.t1 = eq_graph_get_term(eq, e->u);
-    eq_graph_bump_term(eq, terms.t1);
+    if (terms_used != NULL) {
+      int_mset_add(terms_used, terms.t1);
+    }
   }
   if (v->type == EQ_NODE_TERM) {
     terms.t2 = eq_graph_get_term(eq, e->v);
-    eq_graph_bump_term(eq, terms.t2);
+    if (terms_used != NULL) {
+      int_mset_add(terms_used, terms.t2);
+    }
   }
 
   // Default: no value
@@ -1650,7 +1647,7 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   case REASON_IS_TRUE_EQUALITY: {
     // Get the reason of the equality and explain why it's true
     eq_node_id_t eq_id = e->reason.data;
-    path_terms_t eq_explain = eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type);
+    path_terms_t eq_explain = eq_graph_explain(eq, eq_id, eq->true_node_id, reasons_data, reasons_type, terms_used);
     assert(eq_explain.t1 != NULL_TERM);
     ivector_push(reasons_data, eq_explain.t1);
     if (reasons_type != NULL) {
@@ -1668,7 +1665,7 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
       if (*u_c != *v_c) {
         assert(eq_graph_get_node_const(eq, *u_c)->type == EQ_NODE_TERM);
         assert(eq_graph_get_node_const(eq, *v_c)->type == EQ_NODE_TERM);
-        eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type);
+        eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type, terms_used);
       }
       u_c ++;
       v_c ++;
@@ -1682,10 +1679,10 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
     const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
     const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
     if (u_c[0] != v_c[1]) {
-      eq_graph_explain(eq, u_c[0], v_c[1], reasons_data, reasons_type);
+      eq_graph_explain(eq, u_c[0], v_c[1], reasons_data, reasons_type, terms_used);
     }
     if (u_c[1] != v_c[0]) {
-      eq_graph_explain(eq, u_c[1], v_c[0], reasons_data, reasons_type);
+      eq_graph_explain(eq, u_c[1], v_c[0], reasons_data, reasons_type, terms_used);
     }
     // First last stay null, these are both non-terms
     break;
@@ -1697,7 +1694,7 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
     assert(eq_node->type == EQ_NODE_EQ_PAIR);
     eq_node_id_t lhs_id = eq->pair_list.data[eq_node->index];
     eq_node_id_t rhs_id = eq->pair_list.data[eq_node->index+1];
-    eq_graph_explain(eq, lhs_id, rhs_id, reasons_data, reasons_type);
+    eq_graph_explain(eq, lhs_id, rhs_id, reasons_data, reasons_type, terms_used);
     // Add the evaluation terms
     if (u->type == EQ_NODE_VALUE) { terms.t1 = true_term; }
     if (v->type == EQ_NODE_VALUE) { terms.t2 = true_term; }
@@ -1715,11 +1712,11 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
     // Explain lhs = lhs_value
     eq_node_id_t lhs_value_id = lhs_node->find;
     assert(eq_graph_is_value(eq, lhs_value_id));
-    path_terms_t lhs_explain = eq_graph_explain(eq, lhs_id, lhs_value_id, reasons_data, reasons_type);
+    path_terms_t lhs_explain = eq_graph_explain(eq, lhs_id, lhs_value_id, reasons_data, reasons_type, terms_used);
     // Explain rhs = rhs_value
     eq_node_id_t rhs_value_id = rhs_node->find;
     assert(eq_graph_is_value(eq, rhs_value_id));
-    path_terms_t rhs_explain = eq_graph_explain(eq, rhs_id, rhs_value_id, reasons_data, reasons_type);
+    path_terms_t rhs_explain = eq_graph_explain(eq, rhs_id, rhs_value_id, reasons_data, reasons_type, terms_used);
     // Part of explanation also lhs_value != rhs_value
     assert(lhs_explain.t2 != NULL_TERM);
     assert(rhs_explain.t2 != NULL_TERM);
@@ -1819,7 +1816,7 @@ void eq_graph_explain_clear_cache(const eq_graph_t* eq_const) {
  *    - t2 must evaluate to v in the trail
  */
 static
-path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type) {
+path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t* reasons_data, ivector_t* reasons_type, int_mset_t* terms_used) {
 
   // Check if explained already
   path_terms_t cached_result;
@@ -1926,7 +1923,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
     }
 
     // Explain the edge
-    path_terms_t e_terms = eq_graph_explain_edge(eq, e, reasons_data, reasons_type);
+    path_terms_t e_terms = eq_graph_explain_edge(eq, e, reasons_data, reasons_type, terms_used);
 
     // Last term
     if (path_terms.t2 == NULL_TERM) {
@@ -1983,7 +1980,7 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   return path_terms;
 }
 
-void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types) {
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types, int_mset_t* terms_used) {
 
   ((eq_graph_t*)eq)->explain_id = 0;
 
@@ -2001,7 +1998,8 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
     eq_graph_to_gv_mark_node(eq, eq->conflict_rhs);
   }
 
-  path_terms_t result = eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types);
+  assert(conflict_data == NULL || conflict_data->size == 0);
+  path_terms_t result = eq_graph_explain(eq, eq->conflict_lhs, eq->conflict_rhs, conflict_data, conflict_types, terms_used);
   // This one can have value here: e.g., when f(x) != f(y) is asserted
   // and f(x) -> 0, f(y) -> 1 is asserted. If the we're explaining why
   // 0 = 1, if it's due to congruence f(x) = f(y), we need add
@@ -2022,7 +2020,7 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
   eq_graph_explain_clear_cache(eq);
 }
 
-term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types) {
+term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types, int_mset_t* terms_used) {
 
   ((eq_graph_t*) eq)->explain_id = 0;
 
@@ -2045,7 +2043,8 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
     eq_graph_to_gv_mark_node(eq, v_id);
   }
 
-  path_terms_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types);
+  assert(explain_data == NULL || explain_data->size == 0);
+  path_terms_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types, terms_used);
   assert(result.t2 != NULL_TERM);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {

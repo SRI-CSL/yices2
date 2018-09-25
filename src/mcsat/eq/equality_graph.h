@@ -294,7 +294,7 @@ bool eq_graph_is_trail_propagated(const eq_graph_t* eq);
  * data and terms that evaluate to true in trail. Pass NULL for types if you
  * don't care about types.
  */
-void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types);
+void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types, int_mset_t* terms_used);
 
 /**
  * Explain a term propagation, i.e., why term is equal to a value. The only
@@ -303,7 +303,7 @@ void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivect
  *
  * Returns the substitution term
  */
-term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types);
+term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector_t* explain_data, ivector_t* explain_types, int_mset_t* terms_used);
 
 typedef enum {
   EQ_GRAPH_MARK_ALL, // Mark all terms with variables, and their children

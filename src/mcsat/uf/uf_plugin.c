@@ -57,6 +57,9 @@ typedef struct {
   /** Stuff added to eq_graph */
   ivector_t eq_graph_addition_trail;
 
+  /** Tmp vector */
+  int_mset_t tmp;
+
   struct {
     statistic_int_t* egraph_terms;
     statistic_int_t* propagations;
@@ -81,6 +84,19 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
 }
 
 static
+void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump) {
+  uint32_t i;
+  for (i = 0; i < to_bump->element_list.size; ++ i) {
+    term_t t = to_bump->element_list.data[i];
+    variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+    if (t != variable_null) {
+      uf->ctx->bump_variable(uf->ctx, t_var);
+    }
+  }
+  int_mset_clear(to_bump);
+}
+
+static
 void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
@@ -88,6 +104,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
+  int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
@@ -95,7 +112,6 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);
@@ -119,6 +135,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
+  int_mset_destruct(&uf->tmp);
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
 }
@@ -192,10 +209,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = eq_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
     break;
-  case ARITH_BINEQ_ATOM:
-    t_desc = arith_bineq_atom_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
-    break;
   default:
     assert(false);
   }
@@ -266,7 +279,8 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
     // Construct the conflict
-    eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL);
+    eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL, &uf->tmp);
+    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
@@ -302,6 +316,9 @@ void uf_plugin_pop(plugin_t* plugin) {
     term_t t = uf->eq_graph_addition_trail.data[i];
     uf_plugin_add_to_eq_graph(uf, t, false);
   }
+
+  // Clear the conflict
+  ivector_reset(&uf->conflict);
 }
 
 bool value_cmp(void* data, void* v1_void, void* v2_void) {
@@ -363,6 +380,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       ctx_trace_printf(uf->ctx, "\n");
     }
     uint32_t i;
+    picked_value = 0;
     for (i = 0; i < forbidden.size; ++ i) {
       const mcsat_value_t* v = forbidden.data[i];
       assert(v->type == VALUE_RATIONAL);
@@ -371,11 +389,10 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       (void) ok;
       assert(ok);
       if (picked_value < v_int) {
-        break; // Can use
+        // Found a gap, pick
+        break;
       } else {
-        if (picked_value == v_int) {
-          ++ picked_value;
-        }
+        picked_value = v_int + 1;
       }
     }
   } else {
@@ -441,7 +458,8 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     ctx_trace_printf(uf->ctx, "var = %"PRIu32"\n", var);
   }
 
-  term_t subst = eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL);
+  term_t subst = eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL, &uf->tmp);
+  uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
   statistic_avg_add(uf->stats.avg_explanation_size, reasons->size);
   return subst;
 }
@@ -468,9 +486,6 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     switch(atom_kind) {
     case EQ_TERM:
       eq_desc = eq_term_desc(terms, atom);
-      break;
-    case ARITH_BINEQ_ATOM:
-      eq_desc = arith_bineq_atom_desc(terms, atom);
       break;
     default:
       assert(false);
