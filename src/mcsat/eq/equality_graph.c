@@ -609,8 +609,10 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
   eq_node_id_t p2 = eq->pair_list.data[n->index + 1];
   const eq_node_t* n2 = eq_graph_get_node_const(eq, p2);
 
-  // Store normalized pair or merge if someone is already there
+  // The cache we're using
   pmap2_t* rep_cache = n->type == EQ_NODE_PAIR ? &eq->pair_to_rep : &eq->eq_pair_to_rep;
+
+  // Store normalized pair or merge if someone is already there
   pmap2_rec_t* find = pmap2_get(rep_cache, n1->find, n2->find);
   if (find->val < 0) {
     // New representative
@@ -622,7 +624,7 @@ void eq_graph_update_pair_hash(eq_graph_t* eq, eq_node_id_t pair_id) {
     }
   }
 
-  // If equality we check for propagation
+  // If equality we check for symmetry and other
   if (n->type == EQ_NODE_EQ_PAIR) {
     // Check for reflexivity and evaluation
     eq_graph_eq_args_updated(eq, pair_id);
