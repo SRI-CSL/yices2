@@ -194,6 +194,22 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  */
 extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
 
+/*
+ * Check satisfiability under model: check whether the assertions stored in ctx
+ * conjoined with the (filtered) model is satisfiable.
+ *
+ * - params is an optional structure to store heuristic parameters
+ * - if params is NULL, default parameter settings are used.
+ * - model = model to assume
+ * - filter = filter to select which parts of the model are asserted (NULL = all)
+ *
+ * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * STATUS_INTERRUPTED
+ *
+ * If status is STATUS_UNSAT then the context and model are inconsistent
+ */
+extern smt_status_t check_context_with_model(context_t *ctx, const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t));
+
 
 /*
  * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN

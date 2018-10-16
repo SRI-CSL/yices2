@@ -559,7 +559,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
-    mcsat_solve(ctx->mcsat, params);
+    mcsat_solve(ctx->mcsat, params, NULL, NULL);
     return mcsat_status(ctx->mcsat);
   }
 
@@ -596,6 +596,16 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   }
 
   return stat;
+}
+
+/*
+ * Check with given model
+ * - if ctx->status is not IDLE, return the status.
+ */
+smt_status_t check_context_with_model(context_t *ctx, const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t)) {
+  assert(ctx->mcsat != NULL);
+  mcsat_solve(ctx->mcsat, params, mdl, mdl_filter);
+  return mcsat_status(ctx->mcsat);
 }
 
 

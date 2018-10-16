@@ -1694,7 +1694,7 @@ void luby_next(luby_t* luby) {
   luby->restart_threshold = luby->v * luby->interval;
 }
 
-void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
+void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t)) {
 
   uint32_t restart_resource;
   luby_t luby;

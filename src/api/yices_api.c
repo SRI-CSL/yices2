@@ -7826,6 +7826,77 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
+/*
+ * Check context with model
+ * - n = number of assumptions
+ * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
+ */
+EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
+    const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t)) {
+
+  param_t default_params;
+  smt_status_t stat;
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_has_mcsat(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    if (!context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (!context_has_mcsat(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return STATUS_ERROR;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return STATUS_ERROR;
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_model(ctx, params, mdl, mdl_filter);
+  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+  return stat;
+}
+
 
 /*
  * Interrupt the search:
