@@ -3124,6 +3124,24 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params,
 									   uint32_t n, const term_t t[]);
 
+/*
+ * Check satisfiability under model: check whether the assertions stored in ctx
+ * conjoined with the (filtered) model is satisfiable.
+ *
+ * - params is an optional structure to store heuristic parameters
+ * - if params is NULL, default parameter settings are used.
+ * - model = model to assume
+ * - filter = filter to select which parts of the model are asserted (NULL = all)
+ *
+ * It behaves the same as the previous function.
+ *
+ * If this function returns STATUS_UNSAT, then one can construct a model interpolant by
+ * calling function yices_get_model_interpolant.
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
+    const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t));
+
+
 
 /*
  * Add a blocking clause: this is intended to help enumerate different models
@@ -3241,6 +3259,26 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v);
+
+
+/*
+ * Construct a model interpolant and store the result in vector *v.
+ * - v must be an initialized term_vector
+ *
+ * If ctx status is unsat, this function stores a model interpolant in v,
+ * and returns 0. Otherwise, it sets an error core an returns -1.
+ *
+ * This is intended to be used after a call to
+ * yices_check_context_with_model that returned STATUS_UNSAT. In
+ * this case, the function builds an model interpolant. The model interpolant
+ * is a clause implied by the current context that is false in the model provides
+ * to yices_check_context_with_model. If the model was empty or if the context is UNSAT
+ * for another reason, an empty core is returned (i.e., v->size is set to 0).
+ *
+ * Error code:
+ * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_model_interpolant(context_t *ctx, term_vector_t *v);
 
 
 

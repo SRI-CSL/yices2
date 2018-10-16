@@ -143,13 +143,14 @@ extern void model_term_iterate(model_t *model, bool all, void *aux, model_iterat
 
 
 /*
- * Term collector: call f(aux, t) for every term t that's stored in the model
+ * Collect all terms that satisfy predicate f
+ * - add them to vector v
  * - if f(aux, t) returns true, add t to vector v
  * - if all is false, only the terms in model->map are considered
  * - if all is true, the terms in model->map and model->alias are considered
  * - f must not have side effects
  *
- * NOTE: v is not reset. All terms collected are added to v
+ * - v is not reset. All terms collected are added to v
  */
 typedef bool (*model_filter_t)(void *aux, term_t t);
 
