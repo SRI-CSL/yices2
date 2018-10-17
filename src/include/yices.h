@@ -3126,12 +3126,12 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
 
 /*
  * Check satisfiability under model: check whether the assertions stored in ctx
- * conjoined with the (filtered) model is satisfiable.
+ * conjoined with the assignment of the model is satisfiable.
  *
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
  * - model = model to assume
- * - filter = filter to select which parts of the model are asserted (NULL = all)
+ * - t = variables to use, i.e., we check context && t = mdl(t)
  *
  * It behaves the same as the previous function.
  *
@@ -3139,7 +3139,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * calling function yices_get_model_interpolant.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
-    const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t));
+    const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
 
 

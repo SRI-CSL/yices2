@@ -21,6 +21,7 @@
 #include "context/context.h"
 #include "model/models.h"
 #include "model/concrete_values.h"
+#include "model/model_queries.h"
 #include "io/concrete_value_printer.h"
 
 #include "mcsat/variable_db.h"
@@ -202,6 +203,9 @@ struct mcsat_solver_s {
 
   /** Any pending requests */
   bool pending_requests;
+
+  /** Index of the assumption to process next */
+  uint32_t assumption_i;
 
   /** Statistics */
   statistics_t stats;
@@ -680,6 +684,8 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat->pending_requests_all.gc_calls = false;
   mcsat->pending_requests = false;
 
+  mcsat->assumption_i = 0;
+
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
 
@@ -757,6 +763,11 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
   plugin_t* plugin;
 
+  // Remember the assumptions index
+  scope_holder_push(&mcsat->scope,
+    &mcsat->assumption_i,
+    NULL);
+
   // Push the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
@@ -771,6 +782,11 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
   plugin_t* plugin;
   ivector_t* unassigned;
+
+  // Revert the assumption index
+  scope_holder_pop(&mcsat->scope,
+      &mcsat->assumption_i,
+      NULL);
 
   // Pop the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
@@ -1694,10 +1710,20 @@ void luby_next(luby_t* luby) {
   luby->restart_threshold = luby->v * luby->interval;
 }
 
-void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t)) {
+void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
   uint32_t restart_resource;
   luby_t luby;
+
+  // Make sure we have variables for all the assumptions
+  uint32_t i;
+  for (i = 0; i < n_assumptions; ++ i) {
+    variable_db_get_variable(mcsat->var_db, assumptions[i]);
+  }
+  mcsat_process_registeration_queue(mcsat);
+
+  // Initialize assumption count
+  mcsat->assumption_i = 0;
 
   // If we're already unsat, just return
   if (!trail_is_consistent(mcsat->trail)) {
@@ -1746,13 +1772,43 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, const model_t* md
       continue;
     }
 
-    // Time to make a decision
-    if (!mcsat_decide(mcsat)) {
-      if (!trail_is_consistent(mcsat->trail)) {
-        goto conflict;
+    // Should we decide on an assumption
+    bool assumption_decided = false;
+    for (; !assumption_decided && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
+      // The variable (should exists already)
+      term_t x_term = assumptions[mcsat->assumption_i];
+      variable_t x = variable_db_get_variable(mcsat->var_db, x_term);
+      // The value from the model
+      value_t x_value = model_get_term_value(mdl, x_term);
+      mcsat_value_t x_mcsat_value;
+      mcsat_value_construct_from_value(&x_mcsat_value, &mdl->vtbl, x_value);
+
+      // If not assigned, just do it
+      if (!trail_has_value(mcsat->trail, x)) {
+        mcsat_push_internal(mcsat);
+        trail_add_decision(mcsat->trail, x, &x_mcsat_value, MCSAT_MAX_PLUGINS);
+        assumption_decided = true;
       } else {
-        mcsat->status = STATUS_SAT;
-        return;
+        // Already assigned, check if same
+        const mcsat_value_t* x_current_value = trail_get_value(mcsat->trail, x);
+        if (!mcsat_value_eq(&x_mcsat_value, x_current_value)) {
+          // Values are different, need an explanation
+          assert(false);
+        }
+      }
+      // Remove temp
+      mcsat_value_destruct(&x_mcsat_value);
+    }
+
+    if (!assumption_decided) {
+      // Time to make a decision
+      if (!mcsat_decide(mcsat)) {
+        if (!trail_is_consistent(mcsat->trail)) {
+          goto conflict;
+        } else {
+          mcsat->status = STATUS_SAT;
+          return;
+        }
       }
     }
 

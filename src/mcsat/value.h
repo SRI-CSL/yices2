@@ -66,8 +66,14 @@ void mcsat_value_construct_rational(mcsat_value_t *value, const rational_t *q);
 /** Construct a value from the libpoly value */
 void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_value);
 
+/** Construct a value from the libpoly value */
+void mcsat_value_construct_lp_value_direct(mcsat_value_t *value, lp_value_type_t type, void* data);
+
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
+
+/** Construct an MCSAT value from given value */
+void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t* vtbl, value_t v);
 
 /** Destruct the value (removes any data and sets back to VALUE_NONE) */
 void mcsat_value_destruct(mcsat_value_t *value);

@@ -7832,10 +7832,11 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
  * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
  */
 EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
-    const model_t* mdl, int32_t (*mdl_filter)(void *aux, term_t t)) {
+    model_t* mdl, uint32_t n, const term_t t[]) {
 
   param_t default_params;
   smt_status_t stat;
+  uint32_t i;
 
   // cleanup
   switch (context_status(ctx)) {
@@ -7882,6 +7883,16 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 
   assert(context_status(ctx) == STATUS_IDLE);
 
+  // Make sure only variables are allowed
+  for (i = 0; i < n; ++ i) {
+    bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
+    bool has_value = model_find_term_value(mdl, t[i]) != null_value;
+    if (!is_variable || !has_value) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+  }
+
   // set parameters
   if (params == NULL) {
     yices_default_params_for_context(ctx, &default_params);
@@ -7889,7 +7900,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
   }
 
   // call check
-  stat = check_context_with_model(ctx, params, mdl, mdl_filter);
+  stat = check_context_with_model(ctx, params, mdl, n, t);
   if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }

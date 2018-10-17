@@ -47,6 +47,11 @@ void mcsat_value_construct_lp_value(mcsat_value_t* value, const lp_value_t* lp_v
   lp_value_construct_copy(&value->lp_value, lp_value);
 }
 
+void mcsat_value_construct_lp_value_direct(mcsat_value_t *value, lp_value_type_t type, void* data) {
+  value->type = VALUE_LIBPOLY;
+  lp_value_construct(&value->lp_value, type, data);
+}
+
 void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from) {
   value->type = from->type;
   switch (value->type) {
@@ -221,6 +226,25 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
     assert(false);
   }
   return value;
+}
+
+void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t* vtbl, value_t v) {
+  value_kind_t v_kind = object_kind(vtbl, v);
+  switch (v_kind) {
+  case BOOLEAN_VALUE:
+    mcsat_value_construct_bool(mcsat_value, is_true(vtbl, v));
+    break;
+  case RATIONAL_VALUE:
+    mcsat_value_construct_rational(mcsat_value, vtbl_rational(vtbl, v));
+    break;
+  case ALGEBRAIC_VALUE: {
+    lp_algebraic_number_t* a = vtbl_algebraic_number(vtbl, v);
+    mcsat_value_construct_lp_value_direct(mcsat_value, LP_VALUE_ALGEBRAIC, a);;
+    break;
+  }
+  default:
+    assert(false);
+  }
 }
 
 bool mcsat_value_is_zero(const mcsat_value_t* value) {
