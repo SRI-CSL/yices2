@@ -3967,7 +3967,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
 
 /*
  * Initialize all internal structures
- * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
+ * - benchmark: if true, the input is assumed to be an SMT-LIB benchmark
  *   (i.e., a set of assertions followed by a single call to check-sat)
  *   In this mode,
  *   - destructive simplifications are allowed.
