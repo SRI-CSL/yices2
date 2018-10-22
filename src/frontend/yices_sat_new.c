@@ -299,10 +299,10 @@ static bool clause_is_true(uint32_t n, literal_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (lit_value(&solver, a[i]) == BVAL_TRUE) {
+    if (lit_value(&solver, a[i]) == VAL_TRUE) {
       return true;
     }
-    if (lit_value(&solver, a[i]) != BVAL_FALSE) {
+    if (lit_value(&solver, a[i]) != VAL_FALSE) {
       fprintf(stderr, "BUG: the model does not assign a value to literal %"PRId32"\n", a[i]);
       exit(1);
     }

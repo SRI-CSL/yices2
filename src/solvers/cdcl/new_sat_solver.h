@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "solvers/cdcl/smt_core_base_types.h"
 #include "utils/tag_map.h"
 
 
@@ -56,110 +57,6 @@
 #define MAX_ARRAY32_SIZE UINT32_MAX
 #endif
 
-
-
-/************************************
- *  BOOLEAN VARIABLES AND LITERALS  *
- ***********************************/
-
-/*
- * Boolean variables: integers between 1 and nvars.
- * Literals: integers between 2 and 2nvar + 1.
- *
- * For a variable x, the positive literal is 2x, the negative
- * literal is 2x + 1.
- *
- * Variable index 0 is reserved. The corresponding literals
- * 0 and 1 denote true and false, respectively.
- */
-typedef uint32_t bvar_t;
-typedef uint32_t literal_t;
-
-
-/*
- * Maximal number of boolean variables.
- * That's also the maximal size of any clause.
- */
-#define MAX_VARIABLES (UINT32_MAX >> 2)
-#define MAX_CLAUSE_SIZE MAX_VARIABLES
-
-/*
- * Conversions from variables to literals
- */
-static inline literal_t pos(bvar_t x) {
-  return (x << 1);
-}
-
-static inline literal_t neg(bvar_t x) {
-  return (x << 1) + 1;
-}
-
-static inline bvar_t var_of(literal_t l) {
-  return l>>1;
-}
-
-// sign: 0 --> positive, 1 --> negative
-static inline int32_t sign_of(literal_t l) {
-  return l & 1;
-}
-
-// negation of literal l
-static inline literal_t not(literal_t l) {
-  return l ^ 1;
-}
-
-// check whether l1 and l2 are opposite
-static inline bool opposite(literal_t l1, literal_t l2) {
-  return (l1 ^ l2) == 1;
-}
-
-// true if l has positive polarity (i.e., l = pos(x))
-static inline bool is_pos(literal_t l) {
-  return !(l & 1);
-}
-
-static inline bool is_neg(literal_t l) {
-  return (l & 1);
-}
-
-
-/*
- * Assignment values for a variable:
- * - we use four values to encode the truth value of x
- *   when x is assigned and the preferred value when x is
- *   not assigned.
- * - value[x] is interpreted as follows
- *   val_undef_false = 0b00 --> x not assigned, preferred value = false
- *   val_undef_true  = 0b01 --> x not assigned, preferred value = true
- *   val_false = 0b10       --> x assigned false
- *   val_true =  0b11       --> x assigned true
- *
- * The preferred value is used when x is selected as a decision variable.
- * Then we assign x to true or false depending on the preferred value.
- * This is done by setting bit 1 in value[x].
- */
-typedef enum bval {
-  BVAL_UNDEF_FALSE = 0,
-  BVAL_UNDEF_TRUE = 1,
-  BVAL_FALSE = 2,
-  BVAL_TRUE = 3,
-} bval_t;
-
-
-// check whether val is undef_true or undef_false
-static inline bool is_unassigned_val(bval_t val) {
-  return (val & 0x2) == 0;
-}
-
-// check whether val is val_undef_true or val_true
-static inline bool true_preferred(bval_t val) {
-  return (val & 0x1) != 0;
-}
-
-// opposite value of v: flip the low order bit
-static inline bval_t opposite_val(bval_t val) {
-  return val ^ 1;
-}
 
 
 /********************
@@ -417,7 +314,7 @@ typedef struct watch_s {
  * When variables/clauses are eliminated, we may need to keep a copy of some
  * of the clauses to recover the truth value of eliminated variables.
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
- * where l is either pos(x) or neg(x) and x is an eliminated variable.
+ * where l is either pos_lit(x) or neg_lit(x) and x is an eliminated variable.
  *
  * If we have a model M that doesn't give a value to x, we extend the assignment
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
@@ -1158,15 +1055,15 @@ static inline bval_t lit_value(const sat_solver_t *solver, literal_t l) {
 
 static inline bval_t var_value(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->value[pos(x)];
+  return solver->value[pos_lit(x)];
 }
 
 static inline bool lit_is_unassigned(const sat_solver_t *solver, literal_t l) {
-  return is_unassigned_val(lit_value(solver, l));
+  return bval_is_undef(lit_value(solver, l));
 }
 
 static inline bool var_is_unassigned(const sat_solver_t *solver, bvar_t x) {
-  return is_unassigned_val(var_value(solver, x));
+  return bval_is_undef(var_value(solver, x));
 }
 
 static inline bool var_is_assigned(const sat_solver_t *solver, bvar_t x) {
@@ -1182,11 +1079,11 @@ static inline bool lit_prefers_true(const sat_solver_t *solver, literal_t l) {
 }
 
 static inline bool lit_is_true(const sat_solver_t *solver, literal_t l) {
-  return lit_value(solver, l) == BVAL_TRUE;
+  return lit_value(solver, l) == VAL_TRUE;
 }
 
 static inline bool lit_is_false(const sat_solver_t *solver, literal_t l) {
-  return lit_value(solver, l) == BVAL_FALSE;
+  return lit_value(solver, l) == VAL_FALSE;
 }
 
 
@@ -1195,11 +1092,11 @@ static inline bool var_prefers_true(const sat_solver_t *solver, bvar_t x) {
 }
 
 static inline bool var_is_true(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_TRUE;
+  return var_value(solver, x) == VAL_TRUE;
 }
 
 static inline bool var_is_false(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_FALSE;
+  return var_value(solver, x) == VAL_FALSE;
 }
 
 
