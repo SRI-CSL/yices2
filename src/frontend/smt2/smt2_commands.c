@@ -2764,49 +2764,25 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->logic_code = QF_IDL;
     }
     init_smt2_context(g);
-#if 1
+
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
       // error during assertion processing
       print_yices_error(true);
       return;
     }
-#if DUMP_CTX
-    //    yices_print_presearch_stats(stderr, g->ctx);
-    //    pp_context(g->out, g->ctx);
-    dump("yices2intern.dmp", g->ctx);
-#endif
-
     init_search_parameters(g);
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
     }
 
-    status = check_sat_with_timeout(g, &g->parameters);
+    // for testing: delegate
+    if (g->logic_code == QF_BV) {
+      status = check_with_delegate(g->ctx);
+    } else {
+      status = check_sat_with_timeout(g, &g->parameters);
+    }
     report_status(g, status);
-
-#elif EXPORT_TO_DIMACS
-    /*
-     * TESTING: EXPORT TO DIMACS
-     */
-    code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, "yices-bv.cnf");
-    if (code < 0) {
-      print_yices_error(true);
-      return;
-    }
-#else
-    /*
-     * FOR TESTING: DISPLAY THE ASSERTIONS
-     * (Preprocess then print)
-     */
-    code = context_process_formulas(g->ctx, g->assertions.size, g->assertions.data);
-    if (code < 0) {
-      print_internalization_error(code);
-      return;
-    }
-    pp_context(g->out, g->ctx);
-    //    print_context(g->out, g->ctx);
-#endif
   }
 
   flush_out();

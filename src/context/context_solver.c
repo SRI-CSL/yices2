@@ -32,6 +32,7 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
+#include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
@@ -644,6 +645,39 @@ smt_status_t precheck_context(context_t *ctx) {
 }
 
 
+
+/*
+ * Solve using another SAT solver
+ * - this may be used only for BV or pure SAT problems
+ * - we perform one round of propagation to convert the problem to CNF
+ * - then we call an external SAT solver on the CNF problem
+ */
+smt_status_t check_with_delegate(context_t *ctx) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      init_delegate(&delegate, "y2sat", num_vars(core));
+      stat = solve_with_delegate(&delegate, core);
+      // if stat is STATUS_SAT, export the model
+      // and set the status
+    }
+  }
+
+  return stat;
+}
 
 
 
