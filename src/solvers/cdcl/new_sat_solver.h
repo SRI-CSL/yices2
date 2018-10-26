@@ -22,7 +22,7 @@
 
 /*
  * This is a new implementation based on Hadrien Barral's work.
- * Hadrien's original code is in sat_solver.h/sat_sover.c.
+ * Hadrien's original code is in sat_solver.h/sat_solver.c.
  * This is a cleanup but similar implementation.
  */
 
@@ -210,14 +210,14 @@ typedef struct gstack_s {
  */
 
 // clause structure
-typedef struct clause_s {
+typedef struct nclause_s {
   uint32_t len;
   union {
     uint32_t d;
     float f;
   } aux;
   literal_t c[0]; // real size is equal to len
-} clause_t;
+} nclause_t;
 
 /*
  * Pool structure:
@@ -333,11 +333,11 @@ typedef struct watch_s {
  *
  * where n = total number of literals in C1 \/ l .... C_k \/ l.
  */
-typedef struct clause_vector_s {
+typedef struct nclause_vector_s {
   uint32_t *data;    // array to store the clauses
   uint32_t top;      // end of the last block (0 if there's nothing saved)
   uint32_t capacity; // full size of the data array
-} clause_vector_t;
+} nclause_vector_t;
 
 #define DEF_CLAUSE_VECTOR_CAPACITY 10240
 #define MAX_CLAUSE_VECTOR_CAPACITY MAX_ARRAY32_SIZE
@@ -469,6 +469,10 @@ typedef struct {
  * - act_inc: variable activity increment
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
  *
+ * Variable 0 is special: it corresponds to the two literals 0 and 1:
+ * - literal 0 --> true_literal
+ * - literal 1 --> false_literal
+ *
  * The set of variables is split into two segments:
  * - [1 ... vmax-1] = variables that are in the heap or have been in the heap
  * - [vmax ... size-1] = variables that may not have been in the heap
@@ -481,7 +485,7 @@ typedef struct {
  * Initially: we set vmax to 1 (nothing in the heap yet) so decision
  * variables are picked in increasing order, starting from 1.
  */
-typedef struct var_heap_s {
+typedef struct nvar_heap_s {
   double *activity;
   int32_t *heap_index;
   bvar_t *heap;
@@ -490,7 +494,7 @@ typedef struct var_heap_s {
   uint32_t vmax;
   double act_increment;
   double inv_act_decay;
-} var_heap_t;
+} nvar_heap_t;
 
 
 
@@ -686,7 +690,7 @@ typedef struct sat_solver_s {
   watch_t **watch;
   uint32_t *occ;              // Occurrence counts
 
-  var_heap_t heap;            // Variable heap
+  nvar_heap_t heap;           // Variable heap
   sol_stack_t stack;          // Assignment/propagation queue
 
 
@@ -792,7 +796,7 @@ typedef struct sat_solver_s {
   /*
    * Saved clauses
    */
-  clause_vector_t saved_clauses;
+  nclause_vector_t saved_clauses;
 
   /*
    * Data structures used during preprocessing:

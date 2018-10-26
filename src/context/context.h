@@ -283,6 +283,19 @@ extern void context_clear_unsat(context_t *ctx);
 extern smt_status_t precheck_context(context_t *ctx);
 
 
+/*
+ * Solve using another SAT solver
+ * - this may be used only for BV or pure SAT problems
+ *
+ * If ctx status is IDLE:
+ * - perform one round of propagation to convert the problem to CNF
+ * - call an external SAT solver on the CNF problem
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing
+ * else.
+ */
+extern smt_status_t check_with_delegate(context_t *ctx);
+
 
 /*
  * FOR TESTING/DEBUGGING

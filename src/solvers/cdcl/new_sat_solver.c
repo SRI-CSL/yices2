@@ -48,7 +48,7 @@
  */
 static void check_clause_pool_counters(const clause_pool_t *pool);
 static void check_clause_pool_learned_index(const clause_pool_t *pool);
-static void check_heap(const var_heap_t *heap);
+static void check_heap(const nvar_heap_t *heap);
 static void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n);
 static void check_watch_vectors(const sat_solver_t *solver);
 static void check_propagation(const sat_solver_t *solver);
@@ -63,7 +63,7 @@ static void check_elim_heap(const sat_solver_t *solver);
  */
 static inline void check_clause_pool_counters(const clause_pool_t *pool) { }
 static inline void check_clause_pool_learned_index(const clause_pool_t *pool) { }
-static inline void check_heap(const var_heap_t *heap) { }
+static inline void check_heap(const nvar_heap_t *heap) { }
 static inline void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n) { }
 static inline void check_watch_vectors(const sat_solver_t *solver) { }
 static inline void check_propagation(const sat_solver_t *solver) { }
@@ -913,9 +913,9 @@ static inline bool is_problem_clause_idx(const clause_pool_t *pool, cidx_t idx) 
   return  idx < pool->learned;
 }
 
-static inline clause_t *clause_of_idx(const clause_pool_t *pool, cidx_t idx) {
+static inline nclause_t *clause_of_idx(const clause_pool_t *pool, cidx_t idx) {
   assert(good_clause_idx(pool, idx));
-  return (clause_t *) ((char *) (pool->data + idx));
+  return (nclause_t *) ((char *) (pool->data + idx));
 }
 
 
@@ -1014,7 +1014,7 @@ static literal_t other_watched_literal_of_clause(const clause_pool_t *pool, cidx
  * CLAUSE ACTIVITY
  */
 static inline void set_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float act) {
-  clause_t *c;
+  nclause_t *c;
 
   assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
 
@@ -1023,7 +1023,7 @@ static inline void set_learned_clause_activity(clause_pool_t *pool, cidx_t cidx,
 }
 
 static inline float get_learned_clause_activity(const clause_pool_t *pool, cidx_t cidx) {
-  clause_t *c;
+  nclause_t *c;
 
   assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
 
@@ -1032,7 +1032,7 @@ static inline float get_learned_clause_activity(const clause_pool_t *pool, cidx_
 }
 
 static inline void increase_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float incr) {
-  clause_t *c;
+  nclause_t *c;
 
   assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
 
@@ -1041,7 +1041,7 @@ static inline void increase_learned_clause_activity(clause_pool_t *pool, cidx_t 
 }
 
 static inline void multiply_learned_clause_activity(clause_pool_t *pool, cidx_t cidx, float scale) {
-  clause_t *c;
+  nclause_t *c;
 
   assert(is_learned_clause_idx(pool, cidx) && sizeof(float) == sizeof(uint32_t));
 
@@ -1063,7 +1063,7 @@ static inline uint32_t var_signature(bvar_t x) {
 }
 
 static void set_clause_signature(clause_pool_t *pool, cidx_t cidx) {
-  clause_t *c;
+  nclause_t *c;
   uint32_t i, n, w;
 
   assert(is_problem_clause_idx(pool, cidx));
@@ -1078,7 +1078,7 @@ static void set_clause_signature(clause_pool_t *pool, cidx_t cidx) {
 }
 
 static inline uint32_t clause_signature(clause_pool_t *pool, cidx_t cidx) {
-  clause_t *c;
+  nclause_t *c;
 
   assert(is_problem_clause_idx(pool, cidx));
 
@@ -1412,7 +1412,7 @@ static void delete_watch_vectors(watch_t **w, uint32_t n) {
 /*
  * Initialization: don't allocate anything yet.
  */
-static void init_clause_vector(clause_vector_t *v) {
+static void init_clause_vector(nclause_vector_t *v) {
   v->data = NULL;
   v->top = 0;
   v->capacity = 0;
@@ -1421,7 +1421,7 @@ static void init_clause_vector(clause_vector_t *v) {
 /*
  * Free memory
  */
-static void delete_clause_vector(clause_vector_t *v) {
+static void delete_clause_vector(nclause_vector_t *v) {
   safe_free(v->data);
   v->data = NULL;
 }
@@ -1429,7 +1429,7 @@ static void delete_clause_vector(clause_vector_t *v) {
 /*
  * Empty the vector
  */
-static void reset_clause_vector(clause_vector_t *v) {
+static void reset_clause_vector(nclause_vector_t *v) {
   v->top = 0;
 }
 
@@ -1455,7 +1455,7 @@ static uint32_t clause_vector_new_cap(uint32_t cap) {
 /*
  * Make room for at least (n + 1) elements at the end of v->data.
  */
-static void resize_clause_vector(clause_vector_t *v, uint32_t n) {
+static void resize_clause_vector(nclause_vector_t *v, uint32_t n) {
   uint32_t new_top, cap;
 
   new_top = v->top + n + 1;
@@ -1481,7 +1481,7 @@ static void resize_clause_vector(clause_vector_t *v, uint32_t n) {
  * - l must occur in a[0 ... n-1]
  * - the vector must have room for n literals
  */
-static void clause_vector_save_clause(clause_vector_t *v, uint32_t n, const literal_t *a, literal_t l) {
+static void clause_vector_save_clause(nclause_vector_t *v, uint32_t n, const literal_t *a, literal_t l) {
   uint32_t i, j;
   literal_t z;
 
@@ -1504,7 +1504,7 @@ static void clause_vector_save_clause(clause_vector_t *v, uint32_t n, const lite
 /*
  * Store s (block size) at the end of v
  */
-static void clause_vector_add_block_length(clause_vector_t *v, uint32_t s) {
+static void clause_vector_add_block_length(nclause_vector_t *v, uint32_t s) {
   uint32_t j;
 
   j = v->top;
@@ -1826,7 +1826,7 @@ static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s,
  * - activity increment and threshold are set to their
  *   default initial value.
  */
-static void init_heap(var_heap_t *heap, uint32_t n) {
+static void init_heap(nvar_heap_t *heap, uint32_t n) {
   uint32_t i;
 
   heap->activity = (double *) safe_malloc(n * sizeof(double));
@@ -1856,7 +1856,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
 /*
  * Extend the heap to n variables
  */
-static void extend_heap(var_heap_t *heap, uint32_t n) {
+static void extend_heap(nvar_heap_t *heap, uint32_t n) {
   uint32_t old_size, i;
 
   old_size = heap->size;
@@ -1877,7 +1877,7 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
 /*
  * Free the heap
  */
-static void delete_heap(var_heap_t *heap) {
+static void delete_heap(nvar_heap_t *heap) {
   safe_free(heap->activity);
   safe_free(heap->heap_index);
   safe_free(heap->heap);
@@ -1889,7 +1889,7 @@ static void delete_heap(var_heap_t *heap) {
 /*
  * Reset: empty the heap
  */
-static void reset_heap(var_heap_t *heap) {
+static void reset_heap(nvar_heap_t *heap) {
   uint32_t i, n;
 
   heap->heap_last = 0;
@@ -1907,7 +1907,7 @@ static void reset_heap(var_heap_t *heap) {
  * Move x up in the heap.
  * i = current position of x in the heap (or heap_last if x is being inserted)
  */
-static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
+static void update_up(nvar_heap_t *heap, bvar_t x, uint32_t i) {
   double ax, *act;
   int32_t *index;
   bvar_t *h, y;
@@ -1947,7 +1947,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  *   into a new position.
  * - decrement last.
  */
-static void update_down(var_heap_t *heap) {
+static void update_down(nvar_heap_t *heap) {
   double *act;
   int32_t *index;
   bvar_t *h;
@@ -2011,7 +2011,7 @@ static void update_down(var_heap_t *heap) {
  * No effect if x is already in the heap.
  * - x must be between 0 and nvars - 1
  */
-static void heap_insert(var_heap_t *heap, bvar_t x) {
+static void heap_insert(nvar_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
     // x not in the heap
     heap->heap_last ++;
@@ -2022,7 +2022,7 @@ static void heap_insert(var_heap_t *heap, bvar_t x) {
 /*
  * Check whether the heap is empty
  */
-static inline bool heap_is_empty(var_heap_t *heap) {
+static inline bool heap_is_empty(nvar_heap_t *heap) {
   return heap->heap_last == 0;
 }
 
@@ -2030,7 +2030,7 @@ static inline bool heap_is_empty(var_heap_t *heap) {
  * Get and remove the top element
  * - the heap must not be empty
  */
-static bvar_t heap_get_top(var_heap_t *heap) {
+static bvar_t heap_get_top(nvar_heap_t *heap) {
   bvar_t top;
 
   assert(heap->heap_last > 0);
@@ -2048,7 +2048,7 @@ static bvar_t heap_get_top(var_heap_t *heap) {
 /*
  * Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD
  */
-static void rescale_var_activities(var_heap_t *heap) {
+static void rescale_var_activities(nvar_heap_t *heap) {
   uint32_t i, n;
   double *act;
 
@@ -2063,7 +2063,7 @@ static void rescale_var_activities(var_heap_t *heap) {
 /*
  * Increase the activity of variable x
  */
-static void increase_var_activity(var_heap_t *heap, bvar_t x) {
+static void increase_var_activity(nvar_heap_t *heap, bvar_t x) {
   int32_t i;
 
   if ((heap->activity[x] += heap->act_increment) > VAR_ACTIVITY_THRESHOLD) {
@@ -2080,7 +2080,7 @@ static void increase_var_activity(var_heap_t *heap, bvar_t x) {
 /*
  * Decay
  */
-static inline void decay_var_activities(var_heap_t *heap) {
+static inline void decay_var_activities(nvar_heap_t *heap) {
   heap->act_increment *= heap->inv_act_decay;
 }
 
@@ -2089,7 +2089,7 @@ static inline void decay_var_activities(var_heap_t *heap) {
  * or until the heap is empty
  */
 static void cleanup_heap(sat_solver_t *solver) {
-  var_heap_t *heap;
+  nvar_heap_t *heap;
   bvar_t x;
 
   heap = &solver->heap;
@@ -2575,7 +2575,8 @@ void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d) {
  *******************/
 
 /*
- * Extend data structures: new_size = new vsize
+ * Extend data structures:
+ * - new_size = new vsize for variable indexed arrays
  */
 static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   if (new_size > MAX_VARIABLES) {
@@ -2594,9 +2595,6 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   if (solver->preprocess) {
     solver->occ = (uint32_t *) safe_realloc(solver->occ, new_size * 2 * sizeof(uint32_t));
   }
-
-  extend_heap(&solver->heap, new_size);
-  extend_stack(&solver->stack, new_size);
 }
 
 
@@ -2638,6 +2636,9 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
       solver->occ[neg_lit(i)] = 0;
     }
   }
+
+  extend_heap(&solver->heap, nv);
+  extend_stack(&solver->stack, nv);
 
   solver->nvars = nv;
   solver->nliterals = 2 * nv;
@@ -7288,7 +7289,7 @@ static void extend_assignment_by_substitution(sat_solver_t *solver) {
  * Extend the current assignment to all eliminated variables
  */
 static void extend_assignment(sat_solver_t *solver) {
-  clause_vector_t *v;
+  nclause_vector_t *v;
   uint32_t n, block_size;;
 
   /*
@@ -8070,7 +8071,7 @@ static void check_clause_pool_learned_index(const clause_pool_t *pool) {
 /*
  * HEAP INVARIANTS
  */
-static void check_heap(const var_heap_t *heap) {
+static void check_heap(const nvar_heap_t *heap) {
   uint32_t i, j, n;
   int32_t k;
   bvar_t x, y;

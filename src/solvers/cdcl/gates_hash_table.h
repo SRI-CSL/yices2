@@ -34,7 +34,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "solvers/cdcl/smt_core.h"
+#include "solvers/cdcl/smt_core_base_types.h"
 
 
 /*
