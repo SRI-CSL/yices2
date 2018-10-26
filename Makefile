@@ -52,6 +52,7 @@ YICES_TOP_DIR=$(shell pwd)
 # src/include/yices.h
 # doc/manual/manual.tex
 # doc/sphinx/source/conf.py
+# doc/yices*.1 man files
 #
 MAJOR = 2
 MINOR = 6
