@@ -43,7 +43,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.0}}
+Version 2.6.1}}
 \end{titlepage}
 
 \maketitle
@@ -81,7 +81,7 @@ install Yices~2 using package managers (i.e., homebrew for the Mac and
 apt for Debian/Ubuntu).
 
 For the latest developments, you can clone our Git repository
-\url{https://github.com/SRI-CSL/yices2}. 
+\url{https://github.com/SRI-CSL/yices2}.
 
 
 \subsection{Binary Distributions}
@@ -124,7 +124,7 @@ this is fine for you, type
 \end{small}
 This will install the binaries in \texttt{/usr/local/bin}, the library
 in \texttt{/usr/local/lib}, and the header files in
-\texttt{/usr/local/include}. 
+\texttt{/usr/local/include}.
 
 \medskip\noindent
 To install Yices in a different location, you can type
@@ -775,7 +775,7 @@ We've added more arithmetic operations since Yices 2.4:
 \item \texttt{div}, \texttt{mod}: integer division and modulo
 \item \texttt{divides}, \texttt{is-int}: check for divisibility and integrality
 \end{itemize}
-These operations have the usual meaning. As in the SMT-LIB Ints theory, 
+These operations have the usual meaning. As in the SMT-LIB Ints theory,
 the division and modulo operations are defined by the following constraints:
 $$(\mathtt{div}\ x\ k)\in \integers$$
 $$x~=~k.(\mathtt{div}\ x\ k) + (\mathtt{mod}\ x\ k)$$
@@ -1227,7 +1227,7 @@ contains only one call to \texttt{(check)}, we can select the mode
 \begin{verbatim}
     (define x::real)
 
-    (assert 
+    (assert
       (forall (y::real)
          (=> (and (< (* -1 y) 0) (< (+ -10 y) 0))
              (< (+ -7 (* -2 x) y) 0))))
@@ -1291,7 +1291,7 @@ This will produce the following output:
 \end{small}
 The first line is the result of \texttt{(ef-solve)}. The second line
 is the model, which just shows the value of the global variable
-\texttt{x}. 
+\texttt{x}.
 
 \medskip\noindent
 As previously, we can get more detailed output by increasing the verbosity:
@@ -2061,16 +2061,16 @@ true if there exists an integer $n\in\integers$ such that $\mathtt{x} = n
 \begin{small}
 \begin{center}
 \begin{tabular}{|p{3.4cm}|l|}
-\hline Syntax & Meaning \\ 
+\hline Syntax & Meaning \\
 \hline
-\texttt{(abs x)} & absolute value \\ 
+\texttt{(abs x)} & absolute value \\
 \texttt{(floor x)} & floor \\
-\texttt{(ceil x)} & ceiling \\ 
+\texttt{(ceil x)} & ceiling \\
 \hline
 \texttt{(div x k)} & integer division \\
-\texttt{(mod x k)} & modulo \\ 
-\texttt{(divides k x)} & divisibility test\\ 
-\texttt{(is-int x)} & integrality test\\ 
+\texttt{(mod x k)} & modulo \\
+\texttt{(divides k x)} & divisibility test\\
+\texttt{(is-int x)} & integrality test\\
 \hline
 \end{tabular}
 \end{center}
@@ -2127,7 +2127,7 @@ construct the same bitvector constant (whose binary representation is
 \begin{small}
 \begin{center}
 \begin{tabular}{|p{5cm}|l|}
-\hline Syntax & Meaning \\ 
+\hline Syntax & Meaning \\
 \hline
 \texttt{(bv-add u1 ... u\_n)} & sum \\
 \texttt{(bv-mul u1 ... u\_n)} & product \\
@@ -2366,7 +2366,7 @@ two bitvectors of the same size.
 
 \subsubsection*{Conversions Between Booleans and Bitvectors}
 
-Two operations, listed in Table~\ref{bitvectors6},  convert Booleans 
+Two operations, listed in Table~\ref{bitvectors6},  convert Booleans
 to bitvectors and conversely.
 
 \begin{table}[h]
@@ -2399,9 +2399,9 @@ bit is $b_1$ and the low-order bit is $b_n$. For example,
 \end{small}
 is equal to the bitvector constant \texttt{0b1100}.
 
-\medskip\noindent 
+\medskip\noindent
 Expression \texttt{(bit u i)} is the $i$-th bit of bitvector
-\texttt{u} as a Boolean. If \texttt{u} is a bitvector of $n$ bits then 
+\texttt{u} as a Boolean. If \texttt{u} is a bitvector of $n$ bits then
 the index \texttt{i} must be an integer constant between 0 and $n-1$.
 The lower-order bit has index 0 and the high-order bit has index $n-1$.
 For example, we have
@@ -2622,7 +2622,7 @@ assumptions is satisfiable. If it is not, command
 \texttt{(show-unsat-assumptions)} will provide an unsat core (i.e., a
 subset of the assumptions that are inconsistent with the context).
 
-\medskip\noindent 
+\medskip\noindent
 Each assumption must either be the name of a Boolean term or the
 negation of a named Boolean term.  For example, after the following
 definitions:
@@ -3001,8 +3001,8 @@ included.
 
 \begin{minipage}[c]{6.2cm}
 \begin{verbatim}
-(define a::(bitvector 4)) 
-(define b::(bitvector 4)) 
+(define a::(bitvector 4))
+(define b::(bitvector 4))
 (assert (bv-ge a b))
 (export-to-dimacs "test.cnf")
 (exit)
@@ -4628,30 +4628,30 @@ License, supplemented by the additional permissions listed below.
 
   0. Additional Definitions.
 
-  As used herein, "this License" refers to version 3 of the GNU 
-Lesser General Public License, and the "GNU GPL" refers to 
+  As used herein, "this License" refers to version 3 of the GNU
+Lesser General Public License, and the "GNU GPL" refers to
 version 3 of the GNU General Public License.
 
   "The Library" refers to a covered work governed by this License,
 other than an Application or a Combined Work as defined below.
 
   An "Application" is any work that makes use of an interface
-provided by the Library, but which is not otherwise based on the 
+provided by the Library, but which is not otherwise based on the
 Library. Defining a subclass of a class defined by the Library is
 deemed a mode of using an interface provided by the Library.
 
   A "Combined Work" is a work produced by combining or linking an
 Application with the Library. The particular version of the
-Library with which the Combined Work was made is also called 
+Library with which the Combined Work was made is also called
 the "Linked Version".
 
   The "Minimal Corresponding Source" for a Combined Work means the
 Corresponding Source for the Combined Work, excluding any source
-code for portions of the Combined Work that, considered in 
+code for portions of the Combined Work that, considered in
 isolation, are based on the Application, and not on the Linked
 Version.
 
-  The "Corresponding Application Code" for a Combined Work means 
+  The "Corresponding Application Code" for a Combined Work means
 the object code and/or source code for the Application, including
 any data and utility programs needed for reproducing the Combined
 Work from the Application, but excluding the System Libraries of
@@ -4659,33 +4659,33 @@ the Combined Work.
 
   1. Exception to Section 3 of the GNU GPL.
 
-  You may convey a covered work under sections 3 and 4 of this 
+  You may convey a covered work under sections 3 and 4 of this
 License without being bound by section 3 of the GNU GPL.
 
   2. Conveying Modified Versions.
 
   If you modify a copy of the Library, and, in your modifications,
 a facility refers to a function or data to be supplied by an
-Application that uses the facility (other than as an argument 
+Application that uses the facility (other than as an argument
 passed when the facility is invoked), then you may convey a copy
 of the modified version:
 
-   a) under this License, provided that you make a good faith 
-   effort to ensure that, in the event an Application does not 
+   a) under this License, provided that you make a good faith
+   effort to ensure that, in the event an Application does not
    supply the function or data, the facility still operates, and
    performs whatever part of its purpose remains meaningful, or
 
-   b) under the GNU GPL, with none of the additional permissions 
+   b) under the GNU GPL, with none of the additional permissions
    of this License applicable to that copy.
 
   3. Object Code Incorporating Material from Library Header Files.
 
   The object code form of an Application may incorporate material
-from a header file that is part of the Library. You may convey 
-such object code under terms of your choice, provided that, if the 
+from a header file that is part of the Library. You may convey
+such object code under terms of your choice, provided that, if the
 incorporated material is not limited to numerical parameters, data
-structure layouts and accessors, or small macros, inline functions 
-and templates (ten or fewer lines in length), you do both of the 
+structure layouts and accessors, or small macros, inline functions
+and templates (ten or fewer lines in length), you do both of the
 following:
 
    a) Give prominent notice with each copy of the object code that
@@ -4700,7 +4700,7 @@ following:
   You may convey a Combined Work under terms of your choice that,
 taken together, effectively do not restrict modification of the
 portions of the Library contained in the Combined Work and reverse
-engineering for debugging such modifications, if you also do each 
+engineering for debugging such modifications, if you also do each
 of the following:
 
    a) Give prominent notice with each copy of the Combined Work
@@ -4717,7 +4717,7 @@ of the following:
 
    d) Do one of the following:
 
-       0) Convey the Minimal Corresponding Source under the terms 
+       0) Convey the Minimal Corresponding Source under the terms
        of this License, and the Corresponding Application Code in
        a form suitable for, and under terms that permit, the user
        to recombine or relink the Application with a modified
@@ -4732,15 +4732,15 @@ of the following:
        with a modified version of the Library that is
        interface-compatible with the Linked Version.
 
-   e) Provide Installation Information, but only if you would 
+   e) Provide Installation Information, but only if you would
    otherwise be required to provide such information under
    section 6 of the GNU GPL, and only to the extent that such
    information is necessary to install and execute a modified
-   version of the Combined Work produced by recombining or 
+   version of the Combined Work produced by recombining or
    relinking the Application with a modified version of the
    Linked Version. (If you use option 4d0, the Installation
-   Information must accompany the Minimal Corresponding Source 
-   and Corresponding Application Code. If you use option 4d1, 
+   Information must accompany the Minimal Corresponding Source
+   and Corresponding Application Code. If you use option 4d1,
    you must provide the Installation Information in the manner
    specified by section 6 of the GNU GPL for conveying
    Corresponding Source.)
@@ -4754,7 +4754,7 @@ by this License, and convey such a combined library under terms
 of your choice, if you do both of the following:
 
    a) Accompany the combined library with a copy of the same work
-   based on the Library, uncombined with any other library 
+   based on the Library, uncombined with any other library
    facilities, conveyed under the terms of this License.
 
    b) Give prominent notice with the combined library that part
@@ -4764,9 +4764,9 @@ of your choice, if you do both of the following:
   6. Revised Versions of the GNU Lesser General Public License.
 
   The Free Software Foundation may publish revised and/or new
-versions of the GNU Lesser General Public License from time to 
+versions of the GNU Lesser General Public License from time to
 time. Such new versions will be similar in spirit to the present
-version, but may differ in detail to address new problems or 
+version, but may differ in detail to address new problems or
 concerns.
 
   Each version is given a distinguishing version number. If the
@@ -4777,7 +4777,7 @@ and conditions either of that published version or of any later
 version published by the Free Software Foundation. If the Library
 as you received it does not specify a version number of the GNU
 Lesser General Public License, you may choose any version of the
-GNU Lesser General Public License ever published by the Free 
+GNU Lesser General Public License ever published by the Free
 Software Foundation.
 
   If the Library as you received it specifies that a proxy can
