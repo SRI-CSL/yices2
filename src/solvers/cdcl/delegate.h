@@ -93,6 +93,10 @@ extern void delete_delegate(delegate_t *delegate);
  */
 extern smt_status_t solve_with_delegate(delegate_t *delegate, smt_core_t *core);
 
+/*
+ * Value assigned to variable x in the delegate
+ */
+extern bval_t delegate_get_value(delegate_t *delegate, bvar_t x);
 
 
 #endif /* __DELEGATE_H */

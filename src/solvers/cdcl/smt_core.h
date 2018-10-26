@@ -1567,6 +1567,20 @@ extern void collect_decision_literals(smt_core_t *s, ivector_t *v);
 
 
 
+/*
+ * Import a model from an external solver
+ * - this sets the value of a boolean variable b
+ */
+extern void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val);
+
+/*
+ * Set the core status
+ */
+static inline void set_smt_status(smt_core_t *s, smt_status_t status) {
+  s->status = status;
+}
+
+
 
 /*********************
  *  CLAUSE ADDITION  *

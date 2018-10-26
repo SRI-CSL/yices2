@@ -656,6 +656,8 @@ smt_status_t check_with_delegate(context_t *ctx) {
   smt_status_t stat;
   smt_core_t *core;
   delegate_t delegate;
+  bvar_t x;
+  bval_t v;
 
   core = ctx->core;
 
@@ -669,10 +671,16 @@ smt_status_t check_with_delegate(context_t *ctx) {
 	   stat == STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
-      init_delegate(&delegate, "y2sat", num_vars(core));
+      //      init_delegate(&delegate, "y2sat", num_vars(core));
+      init_delegate(&delegate, "cadical", num_vars(core));
       stat = solve_with_delegate(&delegate, core);
-      // if stat is STATUS_SAT, export the model
-      // and set the status
+      set_smt_status(core, stat);
+      if (stat == STATUS_SAT) {
+	for (x=0; x<num_vars(core); x++) {
+	  v = delegate_get_value(&delegate, x);
+	  set_bvar_value(core, x, v);
+	}
+      }
     }
   }
 

@@ -19,6 +19,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "ccadical.h"
+
 #include "solvers/cdcl/delegate.h"
 #include "solvers/cdcl/new_sat_solver.h"
 #include "utils/memalloc.h"
@@ -79,6 +81,8 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true);
   nsat_solver_add_vars(d->solver, nvars);
+  nsat_set_verbosity(d->solver, 2); // PROVISIONAL
+  nsat_set_search_period(d->solver, UINT32_MAX);
   init_ivector(&d->buffer, 0);
   d->add_empty_clause = ysat_add_empty_clause;
   d->add_unit_clause = ysat_add_unit_clause;
@@ -88,6 +92,89 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->check = ysat_check;
   d->get_value = ysat_get_value;
   d->delete = ysat_delete;
+}
+
+
+/*
+ * WRAPPERS FOR CADICAL
+ */
+
+/*
+ * Conversion from literal_t to dimacs:
+ * - in Yices, variables are indexed from 0 to nvars-1.
+ *   variable x has two literals: pos_lit(x) = 2x and neg_lit(x) = 2x + 1
+ *   variable 0 is special: pos_lit(0) is true_literal, neg_lit(0) is false_literal.
+ * - in Dimacs, variables are indexed from 1 to nvars
+ *   variable x has two literal: pos_lit(x) = +x and neg_lit(x) = -x
+ *   0 is a terminator (end of clause).
+ */
+static inline int lit2dimacs(literal_t l) {
+  int x = var_of(l) + 1;
+  return is_pos(l) ? x : - x;
+}
+
+static void cadical_add_empty_clause(void *solver) {
+  ccadical_add(solver, 0);
+}
+
+static void cadical_add_unit_clause(void *solver, literal_t l) {
+  ccadical_add(solver, lit2dimacs(l));
+  ccadical_add(solver, 0);
+}
+
+static void cadical_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
+  ccadical_add(solver, lit2dimacs(l1));
+  ccadical_add(solver, lit2dimacs(l2));
+  ccadical_add(solver, 0);
+}
+
+static void cadical_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
+  ccadical_add(solver, lit2dimacs(l1));
+  ccadical_add(solver, lit2dimacs(l2));
+  ccadical_add(solver, lit2dimacs(l3));
+  ccadical_add(solver, 0);
+}
+
+static void cadical_add_clause(void *solver, uint32_t n, literal_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    ccadical_add(solver, lit2dimacs(a[i]));
+  }
+  ccadical_add(solver, 0);
+}
+
+static smt_status_t cadical_check(void *solver) {
+  switch (ccadical_sat(solver)) {
+  case 10: return STATUS_SAT;
+  case 20: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
+  }
+}
+
+static bval_t cadical_get_value(void *solver, bvar_t x) {
+  int v;
+
+  v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical
+  // v = value assigned in cadical: -1 means false, +1 means true, 0 means unknown
+  return (v < 0) ? VAL_FALSE : (v > 0) ? VAL_TRUE : VAL_UNDEF_FALSE;
+}
+
+static void cadical_delete(void *solver) {
+  ccadical_reset(solver);
+}
+
+static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
+  d->solver = ccadical_init();
+  init_ivector(&d->buffer, 0); // not used
+  d->add_empty_clause = cadical_add_empty_clause;
+  d->add_unit_clause = cadical_add_unit_clause;
+  d->add_binary_clause = cadical_add_binary_clause;
+  d->add_ternary_clause = cadical_add_ternary_clause;
+  d->add_clause = cadical_add_clause;
+  d->check = cadical_check;
+  d->get_value = cadical_get_value;
+  d->delete = cadical_delete;
 }
 
 
@@ -102,6 +189,9 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
 bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
   if (strcmp("y2sat", solver_name) == 0) {
     ysat_as_delegate(d, nvars);
+    return true;
+  } else if (strcmp("cadical", solver_name) == 0) {
+    cadical_as_delegate(d, nvars);
     return true;
   }
   return false;
@@ -221,4 +311,11 @@ static void copy_problem_clauses(delegate_t *d, smt_core_t *core) {
 smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
   copy_problem_clauses(d, core);
   return d->check(d->solver);
+}
+
+/*
+ * Value assigned to variable x in the delegate
+ */
+bval_t delegate_get_value(delegate_t *d, bvar_t x) {
+  return d->get_value(d->solver, x);
 }

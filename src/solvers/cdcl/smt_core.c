@@ -6327,6 +6327,19 @@ void collect_decision_literals(smt_core_t *s, ivector_t *v) {
 }
 
 
+/******************
+ * IMPORT A MODEL *
+ *****************/
+
+/*
+ * Sets the value of variable x
+ */
+void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val) {
+  assert(0 <= x && x < s->nvars);
+  s->value[x] = val;
+}
+
+
 /****************************
  * UNCONSTRAINED VARIABLES  *
  ***************************/
