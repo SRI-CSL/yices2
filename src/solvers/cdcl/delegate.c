@@ -19,7 +19,11 @@
 #include <assert.h>
 #include <string.h>
 
+#define HAVE_CADICAL 0
+
+#if HAVE_CADICAL
 #include "ccadical.h"
+#endif
 
 #include "solvers/cdcl/delegate.h"
 #include "solvers/cdcl/new_sat_solver.h"
@@ -99,6 +103,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
  * WRAPPERS FOR CADICAL
  */
 
+#if HAVE_CADICAL
 /*
  * Conversion from literal_t to dimacs:
  * - in Yices, variables are indexed from 0 to nvars-1.
@@ -177,6 +182,7 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->delete = cadical_delete;
 }
 
+#endif
 
 /*
  * Create and initialize a delegate structure
@@ -190,9 +196,11 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
   if (strcmp("y2sat", solver_name) == 0) {
     ysat_as_delegate(d, nvars);
     return true;
+#if HAVE_CADICAL
   } else if (strcmp("cadical", solver_name) == 0) {
     cadical_as_delegate(d, nvars);
     return true;
+#endif
   }
   return false;
 }
