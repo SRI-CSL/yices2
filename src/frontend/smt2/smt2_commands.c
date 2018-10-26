@@ -2776,8 +2776,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
 
-    // for testing: delegate
-    if (g->logic_code == QF_BV) {
+    if (false && g->logic_code == QF_BV) {
       status = check_with_delegate(g->ctx);
     } else {
       status = check_sat_with_timeout(g, &g->parameters);
