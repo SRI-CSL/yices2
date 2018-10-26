@@ -1,4 +1,0 @@
-include yices.py
-
-recursive-exclude test *
-exclude doc

@@ -1,0 +1,3 @@
+[submodule "src/bindings/python"]
+	path = src/bindings/python
+	url = https://github.com/SRI-CSL/yices2_python_bindings.git
