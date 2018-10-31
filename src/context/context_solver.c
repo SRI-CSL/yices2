@@ -671,8 +671,8 @@ smt_status_t check_with_delegate(context_t *ctx) {
 	   stat == STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
-      //      init_delegate(&delegate, "y2sat", num_vars(core));
-      init_delegate(&delegate, "cadical", num_vars(core));
+      init_delegate(&delegate, "y2sat", num_vars(core));
+      // init_delegate(&delegate, "cadical", num_vars(core));
       stat = solve_with_delegate(&delegate, core);
       set_smt_status(core, stat);
       if (stat == STATUS_SAT) {

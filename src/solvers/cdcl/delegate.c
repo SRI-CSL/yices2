@@ -85,7 +85,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true);
   nsat_solver_add_vars(d->solver, nvars);
-  nsat_set_verbosity(d->solver, 2); // PROVISIONAL
+  //  nsat_set_verbosity(d->solver, 2); // PROVISIONAL
   nsat_set_search_period(d->solver, UINT32_MAX);
   init_ivector(&d->buffer, 0);
   d->add_empty_clause = ysat_add_empty_clause;

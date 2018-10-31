@@ -1705,6 +1705,7 @@ static void reset_clause_stack(clause_stack_t *s) {
   assert(s->level[0] == 0);
 }
 
+#if 0
 
 /*
  * Capacity increase:
@@ -1777,6 +1778,7 @@ static cidx_t push_clause(clause_stack_t *s, uint32_t n, const literal_t *a) {
   return cidx;
 }
 
+#endif
 
 /*
  * READ STACKED CLAUSES
@@ -2860,6 +2862,7 @@ static void binary_clause_propagation(sat_solver_t *solver, literal_t l, literal
 }
 
 
+#if 0
 /*
  * Literal l implied by stacked clause cidx
  */
@@ -2872,7 +2875,7 @@ static void stacked_clause_propagation(sat_solver_t *solver, literal_t l, cidx_t
 #endif
 }
 
-
+#endif
 
 
 /***********************
@@ -6651,10 +6654,14 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
 
   if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
     mark_variable(solver, x);
+    increase_var_activity(&solver->heap, x);
+#if 0
     if (!solver->diving) {
       // in diving mode, we don't touch activities.
       increase_var_activity(&solver->heap, x);
     }
+#endif
+    increase_var_activity(&solver->heap, x);
     if (solver->level[x] == solver->decision_level) {
       return 1;
     }
@@ -7092,6 +7099,7 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
  * variables.
  */
 static void update_emas(sat_solver_t *solver, uint32_t x) {
+#if 0
   if (! solver->diving) {
     solver->slow_ema -= solver->slow_ema >> 16;
     solver->slow_ema += ((uint64_t) x) << 16;
@@ -7099,6 +7107,12 @@ static void update_emas(sat_solver_t *solver, uint32_t x) {
     solver->fast_ema += ((uint64_t) x) << 27;
     solver->fast_count ++;
   }
+#endif
+  solver->slow_ema -= solver->slow_ema >> 16;
+  solver->slow_ema += ((uint64_t) x) << 16;
+  solver->fast_ema -= solver->fast_ema >> 5;
+  solver->fast_ema += ((uint64_t) x) << 27;
+  solver->fast_count ++;
 }
 
 // update the search depth = number of assigned literals at the time
@@ -7149,6 +7163,7 @@ static void resolve_conflict(sat_solver_t *solver) {
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
+#if 0
     if (solver->diving && n >= solver->params.stack_threshold) {
       cidx = push_clause(&solver->stash, n, (literal_t *) solver->buffer.data);
       stacked_clause_propagation(solver, l, cidx);
@@ -7156,6 +7171,9 @@ static void resolve_conflict(sat_solver_t *solver) {
       cidx = add_learned_clause(solver, n, (literal_t *) solver->buffer.data);
       clause_propagation(solver, l, cidx);
     }
+#endif
+    cidx = add_learned_clause(solver, n, (literal_t *) solver->buffer.data);
+    clause_propagation(solver, l, cidx);
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
     binary_clause_propagation(solver, l, solver->buffer.data[1]);
@@ -7350,6 +7368,7 @@ static void init_mode(sat_solver_t *solver) {
   solver->dive_start = 0;
 }
 
+#if 0
 /*
  * Check whether we're making progress (in search mode).
  * - we declare progress when we've learned new unit or binary clauses
@@ -7414,6 +7433,7 @@ static void done_diving(sat_solver_t *solver) {
   solver->check_next += delta;
 }
 
+#endif
 
 /*
  * WHEN TO RESTART
@@ -7455,6 +7475,7 @@ static void init_restart(sat_solver_t *solver) {
 /*
  * Check for restart
  */
+#if 0
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
 
@@ -7474,6 +7495,25 @@ static bool need_restart(sat_solver_t *solver) {
 
   return solver->stats.conflicts >= solver->check_next;
 }
+
+#endif
+
+static bool need_restart(sat_solver_t *solver) {
+  uint64_t aux;
+
+  if (solver->stats.conflicts >= solver->restart_next &&
+      solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
+    aux = solver->fast_ema;
+    //    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
+    aux -= (aux >> 4) + (aux >> 5);    // approximately 0.9 * fast_ema
+    if (aux >= solver->slow_ema) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 
 static void done_restart(sat_solver_t *solver) {
   solver->restart_next = solver->stats.conflicts + solver->params.restart_interval;
@@ -7512,7 +7552,8 @@ static void init_reduce(sat_solver_t *solver) {
  * Check to trigger call to reduce_learned_clause_set
  */
 static inline bool need_reduce(const sat_solver_t *solver) {
-  return !solver->diving && solver->stats.conflicts >= solver->reduce_next;
+  //  return !solver->diving && solver->stats.conflicts >= solver->reduce_next;
+  return solver->stats.conflicts >= solver->reduce_next;
 }
 
 /*
@@ -7676,8 +7717,13 @@ static void sat_search(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
+#if 0
       if (need_restart(solver) || need_simplify(solver)) {
         break;
+      }
+#endif
+      if (need_restart(solver)) {
+	break;
       }
       if (need_reduce(solver)) {
         nsat_reduce_learned_clause_set(solver);
@@ -7703,10 +7749,14 @@ static void sat_search(sat_solver_t *solver) {
       resolve_conflict(solver);
       check_watch_vectors(solver);
 
+#if 0
       if (! solver->diving) {
 	decay_clause_activities(solver);
 	decay_var_activities(&solver->heap);
       }
+#endif
+      decay_clause_activities(solver);
+      decay_var_activities(&solver->heap);
     }
   }
 }
@@ -7784,6 +7834,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
 
+#if 0
     if (need_simplify(solver)) {
       if (solver->diving) {
 	done_diving(solver);
@@ -7802,6 +7853,17 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	full_restart(solver);
 	report(solver, "dive");
       }
+    } else {
+      partial_restart(solver);
+      done_restart(solver);
+    }
+#endif
+
+    if (need_simplify(solver)) {
+      full_restart(solver);
+      done_restart(solver);
+      nsat_simplify(solver);
+      done_simplify(solver);
     } else {
       partial_restart(solver);
       done_restart(solver);
