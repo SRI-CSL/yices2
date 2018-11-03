@@ -611,10 +611,12 @@ typedef struct solver_stats_s {
   uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learned_clause)
 
   uint32_t starts;                   // 1 + number of restarts
+  uint32_t dives;                    // number of dives
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
   uint32_t scc_calls;                // number of calls to try_scc_simplification
   uint32_t subst_calls;              // number of calls to apply_substitution
+  uint32_t successful_dive;          // whether we found sat by diving
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
@@ -642,12 +644,18 @@ typedef struct solver_param_s {
   uint32_t seed;               // Seed for the pseudo-random number generator
   uint32_t randomness;         // 0x1000000 * random_factor
   float inv_cla_decay;         // Inverse of clause decay (1/0.999)
-  uint32_t stack_threshold;    // Experimental
+
+  uint32_t stack_threshold;    // Size of learned clause to preserve when in diving mode
   uint32_t keep_lbd;           // Clauses of LBD no more than this are preserved during reduce
   uint32_t reduce_fraction;    // Fraction of learned clauses to delete (scaled by 32)
   uint32_t reduce_interval;    // Number of conflicts between two calls to reduce
   uint32_t reduce_delta;       // Adjustment to reduce_interval
   uint32_t restart_interval;   // Minimal number of conflicts between two restarts
+
+  uint32_t search_period;      // Number of conflicts before we check for progress
+  uint32_t search_counter;     // Number of periods before we switch to diving
+
+  uint32_t diving_budget;      // Number of conflicts before giving up diving
 
   /*
    * Heuristics/parameters for preprocessing
@@ -842,11 +850,29 @@ typedef struct sat_solver_s {
    */
   uint64_t slow_ema;
   uint64_t fast_ema;
-  uint64_t blocking_ema;
   uint64_t level_ema;
   uint64_t restart_next;
   uint32_t fast_count;
-  uint32_t blocking_count;
+
+  /*
+   * Experimental: counters for switching to dive mode
+   */
+  uint32_t progress_units;
+  uint32_t progress_binaries;
+  uint32_t progress;
+  uint64_t check_next;
+
+  /*
+   * Experimental: in diving mode: attempt to go as deep as possible
+   * in the search tree. We keep track of max search depth
+   * and the number of conflicts when it was reached.
+   */
+  bool diving;
+  uint32_t dive_budget;
+  uint32_t max_depth;
+  uint64_t max_depth_conflicts;
+  uint64_t dive_start;
+
 
   /*
    * Statistics record
@@ -1024,6 +1050,25 @@ extern void nsat_set_reduce_delta(sat_solver_t *solver, uint32_t d);
  * Minimal number of conflicts between two calls to restart
  */
 extern void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n);
+
+
+/*
+ * Periodic check for switching to dive
+ */
+extern void nsat_set_search_period(sat_solver_t *solver, uint32_t n);
+
+
+/*
+ * Counter used in determining when to switch
+ */
+extern void nsat_set_search_counter(sat_solver_t *solver, uint32_t n);
+
+
+/*
+ * Dive bugdet
+ */
+extern void nsat_set_dive_budget(sat_solver_t *solver, uint32_t n);
+
 
 /*
  * PREPROCESSING PARAMETERS

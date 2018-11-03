@@ -9011,6 +9011,20 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     return true;
   }
 
+#if TRACE_INTFEAS
+  printf("\nMAKE INTEGER FEASIBLE %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
+	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
+  printf("BRANCHING REQUIRED\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n");
+  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
   /*
    * Create a branch atom or create Gomory cuts
    */
@@ -9018,6 +9032,12 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   trace_printf(solver->core->trace, 3,
 	       "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
 	       v->size, x, bb_score);
+
+#if 0
+  printf("\nbranch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32"\n",
+	 v->size, x, bb_score);
+  fflush(stdout);
+#endif
 
   if (false && solver->stats.num_gomory_cuts < 100) {
     n = try_gomory_cuts(solver, v, 100);

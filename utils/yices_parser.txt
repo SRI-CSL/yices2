@@ -36,8 +36,10 @@ Grammar
         | ( define <symbol> :: <type> )
         | ( define <symbol> :: <type> <expression> )
         | ( assert <expression> )
+        | ( assert <expression> <symbol> )
         | ( exit )
         | ( check )
+        | ( check-assuming <assumption-list> )
         | ( push )
         | ( pop )
         | ( reset )
@@ -59,6 +61,8 @@ Grammar
         | ( ef-solve )
         | ( export-to-dimacs <string> )
         | ( show-implicant )
+        | ( show-unsat-core )
+        | ( show-unsat-assumptions )
         | EOS
 
 immediate-value :: = 
@@ -73,6 +77,11 @@ typedef ::=
         | ( scalar <symbol-list> )
 
 symbol-list ::=  <symbol> | <symbol> <symbol-list>
+
+assumption-list ::=
+        |
+        | <symbol> <assumption-list>
+        | (not <symbol>) <assumption-list>
 
 type ::= 
           int
@@ -163,6 +172,7 @@ c1       define-type            c2
          include                c3
          exit                   c4
          check                  c4
+         check-assuming         c16
          assert                 c5
          define                 c6
          show-model             c4
@@ -181,10 +191,12 @@ c1       define-type            c2
          ef-solve               c4
          export-to-dimacs       c3
          show-implicant         c4
+         show-unsat-core        c4
+         show-unsat-assumptions  c4
 c2       <symbol>               c10
 c3       <string>               c4 
 c4       )                      DONE
-c5       [parse-expression]     c4
+c5       [parse-expression]     c20
 c6       <symbol>               c7
 c7       ::                     c8
 c8       [parse-type]           c9
@@ -203,6 +215,20 @@ c14      <rational>             c4
 c15      <symbol>               c4
          <string>               c4
          )                      DONE
+
+list of assumptions after '(check-assuming '
+
+c16      )                      DONE
+         <symbol>               c16
+         (                      c17
+c17      not                    c18
+c18      <symbol>               c19
+c19      )                      c16
+
+optional label after '(assert [expression] '
+c20      )                      DONE
+         <symbol>               c4
+
 
 parse-typedef: share states t2, t3, t4 with parse-type
 - initial-state = td0
@@ -379,9 +405,10 @@ c0       (              next; goto c1
          EOS            return
 c1       exit           next; goto r0
          check          next; goto r0
+         check-assuming next; goto c16
          echo           next; goto c3
          include        next; goto c3
-         assert         next; push r0; goto e0
+         assert         next; push c20; goto e0
          define-type    next; goto c2
          define         next; goto c6
          show-model     next; goto r0
@@ -400,6 +427,8 @@ c1       exit           next; goto r0
          help           next; goto c15
          ef-solve       next; goto r0
          show-implicant next; goto r0
+         show-unsat-core        next; goto r0
+         show-unsat-assumptions next; goto r0
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7
@@ -420,6 +449,16 @@ c15      <symbol>       next; goto r0
          <string>       next; goto r0
          ...            next; goto r0      --> treat all keywords as symbols here
          )              return
+
+c16      )              return
+         <symbol>       next; goto c16
+         (              next; goto c17
+c17      not            next; goto c18
+c18      <symbol>       next; goto c19
+c19      )              next; goto c16
+
+c20      )              return
+         <symbol>       next; goto r0
 
 td0      int            return
          real           return

@@ -195,6 +195,20 @@ extern rational_t *get_divisor(tstack_t *stack, stack_elem_t *den);
 
 
 /*
+ * Convert element e into a signed symbol:
+ * This checks whether e has tag TAG_SYMBOL or TAG_NOT_SYMBOL
+ * then copy the symbol's name in s->name and the polarity in s->polarity.
+ * Polarity true means TAG_SYMBOL. Polarity false means TAG_NOT_SYMBOL.
+ *
+ * IMPORTANT: this function does not make a copy of the string.
+ *
+ * Raise an exception if e has another tag.
+ */
+extern void get_signed_symbol(tstack_t *stack, stack_elem_t *e, signed_symbol_t *s);
+
+
+
+/*
  * BUFFER ALLOCATION
  */
 

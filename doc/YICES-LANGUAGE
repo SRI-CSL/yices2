@@ -111,8 +111,10 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( define <symbol> :: <type> )
             | ( define <symbol> :: <type> <expression> )
             | ( assert <expression> )
+            | ( assert <expression> <symbol> )
             | ( exit )
             | ( check )
+            | ( check-assuming <assumptions>* )
             | ( push )
             | ( pop )
             | ( reset )
@@ -134,6 +136,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	    | ( ef-solve )
 	    | ( export-to-dimacs <string> )
 	    | ( show-implicant )
+            | ( show-unsat-core )
+            | ( show-unsat-assumptions )
             | EOS
 
 
@@ -188,6 +192,11 @@ This is a summary of the commands and input language of the Yices 2 solver.
    <number> ::=
               <rational>
             | <float>
+
+
+   <assumption> ::=
+              <symbol>
+            | ( not <symbol> )
 
 
 3) Types
@@ -533,7 +542,11 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
    (assert <formula>):  add an assertion to the context
 
+   (assert <formula> <label>): add a labeled assertion
+
    (check):  check whether the context is satisfiable
+
+   (check-assuming <assumptions>* ):  check with a set of assumptions
 
    (push):  start a new assertion scope
 
@@ -589,6 +602,10 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (show-implicant): show an implicant built from the model.
        The implicant is a list of literals that are true in the current model,
        and the conjunction of these literals implies the assertions.
+
+   (show-unsat-core): list of labeled assertions that form an unsat core.
+
+   (show-unsat-assumptions): list of assumptions that form an unsat core.
 
 
 6) Parameters

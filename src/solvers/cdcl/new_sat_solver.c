@@ -113,7 +113,7 @@ static void reset_datafile(sat_solver_t *solver) {
  * - solver->decision_level = the conflict level
  * - solver->backtrack_level = where to backtrack
  * - solver->stats.conflicts = number of conflicts (including this one)
- * - solver->blocking_ema, slow_ema, fast_ema have been updated
+ * - solver->slow_ema, fast_ema have been updated
  *
  * Data exported:
  * - stats.conflicts
@@ -121,7 +121,6 @@ static void reset_datafile(sat_solver_t *solver) {
  * - stats.propagations
  * - slow_ema
  * - fast_ema
- * - blocking_ema
  * - lbd
  * - conflict level
  * - backtrack level
@@ -136,7 +135,6 @@ typedef struct conflict_data {
   uint64_t propagations;
   uint64_t slow_ema;
   uint64_t fast_ema;
-  uint64_t blocking_ema;
   uint32_t lbd;
   uint32_t conflict_level;
   uint32_t backtrack_level;
@@ -153,7 +151,6 @@ static void export_conflict_data(sat_solver_t *solver, uint32_t lbd) {
     buffer.propagations = solver->stats.propagations;
     buffer.slow_ema = solver->slow_ema;
     buffer.fast_ema = solver->fast_ema;
-    buffer.blocking_ema = solver->blocking_ema;
     buffer.lbd = lbd;
     buffer.conflict_level = solver->decision_level;
     buffer.backtrack_level = solver->backtrack_level;
@@ -188,7 +185,6 @@ static void export_last_conflict(sat_solver_t *solver) {
     buffer.propagations = solver->stats.propagations;
     buffer.slow_ema = solver->slow_ema;
     buffer.fast_ema = solver->fast_ema;
-    buffer.blocking_ema = solver->blocking_ema;
     buffer.lbd = 0;
     buffer.conflict_level = 0;
     buffer.backtrack_level = 0;
@@ -277,17 +273,40 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define REDUCE_INTERVAL 2000
 #define REDUCE_DELTA    300
 
+
 /*
- * Stacking of learned clauses
- * - clauses of LBD higher than this threshold are not stored in the
- *   data set but in the stack (of temporary clauses).
+ * We use two modes:
+ * - search_mode is the default. In this mode, we're trying to
+ *   learn useful clauses (low LBD).
+ * - if we don't learn small clauses for a long time, we switch
+ *   to diving. In this mode, we hope the formula is satisfiable
+ *   and we try to go deep into the search tree.
+ * To determine when to switch to diving mode, we use a search_period
+ * and a search_counter.
+ * - every search_period conflicts, we check whether we're making
+ *   progress. If we don't make progress for search_counter successive
+ *   periods, we switch to diving.
  */
-#define STACK_THRESHOLD 10
+#define SEARCH_PERIOD 10000
+#define SEARCH_COUNTER 20
 
 /*
  * Minimal Number of conflicts between two restarts
  */
 #define RESTART_INTERVAL 10
+
+/*
+ * Stacking of learned clauses
+ * - clauses of LBD higher than this threshold are not stored in the
+ *   data set but in the stack (of temporary clauses).
+ */
+#define STACK_THRESHOLD 4
+
+/*
+ * Diving
+ * - diving budget = number of conflicts after which we stop diving
+ */
+#define DIVING_BUDGET 10000
 
 /*
  * Parameters to control preprocessing
@@ -2146,9 +2165,11 @@ static void init_stats(solver_stats_t *stat) {
   stat->learned_clauses_deleted = 0;
   stat->subsumed_literals = 0;
   stat->starts = 0;
+  stat->dives = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
   stat->subst_calls = 0;
+  stat->successful_dive = 0;
   stat->scc_calls = 0;
   stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
@@ -2174,6 +2195,9 @@ static void init_params(solver_param_t *params) {
   params->reduce_interval = REDUCE_INTERVAL;
   params->reduce_delta = REDUCE_DELTA;
   params->restart_interval = RESTART_INTERVAL;
+  params->search_period = SEARCH_PERIOD;
+  params->search_counter = SEARCH_COUNTER;
+  params->diving_budget = DIVING_BUDGET;
 
   params->var_elim_skip = VAR_ELIM_SKIP;
   params->subsume_skip = SUBSUME_SKIP;
@@ -2472,12 +2496,37 @@ void nsat_set_restart_interval(sat_solver_t *solver, uint32_t n) {
 }
 
 /*
+ * Periodic check for switching to dive
+ */
+void nsat_set_search_period(sat_solver_t *solver, uint32_t n) {
+  solver->params.search_period = n;
+}
+
+/*
+ * Counter used in determining when to switch
+ */
+void nsat_set_search_counter(sat_solver_t *solver, uint32_t n) {
+  solver->params.search_counter = n;
+}
+
+
+/*
  * Stack clause threshold: learned clauses of LBD greater than threshold are
  * treated as temporary clauses (not stored in the clause database).
  */
 void nsat_set_stack_threshold(sat_solver_t *solver, uint32_t f) {
   solver->params.stack_threshold = f;
 }
+
+
+/*
+ * Dive bugdet
+ */
+void nsat_set_dive_budget(sat_solver_t *solver, uint32_t n) {
+  solver->params.diving_budget = n;
+}
+
+
 
 /*
  * PREPROCESSING PARAMETERS
@@ -2748,7 +2797,7 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
   assert(lit_is_true(solver, l));
 
 #if TRACE
-  printf("\n---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
+  printf("---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
   fflush(stdout);
 #endif
 }
@@ -3453,8 +3502,8 @@ static void report(sat_solver_t *solver, const char *code) {
   if (solver->verbosity >= 2) {
     if (solver->reports == 0) {
       fprintf(stderr, "c\n");
-      fprintf(stderr, "c                        level |                   prob.  |   learned  lbd\n");
-      fprintf(stderr, "c        confl.  starts   ema  |   vars     bins  clauses |   clauses  ema   lits/cls\n");
+      fprintf(stderr, "c                        level   max  |                    prob.  |   learned  lbd\n");
+      fprintf(stderr, "c        confl.  starts   ema   depth |    vars     bins  clauses |   clauses  ema   lits/cls\n");
       fprintf(stderr, "c\n");
     }
     solver->reports ++;
@@ -3469,13 +3518,13 @@ static void report(sat_solver_t *solver, const char *code) {
 
     if (solver->decision_level == 0) {
       vars = num_active_vars(solver);
-      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f | %6"PRIu32" %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
-	      code, solver->stats.conflicts, solver->stats.starts, lev,
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f %6"PRIu32" | %7"PRIu32" %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev, solver->max_depth,
 	      vars, solver->binaries, solver->pool.num_prob_clauses,
 	      solver->pool.num_learned_clauses, slow, lits_per_clause);
     } else {
-      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f |        %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
-	      code, solver->stats.conflicts, solver->stats.starts, lev,
+      fprintf(stderr, "c %4s %8"PRIu64" %7"PRIu32" %6.2f %6"PRIu32" |         %8"PRIu32" %8"PRIu32" | %8"PRIu32" %6.2f %6.2f\n",
+	      code, solver->stats.conflicts, solver->stats.starts, lev, solver->max_depth,
 	      solver->binaries, solver->pool.num_prob_clauses,
 	      solver->pool.num_learned_clauses, slow, lits_per_clause);
     }
@@ -4450,16 +4499,16 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
 	          "c After preprocessing\n");
   fprintf(stderr, "c  unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
   fprintf(stderr, "c  pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
+  fprintf(stderr, "c  cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
+  fprintf(stderr, "c  less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
+  fprintf(stderr, "c  active vars          : %"PRIu32"\n", num_active_vars(solver));
   fprintf(stderr, "c  deleted clauses      : %"PRIu32"\n", solver->stats.pp_clauses_deleted);
   fprintf(stderr, "c  subsumed clauses     : %"PRIu32"\n", solver->stats.pp_subsumptions);
   fprintf(stderr, "c  strengthenings       : %"PRIu32"\n", solver->stats.pp_strengthenings);
   fprintf(stderr, "c  unit strengthenings  : %"PRIu32"\n", solver->stats.pp_unit_strengthenings);
-  fprintf(stderr, "c  cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
-  fprintf(stderr, "c  less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
-  fprintf(stderr, "c  nb. of active vars   : %"PRIu32"\n", num_active_vars(solver));
-  fprintf(stderr, "c  nb. of unit clauses  : %"PRIu32"\n", solver->units);           // should be zero
-  fprintf(stderr, "c  nb. of bin clauses   : %"PRIu32"\n", solver->binaries);
-  fprintf(stderr, "c  nb. of big clauses   : %"PRIu32"\n", solver->pool.num_prob_clauses);
+  fprintf(stderr, "c  unit clauses         : %"PRIu32"\n", solver->units);           // should be zero
+  fprintf(stderr, "c  bin clauses          : %"PRIu32"\n", solver->binaries);
+  fprintf(stderr, "c  big clauses          : %"PRIu32"\n", solver->pool.num_prob_clauses);
   fprintf(stderr, "c\n"
 	          "c Preprocessing time    : %.4f\nc\n", time);
   if (solver->has_empty_clause) {
@@ -6531,6 +6580,7 @@ static void partial_restart(sat_solver_t *solver) {
   bvar_t x;
   uint32_t i, n;
 
+  solver->stats.starts ++;
   if (solver->decision_level > 0) {
     cleanup_heap(solver);
 
@@ -6557,6 +6607,7 @@ static void partial_restart(sat_solver_t *solver) {
  * Full restart: backtrack to level 0
  */
 static void full_restart(sat_solver_t *solver) {
+  solver->stats.starts ++;
   if (solver->decision_level > 0) {
     backtrack(solver, 0);
   }
@@ -6599,7 +6650,10 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
 
   if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
     mark_variable(solver, x);
-    increase_var_activity(&solver->heap, x);
+    if (!solver->diving) {
+      // in diving mode, we don't touch activities.
+      increase_var_activity(&solver->heap, x);
+    }
     if (solver->level[x] == solver->decision_level) {
       return 1;
     }
@@ -7032,30 +7086,33 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
  * Update: experimental change (07/28/2017): use k=16 for the slow ema
  * (same as cadical).
  *
- * For blocking restarts, we use another exponential moving average:
- *     blocking_ema_{t+1} = 2^(32 - k) t + (1 - 2^k) blocking_ema_t
- * where k=12 and t = number of assigned variables (a.k.a., trail size).
- *
- * Also, the heuristics use two counters that are incremented here.
- *
  * NOTE: these updates can't overflow: the LDB is bounded by U < 2^30
  * then we have ema <= 2^32*U. Same thing for the number of assigned
  * variables.
  */
 static void update_emas(sat_solver_t *solver, uint32_t x) {
-  solver->slow_ema -= solver->slow_ema >> 16;
-  solver->slow_ema += ((uint64_t) x) << 16;
-  solver->fast_ema -= solver->fast_ema >> 5;
-  solver->fast_ema += ((uint64_t) x) << 27;
-  solver->fast_count ++;
+  if (! solver->diving) {
+    solver->slow_ema -= solver->slow_ema >> 16;
+    solver->slow_ema += ((uint64_t) x) << 16;
+    solver->fast_ema -= solver->fast_ema >> 5;
+    solver->fast_ema += ((uint64_t) x) << 27;
+    solver->fast_count ++;
+  }
 }
 
-static void update_blocking_ema(sat_solver_t *solver) {
-  solver->blocking_ema -= solver->blocking_ema >> 12;
-  solver->blocking_ema += ((uint64_t) solver->stack.top) << 20;
-  solver->level_ema -= solver->level_ema >> 16;
+// update the search depth = number of assigned literals at the time
+// of a conflict
+static void update_max_depth(sat_solver_t *solver) {
+  if (solver->stack.top > solver->max_depth) {
+    solver->max_depth = solver->stack.top;
+    solver->max_depth_conflicts = solver->stats.conflicts;
+  }
+}
+
+// update the conflict level EMA
+static void update_level(sat_solver_t *solver) {
+  solver->level_ema -= solver->level_ema >> 16;solver->level_ema -= solver->level_ema >> 16;
   solver->level_ema += ((uint64_t) solver->decision_level) << 16;
-  solver->blocking_count ++;
 }
 
 
@@ -7067,6 +7124,8 @@ static void resolve_conflict(sat_solver_t *solver) {
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
+
+  //  update_max_depth(solver);
 
   analyze_conflict(solver);
   simplify_learned_clause(solver);
@@ -7083,17 +7142,18 @@ static void resolve_conflict(sat_solver_t *solver) {
   backtrack(solver, solver->backtrack_level);
   solver->conflict_tag = CTAG_NONE;
 
-  update_blocking_ema(solver);
+  // statistics
+  update_level(solver);
 
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
-    if (true) {
-      cidx = add_learned_clause(solver, n, solver->buffer.data);
-      clause_propagation(solver, l, cidx);
-    } else {
+    if (solver->diving && n >= solver->params.stack_threshold) {
       cidx = push_clause(&solver->stash, n, solver->buffer.data);
       stacked_clause_propagation(solver, l, cidx);
+    } else {
+      cidx = add_learned_clause(solver, n, solver->buffer.data);
+      clause_propagation(solver, l, cidx);
     }
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
@@ -7203,7 +7263,7 @@ static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint3
 }
 
 /*
- * Extend the current assignment to variable eliminated by substitution
+ * Extend the current assignment to variables eliminated by substitution
  */
 static void extend_assignment_by_substitution(sat_solver_t *solver) {
   uint32_t i, n;
@@ -7232,9 +7292,9 @@ static void extend_assignment(sat_solver_t *solver) {
   uint32_t n, block_size;;
 
   /*
-   * NOTE: this works because we do not alternate
-   * between elimination by substitution and other techniques.
-   * (i.e., we eliminate variables by resolution only as a pre-processing step).
+   * NOTE: this works because we do not alternate between elimination
+   * by substitution and other techniques.  (i.e., we eliminate
+   * variables by resolution only as a pre-processing step).
    */
   extend_assignment_by_substitution(solver);
 
@@ -7256,166 +7316,6 @@ static void extend_assignment(sat_solver_t *solver) {
  ****************/
 
 /*
- * WHEN TO RESTART
- */
-
-/*
- * Glucose-style restart condition:
- * 1) solver->blocking_ema is a moving average of the trail size
- *    after each conflict.
- * 2) solver->fast_ema is an estimate of the quality of the recently
- *    learned clauses.
- * 3) solver->slow_ema is an estimate of the average quality of all
- *    learned clauses.
- *
- * Intuition:
- * - if the current trail size is larger than blocking_ema, we may
- *   be close to finding a satisfying assignment so we don't want to
- *   restart.
- * - if solver->fast_ema is larger than solver->slow_ema then recent
- *   learned clauses don't seem too good. We want to restart.
- *
- * To make this more precise: we use two magic constants:
- * - K_0 = 1/1.4 (approximately)
- * - K   = 0.8   (approximately)
- * Larger than average trail_size is 'trail_size * K_0 > blocking_ema'
- * Worse than average learned clauses is 'fast_ema * K > slow_ema'
-
- * Before we use 'blocking_ema', we want to make sure we have at least
- * 5000 samples in there. We count these samples in solver->blocking_count.
- * To avoid restarting every time, we also keep track of the number of
- * samples from which fast_ema is computed (in solver->fast_count).
- * We wait until fast_count >= 50 before restarting.
- *
- * For our fixed point implementation, we use
- *   K_0 = (1 - 1/2^2 - 1/2^5 - 1/2^8) = 0.71484375
- *   K   = (1 - 1/2^3 - 1/2^4 - 1/2^6) = 0.796875
- *
- * The Glucose original uses moving average/long-term average
- * instead of exponential moving averages. (cf. Biere & Froehlich).
- *
- * Updates: 2017/07/28: much more frequent restarts
- * - ignored fast_count
- * - don't use the blocking heuristic to delay restarts.
- * - changed K to (1 - 1/2^4 - 1/2^5) = 0.90625
- */
-
-/*
- * Initialize the restart counters
- */
-static void init_restart(sat_solver_t *solver) {
-  solver->slow_ema = 0;
-  solver->fast_ema = 0;
-  solver->blocking_ema = 0;
-  solver->level_ema = 0;
-  solver->restart_next = solver->params.restart_interval;
-  solver->fast_count = 0;
-  solver->blocking_count = 0;
-}
-
-/*
- * Check for restart
- */
-static void glucose_blocking(sat_solver_t *solver) {
-  uint64_t aux;
-
-  if (solver->blocking_count >= 5000) {
-    aux = ((uint64_t) solver->stack.top) << 32;  // trail size
-    aux -= (aux >> 2) + (aux >> 5) + (aux >> 8); // K_0 * trail size
-    if (false && aux > solver->blocking_ema) {
-      solver->fast_count = 0; // delay the next restart
-    }
-  }
-}
-
-static bool need_restart(sat_solver_t *solver) {
-  uint64_t aux;
-
-  if (solver->stats.conflicts >= solver->restart_next &&
-      solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
-    aux = solver->fast_ema;
-    //    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
-    aux -= (aux >> 4) + (aux >> 5);    // approximately 0.9 * fast_ema
-    if (aux >= solver->slow_ema) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-static void done_restart(sat_solver_t *solver) {
-  solver->restart_next = solver->stats.conflicts + solver->params.restart_interval;
-}
-
-/*
- * WHEN TO REDUCE
- */
-
-/*
- * As in Minisat, we use a geometric progression
- * - we keep a reduce_next.
- * - when the number of learned clauses is bigger than the threshold,
- *   we call reduce.
- * - after every call to reduce, we increase reduce_next by REDUCE_FACTOR (5%)
- *
- * This is not very good for large problems because the first call to delete may
- * be delayed for a long time. Experiment:
- * - start with the threshold = 2000, inc = 300
- * - after every call to reduce database:
- *    threshold = threshold + inc
- *    inc = max(0, inc - 1)
- * This is more or less the heuristic used by cadical.
- */
-
-/*
- * Initialize the reduce threshold
- */
-static void init_reduce(sat_solver_t *solver) {
-#if 0
-  solver->reduce_next = solver->pool.num_prob_clauses/4;
-  if (solver->reduce_next < MIN_REDUCE_NEXT) {
-    solver->reduce_next = MIN_REDUCE_NEXT;
-  }
-#else
-  solver->reduce_next = solver->params.reduce_interval;
-  solver->reduce_inc = solver->params.reduce_interval;
-  solver->reduce_inc2 = solver->params.reduce_delta;
-#endif
-}
-
-/*
- * Check to trigger call to reduce_learned_clause_set
- */
-static inline bool need_reduce(const sat_solver_t *solver) {
-#if 0
-  return solver->pool.num_learned_clauses >= solver->reduce_next;
-#else
-  return solver->stats.conflicts >= solver->reduce_next;
-#endif
-}
-
-/*
- * Update counters after a call to reduce
- */
-static void done_reduce(sat_solver_t *solver) {
-#if 0
-  solver->reduce_next = (uint32_t) (solver->reduce_next * REDUCE_FACTOR);
-#else
-  solver->reduce_inc += solver->reduce_inc2;
-  solver->reduce_next = solver->stats.conflicts + solver->reduce_inc;
-  if (solver->reduce_inc2 > 0) {
-    solver->reduce_inc2 --;
-  }
-#endif
-}
-
-
-/*
- * WHEN TO SIMPLIFY
- */
-
-/*
  * Number of literals assigned at level 0
  * - this is used to decide whether to call simplify_clause_database
  */
@@ -7428,6 +7328,207 @@ static uint32_t level0_literals(const sat_solver_t *solver) {
   }
   return n;
 }
+
+
+/*
+ * MODE
+ */
+
+/*
+ * Initial mode
+ */
+static void init_mode(sat_solver_t *solver) {
+  solver->progress_units = 0;
+  solver->progress_binaries = 0;
+  solver->progress = solver->params.search_counter;
+  solver->check_next = solver->params.search_period;
+  solver->diving = false;
+  solver->dive_budget = solver->params.diving_budget;
+  solver->max_depth = 0;
+  solver->max_depth_conflicts = 0;
+  solver->dive_start = 0;
+}
+
+/*
+ * Check whether we're making progress (in search mode).
+ * - we declare progress when we've learned new unit or binary clauses
+ */
+static bool made_progress(sat_solver_t *solver) {
+  uint32_t units, binaries;
+  bool progress;
+
+  units = level0_literals(solver);
+  binaries = solver->binaries;
+  progress = units > solver->progress_units || binaries > solver->progress_binaries;
+  solver->progress_units = units;
+  solver->progress_binaries = binaries;
+
+  return progress;
+}
+
+static inline bool need_check(const sat_solver_t *solver) {
+  return solver->stats.conflicts >= solver->check_next;
+}
+
+static bool switch_to_diving(sat_solver_t *solver) {
+  assert(! solver->diving);
+
+  solver->check_next += solver->params.search_period;
+
+  if (made_progress(solver)) {
+    solver->progress = solver->params.search_counter;
+  } else {
+    assert(solver->progress > 0);
+    solver->progress --;
+    if (solver->progress == 0) {
+      solver->diving = true;
+      solver->max_depth_conflicts = solver->stats.conflicts;
+      solver->max_depth = 0;
+      solver->dive_start = solver->stats.conflicts;
+      solver->stats.dives ++;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void done_diving(sat_solver_t *solver) {
+  uint64_t delta;
+
+  solver->diving = false;
+  if (solver->dive_budget <= 200000) {
+    solver->dive_budget += solver->dive_budget >> 2;
+  }
+  solver->progress = solver->params.search_counter;
+  solver->progress_units = level0_literals(solver);
+  solver->progress_binaries = solver->binaries;
+
+  // adjust reduce_next, restart_next, simplify_next, etc.
+  // delta = number of conflicts in the dive
+  delta = solver->stats.conflicts - solver->dive_start;
+  solver->reduce_next += delta;
+  solver->restart_next += delta;
+  solver->simplify_next += delta;
+  solver->check_next += delta;
+}
+
+
+/*
+ * WHEN TO RESTART
+ */
+
+/*
+ * Glucose-style restart condition:
+ * 1) solver->fast_ema is an estimate of the quality of the recently
+ *    learned clauses.
+ * 2) solver->slow_ema is an estimate of the average quality of all
+ *    learned clauses.
+ *
+ * Intuition:
+ * - if solver->fast_ema is larger than solver->slow_ema then recent
+ *   learned clauses don't seem too good. We want to restart.
+ *
+ * To make this more precise: we use a magic constant K = 0.9 (approximately)
+ * Worse than average learned clauses is 'fast_ema * K > slow_ema'
+ * For our fixed point implementation, we use
+ *    K = (1 - 1/2^4 - 1/2^5) = 0.90625
+ *
+ * To avoid restarting every time, we keep track of the number of
+ * samples from which fast_ema is computed (in solver->fast_count).
+ * We wait until fast_count >= 50 before restarting.
+ */
+
+
+/*
+ * Initialize the restart counters
+ */
+static void init_restart(sat_solver_t *solver) {
+  solver->slow_ema = 0;
+  solver->fast_ema = 0;
+  solver->level_ema = 0;
+  solver->restart_next = solver->params.restart_interval;
+  solver->fast_count = 0;
+}
+
+/*
+ * Check for restart
+ */
+static bool need_restart(sat_solver_t *solver) {
+  uint64_t aux;
+
+  if (solver->diving) {
+    return solver->stats.conflicts > solver->max_depth_conflicts + solver->dive_budget;
+  }
+
+  if (solver->stats.conflicts >= solver->restart_next &&
+      solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
+    aux = solver->fast_ema;
+    //    aux -= (aux >> 3) + (aux >> 4) + (aux >> 6); // K * fast_ema
+    aux -= (aux >> 4) + (aux >> 5);    // approximately 0.9 * fast_ema
+    if (aux >= solver->slow_ema) {
+      return true;
+    }
+  }
+
+  return solver->stats.conflicts >= solver->check_next;
+}
+
+static void done_restart(sat_solver_t *solver) {
+  solver->restart_next = solver->stats.conflicts + solver->params.restart_interval;
+}
+
+
+
+/*
+ * WHEN TO REDUCE
+ */
+
+/*
+ * Heuristic similar to Cadical:
+ * - we keep three counters:
+ *    reduce_next
+ *    reduce_inc
+ *    reduce_inc2
+ * - when the number of conflicts is bigger than reduce_next
+ *   we call reduce
+ * - after reduce, we update the counters:
+ *    reduce_inc = reduce_inc + reduce_inc2
+ *    reduce_next = reduce_next + reduce_inc
+ *    reduce_inc2 = max(0, reduce_inc2 - 1)
+ */
+
+/*
+ * Initialize the reduce counters
+ */
+static void init_reduce(sat_solver_t *solver) {
+  solver->reduce_next = solver->params.reduce_interval;
+  solver->reduce_inc = solver->params.reduce_interval;
+  solver->reduce_inc2 = solver->params.reduce_delta;
+}
+
+/*
+ * Check to trigger call to reduce_learned_clause_set
+ */
+static inline bool need_reduce(const sat_solver_t *solver) {
+  return !solver->diving && solver->stats.conflicts >= solver->reduce_next;
+}
+
+/*
+ * Update counters after a call to reduce
+ */
+static void done_reduce(sat_solver_t *solver) {
+  solver->reduce_inc += solver->reduce_inc2;
+  solver->reduce_next = solver->stats.conflicts + solver->reduce_inc;
+  if (solver->reduce_inc2 > 0) {
+    solver->reduce_inc2 --;
+  }
+}
+
+
+/*
+ * WHEN TO SIMPLIFY
+ */
 
 /*
  * Initialize counters
@@ -7467,6 +7568,11 @@ static void done_simplify(sat_solver_t *solver) {
   }
   solver->simplify_assigned = solver->stack.top;
   solver->simplify_next = solver->stats.conflicts + solver->params.simplify_interval;
+
+  solver->check_next = solver->stats.conflicts + solver->params.search_period;
+  solver->progress = solver->params.search_counter;
+  solver->progress_units = level0_literals(solver);
+  solver->progress_binaries = solver->binaries;
 }
 
 
@@ -7569,7 +7675,7 @@ static void sat_search(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
     if (solver->conflict_tag == CTAG_NONE) {
       // No conflict
-      if (need_restart(solver)) {
+      if (need_restart(solver) || need_simplify(solver)) {
         break;
       }
       if (need_reduce(solver)) {
@@ -7577,6 +7683,8 @@ static void sat_search(sat_solver_t *solver) {
         check_watch_vectors(solver);
 	done_reduce(solver);
       }
+
+      update_max_depth(solver);
 
       x = nsat_select_decision_variable(solver);
       if (x == 0) {
@@ -7591,15 +7699,18 @@ static void sat_search(sat_solver_t *solver) {
         solver->status = STAT_UNSAT;
         break;
       }
-      glucose_blocking(solver);
       resolve_conflict(solver);
       check_watch_vectors(solver);
 
-      decay_clause_activities(solver);
-      decay_var_activities(&solver->heap);
+      if (! solver->diving) {
+	decay_clause_activities(solver);
+	decay_var_activities(&solver->heap);
+      }
     }
   }
 }
+
+
 
 /*
  * Simplify: call try_scc_simplification, then simplify clause database
@@ -7647,9 +7758,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   solver->prng = solver->params.seed;
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
 
-  init_simplify(solver);
-  init_reduce(solver);
+  init_mode(solver);
   init_restart(solver);
+  init_reduce(solver);
+  init_simplify(solver);
 
   if (solver->preprocess) {
     // preprocess + one round of simplification
@@ -7668,15 +7780,27 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
   while (! solver->has_empty_clause) {
-    solver->stats.starts ++;
     sat_search(solver);
     if (solver->status != STAT_UNKNOWN) break;
 
     if (need_simplify(solver)) {
+      if (solver->diving) {
+	done_diving(solver);
+      }
       full_restart(solver);
       done_restart(solver);
       nsat_simplify(solver);
       done_simplify(solver);
+    } else if (solver->diving) {
+      done_diving(solver);
+      full_restart(solver);
+      report(solver, "");
+    } else if (need_check(solver)) {
+      //      report(solver, "chk");
+      if (switch_to_diving(solver)) {
+	full_restart(solver);
+	report(solver, "dive");
+      }
     } else {
       partial_restart(solver);
       done_restart(solver);
@@ -7689,6 +7813,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   report(solver, "end");
 
   if (solver->status == STAT_SAT) {
+    solver->stats.successful_dive = solver->diving;
     extend_assignment(solver);
   }
 

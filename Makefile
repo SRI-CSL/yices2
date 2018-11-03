@@ -48,9 +48,15 @@ YICES_TOP_DIR=$(shell pwd)
 # - P should still work (without recompliling) with libyices 2.0.1
 # - P should not work anymore with libyices 2.1.0 or 3.0.0
 #
+# N.B There are also an occurrences in:
+# src/include/yices.h
+# doc/manual/manual.tex
+# doc/sphinx/source/conf.py
+# doc/yices*.1 man files
+#
 MAJOR = 2
 MINOR = 6
-PATCH_LEVEL = 0
+PATCH_LEVEL = 1
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 

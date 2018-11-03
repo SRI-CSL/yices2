@@ -149,7 +149,7 @@ extern void reset_int_partition(ipart_t *pp);
 /*
  * Add i to the table:
  * - if there's a index j in the table that matches i
- *   then j is added to i's class. If i has no class attached
+ *   then i is added to j's class. If i has no class attached
  *   yet, then a new class vector is allocated and both i and
  *   j are added to that class.
  */

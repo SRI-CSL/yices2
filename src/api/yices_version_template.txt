@@ -23,9 +23,20 @@
 
 /*
  * Visibility control: version strings are part of the API.
+ *
+ * On cygwin/mingw, we have two cases:
+ * - static build: NOYICES_DLL is defined
+ * - dynamic build: NOYICES_DLL is not defined
+ *
+ * If NOYICES_DLL not defined, we must predix the version strings
+ * with __declspec(dllexport)
  */
 #if defined(CYGWIN) || defined(MINGW)
+#if defined(NOYICES_DLL)
+#define EXPORTED
+#else
 #define EXPORTED __declspec(dllexport)
+#endif
 #else
 #define EXPORTED __attribute__((visibility("default")))
 #endif

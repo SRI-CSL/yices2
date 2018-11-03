@@ -26,7 +26,7 @@ the use of Yices using the [SMT2 language](http://smtlib.cs.uiowa.edu/language.s
 #### Linear Real Arithmetic
 
 ```smt2
-;; QF_LRA = Quantifier-Free Linear Real Arithemtic
+;; QF_LRA = Quantifier-Free Linear Real Arithmetic
 (set-logic QF_LRA)
 ;; Declare variables x, y
 (declare-fun x () Real)
@@ -78,7 +78,7 @@ sat
 #### Non-Linear Arithmetic
 
 ```smt2
-;; QF_NRA = Quantifier-Free Nonlinear Real Arithemtic
+;; QF_NRA = Quantifier-Free Nonlinear Real Arithmetic
 (set-logic QF_NRA)
 ;; Declare variables
 (declare-fun x () Real)
