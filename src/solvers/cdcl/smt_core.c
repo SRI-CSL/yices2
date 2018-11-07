@@ -5323,6 +5323,9 @@ void smt_pop(smt_core_t *s) {
   restore_clauses(s, top->nclauses);
   restore_binary_clauses(s, top->nbins);
 
+  // the lemma queue may be non-empty so we must clear it here
+  reset_lemma_queue(&s->lemmas);
+
   s->base_level --;
   backtrack(s, s->base_level);
   s->nb_unit_clauses = top->nunits;
