@@ -184,7 +184,7 @@ instructions:
    on github (https://github.com/SRI-CSL/libpoly).
 
 2. After you've installed libpoly, add option `--enable-mcsat` to
-   the cofigure command. In details, type this in the toplevel
+   the configure command. In details, type this in the toplevel
    Yices directory:
 ```
 autoconf
