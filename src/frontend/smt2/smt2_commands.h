@@ -375,6 +375,9 @@ typedef struct smt2_globals_s {
   bool timeout_initialized;   // initially false. true once init_timeout is called
   bool interrupted;           // true if the most recent call to check_sat timed out
 
+  // optional: delegate sat solver for QF_BV
+  const char *delegate;      // default = NULL: no delegate
+
   // internals
   attr_vtbl_t *avtbl;        // global attribute table
   strmap_t *info;            // for set-info/get-info (initially NULL)
@@ -460,6 +463,12 @@ extern void smt2_enable_trace_tag(const char* tag);
  * - must not be called before init_smt2
  */
 extern void smt2_show_stats(void);
+
+/*
+ * Set a delegate:
+ * - name = name of an external sat solver to use for QF_BV problems
+ */
+extern void smt2_set_delegate(const char *name);
 
 
 /*

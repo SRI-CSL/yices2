@@ -71,6 +71,7 @@ static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
+static char *delegate;
 
 // mcsat options
 static bool mcsat;
@@ -95,6 +96,7 @@ typedef enum optid {
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
   timeout_opt,             // give a timeout
+  delegate_opt,            // use an external sat solver
   mcsat_opt,               // enable mcsat
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
@@ -117,6 +119,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "timeout", 't', MANDATORY_INT, timeout_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
+  { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
@@ -155,6 +158,7 @@ static void print_help(const char *progname) {
 	 "    --stats, -s               Print statistics once all commands have been processed\n"
 	 "    --incremental             Enable support for push/pop\n"
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
+	 "    --delegate=solver_name    Use an external sat solver (can be either cadical or y2sat)\n"
 #if HAVE_MCSAT
 	 "    --mcsat                   Use the MCSat solver\n"
 	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
@@ -194,6 +198,7 @@ static void parse_command_line(int argc, char *argv[]) {
   show_stats = false;
   verbosity = 0;
   timeout = 0;
+  delegate = NULL;
 
   mcsat = false;
   mcsat_nra_mgcd = false;
@@ -268,6 +273,26 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case interactive_opt:
 	interactive = true;
+	break;
+
+      case delegate_opt:
+	if (delegate == NULL) {
+	  if (strcmp(elem.s_value, "y2sat") == 0) {
+	    delegate = "y2sat";
+	  } else if (strcmp(elem.s_value, "cadical") == 0) {
+	    delegate = "cadical";
+	  } else {
+	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical')\n", parser.command_name, elem.s_value);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+	  }
+	} else if (strcmp(elem.s_value, delegate) != 0) {
+	  fprintf(stderr, "%s: can't give several delegates\n", parser.command_name);
+	  print_usage(parser.command_name);
+	  code = YICES_EXIT_USAGE;
+	  goto exit;
+	}
 	break;
 
       case mcsat_opt:
@@ -566,6 +591,7 @@ int main(int argc, char *argv[]) {
 
   yices_init();
   init_smt2(!incremental, timeout, interactive);
+  if (delegate != NULL) smt2_set_delegate(delegate);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
