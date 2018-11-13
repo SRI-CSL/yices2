@@ -33,8 +33,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <inttypes.h>
-// EXPERIMENT
-#include <locale.h>
 
 
 #include "frontend/common/parameters.h"
@@ -47,6 +45,9 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 
+// optional: support cadical or not
+// TODO: set this at configure time
+#define HAVE_CADICAL 0
 
 /*
  * Global objects:
@@ -280,7 +281,14 @@ static void parse_command_line(int argc, char *argv[]) {
 	  if (strcmp(elem.s_value, "y2sat") == 0) {
 	    delegate = "y2sat";
 	  } else if (strcmp(elem.s_value, "cadical") == 0) {
+#if HAVE_CADICAL
 	    delegate = "cadical";
+#else
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+#endif
 	  } else {
 	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical')\n", parser.command_name, elem.s_value);
 	    print_usage(parser.command_name);
