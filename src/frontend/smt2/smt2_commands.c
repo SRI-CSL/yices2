@@ -2776,8 +2776,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
 
-    if (true && g->logic_code == QF_BV) {
-      status = check_with_delegate(g->ctx);
+    if (g->delegate != NULL && g->logic_code == QF_BV) {
+      status = check_with_delegate(g->ctx, g->delegate);
     } else {
       status = check_sat_with_timeout(g, &g->parameters);
     }
@@ -3850,6 +3850,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->timeout = 0;
   g->timeout_initialized = false;
   g->interrupted = false;
+  g->delegate = NULL;
   g->avtbl = NULL;
   g->info = NULL;
   g->ctx = NULL;
@@ -3995,6 +3996,16 @@ void smt2_enable_trace_tag(const char* tag) {
  */
 void smt2_show_stats(void) {
   show_statistics(&__smt2_globals);
+}
+
+
+/*
+ * Set a delegate:
+ * - name = name of an external sat solver to use for QF_BV problems
+ */
+void smt2_set_delegate(const char *name) {
+  assert(name != NULL);
+  __smt2_globals.delegate = name;
 }
 
 

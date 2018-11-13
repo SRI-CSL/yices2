@@ -648,11 +648,12 @@ smt_status_t precheck_context(context_t *ctx) {
 
 /*
  * Solve using another SAT solver
+ * - sat_solver = name of the solver to use
  * - this may be used only for BV or pure SAT problems
  * - we perform one round of propagation to convert the problem to CNF
  * - then we call an external SAT solver on the CNF problem
  */
-smt_status_t check_with_delegate(context_t *ctx) {
+smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver) {
   smt_status_t stat;
   smt_core_t *core;
   delegate_t delegate;
@@ -671,8 +672,7 @@ smt_status_t check_with_delegate(context_t *ctx) {
 	   stat == STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
-      init_delegate(&delegate, "y2sat", num_vars(core));
-      // init_delegate(&delegate, "cadical", num_vars(core));
+      init_delegate(&delegate, sat_solver, num_vars(core));
       stat = solve_with_delegate(&delegate, core);
       set_smt_status(core, stat);
       if (stat == STATUS_SAT) {

@@ -179,7 +179,7 @@ static void add_entry(int32_t *a, uint32_t mask, int32_t i, const char *name) {
   uint32_t h;
 
   h = jenkins_hash_string(name) & mask;
-  while (a[h] < 0) {
+  while (a[h] >= 0) {
     h ++;
     h &= mask;
   }
