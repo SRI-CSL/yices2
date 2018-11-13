@@ -55,6 +55,7 @@
 
 #include "io/tracer.h"
 #include "solvers/cdcl/smt_core_base_types.h"
+#include "solvers/cdcl/gates_hash_table.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
 
@@ -1039,6 +1040,9 @@ typedef struct smt_core_s {
   /* Atom table */
   atom_table_t atoms;
 
+  /* Table of logical gates */
+  gate_table_t gates;
+
   /* Push/pop stack */
   trail_stack_t trail_stack;
 
@@ -1612,6 +1616,14 @@ extern void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, litera
 
 extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
 
+
+/******************************
+ *  ACCESS TO THE GATE TABLE  *
+ *****************************/
+
+static inline gate_table_t *get_gate_table(smt_core_t *s) {
+  return &s->gates;
+}
 
 
 /***********************

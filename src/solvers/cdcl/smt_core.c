@@ -1582,6 +1582,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_lemma_queue(&s->lemmas);
   init_statistics(&s->stats);
   init_atom_table(&s->atoms);
+  init_gate_table(&s->gates);
   init_trail_stack(&s->trail_stack);
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -1652,6 +1653,7 @@ void delete_smt_core(smt_core_t *s) {
   delete_heap(&s->heap);
   delete_lemma_queue(&s->lemmas);
   delete_atom_table(&s->atoms);
+  delete_gate_table(&s->gates);
   delete_trail_stack(&s->trail_stack);
   delete_checkpoint_stack(&s->checkpoints);
 
@@ -1711,6 +1713,7 @@ void reset_smt_core(smt_core_t *s) {
   reset_lemma_queue(&s->lemmas);
   reset_statistics(&s->stats);
   reset_atom_table(&s->atoms);
+  reset_gate_table(&s->gates);
   reset_trail_stack(&s->trail_stack);
   reset_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -5084,6 +5087,11 @@ void smt_push(smt_core_t *s) {
                    s->stack.prop_ptr, s->stack.theory_ptr);
 
   /*
+   * Gate table
+   */
+  gate_table_push(&s->gates);
+
+  /*
    * Notify the theory solver
    */
   s->th_ctrl.push(s->th_solver);
@@ -5337,6 +5345,9 @@ void smt_pop(smt_core_t *s) {
   s->stack.theory_ptr = top->theory_ptr;
 
   trail_stack_pop(&s->trail_stack);
+
+  // gate table
+  gate_table_pop(&s->gates);
 
   // reset status
   s->status = STATUS_IDLE;
