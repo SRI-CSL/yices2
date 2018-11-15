@@ -649,11 +649,12 @@ smt_status_t precheck_context(context_t *ctx) {
 /*
  * Solve using another SAT solver
  * - sat_solver = name of the solver to use
+ * - verbosity = verbosity level (0 means quiet)
  * - this may be used only for BV or pure SAT problems
  * - we perform one round of propagation to convert the problem to CNF
  * - then we call an external SAT solver on the CNF problem
  */
-smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver) {
+smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity) {
   smt_status_t stat;
   smt_core_t *core;
   delegate_t delegate;
@@ -673,6 +674,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver) {
 
     if (stat == STATUS_SEARCHING) {
       init_delegate(&delegate, sat_solver, num_vars(core));
+      delegate_set_verbosity(&delegate, verbosity);
       stat = solve_with_delegate(&delegate, core);
       set_smt_status(core, stat);
       if (stat == STATUS_SAT) {

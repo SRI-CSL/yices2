@@ -45,6 +45,7 @@
  * - add_clause(n: clause size, literal_t array_of_literals[])
  * - check()
  * - get_value(int v): value of a boolean variable v
+ * - set_verbosity(int level): set verbosity lvel
  * - delete()
  */
 typedef void (*add_empty_clause_fun_t)(void *solver);
@@ -54,6 +55,7 @@ typedef void (*add_ternary_clause_fun_t)(void *solver, literal_t l1, literal_t l
 typedef void (*add_clause_fun_t)(void *solver, uint32_t n, literal_t *a);
 typedef smt_status_t (*check_fun_t)(void *solver);
 typedef bval_t (*get_value_fun_t)(void *solver, bvar_t x);
+typedef void (*set_verbosity_fun_t)(void *solver, uint32_t level);
 typedef void (*delete_fun_t)(void *solver);
 
 typedef struct delegate_s {
@@ -66,6 +68,7 @@ typedef struct delegate_s {
   add_clause_fun_t add_clause;
   check_fun_t check;
   get_value_fun_t get_value;
+  set_verbosity_fun_t set_verbosity;
   delete_fun_t delete;
 } delegate_t;
 
@@ -97,6 +100,11 @@ extern smt_status_t solve_with_delegate(delegate_t *delegate, smt_core_t *core);
  * Value assigned to variable x in the delegate
  */
 extern bval_t delegate_get_value(delegate_t *delegate, bvar_t x);
+
+/*
+ * Set verbosity level for the delegate
+ */
+extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
 
 
 #endif /* __DELEGATE_H */

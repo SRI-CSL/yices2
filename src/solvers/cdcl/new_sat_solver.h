@@ -455,7 +455,7 @@ typedef struct {
 /*
  * Heap and variable activities for the variable-selection heuristic
  * - activity[x]: for every variable x between 1 and nvars - 1
- * - index 0 is used as marker:
+ * - index 0 is used as a marker:
  *    activity[0] = DBL_MAX (higher than any activity)
  * - heap_index[x]: for every variable x,
  *      heap_index[x] = i if x is in the heap and heap[i] = x
@@ -464,7 +464,8 @@ typedef struct {
  * - heap_last: index of last element in the heap
  *   heap[0] = 0,
  *   for i=1 to heap_last, heap[i] = x for some variable x
- * - size = number of variable (nvars)
+ * - size = size of arrays activity, heap_index and heap
+ * - nvars = actual number of variables (must be <= size)
  * - vmax = variable index (last variable not in the heap)
  * - act_inc: variable activity increment
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
@@ -491,6 +492,7 @@ typedef struct nvar_heap_s {
   bvar_t *heap;
   uint32_t heap_last;
   uint32_t size;
+  uint32_t nvars;
   uint32_t vmax;
   double act_increment;
   double inv_act_decay;

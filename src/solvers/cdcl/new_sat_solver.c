@@ -1821,14 +1821,14 @@ static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s,
  ******************/
 
 /*
- * Initialize heap for n variables
+ * Initialize heap for size n and nv variables
  * - heap is initially empty: heap_last = 0
  * - heap[0] = 0 is a marker, with activity[0] higher
  *   than any variable activity.
  * - activity increment and threshold are set to their
  *   default initial value.
  */
-static void init_heap(nvar_heap_t *heap, uint32_t n) {
+static void init_heap(nvar_heap_t *heap, uint32_t n, uint32_t nv) {
   uint32_t i;
 
   heap->activity = (double *) safe_malloc(n * sizeof(double));
@@ -1840,13 +1840,14 @@ static void init_heap(nvar_heap_t *heap, uint32_t n) {
   heap->heap_index[0] = 0;
   heap->heap[0] = 0;
 
-  for (i=1; i<n; i++) {
+  for (i=1; i<nv; i++) {
     heap->heap_index[i] = -1;
     heap->activity[i] = 0.0;
   }
 
   heap->heap_last = 0;
   heap->size = n;
+  heap->nvars = nv;
   heap->vmax = 1;
 
   heap->act_increment = INIT_VAR_ACTIVITY_INCREMENT;
@@ -1856,25 +1857,39 @@ static void init_heap(nvar_heap_t *heap, uint32_t n) {
 }
 
 /*
- * Extend the heap to n variables
+ * Extend the heap: n = new size.
+ * - keep nvar unchanged
  */
 static void extend_heap(nvar_heap_t *heap, uint32_t n) {
-  uint32_t old_size, i;
+  assert(heap->size < n);
 
-  old_size = heap->size;
-  assert(old_size < n);
   heap->activity = (double *) safe_realloc(heap->activity, n * sizeof(double));
   heap->heap_index = (int32_t *) safe_realloc(heap->heap_index, n * sizeof(int32_t));
   heap->heap = (bvar_t *) safe_realloc(heap->heap, n * sizeof(int32_t));
   heap->size = n;
 
-  for (i=old_size; i<n; i++) {
+  check_heap(heap);
+}
+
+
+/*
+ * Increase the number of variables to n
+ */
+static void heap_add_vars(nvar_heap_t *heap, uint32_t n) {
+  uint32_t old_nvars, i;
+
+  old_nvars = heap->nvars;
+  assert(n <= heap->size);
+  for (i=old_nvars; i<n; i++) {
     heap->heap_index[i] = -1;
     heap->activity[i] = 0.0;
   }
+  heap->nvars = n;
 
   check_heap(heap);
 }
+
+
 
 /*
  * Free the heap
@@ -1897,7 +1912,7 @@ static void reset_heap(nvar_heap_t *heap) {
   heap->heap_last = 0;
   heap->vmax = 1;
 
-  n = heap->size;
+  n = heap->nvars;
   for (i=1; i<n; i++) {
     heap->heap_index[i] = -1;
     heap->activity[i] = 0.0;
@@ -2054,7 +2069,7 @@ static void rescale_var_activities(nvar_heap_t *heap) {
   uint32_t i, n;
   double *act;
 
-  n = heap->size;
+  n = heap->nvars;
   act = heap->activity;
   for (i=1; i<n; i++) {
     act[i] *= INV_VAR_ACTIVITY_THRESHOLD;
@@ -2265,7 +2280,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->watch[0] = NULL;
   solver->watch[1] = NULL;
 
-  init_heap(&solver->heap, n);
+  init_heap(&solver->heap, n, 1);
   init_stack(&solver->stack, n);
 
   solver->has_empty_clause = false;
@@ -2597,6 +2612,9 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   if (solver->preprocess) {
     solver->occ = (uint32_t *) safe_realloc(solver->occ, new_size * 2 * sizeof(uint32_t));
   }
+
+  extend_heap(&solver->heap, new_size);
+  extend_stack(&solver->stack, new_size);
 }
 
 
@@ -2639,8 +2657,7 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     }
   }
 
-  extend_heap(&solver->heap, nv);
-  extend_stack(&solver->stack, nv);
+  heap_add_vars(&solver->heap, nv);
 
   solver->nvars = nv;
   solver->nliterals = 2 * nv;
@@ -3984,6 +4001,9 @@ static void show_scc(FILE *f, const sat_solver_t *solver, literal_t l) {
  * Find a representative literal in a strongly-connected component
  * - l = root of the component C
  * - the elements of C are stored in solver->vertex_stack, above l
+ *
+ * In preprocessing mode, the representative is the smallest literal in C.
+ * In search mode, the representative is the most active literal in C.
  */
 static literal_t scc_representative(sat_solver_t *solver, literal_t l) {
   uint32_t i;
@@ -3992,17 +4012,27 @@ static literal_t scc_representative(sat_solver_t *solver, literal_t l) {
 
   i = solver->vertex_stack.size;
   rep = l;
-  max_act = lit_activity(solver, rep);
-  do {
-    assert(i > 0);
-    i --;
-    l0 = solver->vertex_stack.data[i];
-    act = lit_activity(solver, l0);
-    if (act > max_act || (act == max_act && l0 < rep)) {
-      max_act = act;
-      rep = l0;
-    }
-  } while (l0 != l);
+  if (solver->preprocess) {
+    do {
+      assert(i > 0);
+      i --;
+      l0 = solver->vertex_stack.data[i];
+      if (l0 < rep) rep = l0;
+    } while (l0 != l);
+
+  } else {
+    max_act = lit_activity(solver, rep);
+    do {
+      assert(i > 0);
+      i --;
+      l0 = solver->vertex_stack.data[i];
+      act = lit_activity(solver, l0);
+      if (act > max_act || (act == max_act && l0 < rep)) {
+	max_act = act;
+	rep = l0;
+      }
+    } while (l0 != l);
+  }
 
   return rep;
 }
@@ -4011,6 +4041,18 @@ static literal_t scc_representative(sat_solver_t *solver, literal_t l) {
  * Process a strongly-connected component
  * - l = root of the component C
  * - the elements of C are stored in solver->vertex_stack, above l
+ *
+ * If the complementary component has been processed before, we just
+ * mark that literals of C have been fully explored.
+ *
+ * Otherwise, we select a representative 'rep' in C. For every other
+ * literal l0 in C, we record subst[l0] := rep.
+ * - the antecedent tag for var_of(l0) is set to ATAG_SUBST
+ * - the antecedent data for var_of(l0) is set to rep or not(rep)
+ *   depending on l0's polarity.
+ *
+ * If we detect that C contains complementary literals l0 and not(l0),
+ * we add the empty clause and exit.
  */
 static void process_scc(sat_solver_t *solver, literal_t l) {
   literal_t l0, rep;
@@ -4080,18 +4122,41 @@ static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i
     n = w->size;
     k = *i;
     assert(k <= n);
-    while (k < n) {
-      idx = w->data[k];
-      if (idx_is_literal(idx)) {
-        *i = k+1;
-        *successor = idx2lit(idx);
-        return true;
-      } else if (clause_length(&solver->pool, idx) == 2) {
-        *i = k+2;
-        *successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
-        return true;
+
+    if (solver->preprocess) {
+      /*
+       * in preprocessing mode:
+       * all elements in w->data are clause indices
+       */
+      while (k < n) {
+	idx = w->data[k];
+	if (clause_length(&solver->pool, idx) == 2) {
+	  *i = k+1;
+	  *successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
+	  return true;
+	}
+	k ++;
       }
-      k += 2;
+
+    } else {
+      /*
+       * in search mode:
+       * elements in w->data encode either a single literal
+       * or a pair clause index + blocker
+       */
+      while (k < n) {
+	idx = w->data[k];
+	if (idx_is_literal(idx)) {
+	  *i = k+1;
+	  *successor = idx2lit(idx);
+	  return true;
+	} else if (clause_length(&solver->pool, idx) == 2) {
+	  *i = k+2;
+	  *successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
+	  return true;
+	}
+	k += 2;
+      }
     }
   }
 
@@ -4211,7 +4276,7 @@ static void compute_sccs(sat_solver_t *solver) {
  * - so the next occurrence of l is ignored and an occurrence of not(l)
  *   makes the clause true.
  */
-// this make l false and not l true (temporarily)
+// make l false and not l true (temporarily)
 // preserve the preferred polarity in bits 3-2 of solver->value[l]
 static void mark_false_lit(sat_solver_t *solver, literal_t l) {
   uint8_t v;
@@ -4987,7 +5052,7 @@ static void pp_collect_garbage(sat_solver_t *solver) {
 /*
  * Heuristic for garbage collection:
  * - at least 10000 cells wasted in the clause database
- * - at least 12.5% of waster cells
+ * - at least 12.5% of wasted cells
  */
 static void pp_try_gc(sat_solver_t *solver) {
   if (solver->pool.padding > 10000 && solver->pool.padding > solver->pool.size >> 3) {
@@ -5262,6 +5327,43 @@ static bool pp_empty_queue(sat_solver_t *solver) {
         reset_queue(&solver->lqueue);
         return false;
       }
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * VARIABLE SUBSTITUTION
+ */
+
+/*
+ * Compute the SCCs from the binary clauses
+ * - return false if a conflict is detected
+ * - return true otherwise
+ */
+static bool pp_scc_simplification(sat_solver_t *solver) {
+  uint32_t subst_count;
+  uint32_t i, n;
+
+  subst_count = solver->stats.subst_vars;
+
+  compute_sccs(solver);
+  if (solver->has_empty_clause) {
+    return false;
+  }
+
+  if (solver->stats.subst_vars > subst_count) {
+    fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", solver->stats.subst_vars);
+  }
+
+  // cleanup all substitution data
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (solver->ante_tag[i] == ATAG_SUBST) {
+      solver->ante_tag[i] = ATAG_NONE;
+      solver->ante_data[i] = 0;
     }
   }
 
@@ -6275,6 +6377,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   collect_unit_and_pure_literals(solver);
   if (pp_empty_queue(solver)) {
     pp_try_gc(solver);
+    if (! pp_scc_simplification(solver)) goto done; // for testing
     collect_elimination_candidates(solver);
     assert(solver->scan_index == 0);
     do {
@@ -6284,6 +6387,8 @@ static void nsat_preprocess(sat_solver_t *solver) {
       if (solver->has_empty_clause || !pp_subsumption(solver)) break;
     } while (!elim_heap_is_empty(solver));
   }
+
+ done:
   if (solver->verbosity >= 4) fprintf(stderr, "c Done\nc\n");
 
   reset_clause_queue(solver);
@@ -7656,10 +7761,10 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
   }
 
   /*
-   * Check the variables in [heap->vmax ... heap->size - 1]
+   * Check the variables in [heap->vmax ... heap->nvars - 1]
    */
   x = solver->heap.vmax;
-  while (x < solver->heap.size) {
+  while (x < solver->heap.nvars) {
     if (var_is_active(solver, x)) {
       solver->heap.vmax = x+1;
       return x;
@@ -7667,7 +7772,7 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
     x ++;
   }
 
-  assert(x == solver->heap.size);
+  assert(x == solver->heap.nvars);
   solver->heap.vmax = x;
 
   return 0;
@@ -7794,6 +7899,8 @@ static void nsat_do_preprocess(sat_solver_t *solver) {
   } else {
     nsat_preprocess(solver);
   }
+
+  solver->preprocess = false;
 }
 
 
@@ -8152,7 +8259,7 @@ static void check_heap(const nvar_heap_t *heap) {
     }
   }
 
-  n = heap->size;
+  n = heap->nvars;
   for (i=0; i<n; i++) {
     k= heap->heap_index[i];
     if (k >= 0 && heap->heap[k] != i) {

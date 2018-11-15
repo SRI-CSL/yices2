@@ -287,7 +287,9 @@ extern smt_status_t precheck_context(context_t *ctx);
  * Solve using another SAT solver
  * - sat_solver = name of the external SAT solver to use
  *   sat_solver can be either "y2sat" or "cadical"
- * - this may be used only for BV or pure SAT problems
+ * - verbosity = verbosity level
+ *
+ * This may be used only for BV or pure SAT problems
  *
  * If ctx status is IDLE:
  * - perform one round of propagation to convert the problem to CNF
@@ -296,7 +298,7 @@ extern smt_status_t precheck_context(context_t *ctx);
  * If ctx status is not IDLE, the function returns it and does nothing
  * else.
  */
-extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver);
+extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
 
 
 /*

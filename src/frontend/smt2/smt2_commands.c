@@ -2777,7 +2777,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
 
     if (g->delegate != NULL && g->logic_code == QF_BV) {
-      status = check_with_delegate(g->ctx, g->delegate);
+      status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
     } else {
       status = check_sat_with_timeout(g, &g->parameters);
     }

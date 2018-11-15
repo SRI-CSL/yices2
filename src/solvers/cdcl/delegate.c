@@ -76,6 +76,10 @@ static bval_t ysat_get_value(void *solver, bvar_t x) {
   return var_value(solver, x);
 }
 
+static void ysat_set_verbosity(void *solver, uint32_t level) {
+  nsat_set_verbosity(solver, level);
+}
+
 static void ysat_delete(void *solver) {
   delete_nsat_solver(solver);
   safe_free(solver);
@@ -84,10 +88,10 @@ static void ysat_delete(void *solver) {
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true);
+  //  init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0);
   nsat_solver_add_vars(d->solver, nvars);
   nsat_set_randomness(d->solver, 0);
-  //  nsat_set_verbosity(d->solver, 2); // PROVISIONAL
   init_ivector(&d->buffer, 0);
   d->add_empty_clause = ysat_add_empty_clause;
   d->add_unit_clause = ysat_add_unit_clause;
@@ -96,6 +100,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->add_clause = ysat_add_clause;
   d->check = ysat_check;
   d->get_value = ysat_get_value;
+  d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
 }
 
@@ -166,12 +171,30 @@ static bval_t cadical_get_value(void *solver, bvar_t x) {
   return (v < 0) ? VAL_FALSE : (v > 0) ? VAL_TRUE : VAL_UNDEF_FALSE;
 }
 
+static void cadical_set_verbosity(void *solver, uint32_t level) {
+  // verbosity 0 --> nothing (quit = true)
+  // verbosity 1 --> normal cadical output (quiet = false)
+  // verbosity 2 --> cadical verbosity 1
+  // verbosity 3 --> cadical verbosity 2
+  if (level == 0) {
+    ccadical_set_option(solver, "quiet", 0.1);
+  } else {
+    ccadical_set_option(solver, "quiet", 0.0);
+    if (level == 2) {
+      ccadical_set_option(solver, "verbose", 1.0);
+    } else if (level >= 3) {
+      ccadical_set_option(solver, "verbose", 2.0);
+    }
+  }
+}
+
 static void cadical_delete(void *solver) {
   ccadical_reset(solver);
 }
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
+  ccadical_set_option(d->solver, "quiet", 1.0); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
@@ -180,6 +203,7 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->add_clause = cadical_add_clause;
   d->check = cadical_check;
   d->get_value = cadical_get_value;
+  d->set_verbosity = cadical_set_verbosity;
   d->delete = cadical_delete;
 }
 
@@ -327,4 +351,11 @@ smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
  */
 bval_t delegate_get_value(delegate_t *d, bvar_t x) {
   return d->get_value(d->solver, x);
+}
+
+/*
+ * Set verbosity level
+ */
+void delegate_set_verbosity(delegate_t *d, uint32_t level) {
+  d->set_verbosity(d->solver, level);
 }
