@@ -29,6 +29,7 @@
 #include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/int_array_sort.h"
+#include "utils/uint_array_sort.h"
 #include "utils/uint_array_sort2.h"
 
 
@@ -1513,6 +1514,24 @@ static void clause_vector_add_block_length(nclause_vector_t *v, uint32_t s) {
   v->top = j+1;
 }
 
+/*
+ * Store block for a variable eliminated by substitution:
+ * - for l := l0, we store l0, not(l), 2.
+ */
+static void clause_vector_save_subst_clause(nclause_vector_t *v, literal_t l0, literal_t l) {
+  uint32_t j;
+
+  resize_clause_vector(v, 2);
+  assert(v->top + 3 <= v->capacity);
+
+  j = v->top;
+  v->data[j] = l0;
+  v->data[j+1] = not(l);
+  v->data[j+2] = 2;
+  v->top = j + 3;
+}
+
+
 
 /**********************
  *  ELIMINATION HEAP  *
@@ -2191,6 +2210,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->subst_vars = 0;
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
+  stat->pp_subst_vars = 0;
   stat->pp_clauses_deleted = 0;
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
@@ -4568,6 +4588,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
 	          "c After preprocessing\n");
   fprintf(stderr, "c  unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
   fprintf(stderr, "c  pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
+  fprintf(stderr, "c  substitutions        : %"PRIu32"\n", solver->stats.pp_subst_vars);
   fprintf(stderr, "c  cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
   fprintf(stderr, "c  less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
   fprintf(stderr, "c  active vars          : %"PRIu32"\n", num_active_vars(solver));
@@ -4831,10 +4852,12 @@ static inline bool elim_heap_is_empty(const sat_solver_t *solver) {
 /*
  * Check whether x is in the heap
  */
+#ifndef NDEBUG
 static inline bool var_is_in_elim_heap(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
   return solver->elim.elim_idx[x] >= 0;
 }
+#endif
 
 
 /*
@@ -5089,7 +5112,9 @@ static void pp_push_literal(sat_solver_t *solver, literal_t l, antecedent_tag_t 
   solver->ante_data[v] = 0;
   solver->level[v] = 0;
 
-  elim_heap_remove_var(solver, v);
+  if (solver->elim.data != NULL) {
+    elim_heap_remove_var(solver, v);
+  }
 }
 
 static inline void pp_push_pure_literal(sat_solver_t *solver, literal_t l) {
@@ -5106,12 +5131,12 @@ static inline void pp_push_unit_literal(sat_solver_t *solver, literal_t l) {
 /*
  * Decrement the occurrence counter of l.
  * - if occ[l] goes to zero, add not(l) to the queue as a pure literal (unless
- *   l is already assigned).
+ *   l is already assigned or eliminated).
  */
 static void pp_decrement_occ(sat_solver_t *solver, literal_t l) {
   assert(solver->occ[l] > 0);
   solver->occ[l] --;
-  if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && lit_is_unassigned(solver, l)) {
+  if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && !lit_is_assigned(solver, l)) {
     pp_push_pure_literal(solver, not(l));
   }
 }
@@ -5122,9 +5147,17 @@ static void pp_decrement_occ(sat_solver_t *solver, literal_t l) {
 static void pp_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
   uint32_t i;
 
-  for (i=0; i<n; i++) {
-    pp_decrement_occ(solver, a[i]);
-    elim_heap_update_var(solver, var_of(a[i]));
+  if (solver->elim.data == NULL) {
+    // no elimination heap: update only the occurrence counters
+    for (i=0; i<n; i++) {
+      pp_decrement_occ(solver, a[i]);
+    }
+  } else {
+    // update the occurrence counters and the elimination heap
+    for (i=0; i<n; i++) {
+      pp_decrement_occ(solver, a[i]);
+      elim_heap_update_var(solver, var_of(a[i]));
+    }
   }
 }
 
@@ -5134,9 +5167,17 @@ static void pp_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t
 static void pp_increment_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
   uint32_t i;
 
-  for (i=0; i<n; i++) {
-    solver->occ[a[i]] ++;
-    elim_heap_update_var(solver, var_of(a[i]));
+  if (solver->elim.data == NULL) {
+    // no elimination heap: update only the occurrence counters
+    for (i=0; i<n; i++) {
+      solver->occ[a[i]] ++;
+    }
+  } else {
+    // update the occurrence counters and the elimination heap
+    for (i=0; i<n; i++) {
+      solver->occ[a[i]] ++;
+      elim_heap_update_var(solver, var_of(a[i]));
+    }
   }
 }
 
@@ -5339,6 +5380,141 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  */
 
 /*
+ * Decrement occ counts of a[0 ... n-1]
+ * This is like pp_decrement_occ_counts but doesn't try to detect
+ * pure literals.
+ */
+static void pp_simple_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert(solver->occ[a[i]] > 0);
+    solver->occ[a[i]] --;
+  }
+}
+
+/*
+ * Apply the scc-based substitution to the clause that starts at cidx
+ * - if the clause simplifies to a unit clause, add the literal to
+ *   the unit-literal queue
+ */
+static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *a;
+  vector_t *b;
+  uint32_t i, n;
+  literal_t l;
+
+  assert(clause_is_live(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+
+  // apply substitution to all literals in a[0 ... n-1]
+  // store the result in vector b
+  b = &solver->buffer;
+  reset_vector(b);
+
+  for (i=0; i<n; i++) {
+    l = lit_subst(solver, a[i]);
+    assert(! lit_is_eliminated(solver, l));
+    switch (solver->value[l] & 3) {
+    case VAL_FALSE:
+      break;
+
+    case VAL_UNDEF_TRUE:
+    case VAL_UNDEF_FALSE:
+      vector_push(b, l);
+      mark_false_lit(solver, l);
+      break;
+
+    case VAL_TRUE:
+      goto done; // the clause is true
+    }
+  }
+
+ done:
+  clear_false_lits(solver, b->size, (literal_t *) b->data);
+
+  /*
+   * Decrement occ counts and delete the clause.
+   * We don't want to use pp_remove_clauses because it has side effects
+   * that are not correct here (i.e., finding pure literals).
+   */
+  pp_simple_decrement_occ_counts(solver, a, n);
+  clause_pool_delete_clause(&solver->pool, cidx);
+
+  /*
+   * b = new clause after substitution.
+   * if i < n, the clause is true.
+   */
+  if (i < n) {
+    solver->stats.pp_clauses_deleted ++;
+    return; // clause b is true. Nothing more to do
+  }
+
+  /*
+   * Store b as a new problem clause
+   */
+  n = b->size;
+  if (n == 1) {
+    // unit clause
+    pp_push_unit_literal(solver, b->data[0]);
+  } else {
+    // regular clause
+    assert(n >= 2);
+
+    uint_array_sort(b->data, n); // keep the clause sorted
+    cidx = clause_pool_add_problem_clause(&solver->pool, n, (literal_t *) b->data);
+    add_clause_all_watch(solver, n, (literal_t *) b->data, cidx);
+    set_clause_signature(&solver->pool, cidx);
+  }
+  pp_increment_occ_counts(solver, (literal_t *) b->data, n);
+}
+
+
+/*
+ * Apply the substitution to all the clauses in vector w
+ */
+static void pp_apply_subst_to_watch_vector(sat_solver_t *solver, watch_t *w) {
+  uint32_t i, n, k;
+
+  n = w->size;
+  for (i=0; i<n; i++) {
+    k = w->data[i];
+    if (clause_is_live(&solver->pool, k)) {
+      pp_apply_subst_to_clause(solver, k);
+    }
+  }
+}
+
+/*
+ * Apply the substitution to all clauses that contain variable x
+ * - then delete the watch vectors for x
+ */
+static void pp_apply_subst_to_variable(sat_solver_t *solver, bvar_t x) {
+  watch_t *w;
+
+  assert(solver->ante_tag[x] == ATAG_SUBST);
+
+  w = solver->watch[pos_lit(x)];
+  if (w != NULL) {
+    pp_apply_subst_to_watch_vector(solver, w);
+    safe_free(w);
+    solver->watch[pos_lit(x)] = NULL;
+  }
+
+  w = solver->watch[neg_lit(x)];
+  if (w != NULL) {
+    pp_apply_subst_to_watch_vector(solver, w);
+    safe_free(w);
+    solver->watch[neg_lit(x)] = NULL;
+  }
+
+  //  pp_try_gc(solver);
+}
+
+
+/*
  * Compute the SCCs from the binary clauses
  * - return false if a conflict is detected
  * - return true otherwise
@@ -5354,16 +5530,22 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     return false;
   }
 
-  if (solver->stats.subst_vars > subst_count) {
-    fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", solver->stats.subst_vars);
+  if (solver->stats.subst_vars > subst_count && solver->verbosity >= 3) {
+    fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", solver->stats.subst_vars - subst_count);
   }
 
-  // cleanup all substitution data
   n = solver->nvars;
   for (i=1; i<n; i++) {
     if (solver->ante_tag[i] == ATAG_SUBST) {
-      solver->ante_tag[i] = ATAG_NONE;
-      solver->ante_data[i] = 0;
+      // force a value for pos_lit(i) and neg_lit(i) so that they don't
+      // get considered in other simplification procedures
+      solver->value[pos_lit(i)] = VAL_TRUE;
+      solver->value[neg_lit(i)] = VAL_FALSE;
+
+      // save clause l := l0 to reconstruct the model: l0 = ante_data[i], l = pos_lit(i)
+      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[i], pos_lit(i));
+
+      pp_apply_subst_to_variable(solver, i);
     }
   }
 
@@ -6180,9 +6362,8 @@ static void collect_elimination_candidates(sat_solver_t *solver) {
 
   n = solver->nvars;
   for (i=1; i<n; i++) {
-    if (var_is_unassigned(solver, i) &&
-        !var_is_in_elim_heap(solver, i) &&
-        pp_elim_candidate(solver, i)) {
+    if (var_is_active(solver, i) && pp_elim_candidate(solver, i)) {
+      assert(!var_is_in_elim_heap(solver, i));
       elim_heap_insert_var(solver, i);
     }
   }
@@ -6204,9 +6385,12 @@ static void process_elimination_candidates(sat_solver_t *solver) {
     if (var_is_assigned(solver, x)) {
       assert(solver->ante_tag[x] == ATAG_PURE ||
              solver->ante_tag[x] == ATAG_UNIT ||
-             solver->ante_tag[x] == ATAG_ELIM);
+             solver->ante_tag[x] == ATAG_ELIM ||
+	     solver->ante_tag[x] == ATAG_SUBST);
       continue;
     }
+    assert(!var_is_eliminated(solver, x));
+
     pp = solver->occ[pos_lit(x)];
     nn = solver->occ[neg_lit(x)];
     if (pp == 0 || nn == 0) {
@@ -6370,25 +6554,28 @@ static void prepare_for_search(sat_solver_t *solver) {
  *   in the watch vectors; other clauses have two watch literals.
  */
 static void nsat_preprocess(sat_solver_t *solver) {
-  if (solver->verbosity >= 4) fprintf(stderr, "c Elim unit/pure literals\n");
-  prepare_elim_heap(&solver->elim, solver->nvars);
-  if (solver->verbosity >= 4) fprintf(stderr, "c Elim unit/pure literals\n");
+  if (solver->verbosity >= 4) fprintf(stderr, "c Eliminate pure and unit literals\n");
 
   collect_unit_and_pure_literals(solver);
-  if (pp_empty_queue(solver)) {
+  do {
+    if (! pp_empty_queue(solver)) goto done;
     pp_try_gc(solver);
-    if (! pp_scc_simplification(solver)) goto done; // for testing
-    collect_elimination_candidates(solver);
-    assert(solver->scan_index == 0);
-    do {
-      if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
-      process_elimination_candidates(solver);
-      if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
-      if (solver->has_empty_clause || !pp_subsumption(solver)) break;
-    } while (!elim_heap_is_empty(solver));
-  }
+    if (! pp_scc_simplification(solver)) goto done;
+  } while (! queue_is_empty(&solver->lqueue));
+
+  prepare_elim_heap(&solver->elim, solver->nvars);
+  collect_elimination_candidates(solver);
+  assert(solver->scan_index == 0);
+  do {
+    if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
+    process_elimination_candidates(solver);
+    if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
+    if (solver->has_empty_clause || !pp_subsumption(solver)) break;
+  } while (!elim_heap_is_empty(solver));
 
  done:
+  solver->stats.pp_subst_vars = solver->stats.subst_vars;
+
   if (solver->verbosity >= 4) fprintf(stderr, "c Done\nc\n");
 
   reset_clause_queue(solver);
@@ -7366,7 +7553,7 @@ static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint3
   bval_t val;
 
   l = a[n-1];
-  assert(solver->ante_tag[var_of(l)] == ATAG_ELIM);
+  assert(solver->ante_tag[var_of(l)] == ATAG_ELIM || solver->ante_tag[var_of(l)] == ATAG_SUBST);
 
   val = VAL_FALSE; // default value for l
   i = 0;
@@ -7693,7 +7880,8 @@ static void init_simplify(sat_solver_t *solver) {
  */
 static bool need_simplify(const sat_solver_t *solver) {
   return (level0_literals(solver) > solver->simplify_assigned ||
-	  solver->binaries > solver->simplify_binaries + solver->params.simplify_bin_delta)
+	  solver->binaries > solver->simplify_binaries + solver->params.simplify_bin_delta ||
+	  (solver->binaries > solver->simplify_binaries && solver->stats.conflicts >= solver->simplify_next + 100000))
     && solver->stats.conflicts >= solver->simplify_next;
 }
 

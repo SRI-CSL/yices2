@@ -1041,7 +1041,6 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
   fprintf(f, "c  unit clauses         : %"PRIu32"\n", sol->units);
   fprintf(f, "c  binary clauses       : %"PRIu32"\n", sol->binaries);
   fprintf(f, "c  other clauses        : %"PRIu32"\n", sol->pool.num_prob_clauses);
-  fprintf(f, "c  assignments          : %"PRIu32"\n", sol->stack.top);
   fprintf(f, "c\n");
 }
 
