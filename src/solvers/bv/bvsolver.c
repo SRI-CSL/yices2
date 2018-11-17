@@ -66,7 +66,7 @@ static void print_solver_state(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n--- Clauses ---\n");
   print_clauses(f, solver->core);
@@ -8717,7 +8717,7 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
     print_bv_solver_dag(f, solver);
     if (solver->blaster != NULL) {
       fprintf(f, "\n--- Gates ---\n");
-      print_gate_table(f, &solver->blaster->htbl);
+      print_gate_table(f, solver->blaster->htbl);
     }
     fprintf(f, "\n--- Clauses ---\n");
     print_clauses(f, solver->core);
