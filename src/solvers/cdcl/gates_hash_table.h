@@ -407,7 +407,11 @@ static inline boolgate_t *gate_table_get_fulladd(gate_table_t *table, literal_t 
 }
 
 
-
+/*
+ * Support for scanning all the gates
+ * - *index to scan from
+ */
+extern boolgate_t *gate_table_next(const gate_table_t *table, uint32_t *index);
 
 
 #endif /* __GATES_HASH_TABLE_H */

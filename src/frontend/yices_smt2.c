@@ -45,9 +45,6 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 
-// optional: support cadical or not
-// TODO: set this at configure time
-#define HAVE_CADICAL 0
 
 /*
  * Global objects:
@@ -281,7 +278,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	  if (strcmp(elem.s_value, "y2sat") == 0) {
 	    delegate = "y2sat";
 	  } else if (strcmp(elem.s_value, "cadical") == 0) {
-#if HAVE_CADICAL
+#ifdef HAVE_CADICAL
 	    delegate = "cadical";
 #else
 	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);

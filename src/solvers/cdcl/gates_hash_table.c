@@ -643,3 +643,26 @@ boolgate_t *gate_table_get3(gate_table_t *table, uint32_t tag, literal_t a, lite
 }
 
 
+/*
+ * Scan the table starting at position *index
+ * - return the first gate found or NULL if there's no more gate
+ * - update *index to the inde that follows this gate
+ */
+boolgate_t *gate_table_next(const gate_table_t *table, uint32_t *index) {
+  const gate_htbl_t *htbl;
+  uint32_t i, n;
+  boolgate_t *d;
+
+  htbl = &table->htbl;
+
+  n = htbl->size;
+  for (i = *index; i < n; i++) {
+    d = htbl->data[i];
+    if (live_descriptor(d)) {
+      *index = i+1;
+      return d;
+    }
+  }
+  *index = n;
+  return NULL;
+}

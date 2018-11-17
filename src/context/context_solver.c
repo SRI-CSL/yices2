@@ -658,8 +658,13 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
   smt_status_t stat;
   smt_core_t *core;
   delegate_t delegate;
+#if 0
+  boolgate_t *gate;
+  uint32_t iter;
+#endif
   bvar_t x;
   bval_t v;
+
 
   core = ctx->core;
 
@@ -675,6 +680,20 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
     if (stat == STATUS_SEARCHING) {
       init_delegate(&delegate, sat_solver, num_vars(core));
       delegate_set_verbosity(&delegate, verbosity);
+
+#if 0
+      if (strcmp(sat_solver, "y2sat") == 0) {
+	iter = 0;
+	for (;;) {
+	  gate = gate_table_next(get_gate_table(core), &iter);
+	  if (gate == NULL) break;
+	  if (gate->tag == xorgate_tag(2)) {
+	    nsat_solver_activate_var(delegate.solver, var_of(gate->lit[2]), 1.0, false);
+	  }
+	}
+      }
+#endif
+
       stat = solve_with_delegate(&delegate, core);
       set_smt_status(core, stat);
       if (stat == STATUS_SAT) {

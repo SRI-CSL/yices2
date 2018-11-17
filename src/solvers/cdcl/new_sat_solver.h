@@ -891,6 +891,13 @@ extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
 extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
 
 
+/*
+ * Update activity and polarity for variable x
+ * - polarity true: means true is preferred
+ * - act must be positive
+ */
+extern void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity);
+
 
 
 /*********************************

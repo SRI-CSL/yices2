@@ -1255,6 +1255,18 @@ static cidx_t clause_pool_next_clause(const clause_pool_t *pool, cidx_t idx) {
   return next_clause_index(pool, idx + n);
 }
 
+/*
+ * Check whether cidx is a valid clause
+ * - cidx is an integer stored in a watch vector.
+ * - it can be a placeholder for a clause that was removed from the watch vector
+ *   (then cidx is not  a multiple of four).
+ * - otherwise, cidx is a multiple of four, we check whether cidx
+ *   is the start of a clause (it can also be the start of a padding block)
+ */
+static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
+  return is_multiple_of_four(cidx) && is_clause_start(pool, cidx);
+}
+
 
 
 /*****************
@@ -2154,6 +2166,32 @@ static inline double lit_activity(const sat_solver_t *solver, literal_t l) {
 }
 
 
+/*
+ * Set activity and branching polarity for variable x
+ * - polarity: true means true is preferred
+ * - act = activity score
+ */
+void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity) {
+  nvar_heap_t *heap;
+
+  assert(0 <= x && x < solver->nvars);
+  assert(0.0 <= act);
+
+  heap = &solver->heap;
+  if (heap->heap_index[x] < 0) {
+    heap->activity[x] = act;
+    heap_insert(heap, x);
+  }
+  if (polarity) {
+    solver->value[pos_lit(x)] = VAL_UNDEF_TRUE;
+    solver->value[neg_lit(x)] = VAL_UNDEF_FALSE;
+  } else {
+    solver->value[pos_lit(x)] = VAL_UNDEF_FALSE;
+    solver->value[neg_lit(x)] = VAL_UNDEF_TRUE;
+  }
+
+  fprintf(stderr, "activate %"PRId32", polarity = %d\n", x, polarity);
+}
 
 /*
  * MARKS ON VARIABLES
@@ -2799,6 +2837,11 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
 }
 
 
+/* static inline int32_t l2dimacs(literal_t l) { */
+/*   int x = var_of(l) + 1; */
+/*   return is_pos(l) ? x : - x; */
+/* } */
+
 /*
  * Decide literal: increase decision level then
  * assign literal l to true and push it on the stack
@@ -2836,6 +2879,7 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
 
   assert(lit_is_true(solver, l));
 
+  //  fprintf(stderr, "decide %"PRId32"\n", l2dimacs(l));
 #if TRACE
   printf("---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
   fflush(stdout);
@@ -3569,6 +3613,7 @@ static void report(sat_solver_t *solver, const char *code) {
 	      solver->binaries, solver->pool.num_prob_clauses,
 	      solver->pool.num_learned_clauses, slow, lits_per_clause);
     }
+    solver->max_depth = 0;
   }
 }
 
@@ -4150,7 +4195,7 @@ static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i
        */
       while (k < n) {
 	idx = w->data[k];
-	if (clause_length(&solver->pool, idx) == 2) {
+	if (clause_is_live(&solver->pool, idx) && clause_length(&solver->pool, idx) == 2) {
 	  *i = k+1;
 	  *successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
 	  return true;
@@ -4610,18 +4655,6 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
 /*
  * QUEUE OF CLAUSES/SCAN INDEX
  */
-
-/*
- * Check whether cidx is a valid clause
- * - cidx is an integer stored in a watch vector.
- * - it can be a placeholder for a clause that was removed from the watch vector
- *   (then cidx is not  a multiple of four).
- * - otherwise, cidx is a multiple of four, we check whether cidx
- *   is the start of a clause (it can also be the start of a padding block)
- */
-static inline bool clause_is_live(const clause_pool_t *pool, cidx_t cidx) {
-  return is_multiple_of_four(cidx) && is_clause_start(pool, cidx);
-}
 
 /*
  * The queue cqueue + the scan index define a set of clauses to visit:
@@ -6572,6 +6605,12 @@ static void nsat_preprocess(sat_solver_t *solver) {
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) break;
   } while (!elim_heap_is_empty(solver));
+
+  do {
+    if (! pp_empty_queue(solver)) goto done;
+    pp_try_gc(solver);
+    if (! pp_scc_simplification(solver)) goto done;
+  } while (! queue_is_empty(&solver->lqueue));
 
  done:
   solver->stats.pp_subst_vars = solver->stats.subst_vars;

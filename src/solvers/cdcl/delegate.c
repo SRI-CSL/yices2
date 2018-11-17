@@ -19,9 +19,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define HAVE_CADICAL 0
-
-#if HAVE_CADICAL
+#ifdef HAVE_CADICAL
 #include "ccadical.h"
 #endif
 
@@ -88,7 +86,7 @@ static void ysat_delete(void *solver) {
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true);
-  //  init_nsat_solver(d->solver, nvars, false); // without preprocessing
+  // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0);
   nsat_solver_add_vars(d->solver, nvars);
   nsat_set_randomness(d->solver, 0);
