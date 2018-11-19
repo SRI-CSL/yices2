@@ -1267,8 +1267,6 @@ void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, li
 
 
 
-
-
 /*
  * Constraint x = (or a[0] ... a[n-1])
  */

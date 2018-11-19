@@ -88,6 +88,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   init_nsat_solver(d->solver, nvars, true);
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0);
+  nsat_set_var_decay_factor(d->solver, 0.7);
   nsat_solver_add_vars(d->solver, nvars);
   nsat_set_randomness(d->solver, 0);
   init_ivector(&d->buffer, 0);
