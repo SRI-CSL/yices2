@@ -24,6 +24,7 @@
 #endif
 
 #include "solvers/cdcl/delegate.h"
+#include "solvers/cdcl/gate_equiv.h"
 #include "solvers/cdcl/new_sat_solver.h"
 #include "utils/memalloc.h"
 
@@ -85,8 +86,8 @@ static void ysat_delete(void *solver) {
 
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
-  init_nsat_solver(d->solver, nvars, true);
-  // init_nsat_solver(d->solver, nvars, false); // without preprocessing
+  // init_nsat_solver(d->solver, nvars, true);
+  init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0);
   nsat_set_var_decay_factor(d->solver, 0.7);
   nsat_solver_add_vars(d->solver, nvars);
@@ -338,10 +339,43 @@ static void copy_problem_clauses(delegate_t *d, smt_core_t *core) {
 
 
 /*
+ * To interface with the bdef table
+ */
+static literal_t base_literal(void *smt_core, literal_t l) {
+  switch (literal_base_value(smt_core, l)) {
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
+    break;
+
+  case VAL_FALSE:
+    l = false_literal;
+    break;
+
+  case VAL_TRUE:
+    l = true_literal;
+    break;
+  }
+
+  return l;
+}
+
+/*
  * Copy all clauses of core to a delegate d then call the delegate's solver
  */
 smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
+  bdef_table_t def;
+  
   copy_problem_clauses(d, core);
+
+  // for testing only
+  
+  //  printf("\n---- GATES ----\n");
+  //  print_gate_table(stdout, get_gate_table(core));
+  //  printf("----\n\n");
+  init_bdef_table(&def, core, base_literal);
+  bdef_table_process_all_gates(&def, get_gate_table(core));
+  delete_bdef_table(&def);
+
   return d->check(d->solver);
 }
 

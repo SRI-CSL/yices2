@@ -410,6 +410,20 @@ static inline boolgate_t *gate_table_get_fulladd(gate_table_t *table, literal_t 
 /*
  * Support for scanning all the gates
  * - *index to scan from
+ * - return the first gate found or NULL if there's no more gate
+ * - update *index to the index that follows this gate
+ *
+ * To scan the table, use something like this:
+ *
+ *   uint32_t scan_index;
+ *   boolgate_t *g;
+ *
+ *   scan_index = 0;
+ *   g = gate_table_next(table, &scan_index);
+ *   while (g != NULL) {
+ *     ...
+ *     g = gate_table_next(table, &scan_index);
+ *   }
  */
 extern boolgate_t *gate_table_next(const gate_table_t *table, uint32_t *index);
 
