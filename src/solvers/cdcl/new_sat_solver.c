@@ -2172,32 +2172,6 @@ static inline double lit_activity(const sat_solver_t *solver, literal_t l) {
 }
 
 
-/*
- * Set activity and branching polarity for variable x
- * - polarity: true means true is preferred
- * - act = activity score
- */
-void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity) {
-  nvar_heap_t *heap;
-
-  assert(0 <= x && x < solver->nvars);
-  assert(0.0 <= act);
-
-  heap = &solver->heap;
-  if (heap->heap_index[x] < 0) {
-    heap->activity[x] = act;
-    heap_insert(heap, x);
-  }
-  if (polarity) {
-    solver->value[pos_lit(x)] = VAL_UNDEF_TRUE;
-    solver->value[neg_lit(x)] = VAL_UNDEF_FALSE;
-  } else {
-    solver->value[pos_lit(x)] = VAL_UNDEF_FALSE;
-    solver->value[neg_lit(x)] = VAL_UNDEF_TRUE;
-  }
-
-  fprintf(stderr, "activate %"PRId32", polarity = %d\n", x, polarity);
-}
 
 /*
  * MARKS ON VARIABLES
@@ -2225,6 +2199,116 @@ static inline bool variable_is_marked(const sat_solver_t *solver, bvar_t x) {
 
 static inline bool literal_is_marked(const sat_solver_t *solver, literal_t l) {
   return variable_is_marked(solver, var_of(l));
+}
+
+
+
+/**************************
+ *  VARIABLE DESCRIPTORS  *
+ *************************/
+
+/*
+ * Initialize the descriptor table: nothing allocated
+ */
+static void init_descriptors(descriptors_t *table) {
+  table->tag = NULL;
+  table->desc = NULL;
+  table->size = 0;
+  table->capacity = 0;
+}
+
+/*
+ * Delete
+ */
+static void delete_descriptors(descriptors_t *table) {
+  safe_free(table->tag);
+  safe_free(table->desc);
+  table->tag = NULL;
+  table->desc = NULL;
+}
+
+/*
+ * Empty
+ */
+static inline void reset_descriptors(descriptors_t *table) {
+  table->size = 0;
+}
+
+/*
+ * Capacity increase: like for vector
+ * - about 50% increase rounded up to a multiple of four
+ */
+static inline uint32_t descriptors_cap_increase(uint32_t cap) {
+  return ((cap >> 1) + 8) & ~3;
+}
+
+/*
+ * Increase cap until it's larger than n
+ */
+static uint32_t descriptors_new_cap(uint32_t cap, uint32_t n) {
+  if (cap == 0) {
+    cap = DEF_DESCRIPTORS_SIZE;
+    if (cap > n) return cap;
+  }
+
+  do {
+    cap += descriptors_cap_increase(cap);
+    if (cap > MAX_DESCRIPTORS_SIZE) {
+      out_of_memory();
+    }
+  } while (cap <= n);
+
+  return cap;
+}
+
+
+/*
+ * Make sure the arrays are large enough to store data about variable x
+ */
+static void resize_descriptors(descriptors_t *table, bvar_t x) {
+  uint32_t new_cap;
+
+  assert(x >= 0);
+  new_cap = descriptors_new_cap(table->capacity, (uint32_t) x);
+
+  table->tag = (uint8_t *) safe_realloc(table->tag, new_cap * sizeof(uint8_t));
+  table->desc = (uint32_t *) safe_realloc(table->desc, new_cap * sizeof(uint32_t));
+  table->capacity = new_cap;
+}
+
+/*
+ * Store a descriptor for variable x:
+ * - tag = tag for x
+ * - d = auxiliary data
+ */
+static void add_descriptor(descriptors_t *table, bvar_t x, descriptor_tag_t tag, uint32_t d) {
+  uint32_t i;
+
+  assert(0 <= x && x < MAX_VARIABLES);
+
+  if (x >= table->capacity) {
+    resize_descriptors(table, x);
+    assert(x < table->capacity);
+  }
+
+  if (x >= table->size) {
+    for (i=table->size; i<x; i++) {
+      table->tag[i] = DTAG_NONE;
+    }
+    table->size = x+1;
+  }
+
+  table->tag[x] = tag;
+  table->desc[x] = d;
+}
+
+
+/*
+ * Check whether x is marked as a keeper
+ */
+static bool bvar_to_keep(const descriptors_t *table, bvar_t x) {
+  assert(0 <= x);
+  return x < table->size && table->tag[x] == DTAG_TO_KEEP;
 }
 
 
@@ -2380,6 +2464,9 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->label = NULL;
   solver->visit = NULL;
 
+  init_descriptors(&solver->descriptors);
+  init_bgate_array(&solver->gates);
+
   solver->data = NULL;
 }
 
@@ -2441,6 +2528,9 @@ void delete_nsat_solver(sat_solver_t *solver) {
     solver->visit = NULL;
   }
 
+  delete_descriptors(&solver->descriptors);
+  delete_bgate_array(&solver->gates);
+
   close_datafile(solver);
 }
 
@@ -2493,6 +2583,9 @@ void reset_nsat_solver(sat_solver_t *solver) {
     solver->label = NULL;
     solver->visit = NULL;
   }
+
+  reset_descriptors(&solver->descriptors);
+  reset_bgate_array(&solver->gates);
 
   reset_datafile(solver);
 }
@@ -2738,6 +2831,50 @@ bvar_t nsat_solver_new_var(sat_solver_t *solver) {
   nsat_solver_add_vars(solver, 1);
   assert(solver->nvars == x + 1);
   return x;
+}
+
+
+/*
+ * EXPERIMENTAL FUNCTIONS
+ */
+
+/*
+ * Set activity and branching polarity for variable x
+ * - polarity: true means true is preferred
+ * - act = activity score
+ */
+void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity) {
+  nvar_heap_t *heap;
+
+  assert(0 <= x && x < solver->nvars);
+  assert(0.0 <= act);
+
+  heap = &solver->heap;
+  if (heap->heap_index[x] < 0) {
+    heap->activity[x] = act;
+    heap_insert(heap, x);
+  }
+  if (polarity) {
+    solver->value[pos_lit(x)] = VAL_UNDEF_TRUE;
+    solver->value[neg_lit(x)] = VAL_UNDEF_FALSE;
+  } else {
+    solver->value[pos_lit(x)] = VAL_UNDEF_FALSE;
+    solver->value[neg_lit(x)] = VAL_UNDEF_TRUE;
+  }
+
+  fprintf(stderr, "activate %"PRId32", polarity = %d\n", x, polarity);
+}
+
+
+/*
+ * Mark variable x as a variable to keep: it will not be deleted during
+ * preprocessing. By default, all variables are considered candidates for
+ * elimination.
+ */
+void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x) {
+  assert(0 <= x && x < solver->nvars);
+  add_descriptor(&solver->descriptors, x, DTAG_TO_KEEP, 0);
+  assert(bvar_to_keep(&solver->descriptors, x));
 }
 
 
@@ -4739,13 +4876,17 @@ static cidx_t clause_queue_pop(sat_solver_t *solver) {
  */
 
 /*
- * Variables that have too many positive and negative occurrences are not eliminated.
- * - the cutoff is solver->val_elim_skip (10 by default)
+ * Check whether we should consider x for elimination:
+ * - we skip x if it's marked as "TO_KEEP" or if it has many positive and
+ *   negative occurrences.
+ * - the cutoff is solver->val_elim_skip (10 by default).
  */
 static bool pp_elim_candidate(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->occ[pos_lit(x)] < solver->params.var_elim_skip
-    || solver->occ[neg_lit(x)] < solver->params.var_elim_skip;
+
+  return (solver->occ[pos_lit(x)] < solver->params.var_elim_skip
+	  || solver->occ[neg_lit(x)] < solver->params.var_elim_skip)
+    && !bvar_to_keep(&solver->descriptors, x);
 }
 
 /*
@@ -6348,7 +6489,7 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 
 /*
  * Check whether eliminating variable x creates too many clauses.
- * - return true if the number of non-trivial resolvent is more than
+ * - return true if the number of non-trivial resolvent is less than
  *   the number of clauses that contain x
  */
 static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) {

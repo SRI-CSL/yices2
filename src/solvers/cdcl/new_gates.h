@@ -17,17 +17,15 @@
  */
 
 /*
- * EXPERIMENTAL: SUPPORT TO DETECT EQUIVALENCE BETWEEN GATES
+ * EXPERIMENTAL: BOOLEAN GATES
  */
 
-#ifndef __GATES_EQUIV_H
-#define __GATES_EQUIV_H
+#ifndef __NEW_GATES_H
+#define __NEW_GATES_H
 
 #include <stdint.h>
 
-#include "solvers/cdcl/gates_hash_table.h"
-#include "utils/int_hash_map.h"
-#include "utils/int_vectors.h"
+#include "solvers/cdcl/smt_core_base_types.h"
 
 /*
  * Truth tables for Boolean gates of arity <= 3
@@ -103,39 +101,111 @@ typedef struct bgate_array_s {
 
 
 /*
- * Full table:
- * - gates: gate table
- * - defs: map from variable to an index in the gate table
- * - vars: array of all variables that have a definition in defs
- * - interface to access a sat solver
+ * Initialization: nothing allocated yet
  */
-typedef struct bdef_table_s {
-  bgate_array_t gates;
-  int_hmap_t defs;
-  ivector_t vars;
-} bdef_table_t;
+extern void init_bgate_array(bgate_array_t *a);
+
+/*
+ * Free memory
+ */
+extern void delete_bgate_array(bgate_array_t *a);
+
+/*
+ * Empty the table
+ */
+static inline void reset_bgate_array(bgate_array_t *a) {
+  a->ngates = 0;
+}
+
+/*
+ * Store a new descriptor in a
+ * - tt = (normalized) truth table
+ * - return the index of the newly allocated element
+ */
+extern uint32_t store_bgate(bgate_array_t *a, ttbl_t *tt);
+
+/*
+ * Normalize and store a gate with two input literals.
+ * - b = truth table for the gate
+ *   (only the eight low-order bits are used)
+ * - l1, l2 = input literals
+ * 
+ * - b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
+ * - this defines a function f(l1, l2) with the following table
+ *     
+ *     l1   l2    f
+ *
+ *      0    0    b0
+ *      0    1    b1
+ *      1    0    b2
+ *      1    1    b3
+ */
+extern uint32_t store_binary_gate(bgate_array_t *a, uint32_t b, literal_t l1, literal_t l2);
+
+ 
+/*
+ * Normalize and store a gate with three input literals:
+ * - b = truth table for the gate
+ *   (only the eight low-order bits are used)
+ * - l1, l2, l3 = input literals
+ *
+ * - b is [b7 b6 b5 b4 b3 b2 b1 b0]
+ * - the corresponding function is defined by this table:
+ *
+ *   l1   l2   l3    f 
+ *
+ *    0    0    0    b0
+ *    0    0    1    b1
+ *    0    1    0    b2
+ *    0    1    1    b3
+ *    1    0    0    b4
+ *    1    0    1    b5
+ *    1    1    0    b6
+ *    1    1    1    b7
+ */
+extern uint32_t store_ternary_gate(bgate_array_t *a, uint32_t b, literal_t l1, literal_t l2, literal_t l3);
 
 
 /*
- * Initialization:
+ * Common binary gates
  */
-extern void init_bdef_table(bdef_table_t *table);
+static inline uint32_t store_or2(bgate_array_t *a, literal_t l1, literal_t l2) {
+  return store_binary_gate(a, 0xfc, l1, l2);
+}
+
+static inline uint32_t store_and2(bgate_array_t *a, literal_t l1, literal_t l2) {
+  return store_binary_gate(a, 0xc0, l1, l2);
+}
+
+static inline uint32_t store_xor2(bgate_array_t *a, literal_t l1, literal_t l2) {
+  return store_binary_gate(a, 0x3c, l1, l2);
+}
+
 
 /*
- * Deletion
+ * Common ternary gates
  */
-extern void delete_bdef_table(bdef_table_t *table);
+static inline literal_t store_or3(bgate_array_t *a, literal_t l1, literal_t l2, literal_t l3) {
+  return store_ternary_gate(a, 0xfe, l1, l2, l3);
+}
+
+static inline literal_t store_xor3(bgate_array_t *a, literal_t l1, literal_t l2, literal_t l3) {
+  return store_ternary_gate(a, 0x96, l1, l2, l3);
+}
+
+static inline literal_t store_maj3(bgate_array_t *a, literal_t l1, literal_t l2, literal_t l3) {
+  return store_ternary_gate(a, 0xe8, l1, l2, l3);
+}
+
+static inline literal_t store_ite(bgate_array_t *a, literal_t c, literal_t l1, literal_t l2) {
+  return store_ternary_gate(a, 0xca, c, l1, l2);
+}
+
 
 /*
- * Process a gate descriptor d
- * - if d's arity is <= 3, this adds entry in the table for every
- *   output variable of d.
+ * Get the truth table for gate i: store it in tt
  */
-extern void bdef_table_process_gate(bdef_table_t *table, const boolgate_t *d);
+extern void get_bgate(bgate_array_t *a, uint32_t i, ttbl_t *tt);
 
-/*
- * Process all gates in gate_table
- */
-extern void bdef_table_process_all_gates(bdef_table_t *table, const gate_table_t *gate_table);
 
-#endif /* __GATES_EQUIV_H */
+#endif /* __NEW_GATES_H */

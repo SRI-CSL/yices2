@@ -1108,6 +1108,8 @@ void bit_blaster_eq(bit_blaster_t *s, literal_t a, literal_t b) {
     cbuffer_simplify(buffer);
   }
 
+  //  printf("BB: assert eq %"PRId32" %"PRId32"\n", a, b);
+
   commit_buffer(s, buffer);
 }
 

@@ -17,23 +17,18 @@
  */
 
 /*
- * EXPERIMENTAL: SUPPORT TO DETECT EQUIVALENCE BETWEEN GATES
+ * EXPERIMENTAL: BOOLEAN GATES
  */
-
 #include <assert.h>
 
-#include <inttypes.h>
-#include <stdio.h>
-
-#include "solvers/cdcl/gate_equiv.h"
-#include "utils/int_array_sort.h"
+#include "solvers/cdcl/new_gates.h"
 #include "utils/memalloc.h"
 
 
 /*
  * ARRAY OF GATE DESCRIPTORS
  */
-static void init_bgate_array(bgate_array_t *a) {
+void init_bgate_array(bgate_array_t *a) {
   a->data = NULL;
   a->ngates = 0;
   a->size = 0;
@@ -61,7 +56,7 @@ static void extend_bgate_array(bgate_array_t *a) {
   }
 }
 
-static void delete_bgate_array(bgate_array_t *a) {
+void delete_bgate_array(bgate_array_t *a) {
   safe_free(a->data);
   a->data = NULL;
 }
@@ -72,7 +67,7 @@ static void delete_bgate_array(bgate_array_t *a) {
  * - tt = (normalized) truth table
  * - return the index of the newly allocated element
  */
-static uint32_t store_bgate(bgate_array_t *a, ttbl_t *tt) {
+uint32_t store_bgate(bgate_array_t *a, ttbl_t *tt) {
   uint32_t i;
 
   i = a->ngates;
@@ -105,7 +100,7 @@ static uint32_t bgate_arity(bgate_t *g) {
 /*
  * Get the truth table for gate i: store it in tt
  */
-static void get_bgate(bgate_array_t *a, uint32_t i, ttbl_t *tt) {
+void get_bgate(bgate_array_t *a, uint32_t i, ttbl_t *tt) {
   assert(i < a->size);
 
   tt->nvars = bgate_arity(a->data + i);
@@ -447,241 +442,67 @@ static void normalize_truth_table2(ttbl_t *tt) {
 }
 
 
-
 /*
- * FULL TABLE
+ * Normalize and store a gate with two input literals.
+ * - b = truth table for the gate
+ *   (only the eight low-order bits are used)
+ * - l1, l2 = input literals
+ * 
+ * - b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
+ * - this defines a function f(l1, l2) with the following table
+ *     
+ *     l1   l2    f
+ *
+ *      0    0    b0
+ *      0    1    b1
+ *      1    0    b2
+ *      1    1    b3
  */
-
-/*
- * Initialization
- */
-void init_bdef_table(bdef_table_t *table) {
-  init_bgate_array(&table->gates);
-  init_int_hmap(&table->defs, 1024);
-  init_ivector(&table->vars, 1024);
-}
-
-/*
- * Deletion
- */
-void delete_bdef_table(bdef_table_t *table) {
-  delete_bgate_array(&table->gates);
-  delete_int_hmap(&table->defs);
-  delete_ivector(&table->vars);
-}
-
-
-/*
- * Add a definition:
- * - v = variable
- * - ttbl = truth table defining v (must be normalized)
- * - this has no effect if v already has a definition in the table
- * - otherwise,
- *   add an entry for tt in the gate table
- *   map v to this new entry in the definition table
- *   store v at the end of the vars array
- */
-static void add_bvar_def(bdef_table_t *table, bvar_t v, ttbl_t *tt) {
-  int_hmap_pair_t *d;
-  uint32_t i;
-
-  assert(normal_truth_table(tt));
-  
-  d = int_hmap_get(&table->defs, v);
-  assert(d->key == v);
-
-  if (d->val < 0) {
-    i = store_bgate(&table->gates, tt);
-    // the coercion to int32_t is safe
-    // since 0 <= i < MAX_BGATE_ARRAY_SIZE < 2^31
-    d->val = (int32_t) i;
-    ivector_push(&table->vars, v);
-  }
-}
-
-
-/*
- * Get definition of variable v
- * - the result is an index in table->gates
- * - return -1 if v is not defined
- */
-static int32_t get_bvar_def(bdef_table_t *table, bvar_t v) {
-  int_hmap_pair_t *d;
-  int32_t gate;
-
-  gate = -1;
-  d = int_hmap_find(&table->defs, v);
-  if (d != NULL) gate = d->val;
-
-  return gate;
-}
-
-
-/*
- * Process a binary gate definition
- * - b = truth table for the gate opertator.
- *   only the lower 8 btis are used.
- *   b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
- * - l = gate output
- * - a1, a2 = two input literals
- */
-static void add_binary_gate(bdef_table_t *table, uint32_t b, literal_t l, literal_t a1, literal_t a2) {
+uint32_t store_binary_gate(bgate_array_t *a, uint32_t b, literal_t l1, literal_t l2) {
   ttbl_t tt;
 
-  // l can be true_literal or false_literal, in which case we skip this gate
-  if (var_of(l) != const_bvar) {
-    tt.nvars = 2;
-    tt.label[0] = a1;
-    tt.label[1] = a2;
-    tt.label[2] = null_bvar;
-    tt.mask = (uint8_t) b;
-    normalize_truth_table2(&tt);
-    
-    if (is_neg(l)) {
-      tt.mask = ~tt.mask;    
-    }
+  tt.nvars = 2;
+  tt.label[0] = l1;
+  tt.label[1] = l2;
+  tt.label[2] = null_bvar;
+  tt.mask = (uint8_t) b;
+  normalize_truth_table2(&tt);
 
-    add_bvar_def(table, var_of(l), &tt);
-  }
+  return store_bgate(a, &tt);  
 }
 
-
+ 
 /*
- * Process a ternary gate
- * - b = truth table for the operator (only 8 lower-order bits are used)
- * - l = gate output
- * - a1, a2, a3 = gate input
+ * Normalize and store a gate with three input literals:
+ * - b = truth table for the gate
+ *   (only the eight low-order bits are used)
+ * - l1, l2, l3 = input literals
+ *
+ * - b is [b7 b6 b5 b4 b3 b2 b1 b0]
+ * - the corresponding function is defined by this table:
+ *
+ *   l1   l2   l3    f 
+ *
+ *    0    0    0    b0
+ *    0    0    1    b1
+ *    0    1    0    b2
+ *    0    1    1    b3
+ *    1    0    0    b4
+ *    1    0    1    b5
+ *    1    1    0    b6
+ *    1    1    1    b7
  */
-static void add_ternary_gate(bdef_table_t *table, uint32_t b, literal_t l, literal_t a1, literal_t a2, literal_t a3) {
+uint32_t store_ternary_gate(bgate_array_t *a, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
   ttbl_t tt;
 
-  // l can be true_literal or false_literal, in which case we skip this gate
-  if (var_of(l) != const_bvar) {
-    tt.nvars = 3;
-    tt.label[0] = a1;
-    tt.label[1] = a2;
-    tt.label[2] = a3;
-    tt.mask = (uint8_t) b;
-    normalize_truth_table3(&tt);
+  tt.nvars = 3;
+  tt.label[0] = l1;
+  tt.label[1] = l2;
+  tt.label[2] = l3;
+  tt.mask = (uint8_t) b;
+  normalize_truth_table3(&tt);
 
-    if (is_neg(l)) {
-      tt.mask = ~tt.mask;
-    }
-
-    add_bvar_def(table, var_of(l), &tt);
-  }
+  return store_bgate(a, &tt);
 }
 
-
-
-/*
- * Process a gate descriptor d
- * - if d's arity is <= 3, this adds entry in the table for every
- *   output variable of d.
- */
-void bdef_table_process_gate(bdef_table_t *table, const boolgate_t *d) {
-  uint32_t n;
-
-  switch (tag_combinator(d->tag)) {
-  case XOR_GATE:
-    assert(tag_outdegree(d->tag) == 1);
-    n = tag_indegree(d->tag);
-    if (n == 2) {
-      // output is d->lit[2], inputs are d->lit[0] and d->lit[1]
-      add_binary_gate(table, 0x3c, d->lit[2], d->lit[0], d->lit[1]);
-    } else if (n == 3) {
-      // output is d->lit[3], inputs are d->lit[0 .. 2]
-      add_ternary_gate(table, 0x96, d->lit[3], d->lit[0], d->lit[1], d->lit[2]);
-    }
-    break;
-
-  case OR_GATE:
-    assert(tag_outdegree(d->tag) == 1);
-    n = tag_indegree(d->tag);
-    if (n == 2) {
-      // output is d->lit[2], inputs are d->lit[0] and d->lit[1]
-      add_binary_gate(table, 0xfc, d->lit[2], d->lit[0], d->lit[1]);
-    } else if (n == 3) {
-      // output is d->lit[3], inputs are d->lit[0 .. 2]
-      add_ternary_gate(table, 0xfe, d->lit[3], d->lit[0], d->lit[1], d->lit[2]);
-    }
-    break;
-    
-  case ITE_GATE:
-    assert(tag_indegree(d->tag) == 3 && tag_outdegree(d->tag) == 1);
-     add_ternary_gate(table, 0xca, d->lit[3], d->lit[0], d->lit[1], d->lit[2]);
-    break;
-
-  case CMP_GATE:
-    assert(tag_indegree(d->tag) == 3 && tag_outdegree(d->tag) == 1);
-    add_ternary_gate(table, 0xb2, d->lit[3], d->lit[0], d->lit[1], d->lit[2]);
-    break;
-    
-  case HALFADD_GATE:
-    assert(tag_indegree(d->tag) == 2 && tag_outdegree(d->tag) == 2);
-    // d->lit[2] = (xor d->lit[0] d->lit[1])
-    // d->lit[3] = (and d->lit[0] d->lit[1])
-    add_binary_gate(table, 0x3c, d->lit[2], d->lit[0], d->lit[1]);
-    add_binary_gate(table, 0xc0, d->lit[3], d->lit[0], d->lit[1]);
-    break;
-    
-   case FULLADD_GATE:
-    // d->lit[3] = (xor d->lit[0] d->lit[1] d->lit[2])
-    // d->lit[4] = (maj d->lit[0] d->lit[1] d->lit[2])
-    assert(tag_indegree(d->tag) == 3 && tag_outdegree(d->tag) == 2);
-    add_ternary_gate(table, 0x96, d->lit[3], d->lit[0], d->lit[1], d->lit[2]);
-    add_ternary_gate(table, 0xe8, d->lit[4], d->lit[0], d->lit[1], d->lit[2]);
-    break;
-  }
-}
-
-
-/*
- * For testing: print all definitions
- */
-void print_bvar_definition(bdef_table_t *table, bvar_t x) {
-  ttbl_t tt;
-  int32_t d;
-  uint32_t i;
-
-  d = get_bvar_def(table, x);
-  assert(d >= 0);
-  get_bgate(&table->gates, d, &tt);
-
-  printf("variable p!%"PRId32" := G(", x);
-  for (i=0; i<tt.nvars; i++) {
-    printf("p!%"PRId32", ", tt.label[i]);
-  }
-  printf("0x%02x)\n", (uint32_t) tt.mask);
-}
-
-void print_bvar_definitions(bdef_table_t *table) {
-  uint32_t i, n;
-
-  n = table->vars.size;
-  for (i=0; i<n; i++) {
-    print_bvar_definition(table, table->vars.data[i]);
-  }
-  fflush(stdout);
-}
-
-
-/*
- * Process all gates in gate_table
- */
-void bdef_table_process_all_gates(bdef_table_t *table, const gate_table_t *gate_table) {
-  uint32_t scan_index;
-  boolgate_t *g;
-
-  scan_index = 0;
-  g = gate_table_next(gate_table, &scan_index);
-  while (g != NULL) {
-    bdef_table_process_gate(table, g);
-    g = gate_table_next(gate_table, &scan_index);
-  }
-  int_array_sort(table->vars.data, table->vars.size);
-
-  // For testing only
-  print_bvar_definitions(table);
-}
 

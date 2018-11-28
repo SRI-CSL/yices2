@@ -35,6 +35,7 @@
 #include <assert.h>
 
 #include "solvers/cdcl/smt_core_base_types.h"
+#include "solvers/cdcl/new_gates.h"
 #include "utils/tag_map.h"
 
 
@@ -652,6 +653,38 @@ typedef enum solver_status {
 } solver_status_t;
 
 
+
+/****************************************
+ *  EXPERIMENTAL: VARIABLE DESCRIPTORS  *
+ ***************************************/
+
+/*
+ * For each variable, we optionally support metadata about where the
+ * variable came from. This allows us to select which variables may be
+ * eliminated or not and to attach a definition to a variable.
+ *
+ * For each variable x:
+ * - tag[x] = NONE, TO_KEEP, or GATE
+ * - desc[x] = index in the gate table if tag[x] == GATE, not used otherwise.
+ */
+typedef struct descriptors_s {
+  uint8_t *tag;
+  uint32_t *desc;
+  uint32_t size;       // number of variables with a tag
+  uint32_t capacity;   // size of arrays tag and desc
+} descriptors_t;
+
+#define DEF_DESCRIPTORS_SIZE 1024
+#define MAX_DESCRIPTORS_SIZE (UINT32_MAX/sizeof(uint32_t))
+
+typedef enum descriptor_tag_s {
+  DTAG_NONE,
+  DTAG_TO_KEEP,
+  DTAG_GATE,
+} descriptor_tag_t;
+
+
+
 /******************
  *  FULL SOLVER   *
  *****************/
@@ -696,16 +729,15 @@ typedef struct sat_solver_s {
   nvar_heap_t heap;           // Variable heap
   sol_stack_t stack;          // Assignment/propagation queue
 
-
   /*
-   * Clause database and related stuff:
+   * Clause database and related stuff
    *
-   * Default mode:
+   * In default mode:
    * - unit clauses are stored implicitly in the assignment stack
    * - binary clauses are stored implicitly in the watch vectors
    * - all other clauses are in the pool
    *
-   * Preprocessing mode:
+   * In preprocessing mode
    * - unit clauses are in the assignment stack
    * - all other clauses are in the pool (including binary clauses).
    */
@@ -777,7 +809,6 @@ typedef struct sat_solver_s {
   uint64_t max_depth_conflicts;
   uint64_t dive_start;
 
-
   /*
    * Statistics record
    */
@@ -817,7 +848,6 @@ typedef struct sat_solver_s {
   vector_t cvector;
   uint32_t scan_index;
 
-
   /*
    * Data structures to compute SCC in the binary implication graph.
    */
@@ -825,6 +855,12 @@ typedef struct sat_solver_s {
   gstack_t dfs_stack;
   uint32_t *label;
   uint32_t *visit;
+
+  /*
+   * Variable descriptors + gates
+   */
+  descriptors_t descriptors;
+  bgate_array_t gates;
 
   /*
    * File for data collection (used only when macro DATA is non-zero)
@@ -892,11 +928,24 @@ extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
 
 
 /*
+ * EXPERIMENTAL
+ */
+
+/*
  * Update activity and polarity for variable x
  * - polarity true: means true is preferred
  * - act must be positive
  */
 extern void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity);
+
+/*
+ * Mark variable x as a variable to keep: it will not be deleted during
+ * preprocessing. By default, all variables are considered candidates for
+ * elimination.
+ */
+extern void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x);
+
+
 
 
 
