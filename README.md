@@ -103,7 +103,7 @@ sat
 
 ## Installing Prebuilt Binaries
 
-Currently you can install Yices either using Homebrew or Aptitude.
+Currently you can install Yices either using Homebrew or Apt.
 
 #### Homebrew
 
@@ -114,7 +114,7 @@ brew install SRI-CSL/sri-csl/yices2
 This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
-#### Aptitude
+#### Apt
 
 To install Yices on Ubuntu or Debian, do the following:
 ```
