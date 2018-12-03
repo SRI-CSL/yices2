@@ -333,6 +333,7 @@ mcsat_src_c := \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd_manager.c \
 	mcsat/bv/bv_evaluator.c \
+	mcsat/bv/bv_explainer.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
 	mcsat/watch_list_manager.c \
