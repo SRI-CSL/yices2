@@ -186,7 +186,7 @@ bv_subtheory_t bv_explainer_get_subtheory(bv_explainer_t* exp, const ivector_t* 
   int_hset_reset(&exp->visited_cache);
 
   // Get the kinds
-  int theory_count[BV_TH_COUNT];
+  int theory_count[BV_TH_COUNT] = { 0 };
   for (i = 0; i < conflict->size; i ++) {
     term_t t = variable_db_get_term(var_db, conflict->data[i]);
     bv_explainer_get_subtheories(exp, t, theory_count);
