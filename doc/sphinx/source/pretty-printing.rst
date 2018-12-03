@@ -256,7 +256,7 @@ explanation.
    the previous function but it does not use a pretty printer.
 
 
-.. c:function:: int32_t yices_print_model_fd(FILE* f, model_t* mdl)
+.. c:function:: int32_t yices_print_model_fd(int fd, model_t* mdl)
 
    Prints a model.
  

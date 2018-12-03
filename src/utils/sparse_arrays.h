@@ -28,13 +28,13 @@
  * as a root, we increment a counter for this term/type. We store the counts
  * in a sparse array structure.
  *
- * The array is divided in blocks of equal size
- * (block size = 64 for now) and we use one bit per block to record whether
- * the block is used or not.
- * - a block marked as dirty, is not initialized and its content shouldn't be read
+ * The array is divided in blocks of equal size (block size = 64 for
+ * now), and we use one bit per block to record whether the block is
+ * used or not.
+ * - a block marked as dirty is not initialized and its
+ *   content shouldn't be rea
  * - if a block is clean then all elements in the block have a valid value
- * - a block is initialized (all elements set to 0) on the first write into
- *   that block
+ * - a block is initialized (all elements set to 0) on the first write into that block
  *
  * So the reference count for i is 0 if i is in a dirty block or
  * a->data[i] otherwise.  We keep track of the total number of roots (i.e.,

@@ -218,6 +218,10 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, EFSOLVE_CMD, false, eval_cmd, check_cmd);
   tstack_add_op(stack, EXPORT_CMD, false, eval_cmd, check_cmd);
   tstack_add_op(stack, SHOW_IMPLICANT_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, CHECK_ASSUMING_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_UNSAT_CORE_CMD, false, eval_cmd, check_cmd);
+  tstack_add_op(stack, SHOW_UNSAT_ASSUMPTIONS_CMD, false, eval_cmd, check_cmd);
+
   tstack_add_op(stack, DUMP_CMD, false, eval_cmd, check_cmd);
 }
 

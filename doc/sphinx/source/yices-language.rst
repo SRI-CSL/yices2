@@ -13,8 +13,10 @@ The language grammar is shown below
            : | ( define <symbol> :: `type` )
            : | ( define <symbol> :: `type` `expr` )
            : | ( assert `expr` )
+	   : | ( assert `expr` <symbol> )
            : | ( exit )
            : | ( check )
+	   : | ( check-assuming `assumptions` )
            : | ( push )
            : | ( pop )
            : | ( reset )
@@ -36,6 +38,8 @@ The language grammar is shown below
            : | ( ef-solve )
            : | ( export-to-dimacs <string> )
            : | ( show-implicant )
+	   : | ( show-unsat-core )
+	   : | ( show-unsat-assumptions )
            :
    typedef :   `type`
            : | ( scalar <symbol> ... <symbol> )
@@ -75,3 +79,6 @@ The language grammar is shown below
                   :
    number : <rational> | <float>
           :
+   assumptions :
+               : | <symbol> `assumptions`
+	       : | ( not <symbol> ) `assumptions`

@@ -18,7 +18,7 @@
 
 #include <assert.h>
 
-#include "frontend/smt2/assumption_table.h"
+#include "frontend/common/assumption_table.h"
 #include "utils/int_array_sort2.h"
 #include "utils/memalloc.h"
 

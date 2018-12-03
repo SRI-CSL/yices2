@@ -1052,6 +1052,7 @@ typedef struct smt_core_s {
   /* Tracer object (default to NULL) */
   tracer_t *trace;
 
+  bool interrupt_push;
 } smt_core_t;
 
 
@@ -1848,7 +1849,7 @@ extern void smt_clear(smt_core_t *s);
 /*
  * Cleanup after the search returned unsat
  * - s->status must be UNSAT.
- * - if there are assumpions, this removes them and reset s->status
+ * - if there are assumptions, this removes them and reset s->status
  *   to STATUS_IDLE
  * - if clean_interrupt is enabled, this also restores s to its state
  *   before the search: learned clauses are deleted, lemmas, variables

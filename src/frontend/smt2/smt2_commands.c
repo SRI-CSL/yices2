@@ -40,6 +40,9 @@
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
 #include "context/context.h"
+#include "frontend/common/bug_report.h"
+#include "frontend/common/parameters.h"
+#include "frontend/common/tables.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -471,109 +474,6 @@ static void reset_smt2_name_stack(smt2_name_stack_t *s) {
 }
 
 
-
-/*
- * NAMED-TERMS STACKS
- */
-
-/*
- * Initialize: nothing allocated yet
- */
-static void init_named_term_stack(named_term_stack_t *s) {
-  s->data = NULL;
-  s->top = 0;
-  s->size = 0;
-}
-
-
-/*
- * Make room for named pairs to be added
- */
-static void extend_named_term_stack(named_term_stack_t *s) {
-  uint32_t n;
-
-  n = s->size;
-  if (n == 0) {
-    n = DEF_NAMED_TERM_STACK_SIZE;
-    assert(n <= MAX_NAMED_TERM_STACK_SIZE);
-    s->data = (named_term_t *) safe_malloc(n * sizeof(named_term_t));
-    s->size = n;
-  } else {
-    n += (n >> 1) + 1;
-    if (n > MAX_NAMED_TERM_STACK_SIZE) {
-      out_of_memory();
-    }
-    s->data = (named_term_t *) safe_realloc(s->data, n * sizeof(named_term_t));
-    s->size = n;
-  }
-}
-
-
-/*
- * Push the pair <t, name>
- * - name must be a refcount string
- * - its reference counter is incremented
- */
-static void push_named_term(named_term_stack_t *s, term_t t, char *name) {
-  uint32_t i;
-
-  i = s->top;
-  if (i == s->size) {
-    extend_named_term_stack(s);
-  }
-  assert(i < s->size);
-  s->data[i].term = t;
-  s->data[i].name = name;
-  string_incref(name);
-  s->top = i+1;
-}
-
-
-/*
- * Remove pairs from the stack s
- * - n = new top: all pairs in s->data[0 ... n-1] are kept
- */
-static void pop_named_terms(named_term_stack_t *s, uint32_t n) {
-  uint32_t i;
-
-  assert(n <= s->top);
-
-  i = s->top;
-  while (i > n) {
-    i --;
-    string_decref(s->data[i].name);
-  }
-  s->top = n;
-}
-
-
-/*
- * Deletion
- */
-static void delete_named_term_stack(named_term_stack_t *s) {
-  uint32_t i;
-
-  i = s->top;
-  while (i > 0) {
-    i --;
-    string_decref(s->data[i].name);
-  }
-  safe_free(s->data);
-  s->data = NULL;
-}
-
-
-/*
- * Reset: remove all names then re-initialize
- */
-static void reset_named_term_stack(named_term_stack_t *s) {
-  delete_named_term_stack(s);
-  assert(s->data == NULL);
-  s->top = 0;
-  s->size = 0;
-}
-
-
 /*
  * PUSH/POP STACK
  */
@@ -687,33 +587,8 @@ static void reset_smt2_stack(smt2_stack_t *s) {
 
 
 /*
- * ASSUMPTION STRUCTURES
+ * CHECK AND BUILD A CORE
  */
-
-/*
- * Allocate and initialize
- */
-static smt2_assumptions_t *new_smt2_assumptions(void) {
-  smt2_assumptions_t *a;
-
-  a = safe_malloc(sizeof(smt2_assumptions_t));
-  init_assumption_table(&a->table);
-  init_ivector(&a->assumptions, 0);
-  init_ivector(&a->core, 0);
-  a->status = STATUS_IDLE;
-  return a;
-}
-
-/*
- * Free the data structures
- */
-static void free_smt2_assumptions(smt2_assumptions_t *a) {
-  delete_assumption_table(&a->table);
-  delete_ivector(&a->assumptions);
-  delete_ivector(&a->core);
-  safe_free(a);
-}
-
 
 /*
  * Check sat with assumptions and build an unsat core
@@ -1348,6 +1223,14 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   NULL,                   // MK_BOOL_TO_BV
   NULL,                   // MK_BIT
 
+  "floor",                // MK_FLOOR (not in SMT2)
+  "ceil",                 // MK_CEIL (not in SMT2
+  "abs",                  // MK_ABS
+  "div",                  // MK_IDIV
+  "mod",                  // MK_MOD
+  "divides",              // MK_DIVIDES (not in SMT2 --> divisible)
+  "is_int",               // MK_IS_INT
+
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
   //
@@ -1549,7 +1432,7 @@ static void show_status(smt_status_t status) {
 
 
 /*
- * Status after check_with_assumptions: print an error if the
+ * Status after check_with_assumptions or check: print an error if the
  * status is not SAT/UNSAT/UNKNOWN/INTERRUPTED
  */
 static void report_status(smt2_globals_t *g, smt_status_t status) {
@@ -2406,20 +2289,11 @@ static void unsupported_option(void) {
 /*
  * Allocate an assumption structure and store all named assertions in it.
  */
-static smt2_assumptions_t *collect_named_assertions(smt2_globals_t *g) {
-  smt2_assumptions_t *a;
-  named_term_stack_t *s;
-  uint32_t i, n;
+static assumptions_and_core_t *collect_named_assertions(smt2_globals_t *g) {
+  assumptions_and_core_t *a;
 
-  a = new_smt2_assumptions();
-  s = &g->named_asserts;
-  n = s->top;
-  for (i=0; i<n; i++) {
-    assumption_table_add(&a->table, s->data[i].term, s->data[i].name, true);
-  }
-  assumption_table_build_index(&a->table);
-  collect_assumptions(&a->table, &a->assumptions);
-
+  a = new_assumptions(__yices_globals.terms);
+  collect_assumptions_from_stack(a, &g->named_asserts);
   return a;
 }
 
@@ -2428,34 +2302,26 @@ static smt2_assumptions_t *collect_named_assertions(smt2_globals_t *g) {
  * Allocate an assumption structure and store assumptions in it
  * - return NULL and print an error is any symbol is undefined or not Boolean
  */
-static smt2_assumptions_t *collect_named_assumptions(uint32_t n, signed_symbol_t *a) {
-  smt2_assumptions_t *tmp;
-  term_t t;
-  uint32_t i;
+static assumptions_and_core_t *collect_named_assumptions(uint32_t n, const signed_symbol_t *a) {
+  assumptions_and_core_t *tmp;
+  int32_t code;
+  uint32_t index;
 
-  tmp = new_smt2_assumptions();
-  for (i=0; i<n; i++) {
-    t = yices_get_term_by_name(a[i].name);
-    if (t == NULL_TERM) {
-      print_error("undefined term %s", a[i].name);
-      goto cleanup;
+  tmp = new_assumptions(__yices_globals.terms);
+  code = collect_assumptions_from_signed_symbols(tmp, n, a, &index);
+  if (code < 0) {
+    // failed: index = the bad term
+    assert(0 <= index && index < n);
+    if (code == -1) {
+      print_error("undefined term %s", a[index].name);
+    } else {
+      print_error("term %s is not Boolean", a[index].name);
     }
-    if (! yices_term_is_bool(t)) {
-      print_error("term %s is not Boolean", a[i].name);
-      goto cleanup;
-    }
-    t = signed_term(t, a[i].polarity);
-    assumption_table_add(&tmp->table, t, a[i].name, a[i].polarity);
+    free_assumptions(tmp);
+    tmp = NULL;
   }
 
-  assumption_table_build_index(&tmp->table);
-  collect_assumptions(&tmp->table, &tmp->assumptions);
-
   return tmp;
-
- cleanup:
-  free_smt2_assumptions(tmp);
-  return NULL;
 }
 
 /*
@@ -2619,7 +2485,7 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
  * - params = search parameters
  * - a = assumption data structure to use
  */
-static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, smt2_assumptions_t *a) {
+static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, assumptions_and_core_t *a) {
   smt_status_t stat;
 
   if (g->timeout == 0) {
@@ -2917,27 +2783,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
 
     status = check_sat_with_timeout(g, &g->parameters);
-    switch (status) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      show_status(status);
-      break;
+    report_status(g, status);
 
-    case STATUS_UNSAT:
-    case STATUS_INTERRUPTED:
-      show_status(status);
-      break;
-
-    case STATUS_ERROR:
-      print_yices_error(true);
-      break;
-
-    case STATUS_IDLE:
-    case STATUS_SEARCHING:
-    default:
-      bad_status_bug(g->err);
-      break;
-    }
 #elif EXPORT_TO_DIMACS
     /*
      * TESTING: EXPORT TO DIMACS
@@ -2999,7 +2846,7 @@ static void show_delayed_assertions(smt2_globals_t *g) {
  */
 static void validate_unsat_core(smt2_globals_t *g) {
   context_t *saved_context;
-  smt2_assumptions_t *a;
+  assumptions_and_core_t *a;
   ivector_t all;
   int32_t code;
   smt_status_t status;
@@ -3063,6 +2910,11 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     status = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
     //    validate_unsat_core(g);
     report_status(g, status);
+
+    if (status == STATUS_ERROR) {
+      free_assumptions(g->unsat_core);
+      g->unsat_core = NULL;
+    }
   }
 }
 
@@ -3070,7 +2922,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
  * Check sat with assumptions
  */
 static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_t *a) {
-  smt2_assumptions_t *assumptions;
+  assumptions_and_core_t *assumptions;
   int32_t code;
   smt_status_t status;
 
@@ -3098,6 +2950,12 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+
+      if (status == STATUS_ERROR) {
+	// cleanup
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
     }
   }
 }
@@ -3155,11 +3013,11 @@ static void cleanup_context(smt2_globals_t *g) {
     g->model = NULL;
   }
   if (g->unsat_core != NULL) {
-    free_smt2_assumptions(g->unsat_core);
+    free_assumptions(g->unsat_core);
     g->unsat_core = NULL;
   }
   if (g->unsat_assumptions != NULL) {
-    free_smt2_assumptions(g->unsat_assumptions);
+    free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
   }
 
@@ -3237,6 +3095,14 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
+  if (g->unsat_assumptions != NULL) {
+    /*
+     * the context's status was based on the assumptions
+     * we reset everything here to be safe.
+     */
+    cleanup_context(g);
+  }
+
   stat = context_status(g->ctx);
   switch (stat) {
   case STATUS_UNKNOWN:
@@ -3252,7 +3118,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
       g->parameters.random_seed = g->random_seed;
     }
     stat = check_sat_with_timeout(g, &g->parameters);
-    show_status(stat);
+    report_status(g, stat);
     break;
 
   case STATUS_SEARCHING:
@@ -3295,7 +3161,11 @@ static void ctx_unsat_core(smt2_globals_t *g) {
 	g->parameters.random_seed = g->random_seed;
       }
       stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
-      show_status(stat);
+      report_status(g, stat);
+      if (stat == STATUS_ERROR) {
+	free_assumptions(g->unsat_core);
+	g->unsat_core = NULL;
+      }
       break;
 
     case STATUS_SAT:
@@ -3317,7 +3187,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
  * - not supported by the mcsat solver
  */
 static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_t *a) {
-  smt2_assumptions_t *assumptions;
+  assumptions_and_core_t *assumptions;
   smt_status_t status;
 
   cleanup_context(g);
@@ -3335,6 +3205,10 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
+      if (status == STATUS_ERROR) {
+	free_assumptions(assumptions);
+	g->unsat_assumptions = NULL;
+      }
       break;
 
     case STATUS_UNSAT:
@@ -3731,7 +3605,7 @@ static void show_assignment(smt2_globals_t *g) {
  */
 
 /*
- * For every term a core, print its id.
+ * For every term in a core, print its id.
  * The id is stored in the assumption table and is either a name or (not name)
  */
 static void print_assumption_list(yices_pp_t *printer, assumption_table_t *table, uint32_t n, term_t *a) {
@@ -3754,7 +3628,7 @@ static void print_assumption_list(yices_pp_t *printer, assumption_table_t *table
  */
 static void show_unsat_core(smt2_globals_t *g) {
   yices_pp_t printer;
-  smt2_assumptions_t *unsat_core;
+  assumptions_and_core_t *unsat_core;
 
   if (! g->produce_unsat_cores) {
     print_error("not supported: :produce-unsat-cores is false");
@@ -3793,7 +3667,7 @@ static void show_unsat_core(smt2_globals_t *g) {
  */
 static void show_unsat_assumptions(smt2_globals_t *g) {
   yices_pp_t printer;
-  smt2_assumptions_t *unsat_assumptions;
+  assumptions_and_core_t *unsat_assumptions;
 
   if (!g->produce_unsat_assumptions) {
     print_error("not supported: :produce-unsat-assumptions is false");
@@ -4073,11 +3947,11 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_named_term_stack(&g->named_asserts);
 
   if (g->unsat_core != NULL) {
-    free_smt2_assumptions(g->unsat_core);
+    free_assumptions(g->unsat_core);
     g->unsat_core = NULL;
   }
   if (g->unsat_assumptions != NULL) {
-    free_smt2_assumptions(g->unsat_assumptions);
+    free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions = NULL;
   }
 
@@ -5936,11 +5810,11 @@ void smt2_reset_assertions(void) {
       reset_named_term_stack(&g->named_asserts);
 
       if (g->unsat_core != NULL) {
-	free_smt2_assumptions(g->unsat_core);
+	free_assumptions(g->unsat_core);
 	g->unsat_core = NULL;
       }
       if (g->unsat_assumptions != NULL) {
-	free_smt2_assumptions(g->unsat_assumptions);
+	free_assumptions(g->unsat_assumptions);
 	g->unsat_assumptions = NULL;
       }
 

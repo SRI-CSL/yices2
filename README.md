@@ -8,7 +8,7 @@ Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
+and [Python language bindings](https://github.com/SRI-CSL/yices2_python_bindings).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
@@ -26,7 +26,7 @@ the use of Yices using the [SMT2 language](http://smtlib.cs.uiowa.edu/language.s
 #### Linear Real Arithmetic
 
 ```smt2
-;; QF_LRA = Quantifier-Free Linear Real Arithemtic
+;; QF_LRA = Quantifier-Free Linear Real Arithmetic
 (set-logic QF_LRA)
 ;; Declare variables x, y
 (declare-fun x () Real)
@@ -78,7 +78,7 @@ sat
 #### Non-Linear Arithmetic
 
 ```smt2
-;; QF_NRA = Quantifier-Free Nonlinear Real Arithemtic
+;; QF_NRA = Quantifier-Free Nonlinear Real Arithmetic
 (set-logic QF_NRA)
 ;; Declare variables
 (declare-fun x () Real)
@@ -103,7 +103,7 @@ sat
 
 ## Installing Prebuilt Binaries
 
-Currently you can install Yices either using Homebrew or Aptitude.
+Currently you can install Yices either using Homebrew or Apt.
 
 #### Homebrew
 
@@ -114,7 +114,7 @@ brew install SRI-CSL/sri-csl/yices2
 This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
-#### Aptitude
+#### Apt
 
 To install Yices on Ubuntu or Debian, do the following:
 ```

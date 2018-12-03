@@ -43,7 +43,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.0}}
+Version 2.6.1}}
 \end{titlepage}
 
 \maketitle
@@ -81,7 +81,7 @@ install Yices~2 using package managers (i.e., homebrew for the Mac and
 apt for Debian/Ubuntu).
 
 For the latest developments, you can clone our Git repository
-\url{https://github.com/SRI-CSL/yices2}. 
+\url{https://github.com/SRI-CSL/yices2}.
 
 
 \subsection{Binary Distributions}
@@ -124,7 +124,7 @@ this is fine for you, type
 \end{small}
 This will install the binaries in \texttt{/usr/local/bin}, the library
 in \texttt{/usr/local/lib}, and the header files in
-\texttt{/usr/local/include}. 
+\texttt{/usr/local/include}.
 
 \medskip\noindent
 To install Yices in a different location, you can type
@@ -775,7 +775,7 @@ We've added more arithmetic operations since Yices 2.4:
 \item \texttt{div}, \texttt{mod}: integer division and modulo
 \item \texttt{divides}, \texttt{is-int}: check for divisibility and integrality
 \end{itemize}
-These operations have the usual meaning. As in the SMT-LIB Ints theory, 
+These operations have the usual meaning. As in the SMT-LIB Ints theory,
 the division and modulo operations are defined by the following constraints:
 $$(\mathtt{div}\ x\ k)\in \integers$$
 $$x~=~k.(\mathtt{div}\ x\ k) + (\mathtt{mod}\ x\ k)$$
@@ -1227,7 +1227,7 @@ contains only one call to \texttt{(check)}, we can select the mode
 \begin{verbatim}
     (define x::real)
 
-    (assert 
+    (assert
       (forall (y::real)
          (=> (and (< (* -1 y) 0) (< (+ -10 y) 0))
              (< (+ -7 (* -2 x) y) 0))))
@@ -1291,7 +1291,7 @@ This will produce the following output:
 \end{small}
 The first line is the result of \texttt{(ef-solve)}. The second line
 is the model, which just shows the value of the global variable
-\texttt{x}. 
+\texttt{x}.
 
 \medskip\noindent
 As previously, we can get more detailed output by increasing the verbosity:
@@ -1301,6 +1301,68 @@ As previously, we can get more detailed output by increasing the verbosity:
 \end{verbatim}
 \end{small}
 It is also possible to specify a logic on the command-line.
+
+\section{Unsat Cores}
+
+Since version 2.6.1, the Yices tool can produce unsat cores. This
+feature comes in two flavours, as in SMT-LIB~2.5.
+
+\subsection{Labeled Assertions}
+
+The first method is illustrated in
+Figure~\ref{example:labeled-assertions}. One gives labels to assertions and
+command \texttt{(show-unsat-core)} displays an unsat core when a call
+to \texttt{(check)} returns \texttt{unsat}.  The labels can be any
+symbols; there is a separate name space for these labels.
+
+\begin{figure}[h]
+\begin{footnotesize}
+\begin{verbatim}
+    (define x::real)
+
+    (assert (>= x 0))   ;; regular assertion
+    (assert (> x 3) A)  ;; labeled assertion: A is the label
+    (assert (< x 3) B)  ;; labeled assertion
+    (assert (= x 3) C)  ;; another labeled assertion
+    (check)             ;; will return unsat
+    (show-unsat-core)   ;; display unsat core
+\end{verbatim}
+\end{footnotesize}
+\caption{Unsat cores using labeled assertions}
+\label{example:labeled-assertions}
+\end{figure}
+
+
+\subsection{Check With Assumptions}
+
+The second method uses command \texttt{(check-assuming ...)}, a
+variant of the \texttt{(check)} command that takes a list of
+assumptions as arguments.  This is illustrated in
+Figure~\ref{example:check-assuming}. An assumption is a restricted
+form of terms. It can be either \texttt{<name>} or \texttt{(not
+  <name>)}, where \texttt{<name>} is the name of a Boolean term.  If
+\texttt{(check-assuming)} returns \texttt{unsat}, then one can get an
+unsat core using \texttt{(show-unsat-assumptions)}. This command shows
+a subset of the assumptions that are inconsistent with the context.
+
+\begin{figure}[h]
+\begin{footnotesize}
+\begin{verbatim}
+    (define x::real)
+    (define A::bool (> x 3))
+    (define B::bool (> x 2))
+    (define C::bool (> x 4))
+
+    (assert (and (>= x 0) <= x 5)) ;; regular assertion
+    (check-assuming A (not B) C)   ;; will return unsat
+    (show-unsat-assumptions)       ;; unsat core: (A (not B))
+\end{verbatim}
+\end{footnotesize}
+\caption{Check with assumptions}
+\label{example:check-assuming}
+\end{figure}
+
+
 
 
 
@@ -1387,6 +1449,9 @@ options are supported.
   simplifications when processing assertions;  this can lead to better
   performance on some problems.
 
+  Unsat cores and checks with assumptions are not supported in mode
+  \texttt{one-shot}.
+
   In interactive mode,  the solver context is saved  before every call
   to  \texttt{(check)}  and  it  is restored  if  \texttt{(check)}  is
   interrupted. This introduces some  overhead, but the solver recovers
@@ -1431,8 +1496,7 @@ form (like \texttt{--verbosity=4}) or in an equivalent short from (like
 \section{Input Language}
 
 The   syntax  of   the   Yices  input   language   is  summarized   in
-Figures~\ref{syntax:commands},~\ref{syntax:types},
-and~\ref{syntax:expressions}.
+Figures~\ref{syntax:commands} to~\ref{syntax:expressions}.
 
 
 \begin{figure}
@@ -1444,8 +1508,10 @@ and~\ref{syntax:expressions}.
             | ( define <symbol> :: <type> )
             | ( define <symbol> :: <type> <expression> )
             | ( assert <expression> )
+            | ( assert <expression> <symbol> )
             | ( exit )
             | ( check )
+            | ( check-assuming <assumption-list> )
             | ( push )
             | ( pop )
             | ( reset )
@@ -1467,21 +1533,38 @@ and~\ref{syntax:expressions}.
             | ( ef-solve )
             | ( export-to-dimacs <string> )
             | ( show-implicant )
+            | ( show-unsat-core )
+            | ( show-unsat-assumptions )
             | EOS
 
+\end{verbatim}
+\end{small}
+\caption{Yices Syntax: Commands}
+\label{syntax:commands}
+\end{figure}
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
    <immediate-value> ::=
               true
             | false
             | <number>
             | <symbol>
 
-   <number> ::=
-              <rational>
-            | <float>
+   <number> ::= <rational> | <float>
+
+   <assumption-list> ::=
+            |
+            | <assumption> <assumption-list>
+
+   <assumption> ::=
+            | <symbol>
+            | ( not <symbol> )
+
 \end{verbatim}
 \end{small}
-\caption{Yices Syntax: Commands}
-\label{syntax:commands}
+\caption{Yices Syntax: Command Arguments}
 \end{figure}
 
 \begin{figure}
@@ -1978,16 +2061,16 @@ true if there exists an integer $n\in\integers$ such that $\mathtt{x} = n
 \begin{small}
 \begin{center}
 \begin{tabular}{|p{3.4cm}|l|}
-\hline Syntax & Meaning \\ 
+\hline Syntax & Meaning \\
 \hline
-\texttt{(abs x)} & absolute value \\ 
+\texttt{(abs x)} & absolute value \\
 \texttt{(floor x)} & floor \\
-\texttt{(ceil x)} & ceiling \\ 
+\texttt{(ceil x)} & ceiling \\
 \hline
 \texttt{(div x k)} & integer division \\
-\texttt{(mod x k)} & modulo \\ 
-\texttt{(divides k x)} & divisibility test\\ 
-\texttt{(is-int x)} & integrality test\\ 
+\texttt{(mod x k)} & modulo \\
+\texttt{(divides k x)} & divisibility test\\
+\texttt{(is-int x)} & integrality test\\
 \hline
 \end{tabular}
 \end{center}
@@ -2044,7 +2127,7 @@ construct the same bitvector constant (whose binary representation is
 \begin{small}
 \begin{center}
 \begin{tabular}{|p{5cm}|l|}
-\hline Syntax & Meaning \\ 
+\hline Syntax & Meaning \\
 \hline
 \texttt{(bv-add u1 ... u\_n)} & sum \\
 \texttt{(bv-mul u1 ... u\_n)} & product \\
@@ -2283,7 +2366,7 @@ two bitvectors of the same size.
 
 \subsubsection*{Conversions Between Booleans and Bitvectors}
 
-Two operations, listed in Table~\ref{bitvectors6},  convert Booleans 
+Two operations, listed in Table~\ref{bitvectors6},  convert Booleans
 to bitvectors and conversely.
 
 \begin{table}[h]
@@ -2316,9 +2399,9 @@ bit is $b_1$ and the low-order bit is $b_n$. For example,
 \end{small}
 is equal to the bitvector constant \texttt{0b1100}.
 
-\medskip\noindent 
+\medskip\noindent
 Expression \texttt{(bit u i)} is the $i$-th bit of bitvector
-\texttt{u} as a Boolean. If \texttt{u} is a bitvector of $n$ bits then 
+\texttt{u} as a Boolean. If \texttt{u} is a bitvector of $n$ bits then
 the index \texttt{i} must be an integer constant between 0 and $n-1$.
 The lower-order bit has index 0 and the high-order bit has index $n-1$.
 For example, we have
@@ -2452,6 +2535,33 @@ Once the context is unsatisfiable, any new assertion is treated as an
 error.
 
 
+\subsubsection*{Labeled Assertions}
+
+An optional label can be provided for assertions as follows:
+\begin{small}
+\begin{verbatim}
+   (assert formula label)
+\end{verbatim}
+\end{small}
+In this command, the \texttt{formula} must be a Boolean term and the
+\texttt{label} must be a symbol. Yices uses a separate name space for
+storing these labels, so the same symbol can be used as a type name or
+a term name.
+
+\medskip\noindent
+The label identifies the assertion as relevant to unsat core If a call
+to \texttt{(check)} returns \texttt{unsat}, then a corresponding unsat
+core is a subset of all the labeled assertions that is inconsistent
+with the context. Comman \texttt{(show-unsat-core)} displays this
+unsat core by listing the labels of all the assertions in the core.
+
+\medskip\noindent The labeled assertions must have distinct
+labels. Yices will complain if the label provided is already used. The
+set of labeled assertions is maintained in a stack like regular
+assertions. For example, labeled assertions may be removed by a call
+to \texttt{(pop)} or \texttt{(reset)}.
+
+
 \subsubsection*{Check}
 
 The command
@@ -2499,6 +2609,39 @@ examined and modified, using the command \texttt{show-params} and
 interrupted (by CTRL-C), then the result will be displayed as
 \texttt{interrupted}.
 
+\subsubsection*{Check With Assumptions}
+
+The command
+\begin{small}
+\begin{verbatim}
+   (check-assuming <assumption> ... <assumption>)
+\end{verbatim}
+\end{small}
+checks whether the current set of assertions together with a list of
+assumptions is satisfiable. If it is not, command
+\texttt{(show-unsat-assumptions)} will provide an unsat core (i.e., a
+subset of the assumptions that are inconsistent with the context).
+
+\medskip\noindent
+Each assumption must either be the name of a Boolean term or the
+negation of a named Boolean term.  For example, after the following
+definitions:
+\begin{small}
+\begin{verbatim}
+   (define A::bool <expression>)
+\end{verbatim}
+\end{small}
+then both \texttt{A} and \texttt{(not A)} can be used as assumptions.
+
+\medskip\noindent
+It is allowed for the same name to occur several times in the
+assumption list. It is also allowed to give an empyt list of
+assumptions.
+
+\medskip\noindent
+Mixing assumptions and labeled assertions in a context is not
+supported. Command \texttt{(check-assuming ...)} will fail if there
+are labeled assertions.
 
 \subsubsection*{Push, Pop, Reset}
 
@@ -2673,6 +2816,39 @@ The result is displayed as a function specification such as:
 Yices creates an internal name of the form \texttt{fun!<number>} to
 display the function value.
 
+
+\subsubsection*{Unsat Cores}
+
+If a call to \texttt{(check)} returns \texttt{unsat}, then one can get
+an unsat core by using command
+\begin{small}
+\begin{verbatim}
+  (show-unsat-core)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsat core is a subset of all the labeled assertions in the
+current context. The command will report an error if there are no
+labeled assertions in the context. Otherwise, it will list the labels
+of all the assertions in the core.
+
+
+\subsubsection*{Unsat Assumptions}
+
+If a check with assumptions returns \texttt{unsat}, the following
+command lists an unsatisfiable subset of the assumptions:
+\begin{small}
+\begin{verbatim}
+  (show-unsat-assumptions)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent
+The unsatisfiable subset is displayed as a list of assumptions. It is
+possible for this subset to be empty, if the context is unsatisfiable
+on its own.
+
 \subsubsection*{Implicants}
 
 If a set of assertions is satisfiable, one can construct an implicant
@@ -2825,8 +3001,8 @@ included.
 
 \begin{minipage}[c]{6.2cm}
 \begin{verbatim}
-(define a::(bitvector 4)) 
-(define b::(bitvector 4)) 
+(define a::(bitvector 4))
+(define b::(bitvector 4))
 (assert (bv-ge a b))
 (export-to-dimacs "test.cnf")
 (exit)
@@ -3172,7 +3348,8 @@ sorts and terms, assertions, satisfiability checking, unsat cores and
 assumptions. Yices does not support the optional commands
 \texttt{get-assertions} and \texttt{get-proof}.
 
-\medskip\noindent
+\subsubsection*{Ignored Options}
+
 The standard requires option \texttt{:produce-assignments} to be set
 to \texttt{true} before the command \texttt{get-assignment} can be
 issued.  It also requires option \texttt{:produce-models} to be set to
@@ -3181,11 +3358,13 @@ not enforce these rules. It supports both commands
 \texttt{get-assignment} and \texttt{get-value} even if the
 corresponding option is \texttt{false}.
 
-\medskip\noindent Since version 2.6, Yices supports commands
-\texttt{get-unsat-core} and \texttt{get-unsat-assumptions}. To
-activate these commands, options \texttt{:produce-unsat-cores} or
+\subsubsection*{Unsat Cores and Assumptions}
+
+Command \texttt{get-unsat-core} and \texttt{get-unsat-assumptions} are
+supported by Yices since version 2.6.0. To activate these commands,
+options \texttt{:produce-unsat-cores} or
 \texttt{:produce-unsat-assumptions} must be set. Yices does not allow
-both options to be set to true at the same time.
+both options to be true at the same time.
 
 \subsubsection*{In-line Definitions}
 
@@ -4449,30 +4628,30 @@ License, supplemented by the additional permissions listed below.
 
   0. Additional Definitions.
 
-  As used herein, "this License" refers to version 3 of the GNU 
-Lesser General Public License, and the "GNU GPL" refers to 
+  As used herein, "this License" refers to version 3 of the GNU
+Lesser General Public License, and the "GNU GPL" refers to
 version 3 of the GNU General Public License.
 
   "The Library" refers to a covered work governed by this License,
 other than an Application or a Combined Work as defined below.
 
   An "Application" is any work that makes use of an interface
-provided by the Library, but which is not otherwise based on the 
+provided by the Library, but which is not otherwise based on the
 Library. Defining a subclass of a class defined by the Library is
 deemed a mode of using an interface provided by the Library.
 
   A "Combined Work" is a work produced by combining or linking an
 Application with the Library. The particular version of the
-Library with which the Combined Work was made is also called 
+Library with which the Combined Work was made is also called
 the "Linked Version".
 
   The "Minimal Corresponding Source" for a Combined Work means the
 Corresponding Source for the Combined Work, excluding any source
-code for portions of the Combined Work that, considered in 
+code for portions of the Combined Work that, considered in
 isolation, are based on the Application, and not on the Linked
 Version.
 
-  The "Corresponding Application Code" for a Combined Work means 
+  The "Corresponding Application Code" for a Combined Work means
 the object code and/or source code for the Application, including
 any data and utility programs needed for reproducing the Combined
 Work from the Application, but excluding the System Libraries of
@@ -4480,33 +4659,33 @@ the Combined Work.
 
   1. Exception to Section 3 of the GNU GPL.
 
-  You may convey a covered work under sections 3 and 4 of this 
+  You may convey a covered work under sections 3 and 4 of this
 License without being bound by section 3 of the GNU GPL.
 
   2. Conveying Modified Versions.
 
   If you modify a copy of the Library, and, in your modifications,
 a facility refers to a function or data to be supplied by an
-Application that uses the facility (other than as an argument 
+Application that uses the facility (other than as an argument
 passed when the facility is invoked), then you may convey a copy
 of the modified version:
 
-   a) under this License, provided that you make a good faith 
-   effort to ensure that, in the event an Application does not 
+   a) under this License, provided that you make a good faith
+   effort to ensure that, in the event an Application does not
    supply the function or data, the facility still operates, and
    performs whatever part of its purpose remains meaningful, or
 
-   b) under the GNU GPL, with none of the additional permissions 
+   b) under the GNU GPL, with none of the additional permissions
    of this License applicable to that copy.
 
   3. Object Code Incorporating Material from Library Header Files.
 
   The object code form of an Application may incorporate material
-from a header file that is part of the Library. You may convey 
-such object code under terms of your choice, provided that, if the 
+from a header file that is part of the Library. You may convey
+such object code under terms of your choice, provided that, if the
 incorporated material is not limited to numerical parameters, data
-structure layouts and accessors, or small macros, inline functions 
-and templates (ten or fewer lines in length), you do both of the 
+structure layouts and accessors, or small macros, inline functions
+and templates (ten or fewer lines in length), you do both of the
 following:
 
    a) Give prominent notice with each copy of the object code that
@@ -4521,7 +4700,7 @@ following:
   You may convey a Combined Work under terms of your choice that,
 taken together, effectively do not restrict modification of the
 portions of the Library contained in the Combined Work and reverse
-engineering for debugging such modifications, if you also do each 
+engineering for debugging such modifications, if you also do each
 of the following:
 
    a) Give prominent notice with each copy of the Combined Work
@@ -4538,7 +4717,7 @@ of the following:
 
    d) Do one of the following:
 
-       0) Convey the Minimal Corresponding Source under the terms 
+       0) Convey the Minimal Corresponding Source under the terms
        of this License, and the Corresponding Application Code in
        a form suitable for, and under terms that permit, the user
        to recombine or relink the Application with a modified
@@ -4553,15 +4732,15 @@ of the following:
        with a modified version of the Library that is
        interface-compatible with the Linked Version.
 
-   e) Provide Installation Information, but only if you would 
+   e) Provide Installation Information, but only if you would
    otherwise be required to provide such information under
    section 6 of the GNU GPL, and only to the extent that such
    information is necessary to install and execute a modified
-   version of the Combined Work produced by recombining or 
+   version of the Combined Work produced by recombining or
    relinking the Application with a modified version of the
    Linked Version. (If you use option 4d0, the Installation
-   Information must accompany the Minimal Corresponding Source 
-   and Corresponding Application Code. If you use option 4d1, 
+   Information must accompany the Minimal Corresponding Source
+   and Corresponding Application Code. If you use option 4d1,
    you must provide the Installation Information in the manner
    specified by section 6 of the GNU GPL for conveying
    Corresponding Source.)
@@ -4575,7 +4754,7 @@ by this License, and convey such a combined library under terms
 of your choice, if you do both of the following:
 
    a) Accompany the combined library with a copy of the same work
-   based on the Library, uncombined with any other library 
+   based on the Library, uncombined with any other library
    facilities, conveyed under the terms of this License.
 
    b) Give prominent notice with the combined library that part
@@ -4585,9 +4764,9 @@ of your choice, if you do both of the following:
   6. Revised Versions of the GNU Lesser General Public License.
 
   The Free Software Foundation may publish revised and/or new
-versions of the GNU Lesser General Public License from time to 
+versions of the GNU Lesser General Public License from time to
 time. Such new versions will be similar in spirit to the present
-version, but may differ in detail to address new problems or 
+version, but may differ in detail to address new problems or
 concerns.
 
   Each version is given a distinguishing version number. If the
@@ -4598,7 +4777,7 @@ and conditions either of that published version or of any later
 version published by the Free Software Foundation. If the Library
 as you received it does not specify a version number of the GNU
 Lesser General Public License, you may choose any version of the
-GNU Lesser General Public License ever published by the Free 
+GNU Lesser General Public License ever published by the Free
 Software Foundation.
 
   If the Library as you received it specifies that a proxy can

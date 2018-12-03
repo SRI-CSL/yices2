@@ -1588,6 +1588,8 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
 
   s->etable = NULL;
   s->trace = NULL;
+
+  s->interrupt_push = false;
 }
 
 
@@ -1743,6 +1745,8 @@ void reset_smt_core(smt_core_t *s) {
 
   // EXPERIMENTAL
   //  reset_etable(s);
+
+  s->interrupt_push = false;
 }
 
 
@@ -5319,6 +5323,9 @@ void smt_pop(smt_core_t *s) {
   restore_clauses(s, top->nclauses);
   restore_binary_clauses(s, top->nbins);
 
+  // the lemma queue may be non-empty so we must clear it here
+  reset_lemma_queue(&s->lemmas);
+
   s->base_level --;
   backtrack(s, s->base_level);
   s->nb_unit_clauses = top->nunits;
@@ -5335,6 +5342,18 @@ void smt_pop(smt_core_t *s) {
   s->status = STATUS_IDLE;
 }
 
+static void smt_interrupt_push(smt_core_t *s) {
+  assert (!s->interrupt_push);
+  smt_push(s);
+  s->interrupt_push = true;
+}
+
+static void smt_interrupt_pop(smt_core_t *s) {
+  if (s->interrupt_push) {
+    smt_pop(s);
+    s->interrupt_push = false;
+  }
+}
 
 /*
  * Cleanup after search was interrupted or returned unsat
@@ -5345,7 +5364,7 @@ void smt_cleanup(smt_core_t *s) {
   assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT)
          && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0);
   s->status = STATUS_IDLE; // make sure pop does not abort
-  smt_pop(s);
+  smt_interrupt_pop(s);
 }
 
 
@@ -5364,7 +5383,7 @@ void smt_clear(smt_core_t *s) {
    * and clears the current assignment.
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
-    smt_pop(s);
+    smt_interrupt_pop(s);
   } else {
     // no state to restore. Just backtrack and clear the assignment
     backtrack_to_base_level(s);
@@ -5407,7 +5426,7 @@ void smt_clear_unsat(smt_core_t *s) {
    * before the search started (using pop).
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
-    smt_pop(s);
+    smt_interrupt_pop(s);
     s->status = saved_status;
   }
 }
@@ -5826,7 +5845,7 @@ void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
      * in clean-interrupt mode, save the current state so
      * that it can be restored after a call to stop_search.
      */
-    smt_push(s);
+    smt_interrupt_push(s);
   }
 
   s->status = STATUS_SEARCHING;

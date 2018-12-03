@@ -17,55 +17,17 @@
  */
 
 /*
- * Common functions used by both the Yices and SMT2 frontends.
+ * SUPPORT FOR READING AND SETTING PARAMETERS
+ * USED BY BOTH THE SMT2 AND THE YICES FRONTENDS.
  */
-#ifndef __FRONTEND_COMMON_H
-#define __FRONTEND_COMMON_H
+#ifndef __FRONTEND_COMMON_PARAMETERS_H
+#define __FRONTEND_COMMON_PARAMETERS_H
 
-#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "exists_forall/ef_client.h"
-
-/*
- * Table to convert  smt_status to a string
- */
-extern const char* const status2string[];
-
-/*
- * Conversion of EF preprocessing codes to string
- */
-extern const char * const efcode2error[];
-
-/*
- * Table to convert  ef-solver status to a string
- */
-extern const char* const ef_status2string[];
-
-/*
- * Conversion of internalization code to an error message
- */
-extern const char * const code2error[];
-
-
-
-/*
- * Tables for converting parameter id to parameter name
- * and branching code to branching name. One more table
- * for converting from EF generalization codes to strings.
- */
-extern const char *param2string[];
-extern const char *branching2string[];
-extern const char *efgen2string[];
-
-/*
- * Ask for a bug report
- */
-extern void __attribute__((noreturn)) freport_bug(FILE *fp, const char *format, ...);
-
-
-/*
- * SETTING/READING PARAMETERS
- */
+#include "api/search_parameters.h"
+#include "exists_forall/ef_parameters.h"
 
 /*
  * Search parameters and internalization options can be set individually
@@ -148,7 +110,7 @@ typedef enum yices_param {
 /*
  * Argument to the setparam command encodes an immediate value
  * - the tag is given by the enumeration below
- * - PARAM_VAL_ERROR means an unexpected value was pushed
+ * - PARAM_VAL_ERROR means an unexpected value was passed
  * - the value is either a pointer to rational or a symbol
  */
 typedef enum param_val_enum {
@@ -169,9 +131,23 @@ typedef struct param_val_s {
 
 
 /*
+ * Tables for converting parameter id to parameter name
+ * and branching code to branching name. One more table
+ * for converting from EF generalization codes to strings.
+ *
+ * These tables are initialized after a call to
+ * init_parameter_name_table.
+ */
+extern const char *param2string[];
+extern const char *branching2string[];
+extern const char *efgen2string[];
+
+
+/*
  * Initialization: setup internal tables
  */
 extern void init_parameter_name_table(void);
+
 
 /*
  * Search for a parameter of the given name
@@ -212,5 +188,4 @@ extern bool param_val_to_branching(const char *name, const param_val_t *v, branc
 extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
 
 
-
-#endif /* __FRONTEND_COMMON_H */
+#endif /* __FRONTEND_COMMON_PARAMETERS_H */

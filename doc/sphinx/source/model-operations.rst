@@ -897,7 +897,7 @@ the children of non-leaf nodes.
 
    **Error report**
 
-   - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+   - If the node does not have tag :c:enum:`YVAL_BV`
 
      -- error code: :c:enum:`YVAL_INVALID_OP`
 
