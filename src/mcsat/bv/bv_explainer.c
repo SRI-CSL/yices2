@@ -9,6 +9,7 @@
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
 #include "mcsat/utils/int_mset.h"
+#include "mcsat/eq/equality_graph.h"
 
 #include <inttypes.h>
 
@@ -68,7 +69,7 @@ bool bv_kinds_match(const int* kind_counts, const int* kind_template) {
   return true;
 }
 
-void bv_explainer_construct(bv_explainer_t* exp, const plugin_context_t* ctx, watch_list_manager_t* wlm) {
+void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm) {
   exp->ctx = ctx;
   exp->tm = &ctx->var_db->tm;
   exp->wlm = wlm;
@@ -255,6 +256,62 @@ bv_subtheory_t bv_explainer_get_subtheory(bv_explainer_t* exp, const ivector_t* 
 }
 
 static
+void bv_explainer_get_conflict_eq(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+
+  uint32_t i;
+  variable_t atom_i_var;
+  term_t atom_i_term;
+
+  exp->stats.th_eq ++;
+
+  term_table_t* terms = exp->ctx->terms;
+  const variable_db_t* var_db = exp->ctx->var_db;
+
+  // Create the equality graph
+  eq_graph_t eq_graph;
+  eq_graph_construct(&eq_graph, exp->ctx, "bv:eq");
+
+  // Add all terms to the equality graph
+  for (i = 0; i < conflict_core->size; ++ i) {
+    atom_i_var = conflict_core->data[i];
+    atom_i_term = variable_db_get_term(var_db, atom_i_var);
+    // Add the LHS/RHS
+    term_kind_t atom_kind = term_kind(terms, atom_i_term);
+    composite_term_t* atom_i_desc;
+    switch(atom_kind) {
+    case EQ_TERM:
+      atom_i_desc = eq_term_desc(terms, atom_i_term);
+      eq_graph_add_ifun_term(&eq_graph, atom_i_term, EQ_TERM, 2, atom_i_desc->arg);
+      break;
+    case BV_EQ_ATOM:
+      atom_i_desc = bveq_atom_desc(terms, atom_i_term);
+      eq_graph_add_ifun_term(&eq_graph, atom_i_term, EQ_TERM, 2, atom_i_desc->arg);
+      break;
+    default:
+      assert(false);
+    }
+  }
+
+  // Run propagation (TODO: run just for the conflict terms)
+  eq_graph_propagate_trail(&eq_graph);
+
+  // Conflict might be due to not enough
+  if (!eq_graph.in_conflict) {
+    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(exp->ctx);
+      eq_graph_print(&eq_graph, out);
+    }
+    assert(false);
+  }
+
+  // Construct the conflict
+  eq_graph_get_conflict(&eq_graph, conflict, NULL, NULL);
+
+  // Delete temps
+  eq_graph_destruct(&eq_graph);
+}
+
+static
 void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   uint32_t i;
   variable_t atom_i_var;
@@ -330,11 +387,9 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
 
   switch (subtheory) {
   case BV_TH_EQ:
-    assert(false);
+    bv_explainer_get_conflict_eq(exp, conflict_in, conflict_var, conflict_out);
     break;
   case BV_TH_EQ_EXT_CON:
-    assert(false);
-    break;
   case BV_TH_FULL:
     bv_explainer_get_conflict_all(exp, conflict_in, conflict_var, conflict_out);
     break;

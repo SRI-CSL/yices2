@@ -41,7 +41,7 @@ typedef enum {
 
 typedef struct {
   /** Context */
-  const plugin_context_t* ctx;
+  plugin_context_t* ctx;
   /** Term manager */
   term_manager_t* tm;
   /** Watch list manager */
@@ -59,7 +59,7 @@ typedef struct {
 } bv_explainer_t;
 
 /** Construct the explainer */
-void bv_explainer_construct(bv_explainer_t* exp, const plugin_context_t* ctx, watch_list_manager_t* wlm);
+void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm);
 
 /** Destruct the explainer */
 void bv_explainer_destruct(bv_explainer_t* exp);
