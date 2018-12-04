@@ -130,6 +130,21 @@ extern uint32_t store_bgate(bgate_array_t *a, ttbl_t *tt);
  * - tt.nvars must be 2
  * - tt.label[0] and tt.label[1] must be literals
  * - tt.label[2] must be -1
+ *
+ * After normalization, we can have:
+ * - tt.nvars = 0 and tt.mask = 0x00 or 0xff (constant gate)
+ * - tt.nvars = 1 and tt.label[0] is a Boolean variable
+ *   and tt.mask is either 0x0f or 0xf0:
+ *     label[0] is the input variable X
+ *     the output is either X or (not X)
+ * - tt.nvars = 2 and tt.label[0] and tt.label[1] are Boolean variables
+ *   and label[0] < label[1].
+ *     label[0] and label[1] are two input variables
+ *     tt.mask gives the truth table for the output function
+ *
+ * In addition, all unused labels are set to null_bvar (i.e., -1).
+ * For example, if tt.nvars = 1 then both tt.label[1] and tt.label[2]
+ * are equal to null_bvar.
  */
 extern void normalize_truth_table2(ttbl_t *tt);
 
@@ -137,6 +152,13 @@ extern void normalize_truth_table2(ttbl_t *tt);
  * Normalize a truth table with three columns:
  * - tt.nvars must be 3
  * - tt.label[0 .. 2] must be literals
+ *
+ * After normalization:
+ * - tt.nvars is a number between 0 and 3.
+ * - label[0 .. tt.nvars-1] are distinct Boolean variables,
+ *   sorted in increasing order.
+ * - tt.mask is the truth table for the defined gate.
+ * - unused labels are set to null_bvars (i.e., -1).
  */
 extern void normalize_truth_table3(ttbl_t *tt);
 
