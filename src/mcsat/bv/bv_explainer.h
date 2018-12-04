@@ -15,20 +15,24 @@
 #include "utils/int_hash_sets.h"
 #include "terms/term_manager.h"
 
+/** Different types of operators that we consider */
+typedef enum {
+  BV_KIND_EQ = 0,
+  BV_KIND_EXT_CON,
+  BV_KIND_BITWISE,
+  BV_KIND_SHIFT,
+  BV_KIND_ARITH_CMP,
+  BV_KIND_ARITH_POLY
+} bv_kind_type_t;
+
+#define BV_KIND_COUNT (BV_KIND_ARITH_POLY + 1)
+
 /** Different theories that we can explain */
 typedef enum {
   /** Equality */
   BV_TH_EQ = 0,
   /** Equality, extraction, concatenation */
   BV_TH_EQ_EXT_CON,
-  /** Bitwise operation (NOT, OR) */
-  BV_TH_BITWISE,
-  /** Shifting */
-  BV_TH_SHIFT,
-  /** Arithmetic comparison */
-  BV_TH_ARITH_CMP,
-  /** Arithmetic */
-  BV_TH_ARITH,
   /** All together */
   BV_TH_FULL
 } bv_subtheory_t;
