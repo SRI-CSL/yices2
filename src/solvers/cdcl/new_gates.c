@@ -100,8 +100,9 @@ static uint32_t bgate_arity(bgate_t *g) {
 /*
  * Get the truth table for gate i: store it in tt
  */
-void get_bgate(bgate_array_t *a, uint32_t i, ttbl_t *tt) {
+void get_bgate(const bgate_array_t *a, uint32_t i, ttbl_t *tt) {
   assert(i < a->size);
+  assert(a->data[i].ttbl < 256);
 
   tt->nvars = bgate_arity(a->data + i);
   tt->label[0] = a->data[i].var[0];
@@ -278,7 +279,7 @@ static bool normal_truth_table(ttbl_t *tt) {
  * Normalize truth table tt with three columns
  * - the three labels are literals
  */
-static void normalize_truth_table3(ttbl_t *tt) {
+void normalize_truth_table3(ttbl_t *tt) {
   literal_t l;
   bvar_t aux;
 
@@ -380,7 +381,7 @@ static void normalize_truth_table3(ttbl_t *tt) {
  * Normalize a truth table with two columns
  * - label[0] and label[1] are literals
  */
-static void normalize_truth_table2(ttbl_t *tt) {
+void normalize_truth_table2(ttbl_t *tt) {
   literal_t l;
   bvar_t aux;
 

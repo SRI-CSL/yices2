@@ -26,6 +26,7 @@
 #include <float.h>
 
 #include "solvers/cdcl/new_sat_solver.h"
+#include "solvers/cdcl/new_gate_hash_map.h"
 #include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/int_array_sort.h"
@@ -2312,6 +2313,22 @@ static bool bvar_to_keep(const descriptors_t *table, bvar_t x) {
 }
 
 
+/*
+ * Check whether x has a gate definition
+ */
+static bool bvar_is_gate(const descriptors_t *table, bvar_t x) {
+  assert(0 <= x);
+  return x < table->size && table->tag[x] == DTAG_GATE;
+}
+
+/*
+ * Get the gate index for variable x
+ */
+static uint32_t bvar_get_gate(const descriptors_t *table, bvar_t x) {
+  assert(bvar_is_gate(table, x));
+  return table->desc[x];
+}
+
 
 /********************************
  *  SAT SOLVER INITIALIZATION   *
@@ -2875,6 +2892,142 @@ void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x) {
   assert(0 <= x && x < solver->nvars);
   add_descriptor(&solver->descriptors, x, DTAG_TO_KEEP, 0);
   assert(bvar_to_keep(&solver->descriptors, x));
+}
+
+
+/*
+ * Convert l to true_literal or false_literal if it's assigned.
+ * Otherwise, return l.
+ */
+static literal_t nsat_base_literal(const sat_solver_t *solver, literal_t l) {
+  assert(solver->decision_level == 0);
+
+  switch (lit_value(solver, l)) {
+  case VAL_FALSE:
+    l = false_literal;
+    break;
+
+  case VAL_TRUE:
+    l = true_literal;
+    break;
+
+  default:
+    break;
+  }
+
+  return l;
+}
+
+
+/*
+ * Add a definition for variable x.
+ * There are two forms: binary and ternary definitions.
+ *
+ * A binary definition is x = (OP l1 l2) where l1 and l2 are literals
+ * and OP is a binary operator defined by a truth table.
+ *
+ * A ternary definition is similar, but with three literals:
+ * x = (OP l1 l2 l3).
+ *
+ * The truth table is defined by the  8 low-order bit of parameter b.
+ * The conventions are the same as in new_gates.h.
+ */
+void nsat_solver_add_def2(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
+  ttbl_t tt;
+  uint32_t i;
+
+  assert(0 <= x && x < solver->nvars);
+  assert(0 <= l1 && l1 <= solver->nliterals);
+  assert(0 <= l2 && l2 <= solver->nliterals);
+
+  tt.nvars = 2;
+  tt.label[0] = nsat_base_literal(solver, l1);
+  tt.label[1] = nsat_base_literal(solver, l2);
+  tt.label[2] = null_bvar;
+  tt.mask = (uint8_t) b;
+  normalize_truth_table2(&tt);
+
+  if (tt.nvars >= 2) {
+    i = store_bgate(&solver->gates, &tt);
+    add_descriptor(&solver->descriptors, x, DTAG_GATE, i);
+  }
+}
+
+void nsat_solver_add_def3(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
+  ttbl_t tt;
+  uint32_t i;
+
+  assert(0 <= x && x < solver->nvars);
+  assert(0 <= l1 && l1 <= solver->nliterals);
+  assert(0 <= l2 && l2 <= solver->nliterals);
+  assert(0 <= l3 && l3 <= solver->nliterals);
+
+  tt.nvars = 3;
+  tt.label[0] = nsat_base_literal(solver, l1);
+  tt.label[1] = nsat_base_literal(solver, l2);
+  tt.label[2] = nsat_base_literal(solver, l3);
+  tt.mask = (uint8_t) b;
+  normalize_truth_table3(&tt);
+
+  if (tt.nvars >= 2) {
+    i = store_ternary_gate(&solver->gates, b, l1, l2, l3);
+    add_descriptor(&solver->descriptors, x, DTAG_GATE, i);
+  }
+}
+
+
+/*
+ * For debugging: show the definition of variable x
+ */
+static void show_var_def(const sat_solver_t *solver, bvar_t x) {
+  ttbl_t tt;
+  uint32_t i;
+
+  i = bvar_get_gate(&solver->descriptors, x);
+  get_bgate(&solver->gates, i, &tt);
+
+  fprintf(stderr, "c %"PRId32" = G(", x);
+  for (i=0; i<tt.nvars; i++) {
+    fprintf(stderr, "%"PRId32", ", tt.label[i]);
+  }
+  fprintf(stderr, "0x%02x)\n", tt.mask);
+}
+
+
+void show_all_var_defs(const sat_solver_t *solver) {
+  gate_hmap_t test;
+  bgate_t *g;
+  uint32_t i, j, n, equiv;
+  literal_t l;
+
+  init_gate_hmap(&test, 0);
+
+  n = solver->descriptors.size;
+  for (i=0; i<n; i++) {
+    if (bvar_is_gate(&solver->descriptors, i)) {
+      show_var_def(solver, i);
+    }
+  }
+
+  equiv = 0;
+  for (i=0; i<n; i++) {
+    if (bvar_is_gate(&solver->descriptors, i)) {
+      j = bvar_get_gate(&solver->descriptors, i);
+      g = bgate(&solver->gates, j);
+      l = gate_hmap_find(&test, g);
+      if (l == null_literal) {
+	gate_hmap_add(&test, g, pos_lit(i));
+      } else {
+	fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32"\n", l, pos_lit(i));
+	equiv ++;
+      }
+    }
+  }
+
+  fprintf(stderr, "c tested %"PRIu32" gates\n", test.nelems);
+  fprintf(stderr, "c found %"PRIu32" equivalences\n", equiv);
+
+  delete_gate_hmap(&test);
 }
 
 
@@ -5556,6 +5709,71 @@ static bool pp_empty_queue(sat_solver_t *solver) {
 
 
 /*
+ * EQUIVALENT DEFINITIONS
+ */
+
+/*
+ * Equivalence: l1 == l2
+ */
+static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
+  // provisional: we apply substitutions first
+  l1 = full_lit_subst(solver, l1);
+  l2 = full_lit_subst(solver, l2);
+  if (l1 == l2) return;
+
+  if (l1 == not(l2)) {
+    add_empty_clause(solver);
+  } else if (var_of(l1) == const_bvar) {
+    if (l1 == true_literal) {
+      pp_push_unit_literal(solver, l2);
+    } else {
+      pp_push_unit_literal(solver, not(l2));
+    }
+  } else if (var_of(l2) == const_bvar) {
+    if (l2 == true_literal) {
+      pp_push_unit_literal(solver, l1);
+    } else {
+      pp_push_unit_literal(solver, not(l1));
+    }
+  } else if (l1 < l2) {
+    set_lit_subst(solver, l2, l1);
+  } else {
+    set_lit_subst(solver, l1, l2);
+  }
+}
+
+/*
+ * Search for equivalent definitions
+ */
+static void try_equivalent_vars(sat_solver_t *solver) {
+  gate_hmap_t test;
+  bgate_t *g;
+  uint32_t i, n, j;
+  literal_t l;
+
+  init_gate_hmap(&test, 0);
+
+  n = solver->descriptors.size;
+  for (i=0; i<n; i++) {
+    if (bvar_is_gate(&solver->descriptors, i)) {
+      j = bvar_get_gate(&solver->descriptors, i);
+      g = bgate(&solver->gates, j);
+      l = gate_hmap_find(&test, g);
+      if (l == null_literal) {
+	gate_hmap_add(&test, g, pos_lit(i));
+      } else {
+	literal_equiv(solver, l, pos_lit(i));
+	if (solver->has_empty_clause) break;
+      }
+    }
+  }
+
+  delete_gate_hmap(&test);
+}
+
+
+
+/*
  * VARIABLE SUBSTITUTION
  */
 
@@ -5709,6 +5927,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
   if (solver->has_empty_clause) {
     return false;
   }
+  try_equivalent_vars(solver);
 
   if (solver->stats.subst_vars > subst_count && solver->verbosity >= 3) {
     fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", solver->stats.subst_vars - subst_count);
@@ -5731,6 +5950,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
 
   return true;
 }
+
 
 
 /*

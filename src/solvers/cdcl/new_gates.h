@@ -64,7 +64,7 @@
  * and var[2] is set to -1.
  */
 typedef struct bgate_s {
-  uint8_t ttbl; // truth table
+  uint32_t ttbl;  // truth table: only 8bits are used
   bvar_t  var[3]; // variables in increasing order
 } bgate_t;
 
@@ -123,6 +123,22 @@ static inline void reset_bgate_array(bgate_array_t *a) {
  * - return the index of the newly allocated element
  */
 extern uint32_t store_bgate(bgate_array_t *a, ttbl_t *tt);
+
+
+/*
+ * Normalize a truth table with two columns:
+ * - tt.nvars must be 2
+ * - tt.label[0] and tt.label[1] must be literals
+ * - tt.label[2] must be -1
+ */
+extern void normalize_truth_table2(ttbl_t *tt);
+
+/*
+ * Normalize a truth table with three columns:
+ * - tt.nvars must be 3
+ * - tt.label[0 .. 2] must be literals
+ */
+extern void normalize_truth_table3(ttbl_t *tt);
 
 /*
  * Normalize and store a gate with two input literals.
@@ -201,11 +217,18 @@ static inline literal_t store_ite(bgate_array_t *a, literal_t c, literal_t l1, l
   return store_ternary_gate(a, 0xca, c, l1, l2);
 }
 
-
 /*
  * Get the truth table for gate i: store it in tt
  */
-extern void get_bgate(bgate_array_t *a, uint32_t i, ttbl_t *tt);
+extern void get_bgate(const bgate_array_t *a, uint32_t i, ttbl_t *tt);
+
+/*
+ * Get i-th element in the array
+ */
+static inline bgate_t *bgate(const bgate_array_t *a, uint32_t i) {
+  assert(i < a->size);
+  return a->data + i;
+}
 
 
 #endif /* __NEW_GATES_H */

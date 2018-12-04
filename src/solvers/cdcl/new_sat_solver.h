@@ -939,13 +939,27 @@ extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
 extern void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity);
 
 /*
- * Mark variable x as a variable to keep: it will not be deleted during
+ * Mark variable x as a variable to keep. It will not be deleted during
  * preprocessing. By default, all variables are considered candidates for
  * elimination.
  */
 extern void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x);
 
-
+/*
+ * Add a definition for variable x.
+ * There are two forms: binary and ternary definitions.
+ *
+ * A binary definition is x = (OP l1 l2) where l1 and l2 are literals
+ * and OP is a binary operator defined by a truth table.
+ *
+ * A ternary definition is similar, but with three literals:
+ * x = (OP l1 l2 l3).
+ *
+ * The truth table is defined by the  8 low-order bit of parameter b.
+ * The conventions are the same as in new_gates.h.
+ */
+extern void nsat_solver_add_def2(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2);
+extern void nsat_solver_add_def3(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3);
 
 
 

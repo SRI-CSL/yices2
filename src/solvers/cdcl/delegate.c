@@ -82,6 +82,19 @@ static void ysat_delete(void *solver) {
   safe_free(solver);
 }
 
+static void ysat_keep_var(void *solver, bvar_t x) {
+  nsat_solver_keep_var(solver, x);
+}
+
+static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
+  nsat_solver_add_def2(solver, x, b, l1, l2);
+}
+
+extern void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
+  nsat_solver_add_def3(solver, x, b, l1, l2, l3);
+}
+
+
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true);
@@ -101,6 +114,10 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->get_value = ysat_get_value;
   d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
+  // experimental
+  d->keep_var = ysat_keep_var;
+  d->var_def2 = ysat_var_def2;
+  d->var_def3 = ysat_var_def3;
 }
 
 
@@ -204,6 +221,9 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->get_value = cadical_get_value;
   d->set_verbosity = cadical_set_verbosity;
   d->delete = cadical_delete;
+  d->keep_var = NULL;
+  d->var_def2 = NULL;
+  d->var_def3 = NULL;
 }
 
 #endif
@@ -338,29 +358,134 @@ static void copy_problem_clauses(delegate_t *d, smt_core_t *core) {
 
 
 /*
- * Copy all clauses of core to a delegate d then call the delegate's solver
+ * Mark all variables with atoms as variables to keep
  */
-smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
+static void mark_atom_variables(delegate_t *d, smt_core_t *core) {
   uint32_t x, n;
-
-  copy_problem_clauses(d, core);
 
   n = num_vars(core);
   for (x=0; x<n; x++) {
     if (bvar_has_atom(core, x)) {
-      nsat_solver_keep_var(d->solver, x);
+      d->keep_var(d->solver, x);
     }
   }
+}
 
-  // for testing only
-  
-  //  printf("\n---- GATES ----\n");
-  //  print_gate_table(stdout, get_gate_table(core));
-  //  printf("----\n\n");
-  //  init_bdef_table(&def);
-  //  bdef_table_process_all_gates(&def, get_gate_table(core));
-  //  delete_bdef_table(&def);
 
+/*
+ * Process a gate definition g
+ */
+// definition l := f(l1, l2)
+static void add_binary_gate(delegate_t *d, uint32_t b, literal_t l, literal_t l1, literal_t l2) {
+  bvar_t x;
+
+  // normalize to a positive l
+  // l can be true_literal or false_literal, in which case we skip this gate
+  x = var_of(l);
+  if (x != const_bvar) {
+    if (is_neg(l)) { b = ~b; }
+    d->var_def2(d->solver, x, b, l1, l2);
+  }
+}
+
+// definition l := f(l1, l2, l3)
+static void add_ternary_gate(delegate_t *d, uint32_t b, literal_t l, literal_t l1, literal_t l2, literal_t l3) {
+  bvar_t x;
+
+  // normalize to a positive l
+  // l can be true_literal or false_literal, in which case we skip this gate
+  x = var_of(l);
+  if (x != const_bvar) {
+    if (is_neg(l)) { b = ~b; }
+    d->var_def3(d->solver, x, b, l1, l2, l3);
+  }
+}
+
+static void export_gate(delegate_t *d, const boolgate_t *g) {
+  uint32_t n;
+
+  switch (tag_combinator(g->tag)) {
+  case XOR_GATE:
+    assert(tag_outdegree(g->tag) == 1);
+    n = tag_indegree(g->tag);
+    if (n == 2) {
+      // output is g->lit[2], inputs are g->lit[0] and g->lit[1]
+      add_binary_gate(d, 0x3c, g->lit[2], g->lit[0], g->lit[1]);
+    } else if (n == 3) {
+      // output is g->lit[3], inputs are g->lit[0 .. 2]
+      add_ternary_gate(d, 0x96, g->lit[3], g->lit[0], g->lit[1], g->lit[2]);
+    }
+    break;
+
+  case OR_GATE:
+    assert(tag_outdegree(g->tag) == 1);
+    n = tag_indegree(g->tag);
+    if (n == 2) {
+      // output is g->lit[2], inputs are g->lit[0] and g->lit[1]
+      add_binary_gate(d, 0xfc, g->lit[2], g->lit[0], g->lit[1]);
+    } else if (n == 3) {
+      // output is g->lit[3], inputs are g->lit[0 .. 2]
+      add_ternary_gate(d, 0xfe, g->lit[3], g->lit[0], g->lit[1], g->lit[2]);
+    }
+    break;
+
+  case ITE_GATE:
+    assert(tag_indegree(g->tag) == 3 && tag_outdegree(g->tag) == 1);
+     add_ternary_gate(d, 0xca, g->lit[3], g->lit[0], g->lit[1], g->lit[2]);
+    break;
+
+  case CMP_GATE:
+    assert(tag_indegree(g->tag) == 3 && tag_outdegree(g->tag) == 1);
+    add_ternary_gate(d, 0xb2, g->lit[3], g->lit[0], g->lit[1], g->lit[2]);
+    break;
+
+  case HALFADD_GATE:
+    assert(tag_indegree(g->tag) == 2 && tag_outdegree(g->tag) == 2);
+    // g->lit[2] = (xor g->lit[0] g->lit[1])
+    // g->lit[3] = (and g->lit[0] g->lit[1])
+    add_binary_gate(d, 0x3c, g->lit[2], g->lit[0], g->lit[1]);
+    add_binary_gate(d, 0xc0, g->lit[3], g->lit[0], g->lit[1]);
+    break;
+
+   case FULLADD_GATE:
+    // g->lit[3] = (xor g->lit[0] g->lit[1] g->lit[2])
+    // g->lit[4] = (maj g->lit[0] g->lit[1] g->lit[2])
+    assert(tag_indegree(g->tag) == 3 && tag_outdegree(g->tag) == 2);
+    add_ternary_gate(d, 0x96, g->lit[3], g->lit[0], g->lit[1], g->lit[2]);
+    add_ternary_gate(d, 0xe8, g->lit[4], g->lit[0], g->lit[1], g->lit[2]);
+    break;
+  }
+}
+
+/*
+ * Export gate definitions from the core to the sat solver
+ */
+static void export_gate_definitions(delegate_t *d, smt_core_t *core) {
+  gate_table_t *gates;
+  boolgate_t *g;
+  uint32_t scan_index;
+
+  gates = get_gate_table(core);
+
+  scan_index = 0;
+  g = gate_table_next(gates, &scan_index);
+  while (g != NULL) {
+    export_gate(d, g);
+    g = gate_table_next(gates, &scan_index);
+  }
+}
+
+/*
+ * Copy all clauses of core to a delegate d then call the delegate's solver
+ */
+smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
+  copy_problem_clauses(d, core);
+  if (d->keep_var != NULL) {
+    mark_atom_variables(d, core);
+  }
+  if (d->var_def2 != NULL && d->var_def3 != NULL) {
+    export_gate_definitions(d, core);
+  }
   return d->check(d->solver);
 }
 
