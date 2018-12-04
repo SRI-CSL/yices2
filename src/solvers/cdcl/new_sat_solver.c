@@ -3484,10 +3484,13 @@ static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
   return l;
 }
 
+#if 0
 static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
   return full_lit_subst(solver, pos_lit(x));
 }
+#endif
+
 
 /*
  * Store subst[l1] := l2
@@ -3501,6 +3504,9 @@ static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   solver->stats.subst_vars ++;
   solver->ante_tag[x] = ATAG_SUBST;
   solver->ante_data[x] = l2 ^ sign_of_lit(l1);
+
+  // save a clause to rebuild the model later if needed
+  clause_vector_save_subst_clause(&solver->saved_clauses, l2, l1);
 }
 
 
@@ -4511,7 +4517,7 @@ static bool next_successor(const sat_solver_t *solver, literal_t l0, uint32_t *i
 	  *i = k+1;
 	  *successor = idx2lit(idx);
 	  return true;
-	} else if (clause_length(&solver->pool, idx) == 2) {
+	} else if (clause_is_live(&solver->pool, idx) && clause_length(&solver->pool, idx) == 2) {
 	  *i = k+2;
 	  *successor = other_watched_literal_of_clause(&solver->pool, idx, not(l0));
 	  return true;
@@ -4554,17 +4560,20 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
     e = gstack_top(&solver->dfs_stack);
     x = e->vertex;
     if (next_successor(solver, x, &e->index, &y)) {
-      // x --> y in the implication graph
-      if (solver->visit[y] == 0) {
-        // y not visited yet
-        k ++;
-        solver->visit[y] = k;
-        solver->label[y] = k;
-        gstack_push_vertex(&solver->dfs_stack, y, 0);
-        vector_push(&solver->vertex_stack, y);
-      } else if (solver->label[y] < solver->label[x]) {
-        // y has a successor visited before x on the dfs stack
-        solver->label[x] = solver->label[y];
+      // skip y if it's assigned at level0
+      if (lit_is_active(solver, y)) {
+	// x --> y in the implication graph
+	if (solver->visit[y] == 0) {
+	  // y not visited yet
+	  k ++;
+	  solver->visit[y] = k;
+	  solver->label[y] = k;
+	  gstack_push_vertex(&solver->dfs_stack, y, 0);
+	  vector_push(&solver->vertex_stack, y);
+	} else if (solver->label[y] < solver->label[x]) {
+	  // y has a successor visited before x on the dfs stack
+	  solver->label[x] = solver->label[y];
+	}
       }
 
     } else {
@@ -5942,7 +5951,8 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
       solver->value[neg_lit(i)] = VAL_FALSE;
 
       // save clause l := l0 to reconstruct the model: l0 = ante_data[i], l = pos_lit(i)
-      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[i], pos_lit(i));
+      // This is done in set_subst_lit
+      //      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[i], pos_lit(i));
 
       pp_apply_subst_to_variable(solver, i);
     }
@@ -7981,6 +7991,12 @@ static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint3
   solver->value[not(l)] = opposite_val(val);
 }
 
+
+#if 0
+// NOT USED ANYMORE.
+
+// we now store a clause in the saved_clause vector whenever we
+// eliminate a variable.
 /*
  * Extend the current assignment to variables eliminated by substitution
  */
@@ -8002,6 +8018,8 @@ static void extend_assignment_by_substitution(sat_solver_t *solver) {
   }
 }
 
+#endif
+
 
 /*
  * Extend the current assignment to all eliminated variables
@@ -8009,13 +8027,6 @@ static void extend_assignment_by_substitution(sat_solver_t *solver) {
 static void extend_assignment(sat_solver_t *solver) {
   nclause_vector_t *v;
   uint32_t n, block_size;;
-
-  /*
-   * NOTE: this works because we do not alternate between elimination
-   * by substitution and other techniques.  (i.e., we eliminate
-   * variables by resolution only as a pre-processing step).
-   */
-  extend_assignment_by_substitution(solver);
 
   v = &solver->saved_clauses;
   n = v->top;
