@@ -5988,15 +5988,17 @@ static void show_subst(const sat_solver_t *solver) {
   n = solver->nvars;
   for (i=0; i<n; i++) {
     l = full_var_subst(solver, i);
-    l0 = nsat_base_literal(solver, l);
-    if (l0 != pos_lit(i)) {
-      if (l0 == true_literal) {
-	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> true\n", i, l);
-      } else if (l0 == false_literal) {
-	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> false\n", i, l);
-      } else {
-	assert(l0 == l);
-	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32"\n", i, l);
+    if (l != pos_lit(i)) {
+      l0 = nsat_base_literal(solver, l);
+      if (l0 != pos_lit(i)) {
+	if (l0 == true_literal) {
+	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> true\n", i, l);
+	} else if (l0 == false_literal) {
+	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> false\n", i, l);
+	} else {
+	  assert(l0 == l);
+	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32"\n", i, l);
+	}
       }
     }
   }
@@ -6012,7 +6014,9 @@ static void try_equivalent_vars(sat_solver_t *solver) {
   uint32_t i, n;
   literal_t l, l0;
 
-  show_subst(solver);
+  if (solver->verbosity >= 10) {
+    show_subst(solver);
+  }
 
   init_gate_hmap(&test, 0);
 
@@ -6027,7 +6031,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	if (l == null_literal) {
 	  gate_hmap_add_ttbl(&test, &tt, l0);
 	} else if (l != l0) {
-	  fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(i), l0);
+	  fprintf(stderr, "c   gate equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(i), l0);
 	}
       }
     }
