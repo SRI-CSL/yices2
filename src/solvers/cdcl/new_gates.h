@@ -162,6 +162,96 @@ extern void normalize_truth_table2(ttbl_t *tt);
  */
 extern void normalize_truth_table3(ttbl_t *tt);
 
+
+/*
+ * General form
+ */
+extern void normalize_truth_table(ttbl_t *tt);
+
+
+/*
+ * Combine two binary truth tables:
+ * - tt1 defines a function f(x, y)
+ * - tt2 defines x as a function g(z, t)
+ * - the result is the truth table for f(g(z, t), y)
+ */
+extern void compose_ttbl_left(const ttbl_t *tt1, const ttbl_t *tt2, ttbl_t *result);
+
+/*
+ * Combine two binary truth tables:
+ * - tt1 defines f(x, y)
+ * - tt2 defines y as a g(z, t)
+ * - the result is the truth table for f(x, g(z, t))
+ */
+extern void compose_ttbl_right(const ttbl_t *tt1, const ttbl_t *tt2, ttbl_t *result);
+
+/*
+ * Try to compose three binary tables and reduce the result to
+ * a three-column table.
+ * - tt1 defines f(x, y)
+ * - tt2 defines g(a, b) for x
+ * - tt3 defined h(c, d) for y
+ *
+ * The function returns true if at least two of the
+ * variables a, b, c, d are equal and store the truth table
+ * for f(g(a, b), h(c, d)) into result.
+ *
+ * The function returns false otherwise.
+ */
+extern bool compose_ttbl_left_right1(const ttbl_t *tt1, const ttbl_t *tt2, const ttbl_t *tt3, ttbl_t *result);
+
+/*
+ * Try to compose three tables and reduce the result to a three-column table.
+ * - tt1 defines f(x, y)
+ * - tt2 defines g(a, b) for x
+ * - tt3 defines h(c, d, e) for y
+ *
+ * Succeed if { a, b } is a subset of { c, d, e }.
+ * In this case, store the truth table for f(g(a, b), h(c, d, e)) in result.
+ * Otherwise return false.
+ */
+extern bool compose_ttbl_left_right2(const ttbl_t *tt1, const ttbl_t *tt2, const ttbl_t *tt3, ttbl_t *result);
+
+/*
+ * Same thing but with the tt2 defining a ternary function and tt3 a binary function.
+ * - tt1 defines f(x, y)
+ * - tt2 defines g(a, b, c) for x
+ * - tt3 defines h(e, f) for y
+ *
+ * Succeed if { e, f } is a subset of { a, b, c}.
+ * Return true and store the table for f(g(a, b, c), h(e, f)) in result.
+ * Otherwise, return false.
+ */
+extern bool compose_ttbl_left_right3(const ttbl_t *tt1, const ttbl_t *tt2, const ttbl_t *tt3, ttbl_t *result);
+
+
+/*
+ * Same thing but with two ternary functions:
+ * - tt1 defines f(x, y)
+ * - tt2 defines g(a, b, c) for x
+ * - tt3 defines h(d, e, f) for y
+ *
+ * Succeed if a = d and b = e and c = f.
+ * Then store the table for f(g(a, b, c), h(d, e, f)) in result.
+ * Otherwise return false.
+ */
+extern bool compose_ttbl_left_right4(const ttbl_t *tt1, const ttbl_t *tt2, const ttbl_t *tt3, ttbl_t *result);
+
+
+/*
+ * General form:
+ * - tt1 defines f(x, y)
+ * - tt2 defines a function g(...) for x (either binary or ternary)
+ * - tt3 defines a function h(...) for y (either binary or ternary)
+ *
+ * Succeed if f(g(...), h(...)) can be reduced to a three-column table.
+ * Store the result in *result if so, and return true.
+ * Return false otherwise.
+ */
+extern bool compose_ttbl_left_right(const ttbl_t *tt1, const ttbl_t *tt2, const ttbl_t *tt3, ttbl_t *result);
+
+
+
 /*
  * Normalize and store a gate with two input literals.
  * - b = truth table for the gate

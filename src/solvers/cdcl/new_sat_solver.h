@@ -853,6 +853,7 @@ typedef struct sat_solver_s {
    */
   vector_t vertex_stack;
   gstack_t dfs_stack;
+  vector_t subst_vars; // all variables eliminated in an SCC round
   uint32_t *label;
   uint32_t *visit;
 

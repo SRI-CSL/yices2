@@ -2330,6 +2330,7 @@ static uint32_t bvar_get_gate(const descriptors_t *table, bvar_t x) {
 }
 
 
+
 /********************************
  *  SAT SOLVER INITIALIZATION   *
  *******************************/
@@ -2478,6 +2479,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
   init_vector(&solver->vertex_stack);
   init_gstack(&solver->dfs_stack);
+  init_vector(&solver->subst_vars);
   solver->label = NULL;
   solver->visit = NULL;
 
@@ -2538,6 +2540,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
 
   delete_vector(&solver->vertex_stack);
   delete_gstack(&solver->dfs_stack);
+  delete_vector(&solver->subst_vars);
   if (solver->label != NULL) {
     safe_free(solver->label);
     safe_free(solver->visit);
@@ -2594,6 +2597,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
 
   reset_vector(&solver->vertex_stack);
   reset_gstack(&solver->dfs_stack);
+  reset_vector(&solver->subst_vars);
   if (solver->label != NULL) {
     safe_free(solver->label);
     safe_free(solver->visit);
@@ -2981,7 +2985,7 @@ void nsat_solver_add_def3(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t 
  */
 static void show_var_def(const sat_solver_t *solver, bvar_t x) {
   ttbl_t tt;
-  uint32_t i;
+   uint32_t i;
 
   i = bvar_get_gate(&solver->descriptors, x);
   get_bgate(&solver->gates, i, &tt);
@@ -2992,6 +2996,23 @@ static void show_var_def(const sat_solver_t *solver, bvar_t x) {
   }
   fprintf(stderr, "0x%02x)\n", tt.mask);
 }
+
+
+/*
+ * Check whether x is a gate and return its truth-table in tt
+ */
+static bool gate_for_bvar(const sat_solver_t *solver, bvar_t x, ttbl_t *tt) {
+  uint32_t i;
+
+  if (bvar_is_gate(&solver->descriptors, x)) {
+    i = bvar_get_gate(&solver->descriptors, x);
+    get_bgate(&solver->gates, i, tt);
+    return true;
+  }
+
+  return false;
+}
+
 
 
 void show_all_var_defs(const sat_solver_t *solver) {
@@ -3484,16 +3505,15 @@ static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
   return l;
 }
 
-#if 0
 static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
   return full_lit_subst(solver, pos_lit(x));
 }
-#endif
 
 
 /*
- * Store subst[l1] := l2
+ * Store subst[l1] := l2 + store the eliminated variable (i.e., var_of(l1))
+ * into the subst_var vector
  */
 static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   bvar_t x;
@@ -3505,8 +3525,7 @@ static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   solver->ante_tag[x] = ATAG_SUBST;
   solver->ante_data[x] = l2 ^ sign_of_lit(l1);
 
-  // save a clause to rebuild the model later if needed
-  clause_vector_save_subst_clause(&solver->saved_clauses, l2, l1);
+  vector_push(&solver->subst_vars, x);
 }
 
 
@@ -4607,11 +4626,14 @@ static void dfs_explore(sat_solver_t *solver, literal_t l) {
  * Compute all SCCs and build/extend the variable substitution.
  * - sets solver->has_empty_clause to true if an SCC
  *   contains complementary literals.
+ * - store the eliminated variables in solver->subst_vars
  */
 static void compute_sccs(sat_solver_t *solver) {
   uint32_t i, n;
 
   assert(solver->label == NULL && solver->visit == NULL);
+
+  reset_vector(&solver->subst_vars);
 
   n = solver->nliterals;
   solver->label = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
@@ -5721,6 +5743,7 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * EQUIVALENT DEFINITIONS
  */
 
+#if 0
 /*
  * Equivalence: l1 == l2
  */
@@ -5751,29 +5774,268 @@ static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
   }
 }
 
+#endif
+
+/*
+ * Apply literal substitution to a truth table
+ */
+static void apply_subst_to_ttbl(const sat_solver_t *solver, ttbl_t *tt) {
+  uint32_t i;
+  literal_t l;
+
+  for (i=0; i<tt->nvars; i++) {
+    l = full_var_subst(solver, tt->label[i]);
+    tt->label[i] = nsat_base_literal(solver, l);
+  }
+  normalize_truth_table(tt);
+}
+
+
+/*
+ * Get x's definition and apply the substitution
+ * - return true if x is defined by a gate and if the result is a binary gate
+ * - store the truth table for x (after substitution) in tt
+ */
+static bool bvar_has_binary_def(const sat_solver_t *solver, bvar_t x, ttbl_t *tt) {
+  uint32_t i;
+
+  if (bvar_is_gate(&solver->descriptors, x)) {
+    i = bvar_get_gate(&solver->descriptors, x);
+    get_bgate(&solver->gates, i, tt);
+    apply_subst_to_ttbl(solver, tt);
+    return tt->nvars == 2;
+  }
+
+  return false;
+}
+
+
+/*
+ * If we have  x = f(y, z) and y = g(t, u)  rewrite x to f(g(t, u), z)
+ * - tt1 is the truth table for f(y, z)
+ * - return true if the rewrite succeeds, false otherwise
+ * - store the truth table for f(g(t, u), z) into *tt
+ */
+static bool bvar_rewrites1(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+
+  if (bvar_has_binary_def(solver, tt1->label[0], &tt2)) {
+    // tt2 = truth table for g(t, u)
+    compose_ttbl_left(tt1, &tt2, tt);
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Variant: x = f(y, z) and z = g(t, u) --> x = f(y, g(t, u))
+ */
+static bool bvar_rewrites2(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+
+  if (bvar_has_binary_def(solver, tt1->label[1], &tt2)) {
+    // tt2 = truth table for g(t, u)
+    compose_ttbl_right(tt1, &tt2, tt);
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+ * Rewrite 3:
+ *   x = f(y, z)
+ *   y = g(a, b)
+ *   z = h(c, d)
+ *   a = c or b = c or a = d or b = d.
+ */
+static bool bvar_rewrites3(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+  ttbl_t tt3;
+
+  if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
+      bvar_has_binary_def(solver, tt1->label[1], &tt3)) {
+    // tt2 stores g(a, b) and tt3 stores h(c, d)
+    return compose_ttbl_left_right(tt1, &tt2, &tt3, tt);
+  }
+  return false;
+}
+
+
+/*
+ * Rewrite 4:
+ *   x = f(y, z)
+ *   y = g(a, b)
+ *   z rewrites to h(c, d, e) by rewrite3
+ *   { a, b } is a subset of { c, d, e }
+ */
+static bool bvar_rewrites4(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+  ttbl_t tt3;
+  ttbl_t tt4;
+
+  if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
+      bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
+      bvar_rewrites3(solver, &tt3, &tt4)) {
+    return compose_ttbl_left_right(tt1, &tt2, &tt4, tt);
+  }
+  return false;
+}
+
+/*
+ * Symmetric case:
+ *    x = f(y, z)
+ *    y rewrites to g(a, b, c) by rewrite3
+ *    z = h(d, e)
+ *    { d, e } is a subset of { a, b, c}
+ */
+static bool bvar_rewrites5(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+  ttbl_t tt3;
+  ttbl_t tt4;
+
+  if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
+      bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
+      bvar_rewrites3(solver, &tt2, &tt4)) {
+    return compose_ttbl_left_right(tt1, &tt4, &tt3, tt);
+  }
+  return false;
+}
+
+
+/*
+ * Last rewrite:
+ *    x = f(y, z)
+ *    y rewrites to g(a, b, c)
+ *    z rewrites to h(a, b, c)
+ */
+static bool bvar_rewrites6(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t *tt) {
+  ttbl_t tt2;
+  ttbl_t tt3;
+  ttbl_t tt4;
+  ttbl_t tt5;
+
+  if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
+      bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
+      bvar_rewrites3(solver, &tt2, &tt4) &&
+      bvar_rewrites3(solver, &tt3, &tt5)) {
+    return compose_ttbl_left_right(tt1, &tt4, &tt5, tt);
+  }
+
+  return false;
+}
+
+/*
+ * Apply rewriting to variable x and search for a match in map
+ */
+static void try_subst_equiv_binary_gate(const sat_solver_t *solver, bvar_t x, const gate_hmap_t *map) {
+  ttbl_t tx;
+  ttbl_t r;
+  literal_t l, l0;
+
+  if (bvar_has_binary_def(solver, x, &tx)) {
+    l0 = full_var_subst(solver, x);
+    l0 = nsat_base_literal(solver, l0);
+    if (bvar_rewrites1(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite1 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+    if (bvar_rewrites2(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite2 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+    if (bvar_rewrites3(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite3 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+    if (bvar_rewrites4(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite4 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+    if (bvar_rewrites5(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite5  equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+    if (bvar_rewrites6(solver, &tx, &r)) {
+      l = gate_hmap_find_ttbl(map, &r);
+      if (l != null_literal && l != l0) {
+	fprintf(stderr, "c   rewrite6 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+      }
+    }
+  }
+}
+
+/*
+ * Show the full substitution
+ */
+static void show_subst(const sat_solver_t *solver) {
+  uint32_t i, n;
+  literal_t l;
+  literal_t l0;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    l = full_var_subst(solver, i);
+    l0 = nsat_base_literal(solver, l);
+    if (l0 != pos_lit(i)) {
+      if (l0 == true_literal) {
+	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> true\n", i, l);
+      } else if (l0 == false_literal) {
+	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> false\n", i, l);
+      } else {
+	assert(l0 == l);
+	fprintf(stderr, "c   subst(%"PRId32") = %"PRId32"\n", i, l);
+      }
+    }
+  }
+}
+
+
 /*
  * Search for equivalent definitions
  */
 static void try_equivalent_vars(sat_solver_t *solver) {
   gate_hmap_t test;
-  bgate_t *g;
-  uint32_t i, n, j;
-  literal_t l;
+  ttbl_t tt;
+  uint32_t i, n;
+  literal_t l, l0;
+
+  show_subst(solver);
 
   init_gate_hmap(&test, 0);
 
   n = solver->descriptors.size;
   for (i=0; i<n; i++) {
-    if (bvar_is_gate(&solver->descriptors, i)) {
-      j = bvar_get_gate(&solver->descriptors, i);
-      g = bgate(&solver->gates, j);
-      l = gate_hmap_find(&test, g);
-      if (l == null_literal) {
-	gate_hmap_add(&test, g, pos_lit(i));
-      } else {
-	literal_equiv(solver, l, pos_lit(i));
-	if (solver->has_empty_clause) break;
+    if (var_is_active(solver, i) && gate_for_bvar(solver, i, &tt)) {
+      apply_subst_to_ttbl(solver, &tt);
+      if (tt.nvars >= 2) {
+	l = gate_hmap_find_ttbl(&test, &tt);
+	l0 = full_var_subst(solver, i);
+	l0 = nsat_base_literal(solver, l0);
+	if (l == null_literal) {
+	  gate_hmap_add_ttbl(&test, &tt, l0);
+	} else if (l != l0) {
+	  fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(i), l0);
+	}
       }
+    }
+  }
+
+  for (i=0; i<n; i++) {
+    if (var_is_active(solver, i)) {
+      try_subst_equiv_binary_gate(solver, i, &test);
     }
   }
 
@@ -5927,35 +6189,38 @@ static void pp_apply_subst_to_variable(sat_solver_t *solver, bvar_t x) {
  * - return true otherwise
  */
 static bool pp_scc_simplification(sat_solver_t *solver) {
-  uint32_t subst_count;
+  vector_t *v;
   uint32_t i, n;
-
-  subst_count = solver->stats.subst_vars;
+  bvar_t x;
 
   compute_sccs(solver);
   if (solver->has_empty_clause) {
+    reset_vector(&solver->subst_vars);
     return false;
   }
-  try_equivalent_vars(solver);
 
-  if (solver->stats.subst_vars > subst_count && solver->verbosity >= 3) {
-    fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", solver->stats.subst_vars - subst_count);
-  }
-
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    if (solver->ante_tag[i] == ATAG_SUBST) {
-      // force a value for pos_lit(i) and neg_lit(i) so that they don't
-      // get considered in other simplification procedures
-      solver->value[pos_lit(i)] = VAL_TRUE;
-      solver->value[neg_lit(i)] = VAL_FALSE;
-
-      // save clause l := l0 to reconstruct the model: l0 = ante_data[i], l = pos_lit(i)
-      // This is done in set_subst_lit
-      //      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[i], pos_lit(i));
-
-      pp_apply_subst_to_variable(solver, i);
+  v = &solver->subst_vars;
+  n = v->size;
+  if (n > 0) {
+    if (solver->verbosity >= 3) {
+      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
     }
+    try_equivalent_vars(solver);
+
+    for (i=0; i<n; i++) {
+      x = v->data[i];
+      assert(solver->ante_tag[x] == ATAG_SUBST);
+      // force a value for x so that it doesn't get considered in
+      // other simplification procedures
+      solver->value[pos_lit(x)] = VAL_TRUE;
+      solver->value[neg_lit(x)] = VAL_FALSE;
+
+      // save clause l := l0 to reconstruct the model: l0 = ante_data[x], l = pos_lit(x)
+      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[x], pos_lit(x));
+
+      pp_apply_subst_to_variable(solver, x);
+    }
+    reset_vector(v);
   }
 
   return true;
@@ -7907,25 +8172,49 @@ static void resolve_conflict(sat_solver_t *solver) {
  * - sets solver->has_empty_clause to true if a conflict is detected.
  */
 static void try_scc_simplification(sat_solver_t *solver) {
-  uint32_t subst_count, units;
+  vector_t *v;
+  uint32_t i, n, units;
+  bvar_t x;
 
   assert(solver->decision_level == 0);
 
   solver->stats.scc_calls ++;
-  subst_count = solver->stats.subst_vars;
   units = solver->units;
 
   compute_sccs(solver);
-  if (solver->has_empty_clause) return;
+  if (solver->has_empty_clause) {
+    reset_vector(&solver->subst_vars);
+    return;
+  }
 
   report(solver, "scc");
 
-  if (solver->stats.subst_vars > subst_count) {
+  v = &solver->subst_vars;
+  n = v->size;
+  n = solver->subst_vars.size;
+  if (n > 0) {
+    if (solver->verbosity >= 3) {
+      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
+    }
+    try_equivalent_vars(solver);
+
+    // save clause to extend the model later
+    for (i=0; i<n; i++) {
+      x = v->data[i];
+      assert(solver->ante_tag[x] == ATAG_SUBST);
+      // the substitution is x := ante_data[x]
+      clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[x], pos_lit(x));
+    }
+    reset_vector(v);
+
+    // apply the substitution
     apply_substitution(solver);
     if (solver->has_empty_clause) {
       fprintf(stderr, "c empty clause after substitution\n");
       return;
     }
+
+    // one round of propagation
     if (solver->units > units) {
       level0_propagation(solver);
       if (solver->has_empty_clause) {
