@@ -5935,59 +5935,66 @@ static bool bvar_rewrites6(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
   return false;
 }
 
-/*
- * Apply rewriting to variable x and search for a match in map
- */
-static void try_subst_equiv_binary_gate(sat_solver_t *solver, bvar_t x, const gate_hmap_t *map) {
-  ttbl_t tx;
-  ttbl_t r;
-  literal_t l, l0;
 
-  if (bvar_has_binary_def(solver, x, &tx)) {
-    l0 = full_var_subst(solver, x);
-    l0 = nsat_base_literal(solver, l0);
-    if (bvar_rewrites1(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite1 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
+/*
+ * Process equality l0 = tt
+ * - if tt is mapped to some literal l, merge l and l0
+ * - otherwise if test_only is false, add the mapping tt -> l0 to map
+ * - w is a string used to report message
+ */
+static void process_lit_eq_ttbl(sat_solver_t *solver, gate_hmap_t *map, literal_t l0,
+				const ttbl_t *tt, bool test_only, const char *w) {
+  literal_t l;
+
+  l = gate_hmap_find_ttbl(map, tt);
+  if (l != null_literal) {
+    if (l != l0) {
+      fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
+      literal_equiv(solver, l, l0);
     }
-    if (bvar_rewrites2(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite2 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
-    }
-    if (bvar_rewrites3(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite3 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
-    }
-    if (bvar_rewrites4(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite4 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
-    }
-    if (bvar_rewrites5(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite5  equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
-    }
-    if (bvar_rewrites6(solver, &tx, &r)) {
-      l = gate_hmap_find_ttbl(map, &r);
-      if (l != null_literal && l != l0) {
-	fprintf(stderr, "c   rewrite6 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
-	literal_equiv(solver, l, l0);
-      }
-    }
+  } else if (! test_only) {
+    gate_hmap_add_ttbl(map, tt, l0);
+  }
+}
+
+/*
+ * Apply rewriting:
+ * - l0 literal equal to the truth table tx
+ * - tx must be normalized and binary
+ */
+static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const ttbl_t *tx, gate_hmap_t *map) {
+  ttbl_t r;
+
+  assert(tx->nvars == 2);
+
+  if (bvar_rewrites6(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite6");
+    return;
+  }
+
+  if (bvar_rewrites5(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite5");
+    return;
+  }
+
+  if (bvar_rewrites4(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite4");
+    return;
+  }
+
+  if (bvar_rewrites3(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite3");
+    return;
+  }
+
+  if (bvar_rewrites2(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite2");
+    return;
+  }
+
+  if (bvar_rewrites1(solver, tx, &r)) {
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite2");
+    return;
   }
 }
 
@@ -6026,7 +6033,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
   gate_hmap_t test;
   ttbl_t tt;
   uint32_t i, n;
-  literal_t l, l0;
+  literal_t l0;
 
   if (solver->verbosity >= 10) {
     show_subst(solver);
@@ -6039,22 +6046,13 @@ static void try_equivalent_vars(sat_solver_t *solver) {
     if (var_is_active(solver, i) && gate_for_bvar(solver, i, &tt)) {
       apply_subst_to_ttbl(solver, &tt);
       if (tt.nvars >= 2) {
-	l = gate_hmap_find_ttbl(&test, &tt);
 	l0 = full_var_subst(solver, i);
 	l0 = nsat_base_literal(solver, l0);
-	if (l == null_literal) {
-	  gate_hmap_add_ttbl(&test, &tt, l0);
-	} else if (l != l0) {
-	  fprintf(stderr, "c   gate equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(i), l0);
-	  literal_equiv(solver, l, l0);
+	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate equiv");
+	if (tt.nvars == 2) {
+	  try_rewrite_binary_gate(solver, l0, &tt, &test);
 	}
       }
-    }
-  }
-
-  for (i=0; i<n; i++) {
-    if (var_is_active(solver, i)) {
-      try_subst_equiv_binary_gate(solver, i, &test);
     }
   }
 
