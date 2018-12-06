@@ -246,7 +246,7 @@ literal_t gate_hmap_find(const gate_hmap_t *hmap, const bgate_t *g) {
   key = *g;
   polarity = 0;
   if (flip_gate(key.ttbl)) {
-    key.ttbl = ~key.ttbl;
+    key.ttbl = (~key.ttbl) & 0xff;
     polarity = 1;
   }
   return gate_hmap_find_key(hmap, &key, polarity);  
@@ -261,7 +261,7 @@ literal_t gate_hmap_find_ttbl(const gate_hmap_t *hmap, const ttbl_t *tt) {
   int32_t polarity;
 
   if (flip_gate(tt->mask)) {
-    key.ttbl = ~tt->mask;
+    key.ttbl = (~tt->mask) & 0xff;
     polarity = 1;
   } else {
     key.ttbl = tt->mask;
@@ -310,7 +310,7 @@ void gate_hmap_add(gate_hmap_t *hmap, const bgate_t *g, literal_t l) {
 
   key = *g;
   if (flip_gate(key.ttbl)) {
-    key.ttbl = ~ key.ttbl;
+    key.ttbl = (~key.ttbl) & 0xff;
     l = not(l);
   }
   gate_hmap_add_entry(hmap, &key, l);
@@ -321,7 +321,7 @@ void gate_hmap_add_ttbl(gate_hmap_t *hmap, const ttbl_t *tt, literal_t l) {
   bgate_t key;
 
   if (flip_gate(tt->mask)) {
-    key.ttbl = ~tt->mask;
+    key.ttbl = (~tt->mask) & 0xff;
     l = not(l);
   } else {
     key.ttbl = tt->mask;
