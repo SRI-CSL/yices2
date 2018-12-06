@@ -4488,7 +4488,8 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
 
     if (unsat) {
       fprintf(stderr, "c found inconsistent SCC\n");
-      show_scc(stderr, solver, l);
+      // can't call show_scc here: the SCC is no longer on the stack
+      //      show_scc(stderr, solver, l);
     }
   }
 }
