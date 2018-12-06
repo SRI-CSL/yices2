@@ -3476,6 +3476,7 @@ static inline literal_t base_subst(const sat_solver_t *solver, literal_t l) {
 }
 #endif
 
+#if 0
 /*
  * Substitution for l:
  * - if l is not replaced by anything, return l
@@ -3486,10 +3487,10 @@ static literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
 
   if (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
     l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
-    assert(solver->ante_tag[var_of(l)] != ATAG_SUBST);
   }
   return l;
 }
+#endif
 
 /*
  * Full substitution: follow the substitution chain
@@ -4730,7 +4731,7 @@ static bool subst_and_simplify_clause(sat_solver_t *solver, cidx_t cidx) {
 
   j = 0;
   for (i=0; i<n; i++) {
-    l = lit_subst(solver, a[i]);
+    l = full_lit_subst(solver, a[i]);
     switch (solver->value[l] & 3) {
     case VAL_FALSE:
       break;
@@ -4797,7 +4798,7 @@ static void subst_and_simplify_binary_clause(sat_solver_t *solver, literal_t l0,
 
   j = 0;
   for (i=0; i<2; i++) {
-    l = lit_subst(solver, a[i]);
+    l = full_lit_subst(solver, a[i]);
     switch(lit_value(solver, l)) {
     case VAL_FALSE:
       break;
@@ -5743,7 +5744,7 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * EQUIVALENT DEFINITIONS
  */
 
-#if 0
+#if 1
 /*
  * Equivalence: l1 == l2
  */
@@ -5755,22 +5756,29 @@ static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
 
   if (l1 == not(l2)) {
     add_empty_clause(solver);
+    fprintf(stderr, "c   lit equiv: empty clause\n");
   } else if (var_of(l1) == const_bvar) {
     if (l1 == true_literal) {
       pp_push_unit_literal(solver, l2);
+      fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
     } else {
       pp_push_unit_literal(solver, not(l2));
+      fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", not(l2));
     }
   } else if (var_of(l2) == const_bvar) {
     if (l2 == true_literal) {
       pp_push_unit_literal(solver, l1);
+      fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l1);
     } else {
       pp_push_unit_literal(solver, not(l1));
+      fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", not(l1));
     }
   } else if (l1 < l2) {
     set_lit_subst(solver, l2, l1);
+    fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
   } else {
     set_lit_subst(solver, l1, l2);
+    fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l1, l2);
   }
 }
 
@@ -5930,7 +5938,7 @@ static bool bvar_rewrites6(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
 /*
  * Apply rewriting to variable x and search for a match in map
  */
-static void try_subst_equiv_binary_gate(const sat_solver_t *solver, bvar_t x, const gate_hmap_t *map) {
+static void try_subst_equiv_binary_gate(sat_solver_t *solver, bvar_t x, const gate_hmap_t *map) {
   ttbl_t tx;
   ttbl_t r;
   literal_t l, l0;
@@ -5942,36 +5950,42 @@ static void try_subst_equiv_binary_gate(const sat_solver_t *solver, bvar_t x, co
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite1 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
     if (bvar_rewrites2(solver, &tx, &r)) {
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite2 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
     if (bvar_rewrites3(solver, &tx, &r)) {
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite3 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
     if (bvar_rewrites4(solver, &tx, &r)) {
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite4 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
     if (bvar_rewrites5(solver, &tx, &r)) {
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite5  equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
     if (bvar_rewrites6(solver, &tx, &r)) {
       l = gate_hmap_find_ttbl(map, &r);
       if (l != null_literal && l != l0) {
 	fprintf(stderr, "c   rewrite6 equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(x), l0);
+	literal_equiv(solver, l, l0);
       }
     }
   }
@@ -6032,6 +6046,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	  gate_hmap_add_ttbl(&test, &tt, l0);
 	} else if (l != l0) {
 	  fprintf(stderr, "c   gate equiv: %"PRId32" == %"PRId32" == %"PRId32"\n", l, pos_lit(i), l0);
+	  literal_equiv(solver, l, l0);
 	}
       }
     }
@@ -6088,7 +6103,7 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
   reset_vector(b);
 
   for (i=0; i<n; i++) {
-    l = lit_subst(solver, a[i]);
+    l = full_lit_subst(solver, a[i]);
     assert(! lit_is_eliminated(solver, l));
     switch (solver->value[l] & 3) {
     case VAL_FALSE:
@@ -6209,8 +6224,13 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     if (solver->verbosity >= 3) {
       fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
     }
-    try_equivalent_vars(solver);
-
+    for (;;) {
+      try_equivalent_vars(solver);
+      if (n == v->size) break;
+      n = v->size;
+    }
+    // equivalent_vars may add more variables to vector v
+    n = v->size;
     for (i=0; i<n; i++) {
       x = v->data[i];
       assert(solver->ante_tag[x] == ATAG_SUBST);
@@ -8191,8 +8211,6 @@ static void try_scc_simplification(sat_solver_t *solver) {
     return;
   }
 
-  report(solver, "scc");
-
   v = &solver->subst_vars;
   n = v->size;
   n = solver->subst_vars.size;
@@ -8202,6 +8220,8 @@ static void try_scc_simplification(sat_solver_t *solver) {
     }
     try_equivalent_vars(solver);
 
+    // equivalent_vars may add more variables to vector v
+    n = v->size;
     // save clause to extend the model later
     for (i=0; i<n; i++) {
       x = v->data[i];
@@ -8210,6 +8230,8 @@ static void try_scc_simplification(sat_solver_t *solver) {
       clause_vector_save_subst_clause(&solver->saved_clauses, solver->ante_data[x], pos_lit(x));
     }
     reset_vector(v);
+
+    report(solver, "scc");
 
     // apply the substitution
     apply_substitution(solver);
