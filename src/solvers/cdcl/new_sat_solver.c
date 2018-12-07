@@ -81,6 +81,20 @@ static inline void check_elim_heap(const sat_solver_t *solver) {}
 #endif
 
 
+/*
+ * Function to show details and data
+ */
+static void show_assigned_vars(FILE *f, const sat_solver_t *solver);
+static void show_var_def(const sat_solver_t *solver, bvar_t x);
+static void show_tt(const ttbl_t *tt);
+static void show_subst(const sat_solver_t *solver);
+extern void show_all_var_defs(const sat_solver_t *solver);
+
+// utility: for printing a literal l: pol(l) is ~ if l is negative
+static int pol(literal_t l) {
+  return is_pos(l) ? ' ' : '~';
+}
+
 
 #if DATA
 
@@ -2910,6 +2924,8 @@ static literal_t nsat_base_literal(const sat_solver_t *solver, literal_t l) {
 
   x = var_of(l);
   switch (solver->ante_tag[x]) {
+  case ATAG_NONE:
+  case ATAG_DECISION:
   case ATAG_SUBST:
   case ATAG_ELIM:
     // l is assigned to some random value
@@ -2992,24 +3008,6 @@ void nsat_solver_add_def3(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t 
 
 
 /*
- * For debugging: show the definition of variable x
- */
-static void show_var_def(const sat_solver_t *solver, bvar_t x) {
-  ttbl_t tt;
-   uint32_t i;
-
-  i = bvar_get_gate(&solver->descriptors, x);
-  get_bgate(&solver->gates, i, &tt);
-
-  fprintf(stderr, "c %"PRId32" = G(", x);
-  for (i=0; i<tt.nvars; i++) {
-    fprintf(stderr, "%"PRId32", ", tt.label[i]);
-  }
-  fprintf(stderr, "0x%02x)\n", tt.mask);
-}
-
-
-/*
  * Check whether x is a gate and return its truth-table in tt
  */
 static bool gate_for_bvar(const sat_solver_t *solver, bvar_t x, ttbl_t *tt) {
@@ -3023,45 +3021,6 @@ static bool gate_for_bvar(const sat_solver_t *solver, bvar_t x, ttbl_t *tt) {
 
   return false;
 }
-
-
-
-void show_all_var_defs(const sat_solver_t *solver) {
-  gate_hmap_t test;
-  bgate_t *g;
-  uint32_t i, j, n, equiv;
-  literal_t l;
-
-  init_gate_hmap(&test, 0);
-
-  n = solver->descriptors.size;
-  for (i=0; i<n; i++) {
-    if (bvar_is_gate(&solver->descriptors, i)) {
-      show_var_def(solver, i);
-    }
-  }
-
-  equiv = 0;
-  for (i=0; i<n; i++) {
-    if (bvar_is_gate(&solver->descriptors, i)) {
-      j = bvar_get_gate(&solver->descriptors, i);
-      g = bgate(&solver->gates, j);
-      l = gate_hmap_find(&test, g);
-      if (l == null_literal) {
-	gate_hmap_add(&test, g, pos_lit(i));
-      } else {
-	fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32"\n", l, pos_lit(i));
-	equiv ++;
-      }
-    }
-  }
-
-  fprintf(stderr, "c tested %"PRIu32" gates\n", test.nelems);
-  fprintf(stderr, "c found %"PRIu32" equivalences\n", equiv);
-
-  delete_gate_hmap(&test);
-}
-
 
 
 /*******************
@@ -5787,10 +5746,14 @@ static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
     }
   } else if (l1 < l2) {
     set_lit_subst(solver, l2, l1);
-    fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
+    if (solver->verbosity >= 4) {
+      fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
+    }
   } else {
     set_lit_subst(solver, l1, l2);
-    fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l1, l2);
+    if (solver->verbosity >= 4) {
+      fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l1, l2);
+    }
   }
 }
 
@@ -5947,7 +5910,6 @@ static bool bvar_rewrites6(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
   return false;
 }
 
-
 /*
  * Process equality l0 = tt
  * - if tt is mapped to some literal l, merge l and l0
@@ -5958,10 +5920,17 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gate_hmap_t *map, literal_
 				const ttbl_t *tt, bool test_only, const char *w) {
   literal_t l;
 
+  if (solver->verbosity >= 4) {
+    fprintf(stderr, "c   %s: %c%"PRId32" == ", w, pol(l0), var_of(l0));
+    show_tt(tt);
+  }
+
   l = gate_hmap_find_ttbl(map, tt);
   if (l != null_literal) {
     if (l != l0) {
-      fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
+      if (solver->verbosity >= 4) {
+	fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
+      }
       literal_equiv(solver, l, l0);
     }
   } else if (! test_only) {
@@ -6009,34 +5978,6 @@ static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const tt
     return;
   }
 }
-
-/*
- * Show the full substitution
- */
-static void show_subst(const sat_solver_t *solver) {
-  uint32_t i, n;
-  literal_t l;
-  literal_t l0;
-
-  n = solver->nvars;
-  for (i=0; i<n; i++) {
-    l = full_var_subst(solver, i);
-    if (l != pos_lit(i)) {
-      l0 = nsat_base_literal(solver, l);
-      if (l0 != pos_lit(i)) {
-	if (l0 == true_literal) {
-	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> true\n", i, l);
-	} else if (l0 == false_literal) {
-	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32" --> false\n", i, l);
-	} else {
-	  assert(l0 == l);
-	  fprintf(stderr, "c   subst(%"PRId32") = %"PRId32"\n", i, l);
-	}
-      }
-    }
-  }
-}
-
 
 /*
  * Search for equivalent definitions
@@ -7276,14 +7217,15 @@ static void nsat_preprocess(sat_solver_t *solver) {
   collect_unit_and_pure_literals(solver);
   do {
     if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);
+    pp_try_gc(solver);    
     if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));
-
+  } while (! queue_is_empty(&solver->lqueue));  
+  
 #if 0
   fprintf(stderr, "\n\n*** STEP1 ***\n");
+  show_all_var_defs(solver);
   show_subst(solver);
-  fprintf(stderr, "\n\n");
+  fprintf(stderr, "\n");  
   show_state(stderr, solver);
   fprintf(stderr, "\n\n*** DONE STEP1 ***\n");
 #endif
@@ -9056,6 +8998,105 @@ uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a) {
 /***********************
  *  EXPORT/DUMP STATE  *
  **********************/
+
+/*
+ * For debugging: show the definition of variable x
+ */
+static void show_var_def(const sat_solver_t *solver, bvar_t x) {
+  ttbl_t tt;
+   uint32_t i;
+
+  i = bvar_get_gate(&solver->descriptors, x);
+  get_bgate(&solver->gates, i, &tt);
+
+  fprintf(stderr, "c %"PRId32" = G(", x);
+  for (i=0; i<tt.nvars; i++) {
+    fprintf(stderr, "%"PRId32", ", tt.label[i]);
+  }
+  fprintf(stderr, "0x%02x)\n", tt.mask);
+}
+
+
+static void show_tt(const ttbl_t *tt) {
+  uint32_t i;
+  fprintf(stderr, "G(");
+  for (i=0; i<tt->nvars; i++) {
+    fprintf(stderr, "%"PRId32", ", tt->label[i]);
+  }
+  fprintf(stderr, "0x%02x)\n", tt->mask);
+}
+
+
+/*
+ * Show the full substitution
+ */
+static void show_subst(const sat_solver_t *solver) {
+  uint32_t i, n;
+  literal_t l;
+  literal_t l0;
+  bvar_t x;
+  int sign;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    l = full_var_subst(solver, i);
+    if (l != pos_lit(i)) {
+      x = var_of(l);
+      sign = is_pos(l) ? ' ' : '~';
+      l0 = nsat_base_literal(solver, l);
+      if (l0 != pos_lit(i)) {
+	if (l0 == true_literal) {
+	  fprintf(stderr, "c   subst(%"PRId32") = %c%"PRId32" --> true\n", i, sign, x);
+	} else if (l0 == false_literal) {
+	  fprintf(stderr, "c   subst(%"PRId32") = %c%"PRId32" --> false\n", i, sign, x);
+	} else {
+	  assert(l0 == l);
+	  fprintf(stderr, "c   subst(%"PRId32") = %c%"PRId32"\n", i, sign, x);
+	}
+      }
+    }
+  }
+}
+
+
+
+void show_all_var_defs(const sat_solver_t *solver) {
+  gate_hmap_t test;
+  bgate_t *g;
+  uint32_t i, j, n, equiv;
+  literal_t l;
+
+  init_gate_hmap(&test, 0);
+
+  n = solver->descriptors.size;
+  for (i=0; i<n; i++) {
+    if (bvar_is_gate(&solver->descriptors, i)) {
+      show_var_def(solver, i);
+    }
+  }
+
+  equiv = 0;
+  for (i=0; i<n; i++) {
+    if (bvar_is_gate(&solver->descriptors, i)) {
+      j = bvar_get_gate(&solver->descriptors, i);
+      g = bgate(&solver->gates, j);
+      l = gate_hmap_find(&test, g);
+      if (l == null_literal) {
+	gate_hmap_add(&test, g, pos_lit(i));
+      } else {
+	fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32"\n", l, pos_lit(i));
+	equiv ++;
+      }
+    }
+  }
+
+  fprintf(stderr, "c tested %"PRIu32" gates\n", test.nelems);
+  fprintf(stderr, "c found %"PRIu32" equivalences\n", equiv);
+
+  delete_gate_hmap(&test);
+}
+
+
 
 static const char* tag2string(antecedent_tag_t tag) {
   switch (tag) {
