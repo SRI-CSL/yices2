@@ -2904,22 +2904,33 @@ void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x) {
  * Otherwise, return l.
  */
 static literal_t nsat_base_literal(const sat_solver_t *solver, literal_t l) {
+  bvar_t x;
+
   assert(solver->decision_level == 0);
 
-  switch (lit_value(solver, l)) {
-  case VAL_FALSE:
-    l = false_literal;
-    break;
-
-  case VAL_TRUE:
-    l = true_literal;
-    break;
+  x = var_of(l);
+  switch (solver->ante_tag[x]) {
+  case ATAG_SUBST:
+  case ATAG_ELIM:
+    // l is assigned to some random value
+    return l;
 
   default:
-    break;
-  }
+    switch (lit_value(solver, l)) {
+    case VAL_FALSE:
+      l = false_literal;
+      break;
 
-  return l;
+    case VAL_TRUE:
+      l = true_literal;
+      break;
+
+    default:
+      break;
+    }
+
+    return l;
+  }
 }
 
 
@@ -5887,7 +5898,7 @@ static bool bvar_rewrites4(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
 
   if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
       bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
-      bvar_rewrites3(solver, &tt3, &tt4)) {
+      bvar_rewrites3(solver, &tt3, &tt4) && tt4.nvars >= 2) {
     return compose_ttbl_left_right(tt1, &tt2, &tt4, tt);
   }
   return false;
@@ -5907,7 +5918,7 @@ static bool bvar_rewrites5(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
 
   if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
       bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
-      bvar_rewrites3(solver, &tt2, &tt4)) {
+      bvar_rewrites3(solver, &tt2, &tt4) && tt4.nvars >= 2) {
     return compose_ttbl_left_right(tt1, &tt4, &tt3, tt);
   }
   return false;
@@ -5928,8 +5939,8 @@ static bool bvar_rewrites6(const sat_solver_t *solver, const ttbl_t *tt1, ttbl_t
 
   if (bvar_has_binary_def(solver, tt1->label[0], &tt2) &&
       bvar_has_binary_def(solver, tt1->label[1], &tt3) &&
-      bvar_rewrites3(solver, &tt2, &tt4) &&
-      bvar_rewrites3(solver, &tt3, &tt5)) {
+      bvar_rewrites3(solver, &tt2, &tt4) && tt4.nvars >= 2 &&
+      bvar_rewrites3(solver, &tt3, &tt5) && tt5.nvars >= 2) {
     return compose_ttbl_left_right(tt1, &tt4, &tt5, tt);
   }
 
@@ -5994,7 +6005,7 @@ static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const tt
   }
 
   if (bvar_rewrites1(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite2");
+    process_lit_eq_ttbl(solver, map, l0, &r, false, "rewrite1");
     return;
   }
 }
@@ -7254,12 +7265,28 @@ static void prepare_for_search(sat_solver_t *solver) {
 static void nsat_preprocess(sat_solver_t *solver) {
   if (solver->verbosity >= 4) fprintf(stderr, "c Eliminate pure and unit literals\n");
 
+#if 0
+  fprintf(stderr, "\n\n*** INPUT ***\n");
+  show_subst(solver);
+  fprintf(stderr, "\n\n");
+  show_state(stderr, solver);
+  fprintf(stderr, "\n\n*** DONE INPUT ***\n");
+#endif
+
   collect_unit_and_pure_literals(solver);
   do {
     if (! pp_empty_queue(solver)) goto done;
     pp_try_gc(solver);
     if (! pp_scc_simplification(solver)) goto done;
   } while (! queue_is_empty(&solver->lqueue));
+
+#if 0
+  fprintf(stderr, "\n\n*** STEP1 ***\n");
+  show_subst(solver);
+  fprintf(stderr, "\n\n");
+  show_state(stderr, solver);
+  fprintf(stderr, "\n\n*** DONE STEP1 ***\n");
+#endif
 
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
@@ -7270,6 +7297,14 @@ static void nsat_preprocess(sat_solver_t *solver) {
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) break;
   } while (!elim_heap_is_empty(solver));
+
+#if 0
+  fprintf(stderr, "\n\n*** STEP2 ***\n");
+  show_subst(solver);
+  fprintf(stderr, "\n\n");
+  show_state(stderr, solver);
+  fprintf(stderr, "\n\n*** DONE STEP2 ***\n");
+#endif
 
   do {
     if (! pp_empty_queue(solver)) goto done;
@@ -8206,6 +8241,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
 
   compute_sccs(solver);
   if (solver->has_empty_clause) {
+    fprintf(stderr, "c empty clause after SCC computation\n");
     reset_vector(&solver->subst_vars);
     return;
   }
@@ -8629,7 +8665,7 @@ static void done_simplify(sat_solver_t *solver) {
    * new_bins = number of binary clauses produced in this
    *            simplification round
    * these clauses have not been seen by the SCC construction.
-   * Some of the new clauses may have been deleted.
+   * Some of the new bin clauses may have been deleted so we can't assume
    */
   if (solver->simplify_new_bins > solver->binaries) {
     solver->simplify_binaries = solver->binaries;
@@ -8643,6 +8679,15 @@ static void done_simplify(sat_solver_t *solver) {
   solver->progress = solver->params.search_counter;
   solver->progress_units = level0_literals(solver);
   solver->progress_binaries = solver->binaries;
+
+#if 0
+  fprintf(stderr, "c done simplify\n");
+  fprintf(stderr, "c   simplify_binaries = %"PRIu32"\n", solver->simplify_binaries);
+  fprintf(stderr, "c   simplify_assigned = %"PRIu32"\n", solver->simplify_assigned);
+  fprintf(stderr, "c   simplify_next = %"PRIu64"\n", solver->simplify_next);
+  fprintf(stderr, "c   simplify_next + 100000 = %"PRIu64"\n", solver->simplify_next + 100000);
+  fprintf(stderr, "c\n");
+#endif
 }
 
 
@@ -8829,6 +8874,41 @@ static void nsat_do_preprocess(sat_solver_t *solver) {
 }
 
 
+#if 0
+static void add_not_eq(sat_solver_t *solver, bvar_t x, literal_t l) {
+  literal_t a[2];
+
+  // not (x == l) is (not ((x and l) or (~x and ~l)))
+  //              is (not (x and l)) and (not (~x and ~l))
+  //              is (~x or ~l) and (x or l)
+  a[0] = pos_lit(x);
+  a[1] = l;
+  nsat_solver_simplify_and_add_clause(solver, 2, a);
+
+  a[0] = neg_lit(x);
+  a[1] = not(l);
+  nsat_solver_simplify_and_add_clause(solver, 2, a);
+
+}
+
+static void add_eq(sat_solver_t *solver, bvar_t x, literal_t l) {
+  add_not_eq(solver, x, not(l));
+}
+
+static void make_true(sat_solver_t *solver, literal_t l) {
+  literal_t aux[1];
+  aux[0] = l;
+  nsat_solver_simplify_and_add_clause(solver, 1, aux);
+}
+
+static void make_false(sat_solver_t *solver, literal_t l) {
+  literal_t aux[1];
+  aux[0] = not(l);
+  nsat_solver_simplify_and_add_clause(solver, 1, aux);
+}
+
+#endif
+
 /*
  * Solving procedure
  */
@@ -8891,6 +8971,13 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     }
 #else
     if (need_simplify(solver)) {
+#if 0
+      fprintf(stderr, "c start simplify\n");
+      fprintf(stderr, "c   binaries = %"PRIu32"\n", solver->binaries);
+      fprintf(stderr, "c   assigned = %"PRIu32"\n", level0_literals(solver));
+      fprintf(stderr, "c   conflicts = %"PRIu64"\n", solver->stats.conflicts);
+      fprintf(stderr, "c\n");
+#endif
       full_restart(solver);
       done_restart(solver);
       nsat_simplify(solver);
@@ -8913,6 +9000,11 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     solver->stats.successful_dive = solver->diving;
     extend_assignment(solver);
   }
+
+#if 0
+  fprintf(stderr, "\n\n*** DONE ***\n");
+  show_state(stderr, solver);
+#endif
 
   //  close_stat_file();
 
@@ -8965,6 +9057,42 @@ uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a) {
  *  EXPORT/DUMP STATE  *
  **********************/
 
+static const char* tag2string(antecedent_tag_t tag) {
+  switch (tag) {
+  case ATAG_NONE: return "none";
+  case ATAG_UNIT: return "unit";
+  case ATAG_DECISION: return "decision";
+  case ATAG_BINARY: return "binary";
+  case ATAG_CLAUSE: return "clause";
+  case ATAG_STACKED: return "stacked";
+
+  case ATAG_PURE: return "pure";
+  case ATAG_ELIM: return "elim";
+  case ATAG_SUBST: return "subst";
+  default: return "badtag";
+  }
+}
+
+static void show_assigned_vars(FILE *f, const sat_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    switch (var_value(solver, i)) {
+    case VAL_TRUE:
+      fprintf(f, "%"PRIu32" := true, %s, lev = %"PRIu32"\n", i, tag2string(solver->ante_tag[i]), solver->level[i]);
+      break;
+
+    case VAL_FALSE:
+      fprintf(f, "%"PRIu32" := false, %s, lev = %"PRIu32"\n", i, tag2string(solver->ante_tag[i]), solver->level[i]);
+      break;
+
+    default:
+      break;
+    }
+  }
+}
+
 static void show_clause(FILE *f, const clause_pool_t *pool, cidx_t idx) {
   uint32_t n, i;
   literal_t *lit;
@@ -9005,6 +9133,15 @@ static void show_watch_vector(FILE *f, const sat_solver_t *solver, literal_t l) 
     i = 0;
     if (n == 0) {
       fprintf(f, " empty\n");
+    } else if (solver->preprocess) {
+      // all elements in w->data are clause indices
+      while (i<n) {
+	k = w->data[i];
+	assert(idx_is_clause(k));
+	fprintf(f, " cl(%"PRIu32")", k);
+	i ++;
+      }
+      fprintf(f, "\n");
     } else {
       while (i<n) {
         k = w->data[i];
@@ -9034,6 +9171,8 @@ void show_state(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "nliterals: %"PRIu32"\n", solver->nliterals);
   fprintf(f, "num prob. clauses: %"PRIu32"\n", solver->pool.num_prob_clauses);
   fprintf(f, "num learned clauses: %"PRIu32"\n", solver->pool.num_learned_clauses);
+  fprintf(f, "assignment\n");
+  show_assigned_vars(f, solver);
   fprintf(f, "clauses\n");
   show_all_clauses(f, &solver->pool);
   fprintf(f, "watch vectors\n");
