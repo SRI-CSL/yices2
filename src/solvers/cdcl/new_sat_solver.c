@@ -6095,7 +6095,9 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
    * Store b as a new problem clause
    */
   n = b->size;
-  if (n == 1) {
+  if (n == 0) {
+    add_empty_clause(solver);
+  } else if (n == 1) {
     // unit clause
     pp_push_unit_literal(solver, b->data[0]);
   } else {
@@ -6122,6 +6124,7 @@ static void pp_apply_subst_to_watch_vector(sat_solver_t *solver, watch_t *w) {
     k = w->data[i];
     if (clause_is_live(&solver->pool, k)) {
       pp_apply_subst_to_clause(solver, k);
+      if (solver->has_empty_clause) return;
     }
   }
 }
@@ -6198,7 +6201,8 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     reset_vector(v);
   }
 
-  return true;
+  // substitution may reduce a clause to empty
+  return !solver->has_empty_clause;
 }
 
 
