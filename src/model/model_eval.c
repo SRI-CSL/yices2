@@ -1448,6 +1448,22 @@ value_t eval_in_model(evaluator_t *eval, term_t t) {
 
 
 /*
+ * Check whether t is true in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+bool eval_to_true_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_true(eval->vtbl, v);
+}
+
+
+
+/*
  * Compute the values of terms a[0 ... n-1]
  * - don't return anything
  * - the value of a[i] can be queried by using eval_in_model(eval, a[i]) later

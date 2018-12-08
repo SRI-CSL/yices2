@@ -2740,6 +2740,36 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 
 
 /*
+ * Evaluate all terms in a[0 ... n-1] in a default model.
+ * Return true if all terms evaluate to true in the model.
+ */
+static bool trivially_true_assertions(const term_t *a, uint32_t n) {
+  model_t mdl;
+  evaluator_t evaluator;
+  uint32_t i;
+  bool result;
+
+  result = true;
+  init_model(&mdl, __yices_globals.terms, true);
+  init_evaluator(&evaluator, &mdl);
+  for (i=0; i<n; i++) {
+    if (!eval_to_true_in_model(&evaluator, a[i])) {
+      result = false;
+      break;
+    }
+  }
+  delete_evaluator(&evaluator);
+  delete_model(&mdl);
+
+  //  if (result) {
+  //    fprintf(stderr, "trivially satisified\n");
+  //  }
+
+  return result;
+}
+
+
+/*
  * Check satisfiability of all assertions
  */
 static void check_delayed_assertions(smt2_globals_t *g) {
@@ -2751,7 +2781,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
   if (g->trivially_unsat) {
     print_out("unsat\n");
-  } else if (g->assertions.size == 0) {
+  } else if (trivially_true_assertions(g->assertions.data, g->assertions.size)) {
     print_out("sat\n");
   } else {
     /*

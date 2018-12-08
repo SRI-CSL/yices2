@@ -23,6 +23,7 @@
 #ifndef __MODEL_EVAL_H
 #define __MODEL_EVAL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <setjmp.h>
 
@@ -102,6 +103,16 @@ extern void reset_evaluator(evaluator_t *eval);
  * or reset_evaluator.
  */
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
+
+
+/*
+ * Check whether t is true in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+extern bool eval_to_true_in_model(evaluator_t *eval, term_t t);
 
 /*
  * Compute the values of terms a[0 ... n-1]
