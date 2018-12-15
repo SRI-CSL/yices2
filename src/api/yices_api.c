@@ -8718,6 +8718,26 @@ EXPORTED uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v) {
 }
 
 /*
+ * Type of a function node
+ */
+EXPORTED type_t yices_val_function_type(model_t *mdl, const yval_t *v) {
+  value_table_t *vtbl;
+  value_t id;
+
+  if (v->node_tag == YVAL_FUNCTION) {
+    vtbl = model_get_vtbl(mdl);
+    id = v->node_id;
+    if (good_object(vtbl, id) &&
+	(object_is_function(vtbl, id) || object_is_update(vtbl, id))) {
+      return vtbl_function_type(vtbl, id);
+    }
+  }
+
+  error.code = YVAL_INVALID_OP;
+  return NULL_TYPE;
+}
+
+/*
  * Extract value of a leaf node
  */
 EXPORTED int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val) {
