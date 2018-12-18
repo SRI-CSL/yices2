@@ -518,7 +518,7 @@ static void extend_smt2_stack(smt2_stack_t *s) {
  * - named_bools. named_asserts = number of named boolean terms and assertions
  */
 static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types, uint32_t macros,
-			    uint32_t named_bools, uint32_t named_asserts) {
+                            uint32_t named_bools, uint32_t named_asserts) {
   uint32_t i;
 
   i = s->top;
@@ -1986,8 +1986,8 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
     if (strcmp(file_name, "stdout") != 0) {
       f = fopen(file_name, "a"); // append
       if (f == NULL) {
-	print_error("can't open file %s", file_name);
-	return;
+        print_error("can't open file %s", file_name);
+        return;
       }
     }
     close_output_file(g);
@@ -2019,8 +2019,8 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
     if (strcmp(file_name, "stderr") != 0) {
       f = fopen(file_name, "a"); // append
       if (f == NULL) {
-	print_error("can't open file %s", file_name);
-	return;
+        print_error("can't open file %s", file_name);
+        return;
       }
     }
     close_error_file(g);
@@ -2789,7 +2789,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
      * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
      */
     if (g->benchmark_mode && g->logic_code == QF_UFIDL &&
-	!has_uf(g->assertions.data, g->assertions.size)) {
+        !has_uf(g->assertions.data, g->assertions.size)) {
       trace_printf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
       g->logic_code = QF_IDL;
     }
@@ -2873,8 +2873,8 @@ static void validate_unsat_core(smt2_globals_t *g) {
     } else {
       status = check_context(g->ctx, &g->parameters);
       if (status != STATUS_UNSAT) {
-	printf("**** BUG: INVALID UNSAT CORE ****\n");
-	fflush(stdout);
+        printf("**** BUG: INVALID UNSAT CORE ****\n");
+        fflush(stdout);
       }
     }
     delete_ivector(&all);
@@ -2945,21 +2945,21 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       init_smt2_context(g);
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
       if (code < 0) {
-	// error during assertion processing
-	print_yices_error(true);
-	return;
+        // error during assertion processing
+        print_yices_error(true);
+        return;
       }
       init_search_parameters(g);
       if (g->random_seed != 0) {
-	g->parameters.random_seed = g->random_seed;
+        g->parameters.random_seed = g->random_seed;
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
 
       if (status == STATUS_ERROR) {
-	// cleanup
-	free_assumptions(assumptions);
-	g->unsat_assumptions = NULL;
+        // cleanup
+        free_assumptions(assumptions);
+        g->unsat_assumptions = NULL;
       }
     }
   }
@@ -2980,8 +2980,8 @@ static void efsolve_cmd(smt2_globals_t *g) {
   if (g->efmode) {
     efc = &g->ef_client;
     ef_solve(efc, &g->assertions, &g->parameters,
-	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
-	     g->tracer);
+             qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
+             g->tracer);
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
@@ -3038,7 +3038,7 @@ static void cleanup_context(smt2_globals_t *g) {
     // try to to remove assumptions
     context_clear_unsat(g->ctx);
     assert (context_status(g->ctx) == STATUS_IDLE ||
-	    context_status(g->ctx) == STATUS_UNSAT);
+            context_status(g->ctx) == STATUS_UNSAT);
     break;
 
   case STATUS_IDLE:
@@ -3143,7 +3143,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
   smt_status_t stat;
 
   assert(g->ctx != NULL && g->produce_unsat_cores &&
-	 context_supports_pushpop(g->ctx));
+         context_supports_pushpop(g->ctx));
 
   if (g->unsat_core != NULL) {
     // nothing had changed since the previous call to check_sat
@@ -3163,13 +3163,13 @@ static void ctx_unsat_core(smt2_globals_t *g) {
     case STATUS_IDLE:
       // change the seed if needed
       if (g->random_seed != 0) {
-	g->parameters.random_seed = g->random_seed;
+        g->parameters.random_seed = g->random_seed;
       }
       stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
       report_status(g, stat);
       if (stat == STATUS_ERROR) {
-	free_assumptions(g->unsat_core);
-	g->unsat_core = NULL;
+        free_assumptions(g->unsat_core);
+        g->unsat_core = NULL;
       }
       break;
 
@@ -3206,13 +3206,13 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
     switch (context_status(g->ctx)) {
     case STATUS_IDLE:
       if (g->random_seed != 0) {
-	g->parameters.random_seed = g->random_seed;
+        g->parameters.random_seed = g->random_seed;
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
       if (status == STATUS_ERROR) {
-	free_assumptions(assumptions);
-	g->unsat_assumptions = NULL;
+        free_assumptions(assumptions);
+        g->unsat_assumptions = NULL;
       }
       break;
 
@@ -3318,14 +3318,14 @@ static model_t *get_model(smt2_globals_t *g) {
       assert(g->benchmark_mode);
 
       if (!g->frozen) {
-	print_error("can't build a model. Call (check-sat) first");
+        print_error("can't build a model. Call (check-sat) first");
       } else if (g->trivially_unsat) {
-	print_error("the context is unsatisfiable");
+        print_error("the context is unsatisfiable");
       } else {
-	assert(g->assertions.size == 0);
-	// no assertions: build a trivial model
-	// we set keep_subst to true to be consistent
-	mdl = yices_new_model(true);
+        assert(g->assertions.size == 0);
+        // no assertions: build a trivial model
+        // we set keep_subst to true to be consistent
+        mdl = yices_new_model(true);
       }
 
     } else {
@@ -3333,23 +3333,23 @@ static model_t *get_model(smt2_globals_t *g) {
       switch (context_status(g->ctx)) {
       case STATUS_UNKNOWN:
       case STATUS_SAT:
-	mdl = yices_get_model(g->ctx, true);
-	break;
+        mdl = yices_get_model(g->ctx, true);
+        break;
 
       case STATUS_UNSAT:
-	print_error("the context is unsatisfiable");
-	break;
+        print_error("the context is unsatisfiable");
+        break;
 
       case STATUS_IDLE:
-	print_error("can't build a model. Call (check-sat) first");
-	break;
+        print_error("can't build a model. Call (check-sat) first");
+        break;
 
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
-	print_out("BUG: unexpected context status");
-	freport_bug(__smt2_globals.err, "BUG: unexpected context status");
-	break;
+        print_out("BUG: unexpected context status");
+        freport_bug(__smt2_globals.err, "BUG: unexpected context status");
+        break;
       }
     }
     g->model = mdl;
@@ -3414,7 +3414,7 @@ static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue
  * - the corresponding values as in v[0 ... n-1]
  */
 static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue,
-				  int32_t *expr, value_t *v, uint32_t n) {
+                                  int32_t *expr, value_t *v, uint32_t n) {
   uint32_t i;
   value_t x, u;
 
@@ -3645,23 +3645,23 @@ static void show_unsat_core(smt2_globals_t *g) {
       switch (unsat_core->status) {
       case STATUS_UNKNOWN:
       case STATUS_SAT:
-	print_error("No unsat core. The context is satisfiable");
-	break;
+        print_error("No unsat core. The context is satisfiable");
+        break;
 
       case STATUS_UNSAT:
-	init_pretty_printer(&printer, g);
-	print_assumption_list(&printer, &unsat_core->table,
-			      unsat_core->core.size, unsat_core->core.data);
-	delete_yices_pp(&printer, true);
-	break;
+        init_pretty_printer(&printer, g);
+        print_assumption_list(&printer, &unsat_core->table,
+                              unsat_core->core.size, unsat_core->core.data);
+        delete_yices_pp(&printer, true);
+        break;
 
       case STATUS_IDLE:
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
-	print_out("BUG: unexpected status in get-unsat-core");
-	freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-core");
-	break;
+        print_out("BUG: unexpected status in get-unsat-core");
+        freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-core");
+        break;
       }
     }
   }
@@ -3684,23 +3684,23 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
       switch (unsat_assumptions->status) {
       case STATUS_UNKNOWN:
       case STATUS_SAT:
-	print_error("No unsat assumptions. The context is satisfiable");
-	break;
+        print_error("No unsat assumptions. The context is satisfiable");
+        break;
 
       case STATUS_UNSAT:
-	init_pretty_printer(&printer, g);
-	print_assumption_list(&printer, &unsat_assumptions->table,
-			      unsat_assumptions->core.size, unsat_assumptions->core.data);
-	delete_yices_pp(&printer, true);
-	break;
+        init_pretty_printer(&printer, g);
+        print_assumption_list(&printer, &unsat_assumptions->table,
+                              unsat_assumptions->core.size, unsat_assumptions->core.data);
+        delete_yices_pp(&printer, true);
+        break;
 
       case STATUS_IDLE:
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
-	print_out("BUG: unexpected status in get-unsat-assumptions");
-	freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-assumptions");
-	break;
+        print_out("BUG: unexpected status in get-unsat-assumptions");
+        freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-assumptions");
+        break;
       }
     }
   }
@@ -3799,42 +3799,42 @@ static void explain_unknown_status(smt2_globals_t *g) {
       assert(g->benchmark_mode);
 
       if (!g->frozen) {
-	print_error("can't tell until you call (check-sat)");
+        print_error("can't tell until you call (check-sat)");
       } else if (g->trivially_unsat) {
-	print_error("the context is unsatisfiable");
+        print_error("the context is unsatisfiable");
       } else {
-	assert(g->assertions.size == 0);
-	print_error("the context is satisfiable");
+        assert(g->assertions.size == 0);
+        print_error("the context is satisfiable");
       }
     } else {
       switch (context_status(g->ctx)) {
       case STATUS_UNKNOWN:
-	if (g->interrupted) {
-	  print_kw_symbol_pair(":reason-unknown", "timeout");
-	} else {
-	  print_kw_symbol_pair(":reason-unknown", "incomplete");
-	}
-	flush_out();
-	break;
+        if (g->interrupted) {
+          print_kw_symbol_pair(":reason-unknown", "timeout");
+        } else {
+          print_kw_symbol_pair(":reason-unknown", "incomplete");
+        }
+        flush_out();
+        break;
 
       case STATUS_SAT:
-	print_error("the context is satisfiable");
-	break;
+        print_error("the context is satisfiable");
+        break;
 
       case STATUS_UNSAT:
-	print_error("the context is unsatisfiable");
-	break;
+        print_error("the context is unsatisfiable");
+        break;
 
       case STATUS_IDLE:
-	print_error("can't tell until you call (check-sat)");
-	break;
+        print_error("can't tell until you call (check-sat)");
+        break;
 
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
-	print_out("BUG: unexpected context status");
-	freport_bug(__smt2_globals.err, "BUG: unexpected context status");
-	break;
+        print_out("BUG: unexpected context status");
+        freport_bug(__smt2_globals.err, "BUG: unexpected context status");
+        break;
       }
     }
   }
@@ -4546,12 +4546,12 @@ void smt2_get_option(const char *name) {
     if (is_yices_option(name, &yices_option)) {
       p = find_param(yices_option);
       if (p != PARAM_UNKNOWN) {
-	assert(0 <= p && p < NUM_PARAMETERS);
-	if (! yices_get_option(g, p)) {
-	  unsupported_option();
-	}
+        assert(0 <= p && p < NUM_PARAMETERS);
+        if (! yices_get_option(g, p)) {
+          unsupported_option();
+        }
       } else {
-	unsupported_option();
+        unsupported_option();
       }
     } else {
       unsupported_option();
@@ -4571,9 +4571,13 @@ static void show_smtlib_version(const smt2_globals_t *g) {
   case 2000:
     print_kw_symbol_pair(":smt-lib-version", "2.0");
     break;
-    
+
   case 2500:
     print_kw_symbol_pair(":smt-lib-version", "2.5");
+    break;
+
+  case 2600:
+    print_kw_symbol_pair(":smt-lib-version", "2.6");
     break;
 
   default:
@@ -4713,11 +4717,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.var_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_variable_elimination(context);
-	} else {
-	  disable_variable_elimination(context);
-	}
+        if (tt) {
+          enable_variable_elimination(context);
+        } else {
+          disable_variable_elimination(context);
+        }
       }
     }
     break;
@@ -4727,11 +4731,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.arith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
-	}
+        if (tt) {
+          enable_arith_elimination(context);
+        } else {
+          disable_arith_elimination(context);
+        }
       }
     }
     break;
@@ -4741,11 +4745,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.bvarith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_bvarith_elimination(context);
-	} else {
-	  disable_bvarith_elimination(context);
-	}
+        if (tt) {
+          enable_bvarith_elimination(context);
+        } else {
+          disable_bvarith_elimination(context);
+        }
       }
     }
     break;
@@ -4755,11 +4759,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.flatten_or = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_diseq_and_or_flattening(context);
-	} else {
-	  disable_diseq_and_or_flattening(context);
-	}
+        if (tt) {
+          enable_diseq_and_or_flattening(context);
+        } else {
+          disable_diseq_and_or_flattening(context);
+        }
       }
     }
     break;
@@ -4769,11 +4773,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.eq_abstraction = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
+        if (tt) {
+          enable_eq_abstraction(context);
+        } else {
+          disable_eq_abstraction(context);
+        }
       }
     }
     break;
@@ -4783,11 +4787,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.keep_ite = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
-	}
+        if (tt) {
+          enable_keep_ite(context);
+        } else {
+          disable_keep_ite(context);
+        }
       }
     }
     break;
@@ -4947,11 +4951,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.splx_eager_lemmas = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
+        if (tt) {
+          enable_splx_eager_lemmas(context);
+        } else {
+          disable_splx_eager_lemmas(context);
+        }
       }
     }
     break;
@@ -4985,11 +4989,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters. splx_periodic_icheck = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
+        if (tt) {
+          enable_splx_periodic_icheck(context);
+        } else {
+          disable_splx_periodic_icheck(context);
+        }
       }
     }
     break;
@@ -5231,7 +5235,7 @@ void smt2_set_info(const char *name, aval_t value) {
       assert(version == 2000 || version == 2500 || version == 2600);
       g->smtlib_version = version;
       if (version >= 2500) {
-	smt2_lexer_activate_two_dot_five();
+        smt2_lexer_activate_two_dot_five();
       }
       report_success();
     } else {
@@ -5358,15 +5362,15 @@ void smt2_push(uint32_t n) {
       print_error("push is not allowed in non-incremental mode");
     } else {
       if (n > 0) {
-	/*
-	 * NOTE: g->stacks.levels is 64 bits and MAX_SMT2_STACK_SIZE
-	 * is less than 32bits so smt2_stack_push can't cause a
-	 * numerical overflow.
-	 */
-	 smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top,
-			 g->named_bools.top, g->named_asserts.top);
-	 ctx_push(g);
-	 check_stack(g);
+        /*
+         * NOTE: g->stacks.levels is 64 bits and MAX_SMT2_STACK_SIZE
+         * is less than 32bits so smt2_stack_push can't cause a
+         * numerical overflow.
+         */
+        smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top,
+                        g->named_bools.top, g->named_asserts.top);
+        ctx_push(g);
+        check_stack(g);
       }
       report_success();
     }
@@ -5401,49 +5405,49 @@ void smt2_pop(uint32_t n) {
       report_success();
     } else {
       if (n > g->stack.levels) {
-	if (g->stack.levels > 1) {
-	  print_error("can't pop more than %"PRIu64" levels", g->stack.levels);
-	} else if (g->stack.levels > 0) {
-	  print_error("can't pop more than one level");
-	} else {
-	  print_error("pop not allowed at the bottom level");
-	}
+        if (g->stack.levels > 1) {
+          print_error("can't pop more than %"PRIu64" levels", g->stack.levels);
+        } else if (g->stack.levels > 0) {
+          print_error("can't pop more than one level");
+        } else {
+          print_error("pop not allowed at the bottom level");
+        }
       } else {
-	m = 0; // number of levels removed
-	do {
-	  r = smt2_stack_top(&g->stack);
-	  m += r->multiplicity;
+        m = 0; // number of levels removed
+        do {
+          r = smt2_stack_top(&g->stack);
+          m += r->multiplicity;
 
-	  // remove declarations: this has no effect if g->global_decls is true
-	  smt2_pop_term_names(&g->term_names, r->term_decls);
-	  smt2_pop_type_names(&g->type_names, r->type_decls);
-	  smt2_pop_macro_names(&g->macro_names, r->macro_decls);
+          // remove declarations: this has no effect if g->global_decls is true
+          smt2_pop_term_names(&g->term_names, r->term_decls);
+          smt2_pop_type_names(&g->type_names, r->type_decls);
+          smt2_pop_macro_names(&g->macro_names, r->macro_decls);
 
-	  // remove the named booleans and named assertions
-	  pop_named_terms(&g->named_bools, r->named_bools);
-	  pop_named_terms(&g->named_asserts, r->named_asserts);
+          // remove the named booleans and named assertions
+          pop_named_terms(&g->named_bools, r->named_bools);
+          pop_named_terms(&g->named_asserts, r->named_asserts);
 
-	  // pop on g->ctx
-	  ctx_pop(g);
-	  smt2_stack_pop(&g->stack);
-	} while (n > m);
+          // pop on g->ctx
+          ctx_pop(g);
+          smt2_stack_pop(&g->stack);
+        } while (n > m);
 
-	if (n < m) {
-	  // push (m - n)
-	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top,
-			  g->named_bools.top, g->named_asserts.top);
-	  ctx_push(g);
-	}
+        if (n < m) {
+          // push (m - n)
+          smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top,
+                          g->named_bools.top, g->named_asserts.top);
+          ctx_push(g);
+        }
 
-	check_stack(g);
+        check_stack(g);
 
-	// call the garbage collector
-	if (g->term_names.deletions > 1000) {
-	  yices_garbage_collect(NULL, 0, NULL, 0, true);
-	  g->term_names.deletions = 0;
-	}
+        // call the garbage collector
+        if (g->term_names.deletions > 1000) {
+          yices_garbage_collect(NULL, 0, NULL, 0, true);
+          g->term_names.deletions = 0;
+        }
 
-	report_success();
+        report_success();
       }
     }
   }
@@ -5466,38 +5470,38 @@ void smt2_assert(term_t t, bool special) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
       if (g->benchmark_mode) {
-	/*
-	 * NOT INCREMENTAL
-	 */
-	if (g->efmode && g->ef_client.efdone) {
-	  print_error("more assertions are not allowed after solving");
-	} else if (g->frozen) {
-	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
-	} else {
-	  /*
+        /*
+         * NOT INCREMENTAL
+         */
+        if (g->efmode && g->ef_client.efdone) {
+          print_error("more assertions are not allowed after solving");
+        } else if (g->frozen) {
+          print_error("assertions are not allowed after (check-sat) in non-incremental mode");
+        } else {
+          /*
            * if produce unsat core is set and t is special,
-	   * we just skip it. The term is stored in the named_asserts table
-	   * and will be treated as an assumption when check-sat is called.
-	   */
-	  if (!special || !g->produce_unsat_cores) {
-	    add_delayed_assertion(g, t);
-	  } else {
-	    trace_printf(g->tracer, 20, "(skipping named assertion)\n");
-	  }
-	  report_success();
-	}
+           * we just skip it. The term is stored in the named_asserts table
+           * and will be treated as an assumption when check-sat is called.
+           */
+          if (!special || !g->produce_unsat_cores) {
+            add_delayed_assertion(g, t);
+          } else {
+            trace_printf(g->tracer, 20, "(skipping named assertion)\n");
+          }
+          report_success();
+        }
 
       } else {
-	/*
-	 * INCREMENTAL
-	 */
-	cleanup_context(g);
-	if (!special || !g->produce_unsat_cores) {
-	  add_assertion(g, t);
-	} else {
-	  trace_printf(g->tracer, 20, "(skipping named assertion)\n");
-	  report_success();
-	}
+        /*
+         * INCREMENTAL
+         */
+        cleanup_context(g);
+        if (!special || !g->produce_unsat_cores) {
+          add_assertion(g, t);
+        } else {
+          trace_printf(g->tracer, 20, "(skipping named assertion)\n");
+          report_success();
+        }
       }
     } else {
       // not a Boolean term
@@ -5521,23 +5525,23 @@ void smt2_check_sat(void) {
        * Non incremental
        */
       if (__smt2_globals.efmode) {
-	efsolve_cmd(&__smt2_globals);	
+        efsolve_cmd(&__smt2_globals);
       } else if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else if (__smt2_globals.produce_unsat_cores) {
-	delayed_assertions_unsat_core(&__smt2_globals);
+        delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	//	show_delayed_assertions(&__smt2_globals);
-	check_delayed_assertions(&__smt2_globals);
+        //      show_delayed_assertions(&__smt2_globals);
+        check_delayed_assertions(&__smt2_globals);
       }
     } else {
       /*
        * Incremental
        */
       if (__smt2_globals.produce_unsat_cores) {
-	ctx_unsat_core(&__smt2_globals);
+        ctx_unsat_core(&__smt2_globals);
       } else {
-	ctx_check_sat(&__smt2_globals);
+        ctx_check_sat(&__smt2_globals);
       }
     }
   }
@@ -5570,11 +5574,11 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
       print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
     } else if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
-	print_error("the exists/forall solver does not support check-sat with assumptions");
+        print_error("the exists/forall solver does not support check-sat with assumptions");
       } else if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else {
-	check_delayed_assertions_assuming(&__smt2_globals, n, a);
+        check_delayed_assertions_assuming(&__smt2_globals, n, a);
       }
     } else {
       ctx_check_sat_assuming(&__smt2_globals, n, a);
@@ -5607,10 +5611,10 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
     } else {
       macro = yices_type_constructor(name, arity);
       if (macro < 0) {
-	print_yices_error(true);
+        print_yices_error(true);
       } else {
-	save_macro_name(&__smt2_globals, name);
-	report_success();
+        save_macro_name(&__smt2_globals, name);
+        report_success();
       }
     }
   }
@@ -5640,10 +5644,10 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
     } else {
       macro = yices_type_macro(name, n, var, body);
       if (macro < 0) {
-	print_yices_error(true);
+        print_yices_error(true);
       } else {
-	save_macro_name(&__smt2_globals, name);
-	report_success();
+        save_macro_name(&__smt2_globals, name);
+        report_success();
       }
     }
   }
@@ -5720,11 +5724,11 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
      */
     if (yices_get_term_by_name(name) != NULL_TERM) {
       if (symbol_needs_quotes(name)) {
-	print_error("Invalid definition: can't (define |%s| ...) and use |%s| in a :named annotation",
-		    name, name);
+        print_error("Invalid definition: can't (define |%s| ...) and use |%s| in a :named annotation",
+                    name, name);
       } else {
-	print_error("Invalid definition: can't (define %s ...) and use %s in a :named annotation",
-		    name, name);
+        print_error("Invalid definition: can't (define %s ...) and use %s in a :named annotation",
+                    name, name);
       }
       return;
     }
@@ -5733,8 +5737,8 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
     if (n > 0) {
       t = yices_lambda(n, var, t);
       if (t < 0) {
-	print_yices_error(true);
-	return;
+        print_yices_error(true);
+        return;
       }
     }
     yices_set_term_name(t, name);
@@ -5804,8 +5808,8 @@ void smt2_reset_assertions(void) {
       g->ctx = NULL;
 
       if (g->model != NULL) {
-	yices_free_model(g->model);
-	g->model = NULL;
+        yices_free_model(g->model);
+        g->model = NULL;
       }
 
       reset_smt2_stack(&g->stack);
@@ -5826,12 +5830,12 @@ void smt2_reset_assertions(void) {
       reset_named_term_stack(&g->named_asserts);
 
       if (g->unsat_core != NULL) {
-	free_assumptions(g->unsat_core);
-	g->unsat_core = NULL;
+        free_assumptions(g->unsat_core);
+        g->unsat_core = NULL;
       }
       if (g->unsat_assumptions != NULL) {
-	free_assumptions(g->unsat_assumptions);
-	g->unsat_assumptions = NULL;
+        free_assumptions(g->unsat_assumptions);
+        g->unsat_assumptions = NULL;
       }
 
       reset_etk_queue(&g->token_queue);
@@ -5842,7 +5846,7 @@ void smt2_reset_assertions(void) {
        * Reset the internal name tables, unless global_decls is set
        */
       if (!g->global_decls) {
-	yices_reset_tables();
+        yices_reset_tables();
       }
 
       // build a fresh empty context
