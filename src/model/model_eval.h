@@ -123,6 +123,16 @@ extern bool eval_to_true_in_model(evaluator_t *eval, term_t t);
 extern void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n);
 
 /*
+ * Add useful uninterpreted terms to the model.
+ *
+ * A term t is useful if it's assigned a default value in eval_term. This means
+ * that the value of t is useful but was not assigned in the model. It makes
+ * sense then to print the value of t in print_model. To do this, we add an
+ * entry [t -> value(t)] for every useful term t.
+ */
+extern void eval_record_useful_terms(evaluator_t *eval);
+
+/*
  * Cached-term collector:
  * - call f(aux, t) for every t that's stored in eval->cache
  *   if f(aux, t) returns true, add t to v

@@ -414,11 +414,13 @@ typedef struct smt2_globals_s {
    * Support for delayed assertions
    * - assertions = a set of assertions
    * - trivially_unsat: true if one of the assertions simplifies to false
+   * - trivially_sat: true if assertions are true in the default model
    * - frozen: set to true after the first call to check_sat if
    *   benchmark_mode is true
    */
   ivector_t assertions;
   bool trivially_unsat;
+  bool trivially_sat;
   bool frozen;
 } smt2_globals_t;
 

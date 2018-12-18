@@ -2741,29 +2741,33 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 
 /*
  * Evaluate all terms in a[0 ... n-1] in a default model.
- * Return true if all terms evaluate to true in the model.
+ * Return true if all terms evaluate to true in the model and return the model in *model.
+ * Return false otherwise, and leave *model unchanged.
  */
-static bool trivially_true_assertions(const term_t *a, uint32_t n) {
-  model_t mdl;
+static bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
+  model_t *mdl;
   evaluator_t evaluator;
   uint32_t i;
   bool result;
 
   result = true;
-  init_model(&mdl, __yices_globals.terms, true);
-  init_evaluator(&evaluator, &mdl);
+  mdl = yices_new_model(true);
+  init_evaluator(&evaluator, mdl);
   for (i=0; i<n; i++) {
     if (!eval_to_true_in_model(&evaluator, a[i])) {
       result = false;
       break;
     }
   }
-  delete_evaluator(&evaluator);
-  delete_model(&mdl);
 
-  //  if (result) {
-  //    fprintf(stderr, "trivially satisified\n");
-  //  }
+  if (result) {
+    eval_record_useful_terms(&evaluator);
+    delete_evaluator(&evaluator);
+    *model = mdl;
+  } else {
+    delete_evaluator(&evaluator);
+    yices_free_model(mdl);
+  }
 
   return result;
 }
@@ -2775,14 +2779,19 @@ static bool trivially_true_assertions(const term_t *a, uint32_t n) {
 static void check_delayed_assertions(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
+  model_t *model;
 
   // set frozen to true to disallow more assertions
   g->frozen = true;
 
   if (g->trivially_unsat) {
+    trace_printf(g->tracer, 3, "(check-sat: trivially unsat)\n");
     print_out("unsat\n");
-  } else if (trivially_true_assertions(g->assertions.data, g->assertions.size)) {
+  } else if (trivially_true_assertions(g->assertions.data, g->assertions.size, &model)) {
+    trace_printf(g->tracer, 3, "(check-sat: trivially true)\n");
     print_out("sat\n");
+    g->trivially_sat = true;
+    g->model = model;
   } else {
     /*
      * check for mislabeled benchmarks: some benchmarks
@@ -3322,10 +3331,9 @@ static model_t *get_model(smt2_globals_t *g) {
       } else if (g->trivially_unsat) {
         print_error("the context is unsatisfiable");
       } else {
-        assert(g->assertions.size == 0);
-        // no assertions: build a trivial model
-        // we set keep_subst to true to be consistent
-        mdl = yices_new_model(true);
+	// g->model should be not be NULL
+	assert(g->trivially_sat);
+	freport_bug(__smt2_globals.err, "get-model");
       }
 
     } else {
@@ -3504,23 +3512,20 @@ static bval_t obj2bval(value_table_t *vtbl, value_t v) {
 }
 
 /*
- * Trivial assignment: this is called when Yices is used in benchmark
+ * Model assignment: this is called when Yices is used in benchmark
  * mode, and all assertions simplify to true. In this case, the
- * assertions are trivially satisfiable but no context is
- * constructed. We still need to make sure we give consistent values
- * to the named Booleans.
+ * assertions are trivially satisfiable, no context is
+ * constructed, but we have a model.
  *
- * To do this, we create an empty model and print whatever default values
- * get assigned to the boolean terms in this model.
+ * We print whatever default values get assigned to the
+ * boolean terms in the model.
  */
-static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s) {
+static void print_model_assignment(yices_pp_t *printer, named_term_stack_t *s, model_t *mdl) {
   evaluator_t evaluator;
-  model_t *mdl;
   value_table_t *vtbl;
   uint32_t i, n;
   value_t v;
 
-  mdl = yices_new_model(true);
   vtbl = model_get_vtbl(mdl);
   init_evaluator(&evaluator, mdl);
   pp_open_block(printer, PP_OPEN_VPAR);  // open '('
@@ -3531,7 +3536,6 @@ static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s)
   }
   pp_close_block(printer, true);  // close ')'
   delete_evaluator(&evaluator);
-  yices_free_model(mdl);
 }
 
 
@@ -3570,10 +3574,9 @@ static void show_assignment(smt2_globals_t *g) {
     } else if (g->trivially_unsat) {
       print_error("the context is unsatisfiable");
     } else {
-      assert(g->assertions.size == 0);
-      // trivially sat
+      assert(g->trivially_sat && g->model != NULL);
       init_pretty_printer(&printer, g);
-      print_trivial_assignment(&printer, &g->named_bools);
+      print_model_assignment(&printer, &g->named_bools, g->model);
       delete_yices_pp(&printer, true);
     }
 
@@ -3803,7 +3806,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
       } else if (g->trivially_unsat) {
         print_error("the context is unsatisfiable");
       } else {
-        assert(g->assertions.size == 0);
+        assert(g->trivially_sat);
         print_error("the context is satisfiable");
       }
     } else {
@@ -3913,6 +3916,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
 
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
+  g->trivially_sat = false;
   g->frozen = false;
 }
 
