@@ -188,7 +188,7 @@ static bval_t cadical_get_value(void *solver, bvar_t x) {
 }
 
 static void cadical_set_verbosity(void *solver, uint32_t level) {
-  // verbosity 0 --> nothing (quit = true)
+  // verbosity 0 --> nothing (quiet = true)
   // verbosity 1 --> normal cadical output (quiet = false)
   // verbosity 2 --> cadical verbosity 1
   // verbosity 3 --> cadical verbosity 2
