@@ -83,7 +83,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      6
-#define __YICES_VERSION_PATCHLEVEL 0
+#define __YICES_VERSION_PATCHLEVEL 1
 
 
 /*
@@ -3615,6 +3615,14 @@ __YICES_DLLSPEC__ extern uint32_t yices_val_mapping_arity(model_t *mdl, const yv
  * arity (i.e., the number of parameters that the function takes).
  */
 __YICES_DLLSPEC__ extern uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v);
+
+
+/*
+ * Type of a function node. This function returns -1 if v has tag
+ * other than YVAL_FUNCTION. Otherwise, it returns the type of the
+ * object v.
+ */
+__YICES_DLLSPEC__ extern type_t yices_val_function_type(model_t *mdl, const yval_t *v);
 
 
 /*

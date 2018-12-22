@@ -1,3 +1,4 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Build Status](https://travis-ci.org/SRI-CSL/yices2.svg?branch=master)](https://travis-ci.org/SRI-CSL/yices2)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
@@ -8,7 +9,7 @@ Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
+and [Python language bindings](https://github.com/SRI-CSL/yices2_python_bindings).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
@@ -103,7 +104,7 @@ sat
 
 ## Installing Prebuilt Binaries
 
-Currently you can install Yices either using Homebrew or Aptitude.
+Currently you can install Yices either using Homebrew or Apt.
 
 #### Homebrew
 
@@ -114,7 +115,7 @@ brew install SRI-CSL/sri-csl/yices2
 This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
-#### Aptitude
+#### Apt
 
 To install Yices on Ubuntu or Debian, do the following:
 ```
@@ -184,7 +185,7 @@ instructions:
    on github (https://github.com/SRI-CSL/libpoly).
 
 2. After you've installed libpoly, add option `--enable-mcsat` to
-   the cofigure command. In details, type this in the toplevel
+   the configure command. In details, type this in the toplevel
    Yices directory:
 ```
 autoconf

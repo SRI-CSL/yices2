@@ -1010,6 +1010,25 @@ void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *t
 }
 
 
+/*
+ * Get the type of a function or update object i
+ */
+type_t vtbl_function_type(value_table_t *table, value_t i) {
+  value_update_t *upd;
+  value_fun_t *fun;
+
+  while (object_is_update(table, i)) {
+    upd = (value_update_t *) table->desc[i].ptr;
+    i = upd->fun;
+  }
+
+  assert(object_is_function(table, i));
+  fun = (value_fun_t *) table->desc[i].ptr;
+
+  return fun->type;
+}
+
+
 
 
 /**********************************************************
