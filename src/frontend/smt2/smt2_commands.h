@@ -129,7 +129,7 @@ enum smt2_errors {
  * - array theory sort and functions
  * - processing of term annotations
  */
-enum smt2_opcodes {
+typedef enum smt2_opcodes {
   SMT2_EXIT = NUM_BASE_OPCODES,         // [exit]
   SMT2_SILENT_EXIT,                     // [silent-exit]
   SMT2_GET_ASSERTIONS,                  // [get-assertions]
