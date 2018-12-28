@@ -2636,7 +2636,7 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
 
   assert(count <= n);
 
-  if (count == 0) {
+  if (count == n) {
     // special case: constant function
     k = vtbl_mk_function(table, tau, 0, NULL, def);
   } else {
