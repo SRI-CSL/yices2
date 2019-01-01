@@ -4457,7 +4457,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
     } while (l0 != l);
 
     if (unsat) {
-      fprintf(stderr, "c found inconsistent SCC\n");
+      fprintf(stderr, "c inconsistent SCC\n");
       // can't call show_scc here: the SCC is no longer on the stack
       //      show_scc(stderr, solver, l);
     }
@@ -4946,7 +4946,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "c\n"
 	          "c Preprocessing time    : %.4f\nc\n", time);
   if (solver->has_empty_clause) {
-    fprintf(stderr, "c\nc found unsat by preprocessing\nc\n");
+    fprintf(stderr, "c\nc  unsat by preprocessing\nc\n");
   }
 }
 
@@ -6176,7 +6176,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
   n = v->size;
   if (n > 0) {
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc: %"PRIu32" variables eliminated\n", n);
     }
     for (;;) {
       try_equivalent_vars(solver);
@@ -8196,7 +8196,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
   n = v->size;
   if (n > 0) {
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc: %"PRIu32" variables eliminated\n", n);
     }
     try_equivalent_vars(solver);
 
