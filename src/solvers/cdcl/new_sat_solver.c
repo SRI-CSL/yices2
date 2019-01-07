@@ -2368,9 +2368,11 @@ static void init_stats(solver_stats_t *stat) {
   stat->successful_dive = 0;
   stat->scc_calls = 0;
   stat->subst_vars = 0;
+  stat->equivs = 0;
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
   stat->pp_subst_vars = 0;
+  stat->pp_equivs = 0;
   stat->pp_clauses_deleted = 0;
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
@@ -4457,9 +4459,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
     } while (l0 != l);
 
     if (unsat) {
-      fprintf(stderr, "c found inconsistent SCC\n");
-      // can't call show_scc here: the SCC is no longer on the stack
-      //      show_scc(stderr, solver, l);
+      fprintf(stderr, "c inconsistent SCC\n");
     }
   }
 }
@@ -4933,6 +4933,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "c  unit literals        : %"PRIu32"\n", solver->stats.pp_unit_lits);
   fprintf(stderr, "c  pure literals        : %"PRIu32"\n", solver->stats.pp_pure_lits);
   fprintf(stderr, "c  substitutions        : %"PRIu32"\n", solver->stats.pp_subst_vars);
+  fprintf(stderr, "c  literal equiv        : %"PRIu32"\n", solver->stats.pp_equivs);
   fprintf(stderr, "c  cheap var elims      : %"PRIu32"\n", solver->stats.pp_cheap_elims);
   fprintf(stderr, "c  less cheap var elims : %"PRIu32"\n", solver->stats.pp_var_elims);
   fprintf(stderr, "c  active vars          : %"PRIu32"\n", num_active_vars(solver));
@@ -4946,7 +4947,7 @@ static void show_preprocessing_stats(sat_solver_t *solver, double time) {
   fprintf(stderr, "c\n"
 	          "c Preprocessing time    : %.4f\nc\n", time);
   if (solver->has_empty_clause) {
-    fprintf(stderr, "c\nc found unsat by preprocessing\nc\n");
+    fprintf(stderr, "c\nc unsat by preprocessing\nc\n");
   }
 }
 
@@ -5715,9 +5716,8 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * EQUIVALENT DEFINITIONS
  */
 
-#if 1
 /*
- * Equivalence: l1 == l2
+ * Process equivalence: l1 == l2
  */
 static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
   // provisional: we apply substitutions first
@@ -5746,18 +5746,17 @@ static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
     }
   } else if (l1 < l2) {
     set_lit_subst(solver, l2, l1);
-    if (solver->verbosity >= 4) {
+    if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
     }
   } else {
     set_lit_subst(solver, l1, l2);
-    if (solver->verbosity >= 4) {
+    if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l1, l2);
     }
   }
 }
 
-#endif
 
 /*
  * Apply literal substitution to a truth table
@@ -5920,7 +5919,7 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gate_hmap_t *map, literal_
 				const ttbl_t *tt, bool test_only, const char *w) {
   literal_t l;
 
-  if (solver->verbosity >= 4) {
+  if (solver->verbosity >= 6) {
     fprintf(stderr, "c   %s: %c%"PRId32" == ", w, pol(l0), var_of(l0));
     show_tt(tt);
   }
@@ -5932,6 +5931,7 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gate_hmap_t *map, literal_
 	fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
       }
       literal_equiv(solver, l, l0);
+      solver->stats.equivs ++;
     }
   } else if (! test_only) {
     gate_hmap_add_ttbl(map, tt, l0);
@@ -6163,7 +6163,7 @@ static void pp_apply_subst_to_variable(sat_solver_t *solver, bvar_t x) {
  */
 static bool pp_scc_simplification(sat_solver_t *solver) {
   vector_t *v;
-  uint32_t i, n;
+  uint32_t i, n, n0;
   bvar_t x;
 
   compute_sccs(solver);
@@ -6175,13 +6175,17 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
   v = &solver->subst_vars;
   n = v->size;
   if (n > 0) {
+    n0 = n;
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc: %"PRIu32" variable substitutions\n", n);
     }
     for (;;) {
       try_equivalent_vars(solver);
       if (n == v->size) break;
       n = v->size;
+    }
+    if (solver->verbosity >= 3 && n > n0) {
+      fprintf(stderr, "c   eq: %"PRIu32" substitutons\n", n - n0);
     }
     // equivalent_vars may add more variables to vector v
     n = v->size;
@@ -7208,7 +7212,7 @@ static void prepare_for_search(sat_solver_t *solver) {
  *   in the watch vectors; other clauses have two watch literals.
  */
 static void nsat_preprocess(sat_solver_t *solver) {
-  if (solver->verbosity >= 4) fprintf(stderr, "c Eliminate pure and unit literals\n");
+  if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
 #if 0
   fprintf(stderr, "\n\n*** INPUT ***\n");
@@ -7260,6 +7264,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
  done:
   solver->stats.pp_subst_vars = solver->stats.subst_vars;
+  solver->stats.pp_equivs = solver->stats.equivs;
 
   if (solver->verbosity >= 4) fprintf(stderr, "c Done\nc\n");
 
@@ -8196,7 +8201,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
   n = v->size;
   if (n > 0) {
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c scc found %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc: %"PRIu32" variable substitutions\n", n);
     }
     try_equivalent_vars(solver);
 
@@ -8854,6 +8859,7 @@ static void make_false(sat_solver_t *solver, literal_t l) {
 
 #endif
 
+
 /*
  * Solving procedure
  */
@@ -8884,6 +8890,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     nsat_simplify(solver);
     done_simplify(solver);
   }
+
+  report(solver, "");
 
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
@@ -8935,11 +8943,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   }
 
+  report(solver, "end");
 
  done:
   assert(solver->status == STAT_UNSAT || solver->status == STAT_SAT);
-
-  report(solver, "end");
 
   if (solver->status == STAT_SAT) {
     solver->stats.successful_dive = solver->diving;
@@ -8951,10 +8958,47 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   show_state(stderr, solver);
 #endif
 
+  if (solver->verbosity >= 2) {
+    nsat_show_statistics(stderr, solver);
+  }
+
   //  close_stat_file();
 
   return solver->status;
 }
+
+
+/************************
+ *  DISPLAY STATISTICS  *
+ ***********************/
+
+void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
+  const solver_stats_t *stat = &solver->stats;
+
+  fprintf(f, "c\n");
+  fprintf(f, "c Statistics\n");
+  fprintf(f, "c  starts                  : %"PRIu32"\n", stat->starts);
+  fprintf(f, "c  dives                   : %"PRIu32"\n", stat->dives);
+  fprintf(f, "c  successful dive         : %"PRIu32"\n", stat->successful_dive);
+  fprintf(f, "c  simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  fprintf(f, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  fprintf(f, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
+  fprintf(f, "c  apply subst calls       : %"PRIu32"\n", stat->subst_calls);
+  fprintf(f, "c  substituted vars        : %"PRIu32"\n", stat->subst_vars);
+  fprintf(f, "c  equivalences            : %"PRIu32"\n", stat->equivs);
+  fprintf(f, "c  decisions               : %"PRIu64"\n", stat->decisions);
+  fprintf(f, "c  random decisions        : %"PRIu64"\n", stat->random_decisions);
+  fprintf(f, "c  propagations            : %"PRIu64"\n", stat->propagations);
+  fprintf(f, "c  conflicts               : %"PRIu64"\n", stat->conflicts);
+  fprintf(f, "c  lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
+  fprintf(f, "c  lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
+  fprintf(f, "c  subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  fprintf(f, "c  deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  fprintf(f, "c  deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  fprintf(f, "c\n");
+}
+
+
 
 
 /************

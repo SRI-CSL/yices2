@@ -90,10 +90,9 @@ static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, lite
   nsat_solver_add_def2(solver, x, b, l1, l2);
 }
 
-extern void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
+static void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
   nsat_solver_add_def3(solver, x, b, l1, l2, l3);
 }
-
 
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
