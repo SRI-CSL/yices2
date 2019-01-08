@@ -8978,8 +8978,10 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c\n");
   fprintf(f, "c Statistics\n");
   fprintf(f, "c  starts                  : %"PRIu32"\n", stat->starts);
+#if USE_DIVING
   fprintf(f, "c  dives                   : %"PRIu32"\n", stat->dives);
   fprintf(f, "c  successful dive         : %"PRIu32"\n", stat->successful_dive);
+#endif
   fprintf(f, "c  simplify db             : %"PRIu32"\n", stat->simplify_calls);
   fprintf(f, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
   fprintf(f, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
