@@ -168,10 +168,21 @@ void bv_plugin_destruct(plugin_t* plugin) {
   delete_int_hset(&bv->visited_cache);
 }
 
+
+/**
+ * Test if variable x has been assigned a value in the trail, but only if this
+ * assignment has already been processed by the bv plugin.
+ */
+
 static inline
 bool bv_plugin_has_assignment(const bv_plugin_t* bv, variable_t x) {
   return trail_has_value(bv->ctx->trail, x) && trail_get_index(bv->ctx->trail, x) < bv->trail_i;
 }
+
+/**
+ * Setting status of constraint: if value is CONSTRAINT_UNIT, then unit_var is the variable in which constraint is unit;
+ * otherwise unit_var is variable_null
+ */
 
 static
 void bv_plugin_set_unit_info(bv_plugin_t* bv, variable_t constraint, variable_t unit_var, constraint_unit_info_t value) {
@@ -197,11 +208,18 @@ void bv_plugin_set_unit_info(bv_plugin_t* bv, variable_t constraint, variable_t 
       unit_find->val = unit_var;
     }
   } else {
+    assert(unit_var == variable_null);
     if (unit_find != NULL) {
       unit_find->val = variable_null;
     }
   }
 }
+
+/**
+ * Getting status of constraint: if return value is CONSTRAINT_UNIT,
+ * then bv_plugin_get_unit_var returns the variable in which constraint is unit
+ * (otherwise it returns variable_null)
+ */
 
 static
 constraint_unit_info_t bv_plugin_get_unit_info(bv_plugin_t* bv, variable_t constraint) {
@@ -214,8 +232,8 @@ constraint_unit_info_t bv_plugin_get_unit_info(bv_plugin_t* bv, variable_t const
 }
 
 static
-variable_t bv_plugin_get_unit_var(bv_plugin_t* nra, variable_t constraint) {
-  int_hmap_pair_t* find = int_hmap_find(&nra->constraint_unit_var, constraint);
+variable_t bv_plugin_get_unit_var(bv_plugin_t* bv, variable_t constraint) {
+  int_hmap_pair_t* find = int_hmap_find(&bv->constraint_unit_var, constraint);
   if (find == NULL) {
     return variable_null;
   } else {
@@ -223,6 +241,10 @@ variable_t bv_plugin_get_unit_var(bv_plugin_t* nra, variable_t constraint) {
   }
 }
 
+/**
+ * Comparing variables; used for the creation of a watch list, which is initially sorted with this function.
+ * the two initial watched variables are the two smallest variables according to this function.
+ */
 
 static
 bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
@@ -263,6 +285,10 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
     return t1 < t2;
   }
 }
+
+/**
+ * Collect in vars_out the free variables of term t
+ */
 
 void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out) {
 
@@ -452,9 +478,12 @@ void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t*
  * - update with existing feasibile set for x;
  * - report any conflicts (or propagate if possible).
  *
- * Node that (TODO) the constraint might be of the form [(x + y) x y], i.e. the
- * Constraint is an evaluation constraint. This comes to play in theory
+ * Note that (TODO) the constraint might be of the form [(y1 + y2), y1, y2], i.e. be x itself.
+ * In that case the constraint is an evaluation constraint. This comes to play in theory
  * theory combination if we do not purify the terms.
+ *
+ * Precondition? bv_plugin_has_assignment(...,x) is false.
+ * But trail_has_value(trail, cstr) could be true (assignment of x has not yet been processed by the bv plugin)
  */
 static
 void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, variable_t cstr, variable_t x) {
@@ -481,6 +510,9 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
       prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
     } else {
       // The constraint already has a value, check that it's the right one
+      // Couldn't it be the case that the constraint has been imposed a value by another theory
+      // that is not "the right one", in which case we should not fail but raise a conflict,
+      // in the spirit of bv_plugin_process_fully_assigned_constraint?
       assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
     }
     return;
@@ -524,6 +556,8 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   }
 }
 
+// Required as plugin_t field
+
 static
 void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
 
@@ -545,7 +579,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     return;
   }
 
-  // Setup the variable
+  // Set up the variable
   variable_t t_var = variable_db_get_variable(var_db, t);
   
   int_mset_t t_vars;
@@ -558,7 +592,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   // It's a constraint if there is more than one variable
   bool is_constraint = t_vars.element_list.size > 1;
 
-  // Setup the constraint
+  // Set up the constraint
   if (is_constraint) {
 
     // Get the list of variables
@@ -639,6 +673,9 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 
+/**
+ * Reaction to the discovery that x has been assigned a value
+ */
 
 static
 void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop) {
@@ -734,8 +771,10 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
           uint32_t cstr_eval_level = 0;
           const mcsat_value_t* cstr_value = bv_evaluator_run(&bv->evaluator, cstr, &cstr_eval_level);
           if (!trail_has_value(trail, cstr)) {
+            //should not happen? cstr == ctr_vars[0], which has a value as bv_plugin_has_assignment(bv, cstr_vars[0]) is true
+            assert(false);
             // Unassigned, propagate the value
-            prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
+            // prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
           } else {
             // The constraint already has a value, check that it's the right one
             assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
@@ -752,6 +791,8 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
   remove_iterator_destruct(&it);
 }
 
+// Required as plugin_t field
+
 static
 void bv_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
@@ -764,6 +805,8 @@ void bv_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     bv_plugin_propagate_var(bv, x, prop);
   }
 }
+
+// Required as plugin_t field
 
 static
 void bv_plugin_push(plugin_t* plugin) {
@@ -783,6 +826,8 @@ void bv_plugin_push(plugin_t* plugin) {
   // Push the feasibility information
   bv_feasible_set_db_push(bv->feasible);
 }
+
+// Required as plugin_t field
 
 static
 void bv_plugin_pop(plugin_t* plugin) {
@@ -879,6 +924,8 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   delete_bvconstant(&b);
 }
 
+// Required as plugin_t field
+
 static
 void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -914,7 +961,7 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     }
   }
 
-  // Simples conflict resolution: get the variables and say x != v
+  // Simple conflict resolution: get the variables and say x != v
   int_mset_t assigned_vars;
   int_mset_construct(&assigned_vars, 0);
   for (i = 0; i < conflict_core.size; ++ i) {
@@ -971,6 +1018,8 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   delete_ivector(&lemma_reasons);
 }
 
+// Required as plugin_t field
+
 static
 term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -996,6 +1045,8 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     return bool2term(false);
   }
 }
+
+// Required as plugin_t field
 
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
@@ -1027,6 +1078,8 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   return true;
 }
 
+// Required as plugin_t field
+
 static
 void bv_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -1037,6 +1090,8 @@ void bv_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
 
   bv->exception = handler;
 }
+
+// Required as plugin_t field
 
 static
 void bv_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
@@ -1072,6 +1127,8 @@ void bv_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
   }
 }
 
+// Required as plugin_t field
+
 static
 void bv_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -1082,6 +1139,8 @@ void bv_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   bv_feasible_set_db_gc_mark(bv->feasible, gc_vars);
   watch_list_manager_gc_mark(&bv->wlm, gc_vars);
 }
+
+// Required as plugin_t field
 
 static
 void bv_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
