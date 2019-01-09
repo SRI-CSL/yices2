@@ -490,7 +490,7 @@ void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t*
  * theory combination if we do not purify the terms.
  *
  * Precondition? bv_plugin_has_assignment(...,x) is false.
- * But trail_has_value(trail, cstr) could be true (assignment of x has not yet been processed by the bv plugin)
+ * But trail_has_value(trail, x) could be true (assignment of x has not yet been processed by the bv plugin)
  */
 static
 void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, variable_t cstr, variable_t x) {
