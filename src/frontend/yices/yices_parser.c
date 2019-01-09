@@ -223,7 +223,11 @@ static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
     break;
 
   default:
-    if (expected_token != -1) {
+    // try to avoid confusion: don't want to print 'error not expected'
+    if (expected_token == TK_NOT) {
+      fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): expected 'not'\n",
+	      lex->tk_line, lex->tk_column);
+    } else if (expected_token != -1) {
       assert(0 <= expected_token && expected_token < NUM_YICES_TOKENS);
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
               lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
@@ -234,6 +238,24 @@ static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
     break;
   }
 }
+
+// when we get (<symbol> ... ) and <symbol> is not a known command
+static void syntax_error_bad_command(lexer_t *lex, FILE *err) {
+  reader_t *rd;
+
+  if (err == NULL) {
+    export_syntax_error(lex, -1);
+    return;
+  }
+
+  rd = &lex->reader;
+  if (rd->name != NULL) {
+    fprintf(err, "%s: ", rd->name);
+  }
+  fprintf(err, "syntax error: (line %"PRId32", column %"PRId32"): %s is not a command\n",
+	  lex->tk_line, lex->tk_column, tkval(lex));
+}
+
 
 /*
  * Marker for bottom of the state stack.
@@ -319,6 +341,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = r0;
       goto loop;
 
+    case check_assuming_next_goto_c16:
+      tstack_push_op(tstack, CHECK_ASSUMING_CMD, &loc);
+      state = c16;
+      goto loop;
+
     case push_next_goto_r0:
       tstack_push_op(tstack, PUSH_CMD, &loc);
       state = r0;
@@ -349,9 +376,9 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c3;
       goto loop;
 
-    case assert_next_push_r0_goto_e0:
+    case assert_next_push_c20_goto_e0:
       tstack_push_op(tstack, ASSERT_CMD, &loc);
-      parser_push_state(stack, r0);
+      parser_push_state(stack, c20);
       state = e0;
       goto loop;
 
@@ -416,18 +443,28 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c15;
       goto loop;
 
-    case efsolve_next_goto_r0:   // New command: (ef-solve)
+    case efsolve_next_goto_r0:
       tstack_push_op(tstack, EFSOLVE_CMD, &loc);
       state = r0;
       goto loop;
 
-    case export_next_goto_c3:    // New command: (export-to-dimacs <filename>)
+    case export_next_goto_c3:
       tstack_push_op(tstack, EXPORT_CMD, &loc);
       state = c3;
       goto loop;
 
-    case implicant_next_goto_r0: // New command: (show-implicant)
+    case implicant_next_goto_r0:
       tstack_push_op(tstack, SHOW_IMPLICANT_CMD, &loc);
+      state = r0;
+      goto loop;
+
+    case unsat_core_next_goto_r0:
+      tstack_push_op(tstack, SHOW_UNSAT_CORE_CMD, &loc);
+      state = r0;
+      goto loop;
+
+    case unsat_assumptions_next_goto_r0:
+      tstack_push_op(tstack, SHOW_UNSAT_ASSUMPTIONS_CMD, &loc);
       state = r0;
       goto loop;
 
@@ -500,6 +537,30 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       parser_push_state(stack, r0);
       state = td0;
       goto skip_token;
+
+    case symbol_next_goto_c16:
+      // positive assumption in check-assuming
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      state = c16;
+      goto loop;
+
+    case next_goto_c17:
+      state = c17;
+      goto loop;
+
+    case not_next_goto_c18:
+      state = c18;
+      goto loop;
+
+    case symbol_next_goto_c19:
+      // negative assumption in check-assuming
+      tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      state = c19;
+      goto loop;
+
+    case next_goto_c16:
+      state = c16;
+      goto loop;
 
     case int_return:
       tstack_push_int_type(tstack, &loc);
@@ -1236,6 +1297,15 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case error_rpar_expected:
       syntax_error(lex, err, TK_RP);
+      goto cleanup;
+
+    case error_not_expected:
+      // this means that we got a token other than 'not'.
+      syntax_error(lex, err, TK_NOT);
+      goto cleanup;
+
+    case error_not_a_command:
+      syntax_error_bad_command(lex, err);
       goto cleanup;
 
     case error:

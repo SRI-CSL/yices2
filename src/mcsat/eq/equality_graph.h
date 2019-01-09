@@ -285,6 +285,9 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
 /** Propagate the trail */
 void eq_graph_propagate_trail(eq_graph_t* eq);
 
+/** Propagate individual assertion */
+void eq_graph_propagate_trail_assertion(eq_graph_t* eq, term_t atom);
+
 /** Returns true if the trail is fully propagated */
 bool eq_graph_is_trail_propagated(const eq_graph_t* eq);
 

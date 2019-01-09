@@ -1453,6 +1453,7 @@ static thvar_t map_idiv_to_arith(context_t *ctx, composite_term_t *div) {
   } else {
     // division by a non-constant or by zero: not supported by default
     // arithmetic solver for now
+    q_clear(&k);
     longjmp(ctx->env, FORMULA_NOT_LINEAR);
   }
   q_clear(&k);
@@ -1491,6 +1492,7 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
 
   } else {
     // Non-constant or zero divider
+    q_clear(&k);
     longjmp(ctx->env, FORMULA_NOT_LINEAR);
   }
 

@@ -26,8 +26,8 @@ static ptr_hmap_t map;
 /*
  * Array of strings for testing
  */
-static char *test[26] = {
-  "alpha", "bravo", "charlie", "echo", "foxtrot", "golf",
+static char *const test[26] = {
+  "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf",
   "hotel", "india", "juliet", "kilo", "lima", "mike", "november"
   "oscar", "papa", "quebec", "romeo", "sierra", "tango", "uniform",
   "victor", "whiskey", "x-ray", "yankee", "zulu",

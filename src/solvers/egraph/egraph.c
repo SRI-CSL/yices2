@@ -5001,7 +5001,12 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
     assert(x == egraph_term_base_thvar(egraph, t) ||
            (x == null_thvar && egraph_term_base_thvar(egraph, t) == const_bvar)); // special case: cf. assert_pred_axiom
 
-    if (x != null_thvar && egraph_term_type(egraph, t) == ETYPE_BOOL) {
+    /*
+     * another special case: in assert_distinct_axiom, we attach t
+     * to the theory variable const_var (i.e., 0) and we don't want
+     * to delete the corresponding atom here.
+     */
+    if (x != null_thvar && x != const_bvar && egraph_term_type(egraph, t) == ETYPE_BOOL) {
       // remove atom if there's one
       atom = get_egraph_atom_for_bvar(egraph, x);
       if (atom != NULL) {

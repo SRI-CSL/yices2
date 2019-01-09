@@ -52,9 +52,9 @@
 #include "parser_utils/term_stack2.h"
 #include "utils/string_hash_map.h"
 #include "io/tracer.h"
-#include "frontend/smt2/assumption_table.h"
+#include "frontend/common/assumptions_and_core.h"
+#include "frontend/common/named_term_stacks.h"
 #include "frontend/smt2/smt2_expressions.h"
-#include "frontend/common.h"
 
 #include "context/context_parameters.h"
 #include "exists_forall/ef_client.h"
@@ -176,7 +176,6 @@ enum smt2_opcodes {
   SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
   // more arithmetic operators
   SMT2_MK_TO_REAL,
-  // more of them: not implemented yet
   SMT2_MK_DIV,
   SMT2_MK_MOD,
   SMT2_MK_ABS,
@@ -187,31 +186,6 @@ enum smt2_opcodes {
 
 #define NUM_SMT2_OPCODES (SMT2_MK_DIVISIBLE+1)
 
-
-/*
- * Stack to deal with named terms
- * SMT2 has expressions like (! <term> :named xxx)
- * - if <term> is Boolean, then we must keep track of the pair <term> <name>
- *   to implement the command (get-assignments).
- * - when we support unsat cores, we'll have to also keep track of named
- *   named assertions (i.e. (assert (! <term> :named yyy)))
- *
- * We keep track of named assertions and named booleans in two stacks
- * of pairs (name, term). These pairs must be removed after (pop ...).
- */
-typedef struct named_term_s {
-  term_t term;
-  char *name;
-} named_term_t;
-
-typedef struct named_term_stack_s {
-  named_term_t *data;
-  uint32_t top;
-  uint32_t size;
-} named_term_stack_t;
-
-#define DEF_NAMED_TERM_STACK_SIZE 256
-#define MAX_NAMED_TERM_STACK_SIZE (UINT32_MAX/sizeof(named_term_t))
 
 
 /*
@@ -275,21 +249,6 @@ typedef struct smt2_stack_s {
 
 #define DEF_SMT2_STACK_SIZE 128
 #define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
-
-
-/*
- * Data structures to deal with assumptions:
- * - table: store assumptions + names
- * - assumptions: vector of assumed terms
- * - core: unsat core
- * - status: as returned by check_assuming
- */
-typedef struct smt2_assumptions_s {
-  assumption_table_t table;
-  ivector_t assumptions;
-  ivector_t core;
-  smt_status_t status;
-} smt2_assumptions_t;
 
 
 
@@ -433,8 +392,8 @@ typedef struct smt2_globals_s {
 
   // data structures for unsat cores/unsat assumptions
   // allocated on demand
-  smt2_assumptions_t *unsat_core;
-  smt2_assumptions_t *unsat_assumptions;
+  assumptions_and_core_t *unsat_core;
+  assumptions_and_core_t *unsat_assumptions;
 
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;

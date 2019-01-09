@@ -10,6 +10,7 @@
 #include "bv_plugin.h"
 #include "bv_bdd_manager.h"
 #include "bv_evaluator.h"
+#include "bv_explainer.h"
 #include "bv_utils.h"
 
 #include "mcsat/trail.h"
@@ -69,6 +70,9 @@ typedef struct {
   /** Evaluator */
   bv_evaluator_t evaluator;
 
+  /** Explainer */
+  bv_explainer_t explainer;
+
   /** Variables processed in propagation */
   ivector_t processed_variables;
 
@@ -111,6 +115,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv->feasible = bv_feasible_set_db_new(ctx, bv->bddm);
 
   bv_evaluator_construct(&bv->evaluator, ctx);
+
+  bv_explainer_construct(&bv->explainer, ctx, &bv->wlm);
 
   init_ivector(&bv->processed_variables, 0);
   bv->processed_variables_size = 0;
@@ -164,6 +170,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
   bv_feasible_set_db_delete(bv->feasible);
   bv_bdd_manager_delete(bv->bddm);
   bv_evaluator_destruct(&bv->evaluator);
+  bv_explainer_destruct(&bv->explainer);
   delete_ivector(&bv->processed_variables);
   delete_int_hset(&bv->visited_cache);
 }
@@ -961,59 +968,10 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     }
   }
 
-  // Simple conflict resolution: get the variables and say x != v
-  int_mset_t assigned_vars;
-  int_mset_construct(&assigned_vars, 0);
-  for (i = 0; i < conflict_core.size; ++ i) {
-    atom_i_var = conflict_core.data[i];
-    atom_i_term = variable_db_get_term(bv->ctx->var_db, atom_i_var);
-    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
-    // Add atom to conflict
-    if (atom_i_value) {
-      ivector_push(conflict, atom_i_term);
-    } else {
-      ivector_push(conflict, opposite_term(atom_i_term));
-    }
-    // Add subvariables to set
-    variable_list_ref_t list_ref = watch_list_manager_get_list_of(&bv->wlm, atom_i_var);
-    variable_t* atom_i_vars = watch_list_manager_get_list(&bv->wlm, list_ref);
-    for (; *atom_i_vars != variable_null; atom_i_vars ++) {
-      if (*atom_i_vars != atom_i_var) {
-        assert(*atom_i_vars == bv->conflict_variable || trail_has_value(trail, *atom_i_vars));
-        if (*atom_i_vars != bv->conflict_variable) {
-          int_mset_add(&assigned_vars, *atom_i_vars);
-        }
-      }
-    }
-  }
+  // Explain with the apropriate theory
+  bv_explainer_get_conflict(&bv->explainer, &conflict_core, bv->conflict_variable, conflict);
 
-  const ivector_t* assigned_vars_vec = int_mset_get_list(&assigned_vars);
-  for (i = 0; i < assigned_vars_vec->size; ++i) {
-    variable_t var = assigned_vars_vec->data[i];
-    term_t var_term = variable_db_get_term(var_db, var);
-    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
-      ctx_trace_printf(bv->ctx, "vars:\n");
-      ctx_trace_printf(bv->ctx, "[%"PRIu32"]: ", i);
-      ctx_trace_term(bv->ctx, var_term);
-    }
-    const mcsat_value_t* value = trail_get_value(trail, var);
-    if (value->type == VALUE_BOOLEAN) {
-      if (value->b) {
-        ivector_push(conflict, var_term);
-      } else {
-        ivector_push(conflict, opposite_term(var_term));
-      }
-    } else if (value->type == VALUE_BV) {
-      term_t var_value = mk_bv_constant(bv->tm, (bvconstant_t*) &value->bv_value);
-      term_t var_eq_value = mk_eq(bv->tm, var_term, var_value);
-      ivector_push(conflict, var_eq_value);
-    } else {
-      assert(false);
-    }
-  }
-
-  int_mset_destruct(&assigned_vars);
-
+  // Remove temps
   delete_ivector(&conflict_core);
   delete_ivector(&lemma_reasons);
 }

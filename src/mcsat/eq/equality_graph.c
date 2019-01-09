@@ -1324,6 +1324,30 @@ void eq_graph_propagate_trail(eq_graph_t* eq) {
   eq_graph_propagate(eq);
 }
 
+void eq_graph_propagate_trail_assertion(eq_graph_t* eq, term_t atom) {
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
+    ctx_trace_printf(eq->ctx, "eq_graph_propagate_trail_assertion[%s]()\n", eq->name);
+  }
+
+  assert(eq_graph_has_term(eq, atom));
+
+  const mcsat_trail_t* trail = eq->ctx->trail;
+  variable_db_t* var_db = eq->ctx->var_db;
+
+  // Get the value
+  variable_t atom_var = variable_db_get_variable_if_exists(var_db, atom);
+  assert(atom_var != variable_null);
+
+  const mcsat_value_t* v = trail_get_value(trail, atom_var);
+  eq_node_id_t v_id = eq_graph_add_value(eq, v);
+  eq_node_id_t atom_id = eq_graph_term_id(eq, atom);
+  eq_graph_assert_eq(eq, v_id, atom_id, REASON_IS_IN_TRAIL, atom, false);
+
+  // Run propagation
+  eq_graph_propagate(eq);
+}
+
 bool eq_graph_is_trail_propagated(const eq_graph_t* eq) {
   if (!merge_queue_is_empty(&eq->merge_queue)) {
     return false;
