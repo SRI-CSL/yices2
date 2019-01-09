@@ -6177,7 +6177,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
   if (n > 0) {
     n0 = n;
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c  scc: %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
     }
     for (;;) {
       try_equivalent_vars(solver);
@@ -6185,7 +6185,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
       n = v->size;
     }
     if (solver->verbosity >= 3 && n > n0) {
-      fprintf(stderr, "c   eq: %"PRIu32" substitutons\n", n - n0);
+      fprintf(stderr, "c  eq  %"PRIu32" substitutions\n", n - n0);
     }
     // equivalent_vars may add more variables to vector v
     n = v->size;
@@ -8182,7 +8182,7 @@ static void resolve_conflict(sat_solver_t *solver) {
  */
 static void try_scc_simplification(sat_solver_t *solver) {
   vector_t *v;
-  uint32_t i, n, units;
+  uint32_t i, n, n0, units;
   bvar_t x;
 
   assert(solver->decision_level == 0);
@@ -8200,13 +8200,21 @@ static void try_scc_simplification(sat_solver_t *solver) {
   v = &solver->subst_vars;
   n = v->size;
   if (n > 0) {
+    n0 = n;
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c  scc: %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
     }
-    try_equivalent_vars(solver);
+    for (;;) {
+      try_equivalent_vars(solver);
+      if (n == v->size) break;
+      n = v->size;
+    }
 
     // equivalent_vars may add more variables to vector v
-    n = v->size;
+    if (solver->verbosity >= 3 && n > n0) {
+      fprintf(stderr, "c  eq  %"PRIu32" substitutions\n", n - n0);
+    }
+
     // save clause to extend the model later
     for (i=0; i<n; i++) {
       x = v->data[i];
