@@ -524,11 +524,13 @@ typedef struct solver_stats_s {
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
+  uint32_t equivs;                   // number of equivalences detected
 
   // Preprocessing statistics
   uint32_t pp_pure_lits;             // number of pure literals removed
   uint32_t pp_unit_lits;             // number of unit literals removed
   uint32_t pp_subst_vars;            // number of variables eliminated by substitution
+  uint32_t pp_equivs;                // number of equivalences detected
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
   uint32_t pp_strengthenings;        // number of strengthened clauses
@@ -1198,6 +1200,7 @@ extern void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val)
 extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a);
 
 
+
 /******************************
  * PRINT INTERNAL STRUCTURES  *
  *****************************/
@@ -1208,6 +1211,11 @@ extern void show_state(FILE *f, const sat_solver_t *solver);
 /*******************************
  * STATISTICS/DATA COLLECTION  *
  ******************************/
+
+/*
+ * Print statistics
+ */
+extern void nsat_show_statistics(FILE *f, const sat_solver_t *solver);
 
 /*
  * If the solver is compiled with DATA enabled,
