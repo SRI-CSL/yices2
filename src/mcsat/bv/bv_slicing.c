@@ -8,6 +8,7 @@
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
 
+#include "bv_utils.h"
 #include "bv_slicing.h"
 
 /** pair construct */
@@ -148,9 +149,77 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
   bv_slicing_align(t1, t2, appearing_in, todo);
 }
 
-/** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
-void bv_slicing_treat(ptr_queue_t* todo){
 
+/** Refines slice tree s to make sure there are slice points at indices hi and lo. None of the slices in the tree should be paired yet. */
+void bv_slicing_refines(slice_t s, uint32_t hi, uint32_t lo){
+  // TODO
+  return;
+}
+
+
+/** Normalises a term into a list of slices added to tail,
+    which acts as an accumulator for this recursive function.
+    The head of the output list will necessarily be a leaf slice.
+ */
+slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
+  // TODO
+  return NULL;
+}
+
+/** Main function.
+    Gets a conflict core, produces the coarsest slicing.
+    The way this output is to be communicated / returned
+    has yet to be determined */
+void bv_slicing(const plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out){
+
+  // standard abbreviations
+  const variable_db_t* var_db = ctx->var_db;
+  const term_table_t*  terms  = ctx->terms;
+  const mcsat_trail_t* trail  = ctx->trail;
+
+  // We create a "to do" queue of matching slice pairs to align
+  ptr_queue_t* todo = safe_malloc(sizeof(ptr_queue_t));
+  init_ptr_queue(todo, 0);
+ 
+  // Variables that are going to be re-used for every item in the conflict core
+  variable_t atom_i_var;
+  bool       atom_i_value;
+  term_t     atom_i_term;
+  composite_term_t* atom_i_comp;
+  term_kind_t atom_i_kind;
+    
+  // Counter that records the next available identifier to assign to a disequality in the core.
+  // That disequality turns into a disjunction when slicing 
+  uint32_t next_disjunction = 1;
+
+  for (uint32_t i = 0; i < conflict_core->size; i++) {
+    atom_i_var   = conflict_core->data[i];
+    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+    atom_i_term  = variable_db_get_term(var_db, atom_i_var);
+    atom_i_kind  = term_kind(terms, atom_i_term);
+    switch (atom_i_kind) {
+    case EQ_TERM: { // We can only deal with equalities in this BV subtheory
+      atom_i_comp = composite_term_desc(terms, atom_i_term);
+      assert(atom_i_comp->arity == 2);
+      term_t t0 = atom_i_comp->arg[0];
+      term_t t1 = atom_i_comp->arg[1];
+      uint32_t constraint = 0;
+      if (!atom_i_value) {
+        constraint = next_disjunction;
+        next_disjunction++;
+      }
+      uint32_t width = bv_term_bitsize(terms, t0);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, width, 0, NULL, &slicing_out->slices);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, width, 0, NULL, &slicing_out->slices);
+      bv_slicing_align(l0, l1, constraint, todo);      
+      break;
+    }
+    default:
+      assert(false);
+    }
+  }
+
+  /** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
   spair_t* p;
   slist_t* l1;
   slist_t* l2;
@@ -162,4 +231,7 @@ void bv_slicing_treat(ptr_queue_t* todo){
     bv_slicing_align(l1, l2, p->appearing_in, todo); // l1 and l2 are freed
   }
 
+  // We destruct the todo queue
+  assert(ptr_queue_is_empty(todo));
+  delete_ptr_queue(todo);
 }

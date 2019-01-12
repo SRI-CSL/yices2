@@ -14,6 +14,7 @@
 #include "terms/term_manager.h"
 
 #include "utils/ptr_queues.h"
+#include "utils/ptr_hash_map.h"
 
 /* #include <inttypes.h> useful? */
 
@@ -112,5 +113,26 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail);
  */
 void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo);
 
-/** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
-void bv_slicing_treat(ptr_queue_t* todo);
+/** Refines slice tree s to make sure there are slice points at indices hi and lo. None of the slices in the tree should be paired yet. */
+void bv_slicing_refines(slice_t s, uint32_t hi, uint32_t lo);
+
+/** Type for a slicing. What is returned by the main function of this component from a conflict core */
+
+typedef struct {
+  splist_t** constraints; // array of lists of pairs: cell 0 contains the list of slice equalities; then each cell contains a list representing a disjunction of slice disequalities
+  uint32_t nconstraints; // length of constraints
+  ptr_hmap_t slices; // Maps each involved variable to its slice-tree
+} slicing_t;
+
+
+/** Normalises a term into a list of slices added to tail,
+    which acts as an accumulator for this recursive function.
+    The head of the output list will necessarily be a leaf slice.
+ */
+slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices);
+
+/** Main function.
+    Gets a conflict core, produces the coarsest slicing.
+    The way this output is to be communicated / returned
+    has yet to be determined */
+void bv_slicing(const plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out);

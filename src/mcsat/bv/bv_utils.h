@@ -41,7 +41,7 @@ typedef enum {
  * Bitsize of terms. We consider Boolean terms to be bit-vector terms of size 1.
  */
 static inline
-uint32_t bv_term_bitsize(term_table_t* terms, term_t t) {
+uint32_t bv_term_bitsize(const term_table_t* terms, term_t t) {
   type_kind_t t_type = term_type_kind(terms, t);
   assert(t_type == BOOL_TYPE || t_type == BITVECTOR_TYPE);
   if (t_type == BOOL_TYPE) {
