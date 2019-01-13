@@ -107,7 +107,7 @@ void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo){
 }
 
 /** From a slice s and a stack of slices tail,
-    stacks on tail consecutive subslices of s that cover s,
+    stacks on tail consecutive subslices of s that cover s (starting with low indices),
     with the property that the first one is a leaf slice.
     recursive function with tail being an accumulator. */
 slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail){
@@ -150,12 +150,13 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
 }
 
 
-/** Refines slice tree s to make sure there are slice points at indices hi and lo.
-    None of the slices in the tree should be paired yet. */
-slist_t* bv_slicing_refines(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail){
+/** Stacks on argument tail consecutive subslices of s that cover s from lo to hi
+    (starting with low indices). If either lo or hi does not coincide with an existing 
+    slicepoint of s, they get created. None of the subslices of s should be paired yet.
+ */
+slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail){
 
-  assert(lo < hi);
-  if ((hi < s->lo) || (lo > s->hi)) return tail; // Slice is disjoint from indices
+  if ((hi <= s->lo) || (lo >= s->hi)) return tail; // Slice is disjoint from indices
 
   // We split the slice if need be (has to be a leaf,
   // and either hi or lo (or both) has to be a splitting index
@@ -175,34 +176,87 @@ slist_t* bv_slicing_refines(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail)
     return bv_slicing_scons(s, tail);
 
   // Otherwise it has two children and we call ourselves recursively
-  return bv_slicing_refines(s->lo_sub, hi, lo, bv_slicing_refines(s->hi_sub, hi, lo, tail));
+  return bv_slicing_extracts(s->lo_sub, hi, lo, bv_slicing_extracts(s->hi_sub, hi, lo, tail));
 }
 
 
-/** Normalises a term into a list of slices added to tail,
+/** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function.
-    The head of the output list will necessarily be a leaf slice.
  */
-slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
+slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
 
   // standard abbreviations
-  const variable_db_t* var_db = ctx->var_db;
-  const term_table_t*  terms  = ctx->terms;
+  variable_db_t* var_db = ctx->var_db;
+  term_table_t*  terms  = ctx->terms;
 
   term_kind_t kind = term_kind(terms, t);
   switch (kind) {
-  // TODO
-  default:
-    return tail;
+  case BV_ARRAY: {
+    // Special: make sub-terms positive (TODO: what are positive terms?)
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t); // concatenated bitvector terms
+    // Variables that will evolve in the loop
+    uint32_t width_i        = bv_term_bitsize(terms, t); // how many bits before the current element, initialised with the width of whole term
+    slist_t* current        = tail;  // the list constructed so far
+    uint32_t hi_i, lo_i;             // local window
+
+    // we go through the concatenated bitvectors, starting from the end,
+    // assuming that the end represents the high bits (TODO: check this)
+    for (uint32_t i = concat_desc->arity - 1; i >= 0 ; --i) {
+      term_t t_i = concat_desc->arg[i];
+      // term_t t_i_pos = unsigned_term(t_i); TODO: What is that?
+      width_i = width_i - bv_term_bitsize(terms, t_i);
+      hi_i = (hi > width_i)?(hi - width_i):0;
+      lo_i = (lo > width_i)?(lo - width_i):0;
+      current = bv_slicing_norm(ctx, t_i, hi_i, lo_i, current, slices);
+    }
+    return current;
+  }
+  case BIT_TERM: // 1-bit select?
+    // TODO
+    // bit_term_arg(terms, t)
+  case BV_EQ_ATOM: // TODO?
+  case CONSTANT_TERM: // TODO?
+  case BV_CONSTANT: // TODO?
+  case BV64_CONSTANT: // TODO?
+  default: {
+    variable_t var = variable_db_get_variable(var_db, t);
+    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);
+    if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(terms, t));
+    return bv_slicing_extracts(p->val, hi, lo, tail);
+  }
   }
 
 }
+
+/** Pours matching pairs of leaves into an array of constraints */
+
+void bv_slicing_constraints(slice_t* s, splist_t** constraints){
+  if (s->lo_sub == NULL) { // This is a leaf
+    spair_t* p;
+    splist_t *current = s->paired_with;
+    while (current != NULL) {
+      if (current->is_main) {
+        p = current->pair;
+        uint32_t c = p->appearing_in;
+        splist_t* old = constraints[c];
+        constraints[c] = bv_slicing_spcons(p, true, old);
+      }
+      current = current->next;
+    }
+  }
+  else {
+    bv_slicing_constraints(s->lo_sub, constraints);
+    bv_slicing_constraints(s->hi_sub, constraints);
+  }
+}
+
+
 
 /** Main function.
     Gets a conflict core, produces the coarsest slicing.
     The way this output is to be communicated / returned
     has yet to be determined */
-void bv_slicing(const plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out){
+void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out){
 
   // standard abbreviations
   const variable_db_t* var_db = ctx->var_db;
@@ -261,9 +315,20 @@ void bv_slicing(const plugin_context_t* ctx, const ivector_t* conflict_core, var
     l1 = bv_slicing_as_list(p->lhs, NULL);
     l2 = bv_slicing_as_list(p->rhs, NULL);
     bv_slicing_align(l1, l2, p->appearing_in, todo); // l1 and l2 are freed
+    safe_free(p);
   }
 
   // We destruct the todo queue
   assert(ptr_queue_is_empty(todo));
   delete_ptr_queue(todo);
+
+  slicing_out->nconstraints = next_disjunction;
+  slicing_out->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
+  
+  ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing_out->slices);
+  while(hp != NULL) {
+    bv_slicing_constraints(hp->val, slicing_out->constraints);
+    hp = ptr_hmap_next_record(&slicing_out->slices, hp);
+  }
+  
 }

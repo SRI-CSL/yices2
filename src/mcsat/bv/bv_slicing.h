@@ -129,10 +129,10 @@ typedef struct {
     which acts as an accumulator for this recursive function.
     The head of the output list will necessarily be a leaf slice.
  */
-slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices);
+slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices);
 
 /** Main function.
     Gets a conflict core, produces the coarsest slicing.
     The way this output is to be communicated / returned
     has yet to be determined */
-void bv_slicing(const plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out);
+void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out);
