@@ -114,7 +114,7 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail);
 void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo);
 
 /** Refines slice tree s to make sure there are slice points at indices hi and lo. None of the slices in the tree should be paired yet. */
-void bv_slicing_refines(slice_t s, uint32_t hi, uint32_t lo);
+slist_t* bv_slicing_refines(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail);
 
 /** Type for a slicing. What is returned by the main function of this component from a conflict core */
 

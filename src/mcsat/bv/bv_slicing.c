@@ -150,10 +150,32 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
 }
 
 
-/** Refines slice tree s to make sure there are slice points at indices hi and lo. None of the slices in the tree should be paired yet. */
-void bv_slicing_refines(slice_t s, uint32_t hi, uint32_t lo){
-  // TODO
-  return;
+/** Refines slice tree s to make sure there are slice points at indices hi and lo.
+    None of the slices in the tree should be paired yet. */
+slist_t* bv_slicing_refines(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail){
+
+  assert(lo < hi);
+  if ((hi < s->lo) || (lo > s->hi)) return tail; // Slice is disjoint from indices
+
+  // We split the slice if need be (has to be a leaf,
+  // and either hi or lo (or both) has to be a splitting index
+  if (s->lo_sub == NULL){ // This slice is a leaf
+    assert(s->paired_with == NULL);
+    slice_t* s0 = s;
+    if ((s0->lo < hi) && (hi < s0->hi)){
+      bv_slicing_slice(s0, hi, NULL); // We don't have a todo queue but it's ok
+      s0 = s0->lo_sub;
+    }
+    if ((s0->lo < lo) && (lo < s0->hi))
+      bv_slicing_slice(s0, lo, NULL); // We don't have a todo queue but it's ok
+  }
+
+  // Now we create the list to return
+  if (s->lo_sub == NULL) // This slice is (still!) a leaf, we add it to the tail
+    return bv_slicing_scons(s, tail);
+
+  // Otherwise it has two children and we call ourselves recursively
+  return bv_slicing_refines(s->lo_sub, hi, lo, bv_slicing_refines(s->hi_sub, hi, lo, tail));
 }
 
 
@@ -162,8 +184,18 @@ void bv_slicing_refines(slice_t s, uint32_t hi, uint32_t lo){
     The head of the output list will necessarily be a leaf slice.
  */
 slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
+
+  // standard abbreviations
+  const variable_db_t* var_db = ctx->var_db;
+  const term_table_t*  terms  = ctx->terms;
+
+  term_kind_t kind = term_kind(terms, t);
+  switch (kind) {
   // TODO
-  return NULL;
+  default:
+    return tail;
+  }
+
 }
 
 /** Main function.
