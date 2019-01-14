@@ -5,6 +5,7 @@
  * license agreement which is downloadable along with this program.
  */
 
+#include "bv_slicing.h"
 #include "bv_explainer.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
@@ -311,6 +312,33 @@ void bv_explainer_get_conflict_eq(bv_explainer_t* exp, const ivector_t* conflict
   eq_graph_destruct(&eq_graph);
 }
 
+
+static
+void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+
+  exp->stats.th_eq_ext_con ++;
+
+  plugin_context_t* ctx = exp->ctx;
+  /* const term_table_t* terms   = ctx->terms; */
+  /* const variable_db_t* var_db = ctx->var_db; */
+
+  // Do the slicing
+  slicing_t slicing;
+  bv_slicing(ctx, conflict_core, conflict_var, &slicing);
+    
+  // Create the equality graph
+  eq_graph_t eq_graph;
+  eq_graph_construct(&eq_graph, exp->ctx, "bv:eq");
+
+  // TODO: SMT'2017 paper
+
+  // Delete temps
+  eq_graph_destruct(&eq_graph);
+
+  // TODO: destruct slicing information
+  
+}
+
 static
 void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   uint32_t i;
@@ -390,6 +418,8 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     bv_explainer_get_conflict_eq(exp, conflict_in, conflict_var, conflict_out);
     break;
   case BV_TH_EQ_EXT_CON:
+    bv_explainer_get_conflict_eq_ext_con(exp, conflict_in, conflict_var, conflict_out);
+    break;
   case BV_TH_FULL:
     bv_explainer_get_conflict_all(exp, conflict_in, conflict_var, conflict_out);
     break;

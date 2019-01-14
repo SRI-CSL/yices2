@@ -121,6 +121,8 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail){
     Destructs l1 and l2 along the way.
  */
 void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo){
+  if (l1 == NULL) return;
+  assert(l2 != NULL);
   slice_t* h1 = l1->slice;
   slice_t* h2 = l2->slice;
   slist_t* t1 = l1->next;
@@ -195,9 +197,9 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     // Special: make sub-terms positive (TODO: what are positive terms?)
     composite_term_t* concat_desc = bvarray_term_desc(terms, t); // concatenated bitvector terms
     // Variables that will evolve in the loop
-    uint32_t width_i        = bv_term_bitsize(terms, t); // how many bits before the current element, initialised with the width of whole term
-    slist_t* current        = tail;  // the list constructed so far
-    uint32_t hi_i, lo_i;             // local window
+    uint32_t width_i = bv_term_bitsize(terms, t); // how many bits before the current element, initialised with the width of whole term
+    slist_t* current = tail;  // the list constructed so far
+    uint32_t hi_i, lo_i;      // local window
 
     // we go through the concatenated bitvectors, starting from the end,
     // assuming that the end represents the high bits (TODO: check this)
@@ -322,6 +324,8 @@ void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_
   assert(ptr_queue_is_empty(todo));
   delete_ptr_queue(todo);
 
+  // Now we go through all variables, all of their leaf slices, and collect the
+  // equalities / disequalities they are involved in into slicing_out->constraints
   slicing_out->nconstraints = next_disjunction;
   slicing_out->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
   

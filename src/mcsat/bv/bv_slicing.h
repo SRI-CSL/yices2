@@ -7,6 +7,8 @@
 
 #pragma once
 
+
+#include "mcsat/tracing.h"
 #include "mcsat/mcsat_types.h"
 
 #include "utils/int_vectors.h"
