@@ -8201,7 +8201,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
   n0 = v->size;
   if (n0 > 0) {
     if (solver->verbosity >= 3) {
-      fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
+      fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n0);
     }
     try_equivalent_vars(solver);
     n = v->size;
