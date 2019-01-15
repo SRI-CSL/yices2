@@ -196,26 +196,53 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
   case BV_ARRAY: {
     // Special: make sub-terms positive (TODO: what are positive terms?)
     composite_term_t* concat_desc = bvarray_term_desc(terms, t); // concatenated bitvector terms
-    // Variables that will evolve in the loop
-    uint32_t width_i = bv_term_bitsize(terms, t); // how many bits before the current element, initialised with the width of whole term
-    slist_t* current = tail;  // the list constructed so far
-    uint32_t hi_i, lo_i;      // local window
+    assert(hi <= concat_desc->arity);
 
+    // Variables that will evolve in the loop
+    slist_t* current = tail;  // the list constructed so far
+    term_t   tvar_i;     // variable (as a term) of current slice under construction
+    uint32_t hi_i, lo_i; // hi lo of current slice under construction
+    
     // we go through the concatenated bitvectors, starting from the end,
-    // assuming that the end represents the high bits (TODO: check this)
-    for (uint32_t i = concat_desc->arity - 1; i >= 0 ; --i) {
-      term_t t_i = concat_desc->arg[i];
-      // term_t t_i_pos = unsigned_term(t_i); TODO: What is that?
-      width_i = width_i - bv_term_bitsize(terms, t_i);
-      hi_i = (hi > width_i)?(hi - width_i):0;
-      lo_i = (lo > width_i)?(lo - width_i):0;
-      current = bv_slicing_norm(ctx, t_i, hi_i, lo_i, current, slices);
+    // assuming that the end represents the high bits
+    for (uint32_t i = hi - 1; i >= lo ; i--) {
+      term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes bit i of t
+      assert(is_pos_term(t_i));         // Should not be a negation of a Boolean term
+      assert(term_kind(terms, t_i) == BIT_TERM); // Should be the extraction of some bit of some bitvector variable
+      select_term_t* desc = bit_term_desc(terms, t_i);
+      term_t tvar           = desc->arg; // Get that variable (as a term)
+      uint32_t selected_bit = desc->idx; // Get that bit that is selected in that variable
+      if (i == hi - 1){
+        tvar_i = tvar;
+        hi_i = selected_bit +1;
+      }
+      if ((tvar != tvar_i) || (selected_bit + 1 != lo_i)) { // Not the same variable as in the following bits, or its selected bit is not the expected one: we close the current slice, stack it upon the tail, and open a new slice
+        variable_t var_i = variable_db_get_variable(var_db, tvar_i); // Getting the term as a variable
+        ptr_hmap_pair_t* p = ptr_hmap_get(slices, var_i);            // Getting that variable's top-level slice from global hashmap
+        if (p->val == NULL) p->val = bv_slicing_slice_new(var_i, 0, bv_term_bitsize(terms, tvar_i)); // Create that slice if need be
+        current = bv_slicing_extracts(p->val, hi_i, lo_i, current);  // stack upon the current list the relevant (series of) slice(s) covering lo_i to hi_i
+        hi_i = selected_bit +1; // We start a new slice
+      }
+      tvar_i = tvar;         // In any case, the current slice has tvar as variable (as a term)
+      lo_i   = selected_bit; // ...and selected_bit as its low index
     }
-    return current;
+    // We have exited the loop, we now close the current and last slice
+    variable_t var_i = variable_db_get_variable(var_db, tvar_i); // Getting the term as a variable
+    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var_i);            // Getting that variable's top-level slice from global hashmap
+    if (p->val == NULL) p->val = bv_slicing_slice_new(var_i, 0, bv_term_bitsize(terms, tvar_i)); // Create that slice if need be
+    current = bv_slicing_extracts(p->val, hi_i, lo_i, current);  // stack upon the current list the relevant (series of) slice(s) covering     return current;
   }
-  case BIT_TERM: // 1-bit select?
-    // TODO
-    // bit_term_arg(terms, t)
+  case BIT_TERM: { // Term t is the selection of some bit from some variable
+    assert(hi ==1); // The whole term being of bitwidth 1, and its extraction between lo and hi must contain at least one bit, 
+    assert(lo ==0); // ...this forces these two assertions
+    select_term_t* desc = bit_term_desc(terms, t);
+    term_t tvar           = desc->arg;                       // Get that variable (as a term)
+    uint32_t selected_bit = desc->idx;                       // Get that bit that is selected in that variable
+    variable_t var = variable_db_get_variable(var_db, tvar); // Getting the term as a variable
+    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);          // Getting that variable's top-level slice from global hashmap
+    if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(terms, tvar)); // Create that slice if need be
+    return bv_slicing_extracts(p->val, selected_bit+1, selected_bit, tail); // stack upon the current list the relevant (series of) slice(s) covering 
+  }
   case BV_EQ_ATOM: // TODO?
   case CONSTANT_TERM: // TODO?
   case BV_CONSTANT: // TODO?
