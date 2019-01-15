@@ -32,13 +32,38 @@ splist_t* bv_slicing_spcons(spair_t* pair, bool is_main, splist_t* tail){
   return result;
 }
 
+/** delete a list of pairs, also deleting each pair if b == true.
+    In any case, not deleting slices that pairs consist of. */
+void bv_slicing_spdelete(splist_t* spl, bool b){
+  splist_t* l = spl;
+  splist_t* next;
+  while (l != NULL) {
+    next = l->next;
+    if (b) safe_free(l->pair);
+    safe_free(l);
+    l = next;
+  }
+}
+
+/** Prints slice (does not show subslices) */
+
+void bv_slicing_print_slice_aux(const variable_db_t* var_db, const slice_t* s, FILE* out) {
+  fprintf(out, "[");
+  if (s->lo_sub != NULL) {
+    bv_slicing_print_slice_aux(var_db, s->hi_sub, out);
+    bv_slicing_print_slice_aux(var_db, s->lo_sub, out);
+  }
+  else {
+    fprintf(out, "%i", (s->hi)-1);
+    fprintf(out, ":");
+    fprintf(out, "%i", s->lo);
+  }
+  fprintf(out, "]");
+}
+
 void bv_slicing_print_slice(const variable_db_t* var_db, const slice_t* s, FILE* out) {
   variable_db_print_variable(var_db, s->var, out);
-  fprintf(out, "[");
-  fprintf(out, "%i", (s->hi)-1);
-  fprintf(out, ":");
-  fprintf(out, "%i", s->lo);
-  fprintf(out, "]");
+  bv_slicing_print_slice_aux(var_db, s, out);
 }
 
 
@@ -59,25 +84,16 @@ slice_t* bv_slicing_slice_new(variable_t var, uint32_t lo, uint32_t hi){
 }
 
 /** Deletes a slice, recursively deleting children if they exist.
-    Also deletes the pairs involving the slice along the way.
- */
+    Also deletes the list of pairs involving the slice along the way, but not deleting the pairs themselves. */
 void bv_slicing_slice_delete(slice_t* s){
   if (s->lo_sub != NULL) bv_slicing_slice_delete(s->lo_sub);
   if (s->hi_sub != NULL) bv_slicing_slice_delete(s->hi_sub);
-  splist_t *b = s->paired_with;
-  splist_t *next;
-
-  while (b != NULL) {
-    next = b->next;
-    safe_free(b);
-    b = next;
-  }
+  bv_slicing_spdelete(s->paired_with, false);
   safe_free(s);
 }
 
 /** slist cons */
 slist_t* bv_slicing_scons(slice_t* s, slist_t* tail){
-
   slist_t* result = safe_malloc(sizeof(slist_t));
   result->slice = s;
   result->next = tail;
@@ -100,7 +116,7 @@ void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo){
   while (b != NULL) {
     ptr_queue_push(todo, b->pair);
     next = b->next;
-    safe_free(b);
+    safe_free(b); // We delete the list nodes along the way (but not the pairs themselves)
     b = next;
   }
   s->paired_with = NULL;
@@ -153,9 +169,8 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
 
 
 /** Stacks on argument tail consecutive subslices of s that cover s from lo to hi
-    (starting with low indices). If either lo or hi does not coincide with an existing 
-    slicepoint of s, they get created. None of the subslices of s should be paired yet.
- */
+    (head of result is the lowest index slice). If either lo or hi does not coincide with an existing 
+    slicepoint of s, they get created. None of the subslices of s should be paired yet. */
 slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail){
 
   if ((hi <= s->lo) || (lo >= s->hi)) return tail; // Slice is disjoint from indices
@@ -182,20 +197,23 @@ slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail
 }
 
 
+/** Wrapping up above function: stack on top of tail a slice for variable t (expressed as a term), from lo to hi */
+slist_t* bv_slicing_sstack(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
+  variable_t var = variable_db_get_variable(ctx->var_db, t); // Getting the term as a variable
+  ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);       // Getting that variable's top-level slice from global hashmap
+  if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(ctx->terms, t)); // Create that slice if need be
+  return bv_slicing_extracts(p->val, hi, lo, tail);     // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
+}
+
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
-    which acts as an accumulator for this recursive function.
- */
+    which acts as an accumulator for this recursive function. */
 slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
 
-  // standard abbreviations
-  variable_db_t* var_db = ctx->var_db;
-  term_table_t*  terms  = ctx->terms;
+  term_table_t* terms = ctx->terms; // standard abbreviation
 
-  term_kind_t kind = term_kind(terms, t);
-  switch (kind) {
+  switch (term_kind(terms, t)) {
   case BV_ARRAY: {
-    // Special: make sub-terms positive (TODO: what are positive terms?)
-    composite_term_t* concat_desc = bvarray_term_desc(terms, t); // concatenated bitvector terms
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t); // concatenated boolean terms
     assert(hi <= concat_desc->arity);
 
     // Variables that will evolve in the loop
@@ -203,8 +221,7 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     term_t   tvar_i;     // variable (as a term) of current slice under construction
     uint32_t hi_i, lo_i; // hi lo of current slice under construction
     
-    // we go through the concatenated bitvectors, starting from the end,
-    // assuming that the end represents the high bits
+    // we go through the concatenated bitvectors, starting from the end, which represents the high bits
     for (uint32_t i = hi - 1; i >= lo ; i--) {
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes bit i of t
       assert(is_pos_term(t_i));         // Should not be a negation of a Boolean term
@@ -212,25 +229,19 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
       select_term_t* desc = bit_term_desc(terms, t_i);
       term_t tvar           = desc->arg; // Get that variable (as a term)
       uint32_t selected_bit = desc->idx; // Get that bit that is selected in that variable
-      if (i == hi - 1){
-        tvar_i = tvar;
-        hi_i = selected_bit +1;
+      if (i == hi - 1){ // The first time we enter the loop...
+        tvar_i = tvar;           // ...the current slice variable is the one we are seing
+        hi_i = selected_bit +1;  // ...and the current slice hi index is the one we see + 1
       }
       if ((tvar != tvar_i) || (selected_bit + 1 != lo_i)) { // Not the same variable as in the following bits, or its selected bit is not the expected one: we close the current slice, stack it upon the tail, and open a new slice
-        variable_t var_i = variable_db_get_variable(var_db, tvar_i); // Getting the term as a variable
-        ptr_hmap_pair_t* p = ptr_hmap_get(slices, var_i);            // Getting that variable's top-level slice from global hashmap
-        if (p->val == NULL) p->val = bv_slicing_slice_new(var_i, 0, bv_term_bitsize(terms, tvar_i)); // Create that slice if need be
-        current = bv_slicing_extracts(p->val, hi_i, lo_i, current);  // stack upon the current list the relevant (series of) slice(s) covering lo_i to hi_i
+        current = bv_slicing_sstack(ctx, tvar_i, hi_i, lo_i, current, slices);
         hi_i = selected_bit +1; // We start a new slice
       }
       tvar_i = tvar;         // In any case, the current slice has tvar as variable (as a term)
       lo_i   = selected_bit; // ...and selected_bit as its low index
     }
-    // We have exited the loop, we now close the current and last slice
-    variable_t var_i = variable_db_get_variable(var_db, tvar_i); // Getting the term as a variable
-    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var_i);            // Getting that variable's top-level slice from global hashmap
-    if (p->val == NULL) p->val = bv_slicing_slice_new(var_i, 0, bv_term_bitsize(terms, tvar_i)); // Create that slice if need be
-    current = bv_slicing_extracts(p->val, hi_i, lo_i, current);  // stack upon the current list the relevant (series of) slice(s) covering     return current;
+    // We have exited the loop, we now close the current (and last) slice
+    return bv_slicing_sstack(ctx, tvar_i, hi_i, lo_i, current, slices);
   }
   case BIT_TERM: { // Term t is the selection of some bit from some variable
     assert(hi ==1); // The whole term being of bitwidth 1, and its extraction between lo and hi must contain at least one bit, 
@@ -238,24 +249,36 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     select_term_t* desc = bit_term_desc(terms, t);
     term_t tvar           = desc->arg;                       // Get that variable (as a term)
     uint32_t selected_bit = desc->idx;                       // Get that bit that is selected in that variable
-    variable_t var = variable_db_get_variable(var_db, tvar); // Getting the term as a variable
-    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);          // Getting that variable's top-level slice from global hashmap
-    if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(terms, tvar)); // Create that slice if need be
-    return bv_slicing_extracts(p->val, selected_bit+1, selected_bit, tail); // stack upon the current list the relevant (series of) slice(s) covering 
+    return bv_slicing_sstack(ctx, tvar, selected_bit+1, selected_bit, tail, slices);
   }
   case BV_EQ_ATOM: // TODO?
   case CONSTANT_TERM: // TODO?
   case BV_CONSTANT: // TODO?
   case BV64_CONSTANT: // TODO?
-  default: {
-    variable_t var = variable_db_get_variable(var_db, t);
-    ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);
-    if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(terms, t));
-    return bv_slicing_extracts(p->val, hi, lo, tail);
-  }
+  default: // We consider the term is a variable, we immediately stack its relevant slices
+    return bv_slicing_sstack(ctx, t, hi, lo, tail, slices);
   }
 
 }
+
+// Destructs a slicing. Everything goes.
+void bv_slicing_slicing_destruct(slicing_t* slicing){
+
+  // We go through all variables, and destroy all slices
+  ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing->slices);
+  while(hp != NULL) {
+    bv_slicing_slice_delete(hp->val);
+    hp = ptr_hmap_next_record(&slicing->slices, hp);
+  }
+
+  delete_ptr_hmap(&slicing->slices);
+
+  for (uint32_t i = 0; i <= slicing->nconstraints; i++)
+    bv_slicing_spdelete(slicing->constraints[i], true);
+
+  safe_free(slicing->constraints);
+}
+
 
 /** Pours matching pairs of leaves into an array of constraints */
 
@@ -280,12 +303,13 @@ void bv_slicing_constraints(slice_t* s, splist_t** constraints){
 }
 
 
-
 /** Main function.
     Gets a conflict core, produces the coarsest slicing.
-    The way this output is to be communicated / returned
-    has yet to be determined */
+    The resulting slicing is in slicing_out, which only needs to be allocated, as this function will take care of initialisation.
+ */
 void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out){
+
+  init_ptr_hmap(&slicing_out->slices, 0); // We initialise the hashmap in the result
 
   // standard abbreviations
   const variable_db_t* var_db = ctx->var_db;
@@ -334,6 +358,10 @@ void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_
     }
   }
 
+  // Now we know how many constraints we have, so we can allocate them in the result
+  slicing_out->nconstraints = next_disjunction;
+  slicing_out->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
+
   /** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
   spair_t* p;
   slist_t* l1;
@@ -353,9 +381,7 @@ void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_
 
   // Now we go through all variables, all of their leaf slices, and collect the
   // equalities / disequalities they are involved in into slicing_out->constraints
-  slicing_out->nconstraints = next_disjunction;
-  slicing_out->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
-  
+
   ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing_out->slices);
   while(hp != NULL) {
     bv_slicing_constraints(hp->val, slicing_out->constraints);
