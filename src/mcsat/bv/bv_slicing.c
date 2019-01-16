@@ -68,11 +68,11 @@ void bv_slicing_print_splist(const variable_db_t* var_db, splist_t* spl, bool b,
   splist_t* l = spl;
   while (l != NULL) {
     spair_t* p = l->pair;
-    bv_slicing_print_slice_aux(var_db, p->lhs, out);
+    bv_slicing_print_slice(var_db, p->lhs, out);
     fprintf(out, "%s", b?"=":"≠");
-    bv_slicing_print_slice_aux(var_db, p->rhs, out);
+    bv_slicing_print_slice(var_db, p->rhs, out);
     l = l->next;
-    if (l != NULL) fprintf(out, "%s", b?"∧":"∨");
+    if (l != NULL) fprintf(out, "%s", b?" ∧ ":" ∨ ");
   }
 }
 
@@ -209,6 +209,7 @@ slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail
 
 /** Wrapping up above function: stack on top of tail a slice for variable t (expressed as a term), from lo to hi */
 slist_t* bv_slicing_sstack(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
+  FILE* out = ctx_trace_out(ctx);
   variable_t var = variable_db_get_variable(ctx->var_db, t); // Getting the term as a variable
   ptr_hmap_pair_t* p = ptr_hmap_get(slices, var);       // Getting that variable's top-level slice from global hashmap
   if (p->val == NULL) p->val = bv_slicing_slice_new(var, 0, bv_term_bitsize(ctx->terms, t)); // Create that slice if need be
@@ -219,7 +220,9 @@ slist_t* bv_slicing_sstack(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_
     which acts as an accumulator for this recursive function. */
 slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices){
 
+  assert(lo < hi);
   term_table_t* terms = ctx->terms; // standard abbreviation
+  FILE* out = ctx_trace_out(ctx);
 
   switch (term_kind(terms, t)) {
   case BV_ARRAY: {
@@ -232,7 +235,8 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     uint32_t hi_i, lo_i; // hi lo of current slice under construction
     
     // we go through the concatenated bitvectors, starting from the end, which represents the high bits
-    for (uint32_t i = hi - 1; i >= lo ; i--) {
+    for (uint32_t j = 0; j < hi - lo ; j++) {
+      uint32_t i = hi - j -1;
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes bit i of t
       assert(is_pos_term(t_i));         // Should not be a negation of a Boolean term
       assert(term_kind(terms, t_i) == BIT_TERM); // Should be the extraction of some bit of some bitvector variable
@@ -242,6 +246,7 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
       if (i == hi - 1){ // The first time we enter the loop...
         tvar_i = tvar;           // ...the current slice variable is the one we are seing
         hi_i = selected_bit +1;  // ...and the current slice hi index is the one we see + 1
+        lo_i = selected_bit +1;  // ...and the current slice lo index is the one we see
       }
       if ((tvar != tvar_i) || (selected_bit + 1 != lo_i)) { // Not the same variable as in the following bits, or its selected bit is not the expected one: we close the current slice, stack it upon the tail, and open a new slice
         current = bv_slicing_sstack(ctx, tvar_i, hi_i, lo_i, current, slices);
@@ -359,14 +364,17 @@ void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_
   // That disequality turns into a disjunction when slicing 
   uint32_t next_disjunction = 1;
 
+  FILE* out = ctx_trace_out(ctx);
   for (uint32_t i = 0; i < conflict_core->size; i++) {
     atom_i_var   = conflict_core->data[i];
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(var_db, atom_i_var);
     atom_i_kind  = term_kind(terms, atom_i_term);
+    ctx_trace_term(ctx, atom_i_term);
+
     switch (atom_i_kind) {
-    case EQ_TERM: { // We can only deal with equalities in this BV subtheory
-      atom_i_comp = composite_term_desc(terms, atom_i_term);
+    case BV_EQ_ATOM: { // We can only deal with equalities in this BV subtheory
+      atom_i_comp = bveq_atom_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
       term_t t0 = atom_i_comp->arg[0];
       term_t t1 = atom_i_comp->arg[1];
