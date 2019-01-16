@@ -158,7 +158,7 @@ typedef struct {
 // Prints a slicing.
 void bv_slicing_print_slicing(const variable_db_t* var_db, slicing_t* slicing, FILE* out);
 
-  // Destructs a slicing. Everything goes.
+// Destructs a slicing. Everything goes.
 void bv_slicing_slicing_destruct(slicing_t* slicing);
 
 /** Pours matching pairs of leaves into an array of constraints */

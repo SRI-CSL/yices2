@@ -188,26 +188,32 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
   bv_slicing_print_slist(var_db, l2, out);
   fprintf(out,"\n");
     
-  if (l1 == NULL) return;
-  assert(l2 != NULL);
+  if (l1 == NULL) return; // Reached the end of the lists. We stop.
+  assert(l2 != NULL);     // If l1 not empty then l2 not empty as the two lists must have the same total bitsize
   slice_t* h1 = l1->slice;
   slice_t* h2 = l2->slice;
   slist_t* t1 = l1->next;
   slist_t* t2 = l2->next;
   uint32_t w1 = h1->hi - h1->lo;
   uint32_t w2 = h2->hi - h2->lo;
-  if ( w1 < w2 ){
-    // h1 is shorter than h2; we need to slice h2
-    safe_free(l2); // We are not going to re-use l2
-    bv_slicing_slice(h2, h2->lo + w1, todo, var_db, out); // We slice h2
+
+  if ((h1->lo_sub == NULL) && (h2->lo_sub == NULL)) { // if both h1 and h2 are leaves
+    if ( w1 < w2 ) // h1 is shorter than h2, we slice h2
+      bv_slicing_slice(h2, h2->lo + w1, todo, var_db, out); // We slice h2
+    if ( w2 < w1 ) // h2 is shorter than h1, we slice h1
+      bv_slicing_slice(h1, h1->lo + w2, todo, var_db, out); // We slice h2
+  }
+
+  if (h2->lo_sub != NULL) { // head of l2 is not a leaf
+    safe_free(l2); // l2 is not good, we free the node and recompute the list
     return bv_slicing_align(l1, bv_slicing_as_list(h2,t2), appearing_in, todo, var_db, out);
   }
-  if ( w2 < w1 ){
-    // h2 is shorter than h1; we need to slice h1
-    safe_free(l1); // We are not going to re-use l1
-    bv_slicing_slice(h1, h1->lo + w2, todo, var_db, out); // We slice h2
+
+  if (h1->lo_sub != NULL) { // head of l1 is not a leaf
+    safe_free(l1); // l1 is not good, we free the node and recompute the list
     return bv_slicing_align(bv_slicing_as_list(h1,t1), l2, appearing_in, todo, var_db, out);
   }
+
   // OK, h1 and h2 have the same width; we can pair them.
   // We no longer need l1 and l2
   safe_free(l1);
@@ -226,7 +232,7 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
 
 /** Stacks on argument tail consecutive subslices of s that cover s from lo to hi
     (head of result is the lowest index slice). If either lo or hi does not coincide with an existing 
-    slicepoint of s, they get created. None of the subslices of s should be paired yet. */
+    slicepoint of s, they get created. */
 slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, const variable_db_t* var_db, FILE* out){
 
   fprintf(out, "Extracts %d to %d from ", hi, lo);
@@ -263,7 +269,7 @@ slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail
   }
 
 
-   slist_t* result = bv_slicing_extracts(s->lo_sub, hi, lo, bv_slicing_extracts(s->hi_sub, hi, lo, tail, todo, var_db, out), todo, var_db, out);
+  slist_t* result = bv_slicing_extracts(s->lo_sub, hi, lo, bv_slicing_extracts(s->hi_sub, hi, lo, tail, todo, var_db, out), todo, var_db, out);
 
   fprintf(out, "Extract returns ");
   bv_slicing_print_slist(var_db, result, out);
@@ -447,8 +453,9 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
     ctx_trace_term(ctx, atom_i_term);
 
     switch (atom_i_kind) {
+    case EQ_TERM :    // equality
     case BV_EQ_ATOM: { // We can only deal with equalities in this BV subtheory
-      atom_i_comp = bveq_atom_desc(terms, atom_i_term);
+      atom_i_comp = (atom_i_kind == EQ_TERM)?eq_term_desc(terms, atom_i_term): bveq_atom_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
       term_t t0 = atom_i_comp->arg[0];
       term_t t1 = atom_i_comp->arg[1];
