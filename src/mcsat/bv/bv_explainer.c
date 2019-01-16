@@ -324,7 +324,7 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
 
   // Do the slicing
   slicing_t slicing;
-  bv_slicing(ctx, conflict_core, conflict_var, &slicing);
+  bv_slicing_construct(ctx, conflict_core, conflict_var, &slicing);
 
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::slicing")) {
     FILE* out = ctx_trace_out(exp->ctx);

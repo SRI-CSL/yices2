@@ -169,4 +169,4 @@ void bv_slicing_constraints(slice_t* s, splist_t** constraints);
     Gets a conflict core, produces the coarsest slicing.
     The resulting slicing is in slicing_out, which only needs to be allocated, as this function will take care of initialisation.
  */
-void bv_slicing(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out);
+void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var, slicing_t* slicing_out);
