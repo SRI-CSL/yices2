@@ -26,6 +26,7 @@ typedef struct slice_s slice_t;
 typedef struct {
   slice_t* lhs;
   slice_t* rhs;
+  bool queued; // whether it has been queued for treatment and deletion
   /** Identifier of where in the conflict_core this pair appears / originates from.
       0 is the identifier for the set of equalities in the conflict core (a set of pairs)
       Then each disequality in the conflict core gets an identifier between 1 and n,
@@ -112,7 +113,7 @@ slist_t* bv_slicing_scons(slice_t* s, slist_t* tail);
 // Slice splitting and basic alignment
 
 /** Slices slice s at index k, pushing resulting slicings to be performed in the "todo" queue */
-void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo);
+void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo, const variable_db_t* var_db, FILE* out);
 
 /** From a slice s and a stack of slices tail,
     stacks on the tail consecutive subslices of s that cover s,
@@ -123,7 +124,7 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail);
 /** Aligns 2 series l1 and l2 of slices, producing matching pairs (s1,s2) where s1 and s2 have equal length.
     The alignment can trigger some future slicings that are queued in todo.
     Destructs l1 and l2 along the way. */
-void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo);
+void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo, const variable_db_t* var_db, FILE* out);
 
 
 
@@ -132,16 +133,16 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
 /** Stacks on argument tail consecutive subslices of s that cover s from lo to hi
     (head of result is the lowest index slice). If either lo or hi does not coincide with an existing 
     slicepoint of s, they get created. None of the subslices of s should be paired yet. */
-slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail);
+slist_t* bv_slicing_extracts(slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, const variable_db_t* var_db, FILE* out);
 
 /** Wrapping up above function: stack on top of tail a slice for variable t (expressed as a term), from lo to hi */
-slist_t* bv_slicing_sstack(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices);
+slist_t* bv_slicing_sstack(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices);
 
 /** Normalises a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function.
     The head of the output list will necessarily be a leaf slice.
  */
-slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_hmap_t* slices);
+slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices);
 
 
 // Main slicing algorithm
