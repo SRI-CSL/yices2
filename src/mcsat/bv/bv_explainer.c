@@ -325,17 +325,22 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   // Do the slicing
   slicing_t slicing;
   bv_slicing(ctx, conflict_core, conflict_var, &slicing);
-    
+
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(exp->ctx);
+    bv_slicing_print_slicing(ctx->var_db, &slicing, out);
+  }
+
   // Create the equality graph
   eq_graph_t eq_graph;
   eq_graph_construct(&eq_graph, exp->ctx, "bv:eq");
 
+  
   // TODO: SMT'2017 paper
 
   // Delete temps
   eq_graph_destruct(&eq_graph);
-
-  // TODO: destruct slicing information
+  bv_slicing_slicing_destruct(&slicing);
   
 }
 

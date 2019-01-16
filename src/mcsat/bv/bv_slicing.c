@@ -45,7 +45,7 @@ void bv_slicing_spdelete(splist_t* spl, bool b){
   }
 }
 
-/** Prints slice (does not show subslices) */
+/** Prints slice */
 
 void bv_slicing_print_slice_aux(const variable_db_t* var_db, const slice_t* s, FILE* out) {
   fprintf(out, "[");
@@ -53,17 +53,27 @@ void bv_slicing_print_slice_aux(const variable_db_t* var_db, const slice_t* s, F
     bv_slicing_print_slice_aux(var_db, s->hi_sub, out);
     bv_slicing_print_slice_aux(var_db, s->lo_sub, out);
   }
-  else {
-    fprintf(out, "%i", (s->hi)-1);
-    fprintf(out, ":");
-    fprintf(out, "%i", s->lo);
-  }
+  else fprintf(out, "%i:%i", (s->hi)-1, s->lo);
   fprintf(out, "]");
 }
 
 void bv_slicing_print_slice(const variable_db_t* var_db, const slice_t* s, FILE* out) {
   variable_db_print_variable(var_db, s->var, out);
   bv_slicing_print_slice_aux(var_db, s, out);
+}
+
+/** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
+
+void bv_slicing_print_splist(const variable_db_t* var_db, splist_t* spl, bool b, FILE* out){
+  splist_t* l = spl;
+  while (l != NULL) {
+    spair_t* p = l->pair;
+    bv_slicing_print_slice_aux(var_db, p->lhs, out);
+    fprintf(out, "%s", b?"=":"≠");
+    bv_slicing_print_slice_aux(var_db, p->rhs, out);
+    l = l->next;
+    if (l != NULL) fprintf(out, "%s", b?"∧":"∨");
+  }
 }
 
 
@@ -259,6 +269,24 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     return bv_slicing_sstack(ctx, t, hi, lo, tail, slices);
   }
 
+}
+
+// Prints a slicing.
+void bv_slicing_print_slicing(const variable_db_t* var_db, slicing_t* slicing, FILE* out){
+
+  fprintf(out, "Slices:\n");
+  // We go through all variables, and destroy all slices
+  ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing->slices);
+  while(hp != NULL) {
+    bv_slicing_print_slice(var_db, hp->val, out);
+    hp = ptr_hmap_next_record(&slicing->slices, hp);
+    fprintf(out, "\n");
+  }
+  fprintf(out, "Constraints:\n");
+  for (uint32_t i = 0; i <= slicing->nconstraints; i++){
+    bv_slicing_print_splist(var_db, slicing->constraints[i], (i == 0), out);
+    fprintf(out, "\n");
+  }
 }
 
 // Destructs a slicing. Everything goes.
