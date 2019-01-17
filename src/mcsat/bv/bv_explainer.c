@@ -314,37 +314,6 @@ void bv_explainer_get_conflict_eq(bv_explainer_t* exp, const ivector_t* conflict
 
 
 static
-void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
-
-  exp->stats.th_eq_ext_con ++;
-
-  plugin_context_t* ctx = exp->ctx;
-  /* const term_table_t* terms   = ctx->terms; */
-  /* const variable_db_t* var_db = ctx->var_db; */
-
-  // Do the slicing
-  slicing_t slicing;
-  bv_slicing_construct(ctx, conflict_core, conflict_var, &slicing);
-
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::slicing")) {
-    FILE* out = ctx_trace_out(exp->ctx);
-    bv_slicing_print_slicing(ctx->var_db, &slicing, out);
-  }
-
-  // Create the equality graph
-  eq_graph_t eq_graph;
-  eq_graph_construct(&eq_graph, exp->ctx, "bv:eq");
-
-  
-  // TODO: SMT'2017 paper
-
-  // Delete temps
-  eq_graph_destruct(&eq_graph);
-  bv_slicing_slicing_destruct(&slicing);
-  
-}
-
-static
 void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   uint32_t i;
   variable_t atom_i_var;
@@ -408,6 +377,33 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
   }
 
   int_mset_destruct(&assigned_vars);
+}
+
+static
+void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+
+  exp->stats.th_eq_ext_con ++;
+
+  plugin_context_t* ctx = exp->ctx;
+  /* const term_table_t* terms   = ctx->terms; */
+  /* const variable_db_t* var_db = ctx->var_db; */
+
+  // Do the slicing
+  slicing_t slicing;
+  bv_slicing_construct(ctx, conflict_core, &slicing);
+
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    bv_slicing_print_slicing(&slicing, ctx->terms, out);
+  }
+  
+  // TODO: SMT'2017 paper. In the meantime: we resort to the general case above.
+
+  bv_explainer_get_conflict_all(exp, conflict_core, conflict_var, conflict);
+  
+  // Destruct slicing
+  bv_slicing_slicing_destruct(&slicing);
+  
 }
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
