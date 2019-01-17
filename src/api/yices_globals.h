@@ -31,11 +31,13 @@
 #ifndef __YICES_GLOBALS_H
 #define __YICES_GLOBALS_H
 
+#include "mt/yices_locks.h"
 #include "parser_utils/term_stack2.h"
 #include "terms/free_var_collector.h"
 #include "terms/term_manager.h"
 
 typedef struct yices_globals_s {
+  yices_lock_t lock;       // a lock protecting the globals
   type_table_t *types;     // type table
   term_table_t *terms;     // term table
   term_manager_t *manager; // full term manager (includes terms)

@@ -148,11 +148,10 @@ static bvconstant_t bv0;
 
 
 /*
- * Global table. Initially all pointers are NULL
+ * Global table. FIXME: NO LONGER IS IT THE CASE THAT Initially all pointers are NULL
  */
-yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL, NULL,
-};
+yices_globals_t __yices_globals;
+
 
 
 

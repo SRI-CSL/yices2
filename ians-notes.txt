@@ -1,0 +1,24 @@
+Short term plan to gain momentum.
+
+Incorporate the locking code and write some mutltithreaded tests.
+Use valgrind (helgrind) to detect races.
+Go from there.
+
+
+To build the tests:
+
+make MODE=debug test
+
+(tests end up in the build/*/bin directory)
+
+
+__yices_globals no longer starts out zeroed.
+
+There is some thread local stuff in the configure file.
+
+Where to put the -pthread link incantation?
+
+
+N.B.:
+
+yices_lock_free.h is a lock_free version of the api

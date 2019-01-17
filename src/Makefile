@@ -157,6 +157,10 @@ core_src_c := \
 	model/projection.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
+	mt/yices_locks.c \
+	mt/threadsafe.c \
+	mt/threads.c \
+	mt/thread_error.c \
 	parser_utils/lexer.c \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \
@@ -1251,5 +1255,3 @@ show-details:
 	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
 	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
 	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
-
-
