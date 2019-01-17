@@ -136,9 +136,9 @@ slist_t* bv_slicing_scons(slice_t* s, slist_t* tail){
 /** Slices slice s at index k, pushing resulting slicings to be performed in the "todo" queue */
 void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo, term_table_t* terms, FILE* out){
 
-  fprintf(out, "Slicing ");
-  bv_slicing_print_slice(s, terms, out);
-  fprintf(out, " at %d\n", k);
+  /* fprintf(out, "Slicing "); */
+  /* bv_slicing_print_slice(s, terms, out); */
+  /* fprintf(out, " at %d\n", k); */
 
   assert(s->lo_sub == NULL);
   assert(s->hi_sub == NULL);
@@ -152,9 +152,9 @@ void bv_slicing_slice(slice_t* s, uint32_t k, ptr_queue_t* todo, term_table_t* t
 
   while (b != NULL) {
     spair_t* p = b->pair;
-    fprintf(out, "Queueing ");
-    bv_slicing_print_spair(p, true, terms, out);
-    fprintf(out, "\n");
+    /* fprintf(out, "Queueing "); */
+    /* bv_slicing_print_spair(p, true, terms, out); */
+    /* fprintf(out, "\n"); */
     if (!p->queued) {
       p->queued = true;
       ptr_queue_push(todo, p);
@@ -182,11 +182,11 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail){
  */
 void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo, term_table_t* terms, FILE* out){
 
-  fprintf(out,"Aligning ");
-  bv_slicing_print_slist(l1, terms, out);
-  fprintf(out," with ");
-  bv_slicing_print_slist(l2, terms, out);
-  fprintf(out,"\n");
+  /* fprintf(out,"Aligning "); */
+  /* bv_slicing_print_slist(l1, terms, out); */
+  /* fprintf(out," with "); */
+  /* bv_slicing_print_slist(l2, terms, out); */
+  /* fprintf(out,"\n"); */
     
   if (l1 == NULL) return; // Reached the end of the lists. We stop.
   assert(l2 != NULL);     // If l1 not empty then l2 not empty as the two lists must have the same total bitsize
@@ -220,9 +220,9 @@ void bv_slicing_align(slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue
   safe_free(l2);
   spair_t* p = bv_slicing_spair_new(h1, h2, appearing_in); // We form the pair
 
-  fprintf(out,"Forming pair ");
-  bv_slicing_print_spair(p, true, terms, out);
-  fprintf(out,"\n");
+  /* fprintf(out,"Forming pair "); */
+  /* bv_slicing_print_spair(p, true, terms, out); */
+  /* fprintf(out,"\n"); */
 
   h1->paired_with = bv_slicing_spcons(p, true, h1->paired_with);
   h2->paired_with = bv_slicing_spcons(p, false, h2->paired_with);
@@ -298,7 +298,7 @@ slist_t* bv_slicing_slice_close(plugin_context_t* ctx,
                               ptr_hmap_t* slices){
 
 
-  FILE* out = ctx_trace_out(ctx);
+  /* FILE* out = ctx_trace_out(ctx); */
   /* fprintf(out, "Closing slice of width %d\n",bitwidth); */
 
   if (bitwidth == 0) return tail;
@@ -329,10 +329,10 @@ slist_t* bv_slicing_slice_close(plugin_context_t* ctx,
     which acts as an accumulator for this recursive function. */
 slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices){
 
-  FILE* out = ctx_trace_out(ctx);
-  fprintf(out, "Normalising ");
-  term_print_to_file(out, ctx->terms, t);
-  fprintf(out, " between %d and %d\n", hi, lo);
+  /* FILE* out = ctx_trace_out(ctx); */
+  /* fprintf(out, "Normalising "); */
+  /* term_print_to_file(out, ctx->terms, t); */
+  /* fprintf(out, " between %d and %d\n", hi, lo); */
 
   assert(lo < hi);
   term_table_t* terms = ctx->terms; // standard abbreviation
@@ -430,7 +430,11 @@ void bv_slicing_print_slicing(slicing_t* slicing, term_table_t* terms, FILE* out
     fprintf(out, "\n");
   }
   fprintf(out, "Constraints:\n");
-  for (uint32_t i = 0; i <= slicing->nconstraints; i++){
+  for (uint32_t i = 0; i < slicing->nconstraints; i++){
+    if (i == 0)
+      fprintf(out, "Equal.: ");
+    else
+      fprintf(out, "Dis.%d: ",i);
     bv_slicing_print_splist(slicing->constraints[i], (i == 0), terms, out);
     fprintf(out, "\n");
   }
@@ -511,8 +515,10 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
     assert(is_pos_term(atom_i_term));
     atom_i_kind  = term_kind(terms, atom_i_term);
-    fprintf(out, "Treating core constraint ");
-    ctx_trace_term(ctx, atom_i_term);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+      fprintf(out, "Slicing core constraint ");
+      ctx_trace_term(ctx, atom_i_term);
+    }
 
     switch (atom_i_kind) {
     case EQ_TERM :    // equality
@@ -548,10 +554,12 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
   // Now we know how many constraints we have, so we can allocate them in the result
   slicing_out->nconstraints = next_disjunction;
   slicing_out->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
+  for (uint32_t i = 0; i <= slicing_out->nconstraints; i++)
+    slicing_out->constraints[i] = NULL;
 
-  fprintf(out, "Finished treating core constraints, giving slicing:\n");
-  bv_slicing_print_slicing(slicing_out, terms, out);
-  fprintf(out, "+ a \"to do\" queue.\n");
+  /* fprintf(out, "Finished treating core constraints, giving slicing:\n"); */
+  /* bv_slicing_print_slicing(slicing_out, terms, out); */
+  /* fprintf(out, "+ a \"to do\" queue.\n"); */
     
   /** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
 
@@ -560,13 +568,16 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
   
   while (!ptr_queue_is_empty(todo)){
     spair_t* p = (spair_t*) ptr_queue_pop(todo);
-    fprintf(out, "Popping ");
     assert(p->lhs != NULL);
-    bv_slicing_print_spair(p, true, terms, out);
-    fprintf(out, "\n");
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+      fprintf(out, "Popping ");
+      bv_slicing_print_spair(p, true, terms, out);
+      fprintf(out, "\n");
+    }
     l1 = bv_slicing_as_list(p->lhs, NULL);
     l2 = bv_slicing_as_list(p->rhs, NULL);
-    fprintf(out, "Now aligning\n");
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing"))
+      fprintf(out, "Now aligning\n");
     bv_slicing_align(l1, l2, p->appearing_in, todo, terms, out); // l1 and l2 are freed
     safe_free(p);
   }
