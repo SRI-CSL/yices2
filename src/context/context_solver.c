@@ -702,6 +702,8 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 	  set_bvar_value(core, x, v);
 	}
       }
+
+      delete_delegate(&delegate);
     }
   }
 

@@ -2524,15 +2524,16 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_watch_vectors(solver->watch, solver->nliterals);
   safe_free(solver->watch);
 
-  if (solver->preprocess) {
-    safe_free(solver->occ);
-  }
-
   solver->value = NULL;
   solver->ante_tag = NULL;
   solver->ante_data = NULL;
   solver->level = NULL;
   solver->watch = NULL;
+
+  if (solver->occ != NULL) {
+    safe_free(solver->occ);
+    solver->occ = NULL;
+  }
 
   delete_heap(&solver->heap);
   delete_stack(&solver->stack);
