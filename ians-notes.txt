@@ -5,6 +5,12 @@ Use valgrind (helgrind) to detect races.
 Go from there.
 
 
+autoconf
+./configure --enable-mcsat
+make MODE=debug
+
+
+
 To build the tests:
 
 make MODE=debug test
@@ -16,7 +22,7 @@ __yices_globals no longer starts out zeroed.
 
 There is some thread local stuff in the configure file.
 
-Where to put the -pthread link incantation?
+BD: do we want to make thread safety  an "option"
 
 
 N.B.:
