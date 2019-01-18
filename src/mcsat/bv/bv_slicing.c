@@ -5,8 +5,9 @@
  * license agreement which is downloadable along with this program.
  */
 
-#include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
+#include "terms/term_manager.h"
+#include "terms/bvlogic_buffers.h"
 
 #include "bv_utils.h"
 #include "bv_slicing.h"
@@ -45,6 +46,18 @@ void bv_slicing_spdelete(splist_t* spl, bool b){
     l = next;
   }
 }
+
+// Create term from slice
+term_t bv_slicing_slice2term(const slice_t* s, plugin_context_t* ctx) {
+  assert(s->lo_sub == NULL);
+  term_manager_t* tm = &ctx->var_db->tm;
+  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+  bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->lo, s->hi-1, s->term);
+  term_t result = mk_bvlogic_term(tm, buffer);
+  return result;
+}
+
+// PRINTING
 
 /** Prints slice */
 
@@ -315,7 +328,9 @@ slist_t* bv_slicing_slice_close(plugin_context_t* ctx,
   }
 
   case CONSTANT_TERM : {
-    term_t cst = bvarray_term(terms, bitwidth, tp);
+    term_manager_t* tm = &ctx->var_db->tm;
+    /* term_t cst = bvarray_term(terms, bitwidth, tp); // Primitive construction */
+    term_t cst = mk_bvarray(tm, bitwidth, tp); // Smarter construction?
     return bv_slicing_sstack(ctx, cst, bitwidth, 0, tail, todo, slices);
   }
 

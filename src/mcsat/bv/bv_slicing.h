@@ -13,7 +13,6 @@
 
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
-#include "terms/term_manager.h"
 
 #include "utils/ptr_queues.h"
 #include "utils/ptr_hash_map.h"
@@ -80,7 +79,10 @@ struct slist_s {
 
 
 
+// Create term from slice
+term_t bv_slicing_slice2term(const slice_t* s, plugin_context_t* ctx);
 
+  
 // Printing
 
 /** Prints slice */

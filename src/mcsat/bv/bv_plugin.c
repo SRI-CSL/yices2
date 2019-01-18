@@ -968,7 +968,7 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     }
   }
 
-  // Explain with the apropriate theory
+  // Explain with the appropriate theory
   bv_explainer_get_conflict(&bv->explainer, &conflict_core, bv->conflict_variable, conflict);
 
   // Remove temps

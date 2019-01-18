@@ -1555,7 +1555,7 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
     }
     term_kind_t equality_kind = term_kind(eq->ctx->terms, equality);
     (void) equality_kind;
-    assert(equality_kind == EQ_TERM || equality_kind == ARITH_BINEQ_ATOM);
+    assert(equality_kind == BV_EQ_ATOM || equality_kind == EQ_TERM || equality_kind == ARITH_BINEQ_ATOM);
     ivector_push(reasons_data, to_add);
     if (reasons_type != NULL) {
       ivector_push(reasons_type, REASON_IS_IN_TRAIL);
