@@ -41,6 +41,7 @@ typedef struct yices_globals_s {
   type_table_t *types;     // type table
   term_table_t *terms;     // term table
   term_manager_t *manager; // full term manager (includes terms)
+  pprod_table_t *pprods;   // pprod table
   tstack_t *tstack;        // term stack (or NULL)
   error_report_t *error;   // data structure for error reporting
   fvar_collector_t *fvars; // to collect free variables of terms

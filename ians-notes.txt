@@ -1,4 +1,4 @@
-Short term plan to gain momentum.
+Short term plan to gain momentum (currently developing ONLY on linux).
 
 Incorporate the locking code and write some mutltithreaded tests.
 Use valgrind (helgrind) to detect races.
