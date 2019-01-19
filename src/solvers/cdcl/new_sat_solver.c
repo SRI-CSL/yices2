@@ -7175,7 +7175,7 @@ static void shrink_watch_vectors(sat_solver_t *solver) {
   n = solver->nliterals;
   for (i=2; i<n; i++) {
     w = solver->watch[i];
-    if (false && w != NULL && w->capacity >= 100 && w->size < (w->capacity >> 2)) {
+    if (w != NULL && w->capacity >= 100 && w->size < (w->capacity >> 2)) {
       solver->watch[i] = shrink_watch(w);
     }
   }
@@ -7190,6 +7190,8 @@ static void prepare_for_search(sat_solver_t *solver) {
   pp_reset_watch_vectors(solver);
   pp_rebuild_watch_vectors(solver);
   shrink_watch_vectors(solver);
+  safe_free(solver->occ);
+  solver->occ = NULL;
   check_clause_pool_counters(&solver->pool);      // DEBUG
   check_watch_vectors(solver);                    // DEBUG
 }
