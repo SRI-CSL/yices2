@@ -255,6 +255,12 @@ eq_node_id_t eq_graph_add_ifun_term(eq_graph_t* eq, term_t t, term_kind_t k, uin
 /** Is the term already in the graph */
 bool eq_graph_has_term(const eq_graph_t* eq, term_t t);
 
+/** Are those terms in the same class (i.e. equal). Assumes graph has the 2 terms. */
+bool eq_graph_are_equal(const eq_graph_t* eq, term_t t1, term_t t2);
+
+/** Does this term have a value in the graph? */
+bool eq_graph_term_has_value(const eq_graph_t* eq, term_t t);
+
 /** Get the ID of a term (assumes that it exists) */
 eq_node_id_t eq_graph_term_id(const eq_graph_t* eq, term_t t);
 
@@ -273,13 +279,16 @@ void eq_graph_print(const eq_graph_t* eq, FILE* out);
 /** Assert equality lhs = rhs with given polarity and associated reason. Runs propagation. **/
 void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t reason_data);
 
+/** Assert assignment t *= v with associated reason. Runs propagation. **/
+void eq_graph_assign_term_value(eq_graph_t* eq, term_t t, const mcsat_value_t* v, uint32_t reason_data);
+  
 /** Is there any propagated terms */
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq);
 
 /** Get the terms that have been deduced equal and clear them (call once) */
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
-/** Get the value of a propagated term */
+/** Get the value of a propagated term. TODO: this gets value for any term in the graph - rename? */
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t);
 
 /** Propagate the trail */
@@ -299,6 +308,14 @@ bool eq_graph_is_trail_propagated(const eq_graph_t* eq);
  */
 void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types, int_mset_t* terms_used);
 
+/**
+ * Explain why two terms are equal. Returns sequence of reason data, and
+ * associated types. The only returned data is for types that have associated
+ * data and terms that evaluate to true in trail. Pass NULL for types if you
+ * don't care about types.
+ */
+void eq_graph_explain_eq(const eq_graph_t* eq, term_t t1, term_t t2, ivector_t* reasons_data, ivector_t* reasons_types, int_mset_t* terms_used);
+  
 /**
  * Explain a term propagation, i.e., why term is equal to a value. The only
  * returned data is for types that have associated data and terms that evaluate

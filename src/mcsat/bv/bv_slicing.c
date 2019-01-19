@@ -6,6 +6,7 @@
  */
 
 #include "mcsat/tracing.h"
+/* #include "mcsat/value.h" */
 #include "terms/term_manager.h"
 #include "terms/bvlogic_buffers.h"
 
@@ -47,15 +48,6 @@ void bv_slicing_spdelete(splist_t* spl, bool b){
   }
 }
 
-// Create term from slice
-term_t bv_slicing_slice2term(const slice_t* s, plugin_context_t* ctx) {
-  assert(s->lo_sub == NULL);
-  term_manager_t* tm = &ctx->var_db->tm;
-  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-  bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->lo, s->hi-1, s->term);
-  term_t result = mk_bvlogic_term(tm, buffer);
-  return result;
-}
 
 // PRINTING
 
@@ -133,6 +125,7 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi){
 void bv_slicing_slice_delete(slice_t* s){
   if (s->lo_sub != NULL) bv_slicing_slice_delete(s->lo_sub);
   if (s->hi_sub != NULL) bv_slicing_slice_delete(s->hi_sub);
+  mcsat_value_destruct(&s->value);
   bv_slicing_spdelete(s->paired_with, false);
   safe_free(s);
 }
@@ -474,10 +467,77 @@ void bv_slicing_slicing_destruct(slicing_t* slicing){
 }
 
 
-/** Pours matching pairs of leaves into an array of constraints */
 
-void bv_slicing_constraints(slice_t* s, splist_t** constraints){
+/** At the end of the slicing algorithm, we go through each of the created slices,
+    and perform 3 tasks: */
+
+void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t* ctx, eq_graph_t* egraph){
+
   if (s->lo_sub == NULL) { // This is a leaf
+
+    variable_db_t* var_db = ctx->var_db; // standard abbreviations
+    term_table_t* terms   = ctx->terms; 
+    const mcsat_trail_t* trail  = ctx->trail; 
+    term_manager_t* tm = &var_db->tm;
+
+    term_t t = s->term;
+
+    // Task 1: We create a term for the slice & store it in slice_term field
+    bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+    bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->lo, s->hi-1, t);
+    s->slice_term = mk_bvlogic_term(tm, buffer);
+
+    
+    // Task 2: we compute the value if we can & store it in value field
+    bool has_value = true; // whether term can be evaluated from trail (will switch to false if not)
+    bvconstant_t bvcst;
+    init_bvconstant(&bvcst);
+    
+    switch (term_kind(terms, t)) {
+    case BV_CONSTANT: { // The term itself could be a constant term
+      bvconst_term_t* desc = bvconst_term_desc(terms, t);
+      bvconstant_copy(&bvcst, desc->bitsize, desc->data);
+      break;
+    }
+    case BV64_CONSTANT: { // The term itself could be a constant term, optimised bv64 representation
+      bvconst64_term_t* desc = bvconst64_term_desc(terms, t);
+      bvconstant_copy64(&bvcst, desc->bitsize, desc->value);
+      break;
+    }
+    default: { // Otherwise we hope that the term is assigned a value on the trail
+      variable_t var = variable_db_get_variable(var_db, t); // term as a variable
+      if (trail_has_value(trail, var)){ // yeah! it has a value
+        const mcsat_value_t* val = trail_get_value(trail, var);
+        switch (val->type){
+        case VALUE_BV: {
+          bvconstant_t tmp = val->bv_value;
+          bvconstant_copy(&bvcst, tmp.bitsize, tmp.data);
+          break;
+        }
+        default: assert(false); // Value of slice variable must be bv or bool
+        }
+      }
+      else has_value = false; // it does not have a value on the trail
+    }
+    }
+
+    if (has_value){
+      s->value.type = VALUE_BV;
+      init_bvconstant(&s->value.bv_value);
+      bvconstant_set_all_zero(&s->value.bv_value, s->hi - s->lo);
+      bvconst_extract(s->value.bv_value.data, bvcst.data, s->lo, s->hi);
+      bvconstant_normalize(&s->value.bv_value);
+      eq_graph_assign_term_value(egraph, s->slice_term, &s->value, s->slice_term); // Reason = 1 to indicate this comes from evaluation rather than from conflict
+    }
+    else mcsat_value_construct_default(&s->value);
+
+    delete_bvconstant(&bvcst);
+
+    
+    // Task 3: we go through its pairs
+    // For each equality pair, we send it to the egraph
+    // For each disequality pair, we stack it on the disjunction it belongs to
+    
     spair_t* p;
     splist_t *current = s->paired_with;
     while (current != NULL) {
@@ -490,9 +550,10 @@ void bv_slicing_constraints(slice_t* s, splist_t** constraints){
       current = current->next;
     }
   }
-  else {
-    bv_slicing_constraints(s->lo_sub, constraints);
-    bv_slicing_constraints(s->hi_sub, constraints);
+  else { // If the slice is not a leaf, we treat the sub-slices
+    assert(s->paired_with == NULL);
+    bv_slicing_slice_treat(s->lo_sub, constraints, ctx, egraph);
+    bv_slicing_slice_treat(s->hi_sub, constraints, ctx, egraph);
   }
 }
 
@@ -501,13 +562,13 @@ void bv_slicing_constraints(slice_t* s, splist_t** constraints){
     Gets a conflict core, produces the coarsest slicing.
     The resulting slicing is in slicing_out, which only needs to be allocated, as this function will take care of initialisation.
  */
-void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core, slicing_t* slicing_out){
+void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core, slicing_t* slicing_out, eq_graph_t* egraph){
 
   init_ptr_hmap(&slicing_out->slices, 0); // We initialise the hashmap in the result
 
   // standard abbreviations
-  term_table_t*  terms  = ctx->terms;
-  const mcsat_trail_t* trail  = ctx->trail;
+  term_table_t* terms  = ctx->terms;
+  const mcsat_trail_t* trail = ctx->trail;
 
   // We create a "to do" queue of matching slice pairs to align
   ptr_queue_t* todo = safe_malloc(sizeof(ptr_queue_t));
@@ -606,7 +667,7 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
 
   ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing_out->slices);
   while(hp != NULL) {
-    bv_slicing_constraints(hp->val, slicing_out->constraints);
+    bv_slicing_slice_treat(hp->val, slicing_out->constraints, ctx, egraph);
     hp = ptr_hmap_next_record(&slicing_out->slices, hp);
   }
   

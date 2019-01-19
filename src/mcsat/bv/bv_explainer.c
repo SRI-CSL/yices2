@@ -6,6 +6,7 @@
  */
 
 #include "bv_slicing.h"
+#include "bv_evaluator.h"
 #include "bv_explainer.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
@@ -379,93 +380,160 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
   int_mset_destruct(&assigned_vars);
 }
 
+
+
+
+
 static
 void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
   exp->stats.th_eq_ext_con ++;
 
   plugin_context_t* ctx = exp->ctx;
-  /* const term_table_t* terms   = ctx->terms; */
-  /* const variable_db_t* var_db = ctx->var_db; */
-
   FILE* out = ctx_trace_out(ctx);
-  /* term_manager_t* tm = &ctx->var_db->tm; */
 
-  // Do the slicing
-  slicing_t slicing;
-  bv_slicing_construct(ctx, conflict_core, &slicing);
-    
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict"))
-    bv_slicing_print_slicing(&slicing, ctx->terms, out);
-  
-  // Create the equality graph
-  eq_graph_t eq_graph;
-  eq_graph_construct(&eq_graph, exp->ctx, "mcsat::bv::conflict");
+  term_table_t* terms   = ctx->terms;
+  /* const variable_db_t* var_db = ctx->var_db; */
+  term_manager_t* tm = &ctx->var_db->tm;
 
-  uint32_t id=0;
-  spair_t* p;
-  splist_t* current = slicing.constraints[0]; // Get the list of equalities
-  // Add each of them to the egraph
-  while (current != NULL) {
-    p = current->pair;
-    assert(p->appearing_in == 0); // Check that this is indeed an equality
-    term_t lhs = bv_slicing_slice2term(p->lhs,ctx);
-    term_t rhs = bv_slicing_slice2term(p->rhs,ctx);
-    eq_graph_assert_term_eq(&eq_graph, lhs, rhs, id);
-    current = current->next;
-    id++;
-  }
-
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict"))
-    eq_graph_print(&eq_graph, out);
-  
-  // Run propagation (TODO: run just for the conflict terms)
-  eq_graph_propagate_trail(&eq_graph);
-  
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict"))
-    eq_graph_print(&eq_graph, out);
-
-  if (!eq_graph.in_conflict) {
-    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
-      eq_graph_print(&eq_graph, out);
-      fprintf(out,"Not in conflict\n");
-    }
-    assert(false);
-  }
-
-  ivector_t conflict_tmp;
-  init_ivector(&conflict_tmp,0);
-  
-  ivector_t conflict_types;
-  init_ivector(&conflict_types,0);
-  
-  // Construct the conflict
-  eq_graph_get_conflict(&eq_graph, &conflict_tmp, &conflict_types, NULL);
-
-  assert(conflict_tmp.size == conflict_types.size);
-  for (uint32_t i = 0; i < conflict_tmp.size; ++ i) {
-    if (conflict_types.data[i] != REASON_IS_USER)
-      ivector_push(conflict, conflict_tmp.data[i]);
-  }
-
-  for (uint32_t i = 0; i < conflict_core->size; ++ i) {
+  // The output conflict always contains the conflict core:
+  for (uint32_t i = 0; i < conflict_core->size; i++) {
     variable_t atom_var = conflict_core->data[i];
     term_t t = variable_db_get_term(ctx->var_db, atom_var);
     bool value = trail_get_boolean_value(ctx->trail, atom_var);
     ivector_push(conflict, value?t:opposite_term(t));
   }
-  
-  delete_ivector(&conflict_types);
-  delete_ivector(&conflict_tmp);
 
-  // Delete egraph
+
+  // Create the equality graph
+  eq_graph_t eq_graph;
+  eq_graph_construct(&eq_graph, exp->ctx, "mcsat::bv::conflict");
+
+  // Do the slicing
+  slicing_t slicing;
+  bv_slicing_construct(ctx, conflict_core, &slicing, &eq_graph);
+    
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict"))
+    bv_slicing_print_slicing(&slicing, ctx->terms, out);
+
+  // SMT'2017 paper
+
+  spair_t* p;
+  splist_t* current = slicing.constraints[0];
+
+  // We send the equalities to the e-graph
+  while (current != NULL) {
+    if (current->is_main) {
+      p = current->pair;
+      eq_graph_assert_term_eq(&eq_graph, p->lhs->slice_term, p->rhs->slice_term, 0);
+      // 0 means that the assertion is a consequence of the conflict_core
+      // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
+    }
+    current = current->next;
+  }
+  
+  ivector_t reasons; // where we collect the reasons why things happen in the e-graph
+  init_ivector(&reasons,0);
+  ivector_t reasons_types; // ...together with their associated types
+  init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
+  
+  // Case 1: conflict in e-graph
+  if (eq_graph.in_conflict)  // Get conflict from e-graph
+    eq_graph_get_conflict(&eq_graph, &reasons, &reasons_types, NULL);
+
+  else { // e-graph not in conflict
+
+    ivector_t interface_terms; // where we collect interface terms
+    init_ivector(&interface_terms,0);
+
+    // We go through the disjunctions of disequalities
+    for (uint32_t i = 1; i < slicing.nconstraints; i++) {
+
+      current = slicing.constraints[i]; // Get disjunction number i
+      // Go through disjuncts
+      while (current != NULL) {
+        p = current->pair;
+        assert(p->appearing_in == i); // Check that this is indeed the right disequality
+        term_t lhs = p->lhs->slice_term;
+        term_t rhs = p->rhs->slice_term;
+
+        if (eq_graph_are_equal(&eq_graph, lhs, rhs)){
+          // adding the reason why this disequality is false: TODO: check that reasons is not first cleared by the function
+          eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
+          if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
+            fprintf(out, "Looking at why disequality is false: ");
+            for (uint32_t i = 0; i < reasons.size; i++) {
+              if (i>0) fprintf(out,", ");
+              fprintf(out,"%d", reasons.data[i]);
+            }
+            fprintf(out,"\n");
+          }
+        }
+        else{
+          // We need to collect the interface term
+          if (eq_graph_term_has_value(&eq_graph, lhs)){
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, NULL, NULL, NULL);
+            ivector_push(&interface_terms, iterm);
+          }
+          if (eq_graph_term_has_value(&eq_graph, rhs)){
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, NULL, NULL, NULL);
+            ivector_push(&interface_terms, iterm);
+          }
+          // Note that both "ifs" cannnot be true at the same time, otherwise the disequality could be evaluated:
+          // if it evaluates to true, then the disjunction would evaluate to true, so the constraint from whence it came would not be in the core
+          // if it evaluates to false, then lhs and rhs would be in the same class of the graph
+        }
+        current = current->next;
+      }
+    }
+    // Now we build the the equalities / disequalities between interface terms
+    for (uint32_t i = 0; i < interface_terms.size; i++) {
+      for (uint32_t j = i+1; j < interface_terms.size; j++) {
+        term_t lhs = interface_terms.data[i];
+        term_t rhs = interface_terms.data[j];
+        term_t t = (eq_graph_are_equal(&eq_graph, lhs, rhs))? mk_eq(tm, lhs, rhs):mk_neq(tm, lhs, rhs);
+        ivector_push(conflict, t);
+      }
+    }
+    delete_ivector(&interface_terms);
+
+  }
+
+  assert(reasons.size == reasons_types.size);
+
+  // We collect from the reasons the elements we haven't added
+  for (uint32_t i = 0; i < reasons.size; i++) {
+    if (reasons_types.data[i] == REASON_IS_USER) {
+      if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
+        if (reasons.data[i] != 0){
+          term_print_to_file(out, terms, reasons.data[i]);
+          fprintf(out,"\n");
+        }
+      }
+    }
+    else
+      ivector_push(conflict, reasons.data[i]);
+  }
+
+  // We clean up
+  delete_ivector(&reasons_types);
+  delete_ivector(&reasons);
+
+  // Destructs egraph
   eq_graph_destruct(&eq_graph);
 
-  // Destruct slicing
+  // Destructs slicing
   bv_slicing_slicing_destruct(&slicing);
 
-  // TODO: SMT'2017 paper. In the meantime: we resort to the general case above.
-  /* bv_explainer_get_conflict_all(exp, conflict_core, conflict_var, conflict); */
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
+    fprintf(out, "Returned conflict is: ");
+    for (uint32_t i = 0; i < conflict->size; i++) {
+      if (i>0) fprintf(out,", ");
+      term_print_to_file(out, terms, conflict->data[i]);
+    }
+    fprintf(out,"\n");
+  }
+
 }
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {

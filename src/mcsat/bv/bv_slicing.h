@@ -10,6 +10,7 @@
 
 #include "mcsat/tracing.h"
 #include "mcsat/mcsat_types.h"
+#include "mcsat/eq/equality_graph.h"
 
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
@@ -53,8 +54,12 @@ struct splist_s {
  */
 
 struct slice_s {
-  /** Variable or constant term */
+  /** Variable or constant term, from which the slice is extracted */
   term_t term;
+  /** Value of the slice (computed at the end from the trail, and only for leaf slices) */
+  mcsat_value_t value;
+  /** Term expressing the slice (computed at the end from the trail, and only for leaf slices) */
+  term_t slice_term;
   /** Low index */
   uint32_t lo;
   /** High index + 1 (that index is not in the slice), so that hi - low = slice length */
@@ -77,10 +82,6 @@ struct slist_s {
   slist_t* next;
 };
 
-
-
-// Create term from slice
-term_t bv_slicing_slice2term(const slice_t* s, plugin_context_t* ctx);
 
   
 // Printing
@@ -118,4 +119,4 @@ void bv_slicing_slicing_destruct(slicing_t* slicing);
     Gets a conflict core, produces the coarsest slicing.
     The resulting slicing is in slicing_out, which only needs to be allocated, as this function will take care of initialisation.
  */
-void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core, slicing_t* slicing_out);
+void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core, slicing_t* slicing_out, eq_graph_t* egraph);
