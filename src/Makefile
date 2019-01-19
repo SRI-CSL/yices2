@@ -181,6 +181,7 @@ core_src_c := \
 	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/smt_core.c \
 	solvers/cdcl/truth_tables.c \
+	solvers/cdcl/wide_truth_tables.c \
 	solvers/egraph/composites.c \
 	solvers/egraph/diseq_stacks.c \
 	solvers/egraph/egraph_assertion_queues.c \

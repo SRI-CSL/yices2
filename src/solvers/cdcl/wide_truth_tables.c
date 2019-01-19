@@ -22,6 +22,26 @@
 #include "utils/memalloc.h"
 
 
+#ifndef NDEBUG
+/*
+ * Check that a[0 ... n-1] is sorted in increasing order.
+ */
+static bool sorted_array(const bvar_t *a, uint32_t n) {
+  uint32_t i;
+
+  if (n > 0) {
+    for (i=0; i<n-1; i++) {
+      if (a[i+1] >= a[i]) return false;
+    }
+  }
+
+  return true;
+}
+
+#endif
+
+
+
 /*
  * Initialize w for size = n.
  * - this allocates arrays var and val
@@ -60,58 +80,44 @@ void reset_wide_ttbl(wide_ttbl_t *w) {
   w->val[0] = 0;
 }
 
+
 /*
- * Import a regular ttbl into w.
- * - w->size must be at least ttbl->nvars.
- * - ttbl must be normalized
+ * Expand an 8-bit truth-table into bit array a
+ * - a must be large enough (i.e., at least 2^n elements where n = ttbl->nvars)
  */
-void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl) {
-  uint32_t i, n, mask;
+static void expand_ttbl(uint8_t *a, const ttbl_t *ttbl) {
+  uint32_t m;
 
-  assert(w->size >= ttbl->nvars);
-
-  n = ttbl->nvars;
-  w->nvars = n;
-  for (i=0; i<n; i++) {
-    w->var[i] = ttbl->label[i];
-  }
-
-  switch (n) {
+  m = ttbl->mask;
+  switch (ttbl->nvars) {
   case 0:
-    assert(ttbl->mask == 0x00 || ttbl->mask == 0xff);
-    ttbl->val[0] = ttbl->mask & 1;
+    assert(m == 0x00 || m == 0xff);
+    a[0] = m & 1;
     break;
     
   case 1:
-    assert(ttbl->mask == 0x0f || ttbl->mask == 0xf0);
-    ttbl->val[0] = ttbl->mask & 1;
-    ttbl->val[1] = (ttbl->maks >> 4) & 1;
+    assert(m == 0x0f || m == 0xf0);
+    a[0] = m & 1; m >>= 4;
+    a[1] = m  & 1;
     break;
       
   case 2:
-    ttbl->val[0] = ttbl->mask & 1;
-    ttbl->val[1] = (ttbl->mask >> 2) & 1;
-    ttbl->val[2] = (ttbl->mask >> 4) & 1;
-    ttbl->val[3] = (ttbl->mask >> 6) & 1;
+    a[0] = m & 1; m >>= 2;
+    a[1] = m & 1; m >>= 2;
+    a[2] = m & 1; m >>= 2;
+    a[3] = m & 1;
     break;
 
   default:
-    assert(n == 3);
-    mask = ttbl->mask;
-    for (i=0; i<8; i++) {
-      tbl->val[i] = mask & 1;
-      mask >>= 1;
-    }
-    /*
-      ttbl->val[0] = ttbl->mask & 1;
-      ttbl->val[1] = (ttbl->mask >> 1) & 1;
-      ttbl->val[2] = (ttbl->mask >> 2) & 1;
-      ttbl->val[3] = (ttbl->mask >> 3) & 1;
-      ttbl->val[4] = (ttbl->mask >> 4) & 1;
-      ttbl->val[5] = (ttbl->mask >> 5) & 1;
-      ttbl->val[6] = (ttbl->mask >> 6) & 1;
-      ttbl->val[7] = (ttbl->mask >> 7) & 1;
-    */
+    assert(ttbl->nvars == 3);
+    a[0] = m & 1; m >>= 1;
+    a[1] = m & 1; m >>= 1;
+    a[2] = m & 1; m >>= 1;
+    a[3] = m & 1; m >>= 1;
+    a[4] = m & 1; m >>= 1;
+    a[5] = m & 1; m >>= 1;
+    a[6] = m & 1; m >>= 1;
+    a[7] = m & 1;
     break;
   }
 }
@@ -138,34 +144,183 @@ static inline uint32_t insert_bit(uint32_t i, uint32_t mask, uint32_t b) {
   return (i & mask) | ((-b) & (mask + 1)) | ((i & ~mask) << 1);
 }
 
+
 /*
- * Set variable v[i] to '0' or '1' in w1
- * - b = either 0 or 1
+ * select_bit(i, 2^k) = k-th bit of i
  */
-static void wide_ttbl_compose0(wide_ttbl_t *w, const wide_ttbl_t *w1, uint32_t i, uint32_t b) {
-  uint32_t j, n, p, mask;
+static inline uint32_t select_bit(uint32_t i, uint32_t selector) {
+  return (i & selector) != 0;
+}
 
-  assert(b == 0 || b == 1);
-  assert(i < w1->nvars);
+/*
+ * Copy all variables of a into b except a[i].
+ * - a: array on n variables
+ * - b: array large enough for n-1 variables
+ */
+static void remove_var(bvar_t *b, const bvar_t *a, uint32_t n, uint32_t i) {
+  uint32_t j;
 
-  n = w1->nvars - 1;
-  if (w->size < n ) return false;
+  assert(i < n);
 
-  // copy variables
-  w->nvars = n;
-  for (j=0; j<i; j++) {
-    w->var[j] = w1->var[j];
+  for (j=0; j<i; j++) b[j] = a[j];
+  for (j=i+1; j<n; j++) b[j-1] = a[j];
+}
+
+
+/*
+ * Insert variables b[0 ... m-1] into array a. Store the result in c.
+ * - a: array of n variables in increasing order
+ * - b: array of m variables in increasing order
+ * - c: array large enough for n+m variables
+ * - mask: array of m elements
+ *
+ * When inserting x = b[k], we store a bit mask into mask[k]
+ * and a selector mask into selector[k].
+ * - selector k is 2^j where c[j] = x (i.e., bit index for x in array c)
+ * - mask[k] is 0b1111...11 if x is present in a
+ * - mask[k] = 2^j - 1 if x is not present in a
+ *
+ * Return the number of elements stored in c = n + m - number
+ * elements of b that are already in a.
+ */
+static uint32_t merge_vars(bvar_t *c, const bvar_t *a, uint32_t n, const bvar_t *b,
+			   uint32_t m, uint32_t *mask, uint32_t *selector) {
+  uint32_t i, j, k, s;
+  bvar_t x;
+
+  assert(sorted_array(a, n));
+  assert(sorted_array(b, m));
+
+  i = 0;
+  j = 0;
+
+  for (k=0; k<m; k++) {
+    x = b[k];
+    while (i < n && a[i] < x) c[j++] = a[i++];
+
+    // x will be stored in c[j]
+    s = ((uint32_t) 1) << j;
+    selector[k] = s;              // 2^j
+    mask[k] = ~((uint32_t) 0);   // default mask
+    if (i == n || a[i] != x) {
+      // x is not in array a
+      mask[k] = s - 1;
+      c[j++] = x;
+    }
   }
-  for (j=i+1; j<=n; j++) {
-    w->var[j-1] = w1->var[j];
+
+  while (i < n) c[j++] = a[i++];
+
+  assert(sorted_array(c, j));
+
+  return j;
+}
+
+
+/*
+ * Copy a into b
+ */
+static void copy_vars(bvar_t *b, const bvar_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) b[i] = a[i];
+}
+
+
+
+
+/*
+ * Import a regular ttbl into w.
+ * - w->size must be at least ttbl->nvars.
+ * - ttbl must be normalized
+ */
+void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl) {
+  assert(w->size >= ttbl->nvars);
+  assert(sorted_array(ttbl->label, ttbl->nvars));
+
+  w->nvars = ttbl->nvars;
+  copy_vars(w->var, ttbl->label, ttbl->nvars);
+  expand_ttbl(w->val, ttbl);
+}
+
+
+/*
+ * Build a composed truth table:
+ * - b = array of 2^n elements (to store the result)
+ * - n = number of variables in the composed function
+ * - a = truth table for some function f(x_0,.., x_i, ...)
+ * - i = index of a variable x_0 ... x_m
+ * - ttbl = a function g(y_0, ...y_k-1) (with k <= 3)
+ * - mask and selector indicate how to locate and handle y_0, ..., y_{k-1}.
+ *
+ * This function builds the truth table for f(x_0..., g(y_0, ...,
+ * y_{k-1}), ...): where x_i is replaced by g(y_0, ..., y_{k-1}).
+ *
+ * Let z_0, ..., z_{n-1} denote the set of variables in the
+ * composition, listed in increasing order. Then we have
+ *   { z_0, ..., z_{n-1} } = ( { x_0, ... , x_m } - { x_i } )
+ *                         U { y_0, ... y_{k-1} }
+ *
+ * Variable y_t is then equal to some z_u and
+ * - selector[t] is 2^u
+ * - mask[t] is either (2^u - 1) or 0b111...1:
+ *   mask[t] is (2^u - 1) if y_t is a not in {x_0, ..., x_m } - { x_i }.
+ *   mask[t] is 0b111....1 otherwise
+ *
+ * The resulting truth table is stored in array b
+ */
+static void compose_truth_tables(uint8_t *b, uint32_t n, const uint8_t *a, uint32_t i,
+				 const ttbl_t *ttbl, const uint32_t *mask, const uint32_t *selector) {
+  uint32_t j, t, p, k, i_mask;
+  uint8_t g[8];
+
+
+  assert(i < n && n <= MAX_WIDE_TTBL_SIZE);
+
+  expand_ttbl(g, ttbl);
+  p = ((uint32_t) 1) << n; // 2^n = size of array b
+  i_mask = (((uint32_t) 1) << i) - 1; // mask for removing x_i
+
+  switch (ttbl->nvars) {
+  case 0:
+    for (j=0; j<p; j++) {
+      t = insert_bit(j, i_mask, g[0]);
+      b[j] = a[t];
+    }
+    break;
+
+  case 1:
+    for (j=0; j<p; j++) {
+      k = select_bit(j, selector[0]);
+      assert(k < 2);
+      t = remove_bit(j, mask[0]);
+      t = insert_bit(t, i_mask, g[k]);
+      b[j] = a[t];
+    }
+    break;
+
+  case 2:
+    for (j=0; j<p; j++) {
+      k = select_bit(j, selector[0]) | (select_bit(j, selector[1]) << 1);
+      assert(k < 4);
+      t = remove_bit(remove_bit(j, mask[1]), mask[0]);
+      t = insert_bit(t, i_mask, g[k]);
+      b[j] = a[t];
+    }
+    break;
+
+  default:
+    assert(ttbl->nvars == 3);
+    for (j=0; j<p; j++) {
+      k = select_bit(j, selector[0]) | (select_bit(j, selector[1]) << 1) | (select_bit(j, selector[2]) << 2);
+      assert(k < 8);
+      t = remove_bit(remove_bit(remove_bit(j, mask[2]), mask[1]), mask[0]);
+      t = insert_bit(t, i_mask, g[k]);
+      b[j] = a[t];
+    }
+    break;
   }
 
-  // truth values
-  p = ((uint32_t) 1) << n;
-  mask = (((uint32_t) 1) << i) - 1; // 2^i - 1
-  for (j=0; j<p; j++) {
-    w->val[j] = w1->val[insert_bit(j, mask, b)];
-  }
 }
 
 /*
@@ -185,22 +340,29 @@ static void wide_ttbl_compose0(wide_ttbl_t *w, const wide_ttbl_t *w1, uint32_t i
  * If returns true otherwisw.
  */
 bool wide_ttbl_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl, uint32_t i) {
-  assert(i < w1->nvars);
+  bvar_t a[MAX_WIDE_TTBL_SIZE];
+  bvar_t b[MAX_WIDE_TTBL_SIZE + 2];
+  uint32_t mask[3];
+  uint32_t selector[3];
+  uint32_t n;
 
-  switch (ttbl->nvars) {    
-  case 0:
-    assert(ttbl->mask == 0x00 || ttbl->mask == 0xff);
-    return wide_ttbl_compose0(w, w1, i, ttbl->mask & 1);
+  assert(i < w1->nvars && w1->nvars <= MAX_WIDE_TTBL_SIZE);
 
-  case 1:
-    break;
+  remove_var(a, w1->var, w1->nvars, i);
+  n = merge_vars(b, a, w1->nvars - 1, ttbl->label, ttbl->nvars, mask, selector);
 
-  case 2:
-    break;
-
-  default:
-    assert(ttbl->nvars == 3);
-    break;
+  /*
+   * At this point:
+   * - b = variables of w
+   * - n = number of variables in v
+   * - mask = masks for the variables of ttbl in b
+   * - selector = positions of the variables of ttbl in b
+   */
+  if (n <= w->size) {
+    w->nvars = n;
+    copy_vars(w->var, b, n);
+    compose_truth_tables(w->val, n, w1->val, i, ttbl, mask, selector);
+    return true;
   }
 
   return false;
