@@ -503,15 +503,7 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
 
   // We collect from the reasons the elements we haven't added
   for (uint32_t i = 0; i < reasons.size; i++) {
-    if (reasons_types.data[i] == REASON_IS_USER) {
-      if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
-        if (reasons.data[i] != 0){
-          term_print_to_file(out, terms, reasons.data[i]);
-          fprintf(out,"\n");
-        }
-      }
-    }
-    else
+    if (reasons_types.data[i] != REASON_IS_USER) 
       ivector_push(conflict, reasons.data[i]);
   }
 

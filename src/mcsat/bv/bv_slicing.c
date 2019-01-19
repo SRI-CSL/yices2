@@ -116,7 +116,8 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi){
   result->paired_with = NULL;
   result->lo_sub  = NULL;
   result->hi_sub  = NULL;
-
+  mcsat_value_construct_default(&result->value);
+ 
   return result;
 }
 
@@ -408,19 +409,7 @@ slist_t* bv_slicing_norm(plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t 
     // We have exited the loop, we now close the current (and last) slice
     return bv_slicing_slice_close(ctx, concat_desc->arg,width, current, todo, slices);
   }
-  case BIT_TERM: { // Term t is the selection of some bit from some variable
-    assert(hi ==1); // The whole term being of bitwidth 1, and its extraction between lo and hi must contain at least one bit, 
-    assert(lo ==0); // ...this forces these two assertions
-    select_term_t* desc = bit_term_desc(terms, t);
-    term_t tvar           = desc->arg; // Get variable (as a term)
-    uint32_t selected_bit = desc->idx; // Get the bit that is selected in that variable
-    return bv_slicing_sstack(ctx, tvar, selected_bit+1, selected_bit, tail, todo, slices);
-  }
-  case BV_EQ_ATOM: // TODO?
-  case CONSTANT_TERM: // TODO?
-  case BV_CONSTANT: // TODO?
-  case BV64_CONSTANT: // TODO?
-  default: // We consider the term is a variable, we immediately stack its relevant slices
+  default: // We consider the term is a variable or a constant, we immediately stack its relevant slices
     return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
   }
 
@@ -617,8 +606,17 @@ void bv_slicing_construct(plugin_context_t* ctx, const ivector_t* conflict_core,
       break;
     }
     case BIT_TERM: { // That's also in the fragment...
-      slist_t* l0 = bv_slicing_norm(ctx, atom_i_term, 1, 0, NULL, todo, &slicing_out->slices);
-      slist_t* l1 = bv_slicing_norm(ctx, bool2term(atom_i_value), 1, 0, NULL, todo, &slicing_out->slices);
+      
+      term_t a0[1];
+      a0[0] = atom_i_term;
+      term_t t0 = mk_bvarray(&ctx->var_db->tm, 1, a0);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, 1, 0, NULL, todo, &slicing_out->slices);
+
+      term_t a1[1];
+      a1[0] = bool2term(atom_i_value);
+      term_t t1 = mk_bvarray(&ctx->var_db->tm, 1, a1);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, 1, 0, NULL, todo, &slicing_out->slices);
+      
       bv_slicing_align(l0, l1, 0, todo, terms, out);      
       break;
     }
