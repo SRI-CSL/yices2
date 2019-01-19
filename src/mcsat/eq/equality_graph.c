@@ -2004,7 +2004,8 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
     }
 
     // Check if we passed a value assignment that we need to explain
-    if (e->reason.type == REASON_IS_IN_TRAIL) {
+    if (e->reason.type == REASON_IS_IN_TRAIL
+        || (e->reason.type == REASON_IS_USER && e_terms.t1 == NULL_TERM)) {
       if (e_terms.t2 != NULL_TERM) {
         assert(t2_to_explain == NULL_TERM && value_to_explain == eq_node_null);
         t2_to_explain = e_terms.t2;
@@ -2035,8 +2036,7 @@ void eq_graph_explain_eq(const eq_graph_t* eq, term_t t1, term_t t2, ivector_t* 
   eq_graph_explain_init_cache(eq);
   eq_node_id_t t1_id = eq_graph_term_id(eq, t1);
   eq_node_id_t t2_id = eq_graph_term_id(eq, t2);
-  path_terms_t result = eq_graph_explain(eq, t1_id, t2_id, reasons_data, reasons_types, terms_used);
-  eq_graph_add_eq_explanation(eq, result.t1, t1_id, result.t2, t2_id, reasons_data, reasons_types);
+  eq_graph_explain(eq, t1_id, t2_id, reasons_data, reasons_types, terms_used);
   eq_graph_explain_clear_cache(eq);
 }
 
