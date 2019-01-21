@@ -408,7 +408,7 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
     
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
-    bv_slicing_print_slicing(&slicing, ctx->terms, out);
+    bv_slicing_print_slicing(&slicing, out);
   }
 
   // SMT'2017 paper
