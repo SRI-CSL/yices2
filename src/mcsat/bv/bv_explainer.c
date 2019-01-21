@@ -88,7 +88,7 @@ void bv_explainer_destruct(bv_explainer_t* exp) {
 }
 
 static
-void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_count) {
+void bv_explainer_count_kinds(bv_explainer_t* exp, term_t t, int* kinds_count) {
 
   assert(is_pos_term(t));
 
@@ -115,16 +115,16 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
     if (t0 != t0_pos) kinds_count[BV_KIND_BITWISE] ++;
     term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
     if (t1 != t1_pos) kinds_count[BV_KIND_BITWISE] ++;
-    bv_explainer_count_subtheories(exp, t0_pos, kinds_count);
-    bv_explainer_count_subtheories(exp, t1_pos, kinds_count);
+    bv_explainer_count_kinds(exp, t0_pos, kinds_count);
+    bv_explainer_count_kinds(exp, t1_pos, kinds_count);
     kinds_count[BV_KIND_EQ] ++;
     break;
   }
   case BV_EQ_ATOM: {
     composite_term_t* atom_comp = composite_term_desc(terms, t);
     assert(atom_comp->arity == 2);
-    bv_explainer_count_subtheories(exp, atom_comp->arg[0], kinds_count);
-    bv_explainer_count_subtheories(exp, atom_comp->arg[1], kinds_count);
+    bv_explainer_count_kinds(exp, atom_comp->arg[0], kinds_count);
+    bv_explainer_count_kinds(exp, atom_comp->arg[1], kinds_count);
     kinds_count[BV_KIND_EQ] ++;
     break;
   }
@@ -132,8 +132,8 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
   case BV_SGE_ATOM: {
     composite_term_t* atom_comp = composite_term_desc(terms, t);
     assert(atom_comp->arity == 2);
-    bv_explainer_count_subtheories(exp, atom_comp->arg[0], kinds_count);
-    bv_explainer_count_subtheories(exp, atom_comp->arg[1], kinds_count);
+    bv_explainer_count_kinds(exp, atom_comp->arg[0], kinds_count);
+    bv_explainer_count_kinds(exp, atom_comp->arg[1], kinds_count);
     kinds_count[BV_KIND_ARITH_CMP] ++;
     break;
   }
@@ -143,7 +143,7 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
       term_t t_i = concat_desc->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
       if (t_i != t_i_pos) kinds_count[BV_KIND_BITWISE] ++;
-      bv_explainer_count_subtheories(exp, t_i_pos, kinds_count);
+      bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
     }
     kinds_count[BV_TH_EQ_EXT_CON] ++;
     break;
@@ -153,7 +153,7 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
     for (uint32_t i = 0; i < t_comp->arity; ++ i) {
       term_t t_i = t_comp->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
-      bv_explainer_count_subtheories(exp, t_i_pos, kinds_count);
+      bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
     }
     kinds_count[BV_KIND_BITWISE] ++;
     break;
@@ -165,7 +165,7 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
   case BV_SMOD:{
     composite_term_t* t_comp = composite_term_desc(terms, t);
     for (uint32_t i = 0; i < t_comp->arity; ++ i) {
-      bv_explainer_count_subtheories(exp, t_comp->arg[i], kinds_count);
+      bv_explainer_count_kinds(exp, t_comp->arg[i], kinds_count);
     }
     kinds_count[BV_KIND_ARITH_POLY] ++;
     break;
@@ -175,20 +175,20 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
   case BV_ASHR: {
     composite_term_t* t_comp = composite_term_desc(terms, t);
     for (uint32_t i = 0; i < t_comp->arity; ++ i) {
-      bv_explainer_count_subtheories(exp, t_comp->arg[i], kinds_count);
+      bv_explainer_count_kinds(exp, t_comp->arg[i], kinds_count);
     }
     kinds_count[BV_KIND_SHIFT] ++;
     break;
   }
   case BIT_TERM:
-    bv_explainer_count_subtheories(exp, bit_term_arg(terms, t), kinds_count);
+    bv_explainer_count_kinds(exp, bit_term_arg(terms, t), kinds_count);
     kinds_count[BV_KIND_EXT_CON] ++;
     break;
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
-      bv_explainer_count_subtheories(exp, t_poly->mono[i].var, kinds_count);
+      bv_explainer_count_kinds(exp, t_poly->mono[i].var, kinds_count);
     }
     kinds_count[BV_KIND_ARITH_POLY] ++;
     break;
@@ -197,7 +197,7 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
     bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
-      bv_explainer_count_subtheories(exp, t_poly->mono[i].var, kinds_count);
+      bv_explainer_count_kinds(exp, t_poly->mono[i].var, kinds_count);
     }
     kinds_count[BV_KIND_ARITH_POLY] ++;
     break;
@@ -205,7 +205,7 @@ void bv_explainer_count_subtheories(bv_explainer_t* exp, term_t t, int* kinds_co
   case POWER_PRODUCT: {
     pprod_t* t_pprod = pprod_term_desc(terms, t);
     for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-      bv_explainer_count_subtheories(exp, t_pprod->prod[i].var, kinds_count);
+      bv_explainer_count_kinds(exp, t_pprod->prod[i].var, kinds_count);
     }
     kinds_count[BV_KIND_ARITH_POLY] ++;
     break;
@@ -232,7 +232,7 @@ bv_subtheory_t bv_explainer_get_subtheory(bv_explainer_t* exp, const ivector_t* 
   int kind_count[BV_KIND_COUNT] = { 0 };
   for (i = 0; i < conflict->size; i ++) {
     term_t t = variable_db_get_term(var_db, conflict->data[i]);
-    bv_explainer_count_subtheories(exp, t, kind_count);
+    bv_explainer_count_kinds(exp, t, kind_count);
   }
 
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
@@ -380,20 +380,14 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
   int_mset_destruct(&assigned_vars);
 }
 
-
-
-
-
 static
 void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
   exp->stats.th_eq_ext_con ++;
 
   plugin_context_t* ctx = exp->ctx;
-  FILE* out = ctx_trace_out(ctx);
 
   term_table_t* terms   = ctx->terms;
-  /* const variable_db_t* var_db = ctx->var_db; */
   term_manager_t* tm = &ctx->var_db->tm;
 
   // The output conflict always contains the conflict core:
@@ -404,17 +398,18 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
     ivector_push(conflict, value?t:opposite_term(t));
   }
 
-
   // Create the equality graph
   eq_graph_t eq_graph;
   eq_graph_construct(&eq_graph, exp->ctx, "mcsat::bv::conflict");
 
   // Do the slicing
-  slicing_t slicing;
-  bv_slicing_construct(ctx, conflict_core, &slicing, &eq_graph);
+  bv_slicing_t slicing;
+  bv_slicing_construct(&slicing, ctx, conflict_core, &eq_graph);
     
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict"))
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
     bv_slicing_print_slicing(&slicing, ctx->terms, out);
+  }
 
   // SMT'2017 paper
 
@@ -438,10 +433,9 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
   
   // Case 1: conflict in e-graph
-  if (eq_graph.in_conflict)  // Get conflict from e-graph
+  if (eq_graph.in_conflict) { // Get conflict from e-graph
     eq_graph_get_conflict(&eq_graph, &reasons, &reasons_types, NULL);
-
-  else { // e-graph not in conflict
+  } else { // e-graph not in conflict
 
     ivector_t interface_terms; // where we collect interface terms
     init_ivector(&interface_terms,0);
@@ -457,10 +451,11 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
         term_t lhs = p->lhs->slice_term;
         term_t rhs = p->rhs->slice_term;
 
-        if (eq_graph_are_equal(&eq_graph, lhs, rhs)){
+        if (eq_graph_are_equal(&eq_graph, lhs, rhs)) {
           // adding the reason why this disequality is false: TODO: check that reasons is not first cleared by the function
           eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
-          if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
+          if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+            FILE* out = ctx_trace_out(ctx);
             fprintf(out, "Looking at why disequality is false: ");
             for (uint32_t i = 0; i < reasons.size; i++) {
               if (i>0) fprintf(out,", ");
@@ -496,7 +491,6 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
       }
     }
     delete_ivector(&interface_terms);
-
   }
 
   assert(reasons.size == reasons_types.size);
@@ -517,7 +511,8 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   // Destructs slicing
   bv_slicing_slicing_destruct(&slicing);
 
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")){
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Returned conflict is: ");
     for (uint32_t i = 0; i < conflict->size; i++) {
       if (i>0) fprintf(out,", ");
