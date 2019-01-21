@@ -18,13 +18,37 @@ make MODE=debug test
 (tests end up in the build/*/bin directory)
 
 
-__yices_globals no longer starts out zeroed.
-
-There is some thread local stuff in the configure file.
 
 BD: do we want to make thread safety  an "option"
 
+BD: overhead of error_report vs new blocks?
 
 N.B.:
 
 yices_lock_free.h is a lock_free version of the api
+
+
+The following API functions are not thread safe. Norr should
+we attempt to make them so. It should be well documented.
+
+<non-thread-safe api routines>
+ void yices_init(void);
+ void yices_exit(void);
+ void yices_reset(void);
+</non-thread-safe api routines>
+
+Things like term verctors are not protected. You should not pass them from thread to thread
+unless you, qua user, protect them.
+
+
+problematic (assumming it is not the case that HAVE_TLS:
+
+<problematic>
+ error_report_t *yices_error_report(void);
+ error_report_t *yices_get_error_report(void);
+ error_code_t yices_error_code(void);
+ void yices_clear_error(void);
+ int32_t yices_print_error(FILE *f);
+ ...
+</problematic>
+
