@@ -3539,8 +3539,12 @@ term_t _o_yices_parse_float(const char *s) {
 /*
  * Add t1 and t2
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_add(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_add(t1, t2));
+}
+
+term_t _o_yices_add(term_t t1, term_t t2) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3561,8 +3565,12 @@ EXPORTED term_t yices_add(term_t t1, term_t t2) {
 /*
  * Subtract t2 from t1
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_sub(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_sub(t1, t2));
+}
+
+term_t _o_yices_sub(term_t t1, term_t t2) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3583,8 +3591,12 @@ EXPORTED term_t yices_sub(term_t t1, term_t t2) {
 /*
  * Negate t1
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_neg(term_t t1) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_neg(t1));
+}
+
+term_t _o_yices_neg(term_t t1) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3605,8 +3617,12 @@ EXPORTED term_t yices_neg(term_t t1) {
 /*
  * Multiply t1 and t2
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_mul(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_mul(t1, t2));
+}
+
+term_t _o_yices_mul(term_t t1, term_t t2) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3628,8 +3644,12 @@ EXPORTED term_t yices_mul(term_t t1, term_t t2) {
 /*
  * Compute the square of t1
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_square(term_t t1) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_square(t1));
+}
+
+term_t _o_yices_square(term_t t1) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3652,8 +3672,11 @@ EXPORTED term_t yices_square(term_t t1) {
 /*
  * Compute t1 ^ d
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_power(term_t t1, uint32_t d) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_power(t1, d));
+}
+
+term_t _o_yices_power(term_t t1, uint32_t d) {
   rba_buffer_t *b;
   term_table_t *tbl;
 
@@ -3675,8 +3698,12 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
 /*
  * Sum of n terms t[0] ... t[n-1]
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_sum(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_sum(n, t));
+}
+
+term_t _o_yices_sum(uint32_t n, const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3700,8 +3727,12 @@ EXPORTED term_t yices_sum(uint32_t n, const term_t t[]) {
 /*
  * Product of n terms t[0] ... t[n-1]
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_product(n, t));
+}
+
+term_t _o_yices_product(uint32_t n, const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3741,8 +3772,12 @@ EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
 /*
  * DIVISION
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_division(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_division(t1, t2));
+}
+
+term_t _o_yices_division(term_t t1, term_t t2) {
   if (! check_good_term(__yices_globals.manager, t1) ||
       ! check_good_term(__yices_globals.manager, t2) ||
       ! check_arith_term(__yices_globals.manager, t1) ||

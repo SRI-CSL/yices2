@@ -130,6 +130,29 @@ static term_t _o_yices_parse_float(const char *s);
  *  ARITHMETIC OPERATIONS  *
  **************************/
 
+static term_t _o_yices_add(term_t t1, term_t t2);
+
+static term_t _o_yices_sub(term_t t1, term_t t2);
+
+static term_t _o_yices_neg(term_t t1);
+
+static term_t _o_yices_mul(term_t t1, term_t t2);
+
+static term_t _o_yices_square(term_t t1);
+
+static term_t _o_yices_power(term_t t1, uint32_t d);
+
+static term_t _o_yices_sum(uint32_t n, const term_t t[]);
+
+static term_t _o_yices_product(uint32_t n, const term_t t[]);
+
+static term_t _o_yices_division(term_t t1, term_t t2);
+
+
+
+
+
+
 /***************************
  *  DIV/MOD AND RELATIVES  *
  **************************/
