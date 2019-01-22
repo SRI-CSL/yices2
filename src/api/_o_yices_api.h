@@ -390,6 +390,16 @@ static term_t _o_yices_bvslt_atom(term_t t1, term_t t2);
  *  PRETTY PRINTING  *
  ********************/
 
+static int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+
+static int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
+static int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
+
+static char *_o_yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+
+static char *_o_yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
 /*********************
  *  CHECKS ON TYPES  *
  ********************/

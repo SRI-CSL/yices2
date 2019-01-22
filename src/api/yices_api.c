@@ -6071,8 +6071,11 @@ term_t _o_yices_bvslt_atom(term_t t1, term_t t2) {
  * - f = output file to use
  * - width, height, offset = print area
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_type(f, tau, width, height, offset));
+}
+
+int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6131,8 +6134,11 @@ EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t h
  * - f = output file to use
  * - width, height, offset = print area
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term(f, t, width, height, offset));
+}
+
+int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6190,8 +6196,11 @@ EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t hei
  * - f = output file to use
  * - width, height, offset = print area
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term_array(f, n, a, width, height, offset, horiz));
+}
+
+int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6257,8 +6266,11 @@ EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], ui
 /*
  * Conversion to strings
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_type_to_string(tau, width, height, offset));
+}
+
+char *_o_yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
@@ -6287,8 +6299,11 @@ EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height,
   return str;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_term_to_string(t, width, height, offset));
+}
+
+char *_o_yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
