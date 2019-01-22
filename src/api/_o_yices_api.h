@@ -184,13 +184,34 @@ static term_t _o_yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]);
 static term_t _o_yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]);
 
 
-
-
-
-
 /**********************
  *  ARITHMETIC ATOMS  *
  *********************/
+
+static term_t _o_yices_arith_eq_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_neq_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_geq_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_lt_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_gt_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_leq_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_arith_eq0_atom(term_t t);
+
+static term_t _o_yices_arith_neq0_atom(term_t t);
+  
+static term_t _o_yices_arith_geq0_atom(term_t t);
+
+static term_t _o_yices_arith_leq0_atom(term_t t);
+
+static term_t _o_yices_arith_gt0_atom(term_t t);
+
+static term_t _o_yices_arith_lt0_atom(term_t t);
+
 
 /**************************
  *  BITVECTOR CONSTANTS   *

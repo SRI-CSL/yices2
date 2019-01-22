@@ -4094,48 +4094,66 @@ term_t _o_yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]) {
  *  ARITHMETIC ATOMS  *
  *********************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_eq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_eq_atom(t1, t2));
+}
+
+term_t _o_yices_arith_eq_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_arith_eq(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_neq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_neq_atom(t1, t2));
+}
+
+term_t _o_yices_arith_neq_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_arith_neq(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_geq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_geq_atom(t1, t2));
+}
+
+term_t _o_yices_arith_geq_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_arith_geq(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_lt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_lt_atom(t1, t2));
+}
+
+term_t _o_yices_arith_lt_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_arith_lt(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_gt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_gt_atom(t1, t2));
+}
+
+term_t _o_yices_arith_gt_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_arith_gt(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_leq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_leq_atom(t1, t2));
+}
+
+term_t _o_yices_arith_leq_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -4146,8 +4164,11 @@ EXPORTED term_t yices_arith_leq_atom(term_t t1, term_t t2) {
 /*
  * Comparison with zero
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_eq0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_eq0_atom(t));
+}
+
+term_t _o_yices_arith_eq0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -4155,8 +4176,11 @@ EXPORTED term_t yices_arith_eq0_atom(term_t t) {
   return mk_arith_term_eq0(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_neq0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_neq0_atom(t));
+}
+
+term_t _o_yices_arith_neq0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -4164,8 +4188,11 @@ EXPORTED term_t yices_arith_neq0_atom(term_t t) {
   return mk_arith_term_neq0(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_geq0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_geq0_atom(t));
+}
+
+term_t _o_yices_arith_geq0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -4173,8 +4200,11 @@ EXPORTED term_t yices_arith_geq0_atom(term_t t) {
   return mk_arith_term_geq0(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_leq0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_leq0_atom(t));
+}
+
+term_t _o_yices_arith_leq0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -4182,8 +4212,11 @@ EXPORTED term_t yices_arith_leq0_atom(term_t t) {
   return mk_arith_term_leq0(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_gt0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_gt0_atom(t));
+}
+
+term_t _o_yices_arith_gt0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -4191,8 +4224,11 @@ EXPORTED term_t yices_arith_gt0_atom(term_t t) {
   return mk_arith_term_gt0(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_arith_lt0_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_arith_lt0_atom(t));
+}
+
+term_t _o_yices_arith_lt0_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
