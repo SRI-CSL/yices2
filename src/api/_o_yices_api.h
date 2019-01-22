@@ -148,14 +148,25 @@ static term_t _o_yices_product(uint32_t n, const term_t t[]);
 
 static term_t _o_yices_division(term_t t1, term_t t2);
 
-
-
-
-
-
 /***************************
  *  DIV/MOD AND RELATIVES  *
  **************************/
+
+static term_t _o_yices_idiv(term_t t1, term_t t2);
+
+static term_t _o_yices_imod(term_t t1, term_t t2);
+
+static term_t _o_yices_divides_atom(term_t t1, term_t t2);
+
+static term_t _o_yices_is_int_atom(term_t t);
+
+static term_t _o_yices_abs(term_t t);
+
+static term_t _o_yices_floor(term_t t);
+
+static term_t _o_yices_ceil(term_t t);
+
+
 
 /*******************
  *   POLYNOMIALS   *

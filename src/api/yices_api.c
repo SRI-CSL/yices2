@@ -3794,8 +3794,11 @@ term_t _o_yices_division(term_t t1, term_t t2) {
  *  DIV/MOD AND RELATIVES  *
  **************************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_idiv(t1, t2));
+}
+
+term_t _o_yices_idiv(term_t t1, term_t t2) {
   if (! check_good_term(__yices_globals.manager, t1) ||
       ! check_good_term(__yices_globals.manager, t2) ||
       ! check_arith_term(__yices_globals.manager, t1) ||
@@ -3806,8 +3809,12 @@ EXPORTED term_t yices_idiv(term_t t1, term_t t2) {
   return mk_arith_idiv(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_imod(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_imod(t1, t2));
+}
+
+term_t _o_yices_imod(term_t t1, term_t t2) {
   if (! check_good_term(__yices_globals.manager, t1) ||
       ! check_good_term(__yices_globals.manager, t2) ||
       ! check_arith_term(__yices_globals.manager, t1) ||
@@ -3821,8 +3828,12 @@ EXPORTED term_t yices_imod(term_t t1, term_t t2) {
 /*
  * Divisibility test: check whether t1 divides t2
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_divides_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_divides_atom(t1, t2));
+}
+
+term_t _o_yices_divides_atom(term_t t1, term_t t2) {
   if (! check_good_term(__yices_globals.manager, t1) ||
       ! check_good_term(__yices_globals.manager, t2) ||
       ! check_arith_constant(__yices_globals.manager, t1) ||
@@ -3836,8 +3847,11 @@ EXPORTED term_t yices_divides_atom(term_t t1, term_t t2) {
 /*
  * Integer test
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_is_int_atom(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_is_int_atom(t));
+}
+
+term_t _o_yices_is_int_atom(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -3850,8 +3864,11 @@ EXPORTED term_t yices_is_int_atom(term_t t) {
 /*
  * ABS/FLOOR/CEIL
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_abs(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_abs(t));
+}
+
+term_t _o_yices_abs(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -3860,8 +3877,11 @@ EXPORTED term_t yices_abs(term_t t) {
   return mk_arith_abs(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_floor(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_floor(t));
+}
+
+term_t _o_yices_floor(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
@@ -3870,8 +3890,11 @@ EXPORTED term_t yices_floor(term_t t) {
   return mk_arith_floor(__yices_globals.manager, t);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_ceil(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_ceil(t));
+}
+
+term_t _o_yices_ceil(term_t t) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_arith_term(__yices_globals.manager, t)) {
     return NULL_TERM;
