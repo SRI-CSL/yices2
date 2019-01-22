@@ -404,6 +404,38 @@ static char *_o_yices_term_to_string(term_t t, uint32_t width, uint32_t height, 
  *  CHECKS ON TYPES  *
  ********************/
 
+static int32_t _o_yices_type_is_bool(type_t tau);
+
+static int32_t _o_yices_type_is_int(type_t tau);
+
+static int32_t _o_yices_type_is_real(type_t tau);
+
+static int32_t _o_yices_type_is_arithmetic(type_t tau);
+
+static int32_t _o_yices_type_is_bitvector(type_t tau);
+
+static int32_t _o_yices_type_is_tuple(type_t tau);
+
+static int32_t _o_yices_type_is_function(type_t tau);
+
+static int32_t _o_yices_type_is_scalar(type_t tau);
+
+static int32_t _o_yices_type_is_uninterpreted(type_t tau);
+
+static int32_t _o_yices_test_subtype(type_t tau, type_t sigma);
+
+static int32_t _o_yices_compatible_types(type_t tau, type_t sigma);
+
+static uint32_t _o_yices_bvtype_size(type_t tau);
+
+static uint32_t _o_yices_scalar_type_card(type_t tau);
+
+static int32_t _o_yices_type_num_children(type_t tau);
+
+static type_t _o_yices_type_child(type_t tau, int32_t i);
+
+static int32_t _o_yices_type_children(type_t tau, type_vector_t *v);
+
 /***********************
  *  TERM EXPLORATION   *
  **********************/

@@ -6354,48 +6354,75 @@ EXPORTED void yices_free_string(char *s) {
  *   code = INVALID_TYPE
  *   type1 = tau
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_bool(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_bool(tau));
+}
+
+int32_t _o_yices_type_is_bool(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_boolean_type(tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_int(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_int(tau));
+}
+
+int32_t _o_yices_type_is_int(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_integer_type(tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_real(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_real(tau));
+}
+
+int32_t _o_yices_type_is_real(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_real_type(tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_arithmetic(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_arithmetic(tau));
+}
+
+int32_t _o_yices_type_is_arithmetic(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_arithmetic_type(tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_bitvector(tau));
+}
+
+int32_t _o_yices_type_is_bitvector(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_bv_type(__yices_globals.types, tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_tuple(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_tuple(tau));
+}
+
+int32_t _o_yices_type_is_tuple(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_tuple_type(__yices_globals.types, tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_function(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_function(tau));
+}
+
+int32_t _o_yices_type_is_function(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_function_type(__yices_globals.types, tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_scalar(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_scalar(tau));
+}
+
+int32_t _o_yices_type_is_scalar(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_scalar_type(__yices_globals.types, tau);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_uninterpreted(tau));
+}
+
+int32_t _o_yices_type_is_uninterpreted(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_uninterpreted_type(__yices_globals.types, tau);
 }
 
@@ -6409,8 +6436,11 @@ EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
  *   code = INVALID_TYPE
  *   type1 = tau or sigma
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_test_subtype(tau, sigma));
+}
+
+int32_t _o_yices_test_subtype(type_t tau, type_t sigma) {
   return check_good_type(__yices_globals.types, tau) && check_good_type(__yices_globals.types, sigma) && is_subtype(__yices_globals.types, tau, sigma);
 }
 
@@ -6424,8 +6454,11 @@ EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
  *   code = INVALID_TYPE
  *   type1 = tau or sigma
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_compatible_types(type_t tau, type_t sigma) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_compatible_types(tau, sigma));
+}
+
+int32_t _o_yices_compatible_types(type_t tau, type_t sigma) {
   return check_good_type(__yices_globals.types, tau) && check_good_type(__yices_globals.types, sigma)
     && compatible_types(__yices_globals.types, tau, sigma);
 }
@@ -6443,8 +6476,11 @@ EXPORTED int32_t yices_compatible_types(type_t tau, type_t sigma) {
  *    code = BVTYPE_REQUIRED
  *    type1 = tau
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_bvtype_size(type_t tau) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_bvtype_size(tau));
+}
+
+uint32_t _o_yices_bvtype_size(type_t tau) {
   if (! check_good_type(__yices_globals.types, tau) ||
       ! check_bvtype(__yices_globals.types, tau)) {
     return 0;
@@ -6457,8 +6493,11 @@ EXPORTED uint32_t yices_bvtype_size(type_t tau) {
  * Cardinality of a scalar type
  * - return 0 if there's an error
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_scalar_type_card(tau));
+}
+
+uint32_t _o_yices_scalar_type_card(type_t tau) {
   if (! check_good_type(__yices_globals.types, tau) ||
       ! check_scalar_type(__yices_globals.types, tau)) {
     return 0;
@@ -6480,8 +6519,11 @@ EXPORTED uint32_t yices_scalar_type_card(type_t tau) {
  *   code = INVALID_TYPE
  *   type1 = tau
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_num_children(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_num_children(tau));
+}
+
+int32_t _o_yices_type_num_children(type_t tau) {
   int32_t n;
 
   if (! check_good_type(__yices_globals.types, tau)) {
@@ -6505,8 +6547,11 @@ EXPORTED int32_t yices_type_num_children(type_t tau) {
  * Get the i-th child of type tau
  * - return NULL_TYPE if there's an error
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
+  MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_type_child(tau, i));
+}
+
+type_t _o_yices_type_child(type_t tau, int32_t i) {
   tuple_type_t *tup;
   function_type_t *fun;
 
@@ -6542,8 +6587,11 @@ EXPORTED type_t yices_type_child(type_t tau, int32_t i) {
  * Collect all the children in vector *v
  * - returns -1 for error, 0 if all fine.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_type_children(type_t tau, type_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_children(tau, v));
+}
+
+int32_t _o_yices_type_children(type_t tau, type_vector_t *v) {
   tuple_type_t *tup;
   function_type_t *fun;
   uint32_t i, n;
