@@ -4805,8 +4805,11 @@ static term_t mk_bvsum(uint32_t n, const term_t t[]) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsum(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsum(n,t));
+}
+
+term_t _o_yices_bvsum(uint32_t n, const term_t t[]) {
   if (! check_positive(n) ||
       ! check_good_terms(__yices_globals.manager, n, t) ||
       ! check_bitvector_args(__yices_globals.manager, n, t) ||
@@ -4852,8 +4855,11 @@ static term_t mk_bvproduct(uint32_t n, const term_t t[]) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvproduct(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvproduct(n,t));
+}
+
+term_t _o_yices_bvproduct(uint32_t n, const term_t t[]) {
   uint32_t i;
 
   if (! check_positive(n) ||

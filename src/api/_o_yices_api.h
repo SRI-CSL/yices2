@@ -260,6 +260,10 @@ static term_t _o_yices_bvpower(term_t t1, uint32_t d);
  *  N-ARY BIT-VECTOR SUMS/PRODUCTS  *
  ***********************************/
 
+static term_t _o_yices_bvsum(uint32_t n, const term_t t[]);
+
+static term_t _o_yices_bvproduct(uint32_t n, const term_t t[]);
+
 /***********************************
  *  BITWISE BIT-VECTOR OPERATIONS  *
  **********************************/
