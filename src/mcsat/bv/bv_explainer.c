@@ -71,12 +71,14 @@ bool bv_kinds_match(const int* kind_counts, const int* kind_template) {
   return true;
 }
 
-void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm) {
+void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
   exp->ctx = ctx;
   exp->tm = &ctx->var_db->tm;
   exp->wlm = wlm;
+  exp->eval = eval;
 
   init_int_hset(&exp->visited_cache, 0);
+  init_ivector(&exp->tmp_conflict_vec, 0);
 
   exp->stats.th_eq = statistics_new_int(exp->ctx->stats, "mcsat::bv::conflicts_eq");
   exp->stats.th_eq_ext_con = statistics_new_int(exp->ctx->stats, "mcsat::bv::conflict_eq_ext_con");
@@ -85,6 +87,7 @@ void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_li
 
 void bv_explainer_destruct(bv_explainer_t* exp) {
   delete_int_hset(&exp->visited_cache);
+  delete_ivector(&exp->tmp_conflict_vec);
 }
 
 static
@@ -523,6 +526,72 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
 
 }
 
+/**
+ * Normalize the conflict for the following cases
+ * - Boolean equalities (must evaluate to true)
+ */
+void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_out) {
+  uint32_t i;
+
+  term_table_t* terms = exp->ctx->terms;
+  const variable_db_t* var_db = exp->ctx->var_db;
+  const mcsat_trail_t* trail = exp->ctx->trail;
+
+  ivector_reset(&exp->tmp_conflict_vec);
+
+  for (i = 0; i < conflict_out->size; ++ i) {
+    term_t literal = conflict_out->data[i];
+    term_kind_t literal_kind = term_kind(terms, literal);
+
+    if (literal_kind == EQ_TERM) {
+      term_t literal_pos = unsigned_term(literal);
+      variable_t literal_var = variable_db_get_variable_if_exists(var_db, literal_pos);
+
+      // Literal evaluates to true?
+      bool evaluates_to_true = literal_var != variable_null &&
+          trail_has_value(trail, literal_var) &&
+          trail_get_value(trail, literal_var)->b;
+
+      if (evaluates_to_true) {
+        // Evaluates to true, good conflict
+        ivector_push(&exp->tmp_conflict_vec, literal);
+      } else {
+        // The individual terms must evaluate to true
+        composite_term_t* eq_desc = eq_term_desc(terms, literal_pos);
+        term_t lhs = eq_desc->arg[0];
+        term_t rhs = eq_desc->arg[1];
+        if (is_boolean_term(terms, lhs)) {
+          // Negate lhs if false
+          uint32_t lhs_eval_level = 0;
+          const mcsat_value_t* lhs_value = bv_evaluator_evaluate_term(exp->eval, lhs, &lhs_eval_level);
+          assert(lhs_value->type == VALUE_BOOLEAN);
+          if (!lhs_value->b) {
+            lhs = opposite_term(lhs);
+          }
+          // Negate rhs if false
+          uint32_t rhs_eval_level = 0;
+          const mcsat_value_t* rhs_value = bv_evaluator_evaluate_term(exp->eval, rhs, &rhs_eval_level);
+          assert(rhs_value->type == VALUE_BOOLEAN);
+          if (!rhs_value->b) {
+            rhs = opposite_term(rhs);
+          }
+          // Add the literals to the explanations
+          ivector_push(&exp->tmp_conflict_vec, lhs);
+          ivector_push(&exp->tmp_conflict_vec, rhs);
+        } else {
+          // Not a Boolean equality, just keep it
+          ivector_push(&exp->tmp_conflict_vec, literal);
+        }
+      }
+    } else {
+      ivector_push(&exp->tmp_conflict_vec, literal);
+    }
+  }
+
+  ivector_swap(conflict_out, &exp->tmp_conflict_vec);
+  ivector_reset(&exp->tmp_conflict_vec);
+}
+
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
   bv_subtheory_t subtheory = bv_explainer_get_subtheory(exp, conflict_in);
@@ -531,6 +600,7 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     fprintf(out, "subtheory %s\n", subtheory_to_string(subtheory));
   }
 
+  // Get the appropriate conflict
   switch (subtheory) {
   case BV_TH_EQ:
     bv_explainer_get_conflict_eq(exp, conflict_in, conflict_var, conflict_out);
@@ -544,6 +614,9 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
   default:
     assert(false);
   }
+
+  // Normalize conflict
+  bv_explainer_normalize_conflict(exp, conflict_out);
 }
 
 

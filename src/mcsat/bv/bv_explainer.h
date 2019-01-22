@@ -10,6 +10,7 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/statistics.h"
+#include "bv_evaluator.h"
 
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
@@ -46,9 +47,14 @@ typedef struct {
   term_manager_t* tm;
   /** Watch list manager */
   watch_list_manager_t* wlm;
+  /** Bitvector evaluator */
+  bv_evaluator_t* eval;
 
   /** Cache when visiting terms */
   int_hset_t visited_cache;
+
+  /** Temp vector for conflit normalization */
+  ivector_t tmp_conflict_vec;
 
   struct {
     statistic_int_t* th_eq;
@@ -59,7 +65,7 @@ typedef struct {
 } bv_explainer_t;
 
 /** Construct the explainer */
-void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm);
+void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval);
 
 /** Destruct the explainer */
 void bv_explainer_destruct(bv_explainer_t* exp);
@@ -74,6 +80,6 @@ bv_subtheory_t bv_explainer_get_subtheory(bv_explainer_t* exp, const ivector_t* 
  * Returns the conflict as explained by the given sub-theory.
  * @param conflict_in input conflict (mcsat variables)
  * @param conflict_var the top variable of the conflict
- * @param conflict_out outut explanation (terms)
+ * @param conflict_out output explanation (terms)
  */
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out);

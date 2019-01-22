@@ -55,4 +55,11 @@ void bv_evaluator_destruct(bv_evaluator_t* evaluator);
  * the cstr_eval_level to the lowest level where the constraint still
  * evaluates.
  */
-const mcsat_value_t* bv_evaluator_run(bv_evaluator_t* evaluator, variable_t cstr, uint32_t* cstr_eval_level);
+const mcsat_value_t* bv_evaluator_evaluate_var(bv_evaluator_t* evaluator, variable_t cstr, uint32_t* cstr_eval_level);
+
+/**
+ * Evaluate a BV constraint (atom), return the value (true/false) and set
+ * the cstr_eval_level to the lowest level where the constraint still
+ * evaluates.
+ */
+const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_t cstr, uint32_t* cstr_eval_level);

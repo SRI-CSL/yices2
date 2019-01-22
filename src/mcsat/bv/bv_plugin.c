@@ -116,7 +116,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   bv_evaluator_construct(&bv->evaluator, ctx);
 
-  bv_explainer_construct(&bv->explainer, ctx, &bv->wlm);
+  bv_explainer_construct(&bv->explainer, ctx, &bv->wlm, &bv->evaluator);
 
   init_ivector(&bv->processed_variables, 0);
   bv->processed_variables_size = 0;
@@ -511,7 +511,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   if (x == cstr) {
     // Compute value of the constraint and the level
     uint32_t cstr_eval_level = 0;
-    const mcsat_value_t* cstr_value = bv_evaluator_run(&bv->evaluator, cstr, &cstr_eval_level);
+    const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
     if (!trail_has_value(trail, cstr)) {
       // Unassigned, propagate the value
       prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
@@ -776,7 +776,7 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
         bv_plugin_set_unit_info(bv, cstr, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         if (cstr_vars[0] == cstr) {
           uint32_t cstr_eval_level = 0;
-          const mcsat_value_t* cstr_value = bv_evaluator_run(&bv->evaluator, cstr, &cstr_eval_level);
+          const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
           if (!trail_has_value(trail, cstr)) {
             //should not happen? cstr == ctr_vars[0], which has a value as bv_plugin_has_assignment(bv, cstr_vars[0]) is true
             assert(false);
