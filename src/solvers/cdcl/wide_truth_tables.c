@@ -140,7 +140,7 @@ static void expand_ttbl(uint8_t *a, const ttbl_t *ttbl) {
  *               
  */
 static inline uint32_t remove_bit(uint32_t i, uint32_t mask) {
-  return (i & mask) | ((i & ~mask) >> 1);
+  return (i & mask) | ((i >> 1) & ~mask);
 }
 
 static inline uint32_t insert_bit(uint32_t i, uint32_t mask, uint32_t b) {

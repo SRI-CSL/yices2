@@ -23,6 +23,7 @@
 
 #include "solvers/cdcl/truth_tables.h"
 #include "solvers/cdcl/wide_truth_tables.h"
+#include "utils/int_vectors.h"
 
 
 /*
@@ -106,16 +107,18 @@ static int32_t var_index_in_array(int32_t x, const int32_t *a, uint32_t n) {
   return -1;
 }
 
+
 /*
  * Evaluate ttbl at a point defined by var[i] = val[i]
- * - var[0], var[1], var[3] are three distinct variables
+ * - var[] = array of n variables
+ * - val[] = array of n values for these variables
  */
-static uint32_t eval_ttbl(const ttbl_t *ttbl, const int32_t var[3], const uint8_t val[3]) {
+static uint32_t eval_ttbl(const ttbl_t *ttbl, uint32_t n, const int32_t *var, const uint8_t *val) {
   uint32_t k, i;
   int32_t idx;
 
   i = 0;
-  for (k=0; k<3; k++) {    
+  for (k=0; k<n; k++) {
     idx = var_index_in_array(var[k], ttbl->label, ttbl->nvars);
     if (idx >= 0 && val[k] == 1) {
       assert(0 <= idx && idx <= 2);
@@ -213,7 +216,7 @@ static void validate_import(const wide_ttbl_t *table, const ttbl_t *ttbl, const 
   for (i=0; i<8; i++) {
     printf("checking: ");
     show_val_array(val, 3);
-    a = eval_ttbl(ttbl, var, val);
+    a = eval_ttbl(ttbl, 3, var, val);
     b = eval_table(table, 3, var, val);
     if (a != b) {
       fprintf(stderr, "*** BUG: bad import ***\n");
@@ -225,6 +228,103 @@ static void validate_import(const wide_ttbl_t *table, const ttbl_t *ttbl, const 
     next_val_array(val, 3);
   }
 }
+
+
+/*
+ * Copy vars of a into vector v. Skip the i-th variable.
+ * - n = size of a
+ */
+static void collect_vars(ivector_t *v, const int32_t *a, uint32_t n, uint32_t i) {
+  uint32_t j, k;
+
+  k = 0;
+  for (j=0; j<n; j++) {
+    if (j != i) ivector_push(v, a[j]);
+  }
+}
+
+/*
+ * Check whether x is present in vector v
+ */
+static bool var_is_present(const ivector_t *v, int32_t x) {
+  return var_index_in_array(x, v->data, v->size) >= 0;
+}
+
+/*
+ * Append variables of a to vector v. Skip duplicaes
+ */
+static void append_vars(ivector_t *v, const int32_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (!var_is_present(v, a[i])) {
+      ivector_push(v, a[i]);
+    }
+  }
+}
+
+/*
+ * Copy values for composition:
+ * - val[j] = v0[j] if 0 < j < i
+ * - val[i] = b
+ * - val[j+1] = v0[j] if i <= j < n
+ */
+static void compose_values(uint8_t *val, const uint8_t *v0, uint32_t n, uint32_t i, uint32_t b) {
+  uint32_t j;
+
+  assert(b == 0 || b == 1);
+  assert(i <= n);
+
+  for (j=0; j<i; j++) {
+    val[j] = v0[j];
+  }
+  val[i] = b;
+  for (j=i; j<n; j++) {
+    val[j+1] = v0[j];
+  }
+}
+
+/*
+ * Check that table is the composition of table0 and ttbl
+ */
+static void validate_merge(const wide_ttbl_t *table, const wide_ttbl_t *table0, const ttbl_t *ttbl, uint32_t i) {
+  ivector_t v;
+  uint8_t val[16];
+  uint8_t aux[16];
+  uint32_t j, n, p, a, b, c;
+
+  init_ivector(&v, 10);
+  collect_vars(&v, table0->var, table0->nvars, i);
+  append_vars(&v, ttbl->label, ttbl->nvars);
+
+  n = v.size;
+
+  assert(n < 16);
+
+  p = ((uint32_t) 1) << n;
+
+  init_val_array(val, n);
+  for (j=0; j<p; j++) {
+    printf("checking: ");
+    show_val_array(val, n);
+    a = eval_table(table, n, v.data, val);
+    b = eval_ttbl(ttbl, n, v.data, val);
+    compose_values(aux, val, table0->nvars - 1, i, b);
+    c = eval_table(table0, table0->nvars, table0->var, aux);
+    if (a != c) {
+      fprintf(stderr, "*** BUG: bad merge ***\n");
+      fprintf(stderr, "value for table = %"PRIu32"\n", a);
+      fprintf(stderr, "value for  ttbl = %"PRIu32"\n", b);
+      fprintf(stderr, "value for comp  = %"PRIu32"\n", c);
+      exit(1);
+    }
+    printf(" --> %"PRIu32"\n", a);
+    next_val_array(val, n);
+  }
+
+  delete_ivector(&v);
+}
+
 
 
 static void import(wide_ttbl_t *test, uint32_t f, int32_t var[3]) {
@@ -255,9 +355,9 @@ static void test_merge(wide_ttbl_t *test, uint32_t f, int32_t var[3]) {
       exit(1);
     }
     print_table(&result);
-    printf("\n");
+    validate_merge(&result, test, &ttbl, i);
+    printf("\n");    
   }
-  printf("====\n");
 
   delete_wide_ttbl(&result);
 }
@@ -291,11 +391,28 @@ int main(void) {
 
   v[0] = 2; v[1] = 4; v[2] = 5;
   import(&test, 0x2d, v);
+
+  u[0] = 6; u[1] = 7; u[2] = 8;
+  for (i=0; i<256; i++) {
+    test_merge(&test, i, u);
+  }
+  u[0] = 4; u[1] = 6; u[2] = 7;
+  for (i=0; i<256; i++) {
+    test_merge(&test, i, u);
+  }
+  u[0] = 3; u[1] = 6; u[2] = 7;
+  for (i=0; i<256; i++) {
+    test_merge(&test, i, u);
+  }
   u[0] = 1; u[1] = 3; u[2] = 6;
   for (i=0; i<256; i++) {
     test_merge(&test, i, u);
   }
   u[0] = 1; u[1] = 3; u[2] = 4;
+  for (i=0; i<256; i++) {
+    test_merge(&test, i, u);
+  }
+  u[0] = 1; u[1] = 4; u[2] = 5;
   for (i=0; i<256; i++) {
     test_merge(&test, i, u);
   }
