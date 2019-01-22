@@ -780,7 +780,7 @@ bool eq_graph_are_equal(const eq_graph_t* eq, term_t t1, term_t t2){
   eq_node_id_t t_id2 = eq_graph_term_id(eq, t2);
   const eq_node_t* n1 = eq_graph_get_node_const(eq, t_id1);
   const eq_node_t* n2 = eq_graph_get_node_const(eq, t_id2);
-  return (n1->find == n2->find); // TODO: Why would the find be already computed? Is find implemented eagerly???
+  return (n1->find == n2->find);
 }
 
 bool eq_graph_term_has_value(const eq_graph_t* eq, term_t t){
