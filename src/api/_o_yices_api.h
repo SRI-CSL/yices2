@@ -244,6 +244,18 @@ static term_t _o_yices_parse_bvhex(const char *s);
  *  BIT-VECTOR ARITHMETIC  *
  ***************************/
 
+static term_t _o_yices_bvadd(term_t t1, term_t t2);
+
+static term_t _o_yices_bvsub(term_t t1, term_t t2);
+
+static term_t _o_yices_bvneg(term_t t1);
+
+static term_t _o_yices_bvmul(term_t t1, term_t t2);
+
+static term_t _o_yices_bvsquare(term_t t1);
+
+static term_t _o_yices_bvpower(term_t t1, uint32_t d);
+
 /************************************
  *  N-ARY BIT-VECTOR SUMS/PRODUCTS  *
  ***********************************/

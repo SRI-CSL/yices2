@@ -4490,10 +4490,6 @@ term_t _o_yices_parse_bvhex(const char *s) {
 
 
 
-
-
-
-
 /***************************
  *  BIT-VECTOR ARITHMETIC  *
  ***************************/
@@ -4527,8 +4523,11 @@ static term_t mk_bvadd(term_t t1, term_t t2) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvadd(t1, t2));
+}
+
+term_t _o_yices_bvadd(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -4565,8 +4564,11 @@ static term_t mk_bvsub(term_t t1, term_t t2) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsub(t1, t2));
+}
+
+term_t _o_yices_bvsub(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -4603,8 +4605,11 @@ static term_t mk_bvneg(term_t t1) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvneg(term_t t1) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvneg(t1));
+}
+
+term_t _o_yices_bvneg(term_t t1) {
   if (! check_good_term(__yices_globals.manager, t1) ||
       ! check_bitvector_term(__yices_globals.manager, t1)) {
     return NULL_TERM;
@@ -4642,8 +4647,11 @@ static term_t mk_bvmul(term_t t1, term_t t2) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvmul(t1, t2));
+}
+
+term_t _o_yices_bvmul(term_t t1, term_t t2) {
   /*
    * check_product_degree may overestimate the degree of the product
    * (since the product of the coefficients of the leading terms in t1
@@ -4687,8 +4695,11 @@ static term_t mk_bvsquare(term_t t1) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsquare(term_t t1) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsquare(t1));
+}
+
+term_t _o_yices_bvsquare(term_t t1) {
   /*
    * check_square_degree may overestimate the degree of the product
    * but we ignore this issue for now. (cf. yices_bvmul)
@@ -4737,8 +4748,11 @@ static term_t mk_bvpower(term_t t1, uint32_t d) {
   return mk_bvarith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvpower(t1, d));
+}
+
+term_t _o_yices_bvpower(term_t t1, uint32_t d) {
   /*
    * check_power_degree may overestimate the degree of (t1^d)
    * but we ignore this for now (cf. yices_bvmul).
