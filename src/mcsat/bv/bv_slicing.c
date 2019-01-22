@@ -473,7 +473,7 @@ void bv_slicing_slicing_destruct(bv_slicing_t* slicing) {
 
   delete_ptr_hmap(&slicing->slices);
 
-  for (uint32_t i = 0; i <= slicing->nconstraints; i++) {
+  for (uint32_t i = 0; i < slicing->nconstraints; i++) {
     bv_slicing_spdelete(slicing->constraints[i], true);
   }
 
@@ -648,8 +648,9 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
   // Now we know how many constraints we have, so we can allocate them in the result
   slicing->nconstraints = next_disjunction;
   slicing->constraints = safe_malloc(sizeof(splist_t*) * next_disjunction);
-  for (uint32_t i = 0; i <= slicing->nconstraints; i++)
+  for (uint32_t i = 0; i < slicing->nconstraints; i++) {
     slicing->constraints[i] = NULL;
+  }
 
   /* fprintf(out, "Finished treating core constraints, giving slicing:\n"); */
   /* bv_slicing_print_slicing(slicing_out, terms, out); */
