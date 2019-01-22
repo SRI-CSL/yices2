@@ -50,5 +50,13 @@ problematic (assumming it is not the case that HAVE_TLS:
  void yices_clear_error(void);
  int32_t yices_print_error(FILE *f);
  ...
-</problematic>
 
+
+/***********************************
+ *  EXTENSIONS: TERM CONSTRUCTORS  *
+ **********************************/
+
+/*******************************************
+ *  EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
+ ******************************************/
+</problematic>

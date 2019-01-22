@@ -109,6 +109,138 @@ static term_t _o_yices_lambda(uint32_t n, const term_t var[], term_t body);
 /*************************
  *  RATIONAL CONSTANTS   *
  ************************/
-  
+
+static term_t _o_yices_int32(int32_t val);
+
+static term_t _o_yices_int64(int64_t val);
+
+static term_t _o_yices_rational32(int32_t num, uint32_t den);
+
+static term_t _o_yices_rational64(int64_t num, uint64_t den);
+
+static term_t _o_yices_mpz(const mpz_t z);
+
+static term_t _o_yices_mpq(const mpq_t q);
+
+static term_t _o_yices_parse_rational(const char *s);
+
+static term_t _o_yices_parse_float(const char *s);
+
+/***************************
+ *  ARITHMETIC OPERATIONS  *
+ **************************/
+
+/***************************
+ *  DIV/MOD AND RELATIVES  *
+ **************************/
+
+/*******************
+ *   POLYNOMIALS   *
+ ******************/
+
+/**********************
+ *  ARITHMETIC ATOMS  *
+ *********************/
+
+/**************************
+ *  BITVECTOR CONSTANTS   *
+ *************************/
+
+/***************************
+ *  BIT-VECTOR ARITHMETIC  *
+ ***************************/
+
+/************************************
+ *  N-ARY BIT-VECTOR SUMS/PRODUCTS  *
+ ***********************************/
+
+/***********************************
+ *  BITWISE BIT-VECTOR OPERATIONS  *
+ **********************************/
+
+/************************************
+ *  ASSOCIATIVE BITWISE OPERATIONS  *
+ ***********************************/
+
+/*********************************************
+ *   BITVECTOR SHIFT/ROTATION BY A CONSTANT  *
+ ********************************************/
+
+/****************************************
+ *  BITVECTOR EXTRACTION/CONCATENATION  *
+ ***************************************/
+
+/*******************************
+ *  GENERIC BIT-VECTOR SHIFTS  *
+ *****************************/
+
+/**********************************
+ *  BITVECTOR DIVISION OPERATORS  *
+ *********************************/
+
+/*********************
+ *  BITVECTOR ATOMS  *
+ ********************/
+
+/*********************
+ *  PRETTY PRINTING  *
+ ********************/
+
+/*********************
+ *  CHECKS ON TYPES  *
+ ********************/
+
+/***********************
+ *  TERM EXPLORATION   *
+ **********************/
+
+
+/************************
+ *  TERM SUBSTITUTION   *
+ ***********************/
+
+
+/**************
+ *  PARSING   *
+ *************/
+
+
+/****************************
+ *  CONTEXT CONFIGURATIONS  *
+ ***************************/
+
+/*******************************************
+ *  SIMPLIFICATION/PREPROCESSING OPTIONS   *
+ ******************************************/
+
+/*************************************
+ *  SEARCH PARAMETER CONFIGURATIONS  *
+ ************************************/
+
+/****************
+ *  UNSAT CORE  *
+ ***************/
+
+/************
+ *  MODELS  *
+ ***********/
+
+/************************
+ *  VALUES IN A MODEL   *
+ ***********************/
+
+/*
+ * VALUES AS CONSTANT TERMS
+ */
+
+/*
+ * MODEL GENERALIZATION
+ */
+
+/*************************
+ *  GARBAGE COLLECTION   *
+ ************************/
+
+
 
 #endif /* ___O_YICES_API_H */
