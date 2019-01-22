@@ -4900,8 +4900,12 @@ term_t _o_yices_bvproduct(uint32_t n, const term_t t[]) {
  *  BITWISE BIT-VECTOR OPERATIONS  *
  **********************************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_bvnot(term_t t1) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvnot(t1));
+}
+
+term_t _o_yices_bvnot(term_t t1) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -4920,8 +4924,11 @@ EXPORTED term_t yices_bvnot(term_t t1) {
 
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvnand(t1, t2));
+}
+
+term_t _o_yices_bvnand(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -4938,8 +4945,11 @@ EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvnor(t1, t2));
+}
+
+term_t _o_yices_bvnor(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -4956,8 +4966,11 @@ EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvxnor(t1, t2));
+}
+
+term_t _o_yices_bvxnor(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -4979,8 +4992,11 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
  *  ASSOCIATIVE BITWISE OPERATIONS  *
  ***********************************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvand(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvand(n, t));
+}
+
+term_t _o_yices_bvand(uint32_t n, const term_t t[]) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -5002,8 +5018,11 @@ EXPORTED term_t yices_bvand(uint32_t n, const term_t t[]) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvor(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvor(n, t));
+}
+
+term_t _o_yices_bvor(uint32_t n, const term_t t[]) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -5025,8 +5044,11 @@ EXPORTED term_t yices_bvor(uint32_t n, const term_t t[]) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvxor(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvxor(n, t));
+}
+
+term_t _o_yices_bvxor(uint32_t n, const term_t t[]) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -5049,8 +5071,11 @@ EXPORTED term_t yices_bvxor(uint32_t n, const term_t t[]) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvand2(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvand2(t1, t2));
+}
+
+term_t _o_yices_bvand2(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5066,8 +5091,11 @@ EXPORTED term_t yices_bvand2(term_t t1, term_t t2) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvor2(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvor2(t1, t2));
+}
+
+term_t _o_yices_bvor2(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5083,8 +5111,11 @@ EXPORTED term_t yices_bvor2(term_t t1, term_t t2) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvxor2(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvxor2(t1,t2));
+}
+
+term_t _o_yices_bvxor2(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5163,8 +5194,11 @@ EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
  *   code = INVALID_BITSHIFT
  *   badval = n
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_shift_left0(t, n));
+}
+
+term_t _o_yices_shift_left0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5183,8 +5217,11 @@ EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_shift_left1(t, n));
+}
+
+term_t _o_yices_shift_left1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5203,8 +5240,11 @@ EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_shift_right0(t, n));
+}
+
+term_t _o_yices_shift_right0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5223,8 +5263,11 @@ EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_shift_right1(t, n));
+}
+
+term_t _o_yices_shift_right1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5243,8 +5286,11 @@ EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_ashift_right(t, n));
+}
+
+term_t _o_yices_ashift_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5263,8 +5309,11 @@ EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_rotate_left(t, n));
+}
+
+term_t _o_yices_rotate_left(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5285,8 +5334,11 @@ EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_rotate_right(t, n));
+}
+
+term_t _o_yices_rotate_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5331,8 +5383,11 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
  * if 0 <= i <= j <= m-1 does not hold
  *   code = INVALID_BVEXTRACT
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvextract(t, i, j));
+}
+
+term_t _o_yices_bvextract(term_t t, uint32_t i, uint32_t j) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint32_t n;
@@ -5375,8 +5430,11 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconcat2(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconcat2(t1, t2));
+}
+
+term_t _o_yices_bvconcat2(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5401,8 +5459,11 @@ EXPORTED term_t yices_bvconcat2(term_t t1, term_t t2) {
 /*
  * Generic form
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconcat(uint32_t n, const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconcat(n, t));
+}
+
+term_t _o_yices_bvconcat(uint32_t n, const term_t t[]) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t bvsize;
@@ -5458,8 +5519,11 @@ EXPORTED term_t yices_bvconcat(uint32_t n, const term_t t[]) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n * bitsize of t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvrepeat(t, n));
+}
+
+term_t _o_yices_bvrepeat(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
@@ -5506,8 +5570,11 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n + bitsize of t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock,_o_yices_sign_extend(t, n));
+}
+
+term_t _o_yices_sign_extend(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
@@ -5554,8 +5621,11 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n + bitsize of t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_zero_extend(t, n));
+}
+
+term_t _o_yices_zero_extend(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
   uint64_t m;
@@ -5601,8 +5671,11 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_redand(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_redand(t));
+}
+
+term_t _o_yices_redand(term_t t) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5619,8 +5692,11 @@ EXPORTED term_t yices_redand(term_t t) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_redor(term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_redor(t));
+}
+
+term_t _o_yices_redor(term_t t) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5659,8 +5735,11 @@ EXPORTED term_t yices_redor(term_t t) {
  *   term2 = t2
  *   type2 = type of t2
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_redcomp(t1, t2));
+}
+
+term_t _o_yices_redcomp(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
@@ -5684,8 +5763,11 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
  *****************************/
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvshl(t1, t2));
+}
+
+term_t _o_yices_bvshl(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5694,8 +5776,11 @@ EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvlshr(t1, t2));
+}
+
+term_t _o_yices_bvlshr(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5704,8 +5789,11 @@ EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvashr(t1, t2));
+}
+
+term_t _o_yices_bvashr(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5721,8 +5809,11 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
  *  BITVECTOR DIVISION OPERATORS  *
  *********************************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvdiv(t1, t2));
+}
+
+term_t _o_yices_bvdiv(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5730,8 +5821,11 @@ EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvrem(t1,t2));
+}
+
+term_t _o_yices_bvrem(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5739,8 +5833,11 @@ EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock,  _o_yices_bvsdiv(t1, t2));
+}
+
+term_t _o_yices_bvsdiv(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5748,8 +5845,11 @@ EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsrem(t1, t2));
+}
+
+term_t _o_yices_bvsrem(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5757,8 +5857,11 @@ EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsmod(t1, t2));
+}
+
+term_t _o_yices_bvsmod(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5788,8 +5891,11 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
  *    type1 = bool
  *    index = i
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvarray(uint32_t n, const term_t arg[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvarray(n, arg));
+}
+
+term_t _o_yices_bvarray(uint32_t n, const term_t arg[]) {
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
       ! check_good_terms(__yices_globals.manager, n, arg) ||
@@ -5815,8 +5921,11 @@ EXPORTED term_t yices_bvarray(uint32_t n, const term_t arg[]) {
  * if i >= v's bitsize
  *    code = INVALID_BVEXTRACT
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bitextract(t, i));
+}
+
+term_t _o_yices_bitextract(term_t t, uint32_t i) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_bitvector_term(__yices_globals.manager, t) ||
       ! check_bitextract(i, term_bitsize(__yices_globals.terms, t))) {
@@ -5832,8 +5941,11 @@ EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
  *  BITVECTOR ATOMS  *
  ********************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bveq_atom(t1, t2));
+}
+
+term_t _o_yices_bveq_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5841,8 +5953,11 @@ EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvneq_atom(t1, t2));
+}
+
+term_t _o_yices_bvneq_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5850,8 +5965,11 @@ EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvge_atom(t1, t2));
+}
+
+term_t _o_yices_bvge_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5859,8 +5977,11 @@ EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvgt_atom(t1, t2));
+}
+
+term_t _o_yices_bvgt_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5868,8 +5989,11 @@ EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvle_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvle_atom(t1, t2));
+}
+
+term_t _o_yices_bvle_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5877,8 +6001,11 @@ EXPORTED term_t yices_bvle_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock,  _o_yices_bvlt_atom(t1, t2));
+}
+
+term_t _o_yices_bvlt_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5886,16 +6013,23 @@ EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsge_atom(t1, t2));
+}
+
+term_t _o_yices_bvsge_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
   return mk_bvsge(__yices_globals.manager, t1, t2);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsgt_atom(t1, t2));
+}
+
+term_t _o_yices_bvsgt_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5903,8 +6037,11 @@ EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvsle_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvsle_atom(t1, t2));
+}
+
+term_t _o_yices_bvsle_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
@@ -5912,8 +6049,11 @@ EXPORTED term_t yices_bvsle_atom(term_t t1, term_t t2) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvslt_atom(t1, t2));
+}
+
+term_t _o_yices_bvslt_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(__yices_globals.manager, t1, t2)) {
     return NULL_TERM;
   }
