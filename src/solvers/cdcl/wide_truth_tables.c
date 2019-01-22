@@ -31,7 +31,7 @@ static bool sorted_array(const bvar_t *a, uint32_t n) {
 
   if (n > 0) {
     for (i=0; i<n-1; i++) {
-      if (a[i+1] >= a[i]) return false;
+      if (a[i+1] <= a[i]) return false;
     }
   }
 
@@ -84,6 +84,10 @@ void reset_wide_ttbl(wide_ttbl_t *w) {
 /*
  * Expand an 8-bit truth-table into bit array a
  * - a must be large enough (i.e., at least 2^n elements where n = ttbl->nvars)
+ *
+ * Warning: for a ttbl of 3 vars, f(x0, x1, x2) is encoded in bit i of
+ * the mask where i = 4 x0 + 2 x1 + x2.
+ * Here we want a[x0 + 2 x1 + 4 x2] = f(x0, x1, x2).
  */
 static void expand_ttbl(uint8_t *a, const ttbl_t *ttbl) {
   uint32_t m;
@@ -98,26 +102,26 @@ static void expand_ttbl(uint8_t *a, const ttbl_t *ttbl) {
   case 1:
     assert(m == 0x0f || m == 0xf0);
     a[0] = m & 1; m >>= 4;
-    a[1] = m  & 1;
+    a[1] = m & 1;
     break;
       
   case 2:
-    a[0] = m & 1; m >>= 2;
-    a[1] = m & 1; m >>= 2;
-    a[2] = m & 1; m >>= 2;
-    a[3] = m & 1;
+    a[0] = m & 1; m >>= 2;  // 00 --> 00
+    a[2] = m & 1; m >>= 2;  // 01 --> 10
+    a[1] = m & 1; m >>= 2;  // 10 --> 01
+    a[3] = m & 1;           // 11 --> 11
     break;
 
   default:
     assert(ttbl->nvars == 3);
-    a[0] = m & 1; m >>= 1;
-    a[1] = m & 1; m >>= 1;
-    a[2] = m & 1; m >>= 1;
-    a[3] = m & 1; m >>= 1;
-    a[4] = m & 1; m >>= 1;
-    a[5] = m & 1; m >>= 1;
-    a[6] = m & 1; m >>= 1;
-    a[7] = m & 1;
+    a[0] = m & 1; m >>= 1;  // 000 --> 000
+    a[4] = m & 1; m >>= 1;  // 001 --> 100
+    a[2] = m & 1; m >>= 1;  // 010 --> 010
+    a[6] = m & 1; m >>= 1;  // 011 --> 110
+    a[1] = m & 1; m >>= 1;  // 100 --> 001
+    a[5] = m & 1; m >>= 1;  // 101 --> 101
+    a[3] = m & 1; m >>= 1;  // 110 --> 011
+    a[7] = m & 1;           // 111 --> 111
     break;
   }
 }
@@ -275,7 +279,7 @@ static void compose_truth_tables(uint8_t *b, uint32_t n, const uint8_t *a, uint3
   uint8_t g[8];
 
 
-  assert(i < n && n <= MAX_WIDE_TTBL_SIZE);
+  assert(i <= n && n <= MAX_WIDE_TTBL_SIZE);
 
   expand_ttbl(g, ttbl);
   p = ((uint32_t) 1) << n; // 2^n = size of array b
