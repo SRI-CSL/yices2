@@ -167,10 +167,26 @@ static term_t _o_yices_floor(term_t t);
 static term_t _o_yices_ceil(term_t t);
 
 
-
 /*******************
  *   POLYNOMIALS   *
  ******************/
+
+static term_t _o_yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]);
+
+static term_t _o_yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]);
+
+static term_t _o_yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]);
+
+static term_t _o_yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]);
+
+static term_t _o_yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]);
+
+static term_t _o_yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]);
+
+
+
+
+
 
 /**********************
  *  ARITHMETIC ATOMS  *

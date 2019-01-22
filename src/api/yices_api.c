@@ -3904,9 +3904,6 @@ term_t _o_yices_ceil(term_t t) {
 }
 
 
-
-
-
 /*******************
  *   POLYNOMIALS   *
  ******************/
@@ -3914,8 +3911,12 @@ term_t _o_yices_ceil(term_t t) {
 /*
  * integer coefficients
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_int32(n, a, t));
+}
+
+term_t _o_yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3936,8 +3937,12 @@ EXPORTED term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]
   return mk_arith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_int64(n, a, t));
+}
+
+term_t _o_yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]) {
+
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3968,8 +3973,11 @@ EXPORTED term_t yices_poly_int64(uint32_t n, const int64_t a[], const term_t t[]
  * if den[i] is 0
  *   code = DIVISION_BY_ZERO
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_rational32(n, num, den, t));
+}
+
+term_t _o_yices_poly_rational32(uint32_t n, const int32_t num[], const uint32_t den[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -3991,8 +3999,11 @@ EXPORTED term_t yices_poly_rational32(uint32_t n, const int32_t num[], const uin
   return mk_arith_term(__yices_globals.manager, b);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_rational64(n, num, den, t));
+}
+
+term_t _o_yices_poly_rational64(uint32_t n, const int64_t num[], const uint64_t den[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4018,8 +4029,11 @@ EXPORTED term_t yices_poly_rational64(uint32_t n, const int64_t num[], const uin
 /*
  * GMP integers and rationals
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_mpz(n, z, t));
+}
+
+term_t _o_yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -4043,8 +4057,12 @@ EXPORTED term_t yices_poly_mpz(uint32_t n, const mpz_t z[], const term_t t[]) {
 }
 
 
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_mpq(n, q, t));
+}
+
+term_t _o_yices_poly_mpq(uint32_t n, const mpq_t q[], const term_t t[]) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
