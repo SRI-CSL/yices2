@@ -217,6 +217,29 @@ static term_t _o_yices_arith_lt0_atom(term_t t);
  *  BITVECTOR CONSTANTS   *
  *************************/
 
+static term_t _o_yices_bvconst_uint32(uint32_t n, uint32_t x);
+
+static term_t _o_yices_bvconst_uint64(uint32_t n, uint64_t x);
+
+static term_t _o_yices_bvconst_int32(uint32_t n, int32_t x);
+
+static term_t _o_yices_bvconst_int64(uint32_t n, int64_t x);
+
+static term_t _o_yices_bvconst_mpz(uint32_t n, const mpz_t x);
+
+static term_t _o_yices_bvconst_zero(uint32_t n);
+
+static term_t _o_yices_bvconst_one(uint32_t n);
+
+static term_t _o_yices_bvconst_minus_one(uint32_t n);
+
+static term_t _o_yices_bvconst_from_array(uint32_t n, const int32_t a[]);
+
+static term_t _o_yices_parse_bvbin(const char *s);
+
+static term_t _o_yices_parse_bvhex(const char *s);
+  
+
 /***************************
  *  BIT-VECTOR ARITHMETIC  *
  ***************************/

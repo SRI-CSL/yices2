@@ -4242,8 +4242,11 @@ term_t _o_yices_arith_lt0_atom(term_t t) {
  *  BITVECTOR CONSTANTS   *
  *************************/
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_uint32(n,x));
+}
+
+term_t _o_yices_bvconst_uint32(uint32_t n, uint32_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4254,8 +4257,11 @@ EXPORTED term_t yices_bvconst_uint32(uint32_t n, uint32_t x) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_uint64(n,x));
+}
+
+term_t _o_yices_bvconst_uint64(uint32_t n, uint64_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4266,8 +4272,11 @@ EXPORTED term_t yices_bvconst_uint64(uint32_t n, uint64_t x) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_int32(uint32_t n, int32_t x) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_int32(n,x));
+}
+
+term_t _o_yices_bvconst_int32(uint32_t n, int32_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4278,8 +4287,11 @@ EXPORTED term_t yices_bvconst_int32(uint32_t n, int32_t x) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_int64(uint32_t n, int64_t x) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_int64(n,x));
+}
+
+term_t _o_yices_bvconst_int64(uint32_t n, int64_t x) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4290,8 +4302,11 @@ EXPORTED term_t yices_bvconst_int64(uint32_t n, int64_t x) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_mpz(n,x));
+}
+
+term_t _o_yices_bvconst_mpz(uint32_t n, const mpz_t x) {
   mpz_t aux;
 
   if (!check_positive(n) || !check_maxbvsize(n)) {
@@ -4323,8 +4338,11 @@ EXPORTED term_t yices_bvconst_mpz(uint32_t n, const mpz_t x) {
  * bvconst_one: set low-order bit to 1, all the others to 0
  * bvconst_minus_one: set all bits to 1
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_zero(uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_zero(n));
+}
+
+term_t _o_yices_bvconst_zero(uint32_t n) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4334,8 +4352,11 @@ EXPORTED term_t yices_bvconst_zero(uint32_t n) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_one(uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_one(n));
+}
+
+term_t _o_yices_bvconst_one(uint32_t n) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4346,8 +4367,11 @@ EXPORTED term_t yices_bvconst_one(uint32_t n) {
   return mk_bv_constant(__yices_globals.manager, &bv0);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_minus_one(n));
+}
+
+term_t _o_yices_bvconst_minus_one(uint32_t n) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4363,8 +4387,11 @@ EXPORTED term_t yices_bvconst_minus_one(uint32_t n) {
  * - a[i] =  0 --> bit i = 0
  * - a[i] != 0 --> bit i = 1
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_bvconst_from_array(n,a));
+}
+
+term_t _o_yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
   if (!check_positive(n) || !check_maxbvsize(n)) {
     return NULL_TERM;
   }
@@ -4383,8 +4410,11 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, const int32_t a[]) {
  * - the string is read in big-endian format: the first character
  *   is the high-order bit.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_parse_bvbin(const char *s) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_parse_bvbin(s));
+}
+
+term_t _o_yices_parse_bvbin(const char *s) {
   size_t len;
   uint32_t n;
   int32_t code;
@@ -4423,8 +4453,11 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
  * - the string is read in big-endian format (the first character defines
  *   the four high-order bits).
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED term_t yices_parse_bvhex(const char *s) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_parse_bvhex(s));
+}
+
+term_t _o_yices_parse_bvhex(const char *s) {
   size_t len;
   uint32_t n;
   int32_t code;
