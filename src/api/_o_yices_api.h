@@ -440,6 +440,64 @@ static int32_t _o_yices_type_children(type_t tau, type_vector_t *v);
  *  TERM EXPLORATION   *
  **********************/
 
+static type_t _o_yices_type_of_term(term_t t);
+
+static int32_t _o_yices_term_is_bool(term_t t);
+
+static int32_t _o_yices_term_is_int(term_t t);
+
+static int32_t _o_yices_term_is_real(term_t t);
+
+static int32_t _o_yices_term_is_arithmetic(term_t t);
+
+static int32_t _o_yices_term_is_bitvector(term_t t);
+
+static int32_t _o_yices_term_is_tuple(term_t t);
+
+static int32_t _o_yices_term_is_function(term_t t);
+
+static int32_t _o_yices_term_is_scalar(term_t t);
+
+static uint32_t _o_yices_term_bitsize(term_t t);
+
+static int32_t _o_yices_term_is_ground(term_t t);
+
+static int32_t _o_yices_term_is_atomic(term_t t);
+
+static int32_t _o_yices_term_is_composite(term_t t);
+
+static int32_t _o_yices_term_is_projection(term_t t);
+
+static int32_t _o_yices_term_is_sum(term_t t);
+
+static int32_t _o_yices_term_is_bvsum(term_t t);
+
+static int32_t _o_yices_term_is_product(term_t t);
+
+static term_constructor_t _o_yices_term_constructor(term_t t);
+
+static int32_t _o_yices_term_num_children(term_t t);
+
+static term_t _o_yices_term_child(term_t t, int32_t i);
+
+static int32_t _o_yices_proj_index(term_t t);
+
+static term_t _o_yices_proj_arg(term_t t);
+
+static int32_t _o_yices_bool_const_value(term_t t, int32_t *val);
+
+static int32_t _o_yices_bv_const_value(term_t t, int32_t val[]);
+
+static int32_t _o_yices_scalar_const_value(term_t t, int32_t *val);
+
+static int32_t _o_yices_rational_const_value(term_t t, mpq_t q);
+
+static int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+
+static int32_t _o_yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
+
+static int32_t _o_yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp);
+
 
 /************************
  *  TERM SUBSTITUTION   *
