@@ -402,7 +402,10 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
         term_t lhs = p->lhs->slice_term;
         term_t rhs = p->rhs->slice_term;
 
-        if (lhs == rhs || eq_graph_are_equal(&eq_graph, lhs, rhs)) {
+        if (lhs == rhs
+            || (eq_graph_has_term(&eq_graph, lhs)
+                && eq_graph_has_term(&eq_graph, rhs)
+                && eq_graph_are_equal(&eq_graph, lhs, rhs))) {
           // adding the reason why this disequality is false
           if (lhs != rhs) {
             eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
@@ -419,11 +422,13 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
         }
         else{
           // We need to collect the interface term
-          if (eq_graph_term_has_value(&eq_graph, lhs)){
+          if (eq_graph_has_term(&eq_graph, lhs)
+              && eq_graph_term_has_value(&eq_graph, lhs)){
             term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, NULL, NULL, NULL);
             ivector_push(&interface_terms, iterm);
           }
-          if (eq_graph_term_has_value(&eq_graph, rhs)){
+          if (eq_graph_has_term(&eq_graph, rhs)
+              && eq_graph_term_has_value(&eq_graph, rhs)){
             term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, NULL, NULL, NULL);
             ivector_push(&interface_terms, iterm);
           }
