@@ -115,14 +115,14 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
 void bv_slicing_slicing_destruct(bv_slicing_t* slicing);
 
 /** Print the slicing. */
-void bv_slicing_print_slicing(const bv_slicing_t* slicing, FILE* out);
+void bv_slicing_print_slicing(const bv_slicing_t* slicing);
 
 /** Prints slice */
-void bv_slicing_print_slice(const bv_slicing_t* slicing, const slice_t* s, FILE* out);
+void bv_slicing_print_slice(const plugin_context_t* ctx, const slice_t* s);
 
 /** Prints a pair. if b is true, as an equality, otherwise, as a disequality */
-void bv_slicing_print_spair(const bv_slicing_t* slicing, spair_t* p, bool b, FILE* out);
+void bv_slicing_print_spair(const plugin_context_t* ctx, spair_t* p, bool b);
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
-void bv_slicing_print_splist(const bv_slicing_t* slicing, splist_t* spl, bool b, FILE* out);
+void bv_slicing_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b);
 

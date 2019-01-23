@@ -100,6 +100,9 @@ uint32_t hash_key(const mcsat_value_t* k) {
 static inline
 bool eq_key(const mcsat_value_t* k1, const mcsat_value_t* k2) {
   if (k1->type != k2->type) { return false; }
+  if (k1->type == VALUE_BV
+      && k2->type == VALUE_BV
+      && (k1->bv_value.bitsize != k2->bv_value.bitsize)) { return false; }
   return mcsat_value_eq(k1, k2);
 }
 

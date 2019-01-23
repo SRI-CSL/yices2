@@ -6,6 +6,7 @@
  */
 
 #include "mcsat/tracing.h"
+#include "mcsat/value.h"
 #include "terms/term_manager.h"
 #include "terms/bvlogic_buffers.h"
 
@@ -65,17 +66,19 @@ void bv_slicing_print_slice_aux(const slice_t* s, FILE* out) {
   fprintf(out, "]");
 }
 
-void bv_slicing_print_slice(const bv_slicing_t* slicing, const slice_t* s, FILE* out) {
-  term_table_t* terms = slicing->ctx->terms;
+void bv_slicing_print_slice(const plugin_context_t* ctx, const slice_t* s) {
+  FILE* out = ctx_trace_out(ctx);
+  term_table_t* terms = ctx->terms;
   term_print_to_file(out, terms, s->term);
   bv_slicing_print_slice_aux(s, out);
 }
 
 /** Prints a list of slices. */
-void bv_slicing_print_slist(const bv_slicing_t* slicing, slist_t* sl, FILE* out) {
+void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
+  FILE* out = ctx_trace_out(ctx);
   slist_t* l = sl;
   while (l != NULL) {
-    bv_slicing_print_slice(slicing, l->slice, out);
+    bv_slicing_print_slice(ctx, l->slice);
     l = l->next;
     if (l != NULL) {
       fprintf(out, "::");
@@ -84,19 +87,21 @@ void bv_slicing_print_slist(const bv_slicing_t* slicing, slist_t* sl, FILE* out)
 }
 
 /** Prints a pairs. if b is true, as an equality, otherwise, as a disequality */
-void bv_slicing_print_spair(const bv_slicing_t* slicing, spair_t* p, bool b, FILE* out) {
+void bv_slicing_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
+  FILE* out = ctx_trace_out(ctx);
   assert(p->lhs != NULL);
   assert(p->rhs != NULL);
-  bv_slicing_print_slice(slicing, p->lhs, out);
+  bv_slicing_print_slice(ctx, p->lhs);
   fprintf(out, "%s", b?"=":"!=");
-  bv_slicing_print_slice(slicing, p->rhs, out);
+  bv_slicing_print_slice(ctx, p->rhs);
 }
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
-void bv_slicing_print_splist(const bv_slicing_t* slicing, splist_t* spl, bool b, FILE* out) {
+void bv_slicing_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
+  FILE* out = ctx_trace_out(ctx);
   splist_t* l = spl;
   while (l != NULL) {
-    bv_slicing_print_spair(slicing, l->pair, b, out);
+    bv_slicing_print_spair(ctx, l->pair, b);
     l = l->next;
     if (l != NULL) {
       fprintf(out, "%s", b?" && ":" || ");
@@ -143,12 +148,12 @@ slist_t* bv_slicing_scons(slice_t* s, slist_t* tail) {
 }
 
 /** Slices slice s at index k, pushing resulting slicings to be performed in the "todo" queue */
-void bv_slicing_slice(bv_slicing_t* slicing, slice_t* s, uint32_t k, ptr_queue_t* todo) {
+void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_queue_t* todo) {
 
-  if (ctx_trace_enabled(slicing->ctx, "mcsat::bv::slicing")) {
-    FILE* out = ctx_trace_out(slicing->ctx);
-    fprintf(out, "Slicing ");
-    bv_slicing_print_slice(slicing, s, out);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Splitting ");
+    bv_slicing_print_slice(ctx, s);
     fprintf(out, " at %d\n", k);
   }
 
@@ -195,14 +200,14 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail) {
  * s1 and s2 have equal length. The alignment can trigger some future slicings
  * that are queued in todo. Destructs l1 and l2 along the way.
  */
-void bv_slicing_align(bv_slicing_t* slicing, slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo) {
+void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo) {
 
-  if (ctx_trace_enabled(slicing->ctx, "mcsat::bv::slicing")) {
-    FILE* out = ctx_trace_out(slicing->ctx);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
     fprintf(out,"Aligning ");
-    bv_slicing_print_slist(slicing, l1, out);
+    bv_slicing_print_slist(ctx, l1);
     fprintf(out," with ");
-    bv_slicing_print_slist(slicing, l2, out);
+    bv_slicing_print_slist(ctx, l2);
     fprintf(out,"\n");
   }
 
@@ -221,23 +226,23 @@ void bv_slicing_align(bv_slicing_t* slicing, slist_t* l1, slist_t* l2, uint32_t 
   if ((h1->lo_sub == NULL) && (h2->lo_sub == NULL)) { // if both h1 and h2 are leaves
     if ( w1 < w2 ) {
       // h1 is shorter than h2, we slice h2
-      bv_slicing_slice(slicing, h2, h2->lo + w1, todo);
+      bv_slicing_split(ctx, h2, h2->lo + w1, todo);
     }
     if ( w2 < w1 ) {
       // h2 is shorter than h1, we slice h1
-      bv_slicing_slice(slicing, h1, h1->lo + w2, todo);
+      bv_slicing_split(ctx, h1, h1->lo + w2, todo);
     }
   }
 
   if (h2->lo_sub != NULL) { // head of l2 is not a leaf
     safe_free(l2); // l2 is not good, we free the node and recompute the list
-    return bv_slicing_align(slicing, l1, bv_slicing_as_list(h2,t2), appearing_in, todo);
+    return bv_slicing_align(ctx, l1, bv_slicing_as_list(h2,t2), appearing_in, todo);
   }
 
   if (h1->lo_sub != NULL) { // head of l1 is not a leaf
     safe_free(l1); // l1 is not good, we free the node and recompute the list
     slist_t* slicing_list = bv_slicing_as_list(h1, t1);
-    return bv_slicing_align(slicing, slicing_list, l2, appearing_in, todo);
+    return bv_slicing_align(ctx, slicing_list, l2, appearing_in, todo);
   }
 
   // OK, h1 and h2 have the same width; we can pair them.
@@ -252,7 +257,7 @@ void bv_slicing_align(bv_slicing_t* slicing, slist_t* l1, slist_t* l2, uint32_t 
 
   h1->paired_with = bv_slicing_spcons(p, true, h1->paired_with);
   h2->paired_with = bv_slicing_spcons(p, false, h2->paired_with);
-  bv_slicing_align(slicing, t1, t2, appearing_in, todo);
+  bv_slicing_align(ctx, t1, t2, appearing_in, todo);
 }
 
 
@@ -261,10 +266,10 @@ void bv_slicing_align(bv_slicing_t* slicing, slist_t* l1, slist_t* l2, uint32_t 
  * (head of result is the lowest index slice). If either lo or hi does not coincide
  * with an existing slice point of s, they get created.
  * */
-slist_t* bv_slicing_extracts(bv_slicing_t* slicing, slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo) {
+slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo) {
 
   /* fprintf(out, "Extracts %d to %d from ", hi, lo); */
-  /* bv_slicing_print_slice(s, terms, out); */
+  /* bv_slicing_print_slice(ctx, s, out); */
   /* fprintf(out, "\n"); */
   if ((hi <= s->lo) || (lo >= s->hi)) return tail; // Slice is disjoint from indices
 
@@ -273,14 +278,14 @@ slist_t* bv_slicing_extracts(bv_slicing_t* slicing, slice_t* s, uint32_t hi, uin
   if (s->lo_sub == NULL) { // This slice is a leaf
     slice_t* s0 = s;
     if ((s0->lo < hi) && (hi < s0->hi)) {
-      bv_slicing_slice(slicing, s0, hi, todo);
+      bv_slicing_split(ctx, s0, hi, todo);
       /* fprintf(out, "splitting at hi=%d, giving ", hi); */
       /* bv_slicing_print_slice(s, terms, out); */
       /* fprintf(out, "\n"); */
       s0 = s0->lo_sub;
     }
     if ((s0->lo < lo) && (lo < s0->hi)) {
-      bv_slicing_slice(slicing, s0, lo, todo);
+      bv_slicing_split(ctx, s0, lo, todo);
       /* fprintf(out, "splitting at lo=%d, giving ", lo); */
       /* bv_slicing_print_slice(s, terms, out); */
       /* fprintf(out, "\n"); */
@@ -296,8 +301,8 @@ slist_t* bv_slicing_extracts(bv_slicing_t* slicing, slice_t* s, uint32_t hi, uin
     return result;
   }
 
-  slist_t* slicing_list = bv_slicing_extracts(slicing, s->hi_sub, hi, lo, tail, todo);
-  slist_t* result = bv_slicing_extracts(slicing, s->lo_sub, hi, lo, slicing_list, todo);
+  slist_t* slicing_list = bv_slicing_extracts(ctx, s->hi_sub, hi, lo, tail, todo);
+  slist_t* result = bv_slicing_extracts(ctx, s->lo_sub, hi, lo, slicing_list, todo);
 
   /* fprintf(out, "Extract returns "); */
   /* bv_slicing_print_slist(result, terms, out); */
@@ -309,14 +314,13 @@ slist_t* bv_slicing_extracts(bv_slicing_t* slicing, slice_t* s, uint32_t hi, uin
 
 
 /** Wrapping up above function: stack on top of tail a slice for variable t (expressed as a term), from lo to hi */
-slist_t* bv_slicing_sstack(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
-  term_table_t* terms = slicing->ctx->terms;
+slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
   ptr_hmap_pair_t* p = ptr_hmap_get(slices, t);       // Getting that variable's top-level slice from global hashmap
-  if (p->val == NULL) p->val = bv_slicing_slice_new(t, 0, bv_term_bitsize(terms, t)); // Create that slice if need be
-  return bv_slicing_extracts(slicing, p->val, hi, lo, tail, todo);     // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
+  if (p->val == NULL) p->val = bv_slicing_slice_new(t, 0, bv_term_bitsize(ctx->terms, t)); // Create that slice if need be
+  return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);     // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
 }
 
-slist_t* bv_slicing_slice_close(bv_slicing_t* slicing,
+slist_t* bv_slicing_slice_close(const plugin_context_t* ctx,
                               term_t* tp,
                               uint32_t bitwidth,
                               slist_t* tail,
@@ -331,7 +335,7 @@ slist_t* bv_slicing_slice_close(bv_slicing_t* slicing,
     return tail;
   }
 
-  term_table_t* terms = slicing->ctx->terms; // standard abbreviation
+  term_table_t* terms = ctx->terms; // standard abbreviation
   term_t t0 = tp[0];
 
   switch (term_kind(terms, t0)) {
@@ -340,14 +344,14 @@ slist_t* bv_slicing_slice_close(bv_slicing_t* slicing,
     select_term_t* desc   = bit_term_desc(terms, t0);
     term_t tvar           = desc->arg; // Get term variable
     uint32_t selected_bit = desc->idx; // Get bit that is selected in it
-    return bv_slicing_sstack(slicing, tvar, selected_bit + bitwidth, selected_bit, tail, todo, slices);
+    return bv_slicing_sstack(ctx, tvar, selected_bit + bitwidth, selected_bit, tail, todo, slices);
   }
 
   case CONSTANT_TERM : {
-    term_manager_t* tm = &slicing->ctx->var_db->tm;
+    term_manager_t* tm = &ctx->var_db->tm;
     /* term_t cst = bvarray_term(terms, bitwidth, tp); // Primitive construction */
     term_t cst = mk_bvarray(tm, bitwidth, tp); // Smarter construction?
-    return bv_slicing_sstack(slicing, cst, bitwidth, 0, tail, todo, slices);
+    return bv_slicing_sstack(ctx, cst, bitwidth, 0, tail, todo, slices);
   }
 
   default:
@@ -360,7 +364,7 @@ slist_t* bv_slicing_slice_close(bv_slicing_t* slicing,
 
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function. */
-slist_t* bv_slicing_norm(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
+slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
 
   /* FILE* out = ctx_trace_out(ctx); */
   /* fprintf(out, "Normalising "); */
@@ -368,7 +372,7 @@ slist_t* bv_slicing_norm(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t 
   /* fprintf(out, " between %d and %d\n", hi, lo); */
 
   assert(lo < hi);
-  term_table_t* terms = slicing->ctx->terms; // standard abbreviation
+  term_table_t* terms = ctx->terms; // standard abbreviation
 
   switch (term_kind(terms, t)) {
   case BV_ARRAY: {
@@ -405,7 +409,7 @@ slist_t* bv_slicing_norm(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t 
             || (tmp != tvar)              // or it wasn't but it had different variable
             || (selected_bit + 1 != low)) // or it was the same but new bit not in continuity
           { // We close the current slice, stack it upon the tail, and open a new slice
-            current = bv_slicing_slice_close(slicing, concat_desc->arg + i + 1,width, current, todo, slices);
+            current = bv_slicing_slice_close(ctx, concat_desc->arg + i + 1,width, current, todo, slices);
             width = 0; // We start a new slice
           }
         // Then in any case:
@@ -418,7 +422,7 @@ slist_t* bv_slicing_norm(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t 
       case CONSTANT_TERM: { // or it's a boolean constant true or false
         // We need to change slice if current slice was not constant
         if (!is_constant) {
-          current = bv_slicing_slice_close(slicing, concat_desc->arg + i + 1,width, current, todo, slices);
+          current = bv_slicing_slice_close(ctx, concat_desc->arg + i + 1,width, current, todo, slices);
           width = 0; // We start a new slice
         }
         // Then in any case:
@@ -431,22 +435,23 @@ slist_t* bv_slicing_norm(bv_slicing_t* slicing, term_t t, uint32_t hi, uint32_t 
       }
     }
     // We have exited the loop, we now close the current (and last) slice
-    return bv_slicing_slice_close(slicing, concat_desc->arg,width, current, todo, slices);
+    return bv_slicing_slice_close(ctx, concat_desc->arg,width, current, todo, slices);
   }
   default: // We consider the term is a variable or a constant, we immediately stack its relevant slices
-    return bv_slicing_sstack(slicing, t, hi, lo, tail, todo, slices);
+    return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
   }
 
 }
 
 // Prints a slicing
-void bv_slicing_print_slicing(const bv_slicing_t* slicing, FILE* out) {
+void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
 
+  FILE* out = ctx_trace_out(slicing->ctx);
   fprintf(out, "Slices:\n");
   // We go through all variables, and destroy all slices
   ptr_hmap_pair_t* hp = ptr_hmap_first_record((ptr_hmap_t*)&slicing->slices);
   while(hp != NULL) {
-    bv_slicing_print_slice(slicing, hp->val, out);
+    bv_slicing_print_slice(slicing->ctx, hp->val);
     hp = ptr_hmap_next_record((ptr_hmap_t*)&slicing->slices, hp);
     fprintf(out, "\n");
   }
@@ -456,7 +461,7 @@ void bv_slicing_print_slicing(const bv_slicing_t* slicing, FILE* out) {
       fprintf(out, "Equal.: ");
     else
       fprintf(out, "Dis.%d: ",i);
-    bv_slicing_print_splist(slicing, slicing->constraints[i], (i == 0), out);
+    bv_slicing_print_splist(slicing->ctx, slicing->constraints[i], (i == 0));
     fprintf(out, "\n");
   }
 }
@@ -532,22 +537,43 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     }
     }
 
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Treating slice ");
+      bv_slicing_print_slice(ctx, s);
+      fprintf(out, " where slice_term = ");
+      term_print_to_file(out, ctx->terms, s->slice_term);
+    }
+
+
     if (has_value) {
       s->value.type = VALUE_BV;
       init_bvconstant(&s->value.bv_value);
       bvconstant_set_all_zero(&s->value.bv_value, s->hi - s->lo);
       bvconst_extract(s->value.bv_value.data, bvcst.data, s->lo, s->hi);
       bvconstant_normalize(&s->value.bv_value);
-      eq_graph_assign_term_value(egraph, s->slice_term, &s->value, s->slice_term); // Reason = 1 to indicate this comes from evaluation rather than from conflict
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, " and value = ");
+        mcsat_value_print(&s->value, out);
+        fprintf(out, " are sent to egraph.");
+      }
+      // Reason data = slice_term. Useful for collecting "interface terms" in the SMT'2017 explanation algo.
+      eq_graph_assign_term_value(egraph, s->slice_term, &s->value, s->slice_term);
     }
     else mcsat_value_construct_default(&s->value);
+
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "\n");
+    }
 
     delete_bvconstant(&bvcst);
 
     
     // Task 3: we go through its pairs
-    // For each equality pair, we send it to the egraph
-    // For each disequality pair, we stack it on the disjunction it belongs to
+    // For each equality pair, we stack it on constraint[0]
+    // For each disequality pair, we stack it on constraint[i], the disjunction it belongs to
     
     spair_t* p;
     splist_t *current = s->paired_with;
@@ -620,9 +646,9 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
         next_disjunction++;
       }
       uint32_t width = bv_term_bitsize(terms, t0);
-      slist_t* l0 = bv_slicing_norm(slicing, t0, width, 0, NULL, todo, &slicing->slices);
-      slist_t* l1 = bv_slicing_norm(slicing, t1, width, 0, NULL, todo, &slicing->slices);
-      bv_slicing_align(slicing, l0, l1, constraint, todo);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, width, 0, NULL, todo, &slicing->slices);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, width, 0, NULL, todo, &slicing->slices);
+      bv_slicing_align(ctx, l0, l1, constraint, todo);
       break;
     }
     case BIT_TERM: { // That's also in the fragment...
@@ -630,14 +656,14 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       term_t a0[1];
       a0[0] = atom_i_term;
       term_t t0 = mk_bvarray(&ctx->var_db->tm, 1, a0);
-      slist_t* l0 = bv_slicing_norm(slicing, t0, 1, 0, NULL, todo, &slicing->slices);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, 1, 0, NULL, todo, &slicing->slices);
 
       term_t a1[1];
       a1[0] = bool2term(atom_i_value);
       term_t t1 = mk_bvarray(&ctx->var_db->tm, 1, a1);
-      slist_t* l1 = bv_slicing_norm(slicing, t1, 1, 0, NULL, todo, &slicing->slices);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, 1, 0, NULL, todo, &slicing->slices);
       
-      bv_slicing_align(slicing, l0, l1, 0, todo);
+      bv_slicing_align(ctx, l0, l1, 0, todo);
       break;
     }
     default:
@@ -667,7 +693,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(slicing->ctx);
       fprintf(out, "Popping ");
-      bv_slicing_print_spair(slicing, p, true, out);
+      bv_slicing_print_spair(ctx, p, true);
       fprintf(out, "\n");
     }
     l1 = bv_slicing_as_list(p->lhs, NULL);
@@ -676,7 +702,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       FILE* out = ctx_trace_out(slicing->ctx);
       fprintf(out, "Now aligning\n");
     }
-    bv_slicing_align(slicing, l1, l2, p->appearing_in, todo); // l1 and l2 are freed
+    bv_slicing_align(ctx, l1, l2, p->appearing_in, todo); // l1 and l2 are freed
     safe_free(p);
   }
 
