@@ -129,7 +129,14 @@ typedef void lp_algebraic_number_t;
  * API entry point synchronization macros
  *
  */
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION) \
+#define MT_PROTECT_VOID(LOCK,EXPRESSION) \
+  do { yices_lock_t *lock = &(LOCK);\
+       get_yices_lock(lock);\
+       (EXPRESSION);\
+       release_yices_lock(lock);\
+  } while(0)
+
+#define MT_PROTECT(TYPE,LOCK,EXPRESSION)	\
   do { yices_lock_t *lock = &(LOCK);\
        TYPE retval;\
        get_yices_lock(lock);\
@@ -7577,8 +7584,12 @@ term_t _o_yices_parse_term(const char *s) {
  * return -1 if tau is invalid and set error report
  * return 0 otherwise.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_set_type_name(tau, name));
+}
+
+int32_t _o_yices_set_type_name(type_t tau, const char *name) {
   char *clone;
 
   if (! check_good_type(__yices_globals.types, tau)) {
@@ -7601,8 +7612,12 @@ EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
  * return -1 if  is invalid and set error report
  * return 0 otherwise.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_set_term_name(t, name));
+}
+
+int32_t _o_yices_set_term_name(term_t t, const char *name) {
   char *clone;
 
   if (! check_good_term(__yices_globals.manager, t)) {
@@ -7621,8 +7636,12 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
  * Get name of type tau
  * - return NULL if tau has no name (or if tau is not a valid type)
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED const char *yices_get_type_name(type_t tau) {
+  MT_PROTECT(const char *,  __yices_globals.lock, _o_yices_get_type_name(tau));
+}
+
+const char *_o_yices_get_type_name(type_t tau) {
   if (! check_good_type(__yices_globals.types, tau)) {
     return NULL;
   }
@@ -7634,8 +7653,12 @@ EXPORTED const char *yices_get_type_name(type_t tau) {
  * Get name of term t
  * - return NULL is t has no name (or if t is not a valid term)
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED const char *yices_get_term_name(term_t t) {
+  MT_PROTECT(const char *,  __yices_globals.lock, _o_yices_get_term_name(t));
+}
+
+const char *_o_yices_get_term_name(term_t t) {
   if (! check_good_term(__yices_globals.manager, t)) {
     return NULL;
   }
@@ -7647,8 +7670,13 @@ EXPORTED const char *yices_get_term_name(term_t t) {
 /*
  * Remove name from the type table.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED void yices_remove_type_name(const char *name) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_type_name(name));
+  remove_type_name(__yices_globals.types, name);
+}
+
+void _o_yices_remove_type_name(const char *name) {
   remove_type_name(__yices_globals.types, name);
 }
 
@@ -7656,8 +7684,13 @@ EXPORTED void yices_remove_type_name(const char *name) {
 /*
  * Remove name from the term table.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED void yices_remove_term_name(const char *name) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_term_name(name));
+  remove_term_name(__yices_globals.terms, name);
+}
+
+void _o_yices_remove_term_name(const char *name) {
   remove_term_name(__yices_globals.terms, name);
 }
 
@@ -7665,8 +7698,13 @@ EXPORTED void yices_remove_term_name(const char *name) {
 /*
  * Get type of the given name or return NULL_TYPE (-1)
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED type_t yices_get_type_by_name(const char *name) {
+  MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_get_type_by_name(name));
+  return get_type_by_name(__yices_globals.types, name);
+}
+
+type_t _o_yices_get_type_by_name(const char *name) {
   return get_type_by_name(__yices_globals.types, name);
 }
 
@@ -7674,8 +7712,13 @@ EXPORTED type_t yices_get_type_by_name(const char *name) {
 /*
  * Get term of the given name or return NULL_TERM
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_get_term_by_name(const char *name) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_get_term_by_name(name));
+  return get_term_by_name(__yices_globals.terms, name);
+}
+
+term_t _o_yices_get_term_by_name(const char *name) {
   return get_term_by_name(__yices_globals.terms, name);
 }
 
@@ -7685,8 +7728,12 @@ EXPORTED term_t yices_get_term_by_name(const char *name) {
  * Return -1 if tau is not a valid type and set the error code.
  * Return 0 otherwise.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED int32_t yices_clear_type_name(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_clear_type_name(tau));
+}
+
+int32_t _o_yices_clear_type_name(type_t tau) {
   if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
@@ -7702,8 +7749,12 @@ EXPORTED int32_t yices_clear_type_name(type_t tau) {
  * Return -1 if t is not a valid term (and set the error code)
  * Return 0 otherwise.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED int32_t yices_clear_term_name(term_t t) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_clear_term_name(t));
+}
+
+int32_t _o_yices_clear_term_name(term_t t) {
   if (! check_good_term(__yices_globals.manager, t)) {
     return -1;
   }

@@ -521,6 +521,30 @@ static type_t _o_yices_parse_type(const char *s);
 
 static term_t _o_yices_parse_term(const char *s);
 
+/************
+ *  NAMES   *
+ ***********/
+
+static int32_t _o_yices_set_type_name(type_t tau, const char *name);
+
+static int32_t _o_yices_set_term_name(term_t t, const char *name);
+
+static const char *_o_yices_get_type_name(type_t tau);
+
+static const char *_o_yices_get_term_name(term_t t);
+
+static void _o_yices_remove_type_name(const char *name);
+
+static void _o_yices_remove_term_name(const char *name);
+
+static type_t _o_yices_get_type_by_name(const char *name);
+
+static term_t _o_yices_get_term_by_name(const char *name);
+
+static int32_t _o_yices_clear_type_name(type_t tau);
+
+static int32_t _o_yices_clear_term_name(term_t t);
+
 
 /****************************
  *  CONTEXT CONFIGURATIONS  *
