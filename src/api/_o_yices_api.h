@@ -517,6 +517,10 @@ static int32_t _o_yices_subst_term_array(uint32_t n, const term_t var[], const t
  *  PARSING   *
  *************/
 
+static type_t _o_yices_parse_type(const char *s);
+
+static term_t _o_yices_parse_term(const char *s);
+
 
 /****************************
  *  CONTEXT CONFIGURATIONS  *

@@ -7533,8 +7533,11 @@ int32_t _o_yices_subst_term_array(uint32_t n, const term_t var[], const term_t m
  * Parse s as a type expression in the Yices language.
  * Return NULL_TYPE if there's an error.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED type_t yices_parse_type(const char *s) {
+  MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_parse_type(s));
+}
+
+type_t _o_yices_parse_type(const char *s) {
   parser_t *p;
 
   p = get_parser(s);
@@ -7546,8 +7549,12 @@ EXPORTED type_t yices_parse_type(const char *s) {
  * Parse s as a term in the Yices language.
  * Return NULL_TERM if there's an error.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
+
 EXPORTED term_t yices_parse_term(const char *s) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_parse_term(s));
+}
+
+term_t _o_yices_parse_term(const char *s) {
   parser_t *p;
 
   p = get_parser(s);
