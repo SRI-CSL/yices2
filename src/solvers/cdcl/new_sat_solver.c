@@ -6010,10 +6010,18 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	}
       } else if (tt.nvars == 1) {
 	l1 = literal_of_ttbl1(&tt);
-	literal_equiv(solver, l0, l1);
+	if (l0 != l1) {
+	  if (solver->verbosity >= 3) {
+	    fprintf(stderr, "c  var %"PRId32" simplifies to literal: %"PRId32" == %"PRId32"\n", i, l0, l1);
+	  }
+	  literal_equiv(solver, l0, l1);
+	}
       } else {
 	assert(tt.nvars == 0);
 	l1 = literal_of_ttbl0(&tt);
+	if (solver->verbosity >= 3) {
+	  fprintf(stderr, "c  var %"PRId32" simplifies to constant: %"PRId32" == %"PRId32"\n", i, l0, l1);
+	}
 	literal_equiv(solver, l0, l1);
       }
     }
