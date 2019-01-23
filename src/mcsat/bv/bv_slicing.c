@@ -18,8 +18,7 @@ spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
   assert(lhs != NULL);
   assert(rhs != NULL);
   assert(lhs != rhs);
-  // Should this be a valid assertion? Why not?
-  // assert(lhs->slice_term != rhs->slice_term);
+  assert(lhs->slice_term != rhs->slice_term);
   spair_t* pair = safe_malloc(sizeof(spair_t));
   pair->lhs = lhs;
   pair->rhs = rhs;
@@ -254,7 +253,7 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
   safe_free(l1);
   safe_free(l2);
 
-  if (h1 != h2) {
+  if (h1->slice_term != h2->slice_term) {
     spair_t* p = spair_new(h1, h2, appearing_in); // We form the pair
     /* fprintf(out,"Forming pair "); */
     /* bv_slicing_print_spair(p, true, terms, out); */
