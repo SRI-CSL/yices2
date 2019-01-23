@@ -18,6 +18,8 @@ spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
   assert(lhs != NULL);
   assert(rhs != NULL);
   assert(lhs != rhs);
+  // Should this be a valid assertion? Why not?
+  // assert(lhs->slice_term != rhs->slice_term);
   spair_t* pair = safe_malloc(sizeof(spair_t));
   pair->lhs = lhs;
   pair->rhs = rhs;
@@ -237,7 +239,8 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
 
   if (h2->lo_sub != NULL) { // head of l2 is not a leaf
     safe_free(l2); // l2 is not good, we free the node and recompute the list
-    return bv_slicing_align(ctx, l1, bv_slicing_as_list(h2,t2), appearing_in, todo);
+    slist_t* slicing_list = bv_slicing_as_list(h2, t2);
+    return bv_slicing_align(ctx, l1, slicing_list, appearing_in, todo);
   }
 
   if (h1->lo_sub != NULL) { // head of l1 is not a leaf

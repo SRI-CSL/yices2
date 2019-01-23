@@ -488,6 +488,7 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
 
   for (i = 0; i < conflict_out->size; ++ i) {
     term_t literal = conflict_out->data[i];
+    assert(term_type_kind(terms, literal) == BOOL_TYPE);
     term_kind_t literal_kind = term_kind(terms, literal);
 
     if (literal_kind == EQ_TERM) {
@@ -508,6 +509,7 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
         term_t lhs = eq_desc->arg[0];
         term_t rhs = eq_desc->arg[1];
         if (is_boolean_term(terms, lhs)) {
+          assert(is_boolean_term(terms, rhs));
           // Negate lhs if false
           uint32_t lhs_eval_level = 0;
           const mcsat_value_t* lhs_value = bv_evaluator_evaluate_term(exp->eval, lhs, &lhs_eval_level);

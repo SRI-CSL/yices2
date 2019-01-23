@@ -412,6 +412,11 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
   int_hset_add(&bv->visited_cache, t);
 }
 
+/**
+ * This is a notification for base BV terms. It's expected that these would
+ * be atoms, except in the case of theory combination. For example,
+ * f(t1::t2) would notify t1::t2 which is not an atom.
+ */
 void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out) {
 
   term_table_t* terms = bv->ctx->terms;
@@ -452,6 +457,10 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
   case BV_CONSTANT:
   case BV64_CONSTANT:
     // We should get notifications only on theory combination
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::bug")) {
+      ctx_trace_printf(bv->ctx, "unhandled :\n");
+      ctx_trace_term(bv->ctx, t);
+    }
     assert(false);
     break;
   default:
