@@ -347,15 +347,19 @@ slist_t* bv_slicing_slice_close(const plugin_context_t* ctx,
     return bv_slicing_sstack(ctx, tvar, selected_bit + bitwidth, selected_bit, tail, todo, slices);
   }
 
-  case CONSTANT_TERM : {
+  case CONSTANT_TERM: {
     term_manager_t* tm = &ctx->var_db->tm;
     /* term_t cst = bvarray_term(terms, bitwidth, tp); // Primitive construction */
     term_t cst = mk_bvarray(tm, bitwidth, tp); // Smarter construction?
     return bv_slicing_sstack(ctx, cst, bitwidth, 0, tail, todo, slices);
   }
 
-  default:
-    assert(false);
+  default: {
+    assert(bitwidth == 1);
+    term_manager_t* tm = &ctx->var_db->tm;
+    term_t cst = mk_bvarray(tm, 1, tp); // Smarter construction?
+    return bv_slicing_sstack(ctx, cst, 1, 0, tail, todo, slices);
+  }
   }
 
   return NULL;
@@ -430,8 +434,14 @@ slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uin
         is_constant = true; // current slice is constant
         break;
       }
-      default: // It can be nothing else
-        assert(false);
+      default: {// For anything else, we read it as a variable; that's a slice on its own.
+        current = bv_slicing_slice_close(ctx, concat_desc->arg + i + 1,width, current, todo, slices);
+        width = 1; // We start the new slice (will be of size 1.
+        is_constant = false; // current slice is a variable
+        tvar        = t_i;   // current slice has t_i as variable (as a term) Note that its type is bool
+        low         = 0;     // there's no selected bit though by convention we can say it is 0
+        // that will trigger a slice closing at the next step in every case
+      }
       }
     }
     // We have exited the loop, we now close the current (and last) slice
