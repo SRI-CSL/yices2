@@ -23,6 +23,7 @@
 
 
 #ifndef NDEBUG
+
 /*
  * Check that a[0 ... n-1] is sorted in increasing order.
  */
@@ -41,6 +42,14 @@ static bool sorted_array(const bvar_t *a, uint32_t n) {
 #endif
 
 
+/*
+ * 2^n for 32bit unsigned numbers
+ */
+static inline uint32_t pow2(uint32_t n) {
+  assert(n < 32);
+  return ((uint32_t) 1) << n;
+}
+
 
 /*
  * Initialize w for size = n.
@@ -54,7 +63,7 @@ void init_wide_ttbl(wide_ttbl_t *w, uint32_t n) {
   
   assert(n <= MAX_WIDE_TTBL_SIZE);
 
-  p = ((uint32_t) 1) << n; // 2^n 
+  p = pow2(n);
   w->size = n;
   w->nvars = 0;
   w->var = (bvar_t *) safe_malloc(n * sizeof(bvar_t));
@@ -203,7 +212,7 @@ static uint32_t merge_vars(bvar_t *c, const bvar_t *a, uint32_t n, const bvar_t 
     while (i < n && a[i] < x) c[j++] = a[i++];
 
     // x will be stored in c[j]
-    s = ((uint32_t) 1) << j;
+    s = pow2(j);
     selector[k] = s;              // 2^j
     mask[k] = ~((uint32_t) 0);   // default mask
     if (i == n || a[i] != x) {
@@ -282,8 +291,8 @@ static void compose_truth_tables(uint8_t *b, uint32_t n, const uint8_t *a, uint3
   assert(i <= n && n <= MAX_WIDE_TTBL_SIZE);
 
   expand_ttbl(g, ttbl);
-  p = ((uint32_t) 1) << n; // 2^n = size of array b
-  i_mask = (((uint32_t) 1) << i) - 1; // mask for removing x_i
+  p = pow2(n);
+  i_mask = pow2(i) - 1;
 
   switch (ttbl->nvars) {
   case 0:
@@ -371,4 +380,127 @@ bool wide_ttbl_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl
 
   return false;
 }
+
+
+/*
+ * Check whether the truth table a[0 ... 2^n-1] is independent of
+ * index i.
+ * - n = number of variables
+ * - i = index between 0 and n-1
+ */
+static bool redundant_index(const uint8_t *a, uint32_t n, uint32_t i) {
+  uint32_t j, p, i_mask;
+  uint32_t t, u;
+
+  assert(i < n);
+
+  i_mask = pow2(i) - 1;
+  p = pow2(n-1);
+  for (j=0; j<p; j++) {
+    t = insert_bit(j, i_mask, 0);
+    u = insert_bit(j, i_mask, 1);
+    assert(t < pow2(n) && u < pow2(n));
+    if (a[t] != a[u]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Collect the non-redundant variables of a table
+ * - a = array of n variable
+ * - b = truth table (2^n elements)
+ * - c = array to store the non-redundant variables
+ * - mask = array to store a mask for all redundant variables
+ * - return the number of variables stored in c
+ */
+static uint32_t filter_redundant_vars(bvar_t *c, const bvar_t *a, uint32_t n, const uint8_t *b, uint32_t *mask) {
+  uint32_t i, j, k;
+
+  assert(sorted_array(a, n));
+
+  j = 0; // index in a
+  k = 0; // index in mask
+  for (i=0; i<n; i++) {
+    if (redundant_index(b, n, i)) {
+      mask[k] = pow2(i) - 1;
+      k ++;
+    } else {
+      c[j] = a[i];
+      j ++;
+    }
+  }
+
+  assert(k + j == n);
+
+  assert(sorted_array(c, j));
+
+  return j;
+}
+
+/*
+ * Add k bits to j as specified by an array of masks
+ * - each mask is of the form (2^i - 1)
+ * - the masks must be in strict increasing order
+ */
+static uint32_t insert_zeros(uint32_t i, uint32_t k, const uint32_t *mask) {
+  uint32_t j;
+
+  for (j=0; j<k; j++) {
+    i = insert_bit(i, mask[j], 0);
+  }
+  return i;
+}
+
+
+/*
+ * Remove redundant elements from a truth table a
+ * - n = number of non-redundant indices
+ * - k = number of redundant indices
+ * - a = original truth-table  (2^ (n+k) elements)
+ * - mask = array of k masks that correspond to the redundant indices
+ *   1) each element of mask is of the form (2^i - 1) where i is a
+ *      redundant index for a
+ *   2) the masks are in strictly increasing order
+ * - b = array to store the result (b must have 2^n elements)
+ */
+static void filter_truth_table(uint8_t *b, uint32_t n, const uint8_t *a, const uint32_t *mask, uint32_t k) {
+  uint32_t i, p, t;
+
+  p = pow2(n);
+  for (i=0; i<p; i++) {
+    t = insert_zeros(i, k, mask);
+    assert(t < pow2(n + k));
+    b[i] = a[t];
+  }
+}
+
+/*
+ * Normalize w1 and store the result in w
+ * - remove the redundant variables of w1
+ * - returns true if w1 is large enough to contain the result, false otherwise
+ */
+bool wide_ttbl_normalize(wide_ttbl_t *w, const wide_ttbl_t *w1) {
+  bvar_t a[MAX_WIDE_TTBL_SIZE];
+  uint32_t mask[MAX_WIDE_TTBL_SIZE];
+  uint32_t n;
+
+  assert(w1->nvars <= MAX_WIDE_TTBL_SIZE);
+
+  n = filter_redundant_vars(a, w1->var, w1->nvars, w1->val, mask);
+  assert(n <= w1->nvars);
+
+  if (n <= w->size) {
+    w->nvars = n;
+    copy_vars(w->var, a, n);
+    filter_truth_table(w->val, n, w1->val, mask, w1->nvars - n);
+    return true;
+  }
+
+  return false;
+}
+
 

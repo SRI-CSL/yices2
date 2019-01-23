@@ -27,6 +27,14 @@
 
 
 /*
+ * 2^n for 32bit unsigned numbers
+ */
+static inline uint32_t pow2(uint32_t n) {
+  assert(n < 32);
+  return ((uint32_t) 1) << n;
+}
+
+/*
  * Print a table
  */
 static void print_table(wide_ttbl_t *table) {
@@ -43,13 +51,11 @@ static void print_table(wide_ttbl_t *table) {
     }
     printf("\n");
 
-    assert(n <= 31);
-
-    m = ((uint32_t) 1) << n;
+    m = pow2(n);
     for (j=0; j<m; j++) {
       for (i=0; i<n; i++) {
-	bit = (j & (1 << i));
-	assert(bit == 0 || bit == (1 << i));
+	bit = j & pow2(i);
+	assert(bit == 0 || bit == pow2(i));
 	if (bit == 0) {
 	  printf("   0"); 
 	} else {
@@ -93,6 +99,29 @@ static void set_function(ttbl_t *ttbl, uint32_t f, int32_t var[3]) {
   normalize_truth_table(ttbl);
 }
 
+/*
+ * Store a function in table
+ * - n = number of variables (must be 5 or less)
+ * - v = array of n variables
+ * - f = bitmask for the truth table (between 0 and 2^n-1)
+ */
+static void import_function(wide_ttbl_t *table, uint32_t n, const int32_t *v, uint32_t f) {
+  uint32_t i, p;
+
+  assert(n <= table->size && n <= 5);
+
+  table->nvars = n;
+  for (i=0; i<n; i++) {
+    table->var[i] = v[i];
+  }
+
+  p = pow2(n);
+  for (i=0; i<p; i++) {
+    table->val[i] = f & 1;
+    f >>= 1;
+  }
+}
+
 
 /*
  * Find index of x in array a[0...n-1]
@@ -122,13 +151,13 @@ static uint32_t eval_ttbl(const ttbl_t *ttbl, uint32_t n, const int32_t *var, co
     idx = var_index_in_array(var[k], ttbl->label, ttbl->nvars);
     if (idx >= 0 && val[k] == 1) {
       assert(0 <= idx && idx <= 2);
-      i += ((uint32_t) 1) << (2 - idx);
+      i += pow2(2 - idx);
     }
   }
 
   assert(i <= 7);
 
-  return (ttbl->mask & (1 << i)) != 0;
+  return (ttbl->mask & pow2(i)) != 0;
 }
 
 
@@ -148,11 +177,11 @@ static uint32_t eval_table(const wide_ttbl_t *table, uint32_t n, const int32_t *
     idx = var_index_in_array(var[k], table->var, table->nvars);
     if (idx >= 0 && val[k] == 1) {
       assert(0 <= idx && idx < table->nvars);
-      i += ((uint32_t) 1) << idx;
+      i += pow2(idx);
     }
   }
 
-  assert(i < (((uint32_t) 1) << table->nvars));
+  assert(i < pow2(table->nvars));
 
   return table->val[i];
 }
@@ -235,9 +264,8 @@ static void validate_import(const wide_ttbl_t *table, const ttbl_t *ttbl, const 
  * - n = size of a
  */
 static void collect_vars(ivector_t *v, const int32_t *a, uint32_t n, uint32_t i) {
-  uint32_t j, k;
+  uint32_t j;
 
-  k = 0;
   for (j=0; j<n; j++) {
     if (j != i) ivector_push(v, a[j]);
   }
@@ -301,7 +329,7 @@ static void validate_merge(const wide_ttbl_t *table, const wide_ttbl_t *table0, 
 
   assert(n < 16);
 
-  p = ((uint32_t) 1) << n;
+  p = pow2(n);
 
   init_val_array(val, n);
   for (j=0; j<p; j++) {
@@ -377,6 +405,28 @@ static void test_import(wide_ttbl_t *test, uint32_t f) {
 }
 
 
+// normalize: 5 variables
+static void test_normalize(wide_ttbl_t *test, uint32_t f) {
+  wide_ttbl_t result;
+  int32_t v[5] = { 1, 2, 3, 4, 5 };
+
+  printf("==== normalize test ====\n");
+  printf("function 0x%08x\n", (unsigned) f);
+  import_function(test, 5, v, f);
+  print_table(test);
+
+  init_wide_ttbl(&result, 8);
+  if (! wide_ttbl_normalize(&result, test)) {
+    printf("*** normalize failed ***\n");
+    exit(1);
+  }
+  print_table(&result);
+  printf("\n");
+
+  delete_wide_ttbl(&result);
+}
+
+
 
 int main(void) {
   wide_ttbl_t test;
@@ -416,6 +466,21 @@ int main(void) {
   for (i=0; i<256; i++) {
     test_merge(&test, i, u);
   }
+
+  test_normalize(&test, 0x00000000u);
+  test_normalize(&test, 0xFFFFFFFFu);
+  test_normalize(&test, 0xAAAAAAAAu);
+  test_normalize(&test, 0x55555555u);
+  test_normalize(&test, 0xCCCCCCCCu);
+  test_normalize(&test, 0x33333333u);
+  test_normalize(&test, 0xF0F0F0F0u);
+  test_normalize(&test, 0x0F0F0F0Fu);
+  test_normalize(&test, 0xFF00FF00u);
+  test_normalize(&test, 0x00FF00FFu);
+  test_normalize(&test, 0xFFFF0000u);
+  test_normalize(&test, 0x0000FFFFu);
+  test_normalize(&test, 0xFFFF0000u ^ 0x33333333u);
+  test_normalize(&test, 0x01234567u);
 
   delete_wide_ttbl(&test);
 
