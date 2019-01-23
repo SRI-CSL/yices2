@@ -27,6 +27,7 @@
 
 #include "solvers/cdcl/new_sat_solver.h"
 #include "solvers/cdcl/new_gate_hash_map.h"
+#include "solvers/cdcl/wide_truth_tables.h"
 #include "utils/cputime.h"
 #include "utils/memalloc.h"
 #include "utils/int_array_sort.h"
@@ -7175,7 +7176,7 @@ static void shrink_watch_vectors(sat_solver_t *solver) {
   n = solver->nliterals;
   for (i=2; i<n; i++) {
     w = solver->watch[i];
-    if (false && w != NULL && w->capacity >= 100 && w->size < (w->capacity >> 2)) {
+    if (w != NULL && w->capacity >= 100 && w->size < (w->capacity >> 2)) {
       solver->watch[i] = shrink_watch(w);
     }
   }
@@ -7190,11 +7191,119 @@ static void prepare_for_search(sat_solver_t *solver) {
   pp_reset_watch_vectors(solver);
   pp_rebuild_watch_vectors(solver);
   shrink_watch_vectors(solver);
+  safe_free(solver->occ);
+  solver->occ = NULL;
   check_clause_pool_counters(&solver->pool);      // DEBUG
   check_watch_vectors(solver);                    // DEBUG
 }
 
 
+
+/*
+ * EXPERIMENTAL
+ */
+
+#if 0
+
+/*
+ * For testing: show the definition of a variable i as truth-table w
+ */
+static void show_expanded_ttbl(bvar_t x, wide_ttbl_t *w) {
+  uint32_t i, n;
+
+  fprintf(stderr, "c W(");
+  for (i=0; i<w->nvars; i++) {
+    fprintf(stderr, "%"PRId32", ", w->var[i]);
+  }
+  n = ((uint32_t) 1) << w->nvars;
+  for (i=0; i<n; i++) {
+    fputc((int)('0' + w->val[i]), stderr);
+  }
+  fprintf(stderr, ") == %"PRId32"\n", x);
+}
+
+static void try_expand_once(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w) {
+  uint32_t i;
+  ttbl_t sub;
+  wide_ttbl_t expand;
+  bvar_t y;
+
+  init_wide_ttbl(&expand, 8);
+  for (i=0; i<w->nvars; i++) {
+    y = w->var[i];
+    if (gate_for_bvar(solver, y, &sub)) {
+      apply_subst_to_ttbl(solver, &sub);
+      if (wide_ttbl_compose(&expand, w, &sub, i)) {
+	show_expanded_ttbl(x, &expand);
+      }
+    }
+  }
+  delete_wide_ttbl(&expand);
+}
+
+static void try_expand_twice(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w) {
+  uint32_t i;
+  ttbl_t sub;
+  wide_ttbl_t expand;
+  bvar_t y;
+
+  init_wide_ttbl(&expand, 8);
+  for (i=0; i<w->nvars; i++) {
+    y = w->var[i];
+    if (gate_for_bvar(solver, y, &sub)) {
+      apply_subst_to_ttbl(solver, &sub);
+      if (wide_ttbl_compose(&expand, w, &sub, i)) {
+	try_expand_once(solver, x, &expand);
+      }
+    }
+  }
+  delete_wide_ttbl(&expand);
+}
+
+static void try_expand_all(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w, uint32_t max) {
+  uint32_t i;
+  ttbl_t sub;
+  wide_ttbl_t expand;
+  bvar_t y;
+
+  show_expanded_ttbl(x, w);
+
+  if (max > 0) {
+    init_wide_ttbl(&expand, 6);
+    for (i=0; i<w->nvars; i++) {
+      y = w->var[i];
+      if (gate_for_bvar(solver, y, &sub)) {
+	apply_subst_to_ttbl(solver, &sub);
+	if (wide_ttbl_compose(&expand, w, &sub, i)) {
+	  try_expand_all(solver, x, &expand, max - 1);
+	}
+      }
+    }
+    delete_wide_ttbl(&expand);
+  }
+}
+
+static void show_expanded_var_defs(const sat_solver_t *solver) {
+  uint32_t i, n;
+  ttbl_t base;
+  wide_ttbl_t w;
+
+  init_wide_ttbl(&w, 4);
+
+  n = solver->descriptors.size;
+  for (i=0; i<n; i++) {
+    if (gate_for_bvar(solver, i, &base)) {
+      fprintf(stderr, "c cuts for %"PRIu32"\n", i);
+      apply_subst_to_ttbl(solver, &base);
+      wide_ttbl_import(&w, &base);
+      try_expand_all(solver, i, &w, 10);
+    }
+  }
+
+  delete_wide_ttbl(&w);
+}
+
+#endif
 
 /*
  * PREPROCESSING
@@ -7274,6 +7383,13 @@ static void nsat_preprocess(sat_solver_t *solver) {
   if (!solver->has_empty_clause) {
     prepare_for_search(solver);
   }
+
+#if 0
+  // test
+  show_all_var_defs(solver);
+  show_subst(solver);
+  show_expanded_var_defs(solver);
+#endif
 }
 
 
@@ -9114,13 +9230,9 @@ static void show_subst(const sat_solver_t *solver) {
 
 
 
-void show_all_var_defs(const sat_solver_t *solver) {
-  gate_hmap_t test;
-  bgate_t *g;
-  uint32_t i, j, n, equiv;
-  literal_t l;
 
-  init_gate_hmap(&test, 0);
+void show_all_var_defs(const sat_solver_t *solver) {
+  uint32_t i, n;
 
   n = solver->descriptors.size;
   for (i=0; i<n; i++) {
@@ -9128,26 +9240,6 @@ void show_all_var_defs(const sat_solver_t *solver) {
       show_var_def(solver, i);
     }
   }
-
-  equiv = 0;
-  for (i=0; i<n; i++) {
-    if (bvar_is_gate(&solver->descriptors, i)) {
-      j = bvar_get_gate(&solver->descriptors, i);
-      g = bgate(&solver->gates, j);
-      l = gate_hmap_find(&test, g);
-      if (l == null_literal) {
-	gate_hmap_add(&test, g, pos_lit(i));
-      } else {
-	fprintf(stderr, "c gate equiv: %"PRId32" == %"PRId32"\n", l, pos_lit(i));
-	equiv ++;
-      }
-    }
-  }
-
-  fprintf(stderr, "c tested %"PRIu32" gates\n", test.nelems);
-  fprintf(stderr, "c found %"PRIu32" equivalences\n", equiv);
-
-  delete_gate_hmap(&test);
 }
 
 

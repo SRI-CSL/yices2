@@ -99,9 +99,17 @@ extern void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl);
  *
  * The function returns false if the composition can't be stored
  * in w (because it requires more variables than w->size).
- * If returns true otherwisw.
+ * It returns true otherwise.
  */
 extern bool wide_ttbl_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl, uint32_t i);
+
+
+/*
+ * Normalize w1 and store the result in w
+ * - remove the redundant variables of w1
+ * - return true if w1 is large enough to contain the result, false otherwise
+ */
+extern bool wide_ttbl_normalize(wide_ttbl_t *w, const wide_ttbl_t *w1);
 
 
 
