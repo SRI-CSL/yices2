@@ -5775,6 +5775,7 @@ static void apply_subst_to_ttbl(const sat_solver_t *solver, ttbl_t *tt) {
 }
 
 
+
 /*
  * Get x's definition and apply the substitution
  * - return true if x is defined by a gate and if the result is a binary gate
@@ -5988,7 +5989,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
   gate_hmap_t test;
   ttbl_t tt;
   uint32_t i, n;
-  literal_t l0;
+  literal_t l0, l1;
 
   if (solver->verbosity >= 10) {
     show_subst(solver);
@@ -6000,13 +6001,20 @@ static void try_equivalent_vars(sat_solver_t *solver) {
   for (i=0; i<n; i++) {
     if (var_is_active(solver, i) && gate_for_bvar(solver, i, &tt)) {
       apply_subst_to_ttbl(solver, &tt);
+      l0 = full_var_subst(solver, i);
+      l0 = nsat_base_literal(solver, l0);
       if (tt.nvars >= 2) {
-	l0 = full_var_subst(solver, i);
-	l0 = nsat_base_literal(solver, l0);
 	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate equiv");
 	if (tt.nvars == 2) {
 	  try_rewrite_binary_gate(solver, l0, &tt, &test);
 	}
+      } else if (tt.nvars == 1) {
+	l1 = literal_of_ttbl1(&tt);
+	literal_equiv(solver, l0, l1);
+      } else {
+	assert(tt.nvars == 0);
+	l1 = literal_of_ttbl0(&tt);
+	literal_equiv(solver, l0, l1);
       }
     }
   }
@@ -7222,65 +7230,31 @@ static void show_expanded_ttbl(bvar_t x, wide_ttbl_t *w) {
   fprintf(stderr, ") == %"PRId32"\n", x);
 }
 
-static void try_expand_once(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w) {
-  uint32_t i;
-  ttbl_t sub;
-  wide_ttbl_t expand;
-  bvar_t y;
-
-  init_wide_ttbl(&expand, 8);
-  for (i=0; i<w->nvars; i++) {
-    y = w->var[i];
-    if (gate_for_bvar(solver, y, &sub)) {
-      apply_subst_to_ttbl(solver, &sub);
-      if (wide_ttbl_compose(&expand, w, &sub, i)) {
-	show_expanded_ttbl(x, &expand);
-      }
-    }
-  }
-  delete_wide_ttbl(&expand);
-}
-
-static void try_expand_twice(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w) {
-  uint32_t i;
-  ttbl_t sub;
-  wide_ttbl_t expand;
-  bvar_t y;
-
-  init_wide_ttbl(&expand, 8);
-  for (i=0; i<w->nvars; i++) {
-    y = w->var[i];
-    if (gate_for_bvar(solver, y, &sub)) {
-      apply_subst_to_ttbl(solver, &sub);
-      if (wide_ttbl_compose(&expand, w, &sub, i)) {
-	try_expand_once(solver, x, &expand);
-      }
-    }
-  }
-  delete_wide_ttbl(&expand);
-}
-
 static void try_expand_all(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w, uint32_t max) {
   uint32_t i;
   ttbl_t sub;
-  wide_ttbl_t expand;
+  wide_ttbl_t expand, normal;
   bvar_t y;
 
-  show_expanded_ttbl(x, w);
+  init_wide_ttbl(&normal, 6);
+  wide_ttbl_normalize(&normal, w);
+  show_expanded_ttbl(x, &normal);
 
   if (max > 0) {
     init_wide_ttbl(&expand, 6);
-    for (i=0; i<w->nvars; i++) {
-      y = w->var[i];
+    for (i=0; i<normal.nvars; i++) {
+      y = normal.var[i];
       if (gate_for_bvar(solver, y, &sub)) {
 	apply_subst_to_ttbl(solver, &sub);
-	if (wide_ttbl_compose(&expand, w, &sub, i)) {
+	if (wide_ttbl_compose(&expand, &normal, &sub, i)) {
 	  try_expand_all(solver, x, &expand, max - 1);
 	}
       }
     }
     delete_wide_ttbl(&expand);
   }
+
+  delete_wide_ttbl(&normal);
 }
 
 static void show_expanded_var_defs(const sat_solver_t *solver) {
@@ -7296,7 +7270,8 @@ static void show_expanded_var_defs(const sat_solver_t *solver) {
       fprintf(stderr, "c cuts for %"PRIu32"\n", i);
       apply_subst_to_ttbl(solver, &base);
       wide_ttbl_import(&w, &base);
-      try_expand_all(solver, i, &w, 10);
+      try_expand_all(solver, i, &w, 4);
+      fprintf(stderr, "c\n");
     }
   }
 

@@ -125,6 +125,18 @@ extern void normalize_truth_table(ttbl_t *tt);
 
 
 /*
+ * Literal encoded in tt
+ * - tt must have a single variable
+ */
+extern literal_t literal_of_ttbl1(ttbl_t *tt);
+
+/*
+ * Literal encoded in tt
+ * - tt must be a constant function (tt->nvars == 0)
+ */
+extern literal_t literal_of_ttbl0(ttbl_t *tt);
+
+/*
  * Combine two binary truth tables:
  * - tt1 defines a function f(x, y)
  * - tt2 defines x as a function g(z, t)

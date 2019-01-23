@@ -396,6 +396,31 @@ void normalize_truth_table(ttbl_t *tt) {
   }
 }
 
+/*
+ * Literal encoded in tt
+ * - tt must have a single variable
+ */
+literal_t literal_of_ttbl1(ttbl_t *tt) {
+  bvar_t x;
+
+  assert(normal_truth_table(tt));
+  assert(tt->nvars == 1);
+  x = tt->label[0];
+  return tt->mask == 0xf0 ? pos_lit(x) : neg_lit(x);
+}
+
+/*
+ * Literal encoded in tt
+ * - tt must be a constant function (tt->nvars == 0)
+ */
+literal_t literal_of_ttbl0(ttbl_t *tt) {
+  assert(normal_truth_table(tt));
+  assert(tt->nvars == 0);
+  return tt->mask == 0x00 ? false_literal : true_literal;
+}
+
+
+
 
 /*
  * Check that all elements of array b are either 0 or 1
