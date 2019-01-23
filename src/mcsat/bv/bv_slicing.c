@@ -17,8 +17,6 @@
 spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
   assert(lhs != NULL);
   assert(rhs != NULL);
-  assert(lhs != rhs);
-  assert(lhs->slice_term != rhs->slice_term);
   spair_t* pair = safe_malloc(sizeof(spair_t));
   pair->lhs = lhs;
   pair->rhs = rhs;
@@ -118,6 +116,7 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi) {
   slice_t* result = safe_malloc(sizeof(slice_t));
 
   result->term = term;
+  result->slice_term = NULL_TERM;
   result->lo  = lo;
   result->hi  = hi;
   result->paired_with = NULL;
@@ -253,14 +252,15 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
   safe_free(l1);
   safe_free(l2);
 
-  if (h1->slice_term != h2->slice_term) {
-    spair_t* p = spair_new(h1, h2, appearing_in); // We form the pair
-    /* fprintf(out,"Forming pair "); */
-    /* bv_slicing_print_spair(p, true, terms, out); */
-    /* fprintf(out,"\n"); */
-    h1->paired_with = splist_cons(p, true, h1->paired_with);
-    h2->paired_with = splist_cons(p, false, h2->paired_with);
+  spair_t* p = spair_new(h1, h2, appearing_in); // We form the pair
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out,"Forming pair ");
+    ctx_print_spair(ctx, p, (appearing_in == 0));
+    fprintf(out,"\n");
   }
+  h1->paired_with = splist_cons(p, true, h1->paired_with);
+  h2->paired_with = splist_cons(p, false, h2->paired_with);
 
   bv_slicing_align(ctx, t1, t2, appearing_in, todo);
 }

@@ -364,8 +364,9 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
 
   // We send the equalities to the e-graph
   while (current != NULL) {
-    if (current->is_main) {
-      p = current->pair;
+    assert(current->is_main);
+    p = current->pair;
+    if (p->lhs->slice_term != p->rhs->slice_term) {
       eq_graph_assert_term_eq(&eq_graph, p->lhs->slice_term, p->rhs->slice_term, 0);
       // 0 means that the assertion is a consequence of the conflict_core
       // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
@@ -401,9 +402,11 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
         term_t lhs = p->lhs->slice_term;
         term_t rhs = p->rhs->slice_term;
 
-        if (eq_graph_are_equal(&eq_graph, lhs, rhs)) {
-          // adding the reason why this disequality is false: TODO: check that reasons is not first cleared by the function
-          eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
+        if (lhs == rhs || eq_graph_are_equal(&eq_graph, lhs, rhs)) {
+          // adding the reason why this disequality is false
+          if (lhs != rhs) {
+            eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
+          }
           if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
             FILE* out = ctx_trace_out(ctx);
             fprintf(out, "Looking at why disequality is false: ");
