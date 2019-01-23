@@ -498,12 +498,21 @@ static int32_t _o_yices_bvsum_component(term_t t, int32_t i, int32_t val[], term
 
 static int32_t _o_yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *exp);
 
+/*******************************************
+ *  EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
+ ******************************************/
+
+//FIXME: IAM: these are not exported but should probably be thread safe. How?
 
 /************************
  *  TERM SUBSTITUTION   *
  ***********************/
 
+static term_t _o_yices_subst_term(uint32_t n, const term_t var[], const term_t map[], term_t t);
 
+static int32_t _o_yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[]);
+
+  
 /**************
  *  PARSING   *
  *************/
@@ -533,13 +542,6 @@ static int32_t _o_yices_product_component(term_t t, int32_t i, term_t *term, uin
  *  VALUES IN A MODEL   *
  ***********************/
 
-/*
- * VALUES AS CONSTANT TERMS
- */
-
-/*
- * MODEL GENERALIZATION
- */
 
 /*************************
  *  GARBAGE COLLECTION   *
