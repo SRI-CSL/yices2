@@ -424,12 +424,12 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
           // We need to collect the interface term
           if (eq_graph_has_term(&eq_graph, lhs)
               && eq_graph_term_has_value(&eq_graph, lhs)){
-            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, NULL, NULL, NULL);
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, &reasons, &reasons_types, NULL);
             ivector_push(&interface_terms, iterm);
           }
           if (eq_graph_has_term(&eq_graph, rhs)
               && eq_graph_term_has_value(&eq_graph, rhs)){
-            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, NULL, NULL, NULL);
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, &reasons, &reasons_types, NULL);
             ivector_push(&interface_terms, iterm);
           }
           // Note that both "ifs" cannnot be true at the same time, otherwise the disequality could be evaluated:

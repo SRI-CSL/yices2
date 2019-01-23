@@ -2102,7 +2102,6 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
     eq_graph_to_gv_mark_node(eq, v_id);
   }
 
-  assert(explain_data == NULL || explain_data->size == 0);
   path_terms_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types, terms_used);
   assert(result.t2 != NULL_TERM);
 
