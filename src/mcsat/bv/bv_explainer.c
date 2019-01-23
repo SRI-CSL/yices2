@@ -395,6 +395,10 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
     for (uint32_t i = 1; i < slicing.nconstraints; i++) {
 
       current = slicing.constraints[i]; // Get disjunction number i
+      if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Looking at disjunction %d:\n",i);
+      }
       // Go through disjuncts
       while (current != NULL) {
         p = current->pair;
@@ -412,7 +416,11 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
           }
           if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
             FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "Looking at why disequality is false: ");
+            fprintf(out, "Looking at why disequality ");
+            term_print_to_file(out, terms, lhs);            
+            fprintf(out, " != ");
+            term_print_to_file(out, terms, rhs);
+            fprintf(out, " is false: ");
             for (uint32_t i = 0; i < reasons.size; i++) {
               if (i>0) fprintf(out,", ");
               fprintf(out,"%d", reasons.data[i]);
@@ -425,12 +433,30 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
           if (eq_graph_has_term(&eq_graph, lhs)
               && eq_graph_term_has_value(&eq_graph, lhs)){
             term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, &reasons, &reasons_types, NULL);
-            ivector_push(&interface_terms, iterm);
+            term_kind_t kind = term_kind(terms, iterm);
+            if (kind != BV64_CONSTANT && kind != BV_CONSTANT) {
+              ivector_push(&interface_terms, iterm);
+              if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+                FILE* out = ctx_trace_out(ctx);
+                fprintf(out, "Just added left interface term ");
+                term_print_to_file(out, terms, iterm);
+                fprintf(out, "\n");
+              }
+            }
           }
           if (eq_graph_has_term(&eq_graph, rhs)
               && eq_graph_term_has_value(&eq_graph, rhs)){
             term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, &reasons, &reasons_types, NULL);
-            ivector_push(&interface_terms, iterm);
+            term_kind_t kind = term_kind(terms, iterm);
+            if (kind != BV64_CONSTANT && kind != BV_CONSTANT) {
+              ivector_push(&interface_terms, iterm);
+              if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+                FILE* out = ctx_trace_out(ctx);
+                fprintf(out, "Just added right interface term ");
+                term_print_to_file(out, terms, iterm);
+                fprintf(out, "\n");
+              }
+            }
           }
           // Note that both "ifs" cannnot be true at the same time, otherwise the disequality could be evaluated:
           // if it evaluates to true, then the disjunction would evaluate to true, so the constraint from whence it came would not be in the core
@@ -444,8 +470,10 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
       for (uint32_t j = i+1; j < interface_terms.size; j++) {
         term_t lhs = interface_terms.data[i];
         term_t rhs = interface_terms.data[j];
-        term_t t = (eq_graph_are_equal(&eq_graph, lhs, rhs))? mk_eq(tm, lhs, rhs):mk_neq(tm, lhs, rhs);
-        ivector_push(conflict, t);
+        if (term_bitsize(terms, lhs) == term_bitsize(terms, rhs)) {
+          term_t t = (eq_graph_are_equal(&eq_graph, lhs, rhs))? mk_eq(tm, lhs, rhs):mk_neq(tm, lhs, rhs);
+          ivector_push(conflict, t);
+        }
       }
     }
     delete_ivector(&interface_terms);

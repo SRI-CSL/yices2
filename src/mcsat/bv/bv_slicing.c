@@ -89,11 +89,19 @@ void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
 /** Prints a pairs. if b is true, as an equality, otherwise, as a disequality */
 void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
   FILE* out = ctx_trace_out(ctx);
+  term_table_t* terms = ctx->terms;
   assert(p->lhs != NULL);
   assert(p->rhs != NULL);
-  ctx_print_slice(ctx, p->lhs);
-  fprintf(out, "%s", b?"=":"!=");
-  ctx_print_slice(ctx, p->rhs);
+  if (p->lhs->slice_term != NULL_TERM) {
+    term_print_to_file(out, terms, p->lhs->slice_term);
+    fprintf(out, "%s", b?"=":"!=");
+    term_print_to_file(out, terms, p->rhs->slice_term);
+  }
+  else {
+    ctx_print_slice(ctx, p->lhs);
+    fprintf(out, "%s", b?"=":"!=");
+    ctx_print_slice(ctx, p->rhs);
+  }
 }
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
