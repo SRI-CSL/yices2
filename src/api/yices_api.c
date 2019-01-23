@@ -7673,7 +7673,6 @@ const char *_o_yices_get_term_name(term_t t) {
 
 EXPORTED void yices_remove_type_name(const char *name) {
   MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_type_name(name));
-  remove_type_name(__yices_globals.types, name);
 }
 
 void _o_yices_remove_type_name(const char *name) {
@@ -7687,7 +7686,6 @@ void _o_yices_remove_type_name(const char *name) {
 
 EXPORTED void yices_remove_term_name(const char *name) {
   MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_term_name(name));
-  remove_term_name(__yices_globals.terms, name);
 }
 
 void _o_yices_remove_term_name(const char *name) {
@@ -7701,7 +7699,6 @@ void _o_yices_remove_term_name(const char *name) {
 
 EXPORTED type_t yices_get_type_by_name(const char *name) {
   MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_get_type_by_name(name));
-  return get_type_by_name(__yices_globals.types, name);
 }
 
 type_t _o_yices_get_type_by_name(const char *name) {
@@ -7715,7 +7712,6 @@ type_t _o_yices_get_type_by_name(const char *name) {
 
 EXPORTED term_t yices_get_term_by_name(const char *name) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_get_term_by_name(name));
-  return get_term_by_name(__yices_globals.terms, name);
 }
 
 term_t _o_yices_get_term_by_name(const char *name) {
@@ -7762,8 +7758,6 @@ int32_t _o_yices_clear_term_name(term_t t) {
   clear_term_name(__yices_globals.terms, t);
   return 0;
 }
-
-
 
 
 
