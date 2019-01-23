@@ -60,3 +60,39 @@ problematic (assumming it is not the case that HAVE_TLS:
  *  EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
  ******************************************/
 </problematic>
+
+
+
+Questions:
+
+do models checnge internally once they are created?
+
+do we really want to protect things like config_t param_t with locks?
+wouldn't it be better to have a "principled approach to thread safety?"
+
+principles like:
+
+params, configs, contexts and models, should not be shared across threads.
+
+
+
+
+
+Current issues in yices_api.c
+
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	arith_buffer_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bv0
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith64_buffer_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith_buffer_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvlogic_buffer_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	context_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	ctx_option_names
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	generic_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	model_list
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	r0
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_terms
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_types
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_terms
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_types
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error_initialized

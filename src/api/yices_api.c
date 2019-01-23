@@ -108,59 +108,10 @@ typedef void lp_algebraic_number_t;
 
 
 // FIXME: these need to find a better home
-
-/*
- * Thread Local Errors
- *
- * iam says: if we don't HAVE_TLS then we need to work harder with errors.
- * have to discuss this with BD. For the time being we protect it with the 
- * yices_global lock, but move it out of __yices_globals, since it we do have TLS
- * then it doesn't belong there.
- *
- */
-#ifdef HAVE_TLS
-#define YICES_THREAD_LOCAL __thread
-#else
-#define YICES_THREAD_LOCAL
-#endif
-
-/*
- *
- * API entry point synchronization macros
- *
- */
-#define MT_PROTECT_VOID(LOCK,EXPRESSION) \
-  do { yices_lock_t *lock = &(LOCK);\
-       get_yices_lock(lock);\
-       (EXPRESSION);\
-       release_yices_lock(lock);\
-  } while(0)
-
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)	\
-  do { yices_lock_t *lock = &(LOCK);\
-       TYPE retval;\
-       get_yices_lock(lock);\
-       retval = (EXPRESSION);\
-       release_yices_lock(lock);\
-       return retval;\
-  } while(0)
-
-
-#define MT_PROTECT2(TYPE,LOCK0,LOCK1,EXPRESSION) \
-  do { yices_lock_t *lock0 = &(LOCK0);\
-       yices_lock_t *lock1 = &(LOCK1);\
-       TYPE retval;\
-       get_yices_lock(lock0);\
-       get_yices_lock(lock1);\
-       retval = (EXPRESSION);\
-       release_yices_lock(lock1);\
-       release_yices_lock(lock0);\
-       return retval;\
-  } while(0)
+#include "mt/thread_macros.h"
 
 
 #include "yices.h"
-
 
 
 
@@ -7790,6 +7741,7 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
 /*
  * Set a configuration parameter
  */
+//MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
   int32_t k;
 
@@ -7814,6 +7766,7 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
  * - return -1 if there's an error
  * - return 0 otherwise
  */
+//MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
   int32_t k;
 
@@ -8018,7 +7971,6 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
  * Allocate a new configuration descriptor
  * - initialize it do defaults
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED param_t *yices_new_param_record(void) {
   param_t *tmp;
 
@@ -8030,7 +7982,6 @@ EXPORTED param_t *yices_new_param_record(void) {
 /*
  * Delete
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_free_param_record(param_t *param) {
   free_param_structure(param);
 }
