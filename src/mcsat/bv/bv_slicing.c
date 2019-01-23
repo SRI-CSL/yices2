@@ -14,9 +14,10 @@
 #include "bv_slicing.h"
 
 /** pair construct */
-spair_t* bv_slicing_spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
+spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
   assert(lhs != NULL);
   assert(rhs != NULL);
+  assert(lhs != rhs);
   spair_t* pair = safe_malloc(sizeof(spair_t));
   pair->lhs = lhs;
   pair->rhs = rhs;
@@ -26,7 +27,7 @@ spair_t* bv_slicing_spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in)
 }
 
 /** splist cons */
-splist_t* bv_slicing_spcons(spair_t* pair, bool is_main, splist_t* tail) {
+splist_t* splist_cons(spair_t* pair, bool is_main, splist_t* tail) {
 
   splist_t* result = safe_malloc(sizeof(splist_t));
   result->pair = pair;
@@ -50,11 +51,11 @@ void bv_slicing_spdelete(splist_t* spl, bool b) {
   }
 }
 
-void bv_slicing_print_slice_aux(const slice_t* s, FILE* out) {
+void slice_print(const slice_t* s, FILE* out) {
   fprintf(out, "[");
   if (s->lo_sub != NULL) {
-    bv_slicing_print_slice_aux(s->hi_sub, out);
-    bv_slicing_print_slice_aux(s->lo_sub, out);
+    slice_print(s->hi_sub, out);
+    slice_print(s->lo_sub, out);
   }
   else {
     if ((s->hi) == (s->lo)+1) {
@@ -66,11 +67,11 @@ void bv_slicing_print_slice_aux(const slice_t* s, FILE* out) {
   fprintf(out, "]");
 }
 
-void bv_slicing_print_slice(const plugin_context_t* ctx, const slice_t* s) {
+void ctx_print_slice(const plugin_context_t* ctx, const slice_t* s) {
   FILE* out = ctx_trace_out(ctx);
   term_table_t* terms = ctx->terms;
   term_print_to_file(out, terms, s->term);
-  bv_slicing_print_slice_aux(s, out);
+  slice_print(s, out);
 }
 
 /** Prints a list of slices. */
@@ -78,7 +79,7 @@ void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
   FILE* out = ctx_trace_out(ctx);
   slist_t* l = sl;
   while (l != NULL) {
-    bv_slicing_print_slice(ctx, l->slice);
+    ctx_print_slice(ctx, l->slice);
     l = l->next;
     if (l != NULL) {
       fprintf(out, "::");
@@ -87,21 +88,21 @@ void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
 }
 
 /** Prints a pairs. if b is true, as an equality, otherwise, as a disequality */
-void bv_slicing_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
+void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
   FILE* out = ctx_trace_out(ctx);
   assert(p->lhs != NULL);
   assert(p->rhs != NULL);
-  bv_slicing_print_slice(ctx, p->lhs);
+  ctx_print_slice(ctx, p->lhs);
   fprintf(out, "%s", b?"=":"!=");
-  bv_slicing_print_slice(ctx, p->rhs);
+  ctx_print_slice(ctx, p->rhs);
 }
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
-void bv_slicing_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
+void ctx_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
   FILE* out = ctx_trace_out(ctx);
   splist_t* l = spl;
   while (l != NULL) {
-    bv_slicing_print_spair(ctx, l->pair, b);
+    ctx_print_spair(ctx, l->pair, b);
     l = l->next;
     if (l != NULL) {
       fprintf(out, "%s", b?" && ":" || ");
@@ -153,7 +154,7 @@ void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_q
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Splitting ");
-    bv_slicing_print_slice(ctx, s);
+    ctx_print_slice(ctx, s);
     fprintf(out, " at %d\n", k);
   }
 
@@ -249,14 +250,16 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
   // We no longer need l1 and l2
   safe_free(l1);
   safe_free(l2);
-  spair_t* p = bv_slicing_spair_new(h1, h2, appearing_in); // We form the pair
 
-  /* fprintf(out,"Forming pair "); */
-  /* bv_slicing_print_spair(p, true, terms, out); */
-  /* fprintf(out,"\n"); */
+  if (h1 != h2) {
+    spair_t* p = spair_new(h1, h2, appearing_in); // We form the pair
+    /* fprintf(out,"Forming pair "); */
+    /* bv_slicing_print_spair(p, true, terms, out); */
+    /* fprintf(out,"\n"); */
+    h1->paired_with = splist_cons(p, true, h1->paired_with);
+    h2->paired_with = splist_cons(p, false, h2->paired_with);
+  }
 
-  h1->paired_with = bv_slicing_spcons(p, true, h1->paired_with);
-  h2->paired_with = bv_slicing_spcons(p, false, h2->paired_with);
   bv_slicing_align(ctx, t1, t2, appearing_in, todo);
 }
 
@@ -461,7 +464,7 @@ void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
   // We go through all variables, and destroy all slices
   ptr_hmap_pair_t* hp = ptr_hmap_first_record((ptr_hmap_t*)&slicing->slices);
   while(hp != NULL) {
-    bv_slicing_print_slice(slicing->ctx, hp->val);
+    ctx_print_slice(slicing->ctx, hp->val);
     hp = ptr_hmap_next_record((ptr_hmap_t*)&slicing->slices, hp);
     fprintf(out, "\n");
   }
@@ -471,7 +474,7 @@ void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
       fprintf(out, "Equal.: ");
     else
       fprintf(out, "Dis.%d: ",i);
-    bv_slicing_print_splist(slicing->ctx, slicing->constraints[i], (i == 0));
+    ctx_print_splist(slicing->ctx, slicing->constraints[i], (i == 0));
     fprintf(out, "\n");
   }
 }
@@ -550,7 +553,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Treating slice ");
-      bv_slicing_print_slice(ctx, s);
+      ctx_print_slice(ctx, s);
       fprintf(out, " where slice_term = ");
       term_print_to_file(out, ctx->terms, s->slice_term);
     }
@@ -592,7 +595,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
         p = current->pair;
         uint32_t c = p->appearing_in;
         splist_t* old = constraints[c];
-        constraints[c] = bv_slicing_spcons(p, true, old);
+        constraints[c] = splist_cons(p, true, old);
       }
       current = current->next;
     }
@@ -703,7 +706,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(slicing->ctx);
       fprintf(out, "Popping ");
-      bv_slicing_print_spair(ctx, p, true);
+      ctx_print_spair(ctx, p, true);
       fprintf(out, "\n");
     }
     l1 = bv_slicing_as_list(p->lhs, NULL);
