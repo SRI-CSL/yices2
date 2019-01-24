@@ -1373,6 +1373,11 @@ static eterm_t build_lambda_obj(lambda_hobj_t *p) {
 /*
  * Interface objects:
  * type coercion are necessary to stop GCC warnings
+
+ .m.hash = ;
+ .m.eq = ;
+ .m.build = ;
+
  */
 static apply_hobj_t apply_hobj = {
   { (hobj_hash_t) hash_apply_obj, (hobj_eq_t) equal_apply_obj, (hobj_build_t) build_apply_obj },
@@ -2580,7 +2585,7 @@ literal_t egraph_make_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
    * The test for reconcile_mode was missing. Bug reported by Martin Gabris.
    */
   //  if (egraph->base_level == egraph->decision_level) {
-  if (egraph->base_level == egraph->decision_level 
+  if (egraph->base_level == egraph->decision_level
       && (! egraph->reconcile_mode || egraph->stack.top == egraph->reconcile_neqs)) {
     if (egraph_equal_occ(egraph, t1, t2)) {
       return true_literal;
@@ -3264,8 +3269,8 @@ eterm_t egraph_get_tuple_in_class(egraph_t *egraph, eterm_t t) {
  * if the variable v is already assigned. This makes sure that the
  * egraph will be notified that v' is true or false on the next call
  * to propagate, and turn that into t==true or t==false.
- * 
- * 
+ *
+ *
  * If a new term is created, it is activated.
  */
 eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
@@ -3280,7 +3285,7 @@ eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
   atom = bvar_atom(core, v);
   if (atom != NULL && atom_tag(atom) == EGRAPH_ATM_TAG) {
     return ((atom_t *) atom)->eterm;
-  } 
+  }
 
   if (atom != NULL || bvar_is_assigned(core, v)) {
     /*
@@ -7814,4 +7819,3 @@ void egraph_free_model(egraph_t *egraph) {
   }
   reset_egraph_model(&egraph->mdl);
 }
-
