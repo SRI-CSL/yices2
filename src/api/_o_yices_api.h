@@ -28,7 +28,7 @@
 #include <stdio.h>
 
 /*
- * LOCK FREE VERSIONS OF YICES_API CALLS
+ * LOCK FREE VERSIONS OF YICES_API CALLS  
  */
 
 

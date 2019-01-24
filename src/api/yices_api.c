@@ -120,9 +120,6 @@ typedef void lp_algebraic_number_t;
  ***************************/
 
 
-// variable collector: also allocated on demand
-//IAM: static fvar_collector_t *fvars;
-
 // rational for building terms
 static rational_t r0;
 
@@ -2487,7 +2484,6 @@ static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
 
 
 
-
 /***********************
  *  TYPE CONSTRUCTORS  *
  **********************/
@@ -2577,7 +2573,7 @@ type_t _o_yices_function_type(uint32_t n, const type_t dom[], type_t range) {
 /*
  * Variants/short cuts for tuple and function types
  */
-//MT_PROTECT( , __yices_globals.lock, );
+//MT_PROTECT( , __yices_globals.lock, );  BD says OK.
 EXPORTED type_t yices_tuple_type1(type_t tau1) {
   if (! check_good_type(__yices_globals.types, tau1)) {
     return NULL_TYPE;
@@ -3163,29 +3159,23 @@ term_t _o_yices_tuple(uint32_t n, const term_t arg[]) {
 }
 
 // variants for n=2 or n=3
-//MT_PROTECT(,  __yices_globals.lock, ); //IAM: ???
 EXPORTED term_t yices_pair(term_t arg1, term_t arg2) {
   term_t aux[2];
 
   aux[0] = arg1;
   aux[1] = arg2;
-  if (! check_good_terms(__yices_globals.manager, 2, aux)) { 
-    return NULL_TERM;
-  }
-  return mk_tuple(__yices_globals.manager, 2, aux);
+
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_tuple(2, aux));
 }
 
-//MT_PROTECT(,  __yices_globals.lock, ); //IAM: ???
 EXPORTED term_t yices_triple(term_t arg1, term_t arg2, term_t arg3) {
   term_t aux[3];
 
   aux[0] = arg1;
   aux[1] = arg2;
   aux[2] = arg3;
-  if (! check_good_terms(__yices_globals.manager, 3, aux)) {
-    return NULL_TERM;
-  }
-  return mk_tuple(__yices_globals.manager, 3, aux);
+
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_tuple(3, aux));
 }
 
 

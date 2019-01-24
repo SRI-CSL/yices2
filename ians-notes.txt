@@ -19,16 +19,16 @@ make MODE=debug test
 
 
 
-BD: do we want to make thread safety  an "option"
+BD: do we want to make thread safety  an "option"  (BD yes to a configure option.)
 
-BD: overhead of error_report vs new blocks?
+BD: overhead of error_report vs new blocks? (BD: fine as is for now.)
 
 N.B.:
 
 yices_lock_free.h is a lock_free version of the api
 
 
-The following API functions are not thread safe. Norr should
+The following API functions are not thread safe. Nor should
 we attempt to make them so. It should be well documented.
 
 <non-thread-safe api routines>
@@ -37,7 +37,7 @@ we attempt to make them so. It should be well documented.
  void yices_reset(void);
 </non-thread-safe api routines>
 
-Things like term verctors are not protected. You should not pass them from thread to thread
+Things like term vectors are not protected. You should not pass them from thread to thread
 unless you, qua user, protect them.
 
 
@@ -52,6 +52,8 @@ problematic (assumming it is not the case that HAVE_TLS:
  ...
 
 
+//BD: for the time being only one parser (maybe later a parser per thread would be OK)
+
 /***********************************
  *  EXTENSIONS: TERM CONSTRUCTORS  *
  **********************************/
@@ -65,7 +67,7 @@ problematic (assumming it is not the case that HAVE_TLS:
 
 Questions:
 
-do models checnge internally once they are created?
+do models change internally once they are created?
 
 do we really want to protect things like config_t param_t with locks?
 wouldn't it be better to have a "principled approach to thread safety?"
@@ -76,23 +78,132 @@ params, configs, contexts and models, should not be shared across threads.
 
 
 
+BD: if the buffers are only used from the term stack then they could be migrated into the global struct.
+Need to check each one.
 
-
-Current issues in yices_api.c
-
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	arith_buffer_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bv0
+x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	arith_buffer_list
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith64_buffer_list
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith_buffer_list
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvlogic_buffer_list
+
+Current issues in yices_api.c
+
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bv0
+
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	r0
+
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	context_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	ctx_option_names
+  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	ctx_option_names //BD: constant array
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	generic_list
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	model_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	r0
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_terms
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_types
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_terms
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_types
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error
   x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error_initialized
+
+
+
+===================================================
+
+BD:
+
+	global hcons stuff needs to be made local to the function...
+
+  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/idl_floyd_warshall.o	atom_hobj
+
+
+make the static object local to the function (see bit_expr.c of bv_only_2013) and initialize it
+in the style of BD.
+
+
+DONE:
+
+  x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	or_node_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	select_node_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	var_node_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	xor_node_hobj
+
+TODO:
+
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	algebraic_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	bv_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	const_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	fun_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	map_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	rational_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	tuple_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	update_hobj
+  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	gate_hobj
+  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	orgate_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/pprod_table.o	pprod_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	app_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	bvconst64_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	bvconst_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	bvpoly64_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	bvpoly_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	composite_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	forall_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	integer_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	lambda_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	poly_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	pprod_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	rational_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	root_atom_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	select_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	special_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/terms.o	update_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/types.o	bv_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/types.o	function_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/types.o	instance_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/types.o	tuple_hobj
+  x86_64-pc-linux-gnu-debug/obj/terms/types.o	var_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_atomtable.o	bvatm_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_const64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_const_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_leaf_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_mono64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_mono_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_offset64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_offset_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_prod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_sum_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_zero_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvadd_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvarray_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvashr_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvdiv_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvite_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvlshr_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvmul_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvneg_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpprod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvrem_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsdiv_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvshl_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsmod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsrem_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsub_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	apply_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	aux_eq_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	const_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	distinct_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	eq_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	ite_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	lambda_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	or_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	tuple_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	update_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/idl_floyd_warshall.o	atom_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/rdl_floyd_warshall.o	atom_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_atomtable.o	arith_atom_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	poly_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	pprod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	rational_hobj

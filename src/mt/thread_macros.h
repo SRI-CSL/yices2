@@ -39,19 +39,26 @@
 #define YICES_THREAD_LOCAL
 #endif
 
+
+// IAM: this should be determined by the configure script.
+// perhaps we could turn this off if HAVE_TLS is false.
+#define YICES_THREAD_SAFE
+
+
+#ifdef YICES_THREAD_SAFE
 /*
  *
  * API entry point synchronization macros
  *
  */
-#define MT_PROTECT_VOID(LOCK,EXPRESSION) \
+#define MT_PROTECT_VOID(LOCK,EXPRESSION)\
   do { yices_lock_t *lock = &(LOCK);\
        get_yices_lock(lock);\
        (EXPRESSION);\
        release_yices_lock(lock);\
   } while(0)
 
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)	\
+#define MT_PROTECT(TYPE,LOCK,EXPRESSION)\
   do { yices_lock_t *lock = &(LOCK);\
        TYPE retval;\
        get_yices_lock(lock);\
@@ -60,7 +67,7 @@
        return retval;\
   } while(0)
 
-
+/*
 #define MT_PROTECT2(TYPE,LOCK0,LOCK1,EXPRESSION) \
   do { yices_lock_t *lock0 = &(LOCK0);\
        yices_lock_t *lock1 = &(LOCK1);\
@@ -72,7 +79,16 @@
        release_yices_lock(lock0);\
        return retval;\
   } while(0)
+*/
 
+#else
+
+#define MT_PROTECT_VOID(LOCK,EXPRESSION)  EXPRESSION
+
+#define MT_PROTECT(TYPE,LOCK,EXPRESSION)  return EXPRESSION
+
+
+#endif
 
 
 #endif /* _THREAD_MACROS_H */
