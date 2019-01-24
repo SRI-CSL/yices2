@@ -124,8 +124,28 @@ DONE:
   x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	select_node_hobj
   x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	var_node_hobj
   x86_64-pc-linux-gnu-debug/obj/terms/bit_expr.o	xor_node_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvadd_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvarray_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvashr_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvdiv_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvite_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvlshr_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvmul_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvneg_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly64_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpprod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvrem_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsdiv_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvshl_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsmod_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsrem_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsub_hobj
 
 TODO:
+
 
   x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
   x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
@@ -172,25 +192,6 @@ TODO:
   x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_prod_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_sum_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/bv/bvpoly_dag.o	bvc_zero_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvadd_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvarray_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvashr_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst64_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvconst_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvdiv_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvite_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvlshr_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvmul_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvneg_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly64_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpoly_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvpprod_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvrem_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsdiv_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvshl_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsmod_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsrem_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_vartable.o	bvsub_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	apply_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	aux_eq_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	const_hobj
