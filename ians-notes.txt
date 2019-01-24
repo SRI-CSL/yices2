@@ -184,12 +184,6 @@ DONE:
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	or_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	tuple_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/egraph/egraph.o	update_hobj
-
-TODO:
-
-
-  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
-  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	algebraic_hobj
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	bv_hobj
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	const_hobj
@@ -198,13 +192,24 @@ TODO:
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	rational_hobj
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	tuple_hobj
   x86_64-pc-linux-gnu-debug/obj/model/concrete_values.o	update_hobj
-  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	gate_hobj
-  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	orgate_hobj
-  x86_64-pc-linux-gnu-debug/obj/terms/pprod_table.o	pprod_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_atomtable.o	bvatm_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/idl_floyd_warshall.o	atom_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/rdl_floyd_warshall.o	atom_hobj
-  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_atomtable.o	arith_atom_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	poly_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	pprod_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	rational_hobj
+
+TODO:
+
+
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
+
+  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	gate_hobj
+  x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	orgate_hobj
+
+  x86_64-pc-linux-gnu-debug/obj/terms/pprod_table.o	pprod_hobj
+
+  x86_64-pc-linux-gnu-debug/obj/solvers/bv/bv_atomtable.o	bvatm_hobj
+
+  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/idl_floyd_warshall.o	atom_hobj
+  x86_64-pc-linux-gnu-debug/obj/solvers/floyd_warshall/rdl_floyd_warshall.o	atom_hobj
+
+  x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_atomtable.o	arith_atom_hobj
