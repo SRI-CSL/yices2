@@ -195,12 +195,12 @@ DONE:
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	poly_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	pprod_hobj
   x86_64-pc-linux-gnu-debug/obj/solvers/simplex/arith_vartable.o	rational_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
+  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
 
 TODO:
 
 
-  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	label_hobj
-  x86_64-pc-linux-gnu-debug/obj/model/abstract_values.o	tuple_hobj
 
   x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	gate_hobj
   x86_64-pc-linux-gnu-debug/obj/scratch/bool_vartable.o	orgate_hobj
