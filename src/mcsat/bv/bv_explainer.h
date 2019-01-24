@@ -53,8 +53,15 @@ typedef struct {
   /** Cache when visiting terms */
   int_hset_t visited_cache;
 
-  /** Temp vector for conflit normalization */
+  /** Temp vector for conflict normalization */
   ivector_t tmp_conflict_vec;
+
+  /** Vector of yices variables to use for mcsat variables */
+  ivector_t variables;
+
+  struct {
+    ctx_config_t* config;
+  } bv_yices;
 
   struct {
     statistic_int_t* th_eq;
