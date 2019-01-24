@@ -773,6 +773,25 @@ bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v) {
   return value_hmap_find(&eq->value_to_id, v) != NULL;
 }
 
+bool eq_graph_are_equal(const eq_graph_t* eq, term_t t1, term_t t2){
+  assert(eq_graph_has_term(eq, t1));
+  assert(eq_graph_has_term(eq, t2));
+  eq_node_id_t t_id1 = eq_graph_term_id(eq, t1);
+  eq_node_id_t t_id2 = eq_graph_term_id(eq, t2);
+  const eq_node_t* n1 = eq_graph_get_node_const(eq, t_id1);
+  const eq_node_t* n2 = eq_graph_get_node_const(eq, t_id2);
+  return (n1->find == n2->find);
+}
+
+bool eq_graph_term_has_value(const eq_graph_t* eq, term_t t){
+  assert(eq_graph_has_term(eq, t));
+  eq_node_id_t t_id = eq_graph_term_id(eq, t);
+  const eq_node_t* n = eq_graph_get_node_const(eq, t_id);
+  eq_node_id_t n_find_id = n->find;
+  const eq_node_t* n_find = eq_graph_get_node_const(eq, n_find_id);
+  return(n_find->type == EQ_NODE_VALUE);
+}
+
 void eq_graph_print_node(const eq_graph_t* eq, const eq_node_t* n, FILE* out, bool print_extra) {
   eq_node_id_t n_id = eq_graph_get_node_id(eq, n);
   switch (n->type) {
@@ -930,7 +949,7 @@ void eq_graph_to_gv_done(const eq_graph_t* eq) {
 
 static
 void eq_graph_update_find(eq_graph_t* eq, eq_node_id_t n_id, eq_node_id_t find) {
-  // Update the find in n2's class
+  // Update the find in n_id's class
   eq_node_t* it = eq_graph_get_node(eq, n_id);
   assert(it->find != find);
   do {
@@ -1272,6 +1291,12 @@ void eq_graph_assert_term_eq(eq_graph_t* eq, term_t lhs, term_t rhs, uint32_t re
   eq_graph_assert_eq(eq, lhs_id, rhs_id, REASON_IS_USER, reason_data, true);
 }
 
+void eq_graph_assign_term_value(eq_graph_t* eq, term_t t, const mcsat_value_t* v, uint32_t reason_data) {
+  eq_node_id_t t_id = eq_graph_add_term(eq, t);
+  eq_node_id_t v_id = eq_graph_add_value(eq, v);
+  eq_graph_assert_eq(eq, v_id, t_id, REASON_IS_USER, reason_data, true);
+}
+
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq) {
   return eq->term_value_merges.size > 0;
 }
@@ -1555,7 +1580,6 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
     }
     term_kind_t equality_kind = term_kind(eq->ctx->terms, equality);
     (void) equality_kind;
-    assert(equality_kind == EQ_TERM || equality_kind == ARITH_BINEQ_ATOM);
     ivector_push(reasons_data, to_add);
     if (reasons_type != NULL) {
       ivector_push(reasons_type, REASON_IS_IN_TRAIL);
@@ -1979,7 +2003,8 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
     }
 
     // Check if we passed a value assignment that we need to explain
-    if (e->reason.type == REASON_IS_IN_TRAIL) {
+    if (e->reason.type == REASON_IS_IN_TRAIL
+        || (e->reason.type == REASON_IS_USER && e_terms.t1 == NULL_TERM)) {
       if (e_terms.t2 != NULL_TERM) {
         assert(t2_to_explain == NULL_TERM && value_to_explain == eq_node_null);
         t2_to_explain = e_terms.t2;
@@ -2004,6 +2029,14 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
   eq_graph_explain_set_cache(eq, n1_id, n2_id, &path_terms);
 
   return path_terms;
+}
+
+void eq_graph_explain_eq(const eq_graph_t* eq, term_t t1, term_t t2, ivector_t* reasons_data, ivector_t* reasons_types, int_mset_t* terms_used) {
+  eq_graph_explain_init_cache(eq);
+  eq_node_id_t t1_id = eq_graph_term_id(eq, t1);
+  eq_node_id_t t2_id = eq_graph_term_id(eq, t2);
+  eq_graph_explain(eq, t1_id, t2_id, reasons_data, reasons_types, terms_used);
+  eq_graph_explain_clear_cache(eq);
 }
 
 void eq_graph_get_conflict(const eq_graph_t* eq, ivector_t* conflict_data, ivector_t* conflict_types, int_mset_t* terms_used) {
@@ -2069,7 +2102,6 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
     eq_graph_to_gv_mark_node(eq, v_id);
   }
 
-  assert(explain_data == NULL || explain_data->size == 0);
   path_terms_t result = eq_graph_explain(eq, t_id, v_id, explain_data, explain_types, terms_used);
   assert(result.t2 != NULL_TERM);
 

@@ -135,7 +135,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     thetime=`cat $timefile`
 
     # Do the diff
-    diff -w $outfile $gold > /dev/null
+    DIFF=`diff -w $outfile $gold`
   
     if [ $? -eq 0 ] 
     then
@@ -144,7 +144,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     else
     	echo FAIL
         fail=`expr $fail + 1`
-        failed_tests+=("$test_string")
+        failed_tests+=("$test_string"$'\n'"$DIFF")
     fi
     
 done

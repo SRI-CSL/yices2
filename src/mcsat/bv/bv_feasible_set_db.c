@@ -26,7 +26,7 @@
 
 /**
  * Element in the list. Each element contains a pointer to the previous
- * version, the reason for the update (reason) and it's feasible set, and
+ * version, the reason for the update (reason) and its feasible set, and
  * the new feasible set.
  */
 typedef struct {

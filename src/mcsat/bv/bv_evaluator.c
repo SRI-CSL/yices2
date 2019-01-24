@@ -453,7 +453,7 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
   term_table_t* terms = eval->ctx->terms;
   term_kind_t t_kind = term_kind(terms, t);
 
-  if (t_kind == UNINTERPRETED_TERM) {
+  if (t_kind == UNINTERPRETED_TERM || t_kind == ITE_TERM) {
     // Get the value from trail
     variable_t t_x = variable_db_get_variable_if_exists(eval->ctx->var_db, t);
     assert(t_x != variable_null);
@@ -563,9 +563,16 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
   return atom_value;
 }
 
-const mcsat_value_t* bv_evaluator_run(bv_evaluator_t* evaluator, variable_t cstr, uint32_t* cstr_eval_level) {
+const mcsat_value_t* bv_evaluator_evaluate_var(bv_evaluator_t* evaluator, variable_t cstr, uint32_t* cstr_eval_level) {
   const variable_db_t* var_db = evaluator->ctx->var_db;
   term_t cstr_term = variable_db_get_term(var_db, cstr);
+  bv_evaluator_clear_cache(evaluator);
+  bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
+  return result ? &mcsat_value_true : &mcsat_value_false;
+  bv_evaluator_clear_cache(evaluator);
+}
+
+const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_t cstr_term, uint32_t* cstr_eval_level) {
   bv_evaluator_clear_cache(evaluator);
   bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
   return result ? &mcsat_value_true : &mcsat_value_false;
