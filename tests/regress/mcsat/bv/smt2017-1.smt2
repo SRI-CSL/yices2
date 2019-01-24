@@ -1,5 +1,6 @@
 (set-info :smt-lib-version 2.6)
 (set-logic QF_BV)
+(set-info :source | Stéphane Graham-Lengrand, Basic example #1 from SMT'2017 preliminary repoprt |)
 (set-info :category "crafted")
 (set-info :status sat)
 (declare-fun x1 () (_ BitVec 12))
