@@ -167,6 +167,9 @@ static inline error_report_t* get_yices_error(){
  *   Initially, we set root_terms = NULL and root_types = NULL
  *   On the first call to register a term or type, we initialize the
  *   static tables and update root_terms/root_types to point to it
+ *
+ * - In the thread safe version they are protected by the __yices_globals.lock
+ *
  */
 static sparse_array_t *root_terms;
 static sparse_array_t *root_types;
@@ -867,7 +870,7 @@ static void clear_globals(yices_globals_t *glob) {
   glob->manager = NULL;
 
 
-  // parser etc.  
+  // parser etc.
   delete_parsing_objects();
 
   //IAM glob->error = NULL;
@@ -7938,7 +7941,7 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
 
   default:
-    {    
+    {
       error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
       assert(k == -1);
       // not recognized
@@ -8536,7 +8539,7 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
     {
       error_report_t *error = get_yices_error();
       error->code = INTERNAL_EXCEPTION;
-      
+
       return -1;
     }
   }
@@ -8917,7 +8920,7 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * sets an error report.
  *
  */
-//MT_PROTECT(,  __yices_globals.lock, ); 
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );   //IAM: first two lock example?
 EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
   model_t *mdl;
@@ -10093,7 +10096,7 @@ EXPORTED int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, l
 
 #else
   {
-    error_report_t *error = get_yices_error();    
+    error_report_t *error = get_yices_error();
     // NO SUPPORT FOT MCSAT
     error->code = YVAL_NOT_SUPPORTED;
   }
@@ -10586,8 +10589,11 @@ static sparse_array_t *get_root_types(void) {
 /*
  * Increment/decrement the reference counters
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_incref_term(term_t t) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_incref_term(t));
+}
+
+int32_t _o_yices_incref_term(term_t t) {
   sparse_array_t *roots;
 
   if (!check_good_term(__yices_globals.manager, t)) {
@@ -10602,8 +10608,11 @@ EXPORTED int32_t yices_incref_term(term_t t) {
   return 0;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_incref_type(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_incref_type(tau));
+}
+
+int32_t _o_yices_incref_type(type_t tau) {
   sparse_array_t *roots;
 
   if (!check_good_type(__yices_globals.types, tau)) {
@@ -10616,8 +10625,11 @@ EXPORTED int32_t yices_incref_type(type_t tau) {
   return 0;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_decref_term(term_t t) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_decref_term(t));
+}
+
+int32_t _o_yices_decref_term(term_t t) {
   if (!check_good_term(__yices_globals.manager, t)) {
     return -1;
   }
@@ -10635,8 +10647,11 @@ EXPORTED int32_t yices_decref_term(term_t t) {
   return 0;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED int32_t yices_decref_type(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_decref_type(tau));
+}
+
+int32_t _o_yices_decref_type(type_t tau) {
   if (! check_good_type(__yices_globals.types, tau)) {
     return -1;
   }
@@ -10658,13 +10673,19 @@ EXPORTED int32_t yices_decref_type(type_t tau) {
 /*
  * Number of live terms and types
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_num_terms(void) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_num_terms());
+}
+
+uint32_t _o_yices_num_terms(void) {
   return __yices_globals.terms->live_terms;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_num_types(void) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_num_types());
+}
+
+uint32_t _o_yices_num_types(void) {
   return __yices_globals.types->live_types;
 }
 
@@ -10672,8 +10693,11 @@ EXPORTED uint32_t yices_num_types(void) {
 /*
  * Number of terms/types with a positive reference count
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_num_posref_terms(void) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_num_posref_terms());
+}
+
+uint32_t _o_yices_num_posref_terms(void) {
   uint32_t n;
 
   n = 0;
@@ -10683,8 +10707,11 @@ EXPORTED uint32_t yices_num_posref_terms(void) {
   return n;
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED uint32_t yices_num_posref_types(void) {
+  MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_num_posref_types());
+}
+
+uint32_t _o_yices_num_posref_types(void) {
   uint32_t n;
 
   n = 0;
@@ -10774,10 +10801,15 @@ static void mark_type_array(type_table_t *tbl, const type_t *a, uint32_t n) {
  * - keep_named specifies whether the named terms and types should
  *   all be preserved
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_garbage_collect(const term_t t[], uint32_t nt,
 				    const type_t tau[], uint32_t ntau,
 				    int32_t keep_named) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_garbage_collect(t, nt, tau, ntau, keep_named));
+}
+
+void _o_yices_garbage_collect(const term_t t[], uint32_t nt,
+                              const type_t tau[], uint32_t ntau,
+                              int32_t keep_named) {
   bool keep;
 
   /*

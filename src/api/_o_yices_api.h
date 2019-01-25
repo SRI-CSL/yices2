@@ -28,7 +28,7 @@
 #include <stdio.h>
 
 /*
- * LOCK FREE VERSIONS OF YICES_API CALLS  
+ * LOCK FREE VERSIONS OF YICES_API CALLS
  */
 
 
@@ -95,7 +95,7 @@ static term_t _o_yices_tuple(uint32_t n, const term_t arg[]);
 static term_t _o_yices_select(uint32_t index, term_t tuple);
 
 static term_t _o_yices_update(term_t fun, uint32_t n, const term_t arg[], term_t new_v);
-  
+
 static term_t _o_yices_distinct(uint32_t n, term_t arg[]);
 
 static term_t _o_yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
@@ -203,7 +203,7 @@ static term_t _o_yices_arith_leq_atom(term_t t1, term_t t2);
 static term_t _o_yices_arith_eq0_atom(term_t t);
 
 static term_t _o_yices_arith_neq0_atom(term_t t);
-  
+
 static term_t _o_yices_arith_geq0_atom(term_t t);
 
 static term_t _o_yices_arith_leq0_atom(term_t t);
@@ -238,7 +238,7 @@ static term_t _o_yices_bvconst_from_array(uint32_t n, const int32_t a[]);
 static term_t _o_yices_parse_bvbin(const char *s);
 
 static term_t _o_yices_parse_bvhex(const char *s);
-  
+
 
 /***************************
  *  BIT-VECTOR ARITHMETIC  *
@@ -292,7 +292,7 @@ static term_t _o_yices_bvand2(term_t t1, term_t t2);
 static term_t _o_yices_bvor2(term_t t1, term_t t2);
 
 static term_t _o_yices_bvxor2(term_t t1, term_t t2);
- 
+
 /*********************************************
  *   BITVECTOR SHIFT/ROTATION BY A CONSTANT  *
  ********************************************/
@@ -385,7 +385,7 @@ static term_t _o_yices_bvsle_atom(term_t t1, term_t t2);
 
 static term_t _o_yices_bvslt_atom(term_t t1, term_t t2);
 
-  
+
 /*********************
  *  PRETTY PRINTING  *
  ********************/
@@ -512,7 +512,7 @@ static term_t _o_yices_subst_term(uint32_t n, const term_t var[], const term_t m
 
 static int32_t _o_yices_subst_term_array(uint32_t n, const term_t var[], const term_t map[], uint32_t m, term_t t[]);
 
-  
+
 /**************
  *  PARSING   *
  *************/
@@ -574,6 +574,26 @@ static int32_t _o_yices_clear_term_name(term_t t);
 /*************************
  *  GARBAGE COLLECTION   *
  ************************/
+
+static int32_t _o_yices_incref_term(term_t t);
+
+static int32_t _o_yices_incref_type(type_t tau);
+
+static int32_t _o_yices_decref_term(term_t t);
+
+static int32_t _o_yices_decref_type(type_t tau);
+
+static uint32_t _o_yices_num_terms(void);
+
+static uint32_t _o_yices_num_types(void);
+
+static uint32_t _o_yices_num_posref_terms(void);
+
+static uint32_t _o_yices_num_posref_types(void);
+
+static void _o_yices_garbage_collect(const term_t t[], uint32_t nt,
+                                     const type_t tau[], uint32_t ntau,
+                                     int32_t keep_named);
 
 
 
