@@ -20,6 +20,7 @@ const char* bv_kind_to_string(bv_kind_type_t kt) {
   switch (kt) {
   case BV_KIND_EQ: return "equality";
   case BV_KIND_EXT_CON: return "extract/concat";
+  case BV_KIND_BOOL2BV: return "bool-to-bv";
   case BV_KIND_BITWISE: return "bitwise";
   case BV_KIND_SHIFT: return "shifts";
   case BV_KIND_ARITH_CMP: return "comparison";
@@ -45,6 +46,7 @@ const char* subtheory_to_string(bv_subtheory_t th) {
 int bv_th_eq[BV_KIND_COUNT] = {
     1, // BV_KIND_EQ = 0,
     0, // BV_KIND_EXT_CON,
+    0, // BV_KIND_BOOL2BV,
     0, // BV_KIND_BITWISE,
     0, // BV_KIND_SHIFT,
     0, // BV_KIND_ARITH_CMP,
@@ -54,6 +56,7 @@ int bv_th_eq[BV_KIND_COUNT] = {
 int bv_th_eq_ext_con[BV_KIND_COUNT] = {
     1, // BV_KIND_EQ = 0,
     1, // BV_KIND_EXT_CON,
+    0, // BV_KIND_BOOL2BV,
     0, // BV_KIND_BITWISE,
     0, // BV_KIND_SHIFT,
     0, // BV_KIND_ARITH_CMP,
@@ -146,9 +149,25 @@ void bv_explainer_count_kinds(bv_explainer_t* exp, term_t t, int* kinds_count) {
       term_t t_i = concat_desc->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
       if (t_i != t_i_pos) kinds_count[BV_KIND_BITWISE] ++;
-      bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
+      switch (term_kind(terms, t_i_pos)) {
+      case EQ_TERM:
+      case BV_EQ_ATOM:
+      case BV_GE_ATOM:
+      case BV_SGE_ATOM:
+      case OR_TERM:
+      case XOR_TERM:
+      case VARIABLE:
+      case UNINTERPRETED_TERM:
+      case ITE_TERM:
+      case ITE_SPECIAL:
+      case DISTINCT_TERM: {
+        kinds_count[BV_KIND_BOOL2BV] ++;
+      }
+      default:
+        bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
+      }
     }
-    kinds_count[BV_TH_EQ_EXT_CON] ++;
+    kinds_count[BV_KIND_EXT_CON] ++;
     break;
   }
   case OR_TERM: {
