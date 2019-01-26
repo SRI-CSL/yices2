@@ -265,7 +265,6 @@ int main(void) {
 
 
   //  exit(0);
-
   for (n=20; n>0; n--) {
     random_vector(vector, 20);
     bvconst_set_array(a, vector, 20);
@@ -298,6 +297,25 @@ int main(void) {
     }
     printf("\n");
   }
+
+  // try a multiple of 32
+  for (n=64; n>0; n--) {
+    random_vector(vector, 64);
+    bvconst_set_array(a, vector, 64);
+    printf("a             = ");
+    bvconst_print(stdout, a, 64);
+    printf("\n");
+
+    for (i=0; i<=64-n; i++) {
+      bvconst_extract(b, a, i, i+n);
+      printf("a[%2"PRId32", %2"PRId32")     = ", i, i+n);
+      bvconst_print(stdout, b, n);
+      printf("\n");
+    }
+    printf("\n");
+  }
+
+
 
   random_vector(vector, 20);
   bvconst_set_array(a, vector, 20);
