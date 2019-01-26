@@ -524,12 +524,14 @@ typedef struct solver_stats_s {
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
+  uint32_t subst_units;              // number of unit literals found by equivalence tests
   uint32_t equivs;                   // number of equivalences detected
 
   // Preprocessing statistics
   uint32_t pp_pure_lits;             // number of pure literals removed
   uint32_t pp_unit_lits;             // number of unit literals removed
   uint32_t pp_subst_vars;            // number of variables eliminated by substitution
+  uint32_t pp_subst_units;           // number of unit literals found by equivalence checks
   uint32_t pp_equivs;                // number of equivalences detected
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
@@ -855,9 +857,11 @@ typedef struct sat_solver_s {
    */
   vector_t vertex_stack;
   gstack_t dfs_stack;
-  vector_t subst_vars; // all variables eliminated in an SCC round
   uint32_t *label;
   uint32_t *visit;
+
+  vector_t subst_vars;  // all variables eliminated in an SCC round
+  vector_t subst_units; // literals found equal to true by SCC/EQ
 
   /*
    * Variable descriptors + gates
