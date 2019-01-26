@@ -406,8 +406,8 @@ slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uin
     slist_t* current = tail;  // the list constructed so far
     uint32_t width   = 0;     // bitwidth of current slice under construction
     bool     is_constant = true; // whether current slice is constant
-    term_t   tvar;            // if not constant, variable term of current slice
-    uint32_t low;             // if not constant, lo of current slice
+    term_t   tvar = NULL_TERM;   // if not constant, variable term of current slice - value not used (initialised to suppress gcc warning)
+    uint32_t low  = 0;           // if not constant, lo of current slice - value not used (initialised to suppress gcc warning)
     
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
@@ -528,7 +528,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
 
     
     // Task 2: we compute the value if we can & store it in value field
-    bool has_value = true; // whether term can be evaluated from trail (will switch to false if not)
+    bool has_value = false; // whether term can be evaluated from trail (will switch to false if not)
     bvconstant_t bvcst;
     init_bvconstant(&bvcst);
     
@@ -536,11 +536,13 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     case BV_CONSTANT: { // The term itself could be a constant term
       bvconst_term_t* desc = bvconst_term_desc(terms, t);
       bvconstant_copy(&bvcst, desc->bitsize, desc->data);
+      has_value = true;
       break;
     }
     case BV64_CONSTANT: { // The term itself could be a constant term, optimised bv64 representation
       bvconst64_term_t* desc = bvconst64_term_desc(terms, t);
       bvconstant_copy64(&bvcst, desc->bitsize, desc->value);
+      has_value = true;
       break;
     }
     default: { // Otherwise we hope that the term is assigned a value on the trail
@@ -550,13 +552,15 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
         switch (val->type) {
         case VALUE_BV: {
           bvconstant_t tmp = val->bv_value;
+          assert(tmp.bitsize == term_bitsize(terms,t));
           bvconstant_copy(&bvcst, tmp.bitsize, tmp.data);
+          has_value = true;
           break;
         }
         default: assert(false); // Value of slice variable must be bv or bool
         }
       }
-      else has_value = false; // it does not have a value on the trail
+      /* else has_value = false; // it does not have a value on the trail */
     }
     }
 
@@ -570,10 +574,12 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
 
 
     if (has_value) {
+      assert(s->value.type == VALUE_NONE);
       s->value.type = VALUE_BV;
       init_bvconstant(&s->value.bv_value);
-      bvconstant_set_all_zero(&s->value.bv_value, s->hi - s->lo);
-      bvconst_extract(s->value.bv_value.data, bvcst.data, s->lo, s->hi);
+      bvconstant_set_bitsize(&s->value.bv_value, s->hi - s->lo);
+      assert(s->lo < s->hi && s->lo >= 0 && s->hi <= bvcst.bitsize);
+      bvconstant_extract(&s->value.bv_value, bvcst.data, s->lo, s->hi);
       bvconstant_normalize(&s->value.bv_value);
       if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
         FILE* out = ctx_trace_out(ctx);
@@ -629,8 +635,8 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
   const mcsat_trail_t* trail = ctx->trail;
 
   // We create a "to do" queue of matching slice pairs to align
-  ptr_queue_t* todo = safe_malloc(sizeof(ptr_queue_t));
-  init_ptr_queue(todo, 0);
+  ptr_queue_t todo;
+  init_ptr_queue(&todo, 0);
  
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -669,9 +675,9 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
         next_disjunction++;
       }
       uint32_t width = bv_term_bitsize(terms, t0);
-      slist_t* l0 = bv_slicing_norm(ctx, t0, width, 0, NULL, todo, &slicing->slices);
-      slist_t* l1 = bv_slicing_norm(ctx, t1, width, 0, NULL, todo, &slicing->slices);
-      bv_slicing_align(ctx, l0, l1, constraint, todo);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, width, 0, NULL, &todo, &slicing->slices);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, width, 0, NULL, &todo, &slicing->slices);
+      bv_slicing_align(ctx, l0, l1, constraint, &todo);
       break;
     }
     case BIT_TERM: { // That's also in the fragment...
@@ -679,14 +685,14 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       term_t a0[1];
       a0[0] = atom_i_term;
       term_t t0 = mk_bvarray(&ctx->var_db->tm, 1, a0);
-      slist_t* l0 = bv_slicing_norm(ctx, t0, 1, 0, NULL, todo, &slicing->slices);
+      slist_t* l0 = bv_slicing_norm(ctx, t0, 1, 0, NULL, &todo, &slicing->slices);
 
       term_t a1[1];
       a1[0] = bool2term(atom_i_value);
       term_t t1 = mk_bvarray(&ctx->var_db->tm, 1, a1);
-      slist_t* l1 = bv_slicing_norm(ctx, t1, 1, 0, NULL, todo, &slicing->slices);
+      slist_t* l1 = bv_slicing_norm(ctx, t1, 1, 0, NULL, &todo, &slicing->slices);
       
-      bv_slicing_align(ctx, l0, l1, 0, todo);
+      bv_slicing_align(ctx, l0, l1, 0, &todo);
       break;
     }
     default:
@@ -710,8 +716,8 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
   slist_t* l1;
   slist_t* l2;
   
-  while (!ptr_queue_is_empty(todo)) {
-    spair_t* p = (spair_t*) ptr_queue_pop(todo);
+  while (!ptr_queue_is_empty(&todo)) {
+    spair_t* p = (spair_t*) ptr_queue_pop(&todo);
     assert(p->lhs != NULL);
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(slicing->ctx);
@@ -725,13 +731,13 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       FILE* out = ctx_trace_out(slicing->ctx);
       fprintf(out, "Now aligning\n");
     }
-    bv_slicing_align(ctx, l1, l2, p->appearing_in, todo); // l1 and l2 are freed
+    bv_slicing_align(ctx, l1, l2, p->appearing_in, &todo); // l1 and l2 are freed
     safe_free(p);
   }
 
   // We destruct the todo queue
-  assert(ptr_queue_is_empty(todo));
-  delete_ptr_queue(todo);
+  assert(ptr_queue_is_empty(&todo));
+  delete_ptr_queue(&todo);
 
   // Now we go through all variables, all of their leaf slices, and collect the
   // equalities / disequalities they are involved in into slicing_out->constraints

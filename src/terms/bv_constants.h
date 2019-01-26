@@ -650,5 +650,13 @@ static inline void bvconstant_negate(bvconstant_t *a) {
   bvconst_negate(a->data, a->width);
 }
 
+/*
+ * Extract subvector data[l..(h-1)] and store it in a
+ * - a must have width >= ceil((h - l) / 32)
+ */
+static inline void bvconstant_extract(bvconstant_t *a, uint32_t *data, uint32_t l, uint32_t h) {
+  assert(a->width >= ((h-l)+31)/32);
+  bvconst_extract(a->data, data, l, h);
+}
 
 #endif /* __BV_CONSTANTS_H */
