@@ -574,8 +574,6 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       assert(s->value.type == VALUE_NONE);
       s->value.type = VALUE_BV;
       init_bvconstant(&s->value.bv_value);
-      bvconstant_set_bitsize(&s->value.bv_value, s->base.hi - s->base.lo);
-      assert(s->base.lo < s->base.hi && s->base.lo >= 0 && s->base.hi <= bvcst.bitsize);
       bvconstant_extract(&s->value.bv_value, bvcst.data, s->base.lo, s->base.hi);
       bvconstant_normalize(&s->value.bv_value);
       if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {

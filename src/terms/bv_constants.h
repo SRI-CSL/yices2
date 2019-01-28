@@ -653,8 +653,11 @@ static inline void bvconstant_negate(bvconstant_t *a) {
 /*
  * Extract subvector data[l..(h-1)] and store it in a
  * - a must have width >= ceil((h - l) / 32)
+ * Takes care of setting result's bitsize to (h-l)
  */
 static inline void bvconstant_extract(bvconstant_t *a, uint32_t *data, uint32_t l, uint32_t h) {
+  assert(l < h && l >= 0);
+  bvconstant_set_bitsize(a, h-l);
   assert(a->width >= ((h-l)+31)/32);
   bvconst_extract(a->data, data, l, h);
 }
