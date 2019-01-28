@@ -57,10 +57,10 @@ void slice_print(const slice_t* s, FILE* out) {
     slice_print(s->lo_sub, out);
   }
   else {
-    if ((s->hi) == (s->lo)+1) {
-      fprintf(out, "%i", s->lo);
+    if ((s->base.hi) == (s->base.lo)+1) {
+      fprintf(out, "%i", s->base.lo);
     } else {
-      fprintf(out, "%i:%i", (s->hi)-1, s->lo);
+      fprintf(out, "%i:%i", (s->base.hi)-1, s->base.lo);
     }
   }
   fprintf(out, "]");
@@ -69,7 +69,7 @@ void slice_print(const slice_t* s, FILE* out) {
 void ctx_print_slice(const plugin_context_t* ctx, const slice_t* s) {
   FILE* out = ctx_trace_out(ctx);
   term_table_t* terms = ctx->terms;
-  term_print_to_file(out, terms, s->term);
+  term_print_to_file(out, terms, s->base.term);
   slice_print(s, out);
 }
 
@@ -92,10 +92,10 @@ void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
   term_table_t* terms = ctx->terms;
   assert(p->lhs != NULL);
   assert(p->rhs != NULL);
-  if (p->lhs->slice_term != NULL_TERM) {
-    term_print_to_file(out, terms, p->lhs->slice_term);
+  if (p->lhs->base.slice_term != NULL_TERM) {
+    term_print_to_file(out, terms, p->lhs->base.slice_term);
     fprintf(out, "%s", b?"=":"!=");
-    term_print_to_file(out, terms, p->rhs->slice_term);
+    term_print_to_file(out, terms, p->rhs->base.slice_term);
   }
   else {
     ctx_print_slice(ctx, p->lhs);
@@ -123,10 +123,10 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi) {
   assert(lo < hi);
   slice_t* result = safe_malloc(sizeof(slice_t));
 
-  result->term = term;
-  result->slice_term = NULL_TERM;
-  result->lo  = lo;
-  result->hi  = hi;
+  result->base.term = term;
+  result->base.slice_term = NULL_TERM;
+  result->base.lo  = lo;
+  result->base.hi  = hi;
   result->paired_with = NULL;
   result->lo_sub  = NULL;
   result->hi_sub  = NULL;
@@ -168,10 +168,10 @@ void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_q
 
   assert(s->lo_sub == NULL);
   assert(s->hi_sub == NULL);
-  assert(k < s->hi);
-  assert(s->lo < k);
-  s->lo_sub  = bv_slicing_slice_new(s->term, s->lo, k);
-  s->hi_sub  = bv_slicing_slice_new(s->term, k, s->hi);
+  assert(k < s->base.hi);
+  assert(s->base.lo < k);
+  s->lo_sub  = bv_slicing_slice_new(s->base.term, s->base.lo, k);
+  s->hi_sub  = bv_slicing_slice_new(s->base.term, k, s->base.hi);
 
   splist_t *b = s->paired_with;
   splist_t *next;
@@ -229,17 +229,17 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
   slice_t* h2 = l2->slice;
   slist_t* t1 = l1->next;
   slist_t* t2 = l2->next;
-  uint32_t w1 = h1->hi - h1->lo;
-  uint32_t w2 = h2->hi - h2->lo;
+  uint32_t w1 = h1->base.hi - h1->base.lo;
+  uint32_t w2 = h2->base.hi - h2->base.lo;
 
   if ((h1->lo_sub == NULL) && (h2->lo_sub == NULL)) { // if both h1 and h2 are leaves
     if ( w1 < w2 ) {
       // h1 is shorter than h2, we slice h2
-      bv_slicing_split(ctx, h2, h2->lo + w1, todo);
+      bv_slicing_split(ctx, h2, h2->base.lo + w1, todo);
     }
     if ( w2 < w1 ) {
       // h2 is shorter than h1, we slice h1
-      bv_slicing_split(ctx, h1, h1->lo + w2, todo);
+      bv_slicing_split(ctx, h1, h1->base.lo + w2, todo);
     }
   }
 
@@ -284,20 +284,20 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
   /* fprintf(out, "Extracts %d to %d from ", hi, lo); */
   /* bv_slicing_print_slice(ctx, s, out); */
   /* fprintf(out, "\n"); */
-  if ((hi <= s->lo) || (lo >= s->hi)) return tail; // Slice is disjoint from indices
+  if ((hi <= s->base.lo) || (lo >= s->base.hi)) return tail; // Slice is disjoint from indices
 
   // We split the slice if need be (has to be a leaf,
   // and either hi or lo (or both) has to be a splitting index
   if (s->lo_sub == NULL) { // This slice is a leaf
     slice_t* s0 = s;
-    if ((s0->lo < hi) && (hi < s0->hi)) {
+    if ((s0->base.lo < hi) && (hi < s0->base.hi)) {
       bv_slicing_split(ctx, s0, hi, todo);
       /* fprintf(out, "splitting at hi=%d, giving ", hi); */
       /* bv_slicing_print_slice(s, terms, out); */
       /* fprintf(out, "\n"); */
       s0 = s0->lo_sub;
     }
-    if ((s0->lo < lo) && (lo < s0->hi)) {
+    if ((s0->base.lo < lo) && (lo < s0->base.hi)) {
       bv_slicing_split(ctx, s0, lo, todo);
       /* fprintf(out, "splitting at lo=%d, giving ", lo); */
       /* bv_slicing_print_slice(s, terms, out); */
@@ -314,6 +314,7 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
     return result;
   }
 
+  // Otherwise it has two children and we call ourselves recursively
   slist_t* slicing_list = bv_slicing_extracts(ctx, s->hi_sub, hi, lo, tail, todo);
   slist_t* result = bv_slicing_extracts(ctx, s->lo_sub, hi, lo, slicing_list, todo);
 
@@ -321,7 +322,6 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
   /* bv_slicing_print_slist(result, terms, out); */
   /* fprintf(out, "\n"); */
 
-  // Otherwise it has two children and we call ourselves recursively
   return result;
 }
 
@@ -519,16 +519,16 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     const mcsat_trail_t* trail  = ctx->trail; 
     term_manager_t* tm = &var_db->tm;
 
-    term_t t = s->term;
+    term_t t = s->base.term;
 
     // Task 1: We create a term for the slice & store it in slice_term field
     bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-    bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->lo, s->hi-1, t);
-    s->slice_term = mk_bvlogic_term(tm, buffer);
+    bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->base.lo, s->base.hi-1, t);
+    s->base.slice_term = mk_bvlogic_term(tm, buffer);
 
     
     // Task 2: we compute the value if we can & store it in value field
-    bool has_value = false; // whether term can be evaluated from trail (will switch to false if not)
+    bool has_value = true; // whether term can be evaluated from trail (will switch to false if not)
     bvconstant_t bvcst;
     init_bvconstant(&bvcst);
     
@@ -536,13 +536,11 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     case BV_CONSTANT: { // The term itself could be a constant term
       bvconst_term_t* desc = bvconst_term_desc(terms, t);
       bvconstant_copy(&bvcst, desc->bitsize, desc->data);
-      has_value = true;
       break;
     }
     case BV64_CONSTANT: { // The term itself could be a constant term, optimised bv64 representation
       bvconst64_term_t* desc = bvconst64_term_desc(terms, t);
       bvconstant_copy64(&bvcst, desc->bitsize, desc->value);
-      has_value = true;
       break;
     }
     default: { // Otherwise we hope that the term is assigned a value on the trail
@@ -554,13 +552,12 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
           bvconstant_t tmp = val->bv_value;
           assert(tmp.bitsize == term_bitsize(terms,t));
           bvconstant_copy(&bvcst, tmp.bitsize, tmp.data);
-          has_value = true;
           break;
         }
         default: assert(false); // Value of slice variable must be bv or bool
         }
       }
-      /* else has_value = false; // it does not have a value on the trail */
+      else has_value = false; // it does not have a value on the trail
     }
     }
 
@@ -569,7 +566,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       fprintf(out, "Treating slice ");
       ctx_print_slice(ctx, s);
       fprintf(out, " where slice_term = ");
-      term_print_to_file(out, ctx->terms, s->slice_term);
+      term_print_to_file(out, ctx->terms, s->base.slice_term);
     }
 
 
@@ -588,7 +585,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
         fprintf(out, " are sent to egraph.");
       }
       // Reason data = slice_term. Useful for collecting "interface terms" in the SMT'2017 explanation algo.
-      eq_graph_assign_term_value(egraph, s->slice_term, &s->value, s->slice_term);
+      eq_graph_assign_term_value(egraph, s->base.slice_term, &s->value, s->base.slice_term);
     }
     else mcsat_value_construct_default(&s->value);
 

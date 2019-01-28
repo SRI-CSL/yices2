@@ -385,8 +385,8 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   while (current != NULL) {
     assert(current->is_main);
     p = current->pair;
-    if (p->lhs->slice_term != p->rhs->slice_term) {
-      eq_graph_assert_term_eq(&eq_graph, p->lhs->slice_term, p->rhs->slice_term, 0);
+    if (p->lhs->base.slice_term != p->rhs->base.slice_term) {
+      eq_graph_assert_term_eq(&eq_graph, p->lhs->base.slice_term, p->rhs->base.slice_term, 0);
       // 0 means that the assertion is a consequence of the conflict_core
       // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
     }
@@ -422,8 +422,8 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
       while (current != NULL) {
         p = current->pair;
         assert(p->appearing_in == i); // Check that this is indeed the right disequality
-        term_t lhs = p->lhs->slice_term;
-        term_t rhs = p->rhs->slice_term;
+        term_t lhs = p->lhs->base.slice_term;
+        term_t rhs = p->rhs->base.slice_term;
 
         if (lhs == rhs
             || (eq_graph_has_term(&eq_graph, lhs)
