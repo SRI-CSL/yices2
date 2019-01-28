@@ -290,7 +290,7 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
   const variable_db_t* var_db = exp->ctx->var_db;
   const mcsat_trail_t* trail = exp->ctx->trail;
 
-  exp->stats.th_full ++;
+  (*exp->stats.th_full) ++;
 
   // Simple conflict resolution: get the variables and say x != v
   int_mset_t assigned_vars;
@@ -349,7 +349,7 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
 static
 void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
-  exp->stats.th_eq_ext_con ++;
+  (*exp->stats.th_eq_ext_con) ++;
 
   plugin_context_t* ctx = exp->ctx;
 
