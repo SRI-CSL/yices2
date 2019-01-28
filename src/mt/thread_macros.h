@@ -28,7 +28,7 @@
  * Thread Local Errors
  *
  * iam says: if we don't HAVE_TLS then we need to work harder with errors.
- * have to discuss this with BD. For the time being we protect it with the 
+ * have to discuss this with BD. For the time being we protect it with the
  * yices_global lock, but move it out of __yices_globals, since it we do have TLS
  * then it doesn't belong there.
  *
@@ -67,19 +67,9 @@
        return retval;\
   } while(0)
 
-/*
-#define MT_PROTECT2(TYPE,LOCK0,LOCK1,EXPRESSION) \
-  do { yices_lock_t *lock0 = &(LOCK0);\
-       yices_lock_t *lock1 = &(LOCK1);\
-       TYPE retval;\
-       get_yices_lock(lock0);\
-       get_yices_lock(lock1);\
-       retval = (EXPRESSION);\
-       release_yices_lock(lock1);\
-       release_yices_lock(lock0);\
-       return retval;\
-  } while(0)
-*/
+
+#define MT_MODE(EXPRESSION)  EXPRESSION
+
 
 #else
 
@@ -87,6 +77,7 @@
 
 #define MT_PROTECT(TYPE,LOCK,EXPRESSION)  return EXPRESSION
 
+#define MT_MODE(EXPRESSION)
 
 #endif
 

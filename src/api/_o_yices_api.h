@@ -558,6 +558,12 @@ static int32_t _o_yices_clear_term_name(term_t t);
  *  SEARCH PARAMETER CONFIGURATIONS  *
  ************************************/
 
+/*************************
+ *  CONTEXT OPERATIONS   *
+ ************************/
+
+static context_t *_o_yices_new_context(const ctx_config_t *config);
+
 /****************
  *  UNSAT CORE  *
  ***************/

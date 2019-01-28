@@ -200,6 +200,7 @@ typedef struct {
 } arith_buffer_elem_t;
 
 static dl_list_t arith_buffer_list;
+static yices_lock_t arith_buffer_list_lock;
 
 
 /*
@@ -211,6 +212,7 @@ typedef struct {
 } bvarith_buffer_elem_t;
 
 static dl_list_t bvarith_buffer_list;
+static yices_lock_t bvarith_buffer_list_lock;
 
 
 /*
@@ -222,6 +224,7 @@ typedef struct {
 } bvarith64_buffer_elem_t;
 
 static dl_list_t bvarith64_buffer_list;
+static yices_lock_t bvarith64_buffer_list_lock;
 
 
 /*
@@ -233,6 +236,7 @@ typedef struct {
 } bvlogic_buffer_elem_t;
 
 static dl_list_t bvlogic_buffer_list;
+static yices_lock_t bvlogic_buffer_list_lock;
 
 
 /*
@@ -244,6 +248,7 @@ typedef struct {
 } context_elem_t;
 
 static dl_list_t context_list;
+static yices_lock_t context_list_lock;
 
 
 /*
@@ -255,6 +260,7 @@ typedef struct {
 } model_elem_t;
 
 static dl_list_t model_list;
+static yices_lock_t model_list_lock;
 
 
 /*
@@ -272,6 +278,50 @@ typedef struct {
 } param_structure_elem_t;
 
 static dl_list_t generic_list;
+static yices_lock_t generic_list_lock;
+
+
+static inline void init_list_locks(void){
+  create_yices_lock(&arith_buffer_list_lock);
+  create_yices_lock(&bvarith_buffer_list_lock);
+  create_yices_lock(&bvarith64_buffer_list_lock);
+  create_yices_lock(&bvlogic_buffer_list_lock);
+  create_yices_lock(&context_list_lock);
+  create_yices_lock(&model_list_lock);
+  create_yices_lock(&generic_list_lock);
+}
+
+static inline void delete_list_locks(void){
+  destroy_yices_lock(&arith_buffer_list_lock);
+  destroy_yices_lock(&bvarith_buffer_list_lock);
+  destroy_yices_lock(&bvarith64_buffer_list_lock);
+  destroy_yices_lock(&bvlogic_buffer_list_lock);
+  destroy_yices_lock(&context_list_lock);
+  destroy_yices_lock(&model_list_lock);
+  destroy_yices_lock(&generic_list_lock);
+}
+
+/* the garbage collector must get all the locks */
+static inline void get_list_locks(void){
+  get_yices_lock(&arith_buffer_list_lock);
+  get_yices_lock(&bvarith_buffer_list_lock);
+  get_yices_lock(&bvarith64_buffer_list_lock);
+  get_yices_lock(&bvlogic_buffer_list_lock);
+  get_yices_lock(&context_list_lock);
+  get_yices_lock(&model_list_lock);
+  get_yices_lock(&generic_list_lock);
+}
+
+/* the garbage collector must also release all the locks */
+static inline void release_list_locks(void){
+  release_yices_lock(&arith_buffer_list_lock);
+  release_yices_lock(&bvarith_buffer_list_lock);
+  release_yices_lock(&bvarith64_buffer_list_lock);
+  release_yices_lock(&bvlogic_buffer_list_lock);
+  release_yices_lock(&context_list_lock);
+  release_yices_lock(&model_list_lock);
+  release_yices_lock(&generic_list_lock);
+}
 
 
 
@@ -301,25 +351,28 @@ static inline rba_buffer_t *alloc_arith_buffer(void) {
   arith_buffer_elem_t *new_elem;
 
   new_elem = (arith_buffer_elem_t *) safe_malloc(sizeof(arith_buffer_elem_t));
-  list_insert_next(&arith_buffer_list, &new_elem->header);
+  MT_PROTECT_VOID(arith_buffer_list_lock, list_insert_next(&arith_buffer_list, &new_elem->header));
   return &new_elem->buffer;
 }
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_arith_buffer(rba_buffer_t *b) {
+static inline void _o_free_arith_buffer(rba_buffer_t *b) {
   dl_list_t *elem;
 
   elem = arith_buffer_header(b);
   list_remove(elem);
   safe_free(elem);
 }
+static void free_arith_buffer(rba_buffer_t *b) {  //BD could this be inline?
+  MT_PROTECT_VOID(arith_buffer_list_lock, _o_free_arith_buffer(b));
+}
 
 /*
  * Clean up the arith buffer list: free all elements and empty the list
  */
-static void free_arith_buffer_list(void) {
+static void _o_free_arith_buffer_list(void) {
   dl_list_t *elem, *aux;
 
   elem = arith_buffer_list.next;
@@ -331,6 +384,9 @@ static void free_arith_buffer_list(void) {
   }
 
   clear_list(&arith_buffer_list);
+}
+static void free_arith_buffer_list(void) {
+  MT_PROTECT_VOID(arith_buffer_list_lock, _o_free_arith_buffer_list());
 }
 
 
@@ -535,12 +591,15 @@ static inline context_t *context_of_header(dl_list_t *l) {
  * Allocate a fresh context object and insert it in the context_list
  * - WARNING: the context is not initialized
  */
-static inline context_t *alloc_context(void) {
+static inline context_t *_o_alloc_context(void) {
   context_elem_t *new_elem;
 
   new_elem = (context_elem_t *) safe_malloc(sizeof(context_elem_t));
   list_insert_next(&context_list, &new_elem->header);
   return &new_elem->context;
+}
+static context_t *alloc_context(void) {  //IAM: inline??
+  MT_PROTECT(context_t *, context_list_lock, _o_alloc_context());
 }
 
 
@@ -549,12 +608,15 @@ static inline context_t *alloc_context(void) {
  * - WARNING: make sure to call delete_context(c) before this
  *   function
  */
-static inline void free_context(context_t *c) {
+static inline void _o_free_context(context_t *c) {
   dl_list_t *elem;
 
   elem = header_of_context(c);
   list_remove(elem);
   safe_free(elem);
+}
+static void free_context(context_t *c) { //IAM: inline??
+  MT_PROTECT_VOID(context_list_lock, _o_free_context(c));
 }
 
 
@@ -599,12 +661,15 @@ static inline model_t *model_of_header(dl_list_t *l) {
  * Allocate a fresh model object and insert it in the model_list
  * - WARNING: the model is not initialized
  */
-static inline model_t *alloc_model(void) {
+static inline model_t *_o_alloc_model(void) {
   model_elem_t *new_elem;
 
   new_elem = (model_elem_t *) safe_malloc(sizeof(model_elem_t));
   list_insert_next(&model_list, &new_elem->header);
   return &new_elem->model;
+}
+static model_t *alloc_model(void) {  //IAM: inline??
+  MT_PROTECT(model_t *, model_list_lock, _o_alloc_model());
 }
 
 
@@ -613,12 +678,15 @@ static inline model_t *alloc_model(void) {
  * - WARNING: make sure to call delete_model(c) before this
  *   function
  */
-static inline void free_model(model_t *m) {
+static inline void _o_free_model(model_t *m) {
   dl_list_t *elem;
 
   elem = header_of_model(m);
   list_remove(elem);
   safe_free(elem);
+}
+static inline void free_model(model_t *m) {
+  MT_PROTECT_VOID(model_list_lock, _o_free_model(m));
 }
 
 
@@ -661,39 +729,51 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
  * Allocate a structure and insert it into the generic
  * WARNING: the record is not initialized
  */
-static inline ctx_config_t *alloc_config_structure(void) {
+static inline ctx_config_t *_o_alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
   list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->config;
 }
+static ctx_config_t *alloc_config_structure(void) {   //IAM: inline??
+  MT_PROTECT(ctx_config_t *, generic_list_lock, _o_alloc_config_structure());
+}
 
-static inline param_t *alloc_param_structure(void) {
+static inline param_t *_o_alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
   list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->param;
 }
+static param_t *alloc_param_structure(void) { //IAM: inline??
+  MT_PROTECT(param_t *, generic_list_lock,  _o_alloc_param_structure());
+}
 
 /*
  * Remove a structure form the generic list
  */
-static inline void free_config_structure(ctx_config_t *c) {
+static inline void _o_free_config_structure(ctx_config_t *c) {
   dl_list_t *elem;
 
   elem = header_of_config_structure(c);
   list_remove(elem);
   safe_free(elem);
 }
+static void free_config_structure(ctx_config_t *c) { //IAM: inline??
+  MT_PROTECT_VOID(generic_list_lock, _o_free_config_structure(c));
+}
 
-static inline void free_param_structure(param_t *p) {
+static inline void _o_free_param_structure(param_t *p) {
   dl_list_t *elem;
 
   elem = header_of_param_structure(p);
   list_remove(elem);
   safe_free(elem);
+}
+static void free_param_structure(param_t *p) { //IAM: inline??
+  MT_PROTECT_VOID(generic_list_lock, _o_free_param_structure(p));
 }
 
 
@@ -894,6 +974,9 @@ EXPORTED void yices_init(void) {
   // prepare the global table
   init_globals(&__yices_globals);
 
+  // make the global list locks
+  init_list_locks();
+
   init_yices_pp_tables();
   init_bvconstants();
   init_rationals();
@@ -954,6 +1037,8 @@ EXPORTED void yices_exit(void) {
   delete_type_table(__yices_globals.types);
 
   clear_globals(&__yices_globals);
+
+  delete_list_locks();
 
   q_clear(&r0);
   delete_bvconstant(&bv0);
@@ -8106,6 +8191,9 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
  * - otherwise, if the configuration is not supported, the function returns NULL.
  */
 EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
+  MT_PROTECT(context_t *, __yices_globals.lock, _o_yices_new_context(config));
+}
+static context_t *_o_yices_new_context(const ctx_config_t *config) {
   smt_logic_t logic;
   context_arch_t arch;
   context_mode_t mode;
@@ -10812,6 +10900,9 @@ static void _o_yices_garbage_collect(const term_t t[], uint32_t nt,
                               int32_t keep_named) {
   bool keep;
 
+
+  get_list_locks();
+
   /*
    * Default roots: all terms and types in all live models and context
    */
@@ -10846,4 +10937,7 @@ static void _o_yices_garbage_collect(const term_t t[], uint32_t nt,
   if (__yices_globals.fvars != NULL) {
     cleanup_fvar_collector(__yices_globals.fvars);
   }
+
+  release_list_locks();
+
 }
