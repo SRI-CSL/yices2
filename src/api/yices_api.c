@@ -307,8 +307,8 @@ static inline void get_list_locks(void){
   get_yices_lock(&bvarith_buffer_list_lock);
   get_yices_lock(&bvarith64_buffer_list_lock);
   get_yices_lock(&bvlogic_buffer_list_lock);
-  get_yices_lock(&context_list_lock);
-  get_yices_lock(&model_list_lock);
+  get_yices_lock(&context_list_lock);   //IAM: maybe only these are needed?
+  get_yices_lock(&model_list_lock);     //IAM: maybe only these are needed?
   get_yices_lock(&generic_list_lock);
 }
 
@@ -318,8 +318,8 @@ static inline void release_list_locks(void){
   release_yices_lock(&bvarith_buffer_list_lock);
   release_yices_lock(&bvarith64_buffer_list_lock);
   release_yices_lock(&bvlogic_buffer_list_lock);
-  release_yices_lock(&context_list_lock);
-  release_yices_lock(&model_list_lock);
+  release_yices_lock(&context_list_lock);     //IAM: maybe only these are needed?
+  release_yices_lock(&model_list_lock);       //IAM: maybe only these are needed?
   release_yices_lock(&generic_list_lock);
 }
 
@@ -412,23 +412,29 @@ static inline bvarith_buffer_t *bvarith_buffer(dl_list_t *l) {
 /*
  * Allocate a bv-arithmetic buffer and insert it into the list
  */
-static inline bvarith_buffer_t *alloc_bvarith_buffer(void) {
+static inline bvarith_buffer_t *_o_alloc_bvarith_buffer(void) {
   bvarith_buffer_elem_t *new_elem;
 
   new_elem = (bvarith_buffer_elem_t *) safe_malloc(sizeof(bvarith_buffer_elem_t));
   list_insert_next(&bvarith_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
+static bvarith_buffer_t *alloc_bvarith_buffer(void) { //IAM: inline??
+  MT_PROTECT(bvarith_buffer_t *, bvarith_buffer_list_lock, _o_alloc_bvarith_buffer());
+}
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
+static inline void _o_free_bvarith_buffer(bvarith_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvarith_buffer_header(b);
   list_remove(elem);
   safe_free(elem);
+}
+static void free_bvarith_buffer(bvarith_buffer_t *b) { //IAM: inline??
+  MT_PROTECT_VOID(bvarith_buffer_list_lock, _o_free_bvarith_buffer(b));
 }
 
 /*
@@ -471,23 +477,29 @@ static inline bvarith64_buffer_t *bvarith64_buffer(dl_list_t *l) {
 /*
  * Allocate a bv-arithmetic buffer and insert it into the list
  */
-static inline bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
+static inline bvarith64_buffer_t *_o_alloc_bvarith64_buffer(void) {
   bvarith64_buffer_elem_t *new_elem;
 
   new_elem = (bvarith64_buffer_elem_t *) safe_malloc(sizeof(bvarith64_buffer_elem_t));
   list_insert_next(&bvarith64_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
+static bvarith64_buffer_t *alloc_bvarith64_buffer(void) { //IAM: inline??
+  MT_PROTECT(bvarith64_buffer_t *, bvarith64_buffer_list_lock, _o_alloc_bvarith64_buffer());
+}
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvarith64_buffer(bvarith64_buffer_t *b) {
+static inline void _o_free_bvarith64_buffer(bvarith64_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvarith64_buffer_header(b);
   list_remove(elem);
   safe_free(elem);
+}
+static void free_bvarith64_buffer(bvarith64_buffer_t *b) {  //IAM: inline??
+  MT_PROTECT_VOID(bvarith64_buffer_list_lock, _o_free_bvarith64_buffer(b));
 }
 
 /*
@@ -530,23 +542,29 @@ static inline bvlogic_buffer_t *bvlogic_buffer(dl_list_t *l) {
 /*
  * Allocate an arithmetic buffer and insert it into the list
  */
-static inline bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
+static inline bvlogic_buffer_t *_o_alloc_bvlogic_buffer(void) {
   bvlogic_buffer_elem_t *new_elem;
 
   new_elem = (bvlogic_buffer_elem_t *) safe_malloc(sizeof(bvlogic_buffer_elem_t));
   list_insert_next(&bvlogic_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
+static bvlogic_buffer_t *alloc_bvlogic_buffer(void) { //IAM: inline??
+  MT_PROTECT(bvlogic_buffer_t *, bvlogic_buffer_list_lock, _o_alloc_bvlogic_buffer());
+}
 
 /*
  * Remove b from the list and free b
  */
-static inline void free_bvlogic_buffer(bvlogic_buffer_t *b) {
+static inline void _o_free_bvlogic_buffer(bvlogic_buffer_t *b) {
   dl_list_t *elem;
 
   elem = bvlogic_buffer_header(b);
   list_remove(elem);
   safe_free(elem);
+}
+static void free_bvlogic_buffer(bvlogic_buffer_t *b) { //IAM: inline??
+  MT_PROTECT_VOID(bvlogic_buffer_list_lock, _o_free_bvlogic_buffer(b));
 }
 
 /*
