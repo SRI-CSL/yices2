@@ -743,7 +743,74 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
 }
 
 static
-void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+void bv_explainer_get_conflict_all_simple(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+  uint32_t i;
+  variable_t atom_i_var;
+  term_t atom_i_term;
+  bool atom_i_value;
+
+  const variable_db_t* var_db = exp->ctx->var_db;
+  const mcsat_trail_t* trail = exp->ctx->trail;
+
+  (*exp->stats.th_full) ++;
+
+  // Simple conflict resolution: get the variables and say x != v
+  int_mset_t assigned_vars;
+  int_mset_construct(&assigned_vars, 0);
+  for (i = 0; i < conflict_core->size; ++ i) {
+    atom_i_var = conflict_core->data[i];
+    atom_i_term = variable_db_get_term(var_db, atom_i_var);
+    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+    // Add atom to conflict
+    if (atom_i_value) {
+      ivector_push(conflict, atom_i_term);
+    } else {
+      ivector_push(conflict, opposite_term(atom_i_term));
+    }
+    // Add subvariables to set
+    variable_list_ref_t list_ref = watch_list_manager_get_list_of(exp->wlm, atom_i_var);
+    variable_t* atom_i_vars = watch_list_manager_get_list(exp->wlm, list_ref);
+    for (; *atom_i_vars != variable_null; atom_i_vars ++) {
+      if (*atom_i_vars != atom_i_var) {
+        assert(*atom_i_vars == conflict_var || trail_has_value(trail, *atom_i_vars));
+        if (*atom_i_vars != conflict_var) {
+          int_mset_add(&assigned_vars, *atom_i_vars);
+        }
+      }
+    }
+  }
+
+  const ivector_t* assigned_vars_vec = int_mset_get_list(&assigned_vars);
+  for (i = 0; i < assigned_vars_vec->size; ++i) {
+    variable_t var = assigned_vars_vec->data[i];
+    term_t var_term = variable_db_get_term(var_db, var);
+    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+      ctx_trace_printf(exp->ctx, "vars:\n");
+      ctx_trace_printf(exp->ctx, "[%"PRIu32"]: ", i);
+      ctx_trace_term(exp->ctx, var_term);
+    }
+    const mcsat_value_t* value = trail_get_value(trail, var);
+    if (value->type == VALUE_BOOLEAN) {
+      if (value->b) {
+        ivector_push(conflict, var_term);
+      } else {
+        ivector_push(conflict, opposite_term(var_term));
+      }
+    } else if (value->type == VALUE_BV) {
+      term_t var_value = mk_bv_constant(exp->tm, (bvconstant_t*) &value->bv_value);
+      term_t var_eq_value = mk_eq(exp->tm, var_term, var_value);
+      ivector_push(conflict, var_eq_value);
+    } else {
+      assert(false);
+    }
+  }
+
+  int_mset_destruct(&assigned_vars);
+}
+
+
+static
+void bv_explainer_get_conflict_all_with_yices(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   uint32_t i;
 
   exp->stats.th_full ++;
@@ -1055,12 +1122,20 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     fprintf(out, "subtheory %s\n", subtheory_to_string(subtheory));
   }
 
+  bool use_yices = false;
+
   // Get the appropriate conflict
   switch (subtheory) {
   case BV_TH_EQ:
   case BV_TH_EQ_EXT_CON:
+    bv_explainer_get_conflict_eq_ext_con(exp, conflict_in, conflict_var, conflict_out);
+    break;
   case BV_TH_FULL:
-    bv_explainer_get_conflict_all(exp, conflict_in, conflict_var, conflict_out);
+    if (use_yices) {
+      bv_explainer_get_conflict_all_with_yices(exp, conflict_in, conflict_var, conflict_out);
+    } else {
+      bv_explainer_get_conflict_all_simple(exp, conflict_in, conflict_var, conflict_out);
+    }
     break;
   default:
     assert(false);
