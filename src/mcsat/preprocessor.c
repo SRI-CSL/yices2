@@ -418,7 +418,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (arg_pre == arg) {
           current_pre = current;
         } else {
-          current_pre = bit_term(terms, index, arg);
+          current_pre = bit_term(terms, index, arg_pre);
         }
       }
       break;

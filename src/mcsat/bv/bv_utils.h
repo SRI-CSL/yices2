@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "mcsat/value.h"
 
 /** Types of bitvector terms */
@@ -295,3 +296,66 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
   }
 }
 
+/** Construct a composite bitvector term (including some Boolean terms) */
+static inline
+term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* children) {
+
+  term_table_t* terms = tm->terms;
+
+  switch (kind) {
+  case ITE_TERM:           // if-then-else
+  case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
+  {
+    assert(n == 3);
+    term_t type = term_type(terms, children[1]);
+    return mk_ite(tm, children[0], children[1], children[2], type);
+  }
+  case EQ_TERM:            // equality
+    assert(n == 2);
+    return mk_eq(tm, children[0], children[1]);
+  case OR_TERM:            // n-ary OR
+    assert(n > 1);
+    return mk_or(tm, n, children);
+  case XOR_TERM:           // n-ary XOR
+    return mk_xor(tm, n, children);
+  case BV_ARRAY:
+    assert(n > 1);
+    return mk_bvarray(tm, n, children);
+  case BV_DIV:
+    assert(n == 2);
+    return mk_bvdiv(tm, children[0], children[1]);
+  case BV_REM:
+    assert(n == 2);
+    return mk_bvrem(tm, children[0], children[1]);
+  case BV_SDIV:
+    assert(n == 2);
+    return mk_bvsdiv(tm, children[0], children[1]);
+  case BV_SREM:
+    assert(n == 2);
+    return mk_bvsrem(tm, children[0], children[1]);
+  case BV_SMOD:
+    assert(n == 2);
+    return mk_bvsmod(tm, children[0], children[1]);
+  case BV_SHL:
+    assert(n == 2);
+    return mk_bvshl(tm, children[0], children[1]);
+  case BV_LSHR:
+    assert(n == 2);
+    return mk_bvlshr(tm, children[0], children[1]);
+  case BV_ASHR:
+    assert(n == 2);
+    return mk_bvashr(tm, children[0], children[1]);
+  case BV_EQ_ATOM:
+    assert(n == 2);
+    return mk_bveq(tm, children[0], children[1]);
+  case BV_GE_ATOM:
+    assert(n == 2);
+    return mk_bvge(tm, children[0], children[1]);
+  case BV_SGE_ATOM:
+    assert(n == 2);
+    return mk_bvsge(tm, children[0], children[1]);
+  default:
+    assert(false);
+    return NULL_TERM;
+  }
+}

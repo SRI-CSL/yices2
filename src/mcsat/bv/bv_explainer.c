@@ -5,9 +5,11 @@
  * license agreement which is downloadable along with this program.
  */
 
+#include "bv_explainer.h"
+
 #include "bv_slicing.h"
 #include "bv_evaluator.h"
-#include "bv_explainer.h"
+#include "bv_utils.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
 #include "mcsat/utils/int_mset.h"
@@ -277,7 +279,7 @@ typedef struct {
   const mcsat_trail_t* trail;
 
   /** Variable database */
-  const variable_db_t* var_db;
+  variable_db_t* var_db;
 
   /** Yices config */
   ctx_config_t* config;
@@ -287,7 +289,7 @@ typedef struct {
 
 } bv_core_solver_t;
 
-void bv_core_solver_construct(bv_core_solver_t* solver, const variable_db_t* var_db, const mcsat_trail_t* trail) {
+void bv_core_solver_construct(bv_core_solver_t* solver, variable_db_t* var_db, const mcsat_trail_t* trail) {
   init_int_hmap(&solver->substitution_fwd, 0);
   init_int_hmap(&solver->substitution_bck, 0);
   init_ivector(&solver->vars_to_assign, 0);
@@ -313,9 +315,291 @@ void bv_core_solver_destruct(bv_core_solver_t* solver) {
   yices_free_config(solver->config);
 }
 
-term_t bv_core_solver_run_substitution(bv_core_solver_t* solver, term_t t) {
+term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_hmap_t* cache) {
+
+  uint32_t i, n;
+  int_hmap_pair_t* find = NULL;
+
+  // Term stuff
+  term_manager_t* tm = &solver->var_db->tm;
+  term_table_t* terms = tm->terms;
+
+  // Check if already done
+  find = int_hmap_find(cache, t);
+  if (find != NULL) {
+    return find->val;
+  }
+
+  // Start
+  ivector_t substitution_stack;
+  init_ivector(&substitution_stack, 0);
+  ivector_push(&substitution_stack, t);
+
+  // Run the substitutions
+  while (substitution_stack.size) {
+    // Current term
+    term_t current = ivector_last(&substitution_stack);
+
+    // Check if done already
+    find = int_hmap_find(cache, current);
+    if (find != NULL) {
+      ivector_pop(&substitution_stack);
+      continue;
+    }
+
+    // Deal with negation
+    if (is_neg_term(current)) {
+      term_t child = unsigned_term(current);
+      find = int_hmap_find(cache, child);
+      if (find->val == NULL) {
+        // Not yet done
+        ivector_push(&substitution_stack, child);
+        continue;
+      } else {
+        // Done, just set it
+        ivector_pop(&substitution_stack);
+        term_t current_subst = opposite_term(find->val);
+        int_hmap_add(cache, current, current_subst);
+        continue;
+      }
+    }
+
+    assert(term_type_kind(terms, current) == BOOL_TYPE || term_type_kind(terms, current) == BITVECTOR_TYPE);
+
+    // Current term kind
+    term_kind_t current_kind = term_kind(terms, current);
+    // The result substitution (will be NULL if not done yet)
+    term_t current_subst = NULL_TERM;
+
+    // Process each term kind
+    switch(current_kind) {
+
+    // Constants are noop
+    case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
+    case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
+    case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
+      current_subst = current;
+      break;
+
+    // If a variable hasn't been done already, it stays
+    case UNINTERPRETED_TERM:  // variables not
+      current_subst = current;
+      break;
+
+    // Composite terms
+    case ITE_TERM:           // if-then-else
+    case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
+    case EQ_TERM:            // equality
+    case OR_TERM:            // n-ary OR
+    case XOR_TERM:           // n-ary XOR
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+    {
+      composite_term_t* desc = composite_term_desc(terms, current);
+      n = desc->arity;
+
+      bool children_done = true; // All children substituted
+      bool children_same = true; // All children substitution same (no need to make new term)
+
+      ivector_t children;
+      init_ivector(&children, n);
+      for (i = 0; i < n; ++ i) {
+        term_t child = desc->arg[i];
+        find = int_hmap_find(cache, child);
+        if (find == NULL) {
+          children_done = false;
+          ivector_push(&substitution_stack, child);
+        } else if (find->val != child) {
+          children_same = false;
+        }
+        if (children_done) {
+          ivector_push(&children, find->val);
+        }
+      }
+
+      // Make the substitution (or not if noop)
+      if (children_done) {
+        if (children_same) {
+          current_subst = current;
+        } else {
+          current_subst = mk_bv_composite(tm, current_kind, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+      break;
+    }
+
+    case BIT_TERM: // bit-select current = child[i]
+    {
+      uint32_t index = bit_term_index(terms, current);
+      term_t arg = bit_term_arg(terms, current);
+      find = int_hmap_find(cache, arg);
+      if (find == NULL) {
+        ivector_push(&substitution_stack, arg);
+      } else {
+        if (find->val == arg) {
+          current_subst = current;
+        } else {
+          current_subst = bit_term(terms, index, find->val);
+        }
+      }
+      break;
+    }
+    case BV_POLY:  // polynomial with generic bitvector coefficients
+    {
+      bvpoly_t* p = bvpoly_term_desc(terms, current);
+      n = p->nterms;
+
+      bool children_done = true;
+      bool children_same = true;
+
+      ivector_t children;
+      init_ivector(&children, n);
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        if (x != const_idx) {
+          find = int_hmap_find(cache, x);
+          if (find == NULL) {
+            children_done = false;
+            ivector_push(&substitution_stack, x);
+          } else if (find->val != x) {
+            children_same = false;
+          }
+          if (children_done) { ivector_push(&children, find->val); }
+        } else {
+          if (children_done) { ivector_push(&children, const_idx); }
+        }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_subst = current;
+        } else {
+          current_subst = mk_bvarith_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+    case BV64_POLY: // polynomial with 64bit coefficients
+    {
+      bvpoly64_t* p = bvpoly64_term_desc(terms, current);
+      n = p->nterms;
+
+      bool children_done = true;
+      bool children_same = true;
+
+      ivector_t children;
+      init_ivector(&children, n);
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        if (x != const_idx) {
+          find = int_hmap_find(cache, x);
+          if (find == NULL) {
+            children_done = false;
+            ivector_push(&substitution_stack, x);
+          } else if (find->val != x) {
+            children_same = false;
+          }
+          if (children_done) { ivector_push(&children, find->val); }
+        } else {
+          if (children_done) { ivector_push(&children, const_idx); }
+        }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_subst = current;
+        } else {
+          current_subst = mk_bvarith64_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+    case POWER_PRODUCT:    // power products: (t1^d1 * ... * t_n^d_n)
+    {
+      pprod_t* pp = pprod_term_desc(terms, current);
+      n = pp->len;
+
+      bool children_done = true;
+      bool children_same = true;
+
+      ivector_t children;
+      init_ivector(&children, n);
+      for (i = 0; i < n; ++ i) {
+        term_t x = pp->prod[i].var;
+        find = int_hmap_find(cache, x);
+        if (find == NULL) {
+          children_done = false;
+          ivector_push(&substitution_stack, x);
+        } else if (find->val != x) {
+          children_same = false;
+        }
+        if (children_done) { ivector_push(&children, find->val); }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_subst = current;
+        } else {
+          // NOTE: it doens't change pp, it just uses it as a frame
+          current_subst = mk_arith_pprod(tm, pp, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+    default:
+      // UNSUPPORTED TERM/THEORY
+      assert(false);
+      break;
+    }
+
+    // If done with substitution, record and pop
+    if (current_subst != NULL_TERM) {
+      int_hmap_add(cache, current, current_subst);
+      ivector_pop(&substitution_stack);
+    }
+  }
+
+  // Return the result
+  find = int_hmap_find(cache, t);
+
+  // Delete the stack
+  delete_ivector(&substitution_stack);
+
+  assert(find != NULL);
+  return find->val;
+}
+
+term_t bv_core_solver_run_substitution_fwd(bv_core_solver_t* solver, term_t t) {
   // Run the substitution
-  return NULL_TERM;
+  return bv_core_solver_substitution_core(solver, t, &solver->substitution_fwd);
+}
+
+term_t bv_core_solver_run_substitution_bck(bv_core_solver_t* solver, term_t t) {
+  // Run the substitution backwards
+  return bv_core_solver_substitution_core(solver, t, &solver->substitution_bck);
 }
 
 void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool with_value) {
@@ -346,42 +630,66 @@ void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
   if (!var_value->b) {
     assertion_term = opposite_term(assertion_term);
   }
-  assertion_term = bv_core_solver_run_substitution(solver, assertion_term);
+  assertion_term = bv_core_solver_run_substitution_fwd(solver, assertion_term);
   yices_assert_formula(solver->ctx, assertion_term);
 }
 
-void bv_solver_solve_and_get_core(bv_core_solver_t* solver) {
+void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core) {
+
+  const variable_db_t* var_db = solver->var_db;
+  term_manager_t* tm = (term_manager_t*) &var_db->tm;
 
   // Vector to store assumptions
-  ivector_t tmp;
-  init_ivector(&tmp, 0);
+  ivector_t assumptions;
+  init_ivector(&assumptions, 0);
 
   // Make assumptions
-  uint32_t i;
+  uint32_t i, bit;
   for (i = 0; i < solver->vars_to_assign.size; ++ i) {
+    // Variable and its value
     variable_t var = solver->vars_to_assign.data[i];
     const mcsat_value_t* var_value = trail_get_value(solver->trail, var);
     assert(var_value->type == VALUE_BOOLEAN || var_value->type == VALUE_BV);
+    // Get the term, and it's substitution
+    term_t var_term = variable_db_get_term(var_db, var);
+    term_t var_term_subst = bv_core_solver_run_substitution_fwd(solver, var_term);
     if (var_value->type == VALUE_BOOLEAN) {
-      // Boolean variables
-      bool value = var_value->b;
+      // Boolean variables, just add as assertion
+      bool bool_value = var_value->b;
+      if (!bool_value) var_term_subst = opposite_term(var_term_subst);
+      ivector_push(&assumptions, var_term_subst);
     } else {
       // Bitvector variables
-      const bvconstant_t* value = &var_value->bv_value;
+      const bvconstant_t* bv_value = &var_value->bv_value;
+      // Assert individual bits
+      for (bit = 0; bit < bv_value->bitsize; bit ++) {
+        // Extract bit
+        var_term_subst = mk_bitextract(tm, var_term_subst, bit);
+        // Assert appropriate value
+        bool bool_value = bvconst_tst_bit(bv_value->data, bit);
+        if (!bool_value) var_term_subst = opposite_term(var_term_subst);
+        ivector_push(&assumptions, var_term_subst);
+      }
     }
   }
 
   // Check the assumptions (should be unsat)
-  smt_status_t status = yices_check_context_with_assumptions(solver->ctx, NULL, tmp.size, tmp.data);
+  smt_status_t status = yices_check_context_with_assumptions(solver->ctx, NULL, assumptions.size, assumptions.data);
   assert(status == STATUS_UNSAT);
 
   // Get the unsat core
-  ivector_reset(&tmp);
-  int32_t ret = yices_get_unsat_core(solver->ctx, &tmp);
+  int32_t ret = yices_get_unsat_core(solver->ctx, core);
   assert(ret == 0);
 
+  // Substitute the core back to internal
+  for (i = 0; i < core->size; ++ i) {
+    term_t t = core->data[i];
+    t = bv_core_solver_run_substitution_bck(solver, t);
+    core->data[i] = 0;
+  }
+
   // Remove assumption vector
-  delete_ivector(&tmp);
+  delete_ivector(&assumptions);
 }
 
 static
@@ -414,10 +722,13 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
     bv_solver_assert(&solver, assertion_var);
   }
 
-  // Solve
-  bv_solver_solve_and_get_core(&solver);
+  // Solve and get the core
+  term_vector_t core;
+  yices_init_term_vector(&core);
+  bv_solver_solve_and_get_core(&solver, &core);
 
   // Delete stuff
+  yices_delete_term_vector(&core);
   bv_core_solver_destruct(&solver);
 }
 
