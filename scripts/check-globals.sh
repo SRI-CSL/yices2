@@ -52,6 +52,17 @@ sed '
   /^ptr_array_sort _seed$/d
   /^ptr_array_sort2 _seed$/d
 
+  # these are protected by locks or are TLS
+  /^api\/yices_api \w*_list$/d
+  /^api\/yices_api \w*_list_lock$/d
+  /^api\/yices_api \w*root_terms$/d
+  /^api\/yices_api \w*root_types$/d
+  /^api\/yices_api __yices_error$/d
+  /^api\/yices_api __yices_error_initialized$/d
+
+  #constant array of strings
+  /^api\/yices_api ctx_option_names$/d
+
 
 ')
 
@@ -61,7 +72,7 @@ if [ -n "$symbols" ]; then
     set fnord $symbols
     shift
     while [ $# -gt 0 ]; do
-        printf '  %s.o\t%s\n' "$1" "$2"
+        printf '  %s\t%s\n' "$1" "$2"
         shift 2
     done
 fi

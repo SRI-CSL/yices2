@@ -160,7 +160,6 @@ core_src_c := \
 	mt/yices_locks.c \
 	mt/threadsafe.c \
 	mt/threads.c \
-	mt/thread_error.c \
 	parser_utils/lexer.c \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \
