@@ -61,7 +61,7 @@ static type_t fun_bool_bool, fun_int_bv54, fun_S3_S10_bool, fun_real_U1, fun_rea
 static type_t pair_unit_fun, fun_T1_T2_fun_real_U1;
 
 
-static void test_base_types(void) {
+static void test_base_types(FILE* output) {
   int32_t code;
 
   boolean = yices_bool_type();
@@ -131,8 +131,8 @@ static void test_base_types(void) {
   check_type_name_mt(bv54, NULL);
   check_type_name_mt(bv65, NULL);
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
@@ -140,7 +140,7 @@ static void test_base_types(void) {
 /*
  * Test tuple and function type construction
  */
-static void test_composite_types(void) {
+static void test_composite_types(FILE* output) {
   type_t aux[10];
 
   aux[0] = T1;
@@ -199,8 +199,8 @@ static void test_composite_types(void) {
   fun_T1_T2_fun_real_U1 = yices_function_type(2, aux, fun_real_U1);
   assert(check_function_type_mt(fun_T1_T2_fun_real_U1, 2, aux, fun_real_U1));
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
@@ -208,7 +208,7 @@ static void test_composite_types(void) {
 /*
  * Test error reporting for type constructors
  */
-static void test_type_errors(void) {
+static void test_type_errors(FILE* output) {
   type_t aux[3];
   type_t test;
 
@@ -249,8 +249,8 @@ static void test_type_errors(void) {
   test = yices_function_type(3, aux, -4);
   assert(check_invalid_type_mt(test, -4));
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
@@ -261,7 +261,7 @@ static void test_type_errors(void) {
 /*
  * Test construction of uninterpreted terms of type tau.
  */
-static void test_uninterpreted(type_t tau) {
+static void test_uninterpreted(FILE* output, type_t tau) {
   term_t x, y, z;
 
   if (is_unit_type(__yices_globals.types, tau)) {
@@ -291,41 +291,41 @@ static void test_uninterpreted(type_t tau) {
     assert(x != y && y != z && z != x);
   }
 
-  printf("PASS: %s for type ", __func__);
-  print_type(stdout, __yices_globals.types, tau);
-  printf("\n");
-  fflush(stdout);
+  fprintf(output, "PASS: %s for type ", __func__);
+  print_type(output, __yices_globals.types, tau);
+  fprintf(output, "\n");
+  fflush(output);
 }
 
 
 
-static void test_uninterpreted_all(void) {
-  test_uninterpreted(boolean);
-  test_uninterpreted(integer);
-  test_uninterpreted(real);
-  test_uninterpreted(bv1);
-  test_uninterpreted(bv2);
-  test_uninterpreted(bv32);
-  test_uninterpreted(bv54);
-  test_uninterpreted(bv65);
-  test_uninterpreted(T1);
-  test_uninterpreted(T2);
-  test_uninterpreted(S3);
-  test_uninterpreted(S10);
-  test_uninterpreted(U1);
-  test_uninterpreted(U2);
-  test_uninterpreted(pair_T1_T2);
-  test_uninterpreted(mono_U1);
-  test_uninterpreted(triple_U1_U1_U2);
-  test_uninterpreted(pair_bool);
-  test_uninterpreted(pair_pair_bool);
-  test_uninterpreted(fun_bool_bool);
-  test_uninterpreted(fun_int_bv54);
-  test_uninterpreted(fun_S3_S10_bool);
-  test_uninterpreted(fun_real_U1);
-  test_uninterpreted(fun_real_U2);
-  test_uninterpreted(pair_unit_fun);
-  test_uninterpreted(fun_T1_T2_fun_real_U1);
+static void test_uninterpreted_all(FILE* output) {
+  test_uninterpreted(output, boolean);
+  test_uninterpreted(output, integer);
+  test_uninterpreted(output, real);
+  test_uninterpreted(output, bv1);
+  test_uninterpreted(output, bv2);
+  test_uninterpreted(output, bv32);
+  test_uninterpreted(output, bv54);
+  test_uninterpreted(output, bv65);
+  test_uninterpreted(output, T1);
+  test_uninterpreted(output, T2);
+  test_uninterpreted(output, S3);
+  test_uninterpreted(output, S10);
+  test_uninterpreted(output, U1);
+  test_uninterpreted(output, U2);
+  test_uninterpreted(output, pair_T1_T2);
+  test_uninterpreted(output, mono_U1);
+  test_uninterpreted(output, triple_U1_U1_U2);
+  test_uninterpreted(output, pair_bool);
+  test_uninterpreted(output, pair_pair_bool);
+  test_uninterpreted(output, fun_bool_bool);
+  test_uninterpreted(output, fun_int_bv54);
+  test_uninterpreted(output, fun_S3_S10_bool);
+  test_uninterpreted(output, fun_real_U1);
+  test_uninterpreted(output, fun_real_U2);
+  test_uninterpreted(output, pair_unit_fun);
+  test_uninterpreted(output, fun_T1_T2_fun_real_U1);
 }
 
 
@@ -333,7 +333,7 @@ static void test_uninterpreted_all(void) {
  * Test the construction of constants of type tau.
  * tau must be uninterpreted or scalar.
  */
-static void test_constants(type_t tau) {
+static void test_constants(FILE* output, type_t tau) {
   uint32_t i, n;
   term_t x, y;
 
@@ -373,26 +373,26 @@ static void test_constants(type_t tau) {
 
   }
 
-  printf("PASS: %s for type ", __func__);
-  print_type(stdout, __yices_globals.types, tau);
-  printf("\n");
-  fflush(stdout);
+  fprintf(output, "PASS: %s for type ", __func__);
+  print_type(output, __yices_globals.types, tau);
+  fprintf(output, "\n");
+  fflush(output);
 }
 
 
 
-static void test_constants_all(void) {
-  test_constants(T1);
-  test_constants(T2);
-  test_constants(S3);
-  test_constants(S10);
-  test_constants(U1);
-  test_constants(U2);
+static void test_constants_all(FILE* output) {
+  test_constants(output, T1);
+  test_constants(output, T2);
+  test_constants(output, S3);
+  test_constants(output, S10);
+  test_constants(output, U1);
+  test_constants(output, U2);
 }
 
 
 
-static void test_constant_errors(void) {
+static void test_constant_errors(FILE* output) {
   term_t x;
 
   x = yices_new_uninterpreted_term(-23);
@@ -404,14 +404,14 @@ static void test_constant_errors(void) {
   x = yices_constant(real, 0);
   assert(check_scalar_or_utype_required_mt(x, real));
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
 
 
-static void test_arith_constants(void) {
+static void test_arith_constants(FILE* output) {
   mpq_t mpq;
   mpz_t mpz;
   rational_t q;
@@ -507,12 +507,12 @@ static void test_arith_constants(void) {
   mpq_clear(mpq);
   mpz_clear(mpz);
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
-static void test_bv_constants(void) {
+static void test_bv_constants(FILE* output) {
   uint32_t aux[10];
   int32_t test[66];
   mpz_t mpz;
@@ -613,15 +613,15 @@ static void test_bv_constants(void) {
 
   mpz_clear(mpz);
 
-  printf("PASS: %s\n", __func__);
-  fflush(stdout);
+  fprintf(output, "PASS: %s\n", __func__);
+  fflush(output);
 }
 
 
 
 
-
-int _old_main(void) {
+/*
+int main(void) {
   yices_init();
 
   // type constructors
@@ -647,7 +647,7 @@ int _old_main(void) {
   
   return 0;
 }
-
+*/
 
 static yices_lock_t __all_lock;
 
@@ -655,15 +655,32 @@ static yices_lock_t __all_lock;
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
 
   thread_data_t* tdata = (thread_data_t *)arg;
-  //FILE* output = tdata->output;
+  FILE* output
+    = tdata->output;
   int32_t id = tdata->id;
 
   fprintf(stderr, "Starting: %d\n", id);
+
+  // type constructors
+  test_base_types(output);
+  test_composite_types(output);
+  test_type_errors(output);
+  
+  // term constructors
+  test_uninterpreted_all(output);
+  test_constants_all(output);
+  test_constant_errors(output);
+  
+  test_arith_constants(output);
+  test_bv_constants(output);
+  
+  show_types_mt(output);
+  show_terms_mt(output);
   
   fprintf(stderr, "Done: %d\n", id);
 
   return yices_thread_exit();
-
+  
 }
   
 
@@ -690,7 +707,7 @@ int main(int argc, char* argv[]) {
       thread_data_t tdata = {0, stdout};
       test_thread(&tdata);
     } else {
-      launch_threads(nthreads, NULL, 0, "test_api4_mt", test_thread, true);
+      launch_threads(nthreads, NULL, 0, "test_api1_mt", test_thread, true);
     }
     
     destroy_yices_lock(&__all_lock);

@@ -1759,7 +1759,7 @@ static bool check_arith_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 
-// check whether t is an arithmetic constant, t must be valid
+// Check whether t is an arithmetic constant, t must be valid
 static bool check_arith_constant(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
 
