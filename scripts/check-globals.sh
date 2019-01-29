@@ -16,6 +16,7 @@ sed '
   # Tidy up the list and remove all symbols we do not care about.
   / [DBdb] /!d
   s/^build\///
+  s/^x86_64-pc-linux-gnu-debug\///
   s/^x86_64-apple-darwin10.8.0-release\///
   s/^x86_64-apple-darwin10.8.0-debug\///
   s/^obj\///

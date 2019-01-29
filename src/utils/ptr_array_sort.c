@@ -70,9 +70,10 @@ static inline void sort_array(void **a, uint32_t n) {
 static void qsort_ptr_array(void **a, uint32_t n) {
   uint32_t i, j;
   uintptr_t x, y;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(n);
+  i = random_uint(&seed, n);
   x = (uintptr_t) a[i];
 
   // swap x and a[0]

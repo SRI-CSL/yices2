@@ -1019,9 +1019,10 @@ static void lexico_sort(particle_table_t *table, particle_t *a, uint32_t n) {
 static void lexico_qsort(particle_table_t *table, particle_t *a, uint32_t n) {
   uint32_t i, j;
   particle_t x, y;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(n);
+  i = random_uint(&seed, n);
   x = a[i];
 
   // swap x and a[0]

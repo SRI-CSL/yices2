@@ -198,11 +198,12 @@ static uint32_t large_bvset_search_fresh(large_bvset_t *s, uint32_t t, uint32_t 
  */
 uint32_t large_bvset_get_fresh(large_bvset_t *s) {
   uint32_t n, t, x;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   n = BVSET_NUM_TRIES;
   assert(n > 0);
   do {
-    t = random_uint32() & s->max_val;
+    t = random_uint32(&seed) & s->max_val;
     x = large_bvset_search_fresh(s, t, BVSET_DELTA);
     if (x != 0) break;
     n --;
