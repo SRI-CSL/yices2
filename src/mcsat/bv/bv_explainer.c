@@ -748,12 +748,16 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
 
   exp->stats.th_full ++;
 
+  const variable_db_t* var_db = exp->ctx->var_db;
+  const mcsat_trail_t* trail = exp->ctx->trail;
+
   // Initialize the substitution
   bv_core_solver_t solver;
   bv_core_solver_construct(&solver, exp->ctx);
 
-  // Get the assigned variables into a set
+  // Get the assigned variables into a set and copy assertions into explanation
   for (i = 0; i < conflict_core->size; ++ i) {
+    // Get assigned variables
     variable_t atom_i_var = conflict_core->data[i];
     variable_list_ref_t list_ref = watch_list_manager_get_list_of(exp->wlm, atom_i_var);
     variable_t* atom_i_vars = watch_list_manager_get_list(exp->wlm, list_ref);
@@ -764,6 +768,12 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
         bv_core_solver_add_variable(&solver, var, assign_value);
       }
     }
+    // Copy into explanation
+    const mcsat_value_t* atom_i_value = trail_get_value(trail, atom_i_var);
+    assert(atom_i_value != NULL && atom_i_value->type == VALUE_BOOLEAN);
+    term_t assertion = variable_db_get_term(var_db, atom_i_var);
+    if (!atom_i_value->b) { assertion = opposite_term(assertion); }
+    ivector_push(conflict, assertion);
   }
 
   // Now assert the conflict
