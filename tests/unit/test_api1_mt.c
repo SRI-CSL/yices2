@@ -49,6 +49,7 @@
 /*
  * Global types
  */
+
 static type_t boolean, integer, real;
 static type_t bv1, bv2, bv32, bv54, bv65;
 static type_t T1, T2;
@@ -62,8 +63,9 @@ static type_t pair_unit_fun, fun_T1_T2_fun_real_U1;
 
 
 
-static void init_types(void){
-
+static void test_base_types(FILE* output) {
+  int32_t code;
+  
   boolean = yices_bool_type();
   assert(check_bool_type_mt(boolean));
 
@@ -105,14 +107,6 @@ static void init_types(void){
 
   U2 = yices_new_scalar_type(1);
   assert(check_scalar_type_mt(U2, 1));
-
-
-}
-
-
-static void test_base_types(FILE* output) {
-  int32_t code;
-
 
   // assign and verify type names
   code = yices_set_type_name(T1, "T1");
@@ -171,8 +165,6 @@ static void test_composite_types(FILE* output) {
   pair_bool = yices_tuple_type(2, aux);
   assert(check_tuple_type_mt(pair_bool, 2, aux));
 
-  aux[0] = pair_bool;
-  aux[1] = pair_bool;
   pair_pair_bool = yices_tuple_type(2, aux);
   assert(check_tuple_type_mt(pair_pair_bool, 2, aux));
 
@@ -308,6 +300,7 @@ static void test_uninterpreted(FILE* output, type_t tau) {
 
 
 static void test_uninterpreted_all(FILE* output) {
+  //we are reading the globals while other threads are writing them ...
   test_uninterpreted(output, boolean);
   test_uninterpreted(output, integer);
   test_uninterpreted(output, real);
@@ -390,6 +383,7 @@ static void test_constants(FILE* output, type_t tau) {
 
 
 static void test_constants_all(FILE* output) {
+  //we are reading the globals while other threads are writing them ...
   test_constants(output, T1);
   test_constants(output, T2);
   test_constants(output, S3);
@@ -627,37 +621,6 @@ static void test_bv_constants(FILE* output) {
 
 
 
-
-/*
-int main(void) {
-  yices_init();
-
-  // type constructors
-  test_base_types();
-  test_composite_types();
-  test_type_errors();
-
-  // term constructors
-  test_uninterpreted_all();
-  test_constants_all();
-  test_constant_errors();
-
-  test_arith_constants();
-  test_bv_constants();
-
-  show_types_mt(stdout);
-  show_terms_mt(stdout);
-
-
-  yices_exit();
-
-  printf("All tests succeeded\n");
-  
-  return 0;
-}
-*/
-
-
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
 
   thread_data_t* tdata = (thread_data_t *)arg;
@@ -679,9 +642,10 @@ yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
   
   test_arith_constants(output);
   test_bv_constants(output);
-  
-  show_types_mt(output);
-  show_terms_mt(output);
+
+  // not that informative and varies from thread to thread.
+  //show_types_mt(output);
+  //show_terms_mt(output);
   
   fprintf(stderr, "Done: %d\n", id);
 
@@ -700,8 +664,6 @@ int main(int argc, char* argv[]) {
     
     yices_init();
 
-    init_types();
-    
     if(nthreads < 0){
       fprintf(stderr, "thread number must be positive!\n");
       exit(EXIT_FAILURE);
