@@ -786,6 +786,7 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
         if (cstr_vars[0] == cstr) {
           uint32_t cstr_eval_level = 0;
           const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
+          (void) cstr_value;
           if (!trail_has_value(trail, cstr)) {
             //should not happen? cstr == ctr_vars[0], which has a value as bv_plugin_has_assignment(bv, cstr_vars[0]) is true
             assert(false);

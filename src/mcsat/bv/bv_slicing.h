@@ -53,20 +53,28 @@ struct splist_s {
 
 /** Slices: variable (or constant term) + extraction indices
     We avoid building the term to avoid cluttering the world with slices that may be short-lived
-    The slices for a given variable form a binary tree; the leaves are the thinnest slices 
  */
 
-struct slice_s {
+typedef struct slice_base_s {
   /** Variable or constant term, from which the slice is extracted */
   term_t term;
-  /** Value of the slice (computed at the end from the trail, and only for leaf slices) */
-  mcsat_value_t value;
-  /** Term expressing the slice (computed at the end from the trail, and only for leaf slices) */
+  /** Term expressing the slice (may be lazily computed) */
   term_t slice_term;
   /** Low index */
   uint32_t lo;
   /** High index + 1 (that index is not in the slice), so that hi - low = slice length */
   uint32_t hi;
+} slice_base_t;
+
+
+/** The slices for a given variable form a binary tree; the leaves are the thinnest slices 
+ */
+  
+struct slice_s {
+    /** Base of the slice, containing basic information */
+  slice_base_t base;
+  /** Value of the slice (computed at the end from the trail, and only for leaf slices) */
+  mcsat_value_t value;
   /** sub-slice towards the high indices, hi_sub->hi is the same as hi */
   slice_t* hi_sub;
   /** sub-slice towards the low indices, lo_sub->lo is the same as lo, lo_sub->hi is the same as hi_sub->lo */

@@ -27,6 +27,7 @@ const char* bv_kind_to_string(bv_kind_type_t kt) {
   switch (kt) {
   case BV_KIND_EQ: return "equality";
   case BV_KIND_EXT_CON: return "extract/concat";
+  case BV_KIND_BOOL2BV: return "bool-to-bv";
   case BV_KIND_BITWISE: return "bitwise";
   case BV_KIND_SHIFT: return "shifts";
   case BV_KIND_ARITH_CMP: return "comparison";
@@ -52,6 +53,7 @@ const char* subtheory_to_string(bv_subtheory_t th) {
 int bv_th_eq[BV_KIND_COUNT] = {
     1, // BV_KIND_EQ = 0,
     0, // BV_KIND_EXT_CON,
+    0, // BV_KIND_BOOL2BV,
     0, // BV_KIND_BITWISE,
     0, // BV_KIND_SHIFT,
     0, // BV_KIND_ARITH_CMP,
@@ -61,6 +63,7 @@ int bv_th_eq[BV_KIND_COUNT] = {
 int bv_th_eq_ext_con[BV_KIND_COUNT] = {
     1, // BV_KIND_EQ = 0,
     1, // BV_KIND_EXT_CON,
+    0, // BV_KIND_BOOL2BV,
     0, // BV_KIND_BITWISE,
     0, // BV_KIND_SHIFT,
     0, // BV_KIND_ARITH_CMP,
@@ -153,9 +156,25 @@ void bv_explainer_count_kinds(bv_explainer_t* exp, term_t t, int* kinds_count) {
       term_t t_i = concat_desc->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
       if (t_i != t_i_pos) kinds_count[BV_KIND_BITWISE] ++;
-      bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
+      switch (term_kind(terms, t_i_pos)) {
+      case EQ_TERM:
+      case BV_EQ_ATOM:
+      case BV_GE_ATOM:
+      case BV_SGE_ATOM:
+      case OR_TERM:
+      case XOR_TERM:
+      case VARIABLE:
+      case UNINTERPRETED_TERM:
+      case ITE_TERM:
+      case ITE_SPECIAL:
+      case DISTINCT_TERM: {
+        kinds_count[BV_KIND_BOOL2BV] ++;
+      }
+      default:
+        bv_explainer_count_kinds(exp, t_i_pos, kinds_count);
+      }
     }
-    kinds_count[BV_TH_EQ_EXT_CON] ++;
+    kinds_count[BV_KIND_EXT_CON] ++;
     break;
   }
   case OR_TERM: {
@@ -867,7 +886,7 @@ void bv_explainer_get_conflict_all_with_yices(bv_explainer_t* exp, const ivector
 static
 void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
-  exp->stats.th_eq_ext_con ++;
+  (*exp->stats.th_eq_ext_con) ++;
 
   plugin_context_t* ctx = exp->ctx;
 
@@ -903,8 +922,8 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   while (current != NULL) {
     assert(current->is_main);
     p = current->pair;
-    if (p->lhs->slice_term != p->rhs->slice_term) {
-      eq_graph_assert_term_eq(&eq_graph, p->lhs->slice_term, p->rhs->slice_term, 0);
+    if (p->lhs->base.slice_term != p->rhs->base.slice_term) {
+      eq_graph_assert_term_eq(&eq_graph, p->lhs->base.slice_term, p->rhs->base.slice_term, 0);
       // 0 means that the assertion is a consequence of the conflict_core
       // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
     }
@@ -940,8 +959,8 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
       while (current != NULL) {
         p = current->pair;
         assert(p->appearing_in == i); // Check that this is indeed the right disequality
-        term_t lhs = p->lhs->slice_term;
-        term_t rhs = p->rhs->slice_term;
+        term_t lhs = p->lhs->base.slice_term;
+        term_t rhs = p->rhs->base.slice_term;
 
         if (lhs == rhs
             || (eq_graph_has_term(&eq_graph, lhs)

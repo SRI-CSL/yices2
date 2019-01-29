@@ -1116,7 +1116,7 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
 
   i = l >> 5;
   r = l & 0x1f;
-  e = h >> 5;
+  e = (h%32 == 0)?((h >> 5)-1):(h >> 5);
 
   assert(i <= e);
   aux = (uint64_t) a[i];
