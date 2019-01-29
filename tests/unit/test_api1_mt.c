@@ -61,8 +61,8 @@ static type_t fun_bool_bool, fun_int_bv54, fun_S3_S10_bool, fun_real_U1, fun_rea
 static type_t pair_unit_fun, fun_T1_T2_fun_real_U1;
 
 
-static void test_base_types(FILE* output) {
-  int32_t code;
+
+static void init_types(void){
 
   boolean = yices_bool_type();
   assert(check_bool_type_mt(boolean));
@@ -105,6 +105,14 @@ static void test_base_types(FILE* output) {
 
   U2 = yices_new_scalar_type(1);
   assert(check_scalar_type_mt(U2, 1));
+
+
+}
+
+
+static void test_base_types(FILE* output) {
+  int32_t code;
+
 
   // assign and verify type names
   code = yices_set_type_name(T1, "T1");
@@ -649,8 +657,6 @@ int main(void) {
 }
 */
 
-static yices_lock_t __all_lock;
-
 
 yices_thread_result_t YICES_THREAD_ATTR test_thread(void* arg){
 
@@ -693,12 +699,8 @@ int main(int argc, char* argv[]) {
     int32_t nthreads = atoi(argv[1]);
     
     yices_init();
-    create_yices_lock(&__all_lock);
 
-
-    /*
-    init_store();
-    */
+    init_types();
     
     if(nthreads < 0){
       fprintf(stderr, "thread number must be positive!\n");
@@ -709,8 +711,6 @@ int main(int argc, char* argv[]) {
     } else {
       launch_threads(nthreads, NULL, 0, "test_api1_mt", test_thread, true);
     }
-    
-    destroy_yices_lock(&__all_lock);
     
     yices_exit();
     
