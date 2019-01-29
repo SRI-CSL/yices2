@@ -10,6 +10,9 @@
 #include "bv_slicing.h"
 #include "bv_evaluator.h"
 #include "bv_utils.h"
+
+#include "context/context_types.h"
+
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
 #include "mcsat/utils/int_mset.h"
@@ -275,34 +278,30 @@ typedef struct {
   /** The terms to assign (old terms, not new) */
   ivector_t vars_to_assign;
 
-  /** MCSAT trail */
-  const mcsat_trail_t* trail;
-
-  /** Variable database */
-  variable_db_t* var_db;
+  /** MCSAT plugin context */
+  plugin_context_t* ctx;
 
   /** Yices config */
   ctx_config_t* config;
 
   /** Yices context */
-  context_t* ctx;
+  context_t* yices_ctx;
 
 } bv_core_solver_t;
 
-void bv_core_solver_construct(bv_core_solver_t* solver, variable_db_t* var_db, const mcsat_trail_t* trail) {
+void bv_core_solver_construct(bv_core_solver_t* solver, plugin_context_t* ctx) {
   init_int_hmap(&solver->substitution_fwd, 0);
   init_int_hmap(&solver->substitution_bck, 0);
   init_ivector(&solver->vars_to_assign, 0);
 
-  solver->var_db = var_db;
-  solver->trail = trail;
+  solver->ctx = ctx;
 
   // Create an instance of Yices
   solver->config = yices_new_config();
   int32_t ret = yices_default_config_for_logic(solver->config, "QF_BV");
   assert(ret == 0);
-  solver->ctx = yices_new_context(solver->config);
-  assert (solver->config != NULL);
+  solver->yices_ctx = yices_new_context(solver->config);
+  assert (solver->yices_ctx != NULL);
 }
 
 void bv_core_solver_destruct(bv_core_solver_t* solver) {
@@ -311,7 +310,7 @@ void bv_core_solver_destruct(bv_core_solver_t* solver) {
   delete_ivector(&solver->vars_to_assign);
 
   // Delete the yices instance
-  yices_free_context(solver->ctx);
+  yices_free_context(solver->yices_ctx);
   yices_free_config(solver->config);
 }
 
@@ -321,7 +320,7 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
   int_hmap_pair_t* find = NULL;
 
   // Term stuff
-  term_manager_t* tm = &solver->var_db->tm;
+  term_manager_t* tm = &solver->ctx->var_db->tm;
   term_table_t* terms = tm->terms;
 
   // Check if already done
@@ -340,6 +339,12 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
     // Current term
     term_t current = ivector_last(&substitution_stack);
 
+    if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict::subst")) {
+      FILE* out = ctx_trace_out(solver->ctx);
+      fprintf(out, "processing ");
+      ctx_trace_term(solver->ctx, current);
+    }
+
     // Check if done already
     find = int_hmap_find(cache, current);
     if (find != NULL) {
@@ -351,7 +356,7 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
     if (is_neg_term(current)) {
       term_t child = unsigned_term(current);
       find = int_hmap_find(cache, child);
-      if (find->val == NULL) {
+      if (find == NULL) {
         // Not yet done
         ivector_push(&substitution_stack, child);
         continue;
@@ -584,11 +589,18 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
 
   // Return the result
   find = int_hmap_find(cache, t);
+  assert(find != NULL);
 
   // Delete the stack
   delete_ivector(&substitution_stack);
 
-  assert(find != NULL);
+  if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict::subst")) {
+    FILE* out = ctx_trace_out(solver->ctx);
+    fprintf(out, "substitution result:\n");
+    ctx_trace_term(solver->ctx, t);
+    ctx_trace_term(solver->ctx, find->val);
+  }
+
   return find->val;
 }
 
@@ -604,12 +616,19 @@ term_t bv_core_solver_run_substitution_bck(bv_core_solver_t* solver, term_t t) {
 
 void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool with_value) {
   // Add new variable to substitute
-  term_t var_term = variable_db_get_term(solver->var_db, var);
+  term_t var_term = variable_db_get_term(solver->ctx->var_db, var);
   int_hmap_pair_t* find = int_hmap_get(&solver->substitution_fwd, var_term);
+  // If its new, add forward map
   if (find->val == -1) {
-    // It's new, add forward map
-    type_t var_type = yices_type_of_term(var_term);
-    term_t var_fresh = yices_new_uninterpreted_term(var_type);
+    // Make a fresh variable if not already a variable
+    term_t var_fresh;
+    term_kind_t kind = term_kind(solver->yices_ctx->terms, var_term);
+    if (kind != UNINTERPRETED_TERM) {
+      type_t var_type = yices_type_of_term(var_term);
+      var_fresh = yices_new_uninterpreted_term(var_type);
+    } else {
+      var_fresh = var_term;
+    }
     find->val = var_fresh;
     // Add backward map
     int_hmap_add(&solver->substitution_bck, var_fresh, var_term);
@@ -624,20 +643,28 @@ void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool 
  * Run the substitution and assert (with the same polarity as in MCSAT)
  */
 void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
-  term_t assertion_term = variable_db_get_term(solver->var_db, var);
-  const mcsat_value_t* var_value = trail_get_value(solver->trail, var);
+  term_t assertion_term = variable_db_get_term(solver->ctx->var_db, var);
+  const mcsat_value_t* var_value = trail_get_value(solver->ctx->trail, var);
   assert(var_value->type == VALUE_BOOLEAN);
   if (!var_value->b) {
     assertion_term = opposite_term(assertion_term);
   }
   assertion_term = bv_core_solver_run_substitution_fwd(solver, assertion_term);
-  yices_assert_formula(solver->ctx, assertion_term);
+  if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
+    FILE* out = trace_out(solver->yices_ctx->trace);
+    ctx_trace_term(solver->ctx, assertion_term);
+    fprintf(out, "  previously \n");
+    ctx_trace_term(solver->ctx, assertion_term);
+  }
+  yices_assert_formula(solver->yices_ctx, assertion_term);
 }
 
 void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core) {
 
-  const variable_db_t* var_db = solver->var_db;
-  term_manager_t* tm = (term_manager_t*) &var_db->tm;
+  plugin_context_t* ctx = solver->ctx;
+  const variable_db_t* var_db = ctx->var_db;
+  const mcsat_trail_t* trail = ctx->trail;
+  term_manager_t* tm = &solver->ctx->var_db->tm;
 
   // Vector to store assumptions
   ivector_t assumptions;
@@ -648,11 +675,18 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
   for (i = 0; i < solver->vars_to_assign.size; ++ i) {
     // Variable and its value
     variable_t var = solver->vars_to_assign.data[i];
-    const mcsat_value_t* var_value = trail_get_value(solver->trail, var);
+    const mcsat_value_t* var_value = trail_get_value(trail, var);
     assert(var_value->type == VALUE_BOOLEAN || var_value->type == VALUE_BV);
     // Get the term, and it's substitution
     term_t var_term = variable_db_get_term(var_db, var);
     term_t var_term_subst = bv_core_solver_run_substitution_fwd(solver, var_term);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+      FILE* out = trace_out(solver->yices_ctx->trace);
+      ctx_trace_term(ctx, var_term_subst);
+      fprintf(out, "  -> ");
+      mcsat_value_print(var_value, out);
+      fprintf(out, "\n");
+    }
     if (var_value->type == VALUE_BOOLEAN) {
       // Boolean variables, just add as assertion
       bool bool_value = var_value->b;
@@ -664,28 +698,44 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
       // Assert individual bits
       for (bit = 0; bit < bv_value->bitsize; bit ++) {
         // Extract bit
-        var_term_subst = mk_bitextract(tm, var_term_subst, bit);
+        term_t bit_assertion = mk_bitextract(tm, var_term_subst, bit);
         // Assert appropriate value
         bool bool_value = bvconst_tst_bit(bv_value->data, bit);
-        if (!bool_value) var_term_subst = opposite_term(var_term_subst);
-        ivector_push(&assumptions, var_term_subst);
+        if (!bool_value) bit_assertion = opposite_term(bit_assertion);
+        ivector_push(&assumptions, bit_assertion);
       }
     }
   }
 
+  if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Solving with assumptions: \n");
+    for (i = 0; i < assumptions.size; ++ i) {
+      ctx_trace_term(ctx, assumptions.data[i]);
+    }
+  }
+
   // Check the assumptions (should be unsat)
-  smt_status_t status = yices_check_context_with_assumptions(solver->ctx, NULL, assumptions.size, assumptions.data);
+  smt_status_t status = yices_check_context_with_assumptions(solver->yices_ctx, NULL, assumptions.size, assumptions.data);
   assert(status == STATUS_UNSAT);
 
   // Get the unsat core
-  int32_t ret = yices_get_unsat_core(solver->ctx, core);
+  int32_t ret = yices_get_unsat_core(solver->yices_ctx, core);
   assert(ret == 0);
 
   // Substitute the core back to internal
   for (i = 0; i < core->size; ++ i) {
     term_t t = core->data[i];
     t = bv_core_solver_run_substitution_bck(solver, t);
-    core->data[i] = 0;
+    core->data[i] = t;
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Core: \n");
+    for (i = 0; i < core->size; ++ i) {
+      ctx_trace_term(ctx, core->data[i]);
+    }
   }
 
   // Remove assumption vector
@@ -700,7 +750,7 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
 
   // Initialize the substitution
   bv_core_solver_t solver;
-  bv_core_solver_construct(&solver, exp->ctx->var_db, exp->ctx->trail);
+  bv_core_solver_construct(&solver, exp->ctx);
 
   // Get the assigned variables into a set
   for (i = 0; i < conflict_core->size; ++ i) {
@@ -708,8 +758,8 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
     variable_list_ref_t list_ref = watch_list_manager_get_list_of(exp->wlm, atom_i_var);
     variable_t* atom_i_vars = watch_list_manager_get_list(exp->wlm, list_ref);
     for (; *atom_i_vars != variable_null; atom_i_vars ++) {
-      bool var = *atom_i_vars;
-      if (*atom_i_vars != atom_i_var) {
+      variable_t var = *atom_i_vars;
+      if (var != atom_i_var) {
         bool assign_value = (var != conflict_var);
         bv_core_solver_add_variable(&solver, var, assign_value);
       }
@@ -726,6 +776,11 @@ void bv_explainer_get_conflict_all(bv_explainer_t* exp, const ivector_t* conflic
   term_vector_t core;
   yices_init_term_vector(&core);
   bv_solver_solve_and_get_core(&solver, &core);
+
+  // Copy over the core
+  for (i = 0; i < core.size; ++ i) {
+    ivector_push(conflict, core.data[i]);
+  }
 
   // Delete stuff
   yices_delete_term_vector(&core);
