@@ -172,6 +172,15 @@ void bdds_mk_variable(CUDD* cudd, BDD** out, uint32_t n) {
   }
 }
 
+void bdds_mk_repeat(CUDD* cudd, BDD** out, BDD* b, uint32_t n) {
+  assert(b != NULL);
+  for(uint32_t i = 0; i < n; ++ i) {
+    assert(out[i] == NULL);
+    out[i] = b;
+    Cudd_Ref(out[i]);
+  }
+}
+
 void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
@@ -329,7 +338,7 @@ void bdds_mk_ashr(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   BDD** shift_const = bdds_allocate_reserve(cudd, n);
   BDD* b_eq_shift_const = NULL;
 
-  bdds_mk_zero(cudd, out, n);
+  bdds_mk_repeat(cudd, out, a[n-1], n);
 
   for (uint32_t shift = 0; shift < n; ++ shift) {
 

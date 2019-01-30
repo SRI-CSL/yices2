@@ -69,6 +69,9 @@ void bdds_get_model(CUDD* cudd, BDD** x, BDD* C_x, bvconstant_t* out);
 /** Make a new variable. */
 void bdds_mk_variable(CUDD* cudd, BDD** out, uint32_t n);
 
+/** Make a repeat b...b BDD. */
+void bdds_mk_repeat(CUDD* cudd, BDD** out, BDD* b, uint32_t n);
+
 /** Make a constant 0...0 BDD. */
 void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n);
 

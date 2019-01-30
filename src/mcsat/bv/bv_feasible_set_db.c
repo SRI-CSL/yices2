@@ -474,6 +474,9 @@ void print_conflict_reasons(FILE* out, const bv_feasible_set_db_t* db, const ive
     for (j = 0; j < r_i_size; ++ j) {
       if (j) fprintf(out, ", ");
       variable_t r_i_var = db->memory[r_i].reasons[j];
+      const mcsat_value_t* v = trail_get_value(db->ctx->trail, r_i_var);
+      assert(v->type == VALUE_BOOLEAN);
+      fprintf(out, v->b ? "(T) " : "(F) ");
       variable_db_print_variable(var_db, r_i_var, out);
     }
     fprintf(out, "\n");
@@ -486,7 +489,7 @@ void bv_feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivect
   // Sort variables by degree and trail level decreasing
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, bv_feasible_set_compare_reasons);
 
-  if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
+  if (ctx_trace_enabled(db->ctx, "mcsat::bv::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: before\n");
     print_conflict_reasons(ctx_trace_out(db->ctx), db, reasons_indices);
   }
@@ -502,7 +505,7 @@ void bv_feasible_set_filter_reason_indices(const bv_feasible_set_db_t* db, ivect
   // Sort again for consistency
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db, bv_feasible_set_compare_reasons);
 
-  if (ctx_trace_enabled(db->ctx, "bv::conflict")) {
+  if (ctx_trace_enabled(db->ctx, "mcsat::bv::conflict")) {
     ctx_trace_printf(db->ctx, "filtering: after\n");
     print_conflict_reasons(ctx_trace_out(db->ctx), db, reasons_indices);
   }
