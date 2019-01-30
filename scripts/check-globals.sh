@@ -91,7 +91,8 @@ sed '
   /^mt\/yices_locks mattr$/d
 
 
-
+  /^io\/yices_pp nonstandard_block/d
+  /^io\/yices_pp standard_block/d
 
 ')
 

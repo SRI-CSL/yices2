@@ -245,14 +245,6 @@ static uint32_t jenkins_hash_constraint(void *aux, void *p) {
 }
 
 /*
- * Descriptor for the hash function
- */
-static const ptr_set2_hash_t hash_desc = {
-  jenkins_hash_constraint, NULL
-};
-
-
-/*
  * VARIABLE TABLE
  */
 
@@ -517,9 +509,13 @@ static inline term_t aproj_term_of_var(aproj_vtbl_t *vtbl, int32_t i) {
  */
 static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constraint_t *c) {
   int32_t k;
-
+  ptr_set2_hash_t hash_desc;
+  
   assert(aproj_is_var_to_elim(vtbl, i));
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
+
+  hash_desc.hash = jenkins_hash_constraint;
+  hash_desc.aux = NULL;
 
   ptr_set2_add(vtbl->cnstr + i, &hash_desc, c); // add c to vtbl->cnstr[i]
   if (c->tag == APROJ_EQ) {
@@ -544,6 +540,10 @@ static void aproj_add_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constrai
  */
 static void aproj_remove_cnstr_on_var(aproj_vtbl_t *vtbl, int32_t i, aproj_constraint_t *c) {
   int32_t k;
+  ptr_set2_hash_t hash_desc;
+
+  hash_desc.hash = jenkins_hash_constraint;
+  hash_desc.aux = NULL;
 
   assert(aproj_is_var_to_elim(vtbl, i));
   assert(aproj_constraint_find_var(c, i) >= 0); // i must occur in c
@@ -869,6 +869,10 @@ static void aproj_add_cnstr(arith_projector_t *proj, aproj_constraint_t *c) {
   aproj_vtbl_t *vtbl;
   uint32_t i, n;
   int32_t x;
+  ptr_set2_hash_t hash_desc;
+
+  hash_desc.hash = jenkins_hash_constraint;
+  hash_desc.aux = NULL;
 
   ptr_set2_add(&proj->constraints, &hash_desc, c);
 
@@ -887,6 +891,10 @@ static void aproj_remove_cnstr(arith_projector_t *proj, aproj_constraint_t *c) {
   aproj_vtbl_t *vtbl;
   uint32_t i, n;
   int32_t x;
+  ptr_set2_hash_t hash_desc;
+
+  hash_desc.hash = jenkins_hash_constraint;
+  hash_desc.aux = NULL;
 
   ptr_set2_remove(&proj->constraints, &hash_desc, c);
 
@@ -1251,6 +1259,10 @@ static void aproj_remove_cnstr_var(arith_projector_t *proj, aproj_constraint_t *
   aproj_vtbl_t *vtbl;
   uint32_t i, n;
   int32_t x;
+  ptr_set2_hash_t hash_desc;
+
+  hash_desc.hash = jenkins_hash_constraint;
+  hash_desc.aux = NULL;
 
   ptr_set2_remove(&proj->constraints, &hash_desc, c);
 
