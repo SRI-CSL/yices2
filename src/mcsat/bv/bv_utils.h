@@ -169,7 +169,7 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
       break;
     }
     case BV_GE_ATOM: {
-      bool values_ge = bvconst_ge(children_values[0]->data, children_values[1]->data, bitsize);
+      bool values_ge = bvconst_ge(children_values[0]->data, children_values[1]->data, children_values[0]->bitsize);
       if (values_ge) {
         bvconst_set_bit(out_value->data, 0);
       } else {
@@ -178,7 +178,7 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
       break;
     }
     case BV_SGE_ATOM: {
-      bool values_sge = bvconst_sge(children_values[0]->data, children_values[1]->data, bitsize);
+      bool values_sge = bvconst_sge(children_values[0]->data, children_values[1]->data, children_values[0]->bitsize);
       if (values_sge) {
         bvconst_set_bit(out_value->data, 0);
       } else {
