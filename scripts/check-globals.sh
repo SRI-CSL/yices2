@@ -35,6 +35,12 @@ sed '
   /^smt_lexer /d
   /^yices_reval /d
 
+  #disregard the build generated global constants
+   /^api\/yices_version /d
+
+  # assumming the big structs are all constant
+  /^solvers\/\w*\/\w* /d
+
 
   # This is the whitelist, in the form of a bunch of sed "d" commands.
   # It cares about both the names and the object files that define
@@ -56,8 +62,36 @@ sed '
   /^api\/yices_api \w*root_types$/d
   /^api\/yices_api __yices_error$/d
   /^api\/yices_api __yices_error_initialized$/d
+
   /^api\/yices_api ctx_option_names$/d
-  /^api\/context_config	\w*_names$/d
+
+  #static const char * const ..._names[...]		   
+  /^api\/context_config \w*_names$/d
+  /^api\/search_parameters branching_modes$/d
+  /^api\/search_parameters param_key_names$/d
+  /^api\/smt_logic_codes \w*_names$/d
+
+  # should be local to init_solvers
+  /^context\/context null_ctrl$/d
+  /^context\/context null_smt$/d
+  /^solvers\/egraph\/egraph_printer \w*2\w*$/d
+  /^io\/term_printer \w*2\w*$/d
+  /^io\/type_printer \w*2\w*$/d
+  /^exists_forall\/ef_client \w*2\w*$/d
+  /^parser_utils\/term_stack_error \w*2\w*$/d
+  /^solvers\/cdcl\/smt_core_printer \w*2\w*$/d
+  /^solvers\/cdcl\/gates_printer \w*2\w*$/d
+  /^solvers\/simplex\/dsolver_printer \w*2\w*$/d
+
+  # these look dead
+  /^solvers\/egraph\/egraph_printer name$/d
+  /^solvers\/egraph\/egraph_printer name_size$/d	
+
+  # constant
+  /^mt\/yices_locks mattr$/d
+
+
+
 
 ')
 

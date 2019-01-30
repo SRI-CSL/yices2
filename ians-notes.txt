@@ -23,9 +23,46 @@ BD: do we want to make thread safety  an "option"  (BD yes to a configure option
 
 BD: overhead of error_report vs new blocks? (BD: fine as is for now.)
 
+
+
 N.B.:
 
-yices_lock_free.h is a lock_free version of the api
+yices_lock_free.h is a lock_free version of the api, could be eliminated by reordering the definitions in yices_api.c
+
+in solvers/egraph/egraph_printer.c there are mysterious:
+
+static uint32_t name_size = 0;
+static char **name = NULL;
+
+that never get assigned.
+
+
+These are constants like hobjs?
+
+  solvers/bv/bvsolver	bv_solver_bv_egraph
+  solvers/bv/bvsolver	bv_solver_context
+  solvers/bv/bvsolver	bv_solver_control
+  solvers/bv/bvsolver	bv_solver_egraph
+  solvers/bv/bvsolver	bv_solver_smt
+  solvers/egraph/egraph	egraph_control
+  solvers/egraph/egraph	egraph_smt
+  solvers/floyd_warshall/idl_floyd_warshall	idl_control
+  solvers/floyd_warshall/idl_floyd_warshall	idl_intern
+  solvers/floyd_warshall/idl_floyd_warshall	idl_smt
+  solvers/floyd_warshall/rdl_floyd_warshall	rdl_control
+  solvers/floyd_warshall/rdl_floyd_warshall	rdl_intern
+  solvers/floyd_warshall/rdl_floyd_warshall	rdl_smt
+  solvers/funs/fun_solver	fsolver_control
+  solvers/funs/fun_solver	fsolver_egraph
+  solvers/funs/fun_solver	fsolver_fun_egraph
+  solvers/simplex/simplex	simplex_arith_egraph
+  solvers/simplex/simplex	simplex_context
+  solvers/simplex/simplex	simplex_control
+  solvers/simplex/simplex	simplex_egraph
+  solvers/simplex/simplex	simplex_prop_level
+  solvers/simplex/simplex	simplex_smt
+
+
 
 
 The following API functions are not thread safe. Nor should
