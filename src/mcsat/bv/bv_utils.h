@@ -319,7 +319,7 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
   case XOR_TERM:           // n-ary XOR
     return mk_xor(tm, n, children);
   case BV_ARRAY:
-    assert(n > 1);
+    assert(n >= 1);
     return mk_bvarray(tm, n, children);
   case BV_DIV:
     assert(n == 2);

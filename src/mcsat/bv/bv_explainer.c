@@ -584,7 +584,7 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
           current_subst = current;
         } else {
           // NOTE: it doens't change pp, it just uses it as a frame
-          current_subst = mk_arith_pprod(tm, pp, n, children.data);
+          current_subst = mk_pprod(tm, pp, n, children.data);
         }
       }
 
@@ -639,6 +639,11 @@ void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool 
   int_hmap_pair_t* find = int_hmap_get(&solver->substitution_fwd, var_term);
   // If its new, add forward map
   if (find->val == -1) {
+    if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(solver->ctx);
+      fprintf(out, "Variable: ");
+      ctx_trace_term(solver->ctx, var_term);
+    }
     // Make a fresh variable if not already a variable
     term_t var_fresh;
     term_kind_t kind = term_kind(solver->yices_ctx->terms, var_term);
