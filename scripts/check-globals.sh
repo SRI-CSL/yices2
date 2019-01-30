@@ -41,8 +41,6 @@ sed '
   # them.  The above commands have stripped any leading src/ and/or
   # .o or .obj extension.
 
-
-
   /^bvpoly_buffers _seed$/d
   /^int_array_sort _seed$/d
   /^int_array_sort2 _seed$/d
@@ -51,7 +49,6 @@ sed '
   /^power_products _seed$/d
   /^ptr_array_sort _seed$/d
   /^ptr_array_sort2 _seed$/d
-
   # these are protected by locks or are TLS
   /^api\/yices_api \w*_list$/d
   /^api\/yices_api \w*_list_lock$/d
@@ -59,10 +56,8 @@ sed '
   /^api\/yices_api \w*root_types$/d
   /^api\/yices_api __yices_error$/d
   /^api\/yices_api __yices_error_initialized$/d
-
-  #constant array of strings
   /^api\/yices_api ctx_option_names$/d
-
+  /^api\/context_config	\w*_names$/d
 
 ')
 
