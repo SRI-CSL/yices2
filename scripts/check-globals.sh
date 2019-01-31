@@ -94,6 +94,9 @@ sed '
   /^io\/yices_pp nonstandard_block/d
   /^io\/yices_pp standard_block/d
 
+  /^parser_utils\/term_stack2 check/d
+  /^parser_utils\/term_stack2 eval/d
+
 ')
 
 if [ -n "$symbols" ]; then
