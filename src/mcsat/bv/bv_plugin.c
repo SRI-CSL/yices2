@@ -482,9 +482,13 @@ void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t 
  * Process a constraint that is detected to be fully assigned: check consistency.
  */
 static
-void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t* prop, variable_t constraint_var) {
-  // TODO
-  assert(false);
+void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t* prop, variable_t cstr) {
+  const mcsat_trail_t* trail = bv->ctx->trail;
+  uint32_t cstr_eval_level = 0;
+  const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
+  (void) cstr_value;
+  assert(trail_has_value(trail, cstr));
+  assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
 }
 
 /**
@@ -776,27 +780,14 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
 
     if (*var_list_it == variable_null) {
       // We did not find a new watch: vars[1], ..., vars[n] are assigned:
-      // - if vars[0] is the constraint, we propagate it based on value
+      // - if fully assigned, we propagate it based on value (or check that it is correct)
       // - otherwise cstr is unit in vars[0] and we need to update the feasibility
       if (!bv_plugin_has_assignment(bv, cstr_vars[0])) {
         bv_plugin_set_unit_info(bv, cstr, cstr_vars[0], CONSTRAINT_UNIT);
         bv_plugin_process_unit_constraint(bv, prop, cstr, cstr_vars[0]);
       } else {
         bv_plugin_set_unit_info(bv, cstr, variable_null, CONSTRAINT_FULLY_ASSIGNED);
-        if (cstr_vars[0] == cstr) {
-          uint32_t cstr_eval_level = 0;
-          const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
-          (void) cstr_value;
-          if (!trail_has_value(trail, cstr)) {
-            //should not happen? cstr == ctr_vars[0], which has a value as bv_plugin_has_assignment(bv, cstr_vars[0]) is true
-            assert(false);
-            // Unassigned, propagate the value
-            // prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
-          } else {
-            // The constraint already has a value, check that it's the right one
-            assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
-          }
-        }
+        bv_plugin_process_fully_assigned_constraint(bv, prop, cstr);
       }
 
       // Keep the watch, and continue

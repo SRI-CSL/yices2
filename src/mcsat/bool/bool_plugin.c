@@ -150,6 +150,7 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, XOR_TERM);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM);
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
 
   ctx->request_term_notification_by_type(ctx, BOOL_TYPE);
 
@@ -188,7 +189,7 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 
   // Ignore non-Boolean terms
   if (term_type_kind(bp->ctx->terms, term) != BOOL_TYPE) {
-    assert(term_kind(bp->ctx->terms, term) == ITE_TERM);
+    assert(is_ite_term(bp->ctx->terms, term));
     return;
   }
 

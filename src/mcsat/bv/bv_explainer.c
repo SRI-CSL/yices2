@@ -165,8 +165,6 @@ void bv_explainer_count_kinds(bv_explainer_t* exp, term_t t, int* kinds_count) {
       case XOR_TERM:
       case VARIABLE:
       case UNINTERPRETED_TERM:
-      case ITE_TERM:
-      case ITE_SPECIAL:
       case DISTINCT_TERM: {
         kinds_count[BV_KIND_BOOL2BV] ++;
       }
@@ -411,8 +409,6 @@ term_t bv_core_solver_substitution_core(bv_core_solver_t* solver, term_t t, int_
       break;
 
     // Composite terms
-    case ITE_TERM:           // if-then-else
-    case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
     case EQ_TERM:            // equality
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR

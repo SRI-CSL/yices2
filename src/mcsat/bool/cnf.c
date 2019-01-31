@@ -209,7 +209,7 @@ void cnf_convert_ite(cnf_t* cnf, term_t ite, ivector_t* ite_clauses) {
   mcsat_literal_t cond, b_true, b_false;
 
   // Get the ite description
-  assert(term_kind(cnf->ctx->terms, ite) == ITE_TERM);
+  assert(is_ite_term(cnf->ctx->terms, ite));
   ite_composite = composite_term_desc(cnf->ctx->terms, ite);
   assert(ite_composite->arity == 3);
 
@@ -300,6 +300,7 @@ mcsat_literal_t cnf_convert(cnf_t* cnf, term_t t, ivector_t* t_clauses) {
       break;
     }
     case ITE_TERM:
+    case ITE_SPECIAL:
       cnf_convert_ite(cnf, t, t_clauses);
       break;
     default:

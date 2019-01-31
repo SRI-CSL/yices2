@@ -300,16 +300,7 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
 static inline
 term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* children) {
 
-  term_table_t* terms = tm->terms;
-
   switch (kind) {
-  case ITE_TERM:           // if-then-else
-  case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
-  {
-    assert(n == 3);
-    term_t type = term_type(terms, children[1]);
-    return mk_ite(tm, children[0], children[1], children[2], type);
-  }
   case EQ_TERM:            // equality
     assert(n == 2);
     return mk_eq(tm, children[0], children[1]);
