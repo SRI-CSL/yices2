@@ -266,12 +266,14 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
 
   uint32_t i;
   term_kind_t kind;
+  type_kind_t type_kind;
   bool evaluates;
   plugin_t* plugin;
 
   kind = term_kind(mcsat->terms, t);
   bool is_equality = false;
   switch (kind) {
+  case BV_EQ_ATOM:
   case EQ_TERM:
   case ARITH_BINEQ_ATOM:
     is_equality = true;
@@ -293,18 +295,8 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
       }
     }
   } else {
-    composite_term_t* eq_desc = NULL;
-    switch (kind) {
-    case EQ_TERM:
-      eq_desc = eq_term_desc(mcsat->terms, t);
-      break;
-    case ARITH_BINEQ_ATOM:
-      eq_desc = arith_bineq_atom_desc(mcsat->terms, t);
-      break;
-    default:
-      assert(false);
-    }
-    type_kind_t type_kind = term_type_kind(mcsat->terms, eq_desc->arg[0]);
+    composite_term_t* eq_desc = composite_term_desc(mcsat->terms, t);
+    type_kind = term_type_kind(mcsat->terms, eq_desc->arg[0]);
     for (i = type_kind; mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
       int_mset_clear(vars);
       plugin = mcsat->plugins[mcsat->type_owners[i]].plugin;

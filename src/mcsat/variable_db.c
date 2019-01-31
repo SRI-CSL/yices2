@@ -219,9 +219,10 @@ term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t,
   }
 
   // Equality:
-  assert(term_kind(var_db->terms, t) == EQ_TERM);
+  term_kind_t t_kind = term_kind(var_db->terms, t);
+  assert(t_kind == EQ_TERM || t_kind == BV_EQ_ATOM);
   term_t x_term = variable_db_get_term(var_db, x);
-  composite_term_t* eq = eq_term_desc(var_db->terms, t);
+  composite_term_t* eq = composite_term_desc(var_db->terms, t);
   term_t lhs = eq->arg[0];
   term_t rhs = eq->arg[1];
   if (lhs == x_term) {

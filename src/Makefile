@@ -318,6 +318,7 @@ mcsat_src_c := \
 	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
+	mcsat/utils/substitution.c \
 	mcsat/uf/uf_plugin.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \

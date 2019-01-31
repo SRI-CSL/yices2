@@ -49,6 +49,9 @@ typedef struct {
   /** Conflict variable */
   variable_t conflict_variable;
 
+  /** Bool is the conflict evaluation conflic */
+  bool conflict_is_eval;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -101,6 +104,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   bv->last_decided_and_unprocessed = variable_null;
   bv->conflict_variable = variable_null;
+  bv->conflict_is_eval = false;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
@@ -472,9 +476,10 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
   int_hset_reset(&bv->visited_cache);
 }
 
-void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable) {
+void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bool is_eval) {
   prop->conflict(prop);
   bv->conflict_variable = variable;
+  bv->conflict_is_eval = is_eval;
   (*bv->stats.conflicts) ++;
 }
 
@@ -489,8 +494,9 @@ void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t*
   if (trail_get_source_id(trail, cstr) != bv->ctx->plugin_id) {
     uint32_t cstr_eval_level = 0;
     const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
-    (void) cstr_value;
-    assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
+    if (!mcsat_value_eq(cstr_value, trail_get_value(trail, cstr))) {
+      bv_plugin_report_conflict(bv, prop, cstr, true);
+    }
   }
 }
 
@@ -555,7 +561,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
 
   // If the intervals are empty, we have a conflict
   if (!feasible) {
-    bv_plugin_report_conflict(bv, prop, x);
+    bv_plugin_report_conflict(bv, prop, x, false);
   } else {
     // If the value is implied at zero level, propagate it
     if (!trail_has_value(trail, x) && trail_is_at_base_level(trail)) {
@@ -886,6 +892,7 @@ void bv_plugin_pop(plugin_t* plugin) {
 
   // Undo conflict
   bv->conflict_variable = variable_null;
+  bv->conflict_is_eval = false;
 
   // We undid last decision, so we're back to normal
   bv->last_decided_and_unprocessed = variable_null;
@@ -949,6 +956,14 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_get_conflict: ");
     ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, bv->conflict_variable));
+  }
+
+  // If the concflict is an evaluation, just return A or !A
+  if (bv->conflict_is_eval) {
+    term_t cstr = variable_db_get_term(var_db, bv->conflict_variable);
+    ivector_push(conflict, cstr);
+    ivector_push(conflict, opposite_term(cstr));
+    return;
   }
 
   // Compute the conflict
@@ -1022,6 +1037,13 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     for (i = 0; i < var_list->size; ++ i) {
       if (!trail_has_value(bv->ctx->trail, var_list->data[i])) {
         int_mset_clear(vars);
+        if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+          FILE* out = ctx_trace_out(bv->ctx);
+          fprintf(out, "term doesn't evaluate: ");
+          ctx_trace_term(bv->ctx, t);
+          fprintf(out, "because of: ");
+          ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
+        }
         return false;
       }
     }
