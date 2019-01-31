@@ -66,8 +66,6 @@ typedef struct mcsat_plugin_context_s {
   plugin_context_t ctx;
   /** The solver reference */
   mcsat_solver_t* mcsat;
-  /** Index of the plugin in the solver */
-  uint32_t plugin_i;
   /** The name of the plugin */
   const char* plugin_name;
 } mcsat_plugin_context_t;
@@ -357,9 +355,9 @@ bool trail_token_add(trail_token_t* token, variable_t x, const mcsat_value_t* va
   tk->used ++;
 
   if (is_decision) {
-    trail_add_decision(trail, x, value, tk->ctx->plugin_i);
+    trail_add_decision(trail, x, value, tk->ctx->ctx.plugin_id);
   } else {
-    trail_add_propagation(trail, x, value, tk->ctx->plugin_i, trail->decision_level);
+    trail_add_propagation(trail, x, value, tk->ctx->ctx.plugin_id, trail->decision_level);
   }
 
   return true;
@@ -390,7 +388,7 @@ bool trail_token_add_at_level(trail_token_t* token, variable_t x, const mcsat_va
   tk->used ++;
 
   // Add the propagation
-  trail_add_propagation(trail, x, value, tk->ctx->plugin_i, level);
+  trail_add_propagation(trail, x, value, tk->ctx->ctx.plugin_id, level);
 
   return true;
 }
@@ -446,9 +444,9 @@ void mcsat_plugin_term_notification_by_kind(plugin_context_t* self, term_kind_t 
   mcsat_plugin_context_t* mctx;
 
   mctx = (mcsat_plugin_context_t*) self;
-  assert(mctx->plugin_i != MCSAT_MAX_PLUGINS);
+  assert(self->plugin_id != MCSAT_MAX_PLUGINS);
   for (i = kind; mctx->mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TERM_KINDS) {}
-  mctx->mcsat->kind_owners[i] = mctx->plugin_i;
+  mctx->mcsat->kind_owners[i] = self->plugin_id;
 }
 
 void mcsat_plugin_term_notification_by_type(plugin_context_t* self, type_kind_t kind) {
@@ -456,9 +454,9 @@ void mcsat_plugin_term_notification_by_type(plugin_context_t* self, type_kind_t 
   mcsat_plugin_context_t* mctx;
 
   mctx = (mcsat_plugin_context_t*) self;
-  assert(mctx->plugin_i != MCSAT_MAX_PLUGINS);
+  assert(self->plugin_id != MCSAT_MAX_PLUGINS);
   for (i = kind; mctx->mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TYPE_KINDS) {}
-  mctx->mcsat->type_owners[i] = mctx->plugin_i;
+  mctx->mcsat->type_owners[i] = self->plugin_id;
 }
 
 static
@@ -548,10 +546,11 @@ void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t typ
 
   mctx = (mcsat_plugin_context_t*) self;
   assert(mctx->mcsat->decision_makers[type] == MCSAT_MAX_PLUGINS);
-  mctx->mcsat->decision_makers[type] = mctx->plugin_i;
+  mctx->mcsat->decision_makers[type] = self->plugin_id;
 }
 
 void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t* mcsat, uint32_t plugin_i, const char* plugin_name) {
+  ctx->ctx.plugin_id = plugin_i;
   ctx->ctx.var_db = mcsat->var_db;
   ctx->ctx.terms = mcsat->terms;
   ctx->ctx.types = mcsat->types;
@@ -569,7 +568,6 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
   ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->mcsat = mcsat;
-  ctx->plugin_i = plugin_i;
   ctx->plugin_name = plugin_name;
 }
 
@@ -1449,7 +1447,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   trace = mcsat->ctx->trace;
 
   // Plugin that's in conflict
-  plugin_i = mcsat->plugin_in_conflict->plugin_i;
+  plugin_i = mcsat->plugin_in_conflict->ctx.plugin_id;
   plugin = mcsat->plugins[plugin_i].plugin;
 
   if (trace_enabled(trace, "mcsat::conflict")) {

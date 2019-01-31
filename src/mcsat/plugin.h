@@ -50,6 +50,9 @@ typedef enum {
  */
 struct plugin_context_s {
 
+  /** Index of the plugin */
+  uint32_t plugin_id;
+
   /** Variable database */
   variable_db_t* var_db;
 

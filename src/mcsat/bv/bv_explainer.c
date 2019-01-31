@@ -18,6 +18,8 @@
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/eq/equality_graph.h"
 
+#include "utils/int_array_sort2.h"
+
 #include "yices.h"
 
 #include <inttypes.h>
@@ -316,6 +318,7 @@ void bv_core_solver_construct(bv_core_solver_t* solver, plugin_context_t* ctx) {
   // Create an instance of Yices
   solver->config = yices_new_config();
   int32_t ret = yices_default_config_for_logic(solver->config, "QF_BV");
+  (void) ret;
   assert(ret == 0);
   solver->yices_ctx = yices_new_context(solver->config);
   assert (solver->yices_ctx != NULL);
@@ -679,6 +682,13 @@ void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
   yices_assert_formula(solver->yices_ctx, assertion_term);
 }
 
+bool bv_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
+  const mcsat_trail_t* trail = data;
+  assert(trail_has_value(trail, t1));
+  assert(trail_has_value(trail, t2));
+  return trail_get_index(trail, t1) < trail_get_index(trail, t2);
+}
+
 void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core) {
 
   plugin_context_t* ctx = solver->ctx;
@@ -689,6 +699,9 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
   // Vector to store assumptions
   ivector_t assumptions;
   init_ivector(&assumptions, 0);
+
+  // Sort variables to assign according to their trail index
+  // int_array_sort2(solver->vars_to_assign.data, solver->vars_to_assign.size, (void*) solver->ctx->trail, bv_solver_cmp_var_by_trail_index);
 
   // Make assumptions
   uint32_t i, bit;
@@ -737,10 +750,12 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
 
   // Check the assumptions (should be unsat)
   smt_status_t status = yices_check_context_with_assumptions(solver->yices_ctx, NULL, assumptions.size, assumptions.data);
+  (void) status;
   assert(status == STATUS_UNSAT);
 
   // Get the unsat core
   int32_t ret = yices_get_unsat_core(solver->yices_ctx, core);
+  (void) ret;
   assert(ret == 0);
 
   // Substitute the core back to internal
@@ -828,8 +843,6 @@ void bv_explainer_get_conflict_all_simple(bv_explainer_t* exp, const ivector_t* 
   int_mset_destruct(&assigned_vars);
 }
 
-
-static
 void bv_explainer_get_conflict_all_with_yices(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   uint32_t i;
 
@@ -884,7 +897,6 @@ void bv_explainer_get_conflict_all_with_yices(bv_explainer_t* exp, const ivector
   bv_core_solver_destruct(&solver);
 }
 
-static
 void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
   (*exp->stats.th_eq_ext_con) ++;

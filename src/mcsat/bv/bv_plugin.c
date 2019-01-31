@@ -479,16 +479,19 @@ void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t 
 }
 
 /**
- * Process a constraint that is detected to be fully assigned: check consistency.
+ * Process a constraint that is detected to be fully assigned: check
+ * consistency unless we propagated it.
  */
 static
 void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t* prop, variable_t cstr) {
   const mcsat_trail_t* trail = bv->ctx->trail;
-  uint32_t cstr_eval_level = 0;
-  const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
-  (void) cstr_value;
   assert(trail_has_value(trail, cstr));
-  assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
+  if (trail_get_source_id(trail, cstr) != bv->ctx->plugin_id) {
+    uint32_t cstr_eval_level = 0;
+    const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
+    (void) cstr_value;
+    assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
+  }
 }
 
 /**
@@ -524,9 +527,9 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   if (x == cstr) {
     // Compute value of the constraint and the level
     uint32_t cstr_eval_level = 0;
-    const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
     if (!trail_has_value(trail, cstr)) {
       // Unassigned, propagate the value
+      const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
       prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
     } else {
       // No need to evaluate here, we will check when it is processed as

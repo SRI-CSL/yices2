@@ -162,6 +162,7 @@ const eq_node_id_t* eq_graph_get_children(const eq_graph_t* eq, eq_node_id_t id)
   }
 }
 
+#ifndef NDEBUG
 static inline
 bool eq_graph_has_children(const eq_graph_t* eq, eq_node_id_t id) {
   return eq_graph_get_children(eq, id) != NULL;
@@ -184,6 +185,8 @@ bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
   const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
   return n->type == EQ_NODE_PAIR || n->type == EQ_NODE_EQ_PAIR;
 }
+
+#endif
 
 /** Add a value node */
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
