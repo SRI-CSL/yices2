@@ -529,11 +529,8 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
       // Unassigned, propagate the value
       prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
     } else {
-      // The constraint already has a value, check that it's the right one
-      // Couldn't it be the case that the constraint has been imposed a value by another theory
-      // that is not "the right one", in which case we should not fail but raise a conflict,
-      // in the spirit of bv_plugin_process_fully_assigned_constraint?
-      assert(mcsat_value_eq(cstr_value, trail_get_value(trail, cstr)));
+      // No need to evaluate here, we will check when it is processed as
+      // fully assigned
     }
     return;
   }
@@ -550,7 +547,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   bdd_t cstr_bdd = bv_bdd_manager_get_bdd(bddm, cstr_term, x_term);
   assert(cstr_bdd.bdd[0] != NULL);
 
-  // Update the infeasible intervals
+  // Update the feasible intervals
   bool feasible = bv_feasible_set_db_update(bv->feasible, x, cstr_bdd, &cstr, 1);
 
   // If the intervals are empty, we have a conflict
