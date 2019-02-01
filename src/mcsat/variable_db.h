@@ -122,17 +122,6 @@ uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x);
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x);
 
 /**
- * Return the first frontier of variables. This does not include the variable
- * for the term itself.
- *
- * Examples:
- *
- *  x + y < 1 => { x : 1, y : 1 }
- *  x + x*y + ite(b, x, y) > 0  => { x : 2, y : 1, ite(b, x, y) : 1 }
- */
-void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_mset_t* t_vars);
-
-/**
  * Substitute the given variable with the given substitution. As above substitution
  * will not look for the variable itself.
  *

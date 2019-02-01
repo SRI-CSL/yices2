@@ -20,6 +20,7 @@
 
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
+#include "utils/substitution.h"
 
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
@@ -204,37 +205,14 @@ type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x)
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x));
 }
 
-void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_mset_t* t_vars) {
-  assert(false);
-}
-
 term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) {
-
-  // For now, just equality and trivial substitution
-
-  // Trivial substitution:
-  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
-  if (t_var == x) {
-    return subst;
-  }
-
-  // Equality:
-  term_kind_t t_kind = term_kind(var_db->terms, t);
-  assert(t_kind == EQ_TERM || t_kind == BV_EQ_ATOM);
+  substitution_t S;
+  substitution_construct(&S, (term_manager_t*) &var_db->tm, var_db->tracer);
   term_t x_term = variable_db_get_term(var_db, x);
-  composite_term_t* eq = composite_term_desc(var_db->terms, t);
-  term_t lhs = eq->arg[0];
-  term_t rhs = eq->arg[1];
-  if (lhs == x_term) {
-    lhs = subst;
-  }
-  if (rhs == x_term) {
-    rhs = subst;
-  }
-
-  term_t result = mk_eq((term_manager_t*) &var_db->tm, lhs, rhs);
-
-  return result;
+  substitution_add(&S, x_term, subst);
+  term_t t_subst = substitution_run_fwd(&S, x_term);
+  substitution_destruct(&S);
+  return t_subst;
 }
 
 void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars) {

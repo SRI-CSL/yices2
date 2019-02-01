@@ -563,20 +563,31 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   if (!feasible) {
     bv_plugin_report_conflict(bv, prop, x, false);
   } else {
-    // If the value is implied at zero level, propagate it
-    if (!trail_has_value(trail, x) && trail_is_at_base_level(trail)) {
-      bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
-      uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
-      if (bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize)) {
-        bvconstant_t x_bv_value;
-        init_bvconstant(&x_bv_value);
-        bvconstant_set_bitsize(&x_bv_value, x_bitsize);
-        bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
-        mcsat_value_t x_value;
-        mcsat_value_construct_bv_value(&x_value, &x_bv_value);
-        prop->add_at_level(prop, x, &x_value, 0);
-        mcsat_value_destruct(&x_value);
-        delete_bvconstant(&x_bv_value);
+    // We propagate values if:
+    // - true at 0 level, because safe, no explanation needed, or
+    // - Boolean, because shared sort with Booleans
+    if (!trail_has_value(trail, x)) {
+      bool is_zero_level = trail_is_at_base_level(trail);
+      bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
+      if (is_zero_level || is_boolean) {
+        bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
+        uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
+        if (bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize)) {
+          bvconstant_t x_bv_value;
+          init_bvconstant(&x_bv_value);
+          bvconstant_set_bitsize(&x_bv_value, x_bitsize);
+          bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
+          if (is_boolean) {
+            bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
+            prop->add(prop, x, x_value ? &mcsat_value_true : &mcsat_value_false);
+          } else {
+            mcsat_value_t x_value;
+            mcsat_value_construct_bv_value(&x_value, &x_bv_value);
+            prop->add(prop, x, &x_value);
+            mcsat_value_destruct(&x_value);
+            delete_bvconstant(&x_bv_value);
+          }
+        }
       }
     }
   }
