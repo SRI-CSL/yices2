@@ -365,7 +365,7 @@ void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
   if (!var_value->b) {
     assertion_term = opposite_term(assertion_term);
   }
-  assertion_term = substitution_run_fwd(&solver->subst, assertion_term);
+  assertion_term = substitution_run_fwd(&solver->subst, assertion_term, 0);
   if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
     FILE* out = trace_out(solver->yices_ctx->trace);
     ctx_trace_term(solver->ctx, assertion_term);
@@ -405,7 +405,7 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
     assert(var_value->type == VALUE_BOOLEAN || var_value->type == VALUE_BV);
     // Get the term, and it's substitution
     term_t var_term = variable_db_get_term(var_db, var);
-    term_t var_term_subst = substitution_run_fwd(&solver->subst, var_term);
+    term_t var_term_subst = substitution_run_fwd(&solver->subst, var_term, 0);
     if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
       FILE* out = trace_out(solver->yices_ctx->trace);
       ctx_trace_term(ctx, var_term_subst);
@@ -454,7 +454,7 @@ void bv_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core)
   // Substitute the core back to internal
   for (i = 0; i < core->size; ++ i) {
     term_t t = core->data[i];
-    t = substitution_run_bck(&solver->subst, t);
+    t = substitution_run_bck(&solver->subst, t, 0);
     core->data[i] = t;
   }
 

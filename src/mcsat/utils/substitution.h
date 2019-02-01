@@ -34,13 +34,32 @@ typedef struct {
 /** Construct the substitution */
 void substitution_construct(substitution_t* subst, term_manager_t* tm, tracer_t* tracer);
 
+/** Destruct the data in the substitution */
 void substitution_destruct(substitution_t* subst);
 
-term_t substitution_run_fwd(substitution_t* subst, term_t t);
+/**
+ * Run the forward substitution and return the result.
+ *
+ * Frontier takes precedence to substitution, i.e., if a *strict* subterm is
+ * in the frontier the substitution returns the subterm without modifications.
+ *
+ * NOTE: intermediate results are cached, which affects later uses
+ */
+term_t substitution_run_fwd(substitution_t* subst, term_t t, const int_hmap_t* frontier);
 
-term_t substitution_run_bck(substitution_t* subst, term_t t);
+/**
+ * Run the forward substitution and return the result.
+ *
+ * Frontier takes precedence to substitution, i.e., if a *strict* subterm is
+ * in the frontier the substitution returns the subterm without modifications.
+ *
+ * NOTE: intermediate results are cached, which affects later uses
+ */
+term_t substitution_run_bck(substitution_t* subst, term_t t, const int_hmap_t* frontier);
 
+/** Check if the substitution has the given term */
 bool substitution_has_term(const substitution_t* subst, term_t term);
 
+/** Add another pair to the substitution */
 void substitution_add(substitution_t* subst, term_t t, term_t t_subst);
 

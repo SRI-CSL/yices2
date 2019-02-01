@@ -18,7 +18,7 @@ void substitution_destruct(substitution_t* subst) {
 }
 
 static
-term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache) {
+term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache, const int_hmap_t* frontier) {
 
   uint32_t i, n;
   int_hmap_pair_t* find = NULL;
@@ -75,6 +75,16 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache)
         ivector_pop(&substitution_stack);
         term_t current_subst = opposite_term(find->val);
         int_hmap_add(cache, current, current_subst);
+        continue;
+      }
+    }
+
+    // We go deeper only if the frontier is not blocked
+    if (current != t && frontier != NULL) {
+      find = int_hmap_find((int_hmap_t*) frontier, current);
+      if (find != NULL) {
+        // Keep this term as is
+        int_hmap_add(cache, current, current);
         continue;
       }
     }
@@ -313,14 +323,14 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache)
   return find->val;
 }
 
-term_t substitution_run_fwd(substitution_t* subst, term_t t) {
+term_t substitution_run_fwd(substitution_t* subst, term_t t, const int_hmap_t* frontier) {
   // Run the substitution
-  return substitution_run_core(subst, t, &subst->substitution_fwd);
+  return substitution_run_core(subst, t, &subst->substitution_fwd, frontier);
 }
 
-term_t substitution_run_bck(substitution_t* subst, term_t t) {
+term_t substitution_run_bck(substitution_t* subst, term_t t, const int_hmap_t* frontier) {
   // Run the substitution backwards
-  return substitution_run_core(subst, t, &subst->substitution_bck);
+  return substitution_run_core(subst, t, &subst->substitution_bck, frontier);
 }
 
 bool substitution_has_term(const substitution_t* subst, term_t term) {

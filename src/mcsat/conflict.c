@@ -234,9 +234,26 @@ static
 term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct, variable_t var, term_t substitution) {
 
   term_t disjunct_pos, disjunct_subst;
+  variable_t disjunct_pos_var;
+  bool disjunct_value;
 
   // Positive literal
   disjunct_pos = unsigned_term(disjunct);
+
+  // If the disjunct is true by Boolean assignment then the variable is the
+  // variable of the term
+  disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
+  if (disjunct_pos_var != variable_null && trail_has_value(conflict->trail, disjunct_pos_var)) {
+    disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
+    if (disjunct_pos != disjunct) {
+      disjunct_value = !disjunct_value;
+    }
+    if (!disjunct_value) {
+      // Its false
+      assert(disjunct_pos_var == var);
+      return bool2term(false);
+    }
+  }
 
   // Substitute
   disjunct_subst = variable_db_substitute_subvariable(conflict->var_db, disjunct_pos, var, substitution);
