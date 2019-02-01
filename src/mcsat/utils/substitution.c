@@ -27,6 +27,12 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache)
   term_manager_t* tm = subst->tm;
   term_table_t* terms = tm->terms;
 
+  if (trace_enabled(subst->tracer, "mcsat::subst")) {
+    FILE* out = trace_out(subst->tracer);
+    fprintf(out, "substitution in:\n");
+    trace_term_ln(subst->tracer, terms, t);
+  }
+
   // Check if already done
   find = int_hmap_find(cache, t);
   if (find != NULL) {
@@ -322,6 +328,14 @@ bool substitution_has_term(const substitution_t* subst, term_t term) {
 }
 
 void substitution_add(substitution_t* subst, term_t t, term_t t_subst) {
+
+  if (trace_enabled(subst->tracer, "mcsat::subst")) {
+    FILE* out = trace_out(subst->tracer);
+    fprintf(out, "adding substition:\n");
+    fprintf(out, "t = "); trace_term_ln(subst->tracer, subst->tm->terms, t);
+    fprintf(out, "t_out = "); trace_term_ln(subst->tracer, subst->tm->terms, t_subst);
+  }
+
   int_hmap_pair_t* find = int_hmap_get(&subst->substitution_fwd, t);
   assert(find->val == -1);
   find->val = t_subst;

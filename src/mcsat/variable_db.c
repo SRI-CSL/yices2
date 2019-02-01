@@ -210,7 +210,7 @@ term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t,
   substitution_construct(&S, (term_manager_t*) &var_db->tm, var_db->tracer);
   term_t x_term = variable_db_get_term(var_db, x);
   substitution_add(&S, x_term, subst);
-  term_t t_subst = substitution_run_fwd(&S, x_term);
+  term_t t_subst = substitution_run_fwd(&S, t);
   substitution_destruct(&S);
   return t_subst;
 }

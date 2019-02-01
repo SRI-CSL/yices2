@@ -477,6 +477,11 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
 }
 
 void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bool is_eval) {
+  // Although we do full propagation for shared sorts (Bool) a conflict can
+  // still happen. For example if we have
+  //  x = bool2bv(y)
+  // [x->bv1, y->false, (x = bool2bv)->true] can because we don't control
+  // how Boolean plugin propagates values
   prop->conflict(prop);
   bv->conflict_variable = variable;
   bv->conflict_is_eval = is_eval;
@@ -495,6 +500,12 @@ void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t*
     uint32_t cstr_eval_level = 0;
     const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
     if (!mcsat_value_eq(cstr_value, trail_get_value(trail, cstr))) {
+      if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(bv->ctx);
+        fprintf(out, "Evaluation conflict:\n");
+        fprintf(out, "cstr = "); ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, cstr));
+        trail_print(bv->ctx->trail, out);
+      }
       bv_plugin_report_conflict(bv, prop, cstr, true);
     }
   }
@@ -734,6 +745,7 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
     ctx_trace_printf(bv->ctx, "trail: ");
     trail_print(bv->ctx->trail, stderr);
+    ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, x));
   }
 
   // Notify the BDD manager that it has been assigned
@@ -969,7 +981,7 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, bv->conflict_variable));
   }
 
-  // If the concflict is an evaluation, just return A or !A
+  // If the conflict is an evaluation, just return A or !A
   if (bv->conflict_is_eval) {
     term_t cstr = variable_db_get_term(var_db, bv->conflict_variable);
     ivector_push(conflict, cstr);
