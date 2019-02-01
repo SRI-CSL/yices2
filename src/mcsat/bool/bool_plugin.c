@@ -758,7 +758,14 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
 }
 
 bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
-  // Bool plugin never evaluates any constraints
+#ifndef NDEBUG
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  if (ctx_trace_enabled(bp->ctx, "mcsat::conflict")) {
+    FILE* out = ctx_trace_out(bp->ctx);
+    fprintf(out, "asked to explain evaluation for: ");
+    ctx_trace_term(bp->ctx, t);
+  }
+#endif
   assert(false);
   return true;
 }

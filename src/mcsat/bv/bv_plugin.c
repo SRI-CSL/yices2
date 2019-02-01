@@ -1021,25 +1021,34 @@ static
 term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
-  // We only propagate evaluations, and we explain them using the literal itself
   term_t atom = variable_db_get_term(bv->ctx->var_db, var);
-  if (ctx_trace_enabled(bv->ctx, "bv::conflict")) {
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation():\n");
     ctx_trace_term(bv->ctx, atom);
   }
-  bool value = trail_get_boolean_value(bv->ctx->trail, var);
-  if (ctx_trace_enabled(bv->ctx, "bv::conflict")) {
-    ctx_trace_printf(bv->ctx, "assigned to %s\n", value ? "true" : "false");
-  }
 
-  if (value) {
-    // atom => atom = true
-    ivector_push(reasons, atom);
-    return bool2term(true);
+  term_kind_t atom_kind = term_kind(bv->ctx->terms, atom);
+  if (bv_term_kind_get_type(atom_kind) == BV_TERM_VARIABLE) {
+    // This is a subterm that we propagated as unit, we need to explain
+    // TODO: explain with SAT solver
+    assert(false);
+    return NULL_TERM;
   } else {
-    // neg atom => atom = false
-    ivector_push(reasons, opposite_term(atom));
-    return bool2term(false);
+    // This is a BV constraint. Since, we only propagate evaluations we
+    // explain them using the literal itself
+    bool value = trail_get_boolean_value(bv->ctx->trail, var);
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+      ctx_trace_printf(bv->ctx, "assigned to %s\n", value ? "true" : "false");
+    }
+    if (value) {
+      // atom => atom = true
+      ivector_push(reasons, atom);
+      return bool2term(true);
+    } else {
+      // neg atom => atom = false
+      ivector_push(reasons, opposite_term(atom));
+      return bool2term(false);
+    }
   }
 }
 
@@ -1048,6 +1057,12 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
+
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(bv->ctx);
+    fprintf(out, "asked to explain evaluation for: ");
+    ctx_trace_term(bv->ctx, t);
+  }
 
   if (value == NULL) {
 
