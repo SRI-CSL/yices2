@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun x () (_ BitVec 32))
+(declare-fun y () (_ BitVec 32))
+(declare-fun z () Bool)
+(assert (= y (ite z x (_ bv0 32))))
+(assert (= false (= y (_ bv0 32))))
+(check-sat)
+(exit)
