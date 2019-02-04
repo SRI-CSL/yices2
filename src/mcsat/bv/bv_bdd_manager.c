@@ -132,7 +132,7 @@ bv_bdd_manager_t* bv_bdd_manager_new(const plugin_context_t* ctx) {
   bddm->term_info = NULL;
   bddm->term_info_size = 0;
   bddm->term_info_capacity = 0;
-  bddm->timestamp = 0;
+  bddm->timestamp = 1;
   bddm->bdd_memory = 0;
   bddm->bdd_memory_size = 0;
   bddm->bdd_memory_capacity = 0;
@@ -424,21 +424,24 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
         if (t == true_term) {
           bvconst_set_bit(t_info->value.data, 0);
         } else if (t == false_term) {
-          bvconst_set_bit(t_info->value.data, 0);
+          bvconst_clr_bit(t_info->value.data, 0);
         } else {
           assert(false); // Only Boolean constants
         }
+        t_info->value_timestamp = 1;
         break;
       case BV_CONSTANT: {
         // Set the value
         bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
         bvconstant_copy(&t_info->value, t_desc->bitsize, t_desc->data);
+        t_info->value_timestamp = 1;
         break;
       }
       case BV64_CONSTANT: {
         // Set the value
         bvconst64_term_t* t_desc = bvconst64_term_desc(terms, t);
         bvconstant_copy64(&t_info->value, t_desc->bitsize, t_desc->value);
+        t_info->value_timestamp = 1;
         break;
       }
       default:
@@ -448,6 +451,7 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
         bdds_mk_variable(bddm->cudd, t_bdds, bitsize);
         // Mark the info for this variable
         t_info->unassigned_variable = t;
+        t_info->bdd_timestamp = 1;
         break;
       }
     }
@@ -500,7 +504,7 @@ bool bv_bdd_manager_recompute_timestamps(bv_bdd_manager_t* bddm, term_t t, uint3
   if (bv_term_is_variable(terms, t)) {
     *value_timestamp = t_info->value_timestamp;
     *bdd_timestamp = t_info->bdd_timestamp;
-    assert(*bdd_timestamp == 0);
+    assert(*bdd_timestamp == 1);
     contains_unassigned = (t == bddm->unassigned_var);
     int_hmap_add(&bddm->visited, t, contains_unassigned);
     return contains_unassigned;
@@ -602,8 +606,8 @@ bool bv_bdd_manager_recompute_timestamps(bv_bdd_manager_t* bddm, term_t t, uint3
     case BV_CONSTANT:
     case BV64_CONSTANT:
       // Nothing to do, always constant
-      *bdd_timestamp = 0;
-      *value_timestamp = 0;
+      *bdd_timestamp = 1;
+      *value_timestamp = 1;
       contains_unassigned = false;
       break;
     default:
@@ -854,6 +858,23 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
     default:
       // Shouldn't be here
       assert(false);
+    }
+  }
+
+  if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
+    FILE* out = ctx_trace_out(bddm->ctx);
+    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: computing BDDs ");
+    ctx_trace_term(bddm->ctx, t);
+    ctx_trace_printf(bddm->ctx, "unassigned variable: ");
+    ctx_trace_term(bddm->ctx, bddm->unassigned_var);
+    ctx_trace_printf(bddm->ctx, "x BDDs: ");
+    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
+    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
+    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, out);
+    for (int i = 0; i < children_bdds.size; ++ i) {
+      ctx_trace_printf(bddm->ctx, "\nchildren[%d] BDDs: ", i);
+      bdds_print(bddm->cudd, children_bdds.data[i], bitsize, out);
+      ctx_trace_printf(bddm->ctx, "\n");
     }
   }
 
