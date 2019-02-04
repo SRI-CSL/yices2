@@ -2007,7 +2007,8 @@ path_terms_t eq_graph_explain(const eq_graph_t* eq, eq_node_id_t n1_id, eq_node_
 
     // Check if we passed a value assignment that we need to explain
     if (e->reason.type == REASON_IS_IN_TRAIL
-        || (e->reason.type == REASON_IS_USER && e_terms.t1 == NULL_TERM)) {
+        || (e->reason.type == REASON_IS_USER && e_terms.t1 == NULL_TERM)
+        || (e->reason.type == REASON_IS_CONSTANT_DEF && e_terms.t1 == NULL_TERM)) {
       if (e_terms.t2 != NULL_TERM) {
         assert(t2_to_explain == NULL_TERM && value_to_explain == eq_node_null);
         t2_to_explain = e_terms.t2;

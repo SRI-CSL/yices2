@@ -686,6 +686,11 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
             for (uint32_t i = 0; i < reasons.size; i++) {
               if (i>0) fprintf(out,", ");
               fprintf(out,"%d", reasons.data[i]);
+              if (reasons.data[i] !=0) {
+                fprintf(out," [");
+                term_print_to_file(out, terms, reasons.data[i]);
+                fprintf(out,"]");
+              }
             }
             fprintf(out,"\n");
           }
@@ -727,11 +732,21 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
         current = current->next;
       }
     }
+
     // Now we build the the equalities / disequalities between interface terms
     for (uint32_t i = 0; i < interface_terms.size; i++) {
       for (uint32_t j = i+1; j < interface_terms.size; j++) {
         term_t lhs = interface_terms.data[i];
         term_t rhs = interface_terms.data[j];
+        if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Making eq or neq between interface terms ");
+          term_print_to_file(out, terms, lhs);
+          fprintf(out, " and ");
+          term_print_to_file(out, terms, rhs);
+          fprintf(out, "\n");
+        }
+
         if (term_bitsize(terms, lhs) == term_bitsize(terms, rhs)) {
           term_t t = (eq_graph_are_equal(&eq_graph, lhs, rhs))? mk_eq(tm, lhs, rhs):mk_neq(tm, lhs, rhs);
           ivector_push(conflict, t);
@@ -742,11 +757,22 @@ void bv_explainer_get_conflict_eq_ext_con(bv_explainer_t* exp, const ivector_t* 
   }
 
   assert(reasons.size == reasons_types.size);
-
+  
   // We collect from the reasons the elements we haven't added
   for (uint32_t i = 0; i < reasons.size; i++) {
-    if (reasons_types.data[i] != REASON_IS_USER) 
+      if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Looking at reason %d whose type is %d\n",reasons.data[i],reasons_types.data[i]);
+      }
+    if (reasons_types.data[i] != REASON_IS_USER) {
+      if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Adding to conflict ");
+        term_print_to_file(out, terms, reasons.data[i]);
+        fprintf(out, "\n");
+      }
       ivector_push(conflict, reasons.data[i]);
+    }
   }
 
   // We clean up
