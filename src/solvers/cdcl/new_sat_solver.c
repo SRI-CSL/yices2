@@ -6006,10 +6006,10 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 
   n = solver->descriptors.size;
   for (i=0; i<n; i++) {
-    if (var_is_active(solver, i) && gate_for_bvar(solver, i, &tt)) {
+    l0 = full_var_subst(solver, i);
+    l0 = nsat_base_literal(solver, l0);
+    if (lit_is_active(solver, l0) && gate_for_bvar(solver, i, &tt)) {
       apply_subst_to_ttbl(solver, &tt);
-      l0 = full_var_subst(solver, i);
-      l0 = nsat_base_literal(solver, l0);
       if (tt.nvars >= 2) {
 	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate equiv");
 	if (tt.nvars == 2) {
