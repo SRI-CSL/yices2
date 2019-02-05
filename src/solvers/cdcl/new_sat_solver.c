@@ -5734,7 +5734,7 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
     assert(l1 == true_literal || l1 == false_literal);
     // either l2 := true or l2 := false
     if (l1 == false_literal) l2 = not(l2);
-    fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
+    if (solver->verbosity >= 3) fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
     vector_push(&solver->subst_units, l2);
   } else {
     set_lit_subst(solver, l2, l1);
@@ -6187,11 +6187,15 @@ static void pp_apply_subst_to_variable(sat_solver_t *solver, bvar_t x) {
 static void pp_process_subst_units(sat_solver_t *solver) {
   vector_t *v;
   uint32_t i, n;
+  literal_t l;
 
   v = &solver->subst_units;
   n = v->size;
   for (i=0; i<n; i++) {
-    pp_push_unit_literal(solver, v->data[i]);
+    l = full_lit_subst(solver, v->data[i]);
+    if (lit_is_unassigned(solver, l)) {
+      pp_push_unit_literal(solver, l);
+    }
   }
   pp_empty_queue(solver);
   reset_vector(v);
@@ -7271,7 +7275,7 @@ static void show_expanded_ttbl(bvar_t x, wide_ttbl_t *w) {
   fprintf(stderr, ") == %"PRId32"\n", x);
 }
 
-static void try_expand_all(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w, uint32_t max) {
+static void try_expand_all(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w) {
   uint32_t i;
   ttbl_t sub;
   wide_ttbl_t expand, normal;
@@ -7281,20 +7285,23 @@ static void try_expand_all(const sat_solver_t *solver, bvar_t x, wide_ttbl_t *w,
   wide_ttbl_normalize(&normal, w);
   show_expanded_ttbl(x, &normal);
 
-  if (max > 0) {
-    init_wide_ttbl(&expand, 6);
-    for (i=0; i<normal.nvars; i++) {
-      y = normal.var[i];
-      if (gate_for_bvar(solver, y, &sub)) {
-	apply_subst_to_ttbl(solver, &sub);
-	if (wide_ttbl_compose(&expand, &normal, &sub, i)) {
-	  try_expand_all(solver, x, &expand, max - 1);
-	}
+  init_wide_ttbl(&expand, 6);
+  i = 0;
+  while (i < normal.nvars) {
+    y = normal.var[i];
+    if (gate_for_bvar(solver, y, &sub)) {
+      apply_subst_to_ttbl(solver, &sub);
+      if (wide_ttbl_compose(&expand, &normal, &sub, i)) {
+	wide_ttbl_normalize(&normal, &expand);
+	i = 0;
+	continue;
       }
     }
-    delete_wide_ttbl(&expand);
+    i ++;
   }
+  show_expanded_ttbl(x, &normal);
 
+  delete_wide_ttbl(&expand);
   delete_wide_ttbl(&normal);
 }
 
@@ -7311,7 +7318,7 @@ static void show_expanded_var_defs(const sat_solver_t *solver) {
       fprintf(stderr, "c cuts for %"PRIu32"\n", i);
       apply_subst_to_ttbl(solver, &base);
       wide_ttbl_import(&w, &base);
-      try_expand_all(solver, i, &w, 4);
+      try_expand_all(solver, i, &w);
       fprintf(stderr, "c\n");
     }
   }
@@ -8313,12 +8320,15 @@ static void resolve_conflict(sat_solver_t *solver) {
 static void process_subst_units(sat_solver_t *solver) {
   vector_t *v;
   uint32_t i, n;
+  literal_t l;
 
   v = &solver->subst_units;
   n = v->size;
   for (i=0; i<n; i++) {
-    assert(lit_is_unassigned(solver, v->data[i]));
-    add_unit_clause(solver, v->data[i]);
+    l = full_lit_subst(solver, v->data[i]);
+    if (lit_is_unassigned(solver, l)) {
+      add_unit_clause(solver, l);
+    }
   }
   reset_vector(v);
 }
