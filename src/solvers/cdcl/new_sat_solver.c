@@ -2142,9 +2142,20 @@ static void increase_var_activity(nvar_heap_t *heap, bvar_t x) {
 
   // move x up if it's in the heap
   i = heap->heap_index[x];
-  if (i >= 0) {
-    update_up(heap, x, i);
-  }
+  if (i >= 0) update_up(heap, x, i);
+}
+
+/*
+ * Increate the activity of variable x to act
+ */
+static void update_var_activity(nvar_heap_t *heap, bvar_t x, double act) {
+  int32_t i;
+
+  assert(act > heap->activity[x]);
+
+  heap->activity[x] = act;
+  i = heap->heap_index[x];
+  if (i >= 0) update_up(heap, x, i);
 }
 
 /*
@@ -2187,6 +2198,14 @@ static inline double lit_activity(const sat_solver_t *solver, literal_t l) {
   return var_activity(solver, var_of(l));
 }
 
+
+/*
+ * Increase activity of literal l to act
+ * - act > lit_activity(l)
+ */
+static inline void update_lit_activity(sat_solver_t *solver, literal_t l, double act) {
+  update_var_activity(&solver->heap, var_of(l), act);
+}
 
 
 /*
@@ -5728,6 +5747,8 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * Process l1 == l2 (when l1 < l2)
  */
 static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
+  double act;
+
   assert(l1 < l2);
 
   if (var_of(l1) == const_bvar) {
@@ -5737,7 +5758,12 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
     if (solver->verbosity >= 3) fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
     vector_push(&solver->subst_units, l2);
   } else {
+    // subst[l2] := l1
     set_lit_subst(solver, l2, l1);
+    act = lit_activity(solver, l2);
+    if (act > lit_activity(solver, l1)) {
+      update_lit_activity(solver, l1, act);
+    }
     if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
     }
