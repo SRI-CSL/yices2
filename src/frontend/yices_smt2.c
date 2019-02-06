@@ -156,7 +156,7 @@ static void print_help(const char *progname) {
 	 "    --stats, -s               Print statistics once all commands have been processed\n"
 	 "    --incremental             Enable support for push/pop\n"
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
-	 "    --delegate=solver_name    Use an external sat solver (can be either cadical or y2sat)\n"
+	 "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
 #if HAVE_MCSAT
 	 "    --mcsat                   Use the MCSat solver\n"
 	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
@@ -286,8 +286,18 @@ static void parse_command_line(int argc, char *argv[]) {
 	    code = YICES_EXIT_USAGE;
 	    goto exit;
 #endif
+	  } else if (strcmp(elem.s_value, "cryptominisat") == 0) {
+#ifdef HAVE_CRYPTOMINISAT
+	    delegate = "cryptominisat";
+#else
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cryptominisat\n", parser.command_name);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+#endif
 	  } else {
-	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical')\n", parser.command_name, elem.s_value);
+	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
+		    parser.command_name, elem.s_value);
 	    print_usage(parser.command_name);
 	    code = YICES_EXIT_USAGE;
 	    goto exit;

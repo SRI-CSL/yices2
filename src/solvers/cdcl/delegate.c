@@ -23,6 +23,10 @@
 #include "ccadical.h"
 #endif
 
+#ifdef HAVE_CRYPTOMINISAT
+#include "cryptominisat5/cryptominisat_c.h"
+#endif
+
 #include "solvers/cdcl/delegate.h"
 #include "solvers/cdcl/new_sat_solver.h"
 #include "utils/memalloc.h"
@@ -228,6 +232,105 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
 
 #endif
 
+
+
+/*
+ * WRAPPERS FOR CRYPTOMINISAT
+ */
+
+#if HAVE_CRYPTOMINISAT
+static void cryptominisat_add_empty_clause(void *solver) {
+  cmsat_add_clause(solver, NULL, 0);
+}
+
+static void cryptominisat_add_unit_clause(void *solver, literal_t l) {
+  c_Lit c[1];
+  c[0].x = l;
+  cmsat_add_clause(solver, c, 1);
+}
+
+static void cryptominisat_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
+  c_Lit c[2];
+  c[0].x = l1;
+  c[1].x = l2;
+  cmsat_add_clause(solver, c, 2);
+}
+
+static void cryptominisat_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
+  c_Lit c[3];
+
+  c[0].x = l1;
+  c[1].x = l2;
+  c[2].x = l3;
+  cmsat_add_clause(solver, c, 3);
+}
+
+static void cryptominisat_add_clause(void *solver, uint32_t n, literal_t *a) {
+  c_Lit c[32];
+  c_Lit *aux;
+  uint32_t i;
+
+  aux = c;
+  if (n > UINT32_MAX/sizeof(c_Lit)) {
+    out_of_memory();
+  } else if (n > 32) {
+    aux = (c_Lit *) safe_malloc(n * sizeof(c_Lit));
+  }
+
+  for (i=0; i<n; i++) {
+    aux[i].x = a[i];
+  }
+  cmsat_add_clause(solver, aux, n);
+
+  if (n > 32) {
+    safe_free(aux);
+  }
+}
+
+static smt_status_t cryptominisat_check(void *solver) {
+  c_lbool result = cmsat_solve(solver);
+  switch (result.x) {
+  case L_TRUE: return STATUS_SAT;
+  case L_FALSE: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
+  }
+}
+
+static bval_t cryptominisat_get_value(void *solver, bvar_t x) {
+  // TBD
+  return VAL_UNDEF_FALSE;
+}
+
+static void cryptominisat_set_verbosity(void *solver, uint32_t level) {
+  // verbosity 0 --> nothing (quiet = true)
+}
+
+static void cryptominisat_delete(void *solver) {
+  cmsat_free(solver);
+}
+
+static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
+  d->solver = cmsat_new();
+  cmsat_new_vars(d->solver, nvars);
+  init_ivector(&d->buffer, 0); // not used
+  d->add_empty_clause = cryptominisat_add_empty_clause;
+  d->add_unit_clause = cryptominisat_add_unit_clause;
+  d->add_binary_clause = cryptominisat_add_binary_clause;
+  d->add_ternary_clause = cryptominisat_add_ternary_clause;
+  d->add_clause = cryptominisat_add_clause;
+  d->check = cryptominisat_check;
+  d->get_value = cryptominisat_get_value;
+  d->set_verbosity = cryptominisat_set_verbosity;
+  d->delete = cryptominisat_delete;
+  d->keep_var = NULL;
+  d->var_def2 = NULL;
+  d->var_def3 = NULL;
+}
+
+#endif
+
+
+
 /*
  * Create and initialize a delegate structure
  * - solver_name specifies the external solver to use
@@ -245,9 +348,15 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
     cadical_as_delegate(d, nvars);
     return true;
 #endif
+#if HAVE_CRYPTOMINISAT
+  } else if (strcmp("cryptominisat", solver_name) == 0) {
+    cryptominisat_as_delegate(d, nvars);
+    return true;
+#endif
   }
   return false;
 }
+
 
 /*
  * Delete the solver and free memory
