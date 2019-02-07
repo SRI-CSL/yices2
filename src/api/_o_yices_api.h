@@ -572,6 +572,19 @@ static context_t *_o_yices_new_context(const ctx_config_t *config);
  *  MODELS  *
  ***********/
 
+static model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst);
+
+static void _o_yices_print_model(FILE *f, model_t *mdl);
+
+static int32_t _o_yices_print_model_fd(int fd, model_t *mdl);
+
+static int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+static char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+static model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
+
+
 /************************
  *  VALUES IN A MODEL   *
  ***********************/

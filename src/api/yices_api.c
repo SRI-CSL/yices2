@@ -7839,6 +7839,7 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
 /*
  * Set a configuration parameter
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
   int32_t k;
@@ -7864,6 +7865,7 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
  * - return -1 if there's an error
  * - return 0 otherwise
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
   int32_t k;
@@ -7941,6 +7943,7 @@ static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
 /*
  * Enable a specific option
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
   int32_t k, r;
@@ -8002,6 +8005,7 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
 /*
  * Disable a specific option
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(, ctx->lock, );
 EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
   int32_t k, r;
@@ -8087,6 +8091,7 @@ EXPORTED void yices_free_param_record(param_t *param) {
 /*
  * Set a search parameter
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  param->lock, );
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
   int32_t k;
@@ -8256,6 +8261,7 @@ EXPORTED void yices_free_context(context_t *ctx) {
  * Get status: return the context's status flag
  * - return one of the codes defined in yices_types.h
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED smt_status_t yices_context_status(context_t *ctx) {
   return context_status(ctx);
@@ -8265,6 +8271,7 @@ EXPORTED smt_status_t yices_context_status(context_t *ctx) {
 /*
  * Reset: remove all assertions and restore ctx's status to IDLE
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED void yices_reset_context(context_t *ctx) {
   reset_context(ctx);
@@ -8282,6 +8289,7 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  * - if the context status is UNSAT or SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_push(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
@@ -8344,6 +8352,7 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   or if the context's status is SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_pop(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
@@ -8472,6 +8481,7 @@ void yices_internalization_error(int32_t code) {
  * Other error codes are defined in yices_types.h to report that t is
  * outside the logic supported by ctx.
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
@@ -8539,6 +8549,7 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
 /*
  * Same thing for an array of n formulas t[0 ... n-1]
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
   int32_t code;
@@ -8618,6 +8629,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  * if ctx is not configured to support multiple checks
  *    code = CTX_OPERATION_NOT_SUPPORTED
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   switch (context_status(ctx)) {
@@ -8781,6 +8793,7 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
  * Set default search parameters for ctx (based on architecture and theories)
  * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(, ctx->lock, );
 EXPORTED void yices_default_params_for_context(context_t *ctx, param_t *params) {
   yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
@@ -8818,6 +8831,7 @@ EXPORTED void yices_default_params_for_context(context_t *ctx, param_t *params) 
  * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR',
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(, ctx->lock, );
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
@@ -8878,6 +8892,7 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
  * - n = number of assumptions
  * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
   param_t default_params;
@@ -8980,8 +8995,9 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
  * interrupted and ctx's status flag is updated to
  * INTERRUPTED. Otherwise, the function does nothing.
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
-EXPORTED void yices_stop_search(context_t *ctx) {
+EXPORTED void yices_stop_search(context_t *ctx) {    //IAM: if the context is busy, doesn't that mean someone else has the lock???
   if (context_status(ctx) == STATUS_SEARCHING) {
     context_stop_search(ctx);
   }
@@ -8998,6 +9014,7 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  * - returns 0 if this works
  * - returns -1 if there's an error
  */
+//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   if (context_status(ctx) != STATUS_UNSAT) {
@@ -9028,9 +9045,12 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * sets an error report.
  *
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );   //IAM: first two lock example?
 EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
+  MT_PROTECT(model_t *,  __yices_globals.lock, _o_yices_get_model(ctx, keep_subst));
+}
+
+static model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
   model_t *mdl;
 
   assert(ctx != NULL);
@@ -9082,15 +9102,21 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );   //IAM: in bv_only_2013 but I wonder ...
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_print_model(f, mdl));
+}
+
+static void _o_yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_print_model_fd(fd, mdl));
+}
+
+static int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
   FILE *tmp_fp;
 
   tmp_fp = fd_2_tmp_fp(fd);
@@ -9111,9 +9137,12 @@ EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
  * - f = output file to use
  * - width, height, offset = print area
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_model(f, mdl, width, height, offset));
+}
+
+static int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -9165,9 +9194,12 @@ EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_
 /*
  * Convert mdl to a string
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char *,  __yices_globals.lock, _o_yices_model_to_string(mdl, width, height, offset));
+}
+
+static char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
@@ -9219,8 +9251,11 @@ EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t heig
  * - code = MDL_FTYPE_NOT_ALLOWED if one of var[i] has a function type
  * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]) {
+  MT_PROTECT(model_t *,  __yices_globals.lock, _o_yices_model_from_map(n, var, map));
+}
+
+static model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]) {
   model_t *mdl;
 
   if (! check_good_model_map(__yices_globals.manager, n, var, map)) {
@@ -9237,10 +9272,9 @@ EXPORTED model_t *yices_model_from_map(uint32_t n, const term_t var[], const ter
  * Export the list of uninterpreted terms that have a value in mdl.
  * - the variables are stored in term_vector v
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v) {
-  model_get_relevant_vars(mdl, (ivector_t *) v);
+  MT_PROTECT_VOID(__yices_globals.lock, model_get_relevant_vars(mdl, (ivector_t *) v));
 }
 
 
