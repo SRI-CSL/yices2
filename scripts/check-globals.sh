@@ -35,6 +35,9 @@ sed '
   /^smt_lexer /d
   /^yices_reval /d
 
+  # not doing mcsat this time
+  /^mcsat.* /d
+
   #disregard the build generated global constants
    /^api\/yices_version /d
 
@@ -65,7 +68,7 @@ sed '
 
   /^api\/yices_api ctx_option_names$/d
 
-  #static const char * const ..._names[...]		   
+  #static const char * const ..._names[...]
   /^api\/context_config \w*_names$/d
   /^api\/search_parameters branching_modes$/d
   /^api\/search_parameters param_key_names$/d
@@ -85,7 +88,7 @@ sed '
 
   # these look dead
   /^solvers\/egraph\/egraph_printer name$/d
-  /^solvers\/egraph\/egraph_printer name_size$/d	
+  /^solvers\/egraph\/egraph_printer name_size$/d
 
   # constant
   /^mt\/yices_locks mattr$/d
@@ -96,7 +99,19 @@ sed '
 
   /^parser_utils\/term_stack2 check/d
   /^parser_utils\/term_stack2 eval/d
+  /^io\/yices_pp open_desc/d
 
+  #handled by the global lock
+  /^utils\/memalloc __out_of_mem_callback/d
+
+  #not used by the API(???)
+  /^utils\/timeout saved_handler/d
+  /^utils\/timeout the_timeout/d
+
+
+  /^terms\/neorationals string_buffer$/d
+  /^terms\/neorationals string_buffer_length$/d
+  /^terms\/neorationals string_buffer_lock$/d
 ')
 
 if [ -n "$symbols" ]; then

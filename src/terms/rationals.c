@@ -185,13 +185,13 @@ mpq_ptr get_mpq(int32_t i) {
  ******************************/
 
 /*
- * Global gmp variables used for intermediate computations
+ * Global gmp variables used for intermediate computations   TLS!
  */
 static mpz_t z0;
 static mpq_t q0;
 
 /*
- * String buffer for parsing.
+ * String buffer for parsing.   TLS!
  */
 static char* string_buffer;
 static uint32_t string_buffer_length;
@@ -1620,7 +1620,7 @@ static bool plausible_mod(const rational_t *r, const rational_t *y) {
   bool ok;
 
   assert(q_is_nonzero(y));
-  
+
   q_init(&aux);
   if (q_is_pos(y)) {
     q_set(&aux, y);
@@ -2028,4 +2028,3 @@ void free_rational_array(rational_t *a, uint32_t n) {
   }
   safe_free(a);
 }
-

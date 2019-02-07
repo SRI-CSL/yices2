@@ -107,7 +107,6 @@ typedef void lp_algebraic_number_t;
 #endif
 
 
-// FIXME: these need to find a better home
 #include "mt/thread_macros.h"
 
 
@@ -120,10 +119,10 @@ typedef void lp_algebraic_number_t;
  ***************************/
 
 
-// rational for building terms
+// rational for building terms: protected by ownership of global lock.
 static rational_t r0;
 
-// buffer for building bitvector constants
+// buffer for building bitvector constants: protected by ownership of global lock.
 static bvconstant_t bv0;
 
 /*
@@ -152,7 +151,7 @@ void init_yices_error(void){
   }
 }
 
-static inline error_report_t* get_yices_error(){
+static inline error_report_t* get_yices_error(void){
   init_yices_error();
   return &__yices_error;
 }
@@ -1154,8 +1153,11 @@ void yices_reset_tables(void) {
  * if Yices runs out of memory.
  * - if this callback returns, the process is killed
  */
-EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
+static void _o_yices_set_out_of_mem_callback(void (*callback)(void)) {
   __out_of_mem_callback = callback;
+}
+EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
+  MT_PROTECT_VOID(__yices_globals.lock,_o_yices_set_out_of_mem_callback(callback));
 }
 
 

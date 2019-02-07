@@ -1,0 +1,421 @@
+/*
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2017 SRI International.
+ *
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * More test of rational functions
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <inttypes.h>
+#include <assert.h>
+#include <gmp.h>
+
+#include "terms/mpq_aux.h"
+#include "terms/neorationals.h"
+#include "utils/assert_utils.h"
+
+#define MAX_NUMERATOR (INT32_MAX>>1)
+#define MIN_NUMERATOR (-MAX_NUMERATOR)
+//IAM: leave this alone here.
+#define MAX_DENOMINATOR MAX_NUMERATOR
+
+
+static neorational_t r0, r1, r2;
+static mpz_t z0, z1, z2;
+static mpq_t q0;
+
+
+/*
+ * Tests
+ */
+static void neoq_check_equal(neorational_t *r, mpq_t q) {
+  int32_t equal;
+  if (is_ratgmp(r)) {
+    equal = mpq_equal(*get_gmp(r), q);
+  } else {
+    equal = (mpq_cmp_si(q, r->s.num, get_den(r)) == 0);
+  }
+  if (! equal) {
+    printf("neoq_check_error\n");
+    printf("  r = ");
+    neoq_print(stdout, r);
+    printf("\n");
+    printf("  q = ");
+    mpq_out_str(stdout, 10, q);
+    printf("\n");
+    fflush(stdout);
+    abort();
+  }
+}
+
+
+static void test_equal(neorational_t *r, mpz_t z) {
+  //  printf("  r = "); q_print(stdout, r); printf("\n");
+  //  printf("  q = "); mpq_out_str(stdout, 10, q); printf("\n");
+  //  fflush(stdout);
+  mpq_set_z(q0, z);
+  neoq_check_equal(r, q0);
+}
+
+
+/*
+ * Non-zero integers to use for testing
+ */
+static int32_t num[48] = {
+  1, -1, -23, 23, 112, -112, 126, -126,
+  INT32_MAX, INT32_MIN, INT32_MAX-1, INT32_MIN + 1,
+  MAX_NUMERATOR, MIN_NUMERATOR,
+  MAX_NUMERATOR - 1, MIN_NUMERATOR + 1, MAX_NUMERATOR + 1,
+  MIN_NUMERATOR - 1, MAX_NUMERATOR + 2, MIN_NUMERATOR - 2,
+  6, 12, 15, 30, 60, 90, 150, 270, 300, 432, 500,
+  -6, -12, -15, -30, -60, -90, -150, -270, -300, -432, -500,
+  7, -49, 343, -6517, 148877, -148877,
+};
+
+
+// large numbers
+static char *big_num[14] = {
+  "42674688000",
+  "624800107008000",
+  "1008826757081171875",
+  "39212228123683729",
+  "5992830235524142758386850633773258681119",
+  "64495327731887693539738558691066839103388567300449",
+  "470287785858076441566723507866751092927015824834881906763507",
+  "6010808726230715186662011185674578457162357",
+  "47286313109628773476339035575625855931454528239",
+  "35184372088832",
+  "712483534798848",
+  "15199648742375424",
+  "18446744073709551616",
+  "9223372036854775808",
+};
+
+
+/*
+ * Test of gcd code
+ */
+static void test_gcd(void) {
+  uint32_t i, j;
+  int32_t code;
+
+  // gcd(num[i], num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<48; j++) {
+      neoq_set32(&r0, num[i]);
+      neoq_set32(&r1, num[j]);
+      neoq_gcd(&r0, &r1);
+      // print result
+      printf("gcd(%"PRId32", %"PRId32") = ", num[i], num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_si(z1, num[j]);
+      mpz_gcd(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // gcd(num[i], big_num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<14; j++) {
+      neoq_set32(&r0, num[i]);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      neoq_gcd(&r0, &r1);
+      // print
+      printf("gcd(%"PRId32", %s) = ", num[i], big_num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_str(z1, big_num[j], 10);
+      mpz_gcd(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // gcd(big_num[i], num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<48; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      neoq_set32(&r1, num[j]);
+      neoq_gcd(&r0, &r1);
+      // print
+      printf("gcd(%s, %"PRId32") = ", big_num[i], num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_si(z1, num[j]);
+      mpz_gcd(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // gcd(big_num[i], big_num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<14; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      neoq_gcd(&r0, &r1);
+      // print
+      printf("gcd(%s, %s) = ", big_num[i], big_num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_str(z1, big_num[j], 10);
+      mpz_gcd(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+}
+
+
+/*
+ * Test of lcm code
+ */
+static void test_lcm(void) {
+  uint32_t i, j;
+  int32_t code;
+
+  // lcm(num[i], num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<48; j++) {
+      neoq_set32(&r0, num[i]);
+      neoq_set32(&r1, num[j]);
+      neoq_lcm(&r0, &r1);
+      // print result
+      printf("lcm(%"PRId32", %"PRId32") = ", num[i], num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_si(z1, num[j]);
+      mpz_lcm(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // lcm(num[i], big_num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<14; j++) {
+      neoq_set32(&r0, num[i]);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      neoq_lcm(&r0, &r1);
+      // print
+      printf("lcm(%"PRId32", %s) = ", num[i], big_num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_str(z1, big_num[j], 10);
+      mpz_lcm(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // lcm(big_num[i], num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<48; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      neoq_set32(&r1, num[j]);
+      neoq_lcm(&r0, &r1);
+      // print
+      printf("lcm(%s, %"PRId32") = ", big_num[i], num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_si(z1, num[j]);
+      mpz_lcm(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+
+  // lcm(big_num[i], big_num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<14; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      neoq_lcm(&r0, &r1);
+      // print
+      printf("lcm(%s, %s) = ", big_num[i], big_num[j]);
+      neoq_print(stdout, &r0);
+      printf("\n");
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_str(z1, big_num[j], 10);
+      mpz_lcm(z2, z0, z1);
+      test_equal(&r0, z2);
+    }
+  }
+}
+
+
+/*
+ * Test of divides
+ */
+static void test_divides(void) {
+  uint32_t i, j;
+  int32_t code;
+  bool result;
+
+  // divides(num[i], num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<48; j++) {
+      neoq_set32(&r0, num[i]);
+      neoq_set32(&r1, num[j]);
+      result = neoq_divides(&r0, &r1);
+      // print result
+      if (result) {
+	printf("%"PRId32" divides %"PRId32"\n", num[i], num[j]);
+      } else {
+	printf("%"PRId32" does not divide %"PRId32"\n", num[i], num[j]);
+      }
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_si(z1, num[j]);
+      if (mpz_divisible_p(z1, z0)) {
+	assert(result);
+      } else {
+	assert(! result);
+      }
+    }
+  }
+
+  // divides(num[i], big_num[j])
+  for (i=0; i<48; i++) {
+    for (j=0; j<14; j++) {
+      neoq_set32(&r0, num[i]);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      result = neoq_divides(&r0, &r1);
+      // print
+      if (result) {
+	printf("%"PRId32" divides %s\n", num[i], big_num[j]);
+      } else {
+	printf("%"PRId32" does not divide %s\n", num[i], big_num[j]);
+      }
+      // check
+      mpz_set_si(z0, num[i]);
+      mpz_set_str(z1, big_num[j], 10);
+      if (mpz_divisible_p(z1, z0)) {
+	assert(result);
+      } else {
+	assert(! result);
+      }
+    }
+  }
+
+  // gcd(big_num[i], num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<48; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      neoq_set32(&r1, num[j]);
+      result = neoq_divides(&r0, &r1);
+      // print
+      if (result) {
+	printf("%s divides %"PRId32"\n", big_num[i], num[j]);
+      } else {
+	printf("%s does not divide %"PRId32"\n", big_num[i], num[j]);
+      }
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_si(z1, num[j]);
+      if (mpz_divisible_p(z1, z0)) {
+	assert(result);
+      } else {
+	assert(! result);
+      }
+    }
+  }
+
+  // gcd(big_num[i], big_num[j])
+  for (i=0; i<14; i++) {
+    for (j=0; j<14; j++) {
+      code = neoq_set_from_string(&r0, big_num[i]);
+      assert_true(code == 0);
+      code = neoq_set_from_string(&r1, big_num[j]);
+      assert_true(code == 0);
+      result = neoq_divides(&r0, &r1);
+      // print
+      if (result) {
+	printf("%s divides %s\n", big_num[i], big_num[j]);
+      } else {
+	printf("%s does not divide %s\n", big_num[i], big_num[j]);
+      }
+      // check
+      mpz_set_str(z0, big_num[i], 10);
+      mpz_set_str(z1, big_num[j], 10);
+      if (mpz_divisible_p(z1, z0)) {
+	assert(result);
+      } else {
+	assert(! result);
+      }
+    }
+  }
+
+}
+
+
+
+
+int main(void) {
+  printf("MAX_NUM = %d\n", MAX_NUMERATOR);
+  printf("MIN_NUM = %d\n", MIN_NUMERATOR);
+  printf("MAX_DEN = %d\n", MAX_DENOMINATOR);
+  printf("----\n\n");
+
+  init_neorationals();
+
+  mpq_init(q0);
+  mpz_init(z0);
+  mpz_init(z1);
+  mpz_init(z2);
+  neoq_init(&r0);
+  neoq_init(&r1);
+  neoq_init(&r2);
+
+  test_gcd();
+  test_lcm();
+  test_divides();
+
+  mpq_clear(q0);
+  mpz_clear(z0);
+  mpz_clear(z1);
+  mpz_clear(z2);
+
+  cleanup_neorationals();
+
+
+  return 0;
+}

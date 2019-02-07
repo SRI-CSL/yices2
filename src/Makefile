@@ -228,6 +228,7 @@ core_src_c := \
 	terms/pprod_table.c \
 	terms/rational_hash_maps.c \
 	terms/rationals.c \
+	terms/neorationals.c \
 	terms/rba_buffer_terms.c \
 	terms/renaming_context.c \
 	terms/subst_cache.c \

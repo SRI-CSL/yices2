@@ -101,15 +101,6 @@ and is currently incompatible with --enable-mcsat.
 
 ===============================================================================================
 
-
-
-/***********************************
- *  EXTENSIONS: TERM CONSTRUCTORS  *
- **********************************/
-
-/*******************************************
- *  EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
- ******************************************/
 </problematic>
 
 
@@ -125,29 +116,17 @@ principles like:
 
 params, configs, contexts and models, should not be shared across threads.
 
+#####################
+
+examples/*.c and examples/*.cpp are worth making mt for helgrinding.
 
 
-BD: if the buffers are only used from the term stack then they could be migrated into the global struct.
-Need to check each one.
+can also rewrite sudoku to use bv (4 bit and bigger) to stress the bv side of things.
 
-x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	arith_buffer_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith64_buffer_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvarith_buffer_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bvlogic_buffer_list
 
-Current issues in yices_api.c
+example1.c with different formulas
+test_api3.c
 
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	bv0
+######################
 
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	r0
-
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	context_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	ctx_option_names //BD: constant array
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	generic_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	model_list
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_terms
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	root_types
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_terms
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	the_root_types
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error
-  x86_64-pc-linux-gnu-debug/obj/api/yices_api.o	__yices_error_initialized
+mpq_aux.c global(s) need to be thread local.
