@@ -99,6 +99,10 @@ and is currently incompatible with --enable-mcsat.
 //BD: for the time being only one parser (maybe later a parser per thread would be OK)
 
 
+Ian says: if we protect the context checking operations with the global lock,
+we prevent concurrent computation. Discuss.
+
+
 ===============================================================================================
 
 </problematic>
