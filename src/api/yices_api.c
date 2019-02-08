@@ -9340,9 +9340,12 @@ static inline error_code_t yices_eval_error(int32_t v) {
  *   type1 = bool (expected type)
  * + the other evaluation error codes above.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_bool_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   value_table_t *vtbl;
   value_t v;
 
@@ -9459,6 +9462,10 @@ static bool arithval_is_rational(const arithval_struct_t *r) {
 //MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_int32_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9476,9 +9483,12 @@ EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
 }
 
 // return the value as a 64bit integer
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_int64_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9496,9 +9506,12 @@ EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
 }
 
 // return the value as a pair num/den (both 32bit integers)
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_rational32_value(mdl, t, num, den));
+}
+
+int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9516,9 +9529,12 @@ EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num
 }
 
 // pair num/den (64bit integers)
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_rational64_value(mdl, t, num, den));
+}
+
+int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9536,9 +9552,12 @@ EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num
 }
 
 // convert to a floating point number
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_double_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_double_value(model_t *mdl, term_t t, double *val) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9559,9 +9578,12 @@ EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
 
 
 // convert to a GMP integer
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_mpz_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9581,9 +9603,12 @@ EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
 }
 
 // convert to a GMP rational
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_mpq_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
   arithval_struct_t aux;
 
   yices_get_arith_value(mdl, t, &aux);
@@ -9600,9 +9625,12 @@ EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
 /*
  * Algebraic number
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_algebraic_number_value(mdl, t, a));
+}
+
+int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a) {
 #if HAVE_MCSAT
   arithval_struct_t aux;
 
@@ -9645,9 +9673,12 @@ EXPORTED int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_alg
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_bv_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   value_table_t *vtbl;
   value_bv_t *bv;
   value_t v;
@@ -9693,9 +9724,12 @@ EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
  *   code = SCALAR_TERM_REQUIRED
  *   term1 = t
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_scalar_value(mdl, t, val));
+}
+
+int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
   value_table_t *vtbl;
   value_unint_t *uv;
   value_t v;

@@ -27,6 +27,13 @@
 
 #include <stdio.h>
 
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#else
+// We need a definition for (lp_algebraic_number_t *)
+typedef void lp_algebraic_number_t;
+#endif
+
 /*
  * LOCK FREE VERSIONS OF YICES_API CALLS
  *
@@ -592,6 +599,31 @@ extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const te
 /************************
  *  VALUES IN A MODEL   *
  ***********************/
+
+int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
+
+int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
+
+int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
+
+int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
+
+int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
+
+int32_t _o_yices_get_double_value(model_t *mdl, term_t t, double *val);
+
+int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
+
+int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+
+int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
+
+int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
+
+int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
+
+
+
 
 
 /*************************
