@@ -111,6 +111,10 @@ I decided this was a bad idea, since freeing them would be a pain. "mpq_aux.c gl
 So thread local data is OK ONLY if it need not be reclaimed. Discuss.
 
 
+Ian asks: yices_extensions?
+
+
+
 
 ===============================================================================================
 
