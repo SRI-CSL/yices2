@@ -95,12 +95,21 @@ Ian's current idea is that we have a configure flag for thread safety and it req
 and is currently incompatible with --enable-mcsat.
 
 
-
 //BD: for the time being only one parser (maybe later a parser per thread would be OK)
 
 
 Ian says: if we protect the context checking operations with the global lock,
 we prevent concurrent computation. Discuss.
+
+Ian says: I make an effort to avoid it in the unsat_core api call and it seems to work.  Discuss.
+
+Ian says: Not sure what the right approach is for test_neorational_conversions.c. Advice.
+
+Ian says:
+
+I decided this was a bad idea, since freeing them would be a pain. "mpq_aux.c global(s) need to be thread local."
+So thread local data is OK ONLY if it need not be reclaimed. Discuss.
+
 
 
 ===============================================================================================

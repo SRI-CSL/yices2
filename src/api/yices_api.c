@@ -8886,6 +8886,18 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   return stat;
 }
 
+//IAM: experiment to see if we can keep some concurrency.
+static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
+  if (! check_good_terms(__yices_globals.manager, n, a) ||
+      ! check_boolean_args(__yices_globals.manager, n, a)) {
+    return false; // Bad assumptions
+  }
+  return true;
+}
+
+static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
+  MT_PROTECT(bool,  __yices_globals.lock, _o_unsat_core_check_assumptions(n, a));
+}
 
 /*
  * Check context with assumptions
@@ -8901,11 +8913,17 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   uint32_t i;
   literal_t l;
 
+  /*
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a)) {
     return STATUS_ERROR; // Bad assumptions
   }
+  */
 
+  if(!unsat_core_check_assumptions(n, a)){
+    return STATUS_ERROR; // Bad assumptions
+  }
+  
   // cleanup
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
@@ -8953,6 +8971,7 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
 
   assert(context_status(ctx) == STATUS_IDLE);
 
+  get_yices_lock(&__yices_globals.lock);
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
   for (i=0; i<n; i++) {
@@ -8961,11 +8980,13 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
       // error when converting a[i] to a literal
       convert_internalization_error(l);
       stat = STATUS_ERROR;
+      release_yices_lock(&__yices_globals.lock);
       goto cleanup;
     }
     ivector_push(&assumptions, l);
   }
   assert(assumptions.size == n);
+  release_yices_lock(&__yices_globals.lock);
 
   // set parameters
   if (params == NULL) {
