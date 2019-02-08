@@ -355,16 +355,16 @@ void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool 
   }
 }
 
-/**
- * Run the substitution and assert (with the same polarity as in MCSAT)
- */
-void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
-  term_t assertion_term = variable_db_get_term(solver->ctx->var_db, var);
-  const mcsat_value_t* var_value = trail_get_value(solver->ctx->trail, var);
-  assert(var_value->type == VALUE_BOOLEAN);
-  if (!var_value->b) {
-    assertion_term = opposite_term(assertion_term);
-  }
+/** Just check assertions and return true if SAT */
+bool bv_solver_check(bv_core_solver_t* solver) {
+  smt_status_t status = yices_check_context(solver->yices_ctx, NULL);
+  if (status == STATUS_UNSAT) return false;
+  if (status == STATUS_SAT) return true;
+  assert(false);
+  return false;
+}
+
+void bv_solver_assert_term(bv_core_solver_t* solver, variable_t assertion_term) {
   assertion_term = substitution_run_fwd(&solver->subst, assertion_term, 0);
   if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
     FILE* out = trace_out(solver->yices_ctx->trace);
@@ -373,6 +373,19 @@ void bv_solver_assert(bv_core_solver_t* solver, variable_t var) {
     ctx_trace_term(solver->ctx, assertion_term);
   }
   yices_assert_formula(solver->yices_ctx, assertion_term);
+}
+
+/**
+ * Run the substitution and assert (with the same polarity as in MCSAT)
+ */
+void bv_solver_assert_var(bv_core_solver_t* solver, variable_t var) {
+  term_t assertion_term = variable_db_get_term(solver->ctx->var_db, var);
+  const mcsat_value_t* var_value = trail_get_value(solver->ctx->trail, var);
+  assert(var_value->type == VALUE_BOOLEAN);
+  if (!var_value->b) {
+    assertion_term = opposite_term(assertion_term);
+  }
+  bv_solver_assert_term(solver, assertion_term);
 }
 
 bool bv_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
@@ -572,7 +585,7 @@ void bv_explainer_get_conflict_all_with_yices(bv_explainer_t* exp, const ivector
   // Now assert the conflict
   for (i = 0; i < conflict_core->size; ++ i) {
     variable_t assertion_var = conflict_core->data[i];
-    bv_solver_assert(&solver, assertion_var);
+    bv_solver_assert_var(&solver, assertion_var);
   }
 
   // Solve and get the core
@@ -865,6 +878,21 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
   ivector_reset(&exp->tmp_conflict_vec);
 }
 
+void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict) {
+  // Create an instance of Yices
+  ctx_config_t* config = yices_new_config();
+  int32_t ret = yices_default_config_for_logic(config, "QF_BV");
+  (void) ret;
+  context_t*  ctx = yices_new_context(config);
+  uint32_t i;
+  for (i = 0; i < conflict->size; ++ i) {
+    yices_assert_formula(ctx, conflict->data[i]);
+  }
+  smt_status_t result = yices_check_context(ctx, NULL);
+  (void) result;
+  assert(result == STATUS_UNSAT);
+}
+
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
   bv_subtheory_t subtheory = bv_explainer_get_subtheory(exp, conflict_in);
@@ -892,8 +920,18 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     assert(false);
   }
 
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::check")) {
+    static int conflict_count = 0;
+    conflict_count ++;
+    bv_explainer_check_conflict(exp, conflict_out);
+  }
+
   // Normalize conflict
   bv_explainer_normalize_conflict(exp, conflict_out);
+
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::check")) {
+    bv_explainer_check_conflict(exp, conflict_out);
+  }
 }
 
 
