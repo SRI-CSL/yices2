@@ -338,6 +338,7 @@ mcsat_src_c := \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
 	mcsat/bv/bv_slicing.c \
+	mcsat/bv/bv_arith.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
