@@ -28,7 +28,7 @@
 
 #define MAX_NUMERATOR (INT32_MAX>>1)
 #define MIN_NUMERATOR (-MAX_NUMERATOR)
-#define MAX_DENOMINATOR (MAX_NUMERATOR>>1)  //IAM: did not lose sleep over this. Is it right though??
+#define MAX_DENOMINATOR MAX_NUMERATOR
 
 
 /*
@@ -39,7 +39,7 @@ static void convert_int32_test(neorational_t *r1) {
   uint32_t b;
   neorational_t check;
 
-  if (neoq_get_int32(r1, &a, &b)  && b <= MAX_DENOMINATOR) {
+  if (neoq_get_int32(r1, &a, &b)) {
     printf("Rational: ");
     neoq_print(stdout, r1);
     printf(" decomposed to %"PRId32"/%"PRIu32" (32 bits)\n", a, b);
@@ -63,7 +63,7 @@ static void convert_int32_test(neorational_t *r1) {
     printf("Rational: ");
     neoq_print(stdout, r1);
     printf(" not convertible to 32bit integers\n");
-    if (false && neoq_fits_int32(r1)) {
+    if (neoq_fits_int32(r1)) {
       printf("---> BUG C\n");
       fflush(stdout);
       exit(1);
@@ -77,7 +77,7 @@ static void convert_int64_test(neorational_t *r1) {
   uint64_t b;
   neorational_t check;
 
-  if (neoq_get_int64(r1, &a, &b) && b <= MAX_DENOMINATOR) {
+  if (neoq_get_int64(r1, &a, &b)) {
     printf("Rational: ");
     neoq_print(stdout, r1);
     printf(" decomposed to %"PRId64"/%"PRIu64" (64 bits)\n", a, b);
@@ -101,7 +101,7 @@ static void convert_int64_test(neorational_t *r1) {
     printf("Rational: ");
     neoq_print(stdout, r1);
     printf(" not convertible to 64bit integers\n");
-    if (false && neoq_fits_int64(r1)) {
+    if (neoq_fits_int64(r1)) {
       printf("---> BUG C\n");
       fflush(stdout);
       exit(1);
