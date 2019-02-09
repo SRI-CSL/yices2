@@ -622,6 +622,9 @@ int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
 
 int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
+/*
+ * FULL MODEL: NODES AND VALUE DESCRIPTORS
+ */
 
 
 

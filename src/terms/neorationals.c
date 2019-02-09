@@ -96,7 +96,7 @@ void cleanup_neorationals(void){
  */
 #define MAX_NUMERATOR (INT32_MAX>>1)
 #define MIN_NUMERATOR (-MAX_NUMERATOR)
-#define MAX_DENOMINATOR (MAX_NUMERATOR>>1)  //IAM: did not lose sleep over this. Is it right though??
+#define MAX_DENOMINATOR MAX_NUMERATOR
 
 /*
  * Convert mpq to a pair of integers if possible.
@@ -1764,9 +1764,6 @@ bool neoq_get_int32(neorational_t *r, int32_t *num, uint32_t *den) {
     q = get_gmp(r);
     if (mpq_fits_int32(*q)) {
       mpq_get_int32(*q, num, den);
-      if(*den > MAX_DENOMINATOR){  //IAM: hacky
-	return false;
-      }
       return true;
     }
   }
@@ -1808,18 +1805,8 @@ bool neoq_is_int64(neorational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int64(*get_gmp(r)));
 }
 
-bool neoq_fits_int32(neorational_t *r) {  //IAM: do we really want this?
-  if(is_rat32(r)){
-    return true;
-  } else if(mpq_fits_int32(*get_gmp(r))){
-    int32_t num;
-    uint32_t den;
-    mpq_get_int32(*get_gmp(r), &num, &den);
-    return den <= MAX_DENOMINATOR;
-  } else {
-    return false;
-  }
-  //return is_rat32(r) || mpq_fits_int32(*get_gmp(r));
+bool neoq_fits_int32(neorational_t *r) {
+  return is_rat32(r) || mpq_fits_int32(*get_gmp(r));
 }
 
 bool neoq_fits_int64(neorational_t *r) {

@@ -9767,15 +9767,19 @@ int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 /*
  * Vectors of node descriptors
  */
+//MT_PROTECT(,  v->lock, ); //IAM: ???
+//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_init_yval_vector(yval_vector_t *v) {
   init_yval_vector(v);
 }
 
 //MT_PROTECT(,  v->lock, ); //IAM: ???
+//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_reset_yval_vector(yval_vector_t *v) {
   reset_yval_vector(v);
 }
 
+//MT_PROTECT(,  v->lock, ); //IAM: ???
 //MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
   delete_yval_vector(v);

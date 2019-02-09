@@ -94,9 +94,10 @@ For  Discussion:
 Ian's current idea is that we have a configure flag for thread safety and it requires HAVE_TLS,
 and is currently incompatible with --enable-mcsat.
 
+also little endian vs big endian is important in the neorationals.
+
 
 //BD: for the time being only one parser (maybe later a parser per thread would be OK)
-
 
 Ian says: if we protect the context checking operations with the global lock,
 we prevent concurrent computation. Discuss.
@@ -104,6 +105,8 @@ we prevent concurrent computation. Discuss.
 Ian says: I make an effort to avoid it in the unsat_core api call and it seems to work.  Discuss.
 
 Ian says: Not sure what the right approach is for test_neorational_conversions.c. Advice.
+
+*** Remove my hack checks, and revert back to original INCLUDING unchanged MAX_DENOMINATOR
 
 Ian says:
 
