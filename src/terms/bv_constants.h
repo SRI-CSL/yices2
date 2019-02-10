@@ -650,6 +650,12 @@ static inline void bvconstant_negate(bvconstant_t *a) {
   bvconst_negate(a->data, a->width);
 }
 
+static inline bool bvconstant_le(bvconstant_t *a,bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  return bvconst_le(a->data, b->data, a->bitsize);
+}
+
 /*
  * Extract subvector data[l..(h-1)] and store it in a
  * - a must have width >= ceil((h - l) / 32)
