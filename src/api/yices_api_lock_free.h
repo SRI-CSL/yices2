@@ -37,8 +37,6 @@ typedef void lp_algebraic_number_t;
 /*
  * LOCK FREE VERSIONS OF YICES_API CALLS
  *
- * IAM: Those routines below that are not used in parser_utils/term_stack2 could
- * be declared static. Is this worth it?
  *
  */
 
@@ -600,102 +598,102 @@ extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const te
  *  VALUES IN A MODEL   *
  ***********************/
 
-int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
+extern int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
 
-int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
+extern int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
 
-int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
+extern int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
 
-int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
+extern int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
 
-int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
+extern int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
 
-int32_t _o_yices_get_double_value(model_t *mdl, term_t t, double *val);
+extern int32_t _o_yices_get_double_value(model_t *mdl, term_t t, double *val);
 
-int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
+extern int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 
-int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+extern int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
 
-int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
+extern int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
 
-int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
+extern int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
 
-int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
+extern int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
 /*
  * FULL MODEL: NODES AND VALUE DESCRIPTORS
  */
 
-int32_t _o_yices_get_value(model_t *mdl, term_t t, yval_t *val);
+extern int32_t _o_yices_get_value(model_t *mdl, term_t t, yval_t *val);
 
-int32_t _o_yices_val_is_int32(model_t *mdl, const yval_t *v);
+extern int32_t _o_yices_val_is_int32(model_t *mdl, const yval_t *v);
 
-int32_t _o_yices_val_is_int64(model_t *mdl, const yval_t *v);
+extern int32_t _o_yices_val_is_int64(model_t *mdl, const yval_t *v);
 
-int32_t _o_yices_val_is_rational32(model_t *mdl, const yval_t *v);
+extern int32_t _o_yices_val_is_rational32(model_t *mdl, const yval_t *v);
 
-int32_t _o_yices_val_is_rational64(model_t *mdl, const yval_t *v);
+extern int32_t _o_yices_val_is_rational64(model_t *mdl, const yval_t *v);
 
-int32_t _o_yices_val_is_integer(model_t *mdl, const yval_t *v);
+extern int32_t _o_yices_val_is_integer(model_t *mdl, const yval_t *v);
 
-uint32_t _o_yices_val_bitsize(model_t *mdl, const yval_t *v);
+extern uint32_t _o_yices_val_bitsize(model_t *mdl, const yval_t *v);
 
-uint32_t _o_yices_val_tuple_arity(model_t *mdl, const yval_t *v);
+extern uint32_t _o_yices_val_tuple_arity(model_t *mdl, const yval_t *v);
 
-uint32_t _o_yices_val_mapping_arity(model_t *mdl, const yval_t *v);
+extern uint32_t _o_yices_val_mapping_arity(model_t *mdl, const yval_t *v);
 
-uint32_t _o_yices_val_function_arity(model_t *mdl, const yval_t *v);
+extern uint32_t _o_yices_val_function_arity(model_t *mdl, const yval_t *v);
 
-type_t _o_yices_val_function_type(model_t *mdl, const yval_t *v);
+extern type_t _o_yices_val_function_type(model_t *mdl, const yval_t *v);
 
-int32_t _o_yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
+extern int32_t _o_yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
 
-int32_t _o_yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
+extern int32_t _o_yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
 
-int32_t _o_yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val);
+extern int32_t _o_yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val);
 
-int32_t _o_yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
+extern int32_t _o_yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
 
-int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
+extern int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
 
-int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
+extern int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 
-int32_t _o_yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+extern int32_t _o_yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
 
-int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
+extern int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
 
-int32_t _o_yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
+extern int32_t _o_yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
 
-int32_t _o_yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a);
+extern int32_t _o_yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a);
 
-int32_t _o_yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
+extern int32_t _o_yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
 
-int32_t _o_yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
+extern int32_t _o_yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
 
-int32_t _o_yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val);
+extern int32_t _o_yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val);
 
-int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
+extern int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
 
 /*
  * VALUES AS CONSTANT TERMS
  */
 
-term_t _o_yices_get_value_as_term(model_t *mdl, term_t t);
+extern term_t _o_yices_get_value_as_term(model_t *mdl, term_t t);
 
 
 /*
  * TEST TRUTH-VALUE OF BOOLEAN TERMS
  */
 
-int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f);
+extern int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f);
 
-int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
+extern int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
 
 /*
  * ARRAYS
  */
 
-int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
+extern int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
 
 
 /*
@@ -703,19 +701,19 @@ int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], te
  */
 
 
-int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v);
+extern int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v);
 
-int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+extern int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
 /*
  * MODEL GENERALIZATION
  */
 
-int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+extern int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 				  yices_gen_mode_t mode, term_vector_t *v);
 
 
-term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+extern term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
 				       yices_gen_mode_t mode, term_vector_t *v);
 
 
