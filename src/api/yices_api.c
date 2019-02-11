@@ -1039,6 +1039,14 @@ EXPORTED void yices_exit(void) {
     delete_sparse_array(&the_root_types);
   }
 
+
+  delete_term_manager(__yices_globals.manager);
+  delete_term_table(__yices_globals.terms);
+  delete_pprod_table(__yices_globals.pprods);
+  delete_type_table(__yices_globals.types);
+
+  clear_globals(&__yices_globals);
+
   free_bvlogic_buffer_list();
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
@@ -1047,13 +1055,6 @@ EXPORTED void yices_exit(void) {
   free_context_list();
   free_model_list();
   free_generic_list();
-
-  delete_term_manager(__yices_globals.manager);
-  delete_term_table(__yices_globals.terms);
-  delete_pprod_table(__yices_globals.pprods);
-  delete_type_table(__yices_globals.types);
-
-  clear_globals(&__yices_globals);
 
   delete_list_locks();
 
@@ -8483,11 +8484,19 @@ void yices_internalization_error(int32_t code) {
  */
 //MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  ctx->lock, );
+
+static inline bool _o_yices_assert_formula_checks(term_t t) {
+  return check_good_term(__yices_globals.manager, t) && check_boolean_term(__yices_globals.manager, t);
+}
+
+static inline bool yices_assert_formula_checks(term_t t) {
+  MT_PROTECT(bool,  __yices_globals.lock, _o_yices_assert_formula_checks(t));
+}
+
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
 
-  if (! check_good_term(__yices_globals.manager, t) ||
-      ! check_boolean_term(__yices_globals.manager, t)) {
+  if (!yices_assert_formula_checks(t)) { 
     return -1;
   }
 
@@ -9406,10 +9415,12 @@ typedef struct arithval_struct_s {
 } arithval_struct_t;
 
 
+
 /*
  * Auxiliary function: return the rational value of t
  * - store the result in *r
  * - if there's an error, set r->tag to ERROR and store an error report
+ * - IAM: don't see that happening in the yices_get_arith_value_checks code!
  */
 static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) {
   value_table_t *vtbl;
@@ -9419,7 +9430,7 @@ static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) 
   r->val.q = NULL;
 
   if (! check_good_term(__yices_globals.manager, t) ||
-      ! check_arith_term(__yices_globals.manager, t)) {
+      ! check_arith_term(__yices_globals.manager, t)){
     return;
   }
 
@@ -9459,7 +9470,6 @@ static bool arithval_is_rational(const arithval_struct_t *r) {
 }
 
 // return the value as a 32bit integer
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_int32_value(mdl, t, val));
@@ -9767,20 +9777,14 @@ int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 /*
  * Vectors of node descriptors
  */
-//MT_PROTECT(,  v->lock, ); //IAM: ???
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_init_yval_vector(yval_vector_t *v) {
   init_yval_vector(v);
 }
 
-//MT_PROTECT(,  v->lock, ); //IAM: ???
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_reset_yval_vector(yval_vector_t *v) {
   reset_yval_vector(v);
 }
 
-//MT_PROTECT(,  v->lock, ); //IAM: ???
-//MT_PROTECT(,  __yices_globals.lock, );
 EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
   delete_yval_vector(v);
 }
