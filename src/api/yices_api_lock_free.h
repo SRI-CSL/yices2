@@ -626,6 +626,61 @@ int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
  * FULL MODEL: NODES AND VALUE DESCRIPTORS
  */
 
+int32_t _o_yices_get_value(model_t *mdl, term_t t, yval_t *val);
+
+int32_t _o_yices_val_is_int32(model_t *mdl, const yval_t *v);
+
+int32_t _o_yices_val_is_int64(model_t *mdl, const yval_t *v);
+
+int32_t _o_yices_val_is_rational32(model_t *mdl, const yval_t *v);
+
+int32_t _o_yices_val_is_rational64(model_t *mdl, const yval_t *v);
+
+int32_t _o_yices_val_is_integer(model_t *mdl, const yval_t *v);
+
+uint32_t _o_yices_val_bitsize(model_t *mdl, const yval_t *v);
+
+uint32_t _o_yices_val_tuple_arity(model_t *mdl, const yval_t *v);
+
+uint32_t _o_yices_val_mapping_arity(model_t *mdl, const yval_t *v);
+
+uint32_t _o_yices_val_function_arity(model_t *mdl, const yval_t *v);
+
+type_t _o_yices_val_function_type(model_t *mdl, const yval_t *v);
+
+int32_t _o_yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val);
+
+int32_t _o_yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val);
+
+int32_t _o_yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val);
+
+int32_t _o_yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den);
+
+int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den);
+
+int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
+
+int32_t _o_yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+
+int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
+
+int32_t _o_yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]);
+
+int32_t _o_yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a);
+
+int32_t _o_yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau);
+
+int32_t _o_yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]);
+
+int32_t _o_yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val);
+
+int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v);
+
+/*
+ * VALUES AS CONSTANT TERMS
+ */
+
+
 
 
 
