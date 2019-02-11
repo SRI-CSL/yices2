@@ -10510,9 +10510,12 @@ int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def,
 /*
  * Value of term t converted to a constant term val.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_get_value_as_term(mdl, t));
+}
+
+term_t _o_yices_get_value_as_term(model_t *mdl, term_t t) {
   value_table_t *vtbl;
   value_t v;
   term_t a;
@@ -10555,9 +10558,12 @@ EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
  * Error codes:
  * - same as get_bool_val
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_formula_true_in_model(model_t *mdl, term_t f) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_formula_true_in_model(mdl, f));
+}
+
+int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f) {
   int32_t code;
 
   if (! check_good_term(__yices_globals.manager, f) ||
@@ -10588,9 +10594,12 @@ EXPORTED int32_t yices_formula_true_in_model(model_t *mdl, term_t f) {
  * Error code:
  * - same as yices_get_bool_val
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_formulas_true_in_model(mdl, n, f));
+}
+
+int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]) {
   int32_t code;
 
   if (! check_good_terms(__yices_globals.manager, n, f) ||
@@ -10621,9 +10630,12 @@ EXPORTED int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const te
 /*
  * Values of terms a[0 ... n-1] all converted to terms
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_term_array_value(mdl, n, a, b));
+}
+
+int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
   int32_t eval_code;
   uint32_t count;
 
@@ -10676,9 +10688,12 @@ EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a
  * - EVAL_NO_IMPLICANT    if t is false in  mdl
  * - EVAL_FAILED          if the function fails for some other reason
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_implicant_for_formula(mdl, t, v));
+}
+
+int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v) {
   int32_t code;
 
   if (! check_good_term(__yices_globals.manager, t) ||
@@ -10701,9 +10716,12 @@ EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector
 /*
  * Same thing for an array of formulas a[0 ... n-1]
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_implicant_for_formulas(mdl, n, a, v));
+}
+
+int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
   int32_t code;
 
   if (! check_good_terms(__yices_globals.manager, n, a) ||
@@ -10774,9 +10792,13 @@ static inline error_code_t yices_gen_error(int32_t v) {
  * - v: term_vector to return the result
  *
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+					yices_gen_mode_t mode, term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_generalize_model(mdl, t, nelims, elim, mode, v));
+}
+
+int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 					yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
 
@@ -10814,9 +10836,13 @@ EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims,
 /*
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
-//MT_PROTECT(,  __yices_globals.lock, );
 //MT_PROTECT(,  mdl->lock, );
 EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					     yices_gen_mode_t mode, term_vector_t *v) {
+  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_generalize_model_array(mdl, n, a, nelims, elim, mode, v));
+}
+
+term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
 					     yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
 

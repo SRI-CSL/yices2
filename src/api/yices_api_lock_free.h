@@ -680,8 +680,43 @@ int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def,
  * VALUES AS CONSTANT TERMS
  */
 
+term_t _o_yices_get_value_as_term(model_t *mdl, term_t t);
 
 
+/*
+ * TEST TRUTH-VALUE OF BOOLEAN TERMS
+ */
+
+int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f);
+
+int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
+
+/*
+ * ARRAYS
+ */
+
+int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
+
+
+/*
+ * IMPLICANTS
+ */
+
+
+int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v);
+
+int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
+/*
+ * MODEL GENERALIZATION
+ */
+
+int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+				  yices_gen_mode_t mode, term_vector_t *v);
+
+
+term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+				       yices_gen_mode_t mode, term_vector_t *v);
 
 
 /*************************
