@@ -590,6 +590,7 @@ typedef struct solver_param_s {
    */
   uint32_t simplify_interval;   // Minimal number of conflicts between two calls to simplify
   uint32_t simplify_bin_delta;  // Number of new binary clauses between two SCC computations
+  uint32_t simplify_subst_delta;   // Number of substitutions before trying cut sweeping
 } solver_param_t;
 
 
@@ -782,6 +783,7 @@ typedef struct sat_solver_s {
   uint32_t simplify_binaries;  // Number of binary clauses after the last call to simplify_clause_database
   uint32_t simplify_new_bins;  // Number of binary clauses created by simplification
   uint32_t simplify_new_units; // number of unit clauses create by simplification
+  uint32_t simplify_subst_next; // Number of substitutions before the next call to try_equiv
   uint64_t simplify_next;      // Number of conflicts before the next call to simplify
 
   /*

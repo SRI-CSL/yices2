@@ -355,7 +355,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  */
 #define SIMPLIFY_INTERVAL 100
 #define SIMPLIFY_BIN_DELTA 100
-
+#define SIMPLIFY_SUBST_DELTA 40
 
 
 
@@ -2426,6 +2426,7 @@ static void init_params(solver_param_t *params) {
 
   params->simplify_interval = SIMPLIFY_INTERVAL;
   params->simplify_bin_delta = SIMPLIFY_BIN_DELTA;
+  params->simplify_subst_delta = SIMPLIFY_SUBST_DELTA;
 }
 
 /*
@@ -5757,6 +5758,8 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
     if (l1 == false_literal) l2 = not(l2);
     if (solver->verbosity >= 3) fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
     vector_push(&solver->subst_units, l2);
+  } else if (l1 == not(l2)) {
+    add_empty_clause(solver);
   } else {
     // subst[l2] := l1
     set_lit_subst(solver, l2, l1);
@@ -6057,6 +6060,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	}
 	literal_equiv(solver, l0, l1);
       }
+      if (solver->has_empty_clause) break;
     }
   }
 
@@ -6255,7 +6259,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     }
     for (;;) {
       try_equivalent_vars(solver);
-      if (n == v->size) break;
+      if (n == v->size || solver->has_empty_clause) break;
       n = v->size;
     }
 
@@ -8390,7 +8394,10 @@ static void try_scc_simplification(sat_solver_t *solver) {
     if (solver->verbosity >= 3) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n0);
     }
-    try_equivalent_vars(solver);
+    if (solver->stats.subst_vars >= solver->simplify_subst_next) {
+      try_equivalent_vars(solver);
+      solver->simplify_subst_next = solver->stats.subst_vars + solver->params.simplify_subst_delta;
+    }
     n = v->size;
 
     // equivalent_vars may add more variables to vector v
@@ -8789,6 +8796,7 @@ static void done_reduce(sat_solver_t *solver) {
 static void init_simplify(sat_solver_t *solver) {
   solver->simplify_assigned = 0;
   solver->simplify_binaries = 0;
+  solver->simplify_subst_next = 0;
   solver->simplify_next = 0;
 }
 
@@ -9111,7 +9119,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       full_restart(solver);
       report(solver, "");
     } else if (need_check(solver)) {
-      //      report(solver, "chk");
       if (switch_to_diving(solver)) {
 	full_restart(solver);
 	report(solver, "dive");
