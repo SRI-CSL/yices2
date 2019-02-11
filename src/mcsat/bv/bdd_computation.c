@@ -401,6 +401,14 @@ void bdds_mk_eq0(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
 /** out += cond*a << shift (out must be allocated) */
 void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n, uint32_t shift) {
 
+  // Constant optimization
+  if (cond != NULL) {
+    if (cond == Cudd_ReadLogicZero(cudd->cudd)) {
+      // out += zero, noop
+      return;
+    }
+  }
+
   BDD* carry = Cudd_ReadLogicZero(cudd->cudd);
   Cudd_Ref(carry);
 
@@ -972,8 +980,80 @@ bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* out) {
   return Cudd_Eval(cudd->cudd, C_x, cudd->tmp_inputs) == Cudd_ReadOne(cudd->cudd);
 }
 
+typedef enum {
+  PREFER_ZERO,
+  PREFER_ONE,
+  PREFER_RANDOM
+} pick_type_t;
+
+/**
+  Adapted from CUDD to control the picked value.
+
+  @brief Picks one on-set cube randomly from the given %DD.
+  @details The cube is written into an array of characters.  The array
+  must have at least as many entries as there are variables.
+  @return 1 if successful; 0 otherwise.
+  @sideeffect None
+  @see Cudd_bddPickOneMinterm
+*/
+int
+bdds_Cudd_bddPickOneCube(CUDD* cudd, DdNode * node, pick_type_t pick)
+{
+  DdNode *N, *T, *E;
+  DdNode *one, *bzero;
+  char dir;
+  int i;
+
+  /* The constant 0 function has no on-set cubes. */
+  one = Cudd_ReadOne(cudd->cudd);
+  bzero = Cudd_Not(one);
+
+  for (i = 0; i < cudd->tmp_alloc_size; i++)
+    cudd->tmp_model[i] = 2;
+
+  for (;;) {
+
+    if (node == one)
+      break;
+
+    N = Cudd_Regular(node);
+
+    T = Cudd_T(N);
+    E = Cudd_E(N);
+    if (Cudd_IsComplement(node)) {
+      T = Cudd_Not(T);
+      E = Cudd_Not(E);
+    }
+
+    unsigned int N_index = Cudd_NodeReadIndex(N);
+    if (T == bzero) {
+      cudd->tmp_model[N_index] = 0;
+      node = E;
+    } else if (E == bzero) {
+      cudd->tmp_model[N_index] = 1;
+      node = T;
+    } else {
+      switch (pick) {
+      case PREFER_ZERO:
+        dir = 0;
+        break;
+      case PREFER_ONE:
+        dir = 1;
+        break;
+      case PREFER_RANDOM:
+        dir = (char) ((Cudd_Random(cudd->cudd) & 0x2000) >> 13);
+        break;
+      }
+      cudd->tmp_model[N_index] = dir;
+      node = dir ? T : E;
+    }
+  }
+  return (1);
+
+} /* end of Cudd_bddPickOneCube */
+
 void bdds_get_model(CUDD* cudd, BDD** x, BDD* C_x, bvconstant_t* out) {
-  Cudd_bddPickOneCube(cudd->cudd, C_x, cudd->tmp_model);
+  bdds_Cudd_bddPickOneCube(cudd, C_x, PREFER_RANDOM);
   // Set the ones in the cube
   for (uint32_t i = 0; i < out->bitsize; ++ i) {
     unsigned int x_i = Cudd_NodeReadIndex(x[i]);

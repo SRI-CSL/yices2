@@ -75,7 +75,7 @@ void bdds_mk_repeat(CUDD* cudd, BDD** out, BDD* b, uint32_t n);
 /** Make a constant 0...0 BDD. */
 void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n);
 
-/** Make a constant 0...01 BDD. */
+  /** Make a constant 0...01 BDD. */
 void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n);
 
 /** Make a constant BDD. */
