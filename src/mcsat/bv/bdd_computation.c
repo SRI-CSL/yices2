@@ -229,6 +229,68 @@ void bdds_mk_constant(CUDD* cudd, BDD** out, uint32_t n, const bvconstant_t* c) 
   }
 }
 
+bool bdds_is_constant(CUDD* cudd, BDD** a, uint32_t n) {
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (!Cudd_IsConstant(a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_zero(CUDD* cudd, BDD** a, uint32_t n) {
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (a[i] != zero) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_one(CUDD* cudd, BDD** a, uint32_t n) {
+  if (a[0] != Cudd_ReadOne(cudd->cudd)) {
+    return false;
+  }
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  for (uint32_t i = 1; i < n; ++i) {
+    if (a[i] != zero) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_neg_one(CUDD* cudd, BDD** a, uint32_t n) {
+  BDD* one = Cudd_ReadOne(cudd->cudd);
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (a[i] != one) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int32_t bdds_is_constant_pow2(CUDD* cudd, BDD** a, uint32_t n) {
+  int32_t pow = -1;
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  BDD* one = Cudd_ReadOne(cudd->cudd);
+  for (int32_t i = 0; i < n; ++ i) {
+    if (a[i] == zero && pow == -1) {
+      continue;
+    }
+    if (a[i] == one && pow == -1) {
+      pow = i;
+      continue;
+    }
+    // Not a power
+    pow = -1;
+    break;
+  }
+  return pow;
+}
+
+
 void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
@@ -272,6 +334,18 @@ void bdds_mk_2s_complement(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   }
 
   Cudd_IterDerefBdd(cudd->cudd, carry);
+}
+
+void bdds_mk_shl_const(CUDD* cudd, BDD** out, BDD** a, uint32_t shift, uint32_t n) {
+  for (uint32_t i = 0; i < n; ++ i) {
+    assert(out[i] == NULL);
+    if (i < shift) {
+      out[i] = Cudd_ReadLogicZero(cudd->cudd);
+    } else {
+      out[i] = a[i-shift];
+    }
+    Cudd_Ref(out[i]);
+  }
 }
 
 void bdds_mk_shl(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
@@ -443,12 +517,46 @@ void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n
 }
 
 void bdds_mk_plus(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  bool a_is_const = bdds_is_constant(cudd, a, n);
+  bool b_is_const = bdds_is_constant(cudd, b, n);
+  if (a_is_const && !b_is_const) {
+    // Work with b as const
+    BDD** tmp = a; a = b; b = tmp;
+  }
   bdds_copy(out, a, n);
   bdds_mk_plus_in_place(cudd, out, b, NULL, n, 0);
 }
 
 /** Multiplication with repeated addition (we index over bits of b) */
 void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  // Check for constants
+  bool a_is_const = bdds_is_constant(cudd, a, n);
+  bool b_is_const = bdds_is_constant(cudd, b, n);
+  if (a_is_const && !b_is_const) {
+    // Work with b as const
+    BDD** tmp = a; a = b; b = tmp;
+  }
+  // Ok now, check for special constants
+  if (b_is_const) {
+    if (bdds_is_constant_zero(cudd, b, n)) {
+      // a*0 = 0
+      bdds_mk_zero(cudd, out, n);
+      return;
+    }
+    if (bdds_is_constant_one(cudd, b, n)) {
+      bdds_copy(out, a, n);
+      return;
+    }
+    int32_t b_pow = bdds_is_constant_pow2(cudd, b, n);
+    if (b_pow > 0) {
+      bdds_mk_shl_const(cudd, out, a, b_pow, n);
+      return;
+    }
+    if (bdds_is_constant_neg_one(cudd, b, n)) {
+      bdds_mk_2s_complement(cudd, out, a, n);
+      return;
+    }
+  }
   bdds_mk_zero(cudd, out, n);
   for(uint32_t k = 0; k < n; ++ k) {
     bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
