@@ -1114,9 +1114,9 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
 
   assert(l < h);
 
-  i = l >> 5;
+  i = l >> 5; //first index we will read, then incremented
   r = l & 0x1f;
-  e = (h%32 == 0)?((h >> 5)-1):(h >> 5);
+  e = (h-1) >> 5; // last index we will read
 
   assert(i <= e);
   aux = (uint64_t) a[i];
@@ -1127,7 +1127,10 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
     aux >>= 32;
     bv ++;
   }
-  *bv = (uint32_t)(aux >> r);
+
+  if ((h-l)%32 > 0) { // If number of bits to write is not a multiple of 32, there's one more word to write
+    *bv = (uint32_t)(aux >> r);
+  }
 }
 
 
