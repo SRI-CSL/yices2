@@ -24,6 +24,10 @@ BD: do we want to make thread safety  an "option"  (BD yes to a configure option
 BD: overhead of error_report vs new blocks? (BD: fine as is for now.)
 
 
+Looks like the neorationals cause this to loop?
+
+tests/regress/coverage/random/QF_AUFLIA/046e3bb4.smt2
+
 
 N.B.:
 

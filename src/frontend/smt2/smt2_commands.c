@@ -3872,6 +3872,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->verbosity = 0;
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
+  g->nthreads = 0;
   g->timeout = 0;
   g->timeout_initialized = false;
   g->interrupted = false;
@@ -3994,6 +3995,13 @@ void init_smt2(bool benchmark, uint32_t timeout, bool print_success) {
   __smt2_globals.print_success = print_success;
   check_stack(&__smt2_globals);
 }
+
+void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool print_success){
+  init_smt2(benchmark, timeout, print_success);
+  __smt2_globals.nthreads = nthreads;
+  fprintf(stderr, "nthreads = %"PRIu32"\n", nthreads);
+}
+
 
 
 /*
@@ -5512,7 +5520,13 @@ void smt2_check_sat(void) {
 	delayed_assertions_unsat_core(&__smt2_globals);
       } else {
 	//	show_delayed_assertions(&__smt2_globals);
-	check_delayed_assertions(&__smt2_globals);
+	if(__smt2_globals.nthreads == 0){
+	  check_delayed_assertions(&__smt2_globals);
+	} else {
+	  //mayhem
+	  fprintf(stderr, "mayhem\n");
+	  check_delayed_assertions(&__smt2_globals);
+	}
       }
     } else {
       /*

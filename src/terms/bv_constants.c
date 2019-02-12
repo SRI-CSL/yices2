@@ -518,10 +518,10 @@ void bvconst_get_mpz(const uint32_t *bv, uint32_t k, mpz_t z) {
 void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r) {
   assert(q_is_integer(r));
 
-  if (r->den == 1) {
-    bvconst_set32(bv, k, r->num);
+  if (is_rat32(r)) {
+    bvconst_set32(bv, k, get_num(r));
   } else {
-    bvconst_set_mpz(bv, k, mpq_numref(get_mpq(r->num)));
+    bvconst_set_mpz(bv, k, mpq_numref(get_mpq_ptr(r)));  //IAM: FIXME: this probably won't work with the paleo/neo definition.
   }
 }
 
