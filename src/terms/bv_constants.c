@@ -521,7 +521,7 @@ void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r) {
   if (is_rat32(r)) {
     bvconst_set32(bv, k, get_num(r));
   } else {
-    bvconst_set_mpz(bv, k, mpq_numref(get_mpq_ptr(r)));  //IAM: FIXME: this probably won't work with the paleo/neo definition.
+    bvconst_set_mpz(bv, k, mpq_numref(get_gmp(r)));
   }
 }
 

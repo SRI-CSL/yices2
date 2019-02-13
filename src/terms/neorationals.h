@@ -108,46 +108,37 @@ static inline bool is_ratgmp(const rational_t *r) {
   return (r->p.gmp & IS_RATGMP) == IS_RATGMP;
 }
 
-static inline mpq_t *get_gmp(const rational_t *r) {
-  if(is_ratgmp(r)){
-    return (mpq_t  *)(r->p.gmp ^ IS_RATGMP);
-  } else {
-    return 0;
-  }
-}
+static inline mpq_ptr get_gmp(const rational_t *r) {
 
-static inline mpq_ptr get_mpq_ptr(const rational_t *r) {
-  if(is_ratgmp(r)){
-    return *((mpq_t  *)(r->p.gmp ^ IS_RATGMP));
-  } else {
-    return 0;
-  }
+  assert(is_ratgmp(r));
+  
+  return ((mpq_ptr)(r->p.gmp ^ IS_RATGMP));
 }
 
 static inline int32_t get_num(const rational_t *r) {
-  if(is_rat32(r)){
-    return r->s.num;
-  } else {
-    return 0;
-  }
+
+  assert(is_rat32(r));
+  
+  return r->s.num;
 }
 
 static inline uint32_t get_den(const rational_t *r) {
-  if(is_rat32(r)){
-    return r->s.den >> 1;
-  } else {
-    return 0;
-  }
+
+  assert(is_rat32(r));
+
+  return r->s.den >> 1;
 }
 
-//is this used?
+/* FIXME: delete me
+//is this used? 
 static inline void set_rat32(rational_t *r, int32_t num,  uint32_t den){
   //clear it first?
   r->s.num = num;
   r->s.den = (den << 1);
 }
+*/
 
-static inline void set_ratgmp(rational_t *r, mpq_t *gmp){
+static inline void set_ratgmp(rational_t *r, mpq_ptr gmp){
   r->p.gmp = ((intptr_t)gmp) | IS_RATGMP;
 }
 
@@ -155,11 +146,16 @@ static inline void set_ratgmp(rational_t *r, mpq_t *gmp){
  * Allocates a new mpq object. (in case we pool them later)
  *
  */
-static inline mpq_t* new_mpq(){
-  mpq_t* retval;
+static inline mpq_ptr new_mpq(void){
+  mpq_ptr retval;
 
   retval = safe_malloc(sizeof(mpq_t));
-  mpq_init(*retval);
+
+  if((void *)0xb139d0 == retval){
+    fprintf(stderr, "HERE\n");
+  }
+  
+  mpq_init2(retval, 64);
   return retval;
 }
 
@@ -168,12 +164,12 @@ static inline mpq_t* new_mpq(){
  *
  */
 static inline void release_mpq(rational_t *r){
-  mpq_t *q;
+  mpq_ptr q;
 
   assert(is_ratgmp(r));
 
-  q = (mpq_t *)get_gmp(r);
-  mpq_clear(*q);
+  q = get_gmp(r);
+  mpq_clear(q);
   safe_free(q);
 }
 
@@ -410,10 +406,7 @@ extern void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y);
  */
 static inline int q_sgn(rational_t *r) { //IAM: So why isn't this declared "const"????????
   if (is_ratgmp(r)) {
-    mpq_t *q;
-
-    q = get_gmp(r);
-    return mpq_sgn(*q);
+    return mpq_sgn(get_gmp(r));
   } else {
     return (r->s.num < 0 ? -1 : (r->s.num > 0));
   }
@@ -484,41 +477,41 @@ extern bool q_opposite(const rational_t *r1, const rational_t *r2);
  * Tests on rational r
  */
 static inline bool q_is_zero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_zero(get_mpq_ptr(r)) : r->s.num == 0;
+  return is_ratgmp(r) ? mpq_is_zero(get_gmp(r)) : r->s.num == 0;
 }
 
 static inline bool q_is_nonzero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_nonzero(get_mpq_ptr(r)) : r->s.num != 0;
+  return is_ratgmp(r) ? mpq_is_nonzero(get_gmp(r)) : r->s.num != 0;
 }
 
 static inline bool q_is_one(const rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == 1) ||
-    (is_ratgmp(r) && mpq_is_one(get_mpq_ptr(r)));
+    (is_ratgmp(r) && mpq_is_one(get_gmp(r)));
 }
 
 static inline bool q_is_minus_one(const rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == -1) ||
-    (is_ratgmp(r) && mpq_is_minus_one(get_mpq_ptr(r)));
+    (is_ratgmp(r) && mpq_is_minus_one(get_gmp(r)));
 }
 
 static inline bool q_is_pos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num > 0 : mpq_is_pos(get_mpq_ptr(r)));
+  return (is_rat32(r) ?  r->s.num > 0 : mpq_is_pos(get_gmp(r)));
 }
 
 static inline bool q_is_nonneg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num >= 0 : mpq_is_nonneg(get_mpq_ptr(r)));
+  return (is_rat32(r) ?  r->s.num >= 0 : mpq_is_nonneg(get_gmp(r)));
 }
 
 static inline bool q_is_neg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num < 0 : mpq_is_neg(get_mpq_ptr(r)));
+  return (is_rat32(r) ?  r->s.num < 0 : mpq_is_neg(get_gmp(r)));
 }
 
 static inline bool q_is_nonpos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num <= 0 : mpq_is_nonpos(get_mpq_ptr(r)));
+  return (is_rat32(r) ?  r->s.num <= 0 : mpq_is_nonpos(get_gmp(r)));
 }
 
 static inline bool q_is_integer(const rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_integer(get_mpq_ptr(r)));
+  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_integer(get_gmp(r)));
 }
 
 

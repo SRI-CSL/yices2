@@ -133,7 +133,7 @@ static inline mpq_ptr get_mpq_ptr(const rational_t *r) {
   if(is_ratgmp(r)){
     return get_mpq(r->num);
   } else {
-    return 0;
+    return NULL;
   }
 }
 

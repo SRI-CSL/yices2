@@ -206,7 +206,7 @@ void string_buffer_append_mpq(string_buffer_t *s, mpq_t q) {
 
 void string_buffer_append_rational(string_buffer_t *s, rational_t *r) {
   if (is_ratgmp(r)) {
-    string_buffer_append_mpq(s, get_mpq_ptr(r)); //IAM: FIXME: this probably won't work with the paleo/neo definition.
+    string_buffer_append_mpq(s, get_gmp(r));
   } else {
     string_buffer_append_int32(s, get_num(r));
     if (get_den(r) != 1) {
