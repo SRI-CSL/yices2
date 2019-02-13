@@ -24,7 +24,7 @@
 #endif
 
 #ifdef HAVE_CRYPTOMINISAT
-#include "cryptominisat5/cryptominisat_c.h"
+#include "cryptominisat5/cmsat_c.h"
 #endif
 
 #include "solvers/cdcl/delegate.h"
@@ -186,7 +186,7 @@ static smt_status_t cadical_check(void *solver) {
 static bval_t cadical_get_value(void *solver, bvar_t x) {
   int v;
 
-  v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical
+  v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical = positive literal
   // v = value assigned in cadical: -1 means false, +1 means true, 0 means unknown
   return (v < 0) ? VAL_FALSE : (v > 0) ? VAL_TRUE : VAL_UNDEF_FALSE;
 }
@@ -244,73 +244,63 @@ static void cryptominisat_add_empty_clause(void *solver) {
 }
 
 static void cryptominisat_add_unit_clause(void *solver, literal_t l) {
-  c_Lit c[1];
-  c[0].x = l;
+  uint32_t c[1];
+
+  assert(l >= 0);
+  c[0] = l;
   cmsat_add_clause(solver, c, 1);
 }
 
 static void cryptominisat_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
-  c_Lit c[2];
-  c[0].x = l1;
-  c[1].x = l2;
+  uint32_t c[2];
+
+  assert(l1 >= 0 && l2 >= 0);
+  c[0] = l1;
+  c[1] = l2;
   cmsat_add_clause(solver, c, 2);
 }
 
 static void cryptominisat_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
-  c_Lit c[3];
+  uint32_t c[3];
 
-  c[0].x = l1;
-  c[1].x = l2;
-  c[2].x = l3;
+  assert(l1 >= 0 && l2 >= 0 && l3 >= 0);
+  c[0] = l1;
+  c[1] = l2;
+  c[2] = l3;
   cmsat_add_clause(solver, c, 3);
 }
 
 static void cryptominisat_add_clause(void *solver, uint32_t n, literal_t *a) {
-  c_Lit c[32];
-  c_Lit *aux;
-  uint32_t i;
-
-  aux = c;
-  if (n > UINT32_MAX/sizeof(c_Lit)) {
-    out_of_memory();
-  } else if (n > 32) {
-    aux = (c_Lit *) safe_malloc(n * sizeof(c_Lit));
-  }
-
-  for (i=0; i<n; i++) {
-    aux[i].x = a[i];
-  }
-  cmsat_add_clause(solver, aux, n);
-
-  if (n > 32) {
-    safe_free(aux);
-  }
+  cmsat_add_clause(solver, (uint32_t*) a, n);
 }
 
 static smt_status_t cryptominisat_check(void *solver) {
-  c_lbool result = cmsat_solve(solver);
-  switch (result.x) {
-  case L_TRUE: return STATUS_SAT;
-  case L_FALSE: return STATUS_UNSAT;
+  switch (cmsat_solve(solver)) {
+  case CMSAT_SAT: return STATUS_SAT;
+  case CMSAT_UNSAT: return STATUS_UNSAT;
   default: return STATUS_UNKNOWN;
   }
 }
 
 static bval_t cryptominisat_get_value(void *solver, bvar_t x) {
-  // TBD
-  return VAL_UNDEF_FALSE;
+  switch (cmsat_var_value(solver, x)) {
+  case CMSAT_VAL_TRUE: return VAL_TRUE;
+  case CMSAT_VAL_FALSE: return VAL_FALSE;
+  default : return VAL_UNDEF_FALSE;
+  }
 }
 
 static void cryptominisat_set_verbosity(void *solver, uint32_t level) {
-  // verbosity 0 --> nothing (quiet = true)
+  // verbosity 0 --> quiet (this is the default)
+  cmsat_set_verbosity(solver, level);
 }
 
 static void cryptominisat_delete(void *solver) {
-  cmsat_free(solver);
+  cmsat_free_solver(solver);
 }
 
 static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
-  d->solver = cmsat_new();
+  d->solver = cmsat_new_solver();
   cmsat_new_vars(d->solver, nvars);
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cryptominisat_add_empty_clause;
