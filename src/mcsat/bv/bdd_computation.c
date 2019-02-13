@@ -461,7 +461,7 @@ void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
 void bdds_mk_eq0(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
-  BDD* result = Cudd_ReadLogicZero(cudd->cudd);
+  BDD* result = Cudd_ReadOne(cudd->cudd);
   Cudd_Ref(result);
   for (uint32_t i = 0; i < n; ++ i) {
     BDD* new_result = Cudd_bddAnd(cudd->cudd, result, Cudd_Not(a[i]));
@@ -527,6 +527,14 @@ void bdds_mk_plus(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   bdds_mk_plus_in_place(cudd, out, b, NULL, n, 0);
 }
 
+static
+void bdds_mk_mult_core(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  bdds_mk_zero(cudd, out, n);
+  for(uint32_t k = 0; k < n; ++ k) {
+    bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
+  }
+}
+
 /** Multiplication with repeated addition (we index over bits of b) */
 void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   // Check for constants
@@ -557,10 +565,7 @@ void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
       return;
     }
   }
-  bdds_mk_zero(cudd, out, n);
-  for(uint32_t k = 0; k < n; ++ k) {
-    bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
-  }
+  bdds_mk_mult_core(cudd, out, a, b, n);
 }
 
 void bdds_mk_div_rem(CUDD* cudd, BDD** out_div, BDD** out_rem, BDD** a, BDD** b, uint32_t n) {
@@ -573,7 +578,7 @@ void bdds_mk_div_rem(CUDD* cudd, BDD** out_div, BDD** out_rem, BDD** a, BDD** b,
 
   BDD* zero = Cudd_ReadLogicZero(cudd->cudd); Cudd_Ref(zero);
   BDD* one = Cudd_ReadOne(cudd->cudd); Cudd_Ref(one);
-
+  
   // a_extended = [0..00]@a
   bdds_copy(a_extended, a, n);
   bdds_mk_zero(cudd, a_extended + n, n);
@@ -1048,6 +1053,7 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
 void bdds_mk_ge(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
+  
   // Reverse to satisfy CUDD
   bdds_reverse(a, n);
   bdds_reverse(b, n);
