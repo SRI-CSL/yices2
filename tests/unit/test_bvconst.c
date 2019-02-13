@@ -150,6 +150,12 @@ static void test_set_extend(uint32_t size1, uint32_t size2) {
   bvconst_free(bv2, w2);
 }
 
+static void print_spaces(FILE *f, uint32_t n) {
+  while (n > 0) {
+    fputc(' ', f);
+    n --;
+  }
+}
 
 int main(void) {
   int32_t i, j, n;
@@ -264,7 +270,6 @@ int main(void) {
   }
 
 
-  //  exit(0);
   for (n=20; n>0; n--) {
     random_vector(vector, 20);
     bvconst_set_array(a, vector, 20);
@@ -275,12 +280,12 @@ int main(void) {
     for (i=0; i<=20-n; i++) {
       bvconst_extract(b, a, i, i+n);
       printf("a[%2"PRId32", %2"PRId32")     = ", i, i+n);
+      print_spaces(stdout, 20-n-i);
       bvconst_print(stdout, b, n);
       printf("\n");
     }
     printf("\n");
   }
-
 
   for (n=50; n>20; n--) {
     random_vector(vector, 62);
@@ -292,6 +297,7 @@ int main(void) {
     for (i=0; i<=62-n; i++) {
       bvconst_extract(b, a, i, i+n);
       printf("a[%2"PRId32", %2"PRId32")     = ", i, i+n);
+      print_spaces(stdout, 62-n-i);
       bvconst_print(stdout, b, n);
       printf("\n");
     }
@@ -309,6 +315,7 @@ int main(void) {
     for (i=0; i<=64-n; i++) {
       bvconst_extract(b, a, i, i+n);
       printf("a[%2"PRId32", %2"PRId32")     = ", i, i+n);
+      print_spaces(stdout, 64-n-i);
       bvconst_print(stdout, b, n);
       printf("\n");
     }
