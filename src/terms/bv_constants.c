@@ -1119,7 +1119,7 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
   to_move = h - l;  // number of bits to move
 
   aux = (uint64_t) a[i];
-  while (to_move >= 32) {
+  while (to_move > 32) {
     i ++;
     aux |= ((uint64_t) a[i]) << 32;
     *bv = (uint32_t)(aux >> r);
@@ -1128,12 +1128,11 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
     to_move -= 32;
   }
 
-  if (to_move > 0) {
-    if (r > 0) {
-      aux |= ((uint64_t) a[i+1]) << 32;
-    }
-    *bv = (uint32_t)(aux >> r);
+  assert(to_move > 0);
+  if (r > 0) {
+    aux |= ((uint64_t) a[i+1]) << 32;
   }
+  *bv = (uint32_t)(aux >> r);
 }
 
 
