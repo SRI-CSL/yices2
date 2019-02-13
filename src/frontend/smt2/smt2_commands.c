@@ -5543,13 +5543,15 @@ void smt2_check_sat(void) {
 	} else {
 	  uint32_t index;
 	  //mayhem
-	  fprintf(stderr, "mayhem\n");
 	  smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
 	  for(index = 0; index < __smt2_globals.nthreads; index++){
 	    garray[index] = __smt2_globals;  //just copy them for now.
-	    launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
 	  }
-	  //check_delayed_assertions(&__smt2_globals);
+	  launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+	  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+	  check_delayed_assertions(&__smt2_globals);
+	  //could check that they are all OK
+	  safe_free(garray);
 	}
       }
     } else {
