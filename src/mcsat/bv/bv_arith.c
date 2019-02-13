@@ -43,8 +43,10 @@ void bv_arith_le(plugin_context_t* ctx, bv_evaluator_t* eval, term_t lhs, term_t
 
   uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
   const mcsat_value_t* c1_v = bv_evaluator_evaluate_term(eval, c1, &eval_level);
+  (void) c1_v;
   eval_level = 0;
   const mcsat_value_t* c2_v = bv_evaluator_evaluate_term(eval, c2, &eval_level);
+  (void) c2_v;
 
   term_t t; // Term to add to the conflict
 

@@ -312,7 +312,7 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "abs",
   "div",
   "mod",
-  "divides"
+  "divides",
   "is_int",
   "build term",
   "build type",
