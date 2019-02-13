@@ -484,41 +484,41 @@ extern bool q_opposite(const rational_t *r1, const rational_t *r2);
  * Tests on rational r
  */
 static inline bool q_is_zero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_zero(*get_gmp(r)) : r->s.num == 0;
+  return is_ratgmp(r) ? mpq_is_zero(get_mpq_ptr(r)) : r->s.num == 0;
 }
 
 static inline bool q_is_nonzero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_nonzero(*get_gmp(r)) : r->s.num != 0;
+  return is_ratgmp(r) ? mpq_is_nonzero(get_mpq_ptr(r)) : r->s.num != 0;
 }
 
 static inline bool q_is_one(const rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == 1) ||
-    (is_ratgmp(r) && mpq_is_one(*get_gmp(r)));
+    (is_ratgmp(r) && mpq_is_one(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_minus_one(const rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == -1) ||
-    (is_ratgmp(r) && mpq_is_minus_one(*get_gmp(r)));
+    (is_ratgmp(r) && mpq_is_minus_one(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_pos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num > 0 : mpq_is_pos(*get_gmp(r)));
+  return (is_rat32(r) ?  r->s.num > 0 : mpq_is_pos(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_nonneg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num >= 0 : mpq_is_nonneg(*get_gmp(r)));
+  return (is_rat32(r) ?  r->s.num >= 0 : mpq_is_nonneg(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_neg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num < 0 : mpq_is_neg(*get_gmp(r)));
+  return (is_rat32(r) ?  r->s.num < 0 : mpq_is_neg(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_nonpos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num <= 0 : mpq_is_nonpos(*get_gmp(r)));
+  return (is_rat32(r) ?  r->s.num <= 0 : mpq_is_nonpos(get_mpq_ptr(r)));
 }
 
 static inline bool q_is_integer(const rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_integer(*get_gmp(r)));
+  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_integer(get_mpq_ptr(r)));
 }
 
 

@@ -68,6 +68,8 @@
 #include "utils/memsize.h"
 
 
+//for ian's threading hacks
+#include "mt/threads.h"
 
 
 /*
@@ -5499,9 +5501,25 @@ void smt2_assert(term_t t, bool special) {
 }
 
 
+
+
 /*
  * Check satisfiability of the current set of assertions
  */
+
+yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* arg){
+  thread_data_t* tdata = (thread_data_t *)arg;
+  FILE* output = tdata->output;
+  smt2_globals_t *g = (smt2_globals_t *)tdata->extra;
+
+  g->out = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
+  g->err = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
+  
+  check_delayed_assertions(g);
+
+  return yices_thread_exit();
+}
+
 void smt2_check_sat(void) {
   __smt2_globals.stats.num_check_sat ++;
   __smt2_globals.stats.num_commands ++;
@@ -5523,9 +5541,15 @@ void smt2_check_sat(void) {
 	if(__smt2_globals.nthreads == 0){
 	  check_delayed_assertions(&__smt2_globals);
 	} else {
+	  uint32_t index;
 	  //mayhem
 	  fprintf(stderr, "mayhem\n");
-	  check_delayed_assertions(&__smt2_globals);
+	  smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
+	  for(index = 0; index < __smt2_globals.nthreads; index++){
+	    garray[index] = __smt2_globals;  //just copy them for now.
+	    launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+	  }
+	  //check_delayed_assertions(&__smt2_globals);
 	}
       }
     } else {

@@ -1798,19 +1798,19 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
  * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
  */
 bool q_is_int32(rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int32(*get_gmp(r)));
+  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int32(get_mpq_ptr(r)));
 }
 
 bool q_is_int64(rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int64(*get_gmp(r)));
+  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int64(get_mpq_ptr(r)));
 }
 
 bool q_fits_int32(rational_t *r) {
-  return is_rat32(r) || mpq_fits_int32(*get_gmp(r));
+  return is_rat32(r) || mpq_fits_int32(get_mpq_ptr(r));
 }
 
 bool q_fits_int64(rational_t *r) {
-  return is_rat32(r) || mpq_fits_int64(*get_gmp(r));
+  return is_rat32(r) || mpq_fits_int64(get_mpq_ptr(r));
 }
 
 
@@ -1824,7 +1824,7 @@ uint32_t q_size(rational_t *r) {
 
   n = 32;
   if (is_ratgmp(r)) {
-    n = mpz_size(mpq_numref(*get_gmp(r))) * mp_bits_per_limb;
+    n = mpz_size(mpq_numref(get_mpq_ptr(r))) * mp_bits_per_limb;
     if (n > (size_t) UINT32_MAX) {
       n = UINT32_MAX;
     }
@@ -1857,7 +1857,7 @@ bool q_get_mpz(rational_t *r, mpz_t z) {
  */
 void q_get_mpq(rational_t *r, mpq_t q) {
   if (is_ratgmp(r)) {
-    mpq_set(q, *get_gmp(r));
+    mpq_set(q, get_mpq_ptr(r));
   } else {
     mpq_set_int32(q, r->s.num, get_den(r));
   }
@@ -1890,7 +1890,7 @@ double q_get_double(rational_t *r) {
  */
 void q_print(FILE *f, const rational_t *r) {
   if (is_ratgmp(r)) {
-    mpq_out_str(f, 10, *get_gmp(r));
+    mpq_out_str(f, 10, get_mpq_ptr(r));
   } else if (r->s.den != ONE_DEN) {
     fprintf(f, "%" PRId32 "/%" PRIu32, r->s.num, get_den(r));
   } else {
@@ -1946,7 +1946,7 @@ void q_print_abs(FILE *f, const rational_t *r) {
  */
 uint32_t q_hash_numerator(const rational_t *r) {
   if (is_ratgmp(r)) {
-    return (uint32_t) mpz_fdiv_ui(mpq_numref(*get_gmp(r)), HASH_MODULUS);
+    return (uint32_t) mpz_fdiv_ui(mpq_numref(get_mpq_ptr(r)), HASH_MODULUS);
   } else if (r->s.num >= 0) {
       return (uint32_t) r->s.num;
   } else {
@@ -1956,7 +1956,7 @@ uint32_t q_hash_numerator(const rational_t *r) {
 
 uint32_t q_hash_denominator(const rational_t *r) {
   if (is_ratgmp(r)) {
-    return (uint32_t) mpz_fdiv_ui(mpq_denref(*get_gmp(r)), HASH_MODULUS);
+    return (uint32_t) mpz_fdiv_ui(mpq_denref(get_mpq_ptr(r)), HASH_MODULUS);
   }
   return get_den(r);
 }
