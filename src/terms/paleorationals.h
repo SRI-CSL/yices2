@@ -129,31 +129,20 @@ static inline bool is_ratgmp(const rational_t *r) {
   return r->den == 0;
 }
 
-static inline mpq_ptr get_mpq_ptr(const rational_t *r) {
-  if(is_ratgmp(r)){
-    return get_mpq(r->num);
-  } else {
-    return NULL;
-  }
+static inline mpq_ptr get_gmp(const rational_t *r) {
+  assert(is_ratgmp(r));
+  return get_mpq(r->num);
 }
 
 static inline int32_t get_num(const rational_t *r) {
-  if(is_rat32(r)){
-    return r->num;
-  } else {
-    return 0;
-  }
+  assert(is_rat32(r));
+  return r->num;
 }
 
 static inline uint32_t get_den(const rational_t *r) {
-  if(is_rat32(r)){
-    return r->den;
-  } else {
-    return 0;
-  }
+  assert(is_rat32(r));
+  return r->den;
 }
-
-
 
 
 /*

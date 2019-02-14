@@ -901,15 +901,9 @@ void q_inv(rational_t *r) {
   } else if (r->s.num < 0) {
     abs_num = (uint32_t) - r->s.num;
     set_rat32(r, - get_den(r), abs_num);
-    //    r->s.num = (int32_t) - (r->s.den >> 1);
-    //    r->s.den = abs_num << 1;
-
   } else if (r->s.num > 0) {
     abs_num = (uint32_t) r->s.num;
     set_rat32(r, get_den(r), abs_num);
-    //    r->s.num = (uint32_t) (r->s.den >> 1);
-    //    r->s.den = abs_num << 1;
-
   } else {
     division_by_zero();
   }
