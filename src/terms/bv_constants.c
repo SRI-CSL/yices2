@@ -1132,10 +1132,7 @@ void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
   if (r > 0) {
     aux |= ((uint64_t) a[i+1]) << 32;
   }
-
-  if ((h-l)%32 > 0) { // If number of bits to write is not a multiple of 32, there's one more word to write
-    *bv = (uint32_t)(aux >> r);
-  }
+  *bv = (uint32_t)(aux >> r);
 }
 
 
