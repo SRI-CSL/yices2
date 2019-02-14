@@ -10,7 +10,10 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/statistics.h"
+#include "mcsat/utils/substitution.h"
+
 #include "bv_evaluator.h"
+#include "bv_core_solver.h"
 
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
@@ -60,9 +63,8 @@ typedef struct {
   /** Vector of yices variables to use for mcsat variables */
   ivector_t variables;
 
-  struct {
-    ctx_config_t* config;
-  } bv_yices;
+  /** Yices to use */
+  bv_core_solver_t solver;
 
   struct {
     statistic_int_t* th_eq;
