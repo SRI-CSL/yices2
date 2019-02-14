@@ -667,7 +667,7 @@ static void cond_def_explore_or(cond_def_collector_t *c, composite_term_t *or, b
 	// add (not t) as an assumption
 	push_assumption(c, opposite_term(t));
       } else {
-	if (u != NULL_TERM){
+	if (u != NULL_TERM) {
 	  // we can't convert the or to a conditional definition
 	  goto abort;
 	}
@@ -1441,6 +1441,8 @@ static void analyze_term_cond_def(cond_def_collector_t *c, term_t x, cond_def_t 
     for (k=0; k<max_k; k++) {
       table[k] = NULL_TERM;
     }
+
+    reset_simple_cache(&c->cache);
 
     for (i=0; i<n; i++) {
       d = a[i];

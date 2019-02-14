@@ -229,6 +229,68 @@ void bdds_mk_constant(CUDD* cudd, BDD** out, uint32_t n, const bvconstant_t* c) 
   }
 }
 
+bool bdds_is_constant(CUDD* cudd, BDD** a, uint32_t n) {
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (!Cudd_IsConstant(a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_zero(CUDD* cudd, BDD** a, uint32_t n) {
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (a[i] != zero) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_one(CUDD* cudd, BDD** a, uint32_t n) {
+  if (a[0] != Cudd_ReadOne(cudd->cudd)) {
+    return false;
+  }
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  for (uint32_t i = 1; i < n; ++i) {
+    if (a[i] != zero) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool bdds_is_constant_neg_one(CUDD* cudd, BDD** a, uint32_t n) {
+  BDD* one = Cudd_ReadOne(cudd->cudd);
+  for(uint32_t i = 0; i < n; ++ i) {
+    if (a[i] != one) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int32_t bdds_is_constant_pow2(CUDD* cudd, BDD** a, uint32_t n) {
+  int32_t pow = -1;
+  BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
+  BDD* one = Cudd_ReadOne(cudd->cudd);
+  for (int32_t i = 0; i < n; ++ i) {
+    if (a[i] == zero && pow == -1) {
+      continue;
+    }
+    if (a[i] == one && pow == -1) {
+      pow = i;
+      continue;
+    }
+    // Not a power
+    pow = -1;
+    break;
+  }
+  return pow;
+}
+
+
 void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
@@ -272,6 +334,18 @@ void bdds_mk_2s_complement(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   }
 
   Cudd_IterDerefBdd(cudd->cudd, carry);
+}
+
+void bdds_mk_shl_const(CUDD* cudd, BDD** out, BDD** a, uint32_t shift, uint32_t n) {
+  for (uint32_t i = 0; i < n; ++ i) {
+    assert(out[i] == NULL);
+    if (i < shift) {
+      out[i] = Cudd_ReadLogicZero(cudd->cudd);
+    } else {
+      out[i] = a[i-shift];
+    }
+    Cudd_Ref(out[i]);
+  }
 }
 
 void bdds_mk_shl(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
@@ -387,7 +461,7 @@ void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
 void bdds_mk_eq0(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
-  BDD* result = Cudd_ReadLogicZero(cudd->cudd);
+  BDD* result = Cudd_ReadOne(cudd->cudd);
   Cudd_Ref(result);
   for (uint32_t i = 0; i < n; ++ i) {
     BDD* new_result = Cudd_bddAnd(cudd->cudd, result, Cudd_Not(a[i]));
@@ -400,6 +474,14 @@ void bdds_mk_eq0(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
 
 /** out += cond*a << shift (out must be allocated) */
 void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n, uint32_t shift) {
+
+  // Constant optimization
+  if (cond != NULL) {
+    if (cond == Cudd_ReadLogicZero(cudd->cudd)) {
+      // out += zero, noop
+      return;
+    }
+  }
 
   BDD* carry = Cudd_ReadLogicZero(cudd->cudd);
   Cudd_Ref(carry);
@@ -435,16 +517,55 @@ void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n
 }
 
 void bdds_mk_plus(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  bool a_is_const = bdds_is_constant(cudd, a, n);
+  bool b_is_const = bdds_is_constant(cudd, b, n);
+  if (a_is_const && !b_is_const) {
+    // Work with b as const
+    BDD** tmp = a; a = b; b = tmp;
+  }
   bdds_copy(out, a, n);
   bdds_mk_plus_in_place(cudd, out, b, NULL, n, 0);
 }
 
-/** Multiplication with repeated addition (we index over bits of b) */
-void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+static
+void bdds_mk_mult_core(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   bdds_mk_zero(cudd, out, n);
   for(uint32_t k = 0; k < n; ++ k) {
     bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
   }
+}
+
+/** Multiplication with repeated addition (we index over bits of b) */
+void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+  // Check for constants
+  bool a_is_const = bdds_is_constant(cudd, a, n);
+  bool b_is_const = bdds_is_constant(cudd, b, n);
+  if (a_is_const && !b_is_const) {
+    // Work with b as const
+    BDD** tmp = a; a = b; b = tmp;
+  }
+  // Ok now, check for special constants
+  if (b_is_const) {
+    if (bdds_is_constant_zero(cudd, b, n)) {
+      // a*0 = 0
+      bdds_mk_zero(cudd, out, n);
+      return;
+    }
+    if (bdds_is_constant_one(cudd, b, n)) {
+      bdds_copy(out, a, n);
+      return;
+    }
+    int32_t b_pow = bdds_is_constant_pow2(cudd, b, n);
+    if (b_pow > 0) {
+      bdds_mk_shl_const(cudd, out, a, b_pow, n);
+      return;
+    }
+    if (bdds_is_constant_neg_one(cudd, b, n)) {
+      bdds_mk_2s_complement(cudd, out, a, n);
+      return;
+    }
+  }
+  bdds_mk_mult_core(cudd, out, a, b, n);
 }
 
 void bdds_mk_div_rem(CUDD* cudd, BDD** out_div, BDD** out_rem, BDD** a, BDD** b, uint32_t n) {
@@ -457,7 +578,7 @@ void bdds_mk_div_rem(CUDD* cudd, BDD** out_div, BDD** out_rem, BDD** a, BDD** b,
 
   BDD* zero = Cudd_ReadLogicZero(cudd->cudd); Cudd_Ref(zero);
   BDD* one = Cudd_ReadOne(cudd->cudd); Cudd_Ref(one);
-
+  
   // a_extended = [0..00]@a
   bdds_copy(a_extended, a, n);
   bdds_mk_zero(cudd, a_extended + n, n);
@@ -932,6 +1053,7 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
 void bdds_mk_ge(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
+  
   // Reverse to satisfy CUDD
   bdds_reverse(a, n);
   bdds_reverse(b, n);
@@ -972,8 +1094,80 @@ bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* out) {
   return Cudd_Eval(cudd->cudd, C_x, cudd->tmp_inputs) == Cudd_ReadOne(cudd->cudd);
 }
 
+typedef enum {
+  PREFER_ZERO,
+  PREFER_ONE,
+  PREFER_RANDOM
+} pick_type_t;
+
+/**
+  Adapted from CUDD to control the picked value.
+
+  @brief Picks one on-set cube randomly from the given %DD.
+  @details The cube is written into an array of characters.  The array
+  must have at least as many entries as there are variables.
+  @return 1 if successful; 0 otherwise.
+  @sideeffect None
+  @see Cudd_bddPickOneMinterm
+*/
+int
+bdds_Cudd_bddPickOneCube(CUDD* cudd, DdNode * node, pick_type_t pick)
+{
+  DdNode *N, *T, *E;
+  DdNode *one, *bzero;
+  char dir;
+  int i;
+
+  /* The constant 0 function has no on-set cubes. */
+  one = Cudd_ReadOne(cudd->cudd);
+  bzero = Cudd_Not(one);
+
+  for (i = 0; i < cudd->tmp_alloc_size; i++)
+    cudd->tmp_model[i] = 2;
+
+  for (;;) {
+
+    if (node == one)
+      break;
+
+    N = Cudd_Regular(node);
+
+    T = Cudd_T(N);
+    E = Cudd_E(N);
+    if (Cudd_IsComplement(node)) {
+      T = Cudd_Not(T);
+      E = Cudd_Not(E);
+    }
+
+    unsigned int N_index = Cudd_NodeReadIndex(N);
+    if (T == bzero) {
+      cudd->tmp_model[N_index] = 0;
+      node = E;
+    } else if (E == bzero) {
+      cudd->tmp_model[N_index] = 1;
+      node = T;
+    } else {
+      switch (pick) {
+      case PREFER_ZERO:
+        dir = 0;
+        break;
+      case PREFER_ONE:
+        dir = 1;
+        break;
+      case PREFER_RANDOM:
+        dir = (char) ((Cudd_Random(cudd->cudd) & 0x2000) >> 13);
+        break;
+      }
+      cudd->tmp_model[N_index] = dir;
+      node = dir ? T : E;
+    }
+  }
+  return (1);
+
+} /* end of Cudd_bddPickOneCube */
+
 void bdds_get_model(CUDD* cudd, BDD** x, BDD* C_x, bvconstant_t* out) {
-  Cudd_bddPickOneCube(cudd->cudd, C_x, cudd->tmp_model);
+  bdds_Cudd_bddPickOneCube(cudd, C_x, PREFER_RANDOM);
   // Set the ones in the cube
   for (uint32_t i = 0; i < out->bitsize; ++ i) {
     unsigned int x_i = Cudd_NodeReadIndex(x[i]);

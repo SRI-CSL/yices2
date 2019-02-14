@@ -380,8 +380,8 @@ static float median(float *a, uint32_t n) {
   high = n;
 
   do {
-    // pick a random pivot in a[low ... half - 1]
-    i = low + random_uint(half - low);
+    // pick a random pivot in a[low ... high - 1]
+    i = low + random_uint(high - low);
     pivot = a[i];
 
     // swap a[i] and a[low]

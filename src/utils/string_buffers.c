@@ -49,6 +49,10 @@ static void string_buffer_extend(string_buffer_t *s, uint32_t n) {
   uint32_t p;
 
   n += s->index;
+  if (n < s->index) {
+    // integer overflow: can't make s large enough
+    out_of_memory();
+  }
 
   // try 50% larger. If that's still too small, take n as the new size
   p = s->size;
@@ -66,10 +70,13 @@ static void string_buffer_extend(string_buffer_t *s, uint32_t n) {
 /*
  * Faster version: make room for one character
  */
-static inline void string_buffer_extend1(string_buffer_t *s) {
+static void string_buffer_extend1(string_buffer_t *s) {
   uint32_t p;
 
   if (s->index == s->size) {
+    if (s->size == UINT32_MAX) {
+      out_of_memory();
+    }
     p = s->size + 1;
     p += p>>1;
 
@@ -94,7 +101,6 @@ void delete_string_buffer(string_buffer_t *s) {
  * Close: append '\0', do not increment the index
  */
 void string_buffer_close(string_buffer_t *s) {
-  //  string_buffer_extend(s, 1);
   string_buffer_extend1(s);
   s->data[s->index] = '\0';
 }
@@ -104,7 +110,6 @@ void string_buffer_close(string_buffer_t *s) {
  * Append operations
  */
 void string_buffer_append_char(string_buffer_t *s, char c) {
-  //  string_buffer_extend(s, 1);
   string_buffer_extend1(s);
   s->data[s->index] = c;
   s->index ++;
@@ -112,10 +117,13 @@ void string_buffer_append_char(string_buffer_t *s, char c) {
 
 // s1 must be null-terminated, the '\0' is not copied in s
 void string_buffer_append_string(string_buffer_t *s, const char *s1) {
-  uint32_t n;
+  size_t n;
 
   n = strlen(s1);
-  string_buffer_extend(s, n);
+  if (n > UINT32_MAX) {
+    out_of_memory();
+  }
+  string_buffer_extend(s, (uint32_t) n);
   memcpy(s->data + s->index, s1, n);
   s->index += n;
 }
@@ -165,12 +173,15 @@ void string_buffer_append_double(string_buffer_t *s, double x) {
 }
 
 void string_buffer_append_mpz(string_buffer_t *s, mpz_t z) {
-  uint32_t n;
+  size_t n;
   char *s0;
 
   // sizeinbase may overestimate the actual length by one
-  n = mpz_sizeinbase(z, 10) + 2;
-  string_buffer_extend(s, n);
+  n = mpz_sizeinbase(z, 10);
+  if (n > UINT32_MAX - 2) {
+    out_of_memory();
+  }
+  string_buffer_extend(s, (uint32_t) (n + 2));
   s0 = s->data + s->index;
   mpz_get_str(s0, 10, z);
   // we can't use n here
@@ -178,12 +189,16 @@ void string_buffer_append_mpz(string_buffer_t *s, mpz_t z) {
 }
 
 void string_buffer_append_mpq(string_buffer_t *s, mpq_t q) {
-  uint32_t n;
+  size_t n1, n;
   char *s0;
 
-  // n may be an overestimate
-  n = mpz_sizeinbase(mpq_numref(q), 10) + mpz_sizeinbase(mpq_denref(q), 10) + 3;
-  string_buffer_extend(s, n);
+  n1 = mpz_sizeinbase(mpq_numref(q), 10);
+  n = n1 + mpz_sizeinbase(mpq_denref(q), 10);
+  if (n > UINT32_MAX - 3 || n < n1) {
+    // too large or numerical overflow
+    out_of_memory();
+  }
+  string_buffer_extend(s, (uint32_t) (n + 3));
   s0 = s->data + s->index;
   mpq_get_str(s0, 10, q);
   s->index += strlen(s0);
@@ -203,6 +218,7 @@ void string_buffer_append_rational(string_buffer_t *s, rational_t *r) {
 
 void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n) {
   char *s0;
+
   assert(n>0);
   string_buffer_extend(s, n);
   s0 = s->data + s->index;

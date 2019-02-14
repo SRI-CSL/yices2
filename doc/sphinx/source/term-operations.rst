@@ -2341,7 +2341,7 @@ Term Properties
 
    Returns the type of term *t*.
 
-   This function returns :c:macro:`NULL_TYPE` if *t* is not a valid type.
+   This function returns :c:macro:`NULL_TYPE` if *t* is not a valid term.
 
 .. c:function:: int32_t yices_term_is_bool(term_t t)
 

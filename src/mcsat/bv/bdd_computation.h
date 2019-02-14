@@ -75,11 +75,26 @@ void bdds_mk_repeat(CUDD* cudd, BDD** out, BDD* b, uint32_t n);
 /** Make a constant 0...0 BDD. */
 void bdds_mk_zero(CUDD* cudd, BDD** out, uint32_t n);
 
-/** Make a constant 0...01 BDD. */
+  /** Make a constant 0...01 BDD. */
 void bdds_mk_one(CUDD* cudd, BDD** out, uint32_t n);
 
 /** Make a constant BDD. */
 void bdds_mk_constant(CUDD* cudd, BDD** out, uint32_t n, const bvconstant_t* c);
+
+/** Check if a BDD is constant */
+bool bdds_is_constant(CUDD* cudd, BDD** a, uint32_t n);
+
+/** Check if a BDD is constant 0...0 */
+bool bdds_is_constant_zero(CUDD* cudd, BDD** a, uint32_t n);
+
+/** Check if a BDD is constant 0...01 */
+bool bdds_is_constant_one(CUDD* cudd, BDD** a, uint32_t n);
+
+/** Check if a BDD is constant 1...1 */
+bool bdds_is_constant_neg_one(CUDD* cudd, BDD** a, uint32_t n);
+
+/** Check if a BDD is a power of 2. Returns power, or -1 if not */
+int32_t bdds_is_constant_pow2(CUDD* cudd, BDD** a, uint32_t n);
 
 /** Negate the BDDs a. */
 void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n);
@@ -116,6 +131,9 @@ void bdds_mk_smod(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
 
 /** Left shift of BDDs in a and b (padding 0). */
 void bdds_mk_shl(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);
+
+/** Left shift of BDDs in a */
+void bdds_mk_shl_const(CUDD* cudd, BDD** out_bdds, BDD** a, uint32_t shift, uint32_t n);
 
 /** Logical shift right of BDDs in a and b (padding with 0). */
 void bdds_mk_lshr(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n);

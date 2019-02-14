@@ -214,11 +214,11 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
 static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
   false,  // IDL
   false,  // RDL
-  false,  // LRA
   true,   // LIA
+  false,  // LRA
   true,   // LIRA
-  false,  // NRA
   true,   // NIA
+  false,  // NRA
   true,   // NIRA
   false,  // no arithmetic
 };

@@ -56,8 +56,10 @@ void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs){
 
   uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
   const mcsat_value_t* c1_v = bv_evaluator_evaluate_term(lctx->eval, c1, &eval_level);
+  /* (void) c1_v; */
   eval_level = 0;
   const mcsat_value_t* c2_v = bv_evaluator_evaluate_term(lctx->eval, c2, &eval_level);
+  /* (void) c2_v; */
 
   assert(c1_v->type == VALUE_BV);
   assert(c2_v->type == VALUE_BV);

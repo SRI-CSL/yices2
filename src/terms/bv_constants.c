@@ -1109,23 +1109,28 @@ void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
  * - bv must have size k = ceil((h - l) / 32)
  */
 void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
-  uint32_t r, i, e;
+  uint32_t r, i, to_move;
   uint64_t aux;
 
   assert(l < h);
 
-  i = l >> 5;
-  r = l & 0x1f;
-  e = (h%32 == 0)?((h >> 5)-1):(h >> 5);
+  i = l >> 5;       // first word to read
+  r = l & 0x1f;     // shift
+  to_move = h - l;  // number of bits to move
 
-  assert(i <= e);
   aux = (uint64_t) a[i];
-  while (i < e) {
+  while (to_move > 32) {
     i ++;
     aux |= ((uint64_t) a[i]) << 32;
     *bv = (uint32_t)(aux >> r);
-    aux >>= 32;
     bv ++;
+    aux >>= 32;
+    to_move -= 32;
+  }
+
+  assert(to_move > 0);
+  if (r > 0) {
+    aux |= ((uint64_t) a[i+1]) << 32;
   }
   *bv = (uint32_t)(aux >> r);
 }
