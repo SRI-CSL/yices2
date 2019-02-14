@@ -109,38 +109,24 @@ static inline bool is_ratgmp(const rational_t *r) {
 }
 
 static inline mpq_ptr get_gmp(const rational_t *r) {
-
-  assert(is_ratgmp(r));
-  
+  assert(is_ratgmp(r));  
   return ((mpq_ptr)(r->p.gmp ^ IS_RATGMP));
 }
 
 static inline int32_t get_num(const rational_t *r) {
-
-  assert(is_rat32(r));
-  
+  assert(is_rat32(r));  
   return r->s.num;
 }
 
 static inline uint32_t get_den(const rational_t *r) {
-
   assert(is_rat32(r));
-
   return r->s.den >> 1;
 }
 
-/* FIXME: delete me
-//is this used? 
-static inline void set_rat32(rational_t *r, int32_t num,  uint32_t den){
-  //clear it first?
-  r->s.num = num;
-  r->s.den = (den << 1);
-}
-*/
-
 static inline void set_ratgmp(rational_t *r, mpq_ptr gmp){
-  r->p.gmp = ((intptr_t)gmp) | IS_RATGMP;
+  r->p.gmp = ((intptr_t) gmp) | IS_RATGMP;
 }
+
 
 /*
  * Allocates a new mpq object. (in case we pool them later)
@@ -150,11 +136,6 @@ static inline mpq_ptr new_mpq(void){
   mpq_ptr retval;
 
   retval = safe_malloc(sizeof(mpq_t));
-
-  if((void *)0xb139d0 == retval){
-    fprintf(stderr, "HERE\n");
-  }
-  
   mpq_init2(retval, 64);
   return retval;
 }
@@ -167,7 +148,6 @@ static inline void release_mpq(rational_t *r){
   mpq_ptr q;
 
   assert(is_ratgmp(r));
-
   q = get_gmp(r);
   mpq_clear(q);
   safe_free(q);
@@ -179,7 +159,9 @@ static inline void release_mpq(rational_t *r){
  * Must be called before r is deleted to prevent memory leaks.
  */
 static inline void q_clear(rational_t *r) {
-  if(is_ratgmp(r)){ release_mpq(r);  }
+  if (is_ratgmp(r)) {
+    release_mpq(r);
+  }
   r->s.num = 0;
   r->s.den = ONE_DEN;
 }
@@ -238,8 +220,7 @@ extern void q_set_abs(rational_t *r1, const rational_t *r2);
  * This can be used without calling q_init(r1).
  */
 static inline void q_copy_and_clear(rational_t *r1, rational_t *r2) {
-  r1->s.num = r2->s.num;
-  r1->s.den = r2->s.den;
+  *r1 = *r2;
   r2->s.num = 0;
   r2->s.den = ONE_DEN;
 }
@@ -248,15 +229,11 @@ static inline void q_copy_and_clear(rational_t *r1, rational_t *r2) {
  * Swap values of r1 and r2
  */
 static inline void q_swap(rational_t *r1, rational_t *r2) {
-  int32_t n;
-  uint32_t d;
+  rational_t aux;
 
-  n = r1->s.num;
-  d = r1->s.den;
-  r1->s.num = r2->s.num;
-  r1->s.den = r2->s.den;
-  r2->s.num = n;
-  r2->s.den = d;
+  aux = *r1;
+  *r1 = *r2;
+  *r2 = aux;
 }
 
 /*
@@ -404,7 +381,7 @@ extern void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y);
  *            q_sgn(r) = +1 if r > 0
  *            q_sgn(r) = -1 if r < 0
  */
-static inline int q_sgn(rational_t *r) { //IAM: So why isn't this declared "const"????????
+static inline int q_sgn(const rational_t *r) {
   if (is_ratgmp(r)) {
     return mpq_sgn(get_gmp(r));
   } else {
@@ -485,12 +462,12 @@ static inline bool q_is_nonzero(const rational_t *r) {
 }
 
 static inline bool q_is_one(const rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == 1) ||
+  return (r->s.den == ONE_DEN && r->s.num == 1) ||
     (is_ratgmp(r) && mpq_is_one(get_gmp(r)));
 }
 
 static inline bool q_is_minus_one(const rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN && r->s.num == -1) ||
+  return (r->s.den == ONE_DEN && r->s.num == -1) ||
     (is_ratgmp(r) && mpq_is_minus_one(get_gmp(r)));
 }
 
@@ -555,15 +532,15 @@ extern bool q_smt2_divides(const rational_t *r1, const rational_t *r2);
  * to be represented as a gmp rational).
  * Call q_normalize(r) first if there's a doubt.
  */
-static inline bool q_is_smallint(rational_t *r) {
-  return r->s.den == ONE_DEN;    //IAM: this looks too risky to be worth it.
+static inline bool q_is_smallint(rational_t *r) {  
+  return r->s.den == ONE_DEN;
 }
 
 /*
  * Convert r to an integer, provided q_is_smallint(r) is true
  */
 static inline int32_t q_get_smallint(rational_t *r) {
-  return r->s.num;
+  return get_num(r);
 }
 
 

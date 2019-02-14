@@ -47,7 +47,7 @@ static mpq_t q0;
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
   if (is_ratgmp(r)) {
-    equal = mpq_equal(get_mpq_ptr(r), q);
+    equal = mpq_equal(get_gmp(r), q);
   } else {
     equal = (mpq_cmp_si(q, get_num(r), get_den(r)) == 0);
   }

@@ -76,7 +76,7 @@ static mpq_t q0, q1, q2;
  */
 static void q_export(rational_t *r, mpq_t q) {
   if (is_ratgmp(r)) {
-    mpq_set(q, get_mpq_ptr(r));
+    mpq_set(q, get_gmp(r));
   } else {
     mpq_set_int32(q, get_num(r), get_den(r));
   }
@@ -85,7 +85,7 @@ static void q_export(rational_t *r, mpq_t q) {
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
   if (is_ratgmp(r)) {
-    equal = mpq_equal(get_mpq_ptr(r), q);
+    equal = mpq_equal(get_gmp(r), q);
   } else {
     equal = (mpq_cmp_si(q, get_num(r), get_den(r)) == 0);
   }

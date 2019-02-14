@@ -100,6 +100,17 @@ void cleanup_rationals(void){
 #define MIN_NUMERATOR (-MAX_NUMERATOR)
 #define MAX_DENOMINATOR MAX_NUMERATOR
 
+
+/*
+ * Store num/den in r
+ */
+static inline void set_rat32(rational_t *r, int32_t num, uint32_t den) {
+  assert(MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR);
+  r->s.den = den << 1;
+  r->s.num = num;
+}
+
+
 /*
  * Convert mpq to a pair of integers if possible.
  */
@@ -116,8 +127,7 @@ void q_normalize(rational_t *r) {
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
         mpq_clear(q);
         safe_free(q);
-        r->s.num = (int32_t) num;
-        r->s.den = (uint32_t) den;
+	set_rat32(r, (int32_t) num, (uint32_t) den);
       }
     }
   }
@@ -136,9 +146,10 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
   assert(b > 0);
 
   if (a == 0 || (b == 1 && MIN_NUMERATOR <= a && a <= MAX_NUMERATOR)) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = a;
-    r->s.den = ONE_DEN;
+    if (is_ratgmp(r)) {
+      release_mpq(r);
+    }
+    set_rat32(r, a, 1);
     return;
   }
 
@@ -203,9 +214,10 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
 
   // assign to r
   if (abs_a <= MAX_NUMERATOR && b <= MAX_DENOMINATOR) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = (int32_t) a;
-    r->s.den = ((uint32_t)b << 1);
+    if (is_ratgmp(r)) {
+      release_mpq(r);
+    }
+    set_rat32(r, (int32_t) a, (uint32_t) b);
   } else {
     if (is_ratgmp(r)) {
       q = get_gmp(r);
@@ -230,9 +242,10 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
   assert(b > 0);
 
   if (a == 0 || (b == 1 && MIN_NUMERATOR <= a && a <= MAX_NUMERATOR)) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = a;
-    r->s.den = ONE_DEN;
+    if (is_ratgmp(r)) {
+      release_mpq(r);
+    }
+    set_rat32(r, a, 1);
     return;
   }
 
@@ -296,9 +309,10 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
 
   // assing to r
   if (abs_a <= MAX_NUMERATOR && b <= MAX_DENOMINATOR) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = (int32_t) a;
-    r->s.den = ((uint32_t)b << 1);
+    if (is_ratgmp(r)) {
+      release_mpq(r);
+    }
+    set_rat32(r, (int32_t) a, (uint32_t) b);
   } else {
     if (is_ratgmp(r)) {
       q = get_gmp(r);
@@ -317,9 +331,8 @@ void q_set32(rational_t *r, int32_t a) {
   mpq_ptr q;
 
   if (MIN_NUMERATOR <= a && a <= MAX_NUMERATOR) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = a;
-    r->s.den = ONE_DEN;
+    if (is_ratgmp(r)) { release_mpq(r); }
+    set_rat32(r, a, 1);
   } else {
     if (!is_ratgmp(r)) {
       q = new_mpq();
@@ -337,9 +350,8 @@ void q_set64(rational_t *r, int64_t a) {
 
 
   if (MIN_NUMERATOR <= a && a <= MAX_NUMERATOR) {
-    if(is_ratgmp(r)){ release_mpq(r); }
-    r->s.num = (int32_t) a;
-    r->s.den = ONE_DEN;
+    if (is_ratgmp(r)){ release_mpq(r); }
+    set_rat32(r, (int32_t) a, 1);
   } else {
     if (!is_ratgmp(r)) {
       q = new_mpq();
@@ -416,15 +428,17 @@ void q_set_mpq(rational_t *r, const mpq_t q) {
  * Copy r2 into r1
  */
 void q_set(rational_t *r1, const rational_t *r2) {
+  mpq_ptr q1, q2;
+
   if (is_ratgmp(r2)) {
-    mpq_ptr q1;
-    mpq_ptr q2;
     q_prepare(r1);
     q1 = get_gmp(r1);
     q2 = get_gmp(r2);
     mpq_set(q1, q2);
   } else {
-    if(is_ratgmp(r1)){ release_mpq(r1); }
+    if (is_ratgmp(r1)) {
+      release_mpq(r1);
+    }
     r1->s.num = r2->s.num;
     r1->s.den = r2->s.den;
   }
@@ -434,15 +448,17 @@ void q_set(rational_t *r1, const rational_t *r2) {
  * Copy opposite of r2 into r1
  */
 void q_set_neg(rational_t *r1, const rational_t *r2) {
+  mpq_ptr q1, q2;
+
   if (is_ratgmp(r2)) {
-    mpq_ptr q1;
-    mpq_ptr q2;
     q_prepare(r1);
     q1 = get_gmp(r1);
     q2 = get_gmp(r2);
     mpq_neg(q1, q2);
   } else {
-    if(is_ratgmp(r1)){ release_mpq(r1); }
+    if (is_ratgmp(r1)) {
+      release_mpq(r1);
+    }
     r1->s.num = - r2->s.num;
     r1->s.den = r2->s.den;
   }
@@ -460,7 +476,9 @@ void q_set_abs(rational_t *r1, const rational_t *r2) {
     q2 = get_gmp(r2);
     mpq_abs(q1, q2);
   } else {
-    if(is_ratgmp(r1)){ release_mpq(r1); }
+    if (is_ratgmp(r1)) {
+      release_mpq(r1);
+    }
     r1->s.den = r2->s.den;
     if (r2->s.num < 0) {
       r1->s.num = - r2->s.num;
@@ -485,9 +503,8 @@ void q_get_num(rational_t *r1, const rational_t *r2) {
     if (mpz_fits_slong_p(mpq_numref(q2))) {
       num = mpz_get_si(mpq_numref(q2));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
-        if(is_ratgmp(r1)){ release_mpq(r1); }
-        r1->s.num = num;
-        r1->s.den = ONE_DEN;
+        if (is_ratgmp(r1)){ release_mpq(r1); }
+	set_rat32(r1, num, 1);
         return;
       }
     }
@@ -495,9 +512,8 @@ void q_get_num(rational_t *r1, const rational_t *r2) {
     q1 = get_gmp(r1);
     mpq_set_z(q1,  mpq_numref(q2));
   } else {
-    if(is_ratgmp(r1)){ release_mpq(r1); }
-    r1->s.num = r2->s.num;
-    r1->s.den = ONE_DEN;
+    if (is_ratgmp(r1)){ release_mpq(r1); }
+    set_rat32(r1, get_num(r2), 1);
   }
 }
 
@@ -517,7 +533,7 @@ void q_get_den(rational_t *r1, const rational_t *r2) {
     if (mpz_fits_ulong_p(mpq_denref(q2))) {
       den = mpz_get_ui(mpq_denref(q2));
       if (den <= MAX_DENOMINATOR) {
-        if(is_ratgmp(r1)){ release_mpq(r1); }
+        if (is_ratgmp(r1)){ release_mpq(r1); }
         r1->s.num = den;
         r1->s.den = ONE_DEN;
         return;
@@ -528,7 +544,7 @@ void q_get_den(rational_t *r1, const rational_t *r2) {
     mpq_set_z(q1, mpq_denref(q2));
 
   } else {
-    if(is_ratgmp(r1)){ release_mpq(r1); }
+    if (is_ratgmp(r1)){ release_mpq(r1); }
     r1->s.num = r2->s.den;
     r1->s.den = ONE_DEN;
   }
@@ -580,9 +596,8 @@ static int q_set_q0(rational_t *r, mpq_t *q0) {
     num = mpz_get_si(mpq_numref(*q0));
     den = mpz_get_ui(mpq_denref(*q0));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-      if(is_ratgmp(r)){ release_mpq(r); }
-      r->s.num = (int32_t) num;
-      r->s.den = (uint32_t) den << 1;
+      if (is_ratgmp(r)){ release_mpq(r); }
+      set_rat32(r, (int32_t) num, (uint32_t) den);
       return 0;
     }
   }
@@ -791,7 +806,8 @@ void q_add(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
-  if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN) {
+  if (r1->s.den == ONE_DEN && r2->s.den == ONE_DEN) {
+    assert(is_rat32(r2) && is_rat32(r1));
     r1->s.num += r2->s.num;
     if (r1->s.num < MIN_NUMERATOR || r1->s.num > MAX_NUMERATOR) {
       convert_to_gmp(r1);
@@ -827,7 +843,8 @@ void q_sub(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
 
-  if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2)&& r2->s.den == ONE_DEN) {
+  if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN) {
+    // FIXME
     r1->s.num -= r2->s.num;
     if (r1->s.num < MIN_NUMERATOR || r1->s.num > MAX_NUMERATOR) {
       convert_to_gmp(r1);
@@ -886,13 +903,15 @@ void q_inv(rational_t *r) {
 
   } else if (r->s.num < 0) {
     abs_num = (uint32_t) - r->s.num;
-    r->s.num = (int32_t) - (r->s.den >> 1);
-    r->s.den = abs_num << 1;
+    set_rat32(r, - get_den(r), abs_num);
+    //    r->s.num = (int32_t) - (r->s.den >> 1);
+    //    r->s.den = abs_num << 1;
 
   } else if (r->s.num > 0) {
     abs_num = (uint32_t) r->s.num;
-    r->s.num = (uint32_t) (r->s.den >> 1);
-    r->s.den = abs_num << 1;
+    set_rat32(r, get_den(r), abs_num);
+    //    r->s.num = (uint32_t) (r->s.den >> 1);
+    //    r->s.den = abs_num << 1;
 
   } else {
     division_by_zero();
@@ -907,6 +926,7 @@ void q_mul(rational_t *r1, const rational_t *r2) {
   int64_t num;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN) {
+    // FIXME
     num = r1->s.num * ((int64_t) r2->s.num);
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->s.num = (int32_t) num;
@@ -992,6 +1012,7 @@ void q_addmul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
   rational_t tmp;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN && is_rat32(r3) && r3->s.den == ONE_DEN) {
+    // FIXME
     num = get_num(r1) + get_num(r2) * ((int64_t) get_num(r3));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->s.num = (int32_t) num;
@@ -1017,6 +1038,7 @@ void q_submul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
   rational_t tmp;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN && is_rat32(r3) && r3->s.den == ONE_DEN) {
+    // FIXME
     num = get_num(r1) - get_num(r2) * ((int64_t) get_num(r3));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->s.num = (int32_t) num;
@@ -1093,8 +1115,7 @@ void q_floor(rational_t *r) {
   } else {
     n = r->s.num / (int32_t) get_den(r);
     if (r->s.num < 0) n --;
-    r->s.num = n;
-    r->s.den = ONE_DEN;
+    set_rat32(r, n, 1);
   }
 }
 
@@ -1114,8 +1135,7 @@ void q_ceil(rational_t *r) {
   } else {
     n = r->s.num / (int32_t) get_den(r);
     if (r->s.num > 0) n ++;
-    r->s.num = n;
-    r->s.den = ONE_DEN;
+    set_rat32(r, n, 1);
   }
 }
 
@@ -1188,8 +1208,7 @@ void q_lcm(rational_t *r1, const rational_t *r2) {
       b = abs32(r2->s.num);
       d = ((uint64_t) a) * ((uint64_t) (b/gcd32(a, b)));
       if (d <= MAX_NUMERATOR) {
-        r1->s.num = d;
-        r1->s.den = ONE_DEN;
+	set_rat32(r1, d, 1);
       } else {
         set_to_gmp64(r1, d);
       }
@@ -1235,8 +1254,7 @@ void q_gcd(rational_t *r1, const rational_t *r2) {
       release_mpq(r1);
     }
     assert(d <= MAX_NUMERATOR);
-    r1->s.num = d;
-    r1->s.den = ONE_DEN;
+    set_rat32(r1, d, 1);
   } else {
     if (is_rat32(r1)) {
       // r1 is a small integer, r2 is a gmp number
@@ -1244,8 +1262,7 @@ void q_gcd(rational_t *r1, const rational_t *r2) {
       q2 = get_gmp(r2);
       d = mpz_gcd_ui(NULL, mpq_numref(q2), a);
       assert(d <= MAX_NUMERATOR);
-      r1->s.num = d;
-      r1->s.den = ONE_DEN;
+      set_rat32(r1, d, 1);
     } else {
       // both are gmp numbers
       q1 = get_gmp(r1);
@@ -1346,8 +1363,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
       n = mpz_fdiv_ui(mpq_numref(q1), r2->s.num);
       assert(0 <= n && n <= MAX_NUMERATOR);
       release_mpq(r1);
-      r1->s.num = n;
-      r1->s.den = ONE_DEN;
+      set_rat32(r1, n, 1);
     }
   } else {
     q2 = get_gmp(r2);
@@ -1420,6 +1436,7 @@ bool q_divides(const rational_t *r1, const rational_t *r2) {
   bool divides;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && (r1->s.num == 1 || r1->s.num == -1)) {
+    // FIXME
     // r1 is +1 or -1
     return true;
   }
@@ -1621,6 +1638,7 @@ int q_cmp(const rational_t *r1, const rational_t *r2) {
   mpq_ptr q2;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN) {
+    // FIXME
     return r1->s.num - r2->s.num;
   }
 
@@ -1631,14 +1649,14 @@ int q_cmp(const rational_t *r1, const rational_t *r2) {
       return mpq_cmp(q1, q2);
     } else {
       q1 = get_gmp(r1);
-      return mpq_cmp_si(q1, r2->s.num, get_num(r2));
+      return mpq_cmp_si(q1, get_num(r2), get_den(r2));
     }
   } else {
     if (is_ratgmp(r2)) {
       q2 = get_gmp(r2);
-      return - mpq_cmp_si(q2, r1->s.num, get_num(r1));
+      return - mpq_cmp_si(q2, get_num(r1), get_den(r1));
     } else {
-      num = get_num(r2) * ((int64_t) r1->s.num) - get_num(r1) * ((int64_t) r2->s.num);
+      num = get_den(r2) * ((int64_t) get_num(r1)) - get_den(r1) * ((int64_t) get_num(r2));
       return (num < 0 ? -1 : (num > 0));
     }
   }
@@ -1690,6 +1708,7 @@ bool q_opposite(const rational_t *r1, const rational_t *r2) {
   bool result;
 
   if (is_rat32(r1) && r1->s.den == ONE_DEN && is_rat32(r2) && r2->s.den == ONE_DEN) {
+    // FIXME
     return r1->s.num + r2->s.num == 0;
   }
 
@@ -1717,11 +1736,12 @@ bool q_get32(rational_t *r, int32_t *v) {
 
 
   if (is_rat32(r) && r->s.den == ONE_DEN) {
+    // FIXME
     *v = r->s.num;
     return true;
   } else if (is_ratgmp(r)){
     q = get_gmp(r);
-    if(mpq_fits_int32(q)) {
+    if (mpq_fits_int32(q)) {
       mpq_get_int32(q, v, &d);
       return d == 1;
     }
@@ -1738,11 +1758,12 @@ bool q_get64(rational_t *r, int64_t *v) {
   mpq_ptr q;
 
   if (is_rat32(r) && r->s.den == ONE_DEN) {
+    // FIXME
     *v = r->s.num;
     return true;
   } else if (is_ratgmp(r)){
     q = get_gmp(r);
-    if(mpq_fits_int64(q)) {
+    if (mpq_fits_int64(q)) {
       mpq_get_int64(q, v, &d);
       return d == 1;
     }
@@ -1757,7 +1778,7 @@ bool q_get64(rational_t *r, int64_t *v) {
  */
 bool q_get_int32(rational_t *r, int32_t *num, uint32_t *den) {
   if (is_rat32(r)) {
-    *num = r->s.num;
+    *num = get_num(r);
     *den = get_den(r);
     return true;
   } else {
@@ -1779,7 +1800,7 @@ bool q_get_int32(rational_t *r, int32_t *num, uint32_t *den) {
  */
 bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
   if (is_rat32(r)) {
-    *num = r->s.num;
+    *num = get_num(r);
     *den = get_den(r);
     return true;
   } else {
@@ -1799,6 +1820,8 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
  * Check whether r can be converted to a 32bit integer,
  * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
  */
+
+// FIXTHEM
 bool q_is_int32(rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int32(get_gmp(r)));
 }
@@ -1840,13 +1863,14 @@ uint32_t q_size(rational_t *r) {
  */
 bool q_get_mpz(rational_t *r, mpz_t z) {
   if (is_rat32(r) && r->s.den == ONE_DEN) {
+    // FIXME
     mpz_set_si(z, r->s.num);
     return true;
   } else if (is_ratgmp(r)){
     mpq_ptr q;
 
     q = get_gmp(r);
-    if(mpq_is_integer(q)) {
+    if (mpq_is_integer(q)) {
       mpz_set(z, mpq_numref(q));
       return true;
     }
