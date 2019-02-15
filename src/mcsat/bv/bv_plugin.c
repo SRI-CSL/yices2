@@ -88,6 +88,7 @@ typedef struct {
   struct {
     statistic_int_t* conflicts;
     statistic_int_t* propagations;
+    statistic_int_t* missed_propagations;
     statistic_int_t* constraints_attached;
   } stats;
 
@@ -156,6 +157,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Add statistics
   bv->stats.conflicts = statistics_new_int(bv->ctx->stats, "mcsat::bv::conflicts");
   bv->stats.propagations = statistics_new_int(bv->ctx->stats, "mcsat::bv::propagations");
+  bv->stats.missed_propagations = statistics_new_int(bv->ctx->stats, "mcsat::bv::missed_propagations");
   bv->stats.constraints_attached = statistics_new_int(bv->ctx->stats, "mcsat::bv::constraints_attached");
 }
 
@@ -578,13 +580,14 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
     // - true at 0 level, because safe, no explanation needed, or
     // - Boolean, because shared sort with Booleans
     if (!trail_has_value(trail, x)) {
-      bool is_zero_level = trail_is_at_base_level(trail);
-      bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
-      if (is_zero_level || is_boolean) {
-        bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
-        uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
-        if (bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize)) {
-          bvconstant_t x_bv_value;
+      bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
+      uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
+      bool is_fixed = bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize);
+      if (is_fixed) {
+        bool is_zero_level = trail_is_at_base_level(trail);
+        bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
+        if (is_zero_level || is_boolean) {
+         bvconstant_t x_bv_value;
           init_bvconstant(&x_bv_value);
           bvconstant_set_bitsize(&x_bv_value, x_bitsize);
           bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
@@ -598,6 +601,8 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
             mcsat_value_destruct(&x_value);
             delete_bvconstant(&x_bv_value);
           }
+        } else {
+          (*bv->stats.missed_propagations) ++;
         }
       }
     }
@@ -646,11 +651,26 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     // Get the list of variables
     ivector_t* t_var_list = int_mset_get_list(&t_vars);
 
-    // Addd the variables to the BDD manager (so that we can assign them)
+    // Add the variables to the BDD manager (so that we can assign them)
     for (i = 0; i < t_var_list->size; ++ i) {
       variable_t x = t_var_list->data[i];
       term_t x_term = variable_db_get_term(var_db, x);
       bv_bdd_manager_add_term(bv->bddm, x_term);
+      // It can happen that term is assigned, but it only now became a BV
+      // variable (e.g., Boolean variables).
+      if (trail_has_value(bv->ctx->trail, x)) {
+        const mcsat_value_t* v = trail_get_value(bv->ctx->trail, x);
+        switch (v->type) {
+        case VALUE_BOOLEAN:
+          bv_bdd_manager_set_bool_value(bv->bddm, x_term, v->b);
+          break;
+        case VALUE_BV:
+          bv_bdd_manager_set_bv_value(bv->bddm, x_term, &v->bv_value);
+          break;
+        default:
+          assert(false);
+        }
+      }
     }
 
     // Bump the variables
