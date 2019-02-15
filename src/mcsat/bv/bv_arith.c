@@ -24,6 +24,7 @@ bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_
   }
   default:
     assert(false);
+    abort();
   }
 }
 
