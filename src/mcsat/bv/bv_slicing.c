@@ -532,7 +532,8 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     bvconstant_t bvcst;
     init_bvconstant(&bvcst);
     
-    switch (term_kind(terms, t)) {
+    term_kind_t t_kind = term_kind(terms, t);
+    switch (t_kind) {
     case BV_CONSTANT: { // The term itself could be a constant term
       bvconst_term_t* desc = bvconst_term_desc(terms, t);
       bvconstant_copy(&bvcst, desc->bitsize, desc->data);
@@ -544,7 +545,8 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       break;
     }
     default: { // Otherwise we hope that the term is assigned a value on the trail
-      variable_t var = variable_db_get_variable(var_db, t); // term as a variable
+      variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
+      assert(var != variable_null);
       if (trail_has_value(trail, var)) { // yeah! it has a value
         const mcsat_value_t* val = trail_get_value(trail, var);
         switch (val->type) {

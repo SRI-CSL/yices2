@@ -1300,6 +1300,8 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
   (*mcsat->solver_stats.lemmas)++;
 
+  assert(int_queue_is_empty(&mcsat->registration_queue));
+
   if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
     mcsat_trace_printf(mcsat->ctx->trace, "lemma:\n");
     for (i = 0; i < lemma->size; ++ i) {
@@ -1316,7 +1318,17 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
     // Get the variables for the disjunct
     disjunct = lemma->data[i];
+    assert(term_type_kind(mcsat->terms, disjunct) == BOOL_TYPE);
     disjunct_pos = unsigned_term(disjunct);
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "literal: ");
+      variable_db_print_variable(mcsat->var_db, disjunct_pos_var, stderr);
+      if (trail_has_value(mcsat->trail, disjunct_pos_var)) {mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
+        const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
+        mcsat_value_print(value, stderr);
+        mcsat_trace_printf(mcsat->ctx->trace, "\n");
+      }
+    }
     disjunct_pos_var = variable_db_get_variable(mcsat->var_db, disjunct_pos);
 
     // Process any newly registered variables
@@ -1324,16 +1336,6 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
     // Check if the literal has value (only negative allowed)
     if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
-
-      if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "literal: ");
-        variable_db_print_variable(mcsat->var_db, disjunct_pos_var, stderr);
-        mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
-        const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
-        mcsat_value_print(value, stderr);
-        mcsat_trace_printf(mcsat->ctx->trace, "\n");
-      }
-
       assert(trail_get_value(mcsat->trail, disjunct_pos_var)->type == VALUE_BOOLEAN);
       assert(trail_get_value(mcsat->trail, disjunct_pos_var)->b == (disjunct != disjunct_pos));
       level = trail_get_level(mcsat->trail, disjunct_pos_var);
