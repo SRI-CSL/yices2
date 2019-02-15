@@ -1300,7 +1300,9 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
 
   (*mcsat->solver_stats.lemmas)++;
 
-  assert(int_queue_is_empty(&mcsat->registration_queue));
+  // assert(int_queue_is_empty(&mcsat->registration_queue));
+  // TODO: revisit this. it's done in integer solver to do splitting in
+  // conflict analysis
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
     mcsat_trace_printf(mcsat->ctx->trace, "lemma:\n");
