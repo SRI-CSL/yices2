@@ -695,7 +695,7 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     fprintf(out, "subtheory %s\n", subtheory_to_string(subtheory));
   }
 
-  bool use_yices = false;
+  bool use_yices = true;
 
   // Get the appropriate conflict
   switch (subtheory) {

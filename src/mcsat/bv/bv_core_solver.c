@@ -105,19 +105,50 @@ void bv_core_solver_assert_var(bv_core_solver_t* solver, variable_t var) {
   bv_core_solver_assert_term(solver, assertion_term);
 }
 
-bool bv_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
+bool bv_core_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
   const mcsat_trail_t* trail = data;
   assert(trail_has_value(trail, t1));
   assert(trail_has_value(trail, t2));
   return trail_get_index(trail, t1) < trail_get_index(trail, t2);
 }
 
+bool bv_core_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
+  term_table_t* terms = (term_table_t*) data;
+
+  // don't care about sign, presume all different atoms
+  t1 = unsigned_term(t1);
+  t2 = unsigned_term(t2);
+
+  term_kind_t t1_kind = term_kind(terms, t1);
+  term_kind_t t2_kind = term_kind(terms, t2);
+  if (t1_kind != t2_kind) {
+    return t1_kind < t2_kind;
+  }
+
+  if (t1_kind == BIT_TERM) {
+    term_t t1_arg = bit_term_arg(terms, t1);
+    term_t t2_arg = bit_term_arg(terms, t2);
+    if (t1_arg != t2_arg) {
+      return t1_arg < t2_arg;
+    }
+    uint32_t t1_i = bit_term_index(terms, t1);
+    uint32_t t2_i = bit_term_index(terms, t2);
+    return t1_i < t2_i;
+  }
+
+  // Don't care about others
+  return t1 < t2;
+}
+
 void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core) {
+
+  uint32_t i, j, bit;
 
   plugin_context_t* ctx = solver->ctx;
   const variable_db_t* var_db = ctx->var_db;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm = &solver->ctx->var_db->tm;
+  term_table_t* terms = tm->terms;
 
   // Vector to store assumptions
   ivector_t assumptions;
@@ -127,7 +158,6 @@ void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* 
   // int_array_sort2(solver->vars_to_assign.data, solver->vars_to_assign.size, (void*) solver->ctx->trail, bv_solver_cmp_var_by_trail_index);
 
   // Make assumptions
-  uint32_t i, bit;
   for (i = 0; i < solver->vars_to_assign.size; ++ i) {
     // Variable and its value
     variable_t var = solver->vars_to_assign.data[i];
@@ -188,13 +218,84 @@ void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* 
     core->data[i] = t;
   }
 
+  // Sort the core according to variable and bit
+  int_array_sort2(core->data, core->size, (void*) solver->ctx->terms, bv_core_solver_cmp_bit_term);
+
   if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Core: \n");
+    fprintf(out, "\n========\nCore from Yices2: \n");
     for (i = 0; i < core->size; ++ i) {
       ctx_trace_term(ctx, core->data[i]);
     }
   }
+
+  // Now group the individual bit-selects into equalities over bit-arrays
+  ivector_t grouped_core;
+  ivector_t grouped_bits;
+  bvconstant_t slice_value;
+  init_ivector(&grouped_core, 0);
+  init_ivector(&grouped_bits, 0);
+  init_bvconstant(&slice_value);
+  for (i = 0, j = 0; i < core->size; i = j) {
+    term_t bit_term = core->data[i];
+    if (term_kind(terms, bit_term) != BIT_TERM) {
+      ivector_push(&grouped_core, bit_term);
+      i ++;
+    } else {
+      // Find the whole range i..j-1 with increasing bits
+      term_t bit_arg = bit_term_arg(terms, bit_term);
+      uint32_t bit_index = bit_term_index(terms, bit_term) + 1;
+      j = i + 1;
+      while (j < core->size) {
+        select_term_t* bit_desc = bit_term_desc(terms, core->data[j]);
+        if (bit_desc->arg != bit_arg) break;
+        if (bit_desc->idx != bit_index) break;
+        j ++; bit_index ++;
+      }
+      if (j == i + 1) {
+        // If nothing to concat, just add it
+        ivector_push(&grouped_core, bit_term);
+      } else {
+        // Concat bits and construct the value
+        bvconstant_set_bitsize(&slice_value, j - i);
+        for (bit = i; bit < j; ++ bit) {
+          bit_term = core->data[bit];
+          bool bit_is_negated = is_neg_term(bit_term);
+          bit_term = unsigned_term(bit_term);
+          ivector_push(&grouped_bits, bit_term);
+          if (bit_is_negated) {
+            bvconst_clr_bit(slice_value.data, bit - i);
+          } else {
+            bvconst_set_bit(slice_value.data, bit - i);
+          }
+        }
+        // Make the terms
+        term_t slice_term = mk_bvarray(tm, grouped_bits.size, grouped_bits.data);
+        ivector_reset(&grouped_bits);
+        term_t slice_value_term = mk_bv_constant(tm, &slice_value);
+        term_t eq = mk_eq(tm, slice_term, slice_value_term);
+        ivector_push(&grouped_core, eq);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+          ctx_trace_term(ctx, eq);
+        }
+      }
+    }
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Simplified core: \n");
+    for (i = 0; i < grouped_core.size; ++ i) {
+      ctx_trace_term(ctx, grouped_core.data[i]);
+    }
+  }
+
+  ivector_swap(&grouped_core, (ivector_t*) core);
+
+  // Remove temps
+  delete_ivector(&grouped_core);
+  delete_ivector(&grouped_bits);
+  delete_bvconstant(&slice_value);
 
   // Remove assumption vector
   delete_ivector(&assumptions);
