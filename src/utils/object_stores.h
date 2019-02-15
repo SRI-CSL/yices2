@@ -106,16 +106,7 @@ extern void *objstore_alloc(object_store_t *s);
  * Free an allocated object: add it to s->free_list.
  * next pointer is stored in *object
  */
-static inline void objstore_free(object_store_t *s, void *object) {
-  /*
-   * BUG: This violates the strict aliasing rules and causes
-   * errors when optimizations are enabled?
-   */
-  //  * ((void **) object) = s->free_list;
-  // Try this instead.
-  memcpy(object, &s->free_list, sizeof(void*));
-  s->free_list = object;
-}
+extern void objstore_free(object_store_t *s, void *object);
 
 
 #endif /* __OBJECT_STORES_H */
