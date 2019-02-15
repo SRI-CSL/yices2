@@ -440,13 +440,12 @@ static uint32_t cbuffer_nvars(cbuffer_t *buffer) {
 
 /*
  * Initialization:
- * - htbl is initialized to its default size
  * - solver and remap must be initialized outside this function
  */
 void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap) {
   s->solver = solver;
   s->remap = remap;
-  init_gate_table(&s->htbl);
+  s->htbl = get_gate_table(solver);
   init_cbuffer(&s->buffer);
   init_ivector(&s->aux_vector, 0);
   init_ivector(&s->aux_vector2, 0);
@@ -459,11 +458,11 @@ void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap
 
 
 /*
- * Deletion: doesn't delete the solver, just the hash table
+ * Deletion: doesn't delete the solver
  */
 void delete_bit_blaster(bit_blaster_t *s) {
   s->solver = NULL;
-  delete_gate_table(&s->htbl);
+  s->htbl = NULL;
   delete_ivector(&s->aux_vector);
   delete_ivector(&s->aux_vector2);
   delete_ivector(&s->aux_vector3);
@@ -472,10 +471,9 @@ void delete_bit_blaster(bit_blaster_t *s) {
 
 
 /*
- * Reset gate table and buffers
+ * Reset buffers
  */
 void reset_bit_blaster(bit_blaster_t *s) {
-  reset_gate_table(&s->htbl);
   reset_cbuffer(&s->buffer);
   ivector_reset(&s->aux_vector);
   ivector_reset(&s->aux_vector2);
@@ -1110,6 +1108,8 @@ void bit_blaster_eq(bit_blaster_t *s, literal_t a, literal_t b) {
     cbuffer_simplify(buffer);
   }
 
+  //  printf("BB: assert eq %"PRId32" %"PRId32"\n", a, b);
+
   commit_buffer(s, buffer);
 }
 
@@ -1265,8 +1265,6 @@ void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, li
   // use equivalence (cmp a b c) = (majority a (not b) c)
   bit_blaster_maj3(s, a, not(b), c, x);
 }
-
-
 
 
 
@@ -1717,7 +1715,7 @@ literal_t bit_blaster_make_or(bit_blaster_t *s, uint32_t n, literal_t *a) {
   if (n == 1) return v->data[0];
 
   if (n <= BIT_BLASTER_MAX_HASHCONS_SIZE) {
-    g = gate_table_get_or(&s->htbl, n, v->data);
+    g = gate_table_get_or(s->htbl, n, v->data);
     l = g->lit[n];  // output literal for an or gate
     if (l == null_literal) {
       // this is a new gate
@@ -1780,7 +1778,7 @@ literal_t bit_blaster_make_xor(bit_blaster_t *s, uint32_t n, literal_t *a) {
     /*
      * Check the hash table
      */
-    g = gate_table_get_xor(&s->htbl, n, v->data);
+    g = gate_table_get_xor(s->htbl, n, v->data);
     l = g->lit[n]; // output literal for XOR gate
     if (l == null_literal) {
       // new XOR gate
@@ -1854,7 +1852,7 @@ static literal_t find_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
       aux = a; a = b; b = aux;
     }
     aux = null_literal;
-    g = gate_table_find_xor2(&s->htbl, a, b);
+    g = gate_table_find_xor2(s->htbl, a, b);
     if (g != NULL) {
       aux = g->lit[2]; // output of binary gate
       assert(aux != null_literal);
@@ -1944,7 +1942,7 @@ static literal_t make_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
    */
   l = bit_blaster_eval_cmp(s, a, b, c);
   if (l == null_literal) {
-    g = gate_table_get_cmp(&s->htbl, a, b, c);
+    g = gate_table_get_cmp(s->htbl, a, b, c);
     l = g->lit[3]; // output
     if (l == null_literal) {
       // create a fresh l and assert l = (cmp a b c)
@@ -2383,13 +2381,13 @@ static literal_t find_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t 
 
     l = null_literal;
     if (is_neg(a)) {
-      g = gate_table_find_ite(&s->htbl, c, not(a), not(b));
+      g = gate_table_find_ite(s->htbl, c, not(a), not(b));
       if (g != NULL) {
         assert(g->lit[3] != null_literal);
         l = not(g->lit[3]);
       }
     } else {
-      g = gate_table_find_ite(&s->htbl, c, a, b);
+      g = gate_table_find_ite(s->htbl, c, a, b);
       if (g != NULL) {
         assert(g->lit[3] != null_literal);
         l = g->lit[3];
@@ -2408,9 +2406,9 @@ static literal_t find_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t 
 static void make_mux_aux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t x) {
   boolgate_t *g;
 
-  assert(gate_table_find_ite(&s->htbl, c, a, b) == NULL);
+  assert(gate_table_find_ite(s->htbl, c, a, b) == NULL);
 
-  g = gate_table_get_ite(&s->htbl, c, a, b);
+  g = gate_table_get_ite(s->htbl, c, a, b);
   assert(g->lit[3] == null_literal);
   g->lit[3] = x; // store x as output of (ite c a b)
   bit_blaster_mux(s, c, a, b, x);
@@ -2536,7 +2534,7 @@ static void find_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
     if (a > b) {
       c0 = a; a = b; b = c0;
     }
-    g = gate_table_find_halfadd(&s->htbl, a, b);
+    g = gate_table_find_halfadd(s->htbl, a, b);
     if (g != NULL) {
       assert(g->lit[2] != null_literal && g->lit[3] != null_literal);
       *sum = g->lit[2];
@@ -2561,8 +2559,8 @@ static void make_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
     aux = a; a = b; b = aux;
   }
 
-  assert(gate_table_find_halfadd(&s->htbl, a, b) == NULL);
-  g = gate_table_get_halfadd(&s->htbl, a, b);
+  assert(gate_table_find_halfadd(s->htbl, a, b) == NULL);
+  g = gate_table_get_halfadd(s->htbl, a, b);
   assert(g->lit[2] == null_literal && g->lit[3] == null_literal);
   g->lit[2] = sum;
   g->lit[3] = c;
@@ -2678,7 +2676,7 @@ static void find_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
     assert(bit_blaster_eval_maj3(s, a, b, c) == null_literal);
     // normalize: ensure a <= b <= c
     sort3(a, b, c, aux);
-    g = gate_table_find(&s->htbl, fulladdgate_tag(), aux);
+    g = gate_table_find(s->htbl, fulladdgate_tag(), aux);
     if (g != NULL) {
       assert(g->lit[3] != null_literal && g->lit[4] != null_literal);
       *sum = g->lit[3];
@@ -2703,8 +2701,8 @@ static void make_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
 
   // normalize
   sort3(a, b, c, aux);
-  assert(gate_table_find(&s->htbl, fulladdgate_tag(), aux) == NULL);
-  g = gate_table_get(&s->htbl, fulladdgate_tag(), aux);
+  assert(gate_table_find(s->htbl, fulladdgate_tag(), aux) == NULL);
+  g = gate_table_get(s->htbl, fulladdgate_tag(), aux);
   assert(g->lit[3] == null_literal && g->lit[4] == null_literal);
   g->lit[3] = sum;
   g->lit[4] = d;
@@ -2828,7 +2826,7 @@ static literal_t make_and2(bit_blaster_t *s, literal_t a, literal_t b) {
     if (a > b) {
       l = a; a = b; b = l;
     }
-    g = gate_table_get_or2(&s->htbl, a, b);
+    g = gate_table_get_or2(s->htbl, a, b);
     l = g->lit[2]; // output literal of (or a b);
     if (l == null_literal) {
       // new gate

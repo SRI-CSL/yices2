@@ -33,7 +33,7 @@
  */
 void init_gate_manager(gate_manager_t *m, smt_core_t *core) {
   m->core = core;
-  init_gate_table(&m->htbl);
+  m->htbl = get_gate_table(core);
   init_ivector(&m->buffer, 0);
 }
 
@@ -43,7 +43,7 @@ void init_gate_manager(gate_manager_t *m, smt_core_t *core) {
  */
 void delete_gate_manager(gate_manager_t *m) {
   m->core = NULL;
-  delete_gate_table(&m->htbl);
+  m->htbl = NULL;
   delete_ivector(&m->buffer);
 }
 
@@ -158,7 +158,7 @@ literal_t mk_or_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
     }
   }
 
-  return aux_or_constructor(&m->htbl, s, v);
+  return aux_or_constructor(m->htbl, s, v);
 }
 
 literal_t mk_or_gate2(gate_manager_t *m, literal_t l1, literal_t l2) {
@@ -213,7 +213,7 @@ literal_t mk_and_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
     }
   }
 
-  return not(aux_or_constructor(&m->htbl, s, v));
+  return not(aux_or_constructor(m->htbl, s, v));
 }
 
 
@@ -370,7 +370,7 @@ literal_t mk_xor_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
   if (n == 1) return a[0] ^ sgn;
 
   if (n <= MAX_HASHCONS_SIZE) {
-    g = gate_table_get(&m->htbl, xorgate_tag(n), a);
+    g = gate_table_get(m->htbl, xorgate_tag(n), a);
     l = g->lit[n];
     if (l == null_literal) {
       l = assert_xordef_clauses(s, v);
@@ -499,7 +499,7 @@ static literal_t mk_ite_aux(gate_manager_t *m, literal_t c, literal_t l1, litera
   a[0] = c;
   a[1] = l1;
   a[2] = l2;
-  g = gate_table_get(&m->htbl, itegate_tag(), a);
+  g = gate_table_get(m->htbl, itegate_tag(), a);
   l = g->lit[3];
   if (l == null_literal) {
     s = m->core;

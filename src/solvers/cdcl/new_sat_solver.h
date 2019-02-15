@@ -22,7 +22,7 @@
 
 /*
  * This is a new implementation based on Hadrien Barral's work.
- * Hadrien's original code is in sat_solver.h/sat_sover.c.
+ * Hadrien's original code is in sat_solver.h/sat_solver.c.
  * This is a cleanup but similar implementation.
  */
 
@@ -34,6 +34,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "solvers/cdcl/smt_core_base_types.h"
+#include "solvers/cdcl/new_gates.h"
 #include "utils/tag_map.h"
 
 
@@ -56,110 +58,6 @@
 #define MAX_ARRAY32_SIZE UINT32_MAX
 #endif
 
-
-
-/************************************
- *  BOOLEAN VARIABLES AND LITERALS  *
- ***********************************/
-
-/*
- * Boolean variables: integers between 1 and nvars.
- * Literals: integers between 2 and 2nvar + 1.
- *
- * For a variable x, the positive literal is 2x, the negative
- * literal is 2x + 1.
- *
- * Variable index 0 is reserved. The corresponding literals
- * 0 and 1 denote true and false, respectively.
- */
-typedef uint32_t bvar_t;
-typedef uint32_t literal_t;
-
-
-/*
- * Maximal number of boolean variables.
- * That's also the maximal size of any clause.
- */
-#define MAX_VARIABLES (UINT32_MAX >> 2)
-#define MAX_CLAUSE_SIZE MAX_VARIABLES
-
-/*
- * Conversions from variables to literals
- */
-static inline literal_t pos(bvar_t x) {
-  return (x << 1);
-}
-
-static inline literal_t neg(bvar_t x) {
-  return (x << 1) + 1;
-}
-
-static inline bvar_t var_of(literal_t l) {
-  return l>>1;
-}
-
-// sign: 0 --> positive, 1 --> negative
-static inline int32_t sign_of(literal_t l) {
-  return l & 1;
-}
-
-// negation of literal l
-static inline literal_t not(literal_t l) {
-  return l ^ 1;
-}
-
-// check whether l1 and l2 are opposite
-static inline bool opposite(literal_t l1, literal_t l2) {
-  return (l1 ^ l2) == 1;
-}
-
-// true if l has positive polarity (i.e., l = pos(x))
-static inline bool is_pos(literal_t l) {
-  return !(l & 1);
-}
-
-static inline bool is_neg(literal_t l) {
-  return (l & 1);
-}
-
-
-/*
- * Assignment values for a variable:
- * - we use four values to encode the truth value of x
- *   when x is assigned and the preferred value when x is
- *   not assigned.
- * - value[x] is interpreted as follows
- *   val_undef_false = 0b00 --> x not assigned, preferred value = false
- *   val_undef_true  = 0b01 --> x not assigned, preferred value = true
- *   val_false = 0b10       --> x assigned false
- *   val_true =  0b11       --> x assigned true
- *
- * The preferred value is used when x is selected as a decision variable.
- * Then we assign x to true or false depending on the preferred value.
- * This is done by setting bit 1 in value[x].
- */
-typedef enum bval {
-  BVAL_UNDEF_FALSE = 0,
-  BVAL_UNDEF_TRUE = 1,
-  BVAL_FALSE = 2,
-  BVAL_TRUE = 3,
-} bval_t;
-
-
-// check whether val is undef_true or undef_false
-static inline bool is_unassigned_val(bval_t val) {
-  return (val & 0x2) == 0;
-}
-
-// check whether val is val_undef_true or val_true
-static inline bool true_preferred(bval_t val) {
-  return (val & 0x1) != 0;
-}
-
-// opposite value of v: flip the low order bit
-static inline bval_t opposite_val(bval_t val) {
-  return val ^ 1;
-}
 
 
 /********************
@@ -313,14 +211,14 @@ typedef struct gstack_s {
  */
 
 // clause structure
-typedef struct clause_s {
+typedef struct nclause_s {
   uint32_t len;
   union {
     uint32_t d;
     float f;
   } aux;
   literal_t c[0]; // real size is equal to len
-} clause_t;
+} nclause_t;
 
 /*
  * Pool structure:
@@ -417,7 +315,7 @@ typedef struct watch_s {
  * When variables/clauses are eliminated, we may need to keep a copy of some
  * of the clauses to recover the truth value of eliminated variables.
  * The saved data is a set of clauses of the form C_1 \/ l ... C_k \/ l
- * where l is either pos(x) or neg(x) and x is an eliminated variable.
+ * where l is either pos_lit(x) or neg_lit(x) and x is an eliminated variable.
  *
  * If we have a model M that doesn't give a value to x, we extend the assignment
  * by checking whether C_1, ..., C_k are all true in M. It they are, we set l := false
@@ -436,11 +334,11 @@ typedef struct watch_s {
  *
  * where n = total number of literals in C1 \/ l .... C_k \/ l.
  */
-typedef struct clause_vector_s {
+typedef struct nclause_vector_s {
   uint32_t *data;    // array to store the clauses
   uint32_t top;      // end of the last block (0 if there's nothing saved)
   uint32_t capacity; // full size of the data array
-} clause_vector_t;
+} nclause_vector_t;
 
 #define DEF_CLAUSE_VECTOR_CAPACITY 10240
 #define MAX_CLAUSE_VECTOR_CAPACITY MAX_ARRAY32_SIZE
@@ -558,7 +456,7 @@ typedef struct {
 /*
  * Heap and variable activities for the variable-selection heuristic
  * - activity[x]: for every variable x between 1 and nvars - 1
- * - index 0 is used as marker:
+ * - index 0 is used as a marker:
  *    activity[0] = DBL_MAX (higher than any activity)
  * - heap_index[x]: for every variable x,
  *      heap_index[x] = i if x is in the heap and heap[i] = x
@@ -567,10 +465,15 @@ typedef struct {
  * - heap_last: index of last element in the heap
  *   heap[0] = 0,
  *   for i=1 to heap_last, heap[i] = x for some variable x
- * - size = number of variable (nvars)
+ * - size = size of arrays activity, heap_index and heap
+ * - nvars = actual number of variables (must be <= size)
  * - vmax = variable index (last variable not in the heap)
  * - act_inc: variable activity increment
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
+ *
+ * Variable 0 is special: it corresponds to the two literals 0 and 1:
+ * - literal 0 --> true_literal
+ * - literal 1 --> false_literal
  *
  * The set of variables is split into two segments:
  * - [1 ... vmax-1] = variables that are in the heap or have been in the heap
@@ -584,16 +487,17 @@ typedef struct {
  * Initially: we set vmax to 1 (nothing in the heap yet) so decision
  * variables are picked in increasing order, starting from 1.
  */
-typedef struct var_heap_s {
+typedef struct nvar_heap_s {
   double *activity;
   int32_t *heap_index;
   bvar_t *heap;
   uint32_t heap_last;
   uint32_t size;
+  uint32_t nvars;
   uint32_t vmax;
   double act_increment;
   double inv_act_decay;
-} var_heap_t;
+} nvar_heap_t;
 
 
 
@@ -620,10 +524,15 @@ typedef struct solver_stats_s {
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
+  uint32_t subst_units;              // number of unit literals found by equivalence tests
+  uint32_t equivs;                   // number of equivalences detected
 
   // Preprocessing statistics
   uint32_t pp_pure_lits;             // number of pure literals removed
   uint32_t pp_unit_lits;             // number of unit literals removed
+  uint32_t pp_subst_vars;            // number of variables eliminated by substitution
+  uint32_t pp_subst_units;           // number of unit literals found by equivalence checks
+  uint32_t pp_equivs;                // number of equivalences detected
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
   uint32_t pp_strengthenings;        // number of strengthened clauses
@@ -681,6 +590,7 @@ typedef struct solver_param_s {
    */
   uint32_t simplify_interval;   // Minimal number of conflicts between two calls to simplify
   uint32_t simplify_bin_delta;  // Number of new binary clauses between two SCC computations
+  uint32_t simplify_subst_delta;   // Number of substitutions before trying cut sweeping
 } solver_param_t;
 
 
@@ -748,6 +658,38 @@ typedef enum solver_status {
 } solver_status_t;
 
 
+
+/****************************************
+ *  EXPERIMENTAL: VARIABLE DESCRIPTORS  *
+ ***************************************/
+
+/*
+ * For each variable, we optionally support metadata about where the
+ * variable came from. This allows us to select which variables may be
+ * eliminated or not and to attach a definition to a variable.
+ *
+ * For each variable x:
+ * - tag[x] = NONE, TO_KEEP, or GATE
+ * - desc[x] = index in the gate table if tag[x] == GATE, not used otherwise.
+ */
+typedef struct descriptors_s {
+  uint8_t *tag;
+  uint32_t *desc;
+  uint32_t size;       // number of variables with a tag
+  uint32_t capacity;   // size of arrays tag and desc
+} descriptors_t;
+
+#define DEF_DESCRIPTORS_SIZE 1024
+#define MAX_DESCRIPTORS_SIZE (UINT32_MAX/sizeof(uint32_t))
+
+typedef enum descriptor_tag_s {
+  DTAG_NONE,
+  DTAG_TO_KEEP,
+  DTAG_GATE,
+} descriptor_tag_t;
+
+
+
 /******************
  *  FULL SOLVER   *
  *****************/
@@ -789,19 +731,18 @@ typedef struct sat_solver_s {
   watch_t **watch;
   uint32_t *occ;              // Occurrence counts
 
-  var_heap_t heap;            // Variable heap
+  nvar_heap_t heap;           // Variable heap
   sol_stack_t stack;          // Assignment/propagation queue
 
-
   /*
-   * Clause database and related stuff:
+   * Clause database and related stuff
    *
-   * Default mode:
+   * In default mode:
    * - unit clauses are stored implicitly in the assignment stack
    * - binary clauses are stored implicitly in the watch vectors
    * - all other clauses are in the pool
    *
-   * Preprocessing mode:
+   * In preprocessing mode
    * - unit clauses are in the assignment stack
    * - all other clauses are in the pool (including binary clauses).
    */
@@ -842,6 +783,7 @@ typedef struct sat_solver_s {
   uint32_t simplify_binaries;  // Number of binary clauses after the last call to simplify_clause_database
   uint32_t simplify_new_bins;  // Number of binary clauses created by simplification
   uint32_t simplify_new_units; // number of unit clauses create by simplification
+  uint32_t simplify_subst_next; // Number of substitutions before the next call to try_equiv
   uint64_t simplify_next;      // Number of conflicts before the next call to simplify
 
   /*
@@ -873,7 +815,6 @@ typedef struct sat_solver_s {
   uint64_t max_depth_conflicts;
   uint64_t dive_start;
 
-
   /*
    * Statistics record
    */
@@ -895,7 +836,7 @@ typedef struct sat_solver_s {
   /*
    * Saved clauses
    */
-  clause_vector_t saved_clauses;
+  nclause_vector_t saved_clauses;
 
   /*
    * Data structures used during preprocessing:
@@ -913,7 +854,6 @@ typedef struct sat_solver_s {
   vector_t cvector;
   uint32_t scan_index;
 
-
   /*
    * Data structures to compute SCC in the binary implication graph.
    */
@@ -921,6 +861,15 @@ typedef struct sat_solver_s {
   gstack_t dfs_stack;
   uint32_t *label;
   uint32_t *visit;
+
+  vector_t subst_vars;  // all variables eliminated in an SCC round
+  vector_t subst_units; // literals found equal to true by SCC/EQ
+
+  /*
+   * Variable descriptors + gates
+   */
+  descriptors_t descriptors;
+  bgate_array_t gates;
 
   /*
    * File for data collection (used only when macro DATA is non-zero)
@@ -986,6 +935,40 @@ extern void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n);
  */
 extern bvar_t nsat_solver_new_var(sat_solver_t *solver);
 
+
+/*
+ * EXPERIMENTAL
+ */
+
+/*
+ * Update activity and polarity for variable x
+ * - polarity true: means true is preferred
+ * - act must be positive
+ */
+extern void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool polarity);
+
+/*
+ * Mark variable x as a variable to keep. It will not be deleted during
+ * preprocessing. By default, all variables are considered candidates for
+ * elimination.
+ */
+extern void nsat_solver_keep_var(sat_solver_t *solver, bvar_t x);
+
+/*
+ * Add a definition for variable x.
+ * There are two forms: binary and ternary definitions.
+ *
+ * A binary definition is x = (OP l1 l2) where l1 and l2 are literals
+ * and OP is a binary operator defined by a truth table.
+ *
+ * A ternary definition is similar, but with three literals:
+ * x = (OP l1 l2 l3).
+ *
+ * The truth table is defined by the  8 low-order bit of parameter b.
+ * The conventions are the same as in new_gates.h.
+ */
+extern void nsat_solver_add_def2(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2);
+extern void nsat_solver_add_def3(sat_solver_t *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3);
 
 
 
@@ -1158,15 +1141,15 @@ static inline bval_t lit_value(const sat_solver_t *solver, literal_t l) {
 
 static inline bval_t var_value(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
-  return solver->value[pos(x)];
+  return solver->value[pos_lit(x)];
 }
 
 static inline bool lit_is_unassigned(const sat_solver_t *solver, literal_t l) {
-  return is_unassigned_val(lit_value(solver, l));
+  return bval_is_undef(lit_value(solver, l));
 }
 
 static inline bool var_is_unassigned(const sat_solver_t *solver, bvar_t x) {
-  return is_unassigned_val(var_value(solver, x));
+  return bval_is_undef(var_value(solver, x));
 }
 
 static inline bool var_is_assigned(const sat_solver_t *solver, bvar_t x) {
@@ -1182,11 +1165,11 @@ static inline bool lit_prefers_true(const sat_solver_t *solver, literal_t l) {
 }
 
 static inline bool lit_is_true(const sat_solver_t *solver, literal_t l) {
-  return lit_value(solver, l) == BVAL_TRUE;
+  return lit_value(solver, l) == VAL_TRUE;
 }
 
 static inline bool lit_is_false(const sat_solver_t *solver, literal_t l) {
-  return lit_value(solver, l) == BVAL_FALSE;
+  return lit_value(solver, l) == VAL_FALSE;
 }
 
 
@@ -1195,11 +1178,11 @@ static inline bool var_prefers_true(const sat_solver_t *solver, bvar_t x) {
 }
 
 static inline bool var_is_true(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_TRUE;
+  return var_value(solver, x) == VAL_TRUE;
 }
 
 static inline bool var_is_false(const sat_solver_t *solver, bvar_t x) {
-  return var_value(solver, x) == BVAL_FALSE;
+  return var_value(solver, x) == VAL_FALSE;
 }
 
 
@@ -1223,6 +1206,7 @@ extern void nsat_get_allvars_assignment(const sat_solver_t *solver, bval_t *val)
 extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a);
 
 
+
 /******************************
  * PRINT INTERNAL STRUCTURES  *
  *****************************/
@@ -1233,6 +1217,11 @@ extern void show_state(FILE *f, const sat_solver_t *solver);
 /*******************************
  * STATISTICS/DATA COLLECTION  *
  ******************************/
+
+/*
+ * Print statistics
+ */
+extern void nsat_show_statistics(FILE *f, const sat_solver_t *solver);
 
 /*
  * If the solver is compiled with DATA enabled,

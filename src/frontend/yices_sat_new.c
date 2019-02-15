@@ -299,10 +299,10 @@ static bool clause_is_true(uint32_t n, literal_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (lit_value(&solver, a[i]) == BVAL_TRUE) {
+    if (lit_value(&solver, a[i]) == VAL_TRUE) {
       return true;
     }
-    if (lit_value(&solver, a[i]) != BVAL_FALSE) {
+    if (lit_value(&solver, a[i]) != VAL_FALSE) {
       fprintf(stderr, "BUG: the model does not assign a value to literal %"PRId32"\n", a[i]);
       exit(1);
     }
@@ -1041,7 +1041,6 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
   fprintf(f, "c  unit clauses         : %"PRIu32"\n", sol->units);
   fprintf(f, "c  binary clauses       : %"PRIu32"\n", sol->binaries);
   fprintf(f, "c  other clauses        : %"PRIu32"\n", sol->pool.num_prob_clauses);
-  fprintf(f, "c  assignments          : %"PRIu32"\n", sol->stack.top);
   fprintf(f, "c\n");
 }
 

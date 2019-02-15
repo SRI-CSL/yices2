@@ -32,6 +32,7 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
+#include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
@@ -644,6 +645,52 @@ smt_status_t precheck_context(context_t *ctx) {
 }
 
 
+
+/*
+ * Solve using another SAT solver
+ * - sat_solver = name of the solver to use
+ * - verbosity = verbosity level (0 means quiet)
+ * - this may be used only for BV or pure SAT problems
+ * - we perform one round of propagation to convert the problem to CNF
+ * - then we call an external SAT solver on the CNF problem
+ */
+smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+  bvar_t x;
+  bval_t v;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      init_delegate(&delegate, sat_solver, num_vars(core));
+      delegate_set_verbosity(&delegate, verbosity);
+
+      stat = solve_with_delegate(&delegate, core);
+      set_smt_status(core, stat);
+      if (stat == STATUS_SAT) {
+	for (x=0; x<num_vars(core); x++) {
+	  v = delegate_get_value(&delegate, x);
+	  set_bvar_value(core, x, v);
+	}
+      }
+
+      delete_delegate(&delegate);
+    }
+  }
+
+  return stat;
+}
 
 
 

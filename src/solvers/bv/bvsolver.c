@@ -66,7 +66,7 @@ static void print_solver_state(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n--- Clauses ---\n");
   print_clauses(f, solver->core);
@@ -876,7 +876,6 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
     init_bit_blaster(blaster, solver->core, remap);
-    bit_blaster_set_level(blaster, solver->base_level);
     solver->blaster = blaster;
   }
 }
@@ -7192,10 +7191,6 @@ void bv_solver_push(bv_solver_t *solver) {
     bv_compiler_push(solver->compiler);
   }
 
-  if (solver->blaster != NULL) {
-    bit_blaster_push(solver->blaster);
-  }
-
   if (solver->remap != NULL) {
     remap_table_push(solver->remap);
   }
@@ -7312,10 +7307,6 @@ void bv_solver_pop(bv_solver_t *solver) {
 
   solver->base_level --;
   bv_solver_backtrack(solver, solver->base_level);
-
-  if (solver->blaster != NULL) {
-    bit_blaster_pop(solver->blaster);
-  }
 
   if (solver->remap != NULL) {
     remap_table_pop(solver->remap);
@@ -8726,7 +8717,7 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
     print_bv_solver_dag(f, solver);
     if (solver->blaster != NULL) {
       fprintf(f, "\n--- Gates ---\n");
-      print_gate_table(f, &solver->blaster->htbl);
+      print_gate_table(f, solver->blaster->htbl);
     }
     fprintf(f, "\n--- Clauses ---\n");
     print_clauses(f, solver->core);

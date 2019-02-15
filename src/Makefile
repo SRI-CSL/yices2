@@ -173,9 +173,15 @@ core_src_c := \
 	solvers/bv/bv_vartable.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
+	solvers/cdcl/delegate.c \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
+	solvers/cdcl/new_gates.c \
+	solvers/cdcl/new_gate_hash_map.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/smt_core.c \
+	solvers/cdcl/truth_tables.c \
+	solvers/cdcl/wide_truth_tables.c \
 	solvers/egraph/composites.c \
 	solvers/egraph/diseq_stacks.c \
 	solvers/egraph/egraph_assertion_queues.c \
@@ -242,6 +248,7 @@ core_src_c := \
 	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
 	utils/csets.c \
+	utils/cputime.c \
 	utils/dep_tables.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
@@ -289,6 +296,7 @@ core_src_c := \
 	utils/string_buffers.c \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
+	utils/tag_map.c \
 	utils/tuple_hash_map.c \
 	utils/uint_array_sort.c \
 	utils/uint_array_sort2.c \
@@ -395,7 +403,6 @@ extra_src_c := \
 	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
-	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
@@ -408,12 +415,10 @@ extra_src_c := \
 	solvers/simplex/simplex_prop_table.c \
 	terms/arith_buffers.c \
 	utils/command_line.c \
-	utils/cputime.c \
 	utils/memsize.c \
 	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
-	utils/tag_map.c \
 	utils/timeout.c \
 	utils/union_find.c
 

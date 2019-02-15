@@ -369,7 +369,7 @@ dist: build_subdirs version $(dist_dir)
 	@ echo "=== Preparing binary distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) dist
 
-static-dist: static_build_subdirs version $(static_dist_dir)
+static-dist: static_build_subdirs build_subdirs version $(static_dist_dir)
 	@ echo "=== Preparing static binary distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
 

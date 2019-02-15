@@ -95,7 +95,7 @@ typedef struct cbuffer_s {
 typedef struct bit_blaster_s {
   smt_core_t *solver;
   remap_table_t *remap;
-  gate_table_t htbl;
+  gate_table_t *htbl;
   cbuffer_t buffer;
   ivector_t aux_vector;
   ivector_t aux_vector2;
@@ -132,37 +132,15 @@ extern void init_bit_blaster(bit_blaster_t *blaster, smt_core_t *solver, remap_t
 
 
 /*
- * Deletion: don't delete the solver, just the hash table
+ * Deletion
  */
 extern void delete_bit_blaster(bit_blaster_t *blaster);
 
 
 /*
- * Reset internal structures, not the solver
+ * Reset internal structures
  */
 extern void reset_bit_blaster(bit_blaster_t *blaster);
-
-
-/*
- * Push/pop just apply to the internal gate table
- */
-static inline void bit_blaster_push(bit_blaster_t *blaster) {
-  gate_table_push(&blaster->htbl);
-}
-
-static inline void bit_blaster_pop(bit_blaster_t *blaster) {
-  gate_table_pop(&blaster->htbl);
-}
-
-
-/*
- * Set level: same effect as calling push n times
- * - this is used to ensure that the bit-blaster trail stack
- *   has the same depth as the bv_solver when the bit_blaster is allocated
- */
-static inline void bit_blaster_set_level(bit_blaster_t *blaster, uint32_t n) {
-  gate_table_set_level(&blaster->htbl, n);
-}
 
 
 

@@ -5534,7 +5534,6 @@ void context_push(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
   }
-  gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   assumption_stack_push(&ctx->assumptions);
   context_eq_cache_push(ctx);
@@ -5549,7 +5548,6 @@ void context_pop(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
   }
-  gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   assumption_stack_pop(&ctx->assumptions);
   context_eq_cache_pop(ctx);

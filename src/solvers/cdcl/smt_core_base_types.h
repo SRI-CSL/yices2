@@ -190,6 +190,17 @@ static inline bool bval_is_def(bval_t v) { // bit 1 is set
   return (v & 2) != 0;
 }
 
+
+// check whether val is val_undef_true or val_true
+static inline bool true_preferred(bval_t val) {
+  return (val & 0x1) != 0;
+}
+
+// opposite value of v: flip the low order bit
+static inline bval_t opposite_val(bval_t val) {
+  return val ^ 1;
+}
+
 /*
  * Convert to a Boolean (extract the low-order bit)
  */
