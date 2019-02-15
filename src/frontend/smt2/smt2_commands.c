@@ -1384,7 +1384,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     break;
 
   case SMT2_TERM_NOT_INTEGER:
-    print_out("invalid argument in %s: not an integer",  opcode_string[tstack->error_op]);    
+    print_out("invalid argument in %s: not an integer",  opcode_string[tstack->error_op]);
     break;
 
   case TSTACK_STRINGS_ARE_NOT_TERMS:
@@ -3850,7 +3850,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
-  g->smtlib_version = 0;       // means no version specified yet 
+  g->smtlib_version = 0;       // means no version specified yet
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
@@ -4001,7 +4001,7 @@ void init_smt2(bool benchmark, uint32_t timeout, bool print_success) {
 void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool print_success){
   init_smt2(benchmark, timeout, print_success);
   __smt2_globals.nthreads = nthreads;
-  fprintf(stderr, "nthreads = %"PRIu32"\n", nthreads);
+  //fprintf(stderr, "nthreads = %"PRIu32"\n", nthreads);
 }
 
 
@@ -4256,7 +4256,7 @@ static bool is_yices_option(const char *name, const char **option) {
   if (strncmp(name, YICES_SMT2_PREFIX, len) == 0) {
     *option = &name[len];
     return true;
-  }  
+  }
   return false;
 }
 
@@ -4269,7 +4269,7 @@ static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
   bool supported;
 
   supported = true;
-  
+
   switch (p) {
   case PARAM_VAR_ELIM:
     print_boolean_value(g->ctx_parameters.var_elim);
@@ -4295,7 +4295,7 @@ static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
   case PARAM_KEEP_ITE:
     print_boolean_value(g->ctx_parameters.keep_ite);
     break;
-    
+
   case PARAM_FAST_RESTARTS:
     print_boolean_value(g->parameters.fast_restart);
     break;
@@ -4472,7 +4472,7 @@ void smt2_get_option(const char *name) {
   uint32_t n;
   const char* yices_option;
   yices_param_t p;
-  
+
   g = &__smt2_globals;
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
@@ -4565,7 +4565,7 @@ static void show_smtlib_version(const smt2_globals_t *g) {
   case 2000:
     print_kw_symbol_pair(":smt-lib-version", "2.0");
     break;
-    
+
   case 2500:
     print_kw_symbol_pair(":smt-lib-version", "2.5");
     break;
@@ -4647,7 +4647,7 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   smt2_globals_t *g;
   rational_t *rational;
   char* symbol;
-  
+
   g = &__smt2_globals;
 
   if (avalue < 0) {
@@ -4655,13 +4655,13 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
     return;
   }
 
-  switch (aval_tag(g->avtbl, avalue)) {    
+  switch (aval_tag(g->avtbl, avalue)) {
   case ATTR_RATIONAL:
     rational = aval_rational(g->avtbl, avalue);
     param_val->tag = PARAM_VAL_RATIONAL;
     param_val->val.rational = rational;
     break;
-    
+
   case ATTR_SYMBOL:
     symbol = aval_symbol(g->avtbl, avalue);
     // We use the SMT2 conventions here: True/False are capitalized
@@ -4681,7 +4681,7 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
   case ATTR_LIST:
     param_val->tag = PARAM_VAL_ERROR;
     break;
-    
+
   case ATTR_DELETED:
     freport_bug(g->err, "smt2_commands: attribute deleted");
     break;
@@ -4698,9 +4698,9 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   context_t *context;
   bool unsupported;   //keep track of those we punt on
 
-  unsupported = false;  
+  unsupported = false;
   reason = NULL;
-  
+
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
@@ -5089,7 +5089,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
  * Set an option:
  * - name = option name (keyword)
  * - value = value (either stored in:
- * 
+ *
  *  the parameters struct
  *  the ef_parametrs struct, or
  *  the attribute_value table)
@@ -5103,7 +5103,7 @@ void smt2_set_option(const char *name, aval_t value) {
   uint32_t n;
   const char* yices_option;
   param_val_t param_val;
-  
+
   g = &__smt2_globals;
 
   n = kwlen(name);
@@ -5384,7 +5384,7 @@ void smt2_pop(uint32_t n) {
 
   g->stats.num_pop ++;
   g->stats.num_commands ++;
-  
+
   tprint_calls("pop", g->stats.num_pop);
 
   if (check_logic()) {
@@ -5514,7 +5514,7 @@ yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* ar
 
   g->out = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
   g->err = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
-  
+
   check_delayed_assertions(g);
 
   return yices_thread_exit();
@@ -5531,7 +5531,7 @@ void smt2_check_sat(void) {
        * Non incremental
        */
       if (__smt2_globals.efmode) {
-	efsolve_cmd(&__smt2_globals);	
+	efsolve_cmd(&__smt2_globals);
       } else if (__smt2_globals.frozen) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else if (__smt2_globals.produce_unsat_cores) {
@@ -5779,7 +5779,7 @@ void smt2_get_model(void) {
   if (check_logic()) {
     if (__smt2_globals.efmode) {
       mdl = get_ef_model(&__smt2_globals);
-    } else {      
+    } else {
       mdl = get_model(&__smt2_globals);
     }
     if (mdl == NULL) return;

@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import argparse
+
+import subprocess
+import sys
+import os.path
+
+
+def file2list(path):
+    retval = []
+    with open(path, 'rU') as fp:  #U for universal newline support (all lines will end in \n)
+        for line in fp:
+            if '[' in line:
+                continue
+            line = line.rstrip('\n')
+            retval.append(line)
+    return retval
+
+def command(args, smt2):
+    yices = './build/x86_64-pc-linux-gnu-debug/bin/yices_mt2'
+    if args.helgrind:
+        return ['valgrind', '--tool=helgrind', yices,  '-n', args.nthreads, smt2]
+    else:
+        return [yices,  '-n', args.nthreads, smt2]
+
+
+def main(args):
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument('--verbose', '-v',
+                        dest='verbose',
+                        help='Run the solving in verbose mode',
+                        action="store_true")
+
+    parser.add_argument('--nthreads', '-n',
+                        dest='nthreads',
+                        help='The number of threads to spawn in the solving phase.',
+                        default='0')
+
+    parser.add_argument('--helgrind', '-g',
+                        dest='helgrind',
+                        help='Use helgrind.',
+                        action='store_true')
+
+    parser.add_argument('smt2_file_paths',
+                        help='The smt2 files.',
+                        default=None)
+
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.smt2_file_paths):
+        print('The file {0} does not seem to exist.'.format(args.smt2_file_paths))
+        return 1
+
+    files = file2list(args.smt2_file_paths)
+
+    print('Got {0} smt2 files'.format(len(files)))
+
+    for file in files:
+        cmd = command(args, file)
+        print(cmd)
+        subprocess.call(cmd)
+
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
