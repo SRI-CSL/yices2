@@ -26,6 +26,8 @@
 
 #include "utils/memalloc.h"
 #include "utils/object_stores.h"
+#include "mt/yices_locks.h"
+#include "mt/thread_macros.h"
 
 #ifndef NDEBUG
 
@@ -60,7 +62,7 @@ static bool offset_is_aligned(void *p, void *q) {
  * - objsize = size of all objects in s
  * - n = number of objects per block
  */
-void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
+void _o_init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   assert(objsize <= MAX_OBJ_SIZE);
   assert(0 < n && n <= MAX_OBJ_PER_BLOCK);
 
@@ -73,12 +75,16 @@ void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   s->objsize = objsize;
   s->blocksize = objsize * n;
 }
+void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
+  create_yices_lock(&(s->lock));
+  MT_PROTECT_VOID(s->lock, _o_init_objstore(s, objsize, n));
+}
 
 
 /*
  * Allocate an object in s
  */
-void *objstore_alloc(object_store_t *s) {
+void *_o_objstore_alloc(object_store_t *s) {
   void *tmp;
   uint32_t i;
   object_bank_t *new_bank;
@@ -112,14 +118,18 @@ void *objstore_alloc(object_store_t *s) {
 
   assert(ptr_is_aligned(tmp));
 
+
   return tmp;
+}
+void *objstore_alloc(object_store_t *s) {
+  MT_PROTECT(void *, s->lock, _o_objstore_alloc(s));
 }
 
 
 /*
  * Delete all objects
  */
-void delete_objstore(object_store_t *s) {
+void _o_delete_objstore(object_store_t *s) {
   object_bank_t *b, *next;
 
   b = s->bnk;
@@ -132,6 +142,11 @@ void delete_objstore(object_store_t *s) {
   s->bnk = NULL;
   s->free_list = NULL;
   s->free_index = 0;
+}
+
+void delete_objstore(object_store_t *s) {
+  MT_PROTECT_VOID(s->lock, _o_delete_objstore(s));
+  destroy_yices_lock(&(s->lock));
 }
 
 

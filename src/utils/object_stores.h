@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "mt/yices_locks.h"
+
 /*
  * Bank = a block of objects
  * - blocks are linked in a list
@@ -54,6 +56,7 @@ struct object_bank_s {
  * - or by adding a new block.
  */
 typedef struct object_store_s {
+  yices_lock_t lock;   // a lock protecting the object_store
   object_bank_t *bnk;  // first block in the bank list
   void *free_list;
   uint32_t free_index; // index of last allocated object in first block
@@ -116,4 +119,3 @@ static inline void objstore_free(object_store_t *s, void *object) {
 
 
 #endif /* __OBJECT_STORES_H */
-
