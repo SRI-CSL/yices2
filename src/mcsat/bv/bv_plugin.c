@@ -651,11 +651,26 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     // Get the list of variables
     ivector_t* t_var_list = int_mset_get_list(&t_vars);
 
-    // Addd the variables to the BDD manager (so that we can assign them)
+    // Add the variables to the BDD manager (so that we can assign them)
     for (i = 0; i < t_var_list->size; ++ i) {
       variable_t x = t_var_list->data[i];
       term_t x_term = variable_db_get_term(var_db, x);
       bv_bdd_manager_add_term(bv->bddm, x_term);
+      // It can happen that term is assigned, but it only now became a BV
+      // variable (e.g., Boolean variables).
+      if (trail_has_value(bv->ctx->trail, x)) {
+        const mcsat_value_t* v = trail_get_value(bv->ctx->trail, x);
+        switch (v->type) {
+        case VALUE_BOOLEAN:
+          bv_bdd_manager_set_bool_value(bv->bddm, x_term, v->b);
+          break;
+        case VALUE_BV:
+          bv_bdd_manager_set_bv_value(bv->bddm, x_term, &v->bv_value);
+          break;
+        default:
+          assert(false);
+        }
+      }
     }
 
     // Bump the variables
