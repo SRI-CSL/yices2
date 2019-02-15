@@ -13,8 +13,7 @@
 #include "bv_arith.h"
 
 
-bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var){
-
+bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var) {
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
@@ -26,13 +25,11 @@ bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_
   default:
     assert(false);
   }
-  
 }
 
-void bv_arith_le(plugin_context_t* ctx, bv_evaluator_t* eval, term_t lhs, term_t rhs, term_t conflict_var, ivector_t* conflict){
-
+void bv_arith_le(plugin_context_t* ctx, bv_evaluator_t* eval, term_t lhs, term_t rhs, term_t conflict_var, ivector_t* conflict) {
   // Standard abbreviations
-  term_table_t* terms  = ctx->terms;
+  //  term_table_t* terms  = ctx->terms;
   term_manager_t* tm = &ctx->var_db->tm;
 
   bool left_has  = bv_arith_has_conflict_var(ctx, lhs, conflict_var);
@@ -51,7 +48,7 @@ void bv_arith_le(plugin_context_t* ctx, bv_evaluator_t* eval, term_t lhs, term_t
   term_t t; // Term to add to the conflict
 
   if (left_has) {
-    t = (true)?mk_bvle(tm, c1, c2):mk_bvgt(tm, c1, c2); //TODO: replace condition with c1_v <= c2_v
+    t = (true) ? mk_bvle(tm, c1, c2): mk_bvgt(tm, c1, c2); //TODO: replace condition with c1_v <= c2_v
   } else {
     assert(right_has); // otherwise !left_has && !right_has - conflict variable appears on neither side - not sure that could happen
     t = (true)?mk_bvlt(tm, c1, c2):mk_bvge(tm, c1, c2); //TODO: replace condition with c1_v < c2_v
