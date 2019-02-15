@@ -8199,7 +8199,7 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
  * - iflag = true to active the integer solver
  * - qflag = true to support quantifiers
  */
-context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+static context_t *_o_yices_create_context(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   context_t *ctx;
 
   ctx = alloc_context();
@@ -8207,6 +8207,10 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
   context_set_default_options(ctx, logic, arch, iflag, qflag);
 
   return ctx;
+}
+
+context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+  MT_PROTECT(context_t *, __yices_globals.lock, _o_yices_create_context(logic, arch, mode, iflag, qflag));
 }
 
 
@@ -8496,7 +8500,7 @@ static inline bool yices_assert_formula_checks(term_t t) {
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
 
-  if (!yices_assert_formula_checks(t)) { 
+  if (!yices_assert_formula_checks(t)) {
     return -1;
   }
 
@@ -8943,7 +8947,7 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   if(!unsat_core_check_assumptions(n, a)){
     return STATUS_ERROR; // Bad assumptions
   }
-  
+
   // cleanup
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:

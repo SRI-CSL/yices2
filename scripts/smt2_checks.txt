@@ -1,3 +1,4 @@
+#./scripts/ncheck -n <nthreads> ./scripts/smt2_checks.txt
 tests/regress/bv/stanek.smt2
 tests/regress/coverage/random/QF_AUFBV/03267bc0.smt2
 tests/regress/coverage/random/QF_AUFBV/0c1da194.smt2

@@ -152,6 +152,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   // buffers
   init_ivector(&table->ibuffer, 20);
   init_pvector(&table->pbuffer, 20);
+
 }
 
 
@@ -175,7 +176,6 @@ static void term_table_extend(term_table_t *table) {
   table->mark = extend_bitvector(table->mark, n);
   table->size = n;
 }
-
 
 
 
@@ -1848,8 +1848,9 @@ void delete_term_table(term_table_t *table) {
   table->type = NULL;
   table->desc = NULL;
   table->mark = NULL;
-}
 
+
+}
 
 
 /*

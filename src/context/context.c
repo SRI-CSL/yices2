@@ -37,6 +37,9 @@
 #include "utils/memalloc.h"
 
 #include "mcsat/solver.h"
+#include "mt/thread_macros.h"
+
+#include "api/yices_globals.h"
 
 #define TRACE 0
 
@@ -5589,7 +5592,7 @@ static void context_build_sharing_data(context_t *ctx) {
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -5804,7 +5807,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   return code;
 }
 
-
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
+}
 
 /*
  * Assert all formulas f[0] ... f[n-1]
