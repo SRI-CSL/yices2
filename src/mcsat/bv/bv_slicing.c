@@ -546,8 +546,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     }
     default: { // Otherwise we hope that the term is assigned a value on the trail
       variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
-      assert(var != variable_null);
-      if (trail_has_value(trail, var)) { // yeah! it has a value
+      if ((var != variable_null) && trail_has_value(trail, var)) { // yeah! it has a value
         const mcsat_value_t* val = trail_get_value(trail, var);
         switch (val->type) {
         case VALUE_BV: {
