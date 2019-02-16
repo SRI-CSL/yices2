@@ -14,6 +14,7 @@
 #include "bv_arith.h"
 
 
+// checks whether term conflict_var is one of the variables of the polynomial bv expression t
 bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var) {
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
@@ -34,13 +35,10 @@ typedef struct {
   bv_evaluator_t* eval;
   term_t conflict_var;
   ivector_t* conflict;
-  uint32_t glb;
-  uint32_t lub;
-  ptr_heap_t heap;
-
+  ptr_heap_t heap; // Heap of forbidden intervals, ordered by lower bounds
 } local_ctx_t;
 
-
+// Treat a constraint of the form lhs <= rhs
 void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
   // Standard abbreviations
   term_manager_t* tm = &lctx->ctx->var_db->tm;
