@@ -1090,6 +1090,11 @@ extern void nsat_set_simplify_interval(sat_solver_t *solver, uint32_t n);
  */
 extern void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d);
 
+/*
+ * Number of new substitutions before cut sweeping round
+ */
+extern void nsat_set_simplify_subst_delta(sat_solver_t *solver, uint32_t d);
+
 
 /*********************
  *  CLAUSE ADDITION  *

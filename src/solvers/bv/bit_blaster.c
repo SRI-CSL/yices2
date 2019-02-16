@@ -2754,7 +2754,6 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
   }
 }
 
-
 /*
  * Assert u = (bvsub a b)
  * - input: a and b must be arrays of n literals
@@ -2799,6 +2798,74 @@ void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, litera
     c = d;
   }
 }
+
+
+/*
+ * INCREMENT
+ */
+
+/*
+ * Assert u = (bvadd a 2^k)
+ * - input: a must be an array of n literals
+ *          k must be an integer between 0 and n-1
+ * - output u: array of n pseudo literals
+ */
+void bit_blaster_make_bvinc(bit_blaster_t *s, literal_t *a, uint32_t k, literal_t *u, uint32_t n) {
+  remap_table_t *rmap;
+  literal_t sum, f, c, d;
+  uint32_t i;
+
+  assert(k < n);
+
+  rmap = s->remap;
+
+  // bits[0 .. k-1] are not changed
+  for (i=0; i<k; i++) {
+    // u[i] := a[i]
+    f = remap_table_find(rmap, u[i]);
+    if (f == null_literal) {
+      remap_table_assign(rmap, u[i], a[i]);
+    } else {
+      bit_blaster_eq(s, f, a[i]);
+    }
+  }
+
+  // for bit[k .. b-1]: we use half adders
+  // c = carry in
+  c = true_literal;
+
+  while (i<n) {
+    f = remap_table_find(rmap, u[i]);
+    find_half_add(s, a[i], c, &sum, &d);
+    if (sum == null_literal) {
+      assert(d == null_literal);
+      /*
+       * Create half_add(a[i], c)
+       * u[i] := sum, d := carry out
+       */
+      if (f == null_literal) {
+	f = bit_blaster_fresh_literal(s);
+	remap_table_assign(rmap, u[i], f);
+      }
+      d = bit_blaster_fresh_literal(s);
+      make_half_add(s, a[i], c, f, d);
+    } else {
+      assert(d != null_literal);
+      /*
+       * Assert s = u[i]
+       */
+      if (f == null_literal) {
+	remap_table_assign(rmap, u[i], sum);
+      } else {
+	bit_blaster_eq(s, f, sum);
+      }
+    }
+    c = d;
+    i ++;
+  }
+}
+
+
 
 
 /*

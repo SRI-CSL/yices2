@@ -511,6 +511,15 @@ extern void bit_blaster_make_bvneg(bit_blaster_t *blaster, literal_t *a, literal
 extern void bit_blaster_make_bvmul(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n);
 
 
+/*
+ * INCREMENT/DECREMENT
+ * - a must be a literal array of size n
+ * - u must be an array of n pseudo literals
+ * - the constraints encode u := a + 2^k or a := a - 2^k.
+ */
+extern void bit_blaster_make_bvinc(bit_blaster_t *blaster, literal_t *a, uint32_t k, literal_t *u, uint32_t n);
+
+
 
 /*
  * UNSIGNED DIVISION

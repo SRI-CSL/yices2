@@ -2806,6 +2806,10 @@ void nsat_set_simplify_bin_delta(sat_solver_t *solver, uint32_t d) {
   solver->params.simplify_bin_delta = d;
 }
 
+void nsat_set_simplify_subst_delta(sat_solver_t *solver, uint32_t d) {
+  solver->params.simplify_subst_delta = d;
+}
+
 
 
 /********************
