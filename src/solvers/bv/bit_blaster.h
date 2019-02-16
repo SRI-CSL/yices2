@@ -518,7 +518,7 @@ extern void bit_blaster_make_bvmul(bit_blaster_t *blaster, literal_t *a, literal
  * - the constraints encode u := a + 2^k or a := a - 2^k.
  */
 extern void bit_blaster_make_bvinc(bit_blaster_t *blaster, literal_t *a, uint32_t k, literal_t *u, uint32_t n);
-
+extern void bit_blaster_make_bvdec(bit_blaster_t *blaster, literal_t *a, uint32_t k, literal_t *u, uint32_t n);
 
 
 /*

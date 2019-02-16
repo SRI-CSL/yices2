@@ -1365,7 +1365,6 @@ void bit_blaster_half_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_
   bit_blaster_or2_gate(s, not(a), not(b), not(y)); // y = a and b
 }
 
-
 /*
  * Full adder: x = (a + b + c) mod 2, y = carry
  */
@@ -1863,7 +1862,6 @@ static literal_t find_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
 }
 
 
-
 /*
  * Equality: return l such that the equivalence l == (bveq a b)
  * holds in the solver.
@@ -2242,7 +2240,6 @@ void bit_blaster_assert_bvslt(bit_blaster_t *s, literal_t *a, literal_t *b, uint
  * Constraints of the form l == (comparison a b)
  */
 
-
 /*
  * Variant: assert l = (bveq a b)
  */
@@ -2347,8 +2344,6 @@ void bit_blaster_make_bvsge2(bit_blaster_t *s, literal_t *a, literal_t *b, liter
     break;
   }
 }
-
-
 
 
 
@@ -2861,6 +2856,117 @@ void bit_blaster_make_bvinc(bit_blaster_t *s, literal_t *a, uint32_t k, literal_
       }
     }
     c = d;
+    i ++;
+  }
+}
+
+/*
+ * DECREMENT
+ */
+
+/*
+ * Assert l = (xor a b) and add an xor gate to the hash table.
+ * - the gate must not be in the table already
+ */
+static void make_xor2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t l) {
+  boolgate_t *g;
+  literal_t aux;
+
+  // normalize
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+  g = gate_table_get_xor2(s->htbl, a, b);
+  assert(g->lit[2] == null_literal);
+  g->lit[2] = l;
+  bit_blaster_xor2_gate(s, a, b, l);
+}
+
+/*
+ * Search for l == (or a b) if such an l already exists
+ * - create a fresh l and add a gate to the hash-table if the gate does not exist
+ */
+static literal_t get_or2(bit_blaster_t *s, literal_t a, literal_t b) {
+  boolgate_t *g;
+  literal_t aux;
+
+  /*
+   * try to simplify first
+   */
+  aux = bit_blaster_eval_or2(s, a, b);
+  if (aux == null_literal) {
+    /*
+     * look in the hash table for (xor a b)
+     * - normalize first: arguments must be in increasing order
+     */
+    if (a > b) {
+      aux = a; a = b; b = aux;
+    }
+    g = gate_table_get_or2(s->htbl, a, b);
+    if (g->lit[2] == null_literal) {
+      aux = bit_blaster_fresh_literal(s);
+      g->lit[2] = aux;
+      bit_blaster_or2_gate(s, a, b, aux);
+    }
+  }
+
+  return aux;
+}
+
+/*
+ * Carry in (a - b) = not(a) and b = not (a or (not b))
+ */
+static inline literal_t get_decr_carry(bit_blaster_t *s, literal_t a, literal_t b) {
+  return not(get_or2(s, a, not(b)));
+}
+
+
+/*
+ * Assert u = (bvsub a 2^k)
+ * - input: a must be an array of n literals
+ *          k must be an integer between 0 and n-1
+ * - output u: array of n pseudo literals
+ */
+void bit_blaster_make_bvdec(bit_blaster_t *s, literal_t *a, uint32_t k, literal_t *u, uint32_t n) {
+  remap_table_t *rmap;
+  literal_t diff, f, c;
+  uint32_t i;
+
+  assert(k < n);
+
+  rmap = s->remap;
+
+  // bits[0 .. k-1] are not changed
+  for (i=0; i<k; i++) {
+    // u[i] := a[i]
+    f = remap_table_find(rmap, u[i]);
+    if (f == null_literal) {
+      remap_table_assign(rmap, u[i], a[i]);
+    } else {
+      bit_blaster_eq(s, f, a[i]);
+    }
+  }
+
+  // c = carry in
+  c = true_literal;
+  while (i<n) {
+    f = remap_table_find(rmap, u[i]);
+    // build diff = a[i] xor c
+    diff = find_xor2(s, a[i], c);
+    if (diff == null_literal) {
+      if (f == null_literal) {
+	f = bit_blaster_fresh_literal(s);
+	remap_table_assign(rmap, u[i], f);
+      }
+      make_xor2_gate(s, a[i], c, f);
+    } else if (f == null_literal) {
+      remap_table_assign(rmap, u[i], diff);
+    } else {
+      bit_blaster_eq(s, f, diff);
+    }
+
+    // carry out
+    c = get_decr_carry(s, a[i], c);
     i ++;
   }
 }

@@ -1414,6 +1414,28 @@ static void bit_blaster_make_bvadd_var(bit_blaster_t *blaster, literal_t *a, lit
   }
 }
 
+
+/*
+ * Assert u == (bvsub a b)
+ * - check for special cases where a or b is a power of 2
+ */
+static void bit_blaster_make_bvsub_var(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
+  uint32_t k1, k2;
+
+  k1 = bv_is_power_of_two(blaster, a, n);
+  k2 = bv_is_power_of_two(blaster, b, n);
+  if (k1 < n) {
+    // a is 2^k1
+    bit_blaster_make_bvdec(blaster, b, k1, u, n);
+  } else if (k2 < n) {
+    // b is 2^k2
+    bit_blaster_make_bvdec(blaster, a, k2, u, n);
+  } else {
+    bit_blaster_make_bvsub(blaster, a, b, u, n);
+  }
+}
+
+
 /*
  * Assert (u == (op a b)) for one of the binary operators op
  * - a, b must be fully-defined arrays of n literals
@@ -1426,7 +1448,7 @@ static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, litera
     bit_blaster_make_bvadd_var(blaster, a, b, u, n);
     break;
   case BVTAG_SUB:
-    bit_blaster_make_bvsub(blaster, a, b, u, n);
+    bit_blaster_make_bvsub_var(blaster, a, b, u, n);
     break;
   case BVTAG_MUL:
     bit_blaster_make_bvmul(blaster, a, b, u, n);
