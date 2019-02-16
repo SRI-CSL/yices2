@@ -14,8 +14,7 @@
 #include "bv_arith.h"
 
 
-bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var){
-
+bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var) {
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
@@ -27,7 +26,6 @@ bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_
   default:
     assert(false);
   }
-  
 }
 
 // Local context
@@ -43,8 +41,7 @@ typedef struct {
 } local_ctx_t;
 
 
-void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs){
-
+void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
   // Standard abbreviations
   term_manager_t* tm = &lctx->ctx->var_db->tm;
 
@@ -69,7 +66,7 @@ void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs){
   term_t t; // Term to add to the conflict
 
   if (left_has) {
-    t = (bvconstant_le(&cc1,&cc2))?mk_bvle(tm, c1, c2):mk_bvgt(tm, c1, c2);
+    t = (bvconstant_le(&cc1,&cc2)) ? mk_bvle(tm, c1, c2): mk_bvgt(tm, c1, c2);
   } else {
     assert(right_has); // otherwise !left_has && !right_has - conflict variable appears on neither side - not sure that could happen
     t = (bvconstant_le(&cc2,&cc1))?mk_bvle(tm, c2, c1):mk_bvgt(tm, c2, c1);
