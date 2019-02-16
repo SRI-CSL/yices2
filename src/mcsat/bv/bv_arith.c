@@ -34,12 +34,36 @@ typedef struct {
   plugin_context_t* ctx;
   bv_evaluator_t* eval;
   term_t conflict_var;
-  ivector_t* conflict;
   ptr_heap_t heap; // Heap of forbidden intervals, ordered by lower bounds
 } local_ctx_t;
 
+// Type for bvconstant intervals.
+// Upper bounded is always *excluded* from interval.
+// Invariant: (lo <= hi) should always hold, except if hi = 0, which means hi = 2^n
+
+typedef struct {
+  bvconstant_t lo;
+  bvconstant_t hi; 
+  term_t reason;
+} bvconst_interval_t;
+
+
+// Comparing two intervals: just comparing their lower bound. Used by the interval heap datastructure
+bool cmp(void *x, void *y){
+  bvconst_interval_t* i1 = (bvconst_interval_t*) x;
+  bvconst_interval_t* i2 = (bvconst_interval_t*) y;
+  return bvconstant_le(&i1->lo,&i2->lo);
+}
+
+
+/* bvconst_interval_t bv_arith_interval_construct(bvconstant_t lo, boolean lo_incl, has_hi is_bounded; // If true, upper bound is field hi. If not, it's bounded by 2^n. */
+/*   bvconstant_t hi;    // Upper bounded is always *excluded* from interval. */
+/*   term_t reason; */
+/* ) */
+
+
 // Treat a constraint of the form lhs <= rhs
-void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
+term_t bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
   // Standard abbreviations
   term_manager_t* tm = &lctx->ctx->var_db->tm;
 
@@ -69,20 +93,8 @@ void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
     assert(right_has); // otherwise !left_has && !right_has - conflict variable appears on neither side - not sure that could happen
     t = (bvconstant_le(&cc2,&cc1))?mk_bvle(tm, c2, c1):mk_bvgt(tm, c2, c1);
   }
-  ivector_push(lctx->conflict, t);
-}
 
-// Type for bvconstant intervals
-typedef struct {
-  bvconstant_t lo;
-  bvconstant_t hi;
-} bvconst_interval_t;
-
-
-bool cmp(void *x, void *y){
-  bvconst_interval_t* i1 = (bvconst_interval_t*) x;
-  bvconst_interval_t* i2 = (bvconst_interval_t*) y;
-  return bvconstant_le(&i1->lo,&i2->lo);
+  return t;
 }
 
 
@@ -94,7 +106,6 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   local_ctx_t lctx;
   lctx.ctx  = ctx;
   lctx.eval = eval;
-  lctx.conflict = conflict;
   lctx.conflict_var = conflict_var;
   init_ptr_heap(&lctx.heap, 0, &cmp);
   
