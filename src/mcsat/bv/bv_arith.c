@@ -86,8 +86,7 @@ bool cmp(void *x, void *y){
 }
 
 
-void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, term_t conflict_var, ivector_t* conflict){
-
+void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, term_t conflict_var, ivector_t* conflict) {
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
