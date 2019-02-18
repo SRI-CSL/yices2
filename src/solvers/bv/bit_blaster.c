@@ -2828,7 +2828,6 @@ void bit_blaster_make_bvinc(bit_blaster_t *s, literal_t *a, uint32_t k, literal_
   // for bit[k .. b-1]: we use half adders
   // c = carry in
   c = true_literal;
-
   while (i<n) {
     f = remap_table_find(rmap, u[i]);
     find_half_add(s, a[i], c, &sum, &d);
@@ -2903,7 +2902,8 @@ static literal_t get_or2(bit_blaster_t *s, literal_t a, literal_t b) {
       aux = a; a = b; b = aux;
     }
     g = gate_table_get_or2(s->htbl, a, b);
-    if (g->lit[2] == null_literal) {
+    aux = g->lit[2];
+    if (aux == null_literal) {
       aux = bit_blaster_fresh_literal(s);
       g->lit[2] = aux;
       bit_blaster_or2_gate(s, a, b, aux);
@@ -2914,7 +2914,7 @@ static literal_t get_or2(bit_blaster_t *s, literal_t a, literal_t b) {
 }
 
 /*
- * Carry in (a - b) = not(a) and b = not (a or (not b))
+ * Carry of (a - b) = (not(a) and b) = not (a or (not b))
  */
 static inline literal_t get_decr_carry(bit_blaster_t *s, literal_t a, literal_t b) {
   return not(get_or2(s, a, not(b)));
@@ -2959,10 +2959,13 @@ void bit_blaster_make_bvdec(bit_blaster_t *s, literal_t *a, uint32_t k, literal_
 	remap_table_assign(rmap, u[i], f);
       }
       make_xor2_gate(s, a[i], c, f);
-    } else if (f == null_literal) {
-      remap_table_assign(rmap, u[i], diff);
     } else {
-      bit_blaster_eq(s, f, diff);
+      // assert u[i] = diff
+      if (f == null_literal) {
+	remap_table_assign(rmap, u[i], diff);
+      } else {
+	bit_blaster_eq(s, f, diff);
+      }
     }
 
     // carry out
