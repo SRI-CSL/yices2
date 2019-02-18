@@ -1097,7 +1097,8 @@ bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* out) {
 typedef enum {
   PREFER_ZERO,
   PREFER_ONE,
-  PREFER_RANDOM
+  PREFER_RANDOM,
+  PREFER_SHORT_ZERO
 } pick_type_t;
 
 /**
@@ -1146,9 +1147,16 @@ bdds_Cudd_bddPickOneCube(CUDD* cudd, DdNode * node, pick_type_t pick)
     } else if (E == bzero) {
       cudd->tmp_model[N_index] = 1;
       node = T;
+    } else if (pick == PREFER_SHORT_ZERO && T == one) {
+      cudd->tmp_model[N_index] = 1;
+      node = T;
+    } else if (pick == PREFER_SHORT_ZERO && E == one) {
+      cudd->tmp_model[N_index] = 0;
+      node = E;
     } else {
       switch (pick) {
       case PREFER_ZERO:
+      case PREFER_SHORT_ZERO:
         dir = 0;
         break;
       case PREFER_ONE:
