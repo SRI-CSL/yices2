@@ -207,6 +207,56 @@ sudo make install
   `./configure --help` to see what's there.
 
 
+#### Optional Third-Party SAT Solvers
+
+Optionally, Yices can be configured to use external SAT solvers for
+bit-vector problems. Currently, two SAT solvers are supported:
+
+1. CaDiCal (https://github.com/arminbiere/cadical)
+
+2. CryptoMiniSat (https://github.com/msoos/cryptominisat)
+
+
+##### Build With CaDiCal
+
+Donwload CaDiCal at https://github.com/arminbiere/cadical.
+Follow the instructions to build CaDiCal. Install `ccadical.h`
+and `libcadical.a` somewhere reasonable. For example, from
+the top-level cadical directory, you can do
+```
+sudo cp src/ccadical.h /usr/local/include
+sudo cp build/libcadical.a /usr/local/lib
+```
+
+After installing CaDiCal, you can configure Yices as follows:
+```
+./configure CPPFLAGS=-DHAVE_CADICAL LIBS='-lcadical -lstd++'
+```
+You may need to provide LDFLAGS and adjust CPPFLAGS to
+give the directory where cadical is installed.
+
+
+##### Build With CryptoMiniSAT
+
+Yices requires a patched version of CryptoMiniSAT that you can download
+at https://github.com/BrunoDutertre/cryptominisat. Build and install
+this version of Cryptominisat as explained in the README file.
+
+After installing CryptoMiniSat, you can configure Yices as follows:
+```
+./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT LIBS='-lcryptominisat5 -lstd++'
+```
+
+##### Build With Both CadiCal and CryptoMiniSAT
+
+Install both then configure Yices as follows:
+```
+./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT' LIBS='-lcryptominisat5 -lcadical -lstd++'
+```
+
+
+
+
 #### Windows Builds
 
 We recommend compiling using Cygwin. If you want a version that works
