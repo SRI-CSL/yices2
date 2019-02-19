@@ -6024,8 +6024,11 @@ static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const tt
 
 /*
  * Search for equivalent definitions
+ * - level 0: check only for gate equivalence
+ * - level 1: gate equivalence & equivalence with true/false literal
+ * - level 2: also check for equality between literals
  */
-static void try_equivalent_vars(sat_solver_t *solver) {
+static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
   gate_hmap_t test;
   ttbl_t tt;
   uint32_t i, n;
@@ -6048,7 +6051,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	if (tt.nvars == 2) {
 	  try_rewrite_binary_gate(solver, l0, &tt, &test);
 	}
-      } else if (tt.nvars == 1) {
+      } else if (level >= 2 && tt.nvars == 1) {
 	l1 = literal_of_ttbl1(&tt);
 	if (l0 != l1 && !lit_is_eliminated(solver, l1)) {
 	  if (solver->verbosity >= 3) {
@@ -6056,7 +6059,7 @@ static void try_equivalent_vars(sat_solver_t *solver) {
 	  }
 	  literal_equiv(solver, l0, l1);
 	}
-      } else {
+      } else if (level >= 1) {
 	assert(tt.nvars == 0);
 	l1 = literal_of_ttbl0(&tt);
 	if (solver->verbosity >= 3) {
@@ -6262,7 +6265,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
     }
     for (;;) {
-      try_equivalent_vars(solver);
+      try_equivalent_vars(solver, 2);
       if (n == v->size || solver->has_empty_clause) break;
       n = v->size;
     }
@@ -8399,7 +8402,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n0);
     }
     if (solver->stats.subst_vars >= solver->simplify_subst_next) {
-      try_equivalent_vars(solver);
+      try_equivalent_vars(solver, 0);
       solver->simplify_subst_next = solver->stats.subst_vars + solver->params.simplify_subst_delta;
     }
     n = v->size;
