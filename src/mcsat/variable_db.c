@@ -31,7 +31,7 @@
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
-#include "yices.h"
+#include "api/yices_api_lock_free.h"
 
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
@@ -220,7 +220,7 @@ term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t,
   if (rhs == x_term) {
     rhs = subst;
   }
-  term_t result = yices_eq(lhs, rhs);
+  term_t result = _o_yices_eq(lhs, rhs);
 
   return result;
 }
