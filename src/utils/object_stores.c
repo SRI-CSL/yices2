@@ -26,7 +26,6 @@
 
 #include "utils/memalloc.h"
 #include "utils/object_stores.h"
-#include "mt/yices_locks.h"
 #include "mt/thread_macros.h"
 
 #ifndef NDEBUG

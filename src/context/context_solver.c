@@ -572,9 +572,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
-    //IAM: aquiring the lock causes deadlocks
-    //E.g.: valgrind --num-callers=500 --tool=helgrind ./build/x86_64-pc-linux-gnu-debug/bin/yices_mt2 -n 2 --mcsat tests/regress/mcsat/uf/eq_diamond23.smt2
-    return _o_call_mcsat_solver(ctx, params);
+    return call_mcsat_solver(ctx, params);
   }
 
   core = ctx->core;
