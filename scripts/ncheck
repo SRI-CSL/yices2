@@ -8,6 +8,8 @@ import subprocess
 import sys
 import os.path
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 def file2list(path):
     retval = []
@@ -78,16 +80,16 @@ def main(args):
     args = parser.parse_args()
 
     if not os.path.exists(args.smt2_file_paths):
-        print('The file {0} does not seem to exist.'.format(args.smt2_file_paths))
+        eprint('The file {0} does not seem to exist.'.format(args.smt2_file_paths))
         return 1
 
     files = file2list(args.smt2_file_paths)
 
-    print('Got {0} smt2 files'.format(len(files)))
+    eprint('Got {0} smt2 files'.format(len(files)))
 
     for file in files:
         cmd = command(args, file)
-        print(' '.join(cmd))
+        eprint(' '.join(cmd))
         if not args.dry_run:
             subprocess.call(cmd)
 
