@@ -70,6 +70,7 @@
 
 //for ian's threading hacks
 #include "mt/threads.h"
+#include "mt/thread_macros.h"
 
 
 /*
@@ -2710,7 +2711,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 /*
  * Check whether any formula is a[0...n-1] contains an uninterpreted function
  */
-static bool has_uf(term_t *a, uint32_t n) {
+static bool _o_has_uf(term_t *a, uint32_t n) {
   int_hset_t seen; // set of visited terms
   bool result;
   uint32_t i;
@@ -2724,6 +2725,9 @@ static bool has_uf(term_t *a, uint32_t n) {
   delete_int_hset(&seen);
 
   return result;
+}
+static bool has_uf(term_t *a, uint32_t n) {
+  MT_PROTECT(bool, __yices_globals.lock, _o_has_uf(a, n));
 }
 
 /*

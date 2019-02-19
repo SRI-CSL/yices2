@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "mcsat/solver.h"
 
 #include "context/context.h"
@@ -45,7 +45,6 @@
 #include "utils/dprng.h"
 
 #include <inttypes.h>
-
 
 /**
  * Notification of new variables for the main solver.
