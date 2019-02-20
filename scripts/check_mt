@@ -8,10 +8,6 @@ import subprocess
 import os
 import os.path
 
-#expand this as I write multithreaded entry points
-OK = [ '.smt2' ]
-
-
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
@@ -25,14 +21,28 @@ def get_options(path):
     return []
 
 
+def get_yices(args, path):
+    yices = None
+    _, ext = os.path.splitext(path)
+    if ext == '.smt2':
+        yices = 'yices_mt2'
+
+
+    if yices is not None:
+        yices = os.path.join(args.binary_directory, yices)
+
+    return yices
+
+
 def command(args, path):
-    yices = './build/x86_64-pc-linux-gnu-debug/bin/yices_mt2'
+    yices = get_yices(args, path)
+    if yices is None:
+        return None
     cmd = []
     if args.helgrind:
         cmd.extend(['valgrind', '--num-callers=500', '--tool=helgrind'])
 
     cmd.extend([yices,  '-n', args.nthreads])
-
 
     options = get_options(path)
 
@@ -75,7 +85,6 @@ def main(args):
 
     args = parser.parse_args()
 
-    test_dir = args.test_directory
     bin_dir = args.binary_directory
 
     def check_directory(path):
@@ -87,21 +96,23 @@ def main(args):
             return False
         return True
 
-    check_directory(test_dir)
-    check_directory(bin_dir)
+    check_directory(args.test_directory)
+    check_directory(args.binary_directory)
 
+    args.binary_directory = os.path.abspath(args.binary_directory)
 
     # Set the directory you want to start from
-    for directory, _, files in os.walk(test_dir):
+    for directory, _, files in os.walk(args.test_directory):
         for fname in files:
             fpath = os.path.join(directory, fname)
             _, ext = os.path.splitext(fpath)
-            if ext in OK:
-                cmd = command(args, fpath)
-                if len(get_options(fpath)) > 0:  #IAM: concentrate on the untested for now
-                    eprint(' '.join(cmd))
-                    if not args.dry_run:
-                        subprocess.call(cmd)
+            cmd = command(args, fpath)
+            if cmd is None:
+                continue
+            if len(get_options(fpath)) > 0:  #IAM: concentrate on the untested for now
+                eprint(' '.join(cmd))
+                if not args.dry_run:
+                    subprocess.call(cmd)
 
 
 if __name__ == '__main__':
