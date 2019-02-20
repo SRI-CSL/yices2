@@ -79,6 +79,7 @@ static bool mcsat_nra_nlsat;
 static bool mcsat_nra_bound;
 static int32_t mcsat_nra_bound_min;
 static int32_t mcsat_nra_bound_max;
+static int32_t mcsat_bv_var_size;
 
 static pvector_t trace_tags;
 
@@ -101,6 +102,7 @@ typedef enum optid {
   mcsat_nra_bound_opt,     // search by increasing bound
   mcsat_nra_bound_min_opt, // set initial bound
   mcsat_nra_bound_max_opt, // set maximal bound
+  mcsat_bv_var_size_opt,   // set size of bitvector variables
   trace_opt,               // enable a trace tag
 } optid_t;
 
@@ -123,6 +125,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
   { "mcsat-nra-bound-min", '\0', MANDATORY_INT, mcsat_nra_bound_min_opt },
   { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
+  { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
 };
 
@@ -161,7 +164,8 @@ static void print_help(const char *progname) {
    "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
    "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
    "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-   "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
+   "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
+   "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
    ""
 #endif
 	 "\n"
@@ -201,6 +205,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_nra_bound = false;
   mcsat_nra_bound_min = -1;
   mcsat_nra_bound_max = -1;
+  mcsat_bv_var_size = -1;
 
   init_pvector(&trace_tags, 5);
 
@@ -344,6 +349,23 @@ static void parse_command_line(int argc, char *argv[]) {
 #endif
         break;
 
+      case mcsat_bv_var_size_opt:
+#if HAVE_MCSAT
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the size value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        mcsat_bv_var_size = v;
+#else
+        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+        code = YICES_EXIT_USAGE;
+        goto exit;
+#endif
+        break;
+
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
         break;
@@ -411,6 +433,16 @@ static void setup_mcsat(void) {
     q_set32(&q, mcsat_nra_bound_max);
     aval_bound_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
     smt2_set_option(":yices-mcsat-nra-bound-max", aval_bound_max);
+    q_clear(&q);
+  }
+
+  if (mcsat_bv_var_size > 0) {
+    aval_t aval_bv_var_size;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_bv_var_size);
+    aval_bv_var_size = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-bv-var-size", aval_bv_var_size);
     q_clear(&q);
   }
 }
