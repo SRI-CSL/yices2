@@ -27,6 +27,11 @@ AC_PREREQ(2.60)
 AC_INIT([Yices],[2])
 
 dnl
+dnl Our public repository (used if ./configure fails)
+dnl
+repo_url="https://github.com/SRI-CSL/yices2"
+
+dnl
 dnl Save CFLAGS (AC_PROC_CC modifies it)
 dnl
 saved_cflags=$CFLAGS
@@ -114,9 +119,6 @@ fi
 
 
 
-
-
-
 dnl
 dnl Check whether the C compiler accepts the flag -fno-stack-protector
 dnl -------------------------------------------------------------------
@@ -145,6 +147,20 @@ else
 fi;
 AC_SUBST(NO_STACK_PROTECTOR)
 
+
+dnl
+dnl Check for endianness
+dnl --------------------
+dnl
+dnl The neorationals code is little-endian only for now.
+dnl TODO: support big-endian architectures at some point
+dnl For now, we check here and fail.
+dnl
+bigendian=""
+AC_C_BIGENDIAN([bigendian=yes],[bigendian=no],[bigendian=yes])
+if test "x$bigendian" == xyes ; then
+   AC_MSG_ERROR([Can't build for your architecture. Yices builds only on little-endian hardware. Please file an issue at $repo_url])
+fi
 
 dnl
 dnl CHECK_THREAD_LOCAL
