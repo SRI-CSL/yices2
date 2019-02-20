@@ -5809,12 +5809,13 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
 }
 
 static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  // If using MCSAT, just check and done
+  // If using MCSAT, just check and done (IAM: try locking ...)
   if (ctx->mcsat != NULL) {
-    return mcsat_assert_formulas(ctx->mcsat, n, a);
+    MT_PROTECT(int32_t, __yices_globals.lock, mcsat_assert_formulas(ctx->mcsat, n, a));
   }
   MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
 }
+
 
 /*
  * Assert all formulas f[0] ... f[n-1]
