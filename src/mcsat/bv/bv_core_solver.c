@@ -240,7 +240,7 @@ void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* 
     term_t bit_term = core->data[i];
     if (term_kind(terms, bit_term) != BIT_TERM) {
       ivector_push(&grouped_core, bit_term);
-      i ++;
+      j = i + 1;
     } else {
       // Find the whole range i..j-1 with increasing bits
       term_t bit_arg = bit_term_arg(terms, bit_term);
