@@ -693,7 +693,7 @@ static inline bool bvconstant_le(const bvconstant_t *a, const bvconstant_t *b) {
  * Takes care of setting result's bitsize to (h-l)
  */
 static inline void bvconstant_extract(bvconstant_t *a, uint32_t *data, uint32_t l, uint32_t h) {
-  assert(l < h && l >= 0);
+  assert(l < h);
   bvconstant_set_bitsize(a, h-l);
   assert(a->width >= ((h-l)+31)/32);
   bvconst_extract(a->data, data, l, h);

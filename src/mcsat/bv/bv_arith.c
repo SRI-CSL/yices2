@@ -9,6 +9,7 @@
 #include "mcsat/value.h"
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/term_manager.h"
+#include "terms/term_utils.h"
 #include "utils/ptr_heap.h"
 
 #include "bv_evaluator.h"
@@ -20,7 +21,7 @@ term_t bv_arith_add_terms(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
   bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
   bvarith_buffer_set_term(buffer, terms, a);
-  bvarith_buffer_normalize(buffer); //TODO: Is it needed? elsewhere?
+  // bvarith_buffer_normalize(buffer); // should not be needed
   bvarith_buffer_add_term(buffer, terms, b);
   return mk_bvarith_term(tm, buffer);
 }
@@ -31,7 +32,7 @@ term_t bv_arith_sub_terms(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
   bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
   bvarith_buffer_set_term(buffer, terms, a);
-  bvarith_buffer_normalize(buffer); //TODO: Is it needed? elsewhere?
+  // bvarith_buffer_normalize(buffer); // should not be needed
   bvarith_buffer_sub_term(buffer, terms, b);
   return mk_bvarith_term(tm, buffer);
 }
@@ -42,7 +43,7 @@ term_t bv_arith_negate_terms(term_manager_t* tm, term_t t) {
   term_table_t* terms = tm->terms;
   bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
   bvarith_buffer_set_term(buffer, terms, t);
-  bvarith_buffer_normalize(buffer); //TODO: Is it needed? elsewhere?
+  // bvarith_buffer_normalize(buffer); // should not be needed
   bvarith_buffer_negate(buffer);
   return mk_bvarith_term(tm, buffer);
 }
@@ -53,23 +54,21 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
   term_table_t* terms  = tm->terms;
   bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
   bvarith_buffer_set_term(buffer, terms, t);
-  bvarith_buffer_normalize(buffer); //TODO: Is it needed? elsewhere?
-  bvconstant_t one;
-  init_bvconstant(&one);
-  bvconstant_set_one(&one);
-  bvarith_buffer_add_const(buffer, one.data);
-  delete_bvconstant(&one);
+  bvarith_buffer_add_pp(buffer, empty_pp);
   return mk_bvarith_term(tm, buffer);
 }
 
 
 // checks whether term conflict_var is one of the variables of the polynomial bv expression t
 bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var) {
+
+  if (t == conflict_var) return true;
+
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == conflict_var) return true; //TODO: check that t_poly->mono[i].var is really a term (thought it was index for pproduct)
+      if (t_poly->mono[i].var == conflict_var) return true;
     }
     return false;
   }
@@ -277,6 +276,16 @@ void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
   delete_bvconstant(&hi);    
 }
 
+// Adds interval to conflict, and destructs it
+void bv_arith_add2conflict(term_manager_t* tm, term_t min_saved_term, bvconst_interval_t* i, ivector_t* conflict) {
+  if (!bvterm_is_zero(tm->terms, i->lo_term)) {
+    term_t continuity_reason = mk_bvle(tm, i->lo_term, min_saved_term);
+    ivector_push(conflict, continuity_reason);
+  }
+  ivector_push(conflict, i->reason);
+  bv_arith_interval_destruct(i);
+}
+
 
 void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, term_t conflict_var, ivector_t* conflict) {
   // Standard abbreviations
@@ -367,6 +376,54 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
       assert(false);
     }
   }
+
+  // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
+  const bvconstant_t* min_saved = &lctx.zero;
+  term_t min_saved_term = lctx.zero_term; // The term behind this lower bound of feasible values
+
+  // The best interval found so far in the heap, but not yet saved in &conflict,
+  // that can be used to forbid the greatest number of bv values beyond min_saved
+  bvconst_interval_t* best_so_far = NULL;
+  // tmp name for the next element popped from the heap
+  bvconst_interval_t* i = ptr_heap_get_min(&lctx.heap);
+
+  // Now we treat the heap
+  while (i != NULL) {
+    if (bvconstant_le(&i->lo,min_saved)) { // In continuity of previously forbidden range
+      if (bvconstant_is_zero(&i->hi)) { // Yeah! interval forbids all remaining values
+        best_so_far = i;
+        // Now we empty the heap
+        i = ptr_heap_get_min(&lctx.heap);
+        while (i != NULL) {
+          bv_arith_interval_destruct(i);
+          i = ptr_heap_get_min(&lctx.heap);
+        }
+      } else { // interval doesn't forbid all remaining values;
+        // does is eliminate more values than best_so_far?
+        if (((best_so_far == NULL) && bvconstant_lt(min_saved, &i->hi))
+            || bvconstant_lt(&best_so_far->hi, &i->hi)) { // i becomes best_so_far
+          if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
+          best_so_far = i;
+        } else bv_arith_interval_destruct(i); // i is not interesting enough
+        i = ptr_heap_get_min(&lctx.heap); // either way, we get next element in heap
+      }
+    } else { // Not in continuity of previously forbidden range
+      if (best_so_far != NULL) { // We need to save best_so_far in &conflict
+        bv_arith_add2conflict(tm, min_saved_term, best_so_far, conflict);
+        min_saved      = &best_so_far->hi;
+        min_saved_term = best_so_far->hi_term;
+      } else { // Discontinuity in intervals, shouldn't happen if in conflict
+        i = NULL;
+        assert(false);
+      }
+    }
+  }
+
+  if (best_so_far != NULL)
+    bv_arith_add2conflict(tm, min_saved_term, best_so_far, conflict);
+
+  assert(ptr_heap_is_empty(&lctx.heap));
+
   delete_bvconstant(&lctx.zero);
   delete_ptr_heap(&lctx.heap);
 }
