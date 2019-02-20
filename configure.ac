@@ -145,6 +145,7 @@ else
 fi;
 AC_SUBST(NO_STACK_PROTECTOR)
 
+
 dnl
 dnl CHECK_THREAD_LOCAL
 dnl ------------------
@@ -172,19 +173,6 @@ CPPFLAGS=$save_cppflags
 LIBS=$save_libs
 ])
 
-
-dnl
-dnl Test support for thread-local storage
-dnl -------------------------------------
-dnl
-AC_SUBST(HAVE_TLS)
-has_tls=""
-CSL_CHECK_THREAD_LOCAL
-if test "x$has_tls" == xyes; then
-  HAVE_TLS=1
-else
-  HAVE_TLS=0
-fi
 
 
 dnl
@@ -356,6 +344,26 @@ AC_ARG_WITH([pic-libpoly-include-dir],
     fi
    ],
    [])
+
+
+
+dnl
+dnl Option to enable thread-safety
+dnl ------------------------------
+dnl --enable-thread-safety
+dnl
+dnl The default is don't build thread safe. If the --enable-thread-safety 
+dnl is given, we check whether thread-local storage is supported.
+dnl
+thread_safe="no"
+AC_ARG_ENABLE([thread-safety],
+   [AS_HELP_STRING([--enable-thread-safety],[Build in thread-safe mode.])],
+   [if test "$enableval" = yes ; then
+      thread_safe="yes"
+      AC_MSG_NOTICE([Enabling thread-safe build])
+    fi],
+   [])
+
 
 
 
@@ -830,6 +838,32 @@ fi
 #     ;;
 # esac
 #
+
+#
+# THREAD-SAFE OPTION
+# ------------------
+#
+AC_SUBST(THREAD_SAFE)
+if test "x$thread_safe" == xyes ; then
+   THREAD_SAFE=1
+fi
+
+dnl
+dnl Test support for thread-local storage
+dnl -------------------------------------
+dnl
+AC_SUBST(HAVE_TLS)
+if test "x$thread_safe" == xyes ; then
+   has_tls=""
+   CSL_CHECK_THREAD_LOCAL
+   if test "x$has_tls" == xyes; then
+      HAVE_TLS=1
+   else
+      AC_MSG_ERROR([Building with --enable-thread-safe requires thread-local storage])
+   fi
+fi
+
+
 
 
 dnl AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not found. Try to set CPPFLAGS ***])])
