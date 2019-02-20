@@ -109,10 +109,9 @@ def main(args):
             cmd = command(args, fpath)
             if cmd is None:
                 continue
-            if len(get_options(fpath)) > 0:  #IAM: concentrate on the untested for now
-                eprint(' '.join(cmd))
-                if not args.dry_run:
-                    subprocess.call(cmd)
+            eprint(' '.join(cmd))
+            if not args.dry_run:
+                subprocess.call(cmd)
 
 
 if __name__ == '__main__':
