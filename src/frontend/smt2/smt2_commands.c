@@ -5545,16 +5545,33 @@ void smt2_check_sat(void) {
         if(__smt2_globals.nthreads == 0){
           check_delayed_assertions(&__smt2_globals);
         } else {
+          bool success = true;
           uint32_t index;
           //mayhem
           smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
           for(index = 0; index < __smt2_globals.nthreads; index++){
-            garray[index] = __smt2_globals;  //just copy them for now.
+            garray[index] = __smt2_globals;  // just copy them for now.
+            garray[index].tracer = NULL;     // only main thread can use this.
           }
           launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
           fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
           check_delayed_assertions(&__smt2_globals);
           //could check that they are all OK
+          smt_status_t main_answer = yices_context_status(__smt2_globals.ctx);
+          for(index = 0; index < __smt2_globals.nthreads; index++){
+            smt_status_t answer = yices_context_status(garray[index].ctx);
+
+            if(answer != main_answer){
+              success = false;
+            }
+            //free the model if there is one, and free the context.
+
+          }
+          if(success){
+            fprintf(stderr, "SUCCESS: All threads agree.\n");
+          } else {
+            fprintf(stderr, "FAILURE: Threads disagree.\n");
+           }
           safe_free(garray);
         }
       }
