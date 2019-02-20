@@ -5535,37 +5535,37 @@ void smt2_check_sat(void) {
        * Non incremental
        */
       if (__smt2_globals.efmode) {
-	efsolve_cmd(&__smt2_globals);
+        efsolve_cmd(&__smt2_globals);
       } else if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else if (__smt2_globals.produce_unsat_cores) {
-	delayed_assertions_unsat_core(&__smt2_globals);
+        delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	//	show_delayed_assertions(&__smt2_globals);
-	if(__smt2_globals.nthreads == 0){
-	  check_delayed_assertions(&__smt2_globals);
-	} else {
-	  uint32_t index;
-	  //mayhem
-	  smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
-	  for(index = 0; index < __smt2_globals.nthreads; index++){
-	    garray[index] = __smt2_globals;  //just copy them for now.
-	  }
-	  launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
-	  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
-	  check_delayed_assertions(&__smt2_globals);
-	  //could check that they are all OK
-	  safe_free(garray);
-	}
+        //	show_delayed_assertions(&__smt2_globals);
+        if(__smt2_globals.nthreads == 0){
+          check_delayed_assertions(&__smt2_globals);
+        } else {
+          uint32_t index;
+          //mayhem
+          smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
+          for(index = 0; index < __smt2_globals.nthreads; index++){
+            garray[index] = __smt2_globals;  //just copy them for now.
+          }
+          launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+          fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+          check_delayed_assertions(&__smt2_globals);
+          //could check that they are all OK
+          safe_free(garray);
+        }
       }
     } else {
       /*
        * Incremental
        */
       if (__smt2_globals.produce_unsat_cores) {
-	ctx_unsat_core(&__smt2_globals);
+        ctx_unsat_core(&__smt2_globals);
       } else {
-	ctx_check_sat(&__smt2_globals);
+        ctx_check_sat(&__smt2_globals);
       }
     }
   }

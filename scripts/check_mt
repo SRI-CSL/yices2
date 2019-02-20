@@ -25,7 +25,7 @@ def get_yices(args, path):
     yices = None
     _, ext = os.path.splitext(path)
     if ext == '.smt2':
-        yices = 'yices_mt2'
+        yices = 'yices_smt2_mt'
 
 
     if yices is not None:
