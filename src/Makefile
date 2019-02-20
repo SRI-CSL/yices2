@@ -561,6 +561,13 @@ ifeq ($(ENABLE_MCSAT),yes)
   CPPFLAGS+=-DHAVE_MCSAT
 endif
 
+#
+# Whether we have desire thread safety
+#
+ifeq ($(THREAD_SAFE),1)
+  CPPFLAGS+=-DTHREAD_SAFE
+endif
+
 
 #
 # OS-dependent compilation flags + which dynamic libraries to build
