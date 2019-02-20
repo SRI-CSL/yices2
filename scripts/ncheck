@@ -27,10 +27,25 @@ def file2list(path):
 
 def command(args, smt2):
     yices = './build/x86_64-pc-linux-gnu-debug/bin/yices_mt2'
+    cmd = []
     if args.helgrind:
-        return ['valgrind', '--num-callers=500', '--tool=helgrind', yices,  '-n', args.nthreads, smt2]
-    else:
-        return [yices,  '-n', args.nthreads, smt2]
+        cmd.extend(['valgrind', '--num-callers=500', '--tool=helgrind'])
+
+    cmd.extend([yices,  '-n', args.nthreads])
+
+    if args.incremental:
+        cmd.append('--incremental')
+
+    if args.efmode:
+        cmd.append('--mode=ef')
+
+    if args.mcsat:
+        cmd.append('--mcsat')
+
+
+    cmd.append(smt2)
+
+    return cmd
 
 
 def main(args):
