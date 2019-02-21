@@ -851,16 +851,36 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
 }
 
 static inline
-bool term_is_ext_con(bv_subexplainer_t* this, term_t t) {
+bool variable_in_list(variable_t x, const variable_t* vars) {
+  while (*vars != variable_null) {
+    if (x == *vars) { return true; }
+    vars ++;
+  }
+}
+
+static inline
+bool term_is_ext_con(bv_subexplainer_t* this, term_t t, const variable_t* vars) {
 
   uint32_t i;
 
   const variable_db_t* var_db = this->ctx->var_db;
   term_table_t* terms = this->ctx->terms;
 
-  // Variables solo
-  if (variable_db_has_variable(var_db, t)) {
-    return true;
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(this->ctx);
+    fprintf(out, "t = ");
+    ctx_trace_term(this->ctx, t);
+  }
+
+  // What kind of term is it
+  term_kind_t t_kind = term_kind(terms, t);
+
+  // MCSAT variables
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+  if (t_var != variable_null) {
+    if (variable_in_list(t_var, vars)) {
+      return true;
+    }
   }
 
   // Constants solo
@@ -869,17 +889,25 @@ bool term_is_ext_con(bv_subexplainer_t* this, term_t t) {
   }
 
   // Bit-select over a variable
-  if (term_kind(terms, t) == BIT_TERM) {
+  if (t_kind == BIT_TERM) {
     term_t t_arg = bit_term_arg(terms, t);
-    return variable_db_has_variable(var_db, t_arg);
+    variable_t t_arg_var = variable_db_get_variable_if_exists(var_db, t_arg);
+    if (t_arg_var != variable_null) {
+      return variable_in_list(t_arg_var, vars);
+    } else {
+      return false;
+    }
   }
 
   // Array of bits
-  if (term_kind(terms, t) == BV_ARRAY) {
+  if (t_kind == BV_ARRAY) {
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     for (i = 0; i < concat_desc->arity; ++ i) {
-      term_t bit = unsigned_term(concat_desc->arg[i]);
-      if (!term_is_ext_con(this, bit)) {
+      term_t bit = concat_desc->arg[i];
+      if (is_neg_term(bit)) {
+        return false;
+      }
+      if (!term_is_ext_con(this, bit, vars)) {
         return false;
       }
     }
@@ -905,23 +933,42 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
   term_table_t* terms = this->ctx->terms;
 
   for (i = 0; i < conflict->size; ++ i) {
+
+    // Atom and it's term
     variable_t atom_var = conflict->data[i];
     term_t atom_term = variable_db_get_term(var_db, atom_var);
 
+    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(this->ctx);
+      fprintf(out, "atom_var = ");
+      ctx_trace_term(this->ctx, atom_term);
+    }
+
+    // Get the variables of the constraint
+    if (!watch_list_manager_has_constraint(this->wlm, atom_var)) {
+      // No variables, it must be Boolean assignment, which is fine
+      continue;
+    }
+
+    // List of variables in the atom (at registration time, and BDD creation time)
+    variable_list_ref_t atom_var_wlist_ref = watch_list_manager_get_list_of(this->wlm, atom_var);
+    const variable_t* atom_var_wlist = watch_list_manager_get_list(this->wlm, atom_var_wlist_ref);
+
+    // Now, see if it fits
     term_kind_t atom_kind = term_kind(terms, atom_term);
     switch (atom_kind) {
     case BIT_TERM:
-      if (!term_is_ext_con(this, atom_term)) {
+      if (!term_is_ext_con(this, atom_term, atom_var_wlist)) {
         return false;
       }
       break;
     case BV_EQ_ATOM:
     case EQ_TERM: {
       composite_term_t* eq = composite_term_desc(terms, atom_term);
-      if (!term_is_ext_con(this, eq->arg[0])) {
+      if (!term_is_ext_con(this, eq->arg[0], atom_var_wlist)) {
         return false;
       }
-      if (!term_is_ext_con(this, eq->arg[1])) {
+      if (!term_is_ext_con(this, eq->arg[1], atom_var_wlist)) {
         return false;
       }
       break;
