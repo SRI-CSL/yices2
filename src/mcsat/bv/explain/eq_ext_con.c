@@ -856,6 +856,7 @@ bool variable_in_list(variable_t x, const variable_t* vars) {
     if (x == *vars) { return true; }
     vars ++;
   }
+  return false;
 }
 
 static inline
