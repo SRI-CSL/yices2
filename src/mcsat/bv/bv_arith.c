@@ -8,6 +8,8 @@
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/bvarith_buffer_terms.h"
+#include "terms/bvarith64_buffer_terms.h"
+#include "terms/bv64_constants.h"
 #include "terms/term_manager.h"
 #include "terms/term_utils.h"
 #include "utils/int_hash_sets.h"
@@ -19,43 +21,68 @@
 
 term_t bv_arith_add_terms(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
-  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-  bvarith_buffer_set_term(buffer, terms, a);
-  // bvarith_buffer_normalize(buffer); // should not be needed
-  bvarith_buffer_add_term(buffer, terms, b);
-  return mk_bvarith_term(tm, buffer);
+  if (term_bitsize(terms,a) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, a);
+    bvarith64_buffer_add_term(buffer, terms, b);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, a);
+    bvarith_buffer_add_term(buffer, terms, b);
+    return mk_bvarith_term(tm, buffer);
+  }
 }
 
 // Subtracting 2 bv terms
 
 term_t bv_arith_sub_terms(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
-  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-  bvarith_buffer_set_term(buffer, terms, a);
-  // bvarith_buffer_normalize(buffer); // should not be needed
-  bvarith_buffer_sub_term(buffer, terms, b);
-  return mk_bvarith_term(tm, buffer);
+  if (term_bitsize(terms,a) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, a);
+    bvarith64_buffer_sub_term(buffer, terms, b);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, a);
+    bvarith_buffer_sub_term(buffer, terms, b);
+    return mk_bvarith_term(tm, buffer);
+  }
 }
 
 // Negating a bv term
 
 term_t bv_arith_negate_terms(term_manager_t* tm, term_t t) {
   term_table_t* terms = tm->terms;
-  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-  bvarith_buffer_set_term(buffer, terms, t);
-  // bvarith_buffer_normalize(buffer); // should not be needed
-  bvarith_buffer_negate(buffer);
-  return mk_bvarith_term(tm, buffer);
+  if (term_bitsize(terms,t) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, t);
+    bvarith64_buffer_negate(buffer);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, t);
+    bvarith_buffer_negate(buffer);
+    return mk_bvarith_term(tm, buffer);
+  }
 }
 
 // Adding +1 to a bv term
 
 term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
   term_table_t* terms  = tm->terms;
-  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-  bvarith_buffer_set_term(buffer, terms, t);
-  bvarith_buffer_add_pp(buffer, empty_pp);
-  return mk_bvarith_term(tm, buffer);
+  if (term_bitsize(terms,t) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, t);
+    bvarith64_buffer_add_pp(buffer, empty_pp);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, t);
+    bvarith_buffer_add_pp(buffer, empty_pp);
+    return mk_bvarith_term(tm, buffer);
+  }
 }
 
 
@@ -63,15 +90,23 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
 
 term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
   term_table_t* terms  = tm->terms;
-  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-  bvarith_buffer_set_term(buffer, terms, t);
-  bvconstant_t half;
-  init_bvconstant(&half);
-  bvconstant_set_bitsize(&half, buffer->bitsize);
-  bvconst_set_min_signed(half.data, buffer->bitsize);
-  bvarith_buffer_add_const(buffer, half.data);
-  delete_bvconstant(&half);
-  return mk_bvarith_term(tm, buffer);
+  if (term_bitsize(terms,t) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, t);
+    uint64_t half = min_signed64(buffer->bitsize);
+    bvarith64_buffer_add_const(buffer, half);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, t);
+    bvconstant_t half;
+    init_bvconstant(&half);
+    bvconstant_set_bitsize(&half, buffer->bitsize);
+    bvconst_set_min_signed(half.data, buffer->bitsize);
+    bvarith_buffer_add_const(buffer, half.data);
+    delete_bvconstant(&half);
+    return mk_bvarith_term(tm, buffer);
+  }
 }
 
 
@@ -84,7 +119,18 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
 
   // Answer right away in case already found to be constant
   if (int_hset_member(cst_terms_cache, t)) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term was already found to have a value ");
+      ctx_trace_term(ctx, t);
+    }
     return true;
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Looking at whether this term has a value ");
+    ctx_trace_term(ctx, t);
   }
 
   variable_db_t* var_db = ctx->var_db; // standard abbreviations
@@ -156,6 +202,10 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
     }
   }
   int_hset_add(cst_terms_cache, t);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "It does !\n");
+  }
   return true;
 }
 
@@ -178,29 +228,49 @@ bool bv_arith_has_conflict_var(bv_arith_ctx_t* lctx, term_t t) {
 
   plugin_context_t* ctx = lctx->ctx;
   
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Looking at whether this term has the conflict_var ");
+    ctx_trace_term(ctx, t);
+  }
+
   if (t == lctx->conflict_var) return true;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not variable itself\n");
+  }
   if (bv_arith_is_constant(lctx->ctx, &lctx->cst_terms_cache, t)) return false;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not constant\n");
+  }
 
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
+      /* if (t_poly->mono[i].var == const_idx) continue; */
       if (t_poly->mono[i].var == lctx->conflict_var) return true;
     }
-    return false;
+    break;
   }
   case BV64_POLY: {
     bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
+      /* if (t_poly->mono[i].var == const_idx) continue; */
       if (t_poly->mono[i].var == lctx->conflict_var) return true;
     }
-    return false;
+    break;
   }
   default:
     assert(false);
   }
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "This term does not have the conflict_var ");
+    ctx_trace_term(ctx, t);
+  }
+  return false;
 }
 
 // Type for bvconstant intervals.
@@ -366,17 +436,22 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
       bvconstant_sub(&hi, &cc2);
       hi_term = bv_arith_sub_terms(tm,c1,c2);
 
-      if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid [ -c2 ; c1 - c2 [
-        reason = mk_bvle(tm, c1, c2);
-        i = bv_arith_interval_construct(tm, &lo, true, &hi, false, lo_term, hi_term, reason);
+      if (is_neq) { // case of inequality (c1 != c2 + x): forbidden interval is [ c1-c2 ; c1-c2 ]
+        i = bv_arith_interval_construct(tm, &hi, true, &hi, true, hi_term, hi_term, NULL_TERM);
         if (i != NULL) ptr_heap_add(&lctx->heap, i);
-      }
-      else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 - c2 [ and [ -c2 ; 2^n [
-        reason = mk_bvlt(tm, c2, c1);
-        i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-        if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
-        if (i != NULL) ptr_heap_add(&lctx->heap, i);
+      } else { // case of less than (c1 <= c2 + x)
+        if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid [ -c2 ; c1 - c2 [
+          reason = mk_bvle(tm, c1, c2);
+          i = bv_arith_interval_construct(tm, &lo, true, &hi, false, lo_term, hi_term, reason);
+          if (i != NULL) ptr_heap_add(&lctx->heap, i);
+        }
+        else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 - c2 [ and [ -c2 ; 2^n [
+          reason = mk_bvlt(tm, c2, c1);
+          i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
+          if (i != NULL) ptr_heap_add(&lctx->heap, i);
+          i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
+          if (i != NULL) ptr_heap_add(&lctx->heap, i);
+        }
       }
     }
   } else {
@@ -387,9 +462,9 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
     lo_term = bv_arith_sub_terms(tm,c2,c1);
 
     if (is_neq) { // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
-      i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, term_null);
+      i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
       if (i != NULL) ptr_heap_add(&lctx->heap, i);
-    } else { // in case of less than (c1 + x <= c2) we need to involve -c1
+    } else { // case of less than (c1 + x <= c2) we need to involve -c1
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_negate(&hi);
       hi_term = bv_arith_negate_terms(tm,c1);
@@ -577,6 +652,12 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
 
 // checks whether term t is a good inequality side for fragment
 bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t, term_t conflict_var) {
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "bv_arith looks whether this is a good side ");
+    ctx_trace_term(ctx, t);
+  }
 
   if (t == conflict_var) return true;
   if (bv_arith_is_constant(ctx, cst_terms_cache, t)) return true;
