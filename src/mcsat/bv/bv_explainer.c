@@ -10,6 +10,7 @@
 #include "bv_slicing.h"
 #include "bv_evaluator.h"
 #include "bv_utils.h"
+#include "bv_arith.h"
 
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
@@ -689,7 +690,14 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
-  bv_subtheory_t subtheory = bv_explainer_get_subtheory(exp, conflict_in);
+  bv_subtheory_t subtheory;
+
+  if (bv_arith_applies_to(exp->ctx, conflict_in, conflict_var)) {
+    subtheory = BV_TH_ARITH_CMP;
+  } else {
+    subtheory = bv_explainer_get_subtheory(exp, conflict_in);
+  }
+  
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(exp->ctx);
     fprintf(out, "subtheory %s\n", subtheory_to_string(subtheory));
@@ -709,6 +717,9 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     } else {
       bv_explainer_get_conflict_all_simple(exp, conflict_in, conflict_var, conflict_out);
     }
+    break;
+  case BV_TH_ARITH_CMP:
+    bv_arith_get_conflict(exp->ctx, exp->eval, conflict_in, conflict_var, conflict_out);
     break;
   default:
     assert(false);

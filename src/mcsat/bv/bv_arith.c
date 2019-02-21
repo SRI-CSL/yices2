@@ -10,9 +10,9 @@
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/term_manager.h"
 #include "terms/term_utils.h"
+#include "utils/int_hash_sets.h"
 #include "utils/ptr_heap.h"
 
-#include "bv_evaluator.h"
 #include "bv_arith.h"
 
 // Adding 2 bv terms
@@ -59,23 +59,90 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
 }
 
 
-// checks whether term conflict_var is one of the variables of the polynomial bv expression t
-bool bv_arith_has_conflict_var(plugin_context_t* ctx, term_t t, term_t conflict_var) {
+// Check if term t is a constant term of bv
+// (all bv variables & foreign terms have been assigned values in the trail)
 
-  if (t == conflict_var) return true;
+bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t) {
 
-  switch (term_kind(ctx->terms, t)) {
-  case BV_POLY: {
-    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
-    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == conflict_var) return true;
+  assert(is_pos_term(t));
+
+  // Answer right away in case already found to be constant
+  if (int_hset_member(cst_terms_cache, t)) {
+    return true;
+  }
+
+  variable_db_t* var_db = ctx->var_db; // standard abbreviations
+  term_table_t* terms   = ctx->terms;
+  const mcsat_trail_t* trail  = ctx->trail;
+
+  variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
+
+  if ((var == variable_null) || !trail_has_value(trail, var)) {
+  
+    switch (term_kind(terms, t)) {
+    case CONSTANT_TERM:
+    case BV_CONSTANT:
+    case BV64_CONSTANT:
+      break;
+    case EQ_TERM:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+    case BV_ARRAY:
+    case OR_TERM:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR: {
+      composite_term_t* composite_desc = composite_term_desc(terms, t);
+      for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
+        term_t t_i = composite_desc->arg[i];
+        term_t t_i_pos = unsigned_term(t_i);
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_i_pos)) return false;
+      }
+      break;
     }
-    return false;
+    case BIT_TERM: {
+      term_t arg = bit_term_arg(terms, t);
+      term_t arg_pos = unsigned_term(arg);
+      if (!bv_arith_is_constant(ctx, cst_terms_cache, arg_pos)) return false;
+      break;
+    }
+    case BV_POLY: {
+      bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        if (t_poly->mono[i].var == const_idx) continue;
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) return false;
+      }
+      break;
+    }
+    case BV64_POLY: {
+      bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        if (t_poly->mono[i].var == const_idx) continue;
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) return false;
+      }
+      break;
+    }
+    case POWER_PRODUCT: {
+      pprod_t* t_pprod = pprod_term_desc(terms, t);
+      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_pprod->prod[i].var)) return false;
+      }
+      break;
+    }
+    default:
+      return false;
+    }
   }
-  default:
-    assert(false);
-  }
+  int_hset_add(cst_terms_cache, t);
+  return true;
 }
+
 
 // Local context
 typedef struct {
@@ -85,7 +152,40 @@ typedef struct {
   bvconstant_t zero; // Because we don't like recomputing this too many times
   term_t zero_term;  // Because we don't like recomputing this too many times
   ptr_heap_t heap;   // Heap of forbidden intervals, ordered by lower bounds
-} local_ctx_t;
+  int_hset_t cst_terms_cache; // terms already found to be constant
+} bv_arith_ctx_t;
+
+
+
+// checks whether term conflict_var is one of the variables of the polynomial bv expression t
+bool bv_arith_has_conflict_var(bv_arith_ctx_t* lctx, term_t t) {
+
+  plugin_context_t* ctx = lctx->ctx;
+  
+  if (t == lctx->conflict_var) return true;
+  if (bv_arith_is_constant(lctx->ctx, &lctx->cst_terms_cache, t)) return false;
+
+  switch (term_kind(ctx->terms, t)) {
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == lctx->conflict_var) return true;
+    }
+    return false;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == lctx->conflict_var) return true;
+    }
+    return false;
+  }
+  default:
+    assert(false);
+  }
+}
 
 // Type for bvconstant intervals.
 // Upper bound is always *excluded* from interval.
@@ -174,13 +274,13 @@ bvconst_interval_t* bv_arith_interval_construct(term_manager_t* tm,
 
 // Treat a constraint of the form lhs <= rhs
 
-void bv_arith_le(local_ctx_t* lctx, term_t lhs, term_t rhs) {
+void bv_arith_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
   // Standard abbreviations
   term_manager_t* tm   = &lctx->ctx->var_db->tm;
 
   // Check if conflict variable is a variable of the left polynomial / right polynomial
-  bool left_has  = bv_arith_has_conflict_var(lctx->ctx, lhs, lctx->conflict_var);
-  bool right_has = bv_arith_has_conflict_var(lctx->ctx, rhs, lctx->conflict_var);
+  bool left_has  = bv_arith_has_conflict_var(lctx, lhs);
+  bool right_has = bv_arith_has_conflict_var(lctx, rhs);
 
   // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
   // from which the confict variable (if present) was removed
@@ -293,7 +393,7 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm = &ctx->var_db->tm;
   
-  local_ctx_t lctx;
+  bv_arith_ctx_t lctx;
   lctx.ctx  = ctx;
   lctx.eval = eval;
   lctx.conflict_var = conflict_var;
@@ -301,6 +401,14 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   init_bvconstant(&lctx.zero);
   bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, conflict_var));
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
+  init_int_hset(&lctx.cst_terms_cache, 0);
+
+  // Useful constant
+  bvconstant_t one;
+  init_bvconstant(&one);
+  bvconst_set_one(one.data, lctx.zero.width);
+  term_t one_term = mk_bv_constant(tm, &one);
+
   
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -330,22 +438,21 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
     atom_i_kind  = term_kind(terms, atom_i_term);
 
     switch (atom_i_kind) {
-    case BV_GE_ATOM: {  // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1)),
+    case BV_GE_ATOM: {  
       composite_term_t* atom_i_comp = bvge_atom_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
       term_t t0 = atom_i_comp->arg[0];
       term_t t1 = atom_i_comp->arg[1];
       assert(is_pos_term(t0));
       assert(is_pos_term(t1));
-      if (atom_i_value) {
+      if (atom_i_value) { // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1))
         bv_arith_le(&lctx, t1, t0);
       }
-      else {
-        // Constraint is (t0 >= t1) -> False (with atom_i_term = (t0 >= t1)),
-        // It looks like we need to convert into 2 constraints (t1 >= t0+1) AND (t0+1 >= 1)
-        // Create the term t0+1 using this?:
-        // bvarith_buffer_add_term(bvarith_buffer_t *b, term_table_t *table, term_t t);
-        assert(false);
+      else { // Constraint is (t0 >= t1) -> False (with atom_i_term = (t0 >= t1)),
+        // which is equivalent to the 2 constraints (t1 >= t0+1) AND (t0+1 >= 1)
+        term_t t0_plus1 = bv_arith_add_one_term(tm, t0);
+        bv_arith_le(&lctx, t0_plus1, t1);
+        bv_arith_le(&lctx, one_term, t0_plus1);
       }
       break;
     }
@@ -360,7 +467,6 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
       if (atom_i_value) {
         // Constraint is (t0 == t1) -> True (with atom_i_term = (t0 == t1)),
         // Turn into 2 constraints (t0 >= t1) AND (t1 >= t0)
-        // Careful there: one of the two may not be "in the core". Not problematic ?
         bv_arith_le(&lctx, t0, t1);
         bv_arith_le(&lctx, t1, t0);
       }
@@ -424,8 +530,144 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
 
   assert(ptr_heap_is_empty(&lctx.heap));
 
+  delete_bvconstant(&one);
   delete_bvconstant(&lctx.zero);
   delete_ptr_heap(&lctx.heap);
+  delete_int_hset(&lctx.cst_terms_cache);
 }
 
 
+
+
+// checks whether term t is a good inequality side for fragment
+bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t, term_t conflict_var) {
+
+  if (t == conflict_var) return true;
+  if (bv_arith_is_constant(ctx, cst_terms_cache, t)) return true;
+
+  switch (term_kind(ctx->terms, t)) {
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    bool conflict_var_seen = false;
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == conflict_var) {
+        if (conflict_var_seen) return false; // in theory, the conflict variable shouldn't be seen twice, but...
+        if (!bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) {
+          return false;
+        }
+        conflict_var_seen = true;
+      } else {
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
+    bool conflict_var_seen = false;
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == conflict_var) {
+        if (conflict_var_seen) return false; // in theory, the conflict variable shouldn't be seen twice, but...
+        if (t_poly->mono[i].coeff != 1) {
+          return false;
+        }
+        conflict_var_seen = true;
+      } else {
+        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  default:
+    assert(false);
+  }
+}
+
+
+
+bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, term_t conflict_var) {
+  // Standard abbreviations
+  term_table_t* terms  = ctx->terms;
+  const mcsat_trail_t* trail = ctx->trail;
+
+  // Variables that are going to be re-used for every item in the conflict core
+  variable_t atom_i_var;
+  bool       atom_i_value;
+  term_t     atom_i_term;
+  term_kind_t atom_i_kind;
+
+  int_hset_t cst_terms_cache;
+  init_int_hset(&cst_terms_cache, 0);
+
+  // We go through the conflict core
+  
+  for (uint32_t i = 0; i < conflict_core->size; i++) {
+    
+    atom_i_var   = conflict_core->data[i];
+    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+    atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
+
+    assert(is_pos_term(atom_i_term));
+
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "bv_arith looks whther this is in the fragment ");
+      ctx_trace_term(ctx, atom_i_term);
+    }
+
+    composite_term_t* atom_i_comp;
+    atom_i_kind  = term_kind(terms, atom_i_term);
+    
+    switch (atom_i_kind) {
+    case BV_GE_ATOM: {
+      atom_i_comp = bvge_atom_desc(terms, atom_i_term);
+      break;
+    }
+    case EQ_TERM : {
+      atom_i_comp = eq_term_desc(terms, atom_i_term);
+      break;
+    }
+    case BV_EQ_ATOM: {
+      if (!atom_i_value) {
+        delete_int_hset(&cst_terms_cache);
+        return false;
+      }
+      atom_i_comp = bveq_atom_desc(terms, atom_i_term);
+      break;
+    }
+    default: {
+      if (!atom_i_value) {
+        delete_int_hset(&cst_terms_cache);
+        return false;
+      }
+      delete_int_hset(&cst_terms_cache);
+      return false;
+    }
+    }
+
+    assert(atom_i_comp->arity == 2);
+    term_t t0 = atom_i_comp->arg[0];
+    term_t t1 = atom_i_comp->arg[1];
+    assert(is_pos_term(t0));
+    assert(is_pos_term(t1));
+
+    bool result =
+      bv_arith_is_good_side(ctx, &cst_terms_cache, t0, conflict_var)
+      && bv_arith_is_good_side(ctx, &cst_terms_cache, t1, conflict_var);
+
+    if (!result) {
+      delete_int_hset(&cst_terms_cache);
+      return false;
+    }
+  }
+
+  delete_int_hset(&cst_terms_cache);
+  return true;
+
+}

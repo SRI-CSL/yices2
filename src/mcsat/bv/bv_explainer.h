@@ -38,6 +38,8 @@ typedef enum {
   BV_TH_EQ = 0,
   /** Equality, extraction, concatenation */
   BV_TH_EQ_EXT_CON,
+  /** Inequalities and basic bv arithmetic */
+  BV_TH_ARITH_CMP,
   /** All together */
   BV_TH_FULL
 } bv_subtheory_t;

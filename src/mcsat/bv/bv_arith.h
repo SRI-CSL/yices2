@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "bv_evaluator.h"
+
 #include "mcsat/tracing.h"
 #include "mcsat/mcsat_types.h"
 
@@ -20,4 +22,5 @@
 
 void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, term_t conflict_var, ivector_t* conflict);
 
-
+// Test if in fragment
+bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, term_t conflict_var);
