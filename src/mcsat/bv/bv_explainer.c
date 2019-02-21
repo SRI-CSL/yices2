@@ -39,11 +39,12 @@ const char* bv_kind_to_string(bv_kind_type_t kt) {
 static
 const char* subtheory_to_string(bv_subtheory_t th) {
   switch (th) {
-    case BV_TH_EQ: return "equality";
-    case BV_TH_EQ_EXT_CON: return "eq/extract/concat";
-    case BV_TH_FULL: return "full";
-    default:
-      assert(false);
+  case BV_TH_EQ: return "equality";
+  case BV_TH_EQ_EXT_CON: return "eq/extract/concat";
+  case BV_TH_ARITH_CMP: return "arith-comparison";
+  case BV_TH_FULL: return "full";
+  default:
+    assert(false);
   }
   return "unknown";
 }
@@ -691,7 +692,7 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
   bv_subtheory_t subtheory;
-
+  
   if (bv_arith_applies_to(exp->ctx, conflict_in, conflict_var)) {
     subtheory = BV_TH_ARITH_CMP;
   } else {

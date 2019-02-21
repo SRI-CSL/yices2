@@ -59,6 +59,22 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
 }
 
 
+// Adding +2^{w-1} to a bv term
+
+term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
+  term_table_t* terms  = tm->terms;
+  bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+  bvarith_buffer_set_term(buffer, terms, t);
+  bvconstant_t half;
+  init_bvconstant(&half);
+  bvconstant_set_bitsize(&half, buffer->bitsize);
+  bvconst_set_min_signed(half.data, buffer->bitsize);
+  bvarith_buffer_add_const(buffer, half.data);
+  delete_bvconstant(&half);
+  return mk_bvarith_term(tm, buffer);
+}
+
+
 // Check if term t is a constant term of bv
 // (all bv variables & foreign terms have been assigned values in the trail)
 
@@ -282,22 +298,37 @@ void bv_arith_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
   bool left_has  = bv_arith_has_conflict_var(lctx, lhs);
   bool right_has = bv_arith_has_conflict_var(lctx, rhs);
 
+  if (ctx_trace_enabled(lctx->ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(lctx->ctx);
+    fprintf(out, "Printing lhs (%d): ",left_has);
+    ctx_trace_term(lctx->ctx, lhs);
+    fprintf(out, " and rhs (%d): ",right_has);
+    ctx_trace_term(lctx->ctx, rhs);
+  }
+
+
   // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
   // from which the confict variable (if present) was removed
   term_t c1 = (left_has) ? bv_arith_sub_terms(tm, lhs, lctx->conflict_var) : lhs;
   term_t c2 = (right_has) ? bv_arith_sub_terms(tm, rhs, lctx->conflict_var) : rhs;
 
+  if (ctx_trace_enabled(lctx->ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(lctx->ctx);
+    fprintf(out, "Printing c1: ");
+    ctx_trace_term(lctx->ctx, c1);
+    fprintf(out, " and c2: ");
+    ctx_trace_term(lctx->ctx, c2);
+  }
+
+
+  
   // Evaluating the polynomials c1 and c2 whose variables should all have values on the trail  
+  bvconstant_t cc1, cc2;
   uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
-  const mcsat_value_t* c1_v = bv_evaluator_evaluate_term(lctx->eval, c1, &eval_level);
+  bv_evaluator_run_term(lctx->eval, c1, &cc1, &eval_level);
   eval_level = 0;
-  const mcsat_value_t* c2_v = bv_evaluator_evaluate_term(lctx->eval, c2, &eval_level);
-
-  assert(c1_v->type == VALUE_BV);
-  assert(c2_v->type == VALUE_BV);
-  bvconstant_t cc1 = c1_v->bv_value;
-  bvconstant_t cc2 = c2_v->bv_value;
-
+  bv_evaluator_run_term(lctx->eval, c2, &cc2, &eval_level);
+  
   // Now we go through Table 1 of SMT 2016 paper
   // We are going to create one or two intervals of forbidden values, using these intermediate bv_constants
   bvconst_interval_t* i;
@@ -387,25 +418,26 @@ void bv_arith_add2conflict(term_manager_t* tm, term_t min_saved_term, bvconst_in
 }
 
 
-void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, term_t conflict_var, ivector_t* conflict) {
+void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm = &ctx->var_db->tm;
-  
+
   bv_arith_ctx_t lctx;
   lctx.ctx  = ctx;
   lctx.eval = eval;
-  lctx.conflict_var = conflict_var;
+  lctx.conflict_var = variable_db_get_term(ctx->var_db, conflict_var);
   init_ptr_heap(&lctx.heap, 0, &cmp);
   init_bvconstant(&lctx.zero);
-  bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, conflict_var));
+  bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, lctx.conflict_var));
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
   init_int_hset(&lctx.cst_terms_cache, 0);
 
   // Useful constant
   bvconstant_t one;
   init_bvconstant(&one);
+  bvconstant_set_bitsize(&one, term_bitsize(terms, lctx.conflict_var));
   bvconst_set_one(one.data, lctx.zero.width);
   term_t one_term = mk_bv_constant(tm, &one);
 
@@ -434,17 +466,18 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
 
     // The output conflict always contains the conflict core:
     ivector_push(conflict, atom_i_value?atom_i_term:opposite_term(atom_i_term));
-    
+
+    composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
+    assert(atom_i_comp->arity == 2);
+    term_t t0 = atom_i_comp->arg[0];
+    term_t t1 = atom_i_comp->arg[1];
+    assert(is_pos_term(t0));
+    assert(is_pos_term(t1));
+
     atom_i_kind  = term_kind(terms, atom_i_term);
 
     switch (atom_i_kind) {
     case BV_GE_ATOM: {  
-      composite_term_t* atom_i_comp = bvge_atom_desc(terms, atom_i_term);
-      assert(atom_i_comp->arity == 2);
-      term_t t0 = atom_i_comp->arg[0];
-      term_t t1 = atom_i_comp->arg[1];
-      assert(is_pos_term(t0));
-      assert(is_pos_term(t1));
       if (atom_i_value) { // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1))
         bv_arith_le(&lctx, t1, t0);
       }
@@ -456,14 +489,22 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
       }
       break;
     }
+    case BV_SGE_ATOM: {  
+      term_t t0prime = bv_arith_add_half(tm, t0);
+      term_t t1prime = bv_arith_add_half(tm, t1);
+      if (atom_i_value) { // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1))
+        bv_arith_le(&lctx, t1prime, t0prime);
+      }
+      else { // Constraint is (t0 >= t1) -> False (with atom_i_term = (t0 >= t1)),
+        // which is equivalent to the 2 constraints (t1 >= t0+1) AND (t0+1 >= 1)
+        term_t t0prime_plus1 = bv_arith_add_one_term(tm, t0prime);
+        bv_arith_le(&lctx, t0prime_plus1, t1prime);
+        bv_arith_le(&lctx, one_term, t0prime_plus1);
+      }
+      break;
+    }
     case EQ_TERM :     
     case BV_EQ_ATOM: { // equality
-      composite_term_t* atom_i_comp = (atom_i_kind == EQ_TERM)?eq_term_desc(terms, atom_i_term): bveq_atom_desc(terms, atom_i_term);
-      assert(atom_i_comp->arity == 2);
-      term_t t0 = atom_i_comp->arg[0];
-      term_t t1 = atom_i_comp->arg[1];
-      assert(is_pos_term(t0));
-      assert(is_pos_term(t1));
       if (atom_i_value) {
         // Constraint is (t0 == t1) -> True (with atom_i_term = (t0 == t1)),
         // Turn into 2 constraints (t0 >= t1) AND (t1 >= t0)
@@ -591,17 +632,20 @@ bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, t
 
 
 
-bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, term_t conflict_var) {
+bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var) {
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
 
+  term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
+  
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
   bool       atom_i_value;
   term_t     atom_i_term;
   term_kind_t atom_i_kind;
-
+  composite_term_t* atom_i_comp;
+  
   int_hset_t cst_terms_cache;
   init_int_hset(&cst_terms_cache, 0);
 
@@ -617,51 +661,58 @@ bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, 
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith looks whther this is in the fragment ");
+      fprintf(out, "bv_arith looks whether this is in the fragment: ");
       ctx_trace_term(ctx, atom_i_term);
     }
 
-    composite_term_t* atom_i_comp;
     atom_i_kind  = term_kind(terms, atom_i_term);
-    
+
     switch (atom_i_kind) {
-    case BV_GE_ATOM: {
-      atom_i_comp = bvge_atom_desc(terms, atom_i_term);
+    case EQ_TERM : 
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM: 
+    case BV_SGE_ATOM:
       break;
-    }
-    case EQ_TERM : {
-      atom_i_comp = eq_term_desc(terms, atom_i_term);
-      break;
-    }
-    case BV_EQ_ATOM: {
-      if (!atom_i_value) {
-        delete_int_hset(&cst_terms_cache);
-        return false;
-      }
-      atom_i_comp = bveq_atom_desc(terms, atom_i_term);
-      break;
-    }
     default: {
-      if (!atom_i_value) {
-        delete_int_hset(&cst_terms_cache);
-        return false;
-      }
       delete_int_hset(&cst_terms_cache);
       return false;
     }
     }
 
+    // Now we are sure it is EQ_TERM, BV_EQ_ATOM, BV_SGE_ATOM, or BV_GE_ATOM
+    atom_i_comp = composite_term_desc(terms, atom_i_term);
     assert(atom_i_comp->arity == 2);
     term_t t0 = atom_i_comp->arg[0];
     term_t t1 = atom_i_comp->arg[1];
     assert(is_pos_term(t0));
     assert(is_pos_term(t1));
 
-    bool result =
-      bv_arith_is_good_side(ctx, &cst_terms_cache, t0, conflict_var)
-      && bv_arith_is_good_side(ctx, &cst_terms_cache, t1, conflict_var);
+    bool is_in_fragment = true;
+    
+    switch (atom_i_kind) {
+    case EQ_TERM :
+    case BV_EQ_ATOM: // For equalities, we first check they're not negated (otherwise we can't treat)
+      // then we are in the fragment with the same criterion as for BV_GE_ATOM
+      is_in_fragment = atom_i_value;
+    case BV_SGE_ATOM: // This line assumes that a <=s b iff (a + 2^{w-1}) <=u (b + 2^{w-1}). Check whether this is true.
+    case BV_GE_ATOM: { // Both sides must be good
+      is_in_fragment = is_in_fragment
+        && bv_arith_is_good_side(ctx, &cst_terms_cache, t0, conflict_var_term)
+        && bv_arith_is_good_side(ctx, &cst_terms_cache, t1, conflict_var_term);
+      break;
+    }
+    /* case BV_SGE_ATOM: { // One side must be the conflict variable, the other side must be constant */
+    /*   is_in_fragment = */
+    /*     ((t0 == conflict_var_term) && bv_arith_is_constant(ctx, &cst_terms_cache, t1)) */
+    /*     || ((t1 == conflict_var_term) && bv_arith_is_constant(ctx, &cst_terms_cache, t0)); */
+    /*   break; */
+    /* } */
+    default: { // We can't be in any other case because of the first switch
+      assert(false);
+    }
+    }
 
-    if (!result) {
+    if (!is_in_fragment) { // If we are not in the fragment we stop
       delete_int_hset(&cst_terms_cache);
       return false;
     }
