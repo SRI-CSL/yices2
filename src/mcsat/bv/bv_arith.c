@@ -288,9 +288,9 @@ bvconst_interval_t* bv_arith_interval_construct(term_manager_t* tm,
 
 
 
-// Treat a constraint of the form lhs <= rhs
+// Treat a constraint of the form lhs <= rhs (is_neq == false) of lhs != rhs (is_neq == true)
 
-void bv_arith_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
+void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool is_neq) {
   // Standard abbreviations
   term_manager_t* tm   = &lctx->ctx->var_db->tm;
 
@@ -385,21 +385,27 @@ void bv_arith_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
     bvconstant_copy(&lo, cc2.bitsize, cc2.data);
     bvconstant_sub(&lo, &cc1);
     lo_term = bv_arith_sub_terms(tm,c2,c1);
-    bvconstant_copy(&hi, cc1.bitsize, cc1.data);
-    bvconstant_negate(&hi);
-    hi_term = bv_arith_negate_terms(tm,c1);
 
-    if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid ] c2 - c1 ; -c1 [
-      reason = mk_bvle(tm, c1, c2);
-      i = bv_arith_interval_construct(tm, &lo, false, &hi, false, lo_term, hi_term, reason);
+    if (is_neq) { // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
+      i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, term_null);
       if (i != NULL) ptr_heap_add(&lctx->heap, i);
-    }
-    else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 [ and [ c2 - c1 ; 2^n [
-      reason = mk_bvlt(tm, c2, c1);
-      i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-      if (i != NULL) ptr_heap_add(&lctx->heap, i);
-      i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
-      if (i != NULL) ptr_heap_add(&lctx->heap, i);
+    } else { // in case of less than (c1 + x <= c2) we need to involve -c1
+      bvconstant_copy(&hi, cc1.bitsize, cc1.data);
+      bvconstant_negate(&hi);
+      hi_term = bv_arith_negate_terms(tm,c1);
+
+      if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid ] c2 - c1 ; -c1 [
+        reason = mk_bvle(tm, c1, c2);
+        i = bv_arith_interval_construct(tm, &lo, false, &hi, false, lo_term, hi_term, reason);
+        if (i != NULL) ptr_heap_add(&lctx->heap, i);
+      }
+      else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 [ and [ c2 - c1 ; 2^n [
+        reason = mk_bvlt(tm, c2, c1);
+        i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
+        if (i != NULL) ptr_heap_add(&lctx->heap, i);
+        i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
+        if (i != NULL) ptr_heap_add(&lctx->heap, i);
+      }
     }
   }
     
@@ -433,14 +439,6 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, lctx.conflict_var));
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
   init_int_hset(&lctx.cst_terms_cache, 0);
-
-  // Useful constant
-  bvconstant_t one;
-  init_bvconstant(&one);
-  bvconstant_set_bitsize(&one, term_bitsize(terms, lctx.conflict_var));
-  bvconst_set_one(one.data, lctx.zero.width);
-  term_t one_term = mk_bv_constant(tm, &one);
-
   
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -478,28 +476,28 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
 
     switch (atom_i_kind) {
     case BV_GE_ATOM: {  
-      if (atom_i_value) { // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1))
-        bv_arith_le(&lctx, t1, t0);
+      if (atom_i_value) { // Constraint is (t0 >=u t1) -> True (with atom_i_term = (t0 >=u t1))
+        bv_arith_unit_constraint(&lctx, t1, t0, false);
       }
-      else { // Constraint is (t0 >= t1) -> False (with atom_i_term = (t0 >= t1)),
-        // which is equivalent to the 2 constraints (t1 >= t0+1) AND (t0+1 >= 1)
+      else { // Constraint is (t0 >=u t1) -> False (with atom_i_term = (t0 >=u t1)),
+        // which is equivalent to the 2 constraints (t1 >=u t0+1) AND (t0+1 != 0)
         term_t t0_plus1 = bv_arith_add_one_term(tm, t0);
-        bv_arith_le(&lctx, t0_plus1, t1);
-        bv_arith_le(&lctx, one_term, t0_plus1);
+        bv_arith_unit_constraint(&lctx, t0_plus1, t1, false);
+        bv_arith_unit_constraint(&lctx, t0_plus1, lctx.zero_term, true);
       }
       break;
     }
-    case BV_SGE_ATOM: {  
+    case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1}) // TODO: check this
       term_t t0prime = bv_arith_add_half(tm, t0);
       term_t t1prime = bv_arith_add_half(tm, t1);
-      if (atom_i_value) { // Constraint is (t0 >= t1) -> True (with atom_i_term = (t0 >= t1))
-        bv_arith_le(&lctx, t1prime, t0prime);
+      if (atom_i_value) { // Constraint is (t0' >=u t1') -> True
+        bv_arith_unit_constraint(&lctx, t1prime, t0prime, false);
       }
-      else { // Constraint is (t0 >= t1) -> False (with atom_i_term = (t0 >= t1)),
-        // which is equivalent to the 2 constraints (t1 >= t0+1) AND (t0+1 >= 1)
+      else { // Constraint is (t0' >=u t1') -> False,
+        // which is equivalent to the 2 constraints (t1' >=u t0'+1) AND (t0'+1 != 0)
         term_t t0prime_plus1 = bv_arith_add_one_term(tm, t0prime);
-        bv_arith_le(&lctx, t0prime_plus1, t1prime);
-        bv_arith_le(&lctx, one_term, t0prime_plus1);
+        bv_arith_unit_constraint(&lctx, t0prime_plus1, t1prime, false);
+        bv_arith_unit_constraint(&lctx, t0prime_plus1, lctx.zero_term, true);
       }
       break;
     }
@@ -507,15 +505,13 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
     case BV_EQ_ATOM: { // equality
       if (atom_i_value) {
         // Constraint is (t0 == t1) -> True (with atom_i_term = (t0 == t1)),
-        // Turn into 2 constraints (t0 >= t1) AND (t1 >= t0)
-        bv_arith_le(&lctx, t0, t1);
-        bv_arith_le(&lctx, t1, t0);
+        // Turn into 2 constraints (t0 >=u t1) AND (t1 >=u t0)
+        bv_arith_unit_constraint(&lctx, t0, t1, false);
+        bv_arith_unit_constraint(&lctx, t1, t0, false);
       }
       else {
         // Constraint is (t0 == t1) -> False (with atom_i_term = (t0 == t1)),
-        // The 2 constraints (t0 >= t1) -> False , (t1 >= t0) -> False are in a DISJUNCTION
-        // Think about what to do then (check LRA or NRA plugins)
-        assert(false);
+        bv_arith_unit_constraint(&lctx, t0, t1, true);
       }
       break;
     }
@@ -571,7 +567,6 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
 
   assert(ptr_heap_is_empty(&lctx.heap));
 
-  delete_bvconstant(&one);
   delete_bvconstant(&lctx.zero);
   delete_ptr_heap(&lctx.heap);
   delete_int_hset(&lctx.cst_terms_cache);
@@ -635,13 +630,10 @@ bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, t
 bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var) {
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
-  const mcsat_trail_t* trail = ctx->trail;
-
   term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
   
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
-  bool       atom_i_value;
   term_t     atom_i_term;
   term_kind_t atom_i_kind;
   composite_term_t* atom_i_comp;
@@ -654,7 +646,6 @@ bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, 
   for (uint32_t i = 0; i < conflict_core->size; i++) {
     
     atom_i_var   = conflict_core->data[i];
-    atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
 
     assert(is_pos_term(atom_i_term));
@@ -691,9 +682,7 @@ bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, 
     
     switch (atom_i_kind) {
     case EQ_TERM :
-    case BV_EQ_ATOM: // For equalities, we first check they're not negated (otherwise we can't treat)
-      // then we are in the fragment with the same criterion as for BV_GE_ATOM
-      is_in_fragment = atom_i_value;
+    case BV_EQ_ATOM:
     case BV_SGE_ATOM: // This line assumes that a <=s b iff (a + 2^{w-1}) <=u (b + 2^{w-1}). Check whether this is true.
     case BV_GE_ATOM: { // Both sides must be good
       is_in_fragment = is_in_fragment

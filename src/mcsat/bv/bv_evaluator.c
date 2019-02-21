@@ -118,12 +118,6 @@ void bv_evaluator_set_term_cache(bv_evaluator_t* evaluator, term_t t, bvconstant
 // Forward declarations
 
 static
-bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level);
-
-static
-void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
-
-static
 void bv_evaluator_run_composite_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
 
 static
@@ -263,7 +257,6 @@ void bv_evaluator_run_composite_term(bv_evaluator_t* eval, term_t t, bvconstant_
 /**
  * Evaluate term and construct the value into out. User should destruct.
  */
-static
 void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level) {
 
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
@@ -434,7 +427,6 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
   bv_evaluator_set_term_cache(eval, t, out_value, *eval_level);
  }
 
-static
 bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level) {
 
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
