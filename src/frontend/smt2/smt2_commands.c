@@ -5565,7 +5565,7 @@ void smt2_check_sat(void) {
               success = false;
             }
             //free the model if there is one, and free the context.
-
+            //IAM: valgrind says there is no leak here. This is puzzling.
           }
           if(success){
             fprintf(stderr, "SUCCESS: All threads agree.\n");

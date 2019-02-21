@@ -18,6 +18,13 @@
 
 #ifndef __YICES_LOCKS_H
 #define __YICES_LOCKS_H
+
+/*
+ * We only need locks in THREAD_SAFE mode.
+ *
+ */
+#ifdef THREAD_SAFE
+
 #include <stdint.h>
 
 
@@ -43,5 +50,8 @@ extern int32_t get_yices_lock(yices_lock_t* lock);
 extern int32_t release_yices_lock(yices_lock_t* lock);
 
 extern void destroy_yices_lock(yices_lock_t* lock);
+
+
+#endif
 
 #endif /* __YICES_LOCKS_H */

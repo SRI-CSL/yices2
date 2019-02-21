@@ -56,7 +56,9 @@ struct object_bank_s {
  * - or by adding a new block.
  */
 typedef struct object_store_s {
+#ifdef THREAD_SAFE
   yices_lock_t lock;   // a lock protecting the object_store
+#endif
   object_bank_t *bnk;  // first block in the bank list
   void *free_list;
   uint32_t free_index; // index of last allocated object in first block

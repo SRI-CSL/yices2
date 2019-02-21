@@ -47,7 +47,9 @@
  *
  */
 
+#ifdef THREAD_SAFE
 static yices_lock_t string_buffer_lock;
+#endif
 static char* string_buffer = NULL;
 static uint32_t string_buffer_length = 0;
 
@@ -59,7 +61,9 @@ static void division_by_zero(void) {
 
 void init_rationals(void){
   init_mpq_aux();
+#ifdef THREAD_SAFE
   create_yices_lock(&string_buffer_lock);
+#endif
   string_buffer = NULL;
   string_buffer_length = 0;
 }
@@ -70,7 +74,9 @@ void init_rationals(void){
  */
 void cleanup_rationals(void){
   cleanup_mpq_aux();
+#ifdef THREAD_SAFE
   destroy_yices_lock(&string_buffer_lock);
+#endif
   safe_free(string_buffer);
 }
 
@@ -663,7 +669,7 @@ int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
 
   mpq_init2(q0, 64);
 
-  
+
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
   assert(0 == base || (2 <= base && base <= 36));
@@ -682,7 +688,7 @@ int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
 
   mpq_clear(q0);
   return retval;
-  
+
 }
 
 /*
@@ -789,7 +795,7 @@ static int _o_q_set_from_float_string(rational_t *r, const char *s) {
   retval = q_set_q0(r, &q0);
 
  clean_up:
-  
+
   mpz_clear(z0);
   mpq_clear(q0);
 
@@ -992,7 +998,7 @@ void q_addmul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
 
   if (r1->s.den == ONE_DEN && r2->s.den == ONE_DEN && r3->s.den == ONE_DEN) {
     assert(is_rat32(r1) && is_rat32(r2) &&  is_rat32(r3));
-           
+
     num = get_num(r1) + get_num(r2) * ((int64_t) get_num(r3));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->s.num = (int32_t) num;
@@ -1019,7 +1025,7 @@ void q_submul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
 
   if (r1->s.den == ONE_DEN && r2->s.den == ONE_DEN && r3->s.den == ONE_DEN) {
     assert(is_rat32(r1) && is_rat32(r2) &&  is_rat32(r3));
-           
+
     num = get_num(r1) - get_num(r2) * ((int64_t) get_num(r3));
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->s.num = (int32_t) num;
@@ -1743,7 +1749,7 @@ bool q_get64(rational_t *r, int64_t *v) {
  */
 bool q_get_int32(rational_t *r, int32_t *num, uint32_t *den) {
   mpq_ptr q;
-  
+
   if (is_rat32(r)) {
     *num = get_num(r);
     *den = get_den(r);

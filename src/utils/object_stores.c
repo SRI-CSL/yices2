@@ -75,7 +75,9 @@ static void _o_init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   s->blocksize = objsize * n;
 }
 void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
+#ifdef THREAD_SAFE
   create_yices_lock(&(s->lock));
+#endif
   MT_PROTECT_VOID(s->lock, _o_init_objstore(s, objsize, n));
 }
 
@@ -145,7 +147,9 @@ static void _o_delete_objstore(object_store_t *s) {
 
 void delete_objstore(object_store_t *s) {
   MT_PROTECT_VOID(s->lock, _o_delete_objstore(s));
+#ifdef THREAD_SAFE
   destroy_yices_lock(&(s->lock));
+#endif
 }
 
 /*
@@ -193,7 +197,9 @@ static void _o_objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
 }
 void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
   MT_PROTECT_VOID(s->lock, _o_objstore_delete_finalize(s, f));
+#ifdef THREAD_SAFE
   destroy_yices_lock(&(s->lock));
+#endif
 }
 
 

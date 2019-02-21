@@ -16,8 +16,12 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef THREAD_SAFE
+
 #ifndef MINGW
 #include "yices_locks_posix.c"
 #else
 #include "yices_locks_win.c"
+#endif
+
 #endif

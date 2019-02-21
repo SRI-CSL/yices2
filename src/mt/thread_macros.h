@@ -27,13 +27,10 @@
 /*
  * Thread Local Errors
  *
- * iam says: if we don't HAVE_TLS then we need to work harder with errors.
- * have to discuss this with BD. For the time being we protect it with the
- * yices_global lock, but move it out of __yices_globals, since it we do have TLS
- * then it doesn't belong there.
+ * THREAD_SAFE implies that we HAVE_TLS
  *
  */
-#ifdef HAVE_TLS
+#ifdef THREAD_SAFE
 #define YICES_THREAD_LOCAL __thread
 #else
 #define YICES_THREAD_LOCAL
@@ -45,7 +42,7 @@
 #define YICES_THREAD_SAFE
 
 
-#ifdef YICES_THREAD_SAFE
+#ifdef THREAD_SAFE
 /*
  *
  * API entry point synchronization macros
@@ -68,16 +65,11 @@
   } while(0)
 
 
-#define MT_MODE(EXPRESSION)  EXPRESSION
-
-
 #else
 
 #define MT_PROTECT_VOID(LOCK,EXPRESSION)  EXPRESSION
 
 #define MT_PROTECT(TYPE,LOCK,EXPRESSION)  return EXPRESSION
-
-#define MT_MODE(EXPRESSION)
 
 #endif
 

@@ -41,6 +41,8 @@ def command(args, path):
     cmd = []
     if args.helgrind:
         cmd.extend(['valgrind', '--num-callers=500', '--tool=helgrind'])
+    elif args.memcheck:
+        cmd.extend(['valgrind', '--num-callers=500', '--tool=memcheck'])
 
     cmd.extend([yices,  '-n', args.nthreads])
 
@@ -52,6 +54,21 @@ def command(args, path):
     cmd.append(path)
 
     return cmd
+
+def hasValgrind():
+    valgrindCmd  = ['valgrind', '--version']
+    valgrindProc = 0
+    try:
+        valgrindProc = Popen(valgrindCmd, stdout=PIPE)
+    except OSError as e:
+        if e.errno != 2:
+            raise Exception("OS error({0}): {1}".format(e.errno, e.strerror))
+        return False
+    valgrindOutput = valgrindProc.communicate()[0]
+    if valgrindProc.returncode != 0:
+        eprint('Valgrind failed. Is it installed on your machine {0}?'.format(valgrindProc.returncode))
+        return False
+    return True
 
 
 
@@ -66,7 +83,12 @@ def main(args):
 
     parser.add_argument('--helgrind', '-g',
                         dest='helgrind',
-                        help='Use helgrind.',
+                        help='Use valgrind\'s helgrind.',
+                        action='store_true')
+
+    parser.add_argument('--memcheck', '-m',
+                        dest='memcheck',
+                        help='Use valgrind\'s memcheck.',
                         action='store_true')
 
     parser.add_argument('--dry-run', '-d',
@@ -96,8 +118,26 @@ def main(args):
             return False
         return True
 
-    check_directory(args.test_directory)
-    check_directory(args.binary_directory)
+    if not check_directory(args.test_directory):
+        return 1
+
+    if not check_directory(args.binary_directory):
+        return 1
+
+
+    def check_valgrind(args):
+        # check for the executable?
+        if args.memcheck or args.helgrind:
+            if not hasValgrind():
+                return False
+            if args.memcheck and args.helgrind:
+                eprint('Only one valgrind tool at a time.')
+                return False
+        return True
+
+    if not check_valgrind(args):
+        return 1
+
 
     args.binary_directory = os.path.abspath(args.binary_directory)
 

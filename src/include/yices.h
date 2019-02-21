@@ -111,6 +111,13 @@ __YICES_DLLSPEC__ extern const char *yices_build_date;
 __YICES_DLLSPEC__ extern int32_t yices_has_mcsat(void);
 
 
+/*
+ * Check whether the library was compiled in THREAD_SAFE mode.
+ * - return 1 if yes, 0 if no
+ */
+__YICES_DLLSPEC__ extern int32_t yices_is_thread_safe(void);
+
+
 /***************************************
  *  GLOBAL INITIALIZATION AND CLEANUP  *
  **************************************/

@@ -199,8 +199,9 @@ typedef struct {
 } arith_buffer_elem_t;
 
 static dl_list_t arith_buffer_list;
+#ifdef THREAD_SAFE
 static yices_lock_t arith_buffer_list_lock;
-
+#endif
 
 /*
  * Doubly-linked list of bitvector arithmetic buffers
@@ -211,7 +212,9 @@ typedef struct {
 } bvarith_buffer_elem_t;
 
 static dl_list_t bvarith_buffer_list;
+#ifdef THREAD_SAFE
 static yices_lock_t bvarith_buffer_list_lock;
+#endif
 
 
 /*
@@ -223,7 +226,9 @@ typedef struct {
 } bvarith64_buffer_elem_t;
 
 static dl_list_t bvarith64_buffer_list;
+#ifdef THREAD_SAFE
 static yices_lock_t bvarith64_buffer_list_lock;
+#endif
 
 
 /*
@@ -235,7 +240,9 @@ typedef struct {
 } bvlogic_buffer_elem_t;
 
 static dl_list_t bvlogic_buffer_list;
+#ifdef THREAD_SAFE
 static yices_lock_t bvlogic_buffer_list_lock;
+#endif
 
 
 /*
@@ -247,7 +254,9 @@ typedef struct {
 } context_elem_t;
 
 static dl_list_t context_list;
+#ifdef THREAD_SAFE
 static yices_lock_t context_list_lock;
+#endif
 
 
 /*
@@ -259,7 +268,9 @@ typedef struct {
 } model_elem_t;
 
 static dl_list_t model_list;
+#ifdef THREAD_SAFE
 static yices_lock_t model_list_lock;
+#endif
 
 
 /*
@@ -277,10 +288,13 @@ typedef struct {
 } param_structure_elem_t;
 
 static dl_list_t generic_list;
+#ifdef THREAD_SAFE
 static yices_lock_t generic_list_lock;
+#endif
 
 
 static inline void init_list_locks(void){
+#ifdef THREAD_SAFE
   create_yices_lock(&arith_buffer_list_lock);
   create_yices_lock(&bvarith_buffer_list_lock);
   create_yices_lock(&bvarith64_buffer_list_lock);
@@ -288,9 +302,11 @@ static inline void init_list_locks(void){
   create_yices_lock(&context_list_lock);
   create_yices_lock(&model_list_lock);
   create_yices_lock(&generic_list_lock);
+#endif
 }
 
 static inline void delete_list_locks(void){
+#ifdef THREAD_SAFE
   destroy_yices_lock(&arith_buffer_list_lock);
   destroy_yices_lock(&bvarith_buffer_list_lock);
   destroy_yices_lock(&bvarith64_buffer_list_lock);
@@ -298,10 +314,12 @@ static inline void delete_list_locks(void){
   destroy_yices_lock(&context_list_lock);
   destroy_yices_lock(&model_list_lock);
   destroy_yices_lock(&generic_list_lock);
+#endif
 }
 
 /* the garbage collector must get all the locks */
 static inline void get_list_locks(void){
+#ifdef THREAD_SAFE
   get_yices_lock(&arith_buffer_list_lock);
   get_yices_lock(&bvarith_buffer_list_lock);
   get_yices_lock(&bvarith64_buffer_list_lock);
@@ -309,10 +327,12 @@ static inline void get_list_locks(void){
   get_yices_lock(&context_list_lock);   //IAM: maybe only these are needed?
   get_yices_lock(&model_list_lock);     //IAM: maybe only these are needed?
   get_yices_lock(&generic_list_lock);
+#endif
 }
 
 /* the garbage collector must also release all the locks */
 static inline void release_list_locks(void){
+#ifdef THREAD_SAFE
   release_yices_lock(&arith_buffer_list_lock);
   release_yices_lock(&bvarith_buffer_list_lock);
   release_yices_lock(&bvarith64_buffer_list_lock);
@@ -320,6 +340,7 @@ static inline void release_list_locks(void){
   release_yices_lock(&context_list_lock);     //IAM: maybe only these are needed?
   release_yices_lock(&model_list_lock);       //IAM: maybe only these are needed?
   release_yices_lock(&generic_list_lock);
+#endif
 }
 
 
@@ -948,7 +969,9 @@ static void init_globals(yices_globals_t *glob) {
 
   glob->fvars = NULL;
 
+#ifdef THREAD_SAFE
   create_yices_lock(&(glob->lock));
+#endif
 
 }
 
@@ -976,7 +999,9 @@ static void clear_globals(yices_globals_t *glob) {
   // variable collector
   delete_fvars();
 
+#ifdef THREAD_SAFE
   destroy_yices_lock(&(glob->lock));
+#endif
 
 }
 
@@ -1174,6 +1199,20 @@ EXPORTED int32_t yices_has_mcsat(void) {
   return 0;
 }
 #endif
+
+/*
+ * Test for thread safety.
+ */
+#ifdef THREAD_SAFE
+EXPORTED int32_t  yices_is_thread_safe(void) {
+  return 1;
+}
+#else
+EXPORTED int32_t  yices_is_thread_safe(void) {
+  return 0;
+}
+#endif
+
 
 
 /***********************
@@ -8995,7 +9034,9 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
 
   assert(context_status(ctx) == STATUS_IDLE);
 
+#ifdef THREADSAFE
   get_yices_lock(&__yices_globals.lock);
+#endif
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
   for (i=0; i<n; i++) {
@@ -9004,13 +9045,17 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
       // error when converting a[i] to a literal
       convert_internalization_error(l);
       stat = STATUS_ERROR;
+#ifdef THREADSAFE
       release_yices_lock(&__yices_globals.lock);
+#endif
       goto cleanup;
     }
     ivector_push(&assumptions, l);
   }
   assert(assumptions.size == n);
+#ifdef THREADSAFE
   release_yices_lock(&__yices_globals.lock);
+#endif
 
   // set parameters
   if (params == NULL) {
