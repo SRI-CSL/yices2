@@ -72,7 +72,7 @@ void variable_db_destruct(variable_db_t* var_db);
 void variable_db_set_tracer(variable_db_t* var_db, tracer_t* tracer);
 
 /** Returns true if the term has the variable associated with it */
-bool variable_db_has_variable(variable_db_t* var_db, term_t x);
+bool variable_db_has_variable(const variable_db_t* var_db, term_t x);
 
 /**
  * Returns a variable associated with the term. If no variable exists, it will

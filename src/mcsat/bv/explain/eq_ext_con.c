@@ -5,13 +5,117 @@
  * license agreement which is downloadable along with this program.
  */
 
+#include "eq_ext_con.h"
+
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/term_manager.h"
 #include "terms/bvlogic_buffers.h"
 
-#include "bv_utils.h"
-#include "bv_slicing.h"
+#include "mcsat/bv/bv_utils.h"
+#include "mcsat/eq/equality_graph.h"
+
+typedef struct eq_ext_con_s {
+
+  /** Interfact of the subexplainer */
+  bv_subexplainer_t super;
+
+} eq_ext_con_t;
+
+typedef struct slice_s slice_t;
+
+/* Pair of slices (equality or disequality) */
+typedef struct {
+  slice_t* lhs;
+  slice_t* rhs;
+  /** Whether it has been queued for treatment and deletion */
+  bool queued;
+  /**
+   * Identifier of where in the conflict_core this pair appears / originates from.
+   * 0 is the identifier for the set of equalities in the conflict core (a set of pairs).
+   * Then each disequality in the conflict core gets an identifier between 1 and n,
+   * and becomes a disjunction (a set of pairs) when sliced. Hence, if appearing_in is
+   * 0, then the equality (lhs=rhs) is one of the constraints to satisfy,
+   * and if appearing_in is i (1 <= i <= n), then the disequality (lhs!=rhs)
+   * is one of the disjuncts of the disjunction number i, which needs to be satisfied.
+   */
+  uint32_t appearing_in;
+} spair_t;
+
+typedef struct splist_s splist_t;
+
+/**
+ * List of pairs of slices.
+ *
+ * When a pair (lhs,rhs) is created, it will be added (as main) to lhs's
+ * list of pairs, and (as non-main) to rhs's list of pairs.
+ */
+struct splist_s {
+  spair_t* pair;
+  bool is_main;
+  splist_t* next;
+};
+
+/** Slices: variable (or constant term) + extraction indices
+    We avoid building the term to avoid cluttering the world with slices that may be short-lived
+ */
+
+typedef struct slice_base_s {
+  /** Variable or constant term, from which the slice is extracted */
+  term_t term;
+  /** Term expressing the slice (may be lazily computed) */
+  term_t slice_term;
+  /** Low index */
+  uint32_t lo;
+  /** High index + 1 (that index is not in the slice), so that hi - low = slice length */
+  uint32_t hi;
+} slice_base_t;
+
+
+/** The slices for a given variable form a binary tree; the leaves are the thinnest slices
+ */
+
+struct slice_s {
+    /** Base of the slice, containing basic information */
+  slice_base_t base;
+  /** Value of the slice (computed at the end from the trail, and only for leaf slices) */
+  mcsat_value_t value;
+  /** sub-slice towards the high indices, hi_sub->hi is the same as hi */
+  slice_t* hi_sub;
+  /** sub-slice towards the low indices, lo_sub->lo is the same as lo, lo_sub->hi is the same as hi_sub->lo */
+  slice_t* lo_sub;
+  /**
+   * Other slices that this slice should be equal to or different from, as a
+   * list of pairs (this slice is one side of each pair).
+   */
+  splist_t* paired_with;
+};
+
+/* List of slices */
+typedef struct slist_s slist_t;
+
+struct slist_s {
+  slice_t* slice;
+  slist_t* next;
+};
+
+// Main slicing algorithm
+
+/** Type for a slicing = what is returned from a conflict core by the main function below */
+typedef struct {
+  /** Context, for utilities */
+  plugin_context_t* ctx;
+  /**
+   * Array of lists of pairs.
+   * Cell 0 contains the list of slice equalities; then each cell contains a
+   * list representing a disjunction of slice disequalities
+   */
+  splist_t** constraints;
+  /** length of constraints */
+  uint32_t nconstraints;
+  /** Maps each involved variable (or constant term) to its slice-tree */
+  ptr_hmap_t slices;
+} bv_slicing_t;
 
 /** pair construct */
 spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
@@ -131,7 +235,7 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi) {
   result->lo_sub  = NULL;
   result->hi_sub  = NULL;
   mcsat_value_construct_default(&result->value);
- 
+
   return result;
 }
 
@@ -401,14 +505,14 @@ slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uin
     // We go through the bits of the bv_array, starting from the end,
     // which represents the high bits.
     uint32_t total_width = hi - lo;
-    
+
     // Variables that will evolve in the loop:
     slist_t* current = tail;  // the list constructed so far
     uint32_t width   = 0;     // bitwidth of current slice under construction
     bool     is_constant = true; // whether current slice is constant
     term_t   tvar = NULL_TERM;   // if not constant, variable term of current slice - value not used (initialised to suppress gcc warning)
     uint32_t low  = 0;           // if not constant, lo of current slice - value not used (initialised to suppress gcc warning)
-    
+
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
@@ -515,8 +619,8 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
   if (s->lo_sub == NULL) { // This is a leaf
 
     variable_db_t* var_db = ctx->var_db; // standard abbreviations
-    term_table_t* terms   = ctx->terms; 
-    const mcsat_trail_t* trail  = ctx->trail; 
+    term_table_t* terms   = ctx->terms;
+    const mcsat_trail_t* trail  = ctx->trail;
     term_manager_t* tm = &var_db->tm;
 
     term_t t = s->base.term;
@@ -526,12 +630,12 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->base.lo, s->base.hi-1, t);
     s->base.slice_term = mk_bvlogic_term(tm, buffer);
 
-    
+
     // Task 2: we compute the value if we can & store it in value field
     bool has_value = true; // whether term can be evaluated from trail (will switch to false if not)
     bvconstant_t bvcst;
     init_bvconstant(&bvcst);
-    
+
     term_kind_t t_kind = term_kind(terms, t);
     switch (t_kind) {
     case BV_CONSTANT: { // The term itself could be a constant term
@@ -595,11 +699,11 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
 
     delete_bvconstant(&bvcst);
 
-    
+
     // Task 3: we go through its pairs
     // For each equality pair, we stack it on constraint[0]
     // For each disequality pair, we stack it on constraint[i], the disjunction it belongs to
-    
+
     spair_t* p;
     splist_t *current = s->paired_with;
     while (current != NULL) {
@@ -633,15 +737,15 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
   // We create a "to do" queue of matching slice pairs to align
   ptr_queue_t todo;
   init_ptr_queue(&todo, 0);
- 
+
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
   bool       atom_i_value;
   term_t     atom_i_term;
   term_kind_t atom_i_kind;
-    
+
   // A counter that records the next available identifier to assign to a disequality in the core.
-  // That disequality turns into a disjunction when slicing 
+  // That disequality turns into a disjunction when slicing
   uint32_t next_disjunction = 1;
 
   for (uint32_t i = 0; i < conflict_core->size; i++) {
@@ -677,7 +781,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       break;
     }
     case BIT_TERM: { // That's also in the fragment...
-      
+
       term_t a0[1];
       a0[0] = atom_i_term;
       term_t t0 = mk_bvarray(&ctx->var_db->tm, 1, a0);
@@ -687,7 +791,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
       a1[0] = bool2term(atom_i_value);
       term_t t1 = mk_bvarray(&ctx->var_db->tm, 1, a1);
       slist_t* l1 = bv_slicing_norm(ctx, t1, 1, 0, NULL, &todo, &slicing->slices);
-      
+
       bv_slicing_align(ctx, l0, l1, 0, &todo);
       break;
     }
@@ -706,12 +810,12 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
   /* fprintf(out, "Finished treating core constraints, giving slicing:\n"); */
   /* bv_slicing_print_slicing(slicing_out, terms, out); */
   /* fprintf(out, "+ a \"to do\" queue.\n"); */
-    
+
   /** While loop treating the queue of slicings to perform until the coarsest slicing has been produced */
 
   slist_t* l1;
   slist_t* l2;
-  
+
   while (!ptr_queue_is_empty(&todo)) {
     spair_t* p = (spair_t*) ptr_queue_pop(&todo);
     assert(p->lhs != NULL);
@@ -743,5 +847,302 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
     bv_slicing_slice_treat(hp->val, slicing->constraints, ctx, egraph);
     hp = ptr_hmap_next_record(&slicing->slices, hp);
   }
-  
+
 }
+
+static inline
+bool term_is_ext_con(bv_subexplainer_t* this, term_t t) {
+
+  uint32_t i;
+
+  const variable_db_t* var_db = this->ctx->var_db;
+  term_table_t* terms = this->ctx->terms;
+
+  // Variables solo
+  if (variable_db_has_variable(var_db, t)) {
+    return true;
+  }
+
+  // Constants solo
+  if (is_const_term(terms, t)) {
+    return true;
+  }
+
+  // Bit-select over a variable
+  if (term_kind(terms, t) == BIT_TERM) {
+    term_t t_arg = bit_term_arg(terms, t);
+    return variable_db_has_variable(var_db, t_arg);
+  }
+
+  // Array of bits
+  if (term_kind(terms, t) == BV_ARRAY) {
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t);
+    for (i = 0; i < concat_desc->arity; ++ i) {
+      term_t bit = unsigned_term(concat_desc->arg[i]);
+      if (!term_is_ext_con(this, bit)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Nothing else
+  return false;
+}
+
+static
+bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, variable_t conflict_var) {
+
+  // Can explain equalities and dis-equalities among
+  // - variable
+  // - constant
+  // - bvarray[v1, ..., vn, c1, ..., cn]
+  // Additionally, bit-selects count too, if they are over a variable
+
+  uint32_t i;
+
+  const variable_db_t* var_db = this->ctx->var_db;
+  term_table_t* terms = this->ctx->terms;
+
+  for (i = 0; i < conflict->size; ++ i) {
+    variable_t atom_var = conflict->data[i];
+    term_t atom_term = variable_db_get_term(var_db, atom_var);
+
+    term_kind_t atom_kind = term_kind(terms, atom_term);
+    switch (atom_kind) {
+    case BIT_TERM:
+      if (!term_is_ext_con(this, atom_term)) {
+        return false;
+      }
+      break;
+    case BV_EQ_ATOM:
+    case EQ_TERM: {
+      composite_term_t* eq = composite_term_desc(terms, atom_term);
+      if (!term_is_ext_con(this, eq->arg[0])) {
+        return false;
+      }
+      if (!term_is_ext_con(this, eq->arg[1])) {
+        return false;
+      }
+      break;
+    }
+    default:
+      // Cannot handle it
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static
+void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict_out) {
+  plugin_context_t* ctx = this->ctx;
+
+  term_table_t* terms   = ctx->terms;
+  term_manager_t* tm = &ctx->var_db->tm;
+
+  // The output conflict always contains the conflict core:
+  for (uint32_t i = 0; i < conflict_core->size; i++) {
+    variable_t atom_var = conflict_core->data[i];
+    term_t t = variable_db_get_term(ctx->var_db, atom_var);
+    bool value = trail_get_boolean_value(ctx->trail, atom_var);
+    ivector_push(conflict_out, value?t:opposite_term(t));
+  }
+
+  // Create the equality graph
+  eq_graph_t eq_graph;
+  eq_graph_construct(&eq_graph, this->ctx, "mcsat::bv::conflict");
+
+  // Do the slicing
+  bv_slicing_t slicing;
+  bv_slicing_construct(&slicing, ctx, conflict_core, &eq_graph);
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+    bv_slicing_print_slicing(&slicing);
+  }
+
+  // SMT'2017 paper
+
+  spair_t* p;
+  splist_t* current = slicing.constraints[0];
+
+  // We send the equalities to the e-graph
+  while (current != NULL) {
+    assert(current->is_main);
+    p = current->pair;
+    if (p->lhs->base.slice_term != p->rhs->base.slice_term) {
+      eq_graph_assert_term_eq(&eq_graph, p->lhs->base.slice_term, p->rhs->base.slice_term, 0);
+      // 0 means that the assertion is a consequence of the conflict_core
+      // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
+    }
+    current = current->next;
+  }
+
+  ivector_t reasons; // where we collect the reasons why things happen in the e-graph
+  init_ivector(&reasons,0);
+  ivector_t reasons_types; // ...together with their associated types
+  init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
+
+  // Case 1: conflict in e-graph
+  if (eq_graph.in_conflict) { // Get conflict from e-graph
+    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Conflict in egraph\n");
+    }
+    eq_graph_get_conflict(&eq_graph, &reasons, &reasons_types, NULL);
+  } else { // e-graph not in conflict
+
+    ivector_t interface_terms; // where we collect interface terms
+    init_ivector(&interface_terms,0);
+
+    // We go through the disjunctions of disequalities
+    for (uint32_t i = 1; i < slicing.nconstraints; i++) {
+
+      current = slicing.constraints[i]; // Get disjunction number i
+      if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Looking at disjunction %d:\n",i);
+      }
+      // Go through disjuncts
+      while (current != NULL) {
+        p = current->pair;
+        assert(p->appearing_in == i); // Check that this is indeed the right disequality
+        term_t lhs = p->lhs->base.slice_term;
+        term_t rhs = p->rhs->base.slice_term;
+
+        if (lhs == rhs
+            || (eq_graph_has_term(&eq_graph, lhs)
+                && eq_graph_has_term(&eq_graph, rhs)
+                && eq_graph_are_equal(&eq_graph, lhs, rhs))) {
+          // adding the reason why this disequality is false
+          if (lhs != rhs) {
+            eq_graph_explain_eq(&eq_graph, lhs, rhs, &reasons, &reasons_types, NULL);
+          }
+          if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "Looking at why disequality ");
+            term_print_to_file(out, terms, lhs);
+            fprintf(out, " != ");
+            term_print_to_file(out, terms, rhs);
+            fprintf(out, " is false: ");
+            for (uint32_t i = 0; i < reasons.size; i++) {
+              if (i>0) fprintf(out,", ");
+              fprintf(out,"%d", reasons.data[i]);
+              if (reasons.data[i] !=0) {
+                fprintf(out," [");
+                term_print_to_file(out, terms, reasons.data[i]);
+                fprintf(out,"]");
+              }
+            }
+            fprintf(out,"\n");
+          }
+        }
+        else{
+          // We need to collect the interface term
+          if (eq_graph_has_term(&eq_graph, lhs)
+              && eq_graph_term_has_value(&eq_graph, lhs)){
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, lhs, &reasons, &reasons_types, NULL);
+            ivector_push(&interface_terms, iterm);
+            if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+              FILE* out = ctx_trace_out(ctx);
+              fprintf(out, "Just added left interface term ");
+              term_print_to_file(out, terms, iterm);
+              fprintf(out, "\n");
+            }
+          }
+          if (eq_graph_has_term(&eq_graph, rhs)
+              && eq_graph_term_has_value(&eq_graph, rhs)){
+            term_t iterm = eq_graph_explain_term_propagation(&eq_graph, rhs, &reasons, &reasons_types, NULL);
+            ivector_push(&interface_terms, iterm);
+            if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+              FILE* out = ctx_trace_out(ctx);
+              fprintf(out, "Just added right interface term ");
+              term_print_to_file(out, terms, iterm);
+              fprintf(out, "\n");
+            }
+          }
+          // Note that both "ifs" cannnot be true at the same time, otherwise the disequality could be evaluated:
+          // if it evaluates to true, then the disjunction would evaluate to true, so the constraint from whence it came would not be in the core
+          // if it evaluates to false, then lhs and rhs would be in the same class of the graph
+        }
+        current = current->next;
+      }
+    }
+
+    // Now we build the the equalities / disequalities between interface terms
+    for (uint32_t i = 0; i < interface_terms.size; i++) {
+      for (uint32_t j = i+1; j < interface_terms.size; j++) {
+        term_t lhs = interface_terms.data[i];
+        term_t rhs = interface_terms.data[j];
+        if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Making eq or neq between interface terms ");
+          term_print_to_file(out, terms, lhs);
+          fprintf(out, " and ");
+          term_print_to_file(out, terms, rhs);
+          fprintf(out, "\n");
+        }
+
+        if (term_bitsize(terms, lhs) == term_bitsize(terms, rhs)) {
+          term_t t = (eq_graph_are_equal(&eq_graph, lhs, rhs))? mk_eq(tm, lhs, rhs):mk_neq(tm, lhs, rhs);
+          ivector_push(conflict_out, t);
+        }
+      }
+    }
+    delete_ivector(&interface_terms);
+  }
+
+  assert(reasons.size == reasons_types.size);
+
+  // We collect from the reasons the elements we haven't added
+  for (uint32_t i = 0; i < reasons.size; i++) {
+      if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Looking at reason %d whose type is %d\n",reasons.data[i],reasons_types.data[i]);
+      }
+    if (reasons_types.data[i] != REASON_IS_USER) {
+      if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Adding to conflict ");
+        term_print_to_file(out, terms, reasons.data[i]);
+        fprintf(out, "\n");
+      }
+      ivector_push(conflict_out, reasons.data[i]);
+    }
+  }
+
+  // We clean up
+  delete_ivector(&reasons_types);
+  delete_ivector(&reasons);
+
+  // Destructs egraph
+  eq_graph_destruct(&eq_graph);
+
+  // Destructs slicing
+  bv_slicing_slicing_destruct(&slicing);
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Returned conflict is: ");
+    for (uint32_t i = 0; i < conflict_out->size; i++) {
+      if (i>0) fprintf(out,", ");
+      term_print_to_file(out, terms, conflict_out->data[i]);
+    }
+    fprintf(out,"\n");
+  }
+}
+
+/** Allocate the sub-explainer and setup the methods */
+bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
+
+  eq_ext_con_t* exp = safe_malloc(sizeof(eq_ext_con_t));
+
+  bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
+
+  exp->super.can_explain_conflict = can_explain_conflict;
+  exp->super.explain_conflict = explain_conflict;
+
+  return (bv_subexplainer_t*) exp;
+}
+

@@ -335,11 +335,12 @@ mcsat_src_c := \
 	mcsat/bv/bv_bdd_manager.c \
 	mcsat/bv/bv_evaluator.c \
 	mcsat/bv/bv_explainer.c \
-	mcsat/bv/bv_core_solver.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
-	mcsat/bv/bv_slicing.c \
 	mcsat/bv/bv_arith.c \
+	mcsat/bv/explain/eq_ext_con.c \
+	mcsat/bv/explain/full_bv_sat.c \
+	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c

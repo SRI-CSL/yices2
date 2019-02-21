@@ -5,14 +5,49 @@
  * license agreement which is downloadable along with this program.
  */
 
-#include "bv_core_solver.h"
+#include "full_bv_sat.h"
 
-#include "mcsat/plugin.h"
 #include "mcsat/tracing.h"
+#include "mcsat/value.h"
+#include "mcsat/bv/bv_utils.h"
+#include "mcsat/mcsat_types.h"
+#include "mcsat/variable_db.h"
+#include "mcsat/utils/substitution.h"
+
+#include "utils/int_vectors.h"
+#include "utils/int_array_sort2.h"
+
+#include "context/context_types.h"
+
+#include "terms/term_manager.h"
 
 #include "yices.h"
 
-void bv_core_solver_construct(bv_core_solver_t* solver, plugin_context_t* ctx, bool incremental) {
+/** Solver for solving cores with assumptions */
+typedef struct {
+
+  /** Whether to do incremental solving */
+  bool incremental;
+
+  /** The substitution */
+  substitution_t subst;
+
+  /** The terms to assign (old terms, not new) */
+  ivector_t vars_to_assign;
+
+  /** MCSAT plugin context */
+  plugin_context_t* ctx;
+
+  /** Yices config */
+  ctx_config_t* config;
+
+  /** Yices context */
+  context_t* yices_ctx;
+
+} bb_sat_solver_t;
+
+void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, bool incremental) {
+
   substitution_construct(&solver->subst, &ctx->var_db->tm, ctx->tracer);
   init_ivector(&solver->vars_to_assign, 0);
   solver->ctx = ctx;
@@ -32,7 +67,7 @@ void bv_core_solver_construct(bv_core_solver_t* solver, plugin_context_t* ctx, b
   }
 }
 
-void bv_core_solver_destruct(bv_core_solver_t* solver) {
+void bb_sat_solver_destruct(bb_sat_solver_t* solver) {
   substitution_destruct(&solver->subst);
   delete_ivector(&solver->vars_to_assign);
 
@@ -41,7 +76,7 @@ void bv_core_solver_destruct(bv_core_solver_t* solver) {
   yices_free_config(solver->config);
 }
 
-void bv_core_solver_reset(bv_core_solver_t* solver) {
+void bb_sat_solver_reset(bb_sat_solver_t* solver) {
   if (solver->incremental) {
     yices_pop(solver->yices_ctx);
     yices_push(solver->yices_ctx);
@@ -49,13 +84,13 @@ void bv_core_solver_reset(bv_core_solver_t* solver) {
     substitution_construct(&solver->subst, &solver->ctx->var_db->tm, solver->ctx->tracer);
     ivector_reset(&solver->vars_to_assign);
   } else {
-    bv_core_solver_destruct(solver);
-    bv_core_solver_construct(solver, solver->ctx, false);
+    bb_sat_solver_destruct(solver);
+    bb_sat_solver_construct(solver, solver->ctx, false);
   }
 }
 
 
-void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool with_value) {
+void bb_sat_solver_add_variable(bb_sat_solver_t* solver, variable_t var, bool with_value) {
   // Add new variable to substitute
   term_t var_term = variable_db_get_term(solver->ctx->var_db, var);
   if (!substitution_has_term(&solver->subst, var_term)) {
@@ -81,7 +116,7 @@ void bv_core_solver_add_variable(bv_core_solver_t* solver, variable_t var, bool 
   }
 }
 
-void bv_core_solver_assert_term(bv_core_solver_t* solver, variable_t assertion_term) {
+void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_term) {
   assertion_term = substitution_run_fwd(&solver->subst, assertion_term, 0);
   if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
     FILE* out = trace_out(solver->yices_ctx->trace);
@@ -95,24 +130,24 @@ void bv_core_solver_assert_term(bv_core_solver_t* solver, variable_t assertion_t
 /**
  * Run the substitution and assert (with the same polarity as in MCSAT)
  */
-void bv_core_solver_assert_var(bv_core_solver_t* solver, variable_t var) {
+void bb_sat_solver_assert_var(bb_sat_solver_t* solver, variable_t var) {
   term_t assertion_term = variable_db_get_term(solver->ctx->var_db, var);
   const mcsat_value_t* var_value = trail_get_value(solver->ctx->trail, var);
   assert(var_value->type == VALUE_BOOLEAN);
   if (!var_value->b) {
     assertion_term = opposite_term(assertion_term);
   }
-  bv_core_solver_assert_term(solver, assertion_term);
+  bb_sat_solver_assert_term(solver, assertion_term);
 }
 
-bool bv_core_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
+bool bb_sat_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
   const mcsat_trail_t* trail = data;
   assert(trail_has_value(trail, t1));
   assert(trail_has_value(trail, t2));
   return trail_get_index(trail, t1) < trail_get_index(trail, t2);
 }
 
-bool bv_core_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
+bool bb_sat_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
   term_table_t* terms = (term_table_t*) data;
 
   // don't care about sign, presume all different atoms
@@ -140,7 +175,7 @@ bool bv_core_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
   return t1 < t2;
 }
 
-void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* core) {
+void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* core) {
 
   uint32_t i, j, bit;
 
@@ -219,7 +254,7 @@ void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* 
   }
 
   // Sort the core according to variable and bit
-  int_array_sort2(core->data, core->size, (void*) solver->ctx->terms, bv_core_solver_cmp_bit_term);
+  int_array_sort2(core->data, core->size, (void*) solver->ctx->terms, bb_sat_solver_cmp_bit_term);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
@@ -300,3 +335,103 @@ void bv_core_solver_solve_and_get_core(bv_core_solver_t* solver, term_vector_t* 
   // Remove assumption vector
   delete_ivector(&assumptions);
 }
+
+
+typedef struct qf_bv_sat_s {
+
+  /** Interfact of the subexplainer */
+  bv_subexplainer_t super;
+
+  /** Yices to for bitblasting and SAT solving */
+  bb_sat_solver_t solver;
+
+} full_bv_sat_t;
+
+static
+bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, variable_t conflict_var) {
+  // We can explain anything
+  return true;
+}
+
+static
+void explain_conflict(bv_subexplainer_t* super, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+  uint32_t i;
+
+  full_bv_sat_t* this = (full_bv_sat_t*) super;
+
+  const variable_db_t* var_db = super->ctx->var_db;
+  const mcsat_trail_t* trail = super->ctx->trail;
+  bb_sat_solver_t* solver = &this->solver;
+
+  // Reset the solver
+  bb_sat_solver_reset(solver);
+
+  // Get the assigned variables into a set and copy assertions into explanation
+  for (i = 0; i < conflict_core->size; ++i) {
+    // Get assigned variables
+    variable_t atom_i_var = conflict_core->data[i];
+    variable_list_ref_t list_ref = watch_list_manager_get_list_of(super->wlm,
+        atom_i_var);
+    variable_t* atom_i_vars = watch_list_manager_get_list(super->wlm, list_ref);
+    for (; *atom_i_vars != variable_null; atom_i_vars++) {
+      variable_t var = *atom_i_vars;
+      if (var != atom_i_var) {
+        bool assign_value = (var != conflict_var);
+        bb_sat_solver_add_variable(solver, var, assign_value);
+      }
+    }
+    // Copy into explanation
+    const mcsat_value_t* atom_i_value = trail_get_value(trail, atom_i_var);
+    assert(atom_i_value != NULL && atom_i_value->type == VALUE_BOOLEAN);
+    term_t assertion = variable_db_get_term(var_db, atom_i_var);
+    if (!atom_i_value->b) {
+      assertion = opposite_term(assertion);
+    }
+    ivector_push(conflict, assertion);
+  }
+
+  // Now assert the conflict
+  for (i = 0; i < conflict_core->size; ++i) {
+    variable_t assertion_var = conflict_core->data[i];
+    bb_sat_solver_assert_var(solver, assertion_var);
+  }
+
+  // Solve and get the core
+  term_vector_t core;
+  yices_init_term_vector(&core);
+  bb_sat_solver_solve_and_get_core(solver, &core);
+
+  // Copy over the core
+  for (i = 0; i < core.size; ++i) {
+    ivector_push(conflict, core.data[i]);
+  }
+
+  // Delete stuff
+  yices_delete_term_vector(&core);
+}
+
+static
+void destruct(bv_subexplainer_t* super) {
+  full_bv_sat_t* this = (full_bv_sat_t*) super;
+  bb_sat_solver_destruct(&this->solver);
+}
+
+/** Allocate the sub-explainer and setup the methods */
+bv_subexplainer_t* full_bv_sat_new(plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
+
+  full_bv_sat_t* exp = safe_malloc(sizeof(full_bv_sat_t));
+
+  // Construct the supert
+  bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::full_bv_sat", ctx, wlm, eval);
+
+  // Setup calls
+  exp->super.can_explain_conflict = can_explain_conflict;
+  exp->super.explain_conflict = explain_conflict;
+  exp->super.destruct = destruct;
+
+  // Construct the rest
+  bb_sat_solver_construct(&exp->solver, ctx, false);
+
+  return (bv_subexplainer_t*) exp;
+}
+
