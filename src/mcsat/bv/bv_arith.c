@@ -406,40 +406,61 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bvconstant_t lo, hi;
   init_bvconstant(&lo);
   init_bvconstant(&hi);
-  
-  if (right_has) { // lo is going to be -c2
-    bvconstant_copy(&lo, cc2.bitsize, cc2.data);
-    bvconstant_negate(&lo);
-    lo_term = bv_arith_negate_terms(tm,c2);
-    
-    if (left_has) { // then hi is -c1
-      bvconstant_copy(&hi, cc1.bitsize, cc1.data);
-      bvconstant_negate(&hi);
-      hi_term = bv_arith_negate_terms(tm,c1);
-      
-      if (bvconstant_lt(&cc1,&cc2)) { // If c1 < c2, we forbid [ -c2 ; -c1 [
-        reason = mk_bvlt(tm, c1, c2);
-        i = bv_arith_interval_construct(tm, &lo, true, &hi, false, lo_term, hi_term, reason);
-        if (i != NULL) ptr_heap_add(&lctx->heap, i);
+
+  if (is_neq) { // case of inequality (lhs != rhs)
+    if (right_has) {
+      if (left_has) {
+        if (bvconstant_eq(&cc1,&cc2)) { // If c1 == c2, we forbid everything, otherwise we forbid nothing
+          i = bv_arith_interval_construct(tm, &lctx->zero, true, &lctx->zero, false, lctx->zero_term, lctx->zero_term, NULL_TERM);
+          ptr_heap_add(&lctx->heap, i);
+        }
+      } else { // case (c1 != c2 + x), forbidden interval is [ c1-c2 ; c1-c2 ]
+        bvconstant_copy(&lo, cc1.bitsize, cc1.data);
+        bvconstant_sub(&lo, &cc2);
+        lo_term = bv_arith_sub_terms(tm,c1,c2);
+        i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
+        ptr_heap_add(&lctx->heap, i);
       }
-      else {
-        if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid [ 0 ; -c1 [, then [ -c2 ; 2^n [
-          reason = mk_bvlt(tm, c2, c1);
-          i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-          i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
+    } else {
+      assert(left_has); // otherwise x appears on neither side - not sure that could happen
+      // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
+      bvconstant_copy(&lo, cc2.bitsize, cc2.data);
+      bvconstant_sub(&lo, &cc1);
+      lo_term = bv_arith_sub_terms(tm,c2,c1);
+      i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
+      ptr_heap_add(&lctx->heap, i);
+    }
+  }
+  else { // case of less than (lhs <= rhs)
+    if (right_has) { // lo is going to be -c2
+      bvconstant_copy(&lo, cc2.bitsize, cc2.data);
+      bvconstant_negate(&lo);
+      lo_term = bv_arith_negate_terms(tm,c2);
+    
+      if (left_has) { // then hi is -c1
+        bvconstant_copy(&hi, cc1.bitsize, cc1.data);
+        bvconstant_negate(&hi);
+        hi_term = bv_arith_negate_terms(tm,c1);
+      
+        if (bvconstant_lt(&cc1,&cc2)) { // If c1 < c2, we forbid [ -c2 ; -c1 [
+          reason = mk_bvlt(tm, c1, c2);
+          i = bv_arith_interval_construct(tm, &lo, true, &hi, false, lo_term, hi_term, reason);
           if (i != NULL) ptr_heap_add(&lctx->heap, i);
         }
-      }
-    } else { // No conflict variable on the left, then hi is (c1 - c2)
-      bvconstant_copy(&hi, cc1.bitsize, cc1.data);
-      bvconstant_sub(&hi, &cc2);
-      hi_term = bv_arith_sub_terms(tm,c1,c2);
+        else {
+          if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid [ 0 ; -c1 [, then [ -c2 ; 2^n [
+            reason = mk_bvlt(tm, c2, c1);
+            i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
+            if (i != NULL) ptr_heap_add(&lctx->heap, i);
+            i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
+            if (i != NULL) ptr_heap_add(&lctx->heap, i);
+          }
+        }
+      } else { // No conflict variable on the left, then hi is (c1 - c2)
+        bvconstant_copy(&hi, cc1.bitsize, cc1.data);
+        bvconstant_sub(&hi, &cc2);
+        hi_term = bv_arith_sub_terms(tm,c1,c2);
 
-      if (is_neq) { // case of inequality (c1 != c2 + x): forbidden interval is [ c1-c2 ; c1-c2 ]
-        i = bv_arith_interval_construct(tm, &hi, true, &hi, true, hi_term, hi_term, NULL_TERM);
-        if (i != NULL) ptr_heap_add(&lctx->heap, i);
-      } else { // case of less than (c1 <= c2 + x)
         if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid [ -c2 ; c1 - c2 [
           reason = mk_bvle(tm, c1, c2);
           i = bv_arith_interval_construct(tm, &lo, true, &hi, false, lo_term, hi_term, reason);
@@ -453,18 +474,13 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
           if (i != NULL) ptr_heap_add(&lctx->heap, i);
         }
       }
-    }
-  } else {
-    assert(left_has); // otherwise !left_has && !right_has - conflict variable appears on neither side - not sure that could happen
-    // lo = c2 - c1, and hi = -c1
-    bvconstant_copy(&lo, cc2.bitsize, cc2.data);
-    bvconstant_sub(&lo, &cc1);
-    lo_term = bv_arith_sub_terms(tm,c2,c1);
+    } else {
+      assert(left_has); // otherwise !left_has && !right_has - conflict variable appears on neither side - not sure that could happen
+      // lo = c2 - c1, and hi = -c1
+      bvconstant_copy(&lo, cc2.bitsize, cc2.data);
+      bvconstant_sub(&lo, &cc1);
+      lo_term = bv_arith_sub_terms(tm,c2,c1);
 
-    if (is_neq) { // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
-      i = bv_arith_interval_construct(tm, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
-      if (i != NULL) ptr_heap_add(&lctx->heap, i);
-    } else { // case of less than (c1 + x <= c2) we need to involve -c1
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_negate(&hi);
       hi_term = bv_arith_negate_terms(tm,c1);
@@ -474,11 +490,11 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         i = bv_arith_interval_construct(tm, &lo, false, &hi, false, lo_term, hi_term, reason);
         if (i != NULL) ptr_heap_add(&lctx->heap, i);
       }
-      else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 [ and [ c2 - c1 ; 2^n [
+      else { // else we must have c2 < c1, and we forbid both [ 0 ; -c1 [ and ] c2 - c1 ; 2^n [
         reason = mk_bvlt(tm, c2, c1);
         i = bv_arith_interval_construct(tm, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
         if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        i = bv_arith_interval_construct(tm, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
+        i = bv_arith_interval_construct(tm, &lo, false, &lctx->zero, false, lo_term, lctx->zero_term, reason);
         if (i != NULL) ptr_heap_add(&lctx->heap, i);
       }
     }
@@ -494,7 +510,7 @@ void bv_arith_add2conflict(term_manager_t* tm, term_t min_saved_term, bvconst_in
     term_t continuity_reason = mk_bvle(tm, i->lo_term, min_saved_term);
     ivector_push(conflict, continuity_reason);
   }
-  ivector_push(conflict, i->reason);
+  if (i->reason !=  NULL_TERM) ivector_push(conflict, i->reason);
   bv_arith_interval_destruct(i);
 }
 
