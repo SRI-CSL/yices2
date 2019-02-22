@@ -958,11 +958,14 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
     // Now, see if it fits
     term_kind_t atom_kind = term_kind(terms, atom_term);
     switch (atom_kind) {
-    case BIT_TERM:
-      if (!term_is_ext_con(this, atom_term, atom_var_wlist)) {
+    case BIT_TERM: {
+      term_t atom_arg = bit_term_arg(terms, atom_term);
+      variable_t atom_arg_var = variable_db_get_variable_if_exists(var_db, atom_arg);
+      if (atom_arg_var != variable_null || !variable_in_list(atom_arg_var, atom_var_wlist)) {
         return false;
       }
       break;
+    }
     case BV_EQ_ATOM:
     case EQ_TERM: {
       composite_term_t* eq = composite_term_desc(terms, atom_term);
