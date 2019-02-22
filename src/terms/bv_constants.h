@@ -660,19 +660,20 @@ static inline void bvconstant_sub_one(bvconstant_t *a) {
 static inline void bvconstant_add(bvconstant_t *a, const bvconstant_t *b) {
   assert(bvconstant_is_normalized(a));
   assert(bvconstant_is_normalized(b));
-  bvconst_add(a->data, a->bitsize, b->data);
+  bvconst_add(a->data, a->width, b->data);
 }
 
 static inline void bvconstant_sub(bvconstant_t *a, const bvconstant_t *b) {
   assert(bvconstant_is_normalized(a));
   assert(bvconstant_is_normalized(b));
-  bvconst_sub(a->data, a->bitsize, b->data);
+  bvconst_sub(a->data, a->width, b->data);
 }
 
 static inline bool bvconstant_eq(const bvconstant_t *a,const bvconstant_t *b) {
   assert(bvconstant_is_normalized(a));
   assert(bvconstant_is_normalized(b));
-  return bvconst_eq(a->data, b->data, a->bitsize);
+  assert(a->bitsize == b->bitsize);
+  return bvconst_eq(a->data, b->data, a->width);
 }
 
 static inline bool bvconstant_lt(const bvconstant_t *a, const bvconstant_t *b) {

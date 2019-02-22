@@ -44,7 +44,6 @@ void bv_evaluator_destruct(bv_evaluator_t* evaluator) {
   delete_int_hmap(&evaluator->level_map);
 }
 
-static inline
 void bv_evaluator_clear_cache(bv_evaluator_t* evaluator) {
   for (uint32_t i = 0; i < evaluator->value_cache.size; ++ i) {
     bvconstant_t* value = evaluator->value_cache.data[i];

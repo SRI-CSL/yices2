@@ -50,14 +50,15 @@ void bv_evaluator_construct(bv_evaluator_t* evaluator, const plugin_context_t* c
 /** Destruct the evaluator */
 void bv_evaluator_destruct(bv_evaluator_t* evaluator);
 
-
+/** Clears the evaluator's cache */
+void bv_evaluator_clear_cache(bv_evaluator_t* evaluator);
+  
 /**
- * Evaluate term and construct the value into out. User should destruct.
+ * Evaluate term and construct the value into out. User should destruct. No cache clearing is performed.
  */
 void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
 
 bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level);
-
 
 /**
  * Evaluate a BV constraint (atom), return the value (true/false) and set

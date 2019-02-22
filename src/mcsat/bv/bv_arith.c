@@ -442,6 +442,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bv_evaluator_run_term(lctx->eval, c1, &cc1, &eval_level);
   eval_level = 0;
   bv_evaluator_run_term(lctx->eval, c2, &cc2, &eval_level);
+  bvconstant_is_normalized(&cc1);
+  bvconstant_is_normalized(&cc2);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -461,7 +463,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   init_bvconstant(&hi);
 
   if (is_neq) { // case of inequality (lhs != rhs)
-    if ((right_has && left_has) || (!right_has && !left_has)) { // x appears on both sides or on neither sides
+    if ((right_has && left_has) || ((!right_has) && (!left_has))) { // x appears on both sides or on neither sides
       if (bvconstant_eq(&cc1,&cc2)) { // If c1 == c2, we forbid everything, otherwise we forbid nothing
         reason = mk_bveq(tm, c1, c2);
         i = bv_arith_interval_construct(ctx, &lctx->zero, true, &lctx->zero, false, lctx->zero_term, lctx->zero_term, reason);
@@ -566,6 +568,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
     }
   }
     
+  delete_bvconstant(&cc1);
+  delete_bvconstant(&cc2);    
   delete_bvconstant(&lo);
   delete_bvconstant(&hi);    
 }
@@ -591,6 +595,9 @@ void bv_arith_add2conflict(plugin_context_t* ctx, term_t min_saved_term, bvconst
 
 
 void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+
+  bv_evaluator_clear_cache(eval);
+
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
@@ -712,6 +719,7 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "finished the job\n");
         }
+        if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
         best_so_far = i;
         // Now we empty the heap
         i = ptr_heap_get_min(&lctx.heap);
@@ -747,21 +755,19 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
         bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
         min_saved_term = best_so_far->hi_term;
         bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
+        best_so_far = NULL;
       } else { // Discontinuity in intervals, shouldn't happen if in conflict
-        i = NULL;
         assert(false);
       }
     }
   }
 
   assert(best_so_far != NULL);
-  {
-    bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
-    if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
-      term_t continuity_reason = mk_bveq(tm, best_so_far->hi_term, lctx.zero_term);
-      ivector_push(conflict, continuity_reason);
-    }
+  if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
+    term_t continuity_reason = mk_bveq(tm, best_so_far->hi_term, lctx.zero_term);
+    ivector_push(conflict, continuity_reason);
   }
+  bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
   
   assert(ptr_heap_is_empty(&lctx.heap));
 
@@ -770,6 +776,8 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   delete_bvconstant(&lctx.zero);
   delete_ptr_heap(&lctx.heap);
   delete_int_hset(&lctx.cst_terms_cache);
+
+  bv_evaluator_clear_cache(eval);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
