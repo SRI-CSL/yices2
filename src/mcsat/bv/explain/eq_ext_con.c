@@ -867,11 +867,11 @@ bool term_is_ext_con(bv_subexplainer_t* this, term_t t, const variable_t* vars) 
   const variable_db_t* var_db = this->ctx->var_db;
   term_table_t* terms = this->ctx->terms;
 
-  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
-    FILE* out = ctx_trace_out(this->ctx);
-    fprintf(out, "t = ");
-    ctx_trace_term(this->ctx, t);
-  }
+//  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+//    FILE* out = ctx_trace_out(this->ctx);
+//    fprintf(out, "t = ");
+//    ctx_trace_term(this->ctx, t);
+//  }
 
   // What kind of term is it
   term_kind_t t_kind = term_kind(terms, t);
@@ -939,11 +939,11 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
     variable_t atom_var = conflict->data[i];
     term_t atom_term = variable_db_get_term(var_db, atom_var);
 
-    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
-      FILE* out = ctx_trace_out(this->ctx);
-      fprintf(out, "atom_var = ");
-      ctx_trace_term(this->ctx, atom_term);
-    }
+//    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+//      FILE* out = ctx_trace_out(this->ctx);
+//      fprintf(out, "atom_var = ");
+//      ctx_trace_term(this->ctx, atom_term);
+//    }
 
     // Get the variables of the constraint
     if (!watch_list_manager_has_constraint(this->wlm, atom_var)) {
