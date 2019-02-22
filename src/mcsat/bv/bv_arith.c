@@ -687,6 +687,9 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
   }
 
   // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
+  bvconstant_t min_save;
+  init_bvconstant(&min_save);
+  bvconstant_copy(&min_save, lctx.zero.bitsize, lctx.zero.data);
   term_t min_saved_term = lctx.zero_term; // The term behind this lower bound of feasible values
 
   // The best interval found so far in the heap, but not yet saved in &conflict,
@@ -703,7 +706,7 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
       bv_arith_interval_print(out, terms, i);
       fprintf(out, "\n");
     }
-    if (bvconstant_le(&i->lo, &lctx.zero)) { // In continuity of previously forbidden range
+    if (bvconstant_le(&i->lo, &min_save)) { // In continuity of previously forbidden range
       if (bvconstant_is_zero(&i->hi)) { // Yeah! interval forbids all remaining values
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
@@ -718,7 +721,7 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
         }
       } else { // interval doesn't forbid all remaining values;
         // does is eliminate more values than best_so_far?
-        if (((best_so_far == NULL) && bvconstant_lt(&lctx.zero, &i->hi))
+        if (((best_so_far == NULL) && bvconstant_lt(&min_save, &i->hi))
             || bvconstant_lt(&best_so_far->hi, &i->hi)) { // i becomes best_so_far
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
@@ -741,7 +744,7 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
         fprintf(out, "is in discontinuity\n");
       }
       if (best_so_far != NULL) { // We need to save best_so_far in &conflict
-        bvconstant_copy(&lctx.zero, best_so_far->hi.bitsize, best_so_far->hi.data);
+        bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
         min_saved_term = best_so_far->hi_term;
         bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
       } else { // Discontinuity in intervals, shouldn't happen if in conflict
@@ -751,10 +754,18 @@ void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const iv
     }
   }
 
-  if (best_so_far != NULL)
+  assert(best_so_far != NULL);
+  {
     bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
-
+    if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
+      term_t continuity_reason = mk_bveq(tm, best_so_far->hi_term, lctx.zero_term);
+      ivector_push(conflict, continuity_reason);
+    }
+  }
+  
   assert(ptr_heap_is_empty(&lctx.heap));
+
+  delete_bvconstant(&min_save);
 
   delete_bvconstant(&lctx.zero);
   delete_ptr_heap(&lctx.heap);
