@@ -58,6 +58,7 @@ void bdds_move(BDD** out, BDD** a, uint32_t n) {
 CUDD* bdds_new() {
   CUDD* cudd = (CUDD*) safe_malloc(sizeof(CUDD));
   cudd->cudd = Cudd_Init(0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
+//  Cudd_AutodynDisable(cudd->cudd);
   cudd->tmp_alloc_size = 0;
   cudd->tmp_inputs = NULL;
   cudd->tmp_model = NULL;
