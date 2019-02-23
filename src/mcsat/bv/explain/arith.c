@@ -15,7 +15,14 @@
 #include "utils/int_hash_sets.h"
 #include "utils/ptr_heap.h"
 
-#include "bv_arith.h"
+#include "arith.h"
+
+typedef struct arith_s {
+
+  /** Interfact of the subexplainer */
+  bv_subexplainer_t super;
+
+} arith_t;
 
 // Adding 2 bv terms
 
@@ -594,8 +601,12 @@ void bv_arith_add2conflict(plugin_context_t* ctx, term_t min_saved_term, bvconst
 }
 
 
-void bv_arith_get_conflict(plugin_context_t* ctx, bv_evaluator_t* eval, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+static
+void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
 
+  plugin_context_t* ctx = this->ctx;
+  bv_evaluator_t* eval = this->eval;
+  
   bv_evaluator_clear_cache(eval);
 
   // Standard abbreviations
@@ -851,8 +862,11 @@ bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, t
 }
 
 
+static
+bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var) {
 
-bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, variable_t conflict_var) {
+  plugin_context_t* ctx = this->ctx;
+  
   // Standard abbreviations
   term_table_t* terms  = ctx->terms;
   term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
@@ -935,4 +949,17 @@ bool bv_arith_applies_to(plugin_context_t* ctx, const ivector_t* conflict_core, 
   delete_int_hset(&cst_terms_cache);
   return true;
 
+}
+
+/** Allocate the sub-explainer and setup the methods */
+bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
+
+  arith_t* exp = safe_malloc(sizeof(arith_t));
+
+  bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
+
+  exp->super.can_explain_conflict = can_explain_conflict;
+  exp->super.explain_conflict = explain_conflict;
+
+  return (bv_subexplainer_t*) exp;
 }

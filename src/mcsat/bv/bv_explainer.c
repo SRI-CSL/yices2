@@ -9,13 +9,13 @@
 
 #include "bv_evaluator.h"
 #include "bv_utils.h"
-#include "bv_arith.h"
 
 #include "mcsat/variable_db.h"
 #include "mcsat/tracing.h"
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/eq/equality_graph.h"
 
+#include "explain/arith.h"
 #include "explain/eq_ext_con.h"
 #include "explain/full_bv_sat.h"
 #include "explain/full_bv_trivial.h"
@@ -51,6 +51,7 @@ void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_li
   // Add all the explainers
   init_pvector(&exp->subexplainers, 0);
   pvector_push(&exp->subexplainers, eq_ext_con_new(ctx, wlm, eval));
+  pvector_push(&exp->subexplainers, arith_new(ctx, wlm, eval));
   if (use_yices) {
     pvector_push(&exp->subexplainers, full_bv_sat_new(ctx, wlm, eval));
   } else {
