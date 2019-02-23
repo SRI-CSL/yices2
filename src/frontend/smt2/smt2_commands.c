@@ -5056,6 +5056,12 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
+  case PARAM_MCSAT_BV_VAR_SIZE:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->mcsat_options.bv_var_size = n;
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
     unsupported = true;

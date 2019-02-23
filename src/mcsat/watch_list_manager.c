@@ -184,7 +184,6 @@ variable_t* watch_list_manager_get_list(watch_list_manager_t* wlm, variable_list
   return wlm->vlist_memory.data + var_list;
 }
 
-
 void watch_list_manager_add_to_watch(watch_list_manager_t* wlm, variable_list_ref_t var_list, variable_t watcher) {
   assert(watcher != variable_null);
   if (watcher >= wlm->wlist_memory.size) {

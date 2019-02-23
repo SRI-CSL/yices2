@@ -48,10 +48,10 @@ void variable_db_destruct(variable_db_t* var_db) {
   delete_term_manager(&var_db->tm);
 }
 
-bool variable_db_has_variable(variable_db_t* var_db, term_t x) {
+bool variable_db_has_variable(const variable_db_t* var_db, term_t x) {
   assert(is_pos_term(x));
   int_hmap_pair_t* find;
-  find = int_hmap_find(&var_db->term_to_variable_map, x);
+  find = int_hmap_find((int_hmap_t*) &var_db->term_to_variable_map, x);
   return find != NULL;
 }
 

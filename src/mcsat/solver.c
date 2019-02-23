@@ -685,7 +685,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat_evaluator_construct(&mcsat->evaluator, mcsat);
 
   // Construct the preprocessor
-  preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception);
+  preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception, &mcsat->ctx->mcsat_options);
 
   // The variable queue
   mcsat->top_decision_var = variable_null;

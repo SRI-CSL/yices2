@@ -21,6 +21,7 @@
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
 #include "io/tracer.h"
+#include "options.h"
 #include "mcsat/utils/scope_holder.h"
 
 #include <setjmp.h>
@@ -51,6 +52,9 @@ typedef struct {
   /** Tracer */
   tracer_t* tracer;
 
+  /** MCSAT options */
+  const mcsat_options_t* options;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -60,7 +64,7 @@ typedef struct {
 } preprocessor_t;
 
 /** Construct the preprocessor */
-void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler);
+void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler, const mcsat_options_t* options);
 
 /** Destruct the preprocessor */
 void preprocessor_destruct(preprocessor_t* pre);

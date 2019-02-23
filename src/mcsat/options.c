@@ -24,5 +24,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_bound = false;
   opts->nra_bound_min = -1;
   opts->nra_bound_max = -1;
+  opts->bv_var_size = -1;
 }
 

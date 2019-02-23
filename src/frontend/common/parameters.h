@@ -100,6 +100,7 @@ typedef enum yices_param {
   PARAM_MCSAT_NRA_BOUND,
   PARAM_MCSAT_NRA_BOUND_MIN,
   PARAM_MCSAT_NRA_BOUND_MAX,
+  PARAM_MCSAT_BV_VAR_SIZE,
   // error
   PARAM_UNKNOWN
 } yices_param_t;

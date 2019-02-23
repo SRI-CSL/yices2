@@ -23,7 +23,9 @@
 
 #include "context/context_types.h"
 
-void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler) {
+#include "yices.h"
+
+void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler, const mcsat_options_t* options) {
   pre->terms = terms;
   init_term_manager(&pre->tm, terms);
   init_int_hmap(&pre->preprocess_map, 0);
@@ -32,6 +34,7 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   init_ivector(&pre->purification_map_list, 0);
   pre->tracer = NULL;
   pre->exception = handler;
+  pre->options = options;
   scope_holder_construct(&pre->scope);
 }
 
@@ -319,8 +322,31 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
     case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
     case ARITH_CONSTANT:   // rational constant
-    case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
       current_pre = current;
+      break;
+    case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
+      if (pre->options->bv_var_size > 0 && type == BITVECTOR_TYPE) {
+        uint32_t size = term_bitsize(terms, current);
+        uint32_t var_size = pre->options->bv_var_size;
+        if (size > var_size) {
+          uint32_t n_vars = (size - 1) / var_size + 1;
+          term_t vars[n_vars];
+          for (i = n_vars - 1; size > 0; i--) {
+            if (size >= var_size) {
+              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, 8));
+              size -= var_size;
+            } else {
+              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, size));
+              size = 0;
+            }
+          }
+          current_pre = yices_bvconcat(n_vars, vars);
+        } else {
+          current_pre = current;
+        }
+      } else {
+        current_pre = current;
+      }
       break;
 
     case ARITH_EQ_ATOM:      // atom t == 0
@@ -418,7 +444,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (arg_pre == arg) {
           current_pre = current;
         } else {
-          current_pre = bit_term(terms, index, arg_pre);
+          // For simplification purposes use API
+          current_pre = yices_bitextract(arg_pre, index);
         }
       }
       break;
@@ -534,7 +561,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
           current_pre = current;
         } else {
           // NOTE: it doens't change pp, it just uses it as a frame
-          current_pre = mk_arith_pprod(tm, pp, n, children.data);
+          current_pre = mk_pprod(tm, pp, n, children.data);
         }
       }
 
@@ -778,3 +805,5 @@ void preprocessor_pop(preprocessor_t* pre) {
     int_hmap_erase(&pre->purification_map, find);
   }
 }
+
+
