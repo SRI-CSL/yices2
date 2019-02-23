@@ -55,10 +55,17 @@ void bdds_move(BDD** out, BDD** a, uint32_t n) {
   }
 }
 
+static void cudd_out_of_mem(size_t s) {
+  fflush(stdout);
+  fprintf(stderr, "\nCUDD: failed to allocate %zu bytes\n", s);
+  out_of_memory();
+}
+
 CUDD* bdds_new() {
   CUDD* cudd = (CUDD*) safe_malloc(sizeof(CUDD));
   cudd->cudd = Cudd_Init(0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
-//  Cudd_AutodynDisable(cudd->cudd);
+  (void) Cudd_RegisterOutOfMemoryCallback(cudd->cudd, cudd_out_of_mem);
+  //  Cudd_AutodynDisable(cudd->cudd);
   cudd->tmp_alloc_size = 0;
   cudd->tmp_inputs = NULL;
   cudd->tmp_model = NULL;
