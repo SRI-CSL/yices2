@@ -806,58 +806,60 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
 
 // checks whether term t is a good inequality side for fragment
-bool bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t, term_t conflict_var) {
+int32_t bv_arith_is_good_side(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t, term_t conflict_var) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith looks whether this is a good side ");
+    fprintf(out, "bv_arith looks whether this is a good side: ");
     ctx_trace_term(ctx, t);
   }
 
-  if (t == conflict_var) return true;
-  if (bv_arith_is_constant(ctx, cst_terms_cache, t)) return true;
+  if (t == conflict_var) return 1;
+  if (bv_arith_is_constant(ctx, cst_terms_cache, t)) return 0;
 
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
-    bool conflict_var_seen = false;
+    int32_t result = 0;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
       if (t_poly->mono[i].var == conflict_var) {
-        if (conflict_var_seen) return false; // in theory, the conflict variable shouldn't be seen twice, but...
-        if (!bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) {
-          return false;
+        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
+        if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) result = 1;
+        else {
+          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->width)) result = -1;
+          else return 2;
         }
-        conflict_var_seen = true;
       } else {
         if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) {
-          return false;
+          return 2;
         }
       }
     }
-    return true;
+    return result;
   }
   case BV64_POLY: {
     bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
-    bool conflict_var_seen = false;
+    int32_t result = 0;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
       if (t_poly->mono[i].var == conflict_var) {
-        if (conflict_var_seen) return false; // in theory, the conflict variable shouldn't be seen twice, but...
-        if (t_poly->mono[i].coeff != 1) {
-          return false;
+        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
+        if (t_poly->mono[i].coeff == 1) result = 1;
+        else {
+          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t))) result = -1;
+          else return 2;
         }
-        conflict_var_seen = true;
       } else {
         if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) {
-          return false;
+          return 2;
         }
       }
     }
-    return true;
+    return result;
   }
   default:
-    return false;
+    return 2;
   }
 }
 
@@ -901,54 +903,31 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
     case EQ_TERM : 
     case BV_EQ_ATOM:
     case BV_GE_ATOM: 
-    case BV_SGE_ATOM:
+    case BV_SGE_ATOM: {
+      atom_i_comp = composite_term_desc(terms, atom_i_term);
+      assert(atom_i_comp->arity == 2);
+      term_t t0 = atom_i_comp->arg[0];
+      term_t t1 = atom_i_comp->arg[1];
+      assert(is_pos_term(t0));
+      assert(is_pos_term(t1));
+      int32_t t0_good = bv_arith_is_good_side(ctx, &cst_terms_cache, t0, conflict_var_term);
+      int32_t t1_good = bv_arith_is_good_side(ctx, &cst_terms_cache, t1, conflict_var_term);
+      if ((t0_good == 2) || (t1_good == 2) // || (t0_good * t1_good == -1)
+          || (t0_good == -1) || ( t1_good == -1)
+          ) { // We are not in the fragment we stop
+        delete_int_hset(&cst_terms_cache);
+        return false;
+      }
       break;
+    }
     default: {
       delete_int_hset(&cst_terms_cache);
       return false;
     }
-    }
-
-    // Now we are sure it is EQ_TERM, BV_EQ_ATOM, BV_SGE_ATOM, or BV_GE_ATOM
-    atom_i_comp = composite_term_desc(terms, atom_i_term);
-    assert(atom_i_comp->arity == 2);
-    term_t t0 = atom_i_comp->arg[0];
-    term_t t1 = atom_i_comp->arg[1];
-    assert(is_pos_term(t0));
-    assert(is_pos_term(t1));
-
-    bool is_in_fragment = true;
-    
-    switch (atom_i_kind) {
-    case EQ_TERM :
-    case BV_EQ_ATOM:
-    case BV_SGE_ATOM: // This line assumes that a <=s b iff (a + 2^{w-1}) <=u (b + 2^{w-1}). Check whether this is true.
-    case BV_GE_ATOM: { // Both sides must be good
-      is_in_fragment = is_in_fragment
-        && bv_arith_is_good_side(ctx, &cst_terms_cache, t0, conflict_var_term)
-        && bv_arith_is_good_side(ctx, &cst_terms_cache, t1, conflict_var_term);
-      break;
-    }
-    /* case BV_SGE_ATOM: { // One side must be the conflict variable, the other side must be constant */
-    /*   is_in_fragment = */
-    /*     ((t0 == conflict_var_term) && bv_arith_is_constant(ctx, &cst_terms_cache, t1)) */
-    /*     || ((t1 == conflict_var_term) && bv_arith_is_constant(ctx, &cst_terms_cache, t0)); */
-    /*   break; */
-    /* } */
-    default: { // We can't be in any other case because of the first switch
-      assert(false);
-    }
-    }
-
-    if (!is_in_fragment) { // If we are not in the fragment we stop
-      delete_int_hset(&cst_terms_cache);
-      return false;
-    }
+    } 
   }
-
   delete_int_hset(&cst_terms_cache);
   return true;
-
 }
 
 /** Allocate the sub-explainer and setup the methods */
@@ -956,7 +935,7 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
 
   arith_t* exp = safe_malloc(sizeof(arith_t));
 
-  bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
+  bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::arith", ctx, wlm, eval);
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
