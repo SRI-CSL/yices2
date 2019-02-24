@@ -160,14 +160,6 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
-  /* bv_subtheory_t subtheory; */
-  
-  /* if (bv_arith_applies_to(exp->ctx, conflict_in, conflict_var)) { */
-  /*   subtheory = BV_TH_ARITH_CMP; */
-  /* } else { */
-  /*   subtheory = bv_explainer_get_subtheory(exp, conflict_in); */
-  /* } */
-  
   // Get the explainer to use
   uint32_t i = 0;
   bv_subexplainer_t* subexplainer = NULL;
