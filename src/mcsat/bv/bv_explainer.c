@@ -64,7 +64,7 @@ void bv_explainer_destruct(bv_explainer_t* exp) {
 
   delete_ivector(&exp->tmp_conflict_vec);
 
-  // Delete all the sub-exaplainers
+  // Delete all the sub-explainers
   for(i = 0; i < exp->subexplainers.size; ++ i) {
     bv_subexplainer_t* sub = exp->subexplainers.data[i];
     if (sub->destruct != NULL) {
