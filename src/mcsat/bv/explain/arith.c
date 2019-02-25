@@ -303,20 +303,10 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
 
 
 
-// Local context
-typedef struct {
-  arith_t* exp;
-  term_t conflict_var;
-  bvconstant_t zero; // Because we don't like recomputing this too many times
-  term_t zero_term;  // Because we don't like recomputing this too many times
-  ptr_heap_t heap;   // Heap of forbidden intervals, ordered by lower bounds
-} bv_arith_ctx_t;
-
-
-// Type for bvconstant intervals.
+// Type for bvconstant intervals. An interval is a set of consecutive numbers modulo 2^n:
+// [ 3; 1 [ is not empty but contains 3 and 0.
 // Upper bound is always *excluded* from interval.
-// Invariant: (lo < hi) should always hold, except if hi = 0, which means hi = 2^n.
-// We DO NOT construct empty intervals, we return null for them.
+// Convention: the type cannot construct empty intervals: [ a ; a [ is the full set.
 
 typedef struct {
   bvconstant_t lo;
@@ -331,6 +321,8 @@ typedef struct {
 bool cmp(void *x, void *y){
   bvconst_interval_t* i1 = (bvconst_interval_t*) x;
   bvconst_interval_t* i2 = (bvconst_interval_t*) y;
+  if (bvconstant_eq(&i1->lo,&i2->lo))
+    return bvconstant_le(&i2->hi,&i1->hi);
   return bvconstant_le(&i1->lo,&i2->lo);
 }
 
@@ -353,84 +345,49 @@ void bv_arith_interval_print(FILE* out, term_table_t* terms, bvconst_interval_t*
 }
 
 
+// Local context
+typedef struct {
+  arith_t* exp;
+  term_t conflict_var;
+  bvconstant_t zero; // Because we don't like recomputing this too many times
+  term_t zero_term;  // Because we don't like recomputing this too many times
+  ptr_heap_t heap;   // Heap of forbidden intervals, ordered by lower bounds
+} bv_arith_ctx_t;
 
-// interval construction:
-// lo is always in [0 ; 2^n-1], and may or may not be excluded
-// hi is in [1 ; 2^n-1] union {0}, with 0 meaning 0 is hi is included, and 0 meaning 2^n is hi is excluded
-// => an interval where hi = 0 is excluded is always non-empty, except if lo = 2^n-1 and it is excluded.
 
-bvconst_interval_t* bv_arith_interval_construct(plugin_context_t* ctx,
-                                                const bvconstant_t* lo,
-                                                bool lo_incl,
-                                                const bvconstant_t* hi,
-                                                bool hi_incl,
-                                                term_t lo_term,
-                                                term_t hi_term,
-                                                term_t reason) {
-
-  term_manager_t* tm   = &ctx->var_db->tm;
-  assert(bvconstant_is_normalized(lo));
-  assert(bvconstant_is_normalized(hi));
-  
-  // Quick detection of cases where the interval will be empty (so we return null)
-  // Otherwise we malloc the interval and if we later realise it is empty we free it.
-  if (lo_incl && hi_incl && bvconstant_lt(hi,lo)) return NULL;
-  //When hi is excluded, hi=0 means hi=2^n, and threfore the interval cannot be empty
-  if (lo_incl && !hi_incl && !bvconstant_is_zero(hi) && bvconstant_le(hi,lo)) return NULL;
-  if (!lo_incl && hi_incl && bvconstant_le(hi,lo)) return NULL; //This forgets the case when lo+1=2^n, treated "the slow way"
-  // if !lo_incl && !hi_incl, we cannot escape a +1 or -1 computation:
-  // so we treat the case "the slow way": we'll malloc and then free if the interval is empty.  
-
-  bvconst_interval_t* result = safe_malloc(sizeof(bvconst_interval_t));
-  init_bvconstant(&result->lo);
-  init_bvconstant(&result->hi);
-  result->lo_term = lo_term;
-  result->hi_term = hi_term;
-  result->reason = reason;
-
+// Adds a newly constructed interval into the heap
+void bv_arith_interval_push(bv_arith_ctx_t* lctx,
+                            const bvconstant_t* lo,
+                            const bvconstant_t* hi,
+                            term_t lo_term,
+                            term_t hi_term,
+                            term_t reason) {
+  plugin_context_t* ctx = lctx->exp->super.ctx;
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Creating interval from lo = ");
     bvconst_print(out, lo->data, lo->bitsize);
-    fprintf(out, " %s, hi = ",lo_incl?"incl":"excl");
+    fprintf(out, ", hi = ");
     bvconst_print(out, hi->data, hi->bitsize);
-    fprintf(out, " %s, lo_term = ",hi_incl?"incl":"excl");
+    fprintf(out, ", lo_term = ");
     term_print_to_file(out, ctx->terms, lo_term);
     fprintf(out, ", hi_term = ");
     term_print_to_file(out, ctx->terms, hi_term);
     fprintf(out, "\n");
   }
   
+  assert(bvconstant_is_normalized(lo));
+  assert(bvconstant_is_normalized(hi));
+
+  bvconst_interval_t* result = safe_malloc(sizeof(bvconst_interval_t));
+  init_bvconstant(&result->lo);
+  init_bvconstant(&result->hi);
+  result->lo_term = lo_term;
+  result->hi_term = hi_term;
+  result->reason  = reason;
+
   bvconstant_copy(&result->lo, lo->bitsize, lo->data);
-  if (!lo_incl) {
-    bvconstant_add_one(&result->lo);
-    bvconstant_normalize(&result->lo);
-    if (bvconstant_is_zero(&result->lo)) { // lo+1=2^n, interval is empty
-      bv_arith_interval_destruct(result);
-      return NULL;
-    }
-    result->lo_term = bv_arith_add_one_term(tm, lo_term);
-  }
-  
   bvconstant_copy(&result->hi, hi->bitsize, hi->data);
-  if (hi_incl) {
-    bvconstant_add_one(&result->hi);
-    bvconstant_normalize(&result->hi);
-    result->hi_term = bv_arith_add_one_term(tm, hi_term);
-  }
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith creates provisional interval ");
-    bv_arith_interval_print(out, ctx->terms, result);
-    fprintf(out, "\n");
-  }
-
-  if (!bvconstant_is_zero(&result->hi)
-      && bvconstant_le(&result->hi,&result->lo)) { // interval is empty
-    bv_arith_interval_destruct(result);
-    return NULL;
-  }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -439,7 +396,26 @@ bvconst_interval_t* bv_arith_interval_construct(plugin_context_t* ctx,
     fprintf(out, "\n");
   }
 
-  return result;
+  ptr_heap_add(&lctx->heap, (void *) result);
+}
+
+void bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason) {
+  bvconstant_t* zero = &lctx->zero;
+  bv_arith_interval_push(lctx,zero,zero,lctx->zero_term,lctx->zero_term,reason);
+}
+
+void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
+                             const bvconstant_t* lo,
+                             term_t lo_term,
+                             term_t reason) {
+  plugin_context_t* ctx = lctx->exp->super.ctx;
+  term_manager_t* tm    = &ctx->var_db->tm;
+  bvconstant_t hi;
+  init_bvconstant(&hi);
+  bvconstant_copy(&hi, lo->bitsize, lo->data);
+  bvconstant_add_one(&hi);
+  term_t hi_term = bv_arith_add_one_term(tm, lo_term);
+  bv_arith_interval_push(lctx,lo,&hi,lo_term,hi_term,reason);
 }
 
 
@@ -489,6 +465,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
 
   // Evaluating the polynomials c1 and c2 whose variables should all have values on the trail  
   bvconstant_t cc1, cc2;
+  init_bvconstant(&cc1);
+  init_bvconstant(&cc2);
   uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
   bv_evaluator_run_term(lctx->exp->super.eval, c1, &cc1, &eval_level);
   eval_level = 0;
@@ -507,35 +485,29 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
 
   // Now we go through Table 1 of SMT 2016 paper
   // We are going to create one or two intervals of forbidden values, using these intermediate bv_constants
-  bvconst_interval_t* i;
-  term_t lo_term, hi_term, reason;
+  term_t lo_term, hi_term;
   bvconstant_t lo, hi;
   init_bvconstant(&lo);
   init_bvconstant(&hi);
 
   if (is_neq) { // case of inequality (lhs != rhs)
     if ((right_has && left_has) || ((!right_has) && (!left_has))) { // x appears on both sides or on neither sides
-      if (bvconstant_eq(&cc1,&cc2)) { // If c1 == c2, we forbid everything, otherwise we forbid nothing
-        reason = mk_bveq(tm, c1, c2);
-        i = bv_arith_interval_construct(ctx, &lctx->zero, true, &lctx->zero, false, lctx->zero_term, lctx->zero_term, reason);
-        ptr_heap_add(&lctx->heap, i);
-      }
+      if (bvconstant_eq(&cc1,&cc2)) // If c1 == c2, we forbid everything, otherwise we forbid nothing
+        bv_arith_full_interval_push(lctx, mk_bveq(tm, c1, c2));
     }
     if (right_has && !left_has) { // case (c1 != c2 + x), forbidden interval is [ c1-c2 ; c1-c2 ]
       bvconstant_copy(&lo, cc1.bitsize, cc1.data);
       bvconstant_sub(&lo, &cc2);
       bvconstant_normalize(&lo);
       lo_term = bv_arith_sub_terms(tm,c1,c2);
-      i = bv_arith_interval_construct(ctx, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
-      ptr_heap_add(&lctx->heap, i);
+      bv_arith_singleton_push(lctx, &lo, lo_term, NULL_TERM);
     }
     if (left_has && !right_has) { // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
       bvconstant_copy(&lo, cc2.bitsize, cc2.data);
       bvconstant_sub(&lo, &cc1);
       bvconstant_normalize(&lo);
       lo_term = bv_arith_sub_terms(tm,c2,c1);
-      i = bv_arith_interval_construct(ctx, &lo, true, &lo, true, lo_term, lo_term, NULL_TERM);
-      ptr_heap_add(&lctx->heap, i);
+      bv_arith_singleton_push(lctx, &lo, lo_term, NULL_TERM);
     }
   }
   
@@ -551,74 +523,39 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         bvconstant_negate(&hi);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_negate_terms(tm,c1);
-      
-        if (bvconstant_lt(&cc1,&cc2)) { // If c1 < c2, we forbid [ -c2 ; -c1 [
-          reason = mk_bvlt(tm, c1, c2);
-          i = bv_arith_interval_construct(ctx, &lo, true, &hi, false, lo_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        }
-        else {
-          if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid [ 0 ; -c1 [, and (if c2 !=0 ) we forbid [ -c2 ; 2^n [
-            reason = mk_bvlt(tm, c2, c1);
-            i = bv_arith_interval_construct(ctx, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-            if (i != NULL) ptr_heap_add(&lctx->heap, i);
-            i = bv_arith_interval_construct(ctx, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
-            if (i != NULL) ptr_heap_add(&lctx->heap, i);
-          }
-        }
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       } else { // No conflict variable on the left, then hi is (c1 - c2)
         bvconstant_copy(&hi, cc1.bitsize, cc1.data);
         bvconstant_sub(&hi, &cc2);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_sub_terms(tm,c1,c2);
-
-        if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid [ -c2 ; c1 - c2 [
-          reason = mk_bvle(tm, c1, c2);
-          i = bv_arith_interval_construct(ctx, &lo, true, &hi, false, lo_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        }
-        else { // else we must have c2 < c1, and we forbid both [ 0 ; c1 - c2 [ and [ -c2 ; 2^n [
-          reason = mk_bvlt(tm, c2, c1);
-          i = bv_arith_interval_construct(ctx, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-          i = bv_arith_interval_construct(ctx, &lo, true, &lctx->zero, false, lo_term, lctx->zero_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        }
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       }
     } else {
-      if (left_has) { // lo = c2 - c1, and hi = -c1
+      if (left_has) { // lo = c2 - c1 + 1, and hi = -c1
         bvconstant_copy(&lo, cc2.bitsize, cc2.data);
         bvconstant_sub(&lo, &cc1);
         bvconstant_normalize(&lo);
-        lo_term = bv_arith_sub_terms(tm,c2,c1);
+        bvconstant_add_one(&lo);
+        bvconstant_normalize(&lo);
+        lo_term = bv_arith_add_one_term(tm, bv_arith_sub_terms(tm,c2,c1));
 
         bvconstant_copy(&hi, cc1.bitsize, cc1.data);
         bvconstant_negate(&hi);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_negate_terms(tm,c1);
-
-        if (bvconstant_le(&cc1,&cc2)) { // If c1 <= c2, we forbid ] c2 - c1 ; -c1 [
-          reason = mk_bvle(tm, c1, c2);
-          i = bv_arith_interval_construct(ctx, &lo, false, &hi, false, lo_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        }
-        else { // else we must have c2 < c1, and we forbid both [ 0 ; -c1 [ and ] c2 - c1 ; 2^n [
-          reason = mk_bvlt(tm, c2, c1);
-          i = bv_arith_interval_construct(ctx, &lctx->zero, true, &hi, false, lctx->zero_term, hi_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-          i = bv_arith_interval_construct(ctx, &lo, false, &lctx->zero, false, lo_term, lctx->zero_term, reason);
-          if (i != NULL) ptr_heap_add(&lctx->heap, i);
-        }
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       } else { // x appears on neither sides
         if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
-          reason = mk_bvlt(tm, c2, c1);
-          i = bv_arith_interval_construct(ctx, &lctx->zero, true, &lctx->zero, false, lctx->zero_term, lctx->zero_term, reason);
-          ptr_heap_add(&lctx->heap, i);
+          bv_arith_full_interval_push(lctx, mk_bvlt(tm, c2, c1));
         }
       }
     }
   }
-    
+  
   delete_bvconstant(&cc1);
   delete_bvconstant(&cc2);    
   delete_bvconstant(&lo);
@@ -626,7 +563,24 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
 }
 
 // Adds interval to conflict, and destructs it
-void bv_arith_add2conflict(plugin_context_t* ctx, term_t min_saved_term, bvconst_interval_t* i, ivector_t* conflict) {
+void bv_arith_ishift(plugin_context_t* ctx,
+                     bvconst_interval_t* i,
+                     bvconstant_t* base,
+                     term_t base_term) {
+  term_manager_t* tm = &ctx->var_db->tm;
+  bvconstant_sub(&i->lo, base);
+  bvconstant_normalize(&i->lo);
+  i->lo_term = bv_arith_sub_terms(tm, i->lo_term, base_term);  
+  bvconstant_sub(&i->hi, base);
+  bvconstant_normalize(&i->hi);
+  i->hi_term = bv_arith_sub_terms(tm, i->hi_term, base_term);
+}
+
+// Adds interval to conflict, and destructs it
+void bv_arith_add2conflict(plugin_context_t* ctx,
+                           term_t min_saved_term,
+                           bvconst_interval_t* i,
+                           ivector_t* conflict) {
   term_manager_t* tm = &ctx->var_db->tm;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -744,18 +698,24 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     }
   }
 
+  bvconst_interval_t* i = ptr_heap_get_min(&lctx.heap);
+  assert(i!=NULL);
+  
   // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
-  bvconstant_t min_save;
+  bvconstant_t base, min_save;
+  init_bvconstant(&base);
+  bvconstant_copy(&base, i->lo.bitsize, i->lo.data);
   init_bvconstant(&min_save);
   bvconstant_copy(&min_save, lctx.zero.bitsize, lctx.zero.data);
+
+  term_t base_term = i->lo_term; 
   term_t min_saved_term = lctx.zero_term; // The term behind this lower bound of feasible values
 
   // The best interval found so far in the heap, but not yet saved in &conflict,
   // that can be used to forbid the greatest number of bv values beyond min_saved
   bvconst_interval_t* best_so_far = NULL;
-  // tmp name for the next element popped from the heap
-  bvconst_interval_t* i = ptr_heap_get_min(&lctx.heap);
-
+  bv_arith_ishift(ctx, i, &base, base_term);
+ 
   // Now we treat the heap
   while (i != NULL) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -765,7 +725,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       fprintf(out, "\n");
     }
     if (bvconstant_le(&i->lo, &min_save)) { // In continuity of previously forbidden range
-      if (bvconstant_is_zero(&i->hi)) { // Yeah! interval forbids all remaining values
+      if (bvconstant_le(&i->hi, &i->lo)) { // Yeah! interval forbids all remaining values
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "finished the job\n");
@@ -796,6 +756,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
           bv_arith_interval_destruct(i); // i is not interesting enough
         }
         i = ptr_heap_get_min(&lctx.heap); // either way, we get next element in heap
+        bv_arith_ishift(ctx, i, &base, base_term);
       }
     } else { // Not in continuity of previously forbidden range
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
