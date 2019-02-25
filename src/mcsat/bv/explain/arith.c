@@ -414,6 +414,7 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
   init_bvconstant(&hi);
   bvconstant_copy(&hi, lo->bitsize, lo->data);
   bvconstant_add_one(&hi);
+  bvconstant_normalize(&hi);
   term_t hi_term = bv_arith_add_one_term(tm, lo_term);
   bv_arith_interval_push(lctx,lo,&hi,lo_term,hi_term,reason);
 }
