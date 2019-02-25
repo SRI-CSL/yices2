@@ -25,6 +25,7 @@ typedef struct arith_s {
   int_hset_t coeff0_cache; // Cache of terms whose coeff for conflict_var is 0
   int_hset_t coeff1_cache; // Cache of terms whose coeff for conflict_var is 1
   int_hset_t coeffm1_cache; // Cache of terms whose coeff for conflict_var is -1
+  int_hset_t free_var; // The free variables of the current conflict that have values on the trail
 
 } arith_t;
 
@@ -124,12 +125,15 @@ term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
 // Check if term t is a constant term of bv
 // (all bv variables & foreign terms have been assigned values in the trail)
 
-bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, term_t t) {
+bool bv_arith_is_constant(arith_t* exp, term_t t, term_t conflict_var) {
 
   assert(is_pos_term(t));
+  plugin_context_t* ctx = exp->super.ctx;
+
+  if (t == conflict_var) return false;
 
   // Answer right away in case already found to be constant
-  if (int_hset_member(cst_terms_cache, t)) {
+  if (int_hset_member(&exp->coeff0_cache, t)) {
     /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
     /*   FILE* out = ctx_trace_out(ctx); */
     /*   fprintf(out, "This term was already found to have a value "); */
@@ -138,20 +142,28 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
     return true;
   }
 
-  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
-  /*   FILE* out = ctx_trace_out(ctx); */
-  /*   fprintf(out, "Looking at whether this term has a value "); */
-  /*   ctx_trace_term(ctx, t); */
-  /* } */
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Looking at whether this term has a value ");
+    ctx_trace_term(ctx, t);
+  }
 
   variable_db_t* var_db = ctx->var_db; // standard abbreviations
   term_table_t* terms   = ctx->terms;
-  const mcsat_trail_t* trail  = ctx->trail;
 
   variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
 
-  if ((var == variable_null) || !trail_has_value(trail, var)) {
-  
+  // if ((var != variable_null) && int_hset_member(&exp->free_var, var))
+  // then the term is constant: we don't look into its structure.
+  // So we only look at the term's structure in that case:
+  if ((var == variable_null) || !int_hset_member(&exp->free_var, var)) {
+
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Looking at the kind of\n");
+      ctx_trace_term(ctx, t);
+    }
+
     switch (term_kind(terms, t)) {
     case CONSTANT_TERM:
     case BV_CONSTANT:
@@ -175,21 +187,21 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
       for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
         term_t t_i = composite_desc->arg[i];
         term_t t_i_pos = unsigned_term(t_i);
-        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_i_pos)) return false;
+        if (!bv_arith_is_constant(exp, t_i_pos, conflict_var)) return false;
       }
       break;
     }
     case BIT_TERM: {
       term_t arg = bit_term_arg(terms, t);
       term_t arg_pos = unsigned_term(arg);
-      if (!bv_arith_is_constant(ctx, cst_terms_cache, arg_pos)) return false;
+      if (!bv_arith_is_constant(exp, arg_pos, conflict_var)) return false;
       break;
     }
     case BV_POLY: {
       bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
       for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
         if (t_poly->mono[i].var == const_idx) continue;
-        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) return false;
+        if (!bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) return false;
       }
       break;
     }
@@ -197,14 +209,14 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
       bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
       for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
         if (t_poly->mono[i].var == const_idx) continue;
-        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_poly->mono[i].var)) return false;
+        if (!bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) return false;
       }
       break;
     }
     case POWER_PRODUCT: {
       pprod_t* t_pprod = pprod_term_desc(terms, t);
       for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-        if (!bv_arith_is_constant(ctx, cst_terms_cache, t_pprod->prod[i].var)) return false;
+        if (!bv_arith_is_constant(exp, t_pprod->prod[i].var, conflict_var)) return false;
       }
       break;
     }
@@ -212,11 +224,12 @@ bool bv_arith_is_constant(plugin_context_t* ctx, int_hset_t* cst_terms_cache, te
       return false;
     }
   }
-  int_hset_add(cst_terms_cache, t);
-  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
-  /*   FILE* out = ctx_trace_out(ctx); */
-  /*   fprintf(out, "It does !\n"); */
-  /* } */
+  int_hset_add(&exp->coeff0_cache, t);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    ctx_trace_term(ctx, t);
+    fprintf(out, "...is found to be constant\n");
+  }
   return true;
 }
 
@@ -243,7 +256,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
     return 1;
   }
   if (int_hset_member(&exp->coeffm1_cache,t)) return -1;
-  if (bv_arith_is_constant(ctx, &exp->coeff0_cache, t)) return 0;
+  if (bv_arith_is_constant(exp, t, conflict_var)) return 0;
 
   int32_t result = 0;
 
@@ -262,7 +275,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
         if (assume_fragment) break;
       } else {
         if (!assume_fragment
-            && !bv_arith_is_constant(ctx, &exp->coeff0_cache, t_poly->mono[i].var)) {
+            && !bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) {
           return 2;
         }
       }
@@ -283,7 +296,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
         if (assume_fragment) break;
       } else {
         if (!assume_fragment
-            && !bv_arith_is_constant(ctx, &exp->coeff0_cache, t_poly->mono[i].var)) {
+            && !bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) {
           return 2;
         }
       }
@@ -742,7 +755,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       } else { // interval doesn't forbid all remaining values;
         // does is eliminate more values than best_so_far?
         if (((best_so_far == NULL) && bvconstant_lt(&min_save, &i->hi))
-            || bvconstant_lt(&best_so_far->hi, &i->hi)) { // i becomes best_so_far
+            || ((best_so_far != NULL) && bvconstant_lt(&best_so_far->hi, &i->hi))) { // i becomes best_so_far
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
             fprintf(out, "becomes best_so_far\n");
@@ -803,7 +816,6 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
 }
 
-
 static
 bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var) {
   
@@ -812,11 +824,13 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   plugin_context_t* ctx = this->ctx;
   term_table_t* terms  = ctx->terms;
   term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
+  const mcsat_trail_t* trail = ctx->trail;
 
-  // Resetting the cache
+  // Resetting the cache & co.
   int_hset_reset(&exp->coeff0_cache);
   int_hset_reset(&exp->coeff1_cache);
   int_hset_reset(&exp->coeffm1_cache);
+  int_hset_reset(&exp->free_var);
 
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -825,7 +839,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   
   // We go through the conflict core
   for (uint32_t i = 0; i < conflict_core->size; i++) {
-    
+      
     atom_i_var   = conflict_core->data[i];
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
 
@@ -835,6 +849,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "bv_arith looks whether this is in the fragment: ");
       ctx_trace_term(ctx, atom_i_term);
+      fprintf(out, "with the conflict_variable being ");
+      ctx_trace_term(ctx, conflict_var_term);
     }
 
     switch (term_kind(terms, atom_i_term)) {
@@ -846,14 +862,26 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       assert(atom_i_comp->arity == 2);
       term_t t0 = atom_i_comp->arg[0];
       term_t t1 = atom_i_comp->arg[1];
-      assert(is_pos_term(t0));
-      assert(is_pos_term(t1));
+      if (!is_pos_term(t0) || !is_pos_term(t1))
+        return false;
+      // OK, maybe we can treat the constraint atom_i_term. We first collect its free variables.
+      // Getting them as a list:
+      variable_list_ref_t list_ref = watch_list_manager_get_list_of(this->wlm, atom_i_var);
+      variable_t* vars = watch_list_manager_get_list(this->wlm, list_ref);
+      for (; *vars != variable_null; vars++) {
+        variable_t var = *vars;
+        if ((var != atom_i_var) && (var != conflict_var)) {
+          assert(trail_has_value(trail, var));
+          int_hset_add(&exp->free_var, var);
+        }
+      }
+      // Now that we have collected the free variables, we look into the constraint structure
       int32_t t0_good = bv_arith_coeff(exp, t0, conflict_var_term, false);
       int32_t t1_good = bv_arith_coeff(exp, t1, conflict_var_term, false);
       if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)
           /* || (t0_good == -1) || ( t1_good == -1) */
-          ) { // We are not in the fragment we stop
-        return false;
+          ) { // Turns out we actually can't deal with the constraint. We stop
+        return false; // i+1 because exp->free_var[i] has been initialised
       }
       break;
     }
@@ -870,6 +898,7 @@ void destruct(bv_subexplainer_t* this) {
   delete_int_hset(&exp->coeff0_cache);
   delete_int_hset(&exp->coeff1_cache);
   delete_int_hset(&exp->coeffm1_cache);
+  delete_int_hset(&exp->free_var);
 }
 
 /** Allocate the sub-explainer and setup the methods */
@@ -886,6 +915,7 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
   init_int_hset(&exp->coeff0_cache, 0);
   init_int_hset(&exp->coeff1_cache, 0);
   init_int_hset(&exp->coeffm1_cache, 0);
+  init_int_hset(&exp->free_var, 0);
 
   return (bv_subexplainer_t*) exp;
 }
