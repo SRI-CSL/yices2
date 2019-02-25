@@ -776,7 +776,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   assert(best_so_far != NULL);
   if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
-    term_t continuity_reason = mk_bveq(tm, best_so_far->hi_term, lctx.zero_term);
+    term_t continuity_reason = mk_bvle(tm, best_so_far->hi_term, best_so_far->lo_term);
     ivector_push(conflict, continuity_reason);
   }
   bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
