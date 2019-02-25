@@ -440,9 +440,9 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, lctx->conflict_var, true);
     
   if ((left_coeff == -1) || (right_coeff == -1)) {
-    // if coeff is negative, we negate and swap sides. incorrect if lower bound is 0! TODO: think about what to do
-    term_t nlhs = bv_arith_negate_terms(tm, lhs);
-    term_t nrhs = bv_arith_negate_terms(tm, rhs);
+    // if coeff is negative, we add one, negate and swap sides.
+    term_t nlhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, lhs));
+    term_t nrhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, rhs));
     return bv_arith_unit_constraint(lctx, nrhs, nlhs, is_neq);
   }
   
@@ -850,8 +850,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       assert(is_pos_term(t1));
       int32_t t0_good = bv_arith_coeff(exp, t0, conflict_var_term, false);
       int32_t t1_good = bv_arith_coeff(exp, t1, conflict_var_term, false);
-      if ((t0_good == 2) || (t1_good == 2) // || (t0_good * t1_good == -1)
-          || (t0_good == -1) || ( t1_good == -1)
+      if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)
+          /* || (t0_good == -1) || ( t1_good == -1) */
           ) { // We are not in the fragment we stop
         return false;
       }
