@@ -410,7 +410,7 @@ bvconst_interval_t* bv_arith_interval_construct(plugin_context_t* ctx,
 }
 
 
-// Treat a constraint of the form lhs <= rhs (is_neq == false) of lhs != rhs (is_neq == true)
+// Treat a constraint of the form lhs <= rhs (is_neq == false) or lhs != rhs (is_neq == true)
 
 void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool is_neq) {
   // Standard abbreviations
@@ -449,8 +449,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bv_evaluator_run_term(lctx->eval, c1, &cc1, &eval_level);
   eval_level = 0;
   bv_evaluator_run_term(lctx->eval, c2, &cc2, &eval_level);
-  bvconstant_is_normalized(&cc1);
-  bvconstant_is_normalized(&cc2);
+  assert(bvconstant_is_normalized(&cc1));
+  assert(bvconstant_is_normalized(&cc2));
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
