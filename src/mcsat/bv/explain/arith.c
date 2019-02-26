@@ -506,6 +506,10 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
 
   if (is_neq) { // case of inequality (lhs != rhs)
     if ((right_has && left_has) || ((!right_has) && (!left_has))) { // x appears on both sides or on neither sides
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "is_neq: present on both sides or neither");
+      }
       if (bvconstant_eq(&cc1,&cc2)) // If c1 == c2, we forbid everything, otherwise we forbid nothing
         bv_arith_full_interval_push(lctx, mk_bveq(tm, c1, c2));
     }
@@ -537,6 +541,14 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         bvconstant_negate(&hi);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_negate_terms(tm,c1);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Case <=: has_right, has_left, lo = ");
+          bvconst_print(out, lo.data, lo.bitsize);
+          fprintf(out, ", hi = ");
+          bvconst_print(out, hi.data, hi.bitsize);
+          fprintf(out, "\n");
+        }
         if (!bvconstant_eq(&lo,&hi))
           bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       } else { // No conflict variable on the left, then hi is (c1 - c2)
@@ -544,6 +556,14 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         bvconstant_sub(&hi, &cc2);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_sub_terms(tm,c1,c2);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Case <=: has_right, !has_left, lo = ");
+          bvconst_print(out, lo.data, lo.bitsize);
+          fprintf(out, ", hi = ");
+          bvconst_print(out, hi.data, hi.bitsize);
+          fprintf(out, "\n");
+        }
         if (!bvconstant_eq(&lo,&hi))
           bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       }
@@ -560,9 +580,21 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         bvconstant_negate(&hi);
         bvconstant_normalize(&hi);
         hi_term = bv_arith_negate_terms(tm,c1);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Case <=: !has_right, has_left, lo = ");
+          bvconst_print(out, lo.data, lo.bitsize);
+          fprintf(out, ", hi = ");
+          bvconst_print(out, hi.data, hi.bitsize);
+          fprintf(out, "\n");
+        }
         if (!bvconstant_eq(&lo,&hi))
           bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
       } else { // x appears on neither sides
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Case <=: !has_right, !has_left");
+        }
         if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
           bv_arith_full_interval_push(lctx, mk_bvlt(tm, c2, c1));
         }
@@ -606,9 +638,27 @@ void bv_arith_add2conflict(plugin_context_t* ctx,
 
   if (!bvterm_is_zero(tm->terms, i->lo_term)) {
     term_t continuity_reason = mk_bvle(tm, i->lo_term, min_saved_term);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Adding continuity_reason ");
+      term_print_to_file(out, tm->terms, i->lo_term);
+      fprintf(out, " <= ");
+      term_print_to_file(out, tm->terms, min_saved_term);
+      fprintf(out, ", i.e. ");
+      term_print_to_file(out, tm->terms, continuity_reason);
+      fprintf(out, "\n");
+    }
     ivector_push(conflict, continuity_reason);
   }
-  if (i->reason !=  NULL_TERM) ivector_push(conflict, i->reason);
+  if (i->reason !=  NULL_TERM) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Adding internal reason ");
+      term_print_to_file(out, tm->terms, i->reason);
+      fprintf(out, "\n");
+    }
+    ivector_push(conflict, i->reason);
+  }
   bv_arith_interval_destruct(i);
 }
 
@@ -791,6 +841,16 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   assert(best_so_far != NULL);
   if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
     term_t continuity_reason = mk_bvle(tm, best_so_far->hi_term, best_so_far->lo_term);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Adding last continuity_reason ");
+      term_print_to_file(out, terms, best_so_far->hi_term);
+      fprintf(out, " <= ");
+      term_print_to_file(out, terms, best_so_far->lo_term);
+      fprintf(out, ", i.e. ");
+      term_print_to_file(out, terms, continuity_reason);
+      fprintf(out, "\n");
+    }
     ivector_push(conflict, continuity_reason);
   }
   bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
@@ -872,6 +932,12 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         variable_t var = *vars;
         if ((var != atom_i_var) && (var != conflict_var)) {
           assert(trail_has_value(trail, var));
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "Found free variable with value on the trail: ");
+            variable_db_print_variable(ctx->var_db, var, out);
+            fprintf(out, "\n");
+          }
           int_hset_add(&exp->free_var, var);
         }
       }
