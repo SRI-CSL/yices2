@@ -97,6 +97,17 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
   }
 }
 
+// Making atoms
+
+term_t bv_arith_le(term_table_t* terms, term_t a, term_t b) {
+  return bvge_atom(terms, b, a);
+}
+
+term_t bv_arith_lt(term_table_t* terms, term_t a, term_t b) {
+  return not_term(terms, bvge_atom(terms, a, b));
+}
+
+
 
 // Adding +2^{w-1} to a bv term
 
@@ -596,7 +607,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
           fprintf(out, "Case <=: !has_right, !has_left");
         }
         if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
-          bv_arith_full_interval_push(lctx, mk_bvlt(tm, c2, c1));
+          bv_arith_full_interval_push(lctx, bv_arith_lt(tm->terms, c2, c1));
         }
       }
     }
@@ -637,7 +648,8 @@ void bv_arith_add2conflict(plugin_context_t* ctx,
   }
 
   if (!bvterm_is_zero(tm->terms, i->lo_term)) {
-    term_t continuity_reason = mk_bvle(tm, i->lo_term, min_saved_term);
+    term_t continuity_reason = bv_arith_le(tm->terms, i->lo_term, min_saved_term);
+      /* mk_bvle(tm, i->lo_term, min_saved_term); */
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding continuity_reason ");
@@ -698,8 +710,10 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
 
-    assert(is_pos_term(atom_i_term));
+    assert(good_term(terms,atom_i_term) && is_pos_term(atom_i_term));
+    assert(is_boolean_term(terms, atom_i_term));
 
+    
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "\nbv_arith treats core constraint (%s): ",atom_i_value?"T":"F");
@@ -707,7 +721,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     }
 
     // The output conflict always contains the conflict core:
-    ivector_push(conflict, atom_i_value?atom_i_term:opposite_term(atom_i_term));
+    ivector_push(conflict, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
 
     composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
     assert(atom_i_comp->arity == 2);
@@ -840,7 +854,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   assert(best_so_far != NULL);
   if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
-    term_t continuity_reason = mk_bvle(tm, best_so_far->hi_term, best_so_far->lo_term);
+    term_t continuity_reason = bv_arith_le(tm->terms, best_so_far->hi_term, best_so_far->lo_term);
+      /* mk_bvle(tm, best_so_far->hi_term, best_so_far->lo_term); */
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding last continuity_reason ");
