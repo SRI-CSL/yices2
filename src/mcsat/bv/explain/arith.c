@@ -14,20 +14,267 @@
 #include "terms/term_utils.h"
 #include "utils/int_hash_sets.h"
 #include "utils/ptr_heap.h"
+#include "utils/ptr_queues.h"
 
 #include "arith.h"
+
+/**
+   Subexplainer type
+**/
 
 typedef struct arith_s {
 
   /** Interfact of the subexplainer */
   bv_subexplainer_t super;
 
-  int_hset_t coeff0_cache; // Cache of terms whose coeff for conflict_var is 0
+  int_hset_t constant_cache; // Cache of terms that are constant
+  int_hset_t coeff0_cache; // Cache of non-constant terms whose coeff for conflict_var is 0
   int_hset_t coeff1_cache; // Cache of terms whose coeff for conflict_var is 1
   int_hset_t coeffm1_cache; // Cache of terms whose coeff for conflict_var is -1
-  int_hset_t free_var; // The free variables of the current conflict that have values on the trail
+  int_hset_t free_var; // The free variables of the current conflict that have values on the trail (i.e. that are not the conflict variable)
 
 } arith_t;
+
+
+/**
+   Two functions used for detecting whether conflict is in fragment
+**/
+
+// Checks whether term t evaluates, all its BV-variables having values on the trail.
+// If it does not, use_trail is untouched. If it does, then use_trail is set to true
+// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
+
+bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_trail) {
+
+  assert(is_pos_term(t));
+  plugin_context_t* ctx = exp->super.ctx;
+
+  if (t == conflict_var) return false;
+
+  // Answer right away in case already found to be constant or if it evaluates
+  if (int_hset_member(&exp->constant_cache, t)) {
+    *use_trail = false;
+    return true;
+  }
+  if (int_hset_member(&exp->coeff0_cache, t)) {
+    *use_trail = true;
+    return true;
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Looking at whether this term has a value ");
+    ctx_trace_term(ctx, t);
+  }
+
+  variable_db_t* var_db = ctx->var_db; // standard abbreviations
+  term_table_t* terms   = ctx->terms;
+
+  variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
+
+  // If ((var != variable_null) && int_hset_member(&exp->free_var, var))
+  // then the term does evaluate and use the trail: we don't look into its structure.
+
+  if ((var != variable_null) && int_hset_member(&exp->free_var, var)) {
+    *use_trail = true;
+  } else { // otherwise we look into it
+    
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Looking at the kind of\n");
+      ctx_trace_term(ctx, t);
+    }
+
+    switch (term_kind(terms, t)) {
+    case CONSTANT_TERM:
+    case BV_CONSTANT:
+    case BV64_CONSTANT:
+      break;
+    case EQ_TERM:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+    case BV_ARRAY:
+    case OR_TERM:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR: {
+      composite_term_t* composite_desc = composite_term_desc(terms, t);
+      bool output = false;
+      for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
+        term_t t_i = composite_desc->arg[i];
+        term_t t_i_pos = unsigned_term(t_i);
+        bool recurs = false;
+        if (!bv_arith_evaluates(exp, t_i_pos, conflict_var, &recurs)) return false;
+        output = output || recurs;
+      }
+      *use_trail = output;
+      break;
+    }
+    case BIT_TERM: {
+      term_t arg = bit_term_arg(terms, t);
+      term_t arg_pos = unsigned_term(arg);
+      bool recurs;
+      if (!bv_arith_evaluates(exp, arg_pos, conflict_var, &recurs)) return false;
+      *use_trail = recurs;
+      break;
+    }
+    case BV_POLY: {
+      bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
+      bool output = false;
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        if (t_poly->mono[i].var == const_idx) continue;
+        bool recurs = false;
+        if (!bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &recurs))
+          return false;
+        output = output || recurs;
+      }
+      *use_trail = output;
+      break;
+    }
+    case BV64_POLY: {
+      bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
+      bool output = false;
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        if (t_poly->mono[i].var == const_idx) continue;
+        bool recurs = false;
+        if (!bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &recurs))
+          return false;
+        output = output || recurs;
+      }
+      *use_trail = output;
+      break;
+    }
+    case POWER_PRODUCT: {
+      pprod_t* t_pprod = pprod_term_desc(terms, t);
+      bool output = false;
+      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
+        bool recurs = false;
+        if (!bv_arith_evaluates(exp, t_pprod->prod[i].var, conflict_var, &recurs))
+          return false;
+        output = output || recurs;
+      }
+      *use_trail = output;
+      break;
+    }
+    default:
+      return false;
+    }
+  }
+
+  if (*use_trail) {
+    int_hset_add(&exp->coeff0_cache, t);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      ctx_trace_term(ctx, t);
+      fprintf(out, "...evaluates using the trail\n");
+    }
+  } else {
+    int_hset_add(&exp->constant_cache, t);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      ctx_trace_term(ctx, t);
+      fprintf(out, "...is found to be constant\n");
+    }
+  }
+    
+  return true;
+}
+
+// Function returns coefficient of conflict_variable in t (-1, 0, or 1)
+// It uses cached values, and caches new values.
+// if t is not a good term for the fragment:
+// if !assume_fragment, function will return 2,
+// if assume_fragment, function has unspecified behaviour (but runs faster)
+
+int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_fragment) {
+
+  plugin_context_t* ctx = exp->super.ctx;
+    
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "extracting coefficient of conflict variable in ");
+    ctx_trace_term(ctx, t);
+  }
+
+  // Looking at whether the value is cached
+  if (int_hset_member(&exp->coeff1_cache,t)) return 1;
+  if (t == conflict_var) {
+    int_hset_add(&exp->coeff1_cache, t);
+    return 1;
+  }
+  if (int_hset_member(&exp->coeffm1_cache,t)) return -1;
+  bool ignore_this_bool;
+  if (bv_arith_evaluates(exp, t, conflict_var, &ignore_this_bool)) return 0;
+
+  int32_t result = 0;
+
+  switch (term_kind(ctx->terms, t)) {
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == conflict_var) { // Monomial variable is the conflict var
+        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
+        if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) result = 1;
+        else {
+          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->width)) result = -1;
+          else return 2;
+        };
+        if (assume_fragment) break; // If in fragment, need not look at other monomials
+      } else { // The monomial variable is not the conflict var itself
+        if (!assume_fragment
+            && !bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &ignore_this_bool)) {
+          return 2;
+        }
+      }
+    }
+    break;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      if (t_poly->mono[i].var == conflict_var) { // Monomial variable is the conflict var
+        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
+        if (t_poly->mono[i].coeff == 1) result = 1;
+        else {
+          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t))) result = -1;
+          else return 2;
+        }
+        if (assume_fragment) break; // If in fragment, need not look at other monomials
+      } else { // The monomial variable is not the conflict var itself
+        if (!assume_fragment
+            && !bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &ignore_this_bool)) {
+          return 2;
+        }
+      }
+    }
+    break;
+  }
+  default:
+    return 2;
+  }
+  
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Coefficient is %d\n",result);
+  }
+  int_hset_add((result == 1)? (&exp->coeff1_cache):(&exp->coeffm1_cache), t);
+  return result;
+}
+
+
+
+/**
+   Common arithmetic operations on terms that are not provided in terms or term manager
+**/
+
 
 // Adding 2 bv terms
 
@@ -97,18 +344,6 @@ term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
   }
 }
 
-// Making atoms
-
-term_t bv_arith_le(term_table_t* terms, term_t a, term_t b) {
-  return bvge_atom(terms, b, a);
-}
-
-term_t bv_arith_lt(term_table_t* terms, term_t a, term_t b) {
-  return not_term(terms, bvge_atom(terms, a, b));
-}
-
-
-
 // Adding +2^{w-1} to a bv term
 
 term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
@@ -132,200 +367,95 @@ term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
   }
 }
 
+// Making atoms. Assumption for these 3 functions:
+// the atom to be build evaluates to true according to the trail.
 
-// Check if term t is a constant term of bv
-// (all bv variables & foreign terms have been assigned values in the trail)
+// This function checks whether (left == right) would be a good term to add to a conflict
+// (it is good if it is not trivially true).
+// If it is, it returns the term (left == right). If not, it returns NULL_TERM.
 
-bool bv_arith_is_constant(arith_t* exp, term_t t, term_t conflict_var) {
+term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
+  if (left == right) return NULL_TERM; // equality would be trivially true
+  bool left_uses_trail = false;
+  bool right_uses_trail = false;
+  bool sanity;
+  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  assert(sanity);
+  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  assert(sanity);
 
-  assert(is_pos_term(t));
-  plugin_context_t* ctx = exp->super.ctx;
-
-  if (t == conflict_var) return false;
-
-  // Answer right away in case already found to be constant
-  if (int_hset_member(&exp->coeff0_cache, t)) {
-    /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
-    /*   FILE* out = ctx_trace_out(ctx); */
-    /*   fprintf(out, "This term was already found to have a value "); */
-    /*   ctx_trace_term(ctx, t); */
-    /* } */
-    return true;
-  }
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Looking at whether this term has a value ");
-    ctx_trace_term(ctx, t);
-  }
-
-  variable_db_t* var_db = ctx->var_db; // standard abbreviations
-  term_table_t* terms   = ctx->terms;
-
-  variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
-
-  // if ((var != variable_null) && int_hset_member(&exp->free_var, var))
-  // then the term is constant: we don't look into its structure.
-  // So we only look at the term's structure in that case:
-  if ((var == variable_null) || !int_hset_member(&exp->free_var, var)) {
-
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Looking at the kind of\n");
-      ctx_trace_term(ctx, t);
-    }
-
-    switch (term_kind(terms, t)) {
-    case CONSTANT_TERM:
-    case BV_CONSTANT:
-    case BV64_CONSTANT:
-      break;
-    case EQ_TERM:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-    case BV_ARRAY:
-    case OR_TERM:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR: {
-      composite_term_t* composite_desc = composite_term_desc(terms, t);
-      for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
-        term_t t_i = composite_desc->arg[i];
-        term_t t_i_pos = unsigned_term(t_i);
-        if (!bv_arith_is_constant(exp, t_i_pos, conflict_var)) return false;
-      }
-      break;
-    }
-    case BIT_TERM: {
-      term_t arg = bit_term_arg(terms, t);
-      term_t arg_pos = unsigned_term(arg);
-      if (!bv_arith_is_constant(exp, arg_pos, conflict_var)) return false;
-      break;
-    }
-    case BV_POLY: {
-      bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        if (!bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) return false;
-      }
-      break;
-    }
-    case BV64_POLY: {
-      bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        if (!bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) return false;
-      }
-      break;
-    }
-    case POWER_PRODUCT: {
-      pprod_t* t_pprod = pprod_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-        if (!bv_arith_is_constant(exp, t_pprod->prod[i].var, conflict_var)) return false;
-      }
-      break;
-    }
-    default:
-      return false;
-    }
-  }
-  int_hset_add(&exp->coeff0_cache, t);
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    ctx_trace_term(ctx, t);
-    fprintf(out, "...is found to be constant\n");
-  }
-  return true;
+  if (left_uses_trail || right_uses_trail)
+    return bveq_atom(exp->super.ctx->terms, left, right);
+  else // equality would be true by evaluation without involving the trail
+    return NULL_TERM;
 }
 
-// Function returns coefficient of conflict_variable in t (-1, 0, or 1)
-// It uses cached values, and caches new values.
-// if t is not a good term for the fragment:
-// if !assume_fragment, function will return 2,
-// if assume_fragment, function has unspecified behaviour (but runs faster)
+// This function checks whether (left < right) would be a good term to add to a conflict
+// (it is good if it is not trivially true).
+// If it is, it returns the term (left < right). If not, it returns NULL_TERM.
 
-int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_fragment) {
+term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
+  term_table_t* terms = exp->super.ctx->terms;
+  bool left_uses_trail = false;
+  bool right_uses_trail = false;
+  bool sanity;
+  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  assert(sanity);
+  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  assert(sanity);
 
-  plugin_context_t* ctx = exp->super.ctx;
-    
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "extracting coefficient of conflict variable in ");
-    ctx_trace_term(ctx, t);
+  if (left_uses_trail || right_uses_trail)
+    return not_term(terms, bvge_atom(terms, right, left));
+  else // atom would be true by evaluation without involving the trail
+    return NULL_TERM;
+}
+
+// This function checks whether (left <= right) would be a good term to add to a conflict
+// (it is good if it is not trivially true).
+// If it is, it returns the term (left <= right). If not, it returns NULL_TERM.
+
+term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
+  if (left == right) return NULL_TERM; // inequality would be trivially true
+  bool left_uses_trail = false;
+  bool right_uses_trail = false;
+  bool sanity;
+  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  assert(sanity);
+  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  assert(sanity);
+
+  bool result = true; // whether we continue code or stop
+  uint32_t ignore_this_int = 0;
+  bvconstant_t eval;
+  init_bvconstant(&eval);
+
+  // if left is 0, inequality would be trivially true
+  if (!left_uses_trail) {
+    bv_evaluator_run_term(exp->super.eval, left, &eval, &ignore_this_int);
+    result = !bvconstant_is_zero(&eval);
   }
 
-  // Looking at whether the value is cached
-  if (int_hset_member(&exp->coeff1_cache,t)) return 1;
-  if (t == conflict_var) {
-    int_hset_add(&exp->coeff1_cache, t);
-    return 1;
+  // if right is 2^n-1, inequality would be trivially true
+  if (result && !right_uses_trail) {
+    bv_evaluator_run_term(exp->super.eval, right, &eval, &ignore_this_int);
+    result = !bvconstant_is_minus_one(&eval);
   }
-  if (int_hset_member(&exp->coeffm1_cache,t)) return -1;
-  if (bv_arith_is_constant(exp, t, conflict_var)) return 0;
 
-  int32_t result = 0;
+  delete_bvconstant(&eval);
 
-  switch (term_kind(ctx->terms, t)) {
-  case BV_POLY: {
-    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
-    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
-      if (t_poly->mono[i].var == conflict_var) {
-        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
-        if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) result = 1;
-        else {
-          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->width)) result = -1;
-          else return 2;
-        };
-        if (assume_fragment) break;
-      } else {
-        if (!assume_fragment
-            && !bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) {
-          return 2;
-        }
-      }
-    }
-    break;
-  }
-  case BV64_POLY: {
-    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
-    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
-      if (t_poly->mono[i].var == conflict_var) {
-        assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
-        if (t_poly->mono[i].coeff == 1) result = 1;
-        else {
-          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t))) result = -1;
-          else return 2;
-        }
-        if (assume_fragment) break;
-      } else {
-        if (!assume_fragment
-            && !bv_arith_is_constant(exp, t_poly->mono[i].var, conflict_var)) {
-          return 2;
-        }
-      }
-    }
-    break;
-  }
-  default:
-    return 2;
-  }
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Coefficient is %d\n",result);
-  }
-  int_hset_add((result == 1)? (&exp->coeff1_cache):(&exp->coeffm1_cache), t);
-  return result;
+  if (result && (left_uses_trail || right_uses_trail))
+    return bvge_atom(exp->super.ctx->terms, right, left);
+  else // inequality would be true by evaluation without involving the trail
+    return NULL_TERM;
 }
 
 
+
+
+
+/**
+   BV arithmetic intervals
+**/
 
 // Type for bvconstant intervals. An interval is a set of consecutive numbers modulo 2^n:
 // [ 3; 1 [ is not empty but contains 3 and 0.
@@ -369,6 +499,10 @@ void bv_arith_interval_print(FILE* out, term_table_t* terms, bvconst_interval_t*
 }
 
 
+/**
+   Local context for each conflict explanation instance, and how it manipulates intervals
+**/
+
 // Local context
 typedef struct {
   arith_t* exp;
@@ -376,6 +510,9 @@ typedef struct {
   bvconstant_t zero; // Because we don't like recomputing this too many times
   term_t zero_term;  // Because we don't like recomputing this too many times
   ptr_heap_t heap;   // Heap of forbidden intervals, ordered by lower bounds
+  bvconst_interval_t* longest; // Longest interval the heap has ever seen
+  bvconstant_t length; // Its length
+  ptr_queue_t queue; // Where we may store intervals popped from the heap
 } bv_arith_ctx_t;
 
 
@@ -421,6 +558,19 @@ void bv_arith_interval_push(bv_arith_ctx_t* lctx,
   }
 
   ptr_heap_add(&lctx->heap, (void *) result);
+
+  // Now we compute the length of the interval
+  bvconstant_t length;
+  init_bvconstant(&length);
+  bvconstant_copy(&length, hi->bitsize, hi->data);
+  bvconstant_sub(&length, lo);
+  bvconstant_normalize(&length);
+  // If it is longer than the previous longest, we update the latter
+  if (bvconstant_lt(&lctx->length, &length)){
+    lctx->longest = result;
+    bvconstant_copy(&lctx->length, length.bitsize, length.data);
+  }
+  delete_bvconstant(&length);
 }
 
 void bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason) {
@@ -441,8 +591,13 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
   bvconstant_normalize(&hi);
   term_t hi_term = bv_arith_add_one_term(tm, lo_term);
   bv_arith_interval_push(lctx,lo,&hi,lo_term,hi_term,reason);
+  delete_bvconstant(&hi);
 }
 
+
+/**
+   Explanation mechanism. First for 1 constraint. Then for the whole conflict
+**/
 
 // Treat a constraint of the form lhs <= rhs (is_neq == false) of lhs != rhs (is_neq == true)
 
@@ -508,8 +663,6 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
     fprintf(out, "\n");
   }
 
-  // Now we go through Table 1 of SMT 2016 paper
-  // We are going to create one or two intervals of forbidden values, using these intermediate bv_constants
   term_t lo_term, hi_term;
   bvconstant_t lo, hi;
   init_bvconstant(&lo);
@@ -522,7 +675,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         fprintf(out, "is_neq: present on both sides or neither");
       }
       if (bvconstant_eq(&cc1,&cc2)) // If c1 == c2, we forbid everything, otherwise we forbid nothing
-        bv_arith_full_interval_push(lctx, mk_bveq(tm, c1, c2));
+        bv_arith_full_interval_push(lctx, bv_arith_eq(lctx->exp, c1, c2));
     }
     if (right_has && !left_has) { // case (c1 != c2 + x), forbidden interval is [ c1-c2 ; c1-c2 ]
       bvconstant_copy(&lo, cc1.bitsize, cc1.data);
@@ -607,7 +760,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
           fprintf(out, "Case <=: !has_right, !has_left");
         }
         if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
-          bv_arith_full_interval_push(lctx, bv_arith_lt(tm->terms, c2, c1));
+          bv_arith_full_interval_push(lctx, bv_arith_lt(lctx->exp, c2, c1));
         }
       }
     }
@@ -619,7 +772,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   delete_bvconstant(&hi);    
 }
 
-// Adds interval to conflict, and destructs it
+// Shift interval down by base and base_term
 void bv_arith_ishift(plugin_context_t* ctx,
                      bvconst_interval_t* i,
                      bvconstant_t* base,
@@ -633,11 +786,13 @@ void bv_arith_ishift(plugin_context_t* ctx,
   i->hi_term = bv_arith_sub_terms(tm, i->hi_term, base_term);
 }
 
+
 // Adds interval to conflict, and destructs it
-void bv_arith_add2conflict(plugin_context_t* ctx,
+void bv_arith_add2conflict(arith_t* exp,
                            term_t min_saved_term,
                            bvconst_interval_t* i,
                            ivector_t* conflict) {
+  plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm = &ctx->var_db->tm;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -647,9 +802,8 @@ void bv_arith_add2conflict(plugin_context_t* ctx,
     fprintf(out, "\n");
   }
 
-  if (!bvterm_is_zero(tm->terms, i->lo_term)) {
-    term_t continuity_reason = bv_arith_le(tm->terms, i->lo_term, min_saved_term);
-      /* mk_bvle(tm, i->lo_term, min_saved_term); */
+  term_t continuity_reason = bv_arith_le(exp, i->lo_term, min_saved_term);
+  if (continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding continuity_reason ");
@@ -660,18 +814,44 @@ void bv_arith_add2conflict(plugin_context_t* ctx,
       term_print_to_file(out, tm->terms, continuity_reason);
       fprintf(out, "\n");
     }
+    uint32_t eval_level = 0;
+    assert(bv_evaluator_run_atom(exp->super.eval, continuity_reason, &eval_level));
     ivector_push(conflict, continuity_reason);
   }
-  if (i->reason !=  NULL_TERM) {
+
+  if (i->reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding internal reason ");
       term_print_to_file(out, tm->terms, i->reason);
       fprintf(out, "\n");
     }
+    uint32_t eval_level = 0;
+    assert(bv_evaluator_run_atom(exp->super.eval, i->reason, &eval_level));
     ivector_push(conflict, i->reason);
   }
+  
   bv_arith_interval_destruct(i);
+}
+
+// Popping the longest interval in the heap,
+// then the next ones in order of increasing lower bound, modulo 2^n
+// (once this function starts being called, do not push anything in the heap any more)
+bvconst_interval_t* bv_arith_pop(bv_arith_ctx_t* lctx){
+  bvconst_interval_t* i = ptr_heap_get_min(&lctx->heap);
+  if (i == NULL) { // Heap is empty. We now get elements from the queue.
+    if (ptr_queue_is_empty(&lctx->queue)) return NULL; // ...unless there are none
+    else return ptr_queue_pop(&lctx->queue);
+  }
+  // Heap is not empty.
+  if (lctx->longest == NULL) return i; // Longest interval has been popped.
+  // Longest interval has not been popped.
+  if (lctx->longest == i) { // This is the longest interval
+    lctx->longest = NULL; // we mark it as popped
+    return i; // and return it
+  }
+  ptr_queue_push(&lctx->queue, i); // It's not the longest, we stash it in the queue
+  return bv_arith_pop(lctx);
 }
 
 
@@ -689,13 +869,21 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm = &ctx->var_db->tm;
 
+  // We initialise the local context
   bv_arith_ctx_t lctx;
-  lctx.exp = exp;
+  lctx.exp          = exp;
   lctx.conflict_var = variable_db_get_term(ctx->var_db, conflict_var);
+  lctx.longest      = NULL;
   init_ptr_heap(&lctx.heap, 0, &cmp);
+  init_ptr_queue(&lctx.queue, 0);
+
   init_bvconstant(&lctx.zero);
   bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, lctx.conflict_var));
+
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
+
+  init_bvconstant(&lctx.length);
+  bvconstant_set_all_zero(&lctx.length, term_bitsize(terms, lctx.conflict_var));
   
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -776,7 +964,11 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     }
   }
 
-  bvconst_interval_t* i = ptr_heap_get_min(&lctx.heap);
+  /* All conflicting atoms have been treated, the resulting forbidden intervals for the
+  conflict_var have been pushed in the heap. It's now time to look at what's in the heap.
+  */
+  
+  bvconst_interval_t* i = bv_arith_pop(&lctx);
   assert(i!=NULL);
   
   // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
@@ -811,10 +1003,10 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
         if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
         best_so_far = i;
         // Now we empty the heap
-        i = ptr_heap_get_min(&lctx.heap);
+        i = bv_arith_pop(&lctx);
         while (i != NULL) {
           bv_arith_interval_destruct(i);
-          i = ptr_heap_get_min(&lctx.heap);
+          i = bv_arith_pop(&lctx);
         }
       } else { // interval doesn't forbid all remaining values;
         // does is eliminate more values than best_so_far?
@@ -833,7 +1025,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
           }
           bv_arith_interval_destruct(i); // i is not interesting enough
         }
-        i = ptr_heap_get_min(&lctx.heap); // either way, we get next element in heap
+        i = bv_arith_pop(&lctx); // either way, we get next element in heap
         bv_arith_ishift(ctx, i, &base, base_term);
       }
     } else { // Not in continuity of previously forbidden range
@@ -844,7 +1036,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       if (best_so_far != NULL) { // We need to save best_so_far in &conflict
         bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
         min_saved_term = best_so_far->hi_term;
-        bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
+        bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);
         best_so_far = NULL;
       } else { // Discontinuity in intervals, shouldn't happen if in conflict
         assert(false);
@@ -853,9 +1045,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 
   assert(best_so_far != NULL);
-  if (!bvterm_is_zero(terms, best_so_far->hi_term)) {
-    term_t continuity_reason = bv_arith_le(tm->terms, best_so_far->hi_term, best_so_far->lo_term);
-      /* mk_bvle(tm, best_so_far->hi_term, best_so_far->lo_term); */
+  term_t continuity_reason = bv_arith_le(exp, best_so_far->hi_term, best_so_far->lo_term);
+  if (continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding last continuity_reason ");
@@ -866,18 +1057,21 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       term_print_to_file(out, terms, continuity_reason);
       fprintf(out, "\n");
     }
+    uint32_t eval_level = 0;
+    assert(bv_evaluator_run_atom(exp->super.eval, continuity_reason, &eval_level));
     ivector_push(conflict, continuity_reason);
   }
-  bv_arith_add2conflict(ctx, min_saved_term, best_so_far, conflict);
+  bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);
   
   assert(ptr_heap_is_empty(&lctx.heap));
+  assert(ptr_queue_is_empty(&lctx.queue));
 
+  delete_bvconstant(&base);
   delete_bvconstant(&min_save);
-
   delete_bvconstant(&lctx.zero);
+  delete_bvconstant(&lctx.length);
   delete_ptr_heap(&lctx.heap);
-
-  bv_evaluator_clear_cache(eval);
+  delete_ptr_queue(&lctx.queue);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
@@ -890,6 +1084,11 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 
 }
+
+
+/**
+   Detection of whether a conflict is within the fragment, and external API
+**/
 
 static
 bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var) {
@@ -976,6 +1175,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
+  delete_int_hset(&exp->constant_cache);
   delete_int_hset(&exp->coeff0_cache);
   delete_int_hset(&exp->coeff1_cache);
   delete_int_hset(&exp->coeffm1_cache);
@@ -993,6 +1193,7 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
   exp->super.explain_conflict = explain_conflict;
   exp->super.destruct = destruct;
 
+  init_int_hset(&exp->constant_cache, 0);
   init_int_hset(&exp->coeff0_cache, 0);
   init_int_hset(&exp->coeff1_cache, 0);
   init_int_hset(&exp->coeffm1_cache, 0);
