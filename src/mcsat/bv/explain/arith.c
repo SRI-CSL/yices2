@@ -53,10 +53,20 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
 
   // Answer right away in case already found to be constant or if it evaluates
   if (int_hset_member(&exp->constant_cache, t)) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term has previously been found to have a value not using the trail ");
+      ctx_trace_term(ctx, t);
+    }
     *use_trail = false;
     return true;
   }
   if (int_hset_member(&exp->coeff0_cache, t)) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term has previously been found to have a value using the trail ");
+      ctx_trace_term(ctx, t);
+    }
     *use_trail = true;
     return true;
   }
@@ -76,6 +86,11 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
   // then the term does evaluate and use the trail: we don't look into its structure.
 
   if ((var != variable_null) && int_hset_member(&exp->free_var, var)) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term is a free variable of the conflict with a value on the trail: ");
+      ctx_trace_term(ctx, t);
+    }
     *use_trail = true;
   } else { // otherwise we look into it
     
@@ -84,6 +99,8 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
       fprintf(out, "Looking at the kind of\n");
       ctx_trace_term(ctx, t);
     }
+
+    bool output = false;
 
     switch (term_kind(terms, t)) {
     case CONSTANT_TERM:
@@ -105,7 +122,6 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
     case BV_LSHR:
     case BV_ASHR: {
       composite_term_t* composite_desc = composite_term_desc(terms, t);
-      bool output = false;
       for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
         term_t t_i = composite_desc->arg[i];
         term_t t_i_pos = unsigned_term(t_i);
@@ -113,20 +129,16 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
         if (!bv_arith_evaluates(exp, t_i_pos, conflict_var, &recurs)) return false;
         output = output || recurs;
       }
-      *use_trail = output;
       break;
     }
     case BIT_TERM: {
       term_t arg = bit_term_arg(terms, t);
       term_t arg_pos = unsigned_term(arg);
-      bool recurs;
-      if (!bv_arith_evaluates(exp, arg_pos, conflict_var, &recurs)) return false;
-      *use_trail = recurs;
+      if (!bv_arith_evaluates(exp, arg_pos, conflict_var, &output)) return false;
       break;
     }
     case BV_POLY: {
       bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-      bool output = false;
       for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
         if (t_poly->mono[i].var == const_idx) continue;
         bool recurs = false;
@@ -134,12 +146,10 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
           return false;
         output = output || recurs;
       }
-      *use_trail = output;
       break;
     }
     case BV64_POLY: {
       bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-      bool output = false;
       for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
         if (t_poly->mono[i].var == const_idx) continue;
         bool recurs = false;
@@ -147,24 +157,22 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
           return false;
         output = output || recurs;
       }
-      *use_trail = output;
       break;
     }
     case POWER_PRODUCT: {
       pprod_t* t_pprod = pprod_term_desc(terms, t);
-      bool output = false;
       for (uint32_t i = 0; i < t_pprod->len; ++ i) {
         bool recurs = false;
         if (!bv_arith_evaluates(exp, t_pprod->prod[i].var, conflict_var, &recurs))
           return false;
-        output = output || recurs;
       }
-      *use_trail = output;
       break;
     }
     default:
       return false;
     }
+
+    *use_trail = output;
   }
 
   if (*use_trail) {
@@ -376,9 +384,7 @@ term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
 
 term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
   if (left == right) return NULL_TERM; // equality would be trivially true
-  bool left_uses_trail = false;
-  bool right_uses_trail = false;
-  bool sanity;
+  bool left_uses_trail, right_uses_trail, sanity;
   sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
   assert(sanity);
   sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
@@ -396,9 +402,7 @@ term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
 
 term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
   term_table_t* terms = exp->super.ctx->terms;
-  bool left_uses_trail = false;
-  bool right_uses_trail = false;
-  bool sanity;
+  bool left_uses_trail, right_uses_trail, sanity;
   sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
   assert(sanity);
   sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
@@ -416,9 +420,7 @@ term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
 
 term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
   if (left == right) return NULL_TERM; // inequality would be trivially true
-  bool left_uses_trail = false;
-  bool right_uses_trail = false;
-  bool sanity;
+  bool left_uses_trail, right_uses_trail, sanity;
   sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
   assert(sanity);
   sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
@@ -428,6 +430,13 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
   uint32_t ignore_this_int = 0;
   bvconstant_t eval;
   init_bvconstant(&eval);
+
+  plugin_context_t* ctx = exp->super.ctx;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "bv_arith_le: left_uses_trail = %d, right_uses_trail = %d\n", left_uses_trail, right_uses_trail);
+  }
 
   // if left is 0, inequality would be trivially true
   if (!left_uses_trail) {
@@ -671,7 +680,7 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
     if ((right_has && left_has) || ((!right_has) && (!left_has))) { // x appears on both sides or on neither sides
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "is_neq: present on both sides or neither");
+        fprintf(out, "is_neq: present on both sides or neither\n");
       }
       if (bvconstant_eq(&cc1,&cc2)) // If c1 == c2, we forbid everything, otherwise we forbid nothing
         bv_arith_full_interval_push(lctx, bv_arith_eq(lctx->exp, c1, c2));
