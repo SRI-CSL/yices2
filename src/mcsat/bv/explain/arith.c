@@ -419,6 +419,18 @@ term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
 // If it is, it returns the term (left <= right). If not, it returns NULL_TERM.
 
 term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
+
+  plugin_context_t* ctx = exp->super.ctx;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "bv_arith_le: trying to produce ");
+    term_print_to_file(out, ctx->terms, left);
+    fprintf(out, " <= ");
+    term_print_to_file(out, ctx->terms, right);
+    fprintf(out, "\n");
+  }
+
   if (left == right) return NULL_TERM; // inequality would be trivially true
   bool left_uses_trail, right_uses_trail, sanity;
   sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
@@ -431,7 +443,6 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
   bvconstant_t eval;
   init_bvconstant(&eval);
 
-  plugin_context_t* ctx = exp->super.ctx;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -442,12 +453,20 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
   if (!left_uses_trail) {
     bv_evaluator_run_term(exp->super.eval, left, &eval, &ignore_this_int);
     result = !bvconstant_is_zero(&eval);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "left is zero = %d\n", result);
+    }
   }
 
   // if right is 2^n-1, inequality would be trivially true
   if (result && !right_uses_trail) {
     bv_evaluator_run_term(exp->super.eval, right, &eval, &ignore_this_int);
     result = !bvconstant_is_minus_one(&eval);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "left is zero or right is 2^n-1 = %d\n", result);
+    }
   }
 
   delete_bvconstant(&eval);
@@ -807,7 +826,9 @@ void bv_arith_add2conflict(arith_t* exp,
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Adding to conflict interval ");
     bv_arith_interval_print(out, ctx->terms, i);
-    fprintf(out, "\n");
+    fprintf(out, "  hooking up with ( ");
+    term_print_to_file(out, tm->terms, min_saved_term);
+    fprintf(out, " )\n");
   }
 
   term_t continuity_reason = bv_arith_le(exp, i->lo_term, min_saved_term);
@@ -908,7 +929,6 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
     assert(good_term(terms,atom_i_term) && is_pos_term(atom_i_term));
     assert(is_boolean_term(terms, atom_i_term));
-
     
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
@@ -972,6 +992,11 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     }
   }
 
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "\nWe now look at what's in the heap\n\n");
+  }
+
   /* All conflicting atoms have been treated, the resulting forbidden intervals for the
   conflict_var have been pushed in the heap. It's now time to look at what's in the heap.
   */
@@ -998,7 +1023,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   while (i != NULL) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith pops from the stack ");
+      fprintf(out, "bv_arith pops from the heap ");
       bv_arith_interval_print(out, terms, i);
       fprintf(out, "\n");
     }
@@ -1043,8 +1068,9 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       }
       if (best_so_far != NULL) { // We need to save best_so_far in &conflict
         bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
+        term_t previous_min_saved_term = min_saved_term;
         min_saved_term = best_so_far->hi_term;
-        bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);
+        bv_arith_add2conflict(exp, previous_min_saved_term, best_so_far, conflict);
         best_so_far = NULL;
       } else { // Discontinuity in intervals, shouldn't happen if in conflict
         assert(false);
