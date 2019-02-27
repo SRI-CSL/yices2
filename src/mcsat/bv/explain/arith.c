@@ -602,6 +602,7 @@ void bv_arith_interval_push(bv_arith_ctx_t* lctx,
 }
 
 void bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason) {
+  assert(reason != NULL_TERM);
   bvconstant_t* zero = &lctx->zero;
   bv_arith_interval_push(lctx,zero,zero,lctx->zero_term,lctx->zero_term,reason);
 }
