@@ -61,7 +61,7 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
     return true;
   }
 
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Looking at whether this term has a value ");
     ctx_trace_term(ctx, t);
@@ -79,7 +79,7 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
     *use_trail = true;
   } else { // otherwise we look into it
     
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Looking at the kind of\n");
       ctx_trace_term(ctx, t);
@@ -169,14 +169,14 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
 
   if (*use_trail) {
     int_hset_add(&exp->coeff0_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       ctx_trace_term(ctx, t);
       fprintf(out, "...evaluates using the trail\n");
     }
   } else {
     int_hset_add(&exp->constant_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       ctx_trace_term(ctx, t);
       fprintf(out, "...is found to be constant\n");
@@ -196,7 +196,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
 
   plugin_context_t* ctx = exp->super.ctx;
     
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "extracting coefficient of conflict variable in ");
     ctx_trace_term(ctx, t);
@@ -261,7 +261,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
     return 2;
   }
   
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Coefficient is %d\n",result);
   }
@@ -405,7 +405,7 @@ term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
   assert(sanity);
 
   if (left_uses_trail || right_uses_trail)
-    return not_term(terms, bvge_atom(terms, right, left));
+    return not_term(terms, bvge_atom(terms, left, right));
   else // atom would be true by evaluation without involving the trail
     return NULL_TERM;
 }
@@ -1045,8 +1045,9 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 
   assert(best_so_far != NULL);
-  term_t continuity_reason = bv_arith_le(exp, best_so_far->hi_term, best_so_far->lo_term);
-  if (continuity_reason != NULL_TERM) {
+  term_t continuity_reason = bv_arith_lt(exp, best_so_far->hi_term, best_so_far->lo_term);
+  if (!(bvconstant_eq(&best_so_far->hi, &best_so_far->lo))
+      && continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding last continuity_reason ");
@@ -1058,7 +1059,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_run_atom(exp->super.eval, continuity_reason, &eval_level));
+    assert(!bv_evaluator_run_atom(exp->super.eval,not_term(terms,continuity_reason), &eval_level));
     ivector_push(conflict, continuity_reason);
   }
   bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);
