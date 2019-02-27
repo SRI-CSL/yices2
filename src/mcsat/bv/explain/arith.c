@@ -600,7 +600,6 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
 **/
 
 // Treat a constraint of the form lhs <= rhs (is_neq == false) of lhs != rhs (is_neq == true)
-
 void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool is_neq) {
   // Standard abbreviations
   plugin_context_t* ctx = lctx->exp->super.ctx;
@@ -651,8 +650,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bv_evaluator_run_term(lctx->exp->super.eval, c1, &cc1, &eval_level);
   eval_level = 0;
   bv_evaluator_run_term(lctx->exp->super.eval, c2, &cc2, &eval_level);
-  bvconstant_is_normalized(&cc1);
-  bvconstant_is_normalized(&cc2);
+  assert(bvconstant_is_normalized(&cc1));
+  assert(bvconstant_is_normalized(&cc2));
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
