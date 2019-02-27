@@ -165,6 +165,7 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
         bool recurs = false;
         if (!bv_arith_evaluates(exp, t_pprod->prod[i].var, conflict_var, &recurs))
           return false;
+        output = output || recurs;
       }
       break;
     }
@@ -184,7 +185,7 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
     }
   } else {
     int_hset_add(&exp->constant_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan::cst")) {
       FILE* out = ctx_trace_out(ctx);
       ctx_trace_term(ctx, t);
       fprintf(out, "...is found to be constant\n");
