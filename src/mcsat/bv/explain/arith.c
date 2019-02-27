@@ -185,7 +185,7 @@ bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_t
     }
   } else {
     int_hset_add(&exp->constant_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan::cst")) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       ctx_trace_term(ctx, t);
       fprintf(out, "...is found to be constant\n");
