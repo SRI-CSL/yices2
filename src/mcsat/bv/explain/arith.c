@@ -1015,7 +1015,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       term_t t1 = atom_i_comp->arg[1];
       if (!is_pos_term(t0) || !is_pos_term(t1))
         return false;
-      // OK, maybe we can treat the constraint atom_i_term. We first scan the atom (collecting free variables and co.
+      // OK, maybe we can treat the constraint atom_i_term. We first scan the atom (collecting free variables and co.)
       bv_evaluator_csttrail_scan(csttrail, atom_i_var);
       
       // Now that we have collected the free variables, we look into the constraint structure

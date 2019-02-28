@@ -624,7 +624,7 @@ bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t, bool* use_trai
   assert(is_pos_term(t));
   plugin_context_t* ctx = csttrail->ctx;
 
-  if (t == csttrail->conflict_var) return false;
+  if (t == csttrail->conflict_var_term) return false;
 
   // Answer right away in case already found to be constant or if it evaluates
   if (int_hset_member(&csttrail->constant_cache, t)) {
