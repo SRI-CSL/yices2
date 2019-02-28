@@ -294,7 +294,9 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
 
   // if left is 0, inequality would be trivially true
   if (!left_uses_trail) {
-    bv_evaluator_run_term(exp->super.eval, left, &eval, &ignore_this_int);
+    const mcsat_value_t* left_eval = bv_evaluator_evaluate_term(exp->super.eval, left, &ignore_this_int);
+    assert(left_eval->type == VALUE_BV);
+    bvconstant_copy(&eval, left_eval->bv_value.bitsize, left_eval->bv_value.data);
     result = !bvconstant_is_zero(&eval);
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
@@ -304,7 +306,9 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
 
   // if right is 2^n-1, inequality would be trivially true
   if (result && !right_uses_trail) {
-    bv_evaluator_run_term(exp->super.eval, right, &eval, &ignore_this_int);
+    const mcsat_value_t* right_eval = bv_evaluator_evaluate_term(exp->super.eval, right, &ignore_this_int);
+    assert(right_eval->type == VALUE_BV);
+    bvconstant_copy(&eval, right_eval->bv_value.bitsize, right_eval->bv_value.data);
     result = !bvconstant_is_minus_one(&eval);
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
@@ -518,12 +522,14 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bvconstant_t cc1, cc2;
   init_bvconstant(&cc1);
   init_bvconstant(&cc2);
-  uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
-  bv_evaluator_run_term(lctx->exp->super.eval, c1, &cc1, &eval_level);
+  uint32_t eval_level = 0;
+  const mcsat_value_t* c1_value = bv_evaluator_evaluate_term(lctx->exp->super.eval, c1, &eval_level);
+  assert(c1_value->type == VALUE_BV);
+  bvconstant_copy(&cc1, c1_value->bv_value.bitsize, c1_value->bv_value.data);
   eval_level = 0;
-  bv_evaluator_run_term(lctx->exp->super.eval, c2, &cc2, &eval_level);
-  assert(bvconstant_is_normalized(&cc1));
-  assert(bvconstant_is_normalized(&cc2));
+  const mcsat_value_t* c2_value = bv_evaluator_evaluate_term(lctx->exp->super.eval, c2, &eval_level);
+  assert(c2_value->type == VALUE_BV);
+  bvconstant_copy(&cc2, c2_value->bv_value.bitsize, c2_value->bv_value.data);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -688,7 +694,7 @@ void bv_arith_add2conflict(arith_t* exp,
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_run_atom(exp->super.eval, continuity_reason, &eval_level));
+    assert(bv_evaluator_evaluate_term(exp->super.eval, continuity_reason, &eval_level)->b);
     ivector_push(conflict, continuity_reason);
   }
 
@@ -700,7 +706,7 @@ void bv_arith_add2conflict(arith_t* exp,
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_run_atom(exp->super.eval, i->reason, &eval_level));
+    assert(bv_evaluator_evaluate_term(exp->super.eval, i->reason, &eval_level)->b);
     ivector_push(conflict, i->reason);
   }
   
@@ -937,7 +943,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(!bv_evaluator_run_atom(exp->super.eval,not_term(terms,continuity_reason), &eval_level));
+    assert(!bv_evaluator_evaluate_term(exp->super.eval,not_term(terms,continuity_reason), &eval_level)->b);
     ivector_push(conflict, continuity_reason);
   }
   bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);

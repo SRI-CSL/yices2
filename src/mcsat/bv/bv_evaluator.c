@@ -22,6 +22,12 @@
 
 #include <assert.h>
 
+static
+void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
+
+static
+bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level);
+
 void bv_evaluator_construct(bv_evaluator_t* evaluator, const plugin_context_t* ctx) {
   evaluator->ctx = ctx;
 
@@ -29,6 +35,8 @@ void bv_evaluator_construct(bv_evaluator_t* evaluator, const plugin_context_t* c
   init_int_hmap(&evaluator->term_values, 0);
   init_int_hmap(&evaluator->atom_values, 0);
   init_int_hmap(&evaluator->level_map, 0);
+
+  mcsat_value_construct_default(&evaluator->eval_value);
 }
 
 void bv_evaluator_destruct(bv_evaluator_t* evaluator) {
@@ -42,6 +50,8 @@ void bv_evaluator_destruct(bv_evaluator_t* evaluator) {
   delete_int_hmap(&evaluator->term_values);
   delete_int_hmap(&evaluator->atom_values);
   delete_int_hmap(&evaluator->level_map);
+
+  mcsat_value_destruct(&evaluator->eval_value);
 }
 
 void bv_evaluator_clear_cache(bv_evaluator_t* evaluator) {
@@ -186,6 +196,7 @@ void bv_evaluator_run_composite_term(bv_evaluator_t* eval, term_t t, bvconstant_
     term_t t_i = t_composite->arg[i];
     term_t t_i_pos = unsigned_term(t_i); // Could be Boolean terms, so we negate if needed
     uint32_t eval_level_i = 0;
+
     bv_evaluator_run_term(eval, t_i_pos, t_arg_val + i, &eval_level_i);
     if (t_i_pos != t_i) {
       bvconst_complement(t_arg_val[i].data, t_arg_val[i].width);
@@ -256,6 +267,7 @@ void bv_evaluator_run_composite_term(bv_evaluator_t* eval, term_t t, bvconstant_
 /**
  * Evaluate term and construct the value into out. User should destruct.
  */
+static
 void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level) {
 
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
@@ -426,6 +438,7 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
   bv_evaluator_set_term_cache(eval, t, out_value, *eval_level);
  }
 
+static
 bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level) {
 
   if (ctx_trace_enabled(eval->ctx, "mcsat::bv::eval")) {
@@ -563,10 +576,19 @@ const mcsat_value_t* bv_evaluator_evaluate_var(bv_evaluator_t* evaluator, variab
 }
 
 const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_t cstr_term, uint32_t* cstr_eval_level) {
-  bv_evaluator_clear_cache(evaluator);
-  bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
-  return result ? &mcsat_value_true : &mcsat_value_false;
-  bv_evaluator_clear_cache(evaluator);
+  if (term_type_kind(evaluator->ctx->terms, cstr_term) == BOOL_TYPE) {
+    bv_evaluator_clear_cache(evaluator);
+    bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
+    return result ? &mcsat_value_true : &mcsat_value_false;
+  } else {
+    bv_evaluator_clear_cache(evaluator);
+    bvconstant_t eval_value;
+    bv_evaluator_run_term(evaluator, cstr_term, &eval_value, cstr_eval_level);
+    mcsat_value_destruct(&evaluator->eval_value);
+    mcsat_value_construct_bv_value(&evaluator->eval_value, &eval_value);
+    delete_bvconstant(&eval_value);
+    return &evaluator->eval_value;
+  }
 }
 
 void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm){
