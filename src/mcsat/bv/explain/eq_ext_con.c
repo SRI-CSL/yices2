@@ -19,6 +19,7 @@ typedef struct eq_ext_con_s {
 
   /** Interfact of the subexplainer */
   bv_subexplainer_t super;
+  bv_csttrail_t csttrail; // Where we keep some cached values
 
 } eq_ext_con_t;
 
@@ -104,7 +105,7 @@ struct slist_s {
 /** Type for a slicing = what is returned from a conflict core by the main function below */
 typedef struct {
   /** Context, for utilities */
-  plugin_context_t* ctx;
+  eq_ext_con_t* exp;
   /**
    * Array of lists of pairs.
    * Cell 0 contains the list of slice equalities; then each cell contains a
@@ -573,12 +574,12 @@ slist_t* bv_slicing_norm(const plugin_context_t* ctx, term_t t, uint32_t hi, uin
 // Prints a slicing
 void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
 
-  FILE* out = ctx_trace_out(slicing->ctx);
+  FILE* out = ctx_trace_out(slicing->exp->super.ctx);
   fprintf(out, "Slices:\n");
   // We go through all variables, and destroy all slices
   ptr_hmap_pair_t* hp = ptr_hmap_first_record((ptr_hmap_t*)&slicing->slices);
   while(hp != NULL) {
-    ctx_print_slice(slicing->ctx, hp->val);
+    ctx_print_slice(slicing->exp->super.ctx, hp->val);
     hp = ptr_hmap_next_record((ptr_hmap_t*)&slicing->slices, hp);
     fprintf(out, "\n");
   }
@@ -588,7 +589,7 @@ void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
       fprintf(out, "Equal.: ");
     else
       fprintf(out, "Dis.%d: ",i);
-    ctx_print_splist(slicing->ctx, slicing->constraints[i], (i == 0));
+    ctx_print_splist(slicing->exp->super.ctx, slicing->constraints[i], (i == 0));
     fprintf(out, "\n");
   }
 }
@@ -614,13 +615,12 @@ void bv_slicing_slicing_destruct(bv_slicing_t* slicing) {
 
 /** At the end of the slicing algorithm, we go through each of the created slices,
     and perform 3 tasks: */
-void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t* ctx, eq_graph_t* egraph) {
+void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* exp, eq_graph_t* egraph) {
 
   if (s->lo_sub == NULL) { // This is a leaf
 
+    plugin_context_t* ctx = exp->super.ctx;
     variable_db_t* var_db = ctx->var_db; // standard abbreviations
-    term_table_t* terms   = ctx->terms;
-    const mcsat_trail_t* trail  = ctx->trail;
     term_manager_t* tm = &var_db->tm;
 
     term_t t = s->base.term;
@@ -630,42 +630,6 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
     bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->base.lo, s->base.hi-1, t);
     s->base.slice_term = mk_bvlogic_term(tm, buffer);
 
-
-    // Task 2: we compute the value if we can & store it in value field
-    bool has_value = true; // whether term can be evaluated from trail (will switch to false if not)
-    bvconstant_t bvcst;
-    init_bvconstant(&bvcst);
-
-    term_kind_t t_kind = term_kind(terms, t);
-    switch (t_kind) {
-    case BV_CONSTANT: { // The term itself could be a constant term
-      bvconst_term_t* desc = bvconst_term_desc(terms, t);
-      bvconstant_copy(&bvcst, desc->bitsize, desc->data);
-      break;
-    }
-    case BV64_CONSTANT: { // The term itself could be a constant term, optimised bv64 representation
-      bvconst64_term_t* desc = bvconst64_term_desc(terms, t);
-      bvconstant_copy64(&bvcst, desc->bitsize, desc->value);
-      break;
-    }
-    default: { // Otherwise we hope that the term is assigned a value on the trail
-      variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
-      if ((var != variable_null) && trail_has_value(trail, var)) { // yeah! it has a value
-        const mcsat_value_t* val = trail_get_value(trail, var);
-        switch (val->type) {
-        case VALUE_BV: {
-          bvconstant_t tmp = val->bv_value;
-          assert(tmp.bitsize == term_bitsize(terms,t));
-          bvconstant_copy(&bvcst, tmp.bitsize, tmp.data);
-          break;
-        }
-        default: assert(false); // Value of slice variable must be bv or bool
-        }
-      }
-      else has_value = false; // it does not have a value on the trail
-    }
-    }
-
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Treating slice ");
@@ -674,8 +638,18 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       term_print_to_file(out, ctx->terms, s->base.slice_term);
     }
 
+    // Task 2: we compute the value if we can & store it in value field
+
+    bool ignore_this_bool;
+    // Whether term can be evaluated from trail
+    // (if true, use_trail indicates whether trail was used):
+    bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool); 
 
     if (has_value) {
+      bvconstant_t bvcst;
+      init_bvconstant(&bvcst);
+      uint32_t ignore_this_int;
+      bv_evaluator_run_term(exp->super.eval, t, &bvcst, &ignore_this_int);
       assert(s->value.type == VALUE_NONE);
       s->value.type = VALUE_BV;
       init_bvconstant(&s->value.bv_value);
@@ -689,6 +663,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       }
       // Reason data = slice_term. Useful for collecting "interface terms" in the SMT'2017 explanation algo.
       eq_graph_assign_term_value(egraph, s->base.slice_term, &s->value, s->base.slice_term);
+      delete_bvconstant(&bvcst);
     }
     else mcsat_value_construct_default(&s->value);
 
@@ -696,9 +671,6 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "\n");
     }
-
-    delete_bvconstant(&bvcst);
-
 
     // Task 3: we go through its pairs
     // For each equality pair, we stack it on constraint[0]
@@ -718,14 +690,15 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, plugin_context_t
   }
   else { // If the slice is not a leaf, we treat the sub-slices
     assert(s->paired_with == NULL);
-    bv_slicing_slice_treat(s->lo_sub, constraints, ctx, egraph);
-    bv_slicing_slice_treat(s->hi_sub, constraints, ctx, egraph);
+    bv_slicing_slice_treat(s->lo_sub, constraints, exp, egraph);
+    bv_slicing_slice_treat(s->hi_sub, constraints, exp, egraph);
   }
 }
 
-void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const ivector_t* conflict_core, eq_graph_t* egraph) {
+void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivector_t* conflict_core, eq_graph_t* egraph) {
 
-  slicing->ctx = ctx;
+  plugin_context_t* ctx = exp->super.ctx;
+  slicing->exp = exp;
 
   // We initialize the hashmap in the result
   init_ptr_hmap(&slicing->slices, 0);
@@ -820,7 +793,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
     spair_t* p = (spair_t*) ptr_queue_pop(&todo);
     assert(p->lhs != NULL);
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
-      FILE* out = ctx_trace_out(slicing->ctx);
+      FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Popping ");
       ctx_print_spair(ctx, p, true);
       fprintf(out, "\n");
@@ -828,7 +801,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
     l1 = bv_slicing_as_list(p->lhs, NULL);
     l2 = bv_slicing_as_list(p->rhs, NULL);
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
-      FILE* out = ctx_trace_out(slicing->ctx);
+      FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Now aligning\n");
     }
     bv_slicing_align(ctx, l1, l2, p->appearing_in, &todo); // l1 and l2 are freed
@@ -844,7 +817,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, plugin_context_t* ctx, const iv
 
   ptr_hmap_pair_t* hp = ptr_hmap_first_record(&slicing->slices);
   while(hp != NULL) {
-    bv_slicing_slice_treat(hp->val, slicing->constraints, ctx, egraph);
+    bv_slicing_slice_treat(hp->val, slicing->constraints, exp, egraph);
     hp = ptr_hmap_next_record(&slicing->slices, hp);
   }
 
@@ -928,16 +901,21 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
   // - bvarray[v1, ..., vn, c1, ..., cn]
   // Additionally, bit-selects count too, if they are over a variable
 
-  uint32_t i;
-
+  eq_ext_con_t* exp          = (eq_ext_con_t*) this;
+  bv_csttrail_t* csttrail    = &exp->csttrail;
   const variable_db_t* var_db = this->ctx->var_db;
   term_table_t* terms = this->ctx->terms;
+  bv_evaluator_csttrail_reset(csttrail, conflict_var);
+
+  uint32_t i;
 
   for (i = 0; i < conflict->size; ++ i) {
 
     // Atom and it's term
     variable_t atom_var = conflict->data[i];
     term_t atom_term = variable_db_get_term(var_db, atom_var);
+
+    bv_evaluator_csttrail_scan(csttrail, atom_var);
 
 //    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
 //      FILE* out = ctx_trace_out(this->ctx);
@@ -988,10 +966,18 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
 
 static
 void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict_out) {
+  eq_ext_con_t* exp = (eq_ext_con_t*) this;
   plugin_context_t* ctx = this->ctx;
-
   term_table_t* terms   = ctx->terms;
   term_manager_t* tm = &ctx->var_db->tm;
+
+  assert(conflict_var == exp->csttrail.conflict_var);
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Eq-explaining conflict with conflict_variable ");
+    term_print_to_file(out, terms, exp->csttrail.conflict_var_term);
+    fprintf(out, "\n");
+  }
 
   // The output conflict always contains the conflict core:
   for (uint32_t i = 0; i < conflict_core->size; i++) {
@@ -1007,7 +993,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   // Do the slicing
   bv_slicing_t slicing;
-  bv_slicing_construct(&slicing, ctx, conflict_core, &eq_graph);
+  bv_slicing_construct(&slicing, exp, conflict_core, &eq_graph);
 
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
     bv_slicing_print_slicing(&slicing);
@@ -1184,12 +1170,20 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 }
 
+static
+void destruct(bv_subexplainer_t* this) {
+  eq_ext_con_t* exp = (eq_ext_con_t*) this;
+  bv_evaluator_csttrail_destruct(&exp->csttrail);
+}
+
 /** Allocate the sub-explainer and setup the methods */
 bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
 
   eq_ext_con_t* exp = safe_malloc(sizeof(eq_ext_con_t));
 
   bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
+  bv_evaluator_csttrail_construct(&exp->csttrail, ctx, wlm);
+  exp->super.destruct = destruct;
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
