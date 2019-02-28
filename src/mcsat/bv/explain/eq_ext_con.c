@@ -89,13 +89,6 @@ struct slice_s {
 };
 
 static inline
-bool slice_eq(const slice_t* a, const slice_t* b) {
-  return (a->base.term == b->base.term) &&
-      (a->base.hi == b->base.hi) &&
-      (a->base.lo == b->base.lo);
-}
-
-static inline
 term_t slice_mk_term(const slice_t* slice, term_manager_t* tm) {
   bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
   bvlogic_buffer_set_slice_term(buffer, tm->terms, slice->base.lo, slice->base.hi-1, slice->base.term);
@@ -995,10 +988,10 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   while (current != NULL) {
     assert(current->is_main);
     p = current->pair;
-    if (!slice_eq(p->lhs, p->rhs)) {
-      term_manager_t* tm = &this->ctx->var_db->tm;
-      term_t lhs_slice_term = slice_mk_term(p->lhs, tm);
-      term_t rhs_slice_term = slice_mk_term(p->rhs, tm);
+    term_manager_t* tm = &this->ctx->var_db->tm;
+    term_t lhs_slice_term = slice_mk_term(p->lhs, tm);
+    term_t rhs_slice_term = slice_mk_term(p->rhs, tm);
+    if (lhs_slice_term != rhs_slice_term) {
       eq_graph_assert_term_eq(&eq_graph, lhs_slice_term, rhs_slice_term, 0);
     }
     current = current->next;
