@@ -27,173 +27,12 @@ typedef struct arith_s {
   /** Interfact of the subexplainer */
   bv_subexplainer_t super;
 
-  int_hset_t constant_cache; // Cache of terms that are constant
-  int_hset_t coeff0_cache; // Cache of non-constant terms whose coeff for conflict_var is 0
+  bv_csttrail_t csttrail; // Where we keep some cached values
   int_hset_t coeff1_cache; // Cache of terms whose coeff for conflict_var is 1
   int_hset_t coeffm1_cache; // Cache of terms whose coeff for conflict_var is -1
-  int_hset_t free_var; // The free variables of the current conflict that have values on the trail (i.e. that are not the conflict variable)
 
 } arith_t;
 
-
-/**
-   Two functions used for detecting whether conflict is in fragment
-**/
-
-// Checks whether term t evaluates, all its BV-variables having values on the trail.
-// If it does not, use_trail is untouched. If it does, then use_trail is set to true
-// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
-
-bool bv_arith_evaluates(arith_t* exp, term_t t, term_t conflict_var, bool* use_trail) {
-
-  assert(is_pos_term(t));
-  plugin_context_t* ctx = exp->super.ctx;
-
-  if (t == conflict_var) return false;
-
-  // Answer right away in case already found to be constant or if it evaluates
-  if (int_hset_member(&exp->constant_cache, t)) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "This term has previously been found to have a value not using the trail ");
-      ctx_trace_term(ctx, t);
-    }
-    *use_trail = false;
-    return true;
-  }
-  if (int_hset_member(&exp->coeff0_cache, t)) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "This term has previously been found to have a value using the trail ");
-      ctx_trace_term(ctx, t);
-    }
-    *use_trail = true;
-    return true;
-  }
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Looking at whether this term has a value ");
-    ctx_trace_term(ctx, t);
-  }
-
-  variable_db_t* var_db = ctx->var_db; // standard abbreviations
-  term_table_t* terms   = ctx->terms;
-
-  variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
-
-  // If ((var != variable_null) && int_hset_member(&exp->free_var, var))
-  // then the term does evaluate and use the trail: we don't look into its structure.
-
-  if ((var != variable_null) && int_hset_member(&exp->free_var, var)) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "This term is a free variable of the conflict with a value on the trail: ");
-      ctx_trace_term(ctx, t);
-    }
-    *use_trail = true;
-  } else { // otherwise we look into it
-    
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Looking at the kind of\n");
-      ctx_trace_term(ctx, t);
-    }
-
-    bool output = false;
-
-    switch (term_kind(terms, t)) {
-    case CONSTANT_TERM:
-    case BV_CONSTANT:
-    case BV64_CONSTANT:
-      break;
-    case EQ_TERM:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-    case BV_ARRAY:
-    case OR_TERM:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR: {
-      composite_term_t* composite_desc = composite_term_desc(terms, t);
-      for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
-        term_t t_i = composite_desc->arg[i];
-        term_t t_i_pos = unsigned_term(t_i);
-        bool recurs = false;
-        if (!bv_arith_evaluates(exp, t_i_pos, conflict_var, &recurs)) return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case BIT_TERM: {
-      term_t arg = bit_term_arg(terms, t);
-      term_t arg_pos = unsigned_term(arg);
-      if (!bv_arith_evaluates(exp, arg_pos, conflict_var, &output)) return false;
-      break;
-    }
-    case BV_POLY: {
-      bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        bool recurs = false;
-        if (!bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case BV64_POLY: {
-      bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        bool recurs = false;
-        if (!bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case POWER_PRODUCT: {
-      pprod_t* t_pprod = pprod_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-        bool recurs = false;
-        if (!bv_arith_evaluates(exp, t_pprod->prod[i].var, conflict_var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    default:
-      return false;
-    }
-
-    *use_trail = output;
-  }
-
-  if (*use_trail) {
-    int_hset_add(&exp->coeff0_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      ctx_trace_term(ctx, t);
-      fprintf(out, "...evaluates using the trail\n");
-    }
-  } else {
-    int_hset_add(&exp->constant_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      ctx_trace_term(ctx, t);
-      fprintf(out, "...is found to be constant\n");
-    }
-  }
-    
-  return true;
-}
 
 // Function returns coefficient of conflict_variable in t (-1, 0, or 1)
 // It uses cached values, and caches new values.
@@ -219,7 +58,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
   }
   if (int_hset_member(&exp->coeffm1_cache,t)) return -1;
   bool ignore_this_bool;
-  if (bv_arith_evaluates(exp, t, conflict_var, &ignore_this_bool)) return 0;
+  if (bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) return 0;
 
   int32_t result = 0;
 
@@ -238,7 +77,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
         if (assume_fragment) break; // If in fragment, need not look at other monomials
       } else { // The monomial variable is not the conflict var itself
         if (!assume_fragment
-            && !bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &ignore_this_bool)) {
+            && !bv_evaluator_is_evaluable(&exp->csttrail, t_poly->mono[i].var, &ignore_this_bool)) {
           return 2;
         }
       }
@@ -259,7 +98,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
         if (assume_fragment) break; // If in fragment, need not look at other monomials
       } else { // The monomial variable is not the conflict var itself
         if (!assume_fragment
-            && !bv_arith_evaluates(exp, t_poly->mono[i].var, conflict_var, &ignore_this_bool)) {
+            && !bv_evaluator_is_evaluable(&exp->csttrail, t_poly->mono[i].var, &ignore_this_bool)) {
           return 2;
         }
       }
@@ -385,14 +224,15 @@ term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
 
 term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
   if (left == right) return NULL_TERM; // equality would be trivially true
+  bv_csttrail_t* csttrail = &exp->csttrail;
   bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
   assert(sanity);
-  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
   assert(sanity);
 
   if (left_uses_trail || right_uses_trail)
-    return bveq_atom(exp->super.ctx->terms, left, right);
+    return bveq_atom(csttrail->ctx->terms, left, right);
   else // equality would be true by evaluation without involving the trail
     return NULL_TERM;
 }
@@ -402,11 +242,12 @@ term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
 // If it is, it returns the term (left < right). If not, it returns NULL_TERM.
 
 term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
-  term_table_t* terms = exp->super.ctx->terms;
+  bv_csttrail_t* csttrail = &exp->csttrail;
+  term_table_t* terms = csttrail->ctx->terms;
   bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
   assert(sanity);
-  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
   assert(sanity);
 
   if (left_uses_trail || right_uses_trail)
@@ -422,6 +263,7 @@ term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
 term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
 
   plugin_context_t* ctx = exp->super.ctx;
+  bv_csttrail_t* csttrail = &exp->csttrail;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -434,9 +276,9 @@ term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
 
   if (left == right) return NULL_TERM; // inequality would be trivially true
   bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_arith_evaluates(exp, left, variable_null, &left_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
   assert(sanity);
-  sanity = bv_arith_evaluates(exp, right, variable_null, &right_uses_trail);
+  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
   assert(sanity);
 
   bool result = true; // whether we continue code or stop
@@ -535,7 +377,6 @@ void bv_arith_interval_print(FILE* out, term_table_t* terms, bvconst_interval_t*
 // Local context
 typedef struct {
   arith_t* exp;
-  term_t conflict_var;
   bvconstant_t zero; // Because we don't like recomputing this too many times
   term_t zero_term;  // Because we don't like recomputing this too many times
   ptr_heap_t heap;   // Heap of forbidden intervals, ordered by lower bounds
@@ -632,6 +473,7 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
 // Treat a constraint of the form lhs <= rhs (is_neq == false) of lhs != rhs (is_neq == true)
 void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool is_neq) {
   // Standard abbreviations
+  term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
   plugin_context_t* ctx = lctx->exp->super.ctx;
   term_manager_t* tm    = &ctx->var_db->tm;
 
@@ -644,8 +486,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
     fprintf(out, "\n");
   }
 
-  int32_t left_coeff = bv_arith_coeff(lctx->exp, lhs, lctx->conflict_var, true);
-  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, lctx->conflict_var, true);
+  int32_t left_coeff = bv_arith_coeff(lctx->exp, lhs, conflict_var, true);
+  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, conflict_var, true);
     
   if ((left_coeff == -1) || (right_coeff == -1)) {
     // if coeff is negative, we add one, negate and swap sides.
@@ -661,8 +503,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
 
   // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
   // from which the confict variable (if present) was removed
-  term_t c1 = (left_has) ? bv_arith_sub_terms(tm, lhs, lctx->conflict_var) : lhs;
-  term_t c2 = (right_has) ? bv_arith_sub_terms(tm, rhs, lctx->conflict_var) : rhs;
+  term_t c1 = (left_has) ? bv_arith_sub_terms(tm, lhs, conflict_var) : lhs;
+  term_t c2 = (right_has) ? bv_arith_sub_terms(tm, rhs, conflict_var) : rhs;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -896,25 +738,25 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   bv_evaluator_clear_cache(eval);
 
   // Standard abbreviations
-  term_table_t* terms  = ctx->terms;
+  term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
-  term_manager_t* tm = &ctx->var_db->tm;
+  term_manager_t* tm         = &ctx->var_db->tm;
+  uint32_t bitsize = term_bitsize(terms, exp->csttrail.conflict_var_term);
 
   // We initialise the local context
   bv_arith_ctx_t lctx;
   lctx.exp          = exp;
-  lctx.conflict_var = variable_db_get_term(ctx->var_db, conflict_var);
   lctx.longest      = NULL;
   init_ptr_heap(&lctx.heap, 0, &cmp);
   init_ptr_queue(&lctx.queue, 0);
 
   init_bvconstant(&lctx.zero);
-  bvconstant_set_all_zero(&lctx.zero, term_bitsize(terms, lctx.conflict_var));
+  bvconstant_set_all_zero(&lctx.zero, bitsize);
 
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
 
   init_bvconstant(&lctx.length);
-  bvconstant_set_all_zero(&lctx.length, term_bitsize(terms, lctx.conflict_var));
+  bvconstant_set_all_zero(&lctx.length, bitsize);
   
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -1131,17 +973,15 @@ static
 bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var) {
   
   // Standard abbreviations
-  arith_t* exp = (arith_t*) this;
-  plugin_context_t* ctx = this->ctx;
-  term_table_t* terms  = ctx->terms;
-  term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
-  const mcsat_trail_t* trail = ctx->trail;
+  arith_t* exp               = (arith_t*) this;
+  bv_csttrail_t* csttrail    = &exp->csttrail;
+  plugin_context_t* ctx      = this->ctx;
+  term_table_t* terms        = ctx->terms;
 
   // Resetting the cache & co.
-  int_hset_reset(&exp->coeff0_cache);
+  bv_evaluator_csttrail_reset(csttrail, conflict_var);
   int_hset_reset(&exp->coeff1_cache);
   int_hset_reset(&exp->coeffm1_cache);
-  int_hset_reset(&exp->free_var);
 
   // Variables that are going to be re-used for every item in the conflict core
   variable_t atom_i_var;
@@ -1161,7 +1001,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       fprintf(out, "bv_arith looks whether this is in the fragment: ");
       ctx_trace_term(ctx, atom_i_term);
       fprintf(out, "with the conflict_variable being ");
-      ctx_trace_term(ctx, conflict_var_term);
+      ctx_trace_term(ctx, csttrail->conflict_var_term);
     }
 
     switch (term_kind(terms, atom_i_term)) {
@@ -1175,26 +1015,12 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       term_t t1 = atom_i_comp->arg[1];
       if (!is_pos_term(t0) || !is_pos_term(t1))
         return false;
-      // OK, maybe we can treat the constraint atom_i_term. We first collect its free variables.
-      // Getting them as a list:
-      variable_list_ref_t list_ref = watch_list_manager_get_list_of(this->wlm, atom_i_var);
-      variable_t* vars = watch_list_manager_get_list(this->wlm, list_ref);
-      for (; *vars != variable_null; vars++) {
-        variable_t var = *vars;
-        if ((var != atom_i_var) && (var != conflict_var)) {
-          assert(trail_has_value(trail, var));
-          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-            FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "Found free variable with value on the trail: ");
-            variable_db_print_variable(ctx->var_db, var, out);
-            fprintf(out, "\n");
-          }
-          int_hset_add(&exp->free_var, var);
-        }
-      }
+      // OK, maybe we can treat the constraint atom_i_term. We first scan the atom (collecting free variables and co.
+      bv_evaluator_csttrail_scan(csttrail, atom_i_var);
+      
       // Now that we have collected the free variables, we look into the constraint structure
-      int32_t t0_good = bv_arith_coeff(exp, t0, conflict_var_term, false);
-      int32_t t1_good = bv_arith_coeff(exp, t1, conflict_var_term, false);
+      int32_t t0_good = bv_arith_coeff(exp, t0, csttrail->conflict_var_term, false);
+      int32_t t1_good = bv_arith_coeff(exp, t1, csttrail->conflict_var_term, false);
       if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)
           /* || (t0_good == -1) || ( t1_good == -1) */
           ) { // Turns out we actually can't deal with the constraint. We stop
@@ -1212,11 +1038,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
-  delete_int_hset(&exp->constant_cache);
-  delete_int_hset(&exp->coeff0_cache);
+  bv_evaluator_csttrail_destruct(&exp->csttrail);
   delete_int_hset(&exp->coeff1_cache);
   delete_int_hset(&exp->coeffm1_cache);
-  delete_int_hset(&exp->free_var);
 }
 
 /** Allocate the sub-explainer and setup the methods */
@@ -1225,16 +1049,14 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
   arith_t* exp = safe_malloc(sizeof(arith_t));
 
   bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::arith", ctx, wlm, eval);
-
+  bv_evaluator_csttrail_construct(&exp->csttrail, ctx, wlm);
+                                
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
   exp->super.destruct = destruct;
 
-  init_int_hset(&exp->constant_cache, 0);
-  init_int_hset(&exp->coeff0_cache, 0);
   init_int_hset(&exp->coeff1_cache, 0);
   init_int_hset(&exp->coeffm1_cache, 0);
-  init_int_hset(&exp->free_var, 0);
 
   return (bv_subexplainer_t*) exp;
 }
