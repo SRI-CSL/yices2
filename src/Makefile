@@ -337,7 +337,7 @@ mcsat_src_c := \
 	mcsat/bv/bv_explainer.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
-	mcsat/bv/bv_arith.c \
+	mcsat/bv/explain/arith.c \
 	mcsat/bv/explain/eq_ext_con.c \
 	mcsat/bv/explain/full_bv_sat.c \
 	mcsat/bv/explain/full_bv_trivial.c \

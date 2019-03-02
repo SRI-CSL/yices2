@@ -198,7 +198,7 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
     variable_t var = solver->vars_to_assign.data[i];
     const mcsat_value_t* var_value = trail_get_value(trail, var);
     assert(var_value->type == VALUE_BOOLEAN || var_value->type == VALUE_BV);
-    // Get the term, and it's substitution
+    // Get the term, and its substitution
     term_t var_term = variable_db_get_term(var_db, var);
     term_t var_term_subst = substitution_run_fwd(&solver->subst, var_term, 0);
     if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
