@@ -6046,27 +6046,37 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
     l0 = nsat_base_literal(solver, l0);
     if (lit_is_active(solver, l0) && gate_for_bvar(solver, i, &tt)) {
       apply_subst_to_ttbl(solver, &tt);
-      if (tt.nvars >= 2) {
+      switch (tt.nvars) {
+      case 0:
+	if (level >= 1) {
+	  l1 = literal_of_ttbl0(&tt);
+	  if (solver->verbosity >= 3) {
+	    fprintf(stderr, "c  var %"PRId32" simplifies to constant: %"PRId32" == %"PRId32"\n", i, l0, l1);
+	  }
+	  literal_equiv(solver, l0, l1);
+	}
+	break;
+
+      case 1:
+	if (level >= 2) {
+	  l1 = literal_of_ttbl1(&tt);
+	  if (l0 != l1 && !lit_is_eliminated(solver, l1)) {
+	    if (solver->verbosity >= 3) {
+	      fprintf(stderr, "c  var %"PRId32" simplifies to literal: %"PRId32" == %"PRId32"\n", i, l0, l1);
+	    }
+	    literal_equiv(solver, l0, l1);
+	  }
+	}
+	break;
+
+      default:
 	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate equiv");
 	if (tt.nvars == 2) {
 	  try_rewrite_binary_gate(solver, l0, &tt, &test);
 	}
-      } else if (level >= 2 && tt.nvars == 1) {
-	l1 = literal_of_ttbl1(&tt);
-	if (l0 != l1 && !lit_is_eliminated(solver, l1)) {
-	  if (solver->verbosity >= 3) {
-	    fprintf(stderr, "c  var %"PRId32" simplifies to literal: %"PRId32" == %"PRId32"\n", i, l0, l1);
-	  }
-	  literal_equiv(solver, l0, l1);
-	}
-      } else if (level >= 1) {
-	assert(tt.nvars == 0);
-	l1 = literal_of_ttbl0(&tt);
-	if (solver->verbosity >= 3) {
-	  fprintf(stderr, "c  var %"PRId32" simplifies to constant: %"PRId32" == %"PRId32"\n", i, l0, l1);
-	}
-	literal_equiv(solver, l0, l1);
+	break;
       }
+
       if (solver->has_empty_clause) break;
     }
   }
@@ -8402,7 +8412,7 @@ static void try_scc_simplification(sat_solver_t *solver) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n0);
     }
     if (solver->stats.subst_vars >= solver->simplify_subst_next) {
-      try_equivalent_vars(solver, 0);
+      try_equivalent_vars(solver, 2);
       solver->simplify_subst_next = solver->stats.subst_vars + solver->params.simplify_subst_delta;
     }
     n = v->size;
