@@ -1114,7 +1114,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
         term_t rhs = interface_terms.data[j];
         if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Making eq or neq between interface terms ");
+          fprintf(out, "Making eq or neq between interface terms (bitsize = %d) ",term_bitsize(terms,lhs));
           term_print_to_file(out, terms, lhs);
           fprintf(out, " and ");
           term_print_to_file(out, terms, rhs);
