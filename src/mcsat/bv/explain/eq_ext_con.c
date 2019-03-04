@@ -64,8 +64,6 @@ struct splist_s {
 typedef struct slice_base_s {
   /** Variable or constant term, from which the slice is extracted */
   term_t term;
-  /** Term expressing the slice (may be lazily computed) */
-  term_t slice_term;
   /** Low index */
   uint32_t lo;
   /** High index + 1 (that index is not in the slice), so that hi - low = slice length */
@@ -79,8 +77,6 @@ typedef struct slice_base_s {
 struct slice_s {
     /** Base of the slice, containing basic information */
   slice_base_t base;
-  /** Value of the slice (computed at the end from the trail, and only for leaf slices) */
-  mcsat_value_t value;
   /** sub-slice towards the high indices, hi_sub->hi is the same as hi */
   slice_t* hi_sub;
   /** sub-slice towards the low indices, lo_sub->lo is the same as lo, lo_sub->hi is the same as hi_sub->lo */
@@ -91,6 +87,13 @@ struct slice_s {
    */
   splist_t* paired_with;
 };
+
+static inline
+term_t slice_mk_term(const slice_t* slice, term_manager_t* tm) {
+  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+  bvlogic_buffer_set_slice_term(buffer, tm->terms, slice->base.lo, slice->base.hi-1, slice->base.term);
+  return mk_bvlogic_term(tm, buffer);
+}
 
 /* List of slices */
 typedef struct slist_s slist_t;
@@ -194,19 +197,11 @@ void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
 /** Prints a pairs. if b is true, as an equality, otherwise, as a disequality */
 void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
   FILE* out = ctx_trace_out(ctx);
-  term_table_t* terms = ctx->terms;
   assert(p->lhs != NULL);
   assert(p->rhs != NULL);
-  if (p->lhs->base.slice_term != NULL_TERM) {
-    term_print_to_file(out, terms, p->lhs->base.slice_term);
-    fprintf(out, "%s", b?"=":"!=");
-    term_print_to_file(out, terms, p->rhs->base.slice_term);
-  }
-  else {
-    ctx_print_slice(ctx, p->lhs);
-    fprintf(out, "%s", b?"=":"!=");
-    ctx_print_slice(ctx, p->rhs);
-  }
+  ctx_print_slice(ctx, p->lhs);
+  fprintf(out, "%s", b?"=":"!=");
+  ctx_print_slice(ctx, p->rhs);
 }
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
@@ -223,19 +218,17 @@ void ctx_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
 }
 
 /** Creates a leaf slice, no children */
-slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi) {
+slice_t* bv_slicing_slice_new(term_manager_t* tm, term_t term, uint32_t lo, uint32_t hi) {
 
   assert(lo < hi);
   slice_t* result = safe_malloc(sizeof(slice_t));
 
   result->base.term = term;
-  result->base.slice_term = NULL_TERM;
   result->base.lo  = lo;
   result->base.hi  = hi;
   result->paired_with = NULL;
   result->lo_sub  = NULL;
   result->hi_sub  = NULL;
-  mcsat_value_construct_default(&result->value);
 
   return result;
 }
@@ -248,7 +241,6 @@ slice_t* bv_slicing_slice_new(term_t term, uint32_t lo, uint32_t hi) {
 void bv_slicing_slice_delete(slice_t* s) {
   if (s->lo_sub != NULL) bv_slicing_slice_delete(s->lo_sub);
   if (s->hi_sub != NULL) bv_slicing_slice_delete(s->hi_sub);
-  mcsat_value_destruct(&s->value);
   bv_slicing_spdelete(s->paired_with, false);
   safe_free(s);
 }
@@ -275,8 +267,9 @@ void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_q
   assert(s->hi_sub == NULL);
   assert(k < s->base.hi);
   assert(s->base.lo < k);
-  s->lo_sub  = bv_slicing_slice_new(s->base.term, s->base.lo, k);
-  s->hi_sub  = bv_slicing_slice_new(s->base.term, k, s->base.hi);
+  term_manager_t* tm = &ctx->var_db->tm;
+  s->lo_sub  = bv_slicing_slice_new(tm, s->base.term, s->base.lo, k);
+  s->hi_sub  = bv_slicing_slice_new(tm, s->base.term, k, s->base.hi);
 
   splist_t *b = s->paired_with;
   splist_t *next;
@@ -431,11 +424,20 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
 }
 
 
-/** Wrapping up above function: stack on top of tail a slice for variable t (expressed as a term), from lo to hi */
+/**
+ * Wrapping up above function: stack on top of tail a slice for variable t
+ * (expressed as a term), from lo to hi
+ */
 slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
-  ptr_hmap_pair_t* p = ptr_hmap_get(slices, t);       // Getting that variable's top-level slice from global hashmap
-  if (p->val == NULL) p->val = bv_slicing_slice_new(t, 0, bv_term_bitsize(ctx->terms, t)); // Create that slice if need be
-  return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);     // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
+  // Getting that variable's top-level slice from global hashmap
+  ptr_hmap_pair_t* p = ptr_hmap_get(slices, t);
+  if (p->val == NULL) {
+    // Create that slice if need be
+    term_manager_t* tm = &ctx->var_db->tm;
+    p->val = bv_slicing_slice_new(tm, t, 0, bv_term_bitsize(ctx->terms, t));
+  }
+  // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
+  return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);
 }
 
 slist_t* bv_slicing_slice_close(const plugin_context_t* ctx,
@@ -623,49 +625,27 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
     variable_db_t* var_db = ctx->var_db; // standard abbreviations
     term_manager_t* tm = &var_db->tm;
 
-    term_t t = s->base.term;
-
-    // Task 1: We create a term for the slice & store it in slice_term field
-    bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-    bvlogic_buffer_set_slice_term(buffer, ctx->terms, s->base.lo, s->base.hi-1, t);
-    s->base.slice_term = mk_bvlogic_term(tm, buffer);
+    term_t s_term = s->base.term;
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Treating slice ");
       ctx_print_slice(ctx, s);
-      fprintf(out, " where slice_term = ");
-      term_print_to_file(out, ctx->terms, s->base.slice_term);
     }
 
-    // Task 2: we compute the value if we can & store it in value field
+    // Task 1: we compute the value if we can & store it in value field
 
     bool ignore_this_bool;
     // Whether term can be evaluated from trail
     // (if true, use_trail indicates whether trail was used):
-    bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool); 
+    bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, s_term, &ignore_this_bool);
 
     if (has_value) {
-      bvconstant_t bvcst;
-      init_bvconstant(&bvcst);
-      uint32_t ignore_this_int;
-      bv_evaluator_run_term(exp->super.eval, t, &bvcst, &ignore_this_int);
-      assert(s->value.type == VALUE_NONE);
-      s->value.type = VALUE_BV;
-      init_bvconstant(&s->value.bv_value);
-      bvconstant_extract(&s->value.bv_value, bvcst.data, s->base.lo, s->base.hi);
-      bvconstant_normalize(&s->value.bv_value);
-      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, " and value = ");
-        mcsat_value_print(&s->value, out);
-        fprintf(out, " are sent to egraph.");
-      }
-      // Reason data = slice_term. Useful for collecting "interface terms" in the SMT'2017 explanation algo.
-      eq_graph_assign_term_value(egraph, s->base.slice_term, &s->value, s->base.slice_term);
-      delete_bvconstant(&bvcst);
+      uint32_t eval_level;
+      term_t s_slice_term = slice_mk_term(s, tm);
+      const mcsat_value_t* slice_term_value = bv_evaluator_evaluate_term(exp->super.eval, s_slice_term, &eval_level);
+      eq_graph_assign_term_value(egraph, s_slice_term, slice_term_value, s_slice_term);
     }
-    else mcsat_value_construct_default(&s->value);
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(ctx);
@@ -1008,10 +988,11 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   while (current != NULL) {
     assert(current->is_main);
     p = current->pair;
-    if (p->lhs->base.slice_term != p->rhs->base.slice_term) {
-      eq_graph_assert_term_eq(&eq_graph, p->lhs->base.slice_term, p->rhs->base.slice_term, 0);
-      // 0 means that the assertion is a consequence of the conflict_core
-      // We have use higher numbers when we put slice assignments s[j:i] <- v in the egraph
+    term_manager_t* tm = &this->ctx->var_db->tm;
+    term_t lhs_slice_term = slice_mk_term(p->lhs, tm);
+    term_t rhs_slice_term = slice_mk_term(p->rhs, tm);
+    if (lhs_slice_term != rhs_slice_term) {
+      eq_graph_assert_term_eq(&eq_graph, lhs_slice_term, rhs_slice_term, 0);
     }
     current = current->next;
   }
@@ -1045,8 +1026,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       while (current != NULL) {
         p = current->pair;
         assert(p->appearing_in == i); // Check that this is indeed the right disequality
-        term_t lhs = p->lhs->base.slice_term;
-        term_t rhs = p->rhs->base.slice_term;
+        term_t lhs = slice_mk_term(p->lhs, tm);
+        term_t rhs = slice_mk_term(p->rhs, tm);
 
         if (lhs == rhs
             || (eq_graph_has_term(&eq_graph, lhs)

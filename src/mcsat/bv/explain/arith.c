@@ -217,112 +217,36 @@ term_t bv_arith_add_half(term_manager_t* tm, term_t t) {
 
 // Making atoms. Assumption for these 3 functions:
 // the atom to be build evaluates to true according to the trail.
-
-// This function checks whether (left == right) would be a good term to add to a conflict
-// (it is good if it is not trivially true).
-// If it is, it returns the term (left == right). If not, it returns NULL_TERM.
-
-term_t bv_arith_eq(arith_t* exp, term_t left, term_t right) {
-  if (left == right) return NULL_TERM; // equality would be trivially true
-  bv_csttrail_t* csttrail = &exp->csttrail;
-  bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
-  assert(sanity);
-  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
-  assert(sanity);
-
-  if (left_uses_trail || right_uses_trail)
-    return bveq_atom(csttrail->ctx->terms, left, right);
-  else // equality would be true by evaluation without involving the trail
+// the function check for trivial simplifications
+term_t bv_arith_eq(term_table_t* terms, term_t left, term_t right) {
+  if (left == right) { return NULL_TERM; }
+  if (is_const_term(terms, left) && is_const_term(terms, right)) {
     return NULL_TERM;
+  }
+  return bveq_atom(terms, left, right);
 }
 
 // This function checks whether (left < right) would be a good term to add to a conflict
-// (it is good if it is not trivially true).
-// If it is, it returns the term (left < right). If not, it returns NULL_TERM.
-
-term_t bv_arith_lt(arith_t* exp, term_t left, term_t right) {
-  bv_csttrail_t* csttrail = &exp->csttrail;
-  term_table_t* terms = csttrail->ctx->terms;
-  bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
-  assert(sanity);
-  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
-  assert(sanity);
-
-  if (left_uses_trail || right_uses_trail)
-    return not_term(terms, bvge_atom(terms, left, right));
-  else // atom would be true by evaluation without involving the trail
+// the function check for trivial simplifications
+term_t bv_arith_lt(term_table_t* terms, term_t left, term_t right) {
+  if (left == right) { return NULL_TERM; }
+  if (is_const_term(terms, left) && is_const_term(terms, right)) {
     return NULL_TERM;
+  }
+  return not_term(terms, bvge_atom(terms, left, right));
 }
 
 // This function checks whether (left <= right) would be a good term to add to a conflict
 // (it is good if it is not trivially true).
 // If it is, it returns the term (left <= right). If not, it returns NULL_TERM.
 
-term_t bv_arith_le(arith_t* exp, term_t left, term_t right) {
-
-  plugin_context_t* ctx = exp->super.ctx;
-  bv_csttrail_t* csttrail = &exp->csttrail;
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith_le: trying to produce ");
-    term_print_to_file(out, ctx->terms, left);
-    fprintf(out, " <= ");
-    term_print_to_file(out, ctx->terms, right);
-    fprintf(out, "\n");
-  }
-
-  if (left == right) return NULL_TERM; // inequality would be trivially true
-  bool left_uses_trail, right_uses_trail, sanity;
-  sanity = bv_evaluator_is_evaluable(csttrail, left, &left_uses_trail);
-  assert(sanity);
-  sanity = bv_evaluator_is_evaluable(csttrail, right, &right_uses_trail);
-  assert(sanity);
-
-  bool result = true; // whether we continue code or stop
-  uint32_t ignore_this_int = 0;
-  bvconstant_t eval;
-  init_bvconstant(&eval);
-
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith_le: left_uses_trail = %d, right_uses_trail = %d\n", left_uses_trail, right_uses_trail);
-  }
-
-  // if left is 0, inequality would be trivially true
-  if (!left_uses_trail) {
-    bv_evaluator_run_term(exp->super.eval, left, &eval, &ignore_this_int);
-    result = !bvconstant_is_zero(&eval);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "left is zero = %d\n", result);
-    }
-  }
-
-  // if right is 2^n-1, inequality would be trivially true
-  if (result && !right_uses_trail) {
-    bv_evaluator_run_term(exp->super.eval, right, &eval, &ignore_this_int);
-    result = !bvconstant_is_minus_one(&eval);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "left is zero or right is 2^n-1 = %d\n", result);
-    }
-  }
-
-  delete_bvconstant(&eval);
-
-  if (result && (left_uses_trail || right_uses_trail))
-    return bvge_atom(exp->super.ctx->terms, right, left);
-  else // inequality would be true by evaluation without involving the trail
+term_t bv_arith_le(term_table_t* terms, term_t left, term_t right) {
+  if (left == right) { return NULL_TERM; }
+  if (is_const_term(terms, left) && is_const_term(terms, right)) {
     return NULL_TERM;
+  }
+  return bvge_atom(terms, right, left);
 }
-
-
-
-
 
 /**
    BV arithmetic intervals
@@ -443,8 +367,8 @@ void bv_arith_interval_push(bv_arith_ctx_t* lctx,
   delete_bvconstant(&length);
 }
 
+static inline
 void bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason) {
-  assert(reason != NULL_TERM);
   bvconstant_t* zero = &lctx->zero;
   bv_arith_interval_push(lctx,zero,zero,lctx->zero_term,lctx->zero_term,reason);
 }
@@ -518,12 +442,14 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
   bvconstant_t cc1, cc2;
   init_bvconstant(&cc1);
   init_bvconstant(&cc2);
-  uint32_t eval_level = 0; // What is this level ?!? Let's say it's 0 :-)
-  bv_evaluator_run_term(lctx->exp->super.eval, c1, &cc1, &eval_level);
+  uint32_t eval_level = 0;
+  const mcsat_value_t* c1_value = bv_evaluator_evaluate_term(lctx->exp->super.eval, c1, &eval_level);
+  assert(c1_value->type == VALUE_BV);
+  bvconstant_copy(&cc1, c1_value->bv_value.bitsize, c1_value->bv_value.data);
   eval_level = 0;
-  bv_evaluator_run_term(lctx->exp->super.eval, c2, &cc2, &eval_level);
-  assert(bvconstant_is_normalized(&cc1));
-  assert(bvconstant_is_normalized(&cc2));
+  const mcsat_value_t* c2_value = bv_evaluator_evaluate_term(lctx->exp->super.eval, c2, &eval_level);
+  assert(c2_value->type == VALUE_BV);
+  bvconstant_copy(&cc2, c2_value->bv_value.bitsize, c2_value->bv_value.data);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -545,8 +471,11 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "is_neq: present on both sides or neither\n");
       }
-      if (bvconstant_eq(&cc1,&cc2)) // If c1 == c2, we forbid everything, otherwise we forbid nothing
-        bv_arith_full_interval_push(lctx, bv_arith_eq(lctx->exp, c1, c2));
+      if (bvconstant_eq(&cc1,&cc2)) {
+        // If c1 == c2, we forbid everything, otherwise we forbid nothing
+        term_t reason = bv_arith_eq(tm->terms, c1, c2);
+        bv_arith_full_interval_push(lctx, reason);
+      }
     }
     if (right_has && !left_has) { // case (c1 != c2 + x), forbidden interval is [ c1-c2 ; c1-c2 ]
       bvconstant_copy(&lo, cc1.bitsize, cc1.data);
@@ -631,7 +560,8 @@ void bv_arith_unit_constraint(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool
           fprintf(out, "Case <=: !has_right, !has_left");
         }
         if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
-          bv_arith_full_interval_push(lctx, bv_arith_lt(lctx->exp, c2, c1));
+          term_t reason = bv_arith_lt(tm->terms, c2, c1);
+          bv_arith_full_interval_push(lctx, reason);
         }
       }
     }
@@ -675,7 +605,7 @@ void bv_arith_add2conflict(arith_t* exp,
     fprintf(out, " )\n");
   }
 
-  term_t continuity_reason = bv_arith_le(exp, i->lo_term, min_saved_term);
+  term_t continuity_reason = bv_arith_le(tm->terms, i->lo_term, min_saved_term);
   if (continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
@@ -688,7 +618,7 @@ void bv_arith_add2conflict(arith_t* exp,
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_run_atom(exp->super.eval, continuity_reason, &eval_level));
+    assert(bv_evaluator_evaluate_term(exp->super.eval, continuity_reason, &eval_level)->b);
     ivector_push(conflict, continuity_reason);
   }
 
@@ -700,7 +630,7 @@ void bv_arith_add2conflict(arith_t* exp,
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_run_atom(exp->super.eval, i->reason, &eval_level));
+    assert(bv_evaluator_evaluate_term(exp->super.eval, i->reason, &eval_level)->b);
     ivector_push(conflict, i->reason);
   }
   
@@ -923,7 +853,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 
   assert(best_so_far != NULL);
-  term_t continuity_reason = bv_arith_lt(exp, best_so_far->hi_term, best_so_far->lo_term);
+  term_t continuity_reason = bv_arith_lt(tm->terms, best_so_far->hi_term, best_so_far->lo_term);
   if (!(bvconstant_eq(&best_so_far->hi, &best_so_far->lo))
       && continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -937,7 +867,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(!bv_evaluator_run_atom(exp->super.eval,not_term(terms,continuity_reason), &eval_level));
+    assert(!bv_evaluator_evaluate_term(exp->super.eval,not_term(terms,continuity_reason), &eval_level)->b);
     ivector_push(conflict, continuity_reason);
   }
   bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);

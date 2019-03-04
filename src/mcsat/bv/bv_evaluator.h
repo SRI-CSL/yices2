@@ -45,6 +45,9 @@ typedef struct bv_evaluator_t {
   /** Map from terms/atoms to levels */
   int_hmap_t level_map;
 
+  /** Temp value to provide to the user */
+  mcsat_value_t eval_value;
+
 } bv_evaluator_t;
 
 /** Construct the evaluator for the given plugin context */
@@ -56,13 +59,6 @@ void bv_evaluator_destruct(bv_evaluator_t* evaluator);
 /** Clears the evaluator's cache */
 void bv_evaluator_clear_cache(bv_evaluator_t* evaluator);
   
-/**
- * Evaluate term and construct the value into out. User should destruct. No cache clearing is performed.
- */
-void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_value, uint32_t* eval_level);
-
-bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level);
-
 /**
  * Evaluate a BV constraint (atom), return the value (true/false) and set
  * the cstr_eval_level to the lowest level where the constraint still
@@ -76,7 +72,6 @@ const mcsat_value_t* bv_evaluator_evaluate_var(bv_evaluator_t* evaluator, variab
  * evaluates.
  */
 const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_t cstr, uint32_t* cstr_eval_level);
-
 
 /**
  * Structure to determine if a bv term is constant, or if all of its bv-variables have values on the trail, etc
