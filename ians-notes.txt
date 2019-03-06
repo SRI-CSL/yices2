@@ -1,156 +1,49 @@
-Short term plan to gain momentum (currently developing ONLY on linux).
-
-Incorporate the locking code and write some mutltithreaded tests.
-Use valgrind (helgrind) to detect races.
-Go from there.
-
-
 autoconf
-./configure --enable-mcsat
-make MODE=debug
-
-
-
-To build the tests:
-
-make MODE=debug test
-
-(tests end up in the build/*/bin directory)
-
-
-
-BD: do we want to make thread safety  an "option"  (BD yes to a configure option.)
-
-BD: overhead of error_report vs new blocks? (BD: fine as is for now.)
-
-
-Looks like the neorationals cause this to loop?
-
-tests/regress/coverage/random/QF_AUFLIA/046e3bb4.smt2
-
-
-N.B.:
-
-yices_lock_free.h is a lock_free version of the api, could be eliminated by reordering the definitions in yices_api.c
-
-in solvers/egraph/egraph_printer.c there are mysterious:
-
-static uint32_t name_size = 0;
-static char **name = NULL;
-
-that never get assigned.
-
-
-These are constants like hobjs?
-
-  solvers/bv/bvsolver	bv_solver_bv_egraph
-  solvers/bv/bvsolver	bv_solver_context
-  solvers/bv/bvsolver	bv_solver_control
-  solvers/bv/bvsolver	bv_solver_egraph
-  solvers/bv/bvsolver	bv_solver_smt
-  solvers/egraph/egraph	egraph_control
-  solvers/egraph/egraph	egraph_smt
-  solvers/floyd_warshall/idl_floyd_warshall	idl_control
-  solvers/floyd_warshall/idl_floyd_warshall	idl_intern
-  solvers/floyd_warshall/idl_floyd_warshall	idl_smt
-  solvers/floyd_warshall/rdl_floyd_warshall	rdl_control
-  solvers/floyd_warshall/rdl_floyd_warshall	rdl_intern
-  solvers/floyd_warshall/rdl_floyd_warshall	rdl_smt
-  solvers/funs/fun_solver	fsolver_control
-  solvers/funs/fun_solver	fsolver_egraph
-  solvers/funs/fun_solver	fsolver_fun_egraph
-  solvers/simplex/simplex	simplex_arith_egraph
-  solvers/simplex/simplex	simplex_context
-  solvers/simplex/simplex	simplex_control
-  solvers/simplex/simplex	simplex_egraph
-  solvers/simplex/simplex	simplex_prop_level
-  solvers/simplex/simplex	simplex_smt
+./configure --enable-mcsat --enable-thread-safety
+make
 
 
 
 
-The following API functions are not thread safe. Nor should
-we attempt to make them so. It should be well documented.
 
-<non-thread-safe api routines>
- void yices_init(void);
- void yices_exit(void);
- void yices_reset(void);
-</non-thread-safe api routines>
-
-Things like term vectors are not protected. You should not pass them from thread to thread
-unless you, qua user, protect them.
-
-
-problematic (assumming it is not the case that HAVE_TLS:
-
-<problematic>
- error_report_t *yices_error_report(void);
- error_report_t *yices_get_error_report(void);
- error_code_t yices_error_code(void);
- void yices_clear_error(void);
- int32_t yices_print_error(FILE *f);
- ...
-
-===============================================================================================
-For  Discussion:
-
-Ian's current idea is that we have a configure flag for thread safety and it requires HAVE_TLS,
-and is currently incompatible with --enable-mcsat.
-
-also little endian vs big endian is important in the neorationals.
-
-
-//BD: for the time being only one parser (maybe later a parser per thread would be OK)
-
-Ian says: if we protect the context checking operations with the global lock,
-we prevent concurrent computation. Discuss.
-
-Ian says: I make an effort to avoid it in the unsat_core api call and it seems to work.  Discuss.
-
-Ian says: Not sure what the right approach is for test_neorational_conversions.c. Advice.
-
-*** Remove my hack checks, and revert back to original INCLUDING unchanged MAX_DENOMINATOR
-
-Ian says:
-
-I decided this was a bad idea, since freeing them would be a pain. "mpq_aux.c global(s) need to be thread local."
-So thread local data is OK ONLY if it need not be reclaimed. Discuss.
-
-
-Ian asks: yices_extensions?
+If configured with the switch '--enable-thread-safety' the yices2 library will be thread
+safe in the following restricted sense: as long as the creation and manipulation of
+contexts, and models is restricted to a single thread, there should be no races.
+In particular separate threads that each create their own contexts can manipulate and check
+them without impeding other thread's progress.
+It is also recommended that the user themselves should syncronize any access to any global
+ctx_config_t or param_t objects.
 
 
 
 
-===============================================================================================
 
-</problematic>
-
+mcsat notes.
 
 
-Questions:
+a context_t has a mcsat slot initialized by
 
-do models change internally once they are created?
+static void create_mcsat(context_t *ctx);  in context.c
 
-do we really want to protect things like config_t param_t with locks?
-wouldn't it be better to have a "principled approach to thread safety?"
+(there are matching delete_mcsat and reset_mcsat)
 
-principles like:
+the entry point from context.c to the mcsat_solver appears to be
 
-params, configs, contexts and models, should not be shared across threads.
+mcsat_assert_formulas
 
-#####################
+the entry point from context_solver.c to the mcsat_solver appears to be
 
-examples/*.c and examples/*.cpp are worth making mt for helgrinding.
-
-
-can also rewrite sudoku to use bv (4 bit and bigger) to stress the bv side of things.
+mcsat_solve.
 
 
-example1.c with different formulas
-test_api3.c
+N.B. dangerous to move mcsat_assert_formulas out of context_process_assertions because of the jump_buf
 
-######################
 
-mpq_aux.c global(s) need to be thread local.
+mcsat_solver_s has a slot for the yices2 context as well as term and type tables. Are these the global ones?
+They come directly from the yices2 context.
+
+it all takes place in mcsat_construct in mcsat/solver.c
+
+
+
+2nd attempt in mt-master-mcsat branch.

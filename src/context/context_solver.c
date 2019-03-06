@@ -552,15 +552,13 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
   }
 }
 
-static inline smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
+static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
   mcsat_solve(ctx->mcsat, params);
   return mcsat_status(ctx->mcsat);
 }
 
-static smt_status_t inline call_mcsat_solver(context_t *ctx, const param_t *params) {
+static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
   MT_PROTECT(smt_status_t, __yices_globals.lock, _o_call_mcsat_solver(ctx, params));
-  mcsat_solve(ctx->mcsat, params);
-  return mcsat_status(ctx->mcsat);
 }
 
 /*

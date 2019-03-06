@@ -59,7 +59,7 @@ def hasValgrind():
     valgrindCmd  = ['valgrind', '--version']
     valgrindProc = 0
     try:
-        valgrindProc = Popen(valgrindCmd, stdout=PIPE)
+        valgrindProc = subprocess.Popen(valgrindCmd, stdout=subprocess.PIPE)
     except OSError as e:
         if e.errno != 2:
             raise Exception("OS error({0}): {1}".format(e.errno, e.strerror))
