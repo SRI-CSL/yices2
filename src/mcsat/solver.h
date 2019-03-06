@@ -100,6 +100,11 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer);
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out);
 
 /*
+ * Mark all terms/types that need to be kept.
+ */
+void mcsat_gc_mark(mcsat_solver_t* mcsat);
+
+/*
  * Set the excepetion handler. Should be done before, any call into the solver.
  */
 void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler);
