@@ -83,7 +83,6 @@ extern void init_rationals(void);
 extern void cleanup_rationals(void);
 
 
-
 /*
  * Set r to 0/1, Must be called before any operation on r.
  */
@@ -129,30 +128,9 @@ static inline void set_ratgmp(rational_t *r, mpq_ptr gmp){
 
 
 /*
- * Allocates a new mpq object. (in case we pool them later)
- *
+ * Free an mpq
  */
-static inline mpq_ptr new_mpq(void){
-  mpq_ptr retval;
-
-  retval = safe_malloc(sizeof(mpq_t));
-  mpq_init2(retval, 64);
-  return retval;
-}
-
-/*
- * Deallocates a new mpq object. (in case we pool them later)
- *
- */
-static inline void release_mpq(rational_t *r){
-  mpq_ptr q;
-
-  assert(is_ratgmp(r));
-  q = get_gmp(r);
-  mpq_clear(q);
-  safe_free(q);
-}
-
+extern void release_mpq(rational_t *r);
 
 /*
  * Free mpq number attached to r if any, then set r to 0/1.

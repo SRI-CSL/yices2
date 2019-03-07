@@ -5506,12 +5506,14 @@ void smt2_assert(term_t t, bool special) {
 
 
 
+#ifdef THREAD_SAFE
 
 /*
- * Check satisfiability of the current set of assertions
+ * PROVISIONAL CODE FOR TESTING MULTIPLE SOLVERS & CONTEXTS
+ * IN SEPARATE THREADS
  */
 
-yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* arg){
+static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* arg){
   thread_data_t* tdata = (thread_data_t *)arg;
   FILE* output = tdata->output;
   smt2_globals_t *g = (smt2_globals_t *)tdata->extra;
@@ -5524,6 +5526,12 @@ yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* ar
   return yices_thread_exit();
 }
 
+#endif
+
+
+/*
+ * Check satisfiability of the current set of assertions
+ */
 void smt2_check_sat(void) {
   __smt2_globals.stats.num_check_sat ++;
   __smt2_globals.stats.num_commands ++;
@@ -5542,7 +5550,10 @@ void smt2_check_sat(void) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
         //	show_delayed_assertions(&__smt2_globals);
-        if(__smt2_globals.nthreads == 0){
+#ifndef THREAD_SAFE
+	check_delayed_assertions(&__smt2_globals);
+#else
+        if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals);
         } else {
           bool success = true;
@@ -5558,22 +5569,23 @@ void smt2_check_sat(void) {
           check_delayed_assertions(&__smt2_globals);
           //could check that they are all OK
           smt_status_t main_answer = yices_context_status(__smt2_globals.ctx);
-          for(index = 0; index < __smt2_globals.nthreads; index++){
+          for (index = 0; index < __smt2_globals.nthreads; index++) {
             smt_status_t answer = yices_context_status(garray[index].ctx);
 
-            if(answer != main_answer){
+            if (answer != main_answer) {
               success = false;
             }
             //free the model if there is one, and free the context.
             //IAM: valgrind says there is no leak here. This is puzzling.
           }
-          if(success){
+          if (success) {
             fprintf(stderr, "SUCCESS: All threads agree.\n");
           } else {
             fprintf(stderr, "FAILURE: Threads disagree.\n");
-           }
+	  }
           safe_free(garray);
         }
+#endif
       }
     } else {
       /*

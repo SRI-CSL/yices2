@@ -81,6 +81,34 @@ void cleanup_rationals(void){
 }
 
 
+/*************************
+ *  MPQ ALLOCATION/FREE  *
+ ************************/
+
+/*
+ * Allocates a new mpq object. (in case we pool them later)
+ */
+static mpq_ptr new_mpq(void){
+  mpq_ptr retval;
+
+  retval = safe_malloc(sizeof(mpq_t));
+  mpq_init2(retval, 64);
+  return retval;
+}
+
+/*
+ * Deallocates a new mpq object. (in case we pool them later)
+ */
+void release_mpq(rational_t *r){
+  mpq_ptr q;
+
+  assert(is_ratgmp(r));
+  q = get_gmp(r);
+  mpq_clear(q);
+  safe_free(q);
+}
+
+
 
 
 /*******************

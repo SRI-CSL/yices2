@@ -158,8 +158,6 @@ core_src_c := \
 	model/term_to_val.c \
 	model/val_to_term.c \
 	mt/yices_locks.c \
-	mt/threadsafe.c \
-	mt/threads.c \
 	parser_utils/lexer.c \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \
@@ -299,7 +297,6 @@ core_src_c := \
 	utils/use_vectors.c \
 	utils/vector_hash_map.c
 
-
 #
 # Optional: mcsat solver
 #
@@ -334,6 +331,8 @@ mcsat_src_c := \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
+
+
 
 #
 # Fake mcsat module: do nothing. Used to make the compilation go through.
@@ -410,6 +409,15 @@ extra_src_c := \
 
 
 #
+# Optional for libyices.a: support for launching threads
+# and testing multi-threaded code
+#
+extra_thread_src_c := \
+	mt/threadsafe.c \
+	mt/threads.c
+
+
+#
 # base: core + mcsat if MCSAT is enabled or core + fake mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
@@ -422,7 +430,9 @@ endif
 # all sources: base + extra
 #
 src_c := $(base_src_c) $(extra_src_c)
-
+ifeq ($(THREAD_SAFE),1)
+src_c := $(src_c) $(extra_thread_src_c)
+endif
 
 #
 # additional source files for the binaries
@@ -558,14 +568,17 @@ libyices_def=libyices.def
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
-  CPPFLAGS+=-DHAVE_MCSAT
+  CPPFLAGS += -DHAVE_MCSAT
 endif
 
 #
-# Whether we have desire thread safety
+# Whether we have thread safety
+# If so on Unix systems, we must add -pthread to CFLAGS
 #
+PTRHEAD=
 ifeq ($(THREAD_SAFE),1)
-  CPPFLAGS+=-DTHREAD_SAFE
+  CPPFLAGS += -DTHREAD_SAFE
+  PTHREAD= -pthread
 endif
 
 
@@ -600,7 +613,7 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden -pthread -Qunused-arguments
+  CFLAGS += -fvisibility=hidden $(PTHREAD) -Qunused-arguments
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
@@ -611,7 +624,7 @@ ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -620,8 +633,8 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
-  CFLAGS += -fvisibility=hidden -pthread
-  BIN_LDFLAGS= -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS= $(PTHREAD)
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
@@ -629,7 +642,7 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -639,7 +652,7 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)

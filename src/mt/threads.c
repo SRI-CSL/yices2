@@ -20,8 +20,6 @@
 
 #include "threads.h"
 
-
-
 #ifndef MINGW
 #include "threads_posix.c"
 #else
