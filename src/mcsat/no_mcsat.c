@@ -65,3 +65,7 @@ void mcsat_show_stats(mcsat_solver_t *mcsat, FILE *out) {
 
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 }
+
+void mcsat_gc_mark(mcsat_solver_t* mcsat) {
+}
+
