@@ -47,3 +47,22 @@ it all takes place in mcsat_construct in mcsat/solver.c
 
 
 2nd attempt in mt-master-mcsat branch.
+
+
+=================
+
+32 bit version recipe
+
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386
+sudo apt-get install libgmp-dev:i386
+sudo apt-get install gcc-multilib
+./configure --build=i686-pc-linux-gnu CFLAGS=-m32 LDFLAGS=-L/usr/lib/i386-linux-gnu/
+ make OPTION=32bits MODE=debug
+ make OPTION=32bits MODE=debug check
+
+tests/regress/coverage/smtlib/QF_AUFLIA/safari/ini.smt2 --incremental 
+  
+tests/regress/coverage/smtlib/QF_AUFLIA/safari/ini.smt2 --incremental --verbosity=<big number>
+  
