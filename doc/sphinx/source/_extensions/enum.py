@@ -13,11 +13,10 @@
 #    sphinx/comains/c.py
 #
 
-from docutils.parsers.rst import directives
+from docutils.parsers.rst import Directive, directives
 
 from sphinx import addnodes
 from sphinx.roles import XRefRole
-from sphinx.util.compat import Directive
 from sphinx.util.nodes import make_refnode
 from sphinx.locale import l_, _
 from sphinx.domains import ObjType
