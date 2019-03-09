@@ -5581,6 +5581,30 @@ static void context_build_sharing_data(context_t *ctx) {
   sharing_map_add_terms(map, ctx->top_formulas.data, ctx->top_formulas.size);
 }
 
+
+/*
+ * PROVISIONAL: SHOW ASSERTIONS
+ */
+static void context_show_assertions(const context_t *ctx, uint32_t n, const term_t *a) {
+  pp_area_t area;
+  yices_pp_t printer;
+  uint32_t i;
+
+  area.width = 80;
+  area.height = UINT32_MAX;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = false;
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+
+  for (i=0; i<n; i++) {
+    pp_term_full(&printer, ctx->terms, a[i]);
+    flush_yices_pp(&printer);
+  }
+  delete_yices_pp(&printer, true);
+  
+}
+
 /*
  * Flatten and internalize assertions a[0 ... n-1]
  * - all elements a[i] must be valid boolean term in ctx->terms
@@ -5610,6 +5634,10 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
+
+    printf("\n=== Context: process assertions ===\n");
+    context_show_assertions(ctx, n, a);
+    printf("===\n\n");
 
     // flatten
     for (i=0; i<n; i++) {

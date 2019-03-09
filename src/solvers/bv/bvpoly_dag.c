@@ -1834,6 +1834,9 @@ static node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, u
  * - each x_i must be node index (can be positive or negative)
  * - there mustn't be duplicates among x_0 ... x_n
  *   all node_of_occ(x_i) must be distinct.
+ *
+ * TODO: fix this. The precondition that the node_of_occ(x_i) must be
+ * distinct can't be easily enforced.
  */
 static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   ivector_t *v;
@@ -1882,6 +1885,7 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
 
 
 // same thing for a polynomial with large coefficients
+// TODO: fix this too.
 static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   ivector_t *v;
   uint32_t i, n, bitsize;
@@ -2414,7 +2418,7 @@ static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
     // i is equal to n
     assert((k1 == 0 && k2 == 1) || (k1 == 1 && k2 == 0));
     replace_node(dag, i, n);
-    return;;
+    return;
   }
 
   p->hash = 0;
