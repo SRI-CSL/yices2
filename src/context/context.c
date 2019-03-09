@@ -5582,6 +5582,7 @@ static void context_build_sharing_data(context_t *ctx) {
 }
 
 
+#if 0
 /*
  * PROVISIONAL: SHOW ASSERTIONS
  */
@@ -5602,8 +5603,8 @@ static void context_show_assertions(const context_t *ctx, uint32_t n, const term
     flush_yices_pp(&printer);
   }
   delete_yices_pp(&printer, true);
-  
 }
+#endif
 
 /*
  * Flatten and internalize assertions a[0 ... n-1]
@@ -5635,9 +5636,11 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       goto done;
     }
 
+#if 0
     printf("\n=== Context: process assertions ===\n");
     context_show_assertions(ctx, n, a);
     printf("===\n\n");
+#endif
 
     // flatten
     for (i=0; i<n; i++) {

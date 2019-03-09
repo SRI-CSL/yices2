@@ -28,7 +28,7 @@
 #include "utils/bit_tricks.h"
 
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 
@@ -657,7 +657,7 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
       int_bvset_add(&c->in_queue, x);
       bv_compiler_push_poly64(c, bvvar_poly64_def(vtbl, x));
       bvc_queue_push(&c->queue, x);
-#if 1
+#if 0
       printf("\n=== Pushing var %"PRId32" ===\n", x);
       printf("var defined as poly: ");
       print_bvpoly64_raw(stdout, bvvar_poly64_def(vtbl, x));
@@ -790,7 +790,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
       bv_compiler_map_to_const64(c, x, a, b->bitsize);
       return;
     }
-#if 1
+#if 0
     printf("\n=== Mapping var %"PRId32" ===\n", x);
     printf("Dag before\n");
     print_bvc_dag(stdout, &c->dag);
@@ -800,7 +800,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     printf("\n\n");
 #endif
     q = bv_compiler_pbuffer_to_dag(c, b);
-#if 1
+#if 0
     printf("Dag after\n");
     print_bvc_dag(stdout, &c->dag);
     printf("----\n");
