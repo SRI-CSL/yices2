@@ -1291,7 +1291,7 @@ bdds_Cudd_bddPickOneCube(CUDD* cudd, DdNode * node, pick_type_t pick)
 } /* end of Cudd_bddPickOneCube */
 
 void bdds_get_model(CUDD* cudd, BDD** x, BDD* C_x, bvconstant_t* out) {
-  bdds_Cudd_bddPickOneCube(cudd, C_x, PREFER_RANDOM);
+  bdds_Cudd_bddPickOneCube(cudd, C_x, PREFER_SHORT_ZERO);
   // Set the ones in the cube
   for (uint32_t i = 0; i < out->bitsize; ++ i) {
     unsigned int x_i = Cudd_NodeReadIndex(x[i]);
