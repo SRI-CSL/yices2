@@ -8,7 +8,6 @@
 (assert (= y ((_ extract 3 0) x)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

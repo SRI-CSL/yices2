@@ -8,6 +8,5 @@
 (assert (= ((_ rotate_right 3) x) s))
 
 (check-sat)
-(get-model)
 
 (exit)

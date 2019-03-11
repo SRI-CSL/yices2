@@ -8,7 +8,6 @@
 (assert (= y (bvnot x)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

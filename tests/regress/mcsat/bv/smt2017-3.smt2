@@ -17,5 +17,4 @@
 (assert (not (= ((_ extract 10 6) x1) #b00010)))
 (assert (not (= ((_ extract 10 6) x2) #b00010)))
 (check-sat)
-(get-model)
 (exit)

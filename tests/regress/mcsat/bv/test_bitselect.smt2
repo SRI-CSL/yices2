@@ -6,7 +6,6 @@
 (assert (= #b1 ((_ extract 3 3) x)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

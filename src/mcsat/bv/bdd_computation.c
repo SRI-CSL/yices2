@@ -298,7 +298,6 @@ int32_t bdds_is_constant_pow2(CUDD* cudd, BDD** a, uint32_t n) {
   return pow;
 }
 
-
 void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   for(uint32_t i = 0; i < n; ++ i) {
     assert(out[i] == NULL);
@@ -446,13 +445,15 @@ void bdds_mk_ashr(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   bdds_remove_reserve(cudd, n);
 }
 
-void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* children_bdds) {
-  uint32_t n = children_bdds->size;
+/** Make a Boolean or: a[0] || ... || a[n] */
+static
+void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* a) {
+  uint32_t n = a->size;
   out[0] = Cudd_ReadLogicZero(cudd->cudd);
   Cudd_Ref(out[0]);
   for (uint32_t i = 0; i < n; i ++ ) {
     BDD* tmp = out[0];
-    BDD** child_i = (BDD**) children_bdds->data[i];
+    BDD** child_i = (BDD**) a->data[i];
     out[0] = Cudd_bddOr(cudd->cudd, tmp, child_i[0]);
     Cudd_Ref(out[0]);
     Cudd_IterDerefBdd(cudd->cudd, tmp);
