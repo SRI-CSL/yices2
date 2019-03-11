@@ -27,6 +27,7 @@
 
 #include "io/yices_pp.h"
 #include "terms/bvlogic_buffers.h"
+#include "terms/bvpoly_buffers.h"
 #include "terms/terms.h"
 
 
@@ -48,6 +49,13 @@ extern void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b);
 extern void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b);
 extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);
 
+/*
+ * Variant print functions: don't interpret polynomial variables
+ * as terms.
+ */
+extern void print_bvpoly_buffer(FILE *f, bvpoly_buffer_t *b);
+extern void print_bvpoly64_raw(FILE *f, bvpoly64_t *p);
+extern void print_bvpoly_raw(FILE *f, bvpoly_t *p);
 
 /*
  * Print functions:
