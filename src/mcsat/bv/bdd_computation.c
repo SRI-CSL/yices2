@@ -787,14 +787,21 @@ void bdds_mk_sdiv(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
       bdds_mk_2s_complement(cudd, case01_result, bvdiv_a_bvneg_b, n);
     }
 
-    // Case msb_a = 1, msb_b = 1
-    if (bvneg_a[0] == NULL) {
-      bdds_mk_2s_complement(cudd, bvneg_a, a, n);
+    // Case msb_a = 1, msb_b = 1 (BDD not needed, but we make it to shortcircuit)
+    BDD* case11 = Cudd_bddAnd(cudd->cudd, msb_a, msb_b);
+    Cudd_Ref(case11);
+    if (case11 != zero) {
+      if (bvneg_a[0] == NULL) {
+        bdds_mk_2s_complement(cudd, bvneg_a, a, n);
+      }
+      if (bvneg_b[0] == NULL) {
+        bdds_mk_2s_complement(cudd, bvneg_b, b, n);
+      }
+      bdds_mk_div(cudd, case11_result, bvneg_a, bvneg_b, n);
+    } else {
+      // Doesn't happen, just make it 0
+      bdds_mk_zero(cudd, case11_result, n);
     }
-    if (bvneg_b[0] == NULL) {
-      bdds_mk_2s_complement(cudd, bvneg_b, b, n);
-    }
-    bdds_mk_div(cudd, case11_result, bvneg_a, bvneg_b, n);
 
     // Final ITE result
     bdds_mk_ite(cudd, ite1, case01, case01_result, case11_result, n);
@@ -805,6 +812,7 @@ void bdds_mk_sdiv(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
     Cudd_IterDerefBdd(cudd->cudd, case00);
     Cudd_IterDerefBdd(cudd->cudd, case10);
     Cudd_IterDerefBdd(cudd->cudd, case01);
+    Cudd_IterDerefBdd(cudd->cudd, case11);
 
   }
 
