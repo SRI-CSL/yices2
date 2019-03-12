@@ -10,6 +10,5 @@
 (assert (= (bvand c x) s))
 
 (check-sat)
-(get-model)
 
 (exit)

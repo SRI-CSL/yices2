@@ -18,7 +18,6 @@
 (assert (= o3 (bvneg z)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

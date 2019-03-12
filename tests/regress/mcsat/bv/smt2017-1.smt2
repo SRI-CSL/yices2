@@ -9,5 +9,4 @@
 (assert (= x2 (bvnot x1)))
 (assert (= (concat ((_ extract 3 0) x1) ((_ extract 7 4) x2)) (concat ((_ extract 11 8) y) ((_ extract 11 8) y))))
 (check-sat)
-(get-model)
 (exit)

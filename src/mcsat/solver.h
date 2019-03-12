@@ -88,7 +88,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
-
 /*
  * Set the tracer for the solver.
  */
@@ -98,6 +97,11 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer);
  * Show statistics.
  */
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out);
+
+/*
+ * Mark all terms/types that need to be kept.
+ */
+void mcsat_gc_mark(mcsat_solver_t* mcsat);
 
 /*
  * Set the excepetion handler. Should be done before, any call into the solver.

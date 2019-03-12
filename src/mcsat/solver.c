@@ -44,6 +44,8 @@
 #include "mcsat/utils/statistics.h"
 
 #include "utils/dprng.h"
+#include "model/model_queries.h"
+#include "io/model_printer.h"
 
 #include <inttypes.h>
 
@@ -133,8 +135,14 @@ struct mcsat_solver_s {
   /** Variable database */
   variable_db_t* var_db;
 
-  /** List of assertions (positive variables). */
+  /** List of assertions (positive variables) asserted to true. */
   ivector_t assertion_vars;
+
+  /**
+   * List of assertions (terms) as sent to the solver through the API. These
+   * terms have not been pre-processed.
+   */
+  ivector_t assertion_terms_original;
 
   /** The trail */
   mcsat_trail_t* trail;
@@ -653,6 +661,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
 
   // List of assertions
   init_ivector(&mcsat->assertion_vars, 0);
+  init_ivector(&mcsat->assertion_terms_original, 0);
 
   // The trail
   mcsat->trail = safe_malloc(sizeof(mcsat_trail_t));
@@ -728,6 +737,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   delete_int_queue(&mcsat->registration_queue);
   delete_int_hset(&mcsat->registration_cache);
   delete_ivector(&mcsat->assertion_vars);
+  delete_ivector(&mcsat->assertion_terms_original);
   trail_destruct(mcsat->trail);
   safe_free(mcsat->trail);
   variable_db_destruct(mcsat->var_db);
@@ -807,7 +817,7 @@ static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
 
 static
-void mcsat_gc(mcsat_solver_t* mcsat);
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
@@ -826,6 +836,7 @@ void mcsat_push(mcsat_solver_t* mcsat) {
   // Internal stuff push
   scope_holder_push(&mcsat->scope,
       &mcsat->assertion_vars.size,
+      &mcsat->assertion_terms_original.size,
       NULL);
   // Regular push for the internal data structures
   mcsat_push_internal(mcsat);
@@ -868,10 +879,13 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   // Internal stuff pop
   uint32_t assertion_vars_size = 0;
+  uint32_t assertion_terms_original_size = 0;
   scope_holder_pop(&mcsat->scope,
       &assertion_vars_size,
+      &assertion_terms_original_size,
       NULL);
   ivector_shrink(&mcsat->assertion_vars, assertion_vars_size);
+  ivector_shrink(&mcsat->assertion_terms_original, assertion_terms_original_size);
 
   // Pop the preprocessor
   preprocessor_pop(&mcsat->preprocessor);
@@ -880,7 +894,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_POP);
 
   // Garbage collect
-  mcsat_gc(mcsat);
+  mcsat_gc(mcsat, false);
   (*mcsat->solver_stats.gc_calls) ++;
 
   // Set the status back to idle
@@ -984,8 +998,9 @@ static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
   int_mset_destruct(&to_notify);
 }
 
+/** Pass true to mark terms and types in the internal yices term tables */
 static
-void mcsat_gc(mcsat_solver_t* mcsat) {
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
 
   uint32_t i;
   variable_t var;
@@ -1070,6 +1085,17 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
   // Variable queue sweep
   var_queue_gc_sweep(&mcsat->var_queue, &gc_vars);
 
+  // If asked mark all the terms
+  if (mark_internal) {
+    for (i = 0; i < gc_vars.marked.size; ++ i) {
+      variable_t x = gc_vars.marked.data[i];
+      term_t x_term = variable_db_get_term(mcsat->var_db, x);
+      term_t x_type = term_type(mcsat->terms, x_term);
+      term_table_set_gc_mark(mcsat->terms, index_of(x_term));
+      type_table_set_gc_mark(mcsat->types, x_type);
+    }
+  }
+
   // Done, destruct
   gc_info_destruct(&gc_vars);
 
@@ -1136,7 +1162,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "garbage collection\n");
       }
-      mcsat_gc(mcsat);
+      mcsat_gc(mcsat, false);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
     }
@@ -1776,6 +1802,29 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
         goto conflict;
       } else {
         mcsat->status = STATUS_SAT;
+
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
+          // Check models
+          model_t model;
+          init_model(&model, mcsat->terms, true);
+          mcsat_build_model(mcsat, &model);
+          uint32_t i = 0;
+          for (i = 0; i < mcsat->assertion_terms_original.size; ++i) {
+            term_t assertion = mcsat->assertion_terms_original.data[i];
+            int32_t code = 0;
+            bool assertion_is_true = formula_holds_in_model(&model, assertion, &code);
+            if (!assertion_is_true) {
+              FILE* out = trace_out(mcsat->ctx->trace);
+              fprintf(out, "Assertion not true in model: ");
+              trace_term_ln(mcsat->ctx->trace, mcsat->terms, assertion);
+              fprintf(out, "In model:\n");
+              model_print(out, &model);
+            }
+            assert(assertion_is_true);
+          }
+          delete_model(&model);
+        }
+
         return;
       }
     }
@@ -1823,6 +1872,11 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
 
 int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
   uint32_t i;
+
+  // Remember the original assertions
+  for (i = 0; i < n; ++ i) {
+    ivector_push(&mcsat->assertion_terms_original, f[i]);
+  }
 
   // Preprocess the formulas
   ivector_t assertions;
@@ -1920,4 +1974,8 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
     plugin_t* plugin = mcsat->plugins[i].plugin;
     plugin->set_exception_handler(plugin, handler);
   }
+}
+
+void mcsat_gc_mark(mcsat_solver_t* mcsat) {
+  mcsat_gc(mcsat, true);
 }

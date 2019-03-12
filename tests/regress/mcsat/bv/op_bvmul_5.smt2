@@ -46,7 +46,6 @@
 (assert (= o16 (bvmul x4 x4)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 
