@@ -333,7 +333,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
           term_t vars[n_vars];
           for (i = n_vars - 1; size > 0; i--) {
             if (size >= var_size) {
-              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, 8));
+              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, var_size));
               size -= var_size;
             } else {
               vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, size));
@@ -444,8 +444,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (arg_pre == arg) {
           current_pre = current;
         } else {
+          if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+            mcsat_trace_printf(pre->tracer, "arg_pre = ");
+            trace_term_ln(pre->tracer, terms, arg_pre);
+          }
           // For simplification purposes use API
           current_pre = yices_bitextract(arg_pre, index);
+          assert(current_pre != NULL_TERM);
         }
       }
       break;
