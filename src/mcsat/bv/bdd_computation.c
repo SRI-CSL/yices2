@@ -758,6 +758,12 @@ void bdds_mk_sdiv(CUDD* cudd, BDD** out_bdds, BDD** a, BDD** b, uint32_t n) {
       bdds_mk_2s_complement(cudd, out_bdds, bvdiv_a_bvneg_b, n);
     } else {
       // Case msb_a = 1, msb_b = 1
+      if (bvneg_a[0] == NULL) {
+        bdds_mk_2s_complement(cudd, bvneg_a, a, n);
+      }
+      if (bvneg_b[0] == NULL) {
+        bdds_mk_2s_complement(cudd, bvneg_b, b, n);
+      }
       bdds_mk_div(cudd, out_bdds, bvneg_a, bvneg_b, n);
     }
   } else {

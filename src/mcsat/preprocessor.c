@@ -164,7 +164,7 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
     assert(n == 2);
     return mk_arith_mod(tm, children[0], children[1]);
   case BV_ARRAY:
-    assert(n > 1);
+    assert(n >= 1);
     return mk_bvarray(tm, n, children);
   case BV_DIV:
     assert(n == 2);
@@ -325,30 +325,29 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       current_pre = current;
       break;
     case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
-      if (pre->options->bv_var_size > 0 && type == BITVECTOR_TYPE) {
-        uint32_t size = term_bitsize(terms, current);
-        uint32_t var_size = pre->options->bv_var_size;
-        if (size > var_size) {
-          uint32_t n_vars = (size - 1) / var_size + 1;
-          term_t vars[n_vars];
-          for (i = n_vars - 1; size > 0; i--) {
-            if (size >= var_size) {
-              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, var_size));
-              size -= var_size;
-            } else {
-              vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, size));
-              size = 0;
+      current_pre = current;
+      // Unless we want special slicing
+      if (type == BITVECTOR_TYPE) {
+        if (pre->options->bv_var_size > 0) {
+          uint32_t size = term_bitsize(terms, current);
+          uint32_t var_size = pre->options->bv_var_size;
+          if (size > var_size) {
+            uint32_t n_vars = (size - 1) / var_size + 1;
+            term_t vars[n_vars];
+            for (i = n_vars - 1; size > 0; i--) {
+              if (size >= var_size) {
+                vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, var_size));
+                size -= var_size;
+              } else {
+                vars[i] = new_uninterpreted_term(terms, bv_type(terms->types, size));
+                size = 0;
+              }
             }
+            current_pre = yices_bvconcat(n_vars, vars);
           }
-          current_pre = yices_bvconcat(n_vars, vars);
-        } else {
-          current_pre = current;
-        }
-      } else {
-        current_pre = current;
+        } 
       }
       break;
-
     case ARITH_EQ_ATOM:      // atom t == 0
     {
       term_t child = arith_eq_arg(terms, current);
