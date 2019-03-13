@@ -101,7 +101,7 @@ static inline int32_t entry2index(void *p) {
 }
 
 static inline void *index2entry(int32_t idx) {
-  return (void *) (((uintptr_t) (idx << 2)) | free_tag);
+  return (void *) ((((uintptr_t) idx) << 2) | free_tag);
 }
 
 static inline void *unmark_entry(void *p) {

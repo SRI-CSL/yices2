@@ -40,7 +40,7 @@ void init_small_bvset(small_bvset_t *s, uint32_t n) {
   uint32_t size;
 
   assert(0 < n && n < 32);
-  size = (1 << n);
+  size = ((uint32_t) 1) << n;
   s->set = allocate_bitvector0(size);
   s->size = size;
   s->nelems = 0;
