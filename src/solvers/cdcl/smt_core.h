@@ -1380,6 +1380,10 @@ static inline uint32_t num_clauses(smt_core_t *s) {
 }
 
 
+// average size of the learned clauses
+extern double avg_learned_clause_size(smt_core_t *core);
+
+
 /************************************
  *  VARIABLES, LITERALS, AND ATOMS  *
  ***********************************/
