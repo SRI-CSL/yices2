@@ -578,13 +578,13 @@ void bv_arith_ishift(plugin_context_t* ctx,
                      bvconst_interval_t* i,
                      bvconstant_t* base,
                      term_t base_term) {
-  term_manager_t* tm = &ctx->var_db->tm;
+  /* term_manager_t* tm = &ctx->var_db->tm; */
   bvconstant_sub(&i->lo, base);
   bvconstant_normalize(&i->lo);
-  i->lo_term = bv_arith_sub_terms(tm, i->lo_term, base_term);  
+  /* i->lo_term = bv_arith_sub_terms(tm, i->lo_term, base_term);   */
   bvconstant_sub(&i->hi, base);
   bvconstant_normalize(&i->hi);
-  i->hi_term = bv_arith_sub_terms(tm, i->hi_term, base_term);
+  /* i->hi_term = bv_arith_sub_terms(tm, i->hi_term, base_term); */
 }
 
 
@@ -605,33 +605,26 @@ void bv_arith_add2conflict(arith_t* exp,
     fprintf(out, " )\n");
   }
 
-  term_t continuity_reason = bv_arith_le(tm->terms, i->lo_term, min_saved_term);
+  assert(!bvconstant_eq(&i->lo, &i->hi));
+
+  term_t small = bv_arith_sub_terms(tm, min_saved_term, i->lo_term);
+  term_t big   = bv_arith_sub_terms(tm, i->hi_term, i->lo_term);
+  
+  term_t continuity_reason = bv_arith_lt(tm->terms, small, big);
   if (continuity_reason != NULL_TERM) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding continuity_reason ");
-      term_print_to_file(out, tm->terms, i->lo_term);
-      fprintf(out, " <= ");
-      term_print_to_file(out, tm->terms, min_saved_term);
+      term_print_to_file(out, tm->terms, small);
+      fprintf(out, " < ");
+      term_print_to_file(out, tm->terms, big);
       fprintf(out, ", i.e. ");
       term_print_to_file(out, tm->terms, continuity_reason);
       fprintf(out, "\n");
     }
     uint32_t eval_level = 0;
-    assert(bv_evaluator_evaluate_term(exp->super.eval, continuity_reason, &eval_level)->b);
+    assert(!bv_evaluator_evaluate_term(exp->super.eval, not_term(tm->terms,continuity_reason), &eval_level)->b);
     ivector_push(conflict, continuity_reason);
-  }
-
-  if (i->reason != NULL_TERM) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Adding internal reason ");
-      term_print_to_file(out, tm->terms, i->reason);
-      fprintf(out, "\n");
-    }
-    uint32_t eval_level = 0;
-    assert(bv_evaluator_evaluate_term(exp->super.eval, i->reason, &eval_level)->b);
-    ivector_push(conflict, i->reason);
   }
   
   bv_arith_interval_destruct(i);
@@ -772,111 +765,131 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   }
 
   /* All conflicting atoms have been treated, the resulting forbidden intervals for the
-  conflict_var have been pushed in the heap. It's now time to look at what's in the heap.
-  */
+  conflict_var have been pushed in the heap. It's now time to look at what's in the heap. */
   
-  bvconst_interval_t* i = bv_arith_pop(&lctx);
-  assert(i!=NULL);
+  bvconst_interval_t* longest = bv_arith_pop(&lctx);
+  assert(longest!=NULL);
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Longest interval is ");
+    bv_arith_interval_print(out, ctx->terms, longest);
+    fprintf(out, "\n");
+  }
   
-  // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
-  bvconstant_t base, min_save;
-  init_bvconstant(&base);
-  bvconstant_copy(&base, i->lo.bitsize, i->lo.data);
-  init_bvconstant(&min_save);
-  bvconstant_copy(&min_save, lctx.zero.bitsize, lctx.zero.data);
-
-  term_t base_term = i->lo_term; 
-  term_t min_saved_term = lctx.zero_term; // The term behind this lower bound of feasible values
-
-  // The best interval found so far in the heap, but not yet saved in &conflict,
-  // that can be used to forbid the greatest number of bv values beyond min_saved
-  bvconst_interval_t* best_so_far = NULL;
-  bv_arith_ishift(ctx, i, &base, base_term);
- 
-  // Now we treat the heap
-  while (i != NULL) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith pops from the heap ");
-      bv_arith_interval_print(out, terms, i);
-      fprintf(out, "\n");
-    }
-    if (bvconstant_le(&i->lo, &min_save)) { // In continuity of previously forbidden range
-      if (bvconstant_le(&i->hi, &i->lo)) { // Yeah! interval forbids all remaining values
-        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-          FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "finished the job\n");
-        }
-        if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
-        best_so_far = i;
-        // Now we empty the heap
-        i = bv_arith_pop(&lctx);
-        while (i != NULL) {
-          bv_arith_interval_destruct(i);
-          i = bv_arith_pop(&lctx);
-        }
-      } else { // interval doesn't forbid all remaining values;
-        // does is eliminate more values than best_so_far?
-        if (((best_so_far == NULL) && bvconstant_lt(&min_save, &i->hi))
-            || ((best_so_far != NULL) && bvconstant_lt(&best_so_far->hi, &i->hi))) { // i becomes best_so_far
-          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-            FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "becomes best_so_far\n");
-          }
-          if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
-          best_so_far = i;
-        } else {
-          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-            FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "is useless\n");
-          }
-          bv_arith_interval_destruct(i); // i is not interesting enough
-        }
-        i = bv_arith_pop(&lctx); // either way, we get next element in heap
-        bv_arith_ishift(ctx, i, &base, base_term);
-      }
-    } else { // Not in continuity of previously forbidden range
+  if (longest->lo_term == longest->hi_term) { // it's the full interval
+    if (longest->reason != NULL_TERM) {
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "is in discontinuity\n");
+        fprintf(out, "Using 1 full interval with internal reason ");
+        term_print_to_file(out, tm->terms, longest->reason);
+        fprintf(out, "\n");
       }
-      if (best_so_far != NULL) { // We need to save best_so_far in &conflict
-        bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
-        term_t previous_min_saved_term = min_saved_term;
-        min_saved_term = best_so_far->hi_term;
-        bv_arith_add2conflict(exp, previous_min_saved_term, best_so_far, conflict);
-        best_so_far = NULL;
-      } else { // Discontinuity in intervals, shouldn't happen if in conflict
-        assert(false);
+      uint32_t eval_level = 0;
+      assert(bv_evaluator_evaluate_term(exp->super.eval, longest->reason, &eval_level)->b);
+      ivector_push(conflict, longest->reason);
+    }
+    bv_arith_interval_destruct(longest);
+  }
+  else {  // Saving longest interval's lower bound.
+    bvconstant_t base;
+    init_bvconstant(&base);
+    bvconstant_copy(&base, longest->lo.bitsize, longest->lo.data);
+    term_t base_term = longest->lo_term; 
+
+    // We will now shift down every interval by that quantity, to change where our 0 is.
+    bv_arith_ishift(ctx, longest, &base, base_term); // longest is now of the form [0 ; ... [
+
+    // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
+    bvconstant_t min_save;
+    init_bvconstant(&min_save);
+    bvconstant_copy(&min_save, longest->hi.bitsize, longest->hi.data);
+    term_t min_saved_term = longest->hi_term; // The term behind this lower bound of feasible values
+
+    // The best interval found so far in the heap, but not yet saved in &conflict,
+    // that can be used to forbid the greatest number of bv values beyond min_saved
+    bvconst_interval_t* best_so_far = NULL;
+
+    bvconst_interval_t* i = bv_arith_pop(&lctx);
+    bv_arith_ishift(ctx, i, &base, base_term);
+
+    // Now we treat the heap
+    while (i != NULL && !bvconstant_is_zero(&min_save)) {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "bv_arith pops from the heap ");
+        bv_arith_interval_print(out, terms, i);
+        fprintf(out, "\n");
+      }
+      if (bvconstant_le(&i->lo, &min_save)) { // In continuity of previously forbidden range
+        if (bvconstant_le(&i->hi, &i->lo)) { // Yeah! interval forbids all remaining values
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "finished the job\n");
+          }
+          if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
+          term_t previous_min_saved_term = min_saved_term;
+          min_saved_term = i->hi_term;
+          bv_arith_add2conflict(exp, previous_min_saved_term, i, conflict); // record and destruct the interval i that finished the job
+          best_so_far = NULL;
+          i = NULL; // We exit the while loop
+        } else { // interval doesn't forbid all remaining values;
+          // does is eliminate more values than best_so_far?
+          if (((best_so_far == NULL) && bvconstant_lt(&min_save, &i->hi))
+              || ((best_so_far != NULL) && bvconstant_lt(&best_so_far->hi, &i->hi))) { // i becomes best_so_far
+            if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+              FILE* out = ctx_trace_out(ctx);
+              fprintf(out, "becomes best_so_far\n");
+            }
+            if (best_so_far != NULL) bv_arith_interval_destruct(best_so_far);
+            best_so_far = i;
+          } else {
+            if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+              FILE* out = ctx_trace_out(ctx);
+              fprintf(out, "is useless\n");
+            }
+            bv_arith_interval_destruct(i); // i is not interesting enough
+          }
+          i = bv_arith_pop(&lctx); // either way, we get next element in heap
+          bv_arith_ishift(ctx, i, &base, base_term);
+        }
+      } else { // Not in continuity of previously forbidden range
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "is in discontinuity\n");
+        }
+        if (best_so_far != NULL) { // We need to save best_so_far in &conflict
+          bvconstant_copy(&min_save, best_so_far->hi.bitsize, best_so_far->hi.data);
+          term_t previous_min_saved_term = min_saved_term;
+          min_saved_term = best_so_far->hi_term;
+          bv_arith_add2conflict(exp, previous_min_saved_term, best_so_far, conflict); // records and destructs best_so_far
+          best_so_far = NULL;
+        } else { // Discontinuity in intervals, shouldn't happen if in conflict
+          assert(false);
+        }
       }
     }
-  }
 
-  assert(best_so_far != NULL);
-  term_t continuity_reason = bv_arith_lt(tm->terms, best_so_far->hi_term, best_so_far->lo_term);
-  if (!(bvconstant_eq(&best_so_far->hi, &best_so_far->lo))
-      && continuity_reason != NULL_TERM) {
+    assert(best_so_far == NULL);
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Adding last continuity_reason ");
-      term_print_to_file(out, terms, best_so_far->hi_term);
-      fprintf(out, " <= ");
-      term_print_to_file(out, terms, best_so_far->lo_term);
-      fprintf(out, ", i.e. ");
-      term_print_to_file(out, terms, continuity_reason);
-      fprintf(out, "\n");
+      fprintf(out, "Adding to conflict longest interval\n");
     }
-    uint32_t eval_level = 0;
-    assert(!bv_evaluator_evaluate_term(exp->super.eval,not_term(terms,continuity_reason), &eval_level)->b);
-    ivector_push(conflict, continuity_reason);
+    bv_arith_add2conflict(exp, min_saved_term, longest, conflict); // hooking up the first interval pulled out (the longest), destructing it
+    delete_bvconstant(&base);
+    delete_bvconstant(&min_save);
   }
-  bv_arith_add2conflict(exp, min_saved_term, best_so_far, conflict);
-  
+
+  // Now we empty the heap
+  longest = bv_arith_pop(&lctx);
+  while (longest != NULL) {
+    bv_arith_interval_destruct(longest);
+    longest = bv_arith_pop(&lctx);
+  }
+
   assert(ptr_heap_is_empty(&lctx.heap));
   assert(ptr_queue_is_empty(&lctx.queue));
 
-  delete_bvconstant(&base);
-  delete_bvconstant(&min_save);
   delete_bvconstant(&lctx.zero);
   delete_bvconstant(&lctx.length);
   delete_ptr_heap(&lctx.heap);
