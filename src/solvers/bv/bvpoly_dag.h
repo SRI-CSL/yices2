@@ -154,6 +154,11 @@ static inline node_occ_t unsigned_occ(node_occ_t n) {
   return n & ~1;
 }
 
+// coefficient of n: either +1 or -1
+static inline int32_t coeff_of_occ(node_occ_t n) {
+  // this is 1 - 2 * sign_of_occ(n)
+  return 1 - ((n & 1) << 1);
+}
 
 
 /*
