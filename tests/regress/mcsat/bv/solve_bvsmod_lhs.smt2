@@ -10,6 +10,5 @@
 (assert (= (bvsmod x c) s))
 
 (check-sat)
-(get-model)
 
 (exit)

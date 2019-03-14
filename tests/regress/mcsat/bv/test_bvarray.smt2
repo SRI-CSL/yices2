@@ -7,7 +7,6 @@
 (assert (= #b11 (concat ((_ extract 3 3) x) ((_ extract 3 3) y))))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

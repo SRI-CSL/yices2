@@ -8,6 +8,5 @@
 (assert (bvsge s x))
 
 (check-sat)
-(get-model)
 
 (exit)

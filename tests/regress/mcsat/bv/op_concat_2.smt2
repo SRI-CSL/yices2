@@ -11,7 +11,6 @@
 (assert (= z (concat x y)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

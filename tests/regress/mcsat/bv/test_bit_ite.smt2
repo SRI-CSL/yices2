@@ -7,7 +7,6 @@
 (assert (= x (ite b #b1 #b0)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

@@ -8,6 +8,5 @@
 (assert (= (bvneg x) s))
 
 (check-sat)
-(get-model)
 
 (exit)

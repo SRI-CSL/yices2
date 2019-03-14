@@ -1820,7 +1820,17 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
 }
 
 
+extern double avg_learned_clause_size(smt_core_t *core) {
+  uint32_t num_clauses;
+  double r;
 
+  r = 0.0;
+  num_clauses = num_learned_clauses(core);
+  if (num_clauses > 0) {
+    r = ((double) num_learned_literals(core)) /num_clauses;
+  }
+  return r;
+}
 
 
 
@@ -3177,7 +3187,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
 
   u = 0;
   for (i=0; i<n; i++) {
-    u |= 1 << (d_level(s, b[i]) & 31);
+    u |= ((uint32_t) 1) << (d_level(s, b[i]) & 31);
   }
   return u;
 }
@@ -3186,7 +3196,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
  * Check whether decision level for literal l matches the hash sgn
  */
 static inline bool check_level(smt_core_t *s, literal_t l, uint32_t sgn) {
-  return (sgn & (1 << (d_level(s, l) & 31))) != 0;
+  return (sgn & (((uint32_t) 1) << (d_level(s, l) & 31))) != 0;
 }
 
 

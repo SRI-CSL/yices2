@@ -18,7 +18,6 @@
 (assert (= o3 (bvor z x)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

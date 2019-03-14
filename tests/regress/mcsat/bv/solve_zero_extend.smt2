@@ -8,6 +8,5 @@
 (assert (= ((_ zero_extend 8) x) s))
 
 (check-sat)
-(get-model)
 
 (exit)

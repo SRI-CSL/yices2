@@ -8,6 +8,5 @@
 (assert (bvule x s))
 
 (check-sat)
-(get-model)
 
 (exit)

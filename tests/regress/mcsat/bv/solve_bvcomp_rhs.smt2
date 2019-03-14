@@ -10,6 +10,5 @@
 (assert (= (bvcomp c x) #b1))
 
 (check-sat)
-(get-model)
 
 (exit)

@@ -48,7 +48,6 @@
 (assert (= o16 (bvudiv x4 x4)))
 
 (check-sat)
-(get-model) 
 
 (exit)
 

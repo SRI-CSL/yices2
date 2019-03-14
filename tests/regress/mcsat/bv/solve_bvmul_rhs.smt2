@@ -10,6 +10,5 @@
 (assert (= (bvmul c x) s))
 
 (check-sat)
-(get-model)
 
 (exit)

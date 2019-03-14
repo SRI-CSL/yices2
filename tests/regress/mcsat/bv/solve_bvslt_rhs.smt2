@@ -8,6 +8,5 @@
 (assert (bvslt s x))
 
 (check-sat)
-(get-model)
 
 (exit)
