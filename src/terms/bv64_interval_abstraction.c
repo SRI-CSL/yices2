@@ -32,7 +32,7 @@
 // min integer = -2^(k-1)
 static inline int64_t min_int(uint32_t k) {
   assert(1 <= k && k <= 64);
-  return - (int64_t)(((uint64_t) 1) << (k -1));
+  return (int64_t) - (((uint64_t) 1) << (k -1));
 }
 
 // max integer = 2^(k-1) - 1
