@@ -71,7 +71,7 @@ void mcsat_value_construct_rational(mcsat_value_t *value, const rational_t *q);
 /** Construct a value from the libpoly value */
 void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_value);
 
-/** Construct a bv value */
+/** Construct a bv value. Passing NULL for bv_value will leave the bvconstant default-initialized. */
 void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv_value);
 
 /** Construct a copy */

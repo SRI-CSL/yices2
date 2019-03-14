@@ -43,7 +43,7 @@ typedef struct {
 
 } feasibility_list_element_t;
 
-struct bv_feasible_set_db_struct {
+struct bv_feasible_set_db_s {
 
   /** Elements of the lists */
   feasibility_list_element_t* memory;
@@ -71,6 +71,9 @@ struct bv_feasible_set_db_struct {
 
   /** Index into the fixed variables */
   uint32_t fixed_variables_i;
+
+  /** The value to manipulate */
+  mcsat_value_t tmp_value;
 
   /** Scope for push/pop */
   scope_holder_t scope;
@@ -171,6 +174,8 @@ bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx, bv_bdd_manag
   init_ivector(&db->fixed_variables, 0);
   scope_holder_construct(&db->scope);
 
+  mcsat_value_construct_bv_value(&db->tmp_value, NULL);
+
   return db;
 }
 
@@ -186,6 +191,7 @@ void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
     bv_bdd_manager_bdd_detach(db->bddm, s2);
   }
   // Delete the other stuff
+  mcsat_value_destruct(&db->tmp_value);
   delete_int_hmap(&db->var_to_feasible_set_map);
   delete_ivector(&db->updates);
   delete_ivector(&db->fixed_variables);
@@ -202,6 +208,26 @@ bdd_t bv_feasible_set_db_get(const bv_feasible_set_db_t* db, variable_t x) {
   } else {
     return db->memory[index].feasible_set;
   }
+}
+
+const mcsat_value_t* bv_feasible_set_db_pick_value(bv_feasible_set_db_t* db, variable_t x) {
+
+  // Set the size of the value
+  bvconstant_t* value = &db->tmp_value.bv_value;
+  uint32_t bitsize = term_bitsize(db->ctx->terms, variable_db_get_term(db->ctx->var_db, x));
+  bvconstant_set_all_zero(value, bitsize);
+
+  // Pick a value from the BDD
+  bdd_t x_bdd = bv_feasible_set_db_get(db, x);
+  if (x_bdd.bdd[0] != NULL) {
+    term_t x_term = variable_db_get_term(db->ctx->var_db, x);
+    bv_bdd_manager_pick_value(db->bddm, x_term, x_bdd, value);
+  } else {
+    // Use 0
+  }
+
+  // Return the constructed value
+  return &db->tmp_value;
 }
 
 bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new_set, variable_t* cstr_list, uint32_t cstr_count) {
