@@ -949,13 +949,12 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   assert(!trail_has_value(bv->ctx->trail, x));
   const mcsat_value_t* v = bv_feasible_set_db_pick_value(bv->feasible, x);;
 
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::decide")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_decide: ");
     variable_db_print_variable(bv->ctx->var_db, x,ctx_trace_out(bv->ctx));
     ctx_trace_printf(bv->ctx, " gets assigned ");
     mcsat_value_print(v, ctx_trace_out(bv->ctx));
-    ctx_trace_printf(bv->ctx, " in trail: ");
-    trail_print(bv->ctx->trail, stderr);
+    ctx_trace_printf(bv->ctx, "\n");
   }
 
   // Add decision to solver

@@ -212,19 +212,51 @@ bdd_t bv_feasible_set_db_get(const bv_feasible_set_db_t* db, variable_t x) {
 
 const mcsat_value_t* bv_feasible_set_db_pick_value(bv_feasible_set_db_t* db, variable_t x) {
 
-  // Set the size of the value
-  bvconstant_t* value = &db->tmp_value.bv_value;
-  uint32_t bitsize = term_bitsize(db->ctx->terms, variable_db_get_term(db->ctx->var_db, x));
-  bvconstant_set_all_zero(value, bitsize);
+  bool ok;
 
-  // Pick a value from the BDD
-  bdd_t x_bdd = bv_feasible_set_db_get(db, x);
-  if (x_bdd.bdd[0] != NULL) {
-    term_t x_term = variable_db_get_term(db->ctx->var_db, x);
-    bv_bdd_manager_pick_value(db->bddm, x_term, x_bdd, value);
-  } else {
-    // Use 0
+  // Get the feasible set
+  bdd_t x_feasible_bdd = bv_feasible_set_db_get(db, x);
+  bool x_feasible_full = x_feasible_bdd.bdd[0] == NULL;
+
+  // Term for x
+  term_t x_term = variable_db_get_term(db->ctx->var_db, x);
+  uint32_t x_bitsize = term_bitsize(db->ctx->terms, x_term);
+
+  // Check the cached value from the
+  const mcsat_trail_t* trail = db->ctx->trail;
+  if (trail_has_cached_value(trail, x)) {
+    const mcsat_value_t* cached_value = trail_get_cached_value(trail, x);
+    if (x_feasible_full) {
+      return cached_value;
+    } else {
+      ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, &cached_value->bv_value);
+      if (ok) { return cached_value; }
+    }
   }
+
+  // Initialize the value we're using
+  bvconstant_t* value = &db->tmp_value.bv_value;
+
+  // Try simple values: 0, 1, -1
+
+  // 1) Try 0
+  bvconstant_set_all_zero(value, x_bitsize);
+  if (x_feasible_full) { return &db->tmp_value; }
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // 2) Try 1
+  bvconstant_set_one(value);
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // 3) Try -1
+  bvconstant_set_all_one(value, x_bitsize);
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // Pick a value from the feasible set
+  bv_bdd_manager_pick_value(db->bddm, x_term, x_feasible_bdd, value);
 
   // Return the constructed value
   return &db->tmp_value;

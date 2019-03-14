@@ -1207,10 +1207,10 @@ bool bdds_is_point(CUDD* cudd, BDD* a, uint32_t size) {
   return true;
 }
 
-bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* out) {
-  for (uint32_t i = 0; i < out->bitsize; ++ i) {
+bool bdds_is_model(CUDD* cudd, BDD** x, BDD* C_x, const bvconstant_t* x_value) {
+  for (uint32_t i = 0; i < x_value->bitsize; ++ i) {
     unsigned int x_i = Cudd_NodeReadIndex(x[i]);
-    bool bit_i_true = bvconst_tst_bit(out->data, i);
+    bool bit_i_true = bvconst_tst_bit(x_value->data, i);
     cudd->tmp_inputs[x_i] = bit_i_true ? 1 : 0;
   }
   return Cudd_Eval(cudd->cudd, C_x, cudd->tmp_inputs) == Cudd_ReadOne(cudd->cudd);
