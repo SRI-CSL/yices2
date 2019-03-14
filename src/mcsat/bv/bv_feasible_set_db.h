@@ -22,10 +22,11 @@
 
 #include "mcsat/variable_db.h"
 #include "mcsat/mcsat_types.h"
+#include "mcsat/value.h"
 #include "mcsat/bv/bv_bdd_manager.h"
 
 /** Contains the map from variables to feasible sets that can be backtracked */
-typedef struct bv_feasible_set_db_struct bv_feasible_set_db_t;
+typedef struct bv_feasible_set_db_s bv_feasible_set_db_t;
 
 /** Create a new database */
 bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx, bv_bdd_manager_t* bddm);
@@ -45,6 +46,9 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
 
 /** Get the feasible set of a variable */
 bdd_t bv_feasible_set_db_get(const bv_feasible_set_db_t* db, variable_t x);
+
+/** Pick a value from the feasible set */
+const mcsat_value_t* bv_feasible_set_db_pick_value(bv_feasible_set_db_t* db, variable_t x);
 
 /** Push the context */
 void bv_feasible_set_db_push(bv_feasible_set_db_t* db);

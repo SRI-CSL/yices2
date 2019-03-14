@@ -562,10 +562,10 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
 
   // Get the terms
   term_t cstr_term = variable_db_get_term(var_db, cstr);
+  if (!constraint_value) { cstr_term = opposite_term(cstr_term); }
   term_t x_term = variable_db_get_term(var_db, x);
 
-  // Get the BDD of the constraint (negate constraint if assigned to false)
-  if (!constraint_value) { cstr_term = opposite_term(cstr_term); }
+  // Get the BDD of the constraint
   bdd_t cstr_bdd = bv_bdd_manager_get_bdd(bddm, cstr_term, x_term);
   assert(cstr_bdd.bdd[0] != NULL);
 
@@ -945,41 +945,21 @@ void bv_plugin_pop(plugin_t* plugin) {
 static
 void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
-  mcsat_value_t v;
-  bvconstant_t b;
-  uint32_t bitsize;
 
   assert(!trail_has_value(bv->ctx->trail, x));
-    
-  // Get the feasible set
-  bdd_t x_bdd = bv_feasible_set_db_get(bv->feasible, x);
+  const mcsat_value_t* v = bv_feasible_set_db_pick_value(bv->feasible, x);;
 
-  // Construct a new value
-  bitsize = term_bitsize(bv->ctx->terms, variable_db_get_term(bv->ctx->var_db,x));
-  init_bvconstant(&b);
-  bvconstant_set_all_zero(&b, bitsize);
-  if (x_bdd.bdd[0] != NULL) {
-    term_t x_term = variable_db_get_term(bv->ctx->var_db, x);
-    bv_bdd_manager_pick_value(bv->bddm, x_term, x_bdd, &b);
-  }
-  mcsat_value_construct_bv_value(&v, &b);
-
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::decide")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_decide: ");
     variable_db_print_variable(bv->ctx->var_db, x,ctx_trace_out(bv->ctx));
     ctx_trace_printf(bv->ctx, " gets assigned ");
-    mcsat_value_print(&v, ctx_trace_out(bv->ctx));
-    ctx_trace_printf(bv->ctx, " in trail: ");
-    trail_print(bv->ctx->trail, stderr);
+    mcsat_value_print(v, ctx_trace_out(bv->ctx));
+    ctx_trace_printf(bv->ctx, "\n");
   }
 
   // Add decision to solver
-  decide->add(decide, x, &v);
+  decide->add(decide, x, v);
   bv->last_decided_and_unprocessed = x;
-
-  // Remove temps
-  mcsat_value_destruct(&v);
-  delete_bvconstant(&b);
 }
 
 // Required as plugin_t field

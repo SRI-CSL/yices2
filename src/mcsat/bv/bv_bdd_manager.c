@@ -1113,3 +1113,10 @@ void bv_bdd_manager_pick_value(bv_bdd_manager_t* bddm, term_t x, bdd_t bdd, bvco
     bdds_get_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd[0], out);
   }
 }
+
+bool bv_bdd_manager_is_model(bv_bdd_manager_t* bddm, term_t x, bdd_t bdd, const bvconstant_t* x_value) {
+  term_info_t* x_info = bv_bdd_manager_get_info(bddm, x);
+  BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
+  return bdds_is_model(bddm->cudd, x_bdds, (BDD*) bdd.bdd[0], x_value);
+}
+
