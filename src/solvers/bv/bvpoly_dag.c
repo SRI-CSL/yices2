@@ -1649,6 +1649,34 @@ node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bits
 }
 
 
+/*
+ * Variant of bvc_dag_mono when the coefficient c is small (stored as int32_t)
+ */
+static node_occ_t bvc_dag_simple_mono(bvc_dag_t *dag, int32_t c, node_occ_t n, uint32_t bitsize) {
+  uint64_t d;
+  uint32_t sign;
+  bvnode_t q;
+
+  assert(c != 0 && bitsize > 64);
+
+  if (c == 1) return n;
+  if (c == -1) return negate_occ(n);
+
+  sign = sign_of_occ(n);
+  n = unsigned_occ(n);
+
+  d = (uint64_t) c;
+  if (c < 0) {
+    d = -d;
+    sign ^= 1;
+  }
+
+  // store the coeff in dag->aux
+  bvconstant_copy64(&dag->aux, bitsize, d);
+  q = bvc_dag_get_mono(dag, dag->aux.data, n, bitsize);
+  return (q << 1) | sign;
+}
+
 
 /*
  * Construct a sum node q
@@ -1828,15 +1856,160 @@ static node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, u
 }
 
 
+
+/*
+ * NORMALIZATION OF SUMS
+ */
+
+/*
+ * Check whether n1 and n2 are occurrences of the same node
+ * - i.e., all bits are the same except possible bit 0
+ */
+static inline bool same_node(node_occ_t n1, node_occ_t n2) {
+  return ((n1 ^ n2) >> 1) == 0;
+}
+
+
+/*
+ * Check whether array a[0 ... n-1] contains duplicates
+ * - a must be sorted in increasing order
+ */
+static bool bvc_array_has_duplicates(const node_occ_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=1; i<n; i++) {
+    assert(a[i-1] <= a[i]);
+    if (same_node(a[i-1], a[i])) return true;
+  }
+
+  return false;
+}
+
+
+/*
+ * Sum after normalization: array a is sorted & has no duplicates
+ */
+static node_occ_t bvc_dag_normal_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize) {
+  assert(n > 0 && !bvc_array_has_duplicates(a, n));
+
+  return n == 1 ? a[0] : bvp(bvc_dag_get_sum(dag, a, n, bitsize));
+}
+
+
+/*
+ * Normalize sum vector v:
+ * - each element of v is a node occurrence
+ * - v contains duplicate node, then we replace them by monomials
+ */
+static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) {
+  uint32_t i, j, n;
+  int32_t c;
+  bvnode_t p, q;
+  uint64_t a;
+
+  assert(1 <= bitsize && bitsize <= 64);
+
+  n = v->size;
+  if (n > 1) {
+    int_array_sort(v->data, n);
+    if (bvc_array_has_duplicates(v->data, n)) {
+
+      for (;;) {
+	assert(n == v->size && n >= 2);
+
+	j = 0;
+	p = node_of_occ(v->data[0]);
+	c = coeff_of_occ(v->data[0]);
+	for (i=1; i<n; i++) {
+	  q = node_of_occ(v->data[i]);
+	  if (p == q) {
+	    // repeat node
+	    c += coeff_of_occ(v->data[i]);
+	  } else {
+	    // new node for monomial c*p
+	    a = norm64((uint64_t) c, bitsize);
+	    if (a != 0) {
+	      v->data[j] = bvc_dag_mono64(dag, a, bvp(p), bitsize);
+	      j ++;
+	    }
+	    // current node + its coefficient
+	    p = q;
+	    c = coeff_of_occ(v->data[i]);
+	  }
+	}
+
+	v->size = j;
+
+	// if j == n, v didn't change so we're done
+	// if j <= 0 or 1, v can't have duplicates
+	if (j == n || j < 2) break;
+
+	n = j;
+	int_array_sort(v->data, n);
+      }
+    }
+  }
+}
+
+
+/*
+ * Same thing but coefficients have more than 64 bits
+ */
+static void bvc_normalize_sum(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) {
+  uint32_t i, j, n;
+  int32_t c;
+  bvnode_t p, q;
+
+  assert(bitsize > 64);
+
+  n = v->size;
+  if (n > 1) {
+    int_array_sort(v->data, n);
+    if (bvc_array_has_duplicates(v->data, n)) {
+
+      for (;;) {
+	assert(n == v->size && n >= 2);
+
+	j = 0;
+	p = node_of_occ(v->data[0]);
+	c = coeff_of_occ(v->data[0]);
+	for (i=1; i<n; i++) {
+	  q = node_of_occ(v->data[i]);
+	  if (p == q) {
+	    // repeat node
+	    c += coeff_of_occ(v->data[i]);
+	  } else {
+	    // new node for monomial c*p
+	    if (c != 0) {
+	      v->data[j] = bvc_dag_simple_mono(dag, c, bvp(p), bitsize);
+	      j ++;
+	    }
+	    // current node + its coefficient
+	    p = q;
+	    c = coeff_of_occ(v->data[i]);
+	  }
+	}
+
+	v->size = j;
+
+	// if j == n, v didn't change so we're done
+	// if j <= 0 or 1, v can't have duplicates
+	if (j == n || j < 2) break;
+
+	n = j;
+	int_array_sort(v->data, n);
+      }
+    }
+  }
+}
+
+
 /*
  * Convert buffer p to a DAG.
  * - p contains a polynomial a_0 x_0 + ... a_n x_n
  * - each x_i must be node index (can be positive or negative)
  * - there mustn't be duplicates among x_0 ... x_n
  *   all node_of_occ(x_i) must be distinct.
- *
- * TODO: fix this. The precondition that the node_of_occ(x_i) must be
- * distinct can't be easily enforced.
  */
 static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   ivector_t *v;
@@ -1870,13 +2043,26 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
       i ++;
     }
 
-    // build the sum
-    r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-    ivector_reset(v);
+    // v may contain duplicate nodes
+    bvc_normalize_sum64(dag, v, bitsize);
 
-    // add the constant if any
-    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-      r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(buffer, 0), r, bitsize);
+    if (v->size == 0) {
+      // the sum reduced to zero
+      if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+	r = bvc_dag_const64(dag, bvpoly_buffer_coeff64(buffer, 0), bitsize);
+      } else {
+	r = bvc_dag_zero(dag, bitsize);
+      }
+
+    } else {
+      // build the sum
+      r = bvc_dag_normal_sum(dag, v->data, v->size, bitsize);
+      ivector_reset(v);
+
+      // add the constant if any
+      if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+	r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(buffer, 0), r, bitsize);
+      }
     }
   }
 
@@ -1885,7 +2071,6 @@ static node_occ_t bvc_dag_of_buffer64(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
 
 
 // same thing for a polynomial with large coefficients
-// TODO: fix this too.
 static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
   ivector_t *v;
   uint32_t i, n, bitsize;
@@ -1916,13 +2101,26 @@ static node_occ_t bvc_dag_of_buffer(bvc_dag_t *dag, bvpoly_buffer_t *buffer) {
       i ++;
     }
 
-    // build the sum
-    r = bvc_dag_sum(dag, v->data, v->size, bitsize);
-    ivector_reset(v);
+    // v may contain duplicate nodes
+    bvc_normalize_sum(dag, v, bitsize);
 
-    // add the constant if any
-    if (bvpoly_buffer_var(buffer, 0) == const_idx) {
-      r = bvc_dag_offset(dag, bvpoly_buffer_coeff(buffer, 0), r, bitsize);
+    if (v->size == 0) {
+      // the sum reduced to zero
+      if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+	r = bvc_dag_const(dag, bvpoly_buffer_coeff(buffer, 0), bitsize);
+      } else {
+	r = bvc_dag_zero(dag, bitsize);
+      }
+
+    } else {
+      // build the sum
+      r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+      ivector_reset(v);
+
+      // add the constant if any
+      if (bvpoly_buffer_var(buffer, 0) == const_idx) {
+	r = bvc_dag_offset(dag, bvpoly_buffer_coeff(buffer, 0), r, bitsize);
+      }
     }
   }
 
@@ -2125,15 +2323,6 @@ uint32_t bvc_num_complex_nodes(bvc_dag_t *dag) {
 /*
  * REDUCTION
  */
-
-/*
- * Check whether n1 and n2 are occurrences of the same node
- * - i.e., all bits are the same except possible bit 0
- */
-static inline bool same_node(node_occ_t n1, node_occ_t n2) {
-  return ((n1 ^ n2) >> 1) == 0;
-}
-
 
 /*
  * Remove i from the use list of n
