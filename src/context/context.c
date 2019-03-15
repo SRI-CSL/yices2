@@ -6252,4 +6252,8 @@ void context_gc_mark(context_t *ctx) {
   if (ctx->eq_cache != NULL) {
     pmap2_iterate(ctx->eq_cache, ctx->terms, ctx_mark_eq);
   }
+
+  if (ctx->mcsat != NULL) {
+    mcsat_gc_mark(ctx->mcsat);
+  }
 }

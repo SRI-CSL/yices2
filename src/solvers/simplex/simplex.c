@@ -10334,6 +10334,7 @@ static uint32_t num_active_vars(arith_vartable_t *vtbl) {
 
   a = 0;
   n = vtbl->nvars;
+  // skip var 0 since it's not a polynomial
   for (i=1; i<n; i++) {
     p = arith_var_def(vtbl, i);
     if (p != NULL && !simple_poly(p)) {

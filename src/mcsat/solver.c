@@ -791,7 +791,7 @@ static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
 
 static
-void mcsat_gc(mcsat_solver_t* mcsat);
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
@@ -864,7 +864,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_POP);
 
   // Garbage collect
-  mcsat_gc(mcsat);
+  mcsat_gc(mcsat, false);
   (*mcsat->solver_stats.gc_calls) ++;
 
   // Set the status back to idle
@@ -964,8 +964,9 @@ static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
   int_mset_destruct(&to_notify);
 }
 
+/** Pass true to mark terms and types in the internal yices term tables */
 static
-void mcsat_gc(mcsat_solver_t* mcsat) {
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
 
   uint32_t i;
   variable_t var;
@@ -1050,6 +1051,17 @@ void mcsat_gc(mcsat_solver_t* mcsat) {
   // Variable queue sweep
   var_queue_gc_sweep(&mcsat->var_queue, &gc_vars);
 
+  // If asked mark all the terms
+  if (mark_internal) {
+    for (i = 0; i < gc_vars.marked.size; ++ i) {
+      variable_t x = gc_vars.marked.data[i];
+      term_t x_term = variable_db_get_term(mcsat->var_db, x);
+      term_t x_type = term_type(mcsat->terms, x_term);
+      term_table_set_gc_mark(mcsat->terms, index_of(x_term));
+      type_table_set_gc_mark(mcsat->types, x_type);
+    }
+  }
+
   // Done, destruct
   gc_info_destruct(&gc_vars);
 
@@ -1116,7 +1128,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "garbage collection\n");
       }
-      mcsat_gc(mcsat);
+      mcsat_gc(mcsat, false);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
     }
@@ -1894,4 +1906,8 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
     plugin_t* plugin = mcsat->plugins[i].plugin;
     plugin->set_exception_handler(plugin, handler);
   }
+}
+
+void mcsat_gc_mark(mcsat_solver_t* mcsat) {
+  mcsat_gc(mcsat, true);
 }

@@ -1209,7 +1209,7 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
     break;
 
   case ARITH_RDIV:
-    result = subst_arith_rdiv(subst, arith_idiv_term_desc(terms, t));
+    result = subst_arith_rdiv(subst, arith_rdiv_term_desc(terms, t));
     break;
  
   case ARITH_IDIV:
