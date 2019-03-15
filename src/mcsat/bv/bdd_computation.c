@@ -1307,6 +1307,7 @@ bdds_Cudd_bddPickOneCube(CUDD* cudd, DdNode * node, pick_type_t pick)
         dir = 1;
         break;
       case PREFER_RANDOM:
+      default: // BD: GCC warning
         dir = (char) ((Cudd_Random(cudd->cudd) & 0x2000) >> 13);
         break;
       }
