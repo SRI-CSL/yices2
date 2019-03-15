@@ -762,11 +762,6 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
     ctx_trace_term(bddm->ctx, t);
     ctx_trace_printf(bddm->ctx, "unassigned variable: ");
     ctx_trace_term(bddm->ctx, bddm->unassigned_var);
-    ctx_trace_printf(bddm->ctx, "x BDDs: ");
-    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
-    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
-    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, ctx_trace_out(bddm->ctx));
-    ctx_trace_printf(bddm->ctx, "\n");
   }
 
   uint32_t i;
@@ -862,37 +857,37 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
   }
 
   if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
-    FILE* out = ctx_trace_out(bddm->ctx);
-    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: computing BDDs ");
-    ctx_trace_term(bddm->ctx, t);
-    ctx_trace_printf(bddm->ctx, "unassigned variable: ");
-    ctx_trace_term(bddm->ctx, bddm->unassigned_var);
-    ctx_trace_printf(bddm->ctx, "x BDDs: ");
-    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
-    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
-    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, out);
-    for (int i = 0; i < children_bdds.size; ++ i) {
-      ctx_trace_printf(bddm->ctx, "\nchildren[%d] BDDs: ", i);
-      bdds_print(bddm->cudd, children_bdds.data[i], bitsize, out);
-      ctx_trace_printf(bddm->ctx, "\n");
-    }
+//    FILE* out = ctx_trace_out(bddm->ctx);
+//    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: computing BDDs ");
+//    ctx_trace_term(bddm->ctx, t);
+//    ctx_trace_printf(bddm->ctx, "unassigned variable: ");
+//    ctx_trace_term(bddm->ctx, bddm->unassigned_var);
+//    ctx_trace_printf(bddm->ctx, "x BDDs: ");
+//    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
+//    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
+//    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, out);
+//    for (int i = 0; i < children_bdds.size; ++ i) {
+//      ctx_trace_printf(bddm->ctx, "\nchildren[%d] BDDs: ", i);
+//      bdds_print(bddm->cudd, children_bdds.data[i], bitsize, out);
+//      ctx_trace_printf(bddm->ctx, "\n");
+//    }
   }
 
   // We have the children values compute
   bdds_compute_bdds(bddm->cudd, terms, t, &children_bdds, t_bdds);
 
   if (ctx_trace_enabled(bddm->ctx, "mcsat::bv::bdd")) {
-    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: final BDD for ");
+    ctx_trace_printf(bddm->ctx, "bv_bdd_manager: BDD done for ");
     ctx_trace_term(bddm->ctx, t);
-    ctx_trace_printf(bddm->ctx, "unassigned variable: ");
-    ctx_trace_term(bddm->ctx, bddm->unassigned_var);
-    ctx_trace_printf(bddm->ctx, "x BDDs: ");
-    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
-    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
-    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, ctx_trace_out(bddm->ctx));
-    ctx_trace_printf(bddm->ctx, "\nt BDDs: ");
-    bdds_print(bddm->cudd, t_bdds, bitsize, ctx_trace_out(bddm->ctx));
-    ctx_trace_printf(bddm->ctx, "\n");
+//    ctx_trace_printf(bddm->ctx, "unassigned variable: ");
+//    ctx_trace_term(bddm->ctx, bddm->unassigned_var);
+//    ctx_trace_printf(bddm->ctx, "x BDDs: ");
+//    term_info_t* x_info = bv_bdd_manager_get_info(bddm, bddm->unassigned_var);
+//    BDD** x_bdds = bv_bdd_manager_get_bdds_from_info(bddm, x_info);
+//    bdds_print(bddm->cudd, x_bdds, x_info->value.bitsize, ctx_trace_out(bddm->ctx));
+//    ctx_trace_printf(bddm->ctx, "\nt BDDs: ");
+//    bdds_print(bddm->cudd, t_bdds, bitsize, ctx_trace_out(bddm->ctx));
+//    ctx_trace_printf(bddm->ctx, "\n");
   }
 
   // Remove temp
@@ -902,6 +897,7 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
 BDD** bv_bdd_manager_get_term_bdds(bv_bdd_manager_t* bddm, term_t t, uint32_t bitsize) {
 
   uint32_t i;
+  term_t t_recompute;
 
   assert(bddm->visited.nelems == 0);
   assert(bddm->bdd_recompute.size == 0);
@@ -918,14 +914,15 @@ BDD** bv_bdd_manager_get_term_bdds(bv_bdd_manager_t* bddm, term_t t, uint32_t bi
 
   // Recompute needed values
   for (i = 0; i < bddm->value_recompute.size; ++ i) {
-    term_t t = bddm->value_recompute.data[i];
-    bv_bdd_manager_compute_value(bddm, t);
+    t_recompute = bddm->value_recompute.data[i];
+    bv_bdd_manager_compute_value(bddm, t_recompute);
   }
 
   // Recompute needed BDDs
   for (i = 0; i < bddm->bdd_recompute.size; ++ i) {
-    term_t t = bddm->bdd_recompute.data[i];
-    bv_bdd_manager_compute_bdd(bddm, t);
+    assert(i == 0 || t_recompute != bddm->bdd_recompute.data[i]);
+    t_recompute = bddm->bdd_recompute.data[i];
+    bv_bdd_manager_compute_bdd(bddm, t_recompute);
   }
 
   // Clear the cache

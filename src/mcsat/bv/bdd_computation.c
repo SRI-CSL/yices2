@@ -279,23 +279,37 @@ bool bdds_is_constant_neg_one(CUDD* cudd, BDD** a, uint32_t n) {
   return true;
 }
 
+// 000000100000 for positive 2^k
+// 111111100000 for negative -2^k
+// 100000000000
+// returns k for positive, -k for negative assumes k != 0, i.e. x != 1, -1
 int32_t bdds_is_constant_pow2(CUDD* cudd, BDD** a, uint32_t n) {
-  int32_t pow = -1;
+  int32_t pow = 0;
   BDD* zero = Cudd_ReadLogicZero(cudd->cudd);
   BDD* one = Cudd_ReadOne(cudd->cudd);
-  for (int32_t i = 0; i < n; ++ i) {
-    if (a[i] == zero && pow == -1) {
-      continue;
-    }
-    if (a[i] == one && pow == -1) {
-      pow = i;
-      continue;
-    }
-    // Not a power
-    pow = -1;
-    break;
+  // Find first one
+  while (pow < n && a[pow] == zero) {
+    pow ++;
   }
-  return pow;
+  if (pow == n) {
+    return 0;
+  }
+  if (pow == n-1) {
+    return pow;
+  }
+  // a[pow] = 1, and at
+  // Check if power: rest is either all 0, or all 1
+  for (int32_t i = pow + 1; i + 1 < n; ++ i) {
+    if (a[i] != a[i+1]) {
+      return 0;
+    }
+  }
+  // Sign is the sign of the top bit
+  if (a[n-1] == one) {
+    return -pow;
+  } else {
+    return pow;
+  }
 }
 
 void bdds_mk_not(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
@@ -575,13 +589,21 @@ void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
       bdds_copy(out, a, n);
       return;
     }
-    int32_t b_pow = bdds_is_constant_pow2(cudd, b, n);
-    if (b_pow > 0) {
-      bdds_mk_shl_const(cudd, out, a, b_pow, n);
-      return;
-    }
     if (bdds_is_constant_neg_one(cudd, b, n)) {
       bdds_mk_2s_complement(cudd, out, a, n);
+      return;
+    }
+    int32_t b_pow = bdds_is_constant_pow2(cudd, b, n);
+    if (b_pow != 0) {
+      if (b_pow > 0) {
+        bdds_mk_shl_const(cudd, out, a, b_pow, n);
+      } else {
+        BDD** tmp = bdds_allocate_reserve(cudd, n);
+        bdds_mk_shl_const(cudd, tmp, a, -b_pow, n);
+        bdds_mk_2s_complement(cudd, out, tmp, n);
+        bdds_clear(cudd, tmp, n);
+        bdds_remove_reserve(cudd, n);
+      }
       return;
     }
   }
