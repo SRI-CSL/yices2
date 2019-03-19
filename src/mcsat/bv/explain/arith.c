@@ -437,17 +437,6 @@ term_t bv_arith_lt(bv_arith_ctx_t* lctx, term_t left, term_t right) {
   return not_term(terms, bvge_atom(terms, left, right));
 }
 
-// This function returns (left <= right) unless it is trivially true, in which case it returns NULL_TERM
-// Assumes the term to be built evaluates to true
-/* term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) { */
-/*   if (left == right) { return NULL_TERM; } */
-/*   term_table_t* terms = tm->terms; */
-/*   if (is_const_term(terms, left) && is_const_term(terms, right)) { */
-/*     return NULL_TERM; */
-/*   } */
-/*   return bvge_atom(terms, right, left); */
-/* } */
-
 
 /**
    Explanation mechanism. First for 1 constraint. Then for the whole conflict
@@ -499,7 +488,7 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, uint32_t coeff, bvcons
 
 
 // Treat a constraint of the form lhs <= rhs
-void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
+void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
   // Standard abbreviations
   term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
   plugin_context_t* ctx = lctx->exp->super.ctx;
@@ -521,7 +510,7 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
     // if coeff is negative, we add one, negate and swap sides.
     term_t nlhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, lhs));
     term_t nrhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, rhs));
-    return bv_arith_unit_le(lctx, nrhs, nlhs);
+    return bv_arith_unit_le(lctx, nrhs, nlhs, b);
   }
 
   // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
@@ -560,8 +549,16 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
         bvconst_print(out, hi.data, hi.bitsize);
         fprintf(out, "\n");
       }
-      if (!bvconstant_eq(&lo,&hi))
+      if (b && !bvconstant_eq(&lo,&hi))
         bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+      if (!b) {
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+        else {
+          term_t reason = bv_arith_eq(tm, lo_term, hi_term);
+          bv_arith_full_interval_push(lctx, reason);
+        }
+      }
     } else { // No conflict variable on the left, then hi is (c1 - c2)
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_sub(&hi, &cc2);
@@ -575,8 +572,16 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
         bvconst_print(out, hi.data, hi.bitsize);
         fprintf(out, "\n");
       }
-      if (!bvconstant_eq(&lo,&hi))
+      if (b && !bvconstant_eq(&lo,&hi))
         bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+      if (!b) {
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+        else {
+          term_t reason = bv_arith_eq(tm, lo_term, hi_term);
+          bv_arith_full_interval_push(lctx, reason);
+        }
+      }
     }
   } else {
     if (left_has) { // lo = c2 - c1 + 1, and hi = -c1
@@ -599,15 +604,27 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
         bvconst_print(out, hi.data, hi.bitsize);
         fprintf(out, "\n");
       }
-      if (!bvconstant_eq(&lo,&hi))
+      if (b && !bvconstant_eq(&lo,&hi))
         bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+      if (!b) {
+        if (!bvconstant_eq(&lo,&hi))
+          bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+        else {
+          term_t reason = bv_arith_eq(tm, lo_term, hi_term);
+          bv_arith_full_interval_push(lctx, reason);
+        }
+      }
     } else { // x appears on neither sides
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Case <=: !has_right, !has_left");
       }
-      if (bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
+      if (b && bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
         term_t reason = bv_arith_lt(lctx, c2, c1);
+        bv_arith_full_interval_push(lctx, reason);
+      }
+      if (!b && !bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
+        term_t reason = not_term(tm->terms,bv_arith_lt(lctx, c2, c1));
         bv_arith_full_interval_push(lctx, reason);
       }
     }
@@ -619,78 +636,6 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
   delete_bvconstant(&hi);    
 }
 
-// Treat a constraint of the form lhs != rhs
-void bv_arith_unit_neq(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs) {
-  // Standard abbreviations
-  term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
-  plugin_context_t* ctx = lctx->exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "\nTreating unit_constraint (lhs != rhs) where lhs is ");
-    term_print_to_file(out, ctx->terms, lhs);
-    fprintf(out, " and rhs is ");
-    term_print_to_file(out, ctx->terms, rhs);
-    fprintf(out, "\n");
-  }
-
-  int32_t left_coeff = bv_arith_coeff(lctx->exp, lhs, conflict_var, true);
-  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, conflict_var, true);
-    
-  if ((left_coeff == -1) || (right_coeff == -1)) {
-    // if coeff is negative, we add one, negate and swap sides.
-    term_t nlhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, lhs));
-    term_t nrhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, rhs));
-    return bv_arith_unit_le(lctx, nrhs, nlhs);
-  }
-
-  // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
-  // from which the confict variable (if present) was removed,
-  // and evaluating those polynomials c1 and c2 (whose variables should all have values on the trail)
-  bvconstant_t cc1, cc2;
-  term_t c1 = bv_arith_init_side(lctx, lhs, left_coeff, &cc1);
-  term_t c2 = bv_arith_init_side(lctx, rhs, right_coeff, &cc2);
-
-  // Now we are sure that on both sides, coefficient is either 0 or 1
-  // we check which one:
-  bool left_has  = (left_coeff == 1);
-  bool right_has = (right_coeff == 1);
-
-  term_t lo_term;
-  bvconstant_t lo;
-  init_bvconstant(&lo);
-
-  if ((right_has && left_has) || ((!right_has) && (!left_has))) { // x appears on both sides or on neither sides
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "is_neq: present on both sides or neither\n");
-    }
-    if (bvconstant_eq(&cc1,&cc2)) {
-      // If c1 == c2, we forbid everything, otherwise we forbid nothing
-      term_t reason = bv_arith_eq(tm, c1, c2);
-      bv_arith_full_interval_push(lctx, reason);
-    }
-  }
-  if (right_has && !left_has) { // case (c1 != c2 + x), forbidden interval is [ c1-c2 ; c1-c2 ]
-    bvconstant_copy(&lo, cc1.bitsize, cc1.data);
-    bvconstant_sub(&lo, &cc2);
-    bvconstant_normalize(&lo);
-    lo_term = bv_arith_sub_terms(tm,c1,c2);
-    bv_arith_singleton_push(lctx, &lo, lo_term, NULL_TERM);
-  }
-  if (left_has && !right_has) { // case of inequality (c1 + x != c2): forbidden interval is [ c2-c1 ; c2-c1 ]
-    bvconstant_copy(&lo, cc2.bitsize, cc2.data);
-    bvconstant_sub(&lo, &cc1);
-    bvconstant_normalize(&lo);
-    lo_term = bv_arith_sub_terms(tm,c2,c1);
-    bv_arith_singleton_push(lctx, &lo, lo_term, NULL_TERM);
-  }
-  
-  delete_bvconstant(&cc1);
-  delete_bvconstant(&cc2);    
-  delete_bvconstant(&lo);
-}
 
 // Shift interval down by base and base_term
 void bv_arith_ishift(plugin_context_t* ctx,
@@ -836,46 +781,18 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
     switch (term_kind(terms, atom_i_term)) {
     case BV_GE_ATOM: {  
-      if (atom_i_value) { // Constraint is (t0 >=u t1) -> True (with atom_i_term = (t0 >=u t1))
-        bv_arith_unit_le(&lctx, t1, t0);
-      }
-      else { // Constraint is (t0 >=u t1) -> False (with atom_i_term = (t0 >=u t1)),
-        // which is equivalent to the 2 constraints (t1 >=u t0+1) AND (t0+1 != 0)
-        term_t t0_plus1 = bv_arith_add_one_term(tm, t0);
-        bv_arith_unit_le(&lctx, t0_plus1, t1);
-        bv_arith_unit_neq(&lctx, t0_plus1, lctx.zero_term);
-      }
+      bv_arith_unit_le(&lctx, t1, t0, atom_i_value);
       break;
     }
     case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1}) // TODO: check this
       term_t t0prime = bv_arith_add_half(tm, t0);
       term_t t1prime = bv_arith_add_half(tm, t1);
-      if (atom_i_value) { // Constraint is (t0' >=u t1') -> True
-        bv_arith_unit_le(&lctx, t1prime, t0prime);
-      }
-      else { // Constraint is (t0' >=u t1') -> False,
-        // which is equivalent to the 2 constraints (t1' >=u t0'+1) AND (t0'+1 != 0)
-        term_t t0prime_plus1 = bv_arith_add_one_term(tm, t0prime);
-        bv_arith_unit_le(&lctx, t0prime_plus1, t1prime);
-        bv_arith_unit_neq(&lctx, t0prime_plus1, lctx.zero_term);
-      }
+      bv_arith_unit_le(&lctx, t1prime, t0prime, atom_i_value);
       break;
     }
     case EQ_TERM :     
     case BV_EQ_ATOM: { // equality
-      if (atom_i_value) {
-        // Constraint is (t0 == t1) -> True (with atom_i_term = (t0 == t1)),
-        // Turn into the constraint (t0 - t1 <=u 0)
-        bv_arith_unit_le(&lctx, bv_arith_sub_terms(tm, t0, t1), lctx.zero_term);
-        /* // Alternative (seems worst) */
-        /* // Turn into 2 constraints (t0 >=u t1) AND (t1 >=u t0) */
-        /* bv_arith_unit_le(&lctx, t0, t1); */
-        /* bv_arith_unit_le(&lctx, t1, t0); */
-      }
-      else {
-        // Constraint is (t0 == t1) -> False (with atom_i_term = (t0 == t1)),
-        bv_arith_unit_neq(&lctx, t0, t1);
-      }
+      bv_arith_unit_le(&lctx, bv_arith_sub_terms(tm, t0, t1), lctx.zero_term, atom_i_value);
       break;
     }
     default:
