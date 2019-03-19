@@ -487,7 +487,11 @@ void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* a) {
 void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
+  bdds_reverse(a, n);
+  bdds_reverse(b, n);
   out[0] = Cudd_Xeqy(cudd->cudd, n, a, b);
+  bdds_reverse(a, n);
+  bdds_reverse(b, n);
   Cudd_Ref(out[0]);
 }
 

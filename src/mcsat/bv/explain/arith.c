@@ -71,7 +71,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_
         assert (result == 0); // in theory, the conflict variable shouldn't be seen twice
         if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) result = 1;
         else {
-          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->width)) result = -1;
+          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->bitsize)) result = -1;
           else return 2;
         };
         if (assume_fragment) break; // If in fragment, need not look at other monomials
