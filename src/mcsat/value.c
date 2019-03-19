@@ -50,7 +50,9 @@ void mcsat_value_construct_lp_value(mcsat_value_t* value, const lp_value_t* lp_v
 void mcsat_value_construct_bv_value(mcsat_value_t* value, const bvconstant_t* bvvalue) {
   value->type = VALUE_BV;
   init_bvconstant(&value->bv_value);
-  bvconstant_copy(&value->bv_value, bvvalue->bitsize, bvvalue->data);
+  if (bvvalue != NULL) {
+    bvconstant_copy(&value->bv_value, bvvalue->bitsize, bvvalue->data);
+  }
 }
 
 void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from) {

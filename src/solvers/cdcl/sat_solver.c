@@ -2239,7 +2239,7 @@ static uint32_t signature(sat_solver_t *sol, literal_t *b, uint32_t n) {
 
   s = 0;
   for (i=0; i<n; i++) {
-    s |= 1 << (d_level(sol, b[i]) & 31);
+    s |= ((uint32_t) 1) << (d_level(sol, b[i]) & 31);
   }
   return s;
 }
@@ -2248,7 +2248,7 @@ static uint32_t signature(sat_solver_t *sol, literal_t *b, uint32_t n) {
  * Check whether decision level for literal l matches the hash sgn
  */
 static inline bool check_level(sat_solver_t *sol, literal_t l, uint32_t sgn) {
-  return (sgn & (1 << (d_level(sol, l) & 31))) != 0;
+  return (sgn & (((uint32_t) 1) << (d_level(sol, l) & 31))) != 0;
 }
 
 

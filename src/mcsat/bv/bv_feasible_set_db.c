@@ -43,7 +43,7 @@ typedef struct {
 
 } feasibility_list_element_t;
 
-struct bv_feasible_set_db_struct {
+struct bv_feasible_set_db_s {
 
   /** Elements of the lists */
   feasibility_list_element_t* memory;
@@ -71,6 +71,9 @@ struct bv_feasible_set_db_struct {
 
   /** Index into the fixed variables */
   uint32_t fixed_variables_i;
+
+  /** The value to manipulate */
+  mcsat_value_t tmp_value;
 
   /** Scope for push/pop */
   scope_holder_t scope;
@@ -171,6 +174,8 @@ bv_feasible_set_db_t* bv_feasible_set_db_new(plugin_context_t* ctx, bv_bdd_manag
   init_ivector(&db->fixed_variables, 0);
   scope_holder_construct(&db->scope);
 
+  mcsat_value_construct_bv_value(&db->tmp_value, NULL);
+
   return db;
 }
 
@@ -186,6 +191,7 @@ void bv_feasible_set_db_delete(bv_feasible_set_db_t* db) {
     bv_bdd_manager_bdd_detach(db->bddm, s2);
   }
   // Delete the other stuff
+  mcsat_value_destruct(&db->tmp_value);
   delete_int_hmap(&db->var_to_feasible_set_map);
   delete_ivector(&db->updates);
   delete_ivector(&db->fixed_variables);
@@ -202,6 +208,58 @@ bdd_t bv_feasible_set_db_get(const bv_feasible_set_db_t* db, variable_t x) {
   } else {
     return db->memory[index].feasible_set;
   }
+}
+
+const mcsat_value_t* bv_feasible_set_db_pick_value(bv_feasible_set_db_t* db, variable_t x) {
+
+  bool ok;
+
+  // Get the feasible set
+  bdd_t x_feasible_bdd = bv_feasible_set_db_get(db, x);
+  bool x_feasible_full = x_feasible_bdd.bdd[0] == NULL;
+
+  // Term for x
+  term_t x_term = variable_db_get_term(db->ctx->var_db, x);
+  uint32_t x_bitsize = term_bitsize(db->ctx->terms, x_term);
+
+  // Check the cached value from the
+  const mcsat_trail_t* trail = db->ctx->trail;
+  if (trail_has_cached_value(trail, x)) {
+    const mcsat_value_t* cached_value = trail_get_cached_value(trail, x);
+    if (x_feasible_full) {
+      return cached_value;
+    } else {
+      ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, &cached_value->bv_value);
+      if (ok) { return cached_value; }
+    }
+  }
+
+  // Initialize the value we're using
+  bvconstant_t* value = &db->tmp_value.bv_value;
+
+  // Try simple values: 0, 1, -1
+
+  // 1) Try 0
+  bvconstant_set_all_zero(value, x_bitsize);
+  if (x_feasible_full) { return &db->tmp_value; }
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // 2) Try 1
+  bvconstant_set_one(value);
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // 3) Try -1
+  bvconstant_set_all_one(value, x_bitsize);
+  ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, value);
+  if (ok) { return &db->tmp_value; }
+
+  // Pick a value from the feasible set
+  bv_bdd_manager_pick_value(db->bddm, x_term, x_feasible_bdd, value);
+
+  // Return the constructed value
+  return &db->tmp_value;
 }
 
 bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new_set, variable_t* cstr_list, uint32_t cstr_count) {

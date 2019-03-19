@@ -111,6 +111,9 @@ bv_bdd_t bv_bdd_manager_get_bv_bdd(bv_bdd_manager_t* bddm, term_t bv_term, term_
 /** Pick a value for a given variable that satisfies the given BDD(x). */
 void bv_bdd_manager_pick_value(bv_bdd_manager_t* bddm, term_t x, bdd_t bdd, bvconstant_t* out);
 
+/** Check if a given value satisfies the given BDD(x) */
+bool bv_bdd_manager_is_model(bv_bdd_manager_t* bddm, term_t x, bdd_t bdd, const bvconstant_t* x_value);
+
 /** Detach a BDD */
 void bv_bdd_manager_bdd_detach(bv_bdd_manager_t* bddm, bdd_t bdd);
 
