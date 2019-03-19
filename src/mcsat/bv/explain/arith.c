@@ -155,8 +155,7 @@ bool bv_arith_is_minus_one(term_table_t* terms, term_t t) {
     return bvconst64_is_minus_one(desc->value, desc->bitsize);
   } else {
     bvconst_term_t* desc = bvconst_term_desc(terms,t);
-    uint32_t k = (desc->bitsize + 31) >> 5; // number of words = ceil(bitsize/32)
-    return bvconst_is_minus_one(desc->data, k);
+    return bvconst_is_minus_one(desc->data, desc->bitsize);
   }
 }
 
