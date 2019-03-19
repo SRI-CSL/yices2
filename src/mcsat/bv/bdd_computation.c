@@ -336,16 +336,20 @@ void bdds_mk_or(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   }
 }
 
-void bdds_mk_2s_complement(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
+/** - (a << shift) */
+void bdds_mk_2s_complement_with_shift(CUDD* cudd, BDD** out, BDD** a, uint32_t shift, uint32_t n) {
   BDD* carry = Cudd_ReadOne(cudd->cudd);
   Cudd_Ref(carry);
 
+  BDD* one = Cudd_ReadOne(cudd->cudd);
+  Cudd_Ref(one);
+
   for(uint32_t i = 0; i < n; ++ i) {
-    BDD* a_neg = Cudd_Not(a[i]);
-    BDD* sum = Cudd_bddXor(cudd->cudd, carry, a_neg);
+    BDD* a_shl_neg = i >= shift ? Cudd_Not(a[i-shift]) : one;
+    BDD* sum = Cudd_bddXor(cudd->cudd, carry, a_shl_neg);
     Cudd_Ref(sum);
 
-    BDD* new_carry = Cudd_bddAnd(cudd->cudd, carry, a_neg);
+    BDD* new_carry = Cudd_bddAnd(cudd->cudd, carry, a_shl_neg);
     Cudd_Ref(new_carry);
     Cudd_IterDerefBdd(cudd->cudd, carry);
     carry = new_carry;
@@ -355,6 +359,12 @@ void bdds_mk_2s_complement(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
   }
 
   Cudd_IterDerefBdd(cudd->cudd, carry);
+  Cudd_IterDerefBdd(cudd->cudd, one);
+}
+
+
+void bdds_mk_2s_complement(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
+  bdds_mk_2s_complement_with_shift(cudd, out, a, 0, n);
 }
 
 void bdds_mk_shl_const(CUDD* cudd, BDD** out, BDD** a, uint32_t shift, uint32_t n) {
@@ -509,6 +519,8 @@ void bdds_mk_eq0(CUDD* cudd, BDD** out, BDD** a, uint32_t n) {
 /** out += cond*a << shift (out must be allocated) */
 void bdds_mk_plus_in_place(CUDD* cudd, BDD** out, BDD** a, BDD* cond, uint32_t n, uint32_t shift) {
 
+//  assert(shift < n);
+
   // Constant optimization
   if (cond != NULL) {
     if (cond == Cudd_ReadLogicZero(cudd->cudd)) {
@@ -561,11 +573,38 @@ void bdds_mk_plus(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   bdds_mk_plus_in_place(cudd, out, b, NULL, n, 0);
 }
 
+/** If one of the arguments is a constant, it's always b */
 static
 void bdds_mk_mult_core(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
+
+  uint32_t i, j;
+
   bdds_mk_zero(cudd, out, n);
-  for(uint32_t k = 0; k < n; ++ k) {
-    bdds_mk_plus_in_place(cudd, out, a, b[k], n, k);
+
+  for(i = 0; i < n; ++ i) {
+    // Skip zeros
+    if (b[i] == Cudd_ReadLogicZero(cudd->cudd)) { continue; }
+    // Now, see if you can find a sequence of same bits
+    j = i + 1;
+    while (j < n && b[j] == b[i]) { j ++; }
+    // If there is more than 2 bits same, let's optimize
+    if (j - i > 2) {
+      // We have b_j, ..., b_i the same (v), so we compute the whole block
+      // for example
+      //  11100*a = 28*a = 2^5*a - 2^2*a = (a << 5) -- (a << 2)
+      if (j < n) {
+        bdds_mk_plus_in_place(cudd, out, a, b[i], n, j);
+      }
+      BDD** tmp = bdds_allocate_reserve(cudd, n);
+      bdds_mk_2s_complement_with_shift(cudd, tmp, a, i, n);
+      bdds_mk_plus_in_place(cudd, out, tmp, b[i], n, 0);
+      bdds_clear(cudd, tmp, n);
+      bdds_remove_reserve(cudd, n);
+      // Done, we continue with j
+      i = j - 1;
+    } else {
+      bdds_mk_plus_in_place(cudd, out, a, b[i], n, i);
+    }
   }
 }
 
@@ -607,6 +646,7 @@ void bdds_mk_mult(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
       return;
     }
   }
+
   bdds_mk_mult_core(cudd, out, a, b, n);
 }
 
