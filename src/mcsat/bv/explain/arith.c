@@ -444,7 +444,7 @@ term_t bv_arith_lt(bv_arith_ctx_t* lctx, term_t left, term_t right) {
 // Analyses one side of an atom, assumed to be in the fragment.
 // t is the side, coeff is the coeff of the conflict var, cc is a non-initialised bv_constant
 // returns the "rest of the term" (monomial of the conflict var is removed), and places the result of its evaluation in cc
-term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, uint32_t coeff, bvconstant_t* cc) {
+term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconstant_t* cc) {
 
   // Standard abbreviations
   term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
@@ -827,6 +827,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       }
       uint32_t eval_level = 0;
       assert(bv_evaluator_evaluate_term(exp->super.eval, longest->reason, &eval_level)->b);
+      (void) eval_level;
       ivector_push(conflict, longest->reason);
     }
     bv_arith_interval_destruct(longest);
