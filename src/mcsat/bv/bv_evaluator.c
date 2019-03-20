@@ -578,7 +578,10 @@ const mcsat_value_t* bv_evaluator_evaluate_var(bv_evaluator_t* evaluator, variab
 const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_t cstr_term, uint32_t* cstr_eval_level) {
   if (term_type_kind(evaluator->ctx->terms, cstr_term) == BOOL_TYPE) {
     bv_evaluator_clear_cache(evaluator);
+    bool negated = is_neg_term(cstr_term);
+    cstr_term = unsigned_term(cstr_term);
     bool result = bv_evaluator_run_atom(evaluator, cstr_term, cstr_eval_level);
+    if (negated) { result = !result; }
     return result ? &mcsat_value_true : &mcsat_value_false;
   } else {
     bv_evaluator_clear_cache(evaluator);
