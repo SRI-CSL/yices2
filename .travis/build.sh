@@ -28,8 +28,8 @@ autoconf
 # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
-make MODE=gcov 
-make MODE=gcov check
+make MODE=$BUILD_TYPE 
+make MODE=$BUILD_TYPE check
 
 RETURN="$?"
 if [ "${RETURN}" != "0" ]; then
