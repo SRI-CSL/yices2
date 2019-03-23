@@ -63,6 +63,7 @@
  *
  * Options:
  * - simplify_ite = true if ite simplication is enabled
+ * - simplify_bveq1 = true if bitvector equalities of size 1 can simplify to Boolean
  */
 typedef struct term_manager_s {
   term_table_t *terms;
@@ -87,6 +88,8 @@ typedef struct term_manager_s {
   ivector_t vector0;
 
   bool simplify_ite;
+  bool simplify_bveq1;
+
 } term_manager_t;
 
 
