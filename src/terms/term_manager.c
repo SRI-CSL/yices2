@@ -669,7 +669,7 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
    * (because disequal_bitvector_terms returned false).
    */
   aux = simplify_bveq(tbl, t1, t2);
-  if (aux != NULL_TERM) {
+  if (manager->simplify_bveq1 && aux != NULL_TERM) {
     // Simplification worked
     return aux;
   }

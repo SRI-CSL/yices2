@@ -974,11 +974,11 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   plugin_context_t* ctx = this->ctx;
   term_table_t* terms   = ctx->terms;
   term_manager_t* tm = &ctx->var_db->tm;
-
+  
   assert(conflict_var == exp->csttrail.conflict_var);
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Eq-explaining conflict with conflict_variable ");
+    fprintf(out, "Eq-explaining conflict with conflict_variable (term manager %d)", tm->simplify_bveq1);
     term_print_to_file(out, terms, exp->csttrail.conflict_var_term);
     fprintf(out, "\n");
   }

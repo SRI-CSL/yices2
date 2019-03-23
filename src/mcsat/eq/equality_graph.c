@@ -257,6 +257,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
 
   init_term_manager(&eq->tm, eq->ctx->terms);
   eq->tm.simplify_ite = false;
+  eq->tm.simplify_bveq1 = false;
 
   eq->graph_out = 0;
 
