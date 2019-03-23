@@ -20,6 +20,7 @@ typedef struct eq_ext_con_s {
   /** Interfact of the subexplainer */
   bv_subexplainer_t super;
   bv_csttrail_t csttrail; // Where we keep some cached values
+  int_hset_t good_terms_cache; // Cache of terms that can be treated by this explainer
 
 } eq_ext_con_t;
 
@@ -645,6 +646,11 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
       term_t s_slice_term = slice_mk_term(s, tm);
       const mcsat_value_t* slice_term_value = bv_evaluator_evaluate_term(exp->super.eval, s_slice_term, &eval_level);
       eq_graph_assign_term_value(egraph, s_slice_term, slice_term_value, s_slice_term);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, " which evaluates to ");
+        mcsat_value_print(slice_term_value, out);
+      }
     }
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
@@ -804,68 +810,75 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
 }
 
 static inline
-bool variable_in_list(variable_t x, const variable_t* vars) {
-  while (*vars != variable_null) {
-    if (x == *vars) { return true; }
-    vars ++;
+bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
+
+  plugin_context_t* ctx = exp->super.ctx;
+  term_t conflict_var = exp->csttrail.conflict_var_term;
+  term_table_t* terms         = ctx->terms;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "t = ");
+    ctx_trace_term(ctx, t);
   }
-  return false;
-}
 
-static inline
-bool term_is_ext_con(bv_subexplainer_t* this, term_t t, const variable_t* vars) {
+  // Looking at whether the value is cached
+  if (int_hset_member(&exp->good_terms_cache,t)) return true;
 
-  uint32_t i;
+  bool ignore_this_bool;
+  if (t == conflict_var
+      || bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) {
+    int_hset_add(&exp->good_terms_cache, t);
+    return true;
+  }
 
-  const variable_db_t* var_db = this->ctx->var_db;
-  term_table_t* terms = this->ctx->terms;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not evaluable. Is it at least positive?\n");
+  }
 
-//  if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
-//    FILE* out = ctx_trace_out(this->ctx);
-//    fprintf(out, "t = ");
-//    ctx_trace_term(this->ctx, t);
-//  }
+  if (!is_pos_term(t))
+    return false;
 
   // What kind of term is it
   term_kind_t t_kind = term_kind(terms, t);
 
-  // MCSAT variables
-  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
-  if (t_var != variable_null) {
-    if (variable_in_list(t_var, vars)) {
-      return true;
-    }
-  }
-
-  // Constants solo
-  if (is_const_term(terms, t)) {
-    return true;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Doing case analysis on term\n");
   }
 
   // Bit-select over a variable
   if (t_kind == BIT_TERM) {
     term_t t_arg = bit_term_arg(terms, t);
-    variable_t t_arg_var = variable_db_get_variable_if_exists(var_db, t_arg);
-    if (t_arg_var != variable_null) {
-      return variable_in_list(t_arg_var, vars);
+    if (t_arg == conflict_var) {
+      int_hset_add(&exp->good_terms_cache, t);
+      return true;
     } else {
       return false;
     }
   }
 
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not Bit_term of conflict_var\n");
+  }
+
   // Array of bits
   if (t_kind == BV_ARRAY) {
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
-    for (i = 0; i < concat_desc->arity; ++ i) {
-      term_t bit = concat_desc->arg[i];
-      if (is_neg_term(bit)) {
-        return false;
-      }
-      if (!term_is_ext_con(this, bit, vars)) {
+    for (uint32_t i = 0; i < concat_desc->arity; ++ i) {
+      term_t arg = concat_desc->arg[i];
+      if (!term_is_ext_con(exp, arg)) {
         return false;
       }
     }
     return true;
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not good BVarray, now returning false\n");
   }
 
   // Nothing else
@@ -881,45 +894,43 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
   // - bvarray[v1, ..., vn, c1, ..., cn]
   // Additionally, bit-selects count too, if they are over a variable
 
-  eq_ext_con_t* exp          = (eq_ext_con_t*) this;
-  bv_csttrail_t* csttrail    = &exp->csttrail;
+  eq_ext_con_t* exp           = (eq_ext_con_t*) this;
+  bv_csttrail_t* csttrail     = &exp->csttrail;
   const variable_db_t* var_db = this->ctx->var_db;
-  term_table_t* terms = this->ctx->terms;
+  term_table_t* terms         = this->ctx->terms;
+
+  // Resetting the cache & co.
   bv_evaluator_csttrail_reset(csttrail, conflict_var);
+  int_hset_reset(&exp->good_terms_cache);
 
-  uint32_t i;
+  // We go through the conflict core
+  for (uint32_t i = 0; i < conflict->size; ++ i) {
 
-  for (i = 0; i < conflict->size; ++ i) {
-
-    // Atom and it's term
+    // Atom and its term
     variable_t atom_var = conflict->data[i];
-    term_t atom_term = variable_db_get_term(var_db, atom_var);
+    term_t atom_term    = variable_db_get_term(var_db, atom_var);
+
+    assert(is_pos_term(atom_term));
 
     bv_evaluator_csttrail_scan(csttrail, atom_var);
 
-//    if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
-//      FILE* out = ctx_trace_out(this->ctx);
-//      fprintf(out, "atom_var = ");
-//      ctx_trace_term(this->ctx, atom_term);
-//    }
-
-    // Get the variables of the constraint
-    if (!watch_list_manager_has_constraint(this->wlm, atom_var)) {
-      // No variables, it must be Boolean assignment, which is fine
-      continue;
+    if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
+      FILE* out = ctx_trace_out(this->ctx);
+      fprintf(out, "eq_ext_conc looks at whether this is in the fragment: ");
+      ctx_trace_term(this->ctx, atom_term);
+      fprintf(out, "with the conflict_variable being ");
+      ctx_trace_term(this->ctx, csttrail->conflict_var_term);
     }
 
-    // List of variables in the atom (at registration time, and BDD creation time)
-    variable_list_ref_t atom_var_wlist_ref = watch_list_manager_get_list_of(this->wlm, atom_var);
-    const variable_t* atom_var_wlist = watch_list_manager_get_list(this->wlm, atom_var_wlist_ref);
-
     // Now, see if it fits
-    term_kind_t atom_kind = term_kind(terms, atom_term);
-    switch (atom_kind) {
+    switch (term_kind(terms, atom_term)) {
     case BIT_TERM: {
       term_t atom_arg = bit_term_arg(terms, atom_term);
-      variable_t atom_arg_var = variable_db_get_variable_if_exists(var_db, atom_arg);
-      if (atom_arg_var != variable_null || !variable_in_list(atom_arg_var, atom_var_wlist)) {
+      if (!term_is_ext_con(exp, atom_arg)) {
+        if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
+          FILE* out = ctx_trace_out(this->ctx);
+          fprintf(out, "term_is_ext_con returned false\n");
+        }
         return false;
       }
       break;
@@ -927,17 +938,30 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
     case BV_EQ_ATOM:
     case EQ_TERM: {
       composite_term_t* eq = composite_term_desc(terms, atom_term);
-      if (!term_is_ext_con(this, eq->arg[0], atom_var_wlist)) {
+      if (!term_is_ext_con(exp, eq->arg[0])) {
+        if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
+          FILE* out = ctx_trace_out(this->ctx);
+          fprintf(out, "term_is_ext_con returned false\n");
+        }
         return false;
       }
-      if (!term_is_ext_con(this, eq->arg[1], atom_var_wlist)) {
+      if (!term_is_ext_con(exp, eq->arg[1])) {
+        if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
+          FILE* out = ctx_trace_out(this->ctx);
+          fprintf(out, "term_is_ext_con returned false\n");
+        }
         return false;
       }
       break;
     }
-    default:
+    default: {
+      if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
+        FILE* out = ctx_trace_out(this->ctx);
+        fprintf(out, "Is neither bit_term nor bv_eq_atom nor eq_term, returning false\n");
+      }
       // Cannot handle it
       return false;
+    }
     }
   }
 
@@ -1155,6 +1179,7 @@ static
 void destruct(bv_subexplainer_t* this) {
   eq_ext_con_t* exp = (eq_ext_con_t*) this;
   bv_evaluator_csttrail_destruct(&exp->csttrail);
+  delete_int_hset(&exp->good_terms_cache);
 }
 
 /** Allocate the sub-explainer and setup the methods */
@@ -1164,10 +1189,12 @@ bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* w
 
   bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
   bv_evaluator_csttrail_construct(&exp->csttrail, ctx, wlm);
-  exp->super.destruct = destruct;
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
+  exp->super.destruct = destruct;
+
+  init_int_hset(&exp->good_terms_cache, 0);
 
   return (bv_subexplainer_t*) exp;
 }

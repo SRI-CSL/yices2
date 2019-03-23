@@ -644,9 +644,10 @@ void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom){
 // If it does not, use_trail is untouched. If it does, then use_trail is set to true
 // if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
 
-bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t, bool* use_trail) {
+bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t u, bool* use_trail) {
 
-  assert(is_pos_term(t));
+  term_t t = unsigned_term(u);
+
   plugin_context_t* ctx = csttrail->ctx;
 
   if (t == csttrail->conflict_var_term) return false;
