@@ -610,9 +610,9 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
     bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, s_term, &ignore_this_bool);
 
     if (has_value) {
-      uint32_t eval_level;
+      uint32_t ignore_that_int=0;
       term_t s_slice_term = slice_mk_term(s, tm);
-      const mcsat_value_t* slice_term_value = bv_evaluator_evaluate_term(exp->super.eval, s_slice_term, &eval_level);
+      const mcsat_value_t* slice_term_value = bv_evaluator_evaluate_term(exp->super.eval, s_slice_term, &ignore_that_int);
       eq_graph_assign_term_value(egraph, s_slice_term, slice_term_value, s_slice_term);
       if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
         FILE* out = ctx_trace_out(ctx);
