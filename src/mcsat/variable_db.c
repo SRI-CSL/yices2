@@ -29,6 +29,7 @@ void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_tabl
 
   init_term_manager(&var_db->tm, terms);
   var_db->tm.simplify_ite = false;
+  var_db->tm.simplify_bveq1 = false;
 
   init_ivector(&var_db->variable_to_term_map, 0);
   init_int_hmap(&var_db->term_to_variable_map, 0);
