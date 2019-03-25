@@ -1152,6 +1152,16 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 }
 
 static
+bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  return false;
+}
+
+static
+term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
+  assert(false);
+  return NULL_TERM;
+}
+static
 void destruct(bv_subexplainer_t* this) {
   eq_ext_con_t* exp = (eq_ext_con_t*) this;
   bv_evaluator_csttrail_destruct(&exp->csttrail);
@@ -1168,6 +1178,8 @@ bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* w
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
+  exp->super.can_explain_propagation = can_explain_propagation;
+  exp->super.explain_propagation = explain_propagation;
 
   return (bv_subexplainer_t*) exp;
 }

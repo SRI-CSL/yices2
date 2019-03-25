@@ -354,29 +354,32 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
 }
 
 static
-void explain_conflict(bv_subexplainer_t* super, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to_explain, ivector_t* core_out, bool is_conflict) {
+
   uint32_t i;
 
   full_bv_sat_t* this = (full_bv_sat_t*) super;
 
   const variable_db_t* var_db = super->ctx->var_db;
   const mcsat_trail_t* trail = super->ctx->trail;
+  term_manager_t* tm = &super->ctx->var_db->tm;
+  term_table_t* terms = super->ctx->terms;
   bb_sat_solver_t* solver = &this->solver;
 
   // Reset the solver
   bb_sat_solver_reset(solver);
 
   // Get the assigned variables into a set and copy assertions into explanation
-  for (i = 0; i < conflict_core->size; ++i) {
+  for (i = 0; i < core_in->size; ++i) {
     // Get assigned variables
-    variable_t atom_i_var = conflict_core->data[i];
+    variable_t atom_i_var = core_in->data[i];
     variable_list_ref_t list_ref = watch_list_manager_get_list_of(super->wlm,
         atom_i_var);
     variable_t* atom_i_vars = watch_list_manager_get_list(super->wlm, list_ref);
     for (; *atom_i_vars != variable_null; atom_i_vars++) {
       variable_t var = *atom_i_vars;
       if (var != atom_i_var) {
-        bool assign_value = (var != conflict_var);
+        bool assign_value = (var != to_explain);
         bb_sat_solver_add_variable(solver, var, assign_value);
       }
     }
@@ -387,13 +390,25 @@ void explain_conflict(bv_subexplainer_t* super, const ivector_t* conflict_core, 
     if (!atom_i_value->b) {
       assertion = opposite_term(assertion);
     }
-    ivector_push(conflict, assertion);
+    ivector_push(core_out, assertion);
   }
 
-  // Now assert the conflict
-  for (i = 0; i < conflict_core->size; ++i) {
-    variable_t assertion_var = conflict_core->data[i];
+  // Now assert the core
+  for (i = 0; i < core_in->size; ++i) {
+    variable_t assertion_var = core_in->data[i];
     bb_sat_solver_assert_var(solver, assertion_var);
+  }
+
+  // Finally, if propagation, assert negation of it's value
+  term_t propagated_value = NULL_TERM;
+  term_t propagated_assert = NULL_TERM;
+  if (!is_conflict) {
+    const mcsat_value_t* value = trail_get_value(trail, to_explain);
+    propagated_value = mcsat_value_to_term(value, terms);
+    term_t x_term = variable_db_get_term(var_db, to_explain);
+    propagated_assert = mk_eq(tm, x_term, propagated_value);
+    propagated_assert = opposite_term(propagated_assert);
+    bb_sat_solver_assert_term(solver, propagated_assert);
   }
 
   // Solve and get the core
@@ -401,13 +416,33 @@ void explain_conflict(bv_subexplainer_t* super, const ivector_t* conflict_core, 
   yices_init_term_vector(&core);
   bb_sat_solver_solve_and_get_core(solver, &core);
 
-  // Copy over the core
+  // Copy over the core (except the
   for (i = 0; i < core.size; ++i) {
-    ivector_push(conflict, core.data[i]);
+    term_t t = core.data[i];
+    if (t != propagated_assert) {
+      ivector_push(core_out, core.data[i]);
+    }
   }
 
   // Delete stuff
   yices_delete_term_vector(&core);
+
+  return propagated_value;
+}
+
+static
+void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+  explain(this, conflict_core, conflict_var, conflict, true);\
+}
+
+static
+bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  return true;
+}
+
+static
+term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
+  return explain(this, reasons_in, x, reasons_out, false);
 }
 
 static
@@ -427,6 +462,8 @@ bv_subexplainer_t* full_bv_sat_new(plugin_context_t* ctx, watch_list_manager_t* 
   // Setup calls
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
+  exp->super.can_explain_propagation = can_explain_propagation;
+  exp->super.explain_propagation = explain_propagation;
   exp->super.destruct = destruct;
 
   // Construct the rest

@@ -56,8 +56,15 @@ void bv_feasible_set_db_push(bv_feasible_set_db_t* db);
 /** Pop the context */
 void bv_feasible_set_db_pop(bv_feasible_set_db_t* db);
 
+typedef enum {
+  /** Get reasons for dom(x) = {} */
+  EXPLAIN_EMPTY,
+  /** Get reasons fro dom(x) = { v } */
+  EXPLAIN_SINGLETON
+} bv_feasible_explain_mode_t;
+
 /** Get the reason for a conflict on x. Feasible set of x should be empty. */
-void bv_feasible_set_db_get_conflict_reasons(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons);
+void bv_feasible_set_db_get_reasons(const bv_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons, bv_feasible_explain_mode_t mode);
 
 /** Return any fixed variables */
 variable_t bv_feasible_set_db_get_fixed(bv_feasible_set_db_t* db);

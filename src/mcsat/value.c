@@ -288,6 +288,24 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
 }
 
+term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_table_t* terms) {
+  switch (mcsat_value->type) {
+  case VALUE_BOOLEAN:
+    if (mcsat_value->b) {
+      return true_term;
+    } else {
+      return false_term;
+    }
+  case VALUE_BV: {
+    const bvconstant_t* bv = &mcsat_value->bv_value;
+    return bvconst_term(terms, bv->bitsize, bv->data);
+  }
+  default:
+    assert(false);
+  }
+  return NULL_TERM;
+}
+
 value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {
   value_t value = null_value;
   switch (mcsat_value->type) {

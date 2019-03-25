@@ -96,6 +96,17 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   int_mset_destruct(&assigned_vars);
 }
 
+static
+bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  return false;
+}
+
+static
+term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
+  assert(false);
+  return NULL_TERM;
+}
+
 
 /** Allocate the sub-explainer and setup the methods */
 bv_subexplainer_t* full_bv_trivial_new(plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
@@ -108,6 +119,8 @@ bv_subexplainer_t* full_bv_trivial_new(plugin_context_t* ctx, watch_list_manager
   // Setup calls
   exp->can_explain_conflict = can_explain_conflict;
   exp->explain_conflict = explain_conflict;
+  exp->can_explain_propagation = can_explain_propagation;
+  exp->explain_propagation = explain_propagation;
 
   return exp;
 }

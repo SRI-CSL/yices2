@@ -36,7 +36,10 @@ struct bv_subexplainer_s {
   const char* name;
 
   /** How many times has it been used */
-  statistic_int_t* stat_explain_calls;
+  statistic_int_t* stat_explain_conflict_calls;
+
+  /** How many times has it been used */
+  statistic_int_t* stat_explain_propagation_calls;
 
   /** Destruct the explainer */
   void (*destruct) (bv_subexplainer_t* this);
@@ -52,6 +55,11 @@ struct bv_subexplainer_s {
    */
   void (*explain_conflict) (bv_subexplainer_t* this, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out);
 
+  /** Returns true if the explainer can explain the given propagation. */
+  bool (*can_explain_propagation) (bv_subexplainer_t* this, const ivector_t* reasons, variable_t x);
+
+  /** Returns true if the explainer can explain the given propagation. */
+  term_t (*explain_propagation) (bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out);
 };
 
 /** Base constructor for the plugin */
@@ -93,4 +101,16 @@ void bv_explainer_destruct(bv_explainer_t* exp);
  */
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out);
 
-
+/**
+ * Returns an explanation of the propagation of variable x -> v in the trail
+ * The return is a term t such that
+ * - reasons => x = t is valid,
+ * - terms in reasons can all evaluate to true, and
+ * - t can evaluate to v
+ *
+ * The vector reasons_in is the vector of variables that, when asserted,
+ * imply the value v for x. A valid explanation would therefore be just
+ * terms(reasons_i) for reasons_out, and term(v) for return. A more
+ * reasonable explanation is usually needed for large domain variables.
+ */
+term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const ivector_t* reasons_in, ivector_t* reasons_out);
