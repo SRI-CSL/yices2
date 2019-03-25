@@ -1052,8 +1052,6 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
   }
 }
 
-// Required as plugin_t field
-
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -1071,17 +1069,20 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
     // Check if the variables are assigned
     ivector_t* var_list = int_mset_get_list(vars);
-    size_t i = 0;
+    uint32_t i = 0;
     for (i = 0; i < var_list->size; ++ i) {
-      if (!trail_has_value(bv->ctx->trail, var_list->data[i])) {
-        int_mset_clear(vars);
-        if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
-          FILE* out = ctx_trace_out(bv->ctx);
+      bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
+      if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(bv->ctx);
+        fprintf(out, "%"PRIu32": ", i);
+        ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
+        if (!var_evaluates) {
           fprintf(out, "term doesn't evaluate: ");
           ctx_trace_term(bv->ctx, t);
-          fprintf(out, "because of: ");
-          ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
         }
+      }
+      if (!var_evaluates) {
+        int_mset_clear(vars);
         return false;
       }
     }
@@ -1090,9 +1091,9 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     return true;
 
   } else {
+    // Not used yet
     assert(false);
   }
-
 
   return true;
 }

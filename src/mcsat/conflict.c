@@ -237,6 +237,7 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   term_t disjunct_pos, disjunct_subst;
   variable_t disjunct_pos_var;
   bool disjunct_value;
+  uint32_t i;
 
   // Positive literal
   disjunct_pos = unsigned_term(disjunct);
@@ -256,6 +257,9 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
     }
   }
 
+  const variable_db_t* var_db = conflict->var_db;
+  term_manager_t* tm = &conflict->var_db->tm;
+
   // If we're doing substitution, we need to know which variables are in the frontier
   int_mset_t disjunct_vars;
   int_mset_construct(&disjunct_vars, variable_null);
@@ -263,15 +267,21 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   (void) evaluates;
   assert(evaluates);
 
-  const variable_db_t* var_db = conflict->var_db;
-  term_manager_t* tm = &conflict->var_db->tm;
+  // Remember the terms
+  int_hmap_t disjunct_frontier;
+  init_int_hmap(&disjunct_frontier, 0);
+  for (i = 0; i < disjunct_vars.element_list.size; ++ i) {
+    variable_t x = disjunct_vars.element_list.data[i];
+    term_t x_term = variable_db_get_term(var_db, x);
+    int_hmap_add(&disjunct_frontier, x_term, 1);
+  }
 
   // Substitute
   substitution_t subst;
   substitution_construct(&subst, tm, conflict->tracer);
   term_t var_term = variable_db_get_term(var_db, var);
   substitution_add(&subst, var_term, substitution);
-  disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_vars.element_list_position);
+  disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_frontier);
   substitution_destruct(&subst);
 
   if (trace_enabled(conflict->tracer, "mcsat::conflict::subst")) {
@@ -290,7 +300,11 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   if (disjunct_pos != disjunct) {
     disjunct_subst = opposite_term(disjunct_subst);
   }
+
+  // Delete temps
   int_mset_destruct(&disjunct_vars);
+  delete_int_hmap(&disjunct_frontier);
+
   return disjunct_subst;
 }
 
