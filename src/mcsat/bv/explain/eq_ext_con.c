@@ -436,6 +436,14 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
  * Wrapping up above function: stack on top of tail a slice with base t, from lo to hi
  */
 slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::norm")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Forming slice ");
+    term_print_to_file(out, ctx->terms, t);
+    fprintf(out, " between %d and %d\n", hi, lo);
+  }
+
   // Getting that variable's top-level slice from global hashmap
   ptr_hmap_pair_t* p = ptr_hmap_get(slices, t);
   if (p->val == NULL) {
@@ -481,7 +489,7 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
     slist_t* current = tail;  // the list constructed so far
     uint32_t width   = 0;     // bitwidth of current slice under construction
     bool     is_evaluable = true; // whether current slice is evaluable
-    uint32_t low  = 0;           // if not constant, lo of current slice - value not used (initialised to suppress gcc warning)
+    uint32_t low  = 0;           // if evaluable, must be 0, otherwise lo of current slice
 
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
@@ -498,18 +506,23 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
 
       if (!has_value) { // t_i is a bit of conflict_var
         assert(is_pos_term(t_i));
-        assert(term_kind(terms, t_i) == BIT_TERM);
-        select_term_t* desc   = bit_term_desc(terms, t_i);
-        assert(desc->arg == conflict_var);
-        uint32_t selected_bit = desc->idx; // Get bit that is selected in it
+        uint32_t selected_bit = 0;
+        assert(t_i == conflict_var || term_kind(terms, t_i) == BIT_TERM);
+        if (term_kind(terms, t_i) == BIT_TERM) {
+          select_term_t* desc   = bit_term_desc(terms, t_i);
+          assert(desc->arg == conflict_var);
+          selected_bit = desc->idx; // Get bit that is selected in it
+        }
         // We need to change slice if...
         if (is_evaluable                  //...slice so far was evaluable
             || selected_bit + 1 != low) { //...or new bit not in continuity
           // We create the term for the slice so far
           if (width != 0) { // If width == 0 then slice so far is inexistent
-            term_t to_close = term_extract(tm, t, i+1, i+1+width);
+            term_t to_close = is_evaluable ?
+              term_extract(tm, t, i+1, i+1+width)
+              : conflict_var;
             // We close the slice so far, stack it upon the tail, and open a new slice
-            current = bv_slicing_sstack(ctx, to_close, width, 0, current, todo, slices);
+            current = bv_slicing_sstack(ctx, to_close, width+low, low, current, todo, slices);
           }
           width = 0; // We start a new slice
           is_evaluable = false; // ...which is not evaluable (slice of conflict_var)
@@ -524,6 +537,7 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
           width = 0; // We start a new slice
           is_evaluable = true; // ...which is evaluable
         }
+        low = 0;
       }
       width++; // Then in any case, bitwidth of current slice is incremented
     }
