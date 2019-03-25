@@ -53,6 +53,7 @@ typedef struct mcsat_evaluator_interface_s mcsat_evaluator_interface_t;
  * Object to help evaluate terms and constraints.
  */
 struct mcsat_evaluator_interface_s {
+
   /**
    * Check if the term evaluates and return the variables responsible
    * for the evaluation. If value != NULL, and the term evaluates, the output value
