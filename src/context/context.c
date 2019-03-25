@@ -5427,6 +5427,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);

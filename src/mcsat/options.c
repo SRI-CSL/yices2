@@ -25,5 +25,10 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_bound_min = -1;
   opts->nra_bound_max = -1;
   opts->bv_var_size = -1;
+  init_ivector(&opts->var_order, 0);
+}
+
+extern void delete_mcsat_options(mcsat_options_t *opts) {
+  delete_ivector(&opts->var_order);
 }
 

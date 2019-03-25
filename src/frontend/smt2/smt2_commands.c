@@ -3937,6 +3937,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     delete_ef_client(&g->ef_client);
   }
   delete_ivector(&g->assertions);
+  delete_mcsat_options(&g->mcsat_options);
 
   delete_smt2_stack(&g->stack);
   delete_smt2_name_stack(&g->term_names);
@@ -5078,7 +5079,20 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   }
 }
 
-
+void smt2_set_var_order(aval_t value) {
+  smt2_globals_t *g;
+  g = &__smt2_globals;
+  assert(aval_tag(g->avtbl, value) == ATTR_LIST);
+  attr_list_t* d = aval_list(g->avtbl, value);
+  uint32_t n = d->nelems;
+  assert(n > 0);
+  for (uint32_t i=0; i<n; i++) {
+    aval_t vi = d->data[i];
+    assert(aval_tag(g->avtbl, vi) == ATTR_SYMBOL);
+    char* s = aval_symbol(g->avtbl, vi);
+    ivector_push(&g->mcsat_options.var_order, get_term_by_name(__yices_globals.terms, s));
+  }
+}
 
 
 /*
@@ -5175,13 +5189,18 @@ void smt2_set_option(const char *name, aval_t value) {
     break;
 
   default:
-    // may be a Yices option
-    if (is_yices_option(name, &yices_option)) {
-      aval2param_val(value, &param_val);
-      yices_set_option(g, yices_option, &param_val);
-    } else {
-      unsupported_option();
-      flush_out();
+    if (strcmp(name, ":var-order") == 0) {
+      smt2_set_var_order(value);
+    }
+    else {
+      // may be a Yices option
+      if (is_yices_option(name, &yices_option)) {
+        aval2param_val(value, &param_val);
+        yices_set_option(g, yices_option, &param_val);
+      } else {
+        unsupported_option();
+        flush_out();
+      }
     }
     break;
   }
