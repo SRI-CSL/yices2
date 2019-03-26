@@ -3854,7 +3854,6 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->mcsat = false;
   init_ivector(&g->var_order, 0);
   init_mcsat_options(&g->mcsat_options);
-  g->mcsat_options.var_order = &g->var_order;
   g->efmode = false;
   init_ef_client(&g->ef_client);
   g->out = stdout;
