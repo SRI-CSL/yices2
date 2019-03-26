@@ -362,6 +362,7 @@ bool param_val_to_factor(const char *name, const param_val_t *v, double *value, 
 bool param_val_to_terms(const char *name, const param_val_t *v, ivector_t **value, char **reason) {
   if (v->tag == PARAM_VAL_TERMS) {
     *value = v->val.terms;
+    return true;
   }
   *reason = "list of variables required";
   return false;
