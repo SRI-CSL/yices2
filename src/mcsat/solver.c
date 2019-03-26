@@ -1642,7 +1642,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
       FILE* out = trace_out(mcsat->ctx->trace);
       term_table_t* terms = mcsat->ctx->terms;
-      const ivector_t* vo = &mcsat->ctx->mcsat_options.var_order;
+      const ivector_t* vo = mcsat->ctx->mcsat_options.var_order;
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): var_order is ");
       for (i=0; i < vo->size; i++) {
         term_print_to_file(out, terms, vo->data[i]);

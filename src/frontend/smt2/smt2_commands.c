@@ -3852,7 +3852,9 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
+  init_ivector(&g->var_order, 0);
   init_mcsat_options(&g->mcsat_options);
+  g->mcsat_options.var_order = &g->var_order;
   g->efmode = false;
   init_ef_client(&g->ef_client);
   g->out = stdout;
@@ -3937,7 +3939,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     delete_ef_client(&g->ef_client);
   }
   delete_ivector(&g->assertions);
-  delete_mcsat_options(&g->mcsat_options);
+  delete_ivector(&g->var_order);
 
   delete_smt2_stack(&g->stack);
   delete_smt2_name_stack(&g->term_names);
@@ -4634,13 +4636,10 @@ void smt2_get_info(const char *name) {
  * - if this can't be done, store PARAM_ERROR in param_val
  * - avalue can be negative here.
  */
-static void aval2param_val(aval_t avalue, param_val_t *param_val) {
-  smt2_globals_t *g;
+static void aval2param_val(smt2_globals_t *g, aval_t avalue, param_val_t *param_val) {
   rational_t *rational;
   char* symbol;
   
-  g = &__smt2_globals;
-
   if (avalue < 0) {
     param_val->tag = PARAM_VAL_ERROR;
     return;
@@ -4669,10 +4668,20 @@ static void aval2param_val(aval_t avalue, param_val_t *param_val) {
 
   case ATTR_STRING:
   case ATTR_BV:
-  case ATTR_LIST:
-    param_val->tag = PARAM_VAL_ERROR;
+  case ATTR_LIST: {
+    param_val->tag       = PARAM_VAL_TERMS;
+    param_val->val.terms = &g->var_order;
+    attr_list_t* d = aval_list(g->avtbl, avalue);
+    uint32_t n = d->nelems;
+    assert(n > 0);
+    for (uint32_t i=0; i<n; i++) {
+      aval_t vi = d->data[i];
+      assert(aval_tag(g->avtbl, vi) == ATTR_SYMBOL);
+      char* s = aval_symbol(g->avtbl, vi);
+      ivector_push(param_val->val.terms, yices_get_term_by_name(s));
+    }
     break;
-    
+  }
   case ATTR_DELETED:
     freport_bug(g->err, "smt2_commands: attribute deleted");
     break;
@@ -4685,6 +4694,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   double x;
   branch_t b;
   ef_gen_option_t gen;
+  ivector_t* terms;
   char* reason;
   context_t *context;
   bool unsupported;   //keep track of those we punt on
@@ -5062,6 +5072,12 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.bv_var_size = n;
     }
     break;
+    
+  case PARAM_MCSAT_VAR_ORDER:
+    if (param_val_to_terms(param, val, &terms, &reason)) {
+      g->mcsat_options.var_order = terms;
+    }
+    break;
 
   case PARAM_UNKNOWN:
   default:
@@ -5076,21 +5092,6 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     print_error("in (set-option "YICES_SMT2_PREFIX"%s ...): %s", param, reason);
   } else {
     report_success();
-  }
-}
-
-void smt2_set_var_order(aval_t value) {
-  smt2_globals_t *g;
-  g = &__smt2_globals;
-  assert(aval_tag(g->avtbl, value) == ATTR_LIST);
-  attr_list_t* d = aval_list(g->avtbl, value);
-  uint32_t n = d->nelems;
-  assert(n > 0);
-  for (uint32_t i=0; i<n; i++) {
-    aval_t vi = d->data[i];
-    assert(aval_tag(g->avtbl, vi) == ATTR_SYMBOL);
-    char* s = aval_symbol(g->avtbl, vi);
-    ivector_push(&g->mcsat_options.var_order, get_term_by_name(__yices_globals.terms, s));
   }
 }
 
@@ -5189,18 +5190,13 @@ void smt2_set_option(const char *name, aval_t value) {
     break;
 
   default:
-    if (strcmp(name, ":var-order") == 0) {
-      smt2_set_var_order(value);
-    }
-    else {
-      // may be a Yices option
-      if (is_yices_option(name, &yices_option)) {
-        aval2param_val(value, &param_val);
-        yices_set_option(g, yices_option, &param_val);
-      } else {
-        unsupported_option();
-        flush_out();
-      }
+    // may be a Yices option
+    if (is_yices_option(name, &yices_option)) {
+      aval2param_val(g, value, &param_val);
+      yices_set_option(g, yices_option, &param_val);
+    } else {
+      unsupported_option();
+      flush_out();
     }
     break;
   }

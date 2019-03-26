@@ -18,6 +18,8 @@
 
 #include "options.h"
 
+#include <stddef.h>
+
 extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_nlsat = false;
   opts->nra_mgcd = false;
@@ -25,10 +27,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_bound_min = -1;
   opts->nra_bound_max = -1;
   opts->bv_var_size = -1;
-  init_ivector(&opts->var_order, 0);
-}
-
-extern void delete_mcsat_options(mcsat_options_t *opts) {
-  delete_ivector(&opts->var_order);
+  opts->var_order = NULL;
 }
 
