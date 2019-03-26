@@ -337,7 +337,8 @@ typedef struct smt2_globals_s {
   // mcsat
   bool mcsat;                      // set to true to use the mcsat solver
   mcsat_options_t mcsat_options;   // options for the mcsat solver
-
+  ivector_t var_order;             // order in which mcsat needs to assign variables
+  
   // exists/forall solver
   bool efmode;                     // true to use the exists_forall solver
   ef_client_t ef_client;
