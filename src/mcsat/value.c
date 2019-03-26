@@ -288,7 +288,7 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
 }
 
-term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_table_t* terms) {
+term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_manager_t* tm) {
   switch (mcsat_value->type) {
   case VALUE_BOOLEAN:
     if (mcsat_value->b) {
@@ -298,7 +298,7 @@ term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_table_t* terms
     }
   case VALUE_BV: {
     const bvconstant_t* bv = &mcsat_value->bv_value;
-    return bvconst_term(terms, bv->bitsize, bv->data);
+    return mk_bv_constant(tm, (bvconstant_t*) bv);
   }
   default:
     assert(false);

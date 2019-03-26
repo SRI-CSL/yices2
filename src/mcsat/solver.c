@@ -1348,16 +1348,17 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
     disjunct = lemma->data[i];
     assert(term_type_kind(mcsat->terms, disjunct) == BOOL_TYPE);
     disjunct_pos = unsigned_term(disjunct);
+    disjunct_pos_var = variable_db_get_variable(mcsat->var_db, disjunct_pos);
     if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
       mcsat_trace_printf(mcsat->ctx->trace, "literal: ");
       variable_db_print_variable(mcsat->var_db, disjunct_pos_var, stderr);
-      if (trail_has_value(mcsat->trail, disjunct_pos_var)) {mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
+      if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
+        mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
         const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
         mcsat_value_print(value, stderr);
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
     }
-    disjunct_pos_var = variable_db_get_variable(mcsat->var_db, disjunct_pos);
 
     // Process any newly registered variables
     mcsat_process_registeration_queue(mcsat);

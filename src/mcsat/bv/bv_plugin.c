@@ -587,7 +587,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
         bool is_zero_level = trail_is_at_base_level(trail);
         bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
         if (is_zero_level || is_boolean) {
-         bvconstant_t x_bv_value;
+          bvconstant_t x_bv_value;
           init_bvconstant(&x_bv_value);
           bvconstant_set_bitsize(&x_bv_value, x_bitsize);
           bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);

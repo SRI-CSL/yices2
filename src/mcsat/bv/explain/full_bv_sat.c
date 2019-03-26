@@ -363,7 +363,6 @@ term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to
   const variable_db_t* var_db = super->ctx->var_db;
   const mcsat_trail_t* trail = super->ctx->trail;
   term_manager_t* tm = &super->ctx->var_db->tm;
-  term_table_t* terms = super->ctx->terms;
   bb_sat_solver_t* solver = &this->solver;
 
   // Reset the solver
@@ -373,8 +372,7 @@ term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to
   for (i = 0; i < core_in->size; ++i) {
     // Get assigned variables
     variable_t atom_i_var = core_in->data[i];
-    variable_list_ref_t list_ref = watch_list_manager_get_list_of(super->wlm,
-        atom_i_var);
+    variable_list_ref_t list_ref = watch_list_manager_get_list_of(super->wlm, atom_i_var);
     variable_t* atom_i_vars = watch_list_manager_get_list(super->wlm, list_ref);
     for (; *atom_i_vars != variable_null; atom_i_vars++) {
       variable_t var = *atom_i_vars;
@@ -404,7 +402,7 @@ term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to
   term_t propagated_assert = NULL_TERM;
   if (!is_conflict) {
     const mcsat_value_t* value = trail_get_value(trail, to_explain);
-    propagated_value = mcsat_value_to_term(value, terms);
+    propagated_value = mcsat_value_to_term(value, tm);
     term_t x_term = variable_db_get_term(var_db, to_explain);
     propagated_assert = mk_eq(tm, x_term, propagated_value);
     propagated_assert = opposite_term(propagated_assert);
