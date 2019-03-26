@@ -122,9 +122,6 @@ struct nra_plugin_s {
   /** Arithmetic buffer for computation */
   rba_buffer_t buffer;
 
-  /** Local term manager */
-  term_manager_t tm;
-
   /** Exception handler */
   jmp_buf* exception;
 

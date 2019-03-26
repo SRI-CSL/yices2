@@ -311,7 +311,7 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
   assert(lp_polynomial_lc_sgn(p) > 0);
 
   term_t root_atom = NULL_TERM;
-  term_manager_t* tm = &map->nra->tm;
+  term_manager_t* tm = map->nra->ctx->tm;
 
   size_t p_deg = lp_polynomial_degree(p);
   if (p_deg == 1 && lp_polynomial_lc_is_constant(p)) {

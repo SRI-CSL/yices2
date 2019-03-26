@@ -108,8 +108,11 @@ typedef struct conflict_s {
   /** The trail */
   mcsat_trail_t* trail;
 
-  /** The terms for debugging */
+  /** The terms table */
   term_table_t* terms;
+
+  /** Term manager */
+  term_manager_t* tm;
 
   /** The tracer for debugging */
   tracer_t* tracer;
@@ -125,7 +128,7 @@ typedef struct conflict_s {
  */
 void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
-    term_table_t* terms, tracer_t* tracer);
+    term_manager_t* tm, tracer_t* tracer);
 
 /** Destruct the conflict */
 void conflict_destruct(conflict_t* conflict);

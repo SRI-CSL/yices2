@@ -33,7 +33,7 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct);
 
 void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
-    term_table_t* terms, tracer_t* tracer) {
+    term_manager_t* tm, tracer_t* tracer) {
 
   uint32_t i;
 
@@ -53,7 +53,8 @@ void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
 
   conflict->var_db = var_db;
   conflict->trail = trail;
-  conflict->terms = terms;
+  conflict->tm = tm;
+  conflict->terms = tm->terms;
   conflict->tracer = tracer;
   conflict->evaluator = evaluator;
 
@@ -258,7 +259,7 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   }
 
   const variable_db_t* var_db = conflict->var_db;
-  term_manager_t* tm = &conflict->var_db->tm;
+  term_manager_t* tm = conflict->tm;
 
   // If we're doing substitution, we need to know which variables are in the frontier
   int_mset_t disjunct_vars;
@@ -459,7 +460,7 @@ void conflict_recompute_level_info(conflict_t* conflict) {
 
   // Make a new conflict
   conflict_t new_conflict;
-  conflict_construct(&new_conflict, 0, conflict->evaluator, conflict->var_db, conflict->trail, conflict->terms, conflict->tracer);
+  conflict_construct(&new_conflict, 0, conflict->evaluator, conflict->var_db, conflict->trail, conflict->tm, conflict->tracer);
 
   // Put in all the disjuncts
   uint32_t i;

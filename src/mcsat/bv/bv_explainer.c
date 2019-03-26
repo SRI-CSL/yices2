@@ -43,7 +43,7 @@ void bv_subexplainer_construct(bv_subexplainer_t* exp, const char* name, plugin_
 void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
 
   exp->ctx = ctx;
-  exp->tm = &ctx->var_db->tm;
+  exp->tm = ctx->tm;
   exp->wlm = wlm;
   exp->eval = eval;
 

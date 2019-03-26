@@ -39,7 +39,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   bool atom_i_value;
 
   const variable_db_t* var_db = this->ctx->var_db;
-  term_manager_t* tm = &this->ctx->var_db->tm;
+  term_manager_t* tm = this->ctx->tm;
   const mcsat_trail_t* trail = this->ctx->trail;
 
   // Simple conflict resolution: get the variables and say x != v

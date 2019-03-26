@@ -99,7 +99,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   bv->ctx = ctx;
-  bv->tm = &ctx->var_db->tm;
+  bv->tm = ctx->tm;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
 

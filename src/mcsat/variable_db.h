@@ -55,9 +55,6 @@ struct variable_db_s {
 
   /** Free list */
   ivector_t free_list;
-
-  /** The term manager */
-  term_manager_t tm;
 };
 
 typedef struct variable_db_s variable_db_t;

@@ -48,7 +48,7 @@ typedef struct {
 
 void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, bool incremental) {
 
-  substitution_construct(&solver->subst, &ctx->var_db->tm, ctx->tracer);
+  substitution_construct(&solver->subst, ctx->tm, ctx->tracer);
   init_ivector(&solver->vars_to_assign, 0);
   solver->ctx = ctx;
   solver->incremental = incremental;
@@ -81,7 +81,7 @@ void bb_sat_solver_reset(bb_sat_solver_t* solver) {
     yices_pop(solver->yices_ctx);
     yices_push(solver->yices_ctx);
     substitution_destruct(&solver->subst);
-    substitution_construct(&solver->subst, &solver->ctx->var_db->tm, solver->ctx->tracer);
+    substitution_construct(&solver->subst, solver->ctx->tm, solver->ctx->tracer);
     ivector_reset(&solver->vars_to_assign);
   } else {
     bb_sat_solver_destruct(solver);
@@ -182,7 +182,7 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
   plugin_context_t* ctx = solver->ctx;
   const variable_db_t* var_db = ctx->var_db;
   const mcsat_trail_t* trail = ctx->trail;
-  term_manager_t* tm = &solver->ctx->var_db->tm;
+  term_manager_t* tm = solver->ctx->tm;
   term_table_t* terms = tm->terms;
 
   // Vector to store assumptions
@@ -362,7 +362,7 @@ term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to
 
   const variable_db_t* var_db = super->ctx->var_db;
   const mcsat_trail_t* trail = super->ctx->trail;
-  term_manager_t* tm = &super->ctx->var_db->tm;
+  term_manager_t* tm = super->ctx->tm;
   bb_sat_solver_t* solver = &this->solver;
 
   // Reset the solver

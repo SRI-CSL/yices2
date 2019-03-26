@@ -255,9 +255,6 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   eq->true_node_id = eq_graph_add_value(eq, &mcsat_value_true);
   eq->false_node_id = eq_graph_add_value(eq, &mcsat_value_false);
 
-  init_term_manager(&eq->tm, eq->ctx->terms);
-  eq->tm.simplify_ite = false;
-
   eq->graph_out = 0;
 
   bfs_vector_construct(&eq->bfs_queue, 0);
@@ -309,8 +306,6 @@ void eq_graph_destruct(eq_graph_t* eq) {
 
   delete_ivector(&eq->children_list);
   delete_int_hmap(&eq->node_to_children);
-
-  delete_term_manager(&eq->tm);
 
   bfs_vector_destruct(&eq->bfs_queue);
 
@@ -1572,7 +1567,7 @@ term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
 
   if (!is_boolean) {
     // Proper values, make an equality and negate if not true in the trail
-    term_t equality = mk_eq((term_manager_t*) &eq->tm, lhs, rhs);
+    term_t equality = mk_eq(eq->ctx->tm, lhs, rhs);
     term_t to_add = equality;
     if (lhs_value != rhs_value) {
       to_add = opposite_term(to_add);

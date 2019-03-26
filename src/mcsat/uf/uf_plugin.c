@@ -126,9 +126,6 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
   init_ivector(&uf->eq_graph_addition_trail, 0);
 
-  // Term manager
-  uf->tm = &ctx->var_db->tm;
-
   // stats
   uf_plugin_stats_init(uf);
 }

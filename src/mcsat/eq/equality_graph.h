@@ -191,9 +191,6 @@ typedef struct eq_graph_s {
   /** False node (value) */
   eq_node_id_t false_node_id;
 
-  /** Term manager */
-  term_manager_t tm;
-
   /** File to output the graph when debugging */
   FILE* graph_out;
 
