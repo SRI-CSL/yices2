@@ -345,6 +345,11 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
   case BV_SGE_ATOM:
     assert(n == 2);
     return mk_bvsge(tm, children[0], children[1]);
+  case ITE_TERM: {
+    assert(n == 3);
+    type_t tau = term_type(tm->terms, children[1]);
+    return mk_ite(tm, children[0], children[1], children[2], tau);
+  }
   default:
     assert(false);
     return NULL_TERM;

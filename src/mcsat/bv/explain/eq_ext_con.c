@@ -275,7 +275,7 @@ void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_q
   assert(s->hi_sub == NULL);
   assert(k < s->base.hi);
   assert(s->base.lo < k);
-  term_manager_t* tm = &ctx->var_db->tm;
+  term_manager_t* tm = ctx->tm;
   s->lo_sub  = bv_slicing_slice_new(tm, s->base.term, s->base.lo, k);
   s->hi_sub  = bv_slicing_slice_new(tm, s->base.term, k, s->base.hi);
 
@@ -448,13 +448,12 @@ slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, u
   ptr_hmap_pair_t* p = ptr_hmap_get(slices, t);
   if (p->val == NULL) {
     // Create that slice if need be
-    term_manager_t* tm = &ctx->var_db->tm;
+    term_manager_t* tm = ctx->tm;
     p->val = bv_slicing_slice_new(tm, t, 0, bv_term_bitsize(ctx->terms, t));
   }
   // stack upon the tail list the relevant (series of) slice(s) covering lo to hi
   return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);
 }
-
 
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function. */
@@ -462,7 +461,7 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
 
   term_t conflict_var   = exp->csttrail.conflict_var_term;
   plugin_context_t* ctx = exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm = ctx->tm;
     
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
     FILE* out = ctx_trace_out(ctx);
@@ -605,8 +604,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
   if (s->lo_sub == NULL) { // This is a leaf
 
     plugin_context_t* ctx = exp->super.ctx;
-    variable_db_t* var_db = ctx->var_db; // standard abbreviations
-    term_manager_t* tm = &var_db->tm;
+    term_manager_t* tm = ctx->tm;
 
     term_t s_term = s->base.term;
 
@@ -725,12 +723,13 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
 
       term_t a0[1];
       a0[0] = atom_i_term;
-      term_t t0 = mk_bvarray(&ctx->var_db->tm, 1, a0);
+
+      term_t t0 = mk_bvarray(ctx->tm, 1, a0);
       slist_t* l0 = bv_slicing_norm(exp, t0, 1, 0, NULL, &todo, &slicing->slices);
 
       term_t a1[1];
       a1[0] = bool2term(atom_i_value);
-      term_t t1 = mk_bvarray(&ctx->var_db->tm, 1, a1);
+      term_t t1 = mk_bvarray(ctx->tm, 1, a1);
       slist_t* l1 = bv_slicing_norm(exp, t1, 1, 0, NULL, &todo, &slicing->slices);
 
       bv_slicing_align(ctx, l0, l1, 0, &todo);
@@ -955,8 +954,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   eq_ext_con_t* exp = (eq_ext_con_t*) this;
   plugin_context_t* ctx = this->ctx;
   term_table_t* terms   = ctx->terms;
-  term_manager_t* tm = &ctx->var_db->tm;
-  
+  term_manager_t* tm = ctx->tm;
+
   assert(conflict_var == exp->csttrail.conflict_var);
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
@@ -994,7 +993,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   while (current != NULL) {
     assert(current->is_main);
     p = current->pair;
-    term_manager_t* tm = &this->ctx->var_db->tm;
+    term_manager_t* tm = this->ctx->tm;
     term_t lhs_slice_term = slice_mk_term(p->lhs, tm);
     term_t rhs_slice_term = slice_mk_term(p->rhs, tm);
     if (lhs_slice_term != rhs_slice_term) {
@@ -1158,6 +1157,16 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 }
 
 static
+bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  return false;
+}
+
+static
+term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
+  assert(false);
+  return NULL_TERM;
+}
+static
 void destruct(bv_subexplainer_t* this) {
   eq_ext_con_t* exp = (eq_ext_con_t*) this;
   bv_evaluator_csttrail_destruct(&exp->csttrail);
@@ -1174,6 +1183,8 @@ bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* w
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
+  exp->super.can_explain_propagation = can_explain_propagation;
+  exp->super.explain_propagation = explain_propagation;
   exp->super.destruct = destruct;
 
   init_int_hset(&exp->good_terms_cache, 0);

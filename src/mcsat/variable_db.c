@@ -20,16 +20,11 @@
 
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
-#include "utils/substitution.h"
 
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
   var_db->types = types;
   var_db->tracer = tracer;
-
-  init_term_manager(&var_db->tm, terms);
-  var_db->tm.simplify_ite = false;
-  var_db->tm.simplify_bveq1 = false;
 
   init_ivector(&var_db->variable_to_term_map, 0);
   init_int_hmap(&var_db->term_to_variable_map, 0);
@@ -46,7 +41,6 @@ void variable_db_destruct(variable_db_t* var_db) {
   delete_int_hmap(&var_db->term_to_variable_map);
   delete_ivector(&var_db->variable_to_term_map);
   delete_ivector(&var_db->free_list);
-  delete_term_manager(&var_db->tm);
 }
 
 bool variable_db_has_variable(const variable_db_t* var_db, term_t x) {
@@ -135,7 +129,7 @@ variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_
 }
 
 term_t variable_db_get_term(const variable_db_t* var_db, variable_t x) {
-  assert(x >= 0 && x < var_db->variable_to_term_map.size);
+  assert(x > 0 && x < var_db->variable_to_term_map.size);
   return var_db->variable_to_term_map.data[x];
 }
 
@@ -204,19 +198,6 @@ uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {
 
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x));
-}
-
-term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) {
-  term_t x_term = variable_db_get_term(var_db, x);
-  if (x_term == t) {
-    return t;
-  }
-  substitution_t S;
-  substitution_construct(&S, (term_manager_t*) &var_db->tm, var_db->tracer);
-  substitution_add(&S, x_term, subst);
-  term_t t_subst = substitution_run_fwd(&S, t, &var_db->term_to_variable_map);
-  substitution_destruct(&S);
-  return t_subst;
 }
 
 void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars) {

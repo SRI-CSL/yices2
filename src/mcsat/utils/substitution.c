@@ -128,6 +128,8 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
+    case ITE_TERM:
+    case ITE_SPECIAL:
     {
       composite_term_t* desc = composite_term_desc(terms, current);
       n = desc->arity;

@@ -155,8 +155,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, INT_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
-  init_term_manager(&nra->tm, nra->ctx->terms);
-  nra->tm.simplify_ite = false;
 
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
@@ -210,7 +208,6 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_assignment_delete(nra->lp_data.lp_assignment);
 
   delete_rba_buffer(&nra->buffer);
-  delete_term_manager(&nra->tm);
 }
 
 static
@@ -644,7 +641,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             rational_t q;
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_min);
-            term_t min = mk_arith_constant(&nra->tm, &q);
+            term_t min = mk_arith_constant(nra->ctx->tm, &q);
             term_t min_bound = yices_arith_geq_atom(nra->global_bound_term, min);
             prop->lemma(prop, min_bound);
             q_clear(&q);
@@ -653,7 +650,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             rational_t q;
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_max);
-            term_t max = mk_arith_constant(&nra->tm, &q);
+            term_t max = mk_arith_constant(nra->ctx->tm, &q);
             term_t max_bound = yices_arith_leq_atom(nra->global_bound_term, max);
             prop->lemma(prop, max_bound);
             q_clear(&q);
@@ -1340,14 +1337,14 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     // Yices versions of the floor
     rational_t v_floor_rat;
     rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
-    term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
+    term_t v_floor_term = mk_arith_constant(nra->ctx->tm, &v_floor_rat);
 
     // Remove temp
     lp_integer_destruct(&v_floor);
     q_clear(&v_floor_rat);
 
     // The constraint
-    term_t x_leq_floor = mk_arith_leq(&nra->tm, x_term, v_floor_term);
+    term_t x_leq_floor = mk_arith_leq(nra->ctx->tm, x_term, v_floor_term);
     int_mset_add(&to_resolve, x_leq_floor);
 
     // Get the conflict
@@ -1364,14 +1361,14 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     // Yices versions of the ceiling
     rational_t v_ceil_rat;
     rational_construct_from_lp_integer(&v_ceil_rat, &v_ceil);
-    term_t v_ceil_term = mk_arith_constant(&nra->tm, &v_ceil_rat);
+    term_t v_ceil_term = mk_arith_constant(nra->ctx->tm, &v_ceil_rat);
 
     // Remove temp
     lp_integer_destruct(&v_ceil);
     q_clear(&v_ceil_rat);
 
     // The constraint
-    term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
+    term_t x_geq_ceil = mk_arith_geq(nra->ctx->tm, x_term, v_ceil_term);
     int_mset_add(&to_resolve, x_geq_ceil);
 
     // Try it out

@@ -381,7 +381,7 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
                              term_t lo_term,
                              term_t reason) {
   plugin_context_t* ctx = lctx->exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm    = ctx->tm;
   bvconstant_t hi;
   init_bvconstant(&hi);
   bvconstant_copy(&hi, lo->bitsize, lo->data);
@@ -414,7 +414,7 @@ term_t bv_arith_eq(term_manager_t* tm, term_t left, term_t right) {
 // Assumes the term to be built evaluates to true
 term_t bv_arith_lt(bv_arith_ctx_t* lctx, term_t left, term_t right) {
   plugin_context_t* ctx = lctx->exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = tm->terms;
   assert (left != right);
   assert (!bv_arith_is_zero(terms, right));
@@ -450,7 +450,7 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
   // Standard abbreviations
   term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
   plugin_context_t* ctx = lctx->exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm    = ctx->tm;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -491,7 +491,7 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
 void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
   // Standard abbreviations
   plugin_context_t* ctx = lctx->exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm    = ctx->tm;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -641,7 +641,7 @@ void bv_arith_ishift(plugin_context_t* ctx,
                      bvconst_interval_t* i,
                      bvconstant_t* base,
                      term_t base_term) {
-  /* term_manager_t* tm = &ctx->var_db->tm; */
+  /* term_manager_t* tm = ctx->tm; */
   bvconstant_sub(&i->lo, base);
   bvconstant_normalize(&i->lo);
   /* i->lo_term = bv_arith_sub_terms(tm, i->lo_term, base_term);   */
@@ -659,7 +659,7 @@ void bv_arith_add2conflict(bv_arith_ctx_t* lctx,
 
   arith_t* exp          = lctx->exp;
   plugin_context_t* ctx = exp->super.ctx;
-  term_manager_t* tm    = &ctx->var_db->tm;
+  term_manager_t* tm    = ctx->tm;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -728,7 +728,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   // Standard abbreviations
   term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
-  term_manager_t* tm         = &ctx->var_db->tm;
+  term_manager_t* tm         = ctx->tm;
   uint32_t bitsize = term_bitsize(terms, exp->csttrail.conflict_var_term);
 
   // We initialise the local context
@@ -1016,6 +1016,17 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 }
 
 static
+bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  return false;
+}
+
+static
+term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
+  assert(false);
+  return NULL_TERM;
+}
+
+static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
   bv_evaluator_csttrail_destruct(&exp->csttrail);
@@ -1033,6 +1044,8 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
                                 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;
+  exp->super.can_explain_propagation = can_explain_propagation;
+  exp->super.explain_propagation = explain_propagation;
   exp->super.destruct = destruct;
 
   init_int_hset(&exp->coeff1_cache, 0);

@@ -56,6 +56,9 @@ struct plugin_context_s {
   /** Variable database */
   variable_db_t* var_db;
 
+  /** The term manager */
+  term_manager_t* tm;
+
   /** Term table */
   term_table_t* terms;
 

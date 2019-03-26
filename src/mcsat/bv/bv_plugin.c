@@ -99,7 +99,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   bv->ctx = ctx;
-  bv->tm = &ctx->var_db->tm;
+  bv->tm = ctx->tm;
   scope_holder_construct(&bv->scope);
   bv->trail_i = 0;
 
@@ -587,7 +587,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
         bool is_zero_level = trail_is_at_base_level(trail);
         bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
         if (is_zero_level || is_boolean) {
-         bvconstant_t x_bv_value;
+          bvconstant_t x_bv_value;
           init_bvconstant(&x_bv_value);
           bvconstant_set_bitsize(&x_bv_value, x_bitsize);
           bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
@@ -993,7 +993,7 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   ivector_t conflict_core, lemma_reasons;
   init_ivector(&conflict_core, 0);
   init_ivector(&lemma_reasons, 0);
-  bv_feasible_set_db_get_conflict_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons);
+  bv_feasible_set_db_get_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons, EXPLAIN_EMPTY);
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     trail_print(trail, ctx_trace_out(bv->ctx));
@@ -1029,10 +1029,34 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
   term_kind_t atom_kind = term_kind(bv->ctx->terms, atom);
   if (bv_term_kind_get_type(atom_kind) == BV_TERM_VARIABLE) {
-    // This is a subterm that we propagated as unit, we need to explain
-    // TODO: explain with SAT solver
-    assert(false);
-    return NULL_TERM;
+
+    ivector_t explain_core, lemma_reasons;
+    init_ivector(&explain_core, 0);
+    init_ivector(&lemma_reasons, 0);
+    bv_feasible_set_db_get_reasons(bv->feasible, var, &explain_core, &lemma_reasons, EXPLAIN_SINGLETON);
+
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
+      const mcsat_trail_t* trail = bv->ctx->trail;
+      const variable_db_t* var_db = bv->ctx->var_db;
+      trail_print(trail, ctx_trace_out(bv->ctx));
+      ctx_trace_printf(bv->ctx, "core:\n");
+      uint32_t i;
+      for (i = 0; i < explain_core.size; ++ i) {
+        variable_t atom_i_var = explain_core.data[i];
+        bool atom_i_value = trail_get_boolean_value(trail, atom_i_var);
+        ctx_trace_printf(bv->ctx, "[%"PRIu32"] (%s): ", i, (atom_i_value ? "T" : "F"));
+        term_t atom_i_term = variable_db_get_term(var_db, atom_i_var);
+        ctx_trace_term(bv->ctx, atom_i_term);
+      }
+    }
+
+    assert(lemma_reasons.size == 0);
+    term_t subst = bv_explainer_explain_propagation(&bv->explainer, var, &explain_core, reasons);
+    // Remove temps
+    delete_ivector(&explain_core);
+    delete_ivector(&lemma_reasons);
+
+    return subst;
   } else {
     // This is a BV constraint. Since, we only propagate evaluations we
     // explain them using the literal itself
@@ -1052,8 +1076,6 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
   }
 }
 
-// Required as plugin_t field
-
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
@@ -1071,17 +1093,20 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
     // Check if the variables are assigned
     ivector_t* var_list = int_mset_get_list(vars);
-    size_t i = 0;
+    uint32_t i = 0;
     for (i = 0; i < var_list->size; ++ i) {
-      if (!trail_has_value(bv->ctx->trail, var_list->data[i])) {
-        int_mset_clear(vars);
-        if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
-          FILE* out = ctx_trace_out(bv->ctx);
+      bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
+      if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+        FILE* out = ctx_trace_out(bv->ctx);
+        fprintf(out, "%"PRIu32": ", i);
+        ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
+        if (!var_evaluates) {
           fprintf(out, "term doesn't evaluate: ");
           ctx_trace_term(bv->ctx, t);
-          fprintf(out, "because of: ");
-          ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
         }
+      }
+      if (!var_evaluates) {
+        int_mset_clear(vars);
         return false;
       }
     }
@@ -1090,9 +1115,9 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     return true;
 
   } else {
+    // Not used yet
     assert(false);
   }
-
 
   return true;
 }

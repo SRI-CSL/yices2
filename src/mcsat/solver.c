@@ -114,6 +114,9 @@ struct mcsat_solver_s {
   /** Exception handler */
   jmp_buf* exception;
 
+  /** Term manager for everyone to use */
+  term_manager_t tm;
+
   /** Input types are are from this table */
   type_table_t* types;
 
@@ -552,6 +555,7 @@ void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t typ
 void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t* mcsat, uint32_t plugin_i, const char* plugin_name) {
   ctx->ctx.plugin_id = plugin_i;
   ctx->ctx.var_db = mcsat->var_db;
+  ctx->ctx.tm = &mcsat->tm;
   ctx->ctx.terms = mcsat->terms;
   ctx->ctx.types = mcsat->types;
   ctx->ctx.exception = mcsat->exception;
@@ -650,6 +654,11 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   mcsat->status = STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
 
+  // New term manager
+  init_term_manager(&mcsat->tm, mcsat->terms);
+  mcsat->tm.simplify_bveq1 = false;
+  mcsat->tm.simplify_ite = false;
+
   // The new variable listener
   mcsat->var_db_notify.mcsat = mcsat;
   mcsat->var_db_notify.new_variable = mcsat_new_variable_notify;
@@ -734,6 +743,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
     safe_free(mcsat->plugins[i].plugin_name);
   }
 
+  delete_term_manager(&mcsat->tm);
   delete_int_queue(&mcsat->registration_queue);
   delete_int_hset(&mcsat->registration_cache);
   delete_ivector(&mcsat->assertion_vars);
@@ -1348,16 +1358,17 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
     disjunct = lemma->data[i];
     assert(term_type_kind(mcsat->terms, disjunct) == BOOL_TYPE);
     disjunct_pos = unsigned_term(disjunct);
+    disjunct_pos_var = variable_db_get_variable(mcsat->var_db, disjunct_pos);
     if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
       mcsat_trace_printf(mcsat->ctx->trace, "literal: ");
       variable_db_print_variable(mcsat->var_db, disjunct_pos_var, stderr);
-      if (trail_has_value(mcsat->trail, disjunct_pos_var)) {mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
+      if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
+        mcsat_trace_printf(mcsat->ctx->trace, "\nvalue: ");
         const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
         mcsat_value_print(value, stderr);
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
     }
-    disjunct_pos_var = variable_db_get_variable(mcsat->var_db, disjunct_pos);
 
     // Process any newly registered variables
     mcsat_process_registeration_queue(mcsat);
@@ -1481,7 +1492,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   // Construct the conflict
   assert(plugin->get_conflict);
   plugin->get_conflict(plugin, &reason);
-  conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, mcsat->ctx->terms, mcsat->ctx->trace);
+  conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
   statistic_avg_add(mcsat->solver_stats.avg_conflict_size, conflict.disjuncts.element_list.size);
 
   if (trace_enabled(trace, "mcsat::conflict") || trace_enabled(trace, "mcsat::lemma")) {

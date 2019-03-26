@@ -30,17 +30,20 @@ void bv_subexplainer_construct(bv_subexplainer_t* exp, const char* name, plugin_
   exp->eval = eval;
 
   exp->name = name;
-  exp->stat_explain_calls = statistics_new_int(ctx->stats, name);
+  exp->stat_explain_conflict_calls = statistics_new_int(ctx->stats, name);
+  exp->stat_explain_propagation_calls = statistics_new_int(ctx->stats, name);
 
-  exp->destruct              = NULL;
-  exp->can_explain_conflict  = NULL;
-  exp->explain_conflict      = NULL;
+  exp->destruct                = NULL;
+  exp->can_explain_conflict    = NULL;
+  exp->explain_conflict        = NULL;
+  exp->can_explain_propagation = NULL;
+  exp->explain_propagation     = NULL;
 }
 
 void bv_explainer_construct(bv_explainer_t* exp, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
 
   exp->ctx = ctx;
-  exp->tm = &ctx->var_db->tm;
+  exp->tm = ctx->tm;
   exp->wlm = wlm;
   exp->eval = eval;
 
@@ -176,7 +179,7 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
   }
 
   // Explain it
-  (*subexplainer->stat_explain_calls) ++;
+  (*subexplainer->stat_explain_conflict_calls) ++;
   subexplainer->explain_conflict(subexplainer, conflict_in, conflict_var, conflict_out);
 
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::check")) {
@@ -193,4 +196,30 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
   }
 }
 
+term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const ivector_t* reasons_in, ivector_t* reasons_out) {
+
+  // Get the explainer to use
+  uint32_t i = 0;
+  bv_subexplainer_t* subexplainer = NULL;
+  for (i = 0; i < exp->subexplainers.size; ++ i) {
+    subexplainer = exp->subexplainers.data[i];
+    if (subexplainer->can_explain_propagation(subexplainer, reasons_in, x)) {
+      break;
+    }
+  }
+
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(exp->ctx);
+    fprintf(out, "subtheory %s\n", subexplainer->name);
+  }
+
+  // Explain it
+  (*subexplainer->stat_explain_propagation_calls) ++;
+  term_t subst = subexplainer->explain_propagation(subexplainer, reasons_in, x, reasons_out);
+
+  // Normalize the explanation
+  bv_explainer_normalize_conflict(exp, reasons_out);
+
+  return subst;
+}
 

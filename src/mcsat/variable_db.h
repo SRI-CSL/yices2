@@ -55,9 +55,6 @@ struct variable_db_s {
 
   /** Free list */
   ivector_t free_list;
-
-  /** The term manager */
-  term_manager_t tm;
 };
 
 typedef struct variable_db_s variable_db_t;
@@ -120,21 +117,6 @@ uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x);
 
 /** Returns the type kind of the variable */
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x);
-
-/**
- * Substitute the given variable with the given substitution. As above substitution
- * will not look for the variable itself.
- *
- * Examples:
- *
- *  b, with b -> false => b
- *  not b, with b -> false => true
- *  x + y < 1, with x + y < 1 -> false => x + y < 1
- *  x + y < 1, with x -> y => 2y < 1
- *  x + x*y + ite(b, x, y) > 0, with x -> y => y + y^2 + ite(b, x, y) > 0
- */
-term_t variable_db_substitute_subvariable(const variable_db_t* var_db,
-    term_t t, variable_t x, term_t subst);
 
 /**
  * Collect all the unused variables for reuse.
