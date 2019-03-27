@@ -23,7 +23,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
+//#include <stdio.h>
 
 #include "utils/memalloc.h"
 #include "terms/mpq_aux.h"
@@ -144,7 +144,7 @@ static void _o_delete_mpqstore(mpq_store_t *s) {
   mpq_link_t *obj;
   uint32_t k, i;
 
-  fprintf(stderr, "block count: %d  link_size: %d\n", (int)s->blockcount, (int)s->linksize);
+  //fprintf(stderr, "block count: %d  link_size: %d\n", (int)s->blockcount, (int)s->linksize);
   
   b = s->bnk;
   k = s->free_index;  //iam: not sure about this ...
