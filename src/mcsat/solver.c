@@ -1630,10 +1630,36 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
   bool force_decision = false;
   while (true) {
 
-    // Get an unassigned variable from the queue
+    // Use the variable a plugin requested
     var = mcsat->top_decision_var;
     if (var != variable_null && trail_has_value(mcsat->trail, var)) {
       var = variable_null;
+    }
+
+    // If there is an order that was passed in, try that
+    if (var == variable_null) {
+      const ivector_t* order = mcsat->ctx->mcsat_options.var_order;
+      if (order != NULL) {
+        uint32_t i;
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+          FILE* out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "mcsat_decide(): var_order is ");
+          for (i = 0; i < order->size; ++ i) {
+            term_print_to_file(out, mcsat->ctx->terms, order->data[i]);
+            fprintf(out, " ");
+          }
+          fprintf(out, "\n");
+        }
+        for (i = 0; var == variable_null && i < order->size; ++i) {
+          term_t ovar_term = order->data[i];
+          variable_t ovar = variable_db_get_variable_if_exists(mcsat->var_db, ovar_term);
+          assert(ovar != variable_null);
+          if (!trail_has_value(mcsat->trail, ovar)) {
+            var = ovar;
+            force_decision = true;
+          }
+        }
+      }
     }
 
     // Random decision:
@@ -1648,20 +1674,6 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
           // fprintf(stderr, "random\n");
         }
       }
-    }
-
-    if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-      FILE* out = trace_out(mcsat->ctx->trace);
-      term_table_t* terms = mcsat->ctx->terms;
-      const ivector_t* vo = mcsat->ctx->mcsat_options.var_order;
-      mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): var_order is ");
-      if (vo != NULL) {
-        for (i=0; i < vo->size; i++) {
-          term_print_to_file(out, terms, vo->data[i]);
-          mcsat_trace_printf(mcsat->ctx->trace, " ");
-        }
-      }
-      mcsat_trace_printf(mcsat->ctx->trace, "\n");
     }
     
     // Use the queue
