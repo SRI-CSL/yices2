@@ -38,7 +38,14 @@
 #include "mt/yices_locks.h"
 #include "mt/thread_macros.h"
 #include "terms/rationals.h"
+#include "terms/mpq_stores.h"
 #include "utils/gcd.h"
+
+
+
+#define MPQ_BLOCK_COUNT 1024
+
+static mpq_store_t  mpq_store;
 
 
 /*
@@ -59,8 +66,14 @@ static void division_by_zero(void) {
 }
 
 
+
+
 void init_rationals(void){
   init_mpq_aux();
+
+  init_mpqstore(&mpq_store, MPQ_BLOCK_COUNT);
+  
+  
 #ifdef THREAD_SAFE
   create_yices_lock(&string_buffer_lock);
 #endif
@@ -74,6 +87,9 @@ void init_rationals(void){
  */
 void cleanup_rationals(void){
   cleanup_mpq_aux();
+
+  delete_mpqstore(&mpq_store);
+  
 #ifdef THREAD_SAFE
   destroy_yices_lock(&string_buffer_lock);
 #endif
@@ -89,12 +105,15 @@ void cleanup_rationals(void){
  * Allocates a new mpq object. (in case we pool them later)
  */
 static mpq_ptr new_mpq(void){
+  /*
   mpq_ptr retval;
-
   retval = safe_malloc(sizeof(mpq_t));
   mpq_init2(retval, 64);
   return retval;
+  */
+  return (mpq_ptr)mpqstore_alloc(&mpq_store);
 }
+
 
 /*
  * Deallocates a new mpq object. (in case we pool them later)
@@ -104,8 +123,10 @@ void release_mpq(rational_t *r){
 
   assert(is_ratgmp(r));
   q = get_gmp(r);
-  mpq_clear(q);
-  safe_free(q);
+  mpqstore_free(&mpq_store, (mpq_t *)q);
+
+  //mpq_clear(q);
+  //  safe_free(q);
 }
 
 
@@ -426,8 +447,13 @@ void q_normalize(rational_t *r) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
+	/*
         mpq_clear(q);
         safe_free(q);
+	*/
+
+	mpqstore_free(&mpq_store, (mpq_t *)q);
+	
         set_rat32(r, (int32_t) num, (uint32_t) den);
       }
     }

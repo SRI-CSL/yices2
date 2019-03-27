@@ -219,6 +219,7 @@ core_src_c := \
 	terms/int_rational_hash_maps.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
+	terms/mpq_stores.c \
 	terms/poly_buffer.c \
 	terms/poly_buffer_terms.c \
 	terms/polynomials.c \
