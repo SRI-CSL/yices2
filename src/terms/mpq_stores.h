@@ -18,8 +18,6 @@
 
 /*
  * STORES FOR ALLOCATION/RELEASE OF MPQ'S
- * Could be made parametric in the MPQ.
- * Could be improved so that we initialize the mpq on demand
  */
 
 #ifndef __MPQ_STORES_H
@@ -33,35 +31,32 @@
 
 /* 
  * mpq_link is mpq together with a pointer to the "next" free mpq_link
- * needed to prevent "modifying the contents" of the mpq
+ * needed to prevent "modifying the contents" of the mpq, as is done
+ * in utils/object_stores.[ch]
  */
 typedef struct mpq_link_s mpq_link_t;
 
 struct mpq_link_s {
   mpq_t mpq;
-  void* next;
+  union {
+    void* next;
+    char padding[8]; // for alignment
+  } h;
 };
 
 
 /*
- * Bank = a block of mpqs
+ * Bank = a block of mpq (links)
  * - blocks are linked in a list
- * - for correct pointer alignment, we (try to) force the offset
- *   (bank->block - bank) to be a multiple of 8)
- * - we also force object sizes to be multiple of 8 bytes
- *
- * All this is based on the assumption that addresses that are
- * multiple of 8 have the right alignment for all hardware we
- * support.
  */
 typedef struct mpq_bank_s mpq_bank_t;
 
 struct mpq_bank_s {
   union {
     mpq_bank_t *next;
-    char padding[8]; // for alignment
+    char padding[8];   // for alignment
   } h;
-  char block[0]; // real size determined at allocation time
+  mpq_link_t block[0]; // real size determined at allocation time
 };
 
 /*
@@ -72,15 +67,12 @@ struct mpq_bank_s {
  */
 typedef struct mpq_store_s {
 #ifdef THREAD_SAFE
-  yices_lock_t lock;   // a lock protecting the mpq_store
+  yices_lock_t lock;        // a lock protecting the mpq_store
 #endif
-  mpq_bank_t *bnk;        // first block in the bank list
-  mpq_link_t *free_list;  // list of free mpq_links
-  uint32_t free_index;    // index of last allocated mpq_link in first block
-  uint32_t linksize;      // size of mpq (in bytes)
-  uint32_t blocksize;     // size of blocks (multiple of mpqsize).
-  uint32_t blockcount;    // number of blocks (for fine tuning).
-  
+  mpq_bank_t *bnk;          // first block in the bank list
+  mpq_link_t *free_list;    // list of free mpq_links
+  uint32_t free_index;      // index of last allocated mpq_link in first block
+  uint32_t blocklen;        // number of mpq_link_t in a block
 } mpq_store_t;
 
 
@@ -89,8 +81,7 @@ typedef struct mpq_store_s {
  * we need objsize * nobj <= UINT32_MAX.  Stores are intended for
  * small objects so the following bounds should be more than enough.
  */
-#define MAX_OBJ_SIZE 512
-#define MAX_OBJ_PER_BLOCK 4096
+#define MAX_OBJ_PER_BLOCK (UINT32_MAX / sizeof(mpq_link_t))
 
 /*
  * Initialize store s for object of the given size

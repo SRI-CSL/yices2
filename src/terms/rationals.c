@@ -105,12 +105,6 @@ void cleanup_rationals(void){
  * Allocates a new mpq object. (in case we pool them later)
  */
 static mpq_ptr new_mpq(void){
-  /*
-  mpq_ptr retval;
-  retval = safe_malloc(sizeof(mpq_t));
-  mpq_init2(retval, 64);
-  return retval;
-  */
   return (mpq_ptr)mpqstore_alloc(&mpq_store);
 }
 
@@ -119,14 +113,8 @@ static mpq_ptr new_mpq(void){
  * Deallocates a new mpq object. (in case we pool them later)
  */
 void release_mpq(rational_t *r){
-  mpq_ptr q;
-
   assert(is_ratgmp(r));
-  q = get_gmp(r);
-  mpqstore_free(&mpq_store, (mpq_t *)q);
-
-  //mpq_clear(q);
-  //  safe_free(q);
+  mpqstore_free(&mpq_store, (mpq_t *)get_gmp(r));
 }
 
 
@@ -447,13 +435,7 @@ void q_normalize(rational_t *r) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-	/*
-        mpq_clear(q);
-        safe_free(q);
-	*/
-
 	mpqstore_free(&mpq_store, (mpq_t *)q);
-	
         set_rat32(r, (int32_t) num, (uint32_t) den);
       }
     }
