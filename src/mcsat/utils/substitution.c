@@ -1,7 +1,6 @@
 #include "substitution.h"
 
 #include "mcsat/tracing.h"
-#include "mcsat/bv/bv_utils.h"
 
 #include <stdbool.h>
 
@@ -15,6 +14,97 @@ void substitution_construct(substitution_t* subst, term_manager_t* tm, tracer_t*
 void substitution_destruct(substitution_t* subst) {
   delete_int_hmap(&subst->substitution_fwd);
   delete_int_hmap(&subst->substitution_bck);
+}
+
+/**
+ * Construct a composite term.
+ *
+ * The main application of substitution is in the context of conflict
+ * resolution. Once of the constraints there is to make sure that if we
+ * substitute x -> t in a constraint C(x) this constraint doesn't shift
+ * theories.
+ *
+ * Theory shifting example:
+ * - x + ite(b1 or b2, bv1, bv0) > 0, with substitution x -> 0
+ *   -> might result in just (b1 or b2): BV constraint -> Boolean constraint
+ *
+ */
+static inline
+term_t mk_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* c) {
+
+  term_t result = NULL_TERM;
+
+  switch (kind) {
+  case EQ_TERM:            // equality
+    assert(n == 2);
+    result = mk_eq(tm, c[0], c[1]);
+    break;
+  case OR_TERM:            // n-ary OR
+    assert(n > 1);
+    result = mk_or(tm, n, c);
+    break;
+  case XOR_TERM:           // n-ary XOR
+    result = mk_xor(tm, n, c);
+    break;
+  case BV_ARRAY:
+    assert(n >= 1);
+    result = mk_bvarray(tm, n, c);
+    break;
+  case BV_DIV:
+    assert(n == 2);
+    result = mk_bvdiv(tm, c[0], c[1]);
+    break;
+  case BV_REM:
+    assert(n == 2);
+    result = mk_bvrem(tm, c[0], c[1]);
+    break;
+  case BV_SDIV:
+    assert(n == 2);
+    result = mk_bvsdiv(tm, c[0], c[1]);
+    break;
+  case BV_SREM:
+    assert(n == 2);
+    result = mk_bvsrem(tm, c[0], c[1]);
+    break;
+  case BV_SMOD:
+    assert(n == 2);
+    result = mk_bvsmod(tm, c[0], c[1]);
+    break;
+  case BV_SHL:
+    assert(n == 2);
+    result = mk_bvshl(tm, c[0], c[1]);
+    break;
+  case BV_LSHR:
+    assert(n == 2);
+    result = mk_bvlshr(tm, c[0], c[1]);
+    break;
+  case BV_ASHR:
+    assert(n == 2);
+    result = mk_bvashr(tm, c[0], c[1]);
+    break;
+  case BV_EQ_ATOM:
+    assert(n == 2);
+    result = mk_bveq(tm, c[0], c[1]);
+    break;
+  case BV_GE_ATOM:
+    assert(n == 2);
+    result = mk_bvge(tm, c[0], c[1]);
+    break;
+  case BV_SGE_ATOM:
+    assert(n == 2);
+    result = mk_bvsge(tm, c[0], c[1]);
+    break;
+  case ITE_TERM: {
+    assert(n == 3);
+    type_t tau = term_type(tm->terms, c[1]);
+    result = mk_ite(tm, c[0], c[1], c[2], tau);
+  }
+  break;
+  default:
+    assert(false);
+  }
+
+  return result;
 }
 
 static
@@ -89,9 +179,6 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
       }
     }
 
-    // For now
-    assert(term_type_kind(terms, current) == BOOL_TYPE || term_type_kind(terms, current) == BITVECTOR_TYPE);
-
     // Current term kind
     term_kind_t current_kind = term_kind(terms, current);
     // The result substitution (will be NULL if not done yet)
@@ -114,6 +201,8 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
 
     // Composite terms
     case EQ_TERM:            // equality
+    case ITE_TERM:
+    case ITE_SPECIAL:
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
     case BV_ARRAY:
@@ -128,14 +217,13 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
-    case ITE_TERM:
-    case ITE_SPECIAL:
     {
       composite_term_t* desc = composite_term_desc(terms, current);
       n = desc->arity;
 
       bool children_done = true; // All children substituted
       bool children_same = true; // All children substitution same (no need to make new term)
+      bool children_const = true; // All substitution children constant (compute)
 
       ivector_t children;
       init_ivector(&children, n);
@@ -150,6 +238,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
         }
         if (children_done) {
           ivector_push(&children, find->val);
+          children_const = children_const && is_const_term(terms, find->val);
         }
       }
 
@@ -158,7 +247,26 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
         if (children_same) {
           current_subst = current;
         } else {
-          current_subst = mk_bv_composite(tm, current_kind, n, children.data);
+          current_subst = mk_composite(tm, current_kind, n, children.data);
+          if (trace_enabled(subst->tracer, "mcsat::subst::check")) {
+            FILE* out = trace_out(subst->tracer);
+            // Check that the Boolean terms stay within the same plugin
+            if (is_boolean_term(terms, current) && !is_constant_term(terms, current_subst)) {
+              term_kind_t current_subst_kind = term_kind(terms, current_subst);
+              if (current_kind != current_subst_kind) {
+                fprintf(out, "kind change:\n");
+                trace_term_ln(subst->tracer, terms, current);
+                trace_term_ln(subst->tracer, terms, current_subst);
+                assert(false);
+              }
+            }
+            // Check that constant terms result in constant terms
+            if (children_const && !is_constant_term(terms, current_subst)) {
+              trace_term_ln(subst->tracer, terms, current_subst);
+              assert(false);
+            }
+
+          }
         }
       }
 
