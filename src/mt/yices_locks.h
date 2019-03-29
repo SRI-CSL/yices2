@@ -29,7 +29,7 @@
 
 
 #ifdef MINGW
-#include <windows.h>
+#include <synchapi.h>
 typedef CRITICAL_SECTION yices_lock_t;
 #else
 #include <pthread.h>
