@@ -194,6 +194,22 @@ make
 sudo make install
 ```
 
+#### Support for Thread Safety
+
+The Yices library is not thread safe by default, but can be made thread safe by
+configuring and following some simple programming priciples.
+
+If configured with the switch `--enable-thread-safety` the Yices library will be thread
+safe in the following restricted sense: as long as the creation and manipulation of
+each contexts, and model is restricted to a single thread, there should be no races.
+In particular separate threads that each create their own contexts can manipulate and check
+them without impeding other thread's progress.
+It is also recommended that the user themselves should syncronize any access to any global
+ctx_config_t or param_t objects.
+
+Currently  `--enable-mcsat` and `--enable-thread-safety` are incompatible. We hope to
+fix this shortly.
+
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
   find the libpoly library. Other options may be useful too.  Try
   `./configure --help` to see what's there.

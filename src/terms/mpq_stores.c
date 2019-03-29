@@ -55,7 +55,6 @@ void init_mpqstore(mpq_store_t *s, uint32_t n) {
  * Allocate an mpq in s
  */
 static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
-  void *tmp;
   uint32_t i;
   mpq_bank_t *new_bank;
   mpq_link_t *obj;
@@ -70,7 +69,7 @@ static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
 
   i = s->free_index;
   if (i == 0) {
-    new_bank = (mpq_bank_t *) safe_malloc(sizeof(mpq_bank_t) + s->blocklen * sizeof(mpq_link_t));
+    new_bank = (mpq_bank_t *)safe_malloc(sizeof(mpq_bank_t) + s->blocklen * sizeof(mpq_link_t));
     new_bank->h.next = s->bnk;
     s->bnk = new_bank;
     i = s->blocklen;
@@ -78,10 +77,9 @@ static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
 
   i --;
   s->free_index = i;
-  tmp = s->bnk->block + i;
+  obj = s->bnk->block + i;
 
-  // only initialize when we give  it out
-  obj = (mpq_link_t *)tmp;
+  // only initialize when we give it out
   mpq_init2(obj->mpq, 64);
   obj->h.next = NULL; //sanity check: when returned it should still be NULL
   
@@ -106,7 +104,7 @@ static void _o_delete_mpqstore(mpq_store_t *s) {
   while (b != NULL) {
     next = b->h.next;
     for (i=k; i<s->blocklen; i++) {
-      obj = (mpq_link_t *) (b->block + i);
+      obj = b->block + i;
       mpq_clear(obj->mpq);
     }
     safe_free(b);
