@@ -374,7 +374,6 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
   // If it happens that we get a constant term, it is false, so we ignore it
   if (top_var == variable_null) {
     // For now, let's debug these constant terms
-    assert(false);
     int_mset_destruct(&disjunct_vars);
     return false;
   }

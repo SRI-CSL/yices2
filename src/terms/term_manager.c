@@ -668,12 +668,13 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
    * Try simplifications.  We know that t1 and t2 are not both constant
    * (because disequal_bitvector_terms returned false).
    */
-  aux = simplify_bveq(tbl, t1, t2);
-  if (manager->simplify_bveq1 && aux != NULL_TERM) {
-    // Simplification worked
-    return aux;
+  if (manager->simplify_bveq1) {
+    aux = simplify_bveq(tbl, t1, t2);
+    if (aux != NULL_TERM) {
+      // Simplification worked
+      return aux;
+    }
   }
-
   /*
    * Special case: for bit-vector of size 1
    * - convert to boolean equality
