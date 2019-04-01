@@ -4671,6 +4671,17 @@ void smt2_get_info(const char *name) {
   flush_out();
 }
 
+static bool is_good_var_list(smt2_globals_t *g, aval_t avalue) {
+  attr_list_t* d = aval_list(g->avtbl, avalue);
+  uint32_t n = d->nelems;
+  for (uint32_t i=0; i<n; i++) {
+    aval_t vi = d->data[i];
+    if (aval_tag(g->avtbl, vi) != ATTR_SYMBOL) return false;
+    char* s = aval_symbol(g->avtbl, vi);
+    if (yices_get_term_by_name(s) == NULL_TERM) return false;
+  }
+  return true;
+}
 
 
 /*
@@ -4712,6 +4723,7 @@ static void aval2param_val(smt2_globals_t *g, aval_t avalue, param_val_t *param_
   case ATTR_STRING:
   case ATTR_BV:
   case ATTR_LIST: {
+    if (is_good_var_list(g, avalue)) {
       param_val->tag       = PARAM_VAL_TERMS;
       param_val->val.terms = &g->var_order;
       attr_list_t* d = aval_list(g->avtbl, avalue);
@@ -4722,6 +4734,9 @@ static void aval2param_val(smt2_globals_t *g, aval_t avalue, param_val_t *param_
         char* s = aval_symbol(g->avtbl, vi);
         ivector_push(param_val->val.terms, yices_get_term_by_name(s));
       }
+    } else {
+      param_val->tag = PARAM_VAL_ERROR;
+    }
     break;
   }
   case ATTR_DELETED:
