@@ -2150,6 +2150,10 @@ static void print_boolean_value(bool value) {
   print_symbol_value(string_bool[value]);
 }
 
+static void print_int32_value(uint32_t value) {
+  print_out("%"PRIi32"\n", value);
+}
+
 static void print_uint32_value(uint32_t value) {
   print_out("%"PRIu32"\n", value);
 }
@@ -4442,6 +4446,26 @@ static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
 
   case PARAM_EF_MAX_ITERS:
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND:
+    print_boolean_value(g->mcsat_options.nra_bound);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MAX:
+    print_int32_value(g->mcsat_options.nra_bound_max);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MIN:
+    print_int32_value(g->mcsat_options.nra_bound_min);
+    break;
+
+  case PARAM_MCSAT_NRA_MGCD:
+    print_boolean_value(g->mcsat_options.nra_mgcd);
+    break;
+
+  case PARAM_MCSAT_NRA_NLSAT:
+    print_boolean_value(g->mcsat_options.nra_nlsat);
     break;
 
   case PARAM_UNKNOWN:
