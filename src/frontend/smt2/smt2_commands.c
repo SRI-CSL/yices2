@@ -48,6 +48,7 @@
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
+#include "io/term_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
 #include "utils/refcount_strings.h"
@@ -2150,6 +2151,10 @@ static void print_boolean_value(bool value) {
   print_symbol_value(string_bool[value]);
 }
 
+static void print_int32_value(uint32_t value) {
+  print_out("%"PRIi32"\n", value);
+}
+
 static void print_uint32_value(uint32_t value) {
   print_out("%"PRIu32"\n", value);
 }
@@ -2160,6 +2165,21 @@ static void print_float_value(double value) {
   } else {
     print_out("%.2f\n", value);
   }
+}
+
+static void print_terms_value(smt2_globals_t *g, const ivector_t* order) {
+  yices_pp_t printer;
+  init_pretty_printer(&printer, g);
+  pp_open_block(&printer, PP_OPEN_VPAR); // open '('
+  if (order != NULL) {
+    for (uint32_t i = 0; i < order->size; ++ i) {
+      pp_term_full(&printer, __yices_globals.terms, order->data[i]);
+    }
+  } else {
+    pp_string(&printer,"null");
+  }
+  pp_close_block(&printer, true); // close ')'
+  delete_yices_pp(&printer, true);
 }
 
 /*
@@ -4257,7 +4277,7 @@ static bool is_yices_option(const char *name, const char **option) {
  * Shows the value of the yices option, and returns true, if supported.
  * If not supported it simply returns false.
  */
-static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
+static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
   bool supported;
 
   supported = true;
@@ -4444,6 +4464,30 @@ static bool yices_get_option(const smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
+  case PARAM_MCSAT_NRA_BOUND:
+    print_boolean_value(g->mcsat_options.nra_bound);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MAX:
+    print_int32_value(g->mcsat_options.nra_bound_max);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MIN:
+    print_int32_value(g->mcsat_options.nra_bound_min);
+    break;
+
+  case PARAM_MCSAT_NRA_MGCD:
+    print_boolean_value(g->mcsat_options.nra_mgcd);
+    break;
+
+  case PARAM_MCSAT_NRA_NLSAT:
+    print_boolean_value(g->mcsat_options.nra_nlsat);
+    break;
+
+  case PARAM_MCSAT_VAR_ORDER:
+    print_terms_value(g,g->mcsat_options.var_order);
+    break;
+    
   case PARAM_UNKNOWN:
   default:
     freport_bug(g->err,"invalid parameter id in 'yices_get_option'");
@@ -4627,6 +4671,17 @@ void smt2_get_info(const char *name) {
   flush_out();
 }
 
+static bool is_good_var_list(smt2_globals_t *g, aval_t avalue) {
+  attr_list_t* d = aval_list(g->avtbl, avalue);
+  uint32_t n = d->nelems;
+  for (uint32_t i=0; i<n; i++) {
+    aval_t vi = d->data[i];
+    if (aval_tag(g->avtbl, vi) != ATTR_SYMBOL) return false;
+    char* s = aval_symbol(g->avtbl, vi);
+    if (yices_get_term_by_name(s) == NULL_TERM) return false;
+  }
+  return true;
+}
 
 
 /*
@@ -4668,16 +4723,19 @@ static void aval2param_val(smt2_globals_t *g, aval_t avalue, param_val_t *param_
   case ATTR_STRING:
   case ATTR_BV:
   case ATTR_LIST: {
-    param_val->tag       = PARAM_VAL_TERMS;
-    param_val->val.terms = &g->var_order;
-    attr_list_t* d = aval_list(g->avtbl, avalue);
-    uint32_t n = d->nelems;
-    assert(n > 0);
-    for (uint32_t i=0; i<n; i++) {
-      aval_t vi = d->data[i];
-      assert(aval_tag(g->avtbl, vi) == ATTR_SYMBOL);
-      char* s = aval_symbol(g->avtbl, vi);
-      ivector_push(param_val->val.terms, yices_get_term_by_name(s));
+    if (is_good_var_list(g, avalue)) {
+      param_val->tag       = PARAM_VAL_TERMS;
+      param_val->val.terms = &g->var_order;
+      attr_list_t* d = aval_list(g->avtbl, avalue);
+      uint32_t n = d->nelems;
+      for (uint32_t i=0; i<n; i++) {
+        aval_t vi = d->data[i];
+        assert(aval_tag(g->avtbl, vi) == ATTR_SYMBOL);
+        char* s = aval_symbol(g->avtbl, vi);
+        ivector_push(param_val->val.terms, yices_get_term_by_name(s));
+      }
+    } else {
+      param_val->tag = PARAM_VAL_ERROR;
     }
     break;
   }
@@ -4707,11 +4765,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.var_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_variable_elimination(context);
-	} else {
-	  disable_variable_elimination(context);
-	}
+        if (tt) {
+          enable_variable_elimination(context);
+        } else {
+          disable_variable_elimination(context);
+        }
       }
     }
     break;
@@ -4721,11 +4779,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.arith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
-	}
+        if (tt) {
+          enable_arith_elimination(context);
+        } else {
+          disable_arith_elimination(context);
+        }
       }
     }
     break;
@@ -4735,11 +4793,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.bvarith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_bvarith_elimination(context);
-	} else {
-	  disable_bvarith_elimination(context);
-	}
+        if (tt) {
+          enable_bvarith_elimination(context);
+        } else {
+          disable_bvarith_elimination(context);
+        }
       }
     }
     break;
@@ -4749,11 +4807,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.flatten_or = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_diseq_and_or_flattening(context);
-	} else {
-	  disable_diseq_and_or_flattening(context);
-	}
+        if (tt) {
+          enable_diseq_and_or_flattening(context);
+        } else {
+          disable_diseq_and_or_flattening(context);
+        }
       }
     }
     break;
@@ -4763,11 +4821,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.eq_abstraction = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
+        if (tt) {
+          enable_eq_abstraction(context);
+        } else {
+          disable_eq_abstraction(context);
+        }
       }
     }
     break;
@@ -4777,11 +4835,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.keep_ite = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
-	}
+        if (tt) {
+          enable_keep_ite(context);
+        } else {
+          disable_keep_ite(context);
+        }
       }
     }
     break;
@@ -4941,11 +4999,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.splx_eager_lemmas = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
+        if (tt) {
+          enable_splx_eager_lemmas(context);
+        } else {
+          disable_splx_eager_lemmas(context);
+        }
       }
     }
     break;
@@ -4979,11 +5037,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters. splx_periodic_icheck = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
+        if (tt) {
+          enable_splx_periodic_icheck(context);
+        } else {
+          disable_splx_periodic_icheck(context);
+        }
       }
     }
     break;
@@ -5039,42 +5097,70 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_MCSAT_NRA_MGCD:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->mcsat_options.nra_mgcd = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        g->ctx->mcsat_options.nra_mgcd = tt;
+      }
     }
     break;
 
   case PARAM_MCSAT_NRA_NLSAT:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->mcsat_options.nra_nlsat = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        g->ctx->mcsat_options.nra_nlsat = tt;
+      }
     }
     break;
 
   case PARAM_MCSAT_NRA_BOUND:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->mcsat_options.nra_bound = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.nra_bound = tt;
+      }
     }
     break;
 
   case PARAM_MCSAT_NRA_BOUND_MIN:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->mcsat_options.nra_bound_min = n;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.nra_bound_min = n;
+      }
     }
     break;
 
   case PARAM_MCSAT_NRA_BOUND_MAX:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->mcsat_options.nra_bound_max = n;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.nra_bound_max = n;
+      }
     }
     break;
 
   case PARAM_MCSAT_BV_VAR_SIZE:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->mcsat_options.bv_var_size = n;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.bv_var_size = n;
+      }
     }
     break;
     
   case PARAM_MCSAT_VAR_ORDER:
     if (param_val_to_terms(param, val, &terms, &reason)) {
       g->mcsat_options.var_order = terms;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.var_order = terms;
+      }
     }
     break;
 
