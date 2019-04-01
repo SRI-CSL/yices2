@@ -4750,11 +4750,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.var_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_variable_elimination(context);
-	} else {
-	  disable_variable_elimination(context);
-	}
+        if (tt) {
+          enable_variable_elimination(context);
+        } else {
+          disable_variable_elimination(context);
+        }
       }
     }
     break;
@@ -4764,11 +4764,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.arith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
-	}
+        if (tt) {
+          enable_arith_elimination(context);
+        } else {
+          disable_arith_elimination(context);
+        }
       }
     }
     break;
@@ -4778,11 +4778,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.bvarith_elim = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_bvarith_elimination(context);
-	} else {
-	  disable_bvarith_elimination(context);
-	}
+        if (tt) {
+          enable_bvarith_elimination(context);
+        } else {
+          disable_bvarith_elimination(context);
+        }
       }
     }
     break;
@@ -4792,11 +4792,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.flatten_or = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_diseq_and_or_flattening(context);
-	} else {
-	  disable_diseq_and_or_flattening(context);
-	}
+        if (tt) {
+          enable_diseq_and_or_flattening(context);
+        } else {
+          disable_diseq_and_or_flattening(context);
+        }
       }
     }
     break;
@@ -4806,11 +4806,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.eq_abstraction = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
+        if (tt) {
+          enable_eq_abstraction(context);
+        } else {
+          disable_eq_abstraction(context);
+        }
       }
     }
     break;
@@ -4820,11 +4820,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.keep_ite = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
-	}
+        if (tt) {
+          enable_keep_ite(context);
+        } else {
+          disable_keep_ite(context);
+        }
       }
     }
     break;
@@ -4984,11 +4984,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters.splx_eager_lemmas = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
+        if (tt) {
+          enable_splx_eager_lemmas(context);
+        } else {
+          disable_splx_eager_lemmas(context);
+        }
       }
     }
     break;
@@ -5022,11 +5022,11 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->ctx_parameters. splx_periodic_icheck = tt;
       context = g->ctx;
       if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
+        if (tt) {
+          enable_splx_periodic_icheck(context);
+        } else {
+          disable_splx_periodic_icheck(context);
+        }
       }
     }
     break;
@@ -5104,7 +5104,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.nra_bound = tt;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.nra_bound = tt;
+        context->mcsat_options.nra_bound = tt;
       }
     }
     break;
@@ -5114,7 +5114,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.nra_bound_min = n;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.nra_bound_min = n;
+        context->mcsat_options.nra_bound_min = n;
       }
     }
     break;
@@ -5124,7 +5124,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.nra_bound_max = n;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.nra_bound_max = n;
+        context->mcsat_options.nra_bound_max = n;
       }
     }
     break;
@@ -5134,7 +5134,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.bv_var_size = n;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.bv_var_size = n;
+        context->mcsat_options.bv_var_size = n;
       }
     }
     break;
@@ -5144,7 +5144,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       g->mcsat_options.var_order = terms;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.var_order = terms;
+        context->mcsat_options.var_order = terms;
       }
     }
     break;
