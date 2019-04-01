@@ -37,11 +37,6 @@
 #endif
 
 
-// IAM: this should be determined by the configure script.
-// perhaps we could turn this off if HAVE_TLS is false.
-#define YICES_THREAD_SAFE
-
-
 #ifdef THREAD_SAFE
 /*
  *
