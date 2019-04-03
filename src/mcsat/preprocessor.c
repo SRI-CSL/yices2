@@ -20,6 +20,8 @@
 #include "mcsat/tracing.h"
 
 #include "terms/term_explorer.h"
+#include "terms/bvarith64_buffer_terms.h"
+#include "terms/bvarith_buffer_terms.h"
 
 #include "context/context_types.h"
 
@@ -250,6 +252,38 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
   }
 }
 
+static inline
+term_t mk_bvneg(term_manager_t* tm, term_t t) {
+  term_table_t* terms = tm->terms;
+  if (term_bitsize(terms,t) <= 64) {
+    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_set_term(buffer, terms, t);
+    bvarith64_buffer_negate(buffer);
+    return mk_bvarith64_term(tm, buffer);
+  } else {
+    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_set_term(buffer, terms, t);
+    bvarith_buffer_negate(buffer);
+    return mk_bvarith_term(tm, buffer);
+  }
+}
+
+//static inline
+//term_t mk_bvadd(term_manager_t* tm, term_t a, term_t b) {
+//  term_table_t* terms = tm->terms;
+//  if (term_bitsize(terms,a) <= 64) {
+//    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
+//    bvarith64_buffer_set_term(buffer, terms, a);
+//    bvarith64_buffer_add_term(buffer, terms, b);
+//    return mk_bvarith64_term(tm, buffer);
+//  } else {
+//    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
+//    bvarith_buffer_set_term(buffer, terms, a);
+//    bvarith_buffer_add_term(buffer, terms, b);
+//    return mk_bvarith_term(tm, buffer);
+//  }
+//}
+
 term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
   term_table_t* terms = pre->terms;
@@ -381,8 +415,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
     case BV_SMOD:
     case BV_SHL:
     case BV_LSHR:
@@ -432,6 +464,104 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       break;
     }
 
+    case BV_SDIV:
+    {
+      composite_term_t* desc = get_composite(terms, current_kind, current);
+      assert(desc->arity == 2);
+      term_t s = desc->arg[0];
+      term_t s_pre = preprocessor_get(pre, s);
+      if (s_pre == NULL_TERM) {
+        ivector_push(&pre_stack, s);
+      }
+      term_t t = desc->arg[1];
+      term_t t_pre = preprocessor_get(pre, t);
+      if (t_pre == NULL_TERM) {
+        ivector_push(&pre_stack, t);
+      }
+      if (s_pre != NULL_TERM && t_pre != NULL_TERM) {
+        type_t tau = term_type(terms, s_pre);
+        uint32_t n = term_bitsize(terms, s_pre);
+        term_t msb_s = mk_bitextract(tm, s_pre, n-1);
+        term_t msb_t = mk_bitextract(tm, t_pre, n-2);
+        // if (msb_s) {
+        //   if (msb_t) {
+        //     t1: udiv(-s, -t)
+        //   } else {
+        //     t2: -udiv(-s, t)
+        //   }
+        // } else {
+        //   if (msb_t) {
+        //     t3: -udiv(s, -t)
+        //   } else {
+        //     t4: udiv(s, t)
+        //   }
+        // }
+        term_t neg_s = mk_bvneg(tm, s_pre);
+        term_t neg_t = mk_bvneg(tm, t_pre);
+
+        term_t t1 = mk_bvdiv(tm, neg_s, neg_t);
+        term_t t2 = mk_bvdiv(tm, neg_s, t_pre);
+        t2 = mk_bvneg(&pre->tm, t2);
+        term_t t3 = mk_bvdiv(tm, s_pre, neg_t);
+        t3 = mk_bvneg(&pre->tm, t3);
+        term_t t4 = mk_bvdiv(tm, s_pre, t_pre);
+
+        term_t b1 = mk_ite(tm, msb_t, t1, t2, tau);
+        term_t b2 = mk_ite(tm, msb_t, t3, t4, tau);
+
+        current_pre = mk_ite(tm, msb_s, b1, b2, tau);
+      }
+      break;
+    }
+    case BV_SREM:
+    {
+      composite_term_t* desc = get_composite(terms, current_kind, current);
+      assert(desc->arity == 2);
+      term_t s = desc->arg[0];
+      term_t s_pre = preprocessor_get(pre, s);
+      if (s_pre == NULL_TERM) {
+        ivector_push(&pre_stack, s);
+      }
+      term_t t = desc->arg[1];
+      term_t t_pre = preprocessor_get(pre, t);
+      if (t_pre == NULL_TERM) {
+        ivector_push(&pre_stack, t);
+      }
+      if (s_pre != NULL_TERM && t_pre != NULL_TERM) {
+        type_t tau = term_type(terms, s_pre);
+        uint32_t n = term_bitsize(terms, s_pre);
+        term_t msb_s = mk_bitextract(tm, s_pre, n-1);
+        term_t msb_t = mk_bitextract(tm, t_pre, n-1);
+        // if (msb_s) {
+        //   if (msb_t) {
+        //     t1: -urem(-s, -t)
+        //   } else {
+        //     t2: -urem(-s, t)
+        //   }
+        // } else {
+        //   if (msb_t) {
+        //     t3: -urem(s, -t)
+        //   } else {
+        //     t4: urem(s, t)
+        //   }
+        // }
+        term_t neg_s = mk_bvneg(tm, s_pre);
+        term_t neg_t = mk_bvneg(tm, t_pre);
+
+        term_t t1 = mk_bvrem(&pre->tm, neg_s, neg_t);
+        t1 = mk_bvneg(tm, t1);
+        term_t t2 = mk_bvrem(tm, neg_s, t_pre);
+        t2 = mk_bvneg(tm, t2);
+        term_t t3 = mk_bvrem(tm, s_pre, neg_t);
+        term_t t4 = mk_bvrem(tm, s_pre, t_pre);
+
+        term_t b1 = mk_ite(tm, msb_t, t1, t2, tau);
+        term_t b2 = mk_ite(tm, msb_t, t3, t4, tau);
+
+        current_pre = mk_ite(tm, msb_s, b1, b2, tau);
+      }
+      break;
+    }
     case BIT_TERM: // bit-select current = child[i]
     {
       uint32_t index = bit_term_index(terms, current);
