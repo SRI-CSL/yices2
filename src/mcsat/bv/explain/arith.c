@@ -40,9 +40,10 @@ typedef struct arith_s {
 // if !assume_fragment, function will return 2,
 // if assume_fragment, function has unspecified behaviour (but runs faster)
 
-int32_t bv_arith_coeff(arith_t* exp, term_t t, term_t conflict_var, bool assume_fragment) {
+int32_t bv_arith_coeff(arith_t* exp, term_t t, bool assume_fragment) {
 
   plugin_context_t* ctx = exp->super.ctx;
+  term_t conflict_var = exp->csttrail.conflict_var_term;
     
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
@@ -489,7 +490,6 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
 // Treat a constraint of the form lhs <= rhs
 void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
   // Standard abbreviations
-  term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
   plugin_context_t* ctx = lctx->exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
 
@@ -502,8 +502,8 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
     fprintf(out, "\n");
   }
 
-  int32_t left_coeff  = bv_arith_coeff(lctx->exp, lhs, conflict_var, true);
-  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, conflict_var, true);
+  int32_t left_coeff  = bv_arith_coeff(lctx->exp, lhs, true);
+  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, true);
     
   if ((left_coeff == -1) || (right_coeff == -1)) {
     // if coeff is negative, we add one, negate and swap sides.
@@ -967,44 +967,40 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   int_hset_reset(&exp->coeff1_cache);
   int_hset_reset(&exp->coeffm1_cache);
 
-  // Variables that are going to be re-used for every item in the conflict core
-  variable_t atom_i_var;
-  term_t     atom_i_term;
-  composite_term_t* atom_i_comp;
-  
   // We go through the conflict core
   for (uint32_t i = 0; i < conflict_core->size; i++) {
       
-    atom_i_var   = conflict_core->data[i];
-    atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
+    // Atom and its term
+    variable_t atom_var   = conflict_core->data[i];
+    term_t     atom_term  = variable_db_get_term(ctx->var_db, atom_var);
 
-    assert(is_pos_term(atom_i_term));
+    assert(is_pos_term(atom_term));
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith looks whether this is in the fragment: ");
-      ctx_trace_term(ctx, atom_i_term);
+      fprintf(out, "bv_arith looks at whether this is in the fragment: ");
+      ctx_trace_term(ctx, atom_term);
       fprintf(out, "with the conflict_variable being ");
       ctx_trace_term(ctx, csttrail->conflict_var_term);
     }
 
-    switch (term_kind(terms, atom_i_term)) {
+    switch (term_kind(terms, atom_term)) {
     case EQ_TERM : 
     case BV_EQ_ATOM:
     case BV_GE_ATOM: 
     case BV_SGE_ATOM: {
-      atom_i_comp = composite_term_desc(terms, atom_i_term);
-      assert(atom_i_comp->arity == 2);
-      term_t t0 = atom_i_comp->arg[0];
-      term_t t1 = atom_i_comp->arg[1];
+      composite_term_t* atom_comp = composite_term_desc(terms, atom_term);
+      assert(atom_comp->arity == 2);
+      term_t t0 = atom_comp->arg[0];
+      term_t t1 = atom_comp->arg[1];
       if (!is_pos_term(t0) || !is_pos_term(t1))
         return false;
-      // OK, maybe we can treat the constraint atom_i_term. We first scan the atom (collecting free variables and co.)
-      bv_evaluator_csttrail_scan(csttrail, atom_i_var);
+      // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
+      bv_evaluator_csttrail_scan(csttrail, atom_var);
       
       // Now that we have collected the free variables, we look into the constraint structure
-      int32_t t0_good = bv_arith_coeff(exp, t0, csttrail->conflict_var_term, false);
-      int32_t t1_good = bv_arith_coeff(exp, t1, csttrail->conflict_var_term, false);
+      int32_t t0_good = bv_arith_coeff(exp, t0, false);
+      int32_t t1_good = bv_arith_coeff(exp, t1, false);
       if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)
           /* || (t0_good == -1) || ( t1_good == -1) */
           ) { // Turns out we actually can't deal with the constraint. We stop

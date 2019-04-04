@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun _substvar_14_ () Bool)
+(declare-fun _substvar_11_ () Bool)
+(declare-fun _substvar_4_ () (_ BitVec 32))
+(assert (= _substvar_4_ (ite _substvar_14_ (_ bv14 32) (_ bv12 32))))
+(assert _substvar_11_)
+(check-sat)
+(exit)
