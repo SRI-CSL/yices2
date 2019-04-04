@@ -414,7 +414,6 @@ extra_src_c := \
 # and testing multi-threaded code
 #
 extra_thread_src_c := \
-	mt/threadsafe.c \
 	mt/threads.c
 
 
