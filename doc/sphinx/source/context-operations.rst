@@ -993,13 +993,12 @@ record is no longer needed, it can be deleted by
      -- error code: :c:enum:`CTX_INVALID_PARAMETER_VALUE`
 
 
-.. c:function:: void yices_default_params_for_context(context_t *ctx, param_t *p)
+.. c:function:: void yices_default_params_for_context(const context_t *ctx, param_t *p)
 
    Set all the parameters in record *p* to values appropriate for
    context *ctx*.  The parameter settings depend on the logic
    supported by *ctx* and are based on empirical evaluation on
    benchmarks in the same logic.
-
 
 
 .. c:function:: void yices_free_param_record(param_t* param)
