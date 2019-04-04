@@ -147,6 +147,9 @@ struct mcsat_solver_s {
    */
   ivector_t assertion_terms_original;
 
+  /** Temp assertion vector while preprocessing */
+  ivector_t assertions_tmp;
+
   /** The trail */
   mcsat_trail_t* trail;
 
@@ -671,6 +674,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   // List of assertions
   init_ivector(&mcsat->assertion_vars, 0);
   init_ivector(&mcsat->assertion_terms_original, 0);
+  init_ivector(&mcsat->assertions_tmp, 0);
 
   // The trail
   mcsat->trail = safe_malloc(sizeof(mcsat_trail_t));
@@ -748,6 +752,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   delete_int_hset(&mcsat->registration_cache);
   delete_ivector(&mcsat->assertion_vars);
   delete_ivector(&mcsat->assertion_terms_original);
+  delete_ivector(&mcsat->assertions_tmp);
   trail_destruct(mcsat->trail);
   safe_free(mcsat->trail);
   variable_db_destruct(mcsat->var_db);
@@ -1915,27 +1920,27 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
     ivector_push(&mcsat->assertion_terms_original, f[i]);
   }
 
-  // Preprocess the formulas
-  ivector_t assertions;
-  init_ivector(&assertions, 0);
-  ivector_add(&assertions, f, n);
-  for (i = 0; i < assertions.size; ++ i) {
-    term_t f = assertions.data[i];
-    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, &assertions);
-    assertions.data[i] = f_pre;
+  // Preprocess the formulas (preprocessor might throw)
+  ivector_t* assertions = &mcsat->assertions_tmp;
+  ivector_reset(assertions);
+  ivector_add(assertions, f, n);
+  for (i = 0; i < assertions->size; ++ i) {
+    term_t f = assertions->data[i];
+    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, assertions);
+    assertions->data[i] = f_pre;
   }
 
   // Assert individual formulas
-  for (i = 0; i < assertions.size; ++ i) {
+  for (i = 0; i < assertions->size; ++ i) {
     // Assert it
-    mcsat_assert_formula(mcsat, assertions.data[i]);
+    mcsat_assert_formula(mcsat, assertions->data[i]);
     // Add any lemmas that were added
-    ivector_add(&assertions, mcsat->plugin_lemmas.data, mcsat->plugin_lemmas.size);
+    ivector_add(assertions, mcsat->plugin_lemmas.data, mcsat->plugin_lemmas.size);
     ivector_reset(&mcsat->plugin_lemmas);
   }
 
   // Delete the temp
-  delete_ivector(&assertions);
+  ivector_reset(assertions);
 
   return CTX_NO_ERROR;
 }

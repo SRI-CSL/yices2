@@ -34,6 +34,7 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   init_ivector(&pre->preprocess_map_list, 0);
   init_int_hmap(&pre->purification_map, 0);
   init_ivector(&pre->purification_map_list, 0);
+  init_ivector(&pre->preprocessing_stack, 0);
   pre->tracer = NULL;
   pre->exception = handler;
   pre->options = options;
@@ -49,6 +50,7 @@ void preprocessor_destruct(preprocessor_t* pre) {
   delete_ivector(&pre->purification_map_list);
   delete_int_hmap(&pre->preprocess_map);
   delete_ivector(&pre->preprocess_map_list);
+  delete_ivector(&pre->preprocessing_stack);
   delete_term_manager(&pre->tm);
   scope_holder_destruct(&pre->scope);
 }
@@ -298,14 +300,14 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
   }
 
   // Start
-  ivector_t pre_stack;
-  init_ivector(&pre_stack, 0);
-  ivector_push(&pre_stack, t);
+  ivector_t* pre_stack = &pre->preprocessing_stack;
+  ivector_reset(pre_stack);
+  ivector_push(pre_stack, t);
 
   // Preprocess
-  while (pre_stack.size) {
+  while (pre_stack->size) {
     // Current term
-    term_t current = ivector_last(&pre_stack);
+    term_t current = ivector_last(pre_stack);
 
     if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
       mcsat_trace_printf(pre->tracer, "current = ");
@@ -315,7 +317,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     // If preprocessed already, done
     term_t current_pre = preprocessor_get(pre, current);
     if (current_pre != NULL_TERM) {
-      ivector_pop(&pre_stack);
+      ivector_pop(pre_stack);
       continue;
     }
 
@@ -324,10 +326,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       term_t child = unsigned_term(current);
       term_t child_pre = preprocessor_get(pre, child);
       if (child_pre == NULL_TERM) {
-        ivector_push(&pre_stack, child);
+        ivector_push(pre_stack, child);
         continue;
       } else {
-        ivector_pop(&pre_stack);
+        ivector_pop(pre_stack);
         current_pre = opposite_term(child_pre);
         preprocessor_set(pre, current, current_pre);
         continue;
@@ -389,7 +391,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       if (child_pre != NULL_TERM) {
         current_pre = arith_eq_atom(terms, child_pre);
       } else {
-        ivector_push(&pre_stack, child);
+        ivector_push(pre_stack, child);
       }
       break;
     }
@@ -401,7 +403,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       if (child_pre != NULL_TERM) {
         current_pre = arith_geq_atom(terms, child_pre);
       } else {
-        ivector_push(&pre_stack, child);
+        ivector_push(pre_stack, child);
       }
       break;
     }
@@ -443,7 +445,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
         if (child_pre == NULL_TERM) {
           children_done = false;
-          ivector_push(&pre_stack, child);
+          ivector_push(pre_stack, child);
         } else if (child_pre != child) {
           children_same = false;
         }
@@ -471,12 +473,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       term_t s = desc->arg[0];
       term_t s_pre = preprocessor_get(pre, s);
       if (s_pre == NULL_TERM) {
-        ivector_push(&pre_stack, s);
+        ivector_push(pre_stack, s);
       }
       term_t t = desc->arg[1];
       term_t t_pre = preprocessor_get(pre, t);
       if (t_pre == NULL_TERM) {
-        ivector_push(&pre_stack, t);
+        ivector_push(pre_stack, t);
       }
       if (s_pre != NULL_TERM && t_pre != NULL_TERM) {
         type_t tau = term_type(terms, s_pre);
@@ -520,12 +522,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       term_t s = desc->arg[0];
       term_t s_pre = preprocessor_get(pre, s);
       if (s_pre == NULL_TERM) {
-        ivector_push(&pre_stack, s);
+        ivector_push(pre_stack, s);
       }
       term_t t = desc->arg[1];
       term_t t_pre = preprocessor_get(pre, t);
       if (t_pre == NULL_TERM) {
-        ivector_push(&pre_stack, t);
+        ivector_push(pre_stack, t);
       }
       if (s_pre != NULL_TERM && t_pre != NULL_TERM) {
         type_t tau = term_type(terms, s_pre);
@@ -568,7 +570,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
       term_t arg = bit_term_arg(terms, current);
       term_t arg_pre = preprocessor_get(pre, arg);
       if (arg_pre == NULL_TERM) {
-        ivector_push(&pre_stack, arg);
+        ivector_push(pre_stack, arg);
       } else {
         if (arg_pre == arg) {
           current_pre = current;
@@ -603,7 +605,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (x_pre != const_idx) {
           if (x_pre == NULL_TERM) {
             children_done = false;
-            ivector_push(&pre_stack, x);
+            ivector_push(pre_stack, x);
           } else if (x_pre != x) {
             children_same = false;
           }
@@ -643,7 +645,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (x_pre != const_idx) {
           if (x_pre == NULL_TERM) {
             children_done = false;
-            ivector_push(&pre_stack, x);
+            ivector_push(pre_stack, x);
           } else if (x_pre != x) {
             children_same = false;
           }
@@ -682,7 +684,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
         if (x_pre == NULL_TERM) {
           children_done = false;
-          ivector_push(&pre_stack, x);
+          ivector_push(pre_stack, x);
         } else if (x_pre != x) {
           children_same = false;
         }
@@ -723,7 +725,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (x_pre != const_idx) {
           if (x_pre == NULL_TERM) {
             children_done = false;
-            ivector_push(&pre_stack, x);
+            ivector_push(pre_stack, x);
           } else if (x_pre != x) {
             children_same = false;
           }
@@ -767,7 +769,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
         if (child_pre == NULL_TERM) {
           children_done = false;
-          ivector_push(&pre_stack, child);
+          ivector_push(pre_stack, child);
         } else {
           // Purify if needed
           child_pre = preprocessor_purify(pre, child_pre, out);
@@ -804,7 +806,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
           current_pre = current;
         }
       } else {
-        ivector_push(&pre_stack, child);
+        ivector_push(pre_stack, child);
       }
 
       break;
@@ -823,7 +825,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
           current_pre = current;
         }
       } else {
-        ivector_push(&pre_stack, child);
+        ivector_push(pre_stack, child);
       }
 
       break;
@@ -845,7 +847,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
         if (child_pre == NULL_TERM) {
           children_done = false;
-          ivector_push(&pre_stack, child);
+          ivector_push(pre_stack, child);
         }
 
         if (children_done) { ivector_push(&children, child_pre); }
@@ -880,7 +882,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
 
     if (current_pre != NULL_TERM) {
       preprocessor_set(pre, current, current_pre);
-      ivector_pop(&pre_stack);
+      ivector_pop(pre_stack);
       if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
         mcsat_trace_printf(pre->tracer, "current_pre = ");
         trace_term_ln(pre->tracer, terms, current_pre);
@@ -896,7 +898,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
     trace_term_ln(pre->tracer, terms, t_pre);
   }
 
-  delete_ivector(&pre_stack);
+  ivector_reset(pre_stack);
 
   assert(t_pre != NULL_TERM);
   return t_pre;

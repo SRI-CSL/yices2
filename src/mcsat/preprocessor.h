@@ -49,6 +49,9 @@ typedef struct {
   /** List of term in the purification map (for backtracking) */
   ivector_t purification_map_list;
 
+  /** Preprocessor stack */
+  ivector_t preprocessing_stack;
+
   /** Tracer */
   tracer_t* tracer;
 
