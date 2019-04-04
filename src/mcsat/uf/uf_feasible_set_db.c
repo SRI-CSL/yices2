@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 /*
  * Anything that includes "yices.h" requires these macros.
  * Otherwise the code doesn't build on Windows or Cygwin.
@@ -32,7 +32,7 @@
 
 #include "utils/int_array_sort.h"
 
-#include "yices.h"
+#include "api/yices_api_lock_free.h"
 
 /**
  * Element in the list. Each element contains a pointer to the previous
@@ -399,7 +399,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
       term_t x_term = variable_db_get_term(db->var_db, x);
       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
+      term_t y_eq_z = _o_yices_eq(y_term, z_term);
 
       ivector_push(conflict, x_eq_y);
       ivector_push(conflict, x_eq_z);
@@ -425,7 +425,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
         term_t x_term = variable_db_get_term(db->var_db, x);
         term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
         term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-        term_t y_eq_z = yices_eq(y_term, z_term);
+        term_t y_eq_z = _o_yices_eq(y_term, z_term);
 
         ivector_push(conflict, x_eq_y);
         ivector_push(conflict, opposite_term(x_eq_z));
@@ -454,7 +454,7 @@ void uf_feasible_set_db_get_conflict(uf_feasible_set_db_t* db, variable_t x, ive
       term_t x_term = variable_db_get_term(db->var_db, x);
       term_t y_term = x_eq_y_desc->arg[0] == x_term ? x_eq_y_desc->arg[1] : x_eq_y_desc->arg[0];
       term_t z_term = x_eq_z_desc->arg[0] == x_term ? x_eq_z_desc->arg[1] : x_eq_z_desc->arg[0];
-      term_t y_eq_z = yices_eq(y_term, z_term);
+      term_t y_eq_z = _o_yices_eq(y_term, z_term);
 
       ivector_push(conflict, opposite_term(x_eq_y));
       ivector_push(conflict, x_eq_z);

@@ -826,11 +826,12 @@ static void isort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
 static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   uint32_t i, j;
   int32_t x;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(h > l);
 
   // random pivot
-  i = l + random_uint(h - l);
+  i = l + random_uint(&seed, h - l);
 
   // move it to position l
   swap_monomials(buffer, i, l);

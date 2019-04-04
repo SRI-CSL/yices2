@@ -182,9 +182,10 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   uint32_t i, j;
   int32_t pivot;
   varexp_t aux;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // random pivot
-  i = random_uint(n);
+  i = random_uint(&seed, n);
   aux = a[i];
   pivot = a[i].var;
 

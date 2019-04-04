@@ -372,6 +372,7 @@ void prop_table_increase_row_activity(prop_table_t *table, uint32_t i) {
 static float median(float *a, uint32_t n) {
   uint32_t low, high, i, j, half;
   float pivot, aux;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(n > 0);
 
@@ -381,7 +382,7 @@ static float median(float *a, uint32_t n) {
 
   do {
     // pick a random pivot in a[low ... high - 1]
-    i = low + random_uint(high - low);
+    i = low + random_uint(&seed, high - low);
     pivot = a[i];
 
     // swap a[i] and a[low]

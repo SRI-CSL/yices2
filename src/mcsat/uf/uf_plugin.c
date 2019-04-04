@@ -41,7 +41,6 @@
 
 #include "terms/terms.h"
 #include "terms/term_manager.h"
-#include "yices.h"
 
 typedef struct {
 

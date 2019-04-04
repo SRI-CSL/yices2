@@ -765,7 +765,7 @@ static bvnode_t bvc_dag_mk_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) 
   d->header.tag = BVC_CONSTANT;
   d->header.bitsize = bitsize;
   d->value.w = c;
-  
+
   q = bvc_dag_add_node(dag, &d->header);
 
   // elementary node
@@ -1300,75 +1300,14 @@ static bvnode_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
   return bvc_dag_mk_sum(p->dag, p->noccs, p->len, p->bitsize);
 }
 
-
-/*
- * Hash-consing objects
- */
-static bvc_leaf_hobj_t bvc_leaf_hobj = {
-  { (hobj_hash_t) hash_bvc_leaf_hobj, (hobj_eq_t) eq_bvc_leaf_hobj,
-    (hobj_build_t) build_bvc_leaf_hobj },
-  NULL, 0, 0
-};
-
-static bvc_zero_hobj_t bvc_zero_hobj = {
-  { (hobj_hash_t) hash_bvc_zero_hobj, (hobj_eq_t) eq_bvc_zero_hobj,
-    (hobj_build_t) build_bvc_zero_hobj },
-  NULL, 0
-};
-
-static bvc_const64_hobj_t bvc_const64_hobj = {
-  { (hobj_hash_t) hash_bvc_const64_hobj, (hobj_eq_t) eq_bvc_const64_hobj,
-    (hobj_build_t) build_bvc_const64_hobj },
-  NULL, 0, 0
-};
-
-static bvc_const_hobj_t bvc_const_hobj = {
-  { (hobj_hash_t) hash_bvc_const_hobj, (hobj_eq_t) eq_bvc_const_hobj,
-    (hobj_build_t) build_bvc_const_hobj },
-  NULL, NULL, 0
-};
-
-static bvc64_hobj_t bvc_offset64_hobj = {
-  { (hobj_hash_t) hash_bvc_offset64_hobj, (hobj_eq_t) eq_bvc_offset64_hobj,
-    (hobj_build_t) build_bvc_offset64_hobj },
-  NULL, 0, 0, 0
-};
-
-static bvc_hobj_t bvc_offset_hobj = {
-  { (hobj_hash_t) hash_bvc_offset_hobj, (hobj_eq_t) eq_bvc_offset_hobj,
-    (hobj_build_t) build_bvc_offset_hobj },
-  NULL, NULL, 0, 0
-};
-
-static bvc64_hobj_t bvc_mono64_hobj = {
-  { (hobj_hash_t) hash_bvc_mono64_hobj, (hobj_eq_t) eq_bvc_mono64_hobj,
-    (hobj_build_t) build_bvc_mono64_hobj },
-  NULL, 0, 0, 0
-};
-
-static bvc_hobj_t bvc_mono_hobj = {
-  { (hobj_hash_t) hash_bvc_mono_hobj, (hobj_eq_t) eq_bvc_mono_hobj,
-    (hobj_build_t) build_bvc_mono_hobj },
-  NULL, NULL, 0, 0
-};
-
-static bvc_prod_hobj_t bvc_prod_hobj = {
-  { (hobj_hash_t) hash_bvc_prod_hobj, (hobj_eq_t) eq_bvc_prod_hobj,
-    (hobj_build_t) build_bvc_prod_hobj },
-  NULL, NULL, 0, 0,
-};
-
-static bvc_sum_hobj_t bvc_sum_hobj = {
-  { (hobj_hash_t) hash_bvc_sum_hobj, (hobj_eq_t) eq_bvc_sum_hobj,
-    (hobj_build_t) build_bvc_sum_hobj },
-  NULL, NULL, 0, 0,
-};
-
-
 /*
  * Hash-consing constructors
  */
 static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+  bvc_leaf_hobj_t bvc_leaf_hobj;
+  bvc_leaf_hobj.m.hash = (hobj_hash_t) hash_bvc_leaf_hobj;
+  bvc_leaf_hobj.m.eq = (hobj_eq_t) eq_bvc_leaf_hobj;
+  bvc_leaf_hobj.m.build = (hobj_build_t) build_bvc_leaf_hobj;
   bvc_leaf_hobj.dag = dag;
   bvc_leaf_hobj.bitsize = bitsize;
   bvc_leaf_hobj.map = x;
@@ -1376,12 +1315,20 @@ static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 }
 
 static bvnode_t bvc_dag_get_zero(bvc_dag_t *dag, uint32_t bitsize) {
+  bvc_zero_hobj_t bvc_zero_hobj;
+  bvc_zero_hobj.m.hash = (hobj_hash_t) hash_bvc_zero_hobj;
+  bvc_zero_hobj.m.eq = (hobj_eq_t) eq_bvc_zero_hobj;
+  bvc_zero_hobj.m.build = (hobj_build_t) build_bvc_zero_hobj;
   bvc_zero_hobj.dag = dag;
   bvc_zero_hobj.bitsize = bitsize;
   return int_htbl_get_obj(&dag->htbl, &bvc_zero_hobj.m);
 }
 
 static bvnode_t bvc_dag_get_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize) {
+  bvc_const64_hobj_t bvc_const64_hobj;
+  bvc_const64_hobj.m.hash = (hobj_hash_t) hash_bvc_const64_hobj;
+  bvc_const64_hobj.m.eq = (hobj_eq_t) eq_bvc_const64_hobj;
+  bvc_const64_hobj.m.build = (hobj_build_t) build_bvc_const64_hobj;
   bvc_const64_hobj.dag = dag;
   bvc_const64_hobj.c = a;
   bvc_const64_hobj.bitsize = bitsize;
@@ -1389,6 +1336,10 @@ static bvnode_t bvc_dag_get_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize
 }
 
 static bvnode_t bvc_dag_get_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) {
+  bvc_const_hobj_t bvc_const_hobj;
+  bvc_const_hobj.m.hash = (hobj_hash_t) hash_bvc_const_hobj;
+  bvc_const_hobj.m.eq = (hobj_eq_t) eq_bvc_const_hobj;
+  bvc_const_hobj.m.build = (hobj_build_t) build_bvc_const_hobj;
   bvc_const_hobj.dag = dag;
   bvc_const_hobj.c = a;
   bvc_const_hobj.bitsize = bitsize;
@@ -1396,6 +1347,10 @@ static bvnode_t bvc_dag_get_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize)
 }
 
 static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+  bvc64_hobj_t bvc_offset64_hobj;
+  bvc_offset64_hobj.m.hash = (hobj_hash_t) hash_bvc_offset64_hobj;
+  bvc_offset64_hobj.m.eq = (hobj_eq_t) eq_bvc_offset64_hobj;
+  bvc_offset64_hobj.m.build = (hobj_build_t) build_bvc_offset64_hobj;
   bvc_offset64_hobj.dag = dag;
   bvc_offset64_hobj.c = a;
   bvc_offset64_hobj.bitsize = bitsize;
@@ -1404,6 +1359,10 @@ static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, u
 }
 
 static bvnode_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+  bvc_hobj_t bvc_offset_hobj;
+  bvc_offset_hobj.m.hash = (hobj_hash_t) hash_bvc_offset_hobj;
+  bvc_offset_hobj.m.eq = (hobj_eq_t) eq_bvc_offset_hobj;
+  bvc_offset_hobj.m.build = (hobj_build_t) build_bvc_offset_hobj;
   bvc_offset_hobj.dag = dag;
   bvc_offset_hobj.c = a;
   bvc_offset_hobj.bitsize = bitsize;
@@ -1412,6 +1371,10 @@ static bvnode_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, ui
 }
 
 static bvnode_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+  bvc64_hobj_t bvc_mono64_hobj;
+  bvc_mono64_hobj.m.hash = (hobj_hash_t) hash_bvc_mono64_hobj;
+  bvc_mono64_hobj.m.eq = (hobj_eq_t) eq_bvc_mono64_hobj;
+  bvc_mono64_hobj.m.build = (hobj_build_t) build_bvc_mono64_hobj;
   bvc_mono64_hobj.dag = dag;
   bvc_mono64_hobj.c = a;
   bvc_mono64_hobj.bitsize = bitsize;
@@ -1420,6 +1383,10 @@ static bvnode_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uin
 }
 
 static bvnode_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+  bvc_hobj_t bvc_mono_hobj;
+  bvc_mono_hobj .m.hash = (hobj_hash_t) hash_bvc_mono_hobj;
+  bvc_mono_hobj.m.eq = (hobj_eq_t) eq_bvc_mono_hobj;
+  bvc_mono_hobj.m.build = (hobj_build_t) build_bvc_mono_hobj;
   bvc_mono_hobj.dag = dag;
   bvc_mono_hobj.c = a;
   bvc_mono_hobj.bitsize = bitsize;
@@ -1429,6 +1396,10 @@ static bvnode_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
 
 // note: a must be sorted
 static bvnode_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint32_t bitsize) {
+  bvc_prod_hobj_t bvc_prod_hobj;
+  bvc_prod_hobj.m.hash = (hobj_hash_t) hash_bvc_prod_hobj;
+  bvc_prod_hobj.m.eq = (hobj_eq_t) eq_bvc_prod_hobj;
+  bvc_prod_hobj.m.build = (hobj_build_t) build_bvc_prod_hobj;
   bvc_prod_hobj.dag = dag;
   bvc_prod_hobj.pp = a;
   bvc_prod_hobj.bitsize = bitsize;
@@ -1438,6 +1409,10 @@ static bvnode_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint
 
 // a must be sorted
 static bvnode_t bvc_dag_get_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t len, uint32_t bitsize) {
+  bvc_sum_hobj_t bvc_sum_hobj;
+  bvc_sum_hobj.m.hash = (hobj_hash_t) hash_bvc_sum_hobj;
+  bvc_sum_hobj.m.eq = (hobj_eq_t) eq_bvc_sum_hobj;
+  bvc_sum_hobj.m.build = (hobj_build_t) build_bvc_sum_hobj;
   bvc_sum_hobj.dag = dag;
   bvc_sum_hobj.noccs = a;
   bvc_sum_hobj.bitsize = bitsize;
@@ -2179,7 +2154,7 @@ static void bvpoly_buffer_add(bvc_dag_t *dag, bvpoly_buffer_t *buffer, uint32_t 
     }
     return;
   }
-  
+
   if (sign_of_occ(n) == 1) {
     bvpoly_buffer_sub_monomial(buffer, unsigned_occ(n), a);
   } else {
@@ -2693,7 +2668,7 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
       }
       if (l1 >= 0 && l2 >= 0) {
 	assert(p->sum[l1] == negate_occ(n1) && p->sum[l2] == negate_occ(n2));
-	shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), l1, l2);	
+	shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), l1, l2);
       }
     }
   }
@@ -3685,5 +3660,3 @@ int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {
     return -1;
   }
 }
-
-
