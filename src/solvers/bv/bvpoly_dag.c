@@ -2431,7 +2431,7 @@ static void reclassify_dependents(bvc_dag_t *dag, bvnode_t i) {
 
 /*
  * Convert i to a leaf node (for variable x)
- * - i must not be a leaf node already
+ * - i must not be a leaf node or alias node already
  */
 void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
   bvc_header_t *d;
@@ -2441,7 +2441,7 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
 
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
-  assert(d->tag != BVC_LEAF);
+  assert(d->tag != BVC_LEAF && d->tag != BVC_ALIAS);
   bitsize = d->bitsize;
   remove_from_uses(dag, i, d);
   free_descriptor(dag, d);
@@ -2529,6 +2529,7 @@ static void replace_node_in_desc(bvc_header_t *d, bvnode_t i, node_occ_t n) {
 
 /*
  * Convert i to an alias node for n
+ * - i must not be a LEAF or ALIAS node already
  */
 static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   bvc_header_t *d;
@@ -2537,6 +2538,7 @@ static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
 
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
+  assert(d->tag != BVC_LEAF && d->tag != BVC_ALIAS);
   bitsize = d->bitsize;
   free_descriptor(dag, d);
 
@@ -2554,7 +2556,6 @@ static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
 
 /*
  * Replace all occurrences of node i by n
- * - n must be a leaf node
  */
 static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   int32_t *l;
@@ -2562,7 +2563,6 @@ static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   bvnode_t x;
 
   assert(0 < i && i <= dag->nelems);
-  assert(bvc_dag_occ_is_leaf(dag, n));
 
   l = dag->use[i];
   if (l != NULL) {
@@ -3780,6 +3780,7 @@ void bvc_dag_force_elem_node(bvc_dag_t *dag) {
 
 /*
  * Compilation result for node_occurrence n
+ * - follow alias chain until we reach a lead node
  * - modulo signs, this is the variable of n if n is a leaf node
  *   or the variable of n' if n is aliased to n'
  * - to encode the signs, we return either bvp(x) or bvn(x)
@@ -3797,21 +3798,26 @@ int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
 
-  switch (d->tag) {
-  case BVC_ALIAS:
+  while (d->tag == BVC_ALIAS) {
+    /*
+     * i is node of n
+     * i --> [alias n1]
+     * if n is bvp(i), then alias(n) = n1
+     * if n is bvn(i), then alias(n) = n1 ^ 1
+     * so alias(n) = n1 ^ sign_of(n)
+     */
     n = sign_of_occ(n) ^ alias_node(d)->alias;
     i = node_of_occ(n);
     assert(0 < i && i <= dag->nelems);
     d = dag->desc[i];
-    assert(d->tag == BVC_LEAF); // fall-through intended
+  }
 
-  case BVC_LEAF:
+  if (d->tag == BVC_LEAF) {
     x = leaf_node(d)->map;
     return (x << 1) | sign_of_occ(n);
-
-  default:
-    return -1;
   }
+
+  return -1;
 }
 
 

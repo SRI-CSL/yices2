@@ -566,13 +566,11 @@ static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
 }
 
 
-
 /*
  * Check whether n is a shared node occurrence
  * (i.e., +n or -n occur more than once)
  */
 extern bool bvc_dag_occ_is_shared(bvc_dag_t *dag, node_occ_t n);
-
 
 
 
@@ -795,7 +793,6 @@ extern void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, nod
 
 /*
  * Check whether there is a sum node that can be reduced by +n1 +n2 or -n1 -n2
- * - n1 and n2 must be distinct
  */
 extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
@@ -806,14 +803,11 @@ extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n
 extern bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
 
-
 /*
  * Add an elementary node to enable reduction of at least one non-elementary node
  * - the list of non-elementary node must not be empty
  */
 extern void bvc_dag_force_elem_node(bvc_dag_t *dag);
-
-
 
 
 #endif /* __BVPOLY_DAG_H */
