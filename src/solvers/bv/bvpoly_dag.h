@@ -36,6 +36,7 @@
 #include "utils/int_bv_sets.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
+#include "utils/int_queues.h"
 #include "utils/int_vectors.h"
 #include "utils/object_stores.h"
 
@@ -389,6 +390,7 @@ typedef struct bvc_dag_s {
   bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
   ivector_t sum_buffer;
+  int_queue_t node_queue;
 } bvc_dag_t;
 
 
@@ -532,7 +534,7 @@ static inline bvc_alias_t *bvc_dag_node_alias(bvc_dag_t *dag, bvnode_t n) {
 static inline uint32_t bvc_dag_occ_bitsize(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_bitsize(dag, node_of_occ(n));
 }
-					   
+
 static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_leaf(dag, node_of_occ(n));
 }
