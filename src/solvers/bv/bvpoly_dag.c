@@ -217,6 +217,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_pp_buffer(&dag->pp_aux, 10);
   init_bvpoly_buffer(&dag->poly_buffer);
   init_ivector(&dag->buffer, 10);
+  init_ivector(&dag->sum_buffer, 10);
 }
 
 
@@ -354,6 +355,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_pp_buffer(&dag->pp_aux);
   delete_bvpoly_buffer(&dag->poly_buffer);
   delete_ivector(&dag->buffer);
+  delete_ivector(&dag->sum_buffer);
 }
 
 
@@ -394,6 +396,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   pp_buffer_reset(&dag->pp_aux);
   reset_bvpoly_buffer(&dag->poly_buffer, 32); // any positive bit-size would do
   ivector_reset(&dag->buffer);
+  ivector_reset(&dag->sum_buffer);
 }
 
 
@@ -1696,7 +1699,6 @@ node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsi
 }
 
 
-
 /*
  * Binary sum: n1 n2
  */
@@ -1899,7 +1901,7 @@ static node_occ_t bvc_dag_normal_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, 
 /*
  * Normalize sum vector v:
  * - each element of v is a node occurrence
- * - v contains duplicate node, then we replace them by monomials
+ * - if v contains duplicate node, then we replace them by monomials
  */
 static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) {
   uint32_t i, j, n;
@@ -1941,7 +1943,7 @@ static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) 
 	v->size = j;
 
 	// if j == n, v didn't change so we're done
-	// if j <= 0 or 1, v can't have duplicates
+	// if j == 0 or 1, v can't have duplicates
 	if (j == n || j < 2) break;
 
 	n = j;
@@ -2587,53 +2589,179 @@ static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
  */
 
 /*
- * Replace the pair n1, n2 by n in p->sum:
- * - p must be the descriptor of node i
- * - n1 and n2 must occur in p at position k1 and k2, respectively
- * - n must be a leaf
- * - remove i from n1 and n2's use lists and add i to n's use list
- * - move i to the elementary list if p becomes elementary
+ * Node for c * n:
+ * - return -1 if c is zero
  */
-static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
-		       node_occ_t n, node_occ_t n1, node_occ_t n2, uint32_t k1, uint32_t k2) {
-  uint32_t j, k, m;
+static node_occ_t simple_mono_in_sum(bvc_dag_t *dag, int32_t c, node_occ_t n) {
+  uint32_t bitsize;
+  uint64_t a;
+  node_occ_t mono;
+  
+  mono = -1;
+  bitsize = bvc_dag_occ_bitsize(dag, n);
+  if (bitsize > 64) {
+    if (c != 0) mono = bvc_dag_simple_mono(dag, c, n, bitsize);
+  } else {
+    a = norm64((uint64_t) c, bitsize);
+    if (a != 0) mono = bvc_dag_mono64(dag, a, n, bitsize);
+  }
+
+  return mono;
+}
+
+/*
+ * Remove duplicates from v
+ * - the duplicate is either +n or -n
+ */
+static void normalize_sum_after_shrinking(bvc_dag_t *dag, ivector_t *v, node_occ_t n) {
+  uint32_t i, j, m;
   node_occ_t x;
+  int32_t c;
+
+  m = v->size;
+  for (;;) {
+    c = 0;
+    // compute c := coefficient of n in v
+    // and remove all occurrences of n from v
+    j = 0;
+    for (i=0; i<m; i++) {
+      x = v->data[i];
+      if (same_node(x, n)) {
+	if (x == n) {
+	  c ++;
+	} else {
+	  assert(x == negate_occ(n));
+	  c --;
+	}
+      } else {
+	v->data[j] = x;
+	j ++;
+      }
+    }
+
+    assert(j <= m);
+    
+    // construct x := c * n
+    x = simple_mono_in_sum(dag, c, n);
+    if (x < 0) break; // c * n is zero so we're done
+
+    // add c * n to vector v
+    v->data[j] = x;
+    if (same_node(x, n)) break; // c * n is either +n or -n so we're done
+
+    // x may be a duplicate now
+    n = x;
+    m = j;
+  }
+
+  v->size = j;  
+}
+
+/*
+ * Replace the pair n1, n2 by n in p->sum
+ * - n1 and n2 occur in p->sum at index k1 and k2 respectively
+ * - store the result in vector dag->sum_buffer
+ */
+static void replace_pair_in_sum(bvc_dag_t *dag, bvc_sum_t *p, node_occ_t n, node_occ_t n1, node_occ_t n2,
+				uint32_t k1, uint32_t k2) {
+  ivector_t *v;
+  uint32_t i, m;
+  node_occ_t x;
+  bool has_duplicate;
+
+  assert(k1 < p->len && p->sum[k1] == n1);
+  assert(k2 < p->len && p->sum[k2] == n2);
+  assert(k1 != k2);
+
+  // construct v := nodes in p->sum with n1 and n2 removed and n added.
+  // set has_duplicate to true if p->sum already contains n or -n
+  v = &dag->sum_buffer;
+  ivector_reset(v);
+  has_duplicate = false;
 
   m = p->len;
+  for (i=0; i<m; i++) {
+    if (i != k1 && i != k2) {
+      x = p->sum[i];
+      ivector_push(v, x);
+      has_duplicate |= same_node(x, n);
+    }
+  }
+  ivector_push(v, n);
 
-  assert(m >= 2 && k1 != k2 && p->sum[k1] == n1 && p->sum[k2] == n2);
+  if (has_duplicate) {
+    normalize_sum_after_shrinking(dag, v, n);
+  }
+}
 
-  if (m == 2) {
-    // i is equal to n
-    assert((k1 == 0 && k2 == 1) || (k1 == 1 && k2 == 0));
-    replace_node(dag, i, n);
-    return;;
+/*
+ * Change the definition of a sum node i
+ * - p = descriptor of node i
+ * - a = new array of nodes = new definition
+ * - n = number of elements in a (n >= 2)
+ */
+static void rebuild_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t *a, uint32_t n) {
+  uint32_t j, m;
+  node_occ_t x;
+  
+  assert(n >= 2 && n < p->len);
+
+  m = p->len;
+  for (j=0; j<m; j++) {
+    x = p->sum[j];
+    bvc_dag_remove_dependent(dag, node_of_occ(x), i);
   }
 
   p->hash = 0;
-  k = 0;
-  for (j=0; j<m; j++) {
-    x = p->sum[j];
-    if (j != k1 && j != k2) {
-      p->sum[k] = x;
-      p->hash |= bit_hash_occ(x);
-      k ++;
-    }
+  for (j=0; j<n; j++) {
+    x = a[j];
+    p->sum[j] = x;
+    p->hash |= bit_hash_occ(x);
+    bvc_dag_add_dependency(dag, node_of_occ(x), i);
   }
-
-  // add n last (don't keep p->sum sorted)
-  assert(k == m-2);
-  p->sum[k] = n;
-  p->len = k+1;
-  p->hash |= bit_hash_occ(n);
+  p->len = n;
 
   if (sum_node_is_elementary(dag, p)) {
     bvc_dag_move_to_elementary_list(dag, i);
   }
+}
 
-  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
-  bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
-  bvc_dag_add_dependency(dag, node_of_occ(n), i);
+/*
+ * Replace the pair n1, n2 by n in p->sum:
+ * - p must be the descriptor of node i
+ * - n1 and n2 must occur in p at position k1 and k2, respectively
+ * - n must be a leaf
+ * - move i to the elementary list if p becomes elementary
+ */
+static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
+		       node_occ_t n, node_occ_t n1, node_occ_t n2, uint32_t k1, uint32_t k2) {
+  ivector_t *v;
+  uint32_t m;
+
+  // compute the reduced sum in dag->sum_buffer
+  replace_pair_in_sum(dag, p, n, n1, n2, k1, k2);
+
+  v = &dag->sum_buffer;
+  m = v->size;
+  assert(m < p->len);
+  switch (m) {
+  case 0:
+    // i := reduced to zero
+    // TBD
+    assert(false);
+    abort();
+    break;
+
+  case 1:
+    // i := reduced to single node occurrence +n0 or -n0
+    replace_node(dag, i, v->data[0]);
+    break;
+
+  default:
+    // i is still a sum node
+    rebuild_sum(dag, p, i, v->data, m);
+    break;
+  }
 }
 
 

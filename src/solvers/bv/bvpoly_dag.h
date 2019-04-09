@@ -388,6 +388,7 @@ typedef struct bvc_dag_s {
   pp_buffer_t pp_aux;
   bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
+  ivector_t sum_buffer;
 } bvc_dag_t;
 
 
@@ -439,6 +440,11 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
 static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return dag->desc[n]->tag;
+}
+
+static inline uint32_t bvc_dag_node_bitsize(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return dag->desc[n]->bitsize;
 }
 
 static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, bvnode_t n) {
@@ -523,6 +529,10 @@ static inline bvc_alias_t *bvc_dag_node_alias(bvc_dag_t *dag, bvnode_t n) {
 
 
 // more checks with n a node_occurrence
+static inline uint32_t bvc_dag_occ_bitsize(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_bitsize(dag, node_of_occ(n));
+}
+					   
 static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_leaf(dag, node_of_occ(n));
 }
