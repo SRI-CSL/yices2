@@ -5608,13 +5608,11 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
   code = setjmp(ctx->env);
   if (code == 0) {
 
-    /*
     // If using MCSAT, just check and done
     if (ctx->mcsat != NULL) {
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
-    */
     // flatten
     for (i=0; i<n; i++) {
       flatten_assertion(ctx, a[i]);
@@ -5809,10 +5807,6 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
 }
 
 static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  // If using MCSAT, just check and done (IAM: try locking ...)
-  if (ctx->mcsat != NULL) {
-    MT_PROTECT(int32_t, __yices_globals.lock, mcsat_assert_formulas(ctx->mcsat, n, a));
-  }
   MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
 }
 
