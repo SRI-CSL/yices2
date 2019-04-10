@@ -45,7 +45,7 @@ int32_t create_yices_lock(yices_lock_t* lock){
     fprintf(stderr, "create_yices_lock failed: pthread_mutex_init returned %d\n", retcode);
   }
   assert(retcode == 0);
-  return 0;
+  return retcode;
 }
 
 int32_t try_yices_lock(yices_lock_t* lock){
@@ -58,7 +58,7 @@ int32_t try_yices_lock(yices_lock_t* lock){
     }
     return -1;
   }
-  return 0;
+  return retcode;
 }
 
 
@@ -68,7 +68,7 @@ int32_t get_yices_lock(yices_lock_t* lock){
     fprintf(stderr, "get_yices_lock failed: pthread_mutex_lock returned %d\n", retcode);
   }
   assert(retcode == 0);
-  return 0;
+  return retcode;
 }
 
 int32_t release_yices_lock(yices_lock_t* lock){
@@ -77,7 +77,7 @@ int32_t release_yices_lock(yices_lock_t* lock){
     fprintf(stderr, "release_yices_lock failed: pthread_mutex_unlock returned %d\n", retcode);
   }
   assert(retcode == 0);
-  return 0;
+  return retcode;
 }
 
 void destroy_yices_lock(yices_lock_t* lock){

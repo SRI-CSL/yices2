@@ -156,6 +156,40 @@ static inline error_report_t* get_yices_error(void){
   return &__yices_error;
 }
 
+/*
+ * Synchronizing access to Global table.
+ */
+/*
+ * Attempt to obtain sole access to yice's global data structures.
+ * In thread safe mode, calling this function will block all other 
+ * yices API routines from accessing the global data structures.
+ *
+ * It is an error to call this more than once.
+ * 
+ */
+int32_t yices_obtain_mutex(void){
+#ifdef THREAD_SAFE
+  return get_yices_lock(&(__yices_globals.lock));
+#else
+  return 0;
+#endif
+}
+
+/*
+ * Release the claim to sole access to yice's global data structures.
+ * 
+ * The callee must have already obtained sole access via yices_obtain_mutex();
+ *
+ */
+int32_t yices_release_mutex(void){
+#ifdef THREAD_SAFE
+  return release_yices_lock(&(__yices_globals.lock));
+#else
+  return 0;
+#endif
+}
+
+
 
 
 /*
