@@ -636,18 +636,14 @@ void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
 }
 
 
-// Shift interval down by base and base_term
+// Shift interval down by base (leaves terms untouched)
 void bv_arith_ishift(plugin_context_t* ctx,
                      bvconst_interval_t* i,
-                     bvconstant_t* base,
-                     term_t base_term) {
-  /* term_manager_t* tm = ctx->tm; */
+                     bvconstant_t* base) {
   bvconstant_sub(&i->lo, base);
   bvconstant_normalize(&i->lo);
-  /* i->lo_term = bv_arith_sub_terms(tm, i->lo_term, base_term);   */
   bvconstant_sub(&i->hi, base);
   bvconstant_normalize(&i->hi);
-  /* i->hi_term = bv_arith_sub_terms(tm, i->hi_term, base_term); */
 }
 
 
@@ -836,10 +832,9 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     bvconstant_t base;
     init_bvconstant(&base);
     bvconstant_copy(&base, longest->lo.bitsize, longest->lo.data);
-    term_t base_term = longest->lo_term; 
 
     // We will now shift down every interval by that quantity, to change where our 0 is.
-    bv_arith_ishift(ctx, longest, &base, base_term); // longest is now of the form [0 ; ... [
+    bv_arith_ishift(ctx, longest, &base); // longest is now of the form [0 ; ... [
 
     // The elements saved in &conflict so far force the first feasible value for conflict_var to be at least min_saved
     bvconstant_t min_save;
@@ -852,7 +847,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     bvconst_interval_t* best_so_far = NULL;
 
     bvconst_interval_t* i = bv_arith_pop(&lctx);
-    bv_arith_ishift(ctx, i, &base, base_term);
+    bv_arith_ishift(ctx, i, &base);
 
     // Now we treat the heap
     while (i != NULL && !bvconstant_is_zero(&min_save)) {
@@ -892,7 +887,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
             bv_arith_interval_destruct(i); // i is not interesting enough
           }
           i = bv_arith_pop(&lctx); // either way, we get next element in heap
-          bv_arith_ishift(ctx, i, &base, base_term);
+          bv_arith_ishift(ctx, i, &base);
         }
       } else { // Not in continuity of previously forbidden range
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1001,10 +996,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       // Now that we have collected the free variables, we look into the constraint structure
       int32_t t0_good = bv_arith_coeff(exp, t0, false);
       int32_t t1_good = bv_arith_coeff(exp, t1, false);
-      if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)
-          /* || (t0_good == -1) || ( t1_good == -1) */
-          ) { // Turns out we actually can't deal with the constraint. We stop
-        return false; // i+1 because exp->free_var[i] has been initialised
+      if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)) {
+        // Turns out we actually can't deal with the constraint. We stop
+        return false;
       }
       break;
     }
