@@ -390,7 +390,15 @@ typedef struct bvc_dag_s {
   bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
   ivector_t sum_buffer;
+
+  // queues to propagate simplifications
+  // node_queue stores the ids of nodes reduced to zero or aliased
+  // flip_queue stores the ids of nodes whose sign must be flipped
+  // flipping signs happens when we do we rewrite (n0 to -n) in
+  // a product like i := (n0^3 * n1). The result is - (n^3*n1) and
+  // we flip the sign of i everywhere.
   int_queue_t node_queue;
+  int_queue_t flip_queue;
 } bvc_dag_t;
 
 
