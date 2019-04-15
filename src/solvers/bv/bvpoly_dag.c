@@ -219,6 +219,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_ivector(&dag->buffer, 10);
   init_ivector(&dag->sum_buffer, 10);
   init_int_queue(&dag->node_queue, 0);
+  init_int_queue(&dag->flip_queue, 0);
 }
 
 
@@ -358,6 +359,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_ivector(&dag->buffer);
   delete_ivector(&dag->sum_buffer);
   delete_int_queue(&dag->node_queue);
+  delete_int_queue(&dag->flip_queue);
 }
 
 
@@ -400,6 +402,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   ivector_reset(&dag->buffer);
   ivector_reset(&dag->sum_buffer);
   int_queue_reset(&dag->node_queue);
+  int_queue_reset(&dag->flip_queue);
 }
 
 
@@ -590,7 +593,6 @@ static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
   assert(d->len >= 2);
   return d->len == 2 && bvc_dag_occ_is_leaf(dag, d->sum[0]) && bvc_dag_occ_is_leaf(dag, d->sum[1]);
 }
-
 
 static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
   bvc_header_t *d;
@@ -2337,21 +2339,21 @@ static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
   assert(0 < n && n <= dag->nelems && 0 < i && i <= dag->nelems);
 
   l = dag->use[n];
-  if (l != NULL) {
-    m = iv_size(l);
+  assert(l != NULL);
 
-    for (j=0; j<m; j++) {
-      if (l[j] == i) break;
-    }
-    if (j < m) {
-      j ++;
-      while (j < m) {
-	l[j-1] = l[j];
-	j ++;
-      }
-      index_vector_shrink(l, m-1);
-    }
+  m = iv_size(l);
+
+  for (j=0; j<m; j++) {
+    if (l[j] == i) break;
   }
+  j ++;
+  assert(0 < j && j <= m);
+  while (j < m) {
+    l[j-1] = l[j];
+    j ++;
+  }
+
+  index_vector_shrink(l, m-1);
 }
 
 
@@ -2520,7 +2522,217 @@ static void convert_to_zero(bvc_dag_t *dag, bvnode_t i) {
 
 
 
+/*
+ * SUPPORT FOR PRODUCT REDUCTION
+ */
 
+/*
+ * Find position where n occurs in p
+ * - return -1 if n does not occur in p
+ */
+static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
+  uint32_t i, m;
+
+  assert(sign_of_occ(n) == 0);
+
+  m = p->len;
+  for (i=0; i<m; i++) {
+    if (p->prod[i].var == n) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+
+#ifndef NDEBUG
+/*
+ * Check that all variables in a power product denote positive nodes
+ * and that all the exponents are positive
+ */
+static bool pprod_is_normalized(bvc_prod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (sign_of_occ(p->prod[i].var) != 0) return false;
+    if (p->prod[i].exp == 0) return false;
+  }
+
+  return true;
+}
+#endif
+
+/*
+ * Remove all zero exponents from p and recompute the bit hash
+ */
+static void cleanup_prod(bvc_prod_t *p) {
+  uint32_t i, j, n;
+
+  j = 0;
+  n = p->len;
+  p->hash = 0;
+  for (i=0; i<n; i++) {
+    if (p->prod[i].exp > 0) {
+      p->prod[j] = p->prod[i];
+      p->hash |= bit_hash_occ(p->prod[i].var);
+      j ++;
+    }
+  }
+  p->len = j;
+}
+
+
+/*
+ * Construct the product p * (r ^ e) then delete p
+ */
+static bvc_prod_t *mk_prod_times_occ_power(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r, uint32_t e) {
+  bvc_prod_t *tmp;
+  uint32_t i, n;
+
+  n = p->len;
+  tmp = alloc_prod(dag, n+1);
+  tmp->header.tag = BVC_PROD;
+  tmp->header.bitsize = p->header.bitsize;
+  tmp->hash = p->hash;
+  tmp->size = n+1;
+  tmp->len = n+1;
+
+  for (i=0; i<n; i++) {
+    assert(p->prod[i].var != r && p->prod[i].exp > 0);
+    tmp->prod[i] = p->prod[i];
+  }
+  tmp->prod[n].var = r;
+  tmp->prod[n].exp = e;
+  tmp->hash |= bit_hash_occ(r);
+
+  free_prod(dag, p);
+
+  return tmp;
+}
+
+
+
+/*
+ * FLIP SIGNS TO NORMALIZE
+ */
+
+/*
+ * Flip the sign of node i in an offset or sum node
+ */
+static void flip_sign_of_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_t i) {
+  assert(node_of_occ(d->nocc) == i);
+  d->nocc ^= 1; // flip low-order bit
+}
+
+static void flip_sign_of_node_in_sum(bvc_dag_t *dag, bvc_sum_t *d, bvnode_t i) {
+  uint32_t j, n;
+
+  n = d->len;
+  for (j=0; j<n; j++) {
+    if (node_of_occ(d->sum[j]) == i) {
+      d->sum[j] ^= 1;
+    }
+  }
+}
+
+/*
+ * Flip the sign of node i in a monomial d
+ * - d = descriptor of node x
+ * - x := [MONO a +i], we flip the sign of x
+ */
+static void flip_sign_of_node_in_monomial(bvc_dag_t *dag, bvc_mono_t *d, bvnode_t x, bvnode_t i) {
+  assert(d->nocc == bvp(i));
+  int_queue_push(&dag->flip_queue, x);
+}
+
+/*
+ * Flip the sign of node i in product d
+ * - d must be the descriptor of node x
+ * - i must occur in the product
+ * - if i's exponent is even, nothing changes
+ * - if i's exponent is off, we flip the sign of x
+ */
+static void flip_sign_of_node_in_product(bvc_dag_t *dag, bvc_prod_t *d, bvnode_t x, bvnode_t i) {
+  int32_t k;
+
+  assert(pprod_is_normalized(d));
+
+  k = pprod_get_index(d, bvp(i));
+  assert(0 <= k && k < d->len && d->prod[k].var == bvp(i));
+  if ((d->prod[k].exp & 1) == 1) {
+    int_queue_push(&dag->flip_queue, x);
+  }
+}
+
+
+/*
+ * Flip the sign of node i in descriptor d
+ * - d must be the descriptor of node x
+ */
+static void flip_sign_of_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x, bvnode_t i) {
+  switch (d->tag) {
+  case BVC_LEAF:
+  case BVC_ALIAS:
+  case BVC_ZERO:
+  case BVC_CONSTANT:
+    // should not happen
+    assert(false);
+    break;
+
+  case BVC_OFFSET:
+    flip_sign_of_node_in_offset(dag, offset_node(d), i);
+    break;
+
+  case BVC_MONO:
+    flip_sign_of_node_in_monomial(dag, mono_node(d), x, i);
+    break;
+
+  case BVC_SUM:
+    flip_sign_of_node_in_sum(dag, sum_node(d), i);
+    break;
+
+  case BVC_PROD:
+    flip_sign_of_node_in_product(dag, prod_node(d), x, i);
+    break;    
+  }
+}
+
+/*
+ * Flip the sign of node i
+ * - replace +i by -i and -i by +i in all nodes that depend on i.
+ */
+static void flip_sign_of_node(bvc_dag_t *dag, bvnode_t i) {
+  int32_t *l;
+  uint32_t j, m;
+  bvnode_t x;
+
+  l = dag->use[i];
+  if (l != NULL) {
+    m = iv_size(l);
+    for (j=0; j<m; j++) {
+      x = l[j];
+      assert(0 < x && x <= dag->nelems);
+      flip_sign_of_node_in_descriptor(dag, dag->desc[x], x, i);
+    }
+  }
+}
+
+
+/*
+ * Flip the signs of all nodes in the flip_queue
+ */
+static void propagate_flips(bvc_dag_t *dag) {
+  int_queue_t *queue;
+  bvnode_t i;
+
+  queue = &dag->flip_queue;
+  while (! int_queue_is_empty(queue)) {
+    i = int_queue_pop(queue);
+    flip_sign_of_node(dag, i);
+  }
+}
 
 /*
  * SUM REDUCTION
@@ -2730,7 +2942,7 @@ static void rewrite_pair_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
 }
 
 /*
- * Simplify sum when n0 is aliases to n1
+ * Simplify sum when n0 is aliased to n1
  * - replace n0 by n1 in p
  * - p must be the descriptor of node i
  * - n0 must occur in p
@@ -2795,6 +3007,61 @@ static void zero_node_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, bvnode_t 
 }
 
 
+
+/*
+ * PRODUCT REDUCTION
+ */
+
+/*
+ * Simplify a product when n0 is aliased to n1
+ * - this removes n0 from p and multiplies 
+ * - p must be the descriptor of node i
+ * - n0 must occur in p
+ */
+static void alias_node_in_product(bvc_dag_t *dag, bvc_prod_t *p, bvnode_t i, bvnode_t n0, node_occ_t n) {
+  int32_t k0, k;
+  uint32_t e0;
+  bool flip_sign;
+  
+  assert(pprod_is_normalized(p));
+
+  k0 = pprod_get_index(p, bvp(n0));
+  assert(0 <= k0 && k0 < p->len && p->prod[k0].var == bvp(n0));
+
+  e0 = p->prod[k0].exp;
+
+  // we'll have to flip the sign if e0 is odd and n is a negative occurrence
+  flip_sign = ((e0 & 1) == 1) && sign_of_occ(n) == 1;
+
+  // force n to be positive
+  n = unsigned_occ(n);
+  assert(sign_of_occ(n) == 0);
+
+  k = pprod_get_index(p, n);
+  if (k < 0) {
+    // n does not occur in p. We just replace n0 by n
+    p->prod[k0].var = n;
+  } else {
+    // n does occur in p.
+    assert(k < p->len && p->prod[k0].var == n);
+    p->prod[k0].exp = 0;
+    p->prod[k].exp += e0;
+    cleanup_prod(p);
+  }
+
+  assert(pprod_is_normalized(p));
+  if (prod_node_is_elementary(dag, p)) {
+    bvc_dag_move_to_elementary_list(dag, i);
+  }
+
+  if (flip_sign) {
+    int_queue_push(&dag->flip_queue, i);
+    propagate_flips(dag);
+  }
+}
+
+
+
 /*
  * Simplify node x after node i is converted to zero
  * - d = descriptor of node x
@@ -2848,9 +3115,9 @@ static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
  * - i is known to occur in d
  * - d is the descriptor of node x
  */
-static inline void alias_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
+static void alias_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
   // if d->nocc == bvp(i) then d->nocc := n
-  // if d->nocc == bvn(i) then d->nocc := negate_off(n);
+  // if d->nocc == bvn(i) then d->nocc := negate(n);
   assert(node_of_occ(d->nocc) == i);
   d->nocc = n ^ sign_of_occ(d->nocc);
   if (offset_node_is_elementary(dag, d)) {
@@ -2858,27 +3125,19 @@ static inline void alias_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_
   }
 }
 
-static inline void alias_node_in_mono(bvc_dag_t *dag, bvc_mono_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
-  assert(node_of_occ(d->nocc) == i);
-  d->nocc = n ^ sign_of_occ(d->nocc);
+static void alias_node_in_mono(bvc_dag_t *dag, bvc_mono_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
+  assert(d->nocc == bvp(i));
+  d->nocc = unsigned_occ(n);
   if (mono_node_is_elementary(dag, d)) {
-      bvc_dag_move_to_elementary_list(dag, x);
-  }
-}
-
-static void alias_node_in_prod(bvc_dag_t *dag, bvc_prod_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
-  uint32_t j, m;
-
-  m = d->len;
-  for (j=0; j<m; j++) {
-    if (node_of_occ(d->prod[j].var) == i) break;
-  }
-  assert(j < m);
-  d->prod[j].var = n ^ sign_of_occ(d->prod[j].var);
-  if (prod_node_is_elementary(dag, d)) {
     bvc_dag_move_to_elementary_list(dag, x);
   }
+
+  if (sign_of_occ(n) == 1) {
+    int_queue_push(&dag->flip_queue, x);
+    propagate_flips(dag);
+  }
 }
+
 
 /*
  * Simplify node x after i is aliased to n
@@ -2908,7 +3167,7 @@ static void alias_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x
     break;
 
   case BVC_PROD:
-    alias_node_in_prod(dag, prod_node(d), x, i, n);
+    alias_node_in_product(dag, prod_node(d), x, i, n);
     break;
   }
 }
@@ -2931,6 +3190,7 @@ static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
       x = l[j];
       assert(0 < x && x <= dag->nelems);
       alias_node_in_descriptor(dag, dag->desc[x], x, i, n);
+      bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
     }
     delete_index_vector(l);
     dag->use[i] = NULL;
@@ -3173,72 +3433,6 @@ bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
  * PRODUCT REDUCTION
  */
 
-/*
- * Find position where n occurs in p
- * - return -1 if n does not occur in p
- */
-static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
-  uint32_t i, m;
-
-  m = p->len;
-  for (i=0; i<m; i++) {
-    if (p->prod[i].var == n) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-
-/*
- * Construct the product p * (r ^ e) then delete p
- */
-static bvc_prod_t *mk_prod_times_occ_power(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r, uint32_t e) {
-  bvc_prod_t *tmp;
-  uint32_t i, n;
-
-  n = p->len;
-  tmp = alloc_prod(dag, n+1);
-  tmp->header.tag = BVC_PROD;
-  tmp->header.bitsize = p->header.bitsize;
-  tmp->hash = p->hash;
-  tmp->size = n+1;
-  tmp->len = n+1;
-
-  for (i=0; i<n; i++) {
-    assert(p->prod[i].var != r && p->prod[i].exp > 0);
-    tmp->prod[i] = p->prod[i];
-  }
-  tmp->prod[n].var = r;
-  tmp->prod[n].exp = e;
-  tmp->hash |= bit_hash_occ(r);
-
-  free_prod(dag, p);
-
-  return tmp;
-}
-
-
-/*
- * Remove all zero exponents from p and recompute the bit hash
- */
-static void cleanup_prod(bvc_prod_t *p) {
-  uint32_t i, j, n;
-
-  j = 0;
-  n = p->len;
-  p->hash = 0;
-  for (i=0; i<n; i++) {
-    if (p->prod[i].exp > 0) {
-      p->prod[j] = p->prod[i];
-      p->hash |= bit_hash_occ(p->prod[i].var);
-      j ++;
-    }
-  }
-  p->len = j;
-}
-
 
 /*
  * Check whether node i is a product that contains n1 * n2
@@ -3356,7 +3550,7 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
 	      dag->desc[i] = &p->header;
 	    }
 	  }
-
+	  assert(pprod_is_normalized(p));	   
 	  if (prod_node_is_elementary(dag, p)) {
 	    bvc_dag_move_to_elementary_list(dag, i);
 	  }
@@ -3418,7 +3612,6 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
   }
 
 }
-
 
 
 /*
