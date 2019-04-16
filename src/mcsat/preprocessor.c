@@ -484,7 +484,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         type_t tau = term_type(terms, s_pre);
         uint32_t n = term_bitsize(terms, s_pre);
         term_t msb_s = mk_bitextract(tm, s_pre, n-1);
-        term_t msb_t = mk_bitextract(tm, t_pre, n-2);
+        term_t msb_t = mk_bitextract(tm, t_pre, n-1);
         // if (msb_s) {
         //   if (msb_t) {
         //     t1: udiv(-s, -t)
