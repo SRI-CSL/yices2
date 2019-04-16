@@ -126,7 +126,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     	test_string="$file [ $options ]"
     else
         options=
-	    test_string="$file"
+        test_string="$file"
         echo
     fi
 
@@ -136,9 +136,9 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     then
         gold=$file.gold
     else
-	echo -n $red
+        echo -n $red
         echo FAIL: missing file: $file.gold
-	echo -n $black
+        echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string")
         continue
@@ -153,14 +153,14 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
   
     if [ $? -eq 0 ] 
     then
-	echo -n $green
+        echo -n $green
     	echo PASS [${thetime} s]
-	echo -n $black
+        echo -n $black
         pass=`expr $pass + 1`
     else
-	echo -n $red
-    	echo FAIL
-	echo -n $black
+        echo -n $red
+        echo FAIL
+        echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string"$'\n'"$DIFF")
     fi
@@ -187,7 +187,7 @@ if [ $fail -eq 0 ]
 then
     exit 0
 else
-	for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
+    for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
     exit 1
 fi
 
