@@ -3103,8 +3103,6 @@ static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
       assert(0 < x && x <= dag->nelems);
       zero_node_in_descriptor(dag, dag->desc[x], x, i);
     }
-    delete_index_vector(l);
-    dag->use[i] = NULL;
   }
 }
 
