@@ -2652,7 +2652,7 @@ static void flip_sign_of_node_in_monomial(bvc_dag_t *dag, bvc_mono_t *d, bvnode_
  * - d must be the descriptor of node x
  * - i must occur in the product
  * - if i's exponent is even, nothing changes
- * - if i's exponent is off, we flip the sign of x
+ * - if i's exponent is odd, we flip the sign of x
  */
 static void flip_sign_of_node_in_product(bvc_dag_t *dag, bvc_prod_t *d, bvnode_t x, bvnode_t i) {
   int32_t k;
