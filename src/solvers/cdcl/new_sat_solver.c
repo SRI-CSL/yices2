@@ -2457,6 +2457,57 @@ static void var_list_process_active_vars(nvar_list_t *list) {
 }
 
 
+#if 0
+
+// FIX THIS
+/*
+ * Swap variables x1 and x2
+ */
+static void var_list_swap(nvar_list_t *list, bvar_t x1, bvar_t x2) {
+  uint32_t i;
+  vlink_t aux;
+
+  assert(0 < x1 && x1 < list->nvars);
+  assert(0 < x2 && x2 < list->nvars);
+
+  if (list->link[0].next == 0) return; // x1 and x2 are not in the list
+
+  i = list->rank[x1];
+  list->rank[x1] = list->rank[x2];
+  list->rank[x2] = i;
+
+  aux = list->link[x1];
+  list->link[x1] = list->link[x2];
+  list->link[x2] = aux;
+
+  i = list->link[x1].pre;
+  assert(list->link[i].next == x2);
+  list->link[i].next = x1;
+
+  i = list->link[x1].next;
+  assert(list->link[i].pre == x2);
+  list->link[i].pre = x1;
+
+  i = list->link[x2].pre;
+  assert(list->link[i].next == x1);
+  list->link[i].next = x2;
+
+  i = list->link[x2].next;
+  assert(list->link[i].pre == x1);
+  list->link[i].pre = x2;
+
+}
+
+
+/*
+ * Swap l1  and l2 in the list ordering
+ */
+static inline void swap_lit_ranks(sat_solver_t *solver, literal_t l1, literal_t l2) {
+  var_list_swap(&solver->list, var_of(l1), var_of(l2));
+}
+
+#endif
+
 /*
  * Rank of a literal or variable
  */
@@ -2465,10 +2516,9 @@ static inline uint32_t var_rank(const sat_solver_t *solver, bvar_t x) {
   return solver->list.rank[x];
 }
 
-static inline double lit_rank(const sat_solver_t *solver, literal_t l) {
+static inline uint32_t lit_rank(const sat_solver_t *solver, literal_t l) {
   return var_rank(solver, var_of(l));
 }
-
 
 
 
@@ -6050,6 +6100,9 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
     //    if (act > lit_activity(solver, l1)) {
     //      update_lit_activity(solver, l1, act);
     //    }
+    //    if (lit_rank(solver, l2) > lit_rank(solver, l1)) {
+    //      swap_lit_ranks(solver, l1, l2);
+    //    }
     if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
     }
@@ -8419,6 +8472,105 @@ static void analyze_conflict(sat_solver_t *solver) {
 
 
 /*
+ * MORE VARIABLE ACTIVATIONS
+ */
+
+/*
+ * Increase the activity of literal l if l is not marked.
+ * Push the variable of l into the aux buffer.
+ */
+static void activate_extra_literal(sat_solver_t *solver, literal_t l) {
+  bvar_t x;
+
+  x = var_of(l);
+  if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
+    mark_variable(solver, x);
+    var_list_add_active_var(&solver->list, x);
+    vector_push(&solver->aux, x);
+  }
+}
+
+static void activate_extra_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *lit;
+  uint32_t i, n;
+
+  n = clause_length(&solver->pool, cidx);
+  lit = clause_literals(&solver->pool, cidx);
+  // skip the first literal. It's implied by the clause
+  for (i=1; i<n; i++) {
+    activate_extra_literal(solver, lit[i]);
+  }
+}
+
+static void activate_extra_stacked_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *lit;
+  uint32_t i, n;
+
+  n = stacked_clause_length(&solver->stash, cidx);
+  lit = stacked_clause_literals(&solver->stash, cidx);
+  assert(n >= 2);
+  // skip the first literal
+  for (i=1; i<n; i++) {
+    activate_extra_literal(solver, lit[i]);
+  }
+}
+
+/*
+ * Increase the activity of all literals in the antedecents of l
+ * (except those that are marked).
+ */
+static void activate_extra_literal_antecedents(sat_solver_t *solver, literal_t l) {
+  bvar_t x;
+
+  x = var_of(l);
+  switch (solver->ante_tag[x]) {
+  case ATAG_BINARY:
+    activate_extra_literal(solver, solver->ante_data[x]);
+    break;
+
+  case ATAG_CLAUSE:
+    assert(first_literal_of_clause(&solver->pool, solver->ante_data[x]) == l);
+    activate_extra_clause(solver, solver->ante_data[x]);
+    break;
+
+  case ATAG_STACKED:
+    assert(first_literal_of_stacked_clause(&solver->stash, solver->ante_data[x]) == l);
+    activate_extra_stacked_clause(solver, solver->ante_data[x]);
+    break;
+
+  default:
+    break;
+  }
+}
+
+/*
+ * Activate the literals occurring in antecedents of the learned clause
+ */
+static void activate_clause_antecedents(sat_solver_t *solver) {
+  vector_t *v;
+  uint32_t i, n;
+
+  assert(solver->aux.size == 0);
+
+  v = &solver->buffer;
+  n = v->size;
+  // the first literal is implied by the clause
+  // skip it
+  for (i=1; i<n; i++) {
+    activate_extra_literal_antecedents(solver, v->data[i]);
+  }
+
+  // cleanup: remove the marks on all variables in aux
+  v = &solver->aux;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    unmark_variable(solver, v->data[i]);
+  }
+  reset_vector(v);
+}
+
+
+/*
  * CLAUSE SIMPLIFICATION
  */
 
@@ -8436,7 +8588,7 @@ static void analyze_conflict(sat_solver_t *solver) {
  *
  * We use the following rules:
  * - a decision literal is not removable
- * - if l all immediate predecessors of l are marked or are are removable
+ * - if all immediate predecessors of l are marked or are are removable
  *   then l is removable.
  * - if one of l's predecessor is not marked and not removable then l
  *   is not removable.
@@ -8765,19 +8917,18 @@ static void resolve_conflict(sat_solver_t *solver) {
   literal_t l;
   cidx_t cidx;
 
-  //  update_max_depth(solver);
-
   analyze_conflict(solver);
+  if (true) activate_clause_antecedents(solver); // optional
   simplify_learned_clause(solver);
 
-  // the move-to-front must be done before backtracking
+  // the move to front must be done before backtracking
   check_list(solver);
   var_list_process_active_vars(&solver->list);
   check_list(solver);
 
   prepare_to_backtrack(solver);
 
-  // EMA statistics
+  // EMA
   n = solver->buffer.size;
   d = clause_lbd(solver, n, (literal_t *) solver->buffer.data);
   update_emas(solver, d);
@@ -9530,7 +9681,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   report(solver, "");
 
-  var_list_add_all(&solver->list, false);
+  var_list_add_all(&solver->list, true);
 
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
