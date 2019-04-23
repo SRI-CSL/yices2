@@ -2297,45 +2297,41 @@ static void reset_var_list(nvar_list_t *list) {
 
 
 /*
- * Rescale: reset the ranks
+ * Insert x before y
  */
-static void rescale_ranks(nvar_list_t *list) {
-  uint32_t i, r;
+static inline void var_list_insert_before(nvar_list_t *list, bvar_t x, bvar_t y) {
+  bvar_t z;
 
-  i = list->link[0].next;
-  r = 1;
-  while (i != 0) {
-    list->rank[i] = r;
-    i = list->link[i].next;
-    r ++;
-  }
-  list->max_rank = r;
-}
-
-/*
- * Add variable x at the end of the list
- */
-static void var_list_add(nvar_list_t *list, bvar_t x) {
-  uint32_t r, i;
 
   assert(0 < x && x < list->nvars);
+  assert(0 <= y && y < list->nvars);
 
-  r = list->max_rank;
-  if (r == UINT32_MAX) {
-    rescale_ranks(list);
-    r = list->max_rank;
-  }
-  r ++;
-  list->max_rank = r;
-  list->rank[x] = r;
-
-  i = list->link[0].pre; // last element
-
-  list->link[x].next = 0;
-  list->link[x].pre = i;
-  list->link[0].pre = x;
-  list->link[i].next = x;
+  z = list->link[y].pre;
+  assert(list->link[z].next == y);
+  list->link[z].next = x;
+  list->link[x].next = y;
+  list->link[x].pre = z;
+  list->link[y].pre = x;
 }
+
+
+/*
+ * Insert var x after y
+ */
+static inline void var_list_insert_after(nvar_list_t *list, bvar_t x, bvar_t y) {
+  bvar_t z;
+
+  assert(0 < x && x < list->nvars);
+  assert(0 <= y && y < list->nvars);
+
+  z = list->link[y].next;
+  assert(list->link[z].pre == y);
+  list->link[y].next = x;
+  list->link[x].next = z;
+  list->link[x].pre = y;
+  list->link[z].pre = x;
+}
+
 
 /*
  * Remove var x from the list
@@ -2361,6 +2357,43 @@ static inline void var_list_set_unassigned(nvar_list_t *list, bvar_t x) {
   list->unassigned_rank = list->rank[x];
 }
 
+
+
+/*
+ * Rescale: reset the ranks
+ */
+static void rescale_ranks(nvar_list_t *list) {
+  uint32_t i, r;
+
+  i = list->link[0].next;
+  r = 1;
+  while (i != 0) {
+    list->rank[i] = r;
+    i = list->link[i].next;
+    r ++;
+  }
+  list->max_rank = r;
+}
+
+/*
+ * Add variable x at the end of the list
+ */
+static void var_list_add(nvar_list_t *list, bvar_t x) {
+  uint32_t r;
+
+  assert(0 < x && x < list->nvars);
+
+  r = list->max_rank;
+  if (r == UINT32_MAX) {
+    rescale_ranks(list);
+    r = list->max_rank;
+  }
+  r ++;
+  list->max_rank = r;
+  list->rank[x] = r;
+
+  var_list_insert_before(list, x, 0); // add x as last element
+}
 
 /*
  * Add all variables to the list
@@ -2457,18 +2490,16 @@ static void var_list_process_active_vars(nvar_list_t *list) {
 }
 
 
-#if 0
-
-// FIX THIS
 /*
- * Swap variables x1 and x2
+ * Swap variables x1 and x2:
+ * - x1 must have lower rank than x2
  */
 static void var_list_swap(nvar_list_t *list, bvar_t x1, bvar_t x2) {
-  uint32_t i;
-  vlink_t aux;
+  uint32_t i, j;
 
   assert(0 < x1 && x1 < list->nvars);
   assert(0 < x2 && x2 < list->nvars);
+  assert(list->rank[x1] < list->rank[x2]);
 
   if (list->link[0].next == 0) return; // x1 and x2 are not in the list
 
@@ -2476,26 +2507,12 @@ static void var_list_swap(nvar_list_t *list, bvar_t x1, bvar_t x2) {
   list->rank[x1] = list->rank[x2];
   list->rank[x2] = i;
 
-  aux = list->link[x1];
-  list->link[x1] = list->link[x2];
-  list->link[x2] = aux;
-
   i = list->link[x1].pre;
-  assert(list->link[i].next == x2);
-  list->link[i].next = x1;
-
-  i = list->link[x1].next;
-  assert(list->link[i].pre == x2);
-  list->link[i].pre = x1;
-
-  i = list->link[x2].pre;
-  assert(list->link[i].next == x1);
-  list->link[i].next = x2;
-
-  i = list->link[x2].next;
-  assert(list->link[i].pre == x1);
-  list->link[i].pre = x2;
-
+  j = list->link[x2].next;
+  var_list_remove(list, x1);
+  var_list_remove(list, x2);
+  var_list_insert_after(list, x2, i); // now i.next = x2
+  var_list_insert_before(list, x1, j); // and x2.next = j
 }
 
 
@@ -2506,7 +2523,6 @@ static inline void swap_lit_ranks(sat_solver_t *solver, literal_t l1, literal_t 
   var_list_swap(&solver->list, var_of(l1), var_of(l2));
 }
 
-#endif
 
 /*
  * Rank of a literal or variable
@@ -6081,8 +6097,6 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * Process l1 == l2 (when l1 < l2)
  */
 static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
-  //  double act;
-
   assert(l1 < l2);
 
   if (var_of(l1) == const_bvar) {
@@ -6096,13 +6110,9 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
   } else {
     // subst[l2] := l1
     set_lit_subst(solver, l2, l1);
-    //    act = lit_activity(solver, l2);
-    //    if (act > lit_activity(solver, l1)) {
-    //      update_lit_activity(solver, l1, act);
-    //    }
-    //    if (lit_rank(solver, l2) > lit_rank(solver, l1)) {
-    //      swap_lit_ranks(solver, l1, l2);
-    //    }
+    if (lit_rank(solver, l2) > lit_rank(solver, l1)) {
+      swap_lit_ranks(solver, l1, l2);
+    }
     if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
     }
@@ -6116,7 +6126,6 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
  * - otherwise add subst[l1] := l2 or subst[l2] := l1
  */
 static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
-  // provisional: we apply substitutions first
   l1 = full_lit_subst(solver, l1);
   l2 = full_lit_subst(solver, l2);
   if (l1 == l2) return;
