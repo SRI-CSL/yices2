@@ -501,6 +501,63 @@ typedef struct nvar_heap_s {
 
 
 
+/******************************************
+ * EXPERIMENTAL: MOVE-TO-FRONT HEURISTIC  *
+ *****************************************/
+
+/*
+ * An alternative to scoring variables by activities as above, is to
+ * keep them ordered in a list, with more important variables near the
+ * front of the list. At every conflict, the variables involved in that
+ * conflict are moved to the end of the list. This idea is due to
+ * Lawrence Ryan (2004). Implementation tricks are based on Biere &
+ * Froehlich, 2015.
+ *
+ * To support this, we build a doubly-linked list of variables
+ * and we keep track of variables ranks in this list. More important
+ * variables are stored at the end of the list, so it's "move to
+ * back" rather than "move to front" but that's the same thing.
+ * We also keep a pointer to the first variable that may be unassigned.
+ *
+ * Data structures:
+ * - link[i].pre = predecessor of variable i in the list
+ *   link[i].next = successor of variable i in the list
+ * - rank[i] = rank of variable i
+ * We maintain the invariant:
+ *   rank[i] < rank[j] if i is before j in the list
+ *
+ * Index 0 is a special marker:
+ * - link[0].pre = last element of the list
+ *   link]0].next = first element of the list
+ *   (so the list is circular if we include index 0)
+ *   rank[0] = 0
+ *
+ * Other components:
+ * - size = size of arrays link and rank
+ * - nvars = actual number of variables (nvars <= size)
+ * - max_rank = rank of the last element
+ * - unassigned_index = variable index i. All successors of variable i are
+ *   known to be assigned.
+ * - unassigned_rank = rank of the unassigned index variable
+ * - active_vars = auxiliary vector to store variables involved in a conflict.
+ */
+typedef struct vlink_s {
+  uint32_t pre;
+  uint32_t next;
+} vlink_t;
+
+typedef struct nvar_list_s {
+  vlink_t *link;
+  uint32_t *rank;
+  uint32_t size;
+  uint32_t nvars;
+  uint32_t max_rank;
+  uint32_t unassigned_index;
+  uint32_t unassigned_rank;
+  vector_t active_vars;
+} nvar_list_t;
+
+
 /****************
  *  STATISTICS  *
  ***************/
@@ -731,7 +788,8 @@ typedef struct sat_solver_s {
   watch_t **watch;
   uint32_t *occ;              // Occurrence counts
 
-  nvar_heap_t heap;           // Variable heap
+  //  nvar_heap_t heap;           // Variable heap
+  nvar_list_t list;           // Move-to-front heuristic
   sol_stack_t stack;          // Assignment/propagation queue
 
   /*

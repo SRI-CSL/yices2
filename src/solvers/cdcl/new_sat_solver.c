@@ -63,6 +63,8 @@ static void check_propagation(const sat_solver_t *solver);
 static void check_marks(const sat_solver_t *solver);
 static void check_all_unmarked(const sat_solver_t *solver);
 static void check_elim_heap(const sat_solver_t *solver);
+static void check_unassigned_index(const sat_solver_t *solver);
+static void check_list(const sat_solver_t *solver);
 
 #else
 
@@ -71,15 +73,19 @@ static void check_elim_heap(const sat_solver_t *solver);
  */
 static inline void check_clause_pool_counters(const clause_pool_t *pool) { }
 static inline void check_clause_pool_learned_index(const clause_pool_t *pool) { }
-static inline void check_heap(const nvar_heap_t *heap) { }
+// static inline void check_heap(const nvar_heap_t *heap) { }
 static inline void check_candidate_clauses_to_delete(const sat_solver_t *solver, const cidx_t *a, uint32_t n) { }
 static inline void check_watch_vectors(const sat_solver_t *solver) { }
 static inline void check_propagation(const sat_solver_t *solver) { }
 static inline void check_marks(const sat_solver_t *solver) { }
 static inline void check_all_unmarked(const sat_solver_t *solver) {}
 static inline void check_elim_heap(const sat_solver_t *solver) {}
+static inline void check_unassigned_index(const sat_solver_t *solver) {}
+static inline void check_list(const sat_solver_t *solver) {}
 
 #endif
+
+
 
 
 /*
@@ -1873,6 +1879,10 @@ static inline literal_t first_literal_of_stacked_clause(const clause_stack_t *s,
  *  ACTIVITY HEAP  *
  ******************/
 
+#if 0
+
+// DISABLED FOR TESTING
+
 /*
  * Initialize heap for size n and nv variables
  * - heap is initially empty: heap_last = 0
@@ -2207,10 +2217,265 @@ static inline void update_lit_activity(sat_solver_t *solver, literal_t l, double
   update_var_activity(&solver->heap, var_of(l), act);
 }
 
+#endif
+
+
+/**********************************
+ *  MOVE-TO-FRONT/BACK HEURISTIC  *
+ *********************************/
 
 /*
- * MARKS ON VARIABLES
+ * Initialize list for size n
+ * - nv = number of variables
+ * - the list is empty:
  */
+static void init_var_list(nvar_list_t *list, uint32_t n, uint32_t nv) {
+  assert(1 <= nv && nv <= n && n <= MAX_VARIABLES);
+
+  list->link = (vlink_t *) safe_malloc(n * sizeof(vlink_t));
+  list->rank = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+
+  // initialize to the empty list:
+  list->link[0].pre = 0;
+  list->link[0].next = 0;
+  list->rank[0] = 0;
+
+  list->size = n;
+  list->nvars = nv;
+  list->max_rank = 0;
+  list->unassigned_index = 0;
+  list->unassigned_rank = 0;
+
+  init_vector(&list->active_vars);
+}
+
+/*
+ * Extend the list: n = new size
+ * - keep nvar unchanged
+ */
+static void extend_var_list(nvar_list_t *list, uint32_t n) {
+  assert(list->size < n && n <= MAX_VARIABLES);
+
+  list->link = (vlink_t *) safe_realloc(list->link, n * sizeof(vlink_t));
+  list->rank = (uint32_t *) safe_realloc(list->rank, n * sizeof(uint32_t));
+  list->size = n;
+}
+
+
+/*
+ * Increase the number of variables to n
+ */
+static void var_list_add_vars(nvar_list_t *list, uint32_t n) {
+  assert(list->nvars <= n && n <= list->size);
+  list->nvars = n;
+}
+
+
+/*
+ * Delete
+ */
+static void delete_var_list(nvar_list_t *list) {
+  safe_free(list->link);
+  safe_free(list->rank);
+  list->link = NULL;
+  list->rank = NULL;
+  delete_vector(&list->active_vars);
+}
+
+
+/*
+ * Reset: empty the list
+ */
+static void reset_var_list(nvar_list_t *list) {
+  list->link[0].pre = 0;
+  list->link[0].next = 0;
+  list->max_rank = 0;
+  list->unassigned_index = 0;
+  list->unassigned_rank = 0;
+  reset_vector(&list->active_vars);
+}
+
+
+/*
+ * Rescale: reset the ranks
+ */
+static void rescale_ranks(nvar_list_t *list) {
+  uint32_t i, r;
+
+  i = list->link[0].next;
+  r = 1;
+  while (i != 0) {
+    list->rank[i] = r;
+    i = list->link[i].next;
+    r ++;
+  }
+  list->max_rank = r;
+}
+
+/*
+ * Add variable x at the end of the list
+ */
+static void var_list_add(nvar_list_t *list, bvar_t x) {
+  uint32_t r, i;
+
+  assert(0 < x && x < list->nvars);
+
+  r = list->max_rank;
+  if (r == UINT32_MAX) {
+    rescale_ranks(list);
+    r = list->max_rank;
+  }
+  r ++;
+  list->max_rank = r;
+  list->rank[x] = r;
+
+  i = list->link[0].pre; // last element
+
+  list->link[x].next = 0;
+  list->link[x].pre = i;
+  list->link[0].pre = x;
+  list->link[i].next = x;
+}
+
+/*
+ * Remove var x from the list
+ */
+static inline void var_list_remove(nvar_list_t *list, bvar_t x) {
+  uint32_t i, j;
+
+  assert(0 < x && x < list->nvars);
+  i = list->link[x].pre;
+  j = list->link[x].next;
+  list->link[i].next = j;
+  list->link[j].pre = i;
+}
+
+
+/*
+ * Set variable x as the unassigned_index
+ * - x can be 0 here (when the list is empty)
+ */
+static inline void var_list_set_unassigned(nvar_list_t *list, bvar_t x) {
+  assert(x < list->nvars);
+  list->unassigned_index = x;
+  list->unassigned_rank = list->rank[x];
+}
+
+
+/*
+ * Add all variables to the list
+ * - the list must be empty on entry
+ * - if reverse is true, we add the variables in reverse order
+ *   (the list is nvars-1, nvars-2, ...., 2, 1)
+ * - otherwise, we add the variables in order
+ *   (the list is 1, 2, ...., nvars-2, nvars-1)
+ */
+static void var_list_add_all(nvar_list_t *list, bool reverse) {
+  uint32_t i;
+
+  assert(list->link[0].pre == 0 && list->link[0].next == 0);
+
+  if (reverse) {
+    i = list->nvars;
+    while (i>1) {
+      i --;
+      var_list_add(list, i);
+    }
+  } else {
+    i = 1;
+    while (i<list->nvars) {
+      var_list_add(list, i);
+      i ++;
+    }
+  }
+
+  // unassigned_index = last variable in the list
+  i = list->link[0].pre;
+  var_list_set_unassigned(list, i);
+}
+
+
+
+/*
+ * Get the rank of variable x
+ */
+static inline uint32_t var_list_get_rank(const nvar_list_t *list, bvar_t x) {
+  assert(0 < x && x < list->nvars);
+  return list->rank[x];
+}
+
+
+/*
+ * Store x as an active variable
+ */
+static inline void var_list_add_active_var(nvar_list_t *list, bvar_t x) {
+  assert(0 < x && x < list->nvars);
+  vector_push(&list->active_vars, x);
+}
+
+
+/*
+ * Sort variables by rank
+ * - a = array of n variables
+ */
+// ordering: aux = rank, i and j are two variables
+static bool lower_rank(void *aux, uint32_t i, uint32_t j) {
+  uint32_t *rank;
+  rank = aux;
+  return rank[i] < rank[j];
+}
+
+static void rank_variables(nvar_list_t *list, uint32_t *a, uint32_t n) {
+  uint_array_sort2(a, n, list->rank, lower_rank);
+}
+
+
+/*
+ * Process the active variables
+ * - increase their rank and move them to the end of the list
+ * - to preserve their respective ordering, we sort them by rank first
+ */
+static void var_list_process_active_vars(nvar_list_t *list) {
+  uint32_t *a;
+  uint32_t i, n;
+  bvar_t x;
+
+  a = list->active_vars.data;
+  n = list->active_vars.size;
+  rank_variables(list, a, n);
+
+  for (i=0; i<n; i++) {
+    x = a[i];
+    var_list_remove(list, x);
+    var_list_add(list, x);
+  }
+
+  reset_vector(&list->active_vars);
+
+  // variable with unassigned index may have moved
+  list->unassigned_rank = list->rank[list->unassigned_index];
+}
+
+
+/*
+ * Rank of a literal or variable
+ */
+static inline uint32_t var_rank(const sat_solver_t *solver, bvar_t x) {
+  assert(x < solver->nvars);
+  return solver->list.rank[x];
+}
+
+static inline double lit_rank(const sat_solver_t *solver, literal_t l) {
+  return var_rank(solver, var_of(l));
+}
+
+
+
+
+
+/************************
+ *  MARKS ON VARIABLES  *
+ ***********************/
 
 /*
  * Set/clear/test the mark on variable x
@@ -2485,7 +2750,8 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   solver->watch[0] = NULL;
   solver->watch[1] = NULL;
 
-  init_heap(&solver->heap, n, 1);
+  //  init_heap(&solver->heap, n, 1);
+  init_var_list(&solver->list, n, 1);
   init_stack(&solver->stack, n);
 
   solver->has_empty_clause = false;
@@ -2559,7 +2825,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
     solver->occ = NULL;
   }
 
-  delete_heap(&solver->heap);
+  //  delete_heap(&solver->heap);
+  delete_var_list(&solver->list);
   delete_stack(&solver->stack);
   delete_clause_stack(&solver->stash);
   delete_clause_pool(&solver->pool);
@@ -2608,7 +2875,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
   solver->nvars = 1;
   solver->nliterals = 2;
 
-  reset_heap(&solver->heap);
+  //  reset_heap(&solver->heap);
+  reset_var_list(&solver->list);
   reset_stack(&solver->stack);
 
   solver->has_empty_clause = false;
@@ -2666,7 +2934,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
  */
 void nsat_set_var_decay_factor(sat_solver_t *solver, double factor) {
   assert(0.0 < factor && factor < 1.0);
-  solver->heap.inv_act_decay = 1/factor;
+  //  solver->heap.inv_act_decay = 1/factor;
 }
 
 /*
@@ -2838,7 +3106,8 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
     solver->occ = (uint32_t *) safe_realloc(solver->occ, new_size * 2 * sizeof(uint32_t));
   }
 
-  extend_heap(&solver->heap, new_size);
+  //  extend_heap(&solver->heap, new_size);
+  extend_var_list(&solver->list, new_size);
   extend_stack(&solver->stack, new_size);
 }
 
@@ -2882,7 +3151,8 @@ void nsat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     }
   }
 
-  heap_add_vars(&solver->heap, nv);
+  //  heap_add_vars(&solver->heap, nv);
+  var_list_add_vars(&solver->list, nv);
 
   solver->nvars = nv;
   solver->nliterals = 2 * nv;
@@ -2906,6 +3176,7 @@ bvar_t nsat_solver_new_var(sat_solver_t *solver) {
  * EXPERIMENTAL FUNCTIONS
  */
 
+#if 0
 /*
  * Set activity and branching polarity for variable x
  * - polarity: true means true is preferred
@@ -2933,6 +3204,7 @@ void nsat_solver_activate_var(sat_solver_t *solver, bvar_t x, double act, bool p
   fprintf(stderr, "activate %"PRId32", polarity = %d\n", x, polarity);
 }
 
+#endif
 
 /*
  * Mark variable x as a variable to keep: it will not be deleted during
@@ -4398,7 +4670,8 @@ static void show_scc(FILE *f, const sat_solver_t *solver, literal_t l) {
 static literal_t scc_representative(sat_solver_t *solver, literal_t l) {
   uint32_t i;
   literal_t rep, l0;
-  double max_act, act;
+  //  double max_act, act;
+  uint32_t max_rank, rank;
 
   i = solver->vertex_stack.size;
   rep = l;
@@ -4411,14 +4684,20 @@ static literal_t scc_representative(sat_solver_t *solver, literal_t l) {
     } while (l0 != l);
 
   } else {
-    max_act = lit_activity(solver, rep);
+    //    max_act = lit_activity(solver, rep);
+    max_rank = lit_rank(solver, rep);
     do {
       assert(i > 0);
       i --;
       l0 = solver->vertex_stack.data[i];
-      act = lit_activity(solver, l0);
-      if (act > max_act || (act == max_act && l0 < rep)) {
-	max_act = act;
+      //      act = lit_activity(solver, l0);
+      //      if (act > max_act || (act == max_act && l0 < rep)) {
+      //	max_act = act;
+      //	rep = l0;
+      //      }
+      rank = lit_rank(solver, l0);
+      if (rank > max_rank) {
+	max_rank = rank;
 	rep = l0;
       }
     } while (l0 != l);
@@ -5752,7 +6031,7 @@ static bool pp_empty_queue(sat_solver_t *solver) {
  * Process l1 == l2 (when l1 < l2)
  */
 static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
-  double act;
+  //  double act;
 
   assert(l1 < l2);
 
@@ -5767,10 +6046,10 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
   } else {
     // subst[l2] := l1
     set_lit_subst(solver, l2, l1);
-    act = lit_activity(solver, l2);
-    if (act > lit_activity(solver, l1)) {
-      update_lit_activity(solver, l1, act);
-    }
+    //    act = lit_activity(solver, l2);
+    //    if (act > lit_activity(solver, l1)) {
+    //      update_lit_activity(solver, l1, act);
+    //    }
     if (solver->verbosity >= 6) {
       fprintf(stderr, "c   lit equiv: subst[%"PRId32"] := %"PRId32"\n", l2, l1);
     }
@@ -7405,15 +7684,15 @@ static void nsat_preprocess(sat_solver_t *solver) {
   collect_unit_and_pure_literals(solver);
   do {
     if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);    
+    pp_try_gc(solver);
     if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));  
-  
+  } while (! queue_is_empty(&solver->lqueue));
+
 #if 0
   fprintf(stderr, "\n\n*** STEP1 ***\n");
   show_all_var_defs(solver);
   show_subst(solver);
-  fprintf(stderr, "\n");  
+  fprintf(stderr, "\n");
   show_state(stderr, solver);
   fprintf(stderr, "\n\n*** DONE STEP1 ***\n");
 #endif
@@ -7670,6 +7949,95 @@ static void level0_propagation(sat_solver_t *solver) {
 }
 
 
+
+/***************
+ *  DECISIONS  *
+ **************/
+
+#if 0
+/*
+ * Select an unassigned decision variable
+ * - return 0 if all variables are assigned
+ */
+static bvar_t select_decision_variable_from_heap(sat_solver_t *solver) {
+  /*
+   * Unassigned variable of highest activity
+   */
+  while (! heap_is_empty(&solver->heap)) {
+    x = heap_get_top(&solver->heap);
+    if (var_is_active(solver, x)) {
+      assert(x > 0);
+      return x;
+    }
+  }
+
+  /*
+   * Check the variables in [heap->vmax ... heap->nvars - 1]
+   */
+  x = solver->heap.vmax;
+  while (x < solver->heap.nvars) {
+    if (var_is_active(solver, x)) {
+      solver->heap.vmax = x+1;
+      return x;
+    }
+    x ++;
+  }
+
+  assert(x == solver->heap.nvars);
+  solver->heap.vmax = x;
+
+  return 0;
+}
+
+#endif
+
+
+/*
+ * Variant: select from the variable list
+ */
+static bvar_t select_decision_variable_from_list(sat_solver_t *solver) {
+  nvar_list_t *list;
+  bvar_t x;
+
+  check_unassigned_index(solver);
+
+  list = &solver->list;
+  x = list->unassigned_index;
+  while (x != 0 && !var_is_active(solver, x)) {
+    x = list->link[x].pre;
+  }
+  assert(x == 0 || var_is_unassigned(solver, x));
+  var_list_set_unassigned(list, x);
+
+  return x;
+}
+
+
+/*
+ * Wrapper
+ */
+static inline bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
+  uint32_t rnd;
+  bvar_t x;
+
+  if (solver->params.randomness > 0) {
+    rnd = random_uint32(solver) & VAR_RANDOM_MASK;
+    if (rnd < solver->params.randomness) {
+      x = random_uint(solver, solver->nvars);
+      if (var_is_active(solver, x)) {
+        assert(x > 0);
+        solver->stats.random_decisions ++;
+        return x;
+      }
+    }
+  }
+
+  //  return select_decision_variable_from_heap(solver);
+  return select_decision_variable_from_list(solver);
+}
+
+
+
 /******************
  *  BACKTRACKING  *
  *****************/
@@ -7697,7 +8065,11 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
     solver->value[pos_lit(x)] ^= (uint8_t) 0x2;   // clear assign bit
     solver->value[neg_lit(x)] ^= (uint8_t) 0x2;   // clear assign bit
     assert(var_is_unassigned(solver, x));
-    heap_insert(&solver->heap, x);
+    //    heap_insert(&solver->heap, x);
+
+    if (var_list_get_rank(&solver->list, x) > solver->list.unassigned_rank) {
+      var_list_set_unassigned(&solver->list, x);
+    }
   }
   solver->stack.top = i;
   solver->stack.prop_ptr = i;
@@ -7706,9 +8078,14 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
   solver->stash.top = solver->stash.level[back_level + 1];
 
   solver->decision_level = back_level;
+
+  check_list(solver);
 }
 
 
+#if 0
+
+// DISABLED FOR TESTING
 
 /*
  * Check whether all variables assigned at level k have activity less than ax
@@ -7741,6 +8118,7 @@ static bool level_has_lower_activity(sat_solver_t *solver, double ax, uint32_t k
   return true;
 }
 
+
 /*
  * Partial restart:
  * - find the unassigned variable of highest activity
@@ -7748,12 +8126,11 @@ static bool level_has_lower_activity(sat_solver_t *solver, double ax, uint32_t k
  *   with activity higher than that.
  * - do nothing if the decision_level is 0
  */
-static void partial_restart(sat_solver_t *solver) {
+static void partial_restart_using_heap(sat_solver_t *solver) {
   double ax;
   bvar_t x;
   uint32_t i, n;
 
-  solver->stats.starts ++;
   if (solver->decision_level > 0) {
     cleanup_heap(solver);
 
@@ -7775,6 +8152,82 @@ static void partial_restart(sat_solver_t *solver) {
     }
   }
 }
+
+
+#endif
+
+/*
+ * Check whether all variables assigned at level k have rank less than r
+ */
+static bool level_has_lower_rank(sat_solver_t *solver, uint32_t r, uint32_t k) {
+  sol_stack_t *stack;
+  uint32_t i, n;
+  bvar_t x;
+
+  assert(k <= solver->decision_level);
+  stack = &solver->stack;
+
+  // i := start of level k
+  // n := end of level k
+  i = stack->level_index[k];
+  n = stack->top;
+  if (k < solver->decision_level) {
+    n = stack->level_index[k+1];
+  }
+
+  while (i < n) {
+    x = var_of(stack->lit[i]);
+    assert(var_is_assigned(solver, x) && solver->level[x] == k);
+    if (solver->list.rank[x] >= r) {
+      return false;
+    }
+    i ++;
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Partial restart: variant
+ */
+static void partial_restart_using_list(sat_solver_t *solver) {
+  uint32_t i, n, r;
+  bvar_t x;
+
+  if (solver->decision_level > 0) {
+    // x = unassigned variable of highest rank
+    x = select_decision_variable_from_list(solver);
+    if (x == 0) {
+      // full restart
+      backtrack(solver, 0);
+    } else {
+      assert(var_is_unassigned(solver, x));
+      r = var_list_get_rank(&solver->list, x);
+
+      n = solver->decision_level;
+      for (i=1; i<=n; i++) {
+	if (level_has_lower_rank(solver, r, i)) {
+	  backtrack(solver, i-1);
+	  break;
+	}
+      }
+    }
+  }
+}
+
+
+/*
+ * Partial restart wrapper
+ */
+static void partial_restart(sat_solver_t *solver) {
+  solver->stats.starts ++;
+  // partial_restart_using_heap(solver);
+  partial_restart_using_list(solver);
+}
+
+
 
 /*
  * Full restart: backtrack to level 0
@@ -7826,10 +8279,12 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
 #if USE_DIVING
     if (! solver->diving) {
       // in diving mode, we don't touch activities.
-      increase_var_activity(&solver->heap, x);
+      //      increase_var_activity(&solver->heap, x);
+      var_list_add_active_var(&solver->list, x);
     }
 #else
-    increase_var_activity(&solver->heap, x);
+    //    increase_var_activity(&solver->heap, x);
+    var_list_add_active_var(&solver->list, x);
 #endif
     if (solver->level[x] == solver->decision_level) {
       return 1;
@@ -8314,6 +8769,12 @@ static void resolve_conflict(sat_solver_t *solver) {
 
   analyze_conflict(solver);
   simplify_learned_clause(solver);
+
+  // the move-to-front must be done before backtracking
+  check_list(solver);
+  var_list_process_active_vars(&solver->list);
+  check_list(solver);
+
   prepare_to_backtrack(solver);
 
   // EMA statistics
@@ -8730,7 +9191,7 @@ static bool need_restart(sat_solver_t *solver) {
   return solver->stats.conflicts >= solver->check_next;
 }
 
-#else 
+#else
 
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
@@ -8871,55 +9332,6 @@ static void done_simplify(sat_solver_t *solver) {
  ****************************/
 
 /*
- * Select an unassigned decision variable
- * - return 0 if all variables are assigned
- */
-static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
-  uint32_t rnd;
-  bvar_t x;
-
-  if (solver->params.randomness > 0) {
-    rnd = random_uint32(solver) & VAR_RANDOM_MASK;
-    if (rnd < solver->params.randomness) {
-      x = random_uint(solver, solver->nvars);
-      if (var_is_active(solver, x)) {
-        assert(x > 0);
-        solver->stats.random_decisions ++;
-        return x;
-      }
-    }
-  }
-
-  /*
-   * Unassigned variable of highest activity
-   */
-  while (! heap_is_empty(&solver->heap)) {
-    x = heap_get_top(&solver->heap);
-    if (var_is_active(solver, x)) {
-      assert(x > 0);
-      return x;
-    }
-  }
-
-  /*
-   * Check the variables in [heap->vmax ... heap->nvars - 1]
-   */
-  x = solver->heap.vmax;
-  while (x < solver->heap.nvars) {
-    if (var_is_active(solver, x)) {
-      solver->heap.vmax = x+1;
-      return x;
-    }
-    x ++;
-  }
-
-  assert(x == solver->heap.nvars);
-  solver->heap.vmax = x;
-
-  return 0;
-}
-
-/*
  * Preferred literal when x is selected as decision variable.
  * - we pick l := pos_lit(x) then check whether value[l] is 0b00 or 0b01
  * - in the first case, the preferred value for l is false so we return not(l)
@@ -8958,6 +9370,7 @@ static void sat_search(sat_solver_t *solver) {
 
   check_propagation(solver);
   check_watch_vectors(solver);
+  check_list(solver);
 
   for (;;) {
     nsat_boolean_propagation(solver);
@@ -8980,6 +9393,7 @@ static void sat_search(sat_solver_t *solver) {
 
       update_max_depth(solver);
 
+      //      check_list(solver);
       x = nsat_select_decision_variable(solver);
       if (x == 0) {
         solver->status = STAT_SAT;
@@ -8999,11 +9413,11 @@ static void sat_search(sat_solver_t *solver) {
 #if USE_DIVING
       if (! solver->diving) {
 	decay_clause_activities(solver);
-	decay_var_activities(&solver->heap);
+	//	decay_var_activities(&solver->heap);
       }
 #else
       decay_clause_activities(solver);
-      decay_var_activities(&solver->heap);
+      //      decay_var_activities(&solver->heap);
 #endif
     }
   }
@@ -9115,6 +9529,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   }
 
   report(solver, "");
+
+  var_list_add_all(&solver->list, false);
 
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
@@ -10143,6 +10559,66 @@ static void check_elim_heap(const sat_solver_t *solver) {
       }
     }
   }
+}
+
+
+
+
+/*******************
+ *  VARIABLE LIST  *
+ ******************/
+
+/*
+ * Check that all variables after the unassigned_index are assigned
+ */
+static void check_unassigned_index(const sat_solver_t *solver) {
+  const nvar_list_t *list;
+  uint32_t i;
+
+  list = &solver->list;
+  i = list->unassigned_index;
+  assert(list->unassigned_rank == list->rank[i]);
+  for (;;) {
+    i = list->link[i].next;
+    if (i == 0) break;
+    if (var_is_active(solver, i)) {
+      assert(var_is_unassigned(solver, i));
+      fprintf(stderr, "*** BUG: unassigned var %"PRIu32" occurs after the unassigned_index\n", i);
+      fflush(stderr);
+      abort();
+    }
+  }
+
+}
+
+/*
+ * Check variable list:
+ */
+static void check_list(const sat_solver_t *solver) {
+  static uint32_t checks = 0;
+  const nvar_list_t *list;
+  uint32_t len, i, j;
+
+  checks ++;
+  list = &solver->list;
+  i = 0;
+  len = 0;
+  do {
+    j = list->link[i].pre;
+    assert(list->link[j].next == i);
+    assert(i == 0 || list->rank[j] < list->rank[i]);
+    i = list->link[i].next;
+    len ++;
+  } while (i != 0);
+
+  if (len != solver->nvars) {
+    fprintf(stderr, "*** BUG: list length = %"PRIu32" (expected %"PRIu32")\n", len, solver->nvars);
+    fflush(stderr);
+  }
+
+  check_unassigned_index(solver);
+
+  fprintf(stderr, "check[%"PRIu32"]: OK\n", checks);
 }
 
 #endif
