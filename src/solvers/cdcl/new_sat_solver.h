@@ -572,6 +572,7 @@ typedef struct solver_stats_s {
   uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learned_clause)
 
   uint32_t starts;                   // 1 + number of restarts
+  uint32_t stabilizations;           // number of stabilization intervals
   uint32_t dives;                    // number of dives
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
@@ -850,9 +851,17 @@ typedef struct sat_solver_s {
    */
   uint64_t slow_ema;
   uint64_t fast_ema;
-  uint64_t level_ema;
+  uint64_t level_ema; // used only for statistics
   uint64_t restart_next;
   uint32_t fast_count;
+
+  /*
+   * Experimental: "stabilizing" periods
+   * (based on Cadical). During a stabilizing period, we don't restart.
+   */
+  bool stabilizing;
+  uint64_t stab_next;
+  uint64_t stab_length;
 
   /*
    * Experimental: counters for switching to dive mode

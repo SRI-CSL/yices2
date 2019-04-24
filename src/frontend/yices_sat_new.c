@@ -973,6 +973,7 @@ static void show_stats(sat_solver_t *solver) {
   write_line(2, "c");
   write_line(2, "c Statistics");
   write_line_and_uint(2, "c  starts                  : ", stat->starts);
+  write_line_and_uint(2, "c  stabilizations          : ", stat->stabilizations);
   write_line_and_uint(2, "c  dives                   : ", stat->dives);
   write_line_and_uint(2, "c  successful dive         : ", stat->successful_dive);
   write_line_and_uint(2, "c  simplify db             : ", stat->simplify_calls);

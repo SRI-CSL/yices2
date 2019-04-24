@@ -336,6 +336,27 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  */
 #define DIVING_BUDGET 10000
 
+
+/*
+ * Experimental: stabilization
+ * - stab_interval = number of conflicts before switching to the next stabilization
+ *   period
+ * - stab_factor = growth factor
+ *
+ * Initially:
+ * - stabilizing = false
+ * - stab_next   = stab_interval
+ * - stab_length = stab_interval
+ *
+ * When conflicts >= stab_next:
+ * - flip stabilizing
+ * - stab_length := stab_length * stab_factor
+ * - stab_next += stab_length
+ */
+#define STAB_INTERVAL 1000
+#define STAB_FACTOR 8
+
+
 /*
  * Parameters to control preprocessing
  *
@@ -2427,6 +2448,18 @@ static void var_list_add_all(nvar_list_t *list, bool reverse) {
   var_list_set_unassigned(list, i);
 }
 
+
+/*
+ * Move variable x to the front of the list
+ * - assumes x is not assigned.
+ */
+static void move_var_to_front(nvar_list_t *list, bvar_t x) {
+  assert(0 < x && x < list->nvars);
+
+  var_list_remove(list, x);
+  var_list_add(list, x);
+  var_list_set_unassigned(list, x);
+}
 
 
 /*
@@ -9324,6 +9357,28 @@ static void init_restart(sat_solver_t *solver) {
   solver->level_ema = 0;
   solver->restart_next = solver->params.restart_interval;
   solver->fast_count = 0;
+
+  // experimental
+  solver->stabilizing = false;
+  solver->stab_next = STAB_INTERVAL;
+  solver->stab_length = STAB_INTERVAL;
+}
+
+
+/*
+ * Stabilizing mode
+ */
+static bool stabilizing(sat_solver_t *solver) {
+  if (solver->stats.conflicts >= solver->stab_next) {
+    solver->stabilizing = !solver->stabilizing;
+    solver->stats.stabilizations += solver->stabilizing;
+    solver->stab_next += solver->stab_length;
+    if (solver->stab_length <= 10000000) {
+      solver->stab_length *= STAB_FACTOR;
+    }
+    report(solver, solver->stabilizing ? "[" : "]");
+  }
+  return solver->stabilizing;
 }
 
 /*
@@ -9355,6 +9410,11 @@ static bool need_restart(sat_solver_t *solver) {
 
 static bool need_restart(sat_solver_t *solver) {
   uint64_t aux;
+
+  // optional
+  if (false && stabilizing(solver)) {
+    return false;
+  }
 
   if (solver->stats.conflicts >= solver->restart_next &&
       solver->decision_level >= (uint32_t) (solver->fast_ema >> 32)) {
@@ -9658,12 +9718,28 @@ static void make_false(sat_solver_t *solver, literal_t l) {
 
 
 /*
+ * TEST
+ */
+static void bump_free_vars(sat_solver_t *solver) {
+  uint32_t i, n, count;
+
+  n = solver->nvars;
+  count = 0;
+  for (i=n; i>0; i--) {
+    if (var_is_active(solver, i) && !bvar_is_gate(&solver->descriptors, i)) {
+      count ++;
+      move_var_to_front(&solver->list, i);
+    }
+  }
+  printf("c\nc bumped %"PRIu32" variables\nc\n", count);
+}
+
+
+
+/*
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver) {
-
-  //  open_stat_file();
-
   if (solver->has_empty_clause) goto done;
 
   solver->prng = solver->params.seed;
@@ -9688,9 +9764,12 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     done_simplify(solver);
   }
 
-  report(solver, "");
-
   var_list_add_all(&solver->list, true);
+  if (false) bump_free_vars(solver); // optional
+
+  solver->stats.starts = 1;
+
+  report(solver, "");
 
   // main loop: simplification may detect unsat
   // and set has_empty_clause to true
