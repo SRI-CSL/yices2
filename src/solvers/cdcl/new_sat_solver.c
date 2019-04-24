@@ -8899,7 +8899,7 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
 
 
 /*
- * Update the exponential moving averages used by the restart heuristics
+ * Update the exponential moving averages used by the restart heuristic
  *
  * We have
  *     ema_0 = 0
