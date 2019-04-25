@@ -3471,11 +3471,6 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
 }
 
 
-/* static inline int32_t l2dimacs(literal_t l) { */
-/*   int x = var_of(l) + 1; */
-/*   return is_pos(l) ? x : - x; */
-/* } */
-
 /*
  * Decide literal: increase decision level then
  * assign literal l to true and push it on the stack
@@ -3513,7 +3508,6 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
 
   assert(lit_is_true(solver, l));
 
-  //  fprintf(stderr, "decide %"PRId32"\n", l2dimacs(l));
 #if TRACE
   printf("---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
   fflush(stdout);
@@ -3788,22 +3782,6 @@ static inline bool lit_is_active(const sat_solver_t *solver, literal_t l) {
 static inline literal_t base_subst(const sat_solver_t *solver, literal_t l) {
   assert(l < solver->nliterals && solver->ante_tag[var_of(l)] == ATAG_SUBST);
   return solver->ante_data[var_of(l)] ^ sign_of_lit(l);
-}
-#endif
-
-#if 0
-/*
- * Substitution for l:
- * - if l is not replaced by anything, return l
- * - otherwise return subst[l]
- */
-static literal_t lit_subst(const sat_solver_t *solver, literal_t l) {
-  assert(l < solver->nliterals);
-
-  if (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
-    l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
-  }
-  return l;
 }
 #endif
 
@@ -9222,7 +9200,6 @@ static void init_reduce(sat_solver_t *solver) {
  * Check to trigger call to reduce_learned_clause_set
  */
 static inline bool need_reduce(const sat_solver_t *solver) {
-  //  return !solver->diving && solver->stats.conflicts >= solver->reduce_next;
   return solver->stats.conflicts >= solver->reduce_next;
 }
 
@@ -9384,7 +9361,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   solver->prng = solver->params.seed;
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
-
   init_restart(solver);
   init_reduce(solver);
   init_simplify(solver);
@@ -9486,10 +9462,6 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c\n");
   fprintf(f, "c Statistics\n");
   fprintf(f, "c  starts                  : %"PRIu32"\n", stat->starts);
-#if USE_DIVING
-  fprintf(f, "c  dives                   : %"PRIu32"\n", stat->dives);
-  fprintf(f, "c  successful dive         : %"PRIu32"\n", stat->successful_dive);
-#endif
   fprintf(f, "c  simplify db             : %"PRIu32"\n", stat->simplify_calls);
   fprintf(f, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
   fprintf(f, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
