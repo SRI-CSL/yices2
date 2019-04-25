@@ -328,7 +328,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  * - stab_next += stab_length
  */
 #define STAB_INTERVAL 1000
-#define STAB_FACTOR 8
+#define STAB_FACTOR 2
 
 
 /*
@@ -7709,29 +7709,12 @@ static void show_expanded_var_defs(const sat_solver_t *solver) {
 static void nsat_preprocess(sat_solver_t *solver) {
   if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
-#if 0
-  fprintf(stderr, "\n\n*** INPUT ***\n");
-  show_subst(solver);
-  fprintf(stderr, "\n\n");
-  show_state(stderr, solver);
-  fprintf(stderr, "\n\n*** DONE INPUT ***\n");
-#endif
-
   collect_unit_and_pure_literals(solver);
   do {
     if (! pp_empty_queue(solver)) goto done;
     pp_try_gc(solver);
     if (! pp_scc_simplification(solver)) goto done;
   } while (! queue_is_empty(&solver->lqueue));
-
-#if 0
-  fprintf(stderr, "\n\n*** STEP1 ***\n");
-  show_all_var_defs(solver);
-  show_subst(solver);
-  fprintf(stderr, "\n");
-  show_state(stderr, solver);
-  fprintf(stderr, "\n\n*** DONE STEP1 ***\n");
-#endif
 
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
@@ -7742,14 +7725,6 @@ static void nsat_preprocess(sat_solver_t *solver) {
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) break;
   } while (!elim_heap_is_empty(solver));
-
-#if 0
-  fprintf(stderr, "\n\n*** STEP2 ***\n");
-  show_subst(solver);
-  fprintf(stderr, "\n\n");
-  show_state(stderr, solver);
-  fprintf(stderr, "\n\n*** DONE STEP2 ***\n");
-#endif
 
   do {
     if (! pp_empty_queue(solver)) goto done;
@@ -7769,12 +7744,6 @@ static void nsat_preprocess(sat_solver_t *solver) {
     prepare_for_search(solver);
   }
 
-#if 0
-  // test
-  show_all_var_defs(solver);
-  show_subst(solver);
-  show_expanded_var_defs(solver);
-#endif
 }
 
 
@@ -9088,35 +9057,6 @@ static void extend_assignment_for_block(sat_solver_t *solver, uint32_t *a, uint3
 }
 
 
-#if 0
-// NOT USED ANYMORE.
-
-// we now store a clause in the saved_clause vector whenever we
-// eliminate a variable.
-/*
- * Extend the current assignment to variables eliminated by substitution
- */
-static void extend_assignment_by_substitution(sat_solver_t *solver) {
-  uint32_t i, n;
-  literal_t l;
-  bval_t val;
-
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    if (solver->ante_tag[i] == ATAG_SUBST) {
-      l = full_var_subst(solver, i);
-      assert(lit_is_assigned(solver, l));
-      val = lit_value(solver, l);
-
-      solver->value[pos_lit(i)] = val;
-      solver->value[neg_lit(i)] = opposite_val(val);
-    }
-  }
-}
-
-#endif
-
-
 /*
  * Extend the current assignment to all eliminated variables
  */
@@ -9205,11 +9145,16 @@ static void init_restart(sat_solver_t *solver) {
  */
 static bool stabilizing(sat_solver_t *solver) {
   if (solver->stats.conflicts >= solver->stab_next) {
-    solver->stabilizing = !solver->stabilizing;
-    solver->stats.stabilizations += solver->stabilizing;
-    solver->stab_next += solver->stab_length;
-    if (solver->stab_length <= 10000000) {
-      solver->stab_length *= STAB_FACTOR;
+    if (!solver->stabilizing) {
+      solver->stabilizing = true;
+      solver->stab_next += solver->stab_length;
+      solver->stats.stabilizations ++;
+    } else {
+      solver->stabilizing = false;
+      solver->stab_next += 3 * solver->stab_length;
+      if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
+	solver->stab_length *= STAB_FACTOR;
+      }
     }
     report(solver, solver->stabilizing ? "[" : "]");
   }
@@ -9337,15 +9282,6 @@ static void done_simplify(sat_solver_t *solver) {
   }
   solver->simplify_assigned = solver->stack.top;
   solver->simplify_next = solver->stats.conflicts + solver->params.simplify_interval;
-
-#if 0
-  fprintf(stderr, "c done simplify\n");
-  fprintf(stderr, "c   simplify_binaries = %"PRIu32"\n", solver->simplify_binaries);
-  fprintf(stderr, "c   simplify_assigned = %"PRIu32"\n", solver->simplify_assigned);
-  fprintf(stderr, "c   simplify_next = %"PRIu64"\n", solver->simplify_next);
-  fprintf(stderr, "c   simplify_next + 100000 = %"PRIu64"\n", solver->simplify_next + 100000);
-  fprintf(stderr, "c\n");
-#endif
 }
 
 
@@ -9380,66 +9316,6 @@ static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) 
 
   return l;
 }
-
-
-/*
- * Search until we get sat/unsat or we restart
- * - restart is based on the LBD/Glucose heuristics as modified by
- *   Biere & Froehlich.
- */
-static void sat_search(sat_solver_t *solver) {
-  bvar_t x;
-
-  assert(solver->stack.prop_ptr == solver->stack.top);
-
-  check_propagation(solver);
-  check_watch_vectors(solver);
-  check_list(solver);
-
-  for (;;) {
-    nsat_boolean_propagation(solver);
-    if (solver->conflict_tag == CTAG_NONE) {
-      // No conflict
-#if USE_DIVING
-      if (need_restart(solver) || need_simplify(solver)) {
-        break;
-      }
-#else
-      if (need_restart(solver)) {
-	break;
-      }
-#endif
-      if (need_reduce(solver)) {
-        nsat_reduce_learned_clause_set(solver);
-        check_watch_vectors(solver);
-	done_reduce(solver);
-      }
-
-      update_max_depth(solver);
-
-      x = nsat_select_decision_variable(solver);
-      if (x == 0) {
-        solver->status = STAT_SAT;
-        break;
-      }
-      nsat_decide_literal(solver, preferred_literal(solver, x));
-    } else {
-      // Conflict
-      if (solver->decision_level == 0) {
-        export_last_conflict(solver);
-        solver->status = STAT_UNSAT;
-        break;
-      }
-      resolve_conflict(solver);
-      check_watch_vectors(solver);
-
-      if (! solver->stabilizing) {
-	decay_clause_activities(solver);
-      }
-    }
-  }
-}
-
 
 
 /*
@@ -9478,41 +9354,6 @@ static void nsat_do_preprocess(sat_solver_t *solver) {
 }
 
 
-#if 0
-static void add_not_eq(sat_solver_t *solver, bvar_t x, literal_t l) {
-  literal_t a[2];
-
-  // not (x == l) is (not ((x and l) or (~x and ~l)))
-  //              is (not (x and l)) and (not (~x and ~l))
-  //              is (~x or ~l) and (x or l)
-  a[0] = pos_lit(x);
-  a[1] = l;
-  nsat_solver_simplify_and_add_clause(solver, 2, a);
-
-  a[0] = neg_lit(x);
-  a[1] = not(l);
-  nsat_solver_simplify_and_add_clause(solver, 2, a);
-
-}
-
-static void add_eq(sat_solver_t *solver, bvar_t x, literal_t l) {
-  add_not_eq(solver, x, not(l));
-}
-
-static void make_true(sat_solver_t *solver, literal_t l) {
-  literal_t aux[1];
-  aux[0] = l;
-  nsat_solver_simplify_and_add_clause(solver, 1, aux);
-}
-
-static void make_false(sat_solver_t *solver, literal_t l) {
-  literal_t aux[1];
-  aux[0] = not(l);
-  nsat_solver_simplify_and_add_clause(solver, 1, aux);
-}
-
-#endif
-
 
 /*
  * TEST
@@ -9537,6 +9378,8 @@ static void bump_free_vars(sat_solver_t *solver) {
  * Solving procedure
  */
 solver_status_t nsat_solve(sat_solver_t *solver) {
+  bvar_t x;
+
   if (solver->has_empty_clause) goto done;
 
   solver->prng = solver->params.seed;
@@ -9550,15 +9393,14 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     // preprocess + one round of simplification
     nsat_do_preprocess(solver);
     if (solver->has_empty_clause) goto done;
-    nsat_simplify(solver);
-    done_simplify(solver);
   } else {
     // one round of propagation + one round of simplification
     level0_propagation(solver);
     if (solver->has_empty_clause) goto done;
-    nsat_simplify(solver);
-    done_simplify(solver);
   }
+
+  nsat_simplify(solver);
+  done_simplify(solver);
 
   var_list_add_all(&solver->list, true);
   if (false) bump_free_vars(solver); // optional
@@ -9567,22 +9409,54 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   report(solver, "");
 
-  // main loop: simplification may detect unsat
-  // and set has_empty_clause to true
-  while (! solver->has_empty_clause) {
-    sat_search(solver);
-    if (solver->status != STAT_UNKNOWN) break;
+  /*
+   * MAIN LOOP
+   */
+  for (;;) {
 
-    if (need_simplify(solver)) {
-      full_restart(solver);
-      done_restart(solver);
-      nsat_simplify(solver);
-      done_simplify(solver);
+    nsat_boolean_propagation(solver);
+
+    if (solver->conflict_tag != CTAG_NONE) {
+      // conflict
+      if (solver->decision_level == 0) {
+	export_last_conflict(solver);
+	solver->status = STAT_UNSAT;
+	break;
+      }
+      resolve_conflict(solver);
+      check_watch_vectors(solver);
+      if (!solver->stabilizing) {
+	decay_clause_activities(solver);
+      }
+
     } else {
-      partial_restart(solver);
-      done_restart(solver);
-    }
+      // no conflict
+      update_max_depth(solver);
 
+      if (need_simplify(solver)) {
+	full_restart(solver);
+	done_restart(solver);
+	nsat_simplify(solver);
+	done_simplify(solver);
+	if (solver->has_empty_clause) break;
+
+      } else if (need_restart(solver)) {
+	partial_restart(solver);
+	done_restart(solver);
+
+      } else if (need_reduce(solver)) {
+	nsat_reduce_learned_clause_set(solver);
+	done_reduce(solver);
+
+      } else {
+	x = nsat_select_decision_variable(solver);
+	if (x == 0) {
+	  solver->status = STAT_SAT;
+	  break;
+	}
+	nsat_decide_literal(solver, preferred_literal(solver, x));
+      }
+    }
   }
 
   report(solver, "end");
@@ -9594,16 +9468,9 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     extend_assignment(solver);
   }
 
-#if 0
-  fprintf(stderr, "\n\n*** DONE ***\n");
-  show_state(stderr, solver);
-#endif
-
   if (solver->verbosity >= 2) {
     nsat_show_statistics(stderr, solver);
   }
-
-  //  close_stat_file();
 
   return solver->status;
 }
