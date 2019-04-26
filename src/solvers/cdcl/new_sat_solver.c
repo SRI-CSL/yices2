@@ -9401,7 +9401,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       }
       resolve_conflict(solver);
       check_watch_vectors(solver);
-      if (!solver->stabilizing) {
+      if (true || !solver->stabilizing) {
 	decay_clause_activities(solver);
       }
 
