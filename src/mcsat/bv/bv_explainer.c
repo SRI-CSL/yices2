@@ -25,13 +25,18 @@
 
 void bv_subexplainer_construct(bv_subexplainer_t* exp, const char* name, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
 
+  char name_buffer[100];
+
   exp->ctx = ctx;
   exp->wlm = wlm;
   exp->eval = eval;
 
   exp->name = name;
-  exp->stat_explain_conflict_calls = statistics_new_int(ctx->stats, name);
-  exp->stat_explain_propagation_calls = statistics_new_int(ctx->stats, name);
+
+  snprintf(name_buffer, 100, "%s.conflict", name);
+  exp->stat_explain_conflict_calls = statistics_new_int(ctx->stats, name_buffer);
+  snprintf(name_buffer, 100, "%s.propagation", name);
+  exp->stat_explain_propagation_calls = statistics_new_int(ctx->stats, name_buffer);
 
   exp->destruct                = NULL;
   exp->can_explain_conflict    = NULL;
@@ -147,7 +152,6 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
 }
 
 void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict) {
-  // Create an instance of Yices
   ctx_config_t* config = yices_new_config();
   int32_t ret = yices_default_config_for_logic(config, "QF_BV");
   (void) ret;
@@ -159,6 +163,8 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   smt_status_t result = yices_check_context(ctx, NULL);
   (void) result;
   assert(result == STATUS_UNSAT);
+  yices_free_context(ctx);
+  yices_free_config(config);
 }
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
@@ -201,21 +207,28 @@ term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const
   // Get the explainer to use
   uint32_t i = 0;
   bv_subexplainer_t* subexplainer = NULL;
-  for (i = 0; i < exp->subexplainers.size; ++ i) {
-    subexplainer = exp->subexplainers.data[i];
-    if (subexplainer->can_explain_propagation(subexplainer, reasons_in, x)) {
-      break;
+  term_t subst = NULL_TERM;
+
+  // Until someone explains (full_sat always explains in the end)
+  for (; subst == NULL_TERM; ++ i) {
+
+    // Find someone willing to explain
+    for (; i < exp->subexplainers.size; ++ i) {
+      subexplainer = exp->subexplainers.data[i];
+      if (subexplainer->can_explain_propagation(subexplainer, reasons_in, x)) {
+        break;
+      }
     }
-  }
 
-  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
-    FILE* out = ctx_trace_out(exp->ctx);
-    fprintf(out, "subtheory %s\n", subexplainer->name);
-  }
+    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::explain")) {
+      FILE* out = ctx_trace_out(exp->ctx);
+      fprintf(out, "subtheory %s\n", subexplainer->name);
+    }
 
-  // Explain it
-  (*subexplainer->stat_explain_propagation_calls) ++;
-  term_t subst = subexplainer->explain_propagation(subexplainer, reasons_in, x, reasons_out);
+    // Try to explain it (might fail)
+    (*subexplainer->stat_explain_propagation_calls) ++;
+    subst = subexplainer->explain_propagation(subexplainer, reasons_in, x, reasons_out);
+  }
 
   // Normalize the explanation
   bv_explainer_normalize_conflict(exp, reasons_out);

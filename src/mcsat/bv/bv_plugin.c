@@ -26,6 +26,11 @@
 #include "utils/int_hash_sets.h"
 #include "terms/terms.h"
 
+typedef enum {
+  BV_PROP_EVALUATION = 1,
+  BV_PROP_SINGLETON
+} bv_propagation_type_t;
+
 typedef struct {
 
   /** The plugin interface */
@@ -64,6 +69,9 @@ typedef struct {
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
 
+  /** Map from variables to the propagation type */
+  int_hmap_t variable_propagation_type;
+
   /** Feasible set database */
   bv_feasible_set_db_t* feasible;
 
@@ -88,7 +96,7 @@ typedef struct {
   struct {
     statistic_int_t* conflicts;
     statistic_int_t* propagations;
-    statistic_int_t* missed_propagations;
+    statistic_int_t* evaluations;
     statistic_int_t* constraints_attached;
   } stats;
 
@@ -116,6 +124,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_int_hmap(&bv->constraint_unit_info, 0);
   init_int_hmap(&bv->constraint_unit_var, 0);
   
+  init_int_hmap(&bv->variable_propagation_type, 0);
+
   bv->bddm = bv_bdd_manager_new(ctx);
   bv->feasible = bv_feasible_set_db_new(ctx, bv->bddm);
 
@@ -157,7 +167,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Add statistics
   bv->stats.conflicts = statistics_new_int(bv->ctx->stats, "mcsat::bv::conflicts");
   bv->stats.propagations = statistics_new_int(bv->ctx->stats, "mcsat::bv::propagations");
-  bv->stats.missed_propagations = statistics_new_int(bv->ctx->stats, "mcsat::bv::missed_propagations");
+  bv->stats.evaluations = statistics_new_int(bv->ctx->stats, "mcsat::bv::evaluations");
   bv->stats.constraints_attached = statistics_new_int(bv->ctx->stats, "mcsat::bv::constraints_attached");
 }
 
@@ -172,6 +182,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
   watch_list_manager_destruct(&bv->wlm);
   delete_int_hmap(&bv->constraint_unit_info);
   delete_int_hmap(&bv->constraint_unit_var);
+  delete_int_hmap(&bv->variable_propagation_type);
   scope_holder_destruct(&bv->scope);
   bv_feasible_set_db_delete(bv->feasible);
   bv_bdd_manager_delete(bv->bddm);
@@ -550,6 +561,9 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
       // Unassigned, propagate the value
       const mcsat_value_t* cstr_value = bv_evaluator_evaluate_var(&bv->evaluator, cstr, &cstr_eval_level);
       prop->add_at_level(prop, cstr, cstr_value, cstr_eval_level);
+      int_hmap_pair_t* find = int_hmap_get(&bv->variable_propagation_type, cstr);
+      find->val = BV_PROP_EVALUATION;
+      (*bv->stats.evaluations) ++;
     } else {
       // No need to evaluate here, we will check when it is processed as
       // fully assigned
@@ -584,26 +598,28 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
       uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
       bool is_fixed = bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize);
       if (is_fixed) {
-        bool is_zero_level = trail_is_at_base_level(trail);
         bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
-        if (is_zero_level || is_boolean) {
-          bvconstant_t x_bv_value;
-          init_bvconstant(&x_bv_value);
-          bvconstant_set_bitsize(&x_bv_value, x_bitsize);
-          bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
-          if (is_boolean) {
-            bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
-            prop->add(prop, x, x_value ? &mcsat_value_true : &mcsat_value_false);
-          } else {
-            mcsat_value_t x_value;
-            mcsat_value_construct_bv_value(&x_value, &x_bv_value);
-            prop->add(prop, x, &x_value);
-            mcsat_value_destruct(&x_value);
-            delete_bvconstant(&x_bv_value);
-          }
-        } else {
-          (*bv->stats.missed_propagations) ++;
+        bvconstant_t x_bv_value;
+        init_bvconstant(&x_bv_value);
+        bvconstant_set_bitsize(&x_bv_value, x_bitsize);
+        bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::propagate")) {
+          ctx_trace_printf(ctx, "propagating value for :\n");
+          ctx_trace_term(ctx, x_term);
         }
+        if (is_boolean) {
+          bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
+          prop->add(prop, x, x_value ? &mcsat_value_true : &mcsat_value_false);
+        } else {
+          mcsat_value_t x_value;
+          mcsat_value_construct_bv_value(&x_value, &x_bv_value);
+          prop->add(prop, x, &x_value);
+          mcsat_value_destruct(&x_value);
+          delete_bvconstant(&x_bv_value);
+        }
+        int_hmap_pair_t* find = int_hmap_get(&bv->variable_propagation_type, x);
+        find->val = BV_PROP_SINGLETON;
+        (*bv->stats.propagations) ++;
       }
     }
   }
@@ -1022,13 +1038,16 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   term_t atom = variable_db_get_term(bv->ctx->var_db, var);
-  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+  if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation():\n");
     ctx_trace_term(bv->ctx, atom);
   }
 
-  term_kind_t atom_kind = term_kind(bv->ctx->terms, atom);
-  if (bv_term_kind_get_type(atom_kind) == BV_TERM_VARIABLE) {
+  // Why did we propagate (evaluation/unit)
+  int_hmap_pair_t* find = int_hmap_find(&bv->variable_propagation_type, var);
+  bv_propagation_type_t propagation_type = find->val;
+
+  if (propagation_type == BV_PROP_SINGLETON) {
 
     ivector_t explain_core, lemma_reasons;
     init_ivector(&explain_core, 0);
@@ -1058,8 +1077,7 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
     return subst;
   } else {
-    // This is a BV constraint. Since, we only propagate evaluations we
-    // explain them using the literal itself
+    // We explain them using the literal itself
     bool value = trail_get_boolean_value(bv->ctx->trail, var);
     if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
       ctx_trace_printf(bv->ctx, "assigned to %s\n", value ? "true" : "false");
@@ -1203,6 +1221,9 @@ void bv_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // Unit information (constraint_unit_info, constraint_unit_var)
   gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_info);
   gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_var);
+
+  // Propagation type
+  gc_info_sweep_int_hmap_keys(gc_vars, &bv->variable_propagation_type);
 
   // Watch list manager
   watch_list_manager_gc_sweep_lists(&bv->wlm, gc_vars);

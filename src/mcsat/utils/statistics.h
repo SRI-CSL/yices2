@@ -45,7 +45,7 @@ typedef struct statistic_s statistic_t;
 
 /** A uint32_t statistic */
 struct statistic_s {
-  const char* name;
+  char* name;
   statistic_type_t type;
   union {
     statistic_int_t int_data;

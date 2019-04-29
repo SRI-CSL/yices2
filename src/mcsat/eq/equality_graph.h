@@ -285,7 +285,10 @@ bool eq_graph_has_propagated_terms(const eq_graph_t* eq);
 /** Get the terms that have been deduced equal and clear them (call once) */
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
-/** Get the value of a propagated term. TODO: this gets value for any term in the graph - rename? */
+/** Does the term have propagated value */
+bool eq_graph_has_propagated_term_value(const eq_graph_t* eq, term_t t);
+
+/** Get the value of a propagated term. */
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t);
 
 /** Propagate the trail */

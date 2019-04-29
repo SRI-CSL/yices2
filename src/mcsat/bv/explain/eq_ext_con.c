@@ -665,10 +665,17 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
   }
 }
 
-void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivector_t* conflict_core, eq_graph_t* egraph) {
+/**
+ * Construct the slicing.
+ *
+ * Will slice conflict_core, and additionally the give var. If the var is
+ * given it's slice_list will be returned, otherwise NULL is returned.
+ */
+slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivector_t* conflict_core, term_t var_to_slice, eq_graph_t* egraph) {
 
   plugin_context_t* ctx = exp->super.ctx;
   slicing->exp = exp;
+  slist_t* var_to_slice_slices;
 
   // We initialize the hashmap in the result
   init_ptr_hmap(&slicing->slices, 0);
@@ -691,12 +698,21 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
   // That disequality turns into a disjunction when slicing
   uint32_t next_disjunction = 1;
 
+  // Slice the term first, if any
+  if (var_to_slice != NULL_TERM) {
+    uint32_t width = bv_term_bitsize(terms, var_to_slice);
+    var_to_slice_slices = bv_slicing_norm(exp, var_to_slice, width, 0, NULL, &todo, &slicing->slices);
+  }
+
+  // Now slice the conflict
   for (uint32_t i = 0; i < conflict_core->size; i++) {
+
     atom_i_var   = conflict_core->data[i];
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
     assert(is_pos_term(atom_i_term));
     atom_i_kind  = term_kind(terms, atom_i_term);
+
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Slicing core constraint ");
@@ -706,7 +722,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
     switch (atom_i_kind) {
     case EQ_TERM :    // equality
     case BV_EQ_ATOM: { // We can only deal with equalities in this BV subtheory
-      composite_term_t* atom_i_comp = (atom_i_kind == EQ_TERM)?eq_term_desc(terms, atom_i_term): bveq_atom_desc(terms, atom_i_term);
+      composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
       term_t t0 = atom_i_comp->arg[0];
       term_t t1 = atom_i_comp->arg[1];
@@ -792,6 +808,7 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
     hp = ptr_hmap_next_record(&slicing->slices, hp);
   }
 
+  return var_to_slice_slices;
 }
 
 static inline
@@ -982,7 +999,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   // Do the slicing
   bv_slicing_t slicing;
-  bv_slicing_construct(&slicing, exp, conflict_core, &eq_graph);
+  bv_slicing_construct(&slicing, exp, conflict_core, NULL_TERM, &eq_graph);
 
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
     bv_slicing_print_slicing(&slicing);
@@ -1162,14 +1179,123 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
 static
 bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
-  return false;
+  // Just use the conflict filter, we'll check if we can explain when time comes
+  return can_explain_conflict(this, reasons, x);
 }
 
 static
 term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
-  assert(false);
-  return NULL_TERM;
+  eq_ext_con_t* exp = (eq_ext_con_t*) this;
+  plugin_context_t* ctx = this->ctx;
+  term_table_t* terms = ctx->terms;
+
+  term_t result_subst = NULL_TERM;
+
+  assert(x == exp->csttrail.conflict_var); // TODO: This is too much sife-effect of can-explain function
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Eq-explaining propagation of ");
+    term_print_to_file(out, terms, exp->csttrail.conflict_var_term);
+    fprintf(out, "\n");
+  }
+
+
+  // The reason will always contains the original reasons:
+  for (uint32_t i = 0; i < reasons_in->size; i++) {
+    variable_t atom_var = reasons_in->data[i];
+    term_t t = variable_db_get_term(ctx->var_db, atom_var);
+    bool value = trail_get_boolean_value(ctx->trail, atom_var);
+    ivector_push(reasons_out, value ? t : opposite_term(t));
+  }
+
+  // Create the equality graph
+  eq_graph_t eq_graph;
+  eq_graph_construct(&eq_graph, this->ctx, "mcsat::bv::explain");
+
+  // Get the variable term and normalize to what's in the slicing/eq-graph
+  term_t x_term = variable_db_get_term(ctx->var_db, x);
+
+  // Do the slicing
+  bv_slicing_t slicing;
+  slist_t* x_term_slice = bv_slicing_construct(&slicing, exp, reasons_in, x_term, &eq_graph);
+  term_t x_slice = slice_mk_term(x_term_slice->slice, ctx->tm);
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
+    FILE* out = ctx_trace_out(ctx);
+    bv_slicing_print_slicing(&slicing);
+    fprintf(out, "x = ");
+    term_print_to_file(out, terms, x_term);
+    fprintf(out, "\n");
+    fprintf(out, "x[] = ");
+    term_print_to_file(out, terms, x_slice);
+    fprintf(out, "\n");
+  }
+
+  // Send the equalities to the e-graph
+  spair_t* p;
+  splist_t* current = slicing.constraints[0];
+  while (current != NULL) {
+    assert(current->is_main);
+    p = current->pair;
+    term_manager_t* tm = this->ctx->tm;
+    term_t lhs_slice_term = slice_mk_term(p->lhs, tm);
+    term_t rhs_slice_term = slice_mk_term(p->rhs, tm);
+    if (lhs_slice_term != rhs_slice_term) {
+      eq_graph_assert_term_eq(&eq_graph, lhs_slice_term, rhs_slice_term, 0);
+    }
+    current = current->next;
+  }
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
+    FILE* out = ctx_trace_out(ctx);
+    eq_graph_print(&eq_graph, out);
+  }
+
+  if (!eq_graph_has_term(&eq_graph, x_slice)) {
+    eq_graph_add_term(&eq_graph, x_slice);
+  }
+
+  // If the variable is propagated with the graph, use it
+  if (eq_graph_has_propagated_term_value(&eq_graph, x_slice)) {
+    ivector_t reasons; // where we collect the reasons why things happen in the e-graph
+    ivector_t reasons_types; // ...together with their associated types
+    init_ivector(&reasons,0);
+    init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
+    // Explain with EQ graph
+    result_subst = eq_graph_explain_term_propagation(&eq_graph, x_slice, &reasons, &reasons_types, NULL);
+    // Collect the reasons of the elements we haven't added
+    for (uint32_t i = 0; i < reasons.size; i++) {
+      if (reasons_types.data[i] != REASON_IS_USER) {
+        ivector_push(reasons_out, reasons.data[i]);
+      }
+    }
+    // Clean up
+    delete_ivector(&reasons_types);
+    delete_ivector(&reasons);
+  }
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
+    FILE* out = ctx_trace_out(ctx);
+    if (result_subst == NULL_TERM) {
+      fprintf(out, "Eq-plugin can't explain propagation");
+    } else {
+      fprintf(out, "Eq-plugin explanation:\n");
+      uint32_t i;
+      for (i = 0; i < reasons_out->size; ++ i) {
+        term_print_to_file(out, ctx->terms, reasons_out->data[i]);
+        fprintf(out, "\n");
+      }
+      fprintf(out, "Subst:");
+      term_print_to_file(out, ctx->terms, result_subst);
+    }
+  }
+
+  // Clean up
+  eq_graph_destruct(&eq_graph);
+  bv_slicing_slicing_destruct(&slicing);
+
+  return result_subst;
 }
+
 static
 void destruct(bv_subexplainer_t* this) {
   eq_ext_con_t* exp = (eq_ext_con_t*) this;

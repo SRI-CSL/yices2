@@ -5666,16 +5666,16 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * up in subst_eqs after the call to process_aux_eqs.
        */
       if (context_breaksym_enabled(ctx)) {
-	break_uf_symmetries(ctx);
+        break_uf_symmetries(ctx);
       }
       if (context_eq_abstraction_enabled(ctx)) {
         analyze_uf(ctx);
       }
       if (ctx->aux_eqs.size > 0) {
-	process_aux_eqs(ctx);
+        process_aux_eqs(ctx);
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5685,7 +5685,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * (otherwise analyze_diff_logic may give wrong results).
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
@@ -5697,7 +5697,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        */
       trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
@@ -5711,16 +5711,16 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
-	process_conditional_definitions(ctx);
-	if (ctx->aux_eqs.size > 0) {
-	  process_aux_eqs(ctx);
-	}
-	if (ctx->aux_atoms.size > 0) {
-	  process_aux_atoms(ctx);
-	}
+        process_conditional_definitions(ctx);
+        if (ctx->aux_eqs.size > 0) {
+          process_aux_eqs(ctx);
+        }
+        if (ctx->aux_atoms.size > 0) {
+          process_aux_atoms(ctx);
+        }
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5729,7 +5729,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * Process the candidate variable substitutions if any
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
     }

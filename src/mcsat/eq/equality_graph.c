@@ -1199,7 +1199,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // If we merge two same-type nodes that are constant we have a conflict
     if (n_from->type == EQ_NODE_VALUE && n_into->type == EQ_NODE_VALUE) {
-      if (ctx_trace_enabled(eq->ctx, "mcsat::conflict::check")) {
+      if (ctx_trace_enabled(eq->ctx, "mcsat::conflict::uf::check")) {
         FILE* out = ctx_trace_out(eq->ctx);
         fprintf(out, "TRAIL\n");
         trail_print(eq->ctx->trail, out);
@@ -1310,6 +1310,15 @@ void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms) {
   }
   // Clear the vector
   ivector_reset(&eq->term_value_merges);
+}
+
+bool eq_graph_has_propagated_term_value(const eq_graph_t* eq, term_t t) {
+  assert(eq_graph_has_term(eq, t));
+  eq_node_id_t t_id = eq_graph_term_id(eq, t);
+  const eq_node_t* n = eq_graph_get_node_const(eq, t_id);
+  eq_node_id_t n_find_id = n->find;
+  const eq_node_t* n_find = eq_graph_get_node_const(eq, n_find_id);
+  return (n_find->type == EQ_NODE_VALUE);
 }
 
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t) {

@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 /** Construct the statistics */
 void statistics_construct(statistics_t* stats) {
@@ -36,6 +37,7 @@ void statistics_destruct(statistics_t* stats) {
   while (current != NULL) {
     prev = current;
     current = current->next;
+    safe_free(prev->name);
     safe_free(prev);
   }
 }
@@ -47,7 +49,7 @@ statistic_int_t* statistics_new_int(statistics_t* stats, const char* name) {
   new = safe_malloc(sizeof(statistic_t));
   new->type = STATISTIC_INT;
   new->int_data = 0;
-  new->name = name;
+  new->name = strdup(name);
   new->next = stats->first;
 
   stats->first = new;
@@ -63,7 +65,7 @@ statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name) {
   new->type = STATISTIC_AVG;
   new->avg_data.avg = 0;
   new->avg_data.n = 0;
-  new->name = name;
+  new->name = strdup(name);
   new->next = stats->first;
 
   stats->first = new;

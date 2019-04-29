@@ -1412,13 +1412,13 @@ void flatten_assertion(context_t *ctx, term_t f) {
         break;
 
       case ARITH_ROOT_ATOM:
-        intern_tbl_map_root(intern, r, bool2code(tt));
-        break;
+        exception = FORMULA_NOT_LINEAR;
+        goto abort;
 
       case ARITH_IS_INT_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_is_int(ctx, r, tt);
-	break;
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:

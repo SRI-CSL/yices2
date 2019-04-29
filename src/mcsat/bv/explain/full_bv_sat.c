@@ -288,10 +288,10 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
         j ++; bit_index ++;
       }
       if (j == i + 1) {
-        // If nothing to concat, just add it
+        // If nothing to concatenate, just add it
         ivector_push(&grouped_core, bit_term);
       } else {
-        // Concat bits and construct the value
+        // Concatenate bits and construct the value
         bvconstant_set_bitsize(&slice_value, j - i);
         for (bit = i; bit < j; ++ bit) {
           bit_term = core->data[bit];
@@ -310,9 +310,6 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
         term_t slice_value_term = mk_bv_constant(tm, &slice_value);
         term_t eq = mk_eq(tm, slice_term, slice_value_term);
         ivector_push(&grouped_core, eq);
-        if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
-          ctx_trace_term(ctx, eq);
-        }
       }
     }
   }

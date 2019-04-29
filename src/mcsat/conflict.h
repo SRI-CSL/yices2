@@ -166,4 +166,17 @@ ivector_t* conflict_get_literals(conflict_t* conflict);
 /** Get all the literals of the given variable */
 void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* literals);
 
+/** Get count of all the literals of the given variable */
+uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var);
+
+/**
+ * Get count of all the literals of the given variable that are different
+ * from var and !var.
+ */
+term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var);
+
+/** Run Yices to check that the conflict is a valid statement */
+void conflict_check(conflict_t* conflict);
+
+
 #endif

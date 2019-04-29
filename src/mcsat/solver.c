@@ -47,6 +47,7 @@
 #include "model/model_queries.h"
 #include "io/model_printer.h"
 
+#include "yices.h"
 #include <inttypes.h>
 
 
@@ -250,6 +251,12 @@ struct mcsat_solver_s {
   /** Scope holder for backtracking int variables */
   scope_holder_t scope;
 
+  /** IDs of various plugins, if added */
+  uint32_t bool_plugin_id;
+  uint32_t uf_plugin_id;
+  uint32_t ite_plugin_id;
+  uint32_t nra_plugin_id;
+  uint32_t bv_plugin_id;
 };
 
 static
@@ -612,7 +619,7 @@ void mcsat_new_variable_notify(solver_new_variable_notify_t* self, variable_t x)
 }
 
 static
-void mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator, const char* plugin_name) {
+uint32_t mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator, const char* plugin_name) {
 
   // Allocate the plugin
   plugin_t* plugin = plugin_allocator();
@@ -629,15 +636,17 @@ void mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_allocator
   mcsat->plugins[plugin_i].plugin_ctx = plugin_ctx;
   mcsat->plugins[plugin_i].plugin_name = strdup(plugin_name);
   mcsat->plugins_count ++;
+
+  return plugin_i;
 }
 
 static
 void mcsat_add_plugins(mcsat_solver_t* mcsat) {
-  mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
-  mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
-  mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
-  mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
-  mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
+  mcsat->bool_plugin_id = mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
+  mcsat->uf_plugin_id = mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
+  mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
+  mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
+  mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
 }
 
 static
@@ -1282,7 +1291,8 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 }
 
 /**
- * Decide one of the unassigned literals.
+ * Decide one of the unassigned literals. Decide the literal with the largest
+ * term ID (to make sure we decide on t(x) instead of x).
  */
 static
 bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
@@ -1291,6 +1301,10 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
   term_t literal;
   term_t literal_pos;
   variable_t literal_var;
+
+  term_t to_decide_literal = NULL_TERM;
+  term_t to_decide_literal_pos = NULL_TERM;
+  variable_t to_decide_literal_var = variable_null;
 
   for (i = 0; i < literals->size; ++ i) {
     literal = literals->data[i];
@@ -1304,14 +1318,16 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
       trace_term_ln(mcsat->ctx->trace, mcsat->ctx->terms, literal);
     }
 
-    // Decide positive
+    // Can be decided?
     if (!trail_has_value(mcsat->trail, literal_var)) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "unassigned, deciding!\n");
+        mcsat_trace_printf(mcsat->ctx->trace, "unassigned!\n");
       }
-      mcsat_push_internal(mcsat);
-      trail_add_decision(mcsat->trail, literal_var, literal_pos == literal ? &mcsat_value_true : &mcsat_value_false, MCSAT_MAX_PLUGINS);
-      return true;
+      if (to_decide_literal_pos == NULL_TERM || to_decide_literal_pos < literal_pos) {
+        to_decide_literal = literal;
+        to_decide_literal_pos = literal_pos;
+        to_decide_literal_var = literal_var;
+      }
     } else {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
         mcsat_trace_printf(mcsat->ctx->trace, "assigned!\n");
@@ -1319,7 +1335,18 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
     }
   }
 
-  return false;
+  if (to_decide_literal_var != variable_null) {
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "picked:\n");
+      trace_term_ln(mcsat->ctx->trace, mcsat->ctx->terms, to_decide_literal);
+    }
+    mcsat_push_internal(mcsat);
+    const mcsat_value_t* value = to_decide_literal_pos == to_decide_literal ? &mcsat_value_true : &mcsat_value_false;
+    trail_add_decision(mcsat->trail, to_decide_literal_var, value, MCSAT_MAX_PLUGINS);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /**
@@ -1372,6 +1399,8 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
         const mcsat_value_t* value = trail_get_value(mcsat->trail, disjunct_pos_var);
         mcsat_value_print(value, stderr);
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
+      } else {
+        mcsat_trace_printf(mcsat->ctx->trace, "\nno value\n");
       }
     }
 
@@ -1465,6 +1494,33 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
   return weight;
 }
 
+/** Check propagation with Yices: reasons => x = subst */
+static
+void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
+  ctx_config_t* config = yices_new_config();
+   context_t* ctx = yices_new_context(config);
+   uint32_t i;
+   for (i = 0; i < reasons->size; ++i) {
+     term_t literal = reasons->data[i];
+     int32_t ret = yices_assert_formula(ctx, literal);
+     if (ret != 0) {
+       // unsupported by regular yices
+       return;
+     }
+   }
+   term_t eq = yices_eq(x, subst);
+   int32_t ret = yices_assert_formula(ctx, opposite_term(eq));
+   if (ret != 0) {
+     return;
+   }
+   smt_status_t result = yices_check_context(ctx, NULL);
+   (void) result;
+   assert(result == STATUS_UNSAT);
+   yices_free_context(ctx);
+   yices_free_config(config);
+}
+
+
 static
 void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) {
 
@@ -1498,6 +1554,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   assert(plugin->get_conflict);
   plugin->get_conflict(plugin, &reason);
   conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
+  if (trace_enabled(trace, "mcsat::conflict::check")) {
+    // Don't check bool conflicts: they are implied by the formula (clauses)
+    if (plugin_i != mcsat->bool_plugin_id) {
+      static int conflict_count = 0;
+      conflict_count ++;
+      conflict_check(&conflict);
+    }
+  }
   statistic_avg_add(mcsat->solver_stats.avg_conflict_size, conflict.disjuncts.element_list.size);
 
   if (trace_enabled(trace, "mcsat::conflict") || trace_enabled(trace, "mcsat::lemma")) {
@@ -1518,8 +1582,52 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     }
 
     if (conflict_get_top_level_vars_count(&conflict) == 1) {
-      // UIP, we're done
-      break;
+      // UIP-like situation, we can quit as long as we make progress, as in
+      // the following cases:
+      //
+      // Assume finite basis B, with max{ term_size(t) | t in B } = M
+      //
+      // Termination based on weight(trail) = [..., weight(e), ...]
+      // - weight(propagation) = M + 1
+      // - weight(t -> d) = term_size(t)
+      //
+      // Max lex trail assuming finite basis:
+      // - [prop, ..., prop, decide variables/terms by term size]
+      //
+      // Termination, after we resolve, the weight goes up:
+      //
+      // Examples:
+      //   weight([b  , x -> T, y -> 0, (y + x < 0) -> 0]) =
+      //          [M+1, 1     , 1     , 5]
+      //
+      // [backjump-learn]
+      //   - Only one conflict literal contains the top variable.
+      //   * weight increases by replacing decision with propagation (M+1)
+      // [backjump-decide]
+      //   - More then one conflict literal contains the top variable.
+      //   - Top variable is decision t1 -> v
+      //   - Replace with decision t2 -> v where t2 is larger than t1
+      //   * weight increases by replacing decision with a heavier decision
+      ivector_t* conflict_top_vars = conflict_get_variables(&conflict);
+      assert(conflict_top_vars->size == 1);
+      variable_t top_var = conflict_top_vars->data[0];
+      if (trace_enabled(trace, "mcsat::conflict")) {
+        mcsat_trace_printf(trace, "potential UIP:\n");
+        variable_db_print_variable(mcsat->var_db, top_var, trace_out(trace));
+        mcsat_trace_printf(trace, "conflict:\n");
+        conflict_print(&conflict, trace->file);
+        mcsat_trace_printf(trace, "trail:\n");
+        trail_print(mcsat->trail, trace_out(trace));
+      }
+      // [backjump-learn]
+      uint32_t top_var_lits = conflict_get_literal_count_of(&conflict, top_var);
+      if (top_var_lits == 1) break;
+      // [backjump-decide]
+      assignment_type_t top_var_type = trail_get_assignment_type(mcsat->trail, top_var);
+      if (top_var_type == DECISION) {
+        assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
+        break;
+      }
     }
 
     if (trace_enabled(trace, "mcsat::conflict")) {
@@ -1552,6 +1660,12 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       ivector_reset(&reason);
       assert(plugin->explain_propagation);
       substitution = plugin->explain_propagation(plugin, var, &reason);
+      if (trace_enabled(trace, "mcsat::propagation::check")) {
+        if (plugin_i != mcsat->bool_plugin_id) {
+          term_t var_term = variable_db_get_term(mcsat->var_db, var);
+          propagation_check(&reason, var_term, substitution);
+        }
+      }
       conflict_resolve_propagation(&conflict, var, substitution, &reason);
       // The trail pops with the resolution step
     } else {
@@ -1658,7 +1772,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         for (i = 0; var == variable_null && i < order->size; ++i) {
           term_t ovar_term = order->data[i];
           variable_t ovar = variable_db_get_variable_if_exists(mcsat->var_db, ovar_term);
-          assert(ovar != variable_null);
+          if (ovar == variable_null) continue; // Some variables are not used
           if (!trail_has_value(mcsat->trail, ovar)) {
             var = ovar;
             force_decision = true;

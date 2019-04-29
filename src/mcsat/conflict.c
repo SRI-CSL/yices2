@@ -22,7 +22,31 @@
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
+#include "yices.h"
+#include <inttypes.h>
+
 #define CONFLICT_DEFAULT_ELEMENT_SIZE 100
+
+void conflict_check(conflict_t* conflict) {
+  ctx_config_t* config = yices_new_config();
+  context_t* ctx = yices_new_context(config);
+  uint32_t i;
+  const ivector_t* literals = &conflict->disjuncts.element_list;
+  for (i = 0; i < literals->size; ++i) {
+    term_t literal = literals->data[i];
+    literal = opposite_term(literal);
+    int32_t ret = yices_assert_formula(ctx, literal);
+    if (ret != 0) {
+      // unsupported by regular yices
+      return;
+    }
+  }
+  smt_status_t result = yices_check_context(ctx, NULL);
+  (void) result;
+  assert(result == STATUS_UNSAT);
+  yices_free_context(ctx);
+  yices_free_config(config);
+}
 
 /**
  * Add a disjunct to the conflict. The disjunct should evaluate to false in
@@ -589,6 +613,43 @@ void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* l
       current_ref = current->next;
     }
   }
+}
+
+uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var) {
+  uint32_t count = 0;
+  int_hmap_pair_t* find;
+  conflict_element_ref_t current_ref;
+  conflict_element_t* current;
+  find = int_hmap_find(&conflict->var_to_element_map, var);
+  if (find != NULL) {
+    current_ref = find->val;
+    while (current_ref != conflict_element_ref_null) {
+      current = conflict->elements + current_ref;
+      count ++;
+      current_ref = current->next;
+    }
+  }
+  return count;
+}
+
+term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var) {
+  term_t result = NULL_TERM;
+  int_hmap_pair_t* find;
+  conflict_element_ref_t current_ref;
+  conflict_element_t* current;
+  find = int_hmap_find(&conflict->var_to_element_map, var);
+  if (find != NULL) {
+    current_ref = find->val;
+    while (current_ref != conflict_element_ref_null) {
+      current = conflict->elements + current_ref;
+      term_t current_atom = unsigned_term(current->D);
+      if (current_atom > result) {
+        result = current_atom;
+      }
+      current_ref = current->next;
+    }
+  }
+  return result;
 }
 
 ivector_t* conflict_get_literals(conflict_t* conflict) {
