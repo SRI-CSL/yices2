@@ -4162,6 +4162,7 @@ static void collect_garbage(sat_solver_t *solver, cidx_t base_index, bool watche
   restore_watch_vectors(solver, base_index);
 
   solver->last_learned = 1;
+  solver->last_level = 0;
 }
 
 
@@ -8860,6 +8861,67 @@ static void show_learned_clause(const sat_solver_t *solver) {
 
 
 /*
+ * Remove cidx from the watch vector of l
+ * - l must be a watch literal of clause cidx
+ */
+static void remove_clause_watch(sat_solver_t *solver, literal_t l, cidx_t cidx) {
+  watch_t *w;
+  uint32_t i, j, n;
+
+  w = solver->watch[l];
+  assert(w != NULL);
+  n = w->size;
+  i = 0;
+  for (;;) {
+    assert(i < n);
+    if (idx_is_literal(w->data[i])) {
+      i ++;
+    } else {
+      // w->data[i] is the clause index
+      // w->data[i+1] is the blocker
+      assert(i + 1 < n);
+      if (w->data[i] == cidx) break;
+      i += 2;
+    }
+  }
+
+  assert(i+1<n && w->data[i] == cidx);
+  j = i+2;
+  while (j < n) {
+    w->data[i] = w->data[j];
+    i ++;
+    j ++;
+  }
+  w->size = n-2;
+}
+
+/*
+ * Try to delete subsumed clause cidx (do nothing if it's used as
+ * antecedent.
+ */
+static void delete_subsumed_clause(sat_solver_t *solver, cidx_t cidx) {
+  literal_t l0, l1;
+  bvar_t x0;
+
+  l0 = first_literal_of_clause(&solver->pool, cidx);
+  x0 = var_of(l0);
+  if (var_is_assigned(solver, x0) && solver->ante_tag[x0] == ATAG_CLAUSE &&
+      solver->ante_data[x0] == cidx) {
+    // can't delete the clause yet
+    printf("can't deleted subsumed clause: last_level = %"PRIu32" current = %"PRIu32"\n",
+	   solver->last_level, solver->decision_level);
+    return;
+  }
+
+  remove_clause_watch(solver, l0, cidx);
+  l1 = second_literal_of_clause(&solver->pool, cidx);
+  remove_clause_watch(solver, l1, cidx);
+
+  clause_pool_delete_clause(&solver->pool, cidx);
+  solver->stats.learned_clauses_deleted ++;
+}
+
+/*
  * Check whether the current learned clause subsumes the
  * previous learned clause.
  */
@@ -8880,18 +8942,14 @@ static void check_subsumes_last_learned(sat_solver_t *solver) {
     tag_map_write(map, lit[i], 1);
   }
 
-
   n = solver->buffer.size;
   for (i=0; i<n; i++) {
     if (tag_map_read(map, solver->buffer.data[i]) == 0) goto done;
   }
 
-  //  printf("Subsumption: %"PRIu64"\n", solver->stats.conflicts);
   solver->stats.local_subsumptions ++;
-  if (solver->stats.local_subsumptions % 10000 == 0) {
-    printf("local subsumptions: %"PRIu64", conflicts: %"PRIu64"\n",
-	   solver->stats.local_subsumptions, solver->stats.conflicts);
-  }
+  delete_subsumed_clause(solver, last);
+  solver->last_learned = 1;
 
  done:
   clear_tag_map(map);
@@ -8952,6 +9010,7 @@ static void resolve_conflict(sat_solver_t *solver) {
       cidx = add_learned_clause(solver, n, (literal_t *) solver->buffer.data);
       clause_propagation(solver, l, cidx);
       solver->last_learned = cidx;
+      solver->last_level = solver->backtrack_level;
     }
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
@@ -9476,6 +9535,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   report(solver, "");
 
   solver->last_learned = 1;
+  solver->last_level = 0;
+
   /*
    * MAIN LOOP
    */
@@ -9566,6 +9627,7 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c  random decisions        : %"PRIu64"\n", stat->random_decisions);
   fprintf(f, "c  propagations            : %"PRIu64"\n", stat->propagations);
   fprintf(f, "c  conflicts               : %"PRIu64"\n", stat->conflicts);
+  fprintf(f, "c  local subsumptions      : %"PRIu64"\n", stat->local_subsumptions);
   fprintf(f, "c  lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
   fprintf(f, "c  lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
   fprintf(f, "c  subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);

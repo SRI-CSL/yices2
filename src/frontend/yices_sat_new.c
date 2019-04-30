@@ -941,6 +941,7 @@ static void show_stats(sat_solver_t *solver) {
   write_line_and_uint(2, "c  random decisions        : ", stat->random_decisions);
   write_line_and_uint(2, "c  propagations            : ", stat->propagations);
   write_line_and_uint(2, "c  conflicts               : ", stat->conflicts);
+  write_line_and_uint(2, "c  local subsumptions      : ", stat->local_subsumptions);
   write_line_and_uint(2, "c  max_depth               : ", solver->max_depth);
   write_line_and_uint(2, "c  lits in pb. clauses     : ", solver->pool.num_prob_literals);
   write_line_and_uint(2, "c  lits in learned clauses : ", solver->pool.num_learned_literals);

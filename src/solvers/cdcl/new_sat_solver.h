@@ -815,7 +815,9 @@ typedef struct sat_solver_s {
   conflict_tag_t conflict_tag;
   uint32_t conflict_buffer[2];
   cidx_t conflict_index;
+
   cidx_t last_learned;
+  uint32_t last_level;
 
   /*
    * Parameters
