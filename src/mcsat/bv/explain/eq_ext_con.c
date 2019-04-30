@@ -10,7 +10,6 @@
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/term_manager.h"
-#include "terms/bvlogic_buffers.h"
 
 #include "mcsat/bv/bv_utils.h"
 #include "mcsat/eq/equality_graph.h"
@@ -88,18 +87,6 @@ struct slice_s {
    */
   splist_t* paired_with;
 };
-
-// builds extracted term, form lo (inc.) to hi (exc.)
-static inline
-term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
-  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-  term_t tarray[1];
-  tarray[0] = t;
-  term_t bv_term = is_bitvector_term(tm->terms, t) ?
-    t : bvarray_term(tm->terms, 1, tarray);
-  bvlogic_buffer_set_slice_term(buffer, tm->terms, lo, hi-1, bv_term);
-  return mk_bvlogic_term(tm, buffer);
-}
 
 // builds term from slice
 static inline

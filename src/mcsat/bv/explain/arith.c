@@ -9,13 +9,15 @@
 #include "mcsat/value.h"
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/bvarith64_buffer_terms.h"
+#include "terms/bv_constants.h"
 #include "terms/bv64_constants.h"
 #include "terms/term_manager.h"
 #include "terms/term_utils.h"
-#include "utils/int_hash_sets.h"
+#include "utils/int_hash_map.h"
 #include "utils/ptr_heap.h"
 #include "utils/ptr_queues.h"
 
+#include "mcsat/bv/bv_utils.h"
 #include "arith.h"
 
 /**
@@ -28,10 +30,123 @@ typedef struct arith_s {
   bv_subexplainer_t super;
 
   bv_csttrail_t csttrail; // Where we keep some cached values
-  int_hset_t coeff1_cache; // Cache of terms whose coeff for conflict_var is 1
-  int_hset_t coeffm1_cache; // Cache of terms whose coeff for conflict_var is -1
+  int_hmap_t coeff1_cache; // Cache of terms whose coeff for conflict_var is 1
+  int_hmap_t coeffm1_cache; // Cache of terms whose coeff for conflict_var is -1
 
 } arith_t;
+
+
+term_t extract(arith_t* exp, term_t t, uint32_t w){
+
+  // standard abbreviations
+  term_t conflict_var   = exp->csttrail.conflict_var_term;
+  plugin_context_t* ctx = exp->super.ctx;
+  term_manager_t* tm    = ctx->tm;
+  term_table_t* terms   = ctx->terms;
+
+  uint32_t original_bitsize = term_bitsize(terms, t);
+  assert(w <= original_bitsize);
+  
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Building normalised (_ extract %d 0) of term",w-1);
+  }
+
+  bool ignore_this_bool;
+  if (t == conflict_var || bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) {
+    if (w < original_bitsize) {
+      return term_extract(tm, t, 0, w-1);
+    } else {
+      return t;
+    }
+  }
+  
+  switch (term_kind(terms, t)) {
+  case BV_ARRAY: {
+    // Concatenated boolean terms:
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t);
+    /* fprintf(out, "This is a bv_array, where\n"); */
+    term_t base = NULL_TERM;
+    
+    for (uint32_t i = 0; i < w; i++) {
+      term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "bit %d is ",i);
+        ctx_trace_term(ctx, t_i);
+      }
+      if (term_kind(terms, t_i) != BIT_TERM) {
+        return NULL_TERM;
+      }
+      if (base == NULL_TERM) {
+        base = bit_term_arg(terms, t_i);
+      }
+      select_term_t* desc   = bit_term_desc(terms, t_i);
+      uint32_t selected_bit = desc->idx; // Get bit that is selected in it
+      if ((base != bit_term_arg(terms, t_i)) || (selected_bit != i)) {
+        return NULL_TERM;
+      }         
+    }
+    return extract(exp, base, w);
+  }
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    if (w<65) {
+      bvarith64_buffer_t* result = term_manager_get_bvarith64_buffer(tm);
+      bvarith64_buffer_prepare(result, w);
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        uint64_t coeff =
+          (original_bitsize < 33) ?
+          ( (uint64_t) bvconst_get32(t_poly->mono[i].coeff)) :
+          bvconst_get64(t_poly->mono[i].coeff) ;
+        if (t_poly->mono[i].var == const_idx) {
+          bvarith64_buffer_add_const(result, coeff);
+        } else {
+          term_t recurs = extract(exp, t_poly->mono[i].var, w);
+          if (recurs == NULL_TERM) return NULL_TERM;
+          bvarith64_buffer_add_const_times_term(result, terms, coeff, recurs);
+        }
+      }
+      return mk_bvarith64_term(tm, result);
+    } else {
+      bvarith_buffer_t* result = term_manager_get_bvarith_buffer(tm);
+      bvarith_buffer_prepare(result, w);
+      bvconstant_t coeff;
+      init_bvconstant(&coeff);
+      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+        bvconstant_extract(&coeff, t_poly->mono[i].coeff, 0, w-1);
+        if (t_poly->mono[i].var == const_idx) {
+          bvarith_buffer_add_const(result, coeff.data);
+        } else {
+          term_t recurs = extract(exp, t_poly->mono[i].var, w);
+          if (recurs == NULL_TERM) return NULL_TERM;
+          bvarith_buffer_add_const_times_term(result, terms, coeff.data, recurs);
+        }
+      }
+      delete_bvconstant(&coeff);
+      return mk_bvarith_term(tm, result);
+    }
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly         = bvpoly64_term_desc(ctx->terms, t);
+    bvarith64_buffer_t* result = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_prepare(result, w);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) {
+        bvarith64_buffer_add_const(result, t_poly->mono[i].coeff);
+      } else {
+        term_t recurs = extract(exp, t_poly->mono[i].var, w);
+        if (recurs == NULL_TERM) return NULL_TERM;
+        bvarith64_buffer_add_const_times_term(result, terms, t_poly->mono[i].coeff, recurs);
+      }
+    }
+    return mk_bvarith64_term(tm, result);
+  }
+  default: 
+    return NULL_TERM;
+  }
+
+}
 
 
 // Function returns coefficient of conflict_variable in t (-1, 0, or 1)
@@ -40,11 +155,16 @@ typedef struct arith_s {
 // if !assume_fragment, function will return 2,
 // if assume_fragment, function has unspecified behaviour (but runs faster)
 
-int32_t bv_arith_coeff(arith_t* exp, term_t t, bool assume_fragment) {
+int32_t bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
 
   plugin_context_t* ctx = exp->super.ctx;
   term_t conflict_var = exp->csttrail.conflict_var_term;
-    
+  term_table_t* terms   = ctx->terms;
+
+  term_t t = extract(exp, u, term_bitsize(terms, u));
+
+  if (t == NULL_TERM) return 2;
+  
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "extracting coefficient of conflict variable in ");
@@ -52,12 +172,12 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, bool assume_fragment) {
   }
 
   // Looking at whether the value is cached
-  if (int_hset_member(&exp->coeff1_cache,t)) return 1;
+  if (int_hmap_find(&exp->coeff1_cache,t) != NULL) return 1;
   if (t == conflict_var) {
-    int_hset_add(&exp->coeff1_cache, t);
+    int_hmap_add(&exp->coeff1_cache, t, t);
     return 1;
   }
-  if (int_hset_member(&exp->coeffm1_cache,t)) return -1;
+  if (int_hmap_find(&exp->coeffm1_cache,t) != NULL) return -1;
   bool ignore_this_bool;
   if (bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) return 0;
 
@@ -114,7 +234,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t t, bool assume_fragment) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Coefficient is %d\n",result);
   }
-  int_hset_add((result == 1)? (&exp->coeff1_cache):(&exp->coeffm1_cache), t);
+  int_hmap_add((result == 1)? (&exp->coeff1_cache):(&exp->coeffm1_cache), t, t);
   return result;
 }
 
@@ -395,7 +515,7 @@ void bv_arith_singleton_push(bv_arith_ctx_t* lctx,
 
 /**
    Making atoms. Assumption for these functions:
-   the atom to be build evaluates to true according to the trail.
+   the atom to be built evaluates to true according to the trail.
 **/
 
 // This function returns (left == right) unless it is trivially true, in which case it returns NULL_TERM
@@ -488,20 +608,24 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
 
 
 // Treat a constraint of the form lhs <= rhs
-void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs, term_t rhs, bool b) {
+void bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_raw, bool b) {
   // Standard abbreviations
   plugin_context_t* ctx = lctx->exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
+  term_table_t* terms   = ctx->terms;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "\nTreating unit_constraint (lhs <= rhs) where lhs is ");
-    term_print_to_file(out, ctx->terms, lhs);
+    term_print_to_file(out, ctx->terms, lhs_raw);
     fprintf(out, " and rhs is ");
-    term_print_to_file(out, ctx->terms, rhs);
+    term_print_to_file(out, ctx->terms, rhs_raw);
     fprintf(out, "\n");
   }
 
+  term_t lhs = extract(lctx->exp, lhs_raw, term_bitsize(terms, lhs_raw));
+  term_t rhs = extract(lctx->exp, rhs_raw, term_bitsize(terms, rhs_raw));
+  
   int32_t left_coeff  = bv_arith_coeff(lctx->exp, lhs, true);
   int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, true);
     
@@ -959,8 +1083,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 
   // Resetting the cache & co.
   bv_evaluator_csttrail_reset(csttrail, conflict_var);
-  int_hset_reset(&exp->coeff1_cache);
-  int_hset_reset(&exp->coeffm1_cache);
+  int_hmap_reset(&exp->coeff1_cache);
+  int_hmap_reset(&exp->coeffm1_cache);
 
   // We go through the conflict core
   for (uint32_t i = 0; i < conflict_core->size; i++) {
@@ -1024,8 +1148,8 @@ static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
   bv_evaluator_csttrail_destruct(&exp->csttrail);
-  delete_int_hset(&exp->coeff1_cache);
-  delete_int_hset(&exp->coeffm1_cache);
+  delete_int_hmap(&exp->coeff1_cache);
+  delete_int_hmap(&exp->coeffm1_cache);
 }
 
 /** Allocate the sub-explainer and setup the methods */
@@ -1042,8 +1166,8 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
   exp->super.explain_propagation = explain_propagation;
   exp->super.destruct = destruct;
 
-  init_int_hset(&exp->coeff1_cache, 0);
-  init_int_hset(&exp->coeffm1_cache, 0);
+  init_int_hmap(&exp->coeff1_cache, 0);
+  init_int_hmap(&exp->coeffm1_cache, 0);
 
   return (bv_subexplainer_t*) exp;
 }
