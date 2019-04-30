@@ -567,6 +567,7 @@ typedef struct solver_stats_s {
   uint64_t random_decisions;         // number of random decisions
   uint64_t propagations;             // number of boolean propagations
   uint64_t conflicts;                // number of conflicts/backtracking
+  uint64_t local_subsumptions;       //
   uint64_t prob_clauses_deleted;     // number of problem clauses deleted
   uint64_t learned_clauses_deleted;  // number of learned clauses deleted
   uint64_t subsumed_literals;        // removed from learned clause (cf. simplify_learned_clause)
@@ -814,6 +815,7 @@ typedef struct sat_solver_s {
   conflict_tag_t conflict_tag;
   uint32_t conflict_buffer[2];
   cidx_t conflict_index;
+  cidx_t last_learned;
 
   /*
    * Parameters

@@ -3509,7 +3509,7 @@ static void nsat_decide_literal(sat_solver_t *solver, literal_t l) {
   assert(lit_is_true(solver, l));
 
 #if TRACE
-  printf("---> DPLL:   Decision: literal %"PRIu32", decision level = %"PRIu32"\n", l, k);
+  printf("Decision: literal %"PRIu32", level = %"PRIu32"\n", l, k);
   fflush(stdout);
 #endif
 }
@@ -4160,6 +4160,8 @@ static void collect_garbage(sat_solver_t *solver, cidx_t base_index, bool watche
   check_clause_pool_learned_index(&solver->pool); // DEBUG
   check_clause_pool_counters(&solver->pool);      // DEBUG
   restore_watch_vectors(solver, base_index);
+
+  solver->last_learned = 1;
 }
 
 
@@ -7774,7 +7776,7 @@ static void record_clause_conflict(sat_solver_t *solver, cidx_t cidx) {
   assert(clause_is_false(solver, cidx));
 
 #if TRACE
-  printf("\n---> DPLL:   Clause conflict: cidx = %"PRIu32"\n");
+  printf("\nClause conflict: cidx = %"PRIu32"\n", cidx);
   fflush(stdout);
 #endif
 
@@ -8822,6 +8824,80 @@ static void update_level(sat_solver_t *solver) {
 }
 
 
+#if TRACE
+static void show_conflict_clause(const sat_solver_t *solver) {
+  literal_t *lit;
+  uint32_t i, n;
+  cidx_t cidx;
+
+  printf("Confict: %"PRIu64", level = %"PRIu32"\n", solver->stats.conflicts, solver->decision_level);
+  if (solver->conflict_tag == CTAG_BINARY) {
+    printf(" %"PRId32" %"PRId32"\n", solver->conflict_buffer[0], solver->conflict_buffer[1]);
+  } else {
+    cidx = solver->conflict_index;
+    lit = clause_literals(&solver->pool, cidx);
+    n = clause_length(&solver->pool, cidx);
+    for (i=0; i<n; i++) {
+      printf(" %"PRId32, lit[i]);
+    }
+    printf("\n");
+  }
+  fflush(stdout);
+}
+
+static void show_learned_clause(const sat_solver_t *solver) {
+  uint32_t i, n;
+
+  printf("Learned clause:\n");
+  n = solver->buffer.size;
+  for (i=0; i<n; i++) {
+    printf(" %"PRId32, solver->buffer.data[i]);
+  }
+  printf("\n\n");
+  fflush(stdout);
+}
+#endif
+
+
+/*
+ * Check whether the current learned clause subsumes the
+ * previous learned clause.
+ */
+static void check_subsumes_last_learned(sat_solver_t *solver) {
+  tag_map_t *map;
+  cidx_t last;
+  uint32_t i, n;
+  literal_t *lit;
+
+  last = solver->last_learned;
+  if (last == 1) return;
+
+  n = clause_length(&solver->pool, last);
+  if (n <= solver->buffer.size) return;
+  map = &solver->map;
+  lit = clause_literals(&solver->pool, last);
+  for (i=0; i<n; i++) {
+    tag_map_write(map, lit[i], 1);
+  }
+
+
+  n = solver->buffer.size;
+  for (i=0; i<n; i++) {
+    if (tag_map_read(map, solver->buffer.data[i]) == 0) goto done;
+  }
+
+  //  printf("Subsumption: %"PRIu64"\n", solver->stats.conflicts);
+  solver->stats.local_subsumptions ++;
+  if (solver->stats.local_subsumptions % 10000 == 0) {
+    printf("local subsumptions: %"PRIu64", conflicts: %"PRIu64"\n",
+	   solver->stats.local_subsumptions, solver->stats.conflicts);
+  }
+
+ done:
+  clear_tag_map(map);
+}
+
+
 /*
  * Resolve a conflict and add a learned clause
  * - solver->decision_level must be positive
@@ -8830,6 +8906,10 @@ static void resolve_conflict(sat_solver_t *solver) {
   uint32_t n, d;
   literal_t l;
   cidx_t cidx;
+
+#if TRACE
+  show_conflict_clause(solver);
+#endif
 
   analyze_conflict(solver);
   if (true) activate_clause_antecedents(solver); // optional
@@ -8856,6 +8936,12 @@ static void resolve_conflict(sat_solver_t *solver) {
   // statistics
   update_level(solver);
 
+#if TRACE
+  show_learned_clause(solver);
+#endif
+
+  check_subsumes_last_learned(solver);
+
   // add the learned clause
   l = solver->buffer.data[0];
   if (n >= 3) {
@@ -8865,6 +8951,7 @@ static void resolve_conflict(sat_solver_t *solver) {
     } else {
       cidx = add_learned_clause(solver, n, (literal_t *) solver->buffer.data);
       clause_propagation(solver, l, cidx);
+      solver->last_learned = cidx;
     }
   } else if (n == 2) {
     add_binary_clause(solver, l, solver->buffer.data[1]);
@@ -9361,6 +9448,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   solver->prng = solver->params.seed;
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
+  solver->max_depth = 0;
+
   init_restart(solver);
   init_reduce(solver);
   init_simplify(solver);
@@ -9377,6 +9466,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   nsat_simplify(solver);
   done_simplify(solver);
+  if (solver->has_empty_clause) goto done;
 
   var_list_add_all(&solver->list, true);
   if (false) bump_free_vars(solver); // optional
@@ -9385,6 +9475,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   report(solver, "");
 
+  solver->last_learned = 1;
   /*
    * MAIN LOOP
    */
@@ -9431,6 +9522,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	  break;
 	}
 	nsat_decide_literal(solver, preferred_literal(solver, x));
+	// nsat_decide_literal(solver, pos_lit(x));
+	// nsat_decide_literal(solver, neg_lit(x));
       }
     }
   }
