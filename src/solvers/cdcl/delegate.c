@@ -106,9 +106,8 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   nsat_set_var_decay_factor(d->solver, 0.6);
   nsat_set_reduce_fraction(d->solver, 12);
   nsat_set_simplify_subst_delta(d->solver, 30);
-  //
   nsat_solver_add_vars(d->solver, nvars);
-  nsat_set_randomness(d->solver, 0);
+  //
   init_ivector(&d->buffer, 0);
   d->add_empty_clause = ysat_add_empty_clause;
   d->add_unit_clause = ysat_add_unit_clause;

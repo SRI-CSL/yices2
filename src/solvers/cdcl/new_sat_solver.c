@@ -8002,7 +8002,7 @@ static bvar_t select_decision_variable_from_list(sat_solver_t *solver) {
 /*
  * Wrapper
  */
-static inline bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
+static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
   uint32_t rnd;
   bvar_t x;
 
