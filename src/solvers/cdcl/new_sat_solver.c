@@ -9481,17 +9481,30 @@ static void nsat_do_preprocess(sat_solver_t *solver) {
 /*
  * TEST
  */
-static void bump_free_vars(sat_solver_t *solver) {
-  uint32_t i, n, count;
+static void bump_free_vars(sat_solver_t *solver, bool reverse) {
+  uint32_t i, count;
 
-  n = solver->nvars;
   count = 0;
-  for (i=n; i>0; i--) {
-    if (var_is_active(solver, i) && !bvar_is_gate(&solver->descriptors, i)) {
-      count ++;
-      move_var_to_front(&solver->list, i);
+  if (reverse) {
+    i = solver->nvars;
+    while (i > 1) {
+      i --;
+      if (var_is_active(solver, i) && !bvar_is_gate(&solver->descriptors, i)) {
+	count ++;
+	move_var_to_front(&solver->list, i);
+      }
+    }
+  } else {
+    i = 1;
+    while (i < solver->nvars) {
+      if (var_is_active(solver, i) && !bvar_is_gate(&solver->descriptors, i)) {
+	count ++;
+	move_var_to_front(&solver->list, i);
+      }
+      i ++;
     }
   }
+
   printf("c\nc bumped %"PRIu32" variables\nc\n", count);
 }
 
@@ -9528,7 +9541,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   if (solver->has_empty_clause) goto done;
 
   var_list_add_all(&solver->list, true);
-  if (false) bump_free_vars(solver); // optional
+  if (false) bump_free_vars(solver, true); // optional
 
   solver->stats.starts = 1;
 
