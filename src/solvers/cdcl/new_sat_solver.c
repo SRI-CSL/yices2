@@ -2712,17 +2712,22 @@ static void init_stats(solver_stats_t *stat) {
   stat->random_decisions = 0;
   stat->propagations = 0;
   stat->conflicts = 0;
+  stat->local_subsumptions = 0;
   stat->prob_clauses_deleted = 0;
   stat->learned_clauses_deleted = 0;
   stat->subsumed_literals = 0;
+
   stat->starts = 0;
+  stat->stabilizations = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
   stat->subst_calls = 0;
   stat->scc_calls = 0;
+
   stat->subst_vars = 0;
   stat->subst_units = 0;
   stat->equivs = 0;
+
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
   stat->pp_subst_vars = 0;
@@ -3820,6 +3825,17 @@ static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
   solver->ante_data[x] = l2 ^ sign_of_lit(l1);
 
   vector_push(&solver->subst_vars, x);
+
+  if (solver->level[var_of(l2)] == UINT32_MAX && solver->level[x] < UINT32_MAX) {
+    /*
+     * We don't want d_level[l2] to stay equal to UINT32_MAX.
+     * Because the substitution may replace l1 by l2 in a learned clause,
+     * and reduce_learned_clause_set assumes that all literals in learned
+     * clause have a decision level other than UINT32_MAX.
+     */
+    assert(lit_is_unassigned(solver, l2));
+    solver->level[var_of(l2)] = solver->level[x];
+  }
 }
 
 
