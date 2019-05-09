@@ -2212,9 +2212,9 @@ static inline void update_lit_activity(sat_solver_t *solver, literal_t l, double
 #endif
 
 
-/**********************************
- *  MOVE-TO-FRONT/BACK HEURISTIC  *
- *********************************/
+/*****************************
+ *  MOVE-TO-FRONT HEURISTIC  *
+ ****************************/
 
 /*
  * Initialize list for size n
@@ -2723,10 +2723,15 @@ static void init_stats(solver_stats_t *stat) {
   stat->reduce_calls = 0;
   stat->subst_calls = 0;
   stat->scc_calls = 0;
+  stat->probe_calls = 0;
 
   stat->subst_vars = 0;
   stat->subst_units = 0;
   stat->equivs = 0;
+
+  stat->probed_literals = 0;
+  stat->probing_propagations = 0;
+  stat->failed_literals = 0;
 
   stat->pp_pure_lits = 0;
   stat->pp_unit_lits = 0;
@@ -6074,7 +6079,7 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
     assert(l1 == true_literal || l1 == false_literal);
     // either l2 := true or l2 := false
     if (l1 == false_literal) l2 = not(l2);
-    if (solver->verbosity >= 3) fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
+    if (solver->verbosity >= 5) fprintf(stderr, "c   lit equiv: unit literal %"PRId32"\n", l2);
     vector_push(&solver->subst_units, l2);
   } else if (l1 == not(l2)) {
     add_empty_clause(solver);
@@ -6362,7 +6367,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
       case 0:
 	if (level >= 1) {
 	  l1 = literal_of_ttbl0(&tt);
-	  if (solver->verbosity >= 3) {
+	  if (solver->verbosity >= 5) {
 	    fprintf(stderr, "c  var %"PRId32" simplifies to constant: %"PRId32" == %"PRId32"\n", i, l0, l1);
 	  }
 	  literal_equiv(solver, l0, l1);
@@ -6373,7 +6378,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 	if (level >= 2) {
 	  l1 = literal_of_ttbl1(&tt);
 	  if (l0 != l1 && !lit_is_eliminated(solver, l1)) {
-	    if (solver->verbosity >= 3) {
+	    if (solver->verbosity >= 5) {
 	      fprintf(stderr, "c  var %"PRId32" simplifies to literal: %"PRId32" == %"PRId32"\n", i, l0, l1);
 	    }
 	    literal_equiv(solver, l0, l1);
@@ -7951,7 +7956,6 @@ static void level0_propagation(sat_solver_t *solver) {
 }
 
 
-
 /***************
  *  DECISIONS  *
  **************/
@@ -8847,7 +8851,7 @@ static void show_conflict_clause(const sat_solver_t *solver) {
   uint32_t i, n;
   cidx_t cidx;
 
-  printf("Confict: %"PRIu64", level = %"PRIu32"\n", solver->stats.conflicts, solver->decision_level);
+  printf("Conflict: %"PRIu64", level = %"PRIu32"\n", solver->stats.conflicts, solver->decision_level);
   if (solver->conflict_tag == CTAG_BINARY) {
     printf(" %"PRId32" %"PRId32"\n", solver->conflict_buffer[0], solver->conflict_buffer[1]);
   } else {
@@ -9217,6 +9221,179 @@ static void extend_assignment(sat_solver_t *solver) {
 
 
 
+/****************
+ *  EXPERIMENT  *
+ ***************/
+
+/*
+ * Assign literal l and propagate
+ * - l must be unassigned
+ * - resolve the conflicts if any
+ * - this may detect that the problem is unsat (conflict at level 0)
+ */
+static void probe_literal(sat_solver_t *solver, literal_t l) {
+  assert(lit_is_unassigned(solver, l));
+
+  nsat_decide_literal(solver, l);
+
+  nsat_boolean_propagation(solver);
+  while (solver->conflict_tag != CTAG_NONE) {
+    if (solver->decision_level == 0) {
+      add_empty_clause(solver);
+      return;
+    }
+    resolve_conflict(solver);
+    nsat_boolean_propagation(solver);
+  }
+}
+
+/*
+ * Backtrack one level (to undo a probe)
+ */
+static void backtrack_one_level(sat_solver_t *solver) {
+  uint32_t i, d, k;
+  literal_t l;
+  bvar_t x;
+
+  k = solver->decision_level;
+  assert(k > 0);
+  // backtrack and collect statistics
+  d = solver->stack.level_index[k];
+  i = solver->stack.top;
+  assert(i > d);
+  while (i > d) {
+    i --;
+    l = solver->stack.lit[i];
+    x = var_of(l);
+    assert(lit_is_true(solver, l) && solver->level[x] == k);
+    solver->value[pos_lit(x)] ^= (uint8_t) 0x2;   // clear assign bit
+    solver->value[neg_lit(x)] ^= (uint8_t) 0x2;   // clear assign bit
+    assert(var_is_unassigned(solver, x));
+  }
+  solver->stack.top = i;
+  solver->stack.prop_ptr = i;
+
+  solver->stash.top = solver->stash.level[k];
+  solver->decision_level --;
+}
+
+
+/*
+ * Check whether l is a failed literal:
+ * - l must be unassigned
+ * - the decision level must be 0
+ */
+static void probe_failed_literal(sat_solver_t *solver, literal_t l) {
+  assert(solver->decision_level == 0);
+
+  solver->stats.probed_literals ++;
+  probe_literal(solver, l);
+  if (solver->decision_level == 1) {
+    // not a failed literal
+    backtrack_one_level(solver);
+  } else {
+    assert(solver->decision_level == 0);
+    solver->stats.failed_literals ++;
+  }
+}
+
+
+/*
+ * Check whether the watch vector for literal l contains binary clauses
+ */
+static bool watch_has_binary_clause(const sat_solver_t *solver, literal_t l) {
+  const watch_t *w;
+  uint32_t i, idx, n;
+
+  assert(! solver->preprocess);
+  assert(0 <= l && l < solver->nliterals);
+
+  w = solver->watch[l];
+  if (w == NULL) return false;
+  n = w->size;
+  // first pass: check for literals in w
+  i = 0;
+  while (i < n) {
+    idx = w->data[i];
+    if (idx_is_literal(idx)) return true;
+    i += 2;
+  }
+  // second pass: check for clauses of size 2
+  i = 0;
+  while (i < n) {
+    idx = w->data[i];
+    assert(! idx_is_literal(idx));
+    if (clause_is_live(&solver->pool, idx) && clause_length(&solver->pool, idx) == 2) {
+      return true;
+    }
+    i += 2;
+  }
+
+  return false;
+}
+
+/*
+ * Check whether variable x is a root in the binary-implication graph.
+ * If so, return either pos(x) or neg(x) in *root.
+ */
+static bool var_has_binary_root(const sat_solver_t *solver, bvar_t x, literal_t *root) {
+  bool pos, neg;
+
+  pos = watch_has_binary_clause(solver, pos_lit(x));
+  neg = watch_has_binary_clause(solver, neg_lit(x));
+  if (pos == neg) return false;
+
+  if (pos) {
+    assert(! neg);
+    *root = neg_lit(x);
+  } else {
+    assert(neg);
+    *root = pos_lit(x);
+  }
+
+  return true;
+}
+
+
+/*
+ * Failed literal probing:
+ * - must be at decision_level = 0
+ */
+static void failed_literal_probing(sat_solver_t *solver) {
+  uint64_t props_before, problits_before;
+  uint32_t i, n, failed_before;
+  literal_t root;
+
+  assert(solver->decision_level == 0);
+
+  props_before = solver->stats.propagations;
+  problits_before = solver->stats.probed_literals;
+  failed_before = solver->stats.failed_literals;
+  solver->stats.probe_calls ++;
+
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i) && var_has_binary_root(solver, i, &root)) {
+      probe_failed_literal(solver, root);
+      if (solver->has_empty_clause) break;
+    }
+  }
+
+  solver->stats.probing_propagations = solver->stats.propagations - props_before;
+  solver->stats.propagations = props_before;
+
+  if (solver->verbosity >= 3) {
+    fprintf(stderr, "c prob %"PRIu64" literals, %"PRIu32" failed\n",
+	    solver->stats.probed_literals - problits_before,
+	    solver->stats.failed_literals - failed_before);
+  }
+}
+
+
+
+
+
+
 /*****************
  *  HEURISTICS   *
  ****************/
@@ -9236,6 +9413,21 @@ static uint32_t level0_literals(const sat_solver_t *solver) {
 }
 
 
+#if 0
+/*
+ * Number of literals assigned at the current decision level
+ */
+static uint32_t prop_level(const sat_solver_t *solver) {
+  uint32_t n, k;
+
+  n = solver->stack.top;
+  k = solver->decision_level;
+  if (k > 0) {
+    n -= solver->stack.level_index[k];
+  }
+  return n;
+}
+#endif
 
 /*
  * WHEN TO RESTART
@@ -9291,7 +9483,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stats.stabilizations ++;
     } else {
       solver->stabilizing = false;
-      solver->stab_next += 3 * solver->stab_length;
+      solver->stab_next += 2 * solver->stab_length;
       if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
 	solver->stab_length *= STAB_FACTOR;
       }
@@ -9458,7 +9650,8 @@ static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) 
 
 
 /*
- * Simplify: call try_scc_simplification, then simplify clause database
+ * Simplify: call try_scc_simplification + probing then simplify the
+ * clause database
  * - add empty clause and set status to UNSAT if there's a conflict.
  */
 static void nsat_simplify(sat_solver_t *solver) {
@@ -9466,6 +9659,9 @@ static void nsat_simplify(sat_solver_t *solver) {
   solver->simplify_new_bins = 0;
   if (solver->binaries > solver->simplify_binaries) {
     try_scc_simplification(solver);
+    if (solver->has_empty_clause) return;
+
+    failed_literal_probing(solver);
     if (solver->has_empty_clause) return;
   }
   if (level0_literals(solver) > solver->simplify_assigned) {
@@ -9552,12 +9748,12 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     if (solver->has_empty_clause) goto done;
   }
 
+  var_list_add_all(&solver->list, true);
+  if (false) bump_free_vars(solver, true); // optional
+
   nsat_simplify(solver);
   done_simplify(solver);
   if (solver->has_empty_clause) goto done;
-
-  var_list_add_all(&solver->list, true);
-  if (false) bump_free_vars(solver, true); // optional
 
   solver->stats.starts = 1;
 
@@ -9606,6 +9802,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	done_reduce(solver);
 
       } else {
+	//	printf("Propagations: %"PRIu32"\n", prop_level(solver));
 	x = nsat_select_decision_variable(solver);
 	if (x == 0) {
 	  solver->status = STAT_SAT;
@@ -9649,6 +9846,7 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c  reduce db               : %"PRIu32"\n", stat->reduce_calls);
   fprintf(f, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
   fprintf(f, "c  apply subst calls       : %"PRIu32"\n", stat->subst_calls);
+  fprintf(f, "c  probings                : %"PRIu32"\n", stat->probe_calls);
   fprintf(f, "c  substituted vars        : %"PRIu32"\n", stat->subst_vars);
   fprintf(f, "c  unit equiv              : %"PRIu32"\n", stat->subst_units);
   fprintf(f, "c  equivalences            : %"PRIu32"\n", stat->equivs);
@@ -9657,6 +9855,9 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c  propagations            : %"PRIu64"\n", stat->propagations);
   fprintf(f, "c  conflicts               : %"PRIu64"\n", stat->conflicts);
   fprintf(f, "c  local subsumptions      : %"PRIu64"\n", stat->local_subsumptions);
+  fprintf(f, "c  probed literals         : %"PRIu64"\n", stat->probed_literals);
+  fprintf(f, "c  failed literals         : %"PRIu32"\n", stat->failed_literals);
+  fprintf(f, "c  probing progatations    : %"PRIu64"\n", stat->probing_propagations);
   fprintf(f, "c  lits in pb. clauses     : %"PRIu32"\n", solver->pool.num_prob_literals);
   fprintf(f, "c  lits in learned clauses : %"PRIu32"\n", solver->pool.num_learned_literals);
   fprintf(f, "c  subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);

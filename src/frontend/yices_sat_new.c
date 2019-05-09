@@ -936,12 +936,16 @@ static void show_stats(sat_solver_t *solver) {
   write_line_and_uint(2, "c  reduce db               : ", stat->reduce_calls);
   write_line_and_uint(2, "c  scc calls               : ", stat->scc_calls);
   write_line_and_uint(2, "c  apply subst calls       : ", stat->subst_calls);
+  write_line_and_uint(2, "c  probings                : ", stat->probe_calls);
   write_line_and_uint(2, "c  substituted vars        : ", stat->subst_vars);
   write_line_and_uint(2, "c  decisions               : ", stat->decisions);
   write_line_and_uint(2, "c  random decisions        : ", stat->random_decisions);
   write_line_and_uint(2, "c  propagations            : ", stat->propagations);
   write_line_and_uint(2, "c  conflicts               : ", stat->conflicts);
   write_line_and_uint(2, "c  local subsumptions      : ", stat->local_subsumptions);
+  write_line_and_uint(2, "c  probed literals         : ", stat->probed_literals);
+  write_line_and_uint(2, "c  failed literals         : ", stat->failed_literals);
+  write_line_and_uint(2, "c  probing progatations    : ", stat->probing_propagations);
   write_line_and_uint(2, "c  max_depth               : ", solver->max_depth);
   write_line_and_uint(2, "c  lits in pb. clauses     : ", solver->pool.num_prob_literals);
   write_line_and_uint(2, "c  lits in learned clauses : ", solver->pool.num_learned_literals);

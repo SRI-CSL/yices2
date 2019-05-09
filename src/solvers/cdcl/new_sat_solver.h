@@ -578,11 +578,17 @@ typedef struct solver_stats_s {
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
   uint32_t scc_calls;                // number of calls to try_scc_simplification
   uint32_t subst_calls;              // number of calls to apply_substitution
+  uint32_t probe_calls;              // number of calls to failed_literal_probing
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
   uint32_t subst_units;              // number of unit literals found by equivalence tests
   uint32_t equivs;                   // number of equivalences detected
+
+  // Probing
+  uint64_t probed_literals;          // number of probes
+  uint64_t probing_propagations;     // propagations during probing
+  uint32_t failed_literals;          // failed literals
 
   // Preprocessing statistics
   uint32_t pp_pure_lits;             // number of pure literals removed
