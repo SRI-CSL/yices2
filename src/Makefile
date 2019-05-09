@@ -1147,7 +1147,6 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(distdir)/lib/libyices.a
 endif
 
 static-dist: static-bin static-lib
@@ -1167,20 +1166,7 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(static_distdir)/lib/libyices.a
 endif
-
-smt-dist: bin
-	rm -r -f $(smt_distdir)/*
-	mkdir $(smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
-
-static-smt-dist: static-bin
-	rm -r -f $(static_smt_distdir)/*
-	mkdir $(static_smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
 
 
 .PHONY: dist static-dist
