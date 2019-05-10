@@ -358,6 +358,14 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define SIMPLIFY_BIN_DELTA 100
 #define SIMPLIFY_SUBST_DELTA 40
 
+/*
+ * To control probing
+ */
+#define PROBING_INTERVAL 10000
+#define PROBING_MIN_BUDGET 10000
+#define PROBING_MAX_BUDGET 1000000
+#define PROBING_RATIO 0.02
+
 
 
 /**********
@@ -2767,6 +2775,11 @@ static void init_params(solver_param_t *params) {
   params->simplify_interval = SIMPLIFY_INTERVAL;
   params->simplify_bin_delta = SIMPLIFY_BIN_DELTA;
   params->simplify_subst_delta = SIMPLIFY_SUBST_DELTA;
+
+  params->probing_interval = PROBING_INTERVAL;
+  params->probing_min_budget = PROBING_MIN_BUDGET;
+  params->probing_max_budget = PROBING_MAX_BUDGET;
+  params->probing_ratio = PROBING_RATIO;
 }
 
 /*
@@ -9360,32 +9373,50 @@ static bool var_has_binary_root(const sat_solver_t *solver, bvar_t x, literal_t 
  * - must be at decision_level = 0
  */
 static void failed_literal_probing(sat_solver_t *solver) {
-  uint64_t props_before, problits_before;
+  uint64_t props_before, problits_before, limit;
   uint32_t i, n, failed_before;
   literal_t root;
 
   assert(solver->decision_level == 0);
+  assert(solver->probing_last <= solver->stats.propagations);
 
   props_before = solver->stats.propagations;
   problits_before = solver->stats.probed_literals;
   failed_before = solver->stats.failed_literals;
   solver->stats.probe_calls ++;
 
+  limit = (solver->stats.propagations - solver->probing_last) * solver->params.probing_ratio;
+  if (limit < solver->params.probing_min_budget) {
+    limit = solver->params.probing_min_budget;
+  } else if (limit > solver->params.probing_max_budget) {
+    limit = solver->params.probing_max_budget;
+  }
+  limit += props_before;
+
   n = solver->nvars;
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i) && var_has_binary_root(solver, i, &root)) {
       probe_failed_literal(solver, root);
-      if (solver->has_empty_clause) break;
+      if (solver->has_empty_clause ||
+	  solver->stats.propagations > limit) break;
     }
   }
 
   solver->stats.probing_propagations = solver->stats.propagations - props_before;
   solver->stats.propagations = props_before;
 
-  if (solver->verbosity >= 3) {
-    fprintf(stderr, "c prob %"PRIu64" literals, %"PRIu32" failed\n",
-	    solver->stats.probed_literals - problits_before,
-	    solver->stats.failed_literals - failed_before);
+  // schedule the next probing
+  if (solver->stats.failed_literals == failed_before) {
+    solver->probing_inc += solver->probing_inc;
+  } else {
+    solver->probing_inc = solver->params.probing_interval;
+  }
+  solver->probing_next = solver->stats.conflicts + solver->probing_inc;
+  solver->probing_last = props_before;
+
+  if (solver->verbosity >= 0) {
+    fprintf(stderr, "c prob: %"PRIu64" literals, %"PRIu32" failed, next = %"PRIu64"\n",
+	    solver->stats.probed_literals - problits_before, solver->stats.failed_literals - failed_before, solver->probing_next);
   }
 }
 
@@ -9483,7 +9514,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stats.stabilizations ++;
     } else {
       solver->stabilizing = false;
-      solver->stab_next += 2 * solver->stab_length;
+      solver->stab_next += 3 * solver->stab_length;
       if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
 	solver->stab_length *= STAB_FACTOR;
       }
@@ -9581,6 +9612,11 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_binaries = 0;
   solver->simplify_subst_next = 0;
   solver->simplify_next = 0;
+
+  solver->probing_next = solver->params.probing_interval;
+  solver->probing_budget = 0;
+  solver->probing_last = 0;
+  solver->probing_inc = solver->params.probing_interval;
 }
 
 /*
@@ -9661,8 +9697,10 @@ static void nsat_simplify(sat_solver_t *solver) {
     try_scc_simplification(solver);
     if (solver->has_empty_clause) return;
 
-    failed_literal_probing(solver);
-    if (solver->has_empty_clause) return;
+    if (solver->stats.conflicts >= solver->probing_next) {
+      failed_literal_probing(solver);
+      if (solver->has_empty_clause) return;
+    }
   }
   if (level0_literals(solver) > solver->simplify_assigned) {
     simplify_clause_database(solver);

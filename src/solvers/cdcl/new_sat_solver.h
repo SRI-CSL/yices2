@@ -649,6 +649,15 @@ typedef struct solver_param_s {
   uint32_t simplify_interval;   // Minimal number of conflicts between two calls to simplify
   uint32_t simplify_bin_delta;  // Number of new binary clauses between two SCC computations
   uint32_t simplify_subst_delta;   // Number of substitutions before trying cut sweeping
+
+  /*
+   * Probing
+   */
+  uint32_t probing_interval;    // Number of conflicts between two calls to probing
+  uint64_t probing_min_budget;  // Minimal budget (number of propagations)
+  uint64_t probing_max_budget;  // Maximal budget (number of propagations_
+  double probing_ratio;         // Fraction of propagations for probing (relative to search).
+
 } solver_param_t;
 
 
@@ -847,6 +856,11 @@ typedef struct sat_solver_s {
   uint32_t simplify_new_units; // number of unit clauses create by simplification
   uint32_t simplify_subst_next; // Number of substitutions before the next call to try_equiv
   uint64_t simplify_next;      // Number of conflicts before the next call to simplify
+
+  uint64_t probing_next;       // Number of conflicts before the next call to probe
+  uint64_t probing_budget;     // Max number of propagations in a single probe
+  uint64_t probing_last;       // NUmber of propagations since the last probe
+  uint64_t probing_inc;        // Increment to probing next
 
   /*
    * Exponential moving averages for restarts
