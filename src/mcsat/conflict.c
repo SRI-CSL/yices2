@@ -38,6 +38,8 @@ void conflict_check(conflict_t* conflict) {
     int32_t ret = yices_assert_formula(ctx, literal);
     if (ret != 0) {
       // unsupported by regular yices
+      fprintf(stderr, "skipping conflict (ret)\n");
+      yices_print_error(stderr);
       return;
     }
   }

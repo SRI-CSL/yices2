@@ -160,12 +160,14 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
           const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
           if (!trail_has_value(uf->ctx->trail, t_var)) {
             if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
+              FILE* out = ctx_trace_out(uf->ctx);
               ctx_trace_term(uf->ctx, t);
-              fprintf(ctx_trace_out(uf->ctx), " -> ");
-              mcsat_value_print(v, ctx_trace_out(uf->ctx));
-              fprintf(ctx_trace_out(uf->ctx), "\n");
+              fprintf(out, " -> ");
+              mcsat_value_print(v, out);
+              fprintf(out, "\n");
             }
             prop->add(prop, t_var, v);
+            (*uf->stats.propagations) ++;
           } else {
             // Ignore, we will report conflict
           }

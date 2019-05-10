@@ -1505,12 +1505,16 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
      int32_t ret = yices_assert_formula(ctx, literal);
      if (ret != 0) {
        // unsupported by regular yices
+       fprintf(stderr, "skipping propagation (ret 1)\n");
+       yices_print_error(stderr);
        return;
      }
    }
    term_t eq = yices_eq(x, subst);
    int32_t ret = yices_assert_formula(ctx, opposite_term(eq));
    if (ret != 0) {
+     fprintf(stderr, "skipping propagation (ret 2)\n");
+     yices_print_error(stderr);
      return;
    }
    smt_status_t result = yices_check_context(ctx, NULL);
@@ -1560,6 +1564,8 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       static int conflict_count = 0;
       conflict_count ++;
       conflict_check(&conflict);
+    } else {
+      fprintf(stderr, "skipping conflict (bool)\n");
     }
   }
   statistic_avg_add(mcsat->solver_stats.avg_conflict_size, conflict.disjuncts.element_list.size);
@@ -1664,6 +1670,8 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         if (plugin_i != mcsat->bool_plugin_id) {
           term_t var_term = variable_db_get_term(mcsat->var_db, var);
           propagation_check(&reason, var_term, substitution);
+        } else {
+          fprintf(stderr, "skipping propagation (bool)\n");
         }
       }
       conflict_resolve_propagation(&conflict, var, substitution, &reason);
