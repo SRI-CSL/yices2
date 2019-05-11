@@ -9385,11 +9385,15 @@ static void failed_literal_probing(sat_solver_t *solver) {
   failed_before = solver->stats.failed_literals;
   solver->stats.probe_calls ++;
 
-  limit = (solver->stats.propagations - solver->probing_last) * solver->params.probing_ratio;
-  if (limit < solver->params.probing_min_budget) {
-    limit = solver->params.probing_min_budget;
-  } else if (limit > solver->params.probing_max_budget) {
+  if (solver->stats.probe_calls == 1) {
     limit = solver->params.probing_max_budget;
+  } else {
+    limit = (solver->stats.propagations - solver->probing_last) * solver->params.probing_ratio;
+    if (limit < solver->params.probing_min_budget) {
+      limit = solver->params.probing_min_budget;
+    } else if (limit > solver->params.probing_max_budget) {
+      limit = solver->params.probing_max_budget;
+    }
   }
   limit += props_before;
 
@@ -9613,7 +9617,7 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_subst_next = 0;
   solver->simplify_next = 0;
 
-  solver->probing_next = solver->params.probing_interval;
+  solver->probing_next = 0;
   solver->probing_budget = 0;
   solver->probing_last = 0;
   solver->probing_inc = solver->params.probing_interval;
