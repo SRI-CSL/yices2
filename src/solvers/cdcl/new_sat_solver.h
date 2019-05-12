@@ -886,6 +886,11 @@ typedef struct sat_solver_s {
   uint64_t stab_length;
 
   /*
+   * Probing flag
+   */
+  bool probing;
+
+  /*
    * Statistics record
    */
   solver_stats_t stats;

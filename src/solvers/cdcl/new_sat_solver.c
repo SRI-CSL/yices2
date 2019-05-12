@@ -8295,7 +8295,7 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
 
   if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
     mark_variable(solver, x);
-    if (true || !solver->stabilizing) {
+    if (!solver->probing) {
       var_list_add_active_var(&solver->list, x);
     }
     if (solver->level[x] == solver->decision_level) {
@@ -8834,7 +8834,7 @@ static void prepare_to_backtrack(sat_solver_t *solver) {
  * variables.
  */
 static void update_emas(sat_solver_t *solver, uint32_t x) {
-  if (true || ! solver->stabilizing) {
+  if (!solver->probing) {
     solver->slow_ema -= solver->slow_ema >> 16;
     solver->slow_ema += ((uint64_t) x) << 16;
     solver->fast_ema -= solver->fast_ema >> 5;
@@ -9003,11 +9003,11 @@ static void resolve_conflict(sat_solver_t *solver) {
 #endif
 
   analyze_conflict(solver);
-  if (true) activate_clause_antecedents(solver); // optional
+  if (!solver->probing) activate_clause_antecedents(solver); // optional
   simplify_learned_clause(solver);
 
   // the move to front must be done before backtracking
-  if (true || ! solver->stabilizing) {
+  if (!solver->probing) {
     var_list_process_active_vars(&solver->list);
   }
 
@@ -9380,6 +9380,8 @@ static void failed_literal_probing(sat_solver_t *solver) {
   assert(solver->decision_level == 0);
   assert(solver->probing_last <= solver->stats.propagations);
 
+  solver->probing = true;
+
   props_before = solver->stats.propagations;
   problits_before = solver->stats.probed_literals;
   failed_before = solver->stats.failed_literals;
@@ -9417,6 +9419,8 @@ static void failed_literal_probing(sat_solver_t *solver) {
   }
   solver->probing_next = solver->stats.conflicts + solver->probing_inc;
   solver->probing_last = props_before;
+
+  solver->probing = false;
 
   if (solver->verbosity >= 0) {
     fprintf(stderr, "c prob: %"PRIu64" literals, %"PRIu32" failed, next = %"PRIu64"\n",
@@ -9621,6 +9625,8 @@ static void init_simplify(sat_solver_t *solver) {
   solver->probing_budget = 0;
   solver->probing_last = 0;
   solver->probing_inc = solver->params.probing_interval;
+
+  solver->probing = false;
 }
 
 /*
