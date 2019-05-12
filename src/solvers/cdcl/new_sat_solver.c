@@ -9775,6 +9775,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   solver->prng = solver->params.seed;
   solver->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   solver->max_depth = 0;
+  solver->last_learned = 1;
+  solver->last_level = 0;
 
   init_restart(solver);
   init_reduce(solver);
@@ -9800,9 +9802,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   solver->stats.starts = 1;
 
   report(solver, "");
-
-  solver->last_learned = 1;
-  solver->last_level = 0;
 
   /*
    * MAIN LOOP
