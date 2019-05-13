@@ -263,6 +263,9 @@ static
 void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma);
 
 static
+void propagation_check(const ivector_t* reasons, term_t x, term_t subst);
+
+static
 void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.assertions = statistics_new_int(&mcsat->stats, "mcsat::assertions");
   mcsat->solver_stats.conflicts = statistics_new_int(&mcsat->stats, "mcsat::conflicts");
@@ -371,6 +374,19 @@ bool trail_token_add(trail_token_t* token, variable_t x, const mcsat_value_t* va
     trail_add_decision(trail, x, value, tk->ctx->ctx.plugin_id);
   } else {
     trail_add_propagation(trail, x, value, tk->ctx->ctx.plugin_id, trail->decision_level);
+  }
+
+  if (ctx_trace_enabled(&tk->ctx->ctx, "mcsat::propagation::check") && !is_decision) {
+    uint32_t plugin_id = tk->ctx->ctx.plugin_id;
+    if (plugin_id != mcsat->bool_plugin_id) {
+      ivector_t reason;
+      init_ivector(&reason, 0);
+      plugin_t* plugin = mcsat->plugins[plugin_id].plugin;
+      term_t substitution = plugin->explain_propagation(plugin, x, &reason);
+      term_t x_term = variable_db_get_term(mcsat->var_db, x);
+      propagation_check(&reason, x_term, substitution);
+      delete_ivector(&reason);
+    }
   }
 
   return true;

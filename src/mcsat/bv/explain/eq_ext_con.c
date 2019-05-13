@@ -512,7 +512,7 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
         uint32_t selected_bit = 0;
         assert(t_i == conflict_var || term_kind(terms, t_i) == BIT_TERM);
         if (term_kind(terms, t_i) == BIT_TERM) {
-          select_term_t* desc   = bit_term_desc(terms, t_i);
+          select_term_t* desc = bit_term_desc(terms, t_i);
           assert(desc->arg == conflict_var);
           selected_bit = desc->idx; // Get bit that is selected in it
         }
