@@ -9650,7 +9650,7 @@ static void done_simplify(sat_solver_t *solver) {
    * new_bins = number of binary clauses produced in this
    *            simplification round
    * these clauses have not been seen by the SCC construction.
-   * Some of the new bin clauses may have been deleted so we can't assume
+   * Some of the new bin clauses may have been deleted.
    */
   if (solver->simplify_new_bins > solver->binaries) {
     solver->simplify_binaries = solver->binaries;
