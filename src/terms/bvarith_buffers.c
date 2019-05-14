@@ -797,6 +797,18 @@ void bvarith_buffer_sub_pp(bvarith_buffer_t *b, pprod_t *r) {
 
 
 /*
+ * Add and subtract one
+ */
+void bvarith_buffer_add_one(bvarith_buffer_t *b) {
+  bvarith_buffer_add_pp(b, empty_pp);
+}
+
+void bvarith_buffer_sub_one(bvarith_buffer_t *b) {
+  bvarith_buffer_sub_pp(b, empty_pp);
+}
+
+
+/*
  * Add p1 to b
  */
 void bvarith_buffer_add_mlist(bvarith_buffer_t *b, bvmlist_t *p1) {
