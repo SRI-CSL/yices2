@@ -314,6 +314,16 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
 extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
 
 
+/*
+ * Try to convert a bit-array expression into an arithmetic expression:
+ * - t must be a bv_array term (array of n booleans)
+ * - if t can be converted, the result is stored in buffer b and the function
+ *   returns true
+ * - otherwise, the function returns false
+ */
+extern bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b);
+extern bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b);
+
 
 /*
  * INTERVAL ABSTRACTION FOR BITVECTORS
