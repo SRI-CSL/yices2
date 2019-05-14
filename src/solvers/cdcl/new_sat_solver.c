@@ -82,7 +82,6 @@ static inline void check_list(const sat_solver_t *solver) {}
 
 
 
-
 /*
  * Function to show details and data
  */
@@ -2525,11 +2524,28 @@ static void var_list_swap(nvar_list_t *list, bvar_t x1, bvar_t x2) {
   var_list_remove(list, x2);
   var_list_insert_after(list, x2, i); // now i.next = x2
   var_list_insert_before(list, x1, j); // and x2.next = j
+
+  assert(list->rank[x2] < list->rank[x1]);
+
+  if (list->unassigned_index == x2) {
+    // x2 was the unassigned index
+    // x1 takes its place
+    list->unassigned_index = x1;
+  } else if (list->unassigned_index == x1) {
+    // x1 stays the unassigned index but we must fix unassigned_rank
+    list->unassigned_rank = list->rank[x1];
+  } else if (list->unassigned_rank < list->rank[x1]) {
+    // x1 has moved in front of the unassigned index
+    var_list_set_unassigned(list, x1);
+  }
+
+  assert(list->unassigned_rank == list->rank[list->unassigned_index]);
 }
 
 
 /*
  * Swap l1  and l2 in the list ordering
+ * - l1 must be before l2 (i.e., rank[var_of(l1)] < rank[var_of(l2)])
  */
 static inline void swap_lit_ranks(sat_solver_t *solver, literal_t l1, literal_t l2) {
   var_list_swap(&solver->list, var_of(l1), var_of(l2));
@@ -2855,6 +2871,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
 
   init_stats(&solver->stats);
 
+  solver->saved_values = NULL;
   solver->cidx_array = NULL;
 
   init_vector(&solver->buffer);
@@ -2919,6 +2936,8 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_clause_stack(&solver->stash);
   delete_clause_pool(&solver->pool);
 
+  safe_free(solver->saved_values);
+  solver->saved_values = NULL;
   safe_free(solver->cidx_array);
   solver->cidx_array = NULL;
 
@@ -2978,6 +2997,8 @@ void reset_nsat_solver(sat_solver_t *solver) {
 
   init_stats(&solver->stats);
 
+  safe_free(solver->saved_values);
+  solver->saved_values = NULL;
   safe_free(solver->cidx_array);
   solver->cidx_array = NULL;
 
@@ -3855,6 +3876,7 @@ static void set_lit_subst(sat_solver_t *solver, literal_t l1, literal_t l2) {
     solver->level[var_of(l2)] = solver->level[x];
   }
 }
+
 
 
 /**********************************
@@ -9239,6 +9261,45 @@ static void extend_assignment(sat_solver_t *solver) {
  ***************/
 
 /*
+ * Save the current assignment
+ */
+static void save_assignment(sat_solver_t *solver) {
+  uint8_t *saved;
+  uint32_t i, n;
+
+  assert(solver->saved_values == NULL);
+
+  n = solver->nvars;
+  saved = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  for (i=0; i<n; i++) {
+    saved[i] = var_value(solver, i);
+  }
+  solver->saved_values = saved;
+}
+
+/*
+ * Restore the saved assingnment
+ */
+static void restore_assignment(sat_solver_t *solver) {
+  uint8_t *saved;
+  uint32_t i, n;
+
+  saved = solver->saved_values;
+  assert(saved != NULL);
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    solver->value[pos_lit(i)] = saved[i];
+    solver->value[neg_lit(i)] = opposite_val(saved[i]);
+  }
+
+  safe_free(saved);
+  solver->saved_values = NULL;
+}
+
+
+
+/*
  * Assign literal l and propagate
  * - l must be unassigned
  * - resolve the conflicts if any
@@ -9399,6 +9460,9 @@ static void failed_literal_probing(sat_solver_t *solver) {
   }
   limit += props_before;
 
+  // save assignment to later restore the prefered values
+  if (true) save_assignment(solver);
+
   n = solver->nvars;
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i) && var_has_binary_root(solver, i, &root)) {
@@ -9407,6 +9471,8 @@ static void failed_literal_probing(sat_solver_t *solver) {
 	  solver->stats.propagations > limit) break;
     }
   }
+
+  if (true) restore_assignment(solver);
 
   solver->stats.probing_propagations = solver->stats.propagations - props_before;
   solver->stats.propagations = props_before;

@@ -896,6 +896,11 @@ typedef struct sat_solver_s {
   solver_stats_t stats;
 
   /*
+   * Auxiliary array to save assignment
+   */
+  uint8_t *saved_values;
+
+  /*
    * Auxiliary array for clause deletion
    */
   cidx_t *cidx_array;
