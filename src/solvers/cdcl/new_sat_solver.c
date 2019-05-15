@@ -9278,7 +9278,7 @@ static void save_assignment(sat_solver_t *solver) {
 }
 
 /*
- * Restore the saved assingnment
+ * Restore the saved polarities (for variables that are not assigned).
  */
 static void restore_assignment(sat_solver_t *solver) {
   uint8_t *saved;
@@ -9289,8 +9289,11 @@ static void restore_assignment(sat_solver_t *solver) {
 
   n = solver->nvars;
   for (i=0; i<n; i++) {
-    solver->value[pos_lit(i)] = saved[i];
-    solver->value[neg_lit(i)] = opposite_val(saved[i]);
+    if (var_is_unassigned(solver, i)) {
+      assert(bval_is_undef(saved[i]));
+      solver->value[pos_lit(i)] = saved[i];
+      solver->value[neg_lit(i)] = opposite_val(saved[i]);
+    }
   }
 
   safe_free(saved);
