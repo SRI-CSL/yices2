@@ -15,6 +15,8 @@
 #include "mcsat/bv/bv_utils.h"
 #include "mcsat/eq/equality_graph.h"
 
+#include <yices.h>
+
 typedef struct eq_ext_con_s {
 
   /** Interfact of the subexplainer */
@@ -1182,6 +1184,24 @@ bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, 
 }
 
 static
+bool explain_term_slice_propagation(const eq_graph_t* eq, slice_t* t_slice, ivector_t* to_concat, ivector_t* reasons, ivector_t* reasons_types, term_manager_t* tm) {
+  term_t t_slice_term = slice_mk_term(t_slice, tm);
+  if (eq_graph_has_term(eq, t_slice_term) && eq_graph_has_propagated_term_value(eq, t_slice_term)) {
+    term_t s = eq_graph_explain_term_propagation(eq, t_slice_term, reasons, reasons_types, NULL);
+    ivector_push(to_concat, s);
+    return true;
+  } else {
+    if (t_slice->hi_sub != NULL) {
+      return
+        explain_term_slice_propagation(eq, t_slice->hi_sub, to_concat, reasons, reasons_types, tm) &&
+        explain_term_slice_propagation(eq, t_slice->lo_sub, to_concat, reasons, reasons_types, tm);
+    } else {
+      return false;
+    }
+  }
+}
+
+static
 term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
   eq_ext_con_t* exp = (eq_ext_con_t*) this;
   plugin_context_t* ctx = this->ctx;
@@ -1196,7 +1216,6 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
     term_print_to_file(out, terms, exp->csttrail.conflict_var_term);
     fprintf(out, "\n");
   }
-
 
   // The reason will always contains the original reasons:
   for (uint32_t i = 0; i < reasons_in->size; i++) {
@@ -1216,7 +1235,6 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
   // Do the slicing
   bv_slicing_t slicing;
   slist_t* x_term_slice = bv_slicing_construct(&slicing, exp, reasons_in, x_term, &eq_graph);
-  term_t x_slice = slice_mk_term(x_term_slice->slice, ctx->tm);
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
     FILE* out = ctx_trace_out(ctx);
     bv_slicing_print_slicing(&slicing);
@@ -1224,7 +1242,7 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
     term_print_to_file(out, terms, x_term);
     fprintf(out, "\n");
     fprintf(out, "x[] = ");
-    term_print_to_file(out, terms, x_slice);
+    slice_print(x_term_slice->slice, out);
     fprintf(out, "\n");
   }
 
@@ -1248,28 +1266,34 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
     eq_graph_print(&eq_graph, out);
   }
 
-  if (!eq_graph_has_term(&eq_graph, x_slice)) {
-    eq_graph_add_term(&eq_graph, x_slice);
-  }
-
   // If the variable is propagated with the graph, use it
-  if (eq_graph_has_propagated_term_value(&eq_graph, x_slice)) {
-    ivector_t reasons; // where we collect the reasons why things happen in the e-graph
-    ivector_t reasons_types; // ...together with their associated types
-    init_ivector(&reasons,0);
-    init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
-    // Explain with EQ graph
-    result_subst = eq_graph_explain_term_propagation(&eq_graph, x_slice, &reasons, &reasons_types, NULL);
+  ivector_t reasons; // where we collect the reasons why things happen in the e-graph
+  ivector_t reasons_types; // ...together with their associated types
+  ivector_t to_concat;
+  init_ivector(&reasons,0);
+  init_ivector(&reasons_types,0); // (i.e. why they are in the e-graph)
+  init_ivector(&to_concat, 0);
+  // Explain with EQ graph
+  bool ok = explain_term_slice_propagation(&eq_graph, x_term_slice->slice, &to_concat, &reasons, &reasons_types, this->ctx->tm);
+  // Add the reasons
+  if (ok) {
+    // Concat the terms
+    if (to_concat.size > 1) {
+      result_subst = yices_bvconcat(to_concat.size, to_concat.data);
+    } else {
+      result_subst = to_concat.data[0];
+    }
     // Collect the reasons of the elements we haven't added
     for (uint32_t i = 0; i < reasons.size; i++) {
       if (reasons_types.data[i] != REASON_IS_USER) {
         ivector_push(reasons_out, reasons.data[i]);
       }
     }
-    // Clean up
-    delete_ivector(&reasons_types);
-    delete_ivector(&reasons);
   }
+  // Clean up
+  delete_ivector(&reasons_types);
+  delete_ivector(&reasons);
+  delete_ivector(&to_concat);
 
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::explain")) {
     FILE* out = ctx_trace_out(ctx);
