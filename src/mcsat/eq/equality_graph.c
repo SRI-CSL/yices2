@@ -2124,9 +2124,13 @@ term_t eq_graph_explain_term_propagation(const eq_graph_t* eq, term_t t, ivector
     uint32_t i = 0;
     for (i = 0; i < explain_data->size; ++ i) {
       ctx_trace_printf(eq->ctx, "[%"PRIu32"]: ", i);
-      ctx_trace_term(eq->ctx, explain_data->data[i]);
+      if (explain_types == NULL || explain_types->data[i] == REASON_IS_IN_TRAIL) {
+        term_t t_i = explain_data->data[i];
+        ctx_trace_term(eq->ctx, t_i);
+      } else {
+        ctx_trace_printf(eq->ctx, "special\n");
+      }
     }
-
     ctx_trace_printf(eq->ctx, "t_in: ");
     ctx_trace_term(eq->ctx, t);
     ctx_trace_printf(eq->ctx, "t_out: ");

@@ -11,6 +11,7 @@
 ;; UNSAT
 (push 1)
 (assert (> (* x y) 1))
+(check-sat)
 
 ;; SAT
 (pop 1)

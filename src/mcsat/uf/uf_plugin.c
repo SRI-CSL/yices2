@@ -479,43 +479,44 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
 
-  if (value == NULL) {
-
-    // Get all the variables and make sure they are all assigned.
-    term_t atom = unsigned_term(t);
-    term_kind_t atom_kind = term_kind(terms, atom);
-    composite_term_t* eq_desc = NULL;
-    switch(atom_kind) {
-    case EQ_TERM:
-      eq_desc = eq_term_desc(terms, atom);
-      break;
-    default:
-      assert(false);
-    }
-
+  // Get all the variables and make sure they are all assigned.
+  term_kind_t t_kind = term_kind(terms, t);
+  if (t_kind == EQ_TERM) {
+    composite_term_t* eq_desc = eq_term_desc(terms, t);
     term_t lhs_term = eq_desc->arg[0];
     term_t rhs_term = eq_desc->arg[1];
     variable_t lhs_var = variable_db_get_variable_if_exists(var_db, lhs_term);
     variable_t rhs_var = variable_db_get_variable_if_exists(var_db, rhs_term);
-    assert(lhs_var != variable_null);
-    assert(rhs_var != variable_null);
 
     // Check if both are assigned
-    if (!trail_has_value(trail, lhs_var)) { return false; }
-    if (!trail_has_value(trail, rhs_var)) { return false; }
+    if (lhs_var == variable_null) {
+      return false;
+    }
+    if (rhs_var == variable_null) {
+      return false;
+    }
+    if (!trail_has_value(trail, lhs_var)) {
+      return false;
+    }
+    if (!trail_has_value(trail, rhs_var)) {
+      return false;
+    }
 
-    int_mset_add(vars, lhs_var);
-    int_mset_add(vars, rhs_var);
-
-    // Both variables assigned, we evaluate
-    return true;
-
-  } else {
-    // We don't propagate values (yet)
-    assert(false);
+    const mcsat_value_t* lhs_value = trail_get_value(trail, lhs_var);
+    const mcsat_value_t* rhs_value = trail_get_value(trail, rhs_var);
+    bool lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
+    bool negated = is_neg_term(t);
+    if ((negated && (value->b != lhs_eq_rhs)) ||
+        (!negated && (value->b == lhs_eq_rhs))) {
+      int_mset_add(vars, lhs_var);
+      int_mset_add(vars, rhs_var);
+      return true;
+    }
   }
 
-  return true;
+  // Default: return false for cases like f(x) -> false, this is done in the
+  // core
+  return false;
 }
 
 static

@@ -1037,10 +1037,14 @@ static
 term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
-  term_t atom = variable_db_get_term(bv->ctx->var_db, var);
+  term_table_t* terms = bv->ctx->terms;
+  const mcsat_trail_t* trail = bv->ctx->trail;
+  const variable_db_t* var_db = bv->ctx->var_db;
+
+  term_t var_term = variable_db_get_term(var_db, var);
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation():\n");
-    ctx_trace_term(bv->ctx, atom);
+    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation(): var = \n");
+    ctx_trace_term(bv->ctx, var_term);
   }
 
   // Why did we propagate (evaluation/unit)
@@ -1055,8 +1059,6 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     bv_feasible_set_db_get_reasons(bv->feasible, var, &explain_core, &lemma_reasons, EXPLAIN_SINGLETON);
 
     if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
-      const mcsat_trail_t* trail = bv->ctx->trail;
-      const variable_db_t* var_db = bv->ctx->var_db;
       trail_print(trail, ctx_trace_out(bv->ctx));
       ctx_trace_printf(bv->ctx, "core:\n");
       uint32_t i;
@@ -1071,6 +1073,11 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
     assert(lemma_reasons.size == 0);
     term_t subst = bv_explainer_explain_propagation(&bv->explainer, var, &explain_core, reasons);
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
+      ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation(): subst = ");
+      ctx_trace_term(bv->ctx, subst);
+    }
+    assert(term_type(terms, var_term) == term_type(terms, subst));
     // Remove temps
     delete_ivector(&explain_core);
     delete_ivector(&lemma_reasons);
@@ -1078,17 +1085,17 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     return subst;
   } else {
     // We explain them using the literal itself
-    bool value = trail_get_boolean_value(bv->ctx->trail, var);
+    bool value = trail_get_boolean_value(trail, var);
     if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
       ctx_trace_printf(bv->ctx, "assigned to %s\n", value ? "true" : "false");
     }
     if (value) {
       // atom => atom = true
-      ivector_push(reasons, atom);
+      ivector_push(reasons, var_term);
       return bool2term(true);
     } else {
       // neg atom => atom = false
-      ivector_push(reasons, opposite_term(atom));
+      ivector_push(reasons, opposite_term(var_term));
       return bool2term(false);
     }
   }
@@ -1104,39 +1111,30 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     ctx_trace_term(bv->ctx, t);
   }
 
-  if (value == NULL) {
+  // Get all the variables and make sure they are all assigned.
+  bv_plugin_get_notified_term_subvariables(bv, t, vars);
 
-    // Get all the variables and make sure they are all assigned.
-    bv_plugin_get_notified_term_subvariables(bv, t, vars);
-
-    // Check if the variables are assigned
-    ivector_t* var_list = int_mset_get_list(vars);
-    uint32_t i = 0;
-    for (i = 0; i < var_list->size; ++ i) {
-      bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
-      if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
-        FILE* out = ctx_trace_out(bv->ctx);
-        fprintf(out, "%"PRIu32": ", i);
-        ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
-        if (!var_evaluates) {
-          fprintf(out, "term doesn't evaluate: ");
-          ctx_trace_term(bv->ctx, t);
-        }
-      }
+  // Check if the variables are assigned
+  ivector_t* var_list = int_mset_get_list(vars);
+  uint32_t i = 0;
+  for (i = 0; i < var_list->size; ++ i) {
+    bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
+    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(bv->ctx);
+      fprintf(out, "%"PRIu32": ", i);
+      ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, var_list->data[i]));
       if (!var_evaluates) {
-        int_mset_clear(vars);
-        return false;
+        fprintf(out, "term doesn't evaluate: ");
+        ctx_trace_term(bv->ctx, t);
       }
     }
-
-    // All variables assigned
-    return true;
-
-  } else {
-    // Not used yet
-    assert(false);
+    if (!var_evaluates) {
+      int_mset_clear(vars);
+      return false;
+    }
   }
 
+  // All variables assigned
   return true;
 }
 

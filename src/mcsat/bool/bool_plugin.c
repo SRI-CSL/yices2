@@ -758,16 +758,25 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
 }
 
 bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
-#ifndef NDEBUG
+
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  if (ctx_trace_enabled(bp->ctx, "mcsat::conflict")) {
-    FILE* out = ctx_trace_out(bp->ctx);
-    fprintf(out, "asked to explain evaluation for: ");
-    ctx_trace_term(bp->ctx, t);
+  const variable_db_t* var_db = bp->ctx->var_db;
+  const mcsat_trail_t* trail = bp->ctx->trail;
+
+  // Bool plugin only explains evaluation of assigned false literals
+  term_t t_unsigned = unsigned_term(t);
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
+  if (t_var != variable_null && trail_has_cached_value(trail, t_var)) {
+    bool negated = is_neg_term(t);
+    const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
+    if (negated) {
+      return t_var_value->b != value->b;
+    } else {
+      return t_var_value->b == value->b;
+    }
   }
-#endif
-  assert(false);
-  return true;
+
+  return false;
 }
 
 void bool_plugin_push(plugin_t* plugin) {

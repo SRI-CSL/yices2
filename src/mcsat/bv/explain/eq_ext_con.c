@@ -1284,6 +1284,7 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
       }
       fprintf(out, "Subst:");
       term_print_to_file(out, ctx->terms, result_subst);
+      fprintf(out, "\n");
     }
   }
 

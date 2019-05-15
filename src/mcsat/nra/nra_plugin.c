@@ -1477,28 +1477,20 @@ static
 bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
-  if (value == NULL) {
+  // Get all the variables and make sure they are all assigned.
+  nra_plugin_get_constraint_variables(nra, t, vars);
 
-    // Get all the variables and make sure they are all assigned.
-    nra_plugin_get_constraint_variables(nra, t, vars);
-
-    // Check if the variables are assigned
-    ivector_t* var_list = int_mset_get_list(vars);
-    size_t i = 0;
-    for (i = 0; i < var_list->size; ++ i) {
-      if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
-        int_mset_clear(vars);
-        return false;
-      }
+  // Check if the variables are assigned
+  ivector_t* var_list = int_mset_get_list(vars);
+  size_t i = 0;
+  for (i = 0; i < var_list->size; ++ i) {
+    if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
+      int_mset_clear(vars);
+      return false;
     }
-
-    // All variables assigned
-    return true;
-
-  } else {
-    assert(false);
   }
 
+  // All variables assigned
   return true;
 }
 

@@ -236,6 +236,7 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
 
   // Positive literal
   disjunct_pos = unsigned_term(disjunct);
+  bool negated = disjunct_pos != disjunct;
 
   // If the disjunct is false by Boolean assignment then the variable is the
   // variable of the term
@@ -253,7 +254,8 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
   }
 
   // Get the sub-variables
-  disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, NULL);
+  const mcsat_value_t* value = negated ? &mcsat_value_true : &mcsat_value_false;
+  disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, value);
   (void)disjunct_evaluates;
   assert(disjunct_evaluates);
 }
@@ -290,7 +292,7 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   // If we're doing substitution, we need to know which variables are in the frontier
   int_mset_t disjunct_vars;
   int_mset_construct(&disjunct_vars, variable_null);
-  bool evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct, &disjunct_vars, NULL);
+  bool evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct, &disjunct_vars, &mcsat_value_false);
   (void) evaluates;
   assert(evaluates);
 

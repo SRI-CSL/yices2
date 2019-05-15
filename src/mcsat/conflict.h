@@ -62,7 +62,7 @@ struct mcsat_evaluator_interface_s {
    * If value != NULL, and the term evaluates, the output value should be
    * assigned to it.
    */
-  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, mcsat_value_t* value);
+  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, const mcsat_value_t* value);
 };
 
 /**

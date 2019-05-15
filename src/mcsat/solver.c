@@ -287,11 +287,21 @@ void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
 bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, mcsat_value_t* value) {
 
   const mcsat_solver_t* mcsat = ((const mcsat_evaluator_t*) self)->solver;
+  assert(value != NULL);
+
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::resolve")) {
+    FILE* out = trace_out(mcsat->ctx->trace);
+    fprintf(out, "explaining eval of: ");
+    term_print_to_file(out, mcsat->terms, t);
+    fprintf(out, " -> ");
+    mcsat_value_print(value, out);
+    fprintf(out, "\n");
+  }
 
   uint32_t i;
   term_kind_t kind;
   type_kind_t type_kind;
-  bool evaluates;
+  bool evaluates = false;
   plugin_t* plugin;
 
   kind = term_kind(mcsat->terms, t);
@@ -312,6 +322,10 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
       int_mset_clear(vars);
       plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
       if (plugin->explain_evaluation) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::resolve")) {
+          FILE* out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "explaining eval with: %s\n", mcsat->plugins[mcsat->kind_owners[i]].plugin_name);
+        }
         evaluates = plugin->explain_evaluation(plugin, t, vars, value);
         if (evaluates) {
           return true;
@@ -325,6 +339,10 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
       int_mset_clear(vars);
       plugin = mcsat->plugins[mcsat->type_owners[i]].plugin;
       if (plugin->explain_evaluation) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::resolve")) {
+          FILE* out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "explaining eval with: %s\n", mcsat->plugins[mcsat->type_owners[i]].plugin_name);
+        }
         evaluates = plugin->explain_evaluation(plugin, t, vars, value);
         if (evaluates) {
           return true;
@@ -337,8 +355,11 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
     // Maybe the term itself evaluates
     term_t t_unsigned = unsigned_term(t);
     variable_t t_var = variable_db_get_variable_if_exists(mcsat->var_db, t_unsigned);
-    if (t_var != variable_null) {
-      if (trail_has_value(mcsat->trail, t_var)) {
+    if (t_var != variable_null && trail_has_value(mcsat->trail, t_var)) {
+      const mcsat_value_t* t_var_value = trail_get_value(mcsat->trail, t_var);
+      bool negated = is_neg_term(t);
+      if ((negated && t_var_value->b != value->b)
+          || (!negated && t_var_value->b == value->b)) {
         int_mset_clear(vars);
         int_mset_add(vars, t_var);
         return true;
