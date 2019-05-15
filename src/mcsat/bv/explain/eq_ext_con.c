@@ -711,11 +711,9 @@ void bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivecto
       break;
     }
     case BIT_TERM: { // That's also in the fragment...
-
-      term_t a0[1];
-      a0[0] = atom_i_term;
-
-      term_t t0 = mk_bvarray(ctx->tm, 1, a0);
+      select_term_t* desc   = bit_term_desc(terms, atom_i_term);
+      uint32_t selected_bit = desc->idx;
+      term_t t0   = term_extract(ctx->tm, desc->arg, selected_bit, selected_bit+1);
       slist_t* l0 = bv_slicing_norm(exp, t0, 1, 0, NULL, &todo, &slicing->slices);
 
       term_t a1[1];
