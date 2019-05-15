@@ -1292,6 +1292,11 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
   eq_graph_destruct(&eq_graph);
   bv_slicing_slicing_destruct(&slicing);
 
+  // If x is Boolean, our substitution will be a bitvector of size 1 that
+  if (result_subst != NULL_TERM && is_boolean_term(terms, x_term)) {
+    result_subst = bit_term(terms, 0, result_subst);
+  }
+
   return result_subst;
 }
 

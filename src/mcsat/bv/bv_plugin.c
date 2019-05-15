@@ -1043,7 +1043,7 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
   term_t var_term = variable_db_get_term(var_db, var);
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::explain")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation(): var = \n");
+    ctx_trace_printf(bv->ctx, "bv_plugin_explain_propagation(): var = ");
     ctx_trace_term(bv->ctx, var_term);
   }
 
