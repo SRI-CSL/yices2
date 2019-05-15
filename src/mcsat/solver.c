@@ -333,6 +333,19 @@ bool mcsat_evaluates(const mcsat_evaluator_interface_t* self, term_t t, int_mset
     }
   }
 
+  if (!evaluates) {
+    // Maybe the term itself evaluates
+    term_t t_unsigned = unsigned_term(t);
+    variable_t t_var = variable_db_get_variable_if_exists(mcsat->var_db, t_unsigned);
+    if (t_var != variable_null) {
+      if (trail_has_value(mcsat->trail, t_var)) {
+        int_mset_clear(vars);
+        int_mset_add(vars, t_var);
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -1581,7 +1594,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       conflict_count ++;
       conflict_check(&conflict);
     } else {
-      fprintf(stderr, "skipping conflict (bool)\n");
+//      fprintf(stderr, "skipping conflict (bool)\n");
     }
   }
   statistic_avg_add(mcsat->solver_stats.avg_conflict_size, conflict.disjuncts.element_list.size);
@@ -1687,7 +1700,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
           term_t var_term = variable_db_get_term(mcsat->var_db, var);
           propagation_check(&reason, var_term, substitution);
         } else {
-          fprintf(stderr, "skipping propagation (bool)\n");
+//          fprintf(stderr, "skipping propagation (bool)\n");
         }
       }
       conflict_resolve_propagation(&conflict, var, substitution, &reason);
@@ -1825,6 +1838,12 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = var_queue_pop(&mcsat->var_queue);
       // If already assigned go on
       if (trail_has_value(mcsat->trail, var)) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+          FILE* out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "mcsat_decide(): skipping ");
+          variable_db_print_variable(mcsat->var_db, var, out);
+          fprintf(out, "\n");
+        }
         var = variable_null;
         continue;
       }

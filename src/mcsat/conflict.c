@@ -272,7 +272,7 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   // If the disjunct is true by Boolean assignment then the variable is the
   // variable of the term
   disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
-  if (disjunct_pos_var != variable_null && trail_has_value(conflict->trail, disjunct_pos_var)) {
+  if (disjunct_pos_var != variable_null && disjunct_pos_var != var && trail_has_value(conflict->trail, disjunct_pos_var)) {
     disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
     if (disjunct_pos != disjunct) {
       disjunct_value = !disjunct_value;
