@@ -263,32 +263,32 @@ extern void normalize_bvpoly_buffer(bvpoly_buffer_t *buffer);
 /*
  * Number of terms, bitsize and width
  */
-static inline uint32_t bvpoly_buffer_num_terms(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_num_terms(const bvpoly_buffer_t *b) {
   return b->nterms;
 }
 
-static inline uint32_t bvpoly_buffer_bitsize(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_bitsize(const bvpoly_buffer_t *b) {
   return b->bitsize;
 }
 
-static inline uint32_t bvpoly_buffer_width(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_width(const bvpoly_buffer_t *b) {
   return b->width;
 }
 
 /*
  * Components of monomial i
  */
-static inline int32_t bvpoly_buffer_var(bvpoly_buffer_t *b, uint32_t i) {
+static inline int32_t bvpoly_buffer_var(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms);
   return b->var[i];
 }
 
-static inline uint64_t bvpoly_buffer_coeff64(bvpoly_buffer_t *b, uint32_t i) {
+static inline uint64_t bvpoly_buffer_coeff64(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms && b->bitsize <= 64);
   return b->c[i];
 }
 
-static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
+static inline uint32_t *bvpoly_buffer_coeff(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms && b->bitsize > 64);
   return b->p[i];
 }
@@ -298,13 +298,28 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
  * Check whether b is a constant polynomial
  * - b must be normalized
  */
-static inline bool bvpoly_buffer_is_zero(bvpoly_buffer_t *b) {
+static inline bool bvpoly_buffer_is_zero(const bvpoly_buffer_t *b) {
   return b->nterms == 0;
 }
 
-static inline bool bvpoly_buffer_is_constant(bvpoly_buffer_t *b) {
+static inline bool bvpoly_buffer_is_constant(const bvpoly_buffer_t *b) {
   return b->nterms == 0 || (b->nterms == 1 && b->var[0] == const_idx);
 }
+
+/*
+ * Check whether b is of the form +x or -x
+ * - if so, return the variable into *x
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_is_pm_var(const bvpoly_buffer_t *b, int32_t *x);
+
+/*
+ * Check whether b is of the form x1 - x2
+ * - if so, return the variables in *x1 and *x2.
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_is_var_minus_var(const bvpoly_buffer_t *b, int32_t *x1, int32_t *x2);
+
 
 
 /*******************************

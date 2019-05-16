@@ -2487,7 +2487,6 @@ static bool flatten_eq_bvarray(composite_term_t *u, composite_term_t *v, ivector
 }
 
 
-
 /*
  * Try to simplify (bv-eq t1 t2) to a conjunction of terms
  * - if t1 and t2 can be rewritten as arrays of bits

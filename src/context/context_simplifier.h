@@ -54,6 +54,47 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
 
 
 /*
+ * MORE SIMPLIFICATIONS
+ */
+
+/*
+ * For bitvector equality t1 == t2, we try different simplifications and
+ * rewriting. The result is stored in a simplification record. There are
+ * five cases:
+ * - true:     (t1 == t2) is true
+ * - false:    (t1 == t2) is false
+ * - reduced:  (t1 == t2) is equivalent to (u1 == u2) for simpler terms u1, u2
+ * - reduced0: (t1 == t2) is equivalent to (u == 0) fo a simpelr term u
+ * - nochange:
+ */
+typedef enum {
+  BVEQ_CODE_TRUE,
+  BVEQ_CODE_FALSE,
+  BVEQ_CODE_REDUCED,
+  BVEQ_CODE_REDUCED0,
+  BVEQ_CODE_NOCHANGE,
+} bveq_code_t;
+
+typedef struct bveq_simp_s {
+  bveq_code_t code;
+  term_t left;
+  term_t right;
+} bveq_simp_t;
+
+
+/*
+ * Try arithmetic/rewriting simplifications for (t1 == t2)
+ * - t1 and t2 must be root terms in the internalization table
+ * - the result is stored in *r
+ * - if r->code is REDUCED then (t1 == t2) is equivalent to (u1 == u2)
+ *   the two terms u1 and u2 are stored in r->left and r->right.
+ * - if r->code is REDUCED0 then (t1 == t2) is equivalent to (u1 == 0)
+ *   u1 is stored in r->left and NULL_TERM is stored in r->right.
+ */
+extern void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2);
+
+
+/*
  * FLATTENING AND VARIABLE ELIMINATION
  */
 

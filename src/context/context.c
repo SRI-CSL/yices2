@@ -2337,6 +2337,7 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
  * BITVECTOR ATOMS
  */
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
+  bveq_simp_t simp;
   term_t t, t1, t2;
   thvar_t x, y;
 
@@ -2354,9 +2355,30 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   }
 
   /*
+   * More simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    return true_literal;
+
+  case BVEQ_CODE_FALSE:
+    return false_literal;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+    // TODO: deal with t1 == 0
+  case BVEQ_CODE_REDUCED0:
+  default:
+    break;
+  }
+
+  /*
    * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
    */
-  // no simplification
   x = internalize_to_bv(ctx, t1);
   y = internalize_to_bv(ctx, t2);
   return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
@@ -4305,6 +4327,7 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
  * Top-level bitvector atoms
  */
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
+  bveq_simp_t simp;
   ivector_t *v;
   int32_t *a;
   term_t t, t1, t2;
@@ -4351,6 +4374,30 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
 
     // flattening failed
     ivector_reset(v);
+  }
+
+  /*
+   * Try more simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    if (!tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    return;
+
+  case BVEQ_CODE_FALSE:
+    if (tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    return;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+    // TODO: deal with t1 == 0
+  case BVEQ_CODE_REDUCED0:
+  default:
+    break;
   }
 
   /*

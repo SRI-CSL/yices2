@@ -3196,7 +3196,6 @@ static bool simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
   tag_x = bvvar_tag(vtbl, x);
   tag_y = bvvar_tag(vtbl, y);
 
-
   if (tag_x == tag_y) {
     if (tag_x == BVTAG_POLY64) {
       simplify_bvpoly64_eq(solver, bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y), vx, vy);
