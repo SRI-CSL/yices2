@@ -2365,23 +2365,22 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   case BVEQ_CODE_FALSE:
     return false_literal;
 
+    // TODO: handle BVEQ_CODE_REDUCED0 better
+
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    break;
+    // pass through intended
 
-    // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
   default:
-    break;
+    /*
+     * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
+     */
+    x = internalize_to_bv(ctx, t1);
+    y = internalize_to_bv(ctx, t2);
+    return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
   }
-
-  /*
-   * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
-   */
-  x = internalize_to_bv(ctx, t1);
-  y = internalize_to_bv(ctx, t2);
-  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
 }
 
 static literal_t map_bvge_to_literal(context_t *ctx, composite_term_t *ge) {
@@ -4383,29 +4382,28 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   switch (simp.code) {
   case BVEQ_CODE_TRUE:
     if (!tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
-    return;
+    break;
 
   case BVEQ_CODE_FALSE:
     if (tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
-    return;
+    break;
 
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    break;
+    // pass through intended
 
     // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
   default:
+    /*
+     * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
+     */
+    x = internalize_to_bv(ctx, t1);
+    y = internalize_to_bv(ctx, t2);
+    ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
     break;
   }
-
-  /*
-   * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
-   */
-  x = internalize_to_bv(ctx, t1);
-  y = internalize_to_bv(ctx, t2);
-  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {
