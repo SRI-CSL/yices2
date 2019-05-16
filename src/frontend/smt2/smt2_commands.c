@@ -45,9 +45,9 @@
 #include "frontend/common/tables.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
-#include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
+#include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
 #include "utils/refcount_strings.h"
@@ -3464,22 +3464,11 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
  */
 
 /*
- * Pretty print name with quotes if needed.
- */
-static void pp_name(yices_pp_t *printer, const char *name) {
-  if (symbol_needs_quotes(name)) {
-    pp_qstring(printer, '|', '|', name);
-  } else {
-    pp_string(printer, name);
-  }
-}
-
-/*
  * Print pair (name val) where val is a Boolean value
  */
 static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t val) {
   pp_open_block(printer, PP_OPEN_PAR); // '('
-  pp_name(printer, name);
+  smt2_pp_symbol(printer, name);
   if (bval_is_undef(val)) {
     pp_string(printer, "???");
   } else {
@@ -3623,7 +3612,7 @@ static void print_assumption_list(yices_pp_t *printer, assumption_table_t *table
     d = assumption_table_get(table, a[i]);
     assert(d != NULL);
     if (! d->polarity) pp_open_block(printer, PP_OPEN_NOT);
-    pp_name(printer, d->name);
+    smt2_pp_symbol(printer, d->name);
     if (! d->polarity) pp_close_block(printer, true);
   }
   pp_close_block(printer, true);

@@ -371,6 +371,19 @@ static void build_smt2_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
   build_smt2_bv(b, aux, n);
 }
 
+// quoted identifier
+static void build_qid(string_buffer_t *b, const char *prefix, int32_t index, char quote[2]) {
+  if (quote[0] != '\0') {
+    string_buffer_append_char(b, quote[0]);
+  }
+  string_buffer_append_string(b, prefix);
+  string_buffer_append_int32(b, index);
+  if (quote[1] != '\0') {
+    string_buffer_append_char(b, quote[1]);
+  }
+  string_buffer_close(b);
+}
+
 
 /*
  * TOKEN CONVERSION
@@ -468,6 +481,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_SMT2_BV_ATOM:
     build_smt2_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+  case PP_SMT2_QID_ATOM:
+    build_qid(buffer, atm->data.qid.prefix, atm->data.qid.index, atm->data.qid.quote);
     s = buffer->data;
     break;
 
@@ -989,6 +1006,36 @@ void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
   tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV_ATOM);
   atom->data.bv.bv = bv;
   atom->data.bv.nbits = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+
+/*
+ * Quoted id:
+ * - same as pp_id but with open and close quote
+ *
+ * Examples: pp_quoted_id(printer, "x!", 20, '|', '|') will print |x!20|
+ */
+void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // get the token size using buffer
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_id(buffer, prefix, id);
+  n = string_buffer_length(buffer) + (open_quote != '\0') + (close_quote != '\0');
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_SMT2_QID_ATOM);
+  atom->data.qid.prefix = prefix;
+  atom->data.qid.index = id;
+  atom->data.qid.quote[0] = open_quote;
+  atom->data.qid.quote[1] = close_quote;
 
   pp_push_token(&printer->pp, tk);
 }

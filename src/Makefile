@@ -371,7 +371,9 @@ extra_src_c := \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_symbol_printer.c \
 	frontend/smt2/smt2_term_stack.c \
+	frontend/smt2/smt2_type_printer.c \
 	frontend/yices/arith_solver_codes.c \
 	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \

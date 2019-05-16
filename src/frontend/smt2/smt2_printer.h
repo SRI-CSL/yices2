@@ -41,7 +41,6 @@
 #include "io/yices_pp.h"
 #include "model/concrete_values.h"
 
-
 /*
  * Print object c using a pretty printer object
  * - c must be a valid object in table
