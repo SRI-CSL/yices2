@@ -278,26 +278,9 @@ term_t mk_bvneg(term_manager_t* tm, term_t t) {
   }
 }
 
-//static inline
-//term_t mk_bvadd(term_manager_t* tm, term_t a, term_t b) {
-//  term_table_t* terms = tm->terms;
-//  if (term_bitsize(terms,a) <= 64) {
-//    bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
-//    bvarith64_buffer_set_term(buffer, terms, a);
-//    bvarith64_buffer_add_term(buffer, terms, b);
-//    return mk_bvarith64_term(tm, buffer);
-//  } else {
-//    bvarith_buffer_t *buffer = term_manager_get_bvarith_buffer(tm);
-//    bvarith_buffer_set_term(buffer, terms, a);
-//    bvarith_buffer_add_term(buffer, terms, b);
-//    return mk_bvarith_term(tm, buffer);
-//  }
-//}
-
-
 // Mark equality eq: (var = t) for solving
 static
-void preprocesor_mark_eq(preprocessor_t* pre, term_t eq, term_t var) {
+void preprocessor_mark_eq(preprocessor_t* pre, term_t eq, term_t var) {
   assert(is_pos_term(eq));
   assert(term_kind(pre->terms, var) == UNINTERPRETED_TERM);
 
@@ -332,6 +315,19 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     return t_pre;
   }
 
+// Note: negative affect on general performance due to solved/substituted
+//       terms being to complex for explainers.
+//
+//  // First, if the assertion is a conjunction, just expand
+//  if (is_assertion && is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
+//    // !(or t1 ... tn) -> !t1 && ... && !tn
+//    composite_term_t* t_desc = composite_term_desc(terms, t);
+//    for (i = 0; i < t_desc->arity; ++ i) {
+//      ivector_push(out, opposite_term(t_desc->arg[i]));
+//    }
+//    return true_term;
+//  }
+//
   // Start
   ivector_t* pre_stack = &pre->preprocessing_stack;
   ivector_reset(pre_stack);
@@ -413,6 +409,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
               }
             }
             current_pre = yices_bvconcat(n_vars, vars);
+            term_t eq = yices_eq(current, current_pre);
+            preprocessor_mark_eq(pre, eq, current);
           }
         } 
       }
@@ -481,14 +479,14 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
             // If lhs/rhs is a first-time seen variable, we can solve it
             if (lhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, lhs) == NULL_TERM) {
               // First time variable, let's solve
-              preprocesor_mark_eq(pre, t, lhs);
+              preprocessor_mark_eq(pre, t, lhs);
               eq_solve_var = lhs;
             } else {
               term_t rhs = desc->arg[1];
               term_kind_t rhs_kind = term_kind(terms, rhs);
               if (rhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, rhs) == NULL_TERM) {
                 // First time variable, let's solve
-                preprocesor_mark_eq(pre, t, rhs);
+                preprocessor_mark_eq(pre, t, rhs);
                 eq_solve_var = rhs;
               }
             }
@@ -1038,6 +1036,18 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
   for (i = 0; i < pre->equalities_list.size; ++ i) {
     term_t eq = pre->equalities_list.data[i];
     term_t eq_var = preprocessor_get_eq_solved_var(pre, eq);
+    if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+      mcsat_trace_printf(pre->tracer, "eq = ");
+      trace_term_ln(pre->tracer, pre->terms, eq);
+      mcsat_trace_printf(pre->tracer, "\neq_var = ");
+      trace_term_ln(pre->tracer, pre->terms, eq_var);
+      mcsat_trace_printf(pre->tracer, "\n");
+    }
+    // Some equalities are marked, but not solved. These we skip as they
+    // are already set in the model
+    if (preprocessor_get(pre, eq_var) == eq_var) {
+      continue;
+    }
     composite_term_t* eq_desc = composite_term_desc(pre->terms, eq);
     term_t eq_subst = eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0];
     model_add_substitution(model, eq_var, eq_subst);
