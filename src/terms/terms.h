@@ -1296,6 +1296,15 @@ static inline bool is_const_term(const term_table_t *table, term_t t) {
   return is_const_kind(term_kind(table, t));
 }
 
+// Check whether t is a bitvector polynomials
+static inline bool is_bvpoly_kind(term_kind_t tag) {
+  return tag == BV64_POLY || tag == BV_POLY;
+}
+
+static inline bool is_bvpoly_term(const term_table_t *table, term_t t) {
+  return is_bvpoly_kind(term_kind(table, t));
+}
+
 
 /*
  * Check the type of a literal.

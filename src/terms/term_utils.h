@@ -34,6 +34,7 @@
 
 #include "terms/bv64_interval_abstraction.h"
 #include "terms/bv_constants.h"
+#include "terms/bvpoly_buffers.h"
 #include "terms/terms.h"
 
 
@@ -323,6 +324,17 @@ extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v)
  */
 extern bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b);
 extern bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b);
+
+
+/*
+ * Add or subtract t to/from buffer b
+ * - try to convert t to a bitvector polynomial first
+ * - t must be a bitvector term
+ * - b->bitsize must be equal to t's bitsize
+ */
+extern void add_bvterm_to_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
+extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
+
 
 
 /*

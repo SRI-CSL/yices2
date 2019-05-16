@@ -5371,6 +5371,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->aux_poly = NULL;
   ctx->aux_poly_size = 0;
 
+  ctx->bvpoly_buffer = NULL;
+
   q_init(&ctx->aux);
   init_bvconstant(&ctx->bv_buffer);
 
@@ -5460,6 +5462,8 @@ void delete_context(context_t *ctx) {
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
 
+  context_free_bvpoly_buffer(ctx);
+
   q_clear(&ctx->aux);
   delete_bvconstant(&ctx->bv_buffer);
 }
@@ -5510,6 +5514,8 @@ void reset_context(context_t *ctx) {
   context_reset_poly_buffer(ctx);
   context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
+
+  context_free_bvpoly_buffer(ctx);
 
   q_clear(&ctx->aux);
 }

@@ -346,7 +346,6 @@ extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
 extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
 
 
-
 /*
  * Hash function1
  * - b must be normalized and have bitsize <= 64
