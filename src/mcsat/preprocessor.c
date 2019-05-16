@@ -23,6 +23,8 @@
 #include "terms/bvarith64_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
 
+#include "model/models.h"
+
 #include "context/context_types.h"
 
 #include "yices.h"
@@ -35,6 +37,8 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   init_int_hmap(&pre->purification_map, 0);
   init_ivector(&pre->purification_map_list, 0);
   init_ivector(&pre->preprocessing_stack, 0);
+  init_int_hmap(&pre->equalities, 0);
+  init_ivector(&pre->equalities_list, 0);
   pre->tracer = NULL;
   pre->exception = handler;
   pre->options = options;
@@ -51,6 +55,8 @@ void preprocessor_destruct(preprocessor_t* pre) {
   delete_int_hmap(&pre->preprocess_map);
   delete_ivector(&pre->preprocess_map_list);
   delete_ivector(&pre->preprocessing_stack);
+  delete_int_hmap(&pre->equalities);
+  delete_ivector(&pre->equalities_list);
   delete_term_manager(&pre->tm);
   scope_holder_destruct(&pre->scope);
 }
@@ -240,6 +246,8 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
     // Remember for later
     int_hmap_add(&pre->purification_map, t, x);
     ivector_push(&pre->purification_map_list, t);
+    // Also add the variable to the pre-processor
+    preprocessor_set(pre, x, x);
     // Add equality to output
     term_t eq = mk_eq(&pre->tm, x, t);
     ivector_push(out, eq);
@@ -286,7 +294,32 @@ term_t mk_bvneg(term_manager_t* tm, term_t t) {
 //  }
 //}
 
-term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
+
+// Mark equality eq: (var = t) for solving
+static
+void preprocesor_mark_eq(preprocessor_t* pre, term_t eq, term_t var) {
+  assert(is_pos_term(eq));
+  assert(term_kind(pre->terms, var) == UNINTERPRETED_TERM);
+
+  // Mark the equality
+  int_hmap_pair_t* find = int_hmap_get(&pre->equalities, eq);
+  assert(find->val == -1);
+  find->val = var;
+  ivector_push(&pre->equalities_list, eq);
+}
+
+static
+term_t preprocessor_get_eq_solved_var(const preprocessor_t* pre, term_t eq) {
+  assert(is_pos_term(eq));
+  int_hmap_pair_t* find = int_hmap_find((int_hmap_t*) &pre->equalities, eq);
+  if (find != NULL) {
+    return find->val;
+  } else {
+    return NULL_TERM;
+  }
+}
+
+term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertion) {
 
   term_table_t* terms = pre->terms;
   term_manager_t* tm = &pre->tm;
@@ -436,28 +469,75 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
 
+      // Is this a top-level equality assertion
+      bool is_equality = current_kind == EQ_TERM || current_kind == BV_EQ_ATOM || current_kind == ARITH_BINEQ_ATOM;
+      term_t eq_solve_var = NULL_TERM;
+      if (is_assertion && is_equality) {
+        if (current == t) {
+          eq_solve_var = preprocessor_get_eq_solved_var(pre, t);
+          if (eq_solve_var == NULL_TERM) {
+            term_t lhs = desc->arg[0];
+            term_kind_t lhs_kind = term_kind(terms, lhs);
+            // If lhs/rhs is a first-time seen variable, we can solve it
+            if (lhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, lhs) == NULL_TERM) {
+              // First time variable, let's solve
+              preprocesor_mark_eq(pre, t, lhs);
+              eq_solve_var = lhs;
+            } else {
+              term_t rhs = desc->arg[1];
+              term_kind_t rhs_kind = term_kind(terms, rhs);
+              if (rhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, rhs) == NULL_TERM) {
+                // First time variable, let's solve
+                preprocesor_mark_eq(pre, t, rhs);
+                eq_solve_var = rhs;
+              }
+            }
+          } else {
+            // Check that we it's not there already
+            if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
+              eq_solve_var = NULL_TERM;
+            }
+          }
+        }
+      }
+
       ivector_t children;
       init_ivector(&children, n);
 
       for (i = 0; i < n; ++ i) {
         term_t child = desc->arg[i];
-        term_t child_pre = preprocessor_get(pre, child);
-
-        if (child_pre == NULL_TERM) {
-          children_done = false;
-          ivector_push(pre_stack, child);
-        } else if (child_pre != child) {
-          children_same = false;
+        if (child != eq_solve_var) {
+          term_t child_pre = preprocessor_get(pre, child);
+          if (child_pre == NULL_TERM) {
+            children_done = false;
+            ivector_push(pre_stack, child);
+          } else if (child_pre != child) {
+            children_same = false;
+          }
+          if (children_done) {
+            ivector_push(&children, child_pre);
+          }
         }
-
-        if (children_done) { ivector_push(&children, child_pre); }
       }
 
+     if (eq_solve_var != NULL_TERM) {
+       // Check again to make sure we don't have something like x = x + 1
+       if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
+         // Do it again
+         children_done = false;
+       }
+     }
+
       if (children_done) {
-        if (children_same) {
-          current_pre = current;
+        if (eq_solve_var != NULL_TERM) {
+          preprocessor_set(pre, eq_solve_var, children.data[0]);
+          current_pre = true_term;
         } else {
-          current_pre = mk_composite(pre, current_kind, n, children.data);
+          if (children_same) {
+            current_pre = current;
+          } else {
+            current_pre = mk_composite(pre, current_kind, n, children.data);
+          }
         }
       }
 
@@ -912,6 +992,7 @@ void preprocessor_push(preprocessor_t* pre) {
   scope_holder_push(&pre->scope,
       &pre->preprocess_map_list.size,
       &pre->purification_map_list.size,
+      &pre->equalities_list.size,
       NULL);
 }
 
@@ -919,10 +1000,12 @@ void preprocessor_pop(preprocessor_t* pre) {
 
   uint32_t preprocess_map_list_size = 0;
   uint32_t purification_map_list_size = 0;
+  uint32_t equalities_list_size = 0;
 
   scope_holder_pop(&pre->scope,
       &preprocess_map_list_size,
       &purification_map_list_size,
+      &equalities_list_size,
       NULL);
 
   while (pre->preprocess_map_list.size > preprocess_map_list_size) {
@@ -940,6 +1023,24 @@ void preprocessor_pop(preprocessor_t* pre) {
     assert(find != NULL);
     int_hmap_erase(&pre->purification_map, find);
   }
+
+  while (pre->equalities_list.size > equalities_list_size) {
+    term_t eq = ivector_last(&pre->equalities_list);
+    ivector_pop(&pre->equalities_list);
+    int_hmap_pair_t* find = int_hmap_find(&pre->equalities, eq);
+    assert(find != NULL);
+    int_hmap_erase(&pre->equalities, find);
+  }
 }
 
+void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
+  uint32_t i = 0;
+  for (i = 0; i < pre->equalities_list.size; ++ i) {
+    term_t eq = pre->equalities_list.data[i];
+    term_t eq_var = preprocessor_get_eq_solved_var(pre, eq);
+    composite_term_t* eq_desc = composite_term_desc(pre->terms, eq);
+    term_t eq_subst = eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0];
+    model_add_substitution(model, eq_var, eq_subst);
+  }
+}
 

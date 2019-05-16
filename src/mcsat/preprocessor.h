@@ -52,6 +52,12 @@ typedef struct {
   /** Preprocessor stack */
   ivector_t preprocessing_stack;
 
+  /** Map from equalities to the variable it is solved for */
+  int_hmap_t equalities;
+
+  /** List of solved equalities */
+  ivector_t equalities_list;
+
   /** Tracer */
   tracer_t* tracer;
 
@@ -73,7 +79,7 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
 void preprocessor_destruct(preprocessor_t* pre);
 
 /** Preprocess the term, add any additional assertions to output vector. */
-term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out);
+term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertions);
 
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
@@ -87,5 +93,7 @@ void preprocessor_push(preprocessor_t* pre);
 /** Pop the preprocessor */
 void preprocessor_pop(preprocessor_t* pre);
 
+/** Add any variable substitutions to the model */
+void preprocessor_build_model(preprocessor_t* pre, model_t* model);
 
 #endif

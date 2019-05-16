@@ -2104,7 +2104,7 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
   ivector_add(assertions, f, n);
   for (i = 0; i < assertions->size; ++ i) {
     term_t f = assertions->data[i];
-    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, assertions);
+    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, assertions, true);
     assertions->data[i] = f_pre;
   }
 
@@ -2184,6 +2184,9 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
       plugin->build_model(plugin, model);
     }
   }
+
+  // Let the preprocessor add to the model
+  preprocessor_build_model(&mcsat->preprocessor, model);
 }
 
 void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
