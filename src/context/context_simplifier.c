@@ -260,7 +260,7 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
 void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2) {
   term_table_t *terms;
   bvpoly_buffer_t *b;
-  uint32_t n, k;
+  uint32_t n;
   term_t u1, u2;
 
   terms = ctx->terms;
@@ -276,7 +276,6 @@ void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t
     sub_bvterm_from_buffer(terms, t2, b);
     normalize_bvpoly_buffer(b);
 
-    k = bvpoly_buffer_num_terms(b);
     if (bvpoly_buffer_is_zero(b)) {
       r->code = BVEQ_CODE_TRUE;
     } else if (bvpoly_buffer_is_constant(b)) {
