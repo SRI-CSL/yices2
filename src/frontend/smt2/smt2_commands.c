@@ -655,7 +655,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
  * REQUIRED INFO
  */
 static const char *yices_name = "Yices";
-static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović";
+static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović, Ian A. Mason, Stéphane Graham-Lengrand";
 static const char *error_behavior = "immediate-exit";
 
 /*
