@@ -4574,6 +4574,10 @@ static void show_smtlib_version(const smt2_globals_t *g) {
     print_kw_symbol_pair(":smt-lib-version", "2.5");
     break;
 
+  case 2600:
+    print_kw_symbol_pair(":smt-lib-version", "2.6");
+    break;
+
   default:
     print_kw_symbol_pair(":smt-lib-version", "unknown");
     break;
