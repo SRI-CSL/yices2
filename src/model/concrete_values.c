@@ -1976,7 +1976,8 @@ value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) 
   value_t v;
 
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
-         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE ||
+	 type_kind(table->type_table, tau) == INSTANCE_TYPE);
   assert(0 <= id);
 
   const_hobj.table = table;
@@ -2221,6 +2222,8 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
 
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
+  case INSTANCE_TYPE:
+    // we treat an instance type as an uninterpreted tyoe
     v = vtbl_mk_const(vtbl, tau, 0, NULL);
     break;
 
@@ -2233,7 +2236,9 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
     v = vtbl_mk_function(vtbl, tau, 0, NULL, v); // constant function
     break;
 
+  case VARIABLE_TYPE:
   default:
+    // should not happen
     assert(false);
     v = vtbl_mk_unknown(vtbl);
     break;
@@ -2326,6 +2331,7 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     // fall-through intended
 
   case UNINTERPRETED_TYPE:
+  case INSTANCE_TYPE:
     a[0] = vtbl_mk_const(vtbl, tau, 0, NULL);
     a[1] = vtbl_mk_const(vtbl, tau, 1, NULL);
     break;
@@ -2343,6 +2349,7 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     a[1] = vtbl_mk_function(vtbl, tau, 0, NULL, a[1]);
     break;
 
+  case VARIABLE_TYPE:
   default:
     assert(false);
     return false;
@@ -2454,7 +2461,8 @@ value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b) {
  */
 value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
-         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE ||
+	 type_kind(table->type_table, tau) == INSTANCE_TYPE);
   assert(0 <= id);
 
   const_hobj.table = table;
@@ -3068,6 +3076,7 @@ value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i) {
     return vtbl_find_enum_function(table, tau, i);
 
   default:
+    // tau can't be a finite type
     assert(false);
     return null_value;
   }
