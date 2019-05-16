@@ -27,6 +27,7 @@
 
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
+#include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "utils/int_vectors.h"
 #include "utils/int_array_sort.h"
@@ -64,7 +65,7 @@ static void smt2_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
   assert(v != null_value && name != NULL);
 
   pp_open_block(printer, PP_OPEN_EQ);
-  pp_string(printer, name);
+  smt2_pp_symbol(printer, name);
   smt2_pp_object(printer, &model->vtbl, v);
   pp_close_block(printer, true);
 }
@@ -205,7 +206,7 @@ static void smt2_eval_pp_term_value(yices_pp_t *printer, evaluator_t *eval, term
     name = term_name(model->terms, t);
     assert(name != NULL);
     pp_open_block(printer, PP_OPEN_EQ);
-    pp_string(printer, name);
+    smt2_pp_symbol(printer, name);
     smt2_pp_object(printer, &model->vtbl, v);
     pp_close_block(printer, true);
   }
