@@ -1387,7 +1387,6 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
   if (c == true_term) return x;
   if (c == false_term) return y;
 
-
   // Check whether (ite c x y) simplifies to a bv_array term
   kind_x = term_kind(tbl, x);
   kind_y = term_kind(tbl, y);
@@ -4877,8 +4876,7 @@ term_t mk_bvlshr(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2)
          && term_type(tbl, t1) == term_type(tbl, t2));
 
-
-  // (bvlshr x x) --> 0b000000 ... 0
+  // rewrite: (bvlshr x x) --> 0b000000 ... 0
   if (t1 == t2) return make_zero_bv(manager, term_bitsize(tbl, t1));
 
   switch (term_kind(tbl, t2)) {
@@ -4949,7 +4947,6 @@ static bool term_is_bvashr_invariant(term_table_t *tbl, term_t t1) {
 
 }
 
-
 term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
@@ -4958,6 +4955,8 @@ term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2)
          && term_type(tbl, t1) == term_type(tbl, t2));
 
+  // possible rewrite:
+  // (bvashr x x) = if x<0 then 0b11111.. else 0b000...
 
   switch (term_kind(tbl, t2)) {
   case BV64_CONSTANT:

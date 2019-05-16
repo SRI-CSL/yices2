@@ -226,47 +226,6 @@ term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 }
 
 
-
-
-/*
- * Check whether t1 and t2 are equal or disequal using arithmetic + some rewriting
- * - return true_literal if (t1 - t2) is rewritten to zero
- * - return false_literal if (t1 - t2) is reritten to a non-zero constant
- * - return NULL_TERM otherwise
- *
- */
-term_t test_arithmetic_bveq(context_t *ctx, term_t t1, term_t t2) {
-  term_table_t *terms;
-  bvpoly_buffer_t *b;
-  uint32_t n;
-  term_t t;
-
-  terms = ctx->terms;
-
-  t = NULL_TERM;
-
-  if (is_bvpoly_term(terms, t1) || is_bvpoly_term(terms, t2)) {
-    b = context_get_bvpoly_buffer(ctx);
-    n = term_bitsize(terms, t1);
-
-    reset_bvpoly_buffer(b, n);
-    add_bvterm_to_buffer(terms, t1, b);
-    sub_bvterm_from_buffer(terms, t2, b);
-    normalize_bvpoly_buffer(b);
-
-    if (bvpoly_buffer_is_constant(b)) {
-      if (bvpoly_buffer_is_zero(b)) {
-	t = true_literal;
-      } else {
-	t = false_literal;
-      }
-    }
-  }
-
-  return t;
-}
-
-
 /*
  * Simplification for (bveq t1 t2)
  * - both t1 and t2 must be root terms in the internalization table
@@ -286,6 +245,54 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
 
   return t;
 }
+
+
+
+/*
+ * Try arithmetic/rewriting simplifications for (t1 == t2)
+ * - t1 and t2 must be root terms in the internalization table
+ * - the result is stored in *r
+ * - if r->code is REDUCED then (t1 == t2) is equivalent to (u1 == u2)
+ *   the two terms u1 and u2 are stored in r->left and r->right.
+ * - if r->code is REDUCED0 then (t1 == t2) is equivalent to (u1 == 0)
+ *   u1 is stored in r->left and NULL_TERM is stored in r->right.
+ */
+void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2) {
+  term_table_t *terms;
+  bvpoly_buffer_t *b;
+  uint32_t n, k;
+  term_t u1, u2;
+
+  terms = ctx->terms;
+
+  r->code = BVEQ_CODE_NOCHANGE;
+
+  if (is_bvpoly_term(terms, t1) || is_bvpoly_term(terms, t2)) {
+    b = context_get_bvpoly_buffer(ctx);
+    n = term_bitsize(terms, t1);
+
+    reset_bvpoly_buffer(b, n);
+    add_bvterm_to_buffer(terms, t1, b);
+    sub_bvterm_from_buffer(terms, t2, b);
+    normalize_bvpoly_buffer(b);
+
+    k = bvpoly_buffer_num_terms(b);
+    if (bvpoly_buffer_is_zero(b)) {
+      r->code = BVEQ_CODE_TRUE;
+    } else if (bvpoly_buffer_is_constant(b)) {
+      r->code = BVEQ_CODE_FALSE;
+    } else if (bvpoly_buffer_is_pm_var(b, &u1)) {
+      r->code = BVEQ_CODE_REDUCED0;
+      r->left = u1;
+      r->right = NULL_TERM;
+    } else if (bvpoly_buffer_is_var_minus_var(b, &u1, &u2)) {
+      r->code = BVEQ_CODE_REDUCED;
+      r->left = u1;
+      r->right = u2;
+    }
+  }
+}
+
 
 
 
