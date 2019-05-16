@@ -77,6 +77,9 @@ extern void context_free_marks(context_t *ctx);
  * - poly_buffer is a cheaper data structure, but it does not support
  *   all the operations
  * - aux_poly is even cheaper, but it's for direct construction only
+ *
+ * There's one buffer for bitvector polynomials. It's suitable for all
+ * bit widths.
  */
 
 /*
@@ -118,6 +121,13 @@ extern polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n);
  * Free the auxiliary polynomial
  */
 extern void context_free_aux_poly(context_t *ctx);
+
+
+/*
+ * Buffers for bitvector polynomials
+ */
+extern bvpoly_buffer_t *context_get_bvpoly_buffer(context_t *ctx);
+extern void context_free_bvpoly_buffer(context_t *ctx);
 
 
 

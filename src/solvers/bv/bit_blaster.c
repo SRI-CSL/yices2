@@ -2810,7 +2810,6 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
   uint32_t i;
   literal_t sum, f, c, d;
 
-
   c = false_literal; // carry in = 0
 
   for (i=0; i<n; i++) {

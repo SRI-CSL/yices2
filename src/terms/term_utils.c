@@ -1620,6 +1620,580 @@ bool bvterm_is_max_signed(term_table_t *tbl, term_t t) {
 
 
 
+
+
+
+
+/*****************************************
+ *  REWRITING OF BV-ARRAY TO ARITHMETIC  *
+ ****************************************/
+
+/*
+ * Record to store the result of a scan:
+ * - a scan succceeds in an array a[i .... n-1] if a[i...i+k] is
+ *   equal to some term x or (bvnot x)
+ * The records stores
+ * - success/failure
+ * - the term x in question
+ * - whether the scan found x or (bvnot x)
+ * - the number of bits scanned (i.e., k)
+ */
+typedef struct bvscan_result_s {
+  bool success;
+  term_t term;
+  bool negated;
+  uint32_t numbits;
+} bvscan_result_t;
+
+
+/*
+ * Check whether t is (bit-extract x 0) or (not (bit-extract x 0))
+ * - if so return x otherwise return null_term
+ */
+static term_t term_is_start_bit(const term_table_t *tbl, term_t t) {
+  select_term_t *d;
+  term_t x;
+
+  x = NULL_TERM;
+  if (term_kind(tbl, t) == BIT_TERM) {
+    d = bit_term_desc(tbl, t);
+    if (d->idx == 0) {
+      x = d->arg;
+    }
+  }
+  return x;
+}
+
+/*
+ * Check whether t is (bit-extract x i) or (not (bit-extract x i))
+ */
+static bool term_is_bit_extract(const term_table_t *tbl, term_t t, term_t x, uint32_t i) {
+  select_term_t *d;
+
+  if (term_kind(tbl, t) == BIT_TERM) {
+    d = bit_term_desc(tbl, t);
+    return d->idx == i && d->arg == x;
+  }
+
+  return  false;
+}
+
+/*
+ * Scan a bit-array a[ .... n-1] starting at index i
+ * and search for a pattern (bit 0 x) ... (bit j x)
+ *               or (not (bit 0 x)) .... (not (bit j x))
+ */
+static void bvscan(const term_table_t *tbl, bvscan_result_t *result, uint32_t i, uint32_t n, const term_t *a) {
+  term_t b0, x;
+  uint32_t j;
+
+  assert(i <= n);
+
+  if (i == n) goto failed;
+
+  b0 = a[i];
+  x = term_is_start_bit(tbl, b0);
+  if (x == NULL_TERM) goto failed;
+
+  assert(term_is_bit_extract(tbl, a[i], x, 0));
+
+  j = 1;
+  i ++;
+  while (i<n && polarity_of(a[i]) == polarity_of(b0)
+	 && term_is_bit_extract(tbl, a[i], x, j)) {
+    i ++;
+    j ++;
+  }
+
+  // success
+  result->success = true;
+  result->term = x;
+  result->negated = is_neg_term(b0);
+  result->numbits = j;
+  return;
+
+ failed:
+  result->success = false;
+}
+
+
+/*
+ * Record to store the result of a constant scan
+ * - we scan an array of bits a[i ... i+k-1] and try to convert
+ *   the bits to a constant value
+ * - the record stores the number of bits scanned (i.e., k)
+ *   and the value if k>0.
+ * - bitsize is the bitsize for the constant
+ * - width is the number of words = ceil(bitsize/32)
+ * - if bitsize <= 64, the constant is stored in val64
+ * - if bitsize > 64, the constant is stored in array val
+ *   an array of the right size if allocated if needed
+ *
+ * To save a call to malloc, we include a buffer of 20 words.
+ * This is enough to store a constant of 640 bits or less.
+ */
+#define BVCONST_SCAN_BUFFER_SIZE 20
+
+typedef struct bvconst_scan_result_s {
+  uint32_t bitsize;
+  uint32_t width;
+  uint32_t numbits; // number of bits scanned
+  uint64_t val64;
+  uint32_t *val;
+  uint32_t buffer[BVCONST_SCAN_BUFFER_SIZE];
+} bvconst_scan_result_t;
+
+// Initialize for an n-bit value
+static void init_bvconst_scan(bvconst_scan_result_t *result, uint32_t n) {
+  result->bitsize = n;
+  result->width = (n + 31) >> 5;
+  result->numbits = 0;
+  result->val64 = 0;
+  result->val = NULL;
+}
+
+// Allocate memory for the constant if needed, initialize the constant to zero
+// and set the val pointer
+static void prepare_bvconst_scan(bvconst_scan_result_t *result) {
+  uint32_t n;
+
+  n = result->width;
+  if (n > 2) {
+    assert(result->bitsize > 64);
+    if (n <= BVCONST_SCAN_BUFFER_SIZE) {
+      result->val = result->buffer;
+    } else {
+      result->val = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+    }
+    bvconst_clear(result->val, n);
+  }
+}
+
+// Set bit i of the internal constant
+static void bvconst_scan_set_bit(bvconst_scan_result_t *result, uint32_t i) {
+  assert(i < result->bitsize);
+
+  if (result->bitsize <= 64) {
+    result->val64 |= (((uint64_t) 1) << i);
+  } else {
+    bvconst_set_bit(result->val, i);
+  }
+}
+
+// Check that the constant is normalized
+#ifndef NDEBUG
+static bool bvconst_scan_is_normalized(bvconst_scan_result_t *result) {
+  if (result->bitsize <= 64) {
+    return result->val64 == norm64(result->val64, result->bitsize);
+  } else {
+    return bvconst_is_normalized(result->val, result->bitsize);
+  }
+}
+#endif
+
+// Free the allocate buffer if needed
+static void delete_bvconst_scan(bvconst_scan_result_t *result) {
+  if (result->val != NULL && result->width > BVCONST_SCAN_BUFFER_SIZE) {
+    safe_free(result->val);
+    result->val = NULL;
+  }
+}
+
+
+// check whether term t is a boolean constant
+static inline bool is_bool_constant(term_t t) {
+  return t == false_term || t == true_term;
+}
+
+/*
+ * Scan bit-array a[ .... n-1] starting at index i
+ * - convert a[i .... i+k-1] to a constant and store the result in *result
+ */
+static void bvscan_for_constant(const term_table_t *tbl, bvconst_scan_result_t *result,
+				uint32_t i, uint32_t n, const term_t *a) {
+  uint32_t j;
+
+  assert(i < n);
+
+  if (! is_bool_constant(a[i])) {
+    result->numbits = 0; // nothing scanned
+    return;
+  }
+
+  j = 0;
+  prepare_bvconst_scan(result);
+
+  do {
+    if (a[i] == true_term) bvconst_scan_set_bit(result, j);
+    i ++;
+    j ++;
+  } while (i < n && is_bool_constant(a[i]));
+
+  result->numbits = j;
+  assert(bvconst_scan_is_normalized(result));
+}
+
+
+
+/*
+ * Try to convert t to an arithmetic expression
+ * - t must be a bv-array term
+ * - return true if that succeeds, and store the result in buffer b
+ * - otherwise return false and leave b unchanged.
+ *
+ * We currently just check for the case t = (bvnot x) or t = x.
+ * If t is (bvnot x), we store -1 - x in b.
+ */
+bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b) {
+  composite_term_t *bits;
+  bvscan_result_t result;
+  term_t x;
+  uint32_t n;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(0 < n && n <= 64);
+
+  bvscan(tbl, &result, 0, n, bits->arg);
+  if (result.success &&
+      result.numbits == n &&
+      term_bitsize(tbl, result.term) == n ) {
+
+    x = result.term;
+    if (result.negated) {
+      // t is (bvnot x) = (2^n-1) - x = (-1) - x
+      bvarith64_buffer_sub_one(b);
+      bvarith64_buffer_sub_var(b, x);
+    } else {
+      // t is x
+      bvarith64_buffer_add_var(b, x);
+    }
+    bvarith64_buffer_normalize(b);
+    return true;
+  }
+
+  return false;
+}
+
+bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b) {
+  composite_term_t *bits;
+  bvscan_result_t result;
+  term_t x;
+  uint32_t n;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(n > 64);
+
+  bvscan(tbl, &result, 0, n, bits->arg);
+  if (result.success &&
+      result.numbits == n &&
+      term_bitsize(tbl, result.term) == n) {
+
+    x = result.term;
+    if (result.negated) {
+      // t is (bvnot x) = (2^n-1) - x = (-1) - x
+      bvarith_buffer_sub_one(b);
+      bvarith_buffer_sub_var(b, x);
+    } else {
+      // t is x
+      bvarith_buffer_add_var(b, x);
+    }
+    bvarith_buffer_normalize(b);
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+ * Try to rewrite array a[0 ... n] as c + 2^k * x or c + 2^k * (bvnot x)
+ * where x has n bits.
+ *
+ * - return true if that works
+ * - store c and k in cscan
+ * - store x/bvnot x in vscan
+ */
+static bool convert_bvarray(const term_table_t *tbl, bvconst_scan_result_t *cscan,
+			    bvscan_result_t *vscan, uint32_t n, const term_t *a) {
+  uint32_t k;
+
+  bvscan_for_constant(tbl, cscan, 0, n, a);
+  k = cscan->numbits;
+  bvscan(tbl, vscan, k, n, a);
+
+  return vscan->success && vscan->numbits + k == n
+    && term_bitsize(tbl, vscan->term) == n;
+}
+
+/*
+ * Add c + 2^k * x or c + 2^k * (bvnot x) to b
+ * - k is given by cscan->numbits
+ * - c is stored in cscan->val64 or csan->val
+ * - c is smaller than 2^k
+ */
+static void add_decomp_to_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t *cscan, term_t x, bool negated) {
+  uint32_t k, n;
+  uint64_t a;
+
+  assert(cscan->bitsize == bvpoly_buffer_bitsize(b));
+
+  n = cscan->bitsize;
+  k = cscan->numbits;
+  assert(k < n);
+
+  if (k == 0) {
+    // no constant and 2^k is 1
+    if (negated) {
+      // add (bvnot x) = -1 - x
+      bvpoly_buffer_sub_one(b);
+      bvpoly_buffer_sub_var(b, x);
+    } else {
+      // add x
+      bvpoly_buffer_add_var(b, x);
+    }
+  } else if (n <= 64) {
+    // 64-bit constant stored in cscan->val64
+    bvpoly_buffer_add_const64(b, cscan->val64);
+
+    a = ((uint64_t) 1) << k; // 2^k
+    if (negated) {
+      // add 2^k * (bvnot x) = - 2^k - 2^k * x
+      bvpoly_buffer_sub_const64(b, a);
+      bvpoly_buffer_sub_mono64(b, x, a);
+    } else {
+      // add 2^ k * x
+      bvpoly_buffer_add_mono64(b, x, a);
+    }
+
+  } else {
+    // n-bit constant stored in cscan->val
+    bvpoly_buffer_add_constant(b, cscan->val);
+
+    // we store 2^k in cscan->val since it has the right size
+    bvconst_clear(cscan->val, cscan->width);
+    bvconst_set_bit(cscan->val, k);
+
+    if (negated) {
+      // add 2^k * (bvnot x)
+      bvpoly_buffer_sub_constant(b, cscan->val);
+      bvpoly_buffer_sub_monomial(b, x, cscan->val);
+    } else {
+      // add 2^k * x
+      bvpoly_buffer_add_monomial(b, x, cscan->val);
+    }
+  }
+}
+
+
+/*
+ * Subtract c + 2^k * x or c + 2^k * (bvnot x) from  b
+ * - k is given by cscan->numbits
+ * - c is stored in cscan->val64 or csan->val
+ * - c is smaller than 2^k
+ */
+static void sub_decomp_from_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t *cscan, term_t x, bool negated) {
+  uint32_t k, n;
+  uint64_t a;
+
+  assert(cscan->bitsize == bvpoly_buffer_bitsize(b));
+
+  n = cscan->bitsize;
+  k = cscan->numbits;
+  assert(k < n);
+
+  if (k == 0) {
+    // no constant and 2^k is 1
+    if (negated) {
+      // subtract (bvnot x) = -1 - x
+      bvpoly_buffer_add_one(b);
+      bvpoly_buffer_add_var(b, x);
+    } else {
+      // subtract x
+      bvpoly_buffer_sub_var(b, x);
+    }
+  } else if (n <= 64) {
+    // 64-bit constant stored in cscan->val64
+    bvpoly_buffer_sub_const64(b, cscan->val64);
+
+    a = ((uint64_t) 1) << k; // 2^k
+    if (negated) {
+      // subtract 2^k * (bvnot x) = - 2^k - 2^k * x
+      bvpoly_buffer_add_const64(b, a);
+      bvpoly_buffer_add_mono64(b, x, a);
+    } else {
+      // subtract 2^ k * x
+      bvpoly_buffer_sub_mono64(b, x, a);
+    }
+
+  } else {
+    // n-bit constant stored in cscan->val
+    bvpoly_buffer_sub_constant(b, cscan->val);
+
+    // we store 2^k in cscan->val since it has the right size
+    bvconst_clear(cscan->val, cscan->width);
+    bvconst_set_bit(cscan->val, k);
+
+    if (negated) {
+      // subtract 2^k * (bvnot x)
+      bvpoly_buffer_add_constant(b, cscan->val);
+      bvpoly_buffer_add_monomial(b, x, cscan->val);
+    } else {
+      // subtract 2^k * x
+      bvpoly_buffer_sub_monomial(b, x, cscan->val);
+    }
+  }
+}
+
+
+
+/*
+ * Add bit-array term t to buffer b
+ * - try to convert t to an arithmetic expression
+ */
+static void add_bvarray_to_buffer(const term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
+  composite_term_t *bits;
+  bvconst_scan_result_t cscan;
+  bvscan_result_t vscan;
+  uint32_t n;
+  term_t x;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(0 < n && n == bvpoly_buffer_bitsize(b));
+
+  init_bvconst_scan(&cscan, n);
+  if (convert_bvarray(tbl, &cscan, &vscan, n, bits->arg)) {
+    // success: t is c + 2^k * x or c + 2^k * (bvnot x)
+    // k is stored in cscan.numbits
+    // c is stored in cscan.val64 or cscan.val
+    x = vscan.term;
+    assert(term_bitsize(tbl, x) == n);
+    add_decomp_to_buffer(b, &cscan, x, vscan.negated);
+
+  } else {
+    // can't rewrite t to an arithmetic expression
+    bvpoly_buffer_add_var(b, t);
+  }
+
+  delete_bvconst_scan(&cscan);
+}
+
+
+
+/*
+ * Subtract bit-array term t from buffer b
+ * - try to convert t to an arithmetic expression
+ */
+static void sub_bvarray_from_buffer(const term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
+  composite_term_t *bits;
+  bvconst_scan_result_t cscan;
+  bvscan_result_t vscan;
+  uint32_t n;
+  term_t x;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(0 < n && n == bvpoly_buffer_bitsize(b));
+
+  init_bvconst_scan(&cscan, n);
+  if (convert_bvarray(tbl, &cscan, &vscan, n, bits->arg)) {
+    // success: t is c + 2^k * x or c + 2^k * (bvnot x)
+    // k is stored in cscan.numbits
+    // c is stored in cscan.val64 or cscan.val
+    x = vscan.term;
+    assert(term_bitsize(tbl, x) == n);
+    sub_decomp_from_buffer(b, &cscan, x, vscan.negated);
+
+  } else {
+    // can't rewrite t to an arithmetic expression
+    bvpoly_buffer_sub_var(b, t);
+  }
+
+  delete_bvconst_scan(&cscan);
+}
+
+
+
+/*
+ * Add term t to buffer b
+ * - attempt to convert t to an arithmetic expression
+ */
+void add_bvterm_to_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) == bvpoly_buffer_bitsize(b));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    bvpoly_buffer_add_const64(b, bvconst64_term_desc(tbl, t)->value);
+    break;
+
+  case BV_CONSTANT:
+    bvpoly_buffer_add_constant(b, bvconst_term_desc(tbl, t)->data);
+    break;
+
+  case BV64_POLY:
+    bvpoly_buffer_add_poly64(b, bvpoly64_term_desc(tbl, t));
+    break;
+
+  case BV_POLY:
+    bvpoly_buffer_add_poly(b, bvpoly_term_desc(tbl, t));
+    break;
+
+  case BV_ARRAY:
+    add_bvarray_to_buffer(tbl, t, b);
+    break;
+
+  default:
+    bvpoly_buffer_add_var(b, t);
+    break;
+  }
+
+}
+
+
+/*
+ * Subtract t from buffer b
+ * - attempt to convert t to an arithemtic expression
+ */
+void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) == bvpoly_buffer_bitsize(b));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    bvpoly_buffer_sub_const64(b, bvconst64_term_desc(tbl, t)->value);
+    break;
+
+  case BV_CONSTANT:
+    bvpoly_buffer_sub_constant(b, bvconst_term_desc(tbl, t)->data);
+    break;
+
+  case BV64_POLY:
+    bvpoly_buffer_sub_poly64(b, bvpoly64_term_desc(tbl, t));
+    break;
+
+  case BV_POLY:
+    bvpoly_buffer_sub_poly(b, bvpoly_term_desc(tbl, t));
+    break;
+
+  case BV_ARRAY:
+    sub_bvarray_from_buffer(tbl, t, b);
+    break;
+
+  default:
+    bvpoly_buffer_sub_var(b, t);
+    break;
+  }
+}
+
+
+
 /*****************************************
  *  SIMPLIFICATION OF BIT-VECTOR TERMS   *
  ****************************************/
@@ -1846,7 +2420,6 @@ term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2) {
 }
 
 
-
 /*
  * Convert (bveq u v) to a conjunction of boolean terms
  * - u is a BV64 constant, v is a bitarray
@@ -1968,194 +2541,6 @@ bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
 
   return false;
 }
-
-
-/*****************************************
- *  REWRITING OF BV-ARRAY TO ARITHMETIC  *
- ****************************************/
-
-/*
- * Record to store the result of a scan:
- * - a scan succceeds in an array a[i .... n-1] if a[i...i+k] is
- *   equal to some term x or (bvnot x)
- * The records stores
- * - success/failure
- * - the term x in question
- * - whether the scan found x or (bvnot x)
- * - the number of bits scanned (i.e., k)
- */
-typedef struct bvscan_result_s {
-  bool success;
-  term_t term;
-  bool negated;
-  uint32_t numbits;
-} bvscan_result_t;
-
-
-/*
- * Check whether t is (bit-extract x 0) or (not (bit-extract x 0))
- * - if so return x otherwise return null_term
- */
-static term_t term_is_start_bit(const term_table_t *tbl, term_t t) {
-  select_term_t *d;
-  term_t x;
-
-  x = NULL_TERM;
-  if (term_kind(tbl, t) == BIT_TERM) {
-    d = bit_term_desc(tbl, t);
-    if (d->idx == 0) {
-      x = d->arg;
-    }
-  }
-  return x;
-}
-
-/*
- * Check whether t is (bit-extract x i) or (not (bit-extract x i))
- */
-static bool term_is_bit_extract(const term_table_t *tbl, term_t t, term_t x, uint32_t i) {
-  select_term_t *d;
-
-  if (term_kind(tbl, t) == BIT_TERM) {
-    d = bit_term_desc(tbl, t);
-    return d->idx == i && d->arg == x;
-  }
-
-  return  false;
-}
-
-/*
- * Scan a bit-array a[ .... n-1] starting at index i
- */
-static void bvscan(const term_table_t *tbl, bvscan_result_t *result, uint32_t i, uint32_t n, term_t *a) {
-  term_t b0, x;
-  uint32_t j, nbits;
-
-  assert(i < n);
-  b0 = a[i];
-  x = term_is_start_bit(tbl, b0);
-  if (x == NULL_TERM) goto failed;
-
-  assert(term_is_bit_extract(tbl, a[i], x, 0));
-
-  nbits = term_bitsize(tbl, x);
-  for (j=1; j<nbits; j++) {
-    i ++;
-    if (i >= n) goto failed;
-    if (polarity_of(b0) != polarity_of(a[i])) goto failed;
-    if (! term_is_bit_extract(tbl, a[i], x, j)) goto failed;
-  }
-
-  // success
-  result->success = true;
-  result->term = x;
-  result->negated = is_neg_term(b0);
-  result->numbits = nbits;
-  return;
-
- failed:
-  result->success = false;
-}
-
-
-bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b) {
-  composite_term_t *bits;
-  bvscan_result_t result;
-  term_t x;
-  uint32_t n;
-
-  assert(term_kind(tbl, t) == BV_ARRAY);
-  bits = bvarray_term_desc(tbl, t);
-  n = bits->arity;
-  assert(0 < n && n <= 64);
-
-  bvscan(tbl, &result, 0, n, bits->arg);
-  if (result.success && result.numbits == n) {
-    x = result.term;
-    if (result.negated) {
-      // t is (bvnot x) = (2^n-1) - x = (-1) - x
-      bvarith64_buffer_sub_one(b);
-      bvarith64_buffer_sub_var(b, x);
-    } else {
-      // t is x
-      bvarith64_buffer_add_var(b, x);
-    }
-    bvarith64_buffer_normalize(b);
-    return true;
-  }
-  return false;
-
-#if 0
-  // TODO: fix this more general version and test it?
-  // the sub/add_varmono are wrong because x may not have the same
-  // bitsize as the buffer.
-  c = 0;
-  e = 1; // loop invariant: e is 2^i
-  i = 0;
-  while (i < n) {
-    if (bits->arg[i] == false_term) {
-      i ++;
-      e <<= 1;
-    } else if (bits->arg[i] == true_term) {
-      c += e;
-      i ++;
-      e <<= 1;
-    } else {
-      bvscan(tbl, &result, i, n, bits->arg);
-      if (! result.success) return false;
-      x = result.term;
-      if (result.negated) {
-	// the slice is (bvnot x) = 2^nbits - 1 - x
-	// so 2^i * a[i ... i+nbits-1] is 2^(i + nbits) - 2^i - 2^i*x
-	c += (e << result.numbits) - e; // 2^(i + nbits) - 2^i
-	bvarith64_buffer_sub_varmono(b, e, x);
-      } else {
-	// the slice is equial to x
-	// just add 2^i * x to the buffer
-	bvarith64_buffer_add_varmono(b, e, x);
-      }
-      i += result.numbits;
-      e <<= result.numbits;
-    }
-  }
-
-  // add the constant c
-  bvarith64_buffer_add_const(b, c);
-  bvarith64_buffer_normalize(b);
-
-  return true;
-#endif
-}
-
-bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b) {
-  composite_term_t *bits;
-  bvscan_result_t result;
-  term_t x;
-  uint32_t n;
-
-  assert(term_kind(tbl, t) == BV_ARRAY);
-  bits = bvarray_term_desc(tbl, t);
-  n = bits->arity;
-  assert(n > 64);
-
-  bvscan(tbl, &result, 0, n, bits->arg);
-  if (result.success && result.numbits == n) {
-    x = result.term;
-    if (result.negated) {
-      // t is (bvnot x) = (2^n-1) - x = (-1) - x
-      bvarith_buffer_sub_one(b);
-      bvarith_buffer_sub_var(b, x);
-    } else {
-      // t is x
-      bvarith_buffer_add_var(b, x);
-    }
-    bvarith_buffer_normalize(b);
-    return true;
-  }
-
-  return false;
-}
-
 
 
 /*****************************************

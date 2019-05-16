@@ -227,6 +227,46 @@ term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 
 
 
+
+/*
+ * Check whether t1 and t2 are equal or disequal using arithmetic + some rewriting
+ * - return true_literal if (t1 - t2) is rewritten to zero
+ * - return false_literal if (t1 - t2) is reritten to a non-zero constant
+ * - return NULL_TERM otherwise
+ *
+ */
+term_t test_arithmetic_bveq(context_t *ctx, term_t t1, term_t t2) {
+  term_table_t *terms;
+  bvpoly_buffer_t *b;
+  uint32_t n;
+  term_t t;
+
+  terms = ctx->terms;
+
+  t = NULL_TERM;
+
+  if (is_bvpoly_term(terms, t1) || is_bvpoly_term(terms, t2)) {
+    b = context_get_bvpoly_buffer(ctx);
+    n = term_bitsize(terms, t1);
+
+    reset_bvpoly_buffer(b, n);
+    add_bvterm_to_buffer(terms, t1, b);
+    sub_bvterm_from_buffer(terms, t2, b);
+    normalize_bvpoly_buffer(b);
+
+    if (bvpoly_buffer_is_constant(b)) {
+      if (bvpoly_buffer_is_zero(b)) {
+	t = true_literal;
+      } else {
+	t = false_literal;
+      }
+    }
+  }
+
+  return t;
+}
+
+
 /*
  * Simplification for (bveq t1 t2)
  * - both t1 and t2 must be root terms in the internalization table
@@ -1465,7 +1505,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_divides(ctx, r, tt);
         break;
-	
+
       case BV_EQ_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_bveq(ctx, r, tt);
@@ -2222,7 +2262,7 @@ static bool dl_convert_poly(context_t *ctx, dl_term_t *triple, polynomial_t *p) 
   /*
    * The QF_RDL theory, as defined by SMT-LIB, allows constraints of
    * the form (<= (- (* a x) (* a y)) b) where a and b are integer
-   * constants. We allow rationals here and we also allow 
+   * constants. We allow rationals here and we also allow
    * constraints like that for QF_IDL (provided b/a is an integer).
    */
   if (! poly_buffer_is_zero(aux)) {
