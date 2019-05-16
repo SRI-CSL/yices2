@@ -9662,7 +9662,8 @@ static void init_reduce(sat_solver_t *solver) {
  * Check to trigger call to reduce_learned_clause_set
  */
 static inline bool need_reduce(const sat_solver_t *solver) {
-  return solver->stats.conflicts >= solver->reduce_next;
+  return solver->stats.conflicts >= solver->reduce_next &&
+    solver->pool.num_learned_clauses >= solver->params.reduce_interval;
 }
 
 /*
