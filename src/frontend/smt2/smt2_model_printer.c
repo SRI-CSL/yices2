@@ -125,6 +125,7 @@ static void smt2_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, t
 
 /*
  * Same thing for terms of uninterpreted types
+ * (also terms whose types is a instance of an abstract type constructor)
  */
 static void smt2_pp_unint_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
@@ -134,7 +135,7 @@ static void smt2_pp_unint_assignments(yices_pp_t *printer, model_t *model, term_
   terms = model->terms;
   for (i=0; i<n; i++) {
     t = a[i];
-    if (is_utype_term(terms, t)) {
+    if (is_utype_term(terms, t) || is_itype_term(terms, t)) {
       smt2_pp_term_value(printer, model, t);
     }
   }
