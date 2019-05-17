@@ -28,18 +28,17 @@
 
 
 /*
- * Atomic type without name (should not happen in SMT2), but
- * just in case there's a bug somewhere, we print something here.
+ * Atomic type without name should not happen in SMT2.
+ * Just in case there's a bug somewhere, we print something here.
  */
 static void pp_anonymous_type(yices_pp_t *printer, type_t tau) {
   pp_quoted_id(printer, "tau", tau, '|', '|');
 }
 
-
 /*
  * Symbol we use for function types.
  * In SMT2, we should only see function types of arity 1, which we
- * treat as (Array X Y). For anything else, we print (FunType!arity ....)
+ * treat as (Array X Y). For anything else, we print (FunType<arity> ....)
  */
 static void pp_funtype_sort(yices_pp_t *printer, uint32_t arity) {
   if (arity == 1) {
@@ -49,7 +48,6 @@ static void pp_funtype_sort(yices_pp_t *printer, uint32_t arity) {
   }
 }
 
-
 /*
  * Print tau as a type expression.
  * If tau has a name, and level > 0, expand its definition.
@@ -58,7 +56,6 @@ static void pp_funtype_sort(yices_pp_t *printer, uint32_t arity) {
 static void smt2_pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, int32_t level) {
   char *name;
   uint32_t i, n;
-  int32_t x;
 
   assert(good_type(tbl, tau));
 
@@ -81,11 +78,9 @@ static void smt2_pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t ta
     if (name != NULL && level <= 0) {
       smt2_pp_symbol(printer, name);
     } else {
-      // we fake it using a quoted id
-      // the conversion to (int32_t) is safe
-      x = (int32_t) bv_type_size(tbl, tau);
-      assert(x > 0);
-      pp_quoted_id(printer, "_ BitVec ", x, '(', ')');
+      pp_open_block(printer, PP_OPEN_SMT2_BV_TYPE);
+      pp_uint32(printer, bv_type_size(tbl, tau));
+      pp_close_block(printer, true);
     }
     break;
 
