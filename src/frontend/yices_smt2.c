@@ -67,6 +67,7 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
+static bool smt2_model_format;
 static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
@@ -94,6 +95,7 @@ typedef enum optid {
   verbosity_opt,           // set verbosity on the command line
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
+  smt2format_opt,           // use SMT-LIB2 format for models
   timeout_opt,             // give a timeout
   mcsat_opt,               // enable mcsat
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
@@ -117,6 +119,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "timeout", 't', MANDATORY_INT, timeout_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
+  { "smt2-model-format", '\0', FLAG_OPTION, smt2format_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
@@ -155,14 +158,15 @@ static void print_help(const char *progname) {
 	 "    --stats, -s               Print statistics once all commands have been processed\n"
 	 "    --incremental             Enable support for push/pop\n"
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
+	 "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
 #if HAVE_MCSAT
-   "    --mcsat                   Use the MCSat solver\n"
-   "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
-   "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
-   "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-   "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-   "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
-   ""
+	 "    --mcsat                   Use the MCSat solver\n"
+	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
+	 "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+	 "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
+	 "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
+	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
+	 ""
 #endif
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
@@ -191,6 +195,7 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
+  smt2_model_format = false;
   show_stats = false;
   verbosity = 0;
   timeout = 0;
@@ -270,45 +275,49 @@ static void parse_command_line(int argc, char *argv[]) {
 	interactive = true;
 	break;
 
+      case smt2format_opt:
+	smt2_model_format = true;
+	break;
+
       case mcsat_opt:
 #if HAVE_MCSAT
         mcsat = true;
+        break;
 #else
 	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
 	code = YICES_EXIT_USAGE;
 	goto exit;
 #endif
-        break;
 
       case mcsat_nra_mgcd_opt:
 #if HAVE_MCSAT
         mcsat_nra_mgcd = true;
+        break;
 #else
         fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
         code = YICES_EXIT_USAGE;
         goto exit;
 #endif
-        break;
 
       case mcsat_nra_nlsat_opt:
 #if HAVE_MCSAT
         mcsat_nra_nlsat = true;
+        break;
 #else
         fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
         code = YICES_EXIT_USAGE;
         goto exit;
 #endif
-        break;
 
       case mcsat_nra_bound_opt:
 #if HAVE_MCSAT
         mcsat_nra_bound = true;
+        break;
 #else
         fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
         code = YICES_EXIT_USAGE;
         goto exit;
 #endif
-        break;
 
       case mcsat_nra_bound_min_opt:
 #if HAVE_MCSAT
@@ -320,12 +329,12 @@ static void parse_command_line(int argc, char *argv[]) {
           goto exit;
         }
         mcsat_nra_bound_min = v;
+        break;
 #else
         fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
         code = YICES_EXIT_USAGE;
         goto exit;
 #endif
-        break;
 
       case mcsat_nra_bound_max_opt:
 #if HAVE_MCSAT
@@ -337,12 +346,12 @@ static void parse_command_line(int argc, char *argv[]) {
           goto exit;
         }
         mcsat_nra_bound_max = v;
+        break;
 #else
         fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
         code = YICES_EXIT_USAGE;
         goto exit;
 #endif
-        break;
 
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
@@ -565,6 +574,7 @@ int main(int argc, char *argv[]) {
 
   yices_init();
   init_smt2(!incremental, timeout, interactive);
+  if (smt2_model_format) smt2_force_smt2_model_format();
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 

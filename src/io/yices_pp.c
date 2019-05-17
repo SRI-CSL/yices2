@@ -174,7 +174,7 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_SMT2_BV_TYPE, "_ BitVec", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
   { PP_OPEN_SMT2_MODEL, "model", PP_T_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
-  { PP_OPEN_SMT2_DEF, "define-fun ", PP_HMT_LAYOUT, 0, 2, 2 },
+  { PP_OPEN_SMT2_DEF, "define-fun", PP_HMT_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
 };
 
 

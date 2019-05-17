@@ -448,7 +448,6 @@ static void smt2_pop_macro_names(smt2_name_stack_t *s, uint32_t ptr) {
 }
 
 
-
 /*
  * Deletion
  */
@@ -3460,6 +3459,147 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
 
 
 /*
+ * SUPPORT FOR SMT2-STYLE MODEL DISPLAY
+ */
+
+/*
+ * Helper data structure:
+ * - the yices model
+ * - three vectors for name, term, term value
+ */
+typedef struct smt2_model_s {
+  model_t *model;
+  pvector_t names;
+  ivector_t terms;
+  ivector_t values;
+} smt2_model_t;
+
+/*
+ * Initialization/deletion
+ */
+static void init_smt2_model(smt2_model_t *sm, model_t *m) {
+  sm->model = m;
+  init_pvector(&sm->names, 0);
+  init_ivector(&sm->terms, 0);
+  init_ivector(&sm->values, 0);
+}
+
+static void delete_smt2_model(smt2_model_t *sm) {
+  sm->model = NULL;
+  delete_pvector(&sm->names);
+  delete_ivector(&sm->terms);
+  delete_ivector(&sm->values);
+}
+
+/*
+ * Add pair (name, t) to sm:
+ */
+static void smt2_model_push(smt2_model_t *sm, char *name, term_t t) {
+  assert(name != NULL && t != NULL_TERM);
+  pvector_push(&sm->names, name);
+  ivector_push(&sm->terms, t);
+}
+
+/*
+ * Evaluate all the terms. Store their values in sm->values.
+ */
+static void smt2_model_eval_terms(smt2_model_t *sm) {
+  evaluate_term_values(sm->model, sm->terms.data, sm->terms.size, &sm->values);
+}
+
+/*
+ * Print the values of all terms in the model
+ * - use the SMT-LIB2 format
+ */
+static void print_smt2_model(yices_pp_t *printer, smt2_model_t *sm) {
+  value_table_t *vtbl;
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t;
+  type_t tau;
+  value_t v;
+
+  assert(sm->names.size == sm->terms.size && sm->names.size == sm->values.size);
+
+  terms = __yices_globals.terms;
+  vtbl = model_get_vtbl(sm->model);
+
+  pp_open_block(printer, PP_OPEN_SMT2_MODEL);
+
+  n = sm->names.size;
+  for (i=0; i<n; i++) {
+    t = sm->terms.data[i];
+    v = sm->values.data[i];
+    assert(good_term(terms, t));
+
+    /*
+     * t = a term
+     * v = value in the model as returned by eval_in_model(t)
+     * if v < 0, then eval_in_model failed, so we skip t.
+     */
+    if (good_object(vtbl, v)) {
+      tau = term_type(terms, t);
+      smt2_pp_def(printer, vtbl, sm->names.data[i], tau, v);
+    }
+  }
+  pp_close_block(printer, true);
+
+}
+
+
+/*
+ * Check whether t is uninterpreted
+ */
+static bool term_is_uninterpreted(term_t t) {
+  return t != NULL_TERM && is_pos_term(t) && term_kind(__yices_globals.terms, t) == UNINTERPRETED_TERM;
+}
+
+
+/*
+ * Build an smt2_model:
+ * - collect the names of all declared uninterpreted terms
+ *   and add them to the smt2_model
+ * - first, scan vector g->model_term_names
+ *   then scan the stack g->term_names.
+ */
+static void build_smt2_model(smt2_globals_t *g, smt2_model_t *sm) {
+  pvector_t *saved;
+  smt2_name_stack_t *name_stack;
+  char *name;
+  term_t t;
+  uint32_t i, n;
+
+  assert(sm->names.size == 0 && sm->terms.size == 0 && sm->values.size == 0);
+
+  saved = &g->model_term_names;
+  n = saved->size;
+  for (i=0; i<n; i++) {
+    name = saved->data[i];
+    t = yices_get_term_by_name(name);
+    assert(term_is_uninterpreted(t));
+    smt2_model_push(sm, name, t);
+  }
+
+  name_stack = &g->term_names;
+  n = name_stack->top;
+  for (i=0; i<n; i++) {
+    name = name_stack->names[i];
+    t = yices_get_term_by_name(name);
+    if (term_is_uninterpreted(t)) {
+      smt2_model_push(sm, name, t);
+    }
+  }
+
+  smt2_model_eval_terms(sm);
+
+  assert(sm->names.size == sm->terms.size && sm->names.size == sm->values.size);
+}
+
+
+
+
+
+/*
  * GET ASSIGNMENT
  */
 
@@ -5591,10 +5731,10 @@ void smt2_assert(term_t t, bool special) {
  * IN SEPARATE THREADS
  */
 
-static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void* arg){
-  thread_data_t* tdata = (thread_data_t *)arg;
-  FILE* output = tdata->output;
-  smt2_globals_t *g = (smt2_globals_t *)tdata->extra;
+static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void *arg){
+  thread_data_t *tdata = (thread_data_t *) arg;
+  FILE *output = tdata->output;
+  smt2_globals_t *g = (smt2_globals_t *) tdata->extra;
 
   g->out = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
   g->err = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
@@ -5602,6 +5742,43 @@ static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(v
   check_delayed_assertions(g);
 
   return yices_thread_exit();
+}
+
+static void test_multi_threads(smt2_globals_t *g) {
+  bool success;
+  uint32_t i, n;
+  smt2_globals_t *garray;
+
+  n = g->nthreads;
+  garray =  (smt2_globals_t *) safe_malloc(n * sizeof(smt2_globals_t));
+  for (i = 0; i < n; i++) {
+    garray[i] = *g;            // just copy them for now.
+    garray[i].tracer = NULL;    // only main thread can use this.
+  }
+  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+  check_delayed_assertions(&__smt2_globals);
+  //could check that they are all OK
+  smt_status_t main_answer = yices_context_status(g->ctx);
+  for (i = 0; i < n; i++) {
+    smt_status_t answer = yices_context_status(garray[i].ctx);
+    if (answer != main_answer) {
+      success = false;
+    }
+    //free the model if there is one, and free the context.
+    //IAM: valgrind says there is no leak here. This is puzzling.
+  }
+
+  if (success) {
+    fprintf(stderr, "SUCCESS: All threads agree.\n");
+  } else {
+    fprintf(stderr, "FAILURE: Threads disagree.\n");
+  }
+
+  for (i=0; i<n; i++) {
+    delte_smt2_globals(garray + i);
+  }
+  safe_free(garray);
 }
 
 #endif
@@ -5634,35 +5811,8 @@ void smt2_check_sat(void) {
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals);
         } else {
-          bool success = true;
-          uint32_t index;
-          //mayhem
-          smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
-          for(index = 0; index < __smt2_globals.nthreads; index++){
-            garray[index] = __smt2_globals;  // just copy them for now.
-            garray[index].tracer = NULL;     // only main thread can use this.
-          }
-          launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
-          fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
-          check_delayed_assertions(&__smt2_globals);
-          //could check that they are all OK
-          smt_status_t main_answer = yices_context_status(__smt2_globals.ctx);
-          for (index = 0; index < __smt2_globals.nthreads; index++) {
-            smt_status_t answer = yices_context_status(garray[index].ctx);
-
-            if (answer != main_answer) {
-              success = false;
-            }
-            //free the model if there is one, and free the context.
-            //IAM: valgrind says there is no leak here. This is puzzling.
-          }
-          if (success) {
-            fprintf(stderr, "SUCCESS: All threads agree.\n");
-          } else {
-            fprintf(stderr, "FAILURE: Threads disagree.\n");
-	  }
-          safe_free(garray);
-        }
+	  test_multi_threads(&__smt2_globals);
+	}
 #endif
       }
     } else {
@@ -5886,6 +6036,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  */
 void smt2_get_model(void) {
   yices_pp_t printer;
+  smt2_model_t smt2_mdl;
   model_t *mdl;
 
   if (check_logic()) {
@@ -5900,7 +6051,10 @@ void smt2_get_model(void) {
     if (__smt2_globals.clean_model_format) {
       smt2_pp_full_model(&printer, mdl);
     } else {
-      // TBD
+      init_smt2_model(&smt2_mdl, mdl);
+      build_smt2_model(&__smt2_globals, &smt2_mdl);
+      print_smt2_model(&printer, &smt2_mdl);
+      delete_smt2_model(&smt2_mdl);
     }
     delete_yices_pp(&printer, true);
   }
