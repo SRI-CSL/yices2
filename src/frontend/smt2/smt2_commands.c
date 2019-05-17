@@ -541,13 +541,13 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
  * Get the top element:
  * - warning: this pointer may become invalid is data is pushed on s
  */
-static inline smt2_push_rec_t *smt2_stack_top(smt2_stack_t *s) {
+static inline smt2_push_rec_t *smt2_stack_top(const smt2_stack_t *s) {
   assert(s->top > 0);
   return s->data + (s->top - 1);
 }
 
 
-static inline bool smt2_stack_is_nonempty(smt2_stack_t *s) {
+static inline bool smt2_stack_is_nonempty(const smt2_stack_t *s) {
   return s->top > 0;
 }
 
@@ -3711,10 +3711,16 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
  * NOTE: s is cloned twice: once to be stored in the term/type/macro
  * symbol tables and once more here. Maybe we could optimize this.
  */
+
+// test whether we must save names
+static inline bool saving_names(const smt2_globals_t *g) {
+  return !g->global_decls && smt2_stack_is_nonempty(&g->stack);
+}
+
 static void save_name(smt2_globals_t *g, smt2_name_stack_t *name_stack, const char *s) {
   char *clone;
 
-  if (!g->global_decls && smt2_stack_is_nonempty(&g->stack)) {
+  if (saving_names(g)) {
     clone = clone_string(s);
     smt2_push_name(name_stack, clone);
   }
@@ -3731,7 +3737,6 @@ static inline void save_type_name(smt2_globals_t *g, const char *s) {
 static inline void save_macro_name(smt2_globals_t *g, const char *s) {
   save_name(g, &g->macro_names, s);
 }
-
 
 
 /*
@@ -3772,6 +3777,69 @@ static inline void check_stack(smt2_globals_t *g) {
 }
 
 #endif
+
+
+/*
+ * SYMBOL NAMES FOR MODEL DISPLAY
+ */
+
+/*
+ * The names store in g->model_term_names are strings with reference
+ * count. We push a name in this vector when we process
+ *
+ *  (declare-fun <name> ....)
+ *
+ * if g->clean_model_format is false and if we know that the name
+ * is not already saved in the term_stack.
+ */
+
+/*
+ * Free all strings in vector v then reset the vector
+ */
+static void reset_string_vector(pvector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    string_decref(v->data[i]);
+  }
+  pvector_reset(v);
+}
+
+/*
+ * Free all strings in vector v then delete the vector
+ */
+static void delete_string_vector(pvector_t *v) {
+  reset_string_vector(v);
+  delete_pvector(v);
+}
+
+/*
+ * Add string s at the end v
+ * - s must be a refcount string
+ * - its referenc counter is incremented
+ */
+static void string_vector_push(pvector_t *v, char *s) {
+  string_incref(s);
+  pvector_push(v, s);
+}
+
+
+/*
+ * Save name if it may be needed later to display a model
+ * - we don't do anything if g->clean_model_format is true
+ *   or if the name has already been saved in g->term_names.
+ */
+static void save_name_for_model(smt2_globals_t *g, const char *s) {
+  char *clone;
+
+  if (!g->clean_model_format && !saving_names(g)) {
+    clone = clone_string(s);
+    string_vector_push(&g->model_term_names, clone);
+  }
+}
+
+
 
 
 /*
@@ -3845,7 +3913,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
-  g->smtlib_version = 0;       // means no version specified yet 
+  g->clean_model_format = true;
+  g->smtlib_version = 0;       // means no version specified yet
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
@@ -3885,6 +3954,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
 
   init_named_term_stack(&g->named_bools);
   init_named_term_stack(&g->named_asserts);
+
+  init_pvector(&g->model_term_names, 0);
 
   g->unsat_core = NULL;
   g->unsat_assumptions = NULL;
@@ -3944,6 +4015,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
 
   delete_named_term_stack(&g->named_bools);
   delete_named_term_stack(&g->named_asserts);
+
+  delete_string_vector(&g->model_term_names);
 
   if (g->unsat_core != NULL) {
     free_assumptions(g->unsat_core);
@@ -4011,6 +4084,13 @@ void smt2_enable_trace_tag(const char* tag) {
 
   tracer = get_tracer(&__smt2_globals);
   enable_trace_tag(tracer, tag);
+}
+
+/*
+ * Force models to be printed in SMT2 format (as much as possible).
+ */
+void smt2_force_smt2_model_format(void) {
+  __smt2_globals.clean_model_format = false;
 }
 
 
@@ -5679,6 +5759,7 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
     assert(t != NULL_TERM);
     yices_set_term_name(t, name);
     save_term_name(&__smt2_globals, name);
+    save_name_for_model(&__smt2_globals, name);
 
     report_success();
   }
@@ -5758,7 +5839,11 @@ void smt2_get_model(void) {
     if (mdl == NULL) return;
 
     init_pretty_printer(&printer, &__smt2_globals);
-    smt2_pp_full_model(&printer, mdl);
+    if (__smt2_globals.clean_model_format) {
+      smt2_pp_full_model(&printer, mdl);
+    } else {
+      // TBD
+    }
     delete_yices_pp(&printer, true);
   }
 }
@@ -5822,6 +5907,8 @@ void smt2_reset_assertions(void) {
       reset_named_term_stack(&g->named_bools);
       reset_named_term_stack(&g->named_asserts);
 
+      reset_string_vector(&g->model_term_names);
+
       if (g->unsat_core != NULL) {
         free_assumptions(g->unsat_core);
         g->unsat_core = NULL;
@@ -5852,7 +5939,7 @@ void smt2_reset_assertions(void) {
 
 
 /*
- * Full reset: to be done
+ * Full reset
  */
 void smt2_reset_all(void) {
   bool benchmark, print_success;

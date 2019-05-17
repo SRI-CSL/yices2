@@ -272,3 +272,16 @@ void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool sh
 
 
 
+/*
+ * Print a definition in the SMT2 style.
+ * - this prints (define-fun name () tau value)
+ */
+void smt2_pp_def(yices_pp_t *printer, value_table_t *table, const char *name, type_t tau, value_t c) {
+  pp_open_block(printer, PP_OPEN_SMT2_DEF);
+  smt2_pp_symbol(printer, name);
+  pp_string(printer, "()");
+  smt2_pp_type(printer, table->type_table, tau);
+  smt2_pp_object(printer, table, c);
+  pp_close_block(printer, true);
+}
+

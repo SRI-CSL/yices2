@@ -48,9 +48,10 @@
 #include <stdio.h>
 
 #include "utils/int_vectors.h"
+#include "utils/ptr_vectors.h"
+#include "utils/string_hash_map.h"
 #include "parser_utils/lexer.h"
 #include "parser_utils/term_stack2.h"
-#include "utils/string_hash_map.h"
 #include "io/tracer.h"
 #include "frontend/common/assumptions_and_core.h"
 #include "frontend/common/named_term_stacks.h"
@@ -59,6 +60,7 @@
 #include "context/context_parameters.h"
 #include "exists_forall/ef_client.h"
 #include "mcsat/options.h"
+
 
 /*
  * New exception codes
@@ -284,6 +286,9 @@ typedef struct smt2_cmd_stats_s {
  *   occur after a (push ..) command are removed by the matching (pop ..).
  *   In global mode, declarations are kept independent of (push ..) and (pop ...)
  *   global_decls is false by default.
+ * - clean_model_format is true by default. This flag determines how models
+ *   are displayed in (get-model). The default is to use a Yices-style
+ *   format. If the flag is false, we use the SMT2-style format (not clean!).
  *
  * The solver can be initialized in benchmark_mode by calling init_smt2(true, ...).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
@@ -323,6 +328,7 @@ typedef struct smt2_globals_s {
   smt_logic_t logic_code;
   bool benchmark_mode;
   bool global_decls;
+  bool clean_model_format;
 
   // smt-lib version: added 2016/05/24
   // possible values are 0 (not set) or 2000 (version 2.0)
@@ -342,7 +348,7 @@ typedef struct smt2_globals_s {
   // exists/forall solver
   bool efmode;                     // true to use the exists_forall solver
   ef_client_t ef_client;
-  
+
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
@@ -393,6 +399,11 @@ typedef struct smt2_globals_s {
   // stacks for named booleans and named assertions
   named_term_stack_t named_bools;
   named_term_stack_t named_asserts;
+
+  // list of term names that are not already saved in the term_names stack.
+  // This is used if clean_model_format is false to keep track of all
+  // terms whose value we may need to print.
+  pvector_t model_term_names;
 
   // data structures for unsat cores/unsat assumptions
   // allocated on demand
@@ -458,6 +469,11 @@ extern void smt2_set_verbosity(uint32_t k);
  * - must not be called before init_smt2
  */
 extern void smt2_enable_trace_tag(const char* tag);
+
+/*
+ * Force models to be printed in SMT2 format (as much as possible).
+ */
+extern void smt2_force_smt2_model_format(void);
 
 /*
  * Show all statistics on the output channel
