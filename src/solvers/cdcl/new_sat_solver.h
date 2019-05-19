@@ -889,6 +889,7 @@ typedef struct sat_solver_s {
    * Probing flag
    */
   bool probing;
+  bool try_assignment;
 
   /*
    * Statistics record

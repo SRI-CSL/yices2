@@ -7803,7 +7803,6 @@ static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t
   solver->conflict_tag = CTAG_BINARY;
   solver->conflict_buffer[0] = l0;
   solver->conflict_buffer[1] = l1;
-  solver->stats.conflicts ++;
 }
 
 /*
@@ -7839,7 +7838,6 @@ static void record_clause_conflict(sat_solver_t *solver, cidx_t cidx) {
 
   solver->conflict_tag = CTAG_CLAUSE;
   solver->conflict_index = cidx;
-  solver->stats.conflicts ++;
 }
 
 
@@ -8881,11 +8879,26 @@ static void update_level(sat_solver_t *solver) {
 
 
 #if TRACE
+static void show_branch(const sat_solver_t *solver) {
+  uint32_t i, n, k;
+  literal_t l;
+
+  printf("Branch:");
+  n = solver->decision_level;
+  for (i=1; i<=n; i++) {
+    k = solver->stack.level_index[i];
+    l = solver->stack.lit[k];
+    printf(" %"PRId32, l);
+  }
+  printf("\n");
+}
+
 static void show_conflict_clause(const sat_solver_t *solver) {
   literal_t *lit;
   uint32_t i, n;
   cidx_t cidx;
 
+  show_branch(solver);
   printf("Conflict: %"PRIu64", level = %"PRIu32"\n", solver->stats.conflicts, solver->decision_level);
   if (solver->conflict_tag == CTAG_BINARY) {
     printf(" %"PRId32" %"PRId32"\n", solver->conflict_buffer[0], solver->conflict_buffer[1]);
@@ -9255,6 +9268,37 @@ static void extend_assignment(sat_solver_t *solver) {
 }
 
 
+/*********************
+ *  PHASE SELECTION  *
+ ********************/
+
+/*
+ * Preferred literal when x is selected as decision variable.
+ * - we pick l := pos_lit(x) then check whether value[l] is 0b00 or 0b01
+ * - in the first case, the preferred value for l is false so we return not(l)
+ */
+ static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
+  literal_t l;
+
+  assert(var_is_unassigned(solver, x));
+
+  l = pos_lit(x);
+  /*
+   * Since l is not assigned, value[l] is either VAL_UNDEF_FALSE (i.e., 0)
+   * or VAL_UNDEF_TRUE (i.e., 1).
+   *
+   * We return l if value[l] = VAL_UNDEF_TRUE = 1.
+   * We return not(l) if value[l] = VAL_UNDEF_FALSE = 0.
+   * Since not(l) is l^1, the returned value is (l ^ 1 ^ value[l]).
+   */
+  l ^= 1 ^ solver->value[l];
+  assert((var_prefers_true(solver, x) && l == pos_lit(x)) ||
+         (!var_prefers_true(solver, x) && l == neg_lit(x)));
+
+  return l;
+}
+
+
 
 /****************
  *  EXPERIMENT  *
@@ -9334,7 +9378,7 @@ static void backtrack_one_level(sat_solver_t *solver) {
 
   k = solver->decision_level;
   assert(k > 0);
-  // backtrack and collect statistics
+
   d = solver->stack.level_index[k];
   i = solver->stack.top;
   assert(i > d);
@@ -9463,7 +9507,7 @@ static void failed_literal_probing(sat_solver_t *solver) {
   }
   limit += props_before;
 
-  // save assignment to later restore the prefered values
+  // save assignment to later restore the preferred values
   if (true) save_assignment(solver);
 
   n = solver->nvars;
@@ -9498,6 +9542,78 @@ static void failed_literal_probing(sat_solver_t *solver) {
 }
 
 
+/*
+ * MORE EXPERIMENT
+ */
+
+/*
+ * Check whether w is an empty watch vector
+ */
+static inline bool empty_watch(const watch_t *w) {
+  return w == NULL || w->size == 0;
+}
+
+/*
+ * Test literal l:
+ * - l must be unassigned
+ * - assign l then propagate, backtrack if that causes a conflict.
+ * - return true if l there's no conflict, false otherwise
+ */
+static bool test_literal(sat_solver_t *solver, literal_t l) {
+  assert(lit_is_unassigned(solver, l));
+
+  nsat_decide_literal(solver, l);
+  nsat_boolean_propagation(solver);
+  if (solver->conflict_tag != CTAG_NONE) {
+    backtrack_one_level(solver);
+    solver->conflict_tag = CTAG_NONE;
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * Assign literals without creating a conflict
+ */
+static void build_assignment(sat_solver_t *solver) {
+  uint32_t i, n;
+  literal_t l;
+
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i)) {
+      l = preferred_literal(solver, i);
+      if (empty_watch(solver->watch[l])) {
+	nsat_decide_literal(solver, l);
+	continue;
+      }
+      l = not(l);
+      if (empty_watch(solver->watch[l])) {
+	nsat_decide_literal(solver, l);
+      }
+    }
+  }
+
+  printf("c base assignment: level = %"PRIu32", top = %"PRIu32"\n", solver->decision_level, solver->stack.top);
+
+  solver->probing = true;
+
+  if (true) save_assignment(solver);
+
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i)) {
+      l = preferred_literal(solver, i);
+      test_literal(solver, l) || test_literal(solver, not(l));
+    }
+  }
+
+  if (true) restore_assignment(solver);
+
+  solver->probing = false;
+
+  printf("c assignment: level = %"PRIu32", top = %"PRIu32"\n", solver->decision_level, solver->stack.top);
+}
 
 
 
@@ -9575,7 +9691,7 @@ static void init_restart(sat_solver_t *solver) {
 
   // experimental
   solver->stabilizing = false;
-  solver->stab_next = STAB_INTERVAL;
+  solver->stab_next = solver->stats.conflicts + STAB_INTERVAL;
   solver->stab_length = STAB_INTERVAL;
 }
 
@@ -9589,9 +9705,10 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stabilizing = true;
       solver->stab_next += solver->stab_length;
       solver->stats.stabilizations ++;
+      //      solver->try_assignment = true;
     } else {
       solver->stabilizing = false;
-      solver->stab_next += 3 * solver->stab_length;
+      solver->stab_next += 10 * solver->stab_length;
       if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
 	solver->stab_length *= STAB_FACTOR;
       }
@@ -9691,7 +9808,8 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_subst_next = 0;
   solver->simplify_next = 0;
 
-  solver->probing_next = 0;
+  //  solver->probing_next = 0;
+  solver->probing_next = 10 * solver->params.probing_interval;
   solver->probing_budget = 0;
   solver->probing_last = 0;
   solver->probing_inc = solver->params.probing_interval;
@@ -9737,33 +9855,6 @@ static void done_simplify(sat_solver_t *solver) {
 /*****************************
  *  MAIN SOLVING PROCEDURES  *
  ****************************/
-
-/*
- * Preferred literal when x is selected as decision variable.
- * - we pick l := pos_lit(x) then check whether value[l] is 0b00 or 0b01
- * - in the first case, the preferred value for l is false so we return not(l)
- */
-static inline literal_t preferred_literal(const sat_solver_t *solver, bvar_t x) {
-  literal_t l;
-
-  assert(var_is_unassigned(solver, x));
-
-  l = pos_lit(x);
-  /*
-   * Since l is not assigned, value[l] is either VAL_UNDEF_FALSE (i.e., 0)
-   * or VAL_UNDEF_TRUE (i.e., 1).
-   *
-   * We return l if value[l] = VAL_UNDEF_TRUE = 1.
-   * We return not(l) if value[l] = VAL_UNDEF_FALSE = 0.
-   * Since not(l) is l^1, the returned value is (l ^ 1 ^ value[l]).
-   */
-  l ^= 1 ^ solver->value[l];
-  assert((var_prefers_true(solver, x) && l == pos_lit(x)) ||
-         (!var_prefers_true(solver, x) && l == neg_lit(x)));
-
-  return l;
-}
-
 
 /*
  * Simplify: call try_scc_simplification + probing then simplify the
@@ -9876,6 +9967,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   if (solver->has_empty_clause) goto done;
 
   solver->stats.starts = 1;
+  solver->try_assignment = false;
 
   report(solver, "");
 
@@ -9887,6 +9979,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     nsat_boolean_propagation(solver);
 
     if (solver->conflict_tag != CTAG_NONE) {
+      solver->stats.conflicts ++;
+
       // conflict
       if (solver->decision_level == 0) {
 	export_last_conflict(solver);
@@ -9895,7 +9989,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       }
       resolve_conflict(solver);
       check_watch_vectors(solver);
-      if (true || !solver->stabilizing) {
+      if (!solver->stabilizing) {
 	decay_clause_activities(solver);
       }
 
@@ -9919,6 +10013,10 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	done_reduce(solver);
 
       } else {
+	if (solver->try_assignment) {
+	  build_assignment(solver);
+	  solver->try_assignment = false;
+	}
 	//	printf("Propagations: %"PRIu32"\n", prop_level(solver));
 	x = nsat_select_decision_variable(solver);
 	if (x == 0) {
