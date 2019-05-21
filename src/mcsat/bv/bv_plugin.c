@@ -1036,8 +1036,9 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
 static
 term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
-
+#ifndef NDEBUG
   term_table_t* terms = bv->ctx->terms;
+#endif
   const mcsat_trail_t* trail = bv->ctx->trail;
   const variable_db_t* var_db = bv->ctx->var_db;
 
