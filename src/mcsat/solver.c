@@ -590,6 +590,14 @@ void mcsat_plugin_context_bump_variable(plugin_context_t* self, variable_t x) {
 }
 
 static
+void mcsat_plugin_context_bump_variable_n(plugin_context_t* self, variable_t x, uint32_t n) {
+  mcsat_plugin_context_t* mctx;
+
+  mctx = (mcsat_plugin_context_t*) self;
+  mcsat_bump_variable(mctx->mcsat, x, n);
+}
+
+static
 int mcsat_plugin_context_cmp_variables(plugin_context_t* self, variable_t x, variable_t y) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
@@ -629,6 +637,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.request_restart = mcsat_plugin_context_restart;
   ctx->ctx.request_gc = mcsat_plugin_context_gc;
   ctx->ctx.bump_variable = mcsat_plugin_context_bump_variable;
+  ctx->ctx.bump_variable_n = mcsat_plugin_context_bump_variable_n;
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
   ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->mcsat = mcsat;
@@ -1878,11 +1887,9 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
       // Decide
       if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n",
-            mcsat->plugins[i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
         mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
-        variable_db_print_variable(mcsat->var_db, var,
-            trace_out(mcsat->ctx->trace));
+        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
       plugin = mcsat->plugins[i].plugin;
@@ -1902,6 +1909,13 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         // If plugin decided to cheat by deciding on another variable, put it back
         if (!trail_has_value(mcsat->trail, var)) {
           var_queue_insert(&mcsat->var_queue, var);
+        } else {
+          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+            FILE* out = trace_out(mcsat->ctx->trace);
+            fprintf(out, "mcsat_decide(): value = ");
+            mcsat_value_print(trail_get_value(mcsat->trail, var), out);
+            fprintf(out, "\n");
+          }
         }
         break;
       }

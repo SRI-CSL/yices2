@@ -425,7 +425,7 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
 static
 void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
 
-  uint32_t i, j;
+  uint32_t i;
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
   term_table_t* terms = nra->ctx->terms;
 
@@ -555,9 +555,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     for (i = 0; i < t_variables_list->size; ++ i) {
       variable_t x = t_variables_list->data[i];
       uint32_t deg = int_mset_contains(&t_variables, x);
-      for (j = 0; j < deg; ++ j) {
-        nra->ctx->bump_variable(nra->ctx, x);
-      }
+      nra->ctx->bump_variable_n(nra->ctx, x, deg);
     }
 
     // Sort variables by trail index

@@ -25,6 +25,7 @@
 #include "utils/int_array_sort2.h"
 #include "utils/int_hash_sets.h"
 #include "terms/terms.h"
+#include "terms/bv64_constants.h"
 
 typedef enum {
   BV_PROP_EVALUATION = 1,
@@ -313,8 +314,7 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
 /**
  * Collect in vars_out the free variables of term t
  */
-
-void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out) {
+void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out, uint64_t bump_factor) {
 
   assert(is_pos_term(t));
 
@@ -346,8 +346,8 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
       assert(atom_comp->arity == 2);
       term_t t0 = atom_comp->arg[0], t0_pos = unsigned_term(t0);
       term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
-      bv_plugin_get_term_variables(bv, t0_pos, vars_out);
-      bv_plugin_get_term_variables(bv, t1_pos, vars_out);
+      bv_plugin_get_term_variables(bv, t0_pos, vars_out, bump_factor);
+      bv_plugin_get_term_variables(bv, t1_pos, vars_out, bump_factor);
       break;
   }
   case BV_EQ_ATOM:
@@ -356,8 +356,8 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
     // These can appear as BV_ARRAY elements
     composite_term_t* atom_comp = composite_term_desc(terms, t);
     assert(atom_comp->arity == 2);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[0],vars_out);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[1],vars_out);
+    bv_plugin_get_term_variables(bv, atom_comp->arg[0], vars_out, bump_factor);
+    bv_plugin_get_term_variables(bv, atom_comp->arg[1], vars_out, bump_factor);
     break;
   }
   case BV_ARRAY: {
@@ -366,16 +366,19 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
     for (uint32_t i = 0; i < concat_desc->arity; ++ i) {
       term_t t_i = concat_desc->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
-      bv_plugin_get_term_variables(bv, t_i_pos, vars_out);
+      bv_plugin_get_term_variables(bv, t_i_pos, vars_out, bump_factor);
     }
     break;
   }
   case OR_TERM: {
     composite_term_t* t_comp = or_term_desc(terms, t);
+    if (bump_factor > 0) {
+      bump_factor ++;
+    }
     for (uint32_t i = 0; i < t_comp->arity; ++ i) {
       term_t t_i = t_comp->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
-      bv_plugin_get_term_variables(bv, t_i_pos, vars_out);
+      bv_plugin_get_term_variables(bv, t_i_pos, vars_out, bump_factor);
     }
     break;
   }
@@ -383,46 +386,59 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
   case BV_REM:
   case BV_SDIV:
   case BV_SREM:
-  case BV_SMOD:
+  case BV_SMOD: {
+      composite_term_t* t_comp = composite_term_desc(terms, t);
+      bv_plugin_get_term_variables(bv, t_comp->arg[0], vars_out, 2*bump_factor);
+      bv_plugin_get_term_variables(bv, t_comp->arg[1], vars_out, 2*bump_factor);
+      break;
+  }
   case BV_SHL:
   case BV_LSHR:
   case BV_ASHR: {
     composite_term_t* t_comp = composite_term_desc(terms, t);
-    for (uint32_t i = 0; i < t_comp->arity; ++ i) {
-      bv_plugin_get_term_variables(bv, t_comp->arg[i], vars_out);
-    }
+    bv_plugin_get_term_variables(bv, t_comp->arg[0], vars_out, bump_factor);
+    bv_plugin_get_term_variables(bv, t_comp->arg[1], vars_out, bump_factor);
     break;
   }
   case BIT_TERM:
-    bv_plugin_get_term_variables(bv, bit_term_arg(terms, t), vars_out);
+    bv_plugin_get_term_variables(bv, bit_term_arg(terms, t), vars_out, bump_factor);
     break;
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
+    if (bump_factor > 0) bump_factor ++;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
-      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out);
+      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out, bump_factor);
     }
     break;
   }
   case BV64_POLY: {
     bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
+    if (bump_factor > 0) bump_factor ++;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
-      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out);
+      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out, bump_factor);
     }
     break;
   }
   case POWER_PRODUCT: {
     pprod_t* t_pprod = pprod_term_desc(terms, t);
     for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-      bv_plugin_get_term_variables(bv, t_pprod->prod[i].var, vars_out);
+      bv_plugin_get_term_variables(bv, t_pprod->prod[i].var, vars_out, t_pprod->len*bump_factor);
     }
     break;
   }
-  default:
+  default: {
     // A variable or a foreign term
     assert(is_pos_term(t));
-    int_mset_add(vars_out, variable_db_get_variable(var_db, t));
+    variable_t t_var = variable_db_get_variable(var_db, t);
+    int_mset_add(vars_out, t_var);
+    if (bump_factor > 0) {
+      uint32_t bitsize = bv_term_bitsize(terms, t);
+      bump_factor = bitsize*bitsize;
+      bv->ctx->bump_variable_n(bv->ctx, t_var, bump_factor);
+    }
+  }
   }
 
   // Mark as visited
@@ -434,7 +450,7 @@ void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_ou
  * be atoms, except in the case of theory combination. For example,
  * f(t1::t2) would notify t1::t2 which is not an atom.
  */
-void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out) {
+void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out, uint64_t bump_amount) {
 
   term_table_t* terms = bv->ctx->terms;
 
@@ -450,13 +466,13 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mse
     // Terms only
     composite_term_t* atom_comp = composite_term_desc(terms, t_pos);
     assert(atom_comp->arity == 2);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[0], vars_out);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[1], vars_out);
+    bv_plugin_get_term_variables(bv, atom_comp->arg[0], vars_out, bump_amount);
+    bv_plugin_get_term_variables(bv, atom_comp->arg[1], vars_out, bump_amount);
     break;
   }
   case BIT_TERM: {
     term_t arg = bit_term_arg(terms, t_pos);
-    bv_plugin_get_term_variables(bv, arg, vars_out);
+    bv_plugin_get_term_variables(bv, arg, vars_out, bump_amount);
     break;
   }
   case BV_ARRAY:
@@ -630,7 +646,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
 static
 void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
 
-  uint32_t i, j;
+  uint32_t i;
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
   variable_db_t* var_db = bv->ctx->var_db;
   term_table_t* terms = bv->ctx->terms;
@@ -656,7 +672,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   // Add the term itself
   int_mset_add(&t_vars, t_var);
   // Collect the sub-variables
-  bv_plugin_get_notified_term_subvariables(bv, t, &t_vars);
+  bv_plugin_get_notified_term_subvariables(bv, t, &t_vars, 1);
 
   // It's a constraint if there is more than one variable
   bool is_constraint = t_vars.element_list.size > 1;
@@ -687,13 +703,6 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
           assert(false);
         }
       }
-    }
-
-    // Bump the variables
-    for (i = 0; i < t_var_list->size; ++ i) {
-      variable_t x = t_var_list->data[i];
-      uint32_t deg = int_mset_contains(&t_vars, x);
-      for (j = 0; j < deg; ++ j) { bv->ctx->bump_variable(bv->ctx, x); }
     }
 
     // Sort variables by trail index
@@ -1112,7 +1121,7 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   }
 
   // Get all the variables and make sure they are all assigned.
-  bv_plugin_get_notified_term_subvariables(bv, t, vars);
+  bv_plugin_get_notified_term_subvariables(bv, t, vars, 0);
 
   // Check if the variables are assigned
   ivector_t* var_list = int_mset_get_list(vars);

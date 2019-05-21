@@ -98,6 +98,9 @@ struct plugin_context_s {
   /** Bump the heuristic value of the given variable */
   void (*bump_variable) (plugin_context_t* self, variable_t x);
 
+  /** Bump the heuristic value of the given variable n times */
+  void (*bump_variable_n) (plugin_context_t* self, variable_t x, uint32_t n);
+
   /** Compare the heuristic values of the given variables */
   int (*cmp_variables) (plugin_context_t* self, variable_t x, variable_t y);
 
