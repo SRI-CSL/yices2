@@ -165,7 +165,8 @@ static void print_help(const char *progname) {
 	 "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
 	 "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
 	 "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
+	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
+	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
 	 ""
 #endif
 	 "\n"
