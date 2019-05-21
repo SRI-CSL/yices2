@@ -9708,7 +9708,7 @@ static bool stabilizing(sat_solver_t *solver) {
       //      solver->try_assignment = true;
     } else {
       solver->stabilizing = false;
-      solver->stab_next += 10 * solver->stab_length;
+      solver->stab_next += 2 * solver->stab_length;
       if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
 	solver->stab_length *= STAB_FACTOR;
       }
@@ -9809,7 +9809,7 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_next = 0;
 
   //  solver->probing_next = 0;
-  solver->probing_next = 10 * solver->params.probing_interval;
+  solver->probing_next = 100 * solver->params.probing_interval;
   solver->probing_budget = 0;
   solver->probing_last = 0;
   solver->probing_inc = solver->params.probing_interval;
