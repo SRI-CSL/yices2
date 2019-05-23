@@ -102,7 +102,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true); // with preprocessing
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
-  nsat_set_randomness(d->solver, 0);
+  nsat_set_randomness(d->solver, 0.01);
   nsat_set_var_decay_factor(d->solver, 0.6);
   nsat_set_reduce_fraction(d->solver, 12);
   nsat_set_simplify_subst_delta(d->solver, 30);

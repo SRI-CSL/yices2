@@ -336,6 +336,16 @@ extern void add_bvterm_to_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b
 extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
 
 
+/*
+ * Check whether t is a product
+ * - this returns true if t is (bvshl x y) since (bvshl x y) = x * (bvshl 1 y)
+ *   or if t is a power-product
+ *   of if t is a polynomial with a single monomial = a * power-product for
+ *   some constant a that's not 0 and not 1.
+ * - return false otherwise (including if t is not a bit-vector term).
+ */
+extern bool term_is_bvprod(term_table_t *tbl, term_t t);
+
 
 /*
  * INTERVAL ABSTRACTION FOR BITVECTORS

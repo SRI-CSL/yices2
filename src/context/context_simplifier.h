@@ -44,13 +44,11 @@
  */
 extern term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2);
 
-
 /*
  * Same thing for bitvector terms
  * - both t1 and t2 must be root terms in the internalization table
  */
 extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
-
 
 
 /*
@@ -64,8 +62,8 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
  * - true:     (t1 == t2) is true
  * - false:    (t1 == t2) is false
  * - reduced:  (t1 == t2) is equivalent to (u1 == u2) for simpler terms u1, u2
- * - reduced0: (t1 == t2) is equivalent to (u == 0) fo a simpelr term u
- * - nochange:
+ * - reduced0: (t1 == t2) is equivalent to (u == 0) for a simpler term u
+ * - nochange
  */
 typedef enum {
   BVEQ_CODE_TRUE,
