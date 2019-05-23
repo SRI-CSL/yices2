@@ -2193,6 +2193,59 @@ void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
 }
 
 
+/**********************************
+ *  PRODUCTS OF BIT-VECTOR TERMS  *
+ *********************************/
+
+static bool bvpoly64_is_bvprod(bvpoly64_t *p) {
+  if (p->nterms == 1) {
+    assert(p->mono[0].coeff != 0 && p->mono[0].coeff != 1);
+    return true;
+  }
+  return false;
+}
+
+static  bool bvpoly_is_bvprod(bvpoly_t *p) {
+  if (p->nterms == 1) {
+    assert(!bvconst_is_zero(p->mono[0].coeff, p->width) &&
+	   !bvconst_is_one(p->mono[0].coeff, p->width));
+    return true;
+  }
+  return false;
+}
+
+/*
+ * Check whether t is a product
+ * - this returns true if t is (bvshl x y) since (bvshl x y) = x * (bvshl 1 y)
+ *   or if t is a power-product
+ *   of if t is a polynomial with a single monomial = a * power-product for
+ *   some constant a that's not 0 and not 1.
+ * - return false otherwise (including if t is not a bit-vector term).
+ */
+bool term_is_bvprod(term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV_SHL:
+  case POWER_PRODUCT:
+    return true;
+
+  case BV64_POLY:
+    return bvpoly64_is_bvprod(bvpoly64_term_desc(tbl, t));
+
+  case BV_POLY:
+    return bvpoly_is_bvprod(bvpoly_term_desc(tbl, t));
+
+  default:
+    return false;
+  }
+}
+
+
+
+
+
+
 
 /*****************************************
  *  SIMPLIFICATION OF BIT-VECTOR TERMS   *
