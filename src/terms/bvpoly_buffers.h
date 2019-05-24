@@ -353,7 +353,6 @@ extern bvpoly_t *bvpoly_buffer_getpoly(bvpoly_buffer_t *b);
  */
 extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
 
-
 /*
  * Same thing for a bvpoly
  * - b must be normalized
@@ -362,13 +361,21 @@ extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
 
 
 /*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+extern bool bvpoly_buffer_equal(bvpoly_buffer_t *b1, bvpoly_buffer_t *b2);
+
+
+/*
  * Hash function1
  * - b must be normalized and have bitsize <= 64
+ *
+ * This follows the definition of hash_bvpoly64 in bv64_polynomials:
  * - if b is equal to a bvpoly64 p then
  *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
  */
 extern uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b);
-
 
 /*
  * Hash function2:

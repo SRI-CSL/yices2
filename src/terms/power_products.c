@@ -528,6 +528,15 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n) {
 }
 
 
+/*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2) {
+  return b1->len == b2->len && varexp_array_equal(b1->prod, b2->prod, b1->len);
+}
+
+
 
 /*
  * The ordering between power products must be compatible with the

@@ -2193,9 +2193,9 @@ void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
 }
 
 
-/**********************************
- *  PRODUCTS OF BIT-VECTOR TERMS  *
- *********************************/
+/***********************************
+ *  FACTORING OF BIT-VECTOR TERMS  *
+ **********************************/
 
 static bool bvpoly64_is_bvprod(bvpoly64_t *p) {
   if (p->nterms == 1) {
@@ -2239,6 +2239,149 @@ bool term_is_bvprod(term_table_t *tbl, term_t t) {
   default:
     return false;
   }
+}
+
+
+
+/*
+ * Add d * t to the exponent part of b
+ */
+static void get_exponents(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d) {
+  // for now we don't expand t.
+  bvfactor_buffer_exp(b, t, d);
+}
+
+
+/*
+ * Recursive factoring:
+ * - compute a factorization of t^d and add it to buffer b
+ */
+static void get_factors(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d);
+
+static void bvfactor_const64(bvfactor_buffer_t *b, bvconst64_term_t *c, uint32_t d) {
+  assert(c->bitsize == b->bitsize);
+  bvfactor_buffer_mulconst64(b, c->value, d);
+}
+
+static void bvfactor_const(bvfactor_buffer_t *b, bvconst_term_t *c, uint32_t d) {
+  assert(c->bitsize == b->bitsize);
+  bvfactor_buffer_mulconst(b, c->data, d);
+}
+
+static void bvfactor_shl(term_table_t *tbl, bvfactor_buffer_t *b, composite_term_t *shl, uint32_t d) {
+  // shl is (bvshl x y) = x * 2^y
+  get_factors(tbl, b, shl->arg[0], d);
+  get_exponents(tbl, b, shl->arg[1], d);
+}
+
+static void bvfactor_pprod(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d) {
+  pprod_t *p;
+  uint32_t i, n;
+  uint64_t test_degree;
+
+  p = pprod_term_desc(tbl, t);
+
+  /*
+   * We check that the degree won't overflow.
+   * If there's a risk, we don't expand t.
+   */
+  test_degree = (uint64_t) d * p->degree;
+  if (test_degree >= 20 || b->total_degree > UINT64_MAX - test_degree) {
+    bvfactor_buffer_mul(b, t, d);
+    return;
+  }
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    //     p->prod[i] is x_i ^ d_i
+    assert((uint64_t) d * p->prod[i].exp <= UINT32_MAX);
+    get_factors(tbl, b, p->prod[i].var, d * p->prod[i].exp);
+  }
+}
+
+static void bvfactor_poly64(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d) {
+  bvpoly64_t *p;
+
+  p = bvpoly64_term_desc(tbl, t);
+  if (bvpoly64_is_bvprod(p)) {
+    // p is a * x for some constant a and term x
+    assert(p->nterms == 1 && is_bitvector_term(tbl, p->mono[0].var));
+    bvfactor_buffer_mulconst64(b, p->mono[0].coeff, d);
+    get_factors(tbl, b, p->mono[0].var, d);
+  } else {
+    bvfactor_buffer_mul(b, t, d);
+  }
+}
+
+static void bvfactor_poly(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d) {
+  bvpoly_t *p;
+
+  p = bvpoly_term_desc(tbl, t);
+  if (bvpoly_is_bvprod(p)) {
+    // p is a * x for some constant a and term x
+    assert(p->nterms == 1 && is_bitvector_term(tbl, p->mono[0].var));
+    bvfactor_buffer_mulconst(b, p->mono[0].coeff, d);
+    get_factors(tbl, b, p->mono[0].var, d);
+  } else {
+    bvfactor_buffer_mul(b, t, d);
+  }
+}
+
+
+
+/*
+ * Decomposet t^d into factors and add the factors to buffer b
+ * - t is a bitvector term
+ * - the buffer is initialized with the right bitsize
+ */
+static void get_factors(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uint32_t d) {
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) == b->bitsize);
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    bvfactor_const64(b, bvconst64_term_desc(tbl, t), d);
+    break;
+
+  case BV_CONSTANT:
+    bvfactor_const(b, bvconst_term_desc(tbl, t), d);
+    break;
+
+  case BV_SHL:
+    bvfactor_shl(tbl, b, bvshl_term_desc(tbl, t), d);
+    break;
+
+  case POWER_PRODUCT:
+    bvfactor_pprod(tbl, b, t, d);
+    break;
+
+  case BV64_POLY:
+    bvfactor_poly64(tbl, b, t, d);
+    break;
+
+  case BV_POLY:
+    bvfactor_poly(tbl, b, t, d);
+    break;
+
+  default:
+    bvfactor_buffer_mul(b, t, d);
+    break;
+  }
+}
+
+
+/*
+ * Construct the factorization of term t
+ * - store the result in buffer b
+ * - b must be initialized
+ */
+void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+  n = term_bitsize(tbl, t);
+  reset_bvfactor_buffer(b, n);
+  get_factors(tbl, b, t, 1);
+  bvfactor_buffer_normalize(b);
 }
 
 

@@ -91,6 +91,12 @@ typedef struct bveq_simp_s {
  */
 extern void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2);
 
+/*
+ * Check whether t1 and t2 have the same factor decomposition
+ */
+extern bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2);
+
+
 
 /*
  * FLATTENING AND VARIABLE ELIMINATION

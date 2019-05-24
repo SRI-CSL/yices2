@@ -247,7 +247,6 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
 }
 
 
-
 /*
  * Try arithmetic/rewriting simplifications for (t1 == t2)
  * - t1 and t2 must be root terms in the internalization table
@@ -293,6 +292,90 @@ void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t
 }
 
 
+#if 0
+
+extern void bvconst64_print(FILE *f, uint64_t a, uint32_t n);
+
+static void show_factors(bvfactor_buffer_t *b) {
+  pprod_t *pp;
+  bvpoly_t *p;
+  bvpoly64_t *q;
+
+  pp = pp_buffer_getprod(&b->product);
+  if (b->bitsize <= 64) {
+    q = bvpoly_buffer_getpoly64(&b->exponent);
+    printf("constant: ");
+    bvconst64_print(stdout, b->constant64, b->bitsize);
+    printf("\nproduct: ");
+    print_pprod(stdout, pp);
+    printf("\nexponents: ");
+    print_bvpoly64(stdout, q);
+    printf("\n");
+    free_bvpoly64(q);
+  } else {
+    p = bvpoly_buffer_getpoly(&b->exponent);
+    printf("constant: ");
+    bvconst_print(stdout, b->constant.data, b->bitsize);
+    printf("\nproduct: ");
+    print_pprod(stdout, pp);
+    printf("\nexponents: ");
+    print_bvpoly(stdout, p);
+    printf("\n");
+    free_bvpoly(p);
+  }
+
+  free_pprod(pp);
+}
+
+/*
+ * Try factoring of term t:
+ * - return true if t is a product-like term and store the reuslt in b
+ */
+void try_bitvector_factoring(context_t *ctx, term_t t) {
+  bvfactor_buffer_t b;
+  term_table_t *terms;
+
+  terms = ctx->terms;
+
+  printf("\n--- factoring for term %"PRId32" ---\n", t);
+  print_term_full(stdout, terms, t);
+  printf("\n");
+  fflush(stdout);
+
+  if (term_is_bvprod(terms, t)) {
+    init_bvfactor_buffer(&b);
+    factor_bvterm(terms, t, &b);
+    show_factors(&b);
+    fflush(stdout);
+    delete_bvfactor_buffer(&b);
+  }
+}
+
+#endif
+
+/*
+ * Check whether t1 and t2 have the same factor decomposition
+ */
+bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2) {
+  bvfactor_buffer_t b1;
+  bvfactor_buffer_t b2;
+  term_table_t *terms;
+  bool eq;
+
+  eq = false;
+  terms = ctx->terms;
+  if (term_is_bvprod(terms, t1) && term_is_bvprod(terms, t2)) {
+    init_bvfactor_buffer(&b1);
+    init_bvfactor_buffer(&b2);
+    factor_bvterm(terms, t1, &b1);
+    factor_bvterm(terms, t2, &b2);
+    eq = bvfactor_buffer_equal(&b1, &b2);
+    delete_bvfactor_buffer(&b1);
+    delete_bvfactor_buffer(&b2);
+  }
+
+  return eq;
+}
 
 
 /**************************
