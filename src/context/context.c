@@ -4378,10 +4378,6 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   /*
    * Try more simplifications
    */
-  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
-    longjmp(ctx->env, TRIVIALLY_UNSAT);
-  }
-
   try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
   switch (simp.code) {
   case BVEQ_CODE_TRUE:
@@ -4400,6 +4396,13 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
   default:
+    /*
+     *  try Factoring
+     */
+    if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+
     /*
      * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
      */
