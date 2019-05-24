@@ -44,13 +44,11 @@
  */
 extern term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2);
 
-
 /*
  * Same thing for bitvector terms
  * - both t1 and t2 must be root terms in the internalization table
  */
 extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
-
 
 
 /*
@@ -64,8 +62,8 @@ extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
  * - true:     (t1 == t2) is true
  * - false:    (t1 == t2) is false
  * - reduced:  (t1 == t2) is equivalent to (u1 == u2) for simpler terms u1, u2
- * - reduced0: (t1 == t2) is equivalent to (u == 0) fo a simpelr term u
- * - nochange:
+ * - reduced0: (t1 == t2) is equivalent to (u == 0) for a simpler term u
+ * - nochange
  */
 typedef enum {
   BVEQ_CODE_TRUE,
@@ -92,6 +90,12 @@ typedef struct bveq_simp_s {
  *   u1 is stored in r->left and NULL_TERM is stored in r->right.
  */
 extern void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2);
+
+/*
+ * Check whether t1 and t2 have the same factor decomposition
+ */
+extern bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2);
+
 
 
 /*

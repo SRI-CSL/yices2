@@ -1114,6 +1114,38 @@ bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
 }
 
 
+/*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+bool bvpoly_buffer_equal(bvpoly_buffer_t *b1, bvpoly_buffer_t *b2) {
+  uint32_t i, n, w;
+
+  n = b1->nterms;
+  if (b1->bitsize != b2->bitsize || n != b2->nterms) {
+    return false;
+  }
+
+  if (b1->bitsize <= 64) {
+    for (i=0; i<n; i++) {
+      if (b1->var[i] != b2->var[i] || b1->c[i] != b2->c[i]) {
+	return false;
+      }
+    }
+  } else {
+    w = b1->width;
+    assert(w == b2->width);
+    for (i=0; i<n; i++) {
+      if (b1->var[i] != b2->var[i] || bvconst_neq(b1->p[i], b2->p[i], w)) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
 
 /*
  * Hash function1
