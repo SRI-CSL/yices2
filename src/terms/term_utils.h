@@ -34,6 +34,7 @@
 
 #include "terms/bv64_interval_abstraction.h"
 #include "terms/bv_constants.h"
+#include "terms/bvfactor_buffers.h"
 #include "terms/bvpoly_buffers.h"
 #include "terms/terms.h"
 
@@ -337,6 +338,10 @@ extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t 
 
 
 /*
+ * FACTORING OF BIT-VECTOR PRODUCTS
+ */
+
+/*
  * Check whether t is a product
  * - this returns true if t is (bvshl x y) since (bvshl x y) = x * (bvshl 1 y)
  *   or if t is a power-product
@@ -345,6 +350,18 @@ extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t 
  * - return false otherwise (including if t is not a bit-vector term).
  */
 extern bool term_is_bvprod(term_table_t *tbl, term_t t);
+
+
+/*
+ * Compute a factorization if t
+ * - t must be a bitvector term
+ * - this writes t to the form a * power-product * 2^exp
+ *   by converting (bvshl x y)  to x * 2^y
+ *   and so forth
+ * - the result is returned in buffer b
+ * - b must be initialized
+ */
+extern void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b);
 
 
 /*

@@ -212,6 +212,7 @@ core_src_c := \
 	terms/bvarith_buffers.c \
 	terms/bvarith_buffer_terms.c \
 	terms/bv_constants.c \
+	terms/bvfactor_buffers.c \
 	terms/bvlogic_buffers.c \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
