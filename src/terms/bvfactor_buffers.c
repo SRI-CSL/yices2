@@ -61,7 +61,7 @@ void reset_bvfactor_buffer(bvfactor_buffer_t *b, uint32_t n) {
     bvconstant_copy64(&b->constant, n, 1);
   }
   pp_buffer_reset(&b->product);
-  reset_bvpoly_buffer(&b->exponent, n);  
+  reset_bvpoly_buffer(&b->exponent, n);
 }
 
 
@@ -89,7 +89,7 @@ void bvfactor_buffer_mul(bvfactor_buffer_t *b, int32_t x, uint32_t d) {
 /*
  * Multiply by (2^y)^d: add d*y to the exponent
  */
-void bvfactor_buffer_exp(bvfactor_buffer_t *b, int32_t y, uint32_t d) {  
+void bvfactor_buffer_exp(bvfactor_buffer_t *b, int32_t y, uint32_t d) {
   if (b->bitsize <= 64) {
     bvpoly_buffer_add_mono64(&b->exponent, y, (uint64_t) d);
   } else {
@@ -100,7 +100,7 @@ void bvfactor_buffer_exp(bvfactor_buffer_t *b, int32_t y, uint32_t d) {
 
 
 /*
- * Multiply by 2^(a * y)^d where a is an n-bit constant 
+ * Multiply by 2^(a * y)^d where a is an n-bit constant
  * - two variants: mulexp64 if n <= 64 or mulexp if n > 64
  * - for mulexp, a must be given as an array of w words where w = ceil(n/32)
  *
@@ -165,7 +165,7 @@ bool bvfactor_buffer_equal(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
     if (bvconst_neq(b1->constant.data, b2->constant.data, w)) return false;
   }
 
-  return pp_buffer_equal(&b1->product, &b2->product) && 
+  return pp_buffer_equal(&b1->product, &b2->product) &&
     bvpoly_buffer_equal(&b1->exponent, &b2->exponent);
 }
 

@@ -22,7 +22,7 @@
 
 /*
  * We can attempt to factor and simplify expressions that mix
- * bitvector products and left-shift. This corresponds to 
+ * bitvector products and left-shift. This corresponds to
  * expressions built form the following operators:
  *   (bvmul x y)
  *   (bvshl x y)
@@ -109,7 +109,7 @@ extern void bvfactor_buffer_mul(bvfactor_buffer_t *b, int32_t x, uint32_t d);
 extern void bvfactor_buffer_exp(bvfactor_buffer_t *b, int32_t y, uint32_t d);
 
 /*
- * Multiply by (2^(a * y))^d where a is an n-bit constant 
+ * Multiply by (2^(a * y))^d where a is an n-bit constant
  * - two variants: mulexp64 if n <= 64 or mulexp if n > 64
  * - for mulexp, a must be given as an array of w words where w = ceil(n/32)
  */
