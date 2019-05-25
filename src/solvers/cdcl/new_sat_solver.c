@@ -9584,13 +9584,16 @@ static void build_assignment(sat_solver_t *solver) {
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i)) {
       l = preferred_literal(solver, i);
-      if (empty_watch(solver->watch[l])) {
+      if (empty_watch(solver->watch[not(l)])) {
 	nsat_decide_literal(solver, l);
+	nsat_boolean_propagation(solver);
+	assert(solver->conflict_tag == CTAG_NONE);
 	continue;
       }
-      l = not(l);
       if (empty_watch(solver->watch[l])) {
-	nsat_decide_literal(solver, l);
+	nsat_decide_literal(solver, not(l));
+	nsat_boolean_propagation(solver);
+	assert(solver->conflict_tag == CTAG_NONE);
       }
     }
   }
