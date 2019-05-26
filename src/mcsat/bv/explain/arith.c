@@ -1314,7 +1314,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   delete_ivector(&cover_output);
   
   // Now we destruct all intervals
-  for (uint32_t i = 1; i < nonemptys; i++) {
+  for (uint32_t i = 0; i < nonemptys; i++) {
     bv_arith_interval_destruct(intervals[i]);
   }
 
