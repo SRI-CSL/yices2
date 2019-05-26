@@ -725,7 +725,7 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
   term_table_t* terms   = ctx->terms;
   uint32_t w = term_bitsize(terms, lhs_raw);
   assert(w == term_bitsize(terms, rhs_raw));
-  interval_t* result;
+  interval_t* result = NULL;
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
@@ -920,12 +920,11 @@ void bv_arith_add2conflict(bv_arith_ctx_t* lctx,
 static inline
 uint32_t get_longest(interval_t** intervals, uint32_t number_intervals){
   assert(number_intervals != 0);
-  uint32_t bitwidth = get_bitwidth(intervals[0]);
   uint32_t result = 0;
 
   for (uint32_t i = 1; i < number_intervals; i++){
     assert(intervals[i] != NULL);
-    assert(get_bitwidth(intervals[i]) == bitwidth);
+    assert(get_bitwidth(intervals[i]) == get_bitwidth(intervals[0]));
     // If it is longer than the previous longest, we update the latter
     if (bvconstant_lt(&intervals[0]->length, &intervals[i]->length)){
       result = i;
