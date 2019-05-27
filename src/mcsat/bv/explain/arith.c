@@ -307,6 +307,13 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
     // t is a bv-poly expression.
     // We use the fact that lower bits extraction distributes over arithmetic operations
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    term_t monomials[t_poly->nterms]; // where we recursively extract the monomials
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var != const_idx) {
+        monomials[i] = extract(exp, t_poly->mono[i].var, w);
+        if (monomials[i] == NULL_TERM) return NULL_TERM;
+      }
+    }
     if (w<65) {
       // If we extract fewer than 65 bits, we use uint64_t coefficients for the bv_poly to produce
       // we construct that bv_poly from a bvarith64_buffer_t called result:
@@ -321,9 +328,7 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
         if (t_poly->mono[i].var == const_idx) {
           bvarith64_buffer_add_const(result, coeff); // constant coefficient gets aded to the result bv_poly
         } else {
-          term_t recurs = extract(exp, t_poly->mono[i].var, w); // recursively project the monomial variable onto w bits
-          if (recurs == NULL_TERM) return NULL_TERM; // If it fails we fail
-          bvarith64_buffer_add_const_times_term(result, terms, coeff, recurs); // Otherwise we add the w-bit monomial to the bv_poly
+          bvarith64_buffer_add_const_times_term(result, terms, coeff, monomials[i]); // Otherwise we add the w-bit monomial to the bv_poly
         }
       }
       return mk_bvarith64_term(tm, result); // We turn the bv_poly into an actual term, and return it
@@ -339,9 +344,7 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
         if (t_poly->mono[i].var == const_idx) {
           bvarith_buffer_add_const(result, coeff.data);// constant coefficient gets aded to the result bv_poly
         } else {
-          term_t recurs = extract(exp, t_poly->mono[i].var, w);// recursively project the monomial variable onto w bits
-          if (recurs == NULL_TERM) return NULL_TERM;// If it fails we fail
-          bvarith_buffer_add_const_times_term(result, terms, coeff.data, recurs); // Otherwise we add the w-bit monomial to the bv_poly
+          bvarith_buffer_add_const_times_term(result, terms, coeff.data, monomials[i]); // Otherwise we add the w-bit monomial to the bv_poly
         }
       }
       delete_bvconstant(&coeff); //cleaning up
@@ -349,16 +352,21 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
     }
   }
   case BV64_POLY: { // Same game, but now t is a bv64_poly, so w <= 64 and we also construct a bv64_poly
-    bvpoly64_t* t_poly         = bvpoly64_term_desc(ctx->terms, t);
+    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
+    term_t monomials[t_poly->nterms]; // where we recursively extract the monomials
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var != const_idx) {
+        monomials[i] = extract(exp, t_poly->mono[i].var, w);
+        if (monomials[i] == NULL_TERM) return NULL_TERM;
+      }
+    }
     bvarith64_buffer_t* result = term_manager_get_bvarith64_buffer(tm);
     bvarith64_buffer_prepare(result, w);
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) {
         bvarith64_buffer_add_const(result, t_poly->mono[i].coeff);
       } else {
-        term_t recurs = extract(exp, t_poly->mono[i].var, w);
-        if (recurs == NULL_TERM) return NULL_TERM;
-        bvarith64_buffer_add_const_times_term(result, terms, t_poly->mono[i].coeff, recurs);
+        bvarith64_buffer_add_const_times_term(result, terms, t_poly->mono[i].coeff, monomials[i]);
       }
     }
     return mk_bvarith64_term(tm, result);
