@@ -1122,7 +1122,7 @@ bool cover(bv_arith_ctx_t* lctx,
             result  = false;
             saved_term = NULL_TERM;
           } else { // otherwise we need to push to output that the hole was small
-            term_t smaller_values_term = mk_bv_constant(tm, &smaller_values);
+            term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
             term_t hole_length_term = bv_arith_sub_terms(tm, i->lo_term, saved_term);
             term_t literal = bv_arith_lt(tm, hole_length_term, smaller_values_term);
             if (literal != NULL_TERM) ivector_push(output, literal);
