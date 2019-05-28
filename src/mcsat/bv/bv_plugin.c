@@ -24,6 +24,8 @@
 
 #include "utils/int_array_sort2.h"
 #include "utils/int_hash_sets.h"
+#include "utils/generic_heap.h"
+
 #include "terms/terms.h"
 #include "terms/bv64_constants.h"
 
@@ -91,8 +93,11 @@ typedef struct {
   /** Size of processed (for backtracking) */
   uint32_t processed_variables_size;
 
-  /** Cache for term traversals */
-  int_hset_t visited_cache;
+  /** Cache for term traversals. Maps from term to bump value. */
+  int_hmap_t visited_cache;
+
+  /** Heap for term traversal order */
+  generic_heap_t visit_heap;
 
   struct {
     statistic_int_t* conflicts;
@@ -102,6 +107,11 @@ typedef struct {
   } stats;
 
 } bv_plugin_t;
+
+static
+bool term_visit_cmp(void *data, int32_t x, int32_t y) {
+  return x > y;
+}
 
 static
 void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
@@ -137,7 +147,8 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&bv->processed_variables, 0);
   bv->processed_variables_size = 0;
 
-  init_int_hset(&bv->visited_cache, 0);
+  init_int_hmap(&bv->visited_cache, 0);
+  init_generic_heap(&bv->visit_heap, 0, 0, term_visit_cmp, NULL);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
@@ -190,7 +201,8 @@ void bv_plugin_destruct(plugin_t* plugin) {
   bv_evaluator_destruct(&bv->evaluator);
   bv_explainer_destruct(&bv->explainer);
   delete_ivector(&bv->processed_variables);
-  delete_int_hset(&bv->visited_cache);
+  delete_int_hmap(&bv->visited_cache);
+  delete_generic_heap(&bv->visit_heap);
 }
 
 
@@ -311,198 +323,243 @@ bool bv_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
   }
 }
 
+#define MAX_BUMP_VALUE 1073741824 // 2^30
+
 /**
- * Collect in vars_out the free variables of term t
+ * Scores are additive.
  */
-void bv_plugin_get_term_variables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out, uint64_t bump_factor) {
-
+static inline
+void bv_plugin_get_term_variable_visit_term(bv_plugin_t* bv, term_t t, uint32_t parent_bump, uint32_t t_bump) {
   assert(is_pos_term(t));
-
-  // SKip if already visited
-  if (int_hset_member(&bv->visited_cache, t)) {
-    return;
+  generic_heap_add(&bv->visit_heap, t);
+  if (parent_bump > t_bump || t_bump > MAX_BUMP_VALUE) {
+    // overflow or too big
+    t_bump = MAX_BUMP_VALUE;
   }
-
-  // The term table
-  term_table_t* terms = bv->ctx->terms;
-
-  // Variable database
-  variable_db_t* var_db = bv->ctx->var_db;
-
-  if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(bv->ctx, "bv_plugin_get_variables: ");
-    ctx_trace_term(bv->ctx, t);
-  }
-
-  term_kind_t kind = term_kind(terms, t);
-  switch (kind) {
-  case CONSTANT_TERM: // Boolean variables
-  case BV_CONSTANT:
-  case BV64_CONSTANT:
-    // Ignore, no variables here
-    break;
-  case EQ_TERM: {
-      composite_term_t* atom_comp = composite_term_desc(terms, t);
-      assert(atom_comp->arity == 2);
-      term_t t0 = atom_comp->arg[0], t0_pos = unsigned_term(t0);
-      term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
-      bv_plugin_get_term_variables(bv, t0_pos, vars_out, bump_factor);
-      bv_plugin_get_term_variables(bv, t1_pos, vars_out, bump_factor);
-      break;
-  }
-  case BV_EQ_ATOM:
-  case BV_GE_ATOM:
-  case BV_SGE_ATOM: {
-    // These can appear as BV_ARRAY elements
-    composite_term_t* atom_comp = composite_term_desc(terms, t);
-    assert(atom_comp->arity == 2);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[0], vars_out, bump_factor);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[1], vars_out, bump_factor);
-    break;
-  }
-  case BV_ARRAY: {
-    // Special: make sub-terms positive
-    composite_term_t* concat_desc = bvarray_term_desc(terms, t);
-    for (uint32_t i = 0; i < concat_desc->arity; ++ i) {
-      term_t t_i = concat_desc->arg[i];
-      term_t t_i_pos = unsigned_term(t_i);
-      bv_plugin_get_term_variables(bv, t_i_pos, vars_out, bump_factor);
-    }
-    break;
-  }
-  case OR_TERM: {
-    composite_term_t* t_comp = or_term_desc(terms, t);
-    if (bump_factor > 0) {
-      bump_factor ++;
-    }
-    for (uint32_t i = 0; i < t_comp->arity; ++ i) {
-      term_t t_i = t_comp->arg[i];
-      term_t t_i_pos = unsigned_term(t_i);
-      bv_plugin_get_term_variables(bv, t_i_pos, vars_out, bump_factor);
-    }
-    break;
-  }
-  case BV_DIV:
-  case BV_REM:
-  case BV_SDIV:
-  case BV_SREM:
-  case BV_SMOD: {
-      composite_term_t* t_comp = composite_term_desc(terms, t);
-      bv_plugin_get_term_variables(bv, t_comp->arg[0], vars_out, 2*bump_factor);
-      bv_plugin_get_term_variables(bv, t_comp->arg[1], vars_out, 2*bump_factor);
-      break;
-  }
-  case BV_SHL:
-  case BV_LSHR:
-  case BV_ASHR: {
-    composite_term_t* t_comp = composite_term_desc(terms, t);
-    bv_plugin_get_term_variables(bv, t_comp->arg[0], vars_out, bump_factor);
-    bv_plugin_get_term_variables(bv, t_comp->arg[1], vars_out, bump_factor);
-    break;
-  }
-  case BIT_TERM:
-    bv_plugin_get_term_variables(bv, bit_term_arg(terms, t), vars_out, bump_factor);
-    break;
-  case BV_POLY: {
-    bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-    if (bump_factor > 0) bump_factor ++;
-    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
-      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out, bump_factor);
-    }
-    break;
-  }
-  case BV64_POLY: {
-    bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-    if (bump_factor > 0) bump_factor ++;
-    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-      if (t_poly->mono[i].var == const_idx) continue;
-      bv_plugin_get_term_variables(bv, t_poly->mono[i].var, vars_out, bump_factor);
-    }
-    break;
-  }
-  case POWER_PRODUCT: {
-    pprod_t* t_pprod = pprod_term_desc(terms, t);
-    for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-      bv_plugin_get_term_variables(bv, t_pprod->prod[i].var, vars_out, t_pprod->len*bump_factor);
-    }
-    break;
-  }
-  default: {
-    // A variable or a foreign term
-    assert(is_pos_term(t));
-    variable_t t_var = variable_db_get_variable(var_db, t);
-    int_mset_add(vars_out, t_var);
-    if (bump_factor > 0) {
-      uint32_t bitsize = bv_term_bitsize(terms, t);
-      bump_factor = bitsize*bitsize;
-      bv->ctx->bump_variable_n(bv->ctx, t_var, bump_factor);
+  int_hmap_pair_t* find = int_hmap_get(&bv->visited_cache, t);
+  if (find->val < 0) {
+    find->val = t_bump;
+  } else {
+    find->val += t_bump;
+    if (find->val > MAX_BUMP_VALUE) {
+      find->val = MAX_BUMP_VALUE;
     }
   }
-  }
-
-  // Mark as visited
-  int_hset_add(&bv->visited_cache, t);
 }
 
 /**
  * This is a notification for base BV terms. It's expected that these would
  * be atoms, except in the case of theory combination. For example,
  * f(t1::t2) would notify t1::t2 which is not an atom.
+ *
+ * The simplest way to collect the variables would be to just do a recursive
+ * traversal with caching. This simple solution doesn't give us access to
+ * position-relevant variable occurrences.
+ *
+ * For example, consider the term
+ *
+ *   ((x<<1) + (x<<1)*(x<<1))
+ *     1        2      3
+ *
+ * In the simple traversal we would only visit the variable x in the context
+ * of the LHS of + and ignore it in the power-product as it is cached within
+ * the already visited terms.
+ *
+ * Instead our cache will store and accumulate the bump factor and we will
+ * visit in the term-id order. For above example we will visit:
+ *
+ * 1. ((x<<1) + (x<<1)*(x<<1))
+ * 2. (x<<1)*(x<<1) -> bump factor ++ for (x<<1)
+ * 3. (x<<1) -> bump factor ++ for x
+ * 4. x
+ *
+ * Above allows us to consider all contexts where variables occur.
  */
-void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t t, int_mset_t* vars_out, uint64_t bump_amount) {
+void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint, int_mset_t* vars_out, uint64_t bump_amount) {
 
   term_table_t* terms = bv->ctx->terms;
+  variable_db_t* var_db = bv->ctx->var_db;
 
-  term_t t_pos = unsigned_term(t);
-  term_kind_t t_pos_kind = term_kind(terms, t_pos);
+  // Make sure we're starting fresh
+  int_hmap_reset(&bv->visited_cache);
+  reset_generic_heap(&bv->visit_heap);
 
-  int_hset_reset(&bv->visited_cache);
+  // Visit
+  term_t constraint_pos = unsigned_term(constraint);
+  bv_plugin_get_term_variable_visit_term(bv, constraint_pos, 0, bump_amount);
 
-  switch (t_pos_kind) {
-  case BV_EQ_ATOM:
-  case BV_GE_ATOM:
-  case BV_SGE_ATOM: {
-    // Terms only
-    composite_term_t* atom_comp = composite_term_desc(terms, t_pos);
-    assert(atom_comp->arity == 2);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[0], vars_out, bump_amount);
-    bv_plugin_get_term_variables(bv, atom_comp->arg[1], vars_out, bump_amount);
-    break;
-  }
-  case BIT_TERM: {
-    term_t arg = bit_term_arg(terms, t_pos);
-    bv_plugin_get_term_variables(bv, arg, vars_out, bump_amount);
-    break;
-  }
-  case BV_ARRAY:
-  case BV_DIV:
-  case BV_REM:
-  case BV_SDIV:
-  case BV_SREM:
-  case BV_SMOD:
-  case BV_SHL:
-  case BV_LSHR:
-  case BV_ASHR:
-  case BV_POLY:
-  case BV64_POLY:
-  case POWER_PRODUCT:
-  case BV_CONSTANT:
-  case BV64_CONSTANT:
-    // We should get notifications only on theory combination
-    if (ctx_trace_enabled(bv->ctx, "mcsat::bv::bug")) {
-      ctx_trace_printf(bv->ctx, "unhandled :\n");
-      ctx_trace_term(bv->ctx, t);
+  // Visit until done
+  while (!generic_heap_is_empty(&bv->visit_heap)) {
+
+    // Get the current term
+    term_t current = generic_heap_get_min(&bv->visit_heap);
+    assert(is_pos_term(current));
+    uint32_t current_bump = int_hmap_find(&bv->visited_cache, current)->val;
+
+    if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
+      ctx_trace_printf(bv->ctx, "bv_plugin_get_variables: ");
+      ctx_trace_term(bv->ctx, current);
     }
-    assert(false);
-    break;
-  default:
-    // We get here only with variables, or foreign terms.
-    break;
+
+    term_kind_t kind = term_kind(terms, current);
+    switch (kind) {
+    case CONSTANT_TERM: // Boolean variables
+    case BV_CONSTANT:
+    case BV64_CONSTANT:
+       // Ignore, no variables here
+       break;
+    case EQ_TERM: {
+      composite_term_t* atom_comp = composite_term_desc(terms, current);
+      assert(atom_comp->arity == 2);
+      term_t t0 = atom_comp->arg[0], t0_pos = unsigned_term(t0);
+      term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
+      bv_plugin_get_term_variable_visit_term(bv, t0_pos, current_bump, current_bump);
+      bv_plugin_get_term_variable_visit_term(bv, t1_pos, current_bump, current_bump);
+      break;
+    }
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM: {
+      // These can appear as BV_ARRAY elements
+      composite_term_t* atom_comp = composite_term_desc(terms, current);
+      assert(atom_comp->arity == 2);
+      bv_plugin_get_term_variable_visit_term(bv, atom_comp->arg[0], current_bump, current_bump);
+      bv_plugin_get_term_variable_visit_term(bv, atom_comp->arg[1], current_bump, current_bump);
+      break;
+    }
+    case BV_ARRAY: {
+      // Special: make sub-terms positive
+      composite_term_t* concat_desc = bvarray_term_desc(terms, current);
+      uint32_t child_bump = current_bump;
+      if (child_bump > 0) {
+        child_bump = (child_bump / concat_desc->arity) + 1;
+      }
+      for (uint32_t i = 0; i < concat_desc->arity; ++i) {
+        term_t t_i = concat_desc->arg[i];
+        term_t t_i_pos = unsigned_term(t_i);
+        bv_plugin_get_term_variable_visit_term(bv, t_i_pos, 0, child_bump);
+      }
+      break;
+    }
+    case OR_TERM: {
+      composite_term_t* current_comp = or_term_desc(terms, current);
+      uint32_t child_bump = current_bump;
+      if (child_bump > 0) {
+        child_bump ++; // Increasing complexity
+      }
+      for (uint32_t i = 0; i < current_comp->arity; ++i) {
+        term_t t_i = current_comp->arg[i];
+        term_t t_i_pos = unsigned_term(t_i);
+        bv_plugin_get_term_variable_visit_term(bv, t_i_pos, current_bump, child_bump);
+      }
+      break;
+    }
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD: {
+      composite_term_t* current_comp = composite_term_desc(terms, current);
+      uint32_t child_bump = current_bump * 2;
+      term_t lhs = current_comp->arg[0];
+      term_t rhs = current_comp->arg[1];
+      bv_plugin_get_term_variable_visit_term(bv, lhs, current_bump, child_bump);
+      bv_plugin_get_term_variable_visit_term(bv, rhs, current_bump, child_bump);
+      break;
+    }
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR: {
+      composite_term_t* current_comp = composite_term_desc(terms, current);
+      term_t child_bump = current_bump;
+      if (current_bump > 0) {
+        child_bump++;
+      }
+      term_t lhs = current_comp->arg[0];
+      term_t rhs = current_comp->arg[1];
+      bv_plugin_get_term_variable_visit_term(bv, lhs, current_bump, child_bump);
+      bv_plugin_get_term_variable_visit_term(bv, rhs, current_bump, child_bump);
+      break;
+    }
+    case BIT_TERM: {
+      term_t subterm = bit_term_arg(terms, current);
+      term_t child_bump = current_bump;
+      if (current_bump > 0) {
+        child_bump ++;
+      }
+      bv_plugin_get_term_variable_visit_term(bv, subterm, current_bump, child_bump);
+      break;
+    }
+    case BV_POLY: {
+      bvpoly_t* current_poly = bvpoly_term_desc(terms, current);
+      term_t child_bump = current_bump;
+      if (current_bump > 0) {
+        child_bump ++;
+      }
+      for (uint32_t i = 0; i < current_poly->nterms; ++i) {
+        if (current_poly->mono[i].var == const_idx) continue;
+        term_t var = current_poly->mono[i].var;
+        bv_plugin_get_term_variable_visit_term(bv, var, current_bump, child_bump);
+      }
+      break;
+    }
+    case BV64_POLY: {
+      bvpoly64_t* current_poly = bvpoly64_term_desc(terms, current);
+      uint32_t child_bump = current_bump;
+      if (child_bump > 0) {
+        child_bump ++;
+      }
+      for (uint32_t i = 0; i < current_poly->nterms; ++i) {
+        if (current_poly->mono[i].var == const_idx) continue;
+        term_t var = current_poly->mono[i].var;
+        bv_plugin_get_term_variable_visit_term(bv, var, current_bump, child_bump);
+      }
+      break;
+    }
+    case POWER_PRODUCT: {
+      pprod_t* current_pprod = pprod_term_desc(terms, current);
+      uint32_t child_bump = current_bump;
+      if (child_bump > 0) {
+        child_bump += current_pprod->len;
+      }
+      for (uint32_t i = 0; i < current_pprod->len; ++i) {
+        term_t var = current_pprod->prod[i].var;
+        bv_plugin_get_term_variable_visit_term(bv, var, current_bump, child_bump);
+      }
+      break;
+    }
+    default: {
+      // A variable or a foreign term
+      assert(is_pos_term(current));
+      if (current == constraint_pos) {
+        // The constraint itself is a variable
+        continue;
+      } else {
+        variable_t t_var = variable_db_get_variable(var_db, current);
+        int_mset_add(vars_out, t_var);
+        if (current_bump > 0) {
+          uint32_t bytesize = bv_term_bitsize(terms, current)/8+1;
+          uint32_t to_bump = current_bump * bytesize;
+          if (current_bump > to_bump || to_bump > MAX_BUMP_VALUE) {
+            to_bump = MAX_BUMP_VALUE; // Overflow or too big
+          }
+          if (ctx_trace_enabled(bv->ctx, "mcsat::bv::bump")) {
+            if (kind == UNINTERPRETED_TERM) {
+              ctx_trace_printf(bv->ctx, "new term: ");
+              ctx_trace_term(bv->ctx, current);
+              ctx_trace_printf(bv->ctx, "bump    : %"PRIu32"\n", to_bump);
+            }
+          }
+          bv->ctx->bump_variable_n(bv->ctx, t_var, to_bump);
+        }
+      }
+    }
+    }
   }
 
   // Reset the cache
-  int_hset_reset(&bv->visited_cache);
+  int_hmap_reset(&bv->visited_cache);
+  reset_generic_heap(&bv->visit_heap);
 }
 
 void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bool is_eval) {

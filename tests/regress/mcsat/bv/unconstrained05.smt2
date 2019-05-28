@@ -13,6 +13,35 @@ Contributed by Robert Brummayer (robert.brummayer@gmail.com)
 (declare-fun v5 () (_ BitVec 1024))
 (declare-fun v4 () (_ BitVec 1024))
 (declare-fun v6 () (_ BitVec 1024))
-(assert (not (= (ite (not (= (bvmul (bvudiv (bvudiv v4 v3) (bvmul v2 v5)) (bvmul (bvudiv (bvudiv v1 v2) (bvudiv v1 v3)) (bvmul (bvudiv v2 v3) (bvmul v4 v5)))) v6)) (_ bv1 1) (_ bv0 1)) (_ bv0 1))))
+(assert (not 
+  (= 
+    (ite 
+      (not 
+        (= 
+          (bvmul 
+            (bvudiv 
+              (bvudiv v4 v3) 
+              (bvmul v2 v5)
+            ) 
+            (bvmul 
+              (bvudiv 
+                (bvudiv v1 v2) 
+                (bvudiv v1 v3)
+              ) 
+              (bvmul 
+                (bvudiv v2 v3) 
+                (bvmul v4 v5)
+              )
+            )
+          ) 
+          v6
+        )
+      ) 
+      (_ bv1 1) 
+      (_ bv0 1)
+    ) 
+    (_ bv0 1)
+  )
+))
 (check-sat)
 (exit)
