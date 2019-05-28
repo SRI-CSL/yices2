@@ -677,7 +677,7 @@ slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const iv
 
   plugin_context_t* ctx = exp->super.ctx;
   slicing->exp = exp;
-  slist_t* var_to_slice_slices;
+  slist_t* var_to_slice_slices = NULL; // BD: initialized to stop a compilation warning.
 
   // We initialize the hashmap in the result
   init_ptr_hmap(&slicing->slices, 0);

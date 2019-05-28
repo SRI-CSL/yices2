@@ -159,14 +159,14 @@ static void print_help(const char *progname) {
 	 "    --incremental             Enable support for push/pop\n"
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
 #if HAVE_MCSAT
-   "    --mcsat                   Use the MCSat solver\n"
-   "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
-   "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
-   "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-   "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-   "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
-   "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
-   ""
+	 "    --mcsat                   Use the MCSat solver\n"
+	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
+	 "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+	 "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
+	 "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
+	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
+	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+	 ""
 #endif
 	 "\n"
 	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
