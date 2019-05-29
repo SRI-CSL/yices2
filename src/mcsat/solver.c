@@ -260,7 +260,7 @@ struct mcsat_solver_s {
 };
 
 static
-void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma);
+void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bound);
 
 static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst);
@@ -1350,22 +1350,23 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 }
 
 /**
- * Decide one of the unassigned literals. Decide the literal with the largest
- * term ID (to make sure we decide on t(x) instead of x).
+ * Decide one of the unassigned literals. Decide the first literal that is bigger
+ * than the given bound (to make sure we decide on t(x) instead of x).
  */
 static
-bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
+bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t bound) {
 
   uint32_t i;
   term_t literal;
   term_t literal_pos;
   variable_t literal_var;
 
-  term_t to_decide_literal = NULL_TERM;
-  term_t to_decide_literal_pos = NULL_TERM;
-  variable_t to_decide_literal_var = variable_null;
+  term_t to_decide_lit = NULL_TERM;
+  term_t to_decide_atom = NULL_TERM;
+  variable_t to_decide_var = variable_null;
 
   for (i = 0; i < literals->size; ++ i) {
+
     literal = literals->data[i];
     literal_pos = unsigned_term(literal);
     literal_var = variable_db_get_variable_if_exists(mcsat->var_db, literal_pos);
@@ -1382,10 +1383,11 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
         mcsat_trace_printf(mcsat->ctx->trace, "unassigned!\n");
       }
-      if (to_decide_literal_pos == NULL_TERM || to_decide_literal_pos < literal_pos) {
-        to_decide_literal = literal;
-        to_decide_literal_pos = literal_pos;
-        to_decide_literal_var = literal_var;
+      if (bound == NULL_TERM || literal_pos > bound) {
+        to_decide_lit = literal;
+        to_decide_atom = literal_pos;
+        to_decide_var = literal_var;
+        break;
       }
     } else {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
@@ -1394,14 +1396,14 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
     }
   }
 
-  if (to_decide_literal_var != variable_null) {
+  if (to_decide_var != variable_null) {
     if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
       mcsat_trace_printf(mcsat->ctx->trace, "picked:\n");
-      trace_term_ln(mcsat->ctx->trace, mcsat->ctx->terms, to_decide_literal);
+      trace_term_ln(mcsat->ctx->trace, mcsat->ctx->terms, to_decide_lit);
     }
     mcsat_push_internal(mcsat);
-    const mcsat_value_t* value = to_decide_literal_pos == to_decide_literal ? &mcsat_value_true : &mcsat_value_false;
-    trail_add_decision(mcsat->trail, to_decide_literal_var, value, MCSAT_MAX_PLUGINS);
+    const mcsat_value_t* value = to_decide_atom == to_decide_lit ? &mcsat_value_true : &mcsat_value_false;
+    trail_add_decision(mcsat->trail, to_decide_var, value, MCSAT_MAX_PLUGINS);
     return true;
   } else {
     return false;
@@ -1417,7 +1419,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals) {
  *    by one of the plugins
  */
 static
-void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
+void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bound) {
 
   uint32_t i, level, top_level;
   ivector_t unassigned;
@@ -1512,7 +1514,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma) {
   bool decided = false;
   bool consistent = trail_is_consistent(mcsat->trail);
   if (consistent) {
-    decided = mcsat_decide_one_of(mcsat, &unassigned);
+    decided = mcsat_decide_one_of(mcsat, &unassigned, decision_bound);
   }
   if(trace_enabled(mcsat->ctx->trace, "mcsat::lemma") && !(propagated || !consistent || decided)) {
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
@@ -1594,6 +1596,8 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   uint32_t conflict_level;
   variable_t var;
+
+  term_t decision_bound = NULL_TERM;
 
   ivector_t reason;
   term_t substitution;
@@ -1691,6 +1695,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       assignment_type_t top_var_type = trail_get_assignment_type(mcsat->trail, top_var);
       if (top_var_type == DECISION) {
         assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
+        decision_bound = variable_db_get_term(mcsat->var_db, top_var);
         break;
       }
     }
@@ -1777,7 +1782,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     }
 
     // Now add the lemma
-    mcsat_add_lemma(mcsat, conflict_disjuncts);
+    mcsat_add_lemma(mcsat, conflict_disjuncts, decision_bound);
 
     // Use resources based on conflict size
     *restart_resource += mcsat_get_lemma_weight(mcsat, conflict_disjuncts,

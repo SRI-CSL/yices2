@@ -538,8 +538,8 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
         variable_t t_var = variable_db_get_variable(var_db, current);
         int_mset_add(vars_out, t_var);
         if (current_bump > 0) {
-          uint32_t bytesize = bv_term_bitsize(terms, current)/8+1;
-          uint32_t to_bump = current_bump * bytesize;
+          uint32_t wordsize = bv_term_bitsize(terms, current)/32+1;
+          uint32_t to_bump = current_bump * wordsize;
           if (current_bump > to_bump || to_bump > MAX_BUMP_VALUE) {
             to_bump = MAX_BUMP_VALUE; // Overflow or too big
           }
