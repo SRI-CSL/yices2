@@ -355,3 +355,15 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
     return NULL_TERM;
   }
 }
+
+// builds extracted term, form lo (inc.) to hi (exc.)
+static inline
+term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
+  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+  term_t tarray[1];
+  tarray[0] = t;
+  term_t bv_term = is_bitvector_term(tm->terms, t) ?
+    t : bvarray_term(tm->terms, 1, tarray);
+  bvlogic_buffer_set_slice_term(buffer, tm->terms, lo, hi-1, bv_term);
+  return mk_bvlogic_term(tm, buffer);
+}

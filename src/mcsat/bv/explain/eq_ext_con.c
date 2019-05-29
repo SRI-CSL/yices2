@@ -10,7 +10,6 @@
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/term_manager.h"
-#include "terms/bvlogic_buffers.h"
 
 #include "mcsat/bv/bv_utils.h"
 #include "mcsat/eq/equality_graph.h"
@@ -90,18 +89,6 @@ struct slice_s {
    */
   splist_t* paired_with;
 };
-
-// builds extracted term, form lo (inc.) to hi (exc.)
-static inline
-term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
-  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-  term_t tarray[1];
-  tarray[0] = t;
-  term_t bv_term = is_bitvector_term(tm->terms, t) ?
-    t : bvarray_term(tm->terms, 1, tarray);
-  bvlogic_buffer_set_slice_term(buffer, tm->terms, lo, hi-1, bv_term);
-  return mk_bvlogic_term(tm, buffer);
-}
 
 // builds term from slice
 static inline
@@ -461,6 +448,20 @@ slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, u
   return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);
 }
 
+static inline
+term_t bit_over_extract(term_table_t* terms, term_t t) {
+  if (term_kind(terms, t) == BIT_TERM) {
+    select_term_t* desc   = bit_term_desc(terms, t);
+    term_t arg            = desc->arg;
+    uint32_t selected_bit = desc->idx; // Get bit that is selected in it
+    if (term_kind(terms, arg) == BV_ARRAY) {
+      composite_term_t* concat_desc = bvarray_term_desc(terms, arg);
+      return bit_over_extract(terms,concat_desc->arg[selected_bit]);
+    }
+  }
+  return t;
+}
+
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function. */
 slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
@@ -498,7 +499,7 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
 
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
-      term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
+      term_t t_i = bit_over_extract(terms,concat_desc->arg[i]); // The Boolean term that constitutes that bit
       if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::norm")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "bit %d is ",i);
@@ -853,7 +854,7 @@ bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
   // Bit-select over a variable
   if (t_kind == BIT_TERM) {
     term_t t_arg = bit_term_arg(terms, t);
-    if (t_arg == conflict_var) {
+    if (term_is_ext_con(exp, t_arg)) {
       int_hset_add(&exp->good_terms_cache, t);
       return true;
     } else {
