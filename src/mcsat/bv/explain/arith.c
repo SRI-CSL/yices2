@@ -579,10 +579,6 @@ bool cmp_base(void *data, void *x, void *y){
   return (get_bitwidth(i2) < get_bitwidth(i1));
 }
 
-bool cmp(void *x, void *y){
-  return cmp_base(NULL,x,y);
-}
-
 /**
    Local context for each conflict explanation instance, and how it manipulates intervals
 **/
@@ -604,19 +600,19 @@ void interval_construct(bv_arith_ctx_t* lctx,
                         term_t reason,
                         interval_t* output) {
 
-  plugin_context_t* ctx = lctx->exp->super.ctx;
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Constructing interval from lo = ");
-    bvconst_print(out, lo->data, lo->bitsize);
-    fprintf(out, ", hi = ");
-    bvconst_print(out, hi->data, hi->bitsize);
-    fprintf(out, ", lo_term = ");
-    term_print_to_file(out, ctx->terms, lo_term);
-    fprintf(out, ", hi_term = ");
-    term_print_to_file(out, ctx->terms, hi_term);
-    fprintf(out, "\n");
-  }
+  /* plugin_context_t* ctx = lctx->exp->super.ctx; */
+  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
+  /*   FILE* out = ctx_trace_out(ctx); */
+  /*   fprintf(out, "Constructing interval from lo = "); */
+  /*   bvconst_print(out, lo->data, lo->bitsize); */
+  /*   fprintf(out, ", hi = "); */
+  /*   bvconst_print(out, hi->data, hi->bitsize); */
+  /*   fprintf(out, ", lo_term = "); */
+  /*   term_print_to_file(out, ctx->terms, lo_term); */
+  /*   fprintf(out, ", hi_term = "); */
+  /*   term_print_to_file(out, ctx->terms, hi_term); */
+  /*   fprintf(out, "\n"); */
+  /* } */
 
   assert(bvconstant_is_normalized(lo));
   assert(bvconstant_is_normalized(hi));
@@ -636,12 +632,12 @@ void interval_construct(bv_arith_ctx_t* lctx,
   bvconstant_sub_one(&output->length);
   bvconstant_normalize(&output->length);
   
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith creates interval ");
-    bv_arith_interval_print(out, ctx->terms, output);
-    fprintf(out, "\n");
-  }
+  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
+  /*   FILE* out = ctx_trace_out(ctx); */
+  /*   fprintf(out, "bv_arith creates interval "); */
+  /*   bv_arith_interval_print(out, ctx->terms, output); */
+  /*   fprintf(out, "\n"); */
+  /* } */
 }
 
 // Adds a newly constructed interval into the heap
@@ -941,6 +937,22 @@ uint32_t get_longest(interval_t** intervals, uint32_t number_intervals){
   return result;
 }
 
+static inline
+void print_intervals(plugin_context_t* ctx, interval_t** intervals, uint32_t number_intervals){
+  FILE* out = ctx_trace_out(ctx);
+  for (uint32_t i = 0; i < number_intervals; i++) {
+    bv_arith_interval_print(out, ctx->terms, intervals[i]);
+    fprintf(out, "\n");
+  }
+}
+
+static inline
+interval_t* get_interval(interval_t** intervals, interval_t* inherited, int32_t index_inherited, uint32_t j){
+  if (index_inherited<0 || j<index_inherited) return intervals[j];
+  if (j==index_inherited) return inherited;
+  return intervals[j-1];
+}
+
 // Argument intervals[0] is a non-empty array of (non-empty) interval pointers
 // of a common bitwidth w, which is also the bitwidth of optional argument start_arg.
 // Computes from intervals[0] and start_arg a coverage of all values of bitwidth w.
@@ -952,7 +964,7 @@ bool cover(bv_arith_ctx_t* lctx,
            uint32_t bitwidths,      // Number of distinct bitwidths remaining after this
            interval_t*** intervals, // Array of size bitwidths
            uint32_t* numbers,       // Array of size bitwidths
-           interval_t* start_arg    // First interval of coverage, can be NULL
+           interval_t* inherited    // First interval of coverage, can be NULL
            ){
   assert(intervals[0] != NULL);
   assert(intervals[0][0] != NULL);
@@ -961,15 +973,16 @@ bool cover(bv_arith_ctx_t* lctx,
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
   uint32_t w            = get_bitwidth(intervals[0][0]); // Bitwidth currently being treated
-  uint32_t n            = numbers[0]; // Number of intervals of bitwidth w
-
+  uint32_t n = numbers[0]; // Number of intervals of bitwidth w to consider
 
   // We start by computing the longest interval in intervals[0]
   interval_t* longest = intervals[0][get_longest(intervals[0], n)];
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Call to cover: %d intervals of bitwidth %d. Longest one is ",n,w);
+    fprintf(out, "Call to cover: %d intervals of bitwidth %d:\n",n,w);
+    print_intervals(ctx, intervals[0], n);
+    fprintf(out, "Longest one is ");
     bv_arith_interval_print(out, terms, longest);
     fprintf(out, "\n");
   }
@@ -990,169 +1003,259 @@ bool cover(bv_arith_ctx_t* lctx,
     return false;
   }
 
-  bool result = false; // As far as we know, we are not using start_arg
-
-  uint32_t j = 1%n; // We will use this variable to loop inside intervals[0]
-  // if first interval of our coverage = longest of intervals[0]
-  // (which after sorting will be intervals[0][0]),
-  // then the next interval we look at will be intervals[0][1], hence j = 1
-  if (start_arg != NULL && bvconstant_lt(&longest->length,&start_arg->length)) {
-    longest = start_arg;
-    result  = true; // We do end up using it, unless lower levels cover all
-    j = 0; // if first interval of our coverage = start_arg
-    // then the next interval we look at will be intervals[0][0], hence j = 0
-  }  
+  if (inherited != NULL && bvconstant_lt(&longest->length,&inherited->length)) {
+    longest = inherited;
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Interval inherited from bigger bitwidths is longer. It becomes \"longest\" ");
+      bv_arith_interval_print(out, terms, longest);
+      fprintf(out, "\n");
+    }
+  }
+  
   ptr_array_sort2((void **)intervals[0], n, &longest->lo, cmp_base);
-   
-  // The elements saved in &conflict so far force the feasible value
-  // for conflict_var[w] to be in [saved; base[
-  // saved is initialise with start->hi, & will increase until reaching base (start->lo)
-  bvconstant_t* saved = &longest->hi;
-  term_t saved_term = longest->hi_term; // The term behind this lower bound of feasible values
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "After sorting with baseline: ");
+    bvconst_print(out, longest->lo.data, longest->lo.bitsize);
+    fprintf(out, "\n");
+    print_intervals(ctx, intervals[0], n);
+  }
+
+  // Positionning inherited in the array
+  bool result = false; // As far as we know, we are not using inherited
+  int32_t inherited_index = -1; //
+  if (inherited != NULL) {
+    inherited_index++;
+    for(uint32_t j = 0; j < n; j++){
+      if (cmp_base(&longest->lo, intervals[0][j], inherited)) {
+        inherited_index++;
+      }
+    }
+    n++; // one more interval to consider
+  }
+
+  // The elements saved in output so far forbid conflict_var[w] to be in [saved_lo; saved_hi[
+  interval_t* first = NULL;
+  bvconstant_t* saved_hi = &longest->hi;
+  term_t saved_hi_term = longest->hi_term;
 
   // The best interval found so far in intervals[0], but not yet saved in output,
-  // that can be used to forbid the greatest number of bv values beyond saved
+  // that can be used to forbid the greatest number of bv values beyond saved_hi
+  // We know that we can forbid conflict_var[w] to be in [longest->lo; best_so_far->hi[,
+  // which contains [first->lo; saved_hi[
+
   interval_t* best_so_far = NULL;
   bool notdone = true;
-  interval_t* i = intervals[0][j]; // We start with this interval
-  // ...and we loop over the rest of the intervals
-  while (notdone /* &&!bvconstant_eq(saved,base) */){
+
+  // We loop over all intervals of that bitwidth
+  for(uint32_t j = 0; notdone && j <= n; ){
+
+    interval_t* i = get_interval(intervals[0],inherited,inherited_index,j%n);
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith looks at ");
+      fprintf(out, "bv_arith looks at %d among %d %d",j,n,inherited_index);
       bv_arith_interval_print(out, terms, i);
       fprintf(out, "\n");
     }
 
-    if (is_in_interval(saved,i)) { // In continuity of previously forbidden range
-      if (is_in_interval(&i->hi,longest)) { // Yeah! interval forbids all remaining values
+    if (is_in_interval(saved_hi,i)) { // In continuity of previously forbidden range
+      // Does i eliminate more values than best_so_far?
+      if ((best_so_far == NULL)
+          || ((best_so_far != NULL) && is_in_interval(&best_so_far->hi, i))) { // i becomes best_so_far
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "finished the job\n");
+          fprintf(out, "becomes best_so_far\n");
         }
-        notdone = false; // We completely exit the loop
-        bv_arith_add2conflict(lctx, saved_term, i, output); // record the interval i that finished the job
-        saved_term = i->hi_term;
-      } else { // interval doesn't forbid all remaining values;
-        // does is eliminate more values than best_so_far?
-        if ((best_so_far == NULL)
-            || ((best_so_far != NULL) && is_in_interval(&best_so_far->hi, i))) { // i becomes best_so_far
-          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-            FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "becomes best_so_far\n");
-          }
-          best_so_far = i;
-        } else {
-          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-            FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "is useless\n");
-          }
+        best_so_far = i;
+      } else {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "is useless\n");
         }
       }
-      if (i != start_arg) j=(j+1)%n; // unless i is start_arg, we advance in the array
-      i = intervals[0][j]; // next interval to consider
+      j++;
+
     } else { // Not in continuity of previously forbidden range
+
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "is in discontinuity\n");
-      } // There's a hole, so we look at whether start_arg helps covering it
-      if (start_arg != NULL
-          && is_in_interval(saved,start_arg) // start_arg is in continuity
-          && ((best_so_far == NULL) // either there's no best_so_far
-              || ((best_so_far != NULL) // or start_arg does a better job than it
-                  && is_in_interval(&best_so_far->hi, start_arg)))) {
-        i = start_arg; // We are definitely going to use start_arg in the coverage
-        result = true; // We will declare it as the return value
-      } else {
-        if (best_so_far != NULL) { // We need to save best_so_far in output
-          bv_arith_add2conflict(lctx, saved_term, best_so_far, output);
-          saved       = &best_so_far->hi;
-          saved_term  = best_so_far->hi_term;
-          best_so_far = NULL;
-        } else { // Discontinuity in intervals!
-          // The hole must be filled by lower levels, as done by recursive call to cover
-          assert(bitwidths != 0); // There'd better be at least one more level
-          uint32_t next_bitwidth = get_bitwidth(intervals[1][0]);
-          assert(next_bitwidth < w); // it'd better be a smaller bitwidth
-          ivector_t rec_output;      // where the recursive call should place literals
-          init_ivector(&rec_output, 0);
-          bvconstant_t lo,hi,smaller_values;
-          init_bvconstant(&lo);
-          init_bvconstant(&hi);
-          init_bvconstant(&smaller_values);
-          bvconstant_copy(&lo, saved->bitsize, saved->data);
-          bvconstant_copy(&hi, i->lo.bitsize, i->lo.data);
-          bvconstant_set_all_zero(&smaller_values, w);
-          bvconst_set_bit(smaller_values.data, next_bitwidth); // how many values of the next bitwidth?
-          bvconstant_sub_one(&smaller_values);
-          bvconstant_normalize(&smaller_values);
-          term_t lo_term = saved_term;
-          term_t hi_term = i->lo_term;
-          interval_t hole; // Defining hole to be filled by the next level(s)
-          interval_construct(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
-          bool hole_used;
-          if (bvconstant_lt(&hole.length, &smaller_values)) {
-            // Hole is smaller than number of values in smaller bitwidth -> we project
-            bvconstant_t lo_proj,hi_proj;
-            init_bvconstant(&lo_proj);
-            init_bvconstant(&hi_proj);
-            bvconstant_extract(&lo_proj, lo.data, 0, next_bitwidth);
-            bvconstant_extract(&hi_proj, hi.data, 0, next_bitwidth);
-            bvconstant_normalize(&lo_proj);
-            bvconstant_normalize(&hi_proj);
-            interval_t hole_complement; // at the smaller bitwidth
-            interval_construct(lctx, &hi_proj, &lo_proj,
-                               term_extract(tm, hi_term, 0, next_bitwidth),
-                               term_extract(tm, lo_term, 0, next_bitwidth),
-                               NULL_TERM, &hole_complement);
-            hole_used = cover(lctx, &rec_output,
-                              bitwidths-1, &intervals[1], &numbers[1],
-                              &hole_complement);
-            bv_arith_interval_delete(&hole_complement);
-            delete_bvconstant(&lo_proj);
-            delete_bvconstant(&hi_proj);
-          } else { // Hole is bigger -> lower level(s) must forbid everything
-            hole_used = false;
-            cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
-          }
-          if (!hole_used) {
-            ivector_reset(output); // if hole wasn't used, this bitwidth is useless
-            notdone = false;
-            result  = false;
-            saved_term = NULL_TERM;
-          } else { // otherwise we need to push to output that the hole was small
-            term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
-            term_t hole_length_term = bv_arith_sub_terms(tm, i->lo_term, saved_term);
-            term_t literal = bv_arith_lt(tm, hole_length_term, smaller_values_term);
-            if (literal != NULL_TERM) ivector_push(output, literal);
-            saved = &i->lo;
-            saved_term = i->lo_term;
-            if (is_in_interval(saved,longest)) notdone = false;
-          }
-          ivector_add(output, rec_output.data, rec_output.size);
-          delete_ivector(&rec_output);
-          delete_bvconstant(&lo);
-          delete_bvconstant(&hi);
-          bv_arith_interval_delete(&hole);
-        }
       }
+
+      if (best_so_far != NULL) { // We record best_so_far
+
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Best interval so far is recorded ");
+          bv_arith_interval_print(out, terms, best_so_far);
+          fprintf(out, "\n");
+        }
+        if (i == inherited) { result = true; } // inherited was used
+        if (first != NULL){ // Not first interval to be recorded
+          bv_arith_add2conflict(lctx, saved_hi_term, best_so_far, output);
+        } else { // First interval to be recorded
+          first = best_so_far;
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "First interval!\n");
+          }
+        }
+        saved_hi      = &best_so_far->hi;
+        saved_hi_term = best_so_far->hi_term;
+        if (is_in_interval(&longest->lo,best_so_far)) {
+          // best_so_far actually closes the circle
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "...and it closes the circle!\n");
+          }
+          break;
+        }
+        best_so_far = NULL;
+        j++;
+        continue;
+      }
+
+      if (bvconst_lt_base(&i->lo, saved_hi, &longest->lo)) {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Interval is included in previously forbidden values.\n");
+        }
+        j++;
+        continue; // i is actually included in the previously forbidden values
+      }
+
+      // Discontinuity in intervals!
+      // The hole must be filled by lower levels, as done by recursive call to cover
+      assert(bitwidths != 0); // There'd better be at least one more level
+      uint32_t next_bitwidth = get_bitwidth(intervals[1][0]);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Next bitwidth is %d.\n",next_bitwidth);
+      }
+      assert(next_bitwidth < w); // it'd better be a smaller bitwidth
+      ivector_t rec_output;      // where the recursive call should place literals
+      init_ivector(&rec_output, 0);
+      bvconstant_t lo,hi,smaller_values;
+      init_bvconstant(&lo);
+      init_bvconstant(&hi);
+      init_bvconstant(&smaller_values);
+      bvconstant_copy(&lo, saved_hi->bitsize, saved_hi->data);
+      bvconstant_copy(&hi, i->lo.bitsize, i->lo.data);
+      bvconstant_set_all_zero(&smaller_values, w);
+      bvconst_set_bit(smaller_values.data, next_bitwidth); // how many values of the next bitwidth?
+      bvconstant_sub_one(&smaller_values);
+      bvconstant_normalize(&smaller_values);
+      term_t lo_term = saved_hi_term;
+      term_t hi_term = i->lo_term;
+      interval_t hole; // Defining hole to be filled by the next level(s)
+      interval_construct(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "OK, now there is a hole: ");
+        bv_arith_interval_print(out, terms, &hole);
+        fprintf(out, " of length ");
+        bvconst_print(out, hole.length.data, hole.length.bitsize);
+      }
+      bool hole_used;
+      if (bvconstant_lt(&hole.length, &smaller_values)) {
+        // Hole is smaller than number of values in smaller bitwidth -> we project
+        bvconstant_t lo_proj,hi_proj;
+        init_bvconstant(&lo_proj);
+        init_bvconstant(&hi_proj);
+        bvconstant_extract(&lo_proj, lo.data, 0, next_bitwidth);
+        bvconstant_extract(&hi_proj, hi.data, 0, next_bitwidth);
+        bvconstant_normalize(&lo_proj);
+        bvconstant_normalize(&hi_proj);
+        interval_t hole_complement; // at the smaller bitwidth
+        interval_construct(lctx, &hi_proj, &lo_proj,
+                           term_extract(tm, hi_term, 0, next_bitwidth),
+                           term_extract(tm, lo_term, 0, next_bitwidth),
+                           NULL_TERM, &hole_complement);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, " < ");
+          bvconst_print(out, smaller_values.data, smaller_values.bitsize);
+          fprintf(out, "\nHole is smaller than the domain of the next bitwidth, we recursively call cover on complemented and projected hole: ");
+          bv_arith_interval_print(out, terms, &hole_complement);
+          fprintf(out, "\n");
+        }
+        hole_used = cover(lctx, &rec_output,
+                          bitwidths-1, &intervals[1], &numbers[1],
+                          &hole_complement);
+        bv_arith_interval_delete(&hole_complement);
+        delete_bvconstant(&lo_proj);
+        delete_bvconstant(&hi_proj);
+      } else { // Hole is bigger -> lower level(s) must forbid everything
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, " >= ");
+          bvconst_print(out, smaller_values.data, smaller_values.bitsize);
+          fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
+        }
+        hole_used = false;
+        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
+      }
+      if (!hole_used) {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole without our help, we return.\n",w);
+        }
+        ivector_reset(output); // if hole wasn't used, this bitwidth is useless
+        notdone = false;
+        result  = false;
+        saved_hi_term = NULL_TERM;
+      } else { // otherwise we need to push to output that the hole was small
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole with our help, we record that the hole was small.\n", w);
+        }
+        term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
+        term_t hole_length_term = bv_arith_sub_terms(tm, i->lo_term, saved_hi_term);
+        term_t literal = bv_arith_lt(tm, hole_length_term, smaller_values_term);
+        if (literal != NULL_TERM) ivector_push(output, literal);
+        saved_hi = &i->lo;
+        saved_hi_term = i->lo_term;
+        if (is_in_interval(saved_hi,longest)) notdone = false;
+      }
+      ivector_add(output, rec_output.data, rec_output.size);
+      delete_ivector(&rec_output);
+      delete_bvconstant(&lo);
+      delete_bvconstant(&hi);
+      bv_arith_interval_delete(&hole);
     }
   }
-  assert(best_so_far == NULL);
-  if (saved_term != NULL_TERM) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Adding to conflict longest interval\n");
+
+  if (saved_hi_term != NULL_TERM) {
+    if (best_so_far != NULL && is_in_interval(saved_hi,best_so_far)) {
+      // We didn't actually need longest, best_so_far plays the role of longest
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "No need for longest interval, as saved_hi is ");
+        bvconst_print(out, saved_hi->data, saved_hi->bitsize);
+        fprintf(out, "\nand best_so_far is ");
+        bv_arith_interval_print(out, terms, best_so_far);
+        fprintf(out, "\n");
+      }
+      bv_arith_add2conflict(lctx, saved_hi_term, first, output);
+    } else {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Adding to conflict longest interval\n");
+        bv_arith_interval_print(out, terms, longest);
+        fprintf(out, "\n");
+        bv_arith_interval_print(out, terms, first);
+        fprintf(out, "\n");
+      }
+      bv_arith_add2conflict(lctx, saved_hi_term, longest, output);
+      bv_arith_add2conflict(lctx, longest->hi_term, first, output);
     }
-    bv_arith_add2conflict(lctx, saved_term, longest, output);
   }
   ivector_remove_duplicates(output);
   return result;
 }
-
-
-
 
 
 static
@@ -1246,7 +1349,6 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       if (intervals[i] == NULL) {
         fprintf(out, "EMPTY");
       } else {
-        fprintf(out, "%p", (void*)intervals[i]);
         bv_arith_interval_print(out, ctx->terms, intervals[i]);
       }
       fprintf(out, "\n");
