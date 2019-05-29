@@ -221,6 +221,33 @@ term_t bv_arith_lt(term_manager_t* tm, term_t left, term_t right) {
   return not_term(terms, bvge_atom(terms, left, right));
 }
 
+// This function returns (left <= right) unless it is trivially true, in which case it returns NULL_TERM
+// Simplifies (left < 1), (left < -1), (0 < right) into equalities/disequalities.
+// Assumes the term to be built evaluates to true
+term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
+  term_table_t* terms   = tm->terms;
+  uint32_t w            = term_bitsize(terms, left);
+  assert(term_bitsize(terms, right) == w);
+  if (left == right) {
+    return NULL_TERM;
+  }
+  if (is_const_term(terms, left) && is_const_term(terms, right)) {
+    return NULL_TERM;
+  }
+  // (left <= -1) and (0 <= right) turns into NULL (trivially true)
+  if (bv_arith_is_minus_one(terms, right) || bv_arith_is_zero(terms, left)) {
+    return NULL_TERM;
+  }
+  // (left <= 0) and (-1 <= right) turns into (left == right)
+  if (bv_arith_is_zero(terms, right)) {
+    return bveq_atom(terms, left, right);
+  }
+  // (1 <= right) turns into (right != 0)
+  if (bv_arith_is_one(terms, left)) {
+    return not_term(terms, bveq_atom(terms, right, bv_arith_zero(tm, w)));
+  }
+return not_term(terms, bvge_atom(terms, left, right));
+}
 
 /**
    Extracting bits and coefficients from terms.
@@ -863,8 +890,8 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
         term_t reason = bv_arith_lt(tm, c2, c1);
         result = bv_arith_full_interval_push(lctx, reason, w);
       }
-      if (!b && !bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
-        term_t reason = not_term(tm->terms,bv_arith_lt(tm, c2, c1));
+      if (!b && bvconstant_le(&cc1,&cc2)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
+        term_t reason = bv_arith_le(tm, c1, c2);
         result = bv_arith_full_interval_push(lctx, reason, w);
       }
     }
