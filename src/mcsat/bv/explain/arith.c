@@ -1056,7 +1056,7 @@ bool cover(bv_arith_ctx_t* lctx,
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith looks at %d among %d %d",j,n,inherited_index);
+      fprintf(out, "\nbv_arith looks at interval of index %d among %d (inherited has index %d) ",j,n,inherited_index);
       bv_arith_interval_print(out, terms, i);
       fprintf(out, "\n");
     }
@@ -1093,19 +1093,19 @@ bool cover(bv_arith_ctx_t* lctx,
           bv_arith_interval_print(out, terms, best_so_far);
           fprintf(out, "\n");
         }
-        if (i == inherited) { result = true; } // inherited was used
-        if (first != NULL){ // Not first interval to be recorded
-          bv_arith_add2conflict(lctx, saved_hi_term, best_so_far, output);
-        } else { // First interval to be recorded
+        if (first == NULL && is_in_interval(&longest->hi,best_so_far)) {
           first = best_so_far;
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
-            fprintf(out, "First interval!\n");
+            fprintf(out, "First interval, delaying recording of the hook\n");
           }
+        } else { // Otherwise we record best_so_far and its hook
+          bv_arith_add2conflict(lctx, saved_hi_term, best_so_far, output);
+          if (best_so_far == inherited) { result = true; } // inherited was used
         }
         saved_hi      = &best_so_far->hi;
         saved_hi_term = best_so_far->hi_term;
-        if (is_in_interval(&longest->lo,best_so_far)) {
+        if (is_in_interval(&best_so_far->hi,longest)) {
           // best_so_far actually closes the circle
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
@@ -1114,17 +1114,16 @@ bool cover(bv_arith_ctx_t* lctx,
           break;
         }
         best_so_far = NULL;
-        j++;
         continue;
       }
 
-      if (bvconst_lt_base(&i->lo, saved_hi, &longest->lo)) {
+      if (j < n && bvconst_lt_base(&i->lo, saved_hi, &longest->lo)) { // i is actually included in the previously forbidden values
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "Interval is included in previously forbidden values.\n");
         }
-        j++;
-        continue; // i is actually included in the previously forbidden values
+        j++; // Go get next interval
+        continue;
       }
 
       // Discontinuity in intervals!
@@ -1156,7 +1155,7 @@ bool cover(bv_arith_ctx_t* lctx,
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "OK, now there is a hole: ");
         bv_arith_interval_print(out, terms, &hole);
-        fprintf(out, " of length ");
+        fprintf(out, " for which (length-1) is ");
         bvconst_print(out, hole.length.data, hole.length.bitsize);
       }
       bool hole_used;
@@ -1229,28 +1228,45 @@ bool cover(bv_arith_ctx_t* lctx,
   }
 
   if (saved_hi_term != NULL_TERM) {
-    if (best_so_far != NULL && is_in_interval(saved_hi,best_so_far)) {
+    if (best_so_far != NULL && first != NULL && is_in_interval(saved_hi,first)) {
       // We didn't actually need longest, best_so_far plays the role of longest
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "No need for longest interval, as saved_hi is ");
         bvconst_print(out, saved_hi->data, saved_hi->bitsize);
-        fprintf(out, "\nand best_so_far is ");
-        bv_arith_interval_print(out, terms, best_so_far);
-        fprintf(out, "\n");
-      }
-      bv_arith_add2conflict(lctx, saved_hi_term, first, output);
-    } else {
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Adding to conflict longest interval\n");
-        bv_arith_interval_print(out, terms, longest);
-        fprintf(out, "\n");
+        fprintf(out, "\nand first is ");
         bv_arith_interval_print(out, terms, first);
         fprintf(out, "\n");
       }
+      bv_arith_add2conflict(lctx, saved_hi_term, first, output);
+      if (first == inherited) { result = true; } // inherited was used
+    } else {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Adding to conflict longest interval ");
+        bv_arith_interval_print(out, terms, longest);
+        fprintf(out, "\n");
+      }
       bv_arith_add2conflict(lctx, saved_hi_term, longest, output);
-      bv_arith_add2conflict(lctx, longest->hi_term, first, output);
+      if (longest == inherited) { result = true; } // inherited was used
+      // Now treating the delayed recording of first hook, if it exists:
+      if (first == NULL) {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "No delayed hook to record, nothing to do here.\n");
+        }
+      } else {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Delayed hook to record\n");
+          bv_arith_interval_print(out, terms, longest);
+          fprintf(out, "\n");
+          bv_arith_interval_print(out, terms, first);
+          fprintf(out, "\n");
+        }
+        bv_arith_add2conflict(lctx, longest->hi_term, first, output);
+        if (first == inherited) { result = true; } // inherited was used
+      }
     }
   }
   ivector_remove_duplicates(output);
