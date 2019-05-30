@@ -1461,7 +1461,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   ivector_t cover_output; // where the call to cover should place literals
   init_ivector(&cover_output, 0);
-  cover(&lctx, &cover_output, bitwidths, bitwidth_intervals, bitwidth_numbers, NULL);
+  cover(&lctx, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL);
   ivector_add(conflict, cover_output.data, cover_output.size);
   delete_ivector(&cover_output);
   
