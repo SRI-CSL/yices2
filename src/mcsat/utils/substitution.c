@@ -285,7 +285,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
         if (find->val == arg) {
           current_subst = current;
         } else {
-          current_subst = bit_term(terms, index, find->val);
+          current_subst = mk_bitextract(tm, find->val, index);
         }
       }
       break;
