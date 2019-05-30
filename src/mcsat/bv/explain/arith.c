@@ -1171,6 +1171,12 @@ bool cover(bv_arith_ctx_t* lctx,
         if (literal != NULL_TERM) ivector_push(output, literal);
         // We output the term in the substitution pointer
         substitution[0] = saved_hi_term;
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Found one possible value: ");
+          term_print_to_file(out, terms, i->lo_term);
+          fprintf(out, "\n");
+        }
         saved_hi = &i->lo;
         saved_hi_term = i->lo_term;
         if (is_in_interval(saved_hi,longest)) notdone = false;
@@ -1499,7 +1505,7 @@ void bvarith_explain(bv_subexplainer_t* this,
 
   ivector_t cover_output; // where the call to cover should place literals
   init_ivector(&cover_output, 0);
-  cover(&lctx, &cover_output, bitwidths, bitwidth_intervals, bitwidth_numbers, NULL, substitution);
+  cover(&lctx, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL, substitution);
   ivector_add(reasons_out, cover_output.data, cover_output.size);
   delete_ivector(&cover_output);
   
@@ -1599,8 +1605,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 static
 bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
   // Just use the conflict filter
-  /* return can_explain_conflict(this, reasons, x); */
-  return false;
+  return can_explain_conflict(this, reasons, x);
 }
 
 static
