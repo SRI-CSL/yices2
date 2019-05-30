@@ -183,12 +183,22 @@ static smt_status_t cadical_check(void *solver) {
   }
 }
 
+
+/*
+ * Important: the rest of Yices (including the bit-vector solver)
+ * assumes that the backend SAT solver assign a value to all variables.
+ * cadical does not do this. It may return that variable x has
+ * value "unknown". This means that 'x' does not occur in any clause
+ * sent to cadical.
+ * We convert  unknow to VAL_FALSE here.
+ */
 static bval_t cadical_get_value(void *solver, bvar_t x) {
   int v;
 
   v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical = positive literal
   // v = value assigned in cadical: -1 means false, +1 means true, 0 means unknown
-  return (v < 0) ? VAL_FALSE : (v > 0) ? VAL_TRUE : VAL_UNDEF_FALSE;
+
+  return (v <= 0) ? VAL_FALSE : VAL_TRUE;
 }
 
 static void cadical_set_verbosity(void *solver, uint32_t level) {
@@ -282,11 +292,19 @@ static smt_status_t cryptominisat_check(void *solver) {
   }
 }
 
+
+/*
+ * We convert  unknow to VAL_FALSE here to be safe, but it seems
+ * that cryptominisat always produces a full truth assignment.
+ */
 static bval_t cryptominisat_get_value(void *solver, bvar_t x) {
   switch (cmsat_var_value(solver, x)) {
-  case CMSAT_VAL_TRUE: return VAL_TRUE;
-  case CMSAT_VAL_FALSE: return VAL_FALSE;
-  default : return VAL_UNDEF_FALSE;
+  case CMSAT_VAL_TRUE:
+    return VAL_TRUE;
+
+  case CMSAT_VAL_FALSE:
+  default:
+    return VAL_FALSE;
   }
 }
 
