@@ -497,6 +497,8 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
     bool     is_evaluable = true; // whether current slice is evaluable
     uint32_t low  = 0;           // if evaluable, must be 0, otherwise lo of current slice
 
+    term_t bits[total_width];
+    
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
       term_t t_i = bit_over_extract(terms,concat_desc->arg[i]); // The Boolean term that constitutes that bit
@@ -505,7 +507,8 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
         fprintf(out, "bit %d is ",i);
         ctx_trace_term(ctx, t_i);
       }
-
+      bits[i] = t_i;
+      
       bool ignore_this_bool;
       // Whether term can be evaluated from trail
       bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool);
@@ -524,11 +527,16 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
             || selected_bit + 1 != low) { //...or new bit not in continuity
           // We create the term for the slice so far
           if (width != 0) { // If width == 0 then slice so far is inexistent
-            term_t to_close = is_evaluable ?
-              term_extract(tm, t, i+1, i+1+width)
-              : conflict_var;
+            term_t base;
+            if (is_evaluable) {
+              bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+              bvlogic_buffer_set_term_array(buffer, tm->terms, width, &bits[i+1]);
+              base = mk_bvlogic_term(tm, buffer);
+            } else {
+              base = conflict_var;
+            }
             // We close the slice so far, stack it upon the tail, and open a new slice
-            current = bv_slicing_sstack(ctx, to_close, width+low, low, current, todo, slices);
+            current = bv_slicing_sstack(ctx, base, width+low, low, current, todo, slices);
           }
           width = 0; // We start a new slice
           is_evaluable = false; // ...which is not evaluable (slice of conflict_var)
@@ -549,8 +557,9 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
     }
     // We have exited the loop, we now close the current (and last) slice
     if (is_evaluable) {
-      term_t to_close = term_extract(tm, t, 0, width);
-      return bv_slicing_sstack(ctx, to_close, width, 0, current, todo, slices);
+      bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+      bvlogic_buffer_set_term_array(buffer, tm->terms, width, bits);
+      return bv_slicing_sstack(ctx, mk_bvlogic_term(tm, buffer), width, 0, current, todo, slices);
     }
     else {
       return bv_slicing_sstack(ctx, conflict_var, width+low, low, current, todo, slices);
