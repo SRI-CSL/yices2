@@ -1008,7 +1008,13 @@ bool cover(bv_arith_ctx_t* lctx,
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Call to cover: %d intervals of bitwidth %d:\n",n,w);
+    fprintf(out, "Call to cover for a ");
+    if (substitution != NULL) {
+      fprintf(out, "propagation, with ");
+    } else {
+      fprintf(out, "conflict, with ");
+    }
+    fprintf(out, "%d intervals of bitwidth %d:\n",n,w);
     print_intervals(ctx, intervals[0], n);
     fprintf(out, "Longest one is ");
     bv_arith_interval_print(out, terms, longest);
@@ -1157,7 +1163,8 @@ bool cover(bv_arith_ctx_t* lctx,
       // Discontinuity in intervals! There's a hole!
       if (bitwidths == 0) {
         // No more bitwidths! The hole had better be of size 1, and we'd better be doing a propagation!
-        assert(substitution != NULL && substitution[0] == NULL_TERM);
+        assert(substitution != NULL);
+        assert(substitution[0] == NULL_TERM);
         bvconstant_t saved_hi_copy;
         init_bvconstant(&saved_hi_copy);
         bvconstant_copy(&saved_hi_copy, saved_hi->bitsize, saved_hi->data);
@@ -1215,6 +1222,9 @@ bool cover(bv_arith_ctx_t* lctx,
         bvconst_print(out, hole.length.data, hole.length.bitsize);
       }
       bool hole_used;
+      term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
+      term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
+      term_t rec_substitution = NULL_TERM;
       if (bvconstant_lt(&hole.length, &smaller_values)) {
         // Hole is smaller than number of values in smaller bitwidth -> we project
         bvconstant_t lo_proj,hi_proj;
@@ -1225,8 +1235,6 @@ bool cover(bv_arith_ctx_t* lctx,
         bvconstant_normalize(&lo_proj);
         bvconstant_normalize(&hi_proj);
         interval_t hole_complement; // at the smaller bitwidth
-        term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
-        term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
         interval_construct(lctx, &hi_proj, &lo_proj, hi_proj_term, lo_proj_term, NULL_TERM, &hole_complement);
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
@@ -1239,17 +1247,7 @@ bool cover(bv_arith_ctx_t* lctx,
         hole_used = cover(lctx, &rec_output,
                           bitwidths-1, &intervals[1], &numbers[1],
                           &hole_complement,
-                          substitution);
-        if (substitution != NULL && substitution[0] != NULL_TERM) {
-          term_t diff = bv_arith_sub_terms(tm, substitution[0], lo_proj_term);
-          term_t sbits[w];
-          for (uint32_t k=0; k<w;k++){
-            sbits[k] = (k < next_bitwidth) ?
-              mk_bitextract(tm, diff, k) :
-              bool2term(false);
-          }
-          substitution[0] = bv_arith_add_terms(tm, lo_term, mk_bvarray(tm, w, sbits));
-        }
+                          (substitution == NULL) ? NULL : &rec_substitution);
         bv_arith_interval_delete(&hole_complement);
         delete_bvconstant(&lo_proj);
         delete_bvconstant(&hi_proj);
@@ -1260,8 +1258,19 @@ bool cover(bv_arith_ctx_t* lctx,
           bvconst_print(out, smaller_values.data, smaller_values.bitsize);
           fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
         }
+        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL, (substitution == NULL) ? NULL : &rec_substitution);
         hole_used = false;
-        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL, NULL);
+      }
+      if (substitution != NULL && rec_substitution != NULL_TERM) {
+        hole_used = true;
+        term_t diff = bv_arith_sub_terms(tm, rec_substitution, lo_proj_term);
+        term_t sbits[w];
+        for (uint32_t k=0; k<w;k++){
+          sbits[k] = (k < next_bitwidth) ?
+            mk_bitextract(tm, diff, k) :
+            bool2term(false);
+        }
+        substitution[0] = bv_arith_add_terms(tm, lo_term, mk_bvarray(tm, w, sbits));
       }
       if (!hole_used) {
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
