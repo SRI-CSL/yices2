@@ -629,7 +629,7 @@ void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom){
     variable_t var = *vars;
     if ((var != atom) && (var != csttrail->conflict_var)) {
       assert(trail_has_value(ctx->trail, var));
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Found free variable with value on the trail: ");
         variable_db_print_variable(ctx->var_db, var, out);
