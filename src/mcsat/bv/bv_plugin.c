@@ -680,6 +680,11 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
           ctx_trace_printf(ctx, "propagating value for :\n");
           ctx_trace_term(ctx, x_term);
         }
+
+        int_hmap_pair_t* find = int_hmap_get(&bv->variable_propagation_type, x);
+        find->val = BV_PROP_SINGLETON;
+        (*bv->stats.propagations) ++;
+
         if (is_boolean) {
           bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
           prop->add(prop, x, x_value ? &mcsat_value_true : &mcsat_value_false);
@@ -690,9 +695,6 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
           mcsat_value_destruct(&x_value);
           delete_bvconstant(&x_bv_value);
         }
-        int_hmap_pair_t* find = int_hmap_get(&bv->variable_propagation_type, x);
-        find->val = BV_PROP_SINGLETON;
-        (*bv->stats.propagations) ++;
       }
     }
   }
@@ -1116,6 +1118,7 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
   // Why did we propagate (evaluation/unit)
   int_hmap_pair_t* find = int_hmap_find(&bv->variable_propagation_type, var);
+  assert(find != NULL);
   bv_propagation_type_t propagation_type = find->val;
 
   if (propagation_type == BV_PROP_SINGLETON) {

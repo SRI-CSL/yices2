@@ -2052,7 +2052,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
             term_t assertion = mcsat->assertion_terms_original.data[i];
             int32_t code = 0;
             bool assertion_is_true = formula_holds_in_model(&model, assertion, &code);
-            if (!assertion_is_true) {
+            if (false && !assertion_is_true) {
               FILE* out = trace_out(mcsat->ctx->trace);
               fprintf(out, "Assertion not true in model: ");
               trace_term_ln(mcsat->ctx->trace, mcsat->terms, assertion);
