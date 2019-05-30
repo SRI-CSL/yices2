@@ -991,7 +991,8 @@ bool cover(bv_arith_ctx_t* lctx,
            uint32_t bitwidths,      // Number of distinct bitwidths remaining after this
            interval_t*** intervals, // Array of size bitwidths
            uint32_t* numbers,       // Array of size bitwidths
-           interval_t* inherited    // First interval of coverage, can be NULL
+           interval_t* inherited,   // First interval of coverage, can be NULL
+           term_t* substitution     // Term used for substitution of the variable in case of propagation
            ){
   assert(intervals[0] != NULL);
   assert(intervals[0][0] != NULL);
@@ -1153,7 +1154,29 @@ bool cover(bv_arith_ctx_t* lctx,
         continue;
       }
 
-      // Discontinuity in intervals!
+      // Discontinuity in intervals! There's a hole!
+      if (bitwidths == 0) {
+        // No more bitwidths! The hole had better be of size 1, and we'd better be doing a propagation!
+        assert(substitution != NULL && substitution[0] == NULL_TERM);
+        bvconstant_t saved_hi_copy;
+        init_bvconstant(&saved_hi_copy);
+        bvconstant_copy(&saved_hi_copy, saved_hi->bitsize, saved_hi->data);
+        bvconstant_normalize(&saved_hi_copy);
+        bvconstant_add_one(&saved_hi_copy);
+        bvconstant_normalize(&saved_hi_copy);
+        assert(bvconstant_eq(&saved_hi_copy,&i->lo));
+        delete_bvconstant(&saved_hi_copy);
+        // OK, seems fine. We add to the conflict the fact that the hole has size 1:
+        term_t literal = bv_arith_eq(tm, i->lo_term, bv_arith_add_one_term(tm, saved_hi_term));
+        if (literal != NULL_TERM) ivector_push(output, literal);
+        // We output the term in the substitution pointer
+        substitution[0] = saved_hi_term;
+        saved_hi = &i->lo;
+        saved_hi_term = i->lo_term;
+        if (is_in_interval(saved_hi,longest)) notdone = false;
+        continue; // We skip the rest of the loop
+      }
+      
       // The hole must be filled by lower levels, as done by recursive call to cover
       assert(bitwidths != 0); // There'd better be at least one more level
       uint32_t next_bitwidth = get_bitwidth(intervals[1][0]);
@@ -1196,10 +1219,9 @@ bool cover(bv_arith_ctx_t* lctx,
         bvconstant_normalize(&lo_proj);
         bvconstant_normalize(&hi_proj);
         interval_t hole_complement; // at the smaller bitwidth
-        interval_construct(lctx, &hi_proj, &lo_proj,
-                           term_extract(tm, hi_term, 0, next_bitwidth),
-                           term_extract(tm, lo_term, 0, next_bitwidth),
-                           NULL_TERM, &hole_complement);
+        term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
+        term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
+        interval_construct(lctx, &hi_proj, &lo_proj, hi_proj_term, lo_proj_term, NULL_TERM, &hole_complement);
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, " < ");
@@ -1210,7 +1232,18 @@ bool cover(bv_arith_ctx_t* lctx,
         }
         hole_used = cover(lctx, &rec_output,
                           bitwidths-1, &intervals[1], &numbers[1],
-                          &hole_complement);
+                          &hole_complement,
+                          substitution);
+        if (substitution != NULL && substitution[0] != NULL_TERM) {
+          term_t diff = bv_arith_sub_terms(tm, substitution[0], lo_proj_term);
+          term_t sbits[w];
+          for (uint32_t k=0; k<w;k++){
+            sbits[k] = (k < next_bitwidth) ?
+              mk_bitextract(tm, diff, k) :
+              bool2term(false);
+          }
+          substitution[0] = bv_arith_add_terms(tm, lo_term, mk_bvarray(tm, w, sbits));
+        }
         bv_arith_interval_delete(&hole_complement);
         delete_bvconstant(&lo_proj);
         delete_bvconstant(&hi_proj);
@@ -1222,7 +1255,7 @@ bool cover(bv_arith_ctx_t* lctx,
           fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
         }
         hole_used = false;
-        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
+        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL, NULL);
       }
       if (!hole_used) {
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1302,7 +1335,11 @@ bool cover(bv_arith_ctx_t* lctx,
 
 
 static
-void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+void bvarith_explain(bv_subexplainer_t* this,
+                     const ivector_t* reasons_in,
+                     variable_t var,
+                     ivector_t* reasons_out,
+                     term_t* substitution) {
 
   arith_t* exp = (arith_t*) this;
   plugin_context_t* ctx = this->ctx;
@@ -1314,7 +1351,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm         = ctx->tm;
-  uint32_t bitsize = term_bitsize(terms, exp->csttrail.conflict_var_term);
+  term_t var_term  = variable_db_get_term(ctx->var_db, var);
+  uint32_t bitsize = term_bitsize(terms, var_term);
 
   // We initialise the local context
   bv_arith_ctx_t lctx;
@@ -1323,21 +1361,21 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   bvconstant_set_all_zero(&lctx.zero, bitsize);
   lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
 
-  // Each constraint from the conflict core will be translated into 1 forbidden interval
-  // We keep them in an array of the same size as the conflict core
-  uint32_t n = conflict_core->size;
+  // Each constraint from reasons_in will be translated into 1 forbidden interval
+  // We keep them in an array of the same size as reasons_in
+  uint32_t n = reasons_in->size;
   assert(n!=0);
   interval_t* intervals[n];
 
-  // Variables that are going to be re-used for every item in the conflict core
+  // Variables that are going to be re-used for every item in reasons_in
   variable_t atom_i_var;
   bool       atom_i_value;
   term_t     atom_i_term;
 
-  // We go through the conflict core
+  // We go through reasons_in
   for (uint32_t i = 0; i < n; i++) {
     
-    atom_i_var   = conflict_core->data[i];
+    atom_i_var   = reasons_in->data[i];
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
 
@@ -1350,8 +1388,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       ctx_trace_term(ctx, atom_i_term);
     }
 
-    // The output conflict always contains the conflict core:
-    ivector_push(conflict, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
+    // reasons_out always contains reasons_in:
+    ivector_push(reasons_out, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
 
     composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
     assert(atom_i_comp->arity == 2);
@@ -1456,13 +1494,13 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     fprintf(out, "\n");
   }
 
-  /* All conflicting atoms have been treated, the resulting forbidden intervals for the
-  conflict_var have been pushed in the heap. It's now time to look at what's in the heap. */
+  /* All atoms in reasons_in have been treated, the resulting forbidden intervals for the
+  var have been pushed in the heap. It's now time to look at what's in the heap. */
 
   ivector_t cover_output; // where the call to cover should place literals
   init_ivector(&cover_output, 0);
-  cover(&lctx, &cover_output, bitwidths, bitwidth_intervals, bitwidth_numbers, NULL);
-  ivector_add(conflict, cover_output.data, cover_output.size);
+  cover(&lctx, &cover_output, bitwidths, bitwidth_intervals, bitwidth_numbers, NULL, substitution);
+  ivector_add(reasons_out, cover_output.data, cover_output.size);
   delete_ivector(&cover_output);
   
   // Now we destruct all intervals
@@ -1472,18 +1510,22 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   delete_bvconstant(&lctx.zero);
 
-  if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Returned conflict is: ");
-    for (uint32_t i = 0; i < conflict->size; i++) {
+    fprintf(out, "Returned reasons are: ");
+    for (uint32_t i = 0; i < reasons_out->size; i++) {
       if (i>0) fprintf(out,", ");
-      term_print_to_file(out, terms, conflict->data[i]);
+      term_print_to_file(out, terms, reasons_out->data[i]);
     }
     fprintf(out,"\n");
   }
 
 }
 
+static
+void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+  bvarith_explain(this, conflict_core, conflict_var, conflict, NULL);
+}
 
 /**
    Detection of whether a conflict is within the fragment, and external API
@@ -1556,13 +1598,16 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 
 static
 bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  // Just use the conflict filter
+  /* return can_explain_conflict(this, reasons, x); */
   return false;
 }
 
 static
 term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
-  assert(false);
-  return NULL_TERM;
+  term_t result = NULL_TERM ;
+  bvarith_explain(this, reasons_in, x, reasons_out, &result);
+  return result;
 }
 
 static
