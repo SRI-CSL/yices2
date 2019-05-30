@@ -282,6 +282,7 @@ term_t mk_bvneg(term_manager_t* tm, term_t t) {
 static
 void preprocessor_mark_eq(preprocessor_t* pre, term_t eq, term_t var) {
   assert(is_pos_term(eq));
+  assert(is_pos_term(var));
   assert(term_kind(pre->terms, var) == UNINTERPRETED_TERM);
 
   // Mark the equality
@@ -477,14 +478,16 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
             term_t lhs = desc->arg[0];
             term_kind_t lhs_kind = term_kind(terms, lhs);
             // If lhs/rhs is a first-time seen variable, we can solve it
-            if (lhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, lhs) == NULL_TERM) {
+            bool lhs_is_var = lhs_kind == UNINTERPRETED_TERM && is_pos_term(lhs);
+            if (lhs_is_var && preprocessor_get(pre, lhs) == NULL_TERM) {
               // First time variable, let's solve
               preprocessor_mark_eq(pre, t, lhs);
               eq_solve_var = lhs;
             } else {
               term_t rhs = desc->arg[1];
               term_kind_t rhs_kind = term_kind(terms, rhs);
-              if (rhs_kind == UNINTERPRETED_TERM && preprocessor_get(pre, rhs) == NULL_TERM) {
+              bool rhs_is_var = rhs_kind == UNINTERPRETED_TERM && is_pos_term(rhs);
+              if (rhs_is_var && preprocessor_get(pre, rhs) == NULL_TERM) {
                 // First time variable, let's solve
                 preprocessor_mark_eq(pre, t, rhs);
                 eq_solve_var = rhs;
