@@ -1161,8 +1161,10 @@ bool cover(bv_arith_ctx_t* lctx,
       }
 
       // Discontinuity in intervals! There's a hole!
+
+      // First situation: there are no smaller bitwidths
       if (bitwidths == 0) {
-        // No more bitwidths! The hole had better be of size 1, and we'd better be doing a propagation!
+        // The hole had better be of size 1, and we'd better be doing a propagation!
         assert(substitution != NULL);
         assert(substitution[0] == NULL_TERM);
         bvconstant_t saved_hi_copy;
@@ -1190,28 +1192,32 @@ bool cover(bv_arith_ctx_t* lctx,
         continue; // We skip the rest of the loop
       }
       
-      // The hole must be filled by lower levels, as done by recursive call to cover
-      assert(bitwidths != 0); // There'd better be at least one more level
+      // The hole must be filled by lower levels, as done by a recursive call to cover
+      assert(bitwidths != 0); // There'd better be at least one more level of smaller bitwidths
       uint32_t next_bitwidth = get_bitwidth(intervals[1][0]);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Next bitwidth is %d.\n",next_bitwidth);
       }
       assert(next_bitwidth < w); // it'd better be a smaller bitwidth
+      // We now prepare the arguments of the recursive call
       ivector_t rec_output;      // where the recursive call should place literals
       init_ivector(&rec_output, 0);
-      bvconstant_t lo,hi,smaller_values;
+      // Now we prepare the construction of the hole [ lo (lo_term) , hi (hi_term) [
+      term_t lo_term = saved_hi_term;
+      term_t hi_term = i->lo_term;
+      bvconstant_t lo,hi,smaller_values; // smaller_values: how many values of the next bitwidth?
       init_bvconstant(&lo);
       init_bvconstant(&hi);
       init_bvconstant(&smaller_values);
       bvconstant_copy(&lo, saved_hi->bitsize, saved_hi->data);
       bvconstant_copy(&hi, i->lo.bitsize, i->lo.data);
       bvconstant_set_all_zero(&smaller_values, w);
-      bvconst_set_bit(smaller_values.data, next_bitwidth); // how many values of the next bitwidth?
-      bvconstant_sub_one(&smaller_values);
+      bvconst_set_bit(smaller_values.data, next_bitwidth); 
       bvconstant_normalize(&smaller_values);
-      term_t lo_term = saved_hi_term;
-      term_t hi_term = i->lo_term;
+      term_t smaller_values_term = mk_bv_constant(tm, &smaller_values);
+      bvconstant_sub_one(&smaller_values); // We subtract 1 so as to compare it to the length of the hole
+      bvconstant_normalize(&smaller_values);
       interval_t hole; // Defining hole to be filled by the next level(s)
       interval_construct(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1221,10 +1227,14 @@ bool cover(bv_arith_ctx_t* lctx,
         fprintf(out, " for which (length-1) is ");
         bvconst_print(out, hole.length.data, hole.length.bitsize);
       }
+      // We will record whether the (complement of the) hole is used by the smaller bitwidths
       bool hole_used;
+      // We project lo_term and hi_term into the domain of smaller bitwidth
       term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
       term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
+      // Where the recursive call can return the substitution term (if we are explaining a propagation)
       term_t rec_substitution = NULL_TERM;
+      // Now, there two cases for the recursive call: small hole or big hole
       if (bvconstant_lt(&hole.length, &smaller_values)) {
         // Hole is smaller than number of values in smaller bitwidth -> we project
         bvconstant_t lo_proj,hi_proj;
@@ -1262,8 +1272,14 @@ bool cover(bv_arith_ctx_t* lctx,
               (substitution != NULL && rec_substitution == NULL_TERM) ? &rec_substitution : NULL);
         hole_used = false;
       }
+
+      // Now we analyse what the recursive call returned to us
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Back to bitwidth %d!\n",w);
+      }
+      // If we are explaining a propagation and got a feasible value in the hole:
       if (substitution != NULL && rec_substitution != NULL_TERM) {
-        hole_used = true;
         term_t diff = bv_arith_sub_terms(tm, rec_substitution, lo_proj_term);
         term_t sbits[w];
         for (uint32_t k=0; k<w;k++){
@@ -1278,39 +1294,41 @@ bool cover(bv_arith_ctx_t* lctx,
           term_print_to_file(out, terms, lo_term);
           fprintf(out, " to ");
           term_print_to_file(out, terms, hi_term);
-          fprintf(out, " and the only possible value is ");
+          fprintf(out, " and the only possible value at bitwidth %d is ",w);
           term_print_to_file(out, terms, substitution[0]);
           fprintf(out, "\n");
         }
       }
-      if (!hole_used) {
+      if (!hole_used && rec_substitution == NULL_TERM) {
+        // If the hole was not used and the recusive call did not output a term,
+        // the intervals of the present bitwith were really useless, we return!
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole without our help, we return.\n",w);
+          fprintf(out, "The recursive call covered the hole without our help, we return.\n");
         }
+        assert(substitution == NULL); // We can't be explaining a propagation
         ivector_reset(output); // if hole wasn't used, this bitwidth is useless
         notdone = false;
         result  = false;
         saved_hi_term = NULL_TERM;
-      } else { // otherwise we need to push to output that the hole was small
+      } else {
+        // otherwise we need to push to output that the hole was small
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole with our help, we record that the hole was small.\n", w);
+          fprintf(out, "The recursive call used the hole we left uncovered at bitwidth %d and/or found 1 feasible value .\n",w);
         }
-        term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
-        // Line above: +1 because smaller_values is the total number of values of smaller bitwidth minus 1
-        term_t literal = (substitution != NULL && substitution[0] != NULL_TERM) ?
-          bv_arith_le(tm, bv_arith_sub_terms(tm, hi_term, substitution[0]), smaller_values_term):
-          bv_arith_lt(tm, bv_arith_sub_terms(tm, hi_term, lo_term), smaller_values_term);
-        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-          FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Found one possible value: ");
-          term_print_to_file(out, terms, saved_hi_term);
-          fprintf(out, "\n");
+        term_t literal = (hole_used) ?
+          bv_arith_lt(tm, bv_arith_sub_terms(tm, hi_term, lo_term), smaller_values_term) :
+          bv_arith_le(tm, bv_arith_sub_terms(tm, hi_term, substitution[0]), smaller_values_term);
+        if (literal != NULL_TERM) {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "The literal is ");
+            term_print_to_file(out, terms, literal);
+            fprintf(out, "\n");
+          }
+          ivector_push(output, literal);
         }
-        if (literal != NULL_TERM) ivector_push(output, literal);
-
-
         saved_hi = &i->lo;
         saved_hi_term = i->lo_term;
         if (is_in_interval(saved_hi,longest)) notdone = false;
