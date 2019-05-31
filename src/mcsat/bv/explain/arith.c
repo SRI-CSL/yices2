@@ -246,7 +246,7 @@ term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
   if (bv_arith_is_one(terms, left)) {
     return not_term(terms, bveq_atom(terms, right, bv_arith_zero(tm, w)));
   }
-return not_term(terms, bvge_atom(terms, left, right));
+  return bvge_atom(terms, right, left);
 }
 
 /**
