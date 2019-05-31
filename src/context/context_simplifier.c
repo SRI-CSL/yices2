@@ -299,8 +299,9 @@ void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t
  * SIMPLIFICATION OF EQUALITY USING FACTORING
  */
 
-#if 1
+#if 0
 
+// OLD
 extern void bvconst64_print(FILE *f, uint64_t a, uint32_t n);
 
 static void show_factors(bvfactor_buffer_t *b) {
@@ -365,8 +366,6 @@ static void test_common_factors(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
 
   delete_pp_buffer(&common);
 }
-
-#endif
 
 
 static bool all_exponents_equal(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2, uint32_t n) {
@@ -623,9 +622,11 @@ bool equal_bitvector_factors_old(context_t *ctx, term_t t1, term_t t2) {
   return false;
 }
 
+#endif
 
 /// NEW IMPLEMENTATION STARTS HERE
 
+#if 0
 /*
  * Print
  */
@@ -659,6 +660,7 @@ static void show_product(pp_buffer_t *f) {
   fflush(stdout);
 }
 
+#endif
 
 /*
  * Factoring buffers:
@@ -1174,54 +1176,54 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
   common = factoring_get_pp_buffer(r);
   reduce_bvfactoring(r, common);
 
-  printf("--- Common factors ---\n");
-  show_product(common);
-  printf("\n");
-  show_bvfactoring(r);
-  printf("\n");
+  //  printf("--- Common factors ---\n");
+  //  show_product(common);
+  //  printf("\n");
+  //  show_bvfactoring(r);
+  //  printf("\n");
 
   if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
       && factoring_equal_linear_factors(r, terms)) {
-    printf("Linear equal\n\n");
+    //    printf("Linear equal\n\n");
     r->code = BVFACTOR_EQUAL;
     return;
   }
 
   if (try_left_expansion(r, terms)) {
-    printf("Left expansion\n");
-    show_bvfactoring(r);
+    //    printf("Left expansion\n");
+    //    show_bvfactoring(r);
 
     reduce_bvfactoring(r, common);
 
-    printf("--- Common factors ---\n");
-    show_product(common);
-    printf("\n");
-    show_bvfactoring(r);
-    printf("\n");
+    //    printf("--- Common factors ---\n");
+    //    show_product(common);
+    //    printf("\n");
+    //    show_bvfactoring(r);
+    //    printf("\n");
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
-      printf("Linear equal after left expansion\n\n");
+      //      printf("Linear equal after left expansion\n\n");
       r->code = BVFACTOR_EQUAL;
       return;
     }
   }
 
   if (try_right_expansion(r, terms)) {
-    printf("Right expansion\n");
-    show_bvfactoring(r);
+    //    printf("Right expansion\n");
+    //    show_bvfactoring(r);
 
     reduce_bvfactoring(r, common);
 
-    printf("--- Common factors ---\n");
-    show_product(common);
-    printf("\n");
-    show_bvfactoring(r);
-    printf("\n");
+    //    printf("--- Common factors ---\n");
+    //    show_product(common);
+    //    printf("\n");
+    //    show_bvfactoring(r);
+    //    printf("\n");
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
-      printf("Linear equal after left expansion\n\n");
+      //      printf("Linear equal after right expansion\n\n");
       r->code = BVFACTOR_EQUAL;
       return;
     }
@@ -1244,9 +1246,9 @@ void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t
   if (t1_is_prod && t2_is_prod) {
     build_prod_prod_factoring(r, terms, t1, t2);
     if (bvfactor_buffer_equal(r->reduced1, r->reduced2)) {
-      show_bvfactoring(r);
-      printf("\n");
-      printf("Simple equal\n\n");
+      //      show_bvfactoring(r);
+      //      printf("\n");
+      //      printf("Simple equal\n\n");
 
       r->code = BVFACTOR_EQUAL;
       return;
