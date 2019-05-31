@@ -246,7 +246,7 @@ term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
   if (bv_arith_is_one(terms, left)) {
     return not_term(terms, bveq_atom(terms, right, bv_arith_zero(tm, w)));
   }
-return not_term(terms, bvge_atom(terms, left, right));
+  return bvge_atom(terms, right, left);
 }
 
 /**
@@ -1008,7 +1008,7 @@ bool cover(bv_arith_ctx_t* lctx,
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Call to cover for a ");
+    fprintf(out, "\nCall to cover for a ");
     if (substitution != NULL) {
       fprintf(out, "propagation, with ");
     } else {
@@ -1181,7 +1181,7 @@ bool cover(bv_arith_ctx_t* lctx,
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "Found one possible value: ");
-          term_print_to_file(out, terms, i->lo_term);
+          term_print_to_file(out, terms, saved_hi_term);
           fprintf(out, "\n");
         }
         saved_hi = &i->lo;
@@ -1247,7 +1247,7 @@ bool cover(bv_arith_ctx_t* lctx,
         hole_used = cover(lctx, &rec_output,
                           bitwidths-1, &intervals[1], &numbers[1],
                           &hole_complement,
-                          (substitution == NULL) ? NULL : &rec_substitution);
+                          (substitution != NULL && rec_substitution == NULL_TERM) ? &rec_substitution : NULL);
         bv_arith_interval_delete(&hole_complement);
         delete_bvconstant(&lo_proj);
         delete_bvconstant(&hi_proj);
@@ -1258,7 +1258,8 @@ bool cover(bv_arith_ctx_t* lctx,
           bvconst_print(out, smaller_values.data, smaller_values.bitsize);
           fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
         }
-        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL, (substitution == NULL) ? NULL : &rec_substitution);
+        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL,
+              (substitution != NULL && rec_substitution == NULL_TERM) ? &rec_substitution : NULL);
         hole_used = false;
       }
       if (substitution != NULL && rec_substitution != NULL_TERM) {
@@ -1271,6 +1272,16 @@ bool cover(bv_arith_ctx_t* lctx,
             bool2term(false);
         }
         substitution[0] = bv_arith_add_terms(tm, lo_term, mk_bvarray(tm, w, sbits));
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Hole was from ");
+          term_print_to_file(out, terms, lo_term);
+          fprintf(out, " to ");
+          term_print_to_file(out, terms, hi_term);
+          fprintf(out, " and the only possible value is ");
+          term_print_to_file(out, terms, substitution[0]);
+          fprintf(out, "\n");
+        }
       }
       if (!hole_used) {
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1287,9 +1298,19 @@ bool cover(bv_arith_ctx_t* lctx,
           fprintf(out, "Back to bitwidth %d, the recursive call covered the hole with our help, we record that the hole was small.\n", w);
         }
         term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
-        term_t hole_length_term = bv_arith_sub_terms(tm, i->lo_term, saved_hi_term);
-        term_t literal = bv_arith_lt(tm, hole_length_term, smaller_values_term);
+        // Line above: +1 because smaller_values is the total number of values of smaller bitwidth minus 1
+        term_t literal = (substitution != NULL && substitution[0] != NULL_TERM) ?
+          bv_arith_le(tm, bv_arith_sub_terms(tm, hi_term, substitution[0]), smaller_values_term):
+          bv_arith_lt(tm, bv_arith_sub_terms(tm, hi_term, lo_term), smaller_values_term);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Found one possible value: ");
+          term_print_to_file(out, terms, saved_hi_term);
+          fprintf(out, "\n");
+        }
         if (literal != NULL_TERM) ivector_push(output, literal);
+
+
         saved_hi = &i->lo;
         saved_hi_term = i->lo_term;
         if (is_in_interval(saved_hi,longest)) notdone = false;
@@ -1527,10 +1548,12 @@ void bvarith_explain(bv_subexplainer_t* this,
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Returned reasons are: ");
+    fprintf(out, "Returned reasons are:\n");
     for (uint32_t i = 0; i < reasons_out->size; i++) {
-      if (i>0) fprintf(out,", ");
-      term_print_to_file(out, terms, reasons_out->data[i]);
+      fprintf(out,"[%d]",i);
+      ctx_trace_term(ctx, reasons_out->data[i]);
+      /* if (i>0) fprintf(out,", "); */
+      /* term_print_to_file(out, terms, reasons_out->data[i]); */
     }
     fprintf(out,"\n");
   }
