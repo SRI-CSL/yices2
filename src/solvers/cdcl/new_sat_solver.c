@@ -9535,7 +9535,7 @@ static void failed_literal_probing(sat_solver_t *solver) {
 
   solver->probing = false;
 
-  if (solver->verbosity >= 0) {
+  if (solver->verbosity >= 3) {
     fprintf(stderr, "c prob: %"PRIu64" literals, %"PRIu32" failed, next = %"PRIu64"\n",
 	    solver->stats.probed_literals - problits_before, solver->stats.failed_literals - failed_before, solver->probing_next);
   }
