@@ -536,6 +536,64 @@ bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2) {
 }
 
 
+/*
+ * Minimum of two exponent
+ */
+static inline uint32_t min_exp(uint32_t e1, uint32_t e2) {
+  return (e1 < e2) ? e1 : e2;
+}
+
+/*
+ * Compute the common factors of b and b1. Store the result in b.
+ * - b and b1 must be normalized
+ * - the result is normalized (on exit)
+ */
+void pp_buffer_gcd(pp_buffer_t *b, pp_buffer_t *b1) {
+  uint32_t i, j, n, d;
+  int32_t x;
+
+  n = b->len;
+  j = 0;
+  for (i=0; i<n; i++) {
+    assert(b->prod[i].exp > 0);
+    x = b->prod[i].var;
+    d = pp_buffer_var_degree(b1, x);
+    if (d == 0) continue; // remove x
+    b->prod[j].var = x;
+    b->prod[j].exp = min_exp(d, b->prod[i].exp);
+    j ++;
+  }
+  b->len = j;
+}
+
+
+/*
+ * Divide b by b1. Store the result in b
+ * - b and b1 must be normalized.
+ *
+ * The actual operation is more general:
+ * We replace x^e in b  by  x^max(0, e - d) where d = exponent of x in b1.
+ * So x disappears if e <= d, and x has exponent (e - d) in the result otherwise.
+ */
+void pp_buffer_divide(pp_buffer_t *b, pp_buffer_t *b1) {
+  uint32_t i, j, n, d;
+  int32_t x;
+
+  n = b->len;
+  j = 0;
+  for (i=0; i<n; i++) {
+    assert(b->prod[i].exp > 0);
+    x = b->prod[i].var;
+    d = pp_buffer_var_degree(b1, x);
+    if (d >= b->prod[i].exp) continue;
+    b->prod[j].var = x;
+    b->prod[j].exp = b->prod[i].exp - d;
+    j ++;
+  }
+  b->len = j;
+}
+
+
 
 /*
  * The ordering between power products must be compatible with the

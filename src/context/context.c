@@ -2365,22 +2365,23 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   case BVEQ_CODE_FALSE:
     return false_literal;
 
-    // TODO: handle BVEQ_CODE_REDUCED0 better
-
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    // pass through intended
+    break;
 
+    // TODO: handle BVEQ_CODE_REDUCED0 better
   case BVEQ_CODE_REDUCED0:
   default:
-    /*
-     * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
-     */
-    x = internalize_to_bv(ctx, t1);
-    y = internalize_to_bv(ctx, t2);
-    return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+    break;
   }
+
+  /*
+   * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
+   */
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
+  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
 }
 
 static literal_t map_bvge_to_literal(context_t *ctx, composite_term_t *ge) {
@@ -4391,26 +4392,27 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    // pass through intended
+    break;
 
     // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
   default:
-    /*
-     *  try Factoring
-     */
-    if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
-      longjmp(ctx->env, TRIVIALLY_UNSAT);
-    }
-
-    /*
-     * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
-     */
-    x = internalize_to_bv(ctx, t1);
-    y = internalize_to_bv(ctx, t2);
-    ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
     break;
   }
+
+  /*
+   * Try Factoring
+   */
+  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
+    longjmp(ctx->env, TRIVIALLY_UNSAT);
+  }
+
+  /*
+   * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
+   */
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {

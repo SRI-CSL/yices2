@@ -98,6 +98,12 @@ extern void delete_bvfactor_buffer(bvfactor_buffer_t *b);
 
 
 /*
+ * Initialize b and copy b1 into b
+ */
+extern void bvfactor_buffer_init_copy(bvfactor_buffer_t *b, bvfactor_buffer_t *b1);
+
+
+/*
  * Multiply by x^d (for some variable x)
  */
 extern void bvfactor_buffer_mul(bvfactor_buffer_t *b, int32_t x, uint32_t d);
@@ -137,6 +143,56 @@ extern void bvfactor_buffer_normalize(bvfactor_buffer_t *b);
  * - both buffers must be normalized and have the same bitsize
  */
 extern bool bvfactor_buffer_equal(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2);
+
+
+/*
+ * Check whether two buffers have equal exponents
+ * - both buffers must be normalized and have the same bitsize
+ */
+extern bool bvfactor_buffer_equal_exponents(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2);
+
+
+/*
+ * Compute the common factors of b1->product and b2->product.
+ * - both b1 and b2 must be normalized
+ * - store the result in pbuffer
+ * - pbuffer must be initialized
+ * - the result is normalized
+ */
+extern void bvfactor_buffer_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, bvfactor_buffer_t *b2);
+
+/*
+ * Variant: compute the common factors of b1[0 ..n1-1] and b2[0 ... n2-1]
+ * - all factor buffers must be normalized
+ * - the result is stored in pbuffer
+ */
+extern void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1, bvfactor_buffer_t *b2, uint32_t n2);
+
+
+/*
+ * Reduce: divide b->product by pbuffer
+ * - pbuffer must be normalized and must be a divisor of b->product
+ */
+extern void bvfactor_buffer_reduce(bvfactor_buffer_t *b, pp_buffer_t *pbuffer);
+
+/*
+ * Check whether b->product is linear (i.e., degree <= 1)
+ * - b must be normalized
+ */
+extern bool bvfactor_buffer_is_linear(bvfactor_buffer_t *b);
+
+/*
+ * Check b->product is constant (i.e., degree = 0)
+ * - b must be normalized
+ */
+static inline bool bvfactor_buffer_is_constant(bvfactor_buffer_t *b) {
+  return b->product.len == 0;
+}
+
+/*
+ * Get the variable of b->product if b->product has degree 1
+ */
+extern int32_t bvfactor_buffer_get_var(bvfactor_buffer_t *b);
 
 
 #endif /* __BVFACTOR_BUFFERS_H */

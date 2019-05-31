@@ -258,6 +258,22 @@ extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
 
 
 /*
+ * Compute the common factors of b and b1. Store the result in b.
+ * - on entry: b and b1 must be normalized
+ * - on exit: b is modified to store the common factors and it's normalized
+ */
+extern void pp_buffer_gcd(pp_buffer_t *b, pp_buffer_t *b1);
+
+/*
+ * Divide b by b1. Store the result in b.
+ * - on entry b and b1 must be normalized
+ * - on exit: b stores the division.
+ * - this should be used only if b1 is a divisor of b but we don't check.
+ */
+extern void pp_buffer_divide(pp_buffer_t *b, pp_buffer_t *b1);
+
+
+/*
  * POWER PRODUCT OPERATIONS
  */
 

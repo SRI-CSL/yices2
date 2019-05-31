@@ -2826,7 +2826,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 }
 
 
-#if 0
+#if 1
 /*
  * FOR TESTING/DEBUGGING: PRINT ALL DELAYED ASSERTIONS
  */
@@ -5744,7 +5744,7 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-        //      show_delayed_assertions(&__smt2_globals);
+	show_delayed_assertions(&__smt2_globals);
         check_delayed_assertions(&__smt2_globals);
       }
     } else {
