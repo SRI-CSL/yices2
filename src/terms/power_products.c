@@ -594,6 +594,33 @@ void pp_buffer_divide(pp_buffer_t *b, pp_buffer_t *b1) {
 }
 
 
+/*
+ * Divide p by variable x
+ */
+void pp_buffer_divide_by_var(pp_buffer_t *b, int32_t x) {
+  uint32_t i, n;
+
+  n = b->len;
+  for (i=0; i<n; i++) {
+    assert(b->prod[i].exp > 0);
+    if (b->prod[i].var == x) goto found;
+  }
+
+  return; // x does not occur in b.
+
+ found:
+  assert(i < n && b->prod[i].var == x && b->prod[i].exp > 0);
+  b->prod[i].exp --;
+  if (b->prod[i].exp == 0) {
+    i ++;
+    while (i < n) {
+      b->prod[i-1] = b->prod[i];
+      i ++;
+    }
+    b->len = n-1;
+  }
+}
+
 
 /*
  * The ordering between power products must be compatible with the

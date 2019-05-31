@@ -176,18 +176,29 @@ extern void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_
 extern void bvfactor_buffer_reduce(bvfactor_buffer_t *b, pp_buffer_t *pbuffer);
 
 /*
+ * Divide b->product by x
+ */
+extern void bvfactor_buffer_reduce_by_var(bvfactor_buffer_t *b, int32_t x);
+
+/*
  * Check whether b->product is linear (i.e., degree <= 1)
  * - b must be normalized
  */
 extern bool bvfactor_buffer_is_linear(bvfactor_buffer_t *b);
 
 /*
- * Check b->product is constant (i.e., degree = 0)
+ * Check whether b->product is constant (i.e., degree = 0)
  * - b must be normalized
  */
 static inline bool bvfactor_buffer_is_constant(bvfactor_buffer_t *b) {
   return b->product.len == 0;
 }
+
+/*
+ * Check whether b->product is reduced to a single variable (i.e., degree = 1)
+ * - b must be normalized
+ */
+extern bool bvfactor_buffer_is_var(bvfactor_buffer_t *b);
 
 /*
  * Get the variable of b->product if b->product has degree 1

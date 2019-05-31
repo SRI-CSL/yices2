@@ -645,6 +645,8 @@ static void show_bvfactoring(bvfactoring_t *r) {
     show_factors(r->reduced2 + i);
     printf("\n");
   }
+
+  fflush(stdout);
 }
 
 static void show_product(pp_buffer_t *f) {
@@ -653,6 +655,8 @@ static void show_product(pp_buffer_t *f) {
   pp = pp_buffer_getprod(f);
   print_pprod(stdout, pp);
   free_pprod(pp);
+
+  fflush(stdout);
 }
 
 
@@ -796,6 +800,169 @@ static void factoring_set_left_poly(bvfactoring_t *r, term_table_t *terms, bvpol
 static void factoring_set_right_poly(bvfactoring_t *r, term_table_t *terms, bvpoly_t *p) {
   assert(p->nterms <= r->n2);
   factor_bvpoly_monomials(terms, p, r->reduced2);
+}
+
+
+/*
+ * Try to expand:
+ * - if a factor is of the form  c * var * 2^e and var is a small polynomial,
+ *   we can try to expand var and see if that reveals more factors.
+ * - return true if this works
+ */
+
+// extend r->reduced1 from size 1 to size n. Copy r->reduced[0] in the new elements
+static void bvfactoring_expand_left(bvfactoring_t *r, uint32_t n) {
+  uint32_t i;
+
+  assert(r->n1 == 1 && n <= MAX_BVFACTORS);
+  r->n1 = n;
+  for (i=1; i<n; i++) {
+    bvfactor_buffer_init_copy(r->reduced1 + i, r->reduced1);
+  }
+}
+
+// extend r->reduced2 from size 1 to size n. Copy r->reduced[0] in the new elements
+static void bvfactoring_expand_right(bvfactoring_t *r, uint32_t n) {
+  uint32_t i;
+
+  assert(r->n2 == 1 && n <= MAX_BVFACTORS);
+  r->n2 = n;
+  for (i=1; i<n; i++) {
+    bvfactor_buffer_init_copy(r->reduced2 + i, r->reduced2);
+  }
+}
+
+// try to replace t by p in r->reduced1
+static bool try_left_replace64(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly64_t *p) {
+  uint32_t i;
+
+  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced1) && t == bvfactor_buffer_get_var(r->reduced1));
+
+  if (p->nterms <= MAX_BVFACTORS) {
+    bvfactor_buffer_reduce_by_var(r->reduced1, t);
+    bvfactoring_expand_left(r, p->nterms);
+    assert(r->n1 == p->nterms);
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      bvfactor_buffer_mulconst64(r->reduced1, p->mono[i].coeff, 1);
+      i = 1;
+    }
+    while (i<r->n1) {
+      factor_mul_bvterm64(terms, p->mono[i].coeff, p->mono[i].var, r->reduced1 + i);
+      i ++;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+static bool try_left_replace(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly_t *p) {
+  uint32_t i;
+
+  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced1) && t == bvfactor_buffer_get_var(r->reduced1));
+
+  if (p->nterms <= MAX_BVFACTORS) {
+    bvfactor_buffer_reduce_by_var(r->reduced1, t);
+    bvfactoring_expand_left(r, p->nterms);
+    assert(r->n1 == p->nterms);
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      bvfactor_buffer_mulconst(r->reduced1, p->mono[i].coeff, 1);
+      i = 1;
+    }
+    while (i<r->n1) {
+      factor_mul_bvterm(terms, p->mono[i].coeff, p->mono[i].var, r->reduced1 + i);
+      i ++;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+// try to replace t by p in r->reduced1
+static bool try_right_replace64(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly64_t *p) {
+  uint32_t i;
+
+  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
+
+  if (p->nterms <= MAX_BVFACTORS) {
+    bvfactor_buffer_reduce_by_var(r->reduced2, t);
+    bvfactoring_expand_right(r, p->nterms);
+    assert(r->n1 == p->nterms);
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      bvfactor_buffer_mulconst64(r->reduced2, p->mono[i].coeff, 1);
+      i = 1;
+    }
+    while (i<r->n1) {
+      factor_mul_bvterm64(terms, p->mono[i].coeff, p->mono[i].var, r->reduced2 + i);
+      i ++;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+static bool try_right_replace(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly_t *p) {
+  uint32_t i;
+
+  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
+
+  if (p->nterms <= MAX_BVFACTORS) {
+    bvfactor_buffer_reduce_by_var(r->reduced2, t);
+    bvfactoring_expand_right(r, p->nterms);
+    assert(r->n1 == p->nterms);
+    i = 0;
+    if (p->mono[0].var == const_idx) {
+      bvfactor_buffer_mulconst(r->reduced2, p->mono[i].coeff, 1);
+      i = 1;
+    }
+    while (i<r->n1) {
+      factor_mul_bvterm(terms, p->mono[i].coeff, p->mono[i].var, r->reduced2 + i);
+      i ++;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+
+static bool try_left_expansion(bvfactoring_t *r, term_table_t *terms) {
+  term_t t;
+  term_kind_t kind;
+
+  if (r->n1 == 1 && bvfactor_buffer_is_var(r->reduced1)) {
+    t = bvfactor_buffer_get_var(r->reduced1);
+    kind = term_kind(terms, t);
+    if (kind == BV64_POLY) {
+      return try_left_replace64(r, terms, t, bvpoly64_term_desc(terms, t));
+    } else if (kind == BV_POLY) {
+      return try_left_replace(r, terms, t, bvpoly_term_desc(terms, t));
+    }
+  }
+
+  return false;
+}
+
+static bool try_right_expansion(bvfactoring_t *r, term_table_t *terms) {
+  term_t t;
+  term_kind_t kind;
+
+  if (r->n2 == 1 && bvfactor_buffer_is_var(r->reduced2)) {
+    t = bvfactor_buffer_get_var(r->reduced2);
+    kind = term_kind(terms, t);
+    if (kind == BV64_POLY) {
+      return try_right_replace64(r, terms, t, bvpoly64_term_desc(terms, t));
+    } else if (kind == BV_POLY) {
+      return try_right_replace(r, terms, t, bvpoly_term_desc(terms, t));
+    }
+  }
+
+  return false;
 }
 
 
@@ -982,26 +1149,34 @@ static bool try_term_poly_factoring(bvfactoring_t *r, term_table_t *terms, term_
 
 
 /*
+ * Reduce and store the common factors in p
+ */
+static void reduce_bvfactoring(bvfactoring_t *r, pp_buffer_t *p) {
+  uint32_t i;
+
+  pp_buffer_reset(p);
+  bvfactor_buffer_array_common_factors(p, r->reduced1, r->n1, r->reduced2, r->n2);
+  for (i=0; i<r->n1; i++) {
+    bvfactor_buffer_reduce(r->reduced1 + i, p);
+  }
+  for (i=0; i<r->n2; i++) {
+    bvfactor_buffer_reduce(r->reduced2 + i, p);
+  }
+}
+
+
+/*
  * Compute the common factors of r->reduced1 and r->reduced2
  */
 static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
   pp_buffer_t *common;
-  uint32_t i;
 
   common = factoring_get_pp_buffer(r);
-
-  bvfactor_buffer_array_common_factors(common, r->reduced1, r->n1, r->reduced2, r->n2);
-  for (i=0; i<r->n1; i++) {
-    bvfactor_buffer_reduce(r->reduced1 + i, common);
-  }
-  for (i=0; i<r->n2; i++) {
-    bvfactor_buffer_reduce(r->reduced2 + i, common);
-  }
+  reduce_bvfactoring(r, common);
 
   printf("--- Common factors ---\n");
   show_product(common);
   printf("\n");
-
   show_bvfactoring(r);
   printf("\n");
 
@@ -1010,6 +1185,46 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
     printf("Linear equal\n\n");
     r->code = BVFACTOR_EQUAL;
     return;
+  }
+
+  if (try_left_expansion(r, terms)) {
+    printf("Left expansion\n");
+    show_bvfactoring(r);
+
+    reduce_bvfactoring(r, common);
+
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+
+    if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
+	&& factoring_equal_linear_factors(r, terms)) {
+      printf("Linear equal after left expansion\n\n");
+      r->code = BVFACTOR_EQUAL;
+      return;
+    }
+  }
+
+  if (try_right_expansion(r, terms)) {
+    printf("Right expansion\n");
+    show_bvfactoring(r);
+
+    reduce_bvfactoring(r, common);
+
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+
+    if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
+	&& factoring_equal_linear_factors(r, terms)) {
+      printf("Linear equal after left expansion\n\n");
+      r->code = BVFACTOR_EQUAL;
+      return;
+    }
   }
 }
 

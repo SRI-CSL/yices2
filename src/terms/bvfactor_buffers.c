@@ -244,6 +244,14 @@ void bvfactor_buffer_reduce(bvfactor_buffer_t *b, pp_buffer_t *pbuffer) {
   pp_buffer_divide(&b->product, pbuffer);
 }
 
+/*
+ * Divide b->product by x
+ */
+void bvfactor_buffer_reduce_by_var(bvfactor_buffer_t *b, int32_t x) {
+  pp_buffer_divide_by_var(&b->product, x);
+}
+
+
 
 /*
  * Check whether b->product is linear (i.e., degree <= 1)
@@ -253,6 +261,14 @@ bool bvfactor_buffer_is_linear(bvfactor_buffer_t *b) {
   return pp_buffer_is_trivial(&b->product);
 }
 
+
+/*
+ * Check whether b->product is reduced to a single variable (i.e., degree = 1)
+ * - b must be normalized
+ */
+bool bvfactor_buffer_is_var(bvfactor_buffer_t *b) {
+  return b->product.len == 1 && b->product.prod[0].exp == 1;
+}
 
 /*
  * Get the variable of b->product if b->product has degree 1

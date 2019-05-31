@@ -272,6 +272,13 @@ extern void pp_buffer_gcd(pp_buffer_t *b, pp_buffer_t *b1);
  */
 extern void pp_buffer_divide(pp_buffer_t *b, pp_buffer_t *b1);
 
+/*
+ * Divide b by x. Store the result in b.
+ * - on entry, b must be normalized.
+ * - on exit, b store the division and is normalized.
+ */
+extern void pp_buffer_divide_by_var(pp_buffer_t *b, int32_t x);
+
 
 /*
  * POWER PRODUCT OPERATIONS
