@@ -2203,14 +2203,13 @@ void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b) {
  * - c is smaller than 2^k
  */
 static void addmul_decomp64_to_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t *cscan, term_t x, bool negated, uint64_t d) {
-  uint32_t k, n;
+  uint32_t k;
   uint64_t a;
 
   assert(cscan->bitsize == bvpoly_buffer_bitsize(b));
 
-  n = cscan->bitsize;
   k = cscan->numbits;
-  assert(k < n && n <= 64);
+  assert(k < cscan->bitsize && cscan->bitsize <= 64);
 
   if (k == 0) {
     // no constant and 2^k is 1
