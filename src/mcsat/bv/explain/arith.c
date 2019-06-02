@@ -606,20 +606,9 @@ bool cmp_base(void *data, void *x, void *y){
   return (get_bitwidth(i2) < get_bitwidth(i1));
 }
 
-/**
-   Local context for each conflict explanation instance, and how it manipulates intervals
-**/
-
-// Local context
-typedef struct {
-  arith_t* exp;
-  bvconstant_t zero; // Because we don't like recomputing this too many times
-  term_t zero_term;  // Because we don't like recomputing this too many times
-} bv_arith_ctx_t;
-
 // inhabits output
 static
-void interval_construct(bv_arith_ctx_t* lctx,
+void interval_construct(arith_t* exp,
                         const bvconstant_t* lo,
                         const bvconstant_t* hi,
                         term_t lo_term,
@@ -627,7 +616,7 @@ void interval_construct(bv_arith_ctx_t* lctx,
                         term_t reason,
                         interval_t* output) {
 
-  /* plugin_context_t* ctx = lctx->exp->super.ctx; */
+  /* plugin_context_t* ctx = exp->super.ctx; */
   /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
   /*   FILE* out = ctx_trace_out(ctx); */
   /*   fprintf(out, "Constructing interval from lo = "); */
@@ -668,31 +657,31 @@ void interval_construct(bv_arith_ctx_t* lctx,
 }
 
 // Adds a newly constructed interval into the heap
-interval_t* bv_arith_interval_push(bv_arith_ctx_t* lctx,
+interval_t* bv_arith_interval_push(arith_t* exp,
                                    const bvconstant_t* lo,
                                    const bvconstant_t* hi,
                                    term_t lo_term,
                                    term_t hi_term,
                                    term_t reason) {
-  plugin_context_t* ctx = lctx->exp->super.ctx;
+  plugin_context_t* ctx = exp->super.ctx;
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Creating interval, ");
   }
   interval_t* result = safe_malloc(sizeof(interval_t));
-  interval_construct(lctx, lo, hi, lo_term, hi_term, reason, result);
+  interval_construct(exp, lo, hi, lo_term, hi_term, reason, result);
   return result;
 }
 
 static inline
-interval_t* bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason, uint32_t width) {
-  plugin_context_t* ctx = lctx->exp->super.ctx;
+interval_t* bv_arith_full_interval_push(arith_t* exp, term_t reason, uint32_t width) {
+  plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   bvconstant_t zero;
   init_bvconstant(&zero);
-  bvconstant_extract(&zero,lctx->zero.data,0,width);
-  term_t zero_term = term_extract(tm, lctx->zero_term, 0, width);
-  interval_t* result = bv_arith_interval_push(lctx,&zero,&zero,zero_term,zero_term,reason);
+  bvconstant_set_all_zero(&zero, width);
+  term_t zero_term = bv_arith_zero(tm, width);
+  interval_t* result = bv_arith_interval_push(exp,&zero,&zero,zero_term,zero_term,reason);
   delete_bvconstant(&zero);
   return result;
 }
@@ -705,11 +694,11 @@ interval_t* bv_arith_full_interval_push(bv_arith_ctx_t* lctx, term_t reason, uin
 // Analyses one side of an atom, assumed to be in the fragment.
 // t is the side, coeff is the coeff of the conflict var, cc is a non-initialised bv_constant
 // returns the "rest of the term" (monomial of the conflict var is removed), and places the result of its evaluation in cc
-term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconstant_t* cc) {
+term_t bv_arith_init_side(arith_t* exp, term_t t, int32_t coeff, bvconstant_t* cc) {
 
   // Standard abbreviations
-  term_t conflict_var   = lctx->exp->csttrail.conflict_var_term;
-  plugin_context_t* ctx = lctx->exp->super.ctx;
+  term_t conflict_var   = exp->csttrail.conflict_var_term;
+  plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   uint32_t w            = term_bitsize(tm->terms, t);
 
@@ -728,7 +717,7 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
 
   // We evaluate this...
   uint32_t eval_level = 0;
-  const mcsat_value_t* value = bv_evaluator_evaluate_term(lctx->exp->super.eval, result, &eval_level);
+  const mcsat_value_t* value = bv_evaluator_evaluate_term(exp->super.eval, result, &eval_level);
   assert(value->type == VALUE_BV);
 
   /// ...copy it into cc
@@ -749,9 +738,9 @@ term_t bv_arith_init_side(bv_arith_ctx_t* lctx, term_t t, int32_t coeff, bvconst
 
 
 // Treat a constraint of the form lhs <= rhs
-interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_raw, bool b) {
+interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool b) {
   // Standard abbreviations
-  plugin_context_t* ctx = lctx->exp->super.ctx;
+  plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
   uint32_t w = term_bitsize(terms, lhs_raw);
@@ -767,25 +756,25 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
     fprintf(out, "\n");
   }
 
-  term_t lhs = extract(lctx->exp, lhs_raw, term_bitsize(terms, lhs_raw));
-  term_t rhs = extract(lctx->exp, rhs_raw, term_bitsize(terms, rhs_raw));
+  term_t lhs = extract(exp, lhs_raw, term_bitsize(terms, lhs_raw));
+  term_t rhs = extract(exp, rhs_raw, term_bitsize(terms, rhs_raw));
   
-  int32_t left_coeff  = bv_arith_coeff(lctx->exp, lhs, true);
-  int32_t right_coeff = bv_arith_coeff(lctx->exp, rhs, true);
+  int32_t left_coeff  = bv_arith_coeff(exp, lhs, true);
+  int32_t right_coeff = bv_arith_coeff(exp, rhs, true);
     
   if ((left_coeff == -1) || (right_coeff == -1)) {
     // if coeff is negative, we add one, negate and swap sides.
     term_t nlhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, lhs));
     term_t nrhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, rhs));
-    return bv_arith_unit_le(lctx, nrhs, nlhs, b);
+    return bv_arith_unit_le(exp, nrhs, nlhs, b);
   }
 
   // Setting c1 and c2 to be 2 terms representing the left polynomial and the right polynomial,
   // from which the confict variable (if present) was removed,
   // and evaluating those polynomials c1 and c2 (whose variables should all have values on the trail)
   bvconstant_t cc1, cc2;
-  term_t c1 = bv_arith_init_side(lctx, lhs, left_coeff, &cc1);
-  term_t c2 = bv_arith_init_side(lctx, rhs, right_coeff, &cc2);
+  term_t c1 = bv_arith_init_side(exp, lhs, left_coeff, &cc1);
+  term_t c2 = bv_arith_init_side(exp, rhs, right_coeff, &cc2);
 
   // Now we are sure that on both sides, coefficient is either 0 or 1
   // we check which one:
@@ -817,13 +806,13 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_push(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_push(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
-          result = bv_arith_full_interval_push(lctx, reason, w);
+          result = bv_arith_full_interval_push(exp, reason, w);
         }
       }
     } else { // No conflict variable on the left, then hi is (c1 - c2)
@@ -840,13 +829,13 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_push(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_push(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
-          result = bv_arith_full_interval_push(lctx, reason, w);
+          result = bv_arith_full_interval_push(exp, reason, w);
         }
       }
     }
@@ -872,13 +861,13 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_push(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_push(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_push(lctx, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_push(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
-          result = bv_arith_full_interval_push(lctx, reason, w);
+          result = bv_arith_full_interval_push(exp, reason, w);
         }
       }
     } else { // x appears on neither sides
@@ -888,11 +877,11 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
       }
       if (b && bvconstant_lt(&cc2,&cc1)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
         term_t reason = bv_arith_lt(tm, c2, c1);
-        result = bv_arith_full_interval_push(lctx, reason, w);
+        result = bv_arith_full_interval_push(exp, reason, w);
       }
       if (!b && bvconstant_le(&cc1,&cc2)) { // If c2 < c1, we forbid everything, otherwise we forbid nothing
         term_t reason = bv_arith_le(tm, c1, c2);
-        result = bv_arith_full_interval_push(lctx, reason, w);
+        result = bv_arith_full_interval_push(exp, reason, w);
       }
     }
   }
@@ -906,12 +895,11 @@ interval_t* bv_arith_unit_le(bv_arith_ctx_t* lctx, term_t lhs_raw, term_t rhs_ra
 
 
 // Adds interval to conflict
-void bv_arith_add2conflict(bv_arith_ctx_t* lctx,
+void bv_arith_add2conflict(arith_t* exp,
                            term_t min_saved_term,
                            interval_t* i,
                            ivector_t* conflict) {
 
-  arith_t* exp          = lctx->exp;
   plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
 
@@ -986,7 +974,7 @@ interval_t* get_interval(interval_t** intervals, interval_t* inherited, int32_t 
 // Places the chaining conditions (literals) in output,
 // and outputs whether or not start_arg has been used in the coverage
 static
-bool cover(bv_arith_ctx_t* lctx,
+bool cover(arith_t* exp,
            ivector_t* output,       // Where we dump our literals in the end
            uint32_t bitwidths,      // Number of distinct bitwidths remaining after this
            interval_t*** intervals, // Array of size bitwidths
@@ -996,7 +984,7 @@ bool cover(bv_arith_ctx_t* lctx,
   assert(intervals[0] != NULL);
   assert(intervals[0][0] != NULL);
   
-  plugin_context_t* ctx = lctx->exp->super.ctx;
+  plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
   uint32_t w            = get_bitwidth(intervals[0][0]); // Bitwidth currently being treated
@@ -1023,7 +1011,7 @@ bool cover(bv_arith_ctx_t* lctx,
         fprintf(out, "\n");
       }
       uint32_t eval_level = 0;
-      assert(bv_evaluator_evaluate_term(lctx->exp->super.eval, longest->reason, &eval_level)->b);
+      assert(bv_evaluator_evaluate_term(exp->super.eval, longest->reason, &eval_level)->b);
       (void) eval_level;
       ivector_push(output, longest->reason);
     }
@@ -1127,7 +1115,7 @@ bool cover(bv_arith_ctx_t* lctx,
             fprintf(out, "First interval, delaying recording of the hook\n");
           }
         } else { // Otherwise we record best_so_far and its hook
-          bv_arith_add2conflict(lctx, saved_hi_term, best_so_far, output);
+          bv_arith_add2conflict(exp, saved_hi_term, best_so_far, output);
           if (best_so_far == inherited) { result = true; } // inherited was used
         }
         saved_hi      = &best_so_far->hi;
@@ -1177,7 +1165,7 @@ bool cover(bv_arith_ctx_t* lctx,
       term_t lo_term = saved_hi_term;
       term_t hi_term = i->lo_term;
       interval_t hole; // Defining hole to be filled by the next level(s)
-      interval_construct(lctx, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
+      interval_construct(exp, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "OK, now there is a hole: ");
@@ -1196,7 +1184,7 @@ bool cover(bv_arith_ctx_t* lctx,
         bvconstant_normalize(&lo_proj);
         bvconstant_normalize(&hi_proj);
         interval_t hole_complement; // at the smaller bitwidth
-        interval_construct(lctx, &hi_proj, &lo_proj,
+        interval_construct(exp, &hi_proj, &lo_proj,
                            term_extract(tm, hi_term, 0, next_bitwidth),
                            term_extract(tm, lo_term, 0, next_bitwidth),
                            NULL_TERM, &hole_complement);
@@ -1208,7 +1196,7 @@ bool cover(bv_arith_ctx_t* lctx,
           bv_arith_interval_print(out, terms, &hole_complement);
           fprintf(out, "\n");
         }
-        hole_used = cover(lctx, &rec_output,
+        hole_used = cover(exp, &rec_output,
                           bitwidths-1, &intervals[1], &numbers[1],
                           &hole_complement);
         bv_arith_interval_delete(&hole_complement);
@@ -1222,7 +1210,7 @@ bool cover(bv_arith_ctx_t* lctx,
           fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
         }
         hole_used = false;
-        cover(lctx, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
+        cover(exp, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
       }
       if (!hole_used) {
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1265,7 +1253,7 @@ bool cover(bv_arith_ctx_t* lctx,
         bv_arith_interval_print(out, terms, first);
         fprintf(out, "\n");
       }
-      bv_arith_add2conflict(lctx, saved_hi_term, first, output);
+      bv_arith_add2conflict(exp, saved_hi_term, first, output);
       if (first == inherited) { result = true; } // inherited was used
     } else {
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1274,7 +1262,7 @@ bool cover(bv_arith_ctx_t* lctx,
         bv_arith_interval_print(out, terms, longest);
         fprintf(out, "\n");
       }
-      bv_arith_add2conflict(lctx, saved_hi_term, longest, output);
+      bv_arith_add2conflict(exp, saved_hi_term, longest, output);
       if (longest == inherited) { result = true; } // inherited was used
       // Now treating the delayed recording of first hook, if it exists:
       if (first == NULL) {
@@ -1291,7 +1279,7 @@ bool cover(bv_arith_ctx_t* lctx,
           bv_arith_interval_print(out, terms, first);
           fprintf(out, "\n");
         }
-        bv_arith_add2conflict(lctx, longest->hi_term, first, output);
+        bv_arith_add2conflict(exp, longest->hi_term, first, output);
         if (first == inherited) { result = true; } // inherited was used
       }
     }
@@ -1314,14 +1302,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm         = ctx->tm;
-  uint32_t bitsize = term_bitsize(terms, exp->csttrail.conflict_var_term);
-
-  // We initialise the local context
-  bv_arith_ctx_t lctx;
-  lctx.exp = exp;
-  init_bvconstant(&lctx.zero);
-  bvconstant_set_all_zero(&lctx.zero, bitsize);
-  lctx.zero_term = mk_bv_constant(tm, &lctx.zero);
+  assert(exp->csttrail.conflict_var == conflict_var); 
 
   // Each constraint from the conflict core will be translated into 1 forbidden interval
   // We keep them in an array of the same size as the conflict core
@@ -1365,19 +1346,21 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
     switch (term_kind(terms, atom_i_term)) {
     case BV_GE_ATOM: {  
-      intervals[i] = bv_arith_unit_le(&lctx, t1, t0, atom_i_value);
+      intervals[i] = bv_arith_unit_le(exp, t1, t0, atom_i_value);
       break;
     }
     case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1})
       term_t t0prime = bv_arith_add_half(tm, t0);
       term_t t1prime = bv_arith_add_half(tm, t1);
-      intervals[i] = bv_arith_unit_le(&lctx, t1prime, t0prime, atom_i_value);
+      intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
       break;
     }
     case EQ_TERM :     
     case BV_EQ_ATOM: { // equality
-      intervals[i] = bv_arith_unit_le(&lctx, bv_arith_sub_terms(tm, t0, t1),
-                                      extract(exp, lctx.zero_term, w), atom_i_value);
+      intervals[i] = bv_arith_unit_le(exp,
+                                      bv_arith_sub_terms(tm, t0, t1),
+                                      bv_arith_zero(tm, w),
+                                      atom_i_value);
       break;
     }
     default:
@@ -1461,7 +1444,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
 
   ivector_t cover_output; // where the call to cover should place literals
   init_ivector(&cover_output, 0);
-  cover(&lctx, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL);
+  cover(exp, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL);
   ivector_add(conflict, cover_output.data, cover_output.size);
   delete_ivector(&cover_output);
   
@@ -1469,8 +1452,6 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   for (uint32_t i = 0; i < nonemptys; i++) {
     bv_arith_interval_destruct(intervals[i]);
   }
-
-  delete_bvconstant(&lctx.zero);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
