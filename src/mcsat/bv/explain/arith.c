@@ -1393,7 +1393,7 @@ void bvarith_explain(bv_subexplainer_t* this,
   term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm         = ctx->tm;
-  assert(exp->csttrail.conflict_var == conflict_var); 
+  assert(exp->csttrail.conflict_var == var); 
 
   // Each constraint from reasons_in will be translated into 1 forbidden interval
   // We keep them in an array of the same size as reasons_in
