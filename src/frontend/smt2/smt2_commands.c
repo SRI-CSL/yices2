@@ -5776,7 +5776,7 @@ static void test_multi_threads(smt2_globals_t *g) {
   }
 
   for (i=0; i<n; i++) {
-    delte_smt2_globals(garray + i);
+    delete_smt2_globals(garray + i);
   }
   safe_free(garray);
 }
