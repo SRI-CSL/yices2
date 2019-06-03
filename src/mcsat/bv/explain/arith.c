@@ -979,7 +979,8 @@ bool cover(arith_t* exp,
            uint32_t bitwidths,      // Number of distinct bitwidths remaining after this
            interval_t*** intervals, // Array of size bitwidths
            uint32_t* numbers,       // Array of size bitwidths
-           interval_t* inherited    // First interval of coverage, can be NULL
+           interval_t* inherited,   // First interval of coverage, can be NULL
+           term_t* substitution     // Term used for substitution of the variable in case of propagation
            ){
   assert(intervals[0] != NULL);
   assert(intervals[0][0] != NULL);
@@ -995,7 +996,13 @@ bool cover(arith_t* exp,
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Call to cover: %d intervals of bitwidth %d:\n",n,w);
+    fprintf(out, "\nCall to cover for a ");
+    if (substitution != NULL) {
+      fprintf(out, "propagation, with ");
+    } else {
+      fprintf(out, "conflict, with ");
+    }
+    fprintf(out, "%d intervals of bitwidth %d:\n",n,w);
     print_intervals(ctx, intervals[0], n);
     fprintf(out, "Longest one is ");
     bv_arith_interval_print(out, terms, longest);
@@ -1141,29 +1148,64 @@ bool cover(arith_t* exp,
         continue;
       }
 
-      // Discontinuity in intervals!
-      // The hole must be filled by lower levels, as done by recursive call to cover
-      assert(bitwidths != 0); // There'd better be at least one more level
+      // Discontinuity in intervals! There's a hole!
+
+      // First situation: there are no smaller bitwidths
+      if (bitwidths == 0) {
+        // The hole had better be of size 1, and we'd better be doing a propagation!
+        assert(substitution != NULL);
+        assert(substitution[0] == NULL_TERM);
+        bvconstant_t saved_hi_copy;
+        init_bvconstant(&saved_hi_copy);
+        bvconstant_copy(&saved_hi_copy, saved_hi->bitsize, saved_hi->data);
+        bvconstant_normalize(&saved_hi_copy);
+        bvconstant_add_one(&saved_hi_copy);
+        bvconstant_normalize(&saved_hi_copy);
+        assert(bvconstant_eq(&saved_hi_copy,&i->lo));
+        delete_bvconstant(&saved_hi_copy);
+        // OK, seems fine. We add to the conflict the fact that the hole has size 1:
+        term_t literal = bv_arith_eq(tm, i->lo_term, bv_arith_add_one_term(tm, saved_hi_term));
+        if (literal != NULL_TERM) ivector_push(output, literal);
+        // We output the term in the substitution pointer
+        substitution[0] = saved_hi_term;
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Found one possible value: ");
+          term_print_to_file(out, terms, saved_hi_term);
+          fprintf(out, "\n");
+        }
+        saved_hi = &i->lo;
+        saved_hi_term = i->lo_term;
+        if (is_in_interval(saved_hi,longest)) notdone = false;
+        continue; // We skip the rest of the loop
+      }
+      
+      // The hole must be filled by lower levels, as done by a recursive call to cover
+      assert(bitwidths != 0); // There'd better be at least one more level of smaller bitwidths
       uint32_t next_bitwidth = get_bitwidth(intervals[1][0]);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Next bitwidth is %d.\n",next_bitwidth);
       }
       assert(next_bitwidth < w); // it'd better be a smaller bitwidth
+      // We now prepare the arguments of the recursive call
       ivector_t rec_output;      // where the recursive call should place literals
       init_ivector(&rec_output, 0);
-      bvconstant_t lo,hi,smaller_values;
+      // Now we prepare the construction of the hole [ lo (lo_term) , hi (hi_term) [
+      term_t lo_term = saved_hi_term;
+      term_t hi_term = i->lo_term;
+      bvconstant_t lo,hi,smaller_values; // smaller_values: how many values of the next bitwidth?
       init_bvconstant(&lo);
       init_bvconstant(&hi);
       init_bvconstant(&smaller_values);
       bvconstant_copy(&lo, saved_hi->bitsize, saved_hi->data);
       bvconstant_copy(&hi, i->lo.bitsize, i->lo.data);
       bvconstant_set_all_zero(&smaller_values, w);
-      bvconst_set_bit(smaller_values.data, next_bitwidth); // how many values of the next bitwidth?
-      bvconstant_sub_one(&smaller_values);
+      bvconst_set_bit(smaller_values.data, next_bitwidth); 
       bvconstant_normalize(&smaller_values);
-      term_t lo_term = saved_hi_term;
-      term_t hi_term = i->lo_term;
+      term_t smaller_values_term = mk_bv_constant(tm, &smaller_values);
+      bvconstant_sub_one(&smaller_values); // We subtract 1 so as to compare it to the length of the hole
+      bvconstant_normalize(&smaller_values);
       interval_t hole; // Defining hole to be filled by the next level(s)
       interval_construct(exp, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1173,7 +1215,14 @@ bool cover(arith_t* exp,
         fprintf(out, " for which (length-1) is ");
         bvconst_print(out, hole.length.data, hole.length.bitsize);
       }
+      // We will record whether the (complement of the) hole is used by the smaller bitwidths
       bool hole_used;
+      // We project lo_term and hi_term into the domain of smaller bitwidth
+      term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
+      term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
+      // Where the recursive call can return the substitution term (if we are explaining a propagation)
+      term_t rec_substitution = NULL_TERM;
+      // Now, there two cases for the recursive call: small hole or big hole
       if (bvconstant_lt(&hole.length, &smaller_values)) {
         // Hole is smaller than number of values in smaller bitwidth -> we project
         bvconstant_t lo_proj,hi_proj;
@@ -1184,10 +1233,7 @@ bool cover(arith_t* exp,
         bvconstant_normalize(&lo_proj);
         bvconstant_normalize(&hi_proj);
         interval_t hole_complement; // at the smaller bitwidth
-        interval_construct(exp, &hi_proj, &lo_proj,
-                           term_extract(tm, hi_term, 0, next_bitwidth),
-                           term_extract(tm, lo_term, 0, next_bitwidth),
-                           NULL_TERM, &hole_complement);
+        interval_construct(exp, &hi_proj, &lo_proj, hi_proj_term, lo_proj_term, NULL_TERM, &hole_complement);
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, " < ");
@@ -1198,7 +1244,8 @@ bool cover(arith_t* exp,
         }
         hole_used = cover(exp, &rec_output,
                           bitwidths-1, &intervals[1], &numbers[1],
-                          &hole_complement);
+                          &hole_complement,
+                          (substitution != NULL && rec_substitution == NULL_TERM) ? &rec_substitution : NULL);
         bv_arith_interval_delete(&hole_complement);
         delete_bvconstant(&lo_proj);
         delete_bvconstant(&hi_proj);
@@ -1209,27 +1256,67 @@ bool cover(arith_t* exp,
           bvconst_print(out, smaller_values.data, smaller_values.bitsize);
           fprintf(out, "\nHole is at least as big as the domain of the next bitwidth, we recursively call cover on that whole domain.\n");
         }
+        cover(exp, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL,
+              (substitution != NULL && rec_substitution == NULL_TERM) ? &rec_substitution : NULL);
         hole_used = false;
-        cover(exp, &rec_output, bitwidths-1, &intervals[1], &numbers[1], NULL);
       }
-      if (!hole_used) {
+
+      // Now we analyse what the recursive call returned to us
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Back to bitwidth %d!\n",w);
+      }
+      // If we are explaining a propagation and got a feasible value in the hole:
+      if (substitution != NULL && rec_substitution != NULL_TERM) {
+        term_t diff = bv_arith_sub_terms(tm, rec_substitution, lo_proj_term);
+        term_t sbits[w];
+        for (uint32_t k=0; k<w;k++){
+          sbits[k] = (k < next_bitwidth) ?
+            mk_bitextract(tm, diff, k) :
+            bool2term(false);
+        }
+        substitution[0] = bv_arith_add_terms(tm, lo_term, mk_bvarray(tm, w, sbits));
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole without our help, we return.\n",w);
+          fprintf(out, "Hole was from ");
+          term_print_to_file(out, terms, lo_term);
+          fprintf(out, " to ");
+          term_print_to_file(out, terms, hi_term);
+          fprintf(out, " and the only possible value at bitwidth %d is ",w);
+          term_print_to_file(out, terms, substitution[0]);
+          fprintf(out, "\n");
         }
+      }
+      if (!hole_used && rec_substitution == NULL_TERM) {
+        // If the hole was not used and the recusive call did not output a term,
+        // the intervals of the present bitwith were really useless, we return!
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "The recursive call covered the hole without our help, we return.\n");
+        }
+        assert(substitution == NULL); // We can't be explaining a propagation
         ivector_reset(output); // if hole wasn't used, this bitwidth is useless
         notdone = false;
         result  = false;
         saved_hi_term = NULL_TERM;
-      } else { // otherwise we need to push to output that the hole was small
+      } else {
+        // otherwise we need to push to output that the hole was small
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Back to bitwidth %d, the recursive call covered the hole with our help, we record that the hole was small.\n", w);
+          fprintf(out, "The recursive call used the hole we left uncovered at bitwidth %d and/or found 1 feasible value .\n",w);
         }
-        term_t smaller_values_term = bv_arith_add_one_term(tm, mk_bv_constant(tm, &smaller_values));
-        term_t hole_length_term = bv_arith_sub_terms(tm, i->lo_term, saved_hi_term);
-        term_t literal = bv_arith_lt(tm, hole_length_term, smaller_values_term);
-        if (literal != NULL_TERM) ivector_push(output, literal);
+        term_t literal = (hole_used) ?
+          bv_arith_lt(tm, bv_arith_sub_terms(tm, hi_term, lo_term), smaller_values_term) :
+          bv_arith_le(tm, bv_arith_sub_terms(tm, hi_term, substitution[0]), smaller_values_term);
+        if (literal != NULL_TERM) {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "The literal is ");
+            term_print_to_file(out, terms, literal);
+            fprintf(out, "\n");
+          }
+          ivector_push(output, literal);
+        }
         saved_hi = &i->lo;
         saved_hi_term = i->lo_term;
         if (is_in_interval(saved_hi,longest)) notdone = false;
@@ -1290,7 +1377,11 @@ bool cover(arith_t* exp,
 
 
 static
-void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+void bvarith_explain(bv_subexplainer_t* this,
+                     const ivector_t* reasons_in,
+                     variable_t var,
+                     ivector_t* reasons_out,
+                     term_t* substitution) {
 
   arith_t* exp = (arith_t*) this;
   plugin_context_t* ctx = this->ctx;
@@ -1302,23 +1393,23 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
   term_manager_t* tm         = ctx->tm;
-  assert(exp->csttrail.conflict_var == conflict_var); 
+  assert(exp->csttrail.conflict_var == var); 
 
-  // Each constraint from the conflict core will be translated into 1 forbidden interval
-  // We keep them in an array of the same size as the conflict core
-  uint32_t n = conflict_core->size;
+  // Each constraint from reasons_in will be translated into 1 forbidden interval
+  // We keep them in an array of the same size as reasons_in
+  uint32_t n = reasons_in->size;
   assert(n!=0);
   interval_t* intervals[n];
 
-  // Variables that are going to be re-used for every item in the conflict core
+  // Variables that are going to be re-used for every item in reasons_in
   variable_t atom_i_var;
   bool       atom_i_value;
   term_t     atom_i_term;
 
-  // We go through the conflict core
+  // We go through reasons_in
   for (uint32_t i = 0; i < n; i++) {
     
-    atom_i_var   = conflict_core->data[i];
+    atom_i_var   = reasons_in->data[i];
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
 
@@ -1331,8 +1422,8 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
       ctx_trace_term(ctx, atom_i_term);
     }
 
-    // The output conflict always contains the conflict core:
-    ivector_push(conflict, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
+    // reasons_out always contains reasons_in:
+    ivector_push(reasons_out, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
 
     composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
     assert(atom_i_comp->arity == 2);
@@ -1439,13 +1530,13 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     fprintf(out, "\n");
   }
 
-  /* All conflicting atoms have been treated, the resulting forbidden intervals for the
-  conflict_var have been pushed in the heap. It's now time to look at what's in the heap. */
+  /* All atoms in reasons_in have been treated, the resulting forbidden intervals for the
+  var have been pushed in the heap. It's now time to look at what's in the heap. */
 
   ivector_t cover_output; // where the call to cover should place literals
   init_ivector(&cover_output, 0);
-  cover(exp, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL);
-  ivector_add(conflict, cover_output.data, cover_output.size);
+  cover(exp, &cover_output, bitwidths-1, bitwidth_intervals, bitwidth_numbers, NULL, substitution);
+  ivector_add(reasons_out, cover_output.data, cover_output.size);
   delete_ivector(&cover_output);
   
   // Now we destruct all intervals
@@ -1453,18 +1544,24 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
     bv_arith_interval_destruct(intervals[i]);
   }
 
-  if (ctx_trace_enabled(ctx, "mcsat::bv::conflict")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Returned conflict is: ");
-    for (uint32_t i = 0; i < conflict->size; i++) {
-      if (i>0) fprintf(out,", ");
-      term_print_to_file(out, terms, conflict->data[i]);
+    fprintf(out, "Returned reasons are:\n");
+    for (uint32_t i = 0; i < reasons_out->size; i++) {
+      fprintf(out,"[%d]",i);
+      ctx_trace_term(ctx, reasons_out->data[i]);
+      /* if (i>0) fprintf(out,", "); */
+      /* term_print_to_file(out, terms, reasons_out->data[i]); */
     }
     fprintf(out,"\n");
   }
 
 }
 
+static
+void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var, ivector_t* conflict) {
+  bvarith_explain(this, conflict_core, conflict_var, conflict, NULL);
+}
 
 /**
    Detection of whether a conflict is within the fragment, and external API
@@ -1537,13 +1634,15 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 
 static
 bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
-  return false;
+  // Just use the conflict filter
+  return can_explain_conflict(this, reasons, x);
 }
 
 static
 term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in, variable_t x, ivector_t* reasons_out) {
-  assert(false);
-  return NULL_TERM;
+  term_t result = NULL_TERM ;
+  bvarith_explain(this, reasons_in, x, reasons_out, &result);
+  return result;
 }
 
 static
