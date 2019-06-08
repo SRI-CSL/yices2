@@ -480,8 +480,13 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
   assert(lo < hi);
   term_table_t* terms = ctx->terms; // standard abbreviation
 
-  switch (term_kind(terms, t)) {
-  case BV_ARRAY: {
+  // Now we determine whether we should descend into the term structure
+  bool ignore_this_bool;
+  // Whether term can be evaluated from trail
+  bool is_evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool);
+
+  if ((!is_evaluable) && (term_kind(terms, t) == BV_ARRAY)) {
+
     // Concatenated boolean terms:
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     assert(hi <= concat_desc->arity);
@@ -565,10 +570,9 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
       return bv_slicing_sstack(ctx, conflict_var, width+low, low, current, todo, slices);
     }
   }
-  default: // We consider the term is a variable or a constant, we immediately stack its relevant slices
-    return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
-  }
-
+  
+  // The term is a variable or a constant, we immediately stack its relevant slices
+  return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
 }
 
 // Prints a slicing
@@ -830,12 +834,17 @@ bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "t = ");
+    fprintf(out, "term_is_ext_con with t = ");
     ctx_trace_term(ctx, t);
   }
 
   // Looking at whether the value is cached
   if (int_hset_member(&exp->good_terms_cache,t)) return true;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Value not cached. Is it the conflict_var, something evaluable?\n");
+  }
 
   bool ignore_this_bool;
   if (t == conflict_var
@@ -975,6 +984,11 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
       return false;
     }
     }
+  }
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
+    FILE* out = ctx_trace_out(this->ctx);
+    fprintf(out, "Yes, it is in the ext_conc fragment!\n");
   }
 
   return true;
