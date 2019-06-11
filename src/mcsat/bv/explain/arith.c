@@ -664,12 +664,14 @@ interval_t* bv_arith_interval_push(arith_t* exp,
                                    term_t hi_term,
                                    term_t reason) {
   plugin_context_t* ctx = exp->super.ctx;
+  interval_t* result = safe_malloc(sizeof(interval_t));
+  interval_construct(exp, lo, hi, lo_term, hi_term, reason, result);
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Creating interval, ");
+    bv_arith_interval_print(out, ctx->terms, result);
+    fprintf(out, "\n");
   }
-  interval_t* result = safe_malloc(sizeof(interval_t));
-  interval_construct(exp, lo, hi, lo_term, hi_term, reason, result);
   return result;
 }
 
@@ -1459,9 +1461,10 @@ void bvarith_explain(bv_subexplainer_t* this,
     }
   }
 
-  for (uint32_t i = 0; i < n; i++) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-      FILE* out = ctx_trace_out(ctx);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "\nFinished creating the intervals. Here they are before they are sorted:\n");
+    for (uint32_t i = 0; i < n; i++) {
       fprintf(out, "Scanning interval ");
       if (intervals[i] == NULL) {
         fprintf(out, "EMPTY");
@@ -1470,7 +1473,9 @@ void bvarith_explain(bv_subexplainer_t* this,
       }
       fprintf(out, "\n");
     }
+    fprintf(out, "And now after we sort them:\n");
   }
+
   ptr_array_sort2((void**)intervals, n, NULL, cmp_base); // We sort the intervals  
   assert(intervals[0] != NULL); // There should be at least one non-empty interval
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
