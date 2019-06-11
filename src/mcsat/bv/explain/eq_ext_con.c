@@ -10,7 +10,6 @@
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/term_manager.h"
-#include "terms/bvlogic_buffers.h"
 
 #include "mcsat/bv/bv_utils.h"
 #include "mcsat/eq/equality_graph.h"
@@ -90,18 +89,6 @@ struct slice_s {
    */
   splist_t* paired_with;
 };
-
-// builds extracted term, form lo (inc.) to hi (exc.)
-static inline
-term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
-  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
-  term_t tarray[1];
-  tarray[0] = t;
-  term_t bv_term = is_bitvector_term(tm->terms, t) ?
-    t : bvarray_term(tm->terms, 1, tarray);
-  bvlogic_buffer_set_slice_term(buffer, tm->terms, lo, hi-1, bv_term);
-  return mk_bvlogic_term(tm, buffer);
-}
 
 // builds term from slice
 static inline
@@ -461,6 +448,20 @@ slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, u
   return bv_slicing_extracts(ctx, p->val, hi, lo, tail, todo);
 }
 
+static inline
+term_t bit_over_extract(term_table_t* terms, term_t t) {
+  if (term_kind(terms, t) == BIT_TERM) {
+    select_term_t* desc   = bit_term_desc(terms, t);
+    term_t arg            = desc->arg;
+    uint32_t selected_bit = desc->idx; // Get bit that is selected in it
+    if (term_kind(terms, arg) == BV_ARRAY) {
+      composite_term_t* concat_desc = bvarray_term_desc(terms, arg);
+      return bit_over_extract(terms,concat_desc->arg[selected_bit]);
+    }
+  }
+  return t;
+}
+
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function. */
 slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
@@ -479,8 +480,13 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
   assert(lo < hi);
   term_table_t* terms = ctx->terms; // standard abbreviation
 
-  switch (term_kind(terms, t)) {
-  case BV_ARRAY: {
+  // Now we determine whether we should descend into the term structure
+  bool ignore_this_bool;
+  // Whether term can be evaluated from trail
+  bool is_evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool);
+
+  if ((!is_evaluable) && (term_kind(terms, t) == BV_ARRAY)) {
+
     // Concatenated boolean terms:
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     assert(hi <= concat_desc->arity);
@@ -496,15 +502,18 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
     bool     is_evaluable = true; // whether current slice is evaluable
     uint32_t low  = 0;           // if evaluable, must be 0, otherwise lo of current slice
 
+    term_t bits[total_width];
+    
     for (uint32_t j = 0; j < total_width; j++) {
       uint32_t i = hi - j -1;           // The bit we are dealing with
-      term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
+      term_t t_i = bit_over_extract(terms,concat_desc->arg[i]); // The Boolean term that constitutes that bit
       if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::norm")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "bit %d is ",i);
         ctx_trace_term(ctx, t_i);
       }
-
+      bits[i] = t_i;
+      
       bool ignore_this_bool;
       // Whether term can be evaluated from trail
       bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool);
@@ -523,11 +532,16 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
             || selected_bit + 1 != low) { //...or new bit not in continuity
           // We create the term for the slice so far
           if (width != 0) { // If width == 0 then slice so far is inexistent
-            term_t to_close = is_evaluable ?
-              term_extract(tm, t, i+1, i+1+width)
-              : conflict_var;
+            term_t base;
+            if (is_evaluable) {
+              bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+              bvlogic_buffer_set_term_array(buffer, tm->terms, width, &bits[i+1]);
+              base = mk_bvlogic_term(tm, buffer);
+            } else {
+              base = conflict_var;
+            }
             // We close the slice so far, stack it upon the tail, and open a new slice
-            current = bv_slicing_sstack(ctx, to_close, width+low, low, current, todo, slices);
+            current = bv_slicing_sstack(ctx, base, width+low, low, current, todo, slices);
           }
           width = 0; // We start a new slice
           is_evaluable = false; // ...which is not evaluable (slice of conflict_var)
@@ -548,17 +562,17 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
     }
     // We have exited the loop, we now close the current (and last) slice
     if (is_evaluable) {
-      term_t to_close = term_extract(tm, t, 0, width);
-      return bv_slicing_sstack(ctx, to_close, width, 0, current, todo, slices);
+      bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+      bvlogic_buffer_set_term_array(buffer, tm->terms, width, bits);
+      return bv_slicing_sstack(ctx, mk_bvlogic_term(tm, buffer), width, 0, current, todo, slices);
     }
     else {
       return bv_slicing_sstack(ctx, conflict_var, width+low, low, current, todo, slices);
     }
   }
-  default: // We consider the term is a variable or a constant, we immediately stack its relevant slices
-    return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
-  }
-
+  
+  // The term is a variable or a constant, we immediately stack its relevant slices
+  return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
 }
 
 // Prints a slicing
@@ -820,12 +834,17 @@ bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "t = ");
+    fprintf(out, "term_is_ext_con with t = ");
     ctx_trace_term(ctx, t);
   }
 
   // Looking at whether the value is cached
   if (int_hset_member(&exp->good_terms_cache,t)) return true;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Value not cached. Is it the conflict_var, something evaluable?\n");
+  }
 
   bool ignore_this_bool;
   if (t == conflict_var
@@ -853,7 +872,7 @@ bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
   // Bit-select over a variable
   if (t_kind == BIT_TERM) {
     term_t t_arg = bit_term_arg(terms, t);
-    if (t_arg == conflict_var) {
+    if (term_is_ext_con(exp, t_arg)) {
       int_hset_add(&exp->good_terms_cache, t);
       return true;
     } else {
@@ -965,6 +984,11 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
       return false;
     }
     }
+  }
+
+  if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
+    FILE* out = ctx_trace_out(this->ctx);
+    fprintf(out, "Yes, it is in the ext_conc fragment!\n");
   }
 
   return true;
