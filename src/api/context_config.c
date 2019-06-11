@@ -657,6 +657,12 @@ bool logic_is_supported_by_mcsat(smt_logic_t code) {
   return !(logic_has_arrays(code) || logic_has_quantifiers(code));
 }
 
+/*
+ * Check whether a logic requires the MCSAT solver
+ */
+bool logic_requires_mcsat(smt_logic_t code) {
+  return arch_for_logic(code) == CTX_ARCH_MCSAT;
+}
 
 /*
  * Check whether a logic is supported by the exists/forall solver

@@ -118,30 +118,31 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
+  LIBS+=-pthread
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   PIC=-fPIC
   STATIC=-static
 else
   PIC=-fPIC
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden -pthread
   STATIC=-static
 endif
 endif

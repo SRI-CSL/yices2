@@ -35,6 +35,9 @@
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 
+#include "api/yices_globals.h"
+#include "mt/thread_macros.h"
+
 
 
 /*
@@ -379,7 +382,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
     d_threshold = params->d_threshold;
     // HACK to activate the Luby heuristic:
     // c_factor must be 0.0 and fast_restart must be true
-    luby = params->c_factor == 0.0; 
+    luby = params->c_factor == 0.0;
   }
 
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
@@ -548,6 +551,14 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
   }
 }
 
+static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
+  mcsat_solve(ctx->mcsat, params);
+  return mcsat_status(ctx->mcsat);
+}
+
+static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_call_mcsat_solver(ctx, params));
+}
 
 /*
  * Initialize search parameters then call solve
@@ -558,8 +569,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
-    mcsat_solve(ctx->mcsat, params);
-    return mcsat_status(ctx->mcsat);
+    return call_mcsat_solver(ctx, params);
   }
 
   core = ctx->core;

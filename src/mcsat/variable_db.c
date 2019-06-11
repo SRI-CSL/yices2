@@ -21,6 +21,8 @@
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
+#include "api/yices_api_lock_free.h"
+
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
   var_db->types = types;

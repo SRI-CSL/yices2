@@ -310,6 +310,18 @@ extern void bvarith_buffer_sub_const(bvarith_buffer_t *b, uint32_t *a);
 
 
 /*
+ * Add one to b
+ */
+extern void bvarith_buffer_add_one(bvarith_buffer_t *b);
+
+
+/*
+ * Subtract one from b
+ */
+extern void bvarith_buffer_sub_one(bvarith_buffer_t *b);
+
+
+/*
  * Add a * c to b
  */
 extern void bvarith_buffer_add_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c);
