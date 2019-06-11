@@ -813,11 +813,12 @@ static void save_nocc(node_occ_t n, uint32_t b) {
  */
 static void select_node64(test_occ_t *s) {
   uint32_t i, j, n;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(store.nelems > 0);
 
   n = store.nelems;
-  i = random_uint32() % n;
+  i = random_uint32(&seed) % n;
   j = i;
   do {
     if (store.data[j].bitsize <= 64) {
@@ -838,11 +839,12 @@ static void select_node64(test_occ_t *s) {
  */
 static void select_node(test_occ_t *s) {
   uint32_t i, j, n;
-
+  uint32_t seed = PRNG_DEFAULT_SEED;
+  
   assert(store.nelems > 0);
 
   n = store.nelems;
-  i = random_uint32() % n;
+  i = random_uint32(&seed) % n;
   j = i;
   do {
     if (store.data[j].bitsize > 64) {
@@ -863,11 +865,12 @@ static void select_node(test_occ_t *s) {
  */
 static void select_node_bitsize(test_occ_t *s, uint32_t b) {
   uint32_t i, j, n;
-
+  uint32_t seed = PRNG_DEFAULT_SEED;
+  
   assert(store.nelems > 0);
 
   n = store.nelems;
-  i = random_uint32() % n;
+  i = random_uint32(&seed) % n;
   j = i;
   do {
     if (store.data[j].bitsize == b) {
@@ -892,11 +895,12 @@ static void select_node_bitsize(test_occ_t *s, uint32_t b) {
 static void select_node_array(uint32_t *bitsize, node_occ_t *s, uint32_t k) {
   test_occ_t aux;
   uint32_t i, n, b;
-
+  uint32_t seed = PRNG_DEFAULT_SEED;
+  
   assert(k > 0 && store.nelems > 0);
 
   n = store.nelems;
-  i = random_uint32() % n;
+  i = random_uint32(&seed) % n;
 
   // use store.data[i] for s[0]
   s[0] = store.data[i].nocc;
@@ -1235,6 +1239,7 @@ static void test_make_product(bvc_dag_t *dag, uint32_t n) {
   uint32_t exp[n];
   uint32_t b, i;
   node_occ_t r;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // set all exponents to 1
   for (i=0; i<n; i++) {
@@ -1249,7 +1254,7 @@ static void test_make_product(bvc_dag_t *dag, uint32_t n) {
 
   // set some exponents to 2
   for (i=0; i<n; i++) {
-    if ((random_uint32() & 0xFFFF) >= 0x8000) {
+    if ((random_uint32(&seed) & 0xFFFF) >= 0x8000) {
       exp[i] ++;
     }
   }

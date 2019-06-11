@@ -1748,69 +1748,14 @@ static value_t build_update_value(update_hobj_t *o) {
   return i;
 }
 
-
-
-
-/*
- * Hash-consing objects for int_htbl
- */
-static rational_hobj_t rational_hobj = {
-  { (hobj_hash_t) hash_rational_value, (hobj_eq_t) equal_rational_value, (hobj_build_t) build_rational_value },
-  NULL,
-  NULL,
-};
-
-static algebraic_hobj_t algebraic_hobj = {
-  { (hobj_hash_t) hash_algebraic_value, (hobj_eq_t) equal_algebraic_value, (hobj_build_t) build_algebraic_value },
-  NULL,
-  NULL,
-};
-
-static const_hobj_t const_hobj = {
-  { (hobj_hash_t) hash_const_value, (hobj_eq_t) equal_const_value, (hobj_build_t) build_const_value },
-  NULL,
-  0,
-  0,
-};
-
-static bv_hobj_t bv_hobj = {
-  { (hobj_hash_t) hash_bv_value, (hobj_eq_t) equal_bv_value, (hobj_build_t) build_bv_value },
-  NULL,
-  0, NULL,
-};
-
-static tuple_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple_value, (hobj_eq_t) equal_tuple_value, (hobj_build_t) build_tuple_value },
-  NULL,
-  0, NULL,
-};
-
-static map_hobj_t map_hobj = {
-  { (hobj_hash_t) hash_map_value, (hobj_eq_t) equal_map_value, (hobj_build_t) build_map_value },
-  NULL,
-  0, NULL, 0,
-};
-
-
-static fun_hobj_t fun_hobj = {
-  { (hobj_hash_t) hash_fun_value, (hobj_eq_t) equal_fun_value, (hobj_build_t) build_fun_value },
-  NULL,
-  0, 0, 0, 0, NULL,
-};
-
-
-static update_hobj_t update_hobj = {
-  { (hobj_hash_t) hash_update_value, (hobj_eq_t) equal_update_value, (hobj_build_t) build_update_value },
-  NULL,
-  0, 0, 0, 0, 0, 0, NULL,
-};
-
-
-
 /*
  * Return a rational constant = v
  */
 value_t vtbl_mk_rational(value_table_t *table, rational_t *v) {
+  rational_hobj_t rational_hobj;
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_value;
+  rational_hobj.m.eq = (hobj_eq_t) equal_rational_value;
+  rational_hobj.m.build = (hobj_build_t) build_rational_value;
   rational_hobj.table = table;
   rational_hobj.v = v;
 
@@ -1823,9 +1768,14 @@ value_t vtbl_mk_rational(value_table_t *table, rational_t *v) {
 value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
   rational_t aux;
   value_t k;
+  rational_hobj_t rational_hobj;
 
   q_init(&aux);
   q_set32(&aux, i);
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_value;
+  rational_hobj.m.eq = (hobj_eq_t) equal_rational_value;
+  rational_hobj.m.build = (hobj_build_t) build_rational_value;
   rational_hobj.table = table;
   rational_hobj.v = &aux;
 
@@ -1841,6 +1791,11 @@ value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
  */
 value_t vtbl_mk_algebraic(value_table_t *table, void* a) {
 #ifdef HAVE_MCSAT
+  algebraic_hobj_t algebraic_hobj;
+
+  algebraic_hobj.m.hash = (hobj_hash_t) hash_algebraic_value;
+  algebraic_hobj.m.eq = (hobj_eq_t) equal_algebraic_value;
+  algebraic_hobj.m.build = (hobj_build_t) build_algebraic_value;
   algebraic_hobj.table = table;
   algebraic_hobj.a = a;
 
@@ -1858,6 +1813,7 @@ value_t vtbl_mk_algebraic(value_table_t *table, void* a) {
  */
 value_t vtbl_mk_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bvconstant_t *b;
+  bv_hobj_t bv_hobj;
 
   // copy the constant in table's buffer
   b = &table->buffer;
@@ -1866,6 +1822,9 @@ value_t vtbl_mk_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bvconst_normalize(b->data, n);
 
   // hash-consing
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
@@ -1880,8 +1839,13 @@ value_t vtbl_mk_bv(value_table_t *table, uint32_t n, int32_t *a) {
  * - a = array of w words (w = ceil(n/32)
  */
 value_t vtbl_mk_bv_from_bv(value_table_t *table, uint32_t n, uint32_t *a) {
+  bv_hobj_t bv_hobj;
+
   bvconst_normalize(a, n);
 
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = a;
@@ -1918,6 +1882,7 @@ value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c) {
  */
 value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n) {
   bvconstant_t *b;
+  bv_hobj_t bv_hobj;
 
   assert(n > 0);
 
@@ -1925,6 +1890,9 @@ value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n) {
   b = &table->buffer;
   bvconstant_set_all_zero(b, n);
 
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
@@ -1939,6 +1907,7 @@ value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n) {
  */
 value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n) {
   bvconstant_t *b;
+  bv_hobj_t bv_hobj;
 
   assert(n > 0);
 
@@ -1947,6 +1916,9 @@ value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n) {
   bvconstant_set_all_zero(b, n);
   bvconst_set_bit(b->data, 0);
 
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
@@ -1959,6 +1931,11 @@ value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n) {
  * Tuple (e[0] ... e[n-1])
  */
 value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e) {
+  tuple_hobj_t tuple_hobj;
+
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple_value;
+  tuple_hobj.m.eq = (hobj_eq_t) equal_tuple_value;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_value;
   tuple_hobj.table = table;
   tuple_hobj.nelems = n;
   tuple_hobj.elem = e;
@@ -1974,11 +1951,16 @@ value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e) {
 value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) {
   value_unint_t *d;
   value_t v;
+  const_hobj_t const_hobj;
 
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
-         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE ||
+	 type_kind(table->type_table, tau) == INSTANCE_TYPE);
   assert(0 <= id);
 
+  const_hobj.m.hash = (hobj_hash_t) hash_const_value;
+  const_hobj.m.eq = (hobj_eq_t) equal_const_value;
+  const_hobj.m.build = (hobj_build_t) build_const_value;
   const_hobj.table = table;
   const_hobj.tau = tau;
   const_hobj.id = id;
@@ -2003,6 +1985,11 @@ value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) 
  * - return a mapping object
  */
 value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
+  map_hobj_t map_hobj;
+
+  map_hobj.m.hash = (hobj_hash_t) hash_map_value;
+  map_hobj.m.eq = (hobj_eq_t) equal_map_value;
+  map_hobj.m.build = (hobj_build_t) build_map_value;
   map_hobj.table = table;
   map_hobj.arity = n;
   map_hobj.arg = a;
@@ -2026,6 +2013,8 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
  * NOTE: a is modified by the function.
  */
 value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
+  fun_hobj_t fun_hobj;
+
   assert(good_object(table, def));
 
   // normalize a
@@ -2040,6 +2029,9 @@ value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *
     n = normalize_finite_domain_function(table, tau, n, a, &def);
   }
 
+  fun_hobj.m.hash = (hobj_hash_t) hash_fun_value;
+  fun_hobj.m.eq = (hobj_eq_t) equal_fun_value;
+  fun_hobj.m.build = (hobj_build_t) build_fun_value;
   fun_hobj.table = table;
   fun_hobj.type = tau;
   fun_hobj.arity = function_type_arity(table->type_table, tau);
@@ -2061,6 +2053,7 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
   value_t u;
   value_t def;
   type_t tau;
+  update_hobj_t update_hobj;
 
   // build the mapping [a[0] ... a[n-1] --> v]
   u = vtbl_mk_map(table, n, a, v);
@@ -2073,6 +2066,10 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
 
 
   // hash consing
+  update_hobj.m.hash = (hobj_hash_t) hash_update_value;
+  update_hobj.m.eq = (hobj_eq_t) equal_update_value;
+  update_hobj.m.build = (hobj_build_t) build_update_value;
+
   update_hobj.table = table;
   update_hobj.type = tau;
   update_hobj.arity = function_type_arity(table->type_table, tau);
@@ -2221,6 +2218,8 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
 
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
+  case INSTANCE_TYPE:
+    // we treat an instance type as an uninterpreted tyoe
     v = vtbl_mk_const(vtbl, tau, 0, NULL);
     break;
 
@@ -2233,7 +2232,9 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
     v = vtbl_mk_function(vtbl, tau, 0, NULL, v); // constant function
     break;
 
+  case VARIABLE_TYPE:
   default:
+    // should not happen
     assert(false);
     v = vtbl_mk_unknown(vtbl);
     break;
@@ -2326,6 +2327,7 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     // fall-through intended
 
   case UNINTERPRETED_TYPE:
+  case INSTANCE_TYPE:
     a[0] = vtbl_mk_const(vtbl, tau, 0, NULL);
     a[1] = vtbl_mk_const(vtbl, tau, 1, NULL);
     break;
@@ -2343,6 +2345,7 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     a[1] = vtbl_mk_function(vtbl, tau, 0, NULL, a[1]);
     break;
 
+  case VARIABLE_TYPE:
   default:
     assert(false);
     return false;
@@ -2363,6 +2366,10 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
  * - return the object if found, -1 (i.e., null_value otherwise)
  */
 value_t vtbl_find_rational(value_table_t *table, rational_t *v) {
+  rational_hobj_t rational_hobj;
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_value;
+  rational_hobj.m.eq = (hobj_eq_t) equal_rational_value;
+  rational_hobj.m.build = (hobj_build_t) build_rational_value;
   rational_hobj.table = table;
   rational_hobj.v = v;
 
@@ -2372,9 +2379,14 @@ value_t vtbl_find_rational(value_table_t *table, rational_t *v) {
 value_t vtbl_find_int32(value_table_t *table, int32_t x) {
   rational_t aux;
   value_t k;
+  rational_hobj_t rational_hobj;
 
   q_init(&aux);
   q_set32(&aux, x);
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_value;
+  rational_hobj.m.eq = (hobj_eq_t) equal_rational_value;
+  rational_hobj.m.build = (hobj_build_t) build_rational_value;
   rational_hobj.table = table;
   rational_hobj.v = &aux;
 
@@ -2388,6 +2400,11 @@ value_t vtbl_find_int32(value_table_t *table, int32_t x) {
  * Check whether the algebraic number is in the table.
  */
 value_t vtbl_find_algebraic(value_table_t *table, void* a) {
+  algebraic_hobj_t algebraic_hobj;
+
+  algebraic_hobj.m.hash = (hobj_hash_t) hash_algebraic_value;
+  algebraic_hobj.m.eq = (hobj_eq_t) equal_algebraic_value;
+  algebraic_hobj.m.build = (hobj_build_t) build_algebraic_value;
   algebraic_hobj.table = table;
   algebraic_hobj.a = a;
 
@@ -2403,6 +2420,7 @@ value_t vtbl_find_algebraic(value_table_t *table, void* a) {
  */
 value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bvconstant_t *b;
+  bv_hobj_t bv_hobj;
 
   // copy the constant in table's buffer
   b = &table->buffer;
@@ -2411,6 +2429,9 @@ value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bvconst_normalize(b->data, n);
 
   // hash-consing
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
@@ -2424,11 +2445,15 @@ value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a) {
  */
 value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c) {
   uint32_t aux[2];
+  bv_hobj_t bv_hobj;
 
   c = norm64(c, n);
   aux[0] = (uint32_t) c;
   aux[1] = (uint32_t) (c >> 32);
 
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = aux;
@@ -2440,9 +2465,13 @@ value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c) {
  */
 value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b) {
   uint32_t n;
+  bv_hobj_t bv_hobj;
 
   n = b->bitsize;
   bvconst_normalize(b->data, n);
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_value;
+  bv_hobj.m.eq = (hobj_eq_t) equal_bv_value;
+  bv_hobj.m.build = (hobj_build_t) build_bv_value;
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
@@ -2453,10 +2482,16 @@ value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b) {
  * Check whether the constant of type tau and index i is present
  */
 value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {
+  const_hobj_t const_hobj;
+
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE ||
-         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE ||
+	 type_kind(table->type_table, tau) == INSTANCE_TYPE);
   assert(0 <= id);
 
+  const_hobj.m.hash = (hobj_hash_t) hash_const_value;
+  const_hobj.m.eq = (hobj_eq_t) equal_const_value;
+  const_hobj.m.build = (hobj_build_t) build_const_value;
   const_hobj.table = table;
   const_hobj.tau = tau;
   const_hobj.id = id;
@@ -2468,6 +2503,11 @@ value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {
  * Check whether the tuple e[0] ... e[n-1] is present
  */
 value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e) {
+  tuple_hobj_t tuple_hobj;
+
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple_value;
+  tuple_hobj.m.eq = (hobj_eq_t) equal_tuple_value;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_value;
   tuple_hobj.table = table;
   tuple_hobj.nelems = n;
   tuple_hobj.elem = e;
@@ -2479,6 +2519,11 @@ value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e) {
  * Mapping object (a[0] ... a[n-1]  |-> v)
  */
 value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
+  map_hobj_t map_hobj;
+
+  map_hobj.m.hash = (hobj_hash_t) hash_map_value;
+  map_hobj.m.eq = (hobj_eq_t) equal_map_value;
+  map_hobj.m.build = (hobj_build_t) build_map_value;
   map_hobj.table = table;
   map_hobj.arity = n;
   map_hobj.arg = a;
@@ -2493,6 +2538,8 @@ value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
  * - a is modified
  */
 value_t vtbl_find_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
+  fun_hobj_t fun_hobj;
+
   assert(good_object(table, def));
 
   // normalize a
@@ -2507,6 +2554,9 @@ value_t vtbl_find_function(value_table_t *table, type_t tau, uint32_t n, value_t
     n = normalize_finite_domain_function(table, tau, n, a, &def);
   }
 
+  fun_hobj.m.hash = (hobj_hash_t) hash_fun_value;
+  fun_hobj.m.eq = (hobj_eq_t) equal_fun_value;
+  fun_hobj.m.build = (hobj_build_t) build_fun_value;
   fun_hobj.table = table;
   fun_hobj.type = tau;
   fun_hobj.arity = function_type_arity(table->type_table, tau);
@@ -2621,6 +2671,7 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
   ivector_t *v;
   uint32_t i, j, m, count;
   value_t k, def;
+  fun_hobj_t fun_hobj;
 
   assert(f == function_type_desc(table->type_table, tau));
 
@@ -2673,6 +2724,9 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
     // call the hash-consing constructor
     int_array_sort(map, j);
 
+    fun_hobj.m.hash = (hobj_hash_t) hash_fun_value;
+    fun_hobj.m.eq = (hobj_eq_t) equal_fun_value;
+    fun_hobj.m.build = (hobj_build_t) build_fun_value;
     fun_hobj.table = table;
     fun_hobj.type = tau;
     fun_hobj.arity = m;
@@ -2913,6 +2967,7 @@ static value_t vtbl_find_function_with_value_map(value_table_t *table, type_t ta
   ivector_t *v;
   uint32_t i, j, m, count;
   value_t k, def;
+  fun_hobj_t fun_hobj;
 
   assert(f == function_type_desc(table->type_table, tau));
 
@@ -2965,6 +3020,9 @@ static value_t vtbl_find_function_with_value_map(value_table_t *table, type_t ta
     // no need to remove duplicate etc
     int_array_sort(map, j);
 
+    fun_hobj.m.hash = (hobj_hash_t) hash_fun_value;
+    fun_hobj.m.eq = (hobj_eq_t) equal_fun_value;
+    fun_hobj.m.build = (hobj_build_t) build_fun_value;
     fun_hobj.table = table;
     fun_hobj.type = tau;
     fun_hobj.arity = m;
@@ -3068,6 +3126,7 @@ value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i) {
     return vtbl_find_enum_function(table, tau, i);
 
   default:
+    // tau can't be a finite type
     assert(false);
     return null_value;
   }

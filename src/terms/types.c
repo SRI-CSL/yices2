@@ -1076,51 +1076,6 @@ static type_t build_instance_type(instance_type_hobj_t *p) {
 
 
 /*
- * Global Hash Objects
- */
-static bv_type_hobj_t bv_hobj = {
-  { (hobj_hash_t) hash_bv_type, (hobj_eq_t) eq_bv_type,
-    (hobj_build_t) build_bv_type },
-  NULL,
-  0,
-};
-
-static tuple_type_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple_type, (hobj_eq_t) eq_tuple_type,
-    (hobj_build_t) build_tuple_type },
-  NULL,
-  0,
-  NULL,
-};
-
-static function_type_hobj_t function_hobj = {
-  { (hobj_hash_t) hash_function_type, (hobj_eq_t) eq_function_type,
-    (hobj_build_t) build_function_type },
-  NULL,
-  0,
-  0,
-  NULL,
-};
-
-static type_var_hobj_t var_hobj = {
-  { (hobj_hash_t) hash_type_var, (hobj_eq_t) eq_type_var,
-    (hobj_build_t) build_type_var },
-  NULL,
-  0,
-};
-
-static instance_type_hobj_t instance_hobj = {
-  { (hobj_hash_t) hash_instance_type, (hobj_eq_t) eq_instance_type,
-    (hobj_build_t) build_instance_type },
-  NULL,
-  0,
-  0,
-  NULL,
-};
-
-
-
-/*
  * TABLE MANAGEMENT + EXPORTED TYPE CONSTRUCTORS
  *
  * NOTE: The constructors for uninterpreted and scalar types
@@ -1259,7 +1214,13 @@ void reset_type_table(type_table_t *table) {
  * Bitvector type
  */
 type_t bv_type(type_table_t *table, uint32_t size) {
+  bv_type_hobj_t bv_hobj;
+  
   assert(size > 0);
+
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_type;
+  bv_hobj.m.eq = (hobj_eq_t) eq_bv_type;
+  bv_hobj.m.build = (hobj_build_t) build_bv_type;
   bv_hobj.tbl = table;
   bv_hobj.size = size;
   return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
@@ -1269,7 +1230,13 @@ type_t bv_type(type_table_t *table, uint32_t size) {
  * Tuple type
  */
 type_t tuple_type(type_table_t *table, uint32_t n, const type_t elem[]) {
+  tuple_type_hobj_t tuple_hobj;
+  
   assert(0 < n && n <= YICES_MAX_ARITY);
+
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple_type;
+  tuple_hobj.m.eq = (hobj_eq_t) eq_tuple_type;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_type;
   tuple_hobj.tbl = table;
   tuple_hobj.n = n;
   tuple_hobj.elem = elem;
@@ -1280,7 +1247,13 @@ type_t tuple_type(type_table_t *table, uint32_t n, const type_t elem[]) {
  * Function type
  */
 type_t function_type(type_table_t *table, type_t range, uint32_t n, const type_t dom[]) {
+  function_type_hobj_t function_hobj;
+  
   assert(0 < n && n <= YICES_MAX_ARITY);
+
+  function_hobj.m.hash = (hobj_hash_t) hash_function_type;
+  function_hobj.m.eq = (hobj_eq_t) eq_function_type;
+  function_hobj.m.build = (hobj_build_t) build_function_type;
   function_hobj.tbl = table;
   function_hobj.range = range;
   function_hobj.n = n;
@@ -1293,6 +1266,11 @@ type_t function_type(type_table_t *table, type_t range, uint32_t n, const type_t
  * Type variable
  */
 type_t type_variable(type_table_t *table, uint32_t id) {
+  type_var_hobj_t var_hobj;
+
+  var_hobj.m.hash = (hobj_hash_t) hash_type_var;
+  var_hobj.m.eq = (hobj_eq_t) eq_type_var;
+  var_hobj.m.build = (hobj_build_t) build_type_var;
   var_hobj.tbl = table;
   var_hobj.id = id;
   return int_htbl_get_obj(&table->htbl, &var_hobj.m);
@@ -1303,7 +1281,13 @@ type_t type_variable(type_table_t *table, uint32_t id) {
  * Type instance
  */
 type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, const type_t tau[]) {
+  instance_type_hobj_t instance_hobj;
+  
   assert(0 < n && n <= YICES_MAX_ARITY);
+
+  instance_hobj.m.hash = (hobj_hash_t) hash_instance_type;
+  instance_hobj.m.eq = (hobj_eq_t) eq_instance_type;
+  instance_hobj.m.build = (hobj_build_t) build_instance_type;
   instance_hobj.tbl = table;
   instance_hobj.cid = cid;
   instance_hobj.arity = n;

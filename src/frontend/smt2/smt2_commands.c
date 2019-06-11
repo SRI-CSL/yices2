@@ -45,10 +45,10 @@
 #include "frontend/common/tables.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
-#include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
 #include "io/term_printer.h"
+#include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
 #include "utils/refcount_strings.h"
@@ -69,6 +69,9 @@
 #include "utils/memsize.h"
 
 
+//for ian's threading hacks
+#include "mt/threads.h"
+#include "mt/thread_macros.h"
 
 
 /*
@@ -446,7 +449,6 @@ static void smt2_pop_macro_names(smt2_name_stack_t *s, uint32_t ptr) {
 }
 
 
-
 /*
  * Deletion
  */
@@ -542,13 +544,13 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
  * Get the top element:
  * - warning: this pointer may become invalid is data is pushed on s
  */
-static inline smt2_push_rec_t *smt2_stack_top(smt2_stack_t *s) {
+static inline smt2_push_rec_t *smt2_stack_top(const smt2_stack_t *s) {
   assert(s->top > 0);
   return s->data + (s->top - 1);
 }
 
 
-static inline bool smt2_stack_is_nonempty(smt2_stack_t *s) {
+static inline bool smt2_stack_is_nonempty(const smt2_stack_t *s) {
   return s->top > 0;
 }
 
@@ -656,7 +658,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
  * REQUIRED INFO
  */
 static const char *yices_name = "Yices";
-static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović";
+static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović, Ian A. Mason, Stéphane Graham-Lengrand";
 static const char *error_behavior = "immediate-exit";
 
 /*
@@ -1383,7 +1385,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     break;
 
   case SMT2_TERM_NOT_INTEGER:
-    print_out("invalid argument in %s: not an integer",  opcode_string[tstack->error_op]);    
+    print_out("invalid argument in %s: not an integer",  opcode_string[tstack->error_op]);
     break;
 
   case TSTACK_STRINGS_ARE_NOT_TERMS:
@@ -2728,7 +2730,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 /*
  * Check whether any formula is a[0...n-1] contains an uninterpreted function
  */
-static bool has_uf(term_t *a, uint32_t n) {
+static bool _o_has_uf(term_t *a, uint32_t n) {
   int_hset_t seen; // set of visited terms
   bool result;
   uint32_t i;
@@ -2742,6 +2744,9 @@ static bool has_uf(term_t *a, uint32_t n) {
   delete_int_hset(&seen);
 
   return result;
+}
+static bool has_uf(term_t *a, uint32_t n) {
+  MT_PROTECT(bool, __yices_globals.lock, _o_has_uf(a, n));
 }
 
 /*
@@ -3474,26 +3479,156 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
 
 
 /*
- * GET ASSIGNMENT
+ * SUPPORT FOR SMT2-STYLE MODEL DISPLAY
  */
 
 /*
- * Pretty print name with quotes if needed.
+ * Helper data structure:
+ * - the yices model
+ * - three vectors for name, term, term value
  */
-static void pp_name(yices_pp_t *printer, const char *name) {
-  if (symbol_needs_quotes(name)) {
-    pp_qstring(printer, '|', '|', name);
-  } else {
-    pp_string(printer, name);
-  }
+typedef struct smt2_model_s {
+  model_t *model;
+  pvector_t names;
+  ivector_t terms;
+  ivector_t values;
+} smt2_model_t;
+
+/*
+ * Initialization/deletion
+ */
+static void init_smt2_model(smt2_model_t *sm, model_t *m) {
+  sm->model = m;
+  init_pvector(&sm->names, 0);
+  init_ivector(&sm->terms, 0);
+  init_ivector(&sm->values, 0);
 }
+
+static void delete_smt2_model(smt2_model_t *sm) {
+  sm->model = NULL;
+  delete_pvector(&sm->names);
+  delete_ivector(&sm->terms);
+  delete_ivector(&sm->values);
+}
+
+/*
+ * Add pair (name, t) to sm:
+ */
+static void smt2_model_push(smt2_model_t *sm, char *name, term_t t) {
+  assert(name != NULL && t != NULL_TERM);
+  pvector_push(&sm->names, name);
+  ivector_push(&sm->terms, t);
+}
+
+/*
+ * Evaluate all the terms. Store their values in sm->values.
+ */
+static void smt2_model_eval_terms(smt2_model_t *sm) {
+  evaluate_term_values(sm->model, sm->terms.data, sm->terms.size, &sm->values);
+}
+
+/*
+ * Print the values of all terms in the model
+ * - use the SMT-LIB2 format
+ */
+static void print_smt2_model(yices_pp_t *printer, smt2_model_t *sm) {
+  value_table_t *vtbl;
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t;
+  type_t tau;
+  value_t v;
+
+  assert(sm->names.size == sm->terms.size && sm->names.size == sm->values.size);
+
+  terms = __yices_globals.terms;
+  vtbl = model_get_vtbl(sm->model);
+
+  pp_open_block(printer, PP_OPEN_SMT2_MODEL);
+
+  n = sm->names.size;
+  for (i=0; i<n; i++) {
+    t = sm->terms.data[i];
+    v = sm->values.data[i];
+    assert(good_term(terms, t));
+
+    /*
+     * t = a term
+     * v = value in the model as returned by eval_in_model(t)
+     * if v < 0, then eval_in_model failed, so we skip t.
+     */
+    if (good_object(vtbl, v)) {
+      tau = term_type(terms, t);
+      smt2_pp_def(printer, vtbl, sm->names.data[i], tau, v);
+    }
+  }
+  pp_close_block(printer, true);
+
+}
+
+
+/*
+ * Check whether t is uninterpreted
+ */
+static bool term_is_uninterpreted(term_t t) {
+  return t != NULL_TERM && is_pos_term(t) && term_kind(__yices_globals.terms, t) == UNINTERPRETED_TERM;
+}
+
+
+/*
+ * Build an smt2_model:
+ * - collect the names of all declared uninterpreted terms
+ *   and add them to the smt2_model
+ * - first, scan vector g->model_term_names
+ *   then scan the stack g->term_names.
+ */
+static void build_smt2_model(smt2_globals_t *g, smt2_model_t *sm) {
+  pvector_t *saved;
+  smt2_name_stack_t *name_stack;
+  char *name;
+  term_t t;
+  uint32_t i, n;
+
+  assert(sm->names.size == 0 && sm->terms.size == 0 && sm->values.size == 0);
+
+  saved = &g->model_term_names;
+  n = saved->size;
+  for (i=0; i<n; i++) {
+    name = saved->data[i];
+    t = yices_get_term_by_name(name);
+    assert(term_is_uninterpreted(t));
+    smt2_model_push(sm, name, t);
+  }
+
+  name_stack = &g->term_names;
+  n = name_stack->top;
+  for (i=0; i<n; i++) {
+    name = name_stack->names[i];
+    t = yices_get_term_by_name(name);
+    if (term_is_uninterpreted(t)) {
+      smt2_model_push(sm, name, t);
+    }
+  }
+
+  smt2_model_eval_terms(sm);
+
+  assert(sm->names.size == sm->terms.size && sm->names.size == sm->values.size);
+}
+
+
+
+
+
+/*
+ * GET ASSIGNMENT
+ */
 
 /*
  * Print pair (name val) where val is a Boolean value
  */
 static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t val) {
   pp_open_block(printer, PP_OPEN_PAR); // '('
-  pp_name(printer, name);
+  smt2_pp_symbol(printer, name);
   if (bval_is_undef(val)) {
     pp_string(printer, "???");
   } else {
@@ -3637,7 +3772,7 @@ static void print_assumption_list(yices_pp_t *printer, assumption_table_t *table
     d = assumption_table_get(table, a[i]);
     assert(d != NULL);
     if (! d->polarity) pp_open_block(printer, PP_OPEN_NOT);
-    pp_name(printer, d->name);
+    smt2_pp_symbol(printer, d->name);
     if (! d->polarity) pp_close_block(printer, true);
   }
   pp_close_block(printer, true);
@@ -3734,10 +3869,16 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
  * NOTE: s is cloned twice: once to be stored in the term/type/macro
  * symbol tables and once more here. Maybe we could optimize this.
  */
+
+// test whether we must save names
+static inline bool saving_names(const smt2_globals_t *g) {
+  return !g->global_decls && smt2_stack_is_nonempty(&g->stack);
+}
+
 static void save_name(smt2_globals_t *g, smt2_name_stack_t *name_stack, const char *s) {
   char *clone;
 
-  if (!g->global_decls && smt2_stack_is_nonempty(&g->stack)) {
+  if (saving_names(g)) {
     clone = clone_string(s);
     smt2_push_name(name_stack, clone);
   }
@@ -3754,7 +3895,6 @@ static inline void save_type_name(smt2_globals_t *g, const char *s) {
 static inline void save_macro_name(smt2_globals_t *g, const char *s) {
   save_name(g, &g->macro_names, s);
 }
-
 
 
 /*
@@ -3795,6 +3935,69 @@ static inline void check_stack(smt2_globals_t *g) {
 }
 
 #endif
+
+
+/*
+ * SYMBOL NAMES FOR MODEL DISPLAY
+ */
+
+/*
+ * The names store in g->model_term_names are strings with reference
+ * count. We push a name in this vector when we process
+ *
+ *  (declare-fun <name> ....)
+ *
+ * if g->clean_model_format is false and if we know that the name
+ * is not already saved in the term_stack.
+ */
+
+/*
+ * Free all strings in vector v then reset the vector
+ */
+static void reset_string_vector(pvector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    string_decref(v->data[i]);
+  }
+  pvector_reset(v);
+}
+
+/*
+ * Free all strings in vector v then delete the vector
+ */
+static void delete_string_vector(pvector_t *v) {
+  reset_string_vector(v);
+  delete_pvector(v);
+}
+
+/*
+ * Add string s at the end v
+ * - s must be a refcount string
+ * - its referenc counter is incremented
+ */
+static void string_vector_push(pvector_t *v, char *s) {
+  string_incref(s);
+  pvector_push(v, s);
+}
+
+
+/*
+ * Save name if it may be needed later to display a model
+ * - we don't do anything if g->clean_model_format is true
+ *   or if the name has already been saved in g->term_names.
+ */
+static void save_name_for_model(smt2_globals_t *g, const char *s) {
+  char *clone;
+
+  if (!g->clean_model_format && !saving_names(g)) {
+    clone = clone_string(s);
+    string_vector_push(&g->model_term_names, clone);
+  }
+}
+
+
 
 
 /*
@@ -3868,7 +4071,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->global_decls = false;
-  g->smtlib_version = 0;       // means no version specified yet 
+  g->clean_model_format = true;
+  g->smtlib_version = 0;       // means no version specified yet
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
@@ -3893,6 +4097,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->verbosity = 0;
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
+  g->nthreads = 0;
   g->timeout = 0;
   g->timeout_initialized = false;
   g->interrupted = false;
@@ -3908,6 +4113,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
 
   init_named_term_stack(&g->named_bools);
   init_named_term_stack(&g->named_asserts);
+
+  init_pvector(&g->model_term_names, 0);
 
   g->unsat_core = NULL;
   g->unsat_assumptions = NULL;
@@ -3968,6 +4175,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_named_term_stack(&g->named_bools);
   delete_named_term_stack(&g->named_asserts);
 
+  delete_string_vector(&g->model_term_names);
+
   if (g->unsat_core != NULL) {
     free_assumptions(g->unsat_core);
     g->unsat_core = NULL;
@@ -4017,6 +4226,12 @@ void init_smt2(bool benchmark, uint32_t timeout, bool print_success) {
   check_stack(&__smt2_globals);
 }
 
+void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool print_success){
+  init_smt2(benchmark, timeout, print_success);
+  __smt2_globals.nthreads = nthreads;
+  //fprintf(stderr, "nthreads = %"PRIu32"\n", nthreads);
+}
+
 
 /*
  * Force verbosity level to k
@@ -4034,6 +4249,13 @@ void smt2_enable_trace_tag(const char* tag) {
 
   tracer = get_tracer(&__smt2_globals);
   enable_trace_tag(tracer, tag);
+}
+
+/*
+ * Force models to be printed in SMT2 format (as much as possible).
+ */
+void smt2_force_smt2_model_format(void) {
+  __smt2_globals.clean_model_format = false;
 }
 
 
@@ -4268,7 +4490,7 @@ static bool is_yices_option(const char *name, const char **option) {
   if (strncmp(name, YICES_SMT2_PREFIX, len) == 0) {
     *option = &name[len];
     return true;
-  }  
+  }
   return false;
 }
 
@@ -4281,7 +4503,7 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
   bool supported;
 
   supported = true;
-  
+
   switch (p) {
   case PARAM_VAR_ELIM:
     print_boolean_value(g->ctx_parameters.var_elim);
@@ -4307,7 +4529,7 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
   case PARAM_KEEP_ITE:
     print_boolean_value(g->ctx_parameters.keep_ite);
     break;
-    
+
   case PARAM_FAST_RESTARTS:
     print_boolean_value(g->parameters.fast_restart);
     break;
@@ -4508,7 +4730,7 @@ void smt2_get_option(const char *name) {
   uint32_t n;
   const char* yices_option;
   yices_param_t p;
-  
+
   g = &__smt2_globals;
   n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
@@ -4601,9 +4823,13 @@ static void show_smtlib_version(const smt2_globals_t *g) {
   case 2000:
     print_kw_symbol_pair(":smt-lib-version", "2.0");
     break;
-    
+
   case 2500:
     print_kw_symbol_pair(":smt-lib-version", "2.5");
+    break;
+
+  case 2600:
+    print_kw_symbol_pair(":smt-lib-version", "2.6");
     break;
 
   default:
@@ -4693,19 +4919,21 @@ static bool is_good_var_list(smt2_globals_t *g, aval_t avalue) {
 static void aval2param_val(smt2_globals_t *g, aval_t avalue, param_val_t *param_val) {
   rational_t *rational;
   char* symbol;
-  
+
+  g = &__smt2_globals;
+
   if (avalue < 0) {
     param_val->tag = PARAM_VAL_ERROR;
     return;
   }
 
-  switch (aval_tag(g->avtbl, avalue)) {    
+  switch (aval_tag(g->avtbl, avalue)) {
   case ATTR_RATIONAL:
     rational = aval_rational(g->avtbl, avalue);
     param_val->tag = PARAM_VAL_RATIONAL;
     param_val->val.rational = rational;
     break;
-    
+
   case ATTR_SYMBOL:
     symbol = aval_symbol(g->avtbl, avalue);
     // We use the SMT2 conventions here: True/False are capitalized
@@ -4756,9 +4984,9 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   context_t *context;
   bool unsupported;   //keep track of those we punt on
 
-  unsupported = false;  
+  unsupported = false;
   reason = NULL;
-  
+
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt, &reason)) {
@@ -5185,7 +5413,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
  * Set an option:
  * - name = option name (keyword)
  * - value = value (either stored in:
- * 
+ *
  *  the parameters struct
  *  the ef_parametrs struct, or
  *  the attribute_value table)
@@ -5199,7 +5427,7 @@ void smt2_set_option(const char *name, aval_t value) {
   uint32_t n;
   const char* yices_option;
   param_val_t param_val;
-  
+
   g = &__smt2_globals;
 
   n = kwlen(name);
@@ -5377,6 +5605,12 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
+  // if the logic requires MCSAT, check whether this was compiled withn MCSAT support
+  if (logic_requires_mcsat(code) && !yices_has_mcsat()) {
+    print_error("logic %s is not supported since yices was not built with mcsat support", name);
+    return;
+  }
+
   // in efmode : can't use the mcsat solver and must not be incremental
   if (__smt2_globals.efmode) {
     if (__smt2_globals.mcsat) {
@@ -5480,7 +5714,7 @@ void smt2_pop(uint32_t n) {
 
   g->stats.num_pop ++;
   g->stats.num_commands ++;
-  
+
   tprint_calls("pop", g->stats.num_pop);
 
   if (check_logic()) {
@@ -5597,6 +5831,67 @@ void smt2_assert(term_t t, bool special) {
 }
 
 
+
+#ifdef THREAD_SAFE
+
+/*
+ * PROVISIONAL CODE FOR TESTING MULTIPLE SOLVERS & CONTEXTS
+ * IN SEPARATE THREADS
+ */
+
+static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(void *arg){
+  thread_data_t *tdata = (thread_data_t *) arg;
+  FILE *output = tdata->output;
+  smt2_globals_t *g = (smt2_globals_t *) tdata->extra;
+
+  g->out = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
+  g->err = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
+
+  check_delayed_assertions(g);
+
+  return yices_thread_exit();
+}
+
+static void test_multi_threads(smt2_globals_t *g) {
+  bool success;
+  uint32_t i, n;
+  smt2_globals_t *garray;
+
+  n = g->nthreads;
+  garray =  (smt2_globals_t *) safe_malloc(n * sizeof(smt2_globals_t));
+  for (i = 0; i < n; i++) {
+    garray[i] = *g;            // just copy them for now.
+    garray[i].tracer = NULL;    // only main thread can use this.
+  }
+  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+  check_delayed_assertions(&__smt2_globals);
+  //could check that they are all OK
+  smt_status_t main_answer = yices_context_status(g->ctx);
+  for (i = 0; i < n; i++) {
+    smt_status_t answer = yices_context_status(garray[i].ctx);
+    if (answer != main_answer) {
+      success = false;
+    }
+    //free the model if there is one, and free the context.
+    //IAM: valgrind says there is no leak here. This is puzzling.
+  }
+
+  if (success) {
+    fprintf(stderr, "SUCCESS: All threads agree.\n");
+  } else {
+    fprintf(stderr, "FAILURE: Threads disagree.\n");
+  }
+
+  for (i=0; i<n; i++) {
+    delete_smt2_globals(garray + i);
+  }
+  safe_free(garray);
+}
+
+#endif
+
+
 /*
  * Check satisfiability of the current set of assertions
  */
@@ -5611,23 +5906,31 @@ void smt2_check_sat(void) {
        * Non incremental
        */
       if (__smt2_globals.efmode) {
-	efsolve_cmd(&__smt2_globals);	
+        efsolve_cmd(&__smt2_globals);
       } else if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
       } else if (__smt2_globals.produce_unsat_cores) {
-	delayed_assertions_unsat_core(&__smt2_globals);
+        delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	//	show_delayed_assertions(&__smt2_globals);
+        //	show_delayed_assertions(&__smt2_globals);
+#ifndef THREAD_SAFE
 	check_delayed_assertions(&__smt2_globals);
+#else
+        if (__smt2_globals.nthreads == 0) {
+          check_delayed_assertions(&__smt2_globals);
+        } else {
+	  test_multi_threads(&__smt2_globals);
+	}
+#endif
       }
     } else {
       /*
        * Incremental
        */
       if (__smt2_globals.produce_unsat_cores) {
-	ctx_unsat_core(&__smt2_globals);
+        ctx_unsat_core(&__smt2_globals);
       } else {
-	ctx_check_sat(&__smt2_globals);
+        ctx_check_sat(&__smt2_globals);
       }
     }
   }
@@ -5772,6 +6075,7 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
     assert(t != NULL_TERM);
     yices_set_term_name(t, name);
     save_term_name(&__smt2_globals, name);
+    save_name_for_model(&__smt2_globals, name);
 
     report_success();
   }
@@ -5840,18 +6144,26 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  */
 void smt2_get_model(void) {
   yices_pp_t printer;
+  smt2_model_t smt2_mdl;
   model_t *mdl;
 
   if (check_logic()) {
     if (__smt2_globals.efmode) {
       mdl = get_ef_model(&__smt2_globals);
-    } else {      
+    } else {
       mdl = get_model(&__smt2_globals);
     }
     if (mdl == NULL) return;
 
     init_pretty_printer(&printer, &__smt2_globals);
-    smt2_pp_full_model(&printer, mdl);
+    if (__smt2_globals.clean_model_format) {
+      smt2_pp_full_model(&printer, mdl);
+    } else {
+      init_smt2_model(&smt2_mdl, mdl);
+      build_smt2_model(&__smt2_globals, &smt2_mdl);
+      print_smt2_model(&printer, &smt2_mdl);
+      delete_smt2_model(&smt2_mdl);
+    }
     delete_yices_pp(&printer, true);
   }
 }
@@ -5915,6 +6227,8 @@ void smt2_reset_assertions(void) {
       reset_named_term_stack(&g->named_bools);
       reset_named_term_stack(&g->named_asserts);
 
+      reset_string_vector(&g->model_term_names);
+
       if (g->unsat_core != NULL) {
 	free_assumptions(g->unsat_core);
 	g->unsat_core = NULL;
@@ -5945,7 +6259,7 @@ void smt2_reset_assertions(void) {
 
 
 /*
- * Full reset: to be done
+ * Full reset
  */
 void smt2_reset_all(void) {
   bool benchmark, print_success;
