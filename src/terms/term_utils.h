@@ -337,6 +337,7 @@ extern void add_bvterm_to_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b
 extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
 
 
+
 /*
  * FACTORING OF BIT-VECTOR PRODUCTS
  */

@@ -1847,7 +1847,7 @@ static void bvscan_for_constant(const term_table_t *tbl, bvconst_scan_result_t *
 bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b) {
   composite_term_t *bits;
   bvscan_result_t result;
-  term_t x;
+  pprod_t *pp;
   uint32_t n;
 
   assert(term_kind(tbl, t) == BV_ARRAY);
@@ -1860,14 +1860,14 @@ bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_
       result.numbits == n &&
       term_bitsize(tbl, result.term) == n ) {
 
-    x = result.term;
+    pp = pprod_for_term(tbl, result.term);
     if (result.negated) {
       // t is (bvnot x) = (2^n-1) - x = (-1) - x
       bvarith64_buffer_sub_one(b);
-      bvarith64_buffer_sub_var(b, x);
+      bvarith64_buffer_sub_pp(b, pp);
     } else {
       // t is x
-      bvarith64_buffer_add_var(b, x);
+      bvarith64_buffer_add_pp(b, pp);
     }
     bvarith64_buffer_normalize(b);
     return true;
@@ -1879,7 +1879,7 @@ bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_
 bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b) {
   composite_term_t *bits;
   bvscan_result_t result;
-  term_t x;
+  pprod_t *pp;
   uint32_t n;
 
   assert(term_kind(tbl, t) == BV_ARRAY);
@@ -1892,14 +1892,14 @@ bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b
       result.numbits == n &&
       term_bitsize(tbl, result.term) == n) {
 
-    x = result.term;
+    pp = pprod_for_term(tbl, result.term);
     if (result.negated) {
       // t is (bvnot x) = (2^n-1) - x = (-1) - x
       bvarith_buffer_sub_one(b);
-      bvarith_buffer_sub_var(b, x);
+      bvarith_buffer_sub_pp(b, pp);
     } else {
       // t is x
-      bvarith_buffer_add_var(b, x);
+      bvarith_buffer_add_pp(b, pp);
     }
     bvarith_buffer_normalize(b);
     return true;
