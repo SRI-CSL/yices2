@@ -343,7 +343,7 @@ extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t 
 
 
 /*
- * Add or subtract a * t to/from buffert b
+ * Add or subtract a * t to/from buffer b
  */
 extern void addmul_bvterm64_to_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
 extern void submul_bvterm64_from_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
