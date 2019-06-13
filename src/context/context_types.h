@@ -38,7 +38,6 @@
 #include "solvers/cdcl/gates_manager.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph.h"
-#include "terms/bvpoly_buffers.h"
 #include "terms/conditionals.h"
 #include "terms/int_rational_hash_maps.h"
 #include "terms/poly_buffer.h"
@@ -703,9 +702,6 @@ struct context_s {
   poly_buffer_t *poly_buffer;
   polynomial_t *aux_poly;
   uint32_t aux_poly_size;  // number of monomials in aux_poly
-
-  // buffers for bitvector simplification
-  bvpoly_buffer_t *bvpoly_buffer;
 
   // auxiliary buffers for model construction
   rational_t aux;

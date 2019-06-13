@@ -23,17 +23,7 @@
 #include <assert.h>
 
 #include "terms/bvarith64_buffer_terms.h"
-#include "terms/term_utils.h"
 #include "utils/int_powers.h"
-
-/*
- * Initialize an auxiliary buffer aux, using the same store and prod table as b
- */
-static void init_aux64_buffer(bvarith64_buffer_t *aux, bvarith64_buffer_t *b) {
-  init_bvarith64_buffer(aux, b->ptbl, b->store);
-  bvarith64_buffer_prepare(aux, b->bitsize);
-}
-
 
 
 /*
@@ -42,7 +32,6 @@ static void init_aux64_buffer(bvarith64_buffer_t *aux, bvarith64_buffer_t *b) {
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_set_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   uint32_t n;
@@ -71,16 +60,6 @@ void bvarith64_buffer_set_term(bvarith64_buffer_t *b, term_table_t *table, term_
     term_table_reset_pbuffer(table);
     break;
 
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_buffer(b, &aux);
-    } else {
-      bvarith64_buffer_add_var(b, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
   default:
     bvarith64_buffer_add_var(b, t);
     break;
@@ -95,7 +74,6 @@ void bvarith64_buffer_set_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
@@ -121,16 +99,6 @@ void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_
     term_table_reset_pbuffer(table);
     break;
 
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_buffer(b, &aux);
-    } else {
-      bvarith64_buffer_add_var(b, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
   default:
     bvarith64_buffer_add_var(b, t);
     break;
@@ -144,7 +112,6 @@ void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
@@ -170,16 +137,6 @@ void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_
     term_table_reset_pbuffer(table);
     break;
 
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_sub_buffer(b, &aux);
-    } else {
-      bvarith64_buffer_sub_var(b, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
   default:
     bvarith64_buffer_sub_var(b, t);
     break;
@@ -194,7 +151,6 @@ void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
@@ -220,16 +176,6 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
     term_table_reset_pbuffer(table);
     break;
 
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_mul_buffer(b, &aux);
-    } else {
-      bvarith64_buffer_mul_var(b, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
   default:
     bvarith64_buffer_mul_var(b, t);
     break;
@@ -243,7 +189,6 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *table, uint64_t a, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
@@ -270,16 +215,6 @@ void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *
     term_table_reset_pbuffer(table);
     break;
 
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_const_times_buffer(b, &aux, a);
-    } else {
-      bvarith64_buffer_add_varmono(b, a, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
   default:
     bvarith64_buffer_add_varmono(b, a, t);
     break;
@@ -293,7 +228,7 @@ void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *
  * - p->ptbl and table->pprods must be equal
  */
 void bvarith64_buffer_mul_term_power(bvarith64_buffer_t *b, term_table_t *table, term_t t, uint32_t d) {
-  bvarith64_buffer_t aux, aux2;
+  bvarith64_buffer_t aux;
   bvpoly64_t *p;
   pprod_t **v;
   pprod_t *r;
@@ -319,23 +254,10 @@ void bvarith64_buffer_mul_term_power(bvarith64_buffer_t *b, term_table_t *table,
   case BV64_POLY:
     p = bvpoly64_for_idx(table, i);
     v = pprods_for_bvpoly64(table, p);
-    init_aux64_buffer(&aux, b);
+    init_bvarith64_buffer(&aux, b->ptbl, b->store);
     bvarith64_buffer_mul_bvpoly_power(b, p, v, d, &aux);
     delete_bvarith64_buffer(&aux);
     term_table_reset_pbuffer(table);
-    break;
-
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      init_aux64_buffer(&aux2, b);
-      bvarith64_buffer_mul_buffer_power(b, &aux, d, &aux2);
-      delete_bvarith64_buffer(&aux2);
-    } else {
-      r = pprod_varexp(b->ptbl, t, d);
-      bvarith64_buffer_mul_pp(b, r);
-    }
-    delete_bvarith64_buffer(&aux);
     break;
 
   default:

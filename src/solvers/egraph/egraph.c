@@ -2886,7 +2886,7 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 /*
  * Conversion from a type tau in the type table to an egraph type
  */
-static const uint8_t type_kind2etype[NUM_TYPE_KINDS] = {
+static const uint8_t type_kind2etype[FUNCTION_TYPE+1] = {
   ETYPE_NONE,     // UNUSED_TYPE (should not occur)
   ETYPE_BOOL,     // BOOL_TYPE
   ETYPE_INT,      // INT_TYPE
@@ -2897,7 +2897,6 @@ static const uint8_t type_kind2etype[NUM_TYPE_KINDS] = {
   ETYPE_NONE,     // VARIABLE_TYPE (should not occur)
   ETYPE_TUPLE,    // TUPLE_TYPE
   ETYPE_FUNCTION, // FUNCTION_TYPE
-  ETYPE_NONE,     // INSTANCE_TYPE
 };
 
 static inline etype_t type_to_etype(type_table_t *types, type_t tau) {

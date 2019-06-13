@@ -390,8 +390,8 @@ static thvar_t bv_compiler_mk_zero(bvc_t *c, uint32_t n) {
     if (w > 8) {
       a = bvconst_alloc(w);
     }
-    bvconst_clear(a, w);
-    v = get_bvconst(c->vtbl, n, a);
+    bvconst_clear(aux, w);
+    v = get_bvconst(c->vtbl, n, aux);
     if (w > 8) {
       bvconst_free(a, w);
     }

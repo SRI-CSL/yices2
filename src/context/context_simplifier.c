@@ -226,6 +226,7 @@ term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 }
 
 
+
 /*
  * Simplification for (bveq t1 t2)
  * - both t1 and t2 must be root terms in the internalization table
@@ -246,136 +247,6 @@ term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
   return t;
 }
 
-
-/*
- * Try arithmetic/rewriting simplifications for (t1 == t2)
- * - t1 and t2 must be root terms in the internalization table
- * - the result is stored in *r
- * - if r->code is REDUCED then (t1 == t2) is equivalent to (u1 == u2)
- *   the two terms u1 and u2 are stored in r->left and r->right.
- * - if r->code is REDUCED0 then (t1 == t2) is equivalent to (u1 == 0)
- *   u1 is stored in r->left and NULL_TERM is stored in r->right.
- */
-void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2) {
-  term_table_t *terms;
-  bvpoly_buffer_t *b;
-  uint32_t n;
-  term_t u1, u2;
-
-  terms = ctx->terms;
-
-  r->code = BVEQ_CODE_NOCHANGE;
-
-  if (is_bvpoly_term(terms, t1) || is_bvpoly_term(terms, t2)) {
-    b = context_get_bvpoly_buffer(ctx);
-    n = term_bitsize(terms, t1);
-
-    reset_bvpoly_buffer(b, n);
-    add_bvterm_to_buffer(terms, t1, b);
-    sub_bvterm_from_buffer(terms, t2, b);
-    normalize_bvpoly_buffer(b);
-
-    if (bvpoly_buffer_is_zero(b)) {
-      r->code = BVEQ_CODE_TRUE;
-    } else if (bvpoly_buffer_is_constant(b)) {
-      r->code = BVEQ_CODE_FALSE;
-    } else if (bvpoly_buffer_is_pm_var(b, &u1)) {
-      r->code = BVEQ_CODE_REDUCED0;
-      r->left = u1;
-      r->right = NULL_TERM;
-    } else if (bvpoly_buffer_is_var_minus_var(b, &u1, &u2)) {
-      r->code = BVEQ_CODE_REDUCED;
-      r->left = u1;
-      r->right = u2;
-    }
-  }
-}
-
-
-#if 0
-
-extern void bvconst64_print(FILE *f, uint64_t a, uint32_t n);
-
-static void show_factors(bvfactor_buffer_t *b) {
-  pprod_t *pp;
-  bvpoly_t *p;
-  bvpoly64_t *q;
-
-  pp = pp_buffer_getprod(&b->product);
-  if (b->bitsize <= 64) {
-    q = bvpoly_buffer_getpoly64(&b->exponent);
-    printf("constant: ");
-    bvconst64_print(stdout, b->constant64, b->bitsize);
-    printf("\nproduct: ");
-    print_pprod(stdout, pp);
-    printf("\nexponents: ");
-    print_bvpoly64(stdout, q);
-    printf("\n");
-    free_bvpoly64(q);
-  } else {
-    p = bvpoly_buffer_getpoly(&b->exponent);
-    printf("constant: ");
-    bvconst_print(stdout, b->constant.data, b->bitsize);
-    printf("\nproduct: ");
-    print_pprod(stdout, pp);
-    printf("\nexponents: ");
-    print_bvpoly(stdout, p);
-    printf("\n");
-    free_bvpoly(p);
-  }
-
-  free_pprod(pp);
-}
-
-/*
- * Try factoring of term t:
- * - return true if t is a product-like term and store the reuslt in b
- */
-void try_bitvector_factoring(context_t *ctx, term_t t) {
-  bvfactor_buffer_t b;
-  term_table_t *terms;
-
-  terms = ctx->terms;
-
-  printf("\n--- factoring for term %"PRId32" ---\n", t);
-  print_term_full(stdout, terms, t);
-  printf("\n");
-  fflush(stdout);
-
-  if (term_is_bvprod(terms, t)) {
-    init_bvfactor_buffer(&b);
-    factor_bvterm(terms, t, &b);
-    show_factors(&b);
-    fflush(stdout);
-    delete_bvfactor_buffer(&b);
-  }
-}
-
-#endif
-
-/*
- * Check whether t1 and t2 have the same factor decomposition
- */
-bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2) {
-  bvfactor_buffer_t b1;
-  bvfactor_buffer_t b2;
-  term_table_t *terms;
-  bool eq;
-
-  eq = false;
-  terms = ctx->terms;
-  if (term_is_bvprod(terms, t1) && term_is_bvprod(terms, t2)) {
-    init_bvfactor_buffer(&b1);
-    init_bvfactor_buffer(&b2);
-    factor_bvterm(terms, t1, &b1);
-    factor_bvterm(terms, t2, &b2);
-    eq = bvfactor_buffer_equal(&b1, &b2);
-    delete_bvfactor_buffer(&b1);
-    delete_bvfactor_buffer(&b2);
-  }
-
-  return eq;
-}
 
 
 /**************************
@@ -1594,7 +1465,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_divides(ctx, r, tt);
         break;
-
+	
       case BV_EQ_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_bveq(ctx, r, tt);
@@ -2351,7 +2222,7 @@ static bool dl_convert_poly(context_t *ctx, dl_term_t *triple, polynomial_t *p) 
   /*
    * The QF_RDL theory, as defined by SMT-LIB, allows constraints of
    * the form (<= (- (* a x) (* a y)) b) where a and b are integer
-   * constants. We allow rationals here and we also allow
+   * constants. We allow rationals here and we also allow 
    * constraints like that for QF_IDL (provided b/a is an integer).
    */
   if (! poly_buffer_is_zero(aux)) {

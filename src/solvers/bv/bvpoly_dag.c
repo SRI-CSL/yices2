@@ -2411,6 +2411,7 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
   bvc_leaf_t *o;
   uint32_t bitsize;
 
+
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
   assert(d->tag != BVC_LEAF);
