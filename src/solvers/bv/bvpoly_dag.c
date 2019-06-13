@@ -2796,6 +2796,7 @@ static void normalize_sum_after_replace(bvc_dag_t *dag, ivector_t *v, node_occ_t
 
     // add c * n to vector v
     v->data[j] = x;
+    j ++;
     if (same_node(x, n)) break; // c * n is either +n or -n so we're done
 
     // x may be a duplicate now
