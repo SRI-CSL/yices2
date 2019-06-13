@@ -174,9 +174,15 @@ core_src_c := \
 	solvers/bv/bv_vartable.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
+	solvers/cdcl/delegate.c \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
+	solvers/cdcl/new_gates.c \
+	solvers/cdcl/new_gate_hash_map.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/smt_core.c \
+	solvers/cdcl/truth_tables.c \
+	solvers/cdcl/wide_truth_tables.c \
 	solvers/egraph/composites.c \
 	solvers/egraph/diseq_stacks.c \
 	solvers/egraph/egraph_assertion_queues.c \
@@ -207,6 +213,7 @@ core_src_c := \
 	terms/bvarith_buffers.c \
 	terms/bvarith_buffer_terms.c \
 	terms/bv_constants.c \
+	terms/bvfactor_buffers.c \
 	terms/bvlogic_buffers.c \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
@@ -244,6 +251,7 @@ core_src_c := \
 	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
 	utils/csets.c \
+	utils/cputime.c \
 	utils/dep_tables.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
@@ -291,6 +299,7 @@ core_src_c := \
 	utils/string_buffers.c \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
+	utils/tag_map.c \
 	utils/tuple_hash_map.c \
 	utils/uint_array_sort.c \
 	utils/uint_array_sort2.c \
@@ -371,7 +380,9 @@ extra_src_c := \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_symbol_printer.c \
 	frontend/smt2/smt2_term_stack.c \
+	frontend/smt2/smt2_type_printer.c \
 	frontend/yices/arith_solver_codes.c \
 	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
@@ -386,7 +397,6 @@ extra_src_c := \
 	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
-	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
@@ -399,12 +409,10 @@ extra_src_c := \
 	solvers/simplex/simplex_prop_table.c \
 	terms/arith_buffers.c \
 	utils/command_line.c \
-	utils/cputime.c \
 	utils/memsize.c \
 	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
-	utils/tag_map.c \
 	utils/timeout.c \
 	utils/union_find.c
 
@@ -1168,7 +1176,6 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(distdir)/lib/libyices.a
 endif
 
 static-dist: static-bin static-lib
@@ -1190,20 +1197,7 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(static_distdir)/lib/libyices.a
 endif
-
-smt-dist: bin
-	rm -r -f $(smt_distdir)/*
-	mkdir $(smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
-
-static-smt-dist: static-bin
-	rm -r -f $(static_smt_distdir)/*
-	mkdir $(static_smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
 
 
 .PHONY: dist static-dist

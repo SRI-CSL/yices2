@@ -48,9 +48,10 @@
 #include <stdio.h>
 
 #include "utils/int_vectors.h"
+#include "utils/ptr_vectors.h"
+#include "utils/string_hash_map.h"
 #include "parser_utils/lexer.h"
 #include "parser_utils/term_stack2.h"
-#include "utils/string_hash_map.h"
 #include "io/tracer.h"
 #include "frontend/common/assumptions_and_core.h"
 #include "frontend/common/named_term_stacks.h"
@@ -59,6 +60,7 @@
 #include "context/context_parameters.h"
 #include "exists_forall/ef_client.h"
 #include "mcsat/options.h"
+
 
 /*
  * New exception codes
@@ -284,6 +286,9 @@ typedef struct smt2_cmd_stats_s {
  *   occur after a (push ..) command are removed by the matching (pop ..).
  *   In global mode, declarations are kept independent of (push ..) and (pop ...)
  *   global_decls is false by default.
+ * - clean_model_format is true by default. This flag determines how models
+ *   are displayed in (get-model). The default is to use a Yices-style
+ *   format. If the flag is false, we use the SMT2-style format (not clean!).
  *
  * The solver can be initialized in benchmark_mode by calling init_smt2(true, ...).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
@@ -295,7 +300,7 @@ typedef struct smt2_cmd_stats_s {
  *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
  * The solver is initialized in incremental mode by calling init_smt2(false, ..).
- * In this mode, push/pop are supported. Some preprocessing is disabled
+ * In this mode, push and pop are supported. Some preprocessing is disabled
  * (e.g., symmetry breaking).
  *
  * In incremental mode, we must accept commands such as (assert) and
@@ -310,7 +315,7 @@ typedef struct smt2_cmd_stats_s {
  *
  * To implement the get-value command, we must keep track of smt2
  * terms as they are parsed. To support this, the global state includes
- * a token queue (cf. smt2_expression.h and parenthesized_expr.h).
+ * a token queue (cf., smt2_expression.h and parenthesized_expr.h).
  * When command smt2_get_value is called, it expects this queue to
  * contain the full command:
  *  ( get-value ( <term_1> ... <term_n> ))
@@ -323,9 +328,11 @@ typedef struct smt2_globals_s {
   smt_logic_t logic_code;
   bool benchmark_mode;
   bool global_decls;
+  bool clean_model_format;
 
   // smt-lib version: added 2016/05/24
-  // possible values are 0 (not set) or 2000 (version 2.0) or 2500 (version 2.5)
+  // possible values are 0 (not set) or 2000 (version 2.0)
+  // or 2500 (version 2.5) or 2600 (version 2.6)
   uint32_t smtlib_version;
 
   // number of calls to push after the ctx is unsat
@@ -341,7 +348,7 @@ typedef struct smt2_globals_s {
   // exists/forall solver
   bool efmode;                     // true to use the exists_forall solver
   ef_client_t ef_client;
-  
+
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
@@ -377,6 +384,9 @@ typedef struct smt2_globals_s {
   bool timeout_initialized;   // initially false. true once init_timeout is called
   bool interrupted;           // true if the most recent call to check_sat timed out
 
+  // optional: delegate sat solver for QF_BV
+  const char *delegate;      // default = NULL: no delegate
+
   // internals
   attr_vtbl_t *avtbl;        // global attribute table
   strmap_t *info;            // for set-info/get-info (initially NULL)
@@ -392,6 +402,11 @@ typedef struct smt2_globals_s {
   // stacks for named booleans and named assertions
   named_term_stack_t named_bools;
   named_term_stack_t named_asserts;
+
+  // list of term names that are not already saved in the term_names stack.
+  // This is used if clean_model_format is false to keep track of all
+  // terms whose value we may need to print.
+  pvector_t model_term_names;
 
   // data structures for unsat cores/unsat assumptions
   // allocated on demand
@@ -413,11 +428,13 @@ typedef struct smt2_globals_s {
    * Support for delayed assertions
    * - assertions = a set of assertions
    * - trivially_unsat: true if one of the assertions simplifies to false
+   * - trivially_sat: true if assertions are true in the default model
    * - frozen: set to true after the first call to check_sat if
    *   benchmark_mode is true
    */
   ivector_t assertions;
   bool trivially_unsat;
+  bool trivially_sat;
   bool frozen;
 } smt2_globals_t;
 
@@ -440,28 +457,40 @@ extern void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool p
 
 /*
  * Enable the mcsat solver
+ * - must not be called before init_smt2
  */
 extern void smt2_enable_mcsat(void);
 
 /*
  * Force verbosity level to k
  * - this has the same effect as (set-option :verbosity k)
- * - must be called after init_smt2
+ * - must not be called before init_smt2
  */
 extern void smt2_set_verbosity(uint32_t k);
 
 /*
  * Enable a trace tag for tracing.
- * - must be called after init_smt2
+ * - must not be called before init_smt2
  */
 extern void smt2_enable_trace_tag(const char* tag);
 
 /*
- * Show all statistics on the
+ * Force models to be printed in SMT2 format (as much as possible).
+ */
+extern void smt2_force_smt2_model_format(void);
+
+/*
+ * Show all statistics on the output channel
  * - same effect as (get-info :all-statistics)
- * - must be called after init_smt2
+ * - must not be called before init_smt2
  */
 extern void smt2_show_stats(void);
+
+/*
+ * Set a delegate:
+ * - name = name of an external sat solver to use for QF_BV problems
+ */
+extern void smt2_set_delegate(const char *name);
 
 
 /*

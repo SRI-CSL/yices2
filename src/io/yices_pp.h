@@ -63,9 +63,10 @@ typedef enum pp_atom_type {
   PP_QSTRING_ATOM,    // content = string with open and close quotes
   PP_SMT2_BV64_ATOM,  // like PP_BV64_ATOM but with SMT2 #b prefix
   PP_SMT2_BV_ATOM,    // like PP_BV_ATOM but with SMT2 prefix
+  PP_SMT2_QID_ATOM,   // like PP_ID_ATOM with quotes
 } pp_atom_type_t;
 
-#define NUM_PP_ATOMS ((uint32_t) (PP_SMT2_BV_ATOM+1))
+#define NUM_PP_ATOMS ((uint32_t) (PP_QID_ATOM+1))
 
 
 /*
@@ -100,6 +101,16 @@ typedef struct pp_qstr_s {
 
 
 /*
+ * Descriptor of quoted id
+ */
+typedef struct pp_qid_s {
+  const char *prefix;
+  int32_t index;
+  char quote[2];
+} pp_qid_t;
+
+
+/*
  * Full atomic token
  */
 typedef struct pp_atom_s {
@@ -115,9 +126,9 @@ typedef struct pp_atom_s {
     pp_bv64_t bv64;
     pp_bv_t bv;
     pp_qstr_t qstr;
+    pp_qid_t qid;
   } data;
 } pp_atom_t;
-
 
 
 
@@ -209,9 +220,14 @@ typedef enum {
   PP_OPEN_CONST_DEF,  // (constant i of <type>)
   PP_OPEN_UNINT_DEF,  // (unint i of <type>)
   PP_OPEN_VAR_DEF,    // (var i of <type>)
+
+  // more for the SMT2 model syntax
+  PP_OPEN_SMT2_BV_TYPE, // (_ BitVec ...)
+  PP_OPEN_SMT2_MODEL,   // (model ...)
+  PP_OPEN_SMT2_DEF,     // (define-fun ...)
 } pp_open_type_t;
 
-#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_VAR_DEF + 1))
+#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_SMT2_DEF + 1))
 
 
 
@@ -392,6 +408,13 @@ extern void pp_separator(yices_pp_t *printer, const char *s);
  */
 extern void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s);
 
+/*
+ * Quoted id:
+ * - same as pp_id but with open and close quote
+ *
+ * Examples: pp_quoted_id(printer, "x!", 20, '|', '|') will print |x!20|
+ */
+extern void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote);
 
 /*
  * Variant(s) for SMT2 atoms

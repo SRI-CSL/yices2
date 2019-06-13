@@ -217,6 +217,9 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_pp_buffer(&dag->pp_aux, 10);
   init_bvpoly_buffer(&dag->poly_buffer);
   init_ivector(&dag->buffer, 10);
+  init_ivector(&dag->sum_buffer, 10);
+  init_int_queue(&dag->node_queue, 0);
+  init_int_queue(&dag->flip_queue, 0);
 }
 
 
@@ -354,6 +357,9 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_pp_buffer(&dag->pp_aux);
   delete_bvpoly_buffer(&dag->poly_buffer);
   delete_ivector(&dag->buffer);
+  delete_ivector(&dag->sum_buffer);
+  delete_int_queue(&dag->node_queue);
+  delete_int_queue(&dag->flip_queue);
 }
 
 
@@ -394,9 +400,10 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   pp_buffer_reset(&dag->pp_aux);
   reset_bvpoly_buffer(&dag->poly_buffer, 32); // any positive bit-size would do
   ivector_reset(&dag->buffer);
+  ivector_reset(&dag->sum_buffer);
+  int_queue_reset(&dag->node_queue);
+  int_queue_reset(&dag->flip_queue);
 }
-
-
 
 
 
@@ -586,7 +593,6 @@ static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
   assert(d->len >= 2);
   return d->len == 2 && bvc_dag_occ_is_leaf(dag, d->sum[0]) && bvc_dag_occ_is_leaf(dag, d->sum[1]);
 }
-
 
 static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
   bvc_header_t *d;
@@ -1671,7 +1677,6 @@ node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsi
 }
 
 
-
 /*
  * Binary sum: n1 n2
  */
@@ -1874,7 +1879,7 @@ static node_occ_t bvc_dag_normal_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, 
 /*
  * Normalize sum vector v:
  * - each element of v is a node occurrence
- * - v contains duplicate node, then we replace them by monomials
+ * - if v contains duplicate node, then we replace them by monomials
  */
 static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) {
   uint32_t i, j, n;
@@ -1916,7 +1921,7 @@ static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) 
 	v->size = j;
 
 	// if j == n, v didn't change so we're done
-	// if j <= 0 or 1, v can't have duplicates
+	// if j == 0 or 1, v can't have duplicates
 	if (j == n || j < 2) break;
 
 	n = j;
@@ -2300,7 +2305,7 @@ uint32_t bvc_num_complex_nodes(bvc_dag_t *dag) {
  */
 
 /*
- * Remove i from the use list of n
+ * Remove i from the use list of n.
  */
 static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
   int32_t *l;
@@ -2404,17 +2409,16 @@ static void reclassify_dependents(bvc_dag_t *dag, bvnode_t i) {
 
 /*
  * Convert i to a leaf node (for variable x)
- * - i must not be a leaf node already
+ * - i must not be a leaf node or alias node already
  */
 void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
   bvc_header_t *d;
   bvc_leaf_t *o;
   uint32_t bitsize;
 
-
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
-  assert(d->tag != BVC_LEAF);
+  assert(d->tag != BVC_LEAF && d->tag != BVC_ALIAS);
   bitsize = d->bitsize;
   remove_from_uses(dag, i, d);
   free_descriptor(dag, d);
@@ -2432,76 +2436,10 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
 }
 
 
-
-/*
- * Replace i by n in descriptor d
- * - i is known to occur in d
- */
-static inline void replace_node_in_offset(bvc_offset_t *d, bvnode_t i, node_occ_t n) {
-  // if d->nocc == bvp(i) then d->nocc := n
-  // if d->nocc == bvn(i) then d->nocc := negate_off(n);
-  assert(node_of_occ(d->nocc) == i);
-  d->nocc = n ^ sign_of_occ(d->nocc);
-}
-
-static inline void replace_node_in_mono(bvc_mono_t *d, bvnode_t i, node_occ_t n) {
-  assert(node_of_occ(d->nocc) == i);
-  d->nocc = n ^ sign_of_occ(d->nocc);
-}
-
-static void replace_node_in_sum(bvc_sum_t *d, bvnode_t i, node_occ_t n) {
-  uint32_t j, m;
-
-  m = d->len;
-  for (j=0; j<m; j++) {
-    if (node_of_occ(d->sum[j]) == i) break;
-  }
-  assert(j < m);
-  d->sum[j] = n ^ sign_of_occ(d->sum[j]);
-}
-
-static void replace_node_in_prod(bvc_prod_t *d, bvnode_t i, node_occ_t n) {
-  uint32_t j, m;
-
-  m = d->len;
-  for (j=0; j<m; j++) {
-    if (node_of_occ(d->prod[j].var) == i) break;
-  }
-  assert(j < m);
-  d->prod[j].var = n ^ sign_of_occ(d->prod[j].var);
-}
-
-static void replace_node_in_desc(bvc_header_t *d, bvnode_t i, node_occ_t n) {
-  switch (d->tag) {
-  case BVC_LEAF:
-  case BVC_ALIAS:
-  case BVC_ZERO:
-  case BVC_CONSTANT:
-    // should not happen
-    assert(false);
-    break;
-
-  case BVC_OFFSET:
-    replace_node_in_offset(offset_node(d), i, n);
-    break;
-
-  case BVC_MONO:
-    replace_node_in_mono(mono_node(d), i, n);
-    break;
-
-  case BVC_SUM:
-    replace_node_in_sum(sum_node(d), i, n);
-    break;
-
-  case BVC_PROD:
-    replace_node_in_prod(prod_node(d), i, n);
-    break;
-  }
-}
-
-
 /*
  * Convert i to an alias node for n
+ * - i must not be a LEAF or ALIAS node already
+ * - add i to the node_queue
  */
 static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   bvc_header_t *d;
@@ -2510,7 +2448,9 @@ static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
 
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
+  assert(d->tag != BVC_LEAF && d->tag != BVC_ALIAS);
   bitsize = d->bitsize;
+  remove_from_uses(dag, i, d);
   free_descriptor(dag, d);
 
   o = alloc_alias(dag);
@@ -2521,95 +2461,738 @@ static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   dag->desc[i] = &o->header;
 
   list_remove(dag->list, i); // remove i from leaf/elem/default lists
+
+  int_queue_push(&dag->node_queue, i); // to process dependents
+}
+
+
+/*
+ * Convert node i by a zero node
+ * - i must not be a LEAF or ALIAS node
+ * - add i to the node_queue
+ */
+static void convert_to_zero(bvc_dag_t *dag, bvnode_t i) {
+  bvc_header_t *d;
+  bvc_zero_t *z;
+  uint32_t bitsize;
+
+  assert(0 < i && i <= dag->nelems);
+  d = dag->desc[i];
+  assert(d->tag != BVC_LEAF && d->tag != BVC_ALIAS);
+  bitsize = d->bitsize;
+  remove_from_uses(dag, i, d);
+  free_descriptor(dag, d);
+
+  z = alloc_zero(dag);
+  z->header.tag = BVC_ZERO;
+  z->header.bitsize = bitsize;
+
+  dag->desc[i] = &z->header;
+
+  bvc_dag_move_to_elementary_list(dag, i);
+
+  int_queue_push(&dag->node_queue, i);
 }
 
 
 
 /*
- * Replace all occurrences of node i by n
- * - n must be a leaf node
+ * SUPPORT FOR PRODUCT REDUCTION
  */
-static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+
+/*
+ * Find position where n occurs in p
+ * - return -1 if n does not occur in p
+ */
+static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
+  uint32_t i, m;
+
+  assert(sign_of_occ(n) == 0);
+
+  m = p->len;
+  for (i=0; i<m; i++) {
+    if (p->prod[i].var == n) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+
+#ifndef NDEBUG
+/*
+ * Check that all variables in a power product denote positive nodes
+ * and that all the exponents are positive
+ */
+static bool pprod_is_normalized(bvc_prod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (sign_of_occ(p->prod[i].var) != 0) return false;
+    if (p->prod[i].exp == 0) return false;
+  }
+
+  return true;
+}
+#endif
+
+/*
+ * Remove all zero exponents from p and recompute the bit hash
+ */
+static void cleanup_prod(bvc_prod_t *p) {
+  uint32_t i, j, n;
+
+  j = 0;
+  n = p->len;
+  p->hash = 0;
+  for (i=0; i<n; i++) {
+    if (p->prod[i].exp > 0) {
+      p->prod[j] = p->prod[i];
+      p->hash |= bit_hash_occ(p->prod[i].var);
+      j ++;
+    }
+  }
+  p->len = j;
+}
+
+
+/*
+ * Construct the product p * (r ^ e) then delete p
+ */
+static bvc_prod_t *mk_prod_times_occ_power(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r, uint32_t e) {
+  bvc_prod_t *tmp;
+  uint32_t i, n;
+
+  n = p->len;
+  tmp = alloc_prod(dag, n+1);
+  tmp->header.tag = BVC_PROD;
+  tmp->header.bitsize = p->header.bitsize;
+  tmp->hash = p->hash;
+  tmp->size = n+1;
+  tmp->len = n+1;
+
+  for (i=0; i<n; i++) {
+    assert(p->prod[i].var != r && p->prod[i].exp > 0);
+    tmp->prod[i] = p->prod[i];
+  }
+  tmp->prod[n].var = r;
+  tmp->prod[n].exp = e;
+  tmp->hash |= bit_hash_occ(r);
+
+  free_prod(dag, p);
+
+  return tmp;
+}
+
+
+
+/*
+ * FLIP SIGNS TO NORMALIZE
+ */
+
+/*
+ * Flip the sign of node i in an offset or sum node
+ */
+static void flip_sign_of_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_t i) {
+  assert(node_of_occ(d->nocc) == i);
+  d->nocc ^= 1; // flip low-order bit
+}
+
+static void flip_sign_of_node_in_sum(bvc_dag_t *dag, bvc_sum_t *d, bvnode_t i) {
+  uint32_t j, n;
+
+  n = d->len;
+  for (j=0; j<n; j++) {
+    if (node_of_occ(d->sum[j]) == i) {
+      d->sum[j] ^= 1;
+    }
+  }
+}
+
+/*
+ * Flip the sign of node i in a monomial d
+ * - d = descriptor of node x
+ * - x := [MONO a +i], we flip the sign of x
+ */
+static void flip_sign_of_node_in_monomial(bvc_dag_t *dag, bvc_mono_t *d, bvnode_t x, bvnode_t i) {
+  assert(d->nocc == bvp(i));
+  int_queue_push(&dag->flip_queue, x);
+}
+
+/*
+ * Flip the sign of node i in product d
+ * - d must be the descriptor of node x
+ * - i must occur in the product
+ * - if i's exponent is even, nothing changes
+ * - if i's exponent is odd, we flip the sign of x
+ */
+static void flip_sign_of_node_in_product(bvc_dag_t *dag, bvc_prod_t *d, bvnode_t x, bvnode_t i) {
+  int32_t k;
+
+  assert(pprod_is_normalized(d));
+
+  k = pprod_get_index(d, bvp(i));
+  assert(0 <= k && k < d->len && d->prod[k].var == bvp(i));
+  if ((d->prod[k].exp & 1) == 1) {
+    int_queue_push(&dag->flip_queue, x);
+  }
+}
+
+
+/*
+ * Flip the sign of node i in descriptor d
+ * - d must be the descriptor of node x
+ */
+static void flip_sign_of_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x, bvnode_t i) {
+  switch (d->tag) {
+  case BVC_LEAF:
+  case BVC_ALIAS:
+  case BVC_ZERO:
+  case BVC_CONSTANT:
+    // should not happen
+    assert(false);
+    break;
+
+  case BVC_OFFSET:
+    flip_sign_of_node_in_offset(dag, offset_node(d), i);
+    break;
+
+  case BVC_MONO:
+    flip_sign_of_node_in_monomial(dag, mono_node(d), x, i);
+    break;
+
+  case BVC_SUM:
+    flip_sign_of_node_in_sum(dag, sum_node(d), i);
+    break;
+
+  case BVC_PROD:
+    flip_sign_of_node_in_product(dag, prod_node(d), x, i);
+    break;    
+  }
+}
+
+/*
+ * Flip the sign of node i
+ * - replace +i by -i and -i by +i in all nodes that depend on i.
+ */
+static void flip_sign_of_node(bvc_dag_t *dag, bvnode_t i) {
   int32_t *l;
   uint32_t j, m;
   bvnode_t x;
-
-  assert(0 < i && i <= dag->nelems);
-  assert(bvc_dag_occ_is_leaf(dag, n));
 
   l = dag->use[i];
   if (l != NULL) {
     m = iv_size(l);
     for (j=0; j<m; j++) {
       x = l[j];
-      replace_node_in_desc(dag->desc[x], i, n);
-      bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
-      if (node_is_elementary(dag, x)) {
-        bvc_dag_move_to_elementary_list(dag, x);
-      }
+      assert(0 < x && x <= dag->nelems);
+      flip_sign_of_node_in_descriptor(dag, dag->desc[x], x, i);
     }
-    delete_index_vector(l);
-    dag->use[i] = NULL;
   }
-
-  convert_to_alias(dag, i, n);
 }
 
 
+/*
+ * Flip the signs of all nodes in the flip_queue
+ */
+static void propagate_flips(bvc_dag_t *dag) {
+  int_queue_t *queue;
+  bvnode_t i;
+
+  queue = &dag->flip_queue;
+  while (! int_queue_is_empty(queue)) {
+    i = int_queue_pop(queue);
+    flip_sign_of_node(dag, i);
+  }
+}
 
 /*
  * SUM REDUCTION
  */
 
 /*
+ * Node for c * n:
+ * - return -1 if c is zero
+ */
+static node_occ_t simple_mono_in_sum(bvc_dag_t *dag, int32_t c, node_occ_t n) {
+  uint32_t bitsize;
+  uint64_t a;
+  node_occ_t mono;
+
+  mono = -1;
+  bitsize = bvc_dag_occ_bitsize(dag, n);
+  if (bitsize > 64) {
+    if (c != 0) mono = bvc_dag_simple_mono(dag, c, n, bitsize);
+  } else {
+    a = norm64((uint64_t) c, bitsize);
+    if (a != 0) mono = bvc_dag_mono64(dag, a, n, bitsize);
+  }
+
+  return mono;
+}
+
+/*
+ * Remove duplicates from v
+ * - the duplicate is either +n or -n
+ */
+static void normalize_sum_after_replace(bvc_dag_t *dag, ivector_t *v, node_occ_t n) {
+  uint32_t i, j, m;
+  node_occ_t x;
+  int32_t c;
+
+  m = v->size;
+  for (;;) {
+    c = 0;
+    // compute c := coefficient of n in v
+    // and remove all occurrences of n from v
+    j = 0;
+    for (i=0; i<m; i++) {
+      x = v->data[i];
+      if (same_node(x, n)) {
+	if (x == n) {
+	  c ++;
+	} else {
+	  assert(x == negate_occ(n));
+	  c --;
+	}
+      } else {
+	v->data[j] = x;
+	j ++;
+      }
+    }
+
+    assert(j <= m);
+
+    // construct x := c * n
+    x = simple_mono_in_sum(dag, c, n);
+    if (x < 0) break; // c * n is zero so we're done
+
+    // add c * n to vector v
+    v->data[j] = x;
+    j ++;
+    if (same_node(x, n)) break; // c * n is either +n or -n so we're done
+
+    // x may be a duplicate now
+    n = x;
+    m = j;
+  }
+
+  v->size = j;
+}
+
+/*
+ * Replace the pair n1, n2 by n in p->sum
+ * - n1 and n2 occur in p->sum at index k1 and k2 respectively
+ * - store the result in vector dag->sum_buffer
+ */
+static void replace_pair_in_sum(bvc_dag_t *dag, bvc_sum_t *p, node_occ_t n, node_occ_t n1, node_occ_t n2,
+				uint32_t k1, uint32_t k2) {
+  ivector_t *v;
+  uint32_t i, m;
+  node_occ_t x;
+  bool has_duplicate;
+
+  assert(k1 < p->len && p->sum[k1] == n1);
+  assert(k2 < p->len && p->sum[k2] == n2);
+  assert(k1 != k2);
+
+  // construct v := nodes in p->sum with n1 and n2 removed and n added.
+  // set has_duplicate to true if p->sum already contains n or -n
+  v = &dag->sum_buffer;
+  ivector_reset(v);
+  has_duplicate = false;
+
+  m = p->len;
+  for (i=0; i<m; i++) {
+    if (i != k1 && i != k2) {
+      x = p->sum[i];
+      ivector_push(v, x);
+      has_duplicate |= same_node(x, n);
+    }
+  }
+  ivector_push(v, n);
+
+  if (has_duplicate) {
+    normalize_sum_after_replace(dag, v, n);
+  }
+}
+
+
+/*
+ * Replace n0 by n1 in p->sum
+ * - store the result in dag->sum_buffer
+ */
+static void replace_node_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t n0, node_occ_t n1) {
+  ivector_t *v;
+  uint32_t i, m;
+  node_occ_t x;
+  bool has_duplicate;
+
+  v = &dag->sum_buffer;
+  ivector_reset(v);
+  has_duplicate = false;
+
+  m = p->len;
+  for (i=0; i<m; i++) {
+    x = p->sum[i];
+    if (node_of_occ(x) ==  n0) {
+      // either x == +n0 or x == -n0
+      // in the first case, we replace x by n1
+      // in the second case, we replace  x by not(n1) = n1 ^ 1
+      x = n1 ^ sign_of_occ(x);
+    } else {
+      has_duplicate |= same_node(x, n1);
+    }
+    ivector_push(v, x);
+  }
+
+  if (has_duplicate) {
+    normalize_sum_after_replace(dag, v, n1);
+  }
+}
+
+
+/*
+ * Change the definition of a sum node i
+ * - p = descriptor of node i
+ * - a = new array of nodes = new definition
+ * - n = number of elements in a
+ */
+static void rebuild_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t *a, uint32_t n) {
+  uint32_t j, m;
+  node_occ_t x;
+
+  assert(n <= p->len);
+
+  if (n == 0) {
+    // i is reduced to zero
+    convert_to_zero(dag, i);
+  } else if (n == 1) {
+    // i is reduced to a single node
+    convert_to_alias(dag, i, a[0]);
+  } else {
+    // i remains a sum
+    m = p->len;
+    for (j=0; j<m; j++) {
+      x = p->sum[j];
+      bvc_dag_remove_dependent(dag, node_of_occ(x), i);
+    }
+
+    p->hash = 0;
+    for (j=0; j<n; j++) {
+      x = a[j];
+      p->sum[j] = x;
+      p->hash |= bit_hash_occ(x);
+      bvc_dag_add_dependency(dag, node_of_occ(x), i);
+    }
+    p->len = n;
+
+    if (sum_node_is_elementary(dag, p)) {
+      bvc_dag_move_to_elementary_list(dag, i);
+    }
+  }
+}
+
+
+/*
  * Replace the pair n1, n2 by n in p->sum:
  * - p must be the descriptor of node i
  * - n1 and n2 must occur in p at position k1 and k2, respectively
- * - n must be a leaf
- * - remove i from n1 and n2's use lists and add i to n's use list
  * - move i to the elementary list if p becomes elementary
  */
-static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
-		       node_occ_t n, node_occ_t n1, node_occ_t n2, uint32_t k1, uint32_t k2) {
+static void rewrite_pair_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i,
+				node_occ_t n, node_occ_t n1, node_occ_t n2, uint32_t k1, uint32_t k2) {
+  ivector_t *v;
+  uint32_t m;
+
+  // compute the reduced sum in dag->sum_buffer
+  replace_pair_in_sum(dag, p, n, n1, n2, k1, k2);
+
+  v = &dag->sum_buffer;
+  m = v->size;
+  assert(m < p->len);
+  rebuild_sum(dag, p, i, v->data, m);
+}
+
+/*
+ * Simplify sum when n0 is aliased to n1
+ * - replace n0 by n1 in p
+ * - p must be the descriptor of node i
+ * - n0 must occur in p
+ */
+static void alias_node_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, bvnode_t n0, node_occ_t n1) {
+  ivector_t *v;
+  uint32_t m;
+
+  // replace n0 by n1 then normalize
+  replace_node_in_sum(dag, p, n0, n1);
+
+  v = &dag->sum_buffer;
+  m = v->size;
+  assert(m <= p->len);
+  rebuild_sum(dag, p, i, v->data, m);
+}
+
+
+/*
+ * Simplify sum when n is converted to zero:
+ * - remove n from p
+ * - p must be the descriptor of node i
+ * - either +n or -n must occur in p
+ */
+static void zero_node_in_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, bvnode_t n) {
   uint32_t j, k, m;
   node_occ_t x;
 
+  assert(p->len >= 2);
+
   m = p->len;
 
-  assert(m >= 2 && k1 != k2 && p->sum[k1] == n1 && p->sum[k2] == n2);
-
   if (m == 2) {
-    // i is equal to n
-    assert((k1 == 0 && k2 == 1) || (k1 == 1 && k2 == 0));
-    replace_node(dag, i, n);
-    return;;
-  }
+    if (node_of_occ(p->sum[0]) ==  n) {
+      // i := aliased to p->sum[1]
+      convert_to_alias(dag, i, p->sum[1]);
+    } else {
+      assert(node_of_occ(p->sum[1]) == n);
+      // i := aliase to p->sum[0]
+      convert_to_alias(dag, i, p->sum[0]);
+    }
+  } else {
+    // i := shorter sum
+    k = 0;
+    p->hash = 0;
+    for (j=0; j<m; j++) {
+      x = p->sum[j];
+      if (node_of_occ(x) != n) {
+	p->sum[k] = j;
+	p->hash |= bit_hash_occ(x);
+	k ++;
+      }
+    }
+    assert(k == m-1);
+    p->len = k;
+    bvc_dag_remove_dependent(dag, n, i);
 
-  p->hash = 0;
-  k = 0;
-  for (j=0; j<m; j++) {
-    x = p->sum[j];
-    if (j != k1 && j != k2) {
-      p->sum[k] = x;
-      p->hash |= bit_hash_occ(x);
-      k ++;
+    if (sum_node_is_elementary(dag, p)) {
+      bvc_dag_move_to_elementary_list(dag, i);
     }
   }
+}
 
-  // add n last (don't keep p->sum sorted)
-  assert(k == m-2);
-  p->sum[k] = n;
-  p->len = k+1;
-  p->hash |= bit_hash_occ(n);
 
-  if (sum_node_is_elementary(dag, p)) {
+
+/*
+ * PRODUCT REDUCTION
+ */
+
+/*
+ * Simplify a product when n0 is aliased to n1
+ * - this removes n0 from p and multiplies 
+ * - p must be the descriptor of node i
+ * - n0 must occur in p
+ */
+static void alias_node_in_product(bvc_dag_t *dag, bvc_prod_t *p, bvnode_t i, bvnode_t n0, node_occ_t n) {
+  int32_t k0, k;
+  uint32_t e0;
+  bool flip_sign;
+  
+  assert(pprod_is_normalized(p));
+
+  k0 = pprod_get_index(p, bvp(n0));
+  assert(0 <= k0 && k0 < p->len && p->prod[k0].var == bvp(n0));
+
+  e0 = p->prod[k0].exp;
+
+  // we'll have to flip the sign if e0 is odd and n is a negative occurrence
+  flip_sign = ((e0 & 1) == 1) && sign_of_occ(n) == 1;
+
+  // force n to be positive
+  n = unsigned_occ(n);
+  assert(sign_of_occ(n) == 0);
+
+  k = pprod_get_index(p, n);
+  if (k < 0) {
+    // n does not occur in p. We just replace n0 by n
+    p->prod[k0].var = n;
+  } else {
+    // n does occur in p.
+    assert(k < p->len && p->prod[k0].var == n);
+    p->prod[k0].exp = 0;
+    p->prod[k].exp += e0;
+    cleanup_prod(p);
+  }
+
+  assert(pprod_is_normalized(p));
+  if (prod_node_is_elementary(dag, p)) {
     bvc_dag_move_to_elementary_list(dag, i);
   }
 
-  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
-  bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
-  bvc_dag_add_dependency(dag, node_of_occ(n), i);
+  if (flip_sign) {
+    int_queue_push(&dag->flip_queue, i);
+    propagate_flips(dag);
+  }
 }
+
+
+
+/*
+ * Simplify node x after node i is converted to zero
+ * - d = descriptor of node x
+ * - d must contain i
+ */
+static void zero_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x, bvnode_t i) {
+  switch (d->tag) {
+  case BVC_SUM:
+    zero_node_in_sum(dag, sum_node(d), x, i);
+    break;
+
+  case BVC_MONO:
+  case BVC_PROD:
+    convert_to_zero(dag, x);
+    break;
+
+  default:
+    // don't touch x.
+    // we could convert OFFSET nodes to CONSTANT NODES?
+    break;
+  }
+}
+
+/*
+ * Simplify nodes that depend on i after i is converted to zero
+ */
+static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
+  int32_t *l;
+  uint32_t j, m;
+  bvnode_t x;
+
+  assert(bvc_dag_node_is_zero(dag, i));
+
+  l = dag->use[i];
+  if (l != NULL) {
+    m = iv_size(l);
+    for (j=0; j<m; j++) {
+      x = l[j];
+      assert(0 < x && x <= dag->nelems);
+      zero_node_in_descriptor(dag, dag->desc[x], x, i);
+    }
+  }
+}
+
+
+
+/*
+ * Replace i by n in descriptor d
+ * - i is known to occur in d
+ * - d is the descriptor of node x
+ */
+static void alias_node_in_offset(bvc_dag_t *dag, bvc_offset_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
+  // if d->nocc == bvp(i) then d->nocc := n
+  // if d->nocc == bvn(i) then d->nocc := negate(n);
+  assert(node_of_occ(d->nocc) == i);
+  d->nocc = n ^ sign_of_occ(d->nocc);
+  if (offset_node_is_elementary(dag, d)) {
+    bvc_dag_move_to_elementary_list(dag, x);
+  }
+}
+
+static void alias_node_in_mono(bvc_dag_t *dag, bvc_mono_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
+  assert(d->nocc == bvp(i));
+  d->nocc = unsigned_occ(n);
+  if (mono_node_is_elementary(dag, d)) {
+    bvc_dag_move_to_elementary_list(dag, x);
+  }
+
+  if (sign_of_occ(n) == 1) {
+    int_queue_push(&dag->flip_queue, x);
+    propagate_flips(dag);
+  }
+}
+
+
+/*
+ * Simplify node x after i is aliased to n
+ * - d = descriptor of node x
+ * - i must occur in d
+ */
+static void alias_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x, bvnode_t i, node_occ_t n) {
+  switch (d->tag) {
+  case BVC_LEAF:
+  case BVC_ALIAS:
+  case BVC_ZERO:
+  case BVC_CONSTANT:
+    // should not happen
+    assert(false);
+    break;
+
+  case BVC_OFFSET:
+    alias_node_in_offset(dag, offset_node(d), x, i, n);
+    break;
+
+  case BVC_MONO:
+    alias_node_in_mono(dag, mono_node(d), x, i, n);
+    break;
+
+  case BVC_SUM:
+    alias_node_in_sum(dag, sum_node(d), x, i, n);
+    break;
+
+  case BVC_PROD:
+    alias_node_in_product(dag, prod_node(d), x, i, n);
+    break;
+  }
+}
+
+
+/*
+ * Simplify nodes that depend on i after i is aliased to node n
+ */
+static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+  int32_t *l;
+  uint32_t j, m;
+  bvnode_t x;
+
+  assert(bvc_dag_node_is_alias(dag, i));
+
+  l = dag->use[i];
+  if (l != NULL) {
+    m = iv_size(l);
+    for (j=0; j<m; j++) {
+      x = l[j];
+      assert(0 < x && x <= dag->nelems);
+      alias_node_in_descriptor(dag, dag->desc[x], x, i, n);
+      bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
+    }
+    delete_index_vector(l);
+    dag->use[i] = NULL;
+  }
+}
+
+
+/*
+ * Propagate simplifications
+ * - the queue stores nodes that were converted to zero or aliased to some occurrence n
+ */
+static void propagate_simplifications(bvc_dag_t *dag) {
+  int_queue_t *queue;
+  bvc_alias_t *d;
+  bvnode_t i;
+
+  queue = &dag->node_queue;
+  while (! int_queue_is_empty(queue)) {
+    i = int_queue_pop(queue);
+    if (bvc_dag_node_is_zero(dag, i)) {
+      propagate_zero_node(dag, i);
+    } else {
+      d = bvc_dag_node_alias(dag, i);
+      propagate_alias_node(dag, i, d->alias);
+    }
+  }
+}
+
+
 
 
 /*
@@ -2664,17 +3247,15 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
 
       if (k1 >= 0 && k2 >= 0) {
 	assert(p->sum[k1] == n1 && p->sum[k2] == n2);
-	shrink_sum(dag, p, i, n, n1, n2, k1, k2);
+	rewrite_pair_in_sum(dag, p, i, n, n1, n2, k1, k2);
       }
       if (l1 >= 0 && l2 >= 0) {
 	assert(p->sum[l1] == negate_occ(n1) && p->sum[l2] == negate_occ(n2));
-	shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), l1, l2);
+	rewrite_pair_in_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2), l1, l2);
       }
     }
   }
 }
-
-
 
 
 /*
@@ -2716,6 +3297,8 @@ void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t 
       try_reduce_sum(dag, v->data[i], h, n, n1, n2);
     }
     ivector_reset(v);
+
+    propagate_simplifications(dag);
   }
 
 }
@@ -2825,74 +3408,6 @@ bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
 
 
 /*
- * Find position where n occurs in p
- * - return -1 if n does not occur in p
- */
-static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
-  uint32_t i, m;
-
-  m = p->len;
-  for (i=0; i<m; i++) {
-    if (p->prod[i].var == n) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-
-
-/*
- * Construct the product p * (r ^ e) then delete p
- */
-static bvc_prod_t *mk_prod_times_occ_power(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r, uint32_t e) {
-  bvc_prod_t *tmp;
-  uint32_t i, n;
-
-  n = p->len;
-  tmp = alloc_prod(dag, n+1);
-  tmp->header.tag = BVC_PROD;
-  tmp->header.bitsize = p->header.bitsize;
-  tmp->hash = p->hash;
-  tmp->size = n+1;
-  tmp->len = n+1;
-
-  for (i=0; i<n; i++) {
-    assert(p->prod[i].var != r && p->prod[i].exp > 0);
-    tmp->prod[i] = p->prod[i];
-  }
-  tmp->prod[n].var = r;
-  tmp->prod[n].exp = e;
-  tmp->hash |= bit_hash_occ(r);
-
-  free_prod(dag, p);
-
-  return tmp;
-}
-
-
-/*
- * Remove all zero exponents from p and recompute the bit hash
- */
-static void cleanup_prod(bvc_prod_t *p) {
-  uint32_t i, j, n;
-
-  j = 0;
-  n = p->len;
-  p->hash = 0;
-  for (i=0; i<n; i++) {
-    if (p->prod[i].exp > 0) {
-      p->prod[j] = p->prod[i];
-      p->hash |= bit_hash_occ(p->prod[i].var);
-      j ++;
-    }
-  }
-  p->len = j;
-}
-
-
-/*
  * Check whether node i is a product that contains n1 * n2
  * If so, replace the pair n1 * n2 by n in node i
  * - h must be the bit hash of {n1, n2}
@@ -2958,7 +3473,6 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
 }
 
 
-
 /*
  * Check whether node i is a product that contains n1^2
  * If so replace n1^2 by n in node i
@@ -3009,7 +3523,7 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
 	      dag->desc[i] = &p->header;
 	    }
 	  }
-
+	  assert(pprod_is_normalized(p));	   
 	  if (prod_node_is_elementary(dag, p)) {
 	    bvc_dag_move_to_elementary_list(dag, i);
 	  }
@@ -3071,7 +3585,6 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
   }
 
 }
-
 
 
 /*
@@ -3627,6 +4140,7 @@ void bvc_dag_force_elem_node(bvc_dag_t *dag) {
 
 /*
  * Compilation result for node_occurrence n
+ * - follow alias chain until we reach a lead node
  * - modulo signs, this is the variable of n if n is a leaf node
  *   or the variable of n' if n is aliased to n'
  * - to encode the signs, we return either bvp(x) or bvn(x)
@@ -3644,19 +4158,24 @@ int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {
   assert(0 < i && i <= dag->nelems);
   d = dag->desc[i];
 
-  switch (d->tag) {
-  case BVC_ALIAS:
+  while (d->tag == BVC_ALIAS) {
+    /*
+     * i is node of n
+     * i --> [alias n1]
+     * if n is bvp(i), then alias(n) = n1
+     * if n is bvn(i), then alias(n) = n1 ^ 1
+     * so alias(n) = n1 ^ sign_of(n)
+     */
     n = sign_of_occ(n) ^ alias_node(d)->alias;
     i = node_of_occ(n);
     assert(0 < i && i <= dag->nelems);
     d = dag->desc[i];
-    assert(d->tag == BVC_LEAF); // fall-through intended
+  }
 
-  case BVC_LEAF:
+  if (d->tag == BVC_LEAF) {
     x = leaf_node(d)->map;
     return (x << 1) | sign_of_occ(n);
-
-  default:
-    return -1;
   }
+
+  return -1;
 }

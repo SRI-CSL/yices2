@@ -462,7 +462,7 @@ void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* pro
         q_get32(&rhs_val->q, &rhs_val_int);
 
         // Update the feasible set
-        bool feasible = true;
+        bool feasible;
         if (eq_true) {
           feasible = uf_feasible_set_db_set_equal(uf->feasible, lhs, rhs_val_int, eq_var);
 
