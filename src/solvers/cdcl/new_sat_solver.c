@@ -9607,7 +9607,7 @@ static void build_assignment(sat_solver_t *solver) {
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i)) {
       l = preferred_literal(solver, i);
-      test_literal(solver, l) || test_literal(solver, not(l));
+      (void) (test_literal(solver, l) || test_literal(solver, not(l)));
     }
   }
 
