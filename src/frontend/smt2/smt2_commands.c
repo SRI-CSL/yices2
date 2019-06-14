@@ -39,6 +39,7 @@
 #include "api/smt_logic_codes.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
+#include "api/yices_mutex.h"
 #include "context/context.h"
 #include "frontend/common/bug_report.h"
 #include "frontend/common/parameters.h"
@@ -2755,6 +2756,8 @@ static bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **mod
   uint32_t i;
   bool result;
 
+  yices_obtain_mutex();
+
   result = true;
   mdl = yices_new_model(true);
   init_evaluator(&evaluator, mdl);
@@ -2773,6 +2776,8 @@ static bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **mod
     delete_evaluator(&evaluator);
     yices_free_model(mdl);
   }
+
+  yices_release_mutex();
 
   return result;
 }
@@ -5765,7 +5770,19 @@ static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(v
   return yices_thread_exit();
 }
 
+static smt_status_t get_status_from_globals(smt2_globals_t *g) {
+  if (g->trivially_unsat) {
+    return STATUS_UNSAT;
+  } else if (g->trivially_sat) {
+    return STATUS_SAT;
+  } else {
+    assert(g->ctx);
+    return yices_context_status(g->ctx);
+  }
+}
+
 #endif
+
 
 
 /*
@@ -5790,7 +5807,7 @@ void smt2_check_sat(void) {
       } else {
         //	show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
-	check_delayed_assertions(&__smt2_globals);
+        check_delayed_assertions(&__smt2_globals);
 #else
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals);
@@ -5806,10 +5823,12 @@ void smt2_check_sat(void) {
           launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
           fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
           check_delayed_assertions(&__smt2_globals);
+
           //could check that they are all OK
-          smt_status_t main_answer = yices_context_status(__smt2_globals.ctx);
+
+          smt_status_t main_answer = get_status_from_globals(&__smt2_globals);
           for (index = 0; index < __smt2_globals.nthreads; index++) {
-            smt_status_t answer = yices_context_status(garray[index].ctx);
+            smt_status_t answer = get_status_from_globals(&garray[index]);
 
             if (answer != main_answer) {
               success = false;
