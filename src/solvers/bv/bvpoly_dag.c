@@ -218,6 +218,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_bvpoly_buffer(&dag->poly_buffer);
   init_ivector(&dag->buffer, 10);
   init_ivector(&dag->sum_buffer, 10);
+  init_ivector(&dag->use_buffer, 10);
   init_int_queue(&dag->node_queue, 0);
   init_int_queue(&dag->flip_queue, 0);
 }
@@ -358,6 +359,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_bvpoly_buffer(&dag->poly_buffer);
   delete_ivector(&dag->buffer);
   delete_ivector(&dag->sum_buffer);
+  delete_ivector(&dag->use_buffer);
   delete_int_queue(&dag->node_queue);
   delete_int_queue(&dag->flip_queue);
 }
@@ -401,6 +403,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   reset_bvpoly_buffer(&dag->poly_buffer, 32); // any positive bit-size would do
   ivector_reset(&dag->buffer);
   ivector_reset(&dag->sum_buffer);
+  ivector_reset(&dag->use_buffer);
   int_queue_reset(&dag->node_queue);
   int_queue_reset(&dag->flip_queue);
 }
@@ -3089,6 +3092,7 @@ static void zero_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x,
  * Simplify nodes that depend on i after i is converted to zero
  */
 static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
+  ivector_t *v;
   int32_t *l;
   uint32_t j, m;
   bvnode_t x;
@@ -3098,11 +3102,18 @@ static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
   l = dag->use[i];
   if (l != NULL) {
     m = iv_size(l);
+
+    // copy l into dag->use_buffer since l may be modified
+    v = &dag->use_buffer;
+    ivector_copy(v, l, m);
+
     for (j=0; j<m; j++) {
-      x = l[j];
+      x = v->data[j];
       assert(0 < x && x <= dag->nelems);
       zero_node_in_descriptor(dag, dag->desc[x], x, i);
     }
+
+    ivector_reset(v);
   }
 }
 
@@ -3175,6 +3186,7 @@ static void alias_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x
  * Simplify nodes that depend on i after i is aliased to node n
  */
 static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+  ivector_t *v;
   int32_t *l;
   uint32_t j, m;
   bvnode_t x;
@@ -3184,12 +3196,18 @@ static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   l = dag->use[i];
   if (l != NULL) {
     m = iv_size(l);
+
+    // copy l into dag->buffer since l may be modified
+    v = &dag->use_buffer;
+    ivector_copy(v, l, m);
     for (j=0; j<m; j++) {
-      x = l[j];
+      x = v->data[j];
       assert(0 < x && x <= dag->nelems);
       alias_node_in_descriptor(dag, dag->desc[x], x, i, n);
       bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
     }
+    ivector_reset(v);
+
     delete_index_vector(l);
     dag->use[i] = NULL;
   }
@@ -3607,6 +3625,8 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
     }
 
     ivector_reset(v);
+
+    propagate_simplifications(dag);
   }
 
 }
