@@ -9607,7 +9607,7 @@ static void build_assignment(sat_solver_t *solver) {
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i)) {
       l = preferred_literal(solver, i);
-      test_literal(solver, l) || test_literal(solver, not(l));
+      (void) (test_literal(solver, l) || test_literal(solver, not(l)));
     }
   }
 
@@ -9812,7 +9812,7 @@ static void init_simplify(sat_solver_t *solver) {
   solver->simplify_next = 0;
 
   //  solver->probing_next = 0;
-  solver->probing_next = 100 * solver->params.probing_interval;
+  solver->probing_next = 25 * solver->params.probing_interval;
   solver->probing_budget = 0;
   solver->probing_last = 0;
   solver->probing_inc = solver->params.probing_interval;
