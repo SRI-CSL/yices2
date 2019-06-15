@@ -47,6 +47,10 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 
+/*
+ * yices_rev is set up at compile time in yices_version.c
+ */
+extern const char * const yices_rev;
 
 /*
  * Global objects:
@@ -139,9 +143,10 @@ static void print_version(void) {
          "Linked with GMP %s\n"
 	 "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
-         "Platform: %s (%s)\n",
+         "Platform: %s (%s)\n"
+         "Revision: %s\n",
          yices_version, gmp_version,
-         yices_build_date, yices_build_arch, yices_build_mode);
+         yices_build_date, yices_build_arch, yices_build_mode, yices_rev);
   fflush(stdout);
 }
 

@@ -52,6 +52,4 @@ EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE/static";
 EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE";
 #endif
 
-#ifndef NDEBUG
-const char * const yices_rev = "REVISION";
-#endif
+EXPORTED const char * const yices_rev = "REVISION";
