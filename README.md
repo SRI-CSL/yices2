@@ -186,12 +186,12 @@ constraints.
 If you want the MC-SAT solver, follow these instructions:
 
 1. Install SRI's library for polynomial manipulation. It's available
-   on github (https://github.com/SRI-CSL/libpoly).
+   on [github](https://github.com/SRI-CSL/libpoly).
 
 2. Install the CUDD library for binary-decision diagrams. We recommand
-   using the github distributio: https://github.com/ivmai/cudd.
+   using the github distribution: https://github.com/ivmai/cudd.
 
-2. After you've installed libpoly and CUDD, add option
+3. After you've installed libpoly and CUDD, add option
    `--enable-mcsat` to the configure command. In details, type this in
    the toplevel Yices directory:
 
@@ -206,6 +206,24 @@ sudo make install
   find the libpoly or CUDD libraries. Other options may be useful too.  Try
   `./configure --help` to see what's there.
 
+
+#### Support for Thread Safety
+
+The Yices library is not thread safe by default, if you need a re-entrant version:
+```
+autoconf
+./configure --enable-thread-safety
+make
+sudo make install
+```
+
+If configured with `--enable-thread-safety` the Yices library will be thread
+safe in the following sense: as long as the creation and manipulation of
+each context and each model is restricted to a single thread, there should be no races.
+In particular separate threads can create their own contexts, and manipulate and check
+them without impeding another thread's progress.
+
+NOTE: `--enable-mcsat` and `--enable-thread-safety` are currently incompatible.
 
 #### Windows Builds
 

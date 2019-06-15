@@ -42,7 +42,7 @@
  */
 typedef struct gate_manager_s {
   smt_core_t *core;
-  gate_table_t htbl;
+  gate_table_t *htbl;
   ivector_t buffer;
 } gate_manager_t;
 
@@ -74,18 +74,21 @@ extern void delete_gate_manager(gate_manager_t *m);
 
 
 /*
- * Push/pop/reset just apply to the internal gate table
+ * Push/pop/reset: don't do anything. The gate table
+ * is now part of the smt_core and is updated by smt_push,
+ * smt_pop, reset_smt_core.
  */
 static inline void gate_manager_push(gate_manager_t *m) {
-  gate_table_push(&m->htbl);
+  //  gate_table_push(&m->htbl);
 }
 
 static inline void gate_manager_pop(gate_manager_t *m) {
-  gate_table_pop(&m->htbl);
+  //  gate_table_pop(&m->htbl);
 }
 
 static inline void reset_gate_manager(gate_manager_t *m) {
-  reset_gate_table(&m->htbl);
+  //  reset_gate_table(&m->htbl);
+  ivector_reset(&m->buffer);
 }
 
 

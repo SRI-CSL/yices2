@@ -668,6 +668,29 @@ void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a
 }
 
 
+/*
+ * Add b to buffer
+ */
+void bvpoly_buffer_add_buffer(bvpoly_buffer_t *buffer, bvpoly_buffer_t *b) {
+  uint32_t i, n;
+
+  assert(buffer->bitsize == b->bitsize);
+
+  n = b->nterms;
+  if (b->bitsize <= 64) {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add_mono64(buffer, b->var[i], b->c[i]);
+    }
+  } else {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add_monomial(buffer, b->var[i], b->p[i]);
+    }
+  }
+}
+
+
+
+
 
 /*******************
  *  SUBSTITUTIONS  *
@@ -826,11 +849,12 @@ static void isort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
 static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   uint32_t i, j;
   int32_t x;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(h > l);
 
   // random pivot
-  i = l + random_uint(h - l);
+  i = l + random_uint(&seed, h - l);
 
   // move it to position l
   swap_monomials(buffer, i, l);
@@ -952,7 +976,6 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
  */
 #ifndef NDEBUG
 
-
 static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {
   uint32_t i, n, b, w;
   uint64_t c;
@@ -1027,6 +1050,7 @@ bvpoly64_t *bvpoly_buffer_getpoly64(bvpoly_buffer_t *b) {
 
   return p;
 }
+
 
 
 /*
@@ -1114,6 +1138,38 @@ bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
 }
 
 
+/*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+bool bvpoly_buffer_equal(bvpoly_buffer_t *b1, bvpoly_buffer_t *b2) {
+  uint32_t i, n, w;
+
+  n = b1->nterms;
+  if (b1->bitsize != b2->bitsize || n != b2->nterms) {
+    return false;
+  }
+
+  if (b1->bitsize <= 64) {
+    for (i=0; i<n; i++) {
+      if (b1->var[i] != b2->var[i] || b1->c[i] != b2->c[i]) {
+	return false;
+      }
+    }
+  } else {
+    w = b1->width;
+    assert(w == b2->width);
+    for (i=0; i<n; i++) {
+      if (b1->var[i] != b2->var[i] || bvconst_neq(b1->p[i], b2->p[i], w)) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
 
 /*
  * Hash function1
@@ -1166,5 +1222,105 @@ uint32_t bvpoly_buffer_hash(bvpoly_buffer_t *b) {
   }
 
   return h;
+}
+
+
+
+
+
+/*
+ * Check whether the coefficient i is +1 or -1
+ */
+// c = coefficient, n = number of bits
+static bool bvconst64_is_unit(uint64_t c, uint32_t n) {
+  assert(c == norm64(c, n));
+  return c == 1 || c == mask64(n);
+}
+
+// c = coefficient, n = number of bits, w = number of words
+static bool bvconst_is_unit(uint32_t *c, uint32_t n, uint32_t w) {
+  assert(bvconst_is_normalized(c, n));
+  assert(w == (n + 31) >> 5);
+  return bvconst_is_one(c, w) || bvconst_is_minus_one(c, n);
+}
+
+static bool bvpoly_buffer_coeff_is_unit(const bvpoly_buffer_t *b, uint32_t i) {
+  uint32_t n;
+
+  assert(i < b->nterms);
+  n = b->bitsize;
+  if (n <= 64) {
+    return bvconst64_is_unit(b->c[i], n);
+  } else {
+    return bvconst_is_unit(b->p[i], n, b->width);
+  }
+}
+
+static bool bvpoly_buffer_coeff_is_one(const bvpoly_buffer_t *b, uint32_t i) {
+  uint32_t n;
+
+  assert(i < b->nterms);
+  n = b->bitsize;
+  if (n <= 64) {
+    assert(b->c[i] == norm64(b->c[i], n));
+    return b->c[i] == 1;
+  } else {
+    assert(bvconst_is_normalized(b->p[i], n));
+    return bvconst_is_one(b->p[i], b->width);
+  }
+}
+
+static bool bvpoly_buffer_coeff_is_minus_one(const bvpoly_buffer_t *b, uint32_t i) {
+  uint32_t n;
+
+  assert(i < b->nterms);
+  n = b->bitsize;
+  if (n <= 64) {
+    assert(b->c[i] == norm64(b->c[i], n));
+    return b->c[i] == mask64(n);
+  } else {
+    assert(bvconst_is_normalized(b->p[i], n));
+    return bvconst_is_minus_one(b->p[i], n);
+  }
+}
+
+
+/*
+ * Check whether b is of the form +x or -x
+ * - if so, return the variable into *x
+ * - b must be normalized
+ */
+bool bvpoly_buffer_is_pm_var(const bvpoly_buffer_t *b, int32_t *x) {
+  if (b->nterms == 1 && b->var[0] != const_idx && bvpoly_buffer_coeff_is_unit(b, 0)) {
+    *x = b->var[0];
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Check whether b is of the form x1 - x2
+ * - if so, return the variables in *x1 and *x2.
+ * - b must be normalized
+ */
+bool bvpoly_buffer_is_var_minus_var(const bvpoly_buffer_t *b, int32_t *x1, int32_t *x2) {
+  if (b->nterms == 2 && b->var[0] != const_idx) {
+    assert(b->var[1] != const_idx);
+
+    if (bvpoly_buffer_coeff_is_one(b, 0) && bvpoly_buffer_coeff_is_minus_one(b, 1)) {
+      *x1 = b->var[0];
+      *x2 = b->var[1];
+      return true;
+    }
+
+    if (bvpoly_buffer_coeff_is_minus_one(b, 0) && bvpoly_buffer_coeff_is_one(b, 1)) {
+      *x1 = b->var[1];
+      *x2 = b->var[0];
+      return true;
+    }
+  }
+
+  return false;
 }
 

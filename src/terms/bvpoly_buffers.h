@@ -113,7 +113,6 @@ extern void delete_bvpoly_buffer(bvpoly_buffer_t *buffer);
 
 
 
-
 /***************************
  *  ADDITION OF MONOMIALS  *
  **************************/
@@ -224,6 +223,12 @@ extern void bvpoly_buffer_addmul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint
 extern void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
 
 
+/*
+ * Add b to buffer
+ */
+extern void bvpoly_buffer_add_buffer(bvpoly_buffer_t *buffer, bvpoly_buffer_t *b);
+
+
 
 /*******************
  *  SUBSTITUTIONS  *
@@ -263,32 +268,32 @@ extern void normalize_bvpoly_buffer(bvpoly_buffer_t *buffer);
 /*
  * Number of terms, bitsize and width
  */
-static inline uint32_t bvpoly_buffer_num_terms(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_num_terms(const bvpoly_buffer_t *b) {
   return b->nterms;
 }
 
-static inline uint32_t bvpoly_buffer_bitsize(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_bitsize(const bvpoly_buffer_t *b) {
   return b->bitsize;
 }
 
-static inline uint32_t bvpoly_buffer_width(bvpoly_buffer_t *b) {
+static inline uint32_t bvpoly_buffer_width(const bvpoly_buffer_t *b) {
   return b->width;
 }
 
 /*
  * Components of monomial i
  */
-static inline int32_t bvpoly_buffer_var(bvpoly_buffer_t *b, uint32_t i) {
+static inline int32_t bvpoly_buffer_var(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms);
   return b->var[i];
 }
 
-static inline uint64_t bvpoly_buffer_coeff64(bvpoly_buffer_t *b, uint32_t i) {
+static inline uint64_t bvpoly_buffer_coeff64(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms && b->bitsize <= 64);
   return b->c[i];
 }
 
-static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
+static inline uint32_t *bvpoly_buffer_coeff(const bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms && b->bitsize > 64);
   return b->p[i];
 }
@@ -298,13 +303,28 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
  * Check whether b is a constant polynomial
  * - b must be normalized
  */
-static inline bool bvpoly_buffer_is_zero(bvpoly_buffer_t *b) {
+static inline bool bvpoly_buffer_is_zero(const bvpoly_buffer_t *b) {
   return b->nterms == 0;
 }
 
-static inline bool bvpoly_buffer_is_constant(bvpoly_buffer_t *b) {
+static inline bool bvpoly_buffer_is_constant(const bvpoly_buffer_t *b) {
   return b->nterms == 0 || (b->nterms == 1 && b->var[0] == const_idx);
 }
+
+/*
+ * Check whether b is of the form +x or -x
+ * - if so, return the variable into *x
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_is_pm_var(const bvpoly_buffer_t *b, int32_t *x);
+
+/*
+ * Check whether b is of the form x1 - x2
+ * - if so, return the variables in *x1 and *x2.
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_is_var_minus_var(const bvpoly_buffer_t *b, int32_t *x1, int32_t *x2);
+
 
 
 /*******************************
@@ -338,7 +358,6 @@ extern bvpoly_t *bvpoly_buffer_getpoly(bvpoly_buffer_t *b);
  */
 extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
 
-
 /*
  * Same thing for a bvpoly
  * - b must be normalized
@@ -346,15 +365,22 @@ extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
 extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
 
 
+/*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+extern bool bvpoly_buffer_equal(bvpoly_buffer_t *b1, bvpoly_buffer_t *b2);
+
 
 /*
  * Hash function1
  * - b must be normalized and have bitsize <= 64
+ *
+ * This follows the definition of hash_bvpoly64 in bv64_polynomials:
  * - if b is equal to a bvpoly64 p then
  *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
  */
 extern uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b);
-
 
 /*
  * Hash function2:

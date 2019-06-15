@@ -30,6 +30,7 @@
 #define __CONTEXT_SIMPLIFIER_H
 
 #include "context/context_types.h"
+#include "terms/bvfactor_buffers.h"
 
 
 /*
@@ -44,12 +45,131 @@
  */
 extern term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2);
 
-
 /*
  * Same thing for bitvector terms
  * - both t1 and t2 must be root terms in the internalization table
  */
 extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
+
+
+/*
+ * MORE SIMPLIFICATIONS
+ */
+
+/*
+ * For bitvector equality t1 == t2, we try different simplifications and
+ * rewriting. The result is stored in a simplification record. There are
+ * five cases:
+ * - true:     (t1 == t2) is true
+ * - false:    (t1 == t2) is false
+ * - reduced:  (t1 == t2) is equivalent to (u1 == u2) for simpler terms u1, u2
+ * - reduced0: (t1 == t2) is equivalent to (u == 0) for a simpler term u
+ * - nochange
+ */
+typedef enum bveq_code {
+  BVEQ_CODE_TRUE,
+  BVEQ_CODE_FALSE,
+  BVEQ_CODE_REDUCED,
+  BVEQ_CODE_REDUCED0,
+  BVEQ_CODE_NOCHANGE,
+} bveq_code_t;
+
+typedef struct bveq_simp_s {
+  bveq_code_t code;
+  term_t left;
+  term_t right;
+} bveq_simp_t;
+
+
+/*
+ * Try arithmetic/rewriting simplifications for (t1 == t2)
+ * - t1 and t2 must be root terms in the internalization table
+ * - the result is stored in *r
+ * - if r->code is REDUCED then (t1 == t2) is equivalent to (u1 == u2)
+ *   the two terms u1 and u2 are stored in r->left and r->right.
+ * - if r->code is REDUCED0 then (t1 == t2) is equivalent to (u1 == 0)
+ *   u1 is stored in r->left and NULL_TERM is stored in r->right.
+ */
+extern void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t1, term_t t2);
+
+
+/*
+ * FACTORING OF BIT-VECTOR TERMS
+ */
+
+/*
+ * In some cases, we can detect that two bitvector terms t1 and t2 are
+ * equal by trying to factor both.
+ *
+ * This amounts to finding a non-trivial common factor A and rewriting
+ *     t1 = A * t1'
+ *     t2 = A * t2'
+ * where t1' and t2' are small sums.
+ *
+ * To store the result, we use a factoring record:
+ * - code = result of the factoring attempts
+ *     BVFACTOR_FAILED: nothing done
+ *     BVFACTOR_FOUND: found factoring. Couldn't show that the factors
+ *                     are equal
+ *     BFFACTOR_EQUAL: found factorings for t1 and t2 and they're equal
+ *
+ * - the results A, t1' and t2' are stored in several factor buffers:
+ * - common_factor = A
+ * - reduced1 = t1'
+ * - reduced2 = t2'
+ *
+ * - common_factor is stored in a bvfactor_buffer
+ *   (i.e., A = c * product * 2^exponent)
+ * - reduced1 is an array of n1 buffers
+ * - reduced2 is an array of n2 buffers
+ * - n1 and n2 are small (no more than 4).
+ */
+typedef enum bvfactoring_code {
+  BVFACTOR_TODO,
+  BVFACTOR_FAILED,
+  BVFACTOR_EQUAL,
+  BVFACTOR_FOUND
+} bvfactoring_code_t;
+
+#define MAX_BVFACTORS 4
+
+typedef struct bvfactoring_s {
+  bvfactoring_code_t code;
+  uint32_t bitsize;
+  uint32_t n1;
+  uint32_t n2;
+
+  bvfactor_buffer_t common;
+  bvfactor_buffer_t reduced1[MAX_BVFACTORS];
+  bvfactor_buffer_t reduced2[MAX_BVFACTORS];
+
+  // auxiliary buffers. allocated on demand
+  bvpoly_buffer_t *poly_buffer;
+  pp_buffer_t *pp_buffer;
+} bvfactoring_t;
+
+
+/*
+ * Initialize a bvfactoring object.
+ */
+extern void init_bvfactoring(bvfactoring_t *r);
+
+/*
+ * Delete it
+ */
+extern void delete_bvfactoring(bvfactoring_t *r);
+
+/*
+ * Try factoring of t1 and t2. Store the result in *r
+ * - r must be initialized
+ * - t1 and t2 must be bitvector terms of the same type (same number of bits)
+ */
+extern void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t t2);
+
+/*
+ * Try factoring of t1 and t2. Return true if they have equal factor decomposition.
+ */
+extern bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2);
 
 
 

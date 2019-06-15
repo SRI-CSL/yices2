@@ -105,7 +105,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
 #endif
   fprintf(f, "\n");
@@ -130,7 +130,7 @@ void dump_context(FILE *f, context_t *context) {
   print_context_intern_mapping(f, context);
 
   fprintf(f, "\n--- Gates ---\n");
-  print_gate_table(f, &context->gate_manager.htbl);
+  print_gate_table(f, context->gate_manager.htbl);
 #endif
 
   if (context_has_egraph(context)) {

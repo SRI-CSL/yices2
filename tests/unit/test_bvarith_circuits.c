@@ -514,6 +514,98 @@ static void test_bvmul_const(uint32_t n, literal_t *a, literal_t *b) {
 
 
 
+/*
+ * Test: (bvadd a 2^k): size n
+ */
+static void test_bvinc(uint32_t n, literal_t *a, uint32_t k) {
+  literal_t *u;
+  uint32_t b;
+
+  assert(k < n);
+
+  u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
+  b = ((uint32_t) 1) << k;
+  bit_blaster_make_bvinc(&blaster, a, k, u, n);
+  printf("a = ");
+  print_bitvector(n, a);
+  printf("\n");
+  printf("b = %"PRIu32"\n", b);
+  printf("(bvadd a b) = ");
+  print_pseudo_vector(n, u);
+  printf("\n\n");
+
+  remap_table_free_array(u);
+}
+
+// constant input
+static void test_bvinc_const(uint32_t n, literal_t *a, uint32_t k) {
+  literal_t *u;
+  uint32_t b;
+
+  assert(k < n);
+
+  u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
+  b = ((uint32_t) 1) << k;
+  bit_blaster_make_bvinc(&blaster, a, k,  u, n);
+  printf("(bvadd ");
+  print_litarray_as_uint32(n, a);
+  printf(" %"PRIu32") = ", b);
+  print_pseudo_vector_as_uint32(n, u);
+  printf("\n");
+
+  remap_table_free_array(u);
+}
+
+/*
+ * Test: (bvsub a 2^k): size n
+ */
+static void test_bvdec(uint32_t n, literal_t *a, uint32_t k) {
+  literal_t *u;
+  uint32_t b;
+
+  assert(k < n);
+
+  u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
+  b = ((uint32_t) 1) << k;
+  bit_blaster_make_bvdec(&blaster, a, k, u, n);
+  printf("a = ");
+  print_bitvector(n, a);
+  printf("\n");
+  printf("b = %"PRIu32"\n", b);
+  printf("(bsub a b) = ");
+  print_pseudo_vector(n, u);
+  printf("\n\n");
+
+  remap_table_free_array(u);
+}
+
+// constant input
+static void test_bvdec_const(uint32_t n, literal_t *a, uint32_t k) {
+  literal_t *u;
+  uint32_t b;
+
+  assert(k < n);
+
+  u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
+  b = ((uint32_t) 1) << k;
+  bit_blaster_make_bvdec(&blaster, a, k,  u, n);
+  printf("(bvsub ");
+  print_litarray_as_uint32(n, a);
+  printf(" %"PRIu32") = ", b);
+  print_pseudo_vector_as_uint32(n, u);
+  printf("\n");
+
+  remap_table_free_array(u);
+}
+
 
 
 /*
@@ -641,6 +733,42 @@ static void base_test4var(void (*f)(uint32_t, literal_t *, literal_t *)) {
 }
 
 
+/*
+ * Basic tests: one 4-bit input + one integer k
+ */
+static void base_test4var2(void (*f)(uint32_t, literal_t *, uint32_t)) {
+  literal_t a[4];
+  literal_t x;
+  uint32_t i;
+
+  printf("Size 4\n");
+  for (i=0; i<4; i++) {
+    a[i] = false_literal;
+  }
+  for (i=0; i<4; i++) {
+    f(4, a, i);
+  }
+
+  for (i=0; i<4; i++) {
+    a[i] = true_literal;
+  }
+  for (i=0; i<4; i++) {
+    f(4, a, i);
+  }
+
+  x = fresh_lit();
+  for (i=0; i<4; i++) {
+    a[i] = x;
+  }
+  for (i=0; i<4; i++) {
+    f(4, a, i);
+  }
+
+  printf("\n");
+}
+
+
+
 
 /*
  * Truth-table tests: all 4-input constant vectors
@@ -668,6 +796,20 @@ static void truth_table_test4var(void (*f)(uint32_t, literal_t *, literal_t *)) 
     for (y=0; y<16; y++) {
       uint32_to_litarray(y, 4, b);
       f(4, a, b);
+    }
+  }
+  printf("\n");
+}
+
+static void truth_table_test4var2(void (*f)(uint32_t, literal_t *, uint32_t)) {
+  literal_t a[4];
+  uint32_t x, k;
+
+  printf("Size 4\n");
+  for (x=0; x<16; x++) {
+    uint32_to_litarray(x, 4, a);
+    for (k=0; k<4; k++) {
+      f(4, a, k);
     }
   }
   printf("\n");
@@ -711,6 +853,25 @@ static void random_tests4var(uint32_t n, void (*f)(uint32_t, literal_t *, litera
       b[i] = pick(14);
     }
     f(4, a, b);
+    refresh_random(14);
+    n --;
+  }
+  printf("\n");
+}
+
+static void random_tests4var2(uint32_t n, void (*f)(uint32_t, literal_t *, uint32_t)) {
+  literal_t a[4];
+  uint32_t i, k, x;
+
+  printf("Size 4\n");
+  init_random(14);
+  for (x=0; x<16; x++) {
+    for (i=0; i<4; i++) {
+      a[i] = pick(14);
+    }
+    for (k=0; k<4; k++) {
+      f(4, a, k);
+    }
     refresh_random(14);
     n --;
   }
@@ -763,7 +924,6 @@ static void all_bvsub_tests(void) {
   cleanup();
 }
 
-
 static void all_bvmul_tests(void) {
   printf("\n"
 	 "*****************\n"
@@ -777,6 +937,31 @@ static void all_bvmul_tests(void) {
   cleanup();
 }
 
+static void all_bvinc_tests(void) {
+  printf("\n"
+	 "*****************\n"
+	 "*  BVINC TESTS  *\n"
+	 "*****************\n\n");
+
+  init();
+  truth_table_test4var2(test_bvinc_const);
+  base_test4var2(test_bvinc);
+  random_tests4var2(100, test_bvinc);
+  cleanup();
+}
+
+static void all_bvdec_tests(void) {
+  printf("\n"
+	 "*****************\n"
+	 "*  BVDEC TESTS  *\n"
+	 "*****************\n\n");
+
+  init();
+  truth_table_test4var2(test_bvdec_const);
+  base_test4var2(test_bvdec);
+  random_tests4var2(100, test_bvdec);
+  cleanup();
+}
 
 
 
@@ -785,6 +970,8 @@ int main(void) {
   all_bvadd_tests();
   all_bvsub_tests();
   all_bvmul_tests();
+  all_bvinc_tests();
+  all_bvdec_tests();
 
   return 0;
 }

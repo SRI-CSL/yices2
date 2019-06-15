@@ -218,6 +218,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_bvpoly_buffer(&dag->poly_buffer);
   init_ivector(&dag->buffer, 10);
   init_ivector(&dag->sum_buffer, 10);
+  init_ivector(&dag->use_buffer, 10);
   init_int_queue(&dag->node_queue, 0);
   init_int_queue(&dag->flip_queue, 0);
 }
@@ -358,6 +359,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_bvpoly_buffer(&dag->poly_buffer);
   delete_ivector(&dag->buffer);
   delete_ivector(&dag->sum_buffer);
+  delete_ivector(&dag->use_buffer);
   delete_int_queue(&dag->node_queue);
   delete_int_queue(&dag->flip_queue);
 }
@@ -401,6 +403,7 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   reset_bvpoly_buffer(&dag->poly_buffer, 32); // any positive bit-size would do
   ivector_reset(&dag->buffer);
   ivector_reset(&dag->sum_buffer);
+  ivector_reset(&dag->use_buffer);
   int_queue_reset(&dag->node_queue);
   int_queue_reset(&dag->flip_queue);
 }
@@ -1306,75 +1309,14 @@ static bvnode_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
   return bvc_dag_mk_sum(p->dag, p->noccs, p->len, p->bitsize);
 }
 
-
-/*
- * Hash-consing objects
- */
-static bvc_leaf_hobj_t bvc_leaf_hobj = {
-  { (hobj_hash_t) hash_bvc_leaf_hobj, (hobj_eq_t) eq_bvc_leaf_hobj,
-    (hobj_build_t) build_bvc_leaf_hobj },
-  NULL, 0, 0
-};
-
-static bvc_zero_hobj_t bvc_zero_hobj = {
-  { (hobj_hash_t) hash_bvc_zero_hobj, (hobj_eq_t) eq_bvc_zero_hobj,
-    (hobj_build_t) build_bvc_zero_hobj },
-  NULL, 0
-};
-
-static bvc_const64_hobj_t bvc_const64_hobj = {
-  { (hobj_hash_t) hash_bvc_const64_hobj, (hobj_eq_t) eq_bvc_const64_hobj,
-    (hobj_build_t) build_bvc_const64_hobj },
-  NULL, 0, 0
-};
-
-static bvc_const_hobj_t bvc_const_hobj = {
-  { (hobj_hash_t) hash_bvc_const_hobj, (hobj_eq_t) eq_bvc_const_hobj,
-    (hobj_build_t) build_bvc_const_hobj },
-  NULL, NULL, 0
-};
-
-static bvc64_hobj_t bvc_offset64_hobj = {
-  { (hobj_hash_t) hash_bvc_offset64_hobj, (hobj_eq_t) eq_bvc_offset64_hobj,
-    (hobj_build_t) build_bvc_offset64_hobj },
-  NULL, 0, 0, 0
-};
-
-static bvc_hobj_t bvc_offset_hobj = {
-  { (hobj_hash_t) hash_bvc_offset_hobj, (hobj_eq_t) eq_bvc_offset_hobj,
-    (hobj_build_t) build_bvc_offset_hobj },
-  NULL, NULL, 0, 0
-};
-
-static bvc64_hobj_t bvc_mono64_hobj = {
-  { (hobj_hash_t) hash_bvc_mono64_hobj, (hobj_eq_t) eq_bvc_mono64_hobj,
-    (hobj_build_t) build_bvc_mono64_hobj },
-  NULL, 0, 0, 0
-};
-
-static bvc_hobj_t bvc_mono_hobj = {
-  { (hobj_hash_t) hash_bvc_mono_hobj, (hobj_eq_t) eq_bvc_mono_hobj,
-    (hobj_build_t) build_bvc_mono_hobj },
-  NULL, NULL, 0, 0
-};
-
-static bvc_prod_hobj_t bvc_prod_hobj = {
-  { (hobj_hash_t) hash_bvc_prod_hobj, (hobj_eq_t) eq_bvc_prod_hobj,
-    (hobj_build_t) build_bvc_prod_hobj },
-  NULL, NULL, 0, 0,
-};
-
-static bvc_sum_hobj_t bvc_sum_hobj = {
-  { (hobj_hash_t) hash_bvc_sum_hobj, (hobj_eq_t) eq_bvc_sum_hobj,
-    (hobj_build_t) build_bvc_sum_hobj },
-  NULL, NULL, 0, 0,
-};
-
-
 /*
  * Hash-consing constructors
  */
 static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+  bvc_leaf_hobj_t bvc_leaf_hobj;
+  bvc_leaf_hobj.m.hash = (hobj_hash_t) hash_bvc_leaf_hobj;
+  bvc_leaf_hobj.m.eq = (hobj_eq_t) eq_bvc_leaf_hobj;
+  bvc_leaf_hobj.m.build = (hobj_build_t) build_bvc_leaf_hobj;
   bvc_leaf_hobj.dag = dag;
   bvc_leaf_hobj.bitsize = bitsize;
   bvc_leaf_hobj.map = x;
@@ -1382,12 +1324,20 @@ static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 }
 
 static bvnode_t bvc_dag_get_zero(bvc_dag_t *dag, uint32_t bitsize) {
+  bvc_zero_hobj_t bvc_zero_hobj;
+  bvc_zero_hobj.m.hash = (hobj_hash_t) hash_bvc_zero_hobj;
+  bvc_zero_hobj.m.eq = (hobj_eq_t) eq_bvc_zero_hobj;
+  bvc_zero_hobj.m.build = (hobj_build_t) build_bvc_zero_hobj;
   bvc_zero_hobj.dag = dag;
   bvc_zero_hobj.bitsize = bitsize;
   return int_htbl_get_obj(&dag->htbl, &bvc_zero_hobj.m);
 }
 
 static bvnode_t bvc_dag_get_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize) {
+  bvc_const64_hobj_t bvc_const64_hobj;
+  bvc_const64_hobj.m.hash = (hobj_hash_t) hash_bvc_const64_hobj;
+  bvc_const64_hobj.m.eq = (hobj_eq_t) eq_bvc_const64_hobj;
+  bvc_const64_hobj.m.build = (hobj_build_t) build_bvc_const64_hobj;
   bvc_const64_hobj.dag = dag;
   bvc_const64_hobj.c = a;
   bvc_const64_hobj.bitsize = bitsize;
@@ -1395,6 +1345,10 @@ static bvnode_t bvc_dag_get_const64(bvc_dag_t *dag, uint64_t a, uint32_t bitsize
 }
 
 static bvnode_t bvc_dag_get_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize) {
+  bvc_const_hobj_t bvc_const_hobj;
+  bvc_const_hobj.m.hash = (hobj_hash_t) hash_bvc_const_hobj;
+  bvc_const_hobj.m.eq = (hobj_eq_t) eq_bvc_const_hobj;
+  bvc_const_hobj.m.build = (hobj_build_t) build_bvc_const_hobj;
   bvc_const_hobj.dag = dag;
   bvc_const_hobj.c = a;
   bvc_const_hobj.bitsize = bitsize;
@@ -1402,6 +1356,10 @@ static bvnode_t bvc_dag_get_const(bvc_dag_t *dag, uint32_t *a, uint32_t bitsize)
 }
 
 static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+  bvc64_hobj_t bvc_offset64_hobj;
+  bvc_offset64_hobj.m.hash = (hobj_hash_t) hash_bvc_offset64_hobj;
+  bvc_offset64_hobj.m.eq = (hobj_eq_t) eq_bvc_offset64_hobj;
+  bvc_offset64_hobj.m.build = (hobj_build_t) build_bvc_offset64_hobj;
   bvc_offset64_hobj.dag = dag;
   bvc_offset64_hobj.c = a;
   bvc_offset64_hobj.bitsize = bitsize;
@@ -1410,6 +1368,10 @@ static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, u
 }
 
 static bvnode_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+  bvc_hobj_t bvc_offset_hobj;
+  bvc_offset_hobj.m.hash = (hobj_hash_t) hash_bvc_offset_hobj;
+  bvc_offset_hobj.m.eq = (hobj_eq_t) eq_bvc_offset_hobj;
+  bvc_offset_hobj.m.build = (hobj_build_t) build_bvc_offset_hobj;
   bvc_offset_hobj.dag = dag;
   bvc_offset_hobj.c = a;
   bvc_offset_hobj.bitsize = bitsize;
@@ -1418,6 +1380,10 @@ static bvnode_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, ui
 }
 
 static bvnode_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+  bvc64_hobj_t bvc_mono64_hobj;
+  bvc_mono64_hobj.m.hash = (hobj_hash_t) hash_bvc_mono64_hobj;
+  bvc_mono64_hobj.m.eq = (hobj_eq_t) eq_bvc_mono64_hobj;
+  bvc_mono64_hobj.m.build = (hobj_build_t) build_bvc_mono64_hobj;
   bvc_mono64_hobj.dag = dag;
   bvc_mono64_hobj.c = a;
   bvc_mono64_hobj.bitsize = bitsize;
@@ -1426,6 +1392,10 @@ static bvnode_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uin
 }
 
 static bvnode_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+  bvc_hobj_t bvc_mono_hobj;
+  bvc_mono_hobj .m.hash = (hobj_hash_t) hash_bvc_mono_hobj;
+  bvc_mono_hobj.m.eq = (hobj_eq_t) eq_bvc_mono_hobj;
+  bvc_mono_hobj.m.build = (hobj_build_t) build_bvc_mono_hobj;
   bvc_mono_hobj.dag = dag;
   bvc_mono_hobj.c = a;
   bvc_mono_hobj.bitsize = bitsize;
@@ -1435,6 +1405,10 @@ static bvnode_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
 
 // note: a must be sorted
 static bvnode_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint32_t bitsize) {
+  bvc_prod_hobj_t bvc_prod_hobj;
+  bvc_prod_hobj.m.hash = (hobj_hash_t) hash_bvc_prod_hobj;
+  bvc_prod_hobj.m.eq = (hobj_eq_t) eq_bvc_prod_hobj;
+  bvc_prod_hobj.m.build = (hobj_build_t) build_bvc_prod_hobj;
   bvc_prod_hobj.dag = dag;
   bvc_prod_hobj.pp = a;
   bvc_prod_hobj.bitsize = bitsize;
@@ -1444,6 +1418,10 @@ static bvnode_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint
 
 // a must be sorted
 static bvnode_t bvc_dag_get_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t len, uint32_t bitsize) {
+  bvc_sum_hobj_t bvc_sum_hobj;
+  bvc_sum_hobj.m.hash = (hobj_hash_t) hash_bvc_sum_hobj;
+  bvc_sum_hobj.m.eq = (hobj_eq_t) eq_bvc_sum_hobj;
+  bvc_sum_hobj.m.build = (hobj_build_t) build_bvc_sum_hobj;
   bvc_sum_hobj.dag = dag;
   bvc_sum_hobj.noccs = a;
   bvc_sum_hobj.bitsize = bitsize;
@@ -2544,7 +2522,6 @@ static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
   return -1;
 }
 
-
 #ifndef NDEBUG
 /*
  * Check that all variables in a power product denote positive nodes
@@ -2563,6 +2540,7 @@ static bool pprod_is_normalized(bvc_prod_t *p) {
 }
 #endif
 
+ 
 /*
  * Remove all zero exponents from p and recompute the bit hash
  */
@@ -2796,6 +2774,7 @@ static void normalize_sum_after_replace(bvc_dag_t *dag, ivector_t *v, node_occ_t
 
     // add c * n to vector v
     v->data[j] = x;
+    j ++;
     if (same_node(x, n)) break; // c * n is either +n or -n so we're done
 
     // x may be a duplicate now
@@ -3088,6 +3067,7 @@ static void zero_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x,
  * Simplify nodes that depend on i after i is converted to zero
  */
 static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
+  ivector_t *v;
   int32_t *l;
   uint32_t j, m;
   bvnode_t x;
@@ -3097,11 +3077,18 @@ static void propagate_zero_node(bvc_dag_t *dag, bvnode_t i) {
   l = dag->use[i];
   if (l != NULL) {
     m = iv_size(l);
+
+    // copy l into dag->use_buffer since l may be modified
+    v = &dag->use_buffer;
+    ivector_copy(v, l, m);
+
     for (j=0; j<m; j++) {
-      x = l[j];
+      x = v->data[j];
       assert(0 < x && x <= dag->nelems);
       zero_node_in_descriptor(dag, dag->desc[x], x, i);
     }
+
+    ivector_reset(v);
   }
 }
 
@@ -3174,6 +3161,7 @@ static void alias_node_in_descriptor(bvc_dag_t *dag, bvc_header_t *d, bvnode_t x
  * Simplify nodes that depend on i after i is aliased to node n
  */
 static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+  ivector_t *v;
   int32_t *l;
   uint32_t j, m;
   bvnode_t x;
@@ -3183,12 +3171,18 @@ static void propagate_alias_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
   l = dag->use[i];
   if (l != NULL) {
     m = iv_size(l);
+
+    // copy l into dag->buffer since l may be modified
+    v = &dag->use_buffer;
+    ivector_copy(v, l, m);
     for (j=0; j<m; j++) {
-      x = l[j];
+      x = v->data[j];
       assert(0 < x && x <= dag->nelems);
       alias_node_in_descriptor(dag, dag->desc[x], x, i, n);
       bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
     }
+    ivector_reset(v);
+
     delete_index_vector(l);
     dag->use[i] = NULL;
   }
@@ -3606,6 +3600,8 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
     }
 
     ivector_reset(v);
+
+    propagate_simplifications(dag);
   }
 
 }
@@ -4203,5 +4199,3 @@ int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {
 
   return -1;
 }
-
-

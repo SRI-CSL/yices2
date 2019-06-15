@@ -37,6 +37,9 @@
 #include "utils/memalloc.h"
 #include "utils/ptr_partitions.h"
 
+#include "api/yices_globals.h"
+#include "mt/thread_macros.h"
+
 
 #define TRACE 0
 #define TRACE_FCHECK 0
@@ -1371,64 +1374,13 @@ static eterm_t build_lambda_obj(lambda_hobj_t *p) {
 
 
 /*
- * Interface objects:
- * type coercion are necessary to stop GCC warnings
- */
-static apply_hobj_t apply_hobj = {
-  { (hobj_hash_t) hash_apply_obj, (hobj_eq_t) equal_apply_obj, (hobj_build_t) build_apply_obj },
-  NULL,
-  0, 0, NULL,
-};
-
-static update_hobj_t update_hobj = {
-  { (hobj_hash_t) hash_update_obj, (hobj_eq_t) equal_update_obj, (hobj_build_t) build_update_obj },
-  NULL,
-  0, 0, NULL, 0,
-};
-
-static composite_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple_obj, (hobj_eq_t) equal_tuple_obj, (hobj_build_t) build_tuple_obj },
-  NULL,
-  0, NULL,
-};
-
-static eq_hobj_t eq_hobj = {
-  { (hobj_hash_t) hash_eq_obj, (hobj_eq_t) equal_eq_obj, (hobj_build_t) build_eq_obj },
-  NULL,
-  0, 0,
-};
-
-
-static ite_hobj_t ite_hobj = {
-  { (hobj_hash_t) hash_ite_obj, (hobj_eq_t) equal_ite_obj, (hobj_build_t) build_ite_obj },
-  NULL,
-  0, 0, 0,
-};
-
-static composite_hobj_t distinct_hobj = {
-  { (hobj_hash_t) hash_distinct_obj, (hobj_eq_t) equal_distinct_obj, (hobj_build_t) build_distinct_obj },
-  NULL,
-  0, NULL,
-};
-
-static composite_hobj_t or_hobj = {
-  { (hobj_hash_t) hash_or_obj, (hobj_eq_t) equal_or_obj, (hobj_build_t) build_or_obj },
-  NULL,
-  0, NULL,
-};
-
-static lambda_hobj_t lambda_hobj = {
-  { (hobj_hash_t) hash_lambda_obj, (hobj_eq_t) equal_lambda_obj, (hobj_build_t) build_lambda_obj },
-  NULL,
-  0, 0,
-};
-
-
-
-/*
  * Hash-consing constructors
  */
 static eterm_t egraph_apply_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
+  apply_hobj_t apply_hobj;
+  apply_hobj.m.hash = (hobj_hash_t) hash_apply_obj;
+  apply_hobj.m.eq = (hobj_eq_t) equal_apply_obj;
+  apply_hobj.m.build = (hobj_build_t) build_apply_obj;
   apply_hobj.egraph = egraph;
   apply_hobj.f = f;
   apply_hobj.n = n;
@@ -1438,6 +1390,10 @@ static eterm_t egraph_apply_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 }
 
 static eterm_t egraph_update_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_t v) {
+  update_hobj_t update_hobj;
+  update_hobj.m.hash = (hobj_hash_t) hash_update_obj;
+  update_hobj.m.eq = (hobj_eq_t) equal_update_obj;
+  update_hobj.m.build = (hobj_build_t) build_update_obj;
   update_hobj.egraph = egraph;
   update_hobj.f = f;
   update_hobj.n = n;
@@ -1448,6 +1404,10 @@ static eterm_t egraph_update_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *
 }
 
 static eterm_t egraph_tuple_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t tuple_hobj;
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple_obj;
+  tuple_hobj.m.eq = (hobj_eq_t) equal_tuple_obj;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_obj;
   tuple_hobj.egraph = egraph;
   tuple_hobj.n = n;
   tuple_hobj.a = a;
@@ -1456,6 +1416,10 @@ static eterm_t egraph_tuple_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 static eterm_t egraph_eq_term(egraph_t *egraph, occ_t t1, occ_t t2) {
+  eq_hobj_t eq_hobj;
+  eq_hobj.m.hash = (hobj_hash_t) hash_eq_obj;
+  eq_hobj.m.eq = (hobj_eq_t) equal_eq_obj;
+  eq_hobj.m.build = (hobj_build_t) build_eq_obj;
   eq_hobj.egraph = egraph;
   eq_hobj.t1 = t1;
   eq_hobj.t2 = t2;
@@ -1464,6 +1428,10 @@ static eterm_t egraph_eq_term(egraph_t *egraph, occ_t t1, occ_t t2) {
 }
 
 static eterm_t egraph_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t t3) {
+  ite_hobj_t ite_hobj;
+  ite_hobj.m.hash = (hobj_hash_t) hash_ite_obj;
+  ite_hobj.m.eq = (hobj_eq_t) equal_ite_obj;
+  ite_hobj.m.build = (hobj_build_t) build_ite_obj;
   ite_hobj.egraph = egraph;
   ite_hobj.t1 = t1;
   ite_hobj.t2 = t2;
@@ -1473,8 +1441,13 @@ static eterm_t egraph_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t t3) {
 }
 
 static eterm_t egraph_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t distinct_hobj;
+
   assert(n >= 3);
 
+  distinct_hobj.m.hash = (hobj_hash_t) hash_distinct_obj;
+  distinct_hobj.m.eq = (hobj_eq_t) equal_distinct_obj;
+  distinct_hobj.m.build = (hobj_build_t) build_distinct_obj;
   distinct_hobj.egraph = egraph;
   distinct_hobj.n = n;
   distinct_hobj.a = a;
@@ -1483,6 +1456,10 @@ static eterm_t egraph_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 static eterm_t egraph_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t or_hobj;
+  or_hobj.m.hash = (hobj_hash_t) hash_or_obj;
+  or_hobj.m.eq = (hobj_eq_t) equal_or_obj;
+  or_hobj.m.build = (hobj_build_t) build_or_obj;
   or_hobj.egraph = egraph;
   or_hobj.n = n;
   or_hobj.a = a;
@@ -1491,6 +1468,10 @@ static eterm_t egraph_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 static eterm_t egraph_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
+  lambda_hobj_t lambda_hobj;
+  lambda_hobj.m.hash = (hobj_hash_t) hash_lambda_obj;
+  lambda_hobj.m.eq = (hobj_eq_t) equal_lambda_obj;
+  lambda_hobj.m.build = (hobj_build_t) build_lambda_obj;
   lambda_hobj.egraph = egraph;
   lambda_hobj.t = t;
   lambda_hobj.tag = tag;
@@ -1505,6 +1486,10 @@ static eterm_t egraph_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
  * - they return the eterm index otherwise
  */
 static eterm_t egraph_find_apply_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
+  apply_hobj_t apply_hobj;
+  apply_hobj.m.hash = (hobj_hash_t) hash_apply_obj;
+  apply_hobj.m.eq = (hobj_eq_t) equal_apply_obj;
+  apply_hobj.m.build = (hobj_build_t) build_apply_obj;
   apply_hobj.egraph = egraph;
   apply_hobj.f = f;
   apply_hobj.n = n;
@@ -1514,6 +1499,10 @@ static eterm_t egraph_find_apply_term(egraph_t *egraph, occ_t f, uint32_t n, occ
 }
 
 static eterm_t egraph_find_update_term(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_t v) {
+  update_hobj_t update_hobj;
+  update_hobj.m.hash = (hobj_hash_t) hash_update_obj;
+  update_hobj.m.eq = (hobj_eq_t) equal_update_obj;
+  update_hobj.m.build = (hobj_build_t) build_update_obj;
   update_hobj.egraph = egraph;
   update_hobj.f = f;
   update_hobj.n = n;
@@ -1524,6 +1513,10 @@ static eterm_t egraph_find_update_term(egraph_t *egraph, occ_t f, uint32_t n, oc
 }
 
 static eterm_t egraph_find_tuple_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t tuple_hobj;
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple_obj;
+  tuple_hobj.m.eq = (hobj_eq_t) equal_tuple_obj;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_obj;
   tuple_hobj.egraph = egraph;
   tuple_hobj.n = n;
   tuple_hobj.a = a;
@@ -1532,6 +1525,10 @@ static eterm_t egraph_find_tuple_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 static eterm_t egraph_find_eq_term(egraph_t *egraph, occ_t t1, occ_t t2) {
+  eq_hobj_t eq_hobj;
+  eq_hobj.m.hash = (hobj_hash_t) hash_eq_obj;
+  eq_hobj.m.eq = (hobj_eq_t) equal_eq_obj;
+  eq_hobj.m.build = (hobj_build_t) build_eq_obj;
   eq_hobj.egraph = egraph;
   eq_hobj.t1 = t1;
   eq_hobj.t2 = t2;
@@ -1540,6 +1537,10 @@ static eterm_t egraph_find_eq_term(egraph_t *egraph, occ_t t1, occ_t t2) {
 }
 
 static eterm_t egraph_find_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t t3) {
+  ite_hobj_t ite_hobj;
+  ite_hobj.m.hash = (hobj_hash_t) hash_ite_obj;
+  ite_hobj.m.eq = (hobj_eq_t) equal_ite_obj;
+  ite_hobj.m.build = (hobj_build_t) build_ite_obj;
   ite_hobj.egraph = egraph;
   ite_hobj.t1 = t1;
   ite_hobj.t2 = t2;
@@ -1549,8 +1550,13 @@ static eterm_t egraph_find_ite_term(egraph_t *egraph, occ_t t1, occ_t t2, occ_t 
 }
 
 static eterm_t egraph_find_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t distinct_hobj;
+
   assert(n >= 3);
 
+  distinct_hobj.m.hash = (hobj_hash_t) hash_distinct_obj;
+  distinct_hobj.m.eq = (hobj_eq_t) equal_distinct_obj;
+  distinct_hobj.m.build = (hobj_build_t) build_distinct_obj;
   distinct_hobj.egraph = egraph;
   distinct_hobj.n = n;
   distinct_hobj.a = a;
@@ -1559,6 +1565,10 @@ static eterm_t egraph_find_distinct_term(egraph_t *egraph, uint32_t n, occ_t *a)
 }
 
 static eterm_t egraph_find_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
+  composite_hobj_t or_hobj;
+  or_hobj.m.hash = (hobj_hash_t) hash_or_obj;
+  or_hobj.m.eq = (hobj_eq_t) equal_or_obj;
+  or_hobj.m.build = (hobj_build_t) build_or_obj;
   or_hobj.egraph = egraph;
   or_hobj.n = n;
   or_hobj.a = a;
@@ -1567,6 +1577,10 @@ static eterm_t egraph_find_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 static eterm_t egraph_find_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
+  lambda_hobj_t lambda_hobj;
+  lambda_hobj.m.hash = (hobj_hash_t) hash_lambda_obj;
+  lambda_hobj.m.eq = (hobj_eq_t) equal_lambda_obj;
+  lambda_hobj.m.build = (hobj_build_t) build_lambda_obj;
   lambda_hobj.egraph = egraph;
   lambda_hobj.t = t;
   lambda_hobj.tag = tag;
@@ -1647,22 +1661,17 @@ static eterm_t build_const_hobj(const_hobj_t *p) {
   return new_eterm(&p->egraph->terms, mk_constant_body(p->id));
 }
 
-
-static const_hobj_t const_hobj = {
-  { (hobj_hash_t) hash_const_hobj, (hobj_eq_t) equal_const_hobj, (hobj_build_t) build_const_hobj },
-  NULL,
-  0, 0,
-};
-
-
-
 /*
  * Get the constant term defined by (tau, id):
  * - if that's a new term, the initialization is not complete yet
  */
 static eterm_t egraph_constant_term(egraph_t *egraph, type_t tau, int32_t id) {
   int_htbl_t *const_htbl;
+  const_hobj_t const_hobj;
 
+  const_hobj.m.hash = (hobj_hash_t) hash_const_hobj;
+  const_hobj.m.eq = (hobj_eq_t) equal_const_hobj;
+  const_hobj.m.build = (hobj_build_t) build_const_hobj;
   const_hobj.egraph = egraph;
   const_hobj.tau = tau;
   const_hobj.id = id;
@@ -2580,7 +2589,7 @@ literal_t egraph_make_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
    * The test for reconcile_mode was missing. Bug reported by Martin Gabris.
    */
   //  if (egraph->base_level == egraph->decision_level) {
-  if (egraph->base_level == egraph->decision_level 
+  if (egraph->base_level == egraph->decision_level
       && (! egraph->reconcile_mode || egraph->stack.top == egraph->reconcile_neqs)) {
     if (egraph_equal_occ(egraph, t1, t2)) {
       return true_literal;
@@ -2877,7 +2886,7 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 /*
  * Conversion from a type tau in the type table to an egraph type
  */
-static const uint8_t type_kind2etype[FUNCTION_TYPE+1] = {
+static const uint8_t type_kind2etype[NUM_TYPE_KINDS] = {
   ETYPE_NONE,     // UNUSED_TYPE (should not occur)
   ETYPE_BOOL,     // BOOL_TYPE
   ETYPE_INT,      // INT_TYPE
@@ -2888,6 +2897,7 @@ static const uint8_t type_kind2etype[FUNCTION_TYPE+1] = {
   ETYPE_NONE,     // VARIABLE_TYPE (should not occur)
   ETYPE_TUPLE,    // TUPLE_TYPE
   ETYPE_FUNCTION, // FUNCTION_TYPE
+  ETYPE_NONE,     // INSTANCE_TYPE
 };
 
 static inline etype_t type_to_etype(type_table_t *types, type_t tau) {
@@ -3264,8 +3274,8 @@ eterm_t egraph_get_tuple_in_class(egraph_t *egraph, eterm_t t) {
  * if the variable v is already assigned. This makes sure that the
  * egraph will be notified that v' is true or false on the next call
  * to propagate, and turn that into t==true or t==false.
- * 
- * 
+ *
+ *
  * If a new term is created, it is activated.
  */
 eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
@@ -3280,7 +3290,7 @@ eterm_t egraph_bvar2term(egraph_t *egraph, bvar_t v) {
   atom = bvar_atom(core, v);
   if (atom != NULL && atom_tag(atom) == EGRAPH_ATM_TAG) {
     return ((atom_t *) atom)->eterm;
-  } 
+  }
 
   if (atom != NULL || bvar_is_assigned(core, v)) {
     /*
@@ -3378,17 +3388,6 @@ static eterm_t build_aux_eq_obj(eq_hobj_t *p) {
   return new_eq(g, p->t1, p->t2);
 }
 
-
-/*
- * Hash-consing object
- */
-static eq_hobj_t aux_eq_hobj = {
-  { (hobj_hash_t) hash_eq_obj, (hobj_eq_t) equal_eq_obj, (hobj_build_t) build_aux_eq_obj },
-  NULL,
-  0, 0,
-};
-
-
 /*
  * Constructor for auxiliary equality:
  * - returns null_literal if the construction fails (i.e., when the quota is reached)
@@ -3396,6 +3395,7 @@ static eq_hobj_t aux_eq_hobj = {
 static literal_t egraph_make_aux_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   occ_t aux;
   eterm_t t;
+  eq_hobj_t aux_eq_hobj;
 
   if (t1 == t2) return true_literal;
 
@@ -3405,6 +3405,9 @@ static literal_t egraph_make_aux_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   }
 
   // call hash-consing constructor
+  aux_eq_hobj.m.hash = (hobj_hash_t) hash_eq_obj;
+  aux_eq_hobj.m.eq = (hobj_eq_t) equal_eq_obj;
+  aux_eq_hobj.m.build =(hobj_build_t) build_aux_eq_obj ;
   aux_eq_hobj.egraph = egraph;
   aux_eq_hobj.t1 = t1;
   aux_eq_hobj.t2 = t2;
@@ -6185,7 +6188,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
  * If all return SAT, try to build consistent models
  * If models are not consistent, generate interface equalities
  */
-fcheck_code_t egraph_final_check(egraph_t *egraph) {
+fcheck_code_t _o_egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
   //  if (egraph->base_level == egraph->decision_level || egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
@@ -6194,6 +6197,9 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   } else {
     return experimental_final_check(egraph);
   }
+}
+fcheck_code_t egraph_final_check(egraph_t *egraph) {
+  MT_PROTECT(fcheck_code_t, __yices_globals.lock, _o_egraph_final_check(egraph));
 }
 
 
@@ -7814,4 +7820,3 @@ void egraph_free_model(egraph_t *egraph) {
   }
   reset_egraph_model(&egraph->mdl);
 }
-

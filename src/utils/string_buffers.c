@@ -205,13 +205,13 @@ void string_buffer_append_mpq(string_buffer_t *s, mpq_t q) {
 }
 
 void string_buffer_append_rational(string_buffer_t *s, rational_t *r) {
-  if (r->den == 0) {
-    string_buffer_append_mpq(s, get_mpq(r->num));
+  if (is_ratgmp(r)) {
+    string_buffer_append_mpq(s, get_gmp(r));
   } else {
-    string_buffer_append_int32(s, r->num);
-    if (r->den != 1) {
+    string_buffer_append_int32(s, get_num(r));
+    if (get_den(r) != 1) {
       string_buffer_append_char(s, '/');
-      string_buffer_append_uint32(s, r->den);
+      string_buffer_append_uint32(s, get_den(r));
     }
   }
 }
