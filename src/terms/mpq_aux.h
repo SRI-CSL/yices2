@@ -51,7 +51,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <assert.h>
 
 #include <gmp.h>
 
@@ -215,9 +214,6 @@ extern void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den);
 #else /* ULONG_SIZE == 8 */
 
 static inline void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
-
-  assert(den > 0);
-
   mpq_set_si(q, num, den);
 }
 
@@ -233,9 +229,6 @@ static inline void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
  * For 32bit numbers the GMP functions should always be fine
  */
 static inline void mpq_set_int32(mpq_t q, int32_t num, uint32_t den) {
-
-  assert(den > 0);
-
   mpq_set_si(q, num, den);
 }
 

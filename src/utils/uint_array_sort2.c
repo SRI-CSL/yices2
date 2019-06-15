@@ -55,10 +55,9 @@ static inline void sort_array2(uint32_t *a, uint32_t n, void *data, uint_cmp_fun
 static void qsort_uint_array2(uint32_t *a, uint32_t n, void *data, uint_cmp_fun_t cmp) {
   uint32_t i, j;
   uint32_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(n);
   x = a[i];
 
   // swap x and a[0]

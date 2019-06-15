@@ -385,8 +385,7 @@ value_t make_fresh_integer(fresh_val_maker_t *maker) {
 
 
 /*
- * Fresh constant of uninterpreted or scalar type tau
- * - instance types are treated like uninterpreted types
+ * Fresh constant of primitive or scalar type tau
  */
 value_t make_fresh_const(fresh_val_maker_t *maker, type_t tau) {
   tuple_counter_t *r;
@@ -394,7 +393,6 @@ value_t make_fresh_const(fresh_val_maker_t *maker, type_t tau) {
   value_t v;
 
   assert(is_uninterpreted_type(maker->types, tau) ||
-	 is_instance_type(maker->types, tau) ||
 	 is_scalar_type(maker->types, tau));
 
   /*
@@ -726,7 +724,6 @@ value_t make_fresh_value(fresh_val_maker_t *maker, type_t tau) {
 
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
-  case INSTANCE_TYPE:
     v = make_fresh_const(maker, tau);
     break;
 

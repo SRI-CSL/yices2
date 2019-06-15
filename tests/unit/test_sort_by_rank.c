@@ -57,10 +57,9 @@ static void isort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
 static void qsort_by_rank(bddvar_t *a, uint32_t n, uint32_t *rank) {
   uint32_t i, j, r;
   bddvar_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
-  
+
   // x = randomly picked pivot
-  i = random_uint(&seed, n);
+  i = random_uint(n);
   x = a[i];
   r = rank[x];
 
@@ -129,10 +128,9 @@ static void check_sorted_array(bddvar_t *a, uint32_t n, uint32_t *rank) {
  */
 static void random_ranks(uint32_t n, uint32_t *rank) {
   uint32_t i;
-  uint32_t seed = PRNG_DEFAULT_SEED;
-  
+
   for (i=0; i<n; i++) {
-    rank[i] = random_uint(&seed, 50);
+    rank[i] = random_uint(50);
   }
 }
 

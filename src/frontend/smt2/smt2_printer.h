@@ -41,6 +41,7 @@
 #include "io/yices_pp.h"
 #include "model/concrete_values.h"
 
+
 /*
  * Print object c using a pretty printer object
  * - c must be a valid object in table
@@ -73,14 +74,6 @@ extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *tab
  */
 extern void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 
-
-/*
- * Print a definition in the SMT2 style:
- *
- *   (define-fun name () tau value)
- */
-extern void smt2_pp_def(yices_pp_t *printer, value_table_t *table, const char *name,
-			type_t tau, value_t c);
 
 
 #endif  /* __SMT2_PRINTER_H */

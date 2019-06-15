@@ -1458,6 +1458,16 @@ static int32_t build_atom(rdlatom_hobj_t *p) {
 }
 
 /*
+ * Hobject
+ */
+static rdlatom_hobj_t atom_hobj = {
+  { (hobj_hash_t) hash_atom, (hobj_eq_t) equal_atom, (hobj_build_t) build_atom },
+  NULL,
+  0, 0, 0,
+};
+
+
+/*
  * Atom constructor: use hash consing
  * - if the atom is new, create a fresh boolean variable v
  *   and the atom index to v in the core
@@ -1466,11 +1476,7 @@ static bvar_t bvar_for_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational
   int32_t id;
   rdl_atom_t *atm;
   bvar_t v;
-  rdlatom_hobj_t atom_hobj;
 
-  atom_hobj.m.hash = (hobj_hash_t) hash_atom;
-  atom_hobj.m.eq = (hobj_eq_t) equal_atom;
-  atom_hobj.m.build = (hobj_build_t) build_atom;
   atom_hobj.atbl = &solver->atoms;
   atom_hobj.source = x;
   atom_hobj.target = y;

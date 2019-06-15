@@ -46,10 +46,10 @@ static mpq_t q0;
  */
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
-  if (is_ratgmp(r)) {
-    equal = mpq_equal(get_gmp(r), q);
+  if (r->den == 0) {
+    equal = mpq_equal(bank_q[r->num], q);
   } else {
-    equal = (mpq_cmp_si(q, get_num(r), get_den(r)) == 0);
+    equal = (mpq_cmp_si(q, r->num, r->den) == 0);
   }
   if (! equal) {
     printf("q_check_error\n");

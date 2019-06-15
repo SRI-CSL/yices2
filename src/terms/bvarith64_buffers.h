@@ -112,6 +112,7 @@ extern void delete_bvmlist64_store(object_store_t *s);
  */
 extern void init_bvarith64_buffer(bvarith64_buffer_t *b, pprod_table_t *ptbl, object_store_t *s);
 
+
 /*
  * Delete b and free all attached memory
  */
@@ -293,19 +294,6 @@ extern void bvarith64_buffer_add_const(bvarith64_buffer_t *b, uint64_t a);
  * Add constant (-a) to b
  */
 extern void bvarith64_buffer_sub_const(bvarith64_buffer_t *b, uint64_t a);
-
-
-/*
- * Add one to b
- */
-extern void bvarith64_buffer_add_one(bvarith64_buffer_t *b);
-
-
-/*
- * Subtract one from b
- */
-extern void bvarith64_buffer_sub_one(bvarith64_buffer_t *b);
-
 
 
 /*

@@ -1040,8 +1040,7 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
  * Set the prng seed
  */
 void sat_solver_set_seed(sat_solver_t *solver, uint32_t s) {
-  uint32_t seed = PRNG_DEFAULT_SEED;
-  random_seed(&seed, s);
+  random_seed(s);
 }
 
 

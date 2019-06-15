@@ -2796,16 +2796,18 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
 /*
  * More pretty printing
  */
+static pp_area_t default_area = {
+  120,        // width
+  UINT32_MAX, // height
+  0,          // offset
+  false,      // stretch
+  false       // truncate
+};
+
 void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
   yices_pp_t printer;
 
   if (area == NULL) {
-    pp_area_t default_area;
-    default_area.width = 120;
-    default_area.height = UINT32_MAX;
-    default_area.offset = 0;
-    default_area.stretch = false;
-    default_area.truncate = false;
     area = &default_area;
   }
   init_yices_pp(&printer, f, area, PP_VMODE, 0);
@@ -2818,12 +2820,6 @@ void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t 
   yices_pp_t printer;
 
   if (area == NULL) {
-    pp_area_t default_area;
-    default_area.width = 120;
-    default_area.height = UINT32_MAX;
-    default_area.offset = 0;
-    default_area.stretch = false;
-    default_area.truncate = false;
     area = &default_area;
   }
   init_yices_pp(&printer, f, area, PP_VMODE, 0);

@@ -138,7 +138,7 @@ static void model_print_constant_assignments(FILE *f, model_t *model, term_t *a,
   for (i=0; i<n; i++) {
     t = a[i];
     tau = term_type_kind(terms, t);
-    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE || tau == INSTANCE_TYPE) {
+    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE) {
       c = model_find_term_value(model, t);
       d = vtbl_unint(&model->vtbl, c);
       name = term_name(terms, t);
@@ -399,7 +399,7 @@ static void eval_print_constant_assignments(FILE *f, evaluator_t *eval, term_t *
   for (i=0; i<n; i++) {
     t = a[i];
     tau = term_type_kind(terms, t);
-    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE || tau == INSTANCE_TYPE) {
+    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE) {
       c = eval_in_model(eval, t);
       d = vtbl_unint(&model->vtbl, c);
       name = term_name(terms, t);
@@ -646,7 +646,7 @@ static void model_pp_constant_assignments(yices_pp_t *printer, model_t *model, t
   for (i=0; i<n; i++) {
     t = a[i];
     tau = term_type_kind(terms, t);
-    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE || tau == INSTANCE_TYPE) {
+    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE) {
       c = model_find_term_value(model, t);
       d = vtbl_unint(&model->vtbl, c);
       name = term_name(terms, t);
@@ -899,7 +899,7 @@ static void eval_pp_constant_assignments(yices_pp_t *printer, evaluator_t *eval,
   for (i=0; i<n; i++) {
     t = a[i];
     tau = term_type_kind(terms, t);
-    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE || tau == INSTANCE_TYPE) {
+    if (tau == UNINTERPRETED_TYPE || tau == SCALAR_TYPE) {
       c = eval_in_model(eval, t);
       d = vtbl_unint(&model->vtbl, c);
       name = term_name(terms, t);

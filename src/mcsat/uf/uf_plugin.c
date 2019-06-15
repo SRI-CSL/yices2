@@ -31,8 +31,8 @@
 #include "model/models.h"
 
 #include "terms/terms.h"
+
 #include "inttypes.h"
-#include "terms/term_manager.h"
 
 typedef struct {
 

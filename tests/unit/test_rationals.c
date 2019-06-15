@@ -75,19 +75,19 @@ static mpq_t q0, q1, q2;
  * Tests
  */
 static void q_export(rational_t *r, mpq_t q) {
-  if (is_ratgmp(r)) {
-    mpq_set(q, get_gmp(r));
+  if (r->den == 0) {
+    mpq_set(q, bank_q[r->num]);
   } else {
-    mpq_set_int32(q, get_num(r), get_den(r));
+    mpq_set_int32(q, r->num, r->den);
   }
 }
 
 static void q_check_equal(rational_t *r, mpq_t q) {
   int32_t equal;
-  if (is_ratgmp(r)) {
-    equal = mpq_equal(get_gmp(r), q);
+  if (r->den == 0) {
+    equal = mpq_equal(bank_q[r->num], q);
   } else {
-    equal = (mpq_cmp_si(q, get_num(r), get_den(r)) == 0);
+    equal = (mpq_cmp_si(q, r->num, r->den) == 0);
   }
   if (! equal) {
     printf("q_check_error\n");

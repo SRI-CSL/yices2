@@ -132,10 +132,9 @@ static inline void sort_map_array(map_elem_t *a, uint32_t n) {
 static void qsort_map_array(map_elem_t *a, uint32_t n) {
   uint32_t i, j;
   map_elem_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(n);
   x = a[i];
 
   // swap a[i] and a[0]

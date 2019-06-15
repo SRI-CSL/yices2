@@ -17,21 +17,18 @@
  */
 
 /*
- * NEORATIONAL NUMBERS
+ * RATIONAL NUMBERS
  */
 
 #ifndef __RATIONALS_H
 #define __RATIONALS_H
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <gmp.h>
 
 #include "terms/mpq_aux.h"
-
-#include "utils/memalloc.h"
 
 
 
@@ -40,35 +37,20 @@
  */
 
 /*
- * A Neorational is a union of size 64 bits.
- *
- * if the least bit is 1 it represents a
- * pointer to a gmp number.
- *
- * if the least bit is zero it is a struct
- * consisting of
- * a 32 bit signed numerator, and
- * a 31 bit unsigned denominator.
- *
+ * Rational = a pair of 32bit integers
+ * - if den = 0 then num is an index into
+ *   a global table of gmp rationals.
  */
-
 typedef struct {
+  int32_t num;
   uint32_t den;
-  int32_t  num;
-} rat32_t;
-
-typedef struct {
-  intptr_t gmp;
-} ratgmp_t;
+} rational_t;
 
 
-typedef union rational { rat32_t s; ratgmp_t p; } rational_t;   //s for struct; p for pointer
-
-#define IS_RAT32  0x0
-#define IS_RATGMP 0x1
-/* the test for unicity in the denominator occurs frequently. the denominator is one if it is 2 :-) */
-#define ONE_DEN   0x2
-
+/*
+ * Global bank of GMP numbers
+ */
+extern mpq_t *bank_q;
 
 /*
  * Initialization: allocate and initialize
@@ -83,65 +65,44 @@ extern void init_rationals(void);
 extern void cleanup_rationals(void);
 
 
+
+
+/*
+ * INITIALIZATION/DELETION
+ */
+
+/*
+ * q_init must be called before any operation on a rational
+ * q_clear must be called before the rational object is freed
+ * q_clear can also be used to reset a rational to 0
+ */
+
+/*
+ * Release internal gmp number of index i.
+ */
+extern void free_mpq(int32_t i);
+
+/*
+ * Get internal gmp number of index i.
+ */
+extern mpq_ptr get_mpq(int32_t i);
+
 /*
  * Set r to 0/1, Must be called before any operation on r.
  */
 static inline void q_init(rational_t *r) {
-  r->s.num = 0;
-  r->s.den = ONE_DEN;
+  r->num = 0;
+  r->den = 1;
 }
-
-
-/*
- * Abstract Syntax (used to hide the difference b/w paleorationals and neorationals .
- *
- */
-
-/* the thing is a struct if the least bit is zero */
-static inline bool is_rat32(const rational_t *r) {
-  return (r->p.gmp & IS_RATGMP) != IS_RATGMP;
-}
-
-/* the thing is a pointer if the last bit is one */
-static inline bool is_ratgmp(const rational_t *r) {
-  return (r->p.gmp & IS_RATGMP) == IS_RATGMP;
-}
-
-static inline mpq_ptr get_gmp(const rational_t *r) {
-  assert(is_ratgmp(r));  
-  return ((mpq_ptr)(r->p.gmp ^ IS_RATGMP));
-}
-
-static inline int32_t get_num(const rational_t *r) {
-  assert(is_rat32(r));  
-  return r->s.num;
-}
-
-static inline uint32_t get_den(const rational_t *r) {
-  assert(is_rat32(r));
-  return r->s.den >> 1;
-}
-
-static inline void set_ratgmp(rational_t *r, mpq_ptr gmp){
-  r->p.gmp = ((intptr_t) gmp) | IS_RATGMP;
-}
-
-
-/*
- * Free an mpq
- */
-extern void release_mpq(rational_t *r);
 
 /*
  * Free mpq number attached to r if any, then set r to 0/1.
  * Must be called before r is deleted to prevent memory leaks.
  */
 static inline void q_clear(rational_t *r) {
-  if (is_ratgmp(r)) {
-    release_mpq(r);
-  }
-  r->s.num = 0;
-  r->s.den = ONE_DEN;
+  if (r->den == 0) free_mpq(r->num);
+  r->num = 0;
+  r->den = 1;
 }
 
 
@@ -152,6 +113,11 @@ static inline void q_clear(rational_t *r) {
  */
 extern void q_normalize(rational_t *r);
 
+
+
+
+
+
 /*
  * ASSIGNMENT
  */
@@ -160,14 +126,18 @@ extern void q_normalize(rational_t *r);
  * Assign +1 or -1 to r
  */
 static inline void q_set_one(rational_t *r) {
-  q_clear(r);
-  r->s.num = 1;
+  if (r->den == 0) free_mpq(r->num);
+  r->num = 1;
+  r->den = 1;
 }
 
 static inline void q_set_minus_one(rational_t *r) {
-  q_clear(r);
-  r->s.num = -1;
+  if (r->den == 0) free_mpq(r->num);
+  r->num = -1;
+  r->den = 1;
 }
+
+
 
 /*
  * Assignment operations: all set the value of the first argument (r or r1).
@@ -192,33 +162,44 @@ extern void q_set(rational_t *r1, const rational_t *r2);
 extern void q_set_neg(rational_t *r1, const rational_t *r2);
 extern void q_set_abs(rational_t *r1, const rational_t *r2);
 
+
 /*
  * Copy r2 into r1: share the gmp index if r2
  * is a gmp number. Then clear r2.
  * This can be used without calling q_init(r1).
  */
 static inline void q_copy_and_clear(rational_t *r1, rational_t *r2) {
-  *r1 = *r2;
-  r2->s.num = 0;
-  r2->s.den = ONE_DEN;
+  r1->num = r2->num;
+  r1->den = r2->den;
+  r2->num = 0;
+  r2->den = 1;
 }
+
 
 /*
  * Swap values of r1 and r2
  */
 static inline void q_swap(rational_t *r1, rational_t *r2) {
-  rational_t aux;
+  int32_t n;
+  uint32_t d;
 
-  aux = *r1;
-  *r1 = *r2;
-  *r2 = aux;
+  n = r1->num;
+  d = r1->den;
+  r1->num = r2->num;
+  r1->den = r2->den;
+  r2->num = n;
+  r2->den = d;
 }
+
+
+
 
 /*
  * Copy the numerator or denominator of r2 into r1
  */
 extern void q_get_num(rational_t *r1, const rational_t *r2);
 extern void q_get_den(rational_t *r1, const rational_t *r2);
+
 
 /*
  * String parsing:
@@ -244,6 +225,9 @@ extern void q_get_den(rational_t *r1, const rational_t *r2);
 extern int q_set_from_string(rational_t *r, const char *s);
 extern int q_set_from_string_base(rational_t *r, const char *s, int32_t b);
 extern int q_set_from_float_string(rational_t *r, const char *s);
+
+
+
 
 /*
  * ARITHMETIC: ALL OPERATIONS MODIFY THE FIRST ARGUMENT
@@ -350,6 +334,7 @@ extern void q_smt2_div(rational_t *q, const rational_t *x, const rational_t *y);
 extern void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y);
 
 
+
 /*
  * TESTS: DO NOT MODIFY THE ARGUMENT(S)
  */
@@ -359,11 +344,11 @@ extern void q_smt2_mod(rational_t *q, const rational_t *x, const rational_t *y);
  *            q_sgn(r) = +1 if r > 0
  *            q_sgn(r) = -1 if r < 0
  */
-static inline int q_sgn(const rational_t *r) {
-  if (is_ratgmp(r)) {
-    return mpq_sgn(get_gmp(r));
+static inline int q_sgn(rational_t *r) {
+  if (r->den == 0) {
+    return mpq_sgn(bank_q[r->num]);
   } else {
-    return (r->s.num < 0 ? -1 : (r->s.num > 0));
+    return (r->num < 0 ? -1 : (r->num > 0));
   }
 }
 
@@ -432,41 +417,41 @@ extern bool q_opposite(const rational_t *r1, const rational_t *r2);
  * Tests on rational r
  */
 static inline bool q_is_zero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_zero(get_gmp(r)) : r->s.num == 0;
+  return r->den == 0 ? mpq_is_zero(bank_q[r->num]) : r->num == 0;
 }
 
 static inline bool q_is_nonzero(const rational_t *r) {
-  return is_ratgmp(r) ? mpq_is_nonzero(get_gmp(r)) : r->s.num != 0;
+  return r->den == 0 ? mpq_is_nonzero(bank_q[r->num]) : r->num != 0;
 }
 
 static inline bool q_is_one(const rational_t *r) {
-  return (r->s.den == ONE_DEN && r->s.num == 1) ||
-    (is_ratgmp(r) && mpq_is_one(get_gmp(r)));
+  return (r->den == 1 && r->num == 1) ||
+    (r->den == 0 && mpq_is_one(bank_q[r->num]));
 }
 
 static inline bool q_is_minus_one(const rational_t *r) {
-  return (r->s.den == ONE_DEN && r->s.num == -1) ||
-    (is_ratgmp(r) && mpq_is_minus_one(get_gmp(r)));
+  return (r->den == 1 && r->num == -1) ||
+    (r->den == 0 && mpq_is_minus_one(bank_q[r->num]));
 }
 
 static inline bool q_is_pos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num > 0 : mpq_is_pos(get_gmp(r)));
+  return (r->den > 0 ?  r->num > 0 : mpq_is_pos(bank_q[r->num]));
 }
 
 static inline bool q_is_nonneg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num >= 0 : mpq_is_nonneg(get_gmp(r)));
+  return (r->den > 0 ?  r->num >= 0 : mpq_is_nonneg(bank_q[r->num]));
 }
 
 static inline bool q_is_neg(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num < 0 : mpq_is_neg(get_gmp(r)));
+  return (r->den > 0 ?  r->num < 0 : mpq_is_neg(bank_q[r->num]));
 }
 
 static inline bool q_is_nonpos(const rational_t *r) {
-  return (is_rat32(r) ?  r->s.num <= 0 : mpq_is_nonpos(get_gmp(r)));
+  return (r->den > 0 ?  r->num <= 0 : mpq_is_nonpos(bank_q[r->num]));
 }
 
 static inline bool q_is_integer(const rational_t *r) {
-  return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_integer(get_gmp(r)));
+  return (r->den == 1) || (r->den == 0 && mpq_is_integer(bank_q[r->num]));
 }
 
 
@@ -510,15 +495,15 @@ extern bool q_smt2_divides(const rational_t *r1, const rational_t *r2);
  * to be represented as a gmp rational).
  * Call q_normalize(r) first if there's a doubt.
  */
-static inline bool q_is_smallint(rational_t *r) {  
-  return r->s.den == ONE_DEN;
+static inline bool q_is_smallint(rational_t *r) {
+  return r->den == 1;
 }
 
 /*
  * Convert r to an integer, provided q_is_smallint(r) is true
  */
 static inline int32_t q_get_smallint(rational_t *r) {
-  return get_num(r);
+  return r->num;
 }
 
 
@@ -549,7 +534,7 @@ extern bool q_fits_int64(rational_t *r); // r is a/b where a is int64, b is uint
  * Size estimate
  * - this returns approximately the number of bits to represent r's numerator
  * - this may not be exact (typically rounded up to a multiple of 32)
- * - also if r is really really big, this function may return
+ * - also if r is really really big, this function may return 
  *   UINT32_MAX (not very likely!)
  */
 extern uint32_t q_size(rational_t *r);
@@ -624,8 +609,6 @@ extern rational_t *new_rational_array(uint32_t n);
  * - n must be the size of a
  */
 extern void free_rational_array(rational_t *a, uint32_t n);
-
-
 
 
 

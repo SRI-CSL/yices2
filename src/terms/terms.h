@@ -1267,9 +1267,6 @@ static inline bool is_tuple_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == TUPLE_TYPE;
 }
 
-static inline bool is_itype_term(const term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == INSTANCE_TYPE;
-}
 
 // Bitsize of term t
 static inline uint32_t term_bitsize(const term_table_t *table, term_t t) {
@@ -1294,15 +1291,6 @@ static inline bool is_const_kind(term_kind_t tag) {
 
 static inline bool is_const_term(const term_table_t *table, term_t t) {
   return is_const_kind(term_kind(table, t));
-}
-
-// Check whether t is a bitvector polynomials
-static inline bool is_bvpoly_kind(term_kind_t tag) {
-  return tag == BV64_POLY || tag == BV_POLY;
-}
-
-static inline bool is_bvpoly_term(const term_table_t *table, term_t t) {
-  return is_bvpoly_kind(term_kind(table, t));
 }
 
 

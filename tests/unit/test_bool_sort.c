@@ -91,13 +91,12 @@ static void isort_terms(uint32_t n, term_t *a) {
 static void qsort_terms(uint32_t n, term_t *a) {
   uint32_t i, j, r;
   term_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
-  
+
   //  assert(n > 1);
   //  if (n <= 1) return;
 
   // random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(n);
   x = a[i];
   r = bool_rank(x);
 

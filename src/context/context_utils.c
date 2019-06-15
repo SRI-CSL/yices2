@@ -317,33 +317,6 @@ void context_free_aux_poly(context_t *ctx) {
 }
 
 
-/*
- * Buffer for bitvector polynomials
- */
-bvpoly_buffer_t *context_get_bvpoly_buffer(context_t *ctx) {
-  bvpoly_buffer_t *tmp;
-
-  tmp = ctx->bvpoly_buffer;
-  if (tmp == NULL) {
-    tmp = (bvpoly_buffer_t *) safe_malloc(sizeof(bvpoly_buffer_t));
-    init_bvpoly_buffer(tmp);
-    ctx->bvpoly_buffer = tmp;
-  }
-
-  return tmp;
-}
-
-void context_free_bvpoly_buffer(context_t *ctx) {
-  bvpoly_buffer_t *tmp;
-
-  tmp = ctx->bvpoly_buffer;
-  if (tmp != NULL) {
-    delete_bvpoly_buffer(tmp);
-    safe_free(tmp);
-    ctx->bvpoly_buffer = NULL;
-  }
-}
-
 
 /*
  * CACHE/HASH MAP FOR LIFTED EQUALITIES

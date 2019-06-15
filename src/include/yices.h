@@ -111,13 +111,6 @@ __YICES_DLLSPEC__ extern const char *yices_build_date;
 __YICES_DLLSPEC__ extern int32_t yices_has_mcsat(void);
 
 
-/*
- * Check whether the library was compiled in THREAD_SAFE mode.
- * - return 1 if yes, 0 if no
- */
-__YICES_DLLSPEC__ extern int32_t yices_is_thread_safe(void);
-
-
 /***************************************
  *  GLOBAL INITIALIZATION AND CLEANUP  *
  **************************************/
@@ -3200,7 +3193,7 @@ __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
 /*
  * Set default search parameters for ctx.
  */
-__YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *ctx, param_t *params);
+__YICES_DLLSPEC__ extern void yices_default_params_for_context(context_t *ctx, param_t *params);
 
 
 /*

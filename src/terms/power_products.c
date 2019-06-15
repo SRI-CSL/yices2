@@ -182,10 +182,9 @@ static void qsort_varexp_array(varexp_t *a, uint32_t n) {
   uint32_t i, j;
   int32_t pivot;
   varexp_t aux;
-  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(n);
   aux = a[i];
   pivot = a[i].var;
 
@@ -525,15 +524,6 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n) {
     }
   }
   return true;
-}
-
-
-/*
- * Check whether b1 and b2 are equal
- * - both must be normalized
- */
-bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2) {
-  return b1->len == b2->len && varexp_array_equal(b1->prod, b2->prod, b1->len);
 }
 
 

@@ -280,6 +280,19 @@ static int32_t build_arith_atm_hobj(arith_atom_hobj_t *o) {
   return new_arith_atom(o->table, o->header, o->bound);
 }
 
+
+/*
+ * Global hash-consing object
+ */
+static arith_atom_hobj_t arith_atom_hobj = {
+  { (hobj_hash_t) hash_arith_atm_hobj, (hobj_eq_t) eq_arith_atm_hobj, (hobj_build_t) build_arith_atm_hobj },
+  NULL,
+  NULL,
+  0,
+};
+
+
+
 /*
  * EXPORTED FUNCTIONS
  */
@@ -289,11 +302,6 @@ static int32_t build_arith_atm_hobj(arith_atom_hobj_t *o) {
  * - return -1 if there's no such atom, otherwise, return the atom index
  */
 int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k) {
-  arith_atom_hobj_t arith_atom_hobj;
-
-  arith_atom_hobj.m.hash = (hobj_hash_t) hash_arith_atm_hobj;
-  arith_atom_hobj.m.eq = (hobj_eq_t) eq_arith_atm_hobj;
-  arith_atom_hobj.m.build = (hobj_build_t) build_arith_atm_hobj;
   arith_atom_hobj.table = table;
   arith_atom_hobj.header = arithatom_mk_header(x, op);
   arith_atom_hobj.bound = k;
@@ -309,11 +317,7 @@ int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, 
 int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom) {
   uint32_t n;
   int32_t i;
-  arith_atom_hobj_t arith_atom_hobj;
 
-  arith_atom_hobj.m.hash = (hobj_hash_t) hash_arith_atm_hobj;
-  arith_atom_hobj.m.eq = (hobj_eq_t) eq_arith_atm_hobj;
-  arith_atom_hobj.m.build = (hobj_build_t) build_arith_atm_hobj;
   arith_atom_hobj.table = table;
   arith_atom_hobj.header = arithatom_mk_header(x, op);
   arith_atom_hobj.bound = k;
@@ -395,3 +399,4 @@ literal_t get_literal_for_le_atom(arith_atomtable_t *table, thvar_t x, bool is_i
     return pos_lit(table->atoms[i].boolvar);
   }
 }
+

@@ -175,11 +175,7 @@ the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 
-<<<<<<< HEAD
 #### Support for Non-Linear Arithmetic and MC-SAT
-=======
-#### Support for MC-SAT (non-linear arithmetic and more)
->>>>>>> origin/master
 
 Yices supports non-linear real and integer arithmetic using a method
 known as *Model-Constructing Satisfiability* (MC-SAT), but this is not
@@ -190,20 +186,14 @@ constraints.
 If you want the MC-SAT solver, follow these instructions:
 
 1. Install SRI's library for polynomial manipulation. It's available
-   on [github](https://github.com/SRI-CSL/libpoly).
+   on github (https://github.com/SRI-CSL/libpoly).
 
-<<<<<<< HEAD
 2. Install the CUDD library for binary-decision diagrams. We recommand
    using the github distributio: https://github.com/ivmai/cudd.
 
 2. After you've installed libpoly and CUDD, add option
    `--enable-mcsat` to the configure command. In details, type this in
    the toplevel Yices directory:
-=======
-2. After you've installed libpoly, add option `--enable-mcsat` to
-   the configure command. In details, type this in the toplevel
-   Yices directory:
->>>>>>> origin/master
 
 ```
 autoconf
@@ -213,32 +203,9 @@ sudo make install
 ```
 
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
-<<<<<<< HEAD
   find the libpoly or CUDD libraries. Other options may be useful too.  Try
   `./configure --help` to see what's there.
-=======
-   find the libpoly library. Other options may be useful too.  Try
-   `./configure --help` to see what's there.
 
-
-#### Support for Thread Safety
-
-The Yices library is not thread safe by default, if you need a re-entrant version:
-```
-autoconf
-./configure --enable-thread-safety
-make
-sudo make install
-```
-
-If configured with `--enable-thread-safety` the Yices library will be thread
-safe in the following sense: as long as the creation and manipulation of
-each context and each model is restricted to a single thread, there should be no races.
-In particular separate threads can create their own contexts, and manipulate and check
-them without impeding another thread's progress.
->>>>>>> origin/master
-
-NOTE: `--enable-mcsat` and `--enable-thread-safety` are currently incompatible.
 
 #### Windows Builds
 

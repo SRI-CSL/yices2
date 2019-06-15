@@ -226,13 +226,15 @@ static inline bool pp_buffer_is_trivial(pp_buffer_t *b) {
   return (b->len == 0) || (b->len == 1 && b->prod[0].exp == 1);
 }
 
+
+
 /*
  * Degree computation
  */
 extern uint32_t pp_buffer_degree(pp_buffer_t *b);
 
 /*
- * Check whether the degree is less than YICES_MAX_DEGREE.
+ * Check whether the degree is less than MAX_DEGREE.
  */
 extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
 
@@ -242,11 +244,6 @@ extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
  */
 extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
 
-/*
- * Check whether b1 and b2 are equal
- * - both must be normalized
- */
-extern bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2);
 
 /*
  * Convert b's content to a power-product object.
@@ -255,6 +252,7 @@ extern bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2);
  *   the appropriate tagged pointer.
  */
 extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
+
 
 
 /*

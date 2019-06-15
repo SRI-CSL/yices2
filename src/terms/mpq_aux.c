@@ -28,14 +28,19 @@
 
 #include "terms/mpq_aux.h"
 
+
+/*
+ * Global variable for intermediate computations.
+ */
+static mpz_t z0;
+
+
 /*
  * Debug code: double check results
  */
 #ifdef DEBUG
 
 static mpq_t check, aux;
-
-//these should be thread local too
 
 static inline void check_result(mpq_t q) {
   if (! mpq_equal(q, check)) {
@@ -69,6 +74,8 @@ void init_mpq_aux(void) {
     abort();
   }
 
+  mpz_init(z0);
+
 #ifdef DEBUG
   mpq_init(check);
   mpq_init(aux);
@@ -80,6 +87,8 @@ void init_mpq_aux(void) {
  * Cleanup
  */
 void cleanup_mpq_aux(void) {
+  mpz_clear(z0);
+
 #ifdef DEBUG
   mpq_clear(check);
   mpq_clear(aux);
@@ -115,10 +124,6 @@ void mpq_init2(mpq_t q, unsigned long n) {
 void mpq_add_si(mpq_t q, long num, unsigned long den) {
   mpz_ptr num_q, den_q;
   unsigned long gcd;
-  mpz_t z0;
-
-  mpz_init(z0);
-
 
 #ifdef DEBUG
   mpq_set_si(aux, num, den);
@@ -135,7 +140,8 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_mul_si(z0, den_q, num);
     mpz_add(num_q, num_q, z0);
 
-    goto clean_up;
+    check_result(q);
+    return;
   }
 
   gcd = mpz_gcd_ui(NULL, den_q, den);
@@ -148,7 +154,8 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_add(num_q, num_q, z0);
     mpz_mul_ui(den_q, den_q, den);
 
-    goto clean_up;
+    check_result(q);
+    return;
   }
 
   mpz_divexact_ui(den_q, den_q, gcd); // b0 = b/gcd
@@ -165,10 +172,7 @@ void mpq_add_si(mpq_t q, long num, unsigned long den) {
     mpz_mul_ui(den_q, den_q, den/gcd);
   }
 
- clean_up:
   check_result(q);
-  mpz_clear(z0);
-
 }
 
 
@@ -280,9 +284,6 @@ void mpq_div_si(mpq_t q, long num, unsigned long den) {
  */
 void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
   uint64_t absnum;
-  mpz_t z0;
-
-  mpz_init(z0);
 
   /*
    * Note: the following assignment works even when num = INT64_MIN
@@ -307,8 +308,6 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
   mpz_set_ui(z0, (unsigned long) (den >> 32));
   mpz_mul_2exp(z0, z0, 32);
   mpz_add_ui(mpq_denref(q), z0, (unsigned long)(den & (~ 0)));
-
-  mpz_clear(z0);
 }
 
 
@@ -320,10 +319,6 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
 void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
   unsigned long a, b;
   uint64_t aux;
-  mpz_t z0;
-
-  mpz_init(z0);
-
 
   // convert the numerator
   mpz_abs(z0, mpq_numref(q));
@@ -343,9 +338,6 @@ void mpq_get_int64(mpq_t q, int64_t *num, uint64_t *den) {
   mpz_fdiv_q_2exp(z0, z0, 32);
   b = mpz_get_ui(z0);
   *den = (((uint64_t) b) << 32) | ((uint64_t) a);
-
-  mpz_clear(z0);
-  
 }
 
 
@@ -361,23 +353,13 @@ bool mpq_fits_int32(mpq_t q) {
  * Check whether q can be converted into two 64bit integers num/den
  */
 bool mpq_fits_int64(mpq_t q) {
-  bool retval;
-  mpz_t z0;
-
-  mpz_init(z0);
-
   mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator>>32
   if (mpz_fits_slong_p(z0)) {
     mpz_fdiv_q_2exp(z0, mpq_denref(q), 32); // denominator >> 32
-    retval = mpz_fits_ulong_p(z0);
+    return mpz_fits_ulong_p(z0);
   } else {
-    retval = false;
+    return false;
   }
-
-  mpz_clear(z0);
-
-  return retval;
- 
 }
 
 
@@ -395,20 +377,12 @@ bool mpq_is_int32(mpq_t q) {
  * - i.e., the numerator fits into a 64bit number and the denominator is 1
  */
 bool mpq_is_int64(mpq_t q) {
-  bool retval;
-  mpz_t z0;
-
-  mpz_init(z0);
-
   if (mpz_cmp_ui(mpq_denref(q), 1UL) == 0) {
     mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator >> 32
-    retval = mpz_fits_slong_p(z0);
+    return mpz_fits_slong_p(z0);
   } else {
-    retval = false;
+    return false;
   }
-
-  mpz_clear(z0);
-  return retval;
 }
 
 

@@ -25,7 +25,7 @@
 #define __YICES_DLLSPEC__ __declspec(dllexport)
 #endif
 #endif
-
+ 
 #include <poly/polynomial.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_db.h>
@@ -49,7 +49,7 @@
 #include "terms/term_explorer.h"
 #include "utils/refcount_strings.h"
 
-#include "api/yices_api_lock_free.h"
+#include "yices.h"
 
 static inline
 bool nra_plugin_has_assignment(const nra_plugin_t* nra, variable_t x) {
@@ -468,16 +468,16 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Add a lemma (assuming non-zero):
     // (div m n)
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
-    term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
-    term_t c1 = _o_yices_eq(m, _o_yices_add(_o_yices_mul(n, q), r));
+    term_t guard = opposite_term(yices_arith_eq0_atom(n));
+    term_t c1 = yices_eq(m, yices_add(yices_mul(n, q), r));
     term_t c2 = arith_geq_atom(terms, r);
     // r < (abs n) same as not (r - abs) >= 0
-    term_t abs_n = _o_yices_ite(_o_yices_arith_geq0_atom(n), n, _o_yices_neg(n));
-    term_t c3 = opposite_term(arith_geq_atom(terms, _o_yices_sub(r, abs_n)));
+    term_t abs_n = yices_ite(yices_arith_geq0_atom(n), n, yices_neg(n));
+    term_t c3 = opposite_term(arith_geq_atom(terms, yices_sub(r, abs_n)));
 
-    prop->lemma(prop, _o_yices_implies(guard, c1));
-    prop->lemma(prop, _o_yices_implies(guard, c2));
-    prop->lemma(prop, _o_yices_implies(guard, c3));
+    prop->lemma(prop, yices_implies(guard, c1));
+    prop->lemma(prop, yices_implies(guard, c2));
+    prop->lemma(prop, yices_implies(guard, c3));
     return;
   }
   if (t_kind == ARITH_RDIV) {
@@ -489,9 +489,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Add a lemma (assuming non-zero):
     // (n != 0) => m = n*q
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
-    term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
-    term_t c = _o_yices_eq(m, _o_yices_mul(n, q));
-    prop->lemma(prop, _o_yices_implies(guard, c));
+    term_t guard = opposite_term(yices_arith_eq0_atom(n));
+    term_t c = yices_eq(m, yices_mul(n, q));
+    prop->lemma(prop, yices_implies(guard, c));
     return;
   }
 
@@ -500,9 +500,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t arg = arith_floor_arg(terms, t);
 
     // t <= arg < t+1: t is int so it should be fine
-    term_t ineq1 = _o_yices_arith_geq_atom(arg, t);
-    term_t t_1 = _o_yices_add(t, _o_yices_rational32(1, 1));
-    term_t ineq2 = _o_yices_arith_gt_atom(t_1, arg);
+    term_t ineq1 = yices_arith_geq_atom(arg, t);
+    term_t t_1 = yices_add(t, yices_rational32(1, 1));
+    term_t ineq2 = yices_arith_gt_atom(t_1, arg);
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
@@ -514,9 +514,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t arg = arith_ceil_arg(terms, t);
 
     // t-1 < arg <= t: t is int so it should be fine
-    term_t t_1 = _o_yices_sub(t, _o_yices_rational32(1, 1));
-    term_t ineq1 = _o_yices_arith_gt_atom(arg, t_1);
-    term_t ineq2 = _o_yices_arith_geq_atom(t, arg);
+    term_t t_1 = yices_sub(t, yices_rational32(1, 1));
+    term_t ineq1 = yices_arith_gt_atom(arg, t_1);
+    term_t ineq2 = yices_arith_geq_atom(t, arg);
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
@@ -625,10 +625,10 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
         }
 
         // Add bound lemma b - t >= 0 && t + b >= 0
-        term_t ub_term = _o_yices_sub(nra->global_bound_term, t);
-        term_t lb_term = _o_yices_add(nra->global_bound_term, t);
-        term_t ub = _o_yices_arith_geq0_atom(ub_term);
-        term_t lb = _o_yices_arith_geq0_atom(lb_term);
+        term_t ub_term = yices_sub(nra->global_bound_term, t);
+        term_t lb_term = yices_add(nra->global_bound_term, t);
+        term_t ub = yices_arith_geq0_atom(ub_term);
+        term_t lb = yices_arith_geq0_atom(lb_term);
         prop->lemma(prop, ub);
         prop->lemma(prop, lb);
 
@@ -640,7 +640,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_min);
             term_t min = mk_arith_constant(nra->ctx->tm, &q);
-            term_t min_bound = _o_yices_arith_geq_atom(nra->global_bound_term, min);
+            term_t min_bound = yices_arith_geq_atom(nra->global_bound_term, min);
             prop->lemma(prop, min_bound);
             q_clear(&q);
           }
@@ -649,7 +649,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_max);
             term_t max = mk_arith_constant(nra->ctx->tm, &q);
-            term_t max_bound = _o_yices_arith_leq_atom(nra->global_bound_term, max);
+            term_t max_bound = yices_arith_leq_atom(nra->global_bound_term, max);
             prop->lemma(prop, max_bound);
             q_clear(&q);
           }
@@ -1592,8 +1592,8 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   // The feasibility sets keep everything, we just gc the constraints,
-  // the watchlists and the unit information.
-
+  // the watchlists and the unit information. 
+  
   // The constraint database
   poly_constraint_db_gc_sweep(nra->constraint_db, gc_vars);
 
@@ -1606,7 +1606,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // Evaluation cache
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_value_cache);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_timestamp_cache);
-
+  
   // Feasible set cache
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_top_var[0]);
   gc_info_sweep_int_hmap_values(gc_vars, &nra->feasible_set_cache_top_var[0]);
