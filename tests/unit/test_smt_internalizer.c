@@ -302,7 +302,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n");
 }

@@ -600,7 +600,7 @@ static void test2(gate_manager_t *m) {
   printf("\n");
 
   printf("*** GATES ***\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n\n");
 }
 
@@ -659,7 +659,7 @@ static void test3(gate_manager_t *m) {
   printf("\n");
 
   printf("*** GATES ***\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n\n");
 }
 
@@ -684,7 +684,7 @@ static void check_xor_models(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_def3(l, "XOR", l1, l2, l3);
   printf("\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -709,7 +709,7 @@ static void check_iff_models(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_def2(l, "IFF", l1, l2);
   printf("\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -735,7 +735,7 @@ static void check_ite_models(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_def3(l, "ITE", l1, l2, l3);
   printf("\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -763,7 +763,7 @@ static void check_or_models(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_def(l, "OR", 4, a);
   printf("\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -791,7 +791,7 @@ static void check_and_models(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_def(l, "AND", 4, a);
   printf("\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -816,7 +816,7 @@ static void check_xor2_assertion(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("XOR", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -838,7 +838,7 @@ static void check_xor3_assertion(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr3("XOR", l1, l2, l3);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -863,7 +863,7 @@ static void check_xor5_assertion(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr("XOR", 5, a);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -884,7 +884,7 @@ static void check_iff_assertion(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("IFF", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -905,7 +905,7 @@ static void check_iff_assertion2(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("IFF", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -926,7 +926,7 @@ static void check_iff_assertion3(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("IFF", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -947,7 +947,7 @@ static void check_iff_assertion4(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("IFF", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -968,7 +968,7 @@ static void check_iff_assertion5(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr2("IFF", l1, l2);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);
@@ -991,7 +991,7 @@ static void check_ite_assertion(gate_manager_t *m) {
   printf("\nAssertion: ");
   display_boolexpr3("ITE", l1, l2, l3);
   printf(" == true\n");
-  print_gate_table(stdout, &m->htbl);
+  print_gate_table(stdout, m->htbl);
   printf("\n");
 
   all_sat(core);

@@ -222,12 +222,13 @@ int32_t subst_ctx_lookup(subst_ctx_t *ctx, int32_t x) {
 static void subst_ctx_sort_array(int32_t *a, uint32_t n) {
   uint32_t i, j;
   int32_t x, y, t;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert((n & 1) == 0);
 
   if (n > 2) {
     // random pivot
-    i = random_uint(n) & ~1;
+    i = random_uint(&seed, n) & ~1;
     assert((i & 1) == 0);
 
     /*

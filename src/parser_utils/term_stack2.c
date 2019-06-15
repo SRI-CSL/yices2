@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include "api/yices_extensions.h"
+#include "api/yices_api_lock_free.h"
 #include "api/yices_globals.h"
 #include "parser_utils/term_stack2.h"
 #include "parser_utils/tstack_internals.h"
@@ -367,14 +368,14 @@ void tstack_push_str(tstack_t *stack, tag_t tag, char *s, uint32_t n, loc_t *loc
  * or TSTACK_MACRO_REDEF)
  */
 void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_type_by_name(s) != NULL_TYPE) {
+  if (_o_yices_get_type_by_name(s) != NULL_TYPE) {
     push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
 }
 
 void tstack_push_free_termname(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_term_by_name(s) != NULL_TERM) {
+  if (_o_yices_get_term_by_name(s) != NULL_TERM) {
     push_exception(stack, loc, s, TSTACK_TERMNAME_REDEF);
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
@@ -392,7 +393,7 @@ void tstack_push_free_macroname(tstack_t *stack, char *s, uint32_t n, loc_t *loc
  * used either as a type or as a macro name
  */
 void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  if (yices_get_type_by_name(s) != NULL_TYPE || yices_get_macro_by_name(s) >= 0) {
+  if (_o_yices_get_type_by_name(s) != NULL_TYPE || yices_get_macro_by_name(s) >= 0) {
     push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
   }
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
@@ -544,7 +545,7 @@ void tstack_push_type_by_name(tstack_t *stack, char *s, loc_t *loc) {
   stack_elem_t *e;
   type_t tau;
 
-  tau = yices_get_type_by_name(s);
+  tau = _o_yices_get_type_by_name(s);
   if (tau == NULL_TYPE) push_exception(stack, loc, s, TSTACK_UNDEF_TYPE);
 
   e = tstack_get_topelem(stack);
@@ -557,7 +558,7 @@ void tstack_push_term_by_name(tstack_t *stack, char *s, loc_t *loc) {
   stack_elem_t *e;
   term_t t;
 
-  t = yices_get_term_by_name(s);
+  t = _o_yices_get_term_by_name(s);
   if (t == NULL_TERM) push_exception(stack, loc, s, TSTACK_UNDEF_TERM);
 
   e = tstack_get_topelem(stack);
@@ -588,7 +589,7 @@ void tstack_push_bool_type(tstack_t *stack, loc_t *loc) {
 
   e = tstack_get_topelem(stack);
   e->tag = TAG_TYPE;
-  e->val.type = yices_bool_type();
+  e->val.type = _o_yices_bool_type();
   e->loc = *loc;
 }
 
@@ -597,7 +598,7 @@ void tstack_push_int_type(tstack_t *stack, loc_t *loc) {
 
   e = tstack_get_topelem(stack);
   e->tag = TAG_TYPE;
-  e->val.type = yices_int_type();
+  e->val.type = _o_yices_int_type();
   e->loc = *loc;
 }
 
@@ -606,7 +607,7 @@ void tstack_push_real_type(tstack_t *stack, loc_t *loc) {
 
   e = tstack_get_topelem(stack);
   e->tag = TAG_TYPE;
-  e->val.type = yices_real_type();
+  e->val.type = _o_yices_real_type();
   e->loc = *loc;
 }
 
@@ -875,10 +876,10 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
     recycle_bvlbuffer(stack, e->val.bvlogic_buffer);
     break;
   case TAG_BINDING:
-    yices_remove_term_name(e->val.binding.symbol);
+    _o_yices_remove_term_name(e->val.binding.symbol);
     break;
   case TAG_TYPE_BINDING:
-    yices_remove_type_name(e->val.type_binding.symbol);
+    _o_yices_remove_type_name(e->val.type_binding.symbol);
     break;
   default:
     break; // prevent GCC warning
@@ -1409,7 +1410,7 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_SYMBOL:
-    t = yices_get_term_by_name(e->val.string);
+    t = _o_yices_get_term_by_name(e->val.string);
     if (t == NULL_TERM) {
       raise_exception(stack, e, TSTACK_UNDEF_TERM);
     }
@@ -1695,17 +1696,17 @@ static term_t elem_bit_select(tstack_t *stack, stack_elem_t *e, uint32_t i) {
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
-    t = yices_bitextract(e->val.term, i);
+    t = _o_yices_bitextract(e->val.term, i);
     break;
 
   case TAG_BVARITH64_BUFFER:
     t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
-    t = yices_bitextract(t, i);
+    t = _o_yices_bitextract(t, i);
     break;
 
   case TAG_BVARITH_BUFFER:
     t = bvarith_buffer_get_term(e->val.bvarith_buffer);
-    t = yices_bitextract(t, i);
+    t = _o_yices_bitextract(t, i);
     break;
 
   case TAG_BVLOGIC_BUFFER:
@@ -2916,11 +2917,11 @@ static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   type_t tau;
 
   if (n == 1) {
-    tau = yices_new_uninterpreted_type();
+    tau = _o_yices_new_uninterpreted_type();
   } else {
     tau = f[1].val.type;
   }
-  yices_set_type_name(tau, f[0].val.string);
+  _o_yices_set_type_name(tau, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2945,14 +2946,14 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   tau = f[1].val.type;
   if (n == 2) {
-    t = yices_new_uninterpreted_term(tau);
+    t = _o_yices_new_uninterpreted_term(tau);
   } else {
     t = get_term(stack, f+2);
     if (! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, t), tau)) {
       raise_exception(stack, f+2, TSTACK_TYPE_ERROR_IN_DEFTERM);
     }
   }
-  yices_set_term_name(t, f[0].val.string);
+  _o_yices_set_term_name(t, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2974,7 +2975,7 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   name = f[0].val.string;
   t = get_term(stack, f+1);
-  yices_set_term_name(t, name);
+  _o_yices_set_term_name(t, name);
   tstack_pop_frame(stack);
   set_binding_result(stack, t, name);
 }
@@ -2997,9 +2998,9 @@ static void eval_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   name = f[0].val.string;
   tau = f[1].val.type;
-  var = yices_new_variable(tau);
+  var = _o_yices_new_variable(tau);
 
-  yices_set_term_name(var, name);
+  _o_yices_set_term_name(var, name);
   tstack_pop_frame(stack);
   set_binding_result(stack, var, name);
 }
@@ -3064,7 +3065,7 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   if (size <= 0) {
     raise_exception(stack, f, TSTACK_NONPOSITIVE_BVSIZE);
   }
-  tau = yices_bv_type(size);
+  tau = _o_yices_bv_type(size);
   check_type(stack, tau);
 
   tstack_pop_frame(stack);
@@ -3089,13 +3090,13 @@ static void eval_mk_scalar_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   // build the type
   card = n;
-  tau = yices_new_scalar_type(card);
+  tau = _o_yices_new_scalar_type(card);
   assert(tau != NULL_TYPE);
 
   for (i=0; i<card; i++) {
-    x = yices_constant(tau, i);
+    x = _o_yices_constant(tau, i);
     assert(x != NULL_TERM);
-    yices_set_term_name(x, f[i].val.string);
+    _o_yices_set_term_name(x, f[i].val.string);
   }
 
   tstack_pop_frame(stack);
@@ -3120,7 +3121,7 @@ static void eval_mk_tuple_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     tau[i] = f[i].val.type;
   }
-  sigma = yices_tuple_type(n, tau);
+  sigma = _o_yices_tuple_type(n, tau);
   assert(sigma != NULL_TYPE);
 
   tstack_pop_frame(stack);
@@ -3152,7 +3153,7 @@ static void eval_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     }
 
     n --;
-    sigma = yices_function_type(n, tau, tau[n]);
+    sigma = _o_yices_function_type(n, tau, tau[n]);
   } else {
     sigma = f[0].val.type;
   }
@@ -3217,7 +3218,7 @@ static void eval_mk_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f + i);
   }
-  t = yices_application(fun, n, arg);
+  t = _o_yices_application(fun, n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3239,7 +3240,7 @@ static void eval_mk_ite(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   cond = get_term(stack, f);
   left = get_term(stack, f+1);
   right = get_term(stack, f+2);
-  t = yices_ite(cond, left, right);
+  t = _o_yices_ite(cond, left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3260,7 +3261,7 @@ static void eval_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_eq(left, right);
+  t = _o_yices_eq(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3281,7 +3282,7 @@ static void eval_mk_diseq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_neq(left, right);
+  t = _o_yices_neq(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3306,7 +3307,7 @@ static void eval_mk_distinct(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_distinct(n, arg);
+  t = _o_yices_distinct(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3327,7 +3328,7 @@ static void check_mk_not(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void eval_mk_not(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
-  t = yices_not(get_term(stack, f));
+  t = _o_yices_not(get_term(stack, f));
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3353,7 +3354,7 @@ static void eval_mk_or(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_or(n, arg);
+  t = _o_yices_or(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3378,7 +3379,7 @@ static void eval_mk_and(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_and(n, arg);
+  t = _o_yices_and(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3403,7 +3404,7 @@ static void eval_mk_xor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_xor(n, arg);
+  t = _o_yices_xor(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3425,7 +3426,7 @@ static void eval_mk_iff(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t = get_term(stack, f);
   for (i=1; i<n; i++) {
-    t = yices_iff(t, get_term(stack, f+i));
+    t = _o_yices_iff(t, get_term(stack, f+i));
     check_term(stack, t);
   }
   tstack_pop_frame(stack);
@@ -3446,7 +3447,7 @@ static void eval_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   left = get_term(stack, f);
   right = get_term(stack, f+1);
-  t = yices_implies(left, right);
+  t = _o_yices_implies(left, right);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3469,7 +3470,7 @@ static void eval_mk_tuple(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_tuple(n, arg);
+  t = _o_yices_tuple(n, arg);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3491,7 +3492,7 @@ static void eval_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   idx = get_integer(stack, f+1);
-  t = yices_select(idx, get_term(stack, f));
+  t = _o_yices_select(idx, get_term(stack, f));
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3516,7 +3517,7 @@ static void eval_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   idx = get_integer(stack, f+1);
   new_v = get_term(stack, f+2);
-  t = yices_tuple_update(get_term(stack, f), idx, new_v);
+  t = _o_yices_tuple_update(get_term(stack, f), idx, new_v);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3539,7 +3540,7 @@ static void eval_mk_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
-  t = yices_update(arg[0], n-2, arg+1, arg[n-1]);
+  t = _o_yices_update(arg[0], n-2, arg+1, arg[n-1]);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3566,7 +3567,7 @@ static void eval_mk_forall(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
   // body = last argument
   arg[i] = get_term(stack, f + (n-1));
-  t = yices_forall(n-1, arg, arg[n-1]);
+  t = _o_yices_forall(n-1, arg, arg[n-1]);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3593,7 +3594,7 @@ static void eval_mk_exists(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
   // body = last argument
   arg[i] = get_term(stack, f + (n-1));
-  t = yices_exists(n-1, arg, arg[n-1]);
+  t = _o_yices_exists(n-1, arg, arg[n-1]);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3620,7 +3621,7 @@ static void eval_mk_lambda(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
   // body = last argument
   arg[i] = get_term(stack, f + (n-1));
-  t = yices_lambda(n-1, arg, arg[n-1]);
+  t = _o_yices_lambda(n-1, arg, arg[n-1]);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -3776,7 +3777,7 @@ static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // Not a constant
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_division(t1, t2);
+    t = _o_yices_division(t1, t2);
     check_term(stack, t);
     tstack_pop_frame(stack);
     set_term_result(stack, t);
@@ -3819,7 +3820,7 @@ static void eval_mk_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
    * arith_buffers, rationals, etc.?
    */
   t = get_term(stack, f);
-  t = yices_power(t, exponent);
+  t = _o_yices_power(t, exponent);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4180,7 +4181,7 @@ static void eval_mk_bv_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
    * arith_buffers, rationals, etc.?
    */
   t = get_term(stack, f);
-  t = yices_bvpower(t, exponent);
+  t = _o_yices_bvpower(t, exponent);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4662,7 +4663,7 @@ static void eval_mk_bv_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvge_atom(t1, t2);
+  t = _o_yices_bvge_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4683,7 +4684,7 @@ static void eval_mk_bv_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvgt_atom(t1, t2);
+  t = _o_yices_bvgt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4704,7 +4705,7 @@ static void eval_mk_bv_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvle_atom(t1, t2);
+  t = _o_yices_bvle_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4725,7 +4726,7 @@ static void eval_mk_bv_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvlt_atom(t1, t2);
+  t = _o_yices_bvlt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4746,7 +4747,7 @@ static void eval_mk_bv_sge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsge_atom(t1, t2);
+  t = _o_yices_bvsge_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4767,7 +4768,7 @@ static void eval_mk_bv_sgt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsgt_atom(t1, t2);
+  t = _o_yices_bvsgt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4788,7 +4789,7 @@ static void eval_mk_bv_sle(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsle_atom(t1, t2);
+  t = _o_yices_bvsle_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4809,7 +4810,7 @@ static void eval_mk_bv_slt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvslt_atom(t1, t2);
+  t = _o_yices_bvslt_atom(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4853,7 +4854,7 @@ static void eval_mk_bv_shl(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvshl(t1, t2);
+    t = _o_yices_bvshl(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -4896,7 +4897,7 @@ static void eval_mk_bv_lshr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvlshr(t1, t2);
+    t = _o_yices_bvlshr(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -4938,7 +4939,7 @@ static void eval_mk_bv_ashr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     // variable shift
     t1 = get_term(stack, f);
     t2 = get_term(stack, f+1);
-    t = yices_bvashr(t1, t2);
+    t = _o_yices_bvashr(t1, t2);
     check_term(stack, t);
 
     tstack_pop_frame(stack);
@@ -4979,7 +4980,7 @@ static void eval_mk_bv_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvdiv(t1, t2);
+  t = _o_yices_bvdiv(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -4999,7 +5000,7 @@ static void eval_mk_bv_rem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvrem(t1, t2);
+  t = _o_yices_bvrem(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5026,7 +5027,7 @@ static void eval_mk_bv_sdiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsdiv(t1, t2);
+  t = _o_yices_bvsdiv(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5046,7 +5047,7 @@ static void eval_mk_bv_srem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsrem(t1, t2);
+  t = _o_yices_bvsrem(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5067,7 +5068,7 @@ static void eval_mk_bv_smod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsmod(t1, t2);
+  t = _o_yices_bvsmod(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5233,7 +5234,7 @@ static void eval_mk_floor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  t = yices_floor(t);
+  t = _o_yices_floor(t);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5250,7 +5251,7 @@ static void eval_mk_ceil(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  t = yices_ceil(t);
+  t = _o_yices_ceil(t);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5268,7 +5269,7 @@ static void eval_mk_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  t = yices_abs(t);
+  t = _o_yices_abs(t);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5290,7 +5291,7 @@ static void eval_mk_idiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1); // divider
-  t1 = yices_idiv(t1, t2);
+  t1 = _o_yices_idiv(t1, t2);
   check_term(stack, t1);
 
   tstack_pop_frame(stack);
@@ -5308,7 +5309,7 @@ static void eval_mk_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1); // divider
-  t1 = yices_imod(t1, t2);
+  t1 = _o_yices_imod(t1, t2);
   check_term(stack, t1);
 
   tstack_pop_frame(stack);
@@ -5328,7 +5329,7 @@ static void eval_mk_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
   t = get_term(stack, f);
-  t = yices_is_int_atom(t);
+  t = _o_yices_is_int_atom(t);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5351,7 +5352,7 @@ static void eval_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   t1 = get_term(stack, f); // divider
   t2 = get_term(stack, f+1);
-  t1 = yices_divides_atom(t1, t2);
+  t1 = _o_yices_divides_atom(t1, t2);
   check_term(stack, t1);
 
   tstack_pop_frame(stack);

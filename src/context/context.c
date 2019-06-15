@@ -37,6 +37,9 @@
 #include "utils/memalloc.h"
 
 #include "mcsat/solver.h"
+#include "mt/thread_macros.h"
+
+#include "api/yices_globals.h"
 
 #define TRACE 0
 
@@ -2337,6 +2340,7 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
  * BITVECTOR ATOMS
  */
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
+  bveq_simp_t simp;
   term_t t, t1, t2;
   thvar_t x, y;
 
@@ -2354,9 +2358,30 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   }
 
   /*
+   * More simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    return true_literal;
+
+  case BVEQ_CODE_FALSE:
+    return false_literal;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+    // TODO: handle BVEQ_CODE_REDUCED0 better
+  case BVEQ_CODE_REDUCED0:
+  default:
+    break;
+  }
+
+  /*
    * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
    */
-  // no simplification
   x = internalize_to_bv(ctx, t1);
   y = internalize_to_bv(ctx, t2);
   return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
@@ -4305,6 +4330,7 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
  * Top-level bitvector atoms
  */
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
+  bveq_simp_t simp;
   ivector_t *v;
   int32_t *a;
   term_t t, t1, t2;
@@ -4351,6 +4377,37 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
 
     // flattening failed
     ivector_reset(v);
+  }
+
+  /*
+   * Try more simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    if (!tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    break;
+
+  case BVEQ_CODE_FALSE:
+    if (tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    break;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+    // TODO: deal with t1 == 0
+  case BVEQ_CODE_REDUCED0:
+  default:
+    break;
+  }
+
+  /*
+   * Try Factoring
+   */
+  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
+    longjmp(ctx->env, TRIVIALLY_UNSAT);
   }
 
   /*
@@ -5368,6 +5425,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->aux_poly = NULL;
   ctx->aux_poly_size = 0;
 
+  ctx->bvpoly_buffer = NULL;
+
   q_init(&ctx->aux);
   init_bvconstant(&ctx->bv_buffer);
 
@@ -5458,6 +5517,8 @@ void delete_context(context_t *ctx) {
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
 
+  context_free_bvpoly_buffer(ctx);
+
   q_clear(&ctx->aux);
   delete_bvconstant(&ctx->bv_buffer);
 }
@@ -5509,6 +5570,8 @@ void reset_context(context_t *ctx) {
   context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
 
+  context_free_bvpoly_buffer(ctx);
+
   q_clear(&ctx->aux);
 }
 
@@ -5535,7 +5598,6 @@ void context_push(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
   }
-  gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   assumption_stack_push(&ctx->assumptions);
   context_eq_cache_push(ctx);
@@ -5550,7 +5612,6 @@ void context_pop(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
   }
-  gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   assumption_stack_pop(&ctx->assumptions);
   context_eq_cache_pop(ctx);
@@ -5615,7 +5676,7 @@ static void context_show_assertions(const context_t *ctx, uint32_t n, const term
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -5836,6 +5897,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   return code;
 }
 
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
+}
 
 
 /*
