@@ -640,7 +640,6 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_min);
             term_t min = mk_arith_constant(nra->ctx->tm, &q);
-            /* term_t min_bound = yices_arith_geq_atom(nra->global_bound_term, min); */
             term_t min_bound = _o_yices_arith_geq_atom(nra->global_bound_term, min);
             prop->lemma(prop, min_bound);
             q_clear(&q);
@@ -650,7 +649,6 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_max);
             term_t max = mk_arith_constant(nra->ctx->tm, &q);
-            /* term_t max_bound = yices_arith_leq_atom(nra->global_bound_term, max); */
             term_t max_bound = _o_yices_arith_leq_atom(nra->global_bound_term, max);
             prop->lemma(prop, max_bound);
             q_clear(&q);
