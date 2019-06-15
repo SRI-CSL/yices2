@@ -200,25 +200,6 @@ uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {
 
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x));
-/* ======= */
-/* term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) { */
-
-/*   // For now, just equality */
-/*   assert(term_kind(var_db->terms, t) == EQ_TERM); */
-/*   term_t x_term = variable_db_get_term(var_db, x); */
-/*   composite_term_t* eq = eq_term_desc(var_db->terms, t); */
-/*   term_t lhs = eq->arg[0]; */
-/*   term_t rhs = eq->arg[1]; */
-/*   if (lhs == x_term) { */
-/*     lhs = subst; */
-/*   } */
-/*   if (rhs == x_term) { */
-/*     rhs = subst; */
-/*   } */
-/*   term_t result = _o_yices_eq(lhs, rhs); */
-
-/*   return result; */
-/* >>>>>>> master */
 }
 
 void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars) {
