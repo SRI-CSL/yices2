@@ -390,6 +390,7 @@ typedef struct bvc_dag_s {
   bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
   ivector_t sum_buffer;
+  ivector_t use_buffer;
 
   // queues to propagate simplifications
   // node_queue stores the ids of nodes reduced to zero or aliased
