@@ -8981,6 +8981,13 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   return stat;
 }
 
+EXPORTED extern void yices_set_model_hint(context_t *ctx, model_t* model) {
+  if (ctx->mcsat != NULL) {
+    mcsat_set_model_hint(ctx->mcsat, model);
+  }
+}
+
+
 //IAM: experiment to see if we can keep some concurrency.
 static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
   if (! check_good_terms(__yices_globals.manager, n, a) ||

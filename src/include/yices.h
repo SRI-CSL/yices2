@@ -3111,6 +3111,11 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
 
 
+/*
+ * Set the model as a hint for the solver. Experimental!
+ */
+__YICES_DLLSPEC__ extern void yices_set_model_hint(context_t *ctx, model_t* model);
+
 
 /*
  * Check satisfiability under assumptions: check whether the

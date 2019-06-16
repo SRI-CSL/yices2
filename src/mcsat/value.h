@@ -69,6 +69,9 @@ void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_v
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
 
+/** Construct from yices value */
+void mcsat_value_construct_from_value(mcsat_value_t *value, value_t from, value_table_t* vtbl);
+
 /** Destruct the value (removes any data and sets back to VALUE_NONE) */
 void mcsat_value_destruct(mcsat_value_t *value);
 

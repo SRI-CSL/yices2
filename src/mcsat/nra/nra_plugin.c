@@ -794,7 +794,9 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
 
   // Add to the lp model and context
   lp_variable_t lp_var = nra_plugin_get_lp_variable(nra, var);
-  lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &trail_get_value(trail, var)->lp_value);
+  const mcsat_value_t* var_value = trail_get_value(trail, var);
+  assert(var_value->type == VALUE_LIBPOLY);
+  lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &var_value->lp_value);
   lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
   nra->lp_data.lp_var_order_size ++;
 

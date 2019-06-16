@@ -22,6 +22,7 @@
 
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
+#include "model/concrete_values.h"
 
 const mcsat_value_t mcsat_value_none = { VALUE_NONE, { true } };
 const mcsat_value_t mcsat_value_true = { VALUE_BOOLEAN, { true } };
@@ -63,6 +64,38 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
     lp_value_construct_copy(&value->lp_value, &from->lp_value);
     break;
   default:
+    assert(false);
+  }
+}
+
+void mcsat_value_construct_from_value(mcsat_value_t *value, value_t from, value_table_t* vtbl) {
+  value_kind_t kind = object_kind(vtbl, from);
+  switch (kind) {
+  case BOOLEAN_VALUE:
+    mcsat_value_construct_bool(value, boolobj_value(vtbl, from));
+    break;
+  case RATIONAL_VALUE: {
+    rational_t* value_q = vtbl_rational(vtbl, from);
+    mpq_t value_mpq;
+    mpq_init(value_mpq);
+    q_get_mpq(value_q, value_mpq);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_RATIONAL, value_mpq);
+    mcsat_value_construct_lp_value(value, &value_lp);
+    lp_value_destruct(&value_lp);
+    mpq_clear(value_mpq);
+    break;
+  }
+  case ALGEBRAIC_VALUE: {
+    lp_algebraic_number_t* value_a = vtbl_algebraic_number(vtbl, from);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_ALGEBRAIC, value_a);
+    mcsat_value_construct_lp_value(value, &value_lp);
+    lp_value_destruct(&value_lp);
+    break;
+  }
+  default:
+    // Ignore
     assert(false);
   }
 }

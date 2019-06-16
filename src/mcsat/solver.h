@@ -88,6 +88,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
+/*
+ * Set the model for hint.
+ */
+void mcsat_set_model_hint(mcsat_solver_t*, model_t* model);
 
 /*
  * Set the tracer for the solver.

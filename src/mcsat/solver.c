@@ -19,8 +19,11 @@
 #include "mcsat/solver.h"
 
 #include "context/context.h"
+
 #include "model/models.h"
 #include "model/concrete_values.h"
+#include "model/model_queries.h"
+
 #include "io/concrete_value_printer.h"
 
 #include "mcsat/variable_db.h"
@@ -1896,6 +1899,30 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
       plugin->build_model(plugin, model);
     }
   }
+}
+
+void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* model) {
+
+  value_table_t* vtbl = model_get_vtbl(model);
+
+  mcsat_push(mcsat);
+
+  while (!var_queue_is_empty(&mcsat->var_queue)) {
+    variable_t var = var_queue_pop(&mcsat->var_queue);
+    // If already assigned go on
+    if (trail_has_value(mcsat->trail, var)) {
+      continue;
+    }
+    // Otherwise set from model
+    term_t var_term = variable_db_get_term(mcsat->var_db, var);
+    value_t var_value = model_get_term_value(model, var_term);
+    mcsat_value_t value;
+    mcsat_value_construct_from_value(&value, var_value, vtbl);
+    trail_add_propagation(mcsat->trail, var, &value, 0, mcsat->trail->decision_level);
+    mcsat_value_destruct(&value);
+  }
+
+  mcsat_pop(mcsat);
 }
 
 void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
