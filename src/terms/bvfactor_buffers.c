@@ -93,6 +93,7 @@ void bvfactor_buffer_init_copy(bvfactor_buffer_t *b, bvfactor_buffer_t *b1) {
     bvconstant_copy(&b->constant, n, b1->constant.data);
   }
   pp_buffer_copy(&b->product, &b1->product);
+  reset_bvpoly_buffer(&b->exponent, n);
   bvpoly_buffer_add_buffer(&b->exponent, &b1->exponent);
 }
 
