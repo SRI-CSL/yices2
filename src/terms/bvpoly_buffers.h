@@ -113,7 +113,6 @@ extern void delete_bvpoly_buffer(bvpoly_buffer_t *buffer);
 
 
 
-
 /***************************
  *  ADDITION OF MONOMIALS  *
  **************************/
@@ -222,6 +221,12 @@ extern void bvpoly_buffer_add_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
 extern void bvpoly_buffer_sub_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
 extern void bvpoly_buffer_addmul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
 extern void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
+
+
+/*
+ * Add b to buffer
+ */
+extern void bvpoly_buffer_add_buffer(bvpoly_buffer_t *buffer, bvpoly_buffer_t *b);
 
 
 

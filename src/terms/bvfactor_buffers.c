@@ -75,6 +75,28 @@ void delete_bvfactor_buffer(bvfactor_buffer_t *b) {
   delete_bvconstant(&b->aux);
 }
 
+/*
+ * Initialize b and copy b1 into b
+ */
+void bvfactor_buffer_init_copy(bvfactor_buffer_t *b, bvfactor_buffer_t *b1) {
+  uint32_t n;
+
+  init_bvfactor_buffer(b);
+
+  n = b1->bitsize;
+  b->bitsize = n;
+  b->width = (n + 31) >> 5;
+  b->total_degree = b1->total_degree;
+  if (n <= 64) {
+    b->constant64 = b1->constant64;
+  } else {
+    bvconstant_copy(&b->constant, n, b1->constant.data);
+  }
+  pp_buffer_copy(&b->product, &b1->product);
+  reset_bvpoly_buffer(&b->exponent, n);
+  bvpoly_buffer_add_buffer(&b->exponent, &b1->exponent);
+}
+
 
 
 /*
@@ -167,6 +189,94 @@ bool bvfactor_buffer_equal(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
 
   return pp_buffer_equal(&b1->product, &b2->product) &&
     bvpoly_buffer_equal(&b1->exponent, &b2->exponent);
+}
+
+
+
+/*
+ * Check whether two buffers have equal exponents
+ * - both buffers must be normalized and have the same bitsize
+ */
+bool bvfactor_buffer_equal_exponents(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
+  assert(b1->bitsize == b2->bitsize);
+  return bvpoly_buffer_equal(&b1->exponent, &b2->exponent);
+}
+
+
+/*
+ * Compute the common factors of b1->product and b2->product.
+ * - both b1 and b2 must be normalized
+ * - store the result in pbuffer
+ * - pbuffer must be initialized
+ * - the result is normalized
+ */
+void bvfactor_buffer_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
+  assert(b1->bitsize == b2->bitsize);
+  pp_buffer_copy(pbuffer, &b1->product);
+  pp_buffer_gcd(pbuffer, &b2->product);
+}
+
+
+/*
+ * Variant: compute the common factors of b1[0 ... n1-1] and b2[0 ... n2-1]
+ * - all factor buffers must be normalized
+ * - the result is stored in pbuffer
+ */
+void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1, bvfactor_buffer_t *b2, uint32_t n2) {
+  uint32_t i;
+
+  assert(n1 > 0);
+
+  pp_buffer_copy(pbuffer, &b1[0].product);
+  for (i=1; i<n1; i++) {
+    pp_buffer_gcd(pbuffer, &b1[i].product);
+  }
+  for (i=0; i<n2; i++) {
+    pp_buffer_gcd(pbuffer, &b2[i].product);
+  }
+}
+
+
+/*
+ * Reduce: divide b->product by pbuffer
+ * - pbuffer must be normalized and must be a divisor of b->product
+ */
+void bvfactor_buffer_reduce(bvfactor_buffer_t *b, pp_buffer_t *pbuffer) {
+  pp_buffer_divide(&b->product, pbuffer);
+}
+
+/*
+ * Divide b->product by x
+ */
+void bvfactor_buffer_reduce_by_var(bvfactor_buffer_t *b, int32_t x) {
+  pp_buffer_divide_by_var(&b->product, x);
+}
+
+
+
+/*
+ * Check whether b->product is linear (i.e., degree <= 1)
+ * - b must be normalized
+ */
+bool bvfactor_buffer_is_linear(bvfactor_buffer_t *b) {
+  return pp_buffer_is_trivial(&b->product);
+}
+
+
+/*
+ * Check whether b->product is reduced to a single variable (i.e., degree = 1)
+ * - b must be normalized
+ */
+bool bvfactor_buffer_is_var(bvfactor_buffer_t *b) {
+  return b->product.len == 1 && b->product.prod[0].exp == 1;
+}
+
+/*
+ * Get the variable of b->product if b->product has degree 1
+ */
+int32_t bvfactor_buffer_get_var(bvfactor_buffer_t *b) {
+  assert(b->product.len == 1 && b->product.prod[0].exp == 1);
+  return b->product.prod[0].var;
 }
 
 

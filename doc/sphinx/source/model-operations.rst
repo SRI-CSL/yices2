@@ -720,7 +720,7 @@ the children of non-leaf nodes.
 
    - If the node is not a function
 
-     -- error code: :c:enum:`YVAL_INVALID_OP`     
+     -- error code: :c:enum:`YVAL_INVALID_OP`
 
 
 .. c:function:: int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val)

@@ -668,6 +668,29 @@ void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a
 }
 
 
+/*
+ * Add b to buffer
+ */
+void bvpoly_buffer_add_buffer(bvpoly_buffer_t *buffer, bvpoly_buffer_t *b) {
+  uint32_t i, n;
+
+  assert(buffer->bitsize == b->bitsize);
+
+  n = b->nterms;
+  if (b->bitsize <= 64) {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add_mono64(buffer, b->var[i], b->c[i]);
+    }
+  } else {
+    for (i=0; i<n; i++) {
+      bvpoly_buffer_add_monomial(buffer, b->var[i], b->p[i]);
+    }
+  }
+}
+
+
+
+
 
 /*******************
  *  SUBSTITUTIONS  *

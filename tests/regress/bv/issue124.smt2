@@ -1,0 +1,17 @@
+(set-logic QF_BV)
+(declare-fun x () (_ BitVec 30))
+(declare-fun y () (_ BitVec 30))
+(declare-fun z () (_ BitVec 30))
+(assert 
+  (let ((e6 (bvadd x y))) 
+  (let ((e16 (bvnor e6 e6))) 
+  (let ((e17 (bvadd e16 e6))) 
+  (let ((e19 (bvneg e17))) 
+  (let ((e47 (bvadd z e19))) 
+  (let ((e108 (bvugt e47 (_ bv0 30)))) 
+  (let ((e351 (=> true e108))) 
+  (let ((e380 (xor e351 false))) 
+  (let ((e393 (or e380 e380))) 
+  e393))))))))))
+(check-sat)
+

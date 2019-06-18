@@ -316,6 +316,11 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
 extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
 
 
+
+/*
+ * ARITHMETIC SIMPLIFICATIONS
+ */
+
 /*
  * Try to convert a bit-array expression into an arithmetic expression:
  * - t must be a bv_array term (array of n booleans)
@@ -338,6 +343,17 @@ extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t 
 
 
 /*
+ * Add or subtract a * t to/from buffer b
+ */
+extern void addmul_bvterm64_to_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
+extern void submul_bvterm64_from_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
+
+extern void addmul_bvterm_to_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b);
+extern void submul_bvterm_from_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b);
+
+
+
+/*
  * FACTORING OF BIT-VECTOR PRODUCTS
  */
 
@@ -353,7 +369,7 @@ extern bool term_is_bvprod(term_table_t *tbl, term_t t);
 
 
 /*
- * Compute a factorization if t
+ * Compute a factorization of t
  * - t must be a bitvector term
  * - this writes t to the form a * power-product * 2^exp
  *   by converting (bvshl x y)  to x * 2^y
@@ -362,6 +378,26 @@ extern bool term_is_bvprod(term_table_t *tbl, term_t t);
  * - b must be initialized
  */
 extern void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b);
+
+
+/*
+ * Add factors of (a * t) to buffer b
+ * - t must be a bitvector term
+ * - b and t must have the same bitsize
+ * - if t has 64bits or less, a is given as a 64bit constant
+ * - if t has more than 64bits, a iis given as an array of 32bit words
+ */
+extern void factor_mul_bvterm64(term_table_t *tbl, uint64_t a, term_t t, bvfactor_buffer_t *b);
+extern void factor_mul_bvterm(term_table_t *tbl, uint32_t *a, term_t t,  bvfactor_buffer_t *b);
+
+
+/*
+ * Compute the factorization of all monomials in p
+ * - b must be an array of n buffers where n >= p->nterms
+ * - the factoring of p->mono[i] is stored in b[i]
+ */
+extern void factor_bvpoly64_monomials(term_table_t *tbl, bvpoly64_t *p, bvfactor_buffer_t *b);
+extern void factor_bvpoly_monomials(term_table_t *tbl, bvpoly_t *p, bvfactor_buffer_t *b);
 
 
 /*

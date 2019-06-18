@@ -276,7 +276,7 @@ extern void context_factor_disjunction(context_t *ctx, term_t t, ivector_t *v);
  */
 
 /*
- * Simplification procedrures can add equalities to the aux_eq vector
+ * Simplification procedures can add equalities to the aux_eq vector
  * or atoms to the aux_atom vector. These vectors can then be processed
  * later by the internalization/flatteining procedures.
  */

@@ -291,7 +291,7 @@ dnl
 use_mcsat="no"
 AC_ARG_ENABLE([mcsat],
    [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the LibPoly library and the CUDD library.])],
-   [if test "$enableval" = yes ; then
+   [if test "$enableval" = yes ; then 
       use_mcsat="yes"
       AC_MSG_NOTICE([Enabling support for MCSAT])
     fi],

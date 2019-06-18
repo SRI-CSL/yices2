@@ -33,8 +33,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <inttypes.h>
-// EXPERIMENT
-#include <locale.h>
 
 
 #include "frontend/common/parameters.h"
@@ -47,6 +45,10 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 
+/*
+ * yices_rev is set up at compile time in yices_version.c
+ */
+extern const char * const yices_rev;
 
 /*
  * Global objects:
@@ -72,6 +74,7 @@ static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
+static char *delegate;
 
 // mcsat options
 static bool mcsat;
@@ -98,6 +101,7 @@ typedef enum optid {
   interactive_opt,         // enable interactive mode
   smt2format_opt,           // use SMT-LIB2 format for models
   timeout_opt,             // give a timeout
+  delegate_opt,            // use an external sat solver
   mcsat_opt,               // enable mcsat
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
@@ -122,6 +126,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "smt2-model-format", '\0', FLAG_OPTION, smt2format_opt },
+  { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
@@ -142,9 +147,10 @@ static void print_version(void) {
          "Linked with GMP %s\n"
 	 "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
-         "Platform: %s (%s)\n",
+         "Platform: %s (%s)\n"
+         "Revision: %s\n",
          yices_version, gmp_version,
-         yices_build_date, yices_build_arch, yices_build_mode);
+         yices_build_date, yices_build_arch, yices_build_mode, yices_rev);
   fflush(stdout);
 }
 
@@ -162,6 +168,7 @@ static void print_help(const char *progname) {
 	 "    --incremental             Enable support for push/pop\n"
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
 	 "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
+	 "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
 #if HAVE_MCSAT
 	 "    --mcsat                   Use the MCSat solver\n"
 	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
@@ -203,6 +210,7 @@ static void parse_command_line(int argc, char *argv[]) {
   show_stats = false;
   verbosity = 0;
   timeout = 0;
+  delegate = NULL;
 
   mcsat = false;
   mcsat_nra_mgcd = false;
@@ -278,6 +286,43 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case interactive_opt:
 	interactive = true;
+	break;
+
+      case delegate_opt:
+	if (delegate == NULL) {
+	  if (strcmp(elem.s_value, "y2sat") == 0) {
+	    delegate = "y2sat";
+	  } else if (strcmp(elem.s_value, "cadical") == 0) {
+#ifdef HAVE_CADICAL
+	    delegate = "cadical";
+#else
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+#endif
+	  } else if (strcmp(elem.s_value, "cryptominisat") == 0) {
+#ifdef HAVE_CRYPTOMINISAT
+	    delegate = "cryptominisat";
+#else
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cryptominisat\n", parser.command_name);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+#endif
+	  } else {
+	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
+		    parser.command_name, elem.s_value);
+	    print_usage(parser.command_name);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+	  }
+	} else if (strcmp(elem.s_value, delegate) != 0) {
+	  fprintf(stderr, "%s: can't give several delegates\n", parser.command_name);
+	  print_usage(parser.command_name);
+	  code = YICES_EXIT_USAGE;
+	  goto exit;
+	}
 	break;
 
       case smt2format_opt:
@@ -390,6 +435,11 @@ static void parse_command_line(int argc, char *argv[]) {
   }
 
  done:
+  if (incremental && delegate != NULL) {
+    fprintf(stderr, "%s: delegate %s does not support incremental mode\n", parser.command_name, delegate);
+    code = YICES_EXIT_USAGE;
+    goto exit;
+  }
 
   // force interactive to false if there's a filename
   if (filename != NULL) {
@@ -509,9 +559,10 @@ static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
-  if (show_stats) {
-    smt2_show_stats();
-  }
+  // we can't call show_stats here. This can cause a deadlock
+  //  if (show_stats) {
+  //    smt2_show_stats();
+  //  }
   _exit(YICES_EXIT_INTERRUPTED);
 }
 
@@ -607,6 +658,7 @@ int main(int argc, char *argv[]) {
   yices_init();
   init_smt2(!incremental, timeout, interactive);
   if (smt2_model_format) smt2_force_smt2_model_format();
+  if (delegate != NULL) smt2_set_delegate(delegate);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
@@ -626,8 +678,8 @@ int main(int argc, char *argv[]) {
   while (smt2_active()) {
     if (interactive) {
       // prompt
-      fputs("yices> ", stderr);
-      fflush(stderr);
+      fputs("yices> ", stdout);
+      fflush(stdout);
     }
     code = parse_smt2_command(&parser);
     if (code < 0) {

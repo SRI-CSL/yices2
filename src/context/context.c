@@ -2368,22 +2368,23 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   case BVEQ_CODE_FALSE:
     return false_literal;
 
-    // TODO: handle BVEQ_CODE_REDUCED0 better
-
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    // pass through intended
+    break;
 
+    // TODO: handle BVEQ_CODE_REDUCED0 better
   case BVEQ_CODE_REDUCED0:
   default:
-    /*
-     * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
-     */
-    x = internalize_to_bv(ctx, t1);
-    y = internalize_to_bv(ctx, t2);
-    return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+    break;
   }
+
+  /*
+   * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
+   */
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
+  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
 }
 
 static literal_t map_bvge_to_literal(context_t *ctx, composite_term_t *ge) {
@@ -4381,10 +4382,6 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   /*
    * Try more simplifications
    */
-  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
-    longjmp(ctx->env, TRIVIALLY_UNSAT);
-  }
-
   try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
   switch (simp.code) {
   case BVEQ_CODE_TRUE:
@@ -4398,19 +4395,27 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   case BVEQ_CODE_REDUCED:
     t1 = intern_tbl_get_root(&ctx->intern, simp.left);
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
-    // pass through intended
+    break;
 
     // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
   default:
-    /*
-     * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
-     */
-    x = internalize_to_bv(ctx, t1);
-    y = internalize_to_bv(ctx, t2);
-    ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
     break;
   }
+
+  /*
+   * Try Factoring
+   */
+  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
+    longjmp(ctx->env, TRIVIALLY_UNSAT);
+  }
+
+  /*
+   * NOTE: asserting (eq t1 t2) in the egraph instead makes things worse
+   */
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {
@@ -5593,7 +5598,6 @@ void context_push(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
   }
-  gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   assumption_stack_push(&ctx->assumptions);
   context_eq_cache_push(ctx);
@@ -5608,7 +5612,6 @@ void context_pop(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
   }
-  gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   assumption_stack_pop(&ctx->assumptions);
   context_eq_cache_pop(ctx);
@@ -5694,6 +5697,12 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
+
+#if 0
+    printf("\n=== Context: process assertions ===\n");
+    context_show_assertions(ctx, n, a);
+    printf("===\n\n");
+#endif
 
     // flatten
     for (i=0; i<n; i++) {
