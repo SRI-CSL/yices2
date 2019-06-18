@@ -2542,7 +2542,9 @@ void factor_bvpoly64_monomials(term_table_t *tbl, bvpoly64_t *p, bvfactor_buffer
   for (i=0; i<n; i++) {
     reset_bvfactor_buffer(b+i, p->bitsize);
     bvfactor_buffer_mulconst64(b+i, p->mono[i].coeff, 1);
-    get_factors(tbl, b+i, p->mono[i].var, 1);
+    if (p->mono[i].var != const_idx) {
+      get_factors(tbl, b+i, p->mono[i].var, 1);
+    }
     bvfactor_buffer_normalize(b+i);
   }
 }
@@ -2556,7 +2558,9 @@ void factor_bvpoly_monomials(term_table_t *tbl, bvpoly_t *p, bvfactor_buffer_t *
   for (i=0; i<n; i++) {
     reset_bvfactor_buffer(b+i, p->bitsize);
     bvfactor_buffer_mulconst(b+i, p->mono[i].coeff, 1);
-    get_factors(tbl, b+i, p->mono[i].var, 1);
+    if (p->mono[i].var != const_idx) {
+      get_factors(tbl, b+i, p->mono[i].var, 1);
+    }
     bvfactor_buffer_normalize(b+i);
   }
 }
