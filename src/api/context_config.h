@@ -105,6 +105,7 @@ struct ctx_config_s {
   solver_code_t         bv_config;
   solver_code_t         arith_config;
   arith_fragment_t      arith_fragment;
+  char*                 trace_tags;
 };
 
 

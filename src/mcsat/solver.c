@@ -1622,11 +1622,9 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
       // Decide
       if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n",
-            mcsat->plugins[i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
         mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
-        variable_db_print_variable(mcsat->var_db, var,
-            trace_out(mcsat->ctx->trace));
+        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
       plugin = mcsat->plugins[i].plugin;
@@ -1646,6 +1644,13 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         // If plugin decided to cheat by deciding on another variable, put it back
         if (!trail_has_value(mcsat->trail, var)) {
           var_queue_insert(&mcsat->var_queue, var);
+        } else {
+          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+            mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): value ");
+            const mcsat_value_t* value = trail_get_value(mcsat->trail, var);
+            mcsat_value_print(value, trace_out(mcsat->ctx->trace));
+            mcsat_trace_printf(mcsat->ctx->trace, "\n");
+          }
         }
         break;
       }
