@@ -161,11 +161,11 @@ static inline error_report_t* get_yices_error(void){
  */
 /*
  * Attempt to obtain sole access to yice's global data structures.
- * In thread safe mode, calling this function will block all other 
+ * In thread safe mode, calling this function will block all other
  * yices API routines from accessing the global data structures.
  *
  * It is an error to call this more than once.
- * 
+ *
  */
 int32_t yices_obtain_mutex(void){
 #ifdef THREAD_SAFE
@@ -177,7 +177,7 @@ int32_t yices_obtain_mutex(void){
 
 /*
  * Release the claim to sole access to yice's global data structures.
- * 
+ *
  * The callee must have already obtained sole access via yices_obtain_mutex();
  *
  */
@@ -8322,7 +8322,7 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     }
   }
 
-  return yices_create_context(logic, arch, mode, iflag, qflag);
+  return _o_yices_create_context(logic, arch, mode, iflag, qflag);
 }
 
 
