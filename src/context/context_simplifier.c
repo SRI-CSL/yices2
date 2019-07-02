@@ -883,22 +883,22 @@ static bool try_left_replace(bvfactoring_t *r, term_table_t *terms, term_t t, bv
   return false;
 }
 
-// try to replace t by p in r->reduced1
+// try to replace t by p in r->reduced2
 static bool try_right_replace64(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly64_t *p) {
   uint32_t i;
 
-  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
+  assert(r->n2 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
 
   if (p->nterms <= MAX_BVFACTORS) {
     bvfactor_buffer_reduce_by_var(r->reduced2, t);
     bvfactoring_expand_right(r, p->nterms);
-    assert(r->n1 == p->nterms);
+    assert(r->n2 == p->nterms);
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst64(r->reduced2, p->mono[i].coeff, 1);
       i = 1;
     }
-    while (i<r->n1) {
+    while (i<r->n2) {
       factor_mul_bvterm64(terms, p->mono[i].coeff, p->mono[i].var, r->reduced2 + i);
       i ++;
     }
@@ -911,18 +911,18 @@ static bool try_right_replace64(bvfactoring_t *r, term_table_t *terms, term_t t,
 static bool try_right_replace(bvfactoring_t *r, term_table_t *terms, term_t t, bvpoly_t *p) {
   uint32_t i;
 
-  assert(r->n1 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
+  assert(r->n2 == 1 && bvfactor_buffer_is_var(r->reduced2) && t == bvfactor_buffer_get_var(r->reduced2));
 
   if (p->nterms <= MAX_BVFACTORS) {
     bvfactor_buffer_reduce_by_var(r->reduced2, t);
     bvfactoring_expand_right(r, p->nterms);
-    assert(r->n1 == p->nterms);
+    assert(r->n2 == p->nterms);
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst(r->reduced2, p->mono[i].coeff, 1);
       i = 1;
     }
-    while (i<r->n1) {
+    while (i<r->n2) {
       factor_mul_bvterm(terms, p->mono[i].coeff, p->mono[i].var, r->reduced2 + i);
       i ++;
     }

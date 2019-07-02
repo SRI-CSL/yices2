@@ -2470,7 +2470,7 @@ static bool lower_rank(void *aux, uint32_t i, uint32_t j) {
 }
 
 static void rank_variables(nvar_list_t *list, uint32_t *a, uint32_t n) {
-  uint_array_sort2(a, n, list->rank, lower_rank);
+  //  uint_array_sort2(a, n, list->rank, lower_rank);
 }
 
 
