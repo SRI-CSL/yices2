@@ -207,7 +207,7 @@ static void cadical_set_verbosity(void *solver, uint32_t level) {
   // verbosity 2 --> cadical verbosity 1
   // verbosity 3 --> cadical verbosity 2
   if (level == 0) {
-    ccadical_set_option(solver, "quiet", 0.1);
+    ccadical_set_option(solver, "quiet", 1.0);
   } else {
     ccadical_set_option(solver, "quiet", 0.0);
     if (level == 2) {
