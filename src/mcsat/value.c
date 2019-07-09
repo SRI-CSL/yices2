@@ -109,6 +109,17 @@ void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table
     mcsat_value_construct_bool(t_value, t == true_term);
     break;
   }
+  case ARITH_CONSTANT: {
+    lp_rational_t rat_value;
+    lp_rational_construct(&rat_value);
+    q_get_mpq(rational_term_desc(terms, t), &rat_value);
+    lp_value_t lp_value;
+    lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+    mcsat_value_construct_lp_value(t_value, &lp_value);
+    lp_value_destruct(&lp_value);
+    lp_rational_destruct(&rat_value);
+    break;
+  }
   default:
     assert(false);
   }

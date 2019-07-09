@@ -470,7 +470,7 @@ void trail_token_conflict(trail_token_t* token) {
   tk->ctx->mcsat->plugin_in_conflict = tk->ctx;
 
   // Set the trail to be inconsistent
-  tk->ctx->mcsat->trail->inconsistent = true;
+  trail_set_inconsistent(tk->ctx->mcsat->trail);
 }
 
 static

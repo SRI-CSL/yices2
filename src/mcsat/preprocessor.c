@@ -252,6 +252,12 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
   case UNINTERPRETED_TERM:
     // Variables are already pure
     return t;
+  case CONSTANT_TERM:
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+    // Constants are also pure
+    return t;
   case APP_TERM:
     // Uninterpreted functions are also already purified
     return t;
