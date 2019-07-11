@@ -2457,18 +2457,6 @@ static inline void var_list_add_active_var(nvar_list_t *list, bvar_t x) {
   vector_push(&list->active_vars, x);
 }
 
-
-/*
- * Sort variables by rank
- * - a = array of n variables
- */
-// ordering: aux = rank, i and j are two variables
-static bool lower_rank(void *aux, uint32_t i, uint32_t j) {
-  uint32_t *rank;
-  rank = aux;
-  return rank[i] < rank[j];
-}
-
 static void rank_variables(nvar_list_t *list, uint32_t *a, uint32_t n) {
   //  uint_array_sort2(a, n, list->rank, lower_rank);
 }
