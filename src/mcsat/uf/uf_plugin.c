@@ -620,14 +620,12 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   uint32_t i;
   term_t app_f, prev_app_f = NULL_TERM;  // Current and previous function symbol
   term_t app_term, prev_app_term = NULL_TERM; // Current and previous function application term
-  term_kind_t app_kind, prev_app_kind; // Kind of the current and previous function
-  type_t app_type;           // Current function application term type
+  term_kind_t app_kind, prev_app_kind = UNUSED_TERM; // Kind of the current and previous function
   bool app_construct = true; // Whether to construct it
   for (i = 0; i < app_terms.size; ++ i) {
 
     // Current representative application
     app_term = app_terms.data[i];
-    app_type = term_type(terms, app_term);
 
     // Only need to do functions and uninterpreted
     app_kind = term_kind(terms, app_term);
@@ -653,6 +651,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     if (app_kind == APP_TERM) {
       app_f = app_comp->arg[0];
     } else {
+      app_f = NULL_TERM;
       // Division only if division by 0
       assert(app_comp->arity == 2);
       term_t divisor_term = app_comp->arg[1];
@@ -662,7 +661,6 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       if (!mcsat_value_is_zero(divisor_value)) {
         continue;
       }
-      app_f = NULL_TERM;
     }
 
     // If we changed the function, construct the previous one
