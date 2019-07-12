@@ -264,6 +264,9 @@ eq_node_id_t eq_graph_term_id(const eq_graph_t* eq, term_t t);
 /** Get the ID of a term (returns null node if not there) */
 eq_node_id_t eq_graph_term_id_if_exists(const eq_graph_t* eq, term_t t);
 
+/** Returns true if term is a representative of its class */
+bool eq_graph_term_is_rep(const eq_graph_t* eq, term_t t);
+
 /** Push the context */
 void eq_graph_push(eq_graph_t* eq);
 

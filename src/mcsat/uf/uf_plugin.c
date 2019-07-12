@@ -627,6 +627,11 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     // Current representative application
     app_term = app_terms.data[i];
 
+    // Skip non-representative terms
+    if (eq_graph_term_is_rep(&uf->eq_graph, app_term)) {
+      continue;
+    }
+
     // Only need to do functions and uninterpreted
     app_kind = term_kind(terms, app_term);
     switch (app_kind) {
