@@ -649,7 +649,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
         term_t neg_s = mk_bvneg(tm, s_pre);
         term_t neg_t = mk_bvneg(tm, t_pre);
 
-        term_t t1 = mk_bvrem(&pre->tm, neg_s, neg_t);
+        term_t t1 = mk_bvrem(tm, neg_s, neg_t);
         t1 = mk_bvneg(tm, t1);
         term_t t2 = mk_bvrem(tm, neg_s, t_pre);
         t2 = mk_bvneg(tm, t2);

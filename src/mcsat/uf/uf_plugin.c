@@ -585,6 +585,27 @@ value_t uf_plugin_get_term_value(uf_plugin_t* uf, value_table_t* vtbl, term_t t)
   }
 }
 
+static inline
+value_t vtbl_mk_default(type_table_t* types, value_table_t *vtbl, type_t tau) {
+  type_kind_t tau_kind = type_kind(types, tau);
+  switch(tau_kind) {
+  case BOOL_TYPE:
+    return vtbl_mk_false(vtbl);
+    break;
+  case REAL_TYPE:
+  case INT_TYPE:
+    return vtbl_mk_int32(vtbl, 0);
+    break;
+  case BITVECTOR_TYPE:
+    return vtbl_mk_bv_zero(vtbl, bv_type_size(types, tau));
+    break;
+  default:
+    assert(false);
+  }
+
+  return null_value;
+}
+
 static
 void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
@@ -627,11 +648,6 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     // Current representative application
     app_term = app_terms.data[i];
 
-    // Skip non-representative terms
-    if (eq_graph_term_is_rep(&uf->eq_graph, app_term)) {
-      continue;
-    }
-
     // Only need to do functions and uninterpreted
     app_kind = term_kind(terms, app_term);
     switch (app_kind) {
@@ -672,7 +688,8 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     if (prev_app_term != NULL_TERM) {
       if (app_f != prev_app_f || app_kind != prev_app_kind) {
         type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
-        value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_unknown(vtbl));
+        type_t range_tau = function_type_range(terms->types, tau);
+        value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
         switch (prev_app_kind) {
         case ARITH_RDIV:
           vtbl_set_zero_rdiv(vtbl, f_value);
@@ -720,7 +737,8 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   // Since we make functions when we see a new one, we also construct the last function
   if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
     type_t tau = get_function_application_type(terms, app_kind, app_f);
-    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_unknown(vtbl));
+    type_t range_tau = function_type_range(terms->types, tau);
+    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
     switch (app_kind) {
     case ARITH_RDIV:
       vtbl_set_zero_rdiv(vtbl, f_value);
