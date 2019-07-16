@@ -78,6 +78,14 @@ void preprocessor_set(preprocessor_t* pre, term_t t, term_t t_pre) {
   ivector_push(&pre->preprocess_map_list, t);
 }
 
+typedef struct composite_term1_s {
+  uint32_t arity;  // number of subterms
+  term_t arg[1];  // real size = arity
+} composite_term1_t;
+
+static
+composite_term1_t composite_for_noncomposite;
+
 static
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t) {
   assert(term_is_composite(terms, t));
@@ -96,6 +104,16 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return xor_term_desc(terms, t);
   case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
     return arith_bineq_atom_desc(terms, t);
+  case ARITH_EQ_ATOM: {
+    composite_for_noncomposite.arity = 1;
+    composite_for_noncomposite.arg[0] = arith_eq_arg(terms, t);
+    return (composite_term_t*)&composite_for_noncomposite;
+  }
+  case ARITH_GE_ATOM: {
+    composite_for_noncomposite.arity = 1;
+    composite_for_noncomposite.arg[0] = arith_ge_arg(terms, t);
+    return (composite_term_t*)&composite_for_noncomposite;
+  }
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
   case ARITH_RDIV:          // division: (/ x y)
@@ -158,6 +176,12 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
     return mk_or(tm, n, children);
   case XOR_TERM:           // n-ary XOR
     return mk_xor(tm, n, children);
+  case ARITH_EQ_ATOM:
+    assert(n == 1);
+    return mk_arith_eq(tm, children[0], zero_term);
+  case ARITH_GE_ATOM:
+    assert(n == 1);
+    return mk_arith_geq(tm, children[0], zero_term);
   case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
     assert(n == 2);
     return mk_arith_eq(tm, children[0], children[1]);
@@ -227,6 +251,12 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
   switch (t_kind) {
   case UNINTERPRETED_TERM:
     // Variables are already pure
+    return t;
+  case CONSTANT_TERM:
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+    // Constants are also pure
     return t;
   case APP_TERM:
     // Uninterpreted functions are also already purified
@@ -416,36 +446,15 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
         } 
       }
       break;
-    case ARITH_EQ_ATOM:      // atom t == 0
-    {
-      term_t child = arith_eq_arg(terms, current);
-      term_t child_pre = preprocessor_get(pre, child);
-      if (child_pre != NULL_TERM) {
-        current_pre = arith_eq_atom(terms, child_pre);
-      } else {
-        ivector_push(pre_stack, child);
-      }
-      break;
-    }
-
-    case ARITH_GE_ATOM:      // atom t >= 0
-    {
-      term_t child = arith_ge_arg(terms, current);
-      term_t child_pre = preprocessor_get(pre, child);
-      if (child_pre != NULL_TERM) {
-        current_pre = arith_geq_atom(terms, child_pre);
-      } else {
-        ivector_push(pre_stack, child);
-      }
-      break;
-    }
 
     case ITE_TERM:           // if-then-else
     case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
     case EQ_TERM:            // equality
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
+    case ARITH_EQ_ATOM:      // equality (t == 0)
     case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+    case ARITH_GE_ATOM:      // inequality (t >= 0)
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -469,7 +478,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       }
 
       // Is this a top-level equality assertion
-      bool is_equality = current_kind == EQ_TERM || current_kind == BV_EQ_ATOM || current_kind == ARITH_BINEQ_ATOM;
+      bool is_equality =
+          current_kind == EQ_TERM ||
+          current_kind == BV_EQ_ATOM ||
+          current_kind == ARITH_BINEQ_ATOM ||
+          current_kind == ARITH_EQ_ATOM;
+
       term_t eq_solve_var = NULL_TERM;
       if (is_assertion && is_equality) {
         if (current == t) {
@@ -483,7 +497,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
               // First time variable, let's solve
               preprocessor_mark_eq(pre, t, lhs);
               eq_solve_var = lhs;
-            } else {
+            } else if (desc->arity > 1) {
               term_t rhs = desc->arg[1];
               term_kind_t rhs_kind = term_kind(terms, rhs);
               bool rhs_is_var = rhs_kind == UNINTERPRETED_TERM && is_pos_term(rhs);
@@ -531,7 +545,11 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       if (children_done) {
         if (eq_solve_var != NULL_TERM) {
-          preprocessor_set(pre, eq_solve_var, children.data[0]);
+          term_t eq_solve_term = zero_term;
+          if (children.size > 0) {
+            eq_solve_term = children.data[0];
+          }
+          preprocessor_set(pre, eq_solve_var, eq_solve_term);
           current_pre = true_term;
         } else {
           if (children_same) {
@@ -631,7 +649,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
         term_t neg_s = mk_bvneg(tm, s_pre);
         term_t neg_t = mk_bvneg(tm, t_pre);
 
-        term_t t1 = mk_bvrem(&pre->tm, neg_s, neg_t);
+        term_t t1 = mk_bvrem(tm, neg_s, neg_t);
         t1 = mk_bvneg(tm, t1);
         term_t t2 = mk_bvrem(tm, neg_s, t_pre);
         t2 = mk_bvneg(tm, t2);
@@ -1051,9 +1069,14 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
     if (preprocessor_get(pre, eq_var) == eq_var) {
       continue;
     }
-    composite_term_t* eq_desc = composite_term_desc(pre->terms, eq);
-    term_t eq_subst = eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0];
-    model_add_substitution(model, eq_var, eq_subst);
+    term_kind_t eq_kind = term_kind(pre->terms, eq);
+    composite_term_t* eq_desc = get_composite(pre->terms, eq_kind, eq);
+    if (eq_desc->arity > 1) {
+      term_t eq_subst = eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0];
+      model_add_substitution(model, eq_var, eq_subst);
+    } else {
+      model_add_substitution(model, eq_var, zero_term);
+    }
   }
 }
 

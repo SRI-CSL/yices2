@@ -811,12 +811,13 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     (*bv->stats.constraints_attached) ++;
   } else {
     assert(t_vars.size == 1);
+    // Only one variable: constraint with no other variables
+    // Either a Boolean variable or a constant term
     // Propagate constant values
-    if (bv_term_kind_get_type(t_kind) == BV_TERM_CONSTANT) {
-      mcsat_value_t t_value;
-      mcsat_value_construct_from_constant_term(&t_value, terms, t);
-      prop->add_at_level(prop, t_var, &t_value, 0);
-      mcsat_value_destruct(&t_value);
+    if (bv_term_kind_get_type(t_kind) != BV_TERM_VARIABLE) {
+      uint32_t t_eval_level = 0;
+      const mcsat_value_t* t_value = bv_evaluator_evaluate_term(&bv->evaluator, t, &t_eval_level);
+      prop->add_at_level(prop, t_var, t_value, t_eval_level);
     }
   }
 

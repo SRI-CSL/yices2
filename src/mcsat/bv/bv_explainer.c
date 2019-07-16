@@ -153,9 +153,7 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
 
 void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict) {
   ctx_config_t* config = yices_new_config();
-  int32_t ret = yices_default_config_for_logic(config, "QF_BV");
-  (void) ret;
-  context_t*  ctx = yices_new_context(config);
+  context_t* ctx = yices_new_context(config);
   uint32_t i;
   for (i = 0; i < conflict->size; ++ i) {
     yices_assert_formula(ctx, conflict->data[i]);

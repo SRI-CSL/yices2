@@ -457,7 +457,7 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
   term_table_t* terms = eval->ctx->terms;
   term_kind_t t_kind = term_kind(terms, t);
 
-  if (t_kind == UNINTERPRETED_TERM || t_kind == ITE_TERM || t_kind == ITE_SPECIAL) {
+  if (t_kind == UNINTERPRETED_TERM || t_kind == ITE_TERM || t_kind == ITE_SPECIAL || t_kind == APP_TERM) {
     // Get the value from trail
     variable_t t_x = variable_db_get_variable_if_exists(eval->ctx->var_db, t);
     assert(t_x != variable_null);

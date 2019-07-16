@@ -118,7 +118,7 @@ uint32_t mcsat_value_hash(const mcsat_value_t *v);
 void mcsat_value_print(const mcsat_value_t *value, FILE *out);
 
 /** Convert a basic value to yices model value. Types is passed in to enforce a type (e.g. for UF) */
-value_t mcsat_value_to_value(mcsat_value_t *value, type_table_t *types, type_t type, value_table_t *vtbl);
+value_t mcsat_value_to_value(const mcsat_value_t *value, type_table_t *types, type_t type, value_table_t *vtbl);
 
 /** Convert a basic value to a term */
 term_t mcsat_value_to_term(const mcsat_value_t *value, term_manager_t* tm);

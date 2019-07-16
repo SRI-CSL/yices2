@@ -109,6 +109,17 @@ void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table
     mcsat_value_construct_bool(t_value, t == true_term);
     break;
   }
+  case ARITH_CONSTANT: {
+    lp_rational_t rat_value;
+    lp_rational_construct(&rat_value);
+    q_get_mpq(rational_term_desc(terms, t), &rat_value);
+    lp_value_t lp_value;
+    lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+    mcsat_value_construct_lp_value(t_value, &lp_value);
+    lp_value_destruct(&lp_value);
+    lp_rational_destruct(&rat_value);
+    break;
+  }
   default:
     assert(false);
   }
@@ -306,7 +317,7 @@ term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_manager_t* tm)
   return NULL_TERM;
 }
 
-value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {
+value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {
   value_t value = null_value;
   switch (mcsat_value->type) {
   case VALUE_BOOLEAN:
@@ -315,12 +326,12 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
   case VALUE_RATIONAL:
     if (type_kind(types, type) == UNINTERPRETED_TYPE) {
       int32_t id;
-      bool ok = q_get32(&mcsat_value->q, &id);
+      bool ok = q_get32((rational_t *)&mcsat_value->q, &id);
       (void) ok; // unused in release build
       assert(ok);
       value = vtbl_mk_const(vtbl, type, id, NULL);
     } else {
-      value = vtbl_mk_rational(vtbl, &mcsat_value->q);
+      value = vtbl_mk_rational(vtbl, (rational_t *) &mcsat_value->q);
     }
     break;
   case VALUE_LIBPOLY:
@@ -335,7 +346,7 @@ value_t mcsat_value_to_value(mcsat_value_t* mcsat_value, type_table_t *types, ty
       q_clear(&q);
       lp_rational_destruct(&lp_q);
     } else {
-      value = vtbl_mk_algebraic(vtbl, &mcsat_value->lp_value.value.a);
+      value = vtbl_mk_algebraic(vtbl, (void*) &mcsat_value->lp_value.value.a);
     }
     break;
   case VALUE_BV:
