@@ -1083,6 +1083,16 @@ void bv_arith_add2conflict(arith_t* exp,
     /* assert(!bv_evaluator_evaluate_term(exp->super.eval, not_term(tm->terms,continuity_reason), &eval_level)->b); */
     ivector_push(conflict, continuity_reason);
   }
+
+  for (uint32_t j = 0; j < i->reasons.size; j++) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "and adding reasons[%d]: ",j);
+      term_print_to_file(out, tm->terms, i->reasons.data[j]);
+      fprintf(out, "\n");
+    }
+    ivector_push(conflict, i->reasons.data[j]);
+  }
 }
 
 // Returns the index of the longest interval in an array of (non-empty) interval pointers
@@ -1171,6 +1181,15 @@ bool cover(arith_t* exp,
       assert(bv_evaluator_evaluate_term(exp->super.eval, longest->reason, &eval_level)->b);
       (void) eval_level;
       ivector_push(output, longest->reason);
+      for (uint32_t j = 0; j < longest->reasons.size; j++) {
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "and adding reasons[%d]: ",j);
+          term_print_to_file(out, tm->terms, longest->reasons.data[j]);
+          fprintf(out, "\n");
+        }
+        ivector_push(output, longest->reasons.data[j]);
+      }
     }
     return false;
   }
@@ -1525,7 +1544,7 @@ bool cover(arith_t* exp,
   return result;
 }
 
-void transform_interval(arith_t* exp, interval_t* interval, term_t var) {
+void transform_interval(arith_t* exp, interval_t** interval, term_t var) {
 
   plugin_context_t* ctx = exp->super.ctx;
   bv_evaluator_t* eval  = exp->super.eval;
@@ -1538,71 +1557,124 @@ void transform_interval(arith_t* exp, interval_t* interval, term_t var) {
   term_t base = lower_bit_extract_base(exp,var,w,&head,&variable_bits);
   assert(base != NULL_TERM);
 
-  if (variable_bits < w && !is_full(interval)) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Transforming interval ");
+    bv_arith_interval_print(out, ctx->terms, interval[0]);
+    fprintf(out, "  for monomial variable ");
+    term_print_to_file(out, tm->terms, var);
+    fprintf(out, " into\n");
+  }
+
+  if (variable_bits < w && !is_full(interval[0])) {
     bvconstant_t smaller_width; // smaller_width: how many values of bitwidth variable_bits?
     init_bvconstant(&smaller_width);
     bvconstant_set_all_zero(&smaller_width, w);
     bvconst_set_bit(smaller_width.data, variable_bits); 
     bvconstant_normalize(&smaller_width);
     term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
-    term_t t0 = bv_arith_sub_terms(tm, interval->lo_term, head);
-    term_t t1 = bv_arith_sub_terms(tm, interval->hi_term, head);
-    uint32_t ignore_this_int;
-    const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
-    const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
-    assert(v0->type == VALUE_BV);
-    assert(v1->type == VALUE_BV);
+    term_t t0 = bv_arith_sub_terms(tm, interval[0]->lo_term, head);
+    term_t t1 = bv_arith_sub_terms(tm, interval[0]->hi_term, head);
 
+    uint32_t ignore_this_int;
+
+    const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
+    assert(v0->type == VALUE_BV);
     term_t lo_term, lo_reason;
     if (bvconstant_lt(&v0->bv_value,&smaller_width)) {
-      lo_term   = term_extract(tm, interval->lo_term, 0, variable_bits);
+      lo_term   = term_extract(tm, interval[0]->lo_term, 0, variable_bits);
       lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
     } else {
       lo_term   = bv_arith_zero(tm, variable_bits);
       lo_reason = bv_arith_le(tm, smaller_width_term, t0);
     }
 
+    const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
+    assert(v1->type == VALUE_BV);
     term_t hi_term, hi_reason;
     if (bvconstant_lt(&v1->bv_value,&smaller_width)) {
-      hi_term   = term_extract(tm, interval->hi_term, 0, variable_bits);
+      hi_term   = term_extract(tm, interval[0]->hi_term, 0, variable_bits);
       hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
     } else {
       hi_term   = bv_arith_zero(tm, variable_bits);
-      hi_reason = bv_arith_le(tm, smaller_width_term, t0);
+      hi_reason = bv_arith_le(tm, smaller_width_term, t1);
     }
 
-    const mcsat_value_t* lo = bv_evaluator_evaluate_term(eval, lo_term, &ignore_this_int);
-    const mcsat_value_t* hi = bv_evaluator_evaluate_term(eval, hi_term, &ignore_this_int);
-    assert(lo->type == VALUE_BV);
-    assert(hi->type == VALUE_BV);
+    bvconstant_t lo,hi;
+    init_bvconstant(&lo);
+    init_bvconstant(&hi);
 
-    if (bvconstant_eq(&lo->bv_value, &hi->bv_value)) {
-      const mcsat_value_t* head_v = bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
+    const mcsat_value_t* lo_mcsat = bv_evaluator_evaluate_term(eval, lo_term, &ignore_this_int);
+    assert(lo_mcsat->type == VALUE_BV);
+    bvconstant_copy(&lo, lo_mcsat->bv_value.bitsize, lo_mcsat->bv_value.data);
+    
+    const mcsat_value_t* hi_mcsat = bv_evaluator_evaluate_term(eval, hi_term, &ignore_this_int);
+    assert(hi_mcsat->type == VALUE_BV);
+    bvconstant_copy(&hi, hi_mcsat->bv_value.bitsize, hi_mcsat->bv_value.data);
+
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "variable_bits id %d and head is ",variable_bits);
+      term_print_to_file(out, tm->terms, head);
+      fprintf(out, "\nand lo - head is ");
+      term_print_to_file(out, tm->terms, t0);
+      fprintf(out, "\nand hi - head is ");
+      term_print_to_file(out, tm->terms, t1);
+      fprintf(out, "\nand smaller_width_term is ");
+      term_print_to_file(out, tm->terms, smaller_width_term);
+      fprintf(out, "\nand lo_term (on smaller bitwidth) is ");
+      term_print_to_file(out, tm->terms, lo_term);
+      fprintf(out, "\nand hi_term (on smaller bitwidth) is ");
+      term_print_to_file(out, tm->terms, hi_term);
+      fprintf(out, "\nand the value of lo_term (on smaller bitwidth) is ");
+      bvconst_print(out, lo.data, lo.bitsize);
+      fprintf(out, "\nand the value of hi_term (on smaller bitwidth) is ");
+      bvconst_print(out, hi.data, hi.bitsize);
+      fprintf(out, "\n");
+    }
+
+    if (bvconstant_eq(&lo, &hi)) { // Interval on smaller bitwidth is full or empty
+      const mcsat_value_t* head_v =
+        bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
       assert(head_v->type == VALUE_BV);
-      if (is_in_interval(&head_v->bv_value, interval)) {
-        bvconstant_t zero;
-        init_bvconstant(&zero);
-        bvconstant_set_all_zero(&zero, variable_bits);
-        term_t zero_term = bv_arith_zero(tm, variable_bits);
+      if (is_in_interval(&head_v->bv_value, interval[0])) {
         term_t reason = bv_arith_lt(tm,
-                                    bv_arith_sub_terms(tm, head, interval->lo_term),
-                                    bv_arith_sub_terms(tm, interval->hi_term, interval->lo_term)
+                                    bv_arith_sub_terms(tm, head, interval[0]->lo_term),
+                                    bv_arith_sub_terms(tm, interval[0]->hi_term, interval[0]->lo_term)
                                     );
-        delete_ivector(&interval->reasons);
-        interval_construct(exp,&zero,&zero,zero_term,zero_term,reason,interval);
-        delete_bvconstant(&zero);
+        bv_arith_interval_destruct(interval[0]);
+        interval[0] = bv_arith_full_interval_push(exp, reason, variable_bits);
       } else {
-        bv_arith_interval_destruct(interval);
+        assert(false);
+        bv_arith_interval_destruct(interval[0]);
+        interval[0] = NULL;
       }
     } else {
-    
-      delete_ivector(&interval->reasons);
-      interval_construct(exp,&lo->bv_value,&hi->bv_value,lo_term,hi_term,NULL_TERM,interval);
+      bv_arith_interval_destruct(interval[0]);
+      interval[0] = bv_arith_interval_push(exp,&lo,&hi,lo_term,hi_term,NULL_TERM);
+    }
 
-      if (lo_reason != NULL_TERM) ivector_push(&interval->reasons, lo_reason);
-      if (hi_reason != NULL_TERM) ivector_push(&interval->reasons, hi_reason);
+    if (lo_reason != NULL_TERM) {
+      ivector_push(&interval[0]->reasons, lo_reason);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "  adding lo_reason ");
+        term_print_to_file(out, tm->terms, lo_reason);
+        fprintf(out, "\n");
+      }
+    }
+    if (hi_reason != NULL_TERM) {
+      ivector_push(&interval[0]->reasons, hi_reason);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "  adding hi_reason ");
+        term_print_to_file(out, tm->terms, hi_reason);
+        fprintf(out, "\n");
+      }
     }
       
+    delete_bvconstant(&lo);
+    delete_bvconstant(&hi);
     delete_bvconstant(&smaller_width);
   }
 
@@ -1697,7 +1769,7 @@ void bvarith_explain(bv_subexplainer_t* this,
       bv_arith_coeff(exp, t1, &var, false);
     }
     if (var != NULL_TERM && intervals[i] != NULL) {
-      transform_interval(exp, intervals[i], var);      
+      transform_interval(exp, &intervals[i], var);      
     }
   }
 
