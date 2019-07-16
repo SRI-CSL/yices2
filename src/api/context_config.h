@@ -219,6 +219,7 @@ static inline bool logic_is_supported(smt_logic_t code) {
  * Variant for MCSAT
  */
 extern bool logic_is_supported_by_mcsat(smt_logic_t code);
+extern bool logic_requires_mcsat(smt_logic_t code);
 
 
 /*

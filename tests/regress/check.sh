@@ -68,6 +68,18 @@ TIMEFORMAT="%U"
 
 
 #
+# Output colors
+#
+red=
+green=
+black=
+if test -t 1 ; then
+  red=`tput setaf 1`
+  green=`tput setaf 2`
+  black=`tput sgr0`
+fi
+
+#
 # The temp file for output
 #
 outfile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
@@ -124,7 +136,9 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     then
         gold=$file.gold
     else
+	echo -n $red
         echo FAIL: missing file: $file.gold
+	echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string")
         continue
@@ -139,10 +153,14 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
   
     if [ $? -eq 0 ] 
     then
+	echo -n $green
     	echo PASS [${thetime} s]
+	echo -n $black
         pass=`expr $pass + 1`
     else
+	echo -n $red
     	echo FAIL
+	echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string")
     fi
@@ -152,8 +170,18 @@ done
 rm $outfile
 rm $timefile
 
-echo Pass: $pass
-echo Fail: $fail
+if [ $fail -eq 0 ]
+then
+    echo -n $green
+    echo Pass: $pass
+    echo Fail: $fail
+    echo -n $black
+else
+    echo -n $red
+    echo Pass: $pass
+    echo Fail: $fail
+    echo -n $black
+fi
 
 if [ $fail -eq 0 ]
 then
@@ -162,3 +190,5 @@ else
 	for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
     exit 1
 fi
+
+echo -n $black

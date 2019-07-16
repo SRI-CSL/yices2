@@ -36,6 +36,7 @@
 #include "utils/int_bv_sets.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
+#include "utils/int_queues.h"
 #include "utils/int_vectors.h"
 #include "utils/object_stores.h"
 
@@ -154,6 +155,11 @@ static inline node_occ_t unsigned_occ(node_occ_t n) {
   return n & ~1;
 }
 
+// coefficient of n: either +1 or -1
+static inline int32_t coeff_of_occ(node_occ_t n) {
+  // this is 1 - 2 * sign_of_occ(n)
+  return 1 - ((n & 1) << 1);
+}
 
 
 /*
@@ -383,6 +389,17 @@ typedef struct bvc_dag_s {
   pp_buffer_t pp_aux;
   bvpoly_buffer_t poly_buffer;
   ivector_t buffer;
+  ivector_t sum_buffer;
+  ivector_t use_buffer;
+
+  // queues to propagate simplifications
+  // node_queue stores the ids of nodes reduced to zero or aliased
+  // flip_queue stores the ids of nodes whose sign must be flipped
+  // flipping signs happens when we do we rewrite (n0 to -n) in
+  // a product like i := (n0^3 * n1). The result is - (n^3*n1) and
+  // we flip the sign of i everywhere.
+  int_queue_t node_queue;
+  int_queue_t flip_queue;
 } bvc_dag_t;
 
 
@@ -434,6 +451,11 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
 static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return dag->desc[n]->tag;
+}
+
+static inline uint32_t bvc_dag_node_bitsize(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return dag->desc[n]->bitsize;
 }
 
 static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, bvnode_t n) {
@@ -518,6 +540,10 @@ static inline bvc_alias_t *bvc_dag_node_alias(bvc_dag_t *dag, bvnode_t n) {
 
 
 // more checks with n a node_occurrence
+static inline uint32_t bvc_dag_occ_bitsize(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_bitsize(dag, node_of_occ(n));
+}
+
 static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_leaf(dag, node_of_occ(n));
 }
@@ -551,13 +577,11 @@ static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
 }
 
 
-
 /*
  * Check whether n is a shared node occurrence
  * (i.e., +n or -n occur more than once)
  */
 extern bool bvc_dag_occ_is_shared(bvc_dag_t *dag, node_occ_t n);
-
 
 
 
@@ -780,7 +804,6 @@ extern void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, nod
 
 /*
  * Check whether there is a sum node that can be reduced by +n1 +n2 or -n1 -n2
- * - n1 and n2 must be distinct
  */
 extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
@@ -791,14 +814,11 @@ extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n
 extern bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
 
-
 /*
  * Add an elementary node to enable reduction of at least one non-elementary node
  * - the list of non-elementary node must not be empty
  */
 extern void bvc_dag_force_elem_node(bvc_dag_t *dag);
-
-
 
 
 #endif /* __BVPOLY_DAG_H */

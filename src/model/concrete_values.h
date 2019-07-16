@@ -950,6 +950,12 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
 extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
 
 /*
+ * Get the type of a function or update object i
+ */
+extern type_t vtbl_function_type(value_table_t *table, value_t i);
+
+
+/*
  * Push v into the internal queue
  * - v must be a valid object
  * - do nothing if v is already in the queue

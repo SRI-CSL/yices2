@@ -1582,6 +1582,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_lemma_queue(&s->lemmas);
   init_statistics(&s->stats);
   init_atom_table(&s->atoms);
+  init_gate_table(&s->gates);
   init_trail_stack(&s->trail_stack);
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -1652,6 +1653,7 @@ void delete_smt_core(smt_core_t *s) {
   delete_heap(&s->heap);
   delete_lemma_queue(&s->lemmas);
   delete_atom_table(&s->atoms);
+  delete_gate_table(&s->gates);
   delete_trail_stack(&s->trail_stack);
   delete_checkpoint_stack(&s->checkpoints);
 
@@ -1711,6 +1713,7 @@ void reset_smt_core(smt_core_t *s) {
   reset_lemma_queue(&s->lemmas);
   reset_statistics(&s->stats);
   reset_atom_table(&s->atoms);
+  reset_gate_table(&s->gates);
   reset_trail_stack(&s->trail_stack);
   reset_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -1820,7 +1823,17 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
 }
 
 
+extern double avg_learned_clause_size(smt_core_t *core) {
+  uint32_t num_clauses;
+  double r;
 
+  r = 0.0;
+  num_clauses = num_learned_clauses(core);
+  if (num_clauses > 0) {
+    r = ((double) num_learned_literals(core)) /num_clauses;
+  }
+  return r;
+}
 
 
 
@@ -3177,7 +3190,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
 
   u = 0;
   for (i=0; i<n; i++) {
-    u |= 1 << (d_level(s, b[i]) & 31);
+    u |= ((uint32_t) 1) << (d_level(s, b[i]) & 31);
   }
   return u;
 }
@@ -3186,7 +3199,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
  * Check whether decision level for literal l matches the hash sgn
  */
 static inline bool check_level(smt_core_t *s, literal_t l, uint32_t sgn) {
-  return (sgn & (1 << (d_level(s, l) & 31))) != 0;
+  return (sgn & (((uint32_t) 1) << (d_level(s, l) & 31))) != 0;
 }
 
 
@@ -5084,6 +5097,11 @@ void smt_push(smt_core_t *s) {
                    s->stack.prop_ptr, s->stack.theory_ptr);
 
   /*
+   * Gate table
+   */
+  gate_table_push(&s->gates);
+
+  /*
    * Notify the theory solver
    */
   s->th_ctrl.push(s->th_solver);
@@ -5337,6 +5355,9 @@ void smt_pop(smt_core_t *s) {
   s->stack.theory_ptr = top->theory_ptr;
 
   trail_stack_pop(&s->trail_stack);
+
+  // gate table
+  gate_table_pop(&s->gates);
 
   // reset status
   s->status = STATUS_IDLE;
@@ -6327,6 +6348,19 @@ void collect_decision_literals(smt_core_t *s, ivector_t *v) {
     i = s->stack.level_index[k];
     ivector_push(v, lit[i]);
   }
+}
+
+
+/******************
+ * IMPORT A MODEL *
+ *****************/
+
+/*
+ * Sets the value of variable x
+ */
+void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val) {
+  assert(0 <= x && x < s->nvars);
+  s->value[x] = val;
 }
 
 

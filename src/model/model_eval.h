@@ -23,6 +23,7 @@
 #ifndef __MODEL_EVAL_H
 #define __MODEL_EVAL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <setjmp.h>
 
@@ -103,6 +104,16 @@ extern void reset_evaluator(evaluator_t *eval);
  */
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
 
+
+/*
+ * Check whether t is true in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+extern bool eval_to_true_in_model(evaluator_t *eval, term_t t);
+
 /*
  * Compute the values of terms a[0 ... n-1]
  * - don't return anything
@@ -110,6 +121,16 @@ extern value_t eval_in_model(evaluator_t *eval, term_t t);
  *   (this reads the value from eval->cache so that's cheap).
  */
 extern void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n);
+
+/*
+ * Add useful uninterpreted terms to the model.
+ *
+ * A term t is useful if it's assigned a default value in eval_term. This means
+ * that the value of t is useful but was not assigned in the model. It makes
+ * sense then to print the value of t in print_model. To do this, we add an
+ * entry [t -> value(t)] for every useful term t.
+ */
+extern void eval_record_useful_terms(evaluator_t *eval);
 
 /*
  * Cached-term collector:

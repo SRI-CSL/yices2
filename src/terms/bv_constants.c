@@ -300,6 +300,15 @@ void bvconstant_copy64(bvconstant_t *b, uint32_t n, uint64_t a) {
  ***************************************/
 
 /*
+ * Return 1^k where 0 <= k <= 31. This is just to avoid ((uint32_t) 1) << k
+ * everywhere
+ */
+static inline uint32_t bitp(uint32_t k) {
+  assert(k < 32);
+  return ((uint32_t) 1) << k;
+}
+
+/*
  * Normalize: n = number of bits in bv
  * - let k = ceiling(n/32) and d = 32 k - n
  * - then bv is an array of k words
@@ -311,7 +320,7 @@ void bvconst_normalize(uint32_t *bv, uint32_t n) {
   r = n & 0x1f;      // r = n mod 32
   if (r > 0) {
     k = n >> 5;        // k = floor(n/32)
-    bv[k] &= (uint32_t) ((1 << r) - 1);
+    bv[k] &= (uint32_t) (bitp(r) - 1);
   }
 }
 
@@ -324,7 +333,7 @@ bool bvconst_is_normalized(const uint32_t *bv, uint32_t n) {
 
   r = n & 0x1f;  // r = n mod 32
   k = n >> 5;    // k = floor (n/32)
-  return r == 0 || (bv[k] & ~((uint32_t) ((1 << r) - 1))) == 0;
+  return r == 0 || (bv[k] & ~((uint32_t) (bitp(r) - 1))) == 0;
 }
 
 
@@ -335,7 +344,7 @@ bool bvconst_tst_bit(const uint32_t *bv, uint32_t i) {
   uint32_t j, mask;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   return bv[j] & mask; // converted to bool --> 0 or 1
 }
 
@@ -343,7 +352,7 @@ void bvconst_set_bit(uint32_t *bv, uint32_t i) {
   uint32_t j, mask;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   bv[j] |= mask;
 }
 
@@ -351,7 +360,7 @@ void bvconst_clr_bit(uint32_t *bv, uint32_t i) {
   uint32_t j, mask;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   bv[j] &= ~mask;
 }
 
@@ -359,7 +368,7 @@ void bvconst_flip_bit(uint32_t *bv, uint32_t i) {
   uint32_t j, mask;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   bv[j] ^= mask;
 }
 
@@ -367,7 +376,7 @@ void bvconst_assign_bit_old(uint32_t *bv, uint32_t i, bool bit) {
   uint32_t j, mask;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   if (bit) {
     bv[j] |= mask;
   } else {
@@ -379,7 +388,7 @@ void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit) {
   uint32_t j, mask, x;
 
   j = i >> 5;
-  mask = 1 << (i & 0x1f);
+  mask = bitp(i & 0x1f);
   x = ((uint32_t) bit) << (i & 0x1f);
   bv[j] ^= (bv[j] ^ x) & mask;
 }
@@ -518,10 +527,10 @@ void bvconst_get_mpz(const uint32_t *bv, uint32_t k, mpz_t z) {
 void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r) {
   assert(q_is_integer(r));
 
-  if (r->den == 1) {
-    bvconst_set32(bv, k, r->num);
+  if (is_rat32(r)) {
+    bvconst_set32(bv, k, get_num(r));
   } else {
-    bvconst_set_mpz(bv, k, mpq_numref(get_mpq(r->num)));
+    bvconst_set_mpz(bv, k, mpq_numref(get_gmp(r)));
   }
 }
 
@@ -595,7 +604,7 @@ static void bvconst_set_p1(uint32_t *bv, uint32_t k, const uint32_t *a, uint32_t
     k --;
   }
   if (r > 0) {
-    mask = (1 << r) - 1;
+    mask = bitp(r) - 1;
     *bv ++ = (~mask) | ((*a) & mask);
     k --;
   }
@@ -1109,23 +1118,28 @@ void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
  * - bv must have size k = ceil((h - l) / 32)
  */
 void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h) {
-  uint32_t r, i, e;
+  uint32_t r, i, to_move;
   uint64_t aux;
 
   assert(l < h);
 
-  i = l >> 5;
-  r = l & 0x1f;
-  e = h >> 5;
+  i = l >> 5;       // first word to read
+  r = l & 0x1f;     // shift
+  to_move = h - l;  // number of bits to move
 
-  assert(i <= e);
   aux = (uint64_t) a[i];
-  while (i < e) {
+  while (to_move > 32) {
     i ++;
     aux |= ((uint64_t) a[i]) << 32;
     *bv = (uint32_t)(aux >> r);
-    aux >>= 32;
     bv ++;
+    aux >>= 32;
+    to_move -= 32;
+  }
+
+  assert(to_move > 0);
+  if (r > 0) {
+    aux |= ((uint64_t) a[i+1]) << 32;
   }
   *bv = (uint32_t)(aux >> r);
 }
@@ -1161,7 +1175,7 @@ void bvconst_concat(uint32_t *bv, uint32_t *a, uint32_t n, uint32_t *b, uint32_t
     } while (i > 0);
 
   } else {
-    x = (*a) & ((1 << r) - 1);
+    x = (*a) & (bitp(r) - 1);
     t = 32 - r;
     i = m >> 5;
     while (i > 0) {
@@ -1628,7 +1642,7 @@ bool bvconst_sle(const uint32_t *a, const uint32_t *b, uint32_t n) {
 
   n --;
   k = n >> 5;
-  mask = 1 << (n & 0x1f);
+  mask = bitp(n & 0x1f);
 
   sign_a = a[k] & mask;
   sign_b = b[k] & mask;

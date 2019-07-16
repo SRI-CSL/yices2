@@ -602,6 +602,18 @@ void bvarith64_buffer_sub_pp(bvarith64_buffer_t *b, pprod_t *r) {
 
 
 /*
+ * Add and subtract one
+ */
+void bvarith64_buffer_add_one(bvarith64_buffer_t *b) {
+  bvarith64_buffer_add_pp(b, empty_pp);
+}
+
+void bvarith64_buffer_sub_one(bvarith64_buffer_t *b) {
+  bvarith64_buffer_sub_pp(b, empty_pp);
+}
+
+
+/*
  * Add p1 to b
  */
 void bvarith64_buffer_add_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1) {

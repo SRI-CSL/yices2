@@ -31,7 +31,7 @@
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
 
-#include "yices.h"
+#include "api/yices_api_lock_free.h"
 
 void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_table_t* types, tracer_t* tracer) {
   var_db->terms = terms;
@@ -76,6 +76,7 @@ variable_t variable_db_get_variable(variable_db_t* var_db, term_t term) {
   variable_t x;
 
   assert(is_pos_term(term));
+  assert(good_term(var_db->terms, term));
 
   find = int_hmap_find(&var_db->term_to_variable_map, term);
   if (find != NULL) {
@@ -171,7 +172,6 @@ void variable_db_print_variables(const variable_db_t* var_db, const variable_t* 
   }
 }
 
-
 void variable_db_print(const variable_db_t* var_db, FILE* out) {
   uint32_t i;
   term_t t;
@@ -220,7 +220,7 @@ term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t,
   if (rhs == x_term) {
     rhs = subst;
   }
-  term_t result = yices_eq(lhs, rhs);
+  term_t result = _o_yices_eq(lhs, rhs);
 
   return result;
 }
@@ -262,7 +262,12 @@ bool variable_db_is_variable(const variable_db_t* var_db, variable_t var, bool a
     assert(!assert);
     return false;
   }
-  if (var_db->variable_to_term_map.data[var] == NULL_TERM) {
+  term_t var_term = var_db->variable_to_term_map.data[var];
+  if (var_term == NULL_TERM) {
+    assert(!assert);
+    return false;
+  }
+  if (!good_term(var_db->terms, var_term)) {
     assert(!assert);
     return false;
   }

@@ -31,6 +31,8 @@
 #include "frontend/yices/yices_tstack_ops.h"
 #include "parser_utils/term_stack_error.h"
 
+//IAM: FIXME:
+extern error_report_t *yices_error_report(void);
 
 /*
  * Short cuts to save typing
@@ -62,7 +64,7 @@ static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
   reader_t *rd;
   yices_token_t tk;
 
-  error = __yices_globals.error;
+  error = yices_error_report(); //IAM: __yices_globals.error;
   rd = &lex->reader;
   tk = current_token(lex);
   switch (tk) {
@@ -157,7 +159,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
 static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
   error_report_t *error;
 
-  error = __yices_globals.error;
+  error = yices_error_report(); //IAM: __yices_globals.error;
   error->line = tstack->error_loc.line;
   error->column = tstack->error_loc.column;
   if (exception != TSTACK_YICES_ERROR) {

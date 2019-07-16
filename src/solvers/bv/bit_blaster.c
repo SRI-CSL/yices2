@@ -440,13 +440,12 @@ static uint32_t cbuffer_nvars(cbuffer_t *buffer) {
 
 /*
  * Initialization:
- * - htbl is initialized to its default size
  * - solver and remap must be initialized outside this function
  */
 void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap) {
   s->solver = solver;
   s->remap = remap;
-  init_gate_table(&s->htbl);
+  s->htbl = get_gate_table(solver);
   init_cbuffer(&s->buffer);
   init_ivector(&s->aux_vector, 0);
   init_ivector(&s->aux_vector2, 0);
@@ -459,11 +458,11 @@ void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap
 
 
 /*
- * Deletion: doesn't delete the solver, just the hash table
+ * Deletion: doesn't delete the solver
  */
 void delete_bit_blaster(bit_blaster_t *s) {
   s->solver = NULL;
-  delete_gate_table(&s->htbl);
+  s->htbl = NULL;
   delete_ivector(&s->aux_vector);
   delete_ivector(&s->aux_vector2);
   delete_ivector(&s->aux_vector3);
@@ -472,10 +471,9 @@ void delete_bit_blaster(bit_blaster_t *s) {
 
 
 /*
- * Reset gate table and buffers
+ * Reset buffers
  */
 void reset_bit_blaster(bit_blaster_t *s) {
-  reset_gate_table(&s->htbl);
   reset_cbuffer(&s->buffer);
   ivector_reset(&s->aux_vector);
   ivector_reset(&s->aux_vector2);
@@ -1006,7 +1004,7 @@ static void bit_blaster_assert_xor4(bit_blaster_t *s, literal_t a, literal_t b, 
 static inline literal_t make_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
   literal_t l;
 
-  l = pos_lit(bit_blaster_new_var(s));
+  l = bit_blaster_fresh_literal(s);
   bit_blaster_assert_xor3(s, a, b, not(l));
 
   // EXPERIMENT
@@ -1022,7 +1020,7 @@ static inline literal_t make_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
 static inline literal_t make_xor3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
   literal_t l;
 
-  l = pos_lit(bit_blaster_new_var(s));
+  l = bit_blaster_fresh_literal(s);
   bit_blaster_assert_xor4(s, a, b, c, not(l));
   return l;
 }
@@ -1109,6 +1107,8 @@ void bit_blaster_eq(bit_blaster_t *s, literal_t a, literal_t b) {
   if (cbuffer_nvars(buffer) != 2) {
     cbuffer_simplify(buffer);
   }
+
+  //  printf("BB: assert eq %"PRId32" %"PRId32"\n", a, b);
 
   commit_buffer(s, buffer);
 }
@@ -1269,8 +1269,6 @@ void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, li
 
 
 
-
-
 /*
  * Constraint x = (or a[0] ... a[n-1])
  */
@@ -1301,7 +1299,6 @@ void bit_blaster_or_gate(bit_blaster_t *s, uint32_t n, literal_t *a, literal_t x
     assert_ordef_clauses(s, x, v);
   }
 }
-
 
 
 /*
@@ -1367,7 +1364,6 @@ void bit_blaster_half_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_
   bit_blaster_or2_gate(s, not(a), not(b), not(y)); // y = a and b
 }
 
-
 /*
  * Full adder: x = (a + b + c) mod 2, y = carry
  */
@@ -1430,7 +1426,6 @@ static literal_t eval_literal(bit_blaster_t *s, literal_t l) {
   }
 }
 
-
 /*
  * (xor a b)
  */
@@ -1447,8 +1442,6 @@ literal_t bit_blaster_eval_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
 
   return null_literal;
 }
-
-
 
 /*
  * (xor a b c)
@@ -1473,7 +1466,6 @@ literal_t bit_blaster_eval_xor3(bit_blaster_t *s, literal_t a, literal_t b, lite
   return null_literal;
 }
 
-
 /*
  * (or a b)
  */
@@ -1491,7 +1483,18 @@ literal_t bit_blaster_eval_or2(bit_blaster_t *s, literal_t a, literal_t b) {
   return null_literal;
 }
 
+/*
+ * (and a b): return null_literal if that does not simplify
+ */
+static literal_t bit_blaster_eval_and2(bit_blaster_t *s, literal_t a, literal_t b) {
+  literal_t l;
 
+  l = bit_blaster_eval_or2(s, not(a), not(b));
+  if (l != null_literal) {
+    l = not(l);
+  }
+  return l;
+}
 
 /*
  * (or a b c)
@@ -1511,7 +1514,6 @@ literal_t bit_blaster_eval_or3(bit_blaster_t *s, literal_t a, literal_t b, liter
 
   return null_literal;
 }
-
 
 /*
  * (ite c a b)
@@ -1689,7 +1691,7 @@ static literal_t bit_blaster_create_or(bit_blaster_t *s, ivector_t *v) {
   n = v->size;
   a = v->data;
 
-  l = pos_lit(bit_blaster_new_var(s));
+  l = bit_blaster_fresh_literal(s);
   for (i=0; i<n; i++) {
     bit_blaster_add_binary_clause(s, l, not(a[i]));
   }
@@ -1717,7 +1719,7 @@ literal_t bit_blaster_make_or(bit_blaster_t *s, uint32_t n, literal_t *a) {
   if (n == 1) return v->data[0];
 
   if (n <= BIT_BLASTER_MAX_HASHCONS_SIZE) {
-    g = gate_table_get_or(&s->htbl, n, v->data);
+    g = gate_table_get_or(s->htbl, n, v->data);
     l = g->lit[n];  // output literal for an or gate
     if (l == null_literal) {
       // this is a new gate
@@ -1759,7 +1761,6 @@ literal_t bit_blaster_make_or3(bit_blaster_t *s, literal_t a, literal_t b, liter
 
 
 
-
 /*
  * (xor a[0] ... a[n-1])
  */
@@ -1780,7 +1781,7 @@ literal_t bit_blaster_make_xor(bit_blaster_t *s, uint32_t n, literal_t *a) {
     /*
      * Check the hash table
      */
-    g = gate_table_get_xor(&s->htbl, n, v->data);
+    g = gate_table_get_xor(s->htbl, n, v->data);
     l = g->lit[n]; // output literal for XOR gate
     if (l == null_literal) {
       // new XOR gate
@@ -1794,7 +1795,6 @@ literal_t bit_blaster_make_xor(bit_blaster_t *s, uint32_t n, literal_t *a) {
 
   return l ^ sgn;
 }
-
 
 
 
@@ -1823,14 +1823,227 @@ literal_t bit_blaster_make_xor3(bit_blaster_t *s, literal_t a, literal_t b, lite
 }
 
 
+/*
+ * Assert l = (xor a b) and add an xor gate to the hash table.
+ * - the gate must not be in the table already
+ */
+static void make_xor2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t l) {
+  boolgate_t *g;
+  literal_t aux;
 
+  // normalize
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+  g = gate_table_get_xor2(s->htbl, a, b);
+  assert(g->lit[2] == null_literal);
+  g->lit[2] = l;
+  bit_blaster_xor2_gate(s, a, b, l);
+}
 
-/*************************
- *  COMPARATOR CIRCUITS  *
- ************************/
 
 /*
- * EQUALITY
+ * Search for l == (or a b) if such an l already exists
+ * - create a fresh l and add a gate to the hash-table if the gate does not exist
+ * - this is similar but more efficient than bit_blaster_make_or2
+ */
+static literal_t make_or2(bit_blaster_t *s, literal_t a, literal_t b) {
+  boolgate_t *g;
+  literal_t aux;
+
+  /*
+   * try to simplify first
+   */
+  aux = bit_blaster_eval_or2(s, a, b);
+  if (aux == null_literal) {
+    /*
+     * look in the hash table for (xor a b)
+     * - normalize first: arguments must be in increasing order
+     */
+    if (a > b) {
+      aux = a; a = b; b = aux;
+    }
+    g = gate_table_get_or2(s->htbl, a, b);
+    aux = g->lit[2];
+    if (aux == null_literal) {
+      aux = bit_blaster_fresh_literal(s);
+      g->lit[2] = aux;
+      bit_blaster_or2_gate(s, a, b, aux);
+    }
+  }
+
+  return aux;
+}
+
+/*
+ * Return a literal l = (and a b)
+ * This gets turned into not(l) = (or not(a) not(b)).
+ * - if l does not exist, create a fresh literal and gate, and add the clauses
+ *   for (not l) == (or not(a) not(b)).
+ */
+static inline literal_t make_and2(bit_blaster_t *s, literal_t a, literal_t b) {
+  return not(make_or2(s, not(a), not(b)));
+}
+
+
+
+
+/*
+ * Build l = (cmp a b c)
+ *
+ * NOTE: we could add more normalization
+ * since (cmp a b c) = (cmp (not b) (not a) c).
+ */
+static literal_t make_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
+  boolgate_t *g;
+  literal_t l;
+
+  /*
+   * Try simplification, then hash-consing
+   */
+  l = bit_blaster_eval_cmp(s, a, b, c);
+  if (l == null_literal) {
+    g = gate_table_get_cmp(s->htbl, a, b, c);
+    l = g->lit[3]; // output
+    if (l == null_literal) {
+      // create a fresh l and assert l = (cmp a b c)
+      l = bit_blaster_fresh_literal(s);
+      bit_blaster_cmp(s, a, b, c, l);
+      g->lit[3] = l;
+    }
+  }
+  assert(l != null_literal);
+  return l;
+}
+
+
+/*
+ * Create (ite c a b) with output x and add it to the hash table.
+ * Also add the clauses for (x == (ite c a b))
+ * The gate must not exist already.
+ */
+static void make_mux_aux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t x) {
+  boolgate_t *g;
+
+  assert(gate_table_find_ite(s->htbl, c, a, b) == NULL);
+
+  g = gate_table_get_ite(s->htbl, c, a, b);
+  assert(g->lit[3] == null_literal);
+  g->lit[3] = x; // store x as output of (ite c a b)
+  bit_blaster_mux(s, c, a, b, x);
+}
+
+
+/*
+ * Normalize then build (ite c a b) with output x.
+ */
+static void make_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t x) {
+  literal_t l;
+
+  /*
+   * Normalization: ensure all (ite u y z) gates in the hash table
+   * have u and y positive.
+   *
+   * x == (ite (not c) a b) <--> x == (ite c b a)
+   * x == (ite c (not a) b) <--> (not x) == (ite c a (not b))
+   */
+  if (is_neg(c)) {
+    l = a; a = b; b = l; // swap a and b
+    c = not(c);
+  }
+  if (is_neg(a)) {
+    make_mux_aux(s, c, not(a), not(b), not(x));
+  } else {
+    make_mux_aux(s, c, a, b, x);
+  }
+}
+
+
+/*
+ * Assert (s, c) = half-add(a, b) and add the gate to the hash table.
+ * The gate must not be present in the table.
+ */
+static void make_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t sum, literal_t c) {
+  boolgate_t *g;
+  literal_t aux;
+
+  // normalize: ensure a <= b
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+
+  assert(gate_table_find_halfadd(s->htbl, a, b) == NULL);
+  g = gate_table_get_halfadd(s->htbl, a, b);
+  assert(g->lit[2] == null_literal && g->lit[3] == null_literal);
+  g->lit[2] = sum;
+  g->lit[3] = c;
+  bit_blaster_half_adder(s, a, b, sum, c);
+}
+
+
+/*
+ * Store a, b, c in increasing order in array v[3]
+ */
+static void sort3(literal_t a, literal_t b, literal_t c, literal_t *v) {
+  if (a <= b) {
+    if (a <= c) {
+      v[0] = a;
+      if (b <= c) {
+        v[1] = b; v[2] = c;
+      } else {
+        v[1] = c; v[2] = b;
+      }
+    } else {
+      v[0] = c; v[1] = a; v[2] = b;
+    }
+  } else { // b < a
+    if (b <= c) {
+      v[0] = b;
+      if (a <= c) {
+        v[1] = a; v[2] = c;
+      } else {
+        v[1] = c; v[2] = a;
+      }
+    } else {
+      v[0] = c; v[1] = b; v[2] = a;
+    }
+  }
+  assert(v[0] <= v[1] && v[1] <= v[2]);
+}
+
+
+
+/*
+ * Assert (sum, d) = full-add(a, b, c) and add the gate to the hash table.
+ * The gate must not be present in the hash table.
+ * - sum is the sum and d is the carry
+ */
+static void make_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
+                          literal_t sum, literal_t d) {
+  boolgate_t *g;
+  literal_t aux[3];
+
+  // normalize
+  sort3(a, b, c, aux);
+  assert(gate_table_find(s->htbl, fulladdgate_tag(), aux) == NULL);
+  g = gate_table_get(s->htbl, fulladdgate_tag(), aux);
+  assert(g->lit[3] == null_literal && g->lit[4] == null_literal);
+  g->lit[3] = sum;
+  g->lit[4] = d;
+  bit_blaster_full_adder(s, a, b, c, sum, d);
+}
+
+
+
+
+
+/*********************
+ *  FIND OPERATIONS  *
+ ********************/
+
+/*
+ * The following functions check whether a specific gate simplifies
+ * or is present in the gate table.
  */
 
 /*
@@ -1854,7 +2067,7 @@ static literal_t find_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
       aux = a; a = b; b = aux;
     }
     aux = null_literal;
-    g = gate_table_find_xor2(&s->htbl, a, b);
+    g = gate_table_find_xor2(s->htbl, a, b);
     if (g != NULL) {
       aux = g->lit[2]; // output of binary gate
       assert(aux != null_literal);
@@ -1864,7 +2077,132 @@ static literal_t find_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
   return aux;
 }
 
+/*
+ * Search for l = (ite c a b) if such an l exists already.
+ * Return null_literal if l does not exists.
+ */
+static literal_t find_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b) {
+  boolgate_t *g;
+  literal_t l;
 
+  l = bit_blaster_eval_mux(s, c, a, b);
+  if (l == null_literal) {
+    // search in the hash-table.
+
+    /*
+     * Normalization: all gates (ite x y ..) have x and y positive
+     *
+     * (ite (not c) a b) --> (ite c b a)
+     * (ite c (not a) b) --> (not (ite c a (not b))
+     */
+    if (is_neg(c)) {
+      l = a; a = b; b = l; // swap a and b
+      c = not(c);
+    }
+
+    l = null_literal;
+    if (is_neg(a)) {
+      g = gate_table_find_ite(s->htbl, c, not(a), not(b));
+      if (g != NULL) {
+        assert(g->lit[3] != null_literal);
+        l = not(g->lit[3]);
+      }
+    } else {
+      g = gate_table_find_ite(s->htbl, c, a, b);
+      if (g != NULL) {
+        assert(g->lit[3] != null_literal);
+        l = g->lit[3];
+      }
+    }
+  }
+  return l;
+}
+
+
+/*
+ * Search for (s, c) = half_add(a, b): s = sum, c = carry
+ * Set s and c to null if the gate is not found
+ */
+static void find_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t *sum, literal_t *c) {
+  boolgate_t *g;
+  literal_t s0, c0;
+
+  /*
+   * eval_xor(a, b) and eval_or(a, b) should either be
+   * both null or both non-null.
+   */
+  s0 = bit_blaster_eval_xor2(s, a, b);  // s0 = a + b
+  if (s0 != null_literal) {
+    c0 = bit_blaster_eval_and2(s, a, b); // c0 = (and a b)
+    assert(c0 != null_literal);
+    *sum = s0;
+    *c = c0;
+  } else {
+    assert(bit_blaster_eval_and2(s, a, b) == null_literal);
+    // normalize: ensure a <= b
+    if (a > b) {
+      c0 = a; a = b; b = c0;
+    }
+    g = gate_table_find_halfadd(s->htbl, a, b);
+    if (g != NULL) {
+      assert(g->lit[2] != null_literal && g->lit[3] != null_literal);
+      *sum = g->lit[2];
+      *c = g->lit[3];
+    } else {
+      *sum = null_literal;
+      *c = null_literal;
+    }
+  }
+}
+
+
+/*
+ * Search for (sum, d) = full-add(a, b, c): d = carry
+ * Set s and d to null if the gate is not found
+ */
+static void find_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
+                          literal_t *sum, literal_t *d) {
+  boolgate_t *g;
+  literal_t aux[3];
+  literal_t s0, d0;
+
+  /*
+   * eval_xor(a, b, c) and eval_maj3(a, b, c) should either be
+   * both null or both non-null.
+   */
+  s0 = bit_blaster_eval_xor3(s, a, b, c);  // s0 = a + b + c
+  if (s0 != null_literal) {
+    d0 = bit_blaster_eval_maj3(s, a, b, c); // carry
+    assert(d0 != null_literal);
+    *sum = s0;
+    *d = d0;
+  } else {
+    assert(bit_blaster_eval_maj3(s, a, b, c) == null_literal);
+    // normalize: ensure a <= b <= c
+    sort3(a, b, c, aux);
+    g = gate_table_find(s->htbl, fulladdgate_tag(), aux);
+    if (g != NULL) {
+      assert(g->lit[3] != null_literal && g->lit[4] != null_literal);
+      *sum = g->lit[3];
+      *d = g->lit[4];
+    } else {
+      *sum = null_literal;
+      *d = null_literal;
+    }
+  }
+}
+
+
+
+
+
+/*************************
+ *  COMPARATOR CIRCUITS  *
+ ************************/
+
+/*
+ * EQUALITY
+ */
 
 /*
  * Equality: return l such that the equivalence l == (bveq a b)
@@ -1927,34 +2265,6 @@ static literal_t find_cmp_cut(bit_blaster_t *s, literal_t a, literal_t b) {
 
   if (a == not(b)) return a;
   return null_literal;
-}
-
-/*
- * Build l = (cmp a b c)
- *
- * NOTE: we could add more normalization
- * since (cmp a b c) = (cmp (not b) (not a) c).
- */
-static literal_t make_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
-  boolgate_t *g;
-  literal_t l;
-
-  /*
-   * Try simplification, then hash-consing
-   */
-  l = bit_blaster_eval_cmp(s, a, b, c);
-  if (l == null_literal) {
-    g = gate_table_get_cmp(&s->htbl, a, b, c);
-    l = g->lit[3]; // output
-    if (l == null_literal) {
-      // create a fresh l and assert l = (cmp a b c)
-      l = bit_blaster_fresh_literal(s);
-      bit_blaster_cmp(s, a, b, c, l);
-      g->lit[3] = l;
-    }
-  }
-  assert(l != null_literal);
-  return l;
 }
 
 
@@ -2036,9 +2346,6 @@ literal_t bit_blaster_make_bvsge(bit_blaster_t *s, literal_t *a, literal_t *b, u
 
 
 
-
-
-
 /*
  * EQUALITY/INEQUALITY ASSERTIONS
  */
@@ -2094,7 +2401,6 @@ void bit_blaster_assert_bvneq(bit_blaster_t *s, literal_t *a, literal_t *b, uint
 }
 
 
-
 /*
  * Assert a >= b, unsigned.
  */
@@ -2131,7 +2437,6 @@ void bit_blaster_assert_bvuge(bit_blaster_t *s, literal_t *a, literal_t *b, uint
     bit_blaster_cmp(s, a[i], b[i], l, true_literal); // assert (cmp a[i] b[i] l) == true
   }
 }
-
 
 
 /*
@@ -2244,9 +2549,8 @@ void bit_blaster_assert_bvslt(bit_blaster_t *s, literal_t *a, literal_t *b, uint
  * Constraints of the form l == (comparison a b)
  */
 
-
 /*
- * Variant: assert l = (bveq a b)
+ * Assert l = (bveq a b)
  */
 void bit_blaster_make_bveq2(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t l, uint32_t n) {
   ivector_t *v;
@@ -2299,7 +2603,7 @@ void bit_blaster_make_bveq2(bit_blaster_t *s, literal_t *a, literal_t *b, litera
 
 
 /*
- * Assert l == (a >= b)
+ * Assert l = (a >= b) unsigned
  */
 void bit_blaster_make_bvuge2(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t l, uint32_t n) {
   literal_t l0;
@@ -2322,7 +2626,7 @@ void bit_blaster_make_bvuge2(bit_blaster_t *s, literal_t *a, literal_t *b, liter
 
 
 /*
- * Variant: assert l == (a >= b) (signed comparison)
+ * Assert l = (a >= b) signed
  */
 void bit_blaster_make_bvsge2(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t l, uint32_t n) {
   literal_t c;
@@ -2352,92 +2656,45 @@ void bit_blaster_make_bvsge2(bit_blaster_t *s, literal_t *a, literal_t *b, liter
 
 
 
-
-
-/*
- * MULTIPLEXER
- */
+/**************************************
+ *  CONSTRAINTS WITH PSEUDO-LITERALS  *
+ *************************************/
 
 /*
- * Search for l = (ite c a b) if such an l exists already.
- * Return null_literal if l does not exists.
+ * Get the literal mapped to pseudo-literal u
+ * - create a fresh literal ad attach it to u if needed
  */
-static literal_t find_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b) {
-  boolgate_t *g;
-  literal_t l;
+static literal_t concretize_pseudo_lit(bit_blaster_t *s, literal_t u) {
+  remap_table_t *rmap;
+  literal_t f;
 
-  l = bit_blaster_eval_mux(s, c, a, b);
-  if (l == null_literal) {
-    // search in the hash-table.
-
-    /*
-     * Normalization: all gates (ite x y ..) have x and y positive
-     *
-     * (ite (not c) a b) --> (ite c b a)
-     * (ite c (not a) b) --> (not (ite c a (not b))
-     */
-    if (is_neg(c)) {
-      l = a; a = b; b = l; // swap a and b
-      c = not(c);
-    }
-
-    l = null_literal;
-    if (is_neg(a)) {
-      g = gate_table_find_ite(&s->htbl, c, not(a), not(b));
-      if (g != NULL) {
-        assert(g->lit[3] != null_literal);
-        l = not(g->lit[3]);
-      }
-    } else {
-      g = gate_table_find_ite(&s->htbl, c, a, b);
-      if (g != NULL) {
-        assert(g->lit[3] != null_literal);
-        l = g->lit[3];
-      }
-    }
+  rmap = s->remap;
+  f = remap_table_find(rmap, u);
+  if (f == null_literal) {
+    f = bit_blaster_fresh_literal(s);
+    remap_table_assign(rmap, u, f);
   }
-  return l;
+
+  return f;
 }
 
-
 /*
- * Create (ite c a b) with output x and add it to the hash table.
- * Also add the clauses for (x == (ite c a b))
- * The gate must not exist already.
+ * Equality: u == l
+ * - u is a pseudo literal
+ * - l is a literal
  */
-static void make_mux_aux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t x) {
-  boolgate_t *g;
+static void assert_pseudo_eq(bit_blaster_t *s, literal_t u, literal_t l) {
+  remap_table_t *rmap;
+  literal_t f;
 
-  assert(gate_table_find_ite(&s->htbl, c, a, b) == NULL);
+  assert(l != null_literal);
 
-  g = gate_table_get_ite(&s->htbl, c, a, b);
-  assert(g->lit[3] == null_literal);
-  g->lit[3] = x; // store x as output of (ite c a b)
-  bit_blaster_mux(s, c, a, b, x);
-}
-
-
-/*
- * Normalize then build (ite c a b) with output x.
- */
-static void make_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t x) {
-  literal_t l;
-
-  /*
-   * Normalization: ensure all (ite u y z) gates in the hash table
-   * have u and y positive.
-   *
-   * x == (ite (not c) a b) <--> x == (ite c b a)
-   * x == (ite c (not a) b) <--> (not x) == (ite c a (not b))
-   */
-  if (is_neg(c)) {
-    l = a; a = b; b = l; // swap a and b
-    c = not(c);
-  }
-  if (is_neg(a)) {
-    make_mux_aux(s, c, not(a), not(b), not(x));
+  rmap = s->remap;
+  f = remap_table_find(rmap, u);
+  if (f == null_literal) {
+    remap_table_assign(rmap, u, l);
   } else {
-    make_mux_aux(s, c, a, b, x);
+    bit_blaster_eq(s, f, l);
   }
 }
 
@@ -2447,36 +2704,36 @@ static void make_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, li
  * - u must be a pseudo literal
  * - c, a, and b must be literals
  */
-static void assert_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t u) {
-  remap_table_t *rmap;
+static void assert_pseudo_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, literal_t u) {
   literal_t f, l;
 
-  rmap = s->remap;
-  f = remap_table_find(rmap, u);
   l = find_mux(s, c, a, b);
   if (l == null_literal) {
-    /*
-     * the gate (ite c a b) does no exits.
-     * create it with f as output.
-     */
-    if (f == null_literal) {
-      // u not mapped
-      f = bit_blaster_fresh_literal(s);
-      remap_table_assign(rmap, u, f);
-    }
+    f = concretize_pseudo_lit(s, u);
     make_mux(s, c, a, b, f);
   } else {
-    /*
-     * l = (ite c a b) already exists. assert l = u.
-     */
-    if (f == null_literal) {
-      remap_table_assign(rmap, u, l);
-    } else {
-      bit_blaster_eq(s, f, l);
-    }
+    assert_pseudo_eq(s, u, l);
   }
 }
 
+
+/*
+ * Assert (a == u) where a is an array of n literals
+ * and u is an array of n pseudo literals.
+ */
+static void assert_pseudo_bveq(bit_blaster_t *s, literal_t *u, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert_pseudo_eq(s, u[i], a[i]);
+  }
+}
+
+
+
+/*****************
+ *  MULTIPLEXER  *
+ ****************/
 
 /*
  * Assert u = (ite c a b).
@@ -2489,86 +2746,19 @@ void bit_blaster_make_bvmux(bit_blaster_t *s, literal_t c, literal_t *a, literal
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    assert_mux(s, c, a[i], b[i], u[i]); // u[i] == (ite c a[i] b[i])
+    assert_pseudo_mux(s, c, a[i], b[i], u[i]); // u[i] == (ite c a[i] b[i])
   }
 }
 
 
+
+/**********************
+ *  BASIC ARITHMETIC  *
+ *********************/
 
 /*
  * NEGATION
  */
-
-/*
- * Short-cut: evaluate (and a b): return null_literal if that does not simplify
- */
-static inline literal_t bit_blaster_eval_and2(bit_blaster_t *s, literal_t a, literal_t b) {
-  literal_t l;
-
-  l = bit_blaster_eval_or2(s, not(a), not(b));
-  if (l != null_literal) {
-    l = not(l);
-  }
-  return l;
-}
-
-/*
- * Search for (s, c) = half_add(a, b): s = sum, c = carry
- * Set s and c to null if the gate is not found
- */
-static void find_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t *sum, literal_t *c) {
-  boolgate_t *g;
-  literal_t s0, c0;
-
-  /*
-   * eval_xor(a, b) and eval_or(a, b) should either be
-   * both null or both non-null.
-   */
-  s0 = bit_blaster_eval_xor2(s, a, b);  // s0 = a + b
-  if (s0 != null_literal) {
-    c0 = bit_blaster_eval_and2(s, a, b); // c0 = (and a b)
-    assert(c0 != null_literal);
-    *sum = s0;
-    *c = c0;
-  } else {
-    assert(bit_blaster_eval_and2(s, a, b) == null_literal);
-    // normalize: ensure a <= b
-    if (a > b) {
-      c0 = a; a = b; b = c0;
-    }
-    g = gate_table_find_halfadd(&s->htbl, a, b);
-    if (g != NULL) {
-      assert(g->lit[2] != null_literal && g->lit[3] != null_literal);
-      *sum = g->lit[2];
-      *c = g->lit[3];
-    } else {
-      *sum = null_literal;
-      *c = null_literal;
-    }
-  }
-}
-
-/*
- * Assert (s, c) = half-add(a, b) and add the gate to the hash table.
- * The gate must not be present in the table.
- */
-static void make_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t sum, literal_t c) {
-  boolgate_t *g;
-  literal_t aux;
-
-  // normalize: ensure a <= b
-  if (a > b) {
-    aux = a; a = b; b = aux;
-  }
-
-  assert(gate_table_find_halfadd(&s->htbl, a, b) == NULL);
-  g = gate_table_get_halfadd(&s->htbl, a, b);
-  assert(g->lit[2] == null_literal && g->lit[3] == null_literal);
-  g->lit[2] = sum;
-  g->lit[3] = c;
-  bit_blaster_half_adder(s, a, b, sum, c);
-}
-
 
 /*
  * Assert u = (bvneg a)
@@ -2576,43 +2766,31 @@ static void make_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
  * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvneg(bit_blaster_t *s, literal_t *a, literal_t *u, uint32_t n) {
-  remap_table_t *rmap;
   uint32_t i;
   literal_t sum, f, c, d;
-
-  rmap = s->remap;
 
   /*
    * we use (bvneg a) = (bvnot a) + 1
    * The sum (bvnot a) + 1 is constructed using half adders
    */
   c = true_literal;
-
   for (i=0; i<n; i++) {
-    f = remap_table_find(rmap, u[i]);
     find_half_add(s, not(a[i]), c, &sum, &d);
     if (sum == null_literal) {
       assert(d == null_literal);
       /*
-       * We must create half_add(not(a[i]), c)
+       * create half_add(not(a[i]), c)
        * u[i] := sum, d := carry out
        */
-      if (f == null_literal) {
-        f = bit_blaster_fresh_literal(s);
-        remap_table_assign(rmap, u[i], f);
-      }
+      f = concretize_pseudo_lit(s, u[i]);
       d = bit_blaster_fresh_literal(s);
       make_half_add(s, not(a[i]), c, f, d);
     } else {
       assert(d != null_literal);
       /*
-       * Assert s = u[i]
+       * Assert sum = u[i]
        */
-      if (f == null_literal) {
-        remap_table_assign(rmap, u[i], sum);
-      } else {
-        bit_blaster_eq(s, f, sum);
-      }
+      assert_pseudo_eq(s, u[i], sum);
     }
     c = d;
   }
@@ -2624,138 +2802,37 @@ void bit_blaster_make_bvneg(bit_blaster_t *s, literal_t *a, literal_t *u, uint32
  */
 
 /*
- * Store a, b, c in increasing order in array v[3]
- */
-static void sort3(literal_t a, literal_t b, literal_t c, literal_t *v) {
-  if (a <= b) {
-    if (a <= c) {
-      v[0] = a;
-      if (b <= c) {
-        v[1] = b; v[2] = c;
-      } else {
-        v[1] = c; v[2] = b;
-      }
-    } else {
-      v[0] = c; v[1] = a; v[2] = b;
-    }
-  } else { // b < a
-    if (b <= c) {
-      v[0] = b;
-      if (a <= c) {
-        v[1] = a; v[2] = c;
-      } else {
-        v[1] = c; v[2] = a;
-      }
-    } else {
-      v[0] = c; v[1] = b; v[2] = a;
-    }
-  }
-  assert(v[0] <= v[1] && v[1] <= v[2]);
-}
-
-
-/*
- * Search for (sum, d) = full-add(a, b, c): d = carry
- * Set s and d to null if the gate is not found
- */
-static void find_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
-                          literal_t *sum, literal_t *d) {
-  boolgate_t *g;
-  literal_t aux[3];
-  literal_t s0, d0;
-
-  /*
-   * eval_xor(a, b, c) and eval_maj3(a, b, c) should either be
-   * both null or both non-null.
-   */
-  s0 = bit_blaster_eval_xor3(s, a, b, c);  // s0 = a + b + c
-  if (s0 != null_literal) {
-    d0 = bit_blaster_eval_maj3(s, a, b, c); // carry
-    assert(d0 != null_literal);
-    *sum = s0;
-    *d = d0;
-  } else {
-    assert(bit_blaster_eval_maj3(s, a, b, c) == null_literal);
-    // normalize: ensure a <= b <= c
-    sort3(a, b, c, aux);
-    g = gate_table_find(&s->htbl, fulladdgate_tag(), aux);
-    if (g != NULL) {
-      assert(g->lit[3] != null_literal && g->lit[4] != null_literal);
-      *sum = g->lit[3];
-      *d = g->lit[4];
-    } else {
-      *sum = null_literal;
-      *d = null_literal;
-    }
-  }
-}
-
-
-/*
- * Assert (sum, d) = full-add(a, b, c) and add the gate to the hash table.
- * The gate must not be present in the hash table.
- * - sum is the sum and d is the carry
- */
-static void make_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
-                          literal_t sum, literal_t d) {
-  boolgate_t *g;
-  literal_t aux[3];
-
-  // normalize
-  sort3(a, b, c, aux);
-  assert(gate_table_find(&s->htbl, fulladdgate_tag(), aux) == NULL);
-  g = gate_table_get(&s->htbl, fulladdgate_tag(), aux);
-  assert(g->lit[3] == null_literal && g->lit[4] == null_literal);
-  g->lit[3] = sum;
-  g->lit[4] = d;
-  bit_blaster_full_adder(s, a, b, c, sum, d);
-}
-
-
-/*
  * Assert u = (bvadd a b)
  * - input: a and b must be arrays of n literals
  * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
-  remap_table_t *rmap;
   uint32_t i;
   literal_t sum, f, c, d;
-
-  rmap = s->remap;
 
   c = false_literal; // carry in = 0
 
   for (i=0; i<n; i++) {
-    f = remap_table_find(rmap, u[i]);
     find_full_add(s, a[i], b[i], c, &sum, &d);
     if (sum == null_literal) {
       assert(d == null_literal);
       /*
-       * We must create full_add(a[i], b[i], c)
+       * create full_add(a[i], b[i], c)
        * with u[i] := sum, d := carry out
        */
-      if (f == null_literal) {
-        f = bit_blaster_fresh_literal(s);
-        remap_table_assign(rmap, u[i], f);
-      }
+      f = concretize_pseudo_lit(s, u[i]);
       d = bit_blaster_fresh_literal(s);
       make_full_add(s, a[i], b[i], c, f, d);
     } else {
       assert(d != null_literal);
       /*
-       * Assert s = u[i]
+       * Assert sum = u[i]
        */
-      if (f == null_literal) {
-        remap_table_assign(rmap, u[i], sum);
-      } else {
-        bit_blaster_eq(s, f, sum);
-      }
+      assert_pseudo_eq(s, u[i], sum);
     }
     c = d;
   }
 }
-
 
 /*
  * Assert u = (bvsub a b)
@@ -2763,40 +2840,28 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
  * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
-  remap_table_t *rmap;
   uint32_t i;
   literal_t sum, f, c, d;
 
-  rmap = s->remap;
-
   // we do u = a + (bvnot b) + 1
   c = true_literal; // carry in = 1
-
   for (i=0; i<n; i++) {
-    f = remap_table_find(rmap, u[i]);
     find_full_add(s, a[i], not(b[i]), c, &sum, &d);
     if (sum == null_literal) {
       assert(d == null_literal);
       /*
-       * We must create full_add(a[i], b[i], c)
+       * create full_add(a[i], b[i], c)
        * with u[i] := sum, d := carry out
        */
-      if (f == null_literal) {
-        f = bit_blaster_fresh_literal(s);
-        remap_table_assign(rmap, u[i], f);
-      }
+      f = concretize_pseudo_lit(s, u[i]);
       d = bit_blaster_fresh_literal(s);
       make_full_add(s, a[i], not(b[i]), c, f, d);
     } else {
       assert(d != null_literal);
       /*
-       * Assert s = u[i]
+       * Assert sum = u[i]
        */
-      if (f == null_literal) {
-        remap_table_assign(rmap, u[i], sum);
-      } else {
-        bit_blaster_eq(s, f, sum);
-      }
+      assert_pseudo_eq(s, u[i], sum);
     }
     c = d;
   }
@@ -2804,43 +2869,109 @@ void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, litera
 
 
 /*
- * MULTIPLIER
+ * INCREMENT
  */
 
 /*
- * Return a literal l = (and a b)
- * This gets turned into not(l) = (or not(a) not(b)).
- * - if l does not exist, create a fresh literal and gate, and add the clauses
- *   for (not l) == (or not(a) not(b)).
+ * Assert u = (bvadd a 2^k)
+ * - input: a must be an array of n literals
+ *          k must be an integer between 0 and n-1
+ * - output u: array of n pseudo literals
  */
-static literal_t make_and2(bit_blaster_t *s, literal_t a, literal_t b) {
-  boolgate_t *g;
-  literal_t l;
+void bit_blaster_make_bvinc(bit_blaster_t *s, literal_t *a, uint32_t k, literal_t *u, uint32_t n) {
+  literal_t sum, f, c, d;
+  uint32_t i;
 
-  /*
-   * try simplification first then use hash consing
-   */
-  a = not(a);
-  b = not(b);
-  l = bit_blaster_eval_or2(s, a, b);
-  if (l == null_literal) {
-    // normalize
-    if (a > b) {
-      l = a; a = b; b = l;
-    }
-    g = gate_table_get_or2(&s->htbl, a, b);
-    l = g->lit[2]; // output literal of (or a b);
-    if (l == null_literal) {
-      // new gate
-      l = bit_blaster_fresh_literal(s);
-      g->lit[2] = l;
-      bit_blaster_or2_gate(s, a, b, l);
-    }
+  assert(k < n);
+
+
+  // bits[0 .. k-1] are not changed
+  for (i=0; i<k; i++) {
+    // u[i] := a[i]
+    assert_pseudo_eq(s, u[i], a[i]);
   }
 
-  return not(l);
+  // for bit[k .. b-1]: we use half adders
+  // c = carry in
+  c = true_literal;
+  while (i<n) {
+    find_half_add(s, a[i], c, &sum, &d);
+    if (sum == null_literal) {
+      assert(d == null_literal);
+      /*
+       * Create half_add(a[i], c)
+       * u[i] := sum, d := carry out
+       */
+      f = concretize_pseudo_lit(s, u[i]);
+      d = bit_blaster_fresh_literal(s);
+      make_half_add(s, a[i], c, f, d);
+    } else {
+      assert(d != null_literal);
+      /*
+       * Assert sum = u[i]
+       */
+      assert_pseudo_eq(s, u[i], sum);
+    }
+    c = d;
+    i ++;
+  }
 }
 
+/*
+ * DECREMENT
+ */
+
+/*
+ * Carry of (a - b) = (not(a) and b)
+ */
+static inline literal_t decr_carry(bit_blaster_t *s, literal_t a, literal_t b) {
+  return make_and2(s, not(a), b);
+}
+
+
+/*
+ * Assert u = (bvsub a 2^k)
+ * - input: a must be an array of n literals
+ *          k must be an integer between 0 and n-1
+ * - output u: array of n pseudo literals
+ */
+void bit_blaster_make_bvdec(bit_blaster_t *s, literal_t *a, uint32_t k, literal_t *u, uint32_t n) {
+  literal_t diff, f, c;
+  uint32_t i;
+
+  assert(k < n);
+
+  // bits[0 .. k-1] are not changed
+  for (i=0; i<k; i++) {
+    // u[i] := a[i]
+    assert_pseudo_eq(s, u[i], a[i]);
+  }
+
+  // c = carry in
+  c = true_literal;
+  while (i<n) {
+    // build diff = a[i] xor c
+    diff = find_xor2(s, a[i], c);
+    if (diff == null_literal) {
+      f = concretize_pseudo_lit(s, u[i]);
+      make_xor2_gate(s, a[i], c, f);
+    } else {
+      // assert u[i] = diff
+      assert_pseudo_eq(s, u[i], diff);
+    }
+
+    // carry out
+    c = decr_carry(s, a[i], c);
+    i ++;
+  }
+}
+
+
+
+
+/*
+ * MULTIPLIER
+ */
 
 /*
  * Add (b * a * 2^k) to sum and assert (d = bit[k] of sum)
@@ -2851,25 +2982,17 @@ static literal_t make_and2(bit_blaster_t *s, literal_t a, literal_t b) {
  */
 static void bit_blaster_partial_product(bit_blaster_t *s, literal_t *sum, literal_t *a, uint32_t n,
                                         literal_t b, literal_t d, uint32_t k) {
-  remap_table_t *rmap;
   uint32_t i;
   literal_t p, f, s0, c0, d0;
 
   assert(0 <= k && k < n && b != null_literal);
-
-  rmap = s->remap;
-  f = remap_table_find(rmap, d);
 
   /*
    * If b == 0, sum doesn't change
    */
   if (b == false_literal) {
     // assert d == sum[k]
-    if (f == null_literal) {
-      remap_table_assign(rmap, d, sum[k]);
-    } else {
-      bit_blaster_eq(s, f, sum[k]);
-    }
+    assert_pseudo_eq(s, d, sum[k]);
     return;
   }
 
@@ -2886,11 +3009,7 @@ static void bit_blaster_partial_product(bit_blaster_t *s, literal_t *sum, litera
      */
     assert(d0 == null_literal);
     d0 = bit_blaster_fresh_literal(s);
-    if (f == null_literal) {
-      f = bit_blaster_fresh_literal(s);
-      remap_table_assign(rmap, d, f);
-    }
-    // assert (f, d0) = add(sum[k], p, 0)
+    f = concretize_pseudo_lit(s, d);
     make_full_add(s, sum[k], p, c0, f, d0);
     sum[k] = f;
   } else {
@@ -2899,11 +3018,7 @@ static void bit_blaster_partial_product(bit_blaster_t *s, literal_t *sum, litera
      * fulladd (sum[k], p, c0) is (s0, d0).
      * Enforce d == s0.
      */
-    if (f == null_literal) {
-      remap_table_assign(rmap, d, s0);
-    } else {
-      bit_blaster_eq(s, f, s0);
-    }
+    assert_pseudo_eq(s, d, s0);
     sum[k] = s0;
   }
   c0 = d0;
@@ -2961,9 +3076,6 @@ void bit_blaster_make_bvmul(bit_blaster_t *s, literal_t *a, literal_t *b, litera
   }
 
 }
-
-
-
 
 
 
@@ -3030,18 +3142,15 @@ static void bit_blaster_submul(bit_blaster_t *s, literal_t *a, literal_t *b, lit
  */
 void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
                                 literal_t *q, literal_t *r, uint32_t n) {
-  remap_table_t *rmap;
   ivector_t *v;
   literal_t *aux;
-  literal_t l, f;
+  literal_t l;
   uint32_t i;
 
   v = &s->aux_vector2;
   resize_ivector(v, 2 * n);
   ivector_reset(v);
   aux = v->data;
-
-  rmap = s->remap;
 
   bit_blaster_zero_extend(aux, a, n); // aux := zero extend a to 2n bits
   i = n;
@@ -3054,12 +3163,7 @@ void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
     bit_blaster_submul(s, aux+i, b, l, n);
     if (q != NULL) {
       // assert l = q[i]
-      f = remap_table_find(rmap, q[i]);
-      if (f == null_literal) {
-        remap_table_assign(rmap, q[i], l);
-      } else {
-        bit_blaster_eq(s, f, l);
-      }
+      assert_pseudo_eq(s, q[i], l);
     }
   }
 
@@ -3067,12 +3171,7 @@ void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
   // assert r == aux[n-1...0]
   if (r != NULL) {
     for (i=0; i<n; i++) {
-      f = remap_table_find(rmap, r[i]);
-      if (f == null_literal) {
-        remap_table_assign(rmap, r[i], aux[i]);
-      } else {
-        bit_blaster_eq(s, f, aux[i]);
-      }
+      assert_pseudo_eq(s, r[i], aux[i]);
     }
   }
 }
@@ -3100,94 +3199,64 @@ static void bvneg_litarray(bit_blaster_t *s, literal_t *a, literal_t *b, uint32_
     }
     b[i] = sum;
     c = d;
-   }
- }
-
- /*
-  * Store (bvmux c a b) into d
-  */
- static void bvmux_litarray(bit_blaster_t *s, literal_t c, literal_t *a, literal_t *b, literal_t *d, uint32_t n) {
-   uint32_t i;
-   literal_t l;
-
-   for (i=0; i<n; i++) {
-     l = find_mux(s, c, a[i], b[i]);
-     if (l == null_literal) {
-       l = bit_blaster_fresh_literal(s);
-       make_mux(s, c, a[i], b[i], l);
-     }
-     d[i] = l;
-   }
- }
-
- /*
-  * Copy a into b
-  */
- static void bvcopy_litarray(literal_t *a, literal_t *b, uint32_t n) {
-   uint32_t i;
-
-   for (i=0; i<n; i++) {
-     b[i] = a[i];
-   }
- }
-
- /*
-  * Store (absolute value of a) into b
-  */
- static void bvabs_litarray(bit_blaster_t *s, literal_t *a, literal_t *b, uint32_t n) {
-   literal_t sa;
-
-   assert(n > 0);
-   sa = a[n-1]; // sign bit of a
-   if (sa == false_literal) {
-     bvcopy_litarray(a, b, n);
-   } else {
-     bvneg_litarray(s, a, b, n); // b := -a
-     bvmux_litarray(s, sa, b, a, b, n); // b := (ite sa -a a)
-   }
- }
-
-
- /*
-  * Zero-extend a to size 2*n: set a[n ... 2n-1] to false
-  * - a must be an array of 2n literals
-  */
- static void zero_extend_litarray(literal_t *a, uint32_t n) {
-   uint32_t i;
-
-   a += n;
-   for (i=0; i<n; i++) {
-     a[i] = false_literal;
-   }
- }
-
+  }
+}
 
 /*
- * Assert (p == l) where p is a pseudo literal
+ * Store (bvmux c a b) into d
  */
-static void bit_blaster_pseudo_eq(bit_blaster_t *s, literal_t p, literal_t l) {
-  remap_table_t *rmap;
-  literal_t f;
+static void bvmux_litarray(bit_blaster_t *s, literal_t c, literal_t *a, literal_t *b, literal_t *d, uint32_t n) {
+  uint32_t i;
+  literal_t l;
 
-  rmap = s->remap;
-  f = remap_table_find(rmap, p);
-  if (f == null_literal) {
-    remap_table_assign(rmap, p, l); // p := l
+  for (i=0; i<n; i++) {
+    l = find_mux(s, c, a[i], b[i]);
+    if (l == null_literal) {
+      l = bit_blaster_fresh_literal(s);
+      make_mux(s, c, a[i], b[i], l);
+    }
+    d[i] = l;
+  }
+}
+
+/*
+ * Copy a into b
+ */
+static void bvcopy_litarray(literal_t *a, literal_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    b[i] = a[i];
+  }
+}
+
+/*
+ * Store (absolute value of a) into b
+ */
+static void bvabs_litarray(bit_blaster_t *s, literal_t *a, literal_t *b, uint32_t n) {
+  literal_t sa;
+
+  assert(n > 0);
+  sa = a[n-1]; // sign bit of a
+  if (sa == false_literal) {
+    bvcopy_litarray(a, b, n);
   } else {
-    bit_blaster_eq(s, f, l);
+    bvneg_litarray(s, a, b, n); // b := -a
+    bvmux_litarray(s, sa, b, a, b, n); // b := (ite sa -a a)
   }
 }
 
 
 /*
- * Assert (a == u) where a is an array of n literals
- * and u is an array of n pseudo literals.
+ * Zero-extend a to size 2*n: set a[n ... 2n-1] to false
+ * - a must be an array of 2n literals
  */
-static void bit_blaster_pseudo_bveq(bit_blaster_t *s, literal_t *u, literal_t *a, uint32_t n) {
+static void zero_extend_litarray(literal_t *a, uint32_t n) {
   uint32_t i;
 
+  a += n;
   for (i=0; i<n; i++) {
-    bit_blaster_pseudo_eq(s, u[i], a[i]);
+    a[i] = false_literal;
   }
 }
 
@@ -3202,12 +3271,12 @@ static void abseq_constraint(bit_blaster_t *s, literal_t c, literal_t *a, litera
   literal_t *b;
 
   if (c == true_literal) {
-    bit_blaster_pseudo_bveq(s, u, a, n);
+    assert_pseudo_bveq(s, u, a, n);
   } else {
     b = (literal_t *) safe_malloc(n * sizeof(literal_t));
     bvneg_litarray(s, a, b, n);   // b := neg a
     bvmux_litarray(s, c, a, b, b, n); // b := if c then a else (neg a)
-    bit_blaster_pseudo_bveq(s, u, b, n);
+    assert_pseudo_bveq(s, u, b, n);
     safe_free(b);
   }
 }
@@ -3409,7 +3478,7 @@ void bit_blaster_make_smod(bit_blaster_t *s, literal_t *a, literal_t *b, literal
   }
 
   // assert r == r3
-  bit_blaster_pseudo_bveq(s, r, r3, n);
+  assert_pseudo_bveq(s, r, r3, n);
 }
 
 
@@ -3553,7 +3622,7 @@ static void assert_conditional_shift_overflow(bit_blaster_t *s, literal_t *u, li
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    assert_mux(s, overflow, l, a[i], u[i]); // u[i] == (ite overflow l a[i])
+    assert_pseudo_mux(s, overflow, l, a[i], u[i]); // u[i] == (ite overflow l a[i])
   }
 }
 
@@ -3628,11 +3697,11 @@ static void assert_conditional_shift_left(bit_blaster_t *s, literal_t *u, litera
   i = n;
   while (i > k) {
     i --;
-    assert_mux(s, b, a[i-k], a[i], u[i]); // assert u[i] = (ite b a[i-k] a[i]);
+    assert_pseudo_mux(s, b, a[i-k], a[i], u[i]); // assert u[i] = (ite b a[i-k] a[i]);
   }
   while (i > 0) {
     i --;
-    assert_mux(s, b, false_literal, a[i], u[i]); // u[i] == (ite b false a[i])
+    assert_pseudo_mux(s, b, false_literal, a[i], u[i]); // u[i] == (ite b false a[i])
   }
 }
 
@@ -3689,7 +3758,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
     if (k == 0) {
       // all controls are constant
       // (bvshl a b) is equal to aux = (a << fixed_part)
-      bit_blaster_pseudo_bveq(s, u, aux, n); // u = aux
+      assert_pseudo_bveq(s, u, aux, n); // u = aux
 
     } else {
       // process control bits from b[0] to b[k-2]
@@ -3797,11 +3866,11 @@ static void assert_conditional_lshift_right(bit_blaster_t *s, literal_t *u, lite
 
   for (i=0; i<n-k; i++) {
     // u[i] == (ite b a[i+k] a[i])
-    assert_mux(s, b, a[i+k], a[i], u[i]);
+    assert_pseudo_mux(s, b, a[i+k], a[i], u[i]);
   }
   while (i < n) {
     // u[i] == (ite b false_literal a[i])
-    assert_mux(s, b, false_literal, a[i], u[i]);
+    assert_pseudo_mux(s, b, false_literal, a[i], u[i]);
     i ++;
   }
 }
@@ -3857,7 +3926,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     if (k == 0) {
       // all controls are constant
       // (bvshl a b) is equal to aux = (a << fixed_part)
-      bit_blaster_pseudo_bveq(s, u, aux, n); // u = aux
+      assert_pseudo_bveq(s, u, aux, n); // u = aux
 
     } else {
       // process control bits from b[0] to b[k-2]
@@ -3970,12 +4039,12 @@ static void assert_conditional_ashift_right(bit_blaster_t *s, literal_t *u, lite
 
   for (i=0; i<n-k; i++) {
     // u[i] == (ite b a[i+k] a[i])
-    assert_mux(s, b, a[i+k], a[i], u[i]);
+    assert_pseudo_mux(s, b, a[i+k], a[i], u[i]);
   }
   sgn = a[n-1];
   while (i < n) {
     // u[i] == (ite b sgn a[i])
-    assert_mux(s, b, sgn, a[i], u[i]);
+    assert_pseudo_mux(s, b, sgn, a[i], u[i]);
     i ++;
   }
 }
@@ -4034,7 +4103,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     if (k == 0) {
       // all controls are constant
       // (bvshl a b) is equal to aux = (a << fixed_part)
-      bit_blaster_pseudo_bveq(s, u, aux, n); // u = aux
+      assert_pseudo_bveq(s, u, aux, n); // u = aux
 
     } else {
       // process control bits from b[0] to b[k-2]
