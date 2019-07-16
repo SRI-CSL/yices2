@@ -1299,6 +1299,9 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
   init_ivector(&to_concat, 0);
   // Explain with EQ graph
   bool ok = explain_term_slice_propagation(&eq_graph, x_term_slice->slice, &to_concat, &reasons, &reasons_types, this->ctx->tm);
+  assert(x_term_slice->next == NULL);
+  safe_free(x_term_slice);
+
   // Add the reasons
   if (ok) {
     // Concat the terms
