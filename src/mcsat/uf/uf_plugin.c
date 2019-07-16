@@ -216,7 +216,13 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   uint32_t i;
   for (i = children_start; i < t_desc->arity; ++ i) {
     term_t c = t_desc->arg[i];
-    variable_db_get_variable(uf->ctx->var_db, c);
+    variable_t c_var = variable_db_get_variable(uf->ctx->var_db, c);
+    if (trail_has_value(uf->ctx->trail, c_var)) {
+      // we need to process it if we ignored it
+      if (eq_graph_term_is_rep(&uf->eq_graph, c)) {
+        eq_graph_propagate_trail_assertion(&uf->eq_graph, c);
+      }
+    }
   }
 
   // Record addition so we can re-add on backtracks

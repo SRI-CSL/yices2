@@ -1,0 +1,17 @@
+(set-logic QF_UFBV)
+(declare-fun x () (_ BitVec 1))
+(declare-fun p0 ((_ BitVec 21) (_ BitVec 12)) Bool)
+(assert 
+  (let ((e5 (_ bv6877 13))) 
+  (let ((e11 (ite (p0 ((_ zero_extend 20) x) (_ bv0 12)) (_ bv1 1) (_ bv0 1)))) 
+  (let ((e29 (bvule e5 ((_ sign_extend 12) x)))) 
+  (let ((e39 (p0 ((_ sign_extend 20) e11) (_ bv0 12)))) 
+  (let ((e41 e29)) 
+  (let ((e45 (not e39))) 
+  (let ((e47 (or e41 e45))) 
+  (let ((e55 (=> true e47))) 
+  (let ((e65 (= e55 false))) 
+  (let ((e68 e65)) 
+  (let ((e69 e68)) e69))))))))))))
+(check-sat)
+
