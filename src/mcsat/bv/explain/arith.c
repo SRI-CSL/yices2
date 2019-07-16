@@ -1525,6 +1525,89 @@ bool cover(arith_t* exp,
   return result;
 }
 
+void transform_interval(arith_t* exp, interval_t* interval, term_t var) {
+
+  plugin_context_t* ctx = exp->super.ctx;
+  bv_evaluator_t* eval  = exp->super.eval;
+  term_manager_t* tm    = ctx->tm;
+  term_table_t* terms   = ctx->terms;
+  uint32_t w            = term_bitsize(terms, var);
+
+  term_t head;
+  uint32_t variable_bits;
+  term_t base = lower_bit_extract_base(exp,var,w,&head,&variable_bits);
+  assert(base != NULL_TERM);
+
+  if (variable_bits < w && !is_full(interval)) {
+    bvconstant_t smaller_width; // smaller_width: how many values of bitwidth variable_bits?
+    init_bvconstant(&smaller_width);
+    bvconstant_set_all_zero(&smaller_width, w);
+    bvconst_set_bit(smaller_width.data, variable_bits); 
+    bvconstant_normalize(&smaller_width);
+    term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
+    term_t t0 = bv_arith_sub_terms(tm, interval->lo_term, head);
+    term_t t1 = bv_arith_sub_terms(tm, interval->hi_term, head);
+    uint32_t ignore_this_int;
+    const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
+    const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
+    assert(v0->type == VALUE_BV);
+    assert(v1->type == VALUE_BV);
+
+    term_t lo_term, lo_reason;
+    if (bvconstant_lt(&v0->bv_value,&smaller_width)) {
+      lo_term   = term_extract(tm, interval->lo_term, 0, variable_bits);
+      lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
+    } else {
+      lo_term   = bv_arith_zero(tm, variable_bits);
+      lo_reason = bv_arith_le(tm, smaller_width_term, t0);
+    }
+
+    term_t hi_term, hi_reason;
+    if (bvconstant_lt(&v1->bv_value,&smaller_width)) {
+      hi_term   = term_extract(tm, interval->hi_term, 0, variable_bits);
+      hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
+    } else {
+      hi_term   = bv_arith_zero(tm, variable_bits);
+      hi_reason = bv_arith_le(tm, smaller_width_term, t0);
+    }
+
+    const mcsat_value_t* lo = bv_evaluator_evaluate_term(eval, lo_term, &ignore_this_int);
+    const mcsat_value_t* hi = bv_evaluator_evaluate_term(eval, hi_term, &ignore_this_int);
+    assert(lo->type == VALUE_BV);
+    assert(hi->type == VALUE_BV);
+
+    if (bvconstant_eq(&lo->bv_value, &hi->bv_value)) {
+      const mcsat_value_t* head_v = bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
+      assert(head_v->type == VALUE_BV);
+      if (is_in_interval(&head_v->bv_value, interval)) {
+        bvconstant_t zero;
+        init_bvconstant(&zero);
+        bvconstant_set_all_zero(&zero, variable_bits);
+        term_t zero_term = bv_arith_zero(tm, variable_bits);
+        term_t reason = bv_arith_lt(tm,
+                                    bv_arith_sub_terms(tm, head, interval->lo_term),
+                                    bv_arith_sub_terms(tm, interval->hi_term, interval->lo_term)
+                                    );
+        delete_ivector(&interval->reasons);
+        interval_construct(exp,&zero,&zero,zero_term,zero_term,reason,interval);
+        delete_bvconstant(&zero);
+      } else {
+        bv_arith_interval_destruct(interval);
+      }
+    } else {
+    
+      delete_ivector(&interval->reasons);
+      interval_construct(exp,&lo->bv_value,&hi->bv_value,lo_term,hi_term,NULL_TERM,interval);
+
+      if (lo_reason != NULL_TERM) ivector_push(&interval->reasons, lo_reason);
+      if (hi_reason != NULL_TERM) ivector_push(&interval->reasons, hi_reason);
+    }
+      
+    delete_bvconstant(&smaller_width);
+  }
+
+}
+
 
 static
 void bvarith_explain(bv_subexplainer_t* this,
@@ -1606,6 +1689,15 @@ void bvarith_explain(bv_subexplainer_t* this,
     }
     default:
       assert(false);
+    }
+
+    term_t var = NULL_TERM;
+    bv_arith_coeff(exp, t0, &var, false);
+    if (var == NULL_TERM) {
+      bv_arith_coeff(exp, t1, &var, false);
+    }
+    if (var != NULL_TERM && intervals[i] != NULL) {
+      transform_interval(exp, intervals[i], var);      
     }
   }
 
