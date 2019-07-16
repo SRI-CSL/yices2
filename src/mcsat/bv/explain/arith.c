@@ -1614,7 +1614,7 @@ void transform_interval(arith_t* exp, interval_t** interval, term_t var) {
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "variable_bits id %d and head is ",variable_bits);
+      fprintf(out, "variable_bits is %d and head is ",variable_bits);
       term_print_to_file(out, tm->terms, head);
       fprintf(out, "\nand lo - head is ");
       term_print_to_file(out, tm->terms, t0);
@@ -1739,34 +1739,35 @@ void bvarith_explain(bv_subexplainer_t* this,
     uint32_t w = term_bitsize(terms, t0);
     t0 = extract(exp, t0, w);
     t1 = extract(exp, t1, w);
+    term_t t0prime, t1prime = NULL_TERM;
 
     switch (term_kind(terms, atom_i_term)) {
     case BV_GE_ATOM: {  
-      intervals[i] = bv_arith_unit_le(exp, t1, t0, atom_i_value);
+      t0prime = t0;
+      t1prime = t1;
       break;
     }
     case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1})
-      term_t t0prime = bv_arith_add_half(tm, t0);
-      term_t t1prime = bv_arith_add_half(tm, t1);
-      intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
+      t0prime = bv_arith_add_half(tm, t0);
+      t1prime = bv_arith_add_half(tm, t1);
       break;
     }
     case EQ_TERM :     
     case BV_EQ_ATOM: { // equality
-      intervals[i] = bv_arith_unit_le(exp,
-                                      bv_arith_sub_terms(tm, t0, t1),
-                                      bv_arith_zero(tm, w),
-                                      atom_i_value);
+      t0prime = bv_arith_zero(tm, w);
+      t1prime = bv_arith_sub_terms(tm, t0, t1);
       break;
     }
     default:
       assert(false);
     }
 
+    intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
+
     term_t var = NULL_TERM;
-    bv_arith_coeff(exp, t0, &var, false);
+    bv_arith_coeff(exp, t0prime, &var, true);
     if (var == NULL_TERM) {
-      bv_arith_coeff(exp, t1, &var, false);
+      bv_arith_coeff(exp, t1prime, &var, true);
     }
     if (var != NULL_TERM && intervals[i] != NULL) {
       transform_interval(exp, &intervals[i], var);      
