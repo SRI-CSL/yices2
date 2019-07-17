@@ -1766,7 +1766,8 @@ void bvarith_explain(bv_subexplainer_t* this,
     uint32_t w = term_bitsize(terms, t0);
     t0 = extract(exp, t0, w);
     t1 = extract(exp, t1, w);
-    term_t t0prime, t1prime = NULL_TERM;
+    term_t t0prime = NULL_TERM;
+    term_t t1prime = NULL_TERM;
 
     switch (term_kind(terms, atom_i_term)) {
     case BV_GE_ATOM: {  
