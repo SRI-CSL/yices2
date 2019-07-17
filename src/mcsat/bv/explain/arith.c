@@ -391,7 +391,6 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
     }
     assert(variable_bits <= w);
     assert(head != NULL_TERM);
-    assert(base != superficial);
     term_t base_norm = extract(exp, base, variable_bits); // Extracting from the base
     if (base_norm == NULL_TERM) return NULL_TERM; // recursion got outside fragment
     if (variable_bits == w) { // No head
@@ -1557,7 +1556,7 @@ void transform_interval(arith_t* exp, interval_t** interval, term_t var) {
   uint32_t variable_bits;
   term_t base = lower_bit_extract_base(exp,var,w,&head,&variable_bits);
   assert(base != NULL_TERM);
-  assert(head != NULL_TERM);
+  assert(head != NULL_TERM || variable_bits == w);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
