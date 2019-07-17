@@ -32,29 +32,25 @@
 
 /*
  * Initialize s:
- * - n = number of mpq (link)s per block
  */
-static void _o_init_mpqstore(mpq_store_t *s, uint32_t n) {
-  assert(0 < n && n <= MAX_OBJ_PER_BLOCK);
-
+static void _o_init_mpqstore(mpq_store_t *s) {
   s->bnk = NULL;
   s->free_list = NULL;
   s->free_index = 0;
-  s->blocklen = n;
 }
 
-void init_mpqstore(mpq_store_t *s, uint32_t n) {
+void init_mpqstore(mpq_store_t *s) {
 #ifdef THREAD_SAFE
   create_yices_lock(&(s->lock));
 #endif
-  MT_PROTECT_VOID(s->lock, _o_init_mpqstore(s, n));
+  MT_PROTECT_VOID(s->lock, _o_init_mpqstore(s));
 }
 
 
 /*
  * Allocate an mpq in s
  */
-static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
+static mpq_ptr _o_mpqstore_alloc(mpq_store_t *s) {
   uint32_t i;
   mpq_bank_t *new_bank;
   mpq_link_t *obj;
@@ -62,17 +58,17 @@ static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
   obj = s->free_list;
 
   if (obj != NULL) {
-    s->free_list = obj->h.next;
-    obj->h.next = NULL;  //sanity check: when returned it should still be NULL
-    return &obj->mpq;
+    s->free_list = obj->next;
+    obj->next = NULL;  //sanity check: when returned it should still be NULL
+    return (mpq_ptr) &obj->mpq;
   }
 
   i = s->free_index;
   if (i == 0) {
-    new_bank = (mpq_bank_t *)safe_malloc(sizeof(mpq_bank_t) + s->blocklen * sizeof(mpq_link_t));
-    new_bank->h.next = s->bnk;
+    new_bank = (mpq_bank_t *) safe_malloc(sizeof(mpq_bank_t));
+    new_bank->next = s->bnk;
     s->bnk = new_bank;
-    i = s->blocklen;
+    i = MPQ_BLOCK_COUNT;
   }
 
   i --;
@@ -81,13 +77,13 @@ static mpq_t *_o_mpqstore_alloc(mpq_store_t *s) {
 
   // only initialize when we give it out
   mpq_init2(obj->mpq, 64);
-  obj->h.next = NULL; //sanity check: when returned it should still be NULL
+  obj->next = NULL; //sanity check: when returned it should still be NULL
   
-  return &obj->mpq; //same as obj
+  return (mpq_ptr) &obj->mpq; //same as obj
 }
 
-mpq_t *mpqstore_alloc(mpq_store_t *s) {
-  MT_PROTECT(mpq_t *, s->lock, _o_mpqstore_alloc(s));
+mpq_ptr mpqstore_alloc(mpq_store_t *s) {
+  MT_PROTECT(mpq_ptr , s->lock, _o_mpqstore_alloc(s));
 }
 
 
@@ -102,8 +98,8 @@ static void _o_delete_mpqstore(mpq_store_t *s) {
   b = s->bnk;
   k = s->free_index;
   while (b != NULL) {
-    next = b->h.next;
-    for (i=k; i<s->blocklen; i++) {
+    next = b->next;
+    for (i=k; i<MPQ_BLOCK_COUNT; i++) {
       obj = b->block + i;
       mpq_clear(obj->mpq);
     }
@@ -127,21 +123,19 @@ void delete_mpqstore(mpq_store_t *s) {
 
 /*
  * Free an allocated mpq: add it to s->free_list.
- * next pointer is stored in mpq->h.next
+ * next pointer is stored in mpq->next
  */
-static void _o_mpqstore_free(mpq_store_t *s, mpq_t *mpq) {
+static void _o_mpqstore_free(mpq_store_t *s, mpq_ptr mpq) {
   mpq_link_t *obj;
 
-  obj = (mpq_link_t *)mpq;
-
-  assert(obj->h.next == NULL); //sanity check: it's being returned; it should still be NULL
-  
-  obj->h.next = s->free_list;
+  obj = (mpq_link_t *) mpq;
+  assert(obj->next == NULL); //sanity check: it's being returned; it should still be NULL
+  obj->next = s->free_list;
   s->free_list = obj;
 }
 
 
-void mpqstore_free(mpq_store_t *s, mpq_t *mpq) {
+void mpqstore_free(mpq_store_t *s, mpq_ptr mpq) {
   MT_PROTECT_VOID(s->lock, _o_mpqstore_free(s, mpq));
 }
 

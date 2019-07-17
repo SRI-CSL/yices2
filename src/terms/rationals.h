@@ -30,9 +30,7 @@
 #include <gmp.h>
 
 #include "terms/mpq_aux.h"
-
 #include "utils/memalloc.h"
-
 
 
 /*
@@ -40,18 +38,14 @@
  */
 
 /*
- * A Neorational is a union of size 64 bits.
+ * A neorational is a union of size 64 bits.
  *
  * if the least bit is 1 it represents a
  * pointer to a gmp number.
  *
- * if the least bit is zero it is a struct
- * consisting of
- * a 32 bit signed numerator, and
- * a 31 bit unsigned denominator.
- *
+ * if the least bit is zero it is a struct consisting of a 32 bit
+ * signed numerator, and a 31 bit unsigned denominator.
  */
-
 typedef struct {
   uint32_t den;
   int32_t  num;
@@ -93,23 +87,22 @@ static inline void q_init(rational_t *r) {
 
 
 /*
- * Abstract Syntax (used to hide the difference b/w paleorationals and neorationals .
+ * Tests and conversions to/from gmp and rat32
  *
+ * NOTE: the type mpq_ptr is defined in gmp.h. It's a pointer
+ * to the internal structure representing a gmp number.
  */
-
-/* the thing is a struct if the least bit is zero */
 static inline bool is_rat32(const rational_t *r) {
   return (r->p.gmp & IS_RATGMP) != IS_RATGMP;
 }
 
-/* the thing is a pointer if the last bit is one */
 static inline bool is_ratgmp(const rational_t *r) {
   return (r->p.gmp & IS_RATGMP) == IS_RATGMP;
 }
 
 static inline mpq_ptr get_gmp(const rational_t *r) {
   assert(is_ratgmp(r));  
-  return ((mpq_ptr)(r->p.gmp ^ IS_RATGMP));
+  return (mpq_ptr) (r->p.gmp ^ IS_RATGMP);
 }
 
 static inline int32_t get_num(const rational_t *r) {
@@ -126,24 +119,11 @@ static inline void set_ratgmp(rational_t *r, mpq_ptr gmp){
   r->p.gmp = ((intptr_t) gmp) | IS_RATGMP;
 }
 
-
-/*
- * Free an mpq
- */
-extern void release_mpq(rational_t *r);
-
 /*
  * Free mpq number attached to r if any, then set r to 0/1.
  * Must be called before r is deleted to prevent memory leaks.
  */
-static inline void q_clear(rational_t *r) {
-  if (is_ratgmp(r)) {
-    release_mpq(r);
-  }
-  r->s.num = 0;
-  r->s.den = ONE_DEN;
-}
-
+extern void q_clear(rational_t *r);
 
 /*
  * If r is represented as a gmp rational, convert it
@@ -151,6 +131,7 @@ static inline void q_clear(rational_t *r) {
  * If it's possible the gmp number is freed.
  */
 extern void q_normalize(rational_t *r);
+
 
 /*
  * ASSIGNMENT
