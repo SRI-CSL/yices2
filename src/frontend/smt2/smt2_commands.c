@@ -5781,6 +5781,45 @@ static smt_status_t get_status_from_globals(smt2_globals_t *g) {
   }
 }
 
+/*
+ * Test multi-threaded code:
+ * - g->nthreads = number of threads to run
+ */
+static void check_delayed_assertions_mt(smt2_globals_t *g) {
+  bool success;
+  uint32_t i, n;
+
+  n = g->nthreads;
+  assert(n > 0);
+
+  smt2_globals_t *garray =  (smt2_globals_t *) safe_malloc(n * sizeof(smt2_globals_t));
+  for(i = 0; i < n; i++) {
+    garray[i] = __smt2_globals;  // just copy them for now.
+    garray[i].tracer = NULL;     // only main thread can use this.
+  }
+  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+  check_delayed_assertions(g);
+
+  //could check that they are all OK
+
+  smt_status_t main_answer = get_status_from_globals(g);
+  success = true;
+  for (i = 0; i < n; i++) {
+    smt_status_t answer = get_status_from_globals(garray + i);
+    if (answer != main_answer) {
+      success = false;
+    }
+    //free the model if there is one, and free the context.
+    //IAM: valgrind says there is no leak here. This is puzzling.
+  }
+  if (success) {
+    fprintf(stderr, "SUCCESS: All threads agree.\n");
+  } else {
+    fprintf(stderr, "FAILURE: Threads disagree.\n");
+  }
+  safe_free(garray);
+}
 #endif
 
 
@@ -5812,37 +5851,8 @@ void smt2_check_sat(void) {
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals);
         } else {
-          bool success = true;
-          uint32_t index;
-          //mayhem
-          smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
-          for(index = 0; index < __smt2_globals.nthreads; index++){
-            garray[index] = __smt2_globals;  // just copy them for now.
-            garray[index].tracer = NULL;     // only main thread can use this.
-          }
-          launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
-          fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
-          check_delayed_assertions(&__smt2_globals);
-
-          //could check that they are all OK
-
-          smt_status_t main_answer = get_status_from_globals(&__smt2_globals);
-          for (index = 0; index < __smt2_globals.nthreads; index++) {
-            smt_status_t answer = get_status_from_globals(&garray[index]);
-
-            if (answer != main_answer) {
-              success = false;
-            }
-            //free the model if there is one, and free the context.
-            //IAM: valgrind says there is no leak here. This is puzzling.
-          }
-          if (success) {
-            fprintf(stderr, "SUCCESS: All threads agree.\n");
-          } else {
-            fprintf(stderr, "FAILURE: Threads disagree.\n");
-	  }
-          safe_free(garray);
-        }
+	  check_delayed_assertions_mt(&__smt2_globals);
+	}
 #endif
       }
     } else {
