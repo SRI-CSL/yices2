@@ -545,7 +545,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t u, term_t* monom, bool assume_fragme
     fprintf(out, "Not evaluable and not cached\n");
   }
 
-  term_t monom_var;
+  term_t monom_var = NULL_TERM;
   term_t head;
   uint32_t variable_bits;
   term_t base = lower_bit_extract_base(exp,t,w,&head,&variable_bits);
@@ -639,6 +639,7 @@ int32_t bv_arith_coeff(arith_t* exp, term_t u, term_t* monom, bool assume_fragme
       return 2;
     }
   }
+  assert(monom_var != NULL_TERM);
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
@@ -1552,10 +1553,11 @@ void transform_interval(arith_t* exp, interval_t** interval, term_t var) {
   uint32_t w            = term_bitsize(terms, var);
 
   // We analyse the shape of the variable whose value is forbidden to be in interval[0]
-  term_t head;
+  term_t head = NULL_TERM;
   uint32_t variable_bits;
   term_t base = lower_bit_extract_base(exp,var,w,&head,&variable_bits);
   assert(base != NULL_TERM);
+  assert(head != NULL_TERM);
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
