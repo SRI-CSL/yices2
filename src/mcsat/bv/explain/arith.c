@@ -669,6 +669,7 @@ typedef struct {
   term_t hi_term; 
   term_t reason; // reason for being the full interval (NULL_TERM if not)
   ivector_t reasons; // other reasons for the interval to reflect its original constraint
+  term_t var;  // The variable whose values are forbidden to be in this interval
 } interval_t;
 
 static
@@ -694,6 +695,10 @@ void bv_arith_interval_destruct(interval_t* i) {
 }
 
 void bv_arith_interval_print(FILE* out, term_table_t* terms, interval_t* i) {
+  if (i->var != NULL_TERM) {
+    term_print_to_file(out, terms, i->var);
+    fprintf(out, " \\not\\in ");
+  }
   fprintf(out, "[ ");
   bvconst_print(out, i->lo.data, i->lo.bitsize);
   fprintf(out, " ( ");
@@ -760,6 +765,7 @@ void interval_construct(arith_t* exp,
                         const bvconstant_t* hi,
                         term_t lo_term,
                         term_t hi_term,
+                        term_t var,
                         term_t reason,
                         interval_t* output) {
   
@@ -782,6 +788,7 @@ void interval_construct(arith_t* exp,
   init_bvconstant(&output->length);
   output->lo_term = lo_term;
   output->hi_term = hi_term;
+  output->var     = var;
   output->reason  = reason;
   init_ivector(&output->reasons,0);
 
@@ -824,15 +831,16 @@ void interval_construct(arith_t* exp,
 
 // Adds a newly constructed interval into the heap
 interval_t* bv_arith_interval_mk(arith_t* exp,
-                                   const bvconstant_t* lo,
-                                   const bvconstant_t* hi,
-                                   term_t lo_term,
-                                   term_t hi_term,
-                                   term_t reason) {
+                                 const bvconstant_t* lo,
+                                 const bvconstant_t* hi,
+                                 term_t lo_term,
+                                 term_t hi_term,
+                                 term_t var,
+                                 term_t reason) {
   plugin_context_t* ctx = exp->super.ctx;
   interval_t* result = safe_malloc(sizeof(interval_t));
   
-  interval_construct(exp, lo, hi, lo_term, hi_term, reason, result);
+  interval_construct(exp, lo, hi, lo_term, hi_term, var, reason, result);
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Creating interval, ");
@@ -847,7 +855,7 @@ interval_t* bv_arith_full_interval_mk(arith_t* exp, term_t reason, uint32_t widt
   plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   term_t zero_term   = bv_arith_zero(tm, width);
-  interval_t* result = bv_arith_interval_mk(exp,NULL,NULL,zero_term,zero_term,reason);
+  interval_t* result = bv_arith_interval_mk(exp,NULL,NULL,zero_term,zero_term,NULL_TERM,reason);
   return result;
 }
 
@@ -922,10 +930,12 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
   term_t lhs = extract(exp, lhs_raw, term_bitsize(terms, lhs_raw));
   term_t rhs = extract(exp, rhs_raw, term_bitsize(terms, rhs_raw));
 
-  term_t left_var;
-  term_t right_var;
+  term_t left_var = NULL_TERM;
+  term_t right_var = NULL_TERM;
   int32_t left_coeff  = bv_arith_coeff(exp, lhs, &left_var, true);
   int32_t right_coeff = bv_arith_coeff(exp, rhs, &right_var, true);
+  assert(left_var == NULL_TERM || right_var == NULL_TERM || left_var == right_var);
+  term_t var = (left_var == NULL_TERM) ? right_var : left_var;
     
   if ((left_coeff == -1) || (right_coeff == -1)) {
     // if coeff is negative, we add one, negate and swap sides.
@@ -938,8 +948,8 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
   // from which the confict variable (if present) was removed,
   // and evaluating those polynomials c1 and c2 (whose variables should all have values on the trail)
   bvconstant_t cc1, cc2;
-  term_t c1 = bv_arith_init_side(exp, lhs, left_coeff, left_var, &cc1);
-  term_t c2 = bv_arith_init_side(exp, rhs, right_coeff, right_var, &cc2);
+  term_t c1 = bv_arith_init_side(exp, lhs, left_coeff, var, &cc1);
+  term_t c2 = bv_arith_init_side(exp, rhs, right_coeff, var, &cc2);
 
   // Now we are sure that on both sides, coefficient is either 0 or 1
   // we check which one:
@@ -971,10 +981,10 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, var, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, var, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
           result = bv_arith_full_interval_mk(exp, reason, w);
@@ -994,10 +1004,10 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, var, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, var, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
           result = bv_arith_full_interval_mk(exp, reason, w);
@@ -1026,10 +1036,10 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
         fprintf(out, "\n");
       }
       if (b && !bvconstant_eq(&lo,&hi))
-        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, NULL_TERM);
+        result = bv_arith_interval_mk(exp, &lo, &hi, lo_term, hi_term, var, NULL_TERM);
       if (!b) {
         if (!bvconstant_eq(&lo,&hi))
-          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, NULL_TERM);
+          result = bv_arith_interval_mk(exp, &hi, &lo, hi_term, lo_term, var, NULL_TERM);
         else {
           term_t reason = bv_arith_eq(tm, lo_term, hi_term);
           result = bv_arith_full_interval_mk(exp, reason, w);
@@ -1052,7 +1062,7 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
   }
   
   delete_bvconstant(&cc1);
-  delete_bvconstant(&cc2);    
+  delete_bvconstant(&cc2);
   delete_bvconstant(&lo);
   delete_bvconstant(&hi);
   return result;
@@ -1375,7 +1385,7 @@ bool cover(arith_t* exp,
       bvconstant_sub_one(&smaller_values); // We subtract 1 so as to compare it to the length of the hole
       bvconstant_normalize(&smaller_values);
       interval_t hole; // Defining hole to be filled by the next level(s)
-      interval_construct(exp, &lo, &hi, lo_term, hi_term, NULL_TERM, &hole);
+      interval_construct(exp, &lo, &hi, lo_term, hi_term, NULL_TERM, NULL_TERM, &hole);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "OK, now there is a hole: ");
@@ -1401,7 +1411,7 @@ bool cover(arith_t* exp,
         bvconstant_normalize(&lo_proj);
         bvconstant_normalize(&hi_proj);
         interval_t hole_complement; // at the smaller bitwidth
-        interval_construct(exp, &hi_proj, &lo_proj, hi_proj_term, lo_proj_term, NULL_TERM, &hole_complement);
+        interval_construct(exp, &hi_proj, &lo_proj, hi_proj_term, lo_proj_term, NULL_TERM, NULL_TERM, &hole_complement);
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, " < ");
@@ -1543,169 +1553,178 @@ bool cover(arith_t* exp,
   return result;
 }
 
-void transform_interval(arith_t* exp, interval_t** interval, term_t var) {
+void transform_interval(arith_t* exp, interval_t** interval) {
 
   plugin_context_t* ctx = exp->super.ctx;
   bv_evaluator_t* eval  = exp->super.eval;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
-  uint32_t w            = term_bitsize(terms, var);
 
-  // We analyse the shape of the variable whose value is forbidden to be in interval[0]
-  term_t head = NULL_TERM;
-  uint32_t variable_bits;
-  term_t base = lower_bit_extract_base(exp,var,w,&head,&variable_bits);
-  assert(base != NULL_TERM);
-  assert(head != NULL_TERM || variable_bits == w);
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Transforming interval ");
-    bv_arith_interval_print(out, ctx->terms, interval[0]);
-    fprintf(out, "  for monomial variable ");
-    term_print_to_file(out, tm->terms, var);
-    fprintf(out, " into\n");
-  }
-
-  if (variable_bits < w && !is_full(interval[0])) {
-    // Aha, the variable is a proper extension of something (otherwise we do nothing)
-    bvconstant_t smaller_width; // smaller_width: how many values of bitwidth variable_bits?
-    init_bvconstant(&smaller_width);
-    bvconstant_set_all_zero(&smaller_width, w);
-    bvconst_set_bit(smaller_width.data, variable_bits); 
-    bvconstant_normalize(&smaller_width);
-    term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
-    term_t t0 = bv_arith_sub_terms(tm, interval[0]->lo_term, head);
-    term_t t1 = bv_arith_sub_terms(tm, interval[0]->hi_term, head);
-
-    uint32_t ignore_this_int = 0;
-
-    const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
-    assert(v0->type == VALUE_BV);
-    term_t lo_term, lo_reason;
-    if (bvconstant_lt(&v0->bv_value,&smaller_width)) {
-      lo_term   = term_extract(tm, interval[0]->lo_term, 0, variable_bits);
-      lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
-    } else {
-      lo_term   = bv_arith_zero(tm, variable_bits);
-      lo_reason = bv_arith_le(tm, smaller_width_term, t0);
-    }
-
-    const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
-    assert(v1->type == VALUE_BV);
-    term_t hi_term, hi_reason;
-    if (bvconstant_lt(&v1->bv_value,&smaller_width)) {
-      hi_term   = term_extract(tm, interval[0]->hi_term, 0, variable_bits);
-      hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
-    } else {
-      hi_term   = bv_arith_zero(tm, variable_bits);
-      hi_reason = bv_arith_le(tm, smaller_width_term, t1);
-    }
-
-    delete_bvconstant(&smaller_width);
-
+  if (!is_full(interval[0])) {
+  
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "variable_bits is %d and head is ",variable_bits);
-      term_print_to_file(out, tm->terms, head);
-      fprintf(out, "\nand lo - head is ");
-      term_print_to_file(out, tm->terms, t0);
-      fprintf(out, "\nand hi - head is ");
-      term_print_to_file(out, tm->terms, t1);
-      fprintf(out, "\nand smaller_width_term is ");
-      term_print_to_file(out, tm->terms, smaller_width_term);
-      fprintf(out, "\nand lo_term (on smaller bitwidth) is ");
-      term_print_to_file(out, tm->terms, lo_term);
-      fprintf(out, "\nand hi_term (on smaller bitwidth) is ");
-      term_print_to_file(out, tm->terms, hi_term);
-      fprintf(out, "\n");
+      fprintf(out, "Transforming interval ");
+      bv_arith_interval_print(out, ctx->terms, interval[0]);
+      fprintf(out, "  for monomial variable ");
+      term_print_to_file(out, tm->terms, interval[0]->var);
+      fprintf(out, " into\n");
     }
 
-    interval_t* result = bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM);
+    uint32_t w            = term_bitsize(terms, interval[0]->var);
 
-    if (is_full(result)) { // Interval on smaller bitwidth is full or empty
-      bv_arith_interval_destruct(result);
-      const mcsat_value_t* head_v =
-        bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
-      assert(head_v->type == VALUE_BV);
-      if (is_in_interval(&head_v->bv_value, interval[0])) {
-        term_t reason = bv_arith_lt(tm,
-                                    bv_arith_sub_terms(tm, head, interval[0]->lo_term),
-                                    bv_arith_sub_terms(tm, interval[0]->hi_term, interval[0]->lo_term)
-                                    );
-        result = bv_arith_full_interval_mk(exp, reason, variable_bits);
+    // We analyse the shape of the variable whose value is forbidden to be in interval[0]
+    term_t head = NULL_TERM;
+    uint32_t variable_bits;
+    term_t base = lower_bit_extract_base(exp,interval[0]->var,w,&head,&variable_bits);
+    assert(base != NULL_TERM);
+    assert(head != NULL_TERM || variable_bits == w);
+
+    if (variable_bits < w && !is_full(interval[0])) {
+      // Aha, the variable is a proper extension of something (otherwise we do nothing)
+
+      bvconstant_t smaller_width; // smaller_width: how many values of bitwidth variable_bits?
+      init_bvconstant(&smaller_width);
+      bvconstant_set_all_zero(&smaller_width, w);
+      bvconst_set_bit(smaller_width.data, variable_bits); 
+      bvconstant_normalize(&smaller_width);
+      term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
+      term_t t0 = bv_arith_sub_terms(tm, interval[0]->lo_term, head);
+      term_t t1 = bv_arith_sub_terms(tm, interval[0]->hi_term, head);
+
+      uint32_t ignore_this_int = 0;
+
+      const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
+      assert(v0->type == VALUE_BV);
+      term_t lo_term, lo_reason;
+      if (bvconstant_lt(&v0->bv_value,&smaller_width)) {
+        lo_term   = term_extract(tm, interval[0]->lo_term, 0, variable_bits);
+        lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
       } else {
-        assert(false);
-        result = NULL;
+        lo_term   = bv_arith_zero(tm, variable_bits);
+        lo_reason = bv_arith_le(tm, smaller_width_term, t0);
       }
-    }
 
-    ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
-    bv_arith_interval_destruct(interval[0]);
-    interval[0] = result;
+      const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
+      assert(v1->type == VALUE_BV);
+      term_t hi_term, hi_reason;
+      if (bvconstant_lt(&v1->bv_value,&smaller_width)) {
+        hi_term   = term_extract(tm, interval[0]->hi_term, 0, variable_bits);
+        hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
+      } else {
+        hi_term   = bv_arith_zero(tm, variable_bits);
+        hi_reason = bv_arith_le(tm, smaller_width_term, t1);
+      }
 
-    if (interval[0] == NULL) { return; } // Interval is empty, will not be used
-    
-    // Adding reasons to interval[0]:
-    if (lo_reason != NULL_TERM) {
-      ivector_push(&interval[0]->reasons, lo_reason);
+      delete_bvconstant(&smaller_width);
+
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "  adding lo_reason ");
-        term_print_to_file(out, tm->terms, lo_reason);
+        fprintf(out, "variable_bits is %d and head is ",variable_bits);
+        term_print_to_file(out, tm->terms, head);
+        fprintf(out, "\nand lo - head is ");
+        term_print_to_file(out, tm->terms, t0);
+        fprintf(out, "\nand hi - head is ");
+        term_print_to_file(out, tm->terms, t1);
+        fprintf(out, "\nand smaller_width_term is ");
+        term_print_to_file(out, tm->terms, smaller_width_term);
+        fprintf(out, "\nand lo_term (on smaller bitwidth) is ");
+        term_print_to_file(out, tm->terms, lo_term);
+        fprintf(out, "\nand hi_term (on smaller bitwidth) is ");
+        term_print_to_file(out, tm->terms, hi_term);
         fprintf(out, "\n");
       }
-    }
-    if (hi_reason != NULL_TERM) {
-      ivector_push(&interval[0]->reasons, hi_reason);
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "  adding hi_reason ");
-        term_print_to_file(out, tm->terms, hi_reason);
-        fprintf(out, "\n");
-      }
-    }
 
-    if (is_full(interval[0])) { return; } // Interval is full, we're done
+      interval_t* result =
+        bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
+      // We don't really care about the variable if that interval is really the result
 
-    // The new variable that shouldn't be in interval[0] is base<variable_bits>
-    // with base being either the conflict variable itself or a bv_poly
-    // We only have to do something if it is a bv_poly
-
-    switch (term_kind(terms, base)) {
-    case BV_POLY:
-    case BV64_POLY: {
-      term_t new_var = NULL_TERM;
-      int32_t coeff = bv_arith_coeff(exp, base, &new_var, true);
-      assert(coeff == 1 || coeff == -1);
-      bvconstant_t cc;
-      term_t rest = bv_arith_init_side(exp, base, coeff, new_var, &cc);
-      lo_term = bv_arith_sub_terms(tm, interval[0]->lo_term, rest);
-      hi_term = bv_arith_sub_terms(tm, interval[0]->hi_term, rest);
-      if (coeff == 1) {
-        result = bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM);
-      } else {
-        term_t new_lo_term =
-          bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, hi_term));
-        term_t new_hi_term =
-          bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, lo_term));
-        result = bv_arith_interval_mk(exp,NULL,NULL,new_lo_term,new_hi_term,NULL_TERM);
+      if (is_full(result)) { // Interval on smaller bitwidth is full or empty
+        bv_arith_interval_destruct(result);
+        const mcsat_value_t* head_v =
+          bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
+        assert(head_v->type == VALUE_BV);
+        if (is_in_interval(&head_v->bv_value, interval[0])) {
+          term_t reason = bv_arith_lt(tm,
+                                      bv_arith_sub_terms(tm, head, interval[0]->lo_term),
+                                      bv_arith_sub_terms(tm, interval[0]->hi_term, interval[0]->lo_term)
+                                      );
+          result = bv_arith_full_interval_mk(exp, reason, variable_bits);
+        } else {
+          assert(false);
+          result = NULL;
+        }
       }
 
       ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
       bv_arith_interval_destruct(interval[0]);
       interval[0] = result;
 
-      transform_interval(exp, interval, new_var);
-      break;
-    }
-    default: {
-      assert(base == exp->csttrail.conflict_var_term);
-    }
+      if (interval[0] == NULL) { return; } // Interval is empty, will not be used
+    
+      // Adding reasons to interval[0]:
+      if (lo_reason != NULL_TERM) {
+        ivector_push(&interval[0]->reasons, lo_reason);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "  adding lo_reason ");
+          term_print_to_file(out, tm->terms, lo_reason);
+          fprintf(out, "\n");
+        }
+      }
+      if (hi_reason != NULL_TERM) {
+        ivector_push(&interval[0]->reasons, hi_reason);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "  adding hi_reason ");
+          term_print_to_file(out, tm->terms, hi_reason);
+          fprintf(out, "\n");
+        }
+      }
+
+      if (is_full(interval[0])) { return; } // Interval is full, we're done
+
+      // The new variable that shouldn't be in interval[0] is base<variable_bits>
+      // with one of two situations:
+      // - base is the conflict variable itself
+      // - base = base<variable_bits> is a bv_poly (lower bits extraction has been pushed)
+      // We only have to do something if it is a bv_poly
+
+      switch (term_kind(terms, base)) {
+      case BV_POLY:
+      case BV64_POLY: {
+        term_t new_var = NULL_TERM;
+        int32_t coeff = bv_arith_coeff(exp, base, &new_var, true);
+        assert(coeff == 1 || coeff == -1);
+        bvconstant_t cc;
+        term_t rest = bv_arith_init_side(exp, base, coeff, new_var, &cc);
+        lo_term = bv_arith_sub_terms(tm, interval[0]->lo_term, rest);
+        hi_term = bv_arith_sub_terms(tm, interval[0]->hi_term, rest);
+        if (coeff == 1) {
+          result = bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,new_var,NULL_TERM);
+        } else {
+          term_t new_lo_term =
+            bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, hi_term));
+          term_t new_hi_term =
+            bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, lo_term));
+          result = bv_arith_interval_mk(exp,NULL,NULL,new_lo_term,new_hi_term,new_var,NULL_TERM);
+        }
+
+        ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
+        bv_arith_interval_destruct(interval[0]);
+        interval[0] = result;
+
+        transform_interval(exp, interval);
+        break;
+      }
+      default: {
+        assert(base == exp->csttrail.conflict_var_term);
+      }
+      }
+
     }
 
   }
-
 }
 
 
@@ -1799,7 +1818,7 @@ void bvarith_explain(bv_subexplainer_t* this,
       bv_arith_coeff(exp, t1prime, &var, true);
     }
     if (var != NULL_TERM && intervals[i] != NULL) {
-      transform_interval(exp, &intervals[i], var);      
+      transform_interval(exp, &intervals[i]);
     }
   }
 
