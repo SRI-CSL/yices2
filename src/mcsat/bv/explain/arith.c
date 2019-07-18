@@ -264,17 +264,26 @@ term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
 **/
 
 // Check if term t<w> (not necessarily normalised)
-// is of the form concat(head,base<bits>),
+// is of the form A, or B, or neither.
+//
+// Form A: concat(head,base<bits>),
 // with bits+bitwidth(head)=w, head are evaluable bits, and base is term not evaluable.
 // in that case the function
 // - returns base,
-// - places concat(head,0...0) in argument head
 // - places bits in argument bits
-// Particular case: if bits is zero, it means t<w> is evaluable;
-// function succeeds and returns t
-// If it is another bv_array, returns NULL_TERM (contents of head and bits unspecified)
-// Otherwise returns t (contents of head and bits unspecified).
-
+// - places concat(head,0...0) in argument head
+// Particular cases:
+// a) if bits is w, it means head is empty; returns t, (0...0) is placed in arg. head
+// b) if bits is zero, it means t<w> is evaluable; returns t, t<w> is placed in arg. head
+//
+// Form B:  sign-ext(base<bits>) (bits cannot be 0)
+// in that case the function
+// - returns base,
+// - places bits in argument bits
+// - argument head is NULL_TERM
+// Note: base[bits-1] is the sign bit that's repeated
+//
+// If neither of the above 2 cases, must be another bv_array, returns NULL_TERM (contents of head and bits unspecified)
 
 term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, uint32_t* bits){
 
@@ -289,6 +298,9 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
     term_t sbits[w];
 
     uint32_t i = 0;
+    assert(0 < w);
+    term_t signbit = NULL_TERM;
+    term_t false_bit = bool2term(false);
     
     while (i < w) {
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
@@ -297,46 +309,51 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
         fprintf(out, "bit %d is ",i);
         ctx_trace_term(ctx, t_i);
       }
-      if (term_kind(terms, t_i) != BIT_TERM
-          || is_neg_term(t_i)) { // Would falsify (*)
-        break;
-      }
-      if (base == NULL_TERM) { // Initialising base
-        base = bit_term_arg(terms, t_i);
-      }
+      if (t_i == signbit) break; // 2 consecutive bits are the same term
+      if (term_kind(terms, t_i) != BIT_TERM) break; // not a bit term
+      if (is_neg_term(t_i)) break;                  // bit term but it's negated
+      // OK, this is a good bit term. It defines a base, if we don't already have it
+      if (base == NULL_TERM) base = bit_term_arg(terms, t_i);
       uint32_t selected_bit = bit_term_index(terms, t_i); // Get selected bit in it
-      if ((base != bit_term_arg(terms, t_i)) // Would falsify (*)
-          || (selected_bit != i)) {          // Would falsify (*)
-        break;
-      }
-      sbits[i] = bool2term(false);
+      if (base != bit_term_arg(terms, t_i)) break;        // Would falsify (*)
+      if (selected_bit != i) break;                       // Would falsify (*)
+      sbits[i] = false_bit;
+      signbit = t_i;
       i++;
     }
 
     if (bits != NULL) bits[0] = i; // how many times we reached the end of the loop's body
+    // Whether it's a sign-extension can be tested by:
+    bool is_signext = (signbit == concat_desc->arg[i]);
     
     while (i < w) {
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
-      bool ignore_this_bool;
-      if (bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool)) {
-        sbits[i] = t_i;
+
+      if (!is_signext) {
+        // Unless it's a sign-extension, the rest of this BV_ARRAY must be evaluable
+        bool ignore_this_bool;
+        if (!bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool)) {
+          return NULL_TERM;
+        }
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "bit %d is evaluable: ",i);
           ctx_trace_term(ctx, t_i);
         }
-      } else {
-        return NULL_TERM;
+        sbits[i] = t_i;
+      } else { // The rest of this BV_ARRAY must be repeating the sign bit (sign-extension)
+        if (signbit != t_i) return NULL_TERM;
       }
       i++; 
     }
 
-    if (head != NULL) head[0] = mk_bvarray(tm, w, sbits);
+    if (head != NULL) head[0] = is_signext ? NULL_TERM : mk_bvarray(tm, w, sbits);
     if (base==NULL_TERM) return t;
     return base;
   }
 
   if (bits != NULL) bits[0] = w;
+  if (head != NULL) head[0] = bv_arith_zero(tm, w);
   return t;
 }
 
@@ -390,15 +407,20 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
       return extract(exp, superficial, w); // we don't cache because w < original_bitsize
     }
     assert(variable_bits <= w);
-    assert(head != NULL_TERM);
     term_t base_norm = extract(exp, base, variable_bits); // Extracting from the base
     if (base_norm == NULL_TERM) return NULL_TERM; // recursion got outside fragment
     if (variable_bits == w) { // No head
       result = base_norm; // This is our final answer
     } else { // There's a head, we need to recompose the term
       term_t recompose[w];
-      for (uint32_t i = 0; i < w; i++) {
-        recompose[i] = mk_bitextract(tm, (i < variable_bits) ? base_norm : head, i);
+      uint32_t i = 0;
+      for (; i < variable_bits; i++) {
+        recompose[i] = mk_bitextract(tm, base_norm, i);
+      }
+      for (; i < w; i++) {
+        recompose[i] = (head == NULL_TERM) ?
+          recompose[variable_bits-1] : // It's a sign-extend, we copy the sign bit
+          mk_bitextract(tm, head, i);  // It's not
       }
       result = mk_bvarray(tm, w, recompose); // This is our final answer
     }
@@ -555,7 +577,9 @@ int32_t bv_arith_coeff(arith_t* exp, term_t u, term_t* monom, bool assume_fragme
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "top-level base, on %d bits, is ",variable_bits);
     ctx_trace_term(ctx, base);
-    if (variable_bits < w){
+    if (head == NULL_TERM)
+      fprintf(out, "and it's a sign-extend");
+    else if (variable_bits < w){
       fprintf(out, "while the head is ");
       ctx_trace_term(ctx, head);
     }
@@ -1566,23 +1590,42 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Transforming interval ");
       bv_arith_interval_print(out, ctx->terms, interval[0]);
-      fprintf(out, "  for monomial variable ");
-      term_print_to_file(out, tm->terms, interval[0]->var);
       fprintf(out, " into\n");
     }
 
-    uint32_t w            = term_bitsize(terms, interval[0]->var);
+    uint32_t w = term_bitsize(terms, interval[0]->var);
 
     // We analyse the shape of the variable whose value is forbidden to be in interval[0]
     term_t head = NULL_TERM;
     uint32_t variable_bits;
     term_t base = lower_bit_extract_base(exp,interval[0]->var,w,&head,&variable_bits);
     assert(base != NULL_TERM);
-    assert(head != NULL_TERM || variable_bits == w);
 
-    if (variable_bits < w && !is_full(interval[0])) {
-      // Aha, the variable is a proper extension of something (otherwise we do nothing)
+    if (head == NULL_TERM) { // It's a sign-extend
+      // We re-express the problem with 0-extend
+      assert(variable_bits < w);
+      bvconstant_t half; // Half of the number of values in the small bitwidth
+      init_bvconstant(&half);
+      bvconstant_set_all_zero(&half, w);
+      bvconst_set_bit(half.data, variable_bits-1); 
+      bvconstant_normalize(&half);
+      term_t half_term = mk_bv_constant(tm, &half);
+      term_t lo_term = bv_arith_add_terms(tm, interval[0]->lo_term, half_term); // new lo
+      term_t hi_term = bv_arith_add_terms(tm, interval[0]->hi_term, half_term); // new hi
+      base = bv_arith_add_half(tm, base);                                       // new base
+      interval_t* result =
+        bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
+      ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
+      bv_arith_interval_destruct(interval[0]);
+      interval[0] = result;
+      head = bv_arith_zero(tm, w);
+      delete_bvconstant(&half);
+    }
+    
+    assert(!is_full(interval[0]));
 
+    if (variable_bits < w) {
+      // The variable is a proper extension of something (otherwise we do nothing)
       bvconstant_t smaller_width; // smaller_width: how many values of bitwidth variable_bits?
       init_bvconstant(&smaller_width);
       bvconstant_set_all_zero(&smaller_width, w);
@@ -1698,6 +1741,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
         assert(coeff == 1 || coeff == -1);
         bvconstant_t cc;
         term_t rest = bv_arith_init_side(exp, base, coeff, new_var, &cc);
+        delete_bvconstant(&cc);
         lo_term = bv_arith_sub_terms(tm, interval[0]->lo_term, rest);
         hi_term = bv_arith_sub_terms(tm, interval[0]->hi_term, rest);
         if (coeff == 1) {
