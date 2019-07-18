@@ -1420,8 +1420,8 @@ bool cover(arith_t* exp,
       // We will record whether the (complement of the) hole is used by the smaller bitwidths
       bool hole_used;
       // We project lo_term and hi_term into the domain of smaller bitwidth
-      term_t lo_proj_term = term_extract(tm, lo_term, 0, next_bitwidth);
-      term_t hi_proj_term = term_extract(tm, hi_term, 0, next_bitwidth);
+      term_t lo_proj_term = extract(exp, lo_term, next_bitwidth);
+      term_t hi_proj_term = extract(exp, hi_term, next_bitwidth);
       // Where the recursive call can return the substitution term (if we are explaining a propagation)
       term_t rec_substitution = NULL_TERM;
       // Now, there two cases for the recursive call: small hole or big hole
@@ -1612,7 +1612,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       term_t half_term = mk_bv_constant(tm, &half);
       term_t lo_term = bv_arith_add_terms(tm, interval[0]->lo_term, half_term); // new lo
       term_t hi_term = bv_arith_add_terms(tm, interval[0]->hi_term, half_term); // new hi
-      base = bv_arith_add_half(tm, base);                                       // new base
+      base = bv_arith_add_half(tm, base);          // new base
       interval_t* result =
         bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
       ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
@@ -1730,17 +1730,22 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       // The new variable that shouldn't be in interval[0] is base<variable_bits>
       // with one of two situations:
       // - base is the conflict variable itself
-      // - base = base<variable_bits> is a bv_poly (lower bits extraction has been pushed)
+      // - base is a bv_poly (lower bits extraction has been pushed, unless sign-ext)
       // We only have to do something if it is a bv_poly
 
       switch (term_kind(terms, base)) {
       case BV_POLY:
       case BV64_POLY: {
+        base = extract(exp, base, variable_bits); // in case of sign-ext
+        assert(term_bitsize(terms,base) == variable_bits);
+        assert(term_bitsize(terms,interval[0]->lo_term) == variable_bits);
+        assert(term_bitsize(terms,interval[0]->hi_term) == variable_bits);
         term_t new_var = NULL_TERM;
         int32_t coeff = bv_arith_coeff(exp, base, &new_var, true);
         assert(coeff == 1 || coeff == -1);
         bvconstant_t cc;
         term_t rest = bv_arith_init_side(exp, base, coeff, new_var, &cc);
+        assert(term_bitsize(terms,rest) == variable_bits);
         delete_bvconstant(&cc);
         lo_term = bv_arith_sub_terms(tm, interval[0]->lo_term, rest);
         hi_term = bv_arith_sub_terms(tm, interval[0]->hi_term, rest);
