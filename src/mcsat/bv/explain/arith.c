@@ -504,7 +504,7 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Extracting the %d lower bits of ",w);
     term_print_to_file(out, terms, t);
-    fprintf(out, "successfully gave ");
+    fprintf(out, " successfully gave ");
     term_print_to_file(out, terms, result);
     fprintf(out, "\n");
   }
@@ -944,10 +944,12 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "\nTreating unit_constraint (lhs <= rhs) where lhs is ");
-    term_print_to_file(out, ctx->terms, lhs_raw);
-    fprintf(out, " and rhs is ");
-    term_print_to_file(out, ctx->terms, rhs_raw);
+    fprintf(out, "\nTreating unit_constraint (lhs <= rhs) where lhs is\n");
+    ctx_trace_term(ctx, lhs_raw);
+    /* term_print_to_file(out, ctx->terms, lhs_raw); */
+    fprintf(out, " and rhs is\n");
+    ctx_trace_term(ctx, rhs_raw);
+    /* term_print_to_file(out, ctx->terms, rhs_raw); */
     fprintf(out, "\n");
   }
 
@@ -1590,7 +1592,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Transforming interval ");
       bv_arith_interval_print(out, ctx->terms, interval[0]);
-      fprintf(out, " into\n");
+      fprintf(out, "\n");
     }
 
     uint32_t w = term_bitsize(terms, interval[0]->var);
@@ -1734,7 +1736,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       // We only have to do something if it is a bv_poly
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "New base is");
+        fprintf(out, "New variable is ");
         term_print_to_file(out, tm->terms, base);
         fprintf(out, "\n");
       }
