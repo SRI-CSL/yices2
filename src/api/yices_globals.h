@@ -51,8 +51,6 @@ typedef struct yices_globals_s {
   lexer_t *lexer;          // lexer (or NULL)
   tstack_t *tstack;        // term stack (or NULL)
 
-  //IAM this becomes thread local. error_report_t *error;   // data structure for error reporting
-
   fvar_collector_t *fvars; // to collect free variables of terms
 
 } yices_globals_t;

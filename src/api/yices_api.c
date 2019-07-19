@@ -131,11 +131,13 @@ static bvconstant_t bv0;
 #define INIT_TYPE_SIZE  16
 #define INIT_TERM_SIZE  64
 
-
 /*
- * Global table.
+ * Global table. The actual initialization is done in yices_init() and
+ * init_globals().
  */
-yices_globals_t __yices_globals;
+yices_globals_t __yices_globals = {
+};
+
 
 /*
  * Thread Local Errors
@@ -144,7 +146,7 @@ static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
 static YICES_THREAD_LOCAL error_report_t  __yices_error;
 
 void init_yices_error(void){
-  if(!__yices_error_initialized){
+  if (!__yices_error_initialized) {
     __yices_error_initialized = true;
     memset(&__yices_error, 0, sizeof(error_report_t));
     __yices_error.code = NO_ERROR;
@@ -169,7 +171,7 @@ static inline error_report_t* get_yices_error(void){
  */
 int32_t yices_obtain_mutex(void){
 #ifdef THREAD_SAFE
-  return get_yices_lock(&(__yices_globals.lock));
+  return get_yices_lock(&__yices_globals.lock);
 #else
   return 0;
 #endif
@@ -183,7 +185,7 @@ int32_t yices_obtain_mutex(void){
  */
 int32_t yices_release_mutex(void){
 #ifdef THREAD_SAFE
-  return release_yices_lock(&(__yices_globals.lock));
+  return release_yices_lock(&__yices_globals.lock);
 #else
   return 0;
 #endif
@@ -922,6 +924,7 @@ static void delete_parsing_objects(void) {
   assert(__yices_globals.lexer == NULL && __yices_globals.tstack == NULL);
 }
 
+
 /************************
  *  File IO Utilities   *
  ***********************/
@@ -930,11 +933,9 @@ static FILE *fd_2_tmp_fp(int fd) {
   int tmp_fd;
 
   tmp_fd = dup(fd);
-
   if (tmp_fd < 0) {
     return NULL;
   }
-
   return fdopen(tmp_fd, "a");
 }
 
@@ -978,12 +979,10 @@ static void delete_fvars(void) {
  * Initialize the table of global objects
  */
 static void init_globals(yices_globals_t *glob) {
-
   type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
   term_table_t *terms = (term_table_t *)safe_malloc(sizeof(term_table_t));
   term_manager_t *manager = (term_manager_t *)safe_malloc(sizeof(term_manager_t));
   pprod_table_t *pprods = (pprod_table_t *)safe_malloc(sizeof(pprod_table_t));
-  //IAM: error_report_t *error = get_yices_error();
 
   memset(types, 0, sizeof(type_table_t));
   memset(terms, 0, sizeof(term_table_t));
