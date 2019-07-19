@@ -1612,7 +1612,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       term_t half_term = mk_bv_constant(tm, &half);
       term_t lo_term = bv_arith_add_terms(tm, interval[0]->lo_term, half_term); // new lo
       term_t hi_term = bv_arith_add_terms(tm, interval[0]->hi_term, half_term); // new hi
-      base = bv_arith_add_half(tm, base);          // new base
+      base = bv_arith_add_half(tm,extract(exp, base, variable_bits));          // new base
       interval_t* result =
         bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
       ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
@@ -1727,16 +1727,21 @@ void transform_interval(arith_t* exp, interval_t** interval) {
 
       if (is_full(interval[0])) { return; } // Interval is full, we're done
 
-      // The new variable that shouldn't be in interval[0] is base<variable_bits>
+      // The new variable that shouldn't be in interval[0] is base
       // with one of two situations:
-      // - base is the conflict variable itself
-      // - base is a bv_poly (lower bits extraction has been pushed, unless sign-ext)
+      // - base is y<variable_bits> where y is the conflict variable itself
+      // - base is a bv_poly (lower bits extraction has been pushed)
       // We only have to do something if it is a bv_poly
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "New base is");
+        term_print_to_file(out, tm->terms, base);
+        fprintf(out, "\n");
+      }
 
       switch (term_kind(terms, base)) {
       case BV_POLY:
       case BV64_POLY: {
-        base = extract(exp, base, variable_bits); // in case of sign-ext
         assert(term_bitsize(terms,base) == variable_bits);
         assert(term_bitsize(terms,interval[0]->lo_term) == variable_bits);
         assert(term_bitsize(terms,interval[0]->hi_term) == variable_bits);
@@ -1767,7 +1772,6 @@ void transform_interval(arith_t* exp, interval_t** interval) {
         break;
       }
       default: {
-        assert(base == exp->csttrail.conflict_var_term);
       }
       }
 
