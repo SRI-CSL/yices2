@@ -38,12 +38,14 @@ typedef struct mpq_link_s mpq_link_t;
 
 struct mpq_link_s {
   mpq_t mpq;
-  union {
-    void* next;
-    char padding[8]; // for alignment
-  } h;
+  void *next;
 };
 
+
+/*
+ * Number of rationals in a block
+ */
+#define MPQ_BLOCK_COUNT 1024
 
 /*
  * Bank = a block of mpq (links)
@@ -52,11 +54,8 @@ struct mpq_link_s {
 typedef struct mpq_bank_s mpq_bank_t;
 
 struct mpq_bank_s {
-  union {
-    mpq_bank_t *next;
-    char padding[8];   // for alignment
-  } h;
-  mpq_link_t block[0]; // real size determined at allocation time
+  mpq_bank_t *next;
+  mpq_link_t block[MPQ_BLOCK_COUNT];
 };
 
 /*
@@ -72,22 +71,14 @@ typedef struct mpq_store_s {
   mpq_bank_t *bnk;          // first block in the bank list
   mpq_link_t *free_list;    // list of free mpq_links
   uint32_t free_index;      // index of last allocated mpq_link in first block
-  uint32_t blocklen;        // number of mpq_link_t in a block
 } mpq_store_t;
 
-
-/*
- * Bounds on objsize and nobj per block: to avoid numerical overflows,
- * we need objsize * nobj <= UINT32_MAX.  Stores are intended for
- * small objects so the following bounds should be more than enough.
- */
-#define MAX_OBJ_PER_BLOCK (UINT32_MAX / sizeof(mpq_link_t))
 
 /*
  * Initialize store s for object of the given size
  * - n = number of objects in each block
  */
-extern void init_mpqstore(mpq_store_t *s, uint32_t n);
+extern void init_mpqstore(mpq_store_t *s);
 
 /*
  * Delete the full store: all banks are freed
@@ -97,13 +88,13 @@ extern void delete_mpqstore(mpq_store_t *s);
 /*
  * Allocate an mpq
  */
-extern mpq_t *mpqstore_alloc(mpq_store_t *s);
+extern mpq_ptr mpqstore_alloc(mpq_store_t *s);
 
 /*
  * Free an allocated mpq_link object: add it to s->free_list.
  * next pointer is stored in mpq_link->next
  */
-extern void mpqstore_free(mpq_store_t *s, mpq_t *mpq);
+extern void mpqstore_free(mpq_store_t *s, mpq_ptr mpq);
 
 
 #endif /* __MPQ_STORES_H */

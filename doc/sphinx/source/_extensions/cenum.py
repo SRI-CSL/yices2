@@ -10,7 +10,7 @@
 #
 # This code is basaed on
 #    sphinx/domains/__init__.py
-#    sphinx/comains/c.py
+#    sphinx/domains/c.py
 #
 
 from docutils.parsers.rst import Directive, directives
@@ -120,7 +120,6 @@ class ExtCDomain(CDomain):
         'type':     ObjType(l_('type'),     'type'),
         'var':      ObjType(l_('variable'), 'data'),
     }
-
     directives = {
         'enum':     CEnumDirective,
         'function': CObject,

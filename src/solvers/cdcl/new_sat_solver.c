@@ -7427,7 +7427,9 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
   n1 = w1->size;
   n2 = w2->size;
-  if (n1 >= 10 && n2 >= 10) return false;
+  if (n1 >= solver->params.var_elim_skip &&
+      n2 >= solver->params.var_elim_skip)
+    return false;
 
   // number of clauses that contain x
   n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)];
@@ -7882,12 +7884,9 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
         continue;
       }
 
-      // read len directly (the clause should not be marked)
-      len = solver->pool.data[k];
-      assert(len == clause_length(&solver->pool, k));
-
       lit = clause_literals(&solver->pool, k);
       assert(lit[0] == l0 || lit[1] == l0);
+
       // Get the other watched literal in clause k
       l = lit[0] ^ lit[1] ^ l0;
       // If l is true, nothing to do
@@ -7900,6 +7899,10 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       // Force l to go into lit[0] and l0 into lit[1]
       lit[0] = l;
       lit[1]  = l0;
+
+      // read len directly (the clause should not be marked)
+      len = solver->pool.data[k];
+      assert(len == clause_length(&solver->pool, k));
 
       // Search for an unassigned or true literal in lit[2 ... len-1]
       for (t=2; t<len; t++) {

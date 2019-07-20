@@ -2368,9 +2368,10 @@ static void pp_bv_slice(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, in
     if (i == 0 && j == term_bitsize(tbl, u) - 1) {
       pp_term_recur(printer, tbl, u, level, true);
     } else {
+      // in Yices syntax, we must print (bv-extract j i u) with 0 <= i <= j
       pp_open_block(printer, PP_OPEN_BV_EXTRACT);
-      pp_uint32(printer, i);
       pp_uint32(printer, j);
+      pp_uint32(printer, i);
       pp_term_recur(printer, tbl, u, level, true);
       pp_close_block(printer, true);
     }
@@ -2414,7 +2415,10 @@ static void pp_bv_slices(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, u
     pp_bv_slice(printer, tbl, d, level);
   } else {
     pp_open_block(printer, PP_OPEN_BV_CONCAT);
-    for (i=0; i<n; i++) {
+    // print (bv-concat slice[n-1] ... slice[0])
+    i = n;
+    while (i > 0) {
+      i --;
       pp_bv_slice(printer, tbl, d + i, level);
     }
     pp_close_block(printer, true);
