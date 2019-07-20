@@ -10,10 +10,19 @@ env:
   matrix:
     - BUILD_TYPE=debug 
       ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat"
+    - BUILD_TYPE=debug 
+      ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat --enable-thread-safety"
     - BUILD_TYPE=release
       ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat"
+    - BUILD_TYPE=release
+      ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat --enable-thread-safety"
     - BUILD_TYPE=gcov
       ENABLE_COVERAGE=ON
+      CONFIGURE_FLAGS="--enable-mcsat --enable-thread-safety"
       
 dist: trusty
 
