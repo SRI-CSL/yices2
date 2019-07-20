@@ -125,7 +125,7 @@ void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_ter
     fprintf(out, "  previously \n");
     ctx_trace_term(solver->ctx, assertion_term);
   }
-  _o_yices_assert_formula_checks(solver->yices_ctx, assertion_term);
+  yices_assert_formula(solver->yices_ctx, assertion_term);
 }
 
 /**
