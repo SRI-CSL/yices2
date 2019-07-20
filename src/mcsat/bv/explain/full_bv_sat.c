@@ -21,7 +21,8 @@
 
 #include "terms/term_manager.h"
 
-#include "yices.h"
+#include <yices.h>
+#include "api/yices_api_lock_free.h"
 
 /** Solver for solving cores with assumptions */
 typedef struct {
@@ -58,7 +59,7 @@ void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, boo
   int32_t ret = yices_default_config_for_logic(solver->config, "QF_BV");
   (void) ret;
   assert(ret == 0);
-  solver->yices_ctx = yices_new_context(solver->config);
+  solver->yices_ctx = _o_yices_new_context(solver->config);
   assert (solver->yices_ctx != NULL);
 
   // Incremental, do a push
@@ -124,7 +125,7 @@ void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_ter
     fprintf(out, "  previously \n");
     ctx_trace_term(solver->ctx, assertion_term);
   }
-  yices_assert_formula(solver->yices_ctx, assertion_term);
+  _o_yices_assert_formula_checks(solver->yices_ctx, assertion_term);
 }
 
 /**
