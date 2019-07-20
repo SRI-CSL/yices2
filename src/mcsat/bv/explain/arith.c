@@ -2065,8 +2065,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       bv_evaluator_csttrail_scan(csttrail, atom_var);
       
       // Now that we have collected the free variables, we look into the constraint structure
-      term_t var0;
-      term_t var1;
+      term_t var0 = NULL_TERM;
+      term_t var1 = NULL_TERM;
       int32_t t0_good = bv_arith_coeff(exp, t0, &var0, false);
       int32_t t1_good = bv_arith_coeff(exp, t1, &var1, false);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
