@@ -2067,21 +2067,21 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       // Now that we have collected the free variables, we look into the constraint structure
       term_t var0 = NULL_TERM;
       term_t var1 = NULL_TERM;
-      int32_t t0_good = bv_arith_coeff(exp, t0, &var0, false);
-      int32_t t1_good = bv_arith_coeff(exp, t1, &var1, false);
+      int32_t t0_coeff = bv_arith_coeff(exp, t0, &var0, false);
+      int32_t t1_coeff = bv_arith_coeff(exp, t1, &var1, false);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "can_explain gets coefficients %d and %d\n", t0_good, t1_good);
+        fprintf(out, "can_explain gets coefficients %d and %d\n", t0_coeff, t1_coeff);
       }
-      if ((t0_good == 2) || (t1_good == 2) || (t0_good * t1_good == -1)) {
+      if ((t0_coeff == 2) || (t1_coeff == 2) || (t0_coeff * t1_coeff == -1)) {
         // Turns out we actually can't deal with the constraint. We stop
         return false;
       }
-      if ((t0_good * t1_good == 1) && (var0 != var1)) {
+      if ((t0_coeff * t1_coeff == 1) && (var0 != var1)) {
         if ((term_kind(terms,var0) != BV_ARRAY) || (term_kind(terms,var1) != BV_ARRAY)) {
           return false;
         }
-        uint32_t w = term_bitsize(terms, t0_good);
+        uint32_t w = term_bitsize(terms, t0);
         var0 = extract(exp, var0, w);
         var1 = extract(exp, var1, w);
         uint32_t varbits0, varbits1;
@@ -2100,9 +2100,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "with monom variables\n");
-        if (t0_good != 0) ctx_trace_term(ctx, var0);
+        if (t0_coeff != 0) ctx_trace_term(ctx, var0);
         fprintf(out, "and\n");
-        if (t1_good != 0) ctx_trace_term(ctx, var1);
+        if (t1_coeff != 0) ctx_trace_term(ctx, var1);
       }
       break;
     }
