@@ -1,6 +1,6 @@
 language: c
 
-dist: xenial  
+dist: xenial
 
 compiler:
   - gcc
