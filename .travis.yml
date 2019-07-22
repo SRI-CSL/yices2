@@ -26,8 +26,6 @@ env:
       ENABLE_COVERAGE=ON
       CONFIGURE_FLAGS="--enable-mcsat --enable-thread-safety"
       
-dist: trusty
-
 # command to install dependencies
 install:
   - sudo apt-get update
