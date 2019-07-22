@@ -39,10 +39,18 @@ def command(args, path):
     if yices is None:
         return None
     cmd = []
+    using_valgrind = False
     if args.helgrind:
         cmd.extend(['valgrind', '--num-callers=500', '--tool=helgrind'])
+        using_valgrind = True
     elif args.memcheck:
         cmd.extend(['valgrind', '--num-callers=500', '--tool=memcheck'])
+        using_valgrind = True
+
+    if using_valgrind and args.suppressions:
+        cmd.append('--suppressions={0}'.format(args.suppressions))
+    if using_valgrind and args.generate:
+        cmd.append('--gen-suppressions=yes')
 
     cmd.extend([yices,  '-n', args.nthreads])
 
@@ -84,6 +92,16 @@ def main(args):
     parser.add_argument('--helgrind', '-g',
                         dest='helgrind',
                         help='Use valgrind\'s helgrind.',
+                        action='store_true')
+
+    parser.add_argument('--suppressions', '-S',
+                        dest='suppressions',
+                        help='Tell valgrind where your suppressions file is.')
+
+    parser.add_argument('--generate', '-G',
+                        dest='generate',
+                        help='Tell valgrind to generate suppressions.',
+                        default=False,
                         action='store_true')
 
     parser.add_argument('--memcheck', '-m',
