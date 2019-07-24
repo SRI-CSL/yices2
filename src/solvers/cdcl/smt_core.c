@@ -6032,6 +6032,8 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+
+
 /***************
  *  RESTARTS   *
  **************/

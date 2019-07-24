@@ -1267,7 +1267,6 @@ static inline smt_status_t smt_status(smt_core_t *s) {
   return s->status;
 }
 
-
 /*
  * Read the heuristic parameters
  */
@@ -1587,6 +1586,7 @@ extern void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val);
 static inline void set_smt_status(smt_core_t *s, smt_status_t status) {
   s->status = status;
 }
+
 
 
 
