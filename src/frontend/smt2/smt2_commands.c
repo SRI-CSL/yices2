@@ -50,7 +50,9 @@
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
+#include "solvers/bv/dimacs_printer.h"
 #include "utils/refcount_strings.h"
+
 
 #include "utils/timeout.h"
 #include "mcsat/options.h"
@@ -233,14 +235,8 @@ static void dump(const char *filename, context_t *ctx) {
 
 
 /*
- * FOR TESTING: BITBLAST THEN EXPORT TO DIMACS
+ * BITBLAST THEN EXPORT TO DIMACS
  */
-
-#define EXPORT_TO_DIMACS 0
-
-#if EXPORT_TO_DIMACS
-
-#include "solvers/bv/dimacs_printer.h"
 
 /*
  * Export ctx content in DIMACS format
@@ -286,7 +282,6 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
 }
 
 
-
 /*
  * Export the delayed assertions
  * - ctx = context
@@ -306,9 +301,6 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
   return code;
 }
 
-
-
-#endif
 
 
 
@@ -2803,23 +2795,40 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
     init_smt2_context(g);
 
-    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
-    if (code < 0) {
-      // error during assertion processing
-      print_yices_error(true);
-      return;
-    }
-    init_search_parameters(g);
-    if (g->random_seed != 0) {
-      g->parameters.random_seed = g->random_seed;
+    if (g->export_to_dimacs) {
+      /*
+       * Bitblast and export in DIMACS format.
+       */
+      code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
+      if (code < 0) {
+	print_yices_error(true);
+	return;
+      }
+
+    } else {
+      /*
+       * Regular check
+       */
+      code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+      if (code < 0) {
+	// error during assertion processing
+	print_yices_error(true);
+	return;
+      }
+      init_search_parameters(g);
+      if (g->random_seed != 0) {
+	g->parameters.random_seed = g->random_seed;
+      }
+
+      if (g->delegate != NULL && g->logic_code == QF_BV) {
+	status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+      } else {
+	status = check_sat_with_timeout(g, &g->parameters);
+      }
+
+      report_status(g, status);
     }
 
-    if (g->delegate != NULL && g->logic_code == QF_BV) {
-      status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-    } else {
-      status = check_sat_with_timeout(g, &g->parameters);
-    }
-    report_status(g, status);
   }
 
   flush_out();
@@ -4061,6 +4070,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_mcsat_options(&g->mcsat_options);
   g->efmode = false;
   init_ef_client(&g->ef_client);
+  g->export_to_dimacs = false;
+  g->dimacs_file = NULL;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -4233,6 +4244,13 @@ void smt2_force_smt2_model_format(void) {
   __smt2_globals.clean_model_format = false;
 }
 
+/*
+ * Bitblast and export to DIMACS
+ */
+void smt2_export_to_dimacs(const char *filename) {
+  __smt2_globals.export_to_dimacs = true;
+  __smt2_globals.dimacs_file = filename;
+}
 
 /*
  * Display all statistics

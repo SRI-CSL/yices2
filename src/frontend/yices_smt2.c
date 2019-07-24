@@ -71,6 +71,7 @@ static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
 static char *delegate;
+static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
@@ -94,9 +95,10 @@ typedef enum optid {
   verbosity_opt,           // set verbosity on the command line
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
-  smt2format_opt,           // use SMT-LIB2 format for models
+  smt2format_opt,          // use SMT-LIB2 format for models
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
+  dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
@@ -121,6 +123,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "smt2-model-format", '\0', FLAG_OPTION, smt2format_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
+  { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
@@ -161,6 +164,7 @@ static void print_help(const char *progname) {
 	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
 	 "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
 	 "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
+	 "    --dimacs=filename         Bitblast and export to a file (in DIMACS format)\n"
 #if HAVE_MCSAT
 	 "    --mcsat                   Use the MCSat solver\n"
 	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
@@ -183,6 +187,26 @@ static void print_usage(const char *progname) {
   fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
+/*
+ * Utility: make a copy of string s
+ * - we limit the copy to MAX_STRING_COPY_LEN characters
+ * - return NULL if that fails
+ */
+#define MAX_STRING_COPY_LEN 16000
+
+static char *copy_string(const char *s) {
+  size_t len;
+  char *c;
+
+  c = NULL;
+  len = strlen(s);
+  if (len <= MAX_STRING_COPY_LEN) {
+    c = (char *) safe_malloc(len + 1);
+    strcpy(c, s);
+  }
+  return c;
+}
+
 
 /*
  * Parse the command line and process options
@@ -202,6 +226,7 @@ static void parse_command_line(int argc, char *argv[]) {
   verbosity = 0;
   timeout = 0;
   delegate = NULL;
+  dimacsfile = NULL;
 
   mcsat = false;
   mcsat_nra_mgcd = false;
@@ -225,9 +250,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	filename = elem.arg;
       } else {
 	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	print_usage(parser.command_name);
-	code = YICES_EXIT_USAGE;
-	goto exit;
+	goto bad_usage;
       }
       break;
 
@@ -252,9 +275,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	v = elem.i_value;
 	if (v < 0) {
 	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	  goto bad_usage;
 	}
 	verbosity = v;
 	break;
@@ -263,9 +284,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	v = elem.i_value;
 	if (v < 0) {
 	  fprintf(stderr, "%s: the timeout must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	  goto bad_usage;
 	}
 	timeout = v;
 	break;
@@ -287,31 +306,32 @@ static void parse_command_line(int argc, char *argv[]) {
 	    delegate = "cadical";
 #else
 	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);
-	    print_usage(parser.command_name);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
+	    goto bad_usage;
 #endif
 	  } else if (strcmp(elem.s_value, "cryptominisat") == 0) {
 #ifdef HAVE_CRYPTOMINISAT
 	    delegate = "cryptominisat";
 #else
 	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cryptominisat\n", parser.command_name);
-	    print_usage(parser.command_name);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
+	    goto bad_usage;
 #endif
 	  } else {
 	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
 		    parser.command_name, elem.s_value);
-	    print_usage(parser.command_name);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
+	    goto bad_usage;
 	  }
 	} else if (strcmp(elem.s_value, delegate) != 0) {
 	  fprintf(stderr, "%s: can't give several delegates\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	  goto bad_usage;
+	}
+	break;
+
+      case dimacs_opt:
+	if (dimacsfile == NULL) {
+	  dimacsfile = copy_string(elem.s_value);
+	} else {
+	  fprintf(stderr, "%s: can't give more than one dimacs file\n", parser.command_name);
+	  goto bad_usage;
 	}
 	break;
 
@@ -414,11 +434,21 @@ static void parse_command_line(int argc, char *argv[]) {
     goto exit;
   }
 
+  if (incremental && dimacsfile != NULL) {
+    fprintf(stderr, "%s: export to DIMACS is not supported in incremental mode\n", parser.command_name);
+    code = YICES_EXIT_USAGE;
+    goto exit;
+  }
+
   // force interactive to false if there's a filename
   if (filename != NULL) {
     interactive = false;
   }
   return;
+
+ bad_usage:
+  print_usage(parser.command_name);
+  code = YICES_EXIT_USAGE;
 
  exit:
   // cleanup then exit
@@ -622,6 +652,7 @@ int main(int argc, char *argv[]) {
   init_smt2(!incremental, timeout, interactive);
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (delegate != NULL) smt2_set_delegate(delegate);
+  if (dimacsfile != NULL) smt2_export_to_dimacs(dimacsfile);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
