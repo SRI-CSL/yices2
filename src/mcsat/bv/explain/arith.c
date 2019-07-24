@@ -2023,6 +2023,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   // We must reset the cache & co.
   // which date back from a previous conflict or propagation
   bv_evaluator_csttrail_reset(csttrail, conflict_var);
+  int_hmap_reset(&exp->norm_cache);
   int_hmap_reset(&exp->coeff1_cache);
   int_hmap_reset(&exp->coeffm1_cache);
 
