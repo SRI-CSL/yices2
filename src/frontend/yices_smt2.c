@@ -690,6 +690,11 @@ int main(int argc, char *argv[]) {
     smt2_show_stats();
   }
 
+  if (dimacsfile != NULL) {
+    free(dimacsfile);
+    dimacsfile = NULL;
+  }
+
   delete_pvector(&trace_tags);
   delete_parser(&parser);
   close_lexer(&lexer);
