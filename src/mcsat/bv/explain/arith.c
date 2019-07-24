@@ -337,7 +337,7 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
 
     if (bits != NULL) bits[0] = i; // how many times we reached the end of the loop's body
     // Whether it's a sign-extension can be tested by:
-    bool is_signext = (signbit == concat_desc->arg[i]);
+    bool is_signext = (i < w) && (signbit == concat_desc->arg[i]);
     
     while (i < w) {
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
