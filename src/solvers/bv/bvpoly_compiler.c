@@ -36,7 +36,7 @@
 #include <inttypes.h>
 
 #include "solvers/bv/bvsolver_printer.h"
-#include "io/term_printer.h"
+
 #endif
 
 
@@ -657,12 +657,6 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
       int_bvset_add(&c->in_queue, x);
       bv_compiler_push_poly64(c, bvvar_poly64_def(vtbl, x));
       bvc_queue_push(&c->queue, x);
-#if 0
-      printf("\n=== Pushing var %"PRId32" ===\n", x);
-      printf("var defined as poly: ");
-      print_bvpoly64_raw(stdout, bvvar_poly64_def(vtbl, x));
-      printf("\n\n");
-#endif
     }
     break;
 
@@ -790,22 +784,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
       bv_compiler_map_to_const64(c, x, a, b->bitsize);
       return;
     }
-#if 0
-    printf("\n=== Mapping var %"PRId32" ===\n", x);
-    printf("Dag before\n");
-    print_bvc_dag(stdout, &c->dag);
-    printf("----\n");
-    printf("var defined as bvpoly: ");
-    print_bvpoly_buffer(stdout, b);
-    printf("\n\n");
-#endif
     q = bv_compiler_pbuffer_to_dag(c, b);
-#if 0
-    printf("Dag after\n");
-    print_bvc_dag(stdout, &c->dag);
-    printf("----\n");
-    fflush(stdout);
-#endif
     break;
 
   case BVTAG_POLY:

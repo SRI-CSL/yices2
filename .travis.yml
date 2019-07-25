@@ -1,5 +1,7 @@
 language: c
 
+dist: xenial
+
 compiler:
   - gcc
   - clang
@@ -8,14 +10,21 @@ sudo: required
 
 env:
   matrix:
-    - BUILD_TYPE=debug 
+    - BUILD_TYPE=debug
       ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat"
+    - BUILD_TYPE=debug
+      ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-thread-safety"
     - BUILD_TYPE=release
       ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-mcsat"
+    - BUILD_TYPE=release
+      ENABLE_COVERAGE=OFF
+      CONFIGURE_FLAGS="--enable-thread-safety"
     - BUILD_TYPE=gcov
       ENABLE_COVERAGE=ON
-      
-dist: trusty
+      CONFIGURE_FLAGS="--enable-mcsat"
 
 # command to install dependencies
 install:
