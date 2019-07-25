@@ -5,6 +5,7 @@ set -e
 # Build and install libpoly
 pushd .
 git clone https://github.com/SRI-CSL/libpoly.git
+mkdir -p libpoly/build
 cd libpoly/build
 cmake ..
 make
