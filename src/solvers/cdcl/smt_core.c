@@ -6366,6 +6366,21 @@ void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val) {
 }
 
 
+/**************************************
+ * CHECK WHETHER THE CONTEXT IS EMPTY *
+ *************************************/
+
+/*
+ * Check whether the core is trivially SAT
+ * - i.e., check whether there are no problem clauses
+ */
+bool smt_trivially_sat(smt_core_t *s) {
+  return num_prob_clauses(s) + num_binary_clauses(s) + num_unit_clauses(s) == 0;
+}
+
+
+
+
 /****************************
  * UNCONSTRAINED VARIABLES  *
  ***************************/

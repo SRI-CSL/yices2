@@ -672,8 +672,8 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 	   stat == STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
-      if (all_variables_assigned(core)) {
-	// trivially SAT
+      if (smt_trivially_sat(core)) {
+	// no clauses
 	stat = STATUS_SAT;
 	set_smt_status(core, stat);
       } else {
