@@ -697,7 +697,7 @@ static void __attribute__((noreturn)) failed_output(void) {
 /*
  * Formatted output: like printf but use __smt2_globals.out
  */
-static void print_out(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_out(const char *format, ...)  {
   va_list p;
 
   va_start(p, format);
@@ -761,7 +761,7 @@ static void close_error(void) {
 /*
  * Formatted error: like printf but add the prefix and close
  */
-static void print_error(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_error(const char *format, ...) {
   va_list p;
 
   open_error();
@@ -860,7 +860,7 @@ static void unsupported_construct(const char *what) {
   if (__smt2_globals.logic_name != NULL) {
     print_out("%s not allowed in logic %s", what, __smt2_globals.logic_name);
   } else {
-    print_out("%s not supported");
+    print_out("%s not supported", what);
   }
 }
 
@@ -1059,7 +1059,7 @@ static void print_internalization_error(int32_t code) {
  */
 static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
-  print_error(efcode2error[code]);
+  print_error("%s", efcode2error[code]);
 }
 
 
@@ -2063,7 +2063,7 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
       update_trace_verbosity(g);
       report_success();
     } else {
-      print_error("integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
+      print_error("integer overflow: %s must be at most %"PRIu32, name, UINT32_MAX);
     }
   } else {
     print_error("option %s requires an integer value", name);
