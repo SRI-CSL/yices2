@@ -1799,7 +1799,7 @@ static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
   if (name != NULL) {
     pp_string(printer, name);
   } else {
-    pp_id(printer, "v!", i);
+    pp_id(printer, "t!", i);
   }
   pp_separator(printer, "::");
   pp_type(printer, tbl->types, tau);
