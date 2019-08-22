@@ -5881,7 +5881,7 @@ static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, t
 
 /*
  * Process a term partition
- * - return true if all terms of every class in part can be reconciled
+ * - return true if all terms of every class in the partition can be reconciled
  * - return false otherwise
  */
 static bool egraph_reconcile_partition(egraph_t *egraph, ipart_t *partition, void *solver, th_egraph_interface_t *eg) {
