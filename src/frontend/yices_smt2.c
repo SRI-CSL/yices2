@@ -191,6 +191,10 @@ static void print_usage(const char *progname) {
  * Utility: make a copy of string s
  * - we limit the copy to MAX_STRING_COPY_LEN characters
  * - return NULL if that fails
+ *
+ * 16000 bytes should be more than enough in practice.
+ * For example on Linux/ext4 filesystem: PATH_MAX=4096 bytes.
+ * We produce an error if somebody tries a name longer than that.
  */
 #define MAX_STRING_COPY_LEN 16000
 
