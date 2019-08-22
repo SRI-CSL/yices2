@@ -5535,6 +5535,12 @@ void smt2_set_logic(const char *name) {
     trace_printf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
+  // if export_to_dimacs: fail if the logic is not QF_BV
+  if (__smt2_globals.export_to_dimacs && code != QF_BV) {
+    print_error("can't generate DIMACS file for logic %s", name);
+    return;
+  }
+
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
     print_error("logic %s is not supported by the mscat solver", name);

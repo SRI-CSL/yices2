@@ -329,6 +329,12 @@ static void parse_command_line(int argc, char *argv[]) {
       case dimacs_opt:
 	if (dimacsfile == NULL) {
 	  dimacsfile = copy_string(elem.s_value);
+	  if (dimacsfile == NULL) {
+	    // copy_string failed
+	    fprintf(stderr, "%s: file-name %s is too long\n", parser.command_name, elem.s_value);
+	    code = YICES_EXIT_USAGE;
+	    goto exit;
+	  }
 	} else {
 	  fprintf(stderr, "%s: can't give more than one dimacs file\n", parser.command_name);
 	  goto bad_usage;
