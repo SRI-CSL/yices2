@@ -7916,10 +7916,6 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
       len = solver->pool.data[k];
       assert(len == clause_length(&solver->pool, k));
 
-      // read len directly (the clause should not be marked)
-      len = solver->pool.data[k];
-      assert(len == clause_length(&solver->pool, k));
-
       // Search for an unassigned or true literal in lit[2 ... len-1]
       for (t=2; t<len; t++) {
         if (! lit_is_false(solver, lit[t])) {
