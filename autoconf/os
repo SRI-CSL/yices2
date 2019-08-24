@@ -13,6 +13,8 @@ if eval 'uname > /dev/null 2> /dev/null'; then
       echo "mingw";;
     FreeBSD*)
       echo "freebsd";;
+    NetBSD*)
+      echo "netbsd";;
     *)
       echo "unix";;
   esac
