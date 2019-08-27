@@ -663,9 +663,7 @@ ifeq ($(POSIXOS),netbsd)
   CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
-  # Dynamic library can't be built from .a files because
-  # they aren't normally built with -fPIC.
-  static_libyices_dynamic=
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 
 else
 ifeq ($(POSIXOS),unix)
@@ -1147,7 +1145,7 @@ static-bin: $(static_binaries)
 # Libraries
 lib: $(libyices) $(libyices_dynamic)
 
-static-lib: $(static_libyices)
+static-lib: $(static_libyices) $(static_libyices_dynamic)
 
 
 .PHONY: obj static-obj bin static-bin lib static-lib
