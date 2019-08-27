@@ -366,6 +366,45 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
 }
 
 
+
+/*
+ * Test whether a solver is known and supported.
+ * - solver_name = external solver to use
+ * - return true if this solver is supported (i.e., can be used in init_delegate).
+ * - return false otherwise.
+ * - extra information is returned in *unknown:
+ *   if we don't support the solver at all, *unknown is set to true
+ *   if we have optional support (but not compiled), *unknown is set to fasle.
+ */
+bool supported_delegate(const char *solver_name, bool *unknown) {
+  if (strcmp("y2sat", solver_name) == 0) {
+    *unknown = false;
+    return true;
+  }
+
+  if (strcmp("cadical", solver_name) == 0) {
+    *unknown = false;
+#if HAVE_CADICAL
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  if (strcmp("cryptominisat", solver_name) == 0) {
+    *unknown = false;
+#if HAVE_CRYPTOMINIAT
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  *unknown = true;
+  return false;
+}
+
+
 /*
  * Delete the solver and free memory
  */

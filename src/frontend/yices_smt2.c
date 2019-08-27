@@ -34,12 +34,12 @@
 #include <unistd.h>
 #include <inttypes.h>
 
-
 #include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
 #include "frontend/smt2/smt2_term_stack.h"
+#include "solvers/cdcl/delegate.h"
 #include "utils/command_line.h"
 
 #include "yices.h"
@@ -192,7 +192,7 @@ static void print_usage(const char *progname) {
  * - we limit the copy to MAX_STRING_COPY_LEN characters
  * - return NULL if that fails
  *
- * 16000 bytes should be more than enough in practice.
+ * 16000 bytes should be more than enough in practice for a filename.
  * For example on Linux/ext4 filesystem: PATH_MAX=4096 bytes.
  * We produce an error if somebody tries a name longer than that.
  */
@@ -221,6 +221,7 @@ static void parse_command_line(int argc, char *argv[]) {
   optid_t k;
   int32_t v;
   int code;
+  bool unknown_delegate;
 
   filename = NULL;
   incremental = false;
@@ -303,29 +304,19 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case delegate_opt:
 	if (delegate == NULL) {
-	  if (strcmp(elem.s_value, "y2sat") == 0) {
-	    delegate = "y2sat";
-	  } else if (strcmp(elem.s_value, "cadical") == 0) {
-#ifdef HAVE_CADICAL
-	    delegate = "cadical";
-#else
-	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);
-	    goto bad_usage;
-#endif
-	  } else if (strcmp(elem.s_value, "cryptominisat") == 0) {
-#ifdef HAVE_CRYPTOMINISAT
-	    delegate = "cryptominisat";
-#else
-	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cryptominisat\n", parser.command_name);
-	    goto bad_usage;
-#endif
-	  } else {
-	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
+	  unknown_delegate = true;
+	  if (supported_delegate(elem.s_value, &unknown_delegate)) {
+	    delegate = copy_string(elem.s_value);
+	  } else if (unknown_delegate) {
+	    fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
 		    parser.command_name, elem.s_value);
+	    goto bad_usage;
+	  } else {
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support %s\n", parser.command_name, elem.s_value);
 	    goto bad_usage;
 	  }
 	} else if (strcmp(elem.s_value, delegate) != 0) {
-	  fprintf(stderr, "%s: can't give several delegates\n", parser.command_name);
+	  fprintf(stderr, "%s: can't have several delegates\n", parser.command_name);
 	  goto bad_usage;
 	}
 	break;
@@ -350,47 +341,37 @@ static void parse_command_line(int argc, char *argv[]) {
 	break;
 
       case mcsat_opt:
-#if HAVE_MCSAT
-        mcsat = true;
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
+	mcsat = true;
         break;
-#else
-	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-	code = YICES_EXIT_USAGE;
-	goto exit;
-#endif
 
       case mcsat_nra_mgcd_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_mgcd = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_nlsat_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_nlsat = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_bound = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_min_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         v = elem.i_value;
         if (v < 0) {
           fprintf(stderr, "%s: the min value must be non-negative\n", parser.command_name);
@@ -400,14 +381,11 @@ static void parse_command_line(int argc, char *argv[]) {
         }
         mcsat_nra_bound_min = v;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_max_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         v = elem.i_value;
         if (v < 0) {
           fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
@@ -417,11 +395,6 @@ static void parse_command_line(int argc, char *argv[]) {
         }
         mcsat_nra_bound_max = v;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
@@ -455,6 +428,14 @@ static void parse_command_line(int argc, char *argv[]) {
     interactive = false;
   }
   return;
+
+  /*
+   * Error conditions
+   */
+ no_mcsat:
+  fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+  code = YICES_EXIT_USAGE;
+  goto exit;
 
  bad_usage:
   print_usage(parser.command_name);
@@ -701,8 +682,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (dimacsfile != NULL) {
-    free(dimacsfile);
+    safe_free(dimacsfile);
     dimacsfile = NULL;
+  }
+  if (delegate != NULL) {
+    safe_free(delegate);
+    delegate = NULL;
   }
 
   delete_pvector(&trace_tags);
