@@ -85,13 +85,11 @@ MKVERSION=./utils/make_source_version
 # Source directories
 #
 srcdir = src
-srcsubdirs = \
-	mt \
-    io terms utils solvers solvers/floyd_warshall solvers/funs \
-    solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
+srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
+    solvers/funs solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
     parser_utils model scratch api frontend frontend/common \
     frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
-    mcsat mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/utils \
+    mcsat mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/utils
 
 testdir = tests/unit
 regressdir = tests/regress
@@ -286,6 +284,7 @@ static-test: static_build_subdirs version
 # Regressions
 #
 check: regress
+
 static-check: static-regress
 
 regress: build_subdirs version
@@ -300,7 +299,6 @@ static-regress: static_build_subdirs version
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
-
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \

@@ -87,6 +87,7 @@ timefile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
 
 fail=0
 pass=0
+skipped=0
 
 failed_tests=()
 
@@ -110,7 +111,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
             binary=yices_smtcomp
             ;;
         *.ys)
-            binary=yices_main
+            binary=yices
             ;; 
         *)
             echo FAIL: unknown extension for $filename
@@ -126,7 +127,7 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     	test_string="$file [ $options ]"
     else
         options=
-	    test_string="$file"
+	test_string="$file"
         echo
     fi
 
