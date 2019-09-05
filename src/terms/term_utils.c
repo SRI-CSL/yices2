@@ -2206,10 +2206,10 @@ static void addmul_decomp64_to_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t 
   uint32_t k;
   uint64_t a;
 
-  assert(cscan->bitsize == bvpoly_buffer_bitsize(b));
+  assert(cscan->bitsize == bvpoly_buffer_bitsize(b) && cscan->bitsize <= 64);
 
   k = cscan->numbits;
-  assert(k < cscan->bitsize && cscan->bitsize <= 64);
+  assert(k < cscan->bitsize);
 
   if (k == 0) {
     // no constant and 2^k is 1
@@ -2222,16 +2222,18 @@ static void addmul_decomp64_to_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t 
       bvpoly_buffer_add_mono64(b, x, d);
     }
   } else {
-    // 64-bit constant stored in cscan->val64
-    bvpoly_buffer_add_const64(b, cscan->val64);
+    // c :=  64-bit constant stored in cscan->val64
+    // add d * c to buffer b
+    bvpoly_buffer_addmul_const64(b, cscan->val64, d);
 
-    a = d << k; // d * 2^k
+    // now add d * 2^k * x or d * 2^k * (bvnot x)
+    a = d << k; // a = d * 2^k
     if (negated) {
-      // add d * (2^k * (bvnot x)) = - d * 2^k - d * 2^k * x
+      // add d * (2^k * (bvnot x)) = - d * 2^k - d * 2^k * x = - a - a * x
       bvpoly_buffer_sub_const64(b, a);
       bvpoly_buffer_sub_mono64(b, x, a);
     } else {
-      // add 2^ k * x
+      // add d * 2^k * x = a * x
       bvpoly_buffer_add_mono64(b, x, a);
     }
   }
@@ -2259,7 +2261,7 @@ static void addmul_bvarray64_to_buffer(const term_table_t *tbl, term_t t, bvpoly
   if (convert_bvarray(tbl, &cscan, &vscan, n, bits->arg)) {
     // success: t is c + 2^k * x or c + 2^k * (bvnot x)
     // k is stored in cscan.numbits
-    // c is stored in cscan.val64 or cscan.val
+    // c is stored in cscan.val64
     x = vscan.term;
     assert(term_bitsize(tbl, x) == n);
     addmul_decomp64_to_buffer(b, &cscan, x, vscan.negated, a);
@@ -2308,6 +2310,242 @@ void addmul_bvterm64_to_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_b
 void submul_bvterm64_from_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b) {
   addmul_bvterm64_to_buffer(tbl, t, -a, b);
 }
+
+
+/*
+ * ADD d * t TO A BUFFER: general case
+ */
+
+/*
+ * Add d * (c + 2^k * x) or d * (c + 2^k * (bvnot x)) to b
+ * - numbits > 64
+ * - k is given by cscan->numbits
+ * - c is stored in cscan->val
+ * - c is smaller than 2^k
+ *
+ * Side effect: cscan->val is modified
+ */
+static void addmul_decomp_to_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t *cscan, term_t x, bool negated, uint32_t *d) {
+  uint32_t k;
+
+  assert(cscan->bitsize == bvpoly_buffer_bitsize(b) && cscan->bitsize > 64);
+
+  k = cscan->numbits;
+  assert(k < cscan->bitsize);
+
+  if (k == 0) {
+    // no constant and 2^k is 1
+    if (negated) {
+      // add d * (bvnot x) = -d - d * x
+      bvpoly_buffer_sub_constant(b, d);
+      bvpoly_buffer_sub_monomial(b, x, d);
+    } else {
+      // add d * x
+      bvpoly_buffer_add_monomial(b, x, d);
+    }
+  } else {
+    // constant c stored in cscan->val:
+    // add d * c to buffer b
+    bvpoly_buffer_addmul_constant(b, cscan->val, d);
+
+    // now add d * 2^k * x or d * 2^k * (bvnot x)
+    // we first compute d * 2^k in cscan->val
+    bvconst_set(cscan->val, cscan->width, d);
+    bvconst_shift_left(cscan->val, cscan->bitsize, k, 0);
+
+    if (negated) {
+      // add d * (2^k * (bvnot x)) = - d * 2^k - d * 2^k * x
+      bvpoly_buffer_sub_constant(b, cscan->val);
+      bvpoly_buffer_sub_monomial(b, x, cscan->val);
+    } else {
+      // add 2^ k * x
+      bvpoly_buffer_add_monomial(b, x, cscan->val);
+    }
+  }
+}
+
+
+/*
+ * Add a * bit-array term t to buffer b
+ * - try to convert t to an arithmetic expression
+ */
+static void addmul_bvarray_to_buffer(const term_table_t *tbl, term_t t, bvpoly_buffer_t *b, uint32_t *a) {
+  composite_term_t *bits;
+  bvconst_scan_result_t cscan;
+  bvscan_result_t vscan;
+  uint32_t n;
+  term_t x;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(0 < n && n == bvpoly_buffer_bitsize(b));
+
+  init_bvconst_scan(&cscan, n);
+  if (convert_bvarray(tbl, &cscan, &vscan, n, bits->arg)) {
+    // success: t is c + 2^k * x or c + 2^k * (bvnot x)
+    // k is stored in cscan.numbits
+    // c is stored in cscan.val
+    x = vscan.term;
+    assert(term_bitsize(tbl, x) == n);
+    addmul_decomp_to_buffer(b, &cscan, x, vscan.negated, a);
+
+  } else {
+    // can't rewrite t to an arithmetic expression
+    bvpoly_buffer_add_monomial(b, t, a);
+  }
+
+  delete_bvconst_scan(&cscan);
+}
+
+
+/*
+ * Add a * t to buffer b
+ * - attempt to convert t to an arithmetic expression
+ */
+void addmul_bvterm_to_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b) {
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) == bvpoly_buffer_bitsize(b));
+  assert(term_bitsize(tbl, t) > 64);
+
+  switch (term_kind(tbl, t)) {
+  case BV_CONSTANT:
+    bvpoly_buffer_addmul_constant(b, bvconst_term_desc(tbl, t)->data, a);
+    break;
+
+  case BV_POLY:
+    bvpoly_buffer_addmul_poly(b, bvpoly_term_desc(tbl, t), a);
+    break;
+
+  case BV_ARRAY:
+    addmul_bvarray_to_buffer(tbl, t, b, a);
+    break;
+
+  default:
+    bvpoly_buffer_add_monomial(b, t, a);
+    break;
+  }
+
+}
+
+
+/*
+ * Subtract d * t FROM A BUFFER: general case
+ */
+
+/*
+ * Subtract d * (c + 2^k * x) or d * (c + 2^k * (bvnot x)) from b
+ * - numbits > 64
+ * - k is given by cscan->numbits
+ * - c is stored in cscan->val
+ * - c is smaller than 2^k
+ *
+ * Side effect: cscan->val is modified
+ */
+static void submul_decomp_from_buffer(bvpoly_buffer_t *b, bvconst_scan_result_t *cscan, term_t x, bool negated, uint32_t *d) {
+  uint32_t k;
+
+  assert(cscan->bitsize == bvpoly_buffer_bitsize(b) && cscan->bitsize > 64);
+
+  k = cscan->numbits;
+  assert(k < cscan->bitsize);
+
+  if (k == 0) {
+    // no constant and 2^k is 1
+    if (negated) {
+      // subtract d * (bvnot x) = -d - d * x
+      bvpoly_buffer_add_constant(b, d);
+      bvpoly_buffer_add_monomial(b, x, d);
+    } else {
+      // subtract d * x
+      bvpoly_buffer_sub_monomial(b, x, d);
+    }
+  } else {
+    // constant c stored in cscan->val:
+    // subtract d * c from buffer b
+    bvpoly_buffer_submul_constant(b, cscan->val, d);
+
+    // now subtract d * 2^k * x or d * 2^k * (bvnot x)
+    // we first compute d * 2^k in cscan->val
+    bvconst_set(cscan->val, cscan->width, d);
+    bvconst_shift_left(cscan->val, cscan->bitsize, k, 0);
+
+    if (negated) {
+      // subtract d * (2^k * (bvnot x)) = - d * 2^k - d * 2^k * x
+      bvpoly_buffer_add_constant(b, cscan->val);
+      bvpoly_buffer_add_monomial(b, x, cscan->val);
+    } else {
+      // subtract 2^ k * x
+      bvpoly_buffer_sub_monomial(b, x, cscan->val);
+    }
+  }
+}
+
+/*
+ * Subtract a * bit-array term t from buffer b
+ * - try to convert t to an arithmetic expression
+ */
+static void submul_bvarray_from_buffer(const term_table_t *tbl, term_t t, bvpoly_buffer_t *b, uint32_t *a) {
+  composite_term_t *bits;
+  bvconst_scan_result_t cscan;
+  bvscan_result_t vscan;
+  uint32_t n;
+  term_t x;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+  assert(0 < n && n == bvpoly_buffer_bitsize(b));
+
+  init_bvconst_scan(&cscan, n);
+  if (convert_bvarray(tbl, &cscan, &vscan, n, bits->arg)) {
+    // success: t is c + 2^k * x or c + 2^k * (bvnot x)
+    // k is stored in cscan.numbits
+    // c is stored in cscan.val
+    x = vscan.term;
+    assert(term_bitsize(tbl, x) == n);
+    submul_decomp_from_buffer(b, &cscan, x, vscan.negated, a);
+
+  } else {
+    // can't rewrite t to an arithmetic expression
+    bvpoly_buffer_sub_monomial(b, t, a);
+  }
+
+  delete_bvconst_scan(&cscan);
+}
+
+
+
+/*
+ * Subtract a * t from buffer b
+ * - attempt to convert t to an arithmetic expression
+ */
+void submul_bvterm_from_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b) {
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) == bvpoly_buffer_bitsize(b));
+  assert(term_bitsize(tbl, t) > 64);
+
+  switch (term_kind(tbl, t)) {
+  case BV_CONSTANT:
+    bvpoly_buffer_submul_constant(b, bvconst_term_desc(tbl, t)->data, a);
+    break;
+
+  case BV_POLY:
+    bvpoly_buffer_submul_poly(b, bvpoly_term_desc(tbl, t), a);
+    break;
+
+  case BV_ARRAY:
+    submul_bvarray_from_buffer(tbl, t, b, a);
+    break;
+
+  default:
+    bvpoly_buffer_sub_monomial(b, t, a);
+    break;
+  }
+
+}
+
+
 
 
 
