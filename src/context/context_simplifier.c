@@ -697,6 +697,20 @@ static void bvpoly_buffer_add_factor64(bvpoly_buffer_t *b, term_table_t *terms, 
   }
 }
 
+static void bvpoly_buffer_add_factor(bvpoly_buffer_t *b, term_table_t *terms, bvfactor_buffer_t *f) {
+  term_t t;
+
+  assert(bvfactor_buffer_is_linear(f));
+  assert(b->bitsize == f->bitsize && f->bitsize > 64);
+
+  if (bvfactor_buffer_is_constant(f)) {
+    bvpoly_buffer_add_constant(b, f->constant.data);
+  } else {
+    t = bvfactor_buffer_get_var(f);
+    addmul_bvterm_to_buffer(terms, t, f->constant.data, b);
+  }
+}
+
 
 /*
  * Subtract f from b
@@ -715,6 +729,19 @@ static void bvpoly_buffer_sub_factor64(bvpoly_buffer_t *b, term_table_t *terms, 
   }
 }
 
+static void bvpoly_buffer_sub_factor(bvpoly_buffer_t *b, term_table_t *terms, bvfactor_buffer_t *f) {
+  term_t t;
+
+  assert(bvfactor_buffer_is_linear(f));
+  assert(b->bitsize == f->bitsize && f->bitsize > 64);
+
+  if (bvfactor_buffer_is_constant(f)) {
+    bvpoly_buffer_sub_constant(b, f->constant.data);
+  } else {
+    t = bvfactor_buffer_get_var(f);
+    submul_bvterm_from_buffer(terms, t, f->constant.data, b);
+  }
+}
 
 
 /*
@@ -724,25 +751,27 @@ static bool factoring_equal_linear_factors(bvfactoring_t *r, term_table_t *terms
   bvpoly_buffer_t *b;
   uint32_t i;
 
+  b = factoring_get_poly_buffer(r);
+  reset_bvpoly_buffer(b, r->bitsize);
+
   if (r->bitsize <= 64) {
-
-    b = factoring_get_poly_buffer(r);
-    reset_bvpoly_buffer(b, r->bitsize);
-
     for (i=0; i<r->n1; i++) {
       bvpoly_buffer_add_factor64(b, terms, r->reduced1 + i);
     }
     for (i=0; i<r->n2; i++) {
       bvpoly_buffer_sub_factor64(b, terms, r->reduced2 + i);
     }
-
-    normalize_bvpoly_buffer(b);
-    return bvpoly_buffer_is_zero(b);
-
   } else {
-    // TBD
-    return false;
+    for (i=0; i<r->n1; i++) {
+      bvpoly_buffer_add_factor(b, terms, r->reduced1 + i);
+    }
+    for (i=0; i<r->n2; i++) {
+      bvpoly_buffer_sub_factor(b, terms, r->reduced2 + i);
+    }
   }
+
+  normalize_bvpoly_buffer(b);
+  return bvpoly_buffer_is_zero(b);
 }
 
 
