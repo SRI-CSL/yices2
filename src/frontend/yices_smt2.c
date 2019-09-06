@@ -91,6 +91,7 @@ static pvector_t trace_tags;
 typedef enum optid {
   show_version_opt,        // print version and exit
   show_help_opt,           // print help and exit
+  show_mcsat_help_opt,     // print help about the mcsat options
   show_stats_opt,          // show statistics after all commands are processed
   verbosity_opt,           // set verbosity on the command line
   incremental_opt,         // enable incremental mode
@@ -116,6 +117,7 @@ typedef enum optid {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, show_version_opt },
   { "help", 'h', FLAG_OPTION, show_help_opt },
+  { "mcsat-help", '0', FLAG_OPTION, show_mcsat_help_opt },
   { "stats", 's', FLAG_OPTION, show_stats_opt },
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "timeout", 't', MANDATORY_INT, timeout_opt },
@@ -151,31 +153,37 @@ static void print_version(void) {
 
 static void print_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
-         "    or %s [option]\n", progname, progname);
+         "    or %s [option]\n\n", progname, progname);
   printf("Option summary:\n"
-	 "    --version, -V             Show version and exit\n"
-	 "    --help, -h                Print this message and exit\n"
+         "    --version, -V             Show version and exit\n"
+         "    --help, -h                Print this message and exit\n"
 	 "    --verbosity=<level>       Set verbosity level (default = 0)\n"
-	 "             -v <level>\n"
-	 "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
-	 "           -t <timeout>\n"
-	 "    --stats, -s               Print statistics once all commands have been processed\n"
-	 "    --incremental             Enable support for push/pop\n"
-	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
-	 "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
-	 "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
-	 "    --dimacs=filename         Bitblast and export to a file (in DIMACS format)\n"
-#if HAVE_MCSAT
-	 "    --mcsat                   Use the MCSat solver\n"
-	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
-	 "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
-	 "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-	 "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search"
-	 ""
-#endif
-	 "\n"
-	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+         "             -v <level>\n"
+         "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
+         "           -t <timeout>\n"
+         "    --stats, -s               Print statistics once all commands have been processed\n"
+         "    --incremental             Enable support for push/pop\n"
+         "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
+         "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
+         "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
+         "    --dimacs=filename         Bitblast and export to a file (in DIMACS format)\n"
+         "    --mcsat                   Use the MCSat solver\n"
+         "    --mcsat-help              Show the MCSat options\n"
+         "\n"
+         "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+  fflush(stdout);
+}
+
+static void print_mcsat_help(const char *progname) {
+  printf("Usage: %s [option] filename\n"
+         "    or %s [option]\n\n", progname, progname);
+  printf("MCSat options:\n"
+         "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
+         "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+         "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
+         "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
+         "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
+         "\n");
   fflush(stdout);
 }
 
@@ -252,10 +260,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (filename == NULL) {
-	filename = elem.arg;
+        filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	goto bad_usage;
+        fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+        goto bad_usage;
       }
       break;
 
@@ -269,6 +277,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case show_help_opt:
 	print_help(parser.command_name);
+	code = YICES_EXIT_SUCCESS;
+	goto exit;
+
+      case show_mcsat_help_opt:
+	print_mcsat_help(parser.command_name);
 	code = YICES_EXIT_SUCCESS;
 	goto exit;
 
