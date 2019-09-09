@@ -140,24 +140,35 @@ yices_globals_t __yices_globals = {
 
 
 /*
- * Thread Local Errors
+ * Thread Local Errors  (implemented in yices_error_report.c)
  */
-static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
-static YICES_THREAD_LOCAL error_report_t  __yices_error;
 
-void init_yices_error(void){
-  if (!__yices_error_initialized) {
-    __yices_error_initialized = true;
-    memset(&__yices_error, 0, sizeof(error_report_t));
-    __yices_error.code = NO_ERROR;
-  }
-}
+/*
+ * Thread local initialization.
+ *
+ * Serves two functions:
+ *
+ * 1. Per thread initialization of the thread local error_reort_t object.
+ *    Called automatically by the get_yices_error routine.
+ *
+ * 2. Global TLS initialization (windows only).
+ *    Called in explicitly in yices_init.
+ *
+ */
+extern void init_yices_error(void);
 
-static inline error_report_t* get_yices_error(void){
-  init_yices_error();
-  return &__yices_error;
-}
 
+
+/*
+ * Thread local clean up. Called explicitly in yices_exit.
+ */
+extern void free_yices_error(void);
+
+/*
+ * Returns the error report objrct (of the calling thread).
+ */
+extern error_report_t* get_yices_error(void);
+  
 /*
  * Synchronizing access to Global table.
  */
@@ -1043,7 +1054,10 @@ static void clear_globals(yices_globals_t *glob) {
  * Initialize all global objects
  */
 EXPORTED void yices_init(void) {
-  error_report_t *error = get_yices_error();
+  error_report_t *error;
+  // setup the TLS and error report structure
+  init_yices_error();
+  error = get_yices_error();
   error->code = NO_ERROR;
 
   // prepare the global table
@@ -1121,6 +1135,8 @@ EXPORTED void yices_exit(void) {
 
   cleanup_rationals();
   cleanup_bvconstants();
+
+  free_yices_error();
 }
 
 

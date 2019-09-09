@@ -107,6 +107,7 @@ core_src_c := \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
+	api/yices_error_report.c \
 	api/yval.c \
 	context/assumption_stack.c \
 	context/common_conjuncts.c \

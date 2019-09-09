@@ -16,46 +16,9 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * THREAD MACROS
- */
 
-#ifndef _THREAD_MACROS_H
-#define _THREAD_MACROS_H
-
-
-
-
-#ifdef THREAD_SAFE
-/*
- *
- * API entry point synchronization macros
- *
- */
-#define MT_PROTECT_VOID(LOCK,EXPRESSION)\
-  do { yices_lock_t *lock = &(LOCK);\
-       get_yices_lock(lock);\
-       (EXPRESSION);\
-       release_yices_lock(lock);\
-  } while(0)
-
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)\
-  do { yices_lock_t *lock = &(LOCK);\
-       TYPE retval;\
-       get_yices_lock(lock);\
-       retval = (EXPRESSION);\
-       release_yices_lock(lock);\
-       return retval;\
-  } while(0)
-
-
+#ifndef MINGW
+#include "yices_error_report_posix.c"
 #else
-
-#define MT_PROTECT_VOID(LOCK,EXPRESSION)  EXPRESSION
-
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)  return EXPRESSION
-
+#include "yices_error_report_win.c"
 #endif
-
-
-#endif /* _THREAD_MACROS_H */
