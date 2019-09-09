@@ -61,6 +61,7 @@
 #include "api/context_config.h"
 #include "api/search_parameters.h"
 #include "api/yices_error.h"
+#include "api/yices_error_report.h"
 #include "api/yices_api_lock_free.h"
 #include "api/yices_extensions.h"
 #include "api/yices_globals.h"
@@ -139,35 +140,6 @@ yices_globals_t __yices_globals = {
 };
 
 
-/*
- * Thread Local Errors  (implemented in yices_error_report.c)
- */
-
-/*
- * Thread local initialization.
- *
- * Serves two functions:
- *
- * 1. Per thread initialization of the thread local error_reort_t object.
- *    Called automatically by the get_yices_error routine.
- *
- * 2. Global TLS initialization (windows only).
- *    Called in explicitly in yices_init.
- *
- */
-extern void init_yices_error(void);
-
-
-
-/*
- * Thread local clean up. Called explicitly in yices_exit.
- */
-extern void free_yices_error(void);
-
-/*
- * Returns the error report objrct (of the calling thread).
- */
-extern error_report_t* get_yices_error(void);
   
 /*
  * Synchronizing access to Global table.

@@ -16,53 +16,56 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-// Processthreadsapi.h
-#include <windows.h> 
-
+#include <errhandlingapi.h>
+#include <processthreadsapi.h>
  
+#include <assert.h>
 #include <stdbool.h>
 #include <string.h>
 
-#include "yices.h"
+#include "yices_types.h"
+#include "yices_exit_codes.h"
+#include "utils/memalloc.h"
+
 
 /*
  * Thread Local Errors (global data)
  */
-static bool   __yices_tls_initialized = false;
-static DWORD  __yices_tls_error_index;
+static bool   yices_tls_initialized = false;
+static DWORD yices_tls_error_index;
 
 
 // Initializes the thread local error report object.  It is assumed
 // that the global TLS system has already been initialized. It returns
 // the initialized local object.
-static inline  error_report_t* thread_local_init_yices_error_report(void){
+static error_report_t* thread_local_init_yices_error_report(void){
   error_report_t* tl_yices_error;
   
-  assert(__yices_tls_initialized);
+  assert(yices_tls_initialized);
 
 
-  tl_yices_error = TlsGetValue(__yices_tls_error_index);
+  tl_yices_error = TlsGetValue(yices_tls_error_index);
 
   if(tl_yices_error == 0){
 
     // This is a consequence of our assumption that the global TLS
     // system has already been initialized.  Since if
-    // __yices_tls_error_index is a valid index, then the call should not fail.
-    assert(GetLastError() == ERROR_SUCCESS);
+    // yices_tls_error_index is a valid index, then the call should not fail.
+    assert(GetLastError() == 0);
     // This will leak unless we enforce that exiting threads clean up
     // there own error_report_t. 
     tl_yices_error = safe_malloc(sizeof(error_report_t));
-    memset(&tl_yices_error, 0, sizeof(error_report_t));
-    tl_yices_error.code = NO_ERROR;
+    memset(tl_yices_error, 0, sizeof(error_report_t));
+    tl_yices_error->code = NO_ERROR;
+    TlsSetValue(yices_tls_error_index, tl_yices_error);
   }
   return tl_yices_error;
 }
 
-static inline  void thread_local_free_yices_error_report(void){
-  error_report_t* tl_yices_error = TlsGetValue(__yices_tls_error_index);
+static void thread_local_free_yices_error_report(void){
+  error_report_t* tl_yices_error = TlsGetValue(yices_tls_error_index);
   safe_free(tl_yices_error);
-  TlsStValue(__yices_tls_error_index, NULL);
+  TlsSetValue(yices_tls_error_index, NULL);
 }
 
 
@@ -73,22 +76,23 @@ void init_yices_error(void){
    * a call to the API.  Which is not OUR problem. Just incorrect
    * usage of the API.
    */
-  if (!__yices_tls_initialized) {
-    __yices_tls_error_index = TlsAlloc();
-    if (__yices_tls_error_index == TLS_OUT_OF_INDEXES){
+  if (!yices_tls_initialized) {
+    yices_tls_error_index = TlsAlloc();
+    if (yices_tls_error_index == TLS_OUT_OF_INDEXES){
       // this is a bit drastic. discuss.
-      exit("Thread Local Storage Initialization Failed");
+      exit(YICES_EXIT_TLS_ERROR);
     }
-    __yices_tls_initialized = true;
+    yices_tls_initialized = true;
     thread_local_init_yices_error_report();
   }
 }
 
 void free_yices_error(void){
-  if (__yices_tls_initialized) {
+  if (yices_tls_initialized) {
+    thread_local_free_yices_error_report();
     // could check the BOOL value, but what would we do if it failed?
-    (void)TlsFree();
-    __yices_tls_initialized = false;
+    (void)TlsFree(yices_tls_error_index);
+    yices_tls_initialized = false;
   }
 }
 
