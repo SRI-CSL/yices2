@@ -51,8 +51,7 @@ static inline  error_report_t* thread_local_init_yices_error_report(void){
     // __yices_tls_error_index is a valid index, then the call should not fail.
     assert(GetLastError() == ERROR_SUCCESS);
     // This will leak unless we enforce that exiting threads clean up
-    // there own error_report_t. Or we implement a DllMain here that does it for us.
-    // BD?
+    // there own error_report_t. 
     tl_yices_error = safe_malloc(sizeof(error_report_t));
     memset(&tl_yices_error, 0, sizeof(error_report_t));
     tl_yices_error.code = NO_ERROR;
@@ -96,58 +95,6 @@ void free_yices_error(void){
 
 error_report_t* get_yices_error(void){
   return thread_local_init_yices_error_report();
-}
-
-
-/*
- * The code below is to illustrate how we could prevent TLS leaking.
- * We should discuss before we enable it.
- */
-
-
-bool  __dllmain_enabled = true;
-
-// DllMain() is the entry-point function for this DLL. 
- 
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, // DLL module handle
-    DWORD fdwReason,                    // reason called
-    LPVOID lpvReserved)                 // reserved
-{
-  if(!__dllmain_enabled){ return true; }
-  
-  switch (fdwReason) { 
-
-    // The DLL is loading due to process initialization or a call to
-    // LoadLibrary.
-  case DLL_PROCESS_ATTACH: 
-    init_yices_error();
-    break;
-
-    // The attached process creates a new thread. 
-  case DLL_THREAD_ATTACH: 
-    thread_local_init_yices_error_report();
-    break;
-    
-    // The thread of the attached process terminates.
-    
-  case DLL_THREAD_DETACH: 
-    thread_local_free_yices_error_report();
-    break;
-    
-    // DLL unload due to process termination or FreeLibrary. 
-    
-  case DLL_PROCESS_DETACH: 
-    thread_local_free_yices_error_report();
-    free_yices_error();
-    break
-      
-  default: 
-      break; 
-  } 
- 
-  return TRUE; 
-  UNREFERENCED_PARAMETER(hinstDLL); 
-    UNREFERENCED_PARAMETER(lpvReserved); 
 }
 
 
