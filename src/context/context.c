@@ -2393,7 +2393,7 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
     // (t1 == t2) is reduced to (simp.left == 0)
     // we create the atom directly here:
     return map_bveq0_to_literal(ctx, simp.left);
-    
+
   default:
     break;
   }
