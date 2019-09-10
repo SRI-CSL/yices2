@@ -2339,6 +2339,22 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
 /*
  * BITVECTOR ATOMS
  */
+
+/*
+ * Auxiliary function: atom for (t == 0)
+ */
+static literal_t map_bveq0_to_literal(context_t *ctx, term_t t) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+
+  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+}
+
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   bveq_simp_t simp;
   term_t t, t1, t2;
@@ -2373,10 +2389,17 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
     break;
 
-    // TODO: handle BVEQ_CODE_REDUCED0 better
   case BVEQ_CODE_REDUCED0:
+    // (t1 == t2) is reduced to (simp.left == 0)
+    // we create the atom directly here:
+    return map_bveq0_to_literal(ctx, simp.left);
+    
   default:
     break;
+  }
+
+  if (equal_bitvector_factors(ctx, t1, t2)) {
+    return true_literal;
   }
 
   /*
@@ -4329,6 +4352,18 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
 /*
  * Top-level bitvector atoms
  */
+// Auxiliary function: assert (t == 0) or (t != 0) depending on tt
+static void assert_toplevel_bveq0(context_t *ctx, term_t t, bool tt) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x, y, tt);
+}
+
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
   bveq_simp_t simp;
   ivector_t *v;
@@ -4397,8 +4432,11 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
     break;
 
-    // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
+    // reduced to simp.left == 0
+    assert_toplevel_bveq0(ctx, simp.left, tt);
+    return;
+
   default:
     break;
   }
