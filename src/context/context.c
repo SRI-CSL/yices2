@@ -1766,7 +1766,35 @@ static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
 }
 
 
+#if 0
+/*
+ * Bvpoly buffer: b must be normalized.
+ * - not optimal but this shouldn't be called often.
+ */
+static thvar_t map_bvpoly_buffer_to_bv(context_t *ctx, bvpoly_buffer_t *b) {
+  bvpoly64_t *p;
+  bvpoly_t *q;
+  uint32_t n;
+  thvar_t x;
 
+  n = bvpoly_buffer_bitsize(b);
+
+  if (bvpoly_buffer_is_zero(b)) {
+    x = ctx->bv.create_zero(ctx->bv_solver, n);
+  } else if (n <= 64) {
+    p = bvpoly_buffer_getpoly64(b);
+    x = map_bvpoly64_to_bv(ctx, p);
+    free_bvpoly64(p);
+  } else {
+    q = bvpoly_buffer_getpoly(b);
+    x = map_bvpoly_to_bv(ctx, q);
+    free_bvpoly(q);
+  }
+
+  return x;
+}
+
+#endif
 
 /****************************
  *  CONVERSION TO LITERALS  *
@@ -4444,8 +4472,18 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   /*
    * Try Factoring
    */
-  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
-    longjmp(ctx->env, TRIVIALLY_UNSAT);
+  if (!tt) {
+    bvfactoring_t factoring;
+    bool eq;
+
+    init_bvfactoring(&factoring);
+    try_bitvector_factoring(ctx, &factoring, t1, t2);
+    eq = factoring.code == BVFACTOR_EQUAL;
+    delete_bvfactoring(&factoring);
+
+    if (eq) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
   }
 
   /*

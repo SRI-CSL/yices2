@@ -49,6 +49,7 @@
 #include <inttypes.h>
 
 #include "io/term_printer.h"
+#include "terms/bv64_constants.h"
 
 #endif
 
@@ -304,6 +305,34 @@ void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t
 /*
  * Print
  */
+static void show_factors(bvfactor_buffer_t *b) {
+  pprod_t *aux;
+  bvpoly64_t *p;
+  bvpoly_t *q;
+
+  printf("constant: ");
+  if (b->bitsize <= 64) {
+    bvconst64_print(stdout, b->constant64, b->bitsize);
+  } else {
+    bvconst_print(stdout, b->constant.data, b->bitsize);
+  }
+  printf("\nproduct: ");
+  aux = pp_buffer_getprod(&b->product);
+  print_pprod(stdout, aux);
+  free_pprod(aux);
+  printf("\nexponent: ");
+  if (b->bitsize <= 64) {
+    p = bvpoly_buffer_getpoly64(&b->exponent);
+    print_bvpoly64(stdout, p);
+    free_bvpoly64(p);
+  } else {
+    q = bvpoly_buffer_getpoly(&b->exponent);
+    print_bvpoly(stdout, q);
+    free_bvpoly(q);
+  }
+  printf("\n");
+}
+
 static void show_bvfactoring(bvfactoring_t *r) {
   uint32_t i;
 
@@ -864,12 +893,15 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
   common = factoring_get_pp_buffer(r);
   reduce_bvfactoring(r, common);
+  r->code = BVFACTOR_FOUND;
 
-  //  printf("--- Common factors ---\n");
-  //  show_product(common);
-  //  printf("\n");
-  //  show_bvfactoring(r);
-  //  printf("\n");
+#if 0
+  printf("--- Common factors ---\n");
+  show_product(common);
+  printf("\n");
+  show_bvfactoring(r);
+  printf("\n");
+#endif
 
   if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
       && factoring_equal_linear_factors(r, terms)) {
@@ -884,11 +916,13 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
     reduce_bvfactoring(r, common);
 
-    //    printf("--- Common factors ---\n");
-    //    show_product(common);
-    //    printf("\n");
-    //    show_bvfactoring(r);
-    //    printf("\n");
+#if 0
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+#endif
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
@@ -904,11 +938,13 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
     reduce_bvfactoring(r, common);
 
-    //    printf("--- Common factors ---\n");
-    //    show_product(common);
-    //    printf("\n");
-    //    show_bvfactoring(r);
-    //    printf("\n");
+#if 0
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+#endif
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
@@ -935,9 +971,11 @@ void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t
   if (t1_is_prod && t2_is_prod) {
     build_prod_prod_factoring(r, terms, t1, t2);
     if (bvfactor_buffer_equal(r->reduced1, r->reduced2)) {
-      //      show_bvfactoring(r);
-      //      printf("\n");
-      //      printf("Simple equal\n\n");
+#if 0
+      show_bvfactoring(r);
+      printf("\n");
+      printf("Simple equal\n\n");
+#endif
 
       r->code = BVFACTOR_EQUAL;
       return;

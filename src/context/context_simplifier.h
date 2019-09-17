@@ -404,7 +404,6 @@ extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t 
  */
 extern void context_free_conditional(context_t *ctx, conditional_t *d);
 
-
 /*
  * Check whether conditional_t *d can be simplified
  * - d is of the form
