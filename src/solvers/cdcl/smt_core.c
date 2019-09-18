@@ -6031,6 +6031,39 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ */
+bool smt_easy_sat(smt_core_t *s) {
+  literal_t l;
+
+  assert(s->bool_only);
+
+  for (;;) {
+    assert(s->status == STATUS_SEARCHING);
+    smt_propagation(s);
+    assert(empty_lemma_queue(s));
+    assert(! s->cp_flag);
+
+    if (s->inconsistent) {
+      // clear the conflict
+      backtrack_to_base_level(s);
+      s->inconsistent = false;
+      s->theory_conflict = false;
+      return false;
+    }
+
+    l = select_unassigned_literal(s);
+    if (l == null_literal) {
+      s->status = STATUS_SAT;
+      return true;
+    }
+    decide_literal(s, l);
+  }
+}
+
 
 
 
