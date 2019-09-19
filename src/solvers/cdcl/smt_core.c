@@ -6044,7 +6044,7 @@ bool smt_easy_sat(smt_core_t *s) {
   for (;;) {
     assert(s->status == STATUS_SEARCHING);
     smt_propagation(s);
-    assert(empty_lemma_queue(s));
+    assert(empty_lemma_queue(&s->lemmas));
     assert(! s->cp_flag);
 
     if (s->inconsistent) {
