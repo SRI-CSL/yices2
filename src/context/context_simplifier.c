@@ -59,7 +59,6 @@
  *  FORMULA SIMPLIFICATION   *
  ****************************/
 
-
 /*
  * All functions below attempt to rewrite a (boolean) term r to an
  * equivalent (boolean) term q. They return NULL_TERM if the

@@ -932,7 +932,7 @@ void q_neg(rational_t *r) {
 }
 
 /*
- * Invert r    //IAM: this looks dodgey if num is big
+ * Invert r
  */
 void q_inv(rational_t *r) {
   uint32_t abs_num;
