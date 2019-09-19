@@ -343,8 +343,8 @@ static inline void get_list_locks(void){
   get_yices_lock(&bvarith_buffer_list_lock);
   get_yices_lock(&bvarith64_buffer_list_lock);
   get_yices_lock(&bvlogic_buffer_list_lock);
-  get_yices_lock(&context_list_lock);   //IAM: maybe only these are needed?
-  get_yices_lock(&model_list_lock);     //IAM: maybe only these are needed?
+  get_yices_lock(&context_list_lock);
+  get_yices_lock(&model_list_lock);
   get_yices_lock(&generic_list_lock);
 #endif
 }
@@ -356,8 +356,8 @@ static inline void release_list_locks(void){
   release_yices_lock(&bvarith_buffer_list_lock);
   release_yices_lock(&bvarith64_buffer_list_lock);
   release_yices_lock(&bvlogic_buffer_list_lock);
-  release_yices_lock(&context_list_lock);     //IAM: maybe only these are needed?
-  release_yices_lock(&model_list_lock);       //IAM: maybe only these are needed?
+  release_yices_lock(&context_list_lock);
+  release_yices_lock(&model_list_lock);
   release_yices_lock(&generic_list_lock);
 #endif
 }
@@ -458,7 +458,8 @@ static inline bvarith_buffer_t *_o_alloc_bvarith_buffer(void) {
   list_insert_next(&bvarith_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
-static bvarith_buffer_t *alloc_bvarith_buffer(void) { //IAM: inline??
+
+static bvarith_buffer_t *alloc_bvarith_buffer(void) {
   MT_PROTECT(bvarith_buffer_t *, bvarith_buffer_list_lock, _o_alloc_bvarith_buffer());
 }
 
@@ -472,7 +473,8 @@ static inline void _o_free_bvarith_buffer(bvarith_buffer_t *b) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_bvarith_buffer(bvarith_buffer_t *b) { //IAM: inline??
+
+static void free_bvarith_buffer(bvarith_buffer_t *b) {
   MT_PROTECT_VOID(bvarith_buffer_list_lock, _o_free_bvarith_buffer(b));
 }
 
@@ -523,7 +525,8 @@ static inline bvarith64_buffer_t *_o_alloc_bvarith64_buffer(void) {
   list_insert_next(&bvarith64_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
-static bvarith64_buffer_t *alloc_bvarith64_buffer(void) { //IAM: inline??
+
+static bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
   MT_PROTECT(bvarith64_buffer_t *, bvarith64_buffer_list_lock, _o_alloc_bvarith64_buffer());
 }
 
@@ -537,7 +540,8 @@ static inline void _o_free_bvarith64_buffer(bvarith64_buffer_t *b) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_bvarith64_buffer(bvarith64_buffer_t *b) {  //IAM: inline??
+
+static void free_bvarith64_buffer(bvarith64_buffer_t *b) {
   MT_PROTECT_VOID(bvarith64_buffer_list_lock, _o_free_bvarith64_buffer(b));
 }
 
@@ -588,7 +592,8 @@ static inline bvlogic_buffer_t *_o_alloc_bvlogic_buffer(void) {
   list_insert_next(&bvlogic_buffer_list, &new_elem->header);
   return &new_elem->buffer;
 }
-static bvlogic_buffer_t *alloc_bvlogic_buffer(void) { //IAM: inline??
+
+static bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
   MT_PROTECT(bvlogic_buffer_t *, bvlogic_buffer_list_lock, _o_alloc_bvlogic_buffer());
 }
 
@@ -602,7 +607,8 @@ static inline void _o_free_bvlogic_buffer(bvlogic_buffer_t *b) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_bvlogic_buffer(bvlogic_buffer_t *b) { //IAM: inline??
+
+static void free_bvlogic_buffer(bvlogic_buffer_t *b) {
   MT_PROTECT_VOID(bvlogic_buffer_list_lock, _o_free_bvlogic_buffer(b));
 }
 
@@ -655,7 +661,8 @@ static inline context_t *_o_alloc_context(void) {
   list_insert_next(&context_list, &new_elem->header);
   return &new_elem->context;
 }
-static context_t *alloc_context(void) {  //IAM: inline??
+
+static context_t *alloc_context(void) {
   MT_PROTECT(context_t *, context_list_lock, _o_alloc_context());
 }
 
@@ -672,7 +679,8 @@ static inline void _o_free_context(context_t *c) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_context(context_t *c) { //IAM: inline??
+
+static void free_context(context_t *c) {
   MT_PROTECT_VOID(context_list_lock, _o_free_context(c));
 }
 
@@ -725,7 +733,8 @@ static inline model_t *_o_alloc_model(void) {
   list_insert_next(&model_list, &new_elem->header);
   return &new_elem->model;
 }
-static model_t *alloc_model(void) {  //IAM: inline??
+
+static model_t *alloc_model(void) {
   MT_PROTECT(model_t *, model_list_lock, _o_alloc_model());
 }
 
@@ -793,7 +802,8 @@ static inline ctx_config_t *_o_alloc_config_structure(void) {
   list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->config;
 }
-static ctx_config_t *alloc_config_structure(void) {   //IAM: inline??
+
+static ctx_config_t *alloc_config_structure(void) {
   MT_PROTECT(ctx_config_t *, generic_list_lock, _o_alloc_config_structure());
 }
 
@@ -804,7 +814,8 @@ static inline param_t *_o_alloc_param_structure(void) {
   list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->param;
 }
-static param_t *alloc_param_structure(void) { //IAM: inline??
+
+static param_t *alloc_param_structure(void) {
   MT_PROTECT(param_t *, generic_list_lock,  _o_alloc_param_structure());
 }
 
@@ -818,7 +829,8 @@ static inline void _o_free_config_structure(ctx_config_t *c) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_config_structure(ctx_config_t *c) { //IAM: inline??
+
+static void free_config_structure(ctx_config_t *c) {
   MT_PROTECT_VOID(generic_list_lock, _o_free_config_structure(c));
 }
 
@@ -829,7 +841,8 @@ static inline void _o_free_param_structure(param_t *p) {
   list_remove(elem);
   safe_free(elem);
 }
-static void free_param_structure(param_t *p) { //IAM: inline??
+
+static void free_param_structure(param_t *p) {
   MT_PROTECT_VOID(generic_list_lock, _o_free_param_structure(p));
 }
 
@@ -980,9 +993,6 @@ static void init_globals(yices_globals_t *glob) {
   glob->parser = NULL;
   glob->lexer = NULL;
   glob->tstack = NULL;
-
-  //IAM: glob->error = error;
-
   glob->fvars = NULL;
 
 #ifdef THREAD_SAFE
@@ -1005,12 +1015,8 @@ static void clear_globals(yices_globals_t *glob) {
   glob->terms = NULL;
   glob->manager = NULL;
 
-
   // parser etc.
   delete_parsing_objects();
-
-  //IAM glob->error = NULL;
-  //IAM glob->fvars = NULL;
 
   // variable collector
   delete_fvars();
@@ -1145,7 +1151,7 @@ EXPORTED error_code_t yices_error_code(void) {
 EXPORTED void yices_clear_error(void) {
   error_report_t *error = get_yices_error();
   error->code = NO_ERROR;
-  //IAM: shouldn't this really clear the entire stuct?
+  //IAM: shouldn't this really clear the entire struct?
 }
 
 
@@ -2742,28 +2748,19 @@ type_t _o_yices_function_type(uint32_t n, const type_t dom[], type_t range) {
 /*
  * Variants/short cuts for tuple and function types
  */
-//MT_PROTECT( , __yices_globals.lock, );  BD says OK.
 EXPORTED type_t yices_tuple_type1(type_t tau1) {
-  if (! check_good_type(__yices_globals.types, tau1)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(__yices_globals.types, 1, &tau1);
+  return yices_tuple_type(1, &tau1);
 }
 
-//MT_PROTECT( , __yices_globals.lock, );
 EXPORTED type_t yices_tuple_type2(type_t tau1, type_t tau2) {
   type_t aux[2];
 
   aux[0] = tau1;
   aux[1] = tau2;
 
-  if (! check_good_types(__yices_globals.types, 2, aux)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(__yices_globals.types, 2, aux);
+  return yices_tuple_type(2, aux);
 }
 
-//MT_PROTECT( , __yices_globals.lock, );
 EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
   type_t aux[3];
 
@@ -2771,37 +2768,23 @@ EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
   aux[1] = tau2;
   aux[2] = tau3;
 
-  if (! check_good_types(__yices_globals.types, 3, aux)) {
-    return NULL_TYPE;
-  }
-  return tuple_type(__yices_globals.types, 3, aux);
+  return yices_tuple_type(3, aux);
 }
 
 
-//MT_PROTECT( , __yices_globals.lock, );
 EXPORTED type_t yices_function_type1(type_t tau1, type_t range) {
-  if (! check_good_type(__yices_globals.types, tau1) ||
-      ! check_good_type(__yices_globals.types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(__yices_globals.types, range, 1, &tau1);
+  return yices_function_type(1, &tau1, range);
 }
 
-//MT_PROTECT( , __yices_globals.lock, );
 EXPORTED type_t yices_function_type2(type_t tau1, type_t tau2, type_t range) {
   type_t aux[2];
 
   aux[0] = tau1;
   aux[1] = tau2;
 
-  if (! check_good_types(__yices_globals.types, 2, aux) ||
-      ! check_good_type(__yices_globals.types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(__yices_globals.types, range, 2, aux);
+  return yices_function_type(2, aux, range);
 }
 
-//MT_PROTECT( , __yices_globals.lock, );
 EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range) {
   type_t aux[3];
 
@@ -2809,11 +2792,7 @@ EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type
   aux[1] = tau2;
   aux[2] = tau3;
 
-  if (! check_good_types(__yices_globals.types, 3, aux) ||
-      ! check_good_type(__yices_globals.types, range)) {
-    return NULL_TYPE;
-  }
-  return function_type(__yices_globals.types, range, 3, aux);
+  return yices_function_type(3, aux, range);
 }
 
 
@@ -7146,7 +7125,9 @@ int32_t _o_yices_product_component(term_t t, int32_t i, term_t *term, uint32_t *
  **********************************/
 
 /*
- * These term constructors are used in term_stack  //IAM: we should probably have a naming convention that indicates their THREAD-SAFE use
+ * These term constructors are used in term_stack
+ *
+ * IAM: we should probably have a naming convention that indicates their THREAD-SAFE use
  */
 term_t arith_buffer_get_term(rba_buffer_t *b) {
   return mk_arith_term(__yices_globals.manager, b);
@@ -7900,8 +7881,6 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
 /*
  * Set a configuration parameter
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
   int32_t k;
 
@@ -7926,8 +7905,6 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
  * - return -1 if there's an error
  * - return 0 otherwise
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  config->lock, );
 EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
   int32_t k;
 
@@ -8004,8 +7981,6 @@ static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
 /*
  * Enable a specific option
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
   int32_t k, r;
 
@@ -8066,8 +8041,6 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
 /*
  * Disable a specific option
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(, ctx->lock, );
 EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
   int32_t k, r;
 
@@ -8152,8 +8125,6 @@ EXPORTED void yices_free_param_record(param_t *param) {
 /*
  * Set a search parameter
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  param->lock, );
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
   int32_t k;
 
@@ -8326,8 +8297,6 @@ EXPORTED void yices_free_context(context_t *ctx) {
  * Get status: return the context's status flag
  * - return one of the codes defined in yices_types.h
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED smt_status_t yices_context_status(context_t *ctx) {
   return context_status(ctx);
 }
@@ -8336,8 +8305,6 @@ EXPORTED smt_status_t yices_context_status(context_t *ctx) {
 /*
  * Reset: remove all assertions and restore ctx's status to IDLE
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED void yices_reset_context(context_t *ctx) {
   reset_context(ctx);
 }
@@ -8354,8 +8321,6 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  * - if the context status is UNSAT or SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_push(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     error_report_t *error = get_yices_error();
@@ -8417,8 +8382,6 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   or if the context's status is SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_pop(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     error_report_t *error = get_yices_error();
@@ -8546,9 +8509,6 @@ void yices_internalization_error(int32_t code) {
  * Other error codes are defined in yices_types.h to report that t is
  * outside the logic supported by ctx.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
-
 static inline bool _o_yices_assert_formula_checks(term_t t) {
   return check_good_term(__yices_globals.manager, t) && check_boolean_term(__yices_globals.manager, t);
 }
@@ -8634,8 +8594,6 @@ static inline bool yices_assert_formulas_checks(uint32_t n, const term_t t[]) {
   MT_PROTECT(bool,  __yices_globals.lock, _o_yices_assert_formulas_checks(n, t));
 }
 
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
   int32_t code;
 
@@ -8713,8 +8671,6 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  * if ctx is not configured to support multiple checks
  *    code = CTX_OPERATION_NOT_SUPPORTED
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
@@ -8913,8 +8869,6 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR',
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(, ctx->lock, );
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
   smt_status_t stat;
@@ -8986,8 +8940,6 @@ static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
  * - n = number of assumptions
  * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
   param_t default_params;
   ivector_t assumptions;
@@ -8995,14 +8947,7 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   uint32_t i;
   literal_t l;
 
-  /*
-  if (! check_good_terms(__yices_globals.manager, n, a) ||
-      ! check_boolean_args(__yices_globals.manager, n, a)) {
-    return STATUS_ERROR; // Bad assumptions
-  }
-  */
-
-  if(!unsat_core_check_assumptions(n, a)){
+  if (!unsat_core_check_assumptions(n, a)) {
     return STATUS_ERROR; // Bad assumptions
   }
 
@@ -9104,8 +9049,6 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
  * interrupted and ctx's status flag is updated to
  * INTERRUPTED. Otherwise, the function does nothing.
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED void yices_stop_search(context_t *ctx) {
   if (context_status(ctx) == STATUS_SEARCHING) {
     context_stop_search(ctx);
@@ -9123,8 +9066,6 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  * - returns 0 if this works
  * - returns -1 if there's an error
  */
-//MT_PROTECT(,  __yices_globals.lock, );
-//MT_PROTECT(,  ctx->lock, );
 EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   if (context_status(ctx) != STATUS_UNSAT) {
     error_report_t *error = get_yices_error();
@@ -9154,7 +9095,6 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * sets an error report.
  *
  */
-//MT_PROTECT(,  ctx->lock, );   //IAM: first two lock example?
 EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
   MT_PROTECT(model_t *,  __yices_globals.lock, _o_yices_get_model(ctx, keep_subst));
 }
@@ -9211,7 +9151,6 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
-//MT_PROTECT(,  mdl->lock, );   //IAM: in bv_only_2013 but I wonder ...
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
   MT_PROTECT_VOID(__yices_globals.lock, _o_yices_print_model(f, mdl));
 }
@@ -9220,7 +9159,6 @@ void _o_yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_print_model_fd(fd, mdl));
 }
@@ -9246,7 +9184,6 @@ int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
  * - f = output file to use
  * - width, height, offset = print area
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_model(f, mdl, width, height, offset));
 }
@@ -9303,7 +9240,6 @@ EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_
 /*
  * Convert mdl to a string
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
   MT_PROTECT(char *,  __yices_globals.lock, _o_yices_model_to_string(mdl, width, height, offset));
 }
@@ -9381,7 +9317,6 @@ model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t ma
  * Export the list of uninterpreted terms that have a value in mdl.
  * - the variables are stored in term_vector v
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v) {
   MT_PROTECT_VOID(__yices_globals.lock, model_get_relevant_vars(mdl, (ivector_t *) v));
 }
@@ -9428,7 +9363,6 @@ static inline error_code_t yices_eval_error(int32_t v) {
  *   type1 = bool (expected type)
  * + the other evaluation error codes above.
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_bool_value(mdl, t, val));
 }
@@ -9549,7 +9483,6 @@ static bool arithval_is_rational(const arithval_struct_t *r) {
 }
 
 // return the value as a 32bit integer
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_int32_value(mdl, t, val));
 }
@@ -9572,7 +9505,6 @@ int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
 }
 
 // return the value as a 64bit integer
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_int64_value(mdl, t, val));
 }
@@ -9595,7 +9527,6 @@ int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
 }
 
 // return the value as a pair num/den (both 32bit integers)
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_rational32_value(mdl, t, num, den));
 }
@@ -9618,7 +9549,6 @@ int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint
 }
 
 // pair num/den (64bit integers)
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_rational64_value(mdl, t, num, den));
 }
@@ -9641,7 +9571,6 @@ int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint
 }
 
 // convert to a floating point number
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_double_value(mdl, t, val));
 }
@@ -9667,7 +9596,6 @@ int32_t _o_yices_get_double_value(model_t *mdl, term_t t, double *val) {
 
 
 // convert to a GMP integer
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_mpz_value(mdl, t, val));
 }
@@ -9692,7 +9620,6 @@ int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
 }
 
 // convert to a GMP rational
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_mpq_value(mdl, t, val));
 }
@@ -9714,7 +9641,6 @@ int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
 /*
  * Algebraic number
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_algebraic_number_value(mdl, t, a));
 }
@@ -9762,7 +9688,6 @@ int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_bv_value(mdl, t, val));
 }
@@ -9813,7 +9738,6 @@ int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
  *   code = SCALAR_TERM_REQUIRED
  *   term1 = t
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_scalar_value(mdl, t, val));
 }
@@ -9888,7 +9812,6 @@ EXPORTED void yices_delete_yval_vector(yval_vector_t *v) {
  * If the evaluation fails for other reasons:
  *   code = EVAL_FAILED
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_get_value(model_t *mdl, term_t t, yval_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_get_value(mdl, t, val));
 }
@@ -9918,7 +9841,6 @@ int32_t _o_yices_get_value(model_t *mdl, term_t t, yval_t *val) {
 /*
  * Queries on the value of a rational node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_is_int32(model_t *mdl, const yval_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_is_int32(mdl, v));
 }
@@ -9942,7 +9864,6 @@ int32_t _o_yices_val_is_int32(model_t *mdl, const yval_t *v) {
   return code;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_is_int64(model_t *mdl, const yval_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_is_int64(mdl, v));
 }
@@ -9966,7 +9887,6 @@ int32_t _o_yices_val_is_int64(model_t *mdl, const yval_t *v) {
   return code;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_is_rational32(model_t *mdl, const yval_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_is_rational32(mdl, v));
 }
@@ -9990,7 +9910,6 @@ int32_t _o_yices_val_is_rational32(model_t *mdl, const yval_t *v) {
   return code;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_is_rational64(model_t *mdl, const yval_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_is_rational64(mdl, v));
 }
@@ -10014,7 +9933,6 @@ int32_t _o_yices_val_is_rational64(model_t *mdl, const yval_t *v) {
   return code;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_is_integer(model_t *mdl, const yval_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_is_integer(mdl, v));
 }
@@ -10041,7 +9959,6 @@ int32_t _o_yices_val_is_integer(model_t *mdl, const yval_t *v) {
 /*
  * Number of bits in a bitvector constant
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED uint32_t yices_val_bitsize(model_t *mdl, const yval_t *v) {
   MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_val_bitsize(mdl, v));
 }
@@ -10069,7 +9986,6 @@ uint32_t _o_yices_val_bitsize(model_t *mdl, const yval_t *v) {
 /*
  * Number of components in a tuple
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED uint32_t yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
   MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_val_tuple_arity(mdl, v));
 }
@@ -10097,7 +10013,6 @@ uint32_t _o_yices_val_tuple_arity(model_t *mdl, const yval_t *v) {
 /*
  * Arity of a mapping object
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED uint32_t yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
   MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_val_mapping_arity(mdl, v));
 }
@@ -10124,7 +10039,6 @@ uint32_t _o_yices_val_mapping_arity(model_t *mdl, const yval_t *v) {
 /*
  * Arity of a function node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED uint32_t yices_val_function_arity(model_t *mdl, const yval_t *v) {
   MT_PROTECT(uint32_t,  __yices_globals.lock, _o_yices_val_function_arity(mdl, v));
 }
@@ -10153,7 +10067,6 @@ uint32_t _o_yices_val_function_arity(model_t *mdl, const yval_t *v) {
 /*
  * Type of a function node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED type_t yices_val_function_type(model_t *mdl, const yval_t *v) {
   MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_val_function_type(mdl, v));
 }
@@ -10179,7 +10092,6 @@ type_t _o_yices_val_function_type(model_t *mdl, const yval_t *v) {
 /*
  * Extract value of a leaf node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_bool(mdl, v, val));
 }
@@ -10224,7 +10136,6 @@ static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
   return NULL;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_int32(mdl, v, val));
 }
@@ -10246,7 +10157,6 @@ int32_t _o_yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val) {
   return 0;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_int64(mdl, v, val));
 }
@@ -10268,7 +10178,6 @@ int32_t _o_yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val) {
   return 0;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num, uint32_t *den) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_rational32(mdl, v, num, den));
 }
@@ -10290,7 +10199,6 @@ int32_t _o_yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num,
   return 0;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num, uint64_t *den) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_rational64(mdl, v, num, den));
 }
@@ -10312,7 +10220,6 @@ int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num,
   return 0;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_mpz(mdl, v, val));
 }
@@ -10334,7 +10241,6 @@ int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
   return 0;
 }
 
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_mpq(mdl, v, val));
 }
@@ -10353,7 +10259,6 @@ int32_t _o_yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val) {
 
 
 // Conversion to double
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_double(mdl, v, val));
 }
@@ -10391,7 +10296,6 @@ int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
 /*
  * Value of a bitvector node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_bv(mdl, v, val));
 }
@@ -10419,7 +10323,6 @@ int32_t _o_yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) {
 /*
  * Algebraic number
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_algebraic_number(mdl, v, a));
 }
@@ -10456,7 +10359,6 @@ int32_t _o_yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_alge
 /*
  * Value of a scalar/uninterpreted constant
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, type_t *tau) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_get_scalar(mdl, v, val, tau));
 }
@@ -10486,7 +10388,6 @@ int32_t _o_yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, typ
 /*
  * Expand a tuple node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[]) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_expand_tuple(mdl, v, child));
 }
@@ -10514,7 +10415,6 @@ int32_t _o_yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[])
 /*
  * Expand a mapping node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[], yval_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_expand_mapping(mdl, v, tup, val));
 }
@@ -10541,7 +10441,6 @@ int32_t _o_yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[],
 /*
  * Expand a function node
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def, yval_vector_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_val_expand_function(mdl, f, def, v));
 }
@@ -10578,7 +10477,6 @@ int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def,
 /*
  * Value of term t converted to a constant term val.
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED term_t yices_get_value_as_term(model_t *mdl, term_t t) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_get_value_as_term(mdl, t));
 }
@@ -10626,7 +10524,6 @@ term_t _o_yices_get_value_as_term(model_t *mdl, term_t t) {
  * Error codes:
  * - same as get_bool_val
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_formula_true_in_model(model_t *mdl, term_t f) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_formula_true_in_model(mdl, f));
 }
@@ -10662,7 +10559,6 @@ int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f) {
  * Error code:
  * - same as yices_get_bool_val
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_formulas_true_in_model(mdl, n, f));
 }
@@ -10698,7 +10594,6 @@ int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f
 /*
  * Values of terms a[0 ... n-1] all converted to terms
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_term_array_value(mdl, n, a, b));
 }
@@ -10756,7 +10651,6 @@ int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], te
  * - EVAL_NO_IMPLICANT    if t is false in  mdl
  * - EVAL_FAILED          if the function fails for some other reason
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_implicant_for_formula(mdl, t, v));
 }
@@ -10784,7 +10678,6 @@ int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v)
 /*
  * Same thing for an array of formulas a[0 ... n-1]
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_implicant_for_formulas(mdl, n, a, v));
 }
@@ -10860,7 +10753,6 @@ static inline error_code_t yices_gen_error(int32_t v) {
  * - v: term_vector to return the result
  *
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 					yices_gen_mode_t mode, term_vector_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_generalize_model(mdl, t, nelims, elim, mode, v));
@@ -10904,7 +10796,6 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
 /*
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
-//MT_PROTECT(,  mdl->lock, );
 EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
 					     yices_gen_mode_t mode, term_vector_t *v) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_generalize_model_array(mdl, n, a, nelims, elim, mode, v));
