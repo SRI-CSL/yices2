@@ -186,6 +186,7 @@
 #include "terms/balanced_arith_buffers.h"
 #include "terms/bvarith64_buffers.h"
 #include "terms/bvarith_buffers.h"
+#include "terms/bvpoly_buffers.h"
 #include "terms/pprod_table.h"
 #include "terms/types.h"
 #include "utils/bitvectors.h"
@@ -754,6 +755,16 @@ extern term_t bvconst_term(term_table_t *table, uint32_t n, const uint32_t *bv);
  */
 extern term_t bv64_poly(term_table_t *table, bvarith64_buffer_t *b);
 extern term_t bv_poly(term_table_t *table, bvarith_buffer_t *b);
+
+
+/*
+ * Variant: use a bvpoly_buffer b
+ * - this works only for linear polynomials
+ * - all variables of b must be terms defined in table
+ * - b must be normalized
+ * - b is not modified
+ */
+extern term_t bv_poly_from_buffer(term_table_t *table, bvpoly_buffer_t *b);
 
 
 /*

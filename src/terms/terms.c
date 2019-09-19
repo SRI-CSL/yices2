@@ -689,7 +689,7 @@ typedef struct {
   const term_t *arg;
 } app_term_hobj_t;
 
-//IAM: dead code?
+
 /*
  * Function update
  * - tau = result type
@@ -708,7 +708,6 @@ typedef struct {
   const term_t *arg;
 } update_term_hobj_t;
 
-//IAM: dead code?
 /*
  * Quantified formula: (forall v[0] ... v[n-1] p)
  * - p = body
@@ -723,7 +722,6 @@ typedef struct {
   const term_t *v;
 } forall_term_hobj_t;
 
-//IAM: dead code?
 /*
  * Lambda term: (lambda v[0] ... v[n-1] t)
  * - tau = type
@@ -741,7 +739,6 @@ typedef struct {
 } lambda_term_hobj_t;
 
 
-//IAM: dead code?
 /*
  * Select term
  * - tag = term kind
@@ -832,6 +829,19 @@ typedef struct {
 
 
 /*
+ * Bit vector polynomial constructed from a bvpoly_buffer
+ * - this handles both small and large coefficients.
+ * - tau = bitvector type
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  bvpoly_buffer_t *b;
+} bvpoly_buffer_hobj_t;
+
+
+/*
  * Bit vector constants
  * - v = value stored as an array of words
  */
@@ -910,6 +920,14 @@ static uint32_t hash_bvpoly_hobj(bvpoly_term_hobj_t *o) {
 
 static uint32_t hash_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
   return hash_bvarith64_buffer(o->b, o->v);
+}
+
+static uint32_t hash_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o) {
+  if (o->b->bitsize <= 64) {
+    return bvpoly_buffer_hash64(o->b);
+  } else {
+    return bvpoly_buffer_hash(o->b);
+  }
 }
 
 static uint32_t hash_bvconst_hobj(bvconst_term_hobj_t *o) {
@@ -1098,6 +1116,24 @@ static bool eq_bvpoly64_hobj(bvpoly64_term_hobj_t *o, int32_t i) {
     bvarith64_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
 }
 
+static bool eq_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o, int32_t i) {
+  term_table_t *table;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  switch (table->kind[i]) {
+  case BV64_POLY:
+    return bvpoly_buffer_equal_poly64(o->b, table->desc[i].ptr);
+
+  case BV_POLY:
+    return bvpoly_buffer_equal_poly(o->b, table->desc[i].ptr);
+
+  default:
+    return false;
+  }
+}
+
 static bool eq_bvconst_hobj(bvconst_term_hobj_t *o, int32_t i) {
   term_table_t *table;
   bvconst_term_t *d;
@@ -1214,6 +1250,23 @@ static int32_t build_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
 
   p = bvarith64_buffer_get_bvpoly(o->b, o->v);
   return new_ptr_term(o->tbl, BV64_POLY, o->tau, p);
+}
+
+static int32_t build_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o) {
+  bvpoly_buffer_t *b;
+  term_kind_t tag;
+  void *p;
+
+  b = o->b;
+  if (b->bitsize <= 64) {
+    p = bvpoly_buffer_getpoly64(b);
+    tag = BV64_POLY;
+  } else {
+    p = bvpoly_buffer_getpoly(b);
+    tag = BV_POLY;
+  }
+
+  return new_ptr_term(o->tbl, tag, o->tau, p);
 }
 
 static int32_t build_bvconst_hobj(bvconst_term_hobj_t *o) {
@@ -2932,6 +2985,29 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
   return pos_term(i);
 }
 
+
+/*
+ * Build/return a term equal to bvpoly_buffer b
+ * - this works only for linear polynomials
+ * - all variables of b must be terms defined in table
+ * - b must be normalized
+ * - b is not modified
+ */
+term_t bv_poly_from_buffer(term_table_t *table, bvpoly_buffer_t *b) {
+  int32_t i;
+  bvpoly_buffer_hobj_t bvbuffer_hobj;
+
+  bvbuffer_hobj.m.hash = (hobj_hash_t) hash_bvpoly_buffer_hobj;
+  bvbuffer_hobj.m.eq = (hobj_eq_t) eq_bvpoly_buffer_hobj;
+  bvbuffer_hobj.m.build = (hobj_build_t) build_bvpoly_buffer_hobj;
+  bvbuffer_hobj.tbl = table;
+  bvbuffer_hobj.tau = bv_type(table->types, b->bitsize);
+  bvbuffer_hobj.b = b;
+
+  i = int_htbl_get_obj(&table->htbl, &bvbuffer_hobj.m);
+
+  return pos_term(i);
+}
 
 
 
