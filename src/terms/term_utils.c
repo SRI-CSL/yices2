@@ -2686,7 +2686,7 @@ static void bvfactor_poly(term_table_t *tbl, bvfactor_buffer_t *b, term_t t, uin
 
 
 /*
- * Decomposet t^d into factors and add the factors to buffer b
+ * Decompose t^d into factors and add the factors to buffer b
  * - t is a bitvector term
  * - the buffer is initialized with the right bitsize
  */
