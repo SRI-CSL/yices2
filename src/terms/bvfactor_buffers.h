@@ -38,7 +38,7 @@
  *   a * product * 2 ^ exponent
  * where a is an n-bit constant
  *       product is a power product: x_1^d_1  ... x_k^d_k
- *       exponent is polynomial: a_1 y_1 + ... + a_j y_j
+ *       exponent is a polynomial: a_1 y_1 + ... + a_j y_j
  *
  * A bvfactor_buffer is a data structure to store these three components.
  */
