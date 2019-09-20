@@ -605,8 +605,6 @@ static inline uint32_t hash_bvconst64_term(uint32_t bitsize, uint64_t v) {
 
 
 
-
-
 /*
  * HASH CONSING
  */
@@ -2742,6 +2740,29 @@ term_t bvsge_atom(term_table_t *table, term_t l, term_t r) {
   return binary_term(table, BV_SGE_ATOM, bool_type(table->types), l, r);
 }
 
+
+
+
+/*
+ * POWER PRODUCT
+ */
+
+/*
+ * Power product built from a buffer b
+ * - b must not be empty
+ */
+term_t pprod_term_from_buffer(term_table_t *table, pp_buffer_t *b) {
+  pprod_t *r;
+
+  r = pprod_from_buffer(table->pprods, b);
+  assert(!pp_is_empty(r));
+
+  if (pp_is_var(r)) {
+    return var_of_pp(r);
+  } else {
+    return pprod_term(table, r);
+  }
+}
 
 
 

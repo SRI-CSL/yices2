@@ -87,7 +87,7 @@ extern void init_bvfactor_buffer(bvfactor_buffer_t *b);
  * Reset and prepare to store products
  * - n = number of bits
  * - this sets the constant to 1,
- *   product empty a and exponent 0
+ *   product empty, and exponent 0
  */
 extern void reset_bvfactor_buffer(bvfactor_buffer_t *b, uint32_t n);
 
@@ -166,7 +166,8 @@ extern void bvfactor_buffer_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer
  * - all factor buffers must be normalized
  * - the result is stored in pbuffer
  */
-extern void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1, bvfactor_buffer_t *b2, uint32_t n2);
+extern void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1,
+						 bvfactor_buffer_t *b2, uint32_t n2);
 
 
 /*
@@ -190,7 +191,7 @@ extern bool bvfactor_buffer_is_linear(bvfactor_buffer_t *b);
  * Check whether b->product is constant (i.e., degree = 0)
  * - b must be normalized
  */
-static inline bool bvfactor_buffer_is_constant(bvfactor_buffer_t *b) {
+static inline bool bvfactor_buffer_product_is_one(bvfactor_buffer_t *b) {
   return b->product.len == 0;
 }
 
@@ -204,6 +205,20 @@ extern bool bvfactor_buffer_is_var(bvfactor_buffer_t *b);
  * Get the variable of b->product if b->product has degree 1
  */
 extern int32_t bvfactor_buffer_get_var(bvfactor_buffer_t *b);
+
+/*
+ * Check whether the constant is zero
+ * - b must be normalized
+ */
+extern bool bvfactor_buffer_is_zero(bvfactor_buffer_t *b);
+
+/*
+ * Check whether the exponent is zero
+ * - b must be normalized
+ */
+static inline bool bvfactor_buffer_exponent_is_zero(bvfactor_buffer_t *b) {
+  return bvpoly_buffer_is_zero(&b->exponent);
+}
 
 
 #endif /* __BVFACTOR_BUFFERS_H */

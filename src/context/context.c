@@ -4392,6 +4392,31 @@ static void assert_toplevel_bveq0(context_t *ctx, term_t t, bool tt) {
   ctx->bv.assert_eq_axiom(ctx->bv_solver, x, y, tt);
 }
 
+
+/*
+ * Experimental: when t1 and t2 have a common factor C:
+ *   t1 = C * u1
+ *   t2 = C * u2
+ * then we have (t1 /= t2) implies (u1 /= u2).
+ * So we can add (u1 /= u2) when (t1 /= t2) is asserted.
+ * This is redundant but it may help solving the problem, especially if C is a
+ * complex expression.
+ */
+static void assert_factored_inequality(context_t *ctx, bvfactoring_t *f) {
+  term_t u1, u2;
+  thvar_t x, y;
+
+  assert(f->code == BVFACTOR_FOUND);
+
+  //  printf("Asserting factored inequality\n\n");
+
+  u1 = bitvector_factoring_left_term(ctx, f);
+  u2 = bitvector_factoring_right_term(ctx, f);
+  x = internalize_to_bv(ctx, u1);
+  y = internalize_to_bv(ctx, u2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, false);
+}
+
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
   bveq_simp_t simp;
   ivector_t *v;
@@ -4474,11 +4499,24 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
    */
   if (!tt) {
     bvfactoring_t factoring;
-    bool eq;
+    bool eq = false;
 
     init_bvfactoring(&factoring);
     try_bitvector_factoring(ctx, &factoring, t1, t2);
-    eq = factoring.code == BVFACTOR_EQUAL;
+    switch (factoring.code) {
+    case BVFACTOR_EQUAL:
+      eq = true;
+      break;
+
+    case BVFACTOR_FOUND:
+      if (useful_bitvector_factoring(&factoring)) {
+	assert_factored_inequality(ctx, &factoring);
+      }
+      break;
+
+    default:
+      break;
+    }
     delete_bvfactoring(&factoring);
 
     if (eq) {

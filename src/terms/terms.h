@@ -631,6 +631,13 @@ extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
  */
 extern term_t pprod_term(term_table_t *table, pprod_t *r);
 
+/*
+ * Power product from a pp_buffer:
+ * - b must be normalized and non-empty
+ * - each variable in b must be a term defined in table
+ * - the variables must have compatible types
+ */
+extern term_t pprod_term_from_buffer(term_table_t *table, pp_buffer_t *b);
 
 
 
