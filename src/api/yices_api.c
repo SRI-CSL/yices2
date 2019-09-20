@@ -1162,7 +1162,6 @@ EXPORTED int32_t yices_print_error(FILE *f) {
   return print_error(f);
 }
 
-
 EXPORTED int32_t yices_print_error_fd(int fd) {
   FILE *tmp_fp;
   int32_t retval;
@@ -1209,6 +1208,7 @@ void yices_reset_tables(void) {
 static void _o_yices_set_out_of_mem_callback(void (*callback)(void)) {
   __out_of_mem_callback = callback;
 }
+
 EXPORTED void yices_set_out_of_mem_callback(void (*callback)(void)) {
   MT_PROTECT_VOID(__yices_globals.lock,_o_yices_set_out_of_mem_callback(callback));
 }
@@ -1231,11 +1231,11 @@ EXPORTED int32_t yices_has_mcsat(void) {
  * Test for thread safety.
  */
 #ifdef THREAD_SAFE
-EXPORTED int32_t  yices_is_thread_safe(void) {
+EXPORTED int32_t yices_is_thread_safe(void) {
   return 1;
 }
 #else
-EXPORTED int32_t  yices_is_thread_safe(void) {
+EXPORTED int32_t yices_is_thread_safe(void) {
   return 0;
 }
 #endif
@@ -2771,7 +2771,6 @@ EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
   return yices_tuple_type(3, aux);
 }
 
-
 EXPORTED type_t yices_function_type1(type_t tau1, type_t range) {
   return yices_function_type(1, &tau1, range);
 }
@@ -2940,7 +2939,6 @@ term_t _o_yices_constant(type_t tau, int32_t index) {
   return mk_constant(__yices_globals.manager, tau, index);
 }
 
-
 EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
   MT_PROTECT(term_t, __yices_globals.lock, _o_yices_new_uninterpreted_term(tau));
 }
@@ -2952,7 +2950,6 @@ term_t _o_yices_new_uninterpreted_term(type_t tau) {
 
   return mk_uterm(__yices_globals.manager, tau);
 }
-
 
 EXPORTED term_t yices_new_variable(type_t tau) {
   MT_PROTECT(term_t, __yices_globals.lock, _o_yices_new_variable(tau));
@@ -3061,7 +3058,6 @@ term_t _o_yices_ite(term_t cond, term_t then_term, term_t else_term) {
 
   return mk_ite(__yices_globals.manager, cond, then_term, else_term, tau);
 }
-
 
 EXPORTED term_t yices_eq(term_t left, term_t right) {
   MT_PROTECT(term_t, __yices_globals.lock, _o_yices_eq(left, right));
@@ -3485,7 +3481,6 @@ term_t _o_yices_int64(int64_t val) {
 /*
  * Rational constants
  */
-
 EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_rational32(num, den));
 }
@@ -3606,7 +3601,6 @@ term_t _o_yices_parse_rational(const char *s) {
  * Error report:
  * code = INVALID_FLOAT_FORMAT
  */
-
 EXPORTED term_t yices_parse_float(const char *s) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_parse_float(s));
 }
@@ -3635,7 +3629,6 @@ term_t _o_yices_parse_float(const char *s) {
 /*
  * Add t1 and t2
  */
-
 EXPORTED term_t yices_add(term_t t1, term_t t2) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_add(t1, t2));
 }
@@ -3661,7 +3654,6 @@ term_t _o_yices_add(term_t t1, term_t t2) {
 /*
  * Subtract t2 from t1
  */
-
 EXPORTED term_t yices_sub(term_t t1, term_t t2) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_sub(t1, t2));
 }
@@ -3687,7 +3679,6 @@ term_t _o_yices_sub(term_t t1, term_t t2) {
 /*
  * Negate t1
  */
-
 EXPORTED term_t yices_neg(term_t t1) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_neg(t1));
 }
@@ -3713,7 +3704,6 @@ term_t _o_yices_neg(term_t t1) {
 /*
  * Multiply t1 and t2
  */
-
 EXPORTED term_t yices_mul(term_t t1, term_t t2) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_mul(t1, t2));
 }
@@ -3740,7 +3730,6 @@ term_t _o_yices_mul(term_t t1, term_t t2) {
 /*
  * Compute the square of t1
  */
-
 EXPORTED term_t yices_square(term_t t1) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_square(t1));
 }
@@ -3794,7 +3783,6 @@ term_t _o_yices_power(term_t t1, uint32_t d) {
 /*
  * Sum of n terms t[0] ... t[n-1]
  */
-
 EXPORTED term_t yices_sum(uint32_t n, const term_t t[]) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_sum(n, t));
 }
@@ -3823,7 +3811,6 @@ term_t _o_yices_sum(uint32_t n, const term_t t[]) {
 /*
  * Product of n terms t[0] ... t[n-1]
  */
-
 EXPORTED term_t yices_product(uint32_t n, const term_t t[]) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_product(n, t));
 }
@@ -3868,7 +3855,6 @@ term_t _o_yices_product(uint32_t n, const term_t t[]) {
 /*
  * DIVISION
  */
-
 EXPORTED term_t yices_division(term_t t1, term_t t2) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_division(t1, t2));
 }
@@ -3924,7 +3910,6 @@ term_t _o_yices_imod(term_t t1, term_t t2) {
 /*
  * Divisibility test: check whether t1 divides t2
  */
-
 EXPORTED term_t yices_divides_atom(term_t t1, term_t t2) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_divides_atom(t1, t2));
 }
@@ -4007,7 +3992,6 @@ term_t _o_yices_ceil(term_t t) {
 /*
  * integer coefficients
  */
-
 EXPORTED term_t yices_poly_int32(uint32_t n, const int32_t a[], const term_t t[]) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_poly_int32(n, a, t));
 }
@@ -7647,7 +7631,6 @@ type_t _o_yices_parse_type(const char *s) {
  * Parse s as a term in the Yices language.
  * Return NULL_TERM if there's an error.
  */
-
 EXPORTED term_t yices_parse_term(const char *s) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_parse_term(s));
 }
@@ -7675,7 +7658,6 @@ term_t _o_yices_parse_term(const char *s) {
  * return -1 if tau is invalid and set error report
  * return 0 otherwise.
  */
-
 EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_set_type_name(tau, name));
 }
@@ -7703,7 +7685,6 @@ int32_t _o_yices_set_type_name(type_t tau, const char *name) {
  * return -1 if  is invalid and set error report
  * return 0 otherwise.
  */
-
 EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_set_term_name(t, name));
 }
@@ -7727,7 +7708,6 @@ int32_t _o_yices_set_term_name(term_t t, const char *name) {
  * Get name of type tau
  * - return NULL if tau has no name (or if tau is not a valid type)
  */
-
 EXPORTED const char *yices_get_type_name(type_t tau) {
   MT_PROTECT(const char *,  __yices_globals.lock, _o_yices_get_type_name(tau));
 }
@@ -7744,7 +7724,6 @@ const char *_o_yices_get_type_name(type_t tau) {
  * Get name of term t
  * - return NULL is t has no name (or if t is not a valid term)
  */
-
 EXPORTED const char *yices_get_term_name(term_t t) {
   MT_PROTECT(const char *,  __yices_globals.lock, _o_yices_get_term_name(t));
 }
@@ -7761,7 +7740,6 @@ const char *_o_yices_get_term_name(term_t t) {
 /*
  * Remove name from the type table.
  */
-
 EXPORTED void yices_remove_type_name(const char *name) {
   MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_type_name(name));
 }
@@ -7774,7 +7752,6 @@ void _o_yices_remove_type_name(const char *name) {
 /*
  * Remove name from the term table.
  */
-
 EXPORTED void yices_remove_term_name(const char *name) {
   MT_PROTECT_VOID(__yices_globals.lock, _o_yices_remove_term_name(name));
 }
@@ -7787,7 +7764,6 @@ void _o_yices_remove_term_name(const char *name) {
 /*
  * Get type of the given name or return NULL_TYPE (-1)
  */
-
 EXPORTED type_t yices_get_type_by_name(const char *name) {
   MT_PROTECT(type_t,  __yices_globals.lock, _o_yices_get_type_by_name(name));
 }
@@ -7800,7 +7776,6 @@ type_t _o_yices_get_type_by_name(const char *name) {
 /*
  * Get term of the given name or return NULL_TERM
  */
-
 EXPORTED term_t yices_get_term_by_name(const char *name) {
   MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_get_term_by_name(name));
 }
@@ -7815,7 +7790,6 @@ term_t _o_yices_get_term_by_name(const char *name) {
  * Return -1 if tau is not a valid type and set the error code.
  * Return 0 otherwise.
  */
-
 EXPORTED int32_t yices_clear_type_name(type_t tau) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_clear_type_name(tau));
 }
@@ -7836,7 +7810,6 @@ int32_t _o_yices_clear_type_name(type_t tau) {
  * Return -1 if t is not a valid term (and set the error code)
  * Return 0 otherwise.
  */
-
 EXPORTED int32_t yices_clear_term_name(term_t t) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_clear_term_name(t));
 }
