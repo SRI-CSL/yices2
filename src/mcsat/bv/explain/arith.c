@@ -1482,7 +1482,6 @@ bool cover(arith_t* exp,
         bv_arith_interval_delete(&hole_complement);
         delete_bvconstant(&lo_proj);
         delete_bvconstant(&hi_proj);
-        delete_bvconstant(&smaller_values);
       } else { // Hole is bigger -> lower level(s) must forbid everything
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
@@ -1553,6 +1552,7 @@ bool cover(arith_t* exp,
       delete_ivector(&rec_output);
       delete_bvconstant(&lo);
       delete_bvconstant(&hi);
+      delete_bvconstant(&smaller_values);
       bv_arith_interval_delete(&hole);
     }
   }
