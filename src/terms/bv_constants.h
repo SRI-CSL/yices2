@@ -344,6 +344,15 @@ extern void bvconst_lshr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n);
 extern void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n);
 
 
+/*
+ * Variants: in-place shifts
+ * - bv is shifted in place by the amount defined in b
+ * - n = number of bits in bv and b
+ */
+extern void bvconst_lshl_inplace(uint32_t *bv, uint32_t *b, uint32_t n);
+extern void bvconst_lshr_inplace(uint32_t *bv, uint32_t *b, uint32_t n);
+extern void bvconst_ashr_inplace(uint32_t *bv, uint32_t *b, uint32_t n);
+
 
 /*
  * Extraction: store bits[l..(h-1)] of a into bv[0..(h-l-1)]

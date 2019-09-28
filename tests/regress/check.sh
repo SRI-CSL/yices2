@@ -87,7 +87,6 @@ timefile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
 
 fail=0
 pass=0
-skipped=0
 
 failed_tests=()
 
@@ -96,7 +95,24 @@ then
 	REGRESS_FILTER="." 
 fi
 
-for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' | grep $REGRESS_FILTER | sort`; do
+#
+# Check if MCSAT is supported
+#
+./$bin_dir/yices_smt2 --mcsat >& /dev/null < /dev/null
+if [ $? -ne 0 ] 
+then
+    MCSAT_FILTER="-v mcsat"
+else 
+    MCSAT_FILTER="."
+fi
+
+all_tests=$(
+    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' | 
+    grep $REGRESS_FILTER | grep $MCSAT_FILTER |
+    sort
+)
+
+for file in $all_tests; do
 
     echo -n $file
 
@@ -127,19 +143,18 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     	test_string="$file [ $options ]"
     else
         options=
-	test_string="$file"
+        test_string="$file"
         echo
     fi
-
 
     # Get the expected result
     if [ -e "$file.gold" ]
     then
         gold=$file.gold
     else
-	echo -n $red
+        echo -n $red
         echo FAIL: missing file: $file.gold
-	echo -n $black
+        echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string")
         continue
@@ -150,20 +165,20 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     thetime=`cat $timefile`
 
     # Do the diff
-    diff -w $outfile $gold > /dev/null
+    DIFF=`diff -w $outfile $gold`
   
     if [ $? -eq 0 ] 
     then
-	echo -n $green
+        echo -n $green
     	echo PASS [${thetime} s]
-	echo -n $black
+        echo -n $black
         pass=`expr $pass + 1`
     else
-	echo -n $red
-    	echo FAIL
-	echo -n $black
+        echo -n $red
+        echo FAIL
+        echo -n $black
         fail=`expr $fail + 1`
-        failed_tests+=("$test_string")
+        failed_tests+=("$test_string"$'\n'"$DIFF")
     fi
     
 done
@@ -188,7 +203,7 @@ if [ $fail -eq 0 ]
 then
     exit 0
 else
-	for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
+    for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
     exit 1
 fi
 

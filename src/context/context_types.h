@@ -469,6 +469,9 @@ typedef struct arith_interface_s {
  *    - const->nbits = number of bits
  *    - const->bits = array of uint32_t words (constant value)
  *
+ * 2c) thvar_t create_zero(void *solver, uint32_t n)
+ *     - must create the zero constant of n bits
+ *
  * 3a) thvar_t create_poly(void *solver, bvpoly_t *p, thvar_t *map)
  * 3b) thvar_t create_poly64(void *solver, bvpoly64_t *p, thvar_t *map)
  *    - must return a theory variable that represents p with variables renamed as
@@ -546,6 +549,7 @@ typedef struct arith_interface_s {
 typedef thvar_t (*create_bv_var_fun_t)(void *solver, uint32_t nbits);
 typedef thvar_t (*create_bv_const_fun_t)(void *solver, bvconst_term_t *c);
 typedef thvar_t (*create_bv64_const_fun_t)(void *solver, bvconst64_term_t *c);
+typedef thvar_t (*create_bv_zero_fun_t)(void *solver, uint32_t nbits);
 typedef thvar_t (*create_bv_poly_fun_t)(void *solver, bvpoly_t *p, thvar_t *map);
 typedef thvar_t (*create_bv64_poly_fun_t)(void *solver, bvpoly64_t *p, thvar_t *map);
 typedef thvar_t (*create_bv_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *map);
@@ -562,6 +566,7 @@ typedef struct bv_interface_s {
   create_bv_var_fun_t create_var;
   create_bv_const_fun_t create_const;
   create_bv64_const_fun_t create_const64;
+  create_bv_zero_fun_t create_zero;
   create_bv_poly_fun_t create_poly;
   create_bv64_poly_fun_t create_poly64;
   create_bv_pprod_fun_t create_pprod;

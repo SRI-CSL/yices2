@@ -16,46 +16,47 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+#include <stdbool.h>
+#include <string.h>
+
+#include "yices.h"
+
+#include "mt/thread_macros.h"
+
 /*
- * THREAD MACROS
+ * Thread Local Errors
+ *
+ * THREAD_SAFE implies that we HAVE_TLS
+ *
  */
-
-#ifndef _THREAD_MACROS_H
-#define _THREAD_MACROS_H
-
-
-
-
 #ifdef THREAD_SAFE
-/*
- *
- * API entry point synchronization macros
- *
- */
-#define MT_PROTECT_VOID(LOCK,EXPRESSION)\
-  do { yices_lock_t *lock = &(LOCK);\
-       get_yices_lock(lock);\
-       (EXPRESSION);\
-       release_yices_lock(lock);\
-  } while(0)
-
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)\
-  do { yices_lock_t *lock = &(LOCK);\
-       TYPE retval;\
-       get_yices_lock(lock);\
-       retval = (EXPRESSION);\
-       release_yices_lock(lock);\
-       return retval;\
-  } while(0)
-
-
+#define YICES_THREAD_LOCAL __thread
 #else
-
-#define MT_PROTECT_VOID(LOCK,EXPRESSION)  EXPRESSION
-
-#define MT_PROTECT(TYPE,LOCK,EXPRESSION)  return EXPRESSION
-
+#define YICES_THREAD_LOCAL
 #endif
 
 
-#endif /* _THREAD_MACROS_H */
+/*
+ * Thread Local Errors Globals
+ */
+static YICES_THREAD_LOCAL bool __yices_error_initialized = false;
+static YICES_THREAD_LOCAL error_report_t  __yices_error;
+
+void init_yices_error(void){
+  if (!__yices_error_initialized) {
+    __yices_error_initialized = true;
+    memset(&__yices_error, 0, sizeof(error_report_t));
+    __yices_error.code = NO_ERROR;
+  }
+}
+
+
+error_report_t* get_yices_error(void){
+  init_yices_error();
+  return &__yices_error;
+}
+
+void free_yices_error(void){
+  // nothing to be done
+}

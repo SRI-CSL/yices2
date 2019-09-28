@@ -393,7 +393,7 @@ bool supported_delegate(const char *solver_name, bool *unknown) {
 
   if (strcmp("cryptominisat", solver_name) == 0) {
     *unknown = false;
-#if HAVE_CRYPTOMINIAT
+#if HAVE_CRYPTOMINISAT
     return true;
 #else
     return false;

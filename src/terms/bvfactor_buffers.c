@@ -48,7 +48,7 @@ void init_bvfactor_buffer(bvfactor_buffer_t *b) {
  * Reset and prepare to store products
  * - n = number of bits
  * - this sets the constant to 1,
- *   product empty a and exponent 0
+ *   product empty, and exponent 0
  */
 void reset_bvfactor_buffer(bvfactor_buffer_t *b, uint32_t n) {
   assert(0 < n && n <= YICES_MAX_BVSIZE);
@@ -156,16 +156,42 @@ void bvfactor_buffer_mulconst64(bvfactor_buffer_t *b, uint64_t a, uint32_t d) {
  * - nornalize the product and exponent (cf. power_products.h and bvpoly_buffers.h)
  */
 void bvfactor_buffer_normalize(bvfactor_buffer_t *b) {
+  bvpoly_buffer_t *e;
+  uint64_t d;
+  uint32_t *g;
   uint32_t n;
 
   n = b->bitsize;
-  if (n <= 64) {
-    b->constant64 = norm64(b->constant64, n);
-  } else {
-    bvconst_normalize(b->constant.data, n);
-  }
+
+  // normalize the product
   pp_buffer_normalize(&b->product);
-  normalize_bvpoly_buffer(&b->exponent);
+
+  // normalize the exponent
+  e = &b->exponent;
+  normalize_bvpoly_buffer(e);
+
+  /*
+   * if the exponent is a non-zero constant d,
+   * multiply b->constant64 or b->consant by 2^d
+   */
+  if (bvpoly_buffer_is_constant(e) && !bvpoly_buffer_is_zero(e)) {
+    if (n <= 64) {
+      d = bvpoly_buffer_coeff64(e, 0);
+      b->constant64 = bvconst64_lshl(b->constant64, d, n);
+      assert(b->constant64 == norm64(b->constant64, n));
+    } else {
+      g = bvpoly_buffer_coeff(e, 0);
+      bvconst_lshl_inplace(b->constant.data, g, n);
+      assert(bvconstant_is_normalized(&b->constant));
+    }
+    reset_bvpoly_buffer(e, n);
+  } else {
+    if (n <= 64) {
+      b->constant64 = norm64(b->constant64, n);
+    } else {
+      bvconst_normalize(b->constant.data, n);
+    }
+  }
 }
 
 
@@ -222,7 +248,8 @@ void bvfactor_buffer_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1,
  * - all factor buffers must be normalized
  * - the result is stored in pbuffer
  */
-void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1, bvfactor_buffer_t *b2, uint32_t n2) {
+void bvfactor_buffer_array_common_factors(pp_buffer_t *pbuffer, bvfactor_buffer_t *b1, uint32_t n1,
+					  bvfactor_buffer_t *b2, uint32_t n2) {
   uint32_t i;
 
   assert(n1 > 0);
@@ -280,3 +307,19 @@ int32_t bvfactor_buffer_get_var(bvfactor_buffer_t *b) {
 }
 
 
+/*
+ * Check whether the constant is zero
+ * - b must be normalized
+ */
+bool bvfactor_buffer_is_zero(bvfactor_buffer_t *b) {
+  uint32_t n;
+
+  n = b->bitsize;
+  assert(n > 0);
+  if (n <= 64) {
+    assert(b->constant64 == norm64(b->constant64, n));
+    return b->constant64 == 0;
+  } else {
+    return bvconstant_is_zero(&b->constant);
+  }
+}

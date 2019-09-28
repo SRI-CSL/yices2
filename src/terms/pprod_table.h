@@ -89,7 +89,7 @@ extern void reset_pprod_table(pprod_table_t *table);
 /*
  * Construct a power product from an array a of n pairs (variable, exponent).
  * - a must be normalized
- * - return null_pp if n is zero
+ * - return empty_pp if n is zero
  * - return a tagged variable if a contains a single pair (x, 1)
  * - if there's an element p equal to a already in the table, then return p,
  * - otherwise, create a new pprod_t structure equal to a and store it in
@@ -100,7 +100,7 @@ extern pprod_t *pprod_from_array(pprod_table_t *table, varexp_t *a, uint32_t n);
 
 /*
  * Construct a power product from a buffer b
- * - b must be normalized.
+ * - b must be normalized
  * - same behavior as above.
  */
 static inline pprod_t *pprod_from_buffer(pprod_table_t *table, pp_buffer_t *b) {
