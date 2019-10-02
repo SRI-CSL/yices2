@@ -123,7 +123,6 @@ for option in mingw32 mingw64; do
    # Cleanup
    #
    rm libyices.def
-   rm libyices.a
    rm libyices.exp
    rm libyices.dll.a
    #
@@ -164,7 +163,6 @@ for option in mingw32 mingw64; do
    # Cleanup
    #
    rm libyices.def
-   rm libyices.a
    rm libyices.exp
    rm libyices.dll.a
    #
