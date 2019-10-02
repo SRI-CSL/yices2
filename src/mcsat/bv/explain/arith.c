@@ -276,6 +276,7 @@ term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
    Extracting bits and coefficients from terms.
 **/
 
+
 // Check if term t<w> (not necessarily normalised)
 // is of the form A, or B, or neither.
 //
@@ -286,7 +287,7 @@ term_t bv_arith_le(term_manager_t* tm, term_t left, term_t right) {
 // - places bits in argument bits
 // - places concat(head,0...0) in argument head
 // Particular cases:
-// a) if bits is w, it means head is empty; returns t, (0...0) is placed in arg. head
+// a) if bits is w, it means head is empty; returns base, (0...0) is placed in arg. head
 // b) if bits is zero, it means t<w> is evaluable; returns t, t<w> is placed in arg. head
 //
 // Form B:  sign-ext(base<bits>) (bits cannot be 0)
@@ -314,7 +315,9 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
     assert(0 < w);
     term_t signbit = NULL_TERM;
     term_t false_bit = bool2term(false);
-    
+
+    bool ignore_this_bool;
+
     while (i < w) {
       term_t t_i = concat_desc->arg[i]; // The Boolean term that constitutes that bit
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -326,10 +329,13 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
       if (term_kind(terms, t_i) != BIT_TERM) break; // not a bit term
       if (is_neg_term(t_i)) break;                  // bit term but it's negated
       // OK, this is a good bit term. It defines a base, if we don't already have it
-      if (base == NULL_TERM) base = bit_term_arg(terms, t_i);
       uint32_t selected_bit = bit_term_index(terms, t_i); // Get selected bit in it
-      if (base != bit_term_arg(terms, t_i)) break;        // Would falsify (*)
       if (selected_bit != i) break;                       // Would falsify (*)
+      if (bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool)) {
+        break;
+      }
+      if (base == NULL_TERM) base = bit_term_arg(terms, t_i);
+      if (base != bit_term_arg(terms, t_i)) break;        // Would falsify (*)
       sbits[i] = false_bit;
       signbit = t_i;
       i++;
@@ -344,7 +350,6 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
 
       if (!is_signext) {
         // Unless it's a sign-extension, the rest of this BV_ARRAY must be evaluable
-        bool ignore_this_bool;
         if (!bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool)) {
           return NULL_TERM;
         }
@@ -2075,8 +2080,34 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "can_explain gets coefficients %d and %d\n", t0_coeff, t1_coeff);
       }
-      if ((t0_coeff == 2) || (t1_coeff == 2) || (t0_coeff * t1_coeff == -1)) {
+      if (t0_coeff == 2) {
         // Turns out we actually can't deal with the constraint. We stop
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Left-hand no good for ");
+          ctx_trace_term(ctx, csttrail->conflict_var_term);
+          ctx_trace_term(ctx, atom_term);
+        }
+        return false;
+      }
+      if (t1_coeff == 2) {
+        // Turns out we actually can't deal with the constraint. We stop
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Right-hand no good for ");
+          ctx_trace_term(ctx, csttrail->conflict_var_term);
+          ctx_trace_term(ctx, atom_term);
+        }
+        return false;
+      }
+      if (t0_coeff * t1_coeff == -1) {
+        // Turns out we actually can't deal with the constraint. We stop
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Coeff of different signs for ");
+          ctx_trace_term(ctx, csttrail->conflict_var_term);
+          ctx_trace_term(ctx, atom_term);
+        }
         return false;
       }
       if ((t0_coeff * t1_coeff == 1) && (var0 != var1)) {
@@ -2108,8 +2139,14 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       }
       break;
     }
-    default:
+    default: {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Can't understand predicate:\n");
+        ctx_trace_term(ctx, atom_term);
+      }
       return false;
+    }
     } 
   }
   return true;
