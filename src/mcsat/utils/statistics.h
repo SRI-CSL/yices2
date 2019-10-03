@@ -71,6 +71,9 @@ statistic_int_t* statistics_new_int(statistics_t* stats, const char* name);
 statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name);
 
 /** Print the statistics */
-void statistics_print(const statistics_t* stats, FILE* out);
+/*
+ * BD: changed this to use a file descriptor instead of a stream.
+ */
+void statistics_print(const statistics_t* stats, int out);
 
 #endif /* STATISTICS_H_ */

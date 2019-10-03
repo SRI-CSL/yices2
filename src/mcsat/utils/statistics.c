@@ -76,20 +76,17 @@ statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name) {
 }
 
 /** Print the statistics */
-void statistics_print(const statistics_t* stats, FILE* out) {
-  statistic_t* current;
-
+void statistics_print(const statistics_t* stats, int out) {
+  statistic_t *current;
   print_buffer_t pb;
+
   reset_print_buffer(&pb);
-
-  int out_fd = fileno(out);
-
   current = stats->first;
   while (current != NULL) {
     print_buffer_append_string(&pb, " :");
     print_buffer_append_string(&pb, current->name);
     print_buffer_append_string(&pb, " ");
-    write_buffer(out_fd, &pb);
+    write_buffer(out, &pb);
     switch (current->type) {
     case STATISTIC_INT:
       print_buffer_append_int64(&pb, current->int_data);
@@ -101,7 +98,7 @@ void statistics_print(const statistics_t* stats, FILE* out) {
       assert(false);
     }
     print_buffer_append_string(&pb, "\n");
-    write_buffer(out_fd, &pb);
+    write_buffer(out, &pb);
     current = current->next;
   }
 }

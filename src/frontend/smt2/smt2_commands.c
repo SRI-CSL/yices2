@@ -1671,7 +1671,7 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
   }
 
   if (ctx->mcsat != NULL) {
-    mcsat_show_stats(ctx->mcsat, __smt2_globals.out);
+    mcsat_show_stats_fd(ctx->mcsat, fd);
   }
 }
 

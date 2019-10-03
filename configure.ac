@@ -774,6 +774,12 @@ if test "x$pic_libgmp" != x ; then
   fi
 fi
 
+
+#
+# We need -lm (for fclassify)
+#
+AC_CHECK_LIB([m], [main], [], [])
+
 #
 # MCSAT SUPPORT
 # -------------
@@ -844,7 +850,6 @@ fi
 # Default CUDD
 #
 if test $use_mcsat = yes ; then 
-   AC_CHECK_LIB([m], [main], [], [])
    AC_CHECK_LIB([cudd],[Cudd_Init], [], [AC_MSG_ERROR([*** CUDD library not found. Try to set LDFLAGS ***])])   
 fi
 

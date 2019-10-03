@@ -99,6 +99,11 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer);
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out);
 
 /*
+ * Show statistics: use a file descriptor.
+ */
+void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out);
+
+/*
  * Mark all terms/types that need to be kept.
  */
 void mcsat_gc_mark(mcsat_solver_t* mcsat);
