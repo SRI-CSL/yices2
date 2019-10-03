@@ -75,6 +75,7 @@ static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
 static char *delegate;
+static bool interrupted;
 
 // mcsat options
 static bool mcsat;
@@ -559,11 +560,13 @@ static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
+  interrupted = true;
+  
   // we can't call show_stats here. This can cause a deadlock
   //  if (show_stats) {
   //    smt2_show_stats();
   //  }
-  _exit(YICES_EXIT_INTERRUPTED);
+  exit(YICES_EXIT_INTERRUPTED);
 }
 
 
@@ -635,9 +638,17 @@ static void force_utf8(void) {
 
 #endif
 
+static void show_stats_at_exit(void){
+  if (interrupted && show_stats) {
+    smt2_show_stats();
+  }
+}
+
 int main(int argc, char *argv[]) {
   int32_t code;
   uint32_t i;
+
+  interrupted = false;
 
   parse_command_line(argc, argv);
   force_utf8();
@@ -653,8 +664,9 @@ int main(int argc, char *argv[]) {
     init_smt2_stdin_lexer(&lexer);
   }
 
+  atexit(show_stats_at_exit);
   init_handlers();
-
+  
   yices_init();
   init_smt2(!incremental, timeout, interactive);
   if (smt2_model_format) smt2_force_smt2_model_format();

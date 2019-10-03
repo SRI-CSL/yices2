@@ -5,6 +5,12 @@
  * license agreement which is downloadable along with this program.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include "eq_ext_con.h"
 
 #include "mcsat/tracing.h"
@@ -14,7 +20,7 @@
 #include "mcsat/bv/bv_utils.h"
 #include "mcsat/eq/equality_graph.h"
 
-#include <yices.h>
+#include "yices.h"
 
 typedef struct eq_ext_con_s {
 
