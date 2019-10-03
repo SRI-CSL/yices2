@@ -358,6 +358,10 @@ typedef struct smt2_globals_s {
   char *out_name;             // default = NULL (means "stdout")
   char *err_name;             // default = NULL (means "stderr")
 
+  // file descriptors for the input/output channels
+  int out_fd;
+  int err_fd;
+
   // tracer object: used only if verbosity > 0
   tracer_t *tracer;
 
