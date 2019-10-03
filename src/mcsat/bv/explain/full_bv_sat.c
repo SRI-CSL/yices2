@@ -5,6 +5,12 @@
  * license agreement which is downloadable along with this program.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include "full_bv_sat.h"
 
 #include "mcsat/tracing.h"
@@ -21,7 +27,7 @@
 
 #include "terms/term_manager.h"
 
-#include <yices.h>
+#include "yices.h"
 #include "api/yices_api_lock_free.h"
 
 /** Solver for solving cores with assumptions */

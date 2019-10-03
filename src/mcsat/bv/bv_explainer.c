@@ -5,6 +5,12 @@
  * license agreement which is downloadable along with this program.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include "bv_explainer.h"
 
 #include "bv_evaluator.h"
