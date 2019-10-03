@@ -18,8 +18,8 @@
  
 #include "mcsat/utils/statistics.h"
 #include "utils/memalloc.h"
+#include "io/simple_printf.h"
 
-#include <inttypes.h>
 
 /** A uint32_t statistic */
 struct statistic_s {
@@ -71,16 +71,7 @@ void statistics_print(const statistics_t* stats, int out) {
     print_buffer_append_string(&pb, current->name);
     print_buffer_append_string(&pb, " ");
     write_buffer(out, &pb);
-    switch (current->type) {
-    case STATISTIC_INT:
-      print_buffer_append_int64(&pb, current->int_data);
-      break;
-    case STATISTIC_AVG:
-      print_buffer_append_float(&pb, current->avg_data.avg, 4);
-      break;
-    default:
-      assert(false);
-    }
+    print_buffer_append_uint32(&pb, current->data);
     print_buffer_append_string(&pb, "\n");
     write_buffer(out, &pb);
 

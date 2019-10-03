@@ -137,6 +137,7 @@ core_src_c := \
 	io/model_printer.c \
 	io/pretty_printer.c \
 	io/reader.c \
+	io/simple_printf.c \
 	io/term_printer.c \
 	io/tracer.c \
 	io/type_printer.c \
@@ -388,7 +389,6 @@ extra_src_c := \
 	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
-	io/simple_printf.c \
 	model/large_bvsets.c \
 	model/rb_bvsets.c \
 	model/small_bvsets.c \
