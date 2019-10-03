@@ -62,6 +62,7 @@
 #include "yices_exit_codes.h"
 
 // for statistics
+#include "io/simple_printf.h"
 #include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
@@ -1514,116 +1515,150 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
 
 
 /*
- * Statistics about each solvers
+ * Statistics about each solvers.
+ * This may be called from a signal handler so we use the "simple_printf.h" functions.
+ * All the functions print to file fd using print_buffer_b for formatting.
  */
-static void show_core_stats(smt_core_t *core) {
-  print_out(" :boolean-variables %"PRIu32"\n", num_vars(core));
-  print_out(" :atoms %"PRIu32"\n", num_atoms(core));
-  print_out(" :clauses %"PRIu32"\n", num_clauses(core));
-  print_out(" :restarts %"PRIu32"\n", num_restarts(core));
-  print_out(" :clause-db-reduce %"PRIu32"\n", num_reduce_calls(core));
-  print_out(" :clause-db-simplify %"PRIu32"\n", num_simplify_calls(core));
-  print_out(" :decisions %"PRIu64"\n", num_decisions(core));
-  print_out(" :conflicts %"PRIu64"\n", num_conflicts(core));
-  print_out(" :theory-conflicts %"PRIu32"\n", num_theory_conflicts(core));
-  print_out(" :boolean-propagations %"PRIu64"\n", num_propagations(core));
-  print_out(" :theory-propagations %"PRIu32"\n", num_theory_propagations(core));
+static void print_string_and_uint32(int fd, print_buffer_t *b, const char *s, uint32_t x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_uint32(b, x);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_egraph_stats(egraph_t *egraph) {
-  print_out(" :egraph-terms %"PRIu32"\n", egraph_num_terms(egraph));
-  print_out(" :egraph-atoms %"PRIu32"\n", egraph_num_atoms(egraph));
-  print_out(" :egraph-conflicts %"PRIu32"\n", egraph_num_conflicts(egraph));
-  print_out(" :egraph-ackermann-lemmas %"PRIu32"\n", egraph_all_ackermann(egraph));
-  print_out(" :egraph-final-checks %"PRIu32"\n", egraph_num_final_checks(egraph));
-  print_out(" :egraph-interface-lemmas %"PRIu32"\n", egraph_num_interface_eqs(egraph));
+static void print_string_and_uint64(int fd, print_buffer_t *b, const char *s, uint64_t x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_uint64(b, x);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_funsolver_stats(fun_solver_t *solver) {
-  print_out(" :array-vars %"PRIu32"\n", fun_solver_num_vars(solver));
-  print_out(" :array-edges %"PRIu32"\n", fun_solver_num_edges(solver));
-  print_out(" :array-update1-axioms %"PRIu32"\n", fun_solver_num_update1_axioms(solver));
-  print_out(" :array-update2-axioms %"PRIu32"\n", fun_solver_num_update2_axioms(solver));
-  print_out(" :array-extensionality-axioms %"PRIu32"\n", fun_solver_num_extensionality_axioms(solver));
+static void print_string_and_float(int fd, print_buffer_t *b, const char *s, double x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_float(b, x, 3); // 3 digits after the decimal point
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_simplex_stats(simplex_solver_t *solver) {
+static void print_char_and_newline(int fd, print_buffer_t *b, char c) {
+  reset_print_buffer(b);
+  print_buffer_append_char(b, c);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
+}
+
+static void show_core_stats(int fd, print_buffer_t *b, smt_core_t *core) {
+  print_string_and_uint32(fd, b, " :boolean-variables ", num_vars(core));
+  print_string_and_uint32(fd, b, " :atoms ", num_atoms(core));
+  print_string_and_uint32(fd, b, " :clauses ", num_clauses(core));
+  print_string_and_uint32(fd, b, " :restarts ", num_restarts(core));
+  print_string_and_uint32(fd, b, " :clause-db-reduce ", num_reduce_calls(core));
+  print_string_and_uint32(fd, b, " :clause-db-simplify ", num_simplify_calls(core));
+  print_string_and_uint64(fd, b, " :decisions ", num_decisions(core));
+  print_string_and_uint64(fd, b, " :conflicts ", num_conflicts(core));
+  print_string_and_uint32(fd, b, " :theory-conflicts ", num_theory_conflicts(core));
+  print_string_and_uint64(fd, b, " :boolean-propagations ", num_propagations(core));
+  print_string_and_uint32(fd, b, " :theory-propagations ", num_theory_propagations(core));
+}
+
+static void show_egraph_stats(int fd, print_buffer_t *b, egraph_t *egraph) {
+  print_string_and_uint32(fd, b, " :egraph-terms ", egraph_num_terms(egraph));
+  print_string_and_uint32(fd, b, " :egraph-atoms ", egraph_num_atoms(egraph));
+  print_string_and_uint32(fd, b, " :egraph-conflicts ", egraph_num_conflicts(egraph));
+  print_string_and_uint32(fd, b, " :egraph-ackermann-lemmas ", egraph_all_ackermann(egraph));
+  print_string_and_uint32(fd, b, " :egraph-final-checks ", egraph_num_final_checks(egraph));
+  print_string_and_uint32(fd, b, " :egraph-interface-lemmas ", egraph_num_interface_eqs(egraph));
+}
+
+static void show_funsolver_stats(int fd, print_buffer_t *b, fun_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :array-vars ", fun_solver_num_vars(solver));
+  print_string_and_uint32(fd, b, " :array-edges ", fun_solver_num_edges(solver));
+  print_string_and_uint32(fd, b, " :array-update1-axioms ", fun_solver_num_update1_axioms(solver));
+  print_string_and_uint32(fd, b, " :array-update2-axioms ", fun_solver_num_update2_axioms(solver));
+  print_string_and_uint32(fd, b, " :array-extensionality-axioms ", fun_solver_num_extensionality_axioms(solver));
+}
+
+static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
   simplex_collect_statistics(solver);
-  print_out(" :simplex-init-vars %"PRIu32"\n", simplex_num_init_vars(solver));
-  print_out(" :simplex-init-rows %"PRIu32"\n", simplex_num_init_rows(solver));
-  print_out(" :simplex-init-atoms %"PRIu32"\n", simplex_num_init_atoms(solver));
-  print_out(" :simplex-vars %"PRIu32"\n", simplex_num_vars(solver));
-  print_out(" :simplex-rows %"PRIu32"\n", simplex_num_rows(solver));
-  print_out(" :simplex-atoms %"PRIu32"\n", simplex_num_atoms(solver));
-  print_out(" :simplex-pivots %"PRIu32"\n", simplex_num_pivots(solver));
-  print_out(" :simplex-conflicts %"PRIu32"\n", simplex_num_conflicts(solver));
-  print_out(" :simplex-interface-lemmas %"PRIu32"\n", simplex_num_interface_lemmas(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-vars ", simplex_num_init_vars(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-rows ", simplex_num_init_rows(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-atoms ", simplex_num_init_atoms(solver));
+  print_string_and_uint32(fd, b, " :simplex-vars ", simplex_num_vars(solver));
+  print_string_and_uint32(fd, b, " :simplex-rows ", simplex_num_rows(solver));
+  print_string_and_uint32(fd, b, " :simplex-atoms ", simplex_num_atoms(solver));
+  print_string_and_uint32(fd, b, " :simplex-pivots ", simplex_num_pivots(solver));
+  print_string_and_uint32(fd, b, " :simplex-conflicts ", simplex_num_conflicts(solver));
+  print_string_and_uint32(fd, b, " :simplex-interface-lemmas ", simplex_num_interface_lemmas(solver));
   if (simplex_num_make_integer_feasible(solver) > 0 ||
       simplex_num_dioph_checks(solver) > 0) {
-    print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
-    print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
-    print_out(" :simplex-gomory-cuts %"PRIu32"\n", simplex_num_gomory_cuts(solver));
+    print_string_and_uint32(fd, b, " :simplex-integer-vars ", simplex_num_integer_vars(solver));
+    print_string_and_uint32(fd, b, " :simplex-branch-and-bound ", simplex_num_branch_and_bound(solver));
+    print_string_and_uint32(fd, b, " :simplex-gomory-cuts ", simplex_num_gomory_cuts(solver));
     // bound strenthening
-    print_out(" :simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
-    print_out(" :simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-bound-conflicts ", simplex_num_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-bound-recheck-conflicts ", simplex_num_bound_recheck_conflicts(solver));
     // integrality test
-    print_out(" :simplex-itest-conflicts %"PRIu32"\n", simplex_num_itest_conflicts(solver));
-    print_out(" :simplex-itest-bound-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    print_out(" :simplex-itest-recheck-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-conflicts ", simplex_num_itest_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-bound-conflicts ", simplex_num_itest_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-recheck-conflicts ", simplex_num_itest_bound_conflicts(solver));
     // diophantine solver
-    print_out(" :simplex-gcd-conflicts %"PRIu32"\n", simplex_num_dioph_gcd_conflicts(solver));
-    print_out(" :simplex-dioph-checks %"PRIu32"\n", simplex_num_dioph_checks(solver));
-    print_out(" :simplex-dioph-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
-    print_out(" :simplex-dioph-bound-conflicts %"PRIu32"\n", simplex_num_dioph_bound_conflicts(solver));
-    print_out(" :simplex-dioph-recheck-conflicts %"PRIu32"\n", simplex_num_dioph_recheck_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-gcd-conflicts ", simplex_num_dioph_gcd_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-checks ", simplex_num_dioph_checks(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-conflicts ", simplex_num_dioph_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-bound-conflicts ", simplex_num_dioph_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-recheck-conflicts ", simplex_num_dioph_recheck_conflicts(solver));
   }
 }
 
-static void show_bvsolver_stats(bv_solver_t *solver) {
-  print_out(" :bvsolver-vars %"PRIu32"\n", bv_solver_num_vars(solver));
-  print_out(" :bvsolver-atoms %"PRIu32"\n", bv_solver_num_atoms(solver));
-  print_out(" :bvsolver-equiv-lemmas %"PRIu32"\n", bv_solver_equiv_lemmas(solver));
-  print_out(" :bvsolver-interface-lemmas %"PRIu32"\n", bv_solver_interface_lemmas(solver));
+static void show_bvsolver_stats(int fd, print_buffer_t *b, bv_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :bvsolver-vars ", bv_solver_num_vars(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-atoms ", bv_solver_num_atoms(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-equiv-lemmas ", bv_solver_equiv_lemmas(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-interface-lemmas ", bv_solver_interface_lemmas(solver));
 }
 
-static void show_idl_fw_stats(idl_solver_t *solver) {
-  print_out(" :idl-solver-vars %"PRIu32"\n", idl_num_vars(solver));
-  print_out(" :idl-solver-atoms %"PRIu32"\n", idl_num_atoms(solver));
+static void show_idl_fw_stats(int fd, print_buffer_t *b, idl_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :idl-solver-vars ", idl_num_vars(solver));
+  print_string_and_uint32(fd, b, " :idl-solver-atoms ", idl_num_atoms(solver));
 }
 
-static void show_rdl_fw_stats(rdl_solver_t *solver) {
-  print_out(" :rdl-solver-vars %"PRIu32"\n", rdl_num_vars(solver));
-  print_out(" :rdl-solver-atoms %"PRIu32"\n", rdl_num_atoms(solver));
+static void show_rdl_fw_stats(int fd, print_buffer_t *b, rdl_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :rdl-solver-vars ", rdl_num_vars(solver));
+  print_string_and_uint32(fd, b, " :rdl-solver-atoms ", rdl_num_atoms(solver));
 }
 
 
 /*
  * Context statistics
  */
-static void show_ctx_stats(context_t *ctx) {
+static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
   assert(ctx->core != NULL);
-  show_core_stats(ctx->core);
+  show_core_stats(fd, b, ctx->core);
 
   if (context_has_egraph(ctx)) {
-    show_egraph_stats(ctx->egraph);
+    show_egraph_stats(fd, b, ctx->egraph);
   }
 
   if (context_has_fun_solver(ctx)) {
-    show_funsolver_stats(ctx->fun_solver);
+    show_funsolver_stats(fd, b, ctx->fun_solver);
   }
+
   if (context_has_arith_solver(ctx)) {
     if (context_has_simplex_solver(ctx)) {
-      show_simplex_stats(ctx->arith_solver);
+      show_simplex_stats(fd, b, ctx->arith_solver);
     } else if (context_has_idl_solver(ctx)) {
-      show_idl_fw_stats(ctx->arith_solver);
+      show_idl_fw_stats(fd, b, ctx->arith_solver);
     } else {
       assert(context_has_rdl_solver(ctx));
-      show_rdl_fw_stats(ctx->arith_solver);
+      show_rdl_fw_stats(fd, b, ctx->arith_solver);
     }
   }
 
   if (context_has_bv_solver(ctx)) {
-    show_bvsolver_stats(ctx->bv_solver);
+    show_bvsolver_stats(fd, b, ctx->bv_solver);
   }
 
   if (ctx->mcsat != NULL) {
@@ -1636,21 +1671,22 @@ static void show_ctx_stats(context_t *ctx) {
  * Global state
  */
 static void show_statistics(smt2_globals_t *g) {
+  print_buffer_t buffer;
   double time, mem;
 
   time = get_cpu_time();
   mem = mem_size() / (1024*1024);
 
-  print_out("(:num-terms %"PRIu32"\n", yices_num_terms());
-  print_out(" :num-types %"PRIu32"\n", yices_num_types());
-  print_out(" :total-run-time %.3f\n", time);
+  print_string_and_uint32(g->out_fd, &buffer, "(:num-terms ", yices_num_terms());
+  print_string_and_uint32(g->out_fd, &buffer, " :num-types ", yices_num_types());
+  print_string_and_float(g->out_fd, &buffer, " :total-run-time ", time);
   if (mem > 0) {
-    print_out(" :mem-usage %.3f\n", mem);
+    print_string_and_float(g->out_fd, &buffer, " :mem-usage ", mem);
   }
   if (g->ctx != NULL) {
-    show_ctx_stats(g->ctx);
+    show_ctx_stats(g->out_fd, &buffer, g->ctx);
   }
-  print_out(")\n");
+  print_char_and_newline(g->out_fd, &buffer, ')');
   flush_out();
 }
 
@@ -1992,6 +2028,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
       string_incref(g->out_name);
     }
     g->out = f;
+    g->out_fd = fileno(f);
     report_success();
   } else {
     print_error("option %s requires a string value", name);
@@ -2025,6 +2062,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
       string_incref(g->err_name);
     }
     g->err = f;
+    g->err_fd = fileno(f);
     update_trace_file(g);
     report_success();
   } else {
@@ -4087,6 +4125,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->err = stderr;
   g->out_name = NULL;
   g->err_name = NULL;
+  g->out_fd = fileno(stdout);
+  g->err_fd = fileno(stderr);
   g->tracer = NULL;
   g->print_success = false;  // the standard says that this should be true??
   g->expand_definitions = false;

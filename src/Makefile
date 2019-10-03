@@ -388,6 +388,7 @@ extra_src_c := \
 	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
 	frontend/yices/yices_reval.c \
+	io/simple_printf.c \
 	model/large_bvsets.c \
 	model/rb_bvsets.c \
 	model/small_bvsets.c \

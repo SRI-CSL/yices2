@@ -557,9 +557,9 @@ static void default_handler(int signum) {
     write_signum(signum);
   }
   // we can't call show_stats here. This can cause a deadlock
-  //  if (show_stats) {
-  //    smt2_show_stats();
-  //  }
+  if (show_stats) {
+    smt2_show_stats();
+  }
   _exit(YICES_EXIT_INTERRUPTED);
 }
 
