@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "io/simple_printf.h"
+
 /** Construct the statistics */
 void statistics_construct(statistics_t* stats) {
   stats->first = NULL;
@@ -77,18 +79,29 @@ statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name) {
 void statistics_print(const statistics_t* stats, FILE* out) {
   statistic_t* current;
 
+  print_buffer_t pb;
+  reset_print_buffer(&pb);
+
+  int out_fd = fileno(out);
+
   current = stats->first;
   while (current != NULL) {
+    print_buffer_append_string(&pb, " :");
+    print_buffer_append_string(&pb, current->name);
+    print_buffer_append_string(&pb, " ");
+    write_buffer(out_fd, &pb);
     switch (current->type) {
     case STATISTIC_INT:
-      fprintf(out, " :%s %d\n", current->name, current->int_data);
+      print_buffer_append_int64(&pb, current->int_data);
       break;
     case STATISTIC_AVG:
-      fprintf(out, " :%s %f\n", current->name, current->avg_data.avg);
+      print_buffer_append_float(&pb, current->avg_data.avg, 4);
       break;
     default:
       assert(false);
     }
+    print_buffer_append_string(&pb, "\n");
+    write_buffer(out_fd, &pb);
     current = current->next;
   }
 }

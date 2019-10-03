@@ -141,6 +141,7 @@ core_src_c := \
 	io/type_printer.c \
 	io/yices_pp.c \
 	io/writer.c \
+	io/simple_printf.c \
 	model/abstract_values.c \
 	model/arith_projection.c \
 	model/concrete_values.c \
