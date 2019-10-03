@@ -60,12 +60,30 @@ uint32_t* statistics_new_uint32(statistics_t* stats, const char* name) {
 }
 
 /** Print the statistics */
-void statistics_print(const statistics_t* stats, FILE* out) {
-  statistic_t* current;
+void statistics_print(const statistics_t* stats, int out) {
+  statistic_t *current;
+  print_buffer_t pb;
 
+  reset_print_buffer(&pb);
   current = stats->first;
   while (current != NULL) {
-    fprintf(out, " :%s %"PRIu32"\n", current->name, current->data);
+    print_buffer_append_string(&pb, " :");
+    print_buffer_append_string(&pb, current->name);
+    print_buffer_append_string(&pb, " ");
+    write_buffer(out, &pb);
+    switch (current->type) {
+    case STATISTIC_INT:
+      print_buffer_append_int64(&pb, current->int_data);
+      break;
+    case STATISTIC_AVG:
+      print_buffer_append_float(&pb, current->avg_data.avg, 4);
+      break;
+    default:
+      assert(false);
+    }
+    print_buffer_append_string(&pb, "\n");
+    write_buffer(out, &pb);
+
     current = current->next;
   }
 }

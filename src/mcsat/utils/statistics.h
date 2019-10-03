@@ -38,6 +38,9 @@ void statistics_destruct(statistics_t* stats);
 uint32_t* statistics_new_uint32(statistics_t* stats, const char* name);
 
 /** Print the statistics */
-void statistics_print(const statistics_t* stats, FILE* out);
+/*
+ * BD: changed this to use a file descriptor instead of a stream.
+ */
+void statistics_print(const statistics_t* stats, int out);
 
 #endif /* STATISTICS_H_ */
