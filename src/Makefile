@@ -137,6 +137,7 @@ core_src_c := \
 	io/model_printer.c \
 	io/pretty_printer.c \
 	io/reader.c \
+	io/simple_printf.c \
 	io/term_printer.c \
 	io/tracer.c \
 	io/type_printer.c \

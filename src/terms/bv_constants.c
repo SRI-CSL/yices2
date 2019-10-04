@@ -1074,6 +1074,16 @@ void bvconst_lshl(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
   bvconst_normalize(bv, n);
 }
 
+// in-place variant: bv := bv << b
+void bvconst_lshl_inplace(uint32_t *bv, uint32_t *b, uint32_t n) {
+  uint32_t s;
+
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  bvconst_shift_left(bv, n, s, false);
+  bvconst_normalize(bv, n);
+}
+
 
 /*
  * Logical shift right: (a >> b)
@@ -1091,6 +1101,15 @@ void bvconst_lshr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
   bvconst_normalize(bv, n);
 }
 
+// in-place variant: bv := bv >> b
+void bvconst_lshr_inplace(uint32_t *bv, uint32_t *b, uint32_t n) {
+  uint32_t s;
+
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  bvconst_shift_right(bv, n, s, false);
+  bvconst_normalize(bv, n);
+}
 
 /*
  * Arithmetic shift right: (a >> b)
@@ -1110,7 +1129,17 @@ void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
   bvconst_normalize(bv, n);
 }
 
+// in-place variant: bv := bv >> b
+void bvconst_ashr_inplace(uint32_t *bv, uint32_t *b, uint32_t n) {
+  uint32_t s;
+  bool sign;
 
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  sign = bvconst_tst_bit(bv, n-1);
+  bvconst_shift_right(bv, n, s, sign);
+  bvconst_normalize(bv, n);
+}
 
 
 /*

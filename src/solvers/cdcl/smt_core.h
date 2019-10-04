@@ -1593,6 +1593,15 @@ static inline void set_smt_status(smt_core_t *s, smt_status_t status) {
  */
 extern bool smt_trivially_sat(smt_core_t *s);
 
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ * Restrictions:
+ * - s->status must be SEARCHING
+ * - s must be purely Boolean.
+ */
+extern bool smt_easy_sat(smt_core_t *s);
 
 
 /*********************

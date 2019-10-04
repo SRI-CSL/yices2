@@ -1837,6 +1837,12 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
 }
 
 void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out) {
+  int fd = fileno(out);
+  assert(fd >= 0);
+  statistics_print(&mcsat->stats, fd);
+}
+
+void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out) {
   statistics_print(&mcsat->stats, out);
 }
 

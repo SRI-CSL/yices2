@@ -18,8 +18,8 @@
  
 #include "mcsat/utils/statistics.h"
 #include "utils/memalloc.h"
+#include "io/simple_printf.h"
 
-#include <inttypes.h>
 
 /** A uint32_t statistic */
 struct statistic_s {
@@ -60,12 +60,21 @@ uint32_t* statistics_new_uint32(statistics_t* stats, const char* name) {
 }
 
 /** Print the statistics */
-void statistics_print(const statistics_t* stats, FILE* out) {
-  statistic_t* current;
+void statistics_print(const statistics_t* stats, int out) {
+  statistic_t *current;
+  print_buffer_t pb;
 
+  reset_print_buffer(&pb);
   current = stats->first;
   while (current != NULL) {
-    fprintf(out, " :%s %"PRIu32"\n", current->name, current->data);
+    print_buffer_append_string(&pb, " :");
+    print_buffer_append_string(&pb, current->name);
+    print_buffer_append_string(&pb, " ");
+    write_buffer(out, &pb);
+    print_buffer_append_uint32(&pb, current->data);
+    print_buffer_append_string(&pb, "\n");
+    write_buffer(out, &pb);
+
     current = current->next;
   }
 }

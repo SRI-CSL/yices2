@@ -774,6 +774,12 @@ if test "x$pic_libgmp" != x ; then
   fi
 fi
 
+
+#
+# We need -lm (for fclassify)
+#
+AC_CHECK_LIB([m], [main], [], [])
+
 #
 # MCSAT SUPPORT
 # -------------

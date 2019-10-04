@@ -1766,7 +1766,35 @@ static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
 }
 
 
+#if 0
+/*
+ * Bvpoly buffer: b must be normalized.
+ * - not optimal but this shouldn't be called often.
+ */
+static thvar_t map_bvpoly_buffer_to_bv(context_t *ctx, bvpoly_buffer_t *b) {
+  bvpoly64_t *p;
+  bvpoly_t *q;
+  uint32_t n;
+  thvar_t x;
 
+  n = bvpoly_buffer_bitsize(b);
+
+  if (bvpoly_buffer_is_zero(b)) {
+    x = ctx->bv.create_zero(ctx->bv_solver, n);
+  } else if (n <= 64) {
+    p = bvpoly_buffer_getpoly64(b);
+    x = map_bvpoly64_to_bv(ctx, p);
+    free_bvpoly64(p);
+  } else {
+    q = bvpoly_buffer_getpoly(b);
+    x = map_bvpoly_to_bv(ctx, q);
+    free_bvpoly(q);
+  }
+
+  return x;
+}
+
+#endif
 
 /****************************
  *  CONVERSION TO LITERALS  *
@@ -2339,6 +2367,22 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
 /*
  * BITVECTOR ATOMS
  */
+
+/*
+ * Auxiliary function: atom for (t == 0)
+ */
+static literal_t map_bveq0_to_literal(context_t *ctx, term_t t) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+
+  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+}
+
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   bveq_simp_t simp;
   term_t t, t1, t2;
@@ -2373,10 +2417,17 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
     break;
 
-    // TODO: handle BVEQ_CODE_REDUCED0 better
   case BVEQ_CODE_REDUCED0:
+    // (t1 == t2) is reduced to (simp.left == 0)
+    // we create the atom directly here:
+    return map_bveq0_to_literal(ctx, simp.left);
+
   default:
     break;
+  }
+
+  if (equal_bitvector_factors(ctx, t1, t2)) {
+    return true_literal;
   }
 
   /*
@@ -4329,6 +4380,43 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
 /*
  * Top-level bitvector atoms
  */
+// Auxiliary function: assert (t == 0) or (t != 0) depending on tt
+static void assert_toplevel_bveq0(context_t *ctx, term_t t, bool tt) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x, y, tt);
+}
+
+
+/*
+ * Experimental: when t1 and t2 have a common factor C:
+ *   t1 = C * u1
+ *   t2 = C * u2
+ * then we have (t1 /= t2) implies (u1 /= u2).
+ * So we can add (u1 /= u2) when (t1 /= t2) is asserted.
+ * This is redundant but it may help solving the problem, especially if C is a
+ * complex expression.
+ */
+static void assert_factored_inequality(context_t *ctx, bvfactoring_t *f) {
+  term_t u1, u2;
+  thvar_t x, y;
+
+  assert(f->code == BVFACTOR_FOUND);
+
+  //  printf("Asserting factored inequality\n\n");
+
+  u1 = bitvector_factoring_left_term(ctx, f);
+  u2 = bitvector_factoring_right_term(ctx, f);
+  x = internalize_to_bv(ctx, u1);
+  y = internalize_to_bv(ctx, u2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, false);
+}
+
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
   bveq_simp_t simp;
   ivector_t *v;
@@ -4397,8 +4485,11 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     t2 = intern_tbl_get_root(&ctx->intern, simp.right);
     break;
 
-    // TODO: deal with t1 == 0
   case BVEQ_CODE_REDUCED0:
+    // reduced to simp.left == 0
+    assert_toplevel_bveq0(ctx, simp.left, tt);
+    return;
+
   default:
     break;
   }
@@ -4406,8 +4497,31 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   /*
    * Try Factoring
    */
-  if (!tt && equal_bitvector_factors(ctx, t1, t2)) {
-    longjmp(ctx->env, TRIVIALLY_UNSAT);
+  if (!tt) {
+    bvfactoring_t factoring;
+    bool eq = false;
+
+    init_bvfactoring(&factoring);
+    try_bitvector_factoring(ctx, &factoring, t1, t2);
+    switch (factoring.code) {
+    case BVFACTOR_EQUAL:
+      eq = true;
+      break;
+
+    case BVFACTOR_FOUND:
+      if (useful_bitvector_factoring(&factoring)) {
+	assert_factored_inequality(ctx, &factoring);
+      }
+      break;
+
+    default:
+      break;
+    }
+    delete_bvfactoring(&factoring);
+
+    if (eq) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
   }
 
   /*
