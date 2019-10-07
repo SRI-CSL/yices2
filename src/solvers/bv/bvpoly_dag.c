@@ -1920,6 +1920,12 @@ static void bvc_normalize_sum64(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) 
 	    c = coeff_of_occ(v->data[i]);
 	  }
 	}
+	// last node
+	a = norm64((uint64_t) c, bitsize);
+	if (a != 0) {
+	  v->data[j] = bvc_dag_mono64(dag, a, bvp(p), bitsize);
+	  j ++;
+	}
 
 	v->size = j;
 
@@ -1971,6 +1977,11 @@ static void bvc_normalize_sum(bvc_dag_t *dag, ivector_t *v, uint32_t bitsize) {
 	    p = q;
 	    c = coeff_of_occ(v->data[i]);
 	  }
+	}
+	// last node
+	if (c != 0) {
+	  v->data[j] = bvc_dag_simple_mono(dag, c, bvp(p), bitsize);
+	  j ++;
 	}
 
 	v->size = j;
