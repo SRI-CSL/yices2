@@ -20,8 +20,7 @@
 /*
  * Operations on rational numbers
  * - rationals are represented as pairs of 32 bit integers
- * or if they are too large as a pointer to a gmp rational.
- *
+ *   or if they are too large as a pointer to a gmp rational.
  */
 
 #include <stdlib.h>
@@ -43,37 +42,34 @@
 
 
 
-#define MPQ_BLOCK_COUNT 1024
-
 static mpq_store_t  mpq_store;
 
 
 /*
- *
  *  String buffer for parsing.
- *
  */
-
 #ifdef THREAD_SAFE
 static yices_lock_t string_buffer_lock;
 #endif
 static char* string_buffer = NULL;
 static uint32_t string_buffer_length = 0;
 
+/*
+ * Print an error then abort on division by zero
+ */
 static void division_by_zero(void) {
   fprintf(stderr, "\nRationals: division by zero\n");
   abort();
 }
 
 
-
-
+/*
+ * Initialize everything including the string lock
+ * if we're in thread-safe mode.
+ */
 void init_rationals(void){
   init_mpq_aux();
-
-  init_mpqstore(&mpq_store, MPQ_BLOCK_COUNT);
-  
-  
+  init_mpqstore(&mpq_store);
 #ifdef THREAD_SAFE
   create_yices_lock(&string_buffer_lock);
 #endif
@@ -87,9 +83,7 @@ void init_rationals(void){
  */
 void cleanup_rationals(void){
   cleanup_mpq_aux();
-
   delete_mpqstore(&mpq_store);
-  
 #ifdef THREAD_SAFE
   destroy_yices_lock(&string_buffer_lock);
 #endif
@@ -102,21 +96,33 @@ void cleanup_rationals(void){
  ************************/
 
 /*
- * Allocates a new mpq object. (in case we pool them later)
+ * Allocates a new mpq object.
  */
-static mpq_ptr new_mpq(void){
-  return (mpq_ptr)mpqstore_alloc(&mpq_store);
+static inline mpq_ptr new_mpq(void){
+  return mpqstore_alloc(&mpq_store);
 }
 
 
 /*
- * Deallocates a new mpq object. (in case we pool them later)
+ * Deallocates a new mpq object
  */
-void release_mpq(rational_t *r){
+static void release_mpq(rational_t *r){
   assert(is_ratgmp(r));
-  mpqstore_free(&mpq_store, (mpq_t *)get_gmp(r));
+  mpqstore_free(&mpq_store, get_gmp(r));
 }
 
+
+/*
+ * Free mpq number attached to r if any, then set r to 0/1.
+ * Must be called before r is deleted to prevent memory leaks.
+ */
+void q_clear(rational_t *r) {
+  if (is_ratgmp(r)) {
+    release_mpq(r);
+  }
+  r->s.num = 0;
+  r->s.den = ONE_DEN;
+}
 
 
 
@@ -352,7 +358,6 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
 void q_set64(rational_t *r, int64_t a) {
   mpq_ptr q;
 
-
   if (MIN_NUMERATOR <= a && a <= MAX_NUMERATOR) {
     if (is_ratgmp(r)){ release_mpq(r); }
     set_rat32(r, (int32_t) a, 1);
@@ -435,7 +440,7 @@ void q_normalize(rational_t *r) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-	mpqstore_free(&mpq_store, (mpq_t *)q);
+	mpqstore_free(&mpq_store, q);
         set_rat32(r, (int32_t) num, (uint32_t) den);
       }
     }
@@ -458,6 +463,7 @@ static inline void q_prepare(rational_t *r) {
  */
 void q_set_mpz(rational_t *r, const mpz_t z) {
   mpq_ptr q;
+
   q_prepare(r);
   q = get_gmp(r);
   mpq_set_z(q, z);
@@ -469,6 +475,7 @@ void q_set_mpz(rational_t *r, const mpz_t z) {
  */
 void q_set_mpq(rational_t *r, const mpq_t q) {
   mpq_ptr qt;
+
   q_prepare(r);
   qt = get_gmp(r);
   mpq_set(qt, q);
@@ -889,9 +896,7 @@ void q_sub(rational_t *r1, const rational_t *r2) {
   mpq_ptr q1, q2;
 
   if (r1->s.den == ONE_DEN && r2->s.den == ONE_DEN) {
-
     assert(is_rat32(r1)  &&  is_rat32(r2));
-
     r1->s.num -= r2->s.num;
     if (r1->s.num < MIN_NUMERATOR || r1->s.num > MAX_NUMERATOR) {
       convert_to_gmp(r1);
@@ -919,9 +924,7 @@ void q_sub(rational_t *r1, const rational_t *r2) {
  */
 void q_neg(rational_t *r) {
   if (is_ratgmp(r)){
-    mpq_ptr q;
-
-    q = get_gmp(r);
+    mpq_ptr q = get_gmp(r);
     mpq_neg(q, q);
   } else {
     r->s.num = - r->s.num;
@@ -929,17 +932,14 @@ void q_neg(rational_t *r) {
 }
 
 /*
- * Invert r    //IAM: this looks dodgey if num is big
+ * Invert r
  */
 void q_inv(rational_t *r) {
   uint32_t abs_num;
 
   if (is_ratgmp(r)) {
-    mpq_ptr q;
-
-    q = get_gmp(r);
+    mpq_ptr q = get_gmp(r);
     mpq_inv(q, q);
-
   } else if (r->s.num < 0) {
     abs_num = (uint32_t) - r->s.num;
     set_rat32(r, - get_den(r), abs_num);
@@ -958,7 +958,6 @@ void q_mul(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
   mpq_ptr q1, q2;
-
 
   if (r1->s.den == ONE_DEN && r2->s.den == ONE_DEN) {
     assert(is_rat32(r1) && is_rat32(r2));
@@ -995,7 +994,6 @@ void q_div(rational_t *r1, const rational_t *r2) {
   uint64_t den;
   int64_t num;
   mpq_ptr q1, q2;
-
 
   if (is_ratgmp(r2)) {
     if (is_rat32(r1)) convert_to_gmp(r1);
@@ -1083,6 +1081,7 @@ void q_submul(rational_t *r1, const rational_t *r2, const rational_t *r3) {
  */
 void q_add_one(rational_t *r1) {
   mpq_ptr q;
+
   if (is_ratgmp(r1)) {
     q = get_gmp(r1);
     mpz_add(mpq_numref(q), mpq_numref(q), mpq_denref(q));
@@ -1099,6 +1098,7 @@ void q_add_one(rational_t *r1) {
  */
 void q_sub_one(rational_t *r1) {
   mpq_ptr q;
+
   if (is_ratgmp(r1)) {
     q = get_gmp(r1);
     mpz_sub(mpq_numref(q), mpq_numref(q), mpq_denref(q));
@@ -1124,10 +1124,7 @@ void q_floor(rational_t *r) {
   if (q_is_integer(r)) return;
 
   if (is_ratgmp(r)) {
-    mpq_ptr q;
-
-    q = get_gmp(r);
-
+    mpq_ptr q = get_gmp(r);
     mpz_fdiv_q(mpq_numref(q), mpq_numref(q), mpq_denref(q));
     mpz_set_ui(mpq_denref(q), 1UL);
   } else {
@@ -1144,10 +1141,7 @@ void q_ceil(rational_t *r) {
   if (q_is_integer(r)) return;
 
   if (is_ratgmp(r)) {
-    mpq_ptr q;
-
-    q = get_gmp(r);
-
+    mpq_ptr q = get_gmp(r);
     mpz_cdiv_q(mpq_numref(q), mpq_numref(q), mpq_denref(q));
     mpz_set_ui(mpq_denref(q), 1UL);
   } else {
@@ -1253,7 +1247,7 @@ void q_lcm(rational_t *r1, const rational_t *r2) {
  * - the result is positive
  */
 void q_gcd(rational_t *r1, const rational_t *r2) {
-  uint32_t a, b, d;  //IAM: isn't this bad bruno-style?
+  uint32_t a, b, d;
   mpq_ptr q1, q2;
 
   if (is_rat32(r2)) {
@@ -1828,7 +1822,6 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
  * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
  */
 
-// FIXTHEM
 bool q_is_int32(rational_t *r) {
   return (is_rat32(r) && r->s.den == ONE_DEN) || (is_ratgmp(r) && mpq_is_int32(get_gmp(r)));
 }
@@ -1874,9 +1867,7 @@ bool q_get_mpz(rational_t *r, mpz_t z) {
     mpz_set_si(z, r->s.num);
     return true;
   } else if (is_ratgmp(r)){
-    mpq_ptr q;
-
-    q = get_gmp(r);
+    mpq_ptr q = get_gmp(r);
     if (mpq_is_integer(q)) {
       mpz_set(z, mpq_numref(q));
       return true;
@@ -1904,10 +1895,8 @@ double q_get_double(rational_t *r) {
   mpq_t q0;
 
   mpq_init2(q0, 64);
-
   q_get_mpq(r, q0);
   retval = mpq_get_d(q0);
-
   mpq_clear(q0);
 
   return retval;
@@ -1939,7 +1928,7 @@ void q_print_abs(FILE *f, const rational_t *r) {
   int32_t abs_num;
 
   if (is_ratgmp(r)) {
-    q = (mpq_ptr)get_gmp(r);  //IAM: need to check that this is kosher!
+    q = get_gmp(r);
     if (mpq_sgn(q) < 0) {
       mpq_neg(q, q);
       mpq_out_str(f, 10, q);
@@ -1981,7 +1970,7 @@ uint32_t q_hash_numerator(const rational_t *r) {
   if (is_ratgmp(r)) {
     return (uint32_t) mpz_fdiv_ui(mpq_numref(get_gmp(r)), HASH_MODULUS);
   } else if (r->s.num >= 0) {
-      return (uint32_t) r->s.num;
+    return (uint32_t) r->s.num;
   } else {
     return ((uint32_t) r->s.num) + ((uint32_t) HASH_MODULUS);
   }
@@ -1996,9 +1985,7 @@ uint32_t q_hash_denominator(const rational_t *r) {
 
 void q_hash_decompose(const rational_t *r, uint32_t *h_num, uint32_t *h_den) {
   if (is_ratgmp(r)) {
-    mpq_ptr q;
-
-    q = get_gmp(r);
+    mpq_ptr q = get_gmp(r);
     *h_num = (uint32_t) mpz_fdiv_ui(mpq_numref(q), HASH_MODULUS);
     *h_den = (uint32_t) mpz_fdiv_ui(mpq_denref(q), HASH_MODULUS);
   } else if (r->s.num >= 0) {

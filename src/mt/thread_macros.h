@@ -24,17 +24,6 @@
 #define _THREAD_MACROS_H
 
 
-/*
- * Thread Local Errors
- *
- * THREAD_SAFE implies that we HAVE_TLS
- *
- */
-#ifdef THREAD_SAFE
-#define YICES_THREAD_LOCAL __thread
-#else
-#define YICES_THREAD_LOCAL
-#endif
 
 
 #ifdef THREAD_SAFE

@@ -682,19 +682,23 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 	   stat == STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
-      init_delegate(&delegate, sat_solver, num_vars(core));
-      delegate_set_verbosity(&delegate, verbosity);
+      if (smt_easy_sat(core)) {
+	stat = STATUS_SAT;
+      } else {
+	// call the delegate
+	init_delegate(&delegate, sat_solver, num_vars(core));
+	delegate_set_verbosity(&delegate, verbosity);
 
-      stat = solve_with_delegate(&delegate, core);
-      set_smt_status(core, stat);
-      if (stat == STATUS_SAT) {
-	for (x=0; x<num_vars(core); x++) {
-	  v = delegate_get_value(&delegate, x);
-	  set_bvar_value(core, x, v);
+	stat = solve_with_delegate(&delegate, core);
+	set_smt_status(core, stat);
+	if (stat == STATUS_SAT) {
+	  for (x=0; x<num_vars(core); x++) {
+	    v = delegate_get_value(&delegate, x);
+	    set_bvar_value(core, x, v);
+	  }
 	}
+	delete_delegate(&delegate);
       }
-
-      delete_delegate(&delegate);
     }
   }
 

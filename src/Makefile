@@ -107,6 +107,7 @@ core_src_c := \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
+	api/yices_error_report.c \
 	api/yval.c \
 	context/assumption_stack.c \
 	context/common_conjuncts.c \
@@ -136,6 +137,7 @@ core_src_c := \
 	io/model_printer.c \
 	io/pretty_printer.c \
 	io/reader.c \
+	io/simple_printf.c \
 	io/term_printer.c \
 	io/tracer.c \
 	io/type_printer.c \
@@ -446,7 +448,7 @@ endif
 # additional source files for the binaries
 #
 bin_src_c := \
-	frontend/yices_main.c \
+	frontend/yices.c \
 	frontend/yices_sat.c \
 	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
@@ -656,6 +658,16 @@ ifeq ($(POSIXOS),freebsd)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 
 else
+ifeq ($(POSIXOS),netbsd)
+  PIC=-fPIC
+  STATIC=-static
+  CPPFLAGS := $(CPPFLAGS) -DNETBSD
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS=
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
+
+else
 ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
@@ -666,6 +678,7 @@ ifeq ($(POSIXOS),unix)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
  $(error "Don't know how to compile on $(POSIXOS)")
+endif
 endif
 endif
 endif
@@ -1162,7 +1175,7 @@ dist: bin lib
 	mkdir $(distdir)/include
 	cp include/*.h $(distdir)/include
 	mkdir $(distdir)/bin
-	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
+	cp $(bindir)/yices$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(bindir)/yices_smt2_mt$(EXEEXT) $(distdir)/bin/yices-mt2$(EXEEXT)
@@ -1183,7 +1196,7 @@ static-dist: static-bin static-lib
 	mkdir $(static_distdir)/include
 	cp include/*.h $(static_distdir)/include
 	mkdir $(static_distdir)/bin
-	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
+	cp $(static_bindir)/yices$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(static_bindir)/yices_smt2_mt$(EXEEXT) $(static_distdir)/bin/yices-mt2$(EXEEXT)

@@ -172,6 +172,22 @@ extern void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1,
 extern bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2);
 
 
+/*
+ * Check whether the common factor is non-trivial (i.e., not equal to 1).
+ * - this assumes that the factoring worked (so r->code must be equal to BVFACTOR_FOUND).
+ */
+static inline bool useful_bitvector_factoring(bvfactoring_t *r) {
+  assert(r->code == BVFACTOR_FOUND);
+  return bvfactor_buffer_product_is_one(&r->common);
+}
+
+/*
+ * Convert the reduced parts or r to terms:
+ * - r must contain a valid vactoring (i.e., r->code must be equal to BVFACTOR_FOUND).
+ */
+extern term_t bitvector_factoring_left_term(context_t *ctx, bvfactoring_t *r); // reduced1
+extern term_t bitvector_factoring_right_term(context_t *ctx, bvfactoring_t *r); // reduced2
+
 
 /*
  * FLATTENING AND VARIABLE ELIMINATION
@@ -403,7 +419,6 @@ extern conditional_t *context_make_conditional(context_t *ctx, composite_term_t 
  * Free a conditional descriptor returned by the previous function
  */
 extern void context_free_conditional(context_t *ctx, conditional_t *d);
-
 
 /*
  * Check whether conditional_t *d can be simplified

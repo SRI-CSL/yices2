@@ -312,6 +312,13 @@ static inline bool bvpoly_buffer_is_constant(const bvpoly_buffer_t *b) {
 }
 
 /*
+ * Check whether b is of the form +x for some variable x
+ * - if so, return the variable into *x
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_is_var(const bvpoly_buffer_t *b, int32_t *x);
+
+/*
  * Check whether b is of the form +x or -x
  * - if so, return the variable into *x
  * - b must be normalized

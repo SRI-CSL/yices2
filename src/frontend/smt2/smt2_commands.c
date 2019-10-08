@@ -51,7 +51,9 @@
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
+#include "solvers/bv/dimacs_printer.h"
 #include "utils/refcount_strings.h"
+
 
 #include "utils/timeout.h"
 #include "mcsat/options.h"
@@ -60,6 +62,7 @@
 #include "yices_exit_codes.h"
 
 // for statistics
+#include "io/simple_printf.h"
 #include "solvers/bv/bvsolver.h"
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
@@ -237,14 +240,8 @@ static void dump(const char *filename, context_t *ctx) {
 
 
 /*
- * FOR TESTING: BITBLAST THEN EXPORT TO DIMACS
+ * BITBLAST THEN EXPORT TO DIMACS
  */
-
-#define EXPORT_TO_DIMACS 0
-
-#if EXPORT_TO_DIMACS
-
-#include "solvers/bv/dimacs_printer.h"
 
 /*
  * Export ctx content in DIMACS format
@@ -290,7 +287,6 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
 }
 
 
-
 /*
  * Export the delayed assertions
  * - ctx = context
@@ -310,9 +306,6 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
   return code;
 }
 
-
-
-#endif
 
 
 
@@ -697,7 +690,7 @@ static void __attribute__((noreturn)) failed_output(void) {
 /*
  * Formatted output: like printf but use __smt2_globals.out
  */
-static void print_out(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_out(const char *format, ...)  {
   va_list p;
 
   va_start(p, format);
@@ -761,7 +754,7 @@ static void close_error(void) {
 /*
  * Formatted error: like printf but add the prefix and close
  */
-static void print_error(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_error(const char *format, ...) {
   va_list p;
 
   open_error();
@@ -860,7 +853,7 @@ static void unsupported_construct(const char *what) {
   if (__smt2_globals.logic_name != NULL) {
     print_out("%s not allowed in logic %s", what, __smt2_globals.logic_name);
   } else {
-    print_out("%s not supported");
+    print_out("%s not supported", what);
   }
 }
 
@@ -1059,7 +1052,7 @@ static void print_internalization_error(int32_t code) {
  */
 static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
-  print_error(efcode2error[code]);
+  print_error("%s", efcode2error[code]);
 }
 
 
@@ -1522,120 +1515,154 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
 
 
 /*
- * Statistics about each solvers
+ * Statistics about each solvers.
+ * This may be called from a signal handler so we use the "simple_printf.h" functions.
+ * All the functions print to file fd using print_buffer_b for formatting.
  */
-static void show_core_stats(smt_core_t *core) {
-  print_out(" :boolean-variables %"PRIu32"\n", num_vars(core));
-  print_out(" :atoms %"PRIu32"\n", num_atoms(core));
-  print_out(" :clauses %"PRIu32"\n", num_clauses(core));
-  print_out(" :restarts %"PRIu32"\n", num_restarts(core));
-  print_out(" :clause-db-reduce %"PRIu32"\n", num_reduce_calls(core));
-  print_out(" :clause-db-simplify %"PRIu32"\n", num_simplify_calls(core));
-  print_out(" :decisions %"PRIu64"\n", num_decisions(core));
-  print_out(" :conflicts %"PRIu64"\n", num_conflicts(core));
-  print_out(" :theory-conflicts %"PRIu32"\n", num_theory_conflicts(core));
-  print_out(" :boolean-propagations %"PRIu64"\n", num_propagations(core));
-  print_out(" :theory-propagations %"PRIu32"\n", num_theory_propagations(core));
+static void print_string_and_uint32(int fd, print_buffer_t *b, const char *s, uint32_t x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_uint32(b, x);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_egraph_stats(egraph_t *egraph) {
-  print_out(" :egraph-terms %"PRIu32"\n", egraph_num_terms(egraph));
-  print_out(" :egraph-atoms %"PRIu32"\n", egraph_num_atoms(egraph));
-  print_out(" :egraph-conflicts %"PRIu32"\n", egraph_num_conflicts(egraph));
-  print_out(" :egraph-ackermann-lemmas %"PRIu32"\n", egraph_all_ackermann(egraph));
-  print_out(" :egraph-final-checks %"PRIu32"\n", egraph_num_final_checks(egraph));
-  print_out(" :egraph-interface-lemmas %"PRIu32"\n", egraph_num_interface_eqs(egraph));
+static void print_string_and_uint64(int fd, print_buffer_t *b, const char *s, uint64_t x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_uint64(b, x);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_funsolver_stats(fun_solver_t *solver) {
-  print_out(" :array-vars %"PRIu32"\n", fun_solver_num_vars(solver));
-  print_out(" :array-edges %"PRIu32"\n", fun_solver_num_edges(solver));
-  print_out(" :array-update1-axioms %"PRIu32"\n", fun_solver_num_update1_axioms(solver));
-  print_out(" :array-update2-axioms %"PRIu32"\n", fun_solver_num_update2_axioms(solver));
-  print_out(" :array-extensionality-axioms %"PRIu32"\n", fun_solver_num_extensionality_axioms(solver));
+static void print_string_and_float(int fd, print_buffer_t *b, const char *s, double x) {
+  reset_print_buffer(b);
+  print_buffer_append_string(b, s);
+  print_buffer_append_float(b, x, 3); // 3 digits after the decimal point
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
 }
 
-static void show_simplex_stats(simplex_solver_t *solver) {
+static void print_char_and_newline(int fd, print_buffer_t *b, char c) {
+  reset_print_buffer(b);
+  print_buffer_append_char(b, c);
+  print_buffer_append_char(b, '\n');
+  (void) write_buffer(fd, b);
+}
+
+static void show_core_stats(int fd, print_buffer_t *b, smt_core_t *core) {
+  print_string_and_uint32(fd, b, " :boolean-variables ", num_vars(core));
+  print_string_and_uint32(fd, b, " :atoms ", num_atoms(core));
+  print_string_and_uint32(fd, b, " :clauses ", num_clauses(core));
+  print_string_and_uint32(fd, b, " :restarts ", num_restarts(core));
+  print_string_and_uint32(fd, b, " :clause-db-reduce ", num_reduce_calls(core));
+  print_string_and_uint32(fd, b, " :clause-db-simplify ", num_simplify_calls(core));
+  print_string_and_uint64(fd, b, " :decisions ", num_decisions(core));
+  print_string_and_uint64(fd, b, " :conflicts ", num_conflicts(core));
+  print_string_and_uint32(fd, b, " :theory-conflicts ", num_theory_conflicts(core));
+  print_string_and_uint64(fd, b, " :boolean-propagations ", num_propagations(core));
+  print_string_and_uint32(fd, b, " :theory-propagations ", num_theory_propagations(core));
+}
+
+static void show_egraph_stats(int fd, print_buffer_t *b, egraph_t *egraph) {
+  print_string_and_uint32(fd, b, " :egraph-terms ", egraph_num_terms(egraph));
+  print_string_and_uint32(fd, b, " :egraph-atoms ", egraph_num_atoms(egraph));
+  print_string_and_uint32(fd, b, " :egraph-conflicts ", egraph_num_conflicts(egraph));
+  print_string_and_uint32(fd, b, " :egraph-ackermann-lemmas ", egraph_all_ackermann(egraph));
+  print_string_and_uint32(fd, b, " :egraph-final-checks ", egraph_num_final_checks(egraph));
+  print_string_and_uint32(fd, b, " :egraph-interface-lemmas ", egraph_num_interface_eqs(egraph));
+}
+
+static void show_funsolver_stats(int fd, print_buffer_t *b, fun_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :array-vars ", fun_solver_num_vars(solver));
+  print_string_and_uint32(fd, b, " :array-edges ", fun_solver_num_edges(solver));
+  print_string_and_uint32(fd, b, " :array-update1-axioms ", fun_solver_num_update1_axioms(solver));
+  print_string_and_uint32(fd, b, " :array-update2-axioms ", fun_solver_num_update2_axioms(solver));
+  print_string_and_uint32(fd, b, " :array-extensionality-axioms ", fun_solver_num_extensionality_axioms(solver));
+}
+
+static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
   simplex_collect_statistics(solver);
-  print_out(" :simplex-init-vars %"PRIu32"\n", simplex_num_init_vars(solver));
-  print_out(" :simplex-init-rows %"PRIu32"\n", simplex_num_init_rows(solver));
-  print_out(" :simplex-init-atoms %"PRIu32"\n", simplex_num_init_atoms(solver));
-  print_out(" :simplex-vars %"PRIu32"\n", simplex_num_vars(solver));
-  print_out(" :simplex-rows %"PRIu32"\n", simplex_num_rows(solver));
-  print_out(" :simplex-atoms %"PRIu32"\n", simplex_num_atoms(solver));
-  print_out(" :simplex-pivots %"PRIu32"\n", simplex_num_pivots(solver));
-  print_out(" :simplex-conflicts %"PRIu32"\n", simplex_num_conflicts(solver));
-  print_out(" :simplex-interface-lemmas %"PRIu32"\n", simplex_num_interface_lemmas(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-vars ", simplex_num_init_vars(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-rows ", simplex_num_init_rows(solver));
+  print_string_and_uint32(fd, b, " :simplex-init-atoms ", simplex_num_init_atoms(solver));
+  print_string_and_uint32(fd, b, " :simplex-vars ", simplex_num_vars(solver));
+  print_string_and_uint32(fd, b, " :simplex-rows ", simplex_num_rows(solver));
+  print_string_and_uint32(fd, b, " :simplex-atoms ", simplex_num_atoms(solver));
+  print_string_and_uint32(fd, b, " :simplex-pivots ", simplex_num_pivots(solver));
+  print_string_and_uint32(fd, b, " :simplex-conflicts ", simplex_num_conflicts(solver));
+  print_string_and_uint32(fd, b, " :simplex-interface-lemmas ", simplex_num_interface_lemmas(solver));
   if (simplex_num_make_integer_feasible(solver) > 0 ||
       simplex_num_dioph_checks(solver) > 0) {
-    print_out(" :simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
-    print_out(" :simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
-    print_out(" :simplex-gomory-cuts %"PRIu32"\n", simplex_num_gomory_cuts(solver));
+    print_string_and_uint32(fd, b, " :simplex-integer-vars ", simplex_num_integer_vars(solver));
+    print_string_and_uint32(fd, b, " :simplex-branch-and-bound ", simplex_num_branch_and_bound(solver));
+    print_string_and_uint32(fd, b, " :simplex-gomory-cuts ", simplex_num_gomory_cuts(solver));
     // bound strenthening
-    print_out(" :simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
-    print_out(" :simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-bound-conflicts ", simplex_num_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-bound-recheck-conflicts ", simplex_num_bound_recheck_conflicts(solver));
     // integrality test
-    print_out(" :simplex-itest-conflicts %"PRIu32"\n", simplex_num_itest_conflicts(solver));
-    print_out(" :simplex-itest-bound-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    print_out(" :simplex-itest-recheck-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-conflicts ", simplex_num_itest_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-bound-conflicts ", simplex_num_itest_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-itest-recheck-conflicts ", simplex_num_itest_bound_conflicts(solver));
     // diophantine solver
-    print_out(" :simplex-gcd-conflicts %"PRIu32"\n", simplex_num_dioph_gcd_conflicts(solver));
-    print_out(" :simplex-dioph-checks %"PRIu32"\n", simplex_num_dioph_checks(solver));
-    print_out(" :simplex-dioph-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
-    print_out(" :simplex-dioph-bound-conflicts %"PRIu32"\n", simplex_num_dioph_bound_conflicts(solver));
-    print_out(" :simplex-dioph-recheck-conflicts %"PRIu32"\n", simplex_num_dioph_recheck_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-gcd-conflicts ", simplex_num_dioph_gcd_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-checks ", simplex_num_dioph_checks(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-conflicts ", simplex_num_dioph_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-bound-conflicts ", simplex_num_dioph_bound_conflicts(solver));
+    print_string_and_uint32(fd, b, " :simplex-dioph-recheck-conflicts ", simplex_num_dioph_recheck_conflicts(solver));
   }
 }
 
-static void show_bvsolver_stats(bv_solver_t *solver) {
-  print_out(" :bvsolver-vars %"PRIu32"\n", bv_solver_num_vars(solver));
-  print_out(" :bvsolver-atoms %"PRIu32"\n", bv_solver_num_atoms(solver));
-  print_out(" :bvsolver-equiv-lemmas %"PRIu32"\n", bv_solver_equiv_lemmas(solver));
-  print_out(" :bvsolver-interface-lemmas %"PRIu32"\n", bv_solver_interface_lemmas(solver));
+static void show_bvsolver_stats(int fd, print_buffer_t *b, bv_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :bvsolver-vars ", bv_solver_num_vars(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-atoms ", bv_solver_num_atoms(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-equiv-lemmas ", bv_solver_equiv_lemmas(solver));
+  print_string_and_uint32(fd, b, " :bvsolver-interface-lemmas ", bv_solver_interface_lemmas(solver));
 }
 
-static void show_idl_fw_stats(idl_solver_t *solver) {
-  print_out(" :idl-solver-vars %"PRIu32"\n", idl_num_vars(solver));
-  print_out(" :idl-solver-atoms %"PRIu32"\n", idl_num_atoms(solver));
+static void show_idl_fw_stats(int fd, print_buffer_t *b, idl_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :idl-solver-vars ", idl_num_vars(solver));
+  print_string_and_uint32(fd, b, " :idl-solver-atoms ", idl_num_atoms(solver));
 }
 
-static void show_rdl_fw_stats(rdl_solver_t *solver) {
-  print_out(" :rdl-solver-vars %"PRIu32"\n", rdl_num_vars(solver));
-  print_out(" :rdl-solver-atoms %"PRIu32"\n", rdl_num_atoms(solver));
+static void show_rdl_fw_stats(int fd, print_buffer_t *b, rdl_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :rdl-solver-vars ", rdl_num_vars(solver));
+  print_string_and_uint32(fd, b, " :rdl-solver-atoms ", rdl_num_atoms(solver));
 }
 
 
 /*
  * Context statistics
  */
-static void show_ctx_stats(context_t *ctx) {
+static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
   assert(ctx->core != NULL);
-  show_core_stats(ctx->core);
+  show_core_stats(fd, b, ctx->core);
 
   if (context_has_egraph(ctx)) {
-    show_egraph_stats(ctx->egraph);
+    show_egraph_stats(fd, b, ctx->egraph);
   }
 
   if (context_has_fun_solver(ctx)) {
-    show_funsolver_stats(ctx->fun_solver);
+    show_funsolver_stats(fd, b, ctx->fun_solver);
   }
+
   if (context_has_arith_solver(ctx)) {
     if (context_has_simplex_solver(ctx)) {
-      show_simplex_stats(ctx->arith_solver);
+      show_simplex_stats(fd, b, ctx->arith_solver);
     } else if (context_has_idl_solver(ctx)) {
-      show_idl_fw_stats(ctx->arith_solver);
+      show_idl_fw_stats(fd, b, ctx->arith_solver);
     } else {
       assert(context_has_rdl_solver(ctx));
-      show_rdl_fw_stats(ctx->arith_solver);
+      show_rdl_fw_stats(fd, b, ctx->arith_solver);
     }
   }
 
   if (context_has_bv_solver(ctx)) {
-    show_bvsolver_stats(ctx->bv_solver);
+    show_bvsolver_stats(fd, b, ctx->bv_solver);
   }
 
   if (ctx->mcsat != NULL) {
-    mcsat_show_stats(ctx->mcsat, __smt2_globals.out);
+    mcsat_show_stats_fd(ctx->mcsat, fd);
   }
 }
 
@@ -1644,21 +1671,22 @@ static void show_ctx_stats(context_t *ctx) {
  * Global state
  */
 static void show_statistics(smt2_globals_t *g) {
+  print_buffer_t buffer;
   double time, mem;
 
   time = get_cpu_time();
   mem = mem_size() / (1024*1024);
 
-  print_out("(:num-terms %"PRIu32"\n", yices_num_terms());
-  print_out(" :num-types %"PRIu32"\n", yices_num_types());
-  print_out(" :total-run-time %.3f\n", time);
+  print_string_and_uint32(g->out_fd, &buffer, "(:num-terms ", yices_num_terms());
+  print_string_and_uint32(g->out_fd, &buffer, " :num-types ", yices_num_types());
+  print_string_and_float(g->out_fd, &buffer, " :total-run-time ", time);
   if (mem > 0) {
-    print_out(" :mem-usage %.3f\n", mem);
+    print_string_and_float(g->out_fd, &buffer, " :mem-usage ", mem);
   }
   if (g->ctx != NULL) {
-    show_ctx_stats(g->ctx);
+    show_ctx_stats(g->out_fd, &buffer, g->ctx);
   }
-  print_out(")\n");
+  print_char_and_newline(g->out_fd, &buffer, ')');
   flush_out();
 }
 
@@ -2000,6 +2028,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
       string_incref(g->out_name);
     }
     g->out = f;
+    g->out_fd = fileno(f);
     report_success();
   } else {
     print_error("option %s requires a string value", name);
@@ -2033,6 +2062,7 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
       string_incref(g->err_name);
     }
     g->err = f;
+    g->err_fd = fileno(f);
     update_trace_file(g);
     report_success();
   } else {
@@ -2063,7 +2093,7 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
       update_trace_verbosity(g);
       report_success();
     } else {
-      print_error("integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
+      print_error("integer overflow: %s must be at most %"PRIu32, name, UINT32_MAX);
     }
   } else {
     print_error("option %s requires an integer value", name);
@@ -2814,23 +2844,40 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
     init_smt2_context(g);
 
-    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
-    if (code < 0) {
-      // error during assertion processing
-      print_yices_error(true);
-      return;
-    }
-    init_search_parameters(g);
-    if (g->random_seed != 0) {
-      g->parameters.random_seed = g->random_seed;
+    if (g->export_to_dimacs) {
+      /*
+       * Bitblast and export in DIMACS format.
+       */
+      code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
+      if (code < 0) {
+	print_yices_error(true);
+	return;
+      }
+
+    } else {
+      /*
+       * Regular check
+       */
+      code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+      if (code < 0) {
+	// error during assertion processing
+	print_yices_error(true);
+	return;
+      }
+      init_search_parameters(g);
+      if (g->random_seed != 0) {
+	g->parameters.random_seed = g->random_seed;
+      }
+
+      if (g->delegate != NULL && g->logic_code == QF_BV) {
+	status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+      } else {
+	status = check_sat_with_timeout(g, &g->parameters);
+      }
+
+      report_status(g, status);
     }
 
-    if (g->delegate != NULL && g->logic_code == QF_BV) {
-      status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-    } else {
-      status = check_sat_with_timeout(g, &g->parameters);
-    }
-    report_status(g, status);
   }
 
   flush_out();
@@ -4072,10 +4119,14 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_mcsat_options(&g->mcsat_options);
   g->efmode = false;
   init_ef_client(&g->ef_client);
+  g->export_to_dimacs = false;
+  g->dimacs_file = NULL;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
   g->err_name = NULL;
+  g->out_fd = fileno(stdout);
+  g->err_fd = fileno(stderr);
   g->tracer = NULL;
   g->print_success = false;  // the standard says that this should be true??
   g->expand_definitions = false;
@@ -4252,6 +4303,13 @@ void smt2_force_smt2_model_format(void) {
   __smt2_globals.clean_model_format = false;
 }
 
+/*
+ * Bitblast and export to DIMACS
+ */
+void smt2_export_to_dimacs(const char *filename) {
+  __smt2_globals.export_to_dimacs = true;
+  __smt2_globals.dimacs_file = filename;
+}
 
 /*
  * Display all statistics
@@ -5517,6 +5575,12 @@ void smt2_set_logic(const char *name) {
     trace_printf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
+  // if export_to_dimacs: fail if the logic is not QF_BV
+  if (__smt2_globals.export_to_dimacs && code != QF_BV) {
+    print_error("can't generate DIMACS file for logic %s", name);
+    return;
+  }
+
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
     print_error("logic %s is not supported by the mscat solver", name);
@@ -5781,6 +5845,45 @@ static smt_status_t get_status_from_globals(smt2_globals_t *g) {
   }
 }
 
+/*
+ * Test multi-threaded code:
+ * - g->nthreads = number of threads to run
+ */
+static void check_delayed_assertions_mt(smt2_globals_t *g) {
+  bool success;
+  uint32_t i, n;
+
+  n = g->nthreads;
+  assert(n > 0);
+
+  smt2_globals_t *garray =  (smt2_globals_t *) safe_malloc(n * sizeof(smt2_globals_t));
+  for(i = 0; i < n; i++) {
+    garray[i] = __smt2_globals;  // just copy them for now.
+    garray[i].tracer = NULL;     // only main thread can use this.
+  }
+  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
+  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+  check_delayed_assertions(g);
+
+  //could check that they are all OK
+
+  smt_status_t main_answer = get_status_from_globals(g);
+  success = true;
+  for (i = 0; i < n; i++) {
+    smt_status_t answer = get_status_from_globals(garray + i);
+    if (answer != main_answer) {
+      success = false;
+    }
+    //free the model if there is one, and free the context.
+    //IAM: valgrind says there is no leak here. This is puzzling.
+  }
+  if (success) {
+    fprintf(stderr, "SUCCESS: All threads agree.\n");
+  } else {
+    fprintf(stderr, "FAILURE: Threads disagree.\n");
+  }
+  safe_free(garray);
+}
 #endif
 
 
@@ -5812,37 +5915,8 @@ void smt2_check_sat(void) {
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals);
         } else {
-          bool success = true;
-          uint32_t index;
-          //mayhem
-          smt2_globals_t *garray =  (smt2_globals_t *)safe_malloc(__smt2_globals.nthreads * sizeof(smt2_globals_t));
-          for(index = 0; index < __smt2_globals.nthreads; index++){
-            garray[index] = __smt2_globals;  // just copy them for now.
-            garray[index].tracer = NULL;     // only main thread can use this.
-          }
-          launch_threads(__smt2_globals.nthreads, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
-          fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
-          check_delayed_assertions(&__smt2_globals);
-
-          //could check that they are all OK
-
-          smt_status_t main_answer = get_status_from_globals(&__smt2_globals);
-          for (index = 0; index < __smt2_globals.nthreads; index++) {
-            smt_status_t answer = get_status_from_globals(&garray[index]);
-
-            if (answer != main_answer) {
-              success = false;
-            }
-            //free the model if there is one, and free the context.
-            //IAM: valgrind says there is no leak here. This is puzzling.
-          }
-          if (success) {
-            fprintf(stderr, "SUCCESS: All threads agree.\n");
-          } else {
-            fprintf(stderr, "FAILURE: Threads disagree.\n");
-	  }
-          safe_free(garray);
-        }
+	  check_delayed_assertions_mt(&__smt2_globals);
+	}
 #endif
       }
     } else {

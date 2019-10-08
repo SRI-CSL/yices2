@@ -63,6 +63,9 @@ void mcsat_set_tracer(mcsat_solver_t *mcsat, tracer_t *tracer) {
 void mcsat_show_stats(mcsat_solver_t *mcsat, FILE *out) {
 }
 
+void mcsat_show_stats_fd(mcsat_solver_t *mcsat, int out) {
+}
+
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 }
 

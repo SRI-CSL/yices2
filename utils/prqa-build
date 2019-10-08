@@ -1,0 +1,183 @@
+#!/bin/bash
+
+#
+# Script to help build the Windows (mingw32) distributions for
+# Prorgamming research from Cygwin.
+#
+# This build four tarfiles:
+#  distributions/yices-2.x.y-i686-pc-mingw32-dbg.tar.gz
+#  distributions/yices-2.x.y-x86_64-pc-mingw32-dbg.tar.gz
+#  distributions/yices-2.x.y-i686-pc-mingw32-static-gmp.tar.gz
+#  distributions/yices-2.x.y-x86_64-pc-mingw32-static-gmp.tar.gz
+#
+# These are static distributions for Windows 32 and 64 bits. The first
+# two tar files are built with debugging enadled. The last two tarfiles
+# are release builds.
+#
+# Prerequisites for this to work:
+# - must be on a cygwin bash
+# - visual studio must be installed
+# - Yices must be configured for mingw32
+#
+
+#
+# CONFIGURATION
+#
+# vsbase = install directory for Visual studio
+# gmp32 = directory where libgmp-10.dll compatible with mingw32 resides
+# gmp64 = directory where libgmp-10.dll compatible with mingw64 resides
+#
+# vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2017/Community"
+gmp32="/home/bruno/tools/mingw32/bin"
+gmp64="/home/bruno/tools/mingw64/bin"
+
+#
+# Need the Microsoft lib utility. It's part of Visual Studio.
+# The PATH must be set so that lib.exe and the DLLs it requires
+# can be found.
+#
+# Need to add gmp32 and gmp64 to the path so that mkreadme can
+# run yices (dynamic version).
+#
+export PATH=${vsbase}/VC/Tools/MSVC/14.10.25017/bin/HostX86/x86:${vsbase}/Common7/IDE:${gmp32}:${gmp64}:${PATH}
+
+
+#
+# Version number for tarfiles
+#
+version=2.6.1
+
+#
+# Keep track of the current directory
+#
+topdir=`pwd`
+
+#
+# Names of the tarfiles
+#
+for option in mingw32 mingw64; do
+  case $option in
+    mingw32)
+      build=i686-pc-mingw32
+      arch=x86
+      ;;
+    mingw64)
+      build=x86_64-pc-mingw32
+      arch=x64
+      ;;
+   esac
+
+   #
+   # tar files
+   #
+   basefile=yices-${version}-$build
+   static_tarfile=${basefile}-static-gmp.tar.gz
+   dbg_tarfile=${basefile}-dbg.tar.gz
+
+   #
+   # build directories
+   #
+   static_dist_dir=build/${build}-release/static_dist/lib
+   dbg_dist_dir=build/${build}-debug/static_dist/lib
+
+   #
+   # First step: clean up
+   #
+   echo ""
+   echo "==============================="
+   echo "    CLEANUP (OPTION = $option)"
+   echo "==============================="
+   echo ""
+   echo "rm -f distributions/$static_tarfile"
+   rm -f distributions/$static_tarfile
+   echo "rm -f distributions/$static_tarfile"
+   rm -f distributions/$dbg_tarfile
+   echo "make arch-clean OPTION=$option"
+   make arch-clean OPTION=$option
+
+
+   #
+   # Build the distribution in debug MODE
+   #
+   echo ""
+   echo "==================="
+   echo "    DEBUG BUILD"
+   echo "==================="
+   echo ""
+
+   #
+   # Prepare distribution
+   #
+   echo "make static-dist OPTION=$option MODE=debug"
+   make static-dist OPTION=$option MODE=debug
+
+   #
+   # Create libyices.lib
+   #
+   echo ""
+   echo "lib /def:libyices.def /machine:$arch"
+   cd $dbg_dist_dir
+   lib /def:libyices.def /machine:$arch
+   #
+   # Cleanup
+   #
+   rm libyices.def
+   rm libyices.exp
+   rm libyices.dll.a
+   #
+   # Make the tarfile
+   #
+   cd $topdir
+   echo ""
+   echo "make static-tarfile OPTION=$option MODE=debug"
+   make static-tarfile OPTION=$option MODE=debug
+   #
+   # Rename the distribution
+   #
+   echo "mv $static_tarfile $dbg_tarfile"
+   mv distributions/$static_tarfile distributions/$dbg_tarfile
+
+   #
+   # Build the distribution in release MODE
+   #
+   echo ""
+   echo "================================="
+   echo "    RELEASE BUILD (OPTION = $option)"
+   echo "================================="
+   echo ""
+
+   #
+   # Prepare distribution
+   #
+   echo "make static-dist OPTION=$option"
+   make static-dist OPTION=$option
+   #
+   # Create libyices.lib
+   #
+   echo ""
+   echo "lib /def:libyices.def /machine:$arch"
+   cd $static_dist_dir
+   lib /def:libyices.def /machine:$arch
+   #
+   # Cleanup
+   #
+   rm libyices.def
+   rm libyices.exp
+   rm libyices.dll.a
+   #
+   # Make the tarfile
+   #
+   cd $topdir
+   echo ""
+   echo "make static-tarfile OPTION=$option"
+   make static-tarfile OPTION=$option
+
+done
+
+#
+echo ""
+echo "Done"
+echo ""
+
+

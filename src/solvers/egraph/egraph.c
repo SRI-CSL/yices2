@@ -40,7 +40,6 @@
 #include "api/yices_globals.h"
 #include "mt/thread_macros.h"
 
-
 #define TRACE 0
 #define TRACE_FCHECK 0
 
@@ -5882,7 +5881,7 @@ static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, t
 
 /*
  * Process a term partition
- * - return true if all terms of every class in part can be reconciled
+ * - return true if all terms of every class in the partition can be reconciled
  * - return false otherwise
  */
 static bool egraph_reconcile_partition(egraph_t *egraph, ipart_t *partition, void *solver, th_egraph_interface_t *eg) {
@@ -6191,13 +6190,13 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t _o_egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  //  if (egraph->base_level == egraph->decision_level || egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
   if (egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
   }
 }
+
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   MT_PROTECT(fcheck_code_t, __yices_globals.lock, _o_egraph_final_check(egraph));
 }

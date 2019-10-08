@@ -183,8 +183,6 @@ static void init_global_types(void) {
 
 
 
-
-
 /*
  * CONSTRUCTOR TESTS
  */
@@ -1214,11 +1212,6 @@ static term_t test_arith_rdiv(term_t a, term_t b, char *name) {
 
   return x;
 }
-
-
-
-
-
 
 
 static term_t test_bvarray4(term_t a, term_t b, term_t c, term_t d, char *name) {

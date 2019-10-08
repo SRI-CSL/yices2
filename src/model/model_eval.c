@@ -1405,7 +1405,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
       }
 
-      // it the result v is unknown we quit now
+      // if the result v is unknown we quit now
       assert(v >= 0); // Coverity thinks v can be negative.
       if (object_is_unknown(eval->vtbl, v)) {
         longjmp(eval->env, MDL_EVAL_FAILED);

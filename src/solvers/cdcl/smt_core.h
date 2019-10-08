@@ -1267,7 +1267,6 @@ static inline smt_status_t smt_status(smt_core_t *s) {
   return s->status;
 }
 
-
 /*
  * Read the heuristic parameters
  */
@@ -1379,9 +1378,10 @@ static inline uint32_t num_clauses(smt_core_t *s) {
     num_prob_clauses(s) + num_learned_clauses(s);
 }
 
-
 // average size of the learned clauses
 extern double avg_learned_clause_size(smt_core_t *core);
+
+
 
 
 /************************************
@@ -1574,7 +1574,6 @@ extern void collect_true_literals(smt_core_t *s, ivector_t *v);
 extern void collect_decision_literals(smt_core_t *s, ivector_t *v);
 
 
-
 /*
  * Import a model from an external solver
  * - this sets the value of a boolean variable b
@@ -1588,6 +1587,21 @@ static inline void set_smt_status(smt_core_t *s, smt_status_t status) {
   s->status = status;
 }
 
+/*
+ * Check whether the core is trivially SAT
+ * - i.e., check whether there are no problem clauses
+ */
+extern bool smt_trivially_sat(smt_core_t *s);
+
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ * Restrictions:
+ * - s->status must be SEARCHING
+ * - s must be purely Boolean.
+ */
+extern bool smt_easy_sat(smt_core_t *s);
 
 
 /*********************
@@ -1970,7 +1984,6 @@ static inline bool all_variables_assigned(smt_core_t *s) {
   assert(s->stack.top <= s->nvars);
   return s->nvars == s->stack.top;
 }
-
 
 /*
  * Check whether all problem clauses (binary clauses + clauses with at

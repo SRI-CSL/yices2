@@ -196,10 +196,11 @@ static uint64_t bv64_from_array(const term_t *a, uint32_t n) {
   c = 0;
   mask = 1;
   for (i=0; i<n; i++) {
-    c |= mask & (a[i] == true_term);
+    if (a[i] == true_term) {
+      c |= mask;
+    }
     mask <<= 1;
   }
-
   assert(norm64(c, n) == c);
 
   return c;

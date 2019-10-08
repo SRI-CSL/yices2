@@ -52,6 +52,10 @@
  * - keep_var(bvar_t v): tell the solver that v shouldn't be eliminated
  * - var_def2(bvar_t v, uint32_t b, literal_t l1, literal_t l2)
  * - var_def3(bvar_t v, uint32_t b, literal_t l1, literal_t l2, literal_t l3)
+ *
+ * The var_def functions state that v is a function of l1, l2, (and l3).
+ * The lower-order 8 bits of b define a truth table using the same conventions
+ * as in new_gates.h.
  */
 typedef void (*add_empty_clause_fun_t)(void *solver);
 typedef void (*add_unit_clause_fun_t)(void *solver, literal_t l);
@@ -95,6 +99,19 @@ typedef struct delegate_s {
  */
 extern bool init_delegate(delegate_t *delegate, const char *solver_name, uint32_t nvars);
 
+
+/*
+ * Test whether a solver is known and supported.
+ * - solver_name = external solver to use
+ * - return true if this solver is supported (i.e., can be used in init_delegate).
+ * - return false otherwise.
+ * - extra information is returned in *unknown:
+ *   if we don't support the solver at all, *unknown is set to true
+ *   if we have optional support (but not compiled), *unknown is set to fasle.
+ */
+extern bool supported_delegate(const char *solver_name, bool *unknown);
+
+
 /*
  * Delete the solver and free memory
  */
@@ -117,6 +134,8 @@ extern bval_t delegate_get_value(delegate_t *delegate, bvar_t x);
  * Set verbosity level for the delegate
  */
 extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
+
+
 
 
 #endif /* __DELEGATE_H */

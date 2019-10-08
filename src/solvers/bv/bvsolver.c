@@ -5254,6 +5254,15 @@ thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c) {
   return get_bvconst64(&solver->vtbl, c->bitsize, c->value);
 }
 
+/*
+ * Zero constant:
+ * - n = number of bits
+ */
+thvar_t bv_solver_create_zero(bv_solver_t *solver, uint32_t n) {
+  return get_zero(solver, n);
+}
+
+
 
 /*
  * Internalize a polynomial p:
@@ -8634,6 +8643,7 @@ static bv_interface_t bv_solver_context = {
   (create_bv_var_fun_t) bv_solver_create_var,
   (create_bv_const_fun_t) bv_solver_create_const,
   (create_bv64_const_fun_t) bv_solver_create_const64,
+  (create_bv_zero_fun_t) bv_solver_create_zero,
   (create_bv_poly_fun_t) bv_solver_create_bvpoly,
   (create_bv64_poly_fun_t) bv_solver_create_bvpoly64,
   (create_bv_pprod_fun_t) bv_solver_create_pprod,
