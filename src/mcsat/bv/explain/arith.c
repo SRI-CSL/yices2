@@ -44,6 +44,9 @@ typedef struct arith_s {
   // Cache of normalised terms such that conflict monomial is -1*v;
   // key is the term, value is v
   int_hmap_t coeffm1_cache;
+
+  // A counter that is increased with each call to the explainer
+  int32_t counter;
 } arith_t;
 
 /**
@@ -351,6 +354,11 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
       if (!is_signext) {
         // Unless it's a sign-extension, the rest of this BV_ARRAY must be evaluable
         if (!bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool)) {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "bit %d is NOT evaluable (giving up): ",i);
+            ctx_trace_term(ctx, t_i);
+          }
           return NULL_TERM;
         }
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -360,7 +368,19 @@ term_t lower_bit_extract_base(arith_t* exp, term_t t, uint32_t w, term_t* head, 
         }
         sbits[i] = t_i;
       } else { // The rest of this BV_ARRAY must be repeating the sign bit (sign-extension)
-        if (signbit != t_i) return NULL_TERM;
+        if (signbit != t_i) {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+            FILE* out = ctx_trace_out(ctx);
+            fprintf(out, "bit %d is NOT the duplicata of the sign bit (giving up): ",i);
+            ctx_trace_term(ctx, t_i);
+          }
+          return NULL_TERM;
+        }
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "bit %d is the duplicata of the sign bit: ",i);
+          ctx_trace_term(ctx, t_i);
+        }
       }
       i++; 
     }
@@ -1272,9 +1292,12 @@ bool cover(arith_t* exp,
       fprintf(out, "\n");
     }
   }
-  
-  ptr_array_sort2((void **)intervals[0], n, &longest->lo, cmp_base);
 
+  // The lower bound of the longest interval, &longest->lo, will serve as the baseline of the domain for the rest of this function.
+  // We sort intervals according to that baseline:
+  // as all intervals here have the same bitwidth, the first intervals are those whose lower bound is just after the baseline.
+  ptr_array_sort2((void **)intervals[0], n, &longest->lo, cmp_base);
+  
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "After sorting with baseline: ");
@@ -1283,7 +1306,10 @@ bool cover(arith_t* exp,
     print_intervals(ctx, intervals[0], n);
   }
 
-  // Positionning inherited in the array
+  // If we have an interval inherited from bigger bitwidths, we "insert it" in the now sorted array, so that the result is sorted.
+  // we never actually construct the resulting array in memory: we leave the sorted array untouched,
+  // identify which index the inherited interval would have if inserted,
+  // and then in the rest of this function we use the custom access function get_interval to access the virtual array.
   bool result = false; // As far as we know, we are not using inherited
   int32_t inherited_index = -1; //
   if (inherited != NULL) {
@@ -1296,7 +1322,11 @@ bool cover(arith_t* exp,
     n++; // one more interval to consider
   }
 
-  // The elements saved in output so far forbid conflict_var[w] to be in [saved_lo; saved_hi[
+  // First interval in the virtual array is always the longest.
+  // It is the first one we consider in the upcoming loop.
+  assert(longest == get_interval(intervals[0],inherited,inherited_index,0));
+
+  // The elements saved in output so far forbid conflict_var[w] to be in [first->lo; saved_hi[
   interval_t* first = NULL;
   bvconstant_t* saved_hi = &longest->hi;
   term_t saved_hi_term = longest->hi_term;
@@ -1309,7 +1339,7 @@ bool cover(arith_t* exp,
   interval_t* best_so_far = NULL;
   bool notdone = true;
 
-  // We loop over all intervals of that bitwidth
+  // We loop over all intervals of that bitwidth, starting with the longest.
   for(uint32_t j = 0; notdone && j <= n; ){
 
     interval_t* i = get_interval(intervals[0],inherited,inherited_index,j%n);
@@ -1621,7 +1651,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Transforming interval ");
       bv_arith_interval_print(out, ctx->terms, interval[0]);
-      fprintf(out, "\n");
+      fprintf(out, "\nNow analysing the shape of the conflict variable:\n");
     }
 
     uint32_t w = term_bitsize(terms, interval[0]->var);
@@ -1635,6 +1665,10 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     if (head == NULL_TERM) { // It's a sign-extend
       // We re-express the problem with 0-extend
       assert(variable_bits < w);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "It is a sign-extend!\n");
+      }
       bvconstant_t half; // Half of the number of values in the small bitwidth
       init_bvconstant(&half);
       bvconstant_set_all_zero(&half, w);
@@ -1651,6 +1685,12 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       interval[0] = result;
       head = bv_arith_zero(tm, w);
       delete_bvconstant(&half);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "We have transformed the interval into\n");
+        bv_arith_interval_print(out, ctx->terms, interval[0]);
+        fprintf(out, "\n");
+      }
     }
     
     assert(!is_full(interval[0]));
@@ -1709,9 +1749,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
         fprintf(out, "\n");
       }
 
-      interval_t* result =
-        bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
-      // We don't really care about the variable if that interval is really the result
+      interval_t* result = bv_arith_interval_mk(exp,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
 
       if (is_full(result)) { // Interval on smaller bitwidth is full or empty
         bv_arith_interval_destruct(result);
@@ -1762,7 +1800,9 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       // with one of two situations:
       // - base is y<variable_bits> where y is the conflict variable itself
       // - base is a bv_poly (lower bits extraction has been pushed)
-      // We only have to do something if it is a bv_poly
+      // - or in case the original variable was a sign-extension,
+      // we could get back a BV_ARRAY again in some very specific cases (see bug#142)
+      // We only have to do something if it is a bv_poly or a bv_array
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "New variable is ");
@@ -1771,6 +1811,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       }
 
       switch (term_kind(terms, base)) {
+      case BV_ARRAY:
       case BV_POLY:
       case BV64_POLY: {
         assert(term_bitsize(terms,base) == variable_bits);
@@ -2005,6 +2046,10 @@ void bvarith_explain(bv_subexplainer_t* this,
     }
     fprintf(out,"\n");
   }
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "A job well done\n");
+  }
 }
 
 static
@@ -2025,6 +2070,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   plugin_context_t* ctx      = this->ctx;
   term_table_t* terms        = ctx->terms;
 
+  uint32_t result = true;
+  
   // We're facing a new problem, with a trail we don't know
   // We must reset the cache & co.
   // which date back from a previous conflict or propagation
@@ -2033,10 +2080,14 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   int_hmap_reset(&exp->coeff1_cache);
   int_hmap_reset(&exp->coeffm1_cache);
 
+  exp->counter++;
   
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith looks at new conflict of size %d\n\n",conflict_core->size);
+    fprintf(out, "bv_arith looks at new conflict (%d) of size %d with conflict variable ",exp->counter,conflict_core->size);
+    term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
+    ctx_trace_term(ctx, conflict_var_term);
+    fprintf(out, "\n");
   }
 
 
@@ -2066,8 +2117,10 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       assert(atom_comp->arity == 2);
       term_t t0 = atom_comp->arg[0];
       term_t t1 = atom_comp->arg[1];
-      if (!is_pos_term(t0) || !is_pos_term(t1))
-        return false;
+      if (!is_pos_term(t0) || !is_pos_term(t1)) {
+        result = false;
+        break;
+      }
       // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
       bv_evaluator_csttrail_scan(csttrail, atom_var);
       
@@ -2088,7 +2141,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
           ctx_trace_term(ctx, csttrail->conflict_var_term);
           ctx_trace_term(ctx, atom_term);
         }
-        return false;
+        result = false;
+        break;
       }
       if (t1_coeff == 2) {
         // Turns out we actually can't deal with the constraint. We stop
@@ -2108,11 +2162,13 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
           ctx_trace_term(ctx, csttrail->conflict_var_term);
           ctx_trace_term(ctx, atom_term);
         }
-        return false;
+        result = false;
+        break;
       }
       if ((t0_coeff * t1_coeff == 1) && (var0 != var1)) {
         if ((term_kind(terms,var0) != BV_ARRAY) || (term_kind(terms,var1) != BV_ARRAY)) {
-          return false;
+          result = false;
+          break;
         }
         uint32_t w = term_bitsize(terms, t0);
         var0 = extract(exp, var0, w);
@@ -2121,13 +2177,25 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         term_t head0, head1;
         lower_bit_extract_base(exp,var0,w,&head0,&varbits0);
         lower_bit_extract_base(exp,var1,w,&head1,&varbits1);
-        if (varbits0 != varbits1) return false;
-        if (head0 == NULL_TERM && head1 != NULL_TERM) return false;
-        if (head1 == NULL_TERM && head0 != NULL_TERM) return false;
+        if (varbits0 != varbits1) {
+          result = false;
+          break;
+        }
+        if (head0 == NULL_TERM && head1 != NULL_TERM) {
+          result = false;
+          break;
+        }
+        if (head1 == NULL_TERM && head0 != NULL_TERM) {
+          result = false;
+          break;
+        }
         composite_term_t* desc0 = bvarray_term_desc(terms, var0);
         composite_term_t* desc1 = bvarray_term_desc(terms, var1);
         for (uint32_t u = 0; u < varbits0; u++){
-          if (desc0->arg[u] != desc1->arg[u]) return false;
+          if (desc0->arg[u] != desc1->arg[u]) {
+            result = false;
+            break;
+          }
         }
       }
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -2145,11 +2213,19 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         fprintf(out, "Can't understand predicate:\n");
         ctx_trace_term(ctx, atom_term);
       }
-      return false;
+      result = false;
+      break;
     }
-    } 
+    }
+    if (!result) {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "I am le tired\n");
+      }
+      break;
+    }
   }
-  return true;
+  return result;
 }
 
 static
