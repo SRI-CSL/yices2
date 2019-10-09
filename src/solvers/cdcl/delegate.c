@@ -206,14 +206,20 @@ static void cadical_set_verbosity(void *solver, uint32_t level) {
   // verbosity 1 --> normal cadical output (quiet = false)
   // verbosity 2 --> cadical verbosity 1
   // verbosity 3 --> cadical verbosity 2
+  //
+  // With cadical 1.2.0:
+  // - we must set option 'report' to true otherwise
+  //   nothing is printed at verbosity level < 2
+  // 
   if (level == 0) {
-    ccadical_set_option(solver, "quiet", 1.0);
+    ccadical_set_option(solver, "quiet", 1);
   } else {
-    ccadical_set_option(solver, "quiet", 0.0);
+    ccadical_set_option(solver, "quiet", 0);
+    ccadical_set_option(solver, "report", 1);
     if (level == 2) {
-      ccadical_set_option(solver, "verbose", 1.0);
+      ccadical_set_option(solver, "verbose", 1);
     } else if (level >= 3) {
-      ccadical_set_option(solver, "verbose", 2.0);
+      ccadical_set_option(solver, "verbose", 2);
     }
   }
 }
@@ -224,7 +230,7 @@ static void cadical_delete(void *solver) {
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
-  ccadical_set_option(d->solver, "quiet", 1.0); // no output from cadical by default
+  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
