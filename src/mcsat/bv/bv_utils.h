@@ -359,6 +359,8 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
 // builds extracted term, form lo (inc.) to hi (exc.)
 static inline
 term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
+  if (lo == 0 && hi == term_bitsize(tm->terms, t))
+    return t;
   bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
   term_t tarray[1];
   tarray[0] = t;
