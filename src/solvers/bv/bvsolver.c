@@ -984,6 +984,13 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
   bvc_t *compiler;
   uint32_t i, n;
 
+#if 0
+  printf("---- COMPILE POLYNOMIALS ----\n");
+  print_bv_vartable(stdout, &solver->vtbl);
+  print_bv_atomtable(stdout, &solver->atbl);
+  printf("\n");
+#endif
+
   bv_solver_alloc_compiler(solver);
 
   compiler = solver->compiler;
@@ -995,6 +1002,11 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY:
     case BVTAG_PPROD:
       if (bvvar_is_useful(solver, i)) {
+#if 0
+	printf("  push var: ");
+	print_bv_solver_vardef(stdout, solver, i);
+	printf("\n");
+#endif
         bv_compiler_push_var(compiler, i);
       }
       break;
@@ -1007,6 +1019,8 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 
   // process the polynomials
   bv_compiler_process_queue(compiler);
+
+  //  print_solver_state(stdout, solver);
 }
 
 

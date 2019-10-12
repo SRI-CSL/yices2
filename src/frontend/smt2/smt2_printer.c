@@ -37,7 +37,6 @@ static inline void smt2_pp_bitvector(yices_pp_t *printer, value_bv_t *b) {
 /*
  * SMT2 format for integer and rational constants
  */
-
 // side effect on q
 static void smt2_pp_integer(yices_pp_t *printer, rational_t *q) {
   assert(q_is_integer(q));

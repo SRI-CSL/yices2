@@ -1387,6 +1387,10 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   }
 
   r  = bvc_dag_nocc_of_var(&c->dag, x); // node occurrence mapped to x
+  if (bvc_dag_nocc_has_flipped(&c->dag, r)) {
+    r = negate_occ(r);
+ }
+
   y = bvc_dag_get_nocc_compilation(&c->dag, r); // r is compiled to y
   assert(y >= 0);
 
@@ -1428,7 +1432,6 @@ void bv_compiler_process_queue(bvc_t *c) {
   for (i=0; i<n; i++) {
     bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
   }
-
 
   // compile the rest until the complex-node list is empty
   for (;;) {
