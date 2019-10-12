@@ -58,7 +58,7 @@ bool bv_interval_is_in(const bvconstant_t* a, const interval_t* i);
 // which must have the same bitwidth as x and y.
 bool bv_interval_cmp(void *data, void *x, void *y);
 
-// inhabits output
+// inhabits output; lo and hi can be NULL, in which case they are computed from lo_term and hi_term
 void bv_interval_construct(bv_subexplainer_t* exp,
                            const bvconstant_t* lo,
                            const bvconstant_t* hi,

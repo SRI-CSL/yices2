@@ -101,38 +101,17 @@ bool bv_interval_cmp(void *data, void *x, void *y){
   return (get_bitwidth(i2) < get_bitwidth(i1));
 }
 
-// inhabits output
-void bv_interval_construct(bv_subexplainer_t* exp,
-                           const bvconstant_t* lo,
-                           const bvconstant_t* hi,
-                           term_t lo_term,
-                           term_t hi_term,
-                           term_t var,
-                           term_t reason,
-                           interval_t* output) {
-  
-  /* plugin_context_t* ctx = exp->super.ctx; */
-  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
-  /*   FILE* out = ctx_trace_out(ctx); */
-  /*   fprintf(out, "Constructing interval from lo = "); */
-  /*   bvconst_print(out, lo->data, lo->bitsize); */
-  /*   fprintf(out, ", hi = "); */
-  /*   bvconst_print(out, hi->data, hi->bitsize); */
-  /*   fprintf(out, ", lo_term = "); */
-  /*   term_print_to_file(out, ctx->terms, lo_term); */
-  /*   fprintf(out, ", hi_term = "); */
-  /*   term_print_to_file(out, ctx->terms, hi_term); */
-  /*   fprintf(out, "\n"); */
-  /* } */
 
-  init_bvconstant(&output->lo);
-  init_bvconstant(&output->hi);
-  init_bvconstant(&output->length);
+static
+void construct(bv_subexplainer_t* exp,
+               const bvconstant_t* lo,
+               const bvconstant_t* hi,
+               term_t lo_term,
+               term_t hi_term,
+               interval_t* output) {
+
   output->lo_term = lo_term;
   output->hi_term = hi_term;
-  output->var     = var;
-  output->reason  = reason;
-  init_ivector(&output->reasons,0);
 
   uint32_t ignore_this_int = 0;
   const bvconstant_t* tmp;
@@ -162,13 +141,28 @@ void bv_interval_construct(bv_subexplainer_t* exp,
   bvconstant_normalize(&output->length);
   bvconstant_sub_one(&output->length);
   bvconstant_normalize(&output->length);
+
+}
+
+// inhabits output
+void bv_interval_construct(bv_subexplainer_t* exp,
+                           const bvconstant_t* lo,
+                           const bvconstant_t* hi,
+                           term_t lo_term,
+                           term_t hi_term,
+                           term_t var,
+                           term_t reason,
+                           interval_t* output) {
   
-  /* if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) { */
-  /*   FILE* out = ctx_trace_out(ctx); */
-  /*   fprintf(out, "bv_arith creates interval "); */
-  /*   bv_arith_interval_print(out, ctx->terms, output); */
-  /*   fprintf(out, "\n"); */
-  /* } */
+  assert(lo_term != NULL_TERM);
+  assert(hi_term != NULL_TERM);
+  init_bvconstant(&output->lo);
+  init_bvconstant(&output->hi);
+  init_bvconstant(&output->length);
+  init_ivector(&output->reasons,0);
+  output->var     = var;
+  output->reason  = reason;
+  construct(exp,lo,hi,lo_term,hi_term,output);
 }
 
 // Adds a newly constructed interval into the heap
@@ -200,3 +194,107 @@ interval_t* bv_interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t 
   return result;
 }
 
+
+// If interval is an interval for var,
+// then it becomes an interval for concat(var,u) for any u extending the low bits of var
+// w is the extended length (it doesn't check the var, and sets it back to NULL_TERM)
+void bv_interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* interval) {
+  plugin_context_t* ctx = exp->super.ctx;
+  term_manager_t* tm    = ctx->tm;
+  uint32_t n            = term_bitsize(tm->terms, lo_term);
+  assert(n <= w);
+  if (n < w && interval != NULL) {
+    term_t lo_term = bv_arith_downextension(tm, interval->lo_term, false_bit, n + w);
+    term_t hi_term = bv_arith_downextension(tm, interval->hi_term, false_bit, n + w);
+    construct(exp, NULL, NULL, lo_term, hi_term, interval);
+    interval->var = NULL;
+  }
+}
+
+// If interval is an interval for var,
+// then it becomes an interval for var<w>
+// (it doesn't check the var, and sets it back to NULL_TERM)
+void bv_interval_uptrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval) {
+  plugin_context_t* ctx = exp->super.ctx;
+  term_manager_t* tm    = ctx->tm;
+  uint32_t n            = term_bitsize(tm->terms, lo_term);
+
+  assert(w <= n);
+  if (w < n && interval != NULL) {
+    bvconstant_t smaller_width; // smaller_width: how many values of bitwidth ts.length?
+    init_bvconstant(&smaller_width);
+    bvconstant_set_all_zero(&smaller_width, n);
+    bool sanity = (bv_interval_is_in(&smaller_width, interval));
+    bvconst_set_bit(smaller_width.data, w); 
+    bvconstant_normalize(&smaller_width);
+    term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
+    term_t t0 = interval->lo_term;
+    term_t t1 = interval->hi_term;
+
+    term_t lo_term, lo_reason;
+    if (bvconstant_lt(&interval->lo,&smaller_width)) {
+      lo_term   = term_extract(tm, t0, 0, w);
+      lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
+    } else {
+      lo_term   = bv_arith_zero(tm, w);
+      lo_reason = bv_arith_le(tm, smaller_width_term, t0);
+    }
+    if (lo_reason != NULL_TERM) {
+      ivector_push(interval->reasons, lo_reason);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "  adding lo_reason ");
+        term_print_to_file(out, tm->terms, lo_reason);
+        fprintf(out, "\n");
+      }
+    }
+
+    term_t hi_term, hi_reason;
+    if (bvconstant_lt(&interval->hi,&smaller_width)) {
+      hi_term   = term_extract(tm, t1, 0, w);
+      hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
+    } else {
+      hi_term   = bv_arith_zero(tm, w);
+      hi_reason = bv_arith_le(tm, smaller_width_term, t1);
+    }
+    if (hi_reason != NULL_TERM) {
+      ivector_push(interval->reasons, hi_reason);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "  adding hi_reason ");
+        term_print_to_file(out, tm->terms, hi_reason);
+        fprintf(out, "\n");
+      }
+    }
+
+    delete_bvconstant(&smaller_width);
+    construct(exp, NULL, NULL, lo_term, hi_term, interval);
+
+    if (is_full(interval)) { // Interval on smaller bitwidth is full or empty
+      assert(sanity); // Actually, it should be full
+      term_t zero_term = bv_arith_zero(tm, w);
+      construct(exp, NULL, NULL, zero_term, zero_term, interval);
+      interval->reason = bv_arith_lt(tm,
+                                   bv_arith_negate_terms(tm, t0),
+                                   bv_arith_sub_terms(tm, t1, t0));
+    }
+    interval->var = NULL;
+
+  }
+
+}
+
+
+// If interval is an interval for var, then it becomes an interval for var + u
+void bv_interval_plus(bv_subexplainer_t* exp, term_t u, interval_t* interval) {
+  plugin_context_t* ctx = exp->super.ctx;
+  term_manager_t* tm    = ctx->tm;
+  if (interval != NULL) {
+    if (!is_full(interval)) {
+      term_t lo_term = bv_arith_add_terms(tm, interval->lo_term, u);
+      term_t hi_term = bv_arith_add_terms(tm, interval->hi_term, u);
+      construct(exp, NULL, NULL, lo_term, hi_term, interval);
+    }
+    interval->var = NULL;
+  }
+}

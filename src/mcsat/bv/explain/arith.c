@@ -300,12 +300,14 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
     if (shortlength != result->length) {
       // This is a sign-extension,
       // base to return is (0extend(base+half(shortlength)) - 0extend(half(shortlength)))
-      term_t tmp1 = bv_arith_extension(tm,
-                                       bv_arith_add_half(tm, result->base),
-                                       result->length);
-      term_t tmp2 = bv_arith_extension(tm,
-                                       bv_arith_add_half(tm, bv_arith_zero(tm, shortlength)),
-                                       result->length);
+      term_t tmp1 = bv_arith_upextension(tm,
+                                         bv_arith_add_half(tm, result->base),
+                                         false_bit,
+                                         result->length);
+      term_t tmp2 = bv_arith_upextension(tm,
+                                         bv_arith_add_half(tm, bv_arith_zero(tm, shortlength)),
+                                         false_bit,
+                                         result->length);
       result->base   = bv_arith_sub_terms(tm, tmp1, tmp2);
       result->intros = true;
     }
@@ -1279,7 +1281,7 @@ bool cover(arith_t* exp,
       // If we are explaining a propagation and got a feasible value in the hole:
       if (substitution != NULL && rec_substitution != NULL_TERM) {
         term_t diff = bv_arith_sub_terms(tm, rec_substitution, lo_proj_term);
-        substitution[0] = bv_arith_add_terms(tm, lo_term, bv_arith_extension(tm, diff, w));
+        substitution[0] = bv_arith_add_terms(tm, lo_term, bv_arith_upextension(tm, diff, false_bit, w));
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "Hole was from ");
@@ -1405,103 +1407,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     assert(ts.base != NULL_TERM);
 
     if (ts.length < w) {
-      // The variable is a proper extension of something (otherwise we do nothing)
-      bvconstant_t smaller_width; // smaller_width: how many values of bitwidth ts.length?
-      init_bvconstant(&smaller_width);
-      bvconstant_set_all_zero(&smaller_width, w);
-      bvconst_set_bit(smaller_width.data, ts.length); 
-      bvconstant_normalize(&smaller_width);
-      term_t smaller_width_term = mk_bv_constant(tm, &smaller_width);
-      term_t t0 = bv_arith_sub_terms(tm, interval[0]->lo_term, head);
-      term_t t1 = bv_arith_sub_terms(tm, interval[0]->hi_term, head);
 
-      uint32_t ignore_this_int = 0;
-
-      const mcsat_value_t* v0 = bv_evaluator_evaluate_term(eval, t0, &ignore_this_int);
-      assert(v0->type == VALUE_BV);
-      term_t lo_term, lo_reason;
-      if (bvconstant_lt(&v0->bv_value,&smaller_width)) {
-        lo_term   = term_extract(tm, interval[0]->lo_term, 0, ts.length);
-        lo_reason = bv_arith_lt(tm, t0, smaller_width_term);
-      } else {
-        lo_term   = bv_arith_zero(tm, ts.length);
-        lo_reason = bv_arith_le(tm, smaller_width_term, t0);
-      }
-
-      const mcsat_value_t* v1 = bv_evaluator_evaluate_term(eval, t1, &ignore_this_int);
-      assert(v1->type == VALUE_BV);
-      term_t hi_term, hi_reason;
-      if (bvconstant_lt(&v1->bv_value,&smaller_width)) {
-        hi_term   = term_extract(tm, interval[0]->hi_term, 0, ts.length);
-        hi_reason = bv_arith_lt(tm, t1, smaller_width_term);
-      } else {
-        hi_term   = bv_arith_zero(tm, ts.length);
-        hi_reason = bv_arith_le(tm, smaller_width_term, t1);
-      }
-
-      delete_bvconstant(&smaller_width);
-
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "ts.length is %d and head is ",ts.length);
-        term_print_to_file(out, tm->terms, head);
-        fprintf(out, "\nand lo - head is ");
-        term_print_to_file(out, tm->terms, t0);
-        fprintf(out, "\nand hi - head is ");
-        term_print_to_file(out, tm->terms, t1);
-        fprintf(out, "\nand smaller_width_term is ");
-        term_print_to_file(out, tm->terms, smaller_width_term);
-        fprintf(out, "\nand lo_term (on smaller bitwidth) is ");
-        term_print_to_file(out, tm->terms, lo_term);
-        fprintf(out, "\nand hi_term (on smaller bitwidth) is ");
-        term_print_to_file(out, tm->terms, hi_term);
-        fprintf(out, "\n");
-      }
-
-      interval_t* result = bv_interval_mk(&exp->super,NULL,NULL,lo_term,hi_term,NULL_TERM,NULL_TERM);
-
-      if (is_full(result)) { // Interval on smaller bitwidth is full or empty
-        bv_interval_destruct(result);
-        const mcsat_value_t* head_v =
-          bv_evaluator_evaluate_term(eval, head, &ignore_this_int);
-        assert(head_v->type == VALUE_BV);
-        if (bv_interval_is_in(&head_v->bv_value, interval[0])) {
-          term_t reason = bv_arith_lt(tm,
-                                      bv_arith_sub_terms(tm, head, interval[0]->lo_term),
-                                      bv_arith_sub_terms(tm, interval[0]->hi_term, interval[0]->lo_term)
-                                      );
-          result = bv_interval_full_mk(&exp->super, reason, ts.length);
-        } else {
-          assert(false);
-          result = NULL;
-        }
-      }
-
-      ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
-      bv_interval_destruct(interval[0]);
-      interval[0] = result;
-
-      if (interval[0] == NULL) { return; } // Interval is empty, will not be used
-    
-      // Adding reasons to interval[0]:
-      if (lo_reason != NULL_TERM) {
-        ivector_push(&interval[0]->reasons, lo_reason);
-        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-          FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "  adding lo_reason ");
-          term_print_to_file(out, tm->terms, lo_reason);
-          fprintf(out, "\n");
-        }
-      }
-      if (hi_reason != NULL_TERM) {
-        ivector_push(&interval[0]->reasons, hi_reason);
-        if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-          FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "  adding hi_reason ");
-          term_print_to_file(out, tm->terms, hi_reason);
-          fprintf(out, "\n");
-        }
-      }
 
       if (is_full(interval[0])) { return; } // Interval is full, we're done
 
