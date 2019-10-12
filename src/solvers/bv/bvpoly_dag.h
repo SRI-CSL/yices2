@@ -357,7 +357,7 @@ typedef struct bvc_item_s {
  * To keep track of the nodes mapped to a variable x:
  * - vset = set of variables mapped to an existing node
  * - vmap = map variable x to +/-n, where n is a DAG node index
- * - flipped = a bitvecttor to keep track of nodes whose sign was flipped
+ * - flipped = a bitvector to keep track of nodes whose sign was flipped
  *   flipped is NULL by default. It's allocated on demand,
  *   for a node i: flipped[i] = 1 if i's sign was flipped.
  * So a variable that's initially mapped to node n = pos(i) is mapped to
