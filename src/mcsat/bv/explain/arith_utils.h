@@ -46,7 +46,7 @@ term_t bv_arith_upextension(term_manager_t* tm, term_t t, term_t b, uint32_t w);
 
 // Make a low-bits extension of t, the extra bits being copies of boolean term b.
 // w is the final bitwidth.
-term_t bv_arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w)
+term_t bv_arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w);
   
 /**
    Making atoms. Assumption for these functions:

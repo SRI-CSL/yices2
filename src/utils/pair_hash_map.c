@@ -339,7 +339,7 @@ static pmap_rec_t *pmap_get_next(pmap_t *hmap, pmap_rec_t *p) {
 
   end = hmap->data + hmap->size;
   while (p < end) {
-    if valid_record(p) return p;
+    if (valid_record(p)) return p;
     p ++;
   }
 

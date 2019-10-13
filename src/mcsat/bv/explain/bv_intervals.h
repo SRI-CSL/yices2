@@ -79,3 +79,25 @@ interval_t* bv_interval_mk(bv_subexplainer_t* exp,
 
 // Returns a newly constructed full interval on the heap
 interval_t* bv_interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t width);
+
+
+// If interval is an interval for var, then it becomes an interval for var + u
+void bv_interval_plus(bv_subexplainer_t* exp, term_t u, interval_t* interval);
+
+// If interval is an interval for var,
+// then it becomes an interval for concat(var,u) for any u extending the low bits of var
+// w is the length of concat(var,u). Function doesn't check the var,
+// and sets it back to NULL_TERM if interval is modified.
+void bv_interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+
+// If interval is an interval for 0...0var, then it becomes an interval for var
+// (of length w). Interval can become empty, in which case function outputs true
+// (otherwise outputs false). Function doesn't check the var,
+// and sets it back to NULL_TERM if interval is modified.
+bool bv_interval_uptrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+
+// If interval is an interval for var0...0 (w is the number of extra zeros),
+// then it becomes an interval for var
+// (it doesn't check the var, and sets it back to NULL_TERM)
+bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+

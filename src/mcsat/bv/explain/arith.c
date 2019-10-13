@@ -1385,7 +1385,6 @@ bool cover(arith_t* exp,
 void transform_interval(arith_t* exp, interval_t** interval) {
 
   plugin_context_t* ctx = exp->super.ctx;
-  bv_evaluator_t* eval  = &exp->super.eval;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
 
@@ -1401,69 +1400,51 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     uint32_t w = term_bitsize(terms, interval[0]->var);
 
     // We analyse the shape of the variable whose value is forbidden to be in interval[0]
-    termstruct_t ts;
-    analyse(exp,interval[0]->var,0,w,&ts);
-    assert(ts.length != 0);
-    assert(ts.base != NULL_TERM);
+    termstruct_t* ts = analyse(exp,interval[0]->var,w);
+    assert(!ts->nobueno);    // Otherwise it wouldn't be in the fragment
+    assert(ts->length != 0); // Otherwise the term is evaluable
+    assert(bv_arith_is_zero(terms, ts->e)); // The variable should only have zeros as evaluable bits
+    assert(ts->base != NULL_TERM); // There should be a base
+    assert(ts->base == exp->csttrail.conflict_var // Either it's the conflict variable
+           || term_bitsize(terms,ts->base) == ts->start + ts->length);
+    // or the top pruning has been pushed further inside the base
 
-    if (ts.length < w) {
+    bool is_empty = bv_interval_uptrim(&exp->super, ts->suffix+ts->length, interval[0]);
+    assert(!is_empty);
+    is_empty = bv_interval_downtrim(&exp->super, ts->suffix, interval[0]);
+    assert(!is_empty);
+    bv_interval_downextend(&exp->super, ts->start > 0, interval[0]);
 
-
-      if (is_full(interval[0])) { return; } // Interval is full, we're done
-
-      // The new variable that shouldn't be in interval[0] is ts.base
-      // with one of two situations:
-      // - ts.base is y<ts.length> where y is the conflict variable itself
-      // - ts.base is a bv_poly (lower bits extraction has been pushed)
-      // - or in case the original variable was a sign-extension,
-      // we could get back a BV_ARRAY again in some very specific cases (see bug#142)
-      // We only have to do something if it is a bv_poly or a bv_array
+    switch (term_kind(terms, ts->base)) {
+    case BV_POLY:
+    case BV64_POLY: {
+      polypair_t* p = bv_arith_coeff(exp, ts->base, true);
+      assert(p->coeff == 1 || p->coeff == -1);
+      if (p->coeff == 1)
+        bv_interval_plus(&exp->super,bv_arith_negate_terms(tm,p->polyrest),interval[0]);
+      else
+        bv_interval_plus(&exp->super,p->polyrest, interval[0]);
+      interval[0]->var = p->var;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "New variable is ");
-        term_print_to_file(out, tm->terms, ts.base);
+        term_print_to_file(out, tm->terms, interval[0]->var);
         fprintf(out, "\n");
       }
-
-      switch (term_kind(terms, ts.base)) {
-      case BV_ARRAY:
-      case BV_POLY:
-      case BV64_POLY: {
-        assert(term_bitsize(terms,ts.base) == ts.length);
-        assert(term_bitsize(terms,interval[0]->lo_term) == ts.length);
-        assert(term_bitsize(terms,interval[0]->hi_term) == ts.length);
-        term_t new_var = NULL_TERM;
-        int32_t coeff = bv_arith_coeff(exp, ts.base, &new_var, true);
-        assert(coeff == 1 || coeff == -1);
-        bvconstant_t cc;
-        term_t rest = bv_arith_init_side(exp, ts.base, coeff, &new_var, &cc);
-        assert(term_bitsize(terms,rest) == ts.length);
-        delete_bvconstant(&cc);
-        lo_term = bv_arith_sub_terms(tm, interval[0]->lo_term, rest);
-        hi_term = bv_arith_sub_terms(tm, interval[0]->hi_term, rest);
-        if (coeff == 1) {
-          result = bv_interval_mk(&exp->super,NULL,NULL,lo_term,hi_term,new_var,NULL_TERM);
-        } else {
-          term_t new_lo_term =
-            bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, hi_term));
-          term_t new_hi_term =
-            bv_arith_add_one_term(tm,bv_arith_negate_terms(tm, lo_term));
-          result = bv_interval_mk(&exp->super,NULL,NULL,new_lo_term,new_hi_term,new_var,NULL_TERM);
-        }
-
-        ivector_add(&result->reasons, interval[0]->reasons.data, interval[0]->reasons.size);
-        bv_interval_destruct(interval[0]);
-        interval[0] = result;
-
-        transform_interval(exp, interval);
-        break;
-      }
-      default: {
-      }
-      }
-
+      transform_interval(exp, interval);
+      break;
     }
-
+    default: {
+      assert(ts->base == exp->csttrail.conflict_var);
+      interval[0]->var = term_extract(tm, ts->base, 0, ts->start + ts->length);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "New variable is ");
+        term_print_to_file(out, tm->terms, interval[0]->var);
+        fprintf(out, "\n");
+      }
+    }
+    }
   }
 }
 
@@ -1517,47 +1498,51 @@ void bvarith_explain(bv_subexplainer_t* this,
     // reasons_out always contains reasons_in:
     ivector_push(reasons_out, atom_i_value?atom_i_term:not_term(terms, atom_i_term));
 
-    composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
-    assert(atom_i_comp->arity == 2);
-    term_t t0 = atom_i_comp->arg[0];
-    term_t t1 = atom_i_comp->arg[1];
-    assert(is_pos_term(t0));
-    assert(is_pos_term(t1));
-    uint32_t w = term_bitsize(terms, t0);
-    t0 = extract(exp, t0, w);
-    t1 = extract(exp, t1, w);
     term_t t0prime = NULL_TERM;
     term_t t1prime = NULL_TERM;
 
-    switch (term_kind(terms, atom_i_term)) {
-    case BV_GE_ATOM: {  
-      t0prime = t0;
-      t1prime = t1;
-      break;
-    }
-    case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1})
-      t0prime = bv_arith_add_half(tm, t0);
-      t1prime = bv_arith_add_half(tm, t1);
-      break;
-    }
-    case EQ_TERM :     
-    case BV_EQ_ATOM: { // equality
-      t0prime = bv_arith_zero(tm, w);
-      t1prime = bv_arith_sub_terms(tm, t0, t1);
-      break;
-    }
-    default:
-      assert(false);
-    }
+    if (term_kind(terms, atom_i_term) == BIT_TERM) {
+      t0prime = term_extract(tm, atom_i_term, 0, 1);
+      t1prime = bv_arith_add_one_term(tm, bv_arith_zero(tm, 1));
+    } else {
+      composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
+      assert(atom_i_comp->arity == 2);
+      term_t t0 = atom_i_comp->arg[0];
+      term_t t1 = atom_i_comp->arg[1];
+      assert(is_pos_term(t0));
+      assert(is_pos_term(t1));
+      uint32_t w = term_bitsize(terms, t0);
+      t0 = extract(exp, t0, w);
+      t1 = extract(exp, t1, w);
 
+      switch (term_kind(terms, atom_i_term)) {
+      case BV_GE_ATOM: {  
+        t0prime = t0;
+        t1prime = t1;
+        break;
+      }
+      case BV_SGE_ATOM: {  // (t0 >=s t1) is equivalent to (t0+2^{w-1} >=u t1+2^{w-1})
+        t0prime = bv_arith_add_half(tm, t0);
+        t1prime = bv_arith_add_half(tm, t1);
+        break;
+      }
+      case EQ_TERM :     
+      case BV_EQ_ATOM: { // equality
+        t0prime = bv_arith_zero(tm, w);
+        t1prime = bv_arith_sub_terms(tm, t0, t1);
+        break;
+      }
+      default:
+        assert(false);
+      }
+    }
     intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
 
-    term_t var = NULL_TERM;
-    bv_arith_coeff(exp, t0prime, &var, true);
-    if (var == NULL_TERM) {
-      bv_arith_coeff(exp, t1prime, &var, true);
-    }
-    if (var != NULL_TERM && intervals[i] != NULL) {
+    polypair_t* p0 = bv_arith_coeff(exp, t0prime, true);
+    polypair_t* p1 = bv_arith_coeff(exp, t1prime, true);
+    if ((p0->coeff != 0
+         || p1->coeff != 0)
+        && intervals[i] != NULL) {
       transform_interval(exp, &intervals[i]);
     }
   }
@@ -1680,12 +1665,12 @@ static
 bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, variable_t conflict_var) {
   
   // Standard abbreviations
-  arith_t* exp               = (arith_t*) this;
-  bv_csttrail_t* csttrail    = &exp->csttrail;
-  plugin_context_t* ctx      = this->ctx;
-  term_table_t* terms        = ctx->terms;
-
-  uint32_t result = true;
+  arith_t* exp            = (arith_t*) this;
+  bv_csttrail_t* csttrail = &exp->csttrail;
+  plugin_context_t* ctx   = this->ctx;
+  term_manager_t* tm      = ctx->tm;
+  term_table_t* terms     = ctx->terms;
+  uint32_t result         = true;
   
   // We're facing a new problem, with a trail we don't know
   // We must reset the cache & co.
@@ -1731,27 +1716,14 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       assert(atom_comp->arity == 2);
       term_t t0 = atom_comp->arg[0];
       term_t t1 = atom_comp->arg[1];
-      if (!is_pos_term(t0) || !is_pos_term(t1)) {
-        result = false;
-        break;
-      }
+      assert(is_pos_term(t0) && !is_pos_term(t1));
       // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
       bv_evaluator_csttrail_scan(csttrail, atom_var);
       
       // Now that we have collected the free variables, we look into the constraint structure
-      term_t var0 = NULL_TERM;
-      term_t var1 = NULL_TERM;
-      int32_t t0_coeff = bv_arith_coeff(exp, t0, &var0, false);
-      int32_t t1_coeff = bv_arith_coeff(exp, t1, &var1, false);
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "can_explain gets coefficients %d and %d for variables ", t0_coeff, t1_coeff);
-        term_print_to_file(out, terms, var0);
-        fprintf(out, " and ");
-        term_print_to_file(out, terms, var1);
-        fprintf(out, "\n");
-      }
-      if (t0_coeff == 2) {
+      polypair_t* p0 = bv_arith_coeff(exp, t0, false);
+      polypair_t* p1 = bv_arith_coeff(exp, t1, false);
+      if (p0 == NULL) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);
@@ -1762,7 +1734,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         result = false;
         break;
       }
-      if (t1_coeff == 2) {
+      if (p1 == NULL) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);
@@ -1770,7 +1742,29 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
           ctx_trace_term(ctx, csttrail->conflict_var_term);
           ctx_trace_term(ctx, atom_term);
         }
-        return false;
+        result = false;
+        break;
+      }
+      term_t var0 = p0->var;
+      term_t var1 = p1->var;
+      int32_t t0_coeff = p0->coeff;
+      int32_t t1_coeff = p1->coeff;
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "can_explain gets coefficients %d and %d for variables ", t0_coeff, t1_coeff);
+        term_print_to_file(out, terms, var0);
+        fprintf(out, " and ");
+        term_print_to_file(out, terms, var1);
+        fprintf(out, "\n");
+      }
+      if (var0 != var1) {
+        // Turns out we actually can't deal with the constraint. We stop
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Unevaluable monomials are different");
+        }
+        result = false;
+        break;
       }
       if (t0_coeff * t1_coeff == -1) {
         // Turns out we actually can't deal with the constraint. We stop
@@ -1783,45 +1777,39 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         result = false;
         break;
       }
-      if ((t0_coeff * t1_coeff == 1) && (var0 != var1)) {
-        if ((term_kind(terms,var0) != BV_ARRAY) || (term_kind(terms,var1) != BV_ARRAY)) {
-          result = false;
-          break;
-        }
-        uint32_t w = term_bitsize(terms, t0);
-        var0 = extract(exp, var0, w);
-        var1 = extract(exp, var1, w);
-        uint32_t varbits0, varbits1;
-        term_t head0, head1;
-        lower_bit_extract_base(exp,var0,w,&head0,&varbits0);
-        lower_bit_extract_base(exp,var1,w,&head1,&varbits1);
-        if (varbits0 != varbits1) {
-          result = false;
-          break;
-        }
-        if (head0 == NULL_TERM && head1 != NULL_TERM) {
-          result = false;
-          break;
-        }
-        if (head1 == NULL_TERM && head0 != NULL_TERM) {
-          result = false;
-          break;
-        }
-        composite_term_t* desc0 = bvarray_term_desc(terms, var0);
-        composite_term_t* desc1 = bvarray_term_desc(terms, var1);
-        for (uint32_t u = 0; u < varbits0; u++){
-          if (desc0->arg[u] != desc1->arg[u]) {
-            result = false;
-            break;
-          }
-        }
-      }
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "with monom variables\n");
         if (t0_coeff != 0) ctx_trace_term(ctx, var0);
         fprintf(out, "and\n");
         if (t1_coeff != 0) ctx_trace_term(ctx, var1);
+      }
+      break;
+    }
+    case BIT_TERM: {
+      term_t base = bit_term_arg(terms, atom_term);   // Get the base
+      assert(is_pos_term(base));
+      // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
+      bv_evaluator_csttrail_scan(csttrail, atom_var);
+      
+      // Now that we have collected the free variables, we look into the constraint structure
+      polypair_t* p = bv_arith_coeff(exp, term_extract(tm, base, 0, 1), false);
+      if (p == NULL) {
+        // Turns out we actually can't deal with the constraint. We stop
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "Base no good for ");
+          ctx_trace_term(ctx, csttrail->conflict_var_term);
+          ctx_trace_term(ctx, atom_term);
+        }
+        result = false;
+        break;
+      }
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "can_explain gets coefficient %d for variable ", p->coeff);
+        term_print_to_file(out, terms, p->var);
+        fprintf(out, "\n");
       }
       break;
     }
