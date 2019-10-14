@@ -84,12 +84,11 @@ typedef struct bv_csttrail_s {
   
   // bv variables of the conflict that have values on the trail
   int_hset_t free_var;
-  // Cache of terms that are constant
-  int_hset_t constant_cache;
-  // Cache of terms that are not constant but whose bv-variables (necessarily in free_var)
-  // all have values on the trail
-  int_hset_t evaluable_cache; 
 
+  // hashmap: maps pair (term t, term x) to the greatest number of lower bits of t that could be evaluated without having a value for x.
+  // if x is not a (direct) free var of t, then the value is either the bitsize of t, or MAX_INT in the special case the term has no variables at all
+  int_hmap2_t fv_cache;
+ 
   variable_t conflict_var; // The conflict variable
   term_t conflict_var_term; // The conflict variable as a term
   
@@ -112,3 +111,7 @@ void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom);
 // if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
 
 bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t, bool* use_trail);
+
+// For term u and variable (term) y, outputs the greatest number of lower bits of u that could be evaluated without having a value for x.
+// if x is not a (direct) free var of u, then the value is either the bitsize of u, or MAX_INT (-1) in the special case the term has no variables at all
+uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u, term_t y);

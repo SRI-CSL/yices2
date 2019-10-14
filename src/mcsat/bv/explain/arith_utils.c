@@ -15,7 +15,7 @@
 #include "terms/term_utils.h"
 
 #include "mcsat/bv/bv_utils.h"
-#include "arith.h"
+#include "arith_utils.h"
 
 /**
    Common arithmetic operations on terms that are not provided in terms or term manager

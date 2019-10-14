@@ -192,7 +192,7 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
       if (preproc[i][0] != NULL_TERM) {
         uint32_t size = preproc[i][1] + 1;
         preproc[i][1] = extract(exp, preproc[i][0], size);
-        preproc[i][2] = bv_evaluator_is_evaluable_topbit(&exp->csttrail, preproc[i][1], &ignore_this_bool);
+        preproc[i][2] = bv_evaluator_not_free_up_to(&exp->csttrail, preproc[i][1], NULL_TERM);
         if (preproc[i][2] > 0) {
           preproc[i][3] = (preproc[i][2] == size) ? preproc[i][1] : extract(exp, preproc[i][0], preproc[i][2]);
         }
