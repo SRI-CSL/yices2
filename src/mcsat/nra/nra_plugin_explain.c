@@ -68,7 +68,7 @@ void psc_buffer_delete(lp_polynomial_t** psc_buffer, uint32_t psc_buffer_size) {
 
 struct lp_projection_map_struct {
 
-  /** All polynomials added alrady */
+  /** All polynomials added already */
   lp_polynomial_hash_set_t all_polynomials;
 
   /** The sets we're maintaining */

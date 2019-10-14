@@ -4344,7 +4344,7 @@ static term_t convert_bvarith_to_bvarray(term_manager_t *manager, bvarith_buffer
     bvarray_copy_constant(v, n, m->coeff);
     m = m->next;
   } else {
-    // initialze v to 0b0000..0
+    // initialize v to 0b0000..0
     bvarray_set_zero_bv(v, n);
   }
 
@@ -4388,7 +4388,7 @@ static term_t convert_bvarith64_to_bvarray(term_manager_t *manager, bvarith64_bu
     bvarray_copy_constant64(v, n, m->coeff);
     m = m->next;
   } else {
-    // initialze vector0 to 0
+    // initialize vector0 to 0
     bvarray_set_zero_bv(v, n);
   }
 

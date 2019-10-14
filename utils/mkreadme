@@ -34,7 +34,7 @@
 # This scripts replaces 
 #  __YICES__      by the Yices version number
 #  __GMP__        by the GMP version
-#  __DYLIB__      by the name of the dynamic libray
+#  __DYLIB__      by the name of the dynamic library
 #  __OS_VERSION__ by the build OS
 # in the template
 #

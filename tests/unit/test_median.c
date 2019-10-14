@@ -44,7 +44,7 @@ static inline long int random(void) {
 
 /*
  * a must be an array of n+1 elements with a[n] as an end marker
- * - a[n] must be larger than any elemet in a[0 .. n-1]
+ * - a[n] must be larger than any element in a[0 .. n-1]
  */
 static int32_t median(int32_t *a, uint32_t n) {
   uint32_t low, high, half, i, j;

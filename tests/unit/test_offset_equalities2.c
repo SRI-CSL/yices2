@@ -305,7 +305,7 @@ static void build_poly_table(poly_table_t *table, uint32_t nvars, uint32_t n) {
 /*
  * To double check the offset manager results, we store a variable
  * substitution in the following data structure.
- * - subst->size = an upper bound on the actual number of varibles
+ * - subst->size = an upper bound on the actual number of variables
  * - subst->elim[x] = true if x is mapped to (y + k) in the substitution
  * - subst->var[x] = the variable y
  * - subst->delta[x] = the constant k
@@ -397,7 +397,7 @@ static void remove_subst(substitution_t *s, int32_t x) {
 
 
 /*
- * Apply the subsitution to a pair d = x + k
+ * Apply the substitution to a pair d = x + k
  */
 static void subst_var(substitution_t *s, offset_pair_t *d) {
   uint32_t n;
@@ -517,7 +517,7 @@ static void subst_poly_idx(substitution_t *s, poly_table_t *table, poly_buffer_t
  */
 
 /*
- * For a polynomial p and a subsitution s, the normal form of p is s(p)
+ * For a polynomial p and a substitution s, the normal form of p is s(p)
  * - we store the result in the following structure:
  *   nterms = number of terms in s(p)
  *   mono   = the monmoials of s(p)
@@ -986,7 +986,7 @@ static inline void subst_queue_push_mark(subst_queue_t *queue) {
  *   pop
  * - for testing we keep track of the sequence of operations
  *   performed (except push and backtrack)
- * - desciptors for each operation:
+ * - descriptors for each operation:
  *   record_poly(i): activate polynomial of index i
  *
  */
@@ -1743,7 +1743,7 @@ static void check_equality(test_bench_t *bench, int32_t x, int32_t y, ivector_t 
     print_poly_def(bench->ptable, x);
     print_poly_def(bench->ptable, y);
     print_explanation(bench, expl);
-    printf("BUG: explantion does not imply x%"PRId32" == x%"PRId32"\n", x, y);
+    printf("BUG: explanation does not imply x%"PRId32" == x%"PRId32"\n", x, y);
     printf("  subst for x%"PRId32" --> ", x);
     print_buffer(&bx);
     printf("\n");
@@ -1792,7 +1792,7 @@ static void check_propagation(test_bench_t *bench) {
   delete_ivector(&expl);
 }
 
-// all elements of v should be in the same class: check wether that's true
+// all elements of v should be in the same class: check whether that's true
 // in the equality queue
 static void check_good_class(test_bench_t *bench, int32_t *v) {
   active_poly_table_t *table;

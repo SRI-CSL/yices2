@@ -945,7 +945,7 @@ will be produced even if inlining does not cause any code growth at
 all, probably because the code-growth estimate is not very accurate.
 
 
-The prefered way to fix this is to add option -fno-guess-branch-probability 
+The preferred way to fix this is to add option -fno-guess-branch-probability 
 to CFLAGS when configuring Yices:
 
   ./configure CFLAGS=-fno-guess-branch-probability

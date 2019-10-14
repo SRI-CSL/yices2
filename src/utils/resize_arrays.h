@@ -82,7 +82,7 @@ static inline int32_t resize_array_read(const resize_array_t *a, int32_t i) {
 }
 
 /*
- * Direct read and write: i must be betwen 0 and a->top
+ * Direct read and write: i must be between 0 and a->top
  */
 static inline int32_t resize_array_get(resize_array_t *a, int32_t i) {
   assert(0 <= i && i < a->top);

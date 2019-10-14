@@ -329,7 +329,7 @@ void bvlogic_buffer_set_low_mask(bvlogic_buffer_t *b, uint32_t k, uint32_t n) {
 
 /*
  * Convert the sign in an interval abstraction to a bit
- * - t = term for which we wan the sign bit
+ * - t = term for which we want the sign bit
  * - i = number of significant bits in t
  * - if the sign is unknown, returns (select i t)
  */

@@ -115,7 +115,7 @@ double mem_size(void) {
   if (f < 0) goto done;
   code = read(f, &info, sizeof(info));
   if (code == sizeof(info)) {
-    // infor.pr_size is the process size in Kb
+    // info.pr_size is the process size in Kb
     size = ((double) info.pr_size) * 1024;
   }
   close(f);

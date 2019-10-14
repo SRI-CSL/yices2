@@ -431,8 +431,8 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
  *  We make two passes. In the first pass (when toplevel is true) we handle exists, and push 
- *  any foralls onto a defered queue, leaving ef->flat to accumulate. Then in the second pass
- *  push the defered foralls onto the ef->queue and do a second pass.
+ *  any foralls onto a deferred queue, leaving ef->flat to accumulate. Then in the second pass
+ *  push the deferred foralls onto the ef->queue and do a second pass.
  *
  *
  * Note: this does not do type checking. If any term in a is not Boolean,

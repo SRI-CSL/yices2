@@ -6495,7 +6495,7 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
  */
 
 /*
- * Naive search: attempt to make all the colums in the tableau integral
+ * Naive search: attempt to make all the columns in the tableau integral
  * by adjusting the values of the non-basic variables.
  */
 
@@ -11086,7 +11086,7 @@ static bool is_root_var(simplex_solver_t *solver, thvar_t x) {
  */
 
 /*
- * Check wether x is a non-constant, trivial variable
+ * Check whether x is a non-constant, trivial variable
  * - i.e. x's definition is either x := b y or x := a + b y
  */
 static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
@@ -11185,7 +11185,7 @@ static void model_adjust_var_dependents(xq_hmap_t *hmap, arith_vartable_t *tbl, 
 /*
  * Update the value of all basic variables that depend on x when x's value is
  * shifted by delta. This is done only for basic variables that are roots (e.g,.
- * they have an attache egraph term and that term is root of its equivalence
+ * they have an attached egraph term and that term is root of its equivalence
  * class in the egraph).
  * - x must be a non-basic variable
  * - record the effect in hmap

@@ -35,7 +35,7 @@ typedef int32_t variable_list_ref_t;
  * For example given a constraint C = (x + y + z > 0), we can associate the
  * variable list [x, y, z] to C, by adding it to the manager, obtaining an
  * internal reference C_ref. We can then add the list to the watch-list of a
- * variable, for example x, so that when x get's assigned we can check if the
+ * variable, for example x, so that when x gets assigned we can check if the
  * constraint C became univariate.
  *
  * For the purposes of such checks there is a remove iterator below, that can

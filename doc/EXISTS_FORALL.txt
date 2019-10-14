@@ -62,7 +62,7 @@ If |B[y]| = |A[y]| we take as smaller the one with the fewer free variables,
 
 if that doesn't decide we pick the first.
 
-Having choosen between (-*) and (+*) we then have to find which disjunct
+Having chosen between (-*) and (+*) we then have to find which disjunct
 is true in the model. Note that each disjunct is closely related in form
 to the conjunction of (*).
 
@@ -134,6 +134,6 @@ Delta[B + k]   in the first two cases, and
 Delta[B - k] in the third.
 
 Thus we eliminate y by B + k   or B - k according to the nature of the original
-set of contraints.
+set of constraints.
 
 

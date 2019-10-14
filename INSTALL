@@ -49,7 +49,7 @@ To build the manual, you also need:
 
 
 To build the on-line documentation, you need to install the Sphinx
-python pacakge. The simplest method is:
+python package. The simplest method is:
 
   sudo easy_install -U Sphinx
 
@@ -84,7 +84,7 @@ instructions:
    on github (https://github.com/SRI-CSL/libpoly).
 
 2) After you've installed libpoly, add option --enable-mcsat to 
-   the cofigure command. In details, type this in the toplevel
+   the configure command. In details, type this in the toplevel
    Yices directory:
 
     autoconf

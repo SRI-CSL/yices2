@@ -190,7 +190,7 @@ static smt_status_t cadical_check(void *solver) {
  * cadical does not do this. It may return that variable x has
  * value "unknown". This means that 'x' does not occur in any clause
  * sent to cadical.
- * We convert  unknow to VAL_FALSE here.
+ * We convert  unknown to VAL_FALSE here.
  */
 static bval_t cadical_get_value(void *solver, bvar_t x) {
   int v;
@@ -300,7 +300,7 @@ static smt_status_t cryptominisat_check(void *solver) {
 
 
 /*
- * We convert  unknow to VAL_FALSE here to be safe, but it seems
+ * We convert  unknown to VAL_FALSE here to be safe, but it seems
  * that cryptominisat always produces a full truth assignment.
  */
 static bval_t cryptominisat_get_value(void *solver, bvar_t x) {
@@ -434,7 +434,7 @@ void delete_delegate(delegate_t *d) {
  */
 
 /*
- * Tranfer unit clauses from core to delegate
+ * Transfer unit clauses from core to delegate
  */
 static void copy_unit_clauses(delegate_t *d, smt_core_t *core) {
   prop_stack_t *stack;

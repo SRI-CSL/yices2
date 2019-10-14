@@ -913,7 +913,7 @@ static term_t test_tuple_update(term_t arg, term_t new_v, uint32_t i) {
  */
 
 /*
- * Sampling: select one type in store that satifies predicate p
+ * Sampling: select one type in store that satisfies predicate p
  * - return NULL_TYPE if there's no such type
  */
 typedef bool (*predicate_t)(type_t tau);

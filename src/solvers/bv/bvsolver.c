@@ -2091,7 +2091,7 @@ static inline bool is_constant(bv_vartable_t *table, thvar_t x) {
 
 
 /*
- * Check wether x or y is a constant
+ * Check whether x or y is a constant
  */
 static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) {
   bvvar_tag_t tag_x, tag_y;
@@ -4149,7 +4149,7 @@ static bool bvuge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvuge_atom(&solver->atbl, y, x); // atom (bvuge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvuge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvuge y x) is true 
   }
   return false;
 }
@@ -4166,7 +4166,7 @@ static bool bvsge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvsge_atom(&solver->atbl, y, x); // atom (bvsge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvsge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvsge y x) is true 
   }
   return false;  
 }
