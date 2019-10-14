@@ -896,7 +896,7 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
 
 /*
- * Bitvector contants: 0, 1, -1
+ * Bitvector constants: 0, 1, -1
  */
 void pp_bv_zero(yices_pp_t *printer, uint32_t n) {
   pp_atom_t *atom;

@@ -111,10 +111,10 @@ void poly_constraint_db_gc_mark(poly_constraint_db_t* db, gc_info_t* gc_vars) {
 void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_vars) {
 
   pvector_t new_constraints;
-  int_hmap_t new_var_to_contraint_map;
+  int_hmap_t new_var_to_constraint_map;
 
   init_pvector(&new_constraints, 0);
-  init_int_hmap(&new_var_to_contraint_map, 0);
+  init_int_hmap(&new_var_to_constraint_map, 0);
 
   // Move the constraints
   int_hmap_pair_t* it = int_hmap_first_record(&db->var_to_constraint_map);
@@ -127,7 +127,7 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
       // Move it
       uint32_t new_index = new_constraints.size;
       pvector_push(&new_constraints, constraint);
-      int_hmap_add(&new_var_to_contraint_map, new_constraint_var, new_index);
+      int_hmap_add(&new_var_to_constraint_map, new_constraint_var, new_index);
     } else {
       if (ctx_trace_enabled(db->nra->ctx, "nra::gc")) {
         ctx_trace_printf(db->nra->ctx, "Removing constraint :");
@@ -143,7 +143,7 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
   delete_pvector(&db->constraints);
   delete_int_hmap(&db->var_to_constraint_map);
   db->constraints = new_constraints;
-  db->var_to_constraint_map = new_var_to_contraint_map;
+  db->var_to_constraint_map = new_var_to_constraint_map;
 }
 
 

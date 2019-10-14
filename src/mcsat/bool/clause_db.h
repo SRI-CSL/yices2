@@ -120,7 +120,7 @@ mcsat_tagged_clause_t* clause_db_get_tagged_clause(const clause_db_t* db, clause
 /** Mark all the variables in the marked clauses */
 void clause_db_gc_mark(const clause_db_t* db, const gc_info_t* gc_clauses, gc_info_t* gc_vars);
 
-/** Sweep the marked clauses, while outputing any variables that were undefined (clausaly) */
+/** Sweep the marked clauses, while outputting any variables that were undefined (clausaly) */
 void clause_db_gc_sweep(clause_db_t* db, gc_info_t* gc_clauses, int_mset_t* vars_undefined);
 
 /** Get the tag of the clause */

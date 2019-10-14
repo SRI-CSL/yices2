@@ -4015,7 +4015,7 @@ static void delete_string_vector(pvector_t *v) {
 /*
  * Add string s at the end v
  * - s must be a refcount string
- * - its referenc counter is incremented
+ * - its reference counter is incremented
  */
 static void string_vector_push(pvector_t *v, char *s) {
   string_incref(s);

@@ -300,7 +300,7 @@ static bool fsubst_explore(full_subst_t *subst, int32_t i) {
     break;
 
   case ARITH_ROOT_ATOM:
-    // TODO: not sure what substituion means yet
+    // TODO: not sure what substitution means yet
     assert(false);
     break;
 

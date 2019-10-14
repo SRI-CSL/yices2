@@ -26,7 +26,7 @@
 # tests-dir contains test files in the SMT1, SMT2, or Yices input language
 # bin-dir contains the Yices binaries for each of these languages
 #
-# For each test file, the expected resuts is stored in file.gold
+# For each test file, the expected results is stored in file.gold
 # and command-line options are stored in file.options.
 #
 # This scripts calls the appropriate binary on each test file, passing it

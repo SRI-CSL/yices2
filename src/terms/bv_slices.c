@@ -93,7 +93,7 @@ static void extend_bvslicer(bvslicer_t *slicer) {
     slicer->data = (bvslice_t *) safe_malloc(new_size * sizeof(bvslice_t));
     slicer->size = new_size;
   } else {
-    new_size = n + (n>>1); // arount 50% larger
+    new_size = n + (n>>1); // around 50% larger
     if (new_size > MAX_BVSLICER_SIZE) {
       out_of_memory();
     }

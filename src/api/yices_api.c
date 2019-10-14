@@ -2008,7 +2008,7 @@ static bool check_arithmetic_args(term_manager_t *mngr, uint32_t n, const term_t
 }
 
 
-// Check wether all numbers den[0 ... n-1] are positive
+// Check whether all numbers den[0 ... n-1] are positive
 static bool check_denominators32(uint32_t n, const uint32_t *den) {
   uint32_t i;
 

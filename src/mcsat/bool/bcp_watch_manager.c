@@ -29,7 +29,7 @@ void bcp_watch_manager_ensure_capacity(bcp_watch_manager_t* wlm, uint32_t capaci
   }
 }
 
-/** Construct the mangager */
+/** Construct the manager */
 void bcp_watch_manager_construct(bcp_watch_manager_t* wlm) {
 
   // The memory
@@ -185,7 +185,7 @@ void bcp_remove_iterator_next_and_remove(bcp_remove_iterator_t* it) {
 
   assert(it->wle != bcp_watch_list_element_ref_null);
 
-  // The actuall watcher element
+  // The actual watcher element
   wle_ref = it->wle;
   wle = bcp_watch_manager_get_watcher(it->wlm, wle_ref);
 

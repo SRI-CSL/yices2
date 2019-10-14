@@ -124,7 +124,7 @@ static void finish_line(reader_t *reader) {
  * - when this function is called reader->current_char is the first
  *   character of the line.
  * - it the line has more than n-1 characters, then
- *   the first n-1 characteres are copied in buffer,
+ *   the first n-1 characters are copied in buffer,
  *   the rest of the line is ignored.
  */
 static void read_line(reader_t *reader, uint32_t n, char buffer[]) {

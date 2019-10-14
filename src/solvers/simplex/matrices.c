@@ -199,7 +199,7 @@ static row_t *new_row(uint32_t n) {
 
 
 /*
- * Return a colum equal to v but 50% larger
+ * Return a column equal to v but 50% larger
  */
 static row_t *extend_row(row_t *v) {
   uint32_t n;
@@ -2968,7 +2968,7 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
         assert(matrix->base_var[r0] == x && matrix->column[x] != NULL &&
                matrix->column[x]->nelems == 1);
 
-        // store x := 0 to fvars then delete the row and colum
+        // store x := 0 to fvars then delete the row and column
         fvar_vector_add0(fvars, x);
         delete_row(row0);
         matrix->row[r0] = NULL;

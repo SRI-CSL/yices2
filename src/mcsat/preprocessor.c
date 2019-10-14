@@ -362,7 +362,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out) {
         if (children_same) {
           current_pre = current;
         } else {
-          // NOTE: it doens't change pp, it just uses it as a frame
+          // NOTE: it doesn't change pp, it just uses it as a frame
           current_pre = mk_arith_pprod(tm, pp, n, children.data);
         }
       }

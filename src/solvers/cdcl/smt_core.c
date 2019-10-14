@@ -5846,7 +5846,7 @@ bool base_propagate(smt_core_t *s) {
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - make an internal copy of the assumptions
  * - initialize variable heap
  * - set status to searching

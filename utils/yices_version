@@ -41,7 +41,7 @@ fi
 
 dist=$1
 if test ! -d $dist ; then
-   echo "Error: cant's find directory $dist"
+   echo "Error: can't find directory $dist"
    exit 2
 fi
 

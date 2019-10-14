@@ -212,7 +212,7 @@ fi
 
 #
 # If the install_dir is not /usr/local, fix the
-# library's intall name.
+# library's install name.
 #
 if test "$install_dir" != "/usr/local" ; then
    full_path_dylib="$libdir/$dylib_file"

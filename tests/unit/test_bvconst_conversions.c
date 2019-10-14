@@ -65,7 +65,7 @@ static void signed_bv2mpz(mpz_t z, uint32_t n, uint32_t *a) {
 
 
 /*
- * Test convertions to mpz
+ * Test conversions to mpz
  */
 static void test_signed_conversion(uint32_t *a, uint32_t n) {
   mpz_t z;
@@ -151,7 +151,7 @@ static void test_signed_conversions(void) {
 }
 
 /*
- * Test convertions to mpz
+ * Test conversions to mpz
  */
 static void test_unsigned_conversion(uint32_t *a, uint32_t n) {
   mpz_t z;

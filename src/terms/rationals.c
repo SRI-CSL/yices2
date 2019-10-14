@@ -238,7 +238,7 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
   // restore a
   a = a_positive ? ((int64_t) abs_a) : - ((int64_t) abs_a);
 
-  // assing to r
+  // assign to r
   if (abs_a <= MAX_NUMERATOR && b <= MAX_DENOMINATOR) {
     if (is_ratgmp(r)) {
       release_mpq(r);

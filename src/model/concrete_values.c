@@ -2087,7 +2087,7 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
 
 
 /***********************************************
- *  LOCAL INTEPRETATION FOR DIVISION BY ZERO   *
+ *  LOCAL INTERPRETATION FOR DIVISION BY ZERO   *
  **********************************************/
 
 /*

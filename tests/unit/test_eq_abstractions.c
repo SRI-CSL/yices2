@@ -207,7 +207,7 @@ static void delete_partitions(uint32_t n) {
 
 
 /*
- * Contruct meet p[0] ... p[n-1]
+ * Construct meet p[0] ... p[n-1]
  */
 static epartition_t *test_meet(epartition_t **p, uint32_t n) {
   uint32_t i;
@@ -268,7 +268,7 @@ static void test_meets(void) {
 
 
 /*
- * Contruct join p[0] ... p[n-1]
+ * Construct join p[0] ... p[n-1]
  */
 static epartition_t *test_join(epartition_t **p, uint32_t n) {
   uint32_t i;

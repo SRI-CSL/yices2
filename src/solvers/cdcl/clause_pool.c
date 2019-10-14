@@ -209,7 +209,7 @@ static void resize_clause_pool(clause_pool_t *pool, uint32_t n) {
   do {
     increase = pool_cap_increase(cap);
     cap += increase;
-    if (cap < increase) { // arithmetic overfow
+    if (cap < increase) { // arithmetic overflow
       cap = MAX_CLAUSE_POOL_CAPACITY;
     }
   } while (cap < min_cap);

@@ -34,7 +34,7 @@
  *   (bvshl x y) = x * 2^y
  *   (bvneg x)   = -1 * x
  *
- * In general, we can rewrite these expressions in the follwing form:
+ * In general, we can rewrite these expressions in the following form:
  *   a * product * 2 ^ exponent
  * where a is an n-bit constant
  *       product is a power product: x_1^d_1  ... x_k^d_k

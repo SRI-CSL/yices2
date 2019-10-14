@@ -139,7 +139,7 @@ static inline bool bv64_abs_trivial(bv64_abs_t *a, uint32_t n) {
 
 /*
  * Abstraction of an array u of n bits.
- * - n must be positive and no more thant 64
+ * - n must be positive and no more than 64
  *
  * We want this to work for both arrays of Boolean terms and arrays of
  * literals.  Terms and literals use the same conventions:

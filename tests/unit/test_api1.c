@@ -678,7 +678,7 @@ static void test_arith_constants(void) {
   y = yices_parse_float("-0.00000000000000000000000");
   assert(y == x);
 
-  // Contructing -1/300
+  // Constructing -1/300
   q_set_int32(&q, -1, 300);
 
   x = yices_rational32(-1, 300);
