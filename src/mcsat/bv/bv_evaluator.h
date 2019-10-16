@@ -39,7 +39,7 @@ typedef struct bv_evaluator_t {
   /** Map from terms to values (indices in the bvconst array) */
   int_hmap_t term_values;
 
-  /** Map from atoms to vales */
+  /** Map from atoms to values */
   int_hmap_t atom_values;
 
   /** Map from terms/atoms to levels */
