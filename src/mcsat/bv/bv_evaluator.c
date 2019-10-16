@@ -609,10 +609,11 @@ void bv_evaluator_csttrail_destruct(bv_csttrail_t* csttrail){
 }
 
 // Reset it for dealing with a new conflict
-void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var){
+void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var, uint32_t optim){
   csttrail->conflict_var = conflict_var;
   csttrail->conflict_var_term = variable_db_get_term(csttrail->ctx->var_db, conflict_var);
   int_hset_reset(&csttrail->free_var);
+  csttrail->optim = optim;
 }
 
 // Scanning a new atom of the conflict
@@ -704,7 +705,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   /*   assert(registered != NULL); */
   /*   return registered->val; */
   /* } */
-  registered = int_hmap2_find(&csttrail->fv_cache, t, y);
+  registered = int_hmap2_find(&csttrail->fv_cache, t, (3*y) + csttrail->optim);
   if (registered != NULL) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
       FILE* out = ctx_trace_out(ctx);
@@ -756,7 +757,11 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     term_t arg = bit_term_arg(terms, t);
     uint32_t index = bit_term_index(terms, t);
     term_t arg_pos = unsigned_term(arg);
-    result = (index < bv_evaluator_not_free_up_to(csttrail, arg_pos)) ? 1 : 0;
+    if (csttrail->optim == 0
+        && bv_evaluator_not_free_up_to(csttrail, arg_pos) < bv_term_bitsize(tm->terms, arg_pos))
+      result = 0;
+    else
+      result = (index < bv_evaluator_not_free_up_to(csttrail, arg_pos)) ? 1 : 0;
     break;
   }
   case BV_POLY: {
@@ -764,7 +769,8 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
       uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_poly->mono[i].var);
-      if (recurs < result) result = recurs;
+      if (recurs < result)
+        result = (csttrail->optim == 2) ? recurs : 0;
       if (result == 0) break;
     }
     break;
@@ -774,7 +780,8 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       if (t_poly->mono[i].var == const_idx) continue;
       uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_poly->mono[i].var);
-      if (recurs < result) result = recurs;
+      if (recurs < result)
+        result = (csttrail->optim == 2) ? recurs : 0;
       if (result == 0) break;
     }
     break;
@@ -783,7 +790,8 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     pprod_t* t_pprod = pprod_term_desc(terms, t);
     for (uint32_t i = 0; i < t_pprod->len; ++ i) {
       uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_pprod->prod[i].var);
-      if (recurs < result) result = recurs;
+      if (recurs < result)
+        result = (csttrail->optim == 2) ? recurs : 0;
       if (result == 0) break;
     }
     break;
@@ -798,13 +806,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
         break;
       result++;
     }
+    if (csttrail->optim == 0 && result < w)
+      result = 0;
     break;
   }
   default:
     assert(false);
   }
 
-  int_hmap2_add(&csttrail->fv_cache, t, y, result);
+  int_hmap2_add(&csttrail->fv_cache, t, (3*y) + csttrail->optim, result);
   if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
     FILE* out = ctx_trace_out(ctx);
     ctx_trace_term(ctx, t);

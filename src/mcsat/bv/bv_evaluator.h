@@ -24,6 +24,7 @@
 #include "mcsat/value.h"
 
 #include "utils/int_hash_sets.h"
+#include "utils/int_hash_map2.h"
 
 /**
  * Structure to evaluate bit-vector constraints based on the current trail.
@@ -91,7 +92,9 @@ typedef struct bv_csttrail_s {
  
   variable_t conflict_var; // The conflict variable
   term_t conflict_var_term; // The conflict variable as a term
-  
+
+  uint32_t optim; // Level of optimisation: 0 = no optimisation, 1 = concat-extract optiomisation, 2 = arith optimisation
+
 } bv_csttrail_t;
 
 // Construct it (once and for all)
@@ -101,7 +104,7 @@ void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* 
 void bv_evaluator_csttrail_destruct(bv_csttrail_t* csttrail);
 
 // Reset it for dealing with a new conflict
-void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var);
+void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var, uint32_t optim);
 
 // Scanning a new atom of the conflict
 void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom);

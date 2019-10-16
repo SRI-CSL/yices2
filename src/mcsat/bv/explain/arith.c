@@ -1770,7 +1770,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   // We're facing a new problem, with a trail we don't know
   // We must reset the cache & co.
   // which date back from a previous conflict or propagation
-  bv_evaluator_csttrail_reset(csttrail, conflict_var);
+  bv_evaluator_csttrail_reset(csttrail, conflict_var, 2); // 2 is the level of optimisation fit for the arith explainer
   freeval(exp);
   pmap_reset(&exp->var_cache);
   reset_int_hmap2(&exp->norm_cache);
