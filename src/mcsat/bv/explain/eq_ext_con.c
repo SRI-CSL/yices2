@@ -487,9 +487,8 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
   term_table_t* terms = ctx->terms; // standard abbreviation
 
   // Now we determine whether we should descend into the term structure
-  bool ignore_this_bool;
   // Whether term can be evaluated from trail
-  bool is_evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool);
+  bool is_evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t);
 
   if ((!is_evaluable) && (term_kind(terms, t) == BV_ARRAY)) {
 
@@ -520,9 +519,8 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
       }
       bits[i] = t_i;
       
-      bool ignore_this_bool;
       // Whether term can be evaluated from trail
-      bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool);
+      bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, t_i);
 
       if (!has_value) { // t_i is a bit of conflict_var
         assert(is_pos_term(t_i));
@@ -641,11 +639,8 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
     }
 
     // Task 1: we compute the value if we can & store it in value field
-
-    bool ignore_this_bool;
     // Whether term can be evaluated from trail
-    // (if true, use_trail indicates whether trail was used):
-    bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, s_term, &ignore_this_bool);
+    bool has_value = bv_evaluator_is_evaluable(&exp->csttrail, s_term);
 
     if (has_value) {
       uint32_t ignore_that_int=0;
@@ -852,9 +847,8 @@ bool term_is_ext_con(eq_ext_con_t* exp, term_t t) {
     fprintf(out, "Value not cached. Is it the conflict_var, something evaluable?\n");
   }
 
-  bool ignore_this_bool;
   if (t == conflict_var
-      || bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) {
+      || bv_evaluator_is_evaluable(&exp->csttrail, t)) {
     int_hset_add(&exp->good_terms_cache, t);
     return true;
   }

@@ -194,14 +194,28 @@ interval_t* bv_interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t 
   return result;
 }
 
-// If interval is an interval for var, then it becomes an interval for var + u
-void bv_interval_plus(bv_subexplainer_t* exp, term_t u, interval_t* interval) {
+// If interval is an interval for var, then it becomes an interval for var - u
+void bv_interval_subtract(bv_subexplainer_t* exp, term_t u, interval_t* interval) {
   plugin_context_t* ctx = exp->ctx;
   term_manager_t* tm    = ctx->tm;
   if (interval != NULL) {
     if (!is_full(interval)) {
-      term_t lo_term = bv_arith_add_terms(tm, interval->lo_term, u);
-      term_t hi_term = bv_arith_add_terms(tm, interval->hi_term, u);
+      term_t lo_term = bv_arith_sub(tm, interval->lo_term, u);
+      term_t hi_term = bv_arith_sub(tm, interval->hi_term, u);
+      construct(exp, NULL, NULL, lo_term, hi_term, interval);
+    }
+    interval->var = NULL_TERM;
+  }
+}
+
+// If interval is an interval for var, then it becomes an interval for - var
+void bv_interval_negate(bv_subexplainer_t* exp, interval_t* interval) {
+  plugin_context_t* ctx = exp->ctx;
+  term_manager_t* tm    = ctx->tm;
+  if (interval != NULL) {
+    if (!is_full(interval)) {
+      term_t lo_term = bv_arith_negate(tm, interval->lo_term);
+      term_t hi_term = bv_arith_negate(tm, interval->hi_term);
       construct(exp, NULL, NULL, lo_term, hi_term, interval);
     }
     interval->var = NULL_TERM;
@@ -217,8 +231,8 @@ void bv_interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* inte
   term_manager_t* tm    = ctx->tm;
   if (0 < w && interval != NULL) {
     uint32_t n     = term_bitsize(tm->terms, interval->lo_term);
-    term_t lo_term = bv_arith_downextension(tm, interval->lo_term, false_bit, n + w);
-    term_t hi_term = bv_arith_downextension(tm, interval->hi_term, false_bit, n + w);
+    term_t lo_term = bv_arith_downextension(tm, interval->lo_term, false_term, n + w);
+    term_t hi_term = bv_arith_downextension(tm, interval->hi_term, false_term, n + w);
     construct(exp, NULL, NULL, lo_term, hi_term, interval);
     interval->var = NULL_TERM;
   }
@@ -250,7 +264,7 @@ bool bv_interval_uptrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval
   plugin_context_t* ctx = exp->ctx;
   term_manager_t* tm    = ctx->tm;
 
-  if (interval != NULL)
+  if (interval == NULL)
     return true;
 
   uint32_t n = term_bitsize(tm->terms, interval->lo_term);
@@ -315,8 +329,8 @@ bool bv_interval_uptrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval
       if (!zero_in)
         return true; // In that case the interval becomes empty
       interval->reason = bv_arith_lt(tm,
-                                     bv_arith_negate_terms(tm, t0),
-                                     bv_arith_sub_terms(tm, t1, t0));
+                                     bv_arith_negate(tm, t0),
+                                     bv_arith_sub(tm, t1, t0));
     }
     interval->var = NULL_TERM;
   }
@@ -330,7 +344,7 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
   plugin_context_t* ctx = exp->ctx;
   term_manager_t* tm    = ctx->tm;
 
-  if (interval != NULL)
+  if (interval == NULL)
     return true;
 
   uint32_t n = term_bitsize(tm->terms, interval->lo_term);
@@ -362,6 +376,8 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
     init_bvconstant(&hi_light);
     bvconstant_extract(&lo_light,interval->lo.data, 0, w);
     bvconstant_extract(&hi_light,interval->hi.data, 0, w);
+    bvconstant_normalize(&lo_light);
+    bvconstant_normalize(&hi_light);
 
     term_t zero_w = bv_arith_zero(tm, w);
     
@@ -369,7 +385,7 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
     if (bvconstant_is_zero(&lo_light)) {
       lo_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t0, 0, w));
     } else {
-      lo_term   = bv_arith_add_one_term(tm, lo_term);
+      lo_term   = bv_arith_add_one(tm, lo_term);
       lo_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t0, 0, w));
     }
     if (lo_reason != NULL_TERM) {
@@ -386,7 +402,7 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
     if (bvconstant_is_zero(&hi_light)) {
       hi_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t1, 0, w));
     } else {
-      hi_term   = bv_arith_add_one_term(tm, hi_term);
+      hi_term   = bv_arith_add_one(tm, hi_term);
       hi_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t1, 0, w));
     }
     if (hi_reason != NULL_TERM) {
@@ -409,7 +425,7 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
       construct(exp, NULL, NULL, zero_nw, zero_nw, interval);
       interval->reason = bv_arith_le(tm,
                                      aux_term,
-                                     bv_arith_sub_terms(tm, t1, t0));
+                                     bv_arith_sub(tm, t1, t0));
     }
     interval->var = NULL_TERM;
   }

@@ -69,7 +69,7 @@ term_t bv_arith_zero(term_manager_t* tm, uint32_t bitsize) {
 
 // Adding 2 bv terms
 
-term_t bv_arith_add_terms(term_manager_t* tm, term_t a, term_t b) {
+term_t bv_arith_add(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
   if (term_bitsize(terms,a) <= 64) {
     bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
@@ -86,7 +86,7 @@ term_t bv_arith_add_terms(term_manager_t* tm, term_t a, term_t b) {
 
 // Subtracting 2 bv terms
 
-term_t bv_arith_sub_terms(term_manager_t* tm, term_t a, term_t b) {
+term_t bv_arith_sub(term_manager_t* tm, term_t a, term_t b) {
   term_table_t* terms = tm->terms;
   if (term_bitsize(terms,a) <= 64) {
     bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
@@ -103,7 +103,7 @@ term_t bv_arith_sub_terms(term_manager_t* tm, term_t a, term_t b) {
 
 // Negating a bv term
 
-term_t bv_arith_negate_terms(term_manager_t* tm, term_t t) {
+term_t bv_arith_negate(term_manager_t* tm, term_t t) {
   term_table_t* terms = tm->terms;
   if (term_bitsize(terms,t) <= 64) {
     bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
@@ -120,7 +120,7 @@ term_t bv_arith_negate_terms(term_manager_t* tm, term_t t) {
 
 // Adding +1 to a bv term
 
-term_t bv_arith_add_one_term(term_manager_t* tm, term_t t) {
+term_t bv_arith_add_one(term_manager_t* tm, term_t t) {
   term_table_t* terms  = tm->terms;
   if (term_bitsize(terms,t) <= 64) {
     bvarith64_buffer_t *buffer = term_manager_get_bvarith64_buffer(tm);
@@ -178,12 +178,14 @@ term_t bv_arith_upextension(term_manager_t* tm, term_t t, term_t b, uint32_t w) 
 
 term_t bv_arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w) {
   uint32_t n = term_bitsize(tm->terms, t);
+  assert(n <= w);
   if (n == w) return t;
   term_t sbits[w];
+  uint32_t extra = w-n;
   for (uint32_t k=0; k<w;k++){
-    sbits[k] = (k < w-n) ?
+    sbits[k] = (k < extra) ?
       b:
-      mk_bitextract(tm, t, k);
+      mk_bitextract(tm, t, k-extra);
   }
   return mk_bvarray(tm, w, sbits);
 }
@@ -223,7 +225,7 @@ term_t bv_arith_lt(term_manager_t* tm, term_t left, term_t right) {
   }
   // (left < -1) turns into (left+1 != 0)
   if (bv_arith_is_minus_one(terms, right)) {
-    return not_term(terms, bveq_atom(terms, bv_arith_sub_terms(tm, left, right),bv_arith_zero(tm, w)));
+    return not_term(terms, bveq_atom(terms, bv_arith_sub(tm, left, right),bv_arith_zero(tm, w)));
   }
   // (0 < right) turns into (right != 0)
   if (bv_arith_is_zero(terms, left)) {

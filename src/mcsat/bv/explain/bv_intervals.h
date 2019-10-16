@@ -81,8 +81,11 @@ interval_t* bv_interval_mk(bv_subexplainer_t* exp,
 interval_t* bv_interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t width);
 
 
-// If interval is an interval for var, then it becomes an interval for var + u
-void bv_interval_plus(bv_subexplainer_t* exp, term_t u, interval_t* interval);
+// If interval is an interval for var, then it becomes an interval for var - u
+void bv_interval_subtract(bv_subexplainer_t* exp, term_t u, interval_t* interval);
+
+// If interval is an interval for var, then it becomes an interval for -var
+void bv_interval_negate(bv_subexplainer_t* exp, interval_t* interval);
 
 // If interval is an interval for var,
 // then it becomes an interval for concat(var,u) for any u extending the low bits of var

@@ -106,12 +106,11 @@ void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_va
 // Scanning a new atom of the conflict
 void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom);
 
-// Checks whether term t evaluates, all its BV-variables having values on the trail.
-// If it does not, use_trail is untouched. If it does, then use_trail is set to true
-// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
+// For term u, outputs the greatest number of lower bits of u that could be evaluated without having a value for conflict_var.
+// if conflict_var is not a (direct) free var of u, then the value is either the bitsize of u, or MAX_INT (-1) in the special case the term has no variables at all
+uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u);
 
-bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t, bool* use_trail);
+// Checks whether term t evaluates
+// (its direct free variables, if any, do not contain conflict_var_term).
+bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t);
 
-// For term u and variable (term) y, outputs the greatest number of lower bits of u that could be evaluated without having a value for x.
-// if x is not a (direct) free var of u, then the value is either the bitsize of u, or MAX_INT (-1) in the special case the term has no variables at all
-uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u, term_t y);

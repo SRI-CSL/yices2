@@ -35,19 +35,19 @@ term_t bv_arith_zero(term_manager_t* tm, uint32_t bitsize);
 
 // Adding 2 bv terms
 
-term_t bv_arith_add_terms(term_manager_t* tm, term_t a, term_t b);
+term_t bv_arith_add(term_manager_t* tm, term_t a, term_t b);
 
 // Subtracting 2 bv terms
 
-term_t bv_arith_sub_terms(term_manager_t* tm, term_t a, term_t b);
+term_t bv_arith_sub(term_manager_t* tm, term_t a, term_t b);
 
 // Negating a bv term
 
-term_t bv_arith_negate_terms(term_manager_t* tm, term_t t);
+term_t bv_arith_negate(term_manager_t* tm, term_t t);
 
 // Adding +1 to a bv term
 
-term_t bv_arith_add_one_term(term_manager_t* tm, term_t t);
+term_t bv_arith_add_one(term_manager_t* tm, term_t t);
 
 // Adding +2^{w-1} to a bv term
 

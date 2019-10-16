@@ -35,7 +35,7 @@
 // Those w bits split into 3 sections: prefix . central_section . suffix
 // In (a normalised version of) t's lowest w bits,
 // the bits in prefix and suffix are all evaluable in the current context,
-// while the first and last bit of the central section aren't.
+// while the first and last bits of the central section aren't.
 // In case all bits are evaluable, the central section has length 0 and,
 // by convention, the w bits form the suffix (while the prefix also has length 0).
 
@@ -51,12 +51,17 @@ typedef struct termstruct_s {
   // length is 0 if all bits below w are evaluable
   uint32_t length;
 
-  // Term e has bitwidth w and contains the prefix, the suffix, while all bits of the central section are set to 0.
+  // Term eval has bitwidth w and contains the prefix, the suffix, while all bits of the central section are set to 0.
   // More precisely (and assuming that t is normalised):
-  // - the suffix bits e[0] ... e[suffix-1] are the bits t[0] ... t[suffix-1]
-  // - the length bits e[suffix] ... e[suffix+length-1] are 0 ... 0
-  // - the remaining bits e[suffix+length] ... e[w-1] are the bits t[suffix+length] ... t[w-1]
-  term_t e; 
+  // - the suffix bits eval[0] ... eval[suffix-1] are the bits t[0] ... t[suffix-1]
+  // - the length bits eval[suffix] ... eval[suffix+length-1] are 0 ... 0
+  // - the remaining bits eval[suffix+length] ... eval[w-1] are the bits t[suffix+length] ... t[w-1]
+  term_t eval;
+  // Term var is the complement of term eval, so that bvand(eval,var) = 0...0 and bvor(eval,var) = t (or equivalent to t)
+  // - the suffix bits var[0] ... var[suffix-1] are the bits 0 ... 
+  // - the length bits var[suffix] ... var[suffix+length-1] are t[suffix] ... t[suffix+length-1]
+  // - the remaining bits var[suffix+length] ... var[w-1] are the bits 0 ... 0
+  term_t var;
   
   // Term base has bitwidth at least length
   // Bits base[start] ... base[start+length-1] are (equal to, in the BV-theory) t[suffix] ... t[suffix+length-1]
@@ -118,13 +123,19 @@ static inline void freeval(arith_t* exp) {
 
 // The following two functions are mutually recursive
 
-term_t extract(arith_t* exp, term_t t, uint32_t w);
+term_t normalise(arith_t* exp, term_t t, uint32_t w);
 
 termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
 
   plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Starting analyse on the lower %d bits of ",w);
+    ctx_trace_term(ctx, t);
+  }
 
   assert(w <= term_bitsize(terms, t));
 
@@ -133,18 +144,21 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
   termstruct_t* result = (termstruct_t*) entry->val;
   if (result != DEFAULT_PTR) {
     assert (result != NULL);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Found it in memoisation table!\n");
+    }
     return result;
   }
 
   result = safe_malloc(sizeof(termstruct_t));
   entry->val = (void*) result;
-  result->suffix  = w;
+  result->suffix  = 0;
   result->length  = 0;
   result->start   = 0;
   result->base    = NULL_TERM;
   result->intros  = false;
   result->nobueno = false;
-  bool ignore_this_bool;
 
   switch (term_kind(terms, t)) {
   case BV_POLY:
@@ -158,12 +172,12 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
     // In each cell i, there are 4 integers:
     // preproc[i][0] is the key, which is a term_t, let's call it k
     // preproc[i][1] is the maximum i such that k[i] is a bit of this bv_array, let's call it top; then:
-    // preproc[i][1] is the term_t extract(k,top+1) (normalised version of k over the lowest top+1 bits), let's call it norm
+    // preproc[i][1] is the term_t normalise(k,top+1) (normalised version of k over the lowest top+1 bits), let's call it norm
     // preproc[i][2] is the value returned by bv_evaluator_is_evaluable_topbit(norm)
-    // preproc[i][3] is the term_t extract(norm,maxeval), if maxeval is not 0
+    // preproc[i][3] is the term_t normalise(norm,maxeval), if maxeval is not 0
     uint32_t preproc[w][4];
     // We initialise the hashmap
-    for (uint32_t i = 1; i <= w; i++) {
+    for (uint32_t i = 0; i < w; i++) {
       preproc[i][0] = NULL_TERM;
     }
 
@@ -191,15 +205,22 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
     for (uint32_t i = 0; i < w; i++) {
       if (preproc[i][0] != NULL_TERM) {
         uint32_t size = preproc[i][1] + 1;
-        preproc[i][1] = extract(exp, preproc[i][0], size);
-        preproc[i][2] = bv_evaluator_not_free_up_to(&exp->csttrail, preproc[i][1], NULL_TERM);
+        preproc[i][1] = normalise(exp, preproc[i][0], size);
+        preproc[i][2] = bv_evaluator_not_free_up_to(&exp->csttrail, preproc[i][1]);
+        if (preproc[i][2] > size)
+          preproc[i][2] = size;
         if (preproc[i][2] > 0) {
-          preproc[i][3] = (preproc[i][2] == size) ? preproc[i][1] : extract(exp, preproc[i][0], preproc[i][2]);
+          preproc[i][3] = (preproc[i][2] == size) ? preproc[i][1] : normalise(exp, preproc[i][0], preproc[i][2]);
         }
       }
     }
-    
-    term_t ebits[w]; // Where we build result->e
+
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Back to analyse function:\n");
+    }
+
+    term_t ebits[w]; // Where we build result->eval
     term_t cbits[w]; // Where we build the central section, if the term is bad
     uint32_t shortlength  = 0;         // Number of bits of the central section of t, excluding sign-extension bits
     term_t signbit        = NULL_TERM; // The sign bit of the central section of t
@@ -213,7 +234,8 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "bit %d is ",i);
-        ctx_trace_term(ctx, t_i);
+        term_print_to_file(out, terms, t_i);
+        fprintf(out, " with suffix = %d, length = %d, shortlength = %d\n",result->suffix,result->length, shortlength);
       }
 
       bool isneg = is_neg_term(t_i); // Whether the boolean term is negated
@@ -222,7 +244,7 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
       bool evaluable;
 
       if (term_kind(terms, t_i) != BIT_TERM) {
-        evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t_i, &ignore_this_bool);
+        evaluable = bv_evaluator_is_evaluable(&exp->csttrail, t_i);
         if (!evaluable) // Ouch, a bit that's not a bit-select and that's not evaluable makes the whole term BAD
           result->base = NULL_TERM;
       } else {
@@ -265,86 +287,123 @@ termstruct_t* analyse(arith_t* exp, term_t t, uint32_t w){
           result->suffix ++;     // We increase suffix
       } else {
         if (result->length == 0) // This is the first unevaluable bit
-          is_negated = isneg;   // It defines the polarity of the central section
+          is_negated = isneg;    // It defines the polarity of the central section
         if (is_negated != isneg)   // Not the right polarity
           result->base = NULL_TERM; // The term is bad
-        result->length = i;
+        result->length = i - result->suffix +1;
         if (signbit != t_i) {
-          shortlength = i;
+          shortlength = result->length;
           signbit = t_i;
         }
+        assert(result->length > 0);
       }
 
-      ebits[i] = t_i;
-      if (result->length != 0)
+      ebits[i] = t_i; // In this first pass, ebits contains all bits
+      if (result->length != 0) // The central bits are recorded, flipping polarity so that the first bit in there is positive
         cbits[i] = is_negated ? not_term(terms, t_i) : t_i;
     }
 
-    result->length = result->length - result->suffix;;
-    shortlength = shortlength - result->suffix;;
-
     // Now we look at the central section between suffix and suffix+shortlength,
     // and try to build result->base and result->start
-    
-    if (result->base == NULL_TERM) { // If the term is bad
-      result->base = mk_bvarray(tm, shortlength, &cbits[result->suffix]);
-      result->start = 0;
-      result->nobueno = true;
+
+    if (shortlength > 0) { // if the central section exists
+      if (result->base == NULL_TERM) { // ...but the term is bad
+        result->base = mk_bvarray(tm, shortlength, &cbits[result->suffix]); // build the central section anyways
+        result->start = 0;
+        result->nobueno = true; // ...but indicate that the term is bad
+      }
     }
 
     if (is_negated) { // The central cbits have flipped polarity
-      result->base   = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, result->base));
+      assert(shortlength > 0);
+      assert(result->base != NULL_TERM);
+      result->base   = bv_arith_negate(tm, bv_arith_add_one(tm, result->base));
       result->intros = true;
     }
-
+    
     if (shortlength != result->length) {
       // This is a sign-extension,
       // base to return is (0extend(base+half(shortlength)) - 0extend(half(shortlength)))
       term_t tmp1 = bv_arith_upextension(tm,
                                          bv_arith_add_half(tm, result->base),
-                                         false_bit,
+                                         false_term,
                                          result->length);
       term_t tmp2 = bv_arith_upextension(tm,
                                          bv_arith_add_half(tm, bv_arith_zero(tm, shortlength)),
-                                         false_bit,
+                                         false_term,
                                          result->length);
-      result->base   = bv_arith_sub_terms(tm, tmp1, tmp2);
+      result->base   = bv_arith_sub(tm, tmp1, tmp2);
       result->intros = true;
     }
 
-    // Now we can construct the evaluable field of the result
-    // We first set to 0 all bits in the central section
-    for (uint32_t i = 0; i < result->length; i++)
-      ebits[i+result->suffix] = false_term;
-    result->e = mk_bvarray(tm, w, ebits);
+    // Now we can construct result->eval and result->var
+    // We distribute each bit recorded in ebits to either ebits (for result->eval) or cbits (for result->var)
+    for (uint32_t i = 0; i < w; i++)
+      if (i < result->suffix || i >= result->suffix + result->length)
+        cbits[i] = false_term; // prefix and suffix are 0...0 for result->var
+      else { // central section
+        cbits[i] = mk_bitextract(tm, result->base, i - result->suffix + result->start);
+        ebits[i] = false_term;
+      }
+    result->eval = mk_bvarray(tm, w, ebits);
+    result->var  = mk_bvarray(tm, w, cbits);
     break;
   }
 
   default: { // Term t is now not a bv_array, nor a bv_poly nor a bv64_poly
     // There is no recursive normalization to perform
-    term_t tmp = term_extract(tm, t, 0, w);
-    if (bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) {
-      result->e = tmp;
+    term_t tmp  = term_extract(tm, t, 0, w);
+    term_t zero = bv_arith_zero(tm, w);
+    if (bv_evaluator_is_evaluable(&exp->csttrail, t)) {
+      result->eval = tmp;
+      result->var  = zero;
       result->suffix = w;
       result->length = 0;
       result->start  = 0;
       result->base = NULL_TERM;
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Term is not a BV_POLY/BV64_POLY/BV_ARRAY, we just get evaluable ");
+        ctx_trace_term(ctx, tmp);
+      }
     } else {
-      result->e = bv_arith_zero(tm, w);
+      result->eval   = zero;
+      result->var    = tmp;
       result->suffix = 0;
       result->length = w;
       result->start  = 0;
       result->base   = tmp;
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Term is not a BV_POLY/BV64_POLY/BV_ARRAY, we just get non-evaluable ");
+        ctx_trace_term(ctx, tmp);
+      }
     }
   }
   }
 
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "analyse, looking at the %d lower bits of term ", w);
+    term_print_to_file(out, terms, t);
+    fprintf(out, " produces suffix = %d, length = %d, base = ", result->suffix, result->length);
+    if (result->base != NULL_TERM){
+      ctx_trace_term(ctx, result->base);
+      fprintf(out, "starting at start = %d,", result->start);
+    }
+    else 
+      fprintf(out, " NO_BASE,");
+    fprintf(out, " with evaluable = ");    
+    ctx_trace_term(ctx, result->eval);
+    fprintf(out, "and var = ");    
+    ctx_trace_term(ctx, result->var);
+  }
   return result;  // Note that the result is automatically memoised
   
 }
 
 // Extracting the w lowest bits of t, normalising on the way
-term_t extract(arith_t* exp, term_t t, uint32_t w){
+term_t normalise(arith_t* exp, term_t t, uint32_t w){
 
   // standard abbreviations
   term_t conflict_var   = exp->csttrail.conflict_var_term;
@@ -357,14 +416,32 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Extracting %d lowest bits of ",w);
+    fprintf(out, "Normalising %d lowest bits of ",w);
     term_print_to_file(out, terms, t);
-    fprintf(out, "\n");
+    fprintf(out, " (bitsize is %d))\n",original_bitsize);
   }
 
   if (t == conflict_var)
     return term_extract(tm, t, 0, w);
-    
+
+  switch (term_kind(terms, t)) { // Simple check for constants
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT:
+    return term_extract(tm, t, 0, w);
+  default: {
+  }
+  }
+
+  if (w == original_bitsize
+      && bv_evaluator_is_evaluable(&exp->csttrail, t))
+    return t;
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not conflict var, not evaluable or real extraction. Now looking at memoisation table.\n");
+  }
+
   // We first look at whether the value is cached
   int_hmap2_rec_t* t_norm = int_hmap2_find(&exp->norm_cache, t, w);
   if (t_norm != NULL) return t_norm->val;
@@ -408,6 +485,7 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
       } else {
         init_bvconstant(&coeff[i]);
         bvconstant_extract(&coeff[i], t_poly->mono[i].coeff, 0, w); // projecting the monomial coefficient onto w bits
+        bvconstant_normalize(&coeff[i]);
       }
       monom[i] = (t_poly->mono[i].var != const_idx) ? t_poly->mono[i].var : NULL_TERM;
     }
@@ -434,26 +512,14 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
 
   // Now we proceed to recursively extract the monomials
 
-  const term_t zero_w = bv_arith_zero(tm, w);
   term_t evaluables[n_monom];
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM) {
       assert(monom[i] <= t);
       termstruct_t* s = analyse(exp, monom[i], w);
-      evaluables[i] = s->e;
-      if (s->length == 0) { // The monomial is evaluable
-        monom[i] = zero_w;  // The monomial should be 0
-      } else {
-        term_t variable[w]; // We reconstitute the variable
-        uint32_t i = 0;
-        for (; i < s->suffix; i++)
-          variable[i] = false_bit; // suffix is 0...0
-        for (; i < s->suffix + s->length; i++) // central section extracted from the base
-          variable[i] = mk_bitextract(tm, s->base, i - s->suffix + s->start);
-        for (; i < w; i++)
-          variable[i] = false_bit; // prefix is 0...0
-        monom[i] = mk_bvarray(tm, w, variable);
-      }
+      evaluables[i] = s->eval;
+      monom[i]      = s->var;
+      assert(term_bitsize(terms,monom[i]) == w);
     }
   }
       
@@ -467,6 +533,14 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
       if (monom[i] == NULL_TERM) {
         bvarith64_buffer_add_const(buffer, coeff64[i]); // constant coefficient gets added to the buffer bv_poly
       } else {
+        assert(term_bitsize(terms,monom[i]) == w);
+        if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+          FILE* out = ctx_trace_out(ctx);
+          fprintf(out, "bv_arith_buffer adds non-evaluable monomial ");
+          term_print_to_file(out, terms, monom[i]);
+          fprintf(out, "and evaluable monomial ");
+          term_print_to_file(out, terms, evaluables[i]);
+        }
         bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
         bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], evaluables[i]); // Otherwise we add the w-bit monomial to the bv_poly
       }
@@ -491,7 +565,7 @@ term_t extract(arith_t* exp, term_t t, uint32_t w){
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Extracting %d lowest bits of ",w);
+    fprintf(out, "Normalising %d lowest bits of ",w);
     term_print_to_file(out, terms, t);
     fprintf(out, " successfully gave ");
     term_print_to_file(out, terms, result);
@@ -521,44 +595,72 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Extracting coefficient of unevaluable monomial in ");
+    fprintf(out, "bv_arith_coeff, extracting coefficient of unevaluable monomial in ");
     ctx_trace_term(ctx, u);
   }
 
   // We start by normalising the input term
-  term_t t = extract(exp, u, w);
+  term_t t = normalise(exp, u, w);
   assert(t != NULL_TERM);
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Normalisation successfully produced ");
+    fprintf(out, "bv_arith_coeff says normalisation successfully produced ");
     ctx_trace_term(ctx, t);
   }
 
   // Looking at whether the value is cached
   ptr_hmap_pair_t* entry = ptr_hmap_get(&exp->coeff_cache, t);
-  assert(entry != NULL);
+  assert(entry != NULL);  
   polypair_t* result = (polypair_t*) entry->val;
   if (result != NULL) {
     assert(result->polyrest != NULL_TERM); // It is not marked for deletion
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "From memoisation table,\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "Variable is ");
+      if (result->var != NULL_TERM)
+        ctx_trace_term(ctx, result->var);
+      else 
+        fprintf(out, "NOT PRESENT\n");
+      fprintf(out, "Polyrest is ");
+      ctx_trace_term(ctx, result->polyrest);
+    }
     return result;
   }
 
-  result = safe_malloc(sizeof(polypair_t));
-  entry->val = (void*) result;
+  assert(entry->val == NULL); // If function is successful, we'll do a malloc for entry->val
   
   if (t == conflict_var) {
+    result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
     result->var = t;
     result->coeff = 1;
     result->polyrest = bv_arith_zero(tm, w);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Special case (conflict var),\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "Variable is ");
+      ctx_trace_term(ctx, result->var);
+      fprintf(out, "Polyrest is ");
+      ctx_trace_term(ctx, result->polyrest);
+    }
+    entry->val = (void*) result;
     return result;
   }
 
-  bool ignore_this_bool;
-  if (bv_evaluator_is_evaluable(&exp->csttrail, t, &ignore_this_bool)) {
+  if (bv_evaluator_is_evaluable(&exp->csttrail, t)) {
+    result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
     result->var = NULL_TERM;
     result->coeff = 0;
     result->polyrest = t;
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Special case (evaluable),\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "No variable\n");
+      fprintf(out, "Polyrest is ");
+      ctx_trace_term(ctx, result->polyrest);
+    }
+    entry->val = (void*) result;
     return result;
   }
 
@@ -567,9 +669,11 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     fprintf(out, "Not evaluable and not cached\n");
   }
 
-  result->var   = NULL_TERM;
-  result->coeff = 0;
-  result->polyrest = NULL_TERM; 
+  polypair_t temp; // We don't know whether we'll be successful, we don't malloc
+  
+  temp.var   = NULL_TERM;
+  temp.coeff = 0;
+  temp.polyrest = NULL_TERM; 
 
   switch (term_kind(ctx->terms, t)) {
   case BV_POLY: {
@@ -577,22 +681,15 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
       if (monom_var == const_idx) continue;
-      if (!assume_fragment
-          && (bv_arith_coeff(exp, monom_var, false) == NULL)) {
-        return NULL; // We're outside the fragment
-      }
-      if (!bv_evaluator_is_evaluable(&exp->csttrail,monom_var, &ignore_this_bool)) {
-        if (result->coeff != 0) { // second unevaluable monomial?
-          return NULL; // -> we're outside the fragment
-        }
+      if (!bv_evaluator_is_evaluable(&exp->csttrail,monom_var)) {
+        if (temp.coeff != 0) // second unevaluable monomial?
+          return NULL;       // -> we're outside the fragment
+        temp.var = monom_var;
         if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) {
-          result->coeff = 1;
-          result->var   = monom_var;
+          temp.coeff = 1;
         } else {
-          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->bitsize)) {
-            result->coeff = -1;
-            result->var   = monom_var;
-          }
+          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->bitsize))
+            temp.coeff = -1;
           else
             return NULL;
         }
@@ -606,22 +703,15 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
       if (monom_var == const_idx) continue;
-      if (!assume_fragment
-          && (bv_arith_coeff(exp, monom_var, false) == NULL)) {
-        return NULL; // We're outside the fragment
-      }
-      if (!bv_evaluator_is_evaluable(&exp->csttrail,monom_var, &ignore_this_bool)) {
-        if (result->coeff != 0) { // second unevaluable monomial?
-          return NULL; // -> we're outside the fragment
-        }
+      if (!bv_evaluator_is_evaluable(&exp->csttrail,monom_var)) {
+        if (temp.coeff != 0) // second unevaluable monomial?
+          return NULL;       // -> we're outside the fragment
+        temp.var = monom_var;
         if (t_poly->mono[i].coeff == 1) {
-          result->coeff = 1;
-          result->var   = monom_var;
+          temp.coeff = 1;
         } else {
-          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t))) {
-            result->coeff = -1;
-            result->var   = monom_var;
-          }
+          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t)))
+            temp.coeff = -1;
           else
             return NULL;
         }
@@ -631,54 +721,58 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     break;
   }
   case BV_ARRAY: {
-    termstruct_t* ts = analyse(exp,t,w);
-    if (ts->nobueno) return NULL;
-    assert(ts->length > 0); // Otherwise t would be evaluable (already checked)
-    assert(ts->base != NULL_TERM);
-    assert(bv_arith_is_zero(terms, ts->e));
-    assert(!ts->intros);    // Should not have introduced new constructs
-    
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "top-level base is ");
-      ctx_trace_term(ctx, ts->base);
-    }
-
-    if (ts->base == t)
-      return NULL;
-
-    if (!assume_fragment // If we don't know we are in the fragment
-        && ts->base != t // and base is a subterm of t, we recursively check
-        && (bv_arith_coeff(exp, ts->base, false) == NULL)) { // whether base is in the fragment
-      assert(ts->base < t);
-      return NULL; // We're outside the fragment
-    }
-
-    // OK, now we know or we assume we are in the fragment
-    result->var = t;   // the result->var is t
-    result->coeff = 1; // with coeff 1
+    temp.var = t;   // the temp.var is t
+    temp.coeff = 1; // with coeff 1
     break;
   }
   default: {
     return NULL;
   }
   }
-  
-  assert(result->var != NULL_TERM);
-  assert(result->coeff == 1 || result->coeff == -1);
 
-  result->polyrest = (result->coeff == 1) ?
-    bv_arith_sub_terms(tm, t, result->var) :
-    bv_arith_add_terms(tm, t, result->var) ;
-  
+  assert(temp.var != NULL_TERM);
+  assert(temp.coeff == 1 || temp.coeff == -1);
+
+  termstruct_t* ts = analyse(exp,temp.var,w);
+  if (ts->nobueno) return NULL;
+  assert(ts->length > 0); // Otherwise t would be evaluable (already checked)
+  assert(ts->base != NULL_TERM);
+  assert(!ts->intros);    // Should not have introduced new constructs
+    
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Coefficient is %d\n",result->coeff);
-    fprintf(out, "Variable is ");
-    ctx_trace_term(ctx, result->var);
-    fprintf(out, "Polyrest is ");
-    ctx_trace_term(ctx, result->polyrest);
+    fprintf(out, "top-level base is ");
+    ctx_trace_term(ctx, ts->base);
   }
+
+  if (ts->base == t)
+    return NULL;
+
+  if (!assume_fragment // If we don't know we are in the fragment
+      && ts->base != t // and base is a subterm of t, we recursively check
+      && (bv_arith_coeff(exp, ts->base, false) == NULL)) { // whether base is in the fragment
+    return NULL; // We're outside the fragment
+  }
+
+  // OK, now we know or we assume we are in the fragment
+
+  temp.polyrest = (temp.coeff == 1) ?
+    bv_arith_add(tm, bv_arith_sub(tm, t, temp.var), ts->eval) :
+    bv_arith_sub(tm, bv_arith_add(tm, t, temp.var), ts->eval) ;
+  temp.var = ts->var;
+
+  result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
+  result[0] = temp; // We copy the three integer values from the stack variable
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Coefficient is %d\n",temp.coeff);
+    fprintf(out, "Variable is ");
+    ctx_trace_term(ctx, temp.var);
+    fprintf(out, "Polyrest is ");
+    ctx_trace_term(ctx, temp.polyrest);
+  }
+  entry->val = (void*) result;
   return result; // Memoisation automatically done
 }
 
@@ -725,33 +819,35 @@ void bv_arith_init_side(arith_t* exp, term_t polyrest, bvconstant_t* cc) {
 
 
 // Treat a constraint of the form lhs <= rhs
-interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool b) {
+interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs, term_t rhs, bool b) {
   // Standard abbreviations
   plugin_context_t* ctx = exp->super.ctx;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
-  uint32_t w = term_bitsize(terms, lhs_raw);
-  assert(w == term_bitsize(terms, rhs_raw));
+  uint32_t w = term_bitsize(terms, lhs);
+  assert(w == term_bitsize(terms, rhs));
   interval_t* result = NULL;
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "\nTreating unit_constraint (lhs <= rhs) where lhs is\n");
-    ctx_trace_term(ctx, lhs_raw);
+    ctx_trace_term(ctx, lhs);
     fprintf(out, " and rhs is\n");
-    ctx_trace_term(ctx, rhs_raw);
+    ctx_trace_term(ctx, rhs);
     fprintf(out, "\n");
   }
 
-  term_t lhs = extract(exp, lhs_raw, term_bitsize(terms, lhs_raw));
-  term_t rhs = extract(exp, rhs_raw, term_bitsize(terms, rhs_raw));
   polypair_t* left  = bv_arith_coeff(exp, lhs, true);
   polypair_t* right = bv_arith_coeff(exp, rhs, true);
     
   if ((left->coeff == -1) || (right->coeff == -1)) {
     // if coeff is negative, we add one, negate and swap sides.
-    term_t nlhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, lhs));
-    term_t nrhs = bv_arith_negate_terms(tm, bv_arith_add_one_term(tm, rhs));
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Coefficient is negative! let's start again with a positive coefficient.\n");
+    }
+    term_t nlhs = bv_arith_negate(tm, bv_arith_add_one(tm, lhs));
+    term_t nrhs = bv_arith_negate(tm, bv_arith_add_one(tm, rhs));
     return bv_arith_unit_le(exp, nrhs, nlhs, b);
   }
 
@@ -789,13 +885,13 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
     bvconstant_copy(&lo, cc2.bitsize, cc2.data);
     bvconstant_negate(&lo);
     bvconstant_normalize(&lo);
-    lo_term = bv_arith_negate_terms(tm,c2);
+    lo_term = bv_arith_negate(tm,c2);
     
     if (left_has) { // then hi is -c1
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_negate(&hi);
       bvconstant_normalize(&hi);
-      hi_term = bv_arith_negate_terms(tm,c1);
+      hi_term = bv_arith_negate(tm,c1);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Case <=: has_right, has_left, lo = ");
@@ -818,7 +914,7 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_sub(&hi, &cc2);
       bvconstant_normalize(&hi);
-      hi_term = bv_arith_sub_terms(tm,c1,c2);
+      hi_term = bv_arith_sub(tm,c1,c2);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Case <=: has_right, !has_left, lo = ");
@@ -845,12 +941,12 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs_raw, term_t rhs_raw, bool 
       bvconstant_normalize(&lo);
       bvconstant_add_one(&lo);
       bvconstant_normalize(&lo);
-      lo_term = bv_arith_add_one_term(tm, bv_arith_sub_terms(tm,c2,c1));
+      lo_term = bv_arith_add_one(tm, bv_arith_sub(tm,c2,c1));
 
       bvconstant_copy(&hi, cc1.bitsize, cc1.data);
       bvconstant_negate(&hi);
       bvconstant_normalize(&hi);
-      hi_term = bv_arith_negate_terms(tm,c1);
+      hi_term = bv_arith_negate(tm,c1);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Case <=: !has_right, has_left, lo = ");
@@ -913,8 +1009,8 @@ void bv_arith_add2conflict(arith_t* exp,
 
   assert(!bvconstant_eq(&i->lo, &i->hi));
 
-  term_t small = bv_arith_sub_terms(tm, min_saved_term, i->lo_term);
-  term_t big   = bv_arith_sub_terms(tm, i->hi_term, i->lo_term);
+  term_t small = bv_arith_sub(tm, min_saved_term, i->lo_term);
+  term_t big   = bv_arith_sub(tm, i->hi_term, i->lo_term);
   
   term_t continuity_reason = bv_arith_lt(tm, small, big);
   if (continuity_reason != NULL_TERM) {
@@ -1176,7 +1272,7 @@ bool cover(arith_t* exp,
         assert(bvconstant_eq(&saved_hi_copy,&i->lo));
         delete_bvconstant(&saved_hi_copy);
         // OK, seems fine. We add to the conflict the fact that the hole has size 1:
-        term_t literal = bv_arith_eq(tm, i->lo_term, bv_arith_add_one_term(tm, saved_hi_term));
+        term_t literal = bv_arith_eq(tm, i->lo_term, bv_arith_add_one(tm, saved_hi_term));
         if (literal != NULL_TERM) ivector_push(output, literal);
         // We output the term in the substitution pointer
         substitution[0] = saved_hi_term;
@@ -1230,8 +1326,8 @@ bool cover(arith_t* exp,
       // We will record whether the (complement of the) hole is used by the smaller bitwidths
       bool hole_used;
       // We project lo_term and hi_term into the domain of smaller bitwidth
-      term_t lo_proj_term = extract(exp, lo_term, next_bitwidth);
-      term_t hi_proj_term = extract(exp, hi_term, next_bitwidth);
+      term_t lo_proj_term = normalise(exp, lo_term, next_bitwidth);
+      term_t hi_proj_term = normalise(exp, hi_term, next_bitwidth);
       // Where the recursive call can return the substitution term (if we are explaining a propagation)
       term_t rec_substitution = NULL_TERM;
       // Now, there two cases for the recursive call: small hole or big hole
@@ -1280,8 +1376,8 @@ bool cover(arith_t* exp,
       }
       // If we are explaining a propagation and got a feasible value in the hole:
       if (substitution != NULL && rec_substitution != NULL_TERM) {
-        term_t diff = bv_arith_sub_terms(tm, rec_substitution, lo_proj_term);
-        substitution[0] = bv_arith_add_terms(tm, lo_term, bv_arith_upextension(tm, diff, false_bit, w));
+        term_t diff = bv_arith_sub(tm, rec_substitution, lo_proj_term);
+        substitution[0] = bv_arith_add(tm, lo_term, bv_arith_upextension(tm, diff, false_term, w));
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "Hole was from ");
@@ -1312,8 +1408,8 @@ bool cover(arith_t* exp,
           fprintf(out, "The recursive call used the hole we left uncovered at bitwidth %d and/or found 1 feasible value .\n",w);
         }
         term_t literal = (hole_used) ?
-          bv_arith_lt(tm, bv_arith_sub_terms(tm, hi_term, lo_term), smaller_values_term) :
-          bv_arith_le(tm, bv_arith_sub_terms(tm, hi_term, substitution[0]), smaller_values_term);
+          bv_arith_lt(tm, bv_arith_sub(tm, hi_term, lo_term), smaller_values_term) :
+          bv_arith_le(tm, bv_arith_sub(tm, hi_term, substitution[0]), smaller_values_term);
         if (literal != NULL_TERM) {
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
@@ -1403,7 +1499,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     termstruct_t* ts = analyse(exp,interval[0]->var,w);
     assert(!ts->nobueno);    // Otherwise it wouldn't be in the fragment
     assert(ts->length != 0); // Otherwise the term is evaluable
-    assert(bv_arith_is_zero(terms, ts->e)); // The variable should only have zeros as evaluable bits
+    assert(bv_arith_is_zero(terms, ts->eval)); // The variable should only have zeros as evaluable bits
     assert(ts->base != NULL_TERM); // There should be a base
     assert(ts->base == exp->csttrail.conflict_var // Either it's the conflict variable
            || term_bitsize(terms,ts->base) == ts->start + ts->length);
@@ -1420,10 +1516,9 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     case BV64_POLY: {
       polypair_t* p = bv_arith_coeff(exp, ts->base, true);
       assert(p->coeff == 1 || p->coeff == -1);
-      if (p->coeff == 1)
-        bv_interval_plus(&exp->super,bv_arith_negate_terms(tm,p->polyrest),interval[0]);
-      else
-        bv_interval_plus(&exp->super,p->polyrest, interval[0]);
+      bv_interval_subtract(&exp->super,p->polyrest,interval[0]);
+      if (p->coeff == -1)
+        bv_interval_negate(&exp->super,interval[0]);
       interval[0]->var = p->var;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
@@ -1435,7 +1530,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       break;
     }
     default: {
-      assert(ts->base == exp->csttrail.conflict_var);
+      assert(ts->base == exp->csttrail.conflict_var_term);
       interval[0]->var = term_extract(tm, ts->base, 0, ts->start + ts->length);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
@@ -1503,7 +1598,7 @@ void bvarith_explain(bv_subexplainer_t* this,
 
     if (term_kind(terms, atom_i_term) == BIT_TERM) {
       t0prime = term_extract(tm, atom_i_term, 0, 1);
-      t1prime = bv_arith_add_one_term(tm, bv_arith_zero(tm, 1));
+      t1prime = bv_arith_add_one(tm, bv_arith_zero(tm, 1));
     } else {
       composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
@@ -1512,8 +1607,8 @@ void bvarith_explain(bv_subexplainer_t* this,
       assert(is_pos_term(t0));
       assert(is_pos_term(t1));
       uint32_t w = term_bitsize(terms, t0);
-      t0 = extract(exp, t0, w);
-      t1 = extract(exp, t1, w);
+      t0 = normalise(exp, t0, w);
+      t1 = normalise(exp, t1, w);
 
       switch (term_kind(terms, atom_i_term)) {
       case BV_GE_ATOM: {  
@@ -1529,7 +1624,7 @@ void bvarith_explain(bv_subexplainer_t* this,
       case EQ_TERM :     
       case BV_EQ_ATOM: { // equality
         t0prime = bv_arith_zero(tm, w);
-        t1prime = bv_arith_sub_terms(tm, t0, t1);
+        t1prime = bv_arith_sub(tm, t0, t1);
         break;
       }
       default:
@@ -1538,11 +1633,11 @@ void bvarith_explain(bv_subexplainer_t* this,
     }
     intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
 
-    polypair_t* p0 = bv_arith_coeff(exp, t0prime, true);
-    polypair_t* p1 = bv_arith_coeff(exp, t1prime, true);
-    if ((p0->coeff != 0
-         || p1->coeff != 0)
-        && intervals[i] != NULL) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "explain: created one interval, let's see if it needs transforming\n");
+    }
+    if (intervals[i] != NULL) {
       transform_interval(exp, &intervals[i]);
     }
   }
@@ -1716,7 +1811,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       assert(atom_comp->arity == 2);
       term_t t0 = atom_comp->arg[0];
       term_t t1 = atom_comp->arg[1];
-      assert(is_pos_term(t0) && !is_pos_term(t1));
+      assert(is_pos_term(t0) && is_pos_term(t1));
       // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
       bv_evaluator_csttrail_scan(csttrail, atom_var);
       
@@ -1751,13 +1846,19 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       int32_t t1_coeff = p1->coeff;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "can_explain gets coefficients %d and %d for variables ", t0_coeff, t1_coeff);
-        term_print_to_file(out, terms, var0);
+        fprintf(out, "can_explain gets coefficients %d and %d for monomial variables ", t0_coeff, t1_coeff);
+        if (var0 != NULL_TERM)
+          term_print_to_file(out, terms, var0);
+        else 
+          fprintf(out, "NOT_PRESENT");
         fprintf(out, " and ");
-        term_print_to_file(out, terms, var1);
+        if (var1 != NULL_TERM)
+          term_print_to_file(out, terms, var1);
+        else 
+          fprintf(out, "NOT_PRESENT");
         fprintf(out, "\n");
       }
-      if (var0 != var1) {
+      if (var0 != NULL_TERM && var1 != NULL_TERM && var0 != var1) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);
@@ -1776,13 +1877,6 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         }
         result = false;
         break;
-      }
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "with monom variables\n");
-        if (t0_coeff != 0) ctx_trace_term(ctx, var0);
-        fprintf(out, "and\n");
-        if (t1_coeff != 0) ctx_trace_term(ctx, var1);
       }
       break;
     }
