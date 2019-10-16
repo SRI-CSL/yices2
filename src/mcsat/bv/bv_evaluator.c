@@ -649,7 +649,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_evaluator looks at how many bits do not refer to variable y = ");
+    fprintf(out, "bv_evaluator (optim=%d) looks at how many bits do not refer to variable y = ",csttrail->optim);
     term_print_to_file(out, ctx->terms, y);
     fprintf(out, " in term ");
     ctx_trace_term(ctx, u);
@@ -658,14 +658,23 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   assert(t != NULL_TERM);
   assert(is_bitvector_term(terms, t) || is_boolean_term(terms, t));
 
-  if (t == y)
+  if (t == y) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term is y!\n");
+    }
     return 0; // It doesn't feature y up to bit 0
-
+  }
   switch (term_kind(terms, t)) { // Simple check for constants
   case CONSTANT_TERM:
   case BV_CONSTANT:
-  case BV64_CONSTANT:
+  case BV64_CONSTANT: {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term is a constant!\n");
+    }
     return -1; // no variables at all
+  }
   default: {
   }
   }

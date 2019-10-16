@@ -722,13 +722,19 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t t, bool assume_fragment) {
     if (cache->val == 1 && assume_fragment) {
       int_hmap_erase(&exp->cache, cache);
     } else {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "It is cached with value ");
+        if (assume_fragment) ctx_trace_term(ctx, cache->val);
+        else fprintf(out, "%d\n",cache->val);
+      }
       return cache->val;
     }
   }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Value not cached. Is it evaluable?\n");
+    fprintf(out, "Value not cached.%s\n", assume_fragment?"":" Is it evaluable?");
   }
 
   if (!assume_fragment && bv_evaluator_is_evaluable(&exp->csttrail, t)) {
@@ -754,9 +760,11 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t t, bool assume_fragment) {
       result = term_is_ext_con(exp, tmp, assume_fragment);
     } else {
       term_t recurs = term_is_ext_con(exp, t_arg, assume_fragment);
-      result = (assume_fragment && recurs != NULL_TERM) ?
+      result = (recurs == NULL_TERM) ?
+        NULL_TERM :
+        (assume_fragment) ?
         mk_bitextract(tm, recurs, t_index):
-        recurs;
+        1;
     }
     int_hmap_add(&exp->cache, t, result);
     return result;
@@ -876,12 +884,36 @@ slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const iv
         next_disjunction++;
       }
       uint32_t width = bv_term_bitsize(terms, t0);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Calling term_is_ext_conc on LHS.\n");
+      }
       t0 = term_is_ext_con(exp, t0, true);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Calling term_is_ext_conc on RHS.\n");
+      }
       t1 = term_is_ext_con(exp, t1, true);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Extracting bits in case terms are Boolean.\n");
+      }
       t0 = term_extract(tm, t0, 0, width);
-      t1 = term_extract(tm, t0, 1, width);
+      t1 = term_extract(tm, t1, 0, width);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Normalising LHS into slices.\n");
+      }
       slist_t* l0 = bv_slicing_norm(exp, t0, width, 0, NULL, &todo, &slicing->slices);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Normalising RHS into slices.\n");
+      }
       slist_t* l1 = bv_slicing_norm(exp, t1, width, 0, NULL, &todo, &slicing->slices);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Done.\n");
+      }
       bv_slicing_align(ctx, l0, l1, constraint, &todo);
       break;
     }
@@ -967,7 +999,7 @@ void explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_core, v
   assert(conflict_var == exp->csttrail.conflict_var);
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Eq-explaining conflict with conflict_variable");
+    fprintf(out, "Eq-explaining conflict with conflict_variable ");
     term_print_to_file(out, terms, exp->csttrail.conflict_var_term);
     fprintf(out, "\n");
   }
@@ -1195,7 +1227,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
 
     if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing")) {
       FILE* out = ctx_trace_out(this->ctx);
-      fprintf(out, "eq_ext_conc looks at whether this is in the fragment: ");
+      fprintf(out, "eq_ext_conc looks at whether constraint %d is in the fragment: ",i);
       ctx_trace_term(this->ctx, atom_term);
       fprintf(out, "with the conflict_variable being ");
       ctx_trace_term(this->ctx, csttrail->conflict_var_term);
@@ -1223,6 +1255,10 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
           fprintf(out, "term_is_ext_con returned false\n");
         }
         return false;
+      }
+      if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(this->ctx);
+        fprintf(out, "term_is_ext_con returned true for LHS. Let's look at RHS:\n");
       }
       if (term_is_ext_con(exp, eq->arg[1], false) == NULL_TERM) {
         if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
