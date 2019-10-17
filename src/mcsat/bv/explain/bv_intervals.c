@@ -383,10 +383,10 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
     
     term_t lo_reason;
     if (bvconstant_is_zero(&lo_light)) {
-      lo_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t0, 0, w));
+      lo_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t0, 0, w));
     } else {
       lo_term   = bv_arith_add_one(tm, lo_term);
-      lo_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t0, 0, w));
+      lo_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t0, 0, w));
     }
     if (lo_reason != NULL_TERM) {
       ivector_push(&interval->reasons, lo_reason);
@@ -400,10 +400,10 @@ bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interv
 
     term_t hi_reason;
     if (bvconstant_is_zero(&hi_light)) {
-      hi_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t1, 0, w));
+      hi_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t1, 0, w));
     } else {
       hi_term   = bv_arith_add_one(tm, hi_term);
-      hi_reason = bv_arith_eq(tm, zero_w, term_extract(tm, t1, 0, w));
+      hi_reason = bv_arith_lt(tm, zero_w, term_extract(tm, t1, 0, w));
     }
     if (hi_reason != NULL_TERM) {
       ivector_push(&interval->reasons, hi_reason);
