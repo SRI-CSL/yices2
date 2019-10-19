@@ -30,12 +30,12 @@ typedef struct {
 } interval_t;
 
 static inline
-uint32_t get_bitwidth(interval_t* i){
+uint32_t bv_interval_get_bitwidth(interval_t* i){
   return i->lo.bitsize;
 }
 
 static inline
-bool is_full(interval_t* i){
+bool bv_interval_is_full(interval_t* i){
   return bvconstant_eq(&i->lo,&i->hi);
 }
 
@@ -52,6 +52,9 @@ bool bvconst_lt_base(const bvconstant_t* a, const bvconstant_t* b, const bvconst
 
 // Determines if interval i contains value a. Happens if (a - i->lo) < (i->hi - i->lo)
 bool bv_interval_is_in(const bvconstant_t* a, const interval_t* i);
+
+// Construct an atom that says "t \in interval" (needs to be true in the model)
+term_t bv_interval_is_in_term(term_manager_t* tm, term_t t, const interval_t* i);
 
 // Comparing two intervals: first look at bitwidth, then lower bound, then span.
 // When lower bounds are compared, an optional baseline can be provided, in data,
@@ -89,7 +92,7 @@ void bv_interval_negate(bv_subexplainer_t* exp, interval_t* interval);
 
 // If interval is an interval for var,
 // then it becomes an interval for concat(var,u) for any u extending the low bits of var
-// w is the length of concat(var,u). Function doesn't check the var,
+// w is the length of u. Function doesn't check the var,
 // and sets it back to NULL_TERM if interval is modified.
 void bv_interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
 
