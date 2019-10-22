@@ -8,6 +8,7 @@
 #include "terms/bv_constants.h"
 #include "terms/term_utils.h"
 #include "mcsat/bv/bv_explainer.h"
+#include "arith_norm.h"
 
 /**
    BV arithmetic intervals
@@ -30,80 +31,80 @@ typedef struct {
 } interval_t;
 
 static inline
-uint32_t bv_interval_get_bitwidth(interval_t* i){
+uint32_t interval_get_bitwidth(interval_t* i){
   return i->lo.bitsize;
 }
 
 static inline
-bool bv_interval_is_full(interval_t* i){
+bool interval_is_full(interval_t* i){
   return bvconstant_eq(&i->lo,&i->hi);
 }
 
-void bv_interval_delete(interval_t* i);
+void interval_delete(interval_t* i);
 
 // delete + free
-void bv_interval_destruct(interval_t* i);
+void interval_destruct(interval_t* i);
 
-void bv_interval_print(FILE* out, term_table_t* terms, interval_t* i);
+void interval_print(FILE* out, term_table_t* terms, interval_t* i);
 
 // Comparing bv_constants, with a baseline that serves as the zero
 bool bvconst_le_base(const bvconstant_t* a, const bvconstant_t* b, const bvconstant_t* baseline);
 bool bvconst_lt_base(const bvconstant_t* a, const bvconstant_t* b, const bvconstant_t* baseline);
 
 // Determines if interval i contains value a. Happens if (a - i->lo) < (i->hi - i->lo)
-bool bv_interval_is_in(const bvconstant_t* a, const interval_t* i);
+bool interval_is_in(const bvconstant_t* a, const interval_t* i);
 
-// Construct an atom that says "t \in interval" (needs to be true in the model)
-term_t bv_interval_is_in_term(term_manager_t* tm, term_t t, const interval_t* i);
+// Construct an atom that says "t \in interval"
+term_t interval_is_in_term(arith_norm_t* norm, term_t t, const interval_t* i);
 
 // Comparing two intervals: first look at bitwidth, then lower bound, then span.
 // When lower bounds are compared, an optional baseline can be provided, in data,
 // which must have the same bitwidth as x and y.
-bool bv_interval_cmp(void *data, void *x, void *y);
+bool interval_cmp(void *data, void *x, void *y);
 
 // inhabits output; lo and hi can be NULL, in which case they are computed from lo_term and hi_term
-void bv_interval_construct(bv_subexplainer_t* exp,
-                           const bvconstant_t* lo,
-                           const bvconstant_t* hi,
-                           term_t lo_term,
-                           term_t hi_term,
-                           term_t var,
-                           term_t reason,
-                           interval_t* output);
+void interval_construct(bv_subexplainer_t* exp,
+                        const bvconstant_t* lo,
+                        const bvconstant_t* hi,
+                        term_t lo_term,
+                        term_t hi_term,
+                        term_t var,
+                        term_t reason,
+                        interval_t* output);
 
 // Returns a newly constructed interval on the heap
-interval_t* bv_interval_mk(bv_subexplainer_t* exp,
-                           const bvconstant_t* lo,
-                           const bvconstant_t* hi,
-                           term_t lo_term,
-                           term_t hi_term,
-                           term_t var,
-                           term_t reason);
+interval_t* interval_mk(bv_subexplainer_t* exp,
+                        const bvconstant_t* lo,
+                        const bvconstant_t* hi,
+                        term_t lo_term,
+                        term_t hi_term,
+                        term_t var,
+                        term_t reason);
 
 // Returns a newly constructed full interval on the heap
-interval_t* bv_interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t width);
+interval_t* interval_full_mk(bv_subexplainer_t* exp, term_t reason, uint32_t width);
 
 
 // If interval is an interval for var, then it becomes an interval for var - u
-void bv_interval_subtract(bv_subexplainer_t* exp, term_t u, interval_t* interval);
+void interval_subtract(bv_subexplainer_t* exp, term_t u, interval_t* interval);
 
 // If interval is an interval for var, then it becomes an interval for -var
-void bv_interval_negate(bv_subexplainer_t* exp, interval_t* interval);
+void interval_negate(bv_subexplainer_t* exp, interval_t* interval);
 
 // If interval is an interval for var,
 // then it becomes an interval for concat(var,u) for any u extending the low bits of var
 // w is the length of u. Function doesn't check the var,
 // and sets it back to NULL_TERM if interval is modified.
-void bv_interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+void interval_downextend(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
 
 // If interval is an interval for 0...0var, then it becomes an interval for var
 // (of length w). Interval can become empty, in which case function outputs true
 // (otherwise outputs false). Function doesn't check the var,
 // and sets it back to NULL_TERM if interval is modified.
-bool bv_interval_uptrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+bool interval_uptrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, interval_t* interval);
 
 // If interval is an interval for var0...0 (w is the number of extra zeros),
 // then it becomes an interval for var
 // (it doesn't check the var, and sets it back to NULL_TERM)
-bool bv_interval_downtrim(bv_subexplainer_t* exp, uint32_t w, interval_t* interval);
+bool interval_downtrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, interval_t* interval);
 

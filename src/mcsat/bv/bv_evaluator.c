@@ -644,7 +644,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   term_manager_t* tm    = ctx->tm;
   variable_db_t* var_db = ctx->var_db; // standard abbreviations
   term_table_t* terms   = ctx->terms;
-  term_t t              = unsigned_term(u);
+  term_t t              = unsigned_term(bv_bitterm(terms,u));
   term_t y              = csttrail->conflict_var_term;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {

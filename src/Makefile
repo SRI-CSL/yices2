@@ -348,9 +348,10 @@ mcsat_src_c := \
 	mcsat/bv/bv_explainer.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
-	mcsat/bv/explain/arith.c \
 	mcsat/bv/explain/arith_utils.c \
-	mcsat/bv/explain/bv_intervals.c \
+	mcsat/bv/explain/arith_norm.c \
+	mcsat/bv/explain/arith_intervals.c \
+	mcsat/bv/explain/arith.c \
 	mcsat/bv/explain/eq_ext_con.c \
 	mcsat/bv/explain/full_bv_sat.c \
 	mcsat/bv/explain/full_bv_trivial.c \
