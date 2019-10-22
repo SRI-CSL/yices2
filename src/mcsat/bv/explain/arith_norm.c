@@ -27,6 +27,21 @@ void arith_norm_freeval(arith_norm_t* norm) {
   }
 }
 
+void print_analyse(plugin_context_t* ctx, arith_analyse_t*  analysis){
+  FILE* out = ctx_trace_out(ctx);
+  fprintf(out, "analyse produces suffix = %d, length = %d, base = ", analysis->suffix, analysis->length);
+  if (analysis->base != NULL_TERM){
+    ctx_trace_term(ctx, analysis->base);
+    fprintf(out, "starting at start = %d,", analysis->start);
+  }
+  else 
+    fprintf(out, " NO_BASE,");
+  fprintf(out, " with evaluable = ");    
+  ctx_trace_term(ctx, analysis->eval);
+  fprintf(out, "and var = ");    
+  ctx_trace_term(ctx, analysis->var);
+}
+
 // The following two functions are mutually recursive
 
 arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
@@ -52,6 +67,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Found it in memoisation table!\n");
+      print_analyse(ctx, result);
     }
     return result;
   }
@@ -110,7 +126,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
 
     // Now we fill-in preproc[1][*], preproc[2][*], preproc[3][*]
     for (uint32_t i = 0; i < w; i++) {
-      if (preproc[i][0] != NULL_TERM) {
+      if (preproc[0][i] != NULL_TERM) {
         uint32_t size = preproc[1][i] + 1;
         preproc[1][i] = arith_normalise_upto(norm, preproc[0][i], size);
         preproc[2][i] = bv_evaluator_not_free_up_to(&norm->csttrail, preproc[1][i]);
@@ -147,11 +163,11 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
       }
 
       // Then we normalise the bit t_i
-      if (term_kind(terms, t_i) != BIT_TERM) {
+      if (term_kind(terms, t_i) == BIT_TERM) {
         uint32_t index = bit_term_index(terms, t_i); // Get selected bit
         term_t base    = bit_term_arg(terms, t_i);   // Get the base
         assert(term_kind(terms, base) != BV_ARRAY);
-        bool isneg     = is_pos_term(t_i);
+        bool isneg     = is_neg_term(t_i);
         uint32_t key_index = fix_htbl_index(preproc[0],w,base);
         base = (index < preproc[2][key_index]) ?
           preproc[3][key_index] :
@@ -326,22 +342,8 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
   }
   }
 
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "analyse, looking at the %d lower bits of term ", w);
-    term_print_to_file(out, terms, t);
-    fprintf(out, " produces suffix = %d, length = %d, base = ", result->suffix, result->length);
-    if (result->base != NULL_TERM){
-      ctx_trace_term(ctx, result->base);
-      fprintf(out, "starting at start = %d,", result->start);
-    }
-    else 
-      fprintf(out, " NO_BASE,");
-    fprintf(out, " with evaluable = ");    
-    ctx_trace_term(ctx, result->eval);
-    fprintf(out, "and var = ");    
-    ctx_trace_term(ctx, result->var);
-  }
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan"))
+    print_analyse(ctx, result);
   return result;  // Note that the result is automatically memoised
   
 }

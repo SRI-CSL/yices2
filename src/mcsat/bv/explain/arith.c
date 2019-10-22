@@ -1024,7 +1024,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     assert(ts->length != 0); // Otherwise the term is evaluable
     assert(arith_is_zero(terms, ts->eval)); // The variable should only have zeros as evaluable bits
     assert(ts->base != NULL_TERM); // There should be a base
-    assert(ts->base == exp->norm.csttrail.conflict_var // Either it's the conflict variable
+    assert(ts->base == exp->norm.csttrail.conflict_var_term // Either it's the conflict variable
            || term_bitsize(terms,ts->base) == ts->start + ts->length);
     // or the top pruning has been pushed further inside the base
 

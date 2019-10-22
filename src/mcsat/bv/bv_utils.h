@@ -362,8 +362,9 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
 static inline
 term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
   assert(is_bitvector_term(tm->terms, t) || is_boolean_term(tm->terms, t));
-  if (lo == 0
-      && hi == bv_term_bitsize(tm->terms, t))
+  if (is_bitvector_term(tm->terms, t)
+      && lo == 0
+      && hi == term_bitsize(tm->terms, t))
     return t;
   term_t tarray[1];
   tarray[0] = t;
@@ -377,7 +378,6 @@ term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
 // Gets the bit term by descending the BIT_TERM-over-BV_ARRAY situations
 static inline
 term_t bv_bitterm(term_table_t* terms, term_t t) {
-  assert(is_boolean_term(terms, t));
   term_t result = t;
   bool is_pos = true; // Parity of how many negations have we seen in the descent
   while (term_kind(terms, result) == BIT_TERM
