@@ -66,10 +66,17 @@ term_t arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w);
 **/
 
 // This function returns (left == right), simplifying the result
-term_t arith_eq(term_manager_t* tm, term_t left, term_t right);
+term_t arith_eq0(term_manager_t* tm, term_t t);
 
 // This function returns (left < right), simplifying the result
 term_t arith_lt(term_manager_t* tm, term_t left, term_t right);
 
 // This function returns (left <= right), simplifying the result
 term_t arith_le(term_manager_t* tm, term_t left, term_t right);
+
+static inline
+bool arith_is_no_triv(term_t t){
+  assert(t != false_term);
+  return (t != true_term);
+}
+

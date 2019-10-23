@@ -191,13 +191,84 @@ term_t arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w) {
    Making atoms.
 **/
 
-// This function returns (left == right), simplifying the result
-term_t arith_eq(term_manager_t* tm, term_t left, term_t right) {
-  if (left == right)
-    return true_term;
+// This function returns (t == 0), simplifying the result
+term_t arith_eq0(term_manager_t* tm, term_t t) {
   term_table_t* terms = tm->terms;
-  if (disequal_bitvector_terms(terms, left, right)) {
+
+  if (arith_is_zero(terms, t))
+    return true_term;
+
+  uint32_t w = term_bitsize(terms, t);
+  term_t left  = t;
+  term_t right = arith_zero(tm, w);
+  if (disequal_bitvector_terms(terms, left, right))
     return false_term;
+
+  switch (term_kind(terms, t)) {
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
+    // If we extract more than 64 bits, we use regular coefficients for the bv_poly to produce
+    // we construct that bv_poly from a bvarith_buffer_t called buffer:
+    bvarith_buffer_t* buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      term_t monom_var = t_poly->mono[i].var;
+      if (bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+        if (monom_var == const_idx) // constant coefficient gets aded to the buffer bv_poly
+          bvarith_buffer_add_const(buffer, t_poly->mono[i].coeff);
+        else // Otherwise we add the w-bit monomial to the bv_poly
+          bvarith_buffer_add_const_times_term(buffer, terms, t_poly->mono[i].coeff, monom_var);
+      }
+    }
+    left = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+    bvarith_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      term_t monom_var = t_poly->mono[i].var;
+      if (!bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+        bvconstant_t coeff;
+        init_bvconstant(&coeff);
+        bvconstant_copy(&coeff, w, t_poly->mono[i].coeff);
+        bvconstant_negate(&coeff);
+        if (monom_var == const_idx) // constant coefficient gets aded to the buffer bv_poly
+          bvarith_buffer_add_const(buffer, coeff.data);
+        else // Otherwise we add the w-bit monomial to the bv_poly
+          bvarith_buffer_add_const_times_term(buffer, terms, coeff.data, monom_var);
+        delete_bvconstant(&coeff);
+      }
+    }
+    right = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+    break;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
+    bvarith64_buffer_t* buffer = term_manager_get_bvarith64_buffer(tm);
+    bvarith64_buffer_prepare(buffer, w); // Setting the desired width
+    // Now going into each monomial
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      term_t monom_var = t_poly->mono[i].var;
+      if (tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+        if (monom_var == const_idx) // constant coefficient gets added to the buffer bv_poly
+          bvarith64_buffer_add_const(buffer, t_poly->mono[i].coeff);
+        else // Otherwise we add the w-bit monomial to the bv_poly
+          bvarith64_buffer_add_const_times_term(buffer, terms, t_poly->mono[i].coeff, monom_var);
+      }
+    }
+    left = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+    bvarith64_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      term_t monom_var = t_poly->mono[i].var;
+      if (!tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+        if (monom_var == const_idx)
+          bvarith64_buffer_add_const(buffer, - t_poly->mono[i].coeff); // constant coefficient gets added to the buffer bv_poly
+        else
+          bvarith64_buffer_add_const_times_term(buffer, terms, - t_poly->mono[i].coeff, monom_var);
+      }
+    }
+    right = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+    break;
+  }
+  default: {
+  }
   }
   return bveq_atom(terms, left, right);
 }
@@ -213,15 +284,15 @@ term_t arith_lt(term_manager_t* tm, term_t left, term_t right) {
     return false_term;
   // (left < 1) turns into (left == 0)
   if (arith_is_one(terms, right)) {
-    return bveq_atom(terms, left, arith_zero(tm, w));
+    return arith_eq0(tm, left);
   }
   // (left < -1) turns into (left+1 != 0)
   if (arith_is_minus_one(terms, right)) {
-    return not_term(terms, bveq_atom(terms, arith_sub(tm, left, right),arith_zero(tm, w)));
+    return not_term(terms, arith_eq0(tm, arith_sub(tm, left, right)));
   }
   // (0 < right) turns into (right != 0)
   if (arith_is_zero(terms, left)) {
-    return not_term(terms, bveq_atom(terms, right, arith_zero(tm, w)));
+    return not_term(terms, arith_eq0(tm, right));
   }
   return mk_bvlt(tm, left, right);
 }
@@ -240,11 +311,11 @@ term_t arith_le(term_manager_t* tm, term_t left, term_t right) {
   }
   // (left <= 0) and (-1 <= right) turns into (left == right)
   if (arith_is_zero(terms, right)) {
-    return bveq_atom(terms, left, right);
+    return arith_eq0(tm, left);
   }
   // (1 <= right) turns into (right != 0)
   if (arith_is_one(terms, left)) {
-    return not_term(terms, bveq_atom(terms, right, arith_zero(tm, w)));
+    return not_term(terms, arith_eq0(tm, right));
   }
   return mk_bvle(tm, left, right);
 }

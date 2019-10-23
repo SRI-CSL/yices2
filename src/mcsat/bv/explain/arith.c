@@ -172,60 +172,45 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
     // If we extract more than 64 bits, we use regular coefficients for the bv_poly to produce
     // we construct that bv_poly from a bvarith_buffer_t called buffer:
-    bvarith_buffer_t* buffer = term_manager_get_bvarith_buffer(tm);
-    bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (monom_var == const_idx) {
-        bvarith_buffer_add_const(buffer, t_poly->mono[i].coeff);// constant coefficient gets aded to the buffer bv_poly
-      } else {
-        if (!bv_evaluator_is_evaluable(&exp->norm.csttrail,monom_var)) {
-          if (temp.coeff != 0) // second unevaluable monomial?
-            return NULL;       // -> we're outside the fragment
-          temp.var = monom_var;
-          if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) {
-            temp.coeff = 1;
-          } else {
-            if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->bitsize))
-              temp.coeff = -1;
-            else
-              return NULL;
-          }
-        } else
-          // Otherwise we add the w-bit monomial to the bv_poly
-          bvarith_buffer_add_const_times_term(buffer, terms, t_poly->mono[i].coeff, monom_var);
+      if (monom_var != const_idx
+          && !bv_evaluator_is_evaluable(&exp->norm.csttrail,monom_var)) {
+        if (temp.coeff != 0) // second unevaluable monomial?
+          return NULL;       // -> we're outside the fragment
+        temp.var = monom_var;
+        if (bvconst_is_one(t_poly->mono[i].coeff, t_poly->width)) {
+          temp.coeff = 1;
+        } else {
+          if (bvconst_is_minus_one(t_poly->mono[i].coeff, t_poly->bitsize))
+            temp.coeff = -1;
+          else
+            return NULL;
+        }
       }
     }
-    temp.polyrest = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
     break;
   }
   case BV64_POLY: {
     bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
-    bvarith64_buffer_t* buffer = term_manager_get_bvarith64_buffer(tm);
-    bvarith64_buffer_prepare(buffer, w); // Setting the desired width
     // Now going into each monomial
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (monom_var == const_idx) {
-        bvarith64_buffer_add_const(buffer, t_poly->mono[i].coeff); // constant coefficient gets added to the buffer bv_poly
-      } else {
-        if (!bv_evaluator_is_evaluable(&exp->norm.csttrail,monom_var)) {
-          if (temp.coeff != 0) // second unevaluable monomial?
-            return NULL;       // -> we're outside the fragment
-          temp.var = monom_var;
-          if (t_poly->mono[i].coeff == 1) {
-            temp.coeff = 1;
-          } else {
-            if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t)))
-              temp.coeff = -1;
-            else
-              return NULL;
-          }
-        } else
-          bvarith64_buffer_add_const_times_term(buffer, terms, t_poly->mono[i].coeff, monom_var);
+      if (monom_var != const_idx
+          && !bv_evaluator_is_evaluable(&exp->norm.csttrail,monom_var)) {
+        if (temp.coeff != 0) // second unevaluable monomial?
+          return NULL;       // -> we're outside the fragment
+        temp.var = monom_var;
+        if (t_poly->mono[i].coeff == 1) {
+          temp.coeff = 1;
+        } else {
+          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t)))
+            temp.coeff = -1;
+          else
+            return NULL;
+        }
       }
     }
-    temp.polyrest = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
     break;
   }
   case BV_ARRAY: {
@@ -241,6 +226,11 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
 
   assert(temp.var != NULL_TERM);
   assert(temp.coeff == 1 || temp.coeff == -1);
+
+  if (temp.polyrest == NULL_TERM)
+    temp.polyrest = (temp.coeff == 1) ?
+      arith_sub(tm, t, temp.var) :
+      arith_add(tm, t, temp.var) ;
 
   arith_analyse_t* ts = arith_analyse(&exp->norm,temp.var,w);
   if (ts->nobueno) return NULL;
@@ -497,12 +487,6 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs, term_t rhs, bool b) {
   return result;
 }
 
-static inline
-bool is_no_triv(term_t t){
-  assert(t != false_term);
-  return (t != true_term);
-}
-
 // Adds interval to conflict
 void arith_add2conflict(arith_t* exp,
                            term_t min_saved_term,
@@ -527,7 +511,7 @@ void arith_add2conflict(arith_t* exp,
   term_t big   = arith_sub(tm, i->hi_term, i->lo_term);
   
   term_t continuity_reason = arith_lt_norm(&exp->norm, small, big);
-  if (is_no_triv(continuity_reason)) {
+  if (arith_is_no_triv(continuity_reason)) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Adding continuity_reason ");
@@ -630,7 +614,7 @@ bool cover(arith_t* exp,
         fprintf(out, " NO_REASON");
       fprintf(out, " and %d other reasons\n",longest->reasons.size);
     }
-    if (longest->reason != NULL_TERM && is_no_triv(longest->reason)) {
+    if (longest->reason != NULL_TERM && arith_is_no_triv(longest->reason)) {
       ivector_push(output, longest->reason);
       uint32_t eval_level = 0;
       assert(bv_evaluator_evaluate_term(exp->super.eval, longest->reason, &eval_level)->b);
@@ -795,7 +779,7 @@ bool cover(arith_t* exp,
         delete_bvconstant(&saved_hi_copy);
         // OK, seems fine. We add to the conflict the fact that the hole has size 1:
         term_t literal = arith_eq_norm(&exp->norm, i->lo_term, arith_add_one(tm, saved_hi_term));
-        if (is_no_triv(literal))
+        if (arith_is_no_triv(literal))
           ivector_push(output, literal);
         // We output the term in the substitution pointer
         substitution[0] = saved_hi_term;
@@ -933,7 +917,7 @@ bool cover(arith_t* exp,
         term_t literal = (hole_used) ?
           arith_lt_norm(&exp->norm, arith_sub(tm, hi_term, lo_term), smaller_values_term) :
           arith_le_norm(&exp->norm, arith_sub(tm, hi_term, substitution[0]), smaller_values_term);
-        if (is_no_triv(literal)) {
+        if (arith_is_no_triv(literal)) {
           if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
             FILE* out = ctx_trace_out(ctx);
             fprintf(out, "The literal is ");
@@ -1013,9 +997,9 @@ void transform_interval(arith_t* exp, interval_t** interval) {
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Transforming interval ");
+      fprintf(out, "Transforming non-full interval ");
       interval_print(out, ctx->terms, interval[0]);
-      fprintf(out, "\nNow analysing the shape of the conflict variable (of bitsize %d)\n",w);
+      fprintf(out, "\nNow analysing the shape of the interval's variable (of bitsize %d)\n",w);
     }
 
     // We analyse the shape of the variable whose value is forbidden to be in interval[0]
@@ -1029,6 +1013,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     // or the top pruning has been pushed further inside the base
 
     bool is_empty = interval_uptrim(&exp->super, &exp->norm, ts->suffix+ts->length, interval[0]);
+    (void) is_empty; // Otherwise compilation warning
     assert(!is_empty);
     is_empty = interval_downtrim(&exp->super, &exp->norm, ts->suffix, interval[0]);
     assert(!is_empty);
@@ -1039,6 +1024,13 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     case BV64_POLY: {
       polypair_t* p = bv_arith_coeff(exp, ts->base, true);
       assert(p->coeff == 1 || p->coeff == -1);
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Base is ");
+        ctx_trace_term(ctx, ts->base);
+        fprintf(out, "Coeff is %d, while polyrest is ", (p->coeff == 1) ? 1 : -1);
+        ctx_trace_term(ctx, p->polyrest);
+      }
       interval_subtract(&exp->super,p->polyrest,interval[0]);
       if (p->coeff == -1)
         interval_negate(&exp->super,interval[0]);
@@ -1046,8 +1038,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "New variable is ");
-        term_print_to_file(out, tm->terms, interval[0]->var);
-        fprintf(out, "\n");
+        ctx_trace_term(ctx, interval[0]->var);
       }
       transform_interval(exp, interval);
       break;

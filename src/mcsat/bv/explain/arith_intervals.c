@@ -239,8 +239,8 @@ void interval_negate(bv_subexplainer_t* exp, interval_t* interval) {
   }
   if (interval != NULL) {
     if (!interval_is_full(interval)) {
-      term_t lo_term = arith_negate(tm, interval->lo_term);
-      term_t hi_term = arith_negate(tm, interval->hi_term);
+      term_t lo_term = arith_add_one(tm, arith_negate(tm, interval->hi_term));
+      term_t hi_term = arith_add_one(tm, arith_negate(tm, interval->lo_term));
       construct(exp, NULL, NULL, lo_term, hi_term, interval);
     }
     interval->var = NULL_TERM;
@@ -338,7 +338,7 @@ bool interval_uptrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, int
     init_bvconstant(&aux);
     bvconstant_set_all_zero(&aux, n);
     // aux is used in two ways. First, to check whether 0...0.0...0 is in interval
-    bool zero_in = (interval_is_in(&aux, interval));
+    bool zero_in = interval_is_in(&aux, interval);
     // then, as 0...01.0...0, i.e. the number of values of width w (expressed on n bits)
     bvconst_set_bit(aux.data, w); 
     bvconstant_normalize(&aux);
@@ -354,13 +354,12 @@ bool interval_uptrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, int
       lo_term   = arith_zero(tm, w);
       lo_reason = arith_le_norm(norm, aux_term, t0);
     }
-    if (lo_reason != NULL_TERM) {
+    if (arith_is_no_triv(lo_reason)) {
       ivector_push(&interval->reasons, lo_reason);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "  adding lo_reason ");
-        term_print_to_file(out, tm->terms, lo_reason);
-        fprintf(out, "\n");
+        ctx_trace_term(ctx, lo_reason);
       }
     }
 
@@ -372,13 +371,12 @@ bool interval_uptrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, int
       hi_term   = arith_zero(tm, w);
       hi_reason = arith_le_norm(norm, aux_term, t1);
     }
-    if (hi_reason != NULL_TERM) {
+    if (arith_is_no_triv(hi_reason)) {
       ivector_push(&interval->reasons, hi_reason);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "  adding hi_reason ");
-        term_print_to_file(out, tm->terms, hi_reason);
-        fprintf(out, "\n");
+        ctx_trace_term(ctx, hi_reason);
       }
     }
 
@@ -396,6 +394,11 @@ bool interval_uptrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, int
       interval->reason = arith_lt_norm(norm,
                                        arith_negate(tm, t0),
                                        arith_sub(tm, t1, t0));
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Adding reason4full ");
+        ctx_trace_term(ctx, interval->reason);
+      }
     }
     interval->var = NULL_TERM;
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -476,13 +479,12 @@ bool interval_downtrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, i
       lo_term   = arith_add_one(tm, lo_term);
       lo_reason = arith_lt_norm(norm, zero_w, term_extract(tm, t0, 0, w));
     }
-    if (lo_reason != NULL_TERM) {
+    if (arith_is_no_triv(lo_reason)) {
       ivector_push(&interval->reasons, lo_reason);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "  adding lo_reason ");
-        term_print_to_file(out, tm->terms, lo_reason);
-        fprintf(out, "\n");
+        ctx_trace_term(ctx, lo_reason);
       }
     }
 
@@ -493,13 +495,12 @@ bool interval_downtrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, i
       hi_term   = arith_add_one(tm, hi_term);
       hi_reason = arith_lt_norm(norm, zero_w, term_extract(tm, t1, 0, w));
     }
-    if (hi_reason != NULL_TERM) {
+    if (arith_is_no_triv(hi_reason)) {
       ivector_push(&interval->reasons, hi_reason);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "  adding hi_reason ");
-        term_print_to_file(out, tm->terms, hi_reason);
-        fprintf(out, "\n");
+        ctx_trace_term(ctx, hi_reason);
       }
     }
 
@@ -523,7 +524,7 @@ bool interval_downtrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, i
       interval->reason = reason4full;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Adding reason ");
+        fprintf(out, "Adding reason4full ");
         ctx_trace_term(ctx, interval->reason);
       }
     }
