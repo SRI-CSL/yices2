@@ -629,7 +629,7 @@ bool cover(arith_t* exp,
     fprintf(out, "Longest is not full\n");
   }
 
-  if (inherited != NULL && bvconstant_lt(&longest->length,&inherited->length)) {
+  if (inherited != NULL && bvconstant_le(&longest->length,&inherited->length)) {
     longest = inherited;
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
