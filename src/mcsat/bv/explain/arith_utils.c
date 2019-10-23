@@ -276,8 +276,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
 // This function returns (left < right), simplifying the result
 term_t arith_lt(term_manager_t* tm, term_t left, term_t right) {
   term_table_t* terms   = tm->terms;
-  uint32_t w            = term_bitsize(terms, left);
-  assert(term_bitsize(terms, right) == w);
+  assert(term_bitsize(terms, left) == term_bitsize(terms, right));
   if (left == right
       || arith_is_zero(terms, right)
       || arith_is_minus_one(terms, left))
@@ -300,8 +299,7 @@ term_t arith_lt(term_manager_t* tm, term_t left, term_t right) {
 // This function returns (left <= right), simplifying the result
 term_t arith_le(term_manager_t* tm, term_t left, term_t right) {
   term_table_t* terms   = tm->terms;
-  uint32_t w            = term_bitsize(terms, left);
-  assert(term_bitsize(terms, right) == w);
+  assert(term_bitsize(terms, left) == term_bitsize(terms, right));
   if (left == right) {
     return true_term;
   }

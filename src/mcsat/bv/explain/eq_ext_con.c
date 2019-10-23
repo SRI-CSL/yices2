@@ -744,6 +744,10 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
   }
 
   if (!assume_fragment && bv_evaluator_is_evaluable(&exp->csttrail, t)) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "It is evaluable! Returning 1\n");
+    }
     int_hmap_add(&exp->cache, t, 1);
     return 1;
   }
@@ -925,6 +929,10 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       /* } */
     case EQ_TERM: {
       result = eq_term(terms, norms[0], norms[1]);
+      break;
+    }
+    case OR_TERM: {
+      result = mk_or(tm, n, norms);
       break;
     }
     case BV_EQ_ATOM: {
