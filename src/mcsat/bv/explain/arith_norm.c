@@ -148,6 +148,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
     term_t cbits[w]; // Where we build the central section, if the term is bad
     uint32_t shortlength  = 0;         // Number of bits of the central section of t, excluding sign-extension bits
     term_t signbit        = NULL_TERM; // The sign bit of the central section of t
+    term_t lastbase       = NULL_TERM; // The base from the previous cell
     bool is_negated       = false; // whether the first bit of the central section is negated
     
     // We inspect each bit of the bv_array
@@ -186,12 +187,10 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
       }
 
       // Now we handle the fields suffix, length, base, start, etc of result
-      // result->base is set to NULL_TERM if we discover the term is BAD
       if (evaluable) { // So we look at whether that bit can be evaluated
-
-        if (result->length == 0) // Still in suffix
-          result->suffix ++;     // We increase suffix
-
+        lastbase = NULL_TERM;     // No base here
+        if (result->length == 0)  // If still in suffix
+          result->suffix ++;      // We increase suffix
       } else {
 
         bool isneg = is_neg_term(t_i); // Whether the boolean term is negated
@@ -206,6 +205,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
           term_t base    = bit_term_arg(terms, t_i);   // Get the base
           assert(term_kind(terms, base) != BV_ARRAY);
           if (result->length == 0) { // This is the first unevaluable bit
+            lastbase  = base;
             result->base  = base;
             result->start = index;
             if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -215,7 +215,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
             }
           }
           // Now we look at whether this bit, necessarily from the central section, is good
-          if (base != result->base                                   // Not the right base
+          if (base != lastbase                                   // Not the right base
               || (index - result->start) != (i - result->suffix) ) { // Not the right index
             result->base = NULL_TERM;    // in both cases, the term is BAD
           }
@@ -239,7 +239,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
       if (result->base == NULL_TERM) { // ...but the term is bad
         result->base = mk_bvarray(tm, shortlength, &cbits[result->suffix]); // build the central section anyways
         result->start = 0;
-        result->nobueno = true; // ...but indicate that the term is bad
+        result->nobueno = true;
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
           FILE* out = ctx_trace_out(ctx);
           fprintf(out, "Not a good term, creating base\n");
@@ -389,8 +389,6 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
   int_hmap2_rec_t* t_norm = int_hmap2_find(&norm->norm_cache, t, w);
   if (t_norm != NULL) return t_norm->val;
 
-  term_t result; // This is what we return at the end, unless we exit prematurely
-
   // Now the result will be a sum; first first compute the number of summands
   uint32_t n_monom;
   bvpoly_t* t_poly = NULL;
@@ -453,16 +451,35 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
   }
   }
 
+  term_t evaluables[n_monom]; // where we place the monomials
+  term_t garbage[n_monom]; // where we place the monomials
+  term_t zero = arith_zero(tm, w);
   // Now we proceed to recursively extract the monomials
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM) {
       assert(monom[i] <= t);
       arith_analyse_t* s = arith_analyse(norm, monom[i], w);
-      monom[i]        = s->norm;
+      evaluables[i] = s->eval;
+      if (s->var == NULL_TERM) {
+        monom[i]   = zero;
+        garbage[i] = zero;
+      } else {
+        if (s->nobueno) {
+          monom[i]   = zero;
+          garbage[i] = s->var;
+        } else {
+          monom[i]   = s->var;
+          garbage[i] = zero;
+        }
+      }
       assert(term_bitsize(terms,monom[i]) == w);
     }
   }
-      
+
+  term_t eval_term;
+  term_t garbage_term;
+  term_t var_term;
+  
   if (w<65) {
     // If we extract fewer than 65 bits, we use uint64_t coefficients for the bv_poly to produce
     // we construct that bv_poly from a bvarith64_buffer_t called buffer:
@@ -470,16 +487,40 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
     bvarith64_buffer_prepare(buffer, w); // Setting the desired width
     // Now going into each monomial
     for (uint32_t i = 0; i < n_monom; ++ i) {
+      if (monom[i] != NULL_TERM)
+        bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], monom[i]);
+    }
+    var_term = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
+    bvarith64_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < n_monom; ++ i) {
+      if (monom[i] != NULL_TERM)
+        bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], garbage[i]);
+    }
+    garbage_term = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
+    bvarith64_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < n_monom; ++ i) {
       if (monom[i] == NULL_TERM)
         bvarith64_buffer_add_const(buffer, coeff64[i]); // constant coefficient gets added to the buffer bv_poly
       else
-        bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], monom[i]);
+        bvarith64_buffer_add_const_times_term(buffer, terms, coeff64[i], evaluables[i]);
     }
-    result = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
+    eval_term = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
   } else {
     // If we extract more than 64 bits, we use regular coefficients for the bv_poly to produce
     // we construct that bv_poly from a bvarith_buffer_t called buffer:
     bvarith_buffer_t* buffer = term_manager_get_bvarith_buffer(tm);
+    bvarith_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < n_monom; ++ i) {
+      if (monom[i] != NULL_TERM)
+        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
+    }
+    var_term = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
+    bvarith_buffer_prepare(buffer, w); // Setting the desired width
+    for (uint32_t i = 0; i < n_monom; ++ i) {
+      if (monom[i] != NULL_TERM)
+        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
+    }
+    garbage_term = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < n_monom; ++ i) {
       if (monom[i] == NULL_TERM)
@@ -488,9 +529,10 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
         bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
       delete_bvconstant(&coeff[i]); //cleaning up
     }
-    result = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
+    eval_term = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
   }
-  
+
+  term_t result = arith_add(tm, var_term, arith_add(tm, garbage_term, eval_term));
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Normalising %d lowest bits of ",w);
@@ -499,7 +541,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
     term_print_to_file(out, terms, result);
     fprintf(out, "\n");
   }
-
+  
   // We know what we are returning, now we just cache it for later
   int_hmap2_add(&norm->norm_cache, t, w, result);
 

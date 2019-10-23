@@ -741,7 +741,6 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
-  case OR_TERM:
   case BV_DIV:
   case BV_REM:
   case BV_SDIV:
@@ -820,7 +819,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     break;
   }
   default:
-    assert(false);
+    result = 0;
   }
 
   int_hmap2_add(&csttrail->fv_cache, t, (3*y) + csttrail->optim, result);
