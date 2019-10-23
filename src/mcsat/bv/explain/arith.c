@@ -660,11 +660,9 @@ bool cover(arith_t* exp,
   int32_t inherited_index = -1; //
   if (inherited != NULL) {
     inherited_index++;
-    for(uint32_t j = 0; j < n; j++){
-      if (interval_cmp(&longest->lo, intervals[0][j], inherited)) {
-        inherited_index++;
-      }
-    }
+    while (inherited_index < n
+           && interval_cmp(&longest->lo, intervals[0][inherited_index], inherited))
+      inherited_index++;
     n++; // one more interval to consider
   }
 

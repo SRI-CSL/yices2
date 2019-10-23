@@ -98,7 +98,7 @@ bool interval_cmp(void *data, void *x, void *y){
   if (y == NULL) return true;  // NULL is strictly bigger than anyone but NULL
   if (interval_get_bitwidth(i1) == interval_get_bitwidth(i2)) {
     if (bvconstant_eq(&i1->lo,&i2->lo))
-      return bvconst_lt_base(&i1->hi,&i2->hi,&i1->lo);
+      return bvconst_lt_base(&i2->hi,&i1->hi,&i1->lo);
     return (baseline==NULL) ?
       bvconstant_lt(&i1->lo,&i2->lo) :
       bvconst_lt_base(&i1->lo,&i2->lo,baseline) ;
