@@ -1411,7 +1411,10 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "can_explain gets coefficient %d for variable ", p->coeff);
-        term_print_to_file(out, terms, p->var);
+        if (p->var != NULL_TERM)
+          term_print_to_file(out, terms, p->var);
+        else 
+          fprintf(out, "NOT_PRESENT");
         fprintf(out, "\n");
       }
       break;
