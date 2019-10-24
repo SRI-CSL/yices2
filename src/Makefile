@@ -278,6 +278,7 @@ core_src_c := \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
 	utils/object_stores.c \
+	utils/pair_hash_map.c \
 	utils/pair_hash_map2.c \
 	utils/pointer_vectors.c \
 	utils/ptr_array_sort2.c \
@@ -427,7 +428,6 @@ extra_src_c := \
 	terms/arith_buffers.c \
 	utils/command_line.c \
 	utils/memsize.c \
-	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
 	utils/timeout.c \

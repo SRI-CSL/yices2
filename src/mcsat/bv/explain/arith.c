@@ -102,10 +102,10 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
   }
 
   // Looking at whether the value is cached
-  ptr_hmap_pair_t* entry = ptr_hmap_get(&exp->coeff_cache, t);
-  assert(entry != NULL);  
-  polypair_t* result = (polypair_t*) entry->val;
-  if (result != NULL) {
+  ptr_hmap_pair_t* entry = ptr_hmap_find(&exp->coeff_cache, t);
+  if (entry != NULL) {
+    polypair_t* result = (polypair_t*) entry->val;
+    assert(result != NULL);
     assert(result->polyrest != NULL_TERM); // It is not marked for deletion
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
@@ -120,11 +120,10 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     }
     return result;
   }
-
-  assert(entry->val == NULL); // If function is successful, we'll do a malloc for entry->val
   
   if (t == conflict_var) {
-    result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
+    entry = ptr_hmap_get(&exp->coeff_cache, t);
+    polypair_t* result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
     result->var = t;
     result->coeff = 1;
     result->polyrest = arith_zero(tm, w);
@@ -141,7 +140,8 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
   }
 
   if (bv_evaluator_is_evaluable(&exp->norm.csttrail, t)) {
-    result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
+    entry = ptr_hmap_get(&exp->coeff_cache, t);
+    polypair_t* result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
     result->var = NULL_TERM;
     result->coeff = 0;
     result->polyrest = t;
@@ -266,7 +266,8 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     arith_sub(tm, temp.polyrest, ts->eval) ;
   temp.var = ts->var;
 
-  result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
+  entry = ptr_hmap_get(&exp->coeff_cache, t);
+  polypair_t* result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
   result[0] = temp; // We copy the three integer values from the stack variable
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
