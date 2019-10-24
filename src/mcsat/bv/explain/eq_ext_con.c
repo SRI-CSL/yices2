@@ -927,65 +927,26 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       /*   result = mk_bvarith_term(tm, buffer); */
       /*   break; */
       /* } */
-    case EQ_TERM: {
-      result = eq_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case OR_TERM: {
-      result = mk_or(tm, n, norms);
-      break;
-    }
-    case BV_EQ_ATOM: {
-      result = bveq_atom(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_GE_ATOM: {
-      result = bvge_atom(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_SGE_ATOM: {
-      result = bvge_atom(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_DIV: {
-      result = bvdiv_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_REM: {
-      result = bvrem_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_SDIV: {
-      result = bvsdiv_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_SREM: {
-      result = bvsrem_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_SMOD: {
-      result = bvsmod_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_SHL: {
-      result = bvshl_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_LSHR: {
-      result = bvlshr_term(terms, norms[0], norms[1]);
-      break;
-    }
-    case BV_ASHR: {
-      result = bvashr_term(terms, norms[0], norms[1]);
-      break;
-    }
     case BIT_TERM: {
       uint32_t index = bit_term_index(terms, t);
       result = mk_bitextract(tm, norms[0], index);
       break;
     }
+    case EQ_TERM:
+    case OR_TERM:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
     case BV_ARRAY: {
-      result = mk_bvarray(tm, n, norms);
+      result = mk_bv_composite(tm, t_kind, n, norms);
       break;
     }
     default: {
