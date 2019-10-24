@@ -253,6 +253,12 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     return NULL; // We're outside the fragment
   }
 
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Back to the bv_arith_coeff on ");
+    ctx_trace_term(ctx, u);
+  }
+
   // OK, now we know or we assume we are in the fragment
 
   temp.polyrest = (temp.coeff == 1) ?

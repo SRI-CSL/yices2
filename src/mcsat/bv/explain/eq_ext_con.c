@@ -1596,6 +1596,10 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
 
 static
 bool can_explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons, variable_t x) {
+  plugin_context_t* ctx = this->ctx;
+  term_table_t* terms   = ctx->terms;
+  term_t x_term         = variable_db_get_term(ctx->var_db, x);
+  if (is_boolean_term(terms,x_term)) return false; // We don't explain when conflict variable is Boolean
   // Just use the conflict filter, we'll check if we can explain when time comes
   return can_explain_conflict(this, reasons, x);
 }

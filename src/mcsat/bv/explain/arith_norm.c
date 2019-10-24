@@ -160,7 +160,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "bit %d is ",i);
         term_print_to_file(out, terms, t_i);
-        fprintf(out, " with suffix = %d, length = %d, shortlength = %d\n",result->suffix,result->length, shortlength);
+        fprintf(out, " with current values suffix = %d, length = %d, shortlength = %d\n",result->suffix,result->length, shortlength);
       }
 
       // Then we normalise the bit t_i
@@ -191,6 +191,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
       // Now we handle the fields suffix, length, base, start, etc of result
       if (evaluable) { // So we look at whether that bit can be evaluated
         lastbase = NULL_TERM;     // No base here
+        signbit  = NULL_TERM;
         if (result->length == 0)  // If still in suffix
           result->suffix ++;      // We increase suffix
       } else {
@@ -212,7 +213,9 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
             result->start = index;
             if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
               FILE* out = ctx_trace_out(ctx);
-              fprintf(out, "result->start set to %d with t_i\n", result->start);
+              fprintf(out, "result->start set to %d with result->base being ", result->start);
+              ctx_trace_term(ctx, result->base);
+              fprintf(out, "and t_i being ");
               ctx_trace_term(ctx, t_i);
             }
           }
@@ -234,6 +237,15 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
         cbits[i] = is_negated ? not_term(terms, t_i) : t_i;
     }
 
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Scanning bits led to suffix = %d, length = %d, shortlength = %d, and base%s is ",result->suffix,result->length, shortlength,(is_negated)?" (which is negated)":"");
+      if (result->base != NULL_TERM)
+        ctx_trace_term(ctx, result->base);
+      else
+        fprintf(out, "No base\n");
+    }
+
     // Now we look at the central section between suffix and suffix+shortlength,
     // and try to build result->base and result->start
 
@@ -253,6 +265,9 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
     if (is_negated) { // The central cbits have flipped polarity
       assert(shortlength > 0);
       assert(result->base != NULL_TERM);
+      // Now let's make sure we do arithmetic on the right bitwidth
+      result->base   = term_extract(tm, result->base, 0, result->start + shortlength);
+      // ...and replace the bitwise negation by arithmetic operation
       result->base   = arith_negate(tm, arith_add_one(tm, result->base));
       result->intros = true;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -284,7 +299,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Final result: suffix = %d, length = %d, shortlength = %d\n",result->suffix,result->length, shortlength);
+      fprintf(out, "Final result: suffix = %d, length = %d, shortlength = %d, and base is ",result->suffix,result->length, shortlength);
       if (result->base != NULL_TERM)
         ctx_trace_term(ctx, result->base);
       else
