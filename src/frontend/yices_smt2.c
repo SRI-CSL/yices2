@@ -39,6 +39,7 @@
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
 #include "frontend/smt2/smt2_term_stack.h"
+#include "io/simple_printf.h"
 #include "solvers/cdcl/delegate.h"
 #include "utils/command_line.h"
 
@@ -508,43 +509,20 @@ static void setup_mcsat(void) {
  *  SIGNAL HANDLER  *
  *******************/
 
-static const char signum_msg[24] = "\nInterrupted by signal ";
-static char signum_buffer[100];
+static const char *signum_msg = "\nInterrupted by signal ";
 
 /*
  * Write signal number of file 2 (assumed to be stderr): we can't use
  * fprintf because it's not safe in a signal handler.
  */
 static void write_signum(int signum) {
-  ssize_t w;
-  uint32_t i, n;
+  print_buffer_t b;
 
-  memcpy(signum_buffer, signum_msg, sizeof(signum_msg));
-
-  // force signum to be at most two digits
-  signum = signum % 100;
-  n = sizeof(signum_msg);
-  if (signum > 10) {
-    signum_buffer[n] = (char)('0' + signum/10);
-    signum_buffer[n + 1] = (char)('0' + signum % 10);
-    signum_buffer[n + 2] = '\n';
-    n += 3;
-  } else {
-    signum_buffer[n] = (char)('0' + signum);
-    signum_buffer[n + 1] = '\n';
-    n += 2;
-  }
-
-  // write to file 2
-  i = 0;
-  do {
-    do {
-      w = write(2, signum_buffer + i, n);
-    } while (w < 0 && errno == EAGAIN);
-    if (w < 0) break; // write error, we can't do much about it.
-    i += (uint32_t) w;
-    n -= (uint32_t) w;
-  } while (n > 0);
+  reset_print_buffer(&b);
+  print_buffer_append_string(&b, signum_msg);
+  print_buffer_append_int32(&b, (int32_t) signum);
+  print_buffer_append_char(&b, '\n');
+  (void) write_buffer(2, &b);
 }
 
 /*
@@ -556,7 +534,7 @@ static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
-  // we can't call show_stats here. This can cause a deadlock
+  // smt2_show_stats is safe to call here
   if (show_stats) {
     smt2_show_stats();
   }
