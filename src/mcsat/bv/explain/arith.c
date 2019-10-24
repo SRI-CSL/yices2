@@ -1396,18 +1396,17 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       break;
     }
     case BIT_TERM: {
-      term_t base = bit_term_arg(terms, atom_term);   // Get the base
-      assert(is_pos_term(base));
+      assert(is_pos_term(bit_term_arg(terms, atom_term)));
       // OK, maybe we can treat the constraint atom_term. We first scan the atom (collecting free variables and co.)
       bv_evaluator_csttrail_scan(csttrail, atom_var);
       
       // Now that we have collected the free variables, we look into the constraint structure
-      polypair_t* p = bv_arith_coeff(exp, term_extract(tm, base, 0, 1), false);
+      polypair_t* p = bv_arith_coeff(exp, term_extract(tm, atom_term, 0, 1), false);
       if (p == NULL) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "Base no good for ");
+          fprintf(out, "Atom no good for ");
           ctx_trace_term(ctx, csttrail->conflict_var_term);
           ctx_trace_term(ctx, atom_term);
         }

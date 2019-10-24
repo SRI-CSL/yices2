@@ -451,7 +451,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Found in the memoisation table! It's ");
-      term_print_to_file(out, terms, t_norm->val);
+      ctx_trace_term(ctx, t_norm->val);
     }
     return t_norm->val;
   }
