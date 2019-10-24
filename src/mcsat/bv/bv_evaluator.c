@@ -797,12 +797,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   }
   case POWER_PRODUCT: {
     pprod_t* t_pprod = pprod_term_desc(terms, t);
+    uint32_t save = csttrail->optim;
+    csttrail->optim = 0;
     for (uint32_t i = 0; i < t_pprod->len; ++ i) {
       uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_pprod->prod[i].var);
-      if (recurs < result)
-        result = (csttrail->optim == 2) ? recurs : 0;
+      if (recurs < w)
+        result = 0;
       if (result == 0) break;
     }
+    csttrail->optim = save;
     break;
   }
   case BV_ARRAY: {

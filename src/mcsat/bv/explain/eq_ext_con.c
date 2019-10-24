@@ -994,7 +994,7 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
         fprintf(out, "Reaching default with:\n");
         ctx_trace_term(ctx, t);
       }
-      assert(false);
+      result = t;
     }
     }
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {

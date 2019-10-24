@@ -35,7 +35,7 @@ void print_analyse(plugin_context_t* ctx, arith_analyse_t*  analysis){
     fprintf(out, "starting at start = %d,", analysis->start);
   }
   else 
-    fprintf(out, " NO_BASE,");
+    fprintf(out, "NO_BASE,");
   fprintf(out, " with evaluable = ");    
   ctx_trace_term(ctx, analysis->eval);
   fprintf(out, "and var = ");    
@@ -368,14 +368,24 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
     fprintf(out, " (bitsize is %d))\n",original_bitsize);
   }
 
-  if (t == conflict_var)
+  if (t == conflict_var) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Conflict variable, so it's already normalised\n");
+    }
     return term_extract(tm, t, 0, w);
+  }
 
   switch (term_kind(terms, t)) { // Simple check for constants
   case CONSTANT_TERM:
   case BV_CONSTANT:
-  case BV64_CONSTANT:
+  case BV64_CONSTANT: {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Constant, so it's already normalised\n");
+    }
     return term_extract(tm, t, 0, w);
+  }
   default: {
   }
   }
@@ -387,7 +397,19 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
 
   // We first look at whether the value is cached
   int_hmap2_rec_t* t_norm = int_hmap2_find(&norm->norm_cache, t, w);
-  if (t_norm != NULL) return t_norm->val;
+  if (t_norm != NULL) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Found in the memoisation table! It's ");
+      term_print_to_file(out, terms, t_norm->val);
+    }
+    return t_norm->val;
+  }
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Not memoised. We now look into the term.\n");
+  }
 
   // Now the result will be a sum; first first compute the number of summands
   uint32_t n_monom;
@@ -518,7 +540,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < n_monom; ++ i) {
       if (monom[i] != NULL_TERM)
-        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
+        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, garbage[i]); // Otherwise we add the w-bit monomial to the bv_poly
     }
     garbage_term = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
@@ -526,7 +548,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
       if (monom[i] == NULL_TERM)
         bvarith_buffer_add_const(buffer, coeff[i].data);// constant coefficient gets aded to the buffer bv_poly
       else
-        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
+        bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, evaluables[i]); // Otherwise we add the w-bit monomial to the bv_poly
       delete_bvconstant(&coeff[i]); //cleaning up
     }
     eval_term = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term, and return it
@@ -537,7 +559,13 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w){
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Normalising %d lowest bits of ",w);
     term_print_to_file(out, terms, t);
-    fprintf(out, " successfully gave ");
+    fprintf(out, " successfully gave var_term = ");
+    term_print_to_file(out, terms, var_term);
+    fprintf(out, ", garbage_term = ");
+    term_print_to_file(out, terms, garbage_term);
+    fprintf(out, ", eval_term = ");
+    term_print_to_file(out, terms, eval_term);
+    fprintf(out, ", adding up to ");
     term_print_to_file(out, terms, result);
     fprintf(out, "\n");
   }
