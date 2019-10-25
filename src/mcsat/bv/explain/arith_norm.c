@@ -541,6 +541,9 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
         bvconstant_normalize(&coeff[i]);
       }
       monom[i] = (t_poly->mono[i].var != const_idx) ? t_poly->mono[i].var : NULL_TERM;
+      assert(monom[i] == NULL_TERM
+             || (term_kind(terms, monom[i]) != BV_POLY
+                 && term_kind(terms, monom[i]) != BV64_POLY ));
     }
     break;
   }
@@ -548,6 +551,9 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     for (uint32_t i = 0; i < n_monom; ++ i) {
       coeff64[i] = t_poly64->mono[i].coeff;
       monom[i] = (t_poly64->mono[i].var != const_idx) ? t_poly64->mono[i].var : NULL_TERM;
+      assert(monom[i] == NULL_TERM
+             || (term_kind(terms, monom[i]) != BV_POLY
+                 && term_kind(terms, monom[i]) != BV64_POLY ));
     }
     break;
   }
@@ -560,6 +566,8 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       bvconstant_set_one(coeff);
     }
     monom[0] = t;
+    assert(term_kind(terms, t) != BV_POLY
+           && term_kind(terms, t) != BV64_POLY );
   }
   }
 

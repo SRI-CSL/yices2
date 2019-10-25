@@ -1028,6 +1028,9 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     case BV_POLY:
     case BV64_POLY: {
       polypair_t* p = bv_arith_coeff(exp, ts->base, true);
+      assert(p != NULL);
+      assert(term_kind(terms, p->var) != BV_POLY
+             && term_kind(terms, p->var) != BV64_POLY );
       assert(p->coeff == 1 || p->coeff == -1);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
