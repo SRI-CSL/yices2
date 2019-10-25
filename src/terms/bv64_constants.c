@@ -222,9 +222,17 @@ uint64_t bvconst64_srem2z(uint64_t x, uint64_t y, uint32_t n) {
   sx = signed_int64(x, n);
   sy = signed_int64(y, n);
 
-  r = sx; // remainder in sx/0 is sx
-  if (sy != 0) {
-    r %= sy;
+  switch (sy) {
+  case 0:
+    r = sx;
+    break;
+  case 1:
+  case -1:
+    r = 0;
+    break;
+  default:
+    r = sx % sy;
+    break;
   }
 
   return norm64((uint64_t) r, n);
