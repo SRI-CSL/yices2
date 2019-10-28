@@ -74,6 +74,7 @@ static void _o_init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   s->objsize = objsize;
   s->blocksize = objsize * n;
 }
+
 void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
 #ifdef THREAD_SAFE
   create_yices_lock(&(s->lock));
@@ -119,9 +120,9 @@ static void *_o_objstore_alloc(object_store_t *s) {
 
   assert(ptr_is_aligned(tmp));
 
-
   return tmp;
 }
+
 void *objstore_alloc(object_store_t *s) {
   MT_PROTECT(void *, s->lock, _o_objstore_alloc(s));
 }
