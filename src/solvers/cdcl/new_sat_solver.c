@@ -7736,6 +7736,21 @@ static void show_expanded_var_defs(const sat_solver_t *solver) {
  */
 
 /*
+ * Cheaper part: remove unit and pure literals & try SCC-based substitutions:
+ * - return false if a conflict is detected
+ * - return true otherwise
+ */
+static bool nsat_cheap_preprocess(sat_solver_t *solver) {
+  do {
+    if (! pp_empty_queue(solver)) return false;
+    pp_try_gc(solver);
+    if (! pp_scc_simplification(solver)) return false;
+  } while (! queue_is_empty(&solver->lqueue));
+
+  return true;
+}
+
+/*
  * On entry to preprocess:
  * - watch[l] contains all the clauses in which l occurs
  * - occ[l] = number of occurrences of l
@@ -7751,11 +7766,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
   collect_unit_and_pure_literals(solver);
-  do {
-    if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);
-    if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));
+  if (! nsat_cheap_preprocess(solver)) goto done;
 
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
@@ -7763,15 +7774,12 @@ static void nsat_preprocess(sat_solver_t *solver) {
   do {
     if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
     process_elimination_candidates(solver);
+    if (! nsat_cheap_preprocess(solver)) goto done;
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) break;
+    if (! nsat_cheap_preprocess(solver)) goto done;
   } while (!elim_heap_is_empty(solver));
 
-  do {
-    if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);
-    if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));
 
  done:
   solver->stats.pp_subst_vars = solver->stats.subst_vars;
