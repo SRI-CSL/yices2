@@ -365,6 +365,8 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
   
 }
 
+#if DEBUG
+
 static inline
 term_t result_eval(bv_csttrail_t* csttrail, term_t result){
 
@@ -383,6 +385,8 @@ term_t result_eval(bv_csttrail_t* csttrail, term_t result){
   (void) ignore_this_int;
   return b;
 }
+
+#endif
 
 // Extracting the w lowest bits of t, normalising on the way
 static inline
@@ -407,8 +411,10 @@ term_t check_and_return(bv_csttrail_t* csttrail, term_t t, term_t result){
     fprintf(out, "\n");
   }
 
+#if DEBUG
   assert( (!bv_evaluator_is_evaluable(csttrail, t))
           || result_eval(csttrail,result));
+#endif
   
   /* bool a = bv_evaluator_is_evaluable(csttrail, t); */
   /* if (a) { */
