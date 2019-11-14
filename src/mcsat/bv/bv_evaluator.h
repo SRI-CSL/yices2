@@ -82,6 +82,7 @@ typedef struct bv_csttrail_s {
 
   plugin_context_t* ctx;
   watch_list_manager_t* wlm;
+  bv_evaluator_t* eval;
   
   // bv variables of the conflict that have values on the trail
   int_hset_t free_var;
@@ -98,7 +99,7 @@ typedef struct bv_csttrail_s {
 } bv_csttrail_t;
 
 // Construct it (once and for all)
-void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm);
+void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval);
 
 // Destruct it
 void bv_evaluator_csttrail_destruct(bv_csttrail_t* csttrail);

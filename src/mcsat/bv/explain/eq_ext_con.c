@@ -765,7 +765,7 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     term_t result = (recurs == NULL_TERM) ?
       NULL_TERM :
       (assume_fragment) ?
-      mk_bitextract(tm, recurs, t_index):
+      bv_bitterm(tm->terms, mk_bitextract(tm, recurs, t_index)):
       1;
     int_hmap_add(&exp->cache, t, result);
     return result;
@@ -929,7 +929,7 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       /* } */
     case BIT_TERM: {
       uint32_t index = bit_term_index(terms, t);
-      result = mk_bitextract(tm, norms[0], index);
+      result = bv_bitterm(tm->terms, mk_bitextract(tm, norms[0], index));
       break;
     }
     case EQ_TERM:
@@ -1617,7 +1617,7 @@ bv_subexplainer_t* eq_ext_con_new(plugin_context_t* ctx, watch_list_manager_t* w
   eq_ext_con_t* exp = safe_malloc(sizeof(eq_ext_con_t));
 
   bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::eq_ext_con", ctx, wlm, eval);
-  bv_evaluator_csttrail_construct(&exp->csttrail, ctx, wlm);
+  bv_evaluator_csttrail_construct(&exp->csttrail, ctx, wlm, eval);
 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;

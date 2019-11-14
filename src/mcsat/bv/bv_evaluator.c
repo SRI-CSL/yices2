@@ -595,9 +595,10 @@ const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_
   }
 }
 
-void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm){
+void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval){
   csttrail->ctx = ctx;
   csttrail->wlm = wlm;
+  csttrail->eval = eval;
   init_int_hset(&csttrail->free_var, 0);
   init_int_hmap2(&csttrail->fv_cache, 0);
 }

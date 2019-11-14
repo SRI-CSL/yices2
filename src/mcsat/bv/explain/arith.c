@@ -302,6 +302,8 @@ void bv_arith_init_side(arith_t* exp, term_t polyrest, bvconstant_t* cc) {
     term_print_to_file(out, ctx->terms, polyrest);
     fprintf(out, "\n");
   }
+  assert(arith_normalise(&exp->norm, polyrest) == polyrest);
+  assert(bv_evaluator_is_evaluable(&exp->norm.csttrail, polyrest));
 
   // We evaluate this...
   uint32_t eval_level = 0;
@@ -343,6 +345,9 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs, term_t rhs, bool b) {
     fprintf(out, "\n");
   }
 
+  assert(arith_normalise(&exp->norm, lhs) == lhs);
+  assert(arith_normalise(&exp->norm, rhs) == rhs);
+    
   polypair_t* left  = bv_arith_coeff(exp, lhs, true);
   polypair_t* right = bv_arith_coeff(exp, rhs, true);
     
@@ -1128,9 +1133,6 @@ void bvarith_explain(bv_subexplainer_t* this,
       term_t t1 = atom_i_comp->arg[1];
       assert(is_pos_term(t0));
       assert(is_pos_term(t1));
-      uint32_t w = term_bitsize(terms, t0);
-      t0 = arith_normalise(&exp->norm, t0);
-      t1 = arith_normalise(&exp->norm, t1);
 
       switch (term_kind(terms, atom_i_term)) {
       case BV_GE_ATOM: {  
@@ -1145,6 +1147,7 @@ void bvarith_explain(bv_subexplainer_t* this,
       }
       case EQ_TERM :     
       case BV_EQ_ATOM: { // equality
+        uint32_t w = term_bitsize(terms, t0);
         t0prime = arith_zero(tm, w);
         t1prime = arith_sub(tm, t0, t1);
         break;
@@ -1153,6 +1156,8 @@ void bvarith_explain(bv_subexplainer_t* this,
         assert(false);
       }
     }
+    t0prime = arith_normalise(&exp->norm, t0prime);
+    t1prime = arith_normalise(&exp->norm, t1prime);
     intervals[i] = bv_arith_unit_le(exp, t1prime, t0prime, atom_i_value);
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
@@ -1477,7 +1482,7 @@ bv_subexplainer_t* arith_new(plugin_context_t* ctx, watch_list_manager_t* wlm, b
   arith_t* exp = safe_malloc(sizeof(arith_t));
 
   bv_subexplainer_construct(&exp->super, "mcsat::bv::explain::arith", ctx, wlm, eval);
-  bv_evaluator_csttrail_construct(&exp->norm.csttrail, ctx, wlm);
+  bv_evaluator_csttrail_construct(&exp->norm.csttrail, ctx, wlm, eval);
                                 
   exp->super.can_explain_conflict = can_explain_conflict;
   exp->super.explain_conflict = explain_conflict;

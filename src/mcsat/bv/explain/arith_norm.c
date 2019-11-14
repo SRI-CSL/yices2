@@ -309,7 +309,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
     // Now we can construct result->norm, result->eval and result->var
     // We first finish the normalisation of the central bits:
     for (uint32_t i = 0; i < result->length; i++)
-      ebits[i + result->suffix] = mk_bitextract(tm, result->base, i + result->start);
+      ebits[i + result->suffix] = bv_bitterm(terms, mk_bitextract(tm, result->base, i + result->start));
     result->norm = mk_bvarray(tm, w, ebits);
     
     // We distribute each bit recorded in ebits to either ebits (for result->eval) or cbits (for result->var)
@@ -365,12 +365,72 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
   
 }
 
+static inline
+term_t result_eval(bv_csttrail_t* csttrail, term_t result){
+
+  plugin_context_t* ctx = csttrail->ctx;
+  uint32_t ignore_this_int = 0;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "input was evaluable, so I'm evaluating.\n");
+  }
+  bool b =
+    (bv_evaluator_evaluate_term(csttrail->eval, result, &ignore_this_int)) != NULL;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "yep, got a value.\n");
+  }
+  (void) ignore_this_int;
+  return b;
+}
+
+// Extracting the w lowest bits of t, normalising on the way
+static inline
+term_t check_and_return(bv_csttrail_t* csttrail, term_t t, term_t result){
+
+  plugin_context_t* ctx = csttrail->ctx;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    // standard abbreviations
+    term_table_t* terms   = ctx->terms;
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Normalising (possibly the lowest bits of)\n");
+    /* term_print_to_file(out, terms, t); */
+    ctx_trace_term(ctx, t);
+    fprintf(out, " successfully gave ");
+    if (result == t) {
+      fprintf(out, "the same term!");
+    } else {
+      fprintf(out, "the following term of bitwidth %i:\n",bv_term_bitsize(terms, result));
+      /* term_print_to_file(out, terms, result); */
+      ctx_trace_term(ctx, result);
+    }
+    fprintf(out, "\n");
+  }
+
+  assert( (!bv_evaluator_is_evaluable(csttrail, t))
+          || result_eval(csttrail,result));
+  
+  /* bool a = bv_evaluator_is_evaluable(csttrail, t); */
+  /* if (a) { */
+  /*   bool b = result_eval(csttrail,result); */
+  /*   assert(b); */
+  /* } else { */
+  /*   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) { */
+  /*     // standard abbreviations */
+  /*     FILE* out = ctx_trace_out(ctx); */
+  /*     fprintf(out, "Not supposed to be evaluable. Not evaluating.\n"); */
+  /*   } */
+  /* } */
+  return result;
+}
+
 // Extracting the w lowest bits of t, normalising on the way
 term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
 
   // standard abbreviations
-  plugin_context_t* ctx = norm->csttrail.ctx;
-  term_t conflict_var   = norm->csttrail.conflict_var_term;
+  bv_csttrail_t* csttrail = &norm->csttrail;
+  plugin_context_t* ctx = csttrail->ctx;
+  term_t conflict_var   = csttrail->conflict_var_term;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
   term_t t = bv_bitterm(terms, u);
@@ -390,7 +450,8 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Conflict variable, so it's already normalised\n");
     }
-    return (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    return check_and_return(csttrail, u, result);
   }
 
   uint32_t t_kind = term_kind(terms, t);
@@ -402,7 +463,8 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Constant, so it's already normalised\n");
     }
-    return (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    return check_and_return(csttrail, u, result);
   }
   default: {
   }
@@ -419,7 +481,8 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Oh, this is a negative Boolean term, let's reduce underneath:\n");
     }
-    return not_term(terms, arith_normalise_upto(norm, not_term(terms,t), 1));
+    term_t result = not_term(terms, arith_normalise_upto(norm, not_term(terms,t), 1));
+    return check_and_return(csttrail, u, result);
   }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -434,10 +497,11 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       && int_hset_member(&norm->csttrail.free_var, var )) { // t is a variable other than y
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Oh, this is a variable on the trail, we return: ");
+      fprintf(out, "Oh, this is a variable on the trail, we return the extract of: ");
       ctx_trace_term(ctx, t);
     }
-    return (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
+    return check_and_return(csttrail, u, result);
   }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -465,7 +529,6 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   uint32_t n_monom;
   bvpoly_t* t_poly = NULL;
   bvpoly64_t* t_poly64 = NULL;
-  bool stopthere = false;
   term_t result = t;
   
   switch (t_kind) {
@@ -478,6 +541,14 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     t_poly64 = bvpoly64_term_desc(ctx->terms, t);
     n_monom = t_poly64->nterms;
     break;
+  }
+  case BIT_TERM: {
+    uint32_t index = bit_term_index(terms, t);  // Get selected bit
+    term_t base    = bit_term_arg(terms, t);    // Get the base
+    base = arith_normalise_upto(norm, base, index+1);
+    result = bv_bitterm(terms, mk_bitextract(tm, base, index));
+    int_hmap2_add(&norm->norm_cache, t, w, result);
+    return check_and_return(csttrail, u, result);
   }
   case EQ_TERM:
   case OR_TERM:
@@ -501,22 +572,15 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       norms[i] = arith_normalise_upto(norm, t_i, w_i);
     }
     result = mk_bv_composite(tm, t_kind, n, norms);
-    stopthere = true;
+    int_hmap2_add(&norm->norm_cache, t, w, result);
+    return check_and_return(csttrail, u, result);
+  }
+  case BV_ARRAY: {
+    n_monom = 1;
+    break;
   }
   default: {
-    if (is_boolean_term(terms,t) || stopthere){
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Normalising %d lowest bits of ",w);
-        term_print_to_file(out, terms, t);
-        fprintf(out, " successfully gave ");
-        term_print_to_file(out, terms, result);
-        fprintf(out, "\n");
-      }
-      // We know what we are returning, now we just cache it for later
-      int_hmap2_add(&norm->norm_cache, t, w, result);
-      return result; 
-    }
+    assert(!is_boolean_term(terms,t));
     n_monom = 1;
   }
   }
@@ -580,6 +644,14 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       assert(monom[i] <= t);
       arith_analyse_t* s = arith_analyse(norm, monom[i], w);
       evaluables[i] = s->eval;
+      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Analysing %d lowest bits of ",w);
+        term_print_to_file(out, terms, monom[i]);
+        fprintf(out, " gave evaluables[i] = ");
+        term_print_to_file(out, terms, s->eval);
+        fprintf(out, "\n");
+      }
       if (s->var == NULL_TERM) {
         monom[i]   = zero;
         garbage[i] = zero;
@@ -655,9 +727,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   result = arith_add(tm, var_term, arith_add(tm, garbage_term, eval_term));
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Normalising %d lowest bits of ",w);
-    term_print_to_file(out, terms, t);
-    fprintf(out, " successfully gave var_term = ");
+    fprintf(out, "Building a result with var_term = ");
     term_print_to_file(out, terms, var_term);
     fprintf(out, ", garbage_term = ");
     term_print_to_file(out, terms, garbage_term);
@@ -671,6 +741,6 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   // We know what we are returning, now we just cache it for later
   int_hmap2_add(&norm->norm_cache, t, w, result);
 
-  return result; 
+  return check_and_return(csttrail, u, result);
 
 }

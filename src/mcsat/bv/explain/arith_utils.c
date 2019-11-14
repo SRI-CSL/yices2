@@ -164,7 +164,7 @@ term_t arith_upextension(term_manager_t* tm, term_t t, term_t b, uint32_t w) {
   term_t sbits[w];
   for (uint32_t k=0; k<w;k++){
     sbits[k] = (k < n) ?
-      mk_bitextract(tm, t, k) :
+      bv_bitterm(tm->terms, mk_bitextract(tm, t, k)) :
       b;
   }
   return mk_bvarray(tm, w, sbits);
@@ -182,7 +182,7 @@ term_t arith_downextension(term_manager_t* tm, term_t t, term_t b, uint32_t w) {
   for (uint32_t k=0; k<w;k++){
     sbits[k] = (k < extra) ?
       b:
-      mk_bitextract(tm, t, k-extra);
+      bv_bitterm(tm->terms, mk_bitextract(tm, t, k-extra));
   }
   return mk_bvarray(tm, w, sbits);
 }
