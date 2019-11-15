@@ -359,6 +359,8 @@ interval_t* bv_arith_unit_le(arith_t* exp, term_t lhs, term_t rhs, bool b) {
     }
     term_t nlhs = arith_negate(tm, arith_add_one(tm, lhs));
     term_t nrhs = arith_negate(tm, arith_add_one(tm, rhs));
+    nlhs = arith_normalise(&exp->norm, nlhs);
+    nrhs = arith_normalise(&exp->norm, nrhs);
     return bv_arith_unit_le(exp, nrhs, nlhs, b);
   }
 

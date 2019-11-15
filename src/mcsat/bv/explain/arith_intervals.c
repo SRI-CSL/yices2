@@ -505,6 +505,8 @@ bool interval_downtrim(bv_subexplainer_t* exp, arith_norm_t* norm, uint32_t w, i
     }
 
     assert(!interval_is_full(interval));
+    delete_bvconstant(&lo_light);
+    delete_bvconstant(&hi_light);
     delete_bvconstant(&aux);
     term_t hi_trim0 = arith_downextension(tm, hi_term, false_term, n);
     term_t reason4full = interval_is_in_term(norm, hi_trim0, interval);
