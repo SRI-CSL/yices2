@@ -98,7 +98,9 @@ static void resize_allocator(bvconst_allocator_t *s, uint32_t n) {
   new_size = s->nstores + 1;
   new_size += new_size >> 1;
   if (new_size <= n) new_size = n + 1;
-
+  if (new_size > MAX_NUM_STORES) new_size = MAX_NUM_STORES;
+  assert(new_size <= MAX_NUM_STORES);
+    
   s->store = (object_store_t *) safe_realloc(s->store, new_size * sizeof(object_store_t));
   for (i=s->nstores; i<new_size; i++) {
     init_objstore(s->store + i, (2 * i) * sizeof(uint32_t), BVCONST_BANK_SIZE);
