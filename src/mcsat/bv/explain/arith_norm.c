@@ -368,7 +368,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
   
 }
 
-#if DEBUG
+#ifndef NDEBUG
 
 static inline
 term_t result_eval(bv_csttrail_t* csttrail, term_t result){
