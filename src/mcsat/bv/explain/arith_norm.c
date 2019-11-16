@@ -416,14 +416,12 @@ term_t check_and_return(arith_norm_t* norm, term_t t, term_t result){
     fprintf(out, "\n");
   }
 
-#if DEBUG
-  assert( (!bv_evaluator_is_evaluable(csttrail, t))
+ assert( (!bv_evaluator_is_evaluable(csttrail, t))
           || result_eval(csttrail,result));
   // Maybe the following assert creates a loop. Dangerous.
   /* if (result != t) { */
   /*   assert(arith_normalise_upto(norm, result, bv_term_bitsize(ctx->terms, result)) == result); */
   /* } */
-#endif
   
   /* bool a = bv_evaluator_is_evaluable(csttrail, t); */
   /* if (a) { */
