@@ -368,6 +368,7 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w){
   
 }
 
+
 #ifndef NDEBUG
 
 static inline
