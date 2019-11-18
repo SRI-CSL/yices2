@@ -8,6 +8,6 @@ separate git repositories.
 
 * [Java](https://github.com/SRI-CSL/yices2_java_bindings)
 
-* [Go](https://github.com/ianamason/yices2_go_bindings)
+* [Go](https://github.com/SRI-CSL/yices2_go_bindings)
 
 * [OCaml](https://github.com/SRI-CSL/yices2_ocaml_bindings)
