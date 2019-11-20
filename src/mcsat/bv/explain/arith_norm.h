@@ -30,19 +30,14 @@
 **/
 
 // The following structure is produced by function analyse below,
-// which analyses a term t (that is NOT a BV_POLY or a BV64_POLY)
-// on its w lowest bits.
+// which analyses a term t of bitwidth w.
 // Those w bits split into 3 sections: prefix . central_section . suffix
-// In (a normalised version of) t's lowest w bits,
-// the bits in prefix and suffix are all evaluable in the current context,
+// The bits of t in prefix and suffix are all evaluable in the current context,
 // while the first and last bits of the central section aren't.
 // In case all bits are evaluable, the central section has length 0 and,
 // by convention, the w bits form the suffix (while the prefix also has length 0).
 
 typedef struct arith_analyse_s {
-
-  // A normalised version of t's lower w bits (width w)
-  term_t norm;
 
   // Length of the suffix section.
   // i.e. norm[suffix] is the lowest bit of norm that isn't evaluable.
@@ -65,6 +60,7 @@ typedef struct arith_analyse_s {
   // - the length bits var[suffix] ... var[suffix+length-1] are norm[suffix] ... norm[suffix+length-1]
   // - the remaining bits var[suffix+length] ... var[w-1] are the bits 0 ... 0
   term_t var;
+  term_t garbage;
   
   // Term base has bitwidth at least length
   // Bits base[start] ... base[start+length-1] are norm[suffix] ... norm[suffix+length-1]
@@ -72,7 +68,6 @@ typedef struct arith_analyse_s {
   uint32_t start;
 
   bool intros;  // whether new constructs have been introduced because negated bits or sign-extensions were found in the original t's central section
-  bool nobueno; // if true, term t (in its lowest w bits) is outside the fragment of this explainer.
 
 } arith_analyse_t;
 
@@ -83,7 +78,8 @@ typedef struct arith_norm_s {
 
   bv_csttrail_t csttrail; // Where we keep some cached values
 
-  // Cache of variable analyses (function analyse below): for a pair of keys (t,w), the value is the arith_analyse_t resulting from analysing t up to w
+  // Cache of analyses (function analyse below): for a pair of keys (t,var),
+  // the value is the arith_analyse_t resulting from analysing t when the conflict variable term is var
   pmap_t var_cache;
   // Cache of term normalisations (function extract below): for a pair of keys (t,w), the value is the normal form of t<w>
   int_hmap2_t norm_cache;
@@ -91,7 +87,7 @@ typedef struct arith_norm_s {
 } arith_norm_t;
 
 void arith_norm_freeval(arith_norm_t* norm);
-arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t, uint32_t w);
+arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t);
 term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w);
 
 static inline
@@ -115,8 +111,7 @@ void delete_arith_norm(arith_norm_t* norm){
 
 static inline
 void reset_arith_norm(arith_norm_t* norm){
-  pmap_reset(&norm->var_cache);
-  reset_int_hmap2(&norm->norm_cache);
+  reset_int_hmap2(&norm->norm_cache); // no need to reset the cache of analyses between each conflict
 }
 
 /**

@@ -57,19 +57,17 @@ typedef struct arith_s {
 
 } arith_t;
 
-// norm.var_cache and coeff_cache have dynamically allocated values
+// coeff_cache has dynamically allocated values
 // So before resetting or deleting those hash maps, one must free the memory of the stored values
 // which the following function does
 
 static inline void freeval(arith_t* exp) {
-  arith_norm_freeval(&exp->norm);
   for (ptr_hmap_pair_t* current = ptr_hmap_first_record(&exp->coeff_cache);
        current != NULL;
        current = ptr_hmap_next_record(&exp->coeff_cache, current)) {
     safe_free((polypair_t*) current->val);
   }
 }
-
 
 // Function returns the polypair_t (variable, coefficient, polyrest) of (normalised) u
 // if u is not a good term for the fragment:
@@ -232,8 +230,8 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
       arith_sub(tm, t, temp.var) :
       arith_add(tm, t, temp.var) ;
 
-  arith_analyse_t* ts = arith_analyse(&exp->norm,temp.var,w);
-  if (ts->nobueno) return NULL;
+  arith_analyse_t* ts = arith_analyse(&exp->norm,temp.var);
+  if (!arith_is_zero(terms, ts->garbage)) return NULL;
   assert(ts->length > 0); // Otherwise t would be evaluable (already checked)
   assert(ts->base != NULL_TERM);
   assert(!ts->intros);    // Should not have introduced new constructs
@@ -1016,8 +1014,8 @@ void transform_interval(arith_t* exp, interval_t** interval) {
     }
 
     // We analyse the shape of the variable whose value is forbidden to be in interval[0]
-    arith_analyse_t* ts = arith_analyse(&exp->norm,interval[0]->var,w);
-    assert(!ts->nobueno);    // Otherwise it wouldn't be in the fragment
+    arith_analyse_t* ts = arith_analyse(&exp->norm,interval[0]->var);
+    assert(arith_is_zero(terms, ts->garbage));    // Otherwise it wouldn't be in the fragment
     assert(ts->length != 0); // Otherwise the term is evaluable
     assert(arith_is_zero(terms, ts->eval)); // The variable should only have zeros as evaluable bits
     assert(ts->base != NULL_TERM); // There should be a base
@@ -1474,6 +1472,7 @@ static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
   bv_evaluator_csttrail_destruct(&exp->norm.csttrail);
+  arith_norm_freeval(&exp->norm);
   freeval(exp);
   delete_arith_norm(&exp->norm);
   delete_ptr_hmap(&exp->coeff_cache);
