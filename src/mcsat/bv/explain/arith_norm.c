@@ -105,6 +105,10 @@ void analyse_BV(arith_norm_t* norm,
     delete_bvconstant(&coeff[i]);
   }
   result->eval = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "analyse_BV finished treating %d monomials\n",n_monom);
+  }
 }
 
 static inline
@@ -142,6 +146,10 @@ void analyse_BV64(arith_norm_t* norm,
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], evaluables[i]);
   }
   result->eval = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "analyse_BV64 finished treating %d monomials\n",n_monom);
+  }
 }
 
 
@@ -422,8 +430,12 @@ arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t){
   entry = pmap_get(&norm->var_cache, t, conflict_var);
   assert(entry->val == NULL || entry->val == DEFAULT_PTR);
   entry->val = (void*) result;
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan"))
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")){
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "When started on term ");
+    ctx_trace_term(ctx, t);
     print_analyse(ctx, result);
+  }
   return result;  // Note that the result is automatically memoised
   
 }
@@ -790,6 +802,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "bit %d is ",i);
         term_print_to_file(out, terms, t_i);
+        fprintf(out, "\n");
       }
 
       // Then we normalise the bit t_i

@@ -159,15 +159,22 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     fprintf(out, "Not evaluable and not cached\n");
   }
 
-  polypair_t temp; // We don't know whether we'll be successful, we don't malloc
-  
-  temp.var   = NULL_TERM;
-  temp.coeff = 0;
-  temp.polyrest = NULL_TERM; 
+  arith_analyse_t* ts = arith_analyse(&exp->norm,t);
+  if (!arith_is_zero(terms, ts->garbage)) return NULL;
 
-  switch (term_kind(ctx->terms, t)) {
+  polypair_t temp; // We don't know whether we'll be successful, we don't malloc
+  temp.var      = NULL_TERM;
+  temp.polyrest = ts->eval; 
+  temp.coeff = 0;
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Setting polyrest to ");
+    ctx_trace_term(ctx, temp.polyrest);
+  }
+
+  switch (term_kind(ctx->terms, ts->var)) {
   case BV_POLY: {
-    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+    bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, ts->var);
     // If we extract more than 64 bits, we use regular coefficients for the bv_poly to produce
     // we construct that bv_poly from a bvarith_buffer_t called buffer:
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
@@ -190,7 +197,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     break;
   }
   case BV64_POLY: {
-    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, t);
+    bvpoly64_t* t_poly = bvpoly64_term_desc(ctx->terms, ts->var);
     // Now going into each monomial
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
@@ -202,7 +209,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
         if (t_poly->mono[i].coeff == 1) {
           temp.coeff = 1;
         } else {
-          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,term_bitsize(ctx->terms,t)))
+          if (bvconst64_is_minus_one(t_poly->mono[i].coeff,w))
             temp.coeff = -1;
           else
             return NULL;
@@ -212,26 +219,30 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     break;
   }
   case BV_ARRAY: {
-    temp.var = t;   // the temp.var is t
+    temp.var = ts->var;   // the temp.var is t
     temp.coeff = 1; // with coeff 1
-    temp.polyrest = arith_zero(tm, w);
     break;
   }
   default: {
-    return NULL;
+    if (ts->var != conflict_var) return NULL;
+    temp.var = ts->var;   // the temp.var is t
+    temp.coeff = 1; // with coeff 1
   }
   }
 
   assert(temp.var != NULL_TERM);
   assert(temp.coeff == 1 || temp.coeff == -1);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Identified variable as ");
+    ctx_trace_term(ctx, temp.var);
+    fprintf(out, "Now we analyse this variable.");
+  }
 
-  if (temp.polyrest == NULL_TERM)
-    temp.polyrest = (temp.coeff == 1) ?
-      arith_sub(tm, t, temp.var) :
-      arith_add(tm, t, temp.var) ;
-
-  arith_analyse_t* ts = arith_analyse(&exp->norm,temp.var);
-  if (!arith_is_zero(terms, ts->garbage)) return NULL;
+  ts = arith_analyse(&exp->norm,temp.var);
+  assert(arith_is_zero(terms, ts->eval));
+  assert(arith_is_zero(terms, ts->garbage));
+  assert(ts->var == temp.var);
   assert(ts->length > 0); // Otherwise t would be evaluable (already checked)
   assert(ts->base != NULL_TERM);
   assert(!ts->intros);    // Should not have introduced new constructs
@@ -258,11 +269,6 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
   }
 
   // OK, now we know or we assume we are in the fragment
-
-  temp.polyrest = (temp.coeff == 1) ?
-    arith_add(tm, temp.polyrest, ts->eval) :
-    arith_sub(tm, temp.polyrest, ts->eval) ;
-  temp.var = ts->var;
 
   entry = ptr_hmap_get(&exp->coeff_cache, t);
   polypair_t* result = safe_malloc(sizeof(polypair_t)); // We know we're successful, we malloc
