@@ -93,7 +93,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w);
 static inline
 term_t arith_normalise(arith_norm_t* norm, term_t t){
   term_table_t* terms = norm->csttrail.ctx->terms;
-  uint32_t w = term_bitsize(terms, t);
+  uint32_t w = bv_term_bitsize(terms, t);
   return arith_normalise_upto(norm, t, w);
 }
 
@@ -123,7 +123,9 @@ void reset_arith_norm(arith_norm_t* norm){
 static inline
 term_t arith_eq_norm(arith_norm_t* norm, term_t left, term_t right){
   term_manager_t* tm = norm->csttrail.ctx->tm;
-  term_t t = arith_sub(tm, right, left);
+  term_t l = arith_normalise(norm, left);
+  term_t r = arith_normalise(norm, right);
+  term_t t = arith_sub(tm, r, l);
   t = arith_normalise(norm, t);
   return arith_eq0(tm, t);
 }

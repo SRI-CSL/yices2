@@ -549,7 +549,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   term_t conflict_var   = csttrail->conflict_var_term;
   term_manager_t* tm    = ctx->tm;
   term_table_t* terms   = ctx->terms;
-  term_t t = bv_bitterm(terms, u);
+  term_t t                  = bv_bitterm(terms, u);
   uint32_t original_bitsize = bv_term_bitsize(terms, t);
   assert(0 < w);
   assert(w <= original_bitsize);
