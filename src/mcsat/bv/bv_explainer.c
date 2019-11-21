@@ -171,8 +171,6 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   yices_free_config(config);
 }
 
-#ifndef NDEBUG
-
 void print_counters(bv_explainer_t* exp){
   FILE* out = ctx_trace_out(exp->ctx);
   bv_subexplainer_t* subexplainer = NULL;
@@ -184,8 +182,6 @@ void print_counters(bv_explainer_t* exp){
             (*subexplainer->stat_explain_propagation_calls));
   }
 }
-
-#endif
 
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
