@@ -654,6 +654,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     }
     term_t tmp = mk_bv_composite(tm, t_kind, n, norms);
     if (is_boolean_term(terms,t)) {
+      assert(w == 1);
       int_hmap2_add(&norm->norm_cache, t, w, tmp);
       return check_and_return(norm, t, tmp);  
     } else {
