@@ -1317,11 +1317,6 @@ void bvarith_explain(bv_subexplainer_t* this,
       ctx_trace_term(ctx, reasons_out->data[i]);
     }
   }
-
-  if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
-    FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "A job well done\n");
-  }
 }
 
 static
@@ -1494,13 +1489,6 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       result = false;
       break;
     }
-    }
-    if (!result) {
-      if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "I am le tired\n");
-      }
-      break;
     }
   }
   return result;
