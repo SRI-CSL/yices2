@@ -49,6 +49,7 @@
 
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "solvers/cdcl/smt_core_printer.h"
 
 #endif
 
@@ -4416,6 +4417,14 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     }
   }
 
+#if TRACE_FCHECK
+  printf("\nDONE PROCESSING EQUALITY\n\n");
+  print_egraph_terms(stdout, egraph);
+  printf("\n");
+  print_egraph_root_classes_details(stdout, egraph);
+  fflush(stdout);
+#endif
+
   return true;
 }
 
@@ -5259,8 +5268,8 @@ literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
 /*
  * Check whether (eq t1 t2) exists and if it does return the
  * corresponding literal.
- * - return null_literal if (eq t1 t2) does not exist (or if it's not
- *   attached to a Boolean variable).
+ * - return null_literal if (eq t1 t2) does not exist
+ * - return false_literal if (eq t1 t2) does exist but is not attached to an atom
  */
 literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   occ_t aux;
@@ -5284,7 +5293,7 @@ literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
     // null_thvar is possible if (eq t1 t2) is false at the top level
     if (v == null_thvar) {
       assert(egraph_term_is_false(egraph, eq) || egraph_term_asserted_false(egraph, eq));
-      l = true_literal; // eq is asserted as an axiom, so its literal is true
+      l = false_literal; // eq is asserted as an axiom, so its literal is false
     } else {
       l = pos_lit(v);
     }
@@ -5970,7 +5979,10 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   uint32_t i, max_eq;
 
 #if TRACE_FCHECK
-  printf("---> EGRAPH: final check (baseline)\n");
+  printf("---> EGRAPH: final check (baseline)\n\n");
+  print_egraph_terms(stdout, egraph);
+  printf("\n");
+  print_egraph_root_classes_details(stdout, egraph);
   fflush(stdout);
 #endif
 
@@ -6522,12 +6534,15 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
           egraph_term_is_function(egraph, t2)));
 
   if (egraph_equal_occ(egraph, pos_occ(t1), pos_occ(t2))) {
+#if 0
+    printf("---> EGRAPH: redundant eq prop: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+#endif
     // redundant
     return;
   }
 
 #if 0
-  printf("---> EGRAPH: good equality: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+  printf("---> EGRAPH: good eq prop: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
   egraph->stats.eq_props ++;
 

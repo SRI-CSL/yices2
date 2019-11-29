@@ -11773,6 +11773,16 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
     simplex_adjust_model(solver);
   }
 
+
+#if TRACE
+  printf("SIMPLEX: reconcile model\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
                   (iclass_match_fun_t) simplex_var_equal_in_model);
 
@@ -11810,6 +11820,14 @@ static void simplex_prep_model(simplex_solver_t *solver) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
+#if TRACE
+  printf("SIMPLEX: prepare model\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
 }
 
 static void simplex_release_model(simplex_solver_t *solver) {
