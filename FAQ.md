@@ -3,10 +3,10 @@
 
 ## FAQ
 
-**Question:** I tried a simple example and it didn't work
+**Question:** I tried a simple example and it didn't work.
 
 **Answer:** You are probably using the wrong tool.
-Yices comes with four tools, each expects its input
+Yices comes with four tools, and each expects its input
 to be written in a specific language.
 
 * `yices`  expects the input to be written in the `yices` language
@@ -17,4 +17,5 @@ to be written in a specific language.
 
 * `yices-sat` is a boolean satisfiablility that expects the DIMACS CNF format.
 
-For more details see the [manual](http://yices.csl.sri.com/papers/manual.pdf) chapter 1.2, 4 and 5.
+For more details see the [manual](http://yices.csl.sri.com/papers/manual.pdf) chapter 1 section 1.2, chanpter 4 and
+chapter 5.
