@@ -19,3 +19,17 @@ to be written in a specific language.
 
 For more details see the [manual](http://yices.csl.sri.com/papers/manual.pdf) chapter 1 section 1.2, chanpter 4 and
 chapter 5.
+
+
+
+**Question:** I tried yices and got a `Illegal instruction` error.
+
+**Answer:** This is most likely a hardware incompatibility problem, caused by the
+way we distribute yices with a statically linked GMP build.
+
+If you try
+```
+grep avx2 /proc/cpuinfo
+```
+and see nothing, then your CPU does not support AVX2 instructions and that would cause
+the illegal instruction error. The fix is to build yices from source yourself.
