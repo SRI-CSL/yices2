@@ -278,6 +278,7 @@ core_src_c := \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
 	utils/object_stores.c \
+	utils/pair_hash_map.c \
 	utils/pair_hash_map2.c \
 	utils/pointer_vectors.c \
 	utils/ptr_array_sort2.c \
@@ -348,6 +349,9 @@ mcsat_src_c := \
 	mcsat/bv/bv_explainer.c \
 	mcsat/bv/bv_feasible_set_db.c \
 	mcsat/bv/bdd_computation.c \
+	mcsat/bv/explain/arith_utils.c \
+	mcsat/bv/explain/arith_norm.c \
+	mcsat/bv/explain/arith_intervals.c \
 	mcsat/bv/explain/arith.c \
 	mcsat/bv/explain/eq_ext_con.c \
 	mcsat/bv/explain/full_bv_sat.c \
@@ -424,7 +428,6 @@ extra_src_c := \
 	terms/arith_buffers.c \
 	utils/command_line.c \
 	utils/memsize.c \
-	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
 	utils/timeout.c \

@@ -24,6 +24,7 @@
 #include "mcsat/value.h"
 
 #include "utils/int_hash_sets.h"
+#include "utils/int_hash_map2.h"
 
 /**
  * Structure to evaluate bit-vector constraints based on the current trail.
@@ -39,7 +40,7 @@ typedef struct bv_evaluator_t {
   /** Map from terms to values (indices in the bvconst array) */
   int_hmap_t term_values;
 
-  /** Map from atoms to vales */
+  /** Map from atoms to values */
   int_hmap_t atom_values;
 
   /** Map from terms/atoms to levels */
@@ -81,34 +82,39 @@ typedef struct bv_csttrail_s {
 
   plugin_context_t* ctx;
   watch_list_manager_t* wlm;
+  bv_evaluator_t* eval;
   
   // bv variables of the conflict that have values on the trail
   int_hset_t free_var;
-  // Cache of terms that are constant
-  int_hset_t constant_cache;
-  // Cache of terms that are not constant but whose bv-variables (necessarily in free_var)
-  // all have values on the trail
-  int_hset_t evaluable_cache; 
 
+  // hashmap: maps pair (term t, term x) to the greatest number of lower bits of t that could be evaluated without having a value for x.
+  // if x is not a (direct) free var of t, then the value is either the bitsize of t, or MAX_INT in the special case the term has no variables at all
+  int_hmap2_t fv_cache;
+ 
   variable_t conflict_var; // The conflict variable
   term_t conflict_var_term; // The conflict variable as a term
-  
+
+  uint32_t optim; // Level of optimisation: 0 = no optimisation, 1 = concat-extract optiomisation, 2 = arith optimisation
+
 } bv_csttrail_t;
 
 // Construct it (once and for all)
-void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm);
+void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval);
 
 // Destruct it
 void bv_evaluator_csttrail_destruct(bv_csttrail_t* csttrail);
 
 // Reset it for dealing with a new conflict
-void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var);
+void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var, uint32_t optim);
 
 // Scanning a new atom of the conflict
 void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom);
 
-// Checks whether term t evaluates, all its BV-variables having values on the trail.
-// If it does not, use_trail is untouched. If it does, then use_trail is set to true
-// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
+// For term u, outputs the greatest number of lower bits of u that could be evaluated without having a value for conflict_var.
+// if conflict_var is not a (direct) free var of u, then the value is either the bitsize of u, or MAX_INT (-1) in the special case the term has no variables at all
+uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u);
 
-bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t, bool* use_trail);
+// Checks whether term t evaluates
+// (its direct free variables, if any, do not contain conflict_var_term).
+bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t t);
+

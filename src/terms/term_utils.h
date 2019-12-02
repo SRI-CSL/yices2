@@ -322,15 +322,15 @@ extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v)
  */
 
 /*
- * Try to convert a bit-array expression into an arithmetic expression:
- * - t must be a bv_array term (array of n booleans)
- * - if t can be converted, the result is stored in buffer b and the function
- *   returns true
- * - otherwise, the function returns false
+ * Check whether t is equal to x or (bv-not x) for some term x
+ * - t must be a bit-vector array (BV_ARRAY)
+ * - the function returns true if t is equal to x or (bv-not x)
+ *   it returns the term x in *x
+ *   if t is equal to x, the negated flag is set to false
+ *   if t is equal to (bv-not x), the negated flag is set to true
+ * - the function returns false if t is not of the right form and leaves *x and *negated unchanged
  */
-extern bool convert_bvarray_to_bvarith64(term_table_t *tbl, term_t t, bvarith64_buffer_t *b);
-extern bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b);
-
+extern bool bvarray_convertible_to_term(term_table_t *tbl, term_t t, term_t *x, bool *negated);
 
 /*
  * Add or subtract t to/from buffer b

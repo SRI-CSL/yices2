@@ -171,6 +171,18 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   yices_free_config(config);
 }
 
+void print_counters(bv_explainer_t* exp){
+  FILE* out = ctx_trace_out(exp->ctx);
+  bv_subexplainer_t* subexplainer = NULL;
+  for (uint32_t i = 0; i < exp->subexplainers.size; ++ i) {
+    subexplainer = exp->subexplainers.data[i];
+    fprintf(out, "%s: %d conflicts, %d propas; ",
+            subexplainer->name,
+            (*subexplainer->stat_explain_conflict_calls),
+            (*subexplainer->stat_explain_propagation_calls));
+  }
+}
+
 void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in, variable_t conflict_var, ivector_t* conflict_out) {
 
   // Get the explainer to use
@@ -188,10 +200,18 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     fprintf(out, "subtheory %s\n", subexplainer->name);
   }
 
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::count"))
+    print_counters(exp);
+  
   // Explain it
   (*subexplainer->stat_explain_conflict_calls) ++;
   subexplainer->explain_conflict(subexplainer, conflict_in, conflict_var, conflict_out);
 
+  if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::count")) {
+    FILE* out = ctx_trace_out(exp->ctx);
+    fprintf(out, "Done by %s\n", subexplainer->name);
+  }
+  
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::check")) {
     static int conflict_count = 0;
     conflict_count ++;
@@ -229,9 +249,18 @@ term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const
       fprintf(out, "subtheory %s\n", subexplainer->name);
     }
 
+    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::count"))
+      print_counters(exp);
+
     // Try to explain it (might fail)
     (*subexplainer->stat_explain_propagation_calls) ++;
     subst = subexplainer->explain_propagation(subexplainer, reasons_in, x, reasons_out);
+
+    if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::count")) {
+      FILE* out = ctx_trace_out(exp->ctx);
+      fprintf(out, "Done by %s\n", subexplainer->name);
+    }
+    
   }
 
   // Normalize the explanation

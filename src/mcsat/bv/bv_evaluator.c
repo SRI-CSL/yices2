@@ -16,9 +16,10 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bv_evaluator.h"
 #include "mcsat/plugin.h"
 #include "mcsat/tracing.h"
+#include "mcsat/bv/bv_utils.h"
+#include "bv_evaluator.h"
 
 #include <assert.h>
 
@@ -594,28 +595,26 @@ const mcsat_value_t* bv_evaluator_evaluate_term(bv_evaluator_t* evaluator, term_
   }
 }
 
-void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm){
+void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval){
   csttrail->ctx = ctx;
   csttrail->wlm = wlm;
+  csttrail->eval = eval;
   init_int_hset(&csttrail->free_var, 0);
-  init_int_hset(&csttrail->constant_cache, 0);
-  init_int_hset(&csttrail->evaluable_cache, 0);
+  init_int_hmap2(&csttrail->fv_cache, 0);
 }
 
 // Destruct it
 void bv_evaluator_csttrail_destruct(bv_csttrail_t* csttrail){
   delete_int_hset(&csttrail->free_var);
-  delete_int_hset(&csttrail->constant_cache);
-  delete_int_hset(&csttrail->evaluable_cache);
+  delete_int_hmap2(&csttrail->fv_cache);
 }
 
 // Reset it for dealing with a new conflict
-void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var){
+void bv_evaluator_csttrail_reset(bv_csttrail_t* csttrail, variable_t conflict_var, uint32_t optim){
   csttrail->conflict_var = conflict_var;
   csttrail->conflict_var_term = variable_db_get_term(csttrail->ctx->var_db, conflict_var);
   int_hset_reset(&csttrail->free_var);
-  int_hset_reset(&csttrail->constant_cache);
-  int_hset_reset(&csttrail->evaluable_cache);
+  csttrail->optim = optim;
 }
 
 // Scanning a new atom of the conflict
@@ -640,159 +639,211 @@ void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom){
   }
 }
 
-// Checks whether term t evaluates, all its BV-variables having values on the trail.
-// If it does not, use_trail is untouched. If it does, then use_trail is set to true
-// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
-
-bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t u, bool* use_trail) {
-
-  term_t t = unsigned_term(u);
+uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
 
   plugin_context_t* ctx = csttrail->ctx;
-
-  if (t == csttrail->conflict_var_term) return false;
-
-  // Answer right away in case already found to be constant or if it evaluates
-  if (int_hset_member(&csttrail->constant_cache, t)) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "This term has previously been found to have a value not using the trail ");
-      ctx_trace_term(ctx, t);
-    }
-    *use_trail = false;
-    return true;
-  }
-  if (int_hset_member(&csttrail->evaluable_cache, t)) {
-    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "This term has previously been found to have a value using the trail ");
-      ctx_trace_term(ctx, t);
-    }
-    *use_trail = true;
-    return true;
-  }
+  term_manager_t* tm    = ctx->tm;
+  variable_db_t* var_db = ctx->var_db; // standard abbreviations
+  term_table_t* terms   = ctx->terms;
+  term_t t              = unsigned_term(bv_bitterm(terms,u));
+  term_t y              = csttrail->conflict_var_term;
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Looking at whether this term has a value ");
-    ctx_trace_term(ctx, t);
+    fprintf(out, "bv_evaluator (optim=%d) looks at how many bits do not refer to variable y = ",csttrail->optim);
+    term_print_to_file(out, ctx->terms, y);
+    fprintf(out, " in term ");
+    ctx_trace_term(ctx, u);
   }
 
-  variable_db_t* var_db = ctx->var_db; // standard abbreviations
-  term_table_t* terms   = ctx->terms;
+  assert(t != NULL_TERM);
+  assert(is_bitvector_term(terms, t) || is_boolean_term(terms, t));
 
+  if (t == y) {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term is y!\n");
+    }
+    return 0; // It doesn't feature y up to bit 0
+  }
+  switch (term_kind(terms, t)) { // Simple check for constants
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT: {
+    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term is a constant!\n");
+    }
+    return -1; // no variables at all
+  }
+  default: {
+  }
+  }
+
+  // Is t a variable different than y?
+  uint32_t w     = bv_term_bitsize(terms, t);
   variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
 
   // If ((var != variable_null) && int_hset_member(&csttrail->free_var, var))
-  // then the term does evaluate and use the trail: we don't look into its structure.
-
-  if ((var != variable_null) && int_hset_member(&csttrail->free_var, var)) {
+  // then t is another variable than y; it has variables and we don't look into its structure.
+  if (var != variable_null
+      && int_hset_member(&csttrail->free_var, var)) { // t is a variable other than y
     if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "This term is a free variable of the conflict with a value on the trail: ");
       ctx_trace_term(ctx, t);
     }
-    *use_trail = true;
-  } else { // otherwise we look into it
-    
-    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Looking at the kind of\n");
-      ctx_trace_term(ctx, t);
-    }
-
-    bool output = false;
-
-    switch (term_kind(terms, t)) {
-    case CONSTANT_TERM:
-    case BV_CONSTANT:
-    case BV64_CONSTANT:
-      break;
-    case EQ_TERM:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-    case BV_ARRAY:
-    case OR_TERM:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR: {
-      composite_term_t* composite_desc = composite_term_desc(terms, t);
-      for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
-        term_t t_i = composite_desc->arg[i];
-        term_t t_i_pos = unsigned_term(t_i);
-        bool recurs = false;
-        if (!bv_evaluator_is_evaluable(csttrail, t_i_pos, &recurs)) return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case BIT_TERM: {
-      term_t arg = bit_term_arg(terms, t);
-      term_t arg_pos = unsigned_term(arg);
-      if (!bv_evaluator_is_evaluable(csttrail, arg_pos, &output)) return false;
-      break;
-    }
-    case BV_POLY: {
-      bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        bool recurs = false;
-        if (!bv_evaluator_is_evaluable(csttrail, t_poly->mono[i].var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case BV64_POLY: {
-      bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
-        if (t_poly->mono[i].var == const_idx) continue;
-        bool recurs = false;
-        if (!bv_evaluator_is_evaluable(csttrail, t_poly->mono[i].var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    case POWER_PRODUCT: {
-      pprod_t* t_pprod = pprod_term_desc(terms, t);
-      for (uint32_t i = 0; i < t_pprod->len; ++ i) {
-        bool recurs = false;
-        if (!bv_evaluator_is_evaluable(csttrail, t_pprod->prod[i].var, &recurs))
-          return false;
-        output = output || recurs;
-      }
-      break;
-    }
-    default:
-      return false;
-    }
-
-    *use_trail = output;
+    return w;
   }
 
-  if (*use_trail) {
-    int_hset_add(&csttrail->evaluable_cache, t);
+  // Now we look into whether the answer is memoised
+  int_hmap2_rec_t* registered;
+
+  // The next commented code is for when we decide to scan the term for its free variables,
+  // registering its top var and bottom var in -1 and -2 cell, respectively
+  /* registered = int_hmap2_find(&csttrail->fv_cache, t, -1); // Get top var of t */
+  /* if (registered != NULL && registered->val < y) { // Do we know its top variable and is it < y ? */
+  /*   if (registered->val == 0) // The term has no variables at all (maybe doesn't happen in yices) */
+  /*     return -1; */
+  /*   registered = int_hmap2_find(&csttrail->fv_cache, t, NULL_TERM); */
+  /*   assert(registered != NULL); */
+  /*   return registered->val; */
+  /* } */
+  /* registered = int_hmap2_find(&csttrail->fv_cache, t, -2); // Get bottom var of t */
+  /* if (registered != NULL && registered->val > y) { // Do we know its bottom variable and is it > y ? */
+  /*   registered = int_hmap2_find(&csttrail->fv_cache, t, NULL_TERM); */
+  /*   assert(registered != NULL); */
+  /*   return registered->val; */
+  /* } */
+  registered = int_hmap2_find(&csttrail->fv_cache, t, (3*y) + csttrail->optim);
+  if (registered != NULL) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
       FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "This term has previously been found to not use y up to bit %d ",registered->val);
       ctx_trace_term(ctx, t);
-      fprintf(out, "...evaluates using the trail\n");
     }
-  } else {
-    int_hset_add(&csttrail->constant_cache, t);
-    if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
-      FILE* out = ctx_trace_out(ctx);
-      ctx_trace_term(ctx, t);
-      fprintf(out, "...is found to be constant\n");
-    }
+    return registered->val; // Returning memoised value
+  }
+  
+  if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Looking at the kind of ");
+    ctx_trace_term(ctx, t);
   }
 
-  return true;
+  uint32_t result = w;
+
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT:
+    assert(false); // Already treated above
+  case EQ_TERM:
+  case OR_TERM:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR: {
+    composite_term_t* composite_desc = composite_term_desc(terms, t);
+    for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
+      term_t t_i = composite_desc->arg[i];
+      term_t t_i_pos = unsigned_term(t_i);
+      if (bv_evaluator_not_free_up_to(csttrail, t_i_pos)
+          < bv_term_bitsize(tm->terms, t_i_pos)) {
+        result = 0;
+        break;
+      }
+    }
+    break;
+  }
+  case BIT_TERM: {
+    term_t arg = bit_term_arg(terms, t);
+    uint32_t index = bit_term_index(terms, t);
+    term_t arg_pos = unsigned_term(arg);
+    if (csttrail->optim == 0
+        && bv_evaluator_not_free_up_to(csttrail, arg_pos) < bv_term_bitsize(tm->terms, arg_pos))
+      result = 0;
+    else
+      result = (index < bv_evaluator_not_free_up_to(csttrail, arg_pos)) ? 1 : 0;
+    break;
+  }
+  case BV_POLY: {
+    bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_poly->mono[i].var);
+      if (recurs < result)
+        result = (csttrail->optim == 2) ? recurs : 0;
+      if (result == 0) break;
+    }
+    break;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
+    for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
+      if (t_poly->mono[i].var == const_idx) continue;
+      uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_poly->mono[i].var);
+      if (recurs < result)
+        result = (csttrail->optim == 2) ? recurs : 0;
+      if (result == 0) break;
+    }
+    break;
+  }
+  case POWER_PRODUCT: {
+    pprod_t* t_pprod = pprod_term_desc(terms, t);
+    uint32_t save = csttrail->optim;
+    csttrail->optim = 0;
+    for (uint32_t i = 0; i < t_pprod->len; ++ i) {
+      uint32_t recurs = bv_evaluator_not_free_up_to(csttrail, t_pprod->prod[i].var);
+      if (recurs < w)
+        result = 0;
+      if (result == 0) break;
+    }
+    csttrail->optim = save;
+    break;
+  }
+  case BV_ARRAY: {
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t);
+    result = 0;
+    for (uint32_t i = 0; i < w; i++) {
+      term_t t_i = concat_desc->arg[i];
+      t_i = unsigned_term(t_i);
+      if (bv_evaluator_not_free_up_to(csttrail, t_i) == 0)
+        break;
+      result++;
+    }
+    if (csttrail->optim == 0 && result < w)
+      result = 0;
+    break;
+  }
+  default:
+    result = 0;
+  }
+
+  int_hmap2_add(&csttrail->fv_cache, t, (3*y) + csttrail->optim, result);
+  if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
+    FILE* out = ctx_trace_out(ctx);
+    ctx_trace_term(ctx, t);
+    fprintf(out, "...does not have y among first %d bits\n",result);
+  }
+
+  return result;
   
 }
+
+// Checks whether term t evaluates, all its BV-variables having values on the trail.
+// If it does not, use_trail is untouched. If it does, then use_trail is set to true
+// if the trail is actually used (i.e. term has a BV-variable), otherwise it is set to false.
+
+bool bv_evaluator_is_evaluable(bv_csttrail_t* csttrail, term_t u) {
+  uint32_t result = bv_evaluator_not_free_up_to(csttrail, u);
+  return (result >= bv_term_bitsize(csttrail->ctx->terms, u));
+}
+

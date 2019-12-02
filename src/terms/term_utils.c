@@ -1836,6 +1836,38 @@ static void bvscan_for_constant(const term_table_t *tbl, bvconst_scan_result_t *
 
 
 /*
+ * Check whether t is equal to x or (bv-not x) for some term x
+ * - t must be a bit-vector array (BV_ARRAY)
+ * - the function returns true if t is equal to x or (bv-not x)
+ *   it returns the term x in *x
+ *   if t is equal to x, the negated flag is set to false
+ *   if t is equal to (bv-not x), the negated flag is set to true
+ * - the function returns false if t is not of the right form and leaves *x and *negated unchanged
+ */
+bool bvarray_convertible_to_term(term_table_t *tbl, term_t t, term_t *x, bool *negated) {
+  composite_term_t *bits;
+  bvscan_result_t result;
+  uint32_t n;
+
+  assert(term_kind(tbl, t) == BV_ARRAY);
+  bits = bvarray_term_desc(tbl, t);
+  n = bits->arity;
+
+  bvscan(tbl, &result, 0, n, bits->arg);
+  if (result.success &&
+      result.numbits == n &&
+      term_bitsize(tbl, result.term) == n ) {
+    *x = result.term;
+    *negated = result.negated;
+    return true;
+  }
+
+  return false;
+}
+
+
+#if 0
+/*
  * Try to convert t to an arithmetic expression
  * - t must be a bv-array term
  * - return true if that succeeds, and store the result in buffer b
@@ -1907,6 +1939,7 @@ bool convert_bvarray_to_bvarith(term_table_t *tbl, term_t t, bvarith_buffer_t *b
 
   return false;
 }
+#endif
 
 
 /*

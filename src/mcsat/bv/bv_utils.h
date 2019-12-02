@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 
+#include "utils/hash_functions.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "mcsat/value.h"
@@ -357,13 +358,61 @@ term_t mk_bv_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t*
 }
 
 // builds extracted term, form lo (inc.) to hi (exc.)
+// can be given a Boolean term, in which case it returns a bitvector of size 1
 static inline
 term_t term_extract(term_manager_t* tm, term_t t, uint32_t lo, uint32_t hi) {
-  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
+  assert(is_bitvector_term(tm->terms, t) || is_boolean_term(tm->terms, t));
+  if (is_bitvector_term(tm->terms, t)
+      && lo == 0
+      && hi == term_bitsize(tm->terms, t))
+    return t;
   term_t tarray[1];
   tarray[0] = t;
+  bvlogic_buffer_t* buffer = term_manager_get_bvlogic_buffer(tm);
   term_t bv_term = is_bitvector_term(tm->terms, t) ?
     t : bvarray_term(tm->terms, 1, tarray);
   bvlogic_buffer_set_slice_term(buffer, tm->terms, lo, hi-1, bv_term);
   return mk_bvlogic_term(tm, buffer);
+}
+
+// Gets the bit term by descending the BIT_TERM-over-BV_ARRAY situations
+static inline
+term_t bv_bitterm(term_table_t* terms, term_t t) {
+  term_t result = t;
+  bool is_pos = true; // Parity of how many negations have we seen in the descent
+  while (term_kind(terms, result) == BIT_TERM
+         && term_kind(terms, bit_term_arg(terms, result)) == BV_ARRAY) {
+    if (!is_pos_term(result)) is_pos = !is_pos;
+    uint32_t index = bit_term_index(terms, result);  // Get selected bit
+    term_t base    = bit_term_arg(terms, result);    // Get the base
+    composite_term_t* concat_desc = bvarray_term_desc(terms, base);
+    result = concat_desc->arg[index];
+  }
+  return is_pos ? result : not_term(terms, result);
+}
+
+// The following 2 functions are for the implementation of a very lightweight hashtable of terms
+// with fixed size. Table is supposed to contain few entries. Can't remove entries.
+
+static inline
+void fix_htbl_init(term_t* htbl, uint32_t size){
+  for (uint32_t i = 0; i < size; i++)
+    htbl[i] = NULL_TERM;
+}
+
+// Gives back the index of a cell for a given term.
+// size is the size of the hashtable's array;
+// key is the key to be found in the array;
+// outputs the index of the array cell containing the key (if the table contains it),
+// or of the first available cell
+
+static inline
+uint32_t fix_htbl_index(term_t* htbl, uint32_t size, term_t key){
+  uint32_t result = jenkins_hash_uint32(key) % size;
+  while (htbl[result] != NULL_TERM && htbl[result] != key) {
+    // We look for the cell containing key, or the first empty cell
+    result++;
+    result = result % size;
+  }
+  return result;
 }
