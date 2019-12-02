@@ -17,7 +17,7 @@ to be written in a specific language.
 
 * `yices-sat` is a boolean satisfiablility that expects the DIMACS CNF format.
 
-For more details see the [manual](http://yices.csl.sri.com/papers/manual.pdf) chapter 1 section 1.2, chanpter 4 and
+For more details see the [manual](http://yices.csl.sri.com/papers/manual.pdf) chapter 1 section 1.2, chapter 4 and
 chapter 5.
 
 
