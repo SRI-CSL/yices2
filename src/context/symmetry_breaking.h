@@ -303,4 +303,6 @@ extern void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s);
 
 
 
+
+
 #endif /* __SYMMETRY_BREAKING_H */

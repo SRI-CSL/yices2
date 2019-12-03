@@ -998,7 +998,7 @@ static void ctx_subst_array(ctx_subst_t *s, term_t *a, term_t *b, uint32_t n) {
 
 
 /*
- * Apply s to vectors ctx->top_eqs, ctx->top_atoms, ctx->top_formulas, and ctx->subst_eqs
+ * Apply s to vectors ctx->top_eqs, ctx->top_atoms, ctx->top_formulas, ctx->subst_eqs, andc ctx->aux_eqs
  * - store the result in array a
  */
 static void ctx_subst_assertions(ctx_subst_t *s, context_t *ctx, term_t *a) {
@@ -1021,6 +1021,11 @@ static void ctx_subst_assertions(ctx_subst_t *s, context_t *ctx, term_t *a) {
   a += n;
 
   v = &ctx->subst_eqs;
+  n = v->size;
+  ctx_subst_array(s, v->data, a, n);
+  a += n;
+
+  v = &ctx->aux_eqs;
   n = v->size;
   ctx_subst_array(s, v->data, a, n);
 }
@@ -1062,6 +1067,7 @@ static void make_cycle(ctx_subst_t *s, term_t *c, uint32_t n) {
  */
 static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uint32_t n) {
   term_t *b;
+  uint64_t num_assertions;
   uint32_t m;
   term_t norm1, norm2, norm3;
   int code;
@@ -1069,8 +1075,20 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
   assert(n >= 2);
 
-  // this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE (i.e., UINT32_MAX/4).
-  m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size + ctx->subst_eqs.size;
+  /*
+   * total number of assertions
+   * we check that it's no more than MAX_ARITY.
+   * If we have more than MAX_ARITY assertions, we may fail to build norm1, norm2, norm3.
+   */
+  num_assertions = (uint64_t) ctx->top_eqs.size +  (uint64_t) ctx->top_atoms.size + (uint64_t) ctx->top_formulas.size +
+    + (uint64_t) ctx->subst_eqs.size + (uint64_t) ctx->aux_eqs.size;
+  if (num_assertions > (uint64_t) YICES_MAX_ARITY) {
+    return false;
+  }
+
+  assert(num_assertions <= (uint64_t) UINT32_MAX);
+
+  m = (uint32_t) num_assertions;
   b = (term_t *) safe_malloc(m * sizeof(term_t));
 
   result = false;
@@ -1344,6 +1362,7 @@ static void resize_candidate_set(sym_breaker_sets_t *s, uint32_t n) {
 }
 
 
+
 /*
  * Free everything
  */
@@ -1366,6 +1385,11 @@ static void delete_sym_breaker_sets(sym_breaker_sets_t *s) {
  * - c must be sorted and fixed
  */
 static void copy_constant_set(sym_breaker_sets_t *s, term_t *c, uint32_t n) {
+  if (s->constants != NULL) {
+    // required before we can call cset_init_full & cset_init_empty.
+    reset_cset(&s->available);
+    reset_cset(&s->removed);
+  }
   s->constants = c;
   s->num_constants = n;
   cset_init_full(&s->available, n);
@@ -1398,7 +1422,7 @@ static void add_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
 
   assert(n <= MAX_SBREAK_SET_SIZE);
 
-  new_size = n + s->candidate_size;
+  new_size = n + s->num_candidates;
   if (new_size > MAX_SBREAK_SET_SIZE) {
     out_of_memory();
   }
@@ -1653,6 +1677,7 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
 #if TRACE
     printf("Adding symmetry-breaking constraint\n");
     pretty_print_term_full(stdout, NULL, terms, make_aux_eq(terms, t, c[0]));
+    printf("\n");
 #endif
     trace_puts(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
     trace_pp_term(ctx->trace, 5, terms, make_aux_eq(terms, t, c[0]));
@@ -1677,14 +1702,20 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
     or = or_term(terms, n, v->data);
     assert(intern_tbl_is_root(intern, or) && !term_is_false(ctx, or));
 
+#if TRACE
+    printf("Symmetry breaking constraint\n");
+    pretty_print_term_full(stdout, NULL, terms, or);
+    if (intern_tbl_root_is_mapped(intern, or)) {
+      printf("Redundant\n\n");
+    } else {
+      printf("Added\n\n");
+    }
+#endif
+
     if (! intern_tbl_root_is_mapped(intern, or)) {
       intern_tbl_map_root(intern, or, bool2code(true));
       ivector_push(&ctx->top_formulas, or);
 
-#if TRACE
-      printf("Adding symmetry breaking constraint\n");
-      pretty_print_term_full(stdout, NULL, terms, or);
-#endif
       trace_puts(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
       trace_pp_term(ctx->trace, 5, terms, or);
     }

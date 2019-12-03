@@ -3529,7 +3529,6 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
 
 #if TRACE_SYM_BREAKING
 
-#if 0
 static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t *r) {
   uint32_t i, n;
 
@@ -3590,9 +3589,8 @@ static void show_range_constraints(sym_breaker_t *breaker) {
     pp_constraints(&pp, breaker, v[i]);
   }
 
-  delete_yices_pp(&pp);
+  delete_yices_pp(&pp, true);
 }
-#endif
 
 static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   uint32_t i, n;
@@ -3630,6 +3628,11 @@ void break_uf_symmetries(context_t *ctx) {
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
+
+#if TRACE_SYM_BREAKING
+  show_range_constraints(&breaker);
+#endif
+
   v = breaker.sorted_constraints;
   n = breaker.num_constraints;
   if (n > 0) {
