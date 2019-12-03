@@ -831,18 +831,16 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       }
       return t;
     }
+    
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Not a variable on trail: ");
       ctx_trace_term(ctx, t);
+      fprintf(out, "So we analyse the shape of the term.");
     }
+    
     uint32_t w = bv_term_bitsize(terms,t);
     term_t result;
-    uint32_t n; // Number of terms in composite or polys or pprod
-    bvpoly_t* t_poly     = NULL;
-    bvpoly64_t* t_poly64 = NULL;
-    pprod_t* pprod_desc  = NULL;
-    composite_term_t* composite_desc = NULL;
     
     switch (t_kind) {
     case CONSTANT_TERM:
@@ -850,37 +848,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     case BV64_CONSTANT:
       assert(false); // Already treated above
     case BV_POLY: {
-      t_poly = bvpoly_term_desc(ctx->terms, t);
-      n = t_poly->nterms;
-      break;
-    }
-    case BV64_POLY: {
-      t_poly64 = bvpoly64_term_desc(ctx->terms, t);
-      n = t_poly64->nterms;
-      break;
-    }
-    case POWER_PRODUCT: {
-      pprod_desc = pprod_term_desc(ctx->terms, t);
-      n = pprod_desc->len;
-      break;
-    }
-    case BIT_TERM: {
-      break;
-    }
-    default: {
-      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Must be composite term.\n");
-      }
-      composite_desc = composite_term_desc(terms, t);
-      n = composite_desc->arity;
-    }
-    }
-
-    term_t norms[n]; // where we place the monomials
-
-    switch (t_kind) {
-    case BV_POLY: {
+      bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+      uint32_t n = t_poly->nterms;
+      term_t norms[n]; // where we place the monomials
       for (uint32_t i = 0; i < n; ++ i) {
         term_t t_i = t_poly->mono[i].var;
         norms[i] = (t_i == const_idx) ? t_i : term_is_ext_con(exp, t_i , true);
@@ -897,6 +867,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       break;
     }
     case BV64_POLY: {
+      bvpoly64_t* t_poly64 = bvpoly64_term_desc(ctx->terms, t);
+      uint32_t n = t_poly64->nterms;
+      term_t norms[n]; // where we place the monomials
       for (uint32_t i = 0; i < n; ++ i) {
         term_t t_i = t_poly64->mono[i].var;
         norms[i] = (t_i == const_idx) ? t_i : term_is_ext_con(exp, t_i , true);
@@ -913,6 +886,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       break;
     }
     case POWER_PRODUCT: {
+      pprod_t* pprod_desc = pprod_term_desc(ctx->terms, t);
+      uint32_t n = pprod_desc->len;
+      term_t norms[n]; // where we place the monomials
       for (uint32_t i = 0; i < n; ++ i)
         norms[i] = term_is_ext_con(exp, pprod_desc->prod[i].var, true);
       result = mk_pprod(tm, pprod_desc, n, norms);
@@ -920,7 +896,8 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     }
     case BIT_TERM: {
       uint32_t index = bit_term_index(terms, t);
-      result = bv_bitterm(tm->terms, mk_bitextract(tm, norms[0], index));
+      term_t arg = term_is_ext_con(exp, bit_term_arg(terms, t), true);
+      result = bv_bitterm(tm->terms, mk_bitextract(tm, arg, index));
       break;
     }
     case EQ_TERM:
@@ -937,26 +914,23 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     case BV_LSHR:
     case BV_ASHR:
     case BV_ARRAY: {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Must be composite term.\n");
+      }
+      composite_term_t* composite_desc = composite_term_desc(terms, t);
+      uint32_t n = composite_desc->arity;
+      term_t norms[n]; // where we place the monomials
       for (uint32_t i = 0; i < n; ++ i)
         norms[i] = term_is_ext_con(exp, composite_desc->arg[i] , true);
       result = mk_bv_composite(tm, t_kind, n, norms);
       break;
     }
-    default: { // Must be composite
+    default: {
       result = t;
     }
     }
 
-    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
-      for (uint32_t i = 0; i < n; ++ i) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Analysing arguments of ");
-        term_print_to_file(out, terms, t);
-        fprintf(out, ", arg[%d] = ",i);
-        ctx_trace_term(ctx, norms[i]);
-      }
-    }
-    
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Now returning:\n");
