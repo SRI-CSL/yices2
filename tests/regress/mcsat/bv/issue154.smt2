@@ -1,0 +1,5 @@
+(set-logic QF_BV)
+(declare-fun x () (_ BitVec 8))
+(declare-fun y () (_ BitVec 8))
+(assert (let ((e5 (bvmul x y))) (let ((e9 (bvmul e5 e5))) (let ((e11 (bvsrem (_ bv0 8) e9))) (let ((e250 (not (= e11 (_ bv0 8))))) (let ((e251 e250)) (let ((e252 e251)) (let ((e253 e252)) (let ((e254 e253)) (let ((e255 e254)) e255))))))))))
+(check-sat)

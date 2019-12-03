@@ -675,9 +675,20 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
         tmp = arith_normalise_upto(norm, tmp, w);
       else
         tmp = term_extract(tm, tmp, 0, w);
-      arith_analyse_t* analysis = arith_analyse(norm, tmp);;
+      arith_analyse_t* analysis = arith_analyse(norm, tmp);
       return finalise(norm, t, analysis);
     }
+  }
+
+  case POWER_PRODUCT: {
+    pprod_t* pprod_desc = pprod_term_desc(ctx->terms, t);
+    uint32_t n = pprod_desc->len;
+    term_t norms[n]; // Where we recursively normalise
+    for (uint32_t i = 0; i < n; ++ i)
+      norms[i] = arith_normalise_upto(norm, pprod_desc->prod[i].var, w);
+    term_t tmp = mk_pprod(tm, pprod_desc, n, norms);
+      arith_analyse_t* analysis = arith_analyse(norm, tmp);
+      return finalise(norm, t, analysis);
   }
 
   case BIT_TERM: {
@@ -735,7 +746,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     analyse_BV64(norm, w, n_monom, coeff, monom, &analysis);
     return finalise(norm, t, &analysis);
   }
-    
+
   case BV_ARRAY: {  // Concatenated boolean terms
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     term_t ebits[w]; // Where we build the result
@@ -822,7 +833,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       }
     }
     /* term_t tmp = mk_bvarray(tm, w, ebits); */
-    /* arith_analyse_t analysis = arith_analyse(norm, tmp);; */
+    /* arith_analyse_t analysis = arith_analyse(norm, tmp); */
     arith_analyse_t analysis;
     init_analysis(&analysis);
     analyse_bvarray(norm, w, ebits, &analysis);
@@ -832,7 +843,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   default: { // Happens for instance with pprods
     assert(!is_boolean_term(terms,t));
     term_t tmp = term_extract(tm, t, 0, w);
-    arith_analyse_t* analysis = arith_analyse(norm, tmp);;
+    arith_analyse_t* analysis = arith_analyse(norm, tmp);
     return finalise(norm, t, analysis);
   }
   }

@@ -687,7 +687,7 @@ void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* ex
 }
 
 // if assume_fragment is false, returns NULL_TERM if bad term, something else otherwise (if different from 1 then it is the normalised term)
-// if assume_fragment is true, returns normalised version of term (and should not produce 0)
+// if assume_fragment is true, returns normalised version of term
 static
 term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
 
@@ -743,6 +743,8 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     fprintf(out, "Value not cached.%s\n", assume_fragment?"":" Is it evaluable?");
   }
 
+  // If we're not assuming we are in the fragment, we look at whether term is evaluable, in which case we return 1
+  // but we don't (yet) spend CPU time normalising it.
   if (!assume_fragment && bv_evaluator_is_evaluable(&exp->csttrail, t)) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
       FILE* out = ctx_trace_out(ctx);
@@ -777,7 +779,8 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
   }
 
   // Array of bits
-  if (is_pos_term(t) && t_kind == BV_ARRAY) {
+  if (t_kind == BV_ARRAY) {
+    assert(is_pos_term(t));
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     term_t bits[concat_desc->arity];
     for (uint32_t i = 0; i < concat_desc->arity; ++ i) {
@@ -828,17 +831,16 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       }
       return t;
     }
+    
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Not a variable on trail: ");
       ctx_trace_term(ctx, t);
+      fprintf(out, "So we analyse the shape of the term.");
     }
+    
     uint32_t w = bv_term_bitsize(terms,t);
     term_t result;
-    uint32_t n; // Number of terms in composite or polys
-    bvpoly_t* t_poly = NULL;
-    bvpoly64_t* t_poly64 = NULL;
-    composite_term_t* composite_desc = NULL;
     
     switch (t_kind) {
     case CONSTANT_TERM:
@@ -846,59 +848,13 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     case BV64_CONSTANT:
       assert(false); // Already treated above
     case BV_POLY: {
-      t_poly = bvpoly_term_desc(ctx->terms, t);
-      n = t_poly->nterms;
-      break;
-    }
-    case BV64_POLY: {
-      t_poly64 = bvpoly64_term_desc(ctx->terms, t);
-      n = t_poly64->nterms;
-      break;
-    }
-    default: {
-      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Must be composite term.\n");
-      }
-      composite_desc = composite_term_desc(terms, t);
-      n = composite_desc->arity;
-    }
-    }
-
-    term_t norms[n]; // where we place the monomials
-    switch (t_kind) {
-    case BV_POLY: {
+      bvpoly_t* t_poly = bvpoly_term_desc(ctx->terms, t);
+      uint32_t n = t_poly->nterms;
+      term_t norms[n]; // where we place the monomials
       for (uint32_t i = 0; i < n; ++ i) {
         term_t t_i = t_poly->mono[i].var;
         norms[i] = (t_i == const_idx) ? t_i : term_is_ext_con(exp, t_i , true);
       }
-      break;
-    }
-    case BV64_POLY: {
-      for (uint32_t i = 0; i < n; ++ i) {
-        term_t t_i = t_poly64->mono[i].var;
-        norms[i] = (t_i == const_idx) ? t_i : term_is_ext_con(exp, t_i , true);
-      }
-      break;
-    }
-    default: {
-      for (uint32_t i = 0; i < n; ++ i)
-        norms[i] = term_is_ext_con(exp, composite_desc->arg[i] , true);
-    }
-    }
-
-    if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
-      for (uint32_t i = 0; i < n; ++ i) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Analysing arguments of ");
-        term_print_to_file(out, terms, t);
-        fprintf(out, ", arg[%d] = ",i);
-        ctx_trace_term(ctx, norms[i]);
-      }
-    }
-    
-    switch (t_kind) {
-    case BV_POLY: {
       bvarith_buffer_t* buffer = term_manager_get_bvarith_buffer(tm);
       bvarith_buffer_prepare(buffer, w); // Setting the desired width
       for (uint32_t i = 0; i < n; ++ i) {
@@ -911,6 +867,13 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       break;
     }
     case BV64_POLY: {
+      bvpoly64_t* t_poly64 = bvpoly64_term_desc(ctx->terms, t);
+      uint32_t n = t_poly64->nterms;
+      term_t norms[n]; // where we place the monomials
+      for (uint32_t i = 0; i < n; ++ i) {
+        term_t t_i = t_poly64->mono[i].var;
+        norms[i] = (t_i == const_idx) ? t_i : term_is_ext_con(exp, t_i , true);
+      }
       bvarith64_buffer_t* buffer = term_manager_get_bvarith64_buffer(tm);
       bvarith64_buffer_prepare(buffer, w); // Setting the desired width
       for (uint32_t i = 0; i < t_poly64->nterms; ++ i) {
@@ -922,14 +885,19 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       result = mk_bvarith64_term(tm, buffer);
       break;
     }
-      /* case POWER_PRODUCT: { */
-      /*   pp_buffer_t* buffer = term_manager_get_pp_buffer(tm); */
-      /*   result = mk_bvarith_term(tm, buffer); */
-      /*   break; */
-      /* } */
+    case POWER_PRODUCT: {
+      pprod_t* pprod_desc = pprod_term_desc(ctx->terms, t);
+      uint32_t n = pprod_desc->len;
+      term_t norms[n]; // where we place the monomials
+      for (uint32_t i = 0; i < n; ++ i)
+        norms[i] = term_is_ext_con(exp, pprod_desc->prod[i].var, true);
+      result = mk_pprod(tm, pprod_desc, n, norms);
+      break;
+    }
     case BIT_TERM: {
       uint32_t index = bit_term_index(terms, t);
-      result = bv_bitterm(tm->terms, mk_bitextract(tm, norms[0], index));
+      term_t arg = term_is_ext_con(exp, bit_term_arg(terms, t), true);
+      result = bv_bitterm(tm->terms, mk_bitextract(tm, arg, index));
       break;
     }
     case EQ_TERM:
@@ -946,18 +914,23 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     case BV_LSHR:
     case BV_ASHR:
     case BV_ARRAY: {
+      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Must be composite term.\n");
+      }
+      composite_term_t* composite_desc = composite_term_desc(terms, t);
+      uint32_t n = composite_desc->arity;
+      term_t norms[n]; // where we place the monomials
+      for (uint32_t i = 0; i < n; ++ i)
+        norms[i] = term_is_ext_con(exp, composite_desc->arg[i] , true);
       result = mk_bv_composite(tm, t_kind, n, norms);
       break;
     }
     default: {
-      if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
-        FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Reaching default with:\n");
-        ctx_trace_term(ctx, t);
-      }
       result = t;
     }
     }
+
     if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Now returning:\n");
@@ -966,7 +939,7 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
     int_hmap_add(&exp->cache, t, result);
     return result;
   }
-
+  // Back to assumming = false
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::detect")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Now returning NULL_TERM\n");
@@ -985,10 +958,11 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
 slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivector_t* conflict_core, term_t var_to_slice, eq_graph_t* egraph) {
 
   // Standard abbreviations
-  plugin_context_t* ctx = exp->super.ctx;
-  term_manager_t* tm    = ctx->tm;
-  term_table_t* terms  = ctx->terms;
+  plugin_context_t* ctx      = exp->super.ctx;
+  term_manager_t* tm         = ctx->tm;
+  term_table_t* terms        = ctx->terms;
   const mcsat_trail_t* trail = ctx->trail;
+  term_t conflict_var_term   = exp->csttrail.conflict_var_term;
 
   slicing->exp = exp;
   slist_t* var_to_slice_slices = NULL; // BD: initialized to stop a compilation warning.
@@ -1022,6 +996,7 @@ slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const iv
     atom_i_var   = conflict_core->data[i];
     atom_i_value = trail_get_boolean_value(trail, atom_i_var);
     atom_i_term  = variable_db_get_term(ctx->var_db, atom_i_var);
+    assert(is_boolean_term(terms,atom_i_term));
     assert(is_pos_term(atom_i_term));
     atom_i_kind  = term_kind(terms, atom_i_term);
 
@@ -1036,10 +1011,14 @@ slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const iv
     case BV_EQ_ATOM: { // We can only deal with equalities in this BV subtheory
       composite_term_t* atom_i_comp = composite_term_desc(terms, atom_i_term);
       assert(atom_i_comp->arity == 2);
-      term_t t0 = atom_i_comp->arg[0];
-      term_t t1 = atom_i_comp->arg[1];
-      assert(is_pos_term(t0));
-      assert(is_pos_term(t1));
+      term_t t0 = bv_bitterm(terms,atom_i_comp->arg[0]);
+      term_t t1 = bv_bitterm(terms,atom_i_comp->arg[1]);
+      if (t0 != conflict_var_term
+          && t1 != conflict_var_term
+          && (is_neg_term(t0) || is_neg_term(t1))) {
+        t0 = not_term(terms,t0);
+        t1 = not_term(terms,t1);
+      }
       uint32_t constraint = 0;
       if (!atom_i_value) {
         constraint = next_disjunction;
@@ -1079,23 +1058,18 @@ slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const iv
       bv_slicing_align(ctx, l0, l1, constraint, &todo);
       break;
     }
-    case BIT_TERM: { // That's also in the fragment...
-      select_term_t* desc   = bit_term_desc(terms, atom_i_term);
-      uint32_t selected_bit = desc->idx;
-      term_t arg  = term_is_ext_con(exp, desc->arg, true);
-      term_t t0   = term_extract(ctx->tm, arg, selected_bit, selected_bit+1);
+    default: {
+      term_t t0   = term_is_ext_con(exp, atom_i_term, true); // We normalise the Boolean term
+      t0          = term_extract(ctx->tm, t0, 0, 1);         // We turn it into a bv of size 1
       slist_t* l0 = bv_slicing_norm(exp, t0, 1, 0, NULL, &todo, &slicing->slices);
 
       term_t a1[1];
       a1[0] = bool2term(atom_i_value);
-      term_t t1 = mk_bvarray(ctx->tm, 1, a1);
+      term_t t1 = mk_bvarray(ctx->tm, 1, a1); // We create of constant bv of size one with the value
       slist_t* l1 = bv_slicing_norm(exp, t1, 1, 0, NULL, &todo, &slicing->slices);
 
-      bv_slicing_align(ctx, l0, l1, 0, &todo);
-      break;
+      bv_slicing_align(ctx, l0, l1, 0, &todo); // We align
     }
-    default:
-      assert(false);
     }
   }
 
@@ -1371,7 +1345,8 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
   bv_csttrail_t* csttrail     = &exp->csttrail;
   const variable_db_t* var_db = this->ctx->var_db;
   term_table_t* terms         = this->ctx->terms;
-
+  term_t conflict_var_term    = csttrail->conflict_var_term;
+    
   // Resetting the cache & co.
   bv_evaluator_csttrail_reset(csttrail, conflict_var, 1); // 1 is the level of optimisation fit for this explainer
   int_hmap_reset(&exp->cache);
@@ -1397,21 +1372,18 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
 
     // Now, see if it fits
     switch (term_kind(terms, atom_term)) {
-    case BIT_TERM: {
-      term_t atom_arg = bit_term_arg(terms, atom_term);
-      if (term_is_ext_con(exp, atom_arg,false) == NULL_TERM) {
-        if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
-          FILE* out = ctx_trace_out(this->ctx);
-          fprintf(out, "term_is_ext_con returned false\n");
-        }
-        return false;
-      }
-      break;
-    }
     case BV_EQ_ATOM:
     case EQ_TERM: {
       composite_term_t* eq = composite_term_desc(terms, atom_term);
-      if (term_is_ext_con(exp, eq->arg[0], false) == NULL_TERM) {
+      term_t t0 = bv_bitterm(terms,eq->arg[0]);
+      term_t t1 = bv_bitterm(terms,eq->arg[1]);
+      if (t0 != conflict_var_term
+          && t1 != conflict_var_term
+          && (is_neg_term(t0) || is_neg_term(t1))) {
+        t0 = not_term(terms,t0);
+        t1 = not_term(terms,t1);
+      }
+      if (term_is_ext_con(exp, t0, false) == NULL_TERM) {
         if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
           FILE* out = ctx_trace_out(this->ctx);
           fprintf(out, "term_is_ext_con returned false\n");
@@ -1422,7 +1394,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
         FILE* out = ctx_trace_out(this->ctx);
         fprintf(out, "term_is_ext_con returned true for LHS. Let's look at RHS:\n");
       }
-      if (term_is_ext_con(exp, eq->arg[1], false) == NULL_TERM) {
+      if (term_is_ext_con(exp, t1, false) == NULL_TERM) {
         if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
           FILE* out = ctx_trace_out(this->ctx);
           fprintf(out, "term_is_ext_con returned false\n");
@@ -1432,16 +1404,17 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
       break;
     }
     default: {
-      if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
-        FILE* out = ctx_trace_out(this->ctx);
-        fprintf(out, "Is neither bit_term nor bv_eq_atom nor eq_term, returning false\n");
+      if (term_is_ext_con(exp, atom_term, false) == NULL_TERM) {
+        if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
+          FILE* out = ctx_trace_out(this->ctx);
+          fprintf(out, "term_is_ext_con returned false\n");
+        }
+        return false;
       }
-      // Cannot handle it
-      return false;
     }
     }
   }
-
+  
   if (ctx_trace_enabled(this->ctx, "mcsat::bv::slicing::detect")) {
     FILE* out = ctx_trace_out(this->ctx);
     fprintf(out, "Yes, it is in the ext_conc fragment!\n");
