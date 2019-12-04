@@ -5,6 +5,8 @@
  * license agreement which is downloadable along with this program.
  */
 
+#include <inttypes.h>
+
 #include "mcsat/tracing.h"
 #include "mcsat/value.h"
 #include "terms/bvarith_buffer_terms.h"
@@ -107,7 +109,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     assert(result->polyrest != NULL_TERM); // It is not marked for deletion
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "From memoisation table,\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "From memoisation table,\nCoefficient is %"PRId32"\n",result->coeff);
       fprintf(out, "Variable is ");
       if (result->var != NULL_TERM)
         ctx_trace_term(ctx, result->var);
@@ -127,7 +129,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     result->polyrest = arith_zero(tm, w);
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Special case (conflict var),\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "Special case (conflict var),\nCoefficient is %"PRId32"\n",result->coeff);
       fprintf(out, "Variable is ");
       ctx_trace_term(ctx, result->var);
       fprintf(out, "Polyrest is ");
@@ -145,7 +147,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
     result->polyrest = t;
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Special case (evaluable),\nCoefficient is %d\n",result->coeff);
+      fprintf(out, "Special case (evaluable),\nCoefficient is %"PRId32"\n",(int) result->coeff);
       fprintf(out, "No variable\n");
       fprintf(out, "Polyrest is ");
       ctx_trace_term(ctx, result->polyrest);
@@ -249,7 +251,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
               FILE* out = ctx_trace_out(ctx);
               fprintf(out, "Returning NULL because coefficient of monomial\n");
               ctx_trace_term(ctx, temp.var);
-              fprintf(out, "is not 1 or -1, but is %ld\n",t_poly->mono[i].coeff);
+              fprintf(out, "is not 1 or -1, but is %"PRIu64"\n",t_poly->mono[i].coeff);
             }
             return NULL;
           }
@@ -316,7 +318,7 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Coefficient is %d\n",temp.coeff);
+    fprintf(out, "Coefficient is %"PRId32"\n",temp.coeff);
     fprintf(out, "Variable is ");
     ctx_trace_term(ctx, temp.var);
     fprintf(out, "Polyrest is ");
@@ -658,7 +660,7 @@ bool cover(arith_t* exp,
     } else {
       fprintf(out, "conflict, with ");
     }
-    fprintf(out, "%d intervals of bitwidth %d:\n",n,w);
+    fprintf(out, "%"PRId32" intervals of bitwidth %"PRId32":\n",n,w);
     print_intervals(ctx, intervals[0], n);
     fprintf(out, "Longest one is ");
     interval_print(out, terms, longest);
@@ -673,7 +675,7 @@ bool cover(arith_t* exp,
         term_print_to_file(out, tm->terms, longest->reason);
       else 
         fprintf(out, " NO_REASON");
-      fprintf(out, " and %d other reasons\n",longest->reasons.size);
+      fprintf(out, " and %"PRId32" other reasons\n",longest->reasons.size);
     }
     if (longest->reason != NULL_TERM && arith_is_no_triv(longest->reason)) {
       ivector_push(output, longest->reason);
@@ -751,7 +753,7 @@ bool cover(arith_t* exp,
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "\nbv_arith looks at interval of index %d among %d (inherited has index %d) ",j,n,inherited_index);
+      fprintf(out, "\nbv_arith looks at interval of index %"PRId32" among %"PRId32" (inherited has index %"PRId32") ",j,n,inherited_index);
       interval_print(out, terms, i);
       fprintf(out, "\n");
     }
@@ -859,7 +861,7 @@ bool cover(arith_t* exp,
       uint32_t next_bitwidth = interval_get_bitwidth(intervals[1][0]);
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Next bitwidth is %d.\n",next_bitwidth);
+        fprintf(out, "Next bitwidth is %"PRId32".\n",next_bitwidth);
       }
       assert(next_bitwidth < w); // it'd better be a smaller bitwidth
       // We now prepare the arguments of the recursive call
@@ -938,7 +940,7 @@ bool cover(arith_t* exp,
       // Now we analyse what the recursive call returned to us
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Back to bitwidth %d!\n",w);
+        fprintf(out, "Back to bitwidth %"PRId32"!\n",w);
       }
       // If we are explaining a propagation and got a feasible value in the hole:
       if (substitution != NULL && rec_substitution != NULL_TERM) {
@@ -950,7 +952,7 @@ bool cover(arith_t* exp,
           term_print_to_file(out, terms, lo_term);
           fprintf(out, " to ");
           term_print_to_file(out, terms, hi_term);
-          fprintf(out, " and the only possible value at bitwidth %d is ",w);
+          fprintf(out, " and the only possible value at bitwidth %"PRId32" is ",w);
           term_print_to_file(out, terms, substitution[0]);
           fprintf(out, "\n");
         }
@@ -971,7 +973,7 @@ bool cover(arith_t* exp,
         // otherwise we need to push to output that the hole was small
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
           FILE* out = ctx_trace_out(ctx);
-          fprintf(out, "The recursive call used the hole we left uncovered at bitwidth %d and/or found 1 feasible value .\n",w);
+          fprintf(out, "The recursive call used the hole we left uncovered at bitwidth %"PRId32" and/or found 1 feasible value .\n",w);
         }
         term_t literal = (hole_used) ?
           arith_lt_norm(&exp->norm, arith_sub(tm, hi_term, lo_term), smaller_values_term) :
@@ -1058,7 +1060,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Transforming non-full interval ");
       interval_print(out, ctx->terms, interval[0]);
-      fprintf(out, "\nNow analysing the shape of the interval's variable (of bitsize %d)\n",w);
+      fprintf(out, "\nNow analysing the shape of the interval's variable (of bitsize %"PRId32")\n",w);
     }
 
     // We analyse the shape of the variable whose value is forbidden to be in interval[0]
@@ -1090,7 +1092,7 @@ void transform_interval(arith_t* exp, interval_t** interval) {
         FILE* out = ctx_trace_out(ctx);
         fprintf(out, "Base is ");
         ctx_trace_term(ctx, ts->base);
-        fprintf(out, "Coeff is %d, while polyrest is ", (p->coeff == 1) ? 1 : -1);
+        fprintf(out, "Coeff is %"PRId32", while polyrest is ", (p->coeff == 1) ? 1 : -1);
         ctx_trace_term(ctx, p->polyrest);
       }
       interval_subtract(&exp->super,p->polyrest,interval[0]);
@@ -1257,7 +1259,7 @@ void bvarith_explain(bv_subexplainer_t* this,
       bitwidths++;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "Found new bitwidth %d (old was %d)\n",interval_get_bitwidth(intervals[nonemptys]),interval_get_bitwidth(intervals[nonemptys-1]));
+        fprintf(out, "Found new bitwidth %"PRId32" (old was %"PRId32")\n",interval_get_bitwidth(intervals[nonemptys]),interval_get_bitwidth(intervals[nonemptys-1]));
       }
     }
   }
@@ -1283,9 +1285,9 @@ void bvarith_explain(bv_subexplainer_t* this,
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "\nWe now look at the %d forbidden intervals we have collected (of %d different bitwidths), which are\n",nonemptys,bitwidths);
+    fprintf(out, "\nWe now look at the %"PRId32" forbidden intervals we have collected (of %"PRId32" different bitwidths), which are\n",nonemptys,bitwidths);
     for (uint32_t j = 0; j < bitwidths; j++) { // Looping on different bitwidths
-      fprintf(out, "%d intervals of bitwidth %d:\n",
+      fprintf(out, "%"PRId32" intervals of bitwidth %"PRId32":\n",
               bitwidth_numbers[j], interval_get_bitwidth(bitwidth_intervals[j][0]));
       for (uint32_t i = 0; i < bitwidth_numbers[j]; i++) {
         interval_print(out, ctx->terms, bitwidth_intervals[j][i]);
@@ -1313,7 +1315,7 @@ void bvarith_explain(bv_subexplainer_t* this,
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Returned reasons are:\n");
     for (uint32_t i = 0; i < reasons_out->size; i++) {
-      fprintf(out,"[%d]",i);
+      fprintf(out,"[%"PRId32"]",i);
       ctx_trace_term(ctx, reasons_out->data[i]);
     }
   }
@@ -1349,7 +1351,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "bv_arith looks at new conflict of size %d with conflict variable ",conflict_core->size);
+    fprintf(out, "bv_arith looks at new conflict of size %"PRId32" with conflict variable ",conflict_core->size);
     term_t conflict_var_term = variable_db_get_term(ctx->var_db, conflict_var);
     ctx_trace_term(ctx, conflict_var_term);
     fprintf(out, "\n");
@@ -1367,7 +1369,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
 
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
       FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "bv_arith looks at whether constraint %d is in the fragment: ",i);
+      fprintf(out, "bv_arith looks at whether constraint %"PRId32" is in the fragment: ",i);
       ctx_trace_term(ctx, atom_term);
       fprintf(out, "with the conflict_variable being ");
       ctx_trace_term(ctx, csttrail->conflict_var_term);
@@ -1417,7 +1419,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       int32_t t1_coeff = p1->coeff;
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "can_explain gets coefficients %d and %d for monomial variables ", t0_coeff, t1_coeff);
+        fprintf(out, "can_explain gets coefficients %"PRId32" and %"PRId32" for monomial variables ", t0_coeff, t1_coeff);
         if (var0 != NULL_TERM)
           term_print_to_file(out, terms, var0);
         else 
@@ -1471,7 +1473,7 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       }
       if (ctx_trace_enabled(ctx, "mcsat::bv::arith")) {
         FILE* out = ctx_trace_out(ctx);
-        fprintf(out, "can_explain gets coefficient %d for variable ", p->coeff);
+        fprintf(out, "can_explain gets coefficient %"PRId32" for variable ", p->coeff);
         if (p->var != NULL_TERM)
           term_print_to_file(out, terms, p->var);
         else 
