@@ -7763,6 +7763,8 @@ static bool nsat_cheap_preprocess(sat_solver_t *solver) {
  *   in the watch vectors; other clauses have two watch literals.
  */
 static void nsat_preprocess(sat_solver_t *solver) {
+  uint32_t max_rounds;
+
   if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
   collect_unit_and_pure_literals(solver);
@@ -7770,15 +7772,18 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
+
   assert(solver->scan_index == 0);
+  max_rounds = 10;
   do {
     if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
     process_elimination_candidates(solver);
     if (! nsat_cheap_preprocess(solver)) goto done;
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
-    if (solver->has_empty_clause || !pp_subsumption(solver)) break;
+    if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
     if (! nsat_cheap_preprocess(solver)) goto done;
-  } while (!elim_heap_is_empty(solver));
+    max_rounds --;
+  } while (max_rounds > 0 && !elim_heap_is_empty(solver));
 
 
  done:
@@ -8326,7 +8331,7 @@ static uint32_t process_literal(sat_solver_t *solver, literal_t l) {
   assert(solver->level[x] <= solver->decision_level);
   assert(lit_is_false(solver, l));
 
-  if (! variable_is_marked(solver, x) && solver->level[x] > 0) {
+  if (!variable_is_marked(solver, x) && solver->level[x] > 0) {
     mark_variable(solver, x);
     if (!solver->probing) {
       var_list_add_active_var(&solver->list, x);
@@ -9527,18 +9532,18 @@ static void failed_literal_probing(sat_solver_t *solver) {
   limit += props_before;
 
   // save assignment to later restore the preferred values
-  if (true) save_assignment(solver);
+  save_assignment(solver);
 
   n = solver->nvars;
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i) && var_has_binary_root(solver, i, &root)) {
       probe_failed_literal(solver, root);
-      if (solver->has_empty_clause ||
-	  solver->stats.propagations > limit) break;
+      if (solver->has_empty_clause || solver->stats.propagations > limit) break;
     }
   }
 
-  if (true) restore_assignment(solver);
+  // restore the preferred values
+  restore_assignment(solver);
 
   solver->stats.probing_propagations = solver->stats.propagations - props_before;
   solver->stats.propagations = props_before;
@@ -9621,7 +9626,7 @@ static void build_assignment(sat_solver_t *solver) {
 
   solver->probing = true;
 
-  if (true) save_assignment(solver);
+  save_assignment(solver);
 
   for (i=1; i<n; i++) {
     if (var_is_active(solver, i)) {
@@ -9630,11 +9635,478 @@ static void build_assignment(sat_solver_t *solver) {
     }
   }
 
-  if (true) restore_assignment(solver);
+  restore_assignment(solver);
 
   solver->probing = false;
 
   printf("c assignment: level = %"PRIu32", top = %"PRIu32"\n", solver->decision_level, solver->stack.top);
+}
+
+
+/******************
+ *  NAIVE SEARCH  *
+ *****************/
+
+/*
+ * Initialize the stack: use the default size
+ */
+static void init_naive_stack(naive_stack_t *stack) {
+  uint32_t n;
+
+  n = DEF_NAIVE_STACK_SIZE;
+  assert(n <= MAX_NAIVE_STACK_SIZE);
+  stack->data = (naive_pair_t *) safe_malloc(n * sizeof(naive_pair_t));
+  stack->top = 0;
+  stack->top_binary = 0;
+  stack->size = n;
+}
+
+/*
+ * Increment in size: 50% of the current size, rounded up to a multiple of 2.
+ */
+static inline uint32_t naive_stack_size_increase(uint32_t n) {
+  return ((n>>1) + 3) & ~1;
+}
+
+/*
+ * Make the stack larger
+ */
+static void extend_naive_stack(naive_stack_t *stack) {
+  uint32_t n;
+
+  n = stack->size;
+  n += naive_stack_size_increase(n);
+  if (n > MAX_NAIVE_STACK_SIZE) {
+    out_of_memory();
+  }
+  assert(n > stack->size);
+  stack->data = (naive_pair_t *) safe_realloc(stack->data, n * sizeof(naive_pair_t));
+  stack->size = n;
+}
+
+
+/*
+ * Push pair (cidx, k) on top of the stack
+ */
+static void naive_stack_push(naive_stack_t *stack, cidx_t cidx, uint32_t k) {
+  uint32_t i;
+
+  i = stack->top;
+  if (i == stack->size) {
+    extend_naive_stack(stack);
+  }
+  assert(i < stack->size);
+  stack->data[i].cidx = cidx;
+  stack->data[i].scan = k;
+  stack->top = i+1;
+}
+
+
+/*
+ * Delete the stack
+ */
+static void delete_naive_stack(naive_stack_t *stack) {
+  safe_free(stack->data);
+  stack->data = NULL;
+}
+
+
+/*
+ * Check whether clause cidx is true
+ */
+static bool clause_is_true(const sat_solver_t *solver, cidx_t cidx) {
+  uint32_t i, n;
+  literal_t *lit;
+
+  assert(good_clause_idx(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  lit = clause_literals(&solver->pool, cidx);
+  for (i=0; i<n; i++) {
+    if (lit_is_true(solver, lit[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+/*
+ * Collect the binary clauses in w = watch[l0]
+ * - l0 must be unassigned
+ * - for every literal l1 in w, we check whether { l0, l1 } is unassigned (i.e., l1 is not assigned)
+ */
+static void collect_binary_clauses_from_watch(const sat_solver_t *solver, watch_t *w, literal_t l0, vector_t *b) {
+  uint32_t i, k, n;
+  literal_t l1;
+
+  assert(w != NULL);
+  n = w->size;
+  i = 0;
+  while (i < n) {
+    k = w->data[i];
+    if (idx_is_literal(k)) {
+      l1 = idx2lit(k);
+      if (l0 < l1 && lit_is_unassigned(solver, l1)) {
+	vector_push(b, l0);
+	vector_push(b, l1);
+      }
+      i ++;
+    } else {
+      i += 2;
+    }
+  }
+}
+
+/*
+ * Collect the binary clauses into vector b
+ * - the binary clauses are stored into b->data[2i, 2i+1].
+ */
+static void collect_binary_clauses_to_satisfy(const sat_solver_t *solver, vector_t *b) {
+  uint32_t i, n;
+  watch_t *w;
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL && lit_is_unassigned(solver, i)) {
+      collect_binary_clauses_from_watch(solver, w, i, b);
+    }
+  }
+}
+
+
+/*
+ * Collect all problem clauses that are not true:
+ * - for each such clause, its index is added to v.
+ */
+static void collect_clauses_to_satisfy(const sat_solver_t *solver, vector_t *v) {
+  cidx_t cidx;
+
+  cidx = clause_pool_first_clause(&solver->pool);
+  while (cidx < solver->pool.learned) {
+    if (! clause_is_true(solver, cidx)) {
+      vector_push(v, cidx);
+    }
+    cidx = clause_pool_next_clause(&solver->pool, cidx);
+  }
+}
+
+
+/*
+ * Initialize the search data structures
+ */
+static void init_naive_searcher(naive_t *searcher) {
+  init_naive_stack(&searcher->stack);
+  init_vector(&searcher->bvector);
+  init_vector(&searcher->cvector);
+  searcher->max_conflicts = 10000;
+  searcher->conflicts = 0;
+  searcher->decisions = 0;
+}
+
+/*
+ * Delete the whole thing
+ */
+static void delete_naive_searcher(naive_t *searcher) {
+  delete_naive_stack(&searcher->stack);
+  delete_vector(&searcher->bvector);
+  delete_vector(&searcher->cvector);
+}
+
+
+/*
+ * Collect the clauses
+ */
+static void prepare_naive_search(const sat_solver_t *solver, naive_t *searcher) {
+  collect_binary_clauses_to_satisfy(solver, &searcher->bvector);
+  collect_clauses_to_satisfy(solver, &searcher->cvector);
+}
+
+
+/*
+ * Check whether binary clause at index i is true:
+ */
+static bool bclause_is_true(const sat_solver_t *solver, const naive_t *searcher, uint32_t i) {
+  assert((i & 1) == 0 && i + 1 < searcher->bvector.size);
+
+  return lit_is_true(solver, searcher->bvector.data[i]) || lit_is_true(solver, searcher->bvector.data[i+1]);
+}
+
+/*
+ * Check whether problem clause at index i is true
+ * - cvector[i] must be the index of a problem clause in solver
+ */
+static bool cclause_is_true(const sat_solver_t *solver, const naive_t *searcher, uint32_t i) {
+  assert(i < searcher->cvector.size);
+  return clause_is_true(solver, searcher->cvector.data[i]);
+}
+
+
+/*
+ * Scan binary clauses until we find one that's not true
+ * - if the stack is empty, we start from 0
+ * - otherwise, we start from idx + 2 where idx = the binary clause on top of the stack
+ * - return bvector.size if there's no such clauses
+ */
+static uint32_t next_bclause(const sat_solver_t *solver, naive_t *searcher) {
+  naive_stack_t *stack;
+  uint32_t i, n;
+
+  stack = &searcher->stack;
+  assert(stack->top_binary == stack->top);
+
+  i = 0;
+  if (stack->top > 0) {
+    i = stack->data[stack->top - 1].cidx + 2;
+  }
+
+  n = searcher->bvector.size;
+  while (i < n) {
+    if (! bclause_is_true(solver, searcher, i)) break;
+    i += 2;
+  }
+  assert(i <= n);
+
+  return i;
+}
+
+/*
+ * Scan cvector until we find a problem clause that's not true
+ * - if stack->top_binary == stack_top we start at index 0 in cvector
+ * - otherwise, we start at index i+1 where i = the top clause on the stack
+ */
+static uint32_t next_cclause(const sat_solver_t *solver, naive_t *searcher) {
+  naive_stack_t *stack;
+  uint32_t i, n;
+
+  stack = &searcher->stack;
+  assert(stack->top_binary <= stack->top);
+
+  i = 0;
+  if (stack->top_binary < stack->top) {
+    i = stack->data[stack->top - 1].cidx + 1;
+  }
+
+  n = searcher->cvector.size;
+  while (i < n) {
+    if (! cclause_is_true(solver, searcher, i)) break;
+    i ++;
+  }
+  assert(i <= n);
+
+  return i;
+}
+
+/*
+ * Check whether there's a next clause to explore. If so push it on top of the stack.
+ * Return true if there's such a clause (i.e., a clause that's not satisfied)
+ * Return false otherwise (i.e., all clauses in bvector and cvector are satisfied).
+ */
+static bool push_next_clause(const sat_solver_t *solver, naive_t *searcher) {
+  uint32_t i;
+
+  assert(searcher->stack.top_binary <= searcher->stack.top);
+
+  if (searcher->stack.top_binary == searcher->stack.top) {
+    i = next_bclause(solver, searcher);
+    if (i < searcher->bvector.size) {
+      naive_stack_push(&searcher->stack, i, 0);
+      searcher->stack.top_binary ++;
+      assert(searcher->stack.top_binary == searcher->stack.top);
+      return true;
+    }
+  }
+
+  i = next_cclause(solver, searcher);
+  if (i < searcher->cvector.size) {
+    naive_stack_push(&searcher->stack, i, 0);
+    assert(searcher->stack.top_binary < searcher->stack.top);
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Pick the next unassigned literal in the clause on top of the searcher's stack
+ * - return null_literal if all literals in that clause have been tried
+ */
+static literal_t pick_literal(const sat_solver_t *solver, naive_t *searcher) {
+  naive_stack_t *stack;
+  literal_t *lit;
+  uint32_t i, idx, cidx, k, n;
+  literal_t result, l;
+
+  stack = &searcher->stack;
+  assert(stack->top > 0);
+  i = stack->top - 1;
+
+  assert(i < stack->size);
+  idx = stack->data[i].cidx;
+  k = stack->data[i].scan;
+
+  result = null_literal;
+
+  if (i < stack->top_binary) {
+    // the top clause is a binary clause in bvector.data[idx, idx + 1];
+    // k is 0, 1, or 2
+    assert(idx + 1 < searcher->bvector.size);
+    assert(!bclause_is_true(solver, searcher, idx));
+    assert(k <= 2);
+    if (k < 2) {
+      result = searcher->bvector.data[idx + k];
+      stack->data[i].scan = k+1;
+      assert(lit_is_unassigned(solver, result));
+    }
+
+  } else {
+    // the top clause is a problem clause whose cidx is stored in cvector.data[idx]
+    // k is between 0 and the length of this clause
+    assert(idx < searcher->cvector.size);
+    assert(!cclause_is_true(solver, searcher, idx));
+
+    cidx = searcher->cvector.data[idx];
+    lit = clause_literals(&solver->pool, cidx);
+    n = clause_length(&solver->pool, cidx);
+    assert(k <= n);
+    while (k < n) {
+      l = lit[k];
+      k ++;
+      if (lit_is_unassigned(solver, l)) {
+	result = l;
+	stack->data[i].scan = k;
+      }
+    }
+  }
+
+  return result;
+}
+
+
+/*
+ * Backtrack the search stack:
+ * - remove the top clause and update the bindex/cindex
+ */
+static void naive_search_backtrack(naive_t *searcher) {
+  naive_stack_t *stack;
+
+  stack = &searcher->stack;
+  assert(stack->top > 0 && stack->top_binary <= stack->top);
+  if (stack->top == stack->top_binary) {
+    stack->top --;
+    stack->top_binary --;
+  } else {
+    stack->top --;
+  }
+}
+
+
+/*
+ * Main search procedure:
+ * - on entry, the searcher stack is empty
+ * - return true if this succeeds (i.e., find a satisfying assignment)
+ * - return false otherwise
+ */
+static bool naive_search(sat_solver_t *solver, naive_t *searcher) {
+  literal_t l;
+
+  if (! push_next_clause(solver, searcher)) {
+    // nothing to do. All clauses are true already
+    return true;
+  }
+
+  while (searcher->conflicts < searcher->max_conflicts) {
+    assert(searcher->stack.top > 0);
+    // the top clause on the searcher's stack is not satisfied yet
+    // all clauses below it on the stack are satisfied
+    l = pick_literal(solver, searcher);
+    if (l == null_literal) {
+      naive_search_backtrack(searcher);
+      if (searcher->stack.top == 0)  break; // done: search failed
+      backtrack_one_level(solver);
+    } else {
+      searcher->decisions ++;
+      nsat_decide_literal(solver, l);
+      nsat_boolean_propagation(solver);
+      if (solver->conflict_tag != CTAG_NONE) {
+	searcher->conflicts ++;
+	backtrack_one_level(solver);
+	solver->conflict_tag = CTAG_NONE;
+      } else if (! push_next_clause(solver, searcher)) {
+	return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Naive search
+ */
+static void try_naive_search(sat_solver_t *solver) {
+  naive_t searcher;
+  uint32_t dl;
+#if 0
+  uint32_t i, n;
+  literal_t l;
+#endif
+
+  dl = solver->decision_level;
+
+  solver->probing = true;
+  save_assignment(solver);
+
+  printf("c starting naive search: decision_level = %"PRIu32"\n", dl);
+
+#if 0
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i)) {
+      l = preferred_literal(solver, i);
+      if (empty_watch(solver->watch[not(l)])) {
+	nsat_decide_literal(solver, l);
+	nsat_boolean_propagation(solver);
+	assert(solver->conflict_tag == CTAG_NONE);
+	continue;
+      }
+      if (empty_watch(solver->watch[l])) {
+	nsat_decide_literal(solver, not(l));
+	nsat_boolean_propagation(solver);
+	assert(solver->conflict_tag == CTAG_NONE);
+      }
+    }
+  }
+
+  printf("c base assignment: level = %"PRIu32", top = %"PRIu32"\n", solver->decision_level, solver->stack.top);
+
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i)) {
+      l = preferred_literal(solver, i);
+      (void) (test_literal(solver, l) || test_literal(solver, not(l)));
+    }
+  }
+#endif
+
+  init_naive_searcher(&searcher);
+  prepare_naive_search(solver, &searcher);
+  printf("c %"PRIu32" problem clauses to satisfy + %"PRIu32" binary clauses\n",
+	 searcher.cvector.size, searcher.bvector.size/2);
+  if (naive_search(solver, &searcher)) {
+    printf("c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n", searcher.conflicts, searcher.decisions);
+  } else {
+    printf("c NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n", searcher.conflicts, searcher.decisions);
+    if (solver->decision_level > dl) {
+      backtrack(solver, dl);
+    }
+  }
+
+  delete_naive_searcher(&searcher);
+
+  restore_assignment(solver);
+  solver->probing = false;
 }
 
 
@@ -9727,7 +10199,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stabilizing = true;
       solver->stab_next += solver->stab_length;
       solver->stats.stabilizations ++;
-      //      solver->try_assignment = true;
+      solver->try_assignment = true;
     } else {
       solver->stabilizing = false;
       solver->stab_next += 2 * solver->stab_length;
@@ -9919,8 +10391,6 @@ static void nsat_do_preprocess(sat_solver_t *solver) {
   solver->preprocess = false;
 }
 
-
-
 /*
  * TEST
  */
@@ -9993,6 +10463,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
   report(solver, "");
 
+  try_naive_search(solver);
+
   /*
    * MAIN LOOP
    */
@@ -10011,7 +10483,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
       }
       resolve_conflict(solver);
       check_watch_vectors(solver);
-      if (!solver->stabilizing) {
+      if (! solver->stabilizing) {
 	decay_clause_activities(solver);
       }
 
@@ -10036,7 +10508,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
       } else {
 	if (solver->try_assignment) {
-	  build_assignment(solver);
+	  if (false) build_assignment(solver);
+	  try_naive_search(solver);
 	  solver->try_assignment = false;
 	}
 	//	printf("Propagations: %"PRIu32"\n", prop_level(solver));
