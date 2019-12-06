@@ -94,10 +94,16 @@ static void resize_allocator(bvconst_allocator_t *s, uint32_t n) {
 
   assert(s->nstores <= n && n < MAX_NUM_STORES);
 
-  // new_size = max(s->nstores * 1.5, n+1)
+  // new_size = min(max(s->nstores * 1.5, n+1), MAX_NUM_STORES)
   new_size = s->nstores + 1;
   new_size += new_size >> 1;
-  if (new_size <= n) new_size = n + 1;
+  if (new_size <= n) {
+    new_size = n + 1;
+  } else if (new_size > MAX_NUM_STORES) {
+    new_size = MAX_NUM_STORES;
+  }
+
+  assert(new_size <= MAX_NUM_STORES && new_size >= n+1);
 
   s->store = (object_store_t *) safe_realloc(s->store, new_size * sizeof(object_store_t));
   for (i=s->nstores; i<new_size; i++) {

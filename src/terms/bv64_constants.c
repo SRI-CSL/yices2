@@ -193,15 +193,25 @@ uint64_t bvconst64_sdiv2z(uint64_t x, uint64_t y, uint32_t n) {
   sx = signed_int64(x, n);
   sy = signed_int64(y, n);
 
-  if (sy == 0) {
+  switch (sy) {
+  case 0:
     // division by 0
     if (sx >= 0) {
       q = -1;
     } else {
       q = 1;
     }
-  } else {
+    break;
+
+  case -1:
+    // We can't divide by -1 if sx == INT64_MIN. That will raise an exception.
+    // -sx will give INT64_MIN (2s complement) which is what we want
+    q = -sx;
+    break;
+
+  default:
     q = sx/sy;
+    break;
   }
 
   return norm64((uint64_t) q, n);
@@ -222,9 +232,20 @@ uint64_t bvconst64_srem2z(uint64_t x, uint64_t y, uint32_t n) {
   sx = signed_int64(x, n);
   sy = signed_int64(y, n);
 
-  r = sx; // remainder in sx/0 is sx
-  if (sy != 0) {
-    r %= sy;
+  switch (sy) {
+  case 0:
+    r = sx; // remainder for sx/0 is sx
+    break;
+
+  case 1:
+  case -1:
+    // stop FP exception on INT64_MIN/-1
+    r = 0;
+    break;
+
+  default:
+    r = sx % sy;
+    break;
   }
 
   return norm64((uint64_t) r, n);
@@ -244,8 +265,17 @@ uint64_t bvconst64_smod2z(uint64_t x, uint64_t y, uint32_t n) {
   sx = signed_int64(x, n);
   sy = signed_int64(y, n);
 
-  r = sx; // remainder in sx/0 is sx
-  if (sy != 0) {
+  switch (sy) {
+  case 0:
+    r = sx; // remainder in sx/0 is sx
+    break;
+
+  case -1:
+  case 1:
+    r = 0;
+    break;
+
+  default:
     q = sx/sy;
     r = sx - q * sy;
     if (r != 0 && (is_neg64(x, n) != is_neg64(y, n))) {
@@ -256,6 +286,7 @@ uint64_t bvconst64_smod2z(uint64_t x, uint64_t y, uint32_t n) {
        */
       r += sy;
     }
+    break;
   }
 
   return norm64((uint64_t) r, n);

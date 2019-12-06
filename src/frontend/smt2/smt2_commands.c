@@ -160,7 +160,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n");
 }
@@ -2872,7 +2872,13 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       if (g->delegate != NULL && g->logic_code == QF_BV) {
 	status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
       } else {
+	/* printf("INITIAL CONTEXT\n"); */
+	/* dump_context(stdout, g->ctx); */
+	/* printf("END\n\n"); */
 	status = check_sat_with_timeout(g, &g->parameters);
+	/* printf("\nFINAL CONTEXT\n"); */
+	/* dump_context(stdout, g->ctx); */
+	/* printf("END\n\n"); */
       }
 
       report_status(g, status);

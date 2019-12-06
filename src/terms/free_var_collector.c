@@ -33,10 +33,8 @@
 void init_fvar_collector(fvar_collector_t *collect, term_table_t *ttbl) {
   collect->terms = ttbl;
   init_ptr_hmap(&collect->map, 0);         // default size
-  init_int_array_hset(&collect->store, 0); // default size
+  init_harray_store(&collect->store);
   init_pstack(&collect->stack);
-  init_ivector(&collect->buffer, 20);      // initial size = 20
-  init_int_hset(&collect->aux, 0);         // default size
 }
 
 
@@ -45,10 +43,8 @@ void init_fvar_collector(fvar_collector_t *collect, term_table_t *ttbl) {
  */
 void delete_fvar_collector(fvar_collector_t *collect) {
   delete_ptr_hmap(&collect->map);
-  delete_int_array_hset(&collect->store);
+  delete_harray_store(&collect->store);
   delete_pstack(&collect->stack);
-  delete_ivector(&collect->buffer);
-  delete_int_hset(&collect->aux);
 }
 
 
@@ -57,10 +53,8 @@ void delete_fvar_collector(fvar_collector_t *collect) {
  */
 void reset_fvar_collector(fvar_collector_t *collect) {
   ptr_hmap_reset(&collect->map);
-  reset_int_array_hset(&collect->store);
+  reset_harray_store(&collect->store);
   reset_pstack(&collect->stack);
-  ivector_reset(&collect->buffer);
-  int_hset_reset(&collect->aux);
 }
 
 
@@ -92,7 +86,7 @@ static bool good_var_set(term_table_t *terms, harray_t *a) {
  * Empty set of variables
  */
 static inline harray_t *empty_fvar_set(fvar_collector_t *collect) {
-  return int_array_hset_get(&collect->store, 0, NULL);
+  return empty_harray(&collect->store);
 }
 
 
@@ -100,10 +94,11 @@ static inline harray_t *empty_fvar_set(fvar_collector_t *collect) {
  * Singleton set: x = unique element
  */
 static inline harray_t *singleton_fvar_set(fvar_collector_t *collect, term_t x) {
-  return int_array_hset_get(&collect->store, 1, &x);
+  return singleton_harray(&collect->store, x);
 }
 
 
+#if 0
 /*
  * Add all elements of a to vector v and to hset
  * - skip the elements of a that are already in hset
@@ -241,6 +236,8 @@ static harray_t *fvar_set_remove(fvar_collector_t *collect, harray_t *a, uint32_
   return a;
 }
 
+#endif
+
 
 /*
  * Check whether the free var set for term index i is in the hash map
@@ -288,7 +285,7 @@ static harray_t *free_vars_of_composite(fvar_collector_t *collect, composite_ter
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, c->arg[i]);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -304,7 +301,7 @@ static harray_t *free_vars_of_pprod(fvar_collector_t *collect, pprod_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, p->prod[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -328,7 +325,7 @@ static harray_t *free_vars_of_poly(fvar_collector_t *collect, polynomial_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -350,7 +347,7 @@ static harray_t *free_vars_of_bvpoly64(fvar_collector_t *collect, bvpoly64_t *p)
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -373,7 +370,7 @@ static harray_t *free_vars_of_bvpoly(fvar_collector_t *collect, bvpoly_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -394,7 +391,7 @@ static harray_t *free_vars_of_binding(fvar_collector_t *collect, composite_term_
    */
   assert(n >= 2);
   a = get_free_vars_of_term(collect, p->arg[n-1]);
-  a = fvar_set_remove(collect, a, n-1, p->arg);
+  a = harray_remove_elem(&collect->store, a, n-1, p->arg);
 
   return a;
 }
@@ -528,7 +525,6 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
 
 
 
-
 /*
  * Check whether t is a ground term:
  * - side effect: this computes the set of free variables of t
@@ -539,7 +535,6 @@ bool term_is_ground(fvar_collector_t *collect, term_t t) {
   a = get_free_vars_of_term(collect, t);
   return a->nelems == 0;
 }
-
 
 
 /*
@@ -580,5 +575,5 @@ static bool fvar_dead_harray(void *aux, const harray_t *a) {
 void cleanup_fvar_collector(fvar_collector_t *collect) {
   // must delete records in the map first
   ptr_hmap_remove_records(&collect->map, collect->terms, fvar_dead_hmap_pair);
-  int_array_hset_remove_arrays(&collect->store, collect->terms, fvar_dead_harray);
+  harray_store_remove_arrays(&collect->store, collect->terms, fvar_dead_harray);
 }

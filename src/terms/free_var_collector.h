@@ -35,7 +35,7 @@
 #include <stdbool.h>
 
 #include "terms/terms.h"
-#include "utils/int_array_hsets.h"
+#include "utils/int_harray_store.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_hash_map.h"
@@ -47,17 +47,13 @@
  * - terms = pointer to the attached term table
  * - map: stores the mapping from term indices to sets
  * - store: stores the sets themselves and provides hash-consing
- * Auxiliary components:
  * - stack for allocation of arrays
- * - aux, buffer: for computing unions of sets
  */
 typedef struct fvar_collector_s {
   term_table_t *terms;
   ptr_hmap_t map;
-  int_array_hset_t store;
+  int_harray_store_t store;
   ptr_stack_t stack;
-  ivector_t buffer;
-  int_hset_t aux;
 } fvar_collector_t;
 
 

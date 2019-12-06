@@ -1015,12 +1015,6 @@ static void clear_globals(yices_globals_t *glob) {
   glob->terms = NULL;
   glob->manager = NULL;
 
-  // parser etc.
-  delete_parsing_objects();
-
-  // variable collector
-  delete_fvars();
-
 #ifdef THREAD_SAFE
   destroy_yices_lock(&(glob->lock));
 #endif
@@ -1089,6 +1083,8 @@ EXPORTED void yices_exit(void) {
     delete_sparse_array(&the_root_types);
   }
 
+  delete_parsing_objects();
+  delete_fvars();
 
   delete_term_manager(__yices_globals.manager);
   delete_term_table(__yices_globals.terms);

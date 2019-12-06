@@ -264,6 +264,7 @@ core_src_c := \
 	utils/int_array_sort.c \
 	utils/int_bags.c \
 	utils/int_bv_sets.c \
+	utils/int_harray_store.c \
 	utils/int_hash_classes.c \
 	utils/int_hash_map2.c \
 	utils/int_hash_map.c \
