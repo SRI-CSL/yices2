@@ -756,6 +756,59 @@ typedef enum descriptor_tag_s {
 } descriptor_tag_t;
 
 
+/******************************************
+ *  EXPERIMENTAL: STACK FOR NAIVE SEARCH  *
+ *****************************************/
+
+/*
+ * We can try to find a satisfiying assignment by trying to set
+ * one literal in each clause (that's not already true). To do
+ * this, we use a stack that stores pairs (cidx, index in the clause).
+ */
+typedef struct naive_pair_s {
+  cidx_t cidx;
+  uint32_t scan;
+} naive_pair_t;
+
+
+/*
+ * Stack:
+ * - each element in the stack are pairs [clause idx, scan idx]
+ * - for the elements below top_binary, the clause idx points to a binary clause,
+ *   the scan index is either 0 or 1.
+ * - for the elements above top_binary, cidx points to a regular problem
+ *   clause stored in solver->pool and scan index in integer between 0 and 
+ *   length of the clause -1.
+ */
+typedef struct naive_stack_s {
+  naive_pair_t *data;
+  uint32_t top;
+  uint32_t top_binary;
+  uint32_t size;
+} naive_stack_t;
+
+#define DEF_NAIVE_STACK_SIZE 1024
+#define MAX_NAIVE_STACK_SIZE (UINT32_MAX/sizeof(naive_pair_t))
+
+/*
+ * Search structure
+ * - a stack as above
+ * - bvector stores the binary clauses to satisfy
+ * - cvector stores the problem clauses to satisfy
+ * - scan index to identify the next clause to explore
+ *   bindex = index in the bvector
+ *   cindex = index in the cvector
+ */
+typedef struct naive_s {
+  naive_stack_t stack;
+  vector_t bvector;
+  vector_t cvector;
+  uint64_t max_conflicts;
+  uint64_t decisions;
+  uint64_t conflicts;
+} naive_t;
+
+
 
 /******************
  *  FULL SOLVER   *
