@@ -9800,7 +9800,7 @@ static void init_naive_searcher(naive_t *searcher) {
   init_naive_stack(&searcher->stack);
   init_vector(&searcher->bvector);
   init_vector(&searcher->cvector);
-  searcher->max_conflicts = 10000;
+  searcher->max_conflicts = 4000;
   searcher->conflicts = 0;
   searcher->decisions = 0;
 }
@@ -10199,7 +10199,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stabilizing = true;
       solver->stab_next += solver->stab_length;
       solver->stats.stabilizations ++;
-      solver->try_assignment = true;
+      //      solver->try_assignment = true;
     } else {
       solver->stabilizing = false;
       solver->stab_next += 2 * solver->stab_length;
@@ -10508,8 +10508,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
       } else {
 	if (solver->try_assignment) {
-	  if (false) build_assignment(solver);
-	  try_naive_search(solver);
+	  build_assignment(solver);
 	  solver->try_assignment = false;
 	}
 	//	printf("Propagations: %"PRIu32"\n", prop_level(solver));
