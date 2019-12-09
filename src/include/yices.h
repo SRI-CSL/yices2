@@ -83,7 +83,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      6
-#define __YICES_VERSION_PATCHLEVEL 1
+#define __YICES_VERSION_PATCHLEVEL 2
 
 
 /*
@@ -4034,7 +4034,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
-                                                     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+                                                     uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
 
 
@@ -4084,7 +4084,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t w
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
-                                                        uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
+                                                        uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
 
 __YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);

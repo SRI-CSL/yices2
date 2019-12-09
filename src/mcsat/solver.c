@@ -80,7 +80,7 @@ typedef struct mcsat_plugin_context_s {
 
 /**
  * The token is passed to plugins for trail operations (propagation and
- * decisions) and encapsulates additional information for debuging purposes.
+ * decisions) and encapsulates additional information for debugging purposes.
  */
 typedef struct {
   /** The token interface */
@@ -1947,7 +1947,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
   // Put any skipped variables back into the queue
   if (skipped_variables.size > 0) {
-    // If we skipped some, we had to decided one, we put the skiped scores to
+    // If we skipped some, we had to decided one, we put the skipped scores to
     // the decided score
     assert(var != variable_null);
     double var_score = var_queue_get_activity(&mcsat->var_queue, var);

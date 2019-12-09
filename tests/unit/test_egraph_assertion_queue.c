@@ -39,7 +39,7 @@ static composite_t fake[20];
 
 
 /*
- * Store n variables in bufer, all are set to k
+ * Store n variables in buffer, all are set to k
  */
 static void set_buffer(uint32_t n, int32_t k) {
   uint32_t i;

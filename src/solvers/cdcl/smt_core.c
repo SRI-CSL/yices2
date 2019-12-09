@@ -5846,7 +5846,7 @@ bool base_propagate(smt_core_t *s) {
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - make an internal copy of the assumptions
  * - initialize variable heap
  * - set status to searching
@@ -6031,6 +6031,41 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ */
+bool smt_easy_sat(smt_core_t *s) {
+  literal_t l;
+
+  assert(s->bool_only);
+
+  for (;;) {
+    assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+    smt_propagation(s);
+    assert(empty_lemma_queue(&s->lemmas));
+    assert(! s->cp_flag);
+
+    if (s->inconsistent) {
+      // clear the conflict
+      backtrack_to_base_level(s);
+      s->inconsistent = false;
+      s->theory_conflict = false;
+      return false;
+    }
+
+    l = select_unassigned_literal(s);
+    if (l == null_literal) {
+      s->status = STATUS_SAT;
+      return true;
+    }
+    decide_literal(s, l);
+  }
+}
+
+
+
 
 /***************
  *  RESTARTS   *
@@ -6133,7 +6168,8 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL RESTART\n");
@@ -6155,7 +6191,7 @@ void smt_partial_restart(smt_core_t *s) {
   bvar_t x;
   uint32_t i, k, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART\n");
@@ -6207,7 +6243,7 @@ void smt_partial_restart_var(smt_core_t *s) {
   bvar_t x;
   uint32_t i, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");
@@ -6362,6 +6398,21 @@ void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val) {
   assert(0 <= x && x < s->nvars);
   s->value[x] = val;
 }
+
+
+/**************************************
+ * CHECK WHETHER THE CONTEXT IS EMPTY *
+ *************************************/
+
+/*
+ * Check whether the core is trivially SAT
+ * - i.e., check whether there are no problem clauses
+ */
+bool smt_trivially_sat(smt_core_t *s) {
+  return num_prob_clauses(s) + num_binary_clauses(s) + num_unit_clauses(s) == 0;
+}
+
+
 
 
 /****************************

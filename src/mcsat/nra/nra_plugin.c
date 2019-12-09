@@ -375,7 +375,7 @@ const mcsat_value_t* nra_plugin_constraint_evaluate(nra_plugin_t* nra, variable_
   }
 
   // NOTE: with/without caching can change search. Some poly constraints
-  // do not evalute (see ok below, but we can evaluate them in the cache)
+  // do not evaluate (see ok below, but we can evaluate them in the cache)
 
   // Compute the evaluation
   bool ok = poly_constraint_evaluate(cstr, nra, &cstr_value);

@@ -139,7 +139,7 @@ void conflict_print(const conflict_t* conflict, FILE* out);
 /** Returns the level at which the conflict is false. */
 uint32_t conflict_get_level(const conflict_t* conflict);
 
-/** Returns true if the variable is part of the conflit (not necesserily as top) */
+/** Returns true if the variable is part of the conflit (not necessarily as top) */
 bool conflict_contains(const conflict_t* conflict, variable_t var);
 
 /** Returns true if the variable is part of the conflict (as top) */

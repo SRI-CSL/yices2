@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include "utils/bitvectors.h"
 #include "utils/int_bv_sets.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
@@ -340,8 +341,6 @@ static inline bvc_alias_t *alias_node(bvc_header_t *d) {
 
 
 
-
-
 /*
  * DAG Structure
  */
@@ -358,12 +357,19 @@ typedef struct bvc_item_s {
  * To keep track of the nodes mapped to a variable x:
  * - vset = set of variables mapped to an existing node
  * - vmap = map variable x to +/-n, where n is a DAG node index
+ * - flipped = a bitvector to keep track of nodes whose sign was flipped
+ *   flipped is NULL by default. It's allocated on demand,
+ *   for a node i: flipped[i] = 1 if i's sign was flipped.
+ * So a variable that's initially mapped to node n = pos(i) is mapped to
+ * neg(i) after compilation if i was flipped.
  */
 typedef struct bvc_dag_s {
-  // node descriptors + use lists + node sets
+  // node descriptors + use lists + node sets + flip vector
   bvc_header_t **desc;
   int32_t **use;
   bvc_item_t *list;
+  byte_t *flipped;
+
   uint32_t nelems;   // number of nodes (i.e., desc[1]  ... desc[nelems] are non-NULL)
   uint32_t size;     // size of arrays desc and use
 
@@ -597,6 +603,12 @@ static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
   return int_bvset_member(&dag->vset, x);
 }
 
+/*
+ * Store the mapping [x --> n]
+ * - x must be positive
+ * - x must not be mapped already (not in vset)
+ */
+extern void bvc_dag_map_var(bvc_dag_t *dag, int32_t x, node_occ_t n);
 
 /*
  * Get the node occurrence mapped to x
@@ -606,13 +618,11 @@ static inline node_occ_t bvc_dag_nocc_of_var(bvc_dag_t *dag, int32_t x) {
   return int_hmap_find(&dag->vmap, x)->val;
 }
 
-
 /*
- * Store mapping [x --> n]
- * - x must be positive
- * - x must not be mapped already (not in vset)
+ * Check whether node n was flipped during processing
  */
-extern void bvc_dag_map_var(bvc_dag_t *dag, int32_t x, node_occ_t n);
+extern bool bvc_dag_nocc_has_flipped(bvc_dag_t *dag, node_occ_t n);
+
 
 
 /*

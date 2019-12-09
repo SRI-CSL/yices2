@@ -350,6 +350,10 @@ typedef struct smt2_globals_s {
   bool efmode;                     // true to use the exists_forall solver
   ef_client_t ef_client;
 
+  // bitblast and export to dimacs
+  bool export_to_dimacs;           // true to enable
+  const char *dimacs_file;         // file name to store the dimacs result
+
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
@@ -477,12 +481,18 @@ extern void smt2_set_verbosity(uint32_t k);
  * Enable a trace tag for tracing.
  * - must not be called before init_smt2
  */
-extern void smt2_enable_trace_tag(const char* tag);
+extern void smt2_enable_trace_tag(const char *tag);
 
 /*
  * Force models to be printed in SMT2 format (as much as possible).
  */
 extern void smt2_force_smt2_model_format(void);
+
+/*
+ * Force bitblast and export to DIMACS
+ * - filename = name of the output file
+ */
+extern void smt2_export_to_dimacs(const char *filename);
 
 /*
  * Show all statistics on the output channel

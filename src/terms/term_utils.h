@@ -367,7 +367,6 @@ extern void submul_bvterm_from_buffer(term_table_t *tbl, term_t t, uint32_t *a, 
  */
 extern bool term_is_bvprod(term_table_t *tbl, term_t t);
 
-
 /*
  * Compute a factorization of t
  * - t must be a bitvector term
@@ -379,7 +378,6 @@ extern bool term_is_bvprod(term_table_t *tbl, term_t t);
  */
 extern void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b);
 
-
 /*
  * Add factors of (a * t) to buffer b
  * - t must be a bitvector term
@@ -390,7 +388,6 @@ extern void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b);
 extern void factor_mul_bvterm64(term_table_t *tbl, uint64_t a, term_t t, bvfactor_buffer_t *b);
 extern void factor_mul_bvterm(term_table_t *tbl, uint32_t *a, term_t t,  bvfactor_buffer_t *b);
 
-
 /*
  * Compute the factorization of all monomials in p
  * - b must be an array of n buffers where n >= p->nterms
@@ -398,6 +395,29 @@ extern void factor_mul_bvterm(term_table_t *tbl, uint32_t *a, term_t t,  bvfacto
  */
 extern void factor_bvpoly64_monomials(term_table_t *tbl, bvpoly64_t *p, bvfactor_buffer_t *b);
 extern void factor_bvpoly_monomials(term_table_t *tbl, bvpoly_t *p, bvfactor_buffer_t *b);
+
+
+/*
+ * FACTORS TO TERMS
+ */
+
+/*
+ * Construct a term t from buffer b:
+ * - if b contains C * product * 2^exponent
+ *   then this constructs two auxiliary terms:
+ *    p := product
+ *    e := exponent
+ *   and returns C * bvshl(p, e)
+ * - to build the terms, we need an auxiliary bvpoly_buffer_t aux
+ */
+extern term_t bvfactor_buffer_to_term(term_table_t *tbl, bvpoly_buffer_t *aux, bvfactor_buffer_t *b);
+
+/*
+ * Construct a term t from an array of n buffers b[0 ... n-1]
+ * - this constructs a sum of n terms t_0 .... t_n-1
+ *   where t_i is the conversion of b[i] to a term.
+ */
+extern term_t bvfactor_buffer_array_to_term(term_table_t *tbl, bvpoly_buffer_t *aux, bvfactor_buffer_t *b, uint32_t n);
 
 
 /*

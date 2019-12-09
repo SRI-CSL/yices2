@@ -173,7 +173,7 @@ static void show_terms(void) {
   v = all.data;
   for (i=0; i<n; i++) {
     printf("term[%02"PRIu32"]:  ", i);
-    pp_term(&printer, __yices_globals.terms, v[i]);
+    pp_term_full(&printer, __yices_globals.terms, v[i]);
     flush_yices_pp(&printer);
   }
 }

@@ -136,7 +136,7 @@ Model Construction
    Collect all the uninterpreted terms that have a value in *mdl* and store them in
    vector *v*.
 
-   - *v* must be an initalized term vector (see :c:func:`yices_init_term_vector`).
+   - *v* must be an initialized term vector (see :c:func:`yices_init_term_vector`).
 
    The set of terms is returned as follows:
 

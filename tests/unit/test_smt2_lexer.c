@@ -93,7 +93,7 @@ static void print_usage(char *progname) {
 }
 
 /*
- * Proces the command line options
+ * Process the command line options
  * - set filename and logic_code if they are given
  */
 static void process_command_line(int argc, char *argv[]) {

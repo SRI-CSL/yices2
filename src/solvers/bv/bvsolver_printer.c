@@ -916,6 +916,24 @@ static void print_list(FILE *f, bvc_dag_t *dag, int32_t k) {
   }
 }
 
+/*
+ * Print the list of flipped nodes
+ */
+static void print_flipped_nodes(FILE *f, bvc_dag_t *dag) {
+  uint32_t i, n;
+  byte_t *flipped;
+
+  assert(dag->flipped != NULL);
+
+  flipped = dag->flipped;
+  n = dag->nelems;
+  for (i=1; i<=n; i++) {
+    if (tst_bit(flipped, i)) {
+      fprintf(f, " n%"PRId32, i);
+    }
+  }
+}
+
 
 /*
  * Print dag
@@ -939,6 +957,12 @@ void print_bvc_dag(FILE *f, bvc_dag_t *dag) {
   fprintf(f, "\nOther nodes:");
   print_list(f, dag, BVC_DAG_DEFAULT_LIST);
   fprintf(f, "\n");
+
+  if (dag->flipped != NULL) {
+    fprintf(f, "\nFlipped nodes:");
+    print_flipped_nodes(f, dag);
+    fprintf(f, "\n");
+  }
 
   fflush(f);
 }

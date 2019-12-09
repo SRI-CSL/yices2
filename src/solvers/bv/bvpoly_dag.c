@@ -166,6 +166,44 @@ void bvc_move_aux_to_complex_list(bvc_dag_t *dag) {
 
 
 /*
+ * FLIP BITS
+ */
+static void alloc_flip_vector(bvc_dag_t *dag) {
+  if (dag->flipped == NULL) {
+    dag->flipped = allocate_bitvector0(dag->size);
+  }
+}
+
+// n = new size, dag->size = current size
+static void extend_flip_vector(bvc_dag_t *dag, uint32_t n) {
+  assert(dag->size < n);
+  if (dag->flipped != NULL) {
+    dag->flipped = extend_bitvector0(dag->flipped, dag->size, n);
+  }
+}
+
+static void delete_flip_vector(bvc_dag_t *dag) {
+  if (dag->flipped != NULL) {
+    delete_bitvector(dag->flipped);
+    dag->flipped = NULL;
+  }
+}
+
+// record that node i is flipped
+static void mark_flipped_node(bvc_dag_t *dag, bvnode_t i) {
+  assert(0 < i && i <= dag->nelems);
+  alloc_flip_vector(dag);
+  flip_bit(dag->flipped, i);
+}
+
+// check whether node i is flipped
+static bool node_has_flipped(bvc_dag_t *dag, bvnode_t i) {
+  assert(0 < i && i <= dag->nelems);
+  return dag->flipped != NULL && tst_bit(dag->flipped, i);
+}
+
+
+/*
  * DAG OPERATIONS
  */
 
@@ -188,6 +226,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   dag->use = (int32_t **) safe_malloc(n * sizeof(int32_t *));
   tmp = (bvc_item_t *) safe_malloc((n + 3) * sizeof(bvc_item_t));
   dag->list = tmp + 3;
+  dag->flipped = NULL; // allocated on demand
 
   dag->desc[0] = NULL;
   dag->use[0] = NULL;
@@ -245,6 +284,8 @@ static void extend_bvc_dag(bvc_dag_t *dag) {
   tmp = dag->list - 3;
   tmp = (bvc_item_t *) safe_realloc(tmp, (n + 3) * sizeof(bvc_item_t));
   dag->list = tmp + 3;
+
+  extend_flip_vector(dag, n);
 
   dag->size = n;
 }
@@ -335,6 +376,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   safe_free(dag->desc);
   safe_free(dag->use);
   safe_free(dag->list - 3);
+  delete_flip_vector(dag);
 
   dag->desc = NULL;
   dag->use = NULL;
@@ -1463,6 +1505,15 @@ node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   assert(x > 0);
   return  bvp(bvc_dag_get_leaf(dag, x, bitsize));
 }
+
+
+/*
+ * Check whether node n was flipped during processing
+ */
+bool bvc_dag_nocc_has_flipped(bvc_dag_t *dag, node_occ_t n) {
+  return node_has_flipped(dag, node_of_occ(n));
+}
+
 
 
 /*
@@ -2719,8 +2770,11 @@ static void propagate_flips(bvc_dag_t *dag) {
   while (! int_queue_is_empty(queue)) {
     i = int_queue_pop(queue);
     flip_sign_of_node(dag, i);
+
+    mark_flipped_node(dag, i);
   }
 }
+
 
 /*
  * SUM REDUCTION

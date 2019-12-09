@@ -157,7 +157,7 @@ extern int32_t bvlogic_buffer_get_var(bvlogic_buffer_t *b);
 
 
 /*
- * Check wether all bits in b are equal to term 'bit'
+ * Check whether all bits in b are equal to term 'bit'
  * - bit must be a valid bit expression
  */
 // TODO: remove this function? It doesn't seem to be used anywhere

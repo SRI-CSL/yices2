@@ -52,7 +52,9 @@
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
+#include "solvers/bv/dimacs_printer.h"
 #include "utils/refcount_strings.h"
+
 
 #include "utils/timeout.h"
 #include "mcsat/options.h"
@@ -159,7 +161,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n");
 }
@@ -239,14 +241,8 @@ static void dump(const char *filename, context_t *ctx) {
 
 
 /*
- * FOR TESTING: BITBLAST THEN EXPORT TO DIMACS
+ * BITBLAST THEN EXPORT TO DIMACS
  */
-
-#define EXPORT_TO_DIMACS 0
-
-#if EXPORT_TO_DIMACS
-
-#include "solvers/bv/dimacs_printer.h"
 
 /*
  * Export ctx content in DIMACS format
@@ -292,7 +288,6 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
 }
 
 
-
 /*
  * Export the delayed assertions
  * - ctx = context
@@ -312,9 +307,6 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
   return code;
 }
 
-
-
-#endif
 
 
 
@@ -699,7 +691,7 @@ static void __attribute__((noreturn)) failed_output(void) {
 /*
  * Formatted output: like printf but use __smt2_globals.out
  */
-static void print_out(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_out(const char *format, ...)  {
   va_list p;
 
   va_start(p, format);
@@ -763,7 +755,7 @@ static void close_error(void) {
 /*
  * Formatted error: like printf but add the prefix and close
  */
-static void print_error(const char *format, ...) {
+static void __attribute__((format(printf, 1, 2))) print_error(const char *format, ...) {
   va_list p;
 
   open_error();
@@ -862,7 +854,7 @@ static void unsupported_construct(const char *what) {
   if (__smt2_globals.logic_name != NULL) {
     print_out("%s not allowed in logic %s", what, __smt2_globals.logic_name);
   } else {
-    print_out("%s not supported");
+    print_out("%s not supported", what);
   }
 }
 
@@ -1061,7 +1053,7 @@ static void print_internalization_error(int32_t code) {
  */
 static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
-  print_error(efcode2error[code]);
+  print_error("%s", efcode2error[code]);
 }
 
 
@@ -2102,7 +2094,7 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
       update_trace_verbosity(g);
       report_success();
     } else {
-      print_error("integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
+      print_error("integer overflow: %s must be at most %"PRIu32, name, UINT32_MAX);
     }
   } else {
     print_error("option %s requires an integer value", name);
@@ -2872,23 +2864,46 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
     init_smt2_context(g);
 
-    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
-    if (code < 0) {
-      // error during assertion processing
-      print_yices_error(true);
-      return;
-    }
-    init_search_parameters(g);
-    if (g->random_seed != 0) {
-      g->parameters.random_seed = g->random_seed;
+    if (g->export_to_dimacs) {
+      /*
+       * Bitblast and export in DIMACS format.
+       */
+      code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
+      if (code < 0) {
+	print_yices_error(true);
+	return;
+      }
+
+    } else {
+      /*
+       * Regular check
+       */
+      code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+      if (code < 0) {
+	// error during assertion processing
+	print_yices_error(true);
+	return;
+      }
+      init_search_parameters(g);
+      if (g->random_seed != 0) {
+	g->parameters.random_seed = g->random_seed;
+      }
+
+      if (g->delegate != NULL && g->logic_code == QF_BV) {
+	status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+      } else {
+	/* printf("INITIAL CONTEXT\n"); */
+	/* dump_context(stdout, g->ctx); */
+	/* printf("END\n\n"); */
+	status = check_sat_with_timeout(g, &g->parameters);
+	/* printf("\nFINAL CONTEXT\n"); */
+	/* dump_context(stdout, g->ctx); */
+	/* printf("END\n\n"); */
+      }
+
+      report_status(g, status);
     }
 
-    if (g->delegate != NULL && g->logic_code == QF_BV) {
-      status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-    } else {
-      status = check_sat_with_timeout(g, &g->parameters);
-    }
-    report_status(g, status);
   }
 
   flush_out();
@@ -4026,7 +4041,7 @@ static void delete_string_vector(pvector_t *v) {
 /*
  * Add string s at the end v
  * - s must be a refcount string
- * - its referenc counter is incremented
+ * - its reference counter is incremented
  */
 static void string_vector_push(pvector_t *v, char *s) {
   string_incref(s);
@@ -4131,6 +4146,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_mcsat_options(&g->mcsat_options);
   g->efmode = false;
   init_ef_client(&g->ef_client);
+  g->export_to_dimacs = false;
+  g->dimacs_file = NULL;
   g->out = stdout;
   g->err = stderr;
   g->out_name = NULL;
@@ -4314,6 +4331,13 @@ void smt2_force_smt2_model_format(void) {
   __smt2_globals.clean_model_format = false;
 }
 
+/*
+ * Bitblast and export to DIMACS
+ */
+void smt2_export_to_dimacs(const char *filename) {
+  __smt2_globals.export_to_dimacs = true;
+  __smt2_globals.dimacs_file = filename;
+}
 
 /*
  * Display all statistics
@@ -5664,6 +5688,12 @@ void smt2_set_logic(const char *name) {
     trace_printf(__smt2_globals.tracer, 2, "(Warning: logic %s is not an official SMT-LIB logic)\n", name);
   }
 
+  // if export_to_dimacs: fail if the logic is not QF_BV
+  if (__smt2_globals.export_to_dimacs && code != QF_BV) {
+    print_error("can't generate DIMACS file for logic %s", name);
+    return;
+  }
+
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
     print_error("logic %s is not supported by the mscat solver", name);
@@ -5991,7 +6021,7 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-        //	show_delayed_assertions(&__smt2_globals);
+	//	show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
         check_delayed_assertions(&__smt2_globals);
 #else

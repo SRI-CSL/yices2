@@ -22,7 +22,7 @@
 
 /*
  * Default parameters (these may be overridden by the next function,
- * depending on the logic, archictecture, and mode).
+ * depending on the logic, architecture, and mode).
  */
 void init_ctx_params(ctx_param_t *ctx_parameters) {
   ctx_parameters->var_elim = true;

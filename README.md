@@ -149,7 +149,7 @@ To build the manual, you also need:
 - the latexmk tool
 
 To build the on-line documentation, you need to install the Sphinx
-python pacakge. The simplest method is:
+python package. The simplest method is:
 
 ```
 sudo pip install sphinx

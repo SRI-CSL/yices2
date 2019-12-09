@@ -168,7 +168,7 @@ static uint32_t store_ordata(ordata_array_t *a, literal_t *b, uint32_t n) {
   if (n >= MAX_ORDATA_ARRAY_SIZE) {
     out_of_memory();
   }
-  // the sum a->top + n + 1 can't oveflow
+  // the sum a->top + n + 1 can't overflow
   ordata_array_resize(a, a->top + n + 1);
 
   assert(a->top + n + 1 <= a->size);

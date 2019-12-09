@@ -43,7 +43,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.1}}
+Version 2.6.2}}
 \end{titlepage}
 
 \maketitle
@@ -760,7 +760,7 @@ expression \texttt{3.04e-1} is converted to $38/125$.
 
 \medskip\noindent The Yices language supports the traditional
 arithmetic operators (i.e., addition, subtraction, multiplication).
-The solver for non-linear arithmetic supports arbitrary divsion. The
+The solver for non-linear arithmetic supports arbitrary division. The
 linear-arithmetic solver is limited to division by non-zero constants.
 For example, the expression $(x + 4y)/3$ is allowed in linear
 arithmetic, but $3/(x + 4y)$ is not. The arithmetic predicates are the
@@ -2552,7 +2552,7 @@ a term name.
 The label identifies the assertion as relevant to unsat core If a call
 to \texttt{(check)} returns \texttt{unsat}, then a corresponding unsat
 core is a subset of all the labeled assertions that is inconsistent
-with the context. Comman \texttt{(show-unsat-core)} displays this
+with the context. Command \texttt{(show-unsat-core)} displays this
 unsat core by listing the labels of all the assertions in the core.
 
 \medskip\noindent The labeled assertions must have distinct
@@ -3418,7 +3418,7 @@ when the annotated term is processed.
 Yices has always provided a command \texttt{get-model} for displaying
 a model when assertions are satisfiable. This command was added to
 SMT-LIB with version 2.5. Yices supports this command, but does not
-display models in the format defined by SMT-LIB~2.5. Insted, Yices
+display models in the format defined by SMT-LIB~2.5. Instead, Yices
 uses a format similar to the one illustrated in
 Figure~\ref{model-format}, except that constants are printed with
 the SMT-LIB~2 syntax.

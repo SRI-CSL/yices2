@@ -1909,7 +1909,7 @@ static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
   if (name != NULL) {
     pp_string(printer, name);
   } else {
-    pp_id(printer, "v!", i);
+    pp_id(printer, "t!", i);
   }
   pp_separator(printer, "::");
   pp_type(printer, tbl->types, tau);
@@ -2802,9 +2802,9 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
  */
 void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
   yices_pp_t printer;
+  pp_area_t default_area;
 
   if (area == NULL) {
-    pp_area_t default_area;
     default_area.width = 120;
     default_area.height = UINT32_MAX;
     default_area.offset = 0;
@@ -2820,9 +2820,9 @@ void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t
 
 void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
   yices_pp_t printer;
+  pp_area_t default_area;
 
   if (area == NULL) {
-    pp_area_t default_area;
     default_area.width = 120;
     default_area.height = UINT32_MAX;
     default_area.offset = 0;

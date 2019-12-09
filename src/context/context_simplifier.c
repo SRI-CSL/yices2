@@ -43,12 +43,13 @@
 
 #define TRACE_SYM_BREAKING 0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE_SYM_BREAKING || 1
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE_SYM_BREAKING
 
 #include <stdio.h>
 #include <inttypes.h>
 
 #include "io/term_printer.h"
+#include "terms/bv64_constants.h"
 
 #endif
 
@@ -57,7 +58,6 @@
 /*****************************
  *  FORMULA SIMPLIFICATION   *
  ****************************/
-
 
 /*
  * All functions below attempt to rewrite a (boolean) term r to an
@@ -301,335 +301,37 @@ void try_arithmetic_bveq_simplification(context_t *ctx, bveq_simp_t *r, term_t t
 
 #if 0
 
-// OLD
-extern void bvconst64_print(FILE *f, uint64_t a, uint32_t n);
-
-static void show_factors(bvfactor_buffer_t *b) {
-  pprod_t *pp;
-  bvpoly_t *p;
-  bvpoly64_t *q;
-
-  pp = pp_buffer_getprod(&b->product);
-  if (b->bitsize <= 64) {
-    q = bvpoly_buffer_getpoly64(&b->exponent);
-    printf("constant: ");
-    bvconst64_print(stdout, b->constant64, b->bitsize);
-    printf("\nproduct: ");
-    print_pprod(stdout, pp);
-    printf("\nexponents: ");
-    print_bvpoly64(stdout, q);
-    printf("\n");
-    free_bvpoly64(q);
-  } else {
-    p = bvpoly_buffer_getpoly(&b->exponent);
-    printf("constant: ");
-    bvconst_print(stdout, b->constant.data, b->bitsize);
-    printf("\nproduct: ");
-    print_pprod(stdout, pp);
-    printf("\nexponents: ");
-    print_bvpoly(stdout, p);
-    printf("\n");
-    free_bvpoly(p);
-  }
-
-  free_pprod(pp);
-}
-
-
-
-/*
- * Reduce two factor buffers b1 and b2
- */
-static void test_common_factors(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2) {
-  pp_buffer_t common;
-  pprod_t *pp;
-
-  init_pp_buffer(&common, 4);
-
-  bvfactor_buffer_common_factors(&common, b1, b2);
-  bvfactor_buffer_reduce(b1, &common);
-  bvfactor_buffer_reduce(b2, &common);
-
-  printf("--- Common factors ---\n");
-  pp = pp_buffer_getprod(&common);
-  print_pprod(stdout, pp);
-  free_pprod(pp);
-  printf("\n\n");
-
-  printf("--- Reduced b1 ---\n");
-  show_factors(b1);
-  printf("\n");
-
-  printf("--- Reduced b2 ---\n");
-  show_factors(b2);
-  printf("\n");
-
-  delete_pp_buffer(&common);
-}
-
-
-static bool all_exponents_equal(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2, uint32_t n) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! bvfactor_buffer_equal_exponents(b1, b2 + i)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool test_linear_factor_arrays(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2, uint32_t n) {
-  uint32_t i;
-
-  if (! bvfactor_buffer_is_linear(b1)) return false;
-
-  for (i=0; i<n; i++) {
-    if (! bvfactor_buffer_is_linear(b2 + i)) return false;
-  }
-
-  return true;
-}
-
-static bool test_linear_bveq64(term_table_t *terms, bvfactor_buffer_t *b1, bvfactor_buffer_t *b2, uint32_t n) {
-  bvpoly_buffer_t *b;
-  term_t t;
-  uint32_t i;
-
-  assert(b1->bitsize <= 64);
-
-  b = &b1->exponent;
-  reset_bvpoly_buffer(b, b1->bitsize);
-
-  if (bvfactor_buffer_is_constant(b1)) {
-    bvpoly_buffer_add_const64(b, b1->constant64);
-  } else {
-    t = bvfactor_buffer_get_var(b1);
-    addmul_bvterm64_to_buffer(terms, t, b1->constant64, b);
-  }
-
-  for (i=0; i<n; i++) {
-    if (bvfactor_buffer_is_constant(b2 + i)) {
-      bvpoly_buffer_sub_const64(b, b2[i].constant64);
-    } else {
-      t = bvfactor_buffer_get_var(b2 + i);
-      submul_bvterm64_from_buffer(terms, t, b2[i].constant64, b);
-    }
-  }
-
-  normalize_bvpoly_buffer(b);
-
-  return bvpoly_buffer_is_zero(b);
-}
-
-
-
-static bool test_common_factors_array(bvfactor_buffer_t *b1, bvfactor_buffer_t *b2, uint32_t n) {
-  pp_buffer_t common;
-  pprod_t *pp;
-  uint32_t i;
-  bool same_exponents, linear;
-
-  same_exponents = all_exponents_equal(b1, b2, n);
-
-  init_pp_buffer(&common, 4);
-
-  bvfactor_buffer_array_common_factors(&common, b1, 1, b2, n);
-  bvfactor_buffer_reduce(b1, &common);
-  for (i=0; i<n; i++) {
-    bvfactor_buffer_reduce(b2+i, &common);
-  }
-
-  printf("--- Common factors ---\n");
-  pp = pp_buffer_getprod(&common);
-  print_pprod(stdout, pp);
-  free_pprod(pp);
-  printf("\n\n");
-
-  printf("--- Reduced b1 ---\n");
-  show_factors(b1);
-  printf("\n");
-
-  for (i=0; i<n; i++) {
-    printf("--- Reduced mono[%"PRIu32"] ---\n", i);
-    show_factors(b2 + i);
-    printf("\n");
-  }
-
-  linear = test_linear_factor_arrays(b1, b2, n);
-
-  if (same_exponents) {
-    printf("\nAll exponents are equal\n");
-  }
-  if (linear) {
-    printf("\nLinear\n");
-  }
-
-  delete_pp_buffer(&common);
-
-  return same_exponents && linear;
-}
-
-
-
-/*
- * Simple factor decomposition: both t1 and t2 are products
- */
-static bool equal_bvfactors(term_table_t *terms, term_t t1, term_t t2) {
-  bvfactor_buffer_t b1;
-  bvfactor_buffer_t b2;
-  bool eq;
-
-  init_bvfactor_buffer(&b1);
-  init_bvfactor_buffer(&b2);
-  factor_bvterm(terms, t1, &b1);
-  factor_bvterm(terms, t2, &b2);
-  eq = bvfactor_buffer_equal(&b1, &b2);
-
-  if (!eq) {
-    printf("--- term %"PRId32" ---\n", t1);
-    show_factors(&b1);
-    printf("\n");
-    printf("--- term %"PRId32" ---\n", t2);
-    show_factors(&b2);
-    printf("\n");
-
-    test_common_factors(&b1, &b2);
-  }
-
-  delete_bvfactor_buffer(&b1);
-  delete_bvfactor_buffer(&b2);
-
-  return eq;
-}
-
-
-/*
- * Check equality between t1 and polynomial p:
- * - t1 is a product
- * - we limit ourselve to small polynomials p must have no more then 4 terms
- */
-static bool equal_bvfactors_and_poly64(term_table_t *terms, term_t t1, bvpoly64_t *p) {
-  bvfactor_buffer_t b1;
-  bvfactor_buffer_t b[4];
-  uint32_t i, n;
-  bool eq;
-
-  eq = false;
-  n = p->nterms;
-  if (n > 1 || n <= 4) {
-    init_bvfactor_buffer(&b1);
-    factor_bvterm(terms, t1, &b1);
-    for (i=0; i<n; i++) {
-      init_bvfactor_buffer(b+i);
-    }
-    factor_bvpoly64_monomials(terms, p, b);
-
-    printf("--- term %"PRId32" ---\n", t1);
-    show_factors(&b1);
-    printf("\n");
-
-    for (i=0; i<n ;i++) {
-      printf("--- mono[%"PRIu32"]  ---\n", i);
-      show_factors(b + i);
-      printf("\n");
-    }
-
-    if (test_common_factors_array(&b1, b, n)) {
-      eq = test_linear_bveq64(terms, &b1, b, n);
-      if (eq) {
-	printf("\nequal after factoring\n\n");
-      }
-    }
-  }
-
-  return eq;
-}
-
-
-static bool equal_bvfactors_and_poly(term_table_t *terms, term_t t1, bvpoly_t *p) {
-  bvfactor_buffer_t b1;
-  bvfactor_buffer_t b[4];
-  uint32_t i, n;
-  bool eq;
-
-  eq = false;
-  n = p->nterms;
-  if (n > 1 || n <= 4) {
-    init_bvfactor_buffer(&b1);
-    factor_bvterm(terms, t1, &b1);
-    for (i=0; i<n; i++) {
-      init_bvfactor_buffer(b+i);
-    }
-    factor_bvpoly_monomials(terms, p, b);
-
-    printf("--- term %"PRId32" ---\n", t1);
-    show_factors(&b1);
-    printf("\n");
-
-    for (i=0; i<n ;i++) {
-      printf("--- mono[%"PRIu32"]  ---\n", i);
-      show_factors(b + i);
-      printf("\n");
-    }
-
-    test_common_factors_array(&b1, b, n);
-  }
-
-  return eq;
-}
-
-
-/*
- * Check whether t1 and t2 have the same factor decomposition
- */
-bool equal_bitvector_factors_old(context_t *ctx, term_t t1, term_t t2) {
-  term_table_t *terms;
-  bool t1_is_prod, t2_is_prod;
-
-  terms = ctx->terms;
-  t1_is_prod = term_is_bvprod(terms, t1);
-  t2_is_prod = term_is_bvprod(terms, t2);
-  if (t1_is_prod && t2_is_prod) {
-    return equal_bvfactors(terms, t1, t2);
-
-  } else if (t1_is_prod) {
-    switch (term_kind(terms, t2)) {
-    case BV64_POLY:
-      return equal_bvfactors_and_poly64(terms, t1, bvpoly64_term_desc(terms, t2));
-
-    case BV_POLY:
-      return equal_bvfactors_and_poly(terms, t1, bvpoly_term_desc(terms, t2));
-
-    default:
-      break;
-    }
-
-  } else if (t2_is_prod) {
-    switch (term_kind(terms, t1)) {
-    case BV64_POLY:
-      return equal_bvfactors_and_poly64(terms, t2, bvpoly64_term_desc(terms, t1));
-
-    case BV_POLY:
-      return equal_bvfactors_and_poly(terms, t2, bvpoly_term_desc(terms, t1));
-
-    default:
-      break;
-    }
-  }
-
-  return false;
-}
-
-#endif
-
-/// NEW IMPLEMENTATION STARTS HERE
-
-#if 0
 /*
  * Print
  */
+static void show_factors(bvfactor_buffer_t *b) {
+  pprod_t *aux;
+  bvpoly64_t *p;
+  bvpoly_t *q;
+
+  printf("constant: ");
+  if (b->bitsize <= 64) {
+    bvconst64_print(stdout, b->constant64, b->bitsize);
+  } else {
+    bvconst_print(stdout, b->constant.data, b->bitsize);
+  }
+  printf("\nproduct: ");
+  aux = pp_buffer_getprod(&b->product);
+  print_pprod(stdout, aux);
+  free_pprod(aux);
+  printf("\nexponent: ");
+  if (b->bitsize <= 64) {
+    p = bvpoly_buffer_getpoly64(&b->exponent);
+    print_bvpoly64(stdout, p);
+    free_bvpoly64(p);
+  } else {
+    q = bvpoly_buffer_getpoly(&b->exponent);
+    print_bvpoly(stdout, q);
+    free_bvpoly(q);
+  }
+  printf("\n");
+}
+
 static void show_bvfactoring(bvfactoring_t *r) {
   uint32_t i;
 
@@ -780,24 +482,10 @@ static void factoring_set_right_term(bvfactoring_t *r, term_table_t *terms, term
 /*
  * Add factors of p to r->reduced1
  */
-#if 0
-static void factoring_set_left_poly64(bvfactoring_t *r, term_table_t *terms, bvpoly64_t *p) {
-  assert(p->nterms <= r->n1);
-  factor_bvpoly64_monomials(terms, p, r->reduced1);
-}
-#endif
-
 static void factoring_set_right_poly64(bvfactoring_t *r, term_table_t *terms, bvpoly64_t *p) {
   assert(p->nterms <= r->n2);
   factor_bvpoly64_monomials(terms, p, r->reduced2);
 }
-
-#if 0
-static void factoring_set_left_poly(bvfactoring_t *r, term_table_t *terms, bvpoly_t *p) {
-  assert(p->nterms <= r->n1);
-  factor_bvpoly_monomials(terms, p, r->reduced1);
-}
-#endif
 
 static void factoring_set_right_poly(bvfactoring_t *r, term_table_t *terms, bvpoly_t *p) {
   assert(p->nterms <= r->n2);
@@ -1029,11 +717,25 @@ static void bvpoly_buffer_add_factor64(bvpoly_buffer_t *b, term_table_t *terms, 
   assert(bvfactor_buffer_is_linear(f));
   assert(b->bitsize == f->bitsize && f->bitsize <= 64);
 
-  if (bvfactor_buffer_is_constant(f)) {
+  if (bvfactor_buffer_product_is_one(f)) {
     bvpoly_buffer_add_const64(b, f->constant64);
   } else {
     t = bvfactor_buffer_get_var(f);
     addmul_bvterm64_to_buffer(terms, t, f->constant64, b);
+  }
+}
+
+static void bvpoly_buffer_add_factor(bvpoly_buffer_t *b, term_table_t *terms, bvfactor_buffer_t *f) {
+  term_t t;
+
+  assert(bvfactor_buffer_is_linear(f));
+  assert(b->bitsize == f->bitsize && f->bitsize > 64);
+
+  if (bvfactor_buffer_product_is_one(f)) {
+    bvpoly_buffer_add_constant(b, f->constant.data);
+  } else {
+    t = bvfactor_buffer_get_var(f);
+    addmul_bvterm_to_buffer(terms, t, f->constant.data, b);
   }
 }
 
@@ -1047,7 +749,7 @@ static void bvpoly_buffer_sub_factor64(bvpoly_buffer_t *b, term_table_t *terms, 
   assert(bvfactor_buffer_is_linear(f));
   assert(b->bitsize == f->bitsize && f->bitsize <= 64);
 
-  if (bvfactor_buffer_is_constant(f)) {
+  if (bvfactor_buffer_product_is_one(f)) {
     bvpoly_buffer_sub_const64(b, f->constant64);
   } else {
     t = bvfactor_buffer_get_var(f);
@@ -1055,6 +757,19 @@ static void bvpoly_buffer_sub_factor64(bvpoly_buffer_t *b, term_table_t *terms, 
   }
 }
 
+static void bvpoly_buffer_sub_factor(bvpoly_buffer_t *b, term_table_t *terms, bvfactor_buffer_t *f) {
+  term_t t;
+
+  assert(bvfactor_buffer_is_linear(f));
+  assert(b->bitsize == f->bitsize && f->bitsize > 64);
+
+  if (bvfactor_buffer_product_is_one(f)) {
+    bvpoly_buffer_sub_constant(b, f->constant.data);
+  } else {
+    t = bvfactor_buffer_get_var(f);
+    submul_bvterm_from_buffer(terms, t, f->constant.data, b);
+  }
+}
 
 
 /*
@@ -1064,25 +779,27 @@ static bool factoring_equal_linear_factors(bvfactoring_t *r, term_table_t *terms
   bvpoly_buffer_t *b;
   uint32_t i;
 
+  b = factoring_get_poly_buffer(r);
+  reset_bvpoly_buffer(b, r->bitsize);
+
   if (r->bitsize <= 64) {
-
-    b = factoring_get_poly_buffer(r);
-    reset_bvpoly_buffer(b, r->bitsize);
-
     for (i=0; i<r->n1; i++) {
       bvpoly_buffer_add_factor64(b, terms, r->reduced1 + i);
     }
     for (i=0; i<r->n2; i++) {
       bvpoly_buffer_sub_factor64(b, terms, r->reduced2 + i);
     }
-
-    normalize_bvpoly_buffer(b);
-    return bvpoly_buffer_is_zero(b);
-
   } else {
-    // TBD
-    return false;
+    for (i=0; i<r->n1; i++) {
+      bvpoly_buffer_add_factor(b, terms, r->reduced1 + i);
+    }
+    for (i=0; i<r->n2; i++) {
+      bvpoly_buffer_sub_factor(b, terms, r->reduced2 + i);
+    }
   }
+
+  normalize_bvpoly_buffer(b);
+  return bvpoly_buffer_is_zero(b);
 }
 
 
@@ -1175,12 +892,15 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
   common = factoring_get_pp_buffer(r);
   reduce_bvfactoring(r, common);
+  r->code = BVFACTOR_FOUND;
 
-  //  printf("--- Common factors ---\n");
-  //  show_product(common);
-  //  printf("\n");
-  //  show_bvfactoring(r);
-  //  printf("\n");
+#if 0
+  printf("--- Common factors ---\n");
+  show_product(common);
+  printf("\n");
+  show_bvfactoring(r);
+  printf("\n");
+#endif
 
   if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
       && factoring_equal_linear_factors(r, terms)) {
@@ -1195,11 +915,13 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
     reduce_bvfactoring(r, common);
 
-    //    printf("--- Common factors ---\n");
-    //    show_product(common);
-    //    printf("\n");
-    //    show_bvfactoring(r);
-    //    printf("\n");
+#if 0
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+#endif
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
@@ -1215,11 +937,13 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 
     reduce_bvfactoring(r, common);
 
-    //    printf("--- Common factors ---\n");
-    //    show_product(common);
-    //    printf("\n");
-    //    show_bvfactoring(r);
-    //    printf("\n");
+#if 0
+    printf("--- Common factors ---\n");
+    show_product(common);
+    printf("\n");
+    show_bvfactoring(r);
+    printf("\n");
+#endif
 
     if (linear_reduced_factoring(r) && factoring_has_unique_exponent(r)
 	&& factoring_equal_linear_factors(r, terms)) {
@@ -1231,6 +955,40 @@ static void try_common_factors(bvfactoring_t *r, term_table_t *terms) {
 }
 
 
+#if 0
+/*
+ * For testing: convert the left/righ part of r to terms
+ */
+static void test_factor_to_terms(context_t *ctx, bvfactoring_t *r) {
+  bvpoly_buffer_t *b;
+  term_t left, right;
+
+  b = factoring_get_poly_buffer(r);
+
+  if (r->n1 > 0) {
+    printf("Test: convert reduced1 to term\n");
+    if (r->n1 == 1) {
+      left = bvfactor_buffer_to_term(ctx->terms, b, r->reduced1);
+    } else {
+      left = bvfactor_buffer_array_to_term(ctx->terms, b, r->reduced1, r->n1);
+    }
+    print_term_full(stdout, ctx->terms, left);
+    printf("\n\n");
+  }
+
+  if (r->n2 > 0) {
+    printf("Test: convert reduced2 to term\n");
+    if (r->n2 == 1) {
+      right = bvfactor_buffer_to_term(ctx->terms, b, r->reduced2);
+    } else {
+      right = bvfactor_buffer_array_to_term(ctx->terms, b, r->reduced2, r->n2);
+    }
+    print_term_full(stdout, ctx->terms, right);
+    printf("\n\n");
+  }
+}
+
+#endif
 
 /*
  * Try factoring of t1 and t2
@@ -1246,9 +1004,11 @@ void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t
   if (t1_is_prod && t2_is_prod) {
     build_prod_prod_factoring(r, terms, t1, t2);
     if (bvfactor_buffer_equal(r->reduced1, r->reduced2)) {
-      //      show_bvfactoring(r);
-      //      printf("\n");
-      //      printf("Simple equal\n\n");
+#if 0
+      show_bvfactoring(r);
+      printf("\n");
+      printf("Simple equal\n\n");
+#endif
 
       r->code = BVFACTOR_EQUAL;
       return;
@@ -1261,9 +1021,8 @@ void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t
   } else if (t2_is_prod && try_term_poly_factoring(r, terms, t2, t1)) {
     try_common_factors(r, terms);
   }
+
 }
-
-
 
 
 /*
@@ -1279,6 +1038,34 @@ bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2) {
   delete_bvfactoring(&factoring);
 
   return eq;
+}
+
+
+/*
+ * Convert the left/right parts of r to terms
+ * - r must contain a valid factoring
+ */
+static term_t reduced_array_to_term(term_table_t *terms, bvfactoring_t *r, bvfactor_buffer_t *f, uint32_t n) {
+  bvpoly_buffer_t *aux;
+
+  aux = factoring_get_poly_buffer(r);
+  if (n == 1) {
+    return bvfactor_buffer_to_term(terms, aux, f);
+  } else {
+    return bvfactor_buffer_array_to_term(terms, aux, f, n);
+  }
+}
+
+term_t bitvector_factoring_left_term(context_t *ctx, bvfactoring_t *r) {
+  assert(r->code == BVFACTOR_FOUND);
+  assert(r->n1 > 0);
+  return reduced_array_to_term(ctx->terms, r, r->reduced1, r->n1);
+}
+
+term_t bitvector_factoring_right_term(context_t *ctx, bvfactoring_t *r) {
+  assert(r->code == BVFACTOR_FOUND);
+  assert(r->n2 > 0);
+  return reduced_array_to_term(ctx->terms, r, r->reduced2, r->n2);
 }
 
 
@@ -2905,143 +2692,9 @@ void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
 
 
 
-#if 0
-
-// VARIANT/PREVIOUS IMPLEMENTATION: DEPTH-FIRST
-/*
- * Flatten term t:
- * - if t is already internalized, keep t and add it to v
- * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
- * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
- *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
- * - otherwise store t into v
- * All terms already in v must be in the small cache
- */
-static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
-  term_table_t *terms;
-  composite_term_t *or;
-  composite_term_t *eq;
-  uint32_t i, n;
-  term_kind_t kind;
-  term_t x, y;
-
-  assert(is_boolean_term(ctx->terms, t));
-
-  // apply substitutions
-  t = intern_tbl_get_root(&ctx->intern, t);
-
-  if (int_hset_add(ctx->small_cache, t)) {
-    /*
-     * t not already in v and not visited before
-     */
-    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
-      // t is already internalized, keep it as is
-      ivector_push(v, t);
-    } else {
-      terms = ctx->terms;
-      kind = term_kind(terms, t);
-      if (is_pos_term(t) && kind == OR_TERM) {
-        // recursively flatten t
-        or = or_term_desc(terms, t);
-        n = or->arity;
-        for (i=0; i<n; i++) {
-          flatten_or_recur(ctx, v, or->arg[i]);
-        }
-      } else if (is_neg_term(t) && context_flatten_diseq_enabled(ctx)) {
-	switch (kind) {
-	case ARITH_EQ_ATOM:
-	  /*
-	   * t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
-	   *
-	   * Exception: keep it as an equality if x is an if-then-else term
-	   */
-	  x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
-	  if (is_ite_term(terms, x)) {
-	    ivector_push(v, t);
-	  } else {
-	    flatten_or_add_term(ctx, v, lt0_atom(ctx, x));
-	    flatten_or_add_term(ctx, v, gt0_atom(ctx, x));
-	  }
-	  break;
-
-	case ARITH_BINEQ_ATOM:
-	  /*
-	   * t is (not (eq x y)): rewrite to (or (x < y) (y < x))
-	   *
-	   * Exception 1: if x or y is an if-then-else term, then it's
-	   * better to keep (eq x y) because the if-lifting
-	   * simplifications are more likely to work on
-	   *    (ite c a b) = y
-	   * than (ite c a b) >= y AND (ite c a b) <= y
-	   *
-	   * Exception 2: if there's an egraph, then it's better
-	   * to keep (eq x y) as is. It will be converted to an
-	   * egraph equality.
-	   */
-	  eq = arith_bineq_atom_desc(terms, t);
-	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
-	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	  if (context_has_egraph(ctx) || is_ite_term(terms, x) || is_ite_term(terms, y)) {
-	    ivector_push(v, t);
-	  } else {
-	    flatten_or_add_term(ctx, v, lt_atom(ctx, x, y));
-	    flatten_or_add_term(ctx, v, lt_atom(ctx, y, x));
-	  }
-	  break;
-
-	default:
-	  // can't flatten
-	  ivector_push(v, t);
-	  break;
-	}
-
-      } else {
-        // can't flatten
-        ivector_push(v, t);
-      }
-    }
-  }
-}
-
-
-/*
- * Flatten a top-level (or t1 .... tp)
- * - initialize the small_cache, then calls the recursive function
- * - the result is stored in v
- */
-void flatten_or_term_dfs(context_t *ctx, ivector_t *v, composite_term_t *or) {
-  uint32_t i, n;
-
-  assert(v->size == 0));
-
-  (void) context_get_small_cache(ctx); // initialize the cache
-  if (context_flatten_diseq_enabled(ctx)) {
-    (void) context_get_arith_buffer(ctx);  // allocate the internal buffer
-  }
-
-  n = or->arity;
-  for (i=0; i<n; i++) {
-    flatten_or_recur(ctx, v, or->arg[i]);
-  }
-
-  //  context_delete_small_cache(ctx);
-  context_reset_small_cache(ctx);
-}
-
-
-
-
-#endif
-
-
-
-
-
-
 /************************
  *  EQUALITY LEARNING   *
  ***********************/
-
 
 /*
  * Add implied equalities defined by the partition p to the aux_eqs vector
@@ -3876,7 +3529,6 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
 
 #if TRACE_SYM_BREAKING
 
-#if 0
 static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t *r) {
   uint32_t i, n;
 
@@ -3937,9 +3589,8 @@ static void show_range_constraints(sym_breaker_t *breaker) {
     pp_constraints(&pp, breaker, v[i]);
   }
 
-  delete_yices_pp(&pp);
+  delete_yices_pp(&pp, true);
 }
-#endif
 
 static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   uint32_t i, n;
@@ -3977,6 +3628,11 @@ void break_uf_symmetries(context_t *ctx) {
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
+
+#if TRACE_SYM_BREAKING
+  show_range_constraints(&breaker);
+#endif
+
   v = breaker.sorted_constraints;
   n = breaker.num_constraints;
   if (n > 0) {

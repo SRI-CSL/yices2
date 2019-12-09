@@ -185,7 +185,7 @@ static void eval_defterm(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
-static void check_cmd(tstack_t *strack, stack_elem_t *f, uint32_t n) {
+static void check_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {

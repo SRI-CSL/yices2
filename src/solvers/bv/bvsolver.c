@@ -984,6 +984,13 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
   bvc_t *compiler;
   uint32_t i, n;
 
+#if 0
+  printf("---- COMPILE POLYNOMIALS ----\n");
+  print_bv_vartable(stdout, &solver->vtbl);
+  print_bv_atomtable(stdout, &solver->atbl);
+  printf("\n");
+#endif
+
   bv_solver_alloc_compiler(solver);
 
   compiler = solver->compiler;
@@ -995,6 +1002,11 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY:
     case BVTAG_PPROD:
       if (bvvar_is_useful(solver, i)) {
+#if 0
+	printf("  push var: ");
+	print_bv_solver_vardef(stdout, solver, i);
+	printf("\n");
+#endif
         bv_compiler_push_var(compiler, i);
       }
       break;
@@ -1007,6 +1019,8 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 
   // process the polynomials
   bv_compiler_process_queue(compiler);
+
+  //  print_solver_state(stdout, solver);
 }
 
 
@@ -2077,7 +2091,7 @@ static inline bool is_constant(bv_vartable_t *table, thvar_t x) {
 
 
 /*
- * Check wether x or y is a constant
+ * Check whether x or y is a constant
  */
 static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) {
   bvvar_tag_t tag_x, tag_y;
@@ -4135,7 +4149,7 @@ static bool bvuge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvuge_atom(&solver->atbl, y, x); // atom (bvuge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvuge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvuge y x) is true 
   }
   return false;
 }
@@ -4152,7 +4166,7 @@ static bool bvsge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvsge_atom(&solver->atbl, y, x); // atom (bvsge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvsge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvsge y x) is true 
   }
   return false;  
 }
@@ -5253,6 +5267,15 @@ thvar_t bv_solver_create_const(bv_solver_t *solver, bvconst_term_t *c) {
 thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c) {
   return get_bvconst64(&solver->vtbl, c->bitsize, c->value);
 }
+
+/*
+ * Zero constant:
+ * - n = number of bits
+ */
+thvar_t bv_solver_create_zero(bv_solver_t *solver, uint32_t n) {
+  return get_zero(solver, n);
+}
+
 
 
 /*
@@ -8634,6 +8657,7 @@ static bv_interface_t bv_solver_context = {
   (create_bv_var_fun_t) bv_solver_create_var,
   (create_bv_const_fun_t) bv_solver_create_const,
   (create_bv64_const_fun_t) bv_solver_create_const64,
+  (create_bv_zero_fun_t) bv_solver_create_zero,
   (create_bv_poly_fun_t) bv_solver_create_bvpoly,
   (create_bv64_poly_fun_t) bv_solver_create_bvpoly64,
   (create_bv_pprod_fun_t) bv_solver_create_pprod,

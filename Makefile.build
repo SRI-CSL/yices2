@@ -85,10 +85,8 @@ MKVERSION=./utils/make_source_version
 # Source directories
 #
 srcdir = src
-srcsubdirs = \
-	mt \
-    io terms utils solvers solvers/floyd_warshall solvers/funs \
-    solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
+srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
+    solvers/funs solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
     parser_utils model scratch api frontend frontend/common \
     frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
     mcsat mcsat/eq mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/bv \
@@ -215,14 +213,14 @@ build_subdirs: $(build_dir) $(dyn_objsubdirs) $(dyn_libdir) $(dyn_bindir)
 
 static_build_subdirs-mingw static_build_subdirs-cygwin: $(static_dll_objsubdirs)
 
-static_build_subdirs-darwin static_build_subdirs-linux static_build_subdirs-unix static_build_subdirs-freebsd:
+static_build_subdirs-darwin static_build_subdirs-linux static_build_subdirs-unix static_build_subdirs-freebsd static_build_subdirs-netbsd:
 
 static_build_subdirs: $(build_dir) $(static_objsubdirs) $(static_libdir) $(static_bindir) \
 	static_build_subdirs-$(POSIXOS)
 
 .PHONY: build_subdirs static_build_subdirs static_build_subdirs-darwin static-build_subdirs-cygwin \
 	static_build_subdirs-mingw static_build_subdirs-linux static_build_subdirs-unix \
-	static_build_subdirs-freebsd
+	static_build_subdirs-freebsd static_build_subdirs-netbsd
 
 #
 # Compilation
@@ -287,6 +285,7 @@ static-test: static_build_subdirs version
 # Regressions
 #
 check: regress
+
 static-check: static-regress
 
 regress: build_subdirs version
@@ -301,7 +300,6 @@ static-regress: static_build_subdirs version
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
-
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
@@ -487,6 +485,9 @@ install-linux install-unix: install-default
 install-freebsd: install-default
 	$(LDCONFIG) -m $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
 
+install-netbsd: install-default
+	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
+
 #
 # cygwin and mingw install: copy the DLLs in $(bindir)
 #
@@ -502,7 +503,7 @@ install-mingw: install-cygwin
 
 
 .PHONY: install install-default install-darwin install-solaris \
-	install-linux install-freebsd install-unix \
+	install-linux install-freebsd install-netbsd install-unix \
         install-cygwin install-mingw
 
 

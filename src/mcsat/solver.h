@@ -109,7 +109,7 @@ void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out);
 void mcsat_gc_mark(mcsat_solver_t* mcsat);
 
 /*
- * Set the excepetion handler. Should be done before, any call into the solver.
+ * Set the exception handler. Should be done before, any call into the solver.
  */
 void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler);
 

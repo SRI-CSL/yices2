@@ -18,7 +18,7 @@
 
  /*
  * This is placeholder to replace mcsat/solver.c when
- * Yices is compiled witout mcsat support.
+ * Yices is compiled without mcsat support.
  *
  * This files provides all the functions listed in
  * mcsat/solver.h. They do nothing and should never be called.

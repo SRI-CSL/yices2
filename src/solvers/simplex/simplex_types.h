@@ -497,7 +497,7 @@ typedef struct aprop_egraph_diseq_s {
  * To build explanations:
  * - aux = vector of frozen variables
  * - expl_queue = queue of constraint indices used to convert aux
- *   into a th_explanation_t objet.
+ *   into a th_explanation_t object.
  * - we need a separate expl_queue than the one in the egraph
  *   because simplex_expand_th_explanation may be called
  *   within simplex_build_explanation

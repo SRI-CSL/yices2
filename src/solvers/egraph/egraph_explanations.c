@@ -1680,7 +1680,7 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
 
    case EXPL_DISTINCT0:
      explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1], NULL);
-      break;
+     break;
 
     case EXPL_DISTINCT1:
     case EXPL_DISTINCT2:

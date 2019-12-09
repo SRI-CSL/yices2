@@ -34,12 +34,13 @@
 #include <unistd.h>
 #include <inttypes.h>
 
-
 #include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
 #include "frontend/smt2/smt2_parser.h"
 #include "frontend/smt2/smt2_term_stack.h"
+#include "io/simple_printf.h"
+#include "solvers/cdcl/delegate.h"
 #include "utils/command_line.h"
 
 #include "yices.h"
@@ -75,6 +76,7 @@ static int32_t verbosity;
 static uint32_t timeout;
 static char *filename;
 static char *delegate;
+static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
@@ -95,13 +97,15 @@ static pvector_t trace_tags;
 typedef enum optid {
   show_version_opt,        // print version and exit
   show_help_opt,           // print help and exit
+  show_mcsat_help_opt,     // print help about the mcsat options
   show_stats_opt,          // show statistics after all commands are processed
   verbosity_opt,           // set verbosity on the command line
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
-  smt2format_opt,           // use SMT-LIB2 format for models
+  smt2format_opt,          // use SMT-LIB2 format for models
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
+  dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
@@ -120,6 +124,7 @@ typedef enum optid {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, show_version_opt },
   { "help", 'h', FLAG_OPTION, show_help_opt },
+  { "mcsat-help", '0', FLAG_OPTION, show_mcsat_help_opt },
   { "stats", 's', FLAG_OPTION, show_stats_opt },
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "timeout", 't', MANDATORY_INT, timeout_opt },
@@ -127,6 +132,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "smt2-model-format", '\0', FLAG_OPTION, smt2format_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
+  { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
@@ -156,31 +162,38 @@ static void print_version(void) {
 
 static void print_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
-         "    or %s [option]\n", progname, progname);
+         "    or %s [option]\n\n", progname, progname);
   printf("Option summary:\n"
-	 "    --version, -V             Show version and exit\n"
-	 "    --help, -h                Print this message and exit\n"
-	 "    --verbosity=<level>       Set verbosity level (default = 0)\n"
-	 "             -v <level>\n"
-	 "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
-	 "           -t <timeout>\n"
-	 "    --stats, -s               Print statistics once all commands have been processed\n"
-	 "    --incremental             Enable support for push/pop\n"
-	 "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
-	 "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
-	 "    --delegate=solver_name    Use an external sat solver (can be cadical, cryptominisat, or y2sat)\n"
-#if HAVE_MCSAT
-	 "    --mcsat                   Use the MCSat solver\n"
-	 "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
-	 "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
-	 "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-	 "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-	 "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
-	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
-	 ""
-#endif
-	 "\n"
-	 "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+         "    --version, -V             Show version and exit\n"
+         "    --help, -h                Print this message and exit\n"
+	       "    --verbosity=<level>       Set verbosity level (default = 0)\n"
+         "             -v <level>\n"
+         "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
+         "           -t <timeout>\n"
+         "    --stats, -s               Print statistics once all commands have been processed\n"
+         "    --incremental             Enable support for push/pop\n"
+         "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
+         "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
+         "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, or y2sat)\n"
+         "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
+         "    --mcsat                   Use the MCSat solver\n"
+         "    --mcsat-help              Show the MCSat options\n"
+         "\n"
+         "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+  fflush(stdout);
+}
+
+static void print_mcsat_help(const char *progname) {
+  printf("Usage: %s [option] filename\n"
+         "    or %s [option]\n\n", progname, progname);
+  printf("MCSat options:\n"
+         "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
+         "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+         "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
+         "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
+         "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
+       	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+         "\n");
   fflush(stdout);
 }
 
@@ -190,6 +203,30 @@ static void print_help(const char *progname) {
 static void print_usage(const char *progname) {
   fprintf(stderr, "Usage: %s [options] filename\n", progname);
   fprintf(stderr, "Try '%s --help' for more information\n", progname);
+}
+
+/*
+ * Utility: make a copy of string s
+ * - we limit the copy to MAX_STRING_COPY_LEN characters
+ * - return NULL if that fails
+ *
+ * 16000 bytes should be more than enough in practice for a filename.
+ * For example on Linux/ext4 filesystem: PATH_MAX=4096 bytes.
+ * We produce an error if somebody tries a name longer than that.
+ */
+#define MAX_STRING_COPY_LEN 16000
+
+static char *copy_string(const char *s) {
+  size_t len;
+  char *c;
+
+  c = NULL;
+  len = strlen(s);
+  if (len <= MAX_STRING_COPY_LEN) {
+    c = (char *) safe_malloc(len + 1);
+    strcpy(c, s);
+  }
+  return c;
 }
 
 
@@ -202,6 +239,7 @@ static void parse_command_line(int argc, char *argv[]) {
   optid_t k;
   int32_t v;
   int code;
+  bool unknown_delegate;
 
   filename = NULL;
   incremental = false;
@@ -211,6 +249,7 @@ static void parse_command_line(int argc, char *argv[]) {
   verbosity = 0;
   timeout = 0;
   delegate = NULL;
+  dimacsfile = NULL;
 
   mcsat = false;
   mcsat_nra_mgcd = false;
@@ -232,12 +271,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (filename == NULL) {
-	filename = elem.arg;
+        filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	print_usage(parser.command_name);
-	code = YICES_EXIT_USAGE;
-	goto exit;
+        fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+        goto bad_usage;
       }
       break;
 
@@ -254,6 +291,11 @@ static void parse_command_line(int argc, char *argv[]) {
 	code = YICES_EXIT_SUCCESS;
 	goto exit;
 
+      case show_mcsat_help_opt:
+	print_mcsat_help(parser.command_name);
+	code = YICES_EXIT_SUCCESS;
+	goto exit;
+
       case show_stats_opt:
 	show_stats = true;
 	break;
@@ -262,9 +304,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	v = elem.i_value;
 	if (v < 0) {
 	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	  goto bad_usage;
 	}
 	verbosity = v;
 	break;
@@ -273,9 +313,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	v = elem.i_value;
 	if (v < 0) {
 	  fprintf(stderr, "%s: the timeout must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	  goto bad_usage;
 	}
 	timeout = v;
 	break;
@@ -290,38 +328,35 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case delegate_opt:
 	if (delegate == NULL) {
-	  if (strcmp(elem.s_value, "y2sat") == 0) {
-	    delegate = "y2sat";
-	  } else if (strcmp(elem.s_value, "cadical") == 0) {
-#ifdef HAVE_CADICAL
-	    delegate = "cadical";
-#else
-	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cadical\n", parser.command_name);
-	    print_usage(parser.command_name);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
-#endif
-	  } else if (strcmp(elem.s_value, "cryptominisat") == 0) {
-#ifdef HAVE_CRYPTOMINISAT
-	    delegate = "cryptominisat";
-#else
-	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support cryptominisat\n", parser.command_name);
-	    print_usage(parser.command_name);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
-#endif
-	  } else {
-	    fprintf(stderr, "%s: unsupported delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
+	  unknown_delegate = true;
+	  if (supported_delegate(elem.s_value, &unknown_delegate)) {
+	    delegate = copy_string(elem.s_value);
+	  } else if (unknown_delegate) {
+	    fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
 		    parser.command_name, elem.s_value);
-	    print_usage(parser.command_name);
+	    goto bad_usage;
+	  } else {
+	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support %s\n", parser.command_name, elem.s_value);
+	    goto bad_usage;
+	  }
+	} else if (strcmp(elem.s_value, delegate) != 0) {
+	  fprintf(stderr, "%s: can't have several delegates\n", parser.command_name);
+	  goto bad_usage;
+	}
+	break;
+
+      case dimacs_opt:
+	if (dimacsfile == NULL) {
+	  dimacsfile = copy_string(elem.s_value);
+	  if (dimacsfile == NULL) {
+	    // copy_string failed
+	    fprintf(stderr, "%s: file-name %s is too long\n", parser.command_name, elem.s_value);
 	    code = YICES_EXIT_USAGE;
 	    goto exit;
 	  }
-	} else if (strcmp(elem.s_value, delegate) != 0) {
-	  fprintf(stderr, "%s: can't give several delegates\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
+	} else {
+	  fprintf(stderr, "%s: can't give more than one dimacs file\n", parser.command_name);
+	  goto bad_usage;
 	}
 	break;
 
@@ -330,47 +365,37 @@ static void parse_command_line(int argc, char *argv[]) {
 	break;
 
       case mcsat_opt:
-#if HAVE_MCSAT
-        mcsat = true;
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
+	mcsat = true;
         break;
-#else
-	fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-	code = YICES_EXIT_USAGE;
-	goto exit;
-#endif
 
       case mcsat_nra_mgcd_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_mgcd = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_nlsat_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_nlsat = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         mcsat_nra_bound = true;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_min_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         v = elem.i_value;
         if (v < 0) {
           fprintf(stderr, "%s: the min value must be non-negative\n", parser.command_name);
@@ -380,14 +405,11 @@ static void parse_command_line(int argc, char *argv[]) {
         }
         mcsat_nra_bound_min = v;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_nra_bound_max_opt:
-#if HAVE_MCSAT
+	if (! yices_has_mcsat()) {
+	  goto no_mcsat;
+	}
         v = elem.i_value;
         if (v < 0) {
           fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
@@ -397,11 +419,6 @@ static void parse_command_line(int argc, char *argv[]) {
         }
         mcsat_nra_bound_max = v;
         break;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
 
       case mcsat_bv_var_size_opt:
 #if HAVE_MCSAT
@@ -441,11 +458,29 @@ static void parse_command_line(int argc, char *argv[]) {
     goto exit;
   }
 
+  if (incremental && dimacsfile != NULL) {
+    fprintf(stderr, "%s: export to DIMACS is not supported in incremental mode\n", parser.command_name);
+    code = YICES_EXIT_USAGE;
+    goto exit;
+  }
+
   // force interactive to false if there's a filename
   if (filename != NULL) {
     interactive = false;
   }
   return;
+
+  /*
+   * Error conditions
+   */
+ no_mcsat:
+  fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
+  code = YICES_EXIT_USAGE;
+  goto exit;
+
+ bad_usage:
+  print_usage(parser.command_name);
+  code = YICES_EXIT_USAGE;
 
  exit:
   // cleanup then exit
@@ -511,43 +546,20 @@ static void setup_mcsat(void) {
  *  SIGNAL HANDLER  *
  *******************/
 
-static const char signum_msg[24] = "\nInterrupted by signal ";
-static char signum_buffer[100];
+static const char *signum_msg = "\nInterrupted by signal ";
 
 /*
  * Write signal number of file 2 (assumed to be stderr): we can't use
  * fprintf because it's not safe in a signal handler.
  */
 static void write_signum(int signum) {
-  ssize_t w;
-  uint32_t i, n;
+  print_buffer_t b;
 
-  memcpy(signum_buffer, signum_msg, sizeof(signum_msg));
-
-  // force signum to be at most two digits
-  signum = signum % 100;
-  n = sizeof(signum_msg);
-  if (signum > 10) {
-    signum_buffer[n] = (char)('0' + signum/10);
-    signum_buffer[n + 1] = (char)('0' + signum % 10);
-    signum_buffer[n + 2] = '\n';
-    n += 3;
-  } else {
-    signum_buffer[n] = (char)('0' + signum);
-    signum_buffer[n + 1] = '\n';
-    n += 2;
-  }
-
-  // write to file 2
-  i = 0;
-  do {
-    do {
-      w = write(2, signum_buffer + i, n);
-    } while (w < 0 && errno == EAGAIN);
-    if (w < 0) break; // write error, we can't do much about it.
-    i += (uint32_t) w;
-    n -= (uint32_t) w;
-  } while (n > 0);
+  reset_print_buffer(&b);
+  print_buffer_append_string(&b, signum_msg);
+  print_buffer_append_int32(&b, (int32_t) signum);
+  print_buffer_append_char(&b, '\n');
+  (void) write_buffer(2, &b);
 }
 
 /*
@@ -559,7 +571,6 @@ static void default_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
-  // smt2_show_stats should be safe here. It doesn't use printf.
   if (show_stats) {
     smt2_show_stats();
   }
@@ -655,16 +666,17 @@ int main(int argc, char *argv[]) {
   }
 
   init_handlers();
-  
+
   yices_init();
   init_smt2(!incremental, timeout, interactive);
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (delegate != NULL) smt2_set_delegate(delegate);
+  if (dimacsfile != NULL) smt2_export_to_dimacs(dimacsfile);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
   init_parameter_name_table();
-  
+
   if (verbosity > 0) {
     smt2_set_verbosity(verbosity);
   }
@@ -695,6 +707,15 @@ int main(int argc, char *argv[]) {
 
   if (show_stats) {
     smt2_show_stats();
+  }
+
+  if (dimacsfile != NULL) {
+    safe_free(dimacsfile);
+    dimacsfile = NULL;
+  }
+  if (delegate != NULL) {
+    safe_free(delegate);
+    delegate = NULL;
   }
 
   delete_pvector(&trace_tags);

@@ -1606,9 +1606,9 @@ static void process_token(formatter_t *f, void *tk) {
  */
 void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 	     pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+  pp_area_t default_area;
 
   if (area == NULL) {
-    pp_area_t default_area;
     default_area.width = PP_DEFAULT_WIDTH;
     default_area.height = PP_DEFAULT_HEIGHT;
     default_area.offset = PP_DEFAULT_OFFSET;

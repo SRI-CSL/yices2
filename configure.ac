@@ -158,7 +158,7 @@ dnl For now, we check here and fail.
 dnl
 bigendian=""
 AC_C_BIGENDIAN([bigendian=yes],[bigendian=no],[bigendian=yes])
-if test "x$bigendian" == xyes ; then
+if test "x$bigendian" = xyes ; then
    AC_MSG_ERROR([Can't build for your architecture. Yices builds only on little-endian hardware. Please file an issue at $repo_url])
 fi
 
@@ -235,7 +235,7 @@ dnl
 static_libgmp=""
 AC_ARG_WITH([static-gmp],
    [AS_HELP_STRING([--with-static-gmp=<path>],[Full path to a static GMP library (e.g., libgmp.a)])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-gmp was used but no path was given. Using defaults])
     else
       static_libgmp=$withval
@@ -247,7 +247,7 @@ static_includegmp=""
 AC_ARG_WITH([static-gmp-include-dir],
    [AS_HELP_STRING([--with-static-gmp-include-dir=<directory>],
             [Directory of include file "gmp.h" compatible with static GMP library])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-gmp-include-dir was used but no directory was given. Using defaults])
     else
       static_includegmp=$withval
@@ -259,7 +259,7 @@ AC_ARG_WITH([static-gmp-include-dir],
 pic_libgmp=""
 AC_ARG_WITH([pic-gmp],
    [AS_HELP_STRING([--with-pic-gmp=<path>],[Full path to a relocatable GMP library (e.g., libgmp.a)])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-pic-gmp was used but no path was given. Using defaults])
     else
       pic_libgmp=$withval
@@ -271,7 +271,7 @@ pic_includegmp=""
 AC_ARG_WITH([pic-gmp-include-dir],
    [AS_HELP_STRING([--with-pic-gmp-include-dir=<directory>],
             [Directory of include file "gmp.h" compatible with relocatable GMP library])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-pic-gmp-include-dir was used but no directory was given. Using defaults])
     else
       pic_includegmp=$withval
@@ -301,10 +301,10 @@ AC_ARG_ENABLE([mcsat],
 static_lpoly=""
 AC_ARG_WITH([static-libpoly],
    [AS_HELP_STRING([--with-static-libpoly=<path>],[Full path to libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-static-libpoly since MCSAT support is disabled])
     else
-      if test "x$withval" == x; then
+      if test "x$withval" = x; then
         AC_MSG_WARN([--with-static-poly was used but no path was given. Using defaults])
       else
         static_lpoly=$withval
@@ -317,10 +317,10 @@ static_includelpoly=""
 AC_ARG_WITH([static-libpoly-include-dir],
    [AS_HELP_STRING([--with-static-libpoly-include-dir=<directory>],
             [Path to include files compatible with libpoly.a (e.g., /usr/local/include)])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-static-libpoly-include-dir since MCSAT support is disabled])
     else
-      if test "x$withval" == x; then
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-static-libpoly-include-dir was used but no directory was given. Using defaults])
       else
         static_includelpoly=$withval
@@ -333,10 +333,10 @@ AC_ARG_WITH([static-libpoly-include-dir],
 pic_lpoly=""
 AC_ARG_WITH([pic-libpoly],
    [AS_HELP_STRING([--with-pic-libpoly=<path>],[Full path to a relocatable libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-pic-libpoly since MCSAT support is disabled])
     else
-      if test "x$withval" == x; then
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-pic-libpoly was used but no path was given. Using defaults])
       else
          pic_lpoly=$withval
@@ -349,10 +349,10 @@ pic_includelpoly=""
 AC_ARG_WITH([pic-libpoly-include-dir],
    [AS_HELP_STRING([--with-pic-libpoly-include-dir=<directory>],
             [Path to include files compatible with the relocatable libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-pic-libpoly-include-dir since MCSAT support is disabled])
     else
-      if test "x$withval" == x; then
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-pic-libpoly-include-dir was used but no directory was given. Using defaults])
       else
          pic_includelpoly=$withval
@@ -874,8 +874,12 @@ fi
 # ------------------
 #
 AC_SUBST(THREAD_SAFE)
-if test "x$thread_safe" == xyes ; then
+if test "x$thread_safe" = xyes ; then
    THREAD_SAFE=1
+   # iam: the aim is to eventually eliminate this restriction, but not before the 2.6.2 release.
+   if test $use_mcsat = yes ; then
+      AC_MSG_ERROR([Building with both --enable-mcsat and --enable-thread-safety is currently not supported.])
+   fi
 fi
 
 dnl
@@ -883,13 +887,13 @@ dnl Test support for thread-local storage
 dnl -------------------------------------
 dnl
 AC_SUBST(HAVE_TLS)
-if test "x$thread_safe" == xyes ; then
+if test "x$thread_safe" = xyes ; then
    has_tls=""
    CSL_CHECK_THREAD_LOCAL
-   if test "x$has_tls" == xyes; then
+   if test "x$has_tls" = xyes; then
       HAVE_TLS=1
    else
-      AC_MSG_ERROR([Building with --enable-thread-safe requires thread-local storage])
+      AC_MSG_ERROR([Building with --enable-thread-safety requires thread-local storage])
    fi
 fi
 
@@ -915,7 +919,7 @@ if test ! -d configs ; then
   AS_MKDIR_P([configs])
 fi
 
-if test "x$host" == x ; then
+if test "x$host" = x ; then
   AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
   mv make.include "configs/make.include.$build"
 else

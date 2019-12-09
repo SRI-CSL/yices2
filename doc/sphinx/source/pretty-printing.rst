@@ -260,7 +260,7 @@ explanation.
 
    Prints a model.
  
-   Same behavior as :c:func:`yices_print_model`, except that is uses a file descritptor *fd*
+   Same behavior as :c:func:`yices_print_model`, except that is uses a file descriptor *fd*
    instead of a stream *f*.
 
    This function returns -1 if the write to file *fd* fails. It returns 0 otherwise.

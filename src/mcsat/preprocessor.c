@@ -449,7 +449,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
             term_t eq = yices_eq(current, current_pre);
             preprocessor_mark_eq(pre, eq, current);
           }
-        } 
+        }
       }
       break;
 

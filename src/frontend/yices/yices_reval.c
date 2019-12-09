@@ -3553,7 +3553,7 @@ static void check_help_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n <= 1);
   if (n == 1) {
     if (f->tag != TAG_STRING && f->tag != TAG_SYMBOL) {
-      raise_exception(stack, f, TSTACK_NOT_A_STRING); // should use a different code for STING or SYMBOL
+      raise_exception(stack, f, TSTACK_NOT_A_STRING); // should use a different code for STRING or SYMBOL
     }
   }
 }
@@ -3669,7 +3669,7 @@ static void eval_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, ui
 
 
 /*
- * Initialize the term stack and add these commmands
+ * Initialize the term stack and add these commands
  */
 static void init_yices_tstack(tstack_t *stack) {
   init_tstack(stack, NUM_YICES_OPCODES);

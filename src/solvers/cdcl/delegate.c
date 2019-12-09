@@ -190,7 +190,7 @@ static smt_status_t cadical_check(void *solver) {
  * cadical does not do this. It may return that variable x has
  * value "unknown". This means that 'x' does not occur in any clause
  * sent to cadical.
- * We convert  unknow to VAL_FALSE here.
+ * We convert  unknown to VAL_FALSE here.
  */
 static bval_t cadical_get_value(void *solver, bvar_t x) {
   int v;
@@ -206,14 +206,20 @@ static void cadical_set_verbosity(void *solver, uint32_t level) {
   // verbosity 1 --> normal cadical output (quiet = false)
   // verbosity 2 --> cadical verbosity 1
   // verbosity 3 --> cadical verbosity 2
+  //
+  // With cadical 1.2.0:
+  // - we must set option 'report' to true otherwise
+  //   nothing is printed at verbosity level < 2
+  // 
   if (level == 0) {
-    ccadical_set_option(solver, "quiet", 1.0);
+    ccadical_set_option(solver, "quiet", 1);
   } else {
-    ccadical_set_option(solver, "quiet", 0.0);
+    ccadical_set_option(solver, "quiet", 0);
+    ccadical_set_option(solver, "report", 1);
     if (level == 2) {
-      ccadical_set_option(solver, "verbose", 1.0);
+      ccadical_set_option(solver, "verbose", 1);
     } else if (level >= 3) {
-      ccadical_set_option(solver, "verbose", 2.0);
+      ccadical_set_option(solver, "verbose", 2);
     }
   }
 }
@@ -224,7 +230,7 @@ static void cadical_delete(void *solver) {
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
-  ccadical_set_option(d->solver, "quiet", 1.0); // no output from cadical by default
+  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
@@ -294,7 +300,7 @@ static smt_status_t cryptominisat_check(void *solver) {
 
 
 /*
- * We convert  unknow to VAL_FALSE here to be safe, but it seems
+ * We convert  unknown to VAL_FALSE here to be safe, but it seems
  * that cryptominisat always produces a full truth assignment.
  */
 static bval_t cryptominisat_get_value(void *solver, bvar_t x) {
@@ -366,6 +372,45 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
 }
 
 
+
+/*
+ * Test whether a solver is known and supported.
+ * - solver_name = external solver to use
+ * - return true if this solver is supported (i.e., can be used in init_delegate).
+ * - return false otherwise.
+ * - extra information is returned in *unknown:
+ *   if we don't support the solver at all, *unknown is set to true
+ *   if we have optional support (but not compiled), *unknown is set to fasle.
+ */
+bool supported_delegate(const char *solver_name, bool *unknown) {
+  if (strcmp("y2sat", solver_name) == 0) {
+    *unknown = false;
+    return true;
+  }
+
+  if (strcmp("cadical", solver_name) == 0) {
+    *unknown = false;
+#if HAVE_CADICAL
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  if (strcmp("cryptominisat", solver_name) == 0) {
+    *unknown = false;
+#if HAVE_CRYPTOMINISAT
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  *unknown = true;
+  return false;
+}
+
+
 /*
  * Delete the solver and free memory
  */
@@ -389,7 +434,7 @@ void delete_delegate(delegate_t *d) {
  */
 
 /*
- * Tranfer unit clauses from core to delegate
+ * Transfer unit clauses from core to delegate
  */
 static void copy_unit_clauses(delegate_t *d, smt_core_t *core) {
   prop_stack_t *stack;

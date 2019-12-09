@@ -15,16 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "mcsat/utils/statistics.h"
 #include "utils/memalloc.h"
-
-#include <inttypes.h>
-#include <assert.h>
-#include <stdbool.h>
-#include <string.h>
-
 #include "io/simple_printf.h"
+
+#include <string.h>
+#include <assert.h>
 
 /** Construct the statistics */
 void statistics_construct(statistics_t* stats) {

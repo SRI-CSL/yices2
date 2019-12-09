@@ -4845,7 +4845,7 @@ static void process_scc(sat_solver_t *solver, literal_t l) {
       }
     } while (l0 != l);
 
-    if (unsat) {
+    if (unsat && solver->verbosity >= 1) {
       fprintf(stderr, "c inconsistent SCC\n");
     }
   }
@@ -6144,7 +6144,9 @@ static void literal_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) {
   solver->stats.equivs ++;
   if (l1 == not(l2)) {
     add_empty_clause(solver);
-    fprintf(stderr, "c   lit equiv: empty clause\n");
+    if (solver->verbosity >= 1) {
+      fprintf(stderr, "c   lit equiv: empty clause\n");
+    }
   } else if (l1 < l2) {
     process_lit_equiv(solver, l1, l2);
   } else {
@@ -7734,6 +7736,21 @@ static void show_expanded_var_defs(const sat_solver_t *solver) {
  */
 
 /*
+ * Cheaper part: remove unit and pure literals & try SCC-based substitutions:
+ * - return false if a conflict is detected
+ * - return true otherwise
+ */
+static bool nsat_cheap_preprocess(sat_solver_t *solver) {
+  do {
+    if (! pp_empty_queue(solver)) return false;
+    pp_try_gc(solver);
+    if (! pp_scc_simplification(solver)) return false;
+  } while (! queue_is_empty(&solver->lqueue));
+
+  return true;
+}
+
+/*
  * On entry to preprocess:
  * - watch[l] contains all the clauses in which l occurs
  * - occ[l] = number of occurrences of l
@@ -7749,11 +7766,7 @@ static void nsat_preprocess(sat_solver_t *solver) {
   if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
   collect_unit_and_pure_literals(solver);
-  do {
-    if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);
-    if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));
+  if (! nsat_cheap_preprocess(solver)) goto done;
 
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
@@ -7761,15 +7774,12 @@ static void nsat_preprocess(sat_solver_t *solver) {
   do {
     if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
     process_elimination_candidates(solver);
+    if (! nsat_cheap_preprocess(solver)) goto done;
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) break;
+    if (! nsat_cheap_preprocess(solver)) goto done;
   } while (!elim_heap_is_empty(solver));
 
-  do {
-    if (! pp_empty_queue(solver)) goto done;
-    pp_try_gc(solver);
-    if (! pp_scc_simplification(solver)) goto done;
-  } while (! queue_is_empty(&solver->lqueue));
 
  done:
   solver->stats.pp_subst_vars = solver->stats.subst_vars;
@@ -7910,7 +7920,7 @@ static void propagate_from_literal(sat_solver_t *solver, literal_t l0) {
 
       // Force l to go into lit[0] and l0 into lit[1]
       lit[0] = l;
-      lit[1]  = l0;
+      lit[1] = l0;
 
       // read len directly (the clause should not be marked)
       len = solver->pool.data[k];
@@ -9136,7 +9146,9 @@ static void try_scc_simplification(sat_solver_t *solver) {
 
   compute_sccs(solver);
   if (solver->has_empty_clause) {
-    fprintf(stderr, "c empty clause after SCC computation\n");
+    if (solver->verbosity >= 1) {
+      fprintf(stderr, "c empty clause after SCC computation\n");
+    }
     reset_vector(&solver->subst_vars);
     return;
   }
@@ -9177,7 +9189,9 @@ static void try_scc_simplification(sat_solver_t *solver) {
     // apply the substitution
     apply_substitution(solver);
     if (solver->has_empty_clause) {
-      fprintf(stderr, "c empty clause after substitution\n");
+      if (solver->verbosity >= 1) {
+	fprintf(stderr, "c empty clause after substitution\n");
+      }
       return;
     }
 
@@ -9189,7 +9203,9 @@ static void try_scc_simplification(sat_solver_t *solver) {
     if (solver->units > units) {
       level0_propagation(solver);
       if (solver->has_empty_clause) {
-	fprintf(stderr, "c empty clause after substitution and propagation\n");
+	if (solver->verbosity >= 1) {
+	  fprintf(stderr, "c empty clause after substitution and propagation\n");
+	}
 	return;
       }
     }

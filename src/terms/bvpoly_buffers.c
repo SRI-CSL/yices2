@@ -1284,6 +1284,18 @@ static bool bvpoly_buffer_coeff_is_minus_one(const bvpoly_buffer_t *b, uint32_t 
   }
 }
 
+/*
+ * Check whether b is of the form +x
+ * - if so return the variable into *x
+ * - b must be normalized
+ */
+bool bvpoly_buffer_is_var(const bvpoly_buffer_t *b, int32_t *x) {
+  if (b->nterms == 1 && b->var[0] != const_idx && bvpoly_buffer_coeff_is_one(b, 0)) {
+    *x = b->var[0];
+    return true;
+  }
+  return false;
+}
 
 /*
  * Check whether b is of the form +x or -x
