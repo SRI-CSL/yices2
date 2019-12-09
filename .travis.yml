@@ -8,7 +8,6 @@ compiler:
 
 sudo: required
 
-<<<<<<< HEAD
 env:
   matrix:
     - BUILD_TYPE=debug
@@ -27,8 +26,6 @@ env:
       ENABLE_COVERAGE=ON
       CONFIGURE_FLAGS="--enable-mcsat"
 
-=======
->>>>>>> master
 # command to install dependencies
 install:
   - sudo apt-get update
