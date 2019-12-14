@@ -7774,17 +7774,16 @@ static void nsat_preprocess(sat_solver_t *solver) {
   collect_elimination_candidates(solver);
 
   assert(solver->scan_index == 0);
-  max_rounds = 10;
+  max_rounds = 20;
   do {
     if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
     process_elimination_candidates(solver);
-    if (! nsat_cheap_preprocess(solver)) goto done;
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
-    if (! nsat_cheap_preprocess(solver)) goto done;
     max_rounds --;
   } while (max_rounds > 0 && !elim_heap_is_empty(solver));
 
+  if (! nsat_cheap_preprocess(solver)) goto done;
 
  done:
   solver->stats.pp_subst_vars = solver->stats.subst_vars;
