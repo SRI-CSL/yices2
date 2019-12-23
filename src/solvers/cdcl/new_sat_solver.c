@@ -9684,6 +9684,13 @@ static void extend_naive_stack(naive_stack_t *stack) {
   stack->size = n;
 }
 
+/*
+ * Reset: empty the stack
+ */
+static inline void reset_naive_stack(naive_stack_t *stack) {
+  stack->top = 0;
+  stack->top_binary = 0;
+}
 
 /*
  * Push pair (cidx, k) on top of the stack
@@ -9804,6 +9811,17 @@ static void init_naive_searcher(naive_t *searcher) {
   searcher->conflicts = 0;
   searcher->decisions = 0;
 }
+
+/*
+ * Reset: prepare for a new search
+ */
+static void reset_naive_searcher(naive_t *searcher) {
+  reset_naive_stack(&searcher->stack);
+  searcher->max_conflicts = 10000;
+  searcher->conflicts = 0;
+  searcher->decisions = 0;
+}
+
 
 /*
  * Delete the whole thing
@@ -10008,7 +10026,7 @@ static void naive_search_backtrack(naive_t *searcher) {
  * - return true if this succeeds (i.e., find a satisfying assignment)
  * - return false otherwise
  */
-static bool naive_search(sat_solver_t *solver, naive_t *searcher) {
+static bool naive_search(sat_solver_t *solver, naive_t *searcher, bool pol) {
   literal_t l;
 
   if (! push_next_clause(solver, searcher)) {
@@ -10027,7 +10045,11 @@ static bool naive_search(sat_solver_t *solver, naive_t *searcher) {
       backtrack_one_level(solver);
     } else {
       searcher->decisions ++;
-      nsat_decide_literal(solver, l);
+      if (pol) {
+	nsat_decide_literal(solver, l);
+      } else {
+	nsat_decide_literal(solver, not(l));
+      }
       nsat_boolean_propagation(solver);
       if (solver->conflict_tag != CTAG_NONE) {
 	searcher->conflicts ++;
@@ -10092,17 +10114,29 @@ static void try_naive_search(sat_solver_t *solver) {
 
   init_naive_searcher(&searcher);
   prepare_naive_search(solver, &searcher);
-  printf("c %"PRIu32" problem clauses to satisfy + %"PRIu32" binary clauses\n",
+  printf("c\nc %"PRIu32" problem clauses to satisfy + %"PRIu32" binary clauses\n",
 	 searcher.cvector.size, searcher.bvector.size/2);
-  if (naive_search(solver, &searcher)) {
-    printf("c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n", searcher.conflicts, searcher.decisions);
-  } else {
-    printf("c NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n", searcher.conflicts, searcher.decisions);
-    if (solver->decision_level > dl) {
-      backtrack(solver, dl);
-    }
+  if (naive_search(solver, &searcher, true)) {
+    printf("c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+	   searcher.conflicts, searcher.decisions);
+    goto done;
   }
+  printf("c NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\n",
+	 searcher.conflicts, searcher.decisions);
+  if (solver->decision_level > dl) backtrack(solver, dl);
 
+  reset_naive_searcher(&searcher);
+  if (naive_search(solver, &searcher, false)) {
+    printf("c REVERSE NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+	   searcher.conflicts, searcher.decisions);
+    goto done;
+  }
+  printf("c REVERSE NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+	 searcher.conflicts, searcher.decisions);
+
+  if (solver->decision_level > dl) backtrack(solver, dl);
+
+ done:
   delete_naive_searcher(&searcher);
 
   restore_assignment(solver);
@@ -10199,7 +10233,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stabilizing = true;
       solver->stab_next += solver->stab_length;
       solver->stats.stabilizations ++;
-      solver->try_assignment = true;
+      solver->try_assignment = false;
     } else {
       solver->stabilizing = false;
       solver->stab_next += 2 * solver->stab_length;
@@ -10458,12 +10492,16 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   done_simplify(solver);
   if (solver->has_empty_clause) goto done;
 
+  failed_literal_probing(solver);
+  if (solver->has_empty_clause) goto done;
+
+  try_naive_search(solver);
+  solver->stats.conflicts = 0;
+  solver->stats.decisions = 0;
   solver->stats.starts = 1;
   solver->try_assignment = false;
 
   report(solver, "");
-
-  try_naive_search(solver);
 
   /*
    * MAIN LOOP
