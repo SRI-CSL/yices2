@@ -9816,7 +9816,7 @@ static void init_naive_searcher(naive_t *searcher) {
  */
 static void reset_naive_searcher(naive_t *searcher) {
   reset_naive_stack(&searcher->stack);
-  searcher->max_conflicts = 10000;
+  searcher->max_conflicts = 4000;
   searcher->conflicts = 0;
   searcher->decisions = 0;
 }
