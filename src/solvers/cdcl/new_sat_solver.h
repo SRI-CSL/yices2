@@ -803,9 +803,10 @@ typedef struct naive_s {
   naive_stack_t stack;
   vector_t bvector;
   vector_t cvector;
-  uint64_t max_conflicts;
   uint64_t decisions;
+  uint64_t max_decisions;
   uint64_t conflicts;
+  uint64_t max_conflicts;
 } naive_t;
 
 

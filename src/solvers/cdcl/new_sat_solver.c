@@ -7439,16 +7439,13 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
   if (w1 == NULL || w2 == NULL) return true;
 
-  n1 = w1->size;
-  n2 = w2->size;
-  if (n1 >= solver->params.var_elim_skip &&
-      n2 >= solver->params.var_elim_skip)
-    return false;
-
   // number of clauses that contain x
   n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)];
   new_n = 0;
   len = 0; // Prevents a GCC warning
+
+  n1 = w1->size;
+  n2 = w2->size;
 
   for (i1=0; i1<n1; i1++) {
     c1 = w1->data[i1];
@@ -7509,9 +7506,12 @@ static void process_elimination_candidates(sat_solver_t *solver) {
 
     pp = solver->occ[pos_lit(x)];
     nn = solver->occ[neg_lit(x)];
-    if (pp == 0 || nn == 0) {
+    if (pp == 0 ||
+	nn == 0 ||
+	(pp >= solver->params.var_elim_skip && nn >= solver->params.var_elim_skip)) {
       continue;
     }
+
     if (pp_variable_worth_eliminating(solver, x)) {
       pp_eliminate_variable(solver, x);
       cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
@@ -9806,9 +9806,10 @@ static void init_naive_searcher(naive_t *searcher) {
   init_naive_stack(&searcher->stack);
   init_vector(&searcher->bvector);
   init_vector(&searcher->cvector);
-  searcher->max_conflicts = 4000;
-  searcher->conflicts = 0;
   searcher->decisions = 0;
+  searcher->max_decisions = 100000;
+  searcher->conflicts = 0;
+  searcher->max_conflicts = 4000;
 }
 
 /*
@@ -9816,9 +9817,10 @@ static void init_naive_searcher(naive_t *searcher) {
  */
 static void reset_naive_searcher(naive_t *searcher) {
   reset_naive_stack(&searcher->stack);
-  searcher->max_conflicts = 4000;
-  searcher->conflicts = 0;
   searcher->decisions = 0;
+  searcher->max_decisions = 100000;
+  searcher->conflicts = 0;
+  searcher->max_conflicts = 4000;
 }
 
 
@@ -10043,6 +10045,8 @@ static bool naive_search(sat_solver_t *solver, naive_t *searcher, bool pol) {
       if (searcher->stack.top == 0)  break; // done: search failed
       backtrack_one_level(solver);
     } else {
+      if (searcher->decisions >= searcher->max_decisions) break;
+
       searcher->decisions ++;
       if (pol) {
 	nsat_decide_literal(solver, l);
