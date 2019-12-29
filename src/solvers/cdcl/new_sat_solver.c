@@ -7419,8 +7419,6 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 }
 
 
-
-
 /*
  * Check whether eliminating variable x creates too many clauses.
  * - return true if the number of non-trivial resolvent is less than
@@ -7522,6 +7520,67 @@ static void process_elimination_candidates(sat_solver_t *solver) {
     }
   }
 }
+
+
+/*
+ * Check whether eliminating x costs nothing:
+ * - return true if all resolvents on x are trivial
+ */
+static bool pp_free_elim_variable(const sat_solver_t *solver, bvar_t x) {
+  watch_t *w1, *w2;
+  uint32_t i1, i2, n1, n2;
+  cidx_t c1, c2;
+  uint32_t len;
+
+  assert(x < solver->nvars);
+
+  w1 = solver->watch[pos_lit(x)];
+  w2 = solver->watch[neg_lit(x)];
+
+  if (w1 == NULL || w2 == NULL) return true;
+
+  n1 = w1->size;
+  n2 = w2->size;
+
+  for (i1=0; i1<n1; i1++) {
+    c1 = w1->data[i1];
+    assert(idx_is_clause(c1));
+    if (clause_is_live(&solver->pool, c1)) {
+      for (i2=0; i2<n2; i2++) {
+        c2 = w2->data[i2];
+        assert(idx_is_clause(c2));
+        if (clause_is_live(&solver->pool, c2)) {
+          if (non_trivial_resolvent(solver, c1, c2, pos_lit(x), &len)) return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Eliminate all the free variables
+ */
+static void eliminate_free_variables(sat_solver_t *solver) {
+  uint32_t i, n, c;
+
+  c = 0;
+  n = solver->nvars;
+  for (i=1; i<n; i++) {
+    if (var_is_active(solver, i)
+	&& pp_elim_candidate(solver, i)
+	&& pp_free_elim_variable(solver, i)) {
+      pp_eliminate_variable(solver, i);
+      c ++;
+    }
+  }
+
+  solver->stats.pp_cheap_elims += c;
+  fprintf(stderr, "c free var elimations: %"PRIu32"\n", c);
+}
+
 
 
 /*
@@ -7770,6 +7829,9 @@ static void nsat_preprocess(sat_solver_t *solver) {
   collect_unit_and_pure_literals(solver);
   if (! nsat_cheap_preprocess(solver)) goto done;
 
+  if (solver->verbosity >= 4) fprintf(stderr, "c Free var elimination\n");
+  eliminate_free_variables(solver);
+
   prepare_elim_heap(&solver->elim, solver->nvars);
   collect_elimination_candidates(solver);
 
@@ -7782,6 +7844,8 @@ static void nsat_preprocess(sat_solver_t *solver) {
     if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
     max_rounds --;
   } while (max_rounds > 0 && !elim_heap_is_empty(solver));
+
+  fprintf(stderr, "c Elim/subsumption: %"PRIu32" rounds\n", 20 - max_rounds);
 
   if (! nsat_cheap_preprocess(solver)) goto done;
 
