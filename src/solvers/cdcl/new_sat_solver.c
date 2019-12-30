@@ -6480,6 +6480,7 @@ static void pp_remove_clause_after_subst(sat_solver_t *solver, cidx_t cidx) {
   clause_pool_delete_clause(&solver->pool, cidx);
 }
 
+
 /*
  * Apply the scc-based substitution to the clause that starts at cidx
  * - if the clause simplifies to a unit clause, add the literal to
@@ -6491,6 +6492,7 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
   vector_t *b;
   uint32_t i, n;
   literal_t l;
+  cidx_t new_cidx;
 
   assert(clause_is_live(&solver->pool, cidx));
 
@@ -6524,17 +6526,14 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
   clear_false_lits(solver, b->size, (literal_t *) b->data);
 
   /*
-   * Decrement occ counts and delete the clause.
-   */
-  pp_remove_clause_after_subst(solver, cidx);
-
-  /*
    * b = new clause after substitution.
    * if i < n, the clause is true.
    */
   if (i < n) {
+    // clause b is true
+    pp_remove_clause_after_subst(solver, cidx);
     solver->stats.pp_clauses_deleted ++;
-    return; // clause b is true. Nothing more to do
+    return;
   }
 
   /*
@@ -6551,11 +6550,13 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
     assert(n >= 2);
 
     uint_array_sort(b->data, n); // keep the clause sorted
-    cidx = clause_pool_add_problem_clause(&solver->pool, n, (literal_t *) b->data);
-    add_clause_all_watch(solver, n, (literal_t *) b->data, cidx);
-    set_clause_signature(&solver->pool, cidx);
+    new_cidx = clause_pool_add_problem_clause(&solver->pool, n, (literal_t *) b->data);
+    add_clause_all_watch(solver, n, (literal_t *) b->data, new_cidx);
+    set_clause_signature(&solver->pool, new_cidx);
   }
   pp_increment_occ_counts(solver, (literal_t *) b->data, n);
+  // delete the old clause
+  pp_remove_clause_after_subst(solver, cidx);
 }
 
 
@@ -6633,7 +6634,7 @@ static void pp_process_subst_pure(sat_solver_t *solver) {
   n = v->size;
   for (i=0; i<n; i++) {
     l = full_lit_subst(solver, v->data[i]);
-    if (lit_is_unassigned(solver, l)) {
+    if (lit_is_unassigned(solver, l) && solver->occ[not(l)] == 0) {
       pp_push_pure_literal(solver, l);
     }
   }
