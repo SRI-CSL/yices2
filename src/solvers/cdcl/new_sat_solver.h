@@ -999,6 +999,7 @@ typedef struct sat_solver_s {
 
   vector_t subst_vars;  // all variables eliminated in an SCC round
   vector_t subst_units; // literals found equal to true by SCC/EQ
+  vector_t subst_pure;  // literals that become pure after substitution
 
   /*
    * Variable descriptors + gates

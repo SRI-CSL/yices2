@@ -2891,6 +2891,7 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_gstack(&solver->dfs_stack);
   init_vector(&solver->subst_vars);
   init_vector(&solver->subst_units);
+  init_vector(&solver->subst_pure);
   solver->label = NULL;
   solver->visit = NULL;
 
@@ -2957,6 +2958,7 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_gstack(&solver->dfs_stack);
   delete_vector(&solver->subst_vars);
   delete_vector(&solver->subst_units);
+  delete_vector(&solver->subst_pure);
   if (solver->label != NULL) {
     safe_free(solver->label);
     safe_free(solver->visit);
@@ -3018,6 +3020,7 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_gstack(&solver->dfs_stack);
   reset_vector(&solver->subst_vars);
   reset_vector(&solver->subst_units);
+  reset_vector(&solver->subst_pure);
   if (solver->label != NULL) {
     safe_free(solver->label);
     safe_free(solver->visit);
@@ -6445,23 +6448,43 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
  */
 
 /*
- * Decrement occ counts of a[0 ... n-1]
- * This is like pp_decrement_occ_counts but doesn't try to detect
- * pure literals.
+ * Decrement occ counts of a[0 ... n-1] and add pure literals to solver->subst_pure
+ * This is like pp_decrement_occ_counts but doesn't immediately process pure literals.
  */
-static void pp_simple_decrement_occ_counts(sat_solver_t *solver, literal_t *a, uint32_t n) {
+static void pp_decrement_occ_counts_after_subst(sat_solver_t *solver, literal_t *a, uint32_t n) {
+  literal_t l;
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    assert(solver->occ[a[i]] > 0);
-    solver->occ[a[i]] --;
+    l = a[i];
+    assert(solver->occ[l] > 0);
+    solver->occ[l] --;
+    if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && !lit_is_eliminated(solver, l)) {
+      vector_push(&solver->subst_pure, not(l));
+    }
   }
+}
+
+/*
+ * Delete clause cidx after substitution
+ */
+static void pp_remove_clause_after_subst(sat_solver_t *solver, cidx_t cidx) {
+  literal_t *a;
+  uint32_t n;
+
+  assert(clause_is_live(&solver->pool, cidx));
+
+  n = clause_length(&solver->pool, cidx);
+  a = clause_literals(&solver->pool, cidx);
+  pp_decrement_occ_counts_after_subst(solver, a, n);
+  clause_pool_delete_clause(&solver->pool, cidx);
 }
 
 /*
  * Apply the scc-based substitution to the clause that starts at cidx
  * - if the clause simplifies to a unit clause, add the literal to
  *   the unit-literal queue
+ * - if some literals become pure, add them to solver->subst_pure
  */
 static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
   literal_t *a;
@@ -6502,11 +6525,8 @@ static void pp_apply_subst_to_clause(sat_solver_t *solver, cidx_t cidx) {
 
   /*
    * Decrement occ counts and delete the clause.
-   * We don't want to use pp_remove_clauses because it has side effects
-   * that are not correct here (i.e., finding pure literals).
    */
-  pp_simple_decrement_occ_counts(solver, a, n);
-  clause_pool_delete_clause(&solver->pool, cidx);
+  pp_remove_clause_after_subst(solver, cidx);
 
   /*
    * b = new clause after substitution.
@@ -6598,7 +6618,25 @@ static void pp_process_subst_units(sat_solver_t *solver) {
       pp_push_unit_literal(solver, l);
     }
   }
-  pp_empty_queue(solver);
+  reset_vector(v);
+}
+
+/*
+ * Process the pure literals found by substitution
+ */
+static void pp_process_subst_pure(sat_solver_t *solver) {
+  vector_t *v;
+  uint32_t i, n;
+  literal_t l;
+
+  v = &solver->subst_pure;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    l = full_lit_subst(solver, v->data[i]);
+    if (lit_is_unassigned(solver, l)) {
+      pp_push_pure_literal(solver, l);
+    }
+  }
   reset_vector(v);
 }
 
@@ -6640,6 +6678,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     }
 
     // process the substitutions
+    reset_vector(&solver->subst_pure);
     n = v->size;
     for (i=0; i<n; i++) {
       x = v->data[i];
@@ -6656,9 +6695,11 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
     }
     reset_vector(v);
 
-    // process the unit literals
+    // process the unit and pure literals
     solver->stats.pp_subst_units += solver->subst_units.size;
     pp_process_subst_units(solver);
+    pp_process_subst_pure(solver);
+    pp_empty_queue(solver);
   }
 
   // substitution may reduce a clause to empty
@@ -7165,6 +7206,7 @@ static void pp_save_clause(sat_solver_t *solver, uint32_t cidx, literal_t l) {
 
 /*
  * Save half the clauses that contain x so that we can later extend the truth-assignment to x.
+ * - x must not be a unit literal
  */
 static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
   watch_t *w;
@@ -7181,6 +7223,8 @@ static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
     w = solver->watch[neg_lit(x)];
     s = n;
   }
+
+  assert(s > 0);
 
   resize_clause_vector(&solver->saved_clauses, s);
   n = w->size;
@@ -7574,6 +7618,7 @@ static void eliminate_free_variables(sat_solver_t *solver) {
 	&& pp_free_elim_variable(solver, i)) {
       pp_eliminate_variable(solver, i);
       c ++;
+      if (solver->has_empty_clause || !pp_empty_queue(solver)) break;
     }
   }
 
