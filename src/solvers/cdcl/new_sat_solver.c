@@ -5864,7 +5864,7 @@ static inline void pp_push_unit_literal(sat_solver_t *solver, literal_t l) {
 static void pp_decrement_occ(sat_solver_t *solver, literal_t l) {
   assert(solver->occ[l] > 0);
   solver->occ[l] --;
-  if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && !lit_is_assigned(solver, l)) {
+  if (solver->occ[l] == 0 && !lit_is_assigned(solver, l)) {
     pp_push_pure_literal(solver, not(l));
   }
 }
@@ -6459,7 +6459,7 @@ static void pp_decrement_occ_counts_after_subst(sat_solver_t *solver, literal_t 
     l = a[i];
     assert(solver->occ[l] > 0);
     solver->occ[l] --;
-    if (solver->occ[l] == 0 && solver->occ[not(l)] > 0 && !lit_is_eliminated(solver, l)) {
+    if (solver->occ[l] == 0 && !lit_is_eliminated(solver, l)) {
       vector_push(&solver->subst_pure, not(l));
     }
   }
