@@ -944,6 +944,7 @@ typedef struct sat_solver_s {
    */
   bool probing;
   bool try_assignment;
+  bool try_naive_search;
 
   /*
    * Statistics record

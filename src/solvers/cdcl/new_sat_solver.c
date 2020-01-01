@@ -20,6 +20,7 @@
  * STAND-ALONE SAT SOLVER
  */
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -6634,7 +6635,7 @@ static void pp_process_subst_pure(sat_solver_t *solver) {
   n = v->size;
   for (i=0; i<n; i++) {
     l = full_lit_subst(solver, v->data[i]);
-    if (lit_is_unassigned(solver, l) && solver->occ[not(l)] == 0) {
+    if (false && lit_is_unassigned(solver, l) && solver->occ[not(l)] == 0) {
       pp_push_pure_literal(solver, l);
     }
   }
@@ -7207,7 +7208,6 @@ static void pp_save_clause(sat_solver_t *solver, uint32_t cidx, literal_t l) {
 
 /*
  * Save half the clauses that contain x so that we can later extend the truth-assignment to x.
- * - x must not be a unit literal
  */
 static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
   watch_t *w;
@@ -7225,17 +7225,28 @@ static void pp_save_elim_clauses_for_var(sat_solver_t *solver, bvar_t x) {
     s = n;
   }
 
-  assert(s > 0);
-
-  resize_clause_vector(&solver->saved_clauses, s);
-  n = w->size;
-  for (i=0; i<n; i++) {
-    cidx = w->data[i];
-    if (clause_is_live(&solver->pool, cidx)) {
-      pp_save_clause(solver, cidx, l);
+  if (s == 0) {
+    /*
+     * no clauses contain l so not(l) is a pure literal.
+     * we want not(l) to be true in the final assignment.
+     * To force that, we store the clause { not(l) } in the
+     * saved-clause vector.
+     */
+    l = not(l);
+    resize_clause_vector(&solver->saved_clauses, 1);
+    clause_vector_save_clause(&solver->saved_clauses, 1, &l, l);
+    clause_vector_add_block_length(&solver->saved_clauses, 1);
+  } else {
+    resize_clause_vector(&solver->saved_clauses, s);
+    n = w->size;
+    for (i=0; i<n; i++) {
+      cidx = w->data[i];
+      if (clause_is_live(&solver->pool, cidx)) {
+	pp_save_clause(solver, cidx, l);
+      }
     }
+    clause_vector_add_block_length(&solver->saved_clauses, s);
   }
-  clause_vector_add_block_length(&solver->saved_clauses, s);
 }
 
 
@@ -9928,9 +9939,7 @@ static void init_naive_searcher(naive_t *searcher) {
 static void reset_naive_searcher(naive_t *searcher) {
   reset_naive_stack(&searcher->stack);
   searcher->decisions = 0;
-  searcher->max_decisions = 100000;
   searcher->conflicts = 0;
-  searcher->max_conflicts = 4000;
 }
 
 
@@ -10178,74 +10187,60 @@ static bool naive_search(sat_solver_t *solver, naive_t *searcher, bool pol) {
 }
 
 
+static void __attribute__((format(printf, 2, 3))) search_report(const sat_solver_t *solver, const char *format, ...) {
+  va_list p;
+
+  if (solver->verbosity >= 2) {
+    va_start(p, format);
+    vfprintf(stderr, format, p);
+    va_end(p);
+  }
+}
+
+
 /*
  * Naive search
  */
 static void try_naive_search(sat_solver_t *solver) {
   naive_t searcher;
   uint32_t dl;
-#if 0
-  uint32_t i, n;
-  literal_t l;
-#endif
 
   dl = solver->decision_level;
 
   solver->probing = true;
   save_assignment(solver);
 
-  printf("c starting naive search: decision_level = %"PRIu32"\n", dl);
-
-#if 0
-  n = solver->nvars;
-  for (i=1; i<n; i++) {
-    if (var_is_active(solver, i)) {
-      l = preferred_literal(solver, i);
-      if (empty_watch(solver->watch[not(l)])) {
-	nsat_decide_literal(solver, l);
-	nsat_boolean_propagation(solver);
-	assert(solver->conflict_tag == CTAG_NONE);
-	continue;
-      }
-      if (empty_watch(solver->watch[l])) {
-	nsat_decide_literal(solver, not(l));
-	nsat_boolean_propagation(solver);
-	assert(solver->conflict_tag == CTAG_NONE);
-      }
-    }
-  }
-
-  printf("c base assignment: level = %"PRIu32", top = %"PRIu32"\n", solver->decision_level, solver->stack.top);
-
-  for (i=1; i<n; i++) {
-    if (var_is_active(solver, i)) {
-      l = preferred_literal(solver, i);
-      (void) (test_literal(solver, l) || test_literal(solver, not(l)));
-    }
-  }
-#endif
+  search_report(solver, "c\nc starting naive search: decision_level = %"PRIu32"\n", dl);
 
   init_naive_searcher(&searcher);
   prepare_naive_search(solver, &searcher);
-  printf("c\nc %"PRIu32" problem clauses to satisfy + %"PRIu32" binary clauses\n",
-	 searcher.cvector.size, searcher.bvector.size/2);
+
+  search_report(solver, "c %"PRIu32" problem clauses + %"PRIu32" binary clauses to satisfy\n",
+		searcher.cvector.size, searcher.bvector.size/2);
+
   if (naive_search(solver, &searcher, true)) {
-    printf("c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
-	   searcher.conflicts, searcher.decisions);
+    search_report(solver, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+		  searcher.conflicts, searcher.decisions);
+    fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+		  searcher.conflicts, searcher.decisions);
     goto done;
   }
-  printf("c NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\n",
-	 searcher.conflicts, searcher.decisions);
+
+  search_report(solver, "c NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\n",
+		searcher.conflicts, searcher.decisions);
+
   if (solver->decision_level > dl) backtrack(solver, dl);
 
   reset_naive_searcher(&searcher);
   if (naive_search(solver, &searcher, false)) {
-    printf("c REVERSE NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
-	   searcher.conflicts, searcher.decisions);
+    search_report(solver, "c REVERSE NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+		  searcher.conflicts, searcher.decisions);
+    fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+		  searcher.conflicts, searcher.decisions);
     goto done;
   }
-  printf("c REVERSE NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
-	 searcher.conflicts, searcher.decisions);
+  search_report(solver, "c REVERSE NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
+		searcher.conflicts, searcher.decisions);
 
   if (solver->decision_level > dl) backtrack(solver, dl);
 
@@ -10347,6 +10342,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stab_next += solver->stab_length;
       solver->stats.stabilizations ++;
       solver->try_assignment = false;
+      solver->try_naive_search = false;
     } else {
       solver->stabilizing = false;
       solver->stab_next += 2 * solver->stab_length;
@@ -10613,6 +10609,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   solver->stats.decisions = 0;
   solver->stats.starts = 1;
   solver->try_assignment = false;
+  solver->try_naive_search = true;
 
   report(solver, "");
 
@@ -10648,7 +10645,6 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	nsat_simplify(solver);
 	done_simplify(solver);
 	if (solver->has_empty_clause) break;
-
       } else if (need_restart(solver)) {
 	partial_restart(solver);
 	done_restart(solver);
@@ -10662,15 +10658,12 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 	  build_assignment(solver);
 	  solver->try_assignment = false;
 	}
-	//	printf("Propagations: %"PRIu32"\n", prop_level(solver));
 	x = nsat_select_decision_variable(solver);
 	if (x == 0) {
 	  solver->status = STAT_SAT;
 	  break;
 	}
 	nsat_decide_literal(solver, preferred_literal(solver, x));
-	// nsat_decide_literal(solver, pos_lit(x));
-	// nsat_decide_literal(solver, neg_lit(x));
       }
     }
   }
