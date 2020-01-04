@@ -424,6 +424,7 @@ static bool restart_interval_given;
 static bool subsume_skip_given;
 static bool var_elim_skip_given;
 static bool res_clause_limit_given;
+static bool res_extra_given;
 static bool simplify_interval_given;
 static bool simplify_bin_delta_given;
 
@@ -439,6 +440,7 @@ static uint32_t restart_interval;
 static uint32_t subsume_skip;
 static uint32_t var_elim_skip;
 static uint32_t res_clause_limit;
+static uint32_t res_extra;
 static uint32_t simplify_interval;
 static uint32_t simplify_bin_delta;
 
@@ -464,6 +466,7 @@ enum {
   subsume_skip_opt,
   var_elim_skip_opt,
   res_clause_limit_opt,
+  res_extra_opt,
   simplify_interval_opt,
   simplify_bin_delta_opt,
   data_flag,
@@ -493,6 +496,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "subsume-skip", '\0', MANDATORY_INT, subsume_skip_opt },
   { "var-elim-skip", '\0', MANDATORY_INT, var_elim_skip_opt },
   { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
+  { "res-extra", '\0', MANDATORY_INT, res_extra_opt },
   { "simplify-interval", '\0', MANDATORY_INT,  simplify_interval_opt },
   { "simplify-bin-delta", '\0', MANDATORY_INT, simplify_bin_delta_opt },
 
@@ -571,6 +575,7 @@ static void parse_command_line(int argc, char *argv[]) {
   subsume_skip_given = false;
   var_elim_skip_given = false;
   res_clause_limit_given = false;
+  res_extra_given = false;
   simplify_interval_given = false;
   simplify_bin_delta_given = false;
 
@@ -733,6 +738,11 @@ static void parse_command_line(int argc, char *argv[]) {
 	}
 	res_clause_limit_given = true;
 	res_clause_limit = elem.i_value;
+	break;
+
+      case res_extra_opt:
+	res_extra_given = true;
+	res_extra = elem.i_value;
 	break;
 
       case simplify_interval_opt:
@@ -1112,6 +1122,7 @@ int main(int argc, char* argv[]) {
     if (subsume_skip_given) nsat_set_subsume_skip(&solver, subsume_skip);
     if (var_elim_skip_given) nsat_set_var_elim_skip(&solver, var_elim_skip);
     if (res_clause_limit_given) nsat_set_res_clause_limit(&solver, res_clause_limit);
+    if (res_extra_given) nsat_set_res_extra(&solver, res_extra);
     if (simplify_interval_given) nsat_set_simplify_interval(&solver, simplify_interval);
     if (simplify_bin_delta_given) nsat_set_simplify_bin_delta(&solver, simplify_bin_delta);
 

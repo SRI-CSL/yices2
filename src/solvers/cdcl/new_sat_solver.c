@@ -350,6 +350,7 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define SUBSUME_SKIP 3000
 #define VAR_ELIM_SKIP 10
 #define RES_CLAUSE_LIMIT 20
+#define RES_EXTRA 0
 
 /*
  * Parameters to control simplify
@@ -2788,6 +2789,7 @@ static void init_params(solver_param_t *params) {
   params->var_elim_skip = VAR_ELIM_SKIP;
   params->subsume_skip = SUBSUME_SKIP;
   params->res_clause_limit = RES_CLAUSE_LIMIT;
+  params->res_extra = RES_EXTRA;
 
   params->simplify_interval = SIMPLIFY_INTERVAL;
   params->simplify_bin_delta = SIMPLIFY_BIN_DELTA;
@@ -3151,6 +3153,16 @@ void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit) {
 void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit) {
   solver->params.res_clause_limit = limit;
 }
+
+/*
+ * Limit on number of new clauses after eliminating x
+ * x is not eliminated if that would create more than res_extra new clauses
+ * (so if x occurs in n clauses, it's not eliminated if it has more than n + res_extra non-trivial resolvants).
+ */
+void nsat_set_res_extra(sat_solver_t *solver, uint32_t extra) {
+  solver->params.res_extra = extra;
+}
+
 
 
 /*
@@ -7493,8 +7505,8 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
   if (w1 == NULL || w2 == NULL) return true;
 
-  // number of clauses that contain x
-  n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)];
+  // max number of new clauses = number of clauses that contain x + extra
+  n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)] + solver->params.res_extra;
   new_n = 0;
   len = 0; // Prevents a GCC warning
 

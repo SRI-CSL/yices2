@@ -638,10 +638,14 @@ typedef struct solver_param_s {
    *
    * - res_clause_limit: if eliminating a variable x would create a clause of size
    *   larger than res_clause_limit, we keep x. Default value = 20.
+   *
+   * - res_extra: if x occurs in n clauses, then we don't eliminat x if that would create more than
+   *   (n + res_extra) clauses.
    */
   uint32_t subsume_skip;
   uint32_t var_elim_skip;
   uint32_t res_clause_limit;
+  uint32_t res_extra;
 
   /*
    * Simplify heuristics
@@ -1195,6 +1199,13 @@ extern void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit);
  */
 extern void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit);
 
+/*
+ * Limit on number of new clauses after eliminating x.
+ * - x is not * eliminated if that would create more than res_extra new clauses
+ * - so if x occurs in n clauses, it's not eliminated if it has more than n
+ *   + res_extra non-trivial resolvants.
+ */
+extern void nsat_set_res_extra(sat_solver_t *solver, uint32_t extra);
 
 /*
  * SIMPLIFY PARAMETERS
