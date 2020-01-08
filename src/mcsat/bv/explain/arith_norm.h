@@ -26,7 +26,7 @@
 #include "arith_utils.h"
 
 /**
-   Extracting bits and coefficients from terms.
+   Arithmetic normalisation of bv-terms, and analysis of the shape of normalised terms.
 **/
 
 // The following structure is produced by function analyse below,
@@ -71,23 +71,37 @@ typedef struct arith_analyse_s {
 
 } arith_analyse_t;
 
+
+// The result of normalising terms is cached. Cache entries are of the following type.
+
+typedef struct arith_norm_entry_s {
+  term_t   term; // Term whose normalisation we are caching
+  term_t   conflict_variable; // Conflict variable with respect to which we have done normalisation (if free in term, if not this is NULL_TERM)
+  uint32_t bits; // Number of bits of term that we are normalising
+  term_t   norm; // Result of the normalisation
+} arith_norm_entry_t;
+
+
 // In what follows, there's a notion of normalisation via which
 // t<w> propagates the lower bit extraction down to variables if t is not evaluable
 
 typedef struct arith_norm_s {
 
-  bv_csttrail_t csttrail; // Where we keep some cached values
+  bv_csttrail_t csttrail; // Where we cache some information about free variables and whether terms are evaluable
 
   // Cache of analyses (function analyse below): for a pair of keys (t,var),
   // the value is the arith_analyse_t resulting from analysing t when the conflict variable term is var
   pmap_t var_cache;
-  // Cache of term normalisations (function extract below): for a pair of keys (t,w), the value is the normal form of t<w>
-  int_hmap2_t norm_cache;
+
+  // Cache of term normalisations (function extract below)
+  uint32_t norm_cache_size;       // size of cache -- fixed throughout the run
+  arith_norm_entry_t* norm_cache; // array of length norm_cache_size
 
 } arith_norm_t;
 
-void arith_norm_freeval(arith_norm_t* norm);
+
 arith_analyse_t* arith_analyse(arith_norm_t* norm, term_t t);
+
 term_t arith_normalise_upto(arith_norm_t* norm, term_t t, uint32_t w);
 
 static inline
@@ -100,18 +114,22 @@ term_t arith_normalise(arith_norm_t* norm, term_t t){
 static inline
 void init_arith_norm(arith_norm_t* norm){
   init_pmap(&norm->var_cache, 0);
-  init_int_hmap2(&norm->norm_cache, 0);
+  norm->norm_cache_size = 2048;
+  norm->norm_cache = safe_malloc(sizeof(arith_analyse_t)*norm->norm_cache_size);
+  for (uint32_t i = 0; i < norm->norm_cache_size; i++){
+    norm->norm_cache[i].term = NULL_TERM;
+  }
 }
 
 static inline
 void delete_arith_norm(arith_norm_t* norm){
+  for (pmap_rec_t* current = pmap_first_record(&norm->var_cache);
+       current != NULL;
+       current = pmap_next_record(&norm->var_cache, current)) {
+    safe_free((arith_analyse_t*) current->val);
+  }
   delete_pmap(&norm->var_cache);
-  delete_int_hmap2(&norm->norm_cache);
-}
-
-static inline
-void reset_arith_norm(arith_norm_t* norm){
-  reset_int_hmap2(&norm->norm_cache); // no need to reset the cache of analyses between each conflict
+  safe_free(norm->norm_cache);
 }
 
 /**

@@ -1348,7 +1348,6 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
   // which date back from a previous conflict or propagation
   bv_evaluator_csttrail_reset(csttrail, conflict_var, 2); // 2 is the level of optimisation fit for the arith explainer
   freeval(exp);
-  reset_arith_norm(&exp->norm);
   ptr_hmap_reset(&exp->coeff_cache);
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::count")) {
@@ -1515,7 +1514,6 @@ static
 void destruct(bv_subexplainer_t* this) {
   arith_t* exp = (arith_t*) this;
   bv_evaluator_csttrail_destruct(&exp->norm.csttrail);
-  arith_norm_freeval(&exp->norm);
   freeval(exp);
   delete_arith_norm(&exp->norm);
   delete_ptr_hmap(&exp->coeff_cache);
