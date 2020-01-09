@@ -1785,8 +1785,8 @@ static void update_trace_verbosity(smt2_globals_t *g) {
 /*
  * Initialize pretty printer object to use the output channel
  */
-static void init_pretty_printer(yices_pp_t *printer, smt2_globals_t *g) {
-  init_yices_pp(printer, g->out, &g->pp_area, PP_VMODE, 0);
+static void init_pretty_printer(smt2_pp_t *printer, smt2_globals_t *g) {
+  init_smt2_pp(printer, g->out, &g->pp_area, PP_VMODE, g->bvconst_in_decimal);
 }
 
 
@@ -2897,7 +2897,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 #include "io/term_printer.h"
 
 static void show_delayed_assertions(smt2_globals_t *g) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   term_t *v;
   uint32_t i, n;
 
@@ -2907,10 +2907,10 @@ static void show_delayed_assertions(smt2_globals_t *g) {
 
     init_pretty_printer(&printer, g);
     for (i=0; i<n; i++) {
-      pp_term_full(&printer, __yices_globals.terms, v[i]);
-      flush_yices_pp(&printer);
+      pp_term_full(&printer->pp, __yices_globals.terms, v[i]);
+      flush_smt2_pp(&printer, true);
     }
-    delete_yices_pp(&printer, true);
+    delete_smt2_pp(&printer, true);
   }
 }
 #endif
@@ -3470,11 +3470,11 @@ static model_t *get_ef_model(smt2_globals_t *g) {
  * - token_queue = whatever was parsed
  * - i = index of the SMT2 expression for t in token_queue
  */
-static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
-  pp_open_block(printer, PP_OPEN_PAR);
-  pp_smt2_expr(printer, token_queue, i);
+static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
+  pp_open_block(&printer->pp, PP_OPEN_PAR);
+  pp_smt2_expr(&printer->pp, token_queue, i);
   smt2_pp_object(printer, vtbl, v);
-  pp_close_block(printer, true);
+  pp_close_block(&printer->pp, true);
 }
 
 
@@ -3484,20 +3484,20 @@ static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue
  *   where expr[i] is an valid start index in token_queue
  * - the corresponding values as in v[0 ... n-1]
  */
-static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue,
+static void print_term_value_list(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue,
                                   int32_t *expr, value_t *v, uint32_t n) {
   uint32_t i;
   value_t x, u;
 
   u = vtbl_mk_unknown(vtbl);
 
-  pp_open_block(printer, PP_OPEN_VPAR); // open '('
+  pp_open_block(&printer->pp, PP_OPEN_VPAR); // open '('
   for (i=0; i<n; i++) {
     x = v[i];
     if (x < 0) x = u;
     print_term_value(printer, vtbl, token_queue, x, expr[i]);
   }
-  pp_close_block(printer, true); // close ')'
+  pp_close_block(&printer->pp, true); // close ')'
 }
 
 
@@ -3582,7 +3582,7 @@ static void smt2_model_eval_terms(smt2_model_t *sm) {
  * Print the values of all terms in the model
  * - use the SMT-LIB2 format
  */
-static void print_smt2_model(yices_pp_t *printer, smt2_model_t *sm) {
+static void print_smt2_model(smt2_pp_t *printer, smt2_model_t *sm) {
   value_table_t *vtbl;
   term_table_t *terms;
   uint32_t i, n;
@@ -3595,7 +3595,7 @@ static void print_smt2_model(yices_pp_t *printer, smt2_model_t *sm) {
   terms = __yices_globals.terms;
   vtbl = model_get_vtbl(sm->model);
 
-  pp_open_block(printer, PP_OPEN_SMT2_MODEL);
+  pp_open_block(&printer->pp, PP_OPEN_SMT2_MODEL);
 
   n = sm->names.size;
   for (i=0; i<n; i++) {
@@ -3613,7 +3613,7 @@ static void print_smt2_model(yices_pp_t *printer, smt2_model_t *sm) {
       smt2_pp_def(printer, vtbl, sm->names.data[i], tau, v);
     }
   }
-  pp_close_block(printer, true);
+  pp_close_block(&printer->pp, true);
 
 }
 
@@ -3677,15 +3677,15 @@ static void build_smt2_model(smt2_globals_t *g, smt2_model_t *sm) {
 /*
  * Print pair (name val) where val is a Boolean value
  */
-static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t val) {
-  pp_open_block(printer, PP_OPEN_PAR); // '('
+static void print_bool_assignment(smt2_pp_t *printer, const char *name, bval_t val) {
+  pp_open_block(&printer->pp, PP_OPEN_PAR); // '('
   smt2_pp_symbol(printer, name);
   if (bval_is_undef(val)) {
-    pp_string(printer, "???");
+    pp_string(&printer->pp, "???");
   } else {
-    pp_bool(printer, bval2bool(val));
+    pp_bool(&printer->pp, bval2bool(val));
   }
-  pp_close_block(printer, true); // close ')'
+  pp_close_block(&printer->pp, true); // close ')'
 }
 
 
@@ -3713,7 +3713,7 @@ static bval_t obj2bval(value_table_t *vtbl, value_t v) {
  * We print whatever default values get assigned to the
  * boolean terms in the model.
  */
-static void print_model_assignment(yices_pp_t *printer, named_term_stack_t *s, model_t *mdl) {
+static void print_model_assignment(smt2_pp_t *printer, named_term_stack_t *s, model_t *mdl) {
   evaluator_t evaluator;
   value_table_t *vtbl;
   uint32_t i, n;
@@ -3721,13 +3721,13 @@ static void print_model_assignment(yices_pp_t *printer, named_term_stack_t *s, m
 
   vtbl = model_get_vtbl(mdl);
   init_evaluator(&evaluator, mdl);
-  pp_open_block(printer, PP_OPEN_VPAR);  // open '('
+  pp_open_block(&printer->pp, PP_OPEN_VPAR);  // open '('
   n = s->top;
   for (i=0; i<n; i++) {
     v = eval_in_model(&evaluator, s->data[i].term);
     print_bool_assignment(printer, s->data[i].name, obj2bval(vtbl, v));
   }
-  pp_close_block(printer, true);  // close ')'
+  pp_close_block(&printer->pp, true);  // close ')'
   delete_evaluator(&evaluator);
 }
 
@@ -3737,17 +3737,17 @@ static void print_model_assignment(yices_pp_t *printer, named_term_stack_t *s, m
  * - query the context to get each term value
  * - if a value is unknown, print the default 'true'
  */
-static void print_assignment(yices_pp_t *printer, context_t *ctx, named_term_stack_t *s) {
+static void print_assignment(smt2_pp_t *printer, context_t *ctx, named_term_stack_t *s) {
   uint32_t i, n;
   bval_t v;
 
-  pp_open_block(printer, PP_OPEN_VPAR);
+  pp_open_block(&printer->pp, PP_OPEN_VPAR);
   n = s->top;
   for (i=0; i<n; i++) {
     v = context_bool_term_value(ctx, s->data[i].term);
     print_bool_assignment(printer, s->data[i].name, v);
   }
-  pp_close_block(printer, true);
+  pp_close_block(&printer->pp, true);
 }
 
 
@@ -3757,7 +3757,7 @@ static void print_assignment(yices_pp_t *printer, context_t *ctx, named_term_sta
  * - check whether we have a context first
  */
 static void show_assignment(smt2_globals_t *g) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
 
   if (g->ctx == NULL) {
     assert(g->benchmark_mode);
@@ -3770,7 +3770,7 @@ static void show_assignment(smt2_globals_t *g) {
       assert(g->trivially_sat && g->model != NULL);
       init_pretty_printer(&printer, g);
       print_model_assignment(&printer, &g->named_bools, g->model);
-      delete_yices_pp(&printer, true);
+      delete_smt2_pp(&printer, true);
     }
 
   } else {
@@ -3779,7 +3779,7 @@ static void show_assignment(smt2_globals_t *g) {
     case STATUS_SAT:
       init_pretty_printer(&printer, g);
       print_assignment(&printer, g->ctx, &g->named_bools);
-      delete_yices_pp(&printer, true);
+      delete_smt2_pp(&printer, true);
       break;
 
     case STATUS_UNSAT:
@@ -3809,26 +3809,26 @@ static void show_assignment(smt2_globals_t *g) {
  * For every term in a core, print its id.
  * The id is stored in the assumption table and is either a name or (not name)
  */
-static void print_assumption_list(yices_pp_t *printer, assumption_table_t *table, uint32_t n, term_t *a) {
+static void print_assumption_list(smt2_pp_t *printer, assumption_table_t *table, uint32_t n, term_t *a) {
   assumption_t *d;
   uint32_t i;
 
-  pp_open_block(printer, PP_OPEN_PAR);
+  pp_open_block(&printer->pp, PP_OPEN_PAR);
   for (i=0; i<n; i++) {
     d = assumption_table_get(table, a[i]);
     assert(d != NULL);
-    if (! d->polarity) pp_open_block(printer, PP_OPEN_NOT);
+    if (! d->polarity) pp_open_block(&printer->pp, PP_OPEN_NOT);
     smt2_pp_symbol(printer, d->name);
-    if (! d->polarity) pp_close_block(printer, true);
+    if (! d->polarity) pp_close_block(&printer->pp, true);
   }
-  pp_close_block(printer, true);
+  pp_close_block(&printer->pp, true);
 }
 
 /*
  * Print the unsat core if any
  */
 static void show_unsat_core(smt2_globals_t *g) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   assumptions_and_core_t *unsat_core;
 
   if (! g->produce_unsat_cores) {
@@ -3848,7 +3848,7 @@ static void show_unsat_core(smt2_globals_t *g) {
         init_pretty_printer(&printer, g);
         print_assumption_list(&printer, &unsat_core->table,
                               unsat_core->core.size, unsat_core->core.data);
-        delete_yices_pp(&printer, true);
+        delete_smt2_pp(&printer, true);
         break;
 
       case STATUS_IDLE:
@@ -3867,7 +3867,7 @@ static void show_unsat_core(smt2_globals_t *g) {
  * Print the list of unsat assumptions if any
  */
 static void show_unsat_assumptions(smt2_globals_t *g) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   assumptions_and_core_t *unsat_assumptions;
 
   if (!g->produce_unsat_assumptions) {
@@ -3887,7 +3887,7 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
         init_pretty_printer(&printer, g);
         print_assumption_list(&printer, &unsat_assumptions->table,
                               unsat_assumptions->core.size, unsat_assumptions->core.data);
-        delete_yices_pp(&printer, true);
+        delete_smt2_pp(&printer, true);
         break;
 
       case STATUS_IDLE:
@@ -4118,6 +4118,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->benchmark_mode = false;
   g->global_decls = false;
   g->clean_model_format = true;
+  g->bvconst_in_decimal = false;
   g->smtlib_version = 0;       // means no version specified yet
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
@@ -4310,6 +4311,13 @@ void smt2_force_smt2_model_format(void) {
 }
 
 /*
+ * Select to print bit-vector constant in the SMT2 'decimal' format
+ */
+void smt2_force_bvdecimal_format(void) {
+  __smt2_globals.bvconst_in_decimal = true;
+}
+
+/*
  * Bitblast and export to DIMACS
  */
 void smt2_export_to_dimacs(const char *filename) {
@@ -4488,7 +4496,7 @@ void smt2_get_unsat_assumptions(void) {
  * if :produce-models is false. We don't care about this.
  */
 void smt2_get_value(term_t *a, uint32_t n) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   etk_queue_t *queue;
   ivector_t *slices;
   ivector_t *values;
@@ -4516,7 +4524,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
     init_pretty_printer(&printer, &__smt2_globals);
     print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
-    delete_yices_pp(&printer, true);
+    delete_smt2_pp(&printer, true);
     vtbl_empty_queue(&mdl->vtbl); // cleanup the internal queue
     ivector_reset(slices);
     ivector_reset(values);
@@ -6145,7 +6153,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
  * Show the model if any
  */
 void smt2_get_model(void) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   smt2_model_t smt2_mdl;
   model_t *mdl;
 
@@ -6166,7 +6174,7 @@ void smt2_get_model(void) {
       print_smt2_model(&printer, &smt2_mdl);
       delete_smt2_model(&smt2_mdl);
     }
-    delete_yices_pp(&printer, true);
+    delete_smt2_pp(&printer, true);
   }
 }
 
@@ -6261,22 +6269,29 @@ void smt2_reset_assertions(void) {
 
 
 /*
- * Full reset
+ * Full reset: we ensure that all flags and options that are set on
+ * the command line are preserved.
  */
 void smt2_reset_all(void) {
-  bool benchmark, print_success;
+  bool benchmark, print_success, clean_format, bvdecimal;
   uint32_t timeout, verbosity;
 
   benchmark = __smt2_globals.benchmark_mode;
+  clean_format = __smt2_globals.clean_model_format;
+  bvdecimal = __smt2_globals.bvconst_in_decimal;
   timeout = __smt2_globals.timeout;
   print_success = __smt2_globals.print_success;
   verbosity = __smt2_globals.verbosity;
+  
 
   delete_smt2_globals(&__smt2_globals);
   delete_attr_vtbl(&avtbl); // must be done last
   yices_reset_tables();
+
   init_smt2(benchmark, timeout, print_success);
   smt2_set_verbosity(verbosity);
+  if (! clean_format) smt2_force_smt2_model_format();
+  if (bvdecimal) smt2_force_bvdecimal_format();
   smt2_lexer_reset_logic();
 
   report_success();
