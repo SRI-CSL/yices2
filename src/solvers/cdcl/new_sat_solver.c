@@ -346,11 +346,19 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
  * - we also don't want to create large clauses when eliminating
  *   variables, so we don't eliminate x if that would create a
  *   clause of size > res_clause_limit
+ *
+ * - res_extra = bound on additional clauses created
+ *   x is eliminated if that doesn't create more than (n + res_extra - 1) new clauses
+ *   where n = number of clauses that contain x.
+ *
+ * Because of the way we eliminate variables in rounds, reasonable values for res_extra are (2^k -1).
+ * More precisely, all values of res_extra in 2^k -1 <= res_extra < 2^(k+1) - 1 have the same effect as
+ * setting res_extra = 2^k-1.
  */
 #define SUBSUME_SKIP 3000
 #define VAR_ELIM_SKIP 10
 #define RES_CLAUSE_LIMIT 20
-#define RES_EXTRA 0
+#define RES_EXTRA 1
 
 /*
  * Parameters to control simplify
@@ -7489,10 +7497,11 @@ static void pp_eliminate_variable(sat_solver_t *solver, bvar_t x) {
 
 /*
  * Check whether eliminating variable x creates too many clauses.
+ * - delta = limit on clause created
  * - return true if the number of non-trivial resolvent is less than
- *   the number of clauses that contain x
+ *   the number of clauses that contain x + delta
  */
-static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) {
+static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x, uint32_t delta) {
   watch_t *w1, *w2;
   uint32_t i1, i2, n1, n2;
   cidx_t c1, c2;
@@ -7505,8 +7514,8 @@ static bool pp_variable_worth_eliminating(const sat_solver_t *solver, bvar_t x) 
 
   if (w1 == NULL || w2 == NULL) return true;
 
-  // max number of new clauses = number of clauses that contain x + extra
-  n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)] + solver->params.res_extra;
+  // max number of new clauses = number of clauses that contain x + delta
+  n = solver->occ[pos_lit(x)] + solver->occ[neg_lit(x)] + delta - 1;
   new_n = 0;
   len = 0; // Prevents a GCC warning
 
@@ -7550,10 +7559,9 @@ static void collect_elimination_candidates(sat_solver_t *solver) {
 
 
 /*
- * Eliminate variables: iterate over all variables in the elimination
- * heap.
+ * One round of variable elimination, with a given bound delta
  */
-static void process_elimination_candidates(sat_solver_t *solver) {
+static void elimination_round(sat_solver_t *solver, uint32_t delta) {
   uint32_t pp, nn;
   bvar_t x;
   bool cheap;
@@ -7578,7 +7586,7 @@ static void process_elimination_candidates(sat_solver_t *solver) {
       continue;
     }
 
-    if (pp_variable_worth_eliminating(solver, x)) {
+    if (pp_variable_worth_eliminating(solver, x, delta)) {
       pp_eliminate_variable(solver, x);
       cheap = (pp == 1 || nn == 1 || (pp == 2 && nn == 2));
       solver->stats.pp_cheap_elims += cheap;
@@ -7586,6 +7594,27 @@ static void process_elimination_candidates(sat_solver_t *solver) {
       // check for conflicts + process unit/pure literals
       if (solver->has_empty_clause || !pp_empty_queue(solver)) return;
     }
+  }
+}
+
+/*
+ * Eliminate variables: iterate over all variables in the elimination
+ * heap
+ * - if incremental is true, do this in several rounds to try to eliminate
+ *   cheaper variables first.
+ * - otherwise do only one round of elimnation
+ */
+static void process_elimination_candidates(sat_solver_t *solver, bool incremental) {
+  uint32_t delta;
+
+  if (incremental) {
+    elimination_round(solver, 0);
+    for (delta = 1; delta <= solver->params.res_extra; delta <<= 1) {
+      collect_elimination_candidates(solver);
+      elimination_round(solver, delta);
+    }
+  } else {
+    elimination_round(solver, solver->params.res_extra);
   }
 }
 
@@ -7892,6 +7921,7 @@ static bool nsat_cheap_preprocess(sat_solver_t *solver) {
  */
 static void nsat_preprocess(sat_solver_t *solver) {
   uint32_t max_rounds;
+  bool first_round;
 
   if (solver->verbosity >= 2) fprintf(stderr, "c Preprocessing\n");
 
@@ -7906,12 +7936,14 @@ static void nsat_preprocess(sat_solver_t *solver) {
 
   assert(solver->scan_index == 0);
   max_rounds = 20;
+  first_round = true;
   do {
     if (solver->verbosity >= 4) fprintf(stderr, "c Elimination\n");
-    process_elimination_candidates(solver);
+    process_elimination_candidates(solver, first_round);
     if (solver->verbosity >= 4) fprintf(stderr, "c Subsumption\n");
     if (solver->has_empty_clause || !pp_subsumption(solver)) goto done;
     max_rounds --;
+    first_round = false;
   } while (max_rounds > 0 && !elim_heap_is_empty(solver));
 
   fprintf(stderr, "c Elim/subsumption: %"PRIu32" rounds\n", 20 - max_rounds);
