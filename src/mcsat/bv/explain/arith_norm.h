@@ -114,7 +114,7 @@ term_t arith_normalise(arith_norm_t* norm, term_t t){
 static inline
 void init_arith_norm(arith_norm_t* norm){
   init_pmap(&norm->var_cache, 0);
-  norm->norm_cache_size = 2048;
+  norm->norm_cache_size = 204800;
   norm->norm_cache = safe_malloc(sizeof(arith_analyse_t)*norm->norm_cache_size);
   for (uint32_t i = 0; i < norm->norm_cache_size; i++){
     norm->norm_cache[i].term = NULL_TERM;
