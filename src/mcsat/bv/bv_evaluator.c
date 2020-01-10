@@ -735,8 +735,19 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   }
   }
 
-  // Is t a variable different than y?
   uint32_t w     = bv_term_bitsize(terms, t);
+
+  if (visited != NULL){
+    if (visited->val == 0) // The term has no variables at all (maybe doesn't happen in yices)
+      return -1;
+    if (visited->val < y) // Do we know its top variable and is it < y ?
+      return w;
+    int_hmap2_rec_t* bottom = int_hmap2_find(&csttrail->fv_cache, t, 0); // Get bottom var of t
+    if (bottom->val > y) // Do we know its bottom variable and is it > y ?
+      return w;
+  }
+
+  // Is t a variable different than y?
   variable_t var = variable_db_get_variable_if_exists(var_db, t); // term as a variable
 
   // If ((var != variable_null) && int_hset_member(&csttrail->free_var, var))
@@ -753,16 +764,6 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     return w;
   }
 
-  /* if (visited != NULL){ */
-  /*   if (visited->val == 0) // The term has no variables at all (maybe doesn't happen in yices) */
-  /*     return -1; */
-  /*   if (visited->val > y) // Do we know its top variable and is it < y ? */
-  /*     return w; */
-  /*   int_hmap2_rec_t* bottom = int_hmap2_find(&csttrail->fv_cache, t, 0); // Get bottom var of t */
-  /*   if (bottom->val > y) // Do we know its bottom variable and is it > y ? */
-  /*     return w; */
-  /* } */
-  
   // Now we look into whether the answer is memoised
   int_hmap2_rec_t* registered = int_hmap2_find(&csttrail->fv_cache, t, (3*y) + csttrail->optim);
   if (registered != NULL) {
