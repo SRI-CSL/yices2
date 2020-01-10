@@ -278,16 +278,9 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
 
   assert(is_pos_term(t));
 
-  // Check if cached
-  if (bv_evaluator_get_term_cache(eval, t, out_value, eval_level)) {
-    return;
-  }
-
   term_table_t* terms = eval->ctx->terms;
-  const variable_db_t* var_db = eval->ctx->var_db;
-  const mcsat_trail_t* trail = eval->ctx->trail;
+  term_kind_t t_kind  = term_kind(terms, t);
 
-  term_kind_t t_kind = term_kind(terms, t);
   switch (t_kind) {
   case CONSTANT_TERM:
     init_bvconstant(out_value);
@@ -299,21 +292,49 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
     } else {
       assert(false); // Bool constants only
     }
-    break;
+    return;
   case BV_CONSTANT: {
     bvconst_term_t* t_desc = bvconst_term_desc(terms, t);
     init_bvconstant(out_value);
     bvconstant_set_bitsize(out_value, t_desc->bitsize);
     bvconstant_copy(out_value, t_desc->bitsize, t_desc->data);
-    break;
+    return;
   }
   case BV64_CONSTANT: {
     bvconst64_term_t* t_desc = bvconst64_term_desc(terms, t);
     init_bvconstant(out_value);
     bvconstant_set_bitsize(out_value, t_desc->bitsize);
     bvconstant_copy64(out_value, t_desc->bitsize, t_desc->value);
-    break;
+    return;
   }
+  default: { // Variables and foreign terms that are assigned in trail
+    // Get the value from trail
+    const variable_db_t* var_db = eval->ctx->var_db;
+    variable_t t_x = variable_db_get_variable_if_exists(var_db, t);
+    if (t_x != variable_null) {
+      const mcsat_trail_t* trail  = eval->ctx->trail;
+      const mcsat_value_t* t_value = trail_get_value(trail, t_x);
+      assert(t_value->type == VALUE_BV);
+      // Variables and foreign terms
+      init_bvconstant(out_value);
+      uint32_t t_bitsize = term_bitsize(terms, t);
+      bvconstant_copy(out_value, t_bitsize, t_value->bv_value.data);
+      // Set the level
+      *eval_level = trail_get_level(trail, t_x);
+      return;  }
+  }
+  }
+  
+  // Check if cached
+  if (bv_evaluator_get_term_cache(eval, t, out_value, eval_level)) {
+    return;
+  }
+
+  switch (t_kind) {
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT:
+    assert(false); // treated above.
   case BV_ARRAY:
     bv_evaluator_run_bv_array(eval, t, out_value, eval_level);
     break;
@@ -412,19 +433,8 @@ void bv_evaluator_run_term(bv_evaluator_t* eval, term_t t, bvconstant_t* out_val
     bvconstant_normalize(out_value);
     break;
   }
-  default: { // Variables and foreign terms that are assigned in trail
-    // Get the value from trail
-    variable_t t_x = variable_db_get_variable_if_exists(var_db, t);
-    assert(t_x != variable_null);
-    const mcsat_value_t* t_value = trail_get_value(trail, t_x);
-    assert(t_value->type == VALUE_BV);
-    // Variables and foreign terms
-    init_bvconstant(out_value);
-    uint32_t t_bitsize = term_bitsize(terms, t);
-    bvconstant_copy(out_value, t_bitsize, t_value->bv_value.data);
-    // Set the level
-    *eval_level = trail_get_level(trail, t_x);
-    break;
+  default: {
+    assert(false);
   }
   }
 
@@ -449,14 +459,22 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
 
   assert(is_pos_term(t));
 
-  // Check if cached
   bool atom_value;
-  if (bv_evaluator_get_atom_cache(eval, t, &atom_value, eval_level)) {
+  term_table_t* terms = eval->ctx->terms;
+  term_kind_t t_kind = term_kind(terms, t);
+
+  if (t_kind == CONSTANT_TERM) {
+    assert(t == true_term || t == false_term);
+    *eval_level = 0;
+    atom_value = (t == true_term);
+    /* bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level); */
     return atom_value;
   }
 
-  term_table_t* terms = eval->ctx->terms;
-  term_kind_t t_kind = term_kind(terms, t);
+  // Check if cached
+  if (bv_evaluator_get_atom_cache(eval, t, &atom_value, eval_level)) {
+    return atom_value;
+  }
 
   if (t_kind == UNINTERPRETED_TERM || t_kind == ITE_TERM || t_kind == ITE_SPECIAL || t_kind == APP_TERM) {
     // Get the value from trail
@@ -475,14 +493,6 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
     uint32_t bit_index = desc->idx;
     atom_value = bvconst_tst_bit(value.data, bit_index);
     delete_bvconstant(&value);
-    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
-    return atom_value;
-  }
-
-  if (t_kind == CONSTANT_TERM) {
-    assert(t == true_term || t == false_term);
-    *eval_level = 0;
-    atom_value = (t == true_term);
     bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
     return atom_value;
   }
