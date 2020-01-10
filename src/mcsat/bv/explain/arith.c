@@ -283,8 +283,10 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
 
   ts = arith_analyse(&exp->norm,temp.var);
   assert(arith_is_zero(terms, ts->eval));
-  assert(arith_is_zero(terms, ts->garbage));
-  assert(ts->var == temp.var);
+  if (!arith_is_zero(terms, ts->garbage)
+      || ts->var != temp.var)
+    return NULL;
+
   assert(ts->length > 0); // Otherwise t would be evaluable (already checked)
   assert(ts->base != NULL_TERM);
   assert(!ts->intros);    // Should not have introduced new constructs

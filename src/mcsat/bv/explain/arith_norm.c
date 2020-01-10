@@ -50,6 +50,8 @@ void print_analyse(plugin_context_t* ctx, arith_analyse_t*  analysis){
     fprintf(out, "NO_BASE,");
   fprintf(out, " with evaluable = ");    
   ctx_trace_term(ctx, analysis->eval);
+  fprintf(out, "garbage = ");    
+  ctx_trace_term(ctx, analysis->garbage);
   fprintf(out, "and var = ");    
   ctx_trace_term(ctx, analysis->var);
 }
