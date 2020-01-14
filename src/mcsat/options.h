@@ -19,6 +19,8 @@
 #ifndef MCSAT_OPTIONS_H_
 #define MCSAT_OPTIONS_H_
 
+#include "utils/int_vectors.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -31,10 +33,12 @@ typedef struct mcsat_options_s {
   bool nra_bound;
   int32_t nra_bound_min;
   int32_t nra_bound_max;
+  int32_t bv_var_size;
+  // ordering for forcing assignment order
+  ivector_t* var_order;
 } mcsat_options_t;
 
 /** Initialize options with default values. */
 extern void init_mcsat_options(mcsat_options_t *opts);
-
 
 #endif /* MCSAT_OPTIONS_H_ */

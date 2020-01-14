@@ -22,7 +22,10 @@
 #include <stdbool.h>
 #include <poly/value.h>
 
+#include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "terms/rationals.h"
+#include "terms/bv_constants.h"
 #include "model/concrete_values.h"
 
 typedef enum {
@@ -33,7 +36,9 @@ typedef enum {
   /** A rational */
   VALUE_RATIONAL,
   /** A value from the libpoly library */
-  VALUE_LIBPOLY
+  VALUE_LIBPOLY,
+  /** A bitvector value */
+  VALUE_BV
 } mcsat_value_type_t;
 
 typedef struct value_s {
@@ -42,6 +47,7 @@ typedef struct value_s {
     bool b;
     rational_t q;
     lp_value_t lp_value;
+    bvconstant_t bv_value;
   };
 } mcsat_value_t;
 
@@ -66,11 +72,38 @@ void mcsat_value_construct_rational(mcsat_value_t *value, const rational_t *q);
 /** Construct a value from the libpoly value */
 void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_value);
 
+/** Construct a bv value. Passing NULL for bv_value will leave the bvconstant default-initialized. */
+void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv_value);
+
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
 
+/** Construct a value from a constant term */
+void mcsat_value_construct_from_constant_term(mcsat_value_t* value, term_table_t* terms, term_t c);
+
+/** Construct a default value (VALUE_NONE) */
+mcsat_value_t* mcsat_value_new_default();
+
+/** Construct and allocate a boolean */
+mcsat_value_t* mcsat_value_new_bool(bool b);
+
+/** Construct and allcoate a rational */
+mcsat_value_t* mcsat_value_new_rational(const rational_t *q);
+
+/** Construct and allocate a value from the libpoly value */
+mcsat_value_t* mcsat_value_new_lp_value(const lp_value_t *lp_value);
+
+/** Construct and allocate a bv value */
+mcsat_value_t* mcsat_value_new_bv_value(const bvconstant_t *bv_value);
+
+/** Construct and allocate a copy */
+mcsat_value_t* mcsat_value_new_copy(const mcsat_value_t *from);
+
 /** Destruct the value (removes any data and sets back to VALUE_NONE) */
 void mcsat_value_destruct(mcsat_value_t *value);
+
+/** Delete the value */
+void mcsat_value_delete(mcsat_value_t *value);
 
 /** Assign a value */
 void mcsat_value_assign(mcsat_value_t *value, const mcsat_value_t *from);
@@ -85,7 +118,10 @@ uint32_t mcsat_value_hash(const mcsat_value_t *v);
 void mcsat_value_print(const mcsat_value_t *value, FILE *out);
 
 /** Convert a basic value to yices model value. Types is passed in to enforce a type (e.g. for UF) */
-value_t mcsat_value_to_value(mcsat_value_t *value, type_table_t *types, type_t type, value_table_t *vtbl);
+value_t mcsat_value_to_value(const mcsat_value_t *value, type_table_t *types, type_t type, value_table_t *vtbl);
+
+/** Convert a basic value to a term */
+term_t mcsat_value_to_term(const mcsat_value_t *value, term_manager_t* tm);
 
 /** Returns true if the value is 0 */
 bool mcsat_value_is_zero(const mcsat_value_t *value);

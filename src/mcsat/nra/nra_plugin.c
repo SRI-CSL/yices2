@@ -59,13 +59,13 @@ bool nra_plugin_has_assignment(const nra_plugin_t* nra, variable_t x) {
 static
 void nra_plugin_stats_init(nra_plugin_t* nra) {
   // Add statistics
-  nra->stats.propagations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::propagations");
-  nra->stats.conflicts = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts");
-  nra->stats.conflicts_int = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::conflicts_int");
-  nra->stats.constraints_attached = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_attached");
-  nra->stats.evaluations = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::evaluations");
-  nra->stats.constraint_regular = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_regular");
-  nra->stats.constraint_root = statistics_new_uint32(nra->ctx->stats, "mcsat::nra::constraints_root");
+  nra->stats.propagations = statistics_new_int(nra->ctx->stats, "mcsat::nra::propagations");
+  nra->stats.conflicts = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts");
+  nra->stats.conflicts_int = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_int");
+  nra->stats.constraints_attached = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_attached");
+  nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
+  nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
+  nra->stats.constraint_root = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_root");
 }
 
 static
@@ -155,8 +155,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, INT_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
-  init_term_manager(&nra->tm, nra->ctx->terms);
-  nra->tm.simplify_ite = false;
 
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
@@ -210,7 +208,6 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_assignment_delete(nra->lp_data.lp_assignment);
 
   delete_rba_buffer(&nra->buffer);
-  delete_term_manager(&nra->tm);
 }
 
 static
@@ -428,7 +425,7 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
 static
 void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
 
-  uint32_t i, j;
+  uint32_t i;
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
   term_table_t* terms = nra->ctx->terms;
 
@@ -558,9 +555,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     for (i = 0; i < t_variables_list->size; ++ i) {
       variable_t x = t_variables_list->data[i];
       uint32_t deg = int_mset_contains(&t_variables, x);
-      for (j = 0; j < deg; ++ j) {
-        nra->ctx->bump_variable(nra->ctx, x);
-      }
+      nra->ctx->bump_variable_n(nra->ctx, x, deg);
     }
 
     // Sort variables by trail index
@@ -644,7 +639,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             rational_t q;
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_min);
-            term_t min = mk_arith_constant(&nra->tm, &q);
+            term_t min = mk_arith_constant(nra->ctx->tm, &q);
             term_t min_bound = _o_yices_arith_geq_atom(nra->global_bound_term, min);
             prop->lemma(prop, min_bound);
             q_clear(&q);
@@ -653,7 +648,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             rational_t q;
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_max);
-            term_t max = mk_arith_constant(&nra->tm, &q);
+            term_t max = mk_arith_constant(nra->ctx->tm, &q);
             term_t max_bound = _o_yices_arith_leq_atom(nra->global_bound_term, max);
             prop->lemma(prop, max_bound);
             q_clear(&q);
@@ -1340,14 +1335,14 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     // Yices versions of the floor
     rational_t v_floor_rat;
     rational_construct_from_lp_integer(&v_floor_rat, &v_floor);
-    term_t v_floor_term = mk_arith_constant(&nra->tm, &v_floor_rat);
+    term_t v_floor_term = mk_arith_constant(nra->ctx->tm, &v_floor_rat);
 
     // Remove temp
     lp_integer_destruct(&v_floor);
     q_clear(&v_floor_rat);
 
     // The constraint
-    term_t x_leq_floor = mk_arith_leq(&nra->tm, x_term, v_floor_term);
+    term_t x_leq_floor = mk_arith_leq(nra->ctx->tm, x_term, v_floor_term);
     int_mset_add(&to_resolve, x_leq_floor);
 
     // Get the conflict
@@ -1364,14 +1359,14 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     // Yices versions of the ceiling
     rational_t v_ceil_rat;
     rational_construct_from_lp_integer(&v_ceil_rat, &v_ceil);
-    term_t v_ceil_term = mk_arith_constant(&nra->tm, &v_ceil_rat);
+    term_t v_ceil_term = mk_arith_constant(nra->ctx->tm, &v_ceil_rat);
 
     // Remove temp
     lp_integer_destruct(&v_ceil);
     q_clear(&v_ceil_rat);
 
     // The constraint
-    term_t x_geq_ceil = mk_arith_geq(&nra->tm, x_term, v_ceil_term);
+    term_t x_geq_ceil = mk_arith_geq(nra->ctx->tm, x_term, v_ceil_term);
     int_mset_add(&to_resolve, x_geq_ceil);
 
     // Try it out
@@ -1480,28 +1475,20 @@ static
 bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
-  if (value == NULL) {
+  // Get all the variables and make sure they are all assigned.
+  nra_plugin_get_constraint_variables(nra, t, vars);
 
-    // Get all the variables and make sure they are all assigned.
-    nra_plugin_get_constraint_variables(nra, t, vars);
-
-    // Check if the variables are assigned
-    ivector_t* var_list = int_mset_get_list(vars);
-    size_t i = 0;
-    for (i = 0; i < var_list->size; ++ i) {
-      if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
-        int_mset_clear(vars);
-        return false;
-      }
+  // Check if the variables are assigned
+  ivector_t* var_list = int_mset_get_list(vars);
+  size_t i = 0;
+  for (i = 0; i < var_list->size; ++ i) {
+    if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
+      int_mset_clear(vars);
+      return false;
     }
-
-    // All variables assigned
-    return true;
-
-  } else {
-    assert(false);
   }
 
+  // All variables assigned
   return true;
 }
 

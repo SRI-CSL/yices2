@@ -140,6 +140,8 @@
  * - arith_name: arithmetic solver to use (option --arith-solver=xxx)
  * - mode_name:  option --mode=xxx
  *   by default, these are NULL
+ * - mcsat_requested: option --mscat (this forces use of the MC-SAT solver
+ *   for logic where MC-SAT is not the default).
  *
  * CONTEXT CONFIGURATION
  * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
@@ -168,6 +170,7 @@ static bool timeout_initialized;
 static char *logic_name;
 static char *arith_name;
 static char *mode_name;
+static bool mcsat_requested;
 
 static smt_logic_t logic_code;
 static arith_code_t arith_code;
@@ -259,6 +262,7 @@ enum {
   logic_option,
   arith_option,
   mode_option,
+  mcsat_flag,
   version_flag,
   help_flag,
   print_success_flag,
@@ -271,6 +275,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "logic", '\0', MANDATORY_STRING, logic_option },
   { "arith-solver", '\0', MANDATORY_STRING, arith_option },
   { "mode", '\0', MANDATORY_STRING, mode_option },
+  { "mcsat", '\0', FLAG_OPTION, mcsat_flag },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "print-success", '\0', FLAG_OPTION, print_success_flag },
@@ -314,6 +319,7 @@ static void print_help(char *progname) {
          "  --mode=<mode>             Select the usage mode\n"
          "                             <mode> maybe 'one-shot' or 'multi-checks' or 'interactive'\n"
 	 "                                    or 'push-pop' or 'ef'\n"
+	 "  --mcsat                   Force use of the MC-SAT solver for logics where MC-SAT is not the default\n"
 	 "\n"
 	 "The mode are as follows:\n"
 	 "\n"
@@ -400,6 +406,7 @@ static void process_command_line(int argc, char *argv[]) {
   logic_name = NULL;
   arith_name = NULL;
   mode_name = NULL;
+  mcsat_requested = false;
   verbosity = 0;
   print_success = false;
   tracer = NULL;
@@ -469,6 +476,10 @@ static void process_command_line(int argc, char *argv[]) {
         }
         break;
 
+      case mcsat_flag:
+	mcsat_requested = true;
+	break;
+
       case version_flag:
         print_version(stdout);
         goto quick_exit;
@@ -504,6 +515,18 @@ static void process_command_line(int argc, char *argv[]) {
 
  done:
   /*
+   * Fail if --mcsat is requested but is not available.
+   */
+#if !HAVE_MCSAT
+  if (mcsat_requested) {
+    fprintf(stderr, "%s: options --mcsat is not supported; %s was not compiled with mcsat support\n",
+	    parser.command_name, parser.command_name);
+    exit(YICES_EXIT_ERROR);
+  }
+#endif
+
+
+  /*
    * convert logic and arith solver codes to context architecture + mode
    * also set iflag and qflag
    */
@@ -515,6 +538,10 @@ static void process_command_line(int argc, char *argv[]) {
      * If a logic is specified, we check that it's supported by EF.
      * Then we store the corresponding qf_fragment in logic_code.
      */
+    if (mcsat_requested) {
+      fprintf(stderr, "%s: the mc-sat solver does not support exists/forall solver\n", parser.command_name);
+      goto bad_usage;
+    }
     if (logic_code == SMT_UNKNOWN) {
       if (arith_code == ARITH_FLOYD_WARSHALL) {
 	fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
@@ -537,9 +564,28 @@ static void process_command_line(int argc, char *argv[]) {
       qflag = true;
     }
 
+  } else if (mcsat_requested) {
+    /*
+     * MC-SAT
+     */
+    switch (logic_code) {
+    case SMT_UNKNOWN:
+      break;
+
+    default:
+      if (! logic_is_supported_by_mcsat(logic_code)) {
+	fprintf(stderr, "%s: logic %s is not supported by the mc-sat solver\n", parser.command_name, logic_name);
+	exit(YICES_EXIT_ERROR);
+      }
+    }
+
+    arch = CTX_ARCH_MCSAT;
+    iflag = false;
+    qflag = false;
+
   } else {
     /*
-     * Not EF
+     * Not EF, mcsat not requested
      */
     switch (logic_code) {
     case SMT_UNKNOWN:
@@ -641,7 +687,7 @@ static void process_command_line(int argc, char *argv[]) {
       }
     }
     if (arch == CTX_ARCH_MCSAT && mode_code == CTX_MODE_INTERACTIVE) {
-      fprintf(stderr, "%s: the non-linear solver does not support mode='interactive'\n", parser.command_name);
+      fprintf(stderr, "%s: the mc-sat solver does not support mode='interactive'\n", parser.command_name);
       goto bad_usage;
     }
   }

@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "utils/int_vectors.h"
 #include "api/search_parameters.h"
 #include "exists_forall/ef_parameters.h"
 
@@ -100,6 +101,8 @@ typedef enum yices_param {
   PARAM_MCSAT_NRA_BOUND,
   PARAM_MCSAT_NRA_BOUND_MIN,
   PARAM_MCSAT_NRA_BOUND_MAX,
+  PARAM_MCSAT_BV_VAR_SIZE,
+  PARAM_MCSAT_VAR_ORDER,
   // error
   PARAM_UNKNOWN
 } yices_param_t;
@@ -118,6 +121,7 @@ typedef enum param_val_enum {
   PARAM_VAL_TRUE,
   PARAM_VAL_RATIONAL,
   PARAM_VAL_SYMBOL,
+  PARAM_VAL_TERMS,
   PARAM_VAL_ERROR,
 } param_val_enum_t;
 
@@ -126,6 +130,7 @@ typedef struct param_val_s {
   union {
     rational_t *rational;
     char *symbol;
+    ivector_t *terms;
   } val;
 } param_val_t;
 
@@ -173,6 +178,7 @@ extern bool param_val_to_float(const char *name, const param_val_t *v, double *v
 extern bool param_val_to_posfloat(const char *name, const param_val_t *v, double *value, char **reason);
 extern bool param_val_to_ratio(const char *name, const param_val_t *v, double *value, char **reason);
 extern bool param_val_to_factor(const char *name, const param_val_t *v, double *value, char **reason);
+extern bool param_val_to_terms(const char *name, const param_val_t *v, ivector_t **value, char **reason);
 
 /*
  * Special case: branching mode

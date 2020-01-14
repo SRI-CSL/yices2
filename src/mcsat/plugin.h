@@ -50,8 +50,14 @@ typedef enum {
  */
 struct plugin_context_s {
 
+  /** Index of the plugin */
+  uint32_t plugin_id;
+
   /** Variable database */
   variable_db_t* var_db;
+
+  /** The term manager */
+  term_manager_t* tm;
 
   /** Term table */
   term_table_t* terms;
@@ -91,6 +97,9 @@ struct plugin_context_s {
 
   /** Bump the heuristic value of the given variable */
   void (*bump_variable) (plugin_context_t* self, variable_t x);
+
+  /** Bump the heuristic value of the given variable n times */
+  void (*bump_variable_n) (plugin_context_t* self, variable_t x, uint32_t n);
 
   /** Compare the heuristic values of the given variables */
   int (*cmp_variables) (plugin_context_t* self, variable_t x, variable_t y);
@@ -256,7 +265,7 @@ struct plugin_s {
   void (*gc_mark) (plugin_t* plugin, gc_info_t* gc);
 
   /**
-   * Use the gc info to collect all the useless stuff.
+   * Use the gc info to collect all the useful stuff.
    * @param gc the set of variables marked to keep
    */
   void (*gc_sweep) (plugin_t* plugin, const gc_info_t* gc_vars);

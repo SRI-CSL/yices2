@@ -1,0 +1,15 @@
+(set-logic QF_UFBV)
+(declare-fun p0 ((_ BitVec 5) (_ BitVec 15)) Bool)
+(assert 
+  (let ((e1 (_ bv1 2))) 
+  (let ((e3 (_ bv1 1))) 
+  (let ((e5 (ite (p0 (_ bv0 5) (_ bv0 15)) (_ bv1 1) (_ bv0 1)))) 
+  (let ((e8 (bvsrem ((_ zero_extend 1) e5) e1))) 
+  (let ((e12 (p0 ((_ sign_extend 4) e3) ((_ zero_extend 13) e8)))) 
+  (let ((e44 e12)) 
+  (let ((e46 (xor false e44))) 
+  (let ((e47 e46)) 
+  (let ((e48 e47)) 
+  (let ((e49 e48)) e49)))))))))))
+(check-sat)
+

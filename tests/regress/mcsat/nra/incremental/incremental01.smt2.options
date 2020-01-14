@@ -1,1 +1,1 @@
---incremental
+--incremental --trace mcsat::model::check

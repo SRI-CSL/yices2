@@ -88,7 +88,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
-
 /*
  * Set the tracer for the solver.
  */

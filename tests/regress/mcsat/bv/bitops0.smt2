@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(declare-fun _substvar_42_ () (_ BitVec 5))
+(declare-fun _substvar_44_ () (_ BitVec 5))
+(declare-fun _substvar_41_ () (_ BitVec 5))
+(assert (let ( (?v_1 (bvadd _substvar_44_ _substvar_42_))) (not (=> (= ?v_1 (bvadd _substvar_44_ _substvar_41_)) (= _substvar_42_ _substvar_41_)))))
+(check-sat)
+(exit)

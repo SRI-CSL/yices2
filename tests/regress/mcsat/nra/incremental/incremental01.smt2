@@ -7,7 +7,6 @@
 (push 1) 
 (assert (<= (+ (* x x) (* y y)) 1))
 (check-sat)
-(get-model)
 
 ;; UNSAT
 (push 1)
@@ -17,11 +16,9 @@
 ;; SAT
 (pop 1)
 (check-sat)
-(get-model)
 
 ;; SAT
 (pop 1)
 (check-sat)
-(get-model)
 
 (exit)

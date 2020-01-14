@@ -53,7 +53,7 @@ typedef struct {
   /** Level of marking */
   uint32_t level;
 
-  /** Count of relocated objects at this level */
+  /** Start of relocated objects at this level */
   uint32_t marked_first;
 
 } gc_info_t;

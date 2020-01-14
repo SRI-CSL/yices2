@@ -28,9 +28,6 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
-  /** A term manager */
-  term_manager_t tm;
-
   /** Exception handler */
   jmp_buf* exception;
 
@@ -41,13 +38,9 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite->ctx = ctx;
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
   ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
-  init_term_manager(&ite->tm, ctx->terms);
-  ite->tm.simplify_ite = false;
 }
 
 void ite_plugin_destruct(plugin_t* plugin) {
-  ite_plugin_t* ite = (ite_plugin_t*) plugin;
-  delete_term_manager(&ite->tm);
 }
 
 void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
@@ -72,9 +65,9 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
   term_t t_false = ite_desc->arg[2];
 
   // Make the lemmas
-  term_manager_t* tm = &ite_plugin->tm;
-  term_t eq_true = arith_bineq_atom(ite_plugin->ctx->terms, term, t_true);
-  term_t eq_false = arith_bineq_atom(ite_plugin->ctx->terms, term, t_false);
+  term_manager_t* tm = ite_plugin->ctx->tm;
+  term_t eq_true = mk_eq(tm, term, t_true);
+  term_t eq_false = mk_eq(tm, term, t_false);
   term_t imp1 = mk_implies(tm, c, eq_true);
   term_t imp2 = mk_implies(tm, opposite_term(c), eq_false);
   term_t disj = mk_binary_or(tm, eq_true, eq_false);

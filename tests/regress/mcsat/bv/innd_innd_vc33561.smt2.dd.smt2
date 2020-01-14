@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun _substvar_81_ () (_ BitVec 32))
+(declare-fun _substvar_101_ () (_ BitVec 64))
+(assert (= _substvar_101_ ((_ sign_extend 32) _substvar_81_)))
+(assert (= true (bvult (_ bv0 64) _substvar_101_)))
+(assert (= true (bvsle _substvar_81_ (_ bv0 32))))
+(check-sat)
+(exit)

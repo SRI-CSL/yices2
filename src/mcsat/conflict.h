@@ -53,12 +53,16 @@ typedef struct mcsat_evaluator_interface_s mcsat_evaluator_interface_t;
  * Object to help evaluate terms and constraints.
  */
 struct mcsat_evaluator_interface_s {
+
   /**
-   * Check if the term evaluates and return the variables responsible
-   * for the evaluation. If value != NULL, and the term evaluates, the output value
-   * should be assigned to it.
+   * Check if the term evaluates. Regardless if the term evaluates or not,
+   * the function returns the full set of variables that are considered as
+   * the assignment frontier for the evaluation.
+   *
+   * If value != NULL, and the term evaluates, the output value should be
+   * assigned to it.
    */
-  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* top_level_vars, mcsat_value_t* value);
+  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, const mcsat_value_t* value);
 };
 
 /**
@@ -104,8 +108,11 @@ typedef struct conflict_s {
   /** The trail */
   mcsat_trail_t* trail;
 
-  /** The terms for debugging */
+  /** The terms table */
   term_table_t* terms;
+
+  /** Term manager */
+  term_manager_t* tm;
 
   /** The tracer for debugging */
   tracer_t* tracer;
@@ -121,7 +128,7 @@ typedef struct conflict_s {
  */
 void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
-    term_table_t* terms, tracer_t* tracer);
+    term_manager_t* tm, tracer_t* tracer);
 
 /** Destruct the conflict */
 void conflict_destruct(conflict_t* conflict);
@@ -158,5 +165,18 @@ ivector_t* conflict_get_literals(conflict_t* conflict);
 
 /** Get all the literals of the given variable */
 void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* literals);
+
+/** Get count of all the literals of the given variable */
+uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var);
+
+/**
+ * Get count of all the literals of the given variable that are different
+ * from var and !var.
+ */
+term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var);
+
+/** Run Yices to check that the conflict is a valid statement */
+void conflict_check(conflict_t* conflict);
+
 
 #endif

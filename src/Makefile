@@ -280,6 +280,7 @@ core_src_c := \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
 	utils/object_stores.c \
+	utils/pair_hash_map.c \
 	utils/pair_hash_map2.c \
 	utils/pointer_vectors.c \
 	utils/ptr_array_sort2.c \
@@ -323,13 +324,16 @@ mcsat_src_c := \
 	mcsat/trail.c \
 	mcsat/conflict.c \
 	mcsat/gc.c \
+	mcsat/eq/equality_graph.c \
+	mcsat/eq/merge_queue.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
+	mcsat/utils/value_hash_map.c \
+	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
+	mcsat/utils/substitution.c \
 	mcsat/uf/uf_plugin.c \
-	mcsat/uf/app_reps.c \
-	mcsat/uf/uf_feasible_set_db.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \
@@ -341,6 +345,19 @@ mcsat_src_c := \
 	mcsat/nra/poly_constraint.c \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
+	mcsat/bv/bv_plugin.c \
+	mcsat/bv/bv_bdd_manager.c \
+	mcsat/bv/bv_evaluator.c \
+	mcsat/bv/bv_explainer.c \
+	mcsat/bv/bv_feasible_set_db.c \
+	mcsat/bv/bdd_computation.c \
+	mcsat/bv/explain/arith_utils.c \
+	mcsat/bv/explain/arith_norm.c \
+	mcsat/bv/explain/arith_intervals.c \
+	mcsat/bv/explain/arith.c \
+	mcsat/bv/explain/eq_ext_con.c \
+	mcsat/bv/explain/full_bv_sat.c \
+	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
@@ -413,7 +430,6 @@ extra_src_c := \
 	terms/arith_buffers.c \
 	utils/command_line.c \
 	utils/memsize.c \
-	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
 	utils/timeout.c \

@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(declare-fun x0 () (_ BitVec 32))
+(declare-fun x1 () (_ BitVec 32))
+(assert (= (_ bv0 32) (bvmul x1 (_ bv4294959923 32))))
+(assert (= (_ bv0 32) (bvmul x0 (_ bv4294951227 32))))
+(check-sat)
+(exit)

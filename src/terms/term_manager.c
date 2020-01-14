@@ -69,6 +69,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   init_ivector(&manager->vector0, 10);
 
   manager->simplify_ite = true;
+  manager->simplify_bveq1 = true;
 }
 
 
@@ -667,17 +668,18 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
    * Try simplifications.  We know that t1 and t2 are not both constant
    * (because disequal_bitvector_terms returned false).
    */
-  aux = simplify_bveq(tbl, t1, t2);
-  if (aux != NULL_TERM) {
-    // Simplification worked
-    return aux;
+  if (manager->simplify_bveq1) {
+    aux = simplify_bveq(tbl, t1, t2);
+    if (aux != NULL_TERM) {
+      // Simplification worked
+      return aux;
+    }
   }
-
   /*
    * Special case: for bit-vector of size 1
    * - convert to boolean equality
    */
-  if (term_bitsize(tbl, t1) == 1 &&
+  if (manager->simplify_bveq1 && term_bitsize(tbl, t1) == 1 &&
       term_kind(tbl, t1) == BV_ARRAY && term_kind(tbl, t2) == BV_ARRAY) {
     assert(term_bitsize(tbl, t2) == 1);
     return mk_bveq_arrays1(manager, t1, t2);

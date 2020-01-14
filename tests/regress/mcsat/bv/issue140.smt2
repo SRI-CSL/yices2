@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(declare-fun x0 () (_ BitVec 8))
+(declare-fun x1 () (_ BitVec 1))
+(declare-fun x2 () (_ BitVec 8))
+(assert (let ((e5 (_ bv111 7))) (let ((e6 (_ bv32 6))) (let ((e7 (bvudiv ((_ sign_extend 2) e6) x0))) (let ((e8 (bvxnor e7 x2))) (let ((e9 (bvadd ((_ sign_extend 5) x1) e6))) (let ((e10 ((_ repeat 1) e9))) (let ((e11 (bvadd (_ bv0 7) e5))) (let ((e19 (bvugt e8 ((_ sign_extend 1) e11)))) (let ((e20 (bvule ((_ zero_extend 1) e11) e8))) (let ((e25 (distinct e7 ((_ zero_extend 2) e10)))) (let ((e28 (bvsgt ((_ sign_extend 2) e10) e8))) (let ((e37 (= e20 false))) (let ((e39 e37)) (let ((e44 (ite e28 false true))) (let ((e46 (= e19 e25))) (let ((e51 (ite e44 e44 e39))) (let ((e52 (not e51))) (let ((e53 (=> true e52))) (let ((e54 (and e53 e46))) (let ((e55 (and e54 (not (= x0 (_ bv0 8)))))) e55)))))))))))))))))))))
+(check-sat)

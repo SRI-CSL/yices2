@@ -175,18 +175,25 @@ the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 
-#### Support for MC-SAT (non-linear arithmetic and more)
+#### Support for Non-Linear Arithmetic and MC-SAT
 
-Yices supports non-linear real and integer arithmetic, but this is not
-enabled by default. If you want non-linear arithmetic, follow these
-instructions:
+Yices supports non-linear real and integer arithmetic using a method
+known as *Model-Constructing Satisfiability* (MC-SAT), but this is not
+enabled by default. The MC-SAT solver also supports other theories and
+theory combination. We are currently extending it to handle bit-vector
+constraints.
+
+If you want the MC-SAT solver, follow these instructions:
 
 1. Install SRI's library for polynomial manipulation. It's available
    on [github](https://github.com/SRI-CSL/libpoly).
 
-2. After you've installed libpoly, add option `--enable-mcsat` to
-   the configure command. In details, type this in the toplevel
-   Yices directory:
+2. Install the CUDD library for binary-decision diagrams. We recommand
+   using the github distribution: https://github.com/ivmai/cudd.
+
+3. After you've installed libpoly and CUDD, add option
+   `--enable-mcsat` to the configure command. In details, type this in
+   the toplevel Yices directory:
 
 ```
 autoconf
@@ -196,8 +203,8 @@ sudo make install
 ```
 
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
-   find the libpoly library. Other options may be useful too.  Try
-   `./configure --help` to see what's there.
+  find the libpoly or CUDD libraries. Other options may be useful too.  Try
+  `./configure --help` to see what's there.
 
 
 #### Support for Thread Safety

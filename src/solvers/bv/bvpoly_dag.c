@@ -2584,7 +2584,6 @@ static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
   return -1;
 }
 
-
 #ifndef NDEBUG
 /*
  * Check that all variables in a power product denote positive nodes
@@ -2603,6 +2602,7 @@ static bool pprod_is_normalized(bvc_prod_t *p) {
 }
 #endif
 
+ 
 /*
  * Remove all zero exponents from p and recompute the bit hash
  */

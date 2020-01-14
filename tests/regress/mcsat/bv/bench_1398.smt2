@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun _substvar_46_ () (_ BitVec 32))
+(declare-fun _substvar_82_ () (_ BitVec 8))
+(declare-fun _substvar_85_ () (_ BitVec 32))
+(declare-fun _substvar_91_ () (_ BitVec 32))
+(assert (let ( (?v_1 ((_ extract 7 0) (bvashr _substvar_91_ _substvar_46_)))) (and true (= _substvar_91_ (bvor (bvshl _substvar_85_ (_ bv8 32)) ((_ zero_extend 24) _substvar_82_))) true true true true (bvule ?v_1 (_ bv90 8)) (bvule (_ bv65 8) ?v_1) true true true (bvult _substvar_82_ (_ bv97 8)) true)))
+(check-sat)
+(exit)
