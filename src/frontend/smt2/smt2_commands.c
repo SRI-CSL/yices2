@@ -2201,18 +2201,18 @@ static void print_float_value(double value) {
 }
 
 static void print_terms_value(smt2_globals_t *g, const ivector_t* order) {
-  yices_pp_t printer;
+  smt2_pp_t printer;
   init_pretty_printer(&printer, g);
-  pp_open_block(&printer, PP_OPEN_VPAR); // open '('
+  pp_open_block(&printer.pp, PP_OPEN_VPAR); // open '('
   if (order != NULL) {
     for (uint32_t i = 0; i < order->size; ++ i) {
-      pp_term_full(&printer, __yices_globals.terms, order->data[i]);
+      pp_term_full(&printer.pp, __yices_globals.terms, order->data[i]);
     }
   } else {
-    pp_string(&printer,"null");
+    pp_string(&printer.pp,"null");
   }
-  pp_close_block(&printer, true); // close ')'
-  delete_yices_pp(&printer, true);
+  pp_close_block(&printer.pp, true); // close ')'
+  delete_smt2_pp(&printer, true);
 }
 
 /*
