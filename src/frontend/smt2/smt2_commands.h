@@ -289,6 +289,11 @@ typedef struct smt2_cmd_stats_s {
  * - clean_model_format is true by default. This flag determines how models
  *   are displayed in (get-model). The default is to use a Yices-style
  *   format. If the flag is false, we use the SMT2-style format (not clean!).
+ * - bvconst_in_decimal is false by default. This flag determines how bit-vector
+ *   constants are displayed in (get-model) and (get-value ..>). If the flag
+ *   is true, we print them in decimal otherwise, we print them in binary.
+ *   Decimal means something like (_ bv200 8):  value = 200, 8 bits
+ *   Binary means something like #b11001000.
  *
  * The solver can be initialized in benchmark_mode by calling init_smt2(true, ...).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
@@ -329,6 +334,7 @@ typedef struct smt2_globals_s {
   bool benchmark_mode;
   bool global_decls;
   bool clean_model_format;
+  bool bvconst_in_decimal;
 
   // smt-lib version: added 2016/05/24
   // possible values are 0 (not set) or 2000 (version 2.0)
@@ -487,6 +493,12 @@ extern void smt2_enable_trace_tag(const char *tag);
  * Force models to be printed in SMT2 format (as much as possible).
  */
 extern void smt2_force_smt2_model_format(void);
+
+/*
+ * Use (_ bv<xxx> n) format when printing bit-vector values.
+ * By default, we use #b<xxxxxxx> (binary constants).
+ */
+extern void smt2_force_bvdecimal_format(void);
 
 /*
  * Force bitblast and export to DIMACS

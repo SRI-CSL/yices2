@@ -222,6 +222,7 @@ typedef enum {
   PP_OPEN_VAR_DEF,    // (var i of <type>)
 
   // more for the SMT2 model syntax
+  PP_OPEN_SMT2_BV_DEC, // (_ bv... ..)
   PP_OPEN_SMT2_BV_TYPE, // (_ BitVec ...)
   PP_OPEN_SMT2_MODEL,   // (model ...)
   PP_OPEN_SMT2_DEF,     // (define-fun ...)
