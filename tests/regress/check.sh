@@ -3,17 +3,17 @@
 #
 #  This file is part of the Yices SMT Solver.
 #  Copyright (C) 2017 SRI International.
-# 
+#
 #  Yices is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-# 
+#
 #  Yices is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-# 
+#
 #  You should have received a copy of the GNU General Public License
 #  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
 #
@@ -26,7 +26,7 @@
 # tests-dir contains test files in the SMT1, SMT2, or Yices input language
 # bin-dir contains the Yices binaries for each of these languages
 #
-# For each test file, the expected results is stored in file.gold
+# For each test file, the expected results are stored in file.gold
 # and command-line options are stored in file.options.
 #
 # This scripts calls the appropriate binary on each test file, passing it
@@ -92,22 +92,28 @@ failed_tests=()
 
 if [[ -z "$REGRESS_FILTER" ]];
 then
-	REGRESS_FILTER="." 
+	REGRESS_FILTER="."
 fi
+
+if [[ -z "$TIME_LIMIT" ]];
+then
+  TIME_LIMIT=60
+fi
+
 
 #
 # Check if MCSAT is supported
 #
 ./$bin_dir/yices_smt2 --mcsat >& /dev/null < /dev/null
-if [ $? -ne 0 ] 
+if [ $? -ne 0 ]
 then
     MCSAT_FILTER="-v mcsat"
-else 
+else
     MCSAT_FILTER="."
 fi
 
 all_tests=$(
-    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' | 
+    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
     grep $REGRESS_FILTER | grep $MCSAT_FILTER |
     sort
 )
@@ -128,7 +134,7 @@ for file in $all_tests; do
             ;;
         *.ys)
             binary=yices
-            ;; 
+            ;;
         *)
             echo FAIL: unknown extension for $filename
             fail=`expr $fail + 1`
@@ -161,13 +167,17 @@ for file in $all_tests; do
     fi
 
     # Run the binary
-    (time  ./$bin_dir/$binary $options ./$file >& $outfile ) >&  $timefile
+    (
+      ulimit -S -t $TIME_LIMIT &> /dev/null
+      ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
+      (time ./$bin_dir/$binary $options ./$file >& $outfile ) >& $timefile
+    )
     thetime=`cat $timefile`
 
     # Do the diff
     DIFF=`diff -w $outfile $gold`
-  
-    if [ $? -eq 0 ] 
+
+    if [ $? -eq 0 ]
     then
         echo -n $green
     	echo PASS [${thetime} s]
@@ -180,7 +190,7 @@ for file in $all_tests; do
         fail=`expr $fail + 1`
         failed_tests+=("$test_string"$'\n'"$DIFF")
     fi
-    
+
 done
 
 rm $outfile
