@@ -6950,6 +6950,26 @@ term_t _o_yices_term_child(term_t t, int32_t i) {
 
 
 /*
+ * Store all children of a composite term t in vector v
+ */
+EXPORTED int32_t yices_term_children(term_t t, term_vector_t *v) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_term_children(t, v));
+}
+
+int32_t _o_yices_term_children(term_t t, term_vector_t *v) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_composite(__yices_globals.terms, t))  {
+    return -1;
+  }
+
+  yices_reset_term_vector(v);
+  get_term_children(__yices_globals.terms, t, (ivector_t *) v);
+
+  return 0;
+}
+
+
+/*
  * Get the argument and index of a projection
  */
 EXPORTED int32_t yices_proj_index(term_t t) {

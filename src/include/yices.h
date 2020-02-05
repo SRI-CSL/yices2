@@ -2403,6 +2403,29 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
 
 
 /*
+ * Collect all the children of composite term t in vector *v
+ * - v must be initialized by calling yices_init_term_vector
+ * - if t s not valid or is not a composite term, the function
+ *   returns -1 and leaves *v unchanged
+ * - otherwise, the children are stored in *v:
+ *    v->size = number of children
+ *    v->data[0 ... v->size-1] = the children
+ *
+ * The vector->size is equal to yices_term_num_children(t).
+ * The children are stored in the same order as given by yices_term_child:
+ *    v->data[i] = child of index i.
+ *
+ * Error report:
+ * if t is not a valid type
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not a composite term
+ *   code = INVALID_TERM_OP
+ */
+__YICES_DLLSPEC__ extern int32_t yices_term_children(term_t t, term_vector_t *v);
+
+
+/*
  * Get the argument and index of a projection
  * - if t is invalid or not a projection term then
  *     yices_proj_index returns -1

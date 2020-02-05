@@ -36,8 +36,6 @@ typedef void lp_algebraic_number_t;
 
 /*
  * LOCK FREE VERSIONS OF YICES_API CALLS
- *
- *
  */
 
 
@@ -488,6 +486,8 @@ extern term_constructor_t _o_yices_term_constructor(term_t t);
 extern int32_t _o_yices_term_num_children(term_t t);
 
 extern term_t _o_yices_term_child(term_t t, int32_t i);
+
+extern term_t _o_yices_term_children(term_t t, term_vector_t *v);
 
 extern int32_t _o_yices_proj_index(term_t t);
 
