@@ -154,6 +154,7 @@ core_src_c := \
 	model/map_to_model.c \
 	model/model_eval.c \
 	model/model_queries.c \
+	model/model_support.c \
 	model/models.c \
 	model/presburger.c \
 	model/projection.c \

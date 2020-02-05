@@ -82,7 +82,7 @@ extern harray_t *make_harray(int_harray_store_t *store, uint32_t n, int32_t *x);
 
 /*
  * Construct the union of two sets
- * - a and b must be form the store
+ * - a and b must be from the store
  */
 extern harray_t *merge_two_harrays(int_harray_store_t *store, harray_t *a, harray_t *b);
 

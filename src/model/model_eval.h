@@ -114,6 +114,37 @@ extern value_t eval_in_model(evaluator_t *eval, term_t t);
  */
 extern bool eval_to_true_in_model(evaluator_t *eval, term_t t);
 
+
+/*
+ * Check whether t is false in the model
+ * - t must be a valid term
+ * - return true if t evaluates to false
+ * - return false if t can't be evaluated or it's not a boolean
+ *   or if it evaluates to true.
+ */
+extern bool eval_to_false_in_model(evaluator_t *eval, term_t);
+
+
+/*
+ * Check whether t is zero in the model
+ * - t must be a valid term
+ * - if t is an arithmetic term, this checks whether value(t) == 0
+ * - if t is a bit-vector term, this checks whether value(t) == 0b0000...
+ * - return false if t can't be evaluated, or if t is not an arithemtic
+ *   term nor a bitvector term, or if t's value is not zero.
+ */
+extern bool eval_to_zero_in_model(evaluator_t *eval, term_t t);
+
+
+/*
+ * Check whether t evaluates to +/-1 in the model
+ * - t must be a valid  term
+ * - return false if t can't be evaluated or its value is not a rational
+ * - return true if t's value is either +1 or -1
+ */
+extern bool eval_to_unit_in_model(evaluator_t *eval, term_t t);
+
+
 /*
  * Compute the values of terms a[0 ... n-1]
  * - don't return anything
@@ -121,6 +152,7 @@ extern bool eval_to_true_in_model(evaluator_t *eval, term_t t);
  *   (this reads the value from eval->cache so that's cheap).
  */
 extern void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n);
+
 
 /*
  * Add useful uninterpreted terms to the model.
@@ -131,6 +163,7 @@ extern void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n);
  * entry [t -> value(t)] for every useful term t.
  */
 extern void eval_record_useful_terms(evaluator_t *eval);
+
 
 /*
  * Cached-term collector:

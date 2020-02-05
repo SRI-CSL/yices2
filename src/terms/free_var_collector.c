@@ -256,6 +256,22 @@ static harray_t *free_vars_of_binding(fvar_collector_t *collect, composite_term_
 
 
 /*
+ * Free variables in a root atom r:
+ */
+static harray_t *free_vars_of_root_atom(fvar_collector_t *collect, root_atom_t *r) {
+  harray_t *a;
+  term_t x;
+
+  x = r->x;
+  a  = get_free_vars_of_term(collect, r->p);  // p = polynomial
+  a = harray_remove_elem(&collect->store, a, 1, &x); // x = bound variable in p(x, ...)
+
+  return a;
+}
+
+
+
+/*
  * Compute the set of free variables in term t:
  * - t must be defined in collect->terms
  * - the set is returned as a harray structure a (cf. int_array_hsets)
@@ -291,6 +307,14 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
   case ARITH_CEIL:
   case ARITH_ABS:
     result = get_free_vars_of_term(collect, integer_value_for_idx(terms, i));
+    break;
+
+  case ARITH_ROOT_ATOM:
+    result = lookup_free_vars(collect, i);
+    if (result == NULL) {
+      result = free_vars_of_root_atom(collect, root_atom_for_idx(terms, i));
+      cache_free_vars(collect, i, result);
+    }
     break;
 
   case ITE_TERM:
