@@ -697,6 +697,15 @@ extern int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t 
 
 
 /*
+ * SUPPORTS
+ */
+extern int32_t _o_yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v);
+
+extern int32_t _o_yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
+
+
+/*
  * IMPLICANTS
  */
 

@@ -9311,6 +9311,43 @@ EXPORTED void yices_model_collect_defined_terms(model_t *mdl, term_vector_t *v) 
 }
 
 
+
+/*
+ * Collect the support of term t in mdl:
+ * - the support is a set of uninterpreted returned in *v
+ */
+EXPORTED int32_t yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_term_support(mdl, t, v));
+}
+
+int32_t _o_yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v) {
+  if (! check_good_term(__yices_globals.manager, t)) {
+    return -1;
+  }
+  model_get_term_support(mdl, t, (ivector_t *) v);
+  return 0;
+}
+
+
+/*
+ * Collect the support of terms a[0 ... n-1] in mdl:
+ * - the support is a set of uninterpreted returned in *v
+ */
+EXPORTED int32_t yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_term_array_support(mdl, n, a, v));
+}
+
+int32_t _o_yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v) {
+  if (! check_good_terms(__yices_globals.manager, n, a)) {
+    return -1;
+  }
+  model_get_terms_support(mdl, n, a, (ivector_t *) v);
+  return 0;
+}
+
+
+
+
 /************************
  *  VALUES IN A MODEL   *
  ***********************/

@@ -3846,6 +3846,52 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
 
 
 
+/*
+ * SUPPORTS
+ */
+
+/*
+ * Given a term t and a model mdl, the support of t in mdl is a set of variables/uninterpreted
+ * terms whose values are sufficient to fix the value of t in mdl. For example, if
+ * t is (if x>0 then x+z1 else y) and x has value 1 in mdl, then the value of t doesn't depend
+ * on the value of y in mdl. In this case, support(t) = { x, z }.
+ *
+ * This extends to an array of terms a[0 ... n-1]. The support of a is a set of terms whose
+ * values in mdl are sufficient to determine the values of a[0] .... a[n-1].
+ */
+
+/*
+ * Get the support of a term t in mdl
+ * - the support is returned in vector *v; v must be initialized by calling yices_init_term_vector.
+ * - if t is not a valid term, the function returns -1 and leaves v unchanged.
+ * - otherwise, the function returns 0 and the support of t is stored in *v:
+ *    v->size = number of terms in the support
+ *    v->data[0 ... v->size-1] = the terms
+ *
+ * Error report:
+ * if t is not a valid term:
+ *    code = INVALID_TERM
+ *    term1 = t
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v);
+
+/*
+ * Get the support of terms a[0...n-1] in mdl
+ * - the support is returned in vector *v;
+ *   v must be initialized by calling yices_init_term_vector.
+ * - if one  is not a valid term, the function returns -1 and leaves v unchanged.
+ * - otherwise, the function returns 0 and the support is stored in *v:
+ *    v->size = number of terms in the support
+ *    v->data[0 ... v->size-1] = the terms
+ *
+ * Error report:
+ * if a[i] is not a valid term,
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
+
 
 /*
  * IMPLICANTS

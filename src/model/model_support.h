@@ -68,18 +68,15 @@ typedef struct support_constructor_s {
 
 
 
-
 /*
  * Initialization: model = the relevant model
  */
 extern void init_support_constructor(support_constructor_t *constructor, model_t *model);
 
-
 /*
  * Deletion: free memory
  */
 extern void delete_support_constructor(support_constructor_t *constructor);
-
 
 /*
  * Get the support set of term t:
@@ -90,7 +87,6 @@ extern void delete_support_constructor(support_constructor_t *constructor);
  *   (cf. utils/int_array_hsets)
  */
 extern harray_t *get_term_support(support_constructor_t *constructor, term_t t);
-
 
 /*
  * Support for an array of n terms: a[0 ... n-1]
