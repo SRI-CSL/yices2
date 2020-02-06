@@ -517,13 +517,11 @@ static void process_command_line(int argc, char *argv[]) {
   /*
    * Fail if --mcsat is requested but is not available.
    */
-#if !HAVE_MCSAT
-  if (mcsat_requested) {
+  if (mcsat_requested && !yices_has_mcsat()) {
     fprintf(stderr, "%s: options --mcsat is not supported; %s was not compiled with mcsat support\n",
 	    parser.command_name, parser.command_name);
     exit(YICES_EXIT_ERROR);
   }
-#endif
 
 
   /*
@@ -638,14 +636,12 @@ static void process_command_line(int argc, char *argv[]) {
       iflag = iflag_for_logic(logic_code);
       qflag = qflag_for_logic(logic_code);
 
-#if !HAVE_MCSAT
-      // fail here: MCSAT not built
-      if (arch == CTX_ARCH_MCSAT) {
+      // fail here: if we need MCSAT, but it's not available
+      if (arch == CTX_ARCH_MCSAT && !yices_has_mcsat()) {
 	fprintf(stderr, "%s: logic %s is not supported; %s was not compiled with mcsat support\n",
 		parser.command_name, logic_name, parser.command_name);
 	exit(YICES_EXIT_ERROR);
       }
-#endif
       break;
     }
   }
