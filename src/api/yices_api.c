@@ -922,21 +922,6 @@ static void delete_parsing_objects(void) {
 
 
 /************************
- *  File IO Utilities   *
- ***********************/
-
-static FILE *fd_2_tmp_fp(int fd) {
-  int tmp_fd;
-
-  tmp_fd = dup(fd);
-  if (tmp_fd < 0) {
-    return NULL;
-  }
-  return fdopen(tmp_fd, "a");
-}
-
-
-/************************
  *  VARIABLE COLLECTOR  *
  ***********************/
 
@@ -1124,6 +1109,26 @@ EXPORTED void yices_reset(void) {
 }
 
 
+/**********************************
+ *  ERRORS AND FILE IO UTILITIES  *
+ *********************************/
+
+/*
+ * Open a stream for output file fd
+ * - fd = file descriptor
+ * - return NULL if something goes wrong
+ */
+static FILE *fd_2_tmp_fp(int fd) {
+  int tmp_fd;
+
+  tmp_fd = dup(fd);
+  if (tmp_fd < 0) {
+    return NULL;
+  }
+  return fdopen(tmp_fd, "a");
+}
+
+
 /*
  * Get the last error report
  */
@@ -1152,6 +1157,17 @@ EXPORTED void yices_clear_error(void) {
 
 
 /*
+ * Record that a file io operation failed
+ * set the error_code to OUTPUT_ERROR
+ */
+static void file_output_error(void) {
+  error_report_t * error = get_yices_error();
+  error->code = OUTPUT_ERROR;
+}
+
+
+
+/*
  * Print an errormessage on f
  */
 EXPORTED int32_t yices_print_error(FILE *f) {
@@ -1162,15 +1178,12 @@ EXPORTED int32_t yices_print_error_fd(int fd) {
   FILE *tmp_fp;
   int32_t retval;
 
-
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   retval = print_error(tmp_fp);
-
   fclose(tmp_fp);
 
   return retval;
@@ -2652,6 +2665,7 @@ static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
 
   return true;
 }
+
 
 
 
@@ -6176,10 +6190,9 @@ int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, u
   // check for error
   code = 0;
   if (yices_pp_print_failed(&printer)) {
-    error_report_t *error = get_yices_error();
     code = -1;
     errno = yices_pp_errno(&printer);
-    error->code = OUTPUT_ERROR;
+    file_output_error();
   }
   delete_yices_pp(&printer, false);
 
@@ -6191,13 +6204,11 @@ EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t h
   int32_t retval;
 
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   retval = yices_pp_type(tmp_fp, tau, width, height, offset);
-
   fclose(tmp_fp);
 
   return retval;
@@ -6239,10 +6250,9 @@ int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uin
   // check for error
   code = 0;
   if (yices_pp_print_failed(&printer)) {
-    error_report_t *error = get_yices_error();
     code = -1;
     errno = yices_pp_errno(&printer);
-    error->code = OUTPUT_ERROR;
+    file_output_error();
   }
   delete_yices_pp(&printer, false);
 
@@ -6253,15 +6263,12 @@ EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t hei
   FILE *tmp_fp;
   int32_t retval;
 
-
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   retval = yices_pp_term(tmp_fp, t, width, height, offset);
-
   fclose(tmp_fp);
 
   return retval;
@@ -6309,10 +6316,9 @@ int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t w
   // check for error
   code = 0;
   if (yices_pp_print_failed(&printer)) {
-    error_report_t *error = get_yices_error();
     code = -1;
     errno = yices_pp_errno(&printer);
-    error->code = OUTPUT_ERROR;
+    file_output_error();
   }
   delete_yices_pp(&printer, false);
 
@@ -6323,15 +6329,12 @@ EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], ui
   FILE *tmp_fp;
   int32_t retval;
 
-
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   retval = yices_pp_term_array(tmp_fp, n, a, width, height, offset,  horiz);
-
   fclose(tmp_fp);
 
   return retval;
@@ -9156,13 +9159,11 @@ int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
   FILE *tmp_fp;
 
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   model_print_full(tmp_fp, mdl);
-
   fclose(tmp_fp);
 
   return 0;
@@ -9198,10 +9199,9 @@ int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height
   // check for error
   code = 0;
   if (yices_pp_print_failed(&printer)) {
-    error_report_t *error = get_yices_error();
     code = -1;
     errno = yices_pp_errno(&printer);
-    error->code = OUTPUT_ERROR;
+    file_output_error();
   }
   delete_yices_pp(&printer, false);
 
@@ -9212,15 +9212,12 @@ EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_
   FILE *tmp_fp;
   int32_t retval;
 
-
   tmp_fp = fd_2_tmp_fp(fd);
-
   if (tmp_fp == NULL) {
+    file_output_error();
     return -1;
   }
-
   retval = yices_pp_model(tmp_fp, mdl, width, height, offset);
-
   fclose(tmp_fp);
 
   return retval;
