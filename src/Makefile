@@ -641,12 +641,17 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden $(PTHREAD) -Qunused-arguments
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_dylib)
   static_libyices_dynamic=$(static_libdir)/$(libyices_dylib)
+  
+  # Detect clang-disguised-as-gcc vs. GNU GCC
+  ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
+    CFLAGS += -Qunused-arguments
+  endif
 else
 ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
