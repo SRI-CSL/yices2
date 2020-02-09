@@ -647,10 +647,17 @@ ifeq ($(POSIXOS),darwin)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_dylib)
   static_libyices_dynamic=$(static_libdir)/$(libyices_dylib)
-  
+
+  #
+  # To stop a clang warning when we compile with -pthread,
+  # we add option -Qunused-arguments
+  #
   # Detect clang-disguised-as-gcc vs. GNU GCC
-  ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
-    CFLAGS += -Qunused-arguments
+  #
+  ifeq ($(THREAD_SAFE),1)
+    ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
+       CFLAGS += -Qunused-arguments
+    endif
   endif
 else
 ifeq ($(POSIXOS),sunos)
