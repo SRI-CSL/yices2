@@ -208,7 +208,7 @@ static void show_support(model_t *m, term_t t) {
  */
 #define NUM_TEST_TERMS 7
 
-static const char *terms_to_parse[7]  = {
+static const char *terms_to_parse[NUM_TEST_TERMS]  = {
   "x0",
   "false",
   "1/3",
@@ -218,7 +218,7 @@ static const char *terms_to_parse[7]  = {
   "(* x0 x1 x2 x4 x5)"
 };
 
-static term_t terms_to_test[6];
+static term_t terms_to_test[NUM_TEST_TERMS];
 
 static void init_terms_to_test(void) {
   uint32_t i;

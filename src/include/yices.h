@@ -4144,21 +4144,26 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 /*
- * Analogous variants of the above that use file descriptors rather than file pointers.
+ * Variants of the above functions that use file descriptors rather than file pointers.
  *
- * In the case of yices_print_model_fd we return 0 if successful, -1 if there is a problem converting
- * the file descriptor into a FILE* object.
+ * These functions return 0 if successful or -1 if there's an error.
+ * Error codes are set as in the corresponding functions above.
+ *
+ * In particular, if fd is not a valid file descriptor or some other IO error happens,
+ *   code is set to OUTPUT_ERROR
+ *   and errno, perror can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
                                                         uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
-
 __YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
 
 /*
  * Convert type tau or term t to a string using the pretty printer.

@@ -80,10 +80,10 @@ extern void model_print_full(FILE *f, model_t *model);
 /*
  * Print the values of all terms in array a
  * - n = number of terms in a
- * - all terms of a must be uninterpreted terms
  * - this first prints the value of these terms in the form
  *    (= <term name> <value>)
  * - this uses a simple lookup to find the value of a[i] in the model's internal map.
+ *   So every term a[i] should be defined in the model.
  * - then the function prints the value of all function terms that occur
  *   in a value (cf., model_print).
  */
@@ -92,13 +92,19 @@ extern void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t
 /*
  * Evaluate and print the values of all terms in array a
  * - n = number of terms in a
- * - this is the same as mode_print_terms, except that the function tries
- *   to compute the value of these terms (as in model_print_full).
+ * - This first prints the values of these terms in the form
+ *     (= <term name> <value>)
+ *   where <term name> = name of a[i].
+ *   If a[i] doesn't have a name, we print a name like "t!xxx" where xxx is an integer (it's equal to a[i]).
+ * _ Then we print the function terms that occur in any <value>.
+ *
+ * - This is the more general than model_print_terms, since it can handle more than
+ *   uninterpreted terms.
  */
 extern void model_print_eval_terms(FILE *f, model_t *model, const term_t *a, uint32_t n);
 
 /*
- * Variants: use the pretty printer
+ * Variants: use a pretty printer
  */
 extern void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t);
 extern void model_pp(yices_pp_t *printer, model_t *model);

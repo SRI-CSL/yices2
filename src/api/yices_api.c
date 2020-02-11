@@ -4519,7 +4519,7 @@ term_t _o_yices_parse_bvbin(const char *s) {
   if (len > YICES_MAX_BVSIZE) {
     error_report_t *error = get_yices_error();
     error->code = MAX_BVSIZE_EXCEEDED;
-    error->badval = len; // slightly wrong: len is unsigned, badval is signed
+    error->badval = len;
     return NULL_TERM;
   }
 
@@ -4562,7 +4562,11 @@ term_t _o_yices_parse_bvhex(const char *s) {
   if (len > YICES_MAX_BVSIZE/4) {
     error_report_t *error = get_yices_error();
     error->code = MAX_BVSIZE_EXCEEDED;
-    error->badval = ((uint64_t) len) * 4; // could overflow here
+
+    // badval is int64_t. It could overflow or get negative here
+    // if s is a giant string.  We ignore this issue, since it's
+    // only for information.
+    error->badval = ((uint64_t) len) * 4;
     return NULL_TERM;
   }
 
@@ -9688,12 +9692,11 @@ int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic
   return -1;
 
 #else
-  {
-    error_report_t *error = get_yices_error();
-    // NO SUPPORT FOT MCSAT
-    error->code = EVAL_NOT_SUPPORTED;
-    return -1;
-  }
+  error_report_t *error = get_yices_error();
+  // NO SUPPORT FOT MCSAT
+  error->code = EVAL_NOT_SUPPORTED;
+  return -1;
+
 #endif
 }
 
