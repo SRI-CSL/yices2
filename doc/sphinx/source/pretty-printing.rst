@@ -216,7 +216,7 @@ explanation.
 
    - *f*: output stream
 
-   - *mdl* is the mode to print
+   - *mdl* is the model to print
 
    - *width*, *height*, and *offset* specify the display area
 
@@ -253,7 +253,7 @@ explanation.
    Prints a model.
 
    This function prints model *mdl* on stream *f*. It has the same behavior as
-   the previous function but it does not use a pretty printer.
+   :c:func:`yices_pp_model` but it does not use a pretty printer.
 
 
 .. c:function:: int32_t yices_print_model_fd(int fd, model_t* mdl)
