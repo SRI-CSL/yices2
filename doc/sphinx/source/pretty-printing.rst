@@ -111,7 +111,7 @@ explanation.
 
    Pretty-prints a type.
 
-   This function is similar to :c:func:`yices_pp_type` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_type` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
@@ -148,7 +148,7 @@ explanation.
 
    Pretty-prints a term.
 
-   This function is similar to :c:func:`yices_pp_term` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_term` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
@@ -203,7 +203,7 @@ explanation.
 
    Pretty-prints an array of terms.
 
-   This function is similar to :c:func:`yices_pp_term_array` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_term_array` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
@@ -244,7 +244,7 @@ explanation.
 
    Pretty-prints a model.
 
-   This function is similar to :c:func:`yices_pp_model` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_model` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
@@ -260,7 +260,7 @@ explanation.
 
    Prints a model.
  
-   Same behavior as :c:func:`yices_print_model`, except that is uses a file descriptor *fd*
+   Same behavior as :c:func:`yices_print_model`, except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
    This function returns -1 if the write to file *fd* fails. It returns 0 otherwise.
