@@ -9173,6 +9173,7 @@ int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
   return 0;
 }
 
+
 /*
  * Pretty print mdl
  * - f = output file to use
@@ -9258,6 +9259,131 @@ char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, ui
 
   return str;
 }
+
+
+/*
+ * Print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
+ *
+ * The function returns -1 on error, 0 otherwise.
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ */
+EXPORTED int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_print_term_values(f, mdl, n, a));
+}
+
+int32_t _o_yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]) {
+  if (! check_good_terms(__yices_globals.manager, n, a)) {
+    return -1;
+  }
+  model_print_eval_terms(f, mdl, a, n);
+
+  return 0;
+}
+
+// Variant with a file descriptor
+EXPORTED int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]) {
+  FILE *tmp_fp;
+  int32_t code;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+  if (tmp_fp == NULL) {
+    file_output_error();
+    return -1;
+  }
+  code = yices_print_term_values(tmp_fp, mdl, n, a);
+  fclose(tmp_fp);
+
+  return code;
+}
+
+
+/*
+ * Pretty print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
+ * - width, height, offset define the print area.
+ *
+ * This function is like yices_print_term_values except that is uses pretty printing.
+ *
+ * Return code: -1 on error, 0 otherwise
+ *
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ * if writing to f fails,
+ *   code = OUTPUT_ERROR
+ *   in this case, errno, perror, etc. can be used for diagnostic.
+ */
+EXPORTED int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+				      uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_pp_term_values(f, mdl, n, a, width, height, offset));
+}
+
+int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+				uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  int32_t code;
+
+  if (! check_good_terms(__yices_globals.manager, n, a)) {
+    return -1;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  model_pp_eval_terms(&printer, mdl, a, n);
+  flush_yices_pp(&printer);
+
+  // check for error
+  code = 0;
+  if (yices_pp_print_failed(&printer)) {
+    code = -1;
+    errno = yices_pp_errno(&printer);
+    file_output_error();
+  }
+  delete_yices_pp(&printer, false);
+
+  return code;
+}
+
+// Variant with a file descriptor
+EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
+					 uint32_t width, uint32_t height, uint32_t offset) {
+  FILE *tmp_fp;
+  int32_t code;
+
+  tmp_fp = fd_2_tmp_fp(fd);
+  if (tmp_fp == NULL) {
+    file_output_error();
+    return -1;
+  }
+  code = yices_pp_term_values(tmp_fp, mdl, n, a, width, height, offset);
+  fclose(tmp_fp);
+
+  return code;
+}
+
+
 
 
 /*

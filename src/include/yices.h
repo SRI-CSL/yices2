@@ -251,6 +251,7 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
  */
 __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
 
+
 /*
  * Print an error message on file descriptor fd.  This converts the current error
  * code + error report structure into an error message.
@@ -4122,6 +4123,43 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const 
  *   x = yices_new_uninterpreted_term(<some type>)
  *   yices_set_term_name(x, "x")
  *
+ * This function will print a line of the form
+ *    (= <name of x> <value of x in mdl>)
+ * for every uninterpreted term 'x' that has a  value in the model,
+ * unless 'x' is a  function term.
+ *
+ * For function terms (i.e., if 'x' has a function type), then the yices_print_model
+ * will show a function definition as follows:
+ *
+ *   (function f
+ *     (type (-> t_0 ... t_k s))
+ *     (= (f <x_00> ... <x_0k>) v_0)
+ *       ...
+ *     (- (f <x_m0> ... <x_mk>) v_m)
+ *     (default w))
+ *
+ * where f is the function name.
+ * - the type (-> t_0 ... t_k s) is the type of f: the domain is t_0 .... t_k
+ *   and the range is s.
+ * - in every line (= (f <x_i0> ... x_ik>) v_i):
+ *      x_i0 is a constant of type t_0
+ *      ...
+ *      x_ik is a constant of type t_k
+ *      v_i  is a constant of type s
+ * - each such line specifies the value v_i of f at some point in its domain.
+ * - the last entry:  (default w)
+ *   is the default value of f at all points that are not listed above.
+ *
+ * Example:
+ *
+ *   (function b
+ *     (type (-> int bool))
+ *       (= (b 0) true)
+ *       (= (b 1) true)
+ *      (default false))
+ *
+ * means that b is a function from int to boo, such that (b 0) and (b 1) are true
+ * and (b i) is false for any i not equal to 0 or 1.
  */
 __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 
@@ -4144,6 +4182,47 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 /*
+ * Print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
+ *
+ * The function returns -1 on error, 0 otherwise.
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ */
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
+
+/*
+ * Pretty print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
+ * - width, height, offset define the print area.
+ *
+ * This function is like yices_print_term_values except that is uses pretty printing.
+ *
+ * Return code: -1 on error, 0 otherwise
+ *
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ * if writing to f fails,
+ *   code = OUTPUT_ERROR
+ *   in this case, errno, perror, etc. can be used for diagnostic.
+ */
+ __YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+                                                       uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
  * Variants of the above functions that use file descriptors rather than file pointers.
  *
  * These functions return 0 if successful or -1 if there's an error.
@@ -4163,6 +4242,11 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, cons
 __YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]);
+
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
+							 uint32_t width, uint32_t height, uint32_t offset);
 
 
 /*

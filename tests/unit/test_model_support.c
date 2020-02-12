@@ -198,6 +198,7 @@ static void show_support(model_t *m, term_t t) {
     printf(" %s", yices_get_term_name(v.data[i]));
   }
   printf("\n");
+  yices_pp_term_values(stdout, m, n, v.data, 80, 10, 0);
 
   yices_delete_term_vector(&v);
 }

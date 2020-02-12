@@ -589,6 +589,11 @@ extern int32_t _o_yices_print_model_fd(int fd, model_t *mdl);
 
 extern int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
+extern int32_t _o_yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
+
+extern int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+				       uint32_t width, uint32_t height, uint32_t offset);
+
 extern char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
 extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
