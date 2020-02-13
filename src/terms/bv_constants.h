@@ -512,11 +512,18 @@ extern bool bvconst_is_max_signed(const uint32_t *bv, uint32_t n);
 
 
 /*
- * Check whether bv is a power of 2, k = word size
+ * Check whether bv is a power of 2, k = word size, bv must be normalized
  * - if so return n>=0 such that bv = 2^n
  * - if not return -1
  */
 extern int32_t bvconst_is_power_of_two(const uint32_t *bv, uint32_t k);
+
+/*
+ * Number of trailing zeros, k = number of words in bv, bv must be normalized
+ * - return the index of the lowest-order bit of bv that's not 0
+ * - returns -1 if bv is zero
+ */
+extern int32_t bvconst_ctz(const uint32_t *bv, uint32_t k);
 
 
 /*

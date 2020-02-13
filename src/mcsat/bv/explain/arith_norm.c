@@ -13,6 +13,7 @@
 
 #include "mcsat/bv/bv_utils.h"
 #include "arith_norm.h"
+#include "yices.h"
 
 
 // var_cache hash map has dynamically allocated values
@@ -91,13 +92,13 @@ void analyse_BV(arith_norm_t* norm,
     if (monom[i] != NULL_TERM)
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
   }
-  result->var = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->var = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM)
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, garbage[i]); // Otherwise we add the w-bit monomial to the bv_poly
   }
-  result->garbage = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->garbage = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] == NULL_TERM)
@@ -106,7 +107,7 @@ void analyse_BV(arith_norm_t* norm,
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, evaluables[i]); // Otherwise we add the w-bit monomial to the bv_poly
     delete_bvconstant(&coeff[i]);
   }
-  result->eval = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->eval = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "analyse_BV finished treating %d monomials\n",n_monom);
@@ -133,13 +134,13 @@ void analyse_BV64(arith_norm_t* norm,
     if (monom[i] != NULL_TERM)
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], monom[i]);
   }
-  result->var = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->var = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith64_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM)
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], garbage[i]);
   }
-  result->garbage = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->garbage = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith64_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] == NULL_TERM)
@@ -147,7 +148,7 @@ void analyse_BV64(arith_norm_t* norm,
     else
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], evaluables[i]);
   }
-  result->eval = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->eval = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "analyse_BV64 finished treating %d monomials\n",n_monom);
@@ -561,6 +562,28 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     fprintf(out, "Normalising %d lowest bits of ",w);
     term_print_to_file(out, terms, t);
     fprintf(out, " (bitsize is %d))\n",original_bitsize);
+  }
+
+  if (is_bitvector_term(terms, t)) {
+    term_t old = t;
+    t = arith_sum_norm(tm, t);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::ctz")) {
+      term_t eq = bveq_atom(terms, old, t);
+      ctx_config_t* config = yices_new_config();
+      context_t* yctx = yices_new_context(config);
+      yices_assert_formula(yctx, not_term(terms,eq));
+      smt_status_t result = yices_check_context(yctx, NULL);
+      if (result != STATUS_UNSAT) {
+        FILE* out = ctx_trace_out(ctx);
+        fprintf(out, "Original term is");
+        ctx_trace_term(ctx, old);
+        fprintf(out, "New term is");
+        ctx_trace_term(ctx, t);
+        assert(false);
+      }
+      yices_free_context(yctx);
+      yices_free_config(config);
+    }
   }
 
   if (t == conflict_var) {
