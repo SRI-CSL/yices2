@@ -493,8 +493,7 @@ term_t check_and_return(arith_norm_t* norm, term_t t, uint32_t w, term_t result)
           || result_eval(csttrail,result));
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::rewrite::check")) {
-    term_manager_t* tm      = ctx->tm;
-    assert( (bv_term_bitsize(tm->terms, t) > w)
+    assert( (bv_term_bitsize(ctx->tm->terms, t) > w)
             || check_rewrite(ctx, t, result));
     /* assert( (!bv_evaluator_is_evaluable(csttrail, term_extract(tm, t, 0, w))) */
     /*         || result_eval(csttrail,result)); */
@@ -573,9 +572,9 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   }
 
   if (is_bitvector_term(terms, t)) {
-    term_t old = t;
-    t = arith_sum_norm(tm, t);
-    assert(check_rewrite(ctx, old, t));
+    term_t new = arith_sum_norm(tm, t);
+    assert(check_rewrite(ctx, t, new));
+    t = new;
   }
 
   if (t == conflict_var) {
