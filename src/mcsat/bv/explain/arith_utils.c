@@ -439,7 +439,6 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
         }
       }
       t = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
-      assert(!arith_is_zero(terms, t));
       break;
     }
 
@@ -451,3 +450,4 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
   return t;
 
 }
+

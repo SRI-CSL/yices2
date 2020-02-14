@@ -89,4 +89,3 @@ bool arith_is_no_triv(term_t t){
   assert(t != false_term);
   return (t != true_term);
 }
-

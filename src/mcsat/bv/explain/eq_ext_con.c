@@ -770,6 +770,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       bv_bitterm(tm->terms, mk_bitextract(tm, recurs, t_index)):
       1;
     int_hmap_add(&exp->cache, t, result);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::rewrite::check")) {
+      assert(check_rewrite(ctx, t, result));
+    }
     return result;
   }
 
@@ -795,6 +798,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       mk_bvarray(tm, concat_desc->arity, bits) :
       1;
     int_hmap_add(&exp->cache, t, result);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::rewrite::check")) {
+      assert(check_rewrite(ctx, t, result));
+    }
     return result;
   }
 
@@ -937,6 +943,9 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
       ctx_trace_term(ctx, result);      
     }
     int_hmap_add(&exp->cache, t, result);
+    if (ctx_trace_enabled(ctx, "mcsat::bv::rewrite::check")) {
+      assert(check_rewrite(ctx, t, result));
+    }
     return result;
   }
   // Back to assumming = false

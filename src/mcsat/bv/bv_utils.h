@@ -23,7 +23,9 @@
 #include "utils/hash_functions.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
+#include "mcsat/tracing.h"
 #include "mcsat/value.h"
+#include "yices.h"
 
 /** Types of bitvector terms */
 typedef enum {
@@ -416,3 +418,29 @@ uint32_t fix_htbl_index(term_t* htbl, uint32_t size, term_t key){
   }
   return result;
 }
+
+#ifndef NDEBUG
+
+static inline
+bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
+  if (t == old) return true;
+  term_manager_t* tm   = ctx->tm;
+  ctx_config_t* config = yices_new_config();
+  context_t* yctx      = yices_new_context(config);
+  yices_assert_formula(yctx, mk_neq(tm, old, t));
+  smt_status_t output = yices_check_context(yctx, NULL);
+  bool result = (output == STATUS_UNSAT);
+  if (!result && ctx_trace_enabled(ctx, "mcsat::bv::arith::ctz")) {
+    FILE* out = ctx_trace_out(ctx);
+    fprintf(out, "Original term is");
+    ctx_trace_term(ctx, old);
+    fprintf(out, "New term is");
+    ctx_trace_term(ctx, t);
+    assert(false);
+  }
+  yices_free_context(yctx);
+  yices_free_config(config);
+  return result;
+}
+
+#endif
