@@ -4537,7 +4537,7 @@ static void simplify_binary_clauses(sat_solver_t *solver) {
 /*
  * After deletion: count the number of binary clauses left
  */
-static uint32_t num_literals_in_watch_vector(watch_t *w) {
+static uint32_t num_literals_in_watch_vector(const watch_t *w) {
   uint32_t i, n, count;
 
   assert(w != NULL);
@@ -4556,7 +4556,7 @@ static uint32_t num_literals_in_watch_vector(watch_t *w) {
 }
 
 
-static uint32_t count_binary_clauses(sat_solver_t *solver) {
+static uint32_t count_binary_clauses(const sat_solver_t *solver) {
   uint32_t i, n, sum;
   watch_t *w;
 
@@ -10609,6 +10609,53 @@ static void bump_free_vars(sat_solver_t *solver, bool reverse) {
 }
 
 
+/*
+ * Preprocesing procedure
+ * - this must be called after clause addition
+ * - the type of preprocessing performed depends on flag solver->preprocess.
+ *   if the flag is false, we just do basic simplications
+ *   if the flag is true, we do SCC + equality detection based on cut sweeping.
+ * - result = either STAT_SAT or STAT_UNSAT or STAT_UNKNOWN
+ */
+solver_status_t nsat_apply_preprocessing(sat_solver_t *solver) {
+  if (solver->has_empty_clause) goto done;
+
+  init_simplify(solver);
+
+  if (solver->preprocess) {
+    // preprocess + one round of simplification
+#if 1
+    // aggressive preprocessing
+    nsat_preprocess(solver);
+    if (solver->has_empty_clause) goto done;
+#else
+    // only cheap stuff
+    collect_unit_and_pure_literals(solver);
+    if (! nsat_cheap_preprocessing(solver)) goto done;
+#endif
+    solver->preprocess = false;
+  } else {
+    // no preprocessing
+    // one round of propagation + one round of simplification
+    level0_propagation(solver);
+    if (solver->has_empty_clause) goto done;
+  }
+
+  nsat_simplify(solver);
+  done_simplify(solver);
+  if (solver->has_empty_clause) goto done;
+
+  failed_literal_probing(solver);
+  if (solver->has_empty_clause) goto done;
+
+  if (solver->status == STAT_SAT) {
+    extend_assignment(solver);
+  }
+
+ done:
+  return solver->status;
+}
+
 
 /*
  * Solving procedure
@@ -10729,6 +10776,8 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 }
 
 
+
+
 /************************
  *  DISPLAY STATISTICS  *
  ***********************/
@@ -10807,6 +10856,240 @@ uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a) {
 
 
 
+/*********************************
+ *  EXPORT IN THE DIMACS FORMAT  *
+ ********************************/
+
+/*
+ * Conversion from literal_t to dimacs:
+ * - in Yices, variables are indexed from 0 to nvars-1.
+ *   variable x has two literals: pos_lit(x) = 2x and neg_lit(x) = 2x + 1
+ *   variable 0 is special: pos_lit(0) is true_literal, neg_lit(0) is false_literal.
+ * - in Dimacs, variables are indexed from 1 to nvars
+ *   variable x has two literal: pos_lit(x) = +x and neg_lit(x) = -x
+ *   0 is a terminator (end of clause).
+ */
+static int lit2dimacs(literal_t l) {
+  int x = var_of(l) + 1;
+  return is_pos(l) ? x : - x;
+}
+
+/*
+ * Write a claue to file *f
+ */
+static void write_empty_clause(FILE *f) {
+  fprintf(f, "0\n");
+}
+
+static void write_unit_clause(FILE *f, literal_t l) {
+  fprintf(f, "%d 0\n", lit2dimacs(l));
+}
+
+static void write_binary_clause(FILE *f, literal_t l1, literal_t l2) {
+  fprintf(f, "%d %d 0\n", lit2dimacs(l1), lit2dimacs(l2));
+}
+
+// n = clause size, l = array of n literals
+static void write_clause(FILE *f, uint32_t n, literal_t *l) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    fprintf(f, "%d ", lit2dimacs(l[i]));
+  }
+  fprintf(f, "0\n");
+}
+
+
+/*
+ * Export all the unit clauses
+ */
+static literal_t unit_literal_for_var(const sat_solver_t *solver, bvar_t x) {
+  assert(solver->ante_tag[x] == ATAG_UNIT);
+  assert(var_is_assigned(solver, x));
+  return var_is_true(solver, x) ? pos_lit(x) : neg_lit(x);
+}
+
+static void export_unit_clauses(FILE *f, const sat_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    if (solver->ante_tag[i] == ATAG_UNIT) {
+      write_unit_clause(f, unit_literal_for_var(solver, i));
+    }
+  }
+}
+
+/*
+ * Export all the binary clauses in watch vectors
+ */
+// clauses of the from { l, l1 } where l1 occurs in w = watch[l]
+static void export_binary_clauses_in_watch(FILE *f, literal_t l, const watch_t *w) {
+  uint32_t i, k, n;
+  literal_t l1;
+
+  assert(w != NULL);
+  n = w->size;
+  i = 0;
+  while (i < n) {
+    k = w->data[i];
+    if (idx_is_literal(k)) {
+      l1 = idx2lit(k);
+      if (l < l1) write_binary_clause(f, l, l1);
+      i ++;
+    } else {
+      i += 2;
+    }
+  }
+}
+
+static void export_binary_clauses_in_watch_vectors(FILE *f, const sat_solver_t *solver) {
+  uint32_t i, n;
+  watch_t *w;
+
+  if (solver->preprocess) return; // all clauses are in the pool
+
+  n = solver->nliterals;
+  for (i=2; i<n; i++) {
+    w = solver->watch[i];
+    if (w != NULL) {
+      export_binary_clauses_in_watch(f, i, w);
+    }
+  }
+}
+
+/*
+ * Export all the problem clauses in the pool
+ */
+static void export_problem_clauses(FILE *f, const sat_solver_t *solver) {
+  const clause_pool_t *pool;
+  uint32_t cidx, n;
+  literal_t *lit;
+
+  pool = &solver->pool;
+  cidx = clause_pool_first_clause(pool);
+  while (cidx < pool->learned) {
+    assert(good_clause_idx(pool, cidx));
+    n = clause_length(pool, cidx);
+    lit = clause_literals(pool, cidx);
+    write_clause(f, n, lit);
+
+    cidx = clause_pool_next_clause(pool, cidx);
+  }
+}
+
+
+/*
+ * Count the number of unit clauses + pure/eliminated/substituted variables
+ * - store the result into the a var_count record
+ */
+typedef struct var_count_s {
+  uint32_t num_unit_vars;
+  uint32_t num_pure_vars;
+  uint32_t num_elim_vars;
+  uint32_t num_subst_vars;
+  uint32_t num_regular_vars;
+} var_count_t;
+
+static void collect_var_counts(var_count_t *c, const sat_solver_t *solver) {
+  uint32_t i, n;
+
+  c->num_unit_vars = 0;
+  c->num_pure_vars = 0;
+  c->num_elim_vars = 0;
+  c->num_subst_vars = 0;
+  c->num_regular_vars = 0;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    switch(solver->ante_tag[i]) {
+    case ATAG_NONE:
+    case ATAG_DECISION:
+    case ATAG_BINARY:
+    case ATAG_CLAUSE:
+    case ATAG_STACKED:
+      c->num_regular_vars ++;
+      break;
+
+    case ATAG_UNIT:
+      c->num_unit_vars ++;
+      break;
+
+    case ATAG_PURE:
+      c->num_pure_vars ++;
+      break;
+
+    case ATAG_ELIM:
+      c->num_elim_vars ++;
+      break;
+
+    case ATAG_SUBST:
+      c->num_subst_vars ++;
+      break;
+    }
+  }
+}
+
+/*
+ * All variables eliminated by preprocessing (not including the units)
+ */
+static uint32_t all_eliminated_vars(var_count_t *c) {
+  return c->num_pure_vars + c->num_elim_vars + c->num_subst_vars;
+}
+
+/*
+ * Count the number of binary clauses stored in the watch vectors.
+ * They are not present in the clause database
+ */
+static uint32_t num_binary_clauses_in_watches(const sat_solver_t *solver) {
+  return solver->preprocess ? 0 : count_binary_clauses(solver);
+}
+
+
+
+/*
+ * Export the clauses of solver to file f
+ * Use the DIMACS format.
+ * - f must be open and writable
+ */
+void nsat_export_to_dimacs(FILE *f, const sat_solver_t *solver) {
+  var_count_t counts;
+  uint32_t num_clauses, num_vars;
+
+  collect_var_counts(&counts, solver);
+
+  num_vars = solver->nvars;
+  if (solver->has_empty_clause) {
+    num_clauses = 1;
+  } else {
+    num_clauses = counts.num_unit_vars + num_binary_clauses_in_watches(solver)
+      + solver->pool.num_prob_clauses;
+  }
+
+  fprintf(f, "c\n");
+  fprintf(f, "c Generated by Yices 2\n");
+  fprintf(f, "c    %"PRIu32" variables\n", num_vars);
+  fprintf(f, "c    %"PRIu32" clauses (including %"PRIu32" unit clauses)\n", num_clauses, counts.num_unit_vars);
+  fprintf(f, "c\n");
+  fprintf(f, "c Preprocessing eliminated %"PRIu32" variables\n", all_eliminated_vars(&counts));
+  fprintf(f, "c    %"PRIu32" eliminated by resolution\n", counts.num_elim_vars);
+  fprintf(f, "c    %"PRIu32" substitutions\n", counts.num_subst_vars);
+  fprintf(f, "c    %"PRIu32" pure literals\n", counts.num_pure_vars);
+  fprintf(f, "c\n");
+
+  fprintf(f, "p cnf %"PRIu32" %"PRIu32"\n", num_vars, num_clauses);
+  if (solver->has_empty_clause) {
+    write_empty_clause(f);
+  } else {
+    export_unit_clauses(f, solver);
+    export_binary_clauses_in_watch_vectors(f, solver);
+    export_problem_clauses(f, solver);
+  }
+}
+
+
+
+
 /***********************
  *  EXPORT/DUMP STATE  *
  **********************/
@@ -10869,9 +11152,6 @@ static void show_subst(const sat_solver_t *solver) {
     }
   }
 }
-
-
-
 
 void show_all_var_defs(const sat_solver_t *solver) {
   uint32_t i, n;

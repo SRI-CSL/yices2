@@ -1264,6 +1264,29 @@ static inline solver_status_t nsat_status(sat_solver_t *solver) {
   return solver->status;
 }
 
+/*
+ * Only run the preprocessor
+ * - this must be called after clause addition
+ * - the type of preprocessing performed depends on flag solver->preprocess.
+ *   if the flag is false, we just do basic simplications
+ *   if the flag is true, we do SCC + equality detection based on cut sweeping.
+ * - result = either STAT_SAT or STAT_UNSAT or STAT_UNKNOWN
+ * - the amount of preprocessing pefromed
+ */
+extern solver_status_t nsat_apply_preprocessing(sat_solver_t *solver);
+
+
+/********************
+ * EXPORT TO DIMACS *
+ *******************/
+
+/*
+ * Export the clauses of solver to file f
+ * Use the DIMACS format.
+ * - f must be open and writable
+ */
+extern void nsat_export_to_dimacs(FILE *f, const sat_solver_t *solver);
+
 
 
 /**************************
@@ -1348,6 +1371,7 @@ extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a)
  *****************************/
 
 extern void show_state(FILE *f, const sat_solver_t *solver);
+
 
 
 /*******************************

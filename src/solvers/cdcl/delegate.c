@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef HAVE_CADICAL
 #include "ccadical.h"
@@ -65,11 +66,33 @@ static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
   nsat_solver_simplify_and_add_clause(solver, n, a);
 }
 
+static void export(void *solver) {
+  FILE *f = fopen("ysat.cnf", "w");
+  if (f != NULL) {
+    printf("c Simplified and exported to ysat.cnf\n");
+    //    show_state(f, solver);
+    nsat_export_to_dimacs(f, solver);
+    fclose(f);
+  }
+}
+
 static smt_status_t ysat_check(void *solver) {
-  switch (nsat_solve(solver)) {
-  case STAT_SAT: return STATUS_SAT;
-  case STAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  if (true) {
+    // use new sat solver
+    switch (nsat_solve(solver)) {
+    case STAT_SAT: return STATUS_SAT;
+    case STAT_UNSAT: return STATUS_UNSAT;
+    default: return STATUS_UNKNOWN;
+    }
+  } else {
+    // preprocess then export to Dimacs
+    switch (nsat_apply_preprocessing(solver)) {
+    case STAT_SAT: return STATUS_SAT;
+    case STAT_UNSAT: return STATUS_UNSAT;
+    default:
+      export(solver);
+      return STATUS_UNKNOWN;
+    }
   }
 }
 
