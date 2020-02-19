@@ -10620,6 +10620,10 @@ static void bump_free_vars(sat_solver_t *solver, bool reverse) {
 solver_status_t nsat_apply_preprocessing(sat_solver_t *solver) {
   if (solver->has_empty_clause) goto done;
 
+  solver->max_depth = 0;
+  solver->last_learned = 1;
+  solver->last_level = 0;
+
   init_simplify(solver);
 
   if (solver->preprocess) {
