@@ -7609,9 +7609,11 @@ static void process_elimination_candidates(sat_solver_t *solver, bool incrementa
 
   if (incremental) {
     elimination_round(solver, 0);
+    if (solver->has_empty_clause) return;
     for (delta = 1; delta <= solver->params.res_extra; delta <<= 1) {
       collect_elimination_candidates(solver);
       elimination_round(solver, delta);
+      if (solver->has_empty_clause) return;
     }
   } else {
     elimination_round(solver, solver->params.res_extra);
