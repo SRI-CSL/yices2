@@ -7676,7 +7676,7 @@ static void eliminate_free_variables(sat_solver_t *solver) {
   }
 
   solver->stats.pp_cheap_elims += c;
-  fprintf(stderr, "c free var elimations: %"PRIu32"\n", c);
+  fprintf(stderr, "c free var eliminations: %"PRIu32"\n", c);
 }
 
 
