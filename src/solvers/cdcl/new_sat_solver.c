@@ -10245,7 +10245,8 @@ static void __attribute__((format(printf, 2, 3))) search_report(const sat_solver
 
 
 /*
- * Naive search
+ * Naive search:
+ * - set status to SAT if that succeeds
  */
 static void try_naive_search(sat_solver_t *solver) {
   naive_t searcher;
@@ -10269,6 +10270,7 @@ static void try_naive_search(sat_solver_t *solver) {
 		  searcher.conflicts, searcher.decisions);
     fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
 		  searcher.conflicts, searcher.decisions);
+    solver->status = STAT_SAT;
     goto done;
   }
 
@@ -10283,6 +10285,7 @@ static void try_naive_search(sat_solver_t *solver) {
 		  searcher.conflicts, searcher.decisions);
     fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
 		  searcher.conflicts, searcher.decisions);
+    solver->status = STAT_SAT;
     goto done;
   }
   search_report(solver, "c REVERSE NAIVE SEARCH FAILED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
@@ -10647,12 +10650,16 @@ solver_status_t nsat_apply_preprocessing(sat_solver_t *solver) {
     if (solver->has_empty_clause) goto done;
   }
 
+  var_list_add_all(&solver->list, true);
+
   nsat_simplify(solver);
   done_simplify(solver);
   if (solver->has_empty_clause) goto done;
 
   failed_literal_probing(solver);
   if (solver->has_empty_clause) goto done;
+
+  try_naive_search(solver);
 
   if (solver->status == STAT_SAT) {
     extend_assignment(solver);
