@@ -633,8 +633,12 @@ int main(int argc, char *argv[]) {
   yices_init();
   init_smt2(!incremental, timeout, interactive);
   if (smt2_model_format) smt2_force_smt2_model_format();
-  if (delegate != NULL) smt2_set_delegate(delegate);
-  if (dimacsfile != NULL) smt2_export_to_dimacs(dimacsfile);
+  if (dimacsfile != NULL && delegate == NULL) smt2_export_to_dimacs(dimacsfile);
+  if (delegate != NULL) {
+    smt2_set_delegate(delegate);
+    if (dimacsfile != NULL) smt2_set_dimacs_file(dimacsfile);
+  }
+
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 

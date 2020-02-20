@@ -66,33 +66,29 @@ static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
   nsat_solver_simplify_and_add_clause(solver, n, a);
 }
 
-static void export(void *solver) {
-  FILE *f = fopen("ysat.cnf", "w");
-  if (f != NULL) {
-    printf("c Simplified and exported to ysat.cnf\n");
-    //    show_state(f, solver);
-    nsat_export_to_dimacs(f, solver);
-    fclose(f);
+static smt_status_t ysat_check(void *solver) {
+  // use new sat solver
+  switch (nsat_solve(solver)) {
+  case STAT_SAT: return STATUS_SAT;
+  case STAT_UNSAT: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
   }
 }
 
-static smt_status_t ysat_check(void *solver) {
-  if (true) {
-    // use new sat solver
-    switch (nsat_solve(solver)) {
-    case STAT_SAT: return STATUS_SAT;
-    case STAT_UNSAT: return STATUS_UNSAT;
-    default: return STATUS_UNKNOWN;
-    }
-  } else {
-    // preprocess then export to Dimacs
-    switch (nsat_apply_preprocessing(solver)) {
-    case STAT_SAT: return STATUS_SAT;
-    case STAT_UNSAT: return STATUS_UNSAT;
-    default:
-      export(solver);
-      return STATUS_UNKNOWN;
-    }
+static smt_status_t ysat_preprocess(void *solver) {
+  // use new sat solver
+  switch (nsat_apply_preprocessing(solver)) {
+  case STAT_SAT: return STATUS_SAT;
+  case STAT_UNSAT: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
+  }
+}
+
+static void ysat_export_to_dimacs(void *solver, const char *filename) {
+  FILE *f = fopen(filename, "w");
+  if (f != NULL) {
+    nsat_export_to_dimacs(f, solver);
+    fclose(f);
   }
 }
 
@@ -109,9 +105,12 @@ static void ysat_delete(void *solver) {
   safe_free(solver);
 }
 
+#if 0
+// not used
 static void ysat_keep_var(void *solver, bvar_t x) {
   nsat_solver_keep_var(solver, x);
 }
+#endif
 
 static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
   nsat_solver_add_def2(solver, x, b, l1, l2);
@@ -147,6 +146,10 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->keep_var = NULL;
   d->var_def2 = ysat_var_def2;
   d->var_def3 = ysat_var_def3;
+
+  // more experimental functions
+  d->preprocess = ysat_preprocess;
+  d->export = ysat_export_to_dimacs;
 }
 
 
@@ -269,6 +272,8 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
+  d->preprocess = NULL;
+  d->export = NULL;
 }
 
 #endif
@@ -364,6 +369,8 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
+  d->preprocess = NULL;
+  d->export = NULL;
 }
 
 #endif
@@ -679,6 +686,34 @@ smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
   }
   return d->check(d->solver);
 }
+
+
+/*
+ * Copy all the clauses of core to delegate d then call the delegate's preprocessor
+ */
+smt_status_t preprocess_with_delegate(delegate_t *d, smt_core_t *core) {
+  if (d->preprocess == NULL) return STATUS_UNKNOWN; // not supported
+
+  copy_problem_clauses(d, core);
+  if (d->keep_var != NULL) {
+    mark_atom_variables(d, core);
+  }
+  if (d->var_def2 != NULL && d->var_def3 != NULL) {
+    export_gate_definitions(d, core);
+  }
+  return d->preprocess(d->solver);
+}
+
+
+/*
+ * Export to DIMACS (do nothing if that's not supported by the delegate)
+ */
+void export_to_dimacs_with_delegate(delegate_t *d, const char *filename) {
+  if (d->export != NULL) {
+    d->export(d->solver, filename);
+  }
+}
+
 
 /*
  * Value assigned to variable x in the delegate

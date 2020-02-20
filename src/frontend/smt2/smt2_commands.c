@@ -2870,15 +2870,13 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       }
 
       if (g->delegate != NULL && g->logic_code == QF_BV) {
-	status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+	if (g->dimacs_file == NULL) {
+	  status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+	} else {
+	  status = process_then_export_to_dimacs(g->ctx, g->dimacs_file);
+	}
       } else {
-	/* printf("INITIAL CONTEXT\n"); */
-	/* dump_context(stdout, g->ctx); */
-	/* printf("END\n\n"); */
 	status = check_sat_with_timeout(g, &g->parameters);
-	/* printf("\nFINAL CONTEXT\n"); */
-	/* dump_context(stdout, g->ctx); */
-	/* printf("END\n\n"); */
       }
 
       report_status(g, status);
@@ -4332,6 +4330,15 @@ void smt2_show_stats(void) {
 void smt2_set_delegate(const char *name) {
   assert(name != NULL);
   __smt2_globals.delegate = name;
+}
+
+/*
+ * Set a a dimacs filename but don't force export to DIMACS
+ * This is use to export to DIMACS after delegate preprocessing
+ */
+void smt2_set_dimacs_file(const char *filename) {
+  __smt2_globals.export_to_dimacs = false;
+  __smt2_globals.dimacs_file = filename;
 }
 
 
