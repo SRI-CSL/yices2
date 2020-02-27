@@ -640,9 +640,26 @@ void bv_evaluator_csttrail_scan(bv_csttrail_t* csttrail, variable_t atom){
 }
 
 static inline
-void record_bound(bv_csttrail_t* csttrail, term_t t, uint32_t top, uint32_t bot){
+void record_bound(bv_csttrail_t* csttrail, term_t t, uint32_t bot, uint32_t top, uint32_t bloom){
+  int_hmap2_add(&csttrail->fv_cache, t, 0, bot);    // bottom free var
   int_hmap2_add(&csttrail->fv_cache, t, 1, top);    // top free var
-  int_hmap2_add(&csttrail->fv_cache, t, 0, bot); // bottom free var
+  int_hmap2_add(&csttrail->fv_cache, t, 2, bloom);  // bloom filter of free vars
+}
+
+static inline
+uint32_t get_bot(bv_csttrail_t* csttrail, term_t u){
+  term_table_t* terms = csttrail->ctx->terms;
+  term_t t            = unsigned_term(bv_bitterm(terms,u));
+  switch (term_kind(terms, t)) { // Simple check for constants
+  case CONSTANT_TERM:
+  case BV_CONSTANT:
+  case BV64_CONSTANT: {
+    return -1; // no variables at all
+  }
+  default: {
+    return int_hmap2_find(&csttrail->fv_cache, t, 0)->val;
+  }
+  }
 }
 
 static inline
@@ -662,28 +679,55 @@ uint32_t get_top(bv_csttrail_t* csttrail, term_t u){
 }
 
 static inline
-uint32_t get_bot(bv_csttrail_t* csttrail, term_t u){
+uint32_t get_bloom(bv_csttrail_t* csttrail, term_t u){
   term_table_t* terms = csttrail->ctx->terms;
   term_t t            = unsigned_term(bv_bitterm(terms,u));
   switch (term_kind(terms, t)) { // Simple check for constants
   case CONSTANT_TERM:
   case BV_CONSTANT:
   case BV64_CONSTANT: {
-    return -1; // no variables at all
+    return 0; // no variables at all
   }
   default: {
-    return int_hmap2_find(&csttrail->fv_cache, t, 0)->val;
+    return int_hmap2_find(&csttrail->fv_cache, t, 2)->val;
   }
   }
 }
 
+static
 uint32_t min(uint32_t a, uint32_t b){
   return (a<b)?a:b;
 }
 
+static
 uint32_t max(uint32_t a, uint32_t b){
   return (a<b)?b:a;
 }
+
+static inline
+bool bit_subset(uint32_t a, uint32_t b){
+  return (a & ~ b) == 0;
+}
+
+static inline
+uint32_t bitor(uint32_t a, uint32_t b){
+  uint32_t result = a | b;
+  assert(bit_subset(a, result) && bit_subset(b, result));
+  return result;
+}
+
+static inline
+uint32_t var_sig(term_t t){
+  uint32_t howmany = 3;
+  uint32_t u = jenkins_hash_int32(t);
+  uint32_t result = 0;
+  for (uint32_t i = 0; i < howmany; i++){
+    result = bitor(result, (1 << (u % 32)));
+    u = u / 32;
+  }
+  return result;
+}
+
 
 uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
 
@@ -715,7 +759,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
       fprintf(out, "This term is y!\n");
     }
     // If no free variable bounds were registered, we register them
-    if (visited == NULL) record_bound(csttrail, t, t, t);
+    if (visited == NULL) record_bound(csttrail, t, t, t, var_sig(t));
     return 0; // It doesn't feature y up to bit 0
   }
 
@@ -742,8 +786,11 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
       return -1;
     if (visited->val < y) // Do we know its top variable and is it < y ?
       return w;
-    int_hmap2_rec_t* bottom = int_hmap2_find(&csttrail->fv_cache, t, 0); // Get bottom var of t
-    if (bottom->val > y) // Do we know its bottom variable and is it > y ?
+    int_hmap2_rec_t* bot = int_hmap2_find(&csttrail->fv_cache, t, 0); // Get bottom var of t
+    if (bot->val > y) // Is the bottom variable > y ?
+      return w;
+    int_hmap2_rec_t* bloom = int_hmap2_find(&csttrail->fv_cache, t, 2); // Get bloom filter of free vars
+    if (!bit_subset(var_sig(y), bloom->val)) // Does the bloom filter rule out y ?
       return w;
   }
 
@@ -760,11 +807,12 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
       ctx_trace_term(ctx, t);
     }
     // If no free variable bounds were registered, we register them
-    if (visited == NULL) record_bound(csttrail, t, t, t);
+    if (visited == NULL) record_bound(csttrail, t, t, t, var_sig(t));
     return w;
   }
 
   // Now we look into whether the answer is memoised
+  assert(y > 1);
   int_hmap2_rec_t* registered = int_hmap2_find(&csttrail->fv_cache, t, (3*y) + csttrail->optim);
   if (registered != NULL) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
@@ -783,6 +831,9 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   }
 
   uint32_t result = w;
+  uint32_t bot   = -1;
+  uint32_t top   = 0;
+  uint32_t bloom = 0;
 
   switch (term_kind(terms, t)) {
   case CONSTANT_TERM:
@@ -803,8 +854,6 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   case BV_LSHR:
   case BV_ASHR: {
     composite_term_t* composite_desc = composite_term_desc(terms, t);
-    uint32_t top = 0;
-    uint32_t bot = -1;
     for (uint32_t i = 0; i < composite_desc->arity; ++ i) {
       term_t t_i = composite_desc->arg[i];
       term_t t_i_pos = unsigned_term(t_i);
@@ -814,11 +863,11 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
           break;
       }
       if (visited == NULL){
-        top = max(top,get_top(csttrail, t_i_pos));
         bot = min(bot,get_bot(csttrail, t_i_pos));
+        top = max(top,get_top(csttrail, t_i_pos));
+        bloom = bitor(bloom, get_bloom(csttrail, t_i_pos));
       }
     }
-    if (visited == NULL) record_bound(csttrail, t, top, bot);
     break;
   }
   case BIT_TERM: {
@@ -829,14 +878,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
       result = 0;
     else
       result = (index < bv_evaluator_not_free_up_to(csttrail, arg_pos)) ? 1 : 0;
-    if (visited == NULL)
-      record_bound(csttrail, t, get_top(csttrail, arg_pos), get_bot(csttrail, arg_pos));
+    if (visited == NULL){
+      bot   = get_bot(csttrail, arg_pos);
+      top   = get_top(csttrail, arg_pos);
+      bloom = get_bloom(csttrail, arg_pos);
+    }
     break;
   }
   case BV_POLY: {
     bvpoly_t* t_poly = bvpoly_term_desc(terms, t);
-    uint32_t top = 0;
-    uint32_t bot = -1;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t t_i = t_poly->mono[i].var;
       if (t_i == const_idx) continue;
@@ -848,17 +898,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
           visited != NULL &&
           result == 0) break;
       if (visited == NULL){
-        top = max(top,get_top(csttrail, t_i));
         bot = min(bot,get_bot(csttrail, t_i));
+        top = max(top,get_top(csttrail, t_i));
+        bloom = bitor(bloom, get_bloom(csttrail, t_i));
       }
     }
-    if (visited == NULL) record_bound(csttrail, t, top, bot);
     break;
   }
   case BV64_POLY: {
     bvpoly64_t* t_poly = bvpoly64_term_desc(terms, t);
-    uint32_t top = 0;
-    uint32_t bot = -1;
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t t_i = t_poly->mono[i].var;
       if (t_i == const_idx) continue;
@@ -870,17 +918,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
           visited != NULL &&
           result == 0) break;
       if (visited == NULL){
-        top = max(top,get_top(csttrail, t_i));
         bot = min(bot,get_bot(csttrail, t_i));
+        top = max(top,get_top(csttrail, t_i));
+        bloom = bitor(bloom, get_bloom(csttrail, t_i));
       }
     }
-    if (visited == NULL) record_bound(csttrail, t, top, bot);
     break;
   }
   case POWER_PRODUCT: {
     pprod_t* t_pprod = pprod_term_desc(terms, t);
-    uint32_t top = 0;
-    uint32_t bot = -1;
     for (uint32_t i = 0; i < t_pprod->len; ++ i) {
       term_t t_i = t_pprod->prod[i].var;
       assert(is_pos_term(t_i));
@@ -891,17 +937,15 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
           visited != NULL &&
           result == 0) break;
       if (visited == NULL){
-        top = max(top,get_top(csttrail, t_i));
         bot = min(bot,get_bot(csttrail, t_i));
+        top = max(top,get_top(csttrail, t_i));
+        bloom = bitor(bloom, get_bloom(csttrail, t_i));
       }
     }
-    if (visited == NULL) record_bound(csttrail, t, top, bot);
     break;
   }
   case BV_ARRAY: {
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
-    uint32_t top = 0;
-    uint32_t bot = -1;
     result = 0;
     for (uint32_t i = 0; i < w; i++) {
       term_t t_i = concat_desc->arg[i];
@@ -913,18 +957,20 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
           visited != NULL &&
           result <= i) break;
       if (visited == NULL){
-        top = max(top,get_top(csttrail, t_i));
         bot = min(bot,get_bot(csttrail, t_i));
+        top = max(top,get_top(csttrail, t_i));
+        bloom = bitor(bloom, get_bloom(csttrail, t_i));
       }
     }
     if (csttrail->optim == 0 && result < w)
       result = 0;
-    if (visited == NULL) record_bound(csttrail, t, top, bot);
     break;
   }
   default:
     assert(false);
   }
+
+  if (visited == NULL) record_bound(csttrail, t, bot, top, bloom);
 
   int_hmap2_add(&csttrail->fv_cache, t, (3*y) + csttrail->optim, result);
   if (ctx_trace_enabled(ctx, "mcsat::bv::scan")) {
