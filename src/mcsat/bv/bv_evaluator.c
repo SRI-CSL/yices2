@@ -718,13 +718,14 @@ uint32_t bitor(uint32_t a, uint32_t b){
 
 static inline
 uint32_t var_sig(term_t t){
-  uint32_t howmany = 3;
+  uint32_t howmany = 2;
   uint32_t u = jenkins_hash_int32(t);
   uint32_t result = 0;
   for (uint32_t i = 0; i < howmany; i++){
     result = bitor(result, (1 << (u % 32)));
     u = u / 32;
   }
+  assert(result != 0);
   return result;
 }
 
