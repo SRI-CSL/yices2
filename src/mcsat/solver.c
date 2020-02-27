@@ -455,6 +455,11 @@ bool trail_token_add_at_level(trail_token_t* token, variable_t x, const mcsat_va
 
   tk->used ++;
 
+  // Check for trail level
+  if (level < trail->decision_level_base) {
+    level = trail->decision_level_base;
+  }
+
   // Add the propagation
   trail_add_propagation(trail, x, value, tk->ctx->ctx.plugin_id, level);
 

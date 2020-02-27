@@ -75,11 +75,21 @@ extern uint32_t term_num_children(term_table_t *table, term_t t);
 
 /*
  * i-th child of term t:
- * - t must be valid term in table
+ * - t must be a valid term in table
  * - t must be a composite term
  * - if n is term_num_children(table, t) then i must be in [0 ... n-1]
  */
 extern term_t term_child(term_table_t *table, term_t t, uint32_t i);
+
+
+/*
+ * All children of t:
+ * - t must be a valid term in table
+ * - t must be a composite term
+ *.- the children of t are added to vector v
+ */
+extern void get_term_children(term_table_t *table, term_t t, ivector_t *v);
+
 
 /*
  * Components of a projection

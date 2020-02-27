@@ -23,7 +23,7 @@
 #ifndef __SMT2_TYPE_PRINTER_H
 #define __SMT2_TYPE_PRINTER_H
 
-#include "io/yices_pp.h"
+#include "frontend/smt2/smt2_printer.h"
 #include "terms/types.h"
 
 /*
@@ -31,7 +31,7 @@
  * - this is equivalent to pp_type in the default type_printer
  * - tau must be defined in tbl
  */
-extern void smt2_pp_type(yices_pp_t *printer, type_table_t *tbl, type_t tau);
+extern void smt2_pp_type(smt2_pp_t *printer, type_table_t *tbl, type_t tau);
 
 #endif
 

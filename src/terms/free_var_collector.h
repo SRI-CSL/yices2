@@ -36,8 +36,6 @@
 
 #include "terms/terms.h"
 #include "utils/int_harray_store.h"
-#include "utils/int_hash_sets.h"
-#include "utils/int_vectors.h"
 #include "utils/ptr_hash_map.h"
 #include "utils/ptr_stack.h"
 

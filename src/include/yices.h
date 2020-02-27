@@ -251,6 +251,7 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
  */
 __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
 
+
 /*
  * Print an error message on file descriptor fd.  This converts the current error
  * code + error report structure into an error message.
@@ -2403,6 +2404,29 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
 
 
 /*
+ * Collect all the children of composite term t in vector *v
+ * - v must be initialized by calling yices_init_term_vector
+ * - if t s not valid or is not a composite term, the function
+ *   returns -1 and leaves *v unchanged
+ * - otherwise, the children are stored in *v:
+ *    v->size = number of children
+ *    v->data[0 ... v->size-1] = the children
+ *
+ * The vector->size is equal to yices_term_num_children(t).
+ * The children are stored in the same order as given by yices_term_child:
+ *    v->data[i] = child of index i.
+ *
+ * Error report:
+ * if t is not a valid type
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not a composite term
+ *   code = INVALID_TERM_OP
+ */
+__YICES_DLLSPEC__ extern int32_t yices_term_children(term_t t, term_vector_t *v);
+
+
+/*
  * Get the argument and index of a projection
  * - if t is invalid or not a projection term then
  *     yices_proj_index returns -1
@@ -3560,7 +3584,7 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
  * Value of term t as a node descriptor.
  *
  * The function returns 0 it t's value can be computed, -1 otherwise.
- * If t's value can be compute, the corresponding node descriptor is
+ * If t's value can be computed, the corresponding node descriptor is
  * returned in *val.
  *
  * Error codes are as in all evaluation functions.
@@ -3823,6 +3847,52 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
 
 
 
+/*
+ * SUPPORTS
+ */
+
+/*
+ * Given a term t and a model mdl, the support of t in mdl is a set of variables/uninterpreted
+ * terms whose values are sufficient to fix the value of t in mdl. For example, if
+ * t is (if x>0 then x+z1 else y) and x has value 1 in mdl, then the value of t doesn't depend
+ * on the value of y in mdl. In this case, support(t) = { x, z }.
+ *
+ * This extends to an array of terms a[0 ... n-1]. The support of a is a set of terms whose
+ * values in mdl are sufficient to determine the values of a[0] .... a[n-1].
+ */
+
+/*
+ * Get the support of a term t in mdl
+ * - the support is returned in vector *v; v must be initialized by calling yices_init_term_vector.
+ * - if t is not a valid term, the function returns -1 and leaves v unchanged.
+ * - otherwise, the function returns 0 and the support of t is stored in *v:
+ *    v->size = number of terms in the support
+ *    v->data[0 ... v->size-1] = the terms
+ *
+ * Error report:
+ * if t is not a valid term:
+ *    code = INVALID_TERM
+ *    term1 = t
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v);
+
+/*
+ * Get the support of terms a[0...n-1] in mdl
+ * - the support is returned in vector *v;
+ *   v must be initialized by calling yices_init_term_vector.
+ * - if one  is not a valid term, the function returns -1 and leaves v unchanged.
+ * - otherwise, the function returns 0 and the support is stored in *v:
+ *    v->size = number of terms in the support
+ *    v->data[0 ... v->size-1] = the terms
+ *
+ * Error report:
+ * if a[i] is not a valid term,
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
+
 
 /*
  * IMPLICANTS
@@ -4053,6 +4123,43 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const 
  *   x = yices_new_uninterpreted_term(<some type>)
  *   yices_set_term_name(x, "x")
  *
+ * This function will print a line of the form
+ *    (= <name of x> <value of x in mdl>)
+ * for every uninterpreted term 'x' that has a  value in the model,
+ * unless 'x' is a  function term.
+ *
+ * For function terms (i.e., if 'x' has a function type), then the yices_print_model
+ * will show a function definition as follows:
+ *
+ *   (function f
+ *     (type (-> t_0 ... t_k s))
+ *     (= (f <x_00> ... <x_0k>) v_0)
+ *       ...
+ *     (- (f <x_m0> ... <x_mk>) v_m)
+ *     (default w))
+ *
+ * where f is the function name.
+ * - the type (-> t_0 ... t_k s) is the type of f: the domain is t_0 .... t_k
+ *   and the range is s.
+ * - in every line (= (f <x_i0> ... x_ik>) v_i):
+ *      x_i0 is a constant of type t_0
+ *      ...
+ *      x_ik is a constant of type t_k
+ *      v_i  is a constant of type s
+ * - each such line specifies the value v_i of f at some point in its domain.
+ * - the last entry:  (default w)
+ *   is the default value of f at all points that are not listed above.
+ *
+ * Example:
+ *
+ *   (function b
+ *     (type (-> int bool))
+ *       (= (b 0) true)
+ *       (= (b 1) true)
+ *      (default false))
+ *
+ * means that b is a function from int to boo, such that (b 0) and (b 1) are true
+ * and (b i) is false for any i not equal to 0 or 1.
  */
 __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 
@@ -4075,21 +4182,72 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
 
 
 /*
- * Analogous variants of the above that use file descriptors rather than file pointers.
+ * Print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
  *
- * In the case of yices_print_model_fd we return 0 if successful, -1 if there is a problem converting
- * the file descriptor into a FILE* object.
+ * The function returns -1 on error, 0 otherwise.
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ */
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
+
+/*
+ * Pretty print the values of n terms in  a model
+ * - f = output file
+ * - mdl = model
+ * - n = number of terms
+ * - a - array of n terms
+ * - width, height, offset define the print area.
+ *
+ * This function is like yices_print_term_values except that is uses pretty printing.
+ *
+ * Return code: -1 on error, 0 otherwise
+ *
+ *
+ * Error report:
+ * if a[i] is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = a[i]
+ * if writing to f fails,
+ *   code = OUTPUT_ERROR
+ *   in this case, errno, perror, etc. can be used for diagnostic.
+ */
+ __YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+                                                       uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Variants of the above functions that use file descriptors rather than file pointers.
+ *
+ * These functions return 0 if successful or -1 if there's an error.
+ * Error codes are set as in the corresponding functions above.
+ *
+ * In particular, if fd is not a valid file descriptor or some other IO error happens,
+ *   code is set to OUTPUT_ERROR
+ *   and errno, perror can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
                                                         uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
-
 __YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]);
+
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
+							 uint32_t width, uint32_t height, uint32_t offset);
+
 
 /*
  * Convert type tau or term t to a string using the pretty printer.

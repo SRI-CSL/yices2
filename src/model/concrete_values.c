@@ -3217,6 +3217,70 @@ void value_table_end_tmp(value_table_t *table) {
 
 
 
+/********************
+ *  SPECIAL VALUES  *
+ *******************/
+
+/*
+ * Check whether v is zero:
+ * - v must be a good object
+ * - return true if v is a rational equal to zero
+ */
+bool is_zero(value_table_t *table, value_t v) {
+  assert(good_object(table, v));
+  return object_is_rational(table, v) && q_is_zero(vtbl_rational(table, v));
+}
+
+/*
+ * Check whether v is one
+ * - v must be a good object
+ * - return true if v is a rational equal to 1
+ */
+bool is_one(value_table_t *table, value_t v) {
+  assert(good_object(table, v));
+  return object_is_rational(table, v) && q_is_one(vtbl_rational(table, v));
+}
+
+
+/*
+ * Check whether v is +1 or -1
+ * - v must be a good object
+ */
+bool is_unit(value_table_t *table, value_t v) {
+  rational_t *r;
+
+  assert(good_object(table, v));
+  if (object_is_rational(table, v)) {
+    r = vtbl_rational(table, v);
+    return q_is_one(r) || q_is_minus_one(r);
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether v is 0b00000...
+ * - v must be a good object
+ * - return true if v is a bitvector constant of the form 0b0....0
+ */
+bool is_bvzero(value_table_t *table, value_t v) {
+  value_bv_t *b;
+
+  assert(good_object(table, v));
+  if (object_is_bitvector(table, v)) {
+    b = vtbl_bitvector(table, v);
+    assert(bvconst_is_normalized(b->data, b->nbits));
+    return bvconst_is_zero(b->data, b->width);
+  }
+
+  return false;
+}
+
+
+
+
+
 
 /****************
  *  EVALUATION  *
