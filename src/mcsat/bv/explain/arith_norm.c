@@ -442,8 +442,9 @@ uint32_t norm_hash(term_t t, term_t v, uint32_t n){
 static inline
 void norm_cache_add(arith_norm_t* norm, term_t t, term_t conflict_var, uint32_t bits, term_t result){
   assert(t != NULL_TERM);
-  term_t v   = (bv_evaluator_is_evaluable(&norm->csttrail, t)) ? 0 : conflict_var;
-  uint32_t i = norm_hash(t, v, bits) % norm->norm_cache_size;
+  bool is_eval = (bv_evaluator_not_free_up_to(&norm->csttrail, t) >= bits);
+  term_t v     = is_eval ? 0 : conflict_var;
+  uint32_t i   = norm_hash(t, v, bits) % norm->norm_cache_size;
   arith_norm_entry_t* e = &norm->norm_cache[i];
   e->term = t;
   e->conflict_variable = v;
@@ -456,20 +457,23 @@ term_t norm_cache_find(arith_norm_t* norm, term_t t, term_t conflict_var, uint32
   assert(t != NULL_TERM);
   bv_csttrail_t* csttrail = &norm->csttrail;
   plugin_context_t* ctx = csttrail->ctx;
-  term_t v   = (bv_evaluator_is_evaluable(&norm->csttrail, t)) ? 0 : conflict_var;
-  uint32_t i = norm_hash(t, v, bits) % norm->norm_cache_size;
+  bool is_eval = (bv_evaluator_not_free_up_to(&norm->csttrail, t) >= bits);
+  term_t v     = is_eval ? 0 : conflict_var;
+  uint32_t i   = norm_hash(t, v, bits) % norm->norm_cache_size;
   arith_norm_entry_t* e = &norm->norm_cache[i];
   if (e->term == t
       && e->conflict_variable == v
       && e->bits == bits){
-    if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan:cache")) {
-      FILE* out = ctx_trace_out(ctx);
-      fprintf(out, "Found cached normalised term\n");
-    }
     return e->norm;
   }
-  else
+  else {
+    if (e->term != NULL_TERM
+        && ctx_trace_enabled(ctx, "mcsat::bv::arith::scan:cache")) {
+      FILE* out = ctx_trace_out(ctx);
+      fprintf(out, "Norm_cache collision\n");
+    }
     return NULL_TERM;
+  }
 }
 
 #ifndef NDEBUG
