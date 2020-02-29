@@ -86,9 +86,12 @@ static void ysat_delete(void *solver) {
   safe_free(solver);
 }
 
+#if 0
+// don't use
 static void ysat_keep_var(void *solver, bvar_t x) {
   nsat_solver_keep_var(solver, x);
 }
+#endif
 
 static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
   nsat_solver_add_def2(solver, x, b, l1, l2);
@@ -103,8 +106,8 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   init_nsat_solver(d->solver, nvars, true); // with preprocessing
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0.01);
-  nsat_set_var_decay_factor(d->solver, 0.6);
   nsat_set_reduce_fraction(d->solver, 12);
+  nsat_set_res_clause_limit(d->solver, 300);   // more agressive var elimination
   nsat_set_simplify_subst_delta(d->solver, 30);
   nsat_solver_add_vars(d->solver, nvars);
   //
@@ -118,8 +121,12 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->get_value = ysat_get_value;
   d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
+
   // experimental
-  d->keep_var = ysat_keep_var;
+  //  d->keep_var = ysat_keep_var;
+  d->keep_var = NULL; // don't user
+
+  // with cut enumeration stuff
   d->var_def2 = ysat_var_def2;
   d->var_def3 = ysat_var_def3;
 }
