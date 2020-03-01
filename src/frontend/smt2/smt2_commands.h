@@ -519,6 +519,11 @@ extern void smt2_show_stats(void);
  */
 extern void smt2_set_delegate(const char *name);
 
+/*
+ * Set a a dimacs filename but don't force export to DIMACS
+ * This is use to export to DIMACS after delegate preprocessing
+ */
+extern void smt2_set_dimacs_file(const char *filename);
 
 /*
  * Delete all internal structures (called after exit).

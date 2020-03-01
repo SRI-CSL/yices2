@@ -1160,6 +1160,7 @@ int main(int argc, char* argv[]) {
     if (subsume_skip_given) nsat_set_subsume_skip(&solver, subsume_skip);
     if (var_elim_skip_given) nsat_set_var_elim_skip(&solver, var_elim_skip);
     if (res_clause_limit_given) nsat_set_res_clause_limit(&solver, res_clause_limit);
+    if (res_extra_given) nsat_set_res_extra(&solver, res_extra);
     if (simplify_interval_given) nsat_set_simplify_interval(&solver, simplify_interval);
     if (simplify_bin_delta_given) nsat_set_simplify_bin_delta(&solver, simplify_bin_delta);
 
