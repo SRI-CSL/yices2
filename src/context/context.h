@@ -302,6 +302,20 @@ extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, 
 
 
 /*
+ * Simplify then export to Dimacs:
+ * - filename = name of the output file
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing.
+ * If y2sat preprocessing solves the formula, return that.
+ */
+extern smt_status_t process_then_export_to_dimacs(context_t *ctx, const char *filename);
+
+
+/*
  * FOR TESTING/DEBUGGING
  */
 
