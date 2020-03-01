@@ -36,8 +36,6 @@ typedef void lp_algebraic_number_t;
 
 /*
  * LOCK FREE VERSIONS OF YICES_API CALLS
- *
- *
  */
 
 
@@ -489,6 +487,8 @@ extern int32_t _o_yices_term_num_children(term_t t);
 
 extern term_t _o_yices_term_child(term_t t, int32_t i);
 
+extern term_t _o_yices_term_children(term_t t, term_vector_t *v);
+
 extern int32_t _o_yices_proj_index(term_t t);
 
 extern term_t _o_yices_proj_arg(term_t t);
@@ -588,6 +588,11 @@ extern void _o_yices_print_model(FILE *f, model_t *mdl);
 extern int32_t _o_yices_print_model_fd(int fd, model_t *mdl);
 
 extern int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+extern int32_t _o_yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
+
+extern int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+				       uint32_t width, uint32_t height, uint32_t offset);
 
 extern char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
@@ -694,6 +699,15 @@ extern int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const t
  */
 
 extern int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], term_t b[]);
+
+
+/*
+ * SUPPORTS
+ */
+extern int32_t _o_yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v);
+
+extern int32_t _o_yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
+
 
 
 /*

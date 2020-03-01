@@ -23,7 +23,7 @@
 #ifndef __SMT2_MODEL_PRINTER_H
 #define __SMT2_MODEL_PRINTER_H
 
-#include "io/yices_pp.h"
+#include "frontend/smt2/smt2_printer.h"
 #include "model/models.h"
 
 /*
@@ -36,13 +36,13 @@
  *   definition.
  * This version ignores the alias map (if any).
  */
-extern void smt2_pp_model(yices_pp_t *printer, model_t *model);
+extern void smt2_pp_model(smt2_pp_t *printer, model_t *model);
 
 /*
  * Full model: same as above but also print the value
  * of terms that are stored in the model's alias_map.
  */
-extern void smt2_pp_full_model(yices_pp_t *printer, model_t *model);
+extern void smt2_pp_full_model(smt2_pp_t *printer, model_t *model);
 
 
 #endif /* __SMT2_MODEL_PRINTER_H */

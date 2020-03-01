@@ -475,8 +475,9 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
 	  *x = opposite_term(t1);
 	}
 
-      } else if (t1 != t2) {
+      } else if (is_pos_term(t) && t1 != t2) {
 	/*
+	 * t is (eq t1 t2)
 	 * t1 and t2 are not Boolean
 	 * if t1 and t2 are equal, we return MATCH_OTHER, since (eq t1 t2) is true
 	 */
@@ -492,6 +493,13 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
 	  *x = t1;
 	  code = MATCH_EQ;
 	}
+
+      } else if (is_neg_term(t) && t1 == t2) {
+	/*
+	 * t is (not (eq t1 t2))
+	 * t1 and t2 are equal so t matches false.
+	 */
+	code = MATCH_FALSE;
       }
       break;
 
@@ -615,6 +623,10 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
   } while (! int_queue_is_empty(queue));
 
   assert(t == NULL_TERM);
+
+  // the same constant could occur several times in v:
+  ivector_remove_duplicates(v);
+  neqs = v->size;
 
   if (neqs >= 2) {
     assert(y != NULL_TERM && v->size == neqs);
@@ -1870,7 +1882,7 @@ static void sort_range_constraints(sym_breaker_t *breaker) {
 
 /*
  * Collect all domain constraints from ctx->top_formulas
- * - all constraints found are added the range_constraint record
+ * - all constraints found are added to the range_constraint record
  */
 void collect_range_constraints(sym_breaker_t *breaker) {
   ivector_t *formulas;
@@ -1885,7 +1897,8 @@ void collect_range_constraints(sym_breaker_t *breaker) {
     ivector_reset(v);
     t = formula_is_range_constraint(breaker, formulas->data[i], v);
     if (t != NULL_TERM) {
-      int_array_sort(v->data, v->size); // sort the constants
+      //      int_array_sort(v->data, v->size); // sort the constants
+      assert(sorted_array(v->data, v->size));
       add_range_constraint(&breaker->range_constraints, v->data, v->size, t, i);
     }
   }

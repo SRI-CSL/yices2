@@ -154,6 +154,7 @@ core_src_c := \
 	model/map_to_model.c \
 	model/model_eval.c \
 	model/model_queries.c \
+	model/model_support.c \
 	model/models.c \
 	model/presburger.c \
 	model/projection.c \
@@ -640,12 +641,24 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden $(PTHREAD) -Qunused-arguments
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_dylib)
   static_libyices_dynamic=$(static_libdir)/$(libyices_dylib)
+
+  #
+  # To stop a clang warning when we compile with -pthread,
+  # we add option -Qunused-arguments
+  #
+  # Detect clang-disguised-as-gcc vs. GNU GCC
+  #
+  ifeq ($(THREAD_SAFE),1)
+    ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
+       CFLAGS += -Qunused-arguments
+    endif
+  endif
 else
 ifeq ($(POSIXOS),sunos)
   PIC=-fPIC

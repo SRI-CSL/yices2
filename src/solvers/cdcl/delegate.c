@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef HAVE_CADICAL
 #include "ccadical.h"
@@ -66,10 +67,28 @@ static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
 }
 
 static smt_status_t ysat_check(void *solver) {
+  // use new sat solver
   switch (nsat_solve(solver)) {
   case STAT_SAT: return STATUS_SAT;
   case STAT_UNSAT: return STATUS_UNSAT;
   default: return STATUS_UNKNOWN;
+  }
+}
+
+static smt_status_t ysat_preprocess(void *solver) {
+  // use new sat solver
+  switch (nsat_apply_preprocessing(solver)) {
+  case STAT_SAT: return STATUS_SAT;
+  case STAT_UNSAT: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
+  }
+}
+
+static void ysat_export_to_dimacs(void *solver, const char *filename) {
+  FILE *f = fopen(filename, "w");
+  if (f != NULL) {
+    nsat_export_to_dimacs(f, solver);
+    fclose(f);
   }
 }
 
@@ -86,10 +105,15 @@ static void ysat_delete(void *solver) {
   safe_free(solver);
 }
 
+#if 0
 static void ysat_keep_var(void *solver, bvar_t x) {
   nsat_solver_keep_var(solver, x);
 }
+#endif
 
+#define USE_CUTS 1
+
+#if USE_CUTS
 static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
   nsat_solver_add_def2(solver, x, b, l1, l2);
 }
@@ -97,14 +121,15 @@ static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, lite
 static void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
   nsat_solver_add_def3(solver, x, b, l1, l2, l3);
 }
+#endif
 
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
   init_nsat_solver(d->solver, nvars, true); // with preprocessing
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0.01);
-  nsat_set_var_decay_factor(d->solver, 0.6);
   nsat_set_reduce_fraction(d->solver, 12);
+  nsat_set_res_clause_limit(d->solver, 300);   // more agressive var elimination
   nsat_set_simplify_subst_delta(d->solver, 30);
   nsat_solver_add_vars(d->solver, nvars);
   //
@@ -118,10 +143,23 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->get_value = ysat_get_value;
   d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
+
   // experimental
-  d->keep_var = ysat_keep_var;
+  //  d->keep_var = ysat_keep_var;
+  d->keep_var = NULL; // don't use
+
+#if USE_CUTS
+  // with cut enumeration
   d->var_def2 = ysat_var_def2;
   d->var_def3 = ysat_var_def3;
+#else
+  // without
+  d->var_def2 = NULL;
+  d->var_def3 = NULL;
+#endif
+  // more experimental functions
+  d->preprocess = ysat_preprocess;
+  d->export = ysat_export_to_dimacs;
 }
 
 
@@ -244,6 +282,8 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
+  d->preprocess = NULL;
+  d->export = NULL;
 }
 
 #endif
@@ -339,6 +379,8 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
+  d->preprocess = NULL;
+  d->export = NULL;
 }
 
 #endif
@@ -654,6 +696,34 @@ smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
   }
   return d->check(d->solver);
 }
+
+
+/*
+ * Copy all the clauses of core to delegate d then call the delegate's preprocessor
+ */
+smt_status_t preprocess_with_delegate(delegate_t *d, smt_core_t *core) {
+  if (d->preprocess == NULL) return STATUS_UNKNOWN; // not supported
+
+  copy_problem_clauses(d, core);
+  if (d->keep_var != NULL) {
+    mark_atom_variables(d, core);
+  }
+  if (d->var_def2 != NULL && d->var_def3 != NULL) {
+    export_gate_definitions(d, core);
+  }
+  return d->preprocess(d->solver);
+}
+
+
+/*
+ * Export to DIMACS (do nothing if that's not supported by the delegate)
+ */
+void export_to_dimacs_with_delegate(delegate_t *d, const char *filename) {
+  if (d->export != NULL) {
+    d->export(d->solver, filename);
+  }
+}
+
 
 /*
  * Value assigned to variable x in the delegate

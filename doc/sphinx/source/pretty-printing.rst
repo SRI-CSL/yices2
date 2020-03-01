@@ -68,6 +68,9 @@ When the area is too small, the result is truncated:
 
 
 
+Printing Terms and Types
+------------------------
+
 The pretty-printing API includes functions to print terms, types, and
 models. They may report the usual errors (i.e., :c:enum:`INVALID_TYPE`
 and :c:enum:`INVALID_TERM` if the input is not valid). They can also
@@ -75,7 +78,6 @@ report that writing to a stream failed with error code
 :c:enum:`OUTPUT_ERROR`. In such a case, ``errno`` and the standard
 functions ``perror`` and ``strerror`` can be used to get more
 explanation.
-
 
 
 .. c:function:: int32_t yices_pp_type(FILE* f, type_t tau, uint32_t width, uint32_t height, uint32_t offset)
@@ -111,7 +113,7 @@ explanation.
 
    Pretty-prints a type.
 
-   This function is similar to :c:func:`yices_pp_type` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_type` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
@@ -148,12 +150,11 @@ explanation.
 
    Pretty-prints a term.
 
-   This function is similar to :c:func:`yices_pp_term` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_term` except that it uses a file descriptor *fd*
    instead of a stream *f*.
 
 
 
-   
 .. c:function:: int32_t yices_pp_term_array(FILE* f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz)
 
    Pretty-prints an array of terms.
@@ -203,67 +204,8 @@ explanation.
 
    Pretty-prints an array of terms.
 
-   This function is similar to :c:func:`yices_pp_term_array` except that is uses a file descriptor *fd*
+   This function is similar to :c:func:`yices_pp_term_array` except that it uses a file descriptor *fd*
    instead of a stream *f*.
-
-
-
-.. c:function:: int32_t yices_pp_model(FILE* f, model_t* mdl, uint32_t width, uint32_t height, uint32_t offset)
-
-   Pretty-prints a model.
-
-   **Parameters**
-
-   - *f*: output stream
-
-   - *mdl* is the mode to print
-
-   - *width*, *height*, and *offset* specify the display area
-
-
-   Stream *f* must be open and writable.
-
-   This function prints *mdl* in the given display area. If writing to *f* fails, it returns -1. 
-   Otherwise, it returns 0.
-
-   **Error report**
-
-   - if writing to *f* fails
-
-     -- error code: :c:enum:`OUTPUT_ERROR`
-
-
-
-   .. note:: The model *mdl* stores a mapping from uninterpreted
-             terms to values. This function prints the value assigned to these
-             uninterpreted terms, but it skips any uninterpreted term that does not have
-             a name.
-
-
-.. c:function:: int32_t yices_pp_model_fd(int fd, model_t* mdl, uint32_t width, uint32_t height, uint32_t offset)
-
-   Pretty-prints a model.
-
-   This function is similar to :c:func:`yices_pp_model` except that is uses a file descriptor *fd*
-   instead of a stream *f*.
-
-
-.. c:function:: void yices_print_model(FILE* f, model_t* mdl)
-
-   Prints a model.
-
-   This function prints model *mdl* on stream *f*. It has the same behavior as
-   the previous function but it does not use a pretty printer.
-
-
-.. c:function:: int32_t yices_print_model_fd(int fd, model_t* mdl)
-
-   Prints a model.
- 
-   Same behavior as :c:func:`yices_print_model`, except that is uses a file descriptor *fd*
-   instead of a stream *f*.
-
-   This function returns -1 if the write to file *fd* fails. It returns 0 otherwise.
 
 
 .. c:function:: char* yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset)
@@ -310,6 +252,143 @@ explanation.
    If you don't care too much about formatting, set *height* to 1, *offset* to 0, and use a large enough
    *width*. This will build a string *s* that does not contain any line breaks.
 
+
+
+
+Printing Models and Term Values
+-------------------------------
+
+.. c:function:: int32_t yices_pp_model(FILE* f, model_t* mdl, uint32_t width, uint32_t height, uint32_t offset)
+
+   Pretty-prints a model.
+
+   **Parameters**
+
+   - *f*: output stream
+
+   - *mdl* is the model to print
+
+   - *width*, *height*, and *offset* specify the display area
+
+
+   Stream *f* must be open and writable.
+
+   This function prints *mdl* in the given display area. If writing to *f* fails, it returns -1. 
+   Otherwise, it returns 0.
+
+   For every uninterpreted that has name and has a value in *mdl*, the function will print a line
+   of the form:
+
+   .. code-block:: none
+
+      (= <name> <value>
+
+   For terms that have a function type, the format is different; it will look something like this:
+
+   .. code-block:: none
+
+      (function b
+       (type (-> int bool))
+         (= (b 0) true)
+         (= (b 1) true)
+        (default false))
+
+   This shows how function *b* is defined in the model: it's a function from *int* to *bool* such
+   that *(b 0)* and *(b 1)* are *true*, and *(b i)* is *false* for any *i* that's not equal to 0 or 1.
+
+   **Error report**
+
+   - if writing to *f* fails
+
+     -- error code: :c:enum:`OUTPUT_ERROR`
+
+
+   .. note:: The model *mdl* stores a mapping from uninterpreted
+             terms to values. This function prints the value assigned to these
+             uninterpreted terms, but it skips any uninterpreted term that does not have
+             a name.
+
+
+.. c:function:: int32_t yices_pp_model_fd(int fd, model_t* mdl, uint32_t width, uint32_t height, uint32_t offset)
+
+   Pretty-prints a model.
+
+   This function is similar to :c:func:`yices_pp_model` except that it uses a file descriptor *fd*
+   instead of a stream *f*.
+
+
+.. c:function:: void yices_print_model(FILE* f, model_t* mdl)
+
+   Prints a model.
+
+   This function prints model *mdl* on stream *f*. It has the same behavior as
+   :c:func:`yices_pp_model` but it does not use a pretty printer.
+
+
+.. c:function:: int32_t yices_print_model_fd(int fd, model_t* mdl)
+
+   Prints a model.
+ 
+   Same behavior as :c:func:`yices_print_model`, except that it uses a file descriptor *fd*
+   instead of a stream *f*.
+
+   This function returns -1 if the write to file *fd* fails. It returns 0 otherwise.
+
+
+.. c:function:: int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset)
+
+   Pretty print the value of *n* terms in a model
+
+   The function prints the name and value of terms *a[0]* |...| *a[n-1]* on stream  *f*.
+
+   **Parameters**
+
+   - *f*: output stream
+
+   - *mdl*: model
+
+   - *n*: number of terms to print
+
+   - *a*: array of *n* terms
+
+   - *width*, *height*, *offset*: define the pretty-print area
+
+   The function returns -1 if there's an error or 0 otherwise.
+
+   **Error report**
+
+   - if one of the terms *a[i]* is not valid:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := *a[i]*
+
+   - if writing to *f* fails:
+
+     -- error code: :c:enum:`OUTPUT_ERROR`
+
+
+.. c:function:: int32_t yices_pp_term_values_fd(int32_t fd, model_t *mdl, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset)
+
+   Pretty print the value of *n* terms in a model.
+
+   This is the same as :c:func:`yices_pp_term_values`, except that it uses a file descriptor *fd*
+   instead of a strean *f*.
+
+
+.. c:function:: int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[])
+
+   Print the values of *n* tems in a model.
+
+   This is similar to :c:func:`yices_pp_term_values`, except that it does not use pretty printing.
+
+
+.. c:function:: int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[])
+
+   Print the values of *n* tems in a model.
+
+   This function is similar to :c:func:`yices_print_term_values`, except that it uses a file descriptor *fd*
+   instead of a stream *f*.
 
 
 .. c:function:: char* yices_model_to_string(model_t* mdl, uint32_t width, uint32_t height, uint32_t offset)

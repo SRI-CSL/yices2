@@ -23,8 +23,6 @@
 #include <assert.h>
 
 #include "terms/free_var_collector.h"
-#include "utils/int_array_sort.h"
-#include "utils/ptr_array_sort.h"
 
 
 /*
@@ -97,146 +95,6 @@ static inline harray_t *singleton_fvar_set(fvar_collector_t *collect, term_t x) 
   return singleton_harray(&collect->store, x);
 }
 
-
-#if 0
-/*
- * Add all elements of a to vector v and to hset
- * - skip the elements of a that are already in hset
- */
-static void fvar_merge(ivector_t *v, int_hset_t *hset, harray_t *a) {
-  uint32_t i, n;
-  term_t x;
-
-  n = a->nelems;
-  for (i=0; i<n; i++) {
-    x = a->data[i];
-    if (int_hset_add(hset, x)) { // new variable
-      ivector_push(v, x);
-    }
-  }
-}
-
-
-/*
- * Compute the union of a and b
- */
-static harray_t *merge_two_fvar_sets(fvar_collector_t *collect, harray_t *a, harray_t *b) {
-  ivector_t *v;
-  int_hset_t *aux;
-
-  if (a != b) {
-    v = &collect->buffer;
-    aux = &collect->aux;
-    assert(v->size == 0 && int_hset_is_empty(aux));
-
-    fvar_merge(v, aux, a);
-    fvar_merge(v, aux, b);
-    int_array_sort(v->data, v->size);
-    a = int_array_hset_get(&collect->store, v->size, v->data);
-    assert(good_var_set(collect->terms, a));
-
-    ivector_reset(v);
-    int_hset_reset(aux);
-  }
-
-  return a;
-}
-
-/*
- * Compute the union of a[0 ... n-1]
- * - n must be positive
- */
-static harray_t *merge_fvar_sets(fvar_collector_t *collect, harray_t **a, uint32_t n) {
-  harray_t *b, *c;
-  ivector_t *v;
-  int_hset_t *aux;
-  uint32_t i;
-
-  assert(n > 0);
-
-  if (n == 1) {
-    b = a[0];
-  } else if (n == 2) {
-    b = merge_two_fvar_sets(collect, a[0], a[1]);
-  } else {
-    v = &collect->buffer;
-    aux = &collect->aux;
-    assert(v->size == 0 && int_hset_is_empty(aux));
-
-    /*
-     * Collect all elements of a[0] ... a[n-1] in v
-     */
-    ptr_array_sort((void **) a, n);
-    b = a[0];
-    for (i=1; i<n; i++) {
-      c = a[i];
-      if (c != b) {
-        fvar_merge(v, aux, b);
-        b = c;
-      }
-    }
-
-    /*
-     * b is a[i], for some i and elements of b have not been
-     * processed yet. If i = 0, then all elements of a are
-     * equal to b so the result is b.
-     */
-    if (b != a[0]) {
-      fvar_merge(v, aux, b);
-
-      assert(v->size > 0 && int_hset_is_nonempty(aux));
-      int_array_sort(v->data, v->size);
-      b = int_array_hset_get(&collect->store, v->size, v->data);
-      assert(good_var_set(collect->terms, b));
-
-      ivector_reset(v);
-      int_hset_reset(aux);
-    }
-  }
-
-  return b;
-}
-
-
-/*
- * Remove variables x[0] to x[n-1] from set a then build a harray.
- */
-static harray_t *fvar_set_remove(fvar_collector_t *collect, harray_t *a, uint32_t n, term_t *x) {
-  ivector_t *v;
-  int_hset_t *aux;
-  uint32_t i;
-  term_t y;
-
-  v = &collect->buffer;
-  aux = &collect->aux;
-  assert(v->size == 0 && int_hset_is_empty(aux));
-
-  // store x[0] ... x[n-1] in aux
-  for (i=0; i<n; i++) {
-    (void) int_hset_add(aux, x[i]);
-  }
-
-  /*
-   * collect elements of a - aux into v.
-   * the elements are sorted in v.
-   */
-  n = a->nelems;
-  for (i=0; i<n; i++) {
-    y = a->data[i];
-    if (! int_hset_member(aux, y)) {
-      ivector_push(v, y);
-    }
-  }
-  a = int_array_hset_get(&collect->store, v->size, v->data);
-  assert(good_var_set(collect->terms, a));
-
-  ivector_reset(v);
-  int_hset_reset(aux);
-
-  return a;
-}
-
-#endif
 
 
 /*
@@ -398,6 +256,22 @@ static harray_t *free_vars_of_binding(fvar_collector_t *collect, composite_term_
 
 
 /*
+ * Free variables in a root atom r:
+ */
+static harray_t *free_vars_of_root_atom(fvar_collector_t *collect, root_atom_t *r) {
+  harray_t *a;
+  term_t x;
+
+  x = r->x;
+  a  = get_free_vars_of_term(collect, r->p);  // p = polynomial
+  a = harray_remove_elem(&collect->store, a, 1, &x); // x = bound variable in p(x, ...)
+
+  return a;
+}
+
+
+
+/*
  * Compute the set of free variables in term t:
  * - t must be defined in collect->terms
  * - the set is returned as a harray structure a (cf. int_array_hsets)
@@ -433,6 +307,14 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
   case ARITH_CEIL:
   case ARITH_ABS:
     result = get_free_vars_of_term(collect, integer_value_for_idx(terms, i));
+    break;
+
+  case ARITH_ROOT_ATOM:
+    result = lookup_free_vars(collect, i);
+    if (result == NULL) {
+      result = free_vars_of_root_atom(collect, root_atom_for_idx(terms, i));
+      cache_free_vars(collect, i, result);
+    }
     break;
 
   case ITE_TERM:

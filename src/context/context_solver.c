@@ -706,6 +706,63 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 }
 
 
+/*
+ * Simplify then export to Dimacs:
+ * - filename = name of the output file
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing.
+ * If y2sat preprocessing solves the formula, return that.
+ */
+smt_status_t process_then_export_to_dimacs(context_t *ctx, const char *filename) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+  bvar_t x;
+  bval_t v;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      if (smt_easy_sat(core)) {
+	stat = STATUS_SAT;
+      } else {
+	// call the delegate
+	init_delegate(&delegate, "y2sat", num_vars(core));
+	delegate_set_verbosity(&delegate, 0);
+
+	stat = preprocess_with_delegate(&delegate, core);
+	set_smt_status(core, stat);
+	if (stat == STATUS_SAT) {
+	  for (x=0; x<num_vars(core); x++) {
+	    v = delegate_get_value(&delegate, x);
+	    set_bvar_value(core, x, v);
+	  }
+	} else if (stat == STATUS_UNKNOWN) {
+	  export_to_dimacs_with_delegate(&delegate, filename);
+	}
+
+	delete_delegate(&delegate);
+      }
+    }
+  }
+
+  return stat;
+}
+
+
 
 /*
  * MODEL CONSTRUCTION

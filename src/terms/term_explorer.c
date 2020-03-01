@@ -457,6 +457,57 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
 
 
 /*
+ * All children of t:
+ * - t must be a valid term in table
+ * - t must be a composite term
+ *.- the children of t are added to vector v
+ */
+void get_term_children(term_table_t *table, term_t t, ivector_t *v) {
+  root_atom_t *a;
+  composite_term_t *c;
+  uint32_t i, n;
+
+  assert(term_is_composite(table, t));
+
+  if (is_neg_term(t)) {
+    ivector_push(v, opposite_term(t)); // not(t)
+  } else {
+    switch (term_kind(table, t)) {
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      // t == 0 or t >= 0
+      // treat them like binary terms
+      ivector_push(v, arith_atom_arg(table, t));
+      ivector_push(v, zero_term);
+      break;
+
+    case ARITH_IS_INT_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
+      ivector_push(v, unary_term_arg(table, t));
+      break;
+
+    case ARITH_ROOT_ATOM:
+      a = arith_root_atom_desc(table, t);
+      ivector_push(v, a->x); // a->x == child 0
+      ivector_push(v, a->p); // a->p == child 1
+      break;
+
+    default:
+      c = composite_term_desc(table, t);
+      n = c->arity;
+      for (i=0; i<n; i++) {
+	ivector_push(v, c->arg[i]);
+      }
+      break;
+    }
+  }
+}
+
+
+
+/*
  * Components of a projection
  * - t must be a valid term in table and it must be either a SELECT_TERM
  *   or a BIT_TERM

@@ -120,7 +120,9 @@ struct trail_token_s {
 
   /**
    * Add a propagation at a level lower than the current decision level. Returns
-   * true if OK, i.e. the variable is not already assigned a value.
+   * true if OK, i.e. the variable is not already assigned a value. If the
+   * level is lower that then current base decision level, it will be added at the
+   * base decision level.
    */
   bool (*add_at_level) (trail_token_t* token, variable_t x, const mcsat_value_t* value, uint32_t level);
 
