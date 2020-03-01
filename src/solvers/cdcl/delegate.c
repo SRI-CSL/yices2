@@ -126,7 +126,6 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0.01);
   nsat_set_reduce_fraction(d->solver, 12);
-  nsat_set_var_elim_skip(d->solver, 150);    // TEST
   nsat_set_res_clause_limit(d->solver, 300); // TEST
   nsat_set_simplify_subst_delta(d->solver, 30);
   nsat_solver_add_vars(d->solver, nvars);
