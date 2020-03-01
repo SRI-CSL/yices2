@@ -111,6 +111,9 @@ static void ysat_keep_var(void *solver, bvar_t x) {
 }
 #endif
 
+#define USE_CUTS 1
+
+#if USE_CUTS
 static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2) {
   nsat_solver_add_def2(solver, x, b, l1, l2);
 }
@@ -118,6 +121,7 @@ static void ysat_var_def2(void *solver, bvar_t x, uint32_t b, literal_t l1, lite
 static void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3) {
   nsat_solver_add_def3(solver, x, b, l1, l2, l3);
 }
+#endif
 
 static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
@@ -142,12 +146,17 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
 
   // experimental
   //  d->keep_var = ysat_keep_var;
-  d->keep_var = NULL;
+  d->keep_var = NULL; // don't use
 
-  // with cut enumeration stuff
+#if USE_CUTS
+  // with cut enumeration
   d->var_def2 = ysat_var_def2;
   d->var_def3 = ysat_var_def3;
-
+#else
+  // without
+  d->var_def2 = NULL;
+  d->var_def3 = NULL;
+#endif
   // more experimental functions
   d->preprocess = ysat_preprocess;
   d->export = ysat_export_to_dimacs;
