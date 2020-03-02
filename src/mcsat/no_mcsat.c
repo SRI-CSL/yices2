@@ -27,7 +27,7 @@
 
 #include "mcsat/solver.h"
 
-mcsat_solver_t *mcsat_new(context_t *ctx) {
+mcsat_solver_t *mcsat_new(const context_t *ctx) {
   return NULL;
 }
 
