@@ -14,7 +14,6 @@
 #include "mcsat/bv/bv_utils.h"
 #include "arith_norm.h"
 
-
 // var_cache hash map has dynamically allocated values
 // So before resetting or deleting it, one must free the memory of the stored values
 // which the following function does
@@ -91,13 +90,13 @@ void analyse_BV(arith_norm_t* norm,
     if (monom[i] != NULL_TERM)
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, monom[i]); // Otherwise we add the w-bit monomial to the bv_poly
   }
-  result->var = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->var = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM)
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, garbage[i]); // Otherwise we add the w-bit monomial to the bv_poly
   }
-  result->garbage = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->garbage = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] == NULL_TERM)
@@ -106,7 +105,7 @@ void analyse_BV(arith_norm_t* norm,
       bvarith_buffer_add_const_times_term(buffer, terms, coeff[i].data, evaluables[i]); // Otherwise we add the w-bit monomial to the bv_poly
     delete_bvconstant(&coeff[i]);
   }
-  result->eval = mk_bvarith_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->eval = arith_sum_norm(tm, mk_bvarith_term(tm, buffer)); // We turn the bv_poly into an actual term
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "analyse_BV finished treating %d monomials\n",n_monom);
@@ -133,13 +132,13 @@ void analyse_BV64(arith_norm_t* norm,
     if (monom[i] != NULL_TERM)
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], monom[i]);
   }
-  result->var = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->var = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith64_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] != NULL_TERM)
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], garbage[i]);
   }
-  result->garbage = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->garbage = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   bvarith64_buffer_prepare(buffer, w); // Setting the desired width
   for (uint32_t i = 0; i < n_monom; ++ i) {
     if (monom[i] == NULL_TERM)
@@ -147,7 +146,7 @@ void analyse_BV64(arith_norm_t* norm,
     else
       bvarith64_buffer_add_const_times_term(buffer, terms, coeff[i], evaluables[i]);
   }
-  result->eval = mk_bvarith64_term(tm, buffer); // We turn the bv_poly into an actual term
+  result->eval = arith_sum_norm(tm, mk_bvarith64_term(tm, buffer)); // We turn the bv_poly into an actual term
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "analyse_BV64 finished treating %d monomials\n",n_monom);
@@ -468,15 +467,15 @@ term_t result_eval(bv_csttrail_t* csttrail, term_t result){
 
 
 static inline
-term_t check_and_return(arith_norm_t* norm, term_t t, term_t result){
+term_t check_and_return(arith_norm_t* norm, term_t t, uint32_t w, term_t result){
 
   bv_csttrail_t* csttrail = &norm->csttrail;
-  plugin_context_t* ctx = csttrail->ctx;
+  plugin_context_t* ctx   = csttrail->ctx;
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     // standard abbreviations
     term_table_t* terms   = ctx->terms;
     FILE* out = ctx_trace_out(ctx);
-    fprintf(out, "Normalising (possibly the lowest bits of)\n");
+    fprintf(out, "Normalising (the %d lowest bits of)\n", w);
     /* term_print_to_file(out, terms, t); */
     ctx_trace_term(ctx, t);
     fprintf(out, " successfully gave ");
@@ -492,6 +491,15 @@ term_t check_and_return(arith_norm_t* norm, term_t t, term_t result){
 
   assert( (!bv_evaluator_is_evaluable(csttrail, t))
           || result_eval(csttrail,result));
+
+  if (ctx_trace_enabled(ctx, "mcsat::bv::rewrite::check")) {
+    assert( (bv_term_bitsize(ctx->tm->terms, t) > w)
+            || check_rewrite(ctx, t, result));
+    /* assert( (!bv_evaluator_is_evaluable(csttrail, term_extract(tm, t, 0, w))) */
+    /*         || result_eval(csttrail,result)); */
+    /* assert( (bv_term_bitsize(tm->terms, t) == w) */
+    /*         || check_rewrite(ctx, term_extract(tm, t, 0, w), result)); */
+  }
   // Maybe the following assert creates a loop. Dangerous.
   /* if (result != t) { */
   /*   assert(arith_normalise_upto(norm, result, bv_term_bitsize(ctx->terms, result)) == result); */
@@ -538,7 +546,7 @@ term_t finalise(arith_norm_t* norm, term_t original, arith_analyse_t* s){
   }
   // We know what we are returning, now we just cache it for later
   int_hmap2_add(&norm->norm_cache, original, w, result);
-  return check_and_return(norm, original, result);  
+  return check_and_return(norm, original, w, result);  
 }
 
 
@@ -563,13 +571,19 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     fprintf(out, " (bitsize is %d))\n",original_bitsize);
   }
 
+  if (is_bitvector_term(terms, t)) {
+    term_t new = arith_sum_norm(tm, t);
+    assert(check_rewrite(ctx, t, new));
+    t = new;
+  }
+
   if (t == conflict_var) {
     if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
       FILE* out = ctx_trace_out(ctx);
       fprintf(out, "Conflict variable, so it's already normalised\n");
     }
     term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
-    return check_and_return(norm, u, result);
+    return check_and_return(norm, u, w, result);
   }
 
   uint32_t t_kind = term_kind(terms, t);
@@ -582,7 +596,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       fprintf(out, "Constant, so it's already normalised\n");
     }
     term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
-    return check_and_return(norm, u, result);
+    return check_and_return(norm, u, w, result);
   }
   default: {
   }
@@ -600,7 +614,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       fprintf(out, "Oh, this is a negative Boolean term, let's reduce underneath:\n");
     }
     term_t result = not_term(terms, arith_normalise_upto(norm, not_term(terms,t), 1));
-    return check_and_return(norm, u, result);
+    return check_and_return(norm, u, w, result);
   }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -619,7 +633,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
       ctx_trace_term(ctx, t);
     }
     term_t result = (is_boolean_term(terms,t)) ? t : term_extract(tm, t, 0, w);
-    return check_and_return(norm, u, result);
+    return check_and_return(norm, u, w, result);
   }
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
@@ -670,7 +684,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     if (is_boolean_term(terms,t)) {
       assert(w == 1);
       int_hmap2_add(&norm->norm_cache, t, w, tmp);
-      return check_and_return(norm, t, tmp);  
+      return check_and_return(norm, t, w, tmp);  
     } else {
       // tmp is not necessarily w-bit normalised (w was not involved); so we do a new pass
       if (t != tmp)
@@ -701,7 +715,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     term_t result  = bv_bitterm(terms, mk_bitextract(tm, base, index));
     // Here, result is 1-bit normalised
     int_hmap2_add(&norm->norm_cache, t, w, result);
-    return check_and_return(norm, t, result);
+    return check_and_return(norm, t, w, result);
   }
 
   case BV_POLY: {

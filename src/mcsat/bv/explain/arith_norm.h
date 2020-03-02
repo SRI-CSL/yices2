@@ -94,7 +94,7 @@ static inline
 term_t arith_normalise(arith_norm_t* norm, term_t t){
   term_table_t* terms = norm->csttrail.ctx->terms;
   uint32_t w = bv_term_bitsize(terms, t);
-  return arith_normalise_upto(norm, t, w);
+  return arith_normalise_upto(norm, t, w);;
 }
 
 static inline
