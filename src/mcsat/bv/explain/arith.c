@@ -92,8 +92,9 @@ polypair_t* bv_arith_coeff(arith_t* exp, term_t u, bool assume_fragment) {
   }
 
   // We start by normalising the input term
-  term_t t = arith_normalise(&exp->norm, u);
+  term_t t  = arith_normalise(&exp->norm, u);
   assert(t != NULL_TERM);
+  assert(arith_is_sum_norm(terms,t));
   
   if (ctx_trace_enabled(ctx, "mcsat::bv::arith::scan")) {
     FILE* out = ctx_trace_out(ctx);

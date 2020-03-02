@@ -1628,6 +1628,32 @@ int32_t bvconst_is_power_of_two(const uint32_t *bv, uint32_t k) {
   return n + p;
 }
 
+/*
+ * Number of trailing zeros, k = number of words in bv, bv must be normalized
+ * - return the index of the lowest-order bit of bv that's not 0
+ * - returns -1 if bv is zero
+ */
+int32_t bvconst_ctz(const uint32_t *bv, uint32_t k) {
+  uint32_t u;
+  int32_t n, p;
+
+  assert(k > 0);
+  n = 0;
+
+  // skip low-order words that are zero
+  while (*bv == 0) {
+    bv ++;
+    n += 32;
+    k --;
+    if (k == 0) return -1; // 0 gives -1
+  }
+
+  u = *bv;
+  assert(k > 0 && u > 0);
+
+  p = ctz(u);   // p = index of the rightmost 1 in u
+  return n + p;
+}
 
 
 
