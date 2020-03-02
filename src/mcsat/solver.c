@@ -719,7 +719,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
 }
 
 static
-void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
+void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   uint32_t i;
 
   assert(ctx != NULL);
@@ -728,7 +728,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, context_t* ctx) {
   assert(ctx->types != NULL);
 
   mcsat->ctx = ctx;
-  mcsat->exception = &ctx->env;
+  mcsat->exception = (jmp_buf*) &ctx->env;
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
@@ -842,7 +842,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   scope_holder_destruct(&mcsat->scope);
 }
 
-mcsat_solver_t* mcsat_new(context_t* ctx) {
+mcsat_solver_t* mcsat_new(const context_t* ctx) {
   mcsat_solver_t* mcsat = (mcsat_solver_t*) safe_malloc(sizeof(mcsat_solver_t));
   mcsat_construct(mcsat, ctx);
   return mcsat;
@@ -867,7 +867,14 @@ void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
 }
 
 void mcsat_reset(mcsat_solver_t* mcsat) {
-
+  // Pop to level 0
+  while (mcsat->trail->decision_level_base > 0) {
+    mcsat_pop(mcsat);
+  }
+  // Reset everything
+  const context_t* ctx = mcsat->ctx;
+  mcsat_destruct(mcsat);
+  mcsat_construct(mcsat, ctx);
 }
 
 static
