@@ -332,3 +332,49 @@ void gate_hmap_add_ttbl(gate_hmap_t *hmap, const ttbl_t *tt, literal_t l) {
 
   gate_hmap_add_entry(hmap, &key, l);
 }
+
+
+/*
+ * First valid gate/literal starting from index i
+ * - return hmap->size if there's no more gate
+ */
+static uint32_t gate_hmap_get_next(const gate_hmap_t *hmap, uint32_t i) {
+  uint32_t n;
+
+  n = hmap->size;
+  while (i < n) {
+    if (key_is_live(hmap->key + i)) break;
+    i ++;
+  }
+  return i;
+}
+
+/*
+ * First gate in the table (or NULL if the table is empty)
+ */
+bgate_t *gate_hmap_first_gate(const gate_hmap_t *hmap, literal_t *lit) {
+  uint32_t i;
+
+  i = gate_hmap_get_next(hmap, 0);
+  if (i < hmap->size) {
+    *lit = hmap->value[i];
+    return hmap->key + i;
+  }
+  return NULL;
+}
+
+/*
+ * Gate that follows *g or NULL if there's no such gate
+ */
+bgate_t *gate_hmap_next_gate(const gate_hmap_t *hmap, const bgate_t *g, literal_t *lit) {
+  uint32_t i;
+
+  i = g - hmap->key;
+  assert(i < hmap->size);
+  i = gate_hmap_get_next(hmap, i+1);
+  if (i < hmap->size) {
+    *lit = hmap->value[i];
+    return hmap->key + i;
+  }
+  return NULL;
+}
