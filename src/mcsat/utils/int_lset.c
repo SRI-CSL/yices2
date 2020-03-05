@@ -183,6 +183,8 @@ void int_lset_reloc_elements(int_lset_t* lset, const gc_info_t* gc_info) {
 
       // Keep this slot
       lset->slot_list.data[to_keep ++] = key;
+    } else {
+      lset->key_to_list_map.data[key] = int_lset_element_ref_null_and_never_used;
     }
   }
 
@@ -242,7 +244,6 @@ void int_lset_iterator_next_and_remove(int_lset_iterator_t* it) {
 
 void int_lset_remove(int_lset_t* lset, int32_t key) {
   int_lset_iterator_t it;
-
   int_lset_iterator_construct(&it, lset, key);
   while (!int_lset_iterator_done(&it)) {
     int_lset_iterator_next_and_remove(&it);
