@@ -67,7 +67,7 @@ int_lset_element_t* int_lset_get_element(int_lset_t* lset, int_lset_element_ref_
 }
 
 /**
- * Get a reference to a new watch list element.
+ * Get a reference to a new list element.
  */
 static inline
 int_lset_element_ref_t int_lset_allocate(int_lset_t* lset, int32_t value)
@@ -153,7 +153,7 @@ void int_lset_add(int_lset_t* lset, int32_t key, int32_t value) {
   element_ref = int_lset_allocate(lset, value);
   element = int_lset_get_element(lset, element_ref);
 
-  // Insert into the list of the "to watch" literal
+  // Insert into the list of the key
   element->next = int_lset_get_list_ref(lset, key);
   int_lset_set_list_ref(lset, key, element_ref);
 }
@@ -221,7 +221,7 @@ void int_lset_iterator_next_and_remove(int_lset_iterator_t* it) {
 
   assert(it->current != int_lset_element_ref_null);
 
-  // The actually watcher element
+  // The actuall element
   element_ref = it->current;
   element = int_lset_get_element(it->lset, element_ref);
 
