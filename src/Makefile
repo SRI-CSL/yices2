@@ -182,6 +182,7 @@ core_src_c := \
 	solvers/cdcl/gates_manager.c \
 	solvers/cdcl/new_gates.c \
 	solvers/cdcl/new_gate_hash_map.c \
+	solvers/cdcl/new_gate_hash_map2.c \
 	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/smt_core.c \
 	solvers/cdcl/truth_tables.c \
