@@ -75,5 +75,4 @@ void mcsat_gc_mark(mcsat_solver_t* mcsat) {
 void mcsat_stop_search(mcsat_solver_t* mcsat) {
 }
 
-}
 
