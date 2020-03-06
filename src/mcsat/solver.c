@@ -117,6 +117,9 @@ struct mcsat_solver_s {
   /** Context of the solver */
   const context_t* ctx;
 
+  /** Flag to stop the search */
+  bool stop_search;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -727,6 +730,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   assert(ctx->terms != NULL);
   assert(ctx->types != NULL);
 
+  mcsat->stop_search = false;
   mcsat->ctx = ctx;
   mcsat->exception = (jmp_buf*) &ctx->env;
   mcsat->types = ctx->types;
@@ -2005,6 +2009,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   uint32_t restart_resource;
   luby_t luby;
 
+  mcsat->status = STATUS_SEARCHING;
+
   // If we're already unsat, just return
   if (!trail_is_consistent(mcsat->trail)) {
     mcsat->status = STATUS_UNSAT;
@@ -2027,7 +2033,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
-  for (;;) {
+  while (!mcsat->stop_search) {
 
     // Do we restart
     if (trail_is_consistent(mcsat->trail) && restart_resource > luby.restart_threshold) {
@@ -2108,6 +2114,13 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
     }
 
     var_queue_decay_activities(&mcsat->var_queue);
+  }
+
+  if (mcsat->stop_search) {
+    if (mcsat->status == STATUS_SEARCHING) {
+      mcsat->status = STATUS_INTERRUPTED;
+    }
+    mcsat->stop_search = false;
   }
 }
 
@@ -2244,3 +2257,8 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
 void mcsat_gc_mark(mcsat_solver_t* mcsat) {
   mcsat_gc(mcsat, true);
 }
+
+void mcsat_stop_search(mcsat_solver_t* mcsat) {
+  mcsat->stop_search = true;
+}
+

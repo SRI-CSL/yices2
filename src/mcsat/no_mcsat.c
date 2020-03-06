@@ -72,3 +72,8 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
 void mcsat_gc_mark(mcsat_solver_t* mcsat) {
 }
 
+void mcsat_stop_search(mcsat_solver_t* mcsat) {
+}
+
+}
+

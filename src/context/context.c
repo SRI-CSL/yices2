@@ -6291,8 +6291,7 @@ int32_t context_process_formula(context_t *ctx, term_t f) {
 
 
 /*
- * Interrupt the search:
- * - this is not supported by mcsat yet
+ * Interrupt the search.
  */
 void context_stop_search(context_t *ctx) {
   if (ctx->mcsat == NULL) {
@@ -6300,6 +6299,8 @@ void context_stop_search(context_t *ctx) {
     if (context_has_simplex_solver(ctx)) {
       simplex_stop_search(ctx->arith_solver);
     }
+  } else {
+    mcsat_stop_search(ctx->mcsat);
   }
 }
 
@@ -6308,13 +6309,14 @@ void context_stop_search(context_t *ctx) {
 /*
  * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
- * - not supported by mcsat either
  */
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
   if (ctx->mcsat == NULL) {
     smt_cleanup(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
   }
 }
 

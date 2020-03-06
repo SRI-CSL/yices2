@@ -88,6 +88,20 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
+
+/*
+ * Interrupt the search
+ * - this can be called after check_context from a signal handler
+ * - this interrupts the current search
+ * - if clean_interrupt is enabled, calling context_cleanup will
+ *   restore the solver to a good state, equivalent to the state
+ *   before the call to check_context
+ * - otherwise, the solver is in a bad state from which new assertions
+ *   can't be processed. Cleanup is possible via pop (if push/pop is supported)
+ *   or reset.
+ */
+void mcsat_stop_search(mcsat_solver_t* mcsat);
+
 /*
  * Set the tracer for the solver.
  */
