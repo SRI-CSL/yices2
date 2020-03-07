@@ -110,6 +110,4 @@ extern literal_t gmap_find_ttbl(const gmap_t *gmap, const ttbl_t *tt);
 extern literal_t gmap_get_ttbl(gmap_t *gmap, const ttbl_t *tt, literal_t l);
 
 
-
-
 #endif /* __NEG_GATE_HASH_MAP2_H */

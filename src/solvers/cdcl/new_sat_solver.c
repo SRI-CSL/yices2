@@ -2756,8 +2756,9 @@ static void init_stats(solver_stats_t *stat) {
   stat->stabilizations = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
-  stat->subst_calls = 0;
   stat->scc_calls = 0;
+  stat->try_equiv_calls = 0;
+  stat->subst_calls = 0;
   stat->probe_calls = 0;
 
   stat->subst_vars = 0;
@@ -2773,6 +2774,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->pp_subst_vars = 0;
   stat->pp_subst_units = 0;
   stat->pp_equivs = 0;
+  stat->pp_scc_calls = 0;
   stat->pp_clauses_deleted = 0;
   stat->pp_subsumptions = 0;
   stat->pp_strengthenings = 0;
@@ -6434,7 +6436,8 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
   ttbl_t tt;
   uint32_t i, n;
   literal_t l0, l1;
-  static bool show = false;
+
+  solver->stats.try_equiv_calls ++;
 
   if (solver->verbosity >= 10) {
     show_subst(solver);
@@ -6484,9 +6487,8 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
   }
 
   // Provisional
-  if (show) {
+  if (solver->stats.try_equiv_calls == 0) {
     show_all_gates(&test);
-    show = false;
   }
 
   delete_gate_hmap(&test);
@@ -6566,6 +6568,38 @@ static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const tt
 
 
 /*
+ * Extract small clauses from a list of truth tables on the same variables
+ * - e = vector of pairs <ttbl, literal> (see new_gate_hash_map2)
+ */
+static void small_clauses_from_vector(sat_solver_t *solver, gmap_elem_t *e) {
+  uint32_t i, n;
+
+  printf("vars: [");
+  for (i=0; i<3; i++)  {
+    if (e->var[i] >= 0) printf(" %"PRId32, e->var[i]);
+  }
+  printf(" ]\n");
+  n = e->nelems;
+  for (i=0; i<n; i++) {
+    printf("   0x%02x --> %"PRId32"\n", e->data[i].ttbl, e->data[i].lit);
+  }
+  printf("\n");
+}
+
+static void learn_small_clauses(sat_solver_t *solver, gmap_t *gmap) {
+  uint32_t i, n;
+  gmap_elem_t *e;
+
+  n = gmap->size;
+  for (i=0; i<n; i++) {
+    e = gmap->data[i];
+    if (e != NULL) {
+      small_clauses_from_vector(solver, e);
+    }
+  }
+}
+
+/*
  * Search for equivalent definitions
  * - level 0: check only for gate equivalence
  * - level 1: gate equivalence & equivalence with true/false literal
@@ -6576,6 +6610,8 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
   ttbl_t tt;
   uint32_t i, n;
   literal_t l0, l1;
+
+  solver->stats.try_equiv_calls ++;
 
   if (solver->verbosity >= 10) {
     show_subst(solver);
@@ -6622,6 +6658,11 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 
       if (solver->has_empty_clause) break;
     }
+  }
+
+  if (solver->stats.try_equiv_calls == 0) {
+    // EXPERIMENT
+    learn_small_clauses(solver, &test);
   }
 
   delete_gmap(&test);
@@ -6839,6 +6880,8 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
   uint32_t i, n, n0;
   bvar_t x;
 
+  solver->stats.pp_scc_calls ++;
+
   compute_sccs(solver);
   if (solver->has_empty_clause) {
     reset_vector(&solver->subst_vars);
@@ -6849,7 +6892,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
 
   v = &solver->subst_vars;
   n = v->size;
-  if (n > 0) {
+  if (n > 0 || solver->stats.pp_scc_calls == 1) {
     n0 = n;
     if (solver->verbosity >= 3) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
