@@ -6574,11 +6574,19 @@ static void learned_binary_clause(sat_solver_t *solver, literal_t l1, literal_t 
 
   assert(solver->preprocess);
 
+  if (l1 == not(l2)) return;
+  if (l1 == l2) return; // Handle this later
+
   if (solver->verbosity >= 2) {
     fprintf(stderr, "c add clause %"PRId32" %"PRId32"\n", l1, l2);
   }
-  aux[0] = l1;
-  aux[1] = l2;
+  if (l1 < l2) {
+    aux[0] = l1;
+    aux[1] = l2;
+  } else {
+    aux[0] = l2;
+    aux[1] = l1;;
+  }
   add_large_clause(solver, 2, aux);
   increase_occurrence_counts(solver, 2, aux);
 }
@@ -6702,7 +6710,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
     }
   }
 
-  if (solver->stats.try_equiv_calls == 0 && solver->preprocess) {
+  if (solver->stats.try_equiv_calls == 0&& solver->preprocess) {
     // EXPERIMENT
     learn_small_clauses(solver, &test);
   }
