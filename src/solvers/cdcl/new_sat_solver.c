@@ -6566,24 +6566,66 @@ static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const tt
   }
 }
 
+/*
+ * Add a learned binary clause
+ */
+static void learned_binary_clause(sat_solver_t *solver, literal_t l1, literal_t l2) {
+  literal_t aux[2];
+
+  assert(solver->preprocess);
+
+  if (solver->verbosity >= 2) {
+    fprintf(stderr, "c add clause %"PRId32" %"PRId32"\n", l1, l2);
+  }
+  aux[0] = l1;
+  aux[1] = l2;
+  add_large_clause(solver, 2, aux);
+  increase_occurrence_counts(solver, 2, aux);
+}
+
+static void test_binary_clause(sat_solver_t *solver, const gmap_entry_t *a, const gmap_entry_t *b) {
+  if ((a->ttbl | b->ttbl) == 0xff) {
+    learned_binary_clause(solver, a->lit, b->lit);
+  } else if ((a->ttbl | ~b->ttbl) == 0xff) {
+    learned_binary_clause(solver, a->lit, not(b->lit));
+  } else if ((~a->ttbl | b->ttbl) == 0xff) {
+    learned_binary_clause(solver, not(a->lit), b->lit);
+  } else if ((~a->ttbl | ~b->ttbl) == 0xff) {
+    learned_binary_clause(solver, not(a->lit), not(b->lit));
+  }
+}
 
 /*
  * Extract small clauses from a list of truth tables on the same variables
  * - e = vector of pairs <ttbl, literal> (see new_gate_hash_map2)
  */
-static void small_clauses_from_vector(sat_solver_t *solver, gmap_elem_t *e) {
+static void small_clauses_from_vector(sat_solver_t *solver, const gmap_elem_t *e) {
   uint32_t i, n;
 
-  printf("vars: [");
-  for (i=0; i<3; i++)  {
-    if (e->var[i] >= 0) printf(" %"PRId32, e->var[i]);
-  }
-  printf(" ]\n");
   n = e->nelems;
-  for (i=0; i<n; i++) {
-    printf("   0x%02x --> %"PRId32"\n", e->data[i].ttbl, e->data[i].lit);
+
+  if (solver->verbosity >= 10) {
+    fprintf(stderr, "c vars: [");
+    for (i=0; i<3; i++)  {
+      if (e->var[i] >= 0) fprintf(stderr, " %"PRId32, e->var[i]);
+    }
+    fprintf(stderr, " ]\n");
+    for (i=0; i<n; i++) {
+      fprintf(stderr, "c    0x%02x --> %"PRId32"\n", e->data[i].ttbl, e->data[i].lit);
+    }
   }
-  printf("\n");
+
+  if (n == 2) {
+    test_binary_clause(solver, e->data, e->data + 1);
+  } else if (n == 3) {
+    test_binary_clause(solver, e->data, e->data + 1);
+    test_binary_clause(solver, e->data, e->data + 2);
+    test_binary_clause(solver, e->data + 1, e->data + 2);
+  }
+
+  if (solver->verbosity >= 10) {
+    fprintf(stderr, "\n");
+  }
 }
 
 static void learn_small_clauses(sat_solver_t *solver, gmap_t *gmap) {
@@ -6660,7 +6702,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
     }
   }
 
-  if (solver->stats.try_equiv_calls == 0) {
+  if (solver->stats.try_equiv_calls == 0 && solver->preprocess) {
     // EXPERIMENT
     learn_small_clauses(solver, &test);
   }
@@ -7887,7 +7929,10 @@ static void eliminate_free_variables(sat_solver_t *solver) {
   }
 
   solver->stats.pp_cheap_elims += c;
-  fprintf(stderr, "c free var eliminations: %"PRIu32"\n", c);
+
+  if (solver->verbosity >= 1) {
+    fprintf(stderr, "c free var eliminations: %"PRIu32"\n", c);
+  }
 }
 
 
@@ -8157,7 +8202,9 @@ static void nsat_preprocess(sat_solver_t *solver) {
     first_round = false;
   } while (max_rounds > 0 && !elim_heap_is_empty(solver));
 
-  fprintf(stderr, "c Elim/subsumption: %"PRIu32" rounds\n", 20 - max_rounds);
+  if (solver->verbosity >= 1) {
+    fprintf(stderr, "c Elim/subsumption: %"PRIu32" rounds\n", 20 - max_rounds);
+  }
 
   if (! nsat_cheap_preprocess(solver)) goto done;
 
