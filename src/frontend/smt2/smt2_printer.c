@@ -572,3 +572,19 @@ void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name, typ
   pp_close_block(&printer->pp, true);
 }
 
+
+/*
+ * Variant of smt2_pp_object that uses SMT2 syntax for arrays
+ */
+void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
+  value_fun_t *fun;
+
+  if (object_is_function(table, c)) {
+    fun = vtbl_function(table, c);
+    smt2_pp_array(printer, table, fun->type, c);
+  } else if (object_is_update(table, c)) {
+    smt2_pp_array_update(printer, table, c);
+  } else {
+    smt2_pp_object(printer, table, c);
+  }
+}
