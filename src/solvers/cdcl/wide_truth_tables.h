@@ -43,9 +43,9 @@
  * The encoding is similar to the one used in (small) truth_tables.h.
  * Given a function f of k variables:
  * - var[0 .. k-1] = variable ids in increasing order (all distinct)
- * - the value of f at some point (b_0, ..., b_{k-1}) stored in 
+ * - the value of f at some point (b_0, ..., b_{k-1}) is stored in
  *       val[i]
- *   where index is b_0 + 2 b_1 + ... + 2^(k-1) b_{k-1}
+ *   where i is b_0 + 2 b_1 + ... + 2^(k-1) b_{k-1}
  *   and val[i] is either 0 or 1.
  */
 typedef struct wide_ttbl_s {

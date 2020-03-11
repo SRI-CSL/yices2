@@ -26,11 +26,89 @@
 #include <stdint.h>
 
 #include "solvers/cdcl/new_gates.h"
+#include "solvers/cdcl/wide_truth_tables.h"
 
 /*
- * Keys are arrays of at most three Boolean variables var[0 .. 2].
+ * Keys are arrays of at most four Boolean variables var[0 .. 3].
  * Each key is mapped to a vector of pairs <truth-table, literal>
- * We use the same conventions as in truth_tables.h and new_gates.h.
+ *
+ * We use the same conventions as in truth_tables.h and new_gates.h,
+ * except that we can have one more variable:
+ *
+ * Variable/key normalization
+ * --------------------------
+ * For functions of arity 4: 0 <= var[0] < var[1] < var[2] < var[3]
+ * For functions of arity 3: 0 <= var[0] < var[1] < var[2] and var[3] = null_bvar
+ * For functions of arity 2: 0 <= var[0] < var[1] and var[2] = var[3] = null_bvar
+ *
+ * For functions of arity 1: 0 <= var[0] and var[1] = var[2] = var[3] = null_bvar
+ * Constant functions: var[0] = var[1] = var[2] = var[3] = null_bvar
+ *
+ * Truth table stored in 16bits
+ * ----------------------------
+ * The truth table encodes f(var[0] ... var[3]) using 16 bits:
+ * - f(x0, x1, x2, x3) is stored in the i-th bit where i = 8*x0 + 4*x1 + 2*x2 + x3
+ *   b0 = low order bit, ...., b15 = high-order bit
+ *
+ * For functions of arity 4, this looks like this
+ *
+ *   var[0] var[1] var[2] var[3]   f
+ *     0      0      0      0      b0
+ *     0      0      0      1      b1
+ *     0      0      1      0      b2
+ *     0      0      1      1      b3
+ *     0      1      0      0      b4
+ *     0      1      0      1      b5
+ *     0      1      1      0      b6
+ *     0      1      1      1      b7
+ *     1      0      0      0      b8
+ *     1      0      0      1      b9
+ *     1      0      1      0      b10
+ *     1      0      1      1      b11
+ *     1      1      0      0      b12
+ *     1      1      0      1      b13
+ *     1      1      1      0      b14
+ *     1      1      1      1      b15
+ *
+ * For functions of arity 3, var[3] is ignored:
+ *
+ *   var[0] var[1] var[2] var[3]   f
+ *     0      0      0      0      b0
+ *     0      0      0      1      b0
+ *     0      0      1      0      b1
+ *     0      0      1      1      b1
+ *     0      1      0      0      b2
+ *     0      1      0      1      b2
+ *     0      1      1      0      b3
+ *     0      1      1      1      b3
+ *     1      0      0      0      b4
+ *     1      0      0      1      b4
+ *     1      0      1      0      b5
+ *     1      0      1      1      b5
+ *     1      1      0      0      b6
+ *     1      1      0      1      b6
+ *     1      1      1      0      b7
+ *     1      1      1      1      b7
+ *
+ * For functions of arity 2, var[2] and var[3] are ignored:
+ *
+ *   var[0] var[1] var[2] var[3]   f
+ *     0      0      0      0      b0
+ *     0      0      0      1      b0
+ *     0      0      1      0      b0
+ *     0      0      1      1      b0
+ *     0      1      0      0      b1
+ *     0      1      0      1      b1
+ *     0      1      1      0      b1
+ *     0      1      1      1      b1
+ *     1      0      0      0      b2
+ *     1      0      0      1      b2
+ *     1      0      1      0      b2
+ *     1      0      1      1      b2
+ *     1      1      0      0      b3
+ *     1      1      0      1      b3
+ *     1      1      1      0      b3
+ *     1      1      1      1      b3
  */
 
 /*
@@ -43,12 +121,12 @@ typedef struct gmap_entry_s {
 
 /*
  * Table element:
- * - key
+ * - key = array of 4 variables
  * - size and capacity
  * - data = array of pairs
  */
 typedef struct gmap_elem_s {
-  bvar_t var[3];        // key
+  bvar_t var[4];        // key
   uint32_t size;        // size of the data array
   uint32_t nelems;      // number of elements in array data
   gmap_entry_t data[0]; // real size givene by size.
@@ -108,6 +186,15 @@ extern literal_t gmap_get(gmap_t *gmap, const bgate_t *g, literal_t l);
  */
 extern literal_t gmap_find_ttbl(const gmap_t *gmap, const ttbl_t *tt);
 extern literal_t gmap_get_ttbl(gmap_t *gmap, const ttbl_t *tt, literal_t l);
+
+
+/*
+ * More variants: use a wide truth table
+ * - w must be normalized and have no more than four variables.
+ */
+extern literal_t gmap_find_wide_ttbl(const gmap_t *gmap, const wide_ttbl_t *w);
+extern literal_t gmap_get_wide_ttbl(gmap_t *gmap, const wide_ttbl_t *w, literal_t l);
+
 
 
 #endif /* __NEG_GATE_HASH_MAP2_H */

@@ -1,3 +1,4 @@
+
 /*
  * This file is part of the Yices SMT Solver.
  * Copyright (C) 2020 SRI International.
@@ -31,10 +32,10 @@
  */
 
 /*
- * Allocate a new element with key v[3]
+ * Allocate a new element with key v[4]
  * - set nelems to 0.
  */
-static gmap_elem_t *new_gmap_elem(const bvar_t v[3]) {
+static gmap_elem_t *new_gmap_elem(const bvar_t v[4]) {
   gmap_elem_t *e;
   uint32_t n;
 
@@ -44,6 +45,7 @@ static gmap_elem_t *new_gmap_elem(const bvar_t v[3]) {
   e->var[0] = v[0];
   e->var[1] = v[1];
   e->var[2] = v[2];
+  e->var[3] = v[3];
   e->size = n;
   e->nelems = 0;
 
@@ -106,7 +108,8 @@ static literal_t gmap_elem_find_ttbl(gmap_elem_t *e, uint32_t ttbl) {
   uint32_t i, n;
   uint32_t flipped;
 
-  flipped = (~ttbl) & 0xff;
+  // 16bits are relevant
+  flipped = (~ttbl) & 0xffff;
 
   n = e->nelems;
   for (i=0; i<n; i++) {
@@ -134,18 +137,19 @@ static bool is_power_of_two(uint32_t n) {
 /*
  * Hash a key: array of 4 variables
  * The key must be normalized as follows:
- * - 2 element key: var[0] < var[1], var[2] = null_bvar
- * - 3 element key: var[0] < var[1] < var[2]
+ * - 2 element key: var[0] < var[1], var[2] = var[3] = null_bvar
+ * - 3 element key: var[0] < var[1] < var[2], var[3] = null_bvar
+ * - 4 element key: var[0] < var[1] < var[2] < var[3]
  */
-static uint32_t hash_gmap_key(const bvar_t var[3]) {
-  return jenkins_hash_triple(var[0], var[1], var[2], 0xd33421da);
+static uint32_t hash_gmap_key(const bvar_t var[4]) {
+  return jenkins_hash_quad(var[0], var[1], var[2], var[3], 0xd33421da);
 }
 
 /*
  * Check equality between two keys: v and u
  */
-static bool equal_gmap_keys(const bvar_t v[3], const bvar_t u[3]) {
-  return v[0] == u[0] && v[1] == u[1] && v[2] == u[2];
+static bool equal_gmap_keys(const bvar_t v[4], const bvar_t u[4]) {
+  return v[0] == u[0] && v[1] == u[1] && v[2] == u[2]  && v[3] == u[3];
 }
 
 
@@ -273,7 +277,7 @@ static void extend_gmap(gmap_t *gmap) {
  * Return the corresponding literal if such an entry exists.
  * Return null_literal otherwise.
  */
-static literal_t gmap_find_match(const gmap_t *gmap, const bvar_t v[3], uint32_t ttbl) {
+static literal_t gmap_find_match(const gmap_t *gmap, const bvar_t v[4], uint32_t ttbl) {
   uint32_t i, mask;
   gmap_elem_t *e;
 
@@ -298,9 +302,9 @@ static literal_t gmap_find_match(const gmap_t *gmap, const bvar_t v[3], uint32_t
 /*
  * Search for an entry that matches v and ttbl.
  * Return the corresponding liteeral is such an entry exists.
- * Otherwiw, add a new entry (v, ttbl) mapped to l and return l.
+ * Otherwise, add a new entry (v, ttbl) mapped to l and return l.
  */
-static literal_t gmap_get_match(gmap_t *gmap, const bvar_t v[3], uint32_t ttbl, literal_t l) {
+static literal_t gmap_get_match(gmap_t *gmap, const bvar_t v[4], uint32_t ttbl, literal_t l) {
   uint32_t i, mask;
   literal_t l0;
   gmap_elem_t *e;
@@ -346,12 +350,64 @@ static literal_t gmap_get_match(gmap_t *gmap, const bvar_t v[3], uint32_t ttbl, 
 }
 
 
+
+/*
+ * Convert and 8-bit truth table (as in truth-tables.h) to 16-bit
+ * The 8-bit looks like this [ b7 b6 b5 b4 b3 b2 b1 b0 ] (where b0 = low-order bit of u)
+ * This is converted to [ b7 b7 b6 b6 b5 b5 b4 b4 b3 b3 b2 b2 b1 b1 b0 b0 ]
+ *
+ * We use a conversion table for a block of four bits:
+ * for an index i = [ b3 b2 b1 b0 ] the convert4[i] = [ b3 b3 b2 b2 b1 b1 b0 b0 ]
+ */
+static const uint32_t convert4[16] = {
+  0x00, 0x03, 0x0c, 0x0f,
+  0x30, 0x33, 0x3c, 0x3f,
+  0xc0, 0xc3, 0xcc, 0xcf,
+  0xf0, 0xf3, 0xfc, 0xff
+};
+
+static uint32_t convert_ttbl(uint8_t u) {
+  return convert4[u & 0x0f] | (convert4[u >> 4] << 8);
+}
+
+/*
+ * Copy variables of u into v[4] and set v[3] to null_bvar
+ */
+static void convert_vars(bvar_t v[4], const bvar_t u[3]) {
+  v[0] = u[0];
+  v[1] = u[1];
+  v[2] = u[2];
+  v[3] = null_bvar;
+}
+
+/*
+ * Find/get for a three-var function
+ */
+static literal_t gmap_find_match3(const gmap_t *gmap, const bvar_t u[3], uint8_t stbl) {
+  bvar_t v[4];
+  uint32_t ttbl;
+
+  convert_vars(v, u);
+  ttbl = convert_ttbl(stbl);
+  return gmap_find_match(gmap, v, ttbl);
+}
+
+static literal_t gmap_get_match3(gmap_t *gmap, const bvar_t u[3], uint8_t stbl, literal_t l) {
+  bvar_t v[4];
+  uint32_t ttbl;
+
+  convert_vars(v, u);
+  ttbl = convert_ttbl(stbl);
+  return gmap_get_match(gmap, v, ttbl, l);
+}
+
+
 /*
  * Search for a gate g and return the literal mapped to g.
  * If g is not in the table, return null_literal.
  */
 literal_t gmap_find(const gmap_t *gmap, const bgate_t *g) {
-  return gmap_find_match(gmap, g->var, g->ttbl);
+  return gmap_find_match3(gmap, g->var, g->ttbl);
 }
 
 /*
@@ -359,14 +415,14 @@ literal_t gmap_find(const gmap_t *gmap, const bgate_t *g) {
  * If g is not in the table and the gate and map it o l then return l/
  */
 literal_t gmap_get(gmap_t *gmap, const bgate_t *g, literal_t l) {
-  return gmap_get_match(gmap, g->var, g->ttbl, l);
+  return gmap_get_match3(gmap, g->var, g->ttbl, l);
 }
 
 /*
  * Search for an entry that  matches a truth-table tt
  */
 literal_t gmap_find_ttbl(const gmap_t *gmap, const ttbl_t *tt) {
-  return gmap_find_match(gmap, tt->label, tt->mask);
+  return gmap_find_match3(gmap, tt->label, tt->mask);
 }
 
 /*
@@ -374,6 +430,126 @@ literal_t gmap_find_ttbl(const gmap_t *gmap, const ttbl_t *tt) {
  * If not found add an entry based on tt and return l.
  */
 literal_t gmap_get_ttbl(gmap_t *gmap, const ttbl_t *tt, literal_t l) {
-  return gmap_get_match(gmap, tt->label, tt->mask, l);
+  return gmap_get_match3(gmap, tt->label, tt->mask, l);
 }
 
+
+#ifndef NDEBUG
+/*
+ * Check that all elements in w->val are 0 or 1
+ */
+static bool good_wide_ttbl_values(const wide_ttbl_t *w) {
+  uint32_t i, n;
+
+  assert(w->nvars < 32);
+  n = ((uint32_t) 1) << w->nvars; // 2^nvars
+  for (i=0; i<n; i++) {
+    if (w->val[i] != 0 && w->val[i] != 1) return false;
+  }
+  return true;
+}
+#endif
+
+/*
+ * Multiply m by bit
+ * - return 0 if bit == 0 or mask if bit == 1
+ */
+static inline uint32_t mask(uint32_t m, uint8_t bit) {
+  assert(bit == 0 || bit == 1);
+  return  m & (- (uint32_t) bit);
+}
+
+
+/*
+ * Convert a wide truth table w to key/ttbl
+ * - store four variables in v[0 ... v3] (copied from w->var)
+ * - return a 16bit encoding of w->val as ttbl
+ * - w must not have more than four variables
+ *
+ * Warning: if w stores a table for f(x0, .., x3) then
+ * the value of f(b0, b1, b2, b3) is stored in w->val[i]
+ * where i = b0 + 2 b1 + 4 b2 + 8 b3.
+ * In the gmap, we store the same value in bit j of the ttbl
+ * where j = 8 b0 + 4 b1 + 2 b2 + b3.
+ */
+static uint32_t convert_wide_ttbl(bvar_t v[4], const wide_ttbl_t *w) {
+  uint32_t ttbl;
+
+  assert(good_wide_ttbl_values(w));
+
+  switch (w->nvars) {
+  case 0:
+    v[0] = null_bvar;
+    v[1] = null_bvar;
+    v[2] = null_bvar;
+    v[3] = null_bvar;
+    ttbl = mask(0xFFFF, w->val[0]);
+    break;
+
+  case 1:
+    v[0] = w->var[0];
+    v[1] = null_bvar;
+    v[2] = null_bvar;
+    v[3] = null_bvar;
+    ttbl = mask(0x00FF, w->val[0]) | mask(0xFF00, w->val[1]);
+    break;
+
+  case 2:
+    v[0] = w->var[0];
+    v[1] = w->var[1];
+    v[2] = null_bvar;
+    v[3] = null_bvar;
+    ttbl = mask(0x000F, w->val[0]) | mask(0x00F0, w->val[2])
+      | mask(0x0F00, w->val[1]) | mask(0xF000, w->val[3]);
+    break;
+
+  case 3:
+    v[0] = w->var[0];
+    v[1] = w->var[1];
+    v[2] = w->var[2];
+    v[3] = null_bvar;
+    ttbl = mask(0x0003, w->val[0]) | mask(0x000C, w->val[4])
+      | mask(0x0030, w->val[2]) | mask(0x00C0, w->val[6])
+      | mask(0x0300, w->val[1]) | mask(0x0C00, w->val[5])
+      | mask(0x3000, w->val[3]) | mask(0xC000, w->val[7]);
+    break;
+
+  default:
+    assert(w->nvars == 4);
+    v[0] = w->var[0];
+    v[1] = w->var[1];
+    v[2] = w->var[2];
+    v[3] = w->var[3];
+    ttbl = mask(0x0001, w->val[0]) | mask(0x0002, w->val[8])
+      | mask(0x0004, w->val[4]) | mask(0x0008, w->val[12])
+      | mask(0x0010, w->val[2]) | mask(0x0020, w->val[10])
+      | mask(0x0040, w->val[6]) | mask(0x0080, w->val[14])
+      | mask(0x0100, w->val[1]) | mask(0x0200, w->val[9])
+      | mask(0x0400, w->val[5]) | mask(0x0800, w->val[13])
+      | mask(0x1000, w->val[3]) | mask(0x2000, w->val[11])
+      | mask(0x4000, w->val[7]) | mask(0x8000, w->val[15]);
+    break;
+  }
+
+  return ttbl;
+}
+
+/*
+ * Search using a wide truth table
+ * - w must be normalized and have no more than four variables
+ */
+literal_t gmap_find_wide_ttbl(const gmap_t *gmap, const wide_ttbl_t *w) {
+  bvar_t v[4];
+  uint32_t ttbl;
+
+  ttbl = convert_wide_ttbl(v, w);
+  return gmap_find_match(gmap, v, ttbl);
+}
+
+literal_t gmap_get_wide_ttbl(gmap_t *gmap, const wide_ttbl_t *w, literal_t l) {
+  bvar_t v[4];
+  uint32_t ttbl;
+
+  ttbl = convert_wide_ttbl(v, w);
+  return gmap_get_match(gmap, v, ttbl, l);
+}

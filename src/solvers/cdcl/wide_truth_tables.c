@@ -240,8 +240,6 @@ static void copy_vars(bvar_t *b, const bvar_t *a, uint32_t n) {
 }
 
 
-
-
 /*
  * Import a regular ttbl into w.
  * - w->size must be at least ttbl->nvars.

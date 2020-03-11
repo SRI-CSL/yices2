@@ -6592,13 +6592,13 @@ static void learned_binary_clause(sat_solver_t *solver, literal_t l1, literal_t 
 }
 
 static void test_binary_clause(sat_solver_t *solver, const gmap_entry_t *a, const gmap_entry_t *b) {
-  if ((a->ttbl | b->ttbl) == 0xff) {
+  if ((a->ttbl | b->ttbl) == 0xffff) {
     learned_binary_clause(solver, a->lit, b->lit);
-  } else if ((a->ttbl | ~b->ttbl) == 0xff) {
+  } else if ((a->ttbl | ~b->ttbl) == 0xffff) {
     learned_binary_clause(solver, a->lit, not(b->lit));
-  } else if ((~a->ttbl | b->ttbl) == 0xff) {
+  } else if ((~a->ttbl | b->ttbl) == 0xffff) {
     learned_binary_clause(solver, not(a->lit), b->lit);
-  } else if ((~a->ttbl | ~b->ttbl) == 0xff) {
+  } else if ((~a->ttbl | ~b->ttbl) == 0xffff) {
     learned_binary_clause(solver, not(a->lit), not(b->lit));
   }
 }
@@ -6609,17 +6609,19 @@ static void test_binary_clause(sat_solver_t *solver, const gmap_entry_t *a, cons
  */
 static void small_clauses_from_vector(sat_solver_t *solver, const gmap_elem_t *e) {
   uint32_t i, n;
+  literal_t l;
 
   n = e->nelems;
 
-  if (solver->verbosity >= 10) {
+  if (solver->verbosity >= 3) {
     fprintf(stderr, "c vars: [");
-    for (i=0; i<3; i++)  {
-      if (e->var[i] >= 0) fprintf(stderr, " %"PRId32, e->var[i]);
+    for (i=0; i<4; i++)  {
+      fprintf(stderr, " %"PRId32, e->var[i]);
     }
     fprintf(stderr, " ]\n");
     for (i=0; i<n; i++) {
-      fprintf(stderr, "c    0x%02x --> %"PRId32"\n", e->data[i].ttbl, e->data[i].lit);
+      l = e->data[i].lit;
+      fprintf(stderr, "c    0x%04x --> %c%"PRId32"\n", e->data[i].ttbl, pol(l), var_of(l));
     }
   }
 
@@ -6631,7 +6633,7 @@ static void small_clauses_from_vector(sat_solver_t *solver, const gmap_elem_t *e
     test_binary_clause(solver, e->data + 1, e->data + 2);
   }
 
-  if (solver->verbosity >= 10) {
+  if (solver->verbosity >= 3) {
     fprintf(stderr, "\n");
   }
 }
@@ -6699,7 +6701,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 	break;
 
       default:
-	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate equiv");
+	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate");
 	if (tt.nvars == 2) {
 	  try_rewrite_binary_gate(solver, l0, &tt, &test);
 	}
@@ -6710,7 +6712,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
     }
   }
 
-  if (solver->stats.try_equiv_calls == 0&& solver->preprocess) {
+  if (solver->stats.try_equiv_calls == 0 && solver->preprocess) {
     // EXPERIMENT
     learn_small_clauses(solver, &test);
   }
