@@ -87,8 +87,8 @@ extern void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl);
 
 /*
  * Composition:
- * - w1 stores a the truth-table for function f(x0,..., x_k)
- * - ttbl stores the truth-table for function g(y0, ...).
+ * - w1 stores a the truth table for function f(x0,..., x_k)
+ * - ttbl stores the truth table for function g(y0, ...).
  * - i is an index between 0 and k
  *
  * This function computes the truth table for 
@@ -102,6 +102,22 @@ extern void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl);
  * It returns true otherwise.
  */
 extern bool wide_ttbl_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl, uint32_t i);
+
+
+/*
+ * Composition variant
+ * - w1 stores the  truth table for a function f(x0 .... x_k)
+ * - ttbl stores the truth table for a functioon g(y0...)
+ * - x is a variable
+ *
+ * If x occurs in x0 ... x_k, then this replaces x by g(y0...) in f and store the
+ * result in w. Otherwise,  this copies w1 into w.
+ *
+ * The function returns false if the composition can't be stored
+ * in w (because it requires more variables than w->size).
+ * It returns true otherwise.
+ */
+extern bool wide_ttbl_var_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl, bvar_t x);
 
 
 /*

@@ -129,7 +129,7 @@ typedef struct gmap_elem_s {
   bvar_t var[4];        // key
   uint32_t size;        // size of the data array
   uint32_t nelems;      // number of elements in array data
-  gmap_entry_t data[0]; // real size givene by size.
+  gmap_entry_t data[0]; // real size given by size.
 } gmap_elem_t;
 
 
@@ -142,7 +142,7 @@ typedef struct gmap_elem_s {
 typedef struct gmap_s {
   gmap_elem_t **data;
   uint32_t size;       // power of two
-  uint32_t nelems;     // number of elements in tbe table
+  uint32_t nelems;     // number of elements in the table
   uint32_t resize_threshold;
 } gmap_t;
 
@@ -150,7 +150,6 @@ typedef struct gmap_s {
 #define GMAP_DEF_SIZE 1024
 #define GMAP_MAX_SIZE (UINT32_MAX/sizeof(gmap_elem_t *))
 #define GMAP_RESIZE_RATIO 0.6
-
 /*
  * Initialization:
  * - n: initial size. Must be 0 or a power of 2.

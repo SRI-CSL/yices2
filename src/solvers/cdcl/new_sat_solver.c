@@ -6354,7 +6354,7 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gate_hmap_t *map, literal_
   l = gate_hmap_find_ttbl(map, tt);
   if (l != null_literal) {
     if (l != l0) {
-      if (solver->verbosity >= 4) {
+      if (solver->verbosity >= 2) {
 	fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
       }
       literal_equiv(solver, l, l0);
@@ -6424,6 +6424,7 @@ static void show_all_gates(const gate_hmap_t *map) {
     g = gate_hmap_next_gate(map, g, &l);
   }
 }
+
 
 /*
  * Search for equivalent definitions
@@ -6502,7 +6503,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
  * - otherwise if test_only is false, add the mapping tt -> l0 to map
  * - w is a string used to report message
  */
-static void process_lit_eq_ttbl(sat_solver_t *solver, gmap_t *gmap, literal_t l0,
+static bool process_lit_eq_ttbl(sat_solver_t *solver, gmap_t *gmap, literal_t l0,
 				const ttbl_t *tt, bool test_only, const char *w) {
   literal_t l;
 
@@ -6518,11 +6519,14 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gmap_t *gmap, literal_t l0
   }
 
   if (l != null_literal && l != l0) {
-    if (solver->verbosity >= 4) {
+    if (solver->verbosity >= 2) {
       fprintf(stderr, "c   %s: %"PRId32" == %"PRId32"\n", w, l, l0);
     }
     literal_equiv(solver, l, l0);
+    return true;
   }
+
+  return false;
 }
 
 /*
@@ -6530,40 +6534,36 @@ static void process_lit_eq_ttbl(sat_solver_t *solver, gmap_t *gmap, literal_t l0
  * - l0 literal equal to the truth table tx
  * - tx must be normalized and binary
  */
-static void try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const ttbl_t *tx, gmap_t *gmap) {
+static bool try_rewrite_binary_gate(sat_solver_t *solver, literal_t l0, const ttbl_t *tx, gmap_t *gmap) {
   ttbl_t r;
 
   assert(tx->nvars == 2);
 
   if (bvar_rewrites6(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite6");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite6");
   }
 
   if (bvar_rewrites5(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite5");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite5");
   }
 
   if (bvar_rewrites4(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite4");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite4");
   }
 
   if (bvar_rewrites3(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite3");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite3");
   }
 
   if (bvar_rewrites2(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite2");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite2");
   }
 
   if (bvar_rewrites1(solver, tx, &r)) {
-    process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite1");
-    return;
+    return process_lit_eq_ttbl(solver, gmap, l0, &r, false, "rewrite1");
   }
+
+  return false;
 }
 
 /*
@@ -6623,19 +6623,19 @@ static void small_clauses_from_vector(sat_solver_t *solver, const gmap_elem_t *e
       l = e->data[i].lit;
       fprintf(stderr, "c    0x%04x --> %c%"PRId32"\n", e->data[i].ttbl, pol(l), var_of(l));
     }
-  }
-
-  if (n == 2) {
-    test_binary_clause(solver, e->data, e->data + 1);
-  } else if (n == 3) {
-    test_binary_clause(solver, e->data, e->data + 1);
-    test_binary_clause(solver, e->data, e->data + 2);
-    test_binary_clause(solver, e->data + 1, e->data + 2);
-  }
-
-  if (solver->verbosity >= 3) {
     fprintf(stderr, "\n");
   }
+
+  if (false) {
+    if (n == 2) {
+      test_binary_clause(solver, e->data, e->data + 1);
+    } else if (n == 3) {
+      test_binary_clause(solver, e->data, e->data + 1);
+      test_binary_clause(solver, e->data, e->data + 2);
+      test_binary_clause(solver, e->data + 1, e->data + 2);
+    }
+  }
+
 }
 
 static void learn_small_clauses(sat_solver_t *solver, gmap_t *gmap) {
@@ -6652,6 +6652,200 @@ static void learn_small_clauses(sat_solver_t *solver, gmap_t *gmap) {
 }
 
 /*
+ * Process equality l0 = w
+ * - return true if we find a substitution for l0
+ */
+static bool try_lit_equiv_cut(sat_solver_t *solver, literal_t l0, const wide_ttbl_t *w, gmap_t *gmap) {
+  literal_t l;
+
+  assert(w->nvars <= 4);
+  l = gmap_get_wide_ttbl(gmap, w, l0);
+  assert(l != null_literal);
+
+  if (l != l0) {
+    if (solver->verbosity >= 2) {
+      fprintf(stderr, "c   cut-equiv: %"PRId32" == %"PRId32"\n", l, l0);
+    }
+    literal_equiv(solver, l, l0);
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+ * Apply substitutions defined by arrays has_sub and sub to w
+ * - w is a wide table to expand
+ * - sub[i] is a truth table (gate for variable i)
+ * - has_sub[i] is a selector bit: if has_sub[i] is false, then sub[i] is not
+ *   applied.
+ * - norm and aux and two buffers
+ * - return true if the expansion succeeds (i.e., can be stored in *norm).
+ */
+static bool apply_subst(wide_ttbl_t *norm, wide_ttbl_t *aux,
+			const wide_ttbl_t *w, const bool *has_sub, const ttbl_t *sub) {
+  uint32_t i, n;
+  bvar_t y;
+
+  wide_ttbl_normalize(norm, w);
+  n = w->nvars;
+  for (i=0; i<n; i++) {
+    if (has_sub[i]) {
+      y = w->var[i];
+      if (!wide_ttbl_var_compose(aux, norm, sub + i, y)) return false;
+      wide_ttbl_normalize(norm, aux);
+    }
+  }
+  return true;
+}
+
+
+/*
+ * Set a[j] to true, all others to false
+ */
+static void select_one(bool *a, uint32_t n, uint32_t j) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    a[i] = false;
+  }
+  a[j] = true;
+}
+
+/*
+ * Try to expand w
+ */
+static bool expand_and_test_equiv(sat_solver_t *solver, literal_t l0, const wide_ttbl_t *w,
+				  gmap_t *gmap, uint32_t max_expand) {
+  ttbl_t sub[4];
+  bool has_sub[4];
+  bool has_sub2[4];
+  wide_ttbl_t normal;
+  wide_ttbl_t aux;
+  uint32_t i, j, k, n, n_sub;
+  bvar_t y;
+  bool found;
+
+  n = w->nvars;
+  if (n > 4) return false;
+
+  n_sub = 0;
+  for (i=0; i<n; i++) {
+    has_sub[i] = false;
+    y = w->var[i];
+    if (gate_for_bvar(solver, y, sub + i)) {
+      apply_subst_to_ttbl(solver, sub + i);
+      has_sub[i] = true;
+      n_sub ++;
+    }
+  }
+
+  if (n_sub == 0) return false;
+
+  found = false;
+
+  //  printf("c exp-and-test-equiv: literal %"PRId32", n_sub = %"PRIu32", max = %"PRIu32"\n", l0, n_sub, max_expand);
+
+  init_wide_ttbl(&normal, 10);
+  init_wide_ttbl(&aux, 10);
+
+  // first try to expand all the variables we can
+  if (apply_subst(&normal, &aux, w, has_sub, sub)) {
+    if (normal.nvars <= 4 && try_lit_equiv_cut(solver, l0, &normal, gmap)) {
+      goto found;
+    }
+    if (max_expand > 0 && expand_and_test_equiv(solver, l0, &normal, gmap, max_expand - 1)) {
+      goto found;
+    }
+  }
+
+  // try to expand all variables but one
+  if (n_sub >= 2) {
+    for (j=0; j<n; j++) {
+      if (has_sub[j]) {
+	has_sub[j] = false; // prevent j expansion
+	if (apply_subst(&normal, &aux, w, has_sub, sub)) {
+	  if (normal.nvars <= 4 && try_lit_equiv_cut(solver, l0, &normal, gmap)) {
+	    goto found;
+	  }
+	  if (max_expand > 0 && expand_and_test_equiv(solver, l0, &normal, gmap, max_expand - 1)) {
+	    goto found;
+	  }
+	}
+	has_sub[j] = true;
+      }
+    }
+  }
+
+  // try to expand all variables but two
+  if (n_sub >= 3) {
+    for (j=0; j<n-1; j++) {
+      if (has_sub[j]) {
+	has_sub[j] = false;
+	for (k=j+1; k<n; k++) {
+	  if (has_sub[k]) {
+	    has_sub[k] = false;
+	    if (apply_subst(&normal, &aux, w, has_sub, sub)) {
+	      if (normal.nvars <= 4 && try_lit_equiv_cut(solver, l0, &normal, gmap)) {
+		goto found;
+	      }
+	      if (max_expand > 0 && expand_and_test_equiv(solver, l0, &normal, gmap, max_expand - 1)) {
+		goto found;
+	      }
+	    }
+	    has_sub[k] = true;
+	  }
+	}
+	has_sub[j] = true;
+      }
+    }
+  }
+
+  // one variable at a time
+  if (n_sub >= 4) {
+    for (j=0; j<n; j++) {
+      if  (has_sub[j]) {
+	select_one(has_sub2, n, j);
+	if (apply_subst(&normal, &aux, w, has_sub2, sub)) {
+	  if (normal.nvars <= 4 && try_lit_equiv_cut(solver, l0, &normal, gmap)) {
+	    goto found;
+	  }
+	  if (max_expand > 0 && expand_and_test_equiv(solver, l0, &normal, gmap, max_expand - 1)) {
+	    goto found;
+	  }
+	}
+      }
+    }
+  }
+
+ done:
+  delete_wide_ttbl(&aux);
+  delete_wide_ttbl(&normal);
+  return found;
+
+ found:
+  found = true;
+  goto done;
+}
+
+/*
+ * Expand gate and search for equivalence for l0
+ * - gmap = hash table that contains cuts
+ * - l0 = literal
+ * - tt = truth table that defines l0
+ */
+static void try_gate_expansion(sat_solver_t *solver, literal_t l0, const ttbl_t *tt, gmap_t *gmap) {
+  wide_ttbl_t w;
+
+  init_wide_ttbl(&w, 3);
+  wide_ttbl_import(&w, tt);
+  expand_and_test_equiv(solver, l0, &w, gmap, 2);
+  delete_wide_ttbl(&w);
+}
+
+
+/*
  * Search for equivalent definitions
  * - level 0: check only for gate equivalence
  * - level 1: gate equivalence & equivalence with true/false literal
@@ -6664,6 +6858,11 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
   literal_t l0, l1;
 
   solver->stats.try_equiv_calls ++;
+
+  if (solver->preprocess || true) {
+    printf("c\nc cut sweeping: round %"PRIu32"\nc\n", solver->stats.try_equiv_calls);
+    fflush(stdout);
+  }
 
   if (solver->verbosity >= 10) {
     show_subst(solver);
@@ -6701,9 +6900,11 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 	break;
 
       default:
-	process_lit_eq_ttbl(solver, &test, l0, &tt, false, "gate");
-	if (tt.nvars == 2) {
-	  try_rewrite_binary_gate(solver, l0, &tt, &test);
+	if (! process_lit_eq_ttbl(solver, &test, l0, &tt, false, "simple-equiv")) {
+	  if (tt.nvars == 3 ||
+	      (tt.nvars == 2 && !try_rewrite_binary_gate(solver, l0, &tt, &test))) {
+	    try_gate_expansion(solver, l0, &tt, &test);
+	  }
 	}
 	break;
       }
