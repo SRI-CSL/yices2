@@ -6840,7 +6840,7 @@ static void try_gate_expansion(sat_solver_t *solver, literal_t l0, const ttbl_t 
 
   init_wide_ttbl(&w, 3);
   wide_ttbl_import(&w, tt);
-  expand_and_test_equiv(solver, l0, &w, gmap, 2);
+  expand_and_test_equiv(solver, l0, &w, gmap, 0);
   delete_wide_ttbl(&w);
 }
 
@@ -6859,7 +6859,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 
   solver->stats.try_equiv_calls ++;
 
-  if (solver->preprocess || true) {
+  if (solver->verbosity >= 4) {
     printf("c\nc cut sweeping: round %"PRIu32"\nc\n", solver->stats.try_equiv_calls);
     fflush(stdout);
   }
@@ -6901,8 +6901,7 @@ static void try_equivalent_vars(sat_solver_t *solver, uint32_t level) {
 
       default:
 	if (! process_lit_eq_ttbl(solver, &test, l0, &tt, false, "simple-equiv")) {
-	  if (tt.nvars == 3 ||
-	      (tt.nvars == 2 && !try_rewrite_binary_gate(solver, l0, &tt, &test))) {
+	  if (tt.nvars == 3 || !try_rewrite_binary_gate(solver, l0, &tt, &test)) {
 	    try_gate_expansion(solver, l0, &tt, &test);
 	  }
 	}
