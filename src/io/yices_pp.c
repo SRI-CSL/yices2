@@ -97,7 +97,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 52
+#define NUM_STANDARD_BLOCKS 54
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -152,6 +152,8 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_TYPE, "type" },
   { PP_OPEN_DEFAULT, "default" },
   { PP_OPEN_ROOT_ATOM, "arith-root-atom" },
+  { PP_OPEN_SMT2_STORE, "store" },
+  { PP_OPEN_SMT2_AS_CONST, "as const" },
 };
 
 

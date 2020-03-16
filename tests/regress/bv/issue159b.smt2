@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const x (_ BitVec 13))
+(declare-const y (_ BitVec 8))
+(define-const a (_ BitVec 13) (bvneg (bvadd (_ bv1 13) x)))
+(define-const b (_ BitVec 13) (bvneg (bvshl a a)))
+(define-const d (_ BitVec 13) (bvneg (bvadd (_ bv1 13) ((_ zero_extend 5) y))))
+(assert (and (bvugt x (_ bv0 13)) (not (= b d))))
+(check-sat)

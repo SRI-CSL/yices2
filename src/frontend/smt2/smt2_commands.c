@@ -3491,7 +3491,11 @@ static model_t *get_ef_model(smt2_globals_t *g) {
 static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
   pp_open_block(&printer->pp, PP_OPEN_PAR);
   pp_smt2_expr(&printer->pp, token_queue, i);
-  smt2_pp_object(printer, vtbl, v);
+  if (__smt2_globals.clean_model_format) {
+    smt2_pp_object(printer, vtbl, v);
+  } else {
+    smt2_pp_smt2_object(printer, vtbl, v);
+  }
   pp_close_block(&printer->pp, true);
 }
 

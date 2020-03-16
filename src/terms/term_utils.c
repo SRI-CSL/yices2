@@ -2779,7 +2779,7 @@ void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b) {
  * - t must be a bitvector term
  * - b and t must have the same bitsize
  * - if t has 64bits or less, a is given as a 64bit constant
- * - if t has more than 64bits, a iis given as an array of 32bit words
+ * - if t has more than 64bits, a is given as an array of 32bit words
  */
 void factor_mul_bvterm64(term_table_t *tbl, uint64_t a, term_t t, bvfactor_buffer_t *b) {
   assert(is_bitvector_term(tbl, t));

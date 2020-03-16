@@ -302,15 +302,289 @@ void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, bool sho
 
 
 /*
+ * VARIANT: TRY TO USE SMT2 SYNTAX
+ */
+
+/*
+ * Variant of smt2_pp_object that uses SMT2 syntax for arrays
+ */
+static void smt2_pp_object_in_def(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c);
+
+/*
+ * Default value in a function/update
+ */
+static void smt2_pp_default_value(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t def) {
+  if (is_unknown(table, def)) {
+    pp_string(&printer->pp, "???");
+  } else {
+    smt2_pp_object_in_def(printer, table, tau, def);
+  }
+}
+
+/*
+ * Variant of pp_function using SMT2-like syntax:
+ *   (store (store ((as const tau) v0) i1 v1) i2 v2)
+ * - tau = type of the function
+ */
+static void smt2_pp_array(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c) {
+  type_table_t *types;
+  value_fun_t *fun;
+  value_map_t *mp;
+  type_t sigma, range;
+  uint32_t i, n;
+  uint32_t j, m;
+
+  assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
+  fun = table->desc[c].ptr;
+
+  types = table->type_table;
+  range = function_type_range(types, tau);
+  m = fun->arity;
+
+  n = fun->map_size;
+  // (store (store ....
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_SMT2_STORE);
+  }
+  // ((as const tau) <default value>)
+  pp_open_block(&printer->pp, PP_OPEN_PAR);
+  pp_open_block(&printer->pp, PP_OPEN_SMT2_AS_CONST);
+  smt2_pp_type(printer, types, tau);
+  pp_close_block(&printer->pp, true);
+  smt2_pp_default_value(printer, table, range, fun->def);
+  pp_close_block(&printer->pp, true);
+
+  // one update for each element in the map
+  i = n;
+  while (i > 0) {
+    i --;
+    mp = vtbl_map(table, fun->map[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      sigma = function_type_domain(types, tau, j);
+      smt2_pp_object_in_def(printer, table, sigma, mp->arg[j]);
+    }
+    smt2_pp_object_in_def(printer, table, range, mp->val);
+    pp_close_block(&printer->pp, true);
+  }
+}
+
+/*
+ * Expand update c and print it as a function.
+ * - use the SMT2-like syntax
+ */
+static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value_t c) {
+  type_table_t *types;
+  map_hset_t *hset;
+  value_map_t *mp;
+  value_t def;
+  type_t tau, range, sigma;
+  uint32_t i, j, n, m;
+
+  // build the mapping for c in table->hset1
+  vtbl_expand_update(table, c, &def, &tau);
+  hset = table->hset1;
+  assert(hset != NULL);
+
+  types = table->type_table;
+
+  /*
+   * hset->data contains an array of mapping objects
+   * hset->nelems = number of elements in hset->data
+   */
+  m = vtbl_update(table, c)->arity;
+  range = function_type_range(types, tau);
+  n = hset->nelems;
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_SMT2_STORE);
+  }
+  // default value: ((as const tau) <default>)
+  pp_open_block(&printer->pp, PP_OPEN_PAR);
+  pp_open_block(&printer->pp, PP_OPEN_SMT2_AS_CONST);
+  smt2_pp_type(printer, types, tau);
+  pp_close_block(&printer->pp, true);
+  smt2_pp_default_value(printer, table, range, def);
+  pp_close_block(&printer->pp, true);
+
+  // one store for each element in the map
+  i = n;
+  while (i>0) {
+    i --;
+    mp = vtbl_map(table, hset->data[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      sigma = function_type_domain(types, tau, j);
+      smt2_pp_object_in_def(printer, table, sigma, mp->arg[j]);
+    }
+    smt2_pp_object_in_def(printer, table, range, mp->val);
+    pp_close_block(&printer->pp, true);
+  }
+}
+
+static void smt2_pp_object_in_def(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c) {
+  if (object_is_function(table, c)) {
+    smt2_pp_array(printer, table, tau, c);
+  } else if (object_is_update(table, c)) {
+    smt2_pp_array_update(printer, table, c);
+  } else {
+    smt2_pp_object(printer, table, c);
+  }
+}
+
+
+/*
+ * Print a function parameters and range
+ * This prints ((x!0 tau0) ... (x!k tau_k)) sigma
+ * where tau0 .. tau_k = function domain and sigma = range
+ */
+static void smt2_pp_function_params(smt2_pp_t *printer, type_table_t *types, type_t tau) {
+  uint32_t i, n;
+  function_type_t *fun;
+
+  fun = function_type_desc(types, tau);
+
+  pp_open_block(&printer->pp, PP_OPEN_PAR);
+  n = fun->ndom;
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_PAR);
+    pp_id(&printer->pp, "x!", i);
+    smt2_pp_type(printer, types, fun->domain[i]);
+    pp_close_block(&printer->pp, true);
+  }
+  pp_close_block(&printer->pp, true);
+  smt2_pp_type(printer, types, fun->range);
+}
+
+/*
+ * Print a predicate for map :=  [v!0 ... v!k -> g]
+ * - if map has arity one, this prints (= x!0 v!0)
+ * - otherwise, tthis prints (and (= x!0 v!0) ... (x!k vk))
+ * - tau is the type of map
+ */
+static void smt2_pp_map(smt2_pp_t *printer, value_table_t *table, type_t tau, value_map_t *map) {
+  type_table_t *types;
+  function_type_t *fun;
+  uint32_t i, n;
+
+  types = table->type_table;
+  fun = function_type_desc(types, tau);
+
+  n = map->arity;
+  assert(n > 0 && n == fun->ndom);
+  if (n > 1) pp_open_block(&printer->pp, PP_OPEN_AND);
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_EQ);
+    pp_id(&printer->pp, "x!", i);
+    smt2_pp_object_in_def(printer, table, fun->domain[i], map->arg[i]);
+    pp_close_block(&printer->pp, true);
+  }
+  if (n > 1) pp_close_block(&printer->pp, true);
+}
+
+/*
+ * Print a function definition as a cascade of if-then-elses
+ * - tau = type of the function
+ * - c = function value
+ */
+static void smt2_pp_function_definition(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c) {
+  value_fun_t *fun;
+  value_map_t *mp;
+  uint32_t i, n;
+  type_t range;
+
+  assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
+  fun = table->desc[c].ptr;
+
+  range = function_type_range(table->type_table, tau);
+
+  n = fun->map_size;
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_ITE);
+    mp = vtbl_map(table, fun->map[i]);
+    smt2_pp_map(printer, table, tau, mp);
+    smt2_pp_object_in_def(printer, table, range, mp->val);
+  }
+  // default value
+  smt2_pp_default_value(printer, table, range, fun->def);
+
+  for (i=0; i<n; i++) {
+    pp_close_block(&printer->pp, true);
+  }
+}
+
+/*
+ * Normalize c then print if as a cascade of if-then-else
+ */
+static void smt2_pp_update_definition(smt2_pp_t *printer, value_table_t *table, value_t c) {
+  map_hset_t *hset;
+  value_map_t *mp;
+  value_t def;
+  type_t tau, range;
+  uint32_t i, n;
+
+  // build the mapping for c in hset1
+  vtbl_expand_update(table, c, &def, &tau);
+  hset = table->hset1;
+  assert(hset != NULL);
+
+  range = function_type_range(table->type_table, tau);
+
+  /*
+   * hset->data contains an array of mapping objects
+   * hset->nelems = number of elements in hset->data
+   */
+  n = hset->nelems;
+  for (i=0; i<n; i++) {
+    pp_open_block(&printer->pp, PP_OPEN_ITE);
+    mp = vtbl_map(table, hset->data[i]);
+    smt2_pp_map(printer, table, tau, mp);
+    smt2_pp_object_in_def(printer, table, range, mp->val);
+  }
+  smt2_pp_default_value(printer, table, range, def);
+
+  for (i=0; i<n; i++) {
+    pp_close_block(&printer->pp, true);
+  }
+}
+
+
+/*
  * Print a definition in the SMT2 style.
  * - this prints (define-fun name () tau value)
  */
 void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name, type_t tau, value_t c) {
+  type_table_t *types;
+
+  types = table->type_table;
   pp_open_block(&printer->pp, PP_OPEN_SMT2_DEF);
   smt2_pp_symbol(printer, name);
-  pp_string(&printer->pp, "()");
-  smt2_pp_type(printer, table->type_table, tau);
-  smt2_pp_object(printer, table, c);
+  if (object_is_function(table, c)) {
+    smt2_pp_function_params(printer, types, tau);
+    smt2_pp_function_definition(printer, table, tau, c);
+  } else if (object_is_update(table, c)) {
+    smt2_pp_function_params(printer, types, tau);
+    smt2_pp_update_definition(printer, table, c);
+  } else {
+    pp_string(&printer->pp, "()");
+    smt2_pp_type(printer, types, tau);
+    smt2_pp_object_in_def(printer, table, tau, c);
+  }
   pp_close_block(&printer->pp, true);
 }
 
+
+/*
+ * Variant of smt2_pp_object that uses SMT2 syntax for arrays
+ */
+void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
+  value_fun_t *fun;
+
+  if (object_is_function(table, c)) {
+    fun = vtbl_function(table, c);
+    smt2_pp_array(printer, table, fun->type, c);
+  } else if (object_is_update(table, c)) {
+    smt2_pp_array_update(printer, table, c);
+  } else {
+    smt2_pp_object(printer, table, c);
+  }
+}

@@ -4509,9 +4509,7 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
       break;
 
     case BVFACTOR_FOUND:
-      if (useful_bitvector_factoring(&factoring)) {
-	assert_factored_inequality(ctx, &factoring);
-      }
+      assert_factored_inequality(ctx, &factoring);
       break;
 
     default:

@@ -173,15 +173,6 @@ extern bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2);
 
 
 /*
- * Check whether the common factor is non-trivial (i.e., not equal to 1).
- * - this assumes that the factoring worked (so r->code must be equal to BVFACTOR_FOUND).
- */
-static inline bool useful_bitvector_factoring(bvfactoring_t *r) {
-  assert(r->code == BVFACTOR_FOUND);
-  return bvfactor_buffer_product_is_one(&r->common);
-}
-
-/*
  * Convert the reduced parts or r to terms:
  * - r must contain a valid vactoring (i.e., r->code must be equal to BVFACTOR_FOUND).
  */

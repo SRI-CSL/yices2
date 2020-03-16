@@ -577,6 +577,7 @@ typedef struct solver_stats_s {
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
   uint32_t scc_calls;                // number of calls to try_scc_simplification
+  uint32_t try_equiv_calls;          // number of calls to try_equivalent_vars (includes preprocessing)
   uint32_t subst_calls;              // number of calls to apply_substitution
   uint32_t probe_calls;              // number of calls to failed_literal_probing
 
@@ -596,6 +597,7 @@ typedef struct solver_stats_s {
   uint32_t pp_subst_vars;            // number of variables eliminated by substitution
   uint32_t pp_subst_units;           // number of unit literals found by equivalence checks
   uint32_t pp_equivs;                // number of equivalences detected
+  uint32_t pp_scc_calls;             // number of calls to pp_scc_simplication
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
   uint32_t pp_strengthenings;        // number of strengthened clauses

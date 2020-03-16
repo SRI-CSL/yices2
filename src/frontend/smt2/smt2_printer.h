@@ -121,7 +121,6 @@ extern void smt2_normalize_and_pp_update(smt2_pp_t *printer, value_table_t *tabl
  */
 extern void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, bool show_default);
 
-
 /*
  * Print a definition in the SMT2 style:
  *
@@ -129,6 +128,12 @@ extern void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, b
  */
 extern void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name,
 			type_t tau, value_t c);
+
+
+/*
+ * Variant of smt2_pp_object that uses an SMT2-like syntax for arrays
+ */
+extern void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c);
 
 
 #endif  /* __SMT2_PRINTER_H */
