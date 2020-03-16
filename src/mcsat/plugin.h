@@ -80,6 +80,9 @@ struct plugin_context_s {
   /** The tracer */
   tracer_t* tracer;
 
+  /** Has the search been interrupted */
+  const bool* stop_search;
+
   /** Request term registration for this kind */
   void (*request_term_notification_by_kind) (plugin_context_t* self, term_kind_t kind);
 

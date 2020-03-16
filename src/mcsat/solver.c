@@ -644,6 +644,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.trail = mcsat->trail;
   ctx->ctx.stats = &mcsat->stats;
   ctx->ctx.tracer = mcsat->ctx->trace;
+  ctx->ctx.stop_search = &mcsat->stop_search;
   ctx->ctx.request_decision_calls = mcsat_plugin_context_decision_calls;
   ctx->ctx.request_term_notification_by_kind = mcsat_plugin_term_notification_by_kind;
   ctx->ctx.request_term_notification_by_type = mcsat_plugin_term_notification_by_type;
