@@ -98,6 +98,7 @@
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 #include "utils/refcount_strings.h"
+#include "utils/simple_int_stack.h"
 #include "utils/string_utils.h"
 #include "utils/timeout.h"
 
@@ -193,14 +194,14 @@ static param_t parameters;
  */
 static bool efmode;
 
-
 /*
- * If mode = one-shot or ef
+ * Stack of assertions
  * - all assertions are pushed into this vector
- * - all assertions are then processed at once on the call to
- *   (check) or (ef-solve)
+ *
+ * - if mode == one-check, then assertions are processed at once
+ *   by (check) or (ef-solve)
  */
-static ivector_t delayed_assertions;
+static simple_istack_t assertions;
 
 /*
  * Counters for run-time statistics
@@ -669,7 +670,7 @@ static void process_command_line(int argc, char *argv[]) {
   } else if (mode_code == EFSOLVER_MODE) {
     /*
      * EF-Solver enabled:
-     * we set mode to ONE_CHECK so that assertions get added to the delayed_assertion vector
+     * we set mode to ONE_CHECK to handle all assertions at once
      */
     mode = CTX_MODE_ONECHECK;
     efmode = true;
@@ -2107,12 +2108,12 @@ static void yices_help_cmd(const char *topic) {
 static void yices_reset_cmd(void) {
   if (efmode) {
     delete_ef_client(&ef_client_globals);
-    ivector_reset(&delayed_assertions);
+    reset_simple_istack(&assertions);
     model = NULL;
   } else {
     cleanup_globals();
     reset_labeled_assertion_stack(&labeled_assertions);
-    ivector_reset(&delayed_assertions);
+    reset_simple_istack(&assertions);
     reset_context(context);
   }
   print_ok();
@@ -2192,12 +2193,12 @@ static void yices_assert_cmd(term_t f) {
 
   if (efmode) {
     /*
-     * Exists/forall: we add f to the delayed assertions vector
+     * Exists/forall: we add f to the stack only
      */
     if (ef_client_globals.efdone) {
       report_error("more assertions are not allowed after (ef-solve)");
     } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
+      simple_istack_add(&assertions, f);
       print_ok();
     } else {
       report_error("type error in assert: boolean term required");
@@ -2210,7 +2211,7 @@ static void yices_assert_cmd(term_t f) {
     if (context_status(context) != STATUS_IDLE) {
       report_error("more assertions are not allowed");
     } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
+      simple_istack_add(&assertions, f);
       print_ok();
     } else {
       report_error("type error in assert: boolean term required");
@@ -2225,6 +2226,9 @@ static void yices_assert_cmd(term_t f) {
     case STATUS_IDLE:
       if (yices_term_is_bool(f)) {
 	code = assert_formula(context, f);
+	if (code == CTX_NO_ERROR) {
+	  simple_istack_add(&assertions, f);
+	}
 	print_internalization_code(code);
       } else {
 	report_error("type error in assert: boolean term required");
@@ -2508,8 +2512,9 @@ static void yices_check_cmd(void) {
     /*
      * Non-incremental
      */
-    // assert the delayed assertions
-    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    // assert the level-0 assertions
+    assert(assertions.nlevels == 0);
+    code = assert_formulas(context, assertions.top, assertions.data);
     if (code == CTX_NO_ERROR) {
       assert(context_status(context) == STATUS_IDLE);
       stat = do_check();
@@ -2983,7 +2988,7 @@ static void print_ef_status(void) {
  */
 static void yices_efsolve_cmd(void) {
   if (efmode) {
-    ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
+    ef_solve(&ef_client_globals, assertions.top, assertions.data, &parameters, logic_code, arch, tracer);
     if (ef_client_globals.efcode != EF_NO_ERROR) {
       // error in preprocessing
       print_ef_analyze_code(ef_client_globals.efcode);
@@ -3070,7 +3075,7 @@ static void export_ef_problem(const char *s) {
   ivector_t all_ef;
   int code;
 
-  build_ef_problem(&ef_client_globals, &delayed_assertions);
+  build_ef_problem(&ef_client_globals, assertions.top, assertions.data);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
     print_ef_analyze_code(ef_client_globals.efcode);
   } else {
@@ -3098,16 +3103,16 @@ static void export_ef_problem(const char *s) {
 
 
 /*
- * Export the delayed assertions
+ * Export the assertions
  */
-static void export_delayed_assertions(const char *s) {
+static void export_assertions(const char *s) {
   context_t *aux;
   int code;
 
   aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
   disable_variable_elimination(aux);
   disable_bvarith_elimination(aux);
-  code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
+  code = assert_formulas(aux, assertions.top, assertions.data);
   if (code < 0) {
     print_internalization_code(code);
   } else {
@@ -3127,7 +3132,7 @@ static void yices_export_cmd(const char *s) {
     if (efmode) {
       export_ef_problem(s);
     } else if (mode == CTX_MODE_ONECHECK) {
-      export_delayed_assertions(s);
+      export_assertions(s);
     } else {
       assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
       if (context_status(context) == STATUS_IDLE) {
@@ -3160,7 +3165,7 @@ static void yices_show_implicant_cmd(void) {
     report_error("(show-implicant) is not supported. Use --mode=one-shot");
   } else if (context_has_model("show-implicant")) {
     yices_init_term_vector(&v);
-    code = yices_implicant_for_formulas(model, delayed_assertions.size, delayed_assertions.data, &v);
+    code = yices_implicant_for_formulas(model, assertions.top, assertions.data, &v);
     if (code < 0) {
       report_show_implicant_error(yices_error_code());
     } else {
@@ -3753,7 +3758,7 @@ int yices_main(int argc, char *argv[]) {
   context = NULL;
   model = NULL;
   init_parameter_name_table();
-  init_ivector(&delayed_assertions, 10);
+  init_simple_istack(&assertions);
   init_yices_tstack(&stack);
   init_ef_client(&ef_client_globals);
   init_labeled_assertion_stack(&labeled_assertions);
@@ -3826,7 +3831,7 @@ int yices_main(int argc, char *argv[]) {
   }
   delete_labeled_assertion_stack(&labeled_assertions);
   delete_tstack(&stack);
-  delete_ivector(&delayed_assertions);
+  delete_simple_istack(&assertions);
   if (tracer != NULL) {
     delete_trace(tracer);
     safe_free(tracer);

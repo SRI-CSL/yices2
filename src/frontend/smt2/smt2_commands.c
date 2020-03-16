@@ -3069,7 +3069,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
 
   if (g->efmode) {
     efc = &g->ef_client;
-    ef_solve(efc, &g->assertions, &g->parameters,
+    ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
              qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer);
 
