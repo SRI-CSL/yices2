@@ -85,6 +85,7 @@
 #include "io/concrete_value_printer.h"
 #include "io/yices_pp.h"
 #include "model/model_eval.h"
+#include "model/model_queries.h"
 #include "model/models.h"
 #include "model/projection.h"
 #include "parser_utils/term_stack2.h"
@@ -2129,6 +2130,7 @@ static void yices_push_cmd(void) {
   } else if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else {
+    simple_istack_push(&assertions);
     cleanup_context();
     switch (context_status(context)) {
     case STATUS_IDLE:
@@ -2164,6 +2166,7 @@ static void yices_pop_cmd(void) {
   } else if (context_base_level(context) == 0) {
     report_error("pop not allowed at bottom level");
   } else {
+    simple_istack_pop(&assertions);
     cleanup_context();
     switch (context_status(context)) {
     case STATUS_UNSAT:
@@ -2265,7 +2268,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
   } else if (mode == CTX_MODE_ONECHECK) {
     report_error("labeled assertions are not supported in one-shot mode");
   } else if (arch == CTX_ARCH_MCSAT) {
-    report_error("the non-linear solver does not support labeled assertions");
+    report_error("the MC-SAT solver does not support labeled assertions");
   } else if (labeled_assertions_has_name(&labeled_assertions, label)) {
     report_error("duplicate assertion label");
   } else if (!yices_term_is_bool(t)) {
@@ -2277,6 +2280,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
     case STATUS_IDLE:
       clone = clone_string(label);
       add_labeled_assertion(&labeled_assertions, t, clone);
+      simple_istack_add(&assertions, t);
       print_ok();
       break;
 
@@ -2835,6 +2839,34 @@ static model_t *efsolver_model(void) {
   return mdl;
 }
 
+
+/*
+ * Basic model display on stdout
+ */
+static void show_model(model_t *mdl) {
+  if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
+    report_system_error("stdout");
+  }
+  fflush(stdout);
+}
+
+/*
+ * Collect relevant variables for the current set of assertions.
+ * Display their values.
+ * The set of assertions is stored in the assertion stack.
+ */
+static void show_reduced_model(model_t *mdl) {
+  ivector_t support;
+
+  init_ivector(&support, 0);
+  model_get_terms_support(mdl, assertions.top, assertions.data, &support);
+  if (yices_pp_term_values(stdout, mdl, support.size, support.data, 140, UINT32_MAX, 0) < 0) {
+    report_system_error("stdout");
+  }
+  delete_ivector(&support);
+}
+
+
 /*
  * Build model if needed and display it
  */
@@ -2844,21 +2876,29 @@ static void yices_showmodel_cmd(void) {
   if (efmode) {
     mdl = efsolver_model();
     if (mdl != NULL) {
-      if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
-	report_system_error("stdout");
-      }
-      fflush(stdout);
+      show_model(mdl);
     }
   } else if (context_has_model("show-model")) {
-    // model_print(stdout, model);
-    // model_print_full(stdout, model);
-    if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
-      report_system_error("stdout");
-    }
-    fflush(stdout);
+    show_model(model);
   }
 }
 
+
+/*
+ * Build model if needed. Show only the useful values
+ */
+static void yices_show_reduced_model_cmd(void) {
+  model_t *mdl;
+
+  if (efmode) {
+    mdl = efsolver_model();
+    if (mdl != NULL) {
+      show_reduced_model(mdl);
+    }
+  } else if (context_has_model("show-reduced-model")) {
+    show_reduced_model(model);
+  }
+}
 
 
 /*
@@ -3670,6 +3710,21 @@ static void eval_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, ui
 
 
 /*
+ * [show-reduced-model]
+ */
+static void check_show_reduced_model_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_REDUCED_MODEL_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_show_reduced_model_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_show_reduced_model_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * Initialize the term stack and add these commands
  */
 static void init_yices_tstack(tstack_t *stack) {
@@ -3701,6 +3756,8 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, CHECK_ASSUMING_CMD, false, eval_check_assuming_cmd, check_check_assuming_cmd);
   tstack_add_op(stack, SHOW_UNSAT_CORE_CMD, false, eval_show_unsat_core_cmd, check_show_unsat_core_cmd);
   tstack_add_op(stack, SHOW_UNSAT_ASSUMPTIONS_CMD, false, eval_show_unsat_assumptions_cmd, check_show_unsat_assumptions_cmd);
+
+  tstack_add_op(stack, SHOW_REDUCED_MODEL_CMD, false, eval_show_reduced_model_cmd, check_show_reduced_model_cmd);
 
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }

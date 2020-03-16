@@ -63,6 +63,8 @@ enum yices_opcodes {
   SHOW_UNSAT_CORE_CMD,               // [show-unsat-core]
   SHOW_UNSAT_ASSUMPTIONS_CMD,        // [show-unsat-assumptions]
 
+  SHOW_REDUCED_MODEL_CMD,            // [show-reduced-model]
+
   DUMP_CMD,                          // [dump]
 };
 

@@ -1614,11 +1614,19 @@ static const help_record_t help_data[] = {
     "(check-assuming ..) command\n",
     NULL, },
 
+  // show-reduced-model: index 162
+  { HCOMMAND,
+    "(show-reduced-model)",
+    "Show the current model in reduced form",
+    "Displays the model if one is available, but print only the variables\n"
+    "whose values matter for satisfying the assertions.\n",
+    NULL, },
+
   // END MARKER: index 162
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 162
+#define END_HELP_DATA 163
 
 
 
@@ -1661,6 +1669,7 @@ static const help_record_t help_data[] = {
   "       | ( show-implicant )\n" \
   "       | ( show-unsat-core )\n" \
   "       | ( show-unsat-assumptions )\n" \
+  "       | ( show-reduced-mdoel )\n" \
   "\n"   \
   "  <typedef> ::=\n" \
   "         <type>\n" \
@@ -2104,6 +2113,7 @@ static const help_index_t help_index[] = {
   { "show-model", NULL, 10, help_basic },
   { "show-param", NULL, 15, help_basic },
   { "show-params", NULL, 16, help_basic },
+  { "show-reduced-model", NULL, 162, help_basic },
   { "show-stats", NULL, 17, help_basic },
   { "show-timeout", NULL, 20, help_basic },
   { "show-unsat-assumptions", NULL, 161, help_basic },
@@ -2140,7 +2150,6 @@ static const help_index_t *help_for_topic(const char *topic) {
   }
   return NULL;
 }
-
 
 
 
