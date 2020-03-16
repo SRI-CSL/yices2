@@ -300,6 +300,7 @@ core_src_c := \
 	utils/refcount_strings.c \
 	utils/resize_arrays.c \
 	utils/simple_cache.c \
+	utils/simple_int_stack.c \
 	utils/sparse_arrays.c \
 	utils/stable_sort.c \
 	utils/string_buffers.c \
