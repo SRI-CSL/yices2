@@ -138,6 +138,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	    | ( show-implicant )
             | ( show-unsat-core )
             | ( show-unsat-assumptions )
+            | ( show-reduced-model )
             | EOS
 
 
@@ -606,6 +607,10 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (show-unsat-core): list of labeled assertions that form an unsat core.
 
    (show-unsat-assumptions): list of assumptions that form an unsat core.
+
+   (show-reduced-model): show the model if any, but print only the value of
+                         variables that are relevant to satisfying the assertions.
+
 
 
 6) Parameters
