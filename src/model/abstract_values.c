@@ -286,29 +286,15 @@ static particle_t build_tuple_particle(tuple_hobj_t *o) {
 }
 
 
-
-/*
- * Hash consing objects
- */
-static label_hobj_t label_hobj = {
-  { (hobj_hash_t) hash_label, (hobj_eq_t) equal_label_particle, (hobj_build_t) build_label_particle },
-  NULL,
-  0,
-};
-
-static tuple_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple, (hobj_eq_t) equal_tuple_particle, (hobj_build_t) build_tuple_particle },
-  NULL,
-  0,
-  NULL,
-};
-
-
-
 /*
  * Hash consing
  */
 static particle_t get_label_particle(particle_table_t *table, elabel_t l) {
+  label_hobj_t label_hobj;
+
+  label_hobj.m.hash = (hobj_hash_t) hash_label;
+  label_hobj.m.eq = (hobj_eq_t) equal_label_particle;
+  label_hobj.m.build = (hobj_build_t) build_label_particle;
   label_hobj.table = table;
   label_hobj.label = l;
 
@@ -316,6 +302,11 @@ static particle_t get_label_particle(particle_table_t *table, elabel_t l) {
 }
 
 static particle_t get_tuple_particle(particle_table_t *table, uint32_t n, particle_t *a) {
+  tuple_hobj_t tuple_hobj;
+
+  tuple_hobj.m.hash = (hobj_hash_t) hash_tuple;
+  tuple_hobj.m.eq = (hobj_eq_t) equal_tuple_particle;
+  tuple_hobj.m.build = (hobj_build_t) build_tuple_particle ;
   tuple_hobj.table = table;
   tuple_hobj.nelems = n;
   tuple_hobj.elem = a;
@@ -1028,9 +1019,10 @@ static void lexico_sort(particle_table_t *table, particle_t *a, uint32_t n) {
 static void lexico_qsort(particle_table_t *table, particle_t *a, uint32_t n) {
   uint32_t i, j;
   particle_t x, y;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(n);
+  i = random_uint(&seed, n);
   x = a[i];
 
   // swap x and a[0]
@@ -1411,4 +1403,3 @@ particle_t get_new_tuple(pstore_t *store, uint32_t n, type_t *tau) {
 
   return k;
 }
-

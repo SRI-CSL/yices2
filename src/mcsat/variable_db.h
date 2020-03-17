@@ -21,6 +21,7 @@
 
 #include "io/tracer.h"
 #include "terms/terms.h"
+#include "terms/term_manager.h"
 #include "utils/ptr_vectors.h"
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
@@ -54,7 +55,6 @@ struct variable_db_s {
 
   /** Free list */
   ivector_t free_list;
-
 };
 
 typedef struct variable_db_s variable_db_t;
@@ -69,7 +69,7 @@ void variable_db_destruct(variable_db_t* var_db);
 void variable_db_set_tracer(variable_db_t* var_db, tracer_t* tracer);
 
 /** Returns true if the term has the variable associated with it */
-bool variable_db_has_variable(variable_db_t* var_db, term_t x);
+bool variable_db_has_variable(const variable_db_t* var_db, term_t x);
 
 /**
  * Returns a variable associated with the term. If no variable exists, it will
@@ -109,34 +109,14 @@ bool variable_db_is_int(const variable_db_t* var_db, variable_t x);
 /** Returns true if the type of the variable is integer */
 bool variable_db_is_real(const variable_db_t* var_db, variable_t x);
 
+/** Returns true if the type of the variable is bitvector */
+bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x);
+
+/** Get the bitsize of a bit-vector variable */
+uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x);
+
 /** Returns the type kind of the variable */
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x);
-
-/**
- * Return the first frontier of variables. This does not include the variable
- * for the term itself.
- *
- * Examples:
- *
- *  x + y < 1 => { x : 1, y : 1 }
- *  x + x*y + ite(b, x, y) > 0  => { x : 2, y : 1, ite(b, x, y) : 1 }
- */
-void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_mset_t* t_vars);
-
-/**
- * Substitute the given variable with the given substitution. As above substitution
- * will not look for the variable itself.
- *
- * Examples:
- *
- *  b, with b -> false => b
- *  not b, with b -> false => true
- *  x + y < 1, with x + y < 1 -> false => x + y < 1
- *  x + y < 1, with x -> y => 2y < 1
- *  x + x*y + ite(b, x, y) > 0, with x -> y => y + y^2 + ite(b, x, y) > 0
- */
-term_t variable_db_substitute_subvariable(const variable_db_t* var_db,
-    term_t t, variable_t x, term_t subst);
 
 /**
  * Collect all the unused variables for reuse.

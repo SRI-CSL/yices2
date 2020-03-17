@@ -1133,7 +1133,7 @@ static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
   ntypes = n - 1;
   a = get_aux_buffer(stack, ntypes);
-  for (i=0; i<n; i++) {
+  for (i=0; i<ntypes; i++) {
     a[i] = f[i+1].val.type;
   }
 

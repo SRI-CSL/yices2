@@ -27,6 +27,11 @@ AC_PREREQ(2.60)
 AC_INIT([Yices],[2])
 
 dnl
+dnl Our public repository (used if ./configure fails)
+dnl
+repo_url="https://github.com/SRI-CSL/yices2"
+
+dnl
 dnl Save CFLAGS (AC_PROC_CC modifies it)
 dnl
 saved_cflags=$CFLAGS
@@ -114,9 +119,6 @@ fi
 
 
 
-
-
-
 dnl
 dnl Check whether the C compiler accepts the flag -fno-stack-protector
 dnl -------------------------------------------------------------------
@@ -144,6 +146,48 @@ else
    AC_MSG_RESULT(no)
 fi;
 AC_SUBST(NO_STACK_PROTECTOR)
+
+
+dnl
+dnl Check for endianness
+dnl --------------------
+dnl
+dnl The neorationals code is little-endian only for now.
+dnl TODO: support big-endian architectures at some point
+dnl For now, we check here and fail.
+dnl
+bigendian=""
+AC_C_BIGENDIAN([bigendian=yes],[bigendian=no],[bigendian=yes])
+if test "x$bigendian" = xyes ; then
+   AC_MSG_ERROR([Can't build for your architecture. Yices builds only on little-endian hardware. Please file an issue at $repo_url])
+fi
+
+dnl
+dnl CHECK_THREAD_LOCAL
+dnl ------------------
+dnl check whether we can declare variables with the __thread
+dnl attribute. If not we assume the platform doesn't support
+dnl thread-local storage.
+dnl
+dnl result: $has_tls is "yes" if the __thread attribute is supported
+dnl         $has_tls is "no" otherwise
+dnl
+AC_DEFUN([CSL_CHECK_THREAD_LOCAL],
+[
+save_cppflags=$CPPFLAGS
+save_libs=$LIBS
+AC_MSG_CHECKING([for thread-local storage support])
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[__thread int test;]],
+                 [[]])],
+has_tls=yes,has_tls=no,has_tls=no)
+AC_MSG_RESULT([$has_tls])
+#
+# restore CPPFLAGS and LIBS
+#
+CPPFLAGS=$save_cppflags
+LIBS=$save_libs
+])
 
 
 
@@ -191,7 +235,7 @@ dnl
 static_libgmp=""
 AC_ARG_WITH([static-gmp],
    [AS_HELP_STRING([--with-static-gmp=<path>],[Full path to a static GMP library (e.g., libgmp.a)])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-gmp was used but no path was given. Using defaults])
     else
       static_libgmp=$withval
@@ -203,7 +247,7 @@ static_includegmp=""
 AC_ARG_WITH([static-gmp-include-dir],
    [AS_HELP_STRING([--with-static-gmp-include-dir=<directory>],
             [Directory of include file "gmp.h" compatible with static GMP library])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-gmp-include-dir was used but no directory was given. Using defaults])
     else
       static_includegmp=$withval
@@ -215,7 +259,7 @@ AC_ARG_WITH([static-gmp-include-dir],
 pic_libgmp=""
 AC_ARG_WITH([pic-gmp],
    [AS_HELP_STRING([--with-pic-gmp=<path>],[Full path to a relocatable GMP library (e.g., libgmp.a)])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-pic-gmp was used but no path was given. Using defaults])
     else
       pic_libgmp=$withval
@@ -227,7 +271,7 @@ pic_includegmp=""
 AC_ARG_WITH([pic-gmp-include-dir],
    [AS_HELP_STRING([--with-pic-gmp-include-dir=<directory>],
             [Directory of include file "gmp.h" compatible with relocatable GMP library])],
-   [if test "x$withval" == x; then
+   [if test "x$withval" = x; then
       AC_MSG_WARN([--with-pic-gmp-include-dir was used but no directory was given. Using defaults])
     else
       pic_includegmp=$withval
@@ -239,14 +283,14 @@ AC_ARG_WITH([pic-gmp-include-dir],
 dnl
 dnl Options for mcsat and the libpoly library
 dnl -----------------------------------------
-dnl --enable-mcsat: add support for MCSAT 
+dnl --enable-mcsat: add support for MCSAT
 dnl
 dnl If mcsat is emabled, we provide options to specify
 dnl the static libraries, using the same conventions as for GMP.
 dnl
 use_mcsat="no"
 AC_ARG_ENABLE([mcsat],
-   [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the LibPoly library.])],
+   [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the LibPoly library and the CUDD library.])],
    [if test "$enableval" = yes ; then 
       use_mcsat="yes"
       AC_MSG_NOTICE([Enabling support for MCSAT])
@@ -257,10 +301,10 @@ AC_ARG_ENABLE([mcsat],
 static_lpoly=""
 AC_ARG_WITH([static-libpoly],
    [AS_HELP_STRING([--with-static-libpoly=<path>],[Full path to libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-static-libpoly since MCSAT support is disabled])
-    else 
-      if test "x$withval" == x; then
+    else
+      if test "x$withval" = x; then
         AC_MSG_WARN([--with-static-poly was used but no path was given. Using defaults])
       else
         static_lpoly=$withval
@@ -273,10 +317,10 @@ static_includelpoly=""
 AC_ARG_WITH([static-libpoly-include-dir],
    [AS_HELP_STRING([--with-static-libpoly-include-dir=<directory>],
             [Path to include files compatible with libpoly.a (e.g., /usr/local/include)])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-static-libpoly-include-dir since MCSAT support is disabled])
-    else 
-      if test "x$withval" == x; then
+    else
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-static-libpoly-include-dir was used but no directory was given. Using defaults])
       else
         static_includelpoly=$withval
@@ -289,10 +333,10 @@ AC_ARG_WITH([static-libpoly-include-dir],
 pic_lpoly=""
 AC_ARG_WITH([pic-libpoly],
    [AS_HELP_STRING([--with-pic-libpoly=<path>],[Full path to a relocatable libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-pic-libpoly since MCSAT support is disabled])
-    else 
-      if test "x$withval" == x; then
+    else
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-pic-libpoly was used but no path was given. Using defaults])
       else
          pic_lpoly=$withval
@@ -305,10 +349,10 @@ pic_includelpoly=""
 AC_ARG_WITH([pic-libpoly-include-dir],
    [AS_HELP_STRING([--with-pic-libpoly-include-dir=<directory>],
             [Path to include files compatible with the relocatable libpoly.a])],
-   [if test $use_mcsat == "no" ; then
+   [if test $use_mcsat = "no" ; then
       AC_MSG_WARN([Ignoring option --with-pic-libpoly-include-dir since MCSAT support is disabled])
     else
-      if test "x$withval" == x; then
+      if test "x$withval" = x; then
          AC_MSG_WARN([--with-pic-libpoly-include-dir was used but no directory was given. Using defaults])
       else
          pic_includelpoly=$withval
@@ -320,10 +364,30 @@ AC_ARG_WITH([pic-libpoly-include-dir],
 
 
 dnl
+dnl Option to enable thread-safety
+dnl ------------------------------
+dnl --enable-thread-safety
+dnl
+dnl The default is don't build thread safe. If the --enable-thread-safety 
+dnl is given, we check whether thread-local storage is supported.
+dnl
+thread_safe="no"
+AC_ARG_ENABLE([thread-safety],
+   [AS_HELP_STRING([--enable-thread-safety],[Build in thread-safe mode.])],
+   [if test "$enableval" = yes ; then
+      thread_safe="yes"
+      AC_MSG_NOTICE([Enabling thread-safe build])
+    fi],
+   [])
+
+
+
+
+dnl
 dnl CSL_COLLECT_LIBRARY_PATHS
 dnl -------------------------
 dnl Sets variable search_libs to a default list of directories in which to search for libraries.
-dnl The list include /usr/local/lib /usr/lib /lib + directories found by 
+dnl The list include /usr/local/lib /usr/lib /lib + directories found by
 dnl ld --verbose + LD_LIBRARY_PATH + DYLD_LIBRARY_PATH + LDFLAGS if non-empty.
 dnl
 AC_DEFUN([CSL_COLLECT_LIBRARY_PATHS],
@@ -630,7 +694,7 @@ AC_DEFUN([CSL_CHECK_STATIC_LIBPOLY],
 AC_MSG_NOTICE([Searching for a usable libpoly.a])
 CSL_CHECK_HEADER([poly/polynomial.h],$2,--with-static-libpoly-include-dir)
 #
-# If $1 is empty search for it in the 
+# If $1 is empty search for it in the
 #
 if test -z "$1" ; then
    CSL_COLLECT_LIBRARY_PATHS
@@ -710,6 +774,12 @@ if test "x$pic_libgmp" != x ; then
   fi
 fi
 
+
+#
+# We need -lm (for fclassify)
+#
+AC_CHECK_LIB([m], [main], [], [])
+
 #
 # MCSAT SUPPORT
 # -------------
@@ -746,7 +816,7 @@ if test $use_mcsat = yes ; then
      if test "x$PIC_GMP" != x ; then
         auxlibs="$PIC_GMP"
      else
-       if test "x$STATIC_GMP" != x ; then 
+       if test "x$STATIC_GMP" != x ; then
          auxlibs="$STATIC_GMP"
        else
          auxlibs="-lgmp"
@@ -772,9 +842,17 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 #
 # Default libpoly
 #
-if test $use_mcsat = yes ; then 
+if test $use_mcsat = yes ; then
    AC_CHECK_LIB([poly],[lp_polynomial_new], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
 fi
+
+#
+# Default CUDD
+#
+if test $use_mcsat = yes ; then 
+   AC_CHECK_LIB([cudd],[Cudd_Init], [], [AC_MSG_ERROR([*** CUDD library not found. Try to set LDFLAGS ***])])   
+fi
+
 
 #
 # Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
@@ -790,6 +868,36 @@ fi
 #     ;;
 # esac
 #
+
+#
+# THREAD-SAFE OPTION
+# ------------------
+#
+AC_SUBST(THREAD_SAFE)
+if test "x$thread_safe" = xyes ; then
+   THREAD_SAFE=1
+   # iam: the aim is to eventually eliminate this restriction, but not before the 2.6.2 release.
+   if test $use_mcsat = yes ; then
+      AC_MSG_ERROR([Building with both --enable-mcsat and --enable-thread-safety is currently not supported.])
+   fi
+fi
+
+dnl
+dnl Test support for thread-local storage
+dnl -------------------------------------
+dnl
+AC_SUBST(HAVE_TLS)
+if test "x$thread_safe" = xyes ; then
+   has_tls=""
+   CSL_CHECK_THREAD_LOCAL
+   if test "x$has_tls" = xyes; then
+      HAVE_TLS=1
+   else
+      AC_MSG_ERROR([Building with --enable-thread-safety requires thread-local storage])
+   fi
+fi
+
+
 
 
 dnl AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not found. Try to set CPPFLAGS ***])])
@@ -811,7 +919,7 @@ if test ! -d configs ; then
   AS_MKDIR_P([configs])
 fi
 
-if test "x$host" == x ; then
+if test "x$host" = x ; then
   AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
   mv make.include "configs/make.include.$build"
 else

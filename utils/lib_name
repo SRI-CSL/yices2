@@ -26,7 +26,7 @@
 #
 # - the argument must be the path to the binary or static dist
 # - there should be a lib/libyices.xxx in there
-# - this script retuns the name of this file
+# - this script returns the name of this file
 #
 
 usage="Usage: $0 <distribution directory>

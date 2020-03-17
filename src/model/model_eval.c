@@ -1405,7 +1405,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
       }
 
-      // it the result v is unknown we quit now
+      // if the result v is unknown we quit now
       assert(v >= 0); // Coverity thinks v can be negative.
       if (object_is_unknown(eval->vtbl, v)) {
         longjmp(eval->env, MDL_EVAL_FAILED);
@@ -1448,6 +1448,68 @@ value_t eval_in_model(evaluator_t *eval, term_t t) {
 
 
 /*
+ * Check whether t is true in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+bool eval_to_true_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_true(eval->vtbl, v);
+}
+
+
+/*
+ * Check whether t is false in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+bool eval_to_false_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_false(eval->vtbl, v);
+}
+
+
+/*
+ * Check whether t is zero in the model
+ * - t must be a valid term
+ * - if t is an arithmetic term, this checks whether value(t) == 0
+ * - if t is a bit-vector term, this checks whether value(t) == 0b0000...
+ * - return false if t can't be evaluated, or if t is not an arithemtic
+ *   term nor a bitvector term, or if t's value is not zero.
+ */
+bool eval_to_zero_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) &&
+    (is_zero(eval->vtbl, v) || is_bvzero(eval->vtbl, v));
+}
+
+/*
+ * Check whether t evaluates to +/-1 in the model
+ * - t must be a valid  term
+ * - return false if t can't be evaluated or its value is not a rational
+ * - return true if t's value is either +1 or -1
+ */
+bool eval_to_unit_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_unit(eval->vtbl, v);
+}
+
+
+
+
+/*
  * Compute the values of terms a[0 ... n-1]
  * - don't return anything
  * - the value of a[i] can be queried by using eval_in_model(eval, a[i]) later
@@ -1459,6 +1521,46 @@ void eval_terms_in_model(evaluator_t *eval, const term_t *a, uint32_t n) {
   for (i=0; i<n; i++) {
     (void) eval_in_model(eval, a[i]);
   }
+}
+
+
+/*
+ * Check whether term t is useful:
+ * - return true if t is unintepreted and has no existing value in eval->model
+ *   and is not mapped to another term u in the alias_map
+ */
+static bool term_is_useful(model_t *model, term_t t) {
+  value_t v;
+
+  if (term_kind(model->terms, t) == UNINTERPRETED_TERM) {
+    v = model_find_term_value(model, t);
+    if (v == null_value && model->has_alias) {
+      return model_find_term_substitution(model, t) == NULL_TERM;
+    }
+  }
+  return false;
+}
+
+/*
+ * Add a mapping t->v in eval->model for every pair (t, v) found in eval->cache
+ * and such that t is useful.
+ */
+void eval_record_useful_terms(evaluator_t *eval) {
+  model_t *model;
+  int_hmap_t *cache;
+  int_hmap_pair_t *r;
+
+  model = eval->model;
+  cache = &eval->cache;
+  r = int_hmap_first_record(cache);
+  while (r != NULL) {
+    // r->key is the term, r->val is the value
+    if (term_is_useful(model, r->key) && !is_unknown(eval->vtbl, r->val)) {
+      model_map_term(model, r->key, r->val);
+    }
+    r = int_hmap_next_record(cache, r);
+  }
+
 }
 
 /*

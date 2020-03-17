@@ -87,7 +87,7 @@ extern void context_pop(context_t *ctx);
 /*
  * Options for the simplex solver. If the context already contains
  * a simplex solver, then these options are set in this solver.
- * Otherwis,e, they will be set at the time the simplex solver is 
+ * Otherwise,, they will be set at the time the simplex solver is 
  * constructed and added to the simplex solver.
  */
 extern void enable_splx_eager_lemmas(context_t *ctx);
@@ -298,6 +298,37 @@ extern void context_clear_unsat(context_t *ctx);
  */
 extern smt_status_t precheck_context(context_t *ctx);
 
+
+/*
+ * Solve using another SAT solver
+ * - sat_solver = name of the external SAT solver to use
+ *   sat_solver can be either "y2sat" or "cadical"
+ * - verbosity = verbosity level
+ *
+ * This may be used only for BV or pure SAT problems
+ *
+ * If ctx status is IDLE:
+ * - perform one round of propagation to convert the problem to CNF
+ * - call an external SAT solver on the CNF problem
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing
+ * else.
+ */
+extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
+
+
+/*
+ * Simplify then export to Dimacs:
+ * - filename = name of the output file
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing.
+ * If y2sat preprocessing solves the formula, return that.
+ */
+extern smt_status_t process_then_export_to_dimacs(context_t *ctx, const char *filename);
 
 
 /*

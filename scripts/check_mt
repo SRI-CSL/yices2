@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import argparse
+import sys
+import subprocess
+import os
+import os.path
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def get_options(path):
+    optpath = path + '.options'
+    if(os.path.exists(optpath)):
+        with open(optpath, 'r') as fp:
+            text = fp.read().strip()
+            return text.split()
+    return []
+
+
+def get_yices(args, path):
+    yices = None
+    _, ext = os.path.splitext(path)
+    if ext == '.smt2':
+        yices = 'yices_smt2_mt'
+
+
+    if yices is not None:
+        yices = os.path.join(args.binary_directory, yices)
+
+    return yices
+
+
+def command(args, path):
+    yices = get_yices(args, path)
+    if yices is None:
+        return None
+    cmd = []
+    using_valgrind = False
+    if args.helgrind:
+        cmd.extend(['valgrind', '--num-callers=500', '--tool=helgrind'])
+        using_valgrind = True
+    elif args.memcheck:
+        cmd.extend(['valgrind', '--num-callers=500', '--tool=memcheck'])
+        using_valgrind = True
+
+    if using_valgrind and args.suppressions:
+        cmd.append('--suppressions={0}'.format(args.suppressions))
+    if using_valgrind and args.generate:
+        cmd.append('--gen-suppressions=yes')
+
+    cmd.extend([yices,  '-n', args.nthreads])
+
+    options = get_options(path)
+
+    for option in options:
+        cmd.append(option)
+
+    cmd.append(path)
+
+    return cmd
+
+def hasValgrind():
+    valgrindCmd  = ['valgrind', '--version']
+    valgrindProc = 0
+    try:
+        valgrindProc = subprocess.Popen(valgrindCmd, stdout=subprocess.PIPE)
+    except OSError as e:
+        if e.errno != 2:
+            raise Exception("OS error({0}): {1}".format(e.errno, e.strerror))
+        return False
+    valgrindOutput = valgrindProc.communicate()[0]
+    if valgrindProc.returncode != 0:
+        eprint('Valgrind failed. Is it installed on your machine {0}?'.format(valgrindProc.returncode))
+        return False
+    return True
+
+
+
+def main(args):
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument('--nthreads', '-n',
+                        dest='nthreads',
+                        help='The number of threads to spawn in the solving phase.',
+                        default='0')
+
+    parser.add_argument('--helgrind', '-g',
+                        dest='helgrind',
+                        help='Use valgrind\'s helgrind.',
+                        action='store_true')
+
+    parser.add_argument('--suppressions', '-S',
+                        dest='suppressions',
+                        help='Tell valgrind where your suppressions file is.')
+
+    parser.add_argument('--generate', '-G',
+                        dest='generate',
+                        help='Tell valgrind to generate suppressions.',
+                        default=False,
+                        action='store_true')
+
+    parser.add_argument('--memcheck', '-m',
+                        dest='memcheck',
+                        help='Use valgrind\'s memcheck.',
+                        action='store_true')
+
+    parser.add_argument('--dry-run', '-d',
+                        dest='dry_run',
+                        help='Do everything except the fork-execs.',
+                        action='store_true')
+
+    parser.add_argument('test_directory',
+                        help='<test directory>',
+                        default=None)
+
+    parser.add_argument('binary_directory',
+                        help='<binary directory>',
+                        default=None)
+
+
+    args = parser.parse_args()
+
+    bin_dir = args.binary_directory
+
+    def check_directory(path):
+        if not os.path.exists(path):
+            eprint('The directory {0} does not seem to exist.'.format(path))
+            return False
+        if not os.path.isdir(path):
+            eprint('The argument {0} is not a directory.'.format(path))
+            return False
+        return True
+
+    if not check_directory(args.test_directory):
+        return 1
+
+    if not check_directory(args.binary_directory):
+        return 1
+
+
+    def check_valgrind(args):
+        # check for the executable?
+        if args.memcheck or args.helgrind:
+            if not hasValgrind():
+                return False
+            if args.memcheck and args.helgrind:
+                eprint('Only one valgrind tool at a time.')
+                return False
+        return True
+
+    if not check_valgrind(args):
+        return 1
+
+
+    args.binary_directory = os.path.abspath(args.binary_directory)
+
+    # Set the directory you want to start from
+    for directory, _, files in os.walk(args.test_directory):
+        for fname in files:
+            fpath = os.path.join(directory, fname)
+            _, ext = os.path.splitext(fpath)
+            cmd = command(args, fpath)
+            if cmd is None:
+                continue
+            eprint(' '.join(cmd))
+            if not args.dry_run:
+                subprocess.call(cmd)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

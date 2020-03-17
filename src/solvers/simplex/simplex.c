@@ -2685,10 +2685,24 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
       if (tt) {
         // (p >= 0) is equivalent to (x <= constant)
         add_ub_axiom(solver, x, &solver->constant, false);
+#if TRACE
+	printf("---> ");
+	print_simplex_vardef(stdout, solver, x);
+	printf("---> bound: ");
+	print_simplex_var_bounds(stdout, solver, x);
+	printf("\n");
+#endif
       } else {
         // not (p >= 0) is equivalent to (x >= constant + 1)
         q_add_one(&solver->constant);
         add_lb_axiom(solver, x, &solver->constant, false);
+#if TRACE
+	printf("---> ");
+	print_simplex_vardef(stdout, solver, x);
+	printf("---> bound: ");
+	print_simplex_var_bounds(stdout, solver, x);
+	printf("\n");
+#endif
       }
     } else {
       // TODO: strengthen more if x is a polynomial (divide by GCD of x's coefficients)
@@ -2696,10 +2710,24 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
       if (tt) {
         // (p >= 0) is equivalent to (x >= constant)
         add_lb_axiom(solver, x, &solver->constant, false);
+#if TRACE
+	printf("---> ");
+	print_simplex_vardef(stdout, solver, x);
+	printf("---> bound: ");
+	print_simplex_var_bounds(stdout, solver, x);
+	printf("\n");
+#endif
       } else {
         // not (p >= 0) is equivalent to (x <= constant - 1)
         q_sub_one(&solver->constant);
         add_ub_axiom(solver, x, &solver->constant, false);
+#if TRACE
+	printf("---> ");
+	print_simplex_vardef(stdout, solver, x);
+	printf("---> bound: ");
+	print_simplex_var_bounds(stdout, solver, x);
+	printf("\n");
+#endif
       }
     }
 
@@ -3022,15 +3050,13 @@ void simplex_assert_poly_ge_axiom(simplex_solver_t *solver, polynomial_t *p, thv
 
 #if TRACE
   printf("\n---> simplex_assert_poly_ge_axiom: ");
-  print_polynomial(stdout, p);
+  //  print_polynomial(stdout, p);
+  print_simplex_buffer(stdout, solver);
   if (tt) {
     printf(" >= 0\n");
   } else {
     printf(" < 0\n");
   }
-  printf("---> renaming: ");
-  print_simplex_buffer(stdout, solver);
-  printf("\n");
 #endif
 
   add_ge_axiom(solver, tt);
@@ -6469,7 +6495,7 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
  */
 
 /*
- * Naive search: attempt to make all the colums in the tableau integral
+ * Naive search: attempt to make all the columns in the tableau integral
  * by adjusting the values of the non-basic variables.
  */
 
@@ -7163,7 +7189,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
 
 #if TRACE_BB || TRACE_INTFEAS
-    //    printf("---> Branch & bound: create ");
+    printf("---> Branch & bound: create ");
     print_simplex_atomdef(stdout, solver, var_of(l));
 #endif
 
@@ -8526,6 +8552,7 @@ static literal_t mk_gomory_atom(simplex_solver_t *solver) {
     return false_literal;
   }
 
+#if 0
   is_int = all_integer_vars(solver);
   if (is_int) {
     negated = poly_buffer_make_nonconstant_integral(b);
@@ -8541,6 +8568,21 @@ static literal_t mk_gomory_atom(simplex_solver_t *solver) {
     x = decompose_and_get_dynamic_var(solver);
     assert(! arith_var_is_int(&solver->vtbl, x));
   }
+#else
+  // This seems to work better
+  negated = poly_buffer_make_monic(b);
+  x = decompose_and_get_dynamic_var(solver);
+  is_int = arith_var_is_int(&solver->vtbl, x);
+  if (is_int) {
+    if (negated) {
+      q_floor(&solver->constant);
+    } else {
+      q_ceil(&solver->constant);
+    }
+  }
+#endif
+
+
 
 #if TRACE
   printf("---> New var:\n");
@@ -8688,7 +8730,6 @@ static void add_gomory_cut(simplex_solver_t *solver, gomory_vector_t *g) {
   fflush(stdout);
 #endif
 
-
 }
 
 
@@ -8823,7 +8864,23 @@ static uint32_t try_gomory_cuts(simplex_solver_t *solver, ivector_t *v, uint32_t
   return num_cuts;
 }
 
+
+/*
+ * Variant: focus on variable x
+ */
+static bool gomory_cut_for_var(simplex_solver_t *solver, thvar_t x) {
+  gomory_vector_t cut;
+  bool result;
+
+  init_gomory_vector(&cut);
+  result = try_gomory_cut_for_var(solver, &cut, x);
+  delete_gomory_vector(&cut);
+
+  return result;
+}
+
 #endif
+
 
 
 
@@ -8967,10 +9024,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * Try bound strengthening + integrality test + diophantine check
    */
   nbounds = solver->bstack.top;
-  if (! simplex_intfeas_strengthening(solver)) return false;
-  if (! simplex_intfeas_integrality_constraints(solver)) return false;
-  if (! simplex_intfeas_diophantine_check(solver)) return false;
-  if (! simplex_intfeas_strengthening(solver)) return false;
+  if (false && !simplex_intfeas_strengthening(solver)) return false;
+  if (!simplex_intfeas_integrality_constraints(solver)) return false;
+  if (false && !simplex_intfeas_diophantine_check(solver)) return false;
+  if (false && !simplex_intfeas_strengthening(solver)) return false;
 
   /*
    * TRY OUR LUCK
@@ -8986,7 +9043,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * If we've learned new bounds in the previous phases,
    * try more rounds of bound strengthening.
    */
-  if (solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
+  if (false && solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
     return false;
   }
 
@@ -9030,21 +9087,27 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    */
   x = select_branch_variable(solver, v, &bb_score);
   trace_printf(solver->core->trace, 3,
-	       "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n",
+	       "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRId32", score = %"PRIu32")\n",
 	       v->size, x, bb_score);
 
-#if 0
-  printf("\nbranch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32"\n",
-	 v->size, x, bb_score);
-  fflush(stdout);
-#endif
-
-  if (false && solver->stats.num_gomory_cuts < 100) {
-    n = try_gomory_cuts(solver, v, 100);
-    solver->stats.num_gomory_cuts += n;
-    trace_printf(solver->core->trace, 3, "(Gomory cuts: %"PRIu32" cuts created)\n", n);
-    if (n > 0) goto done;
-    solver->core->stats.conflicts += 1000;
+  if (solver->stats.num_branch_atoms >= 20) {
+    if (false && v->size > 1 && bb_score > 200000000 && solver->stats.num_gomory_cuts < 100) {
+      n = try_gomory_cuts(solver, v, 100);
+      solver->stats.num_gomory_cuts += n;
+      trace_printf(solver->core->trace, 3, "(Gomory cuts: %"PRIu32" cuts created)\n", n);
+      if (n > 0) goto done;
+      solver->core->stats.conflicts += 1000;
+    } else if (bb_score > 100000000) {
+      n = gomory_cut_for_var(solver, x);
+      solver->stats.num_gomory_cuts ++;
+      if (n > 0) {
+	trace_printf(solver->core->trace, 3, "(Created Gomory cut on var i!%"PRId32")\n", x);
+      } else {
+	trace_printf(solver->core->trace, 3, "(Failed to create Gomory cut on var i!%"PRId32")\n", x);
+      }
+      if (n > 0) goto done;
+      //      solver->core->stats.conflicts += 1000;
+    }
   }
 
   create_branch_atom(solver, x);
@@ -9741,6 +9804,10 @@ void simplex_start_search(simplex_solver_t *solver) {
 
   solver->last_conflict_row = -1;
 
+  // reset heuristics counters for integer feasibility
+  solver->stats.num_branch_atoms = 0;
+  solver->stats.num_gomory_cuts = 0;
+
   // integer solving flags
   // enable_dfeas is used in simplex_dsolver_check
   solver->integer_solving = false;
@@ -10334,7 +10401,8 @@ static uint32_t num_active_vars(arith_vartable_t *vtbl) {
 
   a = 0;
   n = vtbl->nvars;
-  for (i=0; i<n; i++) {
+  // skip var 0 since it's not a polynomial
+  for (i=1; i<n; i++) {
     p = arith_var_def(vtbl, i);
     if (p != NULL && !simple_poly(p)) {
       a++;
@@ -11018,7 +11086,7 @@ static bool is_root_var(simplex_solver_t *solver, thvar_t x) {
  */
 
 /*
- * Check wether x is a non-constant, trivial variable
+ * Check whether x is a non-constant, trivial variable
  * - i.e. x's definition is either x := b y or x := a + b y
  */
 static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
@@ -11117,7 +11185,7 @@ static void model_adjust_var_dependents(xq_hmap_t *hmap, arith_vartable_t *tbl, 
 /*
  * Update the value of all basic variables that depend on x when x's value is
  * shifted by delta. This is done only for basic variables that are roots (e.g,.
- * they have an attache egraph term and that term is root of its equivalence
+ * they have an attached egraph term and that term is root of its equivalence
  * class in the egraph).
  * - x must be a non-basic variable
  * - record the effect in hmap
@@ -11705,6 +11773,16 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
     simplex_adjust_model(solver);
   }
 
+
+#if TRACE
+  printf("SIMPLEX: reconcile model\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
+
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
                   (iclass_match_fun_t) simplex_var_equal_in_model);
 
@@ -11742,6 +11820,14 @@ static void simplex_prep_model(simplex_solver_t *solver) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
+#if TRACE
+  printf("SIMPLEX: prepare model\n");
+  print_simplex_vars(stdout, solver);
+  printf("\n");
+  print_simplex_assignment(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
 }
 
 static void simplex_release_model(simplex_solver_t *solver) {

@@ -107,11 +107,12 @@ monomial_t *realloc_monarray(monomial_t *a, uint32_t n, uint32_t new_size) {
 static void quick_sort_monarray(monomial_t *a, uint32_t low, uint32_t high) {
   uint32_t i, j, p;
   monomial_t pivot, aux;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(high - low > 1);
 
   // random pivot
-  i =  low + random_uint(high - low);
+  i =  low + random_uint(&seed, high - low);
   assert(low <= i && i < high);
   pivot = a[i];
   p = pivot.var;
@@ -177,11 +178,12 @@ static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp,
                                  uint32_t low, uint32_t high) {
   uint32_t i, j, p;
   monomial_t pivot, aux;
+  uint32_t seed = PRNG_DEFAULT_SEED;
 
   assert(high - low > 1);
 
   // random pivot
-  i = low + random_uint(high - low);
+  i = low + random_uint(&seed, high - low);
   assert(low <= i && i < high);
   pivot = a[i];
   p = pivot.var;

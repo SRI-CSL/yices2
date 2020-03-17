@@ -37,6 +37,9 @@
 #include "utils/memalloc.h"
 
 #include "mcsat/solver.h"
+#include "mt/thread_macros.h"
+
+#include "api/yices_globals.h"
 
 #define TRACE 0
 
@@ -1763,7 +1766,35 @@ static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
 }
 
 
+#if 0
+/*
+ * Bvpoly buffer: b must be normalized.
+ * - not optimal but this shouldn't be called often.
+ */
+static thvar_t map_bvpoly_buffer_to_bv(context_t *ctx, bvpoly_buffer_t *b) {
+  bvpoly64_t *p;
+  bvpoly_t *q;
+  uint32_t n;
+  thvar_t x;
 
+  n = bvpoly_buffer_bitsize(b);
+
+  if (bvpoly_buffer_is_zero(b)) {
+    x = ctx->bv.create_zero(ctx->bv_solver, n);
+  } else if (n <= 64) {
+    p = bvpoly_buffer_getpoly64(b);
+    x = map_bvpoly64_to_bv(ctx, p);
+    free_bvpoly64(p);
+  } else {
+    q = bvpoly_buffer_getpoly(b);
+    x = map_bvpoly_to_bv(ctx, q);
+    free_bvpoly(q);
+  }
+
+  return x;
+}
+
+#endif
 
 /****************************
  *  CONVERSION TO LITERALS  *
@@ -2336,7 +2367,24 @@ static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *
 /*
  * BITVECTOR ATOMS
  */
+
+/*
+ * Auxiliary function: atom for (t == 0)
+ */
+static literal_t map_bveq0_to_literal(context_t *ctx, term_t t) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+
+  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+}
+
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
+  bveq_simp_t simp;
   term_t t, t1, t2;
   thvar_t x, y;
 
@@ -2354,9 +2402,37 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   }
 
   /*
+   * More simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    return true_literal;
+
+  case BVEQ_CODE_FALSE:
+    return false_literal;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+  case BVEQ_CODE_REDUCED0:
+    // (t1 == t2) is reduced to (simp.left == 0)
+    // we create the atom directly here:
+    return map_bveq0_to_literal(ctx, simp.left);
+
+  default:
+    break;
+  }
+
+  if (equal_bitvector_factors(ctx, t1, t2)) {
+    return true_literal;
+  }
+
+  /*
    * NOTE: creating (eq t1 t2) in the egraph instead makes things worse
    */
-  // no simplification
   x = internalize_to_bv(ctx, t1);
   y = internalize_to_bv(ctx, t2);
   return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
@@ -4304,7 +4380,45 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
 /*
  * Top-level bitvector atoms
  */
+// Auxiliary function: assert (t == 0) or (t != 0) depending on tt
+static void assert_toplevel_bveq0(context_t *ctx, term_t t, bool tt) {
+  uint32_t n;
+  thvar_t x, y;
+
+  t = intern_tbl_get_root(&ctx->intern, t);
+  n = term_bitsize(ctx->terms, t);
+  x = internalize_to_bv(ctx, t);
+  y = ctx->bv.create_zero(ctx->bv_solver, n);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x, y, tt);
+}
+
+
+/*
+ * Experimental: when t1 and t2 have a common factor C:
+ *   t1 = C * u1
+ *   t2 = C * u2
+ * then we have (t1 /= t2) implies (u1 /= u2).
+ * So we can add (u1 /= u2) when (t1 /= t2) is asserted.
+ * This is redundant but it may help solving the problem, especially if C is a
+ * complex expression.
+ */
+static void assert_factored_inequality(context_t *ctx, bvfactoring_t *f) {
+  term_t u1, u2;
+  thvar_t x, y;
+
+  assert(f->code == BVFACTOR_FOUND);
+
+  //  printf("Asserting factored inequality\n\n");
+
+  u1 = bitvector_factoring_left_term(ctx, f);
+  u2 = bitvector_factoring_right_term(ctx, f);
+  x = internalize_to_bv(ctx, u1);
+  y = internalize_to_bv(ctx, u2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, false);
+}
+
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
+  bveq_simp_t simp;
   ivector_t *v;
   int32_t *a;
   term_t t, t1, t2;
@@ -4351,6 +4465,61 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
 
     // flattening failed
     ivector_reset(v);
+  }
+
+  /*
+   * Try more simplifications
+   */
+  try_arithmetic_bveq_simplification(ctx, &simp, t1, t2);
+  switch (simp.code) {
+  case BVEQ_CODE_TRUE:
+    if (!tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    break;
+
+  case BVEQ_CODE_FALSE:
+    if (tt) longjmp(ctx->env, TRIVIALLY_UNSAT);
+    break;
+
+  case BVEQ_CODE_REDUCED:
+    t1 = intern_tbl_get_root(&ctx->intern, simp.left);
+    t2 = intern_tbl_get_root(&ctx->intern, simp.right);
+    break;
+
+  case BVEQ_CODE_REDUCED0:
+    // reduced to simp.left == 0
+    assert_toplevel_bveq0(ctx, simp.left, tt);
+    return;
+
+  default:
+    break;
+  }
+
+  /*
+   * Try Factoring
+   */
+  if (!tt) {
+    bvfactoring_t factoring;
+    bool eq = false;
+
+    init_bvfactoring(&factoring);
+    try_bitvector_factoring(ctx, &factoring, t1, t2);
+    switch (factoring.code) {
+    case BVFACTOR_EQUAL:
+      eq = true;
+      break;
+
+    case BVFACTOR_FOUND:
+      assert_factored_inequality(ctx, &factoring);
+      break;
+
+    default:
+      break;
+    }
+    delete_bvfactoring(&factoring);
+
+    if (eq) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
   }
 
   /*
@@ -5368,6 +5537,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->aux_poly = NULL;
   ctx->aux_poly_size = 0;
 
+  ctx->bvpoly_buffer = NULL;
+
   q_init(&ctx->aux);
   init_bvconstant(&ctx->bv_buffer);
 
@@ -5427,6 +5598,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5456,6 +5628,8 @@ void delete_context(context_t *ctx) {
   context_free_arith_buffer(ctx);
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
+
+  context_free_bvpoly_buffer(ctx);
 
   q_clear(&ctx->aux);
   delete_bvconstant(&ctx->bv_buffer);
@@ -5508,6 +5682,8 @@ void reset_context(context_t *ctx) {
   context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
 
+  context_free_bvpoly_buffer(ctx);
+
   q_clear(&ctx->aux);
 }
 
@@ -5534,7 +5710,6 @@ void context_push(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
   }
-  gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
   assumption_stack_push(&ctx->assumptions);
   context_eq_cache_push(ctx);
@@ -5549,7 +5724,6 @@ void context_pop(context_t *ctx) {
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
   }
-  gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
   assumption_stack_pop(&ctx->assumptions);
   context_eq_cache_pop(ctx);
@@ -5581,6 +5755,31 @@ static void context_build_sharing_data(context_t *ctx) {
   sharing_map_add_terms(map, ctx->top_formulas.data, ctx->top_formulas.size);
 }
 
+
+#if 0
+/*
+ * PROVISIONAL: SHOW ASSERTIONS
+ */
+static void context_show_assertions(const context_t *ctx, uint32_t n, const term_t *a) {
+  pp_area_t area;
+  yices_pp_t printer;
+  uint32_t i;
+
+  area.width = 80;
+  area.height = UINT32_MAX;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = false;
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+
+  for (i=0; i<n; i++) {
+    pp_term_full(&printer, ctx->terms, a[i]);
+    flush_yices_pp(&printer);
+  }
+  delete_yices_pp(&printer, true);
+}
+#endif
+
 /*
  * Flatten and internalize assertions a[0 ... n-1]
  * - all elements a[i] must be valid boolean term in ctx->terms
@@ -5589,7 +5788,7 @@ static void context_build_sharing_data(context_t *ctx) {
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -5610,6 +5809,12 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
+
+#if 0
+    printf("\n=== Context: process assertions ===\n");
+    context_show_assertions(ctx, n, a);
+    printf("===\n\n");
+#endif
 
     // flatten
     for (i=0; i<n; i++) {
@@ -5634,16 +5839,16 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * up in subst_eqs after the call to process_aux_eqs.
        */
       if (context_breaksym_enabled(ctx)) {
-	break_uf_symmetries(ctx);
+        break_uf_symmetries(ctx);
       }
       if (context_eq_abstraction_enabled(ctx)) {
         analyze_uf(ctx);
       }
       if (ctx->aux_eqs.size > 0) {
-	process_aux_eqs(ctx);
+        process_aux_eqs(ctx);
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5653,7 +5858,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * (otherwise analyze_diff_logic may give wrong results).
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
@@ -5665,7 +5870,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        */
       trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
@@ -5679,16 +5884,16 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
-	process_conditional_definitions(ctx);
-	if (ctx->aux_eqs.size > 0) {
-	  process_aux_eqs(ctx);
-	}
-	if (ctx->aux_atoms.size > 0) {
-	  process_aux_atoms(ctx);
-	}
+        process_conditional_definitions(ctx);
+        if (ctx->aux_eqs.size > 0) {
+          process_aux_eqs(ctx);
+        }
+        if (ctx->aux_atoms.size > 0) {
+          process_aux_atoms(ctx);
+        }
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5697,7 +5902,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
        * Process the candidate variable substitutions if any
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
     }
@@ -5804,6 +6009,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   return code;
 }
 
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
+}
 
 
 /*
@@ -6081,8 +6289,7 @@ int32_t context_process_formula(context_t *ctx, term_t f) {
 
 
 /*
- * Interrupt the search:
- * - this is not supported by mcsat yet
+ * Interrupt the search.
  */
 void context_stop_search(context_t *ctx) {
   if (ctx->mcsat == NULL) {
@@ -6090,6 +6297,8 @@ void context_stop_search(context_t *ctx) {
     if (context_has_simplex_solver(ctx)) {
       simplex_stop_search(ctx->arith_solver);
     }
+  } else {
+    mcsat_stop_search(ctx->mcsat);
   }
 }
 
@@ -6098,13 +6307,14 @@ void context_stop_search(context_t *ctx) {
 /*
  * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
- * - not supported by mcsat either
  */
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
   if (ctx->mcsat == NULL) {
     smt_cleanup(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
   }
 }
 
@@ -6240,5 +6450,9 @@ void context_gc_mark(context_t *ctx) {
 
   if (ctx->eq_cache != NULL) {
     pmap2_iterate(ctx->eq_cache, ctx->terms, ctx_mark_eq);
+  }
+
+  if (ctx->mcsat != NULL) {
+    mcsat_gc_mark(ctx->mcsat);
   }
 }

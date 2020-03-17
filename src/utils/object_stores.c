@@ -26,6 +26,7 @@
 
 #include "utils/memalloc.h"
 #include "utils/object_stores.h"
+#include "mt/thread_macros.h"
 
 #ifndef NDEBUG
 
@@ -60,7 +61,7 @@ static bool offset_is_aligned(void *p, void *q) {
  * - objsize = size of all objects in s
  * - n = number of objects per block
  */
-void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
+static void _o_init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   assert(objsize <= MAX_OBJ_SIZE);
   assert(0 < n && n <= MAX_OBJ_PER_BLOCK);
 
@@ -74,11 +75,18 @@ void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
   s->blocksize = objsize * n;
 }
 
+void init_objstore(object_store_t *s, uint32_t objsize, uint32_t n) {
+#ifdef THREAD_SAFE
+  create_yices_lock(&(s->lock));
+#endif
+  MT_PROTECT_VOID(s->lock, _o_init_objstore(s, objsize, n));
+}
+
 
 /*
  * Allocate an object in s
  */
-void *objstore_alloc(object_store_t *s) {
+static void *_o_objstore_alloc(object_store_t *s) {
   void *tmp;
   uint32_t i;
   object_bank_t *new_bank;
@@ -115,11 +123,15 @@ void *objstore_alloc(object_store_t *s) {
   return tmp;
 }
 
+void *objstore_alloc(object_store_t *s) {
+  MT_PROTECT(void *, s->lock, _o_objstore_alloc(s));
+}
+
 
 /*
  * Delete all objects
  */
-void delete_objstore(object_store_t *s) {
+static void _o_delete_objstore(object_store_t *s) {
   object_bank_t *b, *next;
 
   b = s->bnk;
@@ -134,11 +146,35 @@ void delete_objstore(object_store_t *s) {
   s->free_index = 0;
 }
 
+void delete_objstore(object_store_t *s) {
+  MT_PROTECT_VOID(s->lock, _o_delete_objstore(s));
+#ifdef THREAD_SAFE
+  destroy_yices_lock(&(s->lock));
+#endif
+}
+
+/*
+ * Free an allocated object: add it to s->free_list.
+ * next pointer is stored in *object
+ */
+static void _o_objstore_free(object_store_t *s, void *object) {
+  /*
+   * BUG: This violates the strict aliasing rules and causes
+   * errors when optimizations are enabled?
+   */
+  //  * ((void **) object) = s->free_list;
+  // Try this instead.
+  memcpy(object, &s->free_list, sizeof(void*));
+  s->free_list = object;
+}
+void objstore_free(object_store_t *s, void *object) {
+  MT_PROTECT_VOID(s->lock, _o_objstore_free(s, object));
+}
 
 /*
  * Apply finalizer f to all objects then delete s
  */
-void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
+static void _o_objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
   object_bank_t *b, *next;
   void *obj;
   uint32_t k, i;
@@ -160,13 +196,19 @@ void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
   s->free_list = NULL;
   s->free_index = 0;
 }
+void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
+  MT_PROTECT_VOID(s->lock, _o_objstore_delete_finalize(s, f));
+#ifdef THREAD_SAFE
+  destroy_yices_lock(&(s->lock));
+#endif
+}
 
 
 /*
  * Reset store s: remove all objects
  * - keep only one bank
  */
-void reset_objstore(object_store_t *s) {
+static void _o_reset_objstore(object_store_t *s) {
   object_bank_t *b, *next;
 
   b = s->bnk;
@@ -182,4 +224,7 @@ void reset_objstore(object_store_t *s) {
   s->bnk = b;
   s->free_list = NULL;
   s->free_index = 0;
+}
+void reset_objstore(object_store_t *s) {
+  MT_PROTECT_VOID(s->lock, _o_reset_objstore(s));
 }

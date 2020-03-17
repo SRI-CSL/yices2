@@ -1388,7 +1388,7 @@ static void test_subst(intern_tbl_t *tbl) {
       printf("good constant substitution\n");
       intern_tbl_add_subst(tbl, x, t);
     } else {
-      printf("invaid constant substitution\n");
+      printf("invalid constant substitution\n");
     }
 #if 0
     // removed intern_tbl_valid_subst from the code

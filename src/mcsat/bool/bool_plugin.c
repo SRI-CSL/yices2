@@ -97,10 +97,10 @@ typedef struct {
   } heuristic_params;
 
   struct {
-    uint32_t* propagations;
-    uint32_t* conflicts;
-    uint32_t* clauses_attached;
-    uint32_t* clauses_attached_binary;
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_int_t* clauses_attached;
+    statistic_int_t* clauses_attached_binary;
   } stats;
 
   /** Exception handler */
@@ -110,10 +110,10 @@ typedef struct {
 
 static
 void bool_plugin_stats_init(bool_plugin_t* bp) {
-  bp->stats.propagations = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::propagations");
-  bp->stats.conflicts = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::conflicts");
-  bp->stats.clauses_attached = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::clauses_attached");
-  bp->stats.clauses_attached_binary = statistics_new_uint32(bp->ctx->stats, "mcsat::bool::clauses_attached_binary");
+  bp->stats.propagations = statistics_new_int(bp->ctx->stats, "mcsat::bool::propagations");
+  bp->stats.conflicts = statistics_new_int(bp->ctx->stats, "mcsat::bool::conflicts");
+  bp->stats.clauses_attached = statistics_new_int(bp->ctx->stats, "mcsat::bool::clauses_attached");
+  bp->stats.clauses_attached_binary = statistics_new_int(bp->ctx->stats, "mcsat::bool::clauses_attached_binary");
 }
 
 static
@@ -150,6 +150,7 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, XOR_TERM);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM);
   ctx->request_term_notification_by_kind(ctx, ITE_TERM);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
 
   ctx->request_term_notification_by_type(ctx, BOOL_TYPE);
 
@@ -188,7 +189,7 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 
   // Ignore non-Boolean terms
   if (term_type_kind(bp->ctx->terms, term) != BOOL_TYPE) {
-    assert(term_kind(bp->ctx->terms, term) == ITE_TERM);
+    assert(is_ite_term(bp->ctx->terms, term));
     return;
   }
 
@@ -757,9 +758,25 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
 }
 
 bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
-  // Bool plugin never evaluates any constraints
-  assert(false);
-  return true;
+
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  const variable_db_t* var_db = bp->ctx->var_db;
+  const mcsat_trail_t* trail = bp->ctx->trail;
+
+  // Bool plugin only explains evaluation of assigned false literals
+  term_t t_unsigned = unsigned_term(t);
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
+  if (t_var != variable_null && trail_has_cached_value(trail, t_var)) {
+    bool negated = is_neg_term(t);
+    const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
+    if (negated) {
+      return t_var_value->b != value->b;
+    } else {
+      return t_var_value->b == value->b;
+    }
+  }
+
+  return false;
 }
 
 void bool_plugin_push(plugin_t* plugin) {

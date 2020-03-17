@@ -32,8 +32,12 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
+#include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
+
+#include "api/yices_globals.h"
+#include "mt/thread_macros.h"
 
 
 
@@ -49,14 +53,13 @@ static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
 	       "(%-10s %8"PRIu64" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu64" %8"PRIu32" %8"PRIu64" %7.1f)\n",
 	       when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	       num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	       num_learned_clauses(core), num_learned_literals(core),
-	       (double) num_learned_literals(core)/num_learned_clauses(core));
+	       num_learned_clauses(core), num_learned_literals(core), avg_learned_clause_size(core));
 #if 0
   fprintf(stderr,
 	  "(%-10s %8"PRIu64" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu64" %8"PRIu32" %8"PRIu64" %7.1f)\n",
 	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), avg_learned_clause_size(core));
 	  (double) num_learned_literals(core)/num_learned_clauses(core));
 #endif
 }
@@ -380,7 +383,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
     d_threshold = params->d_threshold;
     // HACK to activate the Luby heuristic:
     // c_factor must be 0.0 and fast_restart must be true
-    luby = params->c_factor == 0.0; 
+    luby = params->c_factor == 0.0;
   }
 
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
@@ -549,6 +552,14 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
   }
 }
 
+static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
+  mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
+  return mcsat_status(ctx->mcsat);
+}
+
+static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_call_mcsat_solver(ctx, params));
+}
 
 /*
  * Initialize search parameters then call solve
@@ -559,8 +570,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
 
   if (ctx->mcsat != NULL) {
-    mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
-    return mcsat_status(ctx->mcsat);
+    return call_mcsat_solver(ctx, params);
   }
 
   core = ctx->core;
@@ -655,6 +665,113 @@ smt_status_t precheck_context(context_t *ctx) {
 }
 
 
+
+/*
+ * Solve using another SAT solver
+ * - sat_solver = name of the solver to use
+ * - verbosity = verbosity level (0 means quiet)
+ * - this may be used only for BV or pure SAT problems
+ * - we perform one round of propagation to convert the problem to CNF
+ * - then we call an external SAT solver on the CNF problem
+ */
+smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+  bvar_t x;
+  bval_t v;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      if (smt_easy_sat(core)) {
+	stat = STATUS_SAT;
+      } else {
+	// call the delegate
+	init_delegate(&delegate, sat_solver, num_vars(core));
+	delegate_set_verbosity(&delegate, verbosity);
+
+	stat = solve_with_delegate(&delegate, core);
+	set_smt_status(core, stat);
+	if (stat == STATUS_SAT) {
+	  for (x=0; x<num_vars(core); x++) {
+	    v = delegate_get_value(&delegate, x);
+	    set_bvar_value(core, x, v);
+	  }
+	}
+	delete_delegate(&delegate);
+      }
+    }
+  }
+
+  return stat;
+}
+
+
+/*
+ * Simplify then export to Dimacs:
+ * - filename = name of the output file
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function returns it and does nothing.
+ * If y2sat preprocessing solves the formula, return that.
+ */
+smt_status_t process_then_export_to_dimacs(context_t *ctx, const char *filename) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+  bvar_t x;
+  bval_t v;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      if (smt_easy_sat(core)) {
+	stat = STATUS_SAT;
+      } else {
+	// call the delegate
+	init_delegate(&delegate, "y2sat", num_vars(core));
+	delegate_set_verbosity(&delegate, 0);
+
+	stat = preprocess_with_delegate(&delegate, core);
+	set_smt_status(core, stat);
+	if (stat == STATUS_SAT) {
+	  for (x=0; x<num_vars(core); x++) {
+	    v = delegate_get_value(&delegate, x);
+	    set_bvar_value(core, x, v);
+	  }
+	} else if (stat == STATUS_UNKNOWN) {
+	  export_to_dimacs_with_delegate(&delegate, filename);
+	}
+
+	delete_delegate(&delegate);
+      }
+    }
+  }
+
+  return stat;
+}
 
 
 

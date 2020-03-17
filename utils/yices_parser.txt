@@ -63,6 +63,7 @@ Grammar
         | ( show-implicant )
         | ( show-unsat-core )
         | ( show-unsat-assumptions )
+	| ( show-reduced-model )
         | EOS
 
 immediate-value :: = 
@@ -193,6 +194,7 @@ c1       define-type            c2
          show-implicant         c4
          show-unsat-core        c4
          show-unsat-assumptions  c4
+	 show-reduced-model     c4
 c2       <symbol>               c10
 c3       <string>               c4 
 c4       )                      DONE
@@ -429,6 +431,7 @@ c1       exit           next; goto r0
          show-implicant next; goto r0
          show-unsat-core        next; goto r0
          show-unsat-assumptions next; goto r0
+	 show-reduced-model     next; goto r0
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7

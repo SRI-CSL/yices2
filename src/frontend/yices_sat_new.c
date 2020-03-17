@@ -124,7 +124,7 @@ static void finish_line(reader_t *reader) {
  * - when this function is called reader->current_char is the first
  *   character of the line.
  * - it the line has more than n-1 characters, then
- *   the first n-1 characteres are copied in buffer,
+ *   the first n-1 characters are copied in buffer,
  *   the rest of the line is ignored.
  */
 static void read_line(reader_t *reader, uint32_t n, char buffer[]) {
@@ -299,10 +299,10 @@ static bool clause_is_true(uint32_t n, literal_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (lit_value(&solver, a[i]) == BVAL_TRUE) {
+    if (lit_value(&solver, a[i]) == VAL_TRUE) {
       return true;
     }
-    if (lit_value(&solver, a[i]) != BVAL_FALSE) {
+    if (lit_value(&solver, a[i]) != VAL_FALSE) {
       fprintf(stderr, "BUG: the model does not assign a value to literal %"PRId32"\n", a[i]);
       exit(1);
     }
@@ -424,11 +424,9 @@ static bool restart_interval_given;
 static bool subsume_skip_given;
 static bool var_elim_skip_given;
 static bool res_clause_limit_given;
+static bool res_extra_given;
 static bool simplify_interval_given;
 static bool simplify_bin_delta_given;
-static bool search_period_given;
-static bool search_counter_given;
-static bool dive_budget_given;
 
 static double var_decay;
 static double clause_decay;
@@ -442,15 +440,14 @@ static uint32_t restart_interval;
 static uint32_t subsume_skip;
 static uint32_t var_elim_skip;
 static uint32_t res_clause_limit;
+static uint32_t res_extra;
 static uint32_t simplify_interval;
 static uint32_t simplify_bin_delta;
-static uint32_t search_period;
-static uint32_t search_counter;
-static uint32_t dive_budget;
 
 enum {
   version_flag,
   help_flag,
+  help_params_flag,
   verbose_flag,
   model_flag,
   check_flag,
@@ -470,11 +467,9 @@ enum {
   subsume_skip_opt,
   var_elim_skip_opt,
   res_clause_limit_opt,
+  res_extra_opt,
   simplify_interval_opt,
   simplify_bin_delta_opt,
-  search_period_opt,
-  search_counter_opt,
-  dive_budget_opt,
   data_flag,
 };
 
@@ -483,6 +478,7 @@ enum {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
+  { "help-params", '\0', FLAG_OPTION, help_params_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
   { "check", 'c', FLAG_OPTION, check_flag },
@@ -502,11 +498,9 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "subsume-skip", '\0', MANDATORY_INT, subsume_skip_opt },
   { "var-elim-skip", '\0', MANDATORY_INT, var_elim_skip_opt },
   { "res-clause-limit", '\0', MANDATORY_INT, res_clause_limit_opt },
+  { "res-extra", '\0', MANDATORY_INT, res_extra_opt },
   { "simplify-interval", '\0', MANDATORY_INT,  simplify_interval_opt },
   { "simplify-bin-delta", '\0', MANDATORY_INT, simplify_bin_delta_opt },
-  { "search-period", '\0', MANDATORY_INT, search_period_opt },
-  { "search-counter", '\0', MANDATORY_INT, search_counter_opt },
-  { "dive-budget", '\0', MANDATORY_INT, dive_budget_opt },
 
   { "data", '\0', FLAG_OPTION, data_flag },
 };
@@ -532,6 +526,7 @@ static void print_help(char *progname) {
   printf("Option summary:\n"
          "   --version, -V           Show version and exit\n"
          "   --help, -h              Print this message and exit\n"
+         "   --help-params           List solver parameters that can be set on the command line\n"
          "   --model, -m             Show a model if the problem is satisfiable\n"
 	 "   --check, -c             Verify the model if the problem is satisfiable\n"
          "   --verbose, -v           Verbose mode\n"
@@ -542,6 +537,37 @@ static void print_help(char *progname) {
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
+}
+
+static void print_parameters(char *progname) {
+  printf("Branching heuristics\n"
+	 "   --randomness=<float>           Fraction of random decision (between 0.0 and 1.0)\n"
+	 "\n"
+	 "Clause deletion\n"
+	 "   --clause-decay=<float>         Number between 0.0 and 1.0\n"
+	 "   --keep-lbd=<integer>           Never delete learned clauses with this lbd of lower\n"
+	 "   --reduce-fraction=<integer>    Fraction of learned clauses to remove (0 to 32)\n"
+	 "   --reduce-interval=<integer>    How often to delete learned clauses\n"
+	 "   --reduce-delta=<integer>       Increment to the reduce interval\n"
+	 "\n"
+	 "Restart\n"
+	 "   --restart-interval=<inteeger>  Minimal number of conflicts between restarts\n"
+	 "\n"
+	 "Preprocessing\n"
+	 "   --subsume-skip=<integer>       Skip clauses of that length or more in subsumption\n"
+	 "   --var-elim-skip=<integer>      Don't try to eliminate variables that occur in many clauses\n"
+	 "   --res-clause-limit=<integer>   Don't create clauses bigger than this during variable elimination\n"
+	 "   --res-extra=<integer>          Allow variable eliminations that incresae the number of clauses\n"
+	 "\n"
+	 "Simplification\n"
+	 "   --simplify-interval=<integer>   Number of conflicts between simplification\n"
+	 "   --simplify-bin-delta=<integer>  Number of new binary clauses between SCC computations\n"
+	 "\n"
+	 "Not used anymore\n"
+         "   --var-decay=<float>\n"
+         "   --stack-threshold=<integer>\n"
+	 "   --data\n"
+	 "\n");
 }
 
 
@@ -583,11 +609,9 @@ static void parse_command_line(int argc, char *argv[]) {
   subsume_skip_given = false;
   var_elim_skip_given = false;
   res_clause_limit_given = false;
+  res_extra_given = false;
   simplify_interval_given = false;
   simplify_bin_delta_given = false;
-  search_period_given = false;
-  search_counter_given = false;
-  dive_budget_given = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -616,6 +640,10 @@ static void parse_command_line(int argc, char *argv[]) {
       case help_flag:
         print_help(parser.command_name);
         exit(YICES_EXIT_SUCCESS);
+
+      case help_params_flag:
+	print_parameters(parser.command_name);
+	exit(YICES_EXIT_SUCCESS);
 
       case verbose_flag:
         verbose = true;
@@ -750,6 +778,11 @@ static void parse_command_line(int argc, char *argv[]) {
 	res_clause_limit = elem.i_value;
 	break;
 
+      case res_extra_opt:
+	res_extra_given = true;
+	res_extra = elem.i_value;
+	break;
+
       case simplify_interval_opt:
 	if (elem.i_value <= 0) {
 	  fprintf(stderr, "simplify-interval must be positive.\n");
@@ -766,33 +799,6 @@ static void parse_command_line(int argc, char *argv[]) {
 	}
 	simplify_bin_delta_given = true;
 	simplify_bin_delta = elem.i_value;
-	break;
-
-      case search_period_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "search-period must be positive.\n");
-	  goto bad_usage;
-	}
-	search_period_given = true;
-	search_period = elem.i_value;
-	break;
-
-      case search_counter_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "search-counter must be positive.\n");
-	  goto bad_usage;
-	}
-	search_counter_given = true;
-	search_counter = elem.i_value;
-	break;
-
-      case dive_budget_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "dive-budget must be positive.\n");
-	  goto bad_usage;
-	}
-	dive_budget_given = true;
-	dive_budget = elem.i_value;
 	break;
 
       case data_flag:
@@ -973,17 +979,21 @@ static void show_stats(sat_solver_t *solver) {
   write_line(2, "c");
   write_line(2, "c Statistics");
   write_line_and_uint(2, "c  starts                  : ", stat->starts);
-  write_line_and_uint(2, "c  dives                   : ", stat->dives);
-  write_line_and_uint(2, "c  successful dive         : ", stat->successful_dive);
+  write_line_and_uint(2, "c  stabilizations          : ", stat->stabilizations);
   write_line_and_uint(2, "c  simplify db             : ", stat->simplify_calls);
   write_line_and_uint(2, "c  reduce db               : ", stat->reduce_calls);
   write_line_and_uint(2, "c  scc calls               : ", stat->scc_calls);
   write_line_and_uint(2, "c  apply subst calls       : ", stat->subst_calls);
+  write_line_and_uint(2, "c  probings                : ", stat->probe_calls);
   write_line_and_uint(2, "c  substituted vars        : ", stat->subst_vars);
   write_line_and_uint(2, "c  decisions               : ", stat->decisions);
   write_line_and_uint(2, "c  random decisions        : ", stat->random_decisions);
   write_line_and_uint(2, "c  propagations            : ", stat->propagations);
   write_line_and_uint(2, "c  conflicts               : ", stat->conflicts);
+  write_line_and_uint(2, "c  local subsumptions      : ", stat->local_subsumptions);
+  write_line_and_uint(2, "c  probed literals         : ", stat->probed_literals);
+  write_line_and_uint(2, "c  failed literals         : ", stat->failed_literals);
+  write_line_and_uint(2, "c  probing progatations    : ", stat->probing_propagations);
   write_line_and_uint(2, "c  max_depth               : ", solver->max_depth);
   write_line_and_uint(2, "c  lits in pb. clauses     : ", solver->pool.num_prob_literals);
   write_line_and_uint(2, "c  lits in learned clauses : ", solver->pool.num_learned_literals);
@@ -1041,7 +1051,6 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
   fprintf(f, "c  unit clauses         : %"PRIu32"\n", sol->units);
   fprintf(f, "c  binary clauses       : %"PRIu32"\n", sol->binaries);
   fprintf(f, "c  other clauses        : %"PRIu32"\n", sol->pool.num_prob_clauses);
-  fprintf(f, "c  assignments          : %"PRIu32"\n", sol->stack.top);
   fprintf(f, "c\n");
 }
 
@@ -1151,11 +1160,9 @@ int main(int argc, char* argv[]) {
     if (subsume_skip_given) nsat_set_subsume_skip(&solver, subsume_skip);
     if (var_elim_skip_given) nsat_set_var_elim_skip(&solver, var_elim_skip);
     if (res_clause_limit_given) nsat_set_res_clause_limit(&solver, res_clause_limit);
+    if (res_extra_given) nsat_set_res_extra(&solver, res_extra);
     if (simplify_interval_given) nsat_set_simplify_interval(&solver, simplify_interval);
     if (simplify_bin_delta_given) nsat_set_simplify_bin_delta(&solver, simplify_bin_delta);
-    if (search_period_given) nsat_set_search_period(&solver, search_period);
-    if (search_counter_given) nsat_set_search_counter(&solver, search_counter);
-    if (dive_budget_given) nsat_set_dive_budget(&solver, dive_budget);
 
     verb = verbose ? 2 : stats ? 1 : 0;
     nsat_set_verbosity(&solver, verb);

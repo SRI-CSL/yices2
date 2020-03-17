@@ -32,7 +32,7 @@
  * now), and we use one bit per block to record whether the block is
  * used or not.
  * - a block marked as dirty is not initialized and its
- *   content shouldn't be rea
+ *   content shouldn't be read
  * - if a block is clean then all elements in the block have a valid value
  * - a block is initialized (all elements set to 0) on the first write into that block
  *

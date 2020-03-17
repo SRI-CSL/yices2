@@ -2771,85 +2771,84 @@ static bool fun_solver_var_equal_in_model(fun_solver_t *solver, thvar_t x1, thva
  * - its connected component index k = base[x]
  * - the default value for component k = default[x]
  * - the application map = array of composites = app[x]
- * - the size of app = app_size[x]
  *
  * default[x] is either a label in the egraph or a fresh object,
  * distinct from any egraph term. default[x] is relevant for x if
  * app_size[x] < cardinality domain[x].
  *
+ * We also use a sample_value(x): an index that occurs in the array x
+ * and is such that x == y implies sample_value(x) = sample_value(y).
+ *
+ * To compute sample_value(x):
+ * - if x has finite domain and default[x] is a fresh object and it's
+ *   relevant for x, sample_vlaue(x) = default[x]
+ * - otherwise sample_value(x) = max of default[x] and egraph labels
+ *   of all elements that occur in app[x]
+ *
  * Properties we use:
  * 1) if x == y then domain[x] = domain[y] (call it D)
- * 2) if x == y and D is infinite then
- *        base[x] = base[y]
- *    and  app[x] = app[y]
- * 3) if x == y and D is finite and default[x] is fresh
- *    and relevant for x, then
- *        default[y] = default[x]
- *    and default[y] is relevant for y
- *    and app[x] = app[y]
+ * 2) if x == y and D is infinite then base[x] = base[y]
+ * 3) if x == y then sample_value(x) = sample_value(y)
  *
  * We associate the following signature with x:
- *   sgn(x) = (n, sigma_1, b(x), d(x), m(x))
+ *   sgn(x) = (n, sigma_1, b, s)
  * where
  *   n = arity
  *   sigma_1 = first domain component
- *   b(x) = base[x] if domain[x] is infinite
- *              -1  if domain[x] is finite
- *   d(x) = default[x] if domain[x] is finite and
- *          default[x] is fresh and relevant for x
- *          UNKNOWN_BASE_VALUE otherwise
- *   m(x) = app_size[x] if domain[x] is infinite
- *          or default[x] is fresh and relevant for x,
- *          -1 otherwise.
+ *   b = base[x] if domain[x] is infinite
+ *             -1  if domain[x] is finite
+ *   s = sample_value(x)
  *
  * Then we have x == y implies sgn(x) = sgn(y).
- *
- * Issue: if default[x] is not fresh and domain[x] is finite,
- * then sgn(x) = (n, sigma_1, -1, UNK, -1). So there may be
- * many variables hashing to the same thing. This most likely
- * happen if x has a small domain type (e.g., the booleans).
- *
- * TODO: improve this.
  */
-static uint32_t fun_solver_model_hash(fun_solver_t *solver, thvar_t x) {
+static int32_t fun_solver_sample_value_for_var(fun_solver_t *solver, thvar_t x) {
   fun_vartable_t *vtbl;
+  composite_t *c;
   void **v;
-  int32_t b, d, app_size;
-  int32_t sgn[5];
+  elabel_t label;
+  uint32_t i, app_size;
+  int32_t b, d;
 
   vtbl = &solver->vtbl;
-  assert(0 <= x && x < vtbl->nvars);
+  assert(0 <= x && x < vtbl->nvars && vtbl->root[x] == x);
+
+  app_size = 0;
+  v = vtbl->app[x];
+  b = vtbl->base[x];
+  d = solver->base_value[b];
+  if (v != NULL) app_size = pv_size(v);
+
+  if (app_size == 0) return d;
+
+  if (fun_var_has_finite_domain(vtbl, x) && d < 0 &&
+      app_size < card_of_domain_type(solver->types, fun_var_type(vtbl, x))) {
+    return d;
+  }
+
+  d = -1;
+  for (i=0; i<app_size; i++) {
+    c = v[i];
+    label = egraph_term_label(solver->egraph, c->id);
+    if (label > d) d = label;
+  }
+
+  assert(d >= 0);
+  return d;
+}
+
+static uint32_t fun_solver_model_hash(fun_solver_t *solver, thvar_t x) {
+  fun_vartable_t *vtbl;
+  int32_t sgn[4];
+
+  vtbl = &solver->vtbl;
+  assert(0 <= x && x < vtbl->nvars && vtbl->root[x] == x);
 
   sgn[0] = vtbl->arity[x];
   sgn[1] = function_type_domain(solver->types, vtbl->type[x], 0); // sigma_1
+  sgn[2] = fun_var_has_infinite_domain(vtbl, x) ? vtbl->base[x] : -1;
+  sgn[3] = fun_solver_sample_value_for_var(solver, x);
 
-  // get app size, base, and default value
-  v = vtbl->app[x];
-  app_size = 0;
-  if (v != NULL) {
-    app_size = pv_size(v);
-  }
-  b = vtbl->base[x];
-  d = solver->base_value[b];
-
-  if (tst_bit(vtbl->fdom, x)) {
-    // finite domain
-    sgn[2] = -1;
-    if (d < 0 && app_size < card_of_domain_type(solver->types, fun_var_type(vtbl, x))) {
-      sgn[3] = d;
-      sgn[4] = app_size;
-    } else {
-      sgn[3] = UNKNOWN_BASE_VALUE;
-      sgn[4] = -1;
-    }
-  } else {
-    // infinite domain
-    sgn[2] = b;
-    sgn[3] = UNKNOWN_BASE_VALUE;
-    sgn[4] = app_size;
-  }
-
-  return jenkins_hash_intarray(sgn, 5);
+  return jenkins_hash_intarray(sgn, 4);
 }
 
 

@@ -107,6 +107,7 @@ core_src_c := \
 	api/smt_logic_codes.c \
 	api/yices_api.c \
 	api/yices_error.c \
+	api/yices_error_report.c \
 	api/yval.c \
 	context/assumption_stack.c \
 	context/common_conjuncts.c \
@@ -136,6 +137,7 @@ core_src_c := \
 	io/model_printer.c \
 	io/pretty_printer.c \
 	io/reader.c \
+	io/simple_printf.c \
 	io/term_printer.c \
 	io/tracer.c \
 	io/type_printer.c \
@@ -152,11 +154,13 @@ core_src_c := \
 	model/map_to_model.c \
 	model/model_eval.c \
 	model/model_queries.c \
+	model/model_support.c \
 	model/models.c \
 	model/presburger.c \
 	model/projection.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
+	mt/yices_locks.c \
 	parser_utils/lexer.c \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \
@@ -173,9 +177,16 @@ core_src_c := \
 	solvers/bv/bv_vartable.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
+	solvers/cdcl/delegate.c \
 	solvers/cdcl/gates_hash_table.c \
 	solvers/cdcl/gates_manager.c \
+	solvers/cdcl/new_gates.c \
+	solvers/cdcl/new_gate_hash_map.c \
+	solvers/cdcl/new_gate_hash_map2.c \
+	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/smt_core.c \
+	solvers/cdcl/truth_tables.c \
+	solvers/cdcl/wide_truth_tables.c \
 	solvers/egraph/composites.c \
 	solvers/egraph/diseq_stacks.c \
 	solvers/egraph/egraph_assertion_queues.c \
@@ -206,6 +217,7 @@ core_src_c := \
 	terms/bvarith_buffers.c \
 	terms/bvarith_buffer_terms.c \
 	terms/bv_constants.c \
+	terms/bvfactor_buffers.c \
 	terms/bvlogic_buffers.c \
 	terms/bvpoly_buffers.c \
 	terms/bv_polynomials.c \
@@ -218,6 +230,7 @@ core_src_c := \
 	terms/int_rational_hash_maps.c \
 	terms/ite_stack.c \
 	terms/mpq_aux.c \
+	terms/mpq_stores.c \
 	terms/poly_buffer.c \
 	terms/poly_buffer_terms.c \
 	terms/polynomials.c \
@@ -242,6 +255,7 @@ core_src_c := \
 	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
 	utils/csets.c \
+	utils/cputime.c \
 	utils/dep_tables.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
@@ -252,6 +266,7 @@ core_src_c := \
 	utils/int_array_sort.c \
 	utils/int_bags.c \
 	utils/int_bv_sets.c \
+	utils/int_harray_store.c \
 	utils/int_hash_classes.c \
 	utils/int_hash_map2.c \
 	utils/int_hash_map.c \
@@ -267,6 +282,7 @@ core_src_c := \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
 	utils/object_stores.c \
+	utils/pair_hash_map.c \
 	utils/pair_hash_map2.c \
 	utils/pointer_vectors.c \
 	utils/ptr_array_sort2.c \
@@ -284,18 +300,19 @@ core_src_c := \
 	utils/refcount_strings.c \
 	utils/resize_arrays.c \
 	utils/simple_cache.c \
+	utils/simple_int_stack.c \
 	utils/sparse_arrays.c \
 	utils/stable_sort.c \
 	utils/string_buffers.c \
 	utils/string_utils.c \
 	utils/symbol_tables.c \
+	utils/tag_map.c \
 	utils/tuple_hash_map.c \
 	utils/uint_array_sort.c \
 	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c \
 	utils/vector_hash_map.c
-
 
 #
 # Optional: mcsat solver
@@ -310,13 +327,16 @@ mcsat_src_c := \
 	mcsat/trail.c \
 	mcsat/conflict.c \
 	mcsat/gc.c \
+	mcsat/eq/equality_graph.c \
+	mcsat/eq/merge_queue.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
+	mcsat/utils/value_hash_map.c \
+	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
+	mcsat/utils/substitution.c \
 	mcsat/uf/uf_plugin.c \
-	mcsat/uf/app_reps.c \
-	mcsat/uf/uf_feasible_set_db.c \
 	mcsat/bool/clause_db.c \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \
@@ -328,9 +348,24 @@ mcsat_src_c := \
 	mcsat/nra/poly_constraint.c \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
+	mcsat/bv/bv_plugin.c \
+	mcsat/bv/bv_bdd_manager.c \
+	mcsat/bv/bv_evaluator.c \
+	mcsat/bv/bv_explainer.c \
+	mcsat/bv/bv_feasible_set_db.c \
+	mcsat/bv/bdd_computation.c \
+	mcsat/bv/explain/arith_utils.c \
+	mcsat/bv/explain/arith_norm.c \
+	mcsat/bv/explain/arith_intervals.c \
+	mcsat/bv/explain/arith.c \
+	mcsat/bv/explain/eq_ext_con.c \
+	mcsat/bv/explain/full_bv_sat.c \
+	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
+
+
 
 #
 # Fake mcsat module: do nothing. Used to make the compilation go through.
@@ -368,7 +403,9 @@ extra_src_c := \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_symbol_printer.c \
 	frontend/smt2/smt2_term_stack.c \
+	frontend/smt2/smt2_type_printer.c \
 	frontend/yices/arith_solver_codes.c \
 	frontend/yices/labeled_assertions.c \
 	frontend/yices/yices_help.c \
@@ -383,7 +420,6 @@ extra_src_c := \
 	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
-	solvers/cdcl/new_sat_solver.c \
 	solvers/cdcl/sat_solver.c \
 	solvers/cdcl/smt_core_printer.c \
 	solvers/egraph/egraph_printer.c \
@@ -396,14 +432,19 @@ extra_src_c := \
 	solvers/simplex/simplex_prop_table.c \
 	terms/arith_buffers.c \
 	utils/command_line.c \
-	utils/cputime.c \
 	utils/memsize.c \
-	utils/pair_hash_map.c \
 	utils/pair_hash_sets.c \
 	utils/string_hash_map.c \
-	utils/tag_map.c \
 	utils/timeout.c \
 	utils/union_find.c
+
+
+#
+# Optional for libyices.a: support for launching threads
+# and testing multi-threaded code
+#
+extra_thread_src_c := \
+	mt/threads.c
 
 
 #
@@ -419,17 +460,20 @@ endif
 # all sources: base + extra
 #
 src_c := $(base_src_c) $(extra_src_c)
-
+ifeq ($(THREAD_SAFE),1)
+src_c := $(src_c) $(extra_thread_src_c)
+endif
 
 #
 # additional source files for the binaries
 #
 bin_src_c := \
-	frontend/yices_main.c \
+	frontend/yices.c \
 	frontend/yices_sat.c \
 	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
+	frontend/yices_smt2_mt.c \
 	frontend/yices_smtcomp.c \
 
 #
@@ -554,7 +598,17 @@ libyices_def=libyices.def
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
-  CPPFLAGS+=-DHAVE_MCSAT
+  CPPFLAGS += -DHAVE_MCSAT
+endif
+
+#
+# Whether we have thread safety
+# If so on Unix systems, we must add -pthread to CFLAGS
+#
+PTRHEAD=
+ifeq ($(THREAD_SAFE),1)
+  CPPFLAGS += -DTHREAD_SAFE
+  PTHREAD= -pthread
 endif
 
 
@@ -589,18 +643,30 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_dylib)
   static_libyices_dynamic=$(static_libdir)/$(libyices_dylib)
+
+  #
+  # To stop a clang warning when we compile with -pthread,
+  # we add option -Qunused-arguments
+  #
+  # Detect clang-disguised-as-gcc vs. GNU GCC
+  #
+  ifeq ($(THREAD_SAFE),1)
+    ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
+       CFLAGS += -Qunused-arguments
+    endif
+  endif
 else
 ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -609,8 +675,8 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
-  CFLAGS += -fvisibility=hidden
-  BIN_LDFLAGS=
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS= $(PTHREAD)
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
@@ -618,7 +684,17 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS=
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
+
+else
+ifeq ($(POSIXOS),netbsd)
+  PIC=-fPIC
+  STATIC=-static
+  CPPFLAGS := $(CPPFLAGS) -DNETBSD
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -628,12 +704,13 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
  $(error "Don't know how to compile on $(POSIXOS)")
+endif
 endif
 endif
 endif
@@ -1130,9 +1207,10 @@ dist: bin lib
 	mkdir $(distdir)/include
 	cp include/*.h $(distdir)/include
 	mkdir $(distdir)/bin
-	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
+	cp $(bindir)/yices$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
+	cp $(bindir)/yices_smt2_mt$(EXEEXT) $(distdir)/bin/yices-mt2$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
@@ -1141,8 +1219,8 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(distdir)/lib/libyices.a
 endif
 
 static-dist: static-bin static-lib
@@ -1150,9 +1228,10 @@ static-dist: static-bin static-lib
 	mkdir $(static_distdir)/include
 	cp include/*.h $(static_distdir)/include
 	mkdir $(static_distdir)/bin
-	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
+	cp $(static_bindir)/yices$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
+	cp $(static_bindir)/yices_smt2_mt$(EXEEXT) $(static_distdir)/bin/yices-mt2$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
 	mkdir $(static_distdir)/lib
@@ -1161,21 +1240,9 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	rm -f $(static_distdir)/lib/libyices.a
 endif
-
-smt-dist: bin
-	rm -r -f $(smt_distdir)/*
-	mkdir $(smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
-
-static-smt-dist: static-bin
-	rm -r -f $(static_smt_distdir)/*
-	mkdir $(static_smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
 
 
 .PHONY: dist static-dist
@@ -1251,5 +1318,3 @@ show-details:
 	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
 	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
 	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
-
-

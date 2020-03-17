@@ -34,6 +34,8 @@
 
 #include "terms/bv64_interval_abstraction.h"
 #include "terms/bv_constants.h"
+#include "terms/bvfactor_buffers.h"
+#include "terms/bvpoly_buffers.h"
 #include "terms/terms.h"
 
 
@@ -313,6 +315,109 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
  */
 extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
 
+
+
+/*
+ * ARITHMETIC SIMPLIFICATIONS
+ */
+
+/*
+ * Check whether t is equal to x or (bv-not x) for some term x
+ * - t must be a bit-vector array (BV_ARRAY)
+ * - the function returns true if t is equal to x or (bv-not x)
+ *   it returns the term x in *x
+ *   if t is equal to x, the negated flag is set to false
+ *   if t is equal to (bv-not x), the negated flag is set to true
+ * - the function returns false if t is not of the right form and leaves *x and *negated unchanged
+ */
+extern bool bvarray_convertible_to_term(term_table_t *tbl, term_t t, term_t *x, bool *negated);
+
+/*
+ * Add or subtract t to/from buffer b
+ * - try to convert t to a bitvector polynomial first
+ * - t must be a bitvector term
+ * - b->bitsize must be equal to t's bitsize
+ */
+extern void add_bvterm_to_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
+extern void sub_bvterm_from_buffer(term_table_t *tbl, term_t t, bvpoly_buffer_t *b);
+
+
+/*
+ * Add or subtract a * t to/from buffer b
+ */
+extern void addmul_bvterm64_to_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
+extern void submul_bvterm64_from_buffer(term_table_t *tbl, term_t t, uint64_t a, bvpoly_buffer_t *b);
+
+extern void addmul_bvterm_to_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b);
+extern void submul_bvterm_from_buffer(term_table_t *tbl, term_t t, uint32_t *a, bvpoly_buffer_t *b);
+
+
+
+/*
+ * FACTORING OF BIT-VECTOR PRODUCTS
+ */
+
+/*
+ * Check whether t is a product
+ * - this returns true if t is (bvshl x y) since (bvshl x y) = x * (bvshl 1 y)
+ *   or if t is a power-product
+ *   of if t is a polynomial with a single monomial = a * power-product for
+ *   some constant a that's not 0 and not 1.
+ * - return false otherwise (including if t is not a bit-vector term).
+ */
+extern bool term_is_bvprod(term_table_t *tbl, term_t t);
+
+/*
+ * Compute a factorization of t
+ * - t must be a bitvector term
+ * - this writes t to the form a * power-product * 2^exp
+ *   by converting (bvshl x y)  to x * 2^y
+ *   and so forth
+ * - the result is returned in buffer b
+ * - b must be initialized
+ */
+extern void factor_bvterm(term_table_t *tbl, term_t t, bvfactor_buffer_t *b);
+
+/*
+ * Add factors of (a * t) to buffer b
+ * - t must be a bitvector term
+ * - b and t must have the same bitsize
+ * - if t has 64bits or less, a is given as a 64bit constant
+ * - if t has more than 64bits, a iis given as an array of 32bit words
+ */
+extern void factor_mul_bvterm64(term_table_t *tbl, uint64_t a, term_t t, bvfactor_buffer_t *b);
+extern void factor_mul_bvterm(term_table_t *tbl, uint32_t *a, term_t t,  bvfactor_buffer_t *b);
+
+/*
+ * Compute the factorization of all monomials in p
+ * - b must be an array of n buffers where n >= p->nterms
+ * - the factoring of p->mono[i] is stored in b[i]
+ */
+extern void factor_bvpoly64_monomials(term_table_t *tbl, bvpoly64_t *p, bvfactor_buffer_t *b);
+extern void factor_bvpoly_monomials(term_table_t *tbl, bvpoly_t *p, bvfactor_buffer_t *b);
+
+
+/*
+ * FACTORS TO TERMS
+ */
+
+/*
+ * Construct a term t from buffer b:
+ * - if b contains C * product * 2^exponent
+ *   then this constructs two auxiliary terms:
+ *    p := product
+ *    e := exponent
+ *   and returns C * bvshl(p, e)
+ * - to build the terms, we need an auxiliary bvpoly_buffer_t aux
+ */
+extern term_t bvfactor_buffer_to_term(term_table_t *tbl, bvpoly_buffer_t *aux, bvfactor_buffer_t *b);
+
+/*
+ * Construct a term t from an array of n buffers b[0 ... n-1]
+ * - this constructs a sum of n terms t_0 .... t_n-1
+ *   where t_i is the conversion of b[i] to a term.
+ */
+extern term_t bvfactor_buffer_array_to_term(term_table_t *tbl, bvpoly_buffer_t *aux, bvfactor_buffer_t *b, uint32_t n);
 
 
 /*

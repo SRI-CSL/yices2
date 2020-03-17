@@ -390,8 +390,8 @@ static thvar_t bv_compiler_mk_zero(bvc_t *c, uint32_t n) {
     if (w > 8) {
       a = bvconst_alloc(w);
     }
-    bvconst_clear(aux, w);
-    v = get_bvconst(c->vtbl, n, aux);
+    bvconst_clear(a, w);
+    v = get_bvconst(c->vtbl, n, a);
     if (w > 8) {
       bvconst_free(a, w);
     }
@@ -967,6 +967,7 @@ static void bvc_process_monomial(bvc_t *c, bvnode_t i, bvc_mono_t *d) {
   } else {
     y = get_bvconst(vtbl, nbits, d->coeff.w);
   }
+  assert(sign_of_occ(d->nocc) == 0);
   z = bvc_dag_get_var_of_leaf(&c->dag, d->nocc);
 
   // i is compiled to [bvmul y z]
@@ -986,11 +987,13 @@ static void bvc_process_elem_prod(bvc_t *c, bvnode_t i, bvc_prod_t *d) {
   nbits = d->header.bitsize;
 
   ny = d->prod[0].var;
+  assert(sign_of_occ(ny) == 0);
   y = bvc_dag_get_var_of_leaf(&c->dag, ny);
   nz = ny;
   z = y;
   if (d->len == 2) {
     nz = d->prod[1].var;
+    assert(sign_of_occ(nz) == 0);
     z = bvc_dag_get_var_of_leaf(&c->dag, nz);
   }
 
@@ -1184,6 +1187,7 @@ static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   nbits = p->header.bitsize;
   m = p->len;
   for (j=0; j<m; j++) {
+    assert(sign_of_occ(p->prod[j].var) == 0);
     x = bvc_dag_get_var_of_leaf(&c->dag, p->prod[j].var);
     pp_buffer_push_varexp(pp, x, p->prod[j].exp);
   }
@@ -1383,6 +1387,10 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   }
 
   r  = bvc_dag_nocc_of_var(&c->dag, x); // node occurrence mapped to x
+  if (bvc_dag_nocc_has_flipped(&c->dag, r)) {
+    r = negate_occ(r);
+ }
+
   y = bvc_dag_get_nocc_compilation(&c->dag, r); // r is compiled to y
   assert(y >= 0);
 
@@ -1424,7 +1432,6 @@ void bv_compiler_process_queue(bvc_t *c) {
   for (i=0; i<n; i++) {
     bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
   }
-
 
   // compile the rest until the complex-node list is empty
   for (;;) {

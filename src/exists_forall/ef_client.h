@@ -55,14 +55,18 @@ extern void init_ef_client(ef_client_t *ef_client);
 extern void delete_ef_client(ef_client_t *ef_client);
 
 /*
- * Build the EF-problem descriptor from the set of delayed assertions
+ * Build the EF-problem descriptor from the set of assertions
+ * - n = number of assertions
+ * - assertions = array of n Boolean terms
  * - do nothing if efprob exists already
  * - store the internalization code in the global efcode flag
  */
-extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
+extern void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions);
 
 /*
- * Call the exists/forall solver on a vector of assertions.
+ * Call the exists/forall solver on an array of assertions.
+ * - n = number of assertions
+ * - assertions =  array of n Boolean terms
  * - parameters = search parameters to be used by the two internal contexts
  * - logic_code = quantifier-free logic for the contexts
  * - arch = context archtitecture
@@ -72,7 +76,7 @@ extern void build_ef_problem(ef_client_t *efc, ivector_t *assertions);
  * logic_code must be quantifier free and arch must be a context
  * architecture compatible with this logic.
  */
-extern void ef_solve(ef_client_t *efc, ivector_t *assertions, param_t *parameters,
+extern void ef_solve(ef_client_t *efc, uint32_t m, term_t *assertions, param_t *parameters,
 		     smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer);
 
 

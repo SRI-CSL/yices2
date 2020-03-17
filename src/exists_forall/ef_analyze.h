@@ -88,7 +88,7 @@ typedef struct ef_clause_s {
  * - cache = set of already visited terms
  * - flat = vector of assertions (result of flattening)
  * - disjuncts = vector of formula (or-flattening of assertions)
- * - foralls = universally quantified defered to the second flattening phase
+ * - foralls = universally quantified deferred to the second flattening phase
  * - existentials = the set of existential variables (variables)
  * - evars = reusable vector to collect existential variables (no longer just uninterpreted terms)
  * - uvars = reusable vector to collect universal variables (variables)

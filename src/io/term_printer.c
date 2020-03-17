@@ -400,6 +400,116 @@ void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b) {
 
 
 /*
+ * Generic poly buffer: variables are not terms. We print them as x!k
+ */
+static void print_bvmono64_raw(FILE *f, uint64_t coeff, int32_t x, uint32_t n, bool first) {
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
+
+  } else if (coeff == 1) {
+    if (! first) fputs(" + ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
+    fputc('*', f);
+    fprintf(f, "x!%"PRId32, x);
+  }
+}
+
+static void print_bvmono_raw(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {
+  uint32_t w;
+
+  w = (n + 31) >> 5; // number of words in coeff
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fputs(" + ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+    fputc('*', f);
+    fprintf(f, "x!%"PRId32, x);
+
+  }
+}
+
+
+void print_bvpoly_buffer(FILE *f, bvpoly_buffer_t *b) {
+  uint32_t i, n, nbits;
+  bool first;
+
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+  first = true;
+
+  if (n == 0) {
+    fputc('0', f);
+  } else if (nbits <= 64) {
+    for (i=0; i<n; i++) {
+      print_bvmono64_raw(f, bvpoly_buffer_coeff64(b, i), bvpoly_buffer_var(b, i), nbits, first);
+      first = false;
+    }
+  } else {
+    for (i=0; i<n; i++) {
+      print_bvmono_raw(f, bvpoly_buffer_coeff(b, i), bvpoly_buffer_var(b, i), nbits, first);
+      first = false;
+    }
+  }
+}
+
+void print_bvpoly64_raw(FILE *f, bvpoly64_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_bvmono64_raw(f, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
+}
+
+void print_bvpoly_raw(FILE *f, bvpoly_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_bvmono_raw(f, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
+}
+
+
+
+
+/*
  * Bit-array buffer
  */
 static void print_bit(FILE *f, bit_t b) {
@@ -1799,7 +1909,7 @@ static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
   if (name != NULL) {
     pp_string(printer, name);
   } else {
-    pp_id(printer, "v!", i);
+    pp_id(printer, "t!", i);
   }
   pp_separator(printer, "::");
   pp_type(printer, tbl->types, tau);
@@ -2258,9 +2368,10 @@ static void pp_bv_slice(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, in
     if (i == 0 && j == term_bitsize(tbl, u) - 1) {
       pp_term_recur(printer, tbl, u, level, true);
     } else {
+      // in Yices syntax, we must print (bv-extract j i u) with 0 <= i <= j
       pp_open_block(printer, PP_OPEN_BV_EXTRACT);
-      pp_uint32(printer, i);
       pp_uint32(printer, j);
+      pp_uint32(printer, i);
       pp_term_recur(printer, tbl, u, level, true);
       pp_close_block(printer, true);
     }
@@ -2304,7 +2415,10 @@ static void pp_bv_slices(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, u
     pp_bv_slice(printer, tbl, d, level);
   } else {
     pp_open_block(printer, PP_OPEN_BV_CONCAT);
-    for (i=0; i<n; i++) {
+    // print (bv-concat slice[n-1] ... slice[0])
+    i = n;
+    while (i > 0) {
+      i --;
       pp_bv_slice(printer, tbl, d + i, level);
     }
     pp_close_block(printer, true);
@@ -2686,18 +2800,16 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
 /*
  * More pretty printing
  */
-static pp_area_t default_area = {
-  120,        // width
-  UINT32_MAX, // height
-  0,          // offset
-  false,      // stretch
-  false       // truncate
-};
-
 void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
   yices_pp_t printer;
+  pp_area_t default_area;
 
   if (area == NULL) {
+    default_area.width = 120;
+    default_area.height = UINT32_MAX;
+    default_area.offset = 0;
+    default_area.stretch = false;
+    default_area.truncate = false;
     area = &default_area;
   }
   init_yices_pp(&printer, f, area, PP_VMODE, 0);
@@ -2708,8 +2820,14 @@ void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t
 
 void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
   yices_pp_t printer;
+  pp_area_t default_area;
 
   if (area == NULL) {
+    default_area.width = 120;
+    default_area.height = UINT32_MAX;
+    default_area.offset = 0;
+    default_area.stretch = false;
+    default_area.truncate = false;
     area = &default_area;
   }
   init_yices_pp(&printer, f, area, PP_VMODE, 0);

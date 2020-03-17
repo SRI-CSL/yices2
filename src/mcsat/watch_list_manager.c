@@ -127,6 +127,7 @@ void watch_list_manager_gc_sweep_lists(watch_list_manager_t* wlm, const gc_info_
       variable_t list_element;
       do {
         list_element = wlm->vlist_memory.data[old_vlist_ref ++];
+        assert(list_element == variable_null || gc_info_get_reloc(gc_vars, list_element) != variable_null);
         wlm->vlist_memory.data[new_vlist_top ++] = list_element;
       } while (list_element != variable_null);
     }
@@ -182,7 +183,6 @@ variable_list_ref_t watch_list_manager_get_list_of(watch_list_manager_t* wlm, va
 variable_t* watch_list_manager_get_list(watch_list_manager_t* wlm, variable_list_ref_t var_list) {
   return wlm->vlist_memory.data + var_list;
 }
-
 
 void watch_list_manager_add_to_watch(watch_list_manager_t* wlm, variable_list_ref_t var_list, variable_t watcher) {
   assert(watcher != variable_null);

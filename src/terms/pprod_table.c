@@ -208,26 +208,19 @@ static int32_t build_pprod(pprod_hobj_t *o) {
 
 
 /*
- * Global hash object
- */
-static pprod_hobj_t pprod_hobj = {
-  { (hobj_hash_t) hash_pprod, (hobj_eq_t) eq_pprod, (hobj_build_t) build_pprod },
-  NULL,
-  NULL,
-  0,
-};
-
-
-
-/*
  * Hash consing function:
  * - a must be normalized, non empty, and not equal to (x^1)
  * - n = size of array a
  */
 static pprod_t *get_pprod(pprod_table_t *table, varexp_t *a, uint32_t n) {
   int32_t i;
+  pprod_hobj_t pprod_hobj;
 
   assert(n > 1 || (n == 1 && a[0].exp > 1));
+
+  pprod_hobj.m.hash = (hobj_hash_t) hash_pprod;
+  pprod_hobj.m.eq = (hobj_eq_t) eq_pprod;
+  pprod_hobj.m.build = (hobj_build_t) build_pprod;
   pprod_hobj.tbl = table;
   pprod_hobj.array = a;
   pprod_hobj.len = n;
@@ -304,9 +297,14 @@ pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d) {
  * - return -1 if p is not in the table
  */
 static int32_t find_pprod_id(pprod_table_t *table, pprod_t *p) {
+  pprod_hobj_t pprod_hobj;
+
   assert(p != empty_pp && p != end_pp && !pp_is_var(p));
 
   // search for p's index using the hash table
+  pprod_hobj.m.hash = (hobj_hash_t) hash_pprod;
+  pprod_hobj.m.eq = (hobj_eq_t) eq_pprod;
+  pprod_hobj.m.build = (hobj_build_t) build_pprod;
   pprod_hobj.tbl = table;
   pprod_hobj.array = p->prod;
   pprod_hobj.len = p->len;

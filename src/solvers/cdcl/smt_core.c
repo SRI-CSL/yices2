@@ -1582,6 +1582,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_lemma_queue(&s->lemmas);
   init_statistics(&s->stats);
   init_atom_table(&s->atoms);
+  init_gate_table(&s->gates);
   init_trail_stack(&s->trail_stack);
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -1652,6 +1653,7 @@ void delete_smt_core(smt_core_t *s) {
   delete_heap(&s->heap);
   delete_lemma_queue(&s->lemmas);
   delete_atom_table(&s->atoms);
+  delete_gate_table(&s->gates);
   delete_trail_stack(&s->trail_stack);
   delete_checkpoint_stack(&s->checkpoints);
 
@@ -1711,6 +1713,7 @@ void reset_smt_core(smt_core_t *s) {
   reset_lemma_queue(&s->lemmas);
   reset_statistics(&s->stats);
   reset_atom_table(&s->atoms);
+  reset_gate_table(&s->gates);
   reset_trail_stack(&s->trail_stack);
   reset_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
@@ -1820,7 +1823,17 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
 }
 
 
+extern double avg_learned_clause_size(smt_core_t *core) {
+  uint32_t num_clauses;
+  double r;
 
+  r = 0.0;
+  num_clauses = num_learned_clauses(core);
+  if (num_clauses > 0) {
+    r = ((double) num_learned_literals(core)) /num_clauses;
+  }
+  return r;
+}
 
 
 
@@ -3177,7 +3190,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
 
   u = 0;
   for (i=0; i<n; i++) {
-    u |= 1 << (d_level(s, b[i]) & 31);
+    u |= ((uint32_t) 1) << (d_level(s, b[i]) & 31);
   }
   return u;
 }
@@ -3186,7 +3199,7 @@ static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
  * Check whether decision level for literal l matches the hash sgn
  */
 static inline bool check_level(smt_core_t *s, literal_t l, uint32_t sgn) {
-  return (sgn & (1 << (d_level(s, l) & 31))) != 0;
+  return (sgn & (((uint32_t) 1) << (d_level(s, l) & 31))) != 0;
 }
 
 
@@ -5084,6 +5097,11 @@ void smt_push(smt_core_t *s) {
                    s->stack.prop_ptr, s->stack.theory_ptr);
 
   /*
+   * Gate table
+   */
+  gate_table_push(&s->gates);
+
+  /*
    * Notify the theory solver
    */
   s->th_ctrl.push(s->th_solver);
@@ -5323,6 +5341,9 @@ void smt_pop(smt_core_t *s) {
   restore_clauses(s, top->nclauses);
   restore_binary_clauses(s, top->nbins);
 
+  // the lemma queue may be non-empty so we must clear it here
+  reset_lemma_queue(&s->lemmas);
+
   s->base_level --;
   backtrack(s, s->base_level);
   s->nb_unit_clauses = top->nunits;
@@ -5334,6 +5355,9 @@ void smt_pop(smt_core_t *s) {
   s->stack.theory_ptr = top->theory_ptr;
 
   trail_stack_pop(&s->trail_stack);
+
+  // gate table
+  gate_table_pop(&s->gates);
 
   // reset status
   s->status = STATUS_IDLE;
@@ -5822,7 +5846,7 @@ bool base_propagate(smt_core_t *s) {
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - make an internal copy of the assumptions
  * - initialize variable heap
  * - set status to searching
@@ -6007,6 +6031,41 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ */
+bool smt_easy_sat(smt_core_t *s) {
+  literal_t l;
+
+  assert(s->bool_only);
+
+  for (;;) {
+    assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+    smt_propagation(s);
+    assert(empty_lemma_queue(&s->lemmas));
+    assert(! s->cp_flag);
+
+    if (s->inconsistent) {
+      // clear the conflict
+      backtrack_to_base_level(s);
+      s->inconsistent = false;
+      s->theory_conflict = false;
+      return false;
+    }
+
+    l = select_unassigned_literal(s);
+    if (l == null_literal) {
+      s->status = STATUS_SAT;
+      return true;
+    }
+    decide_literal(s, l);
+  }
+}
+
+
+
 
 /***************
  *  RESTARTS   *
@@ -6109,7 +6168,8 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL RESTART\n");
@@ -6131,7 +6191,7 @@ void smt_partial_restart(smt_core_t *s) {
   bvar_t x;
   uint32_t i, k, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART\n");
@@ -6183,7 +6243,7 @@ void smt_partial_restart_var(smt_core_t *s) {
   bvar_t x;
   uint32_t i, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");
@@ -6325,6 +6385,34 @@ void collect_decision_literals(smt_core_t *s, ivector_t *v) {
     ivector_push(v, lit[i]);
   }
 }
+
+
+/******************
+ * IMPORT A MODEL *
+ *****************/
+
+/*
+ * Sets the value of variable x
+ */
+void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val) {
+  assert(0 <= x && x < s->nvars);
+  s->value[x] = val;
+}
+
+
+/**************************************
+ * CHECK WHETHER THE CONTEXT IS EMPTY *
+ *************************************/
+
+/*
+ * Check whether the core is trivially SAT
+ * - i.e., check whether there are no problem clauses
+ */
+bool smt_trivially_sat(smt_core_t *s) {
+  return num_prob_clauses(s) + num_binary_clauses(s) + num_unit_clauses(s) == 0;
+}
+
+
 
 
 /****************************

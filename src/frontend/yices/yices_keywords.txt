@@ -123,3 +123,4 @@ export-to-dimacs,       TK_EXPORT_TO_DIMACS
 show-implicant,         TK_SHOW_IMPLICANT
 show-unsat-core,        TK_SHOW_UNSAT_CORE
 show-unsat-assumptions, TK_SHOW_UNSAT_ASSUMPTIONS
+show-reduced-model,	TK_SHOW_REDUCED_MODEL

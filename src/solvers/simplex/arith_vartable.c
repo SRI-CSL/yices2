@@ -515,20 +515,15 @@ static thvar_t build_rational_hobj(rational_hobj_t *o) {
 
 
 /*
- * Hash consing object
- */
-static rational_hobj_t rational_hobj = {
-  { (hobj_hash_t) hash_rational_hobj, (hobj_eq_t) eq_rational_hobj, (hobj_build_t) build_rational_hobj },
-  NULL,
-  NULL,
-};
-
-
-/*
  * Return a variable equal to rational q
  * - return null_thvar if there's no such variable in table
  */
 thvar_t find_var_for_constant(arith_vartable_t *table, rational_t *q) {
+  rational_hobj_t rational_hobj;
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_hobj;
+  rational_hobj.m.eq = (hobj_eq_t) eq_rational_hobj;
+  rational_hobj.m.build = (hobj_build_t) build_rational_hobj;
   rational_hobj.table = table;
   rational_hobj.q = q;
   return int_htbl_find_obj(&table->htbl, &rational_hobj.m);
@@ -543,8 +538,13 @@ thvar_t find_var_for_constant(arith_vartable_t *table, rational_t *q) {
 thvar_t get_var_for_constant(arith_vartable_t *table, rational_t *q, bool *new_var) {
   uint32_t nv;
   thvar_t x;
+  rational_hobj_t rational_hobj;
 
   nv = table->nvars;
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_hobj;
+  rational_hobj.m.eq = (hobj_eq_t) eq_rational_hobj;
+  rational_hobj.m.build = (hobj_build_t) build_rational_hobj;
   rational_hobj.table = table;
   rational_hobj.q = q;
   x = int_htbl_get_obj(&table->htbl, &rational_hobj.m);
@@ -633,19 +633,6 @@ static thvar_t build_pprod_hobj(pprod_hobj_t *o) {
   return new_arith_var(table, p, mk_arith_vartag(AVAR_PPROD, integer_varexp(table, o->a, o->len)));
 }
 
-
-/*
- * Hash consing object
- */
-static pprod_hobj_t pprod_hobj = {
-  { (hobj_hash_t) hash_pprod_hobj, (hobj_eq_t) eq_pprod_hobj, (hobj_build_t) build_pprod_hobj },
-  NULL,
-  NULL,
-  0,
-};
-
-
-
 /*
  * Search for a variable whose definition is equal to p
  * - p = array of pairs <variable, exponent>
@@ -654,8 +641,13 @@ static pprod_hobj_t pprod_hobj = {
  * - return null_thvar if there no such variable in the table
  */
 thvar_t find_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n) {
+  pprod_hobj_t pprod_hobj;
+
   assert(n >= 2 || (n == 1 && p[0].exp >= 2));
 
+  pprod_hobj.m.hash = (hobj_hash_t) hash_pprod_hobj;
+  pprod_hobj.m.eq = (hobj_eq_t) eq_pprod_hobj;
+  pprod_hobj.m.build = (hobj_build_t) build_pprod_hobj;
   pprod_hobj.table = table;
   pprod_hobj.a = p;
   pprod_hobj.len = n;
@@ -674,10 +666,15 @@ thvar_t find_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n) {
 thvar_t get_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n, bool *new_var) {
   uint32_t nv;
   thvar_t x;
+  pprod_hobj_t pprod_hobj;
 
   assert(n >= 2 || (n == 1 && p[0].exp >= 2));
 
   nv = table->nvars;
+
+  pprod_hobj.m.hash = (hobj_hash_t) hash_pprod_hobj;
+  pprod_hobj.m.eq = (hobj_eq_t) eq_pprod_hobj;
+  pprod_hobj.m.build = (hobj_build_t) build_pprod_hobj;
   pprod_hobj.table = table;
   pprod_hobj.a = p;
   pprod_hobj.len = n;
@@ -766,17 +763,6 @@ static thvar_t build_poly_hobj(poly_hobj_t *o) {
 }
 
 
-/*
- * Hash-object for polynomials
- */
-static poly_hobj_t poly_hobj = {
-  { (hobj_hash_t) hash_poly_hobj, (hobj_eq_t) eq_poly_hobj, (hobj_build_t) build_poly_hobj },
-  NULL,
-  NULL,
-  0,
-};
-
-
 
 /*
  * Find a variable whose definition is equal to polynomial p
@@ -787,6 +773,12 @@ static poly_hobj_t poly_hobj = {
  * - n must be the length of p, excluding the end marker
  */
 thvar_t find_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n) {
+  poly_hobj_t poly_hobj;
+
+
+  poly_hobj.m.hash = (hobj_hash_t) hash_poly_hobj;
+  poly_hobj.m.eq = (hobj_eq_t) eq_poly_hobj;
+  poly_hobj.m.build = (hobj_build_t) build_poly_hobj;
   poly_hobj.table = table;
   poly_hobj.poly = p;
 
@@ -804,8 +796,13 @@ thvar_t find_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n) {
 thvar_t get_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n, bool *new_var) {
   uint32_t nv;
   thvar_t x;
+  poly_hobj_t poly_hobj;
 
   nv = table->nvars;
+
+  poly_hobj.m.hash = (hobj_hash_t) hash_poly_hobj;
+  poly_hobj.m.eq = (hobj_eq_t) eq_poly_hobj;
+  poly_hobj.m.build = (hobj_build_t) build_poly_hobj;
   poly_hobj.table = table;
   poly_hobj.poly = p;
   poly_hobj.len = n;
@@ -840,6 +837,3 @@ thvar_t get_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, uint32_t
   }
   return get_var_for_poly(table, p, n, new_var);
 }
-
-
-

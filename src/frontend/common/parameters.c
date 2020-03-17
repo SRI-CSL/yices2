@@ -65,11 +65,13 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "max-extensionality",
   "max-interface-eqs",
   "max-update-conflicts",
+  "mcsat-bv-var-size",
   "mcsat-nra-bound",
   "mcsat-nra-bound-max",
   "mcsat-nra-bound-min",
   "mcsat-nra-mgcd",
   "mcsat-nra-nlsat",
+  "mcsat-var-order",
   "optimistic-fcheck",
   "prop-threshold",
   "r-factor",
@@ -119,11 +121,13 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
   PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_MCSAT_BV_VAR_SIZE,
   PARAM_MCSAT_NRA_BOUND,
   PARAM_MCSAT_NRA_BOUND_MAX,
   PARAM_MCSAT_NRA_BOUND_MIN,
   PARAM_MCSAT_NRA_MGCD,
   PARAM_MCSAT_NRA_NLSAT,
+  PARAM_MCSAT_VAR_ORDER,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
@@ -354,8 +358,15 @@ bool param_val_to_factor(const char *name, const param_val_t *v, double *value, 
   return false;
 }
 
-
-
+// terms
+bool param_val_to_terms(const char *name, const param_val_t *v, ivector_t **value, char **reason) {
+  if (v->tag == PARAM_VAL_TERMS) {
+    *value = v->val.terms;
+    return true;
+  }
+  *reason = "list of variables required";
+  return false;
+}
 
 /*
  * Special case: branching mode

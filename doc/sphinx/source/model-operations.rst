@@ -136,7 +136,7 @@ Model Construction
    Collect all the uninterpreted terms that have a value in *mdl* and store them in
    vector *v*.
 
-   - *v* must be an initalized term vector (see :c:func:`yices_init_term_vector`).
+   - *v* must be an initialized term vector (see :c:func:`yices_init_term_vector`).
 
    The set of terms is returned as follows:
 
@@ -707,6 +707,21 @@ the children of non-leaf nodes.
    *n*). Otherwise, it returns 0.
 
    See also :c:func:`yices_val_expand_mapping`.
+
+.. c:function:: type_t yices_val_function_type(model_t *mdl, const yval_t *v)
+
+   Type of a function node.
+
+   If the node described by *\*v* has tag :c:enum:`YVAL_FUNCTION`, then
+   this function returns the type of the node. This is a function type.
+   Otherwise, the function returns -1 (i.e., :c:enum:`NULL_TYPE`).
+
+   **Error report**
+
+   - If the node is not a function
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
 
 .. c:function:: int32_t yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val)
 

@@ -1,3 +1,4 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Build Status](https://travis-ci.org/SRI-CSL/yices2.svg?branch=master)](https://travis-ci.org/SRI-CSL/yices2)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
@@ -8,7 +9,7 @@ Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and [Python language bindings](https://github.com/SRI-CSL/yices2/tree/master/src/bindings/python).
+and [Python language bindings](https://github.com/SRI-CSL/yices2_python_bindings).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
@@ -103,7 +104,7 @@ sat
 
 ## Installing Prebuilt Binaries
 
-Currently you can install Yices either using Homebrew or Aptitude.
+Currently you can install Yices either using Homebrew or Apt.
 
 #### Homebrew
 
@@ -114,7 +115,7 @@ brew install SRI-CSL/sri-csl/yices2
 This will install the full mcsat-enabled version of Yices, including dynamic library and header files.
 
 
-#### Aptitude
+#### Apt
 
 To install Yices on Ubuntu or Debian, do the following:
 ```
@@ -148,7 +149,7 @@ To build the manual, you also need:
 - the latexmk tool
 
 To build the on-line documentation, you need to install the Sphinx
-python pacakge. The simplest method is:
+python package. The simplest method is:
 
 ```
 sudo pip install sphinx
@@ -174,18 +175,26 @@ the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 
-#### Support for Non-Linear Arithmetic
+#### Support for Non-Linear Arithmetic and MC-SAT
 
-Yices supports non-linear real and integer arithmetic, but this is not
-enabled by default. If you want non-linear arithmetic, follow these
-instructions:
+Yices supports non-linear real and integer arithmetic using a method
+known as *Model-Constructing Satisfiability* (MC-SAT), but this is not
+enabled by default. The MC-SAT solver also supports other theories and
+theory combination. We are currently extending it to handle bit-vector
+constraints.
+
+If you want the MC-SAT solver, follow these instructions:
 
 1. Install SRI's library for polynomial manipulation. It's available
-   on github (https://github.com/SRI-CSL/libpoly).
+   on [github](https://github.com/SRI-CSL/libpoly).
 
-2. After you've installed libpoly, add option `--enable-mcsat` to
-   the cofigure command. In details, type this in the toplevel
-   Yices directory:
+2. Install the CUDD library for binary-decision diagrams. We recommand
+   using the github distribution: https://github.com/ivmai/cudd.
+
+3. After you've installed libpoly and CUDD, add option
+   `--enable-mcsat` to the configure command. In details, type this in
+   the toplevel Yices directory:
+
 ```
 autoconf
 ./configure --enable-mcsat
@@ -194,9 +203,27 @@ sudo make install
 ```
 
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
-  find the libpoly library. Other options may be useful too.  Try
+  find the libpoly or CUDD libraries. Other options may be useful too.  Try
   `./configure --help` to see what's there.
 
+
+#### Support for Thread Safety
+
+The Yices library is not thread safe by default, if you need a re-entrant version:
+```
+autoconf
+./configure --enable-thread-safety
+make
+sudo make install
+```
+
+If configured with `--enable-thread-safety` the Yices library will be thread
+safe in the following sense: as long as the creation and manipulation of
+each context and each model is restricted to a single thread, there should be no races.
+In particular separate threads can create their own contexts, and manipulate and check
+them without impeding another thread's progress.
+
+NOTE: `--enable-mcsat` and `--enable-thread-safety` are currently incompatible.
 
 #### Windows Builds
 

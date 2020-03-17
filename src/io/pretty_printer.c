@@ -1589,17 +1589,6 @@ static void process_token(formatter_t *f, void *tk) {
  * INITIALIZATION
  */
 
-/*
- * Default display area
- */
-static pp_area_t default_area = {
-  PP_DEFAULT_WIDTH,
-  PP_DEFAULT_HEIGHT,
-  PP_DEFAULT_OFFSET,
-  PP_DEFAULT_STRETCH,
-  PP_DEFAULT_TRUNCATE,
-};
-
 
 /*
  * Initialization:
@@ -1617,8 +1606,14 @@ static pp_area_t default_area = {
  */
 void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 	     pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+  pp_area_t default_area;
 
   if (area == NULL) {
+    default_area.width = PP_DEFAULT_WIDTH;
+    default_area.height = PP_DEFAULT_HEIGHT;
+    default_area.offset = PP_DEFAULT_OFFSET;
+    default_area.stretch = PP_DEFAULT_STRETCH;
+    default_area.truncate = PP_DEFAULT_TRUNCATE;
     area = &default_area;
   }
 

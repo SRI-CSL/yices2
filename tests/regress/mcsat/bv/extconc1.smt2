@@ -1,0 +1,22 @@
+(set-info :smt-lib-version 2.6)
+(set-logic QF_BV)
+(declare-fun v1 () (_ BitVec 4))
+(declare-fun v2 () (_ BitVec 4))
+(declare-fun v3 () (_ BitVec 4))
+(declare-fun v4 () (_ BitVec 4))
+(assert (=
+         (concat ((_ extract 3 0) v1) ((_ extract 3 0) v2))
+         (concat ((_ extract 3 0) v3) ((_ extract 3 0) v4))
+         ))
+(assert (not (=
+              ((_ extract 3 0) v1)
+              ((_ extract 3 0) v3)
+              )
+             ))
+(assert (not (=
+              ((_ extract 3 0) v2)
+              ((_ extract 3 0) v4)
+              )
+             ))
+(check-sat)
+(exit)

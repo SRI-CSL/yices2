@@ -410,7 +410,7 @@ static void add_term(term_t t) {
  */
 
 /*
- * Sampling: select one type in store that satifies predicate p
+ * Sampling: select one type in store that satisfies predicate p
  */
 typedef bool (*predicate_t)(type_t tau);
 

@@ -226,15 +226,13 @@ static inline bool pp_buffer_is_trivial(pp_buffer_t *b) {
   return (b->len == 0) || (b->len == 1 && b->prod[0].exp == 1);
 }
 
-
-
 /*
  * Degree computation
  */
 extern uint32_t pp_buffer_degree(pp_buffer_t *b);
 
 /*
- * Check whether the degree is less than MAX_DEGREE.
+ * Check whether the degree is less than YICES_MAX_DEGREE.
  */
 extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
 
@@ -244,6 +242,11 @@ extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
  */
 extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
 
+/*
+ * Check whether b1 and b2 are equal
+ * - both must be normalized
+ */
+extern bool pp_buffer_equal(pp_buffer_t *b1, pp_buffer_t *b2);
 
 /*
  * Convert b's content to a power-product object.
@@ -253,6 +256,28 @@ extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
  */
 extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
 
+
+/*
+ * Compute the common factors of b and b1. Store the result in b.
+ * - on entry: b and b1 must be normalized
+ * - on exit: b is modified to store the common factors and it's normalized
+ */
+extern void pp_buffer_gcd(pp_buffer_t *b, pp_buffer_t *b1);
+
+/*
+ * Divide b by b1. Store the result in b.
+ * - on entry b and b1 must be normalized
+ * - on exit: b stores the division.
+ * - this should be used only if b1 is a divisor of b but we don't check.
+ */
+extern void pp_buffer_divide(pp_buffer_t *b, pp_buffer_t *b1);
+
+/*
+ * Divide b by x. Store the result in b.
+ * - on entry, b must be normalized.
+ * - on exit, b store the division and is normalized.
+ */
+extern void pp_buffer_divide_by_var(pp_buffer_t *b, int32_t x);
 
 
 /*

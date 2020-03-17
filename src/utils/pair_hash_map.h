@@ -114,5 +114,13 @@ extern void pmap_erase(pmap_t *hmap, pmap_rec_t *r);
  */
 extern void pmap_reset(pmap_t *hmap);
 
+/*
+ * Support for scanning all records:
+ * - first gives the first valid record (value field is not NULL nor DELETED_PTR) or NULL
+ * - next(p) gives the next record after p or NULL
+ * IMPORTANT: The hmap must not be modified between calls to next
+ */
+extern pmap_rec_t *pmap_first_record(pmap_t *hmap);
+extern pmap_rec_t *pmap_next_record(pmap_t *hmap, pmap_rec_t *p);
 
 #endif /* __PAIR_HASH_MAP_H */

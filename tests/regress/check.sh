@@ -3,17 +3,17 @@
 #
 #  This file is part of the Yices SMT Solver.
 #  Copyright (C) 2017 SRI International.
-# 
+#
 #  Yices is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-# 
+#
 #  Yices is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-# 
+#
 #  You should have received a copy of the GNU General Public License
 #  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
 #
@@ -26,7 +26,7 @@
 # tests-dir contains test files in the SMT1, SMT2, or Yices input language
 # bin-dir contains the Yices binaries for each of these languages
 #
-# For each test file, the expected resuts is stored in file.gold
+# For each test file, the expected results are stored in file.gold
 # and command-line options are stored in file.options.
 #
 # This scripts calls the appropriate binary on each test file, passing it
@@ -68,6 +68,18 @@ TIMEFORMAT="%U"
 
 
 #
+# Output colors
+#
+red=
+green=
+black=
+if test -t 1 ; then
+  red=`tput setaf 1`
+  green=`tput setaf 2`
+  black=`tput sgr0`
+fi
+
+#
 # The temp file for output
 #
 outfile=`$mktemp_cmd` || { echo "Can't create temp file" ; exit 1 ; }
@@ -80,10 +92,33 @@ failed_tests=()
 
 if [[ -z "$REGRESS_FILTER" ]];
 then
-	REGRESS_FILTER="." 
+	REGRESS_FILTER="."
 fi
 
-for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' | grep $REGRESS_FILTER | sort`; do
+if [[ -z "$TIME_LIMIT" ]];
+then
+  TIME_LIMIT=60
+fi
+
+
+#
+# Check if MCSAT is supported
+#
+./$bin_dir/yices_smt2 --mcsat >& /dev/null < /dev/null
+if [ $? -ne 0 ]
+then
+    MCSAT_FILTER="-v mcsat"
+else
+    MCSAT_FILTER="."
+fi
+
+all_tests=$(
+    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
+    grep $REGRESS_FILTER | grep $MCSAT_FILTER |
+    sort
+)
+
+for file in $all_tests; do
 
     echo -n $file
 
@@ -98,8 +133,8 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
             binary=yices_smtcomp
             ;;
         *.ys)
-            binary=yices_main
-            ;; 
+            binary=yices
+            ;;
         *)
             echo FAIL: unknown extension for $filename
             fail=`expr $fail + 1`
@@ -114,51 +149,72 @@ for file in `find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.y
     	test_string="$file [ $options ]"
     else
         options=
-	    test_string="$file"
+        test_string="$file"
         echo
     fi
-
 
     # Get the expected result
     if [ -e "$file.gold" ]
     then
         gold=$file.gold
     else
+        echo -n $red
         echo FAIL: missing file: $file.gold
+        echo -n $black
         fail=`expr $fail + 1`
         failed_tests+=("$test_string")
         continue
     fi
 
     # Run the binary
-    (time  ./$bin_dir/$binary $options ./$file >& $outfile ) >&  $timefile
+    (
+      ulimit -S -t $TIME_LIMIT &> /dev/null
+      ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
+      (time ./$bin_dir/$binary $options ./$file >& $outfile ) >& $timefile
+    )
     thetime=`cat $timefile`
 
     # Do the diff
-    diff -w $outfile $gold > /dev/null
-  
-    if [ $? -eq 0 ] 
+    DIFF=`diff -w $outfile $gold`
+
+    if [ $? -eq 0 ]
     then
+        echo -n $green
     	echo PASS [${thetime} s]
+        echo -n $black
         pass=`expr $pass + 1`
     else
-    	echo FAIL
+        echo -n $red
+        echo FAIL
+        echo -n $black
         fail=`expr $fail + 1`
-        failed_tests+=("$test_string")
+        failed_tests+=("$test_string"$'\n'"$DIFF")
     fi
-    
+
 done
 
 rm $outfile
 rm $timefile
 
-echo Pass: $pass
-echo Fail: $fail
+if [ $fail -eq 0 ]
+then
+    echo -n $green
+    echo Pass: $pass
+    echo Fail: $fail
+    echo -n $black
+else
+    echo -n $red
+    echo Pass: $pass
+    echo Fail: $fail
+    echo -n $black
+fi
 
 if [ $fail -eq 0 ]
 then
     exit 0
 else
-	for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
+    for i in "${!failed_tests[@]}"; do echo "$((i+1)). ${failed_tests[$i]}"; done
     exit 1
 fi
+
+echo -n $black

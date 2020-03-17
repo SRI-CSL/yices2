@@ -152,6 +152,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   // buffers
   init_ivector(&table->ibuffer, 20);
   init_pvector(&table->pbuffer, 20);
+
 }
 
 
@@ -175,7 +176,6 @@ static void term_table_extend(term_table_t *table) {
   table->mark = extend_bitvector(table->mark, n);
   table->size = n;
 }
-
 
 
 
@@ -605,8 +605,6 @@ static inline uint32_t hash_bvconst64_term(uint32_t bitsize, uint64_t v) {
 
 
 
-
-
 /*
  * HASH CONSING
  */
@@ -640,7 +638,6 @@ typedef struct {
   type_t tau;
   int32_t id;
 } integer_term_hobj_t;
-
 
 /*
  * Rational terms
@@ -709,7 +706,6 @@ typedef struct {
   const term_t *arg;
 } update_term_hobj_t;
 
-
 /*
  * Quantified formula: (forall v[0] ... v[n-1] p)
  * - p = body
@@ -723,7 +719,6 @@ typedef struct {
   uint32_t n;
   const term_t *v;
 } forall_term_hobj_t;
-
 
 /*
  * Lambda term: (lambda v[0] ... v[n-1] t)
@@ -832,6 +827,19 @@ typedef struct {
 
 
 /*
+ * Bit vector polynomial constructed from a bvpoly_buffer
+ * - this handles both small and large coefficients.
+ * - tau = bitvector type
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  bvpoly_buffer_t *b;
+} bvpoly_buffer_hobj_t;
+
+
+/*
  * Bit vector constants
  * - v = value stored as an array of words
  */
@@ -910,6 +918,14 @@ static uint32_t hash_bvpoly_hobj(bvpoly_term_hobj_t *o) {
 
 static uint32_t hash_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
   return hash_bvarith64_buffer(o->b, o->v);
+}
+
+static uint32_t hash_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o) {
+  if (o->b->bitsize <= 64) {
+    return bvpoly_buffer_hash64(o->b);
+  } else {
+    return bvpoly_buffer_hash(o->b);
+  }
 }
 
 static uint32_t hash_bvconst_hobj(bvconst_term_hobj_t *o) {
@@ -1098,6 +1114,24 @@ static bool eq_bvpoly64_hobj(bvpoly64_term_hobj_t *o, int32_t i) {
     bvarith64_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
 }
 
+static bool eq_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o, int32_t i) {
+  term_table_t *table;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  switch (table->kind[i]) {
+  case BV64_POLY:
+    return bvpoly_buffer_equal_poly64(o->b, table->desc[i].ptr);
+
+  case BV_POLY:
+    return bvpoly_buffer_equal_poly(o->b, table->desc[i].ptr);
+
+  default:
+    return false;
+  }
+}
+
 static bool eq_bvconst_hobj(bvconst_term_hobj_t *o, int32_t i) {
   term_table_t *table;
   bvconst_term_t *d;
@@ -1216,6 +1250,23 @@ static int32_t build_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
   return new_ptr_term(o->tbl, BV64_POLY, o->tau, p);
 }
 
+static int32_t build_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o) {
+  bvpoly_buffer_t *b;
+  term_kind_t tag;
+  void *p;
+
+  b = o->b;
+  if (b->bitsize <= 64) {
+    p = bvpoly_buffer_getpoly64(b);
+    tag = BV64_POLY;
+  } else {
+    p = bvpoly_buffer_getpoly(b);
+    tag = BV_POLY;
+  }
+
+  return new_ptr_term(o->tbl, tag, o->tau, p);
+}
+
 static int32_t build_bvconst_hobj(bvconst_term_hobj_t *o) {
   bvconst_term_t *c;
 
@@ -1229,125 +1280,6 @@ static int32_t build_bvconst64_hobj(bvconst64_term_hobj_t *o) {
   c = new_bvconst64_term(o->bitsize, o->v);
   return new_ptr_term(o->tbl, BV64_CONSTANT, o->tau, c);
 }
-
-
-
-/*
- * Global hash-consing objects
- */
-static integer_term_hobj_t integer_hobj = {
-  { (hobj_hash_t) hash_integer_hobj, (hobj_eq_t) eq_integer_hobj,
-    (hobj_build_t) build_integer_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static rational_term_hobj_t rational_hobj = {
-  { (hobj_hash_t) hash_rational_hobj, (hobj_eq_t) eq_rational_hobj,
-    (hobj_build_t) build_rational_hobj },
-  NULL,
-  0, 0, NULL,
-};
-
-static composite_term_hobj_t composite_hobj = {
-  { (hobj_hash_t) hash_composite_hobj, (hobj_eq_t) eq_composite_hobj,
-    (hobj_build_t) build_composite_hobj },
-  NULL,
-  0, 0, 0, NULL,
-};
-
-static composite_term_hobj_t special_hobj = {
-  { (hobj_hash_t) hash_composite_hobj, (hobj_eq_t) eq_composite_hobj,
-    (hobj_build_t) build_special_hobj },
-  NULL,
-  0, 0, 0, NULL,
-};
-
-static app_term_hobj_t app_hobj = {
-  { (hobj_hash_t) hash_app_hobj, (hobj_eq_t) eq_app_hobj,
-    (hobj_build_t) build_app_hobj },
-  NULL,
-  0, 0, 0, NULL,
-};
-
-static update_term_hobj_t update_hobj = {
-  { (hobj_hash_t) hash_update_hobj, (hobj_eq_t) eq_update_hobj,
-    (hobj_build_t) build_update_hobj },
-  NULL,
-  0, 0, 0, 0, NULL,
-};
-
-static forall_term_hobj_t forall_hobj = {
-  { (hobj_hash_t) hash_forall_hobj, (hobj_eq_t) eq_forall_hobj,
-    (hobj_build_t) build_forall_hobj },
-  NULL,
-  0, 0, NULL,
-};
-
-static lambda_term_hobj_t lambda_hobj = {
-  { (hobj_hash_t) hash_lambda_hobj, (hobj_eq_t) eq_lambda_hobj,
-    (hobj_build_t) build_lambda_hobj },
-  NULL,
-  0, 0, 0, NULL,
-};
-
-static select_term_hobj_t select_hobj = {
-  { (hobj_hash_t) hash_select_hobj, (hobj_eq_t) eq_select_hobj,
-    (hobj_build_t) build_select_hobj },
-  NULL,
-  0, 0, 0, 0,
-};
-
-static root_atom_hobj_t root_atom_hobj = {
-  { (hobj_hash_t) hash_root_atom_hobj, (hobj_eq_t) eq_root_atom_hobj,
-    (hobj_build_t) build_root_atom_hobj },
-  NULL,
-  0, 0, 0, 0,
-};
-
-static pprod_term_hobj_t pprod_hobj = {
-  { (hobj_hash_t) hash_pprod_hobj, (hobj_eq_t) eq_pprod_hobj,
-    (hobj_build_t) build_pprod_hobj },
-  NULL,
-  0, NULL,
-};
-
-static poly_term_hobj_t poly_hobj = {
-  { (hobj_hash_t) hash_poly_hobj, (hobj_eq_t) eq_poly_hobj,
-    (hobj_build_t) build_poly_hobj },
-  NULL,
-  0, NULL, NULL,
-};
-
-static bvpoly_term_hobj_t bvpoly_hobj = {
-  { (hobj_hash_t) hash_bvpoly_hobj, (hobj_eq_t) eq_bvpoly_hobj,
-    (hobj_build_t) build_bvpoly_hobj },
-  NULL,
-  0, NULL, NULL,
-};
-
-static bvpoly64_term_hobj_t bvpoly64_hobj = {
-  { (hobj_hash_t) hash_bvpoly64_hobj, (hobj_eq_t) eq_bvpoly64_hobj,
-    (hobj_build_t) build_bvpoly64_hobj },
-  NULL,
-  0, NULL, NULL,
-};
-
-static bvconst_term_hobj_t bvconst_hobj = {
-  { (hobj_hash_t) hash_bvconst_hobj, (hobj_eq_t) eq_bvconst_hobj,
-    (hobj_build_t) build_bvconst_hobj },
-  NULL,
-  0, 0, NULL,
-};
-
-static bvconst64_term_hobj_t bvconst64_hobj = {
-  { (hobj_hash_t) hash_bvconst64_hobj, (hobj_eq_t) eq_bvconst64_hobj,
-    (hobj_build_t) build_bvconst64_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-
 
 
 /*
@@ -1967,8 +1899,9 @@ void delete_term_table(term_table_t *table) {
   table->type = NULL;
   table->desc = NULL;
   table->mark = NULL;
-}
 
+
+}
 
 
 /*
@@ -2105,7 +2038,11 @@ static type_t type_of_pprod(term_table_t *table, pprod_t *r) {
  */
 term_t constant_term(term_table_t *table, type_t tau, int32_t index) {
   int32_t i;
+  integer_term_hobj_t integer_hobj;
 
+  integer_hobj.m.hash = (hobj_hash_t) hash_integer_hobj;
+  integer_hobj.m.eq = (hobj_eq_t) eq_integer_hobj;
+  integer_hobj.m.build = (hobj_build_t) build_integer_hobj;
   integer_hobj.tbl = table;
   integer_hobj.tag = CONSTANT_TERM;
   integer_hobj.tau = tau;
@@ -2188,6 +2125,11 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
   aux[2] = right;
 
   if (make_special_ite(table, left, right)) {
+    composite_term_hobj_t special_hobj;
+
+    special_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+    special_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+    special_hobj.m.build = (hobj_build_t) build_special_hobj;
     special_hobj.tbl = table;
     special_hobj.tag = ITE_SPECIAL;
     special_hobj.tau = tau;
@@ -2197,6 +2139,11 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
     i = int_htbl_get_obj(&table->htbl, &special_hobj.m);
 
   } else {
+    composite_term_hobj_t composite_hobj;
+
+    composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+    composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+    composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
     composite_hobj.tbl = table;
     composite_hobj.tag = ITE_TERM;
     composite_hobj.tau = tau;
@@ -2216,9 +2163,13 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
 term_t app_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[]) {
   type_t tau;
   int32_t i;
+  app_term_hobj_t app_hobj;
 
   tau = term_type(table, fun);
 
+  app_hobj.m.hash = (hobj_hash_t) hash_app_hobj;
+  app_hobj.m.eq = (hobj_eq_t) eq_app_hobj;
+  app_hobj.m.build = (hobj_build_t) build_app_hobj;
   app_hobj.tbl = table;
   app_hobj.tau = function_type_range(table->types, tau); // range of fun
   app_hobj.f = fun;
@@ -2239,9 +2190,13 @@ term_t app_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[])
 term_t update_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg[], term_t new_v) {
   type_t tau;
   int32_t i;
+  update_term_hobj_t update_hobj;
 
   tau = term_type(table, fun);
 
+  update_hobj.m.hash = (hobj_hash_t) hash_update_hobj;
+  update_hobj.m.eq = (hobj_eq_t) eq_update_hobj;
+  update_hobj.m.build = (hobj_build_t) build_update_hobj;
   update_hobj.tbl = table;
   update_hobj.tau = tau;
   update_hobj.f = fun;
@@ -2260,7 +2215,11 @@ term_t update_term(term_table_t *table, term_t fun, uint32_t n, const term_t arg
  */
 term_t tuple_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = TUPLE_TERM;
   composite_hobj.tau = type_of_tuple(table, n, arg);
@@ -2279,9 +2238,13 @@ term_t tuple_term(term_table_t *table, uint32_t n, const term_t arg[]) {
 term_t select_term(term_table_t *table, uint32_t index, term_t tuple) {
   type_t tau;
   int32_t i;
+  select_term_hobj_t select_hobj;
 
   tau = term_type(table, tuple);
 
+  select_hobj.m.hash = (hobj_hash_t) hash_select_hobj;
+  select_hobj.m.eq = (hobj_eq_t) eq_select_hobj;
+  select_hobj.m.build = (hobj_build_t) build_select_hobj;
   select_hobj.tbl = table;
   select_hobj.tag = SELECT_TERM;
   select_hobj.tau = tuple_type_component(table->types, tau, index);;
@@ -2300,10 +2263,14 @@ term_t select_term(term_table_t *table, uint32_t index, term_t tuple) {
 static term_t binary_term(term_table_t *table, term_kind_t tag, type_t tau, term_t left, term_t right) {
   term_t aux[2];
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
   aux[0] = left;
   aux[1] = right;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = tag;
   composite_hobj.tau = tau;
@@ -2321,7 +2288,11 @@ static term_t binary_term(term_table_t *table, term_kind_t tag, type_t tau, term
  */
 static term_t unary_term(term_table_t *table, term_kind_t tag, type_t tau, term_t t) {
   int32_t i;
+  integer_term_hobj_t integer_hobj;
 
+  integer_hobj.m.hash = (hobj_hash_t) hash_integer_hobj;
+  integer_hobj.m.eq = (hobj_eq_t) eq_integer_hobj;
+  integer_hobj.m.build = (hobj_build_t) build_integer_hobj;
   integer_hobj.tbl = table;
   integer_hobj.tag = tag;
   integer_hobj.tau = tau;
@@ -2346,7 +2317,11 @@ term_t eq_term(term_table_t *table, term_t left, term_t right) {
  */
 term_t distinct_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = DISTINCT_TERM;
   composite_hobj.tau = bool_type(table->types);
@@ -2364,7 +2339,11 @@ term_t distinct_term(term_table_t *table, uint32_t n, const term_t arg[]) {
  */
 term_t forall_term(term_table_t *table, uint32_t n, const term_t var[], term_t body) {
   int32_t i;
+  forall_term_hobj_t forall_hobj;
 
+  forall_hobj.m.hash = (hobj_hash_t) hash_forall_hobj;
+  forall_hobj.m.eq = (hobj_eq_t) eq_forall_hobj;
+  forall_hobj.m.build = (hobj_build_t) build_forall_hobj;
   forall_hobj.tbl = table;
   forall_hobj.p = body;
   forall_hobj.n = n;
@@ -2381,7 +2360,11 @@ term_t forall_term(term_table_t *table, uint32_t n, const term_t var[], term_t b
  */
 term_t lambda_term(term_table_t *table, uint32_t n, const term_t var[], term_t body) {
   int32_t i;
+  lambda_term_hobj_t lambda_hobj;
 
+  lambda_hobj.m.hash = (hobj_hash_t) hash_lambda_hobj;
+  lambda_hobj.m.eq = (hobj_eq_t) eq_lambda_hobj;
+  lambda_hobj.m.build = (hobj_build_t) build_lambda_hobj;
   lambda_hobj.tbl = table;
   lambda_hobj.tau = type_of_lambda(table, n, var, body);
   lambda_hobj.t = body;
@@ -2399,7 +2382,11 @@ term_t lambda_term(term_table_t *table, uint32_t n, const term_t var[], term_t b
  */
 term_t or_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = OR_TERM;
   composite_hobj.tau = bool_type(table->types);
@@ -2417,7 +2404,11 @@ term_t or_term(term_table_t *table, uint32_t n, const term_t arg[]) {
  */
 term_t xor_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = XOR_TERM;
   composite_hobj.tau = bool_type(table->types);
@@ -2435,7 +2426,11 @@ term_t xor_term(term_table_t *table, uint32_t n, const term_t arg[]) {
  */
 term_t bit_term(term_table_t *table, uint32_t k, term_t bv) {
   int32_t i;
+  select_term_hobj_t select_hobj;
 
+  select_hobj.m.hash = (hobj_hash_t) hash_select_hobj;
+  select_hobj.m.eq = (hobj_eq_t) eq_select_hobj;
+  select_hobj.m.build = (hobj_build_t) build_select_hobj;
   select_hobj.tbl = table;
   select_hobj.tag = BIT_TERM;
   select_hobj.tau = bool_type(table->types);
@@ -2462,7 +2457,11 @@ term_t bit_term(term_table_t *table, uint32_t k, term_t bv) {
  */
 term_t pprod_term(term_table_t *table, pprod_t *r) {
   int32_t i;
+  pprod_term_hobj_t pprod_hobj;
 
+  pprod_hobj.m.hash = (hobj_hash_t) hash_pprod_hobj;
+  pprod_hobj.m.eq = (hobj_eq_t) eq_pprod_hobj;
+  pprod_hobj.m.build = (hobj_build_t) build_pprod_hobj;
   pprod_hobj.tbl = table;
   pprod_hobj.tau = type_of_pprod(table, r);
   pprod_hobj.r = r;
@@ -2479,12 +2478,16 @@ term_t pprod_term(term_table_t *table, pprod_t *r) {
 term_t arith_constant(term_table_t *table, rational_t *a) {
   type_t tau;
   int32_t i;
+  rational_term_hobj_t rational_hobj;
 
   tau = real_type(table->types);
   if (q_is_integer(a)) {
     tau = int_type(table->types);
   }
 
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_hobj;
+  rational_hobj.m.eq = (hobj_eq_t) eq_rational_hobj;
+  rational_hobj.m.build = (hobj_build_t) build_rational_hobj;
   rational_hobj.tbl = table;
   rational_hobj.tag = ARITH_CONSTANT;
   rational_hobj.tau = tau;
@@ -2580,7 +2583,11 @@ term_t arith_divides(term_table_t *table, term_t x, term_t y) {
  */
 term_t arith_root_atom(term_table_t *table, uint32_t k, term_t x, term_t p, root_atom_rel_t r) {
   int32_t i;
+  root_atom_hobj_t root_atom_hobj;
 
+  root_atom_hobj.m.hash = (hobj_hash_t) hash_root_atom_hobj;
+  root_atom_hobj.m.eq = (hobj_eq_t) eq_root_atom_hobj;
+  root_atom_hobj.m.build = (hobj_build_t) build_root_atom_hobj;
   root_atom_hobj.tbl = table;
   root_atom_hobj.k = k;
   root_atom_hobj.x = x;
@@ -2608,7 +2615,11 @@ term_t arith_rdiv(term_table_t *table, term_t x, term_t y) {
  */
 term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv) {
   int32_t i;
+  bvconst64_term_hobj_t bvconst64_hobj;
 
+  bvconst64_hobj.m.hash = (hobj_hash_t) hash_bvconst64_hobj;
+  bvconst64_hobj.m.eq = (hobj_eq_t) eq_bvconst64_hobj;
+  bvconst64_hobj.m.build = (hobj_build_t) build_bvconst64_hobj;
   bvconst64_hobj.tbl = table;
   bvconst64_hobj.tau = bv_type(table->types, n);
   bvconst64_hobj.bitsize = n;
@@ -2629,7 +2640,11 @@ term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv) {
  */
 term_t bvconst_term(term_table_t *table, uint32_t n, const uint32_t *bv) {
   int32_t i;
+  bvconst_term_hobj_t bvconst_hobj;
 
+  bvconst_hobj.m.hash = (hobj_hash_t) hash_bvconst_hobj;
+  bvconst_hobj.m.eq = (hobj_eq_t) eq_bvconst_hobj;
+  bvconst_hobj.m.build = (hobj_build_t) build_bvconst_hobj;
   bvconst_hobj.tbl = table;
   bvconst_hobj.tau = bv_type(table->types, n);
   bvconst_hobj.bitsize = n;
@@ -2648,7 +2663,11 @@ term_t bvconst_term(term_table_t *table, uint32_t n, const uint32_t *bv) {
  */
 term_t bvarray_term(term_table_t *table, uint32_t n, const term_t arg[]) {
   int32_t i;
+  composite_term_hobj_t composite_hobj;
 
+  composite_hobj.m.hash = (hobj_hash_t) hash_composite_hobj;
+  composite_hobj.m.eq = (hobj_eq_t) eq_composite_hobj;
+  composite_hobj.m.build = (hobj_build_t) build_composite_hobj;
   composite_hobj.tbl = table;
   composite_hobj.tag = BV_ARRAY;
   composite_hobj.tau = bv_type(table->types, n);
@@ -2721,6 +2740,29 @@ term_t bvsge_atom(term_table_t *table, term_t l, term_t r) {
   return binary_term(table, BV_SGE_ATOM, bool_type(table->types), l, r);
 }
 
+
+
+
+/*
+ * POWER PRODUCT
+ */
+
+/*
+ * Power product built from a buffer b
+ * - b must not be empty
+ */
+term_t pprod_term_from_buffer(term_table_t *table, pp_buffer_t *b) {
+  pprod_t *r;
+
+  r = pprod_from_buffer(table->pprods, b);
+  assert(!pp_is_empty(r));
+
+  if (pp_is_var(r)) {
+    return var_of_pp(r);
+  } else {
+    return pprod_term(table, r);
+  }
+}
 
 
 
@@ -2819,6 +2861,7 @@ term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
   int32_t i;
   bool all_int;
   uint32_t j, n;
+  poly_term_hobj_t poly_hobj;
 
   assert(b->ptbl == table->pprods);
 
@@ -2845,6 +2888,9 @@ term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
   }
 
   // hash consing
+  poly_hobj.m.hash = (hobj_hash_t) hash_poly_hobj;
+  poly_hobj.m.eq = (hobj_eq_t) eq_poly_hobj;
+  poly_hobj.m.build = (hobj_build_t) build_poly_hobj;
   poly_hobj.tbl = table;
   poly_hobj.tau = tau;
   poly_hobj.b = b;
@@ -2874,6 +2920,7 @@ term_t bv64_poly(term_table_t *table, bvarith64_buffer_t *b) {
   int32_t *v;
   int32_t i;
   uint32_t j, n;
+  bvpoly64_term_hobj_t bvpoly64_hobj;
 
   assert(b->ptbl == table->pprods);
 
@@ -2897,6 +2944,9 @@ term_t bv64_poly(term_table_t *table, bvarith64_buffer_t *b) {
   v[j] = max_idx;
 
   // hash consing
+  bvpoly64_hobj.m.hash = (hobj_hash_t) hash_bvpoly64_hobj;
+  bvpoly64_hobj.m.eq = (hobj_eq_t) eq_bvpoly64_hobj;
+  bvpoly64_hobj.m.build = (hobj_build_t) build_bvpoly64_hobj ;
   bvpoly64_hobj.tbl = table;
   bvpoly64_hobj.tau = bv_type(table->types, b->bitsize);
   bvpoly64_hobj.b = b;
@@ -2916,6 +2966,7 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
   int32_t *v;
   int32_t i;
   uint32_t j, n;
+  bvpoly_term_hobj_t bvpoly_hobj;
 
   assert(b->ptbl == table->pprods);
 
@@ -2939,6 +2990,9 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
   v[j] = max_idx;
 
   // hash consing
+  bvpoly_hobj.m.hash = (hobj_hash_t) hash_bvpoly_hobj;
+  bvpoly_hobj.m.eq = (hobj_eq_t) eq_bvpoly_hobj;
+  bvpoly_hobj.m.build = (hobj_build_t) build_bvpoly_hobj;
   bvpoly_hobj.tbl = table;
   bvpoly_hobj.tau = bv_type(table->types, b->bitsize);
   bvpoly_hobj.b = b;
@@ -2952,6 +3006,29 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
   return pos_term(i);
 }
 
+
+/*
+ * Build/return a term equal to bvpoly_buffer b
+ * - this works only for linear polynomials
+ * - all variables of b must be terms defined in table
+ * - b must be normalized
+ * - b is not modified
+ */
+term_t bv_poly_from_buffer(term_table_t *table, bvpoly_buffer_t *b) {
+  int32_t i;
+  bvpoly_buffer_hobj_t bvbuffer_hobj;
+
+  bvbuffer_hobj.m.hash = (hobj_hash_t) hash_bvpoly_buffer_hobj;
+  bvbuffer_hobj.m.eq = (hobj_eq_t) eq_bvpoly_buffer_hobj;
+  bvbuffer_hobj.m.build = (hobj_build_t) build_bvpoly_buffer_hobj;
+  bvbuffer_hobj.tbl = table;
+  bvbuffer_hobj.tau = bv_type(table->types, b->bitsize);
+  bvbuffer_hobj.b = b;
+
+  i = int_htbl_get_obj(&table->htbl, &bvbuffer_hobj.m);
+
+  return pos_term(i);
+}
 
 
 
@@ -3319,7 +3396,11 @@ bool is_constant_term(const term_table_t *table, term_t t) {
  */
 term_t find_constant_term(term_table_t *table, type_t tau, int32_t index) {
   int32_t i;
+  integer_term_hobj_t integer_hobj;
 
+  integer_hobj.m.hash = (hobj_hash_t) hash_integer_hobj;
+  integer_hobj.m.eq = (hobj_eq_t) eq_integer_hobj;
+  integer_hobj.m.build = (hobj_build_t) build_integer_hobj;
   integer_hobj.tbl = table;
   integer_hobj.tag = CONSTANT_TERM;
   integer_hobj.tau = tau;

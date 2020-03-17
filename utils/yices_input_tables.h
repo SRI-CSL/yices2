@@ -69,6 +69,7 @@ enum actions {
   implicant_next_goto_r0,  // New command: (show-implicant)
   unsat_core_next_goto_r0, // (show-unsat-core)
   unsat_assumptions_next_goto_r0, // (show-unsat-assumptions)
+  reduced_model_next_goto_r0,     // (show-reduced-model)
 
   typename_next_goto_c10,  // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,     // string argument to echo, include, help, export
@@ -255,6 +256,7 @@ static triple_t triples[] = {
   { c1, TK_SHOW_IMPLICANT, "implicant_next_goto_r0" },
   { c1, TK_SHOW_UNSAT_CORE, "unsat_core_next_goto_r0" },
   { c1, TK_SHOW_UNSAT_ASSUMPTIONS, "unsat_assumptions_next_goto_r0" },
+  { c1, TK_SHOW_REDUCED_MODEL, "reduced_model_next_goto_r0" },
   { c1, TK_SYMBOL, "error_not_a_command" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
@@ -316,6 +318,7 @@ static triple_t triples[] = {
   { c15, TK_SHOW_IMPLICANT, "symbol_next_goto_r0" },
   { c15, TK_SHOW_UNSAT_CORE, "symbol_next_goto_r0" },
   { c15, TK_SHOW_UNSAT_ASSUMPTIONS, "symbol_next_goto_r0" },
+  { c15, TK_SHOW_REDUCED_MODEL, "symbol_next_goto_r0" },
   { c15, TK_UPDATE, "symbol_next_goto_r0" },
   { c15, TK_FORALL, "symbol_next_goto_r0" },
   { c15, TK_EXISTS, "symbol_next_goto_r0" },

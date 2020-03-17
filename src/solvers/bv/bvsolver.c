@@ -66,7 +66,7 @@ static void print_solver_state(FILE *f, bv_solver_t *solver) {
   print_bv_solver_dag(f, solver);
   if (solver->blaster != NULL) {
     fprintf(f, "\n--- Gates ---\n");
-    print_gate_table(f, &solver->blaster->htbl);
+    print_gate_table(f, solver->blaster->htbl);
   }
   fprintf(f, "\n--- Clauses ---\n");
   print_clauses(f, solver->core);
@@ -876,7 +876,6 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
     init_bit_blaster(blaster, solver->core, remap);
-    bit_blaster_set_level(blaster, solver->base_level);
     solver->blaster = blaster;
   }
 }
@@ -985,6 +984,13 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
   bvc_t *compiler;
   uint32_t i, n;
 
+#if 0
+  printf("---- COMPILE POLYNOMIALS ----\n");
+  print_bv_vartable(stdout, &solver->vtbl);
+  print_bv_atomtable(stdout, &solver->atbl);
+  printf("\n");
+#endif
+
   bv_solver_alloc_compiler(solver);
 
   compiler = solver->compiler;
@@ -996,6 +1002,11 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY:
     case BVTAG_PPROD:
       if (bvvar_is_useful(solver, i)) {
+#if 0
+	printf("  push var: ");
+	print_bv_solver_vardef(stdout, solver, i);
+	printf("\n");
+#endif
         bv_compiler_push_var(compiler, i);
       }
       break;
@@ -1008,6 +1019,8 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 
   // process the polynomials
   bv_compiler_process_queue(compiler);
+
+  //  print_solver_state(stdout, solver);
 }
 
 
@@ -1363,6 +1376,75 @@ static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
   return tmp;
 }
 
+/*
+ * Check whether array a[0...n-1] is of the form 2^k for some k
+ * - if so return k otherwise, return n
+ */
+static uint32_t bv_is_power_of_two(bit_blaster_t *blaster, literal_t *a, uint32_t n) {
+  uint32_t i, k;
+
+  k = n;
+  for (i=0; i<n; i++) {
+    switch(literal_base_value(blaster->solver, a[i])) {
+    case VAL_FALSE:
+      break;
+
+    case VAL_TRUE:
+      if (k == n) {
+	k = i;
+	break;
+      }
+
+    default:
+      goto done;
+    }
+  }
+
+  return k;
+
+ done:
+  return n;
+}
+
+
+/*
+ * Assert u == (bvadd a b)
+ * - check for special cases where a or b is a power of 2
+ */
+static void bit_blaster_make_bvadd_var(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
+  uint32_t k1, k2;
+
+  k1 = bv_is_power_of_two(blaster, a, n);
+  k2 = bv_is_power_of_two(blaster, b, n);
+  if (k1 < n) {
+    // a is 2^k1
+    bit_blaster_make_bvinc(blaster, b, k1, u, n);
+  } else if (k2 < n) {
+    // b is 2^k2
+    bit_blaster_make_bvinc(blaster, a, k2, u, n);
+  } else {
+    // regular adder
+    bit_blaster_make_bvadd(blaster, a, b, u, n);
+  }
+}
+
+
+/*
+ * Assert u == (bvsub a b)
+ * - check for the special case where b is a power of 2
+ */
+static void bit_blaster_make_bvsub_var(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
+  uint32_t k;
+
+  k = bv_is_power_of_two(blaster, b, n);
+  if (k < n) {
+    // b is 2^k
+    bit_blaster_make_bvdec(blaster, a, k, u, n);
+  } else {
+    bit_blaster_make_bvsub(blaster, a, b, u, n);
+  }
+}
+
 
 /*
  * Assert (u == (op a b)) for one of the binary operators op
@@ -1373,10 +1455,10 @@ static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, litera
                                   literal_t *u, uint32_t n) {
   switch (op) {
   case BVTAG_ADD:
-    bit_blaster_make_bvadd(blaster, a, b, u, n);
+    bit_blaster_make_bvadd_var(blaster, a, b, u, n);
     break;
   case BVTAG_SUB:
-    bit_blaster_make_bvsub(blaster, a, b, u, n);
+    bit_blaster_make_bvsub_var(blaster, a, b, u, n);
     break;
   case BVTAG_MUL:
     bit_blaster_make_bvmul(blaster, a, b, u, n);
@@ -2009,7 +2091,7 @@ static inline bool is_constant(bv_vartable_t *table, thvar_t x) {
 
 
 /*
- * Check wether x or y is a constant
+ * Check whether x or y is a constant
  */
 static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) {
   bvvar_tag_t tag_x, tag_y;
@@ -3128,7 +3210,6 @@ static bool simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
   tag_x = bvvar_tag(vtbl, x);
   tag_y = bvvar_tag(vtbl, y);
 
-
   if (tag_x == tag_y) {
     if (tag_x == BVTAG_POLY64) {
       simplify_bvpoly64_eq(solver, bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y), vx, vy);
@@ -4068,7 +4149,7 @@ static bool bvuge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvuge_atom(&solver->atbl, y, x); // atom (bvuge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvuge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvuge y x) is true 
   }
   return false;
 }
@@ -4085,7 +4166,7 @@ static bool bvsge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvsge_atom(&solver->atbl, y, x); // atom (bvsge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvsge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvsge y x) is true 
   }
   return false;  
 }
@@ -5186,6 +5267,15 @@ thvar_t bv_solver_create_const(bv_solver_t *solver, bvconst_term_t *c) {
 thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c) {
   return get_bvconst64(&solver->vtbl, c->bitsize, c->value);
 }
+
+/*
+ * Zero constant:
+ * - n = number of bits
+ */
+thvar_t bv_solver_create_zero(bv_solver_t *solver, uint32_t n) {
+  return get_zero(solver, n);
+}
+
 
 
 /*
@@ -7192,10 +7282,6 @@ void bv_solver_push(bv_solver_t *solver) {
     bv_compiler_push(solver->compiler);
   }
 
-  if (solver->blaster != NULL) {
-    bit_blaster_push(solver->blaster);
-  }
-
   if (solver->remap != NULL) {
     remap_table_push(solver->remap);
   }
@@ -7312,10 +7398,6 @@ void bv_solver_pop(bv_solver_t *solver) {
 
   solver->base_level --;
   bv_solver_backtrack(solver, solver->base_level);
-
-  if (solver->blaster != NULL) {
-    bit_blaster_pop(solver->blaster);
-  }
 
   if (solver->remap != NULL) {
     remap_table_pop(solver->remap);
@@ -8575,6 +8657,7 @@ static bv_interface_t bv_solver_context = {
   (create_bv_var_fun_t) bv_solver_create_var,
   (create_bv_const_fun_t) bv_solver_create_const,
   (create_bv64_const_fun_t) bv_solver_create_const64,
+  (create_bv_zero_fun_t) bv_solver_create_zero,
   (create_bv_poly_fun_t) bv_solver_create_bvpoly,
   (create_bv64_poly_fun_t) bv_solver_create_bvpoly64,
   (create_bv_pprod_fun_t) bv_solver_create_pprod,
@@ -8726,7 +8809,7 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
     print_bv_solver_dag(f, solver);
     if (solver->blaster != NULL) {
       fprintf(f, "\n--- Gates ---\n");
-      print_gate_table(f, &solver->blaster->htbl);
+      print_gate_table(f, solver->blaster->htbl);
     }
     fprintf(f, "\n--- Clauses ---\n");
     print_clauses(f, solver->core);

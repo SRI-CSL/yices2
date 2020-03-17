@@ -55,6 +55,7 @@
 
 #include "io/tracer.h"
 #include "solvers/cdcl/smt_core_base_types.h"
+#include "solvers/cdcl/gates_hash_table.h"
 #include "utils/bitvectors.h"
 #include "utils/int_vectors.h"
 
@@ -194,7 +195,7 @@ typedef struct literal_vector_s {
 
 
 /*
- * Acces to header of clause vector v
+ * Access to header of clause vector v
  */
 static inline clause_vector_t *cv_header(clause_t **v) {
   return (clause_vector_t *)(((char *)v) - offsetof(clause_vector_t, data));
@@ -1039,6 +1040,9 @@ typedef struct smt_core_s {
   /* Atom table */
   atom_table_t atoms;
 
+  /* Table of logical gates */
+  gate_table_t gates;
+
   /* Push/pop stack */
   trail_stack_t trail_stack;
 
@@ -1263,7 +1267,6 @@ static inline smt_status_t smt_status(smt_core_t *s) {
   return s->status;
 }
 
-
 /*
  * Read the heuristic parameters
  */
@@ -1374,6 +1377,11 @@ static inline uint32_t num_clauses(smt_core_t *s) {
   return num_empty_clauses(s) + num_unit_clauses(s) + num_binary_clauses(s) +
     num_prob_clauses(s) + num_learned_clauses(s);
 }
+
+// average size of the learned clauses
+extern double avg_learned_clause_size(smt_core_t *core);
+
+
 
 
 /************************************
@@ -1566,6 +1574,34 @@ extern void collect_true_literals(smt_core_t *s, ivector_t *v);
 extern void collect_decision_literals(smt_core_t *s, ivector_t *v);
 
 
+/*
+ * Import a model from an external solver
+ * - this sets the value of a boolean variable b
+ */
+extern void set_bvar_value(smt_core_t *s, bvar_t x, bval_t val);
+
+/*
+ * Set the core status
+ */
+static inline void set_smt_status(smt_core_t *s, smt_status_t status) {
+  s->status = status;
+}
+
+/*
+ * Check whether the core is trivially SAT
+ * - i.e., check whether there are no problem clauses
+ */
+extern bool smt_trivially_sat(smt_core_t *s);
+
+/*
+ * Search for a satisfiable assignment.
+ * - stop on the first conflict and return false
+ * - return true if all Boolean variables are assigned.
+ * Restrictions:
+ * - s->status must be SEARCHING
+ * - s must be purely Boolean.
+ */
+extern bool smt_easy_sat(smt_core_t *s);
 
 
 /*********************
@@ -1598,6 +1634,14 @@ extern void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, litera
 
 extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
 
+
+/******************************
+ *  ACCESS TO THE GATE TABLE  *
+ *****************************/
+
+static inline gate_table_t *get_gate_table(smt_core_t *s) {
+  return &s->gates;
+}
 
 
 /***********************
@@ -1635,7 +1679,7 @@ extern bool base_propagate(smt_core_t *s);
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - set status to SEARCHING
  * - reset the search statistics counters
  * - if clean_interrupt is enabled, save the current state to
@@ -1940,7 +1984,6 @@ static inline bool all_variables_assigned(smt_core_t *s) {
   assert(s->stack.top <= s->nvars);
   return s->nvars == s->stack.top;
 }
-
 
 /*
  * Check whether all problem clauses (binary clauses + clauses with at

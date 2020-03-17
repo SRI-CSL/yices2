@@ -21,6 +21,7 @@
  */
 
 #ifndef __YICES_ERROR_H
+#define __YICES_ERROR_H
 
 #include <stdio.h>
 #include <stdint.h>

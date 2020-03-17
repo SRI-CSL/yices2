@@ -24,7 +24,7 @@
 # This scripts replaces 
 #  __YICES__      by the 2.2.1
 #  __GMP__        by the 6.0.0
-#  __DYLIB__      by the name of the dynamic libray
+#  __DYLIB__      by the name of the dynamic library
 #  __OS_VERSION__ by the Linux/Android
 # in the template
 #

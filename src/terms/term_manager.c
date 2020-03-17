@@ -69,6 +69,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
   init_ivector(&manager->vector0, 10);
 
   manager->simplify_ite = true;
+  manager->simplify_bveq1 = true;
 }
 
 
@@ -208,7 +209,7 @@ static bvarith64_buffer_t *term_manager_get_bvarith64_aux_buffer(term_manager_t 
     manager->bvarith64_aux_buffer = tmp;
   }
 
-  return tmp;  
+  return tmp;
 }
 #endif
 
@@ -489,7 +490,7 @@ static term_t abs64sign_to_term(int32_t sign) {
  * - otherwise return NULL_TERM
  *
  * This checks whether a[0] ... a[n-1] are of the form
- *   (bit 0 x) (bit 1 x) ... (bit n-1 x), 
+ *   (bit 0 x) (bit 1 x) ... (bit n-1 x),
  * where x is a term of n bits.
  */
 static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
@@ -542,7 +543,7 @@ static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
       }
     }
   }
-    
+
 
   return x;
 }
@@ -667,17 +668,18 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
    * Try simplifications.  We know that t1 and t2 are not both constant
    * (because disequal_bitvector_terms returned false).
    */
-  aux = simplify_bveq(tbl, t1, t2);
-  if (aux != NULL_TERM) {
-    // Simplification worked
-    return aux;
+  if (manager->simplify_bveq1) {
+    aux = simplify_bveq(tbl, t1, t2);
+    if (aux != NULL_TERM) {
+      // Simplification worked
+      return aux;
+    }
   }
-
   /*
    * Special case: for bit-vector of size 1
    * - convert to boolean equality
    */
-  if (term_bitsize(tbl, t1) == 1 &&
+  if (manager->simplify_bveq1 && term_bitsize(tbl, t1) == 1 &&
       term_kind(tbl, t1) == BV_ARRAY && term_kind(tbl, t2) == BV_ARRAY) {
     assert(term_bitsize(tbl, t2) == 1);
     return mk_bveq_arrays1(manager, t1, t2);
@@ -1387,7 +1389,6 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
   if (c == true_term) return x;
   if (c == false_term) return y;
 
-
   // Check whether (ite c x y) simplifies to a bv_array term
   kind_x = term_kind(tbl, x);
   kind_y = term_kind(tbl, y);
@@ -2044,7 +2045,7 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
 
   // rewriting of arithmetic if-then-elses
   if (manager->simplify_ite && is_arithmetic_type(tau)) {
-    if (is_integer_type(tau) && 
+    if (is_integer_type(tau) &&
 	is_linear_poly(manager->terms, t) &&
 	is_linear_poly(manager->terms, e)) {
       return mk_integer_polynomial_ite(manager, c, t, e);
@@ -3054,7 +3055,7 @@ term_t mk_arith_is_int(term_manager_t *manager, term_t t) {
   case ARITH_ABS:
     t = arith_abs_arg(tbl, t);
     break;
-    
+
     // MORE TO BE DONE
   default:
     break;
@@ -3109,7 +3110,7 @@ term_t mk_arith_ceil(term_manager_t *manager, term_t t) {
   tbl = manager->terms;
   if (is_integer_term(tbl, t)) return t;
 
-  return arith_ceil(manager->terms, t);  
+  return arith_ceil(manager->terms, t);
 }
 
 
@@ -3141,7 +3142,7 @@ static term_t arith_constant_div(term_manager_t *manager, rational_t *q1, ration
 
 static term_t arith_constant_mod(term_manager_t *manager, rational_t *q1, rational_t *q2) {
   rational_t *aux;
-  
+
   aux = &manager->r0;
   q_smt2_mod(aux, q1, q2);
   q_normalize(aux);
@@ -3256,7 +3257,7 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
   tbl = manager->terms;
   assert(term_kind(tbl, t1) == ARITH_CONSTANT);
 
-  q = rational_term_desc(tbl, t1); 
+  q = rational_term_desc(tbl, t1);
 
   if (q_is_zero(q)) {
     t = mk_arith_eq0_atom(tbl, t2, manager->simplify_ite);
@@ -3271,7 +3272,7 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
 	t = true_term;
       }
       break;
-      
+
     default:
       // force t1 to be positive
       if (q_is_neg(q)) {
@@ -4161,7 +4162,7 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 static term_t mk_sign_extend_term(term_manager_t *manager, term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
-  assert(is_bitvector_term(manager->terms, t) && 
+  assert(is_bitvector_term(manager->terms, t) &&
 	 term_bitsize(manager->terms, t) < n);
 
   b = term_manager_get_bvlogic_buffer(manager);
@@ -4241,7 +4242,7 @@ static bool bvarray_check_addmul(ivector_t *v, uint32_t n, uint32_t *c, term_t *
   }
 
   // c is 2^k so (c * a) is equal to (a << k)
-  // check whether we can convert the addition into a bitwise or, 
+  // check whether we can convert the addition into a bitwise or,
   // that is, check whether  (v + (a << k)) is equal to (v | (a << k))
   assert(0 <= k && k < n);
   for (i=k; i<n; i++) {
@@ -4345,7 +4346,7 @@ static term_t convert_bvarith_to_bvarray(term_manager_t *manager, bvarith_buffer
     bvarray_copy_constant(v, n, m->coeff);
     m = m->next;
   } else {
-    // initialze v to 0b0000..0
+    // initialize v to 0b0000..0
     bvarray_set_zero_bv(v, n);
   }
 
@@ -4389,7 +4390,7 @@ static term_t convert_bvarith64_to_bvarray(term_manager_t *manager, bvarith64_bu
     bvarray_copy_constant64(v, n, m->coeff);
     m = m->next;
   } else {
-    // initialze vector0 to 0
+    // initialize vector0 to 0
     bvarray_set_zero_bv(v, n);
   }
 
@@ -4877,6 +4878,9 @@ term_t mk_bvlshr(term_manager_t *manager, term_t t1, term_t t2) {
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2)
          && term_type(tbl, t1) == term_type(tbl, t2));
 
+  // rewrite: (bvlshr x x) --> 0b000000 ... 0
+  if (t1 == t2) return make_zero_bv(manager, term_bitsize(tbl, t1));
+
   switch (term_kind(tbl, t2)) {
   case BV64_CONSTANT:
     return mk_bvlshr_const64(manager, t1, bvconst64_term_desc(tbl, t2));
@@ -4945,7 +4949,6 @@ static bool term_is_bvashr_invariant(term_table_t *tbl, term_t t1) {
 
 }
 
-
 term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
@@ -4953,6 +4956,9 @@ term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2)
          && term_type(tbl, t1) == term_type(tbl, t2));
+
+  // possible rewrite:
+  // (bvashr x x) = if x<0 then 0b11111.. else 0b000...
 
   switch (term_kind(tbl, t2)) {
   case BV64_CONSTANT:

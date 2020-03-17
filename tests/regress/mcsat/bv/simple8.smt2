@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(declare-fun Wbase_8_1_40 () (_ BitVec 7))
+(declare-fun Wbase_8_1_168 () (_ BitVec 7))
+(assert (let ((?lz_8_1_40 (= ((_ extract 5 0) (bvsub (_ bv0 7) Wbase_8_1_40)) (_ bv0 6)))) (let ((?nc0_8_1_40 (not (= ((_ extract 6 6) (bvsub (_ bv0 7) Wbase_8_1_40)) (_ bv0 1))))) (let ((?c6_8_1_424 (not (= ((_ extract 5 0) (bvsub (_ bv0 7) Wbase_8_1_168)) (_ bv0 6))))) (not (or (not ?lz_8_1_40) ?c6_8_1_424 (= Wbase_8_1_40 Wbase_8_1_168) (and ?nc0_8_1_40 (= (bvsub (_ bv0 7) Wbase_8_1_40) Wbase_8_1_40)) (and (not (= ((_ extract 6 6) Wbase_8_1_168) (_ bv0 1))) (= Wbase_8_1_168 (bvsub (_ bv0 7) Wbase_8_1_168)))))))))
+(check-sat)
+(exit)

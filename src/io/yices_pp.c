@@ -89,18 +89,15 @@ typedef struct pp_nonstandard_block_s {
  */
 #define PP_TOKEN_DEF_MASK (PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK)
 
-
 /*
  * Default short indent
  */
 #define PP_DEFAULT_SHORT_INDENT 1
 
-
-
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 52
+#define NUM_STANDARD_BLOCKS 54
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -155,13 +152,15 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_TYPE, "type" },
   { PP_OPEN_DEFAULT, "default" },
   { PP_OPEN_ROOT_ATOM, "arith-root-atom" },
+  { PP_OPEN_SMT2_STORE, "store" },
+  { PP_OPEN_SMT2_AS_CONST, "as const" },
 };
 
 
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 11
+#define NUM_NONSTANDARD_BLOCKS 15
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
@@ -171,10 +170,14 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
-  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  0, 7, 7 },
-  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, 0, 6, 6 },
+  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT, 0, 7, 7 },
+  { PP_OPEN_EXISTS, "exists ", PP_HMT_LAYOUT, 0, 7, 7 },
   { PP_OPEN_LAMBDA, "lambda ", PP_HMT_LAYOUT, 0, 7, 7 },
   { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_SMT2_BV_DEC, "_ bv", PP_H_LAYOUT, PP_TOKEN_PAR_MASK, 0, 0 },
+  { PP_OPEN_SMT2_BV_TYPE, "_ BitVec", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
+  { PP_OPEN_SMT2_MODEL, "model", PP_T_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
+  { PP_OPEN_SMT2_DEF, "define-fun", PP_HMT_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
 };
 
 
@@ -371,6 +374,19 @@ static void build_smt2_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
   build_smt2_bv(b, aux, n);
 }
 
+// quoted identifier
+static void build_qid(string_buffer_t *b, const char *prefix, int32_t index, char quote[2]) {
+  if (quote[0] != '\0') {
+    string_buffer_append_char(b, quote[0]);
+  }
+  string_buffer_append_string(b, prefix);
+  string_buffer_append_int32(b, index);
+  if (quote[1] != '\0') {
+    string_buffer_append_char(b, quote[1]);
+  }
+  string_buffer_close(b);
+}
+
 
 /*
  * TOKEN CONVERSION
@@ -468,6 +484,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_SMT2_BV_ATOM:
     build_smt2_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+  case PP_SMT2_QID_ATOM:
+    build_qid(buffer, atm->data.qid.prefix, atm->data.qid.index, atm->data.qid.quote);
     s = buffer->data;
     break;
 
@@ -879,7 +899,7 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
 
 /*
- * Bitvector contants: 0, 1, -1
+ * Bitvector constants: 0, 1, -1
  */
 void pp_bv_zero(yices_pp_t *printer, uint32_t n) {
   pp_atom_t *atom;
@@ -989,6 +1009,36 @@ void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
   tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV_ATOM);
   atom->data.bv.bv = bv;
   atom->data.bv.nbits = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+
+/*
+ * Quoted id:
+ * - same as pp_id but with open and close quote
+ *
+ * Examples: pp_quoted_id(printer, "x!", 20, '|', '|') will print |x!20|
+ */
+void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // get the token size using buffer
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_id(buffer, prefix, id);
+  n = string_buffer_length(buffer) + (open_quote != '\0') + (close_quote != '\0');
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_SMT2_QID_ATOM);
+  atom->data.qid.prefix = prefix;
+  atom->data.qid.index = id;
+  atom->data.qid.quote[0] = open_quote;
+  atom->data.qid.quote[1] = close_quote;
 
   pp_push_token(&printer->pp, tk);
 }

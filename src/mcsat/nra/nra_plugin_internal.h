@@ -74,13 +74,13 @@ struct nra_plugin_s {
   scope_holder_t scope;
 
   struct {
-    uint32_t* propagations;
-    uint32_t* conflicts;
-    uint32_t* conflicts_int;
-    uint32_t* constraints_attached;
-    uint32_t* evaluations;
-    uint32_t* constraint_regular;
-    uint32_t* constraint_root;
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_int_t* conflicts_int;
+    statistic_int_t* constraints_attached;
+    statistic_int_t* evaluations;
+    statistic_int_t* constraint_regular;
+    statistic_int_t* constraint_root;
   } stats;
 
   /** Database of polynomial constraints */
@@ -121,9 +121,6 @@ struct nra_plugin_s {
 
   /** Arithmetic buffer for computation */
   rba_buffer_t buffer;
-
-  /** Local term manager */
-  term_manager_t tm;
 
   /** Exception handler */
   jmp_buf* exception;

@@ -186,6 +186,7 @@ static keyword_t yices_keywords[] = {
   { "show-implicant", TK_SHOW_IMPLICANT },
   { "show-unsat-core", TK_SHOW_UNSAT_CORE },
   { "show-unsat-assumptions", TK_SHOW_UNSAT_ASSUMPTIONS },
+  { "show-reduced-model", TK_SHOW_REDUCED_MODEL },
 
   // end-marker
   { NULL, 0 },

@@ -407,7 +407,7 @@ static void test_sort2(const char *s, stable_sorter_t *sorter, pair_t **a, uint3
 }
 
 /*
- * Large array: initialize and allocte n pair objects
+ * Large array: initialize and allocate n pair objects
  * - n = number of elements
  */
 static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {

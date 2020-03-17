@@ -1,0 +1,1 @@
+--mcsat --trace mcsat::bv::conflict::check --trace mcsat::bv::rewrite::check

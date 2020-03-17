@@ -22,7 +22,7 @@
 
 /*
  * This is intended to help convert nested if-then-else terms to
- * arithmetic or egraph terms while avoiding unecessary intermediate
+ * arithmetic or egraph terms while avoiding unnecessary intermediate
  * variables.
  *
  * Example: given a term (ite c1 (ite c2 a2 b2) (ite c3 a3 b3))

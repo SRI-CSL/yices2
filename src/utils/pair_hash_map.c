@@ -330,3 +330,37 @@ void pmap_reset(pmap_t *hmap) {
   hmap->nelems = 0;
   hmap->ndeleted = 0;
 }
+
+/*
+ * First non-empty record in the table, starting from p
+ */
+static pmap_rec_t *pmap_get_next(pmap_t *hmap, pmap_rec_t *p) {
+  pmap_rec_t *end;
+
+  end = hmap->data + hmap->size;
+  while (p < end) {
+    if (valid_record(p)) return p;
+    p ++;
+  }
+
+  return NULL;
+}
+
+
+/*
+ * Get the first non-empty record or NULL if the table is empty
+ */
+pmap_rec_t *pmap_first_record(pmap_t *hmap) {
+  return pmap_get_next(hmap, hmap->data);
+}
+
+
+/*
+ * Next record after p or NULL
+ */
+pmap_rec_t *pmap_next_record(pmap_t *hmap, pmap_rec_t *p) {
+  assert(p != NULL && p<hmap->data + hmap->size && valid_record(p));
+  return pmap_get_next(hmap, p+1);
+}
+
+

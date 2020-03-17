@@ -1214,16 +1214,6 @@ static int32_t build_atom(idlatom_hobj_t *p) {
 }
 
 /*
- * Hobject
- */
-static idlatom_hobj_t atom_hobj = {
-  { (hobj_hash_t) hash_atom, (hobj_eq_t) equal_atom, (hobj_build_t) build_atom },
-  NULL,
-  0, 0, 0,
-};
-
-
-/*
  * Atom constructor: use hash consing
  * - if the atom is new, create a fresh boolean variable v
  *   and the atom index to v in the core
@@ -1232,7 +1222,11 @@ static bvar_t bvar_for_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t 
   int32_t id;
   idl_atom_t *atm;
   bvar_t v;
+  idlatom_hobj_t atom_hobj;
 
+  atom_hobj.m.hash = (hobj_hash_t) hash_atom;
+  atom_hobj.m.eq = (hobj_eq_t) equal_atom;
+  atom_hobj.m.build = (hobj_build_t) build_atom;
   atom_hobj.atbl = &solver->atoms;
   atom_hobj.source = x;
   atom_hobj.target = y;
@@ -2783,7 +2777,7 @@ static arith_interface_t idl_intern = {
  ****************/
 
 /*
- * Initialze solver:
+ * initialize solver:
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */
