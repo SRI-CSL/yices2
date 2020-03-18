@@ -236,7 +236,6 @@ utilities, and the \LaTeX\ source for this manual.
 We currently provide wrappers to the Yices API for Python and (experimental) binding or Go and
 OCaml. Source code for these different wrappers is maintained on different GitHub repositories.
 
-
 \paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way to install these Python bindings is to use \texttt{pip}:
 \begin{small}
 \begin{lstlisting}[language=sh]
@@ -489,19 +488,19 @@ or program fragment.
 \label{compilation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-If you download the Yices~2 source, you have a choice to include
-different optional components at compilation time. The main options
+If you download the Yices~2 source, you have a choose different
+optional components and features at compilation time. The main options
 include
 \begin{itemize}
-\item Include support for the MCSAT solver (which is necessary for non-linear arithmetic).
-\item Include support for third-party backend SAT solvers (which can provide improved performance on bitvector problems)
-\item Build a thread-safe version of the Yices library.
+\item Support for the MCSAT solver (which is necessary for non-linear arithmetic).
+\item Support for third-party backend SAT solvers (which can provide improved performance on bitvector problems).
+\item Thread-safe version of the Yices library.
 \end{itemize}
 We start with the simplest type of build that does not include any
 optional components.  We then explain how to build the optional
-components in the following sections.  The instructions are written
-for a Debian-style Linux distribution such as Ubuntu, but they should
-work with minor adjustments on other Unix variants.
+components.  The instructions are written for a Debian-style Linux
+distribution such as Ubuntu, but they should work with minor
+adjustments on other Unix variants.
 
 \section{Basic Build}
 
@@ -562,7 +561,7 @@ As before, you can then install Yices in \texttt{/usr/local} with
 \end{small}
 
 
-\section{Nonlinear Arithmetic and MCSAT}
+\section{MCSAT Support}
 \label{mcsat-install}
 
 Yices includes a solver for nonlinear arithmetic based on the Model
@@ -686,7 +685,7 @@ Here are the steps for downloading and installing CaDiCal:
 \subsection*{CryptoMiniSat}
 
 Yices requires a patched version of CryptoMiniSat~5 that we provide at
-\url{https://github/BrunoDutertre/cryptominisat}. Here is you can download and built it.
+\url{https://github/BrunoDutertre/cryptominisat}. Here is how you can download and built it.
 \begin{enumerate}
 \item Clone the repository:
 \begin{small}
@@ -761,8 +760,9 @@ the library, you can configure and build Yices as follows:
 \end{small}
 When configured in this fashion, the Yices library will allow multiple
 thread to manipulate separate contexts and models without causing race
-conditions. Sharing of contexts or models accroess several threads is
-not supported (unless you implement your own locking mechanism).
+conditions (see Chapter~\ref{yices-api}). Sharing of contexts or
+models accross several threads is not supported (unless you implement
+your own locking mechanism).
 
 \medskip\noindent
 In the current version (Yices~2.6.2), threat-safety and MCSAT are not compatible.
@@ -1400,10 +1400,24 @@ currently dedicated to quantifier-free nonlinear real arithmetic. The
 theory and implementation of MCSAT is discussed in several
 publications~\cite{Jovanovic-etal:MCSATb:2013,deMouraJovanovic:MCSAT:2013}.
 Currently, this solver can process input written in the SMT-LIB~2.0 or
-Yices notations. It does not support as many features as the
-CDCL-based solver described in the previous section. In particular,
-the MCSAT solver does not yet support incremental solving (i.e., push
-and pop).
+Yices notations. The MCSAT solver is required for nonlinear
+arithmetic, but it also supports other theories such as uninterpreted
+functions or bitvectors.
+
+
+\section{Third-Party SAT Solvers}
+
+In Yices 2.6.2, we have added support for using third-party Boolean
+satisfiability solvers. Such solvers are optionals but can provide
+significant performance improvements on bit-vector problems. Use of
+these SAT solvers is enabled by a command-line option and is currently
+restricted to non-incremental QF\_BV problems. If an external solver
+is selected, Yices will perform ``bit-blasting'', that is, convert the
+problem to an equisatisfiable SAT problem in conjunctive normal form
+(CNF) and use the third-party solver to check satisfiability of this
+CNF formula.
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1467,7 +1481,7 @@ model.
 To run \texttt{yices} on this input file, just type
 \begin{small}
 \begin{lstlisting}[language=sh]
-      yices examples/bv_test2.ys
+   yices examples/bv_test2.ys
 \end{lstlisting}
 \end{small}
 The tool will output something like this:
@@ -1496,7 +1510,7 @@ bitvector  theory,  we  could  specify logic  \texttt{QF\_BV}  on  the
 command line as follows:
 \begin{small}
 \begin{lstlisting}[language=sh]
-      yices --logic=QF_BV examples/bv_test2.ys
+   yices --logic=QF_BV examples/bv_test2.ys
 \end{lstlisting}
 \end{small}
 Since the file does not use \texttt{push} and \texttt{pop}, and it
@@ -1504,13 +1518,13 @@ contains only one call to \texttt{(check)}, we can select the mode
 \texttt{one-shot}:
 \begin{small}
 \begin{lstlisting}[language=sh]
-      yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
+   yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
 \end{lstlisting}
 \end{small}
 `To get a more detailed output, we can give a non-zero verbosity level:
 \begin{small}
 \begin{lstlisting}[language=sh]
-      yices --verbosity=4 examples/bv_test2.ys
+   yices --verbosity=4 examples/bv_test2.ys
 \end{lstlisting}
 \end{small}
 
@@ -1573,7 +1587,7 @@ To run \texttt{yices} on this example, we must give option
 \texttt{--mode=ef} on the command line:
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={test}]
-      yices --mode=ef test.ys
+   yices --mode=ef test.ys
 \end{lstlisting}
 \end{small}
 This will produce the following output:
@@ -1591,7 +1605,7 @@ is the model, which just shows the value of the global variable
 As previously, we can get more detailed output by increasing the verbosity:
 \begin{small}
 \begin{lstlisting}[language=sh]
-      yices --mode=ef --verbosity=5 test.ys
+   yices --mode=ef --verbosity=5 test.ys
 \end{lstlisting}
 \end{small}
 It is also possible to specify a logic on the command-line.
@@ -1599,7 +1613,7 @@ It is also possible to specify a logic on the command-line.
 \section{Unsat Cores}
 
 Since version 2.6.1, the Yices tool can produce unsat cores. This
-feature comes in two flavours, as in SMT-LIB~2.5.
+feature comes in two flavours, as in SMT-LIB~2.6.
 
 \subsection{Labeled Assertions}
 
@@ -1664,7 +1678,7 @@ a subset of the assumptions that are inconsistent with the context.
 
 Yices is invoked on an input file by typing
 \begin{lstlisting}[language=sh]
-      yices [option] <filename>
+   yices [option] <filename>
 \end{lstlisting}
 If no \texttt{<filename>} is given, \texttt{yices} will run in
 interactive mode and will read the standard input. The following
@@ -1694,9 +1708,10 @@ options are supported.
   includes no  theory solvers  at all. All  assertions must  be purely
   propositional (i.e., involve only Boolean terms).
 
-  With option \texttt{--logic=QF\_NRA}, the \texttt{yices} binary uses
-  its MCSAT solver for nonlinear real arithmetic. When this solver is
-  selected, incremental solving is not supported.
+  If the selected logic includes nonlinear arithemtic (e.g.,
+  \texttt{--logic=QF\_UFNRA}), then \texttt{yices} will automatically
+  select the MCSAT solver. To force use of the MCSAT solver on logics
+  that do not require it, use command-ling option \texttt{--mcsat}.
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
   \texttt{<solver>}     must    be     one     of    \texttt{simplex},
@@ -1758,6 +1773,24 @@ options are supported.
   \texttt{interactive} and the solver reads standard input.
 
   Mode \texttt{one-shot} is required to use the Floyd-Warshall solvers.
+
+\item[--mcsat] Force use the MCSAT solver.
+
+  This option forces \texttt{yices} to use the MCSAT solver instead of
+  the default CDCL($T$) solver. By default, MCSAT is used only if the
+  logic includes non-linear arithmetic. Using option \texttt{--mcsat}
+  slects the MCSAT solver on other logics. For example, this can be
+  used to use the MCSAT solver on bitvector problems.
+
+\item[--print-success] Print \texttt{ok} after every command that would
+  otherwise execute silently.
+
+  Many commands are executed silently by \texttt{yices} (i.e., they
+  produce no output). This can be a problem for tools that interact
+  with \texttt{yices} via pipes or files. Option
+  \texttt{--print-success} modifies this behavior. With this option,
+  \texttt{yices} will print \texttt{ok} on its standard output when a
+  command successfully executes.
 
 \item[--version, -V] Display version information then exit.
 
@@ -3610,31 +3643,130 @@ by~\cite{SMTLIB25:2015}).
 
 Yices has always provided a command \texttt{get-model} for displaying
 a model when assertions are satisfiable. This command was added to
-SMT-LIB with version 2.5. By default, Yices displauys models in a
+SMT-LIB with version 2.5. By default, Yices displays models in a
 format similar to the one illustrated in Figure~\ref{model-format},
 except that constants are printed with the SMT-LIB~2 Syntax.
 
-Yices can also display models in the format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).
-To enable this format, one must invoke \texttt{yices-smt2} with option \texttt{--smt2-model-format}.
+\medskip\noindent Since version 2.6.2, Yices can display models
+in the format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).  To
+enable this format, you must invoke \texttt{yices-smt2} as follows
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --smt2-model-format
+\end{lstlisting}
+\end{small}
 
-Another option controls how bit-vector constants are displayed in
-\texttt{(get-model)} and \texttt{(get-value ...)}. By default,
-  \texttt{yices-smt2} prints bit-vector values as binary
-  constants. For example \texttt{\#b0110} is a four-bit value. If
-  called with option \texttt{--bvconst-in-decimal}, the solver will
-  use instead the SMT-LIB~2 ``decimal'' syntax, such as,
-  \texttt{(\_\ bv6 4)}.
+\medskip\noindent Another option controls how bit-vector constants are
+displayed in \texttt{(get-model)} and \texttt{(get-value ...)}. By
+default, \texttt{yices-smt2} prints bit-vector values as binary
+constants (e.g., in the format \texttt{\#b0110} for a four-bit value).
+If you prefer to get bit-vector constants converted to integers, use
+the following option:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={in}]
+   yices-smt2 --bvconst-in-decimal
+\end{lstlisting}
+\end{small}
+With this option the solver will use the the SMT-LIB~2 decimal syntax
+for bit-vector, such as, \texttt{(\_\ bv6 4)}. In general, a
+bit-vector constant will be displayed as
+\begin{small}
+\begin{verbatim}
+  (_ bv<number> <size>)
+\end{verbatim}
+\end{small}
+where \texttt{<size>} is the number of bits in the constant, and
+\texttt{<number>} is an integer between $0$ and $2^{\mbox{\texttt{<size>}}}-1$.
 
 
 \subsubsection*{Selecting a Back-end SAT Solver}
 
+For problems in the QF\_BV logic, \texttt{yices-smt2} relies on
+so-called \emph{bit-blasting} by default. This amounts to
+converting a bit-vector formula in the \texttt{QF\_BV} logic into an
+equivalent Boolean problems in CNF. To solve the resulting CNF
+formula, Yices will use its internal SAT solver by default.
 
+\medskip\noindent
+Since
+Yices~2.6.2, it is possible to select an alternative Boolean SAT solver as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=<solver-name>
+\end{lstlisting}
+\end{small}
+where \texttt{<solver-name>} is either \texttt{cadical}, or
+\texttt{cryptominisat}, or \texttt{y2sat}.  The first two variants
+select CaDiCaL or CryptoMiniSat5 as backend solvers. Support for these
+two third-party solvers must be enabled at compilation time as
+explained in Chapter~\ref{compilation}. The \texttt{y2sat} solver is
+an experimental SAT solver that is part of the Yices code and is
+always available.
+
+\medskip\noindent
+For example, to use CaDiCaL on problem \texttt{bvadd\_12000.smt2}, type
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=cadical bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+This will use CaDiCal in quiet mode. To get more output from CaDiCal, increase verbosity:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=cadical --verbosity=2 bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+
+\paragraph{Note:} \texttt{yices-smt2} can sometimes solve bit-vector
+problems by preprocessing and simplication, without producing a CNF
+formula. In such cases, the \texttt{delegate} option is irrelevant.
+
+\paragraph{Limitation:} Currently, use of the delegates is restricted to non-incremental problems.
 
 \subsubsection*{Exporting to Dimacs}
 
+In addition to using external SAT solver, you can use
+\texttt{yices-smt2} to export the result of bit blasting to a file in
+the DIMACS CNF format, You can do this as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=<outputfile> <inputfile>
+\end{lstlisting}
+\end{small}
+For example, command
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=bvadd_12000.cnf bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+will process bit-vector problem in file \texttt{bvadd\_12000.smt2},
+convert it to CNF, and export the result in file \texttt{bvadd\_12000.cnf}.
+This DIMACS file can then be processed by any modern Boolean SAT solver.
+
+\medskip\noindent
+You can also use the \texttt{y2sat} SAT solver to simplify the CNF formula before exporting it.
+This is done by passing an extra command-line option:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=<outputfile> --delegate=y2sat <inputfile>
+\end{lstlisting}
+\end{small}
+In this mode, \texttt{yices-smt2} will first produce a CNF formula by
+bit blasting. This formula will then be simplified by applying CNF
+preprocessing functions implemented by the \texttt{y2sat} SAT
+solver. The result of this simplification is then exported in DIMACS format.
+
+\paragraph{Note:} If \texttt{yices-smt2} can solve the problem by preprocessing and simplification,
+it will report that the instance is either \texttt{sat} or
+\texttt{unsat} and it will \emph{not} generate a DIMACS
+file. Similarly, \texttt{y2sat} simplification may solve the CNF
+formula that results from bit blasting on its own. In such a case, no DIMACS file is produce either.
+
+\paragraph{Limitation:} Currently, conversion to DIMACS is not supported only for incremental problems.
 
 
-\subsubsection*{Command-line Options}
+
+\subsubsection*{All Command-line Options}
 
 Here is the full list of command-line options supported by
 \texttt{yices-smt2}.
@@ -3673,6 +3805,18 @@ Here is the full list of command-line options supported by
   after all commands have been executed (i.e., after reaching the
   command \texttt{(exit)} or the end of the input file).
 
+\item[--smt2-model-format] Display models in the SMT-LIB~2 format.
+
+\item[--bvconst-in-decimal] Prints bit-vector constants as numbers
+  (using the SMT-LIB~2 decimal syntax), instead of constants in binary
+  notation.
+
+\item[--delegate=<solver>] Select an external SAT solver for bit-vector problems,
+
+   The \texttt{<solver>} can be either \texttt{cadical}, or \texttt{cryptominisat}, or \texttt{y2sat}.
+
+\item[--dimacs=<filename>] Bitblast then export the CNF to a file (in DIMACS format).
+
 \item[--version, -V] Print version and exit.
 
 \item[--help, -h] Show a summary of command-line options and exit.
@@ -3680,9 +3824,9 @@ Here is the full list of command-line options supported by
 \end{options}
 
 
-\subsection{SMT-LIB~2.5 Compliance}
+\subsection{SMT-LIB~2.6 Compliance}
 
-Yices follows the SMT-LIB~2.5 specifications as much as possible. In
+Yices follows the SMT-LIB~2.6 specifications as much as possible. In
 this section, we list the few special cases where Yices may not adhere
 to the standard.
 
@@ -3706,7 +3850,7 @@ used by Yices are explained in Section~\ref{bitvector-general}.
 
 \subsubsection*{Unsupported Commands}
 
-Some commands defined in SMT-LIB 2.5 are optional. This version of
+Some commands defined in SMT-LIB 2.6 are optional. This version of
 Yices supports the basic commands for declaration and definition of
 sorts and terms, assertions, satisfiability checking, unsat cores and
 assumptions. Yices does not support the optional commands
@@ -3776,16 +3920,6 @@ monstrosity will cause Yices to complain
 \end{small}
 because the symbol \texttt{x} is bound by the enclosing \texttt{let}
 when the annotated term is processed.
-
-\subsubsection*{Models}
-
-Yices has always provided a command \texttt{get-model} for displaying
-a model when assertions are satisfiable. This command was added to
-SMT-LIB with version 2.5. Yices supports this command, but does not
-display models in the format defined by SMT-LIB~2.5. Instead, Yices
-uses a format similar to the one illustrated in
-Figure~\ref{model-format}, except that constants are printed with
-the SMT-LIB~2 syntax.
 
 
 \subsubsection*{Miscellaneous Issues}
