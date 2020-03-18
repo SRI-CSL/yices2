@@ -68,10 +68,10 @@ Version 2.6.2}}
 This  manual   is  an  introduction   to  the  logic,   language,  and
 architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
 International's  Computer Science  Laboratory.   Since version  2.5.3,
-Yices  is released  under the  GNU  General Public  Licence version  3
+Yices  is released  under the  GNU  General Public  License version  3
 (reproduced  in   Appendix~\ref{license}).   Previous   versions  were
 released   under  different   terms,  and   were  free-of-charge   for
-noncommercial use.
+non-commercial use.
 
 \medskip\noindent
 To discuss alternative license terms, please contact us at
@@ -192,7 +192,7 @@ The source is available as a tarfile at
 \medskip\noindent
 Several optional features can be selected at compilation time:
 \begin{itemize}
-\item MC-SAT solver (required for non-linear arithmetic)
+\item MCSAT solver (required for non-linear arithmetic)
 \item Support for third-party backend SAT solvers
 \item Support for a thread-safe API.
 \end{itemize}
@@ -236,7 +236,8 @@ utilities, and the \LaTeX\ source for this manual.
 We currently provide wrappers to the Yices API for Python and (experimental) binding or Go and
 OCaml. Source code for these different wrappers is maintained on different GitHub repositories.
 
-\paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way to install these Python bindings is to use \texttt{pip}:
+\paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way
+to install these Python bindings is to use \texttt{pip}:
 \begin{small}
 \begin{lstlisting}[language=sh]
   pip install yices
@@ -578,8 +579,8 @@ and CUDD~\cite{Somenzi:cudd:1998} and enable MCSAT when building Yices.
 
 \subsection*{\textsc{LibPoly}}
 
-\textsc{LibPoly} is open source and it is available on GitHub
-(\url{https://github.com/SRI-CSL/libpoly}). Make sure that you
+The \textsc{LibPoly} source is available on GitHub
+at \url{https://github.com/SRI-CSL/libpoly}. Make sure that you
 download the latest version of libpoly. Yices~2.6 requires libpoly
 v0.1.3. Follow the instruction in libpoly's README.md to compile and
 install it.
@@ -602,7 +603,7 @@ This will install CUDD header files and libraries in \texttt{/usr/local}.
 \subsubsection*{Notes}
 The CUDD Makefile builds documentation, which requires
 \texttt{pdflatex} and \texttt{makeindex}. Make sure that they are
-installed on your systen (e.g., by installing the texlive package).
+installed on your system (e.g., by installing the TeX-live package).
 
 \medskip\noindent
 The CUDD Makefile was created with \texttt{automake-1.14}. Compilation may fail if you
@@ -649,7 +650,7 @@ with support for both or only one of these solvers.
 
 \subsection*{CaDiCaL}
 
-Here are the steps for downloading and installing CaDiCal:
+Here are the steps for downloading and installing CaDiCaL:
 \begin{enumerate}
 \item Clone the CaDiCaL repository:
 \begin{small}
@@ -662,7 +663,7 @@ Here are the steps for downloading and installing CaDiCal:
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={cd}]
   cd cadical
-  CXXFLAGS=-fPIC ./confgure
+  CXXFLAGS=-fPIC ./configure
 \end{lstlisting}
 \end{small}
 \item Build the code and (optionally) run the tests
@@ -676,7 +677,7 @@ Here are the steps for downloading and installing CaDiCal:
 \begin{small}
 \begin{lstlisting}[language=sh]
   sudo install build/libcadical.a /usr/local/lib
-  sudo install -m644 sr/ccadical.h /usr/local/include
+  sudo install -m644 src/ccadical.h /usr/local/include
 \end{lstlisting}
 \end{small}
 \end{enumerate}
@@ -712,7 +713,7 @@ Yices requires a patched version of CryptoMiniSat~5 that we provide at
 \end{small}
 \end{enumerate}
 
-\subsection*{Configure Yices~2 Compilation}
+\subsection*{Configure Yices~2}
 
 If both CaDiCaL and CryptoMiniSat are installed, you can configure Yices~2 as follows to use them:
 \begin{small}
@@ -758,9 +759,9 @@ the library, you can configure and build Yices as follows:
 \end{lstlisting}
 \end{small}
 When configured in this fashion, the Yices library will allow multiple
-thread to manipulate separate contexts and models without causing race
+threads to manipulate separate contexts and models without causing race
 conditions (see Chapter~\ref{yices-api}). Sharing of contexts or
-models accross several threads is not supported (unless you implement
+models across several threads is not supported (unless you implement
 your own locking mechanism).
 
 \medskip\noindent
@@ -815,9 +816,10 @@ this documentation as follows.
   make html
 \end{lstlisting}
 \end{small}
-\end{enumerate}
 The resulting documentation will be in directory
-\texttt{doc/sphinx/build/html}. Sphinx can generate documentation in
+\texttt{doc/sphinx/build/html}.
+\end{enumerate}
+Sphinx can generate documentation in
 other formats than \texttt{html}. For example, you can do
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={cd}]
@@ -825,7 +827,7 @@ other formats than \texttt{html}. For example, you can do
   make epub
 \end{lstlisting}
 \end{small}
-and this will generate an electronic book in the \texttt{epub|} format. This book is in
+This will generate an electronic book in the \texttt{epub} format. This book is in
 a single file \texttt{Yices.epub} in directory \texttt{doc/sphinx/build/epub}.
 
 
@@ -1407,11 +1409,11 @@ functions or bitvectors.
 \section{Third-Party SAT Solvers}
 
 In Yices 2.6.2, we have added support for using third-party Boolean
-satisfiability solvers. Such solvers are optionals but can provide
+satisfiability solvers. Such solvers are optional but can provide
 significant performance improvements on bit-vector problems. Use of
 these SAT solvers is enabled by a command-line option and is currently
 restricted to non-incremental QF\_BV problems. If an external solver
-is selected, Yices will perform ``bit-blasting'', that is, convert the
+is selected, Yices will perform ``bit blasting,'' that is, convert the
 problem to an equisatisfiable SAT problem in conjunctive normal form
 (CNF) and use the third-party solver to check satisfiability of this
 CNF formula.
@@ -1612,7 +1614,7 @@ It is also possible to specify a logic on the command-line.
 \section{Unsat Cores}
 
 Since version 2.6.1, the Yices tool can produce unsat cores. This
-feature comes in two flavours, as in SMT-LIB~2.6.
+feature comes in two flavors, as in SMT-LIB~2.6.
 
 \subsection{Labeled Assertions}
 
@@ -1707,10 +1709,10 @@ options are supported.
   includes no  theory solvers  at all. All  assertions must  be purely
   propositional (i.e., involve only Boolean terms).
 
-  If the selected logic includes nonlinear arithemtic (e.g.,
+  If the selected logic includes nonlinear arithmetic (e.g.,
   \texttt{--logic=QF\_UFNRA}), then \texttt{yices} will automatically
   select the MCSAT solver. To force use of the MCSAT solver on logics
-  that do not require it, use command-ling option \texttt{--mcsat}.
+  that do not require it, use command-line option \texttt{--mcsat}.
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
   \texttt{<solver>}     must    be     one     of    \texttt{simplex},
@@ -1778,7 +1780,7 @@ options are supported.
   This option forces \texttt{yices} to use the MCSAT solver instead of
   the default CDCL($T$) solver. By default, MCSAT is used only if the
   logic includes non-linear arithmetic. Using option \texttt{--mcsat}
-  slects the MCSAT solver on other logics. For example, this can be
+  selects the MCSAT solver on other logics. For example, this can be
   used to use the MCSAT solver on bitvector problems.
 
 \item[--print-success] Print \texttt{ok} after every command that would
@@ -2963,7 +2965,7 @@ then both \texttt{A} and \texttt{(not A)} can be used as assumptions.
 
 \medskip\noindent
 It is allowed for the same name to occur several times in the
-assumption list. It is also allowed to give an empyt list of
+assumption list. It is also allowed to give an empty list of
 assumptions.
 
 \medskip\noindent
@@ -3621,10 +3623,12 @@ This option configures \texttt{yices-smt2} to work in the mode
 contains several blocks of assertions and multiple calls to the
 command \texttt{(check-sat)}.
 
-\medskip\noindent If no \texttt{<input-file>} is given,
+\medskip\noindent If no input file is given,
 \texttt{yices-smt2} will read commands from the standard
-input. Optionally, one can also run the solver with
-the following option:
+input.
+
+\medskip\noindent Optionally, one can also run the solver with the
+following option:
 \begin{small}
 \begin{lstlisting}[language=sh]
    yices-smt2 --interactive
@@ -3647,8 +3651,8 @@ format similar to the one illustrated in Figure~\ref{model-format},
 except that constants are printed with the SMT-LIB~2 Syntax.
 
 \medskip\noindent Since version 2.6.2, Yices can display models
-in the format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).  To
-enable this format, you must invoke \texttt{yices-smt2} as follows
+in a different format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).
+To use this format, you must invoke \texttt{yices-smt2} as follows
 \begin{small}
 \begin{lstlisting}[language=sh]
    yices-smt2 --smt2-model-format
@@ -3667,7 +3671,7 @@ the following option:
 \end{lstlisting}
 \end{small}
 With this option the solver will use the the SMT-LIB~2 decimal syntax
-for bit-vector, such as, \texttt{(\_\ bv6 4)}. In general, a
+for bit-vector, such as, \verb+(_ bv6 4)+. In general, a
 bit-vector constant will be displayed as
 \begin{small}
 \begin{verbatim}
@@ -3681,7 +3685,7 @@ where \texttt{<size>} is the number of bits in the constant, and
 \subsubsection*{Selecting a Back-end SAT Solver}
 
 For problems in the QF\_BV logic, \texttt{yices-smt2} relies on
-so-called \emph{bit-blasting} by default. This amounts to
+so-called \emph{bit blasting} by default. This amounts to
 converting a bit-vector formula in the \texttt{QF\_BV} logic into an
 equivalent Boolean problems in CNF. To solve the resulting CNF
 formula, Yices will use its internal SAT solver by default.
@@ -3696,10 +3700,10 @@ Yices~2.6.2, it is possible to select an alternative Boolean SAT solver as follo
 \end{small}
 where \texttt{<solver-name>} is either \texttt{cadical}, or
 \texttt{cryptominisat}, or \texttt{y2sat}.  The first two variants
-select CaDiCaL or CryptoMiniSat5 as backend solvers. Support for these
+select either CaDiCaL or CryptoMiniSat5 as backend solvers. Support for these
 two third-party solvers must be enabled at compilation time as
 explained in Chapter~\ref{compilation}. The \texttt{y2sat} solver is
-an experimental SAT solver that is part of the Yices code and is
+an experimental SAT solver that is part of the Yices code. It is
 always available.
 
 \medskip\noindent
@@ -3709,7 +3713,7 @@ For example, to use CaDiCaL on problem \texttt{bvadd\_12000.smt2}, type
    yices-smt2 --delegate=cadical bvadd_12000.smt2
 \end{lstlisting}
 \end{small}
-This will use CaDiCal in quiet mode. To get more output from CaDiCal, increase verbosity:
+This will use CaDiCaL in quiet mode. To get more output from CaDiCaL, increase verbosity:
 \begin{small}
 \begin{lstlisting}[language=sh]
    yices-smt2 --delegate=cadical --verbosity=2 bvadd_12000.smt2
@@ -3717,7 +3721,7 @@ This will use CaDiCal in quiet mode. To get more output from CaDiCal, increase v
 \end{small}
 
 \paragraph{Note:} \texttt{yices-smt2} can sometimes solve bit-vector
-problems by preprocessing and simplication, without producing a CNF
+problems by preprocessing and simplification, without producing a CNF
 formula. In such cases, the \texttt{delegate} option is irrelevant.
 
 \paragraph{Limitation:} Currently, use of the delegates is restricted to non-incremental problems.
@@ -4113,6 +4117,7 @@ documented in this header file and at
 Python bindings to this API. These bindings are included in the source
 distributions in directory \texttt{src/bindings}.
 
+\medskip\noindent
 As sketched in Figure~\ref{top-level-architecture}, the API provides
 three main classes of functions:
 \begin{itemize}
@@ -4123,6 +4128,7 @@ three main classes of functions:
 The API also includes functions related to error reporting and
 diagnosis, global initialization and cleanup, and garbage collection.
 
+\medskip\noindent
 In the API, types and terms are identified by 32bit signed integers
 (the types \texttt{type\_t} and \texttt{term\_t} are aliases for
 \texttt{int32\_t}, as defined in file \texttt{yices\_types.h}). Other
@@ -4136,6 +4142,7 @@ pointers. For example, a context is an object of the following type
 and all functions that operate on contexts take an argument of type
 \texttt{context\_t *}.
 
+\medskip\noindent
 When an API function fails, it returns a special code. Term
 constructors return the constant \texttt{NULL\_TERM}; type
 constructors return \texttt{NULL\_TYPE}. Other functions either return
@@ -4144,8 +4151,6 @@ diagnostic information is stored in a global data structure of type
 \texttt{error\_report\_t} (defined in \texttt{yices\_types.h}). The API
 provides functions to help diagnosis by printing error messages or
 consulting the error report structure.
-
-
 
 
 \section{A Minimal Example}
@@ -4165,7 +4170,7 @@ including a data structure used for error reporting and a set of error codes.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{lstlisting}[language=C,otherkeywords={\#include},stringstyle=\color{red}]
+\begin{lstlisting}[language=C,otherkeywords={\#include},keywordstyle=\color{blue},stringstyle=\color{red}]
    #include <stdio.h>
    #include <yices.h>
 
@@ -4180,19 +4185,22 @@ including a data structure used for error reporting and a set of error codes.
 \label{minimal}
 \end{figure}
 
+\noindent
 To use the library, it is enough to include \texttt{yices.h} in your
 code. This will also include \texttt{yices\_types.h} and
-\texttt{yices\_limits.h}. A minimal example is shown in
+\texttt{yices\_limits.h}.
+
+\medskip\noindent A minimal example is shown in
 Figure~\ref{minimal}. Assuming the Yices library and header files are
 in standard directories such as \texttt{/usr/local/lib} and
 \texttt{/usr/local/include}, this code should compile with the
-following command
+following command:
 \begin{small}
 \begin{lstlisting}[language=sh]
    gcc minimal.c -o minimal -lyices
 \end{lstlisting}
 \end{small}
-(other compilers than GCC can be used). If Yices is installed in a
+Other compilers than GCC can be used. If Yices is installed in a
 non-standard location, then give appropriate flags to the compilation
 command. For example, if Yices is installed in your home directory:
 \begin{small}
@@ -4207,7 +4215,7 @@ Running the program should print something like this:
    Testing Yices 2.2.0 (x86_64-unknown-linux-gnu, release)
 \end{verbatim}
 \end{small}
-If you have build a version of Yices that's dynamically linked against
+If you have built a version of Yices that's dynamically linked against
 GMP, make sure to install GMP on your system.  If the Yices library is
 installed in a non-standard location, you may also need to set
 environment variable \texttt{LD\_LIBRARY\_PATH} (or
@@ -4244,7 +4252,7 @@ included in the distribution.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{lstlisting}[language=C,morekeywords={type_t,term_t},stringstyle=\color{red},commentstyle=\color{olive}]
+\begin{lstlisting}[language=C,morekeywords={type_t,term_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
  // Create two uninterpreted terms of type int.
  type_t int_type = yices_int_type();
  term_t x = yices_new_uninterpreted_term(int_type);
@@ -4284,7 +4292,7 @@ an error message.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{lstlisting}[language=C,morekeywords={int32_t},stringstyle=\color{red},commentstyle=\color{olive}]
+\begin{lstlisting}[language=C,morekeywords={int32_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
  static void print_term(term_t term) {
    int32_t code;
 
@@ -4320,7 +4328,7 @@ Figure~\ref{context-check}.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{lstlisting}[language=C,morekeywords={context_t},stringstyle=\color{red},commentstyle=\color{olive}]
+\begin{lstlisting}[language=C,morekeywords={context_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
 context_t *ctx = yices_new_context(NULL);
 code = yices_assert_formula(ctx, f);
 if (code < 0) {
@@ -4369,7 +4377,7 @@ a model.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{lstlisting}[language=C,morekeywords={model_t,int32_t,NULL},stringstyle=\color{red},commentstyle=\color{olive}]
+\begin{lstlisting}[language=C,morekeywords={model_t,int32_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
  model_t *model = yices_get_model(ctx, true);  // get the model
  if (model == NULL) {
    fprintf(stderr, "Error in get_model\n");
@@ -5079,7 +5087,7 @@ to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
 the ``copyright'' line and a pointer to where the full notice is found.
 
-{\footnotesize
+{\scriptsize
 \begin{verbatim}
 <one line to give the program's name and a brief idea of what it does.>
 
@@ -5105,7 +5113,7 @@ Also add information on how to contact you by electronic and paper mail.
 If the program does terminal interaction, make it output a short
 notice like this when it starts in an interactive mode:
 
-{\footnotesize
+{\scriptsize
 \begin{verbatim}
 <program>  Copyright (C) <year>  <name of author>
 
