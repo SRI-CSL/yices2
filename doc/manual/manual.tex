@@ -488,9 +488,8 @@ or program fragment.
 \label{compilation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-If you download the Yices~2 source, you have a choose different
-optional components and features at compilation time. The main options
-include
+If you download the Yices~2 source, you can choose different optional
+components and features at compilation time. The main options are
 \begin{itemize}
 \item Support for the MCSAT solver (which is necessary for non-linear arithmetic).
 \item Support for third-party backend SAT solvers (which can provide improved performance on bitvector problems).
@@ -3762,7 +3761,7 @@ it will report that the instance is either \texttt{sat} or
 file. Similarly, \texttt{y2sat} simplification may solve the CNF
 formula that results from bit blasting on its own. In such a case, no DIMACS file is produce either.
 
-\paragraph{Limitation:} Currently, conversion to DIMACS is not supported only for incremental problems.
+\paragraph{Limitation:} Conversion to DIMACS is not supported for incremental problems.
 
 
 
