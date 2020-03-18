@@ -1,12 +1,18 @@
 \documentclass[11pt,twoside,fleqn,openright,titlepage]{cslreport}
 \input{moretext}
 \raggedbottom
-\usepackage{cite,relative,url,alltt,times}
+\usepackage{cite,relative,alltt,times}
 \usepackage{amsfonts,latexsym,amssymb}
+\usepackage{xcolor}
+\definecolor{lgrey}{gray}{0.98}
+
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily,showstringspaces=false,frame=single,backgroundcolor=\color{lgrey}}
+
 
 \pagenumbering{roman}
 \setcounter{page}{0}
-\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue]{hyperref}
+\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue]{hyperref}
 
 %% \renewcommand{\baselinestretch}{1.5}
 
@@ -67,6 +73,7 @@ Yices  is released  under the  GNU  General Public  Licence version  3
 released   under  different   terms,  and   were  free-of-charge   for
 noncommercial use.
 
+\medskip\noindent
 To discuss alternative license terms, please contact us at
 \texttt{fm-license@csl.sri.com}.
 
@@ -80,6 +87,7 @@ also provide source code there. For MacOS and Linux, you can also
 install Yices~2 using package managers (i.e., homebrew for the Mac and
 apt for Debian/Ubuntu).
 
+\medskip\noindent
 For the latest developments, you can clone our Git repository
 \url{https://github.com/SRI-CSL/yices2}.
 
@@ -113,14 +121,15 @@ in the included README file.  The binary distributions are
 self-contained and do not require installation of third-party
 libraries.
 
+\medskip\noindent
 To complete installation on Linux or Mac~OS~X, the binary
 distributions include a shell script called \texttt{install-yices}. By
 default, this script installs Yices in \texttt{/usr/local}. If
 this is fine for you, type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    sudo ./install-yices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 This will install the binaries in \texttt{/usr/local/bin}, the library
 in \texttt{/usr/local/lib}, and the header files in
@@ -129,9 +138,9 @@ in \texttt{/usr/local/lib}, and the header files in
 \medskip\noindent
 To install Yices in a different location, you can type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    ./install-yices <directory>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 (use \texttt{sudo} if necessary).
 
@@ -140,9 +149,9 @@ To install Yices in a different location, you can type
 
 If you use homebrew on Mac OS~X, you can easily install Yices as follows:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    brew install SRI-CSL/sri-csl/yices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 (you may need \texttt{sudo}). This will install the Yices~2
 executables, library, and include files.
@@ -155,17 +164,17 @@ For Ubuntu or Debian (or any other Linux distribution that uses
 first add our PPA to your list of repositories then install package
 \texttt{yices2}:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
   sudo add-apt-repository ppa:sri-csl/formal-methods
   sudo apt-get update
   sudo apt-get install yices2
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 You can also install the library and development files as follows:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
   sudo apt-get install yices2-dev libyices2.5
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 
 
@@ -174,92 +183,21 @@ You can also install the library and development files as follows:
 The source distribution must be used for operating systems not listed
 in Table~\ref{versions} (or for old versions of Linux or Mac~OS~X). It
 is also useful if you desire to compile Yices with debugging
-information, or if you want to link Yices with your own version of the
-GMP library. The source is available as a tarfile at
+information, if you want to link Yices with your own version of the
+GMP library, or if your want to build a thread-safe safe version.
+The source is available as a tarfile at
 \url{https://yices.csl.sri.com} and on our git repository at
 \url{https://github.com/SRI-CSL/yices2}.
 
-\medskip
+\medskip\noindent
+Several optional features can be selected at compilation time:
+\begin{itemize}
+\item MC-SAT solver (required for non-linear arithmetic)
+\item Support for third-party backend SAT solvers
+\item Support for a thread-safe API.
+\end{itemize}
+Instructions for building Yices with these different features are given in Chapter~\ref{compilation}.
 
-Yices~2 is straightforward to compile on UNIX-like systems. Any recent
-version of GCC or Clang should work. The compilation uses standard
-tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
-\texttt{gperf} utility and the GMP library. On many systems,
-\texttt{gperf} and GMP can be installed using package
-managers.  For example, on Ubuntu:
-\begin{small}
-\begin{verbatim}
-   sudo apt-get install libgmp-dev
-   sudo apt-get install gperf
-\end{verbatim}
-\end{small}
-After this, compiling and installing Yices use the following standard steps:
-\begin{small}
-\begin{verbatim}
-   ./configure
-   make -j
-   sudo make install
-\end{verbatim}
-\end{small}
-This will build binaries and libraries, and install them in \texttt{/usr/local}.
-You can change the installation location by giving a \texttt{--prefix} option
-to \texttt{configure}.
-
-For Windows, we recommend building Yices using Cygwin. If you want a
-version that works natively on Windows (i.e., does not depend on the
-Cygwin DLLs) then you can compile form Cygwin using the MinGW
-cross-compilers.  The file \texttt{doc/COMPILING} included in the
-source distribution gives more details.
-
-
-\subsection{Nonlinear Arithmetic and MCSAT}
-\label{mcsat-install}
-
-Yices includes a solver for nonlinear arithmetic based on the Model
-Constructing Satisfiability Calculus (MCSAT). This calculus and its
-application to nonlinear arithmetic are explained
-in~\cite{Jovanovic-etal:MCSATb:2013}
-and~\cite{deMouraJovanovic:nla:2012}.
-
-The precompiled, binary distributions of Yices include the MCSAT
-solver and can process nonlinear arithmetic problems. If you build
-Yices from source and want support for nonlinear arithmetic, you must
-install an external library first and enable MCSAT support when you
-compile Yices.
-
-This library is called ``libpoly.'' It implements various operations
-on polynomials used by the MCSAT solver. It is open source and it is
-available on GitHub (\url{https://github.com/SRI-CSL/libpoly}). Make
-sure that you download the latest version of libpoly. Yices~2.6
-requires libpoly v0.1.3.
-
-Once you have installed libpoly, you can compile Yices with MCSAT
-support as follows:
-\begin{small}
-\begin{verbatim}
-   ./configure --enable-mcsat
-   make -j
-   sudo make install
-\end{verbatim}
-\end{small}
-The usual environment variables (e.g., \texttt{CPPFLAGS} and
-\texttt{LDFLAGS}) can be used if you install libpoly in a non-standad
-location.
-
-
-\subsection{Python Bindings}
-\label{python-bindings}
-
-Since Yices~2.6.0, we provide Python bindings to the Yices API. The
-easiest way to install these Python bindings is to us \texttt{pip}:
-\begin{small}
-\begin{verbatim}
-  pip install yices
-\end{verbatim}
-\end{small}
-Alternatively, you can clone the Yices repository at
-\url{https://github.com/SRI-CSL/yices2}. Python support and some
-examples are in directory \texttt{src/bindings/python}.
 
 
 \section{Content of the Distributions}
@@ -281,31 +219,40 @@ Four solvers are currently included:
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
-The Yices library and header files allow you to use Yices via its
-API, as explained in Chapter~\ref{yices-api}.
+The library and header files allow you to use Yices via its API, as
+explained in Chapter~\ref{yices-api}.
 
+\medskip\noindent
 The source distribution includes source code for the above four
 solvers and for the library. It also includes documentation for the
 source, more examples and regression tests, various scripts and
 utilities, and the \LaTeX\ source for this manual.
 
 
-\section{Library Dependencies}
 
-Yices uses the GNU Multiple Precision Arithmetic Library (GMP).  The
-binary distribution are statically linked against GMP. If you build
-Yices from source, you will need to install GMP on your system.  The
-GMP library can be installed using common package managers in most
-Linux distributions. It can also be built and installed from
-source. For more information, please visit the GMP website
-\url{https://gmplib.org}. GMP is distributed under the LGPLv3~\url{https://www.gnu.org/licenses/lgpl-3.0.html}
-and GPLv2~\url{https://www.gnu.org/licenses/old-licenses/gpl-2.0.html} licenses.
+\section{Language Bindings}
+\label{python-bindings}
 
-Since release 2.4.0, Yices has optional support for nonlinear real
-arithmetic. As explained in Section~\ref{mcsat-install}, this depends
-on an external library for operations on polynomials which is
-available at~\url{https://github.com/SRI-CSL/libpoly}.
+We currently provide wrappers to the Yices API for Python and (experimental) binding or Go and
+OCaml. Source code for these different wrappers is maintained on different GitHub repositories.
 
+
+\paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way to install these Python bindings is to use \texttt{pip}:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  pip install yices
+\end{lstlisting}
+\end{small}
+
+\paragraph{Go:} \url{https://github.com/SRI-CSL/yices2_go_bindings}.  The code can be installed with
+\begin{small}
+\begin{lstlisting}[language=sh]
+  go get github.com/ianamason/yices2_go_bindings/cmd/yices_info
+\end{lstlisting}
+\end{small}
+
+\paragraph{OCaml:} \url{https://github.com/SRI-CSL/yices2_ocaml_bindings}.
+Follow the instructions in this repository for building and using the OCaml bindings.
 
 \section{Supported Logics}
 
@@ -442,6 +389,7 @@ Yices.  The easiest (and preferred) way to report a bug or ask a
 question about Yices is to post an issue on our GitHub repository
 (\url{https://github.com/SRI-CSL/yices2}).
 
+\medskip\noindent
 Alternatively, you can contact us via the Yices mailing lists:
 \begin{itemize}
 \item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
@@ -453,7 +401,6 @@ Alternatively, you can contact us via the Yices mailing lists:
 
 \item To report a bug, you can send an e-mail to \texttt{yices-bugs@csl.sri.com}.
 \end{itemize}
-
 If you report a bug, please include enough information in your report
 to enable us to reproduce and fix the
 problem. Figure~\ref{good-report} shows what a good bug report looks
@@ -463,6 +410,7 @@ removed). Figure~\ref{bad-report} shows an example of poor bug
 report. This example is fictitious but representative of what we
 sometimes receive on our mailing list.
 
+\medskip\noindent
 Please try to use Figure~\ref{good-report} as a template and include
 answers to the following questions:
 \begin{itemize}
@@ -534,6 +482,352 @@ or program fragment.
 \label{terrible-report}
 \end{figure}
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Building Yices~2 from Source}
+\label{compilation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If you download the Yices~2 source, you have a choice to include
+different optional components at compilation time. The main options
+include
+\begin{itemize}
+\item Include support for the MCSAT solver (which is necessary for non-linear arithmetic).
+\item Include support for third-party backend SAT solvers (which can provide improved performance on bitvector problems)
+\item Build a thread-safe version of the Yices library.
+\end{itemize}
+We start with the simplest type of build that does not include any
+optional components.  We then explain how to build the optional
+components in the following sections.  The instructions are written
+for a Debian-style Linux distribution such as Ubuntu, but they should
+work with minor adjustments on other Unix variants.
+
+\section{Basic Build}
+
+Yices~2 is straightforward to compile on UNIX-like systems. Any recent
+version of GCC or Clang should work. The compilation uses standard
+tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
+\texttt{gperf} utility and the GMP library. On many systems,
+\texttt{gperf} and GMP can be installed using package
+managers.  For example, on Ubuntu:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo apt-get install libgmp-dev
+   sudo apt-get install gperf
+\end{lstlisting}
+\end{small}
+After this, compiling and installing Yices use standard steps.
+
+\subsection*{From A Source Tarfile}
+
+If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follow these steps:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+   tar xvf yices-2.6.2-src.tgx
+   cd yices-2.6.2
+   ./configure
+   make -j
+   make check
+\end{lstlisting}
+\end{small}
+This will build binaries and libraries, and run the regression tests. If all goes well, you can then
+install Yices in \texttt{/usr/local} with
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo make install
+\end{lstlisting}
+\end{small}
+You can change the installation location by giving a \texttt{--prefix} option
+to \texttt{configure}.
+
+\subsection*{From The Git Repository}
+
+You can also get the latest source from \url{https://github.com/SRI-CSL/yices2} and build Yices as follows:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+   git clone https://github.com/SRI-CSL/yices2
+   cd yices2
+   autoconf
+   ./configure
+   make -j
+   make check
+\end{lstlisting}
+\end{small}
+As before, you can then install Yices in \texttt{/usr/local} with
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo make install
+\end{lstlisting}
+\end{small}
+
+
+\section{Nonlinear Arithmetic and MCSAT}
+\label{mcsat-install}
+
+Yices includes a solver for nonlinear arithmetic based on the Model
+Constructing Satisfiability Calculus (MCSAT). This calculus and its
+application to nonlinear arithmetic are explained
+in~\cite{Jovanovic-etal:MCSATb:2013}
+and~\cite{deMouraJovanovic:nla:2012}.
+
+\medskip\noindent
+The precompiled, binary distributions of Yices include the MCSAT
+solver and can process nonlinear arithmetic problems. If you build
+Yices from source and want support for nonlinear arithmetic, you must
+install two external libraries: \textsc{LibPoly}~\cite{Jovanovic+Dutertre:libpoly:2017}
+and CUDD~\cite{Somenzi:cudd:1998} and enable MCSAT when building Yices.
+
+\subsection*{\textsc{LibPoly}}
+
+\textsc{LibPoly} is open source and it is available on GitHub
+(\url{https://github.com/SRI-CSL/libpoly}). Make sure that you
+download the latest version of libpoly. Yices~2.6 requires libpoly
+v0.1.3. Follow the instruction in libpoly's README.md to compile and
+install it.
+
+\subsection*{CUDD}
+
+We recommend downloading CUDD from the GitHub repository
+\url{https://github.com/ivmai/cudd} and building it as follows:
+\begin{small}
+\begin{lstlisting}[language=sh,,deletekeywords={cd}]
+  git clone https://github.com/ivmai/cudd
+  cd cudd
+  ./configure
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+This will install CUDD header files and libraries in \texttt{/usr/local}.
+
+\subsubsection*{Notes}
+The CUDD Makefile builds documentation, which requires
+\texttt{pdflatex} and \texttt{makeindex}. Make sure that they are
+installed on your systen (e.g., by installing the texlive package).
+
+\medskip\noindent
+The CUDD Makefile was created with \texttt{automake-1.14}. Compilation may fail if you
+have a different version of automake on your system with this error:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  cudd/build-aux/missing: line 81: automake-1.14: command not found
+  WARNING: 'automake-1.14' is missing on your system.
+  ...
+\end{lstlisting}
+\end{small}
+If this happens to you, try this
+\begin{small}
+\begin{lstlisting}[language=sh]
+  aclocal
+  automake
+\end{lstlisting}
+\end{small}
+Another fix is to edit the Makefile and replace '1.14' by your version of automake and aclocal.
+
+
+\subsection*{Enabling MCSAT Support in Yices}
+Once you have installed \textsc{LibPoly} and CUDD, you can compile Yices with MCSAT
+support as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   ./configure --enable-mcsat
+   make -j
+   sudo make install
+\end{lstlisting}
+\end{small}
+The configure scripts will check that CUDD and \textsc{LibPoly} are present on your system,
+The usual environment variables (e.g., \texttt{CPPFLAGS} and
+\texttt{LDFLAGS}) can be used if you install libpoly or CUDD in a non-standad
+location.
+
+\section{Third-Party SAT Solvers}
+
+It is now possible for Yices to use third-party backend SAT solvers
+for bitvector solving. Currently, we support two SAT solvers:
+CaDiCaL~\cite{Biere:cadical:2019} and
+CryptoMiniSat~\cite{Soos+etal:extending:2009}. You can compile Yices
+with support for both or only one of these solvers.
+
+\subsection*{CaDiCaL}
+
+Here are the steps for downloading and installing CaDiCal:
+\begin{enumerate}
+\item Clone the CaDiCaL repository:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  git clone https://github.com/arminbiere/cadical
+\end{lstlisting}
+\end{small}
+\item Run the CaDiCaL configure script with option \texttt{-fPIC}. If
+  you're using \texttt{bash}, the following should work:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd cadical
+  CXXFLAGS=-fPIC ./confgure
+\end{lstlisting}
+\end{small}
+\item Build the code and (optionally) run the tests
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
+  make
+  make test
+\end{lstlisting}
+\end{small}
+\item Install the library and header file:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo install build/libcadical.a /usr/local/lib
+  sudo install -m644 sr/ccadical.h /usr/local/include
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+
+\subsection*{CryptoMiniSat}
+
+Yices requires a patched version of CryptoMiniSat~5 that we provide at
+\url{https://github/BrunoDutertre/cryptominisat}. Here is you can download and built it.
+\begin{enumerate}
+\item Clone the repository:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  git clone https://github.com/BrunoDutertre/cryptominisat
+\end{lstlisting}
+\end{small}
+\item Install CryptoMiniSat's dependencies
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo apt-get install cmake zlib1g-dev \
+            libboost-program-options-dev
+\end{lstlisting}
+\end{small}
+\item Compile and install:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd cryptominisat
+  mkdir build
+  cd build
+  cmake ..
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+
+\subsection*{Configure Yices~2 Compilation}
+
+If both CaDiCaL and CryptoMiniSat are installed, you can configure Yices~2 as follows to use them:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT' \
+       LIBS='-lcryptominisat5 -lcadical -lstdc++ -lm'
+\end{lstlisting}
+\end{small}
+After this, you can build and install Yices as usual:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
+   make -j
+   make test
+   sudo make install
+\end{lstlisting}
+\end{small}
+If you want only CaDiCaL, use the following configure command instead
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS=-DHAVE_CADICAL LIBS=-lcadical
+\end{lstlisting}
+\end{small}
+If you want only CryptoMiniSat, you can use
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT \
+       LIBS='-lcryptominisat5 -lstdc++ -lm'
+\end{lstlisting}
+\end{small}
+Compilation with these backend SAT solver is compatible with MCSAT, so
+you add option \texttt{--enable-mcsat} to any of these configure commands.
+
+\section{Thread-Safe API}
+
+By default, the Yices library is not re-entrant and it cannot be used
+in multi-threaded applications. If you need a re-entrant version of
+the library, you can configure and build Yices as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure --enable-thread-safety
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+When configured in this fashion, the Yices library will allow multiple
+thread to manipulate separate contexts and models without causing race
+conditions. Sharing of contexts or models accroess several threads is
+not supported (unless you implement your own locking mechanism).
+
+\medskip\noindent
+In the current version (Yices~2.6.2), threat-safety and MCSAT are not compatible.
+It is not possible to build Yices to support MCSAT and be re-entrant.
+
+
+\section{Building for Windows}
+
+For Windows, we recommend building Yices using Cygwin. If you want a
+version that works natively on Windows (i.e., does not depend on the
+Cygwin DLLs) then you can compile form Cygwin using the MinGW
+cross-compilers.  The file \texttt{doc/COMPILING} included in the
+source distribution gives more details.
+
+\section{Manual and Documentation}
+
+The \LaTeX\ source for this manual is included in the Yices~2
+repository.  To build the manual, make sure that you have a Latex
+installation (including \texttt{pdflatex}) and the \texttt{latexmk} utility.
+On Ubuntu, you can install them with \texttt{apt-get}:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo apt-get install texlive latexmk
+\end{lstlisting}
+\end{small}
+With these tools installed, you can generate the manual by typing
+\begin{small}
+\begin{lstlisting}[language=sh]
+  make doc
+\end{lstlisting}
+\end{small}
+in the top-level Yices source directory.
+
+\medskip\noindent The repository also includes detailed API
+documentation that can be built using the Sphinx tool.\footnote{See
+  \url{https://www.sphinx-doc.org/en/master/}} The generated
+documentation can be browsed online at
+\url{https://yices.csl.sri.com/doc/index.html}. You can also build a local version of
+this documentation as follows.
+\begin{enumerate}
+\item Install Sphinx:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  pip install sphinx
+\end{lstlisting}
+\end{small}
+\item Build the \texttt{html} documentation (from the Yices top-level source directory):
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd doc/sphinx
+  make html
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+The resulting documentation will be in directory
+\texttt{doc/sphinx/build/html}. Sphinx can generate documentation in
+other formats than \texttt{html}. For example, you can do
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd doc/sphinx
+  make epub
+\end{lstlisting}
+\end{small}
+and this will generate an electronic book in the \texttt{epub|} format. This book is in
+a single file \texttt{Yices.epub} in directory \texttt{doc/sphinx/build/epub}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1172,9 +1466,9 @@ model.
 \medskip\noindent
 To run \texttt{yices} on this input file, just type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices examples/bv_test2.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 The tool will output something like this:
 \begin{small}
@@ -1201,23 +1495,23 @@ Since  this  example  contains  only  terms and  constructs  from  the
 bitvector  theory,  we  could  specify logic  \texttt{QF\_BV}  on  the
 command line as follows:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices --logic=QF_BV examples/bv_test2.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 Since the file does not use \texttt{push} and \texttt{pop}, and it
 contains only one call to \texttt{(check)}, we can select the mode
 \texttt{one-shot}:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 `To get a more detailed output, we can give a non-zero verbosity level:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices --verbosity=4 examples/bv_test2.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 
 \section{Exists/Forall Problems}
@@ -1278,9 +1572,9 @@ This is illustrated in Figure~\ref{example:ef}.
 To run \texttt{yices} on this example, we must give option
 \texttt{--mode=ef} on the command line:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
       yices --mode=ef test.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 This will produce the following output:
 \begin{small}
@@ -1296,9 +1590,9 @@ is the model, which just shows the value of the global variable
 \medskip\noindent
 As previously, we can get more detailed output by increasing the verbosity:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices --mode=ef --verbosity=5 test.ys
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 It is also possible to specify a logic on the command-line.
 
@@ -1369,9 +1663,9 @@ a subset of the assumptions that are inconsistent with the context.
 \section{Tool Invocation}
 
 Yices is invoked on an input file by typing
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
       yices [option] <filename>
-\end{verbatim}
+\end{lstlisting}
 If no \texttt{<filename>} is given, \texttt{yices} will run in
 interactive mode and will read the standard input. The following
 options are supported.
@@ -3279,9 +3573,9 @@ of the language in detail~\cite{SMTLIB:tutorial:2013}.
 
 To run \texttt{yices-smt2} on an input file, type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt2 <input-file>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 Since \texttt{yices-smt2} runs in mode \texttt{one-shot} by default,
 this will work fine as long as the \texttt{<input-file>} does not use
@@ -3300,9 +3594,9 @@ command \texttt{(check-sat)}.
 input. Optionally, one can also run the solver with
 the following option:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt2 --interactive
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 When invoked in this manner, \texttt{yices-smt2} will print a prompt
 before accepting commands from standard input. In addition, option
@@ -3611,9 +3905,9 @@ SMT-LIB~2.0.
 
 To execute this solver on an input file in the SMT-LIB~1.2 format, just type:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt <input-file>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 The solver will check satisfiability of the constraints in
 \texttt{input-file} and report either \texttt{sat} or
@@ -3657,11 +3951,9 @@ The following command-line options can be given to \texttt{yices-smt}.
 
   For example, to run \texttt{yices-smt} with a 20~s timeout, use:
   \begin{small}
-  \vspace*{-2mm}
-  \begin{verbatim}
+  \begin{lstlisting}[language=sh]
      yices-smt --timeout=20 ...
-  \end{verbatim}
-  \vspace*{-7mm}
+  \end{lstlisting}
   \end{small}
 \item[--version, -V] Display the version and exit.
 
@@ -3740,7 +4032,7 @@ including a data structure used for error reporting and a set of error codes.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,otherkeywords={\#include},stringstyle=\color{red}]
    #include <stdio.h>
    #include <yices.h>
 
@@ -3749,7 +4041,7 @@ including a data structure used for error reporting and a set of error codes.
               yices_build_arch, yices_build_mode);
       return 0;
    }
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Minimal Example}
 \label{minimal}
@@ -3763,18 +4055,18 @@ in standard directories such as \texttt{/usr/local/lib} and
 \texttt{/usr/local/include}, this code should compile with the
 following command
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    gcc minimal.c -o minimal -lyices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 (other compilers than GCC can be used). If Yices is installed in a
 non-standard location, then give appropriate flags to the compilation
 command. For example, if Yices is installed in your home directory:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    gcc minimal.c -o minimal -I${HOME}/yices-2.2.0/include \
         -L${HOME}/yices-2.2.0/lib -lyices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 Running the program should print something like this:
 \begin{small}
@@ -3819,7 +4111,7 @@ included in the distribution.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={type_t,term_t},stringstyle=\color{red},commentstyle=\color{olive}]
  // Create two uninterpreted terms of type int.
  type_t int_type = yices_int_type();
  term_t x = yices_new_uninterpreted_term(int_type);
@@ -3840,7 +4132,7 @@ included in the distribution.
  // Another way to do it
  term_t f_var =
    yices_parse_term("(and (>= x 0) (>= y 0) (= (+ x y) 100))");
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Term Construction using the API}
 \label{term-construction}
@@ -3859,7 +4151,7 @@ an error message.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={int32_t},stringstyle=\color{red},commentstyle=\color{olive}]
  static void print_term(term_t term) {
    int32_t code;
 
@@ -3879,7 +4171,7 @@ an error message.
  print_term(f);
  printf("Formula f_var\n");
  print_term(f_var);
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Pretty Printing a Term}
 \label{pretty-printing}
@@ -3895,7 +4187,7 @@ Figure~\ref{context-check}.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={context_t},stringstyle=\color{red},commentstyle=\color{olive}]
 context_t *ctx = yices_new_context(NULL);
 code = yices_assert_formula(ctx, f);
 if (code < 0) {
@@ -3927,7 +4219,7 @@ case STATUS_SAT:
    break;
  }
  yices_free_context(ctx);
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Checking Satisfiability}
 \label{context-check}
@@ -3944,8 +4236,8 @@ a model.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
- model_t* model = yices_get_model(ctx, true);  // get the model
+\begin{lstlisting}[language=C,morekeywords={model_t,int32_t,NULL},stringstyle=\color{red},commentstyle=\color{olive}]
+ model_t *model = yices_get_model(ctx, true);  // get the model
  if (model == NULL) {
    fprintf(stderr, "Error in get_model\n");
    yices_print_error(stderr);
@@ -3974,7 +4266,7 @@ a model.
 
    yices_free_model(model); // clean up: delete the model
  }
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Building and Querying a Model}
 \label{model-query}
