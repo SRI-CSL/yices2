@@ -177,7 +177,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
-	 "    --bvconst-in-decimal      Display bit-vector cosntants as decimal numbers (default = false)\n"
+	 "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Use the MCSat solver\n"
