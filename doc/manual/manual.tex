@@ -773,7 +773,7 @@ It is not possible to build Yices to support MCSAT and be re-entrant.
 
 For Windows, we recommend building Yices using Cygwin. If you want a
 version that works natively on Windows (i.e., does not depend on the
-Cygwin DLLs) then you can compile form Cygwin using the MinGW
+Cygwin DLLs) then you can compile from Cygwin using the MinGW
 cross-compilers.  The file \texttt{doc/COMPILING} included in the
 source distribution gives more details.
 
@@ -1160,7 +1160,7 @@ $\mathtt{bvconcat}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ m) \rightarrow (\matht
 concatenation \\
 $\mathtt{bvextract}_{i,j}$$((\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ m))$ &
 extract bits $i$ down to $j$ \\
-& form a bitvector of size $n$ \\
+& from a bitvector of size $n$ \\
 \hline
 \end{tabular}
 \caption{Bitvector Operators}
@@ -3823,6 +3823,8 @@ Here is the full list of command-line options supported by
 \item[--version, -V] Print version and exit.
 
 \item[--help, -h] Show a summary of command-line options and exit.
+
+\item[--mcsat-help] Show extra options used only by the MCSAT solver.
 
 \end{options}
 
