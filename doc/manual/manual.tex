@@ -593,19 +593,14 @@ We recommend downloading CUDD from the GitHub repository
 \begin{lstlisting}[language=sh,,deletekeywords={cd}]
   git clone https://github.com/ivmai/cudd
   cd cudd
-  ./configure
+  ./configure CFLAGS=-fPIC
   make
   sudo make install
 \end{lstlisting}
 \end{small}
 This will install CUDD header files and libraries in \texttt{/usr/local}.
 
-\subsubsection*{Notes}
-The CUDD Makefile builds documentation, which requires
-\texttt{pdflatex} and \texttt{makeindex}. Make sure that they are
-installed on your system (e.g., by installing the TeX-live package).
-
-\medskip\noindent
+\subsubsection*{Note}
 The CUDD Makefile was created with \texttt{automake-1.14}. Compilation may fail if you
 have a different version of automake on your system with this error:
 \begin{small}
@@ -685,7 +680,7 @@ Here are the steps for downloading and installing CaDiCaL:
 \subsection*{CryptoMiniSat}
 
 Yices requires a patched version of CryptoMiniSat~5 that we provide at
-\url{https://github/BrunoDutertre/cryptominisat}. Here is how you can download and built it.
+\url{https://github.com/BrunoDutertre/cryptominisat}. Here is how you can download and build it.
 \begin{enumerate}
 \item Clone the repository:
 \begin{small}
@@ -706,7 +701,7 @@ Yices requires a patched version of CryptoMiniSat~5 that we provide at
   cd cryptominisat
   mkdir build
   cd build
-  cmake ..
+  cmake .. -DENABLE_PYTHON_INTERFACE=OFF
   make
   sudo make install
 \end{lstlisting}
@@ -741,7 +736,7 @@ If you want only CryptoMiniSat, you can use
 \begin{small}
 \begin{lstlisting}[language=sh]
   ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT \
-       LIBS='-lcryptominisat5 -lstdc++ -lm'
+       LIBS='-lcryptominisat5 -lstdc++'
 \end{lstlisting}
 \end{small}
 Compilation with these backend SAT solver is compatible with MCSAT, so
