@@ -733,7 +733,8 @@ After this, you can build and install Yices as usual:
 If you want only CaDiCaL, use the following configure command instead
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS=-DHAVE_CADICAL LIBS=-lcadical
+  ./configure CPPFLAGS=-DHAVE_CADICAL \
+       LIBS='-lcadical -lstdc++ -lm'
 \end{lstlisting}
 \end{small}
 If you want only CryptoMiniSat, you can use
