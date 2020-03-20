@@ -3370,6 +3370,93 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
 
 
 
+
+/**********************
+ *  CHECK FORMULA(S)  *
+ *********************/
+
+/*
+ * Check whether a formula is satisfiable
+ * - f = formula
+ * - logic = SMT name for a logic (or NULL)
+ * - model = resulting model (or NULL if no model is needed)
+ * - delegate = external solver to use or NULL
+ *
+ * This function first checks whether f is trivially sat or trivially unsat.
+ * If not, it constructs a context configured for the specified logic, then
+ * asserts f in this context and checks whether the context is satisfiable.
+ *
+ * The return value is
+ *   STATUS_SAT if f is satisfiable,
+ *   STATUS_UNSAT if f is not satisifiable
+ *   STATUS_ERROR if something goes wrong
+ *
+ * If the formula is satisfiable and model != NULL, then a model of f is returned in *model.
+ * That model must be deleted when no-longer needed by calling yices_free_model.
+ *
+ * The logic must be either NULL or the name of an SMT logic supported by Yices.
+ * If the logic is NULL, the function uses a default context configuration.
+ * Ohterwise, the function uses a context specialized for the logic.
+ *
+ * The delegate is an optional argument used only when logic is "QF_BV".
+ * If is ignored otherwise. It must either be NULL or be the name of an
+ * external SAT solver to use after bit-blasting. Valid delegates
+ * are "cadical", "cryptominisat", and "y2sat".
+ * If delegate is NULL, the default SAT solver is used.
+ *
+ * Support for "cadical" and "cryptominisat" must be enabled at compilation
+ * time. The "y2sat" solver is always available. The function will return STATUS_ERROR
+ * and store an error code if the requested delegate is not available.
+ *
+ * Error codes:
+ *
+ * if f is invalid
+ *   code = INVALID_TERM
+ *   term1 = f
+ *
+ * if f is not Boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool
+ *
+ * if logic is not a known logic name
+ *   code = CTX_UNKNOWN_LOGIC
+ *
+ * if the logic is known but not supported by Yices
+ *   code = CTX_LOGIC_NOT_SUPPORTED
+ *
+ * if delegate is not one of "cadical", "cryptominisat", "y2sat"
+ *   code = CTX_UNKNOWN_DELEGATE
+ *
+ * if delegate is "cadical" or "cryptominisat" but support for these SAT solvers
+ * was not implemented at compile time,
+ *   code = CTX_DELEGATE_NOT_AVAILABLE
+ *
+ * other error codes are possible if the formula is not in the specified logic (cf. yices_assert_formula)
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_formula(term_t f, const char *logic, model_t **model, const char *delegate);
+
+/*
+ * Check whether n formulas are satisfiable.
+ * - f = array of n Boolean terms
+ * - n = number of elements in f
+ *
+ * This is similar to yices_check_formula except that it checks whether
+ * the conjunction of f[0] ... f[n-1] is satisfiable.
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const char *logic, model_t **model, const char *delegate);
+
+/*
+ * Check whether the given delegate is supported
+ * - return 0 if it's not supported.
+ * - return 1 if delegate is NULL or it's the name of a supported delegate
+ *
+ * Which delegate is supported depends on how this version of Yices was compiled.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_has_delegate(const char *delegate);
+
+
+
 /***********************
  *  VALUES IN A MODEL  *
  **********************/

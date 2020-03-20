@@ -2796,44 +2796,6 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 
 
 /*
- * Evaluate all terms in a[0 ... n-1] in a default model.
- * Return true if all terms evaluate to true in the model and return the model in *model.
- * Return false otherwise, and leave *model unchanged.
- */
-static bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
-  model_t *mdl;
-  evaluator_t evaluator;
-  uint32_t i;
-  bool result;
-
-  yices_obtain_mutex();
-
-  result = true;
-  mdl = yices_new_model(true);
-  init_evaluator(&evaluator, mdl);
-  for (i=0; i<n; i++) {
-    if (!eval_to_true_in_model(&evaluator, a[i])) {
-      result = false;
-      break;
-    }
-  }
-
-  if (result) {
-    eval_record_useful_terms(&evaluator);
-    delete_evaluator(&evaluator);
-    *model = mdl;
-  } else {
-    delete_evaluator(&evaluator);
-    yices_free_model(mdl);
-  }
-
-  yices_release_mutex();
-
-  return result;
-}
-
-
-/*
  * Check satisfiability of all assertions
  */
 static void check_delayed_assertions(smt2_globals_t *g) {
