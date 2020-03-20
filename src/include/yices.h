@@ -3939,9 +3939,9 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
  */
 
 /*
- * Given a term t and a model mdl, the support of t in mdl is a set of variables/uninterpreted
+ * Given a term t and a model mdl, the support of t in mdl is a set of uninterpreted
  * terms whose values are sufficient to fix the value of t in mdl. For example, if
- * t is (if x>0 then x+z1 else y) and x has value 1 in mdl, then the value of t doesn't depend
+ * t is (if x>0 then x+z else y) and x has value 1 in mdl, then the value of t doesn't depend
  * on the value of y in mdl. In this case, support(t) = { x, z }.
  *
  * This extends to an array of terms a[0 ... n-1]. The support of a is a set of terms whose

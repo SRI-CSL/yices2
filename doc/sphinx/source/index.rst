@@ -44,6 +44,7 @@ API Reference
    misc-operations
    context-operations
    model-operations
+   formula-operations
    pretty-printing
 
 
