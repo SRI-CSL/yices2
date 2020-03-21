@@ -33,6 +33,7 @@ API Reference
 
    version-data
    mcsat-support
+   thread-safety
    global-initialization
    out-of-memory
    hard-limits

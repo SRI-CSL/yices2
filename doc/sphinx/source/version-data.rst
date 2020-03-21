@@ -54,7 +54,7 @@ More details are given by three constant strings:
    Typical values are ``"release"`` for a normal build, or ``"debug"``
    if the library was built with debug symbols.
 
-.. c:var:: const char* yices_build_data
+.. c:var:: const char* yices_build_date
 
    Build date.
 

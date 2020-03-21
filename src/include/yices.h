@@ -262,7 +262,7 @@ __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
  *
  * If there's an error, errno, perror, and friends can be used for diagnostic.
  */
- __YICES_DLLSPEC__ extern int32_t yices_print_error_fd(int fd);
+__YICES_DLLSPEC__ extern int32_t yices_print_error_fd(int fd);
 
 
 /*
@@ -3863,7 +3863,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_expand_mapping(model_t *mdl, const yv
  * Error codes:
  * - same as yices_get_bool_value
  */
-__YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
+__YICES_DLLSPEC__ extern int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
 
 
 /*
@@ -3879,7 +3879,7 @@ __YICES_DLLSPEC__ int32_t yices_formula_true_in_model(model_t *mdl, term_t f);
  * NOTE: if n>1, it's more efficient to call this function once than to
  * call the previous function n times.
  */
-__YICES_DLLSPEC__ int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
+__YICES_DLLSPEC__ extern int32_t yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f[]);
 
 
 
@@ -4305,8 +4305,8 @@ __YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, 
  *   code = OUTPUT_ERROR
  *   in this case, errno, perror, etc. can be used for diagnostic.
  */
- __YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
-                                                       uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+						      uint32_t width, uint32_t height, uint32_t offset);
 
 
 /*
