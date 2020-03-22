@@ -9480,6 +9480,7 @@ static bool check_delegate(const char *delegate) {
  */
 static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const char *logic_name, model_t **result, const char *delegate) {
   context_t context;
+  param_t default_params;
   model_t *model;
   smt_logic_t logic;
   context_arch_t arch;
@@ -9547,7 +9548,8 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   if (logic == QF_BV && delegate != NULL) {
     status = check_with_delegate(&context, delegate, 0);
   } else {
-    status = check_context(&context, NULL);
+    yices_default_params_for_context(&context, &default_params);
+    status = check_context(&context, &default_params);
   }
 
   // get the model
