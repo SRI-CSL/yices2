@@ -1308,12 +1308,14 @@ bool eq_graph_has_propagated_terms(const eq_graph_t* eq) {
 
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms) {
   // Copy over the terms that are equal to a value
-  uint32_t i;
-  for (i = 0; i < eq->term_value_merges.size; ++ i) {
-    eq_node_id_t n_id = eq->term_value_merges.data[i];
-    const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
-    assert(n->type == EQ_NODE_TERM && eq_graph_get_node_const(eq, n->find)->type == EQ_NODE_VALUE);
-    ivector_push(out_terms, eq->terms_list.data[n->index]);
+  if (out_terms) {
+    uint32_t i;
+    for (i = 0; i < eq->term_value_merges.size; ++ i) {
+      eq_node_id_t n_id = eq->term_value_merges.data[i];
+      const eq_node_t* n = eq_graph_get_node_const(eq, n_id);
+      assert(n->type == EQ_NODE_TERM && eq_graph_get_node_const(eq, n->find)->type == EQ_NODE_VALUE);
+      ivector_push(out_terms, eq->terms_list.data[n->index]);
+    }
   }
   // Clear the vector
   ivector_reset(&eq->term_value_merges);
