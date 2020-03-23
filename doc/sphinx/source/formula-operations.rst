@@ -6,8 +6,11 @@
 
 .. _formula_operations:
 
-Formula Satisfiability
+Operations on Formulas
 ======================
+
+Checking Satisfiability
+-----------------------
 
 The standard way of checking whether formulas are satisfiable requires the following steps:
 
@@ -113,13 +116,13 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
     -- error code: :c:enum:`INVALID_TERM`
 
-    -- term1 := t
+    -- term1 := f
 
-  - if *t* is not Boolean
+  - if *f* is not Boolean
 
      -- error code: :c:enum:`TYPE_MISMATCH`
 
-     -- term1 := t
+     -- term1 := f
 
      -- type1 := bool
 
@@ -152,7 +155,7 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
    **Parameters**
 
-  - *f* must be an array of  Boolean term
+  - *f* must be an array of Boolean term
 
   - *n* is the size of array *f*
 
@@ -176,3 +179,100 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
   Return 1 if *delegate* is NULL or if it's the name of a delegate that's available in
   this version of the Yices library.
+
+
+Export to DIMACS
+----------------
+
+It is possible to use Yices to export the results of bit-blasting.
+Input to this process is a formula or array of formulas in the QF_BV
+logic. Bit-blasting converts this input into a equisatifiable Boolean
+formula in Conjunctive Normal Form (CNF). The CNF is exported in the
+DIMACS format, which is used by all modern SAT solvers.
+
+Bit-blasting starts by applying simplifications and rewriting rules to
+the input problem. This preprocessing may be sufficient to determnine
+whether the input is satisfiable or not. In such cases, exporting
+to DIMACS cannot be performed as no CNF is constructed.
+
+The following two functions process formulas in the QF_BV logic. They
+first perform preprocessing and simplification. If the formulas are
+solved by this preprocessing, the functions return the status (either
+:c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNSAT`). Otherwise, the
+functions construct a CNF formula and write it to a file. Optionally,
+the functions can perform an extra round of simplification to the CNF
+formula before exporting it.
+
+.. c:function:: int32_t yices_export_formula_to_dimacs(term_t f, const char *filename, int32_t simplify_cnf, smt_status_t *status)
+
+   Export a bit-vector formula to CNF
+
+   **Parameters**
+
+   - *f* must be a Boolean term in the QF_BV theory
+
+   - *filename* is the name of a file in which to store the CNF
+
+   - *simplify_cnf* enables CNF simplification using the "y2sat" SAT solver
+
+   - *staus* is a pointer to a variable that will store the formula's status if no DIMACS file is produced.
+
+   **Returned Value**
+
+   The function returns an integer code that indicates whether a
+   DIMACS file was produced, or the formula was solved by preprocessing, or an error occurred:
+
+   - a negative code (-1) indicates an error while processing the formula or while writing the DIMACS file.
+
+   - the value 0 means that the formula was solved by preprocessing and that no file was created.
+
+     In this case, the formula's status is returned in variable *status*.
+
+   - the value 1 means that a DIMACS file was successfully generated.
+
+   **Error Reports**
+
+   - if *f* is not a valid term
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := f
+
+   - if *f* is not Boolean
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+     -- term1 := f
+
+     -- type1 := bool
+
+   - if opening or writing to *filename* failed
+
+     -- error code: :c:enum:`OUTPUT_ERROR`
+
+   Other error codes are possible if *f* is not in the QF_BV theory
+  
+   If the error code is :c:enum:`OUTPUT_ERROR`, it is possible to get more information on
+   the error by using standard functions such as ``perror`` and ``strerror``.
+
+
+.. c:function:: int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, const char *filename, int32_t simplify_cnf, smt_status_t *status)
+
+   Export an array of bit-vector formulas to CNF
+
+   This is similar to :c:func:`yices_export_formula_to_dimacs` except that it processes an array of *n* bit-vector formulas.
+
+    **Parameters**
+
+   - *f* must be an array of Boolean terms in the QF_BV theory
+
+   - *n* is the size of array *f*
+
+   - *filename* is the name of a file in which to store the CNF
+
+   - *simplify_cnf* enables CNF simplification using the "y2sat" SAT solver
+
+   - *staus* is a pointer to a variable that will store the formula's status if no DIMACS file is produced.
+
+
+   The returned code and error reports are the same as :c:func:`yices_export_formula_to_dimacs`.
