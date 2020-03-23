@@ -9393,8 +9393,11 @@ int32_t _o_yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t
 
 /*
  * Evaluate all terms in a[0 ... n-1] in a default model.
- * Return true if all terms evaluate to true in the model and return the model in *model.
- * Return false otherwise, and leave *model unchanged.
+ * Return true if all terms evaluate to true in the model.
+ * Return false otherwise.
+ *
+ * If model != NULL and the result is true, the default model is
+ * returned in model.
  */
 bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
   model_t *mdl;
@@ -9414,7 +9417,7 @@ bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
     }
   }
 
-  if (result) {
+  if (result && model != NULL) {
     eval_record_useful_terms(&evaluator);
     delete_evaluator(&evaluator);
     *model = mdl;
@@ -9521,12 +9524,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
     return STATUS_UNSAT;
   }
 
-  if (trivially_true_assertions(f, n, &model)) {
-    if (result == NULL) {
-      yices_free_model(model);
-    } else {
-      *result = model;
-    }
+  if (trivially_true_assertions(f, n, result)) {
     return STATUS_SAT;
   }
 
@@ -9647,6 +9645,118 @@ EXPORTED smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const c
     return STATUS_ERROR;
   }
   return yices_do_check_formulas(f, n, logic, model, delegate);
+}
+
+
+/************************************
+ *  BIT-BLAST AND EXPORT TO DIMACS  *
+ ***********************************/
+
+/*
+ * Bit-blast f[0 ... n-1]
+ * - filename = DIMACS file name
+ * - simplify_cnf = whether to simplify after CNF conversion (using y2sat)
+ * - status = returned status if the formulas are SAT or UNSAT
+ */
+static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const char *filename, bool simplify_cnf, smt_status_t *status) {
+  context_t context;
+  context_arch_t arch;
+  bool iflag, qflag;
+  int32_t code;
+
+  if (trivially_false_assertions(f, n)) {
+    *status = STATUS_UNSAT;
+    return 0;
+  }
+
+  if (trivially_true_assertions(f, n, NULL)) {
+    *status = STATUS_SAT;
+    return 0;
+  }
+
+  arch = arch_for_logic(QF_BV);
+  iflag = iflag_for_logic(QF_BV);
+  qflag = qflag_for_logic(QF_BV);
+
+  yices_obtain_mutex();
+  init_context(&context, __yices_globals.terms, QF_BV, CTX_MODE_ONECHECK, arch, qflag);
+  context_set_default_options(&context, QF_BV, arch, iflag, qflag);
+  code = assert_formulas(&context, n, f);
+  yices_release_mutex();
+
+  if (code < 0) {
+    // error in assert_formulas
+    convert_internalization_error(code);
+    code = -1;
+    goto done;
+  }
+
+  if (code == TRIVIALLY_UNSAT) {
+    *status = STATUS_UNSAT;
+    code = 0;
+    goto done;
+  }
+
+  assert(code == CTX_NO_ERROR);
+
+  if (simplify_cnf) {
+    code = process_then_export_to_dimacs(&context, filename, status);
+  } else {
+    code = bitblast_then_export_to_dimacs(&context, filename, status);
+  }
+  if (code < 0) {
+    // error in creating or writing to the file
+    code = -1;
+    file_output_error();
+  }
+
+ done:
+  delete_context(&context);
+  return code;
+}
+
+/*
+ * Bit-blast then export the CNF to a file
+ * - f = a Boolean formula (in the QF_BV theory)
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - stat = pointer to a variable that stores the formula's status
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports:
+ */
+EXPORTED int32_t yices_export_formula_to_dimacs(term_t f, const char *filename, int32_t simplify_cnf, smt_status_t *status) {
+  if (! yices_assert_formula_checks(f)) {
+    return -1;
+  }
+  return yices_do_export_to_dimacs(&f, 1, filename, simplify_cnf != 0, status);
+}
+
+/*
+ * Bit-blast n formulas then export the CNF to a file
+ * - f = array of n Boolean formula (in the QF_BV theory)
+ * - n = number of formulas in f
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - stat = pointer to a variable that stores the formula's status
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports:
+ */
+EXPORTED int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, const char *filename,
+						 int32_t simplify_cnf, smt_status_t *status) {
+  if (! yices_assert_formulas_checks(n, f)) {
+    return -1;
+  }
+  return yices_do_export_to_dimacs(f, n, filename, simplify_cnf != 0, status);
 }
 
 

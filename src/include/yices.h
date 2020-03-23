@@ -3456,6 +3456,73 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_formulas(const term_t f[], uin
 __YICES_DLLSPEC__ extern int32_t yices_has_delegate(const char *delegate);
 
 
+/************************************
+ *  BIT-BLAST AND EXPORT TO DIMACS  *
+ ***********************************/
+
+/*
+ * Bit-blast then export the CNF to a file
+ * - f = a Boolean formula (in the QF_BV theory)
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - status = pointer to a variable that stores the formula's status
+ *
+ * The function bitblasts formula f and exports the resulting CNF to a file in DIMACS format.
+ * - filename = name of this file
+ * - simplify_cnf is a flag to enable CNF simplification using the y2sat SAT solver.
+ *   If simplify_cnf is 0, no CNF simplifcation is applied
+ *   If simplify_cnf is not 0, CNF simplification is applied
+ *
+ * The bit-vector solver applies various simplifications and preprocessing that may detect
+ * that f is SAT or UNSAT without generating a CNF. In this case, the function does not
+ * produce a DIMACS file and the formula status (either STATUS_SAT or STATUS_UNSAT) is
+ * returned in variable *status.
+ *
+ * If simplify_cnf is non-zero, it is also possible for CNF simplification to detect
+ * that the CNF is sat or unsat. In this case, no DIMACS file is produced and the status
+ * is returne in variable *status.
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports:
+ * if f is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = f
+ * if f is not a Boolean term
+ *   code = TYPE_MISMATCH
+ *   term1 = f
+ *   type1 = bool (expected type)
+ * if there's an error when opening or writing to filename
+ *   code = OUTPUT_ERROR
+ *
+ * Other errors are possible if f can't be processed by the bitvector solver.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_export_formula_to_dimacs(term_t f, const char *filename, int32_t simplify_cnf, smt_status_t *status);
+
+
+/*
+ * Bit-blast n formulas then export the CNF to a file
+ * - f = array of n Boolean formula (in the QF_BV theory)
+ * - n = number of formulas in f
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - stat = pointer to a variable that stores the formula's status
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports: same as for yices_export_formula_to_dimacs.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, const char *filename,
+								 int32_t simplify_cnf, smt_status_t *status);
+
+
+
 
 /***********************
  *  VALUES IN A MODEL  *

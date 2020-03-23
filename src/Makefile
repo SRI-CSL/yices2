@@ -175,6 +175,7 @@ core_src_c := \
 	solvers/bv/bvpoly_dag.c \
 	solvers/bv/bvsolver.c \
 	solvers/bv/bv_vartable.c \
+	solvers/bv/dimacs_printer.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
 	solvers/cdcl/delegate.c \
@@ -417,7 +418,6 @@ extra_src_c := \
 	scratch/bool_vartable.c \
 	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
-	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/sat_solver.c \
