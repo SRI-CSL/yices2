@@ -1616,7 +1616,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   uint32_t plugin_i;
   tracer_t* trace;
 
-  uint32_t conflict_level;
+  uint32_t conflict_level, backtrack_level;
   variable_t var;
 
   term_t decision_bound = NULL_TERM;
@@ -1662,12 +1662,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   // Get the level of the conflict and backtrack to it
   conflict_level = conflict_get_level(&conflict);
-  mcsat_backtrack_to(mcsat, conflict_level);
+  backtrack_level = mcsat->trail->decision_level_base;
+  if (backtrack_level < conflict_level) backtrack_level = conflict_level;
+  mcsat_backtrack_to(mcsat, backtrack_level);
 
   // Analyze while at least one variable at conflict level
   while (true) {
 
-    if (conflict_level == mcsat->trail->decision_level_base) {
+    if (conflict_level <= mcsat->trail->decision_level_base) {
       // Resolved all the way
       break;
     }
