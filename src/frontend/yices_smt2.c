@@ -686,6 +686,7 @@ int main(int argc, char *argv[]) {
   uint32_t i;
   bool prompt;
 
+  prompt = false;
   parse_command_line(argc, argv);
   force_utf8();
 
