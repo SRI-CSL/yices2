@@ -162,8 +162,6 @@ void cnf_convert_xor(cnf_t* cnf, term_t xor, ivector_t* xor_clauses) {
   xor_tag.var = variable_db_get_variable(cnf->ctx->var_db, xor);
   xor_tag.level = cnf->ctx->trail->decision_level_base;
 
-  cnf_begin(cnf, xor_tag.var);
-
   // Get the arguments
   term_t t1 = xor_composite->arg[0];
   term_t t2;
@@ -178,6 +176,8 @@ void cnf_convert_xor(cnf_t* cnf, term_t xor, ivector_t* xor_clauses) {
   t1_lit = cnf_convert(cnf, t1, xor_clauses);
   t2_lit = cnf_convert(cnf, t2, xor_clauses);
   xor_lit = literal_construct(xor_tag.var, false);
+
+  cnf_begin(cnf, xor_tag.var);
 
   // a => (xor t1 t2)
   // (!a or t1 or t2) and (!a or !t1 or !t2)
