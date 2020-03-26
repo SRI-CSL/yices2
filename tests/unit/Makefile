@@ -84,6 +84,12 @@ static_tests := $(src_c:%.c=$(static_bindir)/%$(EXEEXT))
 libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 
+#
+# Whether we are building for a big endian architecture
+#
+ifeq ($(WORDS_BIGENDIAN),yes)
+  CPPFLAGS += -DWORDS_BIGENDIAN
+endif
 
 #
 # Whether we have support for mcsat
