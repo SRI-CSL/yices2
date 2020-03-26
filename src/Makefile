@@ -595,6 +595,13 @@ libyices_def=libyices.def
 ###########################
 
 #
+# Whether we are building for a big endian architecture
+#
+ifeq ($(WORDS_BIGENDIAN),yes)
+  CPPFLAGS += -DWORDS_BIGENDIAN
+endif
+
+#
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)

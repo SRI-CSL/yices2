@@ -152,15 +152,9 @@ dnl
 dnl Check for endianness
 dnl --------------------
 dnl
-dnl The neorationals code is little-endian only for now.
-dnl TODO: support big-endian architectures at some point
-dnl For now, we check here and fail.
-dnl
-bigendian=""
-AC_C_BIGENDIAN([bigendian=yes],[bigendian=no],[bigendian=yes])
-if test "x$bigendian" = xyes ; then
-   AC_MSG_ERROR([Can't build for your architecture. Yices builds only on little-endian hardware. Please file an issue at $repo_url])
-fi
+WORDS_BIGENDIAN=""
+AC_C_BIGENDIAN([WORDS_BIGENDIAN=yes],[WORDS_BIGENDIAN=no],[WORDS_BIGENDIAN=yes])
+AC_SUBST(WORDS_BIGENDIAN)
 
 dnl
 dnl CHECK_THREAD_LOCAL
