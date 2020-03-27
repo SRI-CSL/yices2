@@ -973,6 +973,18 @@ void bool_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   bp->exception = handler;
 }
 
+static
+void bool_plugin_check_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  assert(!trail_has_value(bp->ctx->trail, x));
+}
+
+static
+void bool_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
+  // Nothing to do here apart from setting the value
+  decide->add(decide, x, value);
+}
+
 
 plugin_t* bool_plugin_allocator(void) {
   bool_plugin_t* plugin = safe_malloc(sizeof(bool_plugin_t));
@@ -984,8 +996,8 @@ plugin_t* bool_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = bool_plugin_event_notify;
   plugin->plugin_interface.propagate             = bool_plugin_propagate;
   plugin->plugin_interface.decide                = bool_plugin_decide;
-  plugin->plugin_interface.check_assignment      = NULL;
-  plugin->plugin_interface.decide_assignment     = NULL;
+  plugin->plugin_interface.check_assignment      = bool_plugin_check_assignment;
+  plugin->plugin_interface.decide_assignment     = bool_plugin_decide_assignment;
   plugin->plugin_interface.get_conflict          = bool_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = bool_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = bool_plugin_explain_evaluation;
