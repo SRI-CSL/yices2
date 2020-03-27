@@ -1,4 +1,4 @@
-.TH YICES 1 "November 2019" "Yices 2.6.2" "User Commands"
+.TH YICES 1 "Marc h 2020" "Yices 2.6.2" "User Commands"
 .SH NAME
 yices \- the Yices SMT solver for the Yices language
 .SH SYNOPSIS
@@ -84,6 +84,14 @@ in that only one call to (ef\-solve) is allowed.
 .IP
 The default mode is \fIpush\-pop\fR.
 .
+.TP
+.B \-\-mcsat
+Force use of the MCSAT solver.
+.TP
+.B \-\-print\-success
+Print
+.I ok
+after every command that would otherwise execute silently.
 .SH SEE ALSO
 .BR yices-sat (1),
 .BR yices-smt (1),
@@ -96,4 +104,5 @@ To report bugs and to get the full documentation, please visit http://yices.csl.
 Copyright (C) SRI International.
 .PP
 Yices is developed at SRI's Computer Science Laboratory. The main developers
-are Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.
+are Bruno Dutertre <bruno@csl.sri.com>, Dejan Jovanovic <dejan@csl.sri.com>, Ian A. Mason <iam@csl.sri.com>,
+and Stephane Graham-Lengrand <stephane.graham-lengrand@sri.com>.

@@ -273,8 +273,11 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
   stat = precheck_context(ctx);
   switch (stat) {
   case STATUS_UNKNOWN:
-  case STATUS_UNSAT:
     do_export(ctx, s);
+    break;
+
+  case STATUS_SAT:
+  case STATUS_UNSAT:
     break;
 
   case STATUS_INTERRUPTED:
@@ -2796,44 +2799,6 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 
 
 /*
- * Evaluate all terms in a[0 ... n-1] in a default model.
- * Return true if all terms evaluate to true in the model and return the model in *model.
- * Return false otherwise, and leave *model unchanged.
- */
-static bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
-  model_t *mdl;
-  evaluator_t evaluator;
-  uint32_t i;
-  bool result;
-
-  yices_obtain_mutex();
-
-  result = true;
-  mdl = yices_new_model(true);
-  init_evaluator(&evaluator, mdl);
-  for (i=0; i<n; i++) {
-    if (!eval_to_true_in_model(&evaluator, a[i])) {
-      result = false;
-      break;
-    }
-  }
-
-  if (result) {
-    eval_record_useful_terms(&evaluator);
-    delete_evaluator(&evaluator);
-    *model = mdl;
-  } else {
-    delete_evaluator(&evaluator);
-    yices_free_model(mdl);
-  }
-
-  yices_release_mutex();
-
-  return result;
-}
-
-
-/*
  * Check satisfiability of all assertions
  */
 static void check_delayed_assertions(smt2_globals_t *g) {
@@ -2876,7 +2841,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
     } else {
       /*
-       * Regular check
+       * Assert formulas
        */
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
       if (code < 0) {
@@ -2884,24 +2849,37 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 	print_yices_error(true);
 	return;
       }
-      init_search_parameters(g);
-      if (g->random_seed != 0) {
-	g->parameters.random_seed = g->random_seed;
-      }
 
       if (g->delegate != NULL && g->logic_code == QF_BV) {
+	/*
+	 * Special case: QF_BV with delegate
+	 */
 	if (g->dimacs_file == NULL) {
 	  status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
 	} else {
-	  status = process_then_export_to_dimacs(g->ctx, g->dimacs_file);
+	  code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
+	  if (code < 0) {
+	    perror(g->dimacs_file);
+	    exit(YICES_EXIT_SYSTEM_ERROR);
+	  }
+	  if (status == STATUS_UNKNOWN) {
+	    // don't print anything
+	    return;
+	  }
 	}
       } else {
+	/*
+	 * Regular check
+	 */
+	init_search_parameters(g);
+	if (g->random_seed != 0) {
+	  g->parameters.random_seed = g->random_seed;
+	}
 	status = check_sat_with_timeout(g, &g->parameters);
       }
 
       report_status(g, status);
     }
-
   }
 
   flush_out();

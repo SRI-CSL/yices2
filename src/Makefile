@@ -175,6 +175,7 @@ core_src_c := \
 	solvers/bv/bvpoly_dag.c \
 	solvers/bv/bvsolver.c \
 	solvers/bv/bv_vartable.c \
+	solvers/bv/dimacs_printer.c \
 	solvers/bv/merge_table.c \
 	solvers/bv/remap_table.c \
 	solvers/cdcl/delegate.c \
@@ -417,7 +418,6 @@ extra_src_c := \
 	scratch/bool_vartable.c \
 	scratch/update_graph.c \
 	solvers/bv/bvsolver_printer.c \
-	solvers/bv/dimacs_printer.c \
 	solvers/cdcl/clause_pool.c \
 	solvers/cdcl/gates_printer.c \
 	solvers/cdcl/sat_solver.c \
@@ -593,6 +593,13 @@ libyices_def=libyices.def
 ###########################
 #   COMPILATION FLAGS     #
 ###########################
+
+#
+# Whether we are building for a big endian architecture
+#
+ifeq ($(WORDS_BIGENDIAN),yes)
+  CPPFLAGS += -DWORDS_BIGENDIAN
+endif
 
 #
 # Whether we have support for mcsat
@@ -1210,7 +1217,6 @@ dist: bin lib
 	cp $(bindir)/yices$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
-	cp $(bindir)/yices_smt2_mt$(EXEEXT) $(distdir)/bin/yices-mt2$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
@@ -1219,7 +1225,6 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 endif
 
@@ -1231,7 +1236,6 @@ static-dist: static-bin static-lib
 	cp $(static_bindir)/yices$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
-	cp $(static_bindir)/yices_smt2_mt$(EXEEXT) $(static_distdir)/bin/yices-mt2$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
 	mkdir $(static_distdir)/lib
@@ -1240,7 +1244,6 @@ ifneq ($(YICES_MODE),debug)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-mt2$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
 endif
 

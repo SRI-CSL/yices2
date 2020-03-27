@@ -220,79 +220,79 @@ int32_t print_error(FILE *f) {
      * Parser errors
      */
   case INVALID_TOKEN:
-    code = fprintf(f, "invalid token\n");
+    code = fprintf(f, "invalid token (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case SYNTAX_ERROR:
-    code = fprintf(f, "syntax error\n");
+    code = fprintf(f, "syntax error (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case UNDEFINED_TYPE_NAME:
-    code = fprintf(f, "undefined type name\n");
+    code = fprintf(f, "undefined type name (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case UNDEFINED_TERM_NAME:
-    code = fprintf(f, "undefined term name\n");
+    code = fprintf(f, "undefined term name (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case REDEFINED_TYPE_NAME:
-    code = fprintf(f, "cannot redefine type\n");
+    code = fprintf(f, "cannot redefine type (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case REDEFINED_TERM_NAME:
-    code = fprintf(f, "cannot redefine term\n");
+    code = fprintf(f, "cannot redefine term (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case DUPLICATE_NAME_IN_SCALAR:
-    code = fprintf(f, "duplicate name in scalar type definition\n");
+    code = fprintf(f, "duplicate name in scalar type definition (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case  DUPLICATE_VAR_NAME:
-    code = fprintf(f, "duplicate variable in quantifier\n");
+    code = fprintf(f, "duplicate variable in quantifier (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case INTEGER_OVERFLOW:
-    code = fprintf(f, "integer overflow (constant does not fit in 32bits)\n");
+    code = fprintf(f, "integer overflow (constant does not fit in 32bits) (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case INTEGER_REQUIRED:
-    code = fprintf(f, "integer required\n");
+    code = fprintf(f, "integer required (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case RATIONAL_REQUIRED:
-    code = fprintf(f, "numeric constant required\n");
+    code = fprintf(f, "numeric constant required (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case SYMBOL_REQUIRED:
-    code = fprintf(f, "symbol required\n");
+    code = fprintf(f, "symbol required (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case TYPE_REQUIRED:
-    code = fprintf(f, "type required\n");
+    code = fprintf(f, "type required (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case NON_CONSTANT_DIVISOR:
-    code = fprintf(f, "invalid division (divisor is not a constant)\n");
+    code = fprintf(f, "invalid division (divisor is not a constant) (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case NEGATIVE_BVSIZE:
-    code = fprintf(f, "invalid bitvector size (negative number)\n");
+    code = fprintf(f, "invalid bitvector size (negative number) (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case INVALID_BVCONSTANT:
-    code = fprintf(f, "invalid number in 'mk-bv'\n");
+    code = fprintf(f, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:
-    code = fprintf(f, "type mismatch in 'define'\n");
+    code = fprintf(f, "type mismatch in 'define' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case ARITH_ERROR:
-    code = fprintf(f, "error in arithmetic operation\n");
+    code = fprintf(f, "error in arithmetic operation (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case BVARITH_ERROR:
-    code = fprintf(f, "error in bitvector operation\n");
+    code = fprintf(f, "error in bitvector operation (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
     /*
@@ -388,6 +388,14 @@ int32_t print_error(FILE *f) {
 
   case CTX_OPERATION_NOT_SUPPORTED:
     code = fprintf(f, "operation not supported by the context\n");
+    break;
+
+  case CTX_UNKNOWN_DELEGATE:
+    code = fprintf(f, "unknown delegate\n");
+    break;
+
+  case CTX_DELEGATE_NOT_AVAILABLE:
+    code = fprintf(f, "delegate not available\n");
     break;
 
   case CTX_INVALID_CONFIG:
@@ -697,79 +705,79 @@ char *error_string(void) {
      * Parser errors
      */
   case INVALID_TOKEN:
-    nchar = snprintf(buffer, BUFFER_SIZE, "invalid token");
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid token (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case SYNTAX_ERROR:
-    nchar = snprintf(buffer, BUFFER_SIZE, "syntax error");
+    nchar = snprintf(buffer, BUFFER_SIZE, "syntax error (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case UNDEFINED_TYPE_NAME:
-    nchar = snprintf(buffer, BUFFER_SIZE, "undefined type name");
+    nchar = snprintf(buffer, BUFFER_SIZE, "undefined type name (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case UNDEFINED_TERM_NAME:
-    nchar = snprintf(buffer, BUFFER_SIZE, "undefined term name");
+    nchar = snprintf(buffer, BUFFER_SIZE, "undefined term name (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case REDEFINED_TYPE_NAME:
-    nchar = snprintf(buffer, BUFFER_SIZE, "cannot redefine type");
+    nchar = snprintf(buffer, BUFFER_SIZE, "cannot redefine type (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case REDEFINED_TERM_NAME:
-    nchar = snprintf(buffer, BUFFER_SIZE, "cannot redefine term");
+    nchar = snprintf(buffer, BUFFER_SIZE, "cannot redefine term (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case DUPLICATE_NAME_IN_SCALAR:
-    nchar = snprintf(buffer, BUFFER_SIZE, "duplicate name in scalar type definition");
+    nchar = snprintf(buffer, BUFFER_SIZE, "duplicate name in scalar type definition (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case  DUPLICATE_VAR_NAME:
-    nchar = snprintf(buffer, BUFFER_SIZE, "duplicate variable in quantifier");
+    nchar = snprintf(buffer, BUFFER_SIZE, "duplicate variable in quantifier (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case INTEGER_OVERFLOW:
-    nchar = snprintf(buffer, BUFFER_SIZE, "integer overflow (constant does not fit in 32bits)");
+    nchar = snprintf(buffer, BUFFER_SIZE, "integer overflow (constant does not fit in 32bits) (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case INTEGER_REQUIRED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "integer required");
+    nchar = snprintf(buffer, BUFFER_SIZE, "integer required (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case RATIONAL_REQUIRED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "numeric constant required");
+    nchar = snprintf(buffer, BUFFER_SIZE, "numeric constant required (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case SYMBOL_REQUIRED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "symbol required");
+    nchar = snprintf(buffer, BUFFER_SIZE, "symbol required (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case TYPE_REQUIRED:
-    nchar = snprintf(buffer, BUFFER_SIZE, "type required");
+    nchar = snprintf(buffer, BUFFER_SIZE, "type required (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case NON_CONSTANT_DIVISOR:
-    nchar = snprintf(buffer, BUFFER_SIZE, "invalid division (divisor is not a constant)");
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid division (divisor is not a constant) (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case NEGATIVE_BVSIZE:
-    nchar = snprintf(buffer, BUFFER_SIZE, "invalid bitvector size (negative number)");
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid bitvector size (negative number) (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case INVALID_BVCONSTANT:
-    nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-bv'");
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:
-    nchar = snprintf(buffer, BUFFER_SIZE, "type mismatch in 'define'");
+    nchar = snprintf(buffer, BUFFER_SIZE, "type mismatch in 'define' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case ARITH_ERROR:
-    nchar = snprintf(buffer, BUFFER_SIZE, "error in arithmetic operation");
+    nchar = snprintf(buffer, BUFFER_SIZE, "error in arithmetic operation (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case BVARITH_ERROR:
-    nchar = snprintf(buffer, BUFFER_SIZE, "error in bitvector operation");
+    nchar = snprintf(buffer, BUFFER_SIZE, "error in bitvector operation (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
     /*
@@ -867,6 +875,14 @@ char *error_string(void) {
     nchar = snprintf(buffer, BUFFER_SIZE, "operation not supported by the context");
     break;
 
+  case CTX_UNKNOWN_DELEGATE:
+    nchar = snprintf(buffer, BUFFER_SIZE, "unknown delegate");
+    break;
+
+  case CTX_DELEGATE_NOT_AVAILABLE:
+    nchar = snprintf(buffer, BUFFER_SIZE, "delegate not available");
+    break;
+
   case CTX_INVALID_CONFIG:
     nchar = snprintf(buffer, BUFFER_SIZE, "invalid context configuration");
     break;
@@ -960,7 +976,7 @@ char *error_string(void) {
     break;
 
   case MCSAT_ERROR_UNSUPPORTED_THEORY:
-    nchar = snprintf(buffer, BUFFER_SIZE, "mcsat: unsupported theory\n");
+    nchar = snprintf(buffer, BUFFER_SIZE, "mcsat: unsupported theory");
     break;
 
   case INTERNAL_EXCEPTION:

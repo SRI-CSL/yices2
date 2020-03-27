@@ -34,6 +34,31 @@
 #include <unistd.h>
 #include <inttypes.h>
 
+#if defined(MINGW)
+/*
+ * We call isatty(STDIN_FILENO) to check whether stdin is a terminal.
+ *
+ * On Windows/MINGW, isatty is called _isatty. The macro STDIN_FILENO
+ * appears to be defined in mingw/include/stdio.h. Not clear whether
+ * it exists in Windows?  There is a function isatty declared in io.h,
+ * but it is deprecated.
+ *
+ * NOTE: the windows function _isatty doesn't have the same behavior
+ * as isatty on Unix. It returns a non-zero value if the file
+ * descriptor is associated with a character device (which is true of
+ * terminals but of other files too).
+ */
+#include <io.h>
+#ifndef STDIN_FILENO
+#define STDIN_FILENO (_fileno(stdin))
+#endif
+#define isatty _isatty
+
+#else
+// Should work on all Unix variants
+#include <unistd.h>
+#endif
+
 #include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -58,8 +83,8 @@ extern const char * const yices_rev;
  *   and multiple check_sat is enabled. Otherwise, the solver
  *   is configured to handle a set of declarations/assertions
  *   followed by a single call to (check_sat).
- * - interactive: if this flag is true, print a prompt before
- *   parsing commands. Also set the option :print-success to true.
+ * - interactive: set option :print-success to true.
+ *   and  print a prompt before parsing commands if stdin is a terminal.
  * - timeout: command-line option
  *
  * - filename = name of the input file (NULL means read stdin)
@@ -177,7 +202,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
-	 "    --bvconst-in-decimal      Display bit-vector cosntants as decimal numbers (default = false)\n"
+	 "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Use the MCSat solver\n"
@@ -659,7 +684,9 @@ static void force_utf8(void) {
 int main(int argc, char *argv[]) {
   int32_t code;
   uint32_t i;
+  bool prompt;
 
+  prompt = false;
   parse_command_line(argc, argv);
   force_utf8();
 
@@ -672,6 +699,7 @@ int main(int argc, char *argv[]) {
   } else {
     // read from stdin
     init_smt2_stdin_lexer(&lexer);
+    prompt = interactive && isatty(STDIN_FILENO);
   }
 
   init_handlers();
@@ -703,7 +731,7 @@ int main(int argc, char *argv[]) {
   setup_mcsat();
 
   while (smt2_active()) {
-    if (interactive) {
+    if (prompt) {
       // prompt
       fputs("yices> ", stdout);
       fflush(stdout);

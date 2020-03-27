@@ -74,7 +74,7 @@ typedef void (*var_def2_fun_t)(void *solver, bvar_t x, uint32_t b, literal_t l1,
 typedef void (*var_def3_fun_t)(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3);
 
 typedef smt_status_t (*preprocess_fun_t)(void *solver);
-typedef void (*export_fun_t)(void *solver, const char *filename);
+typedef void (*export_fun_t)(void *solver, FILE *f);
 
 typedef struct delegate_s {
   void *solver;     // pointer to the sat solver
@@ -142,9 +142,10 @@ extern smt_status_t preprocess_with_delegate(delegate_t *delegate, smt_core_t *c
 
 /*
  * Write the delegate's CNF to a file in DIMACS format
- * - filename = name of this file.
+ * - f = output file.
+ * - f must be open and writable
  */
-extern void export_to_dimacs_with_delegate(delegate_t *delegate, const char *filename);
+extern void export_to_dimacs_with_delegate(delegate_t *delegate, FILE *f);
 
 
 /*

@@ -1717,11 +1717,21 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       }
     }
 
-    // mark x as bitblasted
-    bvvar_set_bitblasted(vtbl, x);
-    bvvar_clr_mark(vtbl, x);
+    /*
+     * If x occurs on a dependency cycle, it may be bit-blasted now,
+     * even though it wasn't when we entered this function.
+     * In this case, we don't want to add x twice to the delayed_blasted queue.
+     */
+    if (! bvvar_is_bitblasted(vtbl, x)) {
+      // mark x as bitblasted
+      bvvar_set_bitblasted(vtbl, x);
+      bvvar_clr_mark(vtbl, x);
 
-    bv_solver_save_delayed_blasted_var(solver, x);
+      bv_solver_save_delayed_blasted_var(solver, x);
+    }
+
+    assert(bvvar_is_bitblasted(vtbl, x));
+    assert(! bvvar_is_marked(vtbl, x));
   }
 }
 

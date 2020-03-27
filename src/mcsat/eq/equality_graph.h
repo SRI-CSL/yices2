@@ -285,7 +285,10 @@ void eq_graph_assign_term_value(eq_graph_t* eq, term_t t, const mcsat_value_t* v
 /** Is there any propagated terms */
 bool eq_graph_has_propagated_terms(const eq_graph_t* eq);
 
-/** Get the terms that have been deduced equal and clear them (call once) */
+/**
+ * Get the terms that have been deduced equal and clear them (call once).
+ * Argument out_terms can be NULL if you want to clear the propagated terms.
+ */
 void eq_graph_get_propagated_terms(eq_graph_t* eq, ivector_t* out_terms);
 
 /** Does the term have propagated value */

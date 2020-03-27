@@ -1,4 +1,4 @@
-.TH YICES-SMT2 1 "November 2019" "Yices 2.6.2" "User Commands"
+.TH YICES-SMT2 1 "March 2020" "Yices 2.6.2" "User Commands"
 .SH NAME
 yices-smt2 \- the Yices SMT solver for the SMT-LIB 2 language
 .SH SYNOPSIS
@@ -49,7 +49,35 @@ is given on the command line. Otherwise,
 prints a prompt before every command. This also sets the SMT-LIB option
 .I :print-success
 to true.
-.
+.TP
+.B \-\-mcsat
+Force use of the MCSAT solver.
+.TP
+.B \-\-smt2-model-format
+Print models in the SMT-LIB format (instead of the default Yices format)..
+.TP
+.B \-\-bvconst-in-decimal
+Print bitvector constants using the SMT-LIB decimal format, instead of the binary format.
+.TP
+.BI \-\-delegate= solver
+Selects an third-party backend SAT solver for bit-vector problems.
+.IP
+The
+.I solver
+must be either
+.I cadical
+or
+.I cryptominisat
+or
+.I y2sat.
+This option has no effect unless the logic if QF_BV.
+.TP
+.BI \-\-dimacs= filename
+Bit-blast then export the CNF to a file in the DIMACS format. This option is ignored unless
+the logic is QF_BV.
+.TP
+.B \-\-mcsat-help
+Display options used only by the MCSAT solver.
 .SH SEE ALSO
 .BR yices (1),
 .BR yices-sat (1),
@@ -62,4 +90,5 @@ To report bugs and to get the full documentation, please visit http://yices.csl.
 Copyright (C) SRI International.
 .PP
 Yices is developed at SRI's Computer Science Laboratory. The main developers
-are Bruno Dutertre <bruno@csl.sri.com> and Dejan Jovanovic <dejan@csl.sri.com>.
+are Bruno Dutertre <bruno@csl.sri.com>, Dejan Jovanovic <dejan@csl.sri.com>, Ian A. Mason <iam@csl.sri.com>,
+and Stephane Graham-Lengrand <stephane.graham-lengrand@sri.com>.

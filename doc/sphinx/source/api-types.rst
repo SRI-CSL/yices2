@@ -1006,6 +1006,14 @@ Error Reports
       Invalid operation on a context: the context is not configured to support
       this operation.
 
+   .. c:enum:: CTX_UNKNOWN_DELEGATE
+
+      A delegate name is not recognized. See :c:func:`yices_check_formula` and :c:func:`yices_check_formulas` .
+
+   .. c:enum:: CTX_DELEGATE_NOT_AVAILABLE
+
+      Attempt to use a delegate that was not included in the Yices library at compilation time.
+
    .. c:enum:: CTX_INVALID_CONFIG
 
       Reported by :c:func:`yices_new_context` if the requested

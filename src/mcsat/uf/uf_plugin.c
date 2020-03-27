@@ -321,6 +321,8 @@ void uf_plugin_pop(plugin_t* plugin) {
     term_t t = uf->eq_graph_addition_trail.data[i];
     uf_plugin_add_to_eq_graph(uf, t, false);
   }
+  // We've already processed all the propagations, so we just reset it
+  eq_graph_get_propagated_terms(&uf->eq_graph, NULL);
 
   // Clear the conflict
   ivector_reset(&uf->conflict);

@@ -84,12 +84,8 @@ static smt_status_t ysat_preprocess(void *solver) {
   }
 }
 
-static void ysat_export_to_dimacs(void *solver, const char *filename) {
-  FILE *f = fopen(filename, "w");
-  if (f != NULL) {
-    nsat_export_to_dimacs(f, solver);
-    fclose(f);
-  }
+static void ysat_export_to_dimacs(void *solver, FILE *f) {
+  nsat_export_to_dimacs(f, solver);
 }
 
 static bval_t ysat_get_value(void *solver, bvar_t x) {
@@ -719,9 +715,9 @@ smt_status_t preprocess_with_delegate(delegate_t *d, smt_core_t *core) {
 /*
  * Export to DIMACS (do nothing if that's not supported by the delegate)
  */
-void export_to_dimacs_with_delegate(delegate_t *d, const char *filename) {
+void export_to_dimacs_with_delegate(delegate_t *d, FILE *f) {
   if (d->export != NULL) {
-    d->export(d->solver, filename);
+    d->export(d->solver, f);
   }
 }
 

@@ -60,6 +60,7 @@
 
 #include "api/context_config.h"
 #include "api/search_parameters.h"
+#include "api/smt_logic_codes.h"
 #include "api/yices_error.h"
 #include "api/yices_error_report.h"
 #include "api/yices_api_lock_free.h"
@@ -83,6 +84,8 @@
 #include "model/model_queries.h"
 #include "model/models.h"
 #include "model/val_to_term.h"
+
+#include "solvers/cdcl/delegate.h"
 
 #include "terms/bv64_constants.h"
 #include "terms/bvarith64_buffer_terms.h"
@@ -142,15 +145,15 @@ yices_globals_t __yices_globals = {
 
   
 /*
- * Synchronizing access to Global table.
+ * SYNCHRONIZING ACCESS TO GLOBAL TABLE.
  */
+
 /*
- * Attempt to obtain sole access to yice's global data structures.
+ * Attempt to obtain sole access to yices' global data structures.
  * In thread safe mode, calling this function will block all other
  * yices API routines from accessing the global data structures.
  *
  * It is an error to call this more than once.
- *
  */
 int32_t yices_obtain_mutex(void){
 #ifdef THREAD_SAFE
@@ -161,10 +164,9 @@ int32_t yices_obtain_mutex(void){
 }
 
 /*
- * Release the claim to sole access to yice's global data structures.
+ * Release the claim to sole access to yices' global data structures.
  *
  * The callee must have already obtained sole access via yices_obtain_mutex();
- *
  */
 int32_t yices_release_mutex(void){
 #ifdef THREAD_SAFE
@@ -1147,12 +1149,18 @@ EXPORTED error_code_t yices_error_code(void) {
 
 
 /*
+ * Set an error code. Leave other fields unchanged
+ */
+static void set_error_code(error_code_t code) {
+  error_report_t *error = get_yices_error();
+  error->code = code;
+}
+
+/*
  * Clear the last error report
  */
 EXPORTED void yices_clear_error(void) {
-  error_report_t *error = get_yices_error();
-  error->code = NO_ERROR;
-  //IAM: shouldn't this really clear the entire struct?
+  set_error_code(NO_ERROR);
 }
 
 
@@ -1160,11 +1168,9 @@ EXPORTED void yices_clear_error(void) {
  * Record that a file io operation failed
  * set the error_code to OUTPUT_ERROR
  */
-static void file_output_error(void) {
-  error_report_t * error = get_yices_error();
-  error->code = OUTPUT_ERROR;
+static inline void file_output_error(void) {
+  set_error_code(OUTPUT_ERROR);
 }
-
 
 
 /*
@@ -2023,8 +2029,7 @@ static bool check_denominators32(uint32_t n, const uint32_t *den) {
 
   for (i=0; i<n; i++) {
     if (den[i] == 0) {
-      error_report_t *error = get_yices_error();
-      error->code = DIVISION_BY_ZERO;
+      set_error_code(DIVISION_BY_ZERO);
       return false;
     }
   }
@@ -2038,8 +2043,7 @@ static bool check_denominators64(uint32_t n, const uint64_t *den) {
 
   for (i=0; i<n; i++) {
     if (den[i] == 0) {
-      error_report_t *error = get_yices_error();
-      error->code = DIVISION_BY_ZERO;
+      set_error_code(DIVISION_BY_ZERO);
       return false;
     }
   }
@@ -2371,8 +2375,7 @@ static bool check_bitshift(uint32_t i, uint32_t n) {
 // Check whether [i, j] is a valid segment for bitvectors of size n
 static bool check_bvextract(uint32_t i, uint32_t j, uint32_t n) {
   if (i > j || j >= n) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVEXTRACT;
+    set_error_code(INVALID_BVEXTRACT);
     return false;
   }
   return true;
@@ -2381,8 +2384,7 @@ static bool check_bvextract(uint32_t i, uint32_t j, uint32_t n) {
 // Check whether i is a valid bit index for a bitvector of size n
 static bool check_bitextract(uint32_t i, uint32_t n) {
   if (i >= n) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BITEXTRACT;
+    set_error_code(INVALID_BITEXTRACT);
     return false;
   }
   return true;
@@ -2630,8 +2632,7 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
  */
 static bool check_composite(term_table_t *terms, term_t t) {
   if (! term_is_composite(terms, t)) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_TERM_OP;
+    set_error_code(INVALID_TERM_OP);
     return false;
   }
 
@@ -2640,8 +2641,7 @@ static bool check_composite(term_table_t *terms, term_t t) {
 
 static bool check_projection(term_table_t *terms, term_t t) {
   if (! term_is_projection(terms, t)) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_TERM_OP;
+    set_error_code(INVALID_TERM_OP);
     return false;
   }
   return true;
@@ -2649,8 +2649,7 @@ static bool check_projection(term_table_t *terms, term_t t) {
 
 static bool check_constructor(term_table_t *terms, term_t t, term_constructor_t c) {
   if (term_constructor(terms, t) != c) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_TERM_OP;
+    set_error_code(INVALID_TERM_OP);
     return false;
   }
   return true;
@@ -2658,8 +2657,7 @@ static bool check_constructor(term_table_t *terms, term_t t, term_constructor_t 
 
 static bool check_child_idx(term_table_t *terms, term_t t, int32_t i) {
   if (i < 0 || i >= term_num_children(terms, t)) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_TERM_OP;
+    set_error_code(INVALID_TERM_OP);
     return false;
   }
 
@@ -3497,8 +3495,7 @@ EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
 
 term_t _o_yices_rational32(int32_t num, uint32_t den) {
   if (den == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = DIVISION_BY_ZERO;
+    set_error_code(DIVISION_BY_ZERO);
     return NULL_TERM;
   }
 
@@ -3513,8 +3510,7 @@ EXPORTED term_t yices_rational64(int64_t num, uint64_t den) {
 
 term_t _o_yices_rational64(int64_t num, uint64_t den) {
   if (den == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = DIVISION_BY_ZERO;
+    set_error_code(DIVISION_BY_ZERO);
     return NULL_TERM;
   }
 
@@ -3580,13 +3576,12 @@ term_t _o_yices_parse_rational(const char *s) {
 
   code = q_set_from_string(&r0, s);
   if (code < 0) {
-    error_report_t *error = get_yices_error();
     if (code == -1) {
       // wrong format
-      error->code = INVALID_RATIONAL_FORMAT;
+      set_error_code(INVALID_RATIONAL_FORMAT);
     } else {
       // denominator is 0
-      error->code = DIVISION_BY_ZERO;
+      set_error_code(DIVISION_BY_ZERO);
     }
     return NULL_TERM;
   }
@@ -3620,8 +3615,7 @@ term_t _o_yices_parse_float(const char *s) {
 
   if (q_set_from_float_string(&r0, s) < 0) {
     // wrong format
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_FLOAT_FORMAT;
+    set_error_code(INVALID_FLOAT_FORMAT);
     return NULL_TERM;
   }
 
@@ -4511,8 +4505,7 @@ term_t _o_yices_parse_bvbin(const char *s) {
 
   len = strlen(s);
   if (len == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVBIN_FORMAT;
+    set_error_code(INVALID_BVBIN_FORMAT);
     return NULL_TERM;
   }
 
@@ -4527,8 +4520,7 @@ term_t _o_yices_parse_bvbin(const char *s) {
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVBIN_FORMAT;
+    set_error_code(INVALID_BVBIN_FORMAT);
     return NULL_TERM;
   }
 
@@ -4554,8 +4546,7 @@ term_t _o_yices_parse_bvhex(const char *s) {
 
   len = strlen(s);
   if (len == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVHEX_FORMAT;
+    set_error_code(INVALID_BVHEX_FORMAT);
     return NULL_TERM;
   }
 
@@ -4574,8 +4565,7 @@ term_t _o_yices_parse_bvhex(const char *s) {
   bvconstant_set_bitsize(&bv0, 4 * n);
   code = bvconst_set_from_hexa_string(bv0.data, n, s);
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVHEX_FORMAT;
+    set_error_code(INVALID_BVHEX_FORMAT);
     return NULL_TERM;
   }
 
@@ -6658,8 +6648,7 @@ type_t _o_yices_type_child(type_t tau, int32_t i) {
     }
   } else {
     // bad index or atomic type
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_TYPE_OP;
+    set_error_code(INVALID_TYPE_OP);
   }
   return NULL_TYPE;
 }
@@ -7321,8 +7310,7 @@ bool yices_check_bv_term(term_t t) {
  */
 bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
   if (bvlogic_buffer_is_empty(b)) {
-    error_report_t *error = get_yices_error();
-    error->code = EMPTY_BITVECTOR;
+    set_error_code(EMPTY_BITVECTOR);
     return false;
   }
   return true;
@@ -7353,8 +7341,7 @@ bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
  */
 bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
   if (i < 0 || i > j || j >= n) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BVEXTRACT;
+    set_error_code(INVALID_BVEXTRACT);
     return false;
   }
 
@@ -7369,8 +7356,7 @@ bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
  */
 bool yices_check_bitextract(uint32_t n, int32_t i) {
   if (i < 0 || i >= n) {
-    error_report_t *error = get_yices_error();
-    error->code = INVALID_BITEXTRACT;
+    set_error_code(INVALID_BITEXTRACT);
     return false;
   }
   return true;
@@ -7436,8 +7422,7 @@ bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
 
   m = bvlogic_buffer_bitsize(b);
   if (m == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = EMPTY_BITVECTOR;
+    set_error_code(EMPTY_BITVECTOR);
     return false;
   }
 
@@ -7619,9 +7604,8 @@ int32_t _o_yices_subst_term_array(uint32_t n, const term_t var[], const term_t m
     error->code = DEGREE_OVERFLOW;
     error->badval = YICES_MAX_DEGREE + 1;
   } else {
-    error_report_t *error = get_yices_error();
     // BUG
-    error->code = INTERNAL_EXCEPTION;
+    set_error_code(INTERNAL_EXCEPTION);
   }
   delete_term_subst(&subst);
 
@@ -7882,12 +7866,11 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
 
   k = config_set_field(config, name, value);
   if (k < 0) {
-    error_report_t *error = get_yices_error();  //IAM: if not(HAVE_TLS) we should probably do something here
     if (k == -1) {
       // invalid name
-      error->code = CTX_UNKNOWN_PARAMETER;
+      set_error_code(CTX_UNKNOWN_PARAMETER);
     } else {
-      error->code = CTX_INVALID_PARAMETER_VALUE;
+      set_error_code(CTX_INVALID_PARAMETER_VALUE);
     }
     return -1;
   }
@@ -7906,11 +7889,10 @@ EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char
 
   k = config_set_logic(config, logic);
   if (k < 0) {
-    error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
     if (k == -1) {
-      error->code = CTX_UNKNOWN_LOGIC;
+      set_error_code(CTX_UNKNOWN_LOGIC);
     } else {
-      error->code = CTX_LOGIC_NOT_SUPPORTED;
+      set_error_code(CTX_LOGIC_NOT_SUPPORTED);
     }
     return -1;
   }
@@ -8020,14 +8002,11 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
     break;
 
   default:
-    {
-      error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
-      assert(k == -1);
-      // not recognized
-      error->code = CTX_UNKNOWN_PARAMETER;
-      r = -1;
-      break;
-    }
+    assert(k == -1);
+    // not recognized
+    set_error_code(CTX_UNKNOWN_PARAMETER);
+    r = -1;
+    break;
   }
 
   return r;
@@ -8080,14 +8059,9 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     break;
 
   default:
-    {
-      error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
-      assert(k == -1);
-      // not recognized
-      error->code = CTX_UNKNOWN_PARAMETER;
-      r = -1;
-      break;
-    }
+    set_error_code(CTX_UNKNOWN_PARAMETER);
+    r = -1;
+    break;
   }
 
   return r;
@@ -8126,11 +8100,10 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
 
   k = params_set_field(param, name, value);
   if (k < 0) {
-    error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
     if (k == -1) {
-      error->code = CTX_UNKNOWN_PARAMETER;
+      set_error_code(CTX_UNKNOWN_PARAMETER);
     } else {
-      error->code = CTX_INVALID_PARAMETER_VALUE;
+      set_error_code(CTX_INVALID_PARAMETER_VALUE);
     }
     return -1;
   }
@@ -8269,9 +8242,8 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     // read the config
     k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag);
     if (k < 0) {
-      error_report_t *error = get_yices_error(); //IAM: if not(HAVE_TLS) we should probably do something here
       // invalid configuration
-      error->code = CTX_INVALID_CONFIG;
+      set_error_code(CTX_INVALID_CONFIG);
       return NULL;
     }
   }
@@ -8338,8 +8310,7 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  */
 EXPORTED int32_t yices_push(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
-    error_report_t *error = get_yices_error();
-    error->code = CTX_OPERATION_NOT_SUPPORTED;
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
   }
 
@@ -8362,19 +8333,13 @@ EXPORTED int32_t yices_push(context_t *ctx) {
     // fall through
   case STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return -1;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      return -1;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
   }
 
   assert(context_status(ctx) == STATUS_IDLE);
@@ -8399,14 +8364,12 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  */
 EXPORTED int32_t yices_pop(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
-    error_report_t *error = get_yices_error();
-    error->code = CTX_OPERATION_NOT_SUPPORTED;
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
   }
 
   if (context_base_level(ctx) == 0) {
-    error_report_t *error = get_yices_error();
-    error->code = CTX_INVALID_OPERATION;
+    set_error_code(CTX_INVALID_OPERATION);
     return -1;
   }
 
@@ -8425,19 +8388,13 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
     break;
 
   case STATUS_SEARCHING:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return -1;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      return -1;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
   }
 
   assert(context_status(ctx) == STATUS_IDLE ||
@@ -8479,9 +8436,8 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
 };
 
 static inline void convert_internalization_error(int32_t code) {
-  error_report_t *error = get_yices_error();
   assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
-  error->code = intern_code2error[-code];
+  set_error_code(intern_code2error[-code]);
 }
 
 
@@ -8535,7 +8491,7 @@ static inline bool yices_assert_formula_checks(term_t t) {
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
 
-  if (!yices_assert_formula_checks(t)) {
+  if (! yices_assert_formula_checks(t)) {
     return -1;
   }
 
@@ -8543,8 +8499,7 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
     }
     context_clear(ctx);
@@ -8564,19 +8519,13 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return -1;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      return -1;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
   }
 
   assert(context_status(ctx) == STATUS_IDLE);
@@ -8612,7 +8561,7 @@ static inline bool yices_assert_formulas_checks(uint32_t n, const term_t t[]) {
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
   int32_t code;
 
-  if (!yices_assert_formulas_checks(n, t)) {
+  if (! yices_assert_formulas_checks(n, t)) {
     return -1;
   }
 
@@ -8620,8 +8569,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
     }
     context_clear(ctx);
@@ -8641,19 +8589,13 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return -1;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      return -1;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
   }
 
   assert(context_status(ctx) == STATUS_IDLE);
@@ -8694,8 +8636,7 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
       assert_blocking_clause(ctx);
       return 0;
     } else {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
     }
 
@@ -8703,20 +8644,13 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   case STATUS_IDLE:
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return -1;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-
-      return -1;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
   }
 }
 
@@ -8917,21 +8851,15 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      stat = STATUS_ERROR;
-      break;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    stat = STATUS_ERROR;
+    break;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      stat = STATUS_ERROR;
-      break;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    stat = STATUS_ERROR;
+    break;
   }
 
   return stat;
@@ -8971,8 +8899,7 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return STATUS_ERROR;
     }
     context_clear(ctx);
@@ -8983,8 +8910,7 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
 
   case STATUS_UNSAT:
     if (! context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return STATUS_ERROR;
     }
     // try to remove the previous assumptions if any
@@ -8996,26 +8922,19 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
 
   case STATUS_SEARCHING:
   case STATUS_INTERRUPTED:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      return STATUS_ERROR;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    return STATUS_ERROR;
 
   case STATUS_ERROR:
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = INTERNAL_EXCEPTION;
-      return STATUS_ERROR;
-    }
+    set_error_code(INTERNAL_EXCEPTION);
+    return STATUS_ERROR;
   }
 
   assert(context_status(ctx) == STATUS_IDLE);
 
-#ifdef THREADSAFE
-  get_yices_lock(&__yices_globals.lock);
-#endif
+  yices_obtain_mutex();
+
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
   for (i=0; i<n; i++) {
@@ -9024,17 +8943,14 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
       // error when converting a[i] to a literal
       convert_internalization_error(l);
       stat = STATUS_ERROR;
-#ifdef THREADSAFE
-      release_yices_lock(&__yices_globals.lock);
-#endif
+      yices_release_mutex();
       goto cleanup;
     }
     ivector_push(&assumptions, l);
   }
   assert(assumptions.size == n);
-#ifdef THREADSAFE
-  release_yices_lock(&__yices_globals.lock);
-#endif
+
+  yices_release_mutex();
 
   // set parameters
   if (params == NULL) {
@@ -9173,8 +9089,7 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  */
 EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   if (context_status(ctx) != STATUS_UNSAT) {
-    error_report_t *error = get_yices_error();
-    error->code = CTX_INVALID_OPERATION;
+    set_error_code(CTX_INVALID_OPERATION);
     return -1;
   }
 
@@ -9218,12 +9133,9 @@ model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
     break;
 
   default:
-    {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_INVALID_OPERATION;
-      mdl = NULL;
-      break;
-    }
+    set_error_code(CTX_INVALID_OPERATION);
+    mdl = NULL;
+    break;
   }
 
   return mdl;
@@ -9584,6 +9496,380 @@ int32_t _o_yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t
 
 
 
+/******************************
+ *  CHECK FORMULAS/DELEGATES  *
+ *****************************/
+
+/*
+ * Evaluate all terms in a[0 ... n-1] in a default model.
+ * Return true if all terms evaluate to true in the model.
+ * Return false otherwise.
+ *
+ * If model != NULL and the result is true, the default model is
+ * returned in model.
+ */
+bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
+  model_t *mdl;
+  evaluator_t evaluator;
+  uint32_t i;
+  bool result;
+
+  yices_obtain_mutex();
+
+  result = true;
+  mdl = yices_new_model(true);
+  init_evaluator(&evaluator, mdl);
+  for (i=0; i<n; i++) {
+    if (!eval_to_true_in_model(&evaluator, a[i])) {
+      result = false;
+      break;
+    }
+  }
+
+  if (result && model != NULL) {
+    eval_record_useful_terms(&evaluator);
+    delete_evaluator(&evaluator);
+    *model = mdl;
+  } else {
+    delete_evaluator(&evaluator);
+    yices_free_model(mdl);
+  }
+
+  yices_release_mutex();
+
+  return result;
+}
+
+
+/*
+ * Check whether one of the terms a[0 .. n-1] is false.
+ */
+static bool trivially_false_assertions(const term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] == false_term) return true;
+  }
+  return false;
+}
+
+
+/*
+ * Check whether the given delegate is supported
+ * - return 0 if it's not supported.
+ * - return 1 if delegate is NULL or it's the name of a supported delegate
+ *
+ * Which delegate is supported depends on how this version of Yices was compiled.
+ */
+EXPORTED int32_t yices_has_delegate(const char *delegate) {
+  bool unknown;
+  return delegate == NULL || supported_delegate(delegate, &unknown);
+}
+
+
+/*
+ * Same thing but also set an error code.
+ */
+static bool check_delegate(const char *delegate) {
+  bool unknown;
+
+  assert(delegate != NULL);
+  if (supported_delegate(delegate, &unknown)) {
+    return true;
+  }
+  if (unknown) {
+    set_error_code(CTX_UNKNOWN_DELEGATE);
+  } else {
+    set_error_code(CTX_DELEGATE_NOT_AVAILABLE);
+  }
+  return false;
+}
+
+
+/*
+ * Check satisfiability of n formulas f[0 ... n-1]
+ * - f[0 ... n-1] are known to be boolean terms
+ */
+static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const char *logic_name, model_t **result, const char *delegate) {
+  context_t context;
+  param_t default_params;
+  model_t *model;
+  smt_logic_t logic;
+  context_arch_t arch;
+  bool iflag, qflag;
+  int32_t code;
+  smt_status_t status;
+
+  // check the logic first
+  if (logic_name == NULL) {
+    logic = SMT_UNKNOWN;
+    arch = CTX_ARCH_EGFUNSPLXBV;
+    iflag = true;
+    qflag = false;
+  } else {
+    logic = smt_logic_code(logic_name);
+    if (logic == SMT_UNKNOWN) {
+      set_error_code(CTX_UNKNOWN_LOGIC);
+      return STATUS_ERROR;
+    }
+    if (! logic_is_supported(logic) ||
+	(! yices_has_mcsat() && logic_requires_mcsat(logic))) {
+      set_error_code(CTX_LOGIC_NOT_SUPPORTED);
+      return STATUS_ERROR;
+    }
+
+    arch = arch_for_logic(logic);
+    iflag = iflag_for_logic(logic);
+    qflag = qflag_for_logic(logic);
+  }
+
+  // validate the delegate if given
+  if (logic == QF_BV && delegate != NULL && !check_delegate(delegate)) {
+    return STATUS_ERROR;
+  }
+
+  // check for trivial unsat then trivial sat
+  if (trivially_false_assertions(f, n)) {
+    return STATUS_UNSAT;
+  }
+
+  if (trivially_true_assertions(f, n, result)) {
+    return STATUS_SAT;
+  }
+
+  // initialize the context and assert the formulas
+  yices_obtain_mutex();
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
+  context_set_default_options(&context, logic, arch, iflag, qflag);
+  code = assert_formulas(&context, n, f);
+  yices_release_mutex();
+
+  if (code < 0) {
+    // error in assert_formulas
+    convert_internalization_error(code);
+    status = STATUS_ERROR;
+    goto cleanup;
+  }
+
+  // check satisfiability
+  if (logic == QF_BV && delegate != NULL) {
+    status = check_with_delegate(&context, delegate, 0);
+  } else {
+    yices_default_params_for_context(&context, &default_params);
+    status = check_context(&context, &default_params);
+  }
+
+  // get the model
+  if (status == STATUS_SAT && result != NULL) {
+    // yices_get_model takes the lock so we don't
+    // need to do it ourselves.
+    model = yices_get_model(&context, true);
+    assert(model != NULL);
+    *result = model;
+  }
+
+ cleanup:
+  delete_context(&context);
+  return status;
+}
+
+
+
+/*
+ * Check whether a formula is satisfiable
+ * - f = formula
+ * - logic = SMT name for a logic (or NULL)
+ * - model = resulting model (or NULL if no model is needed)
+ * - delegate = external solver to use or NULL
+ *
+ * This function first check whether f is trivially sat or trivially unsat.
+ * If not, it construct a context configured for the specified logic, then
+ * assert f in this context and check whether the context is satisfiable.
+ *
+ * The return value is
+ *   STATUS_SAT if f is satisfiable,
+ *   STATUS_UNSAT if f is not satisifiable
+ *   STATUS_ERROR if something goes wrong
+ *
+ * If the formula is satisfiable and model != NULL, then a model of f is returned in *model.
+ * That model must be deleted when no-longer needed by calling yices_free_model.
+ *
+ * The logic must be either NULL or the name of an SMT logic supported by Yices.
+ * If the logic is NULL, the function uses a default context configuration.
+ * Ohterwise, the function uses a context specialized for the logic.
+ *
+ * The delegate is an optional argument used only when logic is "QF_BV".
+ * If is ignored otherwise.   It must be the name of a third-party SAT solver
+ * to use after bit-blasting. Currently, the delegate can be either "cadical",
+ * "cryptominisat",  "y2sat", or NULL.
+ * If delegate is NULL, the default SAT solver is used.
+ *
+ * Support for "cadical" and "cryptominisat" must be enabled at compilation
+ * time. The "y2sat" solver is always available. The function will return STATUS_ERROR
+ * and store an error code if the requested delegate is not available.
+ *
+ * Error codes:
+ *
+ * if f is invalid
+ *   code = INVALID_TERM
+ *   term1 = f
+ *
+ * if f is not Boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool
+ *
+ * if logic is not a known logic name
+ *   code = CTX_UNKNOWN_LOGIC
+ *
+ * if the logic is known but not supported by Yices
+ *   code = CTX_LOGIC_NOT_SUPPORTED
+ *
+ * if delegate is not one of "cadical", "cryptominisat", "y2sat"
+ *   code = CTX_UNKNOWN_DELEGATE
+ *
+ * if delegate is "cadical" or "cryptominisat" but support for these SAT solvers
+ * was not implemented at compile time,
+ *   code = CTX_DELEGATE_NOT_AVAILABLE
+ *
+ * other error codes are possible if the formula is not in the specified logic (cf, yices_assert_formula)
+ */
+EXPORTED smt_status_t yices_check_formula(term_t f, const char *logic, model_t **model, const char *delegate) {
+  if (! yices_assert_formula_checks(f)) {
+    return STATUS_ERROR;
+  }
+  return yices_do_check_formulas(&f, 1, logic, model, delegate);
+}
+
+/*
+ * Check whether n formulas are satisfiable.
+ * - f = array of n Boolean terms
+ * - n = number of elements in f
+ *
+ * This is similar to yices_check_formula except that it checks whether
+ * the conjunction of f[0] ... f[n-1] is satisfiable.
+ */
+EXPORTED smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const char *logic, model_t **model, const char *delegate) {
+  if (! yices_assert_formulas_checks(n, f)) {
+    return STATUS_ERROR;
+  }
+  return yices_do_check_formulas(f, n, logic, model, delegate);
+}
+
+
+/************************************
+ *  BIT-BLAST AND EXPORT TO DIMACS  *
+ ***********************************/
+
+/*
+ * Bit-blast f[0 ... n-1]
+ * - filename = DIMACS file name
+ * - simplify_cnf = whether to simplify after CNF conversion (using y2sat)
+ * - status = returned status if the formulas are SAT or UNSAT
+ */
+static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const char *filename, bool simplify_cnf, smt_status_t *status) {
+  context_t context;
+  context_arch_t arch;
+  bool iflag, qflag;
+  int32_t code;
+
+  if (trivially_false_assertions(f, n)) {
+    *status = STATUS_UNSAT;
+    return 0;
+  }
+
+  if (trivially_true_assertions(f, n, NULL)) {
+    *status = STATUS_SAT;
+    return 0;
+  }
+
+  arch = arch_for_logic(QF_BV);
+  iflag = iflag_for_logic(QF_BV);
+  qflag = qflag_for_logic(QF_BV);
+
+  yices_obtain_mutex();
+  init_context(&context, __yices_globals.terms, QF_BV, CTX_MODE_ONECHECK, arch, qflag);
+  context_set_default_options(&context, QF_BV, arch, iflag, qflag);
+  code = assert_formulas(&context, n, f);
+  yices_release_mutex();
+
+  if (code < 0) {
+    // error in assert_formulas
+    convert_internalization_error(code);
+    code = -1;
+    goto done;
+  }
+
+  if (code == TRIVIALLY_UNSAT) {
+    *status = STATUS_UNSAT;
+    code = 0;
+    goto done;
+  }
+
+  assert(code == CTX_NO_ERROR);
+
+  if (simplify_cnf) {
+    code = process_then_export_to_dimacs(&context, filename, status);
+  } else {
+    code = bitblast_then_export_to_dimacs(&context, filename, status);
+  }
+  if (code < 0) {
+    // error in creating or writing to the file
+    code = -1;
+    file_output_error();
+  }
+
+ done:
+  delete_context(&context);
+  return code;
+}
+
+/*
+ * Bit-blast then export the CNF to a file
+ * - f = a Boolean formula (in the QF_BV theory)
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - stat = pointer to a variable that stores the formula's status
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports:
+ */
+EXPORTED int32_t yices_export_formula_to_dimacs(term_t f, const char *filename, int32_t simplify_cnf, smt_status_t *status) {
+  if (! yices_assert_formula_checks(f)) {
+    return -1;
+  }
+  return yices_do_export_to_dimacs(&f, 1, filename, simplify_cnf != 0, status);
+}
+
+/*
+ * Bit-blast n formulas then export the CNF to a file
+ * - f = array of n Boolean formula (in the QF_BV theory)
+ * - n = number of formulas in f
+ * - filename = name of the ouput file
+ * - simplify_cnf = boolean flag
+ * - stat = pointer to a variable that stores the formula's status
+ *
+ * Return code:
+ *   1 if the DIMACS file was constructed
+ *   0 if the formula is solved without CNF or after simplifying
+ *  -1 if there's an error
+ *
+ * Error reports:
+ */
+EXPORTED int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, const char *filename,
+						 int32_t simplify_cnf, smt_status_t *status) {
+  if (! yices_assert_formulas_checks(n, f)) {
+    return -1;
+  }
+  return yices_do_export_to_dimacs(f, n, filename, simplify_cnf != 0, status);
+}
+
+
+
 /************************
  *  VALUES IN A MODEL   *
  ***********************/
@@ -9640,15 +9926,13 @@ int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return -1;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_boolean(vtbl, v)) {
-    error_report_t *error = get_yices_error();
-    error->code = INTERNAL_EXCEPTION;
+    set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
@@ -9695,7 +9979,6 @@ typedef struct arithval_struct_s {
  * Auxiliary function: return the rational value of t
  * - store the result in *r
  * - if there's an error, set r->tag to ERROR and store an error report
- * - IAM: don't see that happening in the yices_get_arith_value_checks code!
  */
 static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) {
   value_table_t *vtbl;
@@ -9711,8 +9994,7 @@ static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) 
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return;
   }
 
@@ -9725,8 +10007,7 @@ static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) 
     r->val.p = vtbl_algebraic_number(vtbl, v);
   } else {
     // should not happen since t is an arithmetic term
-    error_report_t *error = get_yices_error();
-    error->code = INTERNAL_EXCEPTION;
+    set_error_code(INTERNAL_EXCEPTION);
   }
 }
 
@@ -9738,8 +10019,7 @@ static bool arithval_is_rational(const arithval_struct_t *r) {
 
   result = r->tag == ARITHVAL_RATIONAL;
   if (r->tag == ARITHVAL_ALGEBRAIC) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_CONVERSION_FAILED;
+    set_error_code(EVAL_CONVERSION_FAILED);
   }
   return result;
 }
@@ -9758,8 +10038,7 @@ int32_t _o_yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
   }
 
   if (! q_get32(aux.val.q, val)) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -9780,8 +10059,7 @@ int32_t _o_yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
   }
 
   if (! q_get64(aux.val.q, val)) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -9802,8 +10080,7 @@ int32_t _o_yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint
   }
 
   if (! q_get_int32(aux.val.q, num, den)) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -9824,8 +10101,7 @@ int32_t _o_yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint
   }
 
   if (! q_get_int64(aux.val.q, num, den)) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -9873,8 +10149,7 @@ int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
   if (!q_get_mpz(aux.val.q, val)) {
     // the value is not an integer (maybe we should use a better error code
     // in this case?)
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -9919,19 +10194,16 @@ int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic
 
   // TODO: convert rational to algebraic (no direct way to do this in libpoly)
   if (aux.tag == ARITHVAL_RATIONAL) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_CONVERSION_FAILED;
+    set_error_code(EVAL_CONVERSION_FAILED);
     return -1;
   }
 
   return -1;
 
 #else
-  error_report_t *error = get_yices_error();
   // NO SUPPORT FOT MCSAT
-  error->code = EVAL_NOT_SUPPORTED;
+  set_error_code(EVAL_NOT_SUPPORTED);
   return -1;
-
 #endif
 }
 
@@ -9965,15 +10237,13 @@ int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return -1;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_bitvector(vtbl, v)) {
-    error_report_t *error = get_yices_error();
-    error->code = INTERNAL_EXCEPTION;
+    set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
@@ -10015,15 +10285,13 @@ int32_t _o_yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return -1;
   }
 
   vtbl = model_get_vtbl(mdl);
   if (! object_is_unint(vtbl, v)) {
-    error_report_t *error = get_yices_error();
-    error->code = INTERNAL_EXCEPTION;
+    set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
@@ -10087,8 +10355,7 @@ int32_t _o_yices_get_value(model_t *mdl, term_t t, yval_t *val) {
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return -1;
   }
 
@@ -10344,8 +10611,7 @@ type_t _o_yices_val_function_type(model_t *mdl, const yval_t *v) {
       return vtbl_function_type(vtbl, id);
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return NULL_TYPE;
 }
@@ -10369,8 +10635,7 @@ int32_t _o_yices_val_get_bool(model_t *mdl, const yval_t *v, int32_t *val) {
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10391,8 +10656,7 @@ static rational_t *yices_val_get_rational(model_t *mdl, const yval_t *v) {
       return vtbl_rational(vtbl, id);
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return NULL;
 }
@@ -10410,8 +10674,7 @@ int32_t _o_yices_val_get_int32(model_t *mdl, const yval_t *v, int32_t *val) {
   }
 
   if (! q_get32(q, val)) {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_OVERFLOW;
+    set_error_code(YVAL_OVERFLOW);
     return -1;
   }
 
@@ -10431,8 +10694,7 @@ int32_t _o_yices_val_get_int64(model_t *mdl, const yval_t *v, int64_t *val) {
   }
 
   if (! q_get64(q, val)) {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_OVERFLOW;
+    set_error_code(YVAL_OVERFLOW);
     return -1;
   }
 
@@ -10452,8 +10714,7 @@ int32_t _o_yices_val_get_rational32(model_t *mdl, const yval_t *v, int32_t *num,
   }
 
   if (! q_get_int32(q, num, den)) {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_OVERFLOW;
+    set_error_code(YVAL_OVERFLOW);
     return -1;
   }
 
@@ -10473,8 +10734,7 @@ int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_t *num,
   }
 
   if (! q_get_int64(q, num, den)) {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_OVERFLOW;
+    set_error_code(YVAL_OVERFLOW);
     return -1;
   }
 
@@ -10494,8 +10754,7 @@ int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val) {
   }
 
   if (!q_get_mpz(q, val)) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_OVERFLOW;
+    set_error_code(EVAL_OVERFLOW);
     return -1;
   }
 
@@ -10547,11 +10806,8 @@ int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val) {
   }
 #endif
 
-  {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
-    return -1;
-  }
+  set_error_code(YVAL_INVALID_OP);
+  return -1;
 }
 
 /*
@@ -10575,8 +10831,7 @@ int32_t _o_yices_val_get_bv(model_t *mdl, const yval_t *v, int32_t val[]) {
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10601,17 +10856,13 @@ int32_t _o_yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_alge
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
 
 #else
-  {
-    error_report_t *error = get_yices_error();
-    // NO SUPPORT FOT MCSAT
-    error->code = YVAL_NOT_SUPPORTED;
-  }
+  set_error_code(YVAL_NOT_SUPPORTED);
 #endif
+
   return -1;
 }
 
@@ -10639,8 +10890,7 @@ int32_t _o_yices_val_get_scalar(model_t *mdl, const yval_t *v, int32_t *val, typ
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10666,8 +10916,7 @@ int32_t _o_yices_val_expand_tuple(model_t *mdl, const yval_t *v, yval_t child[])
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10692,8 +10941,7 @@ int32_t _o_yices_val_expand_mapping(model_t *mdl, const yval_t *v, yval_t tup[],
       return 0;
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10724,8 +10972,7 @@ int32_t _o_yices_val_expand_function(model_t *mdl, const yval_t *f, yval_t *def,
       }
     }
   } else {
-    error_report_t *error = get_yices_error();
-    error->code = YVAL_INVALID_OP;
+    set_error_code(YVAL_INVALID_OP);
   }
   return -1;
 }
@@ -10753,16 +11000,14 @@ term_t _o_yices_get_value_as_term(model_t *mdl, term_t t) {
 
   v = model_get_term_value(mdl, t);
   if (v < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(v);
+    set_error_code(yices_eval_error(v));
     return NULL_TERM;
   }
 
   vtbl = model_get_vtbl(mdl);
   a = convert_value_to_term(__yices_globals.terms, vtbl, v);
   if (a < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_CONVERSION_FAILED;
+    set_error_code(EVAL_CONVERSION_FAILED);
     return NULL_TERM;
   }
 
@@ -10804,8 +11049,7 @@ int32_t _o_yices_formula_true_in_model(model_t *mdl, term_t f) {
     return 0; // false
   } else {
     // code < 0: contains the evaluation error
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(code);
+    set_error_code(yices_eval_error(code));
     return -1;
   }
 }
@@ -10839,8 +11083,7 @@ int32_t _o_yices_formulas_true_in_model(model_t *mdl, uint32_t n, const term_t f
     return 0; // at least one false
   } else {
     // error in evaluation: code contains the eval code
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(code);
+    set_error_code(yices_eval_error(code));
     return -1;
   }
 }
@@ -10869,15 +11112,13 @@ int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], te
 
   eval_code = evaluate_term_array(mdl, n, a, b);
   if (eval_code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(eval_code);
+    set_error_code(yices_eval_error(eval_code));
     return -1;
   }
 
   count = convert_value_array(__yices_globals.terms, model_get_vtbl(mdl), n, b);
   if (count < n) {
-    error_report_t *error = get_yices_error();
-    error->code = EVAL_CONVERSION_FAILED;
+    set_error_code(EVAL_CONVERSION_FAILED);
     return -1;
   }
 
@@ -10927,8 +11168,7 @@ int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vector_t *v)
   v->size = 0;
   code = get_implicant(mdl, __yices_globals.manager, LIT_COLLECTOR_ALL_OPTIONS, 1, &t, (ivector_t *) v);
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(code);
+    set_error_code(yices_eval_error(code));
     return -1;
   }
 
@@ -10954,8 +11194,7 @@ int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a
   v->size = 0;
   code = get_implicant(mdl, __yices_globals.manager, LIT_COLLECTOR_ALL_OPTIONS, n, a, (ivector_t *) v);
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_eval_error(code);
+    set_error_code(yices_eval_error(code));
     return -1;
   }
 
@@ -11045,8 +11284,7 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
   }
 
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_gen_error(code);
+    set_error_code(yices_gen_error(code));
     return -1;
   }
 
@@ -11088,8 +11326,7 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
   }
 
   if (code < 0) {
-    error_report_t *error = get_yices_error();
-    error->code = yices_gen_error(code);
+    set_error_code(yices_gen_error(code));
     return -1;
   }
 
@@ -11172,8 +11409,7 @@ int32_t _o_yices_decref_term(term_t t) {
     return -1;
   }
 
-  if (root_terms == NULL ||
-      sparse_array_read(root_terms, index_of(t)) == 0) {
+  if (root_terms == NULL || sparse_array_read(root_terms, index_of(t)) == 0) {
     error_report_t *error = get_yices_error();
     error->code = BAD_TERM_DECREF;
     error->term1 = t;
@@ -11194,8 +11430,7 @@ int32_t _o_yices_decref_type(type_t tau) {
     return -1;
   }
 
-  if (root_types == NULL ||
-      sparse_array_read(root_types, tau) == 0) {
+  if (root_types == NULL || sparse_array_read(root_types, tau) == 0) {
     error_report_t *error = get_yices_error();
     error->code = BAD_TYPE_DECREF;
     error->type1 = tau;

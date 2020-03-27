@@ -33,6 +33,7 @@ API Reference
 
    version-data
    mcsat-support
+   thread-safety
    global-initialization
    out-of-memory
    hard-limits
@@ -44,6 +45,7 @@ API Reference
    misc-operations
    context-operations
    model-operations
+   formula-operations
    pretty-printing
 
 

@@ -1,0 +1,71 @@
+diff --git a/configure b/configure
+index f1ffa1f..8f8ba90 100755
+--- a/configure
++++ b/configure
+@@ -404,6 +404,10 @@ msg "generated '$build/makefile' from '../makefile.in'"
+ 
+ #--------------------------------------------------------------------------#
+ 
++#
++# BD: added targets install, libcadical.so, libcadical.dylib
++#
++
+ build="`pwd`"
+ makefile="`dirname "$build"`/makefile"
+ cat <<EOF > "$makefile"
+@@ -430,7 +434,17 @@ mobical:
+ 	\$(MAKE) -j1 -C "\$(CADICALBUILD)" mobical
+ update:
+ 	\$(MAKE) -j1 -C "\$(CADICALBUILD)" update
+-.PHONY: all cadical clean mobical test update
++
++install:
++	\$(MAKE) -j1 -C "\$(CADICALBUILD)" install
++
++libcadical.so:
++	\$(MAKE) -j1 -C "\$(CADICALBUILD)" libcadical.so
++
++libcadical.dylib:
++	\$(MAKE) -j1 -C "\$(CADICALBUILD)" libcadical.dylib
++
++.PHONY: all cadical clean mobical test update install libcadical.so libcadical.dylib
+ EOF
+ 
+ msg "generated '../makefile' as proxy to ..."
+diff --git a/makefile.in b/makefile.in
+index aa0f505..d0dce8a 100644
+--- a/makefile.in
++++ b/makefile.in
+@@ -51,6 +51,32 @@ mobical: mobical.o libcadical.a makefile
+ libcadical.a: $(OBJ) makefile
+ 	ar rc $@ $(OBJ)
+ 
++
++#-------------------------------------------------------------------------#
++#
++# BD: added rules for dynamic libraries and for install
++# To build libcadical.so, you must call 'make libcadical.so' explicitly.
++# This is very basic for now (e.g., there's no version).
++# Building the dynamic libraries require configuring with CXXFLAGS=-fPIC
++# on Linux.
++#
++# The install rule expects both static and dynamic libraries to exist in build.
++#
++libcadical.so: $(OBJ)
++	$(COMPILE) -shared -o $@ $(OBJ)
++
++libcadical.dylib: $(OBJ)
++	$(COMPILE) -shared -o $@ $(OBJ)
++
++install:
++	install libcadical.a /usr/local/lib
++	install libcadical.so /usr/local/lib
++	install cadical /usr/local/bin
++	install mobical /usr/local/bin
++	install -m644 ../src/ccadical.h /usr/local/include
++
++.PHONY: install
++
+ #--------------------------------------------------------------------------#
+ 
+ # Note that 'build.hpp' is generated and resides in the build directory.

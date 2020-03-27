@@ -1,0 +1,6 @@
+(set-logic QF_NRA)
+(declare-fun _substvar_257_ () Bool)
+(declare-fun _substvar_260_ () Bool)
+(declare-fun _substvar_231_ () Bool)
+(assert (xor true true true true true _substvar_231_ _substvar_257_ _substvar_260_ true))
+(check-sat)

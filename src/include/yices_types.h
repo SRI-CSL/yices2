@@ -403,6 +403,11 @@ typedef enum error_code {
   CTX_INVALID_OPERATION = 400,
   CTX_OPERATION_NOT_SUPPORTED,
 
+  /*
+   * Error codes for delegates
+   */
+  CTX_UNKNOWN_DELEGATE = 420,
+  CTX_DELEGATE_NOT_AVAILABLE,
 
   /*
    * Errors in context configurations and search parameter settings
@@ -572,6 +577,9 @@ typedef enum error_code {
  *
  *  CTX_INVALID_OPERATION
  *  CTX_OPERATION_NOT_SUPPORTED
+ *
+ *  CTX_UNKNOWN_DELEGATE
+ *  CTX_DELEGATE_NOT_AVAILABLE
  *
  *  CTX_INVALID_CONFIG
  *  CTX_UNKNOWN_PARAMETER

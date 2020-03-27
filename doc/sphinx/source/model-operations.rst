@@ -1062,6 +1062,69 @@ Values as Terms
    codes are the same as for :c:func:`yices_get_value_as_term`.
 
 
+Supports
+--------
+
+Given a term *t* and a model *M*, one may be intersted in the set of
+uninterpreted terms on which the value assigned to *t* depends. We call this set a support of *t* in *M*.
+For example, if *t* is the term *(ite (> x 0) (+ x z) y)* then and *x* has positive value in *M* then
+the value of *t* in *M* does not depend on *y*. In this case, the support of *t* in *M* is the set *{ x, z }*.
+If we have a different model *R* and *x* has a negative value in *R* then the support of *t* in *R* is
+the set *{ x, y }*. In *R*, the value of *t* does not depend on *z*'s value.
+
+The following two functions compute the support of a term or a set of terms in a model.
+
+.. c:function:: int32_t yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v)
+
+   Get the support of *t* in *mdl*
+
+   The function computes a support for *t*  in *mdl* and store the result in vector *v*.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *t*: term
+
+   - *v*: term vector
+
+   Vector *v* must be initialized by :c:func:`yices_init_term_vector`. The support set is returned in *v*
+   as follows:
+
+   - *v->size* stores the number of uninterpreted terms in the support set
+
+   - *v0->data[0]* |...| *v->data[n-1]* store *n* distinct uninterpreted terms (where *n = v->size*).
+
+
+   **Error report**
+
+   - if *t* is not a valid term:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+     -- term1 := *t*
+
+
+
+.. c:function:: int32_t yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v)
+
+   Get the support of *n* terms in *mdl*
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *n*: size of array *a*
+
+   - *a*: array of *n* terms
+
+   - *v*: term vector
+
+   This is similar to the :c:func:`yices_model_term_support` but it computes a support for *n* terms stored in
+   array *a*. The set is returned in vector *v*.
+
+
+
 Implicants
 ----------
 
