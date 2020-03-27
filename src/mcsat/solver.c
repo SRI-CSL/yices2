@@ -893,11 +893,6 @@ void mcsat_push_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
   plugin_t* plugin;
 
-  // Remember the assumptions index
-  scope_holder_push(&mcsat->scope,
-    &mcsat->assumption_i,
-    NULL);
-
   // Push the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin = mcsat->plugins[i].plugin;
@@ -912,11 +907,6 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
   uint32_t i;
   plugin_t* plugin;
   ivector_t* unassigned;
-
-  // Revert the assumption index
-  scope_holder_pop(&mcsat->scope,
-      &mcsat->assumption_i,
-      NULL);
 
   // Pop the plugins
   for (i = 0; i < mcsat->plugins_count; ++ i) {
@@ -2132,12 +2122,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   luby_t luby;
 
   // Make sure we have variables for all the assumptions
-  uint32_t i;
-  for (i = 0; i < n_assumptions; ++ i) {
-    variable_db_get_variable(mcsat->var_db, assumptions[i]);
+  if (n_assumptions > 0) {
+    uint32_t i;
+    for (i = 0; i < n_assumptions; ++ i) {
+      variable_db_get_variable(mcsat->var_db, assumptions[i]);
+    }
+    mcsat_process_registeration_queue(mcsat);
   }
-  mcsat_process_registeration_queue(mcsat);
-
+  
   // Initialize assumption count
   mcsat->assumption_i = 0;
 

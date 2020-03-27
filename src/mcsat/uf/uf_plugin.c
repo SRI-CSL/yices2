@@ -781,8 +781,8 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = 0;
   plugin->plugin_interface.propagate             = uf_plugin_propagate;
   plugin->plugin_interface.decide                = uf_plugin_decide;
-  plugin->plugin_interface.check_assignment    = NULL;
-  plugin->plugin_interface.decide_assignment   = NULL;
+  plugin->plugin_interface.check_assignment      = NULL;
+  plugin->plugin_interface.decide_assignment     = NULL;
   plugin->plugin_interface.get_conflict          = uf_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = uf_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = uf_plugin_explain_evaluation;
