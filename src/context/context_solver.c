@@ -595,8 +595,6 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   smt_core_t *core;
   smt_status_t stat;
 
-  assert(ctx->mcsat == NULL); // MC-SAT doesn't support assumptions yet
-
   core = ctx->core;
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
@@ -613,13 +611,11 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
  * Check with given model
  * - if ctx->status is not IDLE, return the status.
  */
-smt_status_t check_context_with_model(context_t *ctx, const param_t *params,
-    model_t* mdl, uint32_t n, const term_t t[]) {
+smt_status_t check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
   assert(ctx->mcsat != NULL);
   mcsat_solve(ctx->mcsat, params, mdl, n, t);
   return mcsat_status(ctx->mcsat);
 }
-
 
 
 /*

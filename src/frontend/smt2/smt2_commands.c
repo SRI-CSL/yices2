@@ -605,6 +605,27 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     return STATUS_UNSAT;
   }
 
+  // If MCSAT use the model solving command
+  if (ctx->mcsat) {
+    // Copy over to model
+    model_t mdl;
+    init_model(&mdl, ctx->terms, true);
+    init_ivector(&assumptions, n);
+    for (i = 0; i < n; ++ i) {
+      term_t x = unsigned_term(a[i]);
+      value_t val = is_pos_term(a[i]) ? vtbl_mk_bool(&mdl.vtbl, true) : vtbl_mk_bool(&mdl.vtbl, false);
+      model_map_term(&mdl, x, val);
+      ivector_push(&assumptions, x);
+    }
+    // Solve
+    status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+    // Remove temps
+    delete_ivector(&assumptions);
+    delete_model(&mdl);
+
+    return status;
+  }
+
   // convert a[0] ... a[n-1] to assumptions
   init_ivector(&assumptions, n);
   for (i=0; i<n; i++) {
@@ -6042,16 +6063,6 @@ void smt2_check_sat(void) {
   }
 }
 
-
-/*
- * Check whether the logic requires mcsat or the mcsat flag is set.
- * In either case, check_sat_assuming is not supported.
- */
-static bool mcsat_is_required(smt2_globals_t *g) {
-  assert(g->logic_code != SMT_UNKNOWN);
-  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
-}
-
 /*
  * Check sat with assumptions:
  * - n = number of assumptions
@@ -6065,9 +6076,7 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
   tprint_calls("check-sat-assuming", __smt2_globals.stats.num_check_sat_assuming);
 
   if (check_logic()) {
-    if (mcsat_is_required(&__smt2_globals)) {
-      print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
-    } else if (__smt2_globals.benchmark_mode) {
+    if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
         print_error("the exists/forall solver does not support check-sat with assumptions");
       } else if (__smt2_globals.frozen) {
