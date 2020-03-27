@@ -31,7 +31,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include <errno.h>
 #include <gmp.h>
 
 #include "mt/yices_locks.h"
@@ -734,6 +733,63 @@ int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
 
 }
 
+
+/*
+ * Portable replacement for strtol that we use below to parse an exponent.
+ * The input string must have a non-empty prefix of the form
+ *     <optional sign> <digits>
+ * without space.
+ *
+ * Portability issues with strtol
+ * On some systems strtol("xxx", ..., 10) sets errno to EINVAL
+ * On other systems strtol("xxx", ..., 10) returns 0 and doesn't set errno.
+ */
+static bool parse_exponent(const char *s, long *result) {
+  unsigned long x, y;
+  int digit;;
+  char c;
+  bool ok, positive;
+
+  positive = true;
+  ok = false;
+
+  c = *s ++;
+  if (c == '-') {
+    positive = false;
+    c = *s ++;
+  } else if (c == '+') {
+    c = *s ++;
+  }
+
+  x = 0;
+  while ('0' <= c && c <= '9') {
+    ok = true;
+    digit = c - '0';
+    y = 10*x + digit;
+    if (y < x) {
+      // overflow
+      ok = false;
+      break;
+    }
+    x = y;
+    c = *s ++;
+  }
+
+  if (ok) {
+    if (positive && x <= (unsigned long) LONG_MAX) {
+      *result = (long) x;
+      return true;
+    }
+    if (!positive && x <= (unsigned long) LONG_MIN) {
+      *result = (long) (- x);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
 /*
  * Conversion from a string in a floating point format
  * The expected format is one of
@@ -797,9 +853,7 @@ static int _o_q_set_from_float_string(rational_t *r, const char *s) {
   // check and read exponent
   exponent = 0;
   if (c == 'e' || c == 'E') {
-    errno = 0;  // strtol sets errno on error
-    exponent = strtol(s, (char **) NULL, 10);
-    if (errno != 0){
+    if (!parse_exponent(s, &exponent)) {
       retval =  -1;
       goto clean_up;
     }
