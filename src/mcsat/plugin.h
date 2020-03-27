@@ -215,6 +215,20 @@ struct plugin_s {
   void (*decide) (plugin_t* plugin, variable_t x, trail_token_t* decide, bool must);
 
   /**
+   * Check if it is consistent to assign the given variable to the given value.
+   * If not, report a conflict, and be ready to explain the conflict. If yes,
+   * decide_assumption will be called to perform the decision.
+   */
+  void (*check_assignment) (plugin_t* plugin, variable_t x, const mcsat_value_t* value);
+
+  /**
+   * Decide an assumption variable to a given value. The token can be used
+   * only once. The plugin must decide on the given variable. The value
+   * is assumed consistent, it was checked previously with call to check_assignment.
+   */
+  void (*decide_assignment) (plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide);
+
+  /**
    * Explain the conflict that you reported. The plugin should return a conflict
    * such that
    *

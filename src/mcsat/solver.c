@@ -1839,6 +1839,86 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   conflict_destruct(&conflict);
 }
 
+static
+bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
+  assert(!mcsat->trail->inconsistent);
+
+  variable_t var;
+  term_t var_term;
+  mcsat_value_t var_mdl_value;
+
+  uint32_t plugin_i;
+  plugin_t* plugin;
+
+  plugin_trail_token_t decision_token;
+
+  bool assumption_decided = false;
+  for (; !assumption_decided && !mcsat->trail->inconsistent && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
+
+    // The variable (should exists already)
+    var_term = assumptions[mcsat->assumption_i];
+    var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
+    assert(var != variable_null);
+    // Get the owner that will 'decide' the value of the variable
+    plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
+    assert(plugin_i != MCSAT_MAX_PLUGINS);
+    plugin = mcsat->plugins[plugin_i].plugin;
+    // The given value the variable in the provided model
+    value_t value = model_get_term_value(mdl, var_term);
+    mcsat_value_construct_from_value(&var_mdl_value, &mdl->vtbl, value);
+
+    // If the variable already has a value in the trail check for consistency
+    if (trail_has_value(mcsat->trail, var)) {
+      // If the value is different from given value, we are in conflict
+      assert(trail_get_assignment_type(mcsat->trail, var) == PROPAGATION);
+      const mcsat_value_t* var_trail_value = trail_get_value(mcsat->trail, var);
+      bool eq = mcsat_value_eq(&var_mdl_value, var_trail_value);
+      if (!eq) {
+        trail_set_inconsistent(mcsat->trail);
+        mcsat->plugin_in_conflict = (mcsat_plugin_context_t*) plugin;
+      }
+    } else {
+
+      if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): variable ");
+        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
+        mcsat_trace_printf(mcsat->ctx->trace, "\n");
+      }
+
+      // Check if the decision is consistent (will report conflict if not)
+      assert(plugin->check_assignment);
+      plugin->check_assignment(plugin, var, &var_mdl_value);
+      if (!mcsat->trail->inconsistent) {
+        // Construct the token
+        trail_token_construct(&decision_token, mcsat->plugins[plugin_i].plugin_ctx, var);
+        // Decide with the owner plugin
+        mcsat_push_internal(mcsat);
+        assert(plugin->decide_assignment);
+        plugin->decide_assignment(plugin, var, &var_mdl_value, (trail_token_t*) &decision_token);
+
+        // If decided, we're done
+        assert(decision_token.used);
+        assert(trail_has_value(mcsat->trail, var));
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+          FILE* out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "mcsat_decide_assumption(): value = ");
+          mcsat_value_print(trail_get_value(mcsat->trail, var), out);
+          fprintf(out, "\n");
+        }
+
+        // We've decided something!
+        assumption_decided = true;
+      }
+    }
+
+    // Remove temp
+    mcsat_value_destruct(&var_mdl_value);
+  }
+
+  return assumption_decided;
+}
+
 /**
  * Decides a variable using one of the plugins. Returns true if a variable
  * has been decided, or a conflict detected.
@@ -2021,6 +2101,29 @@ void luby_next(luby_t* luby) {
   luby->restart_threshold = luby->v * luby->interval;
 }
 
+static
+void mcsat_check_model(mcsat_solver_t* mcsat, bool assert) {
+  // Check models
+  model_t model;
+  init_model(&model, mcsat->terms, true);
+  mcsat_build_model(mcsat, &model);
+  uint32_t i = 0;
+  for (i = 0; i < mcsat->assertion_terms_original.size; ++i) {
+    term_t assertion = mcsat->assertion_terms_original.data[i];
+    int32_t code = 0;
+    bool assertion_is_true = formula_holds_in_model(&model, assertion, &code);
+    if (false && !assertion_is_true) {
+      FILE *out = trace_out(mcsat->ctx->trace);
+      fprintf(out, "Assertion not true in model: ");
+      trace_term_ln(mcsat->ctx->trace, mcsat->terms, assertion);
+      fprintf(out, "In model:\n");
+      model_print(out, &model);
+    }
+    assert(!assert || assertion_is_true);
+  }
+  delete_model(&model);
+}
+
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
   uint32_t restart_resource;
@@ -2087,72 +2190,36 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Should we decide on an assumption
-    bool assumption_decided = false;
-    for (; !assumption_decided && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
-      // The variable (should exists already)
-      term_t x_term = assumptions[mcsat->assumption_i];
-      variable_t x = variable_db_get_variable(mcsat->var_db, x_term);
-      // The value from the model
-      value_t x_value = model_get_term_value(mdl, x_term);
-      mcsat_value_t x_mcsat_value;
-      mcsat_value_construct_from_value(&x_mcsat_value, &mdl->vtbl, x_value);
-
-      // If not assigned, just do it
-      if (!trail_has_value(mcsat->trail, x)) {
-        mcsat_push_internal(mcsat);
-        trail_add_decision(mcsat->trail, x, &x_mcsat_value, MCSAT_MAX_PLUGINS);
-        assumption_decided = true;
-      } else {
-        // Already assigned, check if same
-        const mcsat_value_t* x_current_value = trail_get_value(mcsat->trail, x);
-        if (!mcsat_value_eq(&x_mcsat_value, x_current_value)) {
-          // Values are different, need an explanation
-          assert(false);
-        }
-      }
-      // Remove temp
-      mcsat_value_destruct(&x_mcsat_value);
+    bool assumption_decided = mcsat_decide_assumption(mcsat, mdl, n_assumptions, assumptions);
+    if (assumption_decided) {
+      continue;
     }
 
-    if (!assumption_decided) {
-      // Time to make a decision
-      if (!mcsat_decide(mcsat)) {
-        if (!trail_is_consistent(mcsat->trail)) {
-          goto conflict;
-        } else {
-          mcsat->status = STATUS_SAT;
-          return;
-        }
-        mcsat->status = STATUS_SAT;
-
-        if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
-          // Check models
-          model_t model;
-          init_model(&model, mcsat->terms, true);
-          mcsat_build_model(mcsat, &model);
-          uint32_t i = 0;
-          for (i = 0; i < mcsat->assertion_terms_original.size; ++i) {
-            term_t assertion = mcsat->assertion_terms_original.data[i];
-            int32_t code = 0;
-            bool assertion_is_true = formula_holds_in_model(&model, assertion, &code);
-            if (false && !assertion_is_true) {
-              FILE* out = trace_out(mcsat->ctx->trace);
-              fprintf(out, "Assertion not true in model: ");
-              trace_term_ln(mcsat->ctx->trace, mcsat->terms, assertion);
-              fprintf(out, "In model:\n");
-              model_print(out, &model);
-            }
-            assert(assertion_is_true);
-          }
-          delete_model(&model);
-        }
-
-        return;
-      }
+    // If inconsistent, analyze the conflict
+    if (!trail_is_consistent(mcsat->trail)) {
+      goto conflict;
     }
+
+    // Time to make a decision
+    bool variable_decided = mcsat_decide(mcsat);
 
     // Decision made, continue with the search
-    continue;
+    if (variable_decided) {
+      continue;
+    }
+
+    // If inconsistent, analyze the conflict
+    if (!trail_is_consistent(mcsat->trail)) {
+      goto conflict;
+    }
+
+    // Nothing to decide, we're satisfiable
+    mcsat->status = STATUS_SAT;
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
+      mcsat_check_model(mcsat, true);
+    }
+
+    return;
 
   conflict:
 

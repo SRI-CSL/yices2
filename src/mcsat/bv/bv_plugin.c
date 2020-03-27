@@ -1308,6 +1308,8 @@ plugin_t* bv_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = NULL;
   plugin->plugin_interface.propagate             = bv_plugin_propagate;
   plugin->plugin_interface.decide                = bv_plugin_decide;
+  plugin->plugin_interface.check_assignment      = NULL;
+  plugin->plugin_interface.decide_assignment     = NULL;
   plugin->plugin_interface.get_conflict          = bv_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = bv_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = bv_plugin_explain_evaluation;

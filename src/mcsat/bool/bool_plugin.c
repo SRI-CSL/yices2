@@ -984,6 +984,8 @@ plugin_t* bool_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = bool_plugin_event_notify;
   plugin->plugin_interface.propagate             = bool_plugin_propagate;
   plugin->plugin_interface.decide                = bool_plugin_decide;
+  plugin->plugin_interface.check_assignment      = NULL;
+  plugin->plugin_interface.decide_assignment     = NULL;
   plugin->plugin_interface.get_conflict          = bool_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = bool_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = bool_plugin_explain_evaluation;

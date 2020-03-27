@@ -1795,6 +1795,8 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = nra_plugin_event_notify;
   plugin->plugin_interface.propagate           = nra_plugin_propagate;
   plugin->plugin_interface.decide              = nra_plugin_decide;
+  plugin->plugin_interface.check_assignment    = NULL;
+  plugin->plugin_interface.decide_assignment   = NULL;
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation  = nra_plugin_explain_evaluation;
