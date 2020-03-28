@@ -205,6 +205,9 @@ struct mcsat_solver_s {
   /** Plugin the reported a conflict */
   mcsat_plugin_context_t* plugin_in_conflict;
 
+  /** Variable that is in conflict (if found during assumpion decisions) */
+  variable_t variable_in_conflict;
+
   /** Lemmas reported by plugins  */
   ivector_t plugin_lemmas;
 
@@ -1645,9 +1648,18 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     trail_print(mcsat->trail, trace->file);
   }
 
+  // Get the initial conflict
+  if (mcsat->variable_in_conflict != variable_null) {
+    // This conflict happened because an assumption conflicts with an already
+    // propagated value. We're unsat here, but we need to produce a clause
+    mcsat->status = STATUS_UNSAT;
+    return;
+  } else {
+    assert(plugin->get_conflict);
+    plugin->get_conflict(plugin, &reason);
+  }
+
   // Construct the conflict
-  assert(plugin->get_conflict);
-  plugin->get_conflict(plugin, &reason);
   conflict_construct(&conflict, &reason, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
   if (trace_enabled(trace, "mcsat::conflict::check")) {
     // Don't check bool conflicts: they are implied by the formula (clauses)
@@ -1854,10 +1866,16 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
     // Get the owner that will 'decide' the value of the variable
     plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
     assert(plugin_i != MCSAT_MAX_PLUGINS);
-    plugin = mcsat->plugins[plugin_i].plugin;
     // The given value the variable in the provided model
     value_t value = model_get_term_value(mdl, var_term);
     mcsat_value_construct_from_value(&var_mdl_value, &mdl->vtbl, value);
+
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
+      mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): variable ");
+      variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
+      mcsat_trace_printf(mcsat->ctx->trace, "\n");
+    }
 
     // If the variable already has a value in the trail check for consistency
     if (trail_has_value(mcsat->trail, var)) {
@@ -1866,18 +1884,15 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       const mcsat_value_t* var_trail_value = trail_get_value(mcsat->trail, var);
       bool eq = mcsat_value_eq(&var_mdl_value, var_trail_value);
       if (!eq) {
+        // Who propagated the value
+        plugin_i = trail_get_source_id(mcsat->trail, var);
+        mcsat->plugin_in_conflict = mcsat->plugins[plugin_i].plugin_ctx;
+        mcsat->variable_in_conflict = var;
         trail_set_inconsistent(mcsat->trail);
-        mcsat->plugin_in_conflict = (mcsat_plugin_context_t*) plugin;
       }
     } else {
-
-      if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): variable ");
-        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
-        mcsat_trace_printf(mcsat->ctx->trace, "\n");
-      }
-
+      // Plugin used to check/decide
+      plugin = mcsat->plugins[plugin_i].plugin;
       // Check if the decision is consistent (will report conflict if not)
       assert(plugin->check_assignment);
       plugin->check_assignment(plugin, var, &var_mdl_value);
