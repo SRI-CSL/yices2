@@ -505,6 +505,23 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
     return atom_value;
   }
 
+  if (t_kind == XOR_TERM) {
+    *eval_level = 0;
+    atom_value = false;
+    composite_term_t* t_comp = xor_term_desc(terms, t);
+    for (uint32_t i = 0; i < t_comp->arity; ++ i) {
+      term_t t_i = t_comp->arg[i];
+      term_t t_i_pos = unsigned_term(t_i);
+      uint32_t level_i = 0;
+      bool value_i = bv_evaluator_run_atom(eval, t_i_pos, &level_i);
+      if (level_i > *eval_level) { *eval_level = level_i; }
+      if (t_i_pos != t_i) { value_i = !value_i; }
+      if (value_i) atom_value = !atom_value;
+    }
+    bv_evaluator_set_atom_cache(eval, t, atom_value, *eval_level);
+    return atom_value;
+  }
+
   // Get children value
   composite_term_t* atom_desc = composite_term_desc(terms, t);
   assert(atom_desc->arity == 2);
