@@ -1626,8 +1626,8 @@ static
 void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) {
 
   conflict_t conflict;
-  plugin_t* plugin;
-  uint32_t plugin_i;
+  plugin_t* plugin = NULL;
+  uint32_t plugin_i = MCSAT_MAX_PLUGINS;
   tracer_t* trace;
 
   uint32_t conflict_level, backtrack_level;
@@ -1644,11 +1644,17 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   trace = mcsat->ctx->trace;
 
   // Plugin that's in conflict
-  plugin_i = mcsat->plugin_in_conflict->ctx.plugin_id;
-  plugin = mcsat->plugins[plugin_i].plugin;
+  if (mcsat->plugin_in_conflict) {
+    plugin_i = mcsat->plugin_in_conflict->ctx.plugin_id;
+    plugin = mcsat->plugins[plugin_i].plugin;
+  }
 
   if (trace_enabled(trace, "mcsat::conflict")) {
-    mcsat_trace_printf(trace, "analyzing conflict from %s\n", mcsat->plugins[plugin_i].plugin_name);
+    if (plugin_i != MCSAT_MAX_PLUGINS) {
+      mcsat_trace_printf(trace, "analyzing conflict from %s\n", mcsat->plugins[plugin_i].plugin_name);
+    } else {
+      mcsat_trace_printf(trace, "analyzing conflict from assertion\n");
+    }
     mcsat_trace_printf(trace, "trail: ");
     trail_print(mcsat->trail, trace->file);
   }
@@ -1894,9 +1900,13 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       const mcsat_value_t* var_trail_value = trail_get_value(mcsat->trail, var);
       bool eq = mcsat_value_eq(&var_mdl_value, var_trail_value);
       if (!eq) {
-        // Who propagated the value
+        // Who propagated the value (MCSAT_MAX_PLUGINS if an assertion)
         plugin_i = trail_get_source_id(mcsat->trail, var);
-        mcsat->plugin_in_conflict = mcsat->plugins[plugin_i].plugin_ctx;
+        if (plugin_i == MCSAT_MAX_PLUGINS) {
+          mcsat->plugin_in_conflict = NULL;
+        } else {
+          mcsat->plugin_in_conflict = mcsat->plugins[plugin_i].plugin_ctx;
+        }
         mcsat->variable_in_conflict = var;
         trail_set_inconsistent(mcsat->trail);
       }
