@@ -12,7 +12,7 @@ Operations on Formulas
 Checking Satisfiability
 -----------------------
 
-The standard way of checking whether formulas are satisfiable requires the following steps:
+The standard way of checking whether formulas are satisfiable involves the following four steps:
 
   1. Construct a context for the relevant logic
 
@@ -48,10 +48,10 @@ third-party Boolean satisfiability solvers for bit-vector problems.
   The function first checks whether *f* is trivially satisifiable or unsatisfiable. If that
   fails, the function performs the four steps listed previously:
 
-  1. Constructs a context specialized for the given *logic*. 
+  1. Construct a context specialized for the given *logic*.
 
      If *logic* is NULL, a generic context is used instead with default
-     coniguration. This context supports linear arithmetic,
+     configuration. This context supports linear arithmetic,
      bit-vectors, uninterpreted functions, and arrays (see
      _context_operations).
 
