@@ -232,6 +232,9 @@ struct mcsat_solver_s {
   /** Index of the assumption to process next */
   uint32_t assumption_i;
 
+  /** Level at which last assumption has been decided (-1 if not yet) */
+  int32_t assumptions_decided_level;
+
   /** Statistics */
   statistics_t stats;
 
@@ -807,7 +810,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->pending_requests_all.gc_calls = false;
   mcsat->pending_requests = false;
 
+  mcsat->variable_in_conflict = variable_null;
   mcsat->assumption_i = 0;
+  mcsat->assumptions_decided_level = -1;
 
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
@@ -1653,6 +1658,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     // This conflict happened because an assumption conflicts with an already
     // propagated value. We're unsat here, but we need to produce a clause
     mcsat->status = STATUS_UNSAT;
+    // TODO: compute final explanation
     return;
   } else {
     assert(plugin->get_conflict);
@@ -1806,6 +1812,10 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   if (conflict_level <= mcsat->trail->decision_level_base) {
     mcsat->status = STATUS_UNSAT;
+  } else if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
+    mcsat->status = STATUS_UNSAT;
+    // TODO: compute final explanation
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   } else {
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
@@ -1916,6 +1926,7 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
 
         // We've decided something!
         assumption_decided = true;
+        mcsat->assumptions_decided_level = mcsat->trail->decision_level;
       }
     }
 
@@ -2145,8 +2156,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_process_registeration_queue(mcsat);
   }
   
-  // Initialize assumption count
+  // Initialize assumption info
+  mcsat->variable_in_conflict = variable_null;
   mcsat->assumption_i = 0;
+  mcsat->assumptions_decided_level = -1;
 
   // Start the search
   mcsat->status = STATUS_SEARCHING;
