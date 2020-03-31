@@ -347,11 +347,23 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
       term_t t_pos = unsigned_term(t);
       bv_bdd_manager_ensure_term_data(bddm, t_pos, bitsize);
     } else {
+      bool handle_variable = false;
       term_kind_t t_kind = term_kind(terms, t);
       switch (t_kind) {
+      case EQ_TERM: { // Boolean equality only
+        composite_term_t* eq = eq_term_desc(terms, t);
+        term_t lhs = eq->arg[0];
+        term_t rhs = eq->arg[1];
+        if (is_boolean_term(terms, lhs) || is_bitvector_term(terms, lhs)) {
+          bv_bdd_manager_ensure_term_data(bddm, lhs, 1);
+          bv_bdd_manager_ensure_term_data(bddm, rhs, 1);
+        } else {
+	  handle_variable = true;
+        }
+        break;
+      }
       case OR_TERM: // Boolean
       case XOR_TERM: // Boolean
-      case EQ_TERM: // Boolean equality
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
       case BV_SGE_ATOM: {
@@ -446,14 +458,16 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
         break;
       }
       default:
-        // We get here only with variables, or foreign terms.
-        assert(bv_term_kind_get_type(t_kind) == BV_TERM_VARIABLE);
+        handle_variable = true;
+        break;
+      }
+
+      if (handle_variable) {
         // Add the variables nodes
         bdds_mk_variable(bddm->cudd, t_bdds, bitsize);
         // Mark the info for this variable
         t_info->unassigned_variable = t;
         t_info->bdd_timestamp = 1;
-        break;
       }
     }
   } else {

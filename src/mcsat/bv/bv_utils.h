@@ -129,6 +129,12 @@ static inline bv_term_type_t bv_term_get_type(term_table_t* terms, term_t t) {
     return BV_TERM_COMPOSITE;
   } else {
     term_kind_t kind = term_kind(terms, t);
+    if (kind == EQ_TERM) {
+      composite_term_t* eq = eq_term_desc(terms, t);
+      if (!is_boolean_term(terms, eq->arg[0]) && !is_bitvector_term(terms, eq->arg[0])) {
+        return BV_TERM_VARIABLE;
+      }
+    }
     return bv_term_kind_get_type(kind);
   }
 }
@@ -141,7 +147,15 @@ static inline bv_term_type_t bv_term_get_type(term_table_t* terms, term_t t) {
  */
 static inline
 bool bv_term_is_variable(term_table_t* terms, term_t t) {
-  return bv_term_get_type(terms, t) == BV_TERM_VARIABLE;
+  if (bv_term_get_type(terms, t) == BV_TERM_VARIABLE)
+    return true;
+  if (term_kind(terms, t) == EQ_TERM) {
+    composite_term_t* eq = eq_term_desc(terms, t);
+    if (!is_boolean_term(terms, eq->arg[0]) && !is_bitvector_term(terms, eq->arg[0])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

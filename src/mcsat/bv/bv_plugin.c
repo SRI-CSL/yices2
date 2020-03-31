@@ -401,6 +401,7 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
       ctx_trace_term(bv->ctx, current);
     }
 
+    bool handle_variable = false;
     term_kind_t kind = term_kind(terms, current);
     switch (kind) {
     case CONSTANT_TERM: // Boolean variables
@@ -413,8 +414,13 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
       assert(atom_comp->arity == 2);
       term_t t0 = atom_comp->arg[0], t0_pos = unsigned_term(t0);
       term_t t1 = atom_comp->arg[1], t1_pos = unsigned_term(t1);
-      bv_plugin_get_term_variable_visit_term(bv, t0_pos, current_bump, current_bump);
-      bv_plugin_get_term_variable_visit_term(bv, t1_pos, current_bump, current_bump);
+      if (!is_boolean_term(terms, t0) && !is_bitvector_term(terms, t0)) {
+        // Ignore non-bitvector equalities
+        handle_variable = true;
+      } else {
+        bv_plugin_get_term_variable_visit_term(bv, t0_pos, current_bump, current_bump);
+        bv_plugin_get_term_variable_visit_term(bv, t1_pos, current_bump, current_bump);
+      }
       break;
     }
     case BV_EQ_ATOM:
@@ -541,7 +547,12 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
       }
       break;
     }
-    default: {
+    default:
+      handle_variable = true;
+      break;
+    }
+
+    if (handle_variable) {
       // A variable or a foreign term
       assert(is_pos_term(current));
       if (current == constraint_pos) {
@@ -567,7 +578,7 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
         }
       }
     }
-    }
+
   }
 
   // Reset the cache
@@ -732,7 +743,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
   term_kind_t t_kind = term_kind(bv->ctx->terms, t);
 
-  if (t_kind == POWER_PRODUCT && !is_bitvector_term(terms, t)) {
+  if (!is_bitvector_term(terms, t) && !is_boolean_term(terms, t)) {
     return;
   }
 
