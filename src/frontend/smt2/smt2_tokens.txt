@@ -43,3 +43,4 @@ set-option,                   SMT2_TK_SET_OPTION
 echo,                         SMT2_TK_ECHO
 reset,                        SMT2_TK_RESET
 reset-assertions,	      SMT2_TK_RESET_ASSERTIONS
+chec-sat-assuming-model,      SMT2_TK_CHECK_SAT_ASSUMING_MODEL
