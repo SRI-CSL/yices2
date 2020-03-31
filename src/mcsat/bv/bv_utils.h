@@ -74,6 +74,7 @@ bool bv_term_has_children(term_table_t* terms, term_t t) {
     case BV_ASHR:
     case EQ_TERM: // Boolean
     case OR_TERM: // Boolean
+    case XOR_TERM: // Boolean
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
@@ -107,6 +108,7 @@ bv_term_type_t bv_term_kind_get_type(term_kind_t kind) {
   case BV_ASHR:
   case EQ_TERM:
   case OR_TERM:
+  case XOR_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
@@ -224,6 +226,19 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
     }
     case OR_TERM: {
       composite_term_t* t_composite = or_term_desc(terms, t);
+      uint32_t t_arity = t_composite->arity;
+      bvconst_clr_bit(out_value->data, 0);
+      for (uint32_t i = 0; i < t_arity; ++i) {
+        bool bit_i = bvconst_tst_bit(children_values[i]->data, 0);
+        if (bit_i) {
+          bvconst_set_bit(out_value->data, 0);
+          break;
+        }
+      }
+      break;
+    }
+    case XOR_TERM: {
+      composite_term_t* t_composite = xor_term_desc(terms, t);
       uint32_t t_arity = t_composite->arity;
       bvconst_clr_bit(out_value->data, 0);
       for (uint32_t i = 0; i < t_arity; ++i) {

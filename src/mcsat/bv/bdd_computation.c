@@ -491,6 +491,21 @@ void bdds_mk_bool_or(CUDD* cudd, BDD** out, const pvector_t* a) {
   }
 }
 
+/** Make a Boolean xor: a[0] ^^ ... ^^ a[n] */
+static
+void bdds_mk_bool_xor(CUDD* cudd, BDD** out, const pvector_t* a) {
+  uint32_t n = a->size;
+  out[0] = Cudd_ReadLogicZero(cudd->cudd);
+  Cudd_Ref(out[0]);
+  for (uint32_t i = 0; i < n; i ++ ) {
+    BDD* tmp = out[0];
+    BDD** child_i = (BDD**) a->data[i];
+    out[0] = Cudd_bddXor(cudd->cudd, tmp, child_i[0]);
+    Cudd_Ref(out[0]);
+    Cudd_IterDerefBdd(cudd->cudd, tmp);
+  }
+}
+
 void bdds_mk_eq(CUDD* cudd, BDD** out, BDD** a, BDD** b, uint32_t n) {
   assert(n > 0);
   assert(out[0] == NULL);
@@ -1204,6 +1219,11 @@ void bdds_compute_bdds(CUDD* cudd, term_table_t* terms, term_t t,
     case OR_TERM: {
       assert(children_bdds->size == or_term_desc(terms, t)->arity);
       bdds_mk_bool_or(cudd, out_bdds, children_bdds);
+      break;
+    }
+    case XOR_TERM: {
+      assert(children_bdds->size == xor_term_desc(terms, t)->arity);
+      bdds_mk_bool_xor(cudd, out_bdds, children_bdds);
       break;
     }
     case EQ_TERM: // Boolean equality

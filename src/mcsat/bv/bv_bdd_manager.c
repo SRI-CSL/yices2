@@ -350,6 +350,7 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
       term_kind_t t_kind = term_kind(terms, t);
       switch (t_kind) {
       case OR_TERM: // Boolean
+      case XOR_TERM: // Boolean
       case EQ_TERM: // Boolean equality
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
@@ -527,6 +528,7 @@ bool bv_bdd_manager_recompute_timestamps(bv_bdd_manager_t* bddm, term_t t, uint3
     term_kind_t t_kind = term_kind(terms, t);
     switch (t_kind) {
     case OR_TERM: // Boolean OR
+    case XOR_TERM: // Boolean XOR
     case EQ_TERM: // Boolean equality
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
@@ -675,6 +677,7 @@ void bv_bdd_manager_compute_value(bv_bdd_manager_t* bddm, term_t t) {
     term_kind_t t_kind = term_kind(terms, t);
     switch (t_kind) {
     case OR_TERM:
+    case XOR_TERM:
     case EQ_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
@@ -793,6 +796,7 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
     // First, get all the children BDDs
     switch (t_kind) {
     case OR_TERM:
+    case XOR_TERM:
     case EQ_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:

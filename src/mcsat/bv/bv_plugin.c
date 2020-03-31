@@ -454,6 +454,19 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
       }
       break;
     }
+    case XOR_TERM: {
+      composite_term_t* current_comp = xor_term_desc(terms, current);
+      uint32_t child_bump = current_bump;
+      if (child_bump > 0) {
+        child_bump ++; // Increasing complexity
+      }
+      for (uint32_t i = 0; i < current_comp->arity; ++i) {
+        term_t t_i = current_comp->arg[i];
+        term_t t_i_pos = unsigned_term(t_i);
+        bv_plugin_get_term_variable_visit_term(bv, t_i_pos, current_bump, child_bump);
+      }
+      break;
+    }
     case BV_DIV:
     case BV_REM:
     case BV_SDIV:
