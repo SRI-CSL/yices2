@@ -532,6 +532,8 @@ extern void yices_internalization_error(int32_t code);
  * Evaluate all terms in a[0 ... n-1] in a default model.
  * Return true if all terms evaluate to true in the model and return the model in *model.
  * Return false otherwise, and leave *model unchanged.
+ *
+ * Since 2.6.2.
  */
 extern bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model);
 
