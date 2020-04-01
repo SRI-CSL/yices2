@@ -79,7 +79,7 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
 void preprocessor_destruct(preprocessor_t* pre);
 
 /** Preprocess the term, add any additional assertions to output vector. */
-term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertions);
+term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertion);
 
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);

@@ -2161,9 +2161,21 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   if (n_assumptions > 0) {
     uint32_t i;
     for (i = 0; i < n_assumptions; ++ i) {
-      variable_db_get_variable(mcsat->var_db, assumptions[i]);
+      // Apply the pre-processor. If the variable is substituted, we
+      // need to add the equality x = t
+      term_t x = assumptions[i];
+      assert(is_pos_term(x));
+      term_t t = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
+      if (x != t) {
+        // Assert x = t although we solved it already :(
+        term_t eq = mk_eq(&mcsat->tm, x, t);
+        mcsat_assert_formula(mcsat, eq);
+      } else {
+        // Make sure the variable is registered (maybe it doesn't appear in assertions)
+        variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+        mcsat_process_registeration_queue(mcsat);
+      }
     }
-    mcsat_process_registeration_queue(mcsat);
   }
   
   // Initialize assumption info
