@@ -6,7 +6,7 @@
 	dh $@ --with autoreconf
 
 override_dh_auto_configure:
-	dh_auto_configure -- --prefix=/usr --host=$(DEB_HOST_MULTIARCH) --enable-mcsat
+	dh_auto_configure -- --prefix=/usr --host=$(DEB_HOST_MULTIARCH) --enable-mcsat  CPPFLAGS=-DHAVE_CADICAL LIBS="-lcadical -lstdc++ -lm"
 
 override_dh_auto_build:
 	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" STRIP=echo ARCH=$(DEB_HOST_MULTIARCH)

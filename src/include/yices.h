@@ -114,6 +114,8 @@ __YICES_DLLSPEC__ extern int32_t yices_has_mcsat(void);
 /*
  * Check whether the library was compiled in THREAD_SAFE mode.
  * - return 1 if yes, 0 if no
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_is_thread_safe(void);
 
@@ -2422,6 +2424,8 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
  *   term1 = t
  * if t is not a composite term
  *   code = INVALID_TERM_OP
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_children(term_t t, term_vector_t *v);
 
@@ -3471,6 +3475,8 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  *   code = CTX_DELEGATE_NOT_AVAILABLE
  *
  * other error codes are possible if the formula is not in the specified logic (cf. yices_assert_formula)
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_formula(term_t f, const char *logic, model_t **model, const char *delegate);
 
@@ -3481,6 +3487,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_formula(term_t f, const char *
  *
  * This is similar to yices_check_formula except that it checks whether
  * the conjunction of f[0] ... f[n-1] is satisfiable.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const char *logic, model_t **model, const char *delegate);
 
@@ -3490,6 +3498,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_formulas(const term_t f[], uin
  * - return 1 if delegate is NULL or it's the name of a supported delegate
  *
  * Which delegate is supported depends on how this version of Yices was compiled.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_has_delegate(const char *delegate);
 
@@ -3537,6 +3547,8 @@ __YICES_DLLSPEC__ extern int32_t yices_has_delegate(const char *delegate);
  *   code = OUTPUT_ERROR
  *
  * Other errors are possible if f can't be processed by the bitvector solver.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_export_formula_to_dimacs(term_t f, const char *filename, int32_t simplify_cnf, smt_status_t *status);
 
@@ -3555,6 +3567,8 @@ __YICES_DLLSPEC__ extern int32_t yices_export_formula_to_dimacs(term_t f, const 
  *  -1 if there's an error
  *
  * Error reports: same as for yices_export_formula_to_dimacs.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, const char *filename,
 								 int32_t simplify_cnf, smt_status_t *status);
@@ -3844,6 +3858,8 @@ __YICES_DLLSPEC__ extern uint32_t yices_val_function_arity(model_t *mdl, const y
  * Type of a function node. This function returns -1 if v has tag
  * other than YVAL_FUNCTION. Otherwise, it returns the type of the
  * object v.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern type_t yices_val_function_type(model_t *mdl, const yval_t *v);
 
@@ -4065,6 +4081,8 @@ __YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n
  * if t is not a valid term:
  *    code = INVALID_TERM
  *    term1 = t
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_term_support(model_t *mdl, term_t t, term_vector_t *v);
 
@@ -4081,6 +4099,8 @@ __YICES_DLLSPEC__ extern int32_t yices_model_term_support(model_t *mdl, term_t t
  * if a[i] is not a valid term,
  *   code = INVALID_TERM
  *   term1 = a[i]
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_term_array_support(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
@@ -4386,6 +4406,8 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  * if a[i] is not a valid term:
  *   code = INVALID_TERM
  *   term1 = a[i]
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
 
@@ -4409,6 +4431,8 @@ __YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, 
  * if writing to f fails,
  *   code = OUTPUT_ERROR
  *   in this case, errno, perror, etc. can be used for diagnostic.
+ *
+ * Since 2.6.2.
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
 						      uint32_t width, uint32_t height, uint32_t offset);
@@ -4435,8 +4459,14 @@ __YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
 
 __YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
+/*
+ * Since 2.6.2.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]);
 
+/*
+ * Since 2.6.2.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
 							 uint32_t width, uint32_t height, uint32_t offset);
 

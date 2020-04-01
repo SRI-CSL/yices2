@@ -459,7 +459,27 @@ bool bv_evaluator_run_atom(bv_evaluator_t* eval, term_t t, uint32_t* eval_level)
   term_table_t* terms = eval->ctx->terms;
   term_kind_t t_kind = term_kind(terms, t);
 
-  if (t_kind == UNINTERPRETED_TERM || t_kind == ITE_TERM || t_kind == ITE_SPECIAL || t_kind == APP_TERM) {
+  bool is_variable = false;
+  switch (t_kind) {
+  case UNINTERPRETED_TERM:
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case APP_TERM:
+    is_variable = true;
+    break;
+  case EQ_TERM: {
+    term_t lhs = eq_term_desc(terms, t)->arg[0];
+    if (!is_boolean_term(terms, lhs) && !is_bitvector_term(terms, lhs)) {
+      is_variable = true;
+    }
+    break;
+  }
+  default:
+    is_variable = false;
+    break;
+  }
+
+  if (is_variable) {
     // Get the value from trail
     variable_t t_x = variable_db_get_variable_if_exists(eval->ctx->var_db, t);
     assert(t_x != variable_null);
@@ -758,6 +778,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
     assert(false); // Already treated above
   case EQ_TERM:
   case OR_TERM:
+  case XOR_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
