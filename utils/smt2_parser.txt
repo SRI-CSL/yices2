@@ -126,7 +126,6 @@ Grammar (SMT-LIB 2.5, June 28 2015)
             | ( echo <string> )
             | ( reset )
 	    | ( reset-assertions )
-	    | ( check-sat-assuming-model ( <variables>* ) ( <terms>* ))
             | EOS
 
 
@@ -334,7 +333,6 @@ c1           assert             c7
              set-option         c6
              reset              c2
 	     reset-assertions   c2
-	     check-sat-assuming-model c17
 
 c2           )                  DONE
 
@@ -404,14 +402,6 @@ c16a         <symbol>           c16a
 c16b         not                c16c
 c16c         <symbol>           c16d
 c16d         )                  c16a
-
-; check-sat-assuming-model
-c17	     (                  c17a
-c17a         <symbol>           c17a
-	     )                  c17b
-c17b         (                  c17c
-c17c         [term]             c17c
-             )                  c2
 
 
 parse attribute-value:
@@ -633,7 +623,6 @@ c1	     assert 		next; push r0; goto t0
              set-option         next; goto c6
              reset              next; goto r0
              reset-assertions   next; goto r0
-	     check-sat-assuming-model   next; goto c17
 
 // after '(push' or '(pop' or '(declare-sort <symnbl>'
 c3           <numeral>          next; goto r0
@@ -694,15 +683,6 @@ c16a         <symbol>           next; goto c16a
 c16b         not		next; goto c16c
 c16c         <symbol>           next; goto c16d
 c61d         )                  next; goto c16a
-
-// after '(check-sat-assuming-mdoel'
-c17	     (			next; goto c17a
-c17a         <symbol>           next; goto c17a
-	     )			next; goto c17b
-c17b         (                  next; push c17c; goto t0
-c17c         )                  next; goto r0
-                                push c17c; goto t0
-
 
 // attribute value
 a0           <numeral>          next; return
