@@ -18,6 +18,15 @@
 
 #pragma once
 
+/*
+ * BD: this is needed to build in debug mode on cygwin/windows
+ */
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdio.h>
 
 #include "utils/hash_functions.h"
