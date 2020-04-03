@@ -236,7 +236,7 @@ and set the error report (error code: :c:enum:`INVALID_TYPE`).
    Two types are compatible if they have a common supertype. For
    example, *real* and *int* are compatible because their common
    supertype is *real*. Consult the `manual
-   <http://yices.csl.sri.com/papers/manual.pdf>`_ for more details.
+   <https://yices.csl.sri.com/papers/manual.pdf>`_ for more details.
 
 
 

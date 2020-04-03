@@ -20,11 +20,11 @@ References
               pp. 1--12, Springer, Heidelberg, 2013.
 
 .. [DdM2006]  Bruno Dutertre and Leonardo de Moura, 
-              `A Fast Linear Arithmetic Solver for DPLL(T) <http://yices.csl.sri.com/papers/cav06.pdf>`_,
+              `A Fast Linear Arithmetic Solver for DPLL(T) <https://yices.csl.sri.com/papers/cav06.pdf>`_,
               in Computer-Aided Verification (CAV 2006), LNCS 4144, pp. 81--94. Springer, Heidelberg, 2006.
 
 .. [Dut2014]  Bruno Dutertre,
-	      `Yices 2.2 <http://yices.csl.sri.com/papers/cav2014.pdf>`_,
+	      `Yices 2.2 <https://yices.csl.sri.com/papers/cav2014.pdf>`_,
 	      in Computer-Aided Verification (CAV 2014), LNCS 8559, pp. 737--744, Springer, Heidelberg, 2014.
 
 .. [Dut2015]  Bruno Dutertre,

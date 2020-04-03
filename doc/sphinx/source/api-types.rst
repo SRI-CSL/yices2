@@ -795,7 +795,7 @@ Error Reports
    .. c:enum:: INCOMPATIBLE_TYPES
 
       Error in functions that require terms of compatible types. The
-      `Yices manual <http://yices.csl.sri.com/papers/manual.pdf>`_
+      `Yices manual <https://yices.csl.sri.com/papers/manual.pdf>`_
       explains what this means.
 
    .. c:enum:: DUPLICATE_VARIABLE

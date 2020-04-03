@@ -13,7 +13,7 @@ The API provides constructors for terms defined in the Yices language.
 There are no special constructs for formulas; formulas are terms of
 Boolean type.  The semantics and type-checking rules of the language
 are explained in the `manual
-<http://yices.csl.sri.com/papers/manual.pdf>`_.
+<https://yices.csl.sri.com/papers/manual.pdf>`_.
 
 All term constructors return an object of type :c:type:`term_t`. They
 check their arguments, perform type checking, and return
