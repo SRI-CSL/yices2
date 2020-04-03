@@ -8,7 +8,7 @@ Binary Distributions
 
 You can install Yices 2 with homebrew on Mac OS X or with apt on
 Debian-based Linux systems. You can also download precompiled binary
-distributions at http://yices.csl.sri.com.
+distributions at https://yices.csl.sri.com.
 
 Package Managers
 ................
@@ -33,7 +33,7 @@ Archives (tar or zip files)
 ...........................
 
 You can download binary distributions for Linux, Mac OS X, and Windows
-at http://yices.csl.sri.com. These distributions contain pre-compiled
+at https://yices.csl.sri.com. These distributions contain pre-compiled
 binaries and libraries, linked statically against GMP and
 libpoly. They include support for nonlinear arithmetic and MCSAT.
 
