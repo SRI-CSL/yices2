@@ -48,6 +48,9 @@ void bdds_clear(CUDD* cudd, BDD** a, uint32_t n);
 /** Attach extra reference all bdds in a. */
 void bdds_attach(BDD** a, uint32_t n);
 
+/** Copy BDDs from a to out and attach. */
+void bdds_copy(BDD** out, BDD** a, uint32_t n);
+
 /** Compare the two BDD vectors. */
 bool bdds_eq(BDD** a, BDD** b, uint32_t n);
 

@@ -35,7 +35,6 @@ void bdds_swap(BDD** a, BDD** b, uint32_t n) {
   }
 }
 
-static inline
 void bdds_copy(BDD** out, BDD** a, uint32_t n) {
   for (uint32_t i = 0; i < n; ++ i) {
     assert(a[i] != NULL);
