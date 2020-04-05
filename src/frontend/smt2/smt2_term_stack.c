@@ -216,13 +216,12 @@ static void eval_smt2_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32
   index = get_integer(stack, f);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f+1);
-  if (! yices_check_bitshift(b, index)) {
+  if (! yices_check_smt2_rotate(b, &index)) {
     report_yices_error(stack);
   }
   // we known 0 <= index <= bitsize of b
-  if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_left(b, index);
-  }
+  bvlogic_buffer_rotate_left(b, index);
+
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -245,13 +244,12 @@ static void eval_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint3
   index = get_integer(stack, f);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f+1);
-  if (! yices_check_bitshift(b, index)) {
+  if (! yices_check_smt2_rotate(b, &index)) {
     report_yices_error(stack);
   }
-  // we known 0 <= index <= bitsize of b
-  if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_right(b, index);
-  }
+  // we known 0 <= index < bitsize of b
+  bvlogic_buffer_rotate_right(b, index);
+
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
