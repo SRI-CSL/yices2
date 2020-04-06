@@ -1127,6 +1127,9 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
   "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
+  "variables and values not matching",  // TSTACK_VARIABLES_VALUES_NOT_MATCHING
+  "a constant value required",          // TSTACK_NOT_A_CONSTANT,
+  "a variable required",                // TSTACK_NOT_A_VARIABLE
   NULL,                                 // TSTACK_YICES_ERROR
   "missing symbol in :named attribute", // SMT2_MISSING_NAME
   "no pattern given",                   // SMT2_MISSING_PATTERN
@@ -1385,6 +1388,9 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_NOT_A_SYMBOL:
   case TSTACK_NOT_A_RATIONAL:
   case TSTACK_NOT_A_TYPE:
+  case TSTACK_NOT_A_CONSTANT:
+  case TSTACK_NOT_A_VARIABLE:
+  case TSTACK_VARIABLES_VALUES_NOT_MATCHING:
   case TSTACK_ARITH_ERROR:
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:

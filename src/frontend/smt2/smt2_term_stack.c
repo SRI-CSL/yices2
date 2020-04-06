@@ -1060,6 +1060,45 @@ static void eval_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint3
   no_result(stack);
 }
 
+
+static void check_constant_term(tstack_t *stack, stack_elem_t *e) {
+  term_t t = get_term(stack, e);
+  term_constructor_t kind = yices_term_constructor(t);
+  switch (kind) {
+  case YICES_BOOL_CONSTANT:
+  case YICES_ARITH_CONSTANT:
+  case YICES_BV_CONSTANT:
+    break;
+  default:
+    raise_exception(stack, e, TSTACK_NOT_A_CONSTANT);
+  }
+}
+
+static void check_all_constants_terms(tstack_t *stack, stack_elem_t *e, stack_elem_t *end) {
+  while (e < end) {
+    check_constant_term(stack, e);
+    e ++;
+  }
+}
+
+static void check_variable(tstack_t *stack, stack_elem_t *e) {
+  term_t t = get_term(stack, e);
+  term_constructor_t kind = yices_term_constructor(t);
+  switch (kind) {
+  case YICES_UNINTERPRETED_TERM:
+    break;
+  default:
+    raise_exception(stack, e, TSTACK_NOT_A_VARIABLE);
+  }
+}
+
+static void check_all_variables(tstack_t *stack, stack_elem_t *e, stack_elem_t *end) {
+  while (e < end) {
+    check_variable(stack, e);
+    e ++;
+  }
+}
+
 /*
  * [check-sat-assuming (<symbol>*) (<const term>*) ]
  */
@@ -1067,11 +1106,11 @@ static void check_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f
   uint32_t n;
 
   if (m % 2) {
-    raise_exception(stack, stack->elem, TSTACK_VARIABLES_VALUES_NOT_MATCHING);
+    raise_exception(stack, f, TSTACK_VARIABLES_VALUES_NOT_MATCHING);
   }
   n = m / 2;
-  check_all_tags(stack, f, f + n, TAG_SYMBOL);
-  check_all_tags(stack, f + n, f + m, TAG_TERM);
+  check_all_variables(stack, f, f + n);
+  check_all_constants_terms(stack, f + n, f + m);
 }
 
 static void eval_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {

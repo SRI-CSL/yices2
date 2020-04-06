@@ -1390,8 +1390,6 @@ void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, uint32_
 }
 
 
-
-
 /*
  * CONVERSIONS
  */
