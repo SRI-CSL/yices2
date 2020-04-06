@@ -7335,6 +7335,37 @@ bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
 
 
 /*
+ * Check whether s is a valid shift amount for rotate_left/rotate_right in SMT-LIB2
+ * - SMT allows rotate by arbitrary amounts: ((_ rotate_left k) t) is the same
+ *   as ((_ rotate_left (k % n) t)) where n = number of bits in t.
+ *
+ * This function
+ * - return true if 0 <= s and store the normalize shift (s % b->nbits) in *s
+ * - otherwise set the error report and return false.
+ */
+bool yices_check_smt2_rotate(bvlogic_buffer_t *b, int32_t *s) {
+  int32_t shift;
+  uint32_t n;
+
+  shift = *s;
+  if (shift < 0) {
+    error_report_t *error = get_yices_error();
+    error->code = INVALID_BITSHIFT;
+    error->badval = shift;
+    return false;
+  }
+
+  n = bvlogic_buffer_bitsize(b);
+  if (shift >= n && n > 0) {
+    shift = shift % n;
+    *s = shift;
+  }
+
+  return true;
+}
+
+
+/*
  * Check whether [i, j] is a valid segment for a vector of n bits
  * - return true if 0 <= i <= j <= n
  * - otherwise set the error report and return false.

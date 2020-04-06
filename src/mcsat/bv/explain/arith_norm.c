@@ -661,6 +661,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
 
   case EQ_TERM:
   case OR_TERM:
+  case XOR_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
@@ -856,7 +857,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     return finalise(norm, t, &analysis);
   }
 
-  default: { // Happens for instance with pprods
+  default: {
     assert(!is_boolean_term(terms,t));
     term_t tmp = term_extract(tm, t, 0, w);
     arith_analyse_t* analysis = arith_analyse(norm, tmp);

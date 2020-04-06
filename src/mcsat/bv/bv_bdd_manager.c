@@ -82,6 +82,9 @@ struct bv_bdd_manager_s {
   /** Cudd manager to be used for all */
   CUDD* cudd;
 
+  /** BDDs per bit */
+  pvector_t bdd_variables;
+
   /** Map from terms to their index in the term_info array */
   int_hmap_t term_to_info_index;
 
@@ -123,6 +126,17 @@ struct bv_bdd_manager_s {
   BDD* bdd_true;
 };
 
+static
+void bv_bdd_manager_ensure_variables(bv_bdd_manager_t* bddm, uint32_t bitsize) {
+  uint32_t old_size = bddm->bdd_variables.size;
+  if (old_size < bitsize) {
+    while (bddm->bdd_variables.size < bitsize) {
+      pvector_push(&bddm->bdd_variables, NULL);
+    }
+    bdds_mk_variable(bddm->cudd, (BDD**) bddm->bdd_variables.data + old_size, bitsize - old_size);
+  }
+}
+
 bv_bdd_manager_t* bv_bdd_manager_new(const plugin_context_t* ctx) {
   // Allocate
   bv_bdd_manager_t* bddm = (bv_bdd_manager_t*) safe_malloc(sizeof(bv_bdd_manager_t));
@@ -136,6 +150,8 @@ bv_bdd_manager_t* bv_bdd_manager_new(const plugin_context_t* ctx) {
   bddm->bdd_memory = 0;
   bddm->bdd_memory_size = 0;
   bddm->bdd_memory_capacity = 0;
+
+  init_pvector(&bddm->bdd_variables, 0);
 
   init_int_hmap(&bddm->term_to_info_index, 0);
   init_ivector(&bddm->term_list, 0);
@@ -227,6 +243,9 @@ void bv_bdd_manager_delete(bv_bdd_manager_t* bddm) {
     bdds_clear(cudd, t_bdd_memory, allocated_size);
     term_info_destruct(t_info);
   }
+
+  bdds_clear(bddm->cudd, (BDD**) bddm->bdd_variables.data, bddm->bdd_variables.size);
+  delete_pvector(&bddm->bdd_variables);
 
   delete_int_hmap(&bddm->term_to_info_index);
   delete_ivector(&bddm->term_list);
@@ -464,7 +483,8 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
 
       if (handle_variable) {
         // Add the variables nodes
-        bdds_mk_variable(bddm->cudd, t_bdds, bitsize);
+        bv_bdd_manager_ensure_variables(bddm, bitsize);
+        bdds_copy(t_bdds, (BDD**) bddm->bdd_variables.data, bitsize);
         // Mark the info for this variable
         t_info->unassigned_variable = t;
         t_info->bdd_timestamp = 1;

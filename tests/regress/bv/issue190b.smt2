@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(declare-const a (_ BitVec 5))
+(assert (= ((_ rotate_left 9) a) ((_ rotate_right 9) a)))
+(assert (distinct a #b00000))
+(assert (distinct a #b11111))
+(check-sat)
+(exit)

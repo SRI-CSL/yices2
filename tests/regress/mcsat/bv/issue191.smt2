@@ -1,0 +1,8 @@
+(set-logic QF_UFBV)
+(declare-fun _substvar_109_ () Bool)
+(declare-const v9 Bool)
+(declare-const v14 Bool)
+(declare-const bv_1-1 (_ BitVec 1))
+(assert (or (= bv_1-1 (_ bv0 1) (_ bv0 1) (_ bv0 1)) v14))
+(assert (= false v14 false false (= bv_1-1 (_ bv0 1) bv_1-1 bv_1-1 (_ bv0 1)) false false false false (xor _substvar_109_ true true v9 v14 true true true true)))
+(check-sat)
