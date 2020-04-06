@@ -150,8 +150,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case check_sat_assuming_model_next_goto_c17:
-      tstack_push_op(tstrack, SMT2_CHECK_SAT_ASSUMING_MODEL, &loc);
-      stat = c17;
+      tstack_push_op(tstack, SMT2_CHECK_SAT_ASSUMING_MODEL, &loc);
+      state = c17;
       goto loop;
 
     case get_assertions_next_goto_r0:
@@ -479,6 +479,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case next_goto_c17b:
       state = c17b;
+      goto loop;
+
+    case next_push_c17c_goto_t0:
+      parser_push_state(stack, c17c);
+      state = t0;
       goto loop;
 
     case push_c17c_goto_t0:

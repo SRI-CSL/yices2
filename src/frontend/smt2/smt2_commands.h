@@ -150,6 +150,7 @@ typedef enum smt2_opcodes {
   SMT2_ASSERT,                          // [assert <term> ]
   SMT2_CHECK_SAT,                       // [check-sat ]
   SMT2_CHECK_SAT_ASSUMING,              // [check-sat-assuming <literals>* ]
+  SMT2_CHECK_SAT_ASSUMING_MODEL,        // [check-sat-assuming (<symbol>*) (<term>*)]
   SMT2_DECLARE_SORT,                    // [declare-sort <symbol> <numeral> ]
   SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
   SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
@@ -267,6 +268,7 @@ typedef struct smt2_cmd_stats_s {
   uint32_t num_assert;
   uint32_t num_check_sat;
   uint32_t num_check_sat_assuming;
+  uint32_t num_check_sat_assuming_model;
   uint32_t num_push;
   uint32_t num_pop;
   uint32_t num_get_value;
@@ -684,6 +686,14 @@ extern void smt2_check_sat(void);
  * i.e., a pair symbol name/polarity.
  */
 extern void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a);
+
+/*
+ * Check satisfiability with model assumptions:
+ * - n = number of assumptions
+ * - vars = array of variables
+ * - values = array of values to be assigned to variables
+ */
+extern void smt2_check_sat_assuming_model(uint32_t n, term_t* vars, term_t* values);
 
 /*
  * Declare a new sort:

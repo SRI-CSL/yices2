@@ -1273,6 +1273,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "assert",               // SMT2_ASSERT,
   "check-sat",            // SMT2_CHECK_SAT,
   "check-sat-assuming",   // SMT2_CHECK_SAT_ASSUMING,
+  "check-sat-assuming-model" // SMT2_CHECK_SAT_ASSUMING_MODEL
   "declare-sort",         // SMT2_DECLARE_SORT
   "define-sort",          // SMT2_DEFINE_SORT
   "declare-fun",          // SMT2_DECLARE_FUN
@@ -3277,8 +3278,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
 
 
 /*
- * Check with assumptions:
- * - not supported by the mcsat solver
+ * Check with assumptions
  */
 static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_t *a) {
   assumptions_and_core_t *assumptions;

@@ -18,7 +18,8 @@ exists,                       SMT2_TK_EXISTS
 forall,                       SMT2_TK_FORALL
 assert,                       SMT2_TK_ASSERT
 check-sat,                    SMT2_TK_CHECK_SAT
-check-sat-assuming,	      SMT2_TK_CHECK_SAT_ASSUMING
+check-sat-assuming,           SMT2_TK_CHECK_SAT_ASSUMING
+check-sat-assuming-model,     SMT2_TK_CHECK_SAT_ASSUMING_MODEL
 declare-sort,                 SMT2_TK_DECLARE_SORT
 declare-const,                SMT2_TK_DECLARE_CONST
 declare-fun,                  SMT2_TK_DECLARE_FUN
@@ -42,5 +43,4 @@ set-info,                     SMT2_TK_SET_INFO
 set-option,                   SMT2_TK_SET_OPTION
 echo,                         SMT2_TK_ECHO
 reset,                        SMT2_TK_RESET
-reset-assertions,	      SMT2_TK_RESET_ASSERTIONS
-chec-sat-assuming-model,      SMT2_TK_CHECK_SAT_ASSUMING_MODEL
+reset-assertions,             SMT2_TK_RESET_ASSERTIONS

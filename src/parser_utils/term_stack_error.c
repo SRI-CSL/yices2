@@ -456,6 +456,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
+  case TSTACK_VARIABLES_VALUES_NOT_MATCHING:
     fprintf(f, "(line %"PRId32", column %"PRId32")\n",
             tstack->error_loc.line, tstack->error_loc.column);
     break;

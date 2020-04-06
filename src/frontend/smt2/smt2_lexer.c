@@ -61,6 +61,7 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "assert",                // SMT2_TK_ASSERT
   "check-sat",             // SMT2_TK_CHECK_SAT
   "check-sat-assuming",    // SMT2_TK_CHECK_SAT_ASSUMING
+  "check-sat-assuming-model", // SMT2_TK_CHECK_SAT_ASSUMING_MODEL
   "declare-sort",          // SMT2_TK_DECLARE_SORT
   "declare-const",         // SMT2_TK_DECLARE_CONST
   "declare-fun",           // SMT2_TK_DECLARE_FUN

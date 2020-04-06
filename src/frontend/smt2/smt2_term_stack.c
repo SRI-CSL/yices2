@@ -1060,7 +1060,23 @@ static void eval_smt2_check_sat_assuming(tstack_t *stack, stack_elem_t *f, uint3
   no_result(stack);
 }
 
+/*
+ * [check-sat-assuming (<symbol>*) (<const term>*) ]
+ */
+static void check_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f, uint32_t m) {
+  uint32_t n;
 
+  if (m % 2) {
+    raise_exception(stack, stack->elem, TSTACK_VARIABLES_VALUES_NOT_MATCHING);
+  }
+  n = m / 2;
+  check_all_tags(stack, f, f + n, TAG_SYMBOL);
+  check_all_tags(stack, f + n, f + m, TAG_TERM);
+}
+
+static void eval_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  assert(false);
+}
 
 /*
  * [declare-sort <symbol> <numeral>]
@@ -2383,6 +2399,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_ASSERT, false, eval_smt2_assert, check_smt2_assert);
   tstack_add_op(stack, SMT2_CHECK_SAT, false, eval_smt2_check_sat, check_smt2_check_sat);
   tstack_add_op(stack, SMT2_CHECK_SAT_ASSUMING, false, eval_smt2_check_sat_assuming, check_smt2_check_sat_assuming);
+  tstack_add_op(stack, SMT2_CHECK_SAT_ASSUMING_MODEL, false, eval_smt2_check_sat_assuming_model, check_smt2_check_sat_assuming_model);
   tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_smt2_declare_sort, check_smt2_declare_sort);
   tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
   tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);

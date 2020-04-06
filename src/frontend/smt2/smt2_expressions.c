@@ -73,6 +73,7 @@ void push_smt2_token(etk_queue_t *queue, smt2_token_t tk, const char *str, uint3
   case SMT2_TK_ASSERT:
   case SMT2_TK_CHECK_SAT:
   case SMT2_TK_CHECK_SAT_ASSUMING:
+  case SMT2_TK_CHECK_SAT_ASSUMING_MODEL:
   case SMT2_TK_DECLARE_SORT:
   case SMT2_TK_DECLARE_CONST:
   case SMT2_TK_DECLARE_FUN:
