@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "mcsat/bool/bool_plugin.h"
 
 #include "mcsat/bool/clause_db.h"
@@ -975,8 +975,7 @@ void bool_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
 
 static
 void bool_plugin_check_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value) {
-  bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  assert(!trail_has_value(bp->ctx->trail, x));
+  assert(!trail_has_value(((bool_plugin_t*) plugin)->ctx->trail, x));
 }
 
 static

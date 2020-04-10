@@ -2654,7 +2654,7 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
  * - vars = the variables
  * - values = the values
  */
-static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *params, uint32_t n, term_t *vars, term_t *values) {
+static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *params, uint32_t n, const term_t vars[], const term_t values[]) {
   smt_status_t stat;
 
   if (g->timeout == 0) {
