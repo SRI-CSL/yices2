@@ -8287,7 +8287,7 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     init_trace(trace);
     set_trace_file(trace, stderr);
     // Copy over the trace tag to the tracer
-    char *saveptr;
+    char *saveptr = NULL;
     char *tag = strtok_r(config->trace_tags, ",", &saveptr);
     while (tag != NULL) {
       pvector_push(&trace->trace_tags, tag);
