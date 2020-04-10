@@ -62,6 +62,7 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   nra->stats.propagations = statistics_new_int(nra->ctx->stats, "mcsat::nra::propagations");
   nra->stats.conflicts = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts");
   nra->stats.conflicts_int = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_int");
+  nra->stats.conflicts_assumption = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_assumption");
   nra->stats.constraints_attached = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_attached");
   nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
   nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
@@ -158,6 +159,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
 
   nra->global_bound_term = NULL_TERM;
 
@@ -1429,7 +1431,7 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     nra_plugin_get_real_conflict(nra, &pos, &neg, nra->conflict_variable, conflict);
   } else if (nra->conflict_variable_int != variable_null) {
     nra_plugin_get_int_conflict(nra, &pos, &neg, nra->conflict_variable_int, conflict);
-  } else {
+  } else if (nra->conflict_variable_assumption != variable_null) {
     assert(false);
   }
 
@@ -1572,6 +1574,7 @@ void nra_plugin_pop(plugin_t* plugin) {
   // Unset the conflict
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
 
   // We undid last decision, so we're back to normal
   nra->last_decided_and_unprocessed = variable_null;
@@ -1806,24 +1809,6 @@ const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* 
   return NULL;
 }
 
-static
-void nra_plugin_check_assignment_value(plugin_t* plugin, variable_t x, const mcsat_value_t* value) {
-  nra_plugin_t* nra = (nra_plugin_t*) plugin;
-  // Get the feasibility set
-  lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
-  // If we get a rational, conver to lp_value_t
-  mcsat_value_t tmp;
-  const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
-  // Check
-  if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
-    // Ouch, conflict
-    assert(false);
-  }
-  // Remove temps
-  if (lp_value != value) {
-    lp_value_destruct(&tmp.lp_value);
-  }
-}
 
 static
 void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
@@ -1831,9 +1816,16 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
   // If we get a rational, conver to lp_value_t
   mcsat_value_t tmp;
   const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
-  // Decide
+  // Get the feasibility set
+  lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
+  // Decide the variable anyhow
   decide->add(decide, x, lp_value);
   nra->last_decided_and_unprocessed = x;
+  // Check if this was feasible
+  if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
+    // Ouch, conflict
+    nra_plugin_report_assumption_conflict(nra, decide, x);
+  }
   // Remove temps
   if (lp_value != value) {
     lp_value_destruct(&tmp.lp_value);
@@ -1851,7 +1843,6 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = nra_plugin_event_notify;
   plugin->plugin_interface.propagate           = nra_plugin_propagate;
   plugin->plugin_interface.decide              = nra_plugin_decide;
-  plugin->plugin_interface.check_assignment    = nra_plugin_check_assignment_value;
   plugin->plugin_interface.decide_assignment   = nra_plugin_decide_assignment;
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;

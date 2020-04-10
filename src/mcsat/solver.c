@@ -1914,8 +1914,6 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       // Plugin used to check/decide
       plugin = mcsat->plugins[plugin_i].plugin;
       // Check if the decision is consistent (will report conflict if not)
-      assert(plugin->check_assignment);
-      plugin->check_assignment(plugin, var, &var_mdl_value);
       if (!mcsat->trail->inconsistent) {
         // Construct the token
         trail_token_construct(&decision_token, mcsat->plugins[plugin_i].plugin_ctx, var);
@@ -1926,14 +1924,12 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
 
         // If decided, we're done
         assert(decision_token.used);
-        assert(trail_has_value(mcsat->trail, var));
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "mcsat_decide_assumption(): value = ");
           mcsat_value_print(trail_get_value(mcsat->trail, var), out);
           fprintf(out, "\n");
         }
-
         // We've decided something!
         assumption_decided = true;
         mcsat->assumptions_decided_level = mcsat->trail->decision_level;

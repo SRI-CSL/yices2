@@ -61,6 +61,9 @@ struct nra_plugin_s {
   /** The conflict variable (one with empty int feasible set) */
   variable_t conflict_variable_int;
 
+  /** The conflict variable (assumption not in feasible set) */
+  variable_t conflict_variable_assumption;
+
   /** Bound variable term */
   term_t global_bound_term;
 
@@ -77,6 +80,7 @@ struct nra_plugin_s {
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
     statistic_int_t* conflicts_int;
+    statistic_int_t* conflicts_assumption;
     statistic_int_t* constraints_attached;
     statistic_int_t* evaluations;
     statistic_int_t* constraint_regular;
@@ -171,3 +175,6 @@ void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable
 
 /** Report a conflict (variable is the one with an empty int feasible set) */
 void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
+
+/** Report a conflict (variable is the with value not in feasible set) */
+void nra_plugin_report_assumption_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);

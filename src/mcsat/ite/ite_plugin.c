@@ -95,7 +95,6 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = NULL;
   plugin->plugin_interface.propagate           = NULL;
   plugin->plugin_interface.decide              = NULL;
-  plugin->plugin_interface.check_assignment    = NULL;
   plugin->plugin_interface.decide_assignment   = NULL;
   plugin->plugin_interface.get_conflict        = NULL;
   plugin->plugin_interface.explain_propagation = NULL;
