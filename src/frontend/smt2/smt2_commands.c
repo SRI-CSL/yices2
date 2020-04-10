@@ -591,6 +591,43 @@ static void reset_smt2_stack(smt2_stack_t *s) {
  */
 
 /*
+ * Check sat with model assumptions and (TODO) build the interpolant
+ */
+static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint32_t n, const term_t vars[], const term_t values[]) {
+  uint32_t i;
+  term_t x;
+  value_t x_value;
+  ivector_t assumptions;
+  smt_status_t status;
+
+  model_t mdl;
+  evaluator_t mdl_evaluator;
+
+  // Init model and evaluation
+  init_model(&mdl, ctx->terms, true);
+  init_evaluator(&mdl_evaluator, &mdl);
+
+  // Copy over to model
+  init_ivector(&assumptions, n);
+  for (i = 0; i < n; ++ i) {
+    x = vars[i];
+    x_value = eval_in_model(&mdl_evaluator, values[i]);
+    model_map_term(&mdl, x, x_value);
+    ivector_push(&assumptions, x);
+  }
+
+  // Solve
+  status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+
+  // Remove temps
+  delete_ivector(&assumptions);
+  delete_evaluator(&mdl_evaluator);
+  delete_model(&mdl);
+
+  return status;
+}
+
+/*
  * Check sat with assumptions and build an unsat core
  */
 static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[], ivector_t *core) {
@@ -2610,6 +2647,51 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
   return stat;
 }
 
+/*
+ * Check with model assumptions:
+ * - params = search parameters
+ * - n = size of model
+ * - vars = the variables
+ * - values = the values
+ */
+static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *params, uint32_t n, term_t *vars, term_t *values) {
+  smt_status_t stat;
+
+  if (g->timeout == 0) {
+    // no timeout
+    stat = check_with_model(g->ctx, params, n, vars, values);
+    return stat;
+  }
+
+  /*
+   * We call init_timeout only now because the internal timeout
+   * consumes resources even if it's never used.
+   */
+  if (! g->timeout_initialized) {
+    init_timeout();
+    g->timeout_initialized = true;
+  }
+  g->interrupted = false;
+  start_timeout(g->timeout, timeout_handler, g);
+  stat = check_with_model(g->ctx, params, n, vars, values);
+  clear_timeout();
+
+  /*
+   * Attempt to cleanly recover from interrupt
+   */
+  if (stat == STATUS_INTERRUPTED) {
+    trace_printf(g->tracer, 2, "(check-sat-assuming-model: interrupted)\n");
+    g->interrupted = true;
+    if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
+      context_cleanup(g->ctx);
+      assert(context_status(g->ctx) == STATUS_IDLE);
+    }
+    // we don't want to report "interrupted" that's not SMT2 compliant
+    stat = STATUS_UNKNOWN;
+  }
+
+  return stat;
+}
 
 
 /*
@@ -3061,6 +3143,34 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
   }
 }
 
+/*
+ * Check sat with model assumptions
+ */
+static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t n, const term_t vars[], const term_t values[]) {
+  int32_t code;
+  smt_status_t status;
+
+  g->frozen = true;
+  if (g->trivially_unsat) {
+    // list of unsat assumption is empty
+    report_status(g, STATUS_UNSAT);
+  } else {
+    init_smt2_context(g);
+    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      // error during assertion processing
+      print_yices_error(true);
+      return;
+    }
+    init_search_parameters(g);
+    if (g->random_seed != 0) {
+      g->parameters.random_seed = g->random_seed;
+    }
+    status = check_sat_with_model(g, &g->parameters, n, vars, values);
+    report_status(g, status);
+  }
+}
+
 
 /*
  * EXISTS/FORALL SOLVER
@@ -3325,6 +3435,39 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       bad_status_bug(g->err);
       break;
     }
+  }
+
+  flush_out();
+}
+
+/*
+ * Check with assumptions
+ */
+static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const term_t vars[], const term_t values[]) {
+  smt_status_t status;
+
+  cleanup_context(g);
+
+  switch (context_status(g->ctx)) {
+  case STATUS_IDLE:
+    if (g->random_seed != 0) {
+      g->parameters.random_seed = g->random_seed;
+    }
+    status = check_sat_with_model(g, &g->parameters, n, vars, values);
+    report_status(g, status);
+    break;
+
+  case STATUS_UNSAT:
+    show_status(STATUS_UNSAT);
+    break;
+
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
   }
 
   flush_out();
@@ -6095,6 +6238,39 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
     }
   }
 }
+
+/* Check whether MCSAT solver is going to be used. */
+static bool mcsat_enabled(smt2_globals_t *g) {
+  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
+}
+
+/*
+ * Check sat with model as assumptions:
+ * - n = number of assumptions
+ * - vars = array of variables
+ * - values = array of values
+ */
+void smt2_check_sat_assuming_model(uint32_t n, const term_t vars[], const term_t values[]) {
+  __smt2_globals.stats.num_check_sat_assuming_model ++;
+  __smt2_globals.stats.num_commands ++;
+  tprint_calls("check-sat-assuming-model", __smt2_globals.stats.num_check_sat_assuming_model);
+
+  if (check_logic()) {
+    if (!mcsat_enabled(&__smt2_globals)) {
+      print_error("check-sat-assuming-model is only supported in MCSAT");
+    } else if (__smt2_globals.benchmark_mode) {
+      if (__smt2_globals.efmode) {
+        print_error("the exists/forall solver does not support check-sat with assumptions");
+      } else if (__smt2_globals.frozen) {
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+      } else {
+        check_delayed_assertions_assuming_model(&__smt2_globals, n, vars, values);
+      }
+    } else {
+      ctx_check_sat_assuming_model(&__smt2_globals, n, vars, values);
+    }
+  }}
+
 
 /*
  * Declare a new sort:

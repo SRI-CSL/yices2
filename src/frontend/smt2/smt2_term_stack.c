@@ -1114,7 +1114,22 @@ static void check_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f
 }
 
 static void eval_smt2_check_sat_assuming_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  assert(false);
+  uint32_t i, m;
+  term_t* vars_and_values;
+
+  vars_and_values = (term_t*) safe_malloc(n * sizeof(term_t));
+
+  for (i = 0; i < n; ++ i) {
+    vars_and_values[i] = get_term(stack, f + i);
+  }
+
+  m = n / 2;
+  smt2_check_sat_assuming_model(m, vars_and_values, vars_and_values + m);
+
+  tstack_pop_frame(stack);
+  no_result(stack);
+
+  safe_free(vars_and_values);
 }
 
 /*

@@ -693,7 +693,7 @@ extern void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a);
  * - vars = array of variables
  * - values = array of values to be assigned to variables
  */
-extern void smt2_check_sat_assuming_model(uint32_t n, term_t* vars, term_t* values);
+extern void smt2_check_sat_assuming_model(uint32_t n, const term_t vars[], const term_t values[]);
 
 /*
  * Declare a new sort:
