@@ -1187,7 +1187,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   ivector_t core, lemma_reasons;
   init_ivector(&core, 0);
   init_ivector(&lemma_reasons, 0);
-  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, &core, &lemma_reasons);
+  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, NULL, &core, &lemma_reasons);
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): core:\n");
@@ -1410,10 +1410,67 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     }
   }
 
-  // Remove tempss
+  // Remove temps
   int_mset_destruct(&to_resolve);
   lp_value_destruct(&v);
 }
+
+static
+void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t* neg,
+    variable_t x, ivector_t* conflict) {
+  size_t i;
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): ");
+    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, x));
+  }
+
+  // Get the value of x (responsible for conflict)
+  const mcsat_value_t* x_value = trail_get_value(nra->ctx->trail, x);
+
+  // The assertions on x that are in conflict (as constraint variables)
+  ivector_t core, lemma_reasons;
+  init_ivector(&core, 0);
+  init_ivector(&lemma_reasons, 0);
+  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, x_value, &core, &lemma_reasons);
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): core:\n");
+    for (i = 0; i < core.size; ++ i) {
+      ctx_trace_printf(nra->ctx, "[%zu] (", i);
+      if (trail_has_value(nra->ctx->trail, core.data[i])) {
+        mcsat_value_print(trail_get_value(nra->ctx->trail, core.data[i]), ctx_trace_out(nra->ctx));
+      }
+      ctx_trace_printf(nra->ctx, "): ");
+      ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, core.data[i]));
+    }
+  }
+
+  // No projection needed, we just return the core
+  assert(lemma_reasons.size == 0);
+  for (i = 0; i < core.size; ++ i) {
+    variable_t constraint_var = core.data[i];
+    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    assert(trail_has_value(nra->ctx->trail, constraint_var));
+    bool constraint_value = trail_get_boolean_value(nra->ctx->trail, constraint_var);
+    if (!constraint_value) {
+      constraint_term = opposite_term(constraint_term);
+    }
+    ivector_push(conflict, constraint_term);
+  }
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): conflict:\n");
+    for (i = 0; i < conflict->size; ++ i) {
+      ctx_trace_printf(nra->ctx, "[%zu]: ", i);
+      ctx_trace_term(nra->ctx, conflict->data[i]);
+    }
+  }
+
+  // Remove temps
+  delete_ivector(&core);
+  delete_ivector(&lemma_reasons);
+}
+
 
 static
 void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
@@ -1432,7 +1489,7 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   } else if (nra->conflict_variable_int != variable_null) {
     nra_plugin_get_int_conflict(nra, &pos, &neg, nra->conflict_variable_int, conflict);
   } else if (nra->conflict_variable_assumption != variable_null) {
-    assert(false);
+    nra_plugin_get_assumption_conflict(nra, &pos, &neg, nra->conflict_variable_assumption, conflict);
   }
 
   int_mset_destruct(&pos);
