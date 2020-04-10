@@ -15,4 +15,4 @@
 e6
 )))))
 
-(check-sat-assuming ((not v0) (not v1) (not v2)))
+(check-sat-assuming-model (v0 v1 v2) (false false false))
