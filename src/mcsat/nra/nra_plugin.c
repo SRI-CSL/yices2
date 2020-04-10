@@ -1785,6 +1785,62 @@ void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   nra->exception = handler;
 }
 
+static
+const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* alternative) {
+  lp_value_t lp_value;
+  lp_rational_t rat_value;
+  switch (value->type) {
+  case VALUE_LIBPOLY:
+    return value;
+  case VALUE_RATIONAL:
+    lp_rational_construct(&rat_value);
+    q_get_mpq((rational_t*)&value->q, &rat_value);
+    lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+    mcsat_value_construct_lp_value(alternative, &lp_value);
+    lp_value_destruct(&lp_value);
+    lp_rational_destruct(&rat_value);
+    return alternative;
+  default:
+    assert(false);
+  }
+  return NULL;
+}
+
+static
+void nra_plugin_check_assignment_value(plugin_t* plugin, variable_t x, const mcsat_value_t* value) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  // Get the feasibility set
+  lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
+  // If we get a rational, conver to lp_value_t
+  mcsat_value_t tmp;
+  const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
+  // Check
+  if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
+    // Ouch, conflict
+    assert(false);
+  }
+  // Remove temps
+  if (lp_value != value) {
+    lp_value_destruct(&tmp.lp_value);
+  }
+}
+
+static
+void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  // If we get a rational, conver to lp_value_t
+  mcsat_value_t tmp;
+  const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
+  // Decide
+  decide->add(decide, x, lp_value);
+  nra->last_decided_and_unprocessed = x;
+  // Remove temps
+  if (lp_value != value) {
+    lp_value_destruct(&tmp.lp_value);
+  }
+}
+
+
 plugin_t* nra_plugin_allocator(void) {
   nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -1795,8 +1851,8 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = nra_plugin_event_notify;
   plugin->plugin_interface.propagate           = nra_plugin_propagate;
   plugin->plugin_interface.decide              = nra_plugin_decide;
-  plugin->plugin_interface.check_assignment    = NULL;
-  plugin->plugin_interface.decide_assignment   = NULL;
+  plugin->plugin_interface.check_assignment    = nra_plugin_check_assignment_value;
+  plugin->plugin_interface.decide_assignment   = nra_plugin_decide_assignment;
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation  = nra_plugin_explain_evaluation;
