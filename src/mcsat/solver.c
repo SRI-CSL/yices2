@@ -1271,6 +1271,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
+      mcsat->assumptions_decided_level = -1;
       mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
