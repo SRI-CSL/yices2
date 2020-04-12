@@ -509,7 +509,6 @@ void bool_plugin_add_new_clauses(bool_plugin_t* bp, trail_token_t* prop) {
       } else {
         // Propagates at lower level
         ivector_push(&bp->clauses_to_repropagate, c_ref);
-        assert(false);
       }
     }
   }

@@ -231,6 +231,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
   }
   switch (v1->type) {
   case VALUE_BOOLEAN:
+    assert(v2->type == VALUE_BOOLEAN);
     return v1->b == v2->b;
   case VALUE_RATIONAL:
     if (v2->type == VALUE_RATIONAL) {
@@ -265,6 +266,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
       return cmp == 0;
     }
   case VALUE_BV: {
+    assert(v2->type == VALUE_BV);
     assert(v1->bv_value.bitsize == v2->bv_value.bitsize);
     return bvconst_eq(v1->bv_value.data, v2->bv_value.data, v1->bv_value.width);
   }

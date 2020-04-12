@@ -1242,6 +1242,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
 
 static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
+  assert((int32_t) level >= mcsat->assumptions_decided_level);
   while (mcsat->trail->decision_level > level) {
 
     if (trace_enabled(mcsat->ctx->trace, "mcsat::incremental")) {
@@ -1522,8 +1523,10 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
 
   // Backtrack to the appropriate level and do some progress
   if (unassigned.size == 1) {
-    // UIP
-    mcsat_backtrack_to(mcsat, top_level);
+    // UIP, just make sure we're not going below assumptions
+    if ((int32_t) top_level >= mcsat->assumptions_decided_level) {
+      mcsat_backtrack_to(mcsat, top_level);
+    }
   } else {
     // Non-UIP, we're already below, and we'll split on a new term, that's enough
   }
@@ -1692,8 +1695,10 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   // Get the level of the conflict and backtrack to it
   conflict_level = conflict_get_level(&conflict);
+  // Backtrack max(base, assumptions, conflict)
   backtrack_level = mcsat->trail->decision_level_base;
   if (backtrack_level < conflict_level) backtrack_level = conflict_level;
+  if ((int32_t) backtrack_level <= mcsat->assumptions_decided_level) backtrack_level = mcsat->assumptions_decided_level;
   mcsat_backtrack_to(mcsat, backtrack_level);
 
   // Analyze while at least one variable at conflict level
@@ -1701,6 +1706,11 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
     if (conflict_level <= mcsat->trail->decision_level_base) {
       // Resolved all the way
+      break;
+    }
+
+    if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
+      // Resolved below assumptions, we're done
       break;
     }
 
@@ -1814,15 +1824,15 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   // UIP conflict resolution
-  assert(conflict_level <= mcsat->trail->decision_level_base || conflict_get_top_level_vars_count(&conflict) == 1);
-
   if (conflict_level <= mcsat->trail->decision_level_base) {
     mcsat->status = STATUS_UNSAT;
   } else if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
     mcsat->status = STATUS_UNSAT;
     // TODO: compute final explanation
+    mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   } else {
+    assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1);
