@@ -226,7 +226,6 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
 }
 
 bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
-  assert(v1->type == v2->type);
   if (v1 == v2) {
     return true;
   }
