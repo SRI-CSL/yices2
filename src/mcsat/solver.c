@@ -1670,6 +1670,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     // propagated value. We're unsat here, but we need to produce a clause
     mcsat->status = STATUS_UNSAT;
     // TODO: compute final explanation
+    mcsat->variable_in_conflict = variable_null;
     return;
   } else {
     assert(plugin->get_conflict);

@@ -507,8 +507,10 @@ void bool_plugin_add_new_clauses(bool_plugin_t* bp, trail_token_t* prop) {
       if (propagation_level == bp->ctx->trail->decision_level) {
         bool_plugin_propagate_literal(bp, c->literals[0], prop, c_ref);
       } else {
-        // Propagates at lower level
+        // Propagates at lower level (this happens with assumptions)
+        // we don't currently repropagate since we don't need to
         ivector_push(&bp->clauses_to_repropagate, c_ref);
+        bool_plugin_propagate_literal(bp, c->literals[0], prop, c_ref);
       }
     }
   }
