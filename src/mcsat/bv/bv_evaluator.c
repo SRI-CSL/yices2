@@ -637,6 +637,8 @@ void bv_evaluator_csttrail_construct(bv_csttrail_t* csttrail, plugin_context_t* 
   csttrail->ctx = ctx;
   csttrail->wlm = wlm;
   csttrail->eval = eval;
+  csttrail->conflict_var = variable_null;
+  csttrail->conflict_var_term = NULL_TERM;
   init_int_hset(&csttrail->free_var, 0);
   init_int_hmap2(&csttrail->fv_cache, 0);
 }
