@@ -1354,11 +1354,12 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict, va
   bv_csttrail_t* csttrail     = &exp->csttrail;
   const variable_db_t* var_db = this->ctx->var_db;
   term_table_t* terms         = this->ctx->terms;
-  term_t conflict_var_term    = csttrail->conflict_var_term;
     
   // Resetting the cache & co.
   bv_evaluator_csttrail_reset(csttrail, conflict_var, 1); // 1 is the level of optimisation fit for this explainer
   int_hmap_reset(&exp->cache);
+
+  term_t conflict_var_term    = csttrail->conflict_var_term;
 
   // We go through the conflict core
   for (uint32_t i = 0; i < conflict->size; ++ i) {

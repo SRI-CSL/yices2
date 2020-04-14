@@ -1196,7 +1196,6 @@ bool arith_term_is_nonneg(term_table_t *tbl, term_t t, bool check_ite) {
     return polynomial_is_nonneg(poly_term_desc(tbl, t));
 
   case ARITH_ABS:
-  case ARITH_MOD:
     return true;
 
   case ARITH_FLOOR:
