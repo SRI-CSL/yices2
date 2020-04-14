@@ -216,18 +216,23 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
     }
     case BV_DIV:
       bvconst_udiv2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
+      bvconst_normalize(out_value->data, bitsize);
       break;
     case BV_REM:
       bvconst_urem2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
+      bvconst_normalize(out_value->data, bitsize);
       break;
     case BV_SDIV:
       bvconst_sdiv2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
+      bvconst_normalize(out_value->data, bitsize);
       break;
     case BV_SREM:
       bvconst_srem2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
+      bvconst_normalize(out_value->data, bitsize);
       break;
     case BV_SMOD:
       bvconst_smod2z(out_value->data, bitsize, children_values[0]->data, children_values[1]->data);
+      bvconst_normalize(out_value->data, bitsize);
       break;
     case BV_SHL:
       bvconst_lshl(out_value->data, children_values[0]->data, children_values[1]->data, bitsize);

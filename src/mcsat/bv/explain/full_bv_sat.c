@@ -30,6 +30,8 @@
 #include "yices.h"
 #include "api/yices_api_lock_free.h"
 
+#include <inttypes.h>
+
 /** Solver for solving cores with assumptions */
 typedef struct {
 
@@ -100,12 +102,12 @@ void bb_sat_solver_reset(bb_sat_solver_t* solver) {
 void bb_sat_solver_add_variable(bb_sat_solver_t* solver, variable_t var, bool with_value) {
   // Add new variable to substitute
   term_t var_term = variable_db_get_term(solver->ctx->var_db, var);
+  if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
+    FILE* out = ctx_trace_out(solver->ctx);
+    fprintf(out, "Variable: ");
+    ctx_trace_term(solver->ctx, var_term);
+  }
   if (!substitution_has_term(&solver->subst, var_term)) {
-    if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
-      FILE* out = ctx_trace_out(solver->ctx);
-      fprintf(out, "Variable: ");
-      ctx_trace_term(solver->ctx, var_term);
-    }
     // Make a fresh variable if not already a variable
     term_t var_fresh;
     term_kind_t kind = term_kind(solver->yices_ctx->terms, var_term);
@@ -377,6 +379,12 @@ term_t explain(bv_subexplainer_t* super, const ivector_t* core_in, variable_t to
     // Get assigned variables
     variable_t atom_i_var = core_in->data[i];
     variable_list_ref_t list_ref = watch_list_manager_get_list_of(super->wlm, atom_i_var);
+    if (ctx_trace_enabled(super->ctx, "mcsat::bv::conflict")) {
+      FILE* out = ctx_trace_out(super->ctx);
+      fprintf(out, "core[%"PRIu32"]: ", i);
+      term_t atom_i_term = variable_db_get_term(var_db, atom_i_var);
+      ctx_trace_term(solver->ctx, atom_i_term);
+    }
     variable_t* atom_i_vars = watch_list_manager_get_list(super->wlm, list_ref);
     for (; *atom_i_vars != variable_null; atom_i_vars++) {
       variable_t var = *atom_i_vars;
