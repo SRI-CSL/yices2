@@ -1070,6 +1070,11 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
       trace_term_ln(pre->tracer, pre->terms, eq_var);
       mcsat_trace_printf(pre->tracer, "\n");
     }
+    // Some equalities are solved, but then reasserted in the solver
+    // these already have a model
+    if (model_find_term_value(model, eq_var) != null_value) {
+      continue;
+    }
     // Some equalities are marked, but not solved. These we skip as they
     // are already set in the model
     if (preprocessor_get(pre, eq_var) == eq_var) {
