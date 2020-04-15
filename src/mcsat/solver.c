@@ -229,6 +229,9 @@ struct mcsat_solver_s {
   /** Any pending requests */
   bool pending_requests;
 
+  /** Assumption variables */
+  ivector_t assumption_vars;
+
   /** Index of the assumption to process next */
   uint32_t assumption_i;
 
@@ -814,6 +817,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
 
+  // Assumptions vector
+  init_ivector(&mcsat->assumption_vars, 0);
+
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
 
@@ -859,6 +865,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   delete_ivector(&mcsat->plugin_lemmas);
   statistics_destruct(&mcsat->stats);
   scope_holder_destruct(&mcsat->scope);
+  delete_ivector(&mcsat->assumption_vars);
 }
 
 mcsat_solver_t* mcsat_new(const context_t* ctx) {
@@ -1151,6 +1158,15 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
     if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
+    }
+  }
+  for (i = 0; i < mcsat->assumption_vars.size; ++ i) {
+    var = mcsat->assumption_vars.data[i];
+    assert(variable_db_is_variable(mcsat->var_db, var, true));
+    gc_info_mark(&gc_vars, var);
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
+       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
     }
   }
 
@@ -1893,7 +1909,6 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
     // The variable (should exists already)
     var_term = assumptions[mcsat->assumption_i];
     var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
-    assert(var != variable_null);
     // Get the owner that will 'decide' the value of the variable
     plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
     assert(plugin_i != MCSAT_MAX_PLUGINS);
@@ -2170,6 +2185,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Make sure we have variables for all the assumptions
   if (n_assumptions > 0) {
+    assert(mcsat->assumption_vars.size == 0);
     uint32_t i;
     for (i = 0; i < n_assumptions; ++ i) {
       // Apply the pre-processor. If the variable is substituted, we
@@ -2181,11 +2197,12 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
         // Assert x = t although we solved it already :(
         term_t eq = mk_eq(&mcsat->tm, x, t);
         mcsat_assert_formula(mcsat, eq);
-      } else {
-        // Make sure the variable is registered (maybe it doesn't appear in assertions)
-        variable_db_get_variable(mcsat->var_db, unsigned_term(x));
-        mcsat_process_registeration_queue(mcsat);
       }
+
+      // Make sure the variable is registered (maybe it doesn't appear in assertions)
+      variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+      ivector_push(&mcsat->assertion_vars, x_var);
+      mcsat_process_registeration_queue(mcsat);
     }
   }
   
@@ -2274,7 +2291,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       mcsat_check_model(mcsat, true);
     }
 
-    return;
+    break;
 
   conflict:
 
@@ -2292,7 +2309,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
     // Analysis might have discovered 0-level conflict
     if (mcsat->status == STATUS_UNSAT) {
-      return;
+      break;
     }
 
     var_queue_decay_activities(&mcsat->var_queue);
@@ -2304,6 +2321,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
     mcsat->stop_search = false;
   }
+
+  // Remove temps
+  delete_ivector(&mcsat->assumption_vars);
+
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
