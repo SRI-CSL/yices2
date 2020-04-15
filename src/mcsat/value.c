@@ -378,6 +378,15 @@ void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t*
     mcsat_value_construct_lp_value_direct(mcsat_value, LP_VALUE_ALGEBRAIC, a);;
     break;
   }
+  case BITVECTOR_VALUE: {
+    value_bv_t* v1 = vtbl_bitvector(vtbl, v);
+    bvconstant_t v2;
+    init_bvconstant(&v2);
+    bvconstant_copy(&v2, v1->nbits, v1->data);
+    mcsat_value_construct_bv_value(mcsat_value, &v2);
+    delete_bvconstant(&v2);
+    break;
+  }
   default:
     assert(false);
   }
