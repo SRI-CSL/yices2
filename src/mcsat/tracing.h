@@ -71,6 +71,9 @@ void trace_term_ln(tracer_t* tracer, term_table_t* terms, term_t t);
 /** Print the term to the trace */
 void ctx_trace_term(const plugin_context_t* ctx, term_t t);
 
+/** Print the value to the trace */
+void ctx_trace_value(const plugin_context_t* ctx, const mcsat_value_t* value);
+
 /** Print to the trace */
 void mcsat_trace_printf(tracer_t* tracer, const char* format, ...) __attribute__ ((format (printf, 2, 3)));
 

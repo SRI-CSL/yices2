@@ -1028,6 +1028,8 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 void mcsat_clear(mcsat_solver_t* mcsat) {
   // Clear to be ready for more assertions:
   // - Pop internal to base level
+  mcsat->assumption_i = 0;
+  mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   mcsat->status = STATUS_IDLE;
 }

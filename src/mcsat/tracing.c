@@ -38,6 +38,10 @@ void ctx_trace_term(const plugin_context_t* ctx, term_t t) {
   trace_pp_term(ctx->tracer, 0, ctx->terms, t);
 }
 
+void ctx_trace_value(const plugin_context_t* ctx, const mcsat_value_t* value) {
+  mcsat_value_print(value, ctx->tracer->file);
+}
+
 const char* kind_to_string(term_kind_t t) {
   switch (t) {
   case OR_TERM:

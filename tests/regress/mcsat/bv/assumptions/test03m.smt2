@@ -1,0 +1,23 @@
+(set-logic QF_BV)
+
+(declare-const x (_ BitVec 2))
+(declare-const y (_ BitVec 2))
+(declare-const z (_ BitVec 2))
+
+(assert (bvsle (bvadd x y z) (_ bv0 2)))
+(assert (bvsle (bvadd x y (bvneg z)) (_ bv0 2)))
+(assert (bvsle (bvadd x (bvneg y) z) (_ bv0 2)))
+(assert (bvsle (bvadd x (bvneg y) (bvneg z)) (_ bv0 2)))
+
+(push 1)
+(check-sat-assuming-model (x) ((_ bv0 2)))
+(pop 1)
+(push 1)
+(check-sat-assuming-model (x) ((_ bv1 2)))
+(pop 1)
+(push 1)
+(check-sat-assuming-model (x) ((_ bv2 2)))
+(pop 1)
+(push 1)
+(check-sat-assuming-model (x) ((_ bv3 2)))
+(pop 1)

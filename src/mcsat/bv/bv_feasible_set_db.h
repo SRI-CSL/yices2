@@ -60,7 +60,9 @@ typedef enum {
   /** Get reasons for dom(x) = {} */
   EXPLAIN_EMPTY,
   /** Get reasons fro dom(x) = { v } */
-  EXPLAIN_SINGLETON
+  EXPLAIN_SINGLETON,
+  /** Get reasons for v \not\in dom(x) */
+  EXPLAIN_ASSUMPTION
 } bv_feasible_explain_mode_t;
 
 /** Get the reason for a conflict on x. Feasible set of x should be empty. */
