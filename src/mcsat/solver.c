@@ -2178,6 +2178,9 @@ void mcsat_check_model(mcsat_solver_t* mcsat, bool assert) {
   delete_model(&model);
 }
 
+static
+void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess);
+
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
   uint32_t restart_resource;
@@ -2196,7 +2199,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       if (x != t) {
         // Assert x = t although we solved it already :(
         term_t eq = mk_eq(&mcsat->tm, x, t);
-        mcsat_assert_formula(mcsat, eq);
+        mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
       }
 
       // Make sure the variable is registered (maybe it doesn't appear in assertions)
@@ -2342,7 +2345,8 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
   preprocessor_set_tracer(&mcsat->preprocessor, tracer);
 }
 
-int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
+static
+void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess) {
   uint32_t i;
 
   // Remember the original assertions
@@ -2350,14 +2354,17 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
     ivector_push(&mcsat->assertion_terms_original, f[i]);
   }
 
-  // Preprocess the formulas (preprocessor might throw)
   ivector_t* assertions = &mcsat->assertions_tmp;
   ivector_reset(assertions);
   ivector_add(assertions, f, n);
-  for (i = 0; i < assertions->size; ++ i) {
-    term_t f = assertions->data[i];
-    term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, assertions, true);
-    assertions->data[i] = f_pre;
+
+  // Preprocess the formulas (preprocessor might throw)
+  if (preprocess) {
+    for (i = 0; i < assertions->size; ++ i) {
+      term_t f = assertions->data[i];
+      term_t f_pre = preprocessor_apply(&mcsat->preprocessor, f, assertions, true);
+      assertions->data[i] = f_pre;
+    }
   }
 
   // Assert individual formulas
@@ -2371,7 +2378,10 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
 
   // Delete the temp
   ivector_reset(assertions);
+}
 
+int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
+  mcsat_assert_formulas_internal(mcsat, n, f, true);
   return CTX_NO_ERROR;
 }
 
