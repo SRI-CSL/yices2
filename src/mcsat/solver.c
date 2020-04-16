@@ -1644,6 +1644,16 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
    yices_free_config(config);
 }
 
+static
+uint32_t mcsat_compute_backtrack_level(mcsat_solver_t* mcsat, uint32_t level) {
+  uint32_t backtrack_level = mcsat->trail->decision_level_base;
+  if (backtrack_level < level)
+    backtrack_level = level;
+  if ((int32_t) backtrack_level <= mcsat->assumptions_decided_level)
+    backtrack_level = mcsat->assumptions_decided_level;
+  return backtrack_level;
+}
+
 
 static
 void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) {
@@ -1717,9 +1727,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   // Get the level of the conflict and backtrack to it
   conflict_level = conflict_get_level(&conflict);
   // Backtrack max(base, assumptions, conflict)
-  backtrack_level = mcsat->trail->decision_level_base;
-  if (backtrack_level < conflict_level) backtrack_level = conflict_level;
-  if ((int32_t) backtrack_level <= mcsat->assumptions_decided_level) backtrack_level = mcsat->assumptions_decided_level;
+  backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
   mcsat_backtrack_to(mcsat, backtrack_level);
 
   // Analyze while at least one variable at conflict level
@@ -1835,7 +1843,8 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       // We have resolved the conflict even lower
       conflict_recompute_level_info(&conflict);
       conflict_level = conflict_get_level(&conflict);
-      mcsat_backtrack_to(mcsat, conflict_level);
+      backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
+      mcsat_backtrack_to(mcsat, backtrack_level);
     }
   }
 
