@@ -41,7 +41,7 @@ The following functions give access to the error report.
    be used for diagnostic.
 
 
-.. c:function:: int32_t yices_print_error(int fd)
+.. c:function:: int32_t yices_print_error_fd(int fd)
 
    This is a variant of the previous function that writes to file
    descriptor *fd* instead of an output stream. The file must be open

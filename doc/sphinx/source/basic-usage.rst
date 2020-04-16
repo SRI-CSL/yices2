@@ -263,7 +263,7 @@ Running this example should produce something like this:
 
    To avoid these issues, we recommend compiling with mingw.
    It is still possible to use Visual Studio or other compilers on Windows,
-   as long as you avoid functions in the Yices API that take a :c:type:`FILE *`
+   as long as you avoid functions in the Yices API that take a `FILE *`
    argument. File :file:`examples/example1b.c` in the distribution shows
    how to use alternative functions for pretty printing. You can also
    download this file  :download:`here <_static/example1b.c>`.
