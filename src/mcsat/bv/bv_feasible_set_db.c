@@ -614,6 +614,7 @@ void bv_feasible_set_db_get_reasons(const bv_feasible_set_db_t* db, variable_t x
   init_ivector(&reasons_indices, 0);
 
   const variable_db_t* var_db = db->ctx->var_db;
+  (void) var_db;
 
   // Get the indices of the set refinements
   bv_feasible_set_get_reason_indices(db, x, &reasons_indices);
