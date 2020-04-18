@@ -233,6 +233,11 @@ extern void context_build_unsat_core(context_t *ctx, ivector_t *v);
 
 
 /*
+ * Get the model interpolant: the context's status must be STATUS_USAT
+ */
+extern term_t context_get_unsat_model_interpolant(context_t *ctx);
+
+/*
  * Interrupt the search
  * - this can be called after check_context from a signal handler
  * - this interrupts the current search

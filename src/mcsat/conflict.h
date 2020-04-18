@@ -120,13 +120,16 @@ typedef struct conflict_s {
   /** Evaluator so that we can evaluate terms */
   const mcsat_evaluator_interface_t* evaluator;
 
+  /** Special literal: evaluates to true instead of false, so is negated */
+  term_t special_lit;
+
 } conflict_t;
 
 /**
  * Construct the conflict. The conflict_lits are literals (terms) that evaluate
  * to true and the lemma (and conflict_lits) => false is valid.
  */
-void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
+void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, term_t special_lit,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
     term_manager_t* tm, tracer_t* tracer);
 
@@ -152,7 +155,7 @@ uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict);
 void conflict_recompute_level_info(conflict_t* conflict);
 
 /** Resolve the given variable by using ((and reasons) => var = substitution). */
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons);
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons, bool pop_trail);
 
 /** Get all the variables responsible for the conflict (internal reference) */
 ivector_t* conflict_get_variables(conflict_t* conflict);
@@ -178,5 +181,7 @@ term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var);
 /** Run Yices to check that the conflict is a valid statement */
 void conflict_check(conflict_t* conflict);
 
+/** Returns the clause of the conflict */
+term_t conflict_get_formula(conflict_t* conflict);
 
 #endif

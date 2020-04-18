@@ -174,6 +174,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = r0;
       goto loop;
 
+    case get_unsat_model_interpolant_next_goto_r0:
+       tstack_push_op(tstack, SMT2_GET_UNSAT_MODEL_INTERPOLANT, &loc);
+       state = r0;
+       goto loop;
+
     case get_assignment_next_goto_r0:
       tstack_push_op(tstack, SMT2_GET_ASSIGNMENT, &loc);
       state = r0;

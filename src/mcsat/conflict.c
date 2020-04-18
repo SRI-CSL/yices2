@@ -63,7 +63,7 @@ void conflict_check(conflict_t* conflict) {
 static
 bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct);
 
-void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
+void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, term_t special_lit,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
     term_manager_t* tm, tracer_t* tracer) {
 
@@ -89,11 +89,17 @@ void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
   conflict->terms = tm->terms;
   conflict->tracer = tracer;
   conflict->evaluator = evaluator;
+  conflict->special_lit = NULL_TERM;
 
   if (conflict_lits) {
     for (i = 0; i < conflict_lits->size; ++ i) {
       conflict_add_disjunct(conflict, opposite_term(conflict_lits->data[i]));
     }
+  }
+
+  if (special_lit != NULL_TERM) {
+    conflict->special_lit = special_lit;
+    conflict_add_disjunct(conflict, special_lit);
   }
 }
 
@@ -493,7 +499,7 @@ void conflict_recompute_level_info(conflict_t* conflict) {
 
   // Make a new conflict
   conflict_t new_conflict;
-  conflict_construct(&new_conflict, 0, conflict->evaluator, conflict->var_db, conflict->trail, conflict->tm, conflict->tracer);
+  conflict_construct(&new_conflict, 0, NULL_TERM, conflict->evaluator, conflict->var_db, conflict->trail, conflict->tm, conflict->tracer);
 
   // Put in all the disjuncts
   uint32_t i;
@@ -518,7 +524,7 @@ void conflict_recompute_level_info(conflict_t* conflict) {
 
 
 
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons) {
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons, bool pop_trail) {
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
     mcsat_trace_printf(conflict->tracer, "conflict = \n");
@@ -539,7 +545,7 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   // * remove disjuncts
   // * add substitution
 
-  assert(trail_back(conflict->trail) == var);
+  assert(!pop_trail || trail_back(conflict->trail) == var);
   assert(trail_get_assignment_type(conflict->trail, var) == PROPAGATION);
 
   // Got through all the variables where the resolution variable is top and
@@ -563,6 +569,7 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   // Remove the disjuncts
   for (i = 0; i < disjuncts.size; ++ i) {
     term_t disjunct = disjuncts.data[i];
+    bool special = (disjunct == conflict->special_lit);
     conflict_remove_disjunct(conflict, disjunct);
     if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
       mcsat_trace_printf(conflict->tracer, "resolving ");
@@ -573,6 +580,9 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
       trace_term_ln(conflict->tracer, conflict->terms, disjunct);
     }
     disjuncts.data[i] = conflict_disjunct_substitute(conflict, disjunct, var, substitution);
+    if (special) {
+      conflict->special_lit = disjuncts.data[i];
+    }
     if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
       mcsat_trace_printf(conflict->tracer, "resolvent ");
       trace_term_ln(conflict->tracer, conflict->terms, disjuncts.data[i]);
@@ -580,7 +590,9 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   }
 
   // Pop the trail
-  trail_pop_propagation(conflict->trail);
+  if (pop_trail) {
+    trail_pop_propagation(conflict->trail);
+  }
 
   // Add the substitution disjuncts
   for (i = 0; i < disjuncts.size; ++ i) {
@@ -665,3 +677,22 @@ term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var) {
 ivector_t* conflict_get_literals(conflict_t* conflict) {
   return int_mset_get_list(&conflict->disjuncts);
 }
+
+term_t conflict_get_formula(conflict_t* conflict) {
+  uint32_t i;
+  ivector_t disjuncts;
+  init_ivector(&disjuncts, 0);
+  ivector_t* ls = int_mset_get_list(&conflict->disjuncts);
+  for (i = 0; i < ls->size; i ++ ) {
+    term_t l = ls->data[i];
+    if (l == conflict->special_lit) {
+      ivector_push(&disjuncts, opposite_term(l));
+    } else {
+      ivector_push(&disjuncts, l);
+    }
+  }
+  term_t formula = mk_or(conflict->tm, disjuncts.size, disjuncts.data);
+  delete_ivector(&disjuncts);
+  return formula;
+}
+

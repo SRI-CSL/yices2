@@ -841,6 +841,21 @@ static void eval_smt2_get_unsat_assumptions(tstack_t *stack, stack_elem_t *f, ui
 
 
 /*
+ * [get-unsat-model-interpolant]
+ */
+static void check_smt2_get_unsat_model_interpolant(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_GET_UNSAT_MODEL_INTERPOLANT);
+  check_size(stack, n == 0);
+}
+
+static void eval_smt2_get_unsat_model_interpolant(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_get_unsat_model_interpolant();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * [get-value <term> .... <term>]
  */
 static void check_smt2_get_value(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -2442,6 +2457,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_GET_PROOF, false, eval_smt2_get_proof, check_smt2_get_proof);
   tstack_add_op(stack, SMT2_GET_UNSAT_CORE, false, eval_smt2_get_unsat_core, check_smt2_get_unsat_core);
   tstack_add_op(stack, SMT2_GET_UNSAT_ASSUMPTIONS, false, eval_smt2_get_unsat_assumptions, check_smt2_get_unsat_assumptions);
+  tstack_add_op(stack, SMT2_GET_UNSAT_MODEL_INTERPOLANT, false, eval_smt2_get_unsat_model_interpolant, check_smt2_get_unsat_model_interpolant);
   tstack_add_op(stack, SMT2_GET_VALUE, false, eval_smt2_get_value, check_smt2_get_value);
   tstack_add_op(stack, SMT2_GET_OPTION, false, eval_smt2_get_option, check_smt2_get_option);
   tstack_add_op(stack, SMT2_GET_INFO, false, eval_smt2_get_info, check_smt2_get_info);

@@ -75,4 +75,7 @@ void mcsat_gc_mark(mcsat_solver_t* mcsat) {
 void mcsat_stop_search(mcsat_solver_t* mcsat) {
 }
 
+term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
+  return NULL_TERM;
+}
 

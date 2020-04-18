@@ -90,6 +90,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
+/*
+ * Get model interpolant.
+ */
+term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat);
 
 /*
  * Interrupt the search

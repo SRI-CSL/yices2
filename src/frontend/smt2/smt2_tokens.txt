@@ -35,6 +35,7 @@ get-option,                   SMT2_TK_GET_OPTION
 get-proof,                    SMT2_TK_GET_PROOF
 get-unsat-assumptions,        SMT2_TK_GET_UNSAT_ASSUMPTIONS
 get-unsat-core,               SMT2_TK_GET_UNSAT_CORE
+get-unsat-model-interpolant,  SMT2_TK_GET_UNSAT_MODEL_INTERPOLANT
 get-value,                    SMT2_TK_GET_VALUE
 pop,                          SMT2_TK_POP
 push,                         SMT2_TK_PUSH

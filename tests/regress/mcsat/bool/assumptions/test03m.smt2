@@ -1,3 +1,4 @@
+(set-option :produce-unsat-model-interpolants true)
 (set-logic QF_UF)
 
 (declare-const x Bool)
@@ -11,5 +12,6 @@
 
 (push 1)
 (check-sat-assuming-model (x) (false))
+(get-unsat-model-interpolant)
 (pop 1)
 (check-sat-assuming-model (x) (true))

@@ -1163,3 +1163,9 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
     v->data[i] = t;
   }
 }
+
+extern term_t context_get_unsat_model_interpolant(context_t *ctx) {
+  assert(ctx->mcsat != NULL);
+  return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+}
+

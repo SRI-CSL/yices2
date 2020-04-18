@@ -699,6 +699,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
   stats->num_assert = 0;
   stats->num_check_sat = 0;
   stats->num_check_sat_assuming = 0;
+  stats->num_check_sat_assuming_model = 0;
   stats->num_push = 0;
   stats->num_pop = 0;
   stats->num_get_value = 0;
@@ -1302,6 +1303,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "get-proof",            // SMT2_GET_PROOF
   "get-unsat-assumptions",  // SMT2_GET_UNSAT_ASSUMPTIONS
   "get-unsat-core",       // SMT2_GET_UNSAT_CORE
+  "get-unsat-model-interpolant", // SMT2_GET_UNSAT_MODEL_INTERPOLANT
   "get-value",            // SMT2_GET_VALUE
   "get-option",           // SMT2_GET_OPTION
   "get-info",             // SMT2_GET_INFO
@@ -2201,6 +2203,17 @@ static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, ava
       g->produce_unsat_assumptions = flag;
       report_success();
     }
+  } else {
+    print_error("option %s requires a Boolean value", name);
+  }
+}
+
+static void set_unsat_model_interpolants_option(smt2_globals_t *g, const char *name, aval_t value) {
+  bool flag;
+
+  if (aval_is_boolean(g->avtbl, value, &flag)) {
+   g->produce_unsat_model_interpolants = flag;
+   report_success();
   } else {
     print_error("option %s requires a Boolean value", name);
   }
@@ -4072,6 +4085,43 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
   }
 }
 
+/*
+ * Print the the model interpolant if any
+ */
+static void show_unsat_model_interpolant(smt2_globals_t *g) {
+  smt2_pp_t printer;
+
+  if (!g->produce_unsat_model_interpolants) {
+    print_error("not supported: :produce-unsat-interpolants is false");
+  } else {
+    smt_status_t status = context_status(g->ctx);
+    switch (status) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+	  print_error("No unsat interpolant. The context is satisfiable");
+	  break;
+
+    case STATUS_UNSAT: {
+      term_t unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
+	  if (unsat_model_interpolant == NULL_TERM) {
+	    print_error("Call (check-sat-assuming-model) first");
+	  } else {
+	    init_pretty_printer(&printer, g);
+	    pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
+	    delete_smt2_pp(&printer, true);
+	  }
+	  break;
+    }
+    case STATUS_IDLE:
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      print_out("BUG: unexpected status in get-unsat-model-interpolant");
+	  freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
+	  break;
+    }
+  }
+}
 
 
 /*
@@ -4312,6 +4362,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->produce_proofs = false;
   g->produce_unsat_cores = false;
   g->produce_unsat_assumptions = false;
+  g->produce_unsat_model_interpolants = false;
   g->produce_models = false;
   g->produce_assignments = false;
   g->random_seed = 0;  // 0 means any seed is good
@@ -4664,6 +4715,21 @@ void smt2_get_unsat_assumptions(void) {
 
   if (check_logic()) {
     show_unsat_assumptions(&__smt2_globals);
+  }
+}
+
+
+/*
+ * Get the interpolant for the model: formula implied by the assertions that
+ * evaluates to false.
+ */
+void smt2_get_unsat_model_interpolant(void) {
+  __smt2_globals.stats.num_get_unsat_model_interpolant ++;
+  __smt2_globals.stats.num_commands ++;
+  tprint_calls("get-unsat-model-interpolant", __smt2_globals.stats.num_get_unsat_model_interpolant);
+
+  if (check_logic()) {
+    show_unsat_model_interpolant(&__smt2_globals);
   }
 }
 
@@ -5041,6 +5107,10 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRODUCE_UNSAT_CORES:
     print_boolean_value(g->produce_unsat_cores);
     break;
+
+  case SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANTS:
+	print_boolean_value(g->produce_unsat_model_interpolants);
+	break;
 
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
@@ -5746,6 +5816,13 @@ void smt2_set_option(const char *name, aval_t value) {
     // optional: if true,  get-unsat-cores can be used
     if (option_can_be_set(name)) {
       set_unsat_core_option(g, name, value);
+    }
+    break;
+
+  case SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANTS:
+    // optional: if true, get-unsat-model-interpolant can be used
+    if (option_can_be_set(name)) {
+      set_unsat_model_interpolants_option(g, name, value);
     }
     break;
 

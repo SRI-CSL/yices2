@@ -139,6 +139,7 @@ typedef enum smt2_opcodes {
   SMT2_GET_PROOF,                       // [get-proof]
   SMT2_GET_UNSAT_ASSUMPTIONS,           // [get-unsat-assumptions]
   SMT2_GET_UNSAT_CORE,                  // [get-unsat-core]
+  SMT2_GET_UNSAT_MODEL_INTERPOLANT,     // [get-unsat-model-interpolant]
   SMT2_GET_VALUE,                       // [get-value <term> ... <term> ]
   SMT2_GET_OPTION,                      // [get-option <keyword> ]
   SMT2_GET_INFO,                        // [get-info <keyword> ]
@@ -275,6 +276,7 @@ typedef struct smt2_cmd_stats_s {
   uint32_t num_get_assignment;
   uint32_t num_get_unsat_core;
   uint32_t num_get_unsat_assumptions;
+  uint32_t num_get_unsat_model_interpolant;
 } smt2_cmd_stats_t;
 
 
@@ -384,6 +386,7 @@ typedef struct smt2_globals_s {
   bool produce_proofs;            // default = false (not supported)
   bool produce_unsat_cores;       // default = false
   bool produce_unsat_assumptions; // default = false
+  bool produce_unsat_model_interpolants; // default = false
   bool produce_models;            // default = false
   bool produce_assignments;       // default = false
   uint32_t random_seed;           // default = 0
@@ -598,6 +601,13 @@ extern void smt2_get_unsat_core(void);
  * TO BE DONE
  */
 extern void smt2_get_unsat_assumptions(void);
+
+
+/*
+ * Get the unsat model interpolant: a formula implied by the assertion that
+ * evaluates to false.
+ */
+extern void smt2_get_unsat_model_interpolant(void);
 
 
 /*
