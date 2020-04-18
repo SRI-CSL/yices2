@@ -5802,6 +5802,11 @@ void delete_tstack(tstack_t *stack) {
   safe_free(stack->aux_buffer);
   stack->aux_buffer = NULL;
 
+  if (stack->sbuffer != NULL) {
+    safe_free(stack->sbuffer);
+    stack->sbuffer = NULL;
+  }
+
   delete_bvconstant(&stack->bvconst_buffer);
 
   if (stack->abuffer != NULL) {
