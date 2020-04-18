@@ -483,12 +483,12 @@ uint32_t conflict_get_level(const conflict_t* conflict) {
 }
 
 bool conflict_contains(const conflict_t* conflict, variable_t var) {
-  return int_mset_contains(&conflict->top_level_vars, var);
+  conflict_t* conflict_nonconst = (conflict_t*) conflict;
+  return int_hmap_find(&conflict_nonconst->var_to_element_map, var) != NULL;
 }
 
 bool conflict_contains_as_top(const conflict_t* conflict, variable_t var) {
-  conflict_t* conflict_nonconst = (conflict_t*) conflict;  
-  return int_hmap_find(&conflict_nonconst->var_to_element_map, var) != NULL;
+  return int_mset_contains(&conflict->top_level_vars, var);
 }
 
 uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict) {

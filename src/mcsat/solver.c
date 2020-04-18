@@ -1685,6 +1685,8 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
       trail_print(mcsat->trail, trace->file);
       mcsat_trace_printf(trace, "current conflict: ");
       conflict_print(conflict, trace->file);
+      mcsat_trace_printf(trace, "var: ");
+      variable_db_print_variable(mcsat->var_db, var, trace->file);
     }
 
     // Skip decisions
@@ -1700,20 +1702,33 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
     if (conflict_contains(conflict, var)) {
       // Get the plugin that performed the propagation
       plugin_i = trail_get_source_id(mcsat->trail, var);
-      plugin = mcsat->plugins[plugin_i].plugin;
+      if (plugin_i != MCSAT_MAX_PLUGINS) {
+        plugin = mcsat->plugins[plugin_i].plugin;
+      } else {
+        plugin = NULL;
+      }
 
       if (trace_enabled(trace, "mcsat::conflict")) {
         mcsat_trace_printf(trace, "resolving ");
         variable_db_print_variable(mcsat->var_db, var, trace->file);
-        mcsat_trace_printf(trace, " with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        if (plugin) {
+          mcsat_trace_printf(trace, " with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        } else {
+          mcsat_trace_printf(trace, " with assertion\n");
+        }
         mcsat_trace_printf(trace, "current conflict:\n");
         conflict_print(conflict, trace->file);
       }
 
       // Resolve the variable
       ivector_reset(&reason);
-      assert(plugin->explain_propagation);
-      substitution = plugin->explain_propagation(plugin, var, &reason);
+      if (plugin) {
+        assert(plugin->explain_propagation);
+        substitution = plugin->explain_propagation(plugin, var, &reason);
+      } else {
+        bool value = trail_get_boolean_value(mcsat->trail, var);
+        substitution = value ? true_term : false_term;
+      }
       conflict_resolve_propagation(conflict, var, substitution, &reason, false);
     }
 
@@ -1894,7 +1909,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     assert(trail_get_assignment_type(mcsat->trail, var) != DECISION);
 
     // Resolve if in the conflict and current level
-    if (conflict_contains_as_top(&conflict, var)) {
+    if (conflict_contains(&conflict, var)) {
 
       // Get the plugin that performed the propagation
       plugin_i = trail_get_source_id(mcsat->trail, var);
@@ -1925,7 +1940,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     } else {
       // Have to pop the trail manually
       trail_pop_propagation(mcsat->trail);
-      assert(!conflict_contains(&conflict, var));
+      assert(!conflict_contains_as_top(&conflict, var));
     }
 
     if (conflict_get_top_level_vars_count(&conflict) == 0) {
