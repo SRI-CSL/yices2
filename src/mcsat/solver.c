@@ -1957,14 +1957,13 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     conflict_print(&conflict, trace->file);
   }
 
-  // UIP conflict resolution
-  if (conflict_level <= mcsat->trail->decision_level_base) {
-    mcsat->status = STATUS_UNSAT;
-  } else if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
+  if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
     mcsat->status = STATUS_UNSAT;
     mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+  } else if (conflict_level <= mcsat->trail->decision_level_base) {
+    mcsat->status = STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out

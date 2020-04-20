@@ -691,7 +691,7 @@ term_t conflict_get_formula(conflict_t* conflict) {
       ivector_push(&disjuncts, l);
     }
   }
-  term_t formula = mk_or(conflict->tm, disjuncts.size, disjuncts.data);
+  term_t formula = disjuncts.size == 0 ? false_term : mk_or(conflict->tm, disjuncts.size, disjuncts.data);
   delete_ivector(&disjuncts);
   return formula;
 }

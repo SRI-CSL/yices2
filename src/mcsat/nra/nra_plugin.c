@@ -1448,16 +1448,13 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, int_mset_t* pos, int_
 
   // No projection needed, we just return the core
   assert(lemma_reasons.size == 0);
-  for (i = 0; i < core.size; ++ i) {
-    variable_t constraint_var = core.data[i];
-    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
-    assert(trail_has_value(nra->ctx->trail, constraint_var));
-    bool constraint_value = trail_get_boolean_value(nra->ctx->trail, constraint_var);
-    if (!constraint_value) {
-      constraint_term = opposite_term(constraint_term);
-    }
-    ivector_push(conflict, constraint_term);
-  }
+  assert(core.size == 1);
+  variable_t constraint_var = core.data[0];
+  term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+  assert(trail_has_value(nra->ctx->trail, constraint_var));
+  ivector_push(conflict, constraint_term);
+  ivector_push(conflict, opposite_term(constraint_term));
+
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): conflict:\n");
     for (i = 0; i < conflict->size; ++ i) {
