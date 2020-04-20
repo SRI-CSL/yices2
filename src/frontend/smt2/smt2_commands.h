@@ -433,6 +433,9 @@ typedef struct smt2_globals_s {
   assumptions_and_core_t *unsat_core;
   assumptions_and_core_t *unsat_assumptions;
 
+  // status of the last call to check-with-model
+  smt_status_t check_with_model_status;
+
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;
   ivector_t token_slices;

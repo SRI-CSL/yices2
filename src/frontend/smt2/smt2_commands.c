@@ -2673,6 +2673,7 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
   if (g->timeout == 0) {
     // no timeout
     stat = check_with_model(g->ctx, params, n, vars, values);
+    g->check_with_model_status = stat;
     return stat;
   }
 
@@ -2687,6 +2688,7 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
   g->interrupted = false;
   start_timeout(g->timeout, timeout_handler, g);
   stat = check_with_model(g->ctx, params, n, vars, values);
+  g->check_with_model_status = stat;
   clear_timeout();
 
   /*
@@ -3243,6 +3245,9 @@ static void cleanup_context(smt2_globals_t *g) {
   if (g->unsat_assumptions != NULL) {
     free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
+  }
+  if (g->check_with_model_status != STATUS_UNSAT) {
+    g->check_with_model_status = STATUS_IDLE;
   }
 
   switch (context_status(g->ctx)) {
@@ -4094,7 +4099,7 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-interpolants is false");
   } else {
-    smt_status_t status = context_status(g->ctx);
+    smt_status_t status = g->check_with_model_status;
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
