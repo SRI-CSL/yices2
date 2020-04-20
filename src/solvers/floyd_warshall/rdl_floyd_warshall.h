@@ -40,7 +40,7 @@
  * - for each vertex x, M[x, x].id = 0 and M[x, x].dist = 0
  * - if there's no path from x to y, we set M[x, y] = null_edge (-1)
  * - if there's a path from x to y then M[x, y].id is an index between 1 and n-1
- * Invariant: a
+ * Invariant:
  * - if M[x, y].id = i and edge i is from u to v then
  *   0 <= M[x, u].id < i and 0 <= M[u, y].id < i
  *
@@ -54,13 +54,13 @@
  *
  *   Then the length of path(x, y) can also be computed recursively:
  *     len(x, y) = if x = y then 0 else len(x, u) + c(i) + len(v, y)
- *   where i = M[x, y].m_edge_id and edge i has cost c(i) and goes from u to v.
+ *   where i = M[x, y].id and edge i has cost c(i) and goes from u to v.
  *
  *   That length is stored in M[x, y].dist
  *
  * - The data structure is constructed so that path(x, y) is a shortest
  *   path from x to y in the current graph.
- *   M[x, y].m_val is then the distance from x to y.
+ *   M[x, y].dist is then the distance from x to y.
  *
  * The graph encodes the constraints asserted so far:
  * - an edge from x to y of cost d encodes the assertion (x - y <= d)
@@ -132,7 +132,7 @@ enum {
 
 
 /*
- * Edge descriptor: don't need the cost.
+ * Edge descriptor
  */
 typedef struct rdl_edge_s {
   int32_t source;
@@ -151,10 +151,11 @@ typedef struct rdl_edge_stack_s {
   uint32_t top;
   rdl_edge_t *data;
   literal_t *lit;
+  rdl_const_t *cost;
 } rdl_edge_stack_t;
 
 #define DEFAULT_RDL_EDGE_STACK_SIZE 100
-#define MAX_RDL_EDGE_STACK_SIZE (UINT32_MAX/sizeof(rdl_edge_t))
+#define MAX_RDL_EDGE_STACK_SIZE (UINT32_MAX/sizeof(rdl_const_t))
 
 
 /*
@@ -446,8 +447,11 @@ typedef struct rdl_solver_s {
   rational_t epsilon;
   rational_t factor;
   rational_t aux;
-  rational_t aux2;
   rational_t *value;
+
+  rdl_const_t caux;
+  rdl_const_t caux2;
+  rdl_const_t *symbolic_value;
 
   /*
    * Jump buffer for exception handling during internalization
