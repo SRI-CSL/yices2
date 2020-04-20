@@ -258,13 +258,11 @@ static inline rdl_const_t *rdl_dist(rdl_matrix_t *m, uint32_t x, uint32_t y) {
  * Print edge i
  */
 void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i) {
-  rdl_matrix_t *m;
   rdl_edge_t *e;
   thvar_t x, y;
 
   assert(0 < i && i < solver->graph.edges.top);
   e = solver->graph.edges.data + i;
-  m = &solver->graph.matrix;
 
   x = e->source;
   y = e->target;
