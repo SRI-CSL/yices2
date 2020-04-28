@@ -177,7 +177,36 @@ static inline bool rdl_const_is_neg(rdl_const_t *c) {
 }
 
 
+#define MAX_RDL_CONST_ARRAY_SIZE (UINT32_MAX/sizeof(rdl_const_t))
 
+/*
+ * Allocate and initialize and array of n constants
+ */
+static rdl_const_t *new_rdl_const_array(uint32_t n) {
+  rdl_const_t *tmp;
+  uint32_t i;
+
+  if (n > MAX_RDL_CONST_ARRAY_SIZE) {
+    out_of_memory();
+  }
+  tmp = (rdl_const_t *) safe_malloc(n * sizeof(rdl_const_t));
+  for (i=0; i<n; i++) {
+    init_rdl_const(tmp + i);
+  }
+  return tmp;
+}
+
+/*
+ * Free an array of n constants
+ */
+static void free_rdl_const_array(rdl_const_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    reset_rdl_const(a + i);
+  }
+  safe_free(a);
+}
 
 
 
@@ -191,10 +220,17 @@ static inline bool rdl_const_is_neg(rdl_const_t *c) {
  * - n = initial size
  */
 static void init_rdl_edge_stack(rdl_edge_stack_t *stack, uint32_t n) {
+  uint32_t i;
+
   assert(n < MAX_RDL_EDGE_STACK_SIZE);
 
   stack->data = (rdl_edge_t *) safe_malloc(n * sizeof(rdl_edge_t));
   stack->lit = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  stack->cost = (rdl_const_t *) safe_malloc(n * sizeof(rdl_const_t));
+  for (i=0; i<n; i++) {
+    init_rdl_const(stack->cost + i);
+  }
+
   stack->size = n;
   stack->top = 0;
 }
@@ -204,7 +240,7 @@ static void init_rdl_edge_stack(rdl_edge_stack_t *stack, uint32_t n) {
  * Make the stack 50% larger
  */
 static void extend_rdl_edge_stack(rdl_edge_stack_t *stack) {
-  uint32_t n;
+  uint32_t i, n;
 
   n = stack->size + 1;
   n += n>>1;
@@ -214,15 +250,19 @@ static void extend_rdl_edge_stack(rdl_edge_stack_t *stack) {
 
   stack->data = (rdl_edge_t *) safe_realloc(stack->data, n * sizeof(rdl_edge_t));
   stack->lit = (literal_t *) safe_realloc(stack->lit, n * sizeof(literal_t));
+  stack->cost = (rdl_const_t *) safe_realloc(stack->cost, n * sizeof(rdl_const_t));
+  for (i=stack->size; i<n; i++) {
+    init_rdl_const(stack->cost + i);
+  }
   stack->size = n;
 }
 
 
 /*
- * Add an edge to the stack (the cost is not needed)
- * - x = source, y = target, l = literal attached
+ * Add an edge to the stack
+ * - x = source, y = target, c = cost, l = literal attached
  */
-static void push_edge(rdl_edge_stack_t *stack, int32_t x, int32_t y, literal_t l) {
+static void push_edge(rdl_edge_stack_t *stack, int32_t x, int32_t y, rdl_const_t *c, literal_t l) {
   uint32_t i;
 
   i = stack->top;
@@ -233,6 +273,7 @@ static void push_edge(rdl_edge_stack_t *stack, int32_t x, int32_t y, literal_t l
   stack->data[i].source = x;
   stack->data[i].target = y;
   stack->lit[i] = l;
+  rdl_const_set(stack->cost + i, c);
   stack->top = i+1;
 }
 
@@ -248,11 +289,20 @@ static inline void reset_rdl_edge_stack(rdl_edge_stack_t *stack) {
 /*
  * Delete the stack
  */
-static inline void delete_rdl_edge_stack(rdl_edge_stack_t *stack) {
+static void delete_rdl_edge_stack(rdl_edge_stack_t *stack) {
+  uint32_t i, n;
+
+  n = stack->size;
+  for (i=0; i<n; i++) {
+    reset_rdl_const(stack->cost + i);
+  }
+
   safe_free(stack->data);
   safe_free(stack->lit);
+  safe_free(stack->cost);
   stack->data = NULL;
   stack->lit = NULL;
+  stack->cost = NULL;
 }
 
 
@@ -547,7 +597,7 @@ static void init_rdl_graph(rdl_graph_t *graph) {
   init_ivector(&graph->buffer, DEFAULT_RDL_BUFFER_SIZE);
   init_rdl_const(&graph->c0);
 
-  push_edge(&graph->edges, null_rdl_vertex, null_rdl_vertex, true_literal);
+  push_edge(&graph->edges, null_rdl_vertex, null_rdl_vertex, &graph->c0, true_literal);
 }
 
 /*
@@ -571,7 +621,7 @@ static void reset_rdl_graph(rdl_graph_t *graph) {
   ivector_reset(&graph->buffer);
   reset_rdl_const(&graph->c0);
 
-  push_edge(&graph->edges, null_rdl_vertex, null_rdl_vertex, true_literal);
+  push_edge(&graph->edges, null_rdl_vertex, null_rdl_vertex, &graph->c0, true_literal);
 }
 
 
@@ -646,7 +696,7 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
   assert(0 <= x && x < m->dim && 0 <= y && y < m->dim && x != y && c != d);
 
   id = graph->edges.top; // index of the new edge
-  push_edge(&graph->edges, x, y, l);
+  push_edge(&graph->edges, x, y, c, l);
 
   /*
    * collect relevant vertices in vector v:
@@ -2074,11 +2124,17 @@ void rdl_reset(rdl_solver_t *solver) {
   q_clear(&solver->epsilon);
   q_clear(&solver->factor);
   q_clear(&solver->aux);
-  q_clear(&solver->aux2);
 
   if (solver->value != NULL) {
     free_rational_array(solver->value, solver->nvertices);
     solver->value = NULL;
+  }
+
+  clear_rdl_const(&solver->caux);
+  clear_rdl_const(&solver->caux2);
+  if (solver->symbolic_value != NULL) {
+    free_rdl_const_array(solver->symbolic_value, solver->nvertices);
+    solver->symbolic_value = NULL;
   }
 
   // undo record for level 0
@@ -2712,136 +2768,8 @@ void rdl_assert_clause_vareq_axiom(rdl_solver_t *solver, uint32_t n, literal_t *
  ***********************/
 
 /*
- * Compute a safe rational value for delta.
- *
- * This assumes the system is feasible, i.e., there is no negative
- * circuit in the graph.
- *
- * For any circuit x --> y ---> x
- *    d[x, y] = a + b delta
- *    d[y, x] = a' + b' delta
- * So d[x, y] + d[y, x] >= 0 over the extended rationals, means
- * either (a + a') > 0 or (a + a') = 0 and (b + b') > 0.
- *
- * We want to find a positive rational epsilon for which the inequality
- * d[x, y] + d[y, x] >= 0 holds in the rationals. If (b + b') < 0, we must
- * take  epsilon <= - (a + a')/(b + b'). If (b + b') >= 0, any epsilon > 0 works.
+ * SYMBOLIC MODEL
  */
-
-/*
- * Assign epsilon := min(epsilon, - (a+a')/(b + b')) for the two vertices x, y
- * - x and y must be distinct and there must be a path from x to y
- */
-static void rdl_adjust_epsilon(rdl_solver_t *solver, int32_t x, int32_t y) {
-  rdl_cell_t *cell_xy, *cell_yx;
-  rational_t *aux, *factor;
-  int32_t b;
-
-  assert(x != y);
-  cell_xy = rdl_cell(&solver->graph.matrix, x, y);
-  cell_yx = rdl_cell(&solver->graph.matrix, y, x);
-  assert(cell_xy->id > 0);
-  if (cell_yx->id > 0) {
-    // a circuit x --> y --> x exists
-    b = cell_xy->dist.delta + cell_yx->dist.delta; // (b + b')
-    if (b < 0) {
-      aux = &solver->aux;
-      q_set(aux, &cell_xy->dist.q);
-      q_add(aux, &cell_yx->dist.q); // (a + a')
-      assert(q_is_pos(aux));
-      factor = &solver->factor;
-      q_set32(factor, -b);
-      q_div(aux, factor);  // aux := - (a+a')/(b+b');
-      if (q_lt(aux, &solver->epsilon)) {
-        q_set(&solver->epsilon, aux);
-      }
-    }
-  }
-}
-
-static void rdl_compute_model_epsilon(rdl_solver_t *solver) {
-  rdl_edge_t *edges;
-  uint32_t i, n;
-
-  q_set_one(&solver->epsilon); // any positive value as default
-
-  // scan all the edges in the graph
-  edges = solver->graph.edges.data;
-  n = solver->graph.edges.top; // number of edges
-  for (i=1; i<n; i++) {  // skip edge 0 = marker
-    rdl_adjust_epsilon(solver, edges[i].source, edges[i].target);
-  }
-}
-
-
-/*
- * Add a rational distance (computed using solver->epsilon) to rational v
- * - c = distance in symbolic form (a + k delta)
- */
-static void rdl_add_rational_distance(rdl_solver_t *solver, rational_t *v, rdl_const_t *c) {
-  rational_t *factor;
-
-  factor = &solver->factor;
-  assert(v != factor);
-  q_add(v, &c->q);
-  if (c->delta != 0) {
-    q_set32(factor, c->delta);
-    q_addmul(v, factor, &solver->epsilon);
-  }
-}
-
-/*
- * Subtract a rational distance (computed using solver->epsilon) from rational v
- * - c = distance in symbolic form (a + k delta)
- */
-static void rdl_sub_rational_distance(rdl_solver_t *solver, rational_t *v, rdl_const_t *c) {
-  rational_t *factor;
-
-  factor = &solver->factor;
-  assert(v != factor);
-  q_sub(v, &c->q);
-  if (c->delta != 0) {
-    q_set32(factor, c->delta);
-    q_submul(v, factor, &solver->epsilon);
-  }
-}
-
-
-/*
- * Assign value v to vertex x, then extend the model to predecessors of x
- * that are not marked. If y is not marked and there's a path from y to x,
- *  val[y] is set to v + d[x, y] (as computed using solver->epsilon).
- */
-static void rdl_set_reference_point(rdl_solver_t *solver, int32_t x, rational_t *v, byte_t *mark) {
-  rdl_matrix_t *m;
-  rdl_cell_t *cell;
-  rational_t *val, *aux;
-  int32_t y, n;
-
-  assert(solver->value != NULL && 0 <= x && x < solver->nvertices && ! tst_bit(mark, x));
-
-  val = solver->value;
-  aux = &solver->aux2;
-  m = &solver->graph.matrix;
-
-  assert(aux != v);
-
-  q_set(val + x, v);
-  set_bit(mark, x);
-
-  n = solver->nvertices;
-  for (y=0; y<n; y++) {
-    cell = rdl_cell(m, y, x);
-    if (cell->id > 0 && ! tst_bit(mark, y)) {
-      q_set(aux, v);
-      rdl_add_rational_distance(solver, aux, &cell->dist);
-      // store that as value of y
-      q_set(val + y, aux);
-      set_bit(mark, y);
-    }
-  }
-}
-
 
 /*
  * Compute a value for vertex x in a new strongly connected component.
@@ -2849,35 +2777,195 @@ static void rdl_set_reference_point(rdl_solver_t *solver, int32_t x, rational_t 
  * - we can set val[x] to anything larger than val[y] - d[y, x] where y is marked
  *   and is a predecessor of x
  */
-static void rdl_get_value_for_new_vertex(rdl_solver_t *solver, int32_t x, rational_t *v, byte_t *mark) {
+static void rdl_get_symbolic_value_for_new_vertex(rdl_solver_t *solver, int32_t x, rdl_const_t *v, byte_t *mark) {
   rdl_matrix_t *m;
   rdl_cell_t *cell;
-  rational_t *val, *aux;
+  rdl_const_t *val, *aux;
   int32_t y, n;
 
-  val = solver->value;
-  aux = &solver->aux2;
+  val = solver->symbolic_value;
+  aux = &solver->caux2;
   m = &solver->graph.matrix;
   n = solver->nvertices;
 
   assert(aux != v);
 
-  q_clear(v); // set default to 0
+  // set default value to 0
+  clear_rdl_const(v);
 
   // scan predecessors and increase v if needed
   for (y=0; y<n; y++) {
     cell = rdl_cell(m, y, x);
     if (cell->id > 0 && tst_bit(mark, y)) {
-      q_set(aux, val + y);
-      rdl_sub_rational_distance(solver, aux, &cell->dist);
+      rdl_const_set(aux, val + y);
+      rdl_const_sub(aux, &cell->dist);
       // aux is val[y] - dist[y, x]
-      if (q_gt(aux, v)) {
-        q_set(v, aux);
+      if (rdl_const_lt(v, aux)) {
+        rdl_const_set(v, aux);
       }
     }
   }
 }
 
+
+/*
+ * Assign value v to vertex x, then extend the model to predecessors of x
+ * that are not marked. If y is not marked and there's a path from y to x,
+ *  val[y] is set to v + d[y, x].
+ */
+static void rdl_set_symbolic_reference_point(rdl_solver_t *solver, int32_t x, rdl_const_t *v, byte_t *mark) {
+  rdl_matrix_t *m;
+  rdl_cell_t *cell;
+  rdl_const_t *val, *aux;
+  int32_t y, n;
+
+  assert(solver->symbolic_value != NULL && 0 <= x && x < solver->nvertices && ! tst_bit(mark, x));
+
+  val = solver->symbolic_value;
+  m = &solver->graph.matrix;
+  aux = &solver->caux2;
+
+  assert(aux != v);
+
+  rdl_const_set(val + x, v);
+  set_bit(mark, x);
+
+  n = solver->nvertices;
+  for (y=0; y<n; y++) {
+    cell = rdl_cell(m, y, x);
+    if (cell->id > 0 && ! tst_bit(mark, y)) {
+      // val[y] = v + d[x, y]
+      rdl_const_set(aux, v);
+      rdl_const_add(aux, &cell->dist);
+      // store that as value of y
+      rdl_const_set(val + y, aux);
+      set_bit(mark, y);
+    }
+  }
+}
+
+/*
+ * Build a symbolic model: assign an extended rational value to
+ * all variables.
+ */
+static void rdl_build_symbolic_model(rdl_solver_t *solver) {
+  byte_t *mark;
+  uint32_t nvars;
+  rdl_const_t *aux;
+  int32_t x;
+
+  assert(valid_rdl_graph(&solver->graph));
+  assert(solver->symbolic_value == NULL);
+
+  nvars = solver->nvertices;
+  solver->symbolic_value = new_rdl_const_array(nvars);
+  mark = allocate_bitvector0(nvars);
+
+  aux = &solver->caux;
+
+  // make sure the zero vertex has value 0
+  x = solver->zero_vertex;
+  if (x >= 0) {
+    clear_rdl_const(aux);
+    rdl_set_symbolic_reference_point(solver, x, aux, mark);
+  }
+
+  // extend the model
+  for (x=0; x<nvars; x++) {
+    if (! tst_bit(mark, x)) {
+      rdl_get_symbolic_value_for_new_vertex(solver, x, aux, mark);
+      rdl_set_symbolic_reference_point(solver, x, aux, mark);
+    }
+  }
+
+  delete_bitvector(mark);
+}
+
+
+/*
+ * CONCRETIZATION
+ */
+
+/*
+ * Adjust epsilon to ensure that constraint x - y <= c is satisfied
+ * - we compute val[x] - val[y] = a_0 + b_0 \delta
+ *   c is of the form a_1 + b_1 \delta
+ * - we know that a_0 < a_1 or (a_0 = a_1 and b_0 <= b_1)
+ *
+ * We want \delta > 0 such that
+ *       a_0 + b_0 \delta <= a_1 + b_1 \delta
+ * <=> (b_0 - b_1) \delta <= a_1 - a_0
+ *
+ * For the right hand side, we have (a_1 - a_0) >= 0.
+ * If b_0 <= b_1, any positive \delta works.
+ * If b_0 > b_1, we want \delta <= (a_1 - a_0)/(b_0 - b_1)
+ */
+static void rdl_adjust_epsilon(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t *d) {
+  rdl_const_t *aux;
+  rational_t *factor, *e;
+  int32_t b;
+
+  aux = &solver->caux;
+  assert(aux != d);
+
+  // aux := val[x] - val[y] = a_0 + b_0 delta
+  rdl_const_set(aux, solver->symbolic_value + x);
+  rdl_const_sub(aux, solver->symbolic_value + y);
+
+  b = aux->delta - d->delta; // b_0 - b_1
+  if (b > 0) {
+    e = &solver->aux;
+    q_set(e, &d->q);
+    q_sub(e, &aux->q);
+    assert(q_is_nonneg(e));
+    factor = &solver->factor;
+    q_set32(factor, b);
+    q_div(e, factor); // e := (a_1 - a_0)/(b_0 - b_1)
+    if (q_lt(e, &solver->epsilon)) {
+      q_set(&solver->epsilon, e);
+      assert(q_is_pos(&solver->epsilon));
+    }
+  }
+}
+
+
+/*
+ * Compute an epsilon that ensures all constraints are satisfied
+ * - for every edge i: x -  y <= d
+ */
+static void rdl_compute_epsilon(rdl_solver_t *solver) {
+  rdl_edge_t *edges;
+  rdl_const_t *costs;
+  uint32_t i, n;
+
+  q_set_one(&solver->epsilon); // default positive value
+
+  edges = solver->graph.edges.data;
+  costs = solver->graph.edges.cost;
+  n = solver->graph.edges.top; // number of edges
+  for (i=1; i<n; i++) { // skip edge 0 = marker
+    rdl_adjust_epsilon(solver, edges[i].source, edges[i].target, costs + i);
+  }
+}
+
+
+/*
+ * Convert symbolic values to concrete values:
+ * - symbolic_value[x] = a_0 + b_0 \delta
+ *   is converted to value[x] = a_0 + b_0 \epsilon
+ */
+static void rdl_concretize_symbolic_model(rdl_solver_t *solver) {
+  uint32_t i, nvars;
+  rational_t *q;
+
+  nvars = solver->nvertices;
+  for (i=0; i<nvars; i++) {
+    q = solver->value + i;
+    q_set32(q, solver->symbolic_value[i].delta); // b0
+    q_mul(q, &solver->epsilon); // b0 * epsilon
+    q_add(q, &solver->symbolic_value[i].q); // a0 + b0 * epsilon
+  }
+}
 
 
 #ifndef NDEBUG
@@ -2889,8 +2977,10 @@ static void rdl_get_value_for_new_vertex(rdl_solver_t *solver, int32_t x, ration
 static bool good_rdl_model(rdl_solver_t *solver) {
   rdl_matrix_t *m;
   rdl_cell_t *cell;
+  rdl_edge_t *edges;
+  rdl_const_t *costs;
   rational_t *val, *aux;
-  uint32_t n;
+  uint32_t i, n;
   int32_t x, y;
 
   m = &solver->graph.matrix;
@@ -2932,8 +3022,146 @@ static bool good_rdl_model(rdl_solver_t *solver) {
     }
   }
 
+  // check val[x] - val[y] <= cost[i] for every edge i
+  edges = solver->graph.edges.data;
+  costs = solver->graph.edges.cost;
+  n = solver->graph.edges.top;
+  for (i=1; i<n; i++) {
+    x = edges[i].source;
+    y = edges[i].target;
+    q_set(aux, val + x);
+    q_sub(aux, val + y);
+    if (rdl_const_lt_q(costs + i, aux)) {
+      printf("---> BUG: invalid RDL model\n");
+      print_rdl_edge(stdout, solver, i);
+      printf("   val[");
+      print_rdl_vertex(stdout, x);
+      printf("] = ");
+      q_print(stdout, val + x);
+      printf("\n");
+      printf("   val[");
+      print_rdl_vertex(stdout, y);
+      printf("] = ");
+      q_print(stdout, val + y);
+      printf("\n");
+      fflush(stdout);
+
+      return false;
+    }
+  }
+
   return true;
 }
+
+
+
+/*
+ * Check that the symbolic model is good
+ */
+static bool good_rdl_symbolic_model(rdl_solver_t *solver) {
+  rdl_matrix_t *m;
+  rdl_cell_t *cell;
+  rdl_edge_t *edges;
+  rdl_const_t *costs;
+  rdl_const_t *val, *aux;
+  uint32_t i, n;
+  int32_t x, y;
+
+  m = &solver->graph.matrix;
+  val = solver->symbolic_value;
+  aux = &solver->caux;
+  n = solver->nvertices;
+  for (x=0; x<n; x++) {
+    for (y=0; y<n; y++) {
+      cell = rdl_cell(m, x, y);
+      if (cell->id >= 0) {
+        // aux := val[x] - val[y]
+        rdl_const_set(aux, val + x);
+        rdl_const_sub(aux, val + y);
+        // check whether aux <= dist[x, y]
+        if (rdl_const_lt(&cell->dist, aux)) {
+          printf("---> BUG: invalid RDL model\n");
+          printf("   val[");
+          print_rdl_vertex(stdout, x);
+          printf("] = ");
+          print_rdl_const(stdout, val + x);
+          printf("\n");
+          printf("   val[");
+          print_rdl_vertex(stdout, y);
+          printf("] = ");
+          print_rdl_const(stdout, val + y);
+          printf("\n");
+          printf("   dist[");
+          print_rdl_vertex(stdout, x);
+          printf(", ");
+          print_rdl_vertex(stdout, y);
+          printf("] = ");
+          print_rdl_const(stdout, &cell->dist);
+          printf("\n");
+          fflush(stdout);
+
+          return false;
+        }
+      }
+    }
+  }
+
+  // check val[x] - val[y] <= cost[i] for every edge i
+  edges = solver->graph.edges.data;
+  costs = solver->graph.edges.cost;
+  n = solver->graph.edges.top;
+  for (i=1; i<n; i++) {
+    x = edges[i].source;
+    y = edges[i].target;
+    rdl_const_set(aux, val + x);
+    rdl_const_sub(aux, val + y);
+    if (rdl_const_lt(costs + i, aux)) {
+      printf("---> BUG: invalid RDL model\n");
+      print_rdl_edge(stdout, solver, i);
+      printf("   val[");
+      print_rdl_vertex(stdout, x);
+      printf("] = ");
+      print_rdl_const(stdout, val + x);
+      printf("\n");
+      printf("   val[");
+      print_rdl_vertex(stdout, y);
+      printf("] = ");
+      print_rdl_const(stdout, val + y);
+      printf("\n");
+      fflush(stdout);
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+#if SHOW_MODEL
+/*
+ * Display the symbolic values
+ */
+static void show_rdl_symbolic_model(rdl_solver_t *solver) {
+  rdl_const_t *val;
+  uint32_t i, n;
+
+  assert(solver->symbolic_value != NULL);
+
+  printf("Symbolic model\n");
+  val = solver->symbolic_value;
+  n = solver->nvertices;
+  for (i=0; i<n; i++) {
+    printf("    val[");
+    print_rdl_vertex(stdout, i);
+    printf("] = ");
+    print_rdl_const(stdout, val + i);
+    printf("\n");
+  }
+  printf("\n");
+  fflush(stdout);
+}
+#endif
 
 #endif
 
@@ -2942,38 +3170,32 @@ static bool good_rdl_model(rdl_solver_t *solver) {
  * Build a mapping from variables to rationals
  */
 void rdl_build_model(rdl_solver_t *solver) {
-  byte_t *mark;
   uint32_t nvars;
-  rational_t *aux;
-  int32_t x;
 
+  assert(valid_rdl_graph(&solver->graph));
   assert(solver->value == NULL);
+  assert(solver->symbolic_value == NULL);
 
-  rdl_compute_model_epsilon(solver);
+  rdl_build_symbolic_model(solver);
+  assert(good_rdl_symbolic_model(solver));
+
+#if SHOW_MODEL
+  show_rdl_symbolic_model(solver);
+  print_rdl_edges(stdout, solver);
+#endif
+
+  rdl_compute_epsilon(solver);
   assert(q_is_pos(&solver->epsilon));
+
+#if SHOW_MODEL
+  printf("epsilon = ");
+  q_print(stdout, &solver->epsilon);
+  printf("\n");
+#endif
 
   nvars = solver->nvertices;
   solver->value = new_rational_array(nvars);
-  mark = allocate_bitvector0(nvars);
-  aux = &solver->aux;
-
-  // make sure the zero vertex has value 0
-  x = solver->zero_vertex;
-  if (x >= 0) {
-    q_clear(aux);
-    rdl_set_reference_point(solver, x, aux, mark);
-  }
-
-  // extend the model
-  for (x=0; x<nvars; x++) {
-    if (! tst_bit(mark, x)) {
-      rdl_get_value_for_new_vertex(solver, x, aux, mark);
-      rdl_set_reference_point(solver, x, aux, mark);
-    }
-  }
-
-
-  delete_bitvector(mark);
+  rdl_concretize_symbolic_model(solver);
 
   assert(good_rdl_model(solver));
 }
@@ -2983,11 +3205,18 @@ void rdl_build_model(rdl_solver_t *solver) {
  * Free the model
  */
 void rdl_free_model(rdl_solver_t *solver) {
-  assert(solver->value != NULL);
+  assert(solver->value != NULL && solver->symbolic_value != NULL);
   free_rational_array(solver->value, solver->nvertices);
+  free_rdl_const_array(solver->symbolic_value, solver->nvertices);
   solver->value = NULL;
+  solver->symbolic_value = NULL;
+
   q_clear(&solver->epsilon);
+  q_clear(&solver->factor);
   q_clear(&solver->aux);
+
+  clear_rdl_const(&solver->caux);
+  clear_rdl_const(&solver->caux2);
 }
 
 
@@ -3144,8 +3373,11 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   q_init(&solver->epsilon);
   q_init(&solver->factor);
   q_init(&solver->aux);
-  q_init(&solver->aux2);
   solver->value = NULL;
+
+  init_rdl_const(&solver->caux);
+  init_rdl_const(&solver->caux2);
+  solver->symbolic_value = NULL;
 
   // No jump buffer yet
   solver->env = NULL;
@@ -3181,13 +3413,19 @@ void delete_rdl_solver(rdl_solver_t *solver) {
   q_clear(&solver->epsilon);
   q_clear(&solver->factor);
   q_clear(&solver->aux);
-  q_clear(&solver->aux2);
 
   if (solver->value != NULL) {
     free_rational_array(solver->value, solver->nvertices);
     solver->value = NULL;
   }
 
+  clear_rdl_const(&solver->caux);
+  clear_rdl_const(&solver->caux2);
+
+  if (solver->symbolic_value != NULL) {
+    free_rdl_const_array(solver->symbolic_value, solver->nvertices);
+    solver->symbolic_value = NULL;
+  }
 
 }
 

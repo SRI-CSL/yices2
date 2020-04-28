@@ -112,6 +112,19 @@ void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t v) {
 }
 
 
+/*
+ * Value of all vertices
+ */
+void print_rdl_vertex_values(FILE *f, rdl_solver_t *rdl) {
+  uint32_t i, n;
+
+  n = rdl->nvertices;
+  for (i=0; i<n; i++) {
+    fprintf(f, "val[%"PRIu32"] = ", i);
+    print_rdl_vertex_value(f, rdl, i);
+    fprintf(f, "\n");
+  }
+}
 
 
 /*
@@ -244,7 +257,25 @@ static inline rdl_const_t *rdl_dist(rdl_matrix_t *m, uint32_t x, uint32_t y) {
 /*
  * Print edge i
  */
-static void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i) {
+void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i) {
+  rdl_edge_t *e;
+  thvar_t x, y;
+
+  assert(0 < i && i < solver->graph.edges.top);
+  e = solver->graph.edges.data + i;
+
+  x = e->source;
+  y = e->target;
+
+  fprintf(f, "edge[%"PRIu32"]: v!%"PRId32" - v!%"PRId32" <= ", i, x, y);
+  print_rdl_const(f, solver->graph.edges.cost + i);
+}
+
+
+/*
+ * Print constraint for edge i
+ */
+void print_rdl_constraint(FILE *f, rdl_solver_t *solver, uint32_t i) {
   rdl_matrix_t *m;
   rdl_edge_t *e;
   rdl_const_t *d;
@@ -258,8 +289,27 @@ static void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i) {
   y = e->target;
   d = rdl_dist(m, x, y);
 
-  fprintf(f, "edge[%"PRIu32"]: v!%"PRId32" - v!%"PRId32" <= ", i, x, y);
+  fprintf(f, "dist[%"PRIu32"]: v!%"PRId32" - v!%"PRId32" <= ", i, x, y);
   print_rdl_const(f, d);
+}
+
+
+
+
+/*
+ * Print constraint implied by the path x --> y
+ */
+void print_rdl_path_constraint(FILE *f, rdl_solver_t *solver, int32_t x, int32_t y) {
+  rdl_cell_t *cell;
+
+  cell = rdl_cell(&solver->graph.matrix, x, y);
+  if (cell->id >= 0) {
+    fprintf(f, "path: v!%"PRId32" - v!%"PRId32" <= ", x, y);
+    print_rdl_const(f, &cell->dist);
+    fprintf(f, "\n");
+  } else {
+    fprintf(f, "no path from v!%"PRId32" to v!%"PRId32"\n", x, y);
+  }
 }
 
 

@@ -14,6 +14,7 @@
 
 import sys
 import os
+from sphinx import version_info
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -33,7 +34,7 @@ needs_sphinx = '1.0'
 #
 # mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
 #
-extensions = ['cenum']
+extensions = [] if version_info[0] >= 3 else ['cenum']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

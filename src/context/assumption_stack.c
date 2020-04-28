@@ -234,7 +234,7 @@ static inline bool hash_index_needs_resize(const hash_index_t *index) {
 }
 
 static inline bool hash_index_needs_cleanup(const hash_index_t *index) {
-  return index->ndeleted >= index->cleanup_threshold;
+  return index->ndeleted >= index->cleanup_threshold && index->ndeleted > 0;
 }
 
 
