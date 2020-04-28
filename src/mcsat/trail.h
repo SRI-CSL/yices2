@@ -130,6 +130,22 @@ variable_t trail_back(const mcsat_trail_t* trail) {
 /** Print the trail to the output */
 void trail_print(const mcsat_trail_t* trail, FILE* out);
 
+/** Get the level of an assigned variable */
+static inline
+uint32_t trail_get_level(const mcsat_trail_t* trail, variable_t var) {
+  assert(var < trail->level.size);
+  assert(trail->level.data[var] >= 0);
+  return trail->level.data[var];
+}
+
+/** Get the index of an assigned variable in the trail */
+static inline
+uint32_t trail_get_index(const mcsat_trail_t* trail, variable_t var) {
+  assert(var < trail->index.size);
+  assert(trail->index.data[var] >= 0);
+  return trail->index.data[var];
+}
+
 /**
  * Returns true if the value of var is set. We check this by checking the level
  * of the variable. The value itself is kept so that we can use it for caching.
@@ -140,6 +156,17 @@ bool trail_has_value(const mcsat_trail_t* trail, variable_t var) {
   bool has_value = (trail->level.data[var] >= 0);
   assert(!has_value || mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE);
   return has_value;
+}
+
+/**
+ * Same as above, but looking only up-to given size.
+ */
+static inline
+bool trail_has_value_at(const mcsat_trail_t* trail, variable_t var, uint32_t size) {
+  if (!trail_has_value(trail, var)) {
+    return false;
+  }
+  return trail_get_index(trail, var) < size;
 }
 
 /** Returns true if the variable has a cached value other than NONE */
@@ -197,22 +224,6 @@ bool trail_get_boolean_value(const mcsat_trail_t* trail, variable_t var) {
   const mcsat_value_t* value = trail_get_value(trail, var);
   assert(value->type == VALUE_BOOLEAN);
   return value->b;
-}
-
-/** Get the level of an assigned variable */
-static inline
-uint32_t trail_get_level(const mcsat_trail_t* trail, variable_t var) {
-  assert(var < trail->level.size);
-  assert(trail->level.data[var] >= 0);
-  return trail->level.data[var];
-}
-
-/** Get the index of an assigned variable in the trail */
-static inline
-uint32_t trail_get_index(const mcsat_trail_t* trail, variable_t var) {
-  assert(var < trail->index.size);
-  assert(trail->index.data[var] >= 0);
-  return trail->index.data[var];
 }
 
 /** Add a new decision x -> value */

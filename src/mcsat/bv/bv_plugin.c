@@ -1133,8 +1133,21 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   }
 
   // Explain with the appropriate theory
-  if (bv->conflict_type == BV_CONFLICT_UNIT) {
+  switch (bv->conflict_type) {
+  case BV_CONFLICT_UNIT:
     bv_explainer_get_conflict(&bv->explainer, &conflict_core, bv->conflict_variable, conflict);
+    break;
+  case BV_CONFLICT_ASSUMPTION: {
+    assert(conflict_core.size == 1);
+    assert(lemma_reasons.size == 0);
+    variable_t constraint_var = conflict_core.data[0];
+    term_t constraint_term = variable_db_get_term(bv->ctx->var_db, constraint_var);
+    ivector_push(conflict, constraint_term);
+    ivector_push(conflict, opposite_term(constraint_term));
+    break;
+  }
+  default:
+    assert(false);
   }
 
   // Remove temps
@@ -1215,8 +1228,9 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 }
 
 static
-bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
+bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
+  bool result = true;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(bv->ctx);
@@ -1231,7 +1245,7 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   ivector_t* var_list = int_mset_get_list(vars);
   uint32_t i = 0;
   for (i = 0; i < var_list->size; ++ i) {
-    bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
+    bool var_evaluates = trail_has_value_at(bv->ctx->trail, var_list->data[i], trail_size);
     if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
       FILE* out = ctx_trace_out(bv->ctx);
       fprintf(out, "%"PRIu32": ", i);
@@ -1242,13 +1256,12 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
       }
     }
     if (!var_evaluates) {
-      int_mset_clear(vars);
-      return false;
+      result = false;
     }
   }
 
   // All variables assigned
-  return true;
+  return result;
 }
 
 // Required as plugin_t field

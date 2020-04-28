@@ -758,16 +758,17 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
   return bool2term(var_value);
 }
 
-bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
+bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   const variable_db_t* var_db = bp->ctx->var_db;
   const mcsat_trail_t* trail = bp->ctx->trail;
 
-  // Bool plugin only explains evaluation of assigned false literals
+  // Boolean plugin only explains evaluation of assigned false literals
   term_t t_unsigned = unsigned_term(t);
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
-  if (t_var != variable_null && trail_has_cached_value(trail, t_var)) {
+  int_mset_add(vars, t_var);
+  if (t_var != variable_null && trail_has_value_at(trail, t_var, trail_size)) {
     bool negated = is_neg_term(t);
     const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
     if (negated) {

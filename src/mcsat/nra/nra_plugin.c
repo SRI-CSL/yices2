@@ -1528,8 +1528,10 @@ term_t nra_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
 }
 
 static
-bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
+bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
+
+  bool result = true;
 
   // Get all the variables and make sure they are all assigned.
   nra_plugin_get_constraint_variables(nra, t, vars);
@@ -1538,14 +1540,13 @@ bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars,
   ivector_t* var_list = int_mset_get_list(vars);
   size_t i = 0;
   for (i = 0; i < var_list->size; ++ i) {
-    if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
-      int_mset_clear(vars);
-      return false;
+    if (!trail_has_value_at(nra->ctx->trail, var_list->data[i], trail_size)) {
+      result = false;
     }
   }
 
   // All variables assigned
-  return true;
+  return result;
 }
 
 static

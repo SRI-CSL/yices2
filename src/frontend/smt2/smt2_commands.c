@@ -4097,7 +4097,7 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
   smt2_pp_t printer;
 
   if (!g->produce_unsat_model_interpolants) {
-    print_error("not supported: :produce-unsat-interpolants is false");
+    print_error("not supported: :produce-unsat-model-interpolants is false");
   } else {
     smt_status_t status = g->check_with_model_status;
     switch (status) {

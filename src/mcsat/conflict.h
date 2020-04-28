@@ -59,10 +59,13 @@ struct mcsat_evaluator_interface_s {
    * the function returns the full set of variables that are considered as
    * the assignment frontier for the evaluation.
    *
+   * The evaluation considers the trail with size up to the given size: one
+   * should use trail_has_value_at() to check for values.
+   *
    * If value != NULL, and the term evaluates, the output value should be
    * assigned to it.
    */
-  bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, const mcsat_value_t* value);
+  bool (*evaluates_at) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, const mcsat_value_t* value, uint32_t index);
 };
 
 /**
@@ -120,8 +123,14 @@ typedef struct conflict_s {
   /** Evaluator so that we can evaluate terms */
   const mcsat_evaluator_interface_t* evaluator;
 
-  /** Special literal: evaluates to true instead of false, so is negated */
-  term_t special_lit;
+  /** Whether to demand literals to evaluate to false */
+  bool check_false;
+
+  /** Whether to use regular trail operations (if false), or with a given trail size below (if true) */
+  bool use_trail_size;
+
+  /** The trail size to use for trail operations */
+  uint32_t trail_size;
 
 } conflict_t;
 
@@ -129,7 +138,7 @@ typedef struct conflict_s {
  * Construct the conflict. The conflict_lits are literals (terms) that evaluate
  * to true and the lemma (and conflict_lits) => false is valid.
  */
-void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, term_t special_lit,
+void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, bool check_false,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
     term_manager_t* tm, tracer_t* tracer);
 

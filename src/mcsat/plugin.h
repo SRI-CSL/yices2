@@ -254,7 +254,7 @@ struct plugin_s {
    * If the value is NULL, just collect the variables that contribute to the
    * value. The output variables should be mcsat variables (variable_t).
    */
-  bool (*explain_evaluation) (plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value);
+  bool (*explain_evaluation) (plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size);
 
   /**
    * Push the internal context.

@@ -472,7 +472,7 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 }
 
 static
-bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
+bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
@@ -493,6 +493,14 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     variable_t lhs_var = variable_db_get_variable_if_exists(var_db, lhs_term);
     variable_t rhs_var = variable_db_get_variable_if_exists(var_db, rhs_term);
 
+    // Add to variables
+    if (lhs_var != variable_null) {
+      int_mset_add(vars, lhs_var);
+    }
+    if (rhs_var != variable_null) {
+      int_mset_add(vars, rhs_var);
+    }
+
     // Check if both are assigned
     if (lhs_var == variable_null) {
       return false;
@@ -500,10 +508,10 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     if (rhs_var == variable_null) {
       return false;
     }
-    if (!trail_has_value(trail, lhs_var)) {
+    if (!trail_has_value_at(trail, lhs_var, trail_size)) {
       return false;
     }
-    if (!trail_has_value(trail, rhs_var)) {
+    if (!trail_has_value_at(trail, rhs_var, trail_size)) {
       return false;
     }
 
@@ -513,10 +521,9 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     bool negated = is_neg_term(t);
     if ((negated && (value->b != lhs_eq_rhs)) ||
         (!negated && (value->b == lhs_eq_rhs))) {
-      int_mset_add(vars, lhs_var);
-      int_mset_add(vars, rhs_var);
       return true;
     }
+
   }
 
   // Default: return false for cases like f(x) -> false, this is done in the
