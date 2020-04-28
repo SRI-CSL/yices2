@@ -4120,6 +4120,9 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
     case STATUS_IDLE:
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
+      print_error("No unsat interpolant. The context is not unsatisfiable");
+      break;
+
     default:
       print_out("BUG: unexpected status in get-unsat-model-interpolant");
 	  freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
@@ -4723,6 +4726,10 @@ void smt2_get_unsat_assumptions(void) {
   }
 }
 
+/* Check whether MCSAT solver is going to be used. */
+static bool mcsat_enabled(smt2_globals_t *g) {
+  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
+}
 
 /*
  * Get the interpolant for the model: formula implied by the assertions that
@@ -4734,7 +4741,11 @@ void smt2_get_unsat_model_interpolant(void) {
   tprint_calls("get-unsat-model-interpolant", __smt2_globals.stats.num_get_unsat_model_interpolant);
 
   if (check_logic()) {
-    show_unsat_model_interpolant(&__smt2_globals);
+    if (!mcsat_enabled(&__smt2_globals)) {
+      print_error("get-unsat-model-interpolant is only supported in MCSAT");
+    } else {
+      show_unsat_model_interpolant(&__smt2_globals);
+    }
   }
 }
 
@@ -6319,11 +6330,6 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
       ctx_check_sat_assuming(&__smt2_globals, n, a);
     }
   }
-}
-
-/* Check whether MCSAT solver is going to be used. */
-static bool mcsat_enabled(smt2_globals_t *g) {
-  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
 }
 
 /*
