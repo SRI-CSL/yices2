@@ -5832,6 +5832,33 @@ void delete_tstack(tstack_t *stack) {
 
 
 /*
+ * Reset all the internal buffers
+ */
+void tstack_reset_buffers(tstack_t *stack) {
+  if (stack->abuffer != NULL) {
+    yices_free_arith_buffer(stack->abuffer);
+    stack->abuffer = NULL;
+  }
+
+  if (stack->bva64buffer != NULL) {
+    yices_free_bvarith64_buffer(stack->bva64buffer);
+    stack->bva64buffer = NULL;
+  }
+
+  if (stack->bvabuffer != NULL) {
+    yices_free_bvarith_buffer(stack->bvabuffer);
+    stack->bvabuffer = NULL;
+  }
+
+  if (stack->bvlbuffer != NULL) {
+    yices_free_bvlogic_buffer(stack->bvlbuffer);
+    stack->bvlbuffer = NULL;
+  }
+}
+
+
+
+/*
  * Add or replace an operator
  * - op = operator code
  * - asssoc = whether op is associative or not

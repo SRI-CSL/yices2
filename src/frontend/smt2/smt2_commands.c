@@ -6379,7 +6379,6 @@ void smt2_reset_all(void) {
   print_success = __smt2_globals.print_success;
   verbosity = __smt2_globals.verbosity;
   
-
   delete_smt2_globals(&__smt2_globals);
   delete_attr_vtbl(&avtbl); // must be done last
   yices_reset_tables();

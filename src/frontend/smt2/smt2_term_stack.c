@@ -1223,10 +1223,13 @@ static void check_smt2_reset_all(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 0);
 }
 
+// side effect: this resets the stack and free buffers
 static void eval_smt2_reset_all(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  tstack_reset(stack);
+  tstack_reset_buffers(stack);
   smt2_reset_all();
-  tstack_pop_frame(stack);
-  no_result(stack);
+  //  tstack_pop_frame(stack);
+  //  no_result(stack);
 }
 
 

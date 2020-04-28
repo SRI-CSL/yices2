@@ -542,6 +542,12 @@ extern void delete_tstack(tstack_t *stack);
 
 
 /*
+ * Free all the internal buffers
+ */
+extern void tstack_reset_buffers(tstack_t *stack);
+
+
+/*
  * PUSH DATA OR OPERATOR
  */
 
