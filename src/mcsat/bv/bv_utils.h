@@ -272,8 +272,7 @@ void bv_term_compute_value(term_table_t* terms, term_t t, bvconstant_t** childre
       for (uint32_t i = 0; i < t_arity; ++i) {
         bool bit_i = bvconst_tst_bit(children_values[i]->data, 0);
         if (bit_i) {
-          bvconst_set_bit(out_value->data, 0);
-          break;
+          bvconst_flip_bit(out_value->data, 0);
         }
       }
       break;
