@@ -4520,7 +4520,10 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
   if (check_logic()) {
     // make sure we have a model
-    mdl = get_model(&__smt2_globals);
+    if (__smt2_globals.efmode)
+      mdl = get_ef_model(&__smt2_globals);
+    else
+      mdl = get_model(&__smt2_globals);
     if (mdl == NULL) return;
 
     // evaluate all terms: store the values in values->data[0 ... n-1]
