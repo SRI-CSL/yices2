@@ -1478,6 +1478,7 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
   case EF_STATUS_INTERRUPTED:
     trace_printf(g->tracer, 3, "(exist/forall solver: %"PRIu32" iterations)\n", efsolver->iters);
     print_out("%s\n", ef_status2string[stat]);
+    flush_out();
     break;
 
   case EF_STATUS_SUBST_ERROR:

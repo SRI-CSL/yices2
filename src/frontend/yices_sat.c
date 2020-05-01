@@ -481,6 +481,8 @@ static void print_results(void) {
   } else {
     printf("unknown\n");
   }
+
+  fflush(stdout);
 }
 
 
