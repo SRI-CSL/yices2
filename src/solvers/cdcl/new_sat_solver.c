@@ -7144,7 +7144,7 @@ static bool pp_scc_simplification(sat_solver_t *solver) {
 
   v = &solver->subst_vars;
   n = v->size;
-  if (n > 0 || solver->stats.pp_scc_calls == 1) {
+  if (n > 0) {
     n0 = n;
     if (solver->verbosity >= 3) {
       fprintf(stderr, "c  scc %"PRIu32" variable substitutions\n", n);
