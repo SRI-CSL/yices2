@@ -778,6 +778,7 @@ uint32_t bv_evaluator_not_free_up_to(bv_csttrail_t* csttrail, term_t u) {
   case BV_CONSTANT:
   case BV64_CONSTANT:
     assert(false); // Already treated above
+    break;
   case EQ_TERM:
   case OR_TERM:
   case XOR_TERM:

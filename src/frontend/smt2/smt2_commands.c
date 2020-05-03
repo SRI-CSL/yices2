@@ -1545,6 +1545,7 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
   case EF_STATUS_INTERRUPTED:
     trace_printf(g->tracer, 3, "(exist/forall solver: %"PRIu32" iterations)\n", efsolver->iters);
     print_out("%s\n", ef_status2string[stat]);
+    flush_out();
     break;
 
   case EF_STATUS_SUBST_ERROR:
@@ -4770,8 +4771,11 @@ void smt2_get_value(term_t *a, uint32_t n) {
   tprint_calls("get-value", __smt2_globals.stats.num_get_value);
 
   if (check_logic()) {
-    // make sure we have a model
-    mdl = get_model(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      mdl = get_ef_model(&__smt2_globals);
+    } else {
+      mdl = get_model(&__smt2_globals);
+    }
     if (mdl == NULL) return;
 
     // evaluate all terms: store the values in values->data[0 ... n-1]
@@ -6658,7 +6662,6 @@ void smt2_reset_all(void) {
   print_success = __smt2_globals.print_success;
   verbosity = __smt2_globals.verbosity;
   
-
   delete_smt2_globals(&__smt2_globals);
   delete_attr_vtbl(&avtbl); // must be done last
   yices_reset_tables();

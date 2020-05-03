@@ -1669,7 +1669,7 @@ static const help_record_t help_data[] = {
   "       | ( show-implicant )\n" \
   "       | ( show-unsat-core )\n" \
   "       | ( show-unsat-assumptions )\n" \
-  "       | ( show-reduced-mdoel )\n" \
+  "       | ( show-reduced-model )\n" \
   "\n"   \
   "  <typedef> ::=\n" \
   "         <type>\n" \

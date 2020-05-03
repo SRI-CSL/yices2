@@ -386,7 +386,7 @@ void bv_bdd_manager_ensure_term_data(bv_bdd_manager_t* bddm, term_t t, uint32_t 
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
       case BV_SGE_ATOM: {
-        // Boolean atoms, 2 children are bitvectors
+        // Boolean atoms, children are bitvectors
         assert(bitsize == 1);
         composite_term_t* atom_comp = composite_term_desc(terms, t);
         for (uint32_t i = 0; i < atom_comp->arity; ++ i) {

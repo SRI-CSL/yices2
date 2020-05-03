@@ -693,9 +693,6 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
   if (!feasible) {
     bv_plugin_report_conflict(bv, prop, x, BV_CONFLICT_UNIT);
   } else {
-    // We propagate values if:
-    // - true at 0 level, because safe, no explanation needed, or
-    // - Boolean, because shared sort with Booleans
     if (!trail_has_value(trail, x)) {
       bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
       uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);

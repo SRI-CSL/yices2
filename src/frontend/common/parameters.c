@@ -29,7 +29,7 @@
 
 /*
  * Parameter names: using the Yices conventions
- * - for the smt2 front end, you prefix these names with ':yices:'
+ * - for the smt2 front end, you prefix these names with ':yices-'
  */
 static const char * const param_names[NUM_PARAMETERS] = {
   "arith-elim",
