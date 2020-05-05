@@ -2206,6 +2206,7 @@ static void print_float_value(double value) {
 
 static void print_terms_value(smt2_globals_t *g, const ivector_t* order) {
   smt2_pp_t printer;
+
   init_pretty_printer(&printer, g);
   pp_open_block(&printer.pp, PP_OPEN_VPAR); // open '('
   if (order != NULL) {
@@ -2899,13 +2900,18 @@ static void show_delayed_assertions(smt2_globals_t *g) {
   uint32_t i, n;
 
   if (g->benchmark_mode) {
+    fprintf(g->out, "--- All terms ---\n");
+    pp_term_table(g->out, __yices_globals.terms);
+    fprintf(g->out, "\n");
+
+    fprintf(g->out, "--- Assertions --\n");
     v = g->assertions.data;
     n = g->assertions.size;
 
     init_pretty_printer(&printer, g);
     for (i=0; i<n; i++) {
-      pp_term_full(&printer->pp, __yices_globals.terms, v[i]);
-      flush_smt2_pp(&printer, true);
+      pp_term(&printer.pp, __yices_globals.terms, v[i]);
+      flush_smt2_pp(&printer);
     }
     delete_smt2_pp(&printer, true);
   }
@@ -6022,7 +6028,7 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	// show_delayed_assertions(&__smt2_globals);
+	//	show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
         check_delayed_assertions(&__smt2_globals);
 #else

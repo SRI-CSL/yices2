@@ -162,3 +162,11 @@ bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x) {
     p->mono[1].coeff == 1;
 }
 
+
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant x
+ * and variable x.
+ */
+bool bvpoly64_is_offset(bvpoly64_t *p) {
+  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].coeff == 1;
+}
