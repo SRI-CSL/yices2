@@ -2466,7 +2466,7 @@ void process_aux_atoms(context_t *ctx) {
 	// contradiction
 	longjmp(ctx->env, TRIVIALLY_UNSAT);
       } else if (code != bool2code(true)) {
-	ivector_push(&ctx->top_atoms, r);
+	ivector_push(&ctx->top_interns, r);
       }
     } else {
       // not mapped
