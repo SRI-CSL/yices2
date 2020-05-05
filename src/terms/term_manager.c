@@ -70,6 +70,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
 
   manager->simplify_ite = true;
   manager->simplify_bveq1 = true;
+  manager->simplify_bvite_offset = false;
 }
 
 
@@ -1580,20 +1581,22 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
     break;
   }
 
-  // More simplifications
-  // (ite c (a + t) (b + t)) --> t + (ite c a b) where a and b are constants
-  if (kind_x == BV64_POLY && kind_y == BV64_POLY) {
-    aux = check_ite_bvoffset64(manager, c, bvpoly64_term_desc(tbl, x), bvpoly64_term_desc(tbl, y));
-  } else if (kind_y == BV64_POLY) {
-    aux = check_ite_bvoffset64_var(manager, c, x, bvpoly64_term_desc(tbl, y));
-  } else if (kind_x == BV64_POLY) {
-    aux = check_ite_bvoffset64_var(manager, opposite_term(c), y, bvpoly64_term_desc(tbl, x));
-  } else if (kind_x == BV_POLY && kind_y == BV_POLY) {
-    aux = check_ite_bvoffset(manager, c, bvpoly_term_desc(tbl, x), bvpoly_term_desc(tbl, y));
-  } else if (kind_y == BV_POLY) {
-    aux = check_ite_bvoffset_var(manager, c, x, bvpoly_term_desc(tbl, y));
-  } else if (kind_x == BV_POLY) {
-    aux = check_ite_bvoffset_var(manager, opposite_term(c), y, bvpoly_term_desc(tbl, x));
+  if (manager->simplify_bvite_offset) {
+    // More simplifications
+    // (ite c (a + t) (b + t)) --> t + (ite c a b) where a and b are constants
+    if (kind_x == BV64_POLY && kind_y == BV64_POLY) {
+      aux = check_ite_bvoffset64(manager, c, bvpoly64_term_desc(tbl, x), bvpoly64_term_desc(tbl, y));
+    } else if (kind_y == BV64_POLY) {
+      aux = check_ite_bvoffset64_var(manager, c, x, bvpoly64_term_desc(tbl, y));
+    } else if (kind_x == BV64_POLY) {
+      aux = check_ite_bvoffset64_var(manager, opposite_term(c), y, bvpoly64_term_desc(tbl, x));
+    } else if (kind_x == BV_POLY && kind_y == BV_POLY) {
+      aux = check_ite_bvoffset(manager, c, bvpoly_term_desc(tbl, x), bvpoly_term_desc(tbl, y));
+    } else if (kind_y == BV_POLY) {
+      aux = check_ite_bvoffset_var(manager, c, x, bvpoly_term_desc(tbl, y));
+    } else if (kind_x == BV_POLY) {
+      aux = check_ite_bvoffset_var(manager, opposite_term(c), y, bvpoly_term_desc(tbl, x));
+    }
   }
 
 
