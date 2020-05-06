@@ -790,6 +790,9 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
   lp_polynomial_t* x_cell_a_p_r = lp_polynomial_new(map->ctx);
   lp_polynomial_t* x_cell_b_p_r = lp_polynomial_new(map->ctx);
 
+  // Order the variables 
+  lp_projection_map_order_vars(map);
+
   // Project
   for (;;) {
 
