@@ -138,6 +138,11 @@ extern bool disequal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2);
 extern bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x);
 
 
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant k
+ * and variable x.
+ */
+extern bool bvpoly64_is_offset(bvpoly64_t *p);
 
 
 #endif /* __BV64_POLYNOMIALS_H */

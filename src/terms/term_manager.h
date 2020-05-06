@@ -73,7 +73,6 @@ typedef struct term_manager_s {
   rba_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
   bvarith64_buffer_t *bvarith64_buffer;
-  //  bvarith64_buffer_t *bvarith64_aux_buffer; // NOT USED
   bvlogic_buffer_t *bvlogic_buffer;
   pp_buffer_t *pp_buffer;
 
@@ -89,6 +88,7 @@ typedef struct term_manager_s {
 
   bool simplify_ite;
   bool simplify_bveq1;
+  bool simplify_bvite_offset;
 
 } term_manager_t;
 
