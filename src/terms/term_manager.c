@@ -70,7 +70,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
 
   manager->simplify_ite = true;
   manager->simplify_bveq1 = true;
-  manager->simplify_bvite_offset = true;
+  manager->simplify_bvite_offset = false;
 }
 
 
