@@ -70,7 +70,7 @@ void init_term_manager(term_manager_t *manager, term_table_t *terms) {
 
   manager->simplify_ite = true;
   manager->simplify_bveq1 = true;
-  manager->simplify_bvite_offset = false;
+  manager->simplify_bvite_offset = true;
 }
 
 
@@ -1400,14 +1400,23 @@ static term_t mk_bvoffset64_ite(term_manager_t *manager, term_t c, term_t t, uin
 
 
 /*
- * Try to rewrite (ite c u v) to  (ite c a b) + t where a and b are constants.
+ * Try to rewrite (ite c x y) to  (ite c a b) + t where a and b are constants.
+ * - x and y are both polynomials
  */
-static term_t check_ite_bvoffset64(term_manager_t *manager, term_t c, bvpoly64_t *u, bvpoly64_t *v) {
+static term_t check_ite_bvoffset64(term_manager_t *manager, term_t c, term_t x, term_t y) {
+  term_table_t *tbl;
+  bvpoly64_t *u, *v;
   uint64_t a, b;
   term_t t;
   uint32_t n;
 
-  assert(u->bitsize == v->bitsize);
+  tbl = manager->terms;
+
+  u = bvpoly64_term_desc(tbl, x);
+  v = bvpoly64_term_desc(tbl, y);
+  n = u->bitsize;
+
+  assert(n == v->bitsize);
 
   if (bvpoly64_is_offset(u) && bvpoly64_is_offset(v)) {
     assert(u->nterms == 2 && v->nterms == 2);
@@ -1420,6 +1429,22 @@ static term_t check_ite_bvoffset64(term_manager_t *manager, term_t c, bvpoly64_t
       b = v->mono[0].coeff;
       return mk_bvoffset64_ite(manager, c, t, a, b, n);
     }
+
+  } else if (delta_bvpoly64_is_constant(u, v)) {
+    // x - y is a constant
+    if (u->nterms + 1 == v->nterms) {
+      // rewrite (ite c x (b + x)) to x + (ite c 0 b)
+      assert(v->mono[0].var == const_idx);
+      b =  v->mono[0].coeff;
+      return mk_bvoffset64_ite(manager, c, x, 0, b, n);
+    }
+    if (u->nterms == v->nterms + 1) {
+      // rewrite (ite c (a + y) y) to y + (ite c a 0)
+      assert(u->mono[0].var == const_idx);
+      a = u->mono[0].coeff;
+      return mk_bvoffset64_ite(manager, c, y, a, 0, n);
+    }
+    // TODO: handle the case u->nterms == v->nterms?
   }
 
   return NULL_TERM;
@@ -1446,31 +1471,61 @@ static term_t check_ite_bvoffset64_var(term_manager_t *manager, term_t c, term_t
 /*
  * Construct t + (ite c a b)
  * - n = number of bits in a and b and t
+ * - a or b may be NULL, in which case they are interpreted as zero
  */
 static term_t mk_bvoffset_ite(term_manager_t *manager, term_t c, term_t t, uint32_t *a, uint32_t *b, uint32_t n) {
+  uint32_t aux[32];
   bvarith_buffer_t *buffer;
   term_table_t *tbl;
+  uint32_t w;
+  uint32_t *tmp;
   term_t u;
 
   tbl = manager->terms;
   buffer = term_manager_get_bvarith_buffer(manager);
 
+  tmp = NULL;
+  if (a == NULL || b == NULL) {
+    assert(a != b); // only one can be NULL
+    w = (n + 31) >> 5; // number of words to store the zero constant
+    tmp = aux;
+    if (w > 32) tmp = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    bvconst_clear(tmp, w);
+    if (a == NULL) a = tmp;
+    if (b == NULL) b = tmp;
+  }
+
   u = mk_bvconst_ite_core(manager, c, a, b, n);   // (ite c a b)
   bvarith_buffer_set_term(buffer, tbl, t);
   bvarith_buffer_add_term(buffer, tbl, u);
-  return mk_bvarith_term(manager, buffer);
+  u = mk_bvarith_term(manager, buffer);
+
+  if (tmp != NULL && w > 32) {
+    safe_free(tmp);
+  }
+
+  return u;
 }
 
 
 /*
- * Try to rewrite (ite c u v) to  (ite c a b) + t where a and b are constants.
+ * Try to rewrite (ite c x y) to  (ite c a b) + t where a and b are constants.
+ * - x and y are both polynomials
  */
-static term_t check_ite_bvoffset(term_manager_t *manager, term_t c, bvpoly_t *u, bvpoly_t *v) {
+static term_t check_ite_bvoffset(term_manager_t *manager, term_t c, term_t x, term_t y) {
+  term_table_t *tbl;
+  bvpoly_t *u, *v;
   uint32_t *a, *b;
   term_t t;
   uint32_t n;
 
-  assert(u->bitsize == v->bitsize);
+  tbl = manager->terms;
+
+  u = bvpoly_term_desc(tbl, x);
+  v = bvpoly_term_desc(tbl, y);
+  n = u->bitsize;
+
+  assert(n == v->bitsize);
 
   if (bvpoly_is_offset(u) && bvpoly_is_offset(v)) {
     assert(u->nterms == 2 && v->nterms == 2);
@@ -1482,6 +1537,20 @@ static term_t check_ite_bvoffset(term_manager_t *manager, term_t c, bvpoly_t *u,
       a = u->mono[0].coeff;
       b = v->mono[0].coeff;
       return mk_bvoffset_ite(manager, c, t, a, b, n);
+    }
+  } else if (delta_bvpoly_is_constant(u, v)) {
+    // x - y is a constant
+    if (u->nterms + 1 == v->nterms) {
+      // rewrite (ite c x (b + x)) to x + (ite c 0 b)
+      assert(v->mono[0].var == const_idx);
+      b = v->mono[0].coeff;
+      return mk_bvoffset_ite(manager, c, x, NULL, b, n);
+    }
+    if (u->nterms == v->nterms + 1) {
+      // rewrite (ite c (a + y) y) to y + (ite c a 0)
+      assert(u->mono[0].var == const_idx);
+      a = u->mono[0].coeff;
+      return mk_bvoffset_ite(manager, c, y, a, NULL, n);
     }
   }
 
@@ -1582,16 +1651,16 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
   }
 
   if (manager->simplify_bvite_offset) {
-    // More simplifications
+    // More rewrites
     // (ite c (a + t) (b + t)) --> t + (ite c a b) where a and b are constants
     if (kind_x == BV64_POLY && kind_y == BV64_POLY) {
-      aux = check_ite_bvoffset64(manager, c, bvpoly64_term_desc(tbl, x), bvpoly64_term_desc(tbl, y));
+      aux = check_ite_bvoffset64(manager, c, x, y);
     } else if (kind_y == BV64_POLY) {
       aux = check_ite_bvoffset64_var(manager, c, x, bvpoly64_term_desc(tbl, y));
     } else if (kind_x == BV64_POLY) {
       aux = check_ite_bvoffset64_var(manager, opposite_term(c), y, bvpoly64_term_desc(tbl, x));
     } else if (kind_x == BV_POLY && kind_y == BV_POLY) {
-      aux = check_ite_bvoffset(manager, c, bvpoly_term_desc(tbl, x), bvpoly_term_desc(tbl, y));
+      aux = check_ite_bvoffset(manager, c, x, y);
     } else if (kind_y == BV_POLY) {
       aux = check_ite_bvoffset_var(manager, c, x, bvpoly_term_desc(tbl, y));
     } else if (kind_x == BV_POLY) {
