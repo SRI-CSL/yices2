@@ -537,6 +537,18 @@ static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
 
 
 /*
+ * Check whether the architecture is supported.
+ */
+static bool arch_is_supported(context_arch_t a) {
+#if HAVE_MCSAT
+  return true; // all architectures are supported
+#else
+  return a != CTX_ARCH_MCSAT;
+#endif
+}
+
+
+/*
  * Check whether config is valid (and supported by this version of Yices)
  * and convert it to a tuple (arch, mode, iflag, qflag)
  * - arch = architecture code as defined in context.h
@@ -587,7 +599,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     }
 
     a = logic2arch[logic_code];
-    if (a < 0) {
+    if (a < 0 || !arch_is_supported(a)) {
       // not supported
       r = -2;
     } else {
@@ -600,15 +612,19 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     }
 
   } else if (config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
-    /*
-     * MCSAT solver/no logic specified
-     */
-    *logic = SMT_UNKNOWN;
-    *arch = CTX_ARCH_MCSAT;
-    *mode = CTX_MODE_PUSHPOP;
-    *iflag = false;
-    *qflag = false;
-    goto done;
+    if (arch_is_supported(CTX_ARCH_MCSAT)) {
+      /*
+       * MCSAT solver/no logic specified
+       */
+      *logic = SMT_UNKNOWN;
+      *arch = CTX_ARCH_MCSAT;
+      *mode = CTX_MODE_PUSHPOP;
+      *iflag = false;
+      *qflag = false;
+    } else {
+      // not compiled with MCSAT support so this is not supported
+      r = -2;
+    }
 
   } else {
     /*
@@ -654,7 +670,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
  * Check whether a logic is supported by the MCSAT solver
  */
 bool logic_is_supported_by_mcsat(smt_logic_t code) {
-  return !(logic_has_arrays(code) || logic_has_bv(code) || logic_has_quantifiers(code));
+  return !(logic_has_arrays(code) || logic_has_quantifiers(code));
 }
 
 /*

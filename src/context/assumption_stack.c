@@ -234,7 +234,7 @@ static inline bool hash_index_needs_resize(const hash_index_t *index) {
 }
 
 static inline bool hash_index_needs_cleanup(const hash_index_t *index) {
-  return index->ndeleted >= index->cleanup_threshold;
+  return index->ndeleted >= index->cleanup_threshold && index->ndeleted > 0;
 }
 
 
@@ -455,7 +455,7 @@ void assumption_stack_add(assumption_stack_t *stack, term_t t, literal_t l) {
  * Search for a term t attached to literal l in the stack:
  * - this searches for an element of the form (t, l, k) in the stack
  *   and return t;
- * - if several terms are mapped to l, the function retuns the first one
+ * - if several terms are mapped to l, the function returns the first one
  *   (i.e., with the lowest level k).
  * - if there's no such element, the function returns NULL_TERM (i.e., -1)
  */

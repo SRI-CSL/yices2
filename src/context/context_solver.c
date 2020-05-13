@@ -32,6 +32,7 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
+#include "solvers/bv/dimacs_printer.h"
 #include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
@@ -703,6 +704,136 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
   }
 
   return stat;
+}
+
+
+/*
+ * Bit-blast then export to DIMACS
+ * - filename = name of the output file
+ * - status = status of the context after bit-blasting
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to conver the problem to CNF
+ * - export the CNF to DIMACS
+ *
+ * If ctx status is not IDLE,
+ * - store the stauts in *status and do nothing else
+ *
+ * Return code:
+ *  1 if the DIMACS file was created
+ *  0 if the problem was solved by the propagation round
+ * -1 if there was an error in creating or writing to the file.
+ */
+int32_t bitblast_then_export_to_dimacs(context_t *ctx, const char *filename, smt_status_t *status) {
+  smt_core_t *core;
+  FILE *f;
+  smt_status_t stat;
+  int32_t code;
+
+  core = ctx->core;
+
+  code = 0;
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      code = 1;
+      f = fopen(filename, "w");
+      if (f == NULL) {
+	code = -1;
+      } else {
+	dimacs_print_bvcontext(f, ctx);
+	if (ferror(f)) code = -1;
+	fclose(f);
+      }
+    }
+  }
+
+  *status = stat;
+
+  return code;
+}
+
+
+/*
+ * Simplify then export to Dimacs:
+ * - filename = name of the output file
+ * - status = status of the context after CNF conversion + preprocessing
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function stores that in *status
+ * If y2sat preprocessing solves the formula, return the status also in *status
+ *
+ * Return code:
+ *  1 if the DIMACS file was created
+ *  0 if the problems was solved by preprocessing (or if ctx status is not IDLE)
+ * -1 if there was an error creating or writing to the file.
+ */
+int32_t process_then_export_to_dimacs(context_t *ctx, const char *filename, smt_status_t *status) {
+  smt_core_t *core;
+  FILE *f;
+  smt_status_t stat;
+  delegate_t delegate;
+  bvar_t x;
+  bval_t v;
+  int32_t code;
+
+  core = ctx->core;
+
+  code = 0;
+  stat = smt_status(core);
+  if (stat == STATUS_IDLE) {
+    start_search(core, 0, NULL);
+    smt_process(core);
+    stat = smt_status(core);
+
+    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
+	   stat == STATUS_INTERRUPTED);
+
+    if (stat == STATUS_SEARCHING) {
+      if (smt_easy_sat(core)) {
+	stat = STATUS_SAT;
+      } else {
+	// call the delegate
+	init_delegate(&delegate, "y2sat", num_vars(core));
+	delegate_set_verbosity(&delegate, 0);
+
+	stat = preprocess_with_delegate(&delegate, core);
+	set_smt_status(core, stat);
+	if (stat == STATUS_SAT) {
+	  for (x=0; x<num_vars(core); x++) {
+	    v = delegate_get_value(&delegate, x);
+	    set_bvar_value(core, x, v);
+	  }
+	} else if (stat == STATUS_UNKNOWN) {
+	  code = 1;
+	  f = fopen(filename, "w");
+	  if (f == NULL) {
+	    code = -1;
+	  } else {
+	    export_to_dimacs_with_delegate(&delegate, f);
+	    if (ferror(f)) code = -1;
+	    fclose(f);
+	  }
+	}
+
+	delete_delegate(&delegate);
+      }
+    }
+  }
+
+  *status = stat;
+
+  return code;
 }
 
 

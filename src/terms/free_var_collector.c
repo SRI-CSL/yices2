@@ -23,8 +23,6 @@
 #include <assert.h>
 
 #include "terms/free_var_collector.h"
-#include "utils/int_array_sort.h"
-#include "utils/ptr_array_sort.h"
 
 
 /*
@@ -33,10 +31,8 @@
 void init_fvar_collector(fvar_collector_t *collect, term_table_t *ttbl) {
   collect->terms = ttbl;
   init_ptr_hmap(&collect->map, 0);         // default size
-  init_int_array_hset(&collect->store, 0); // default size
+  init_harray_store(&collect->store);
   init_pstack(&collect->stack);
-  init_ivector(&collect->buffer, 20);      // initial size = 20
-  init_int_hset(&collect->aux, 0);         // default size
 }
 
 
@@ -45,10 +41,8 @@ void init_fvar_collector(fvar_collector_t *collect, term_table_t *ttbl) {
  */
 void delete_fvar_collector(fvar_collector_t *collect) {
   delete_ptr_hmap(&collect->map);
-  delete_int_array_hset(&collect->store);
+  delete_harray_store(&collect->store);
   delete_pstack(&collect->stack);
-  delete_ivector(&collect->buffer);
-  delete_int_hset(&collect->aux);
 }
 
 
@@ -57,10 +51,8 @@ void delete_fvar_collector(fvar_collector_t *collect) {
  */
 void reset_fvar_collector(fvar_collector_t *collect) {
   ptr_hmap_reset(&collect->map);
-  reset_int_array_hset(&collect->store);
+  reset_harray_store(&collect->store);
   reset_pstack(&collect->stack);
-  ivector_reset(&collect->buffer);
-  int_hset_reset(&collect->aux);
 }
 
 
@@ -92,7 +84,7 @@ static bool good_var_set(term_table_t *terms, harray_t *a) {
  * Empty set of variables
  */
 static inline harray_t *empty_fvar_set(fvar_collector_t *collect) {
-  return int_array_hset_get(&collect->store, 0, NULL);
+  return empty_harray(&collect->store);
 }
 
 
@@ -100,146 +92,9 @@ static inline harray_t *empty_fvar_set(fvar_collector_t *collect) {
  * Singleton set: x = unique element
  */
 static inline harray_t *singleton_fvar_set(fvar_collector_t *collect, term_t x) {
-  return int_array_hset_get(&collect->store, 1, &x);
+  return singleton_harray(&collect->store, x);
 }
 
-
-/*
- * Add all elements of a to vector v and to hset
- * - skip the elements of a that are already in hset
- */
-static void fvar_merge(ivector_t *v, int_hset_t *hset, harray_t *a) {
-  uint32_t i, n;
-  term_t x;
-
-  n = a->nelems;
-  for (i=0; i<n; i++) {
-    x = a->data[i];
-    if (int_hset_add(hset, x)) { // new variable
-      ivector_push(v, x);
-    }
-  }
-}
-
-
-/*
- * Compute the union of a and b
- */
-static harray_t *merge_two_fvar_sets(fvar_collector_t *collect, harray_t *a, harray_t *b) {
-  ivector_t *v;
-  int_hset_t *aux;
-
-  if (a != b) {
-    v = &collect->buffer;
-    aux = &collect->aux;
-    assert(v->size == 0 && int_hset_is_empty(aux));
-
-    fvar_merge(v, aux, a);
-    fvar_merge(v, aux, b);
-    int_array_sort(v->data, v->size);
-    a = int_array_hset_get(&collect->store, v->size, v->data);
-    assert(good_var_set(collect->terms, a));
-
-    ivector_reset(v);
-    int_hset_reset(aux);
-  }
-
-  return a;
-}
-
-/*
- * Compute the union of a[0 ... n-1]
- * - n must be positive
- */
-static harray_t *merge_fvar_sets(fvar_collector_t *collect, harray_t **a, uint32_t n) {
-  harray_t *b, *c;
-  ivector_t *v;
-  int_hset_t *aux;
-  uint32_t i;
-
-  assert(n > 0);
-
-  if (n == 1) {
-    b = a[0];
-  } else if (n == 2) {
-    b = merge_two_fvar_sets(collect, a[0], a[1]);
-  } else {
-    v = &collect->buffer;
-    aux = &collect->aux;
-    assert(v->size == 0 && int_hset_is_empty(aux));
-
-    /*
-     * Collect all elements of a[0] ... a[n-1] in v
-     */
-    ptr_array_sort((void **) a, n);
-    b = a[0];
-    for (i=1; i<n; i++) {
-      c = a[i];
-      if (c != b) {
-        fvar_merge(v, aux, b);
-        b = c;
-      }
-    }
-
-    /*
-     * b is a[i], for some i and elements of b have not been
-     * processed yet. If i = 0, then all elements of a are
-     * equal to b so the result is b.
-     */
-    if (b != a[0]) {
-      fvar_merge(v, aux, b);
-
-      assert(v->size > 0 && int_hset_is_nonempty(aux));
-      int_array_sort(v->data, v->size);
-      b = int_array_hset_get(&collect->store, v->size, v->data);
-      assert(good_var_set(collect->terms, b));
-
-      ivector_reset(v);
-      int_hset_reset(aux);
-    }
-  }
-
-  return b;
-}
-
-
-/*
- * Remove variables x[0] to x[n-1] from set a then build a harray.
- */
-static harray_t *fvar_set_remove(fvar_collector_t *collect, harray_t *a, uint32_t n, term_t *x) {
-  ivector_t *v;
-  int_hset_t *aux;
-  uint32_t i;
-  term_t y;
-
-  v = &collect->buffer;
-  aux = &collect->aux;
-  assert(v->size == 0 && int_hset_is_empty(aux));
-
-  // store x[0] ... x[n-1] in aux
-  for (i=0; i<n; i++) {
-    (void) int_hset_add(aux, x[i]);
-  }
-
-  /*
-   * collect elements of a - aux into v.
-   * the elements are sorted in v.
-   */
-  n = a->nelems;
-  for (i=0; i<n; i++) {
-    y = a->data[i];
-    if (! int_hset_member(aux, y)) {
-      ivector_push(v, y);
-    }
-  }
-  a = int_array_hset_get(&collect->store, v->size, v->data);
-  assert(good_var_set(collect->terms, a));
-
-  ivector_reset(v);
-  int_hset_reset(aux);
-
-  return a;
-}
 
 
 /*
@@ -288,7 +143,7 @@ static harray_t *free_vars_of_composite(fvar_collector_t *collect, composite_ter
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, c->arg[i]);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -304,7 +159,7 @@ static harray_t *free_vars_of_pprod(fvar_collector_t *collect, pprod_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, p->prod[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -328,7 +183,7 @@ static harray_t *free_vars_of_poly(fvar_collector_t *collect, polynomial_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -350,7 +205,7 @@ static harray_t *free_vars_of_bvpoly64(fvar_collector_t *collect, bvpoly64_t *p)
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -373,7 +228,7 @@ static harray_t *free_vars_of_bvpoly(fvar_collector_t *collect, bvpoly_t *p) {
   for (i=0; i<n; i++) {
     a[i] = get_free_vars_of_term(collect, mono[i].var);
   }
-  result = merge_fvar_sets(collect, a, n);
+  result = merge_harrays(&collect->store, a, n);
   free_pstack_array(&collect->stack, (void **) a);
 
   return result;
@@ -394,10 +249,26 @@ static harray_t *free_vars_of_binding(fvar_collector_t *collect, composite_term_
    */
   assert(n >= 2);
   a = get_free_vars_of_term(collect, p->arg[n-1]);
-  a = fvar_set_remove(collect, a, n-1, p->arg);
+  a = harray_remove_elem(&collect->store, a, n-1, p->arg);
 
   return a;
 }
+
+
+/*
+ * Free variables in a root atom r:
+ */
+static harray_t *free_vars_of_root_atom(fvar_collector_t *collect, root_atom_t *r) {
+  harray_t *a;
+  term_t x;
+
+  x = r->x;
+  a  = get_free_vars_of_term(collect, r->p);  // p = polynomial
+  a = harray_remove_elem(&collect->store, a, 1, &x); // x = bound variable in p(x, ...)
+
+  return a;
+}
+
 
 
 /*
@@ -436,6 +307,14 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
   case ARITH_CEIL:
   case ARITH_ABS:
     result = get_free_vars_of_term(collect, integer_value_for_idx(terms, i));
+    break;
+
+  case ARITH_ROOT_ATOM:
+    result = lookup_free_vars(collect, i);
+    if (result == NULL) {
+      result = free_vars_of_root_atom(collect, root_atom_for_idx(terms, i));
+      cache_free_vars(collect, i, result);
+    }
     break;
 
   case ITE_TERM:
@@ -528,7 +407,6 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
 
 
 
-
 /*
  * Check whether t is a ground term:
  * - side effect: this computes the set of free variables of t
@@ -539,7 +417,6 @@ bool term_is_ground(fvar_collector_t *collect, term_t t) {
   a = get_free_vars_of_term(collect, t);
   return a->nelems == 0;
 }
-
 
 
 /*
@@ -580,5 +457,5 @@ static bool fvar_dead_harray(void *aux, const harray_t *a) {
 void cleanup_fvar_collector(fvar_collector_t *collect) {
   // must delete records in the map first
   ptr_hmap_remove_records(&collect->map, collect->terms, fvar_dead_hmap_pair);
-  int_array_hset_remove_arrays(&collect->store, collect->terms, fvar_dead_harray);
+  harray_store_remove_arrays(&collect->store, collect->terms, fvar_dead_harray);
 }

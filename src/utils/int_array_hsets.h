@@ -31,7 +31,7 @@
  * Array descriptor:
  * - hash = hash code
  * - nelems = number of elements
- * - data = array of elements, sorted in increasing order
+ * - data = array of elements
  */
 typedef struct harray_s {
   uint32_t hash;

@@ -9,15 +9,15 @@ Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and [Python language bindings](https://github.com/SRI-CSL/yices2_python_bindings).
+and bindings for [Python](https://github.com/SRI-CSL/yices2_python_bindings), [Go](https://github.com/SRI-CSL/yices2_go_bindings), and [OCaml](https://github.com/SRI-CSL/yices2_ocaml_bindings).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
 
-Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, and Ian A. Mason
+Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, Stéphane Graham-Lengrand, and Ian A. Mason
 at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
-[website](http://yices.csl.sri.com).
+[website](https://yices.csl.sri.com).
 
 ## Simple Examples
 
@@ -149,7 +149,7 @@ To build the manual, you also need:
 - the latexmk tool
 
 To build the on-line documentation, you need to install the Sphinx
-python pacakge. The simplest method is:
+python package. The simplest method is:
 
 ```
 sudo pip install sphinx
@@ -175,18 +175,25 @@ the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 
-#### Support for MC-SAT (non-linear arithmetic and more)
+#### Support for Non-Linear Arithmetic and MC-SAT
 
-Yices supports non-linear real and integer arithmetic, but this is not
-enabled by default. If you want non-linear arithmetic, follow these
-instructions:
+Yices supports non-linear real and integer arithmetic using a method
+known as *Model-Constructing Satisfiability* (MC-SAT), but this is not
+enabled by default. The MC-SAT solver also supports other theories and
+theory combination. We are currently extending it to handle bit-vector
+constraints.
+
+If you want the MC-SAT solver, follow these instructions:
 
 1. Install SRI's library for polynomial manipulation. It's available
    on [github](https://github.com/SRI-CSL/libpoly).
 
-2. After you've installed libpoly, add option `--enable-mcsat` to
-   the configure command. In details, type this in the toplevel
-   Yices directory:
+2. Install the CUDD library for binary-decision diagrams. We recommand
+   using the github distribution: https://github.com/ivmai/cudd.
+
+3. After you've installed libpoly and CUDD, add option
+   `--enable-mcsat` to the configure command. In details, type this in
+   the toplevel Yices directory:
 
 ```
 autoconf
@@ -196,8 +203,8 @@ sudo make install
 ```
 
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
-   find the libpoly library. Other options may be useful too.  Try
-   `./configure --help` to see what's there.
+  find the libpoly or CUDD libraries. Other options may be useful too.  Try
+  `./configure --help` to see what's there.
 
 
 #### Support for Thread Safety

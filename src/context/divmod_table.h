@@ -75,7 +75,7 @@ typedef struct divmod_rec_s {
  * We have 0 <= free_block <= nblocks <= capacity.
  * 
  * For 0 <= i < nblocks: block[i] points to a block.
- * For nblocks <= i < capacity: block[i] is not intialized.
+ * For nblocks <= i < capacity: block[i] is not initialized.
  *
  * For 0 <= i < free_block-1: block[i] is full.
  * For i = free_block-1: current block where records are allocated.

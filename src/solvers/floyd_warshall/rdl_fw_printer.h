@@ -39,11 +39,17 @@ extern void print_rdl_vertex(FILE *f, int32_t x);
 extern void print_rdl_const(FILE *f, rdl_const_t *c);
 
 /*
+ * Print constraint implied by the path x --> y
+ */
+extern void print_rdl_path_constraint(FILE *f, rdl_solver_t *solver, int32_t x, int32_t y);
+
+/*
  * Value of vertex x in the graph
  * - this prints distance[0, x] as the value
  * - of ??? if there's no path from 0 to x
  */
 extern void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t x);
+extern void print_rdl_vertex_values(FILE *f, rdl_solver_t *rdl);
 
 /*
  * Atom in format: [<boolvar> := (x - y <= const)]
@@ -70,8 +76,14 @@ extern void print_rdl_var_table(FILE *f, rdl_solver_t *solver);
 
 
 /*
- * Edges
+ * Edges:
+ * - for an edge i: x - y <= d: print_rdl_eddge prints just that
+ * - print_rdl_constraint prints x - y <= d[x, y] where
+ *   d[x, y] = distance from x to y in the matrix
  */
+extern void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i);
+extern void print_rdl_constraint(FILE *f, rdl_solver_t *solver, uint32_t i);
+
 extern void print_rdl_axioms(FILE *f, rdl_solver_t *solver);
 extern void print_rdl_edges(FILE *f, rdl_solver_t *solver);
 

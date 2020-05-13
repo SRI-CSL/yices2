@@ -68,7 +68,7 @@ void psc_buffer_delete(lp_polynomial_t** psc_buffer, uint32_t psc_buffer_size) {
 
 struct lp_projection_map_struct {
 
-  /** All polynomials added alrady */
+  /** All polynomials added already */
   lp_polynomial_hash_set_t all_polynomials;
 
   /** The sets we're maintaining */
@@ -311,7 +311,7 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
   assert(lp_polynomial_lc_sgn(p) > 0);
 
   term_t root_atom = NULL_TERM;
-  term_manager_t* tm = &map->nra->tm;
+  term_manager_t* tm = map->nra->ctx->tm;
 
   size_t p_deg = lp_polynomial_degree(p);
   if (p_deg == 1 && lp_polynomial_lc_is_constant(p)) {
@@ -789,6 +789,9 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out) {
   const lp_polynomial_t* x_cell_b_p = NULL;
   lp_polynomial_t* x_cell_a_p_r = lp_polynomial_new(map->ctx);
   lp_polynomial_t* x_cell_b_p_r = lp_polynomial_new(map->ctx);
+
+  // Order the variables 
+  lp_projection_map_order_vars(map);
 
   // Project
   for (;;) {

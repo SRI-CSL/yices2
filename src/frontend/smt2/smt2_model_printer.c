@@ -54,7 +54,7 @@ static bool is_named_unint(void *aux, term_t t) {
 /*
  * Print (= <term-name> <value>)
  */
-static void smt2_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
+static void smt2_pp_term_value(smt2_pp_t *printer, model_t *model, term_t t) {
   char *name;
   value_t v;
 
@@ -64,10 +64,10 @@ static void smt2_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
 
   assert(v != null_value && name != NULL);
 
-  pp_open_block(printer, PP_OPEN_EQ);
+  pp_open_block(&printer->pp, PP_OPEN_EQ);
   smt2_pp_symbol(printer, name);
   smt2_pp_object(printer, &model->vtbl, v);
-  pp_close_block(printer, true);
+  pp_close_block(&printer->pp, true);
 }
 
 
@@ -75,7 +75,7 @@ static void smt2_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
  * Scan array a and print the assignment of all Boolean terms
  * - n = size of the array
  */
-static void smt2_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
+static void smt2_pp_bool_assignments(smt2_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -92,7 +92,7 @@ static void smt2_pp_bool_assignments(yices_pp_t *printer, model_t *model, term_t
 /*
  * Same thing for arithmetic terms
  */
-static void smt2_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
+static void smt2_pp_arithmetic_assignments(smt2_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -109,7 +109,7 @@ static void smt2_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model, 
 /*
  * Same thing for bitvector terms
  */
-static void smt2_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
+static void smt2_pp_bitvector_assignments(smt2_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -127,7 +127,7 @@ static void smt2_pp_bitvector_assignments(yices_pp_t *printer, model_t *model, t
  * Same thing for terms of uninterpreted types
  * (also terms whose types is a instance of an abstract type constructor)
  */
-static void smt2_pp_unint_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
+static void smt2_pp_unint_assignments(smt2_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -145,7 +145,7 @@ static void smt2_pp_unint_assignments(yices_pp_t *printer, model_t *model, term_
 /*
  * All function terms
  */
-static void smt2_pp_function_assignments(yices_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
+static void smt2_pp_function_assignments(smt2_pp_t *printer, model_t *model, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -163,7 +163,7 @@ static void smt2_pp_function_assignments(yices_pp_t *printer, model_t *model, te
 /*
  * Print only terms defined in model->map
  */
-void smt2_pp_model(yices_pp_t *printer, model_t *model) {
+void smt2_pp_model(smt2_pp_t *printer, model_t *model) {
   ivector_t v;
   term_t *a;
   uint32_t n;
@@ -194,7 +194,7 @@ void smt2_pp_model(yices_pp_t *printer, model_t *model) {
  * Evaluate the value of t in eval and print it
  * - print nothing if the evaluator fails to compute a value for t
  */
-static void smt2_eval_pp_term_value(yices_pp_t *printer, evaluator_t *eval, term_t t) {
+static void smt2_eval_pp_term_value(smt2_pp_t *printer, evaluator_t *eval, term_t t) {
   model_t *model;
   char *name;
   value_t v;
@@ -206,10 +206,10 @@ static void smt2_eval_pp_term_value(yices_pp_t *printer, evaluator_t *eval, term
   if (v >= 0) {
     name = term_name(model->terms, t);
     assert(name != NULL);
-    pp_open_block(printer, PP_OPEN_EQ);
+    pp_open_block(&printer->pp, PP_OPEN_EQ);
     smt2_pp_symbol(printer, name);
     smt2_pp_object(printer, &model->vtbl, v);
-    pp_close_block(printer, true);
+    pp_close_block(&printer->pp, true);
   }
 }
 
@@ -218,7 +218,7 @@ static void smt2_eval_pp_term_value(yices_pp_t *printer, evaluator_t *eval, term
  * Scan array a and print the assignment of all Boolean terms
  * - n = size of the array
  */
-static void smt2_eval_pp_bool_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
+static void smt2_eval_pp_bool_assignments(smt2_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -235,7 +235,7 @@ static void smt2_eval_pp_bool_assignments(yices_pp_t *printer, evaluator_t *eval
 /*
  * Same thing for arithmetic terms
  */
-static void smt2_eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
+static void smt2_eval_pp_arithmetic_assignments(smt2_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -252,7 +252,7 @@ static void smt2_eval_pp_arithmetic_assignments(yices_pp_t *printer, evaluator_t
 /*
  * Same thing for bitvector terms
  */
-static void smt2_eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
+static void smt2_eval_pp_bitvector_assignments(smt2_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -269,7 +269,7 @@ static void smt2_eval_pp_bitvector_assignments(yices_pp_t *printer, evaluator_t 
 /*
  * Same thing for terms of uninterpreted types
  */
-static void smt2_eval_pp_unint_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
+static void smt2_eval_pp_unint_assignments(smt2_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -287,7 +287,7 @@ static void smt2_eval_pp_unint_assignments(yices_pp_t *printer, evaluator_t *eva
 /*
  * All function terms
  */
-static void smt2_eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
+static void smt2_eval_pp_function_assignments(smt2_pp_t *printer, evaluator_t *eval, term_t *a, uint32_t n) {
   term_table_t *terms;
   uint32_t i;
   term_t t;
@@ -305,7 +305,7 @@ static void smt2_eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *
 /*
  * Print all terms
  */
-void smt2_pp_full_model(yices_pp_t *printer, model_t *model) {
+void smt2_pp_full_model(smt2_pp_t *printer, model_t *model) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;

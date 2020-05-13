@@ -931,6 +931,32 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
 }
 
 
+/*
+ * Check whether v is zero:
+ * - v must be a good object
+ * - return true if v is a rational equal to zero
+ */
+extern bool is_zero(value_table_t *table, value_t v);
+
+/*
+ * Check whether v is one
+ * - v must be a good object
+ * - return true if v is a rational equal to 1
+ */
+extern bool is_one(value_table_t *table, value_t v);
+
+/*
+ * Check whether v is +1 or -1
+ * - v must be a good object
+ */
+extern bool is_unit(value_table_t *table, value_t v);
+
+/*
+ * Check whether v is 0b00000...
+ * - v must be a good object
+ * - return true if v is a bitvector constant of the form 0b0....0
+ */
+extern bool is_bvzero(value_table_t *table, value_t v);
 
 
 /*

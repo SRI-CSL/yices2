@@ -356,7 +356,7 @@ static void int_constraint_build_gcd(int_constraint_t *cnstr) {
 /*
  * Compute the sum of the fixed terms
  * - skip term c.x if c is a multiple of cnstr->gcd
- * - the resut is stored in sum_const
+ * - the result is stored in sum_const
  * - store the variables that are not skipped into vector v
  */
 static void int_constraint_build_fixed_constant(int_constraint_t *cnstr, ivector_t *v) {

@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun _substvar_181_ () Bool)
+(declare-fun _substvar_180_ () Bool)
+(declare-fun _substvar_108_ () (_ BitVec 16))
+(declare-fun _substvar_120_ () (_ BitVec 16))
+(assert (let ((?v_26 (ite (= (_ bv1 1) (ite (not (= (bvand _substvar_108_ (_ bv1 16)) (_ bv0 16))) (_ bv1 1) (_ bv0 1))) (bvadd (_ bv0 16) (_ bv1 16)) (_ bv0 16)))) (let ((?v_27 (ite (= (_ bv1 1) (ite (not (= (bvand _substvar_108_ _substvar_120_) (_ bv0 16))) (_ bv1 1) (_ bv0 1))) (bvadd ?v_26 (_ bv1 16)) ?v_26))) (let ((?v_28 (ite _substvar_181_ (_ bv0 16) ?v_27))) (not (= (bvnot (ite (= (_ bv0 16) (ite _substvar_180_ (_ bv0 16) ?v_28)) (_ bv1 1) (_ bv0 1))) (_ bv0 1)))))))
+(check-sat)
+(exit)

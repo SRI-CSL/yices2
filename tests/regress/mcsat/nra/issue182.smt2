@@ -1,0 +1,8 @@
+(set-logic QF_NRA)
+(declare-const r0 Real)
+(declare-const r2 Real)
+(assert (< r2 0.0 r0 r2 r0))
+(push 1)
+(check-sat)
+(check-sat)
+(pop 1)

@@ -41,7 +41,7 @@
  * - for each vertex x, M[x, x].id = 0 and M[x, x].dist = 0
  * - if there's no path from x to y, we set M[x, y] = null_edge (-1)
  * - if there's a path from x to y then M[x, y].id is an index between 1 and n-1
- * Invariant: a
+ * Invariant:
  * - if M[x, y].id = i and edge i is from u to v then
  *   0 <= M[x, u].id < i and 0 <= M[u, y].id < i
  *
@@ -55,13 +55,13 @@
  *
  *   Then the length of path(x, y) can also be computed recursively:
  *     len(x, y) = if x = y then 0 else len(x, u) + c(i) + len(v, y)
- *   where i = M[x, y].m_edge_id and edge i has cost c(i) and goes from u to v.
+ *   where i = M[x, y].id and edge i has cost c(i) and goes from u to v.
  *
  *   That length is stored in M[x, y].dist
  *
  * - The data structure is constructed so that path(x, y) is a shortest
  *   path from x to y in the current graph.
- *   M[x, y].m_val is then the distance from x to y.
+ *   M[x, y].dist is then the distance from x to y.
  *
  * The graph encodes the constraints asserted so far:
  * - an edge from x to y of cost d encodes the assertion (x - y <= d)

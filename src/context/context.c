@@ -4509,9 +4509,7 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
       break;
 
     case BVFACTOR_FOUND:
-      if (useful_bitvector_factoring(&factoring)) {
-	assert_factored_inequality(ctx, &factoring);
-      }
+      assert_factored_inequality(ctx, &factoring);
       break;
 
     default:
@@ -5600,6 +5598,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5756,6 +5755,31 @@ static void context_build_sharing_data(context_t *ctx) {
   sharing_map_add_terms(map, ctx->top_formulas.data, ctx->top_formulas.size);
 }
 
+
+#if 0
+/*
+ * PROVISIONAL: SHOW ASSERTIONS
+ */
+static void context_show_assertions(const context_t *ctx, uint32_t n, const term_t *a) {
+  pp_area_t area;
+  yices_pp_t printer;
+  uint32_t i;
+
+  area.width = 80;
+  area.height = UINT32_MAX;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = false;
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+
+  for (i=0; i<n; i++) {
+    pp_term_full(&printer, ctx->terms, a[i]);
+    flush_yices_pp(&printer);
+  }
+  delete_yices_pp(&printer, true);
+}
+#endif
+
 /*
  * Flatten and internalize assertions a[0 ... n-1]
  * - all elements a[i] must be valid boolean term in ctx->terms
@@ -5785,6 +5809,13 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
+
+#if 0
+    printf("\n=== Context: process assertions ===\n");
+    context_show_assertions(ctx, n, a);
+    printf("===\n\n");
+#endif
+
     // flatten
     for (i=0; i<n; i++) {
       flatten_assertion(ctx, a[i]);
@@ -5808,16 +5839,16 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
        * up in subst_eqs after the call to process_aux_eqs.
        */
       if (context_breaksym_enabled(ctx)) {
-	break_uf_symmetries(ctx);
+        break_uf_symmetries(ctx);
       }
       if (context_eq_abstraction_enabled(ctx)) {
         analyze_uf(ctx);
       }
       if (ctx->aux_eqs.size > 0) {
-	process_aux_eqs(ctx);
+        process_aux_eqs(ctx);
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5827,7 +5858,7 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
        * (otherwise analyze_diff_logic may give wrong results).
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, true);
       create_auto_idl_solver(ctx);
@@ -5839,7 +5870,7 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
        */
       trace_printf(ctx->trace, 6, "(auto-idl solver)\n");
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       analyze_diff_logic(ctx, false);
       create_auto_rdl_solver(ctx);
@@ -5853,16 +5884,16 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
       trace_printf(ctx->trace, 6, "(Simplex solver)\n");
       // more optional processing
       if (context_cond_def_preprocessing_enabled(ctx)) {
-	process_conditional_definitions(ctx);
-	if (ctx->aux_eqs.size > 0) {
-	  process_aux_eqs(ctx);
-	}
-	if (ctx->aux_atoms.size > 0) {
-	  process_aux_atoms(ctx);
-	}
+        process_conditional_definitions(ctx);
+        if (ctx->aux_eqs.size > 0) {
+          process_aux_eqs(ctx);
+        }
+        if (ctx->aux_atoms.size > 0) {
+          process_aux_atoms(ctx);
+        }
       }
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
 
@@ -5871,7 +5902,7 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
        * Process the candidate variable substitutions if any
        */
       if (ctx->subst_eqs.size > 0) {
-	context_process_candidate_subst(ctx);
+        context_process_candidate_subst(ctx);
       }
       break;
     }
@@ -6258,8 +6289,7 @@ int32_t context_process_formula(context_t *ctx, term_t f) {
 
 
 /*
- * Interrupt the search:
- * - this is not supported by mcsat yet
+ * Interrupt the search.
  */
 void context_stop_search(context_t *ctx) {
   if (ctx->mcsat == NULL) {
@@ -6267,6 +6297,8 @@ void context_stop_search(context_t *ctx) {
     if (context_has_simplex_solver(ctx)) {
       simplex_stop_search(ctx->arith_solver);
     }
+  } else {
+    mcsat_stop_search(ctx->mcsat);
   }
 }
 
@@ -6275,13 +6307,14 @@ void context_stop_search(context_t *ctx) {
 /*
  * Cleanup: restore ctx to a good state after check_context
  * is interrupted.
- * - not supported by mcsat either
  */
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
   if (ctx->mcsat == NULL) {
     smt_cleanup(ctx->core);
+  } else {
+    mcsat_clear(ctx->mcsat);
   }
 }
 

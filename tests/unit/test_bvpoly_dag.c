@@ -363,7 +363,7 @@ static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t
       }
     }
 
-    printf("     decriptor: %p = ", d);
+    printf("     descriptor: %p = ", d);
     print_mono_node(stdout, d);
     printf("\n");
   }
@@ -439,7 +439,7 @@ static node_occ_t test_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t 
       }
     }
 
-    printf("     decriptor: %p = ", d);
+    printf("     descriptor: %p = ", d);
     print_mono_node(stdout, d);
     printf("\n");
   }
@@ -486,7 +486,7 @@ static node_occ_t test_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32
   d = bvc_dag_node_offset(dag, q);
   if (d->header.bitsize != b || d->constant.c != a || d->nocc != r ) goto error;
 
-  printf("     decriptor: %p = ", d);
+  printf("     descriptor: %p = ", d);
   print_offset_node(stdout, d);
   printf("\n");
 
@@ -535,7 +535,7 @@ static node_occ_t test_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_
   d = bvc_dag_node_offset(dag, q);
   if (d->header.bitsize != b || bvconst_neq(d->constant.w, a, w) || d->nocc != r ) goto error;
 
-  printf("     decriptor: %p = ", d);
+  printf("     descriptor: %p = ", d);
   print_offset_node(stdout, d);
   printf("\n");
 
@@ -618,7 +618,7 @@ static node_occ_t test_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t b
     d = bvc_dag_node_sum(dag, q);
     if (d->header.bitsize != b || d->len != n || !equal_arrays(d->sum, aux2, n)) goto error;
 
-    printf("     decriptor: %p = ", d);
+    printf("     descriptor: %p = ", d);
     print_sum_node(stdout, d);
     printf("\n");
   }
@@ -634,7 +634,7 @@ static node_occ_t test_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t b
 
 
 /*
- * Test pprod contructor:
+ * Test pprod constructor:
  * - node occurrences are in a[0..n-1]
  * - exponents are in e[0...n-1]
  * - b = bitisize

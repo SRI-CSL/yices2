@@ -176,7 +176,7 @@ typedef enum term_constructor {
   YICES_IMOD,                // modulo
   YICES_IS_INT_ATOM,         // integrality test: (is-int t)
   YICES_DIVIDES_ATOM,        // divisibility test: (divides t1 t2)
-  
+
   // projections
   YICES_SELECT_TERM,         // tuple projection
   YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
@@ -215,7 +215,7 @@ typedef enum term_constructor {
  *  YVAL_MAPPING    A pair [tuple -> value].
  *
  * All functions are defined by a finite set of mappings
- * and a default value. For example, if we have 
+ * and a default value. For example, if we have
  *   f(0, 0) = 0
  *   f(0, 1) = 1
  *   f(1, 0) = 1
@@ -224,7 +224,7 @@ typedef enum term_constructor {
  *
  * Then f will be represented as follows:
  * - default value = 2
- * - mappings: 
+ * - mappings:
  *     [0, 0 -> 0]
  *     [0, 1 -> 1]
  *     [1, 0 -> 1]
@@ -393,7 +393,7 @@ typedef enum error_code {
   CTX_BV_SOLVER_EXCEPTION,
   CTX_ARRAY_SOLVER_EXCEPTION,
   CTX_SCALAR_NOT_SUPPORTED,   // added 2015/03/26
-  CTX_TUPLE_NOT_SUPPORTED,    // added 2015/03/26 
+  CTX_TUPLE_NOT_SUPPORTED,    // added 2015/03/26
   CTX_UTYPE_NOT_SUPPORTED,    // added 2015/03/26
 
 
@@ -403,6 +403,13 @@ typedef enum error_code {
   CTX_INVALID_OPERATION = 400,
   CTX_OPERATION_NOT_SUPPORTED,
 
+  /*
+   * Error codes for delegates
+   *
+   * Since 2.6.2.
+   */
+  CTX_UNKNOWN_DELEGATE = 420,
+  CTX_DELEGATE_NOT_AVAILABLE,
 
   /*
    * Errors in context configurations and search parameter settings
@@ -572,6 +579,9 @@ typedef enum error_code {
  *
  *  CTX_INVALID_OPERATION
  *  CTX_OPERATION_NOT_SUPPORTED
+ *
+ *  CTX_UNKNOWN_DELEGATE
+ *  CTX_DELEGATE_NOT_AVAILABLE
  *
  *  CTX_INVALID_CONFIG
  *  CTX_UNKNOWN_PARAMETER

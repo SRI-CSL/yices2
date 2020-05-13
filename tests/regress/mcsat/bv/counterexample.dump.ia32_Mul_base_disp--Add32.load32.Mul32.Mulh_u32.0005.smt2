@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(declare-fun _substvar_59_ () (_ BitVec 32))
+(declare-fun _substvar_139_ () Bool)
+(assert (let ((?x78435 (bvadd (_ bv0 32) (_ bv2 32)))) (let ((?x14214 (bvadd _substvar_59_ (_ bv3 32)))) (let (($x10220 (= ?x14214 (_ bv0 32)))) (let (($x112517 (= ?x14214 ?x78435))) (let ((?x63357 (ite $x112517 (_ bv0 8) (ite $x10220 (_ bv0 8) (_ bv85 8))))) (let (($x44701 (= ?x14214 (_ bv0 32)))) (let ((?x146751 (concat (concat (ite $x44701 (_ bv0 8) ?x63357) (_ bv0 8)) (_ bv0 8)))) (and _substvar_139_ (= (_ bv0 32) (concat ?x146751 (_ bv0 8))))))))))))
+(check-sat)
+(exit)

@@ -37,9 +37,57 @@
 #define __SMT2_PRINTER_H
 
 #include <stdbool.h>
+#include <gmp.h>
 
 #include "io/yices_pp.h"
 #include "model/concrete_values.h"
+
+
+/*
+ * Pretty printer for SMT2 objects:
+ * - a regular pretty printer + some extra options
+ * - currently: one option for display of bit-vector constants
+ *   if bv_as_decimal is true we use "(_ bvX n)" for a bit-vector of n bits
+ *   X is the constant value interpreted as an unsigned integer (between 0 and 2^(n-1))
+ *   if bv_as_decimal is false, we use "#b010011" format.
+ *
+ * - aux: auxiliary GMP integer to convert bitvector constants to integer
+ */
+typedef struct smt2_pp_s {
+  yices_pp_t pp;
+  bool bv_as_decimal;
+  mpz_t aux;
+} smt2_pp_t;
+
+
+/*
+ * Initialize a pretty printer:
+ * - use file, area, mode, indent as in yices_pp
+ * - dec: value for bv_decimal
+ */
+static inline void init_smt2_pp(smt2_pp_t *printer, FILE *file, pp_area_t *area, pp_print_mode_t mode, bool dec) {
+  init_yices_pp(&printer->pp, file, area, mode, 0);
+  mpz_init(printer->aux);
+  printer->bv_as_decimal = dec;
+}
+
+/*
+ * Flush
+ */
+static inline void flush_smt2_pp(smt2_pp_t *printer) {
+  flush_yices_pp(&printer->pp);
+}
+
+/*
+ * Delete
+ * - if flush is true, print everything that's pending and a newline
+ */
+static inline void delete_smt2_pp(smt2_pp_t *printer, bool flush) {
+  delete_yices_pp(&printer->pp, flush);
+  mpz_clear(printer->aux);
+}
+
+
 
 /*
  * Print object c using a pretty printer object
@@ -49,7 +97,7 @@
  * - the map of all queued functions can then printed later by calling
  *   smt2_pp_queued_functions
  */
-extern void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
+extern void smt2_pp_object(smt2_pp_t *printer, value_table_t *table, value_t c);
 
 /*
  * Print a function map
@@ -57,13 +105,13 @@ extern void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c)
  * - the maps of c are printed on separate lines
  * - if show_default is true, then the default value is printed on the last line
  */
-extern void smt2_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+extern void smt2_pp_function(smt2_pp_t *printer, value_table_t *table, value_t c, bool show_default);
 
 /*
  * Expand update c and print it as a function
  * - if show_default is true, also print the default value
  */
-extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+extern void smt2_normalize_and_pp_update(smt2_pp_t *printer, value_table_t *table, value_t c, bool show_default);
 
 /*
  * Print the maps of all the queued functions (this may recursively push more
@@ -71,16 +119,21 @@ extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *tab
  * - if show_default is true, print the default value for each map
  * - empty the table's queue
  */
-extern void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
-
+extern void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, bool show_default);
 
 /*
  * Print a definition in the SMT2 style:
  *
  *   (define-fun name () tau value)
  */
-extern void smt2_pp_def(yices_pp_t *printer, value_table_t *table, const char *name,
+extern void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name,
 			type_t tau, value_t c);
+
+
+/*
+ * Variant of smt2_pp_object that uses an SMT2-like syntax for arrays
+ */
+extern void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c);
 
 
 #endif  /* __SMT2_PRINTER_H */

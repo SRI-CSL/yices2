@@ -115,10 +115,15 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( exit )
             | ( check )
             | ( check-assuming <assumptions>* )
+	    | ( ef-solve )
             | ( push )
             | ( pop )
             | ( reset )
             | ( show-model )
+            | ( show-reduced-model )
+	    | ( show-implicant )
+            | ( show-unsat-core )
+            | ( show-unsat-assumptions )
             | ( eval <expression> )
             | ( echo <string> )
             | ( include <string> )
@@ -129,15 +134,11 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( reset-stats )
 	    | ( set-timeout <number> )
             | ( show-timeout )
+	    | ( export-to-dimacs <string> )
             | ( dump-context )
 	    | ( help )
             | ( help <symbol> )
             | ( help <string> )
-	    | ( ef-solve )
-	    | ( export-to-dimacs <string> )
-	    | ( show-implicant )
-            | ( show-unsat-core )
-            | ( show-unsat-assumptions )
             | EOS
 
 
@@ -548,6 +549,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
    (check-assuming <assumptions>* ):  check with a set of assumptions
 
+   (ef-solve): solve an exists/forall problem.
+
    (push):  start a new assertion scope
 
    (pop):  remove all assertions added after the matching (push)
@@ -559,6 +562,17 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (show-model): display the current model (if any)
                  a model is available after (check) provided (check) return sat or unknown
                  it is deleted on the next call to (assert) or (push) or (reset) or (pop)
+
+   (show-reduced-model): show the model if any, but print only the value of
+                         variables that are relevant to satisfying the assertions.
+
+   (show-implicant): show an implicant built from the model.
+       The implicant is a list of literals that are true in the current model,
+       and the conjunction of these literals implies the assertions.
+
+   (show-unsat-core): list of labeled assertions that form an unsat core.
+
+   (show-unsat-assumptions): list of assumptions that form an unsat core.
 
    (eval <term>): show the value of <term> in the current model
 
@@ -587,25 +601,19 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (show-timeout): print the current timeout. The value displayed
           will be used as timeout in the next call to (check).
 
+   (export-to-dimacs <string>): convert the current set of assertions to
+       the DIMACS CNF format. <string> is a file name where the result is
+       written.
+
+   (dump-context): print the full context state (for debugging only).
+
    (help): print a summary of the main commands
 
    (help <topic>): print help on a particular topic. <topic> can be given
        as a symbol as in (help syntax) or as a string as in (help "syntax").
 
 
-   (ef-solve): solve an exists/forall problem.
 
-   (export-to-dimacs <string>): convert the current set of assertions to
-       the DIMACS CNF format. <string> is a file name where the result is
-       written.
-
-   (show-implicant): show an implicant built from the model.
-       The implicant is a list of literals that are true in the current model,
-       and the conjunction of these literals implies the assertions.
-
-   (show-unsat-core): list of labeled assertions that form an unsat core.
-
-   (show-unsat-assumptions): list of assumptions that form an unsat core.
 
 
 6) Parameters

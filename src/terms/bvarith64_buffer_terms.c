@@ -34,6 +34,33 @@ static void init_aux64_buffer(bvarith64_buffer_t *aux, bvarith64_buffer_t *b) {
   bvarith64_buffer_prepare(aux, b->bitsize);
 }
 
+/*
+ * Try to convert t to an arithmetic expression
+ * - t must be a bv-array term
+ * - return true if that succeeds, and store the result in buffer b
+ * - otherwise return false and leave b unchanged.
+ *
+ * We currently just check for the case t = (bvnot x) or t = x.
+ * If t is (bvnot x), we store -1 - x in b.
+ */
+static bool convert_bvarray_to_bvarith64(term_table_t *table, term_t t, bvarith64_buffer_t *b) {
+  term_t t0;
+  bool negated;
+
+  if (bvarray_convertible_to_term(table, t, &t0, &negated)) {
+    if (negated) {
+      // t is (bvnot t0) == (-t0) - 1
+      bvarith64_buffer_sub_one(b);
+      bvarith64_buffer_sub_term(b, table, t0);
+    } else {
+      bvarith64_buffer_add_term(b, table, t0);
+    }
+    bvarith64_buffer_normalize(b);
+    return true;
+  }
+
+  return false;
+}
 
 
 /*
@@ -42,51 +69,15 @@ static void init_aux64_buffer(bvarith64_buffer_t *aux, bvarith64_buffer_t *b) {
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_set_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
-  pprod_t **v;
-  bvpoly64_t *p;
   uint32_t n;
-  int32_t i;
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
 
-  i = index_of(t);
-  n = bitsize_for_idx(table, i);
+  n = term_bitsize(table, t);
   bvarith64_buffer_prepare(b, n); // reset b
-
-  switch (table->kind[i]) {
-  case POWER_PRODUCT:
-    bvarith64_buffer_add_pp(b, pprod_for_idx(table, i));
-    break;
-
-  case BV64_CONSTANT:
-    bvarith64_buffer_add_const(b, bvconst64_for_idx(table, i)->value);
-    break;
-
-  case BV64_POLY:
-    p = bvpoly64_for_idx(table, i);
-    v = pprods_for_bvpoly64(table, p);
-    bvarith64_buffer_add_bvpoly(b, p, v);
-    term_table_reset_pbuffer(table);
-    break;
-
-  case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_buffer(b, &aux);
-    } else {
-      bvarith64_buffer_add_var(b, t);
-    }
-    delete_bvarith64_buffer(&aux);
-    break;
-
-  default:
-    bvarith64_buffer_add_var(b, t);
-    break;
-  }
+  bvarith64_buffer_add_term(b, table, t);
 }
-
 
 
 /*
@@ -95,10 +86,11 @@ void bvarith64_buffer_set_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
+  term_t t0;
+  bool negated;
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
@@ -122,13 +114,17 @@ void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_
     break;
 
   case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_buffer(b, &aux);
+    if (bvarray_convertible_to_term(table, t, &t0, &negated)) {
+      if (negated) {
+	// t is (bvnot t0) == (-t0) - 1
+	bvarith64_buffer_sub_one(b);
+	bvarith64_buffer_sub_term(b, table, t0);
+      } else {
+	bvarith64_buffer_add_term(b, table, t0);
+      }
     } else {
       bvarith64_buffer_add_var(b, t);
     }
-    delete_bvarith64_buffer(&aux);
     break;
 
   default:
@@ -144,10 +140,11 @@ void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
+  term_t t0;
+  bool negated;
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
@@ -171,13 +168,17 @@ void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_
     break;
 
   case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_sub_buffer(b, &aux);
+    if (bvarray_convertible_to_term(table, t, &t0, &negated)) {
+      if (negated) {
+	// t is (bvnot t0) == (-t0) - 1
+	bvarith64_buffer_add_one(b);
+	bvarith64_buffer_add_term(b, table, t0);
+      } else {
+	bvarith64_buffer_sub_term(b, table, t0);
+      }
     } else {
       bvarith64_buffer_sub_var(b, t);
     }
-    delete_bvarith64_buffer(&aux);
     break;
 
   default:
@@ -243,10 +244,11 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
  * - b->ptbl must be the same as table->pprods
  */
 void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *table, uint64_t a, term_t t) {
-  bvarith64_buffer_t aux;
   pprod_t **v;
   bvpoly64_t *p;
   int32_t i;
+  term_t t0;
+  bool negated;
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
@@ -271,13 +273,17 @@ void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *
     break;
 
   case BV_ARRAY:
-    init_aux64_buffer(&aux, b);
-    if (convert_bvarray_to_bvarith64(table, t, &aux)) {
-      bvarith64_buffer_add_const_times_buffer(b, &aux, a);
+    if (bvarray_convertible_to_term(table, t, &t0, &negated)) {
+      if (negated) {
+	// t is (bvnot t0) == (-t0) - 1
+	bvarith64_buffer_sub_const(b, a);
+	bvarith64_buffer_add_const_times_term(b, table, -a, t0);
+      } else {
+	bvarith64_buffer_add_const_times_term(b, table, a, t0);
+      }
     } else {
       bvarith64_buffer_add_varmono(b, a, t);
     }
-    delete_bvarith64_buffer(&aux);
     break;
 
   default:

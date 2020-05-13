@@ -78,4 +78,24 @@ extern bool formulas_hold_in_model(model_t *mdl, uint32_t n, const term_t a[], i
 extern void model_get_relevant_vars(model_t *mdl, ivector_t *v);
 
 
+/*
+ * Collect the support of term t in model mdl
+ * - the variables are added to vector *v
+ * - the support of t is a set of variables x_1, ..., x_n
+ *   such that the value of t in mdl is determined by the values
+ *   of x_1, ..., x_n in mdl.
+ */
+extern void model_get_term_support(model_t *mdl, term_t t, ivector_t *v);
+
+
+/*
+ * Collect the support of terms a[0 ... n-1] in model mdl
+ * - the variables are added to vector *v
+ * - the support of t is a set of variables x_1, ..., x_n
+ *   such that the values of a[0], ..., a[n] in mdl are determined by
+ *   the value of x_1, ..., x_n in mdl.
+ */
+extern void model_get_terms_support(model_t *mdl, uint32_t n, const term_t  a[], ivector_t *v);
+
+
 #endif /* __MODEL_QUERIES_H */

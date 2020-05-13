@@ -577,6 +577,7 @@ typedef struct solver_stats_s {
   uint32_t simplify_calls;           // number of calls to simplify_clause_database
   uint32_t reduce_calls;             // number of calls to reduce_learned_clause_set
   uint32_t scc_calls;                // number of calls to try_scc_simplification
+  uint32_t try_equiv_calls;          // number of calls to try_equivalent_vars (includes preprocessing)
   uint32_t subst_calls;              // number of calls to apply_substitution
   uint32_t probe_calls;              // number of calls to failed_literal_probing
 
@@ -596,6 +597,7 @@ typedef struct solver_stats_s {
   uint32_t pp_subst_vars;            // number of variables eliminated by substitution
   uint32_t pp_subst_units;           // number of unit literals found by equivalence checks
   uint32_t pp_equivs;                // number of equivalences detected
+  uint32_t pp_scc_calls;             // number of calls to pp_scc_simplication
   uint32_t pp_clauses_deleted;       // number of clauses deleted during preprocessing
   uint32_t pp_subsumptions;          // number of subsumed clauses
   uint32_t pp_strengthenings;        // number of strengthened clauses
@@ -638,10 +640,14 @@ typedef struct solver_param_s {
    *
    * - res_clause_limit: if eliminating a variable x would create a clause of size
    *   larger than res_clause_limit, we keep x. Default value = 20.
+   *
+   * - res_extra: if x occurs in n clauses, then we don't eliminat x if that would create more than
+   *   (n + res_extra) clauses.
    */
   uint32_t subsume_skip;
   uint32_t var_elim_skip;
   uint32_t res_clause_limit;
+  uint32_t res_extra;
 
   /*
    * Simplify heuristics
@@ -754,6 +760,60 @@ typedef enum descriptor_tag_s {
   DTAG_TO_KEEP,
   DTAG_GATE,
 } descriptor_tag_t;
+
+
+/******************************************
+ *  EXPERIMENTAL: STACK FOR NAIVE SEARCH  *
+ *****************************************/
+
+/*
+ * We can try to find a satisfiying assignment by trying to set
+ * one literal in each clause (that's not already true). To do
+ * this, we use a stack that stores pairs (cidx, index in the clause).
+ */
+typedef struct naive_pair_s {
+  cidx_t cidx;
+  uint32_t scan;
+} naive_pair_t;
+
+
+/*
+ * Stack:
+ * - each element in the stack are pairs [clause idx, scan idx]
+ * - for the elements below top_binary, the clause idx points to a binary clause,
+ *   the scan index is either 0 or 1.
+ * - for the elements above top_binary, cidx points to a regular problem
+ *   clause stored in solver->pool and scan index in integer between 0 and 
+ *   length of the clause -1.
+ */
+typedef struct naive_stack_s {
+  naive_pair_t *data;
+  uint32_t top;
+  uint32_t top_binary;
+  uint32_t size;
+} naive_stack_t;
+
+#define DEF_NAIVE_STACK_SIZE 1024
+#define MAX_NAIVE_STACK_SIZE (UINT32_MAX/sizeof(naive_pair_t))
+
+/*
+ * Search structure
+ * - a stack as above
+ * - bvector stores the binary clauses to satisfy
+ * - cvector stores the problem clauses to satisfy
+ * - scan index to identify the next clause to explore
+ *   bindex = index in the bvector
+ *   cindex = index in the cvector
+ */
+typedef struct naive_s {
+  naive_stack_t stack;
+  vector_t bvector;
+  vector_t cvector;
+  uint64_t decisions;
+  uint64_t max_decisions;
+  uint64_t conflicts;
+  uint64_t max_conflicts;
+} naive_t;
 
 
 
@@ -890,6 +950,7 @@ typedef struct sat_solver_s {
    */
   bool probing;
   bool try_assignment;
+  bool try_naive_search;
 
   /*
    * Statistics record
@@ -945,6 +1006,7 @@ typedef struct sat_solver_s {
 
   vector_t subst_vars;  // all variables eliminated in an SCC round
   vector_t subst_units; // literals found equal to true by SCC/EQ
+  vector_t subst_pure;  // literals that become pure after substitution
 
   /*
    * Variable descriptors + gates
@@ -1139,6 +1201,13 @@ extern void nsat_set_var_elim_skip(sat_solver_t *solver, uint32_t limit);
  */
 extern void nsat_set_res_clause_limit(sat_solver_t *solver, uint32_t limit);
 
+/*
+ * Limit on number of new clauses after eliminating x.
+ * - x is not * eliminated if that would create more than res_extra new clauses
+ * - so if x occurs in n clauses, it's not eliminated if it has more than n
+ *   + res_extra non-trivial resolvants.
+ */
+extern void nsat_set_res_extra(sat_solver_t *solver, uint32_t extra);
 
 /*
  * SIMPLIFY PARAMETERS
@@ -1196,6 +1265,29 @@ extern solver_status_t nsat_solve(sat_solver_t *solver);
 static inline solver_status_t nsat_status(sat_solver_t *solver) {
   return solver->status;
 }
+
+/*
+ * Only run the preprocessor
+ * - this must be called after clause addition
+ * - the type of preprocessing performed depends on flag solver->preprocess.
+ *   if the flag is false, we just do basic simplications
+ *   if the flag is true, we do SCC + equality detection based on cut sweeping.
+ * - result = either STAT_SAT or STAT_UNSAT or STAT_UNKNOWN
+ * - the amount of preprocessing pefromed
+ */
+extern solver_status_t nsat_apply_preprocessing(sat_solver_t *solver);
+
+
+/********************
+ * EXPORT TO DIMACS *
+ *******************/
+
+/*
+ * Export the clauses of solver to file f
+ * Use the DIMACS format.
+ * - f must be open and writable
+ */
+extern void nsat_export_to_dimacs(FILE *f, const sat_solver_t *solver);
 
 
 
@@ -1281,6 +1373,7 @@ extern uint32_t nsat_get_true_literals(const sat_solver_t *solver, literal_t *a)
  *****************************/
 
 extern void show_state(FILE *f, const sat_solver_t *solver);
+
 
 
 /*******************************

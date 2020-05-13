@@ -984,6 +984,13 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
   bvc_t *compiler;
   uint32_t i, n;
 
+#if 0
+  printf("---- COMPILE POLYNOMIALS ----\n");
+  print_bv_vartable(stdout, &solver->vtbl);
+  print_bv_atomtable(stdout, &solver->atbl);
+  printf("\n");
+#endif
+
   bv_solver_alloc_compiler(solver);
 
   compiler = solver->compiler;
@@ -995,6 +1002,11 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY:
     case BVTAG_PPROD:
       if (bvvar_is_useful(solver, i)) {
+#if 0
+	printf("  push var: ");
+	print_bv_solver_vardef(stdout, solver, i);
+	printf("\n");
+#endif
         bv_compiler_push_var(compiler, i);
       }
       break;
@@ -1007,6 +1019,8 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 
   // process the polynomials
   bv_compiler_process_queue(compiler);
+
+  //  print_solver_state(stdout, solver);
 }
 
 
@@ -1371,7 +1385,7 @@ static uint32_t bv_is_power_of_two(bit_blaster_t *blaster, literal_t *a, uint32_
 
   k = n;
   for (i=0; i<n; i++) {
-    switch(literal_base_value(blaster->solver, a[i])) {
+    switch (literal_base_value(blaster->solver, a[i])) {
     case VAL_FALSE:
       break;
 
@@ -1394,24 +1408,80 @@ static uint32_t bv_is_power_of_two(bit_blaster_t *blaster, literal_t *a, uint32_
 
 
 /*
+ * Check whether a[0 ... n-1] if of the form -2^k for some k (with 0 <= k < n-2)
+ * - if so return k, otherwise return n
+ */
+static uint32_t bv_is_minus_power_of_two(bit_blaster_t *blaster, literal_t *a, uint32_t n) {
+  uint32_t i, k;
+
+  k = n;
+  for (i=0; i<n; i++) {
+    switch (literal_base_value(blaster->solver, a[i])) {
+    case VAL_FALSE:
+      if (k < n) goto done;
+      break;
+
+    case VAL_TRUE:
+      if (k == n) {
+	k = i;
+      }
+      break;
+
+    default:
+      goto done;
+    }
+  }
+
+  return k;
+
+ done:
+  return n;
+}
+
+
+
+
+/*
  * Assert u == (bvadd a b)
  * - check for special cases where a or b is a power of 2
  */
 static void bit_blaster_make_bvadd_var(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
-  uint32_t k1, k2;
+  uint32_t k;
 
-  k1 = bv_is_power_of_two(blaster, a, n);
-  k2 = bv_is_power_of_two(blaster, b, n);
-  if (k1 < n) {
-    // a is 2^k1
-    bit_blaster_make_bvinc(blaster, b, k1, u, n);
-  } else if (k2 < n) {
-    // b is 2^k2
-    bit_blaster_make_bvinc(blaster, a, k2, u, n);
-  } else {
-    // regular adder
-    bit_blaster_make_bvadd(blaster, a, b, u, n);
+  k = bv_is_power_of_two(blaster, a, n);
+  if (k < n) {
+    // a is 2^k
+    // printf("bvinc\n");
+    bit_blaster_make_bvinc(blaster, b, k, u, n);
+    return;
   }
+
+  k = bv_is_power_of_two(blaster, b, n);
+  if (k < n) {
+    // b is 2^k2
+    // printf("bvinc\n");
+    bit_blaster_make_bvinc(blaster, a, k, u, n);
+    return;
+  }
+
+  k = bv_is_minus_power_of_two(blaster, a, n);
+  if (k < n) {
+    // a is -2^k
+    // printf("bvdec\n");
+    bit_blaster_make_bvdec(blaster, b, k, u, n);
+    return;
+  }
+
+  k = bv_is_minus_power_of_two(blaster, b, n);
+  if (k < n) {
+    // b is -2^k
+    // printf("bvdec\n");
+    bit_blaster_make_bvdec(blaster, a, k, u, n);
+    return;
+  }
+
+  // regular adder
+  bit_blaster_make_bvadd(blaster, a, b, u, n);
 }
 
 
@@ -1425,10 +1495,20 @@ static void bit_blaster_make_bvsub_var(bit_blaster_t *blaster, literal_t *a, lit
   k = bv_is_power_of_two(blaster, b, n);
   if (k < n) {
     // b is 2^k
+    //    printf("bvdec\n");
     bit_blaster_make_bvdec(blaster, a, k, u, n);
-  } else {
-    bit_blaster_make_bvsub(blaster, a, b, u, n);
+    return;
   }
+
+  k = bv_is_minus_power_of_two(blaster, b, n);
+  if (k < n) {
+    // b is -2^k
+    bit_blaster_make_bvinc(blaster, a, k, u, n);
+    return;
+  }
+
+  // regular subtract
+  bit_blaster_make_bvsub(blaster, a, b, u, n);
 }
 
 
@@ -1703,11 +1783,21 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       }
     }
 
-    // mark x as bitblasted
-    bvvar_set_bitblasted(vtbl, x);
-    bvvar_clr_mark(vtbl, x);
+    /*
+     * If x occurs on a dependency cycle, it may be bit-blasted now,
+     * even though it wasn't when we entered this function.
+     * In this case, we don't want to add x twice to the delayed_blasted queue.
+     */
+    if (! bvvar_is_bitblasted(vtbl, x)) {
+      // mark x as bitblasted
+      bvvar_set_bitblasted(vtbl, x);
+      bvvar_clr_mark(vtbl, x);
 
-    bv_solver_save_delayed_blasted_var(solver, x);
+      bv_solver_save_delayed_blasted_var(solver, x);
+    }
+
+    assert(bvvar_is_bitblasted(vtbl, x));
+    assert(! bvvar_is_marked(vtbl, x));
   }
 }
 
@@ -2077,7 +2167,7 @@ static inline bool is_constant(bv_vartable_t *table, thvar_t x) {
 
 
 /*
- * Check wether x or y is a constant
+ * Check whether x or y is a constant
  */
 static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) {
   bvvar_tag_t tag_x, tag_y;
@@ -4135,7 +4225,7 @@ static bool bvuge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvuge_atom(&solver->atbl, y, x); // atom (bvuge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvuge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvuge y x) is true 
   }
   return false;
 }
@@ -4152,7 +4242,7 @@ static bool bvsge_simplifies_to_bveq(bv_solver_t *solver, thvar_t x, thvar_t y) 
   i = find_bvsge_atom(&solver->atbl, y, x); // atom (bvsge y x)
   if (i >= 0) {
     a = bvatom_desc(&solver->atbl, i);
-    return lit_is_true(solver->core, a->lit); // check wether (bvsge y x) is true 
+    return lit_is_true(solver->core, a->lit); // check whether (bvsge y x) is true 
   }
   return false;  
 }

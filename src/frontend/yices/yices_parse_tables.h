@@ -75,6 +75,7 @@ typedef enum actions {
   implicant_next_goto_r0,  // New command: (show-implicant)
   unsat_core_next_goto_r0, // (show-unsat-core)
   unsat_assumptions_next_goto_r0, // (show-unsat-assumptions)
+  reduced_model_next_goto_r0,     // (show-reduced-model)
 
   typename_next_goto_c10,  // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,     // string argument to echo, include, help, export
@@ -237,7 +238,7 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 41
-#define BSIZE 325
+#define BSIZE 327
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -287,24 +288,25 @@ static const uint8_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   1,   0,   2,   0,   4,   5,   3,
-     8,   6,   2,  59, 154,  33,   7,   7, 155, 157,
-     5,  13, 161, 165,  49,  18,  23, 173, 188,  60,
-    66,  66, 158, 150, 158, 187, 161, 171, 163, 188,
-   192,
+     8,   6,   2,  60, 155,  34,   7,   7, 156, 158,
+     5,  13, 162, 166,  50,  18,  23, 174, 189,  61,
+    67,  67, 159, 151, 159, 188, 162, 172, 164, 189,
+   193,
 };
 
 // Check table
-static const uint8_t check[BSIZE] = {
+static const int check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-     2,   2,   2,   2,   2,   2,   2,  41,  41,  41,
-    41,  41,   1,   0,   6,   1,   4,   7,   8,  12,
-    17,   2,   3,   5,   9,  10,  10,  11,  16,  10,
-    20,  20,  20,  20,  21,  25,  26,  10,  10,  13,
+     2,   2,   2,   2,   2,   2,   2,   2,  41,  41,
+    41,  41,  41,   1,   0,   6,   1,   4,   7,   8,
+    12,  17,   2,   3,   5,   9,  10,  10,  11,  16,
+    10,  20,  20,  20,  20,  21,  25,  26,  10,  10,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  15,  13,  29,  24,  13,  24,  24,  30,  31,
+    13,  13,  13,  15,  13,  29,  24,  13,  24,  24,
+    30,  31,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
@@ -312,22 +314,21 @@ static const uint8_t check[BSIZE] = {
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
     13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  13,  13,  13,  13,
-    13,  13,  13,  13,  13,  13,  14,  14,  18,  19,
-    32,  33,  34,  36,  22,  14,  18,  23,  19,  19,
-    19,  19,  22,  37,  38,  27,  23,  23,  23,  23,
-    27,  27,  27,  27,  27,  28,  28,  28,  28,  28,
-    35,  39,  27,  27,  40,  40,  41,  41,  35,  41,
-    41,  41,  41,  41,  41,  41,  41,  41,  41,  28,
+    13,  13,  13,  13,  13,  13,  13,  13,  14,  14,
+    18,  19,  32,  33,  34,  36,  22,  14,  18,  23,
+    19,  19,  19,  19,  22,  37,  38,  27,  23,  23,
+    23,  23,  27,  27,  27,  27,  27,  28,  28,  28,
+    28,  28,  35,  39,  27,  27,  40,  40,  41,  41,
+    35,  41,  41,  41,  41,  41,  41,  41,  41,  41,
+    41,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
     28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
-    28,  28,  28,  28,  28,  28,  28,  28,  28,  28,
-    28,  28,  28,  28,  28,  41,  41,  41,  41,  41,
-    41,  41,  41,  41,  41,
+    28,  28,  28,  28,  28,  28,  28,  41,  41,  41,
+    41,  41,  41,  41,  41,  41,  41,
 };
 
 // Value table
@@ -359,6 +360,7 @@ static const uint8_t value[BSIZE] = {
   implicant_next_goto_r0,
   unsat_core_next_goto_r0,
   unsat_assumptions_next_goto_r0,
+  reduced_model_next_goto_r0,
   error,
   error,
   error,
@@ -391,6 +393,7 @@ static const uint8_t value[BSIZE] = {
   ret,
   true_next_goto_r0,
   false_next_goto_r0,
+  symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,
   symbol_next_goto_r0,

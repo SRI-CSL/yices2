@@ -424,6 +424,18 @@ extern bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s);
 
 
 /*
+ * Check whether s is a valid shift amount for rotate_left/rotate_right in SMT-LIB2
+ * - SMT allows rotate by arbitrary amounts: ((_ rotate_left k) t) is the same
+ *   as ((_ rotate_left (k % n) t)) where n = number of bits in t.
+ *
+ * This function
+ * - return true if 0 <= s and store the normalize shift (s % b->nbits) in *s
+ * - otherwise set the error report and return false.
+ */
+extern bool yices_check_smt2_rotate(bvlogic_buffer_t *b, int32_t *s) ;
+
+
+/*
  * Check whether [i, j] is a valid segment for a bitvector of size n
  * - return true if 0 <= i <= j < n
  * - otherwise set the error report and return false.
@@ -522,6 +534,21 @@ extern model_t *yices_new_model(bool keep_subst);
  *   error_code data structure.
  */
 extern void yices_internalization_error(int32_t code);
+
+
+/*
+ * HELPERS FOR CHECK FORMULAS
+ */
+
+/*
+ * Evaluate all terms in a[0 ... n-1] in a default model.
+ * Return true if all terms evaluate to true in the model and return the model in *model.
+ * Return false otherwise, and leave *model unchanged.
+ *
+ * Since 2.6.2.
+ */
+extern bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model);
+
 
 
 /*

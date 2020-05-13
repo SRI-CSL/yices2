@@ -239,8 +239,15 @@ static void copy_vars(bvar_t *b, const bvar_t *a, uint32_t n) {
   for (i=0; i<n; i++) b[i] = a[i];
 }
 
+/*
+ * Copy array value a into b: n = number of variables
+ */
+static void copy_values(uint8_t *b, const uint8_t *a, uint32_t n) {
+  uint32_t i, p;
 
-
+  p = pow2(n);
+  for (i=0; i<p; i++) b[i] = a[i];
+}
 
 /*
  * Import a regular ttbl into w.
@@ -254,6 +261,19 @@ void wide_ttbl_import(wide_ttbl_t *w, const ttbl_t *ttbl) {
   w->nvars = ttbl->nvars;
   copy_vars(w->var, ttbl->label, ttbl->nvars);
   expand_ttbl(w->val, ttbl);
+}
+
+/*
+ * Copy w1 into w
+ * - w->size must be at least w1->size
+ */
+void wide_ttbl_copy(wide_ttbl_t *w, const wide_ttbl_t *w1) {
+  assert(w->size >= w1->nvars);
+  assert(sorted_array(w1->var, w1->nvars));
+
+  w->nvars = w1->nvars;
+  copy_vars(w->var, w1->var, w1->nvars);
+  copy_values(w->val, w1->val, w1->nvars);
 }
 
 
@@ -375,6 +395,36 @@ bool wide_ttbl_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl
     w->nvars = n;
     copy_vars(w->var, b, n);
     compose_truth_tables(w->val, n, w1->val, i, ttbl, mask, selector);
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Composition variant
+ * - w1 stores the  truth table for a function f(x0 .... x_k)
+ * - ttbl stores the truth table for a functioon g(y0...)
+ * - x is a variable
+ *
+ * If x occurs in x0 ... x_k, then this replaces x by g(y0...) in f and store the
+ * result in w. Otherwise,  this copies w1 into w.
+ *
+ * The function returns false if the composition can't be stored
+ * in w (because it requires more variables than w->size).
+ * It returns true otherwise.
+ */
+bool wide_ttbl_var_compose(wide_ttbl_t *w, const wide_ttbl_t *w1, const ttbl_t *ttbl, bvar_t x) {
+  uint32_t i;
+
+  for (i=0; i< w1->nvars; i++) {
+    if (w1->var[i] == x) {
+      return wide_ttbl_compose(w, w1, ttbl, i);
+    }
+  }
+
+  if (w->size >= w1->size) {
+    wide_ttbl_copy(w, w1);
     return true;
   }
 

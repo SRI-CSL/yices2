@@ -13,7 +13,7 @@ The API provides constructors for terms defined in the Yices language.
 There are no special constructs for formulas; formulas are terms of
 Boolean type.  The semantics and type-checking rules of the language
 are explained in the `manual
-<http://yices.csl.sri.com/papers/manual.pdf>`_.
+<https://yices.csl.sri.com/papers/manual.pdf>`_.
 
 All term constructors return an object of type :c:type:`term_t`. They
 check their arguments, perform type checking, and return
@@ -2732,6 +2732,31 @@ a valid term.
    - if *t* is not a composite term or *i* is not a valid index for term *t*
 
      -- error code: :c:enum:`INVALID_TERM_OP`
+
+
+.. c:function:: term_t yices_term_children(term_t t, term_vector_t *v)
+
+   Collect the children of a composite term.
+
+   Store the children of term *t* into vector *v*. The vector must be initialized
+   first by calling function :c:func:`yices_init_term_vector`.
+
+   If *t* is not valir of not a composite term, the function returns -1, sets
+   the error report, and leaves *v* unchanged.
+
+   Otherwise, the children of *t* are stored in *v* in the same order as given
+   by :c:func:`yices_term_child`.
+
+   - *v->size* is the number  of children of term *t*
+
+   - *v->data[i]* is the *i*-th child of term *t*
+
+   **Error report**
+
+   - if *t* is not a composite term
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
 
 .. c:function:: int32_t yices_proj_index(term_t t)
 

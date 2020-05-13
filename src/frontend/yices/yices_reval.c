@@ -85,6 +85,7 @@
 #include "io/concrete_value_printer.h"
 #include "io/yices_pp.h"
 #include "model/model_eval.h"
+#include "model/model_queries.h"
 #include "model/models.h"
 #include "model/projection.h"
 #include "parser_utils/term_stack2.h"
@@ -98,6 +99,7 @@
 #include "utils/cputime.h"
 #include "utils/memsize.h"
 #include "utils/refcount_strings.h"
+#include "utils/simple_int_stack.h"
 #include "utils/string_utils.h"
 #include "utils/timeout.h"
 
@@ -140,6 +142,8 @@
  * - arith_name: arithmetic solver to use (option --arith-solver=xxx)
  * - mode_name:  option --mode=xxx
  *   by default, these are NULL
+ * - mcsat_requested: option --mscat (this forces use of the MC-SAT solver
+ *   for logic where MC-SAT is not the default).
  *
  * CONTEXT CONFIGURATION
  * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
@@ -168,6 +172,7 @@ static bool timeout_initialized;
 static char *logic_name;
 static char *arith_name;
 static char *mode_name;
+static bool mcsat_requested;
 
 static smt_logic_t logic_code;
 static arith_code_t arith_code;
@@ -190,14 +195,14 @@ static param_t parameters;
  */
 static bool efmode;
 
-
 /*
- * If mode = one-shot or ef
+ * Stack of assertions
  * - all assertions are pushed into this vector
- * - all assertions are then processed at once on the call to
- *   (check) or (ef-solve)
+ *
+ * - if mode == one-check, then assertions are processed at once
+ *   by (check) or (ef-solve)
  */
-static ivector_t delayed_assertions;
+static simple_istack_t assertions;
 
 /*
  * Counters for run-time statistics
@@ -259,6 +264,7 @@ enum {
   logic_option,
   arith_option,
   mode_option,
+  mcsat_flag,
   version_flag,
   help_flag,
   print_success_flag,
@@ -271,6 +277,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "logic", '\0', MANDATORY_STRING, logic_option },
   { "arith-solver", '\0', MANDATORY_STRING, arith_option },
   { "mode", '\0', MANDATORY_STRING, mode_option },
+  { "mcsat", '\0', FLAG_OPTION, mcsat_flag },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "print-success", '\0', FLAG_OPTION, print_success_flag },
@@ -314,6 +321,7 @@ static void print_help(char *progname) {
          "  --mode=<mode>             Select the usage mode\n"
          "                             <mode> maybe 'one-shot' or 'multi-checks' or 'interactive'\n"
 	 "                                    or 'push-pop' or 'ef'\n"
+	 "  --mcsat                   Force use of the MC-SAT solver for logics where MC-SAT is not the default\n"
 	 "\n"
 	 "The mode are as follows:\n"
 	 "\n"
@@ -400,6 +408,7 @@ static void process_command_line(int argc, char *argv[]) {
   logic_name = NULL;
   arith_name = NULL;
   mode_name = NULL;
+  mcsat_requested = false;
   verbosity = 0;
   print_success = false;
   tracer = NULL;
@@ -469,6 +478,10 @@ static void process_command_line(int argc, char *argv[]) {
         }
         break;
 
+      case mcsat_flag:
+	mcsat_requested = true;
+	break;
+
       case version_flag:
         print_version(stdout);
         goto quick_exit;
@@ -504,6 +517,16 @@ static void process_command_line(int argc, char *argv[]) {
 
  done:
   /*
+   * Fail if --mcsat is requested but is not available.
+   */
+  if (mcsat_requested && !yices_has_mcsat()) {
+    fprintf(stderr, "%s: options --mcsat is not supported; %s was not compiled with mcsat support\n",
+	    parser.command_name, parser.command_name);
+    exit(YICES_EXIT_ERROR);
+  }
+
+
+  /*
    * convert logic and arith solver codes to context architecture + mode
    * also set iflag and qflag
    */
@@ -515,6 +538,10 @@ static void process_command_line(int argc, char *argv[]) {
      * If a logic is specified, we check that it's supported by EF.
      * Then we store the corresponding qf_fragment in logic_code.
      */
+    if (mcsat_requested) {
+      fprintf(stderr, "%s: the mc-sat solver does not support exists/forall solver\n", parser.command_name);
+      goto bad_usage;
+    }
     if (logic_code == SMT_UNKNOWN) {
       if (arith_code == ARITH_FLOYD_WARSHALL) {
 	fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
@@ -537,9 +564,28 @@ static void process_command_line(int argc, char *argv[]) {
       qflag = true;
     }
 
+  } else if (mcsat_requested) {
+    /*
+     * MC-SAT
+     */
+    switch (logic_code) {
+    case SMT_UNKNOWN:
+      break;
+
+    default:
+      if (! logic_is_supported_by_mcsat(logic_code)) {
+	fprintf(stderr, "%s: logic %s is not supported by the mc-sat solver\n", parser.command_name, logic_name);
+	exit(YICES_EXIT_ERROR);
+      }
+    }
+
+    arch = CTX_ARCH_MCSAT;
+    iflag = false;
+    qflag = false;
+
   } else {
     /*
-     * Not EF
+     * Not EF, mcsat not requested
      */
     switch (logic_code) {
     case SMT_UNKNOWN:
@@ -592,14 +638,12 @@ static void process_command_line(int argc, char *argv[]) {
       iflag = iflag_for_logic(logic_code);
       qflag = qflag_for_logic(logic_code);
 
-#if !HAVE_MCSAT
-      // fail here: MCSAT not built
-      if (arch == CTX_ARCH_MCSAT) {
+      // fail here: if we need MCSAT, but it's not available
+      if (arch == CTX_ARCH_MCSAT && !yices_has_mcsat()) {
 	fprintf(stderr, "%s: logic %s is not supported; %s was not compiled with mcsat support\n",
 		parser.command_name, logic_name, parser.command_name);
 	exit(YICES_EXIT_ERROR);
       }
-#endif
       break;
     }
   }
@@ -627,7 +671,7 @@ static void process_command_line(int argc, char *argv[]) {
   } else if (mode_code == EFSOLVER_MODE) {
     /*
      * EF-Solver enabled:
-     * we set mode to ONE_CHECK so that assertions get added to the delayed_assertion vector
+     * we set mode to ONE_CHECK to handle all assertions at once
      */
     mode = CTX_MODE_ONECHECK;
     efmode = true;
@@ -641,7 +685,7 @@ static void process_command_line(int argc, char *argv[]) {
       }
     }
     if (arch == CTX_ARCH_MCSAT && mode_code == CTX_MODE_INTERACTIVE) {
-      fprintf(stderr, "%s: the non-linear solver does not support mode='interactive'\n", parser.command_name);
+      fprintf(stderr, "%s: the mc-sat solver does not support mode='interactive'\n", parser.command_name);
       goto bad_usage;
     }
   }
@@ -2065,12 +2109,12 @@ static void yices_help_cmd(const char *topic) {
 static void yices_reset_cmd(void) {
   if (efmode) {
     delete_ef_client(&ef_client_globals);
-    ivector_reset(&delayed_assertions);
+    reset_simple_istack(&assertions);
     model = NULL;
   } else {
     cleanup_globals();
     reset_labeled_assertion_stack(&labeled_assertions);
-    ivector_reset(&delayed_assertions);
+    reset_simple_istack(&assertions);
     reset_context(context);
   }
   print_ok();
@@ -2086,6 +2130,7 @@ static void yices_push_cmd(void) {
   } else if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else {
+    simple_istack_push(&assertions);
     cleanup_context();
     switch (context_status(context)) {
     case STATUS_IDLE:
@@ -2121,6 +2166,7 @@ static void yices_pop_cmd(void) {
   } else if (context_base_level(context) == 0) {
     report_error("pop not allowed at bottom level");
   } else {
+    simple_istack_pop(&assertions);
     cleanup_context();
     switch (context_status(context)) {
     case STATUS_UNSAT:
@@ -2150,12 +2196,12 @@ static void yices_assert_cmd(term_t f) {
 
   if (efmode) {
     /*
-     * Exists/forall: we add f to the delayed assertions vector
+     * Exists/forall: we add f to the stack only
      */
     if (ef_client_globals.efdone) {
       report_error("more assertions are not allowed after (ef-solve)");
     } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
+      simple_istack_add(&assertions, f);
       print_ok();
     } else {
       report_error("type error in assert: boolean term required");
@@ -2168,7 +2214,7 @@ static void yices_assert_cmd(term_t f) {
     if (context_status(context) != STATUS_IDLE) {
       report_error("more assertions are not allowed");
     } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
+      simple_istack_add(&assertions, f);
       print_ok();
     } else {
       report_error("type error in assert: boolean term required");
@@ -2183,6 +2229,9 @@ static void yices_assert_cmd(term_t f) {
     case STATUS_IDLE:
       if (yices_term_is_bool(f)) {
 	code = assert_formula(context, f);
+	if (code == CTX_NO_ERROR) {
+	  simple_istack_add(&assertions, f);
+	}
 	print_internalization_code(code);
       } else {
 	report_error("type error in assert: boolean term required");
@@ -2219,7 +2268,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
   } else if (mode == CTX_MODE_ONECHECK) {
     report_error("labeled assertions are not supported in one-shot mode");
   } else if (arch == CTX_ARCH_MCSAT) {
-    report_error("the non-linear solver does not support labeled assertions");
+    report_error("the MC-SAT solver does not support labeled assertions");
   } else if (labeled_assertions_has_name(&labeled_assertions, label)) {
     report_error("duplicate assertion label");
   } else if (!yices_term_is_bool(t)) {
@@ -2231,6 +2280,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
     case STATUS_IDLE:
       clone = clone_string(label);
       add_labeled_assertion(&labeled_assertions, t, clone);
+      simple_istack_add(&assertions, t);
       print_ok();
       break;
 
@@ -2466,8 +2516,9 @@ static void yices_check_cmd(void) {
     /*
      * Non-incremental
      */
-    // assert the delayed assertions
-    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    // assert the level-0 assertions
+    assert(assertions.nlevels == 0);
+    code = assert_formulas(context, assertions.top, assertions.data);
     if (code == CTX_NO_ERROR) {
       assert(context_status(context) == STATUS_IDLE);
       stat = do_check();
@@ -2788,6 +2839,34 @@ static model_t *efsolver_model(void) {
   return mdl;
 }
 
+
+/*
+ * Basic model display on stdout
+ */
+static void show_model(model_t *mdl) {
+  if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
+    report_system_error("stdout");
+  }
+  fflush(stdout);
+}
+
+/*
+ * Collect relevant variables for the current set of assertions.
+ * Display their values.
+ * The set of assertions is stored in the assertion stack.
+ */
+static void show_reduced_model(model_t *mdl) {
+  ivector_t support;
+
+  init_ivector(&support, 0);
+  model_get_terms_support(mdl, assertions.top, assertions.data, &support);
+  if (yices_pp_term_values(stdout, mdl, support.size, support.data, 140, UINT32_MAX, 0) < 0) {
+    report_system_error("stdout");
+  }
+  delete_ivector(&support);
+}
+
+
 /*
  * Build model if needed and display it
  */
@@ -2797,21 +2876,29 @@ static void yices_showmodel_cmd(void) {
   if (efmode) {
     mdl = efsolver_model();
     if (mdl != NULL) {
-      if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
-	report_system_error("stdout");
-      }
-      fflush(stdout);
+      show_model(mdl);
     }
   } else if (context_has_model("show-model")) {
-    // model_print(stdout, model);
-    // model_print_full(stdout, model);
-    if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
-      report_system_error("stdout");
-    }
-    fflush(stdout);
+    show_model(model);
   }
 }
 
+
+/*
+ * Build model if needed. Show only the useful values
+ */
+static void yices_show_reduced_model_cmd(void) {
+  model_t *mdl;
+
+  if (efmode) {
+    mdl = efsolver_model();
+    if (mdl != NULL) {
+      show_reduced_model(mdl);
+    }
+  } else if (context_has_model("show-reduced-model")) {
+    show_reduced_model(model);
+  }
+}
 
 
 /*
@@ -2941,7 +3028,7 @@ static void print_ef_status(void) {
  */
 static void yices_efsolve_cmd(void) {
   if (efmode) {
-    ef_solve(&ef_client_globals, &delayed_assertions, &parameters, logic_code, arch, tracer);
+    ef_solve(&ef_client_globals, assertions.top, assertions.data, &parameters, logic_code, arch, tracer);
     if (ef_client_globals.efcode != EF_NO_ERROR) {
       // error in preprocessing
       print_ef_analyze_code(ef_client_globals.efcode);
@@ -3028,7 +3115,7 @@ static void export_ef_problem(const char *s) {
   ivector_t all_ef;
   int code;
 
-  build_ef_problem(&ef_client_globals, &delayed_assertions);
+  build_ef_problem(&ef_client_globals, assertions.top, assertions.data);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
     print_ef_analyze_code(ef_client_globals.efcode);
   } else {
@@ -3056,16 +3143,16 @@ static void export_ef_problem(const char *s) {
 
 
 /*
- * Export the delayed assertions
+ * Export the assertions
  */
-static void export_delayed_assertions(const char *s) {
+static void export_assertions(const char *s) {
   context_t *aux;
   int code;
 
   aux = yices_create_context(logic_code, arch, CTX_MODE_ONECHECK, false, false);
   disable_variable_elimination(aux);
   disable_bvarith_elimination(aux);
-  code = assert_formulas(aux, delayed_assertions.size, delayed_assertions.data);
+  code = assert_formulas(aux, assertions.top, assertions.data);
   if (code < 0) {
     print_internalization_code(code);
   } else {
@@ -3085,7 +3172,7 @@ static void yices_export_cmd(const char *s) {
     if (efmode) {
       export_ef_problem(s);
     } else if (mode == CTX_MODE_ONECHECK) {
-      export_delayed_assertions(s);
+      export_assertions(s);
     } else {
       assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
       if (context_status(context) == STATUS_IDLE) {
@@ -3118,7 +3205,7 @@ static void yices_show_implicant_cmd(void) {
     report_error("(show-implicant) is not supported. Use --mode=one-shot");
   } else if (context_has_model("show-implicant")) {
     yices_init_term_vector(&v);
-    code = yices_implicant_for_formulas(model, delayed_assertions.size, delayed_assertions.data, &v);
+    code = yices_implicant_for_formulas(model, assertions.top, assertions.data, &v);
     if (code < 0) {
       report_show_implicant_error(yices_error_code());
     } else {
@@ -3507,7 +3594,7 @@ static void check_help_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n <= 1);
   if (n == 1) {
     if (f->tag != TAG_STRING && f->tag != TAG_SYMBOL) {
-      raise_exception(stack, f, TSTACK_NOT_A_STRING); // should use a different code for STING or SYMBOL
+      raise_exception(stack, f, TSTACK_NOT_A_STRING); // should use a different code for STRING or SYMBOL
     }
   }
 }
@@ -3623,7 +3710,22 @@ static void eval_show_unsat_assumptions_cmd(tstack_t *stack, stack_elem_t *f, ui
 
 
 /*
- * Initialize the term stack and add these commmands
+ * [show-reduced-model]
+ */
+static void check_show_reduced_model_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_REDUCED_MODEL_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_show_reduced_model_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_show_reduced_model_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * Initialize the term stack and add these commands
  */
 static void init_yices_tstack(tstack_t *stack) {
   init_tstack(stack, NUM_YICES_OPCODES);
@@ -3654,6 +3756,8 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, CHECK_ASSUMING_CMD, false, eval_check_assuming_cmd, check_check_assuming_cmd);
   tstack_add_op(stack, SHOW_UNSAT_CORE_CMD, false, eval_show_unsat_core_cmd, check_show_unsat_core_cmd);
   tstack_add_op(stack, SHOW_UNSAT_ASSUMPTIONS_CMD, false, eval_show_unsat_assumptions_cmd, check_show_unsat_assumptions_cmd);
+
+  tstack_add_op(stack, SHOW_REDUCED_MODEL_CMD, false, eval_show_reduced_model_cmd, check_show_reduced_model_cmd);
 
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }
@@ -3711,7 +3815,7 @@ int yices_main(int argc, char *argv[]) {
   context = NULL;
   model = NULL;
   init_parameter_name_table();
-  init_ivector(&delayed_assertions, 10);
+  init_simple_istack(&assertions);
   init_yices_tstack(&stack);
   init_ef_client(&ef_client_globals);
   init_labeled_assertion_stack(&labeled_assertions);
@@ -3784,7 +3888,7 @@ int yices_main(int argc, char *argv[]) {
   }
   delete_labeled_assertion_stack(&labeled_assertions);
   delete_tstack(&stack);
-  delete_ivector(&delayed_assertions);
+  delete_simple_istack(&assertions);
   if (tracer != NULL) {
     delete_trace(tracer);
     safe_free(tracer);

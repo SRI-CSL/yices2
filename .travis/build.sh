@@ -12,15 +12,26 @@ make
 sudo make install
 popd
 
-#Build Yices
+# Build and install CUDD
+pushd .
+git clone https://github.com/ivmai/cudd.git
+cd cudd
+git checkout tags/cudd-3.0.0
+autoreconf -fi
+./configure --enable-shared
+make
+sudo make install
+popd
+
+# Build yices
 autoconf
-./configure --enable-mcsat
+CFLAGS='-Werror' ./configure $CONFIGURE_FLAGS
 
 # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
-make MODE=gcov 
-make MODE=gcov check
+make MODE=$BUILD_TYPE 
+make MODE=$BUILD_TYPE check
 
 RETURN="$?"
 if [ "${RETURN}" != "0" ]; then

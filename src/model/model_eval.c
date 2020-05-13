@@ -1463,6 +1463,53 @@ bool eval_to_true_in_model(evaluator_t *eval, term_t t) {
 
 
 /*
+ * Check whether t is false in the model
+ * - t must be a valid term
+ * - return true if t evaluates to true
+ * - return false if t can't be evaluated or
+ *   if t's value is not boolean or not true.
+ */
+bool eval_to_false_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_false(eval->vtbl, v);
+}
+
+
+/*
+ * Check whether t is zero in the model
+ * - t must be a valid term
+ * - if t is an arithmetic term, this checks whether value(t) == 0
+ * - if t is a bit-vector term, this checks whether value(t) == 0b0000...
+ * - return false if t can't be evaluated, or if t is not an arithemtic
+ *   term nor a bitvector term, or if t's value is not zero.
+ */
+bool eval_to_zero_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) &&
+    (is_zero(eval->vtbl, v) || is_bvzero(eval->vtbl, v));
+}
+
+/*
+ * Check whether t evaluates to +/-1 in the model
+ * - t must be a valid  term
+ * - return false if t can't be evaluated or its value is not a rational
+ * - return true if t's value is either +1 or -1
+ */
+bool eval_to_unit_in_model(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_in_model(eval, t);
+  return good_object(eval->vtbl, v) && is_unit(eval->vtbl, v);
+}
+
+
+
+
+/*
  * Compute the values of terms a[0 ... n-1]
  * - don't return anything
  * - the value of a[i] can be queried by using eval_in_model(eval, a[i]) later

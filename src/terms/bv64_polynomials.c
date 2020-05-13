@@ -153,6 +153,29 @@ bool disequal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2) {
 }
 
 
+/*
+ * Check whether (p1 - p2) is a constant (i.e., p1 and p2 have the same
+ * monomials but may have a distinct constant).
+ */
+bool delta_bvpoly64_is_constant(bvpoly64_t *p1, bvpoly64_t *p2) {
+  bvmono64_t *b1, *b2;
+
+  b1 = p1->mono;
+  b2 = p2->mono;
+
+  if (b1->var == const_idx) b1++;
+  if (b2->var == const_idx) b2++;
+
+  while (b1->var == b2->var) {
+    if (b1->var == max_idx) return true;
+    if (b1->coeff != b2->coeff) return false;
+    b1 ++;
+    b2 ++;
+  }
+
+  return false;
+}
+
 
 /*
  * Check whether p is equal to k + x for a non-zero constant k and a variable x
@@ -162,3 +185,11 @@ bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x) {
     p->mono[1].coeff == 1;
 }
 
+
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant x
+ * and variable x.
+ */
+bool bvpoly64_is_offset(bvpoly64_t *p) {
+  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].coeff == 1;
+}

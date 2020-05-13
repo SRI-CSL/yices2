@@ -86,7 +86,7 @@
  * - invariants:
  *     learned <= size <= capacity
  *     available = capacity - size
- *     learned, size, capacity, available are all mutiple of four.
+ *     learned, size, capacity, available are all multiple of four.
  */
 typedef struct clause_pool_s {
   uint32_t *data;

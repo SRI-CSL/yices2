@@ -535,6 +535,7 @@ static bool try_left_replace64(bvfactoring_t *r, term_table_t *terms, term_t t, 
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst64(r->reduced1, p->mono[i].coeff, 1);
+      bvfactor_buffer_normalize(r->reduced1);
       i = 1;
     }
     while (i<r->n1) {
@@ -559,6 +560,7 @@ static bool try_left_replace(bvfactoring_t *r, term_table_t *terms, term_t t, bv
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst(r->reduced1, p->mono[i].coeff, 1);
+      bvfactor_buffer_normalize(r->reduced1);
       i = 1;
     }
     while (i<r->n1) {
@@ -584,6 +586,7 @@ static bool try_right_replace64(bvfactoring_t *r, term_table_t *terms, term_t t,
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst64(r->reduced2, p->mono[i].coeff, 1);
+      bvfactor_buffer_normalize(r->reduced2);
       i = 1;
     }
     while (i<r->n2) {
@@ -608,6 +611,7 @@ static bool try_right_replace(bvfactoring_t *r, term_table_t *terms, term_t t, b
     i = 0;
     if (p->mono[0].var == const_idx) {
       bvfactor_buffer_mulconst(r->reduced2, p->mono[i].coeff, 1);
+      bvfactor_buffer_normalize(r->reduced2);
       i = 1;
     }
     while (i<r->n2) {
@@ -2235,13 +2239,13 @@ void flatten_assertion(context_t *ctx, term_t f) {
         break;
 
       case ARITH_ROOT_ATOM:
-        intern_tbl_map_root(intern, r, bool2code(tt));
-        break;
+        exception = FORMULA_NOT_LINEAR;
+        goto abort;
 
       case ARITH_IS_INT_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_arith_is_int(ctx, r, tt);
-	break;
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -2462,7 +2466,7 @@ void process_aux_atoms(context_t *ctx) {
 	// contradiction
 	longjmp(ctx->env, TRIVIALLY_UNSAT);
       } else if (code != bool2code(true)) {
-	ivector_push(&ctx->top_atoms, r);
+	ivector_push(&ctx->top_interns, r);
       }
     } else {
       // not mapped
@@ -3529,7 +3533,6 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
 
 #if TRACE_SYM_BREAKING
 
-#if 0
 static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t *r) {
   uint32_t i, n;
 
@@ -3590,9 +3593,8 @@ static void show_range_constraints(sym_breaker_t *breaker) {
     pp_constraints(&pp, breaker, v[i]);
   }
 
-  delete_yices_pp(&pp);
+  delete_yices_pp(&pp, true);
 }
-#endif
 
 static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   uint32_t i, n;
@@ -3630,6 +3632,11 @@ void break_uf_symmetries(context_t *ctx) {
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
+
+#if TRACE_SYM_BREAKING
+  show_range_constraints(&breaker);
+#endif
+
   v = breaker.sorted_constraints;
   n = breaker.num_constraints;
   if (n > 0) {

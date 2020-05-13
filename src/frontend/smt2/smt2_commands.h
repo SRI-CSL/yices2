@@ -289,6 +289,11 @@ typedef struct smt2_cmd_stats_s {
  * - clean_model_format is true by default. This flag determines how models
  *   are displayed in (get-model). The default is to use a Yices-style
  *   format. If the flag is false, we use the SMT2-style format (not clean!).
+ * - bvconst_in_decimal is false by default. This flag determines how bit-vector
+ *   constants are displayed in (get-model) and (get-value ..>). If the flag
+ *   is true, we print them in decimal otherwise, we print them in binary.
+ *   Decimal means something like (_ bv200 8):  value = 200, 8 bits
+ *   Binary means something like #b11001000.
  *
  * The solver can be initialized in benchmark_mode by calling init_smt2(true, ...).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
@@ -329,6 +334,7 @@ typedef struct smt2_globals_s {
   bool benchmark_mode;
   bool global_decls;
   bool clean_model_format;
+  bool bvconst_in_decimal;
 
   // smt-lib version: added 2016/05/24
   // possible values are 0 (not set) or 2000 (version 2.0)
@@ -344,7 +350,8 @@ typedef struct smt2_globals_s {
   // mcsat
   bool mcsat;                      // set to true to use the mcsat solver
   mcsat_options_t mcsat_options;   // options for the mcsat solver
-
+  ivector_t var_order;             // order in which mcsat needs to assign variables
+  
   // exists/forall solver
   bool efmode;                     // true to use the exists_forall solver
   ef_client_t ef_client;
@@ -488,6 +495,12 @@ extern void smt2_enable_trace_tag(const char *tag);
 extern void smt2_force_smt2_model_format(void);
 
 /*
+ * Use (_ bv<xxx> n) format when printing bit-vector values.
+ * By default, we use #b<xxxxxxx> (binary constants).
+ */
+extern void smt2_force_bvdecimal_format(void);
+
+/*
  * Force bitblast and export to DIMACS
  * - filename = name of the output file
  */
@@ -506,6 +519,11 @@ extern void smt2_show_stats(void);
  */
 extern void smt2_set_delegate(const char *name);
 
+/*
+ * Set a a dimacs filename but don't force export to DIMACS
+ * This is use to export to DIMACS after delegate preprocessing
+ */
+extern void smt2_set_dimacs_file(const char *filename);
 
 /*
  * Delete all internal structures (called after exit).

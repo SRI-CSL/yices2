@@ -985,7 +985,7 @@ static void scale_constraint(presburger_constraint_t *constraint, term_t y, rati
 
 }
 
-/* convert all the contraints in pres to the form where the the coeff of
+/* convert all the constraints in pres to the form where the the coeff of
  * y is plus or minus one.
  * - y must be in the eliminables 
  *

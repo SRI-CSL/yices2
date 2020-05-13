@@ -1,4 +1,4 @@
-yices2 (2.6.1-1) unstable; urgency=medium
+yices2 (2.6.2-0ubuntu1) bionic; urgency=medium
 
   * Initial release. (Closes: #864786)
 

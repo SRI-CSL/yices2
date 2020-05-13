@@ -57,7 +57,7 @@
 
 
 /*
- * Variant of jenkins's orignal hash function for null-terminated string
+ * Variant of jenkins's original hash function for null-terminated string
  * using the lookup3 mixx and final.
  */
 uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed) {

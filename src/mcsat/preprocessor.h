@@ -21,6 +21,7 @@
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
 #include "io/tracer.h"
+#include "options.h"
 #include "mcsat/utils/scope_holder.h"
 
 #include <setjmp.h>
@@ -48,8 +49,20 @@ typedef struct {
   /** List of term in the purification map (for backtracking) */
   ivector_t purification_map_list;
 
+  /** Preprocessor stack */
+  ivector_t preprocessing_stack;
+
+  /** Map from equalities to the variable it is solved for */
+  int_hmap_t equalities;
+
+  /** List of solved equalities */
+  ivector_t equalities_list;
+
   /** Tracer */
   tracer_t* tracer;
+
+  /** MCSAT options */
+  const mcsat_options_t* options;
 
   /** Exception handler */
   jmp_buf* exception;
@@ -60,13 +73,13 @@ typedef struct {
 } preprocessor_t;
 
 /** Construct the preprocessor */
-void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler);
+void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler, const mcsat_options_t* options);
 
 /** Destruct the preprocessor */
 void preprocessor_destruct(preprocessor_t* pre);
 
 /** Preprocess the term, add any additional assertions to output vector. */
-term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out);
+term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertions);
 
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
@@ -80,5 +93,7 @@ void preprocessor_push(preprocessor_t* pre);
 /** Pop the preprocessor */
 void preprocessor_pop(preprocessor_t* pre);
 
+/** Add any variable substitutions to the model */
+void preprocessor_build_model(preprocessor_t* pre, model_t* model);
 
 #endif

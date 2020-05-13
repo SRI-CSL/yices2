@@ -152,15 +152,9 @@ dnl
 dnl Check for endianness
 dnl --------------------
 dnl
-dnl The neorationals code is little-endian only for now.
-dnl TODO: support big-endian architectures at some point
-dnl For now, we check here and fail.
-dnl
-bigendian=""
-AC_C_BIGENDIAN([bigendian=yes],[bigendian=no],[bigendian=yes])
-if test "x$bigendian" = xyes ; then
-   AC_MSG_ERROR([Can't build for your architecture. Yices builds only on little-endian hardware. Please file an issue at $repo_url])
-fi
+WORDS_BIGENDIAN=""
+AC_C_BIGENDIAN([WORDS_BIGENDIAN=yes],[WORDS_BIGENDIAN=no],[WORDS_BIGENDIAN=yes])
+AC_SUBST(WORDS_BIGENDIAN)
 
 dnl
 dnl CHECK_THREAD_LOCAL
@@ -290,8 +284,8 @@ dnl the static libraries, using the same conventions as for GMP.
 dnl
 use_mcsat="no"
 AC_ARG_ENABLE([mcsat],
-   [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the LibPoly library.])],
-   [if test "$enableval" = yes ; then
+   [AS_HELP_STRING([--enable-mcsat],[Enable support for MCSAT. This requires the LibPoly library and the CUDD library.])],
+   [if test "$enableval" = yes ; then 
       use_mcsat="yes"
       AC_MSG_NOTICE([Enabling support for MCSAT])
     fi],
@@ -845,6 +839,14 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 if test $use_mcsat = yes ; then
    AC_CHECK_LIB([poly],[lp_polynomial_new], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
 fi
+
+#
+# Default CUDD
+#
+if test $use_mcsat = yes ; then 
+   AC_CHECK_LIB([cudd],[Cudd_Init], [], [AC_MSG_ERROR([*** CUDD library not found. Try to set LDFLAGS ***])])   
+fi
+
 
 #
 # Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'

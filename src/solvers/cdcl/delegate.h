@@ -52,6 +52,8 @@
  * - keep_var(bvar_t v): tell the solver that v shouldn't be eliminated
  * - var_def2(bvar_t v, uint32_t b, literal_t l1, literal_t l2)
  * - var_def3(bvar_t v, uint32_t b, literal_t l1, literal_t l2, literal_t l3)
+ * - preprocess(): apply only preprocessing, not full check
+ * - export(const char*filename): export solver's state to file in DIMACS format
  *
  * The var_def functions state that v is a function of l1, l2, (and l3).
  * The lower-order 8 bits of b define a truth table using the same conventions
@@ -71,6 +73,9 @@ typedef void (*keep_var_fun_t)(void *solver, bvar_t x);
 typedef void (*var_def2_fun_t)(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2);
 typedef void (*var_def3_fun_t)(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2, literal_t l3);
 
+typedef smt_status_t (*preprocess_fun_t)(void *solver);
+typedef void (*export_fun_t)(void *solver, FILE *f);
+
 typedef struct delegate_s {
   void *solver;     // pointer to the sat solver
   ivector_t buffer; // to make copy of clauses
@@ -86,6 +91,8 @@ typedef struct delegate_s {
   keep_var_fun_t keep_var;
   var_def2_fun_t var_def2;
   var_def3_fun_t var_def3;
+  preprocess_fun_t preprocess;
+  export_fun_t export;
 } delegate_t;
 
 
@@ -124,6 +131,22 @@ extern void delete_delegate(delegate_t *delegate);
  * - return STATUS_UNKNOWN if the delegate fails
  */
 extern smt_status_t solve_with_delegate(delegate_t *delegate, smt_core_t *core);
+
+/*
+ * Export the clauses from the core to the delegate
+ * then appply delegate's CNF-level preprocessing
+ * - return STATUS_SAT/STATUS_UNSAT if that solves the problem
+ * - return STATUS_UNKNOWN otherwise (or if the delegate does not support this)
+ */
+extern smt_status_t preprocess_with_delegate(delegate_t *delegate, smt_core_t *core);
+
+/*
+ * Write the delegate's CNF to a file in DIMACS format
+ * - f = output file.
+ * - f must be open and writable
+ */
+extern void export_to_dimacs_with_delegate(delegate_t *delegate, FILE *f);
+
 
 /*
  * Value assigned to variable x in the delegate

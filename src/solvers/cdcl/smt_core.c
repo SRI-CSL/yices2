@@ -5846,7 +5846,7 @@ bool base_propagate(smt_core_t *s) {
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - make an internal copy of the assumptions
  * - initialize variable heap
  * - set status to searching
@@ -6042,7 +6042,7 @@ bool smt_easy_sat(smt_core_t *s) {
   assert(s->bool_only);
 
   for (;;) {
-    assert(s->status == STATUS_SEARCHING);
+    assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
     smt_propagation(s);
     assert(empty_lemma_queue(&s->lemmas));
     assert(! s->cp_flag);
@@ -6168,7 +6168,8 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL RESTART\n");
@@ -6190,7 +6191,7 @@ void smt_partial_restart(smt_core_t *s) {
   bvar_t x;
   uint32_t i, k, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART\n");
@@ -6242,7 +6243,7 @@ void smt_partial_restart_var(smt_core_t *s) {
   bvar_t x;
   uint32_t i, n;
 
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");

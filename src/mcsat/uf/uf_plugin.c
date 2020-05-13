@@ -16,19 +16,7 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Anything that includes "yices.h" requires these macros.
- * Otherwise the code doesn't build on Windows or Cygwin.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "uf_plugin.h"
-#include "app_reps.h"
-#include "uf_feasible_set_db.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -36,11 +24,14 @@
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/value.h"
 
+#include "mcsat/eq/equality_graph.h"
+
 #include "utils/int_array_sort2.h"
+#include "utils/ptr_array_sort2.h"
 #include "model/models.h"
 
 #include "terms/terms.h"
-#include "terms/term_manager.h"
+#include "inttypes.h"
 
 typedef struct {
 
@@ -50,41 +41,31 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
-  /** Watch list manager for applications */
-  watch_list_manager_t wlm_apps;
-
-  /** Watch list manager for equalities */
-  watch_list_manager_t wlm_eqs;
-
-  /** App representatives */
-  app_reps_t app_reps;
-
-  /** Next index of the trail to process */
-  uint32_t trail_i;
-
   /** Scope holder for the int variables */
   scope_holder_t scope;
-
-  /** Map from application representatives to value representatives */
-  int_hmap_t app_rep_to_val_rep;
-
-  /** List of app representatives that have a value representative */
-  ivector_t app_reps_with_val_rep;
 
   /** Conflict  */
   ivector_t conflict;
 
-  /** All function applications ever seen */
-  ivector_t all_apps;
-
-  /** All uninterpreted symbols */
-  ivector_t all_uvars;
-
-  /** Feasible sets for uninterpreted terms */
-  uf_feasible_set_db_t* feasible;
-
   /** The term manager (no ITE simplification) */
-  term_manager_t tm;
+  term_manager_t* tm;
+
+  /** Equality graph */
+  eq_graph_t eq_graph;
+
+  /** Stuff added to eq_graph */
+  ivector_t eq_graph_addition_trail;
+
+  /** Tmp vector */
+  int_mset_t tmp;
+
+  struct {
+    statistic_int_t* egraph_terms;
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_avg_t* avg_conflict_size;
+    statistic_avg_t* avg_explanation_size;
+  } stats;
 
   /** Exception handler */
   jmp_buf* exception;
@@ -92,24 +73,38 @@ typedef struct {
 } uf_plugin_t;
 
 static
+void uf_plugin_stats_init(uf_plugin_t* uf) {
+  // Add statistics
+  uf->stats.propagations = statistics_new_int(uf->ctx->stats, "mcsat::uf::propagations");
+  uf->stats.conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::conflicts");
+  uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
+  uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
+  uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
+}
+
+static
+void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump) {
+  uint32_t i;
+  for (i = 0; i < to_bump->element_list.size; ++ i) {
+    term_t t = to_bump->element_list.data[i];
+    variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+    if (t != variable_null) {
+      int_hmap_pair_t* find = int_hmap_find(&to_bump->count_map, t);
+      uf->ctx->bump_variable_n(uf->ctx, t_var, find->val);
+    }
+  }
+  int_mset_clear(to_bump);
+}
+
+static
 void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   uf->ctx = ctx;
 
-  watch_list_manager_construct(&uf->wlm_apps, uf->ctx->var_db);
-  watch_list_manager_construct(&uf->wlm_eqs, uf->ctx->var_db);
-  app_reps_construct(&uf->app_reps, 0, ctx->var_db, ctx->trail, ctx->terms);
   scope_holder_construct(&uf->scope);
-  init_int_hmap(&uf->app_rep_to_val_rep, 0);
-  init_ivector(&uf->app_reps_with_val_rep, 0);
-  init_ivector(&uf->all_apps, 0);
-  init_ivector(&uf->all_uvars, 0);
   init_ivector(&uf->conflict, 0);
-
-  uf->feasible = uf_feasible_set_db_new(ctx->terms, ctx->var_db, ctx->trail);
-
-  uf->trail_i = 0;
+  int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
   ctx->request_term_notification_by_kind(ctx, APP_TERM);
@@ -124,182 +119,117 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
 
-  // Term manager
-  init_term_manager(&uf->tm, uf->ctx->terms);
-  uf->tm.simplify_ite = false;
+  // Equality graph
+  eq_graph_construct(&uf->eq_graph, ctx, "uf");
+  init_ivector(&uf->eq_graph_addition_trail, 0);
+
+  // stats
+  uf_plugin_stats_init(uf);
 }
 
 static
 void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
-  watch_list_manager_destruct(&uf->wlm_apps);
-  watch_list_manager_destruct(&uf->wlm_eqs);
-  app_reps_destruct(&uf->app_reps);
   scope_holder_destruct(&uf->scope);
-  delete_int_hmap(&uf->app_rep_to_val_rep);
-  delete_ivector(&uf->app_reps_with_val_rep);
-  delete_ivector(&uf->all_apps);
-  delete_ivector(&uf->all_uvars);
   delete_ivector(&uf->conflict);
-  uf_feasible_set_db_delete(uf->feasible);
-  delete_term_manager(&uf->tm);
+  int_mset_destruct(&uf->tmp);
+  eq_graph_destruct(&uf->eq_graph);
+  delete_ivector(&uf->eq_graph_addition_trail);
 }
 
 static
-bool uf_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
-  const mcsat_trail_t* trail;
-  bool t1_has_value, t2_has_value;
-  uint32_t t1_level, t2_level;
-
-  trail = data;
-
-  // We compare variables based on the trail level, unassigned to the front,
-  // then assigned ones by decreasing level
-
-  // Literals with no value
-  t1_has_value = trail_has_value(trail, t1);
-  t2_has_value = trail_has_value(trail, t2);
-  if (!t1_has_value && !t2_has_value) {
-    // Both have no value, just order by variable
-    return t1 < t2;
-  }
-
-  // At least one has a value
-  if (!t1_has_value) {
-    // t1 < t2, goes to front
-    return true;
-  }
-  if (!t2_has_value) {
-    // t2 < t1, goes to front
-    return false;
-  }
-
-  // Both literals have a value, sort by decreasing level
-  t1_level = trail_get_level(trail, t1);
-  t2_level = trail_get_level(trail, t2);
-  if (t1_level != t2_level) {
-    // t1 > t2 goes to front
-    return t1_level > t2_level;
-  } else {
-    return t1 < t2;
+void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* prop) {
+  // Process any propagated terms
+  if (eq_graph_has_propagated_terms(&uf->eq_graph)) {
+    uint32_t i = 0;
+    ivector_t eq_propagations;
+    init_ivector(&eq_propagations, 0);
+    eq_graph_get_propagated_terms(&uf->eq_graph, &eq_propagations);
+    for (; i < eq_propagations.size; ++ i) {
+      // Term to propagate
+      term_t t = eq_propagations.data[i];
+      // Variable to propagate
+      variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+      if (t_var != variable_null) {
+        // Only set values of uninterpreted and boolean type
+        type_kind_t t_type_kind = term_type_kind(uf->ctx->terms, t);
+        if (t_type_kind == UNINTERPRETED_TYPE || t_type_kind == BOOL_TYPE) {
+          const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
+          if (!trail_has_value(uf->ctx->trail, t_var)) {
+            if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
+              FILE* out = ctx_trace_out(uf->ctx);
+              ctx_trace_term(uf->ctx, t);
+              fprintf(out, " -> ");
+              mcsat_value_print(v, out);
+              fprintf(out, "\n");
+            }
+            prop->add(prop, t_var, v);
+            (*uf->stats.propagations) ++;
+          } else {
+            // Ignore, we will report conflict
+          }
+        }
+      }
+    }
+    delete_ivector(&eq_propagations);
   }
 }
 
 static
-void uf_plugin_new_eq(uf_plugin_t* uf, term_t eq_term, trail_token_t* prop) {
+void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 
-  variable_db_t* var_db = uf->ctx->var_db;
   term_table_t* terms = uf->ctx->terms;
-  const mcsat_trail_t* trail = uf->ctx->trail;
 
-  // Variable of the eq term
-  variable_t eq_term_var = variable_db_get_variable(var_db, eq_term);
-  composite_term_t* eq_desc = eq_term_desc(terms, eq_term);
+  // The kind
+  term_kind_t t_kind = term_kind(terms, t);
 
-  term_t lhs_term = eq_desc->arg[0];
-  term_t rhs_term = eq_desc->arg[1];
-  variable_t lhs_term_var = variable_db_get_variable(var_db, lhs_term);
-  variable_t rhs_term_var = variable_db_get_variable(var_db, rhs_term);
-
-  // Ignore interpreted equalities
-  if (term_type_kind(terms, lhs_term) != UNINTERPRETED_TYPE) {
-    return;
+  // Add to equality graph
+  composite_term_t* t_desc = NULL;
+  uint32_t children_start = 0;
+  switch (t_kind) {
+  case APP_TERM:
+    t_desc = app_term_desc(terms, t);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+    children_start = 1;
+    break;
+  case ARITH_RDIV:
+    t_desc = arith_rdiv_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_RDIV, 2, t_desc->arg);
+    break;
+  case ARITH_IDIV:
+    t_desc = arith_idiv_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_IDIV, 2, t_desc->arg);
+    break;
+  case ARITH_MOD:
+    t_desc = arith_mod_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_MOD, 2, t_desc->arg);
+    break;
+  case EQ_TERM:
+    t_desc = eq_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
+    break;
+  default:
+    assert(false);
   }
 
-  // Setup the variable list
-  variable_t vars[3];
-  vars[0] = eq_term_var;
-  vars[1] = lhs_term_var;
-  vars[2] = rhs_term_var;
-
-  // Sort variables by trail index
-  int_array_sort2(vars, 3, (void*) trail, uf_plugin_trail_variable_compare);
-
-  // Make the variable list
-  variable_list_ref_t var_list = watch_list_manager_new_list(&uf->wlm_eqs, vars, 3, eq_term_var);
-
-  // Add first two variables to watch list
-  watch_list_manager_add_to_watch(&uf->wlm_eqs, var_list, vars[0]);
-  watch_list_manager_add_to_watch(&uf->wlm_eqs, var_list, vars[1]);
-
-  // If both assigned, propagate
-  if (trail_has_value(trail, lhs_term_var) && trail_has_value(trail, rhs_term_var)) {
-    const mcsat_value_t* lhs_value = trail_get_value(trail, lhs_term_var);
-    const mcsat_value_t* rhs_value = trail_get_value(trail, rhs_term_var);
-    int lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
-
-    uint32_t lhs_level = trail_get_level(trail, lhs_term_var);
-    uint32_t rhs_level = trail_get_level(trail, rhs_term_var);
-    uint32_t level = lhs_level > rhs_level ? lhs_level : rhs_level;
-
-    assert (!trail_has_value(trail, eq_term_var));
-    if (lhs_eq_rhs) {
-      prop->add_at_level(prop, eq_term_var, &mcsat_value_true, level);
-    } else {
-      prop->add_at_level(prop, eq_term_var, &mcsat_value_false, level);
+  // Make sure the subterms are registered
+  uint32_t i;
+  for (i = children_start; i < t_desc->arity; ++ i) {
+    term_t c = t_desc->arg[i];
+    variable_t c_var = variable_db_get_variable(uf->ctx->var_db, c);
+    if (trail_has_value(uf->ctx->trail, c_var)) {
+      // we need to process it if we ignored it
+      if (eq_graph_term_is_rep(&uf->eq_graph, c)) {
+        eq_graph_propagate_trail_assertion(&uf->eq_graph, c);
+      }
     }
   }
-}
 
-static
-void uf_plugin_new_fun_application(uf_plugin_t* uf, term_t app_term, trail_token_t* prop) {
-
-  uint32_t i;
-
-  variable_db_t* var_db = uf->ctx->var_db;
-  term_table_t* terms = uf->ctx->terms;
-  const mcsat_trail_t* trail = uf->ctx->trail;
-
-  // Variable of the application term
-  variable_t app_term_var = variable_db_get_variable(var_db, app_term);
-  ivector_push(&uf->all_apps, app_term_var);
-
-  // Get the children
-  int_mset_t arguments;
-  int_mset_construct(&arguments, variable_null);
-  composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
-  uint32_t arity = app_desc->arity;
-
-  i = app_reps_get_uf_start(terms, app_term);
-  for (; i < arity; ++ i) {
-    variable_t arg_var = variable_db_get_variable(var_db, app_desc->arg[i]);
-    int_mset_add(&arguments, arg_var);
+  // Record addition so we can re-add on backtracks
+  if (record) {
+    (*uf->stats.egraph_terms) ++;
+    ivector_push(&uf->eq_graph_addition_trail, t);
   }
-
-  // Is the variable fully assigned
-  bool is_fully_assigned = false;
-
-  if (arguments.size > 0) {
-
-    variable_t* arguments_vars = arguments.element_list.data;
-    uint32_t size = arguments.element_list.size;
-
-    // Sort variables by trail index
-    int_array_sort2(arguments_vars, size, (void*) trail, uf_plugin_trail_variable_compare);
-
-    // Make the variable list
-    variable_list_ref_t var_list = watch_list_manager_new_list(&uf->wlm_apps, arguments_vars, size, app_term_var);
-
-    // Add first variable to watch list
-    watch_list_manager_add_to_watch(&uf->wlm_apps, var_list, arguments_vars[0]);
-
-    // Check the current status of the variables
-    variable_t top_var = arguments_vars[0];
-    is_fully_assigned = trail_has_value(trail, top_var);
-
-  } else {
-    // No variables => fully assigned
-    is_fully_assigned = true;
-  }
-
-  if (is_fully_assigned) {
-    // Here, the new terms can not have assigned value, so we don't need to
-    // check for conflicts
-    app_reps_get_rep(&uf->app_reps, app_term_var);
-  }
-
-  // Remove temps
-  int_mset_destruct(&arguments);
 }
 
 
@@ -319,357 +249,15 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   case ARITH_IDIV:
   case ARITH_RDIV:
   case APP_TERM:
-    // Application terms (or other terms we treat as uninterpreted)
-    uf_plugin_new_fun_application(uf, t, prop);
-    break;
   case EQ_TERM:
-    // Equality terms (for uninterpreted sorts)
-    uf_plugin_new_eq(uf, t, prop);
-    break;
-  case UNINTERPRETED_TERM:
-    ivector_push(&uf->all_uvars, variable_db_get_variable(uf->ctx->var_db, t));
+    // Application terms (or other terms we treat as uninterpreted)
+    uf_plugin_add_to_eq_graph(uf, t, true);
     break;
   default:
-    // Noting for now
+    // All other is of uninterpreted sort, and we treat as variables
     break;
   }
 
-}
-
-/** Get the value representative of the application representative. */
-static inline
-variable_t uf_plugin_get_val_rep(uf_plugin_t* uf, variable_t app_rep) {
-  int_hmap_pair_t* find = int_hmap_find(&uf->app_rep_to_val_rep, app_rep);
-  if (find == NULL) {
-    return variable_null;
-  } else {
-    return find->val;
-  }
-}
-
-/** Set the value representative of the application representative. */
-static inline
-void uf_plugin_set_val_rep(uf_plugin_t* uf, variable_t app_rep, variable_t val_rep) {
-  assert(uf_plugin_get_val_rep(uf, app_rep) == variable_null);
-  int_hmap_add(&uf->app_rep_to_val_rep, app_rep, val_rep);
-  ivector_push(&uf->app_reps_with_val_rep, app_rep);
-}
-
-static
-void uf_plugin_propagate_eqs(uf_plugin_t* uf, variable_t var, trail_token_t* prop) {
-  const mcsat_trail_t* trail = uf->ctx->trail;
-  variable_db_t* var_db = uf->ctx->var_db;
-
-  // Go through all the variable lists (constraints) where we're watching var
-  remove_iterator_t it;
-  variable_list_ref_t var_list_ref;
-  variable_t* var_list;
-  variable_t* var_list_it;
-
-  // Get the watch-list and process
-  remove_iterator_construct(&it, &uf->wlm_eqs, var);
-  while (trail_is_consistent(trail) && !remove_iterator_done(&it)) {
-
-    // Get the current list where var appears
-    var_list_ref = remove_iterator_get_list_ref(&it);
-    var_list = watch_list_manager_get_list(&uf->wlm_eqs, var_list_ref);
-
-    // x = y variable
-    variable_t eq_var = watch_list_manager_get_constraint(&uf->wlm_eqs, var_list_ref);
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
-      ctx_trace_printf(uf->ctx, "uf_plugin_propagate: eq_var = ");
-      ctx_trace_term(uf->ctx, variable_db_get_term(var_db, eq_var));
-    }
-
-    // Put the variable to [1] so that [0] is the unit one
-    if (var_list[0] == var && var_list[1] != variable_null) {
-      var_list[0] = var_list[1];
-      var_list[1] = var;
-    }
-
-    // Find a new watch (start from [2])
-    var_list_it = var_list + 1;
-    if (*var_list_it != variable_null) {
-      for (++var_list_it; *var_list_it != variable_null; ++var_list_it) {
-        if (!trail_has_value(trail, *var_list_it)) {
-          // Swap with var_list[1]
-          var_list[1] = *var_list_it;
-          *var_list_it = var;
-          // Add to new watch
-          watch_list_manager_add_to_watch(&uf->wlm_eqs, var_list_ref, var_list[1]);
-          // Don't watch this one
-          remove_iterator_next_and_remove(&it);
-          break;
-        }
-      }
-    }
-
-    if (*var_list_it == variable_null) {
-      if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
-        ctx_trace_printf(uf->ctx, "no watch found\n");
-      }
-      // We did not find a new watch so vars[1], ..., vars[n] are assigned.
-      // If vars[0] is an equality, we propagate it, otherwise, we update
-      // the feasibility set
-      if (var_list[0] == eq_var) {
-
-        // lhs = rhs
-        variable_t lhs = var_list[1];
-        variable_t rhs = var_list[2];
-
-        // Check the model value
-        const mcsat_value_t* lhs_value = trail_get_value(trail, lhs);
-        const mcsat_value_t* rhs_value = trail_get_value(trail, rhs);
-        int lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
-
-        // Evaluate the equality if it doesn't have a value
-        if (!trail_has_value(trail, eq_var)) {
-          if (lhs_eq_rhs) {
-            prop->add(prop, eq_var, &mcsat_value_true);
-          } else {
-            prop->add(prop, eq_var, &mcsat_value_false);
-          }
-        } else {
-          // Equality already has a value, check that it's the right one
-          bool eq_var_value = trail_get_boolean_value(trail, eq_var);
-          if (eq_var_value != lhs_eq_rhs) {
-            if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
-              ctx_trace_printf(uf->ctx, "eq conflict 1\n");
-            }
-            term_t eq_term = variable_db_get_term(var_db, eq_var);
-            // Equality can not be both true and false at the same time
-            ivector_reset(&uf->conflict);
-            ivector_push(&uf->conflict, eq_term);
-            ivector_push(&uf->conflict, opposite_term(eq_term));
-            prop->conflict(prop);
-          }
-        }
-      } else {
-
-        // Check if equality is true or false and add to feasibility db
-        variable_t lhs = var_list[0];
-        variable_t rhs = var_list[1] == eq_var ? var_list[2] : var_list[1];
-
-        // Is the equailty true
-        bool eq_true = trail_get_boolean_value(trail, eq_var);
-
-        // Get the value of the right-hand side (have to cast, since yices rationals
-        // don't have const parameters.
-        mcsat_value_t* rhs_val = (mcsat_value_t*) trail_get_value(trail, rhs);
-        assert(rhs_val->type == VALUE_RATIONAL);
-        assert(q_fits_int32(&rhs_val->q));
-        int32_t rhs_val_int;
-        q_get32(&rhs_val->q, &rhs_val_int);
-
-        // Update the feasible set
-        bool feasible;
-        if (eq_true) {
-          feasible = uf_feasible_set_db_set_equal(uf->feasible, lhs, rhs_val_int, eq_var);
-
-          // Also propagate the value
-          if (!trail_has_value(trail, lhs)) {
-            rational_t q;
-            q_init(&q);
-            q_set32(&q, rhs_val_int);
-            mcsat_value_t value;
-            mcsat_value_construct_rational(&value, &q);
-            prop->add(prop, lhs, &value);
-            mcsat_value_destruct(&value);
-            q_clear(&q);
-          }
-
-        } else {
-          feasible = uf_feasible_set_db_set_disequal(uf->feasible, lhs, rhs_val_int, eq_var);
-        }
-
-        // Ooops, a conflict
-        if (!feasible) {
-          if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
-            ctx_trace_printf(uf->ctx, "eq conflict 2\n");
-          }
-          ivector_reset(&uf->conflict);
-          uf_feasible_set_db_get_conflict(uf->feasible, lhs, &uf->conflict);
-          prop->conflict(prop);
-        }
-      }
-
-      // Keep the watch, and continue
-      remove_iterator_next_and_keep(&it);
-    }
-  }
-
-  // Done, destruct the iterator
-  remove_iterator_destruct(&it);
-}
-
-static
-void uf_plugin_get_app_conflict(uf_plugin_t* uf, variable_t lhs, variable_t rhs) {
-
-  // CRAP ABOUT TERM NORMALIZATION: We CANT normalize the terms, since otherwise
-  // terms like 1 + x = 1 + y would normalize to x = y. To be on the safe side,
-  // We always make equalities as binary arith equalities
-
-  ivector_reset(&uf->conflict);
-
-  variable_db_t* var_db = uf->ctx->var_db;
-  term_table_t* terms = uf->ctx->terms;
-  const mcsat_trail_t* trail = uf->ctx->trail;
-
-  // We have a conflict x1 != y1 or .... or xn != y2 or f(x) != f(y)
-
-  // Add function equality first
-  term_t fx = variable_db_get_term(var_db, lhs);
-  term_t fy = variable_db_get_term(var_db, rhs);
-  assert(fx != fy);
-  // Check the type, we treat Booleans specially
-  type_kind_t f_type = term_type_kind(terms, fx);
-  if (f_type == BOOL_TYPE) {
-    if (trail_get_boolean_value(trail, lhs)) {
-      ivector_push(&uf->conflict, fx);
-    } else {
-      ivector_push(&uf->conflict, opposite_term(fx));
-    }
-    if (trail_get_boolean_value(trail, rhs)) {
-      ivector_push(&uf->conflict, fy);
-    } else {
-      ivector_push(&uf->conflict, opposite_term(fy));
-    }
-  } else {
-    term_t fx_eq_fy = mk_eq(&uf->tm, fx, fy);
-    ivector_push(&uf->conflict, opposite_term(fx_eq_fy));
-  }
-
-  // Now add all the intermediate equalities
-  composite_term_t* fx_app = app_reps_get_uf_descriptor(terms, fx);
-  composite_term_t* fy_app = app_reps_get_uf_descriptor(terms, fy);
-  assert(app_reps_get_uf(terms, fx) == app_reps_get_uf(terms, fy));
-  assert(fx_app->arity == fy_app->arity);
-  uint32_t i = app_reps_get_uf_start(terms, fx);
-  uint32_t n = fx_app->arity;
-  for (; i < n; ++ i) {
-    term_t x = fx_app->arg[i];
-    term_t y = fy_app->arg[i];
-    type_kind_t type = term_type_kind(terms, x);
-    if (type == BOOL_TYPE) {
-      variable_t x_var = variable_db_get_variable(var_db, x);
-      variable_t y_var = variable_db_get_variable(var_db, y);
-      if (trail_get_boolean_value(trail, x_var)) {
-        ivector_push(&uf->conflict, x);
-      } else {
-        ivector_push(&uf->conflict, opposite_term(x));
-      }
-      if (trail_get_boolean_value(trail, y_var)) {
-        ivector_push(&uf->conflict, y);
-      } else {
-        ivector_push(&uf->conflict, opposite_term(y));
-      }
-    } else {
-      term_t x_eq_y = mk_eq(&uf->tm, x, y);
-      // Don't add trivially true facts
-      if (x_eq_y != bool2term(true)) {
-        ivector_push(&uf->conflict, x_eq_y);
-      }
-    }
-  }
-}
-
-static
-void uf_plugin_propagate_apps(uf_plugin_t* uf, variable_t var, trail_token_t* prop) {
-
-  const mcsat_trail_t* trail = uf->ctx->trail;
-  variable_db_t* var_db = uf->ctx->var_db;
-
-  // Go through all the variable lists (constraints) where we're watching var
-  remove_iterator_t it;
-  variable_list_ref_t var_list_ref;
-  variable_t* var_list;
-  variable_t* var_list_it;
-
-  // Get the watch-list and process
-  remove_iterator_construct(&it, &uf->wlm_apps, var);
-  while (trail_is_consistent(trail) && !remove_iterator_done(&it)) {
-
-    // Get the current list where var appears
-    var_list_ref = remove_iterator_get_list_ref(&it);
-    var_list = watch_list_manager_get_list(&uf->wlm_apps, var_list_ref);
-
-    // f(x) variable
-    variable_t app_var = watch_list_manager_get_constraint(&uf->wlm_apps, var_list_ref);
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
-      ctx_trace_printf(uf->ctx, "uf_plugin_propagate: app_var = ");
-      ctx_trace_term(uf->ctx, variable_db_get_term(var_db, app_var));
-    }
-
-    // Find a new watch (start from [1])
-    var_list_it = var_list + 1;
-    assert(var == var_list[0]);
-    for (; *var_list_it != variable_null; ++var_list_it) {
-      if (!trail_has_value(trail, *var_list_it)) {
-        // Swap with var_list[1]
-        var_list[0] = *var_list_it;
-        *var_list_it = var;
-        // Add to new watch
-        watch_list_manager_add_to_watch(&uf->wlm_apps, var_list_ref, var_list[0]);
-        // Don't watch this one
-        remove_iterator_next_and_remove(&it);
-        break;
-      }
-    }
-
-    if (*var_list_it == variable_null) {
-      // We did not find a new watch so vars[1], ..., vars[n] are assigned.
-      // Add and get the representative of this assignment.
-      variable_t rep_var = app_reps_get_rep(&uf->app_reps, app_var);
-      assert(rep_var != variable_null);
-      if (trail_has_value(trail, app_var)) {
-        variable_t val_rep_var = uf_plugin_get_val_rep(uf, rep_var);
-        // If already has one, and both assigned to a value, check if it's the same value
-        if (val_rep_var == variable_null) {
-          uf_plugin_set_val_rep(uf, rep_var, app_var);
-        } else if (val_rep_var != app_var) {
-          const mcsat_value_t* app_value = trail_get_value(trail, app_var);
-          const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
-          if (!mcsat_value_eq(app_value, val_rep_value)) {
-            if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
-              ctx_trace_printf(uf->ctx, "app conflict 1\n");
-            }
-            uf_plugin_get_app_conflict(uf, app_var, val_rep_var);
-            prop->conflict(prop);
-          }
-        }
-      }
-      // Keep the watch, and continue
-      remove_iterator_next_and_keep(&it);
-    }
-  }
-
-  // If a function application, check if it's fully assigned
-  term_t var_term = variable_db_get_term(uf->ctx->var_db, var);
-  if (app_reps_is_uf(uf->ctx->terms, var_term)) {
-    // Get the application representative, if any
-    variable_t rep_var = app_reps_get_rep(&uf->app_reps, var);
-    if (rep_var != variable_null) {
-      // Get the value representative
-      variable_t val_rep_var = uf_plugin_get_val_rep(uf, rep_var);
-      if (val_rep_var == variable_null) {
-        // No value reps yet, take it over
-        uf_plugin_set_val_rep(uf, rep_var, var);
-      } else if (val_rep_var != var) {
-        const mcsat_value_t* var_value = trail_get_value(trail, var);
-        const mcsat_value_t* val_rep_value = trail_get_value(trail, val_rep_var);
-        if (!mcsat_value_eq(var_value, val_rep_value)) {
-          if (ctx_trace_enabled(uf->ctx, "uf_plugin::conflict")) {
-            ctx_trace_printf(uf->ctx, "app conflict 2\n");
-          }
-          uf_plugin_get_app_conflict(uf, var, val_rep_var);
-          prop->conflict(prop);
-        }
-      }
-    }
-  }
-
-  // Done, destruct the iterator
-  remove_iterator_destruct(&it);
 }
 
 static
@@ -682,37 +270,23 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   // If we're not watching anything, we just ignore
-  if (watch_list_manager_size(&uf->wlm_apps) == 0 && watch_list_manager_size(&uf->wlm_eqs) == 0) {
+  if (eq_graph_term_size(&uf->eq_graph) == 0) {
     return;
   }
 
-  // Context
-  const mcsat_trail_t* trail = uf->ctx->trail;
-  variable_db_t* var_db = uf->ctx->var_db;
+  // Propagate known terms
+  eq_graph_propagate_trail(&uf->eq_graph);
+  uf_plugin_process_eq_graph_propagations(uf, prop);
 
-  // Propagate
-  variable_t var;
-  for(; trail_is_consistent(trail) && uf->trail_i < trail_size(trail); ++ uf->trail_i) {
-    // Current trail element
-    var = trail_at(trail, uf->trail_i);
-
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
-      ctx_trace_printf(uf->ctx, "uf_plugin_propagate: ");
-      ctx_trace_term(uf->ctx, variable_db_get_term(var_db, var));
-      ctx_trace_printf(uf->ctx, "trail: ");
-      trail_print(trail, stderr);
-    }
-
-    // Propagate function applications
-    if (trail_is_consistent(trail)) {
-      uf_plugin_propagate_apps(uf, var, prop);
-    }
-
-    // Propagate equalities
-    if (trail_is_consistent(trail)) {
-      uf_plugin_propagate_eqs(uf, var, prop);
-    }
-
+  // Check for conflicts
+  if (uf->eq_graph.in_conflict) {
+    // Report conflict
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
+    // Construct the conflict
+    eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL, &uf->tmp);
+    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
 
@@ -722,44 +296,48 @@ void uf_plugin_push(plugin_t* plugin) {
 
   // Pop the int variable values
   scope_holder_push(&uf->scope,
-      &uf->trail_i,
-      &uf->app_reps_with_val_rep.size,
-      &uf->all_apps.size,
+      &uf->eq_graph_addition_trail.size,
       NULL);
 
-  app_reps_push(&uf->app_reps);
-  uf_feasible_set_db_push(uf->feasible);
+  eq_graph_push(&uf->eq_graph);
 }
 
 static
 void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  uint32_t old_app_reps_with_val_rep_size;
-  uint32_t old_all_apps_size;
+  uint32_t old_eq_graph_addition_trail_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
-      &uf->trail_i,
-      &old_app_reps_with_val_rep_size,
-      &old_all_apps_size,
+      &old_eq_graph_addition_trail_size,
       NULL);
 
-  while (uf->app_reps_with_val_rep.size > old_app_reps_with_val_rep_size) {
-    variable_t app_rep = ivector_pop2(&uf->app_reps_with_val_rep);
-    int_hmap_pair_t* find = int_hmap_find(&uf->app_rep_to_val_rep, app_rep);
-    assert(find != NULL);
-    int_hmap_erase(&uf->app_rep_to_val_rep, find);
-  }
+  eq_graph_pop(&uf->eq_graph);
 
-  while (uf->all_apps.size > old_all_apps_size) {
-    ivector_pop(&uf->all_apps);
+  // Re-add all the terms to eq graph
+  uint32_t i;
+  for (i = old_eq_graph_addition_trail_size; i < uf->eq_graph_addition_trail.size; ++ i) {
+    term_t t = uf->eq_graph_addition_trail.data[i];
+    uf_plugin_add_to_eq_graph(uf, t, false);
   }
+  // We've already processed all the propagations, so we just reset it
+  eq_graph_get_propagated_terms(&uf->eq_graph, NULL);
 
-  app_reps_pop(&uf->app_reps);
-  uf_feasible_set_db_pop(uf->feasible);
+  // Clear the conflict
+  ivector_reset(&uf->conflict);
 }
 
+bool value_cmp(void* data, void* v1_void, void* v2_void) {
+
+  const mcsat_value_t* v1 = (mcsat_value_t*) v1_void;
+  const mcsat_value_t* v2 = (mcsat_value_t*) v2_void;
+
+  assert(v1->type == VALUE_RATIONAL);
+  assert(v2->type == VALUE_RATIONAL);
+
+  return q_cmp(&v1->q, &v2->q) < 0;
+}
 
 static
 void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, bool must) {
@@ -770,13 +348,78 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     ctx_trace_term(uf->ctx, variable_db_get_term(uf->ctx->var_db, x));
   }
 
-  // Get the actual value
-  uint32_t int_value = uf_feasible_set_db_get(uf->feasible, x);
+  assert(eq_graph_is_trail_propagated(&uf->eq_graph));
+
+  // Get the cached value
+  const mcsat_value_t* x_cached_value = NULL;
+  if (trail_has_cached_value(uf->ctx->trail, x)) {
+    x_cached_value = trail_get_cached_value(uf->ctx->trail, x);
+  }
+
+  // Pick a value not in the forbidden set
+  term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
+  pvector_t forbidden;
+  init_pvector(&forbidden, 0);
+  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value);
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+    ctx_trace_printf(uf->ctx, "picking !=");
+    uint32_t i;
+    for (i = 0; i < forbidden.size; ++ i) {
+      const mcsat_value_t* v = forbidden.data[i];
+      ctx_trace_printf(uf->ctx, " ");
+      mcsat_value_print(v, ctx_trace_out(uf->ctx));
+    }
+    ctx_trace_printf(uf->ctx, "\n");
+  }
+
+  int32_t picked_value = 0;
+  if (!cache_ok) {
+    // Pick smallest value not in forbidden list
+    ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
+    if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+      ctx_trace_printf(uf->ctx, "picking !=");
+      uint32_t i;
+      for (i = 0; i < forbidden.size; ++ i) {
+        const mcsat_value_t* v = forbidden.data[i];
+        ctx_trace_printf(uf->ctx, " ");
+        mcsat_value_print(v, ctx_trace_out(uf->ctx));
+      }
+      ctx_trace_printf(uf->ctx, "\n");
+    }
+    uint32_t i;
+    picked_value = 0;
+    for (i = 0; i < forbidden.size; ++ i) {
+      const mcsat_value_t* v = forbidden.data[i];
+      assert(v->type == VALUE_RATIONAL);
+      int32_t v_int = 0;
+      bool ok = q_get32((rational_t*)&v->q, &v_int);
+      (void) ok;
+      assert(ok);
+      if (picked_value < v_int) {
+        // Found a gap, pick
+        break;
+      } else {
+        picked_value = v_int + 1;
+      }
+    }
+  } else {
+    assert(x_cached_value->type == VALUE_RATIONAL);
+    bool ok = q_get32((rational_t*)&x_cached_value->q, &picked_value);
+    (void) ok;
+    assert(ok);
+  }
+
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
+    ctx_trace_printf(uf->ctx, "picked %"PRIi32"\n", picked_value);
+  }
+
+  // Remove temp
+  delete_pvector(&forbidden);
 
   // Make the yices rational
   rational_t q;
   q_init(&q);
-  q_set32(&q, int_value);
+  q_set32(&q, picked_value);
 
   // Make the mcsat value
   mcsat_value_t value;
@@ -793,82 +436,14 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 static
 void uf_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
-  term_table_t* terms = uf->ctx->terms;
-  variable_db_t* var_db = uf->ctx->var_db;
 
-  if (gc_vars->level == 0) {
-    // UF only needs to make sure that all the applications are kept
-    uint32_t i, j, m, n = uf->all_apps.size;
-    for (i = 0; i < n; ++ i) {
-      variable_t app_var = uf->all_apps.data[i];
-      gc_info_mark(gc_vars, app_var);
-      // Also mark the immediate children
-      term_t app_term = variable_db_get_term(var_db, app_var);
-      composite_term_t* app_desc = app_reps_get_uf_descriptor(terms, app_term);
-      m = app_desc->arity;
-      j = app_reps_get_uf_start(terms, app_term);
-      for (; j < m; ++ j) {
-        variable_t arg_i = variable_db_get_variable(var_db, app_desc->arg[j]);
-        gc_info_mark(gc_vars, arg_i);
-      }
-    }
-
-    // Feasible set marks reasons, and those need to be kept
-    uf_feasible_set_db_gc_mark(uf->feasible, gc_vars);
-
-    // Mark all the uninterpreted variables, these are kept
-    n = uf->all_uvars.size;
-    for (i = 0; i < n; ++ i) {
-      variable_t uvar = uf->all_uvars.data[i];
-      gc_info_mark(gc_vars, uvar);
-    }
-  }
+  // Mark all asserted stuff, and all the children of marked stuff
+  eq_graph_gc_mark(&uf->eq_graph, gc_vars, EQ_GRAPH_MARK_ALL);
 }
 
 static
 void uf_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
-  uf_plugin_t* uf = (uf_plugin_t*) plugin;
-
-  // Table of representatives
-  int_hmap_t new_app_rep_to_val_rep;
-  init_int_hmap(&new_app_rep_to_val_rep, 0);
-
-  // List of app representatives
-  uint32_t i, n = uf->app_reps_with_val_rep.size;
-  for (i = 0; i < n; i ++) {
-    variable_t app = uf->app_reps_with_val_rep.data[i];
-    variable_t val = uf_plugin_get_val_rep(uf, app);
-    app = gc_info_get_reloc(gc_vars, app);
-    if (val != variable_null) {
-      val = gc_info_get_reloc(gc_vars, val);
-      int_hmap_add(&new_app_rep_to_val_rep, app, val);
-    }
-    assert(app != variable_null);
-    uf->app_reps_with_val_rep.data[i] = app;
-  }
-
-  // Swap in the representative table
-  delete_int_hmap(&uf->app_rep_to_val_rep);
-  uf->app_rep_to_val_rep = new_app_rep_to_val_rep;
-
-  // The representatives table
-  app_reps_gc_sweep(&uf->app_reps, gc_vars);
-
-  // Feasible sets
-  uf_feasible_set_db_gc_sweep(uf->feasible, gc_vars);
-
-  // Watch list manager
-  watch_list_manager_gc_sweep_lists(&uf->wlm_apps, gc_vars);
-  watch_list_manager_gc_sweep_lists(&uf->wlm_eqs, gc_vars);
-
-  // All apps
-  n = uf->all_apps.size;
-  for (i = 0; i < n; ++ i) {
-    variable_t app = uf->all_apps.data[i];
-    app = gc_info_get_reloc(gc_vars, app);
-    assert(app != variable_null);
-    uf->all_apps.data[i] = app;
-  }
+  // Should be nothing!
 }
 
 static
@@ -882,93 +457,71 @@ static
 term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  term_table_t* terms = uf->ctx->terms;
-  variable_db_t* var_db = uf->ctx->var_db;
-
-  // We only propagate equalities dues to propagation, so the reason is the
-  // literal itself
-
-  term_t atom = variable_db_get_term(var_db, var);
+  term_t var_term = variable_db_get_term(uf->ctx->var_db, var);
 
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_explain_propagation():\n");
-    ctx_trace_term(uf->ctx, atom);
+    ctx_trace_term(uf->ctx, var_term);
+    ctx_trace_printf(uf->ctx, "var = %"PRIu32"\n", var);
   }
 
-  type_kind_t type_kind = term_type_kind(terms, atom);
-
-  if (type_kind == BOOL_TYPE) {
-
-    bool value = trail_get_boolean_value(uf->ctx->trail, var);
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
-      ctx_trace_printf(uf->ctx, "assigned to %s\n", value ? "true" : "false");
-    }
-
-    if (value) {
-      // atom => atom = true
-      ivector_push(reasons, atom);
-      return bool2term(true);
-    } else {
-      // neg atom => atom = false
-      ivector_push(reasons, opposite_term(atom));
-      return bool2term(false);
-    }
-  } else {
-    assert(type_kind == UNINTERPRETED_TYPE);
-
-    // We have an equality x = y that propagated x
-    // Explanation is x = y => replace x with y
-
-    term_t x = variable_db_get_term(var_db, var);
-    variable_t x_eq_y_var = uf_feasible_set_db_get_eq_reason(uf->feasible, var);
-    term_t x_eq_y = variable_db_get_term(var_db, x_eq_y_var);
-    assert(term_kind(terms, x_eq_y) == EQ_TERM);
-    composite_term_t* eq_desc = eq_term_desc(terms, x_eq_y);
-    term_t y = eq_desc->arg[0] == x ? eq_desc->arg[1] : eq_desc->arg[0];
-    ivector_push(reasons, x_eq_y);
-    return y;
-  }
-
+  term_t subst = eq_graph_explain_term_propagation(&uf->eq_graph, var_term, reasons, NULL, &uf->tmp);
+  uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+  statistic_avg_add(uf->stats.avg_explanation_size, reasons->size);
+  return subst;
 }
 
 static
 bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
+  if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
+    ctx_trace_printf(uf->ctx, "uf_plugin_explain_evaluation():\n");
+    ctx_trace_term(uf->ctx, t);
+  }
+
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
 
-  if (value == NULL) {
-
-    // Get all the variables and make sure they are all assigned.
-    term_t atom = unsigned_term(t);
-    assert(term_kind(terms, atom) == EQ_TERM);
-    composite_term_t* eq_desc = eq_term_desc(terms, atom);
-
+  // Get all the variables and make sure they are all assigned.
+  term_kind_t t_kind = term_kind(terms, t);
+  if (t_kind == EQ_TERM) {
+    composite_term_t* eq_desc = eq_term_desc(terms, t);
     term_t lhs_term = eq_desc->arg[0];
     term_t rhs_term = eq_desc->arg[1];
     variable_t lhs_var = variable_db_get_variable_if_exists(var_db, lhs_term);
     variable_t rhs_var = variable_db_get_variable_if_exists(var_db, rhs_term);
-    assert(lhs_var != variable_null);
-    assert(rhs_var != variable_null);
 
     // Check if both are assigned
-    if (!trail_has_value(trail, lhs_var)) { return false; }
-    if (!trail_has_value(trail, rhs_var)) { return false; }
+    if (lhs_var == variable_null) {
+      return false;
+    }
+    if (rhs_var == variable_null) {
+      return false;
+    }
+    if (!trail_has_value(trail, lhs_var)) {
+      return false;
+    }
+    if (!trail_has_value(trail, rhs_var)) {
+      return false;
+    }
 
-    int_mset_add(vars, lhs_var);
-    int_mset_add(vars, rhs_var);
-
-    // Both variables assigned, we evaluate
-    return true;
-
-  } else {
-    // We don't propagate values (yet)
-    assert(false);
+    const mcsat_value_t* lhs_value = trail_get_value(trail, lhs_var);
+    const mcsat_value_t* rhs_value = trail_get_value(trail, rhs_var);
+    bool lhs_eq_rhs = mcsat_value_eq(lhs_value, rhs_value);
+    bool negated = is_neg_term(t);
+    if ((negated && (value->b != lhs_eq_rhs)) ||
+        (!negated && (value->b == lhs_eq_rhs))) {
+      int_mset_add(vars, lhs_var);
+      int_mset_add(vars, rhs_var);
+      return true;
+    }
   }
 
-  return true;
+  // Default: return false for cases like f(x) -> false, this is done in the
+  // core
+  return false;
 }
 
 static
@@ -983,17 +536,82 @@ typedef struct {
 } model_sort_data_t;
 
 
+// Compare two terms by function application: group same functions together
 static
-bool uf_plugin_build_model_compare(void *data, variable_t t1_var, variable_t t2_var) {
+bool uf_plugin_build_model_compare(void *data, term_t t1, term_t t2) {
   model_sort_data_t* ctx = (model_sort_data_t*) data;
-  term_t t1 = variable_db_get_term(ctx->var_db, t1_var);
-  term_t t2 = variable_db_get_term(ctx->var_db, t2_var);
-  int32_t t1_app = app_reps_get_uf(ctx->terms, t1);
-  int32_t t2_app = app_reps_get_uf(ctx->terms, t2);
-  if (t1_app == t2_app) {
-    return t1 < t2;
+
+  int32_t t1_app = term_kind(ctx->terms, t1);
+  int32_t t2_app = term_kind(ctx->terms, t2);
+
+  if (t1_app != t2_app) {
+    return t1_app < t2_app;
   }
-  return t1_app < t2_app;
+
+  if (t1_app == APP_TERM) {
+    t1_app = app_term_desc(ctx->terms, t1)->arg[0];
+    t2_app = app_term_desc(ctx->terms, t2)->arg[0];
+    if (t1_app != t2_app) {
+      return t1_app < t2_app;
+    }
+  }
+  return t1 < t2;
+}
+
+static inline
+type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, term_t f) {
+
+  type_table_t* types = terms->types;
+  type_t reals = real_type(types);
+  type_t ints = int_type(types);
+
+  switch (app_kind) {
+  case APP_TERM:
+    return term_type(terms, f);
+  case ARITH_RDIV:
+    return function_type(types, reals, 1, &reals);
+  case ARITH_IDIV:
+  case ARITH_MOD:
+    return function_type(types, ints, 1, &ints);
+  default:
+    assert(false);
+  }
+
+  return NULL_TYPE;
+}
+
+static inline
+value_t uf_plugin_get_term_value(uf_plugin_t* uf, value_table_t* vtbl, term_t t) {
+  type_t t_type = term_type(uf->ctx->terms, t);
+  variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+  if (t_var != variable_null) {
+    const mcsat_value_t* t_value = trail_get_value(uf->ctx->trail, t_var);
+    return mcsat_value_to_value(t_value, uf->ctx->types, t_type, vtbl);
+  } else {
+    assert(false);
+    return null_value;
+  }
+}
+
+static inline
+value_t vtbl_mk_default(type_table_t* types, value_table_t *vtbl, type_t tau) {
+  type_kind_t tau_kind = type_kind(types, tau);
+  switch(tau_kind) {
+  case BOOL_TYPE:
+    return vtbl_mk_false(vtbl);
+    break;
+  case REAL_TYPE:
+  case INT_TYPE:
+    return vtbl_mk_int32(vtbl, 0);
+    break;
+  case BITVECTOR_TYPE:
+    return vtbl_mk_bv_zero(vtbl, bv_type_size(types, tau));
+    break;
+  default:
+    assert(false);
+  }
+
+  return null_value;
 }
 
 static
@@ -1001,8 +619,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   term_table_t* terms = uf->ctx->terms;
-  type_table_t* types = uf->ctx->types;
-  value_table_t* values = &model->vtbl;
+  value_table_t* vtbl = &model->vtbl;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
 
@@ -1011,12 +628,12 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   sort_ctx.terms = terms;
   sort_ctx.var_db = var_db;
 
-  // Sort the representatives by function used: we get a list of function
+  // Sort the terms from the equality graph by function used: we get a list of function
   // applications where we can easily collect them by linear scan
-  ivector_t app_reps;
-  init_ivector(&app_reps, uf->app_reps_with_val_rep.size);
-  ivector_copy(&app_reps, uf->app_reps_with_val_rep.data, uf->app_reps_with_val_rep.size);
-  int_array_sort2(app_reps.data, app_reps.size, &sort_ctx, uf_plugin_build_model_compare);
+  ivector_t app_terms;
+  init_ivector(&app_terms, uf->eq_graph_addition_trail.size);
+  ivector_copy(&app_terms, uf->eq_graph_addition_trail.data, uf->eq_graph_addition_trail.size);
+  int_array_sort2(app_terms.data, app_terms.size, &sort_ctx, uf_plugin_build_model_compare);
 
   // Mappings that we collect for a single function
   ivector_t mappings;
@@ -1030,31 +647,45 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   // - while same function, collect the concrete mappings
   // - if different function, construct the function and add to model
   uint32_t i;
-  int32_t app_f, prev_app_f = 0;  // Current and previous function symbol
-  term_t app_term, prev_app_term; // Current and previous function application term
-  variable_t app_var;        // Current function application term variable
-  type_t app_type;           // Current function application term type
-  for (i = 0, prev_app_term = NULL_TERM; i < app_reps.size; ++ i) {
+  term_t app_f = NULL_TERM, prev_app_f = NULL_TERM;  // Current and previous function symbol
+  term_t app_term, prev_app_term = NULL_TERM; // Current and previous function application term
+  term_kind_t app_kind = UNUSED_TERM, prev_app_kind = UNUSED_TERM; // Kind of the current and previous function
+  bool app_construct = true; // Whether to construct it
+  for (i = 0; i < app_terms.size; ++ i) {
 
     // Current representative application
-    app_var = app_reps.data[i];
-    app_term = variable_db_get_term(var_db, app_var);
-    app_type = term_type(terms, app_term);
+    app_term = app_terms.data[i];
+
+    // Only need to do functions and uninterpreted
+    app_kind = term_kind(terms, app_term);
+    switch (app_kind) {
+    case APP_TERM:
+    case ARITH_RDIV:
+    case ARITH_IDIV:
+    case ARITH_MOD:
+      app_construct = true;
+      break;
+    default:
+      app_construct = false;
+      continue;
+    }
+
+    composite_term_t* app_comp = composite_term_desc(terms, app_term);
 
     if (ctx_trace_enabled(uf->ctx, "uf_plugin::model")) {
       ctx_trace_printf(uf->ctx, "processing app rep:");
       ctx_trace_term(uf->ctx, app_term);
     }
 
-    // Current function symbol
-    app_f = app_reps_get_uf(terms, app_term);
-    composite_term_t* app_comp = app_reps_get_uf_descriptor(uf->ctx->terms, app_term);
-
-    // For division operators, we only use the ones that divide by 0
-    if (app_f < 0) {
+    if (app_kind == APP_TERM) {
+      app_f = app_comp->arg[0];
+    } else {
+      app_f = NULL_TERM;
+      // Division only if division by 0
       assert(app_comp->arity == 2);
       term_t divisor_term = app_comp->arg[1];
       variable_t divisor_var = variable_db_get_variable(var_db, divisor_term);
+      assert(trail_has_value(trail, divisor_var));
       const mcsat_value_t* divisor_value = trail_get_value(trail, divisor_var);
       if (!mcsat_value_is_zero(divisor_value)) {
         continue;
@@ -1062,84 +693,82 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     }
 
     // If we changed the function, construct the previous one
-    if (prev_app_term != NULL_TERM && app_f != prev_app_f) {
-      type_t tau = app_reps_get_uf_type(&uf->app_reps, prev_app_term);
-      value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
-      if (prev_app_f < 0) {
-        // Arithmetic stuffs
-        switch (prev_app_f) {
-        case APP_REP_IDIV_ID:
-          vtbl_set_zero_idiv(values, f_value);
+    if (prev_app_term != NULL_TERM) {
+      if (app_f != prev_app_f || app_kind != prev_app_kind) {
+        type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
+        type_t range_tau = function_type_range(terms->types, tau);
+        value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
+        switch (prev_app_kind) {
+        case ARITH_RDIV:
+          vtbl_set_zero_rdiv(vtbl, f_value);
           break;
-        case APP_REP_RDIV_ID:
-          vtbl_set_zero_rdiv(values, f_value);
+        case ARITH_IDIV:
+          vtbl_set_zero_idiv(vtbl, f_value);
           break;
-        case APP_REP_MOD_ID:
-          vtbl_set_zero_mod(values, f_value);
+        case ARITH_MOD:
+          vtbl_set_zero_mod(vtbl, f_value);
           break;
+        case APP_TERM:
+          model_map_term(model, prev_app_f, f_value);
+          break;
+        default:
+          assert(false);
         }
-      } else {
-        // Regular UF function
-        model_map_term(model, prev_app_f, f_value);
+        // Reset the mapping
+        ivector_reset(&mappings);
       }
-      ivector_reset(&mappings);
     }
 
     // Next concrete mapping f : (x1, x2, ..., xn) -> v
     // a) Get the v value
-    mcsat_value_t* v_mcsat = (mcsat_value_t*) trail_get_value(trail, app_var);
-    assert(v_mcsat->type != VALUE_NONE);
-    value_t v = mcsat_value_to_value(v_mcsat, types, app_type, values);
+    value_t v = uf_plugin_get_term_value(uf, vtbl, app_term);
     // b) Get the argument values
     uint32_t arg_i;
-    uint32_t arg_start = app_reps_get_uf_start(uf->ctx->terms, app_term);
-    uint32_t arg_end = app_f < 0 ? app_comp->arity - 1 : app_comp->arity;
+    uint32_t arg_start = app_kind == APP_TERM ? 1 : 0;
+    uint32_t arg_end = app_kind == APP_TERM ? app_comp->arity : app_comp->arity - 1;
     ivector_reset(&arguments);
     for (arg_i = arg_start; arg_i < arg_end; ++ arg_i) {
       term_t arg_term = app_comp->arg[arg_i];
-      type_t arg_type = term_type(terms, arg_term);
-      variable_t arg_var = variable_db_get_variable(var_db, arg_term);
-      v_mcsat = (mcsat_value_t*) trail_get_value(trail, arg_var);
-      assert(v_mcsat->type != VALUE_NONE);
-      value_t arg_v = mcsat_value_to_value(v_mcsat, types, arg_type, values);
+      value_t arg_v = uf_plugin_get_term_value(uf, vtbl, arg_term);
       ivector_push(&arguments, arg_v);
     }
     // c) Construct the concrete mapping, and save in the list for f
-    value_t map_value = vtbl_mk_map(values, arguments.size, arguments.data, v);
+    value_t map_value = vtbl_mk_map(vtbl, arguments.size, arguments.data, v);
     ivector_push(&mappings, map_value);
 
     // Remember the previous one
     prev_app_f = app_f;
     prev_app_term = app_term;
+    prev_app_kind = app_kind;
   }
 
-  if (app_reps.size > 0 && mappings.size > 0) {
-    // Construct the last function
-    type_t tau = app_reps_get_uf_type(&uf->app_reps, app_term);
-    value_t f_value = vtbl_mk_function(values, tau, mappings.size, mappings.data, vtbl_mk_unknown(values));
-    if (app_f < 0) {
-      // Arithmetic stuffs
-      switch (app_f) {
-      case APP_REP_IDIV_ID:
-        vtbl_set_zero_idiv(values, f_value);
-        break;
-      case APP_REP_RDIV_ID:
-        vtbl_set_zero_rdiv(values, f_value);
-        break;
-      case APP_REP_MOD_ID:
-        vtbl_set_zero_mod(values, f_value);
-        break;
-      }
-    } else {
-      // Regular UF function
-      model_map_term(model, app_f, f_value);
+  // Since we make functions when we see a new one, we also construct the last function
+  if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
+    type_t tau = get_function_application_type(terms, app_kind, app_f);
+    type_t range_tau = function_type_range(terms->types, tau);
+    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
+    switch (app_kind) {
+    case ARITH_RDIV:
+      vtbl_set_zero_rdiv(vtbl, f_value);
+      break;
+    case ARITH_IDIV:
+      vtbl_set_zero_idiv(vtbl, f_value);
+      break;
+    case ARITH_MOD:
+      vtbl_set_zero_mod(vtbl, f_value);
+      break;
+    case APP_TERM:
+      model_map_term(model, prev_app_f, f_value);
+      break;
+    default:
+      assert(false);
     }
   }
 
   // Remove temps
   delete_ivector(&arguments);
   delete_ivector(&mappings);
-  delete_ivector(&app_reps);
+  delete_ivector(&app_terms);
 }
 
 plugin_t* uf_plugin_allocator(void) {

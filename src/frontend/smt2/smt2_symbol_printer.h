@@ -19,11 +19,11 @@
 #ifndef __SMT2_SYMBOL_PRINTER
 #define __SMT2_SYMBOL_PRINTER
 
-#include "io/yices_pp.h"
+#include "frontend/smt2/smt2_printer.h"
 
 /*
  * Print a symbol: add quotes if needed.
  */
-extern void smt2_pp_symbol(yices_pp_t *printer, const char *name);
+extern void smt2_pp_symbol(smt2_pp_t *printer, const char *name);
 
 #endif

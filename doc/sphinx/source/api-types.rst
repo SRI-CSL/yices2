@@ -505,7 +505,7 @@ Models
    as nodes in a DAG. The API provides functions to compute and
    examine these nodes, which gives access to the values of terms of
    function or tuple types.  Every node in this DAG has a unique id
-   and a tag of type :c:type:`yval_t` that defines the node type::
+   and a tag of type :c:type:`yval_tag_t` that defines the node type::
 
       typedef enum yval_tag {
         YVAL_UNKNOWN,
@@ -795,7 +795,7 @@ Error Reports
    .. c:enum:: INCOMPATIBLE_TYPES
 
       Error in functions that require terms of compatible types. The
-      `Yices manual <http://yices.csl.sri.com/papers/manual.pdf>`_
+      `Yices manual <https://yices.csl.sri.com/papers/manual.pdf>`_
       explains what this means.
 
    .. c:enum:: DUPLICATE_VARIABLE
@@ -1005,6 +1005,14 @@ Error Reports
 
       Invalid operation on a context: the context is not configured to support
       this operation.
+
+   .. c:enum:: CTX_UNKNOWN_DELEGATE
+
+      A delegate name is not recognized. See :c:func:`yices_check_formula` and :c:func:`yices_check_formulas` .
+
+   .. c:enum:: CTX_DELEGATE_NOT_AVAILABLE
+
+      Attempt to use a delegate that was not included in the Yices library at compilation time.
 
    .. c:enum:: CTX_INVALID_CONFIG
 

@@ -512,11 +512,18 @@ extern bool bvconst_is_max_signed(const uint32_t *bv, uint32_t n);
 
 
 /*
- * Check whether bv is a power of 2, k = word size
+ * Check whether bv is a power of 2, k = word size, bv must be normalized
  * - if so return n>=0 such that bv = 2^n
  * - if not return -1
  */
 extern int32_t bvconst_is_power_of_two(const uint32_t *bv, uint32_t k);
+
+/*
+ * Number of trailing zeros, k = number of words in bv, bv must be normalized
+ * - return the index of the lowest-order bit of bv that's not 0
+ * - returns -1 if bv is zero
+ */
+extern int32_t bvconst_ctz(const uint32_t *bv, uint32_t k);
 
 
 /*
@@ -609,54 +616,103 @@ static inline void bvconstant_normalize(bvconstant_t *a) {
   bvconst_normalize(a->data, a->bitsize);
 }
 
-static inline bool bvconstant_is_normalized(bvconstant_t *a) {
+static inline bool bvconstant_is_normalized(const bvconstant_t *a) {
   return bvconst_is_normalized(a->data, a->bitsize);
 }
 
-static inline bool bvconstant_is_zero(bvconstant_t *a) {
+static inline bool bvconstant_is_zero(const bvconstant_t *a) {
   assert(bvconstant_is_normalized(a));
   return bvconst_is_zero(a->data, a->width);
 }
 
-static inline bool bvconstant_is_nonzero(bvconstant_t *a) {
+static inline bool bvconstant_is_nonzero(const bvconstant_t *a) {
   return !bvconstant_is_zero(a);
 }
 
-static inline bool bvconstant_is_one(bvconstant_t *a) {
+static inline bool bvconstant_is_one(const bvconstant_t *a) {
   assert(bvconstant_is_normalized(a));
   return bvconst_is_one(a->data, a->width);
 }
 
-static inline bool bvconstant_is_minus_one(bvconstant_t *a) {
+static inline bool bvconstant_is_minus_one(const bvconstant_t *a) {
   assert(bvconstant_is_normalized(a));
   return bvconst_is_minus_one(a->data, a->bitsize);
 }
 
-static inline bool bvconstant_is_min_signed(bvconstant_t *a) {
+static inline bool bvconstant_is_min_signed(const bvconstant_t *a) {
   assert(bvconstant_is_normalized(a));
   return bvconst_is_min_signed(a->data, a->bitsize);
 }
 
-static inline bool bvconstant_is_max_signed(bvconstant_t *a) {
+static inline bool bvconstant_is_max_signed(const bvconstant_t *a) {
   assert(bvconstant_is_normalized(a));
   return bvconst_is_max_signed(a->data, a->bitsize);
 }
 
-static inline int32_t bvconstant_is_power_of_two(bvconstant_t *a) {
+static inline int32_t bvconstant_is_power_of_two(const bvconstant_t *a) {
   return bvconst_is_power_of_two(a->data, a->width);
-}
-
-static inline void bvconstant_sub_one(bvconstant_t *a) {
-  bvconst_sub_one(a->data, a->width);
-}
-
-static inline void bvconstant_add_one(bvconstant_t *a) {
-  bvconst_add_one(a->data, a->width);
 }
 
 static inline void bvconstant_negate(bvconstant_t *a) {
   bvconst_negate(a->data, a->width);
 }
 
+static inline void bvconstant_set_one(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  bvconst_set_one(a->data, a->width);
+}
+
+static inline void bvconstant_add_one(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  bvconst_add_one(a->data, a->width);
+}
+
+static inline void bvconstant_sub_one(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  bvconst_sub_one(a->data, a->width);
+}
+
+static inline void bvconstant_add(bvconstant_t *a, const bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  bvconst_add(a->data, a->width, b->data);
+}
+
+static inline void bvconstant_sub(bvconstant_t *a, const bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  bvconst_sub(a->data, a->width, b->data);
+}
+
+static inline bool bvconstant_eq(const bvconstant_t *a,const bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  assert(a->bitsize == b->bitsize);
+  return bvconst_eq(a->data, b->data, a->width);
+}
+
+static inline bool bvconstant_lt(const bvconstant_t *a, const bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  return bvconst_lt(a->data, b->data, a->bitsize);
+}
+
+static inline bool bvconstant_le(const bvconstant_t *a, const bvconstant_t *b) {
+  assert(bvconstant_is_normalized(a));
+  assert(bvconstant_is_normalized(b));
+  return bvconst_le(a->data, b->data, a->bitsize);
+}
+
+/*
+ * Extract subvector data[l..(h-1)] and store it in a
+ * - a must have width >= ceil((h - l) / 32)
+ * Takes care of setting result's bitsize to (h-l)
+ */
+static inline void bvconstant_extract(bvconstant_t *a, uint32_t *data, uint32_t l, uint32_t h) {
+  assert(l < h);
+  bvconstant_set_bitsize(a, h-l);
+  assert(a->width >= ((h-l)+31)/32);
+  bvconst_extract(a->data, data, l, h);
+}
 
 #endif /* __BV_CONSTANTS_H */

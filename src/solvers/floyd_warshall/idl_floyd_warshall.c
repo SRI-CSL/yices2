@@ -2777,7 +2777,7 @@ static arith_interface_t idl_intern = {
  ****************/
 
 /*
- * Initialze solver:
+ * initialize solver:
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */

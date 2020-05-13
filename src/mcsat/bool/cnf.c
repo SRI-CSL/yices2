@@ -147,9 +147,65 @@ void cnf_convert_or(cnf_t* cnf, term_t or, ivector_t* or_clauses) {
 }
 
 static
-void cnf_convert_xor(cnf_t* cnf, term_t xor, ivector_t* t_clauses) {
-  // XORs should only be binary and rewritten to (not (= ))
-  assert(false);
+void cnf_convert_xor(cnf_t* cnf, term_t xor, ivector_t* xor_clauses) {
+  composite_term_t* xor_composite;
+  mcsat_clause_tag_t xor_tag;
+  mcsat_literal_t xor_literals[3];
+
+  assert(term_kind(cnf->ctx->terms, xor) == XOR_TERM);
+
+  // Get the or description
+  xor_composite = composite_term_desc(cnf->ctx->terms, xor);
+  assert(xor_composite->arity >= 2);
+
+  xor_tag.type = CLAUSE_DEFINITION;
+  xor_tag.var = variable_db_get_variable(cnf->ctx->var_db, xor);
+  xor_tag.level = cnf->ctx->trail->decision_level_base;
+
+  // Get the arguments
+  term_t t1 = xor_composite->arg[0];
+  term_t t2;
+  if (xor_composite->arity == 2) {
+    t2 = xor_composite->arg[1];
+  } else {
+    t2 = mk_xor_safe(cnf->ctx->tm, xor_composite->arity-1, xor_composite->arg+1);
+  }
+
+  // Convert the children and setup the literals
+  mcsat_literal_t xor_lit, t1_lit, t2_lit;
+  t1_lit = cnf_convert(cnf, t1, xor_clauses);
+  t2_lit = cnf_convert(cnf, t2, xor_clauses);
+  xor_lit = literal_construct(xor_tag.var, false);
+
+  cnf_begin(cnf, xor_tag.var);
+
+  // a => (xor t1 t2)
+  // (!a or t1 or t2) and (!a or !t1 or !t2)
+
+  xor_literals[0] = literal_negate(xor_lit);
+
+  xor_literals[1] = t1_lit;
+  xor_literals[2] = t2_lit;
+  cnf_add_clause(cnf, xor_literals, 3, xor_clauses, xor_tag);
+
+  xor_literals[1] = literal_negate(t1_lit);
+  xor_literals[2] = literal_negate(t2_lit);
+  cnf_add_clause(cnf, xor_literals, 3, xor_clauses, xor_tag);
+
+  // a <= (xor t1 t2)
+  // (a or t1 or !t2) and (a or !t1 or t2)
+
+  xor_literals[0] = xor_lit;
+
+  xor_literals[1] = t1_lit;
+  xor_literals[2] = literal_negate(t2_lit);
+  cnf_add_clause(cnf, xor_literals, 3, xor_clauses, xor_tag);
+
+  xor_literals[1] = literal_negate(t1_lit);
+  xor_literals[2] = t2_lit;
+  cnf_add_clause(cnf, xor_literals, 3, xor_clauses, xor_tag);
+
+  cnf_end(cnf);
 }
 
 static
@@ -209,7 +265,7 @@ void cnf_convert_ite(cnf_t* cnf, term_t ite, ivector_t* ite_clauses) {
   mcsat_literal_t cond, b_true, b_false;
 
   // Get the ite description
-  assert(term_kind(cnf->ctx->terms, ite) == ITE_TERM);
+  assert(is_ite_term(cnf->ctx->terms, ite));
   ite_composite = composite_term_desc(cnf->ctx->terms, ite);
   assert(ite_composite->arity == 3);
 
@@ -300,6 +356,7 @@ mcsat_literal_t cnf_convert(cnf_t* cnf, term_t t, ivector_t* t_clauses) {
       break;
     }
     case ITE_TERM:
+    case ITE_SPECIAL:
       cnf_convert_ite(cnf, t, t_clauses);
       break;
     default:

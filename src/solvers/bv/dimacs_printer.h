@@ -148,7 +148,4 @@ extern void dimacs_print_term_map_array(FILE *f, context_t *ctx, term_t *a, uint
 extern void dimacs_print_bvcontext(FILE *f, context_t *ctx);
 
 
-
-
-
 #endif /* __DIMACS_PRINTER_H */

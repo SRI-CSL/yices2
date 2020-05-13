@@ -400,6 +400,116 @@ void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b) {
 
 
 /*
+ * Generic poly buffer: variables are not terms. We print them as x!k
+ */
+static void print_bvmono64_raw(FILE *f, uint64_t coeff, int32_t x, uint32_t n, bool first) {
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
+
+  } else if (coeff == 1) {
+    if (! first) fputs(" + ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
+    fputc('*', f);
+    fprintf(f, "x!%"PRId32, x);
+  }
+}
+
+static void print_bvmono_raw(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {
+  uint32_t w;
+
+  w = (n + 31) >> 5; // number of words in coeff
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fputs(" + ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    fprintf(f, "x!%"PRId32, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+    fputc('*', f);
+    fprintf(f, "x!%"PRId32, x);
+
+  }
+}
+
+
+void print_bvpoly_buffer(FILE *f, bvpoly_buffer_t *b) {
+  uint32_t i, n, nbits;
+  bool first;
+
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+  first = true;
+
+  if (n == 0) {
+    fputc('0', f);
+  } else if (nbits <= 64) {
+    for (i=0; i<n; i++) {
+      print_bvmono64_raw(f, bvpoly_buffer_coeff64(b, i), bvpoly_buffer_var(b, i), nbits, first);
+      first = false;
+    }
+  } else {
+    for (i=0; i<n; i++) {
+      print_bvmono_raw(f, bvpoly_buffer_coeff(b, i), bvpoly_buffer_var(b, i), nbits, first);
+      first = false;
+    }
+  }
+}
+
+void print_bvpoly64_raw(FILE *f, bvpoly64_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_bvmono64_raw(f, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
+}
+
+void print_bvpoly_raw(FILE *f, bvpoly_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_bvmono_raw(f, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
+}
+
+
+
+
+/*
  * Bit-array buffer
  */
 static void print_bit(FILE *f, bit_t b) {

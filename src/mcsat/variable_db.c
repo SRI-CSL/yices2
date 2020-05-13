@@ -16,16 +16,6 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Anything that includes "yices.h" requires these macros.
- * Otherwise the code doesn't build on Windows or Cygwin.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/variable_db.h"
 
 #include "io/term_printer.h"
@@ -37,6 +27,7 @@ void variable_db_construct(variable_db_t* var_db, term_table_t* terms, type_tabl
   var_db->terms = terms;
   var_db->types = types;
   var_db->tracer = tracer;
+
   init_ivector(&var_db->variable_to_term_map, 0);
   init_int_hmap(&var_db->term_to_variable_map, 0);
   init_pvector(&var_db->notify_new_variable, 0);
@@ -54,10 +45,10 @@ void variable_db_destruct(variable_db_t* var_db) {
   delete_ivector(&var_db->free_list);
 }
 
-bool variable_db_has_variable(variable_db_t* var_db, term_t x) {
+bool variable_db_has_variable(const variable_db_t* var_db, term_t x) {
   assert(is_pos_term(x));
   int_hmap_pair_t* find;
-  find = int_hmap_find(&var_db->term_to_variable_map, x);
+  find = int_hmap_find((int_hmap_t*) &var_db->term_to_variable_map, x);
   return find != NULL;
 }
 
@@ -140,7 +131,7 @@ variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_
 }
 
 term_t variable_db_get_term(const variable_db_t* var_db, variable_t x) {
-  assert(x >= 0 && x < var_db->variable_to_term_map.size);
+  assert(x > 0 && x < var_db->variable_to_term_map.size);
   return var_db->variable_to_term_map.data[x];
 }
 
@@ -198,31 +189,17 @@ bool variable_db_is_int(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == INT_TYPE;
 }
 
+bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x) {
+  return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == BITVECTOR_TYPE;
+}
+
+uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {
+  assert(variable_db_is_bitvector(var_db, x));
+  return term_bitsize(var_db->terms, variable_db_get_term(var_db, x));
+}
+
 type_kind_t variable_db_get_type_kind(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x));
-}
-
-void variable_db_get_subvariables(const variable_db_t* var_db, term_t term, int_mset_t* t_vars) {
-  assert(false);
-}
-
-term_t variable_db_substitute_subvariable(const variable_db_t* var_db, term_t t, variable_t x, term_t subst) {
-
-  // For now, just equality
-  assert(term_kind(var_db->terms, t) == EQ_TERM);
-  term_t x_term = variable_db_get_term(var_db, x);
-  composite_term_t* eq = eq_term_desc(var_db->terms, t);
-  term_t lhs = eq->arg[0];
-  term_t rhs = eq->arg[1];
-  if (lhs == x_term) {
-    lhs = subst;
-  }
-  if (rhs == x_term) {
-    rhs = subst;
-  }
-  term_t result = _o_yices_eq(lhs, rhs);
-
-  return result;
 }
 
 void variable_db_gc_sweep(variable_db_t* var_db, gc_info_t* gc_vars) {

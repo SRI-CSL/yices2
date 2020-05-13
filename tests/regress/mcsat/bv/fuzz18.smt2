@@ -1,0 +1,31 @@
+(set-logic QF_BV)
+(declare-fun x1 () (_ BitVec 1))
+(declare-fun x2 () (_ BitVec 1))
+(declare-fun x3 () (_ BitVec 4))
+(declare-fun x4 () (_ BitVec 4))
+(declare-fun x5 () (_ BitVec 1))
+(declare-fun x6 () (_ BitVec 1))
+(declare-fun x7 () Bool)
+
+(define-fun t1 () Bool (= x6 #b1))
+(define-fun t2 () (_ BitVec 4) x4)
+(define-fun t3 () (_ BitVec 4) x4)
+(define-fun t4 () (_ BitVec 4) t3)
+(define-fun t5 () (_ BitVec 4) (ite (= ((_ extract 0 0) x5) #b1) #b0000 t4))
+(define-fun t6 () Bool (= ((_ extract 0 0) x5) #b1))
+(define-fun t7 () Bool (= t5 (_ bv0 4)))
+(define-fun t8 () Bool (and (= x7 t1) (= x3 t2) (= x7 t6) t7))
+
+(assert t8)
+
+(define-fun t10 () Bool (bvugt x3 #b0000))
+(define-fun t11 () (_ BitVec 1) (bvand x1 (ite t10 #b1 #b0)))
+(define-fun t12 () (_ BitVec 1) (bvand t11 x2))
+(define-fun t13 () (_ BitVec 1) (bvnot t12))
+(define-fun t14 () (_ BitVec 1) t13)
+(define-fun t15 () Bool (= ((_ extract 0 0) t14) #b1))
+
+(assert (not t15))
+
+(check-sat)
+(exit)

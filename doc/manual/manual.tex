@@ -1,12 +1,18 @@
 \documentclass[11pt,twoside,fleqn,openright,titlepage]{cslreport}
 \input{moretext}
 \raggedbottom
-\usepackage{cite,relative,url,alltt,times}
+\usepackage{cite,relative,alltt,times}
 \usepackage{amsfonts,latexsym,amssymb}
+\usepackage{xcolor}
+\definecolor{lgrey}{gray}{0.98}
+
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily,showstringspaces=false,frame=single,backgroundcolor=\color{lgrey}}
+
 
 \pagenumbering{roman}
 \setcounter{page}{0}
-\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue]{hyperref}
+\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue]{hyperref}
 
 %% \renewcommand{\baselinestretch}{1.5}
 
@@ -43,7 +49,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.1}}
+Version 2.6.2}}
 \end{titlepage}
 
 \maketitle
@@ -62,11 +68,12 @@ Version 2.6.1}}
 This  manual   is  an  introduction   to  the  logic,   language,  and
 architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
 International's  Computer Science  Laboratory.   Since version  2.5.3,
-Yices  is released  under the  GNU  General Public  Licence version  3
+Yices  is released  under the  GNU  General Public  License version  3
 (reproduced  in   Appendix~\ref{license}).   Previous   versions  were
 released   under  different   terms,  and   were  free-of-charge   for
-noncommercial use.
+non-commercial use.
 
+\medskip\noindent
 To discuss alternative license terms, please contact us at
 \texttt{fm-license@csl.sri.com}.
 
@@ -74,12 +81,13 @@ To discuss alternative license terms, please contact us at
 \section{Download and Installation}
 
 The latest stable version of Yices~2 can be downloaded at
-\url{http://yices.csl.sri.com}.  We provide pre-compiled binaries for
+\url{https://yices.csl.sri.com}.  We provide pre-compiled binaries for
 the platforms and operating systems listed in Table~\ref{versions}. We
 also provide source code there. For MacOS and Linux, you can also
 install Yices~2 using package managers (i.e., homebrew for the Mac and
 apt for Debian/Ubuntu).
 
+\medskip\noindent
 For the latest developments, you can clone our Git repository
 \url{https://github.com/SRI-CSL/yices2}.
 
@@ -98,7 +106,7 @@ Linux 64 bits & Kernel 2.6.24 or more recent \\
 \hline
 Mac~OS~X 64 bits &  Mac~OS~X El Capitan\\
 \hline
-Windows (32 and 64 bits) & \\
+Windows (64 bits) & \\
 \hline
 \end{tabular}
 \end{center}
@@ -107,20 +115,21 @@ Windows (32 and 64 bits) & \\
 \end{table}
 
 To download stable Yices~2 binaries, go to
-\url{http://yices.csl.sri.com} and select the distribution that you
+\url{https://yices.csl.sri.com} and select the distribution that you
 want to install.  Untar or unzip the file and follow the instructions
 in the included README file.  The binary distributions are
 self-contained and do not require installation of third-party
 libraries.
 
+\medskip\noindent
 To complete installation on Linux or Mac~OS~X, the binary
 distributions include a shell script called \texttt{install-yices}. By
 default, this script installs Yices in \texttt{/usr/local}. If
 this is fine for you, type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    sudo ./install-yices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 This will install the binaries in \texttt{/usr/local/bin}, the library
 in \texttt{/usr/local/lib}, and the header files in
@@ -129,9 +138,9 @@ in \texttt{/usr/local/lib}, and the header files in
 \medskip\noindent
 To install Yices in a different location, you can type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    ./install-yices <directory>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 (use \texttt{sudo} if necessary).
 
@@ -140,9 +149,9 @@ To install Yices in a different location, you can type
 
 If you use homebrew on Mac OS~X, you can easily install Yices as follows:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    brew install SRI-CSL/sri-csl/yices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 (you may need \texttt{sudo}). This will install the Yices~2
 executables, library, and include files.
@@ -155,17 +164,17 @@ For Ubuntu or Debian (or any other Linux distribution that uses
 first add our PPA to your list of repositories then install package
 \texttt{yices2}:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
   sudo add-apt-repository ppa:sri-csl/formal-methods
   sudo apt-get update
   sudo apt-get install yices2
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 You can also install the library and development files as follows:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
   sudo apt-get install yices2-dev libyices2.5
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 
 
@@ -174,92 +183,21 @@ You can also install the library and development files as follows:
 The source distribution must be used for operating systems not listed
 in Table~\ref{versions} (or for old versions of Linux or Mac~OS~X). It
 is also useful if you desire to compile Yices with debugging
-information, or if you want to link Yices with your own version of the
-GMP library. The source is available as a tarfile at
-\url{http://yices.csl.sri.com} and on our git repository at
+information, if you want to link Yices with your own version of the
+GMP library, or if your want to build a thread-safe safe version.
+The source is available as a tarfile at
+\url{https://yices.csl.sri.com} and on our git repository at
 \url{https://github.com/SRI-CSL/yices2}.
 
-\medskip
+\medskip\noindent
+Several optional features can be selected at compilation time:
+\begin{itemize}
+\item MCSAT solver (required for non-linear arithmetic)
+\item Support for third-party backend SAT solvers
+\item Support for a thread-safe API.
+\end{itemize}
+Instructions for building Yices with these different features are given in Chapter~\ref{compilation}.
 
-Yices~2 is straightforward to compile on UNIX-like systems. Any recent
-version of GCC or Clang should work. The compilation uses standard
-tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
-\texttt{gperf} utility and the GMP library. On many systems,
-\texttt{gperf} and GMP can be installed using package
-managers.  For example, on Ubuntu:
-\begin{small}
-\begin{verbatim}
-   sudo apt-get install libgmp-dev
-   sudo apt-get install gperf
-\end{verbatim}
-\end{small}
-After this, compiling and installing Yices use the following standard steps:
-\begin{small}
-\begin{verbatim}
-   ./configure
-   make -j
-   sudo make install
-\end{verbatim}
-\end{small}
-This will build binaries and libraries, and install them in \texttt{/usr/local}.
-You can change the installation location by giving a \texttt{--prefix} option
-to \texttt{configure}.
-
-For Windows, we recommend building Yices using Cygwin. If you want a
-version that works natively on Windows (i.e., does not depend on the
-Cygwin DLLs) then you can compile form Cygwin using the MinGW
-cross-compilers.  The file \texttt{doc/COMPILING} included in the
-source distribution gives more details.
-
-
-\subsection{Nonlinear Arithmetic and MCSAT}
-\label{mcsat-install}
-
-Yices includes a solver for nonlinear arithmetic based on the Model
-Constructing Satisfiability Calculus (MCSAT). This calculus and its
-application to nonlinear arithmetic are explained
-in~\cite{Jovanovic-etal:MCSATb:2013}
-and~\cite{deMouraJovanovic:nla:2012}.
-
-The precompiled, binary distributions of Yices include the MCSAT
-solver and can process nonlinear arithmetic problems. If you build
-Yices from source and want support for nonlinear arithmetic, you must
-install an external library first and enable MCSAT support when you
-compile Yices.
-
-This library is called ``libpoly.'' It implements various operations
-on polynomials used by the MCSAT solver. It is open source and it is
-available on GitHub (\url{https://github.com/SRI-CSL/libpoly}). Make
-sure that you download the latest version of libpoly. Yices~2.6
-requires libpoly v0.1.3.
-
-Once you have installed libpoly, you can compile Yices with MCSAT
-support as follows:
-\begin{small}
-\begin{verbatim}
-   ./configure --enable-mcsat
-   make -j
-   sudo make install
-\end{verbatim}
-\end{small}
-The usual environment variables (e.g., \texttt{CPPFLAGS} and
-\texttt{LDFLAGS}) can be used if you install libpoly in a non-standad
-location.
-
-
-\subsection{Python Bindings}
-\label{python-bindings}
-
-Since Yices~2.6.0, we provide Python bindings to the Yices API. The
-easiest way to install these Python bindings is to us \texttt{pip}:
-\begin{small}
-\begin{verbatim}
-  pip install yices
-\end{verbatim}
-\end{small}
-Alternatively, you can clone the Yices repository at
-\url{https://github.com/SRI-CSL/yices2}. Python support and some
-examples are in directory \texttt{src/bindings/python}.
 
 
 \section{Content of the Distributions}
@@ -281,31 +219,40 @@ Four solvers are currently included:
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
-The Yices library and header files allow you to use Yices via its
-API, as explained in Chapter~\ref{yices-api}.
+The library and header files allow you to use Yices via its API, as
+explained in Chapter~\ref{yices-api}.
 
+\medskip\noindent
 The source distribution includes source code for the above four
 solvers and for the library. It also includes documentation for the
 source, more examples and regression tests, various scripts and
 utilities, and the \LaTeX\ source for this manual.
 
 
-\section{Library Dependencies}
 
-Yices uses the GNU Multiple Precision Arithmetic Library (GMP).  The
-binary distribution are statically linked against GMP. If you build
-Yices from source, you will need to install GMP on your system.  The
-GMP library can be installed using common package managers in most
-Linux distributions. It can also be built and installed from
-source. For more information, please visit the GMP website
-\url{http://gmplib.org}. GMP is distributed under the LGPLv3 License,
-reproduced in Appendix~\ref{gmp-license}.
+\section{Language Bindings}
+\label{python-bindings}
 
-Since release 2.4.0, Yices has optional support for nonlinear real
-arithmetic. As explained in Section~\ref{mcsat-install}, this depends
-on an external library for operations on polynomials which is
-available at~\url{https://github.com/SRI-CSL/libpoly}.
+We currently provide wrappers to the Yices API for Python and (experimental) binding or Go and
+OCaml. Source code for these different wrappers is maintained on different GitHub repositories.
 
+\paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way
+to install these Python bindings is to use \texttt{pip}:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  pip install yices
+\end{lstlisting}
+\end{small}
+
+\paragraph{Go:} \url{https://github.com/SRI-CSL/yices2_go_bindings}.  The code can be installed with
+\begin{small}
+\begin{lstlisting}[language=sh]
+  go get github.com/ianamason/yices2_go_bindings/cmd/yices_info
+\end{lstlisting}
+\end{small}
+
+\paragraph{OCaml:} \url{https://github.com/SRI-CSL/yices2_ocaml_bindings}.
+Follow the instructions in this repository for building and using the OCaml bindings.
 
 \section{Supported Logics}
 
@@ -442,6 +389,7 @@ Yices.  The easiest (and preferred) way to report a bug or ask a
 question about Yices is to post an issue on our GitHub repository
 (\url{https://github.com/SRI-CSL/yices2}).
 
+\medskip\noindent
 Alternatively, you can contact us via the Yices mailing lists:
 \begin{itemize}
 \item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
@@ -453,7 +401,6 @@ Alternatively, you can contact us via the Yices mailing lists:
 
 \item To report a bug, you can send an e-mail to \texttt{yices-bugs@csl.sri.com}.
 \end{itemize}
-
 If you report a bug, please include enough information in your report
 to enable us to reproduce and fix the
 problem. Figure~\ref{good-report} shows what a good bug report looks
@@ -463,6 +410,7 @@ removed). Figure~\ref{bad-report} shows an example of poor bug
 report. This example is fictitious but representative of what we
 sometimes receive on our mailing list.
 
+\medskip\noindent
 Please try to use Figure~\ref{good-report} as a template and include
 answers to the following questions:
 \begin{itemize}
@@ -534,6 +482,349 @@ or program fragment.
 \label{terrible-report}
 \end{figure}
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Building Yices~2 from Source}
+\label{compilation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If you download the Yices~2 source, you can choose different optional
+components and features at compilation time. The main options are
+\begin{itemize}
+\item Support for the MCSAT solver (which is necessary for non-linear arithmetic).
+\item Support for third-party backend SAT solvers (which can provide improved performance on bitvector problems).
+\item Thread-safe version of the Yices library.
+\end{itemize}
+We start with the simplest type of build that does not include any
+optional components.  We then explain how to build the optional
+components.  The instructions are written for a Debian-style Linux
+distribution such as Ubuntu, but they should work with minor
+adjustments on other Unix variants.
+
+\section{Basic Build}
+
+Yices~2 is straightforward to compile on UNIX-like systems. Any recent
+version of GCC or Clang should work. The compilation uses standard
+tools such as \texttt{GNU make} and \texttt{sed}. It also requires the
+\texttt{gperf} utility and the GMP library. On many systems,
+\texttt{gperf} and GMP can be installed using package
+managers.  For example, on Ubuntu:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo apt-get install libgmp-dev
+   sudo apt-get install gperf
+\end{lstlisting}
+\end{small}
+After this, compiling and installing Yices use standard steps.
+
+\subsection*{From A Source Tarfile}
+
+If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follow these steps:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+   tar xvf yices-2.6.2-src.tgx
+   cd yices-2.6.2
+   ./configure
+   make -j
+   make check
+\end{lstlisting}
+\end{small}
+This will build binaries and libraries, and run the regression tests. If all goes well, you can then
+install Yices in \texttt{/usr/local} with
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo make install
+\end{lstlisting}
+\end{small}
+You can change the installation location by giving a \texttt{--prefix} option
+to \texttt{configure}.
+
+\subsection*{From The Git Repository}
+
+You can also get the latest source from \url{https://github.com/SRI-CSL/yices2} and build Yices as follows:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+   git clone https://github.com/SRI-CSL/yices2
+   cd yices2
+   autoconf
+   ./configure
+   make -j
+   make check
+\end{lstlisting}
+\end{small}
+As before, you can then install Yices in \texttt{/usr/local} with
+\begin{small}
+\begin{lstlisting}[language=sh]
+   sudo make install
+\end{lstlisting}
+\end{small}
+
+
+\section{MCSAT Support}
+\label{mcsat-install}
+
+Yices includes a solver for nonlinear arithmetic based on the Model
+Constructing Satisfiability Calculus (MCSAT). This calculus and its
+application to nonlinear arithmetic are explained
+in~\cite{Jovanovic-etal:MCSATb:2013}
+and~\cite{deMouraJovanovic:nla:2012}.
+
+\medskip\noindent
+The precompiled, binary distributions of Yices include the MCSAT
+solver and can process nonlinear arithmetic problems. If you build
+Yices from source and want support for nonlinear arithmetic, you must
+install two external libraries: \textsc{LibPoly}~\cite{Jovanovic+Dutertre:libpoly:2017}
+and CUDD~\cite{Somenzi:cudd:1998} and enable MCSAT when building Yices.
+
+\subsection*{\textsc{LibPoly}}
+
+The \textsc{LibPoly} source is available on GitHub
+at \url{https://github.com/SRI-CSL/libpoly}. Make sure that you
+download the latest version of libpoly. Yices~2.6 requires libpoly
+v0.1.3. Follow the instruction in libpoly's README.md to compile and
+install it.
+
+\subsection*{CUDD}
+
+We recommend downloading CUDD from the GitHub repository
+\url{https://github.com/ivmai/cudd} and building it as follows:
+\begin{small}
+\begin{lstlisting}[language=sh,,deletekeywords={cd}]
+  git clone https://github.com/ivmai/cudd
+  cd cudd
+  ./configure CFLAGS=-fPIC
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+This will install CUDD header files and libraries in \texttt{/usr/local}.
+
+\subsubsection*{Note}
+The CUDD Makefile was created with \texttt{automake-1.14}. Compilation may fail if you
+have a different version of automake on your system with this error:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  cudd/build-aux/missing: line 81: automake-1.14: command not found
+  WARNING: 'automake-1.14' is missing on your system.
+  ...
+\end{lstlisting}
+\end{small}
+If this happens to you, try this
+\begin{small}
+\begin{lstlisting}[language=sh]
+  aclocal
+  automake
+\end{lstlisting}
+\end{small}
+Another fix is to edit the Makefile and replace '1.14' by your version of automake and aclocal.
+
+
+\subsection*{Enabling MCSAT Support in Yices}
+Once you have installed \textsc{LibPoly} and CUDD, you can compile Yices with MCSAT
+support as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   ./configure --enable-mcsat
+   make -j
+   sudo make install
+\end{lstlisting}
+\end{small}
+The configure scripts will check that CUDD and \textsc{LibPoly} are present on your system,
+The usual environment variables (e.g., \texttt{CPPFLAGS} and
+\texttt{LDFLAGS}) can be used if you install libpoly or CUDD in a non-standad
+location.
+
+\section{Third-Party SAT Solvers}
+
+It is now possible for Yices to use third-party backend SAT solvers
+for bitvector solving. Currently, we support two SAT solvers:
+CaDiCaL~\cite{Biere:cadical:2019} and
+CryptoMiniSat~\cite{Soos+etal:extending:2009}. You can compile Yices
+with support for both or only one of these solvers.
+
+\subsection*{CaDiCaL}
+
+Here are the steps for downloading and installing CaDiCaL:
+\begin{enumerate}
+\item Clone the CaDiCaL repository:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  git clone https://github.com/arminbiere/cadical
+\end{lstlisting}
+\end{small}
+\item Run the CaDiCaL configure script with option \texttt{-fPIC}. If
+  you're using \texttt{bash}, the following should work:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd cadical
+  CXXFLAGS=-fPIC ./configure
+\end{lstlisting}
+\end{small}
+\item Build the code and (optionally) run the tests
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
+  make
+  make test
+\end{lstlisting}
+\end{small}
+\item Install the library and header file:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo install build/libcadical.a /usr/local/lib
+  sudo install -m644 src/ccadical.h /usr/local/include
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+
+\subsection*{CryptoMiniSat}
+
+Yices requires a patched version of CryptoMiniSat~5 that we provide at
+\url{https://github.com/BrunoDutertre/cryptominisat}. Here is how you can download and build it.
+\begin{enumerate}
+\item Clone the repository:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  git clone https://github.com/BrunoDutertre/cryptominisat
+\end{lstlisting}
+\end{small}
+\item Install CryptoMiniSat's dependencies
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo apt-get install cmake zlib1g-dev \
+            libboost-program-options-dev
+\end{lstlisting}
+\end{small}
+\item Compile and install:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd cryptominisat
+  mkdir build
+  cd build
+  cmake .. -DENABLE_PYTHON_INTERFACE=OFF
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+
+\subsection*{Configure Yices~2}
+
+If both CaDiCaL and CryptoMiniSat are installed, you can configure Yices~2 as follows to use them:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT' \
+       LIBS='-lcryptominisat5 -lcadical -lstdc++ -lm'
+\end{lstlisting}
+\end{small}
+After this, you can build and install Yices as usual:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
+   make -j
+   make check
+   sudo make install
+\end{lstlisting}
+\end{small}
+If you want only CaDiCaL, use the following configure command instead
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS=-DHAVE_CADICAL \
+       LIBS='-lcadical -lstdc++ -lm'
+\end{lstlisting}
+\end{small}
+If you want only CryptoMiniSat, you can use
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT \
+       LIBS='-lcryptominisat5 -lstdc++'
+\end{lstlisting}
+\end{small}
+Compilation with these backend SAT solver is compatible with MCSAT, so
+you add option \texttt{--enable-mcsat} to any of these configure commands.
+
+\section{Thread-Safe API}
+
+By default, the Yices library is not re-entrant and it cannot be used
+in multi-threaded applications. If you need a re-entrant version of
+the library, you can configure and build Yices as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure --enable-thread-safety
+  make
+  sudo make install
+\end{lstlisting}
+\end{small}
+When configured in this fashion, the Yices library will allow multiple
+threads to manipulate separate contexts and models without causing race
+conditions (see Chapter~\ref{yices-api}). Sharing of contexts or
+models across several threads is not supported (unless you implement
+your own locking mechanism).
+
+\medskip\noindent
+In the current version (Yices~2.6.2), threat-safety and MCSAT are not compatible.
+It is not possible to build Yices to support MCSAT and be re-entrant.
+
+
+\section{Building for Windows}
+
+For Windows, we recommend building Yices using Cygwin. If you want a
+version that works natively on Windows (i.e., does not depend on the
+Cygwin DLLs) then you can compile from Cygwin using the MinGW
+cross-compilers.  The file \texttt{doc/COMPILING} included in the
+source distribution gives more details.
+
+\section{Manual and Documentation}
+
+The \LaTeX\ source for this manual is included in the Yices~2
+repository.  To build the manual, make sure that you have a Latex
+installation (including \texttt{pdflatex}) and the \texttt{latexmk} utility.
+On Ubuntu, you can install them with \texttt{apt-get}:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo apt-get install texlive latexmk
+\end{lstlisting}
+\end{small}
+With these tools installed, you can generate the manual by typing
+\begin{small}
+\begin{lstlisting}[language=sh]
+  make doc
+\end{lstlisting}
+\end{small}
+in the top-level Yices source directory.
+
+\medskip\noindent The repository also includes detailed API
+documentation that can be built using the Sphinx tool.\footnote{See
+  \url{https://www.sphinx-doc.org/en/master/}} The generated
+documentation can be browsed online at
+\url{https://yices.csl.sri.com/doc/index.html}. You can also build a local version of
+this documentation as follows.
+\begin{enumerate}
+\item Install Sphinx:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  pip install sphinx
+\end{lstlisting}
+\end{small}
+\item Build the \texttt{html} documentation (from the Yices top-level source directory):
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd doc/sphinx
+  make html
+\end{lstlisting}
+\end{small}
+The resulting documentation will be in directory
+\texttt{doc/sphinx/build/html}.
+\end{enumerate}
+Sphinx can generate documentation in
+other formats than \texttt{html}. For example, you can do
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={cd}]
+  cd doc/sphinx
+  make epub
+\end{lstlisting}
+\end{small}
+This will generate an electronic book in the \texttt{epub} format. This book is in
+a single file \texttt{Yices.epub} in directory \texttt{doc/sphinx/build/epub}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -760,7 +1051,7 @@ expression \texttt{3.04e-1} is converted to $38/125$.
 
 \medskip\noindent The Yices language supports the traditional
 arithmetic operators (i.e., addition, subtraction, multiplication).
-The solver for non-linear arithmetic supports arbitrary divsion. The
+The solver for non-linear arithmetic supports arbitrary division. The
 linear-arithmetic solver is limited to division by non-zero constants.
 For example, the expression $(x + 4y)/3$ is allowed in linear
 arithmetic, but $3/(x + 4y)$ is not. The arithmetic predicates are the
@@ -865,7 +1156,7 @@ $\mathtt{bvconcat}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ m) \rightarrow (\matht
 concatenation \\
 $\mathtt{bvextract}_{i,j}$$((\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ m))$ &
 extract bits $i$ down to $j$ \\
-& form a bitvector of size $n$ \\
+& from a bitvector of size $n$ \\
 \hline
 \end{tabular}
 \caption{Bitvector Operators}
@@ -1106,10 +1397,24 @@ currently dedicated to quantifier-free nonlinear real arithmetic. The
 theory and implementation of MCSAT is discussed in several
 publications~\cite{Jovanovic-etal:MCSATb:2013,deMouraJovanovic:MCSAT:2013}.
 Currently, this solver can process input written in the SMT-LIB~2.0 or
-Yices notations. It does not support as many features as the
-CDCL-based solver described in the previous section. In particular,
-the MCSAT solver does not yet support incremental solving (i.e., push
-and pop).
+Yices notations. The MCSAT solver is required for nonlinear
+arithmetic, but it also supports other theories such as uninterpreted
+functions or bitvectors.
+
+
+\section{Third-Party SAT Solvers}
+
+In Yices 2.6.2, we have added support for using third-party Boolean
+satisfiability solvers. Such solvers are optional but can provide
+significant performance improvements on bit-vector problems. Use of
+these SAT solvers is enabled by a command-line option and is currently
+restricted to non-incremental QF\_BV problems. If an external solver
+is selected, Yices will perform ``bit blasting,'' that is, convert the
+problem to an equisatisfiable SAT problem in conjunctive normal form
+(CNF) and use the third-party solver to check satisfiability of this
+CNF formula.
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1172,9 +1477,9 @@ model.
 \medskip\noindent
 To run \texttt{yices} on this input file, just type
 \begin{small}
-\begin{verbatim}
-      yices examples/bv_test2.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices examples/bv_test2.ys
+\end{lstlisting}
 \end{small}
 The tool will output something like this:
 \begin{small}
@@ -1201,23 +1506,23 @@ Since  this  example  contains  only  terms and  constructs  from  the
 bitvector  theory,  we  could  specify logic  \texttt{QF\_BV}  on  the
 command line as follows:
 \begin{small}
-\begin{verbatim}
-      yices --logic=QF_BV examples/bv_test2.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices --logic=QF_BV examples/bv_test2.ys
+\end{lstlisting}
 \end{small}
 Since the file does not use \texttt{push} and \texttt{pop}, and it
 contains only one call to \texttt{(check)}, we can select the mode
 \texttt{one-shot}:
 \begin{small}
-\begin{verbatim}
-      yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
+\end{lstlisting}
 \end{small}
 `To get a more detailed output, we can give a non-zero verbosity level:
 \begin{small}
-\begin{verbatim}
-      yices --verbosity=4 examples/bv_test2.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices --verbosity=4 examples/bv_test2.ys
+\end{lstlisting}
 \end{small}
 
 \section{Exists/Forall Problems}
@@ -1278,9 +1583,9 @@ This is illustrated in Figure~\ref{example:ef}.
 To run \texttt{yices} on this example, we must give option
 \texttt{--mode=ef} on the command line:
 \begin{small}
-\begin{verbatim}
-      yices --mode=ef test.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh,deletekeywords={test}]
+   yices --mode=ef test.ys
+\end{lstlisting}
 \end{small}
 This will produce the following output:
 \begin{small}
@@ -1296,16 +1601,16 @@ is the model, which just shows the value of the global variable
 \medskip\noindent
 As previously, we can get more detailed output by increasing the verbosity:
 \begin{small}
-\begin{verbatim}
-      yices --mode=ef --verbosity=5 test.ys
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices --mode=ef --verbosity=5 test.ys
+\end{lstlisting}
 \end{small}
 It is also possible to specify a logic on the command-line.
 
 \section{Unsat Cores}
 
 Since version 2.6.1, the Yices tool can produce unsat cores. This
-feature comes in two flavours, as in SMT-LIB~2.5.
+feature comes in two flavors, as in SMT-LIB~2.6.
 
 \subsection{Labeled Assertions}
 
@@ -1369,9 +1674,9 @@ a subset of the assumptions that are inconsistent with the context.
 \section{Tool Invocation}
 
 Yices is invoked on an input file by typing
-\begin{verbatim}
-      yices [option] <filename>
-\end{verbatim}
+\begin{lstlisting}[language=sh]
+   yices [option] <filename>
+\end{lstlisting}
 If no \texttt{<filename>} is given, \texttt{yices} will run in
 interactive mode and will read the standard input. The following
 options are supported.
@@ -1400,9 +1705,10 @@ options are supported.
   includes no  theory solvers  at all. All  assertions must  be purely
   propositional (i.e., involve only Boolean terms).
 
-  With option \texttt{--logic=QF\_NRA}, the \texttt{yices} binary uses
-  its MCSAT solver for nonlinear real arithmetic. When this solver is
-  selected, incremental solving is not supported.
+  If the selected logic includes nonlinear arithmetic (e.g.,
+  \texttt{--logic=QF\_UFNRA}), then \texttt{yices} will automatically
+  select the MCSAT solver. To force use of the MCSAT solver on logics
+  that do not require it, use command-line option \texttt{--mcsat}.
 
 \item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
   \texttt{<solver>}     must    be     one     of    \texttt{simplex},
@@ -1464,6 +1770,24 @@ options are supported.
   \texttt{interactive} and the solver reads standard input.
 
   Mode \texttt{one-shot} is required to use the Floyd-Warshall solvers.
+
+\item[--mcsat] Force use the MCSAT solver.
+
+  This option forces \texttt{yices} to use the MCSAT solver instead of
+  the default CDCL($T$) solver. By default, MCSAT is used only if the
+  logic includes non-linear arithmetic. Using option \texttt{--mcsat}
+  selects the MCSAT solver on other logics. For example, this can be
+  used to use the MCSAT solver on bitvector problems.
+
+\item[--print-success] Print \texttt{ok} after every command that would
+  otherwise execute silently.
+
+  Many commands are executed silently by \texttt{yices} (i.e., they
+  produce no output). This can be a problem for tools that interact
+  with \texttt{yices} via pipes or files. Option
+  \texttt{--print-success} modifies this behavior. With this option,
+  \texttt{yices} will print \texttt{ok} on its standard output when a
+  command successfully executes.
 
 \item[--version, -V] Display version information then exit.
 
@@ -1535,6 +1859,7 @@ Figures~\ref{syntax:commands} to~\ref{syntax:expressions}.
             | ( show-implicant )
             | ( show-unsat-core )
             | ( show-unsat-assumptions )
+            | ( show-reduced-model )
             | EOS
 
 \end{verbatim}
@@ -1681,7 +2006,7 @@ Table~\ref{syntax:keywords}.
 \begin{small}
 \begin{center}
 \begin{tt}
-\begin{tabular}{|p{3.4cm}|p{3.4cm}|p{3.4cm}|}
+\begin{tabular}{|p{3.4cm}|p{3.4cm}|p{4.7cm}|}
 \hline
 * & + & - \\
 -> & / & /= \\
@@ -1718,7 +2043,8 @@ or & pop & push \\
 real & reset & reset-stats \\
 scalar & select & set-param \\
 set-timeout & show-implicant & show-model \\
-show-param & show-params & show-stats\\
+show-param & show-params & show-reduced-model \\
+show-stats & show-unsat-core & show-unsat-assumptions \\
 true & tuple & tuple-update \\
 update & xor &  \\
 \hline
@@ -2552,7 +2878,7 @@ a term name.
 The label identifies the assertion as relevant to unsat core If a call
 to \texttt{(check)} returns \texttt{unsat}, then a corresponding unsat
 core is a subset of all the labeled assertions that is inconsistent
-with the context. Comman \texttt{(show-unsat-core)} displays this
+with the context. Command \texttt{(show-unsat-core)} displays this
 unsat core by listing the labels of all the assertions in the core.
 
 \medskip\noindent The labeled assertions must have distinct
@@ -2635,7 +2961,7 @@ then both \texttt{A} and \texttt{(not A)} can be used as assumptions.
 
 \medskip\noindent
 It is allowed for the same name to occur several times in the
-assumption list. It is also allowed to give an empyt list of
+assumption list. It is also allowed to give an empty list of
 assumptions.
 
 \medskip\noindent
@@ -2782,6 +3108,46 @@ for any \texttt{x} different from \texttt{0} and \texttt{1}.
 %% \pagebreak
 
 \medskip\noindent
+The command
+\begin{small}
+\begin{verbatim}
+   (show-reduced-model)
+\end{verbatim}
+\end{small}
+was introduced with Yices-2.6.2. It is similar to \texttt{get-model}
+in that it displays a model as a list of assignments, but it tries to
+first simplify the model by computing a set of relevant variables.
+The values assigned to these variables are sufficient to ensure that
+all the current assertions are true. Variables that are not displayed
+are not necessary to satisfy the assumptions. For example, if you call
+\texttt{yices --mcsat}
+on the following input:
+\begin{small}
+\begin{verbatim}
+  (define x::real)
+  (define y::real)
+  (assert (= (* x y) 0))
+  (check)
+\end{verbatim}
+\end{small}
+then \texttt{(show-model)} will display the value of both \texttt{x} and \texttt{y}:
+\begin{small}
+\begin{verbatim}
+  (= x 0)
+  (= y 0)
+\end{verbatim}
+\end{small}
+whereas \texttt{(show-reduced-model)} will display only one of them
+\begin{small}
+\begin{verbatim}
+  (= x 0).
+\end{verbatim}
+\end{small}
+This assignment is sufficient to ensure the assertion \texttt{(= (* x
+  y) 0)} is true, independent of the value assigned to \texttt{y}.
+
+
+\medskip\noindent
 Command
 \begin{small}
 \begin{verbatim}
@@ -2815,6 +3181,8 @@ The result is displayed as a function specification such as:
 \end{small}
 Yices creates an internal name of the form \texttt{fun!<number>} to
 display the function value.
+
+
 
 
 \subsubsection*{Unsat Cores}
@@ -3214,31 +3582,30 @@ rest of the file.
 
 The \texttt{yices} tool described in the previous chapter processes
 input given in the Yices~2 language. The distribution includes two
-other tools that can process input in the SMT-LIB~2.5 and the older
+other tools that can process input in the SMT-LIB~2.x and the older
 SMT-LIB~1.2 notations.
 
-\section{SMT-LIB 2.5}
+\section{SMT-LIB 2.x}
 
-To process SMT-LIB~2.5 input, use the \texttt{yices-smt2} solver
+To process SMT-LIB~2.x input, use the \texttt{yices-smt2} solver
 instead of \texttt{yices}. This tool is included in the \texttt{bin}
 directory in the distribution. In the Windows or Cygwin distribution,
 it is called \texttt{yices-smt2.exe}.
 
-\medskip\noindent
-The SMT-LIB~2 language is defined in~\cite{SMTLIB25:2015}. More
-information about the various logics defined in SMT-LIB~2.0 is
-available at the SMT-LIB website: \url{http://www.smtlib.org}. David Cok's
-tutorial covers all aspects of the language in
-detail~\cite{SMTLIB:tutorial:2013}.
+\medskip\noindent The SMT-LIB~2.6 language is defined
+in~\cite{SMTLIB26:2017}. More information about the various logics
+defined in SMT-LIB is available at the SMT-LIB website:
+\url{http://www.smtlib.org}. David Cok's tutorial covers all aspects
+of the language in detail~\cite{SMTLIB:tutorial:2013}.
 
 
 \subsection{Tool Invocation}
 
 To run \texttt{yices-smt2} on an input file, type
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt2 <input-file>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 Since \texttt{yices-smt2} runs in mode \texttt{one-shot} by default,
 this will work fine as long as the \texttt{<input-file>} does not use
@@ -3252,14 +3619,16 @@ This option configures \texttt{yices-smt2} to work in the mode
 contains several blocks of assertions and multiple calls to the
 command \texttt{(check-sat)}.
 
-\medskip\noindent If no \texttt{<input-file>} is given,
+\medskip\noindent If no input file is given,
 \texttt{yices-smt2} will read commands from the standard
-input. Optionally, one can also run the solver with
-the following option:
+input.
+
+\medskip\noindent Optionally, one can also run the solver with the
+following option:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt2 --interactive
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 When invoked in this manner, \texttt{yices-smt2} will print a prompt
 before accepting commands from standard input. In addition, option
@@ -3269,8 +3638,134 @@ that would otherwise be executed silently (as required
 by~\cite{SMTLIB25:2015}).
 
 
+\subsubsection*{Model Format}
 
-\subsubsection*{Command-line Options}
+Yices has always provided a command \texttt{get-model} for displaying
+a model when assertions are satisfiable. This command was added to
+SMT-LIB with version 2.5. By default, Yices displays models in a
+format similar to the one illustrated in Figure~\ref{model-format},
+except that constants are printed with the SMT-LIB~2 Syntax.
+
+\medskip\noindent Since version 2.6.2, Yices can display models
+in a different format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).
+To use this format, you must invoke \texttt{yices-smt2} as follows
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --smt2-model-format
+\end{lstlisting}
+\end{small}
+
+\medskip\noindent Another option controls how bit-vector constants are
+displayed in \texttt{(get-model)} and \texttt{(get-value ...)}. By
+default, \texttt{yices-smt2} prints bit-vector values as binary
+constants (e.g., in the format \texttt{\#b0110} for a four-bit value).
+If you prefer to get bit-vector constants converted to integers, use
+the following option:
+\begin{small}
+\begin{lstlisting}[language=sh,deletekeywords={in}]
+   yices-smt2 --bvconst-in-decimal
+\end{lstlisting}
+\end{small}
+With this option the solver will use the the SMT-LIB~2 decimal syntax
+for bit-vector, such as, \verb+(_ bv6 4)+. In general, a
+bit-vector constant will be displayed as
+\begin{small}
+\begin{verbatim}
+  (_ bv<number> <size>)
+\end{verbatim}
+\end{small}
+where \texttt{<size>} is the number of bits in the constant, and
+\texttt{<number>} is an integer between $0$ and $2^{\mbox{\texttt{<size>}}}-1$.
+
+
+\subsubsection*{Selecting a Back-end SAT Solver}
+
+For problems in the QF\_BV logic, \texttt{yices-smt2} relies on
+so-called \emph{bit blasting} by default. This amounts to
+converting a bit-vector formula in the \texttt{QF\_BV} logic into an
+equivalent Boolean problems in CNF. To solve the resulting CNF
+formula, Yices will use its internal SAT solver by default.
+
+\medskip\noindent
+Since
+Yices~2.6.2, it is possible to select an alternative Boolean SAT solver as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=<solver-name>
+\end{lstlisting}
+\end{small}
+where \texttt{<solver-name>} is either \texttt{cadical}, or
+\texttt{cryptominisat}, or \texttt{y2sat}.  The first two variants
+select either CaDiCaL or CryptoMiniSat5 as backend solvers. Support for these
+two third-party solvers must be enabled at compilation time as
+explained in Chapter~\ref{compilation}. The \texttt{y2sat} solver is
+an experimental SAT solver that is part of the Yices code. It is
+always available.
+
+\medskip\noindent
+For example, to use CaDiCaL on problem \texttt{bvadd\_12000.smt2}, type
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=cadical bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+This will use CaDiCaL in quiet mode. To get more output from CaDiCaL, increase verbosity:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --delegate=cadical --verbosity=2 bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+
+\paragraph{Note:} \texttt{yices-smt2} can sometimes solve bit-vector
+problems by preprocessing and simplification, without producing a CNF
+formula. In such cases, the \texttt{delegate} option is irrelevant.
+
+\paragraph{Limitation:} Currently, use of the delegates is restricted to non-incremental problems.
+
+\subsubsection*{Exporting to Dimacs}
+
+In addition to using external SAT solver, you can use
+\texttt{yices-smt2} to export the result of bit blasting to a file in
+the DIMACS CNF format, You can do this as follows:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=<outputfile> <inputfile>
+\end{lstlisting}
+\end{small}
+For example, command
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=bvadd_12000.cnf bvadd_12000.smt2
+\end{lstlisting}
+\end{small}
+will process bit-vector problem in file \texttt{bvadd\_12000.smt2},
+convert it to CNF, and export the result in file \texttt{bvadd\_12000.cnf}.
+This DIMACS file can then be processed by any modern Boolean SAT solver.
+
+\medskip\noindent
+You can also use the \texttt{y2sat} SAT solver to simplify the CNF formula before exporting it.
+This is done by passing an extra command-line option:
+\begin{small}
+\begin{lstlisting}[language=sh]
+   yices-smt2 --dimacs=<outputfile> --delegate=y2sat <inputfile>
+\end{lstlisting}
+\end{small}
+In this mode, \texttt{yices-smt2} will first produce a CNF formula by
+bit blasting. This formula will then be simplified by applying CNF
+preprocessing functions implemented by the \texttt{y2sat} SAT
+solver. The result of this simplification is then exported in DIMACS format.
+
+\paragraph{Note:} If \texttt{yices-smt2} can solve the problem by preprocessing and simplification,
+it will report that the instance is either \texttt{sat} or
+\texttt{unsat} and it will \emph{not} generate a DIMACS
+file. Similarly, \texttt{y2sat} simplification may solve the CNF
+formula that results from bit blasting on its own. In such a case, no DIMACS file is produce either.
+
+\paragraph{Limitation:} Conversion to DIMACS is not supported for incremental problems.
+
+
+
+\subsubsection*{All Command-line Options}
 
 Here is the full list of command-line options supported by
 \texttt{yices-smt2}.
@@ -3309,16 +3804,30 @@ Here is the full list of command-line options supported by
   after all commands have been executed (i.e., after reaching the
   command \texttt{(exit)} or the end of the input file).
 
+\item[--smt2-model-format] Display models in the SMT-LIB~2 format.
+
+\item[--bvconst-in-decimal] Prints bit-vector constants as numbers
+  (using the SMT-LIB~2 decimal syntax), instead of constants in binary
+  notation.
+
+\item[--delegate=<solver>] Select an external SAT solver for bit-vector problems,
+
+   The \texttt{<solver>} can be either \texttt{cadical}, or \texttt{cryptominisat}, or \texttt{y2sat}.
+
+\item[--dimacs=<filename>] Bitblast then export the CNF to a file (in DIMACS format).
+
 \item[--version, -V] Print version and exit.
 
 \item[--help, -h] Show a summary of command-line options and exit.
 
+\item[--mcsat-help] Show extra options used only by the MCSAT solver.
+
 \end{options}
 
 
-\subsection{SMT-LIB~2.5 Compliance}
+\subsection{SMT-LIB~2.6 Compliance}
 
-Yices follows the SMT-LIB~2.5 specifications as much as possible. In
+Yices follows the SMT-LIB~2.6 specifications as much as possible. In
 this section, we list the few special cases where Yices may not adhere
 to the standard.
 
@@ -3342,7 +3851,7 @@ used by Yices are explained in Section~\ref{bitvector-general}.
 
 \subsubsection*{Unsupported Commands}
 
-Some commands defined in SMT-LIB 2.5 are optional. This version of
+Some commands defined in SMT-LIB 2.6 are optional. This version of
 Yices supports the basic commands for declaration and definition of
 sorts and terms, assertions, satisfiability checking, unsat cores and
 assumptions. Yices does not support the optional commands
@@ -3412,16 +3921,6 @@ monstrosity will cause Yices to complain
 \end{small}
 because the symbol \texttt{x} is bound by the enclosing \texttt{let}
 when the annotated term is processed.
-
-\subsubsection*{Models}
-
-Yices has always provided a command \texttt{get-model} for displaying
-a model when assertions are satisfiable. This command was added to
-SMT-LIB with version 2.5. Yices supports this command, but does not
-display models in the format defined by SMT-LIB~2.5. Insted, Yices
-uses a format similar to the one illustrated in
-Figure~\ref{model-format}, except that constants are printed with
-the SMT-LIB~2 syntax.
 
 
 \subsubsection*{Miscellaneous Issues}
@@ -3541,9 +4040,9 @@ SMT-LIB~2.0.
 
 To execute this solver on an input file in the SMT-LIB~1.2 format, just type:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    yices-smt <input-file>
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 The solver will check satisfiability of the constraints in
 \texttt{input-file} and report either \texttt{sat} or
@@ -3587,11 +4086,9 @@ The following command-line options can be given to \texttt{yices-smt}.
 
   For example, to run \texttt{yices-smt} with a 20~s timeout, use:
   \begin{small}
-  \vspace*{-2mm}
-  \begin{verbatim}
+  \begin{lstlisting}[language=sh]
      yices-smt --timeout=20 ...
-  \end{verbatim}
-  \vspace*{-7mm}
+  \end{lstlisting}
   \end{small}
 \item[--version, -V] Display the version and exit.
 
@@ -3614,10 +4111,11 @@ The following command-line options can be given to \texttt{yices-smt}.
 You can use Yices in your software via a C-API. The main header file
 is \texttt{yices.h} which includes all the API. The API functions are
 documented in this header file and at
-\url{http://yices.csl.sri.com/}. Since Yices~2.6.0, we also provide
+\url{https://yices.csl.sri.com/}. Since Yices~2.6.0, we also provide
 Python bindings to this API. These bindings are included in the source
 distributions in directory \texttt{src/bindings}.
 
+\medskip\noindent
 As sketched in Figure~\ref{top-level-architecture}, the API provides
 three main classes of functions:
 \begin{itemize}
@@ -3628,6 +4126,7 @@ three main classes of functions:
 The API also includes functions related to error reporting and
 diagnosis, global initialization and cleanup, and garbage collection.
 
+\medskip\noindent
 In the API, types and terms are identified by 32bit signed integers
 (the types \texttt{type\_t} and \texttt{term\_t} are aliases for
 \texttt{int32\_t}, as defined in file \texttt{yices\_types.h}). Other
@@ -3641,6 +4140,7 @@ pointers. For example, a context is an object of the following type
 and all functions that operate on contexts take an argument of type
 \texttt{context\_t *}.
 
+\medskip\noindent
 When an API function fails, it returns a special code. Term
 constructors return the constant \texttt{NULL\_TERM}; type
 constructors return \texttt{NULL\_TYPE}. Other functions either return
@@ -3649,8 +4149,6 @@ diagnostic information is stored in a global data structure of type
 \texttt{error\_report\_t} (defined in \texttt{yices\_types.h}). The API
 provides functions to help diagnosis by printing error messages or
 consulting the error report structure.
-
-
 
 
 \section{A Minimal Example}
@@ -3670,7 +4168,7 @@ including a data structure used for error reporting and a set of error codes.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,otherkeywords={\#include},keywordstyle=\color{blue},stringstyle=\color{red}]
    #include <stdio.h>
    #include <yices.h>
 
@@ -3679,32 +4177,35 @@ including a data structure used for error reporting and a set of error codes.
               yices_build_arch, yices_build_mode);
       return 0;
    }
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Minimal Example}
 \label{minimal}
 \end{figure}
 
+\noindent
 To use the library, it is enough to include \texttt{yices.h} in your
 code. This will also include \texttt{yices\_types.h} and
-\texttt{yices\_limits.h}. A minimal example is shown in
+\texttt{yices\_limits.h}.
+
+\medskip\noindent A minimal example is shown in
 Figure~\ref{minimal}. Assuming the Yices library and header files are
 in standard directories such as \texttt{/usr/local/lib} and
 \texttt{/usr/local/include}, this code should compile with the
-following command
+following command:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    gcc minimal.c -o minimal -lyices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
-(other compilers than GCC can be used). If Yices is installed in a
+Other compilers than GCC can be used. If Yices is installed in a
 non-standard location, then give appropriate flags to the compilation
 command. For example, if Yices is installed in your home directory:
 \begin{small}
-\begin{verbatim}
+\begin{lstlisting}[language=sh]
    gcc minimal.c -o minimal -I${HOME}/yices-2.2.0/include \
         -L${HOME}/yices-2.2.0/lib -lyices
-\end{verbatim}
+\end{lstlisting}
 \end{small}
 Running the program should print something like this:
 \begin{small}
@@ -3712,7 +4213,7 @@ Running the program should print something like this:
    Testing Yices 2.2.0 (x86_64-unknown-linux-gnu, release)
 \end{verbatim}
 \end{small}
-If you have build a version of Yices that's dynamically linked against
+If you have built a version of Yices that's dynamically linked against
 GMP, make sure to install GMP on your system.  If the Yices library is
 installed in a non-standard location, you may also need to set
 environment variable \texttt{LD\_LIBRARY\_PATH} (or
@@ -3749,7 +4250,7 @@ included in the distribution.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={type_t,term_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
  // Create two uninterpreted terms of type int.
  type_t int_type = yices_int_type();
  term_t x = yices_new_uninterpreted_term(int_type);
@@ -3770,7 +4271,7 @@ included in the distribution.
  // Another way to do it
  term_t f_var =
    yices_parse_term("(and (>= x 0) (>= y 0) (= (+ x y) 100))");
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Term Construction using the API}
 \label{term-construction}
@@ -3789,7 +4290,7 @@ an error message.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={int32_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
  static void print_term(term_t term) {
    int32_t code;
 
@@ -3809,7 +4310,7 @@ an error message.
  print_term(f);
  printf("Formula f_var\n");
  print_term(f_var);
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Pretty Printing a Term}
 \label{pretty-printing}
@@ -3825,7 +4326,7 @@ Figure~\ref{context-check}.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
+\begin{lstlisting}[language=C,morekeywords={context_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
 context_t *ctx = yices_new_context(NULL);
 code = yices_assert_formula(ctx, f);
 if (code < 0) {
@@ -3857,7 +4358,7 @@ case STATUS_SAT:
    break;
  }
  yices_free_context(ctx);
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Checking Satisfiability}
 \label{context-check}
@@ -3874,8 +4375,8 @@ a model.
 
 \begin{figure}
 \begin{footnotesize}
-\begin{verbatim}
- model_t* model = yices_get_model(ctx, true);  // get the model
+\begin{lstlisting}[language=C,morekeywords={model_t,int32_t},keywordstyle=\color{blue},stringstyle=\color{red},commentstyle=\color{olive}]
+ model_t *model = yices_get_model(ctx, true);  // get the model
  if (model == NULL) {
    fprintf(stderr, "Error in get_model\n");
    yices_print_error(stderr);
@@ -3904,7 +4405,7 @@ a model.
 
    yices_free_model(model); // clean up: delete the model
  }
-\end{verbatim}
+\end{lstlisting}
 \end{footnotesize}
 \caption{Building and Querying a Model}
 \label{model-query}
@@ -3915,7 +4416,7 @@ a model.
 
 The main header file \texttt{yices.h} includes documentation about all
 API functions. We provide more documentation on the Yices website:
-\url{http://yices.csl.sri.com/}.
+\url{https://yices.csl.sri.com/}.
 
 \newpage
 \bibliographystyle{alpha}
@@ -3926,20 +4427,28 @@ API functions. We provide more documentation on the Yices website:
 \label{license}
 
 \begin{small}
-\begin{verbatim}
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
 
- Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+\begin{center}
+{\bf GNU GENERAL PUBLIC LICENSE}\\
 
-                            Preamble
+Version 3, 29 June 2007\\
 
-  The GNU General Public License is a free, copyleft license for
+{\parindent 0in
+
+Copyright \copyright\  2007 Free Software Foundation, Inc. \texttt{https://fsf.org/}\\
+
+\bigskip
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.}
+\end{center}
+
+\begin{center}
+{\bf Preamble}
+\end{center}
+The GNU General Public License is a free, copyleft license for
 software and other kinds of works.
 
-  The licenses for most software and other practical works are designed
+The licenses for most software and other practical works are designed
 to take away your freedom to share and change the works.  By contrast,
 the GNU General Public License is intended to guarantee your freedom to
 share and change all versions of a program--to make sure it remains free
@@ -3948,35 +4457,35 @@ GNU General Public License for most of our software; it applies also to
 any other work released this way by its authors.  You can apply it to
 your programs, too.
 
-  When we speak of free software, we are referring to freedom, not
+When we speak of free software, we are referring to freedom, not
 price.  Our General Public Licenses are designed to make sure that you
 have the freedom to distribute copies of free software (and charge for
 them if you wish), that you receive source code or can get it if you
 want it, that you can change the software or use pieces of it in new
 free programs, and that you know you can do these things.
 
-  To protect your rights, we need to prevent others from denying you
+To protect your rights, we need to prevent others from denying you
 these rights or asking you to surrender the rights.  Therefore, you have
 certain responsibilities if you distribute copies of the software, or if
 you modify it: responsibilities to respect the freedom of others.
 
-  For example, if you distribute copies of such a program, whether
+For example, if you distribute copies of such a program, whether
 gratis or for a fee, you must pass on to the recipients the same
 freedoms that you received.  You must make sure that they, too, receive
 or can get the source code.  And you must show them these terms so they
 know their rights.
 
-  Developers that use the GNU GPL protect your rights with two steps:
+Developers that use the GNU GPL protect your rights with two steps:
 (1) assert copyright on the software, and (2) offer you this License
 giving you legal permission to copy, distribute and/or modify it.
 
-  For the developers' and authors' protection, the GPL clearly explains
+For the developers' and authors' protection, the GPL clearly explains
 that there is no warranty for this free software.  For both users' and
 authors' sake, the GPL requires that modified versions be marked as
 changed, so that their problems will not be attributed erroneously to
 authors of previous versions.
 
-  Some devices are designed to deny users access to install or run
+Some devices are designed to deny users access to install or run
 modified versions of the software inside them, although the manufacturer
 can do so.  This is fundamentally incompatible with the aim of
 protecting users' freedom to change the software.  The systematic
@@ -3987,49 +4496,56 @@ products.  If such problems arise substantially in other domains, we
 stand ready to extend this provision to those domains in future versions
 of the GPL, as needed to protect the freedom of users.
 
-  Finally, every program is threatened constantly by software patents.
+Finally, every program is threatened constantly by software patents.
 States should not allow patents to restrict development and use of
 software on general-purpose computers, but in those that do, we wish to
 avoid the special danger that patents applied to a free program could
 make it effectively proprietary.  To prevent this, the GPL assures that
 patents cannot be used to render the program non-free.
 
-  The precise terms and conditions for copying, distribution and
+The precise terms and conditions for copying, distribution and
 modification follow.
 
-                       TERMS AND CONDITIONS
 
-  0. Definitions.
+\begin{center}
+{\Large \sc Terms and Conditions}
+\end{center}
 
-  "This License" refers to version 3 of the GNU General Public License.
+\begin{enumerate}
 
-  "Copyright" also means copyright-like laws that apply to other kinds of
+\addtocounter{enumi}{-1}
+
+\item Definitions.
+
+``This License'' refers to version 3 of the GNU General Public License.
+
+``Copyright'' also means copyright-like laws that apply to other kinds of
 works, such as semiconductor masks.
 
-  "The Program" refers to any copyrightable work licensed under this
-License.  Each licensee is addressed as "you".  "Licensees" and
-"recipients" may be individuals or organizations.
+``The Program'' refers to any copyrightable work licensed under this
+License.  Each licensee is addressed as ``you''.  ``Licensees'' and
+``recipients'' may be individuals or organizations.
 
-  To "modify" a work means to copy from or adapt all or part of the work
+To ``modify'' a work means to copy from or adapt all or part of the work
 in a fashion requiring copyright permission, other than the making of an
-exact copy.  The resulting work is called a "modified version" of the
-earlier work or a work "based on" the earlier work.
+exact copy.  The resulting work is called a ``modified version'' of the
+earlier work or a work ``based on'' the earlier work.
 
-  A "covered work" means either the unmodified Program or a work based
+A ``covered work'' means either the unmodified Program or a work based
 on the Program.
 
-  To "propagate" a work means to do anything with it that, without
+To ``propagate'' a work means to do anything with it that, without
 permission, would make you directly or secondarily liable for
 infringement under applicable copyright law, except executing it on a
 computer or modifying a private copy.  Propagation includes copying,
 distribution (with or without modification), making available to the
 public, and in some countries other activities as well.
 
-  To "convey" a work means any kind of propagation that enables other
+To ``convey'' a work means any kind of propagation that enables other
 parties to make or receive copies.  Mere interaction with a user through
 a computer network, with no transfer of a copy, is not conveying.
 
-  An interactive user interface displays "Appropriate Legal Notices"
+An interactive user interface displays ``Appropriate Legal Notices''
 to the extent that it includes a convenient and prominently visible
 feature that (1) displays an appropriate copyright notice, and (2)
 tells the user that there is no warranty for the work (except to the
@@ -4038,29 +4554,29 @@ work under this License, and how to view a copy of this License.  If
 the interface presents a list of user commands or options, such as a
 menu, a prominent item in the list meets this criterion.
 
-  1. Source Code.
+\item Source Code.
 
-  The "source code" for a work means the preferred form of the work
-for making modifications to it.  "Object code" means any non-source
+The ``source code'' for a work means the preferred form of the work
+for making modifications to it.  ``Object code'' means any non-source
 form of a work.
 
-  A "Standard Interface" means an interface that either is an official
+A ``Standard Interface'' means an interface that either is an official
 standard defined by a recognized standards body, or, in the case of
 interfaces specified for a particular programming language, one that
 is widely used among developers working in that language.
 
-  The "System Libraries" of an executable work include anything, other
+The ``System Libraries'' of an executable work include anything, other
 than the work as a whole, that (a) is included in the normal form of
 packaging a Major Component, but which is not part of that Major
 Component, and (b) serves only to enable use of the work with that
 Major Component, or to implement a Standard Interface for which an
 implementation is available to the public in source code form.  A
-"Major Component", in this context, means a major essential component
+``Major Component'', in this context, means a major essential component
 (kernel, window system, and so on) of the specific operating system
 (if any) on which the executable work runs, or a compiler used to
 produce the work, or an object code interpreter used to run it.
 
-  The "Corresponding Source" for a work in object code form means all
+The ``Corresponding Source'' for a work in object code form means all
 the source code needed to generate, install, and (for an executable
 work) run the object code and to modify the work, including scripts to
 control those activities.  However, it does not include the work's
@@ -4073,16 +4589,16 @@ linked subprograms that the work is specifically designed to require,
 such as by intimate data communication or control flow between those
 subprograms and other parts of the work.
 
-  The Corresponding Source need not include anything that users
+The Corresponding Source need not include anything that users
 can regenerate automatically from other parts of the Corresponding
 Source.
 
-  The Corresponding Source for a work in source code form is that
+The Corresponding Source for a work in source code form is that
 same work.
 
-  2. Basic Permissions.
+\item Basic Permissions.
 
-  All rights granted under this License are granted for the term of
+All rights granted under this License are granted for the term of
 copyright on the Program, and are irrevocable provided the stated
 conditions are met.  This License explicitly affirms your unlimited
 permission to run the unmodified Program.  The output from running a
@@ -4090,7 +4606,7 @@ covered work is covered by this License only if the output, given its
 content, constitutes a covered work.  This License acknowledges your
 rights of fair use or other equivalent, as provided by copyright law.
 
-  You may make, run and propagate covered works that you do not
+You may make, run and propagate covered works that you do not
 convey, without conditions so long as your license otherwise remains
 in force.  You may convey covered works to others for the sole purpose
 of having them make modifications exclusively for you, or provide you
@@ -4101,19 +4617,19 @@ for you must do so exclusively on your behalf, under your direction
 and control, on terms that prohibit them from making any copies of
 your copyrighted material outside their relationship with you.
 
-  Conveying under any other circumstances is permitted solely under
+Conveying under any other circumstances is permitted solely under
 the conditions stated below.  Sublicensing is not allowed; section 10
 makes it unnecessary.
 
-  3. Protecting Users' Legal Rights From Anti-Circumvention Law.
+\item Protecting Users' Legal Rights From Anti-Circumvention Law.
 
-  No covered work shall be deemed part of an effective technological
+No covered work shall be deemed part of an effective technological
 measure under any applicable law fulfilling obligations under article
 11 of the WIPO copyright treaty adopted on 20 December 1996, or
 similar laws prohibiting or restricting circumvention of such
 measures.
 
-  When you convey a covered work, you waive any legal power to forbid
+When you convey a covered work, you waive any legal power to forbid
 circumvention of technological measures to the extent such circumvention
 is effected by exercising rights under this License with respect to
 the covered work, and you disclaim any intention to limit operation or
@@ -4121,9 +4637,9 @@ modification of the work as a means of enforcing, against the work's
 users, your or third parties' legal rights to forbid circumvention of
 technological measures.
 
-  4. Conveying Verbatim Copies.
+\item Conveying Verbatim Copies.
 
-  You may convey verbatim copies of the Program's source code as you
+You may convey verbatim copies of the Program's source code as you
 receive it, in any medium, provided that you conspicuously and
 appropriately publish on each copy an appropriate copyright notice;
 keep intact all notices stating that this License and any
@@ -4131,104 +4647,105 @@ non-permissive terms added in accord with section 7 apply to the code;
 keep intact all notices of the absence of any warranty; and give all
 recipients a copy of this License along with the Program.
 
-  You may charge any price or no price for each copy that you convey,
+You may charge any price or no price for each copy that you convey,
 and you may offer support or warranty protection for a fee.
 
-  5. Conveying Modified Source Versions.
+\item Conveying Modified Source Versions.
 
-  You may convey a work based on the Program, or the modifications to
+You may convey a work based on the Program, or the modifications to
 produce it from the Program, in the form of source code under the
 terms of section 4, provided that you also meet all of these conditions:
+  \begin{enumerate}
+  \item The work must carry prominent notices stating that you modified
+  it, and giving a relevant date.
 
-    a) The work must carry prominent notices stating that you modified
-    it, and giving a relevant date.
+  \item The work must carry prominent notices stating that it is
+  released under this License and any conditions added under section
+  7.  This requirement modifies the requirement in section 4 to
+  ``keep intact all notices''.
 
-    b) The work must carry prominent notices stating that it is
-    released under this License and any conditions added under section
-    7.  This requirement modifies the requirement in section 4 to
-    "keep intact all notices".
+  \item You must license the entire work, as a whole, under this
+  License to anyone who comes into possession of a copy.  This
+  License will therefore apply, along with any applicable section 7
+  additional terms, to the whole of the work, and all its parts,
+  regardless of how they are packaged.  This License gives no
+  permission to license the work in any other way, but it does not
+  invalidate such permission if you have separately received it.
 
-    c) You must license the entire work, as a whole, under this
-    License to anyone who comes into possession of a copy.  This
-    License will therefore apply, along with any applicable section 7
-    additional terms, to the whole of the work, and all its parts,
-    regardless of how they are packaged.  This License gives no
-    permission to license the work in any other way, but it does not
-    invalidate such permission if you have separately received it.
-
-    d) If the work has interactive user interfaces, each must display
-    Appropriate Legal Notices; however, if the Program has interactive
-    interfaces that do not display Appropriate Legal Notices, your
-    work need not make them do so.
-
-  A compilation of a covered work with other separate and independent
+  \item If the work has interactive user interfaces, each must display
+  Appropriate Legal Notices; however, if the Program has interactive
+  interfaces that do not display Appropriate Legal Notices, your
+  work need not make them do so.
+\end{enumerate}
+A compilation of a covered work with other separate and independent
 works, which are not by their nature extensions of the covered work,
 and which are not combined with it such as to form a larger program,
 in or on a volume of a storage or distribution medium, is called an
-"aggregate" if the compilation and its resulting copyright are not
+``aggregate'' if the compilation and its resulting copyright are not
 used to limit the access or legal rights of the compilation's users
 beyond what the individual works permit.  Inclusion of a covered work
 in an aggregate does not cause this License to apply to the other
 parts of the aggregate.
 
-  6. Conveying Non-Source Forms.
+\item Conveying Non-Source Forms.
 
-  You may convey a covered work in object code form under the terms
+You may convey a covered work in object code form under the terms
 of sections 4 and 5, provided that you also convey the
 machine-readable Corresponding Source under the terms of this License,
 in one of these ways:
+  \begin{enumerate}
+  \item Convey the object code in, or embodied in, a physical product
+  (including a physical distribution medium), accompanied by the
+  Corresponding Source fixed on a durable physical medium
+  customarily used for software interchange.
 
-    a) Convey the object code in, or embodied in, a physical product
-    (including a physical distribution medium), accompanied by the
-    Corresponding Source fixed on a durable physical medium
-    customarily used for software interchange.
+  \item Convey the object code in, or embodied in, a physical product
+  (including a physical distribution medium), accompanied by a
+  written offer, valid for at least three years and valid for as
+  long as you offer spare parts or customer support for that product
+  model, to give anyone who possesses the object code either (1) a
+  copy of the Corresponding Source for all the software in the
+  product that is covered by this License, on a durable physical
+  medium customarily used for software interchange, for a price no
+  more than your reasonable cost of physically performing this
+  conveying of source, or (2) access to copy the
+  Corresponding Source from a network server at no charge.
 
-    b) Convey the object code in, or embodied in, a physical product
-    (including a physical distribution medium), accompanied by a
-    written offer, valid for at least three years and valid for as
-    long as you offer spare parts or customer support for that product
-    model, to give anyone who possesses the object code either (1) a
-    copy of the Corresponding Source for all the software in the
-    product that is covered by this License, on a durable physical
-    medium customarily used for software interchange, for a price no
-    more than your reasonable cost of physically performing this
-    conveying of source, or (2) access to copy the
-    Corresponding Source from a network server at no charge.
+  \item Convey individual copies of the object code with a copy of the
+  written offer to provide the Corresponding Source.  This
+  alternative is allowed only occasionally and noncommercially, and
+  only if you received the object code with such an offer, in accord
+  with subsection 6b.
 
-    c) Convey individual copies of the object code with a copy of the
-    written offer to provide the Corresponding Source.  This
-    alternative is allowed only occasionally and noncommercially, and
-    only if you received the object code with such an offer, in accord
-    with subsection 6b.
+  \item Convey the object code by offering access from a designated
+  place (gratis or for a charge), and offer equivalent access to the
+  Corresponding Source in the same way through the same place at no
+  further charge.  You need not require recipients to copy the
+  Corresponding Source along with the object code.  If the place to
+  copy the object code is a network server, the Corresponding Source
+  may be on a different server (operated by you or a third party)
+  that supports equivalent copying facilities, provided you maintain
+  clear directions next to the object code saying where to find the
+  Corresponding Source.  Regardless of what server hosts the
+  Corresponding Source, you remain obligated to ensure that it is
+  available for as long as needed to satisfy these requirements.
 
-    d) Convey the object code by offering access from a designated
-    place (gratis or for a charge), and offer equivalent access to the
-    Corresponding Source in the same way through the same place at no
-    further charge.  You need not require recipients to copy the
-    Corresponding Source along with the object code.  If the place to
-    copy the object code is a network server, the Corresponding Source
-    may be on a different server (operated by you or a third party)
-    that supports equivalent copying facilities, provided you maintain
-    clear directions next to the object code saying where to find the
-    Corresponding Source.  Regardless of what server hosts the
-    Corresponding Source, you remain obligated to ensure that it is
-    available for as long as needed to satisfy these requirements.
+  \item Convey the object code using peer-to-peer transmission, provided
+  you inform other peers where the object code and Corresponding
+  Source of the work are being offered to the general public at no
+  charge under subsection 6d.
+  \end{enumerate}
 
-    e) Convey the object code using peer-to-peer transmission, provided
-    you inform other peers where the object code and Corresponding
-    Source of the work are being offered to the general public at no
-    charge under subsection 6d.
-
-  A separable portion of the object code, whose source code is excluded
+A separable portion of the object code, whose source code is excluded
 from the Corresponding Source as a System Library, need not be
 included in conveying the object code work.
 
-  A "User Product" is either (1) a "consumer product", which means any
+A ``User Product'' is either (1) a ``consumer product'', which means any
 tangible personal property which is normally used for personal, family,
 or household purposes, or (2) anything designed or sold for incorporation
 into a dwelling.  In determining whether a product is a consumer product,
 doubtful cases shall be resolved in favor of coverage.  For a particular
-product received by a particular user, "normally used" refers to a
+product received by a particular user, ``normally used'' refers to a
 typical or common use of that class of product, regardless of the status
 of the particular user or of the way in which the particular user
 actually uses, or expects or is expected to use, the product.  A product
@@ -4236,7 +4753,7 @@ is a consumer product regardless of whether the product has substantial
 commercial, industrial or non-consumer uses, unless such uses represent
 the only significant mode of use of the product.
 
-  "Installation Information" for a User Product means any methods,
+``Installation Information'' for a User Product means any methods,
 procedures, authorization keys, or other information required to install
 and execute modified versions of a covered work in that User Product from
 a modified version of its Corresponding Source.  The information must
@@ -4244,7 +4761,7 @@ suffice to ensure that the continued functioning of the modified object
 code is in no case prevented or interfered with solely because
 modification has been made.
 
-  If you convey an object code work under this section in, or with, or
+If you convey an object code work under this section in, or with, or
 specifically for use in, a User Product, and the conveying occurs as
 part of a transaction in which the right of possession and use of the
 User Product is transferred to the recipient in perpetuity or for a
@@ -4255,7 +4772,7 @@ if neither you nor any third party retains the ability to install
 modified object code on the User Product (for example, the work has
 been installed in ROM).
 
-  The requirement to provide Installation Information does not include a
+The requirement to provide Installation Information does not include a
 requirement to continue to provide support service, warranty, or updates
 for a work that has been modified or installed by the recipient, or for
 the User Product in which it has been modified or installed.  Access to a
@@ -4263,15 +4780,15 @@ network may be denied when the modification itself materially and
 adversely affects the operation of the network or violates the rules and
 protocols for communication across the network.
 
-  Corresponding Source conveyed, and Installation Information provided,
+Corresponding Source conveyed, and Installation Information provided,
 in accord with this section must be in a format that is publicly
 documented (and with an implementation available to the public in
 source code form), and must require no special password or key for
 unpacking, reading or copying.
 
-  7. Additional Terms.
+\item Additional Terms.
 
-  "Additional permissions" are terms that supplement the terms of this
+``Additional permissions'' are terms that supplement the terms of this
 License by making exceptions from one or more of its conditions.
 Additional permissions that are applicable to the entire Program shall
 be treated as though they were included in this License, to the extent
@@ -4280,42 +4797,43 @@ apply only to part of the Program, that part may be used separately
 under those permissions, but the entire Program remains governed by
 this License without regard to the additional permissions.
 
-  When you convey a copy of a covered work, you may at your option
+When you convey a copy of a covered work, you may at your option
 remove any additional permissions from that copy, or from any part of
 it.  (Additional permissions may be written to require their own
 removal in certain cases when you modify the work.)  You may place
 additional permissions on material, added by you to a covered work,
 for which you have or can give appropriate copyright permission.
 
-  Notwithstanding any other provision of this License, for material you
+Notwithstanding any other provision of this License, for material you
 add to a covered work, you may (if authorized by the copyright holders of
 that material) supplement the terms of this License with terms:
+  \begin{enumerate}
+  \item Disclaiming warranty or limiting liability differently from the
+  terms of sections 15 and 16 of this License; or
 
-    a) Disclaiming warranty or limiting liability differently from the
-    terms of sections 15 and 16 of this License; or
+  \item Requiring preservation of specified reasonable legal notices or
+  author attributions in that material or in the Appropriate Legal
+  Notices displayed by works containing it; or
 
-    b) Requiring preservation of specified reasonable legal notices or
-    author attributions in that material or in the Appropriate Legal
-    Notices displayed by works containing it; or
+  \item Prohibiting misrepresentation of the origin of that material, or
+  requiring that modified versions of such material be marked in
+  reasonable ways as different from the original version; or
 
-    c) Prohibiting misrepresentation of the origin of that material, or
-    requiring that modified versions of such material be marked in
-    reasonable ways as different from the original version; or
+  \item Limiting the use for publicity purposes of names of licensors or
+  authors of the material; or
 
-    d) Limiting the use for publicity purposes of names of licensors or
-    authors of the material; or
+  \item Declining to grant rights under trademark law for use of some
+  trade names, trademarks, or service marks; or
 
-    e) Declining to grant rights under trademark law for use of some
-    trade names, trademarks, or service marks; or
+  \item Requiring indemnification of licensors and authors of that
+  material by anyone who conveys the material (or modified versions of
+  it) with contractual assumptions of liability to the recipient, for
+  any liability that these contractual assumptions directly impose on
+  those licensors and authors.
+  \end{enumerate}
 
-    f) Requiring indemnification of licensors and authors of that
-    material by anyone who conveys the material (or modified versions of
-    it) with contractual assumptions of liability to the recipient, for
-    any liability that these contractual assumptions directly impose on
-    those licensors and authors.
-
-  All other non-permissive additional terms are considered "further
-restrictions" within the meaning of section 10.  If the Program as you
+All other non-permissive additional terms are considered ``further
+restrictions'' within the meaning of section 10.  If the Program as you
 received it, or any part of it, contains a notice stating that it is
 governed by this License along with a term that is a further
 restriction, you may remove that term.  If a license document contains
@@ -4324,46 +4842,46 @@ License, you may add to a covered work material governed by the terms
 of that license document, provided that the further restriction does
 not survive such relicensing or conveying.
 
-  If you add terms to a covered work in accord with this section, you
+If you add terms to a covered work in accord with this section, you
 must place, in the relevant source files, a statement of the
 additional terms that apply to those files, or a notice indicating
 where to find the applicable terms.
 
-  Additional terms, permissive or non-permissive, may be stated in the
+Additional terms, permissive or non-permissive, may be stated in the
 form of a separately written license, or stated as exceptions;
 the above requirements apply either way.
 
-  8. Termination.
+\item Termination.
 
-  You may not propagate or modify a covered work except as expressly
+You may not propagate or modify a covered work except as expressly
 provided under this License.  Any attempt otherwise to propagate or
 modify it is void, and will automatically terminate your rights under
 this License (including any patent licenses granted under the third
 paragraph of section 11).
 
-  However, if you cease all violation of this License, then your
+However, if you cease all violation of this License, then your
 license from a particular copyright holder is reinstated (a)
 provisionally, unless and until the copyright holder explicitly and
 finally terminates your license, and (b) permanently, if the copyright
 holder fails to notify you of the violation by some reasonable means
 prior to 60 days after the cessation.
 
-  Moreover, your license from a particular copyright holder is
+Moreover, your license from a particular copyright holder is
 reinstated permanently if the copyright holder notifies you of the
 violation by some reasonable means, this is the first time you have
 received notice of violation of this License (for any work) from that
 copyright holder, and you cure the violation prior to 30 days after
 your receipt of the notice.
 
-  Termination of your rights under this section does not terminate the
+Termination of your rights under this section does not terminate the
 licenses of parties who have received copies or rights from you under
 this License.  If your rights have been terminated and not permanently
 reinstated, you do not qualify to receive new licenses for the same
 material under section 10.
 
-  9. Acceptance Not Required for Having Copies.
+\item Acceptance Not Required for Having Copies.
 
-  You are not required to accept this License in order to receive or
+You are not required to accept this License in order to receive or
 run a copy of the Program.  Ancillary propagation of a covered work
 occurring solely as a consequence of using peer-to-peer transmission
 to receive a copy likewise does not require acceptance.  However,
@@ -4372,14 +4890,14 @@ modify any covered work.  These actions infringe copyright if you do
 not accept this License.  Therefore, by modifying or propagating a
 covered work, you indicate your acceptance of this License to do so.
 
-  10. Automatic Licensing of Downstream Recipients.
+\item Automatic Licensing of Downstream Recipients.
 
-  Each time you convey a covered work, the recipient automatically
+Each time you convey a covered work, the recipient automatically
 receives a license from the original licensors, to run, modify and
 propagate that work, subject to this License.  You are not responsible
 for enforcing compliance by third parties with this License.
 
-  An "entity transaction" is a transaction transferring control of an
+An ``entity transaction'' is a transaction transferring control of an
 organization, or substantially all assets of one, or subdividing an
 organization, or merging organizations.  If propagation of a covered
 work results from an entity transaction, each party to that
@@ -4389,7 +4907,7 @@ give under the previous paragraph, plus a right to possession of the
 Corresponding Source of the work from the predecessor in interest, if
 the predecessor has it or can get it with reasonable efforts.
 
-  You may not impose any further restrictions on the exercise of the
+You may not impose any further restrictions on the exercise of the
 rights granted or affirmed under this License.  For example, you may
 not impose a license fee, royalty, or other charge for exercise of
 rights granted under this License, and you may not initiate litigation
@@ -4397,35 +4915,35 @@ rights granted under this License, and you may not initiate litigation
 any patent claim is infringed by making, using, selling, offering for
 sale, or importing the Program or any portion of it.
 
-  11. Patents.
+\item Patents.
 
-  A "contributor" is a copyright holder who authorizes use under this
+A ``contributor'' is a copyright holder who authorizes use under this
 License of the Program or a work on which the Program is based.  The
-work thus licensed is called the contributor's "contributor version".
+work thus licensed is called the contributor's ``contributor version''.
 
-  A contributor's "essential patent claims" are all patent claims
+A contributor's ``essential patent claims'' are all patent claims
 owned or controlled by the contributor, whether already acquired or
 hereafter acquired, that would be infringed by some manner, permitted
 by this License, of making, using, or selling its contributor version,
 but do not include claims that would be infringed only as a
 consequence of further modification of the contributor version.  For
-purposes of this definition, "control" includes the right to grant
+purposes of this definition, ``control'' includes the right to grant
 patent sublicenses in a manner consistent with the requirements of
 this License.
 
-  Each contributor grants you a non-exclusive, worldwide, royalty-free
+Each contributor grants you a non-exclusive, worldwide, royalty-free
 patent license under the contributor's essential patent claims, to
 make, use, sell, offer for sale, import and otherwise run, modify and
 propagate the contents of its contributor version.
 
-  In the following three paragraphs, a "patent license" is any express
+In the following three paragraphs, a ``patent license'' is any express
 agreement or commitment, however denominated, not to enforce a patent
 (such as an express permission to practice a patent or covenant not to
-sue for patent infringement).  To "grant" such a patent license to a
+sue for patent infringement).  To ``grant'' such a patent license to a
 party means to make such an agreement or commitment not to enforce a
 patent against the party.
 
-  If you convey a covered work, knowingly relying on a patent license,
+If you convey a covered work, knowingly relying on a patent license,
 and the Corresponding Source of the work is not available for anyone
 to copy, free of charge and under the terms of this License, through a
 publicly available network server or other readily accessible means,
@@ -4433,13 +4951,13 @@ then you must either (1) cause the Corresponding Source to be so
 available, or (2) arrange to deprive yourself of the benefit of the
 patent license for this particular work, or (3) arrange, in a manner
 consistent with the requirements of this License, to extend the patent
-license to downstream recipients.  "Knowingly relying" means you have
+license to downstream recipients.  ``Knowingly relying'' means you have
 actual knowledge that, but for the patent license, your conveying the
 covered work in a country, or your recipient's use of the covered work
 in a country, would infringe one or more identifiable patents in that
 country that you have reason to believe are valid.
 
-  If, pursuant to or in connection with a single transaction or
+If, pursuant to or in connection with a single transaction or
 arrangement, you convey, or propagate by procuring conveyance of, a
 covered work, and grant a patent license to some of the parties
 receiving the covered work authorizing them to use, propagate, modify
@@ -4447,7 +4965,7 @@ or convey a specific copy of the covered work, then the patent license
 you grant is automatically extended to all recipients of the covered
 work and works based on it.
 
-  A patent license is "discriminatory" if it does not include within
+A patent license is ``discriminatory'' if it does not include within
 the scope of its coverage, prohibits the exercise of, or is
 conditioned on the non-exercise of one or more of the rights that are
 specifically granted under this License.  You may not convey a covered
@@ -4462,13 +4980,13 @@ for and in connection with specific products or compilations that
 contain the covered work, unless you entered into that arrangement,
 or that patent license was granted, prior to 28 March 2007.
 
-  Nothing in this License shall be construed as excluding or limiting
+Nothing in this License shall be construed as excluding or limiting
 any implied license or other defenses to infringement that may
 otherwise be available to you under applicable patent law.
 
-  12. No Surrender of Others' Freedom.
+\item No Surrender of Others' Freedom.
 
-  If conditions are imposed on you (whether by court order, agreement or
+If conditions are imposed on you (whether by court order, agreement or
 otherwise) that contradict the conditions of this License, they do not
 excuse you from the conditions of this License.  If you cannot convey a
 covered work so as to satisfy simultaneously your obligations under this
@@ -4478,9 +4996,9 @@ to collect a royalty for further conveying from those to whom you convey
 the Program, the only way you could satisfy both those terms and this
 License would be to refrain entirely from conveying the Program.
 
-  13. Use with the GNU Affero General Public License.
+\item Use with the GNU Affero General Public License.
 
-  Notwithstanding any other provision of this License, you have
+Notwithstanding any other provision of this License, you have
 permission to link or combine any covered work with a work licensed
 under version 3 of the GNU Affero General Public License into a single
 combined work, and to convey the resulting work.  The terms of this
@@ -4489,303 +5007,139 @@ but the special requirements of the GNU Affero General Public License,
 section 13, concerning interaction through a network will apply to the
 combination as such.
 
-  14. Revised Versions of this License.
+\item Revised Versions of this License.
 
-  The Free Software Foundation may publish revised and/or new versions of
+The Free Software Foundation may publish revised and/or new versions of
 the GNU General Public License from time to time.  Such new versions will
 be similar in spirit to the present version, but may differ in detail to
 address new problems or concerns.
 
-  Each version is given a distinguishing version number.  If the
+Each version is given a distinguishing version number.  If the
 Program specifies that a certain numbered version of the GNU General
-Public License "or any later version" applies to it, you have the
+Public License ``or any later version'' applies to it, you have the
 option of following the terms and conditions either of that numbered
 version or of any later version published by the Free Software
 Foundation.  If the Program does not specify a version number of the
 GNU General Public License, you may choose any version ever published
 by the Free Software Foundation.
 
-  If the Program specifies that a proxy can decide which future
+If the Program specifies that a proxy can decide which future
 versions of the GNU General Public License can be used, that proxy's
 public statement of acceptance of a version permanently authorizes you
 to choose that version for the Program.
 
-  Later license versions may give you additional or different
+Later license versions may give you additional or different
 permissions.  However, no additional obligations are imposed on any
 author or copyright holder as a result of your choosing to follow a
 later version.
 
-  15. Disclaimer of Warranty.
+\item Disclaimer of Warranty.
 
-  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY
-OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
-IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
-ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+\begin{sloppypar}
+ THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+ APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE
+ COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM ``AS IS''
+ WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE
+ RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.
+ SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+ NECESSARY SERVICING, REPAIR OR CORRECTION.
+\end{sloppypar}
 
-  16. Limitation of Liability.
+\item Limitation of Liability.
 
-  IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
-WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
-THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
-GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
-USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
-DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
-PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
-EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGES.
+ IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN
+ WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES
+ AND/OR CONVEYS THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR
+ DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL
+ DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM
+ (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED
+ INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE
+ OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH
+ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+ DAMAGES.
 
-  17. Interpretation of Sections 15 and 16.
+\item Interpretation of Sections 15 and 16.
 
-  If the disclaimer of warranty and limitation of liability provided
+If the disclaimer of warranty and limitation of liability provided
 above cannot be given local legal effect according to their terms,
 reviewing courts shall apply local law that most closely approximates
 an absolute waiver of all civil liability in connection with the
 Program, unless a warranty or assumption of liability accompanies a
 copy of the Program in return for a fee.
 
-                     END OF TERMS AND CONDITIONS
+\begin{center}
+{\Large\sc End of Terms and Conditions}
 
-            How to Apply These Terms to Your New Programs
+\bigskip
+How to Apply These Terms to Your New Programs
+\end{center}
 
-  If you develop a new program, and you want it to be of the greatest
+If you develop a new program, and you want it to be of the greatest
 possible use to the public, the best way to achieve this is to make it
 free software which everyone can redistribute and change under these terms.
 
-  To do so, attach the following notices to the program.  It is safest
+To do so, attach the following notices to the program.  It is safest
 to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
-the "copyright" line and a pointer to where the full notice is found.
+the ``copyright'' line and a pointer to where the full notice is found.
 
-    <one line to give the program's name and a brief idea of what it does.>
-    Copyright (C) <year>  <name of author>
+{\scriptsize
+\begin{verbatim}
+<one line to give the program's name and a brief idea of what it does.>
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+Copyright (C) <textyear>  <name of author>
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+\end{verbatim}
+}
 
 Also add information on how to contact you by electronic and paper mail.
 
-  If the program does terminal interaction, make it output a short
+If the program does terminal interaction, make it output a short
 notice like this when it starts in an interactive mode:
 
-    <program>  Copyright (C) <year>  <name of author>
-    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
-    This is free software, and you are welcome to redistribute it
-    under certain conditions; type `show c' for details.
-
-The hypothetical commands `show w' and `show c' should show the appropriate
-parts of the General Public License.  Of course, your program's commands
-might be different; for a GUI interface, you would use an "about box".
-
-  You should also get your employer (if you work as a programmer) or school,
-if any, to sign a "copyright disclaimer" for the program, if necessary.
-For more information on this, and how to apply and follow the GNU GPL, see
-<http://www.gnu.org/licenses/>.
-
-  The GNU General Public License does not permit incorporating your program
-into proprietary programs.  If your program is a subroutine library, you
-may consider it more useful to permit linking proprietary applications with
-the library.  If this is what you want to do, use the GNU Lesser General
-Public License instead of this License.  But first, please read
-<http://www.gnu.org/philosophy/why-not-lgpl.html>.
-
-\end{verbatim}
-\end{small}
-
-\chapter{GMP License Terms}
-\label{gmp-license}
-
-Yices depends on the GNU Multiple Precision library (GMP), available
-from \url{http://www.gmplib.org}. The following terms apply to GMP.
-
-\begin{small}
+{\scriptsize
 \begin{verbatim}
+<program>  Copyright (C) <year>  <name of author>
 
-                 GNU LESSER GENERAL PUBLIC LICENSE
-                     Version 3, 29 June 2007
-
-Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
-Everyone is permitted to copy  and distribute verbatim copies of
-this license document, but changing it is not allowed.
-
-
-This version of the GNU Lesser General Public License incorporates
-the terms and conditions of version 3 of the GNU General Public
-License, supplemented by the additional permissions listed below.
-
-  0. Additional Definitions.
-
-  As used herein, "this License" refers to version 3 of the GNU
-Lesser General Public License, and the "GNU GPL" refers to
-version 3 of the GNU General Public License.
-
-  "The Library" refers to a covered work governed by this License,
-other than an Application or a Combined Work as defined below.
-
-  An "Application" is any work that makes use of an interface
-provided by the Library, but which is not otherwise based on the
-Library. Defining a subclass of a class defined by the Library is
-deemed a mode of using an interface provided by the Library.
-
-  A "Combined Work" is a work produced by combining or linking an
-Application with the Library. The particular version of the
-Library with which the Combined Work was made is also called
-the "Linked Version".
-
-  The "Minimal Corresponding Source" for a Combined Work means the
-Corresponding Source for the Combined Work, excluding any source
-code for portions of the Combined Work that, considered in
-isolation, are based on the Application, and not on the Linked
-Version.
-
-  The "Corresponding Application Code" for a Combined Work means
-the object code and/or source code for the Application, including
-any data and utility programs needed for reproducing the Combined
-Work from the Application, but excluding the System Libraries of
-the Combined Work.
-
-  1. Exception to Section 3 of the GNU GPL.
-
-  You may convey a covered work under sections 3 and 4 of this
-License without being bound by section 3 of the GNU GPL.
-
-  2. Conveying Modified Versions.
-
-  If you modify a copy of the Library, and, in your modifications,
-a facility refers to a function or data to be supplied by an
-Application that uses the facility (other than as an argument
-passed when the facility is invoked), then you may convey a copy
-of the modified version:
-
-   a) under this License, provided that you make a good faith
-   effort to ensure that, in the event an Application does not
-   supply the function or data, the facility still operates, and
-   performs whatever part of its purpose remains meaningful, or
-
-   b) under the GNU GPL, with none of the additional permissions
-   of this License applicable to that copy.
-
-  3. Object Code Incorporating Material from Library Header Files.
-
-  The object code form of an Application may incorporate material
-from a header file that is part of the Library. You may convey
-such object code under terms of your choice, provided that, if the
-incorporated material is not limited to numerical parameters, data
-structure layouts and accessors, or small macros, inline functions
-and templates (ten or fewer lines in length), you do both of the
-following:
-
-   a) Give prominent notice with each copy of the object code that
-   the Library is used in it and that the Library and its use are
-   covered by this License.
-
-   b) Accompany the object code with a copy of the GNU GPL and
-   this license document.
-
-  4. Combined Works.
-
-  You may convey a Combined Work under terms of your choice that,
-taken together, effectively do not restrict modification of the
-portions of the Library contained in the Combined Work and reverse
-engineering for debugging such modifications, if you also do each
-of the following:
-
-   a) Give prominent notice with each copy of the Combined Work
-   that the Library is used in it and that the Library and its use
-   are covered by this License.
-
-   b) Accompany the Combined Work with a copy of the GNU GPL and
-   this license document.
-
-   c) For a Combined Work that displays copyright notices during
-   execution, include the copyright notice for the Library among
-   these notices, as well as a reference directing the user to the
-   copies of the GNU GPL and this license document.
-
-   d) Do one of the following:
-
-       0) Convey the Minimal Corresponding Source under the terms
-       of this License, and the Corresponding Application Code in
-       a form suitable for, and under terms that permit, the user
-       to recombine or relink the Application with a modified
-       version of the Linked Version to produce a modified
-       Combined Work, in the manner specified by section 6 of the
-       GNU GPL for conveying Corresponding Source.
-
-       1) Use a suitable shared library mechanism for linking with
-       the Library. A suitable mechanism is one that (a) uses at
-       run time a copy of the Library already present on the
-       user's computer system, and (b) will operate properly
-       with a modified version of the Library that is
-       interface-compatible with the Linked Version.
-
-   e) Provide Installation Information, but only if you would
-   otherwise be required to provide such information under
-   section 6 of the GNU GPL, and only to the extent that such
-   information is necessary to install and execute a modified
-   version of the Combined Work produced by recombining or
-   relinking the Application with a modified version of the
-   Linked Version. (If you use option 4d0, the Installation
-   Information must accompany the Minimal Corresponding Source
-   and Corresponding Application Code. If you use option 4d1,
-   you must provide the Installation Information in the manner
-   specified by section 6 of the GNU GPL for conveying
-   Corresponding Source.)
-
-  5. Combined Libraries.
-
-  You may place library facilities that are a work based on the
-Library side by side in a single library together with other
-library facilities that are not Applications and are not covered
-by this License, and convey such a combined library under terms
-of your choice, if you do both of the following:
-
-   a) Accompany the combined library with a copy of the same work
-   based on the Library, uncombined with any other library
-   facilities, conveyed under the terms of this License.
-
-   b) Give prominent notice with the combined library that part
-   of it is a work based on the Library, and explaining where to
-   find the accompanying uncombined form of the same work.
-
-  6. Revised Versions of the GNU Lesser General Public License.
-
-  The Free Software Foundation may publish revised and/or new
-versions of the GNU Lesser General Public License from time to
-time. Such new versions will be similar in spirit to the present
-version, but may differ in detail to address new problems or
-concerns.
-
-  Each version is given a distinguishing version number. If the
-Library as you received it specifies that a certain numbered
-version of the GNU Lesser General Public License "or any later
-version" applies to it, you have the option of following the terms
-and conditions either of that published version or of any later
-version published by the Free Software Foundation. If the Library
-as you received it does not specify a version number of the GNU
-Lesser General Public License, you may choose any version of the
-GNU Lesser General Public License ever published by the Free
-Software Foundation.
-
-  If the Library as you received it specifies that a proxy can
-decide whether future versions of the GNU Lesser General Public
-License shall apply, that proxy's public statement of acceptance
-of any version is permanent authorization for you to choose that
-version for the Library.
+This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
 \end{verbatim}
+}
+
+The hypothetical commands {\tt show w} and {\tt show c} should show
+the appropriate
+parts of the General Public License.  Of course, your program's commands
+might be different; for a GUI interface, you would use an ``about box''.
+
+You should also get your employer (if you work as a programmer) or
+school, if any, to sign a ``copyright disclaimer'' for the program, if
+necessary.  For more information on this, and how to apply and follow
+the GNU GPL, see \texttt{https://www.gnu.org/licenses/}.
+
+The GNU General Public License does not permit incorporating your
+program into proprietary programs.  If your program is a subroutine
+library, you may consider it more useful to permit linking proprietary
+applications with the library.  If this is what you want to do, use
+the GNU Lesser General Public License instead of this License.  But
+first, please read \texttt{https://www.gnu.org/licenses/why-not-lgpl.html}.
+
+\end{enumerate}
 \end{small}
 
+\end{document}
 \end{document}

@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(declare-fun _substvar_130_ () (_ BitVec 32))
+(declare-fun _substvar_172_ () (_ BitVec 32))
+(declare-fun _substvar_131_ () (_ BitVec 32))
+(assert (and true true true true (= _substvar_131_ (bvor (bvshl _substvar_172_ (_ bv8 32)) (_ bv0 32))) true (bvult _substvar_131_ _substvar_130_) true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true true (bvult (_ bv0 32) _substvar_131_) true (bvule _substvar_130_ (_ bv11 32))))
+(check-sat)
+(exit)

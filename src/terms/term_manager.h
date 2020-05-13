@@ -63,6 +63,7 @@
  *
  * Options:
  * - simplify_ite = true if ite simplication is enabled
+ * - simplify_bveq1 = true if bitvector equalities of size 1 can simplify to Boolean
  */
 typedef struct term_manager_s {
   term_table_t *terms;
@@ -72,7 +73,6 @@ typedef struct term_manager_s {
   rba_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
   bvarith64_buffer_t *bvarith64_buffer;
-  //  bvarith64_buffer_t *bvarith64_aux_buffer; // NOT USED
   bvlogic_buffer_t *bvlogic_buffer;
   pp_buffer_t *pp_buffer;
 
@@ -87,6 +87,9 @@ typedef struct term_manager_s {
   ivector_t vector0;
 
   bool simplify_ite;
+  bool simplify_bveq1;
+  bool simplify_bvite_offset;
+
 } term_manager_t;
 
 
@@ -492,8 +495,12 @@ extern term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b);
 
 
 /*
- * Same thing for a logical buffer (array of bits)
- * - b must be nonempty
+ * Same thing for a logical buffer b (array of bits), then reset b.
+ * - b must not be empty.
+ * - build a bitvector constant if possible
+ * - if b is of the form (select 0 t) ... (select k t) and t has bitsize (k+1)
+ *   then return t
+ * - otherwise build a bitarray term
  */
 extern term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b);
 

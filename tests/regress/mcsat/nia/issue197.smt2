@@ -1,0 +1,7 @@
+(set-logic QF_NIA)
+(declare-const i0 Int)
+(declare-const i4 Int)
+(declare-const i5 Int)
+(declare-const i16 Int)
+(assert (= true true true true true true true true (> i5 0 (* i5 i0 i16 (mod 0 0)) i4 0)))
+(check-sat)

@@ -87,7 +87,7 @@ extern void context_pop(context_t *ctx);
 /*
  * Options for the simplex solver. If the context already contains
  * a simplex solver, then these options are set in this solver.
- * Otherwis,e, they will be set at the time the simplex solver is 
+ * Otherwise,, they will be set at the time the simplex solver is 
  * constructed and added to the simplex solver.
  */
 extern void enable_splx_eager_lemmas(context_t *ctx);
@@ -299,6 +299,46 @@ extern smt_status_t precheck_context(context_t *ctx);
  * else.
  */
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
+
+
+/*
+ * Bit-blast then export to DIMACS
+ * - filename = name of the output file
+ * - status = status of the context after bit-blasting
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to conver the problem to CNF
+ * - export the CNF to DIMACS
+ *
+ * If ctx status is not IDLE,
+ * - store the stauts in *status and do nothing else
+ *
+ * Return code:
+ *  1 if the DIMACS file was created
+ *  0 if the problem was solved by the propagation round
+ * -1 if there was an error in creating or writing to the file.
+ */
+extern int32_t bitblast_then_export_to_dimacs(context_t *ctx, const char *filename, smt_status_t *status);
+
+/*
+ * Simplify then export to DIMACS
+ * - filename = name of the output file
+ * - status = status of the context after CNF conversion + preprocessing
+ *
+ * If ctx status is IDLE
+ * - perform one round of propagation to convert the problem to CNF
+ * - export the CNF to y2sat for extra preprocessing then export that to DIMACS
+ *
+ * If ctx status is not IDLE, the function stores it in *status
+ * If y2sat preprocessing solves the formula, return the status also in *status
+ *
+ * Return code:
+ *  1 if the DIMACS file was created
+ *  0 if the problems was solved by preprocessing (or if ctx status is not IDLE)
+ * -1 if there was an error creating or writing to the file.
+ */
+extern int32_t process_then_export_to_dimacs(context_t *ctx, const char *filename, smt_status_t *status);
+
 
 
 /*

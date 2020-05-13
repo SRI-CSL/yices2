@@ -61,7 +61,7 @@ static void test_names(void) {
    *   b: t!4
    *   c: (or t!3 t!4)
    */
-  printf("unamed terms:\n");
+  printf("unnamed terms:\n");
   printf("  a: ");
   yices_pp_term(stdout, a, 20, 1, 4);
   printf("  b: ");

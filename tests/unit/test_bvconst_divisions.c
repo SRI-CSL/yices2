@@ -122,5 +122,17 @@ int main(void) {
     }
   }
 
+  printf("--- overflow tests ---\n");
+  for (i=1; i<=64; i++) {
+    a = min_signed64(i); // 2^(i-1)
+    b = mask64(i);       // 2^i - 1 
+    printf("udiv(%"PRIu64", %"PRIu64") = %"PRIu64"\n", a, b, bvconst64_udiv2z(a, b, i));
+    printf("urem(%"PRIu64", %"PRIu64") = %"PRIu64"\n", a, b, bvconst64_urem2z(a, b, i));
+    printf("sdiv(%"PRIu64", %"PRIu64") = %"PRIu64"\n", a, b, bvconst64_sdiv2z(a, b, i));
+    printf("srem(%"PRIu64", %"PRIu64") = %"PRIu64"\n", a, b, bvconst64_srem2z(a, b, i));
+    printf("smod(%"PRIu64", %"PRIu64") = %"PRIu64"\n", a, b, bvconst64_smod2z(a, b, i));
+    printf("---\n");
+  }
+
   return 0;
 }

@@ -414,6 +414,17 @@ The set of roots is constructed as follows:
      -- error code: :c:enum:`BAD_TERM_DECREF`
 
 
+.. c:function:: uint32_t yices_num_posref_types(void)
+
+   Returns the number of types that havee a positive reference count.
+   This number is 0 if no call to :c:func:`yices_incref_type` was made.
+
+.. c:function::  uint32_t yices_num_posref_terms(void)
+
+   Returns the number of temrs that havee a positive reference count.
+   This number is 0 if no call to :c:func:`yices_incref_term` was made.
+
+
 .. c:function:: void yices_garbage_collect(const term_t t[], uint32_t nt, const type_t tau[], uint32_t ntau, int32_t keep_named)
 
    Calls the garbage collector.

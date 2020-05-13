@@ -47,8 +47,13 @@
  * signed numerator, and a 31 bit unsigned denominator.
  */
 typedef struct {
+#ifdef WORDS_BIGENDIAN
+  int32_t  num;
+  uint32_t den;
+#else
   uint32_t den;
   int32_t  num;
+#endif
 } rat32_t;
 
 typedef struct {

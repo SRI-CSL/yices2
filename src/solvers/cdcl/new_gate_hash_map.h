@@ -17,7 +17,7 @@
  */
 
 /*
- * EXPERIMENTAL: HASH TABLE FOR BOOLEAN GATES
+ * HASH TABLE FOR BOOLEAN GATES
  */
 
 #ifndef __NEW_GATE_HASH_MAP_H
@@ -78,7 +78,6 @@ extern literal_t gate_hmap_find(const gate_hmap_t *hmap, const bgate_t *g);
  */
 extern void gate_hmap_add(gate_hmap_t *hmap, const bgate_t *g, literal_t l);
 
-
 /*
  * Variants: use ttbl instead of a gate g
  */
@@ -86,5 +85,14 @@ extern literal_t gate_hmap_find_ttbl(const gate_hmap_t *hmap, const ttbl_t *tt);
 extern void gate_hmap_add_ttbl(gate_hmap_t *hmap, const ttbl_t *tt, literal_t l);
 
 
-#endif /* __NEW_GATE_HASH_MAP_H */
+/*
+ * Support for iterating through the table:
+ * - first_gate returns a pointer to the first gate in hmap and return the corresponding literal in *lit
+ * - next_gate returns a pointer to the gate that follows *g and return the corresponding literal in *lit
+ * Both return NULL when  there's no more gate in the table
+ */
+extern bgate_t *gate_hmap_first_gate(const gate_hmap_t *hmap, literal_t *lit);
+extern bgate_t *gate_hmap_next_gate(const gate_hmap_t *hamp, const bgate_t *g, literal_t *lit);
 
+
+#endif /* __NEW_GATE_HASH_MAP_H */

@@ -195,7 +195,7 @@ typedef struct literal_vector_s {
 
 
 /*
- * Acces to header of clause vector v
+ * Access to header of clause vector v
  */
 static inline clause_vector_t *cv_header(clause_t **v) {
   return (clause_vector_t *)(((char *)v) - offsetof(clause_vector_t, data));
@@ -1679,7 +1679,7 @@ extern bool base_propagate(smt_core_t *s);
  *
  * Effect:
  * - initialize variable heap
- * - store a ponter to the assumption array
+ * - store a pointer to the assumption array
  * - set status to SEARCHING
  * - reset the search statistics counters
  * - if clean_interrupt is enabled, save the current state to
