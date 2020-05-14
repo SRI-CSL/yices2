@@ -2055,6 +2055,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // Whether to run learning
+  bool learning = true;
+
   while (!mcsat->stop_search) {
 
     // Do we restart
@@ -2068,7 +2071,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
     mcsat_process_requests(mcsat);
 
     // Do propagation
-    mcsat_propagate(mcsat, true);
+    mcsat_propagate(mcsat, learning);
+    learning = false;
 
     // If inconsistent, analyze the conflict
     if (!trail_is_consistent(mcsat->trail)) {
