@@ -1282,7 +1282,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
  * is encountered.
  */
 static
-bool mcsat_propagate(mcsat_solver_t* mcsat) {
+bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
 
   uint32_t plugin_i;
   plugin_t* plugin;
@@ -1295,7 +1295,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
     // Propagate with all the plugins in turn
     for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagting with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
       // Make the token
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
@@ -1306,6 +1306,25 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
       }
       if (prop_token.used > 0) {
         someone_propagated = true;
+      }
+    }
+    // If at base level, plugins can do some more expensive learning/propagation
+    if (run_learning && !someone_propagated && trail_is_at_base_level(mcsat->trail)) {
+      // Propagate with all the plugins in turn
+      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
+          mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): learning with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        }
+        // Make the token
+        trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
+        // Propagate
+        plugin = mcsat->plugins[plugin_i].plugin;
+        if (plugin->learn) {
+          plugin->learn(plugin, (trail_token_t*) &prop_token);
+        }
+        if (prop_token.used > 0) {
+          someone_propagated = true;
+        }
       }
     }
   } while (someone_propagated && trail_is_consistent(mcsat->trail));
@@ -1368,7 +1387,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   }
 
   // Do propagation
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
 }
 
 /**
@@ -1528,7 +1547,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   }
 
   // Propagate any
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
   bool propagated = old_trail_size < mcsat->trail->elements.size;
 
   // Decide a literal if necessary. At this point, if it was UIP they are all
@@ -2049,7 +2068,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
     mcsat_process_requests(mcsat);
 
     // Do propagation
-    mcsat_propagate(mcsat);
+    mcsat_propagate(mcsat, true);
 
     // If inconsistent, analyze the conflict
     if (!trail_is_consistent(mcsat->trail)) {
