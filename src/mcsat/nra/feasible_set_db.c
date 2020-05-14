@@ -674,3 +674,15 @@ variable_t feasible_set_db_get_fixed(feasible_set_db_t* db) {
   }
   return variable_null;
 }
+
+void feasible_set_db_approximate_value(feasible_set_db_t* db, variable_t constraint_var, lp_interval_t* result) {
+  lp_feasibility_set_t* feasible = feasible_set_db_get(db, constraint_var);
+  if (feasible != NULL) {
+    lp_feasibility_set_to_interval(feasible, result);
+  } else {
+    lp_interval_t full;
+    lp_interval_construct_full(&full);
+    lp_interval_swap(&full, result);
+    lp_interval_destruct(&full);
+  }
+}

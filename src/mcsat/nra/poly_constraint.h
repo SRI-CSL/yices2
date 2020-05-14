@@ -1,4 +1,4 @@
-/*
+ /*
  * This file is part of the Yices SMT Solver.
  * Copyright (C) 2017 SRI International.
  *
@@ -95,8 +95,14 @@ void poly_constraint_db_destruct(poly_constraint_db_t* db);
 /** Delete the database */
 void poly_constraint_db_delete(poly_constraint_db_t* db);
 
+/** Get all constraints (as variables) */
+const ivector_t* poly_constraint_db_get_constraints(const poly_constraint_db_t* db);
+
 /** Get the constraint of the variable (must exist) */
 const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variable_t constraint_var);
+
+/** Compute an approximation of the constraint value with interval computation */
+const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, variable_t constraint_var, nra_plugin_t* nra);
 
 /** Add a new constraint */
 void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var);

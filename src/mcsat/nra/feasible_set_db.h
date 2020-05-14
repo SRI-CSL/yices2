@@ -69,3 +69,6 @@ variable_t feasible_set_db_get_cheap_unassigned(feasible_set_db_t* db, lp_value_
 
 /** Marks all the top level reasons */
 void feasible_set_db_gc_mark(feasible_set_db_t* db, gc_info_t* gc_vars);
+
+/** Get an interval approximation of the value */
+void feasible_set_db_approximate_value(feasible_set_db_t* db, variable_t constraint_var, lp_interval_t* result);

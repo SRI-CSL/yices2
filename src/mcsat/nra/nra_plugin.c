@@ -121,10 +121,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Tracing in libpoly
   if (false) {
-    lp_trace_enable("coefficient");
-    lp_trace_enable("coefficient::roots");
-    lp_trace_enable("polynomial");
-    lp_trace_enable("polynomial::check_input");
+    lp_trace_enable("coefficient::interval");
   }
 
   // Trace pscs
@@ -1785,6 +1782,64 @@ void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   nra->exception = handler;
 }
 
+
+static
+void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
+  uint32_t i;
+  variable_t constraint_var;
+
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  const mcsat_trail_t* trail = nra->ctx->trail;
+
+  // Get constraints at
+  // - constraint_db->constraints
+  const ivector_t* all_constraint_vars = poly_constraint_db_get_constraints(nra->constraint_db);
+  for (i = 0; i < all_constraint_vars->size; ++ i)  {
+    constraint_var = all_constraint_vars->data[i];
+
+    // Check if it has a value already
+    bool has_value = trail_has_value(trail, constraint_var);
+    if (has_value) {
+      if (trail_get_source_id(trail, constraint_var) == nra->ctx->plugin_id) {
+        // No need to re-evaluate already propagated stuff
+        continue;
+      }
+    }
+
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra_plugin_learn(): ");
+      ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
+    }
+
+    // Approximate the value
+    const mcsat_value_t* constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
+      FILE* out = ctx_trace_out(nra->ctx);
+      if (constraint_value != NULL) {
+        mcsat_value_print(constraint_value, out);
+      } else {
+        fprintf(out, "no value");
+      }
+      fprintf(out, "\n");
+    }
+    if (constraint_value != NULL) {
+      if (has_value) {
+        // Need to check
+        bool existing_value = trail_get_boolean_value(trail, constraint_var);
+        if (existing_value != constraint_value->b) {
+          // Propagates different value, mark conflict
+          nra_plugin_report_conflict(nra, prop, variable_null);
+          break;
+        }
+      } else {
+        prop->add(prop, constraint_var, constraint_value);
+      }
+    }
+  }
+
+}
+
 plugin_t* nra_plugin_allocator(void) {
   nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -1795,6 +1850,7 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = nra_plugin_event_notify;
   plugin->plugin_interface.propagate           = nra_plugin_propagate;
   plugin->plugin_interface.decide              = nra_plugin_decide;
+  plugin->plugin_interface.learn               = nra_plugin_learn;
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation  = nra_plugin_explain_evaluation;
