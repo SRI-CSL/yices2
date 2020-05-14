@@ -196,11 +196,11 @@ void ef_solver_stop_search(ef_solver_t *solver) {
   exists_ctx = solver->exists_context;
   forall_ctx = solver->forall_context;
 
-  assert(solver->status == EF_STATUS_SEARCHING);
-
-  solver->status = EF_STATUS_INTERRUPTED;
-  if (exists_ctx != NULL && context_status(exists_ctx) == STATUS_SEARCHING) context_stop_search(exists_ctx);
-  else if (forall_ctx != NULL && context_status(forall_ctx) == STATUS_SEARCHING) context_stop_search(forall_ctx);
+  if (solver->status == EF_STATUS_SEARCHING) {
+    if (exists_ctx != NULL) context_stop_search(exists_ctx);
+    if (forall_ctx != NULL) context_stop_search(forall_ctx);
+    solver->status = EF_STATUS_INTERRUPTED;
+  }
 }
 
 

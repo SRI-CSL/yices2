@@ -2491,7 +2491,7 @@ static void timeout_handler(void *data) {
 
   g = data;
   if (g->efmode && g->ef_client.efsolver != NULL && g->ef_client.efsolver->status == EF_STATUS_SEARCHING) {
-	ef_solver_stop_search(g->ef_client.efsolver);
+    ef_solver_stop_search(g->ef_client.efsolver);
   } else if (g->ctx != NULL && context_status(g->ctx) == STATUS_SEARCHING) {
     context_stop_search(g->ctx);
   }
@@ -2585,6 +2585,8 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
 
   return stat;
 }
+
+
 
 
 
@@ -3057,7 +3059,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
   if (g->efmode) {
     efc = &g->ef_client;
     if (g->timeout != 0) {
-      if (!g->timeout_initialized) {
+      if (! g->timeout_initialized) {
         init_timeout();
         g->timeout_initialized = true;
       }
@@ -3065,9 +3067,9 @@ static void efsolve_cmd(smt2_globals_t *g) {
       start_timeout(g->timeout, timeout_handler, g);
     }
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
-             qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
+	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer);
-    clear_timeout();
+    if (g-> timeout != 0) clear_timeout();
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
