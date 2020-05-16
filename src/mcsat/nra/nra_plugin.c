@@ -118,10 +118,12 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->lp_data.lp_var_order_size = 0;
   nra->lp_data.lp_ctx = lp_polynomial_context_new(lp_Z, nra->lp_data.lp_var_db, nra->lp_data.lp_var_order);
   nra->lp_data.lp_assignment = lp_assignment_new(nra->lp_data.lp_var_db);
+  nra->lp_data.lp_interval_assignment = lp_interval_assignment_new(nra->lp_data.lp_var_db);
 
   // Tracing in libpoly
   if (false) {
     lp_trace_enable("coefficient::interval");
+    lp_trace_enable("polynomial::bounds");
   }
 
   // Trace pscs
@@ -203,6 +205,7 @@ void nra_plugin_destruct(plugin_t* plugin) {
   lp_variable_order_detach(nra->lp_data.lp_var_order);
   lp_variable_db_detach(nra->lp_data.lp_var_db);
   lp_assignment_delete(nra->lp_data.lp_assignment);
+  lp_interval_assignment_delete(nra->lp_data.lp_interval_assignment);
 
   delete_rba_buffer(&nra->buffer);
 }
@@ -674,6 +677,60 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 }
 
 static
+void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
+
+  uint32_t i;
+
+  // Just at base level for now
+  if (!trail_is_at_base_level(nra->ctx->trail)) {
+    return;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+    ctx_trace_printf(nra->ctx, "nra infer bounds: constraint :\n");
+    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
+  }
+
+  // Get the constraint
+  const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+
+  // We don't handle root constraints
+  if (poly_constraint_is_root_constraint(constraint)) {
+    return;
+  }
+
+  // Value of the constraint in the trail
+  bool trail_value = trail_get_boolean_value(nra->ctx->trail, constraint_var);
+
+  // Potentially inferred variables
+  ivector_t lp_variables;
+  init_ivector(&lp_variables, 0);
+
+  // Compute the bounds
+  lp_interval_assignment_t* m = nra->lp_data.lp_interval_assignment;
+  lp_interval_assignment_reset(m);
+  poly_constraint_infer_bounds(constraint, !trail_value, m, &lp_variables);
+
+  // Set the bounds
+  for (i = 0; i < lp_variables.size; ++ i) {
+    lp_variable_t x_lp = lp_variables.data[i];
+    const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
+    assert(x_interval != NULL);
+    if (!lp_interval_is_full(x_interval)) {
+      variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
+      lp_feasibility_set_t* x_feasible = lp_feasibility_set_new_from_interval(x_interval);
+      bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
+      if (!consistent) {
+        nra_plugin_report_conflict(nra, prop, constraint_var);
+      }
+    }
+  }
+
+  delete_ivector(&lp_variables);
+}
+
+
+static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
   bool feasible;
@@ -945,9 +1002,21 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // Real variables, detect if the constraint is unit
       nra_plugin_process_variable_assignment(nra, prop, var);
     }
-    if (nra_plugin_get_unit_info(nra, var) == CONSTRAINT_UNIT) {
-      // Process any unit constraints
-      nra_plugin_process_unit_constraint(nra, prop, var);
+    if (nra_plugin_has_unit_info(nra, var)) {
+      constraint_unit_info_t info = nra_plugin_get_unit_info(nra, var);
+      switch (info) {
+      case CONSTRAINT_UNIT:
+        // Process any unit constraints
+        nra_plugin_process_unit_constraint(nra, prop, var);
+        break;
+      case CONSTRAINT_UNKNOWN:
+        // Try to infer any bounds
+        nra_plugin_infer_bounds_from_constraint(nra, prop, var);
+        break;
+      case CONSTRAINT_FULLY_ASSIGNED:
+        // Do nothing
+        break;
+      }
     }
   }
 

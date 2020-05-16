@@ -102,6 +102,8 @@ struct nra_plugin_s {
     lp_polynomial_context_t* lp_ctx;
     /** Libpoly model */
     lp_assignment_t* lp_assignment;
+    /** Interval assignment for bound inference */
+    lp_interval_assignment_t* lp_interval_assignment;
 
     /** Map from libpoly variables to mcsat variables */
     int_hmap_t lp_to_mcsat_var_map;
@@ -159,6 +161,9 @@ variable_t nra_plugin_get_variable_from_lp_variable(nra_plugin_t* nra, lp_variab
 
 /** Set the unit info for the given constraint */
 void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable_t unit_var, constraint_unit_info_t value);
+
+/** Are we tracking this constraint */
+bool nra_plugin_has_unit_info(const nra_plugin_t* nra, variable_t constraint);
 
 /** Get the unit info for the given constraint */
 constraint_unit_info_t nra_plugin_get_unit_info(nra_plugin_t* nra, variable_t constraint);

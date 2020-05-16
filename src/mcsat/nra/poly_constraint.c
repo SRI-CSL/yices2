@@ -286,6 +286,34 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
   return feasible;
 }
 
+void poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars) {
+
+  // TODO: is it possible to support root constraints
+  if (poly_constraint_is_root_constraint(cstr)) {
+    return;
+  }
+
+  // Infer some bounds
+  bool something_inferred = lp_polynomial_constraint_infer_bounds(cstr->polynomial, cstr->sgn_condition, negated, m);
+  if (!something_inferred) {
+    return;
+  }
+
+  lp_variable_list_t vars;
+  lp_variable_list_construct(&vars);
+  lp_polynomial_get_variables(cstr->polynomial, &vars);
+  uint32_t var_i;
+  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
+    lp_variable_t x_lp = vars.list[var_i];
+    const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
+    if (x_interval != NULL) {
+      // something is inferred
+      ivector_push(inferred_vars, x_lp);
+    }
+  }
+}
+
+
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr) {
   return lp_polynomial_top_variable(cstr->polynomial);
 }
@@ -552,9 +580,9 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
     return NULL;
   }
 
-  // Construct the interval assignmetn
-  lp_interval_assignment_t m;
-  lp_interval_assignment_construct(&m, nra->lp_data.lp_var_db);
+  // Reset the interval assignment
+  lp_interval_assignment_t* m = nra->lp_data.lp_interval_assignment;
+  lp_interval_assignment_reset(m);
 
   // Setup the assignment x -> I(x)
   lp_variable_list_t vars;
@@ -567,14 +595,14 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
-    lp_interval_assignment_set_interval(&m, x_lp, &x_interval);
+    lp_interval_assignment_set_interval(m, x_lp, &x_interval);
     lp_interval_destruct(&x_interval);
   }
 
   // Evaluate the polynomial
   lp_interval_t value;
   lp_interval_construct_full(&value);
-  lp_polynomial_interval_value(cstr->polynomial, &m, &value);
+  lp_polynomial_interval_value(cstr->polynomial, m, &value);
 
   lp_sign_condition_t pos = cstr->sgn_condition;
   lp_sign_condition_t neg = lp_sign_condition_negate(cstr->sgn_condition);
@@ -587,7 +615,6 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
 
   // Remove temps
   lp_variable_list_destruct(&vars);
-  lp_interval_assignment_destruct(&m);
 
   return result;
 }
