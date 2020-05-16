@@ -203,7 +203,7 @@ static void print_help(const char *progname) {
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
 	 "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
-         "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, or y2sat)\n"
+         "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Use the MCSat solver\n"
          "    --mcsat-help              Show the MCSat options\n"
@@ -362,7 +362,7 @@ static void parse_command_line(int argc, char *argv[]) {
 	  if (supported_delegate(elem.s_value, &unknown_delegate)) {
 	    delegate = copy_string(elem.s_value);
 	  } else if (unknown_delegate) {
-	    fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'cryptominisat')\n",
+	    fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'kissat' or 'cryptominisat')\n",
 		    parser.command_name, elem.s_value);
 	    goto bad_usage;
 	  } else {
