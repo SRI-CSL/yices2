@@ -286,17 +286,20 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
   return feasible;
 }
 
-void poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars) {
+bool poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars) {
 
   // TODO: is it possible to support root constraints
   if (poly_constraint_is_root_constraint(cstr)) {
-    return;
+    return false;
   }
 
   // Infer some bounds
-  bool something_inferred = lp_polynomial_constraint_infer_bounds(cstr->polynomial, cstr->sgn_condition, negated, m);
-  if (!something_inferred) {
-    return;
+  int inference_result = lp_polynomial_constraint_infer_bounds(cstr->polynomial, cstr->sgn_condition, negated, m);
+  if (inference_result == 0) {
+    return false;
+  }
+  if (inference_result == -1) {
+    return true;
   }
 
   lp_variable_list_t vars;
@@ -311,6 +314,8 @@ void poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, l
       ivector_push(inferred_vars, x_lp);
     }
   }
+
+  return false;
 }
 
 

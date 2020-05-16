@@ -709,24 +709,35 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
   // Compute the bounds
   lp_interval_assignment_t* m = nra->lp_data.lp_interval_assignment;
   lp_interval_assignment_reset(m);
-  poly_constraint_infer_bounds(constraint, !trail_value, m, &lp_variables);
+  bool conflict = poly_constraint_infer_bounds(constraint, !trail_value, m, &lp_variables);
+  if (conflict) {
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra infer bounds: conflict\n");
+    }
+    nra_plugin_report_conflict(nra, prop, constraint_var);
+  } else {
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra infer bounds: learned :\n");
+      lp_interval_assignment_print(m, ctx_trace_out(nra->ctx));
+    }
 
-  // Set the bounds
-  for (i = 0; i < lp_variables.size; ++ i) {
-    lp_variable_t x_lp = lp_variables.data[i];
-    const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
-    assert(x_interval != NULL);
-    if (!lp_interval_is_full(x_interval)) {
-      variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
-      lp_feasibility_set_t* x_feasible = lp_feasibility_set_new_from_interval(x_interval);
-      bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
-      if (!consistent) {
-        nra_plugin_report_conflict(nra, prop, constraint_var);
+    // Set the bounds
+    for (i = 0; i < lp_variables.size; ++ i) {
+      lp_variable_t x_lp = lp_variables.data[i];
+      const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
+      assert(x_interval != NULL);
+      if (!lp_interval_is_full(x_interval)) {
+        variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
+        lp_feasibility_set_t* x_feasible = lp_feasibility_set_new_from_interval(x_interval);
+        bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
+        if (!consistent) {
+          nra_plugin_report_conflict(nra, prop, constraint_var);
+        }
       }
     }
-  }
 
-  delete_ivector(&lp_variables);
+    delete_ivector(&lp_variables);
+  }
 }
 
 
