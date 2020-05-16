@@ -52,6 +52,9 @@ void poly_constraint_print_mathematica(const poly_constraint_t* cstr, bool neage
 /** Get the feasible set of the constraint */
 lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, const lp_assignment_t* m, bool negated);
 
+/** Infer the bounds for this constraint (inferred_vars are lp_variables) */
+void poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars);
+
 /**
  * Is this a valid constraint in the current order.
  */

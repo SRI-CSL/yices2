@@ -154,6 +154,11 @@ void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable
   }
 }
 
+bool nra_plugin_has_unit_info(const nra_plugin_t* nra, variable_t constraint) {
+  int_hmap_pair_t* find = int_hmap_find(&((nra_plugin_t*)nra)->constraint_unit_info, constraint);
+  return find != NULL;
+}
+
 constraint_unit_info_t nra_plugin_get_unit_info(nra_plugin_t* nra, variable_t constraint) {
   int_hmap_pair_t* find = int_hmap_find(&nra->constraint_unit_info, constraint);
   if (find == NULL)  {
