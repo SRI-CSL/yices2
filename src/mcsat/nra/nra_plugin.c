@@ -719,6 +719,7 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
     if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
       ctx_trace_printf(nra->ctx, "nra infer bounds: learned :\n");
       lp_interval_assignment_print(m, ctx_trace_out(nra->ctx));
+      ctx_trace_printf(nra->ctx, "\n");
     }
 
     // Set the bounds
