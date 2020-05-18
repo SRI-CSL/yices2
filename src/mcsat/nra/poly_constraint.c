@@ -335,6 +335,7 @@ bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_
       return false;
     }
   }
+  lp_variable_list_destruct(&vars);
 
   return true;
 }
