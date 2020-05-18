@@ -325,6 +325,8 @@ bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_
     return false;
   }
 
+  bool result = true;
+
   lp_variable_list_t vars;
   lp_variable_list_construct(&vars);
   lp_polynomial_get_variables(cstr->polynomial, &vars);
@@ -332,12 +334,13 @@ bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_
   for (var_i = 0; var_i < vars.list_size; ++ var_i) {
     lp_variable_t x_lp = vars.list[var_i];
     if (x_lp != x && lp_assignment_get_value(M, x_lp)->type == LP_VALUE_NONE) {
-      return false;
+      result = false;
+      break;
     }
   }
   lp_variable_list_destruct(&vars);
 
-  return true;
+  return result;
 }
 
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr) {
