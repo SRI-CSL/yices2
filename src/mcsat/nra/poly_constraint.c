@@ -314,10 +314,30 @@ bool poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, l
       ivector_push(inferred_vars, x_lp);
     }
   }
+  lp_variable_list_destruct(&vars);
 
   return false;
 }
 
+bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_t* M) {
+  lp_variable_t x = lp_polynomial_top_variable(cstr->polynomial);
+  if (lp_assignment_get_value(M, x)->type != LP_VALUE_NONE) {
+    return false;
+  }
+
+  lp_variable_list_t vars;
+  lp_variable_list_construct(&vars);
+  lp_polynomial_get_variables(cstr->polynomial, &vars);
+  uint32_t var_i;
+  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
+    lp_variable_t x_lp = vars.list[var_i];
+    if (x_lp != x && lp_assignment_get_value(M, x_lp)->type == LP_VALUE_NONE) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr) {
   return lp_polynomial_top_variable(cstr->polynomial);

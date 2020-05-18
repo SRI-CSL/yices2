@@ -86,6 +86,9 @@ lp_variable_t poly_constraint_get_variable(const poly_constraint_t* cstr);
 /** Get the root index (if a root constraint) */
 uint32_t poly_constraint_get_root_index(const poly_constraint_t* cstr);
 
+/** Check if the constraint is unit */
+bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_t* M);
+
 /** Construct the database */
 void poly_constraint_db_construct(poly_constraint_db_t* db, nra_plugin_t* nra);
 
