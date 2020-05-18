@@ -644,6 +644,7 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
 
   // Remove temps
   lp_variable_list_destruct(&vars);
+  lp_interval_destruct(&value);
 
   return result;
 }
