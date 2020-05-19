@@ -100,6 +100,34 @@ void print_full_map(FILE *f, ef_solver_t *solver) {
 
 
 /*
+ * Replace values for witness found for constraint i from value table
+ */
+void replace_forall_witness(ef_solver_t *solver, term_table_t *terms, uint32_t i) {
+  ef_prob_t *prob;
+  ef_cnstr_t *cnstr;
+  uint32_t j, n;
+  term_t x;
+  ef_value_table_t *vtable;
+
+  prob = solver->prob;
+  assert(i < ef_prob_num_constraints(prob));
+  cnstr = prob->cnstr + i;
+  vtable = &solver->value_table;
+
+  n = ef_constraint_num_uvars(cnstr);
+  for (j=0; j<n; j++) {
+    x = solver->uvalue_aux.data[j];
+    if (is_utype_term(terms, x)) {
+      // replace x by representative
+      solver->uvalue_aux.data[j] = get_value_rep(vtable, x);
+    }
+    fprintf(stdout, "replaced %s := ", yices_get_term_name(cnstr->uvars[j]));
+    yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
+  }
+}
+
+
+/*
  * GLOBAL PROCEDURES
  */
 
@@ -184,6 +212,8 @@ void delete_ef_solver(ef_solver_t *solver) {
   delete_ivector(&solver->uvalue_aux);
   delete_ivector(&solver->all_vars);
   delete_ivector(&solver->all_values);
+
+  delete_ef_value_table(&solver->value_table);
 }
 
 
@@ -511,6 +541,15 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
+#if EF_VERBOSE
+      printf("Old counterexample for constraint[%"PRIu32"]\n", i);
+      print_forall_witness(stdout, solver, i);
+      printf("\n");
+      fflush(stdout);
+#endif
+      replace_forall_witness(solver, forall_ctx->terms, i);
+      break;
+
     case STATUS_UNSAT:
       break;
 
@@ -840,6 +879,10 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
   cnstr = prob->cnstr + i;
   n = ef_constraint_num_uvars(cnstr);
   g = ef_substitution(prob, cnstr->uvars, value, n, cnstr->guarantee);
+#if 0
+  printf("\nGENERALIZE 2: instantiating\n");
+  yices_pp_term(stdout, cnstr->guarantee, 120, UINT32_MAX, 0);
+#endif
   return g;
 }
 
@@ -1014,6 +1057,10 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
     }
     break;
   }
+#if 0
+  printf("\nLEARNT CLAUSE\n");
+  yices_pp_term(stdout, new_constraint, 120, UINT32_MAX, 0);
+#endif
 
   // add the new constraint to the exists context
   code = update_exists_context(solver, new_constraint);
@@ -1103,6 +1150,14 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
       printf("\n");
       fflush(stdout);
 #endif
+
+#if EF_VERBOSE
+      // FOR DEBUGGING
+      printf("Candidate exists model (new):\n");
+      print_ef_solution(stdout, solver);
+      printf("\n");
+#endif
+
       ef_solver_learn(solver, i);
 
     default:
@@ -1151,6 +1206,8 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 static void ef_solver_search(ef_solver_t *solver) {
   smt_status_t stat;
   uint32_t i, max;
+  uint32_t n;
+  context_t *ctx;
 
   max = solver->max_iters;
   i = 0;
@@ -1179,12 +1236,29 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
+      delete_ef_value_table(&solver->value_table);
+      init_ef_value_table(&solver->value_table);
+
+      n = ef_prob_num_evars(solver->prob);
+      fill_ef_value_table(&solver->value_table, solver->prob->all_evars, solver->evalue, n);
+      print_ef_value_table(stdout, &solver->value_table);
+
 #if EF_VERBOSE
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);
       printf("\n");
 #endif
+//
+//      ctx = solver->exists_context;
+//      set_values_from_value_table(&solver->value_table, ctx->terms, solver->prob->all_evars, solver->evalue, n);
+//
+//#if EF_VERBOSE
+//      // FOR DEBUGGING
+//      printf("Candidate exists model (new):\n");
+//      print_ef_solution(stdout, solver);
+//      printf("\n");
+//#endif
       trace_puts(solver->trace, 4, "(EF: Found candidate model)\n");
       ef_solver_check_exists_model(solver);
       break;

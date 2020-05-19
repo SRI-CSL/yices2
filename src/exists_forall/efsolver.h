@@ -128,6 +128,7 @@
 #include "api/smt_logic_codes.h"
 #include "context/context_types.h"
 #include "exists_forall/ef_problem.h"
+#include "exists_forall/ef_values.h"
 #include "io/tracer.h"
 
 #include "yices_types.h"
@@ -232,6 +233,9 @@ typedef struct ef_solver_s {
 
   // For verbose output (default = NULL)
   tracer_t *trace;
+
+  // Support for mbqi
+  ef_value_table_t value_table;
 } ef_solver_t;
 
 
