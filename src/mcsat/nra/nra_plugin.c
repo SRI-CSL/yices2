@@ -752,13 +752,11 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
   }
 
-  const mcsat_trail_t* trail = nra->ctx->trail;
-
   // Process if constraint is assigned, or an evaluation constraint
   bool is_eval_constraint = !variable_db_is_boolean(nra->ctx->var_db, constraint_var);
-  if (is_eval_constraint || trail_has_value(trail, constraint_var)) {
+  if (is_eval_constraint || trail_has_value(nra->ctx->trail, constraint_var)) {
     // Get the constraint value
-    bool constraint_value = is_eval_constraint || trail_get_value(trail, constraint_var)->b;
+    bool constraint_value = is_eval_constraint || trail_get_value(nra->ctx->trail, constraint_var)->b;
 
     // Get the constraint
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
@@ -798,12 +796,12 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         lp_value_construct_none(&v);
         lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
         if (!lp_value_is_integer(&v)) {
-          nra_plugin_report_int_conflict(nra, prop, x);
+          nra->conflict_variable_int = x;
         }
         lp_value_destruct(&v);
       }
       // If the value is implied at zero level, propagate it
-      if (trail_is_consistent(trail) && trail_is_at_base_level(trail) && !trail_has_value(trail, x)) {
+      if (!trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
         const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
         if (lp_feasibility_set_is_point(feasible)) {
           lp_value_t x_value;
