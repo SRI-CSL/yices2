@@ -10938,7 +10938,7 @@ term_t _o_yices_get_value_as_term(model_t *mdl, term_t t) {
   }
 
   vtbl = model_get_vtbl(mdl);
-  a = convert_value_to_term(__yices_globals.terms, vtbl, v);
+  a = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, v);
   if (a < 0) {
     set_error_code(EVAL_CONVERSION_FAILED);
     return NULL_TERM;
@@ -11049,7 +11049,7 @@ int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], te
     return -1;
   }
 
-  count = convert_value_array(__yices_globals.terms, model_get_vtbl(mdl), n, b);
+  count = convert_value_array(__yices_globals.manager, __yices_globals.terms, model_get_vtbl(mdl), n, b);
   if (count < n) {
     set_error_code(EVAL_CONVERSION_FAILED);
     return -1;

@@ -130,7 +130,7 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
 
   // convert every aux.data[i] to a constant term
   terms = term_manager_get_terms(mngr);
-  k = convert_value_array(terms, model_get_vtbl(mdl), nelims, aux.data);
+  k = convert_value_array(mngr, terms, model_get_vtbl(mdl), nelims, aux.data);
   if (k < nelims) {
     // aux.data[k] couldn't be converted to a term
     // the error code is in aux.data[k]
