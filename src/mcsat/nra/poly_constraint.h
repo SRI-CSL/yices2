@@ -89,6 +89,9 @@ uint32_t poly_constraint_get_root_index(const poly_constraint_t* cstr);
 /** Check if the constraint is unit */
 bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_t* M);
 
+/** Try to resolve the two constraints with Fourier-Motzkin resolution */
+bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, const poly_constraint_t* c1, bool c1_negated, nra_plugin_t* nra, ivector_t* out);
+
 /** Construct the database */
 void poly_constraint_db_construct(poly_constraint_db_t* db, nra_plugin_t* nra);
 

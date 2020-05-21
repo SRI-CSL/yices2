@@ -1017,6 +1017,26 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     int_mset_destruct(&variables);
   }
 
+  // Check if there is a simple Fourier-Motzkin explanation
+  if (core->size == 2 && lemma_reasons->size == 0) {
+    variable_t c0_var = core->data[0];
+    variable_t c1_var = core->data[1];
+    bool c0_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c0_var);
+    bool c1_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c1_var);
+    const poly_constraint_t* c0 = poly_constraint_db_get(nra->constraint_db, c0_var);
+    const poly_constraint_t* c1 = poly_constraint_db_get(nra->constraint_db, c1_var);
+    bool resolved = poly_constraint_resolve_fm(c0, c0_negated, c1, c1_negated, nra, conflict);
+    if (resolved) {
+      term_t c0_term = variable_db_get_term(nra->ctx->var_db, c0_var);
+      if (c0_negated) c0_term = opposite_term(c0_term);
+      term_t c1_term = variable_db_get_term(nra->ctx->var_db, c1_var);
+      if (c1_negated) c1_term = opposite_term(c1_term);
+      ivector_push(conflict, c0_term);
+      ivector_push(conflict, c1_term);
+      return;
+    }
+  }
+
   // Create the map from variables to
   lp_projection_map_t projection_map;
   lp_projection_map_construct(&projection_map, nra);
