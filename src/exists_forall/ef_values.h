@@ -64,7 +64,7 @@ extern void fill_ef_value_table(ef_value_table_t *vtable, term_t *vars, term_t *
 /*
  * Get value representative
  */
-extern term_t get_value_rep(ef_value_table_t *vtable, term_t value);
+extern term_t get_value_rep(ef_value_table_t *vtable, term_table_t *terms, term_t value);
 
 
 /*

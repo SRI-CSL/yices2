@@ -119,7 +119,7 @@ void replace_forall_witness(ef_solver_t *solver, term_table_t *terms, uint32_t i
     x = solver->uvalue_aux.data[j];
     if (is_utype_term(terms, x)) {
       // replace x by representative
-      solver->uvalue_aux.data[j] = get_value_rep(vtable, x);
+      solver->uvalue_aux.data[j] = get_value_rep(vtable, terms, x);
     }
     fprintf(stdout, "replaced %s := ", yices_get_term_name(cnstr->uvars[j]));
     yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
@@ -375,6 +375,12 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t b, term_t c) {
 
   assertions[0] = b;
   assertions[1] = opposite_term(c);
+
+#if EF_VERBOSE
+  printf("Forall Context Constraint:\n");
+  yices_pp_term_array(stdout, 2, assertions, 120, UINT32_MAX, 0, 0);
+#endif
+
   return assert_formulas(ctx, 2, assertions);
 }
 
@@ -437,6 +443,7 @@ static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, t
   smt_status_t stat;
   model_t *mdl;
   int32_t code;
+  uint32_t i;
 
   assert(context_status(ctx) == STATUS_IDLE);
 
@@ -445,6 +452,13 @@ static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, t
   case STATUS_SAT:
   case STATUS_UNKNOWN:
     mdl = yices_get_model(ctx, true);
+
+#if EF_VERBOSE
+    // FOR DEBUGGING
+    printf("Full Model:\n");
+    yices_print_model(stdout, mdl);
+#endif
+
     code = yices_term_array_value(mdl, n, var, value);
     if (model != NULL) {
       *model = mdl;
@@ -452,9 +466,19 @@ static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, t
       yices_free_model(mdl);
     }
 
+#if EF_VERBOSE
+    // FOR DEBUGGING
+    printf("Model:\n");
+    for (i=0; i<n; i++) {
+      printf("%s := ", yices_get_term_name(var[i]));
+      yices_pp_term(stdout, value[i], 120, UINT32_MAX, 0);
+    }
+#endif
+
     if (code < 0) {
       // can't convert the model to constant terms
       stat = STATUS_ERROR;
+      assert(0);
     }
     break;
 

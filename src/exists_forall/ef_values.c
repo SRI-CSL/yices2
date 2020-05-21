@@ -112,18 +112,29 @@ void fill_ef_value_table(ef_value_table_t *vtable, term_t *vars, term_t *values,
 /*
  * Get value representative
  */
-term_t get_value_rep(ef_value_table_t *vtable, term_t value) {
+term_t get_value_rep(ef_value_table_t *vtable, term_table_t *terms, term_t value) {
   ptr_hmap_pair_t *r;
-  term_t repr;
 
   r = ptr_hmap_get(&vtable->map, value);
   if (r->val == NULL) {
-	repr = value;
+    return value;
   }
   else {
-    repr = ivector_last(r->val);
+    uint32_t i, n;
+    ivector_t *v;
+    term_t x;
+
+    v = r->val;
+    n = v->size;
+
+    for(i=0; i<n; i++) {
+      x = v->data[i];
+      if (is_utype_term(terms, x)) {
+        return x;
+      }
+    }
+    return value;
   }
-  return repr;
 }
 
 
@@ -138,7 +149,7 @@ void set_values_from_value_table(ef_value_table_t *vtable, term_table_t *terms, 
     x = values[i];
     if (is_utype_term(terms, x)) {
       // replace x by representative
-      values[i] = get_value_rep(vtable, x);
+      values[i] = get_value_rep(vtable, terms, x);
     }
   }
 }
