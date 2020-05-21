@@ -1207,7 +1207,6 @@ static void ef_solver_search(ef_solver_t *solver) {
   smt_status_t stat;
   uint32_t i, max;
   uint32_t n;
-  context_t *ctx;
 
   max = solver->max_iters;
   i = 0;
@@ -1236,6 +1235,13 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
+#if EF_VERBOSE
+      // FOR DEBUGGING
+      printf("Candidate exists model:\n");
+      print_ef_solution(stdout, solver);
+      printf("\n");
+#endif
+
       delete_ef_value_table(&solver->value_table);
       init_ef_value_table(&solver->value_table);
 
@@ -1243,22 +1249,6 @@ static void ef_solver_search(ef_solver_t *solver) {
       fill_ef_value_table(&solver->value_table, solver->prob->all_evars, solver->evalue, n);
       print_ef_value_table(stdout, &solver->value_table);
 
-#if EF_VERBOSE
-      // FOR DEBUGGING
-      printf("Candidate exists model:\n");
-      print_ef_solution(stdout, solver);
-      printf("\n");
-#endif
-//
-//      ctx = solver->exists_context;
-//      set_values_from_value_table(&solver->value_table, ctx->terms, solver->prob->all_evars, solver->evalue, n);
-//
-//#if EF_VERBOSE
-//      // FOR DEBUGGING
-//      printf("Candidate exists model (new):\n");
-//      print_ef_solution(stdout, solver);
-//      printf("\n");
-//#endif
       trace_puts(solver->trace, 4, "(EF: Found candidate model)\n");
       ef_solver_check_exists_model(solver);
       break;

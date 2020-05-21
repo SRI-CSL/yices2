@@ -17,8 +17,7 @@
  */
 
 /*
- * Analyze a UF formula F to learn global equalities implied by F
- * The result is stored as an epartition.
+ * Build a value table mapping a value to a list of terms.
  */
 
 #include <stdint.h>
