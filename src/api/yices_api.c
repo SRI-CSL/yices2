@@ -9128,6 +9128,19 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   return 0;
 }
 
+/*
+ * Construct a model interpolant core.
+ */
+EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+
+  if (context_status(ctx) != STATUS_UNSAT) {
+    set_error_code(CTX_INVALID_OPERATION);
+    return -1;
+  }
+
+  return context_get_unsat_model_interpolant(ctx);
+}
+
 
 /************
  *  MODELS  *
