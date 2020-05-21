@@ -296,6 +296,10 @@ extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
  */
 extern void add_arith_aux_eq(context_t *ctx, term_t eq);
 
+/*
+ * Variant for bit-vector terms
+ */
+extern void add_bv_aux_eq(context_t *ctx, term_t x, term_t y);
 
 /*
  * Auxiliary atoms:
@@ -482,6 +486,13 @@ static inline void disable_or_factoring(context_t *ctx) {
   ctx->options &= ~FACTOR_OR_OPTION_MASK;
 }
 
+static inline void enable_chase_bvite(context_t *ctx) {
+  ctx->options |= CHASE_BVITE_OPTION_MASK;
+}
+
+static inline void disable_chase_bvite(context_t *ctx) {
+  ctx->options |= CHASE_BVITE_OPTION_MASK;
+}
 
 
 /*
@@ -537,6 +548,10 @@ static inline bool context_ite_flattening_enabled(context_t *ctx) {
 
 static inline bool context_or_factoring_enabled(context_t *ctx) {
   return (ctx->options & FACTOR_OR_OPTION_MASK) != 0;
+}
+
+static inline bool context_chase_bvite_enabled(context_t *ctx) {
+  return (ctx->options & CHASE_BVITE_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {

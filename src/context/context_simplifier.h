@@ -392,6 +392,11 @@ extern void break_uf_symmetries(context_t *ctx);
 extern void process_conditional_definitions(context_t *ctx);
 
 
+/*
+ * A simpler form of conditional definitions for bit-vector benchmarks:
+ */
+extern void chase_bv_ite(context_t *ctx);
+
 
 /*
  * CONDITIONALS/FLATTENING OF NESTED IF-THEN-ELSE

@@ -120,6 +120,7 @@ core_src_c := \
 	context/divmod_table.c \
 	context/eq_abstraction.c \
 	context/eq_learner.c \
+	context/hidden_bvites.c \
 	context/internalization_table.c \
 	context/ite_flattener.c \
 	context/pseudo_subst.c \

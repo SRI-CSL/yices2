@@ -27,8 +27,9 @@
 #include "context/conditional_definitions.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
-#include "context/internalization_codes.h"
 #include "context/eq_learner.h"
+#include "context/hidden_bvites.h"
+#include "context/internalization_codes.h"
 #include "context/symmetry_breaking.h"
 #include "terms/bvfactor_buffers.h"
 #include "terms/poly_buffer_terms.h"
@@ -3705,4 +3706,57 @@ void process_conditional_definitions(context_t *ctx) {
     analyze_conditional_definitions(&collect);
     delete_cond_def_collector(&collect);
   }
+}
+
+
+/*
+ * EXPERIMENTAL/SIMPLER FORM FOR BIT-VECTOR PROBLEMS
+ */
+void chase_bv_ite(context_t *ctx) {
+  half_ite_table_t table;
+  conditional_eq_t condeq;
+  term_table_t *terms;
+  ivector_t *v;
+  term_t t;
+  uint32_t i, j, n, m;
+
+  init_half_ite_table(&table, ctx);
+
+  terms = ctx->terms;
+  v = &ctx->top_formulas;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    t = v->data[i];
+    if (is_cond_eq(terms, t, &condeq)) {
+      add_half_ite(&table, &condeq, t);
+    }
+  }
+
+  if (table.nelems > 0) {
+    //    printf("got %"PRIu32" semi-conditionals\n", table.nelems);
+    m = assert_hidden_ites(&table);
+    //    printf("found %"PRIu32" hidden if-then-elses\n", m);
+
+    if (m > 0) {
+      j = 0;
+      for (i=0; i<n; i++) {
+	t = v->data[i];
+	if (! subsumed_by_hidden_ite(&table, t)) {
+	  v->data[j] = t;
+	  j ++;
+#if 0
+	} else {
+	  assert(is_cond_eq(terms, t, &condeq));
+	  printf("  subsumed: assertion[%"PRIu32"] = ", i);
+	  print_term(stdout, terms, t);
+	  printf("\n");
+#endif
+	}
+      }
+      ivector_shrink(v, j);
+    }
+
+  }
+
+  delete_half_ite_table(&table);
 }
