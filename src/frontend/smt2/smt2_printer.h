@@ -132,8 +132,10 @@ extern void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *na
 
 /*
  * Variant of smt2_pp_object that uses an SMT2-like syntax for arrays
+ * - tau = type of the object to print.
+ * - tau matters only if c is an integer and tau is real?
  */
-extern void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c);
+extern void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c, type_t tau);
 
 
 #endif  /* __SMT2_PRINTER_H */

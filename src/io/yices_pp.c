@@ -374,6 +374,14 @@ static void build_smt2_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
   build_smt2_bv(b, aux, n);
 }
 
+// smt2 variant of build_rational for integers converted to real
+static void build_smt2_integer_as_real(string_buffer_t *b, rational_t *q) {
+  string_buffer_append_rational(b, q);
+  string_buffer_append_char(b, '.');
+  string_buffer_append_char(b, '0');
+  string_buffer_close(b);
+}
+
 // quoted identifier
 static void build_qid(string_buffer_t *b, const char *prefix, int32_t index, char quote[2]) {
   if (quote[0] != '\0') {
@@ -484,6 +492,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_SMT2_BV_ATOM:
     build_smt2_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+  case PP_SMT2_INTEGER_AS_REAL:
+    build_smt2_integer_as_real(buffer, &atm->data.rat);
     s = buffer->data;
     break;
   case PP_SMT2_QID_ATOM:
@@ -1012,6 +1024,35 @@ void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
   pp_push_token(&printer->pp, tk);
 }
+
+
+/*
+ * Variant of pp_rational for SMT2.
+ * - if X have value 10 in a model but X is real variable, then we have to
+ *   print the value as 10.0 (because 10 would be confusing somehow!!!).
+ */
+void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  assert(q_is_integer(q));
+
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_rational(buffer, q);
+  n = string_buffer_length(buffer) + 2;
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_SMT2_INTEGER_AS_REAL);
+  q_init(&atom->data.rat);
+  q_set(&atom->data.rat, q);
+
+  pp_push_token(&printer->pp, tk);
+}
+
 
 
 /*
