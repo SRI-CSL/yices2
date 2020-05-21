@@ -260,7 +260,7 @@ extern bdd_t mk_bdd_node(bdd_table_t *table, bvar_t x, bdd_t left, bdd_t right);
 extern bdd_t mk_bdd_for_literal(bdd_table_t *table, literal_t l);
 
 /*
- * Create a bdd node to represent (ite c a b) 
+ * Create a bdd node to represent (ite c a b)
  * - this creates the bdd (ite x bdd_for(a) bdd_for(b))
  *   where x = var_of(c).
  * - if there's already such a bdd, return it.

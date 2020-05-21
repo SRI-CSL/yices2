@@ -145,7 +145,7 @@ static void expand_cache(bdd_cache_t *cache) {
   for (i=0; i<old_n; i++) {
     if (ptr->x != null_bdd) {
       h = hash_bdd_pair(ptr->x, ptr->y) & mask;
-      tmp[h] = *ptr;      
+      tmp[h] = *ptr;
     }
     ptr ++;
   }
@@ -166,7 +166,7 @@ static void expand_cache(bdd_cache_t *cache) {
 static void cache_store(bdd_cache_t *cache, bdd_t x, bdd_t y, bdd_t v) {
   uint32_t h, i, lookups;
   cache_record_t *r;
-  
+
   h = hash_bdd_pair(x, y);
   i = h & (cache->size - 1);
   r = cache->records + i;
@@ -176,8 +176,8 @@ static void cache_store(bdd_cache_t *cache, bdd_t x, bdd_t y, bdd_t v) {
      * This is a collision. Try resizing.
      */
     lookups = cache->hits + cache->misses; // number of lookups since last resize
-    if (lookups >= cache->size * CACHE_RESIZE_LOOKUP_THRESHOLD 
-	&& (cache->size < CACHE_RESIZE_SMALL_THRESHOLD 
+    if (lookups >= cache->size * CACHE_RESIZE_LOOKUP_THRESHOLD
+	&& (cache->size < CACHE_RESIZE_SMALL_THRESHOLD
 	    || cache->hits > lookups * CACHE_RESIZE_MINHIT_RATIO)) {
 
       expand_cache(cache);
@@ -370,7 +370,7 @@ static void resize_bdd_hash_table(bdd_table_t *table) {
   for (i=1; i<n; i++) {
     add_to_clean_hash(hash, mask, i, table->data + i);
   }
-  
+
   table->hash = hash;
   table->hash_size = m;
   table->resize_threshold = (uint32_t) (m * BDD_RESIZE_RATIO);
@@ -665,7 +665,7 @@ bdd_t mk_bdd_node(bdd_table_t *table, bvar_t x, bdd_t left, bdd_t right) {
 
   if (left == right) return left;
 
-  /* 
+  /*
    * normalize: (ite x left right) to not (ite x (not left) (not right))
    * if left has negative polarity.
    */
@@ -691,7 +691,7 @@ bdd_t try_bdd_node(bdd_table_t *table, bvar_t x, bdd_t left, bdd_t right) {
 
   if (left == right) return left;
 
-  /* 
+  /*
    * normalize: (ite x left right) to not (ite x (not left) (not right))
    * if left has negative polarity.
    */
@@ -700,7 +700,7 @@ bdd_t try_bdd_node(bdd_table_t *table, bvar_t x, bdd_t left, bdd_t right) {
   right ^= polarity;
   j = find_bdd_node(table, x, left, right);
 
-  return j == 0 ? null_bdd : mk_bdd(j, polarity);  
+  return j == 0 ? null_bdd : mk_bdd(j, polarity);
 }
 
 
@@ -741,7 +741,7 @@ static bdd_t get_bdd_for_literal(bdd_table_t *table, literal_t l) {
 }
 
 /*
- * Create a bdd node to represent (ite c a b) 
+ * Create a bdd node to represent (ite c a b)
  * - this creates the bdd (ite x bdd_for(a) bdd_for(b))
  *   where x = var_of(c).
  * - if there's already such a bdd, return it.
@@ -1012,7 +1012,7 @@ literal_t bdd_xor_simplify(bdd_table_t *table, bdd_t x, bdd_t y) {
   //  printf("\n==== bdd_xor_simplify(%"PRIu32", %"PRIu32") ====\n", x, y);
   simp = simplify_xor_bdd(table, x, y);
   //  printf("done\n\n");
-  if (simp == null_bdd) return null_literal;  
+  if (simp == null_bdd) return null_literal;
 
   return get_bdd_map(table, simp);
 }
@@ -1028,7 +1028,7 @@ literal_t bdd_or_simplify(bdd_table_t *table, bdd_t x, bdd_t y) {
   simp = simplify_or_bdd(table, x, y);
   //  printf("done\n\n");
   if (simp == null_bdd) return null_literal;
-  
+
   return get_bdd_map(table, simp);
 }
 
