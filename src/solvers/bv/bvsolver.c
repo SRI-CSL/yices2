@@ -876,6 +876,9 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
     init_bit_blaster(blaster, solver->core, remap);
+    // EXPERIMENTAL
+    bit_blaster_activate_bdds(blaster);
+    // END
     solver->blaster = blaster;
   }
 }

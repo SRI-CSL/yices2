@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "solvers/bv/bdds.h"
 #include "solvers/bv/remap_table.h"
 #include "solvers/cdcl/gates_hash_table.h"
 #include "solvers/cdcl/smt_core.h"
@@ -90,12 +91,14 @@ typedef struct cbuffer_s {
  *   where the clauses and literals are created
  * - remap_table to interface with the bvsolver
  * - gate table for hash consing
+ * - optional bdd table
  * - buffers
  */
 typedef struct bit_blaster_s {
   smt_core_t *solver;
   remap_table_t *remap;
   gate_table_t *htbl;
+  bdd_table_t *bdds;
   cbuffer_t buffer;
   ivector_t aux_vector;
   ivector_t aux_vector2;
@@ -127,9 +130,14 @@ typedef struct bit_blaster_s {
  * Initialization:
  * - htbl is initialized to its default size
  * - solver and remap must be initialized outside this function
+ * - no bdd table
  */
 extern void init_bit_blaster(bit_blaster_t *blaster, smt_core_t *solver, remap_table_t *remap);
 
+/*
+ * Create the internal bdd table
+ */
+extern void bit_blaster_activate_bdds(bit_blaster_t *blaster);
 
 /*
  * Deletion

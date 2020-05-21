@@ -166,6 +166,7 @@ core_src_c := \
 	parser_utils/parser.c \
 	parser_utils/term_stack2.c \
 	parser_utils/term_stack_error.c \
+	solvers/bv/bdds.c \
 	solvers/bv/bit_blaster.c \
 	solvers/bv/bv64_intervals.c \
 	solvers/bv/bv_atomtable.c \
