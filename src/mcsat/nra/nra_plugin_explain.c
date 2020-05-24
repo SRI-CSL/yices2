@@ -1018,7 +1018,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   }
 
   // Check if there is a simple Fourier-Motzkin explanation
-  if (core->size == 2 && lemma_reasons->size == 0) {
+  if (false && core->size == 2 && lemma_reasons->size == 0) {
     variable_t c0_var = core->data[0];
     variable_t c1_var = core->data[1];
     bool c0_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c0_var);
