@@ -129,8 +129,9 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   // init_nsat_solver(d->solver, nvars, false); // without preprocessing
   nsat_set_randomness(d->solver, 0.01);
   nsat_set_reduce_fraction(d->solver, 12);
+  nsat_set_var_elim_skip(d->solver, 200);
   nsat_set_res_clause_limit(d->solver, 300);   // more agressive var elimination
-  nsat_set_res_extra(d->solver, 20);
+  nsat_set_res_extra(d->solver, 40);
   nsat_set_simplify_subst_delta(d->solver, 30);
   nsat_solver_add_vars(d->solver, nvars);
   //
@@ -272,6 +273,14 @@ static void cadical_delete(void *solver) {
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
   ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
+  // TEST
+  ccadical_set_option(d->solver, "walk", 0);
+  ccadical_set_option(d->solver, "lucky", 0);
+  ccadical_set_option(d->solver, "chrono", 0);
+  ccadical_set_option(d->solver, "elimands", 0);
+  ccadical_set_option(d->solver, "elimites", 0);
+  ccadical_set_option(d->solver, "elimxors", 0);
+  // END OF TEST
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
