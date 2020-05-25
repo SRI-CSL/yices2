@@ -285,12 +285,6 @@ static void convert_cache_map(val_converter_t *convert, value_t v, term_t t) {
 
 
 /*
- * Recursive conversion of primitive and tuple terms
- * - raise an exception via longjmp if the conversion fails.
- */
-static term_t convert_val(val_converter_t *convert, value_t v);
-
-/*
  * Convert a tuple
  */
 static term_t convert_tuple(val_converter_t *convert, value_tuple_t *tup) {
@@ -334,7 +328,7 @@ static inline int32_t get_convert_code(value_kind_t k) {
   return (k < NUM_VALUE_KIND) ? convert_code[k] : CONVERT_INTERNAL_ERROR;
 }
 
-static term_t convert_val(val_converter_t *convert, value_t v) {
+term_t convert_val(val_converter_t *convert, value_t v) {
   value_table_t *vtbl;
   value_kind_t kind;
   int32_t c;

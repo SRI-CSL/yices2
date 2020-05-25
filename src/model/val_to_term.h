@@ -122,4 +122,10 @@ extern term_t convert_value_to_term(term_manager_t *mgr, term_table_t *terms, va
 extern uint32_t convert_value_array(term_manager_t *mgr, term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b);
 
 
+/*
+ * Recursive conversion of primitive and tuple terms
+ * - raise an exception via longjmp if the conversion fails.
+ */
+extern term_t convert_val(val_converter_t *convert, value_t v);
+
 #endif /* __VAL_TO_TERM_H */

@@ -205,6 +205,20 @@ extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t
  */
 extern void context_build_model(model_t *model, context_t *ctx);
 
+/*
+ * Build a model for the current context (including all satellite solvers)
+ * - the context status must be SAT (or UNKNOWN)
+ * - if model->has_alias is true, we store the term substitution
+ *   defined by ctx->intern_tbl into the model
+ * - cleanup of satellite models needed using clean_solver_models()
+ */
+extern void build_model(model_t *model, context_t *ctx);
+
+/*
+ * Cleanup solver models
+ */
+extern void clean_solver_models(context_t *ctx);
+
 
 /*
  * Build an unsat core: the context's status must be STATUS_UNSAT

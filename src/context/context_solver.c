@@ -1022,12 +1022,13 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
 
 /*
- * Build a model for the current context
+ * Build a model for the current context (including all satellite solvers)
  * - the context status must be SAT (or UNKNOWN)
  * - if model->has_alias is true, we store the term substitution
  *   defined by ctx->intern_tbl into the model
+ * - cleanup of satellite models needed using clean_solver_models()
  */
-void context_build_model(model_t *model, context_t *ctx) {
+void build_model(model_t *model, context_t *ctx) {
   term_table_t *terms;
   uint32_t i, n;
   term_t t;
@@ -1066,14 +1067,17 @@ void context_build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-	build_term_value(ctx, model, t);
+        build_term_value(ctx, model, t);
       }
     }
   }
+}
 
-  /*
-   * Cleanup
-   */
+
+/*
+ * Cleanup solver models
+ */
+void clean_solver_models(context_t *ctx) {
   if (context_has_arith_solver(ctx)) {
     ctx->arith.free_model(ctx->arith_solver);
   }
@@ -1083,7 +1087,22 @@ void context_build_model(model_t *model, context_t *ctx) {
   if (context_has_egraph(ctx)) {
     egraph_free_model(ctx->egraph);
   }
+}
 
+
+
+/*
+ * Build a model for the current context
+ * - the context status must be SAT (or UNKNOWN)
+ * - if model->has_alias is true, we store the term substitution
+ *   defined by ctx->intern_tbl into the model
+ */
+void context_build_model(model_t *model, context_t *ctx) {
+  // Build solver models and term values
+  build_model(model, ctx);
+
+  // Cleanup
+  clean_solver_models(ctx);
 }
 
 
