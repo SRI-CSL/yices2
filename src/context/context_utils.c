@@ -22,7 +22,7 @@
 
 #include "context/context_utils.h"
 #include "context/internalization_codes.h"
-
+#include "solvers/bv/bvsolver.h"
 
 
 /*
@@ -925,3 +925,11 @@ void add_aux_atom(context_t *ctx, term_t atom) {
 }
 
 
+/*
+ * ENABLE BDD-BASED SIMPLIFICATION IN THE BVSOLVER
+ */
+void enable_bdds_in_bvsolver(context_t *ctx) {
+  if (ctx->bv_solver != NULL) {
+    bv_solver_enable_bdds(ctx->bv_solver);
+  }
+}

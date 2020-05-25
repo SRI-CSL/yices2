@@ -43,6 +43,7 @@
 #define __BVSOLVER_TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <setjmp.h>
 
 #include "context/context_types.h"
@@ -376,6 +377,10 @@ typedef struct bv_solver_s {
   ivector_t a_vector;
   ivector_t b_vector;
 
+  /*
+   * Option to enable bdds in the bit-blaster
+   */
+  bool use_bdds;
 
   /*
    * For model construction: mapping of variables to constants

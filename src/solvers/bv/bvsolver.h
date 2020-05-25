@@ -36,6 +36,13 @@
  */
 extern void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph);
 
+/*
+ * Enable bdd-based simplifications in the bit-blaster
+ */
+static inline void bv_solver_enable_bdds(bv_solver_t *solver) {
+  solver->use_bdds = true;
+}
+
 
 /*
  * Attach a jump buffer for exception handling

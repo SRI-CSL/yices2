@@ -675,6 +675,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
+    enable_bdds_in_bvsolver(ctx);
     start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);

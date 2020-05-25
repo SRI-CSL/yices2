@@ -240,6 +240,9 @@ static void dump(const char *filename, context_t *ctx) {
 #endif
 
 
+#if 0
+// DISABLED IN COMPETITION VERSION
+
 /*
  * BITBLAST THEN EXPORT TO DIMACS
  */
@@ -310,7 +313,7 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
   return code;
 }
 
-
+#endif
 
 
 /*
@@ -2823,7 +2826,24 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     print_out("sat\n");
     g->trivially_sat = true;
     g->model = model;
+  } else if (g->logic_code == QF_BV && !g->mcsat) {
+    /*
+     * Only for competition: use delegate
+     */
+    init_smt2_context(g);
+    enable_chase_bvite(g->ctx);
+    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      // error during assertion processing
+      print_yices_error(true);
+      return;
+    }
+    status = check_with_delegate(g->ctx, "kissat", g->verbosity);
+    report_status(g, status);
+
   } else {
+    // regular check
+
     /*
      * check for mislabeled benchmarks: some benchmarks
      * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
@@ -2835,57 +2855,23 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     }
     init_smt2_context(g);
 
-    if (g->export_to_dimacs) {
-      /*
-       * Bitblast and export in DIMACS format.
-       */
-      code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
-      if (code < 0) {
-	print_yices_error(true);
-	return;
-      }
-
-    } else {
-      /*
-       * Assert formulas
-       */
-      code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
-      if (code < 0) {
-	// error during assertion processing
-	print_yices_error(true);
-	return;
-      }
-
-      if (g->delegate != NULL && g->logic_code == QF_BV) {
-	/*
-	 * Special case: QF_BV with delegate
-	 */
-	if (g->dimacs_file == NULL) {
-	  status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-	} else {
-	  code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
-	  if (code < 0) {
-	    perror(g->dimacs_file);
-	    exit(YICES_EXIT_SYSTEM_ERROR);
-	  }
-	  if (status == STATUS_UNKNOWN) {
-	    // don't print anything
-	    return;
-	  }
-	}
-      } else {
-	/*
-	 * Regular check
-	 */
-	init_search_parameters(g);
-	if (g->random_seed != 0) {
-	  g->parameters.random_seed = g->random_seed;
-	}
-	status = check_sat_with_timeout(g, &g->parameters);
-      }
-
-      report_status(g, status);
+    /*
+     * Assert formulas
+     */
+    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      // error during assertion processing
+      print_yices_error(true);
+      return;
     }
+
+    init_search_parameters(g);
+    if (g->random_seed != 0) {
+      g->parameters.random_seed = g->random_seed;
+    }
+    status = check_sat_with_timeout(g, &g->parameters);
+    report_status(g, status);
+
   }
 
   flush_out();

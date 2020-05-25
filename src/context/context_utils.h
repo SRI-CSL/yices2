@@ -576,6 +576,12 @@ static inline bool splx_eqprop_enabled(context_t *ctx) {
 
 
 /*
+ * Enable bdd-based simplification in the bvsolver
+ * - no effect if ctx->bv_solver is NULL
+ */
+extern void enable_bdds_in_bvsolver(context_t *ctx);
+
+/*
  * Provisional: set/clear/test dump mode
  */
 static inline void enable_dump(context_t *ctx) {

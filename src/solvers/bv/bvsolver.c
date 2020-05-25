@@ -876,9 +876,9 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
     init_bit_blaster(blaster, solver->core, remap);
-    // EXPERIMENTAL
-    bit_blaster_activate_bdds(blaster);
-    // END
+    if (solver->use_bdds) {
+      bit_blaster_activate_bdds(blaster);
+    }
     solver->blaster = blaster;
   }
 }
@@ -7252,6 +7252,8 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_bv_interval_stack(&solver->intv_stack);
   init_ivector(&solver->a_vector, 0);
   init_ivector(&solver->b_vector, 0);
+
+  solver->use_bdds = false;
 
   solver->val_map = NULL;
 
