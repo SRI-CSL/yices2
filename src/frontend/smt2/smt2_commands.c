@@ -2826,7 +2826,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     print_out("sat\n");
     g->trivially_sat = true;
     g->model = model;
-  } else if (g->logic_code == QF_BV && !g->mcsat) {
+  } else if (g->logic_code == QF_BV && !g->mcsat && yices_has_delegate("kissat")) {
     /*
      * Only for competition: use delegate
      */
