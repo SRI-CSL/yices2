@@ -499,6 +499,43 @@ extern bool is_unint_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a)
 
 
 /*
+ * CONDITIONAL EQUALITIES
+ */
+
+/*
+ * A conditional equality is a term of the form (or c (= a b))
+ * i.e.. (not c) => a = b.
+ * We restrict c to be either an propositional literal (either
+ * X or not(X) for some Boolean variable X).
+ *
+ * By merging two conditional equalities, we may be able to simplify
+ * things. For example:
+ *       c => a = b1
+ *   not c => a = b2
+ * can be rewritten to a = (ite c b1 b2), which may help.
+ */
+typedef struct conditional_eq_s {
+  term_t cond;  // (not c)
+  term_t left;  // a
+  term_t right;  // b
+} conditional_eq_t;
+
+/*
+ * Check whether t is a conditional equality
+ * - if so return true and store the cond, left, and right into cond_eq
+ * - if not return fasle and leave cond_eq unchanged
+ */
+extern bool is_cond_eq(term_table_t *tbl, term_t t, conditional_eq_t *cond_eq);
+
+/*
+ * Check whether t is equal to (bvsub u v)
+ * - if so return true and store u, v in *a, *b
+ * - if not return faalse and leava *a and *b unchanged
+ */
+extern bool is_bvsub(term_table_t *tbl, term_t t, term_t *a, term_t *b);
+
+
+/*
  * UNIT-TYPE REPRESENTATIVES
  */
 

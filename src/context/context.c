@@ -5898,6 +5898,14 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
       break;
 
     default:
+      //// PROVISIONAL
+      if (context_chase_bvite_enabled(ctx)) {
+	chase_bv_ite(ctx);
+	if (ctx->aux_eqs.size > 0) {
+	  process_aux_eqs(ctx);
+	}
+      }
+
       /*
        * Process the candidate variable substitutions if any
        */
@@ -6247,6 +6255,9 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
       break;
 
     default:
+      if (context_chase_bvite_enabled(ctx)) {
+	chase_bv_ite(ctx);
+      }
       /*
        * Process the candidate variable substitutions if any
        */

@@ -4190,6 +4190,160 @@ bool is_unint_eq_const(term_table_t *tbl, term_t t, term_t *x, term_t *a) {
   return false;
 }
 
+/*
+ * CONDITIONAL EQUALITIES
+ */
+
+/*
+ * A conditional equality is a term of the form (or c (= a b))
+ * - i.e.. (not c) => a = b
+ *
+ * By merging two conditional equalities, we may be able to simplify
+ * things. For example:
+ *       c => a = b1
+ *   not c => a = b2
+ * can be rewritten to a = (ite c b1 b2), which may help.
+ */
+
+/*
+ * Check whether t is a propositional literal
+ */
+static bool is_boolean_literal(term_table_t *tbl, term_t t) {
+  assert(is_boolean_term(tbl, t));
+  return term_kind(tbl, t) == UNINTERPRETED_TERM;
+}
+
+/*
+ * Check whether t is an equality (a == b)
+ * - if so store a in *left, b in *right and return true
+ */
+static bool is_an_equality(term_table_t *tbl, term_t t, term_t *left, term_t *right) {
+  composite_term_t *eq;
+
+  assert(good_term(tbl, t) && is_boolean_term(tbl, t));
+
+  if (is_pos_term(t)) {
+    switch (term_kind(tbl, t)) {
+    case ARITH_EQ_ATOM:
+      // (x == 0)
+      *left = arith_eq_arg(tbl, t);
+      *right = zero_term;
+      return true;
+
+    case EQ_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_EQ_ATOM:
+      eq = composite_term_desc(tbl, t);
+      assert(eq->arity == 2);
+      *left = eq->arg[0];
+      *right = eq->arg[1];
+      return true;
+
+    default:
+      break;
+    }
+  }
+
+  return false;
+}
+
+/*
+ * Check whether t is a conditional equality
+ * - if so return true and store the cond, left, and right into cond_eq
+ * - if not return fasle and leave cond_eq unchanged
+ */
+bool is_cond_eq(term_table_t *tbl, term_t t, conditional_eq_t *cond_eq) {
+  composite_term_t *or;
+  term_t u, v;
+
+  assert(good_term(tbl, t));
+  if (is_pos_term(t) && term_kind(tbl, t) == OR_TERM) {
+    or = or_term_desc(tbl, t);
+    if (or->arity == 2) {
+      u = or->arg[0];
+      v = or->arg[1];
+      if (is_boolean_literal(tbl, u) && is_an_equality(tbl, v, &cond_eq->left, &cond_eq->right)) {
+	cond_eq->cond = opposite_term(u);
+	return true;
+      }
+      if (is_boolean_literal(tbl, v) && is_an_equality(tbl, u, &cond_eq->left, &cond_eq->right)) {
+	cond_eq->cond = opposite_term(v);
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
+/*
+ * Check whether a bit-vector polynomial is of the from (a - b)
+ * where a and b are two non-constant bit-vector terms (for now).
+ */
+static bool bvpoly64_is_bvsub(bvpoly64_t *p, term_t *a, term_t *b) {
+  uint32_t n;
+
+  if (p->nterms == 2 && p->mono[0].var != const_idx) {
+    n = p->bitsize;
+    if (p->mono[0].coeff == 1 && bvconst64_is_minus_one(p->mono[1].coeff, n)) {
+      *a = p->mono[0].var;
+      *b = p->mono[1].var;
+      return true;
+    }
+    if (p->mono[1].coeff == 1 && bvconst64_is_minus_one(p->mono[0].coeff, n)) {
+      *a = p->mono[1].var;
+      *b = p->mono[0].var;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool bvpoly_is_bvsub(bvpoly_t *p, term_t *a, term_t *b) {
+  uint32_t n, w;
+
+  if (p->nterms == 2 && p->mono[0].var != const_idx) {
+    n = p->bitsize;
+    w = p->width;
+    if (bvconst_is_one(p->mono[0].coeff, w) && bvconst_is_minus_one(p->mono[1].coeff, n)) {
+      *a = p->mono[0].var;
+      *b = p->mono[1].var;
+      return true;
+    }
+    if (bvconst_is_one(p->mono[1].coeff, w) && bvconst_is_minus_one(p->mono[0].coeff, n)) {
+      *a = p->mono[1].var;
+      *b = p->mono[0].var;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether t is equal to (bvsub u v)
+ * - if so return true and store u, v in *a, *b
+ * - if not return faalse and leava *a and *b unchanged
+ */
+bool is_bvsub(term_table_t *tbl, term_t t, term_t *a, term_t *b) {
+  assert(good_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_POLY:
+    assert(is_pos_term(t));
+    return bvpoly64_is_bvsub(bvpoly64_term_desc(tbl, t), a, b);
+
+  case BV_POLY:
+    assert(is_pos_term(t));
+    return bvpoly_is_bvsub(bvpoly_term_desc(tbl, t), a, b);
+
+  default:
+    return false;
+  }
+}
+
+
 
 
 /*******************************

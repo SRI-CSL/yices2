@@ -1324,6 +1324,15 @@ static inline bool is_bvpoly_term(const term_table_t *table, term_t t) {
 }
 
 
+// Check whether t is a bitvector constant
+static inline bool is_bvconst_kind(term_kind_t tag) {
+  return tag == BV64_CONSTANT || tag == BV_CONSTANT;
+}
+
+static inline bool is_bvconst_term(const term_table_t *table, term_t t) {
+  return is_bvconst_kind(term_kind(table, t));
+}
+
 /*
  * Check the type of a literal.
  * - arithmetic_literals: (t == 0) or (t >= 0) or (t1 == t2) between

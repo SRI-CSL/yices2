@@ -885,6 +885,34 @@ void add_arith_aux_eq(context_t *ctx, term_t eq) {
 
 
 /*
+ * Add an auxiliary bit equality between bit-vector terms
+ */
+void add_bv_aux_eq(context_t *ctx, term_t x, term_t y) {
+  term_table_t *terms;
+  term_t eq;
+
+  x = intern_tbl_get_root(&ctx->intern, x);
+  y = intern_tbl_get_root(&ctx->intern, y);
+
+  if (x != y) {
+    /*
+     * Build/get term (bveq x y)
+     */
+    terms = ctx->terms;
+    if (x > y) {
+      eq = bveq_atom(terms, y, x);
+    } else {
+      eq = bveq_atom(terms, x, y);
+    }
+
+    assert(intern_tbl_is_root(&ctx->intern, eq));
+
+    ivector_push(&ctx->aux_eqs, eq);
+  }
+}
+
+
+/*
  * LEARNED ATOMS
  */
 
