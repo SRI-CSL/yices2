@@ -34,8 +34,13 @@
 #include "model/projection.h"           //project_literals  (quantifier elimination)
 #include "terms/term_substitution.h"
 #include "utils/index_vectors.h"
+#include "model/models.h"
 
 #include "yices.h"
+#include "api/yices_extensions.h"
+#include "api/yices_globals.h"
+#include "model/val_to_term.h"
+#include "model/model_queries.h"
 
 #define EF_VERBOSE 0
 
@@ -102,7 +107,7 @@ void print_full_map(FILE *f, ef_solver_t *solver) {
 /*
  * Replace values for witness found for constraint i from value table
  */
-void replace_forall_witness(ef_solver_t *solver, term_table_t *terms, uint32_t i) {
+void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
   ef_prob_t *prob;
   ef_cnstr_t *cnstr;
   uint32_t j, n;
@@ -117,10 +122,8 @@ void replace_forall_witness(ef_solver_t *solver, term_table_t *terms, uint32_t i
   n = ef_constraint_num_uvars(cnstr);
   for (j=0; j<n; j++) {
     x = solver->uvalue_aux.data[j];
-    if (is_utype_term(terms, x)) {
-      // replace x by representative
-      solver->uvalue_aux.data[j] = get_value_rep(vtable, terms, x);
-    }
+    // replace x by representative
+    solver->uvalue_aux.data[j] = get_value_rep(vtable, x);
     fprintf(stdout, "replaced %s := ", yices_get_term_name(cnstr->uvars[j]));
     yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
   }
@@ -361,27 +364,28 @@ static void init_forall_context(ef_solver_t *solver) {
 
 
 /*
- * Assert (B and not C) in ctx
+ * Assert (A and B and not C) in ctx
  * - return the assertion code
  */
-static int32_t forall_context_assert(ef_solver_t *solver, term_t b, term_t c) {
+static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, term_t c) {
   context_t *ctx;
-  term_t assertions[2];
+  term_t assertions[3];
 
   ctx = solver->forall_context;
 
   assert(ctx != NULL && context_status(ctx) == STATUS_IDLE);
   assert(is_boolean_term(ctx->terms, b) && is_boolean_term(ctx->terms, c));
 
-  assertions[0] = b;
-  assertions[1] = opposite_term(c);
+  assertions[0] = a;
+  assertions[1] = b;
+  assertions[2] = opposite_term(c);
 
 #if EF_VERBOSE
   printf("Forall Context Constraint:\n");
-  yices_pp_term_array(stdout, 2, assertions, 120, UINT32_MAX, 0, 0);
+  yices_pp_term_array(stdout, 3, assertions, 120, UINT32_MAX, 0, 0);
 #endif
 
-  return assert_formulas(ctx, 2, assertions);
+  return assert_formulas(ctx, 3, assertions);
 }
 
 
@@ -439,47 +443,116 @@ static context_t *get_forall_context(ef_solver_t *solver) {
  *
  * 3) other codes report an error of some kind or STATUS_INTERRUPTED
  */
-static smt_status_t satisfy_context(context_t *ctx, const param_t *parameters, term_t *var, uint32_t n, term_t *value, model_t **model) {
+static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t *var, uint32_t n, term_t *value, model_t **model, bool is_exists) {
   smt_status_t stat;
   model_t *mdl;
-  int32_t code;
+  int32_t eval_code;
+  uint32_t count;
   uint32_t i;
+  ivector_t mdl_values;
 
   assert(context_status(ctx) == STATUS_IDLE);
 
-  stat = check_context(ctx, parameters);
+  stat = check_context(ctx, solver->parameters);
   switch (stat) {
   case STATUS_SAT:
   case STATUS_UNKNOWN:
-    mdl = yices_get_model(ctx, true);
+    // build the model (and retain egraph model)
+    mdl = yices_new_model(true);
+    build_model(mdl, ctx);
+
+//#if EF_VERBOSE
+//    // FOR DEBUGGING
+//    printf("Full Model:\n");
+//    yices_print_model(stdout, mdl);
+//#endif
+
+    // get values of terms in var as terms
+//    code = yices_term_array_value(mdl, n, var, value);
+
+    eval_code = evaluate_term_array(mdl, n, var, value);
+    if (eval_code < 0) {
+      // can't convert the model to values
+      stat = STATUS_ERROR;
+      assert(0);
+    }
+
+    init_ivector(&mdl_values, n);
+    ivector_copy(&mdl_values, value, n);
+
+    count = convert_value_array(__yices_globals.manager, __yices_globals.terms, model_get_vtbl(mdl), n, value);
+    if (count < n) {
+      // can't convert values to terms
+      stat = STATUS_ERROR;
+      assert(0);
+    }
+
+//#if EF_VERBOSE
+//    // FOR DEBUGGING
+//    printf("Model:\n");
+//    for (i=0; i<n; i++) {
+//      printf("%s := ", yices_get_term_name(var[i]));
+//      yices_pp_term(stdout, value[i], 120, UINT32_MAX, 0);
+//    }
+//#endif
+
+    if (is_exists) {
+      // build the ef value table
+
+      // first, reset ef table
+      delete_ef_value_table(&solver->value_table);
+      init_ef_value_table(&solver->value_table, model_get_vtbl(mdl), __yices_globals.manager, __yices_globals.terms);
+
+      // second, fill in all evars
+      n = ef_prob_num_evars(solver->prob);
+      fill_ef_value_table(&solver->value_table, var, mdl_values.data, n);
+
+      // third, fill in uninterpreted types
+      value_table_t *vtbl;
+      egraph_t *egraph;
+      egraph_model_t *egraph_mdl;
+      ivector_t *v;
+      uint32_t m;
+
+      class_t c;
+      value_t val;
+      term_t tval;
+
+      vtbl = model_get_vtbl(mdl);
+      egraph = ctx->egraph;
+      egraph_mdl = &egraph->mdl;
+      v = &egraph_mdl->root_classes;
+      m = v->size;
+
+      for (i=0; i<m; i++) {
+        c = v->data[i];
+        if (egraph_class_type(egraph, c) == ETYPE_NONE) {
+          assert(egraph_class_is_root_class(egraph, c));
+          val = egraph_mdl->value[c];
+          tval = convert_value_to_term(__yices_globals.manager, mdl->terms, vtbl, val);
+          store_type_value(&solver->value_table, val, tval, true);
+        }
+      }
 
 #if EF_VERBOSE
-    // FOR DEBUGGING
-    printf("Full Model:\n");
-    yices_print_model(stdout, mdl);
+      // FOR DEBUGGING
+      print_ef_value_table(stdout, &solver->value_table);
 #endif
+//      assert(0);
+    }
 
-    code = yices_term_array_value(mdl, n, var, value);
+    // cleanup
+
+    delete_ivector(&mdl_values);
+
+    // cleanup satellite models
+    clean_solver_models(ctx);
     if (model != NULL) {
       *model = mdl;
     } else {
       yices_free_model(mdl);
     }
 
-#if EF_VERBOSE
-    // FOR DEBUGGING
-    printf("Model:\n");
-    for (i=0; i<n; i++) {
-      printf("%s := ", yices_get_term_name(var[i]));
-      yices_pp_term(stdout, value[i], 120, UINT32_MAX, 0);
-    }
-#endif
-
-    if (code < 0) {
-      // can't convert the model to constant terms
-      stat = STATUS_ERROR;
-      assert(0);
-    }
     break;
 
   default:
@@ -508,7 +581,7 @@ static smt_status_t ef_solver_check_exists(ef_solver_t *solver) {
 
   evar = solver->prob->all_evars;
   n = iv_len(evar);
-  return satisfy_context(solver->exists_context, solver->parameters, evar, n, solver->evalue, &solver->exists_model);
+  return satisfy_context(solver, solver->exists_context, evar, n, solver->evalue, &solver->exists_model, true);
 }
 
 
@@ -528,7 +601,7 @@ static smt_status_t ef_solver_check_exists(ef_solver_t *solver) {
  * - if we get an error or interruption, solver->status is updated
  *   otherwise, it is kept as is (should be EF_STATUS_SEARCHING)
  */
-static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i) {
+static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t domain_cnstr, uint32_t i) {
   context_t *forall_ctx;
   ef_cnstr_t *cnstr;
   term_t *value;
@@ -536,6 +609,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
   uint32_t n;
   int32_t code;
   smt_status_t status;
+  term_t uvar_cnstr;
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
@@ -559,19 +633,15 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, uint32_t i)
 
   forall_ctx = get_forall_context(solver);
 
-  code = forall_context_assert(solver, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
+  uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars);
+  uvar_cnstr = yices_and2(domain_cnstr, uvar_cnstr);
+
+  code = forall_context_assert(solver, uvar_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
   if (code == CTX_NO_ERROR) {
-    status = satisfy_context(forall_ctx, solver->parameters, cnstr->uvars, n, value, NULL);
+    status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
-#if EF_VERBOSE
-      printf("Old counterexample for constraint[%"PRIu32"]\n", i);
-      print_forall_witness(stdout, solver, i);
-      printf("\n");
-      fflush(stdout);
-#endif
-      replace_forall_witness(solver, forall_ctx->terms, i);
       break;
 
     case STATUS_UNSAT:
@@ -725,7 +795,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
   ucode = assert_formula(sampling_ctx, cnstr->assumption);
   while (ucode == CTX_NO_ERROR) {
     trace_printf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
-    status = satisfy_context(sampling_ctx, solver->parameters, cnstr->uvars, nvars, value, NULL);
+    status = satisfy_context(solver, sampling_ctx, cnstr->uvars, nvars, value, NULL, false);
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
@@ -894,7 +964,7 @@ static term_t ef_generalize1(ef_prob_t *prob, term_t *var, term_t *value, uint32
  * Option 2: generalize by substitution
  * - return (prob->cnstr[i].guarantee with y := value)
  */
-static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
+static term_t ef_generalize2(ef_prob_t *prob, term_t cex_cnstr, uint32_t i, term_t *value) {
   ef_cnstr_t *cnstr;
   uint32_t n;
   term_t g;
@@ -902,8 +972,9 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
   assert(i < ef_prob_num_constraints(prob));
   cnstr = prob->cnstr + i;
   n = ef_constraint_num_uvars(cnstr);
-  g = ef_substitution(prob, cnstr->uvars, value, n, cnstr->guarantee);
-#if 0
+  g = yices_implies(cex_cnstr, cnstr->guarantee);
+  g = ef_substitution(prob, cnstr->uvars, value, n, g);
+#if 1
   printf("\nGENERALIZE 2: instantiating\n");
   yices_pp_term(stdout, cnstr->guarantee, 120, UINT32_MAX, 0);
 #endif
@@ -915,7 +986,7 @@ static term_t ef_generalize2(ef_prob_t *prob, uint32_t i, term_t *value) {
  * Option 3: generalize by computing an implicant then
  * applying projection.
  */
-static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
+static term_t ef_generalize3(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
   model_t *mdl;
   ef_cnstr_t *cnstr;
   ivector_t *v, *w;
@@ -923,7 +994,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   uint32_t n;
   int32_t code;
   proj_flag_t pflag;
-  term_t result;
+  term_t result, g;
 
   assert(i < ef_prob_num_constraints(solver->prob));
 
@@ -950,7 +1021,8 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
   // Constraint
   cnstr = solver->prob->cnstr + i;
   a[0] = cnstr->assumption;                 // B(y)
-  a[1] = opposite_term(cnstr->guarantee);   // not C(x, y)
+  g = yices_implies(cex_cnstr, cnstr->guarantee);
+  a[1] = opposite_term(g);   // not C(x, y)
 
 
 #if EF_VERBOSE
@@ -1037,7 +1109,7 @@ static term_t ef_generalize3(ef_solver_t *solver, uint32_t i) {
  * then context->status is set to EF_STATUS_UNSAT.
  * Otherwise context->status is kept as is.
  */
-static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
+static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
   ef_cnstr_t *cnstr;
   term_t *val;
   term_t new_constraint;
@@ -1064,7 +1136,7 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
 
   case EF_GEN_BY_SUBST_OPTION:
     val = solver->uvalue_aux.data;
-    new_constraint = ef_generalize2(solver->prob, i, val);
+    new_constraint = ef_generalize2(solver->prob, cex_cnstr, i, val);
     if (new_constraint < 0) {
       // error in substitution
       solver->status = EF_STATUS_SUBST_ERROR;
@@ -1075,7 +1147,7 @@ static void ef_solver_learn(ef_solver_t *solver, uint32_t i) {
 
   case EF_GEN_BY_PROJ_OPTION:
   default: // added this to prevent bogus GCC warning
-    new_constraint = ef_generalize3(solver, i);
+    new_constraint = ef_generalize3(solver, cex_cnstr, i);
     if (new_constraint < 0) {     
       return;
     }
@@ -1146,7 +1218,9 @@ static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t 
  */
 static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   smt_status_t status;
-  uint32_t i, n;
+  uint32_t i, n, m;
+  term_t domain_cnstr;
+  term_t cex_cnstr;
 
   n = ef_prob_num_constraints(solver->prob);
 
@@ -1160,34 +1234,48 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   }
 
   i = solver->scan_idx;
+  domain_cnstr = constraint_distinct(&solver->value_table);
+  printf("domain_cnstr: ");
+  yices_pp_term(stdout, domain_cnstr, 100, 1, 10);
+
   do {
     trace_printf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
-    status = ef_solver_test_exists_model(solver, i);
+    status = ef_solver_test_exists_model(solver, domain_cnstr, i);
     trace_candidate_check(solver, i, status);
 
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
+
 #if EF_VERBOSE
-      printf("Counterexample for constraint[%"PRIu32"]\n", i);
+      printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
       fflush(stdout);
 #endif
 
+      replace_forall_witness(solver, i);
+
+      m = ef_constraint_num_uvars(solver->prob->cnstr + i);
+      cex_cnstr = constraint_distinct_filter(&solver->value_table, m, solver->uvalue_aux.data);
+      printf("cex_cnstr: ");
+      yices_pp_term(stdout, cex_cnstr, 100, 1, 10);
+
+
 #if EF_VERBOSE
-      // FOR DEBUGGING
-      printf("Candidate exists model (new):\n");
-      print_ef_solution(stdout, solver);
+      printf("New counterexample for constraint[%"PRIu32"]\n", i);
+      print_forall_witness(stdout, solver, i);
       printf("\n");
+      fflush(stdout);
 #endif
 
-      ef_solver_learn(solver, i);
+      ef_solver_learn(solver, cex_cnstr, i);
+//      assert(0);
 
     default:
       i ++;
       if (i == n) {
-	i = 0;
+        i = 0;
       }
       break;
     }
@@ -1230,7 +1318,6 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 static void ef_solver_search(ef_solver_t *solver) {
   smt_status_t stat;
   uint32_t i, max;
-  uint32_t n;
 
   max = solver->max_iters;
   i = 0;
@@ -1265,14 +1352,6 @@ static void ef_solver_search(ef_solver_t *solver) {
       print_ef_solution(stdout, solver);
       printf("\n");
 #endif
-
-      delete_ef_value_table(&solver->value_table);
-      init_ef_value_table(&solver->value_table);
-
-      n = ef_prob_num_evars(solver->prob);
-      fill_ef_value_table(&solver->value_table, solver->prob->all_evars, solver->evalue, n);
-      print_ef_value_table(stdout, &solver->value_table);
-
       trace_puts(solver->trace, 4, "(EF: Found candidate model)\n");
       ef_solver_check_exists_model(solver);
       break;

@@ -896,9 +896,10 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
     c = EF_HIGH_ORDER_UVAR;
   } else if (!all_basic_vars(ef, evar)) {
     c = EF_HIGH_ORDER_EVAR;
-  } else if (remove_uninterpreted_functions(ef, evar) > 0)  {
-    c = EF_UNINTERPRETED_FUN;
   }
+//  else if (remove_uninterpreted_functions(ef, evar) > 0)  {
+//    c = EF_UNINTERPRETED_FUN;
+//  }
 
   return c;
 }
