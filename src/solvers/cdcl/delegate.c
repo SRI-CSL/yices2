@@ -399,7 +399,7 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
 
 
 /*
- * WRAPPERS FOR CADICAL
+ * WRAPPERS FOR KISSAT
  */
 
 #if HAVE_KISSAT
