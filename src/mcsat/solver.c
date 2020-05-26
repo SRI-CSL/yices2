@@ -1397,7 +1397,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 static
 bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t bound) {
 
-  uint32_t i;
+  uint32_t i, unassigned_count;
   term_t literal;
   term_t literal_pos;
   variable_t literal_var;
@@ -1406,7 +1406,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
   term_t to_decide_atom = NULL_TERM;
   variable_t to_decide_var = variable_null;
 
-  for (i = 0; i < literals->size; ++ i) {
+  for (i = 0, unassigned_count = 0; i < literals->size; ++ i) {
 
     literal = literals->data[i];
     literal_pos = unsigned_term(literal);
@@ -1421,6 +1421,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
 
     // Can be decided?
     if (!trail_has_value(mcsat->trail, literal_var)) {
+      unassigned_count ++;
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
         mcsat_trace_printf(mcsat->ctx->trace, "unassigned!\n");
       }
@@ -1447,6 +1448,10 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
     trail_add_decision(mcsat->trail, to_decide_var, value, MCSAT_MAX_PLUGINS);
     return true;
   } else {
+    if (unassigned_count > 0) {
+      // Couldn't find a bound decision, do arbitrary
+      return mcsat_decide_one_of(mcsat, literals, NULL_TERM);
+    }
     return false;
   }
 }
@@ -1737,7 +1742,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       // [backjump-decide]
       assignment_type_t top_var_type = trail_get_assignment_type(mcsat->trail, top_var);
       if (top_var_type == DECISION) {
-        assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
+        // assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
         decision_bound = variable_db_get_term(mcsat->var_db, top_var);
         break;
       }
