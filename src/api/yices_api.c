@@ -9067,8 +9067,9 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
   // Make sure only variables are allowed
   for (i = 0; i < n; ++ i) {
     bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
-    bool has_value = model_find_term_value(mdl, t[i]) != null_value;
-    if (!is_variable || !has_value) {
+    /* bool has_value = model_find_term_value(mdl, t[i]) != null_value; */
+    /* if (!is_variable || !has_value) { */
+    if (!is_variable) {
       error_report_t *error = get_yices_error();
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
