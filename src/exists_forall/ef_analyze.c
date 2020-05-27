@@ -35,6 +35,8 @@
 
 #include "yices.h"
 
+#define TRACE 0
+
 
 /*
  * EF CLAUSES
@@ -124,7 +126,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->flat, 64);
   init_ivector(&ef->disjuncts, 64);
   init_ivector(&ef->foralls, 64);
-  init_int_hset(&ef->existentials, 32);       
+  init_int_hmap(&ef->existentials, 0);
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
@@ -141,7 +143,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->flat);
   ivector_reset(&ef->disjuncts);
   ivector_reset(&ef->foralls);
-  int_hset_reset(&ef->existentials);
+  int_hmap_reset(&ef->existentials);
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
@@ -158,22 +160,135 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->flat);
   delete_ivector(&ef->disjuncts);
   delete_ivector(&ef->foralls);
-  delete_int_hset(&ef->existentials);
+  delete_int_hmap(&ef->existentials);
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
 }
 
 
+typedef struct ef_skolem_s {
+  term_t func;
+  term_t fapp;
+} ef_skolem_t;
 
 /*
- * Add a[0 ... n-1] to the existentials in an analyzer 
+ * Skolemize variable x using uvars as skolem arguments
  */
-static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
+static ef_skolem_t ef_skolemize(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
+  type_t *domt;
+  type_t rt;
   uint32_t i;
-  for(i = 0; i < n; i++){
-    int_hset_add(&ef->existentials, a[i]);
+  term_table_t *terms;
+  ef_skolem_t skolem;
+
+  terms = ef->terms;
+
+  domt = (type_t *) safe_malloc(n * sizeof(type_t));
+  for (i=0; i<n; i++) {
+    domt[i] = term_type(terms, uvars[i]);
   }
+  rt = term_type(terms, x);
+
+  type_t funct = yices_function_type(n, domt, rt);
+  skolem.func = yices_new_uninterpreted_term(funct);
+
+  const char *prefix = "skolem_";
+  const char *suffix = yices_get_term_name(x);
+
+  char *name = (char *) safe_malloc(strlen(prefix) + strlen(suffix) + 1);
+  strcpy(name, prefix);
+  strcat(name, suffix);
+
+  yices_set_term_name(skolem.func, name);
+  safe_free(name);
+
+  skolem.fapp = yices_application(skolem.func, n, uvars);
+
+#if TRACE
+  printf("Skolemization: %s --> %s", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
+#endif
+  return skolem;
+}
+
+
+
+/*
+ * Skolemize existentials in an analyzer
+ */
+static term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t t) {
+  uint32_t i, m, n;
+  ivector_t uvars;
+  int_hmap_pair_t *r;
+  term_t p;
+  composite_term_t *d;
+  term_table_t *terms;
+  term_t *a;
+  term_t body;
+
+    terms = ef->terms;
+    init_ivector(&uvars, 10);
+
+    /* the existential case
+     * t is (NOT (FORALL x_0 ... x_k : body)
+     * body is the last argument in the term descriptor
+     */
+    d = forall_term_desc(terms, t);
+    n = d->arity - 1;
+    assert(n >= 1);
+    a = d->arg;
+    body = opposite_term(d->arg[n]);
+
+  if (!toplevel) {
+    r = int_hmap_find(parent, t);
+    while(r != NULL) {
+      p = r->val;
+      if (term_kind(terms, p) == FORALL_TERM) {
+        if (is_pos_term(p)) {
+          d = forall_term_desc(terms, p);
+          m = d->arity;
+          assert(m >= 2);
+          for (i=0; i<m-1; i++) {
+            ivector_push(&uvars, d->arg[i]);
+          }
+        }
+      }
+      r = int_hmap_find(parent, p);
+    }
+  }
+
+  if (uvars.size == 0) {
+    for(i = 0; i < n; i++){
+      r = int_hmap_find(&ef->existentials, a[i]);
+      assert(r == NULL);
+      int_hmap_add(&ef->existentials, a[i], a[i]);
+    }
+  }
+  else {
+    term_subst_t subst;
+    term_t *skolems;
+    ef_skolem_t sk;
+
+    skolems = (term_t *) safe_malloc(n * sizeof(term_t));
+
+    for(i = 0; i < n; i++){
+      r = int_hmap_find(&ef->existentials, a[i]);
+      assert(r == NULL);
+
+      sk = ef_skolemize(ef, a[i], uvars.size, uvars.data);
+      skolems[i] = sk.fapp;
+      int_hmap_add(&ef->existentials, a[i], sk.func);
+    }
+
+    init_term_subst(&subst, ef->manager, n, a, skolems);
+    body = apply_term_subst(&subst, body);
+    delete_term_subst(&subst);
+
+    safe_free(skolems);
+  }
+
+  delete_ivector(&uvars);
+  return body;
 }
 
 /*
@@ -188,6 +303,23 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
   if (int_hset_add(&ef->cache, t)) {
     int_queue_push(&ef->queue, t);
   }
+}
+
+
+/*
+ * Add parent mapping [ c -> p ]
+ *
+ */
+static void ef_add_parent(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t c, term_t p) {
+  int_hmap_pair_t *r;
+
+  if (!toplevel) {
+    r = int_hmap_get(parent, c);
+    assert(r->val < 0);
+    r->val = p;
+  }
+
+  ef_push_term(ef, c);
 }
 
 
@@ -228,7 +360,7 @@ static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
  *
  * - the rewriting is applied to the first a[j] that's a conjunct.
  */
-static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
+static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, bool toplevel, int_hmap_t *parent, term_t p) {
   term_table_t *terms;
   composite_term_t *b;
   ivector_t *v;
@@ -272,11 +404,11 @@ static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d) {
     ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
     for (i=0; i<n; i++) {
       if (i != j) {
-	ivector_push(v, d->arg[i]); // a[i] for i/=j
+        ivector_push(v, d->arg[i]); // a[i] for i/=j
       }
     }
     t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
-    ef_push_term(ef, t);
+    ef_add_parent(ef, toplevel, parent, t, p);
   }
 }
 
@@ -292,14 +424,25 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
   term_table_t *terms;
   int_queue_t *queue;
   composite_term_t *d;
-  term_t t, u, v;
+  term_t t, u, v, w;
   uint32_t i, n;
+  int_hmap_t parent_map;
+  int_hmap_t *parent;
 
   queue = &ef->queue;
   terms = ef->terms;
+  parent = &parent_map;
+  init_int_hmap(parent, 0);
+
+#if TRACE
+    printf("toplevel %d\n", toplevel);
+#endif
 
   while (! int_queue_is_empty(queue)) {
     t = int_queue_pop(queue);
+#if TRACE
+    printf("term: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
 
     switch (term_kind(terms, t)) {
     case ITE_TERM:
@@ -307,26 +450,27 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
       d = ite_term_desc(terms, t);
       assert(d->arity == 3);
       if (f_ite && is_boolean_term(terms, d->arg[1])) {
-	assert(is_boolean_term(terms, d->arg[2]));
-	/*
-	 * If t is (ite C A B)
-	 *    u := (C => A)
-	 *    v := (not C => B)
-	 * Otherwise, t is (not (ite C A B))
-	 *    u := (C => not A)
-	 *    v := (not C => not B)
-	 */
-	u = d->arg[1];  // A
-	v = d->arg[2];  // B
-	if (is_neg_term(t)) {
-	  u = opposite_term(u);
-	  v = opposite_term(v);
-	}
-	u = mk_implies(ef->manager, d->arg[0], u); // (C => u)
-	v = mk_implies(ef->manager, opposite_term(d->arg[0]), v); // (not C) => v
-	ef_push_term(ef, u);
-	ef_push_term(ef, v);
-	continue;
+        assert(is_boolean_term(terms, d->arg[2]));
+        /*
+         * If t is (ite C A B)
+         *    u := (C => A)
+         *    v := (not C => B)
+         * Otherwise, t is (not (ite C A B))
+         *    u := (C => not A)
+         *    v := (not C => not B)
+         */
+        u = d->arg[1];  // A
+        v = d->arg[2];  // B
+        if (is_neg_term(t)) {
+          u = opposite_term(u);
+          v = opposite_term(v);
+        }
+        u = mk_implies(ef->manager, d->arg[0], u); // (C => u)
+        v = mk_implies(ef->manager, opposite_term(d->arg[0]), v); // (not C) => v
+
+        ef_add_parent(ef, toplevel, parent, u, t);
+        ef_add_parent(ef, toplevel, parent, v, t);
+        continue;
       }
       break;
 
@@ -334,74 +478,77 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
       d = eq_term_desc(terms, t);
       assert(d->arity == 2);
       if (f_iff && is_boolean_term(terms, d->arg[0])) {
-	assert(is_boolean_term(terms, d->arg[1]));
-	/*
-	 * t is either (iff A B) or (not (iff A B)):
-	 */
-	u = d->arg[0]; // A
-	v = d->arg[1]; // B
-	if (is_neg_term(t)) {
-	  u = opposite_term(u);
-	}
-	// flatten to (u => v) and (v => u)
-	t = mk_implies(ef->manager, u, v); // (u => v)
-	u = mk_implies(ef->manager, v, u); // (v => u);
-	ef_push_term(ef, t);
-	ef_push_term(ef, u);
-	continue;
+        assert(is_boolean_term(terms, d->arg[1]));
+        /*
+         * t is either (iff A B) or (not (iff A B)):
+         */
+        u = d->arg[0]; // A
+        v = d->arg[1]; // B
+        if (is_neg_term(t)) {
+          u = opposite_term(u);
+        }
+        // flatten to (u => v) and (v => u)
+        w = mk_implies(ef->manager, u, v); // (u => v)
+        u = mk_implies(ef->manager, v, u); // (v => u);
+
+        ef_add_parent(ef, toplevel, parent, w, t);
+        ef_add_parent(ef, toplevel, parent, u, t);
+        continue;
       }
       break;
 
     case OR_TERM:
       d = or_term_desc(terms, t);
       if (is_neg_term(t)) {
-	/*
-	 * t is (not (or a[0] ... a[n-1]))
-	 * it flattens to (and (not a[0]) ... (not a[n-1]))
-	 */
-	n = d->arity;
-	for (i=0; i<n; i++) {
-	  ef_push_term(ef, opposite_term(d->arg[i]));
-	}
-	continue;
+        /*
+         * t is (not (or a[0] ... a[n-1]))
+         * it flattens to (and (not a[0]) ... (not a[n-1]))
+         */
+        n = d->arity;
+        for (i=0; i<n; i++) {
+          u = opposite_term(d->arg[i]);
+          ef_add_parent(ef, toplevel, parent, u, t);
+        }
+        continue;
       } else if (ef_distribute_is_cheap(ef, d)) {
-	ef_flatten_distribute(ef, d);
-	continue;
+        ef_flatten_distribute(ef, d, toplevel, parent, t);
+        continue;
       }
       break;
 
     case FORALL_TERM:
       if (is_pos_term(t)) {
-	//if we are on the first pass we defer foralls
-	if (toplevel){
-	  ivector_push(&ef->foralls, t);
-	  continue;
-	} 
-	d = forall_term_desc(terms, t);
-	n = d->arity;
-	assert(n >= 2);
-	/*
-	 * t is (FORALL x_0 ... x_k : body)
-	 * body is the last argument in the term descriptor
-	 */
-	ef_push_term(ef, d->arg[n-1]);
-	continue;
+        //if we are on the first pass we defer foralls
+        if (toplevel){
+          ivector_push(&ef->foralls, t);
+          continue;
+        }
+        d = forall_term_desc(terms, t);
+        n = d->arity;
+        assert(n >= 2);
+        /*
+         * t is (FORALL x_0 ... x_k : body)
+         * body is the last argument in the term descriptor
+         */
+        u = d->arg[n-1];
+        ef_add_parent(ef, toplevel, parent, u, t);
+        continue;
       } else {
-	//if we are not on the first pass we punt on exists
-	if ( ! toplevel){
-	  break;
-	}
-	d = forall_term_desc(terms, t);
-	n = d->arity;
-	assert(n >= 2);
-	/* the existential case 
-	 * t is (NOT (FORALL x_0 ... x_k : body)
-	 * body is the last argument in the term descriptor
-	 */
-	ef_analyzer_add_existentials(ef, d->arg, n-1);
-	ef_push_term(ef, opposite_term(d->arg[n-1]));
-	continue;
-      } 
+//        //if we are not on the first pass we punt on exists
+//        if ( ! toplevel){
+//          break;
+//        }
+        d = forall_term_desc(terms, t);
+        n = d->arity;
+        assert(n >= 2);
+        /* the existential case
+         * t is (NOT (FORALL x_0 ... x_k : body)
+         * body is the last argument in the term descriptor
+         */
+        u = ef_analyzer_add_existentials(ef, toplevel, parent, t);
+        ef_add_parent(ef, toplevel, parent, u, t);
+        continue;
+      }
       
     default:
       break;
@@ -409,7 +556,13 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
 
     // t was not flattened: add it to resu
     ivector_push(resu, t);
+
+#if TRACE
+    printf("pushing: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
   }
+
+  delete_int_hmap(parent);
 
   // clean up the cache
   assert(int_queue_is_empty(queue));
@@ -676,6 +829,7 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
 static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   term_table_t *terms;
   int_queue_t *queue;
+  int_hmap_pair_t *r;
 
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
@@ -699,11 +853,12 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       break;
 
     case VARIABLE:
-      if(int_hset_member(&ef->existentials, t)){
-	  ivector_push(evar, t);
-	} else {
-	  ivector_push(uvar, t);
-	}
+      r = int_hmap_find(&ef->existentials, t);
+      if (r != NULL) {
+        ivector_push(evar, r->val);
+      } else {
+        ivector_push(uvar, t);
+      }
       break;
 
     case UNINTERPRETED_TERM:
@@ -1190,7 +1345,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
     // simplify the clause: attempt to eliminate some universal variables.
-#if 0
+#if TRACE
     printf("\nINITIAL CLAUSE\n\n");
     print_ef_clause(stdout, c);
 #endif

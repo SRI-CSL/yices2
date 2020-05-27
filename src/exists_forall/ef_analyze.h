@@ -103,7 +103,7 @@ typedef struct ef_analyzer_s {
   ivector_t flat;
   ivector_t disjuncts;
   ivector_t foralls;
-  int_hset_t existentials;
+  int_hmap_t existentials;
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;

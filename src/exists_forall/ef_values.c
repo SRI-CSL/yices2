@@ -91,6 +91,48 @@ void delete_ef_value_table(ef_value_table_t *vtable) {
 
 
 /*
+ * Reset the value table and all ivector objects
+ */
+void reset_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms) {
+  ptr_hmap_pair_t *p;
+  ptr_hmap_t *map;
+
+  map = &vtable->map;
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    ivector_t* list_vector = p->val;
+    if (list_vector != NULL) {
+      delete_ivector(list_vector);
+      safe_free(list_vector);
+    }
+  }
+  ptr_hmap_reset(map);
+
+  map = &vtable->type_map;
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    ivector_t* list_vector = p->val;
+    if (list_vector != NULL) {
+      delete_ivector(list_vector);
+      safe_free(list_vector);
+    }
+  }
+  ptr_hmap_reset(map);
+
+  int_hmap_reset(&vtable->val_map);
+
+  vtable->vtbl = vtbl;
+  vtable->mgr = mgr;
+  vtable->terms = terms;
+
+  delete_val_converter(&vtable->convert);
+  init_val_converter(&vtable->convert, vtbl, mgr, terms);
+}
+
+
+/*
  * Print the value table and all ivector objects
  */
 void print_ef_value_table(FILE *f, ef_value_table_t *vtable) {

@@ -58,6 +58,12 @@ extern void delete_ef_value_table(ef_value_table_t *vtable);
 
 
 /*
+ * Reset the value table and all ivector objects
+ */
+extern void reset_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
+
+
+/*
  * Print the value table
  */
 extern void print_ef_value_table(FILE *f, ef_value_table_t *vtable);

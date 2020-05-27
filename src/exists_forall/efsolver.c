@@ -43,7 +43,7 @@
 #include "model/model_queries.h"
 
 #define EF_VERBOSE 0
-
+#define TRACE 0
 
 /*
  * PRINT STUFF
@@ -124,8 +124,11 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
     x = solver->uvalue_aux.data[j];
     // replace x by representative
     solver->uvalue_aux.data[j] = get_value_rep(vtable, x);
-    fprintf(stdout, "replaced %s := ", yices_get_term_name(cnstr->uvars[j]));
-    yices_pp_term(stdout, solver->uvalue_aux.data[j], 100, 1, 10);
+#if EF_VERBOSE
+      printf("Instance %s := %s [from %s]\n", yices_get_term_name(cnstr->uvars[j]),
+          yices_term_to_string(solver->uvalue_aux.data[j], 120, 1, 0),
+          yices_term_to_string(x, 120, 1, 0));
+#endif
   }
 }
 
@@ -177,6 +180,8 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   init_ivector(&solver->all_values, 64);
 
   solver->trace = NULL;
+
+  init_ef_value_table(&solver->value_table, NULL, __yices_globals.manager, __yices_globals.terms);
 }
 
 
@@ -380,7 +385,7 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, te
   assertions[1] = b;
   assertions[2] = opposite_term(c);
 
-#if EF_VERBOSE
+#if TRACE
   printf("Forall Context Constraint:\n");
   yices_pp_term_array(stdout, 3, assertions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -500,8 +505,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
       // build the ef value table
 
       // first, reset ef table
-      delete_ef_value_table(&solver->value_table);
-      init_ef_value_table(&solver->value_table, model_get_vtbl(mdl), __yices_globals.manager, __yices_globals.terms);
+      reset_ef_value_table(&solver->value_table, model_get_vtbl(mdl), __yices_globals.manager, __yices_globals.terms);
 
       // second, fill in all evars
       n = ef_prob_num_evars(solver->prob);
@@ -534,7 +538,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
         }
       }
 
-#if EF_VERBOSE
+#if TRACE
       // FOR DEBUGGING
       print_ef_value_table(stdout, &solver->value_table);
 #endif
@@ -974,7 +978,7 @@ static term_t ef_generalize2(ef_prob_t *prob, term_t cex_cnstr, uint32_t i, term
   n = ef_constraint_num_uvars(cnstr);
   g = yices_implies(cex_cnstr, cnstr->guarantee);
   g = ef_substitution(prob, cnstr->uvars, value, n, g);
-#if 1
+#if TRACE
   printf("\nGENERALIZE 2: instantiating\n");
   yices_pp_term(stdout, cnstr->guarantee, 120, UINT32_MAX, 0);
 #endif
@@ -1153,9 +1157,8 @@ static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
     }
     break;
   }
-#if 0
-  printf("\nLEARNT CLAUSE\n");
-  yices_pp_term(stdout, new_constraint, 120, UINT32_MAX, 0);
+#if EF_VERBOSE
+  printf("Learning: %s\n\n", yices_term_to_string(new_constraint, 120, 1, 0));
 #endif
 
   // add the new constraint to the exists context
@@ -1235,8 +1238,9 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 
   i = solver->scan_idx;
   domain_cnstr = constraint_distinct(&solver->value_table);
-  printf("domain_cnstr: ");
-  yices_pp_term(stdout, domain_cnstr, 100, 1, 10);
+#if TRACE
+  printf("domain_cnstr: %s\n", yices_term_to_string(domain_cnstr, 120, 1, 0));
+#endif
 
   do {
     trace_printf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
@@ -1247,7 +1251,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
 
-#if EF_VERBOSE
+#if TRACE
       printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
@@ -1258,11 +1262,12 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
 
       m = ef_constraint_num_uvars(solver->prob->cnstr + i);
       cex_cnstr = constraint_distinct_filter(&solver->value_table, m, solver->uvalue_aux.data);
-      printf("cex_cnstr: ");
-      yices_pp_term(stdout, cex_cnstr, 100, 1, 10);
+#if TRACE
+      printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
+#endif
 
 
-#if EF_VERBOSE
+#if TRACE
       printf("New counterexample for constraint[%"PRIu32"]\n", i);
       print_forall_witness(stdout, solver, i);
       printf("\n");
@@ -1329,7 +1334,7 @@ static void ef_solver_search(ef_solver_t *solver) {
 	       ef_prob_num_constraints(solver->prob),
 	       ef_prob_num_evars(solver->prob),
 	       ef_prob_num_uvars(solver->prob));
-#if EF_VERBOSE
+#if TRACE
   printf("\nConditions on the exists variables:\n");
   yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -1346,7 +1351,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       // we have a candidate exists model
       // check it and learn what we can
 
-#if EF_VERBOSE
+#if TRACE
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
       print_ef_solution(stdout, solver);
