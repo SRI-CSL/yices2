@@ -47,6 +47,8 @@ void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr,
   vtable->terms = terms;
 
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
+  init_int_hmap(&vtable->priority, 0);
+  init_int_hmap(&vtable->var_rep, 0);
 }
 
 
@@ -88,6 +90,8 @@ void delete_ef_table(ef_table_t *vtable) {
   vtable->terms = NULL;
 
   delete_val_converter(&vtable->convert);
+  delete_int_hmap(&vtable->priority);
+  delete_int_hmap(&vtable->var_rep);
 }
 
 
@@ -130,6 +134,8 @@ void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr
 
   delete_val_converter(&vtable->convert);
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
+  int_hmap_reset(&vtable->priority);
+  int_hmap_reset(&vtable->var_rep);
 }
 
 
@@ -160,8 +166,15 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
     pp_value(f, vtable->vtbl, ip->key);
-    fprintf(f, " -> ");
-    yices_pp_term(f, ip->val, 100, 1, 10);
+    fprintf(f, " -> %s\n", yices_term_to_string(ip->val, 120, 1, 0));
+  }
+
+  fprintf(f, "\n== EF PRIORITY ==\n");
+  imap = &vtable->priority;
+  for (ip = int_hmap_first_record(imap);
+       ip != NULL;
+       ip = int_hmap_next_record(imap, ip)) {
+    fprintf(f, "%s -> %d\n", yices_term_to_string(ip->key, 120, 1, 0), ip->val);
   }
 
   fprintf(f, "\n== EF VALUE TERMS ==\n");
@@ -170,11 +183,61 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     v = p->val;
-    yices_pp_term(f, p->key, 100, 1, 10);
-    fprintf(f, " -> ");
+    fprintf(f, "%s -> ", yices_term_to_string(p->key, 120, 1, 0));
     yices_pp_term_array(f, v->size, v->data, 120, UINT32_MAX, 0, 1);
   }
   fprintf(f, "\n");
+}
+
+
+/*
+ * Add / update var priority
+ */
+static void store_term_priority(ef_table_t *vtable, term_t var, uint32_t priority) {
+  int_hmap_pair_t *p;
+
+  p = int_hmap_get(&vtable->priority, var);
+  p->val = priority;
+}
+
+
+/*
+ * Add / update tvalue representative
+ */
+static void store_rep(ef_table_t *vtable, term_t tvalue, term_t var) {
+  int_hmap_pair_t *p;
+
+  p = int_hmap_get(&vtable->var_rep, tvalue);
+  p->val = var;
+}
+
+/*
+ * Calculate var priority
+ */
+static uint32_t calculate_priority(ef_table_t *vtable, term_t xc) {
+  composite_term_t *app;
+  term_t f;
+  int_hmap_pair_t *p;
+  uint32_t i, m, result;
+
+
+  assert(term_kind(vtable->terms, xc) == APP_TERM);
+
+  app = app_term_desc(vtable->terms, xc);
+  m = app->arity - 1;
+  result = 1;
+
+  for(i=1; i<=m; i++) {
+    f = app->arg[i];
+
+    p = int_hmap_find(&vtable->priority, f);
+    if (p == NULL) {
+      return 0;
+    }
+    result += p->val;
+  }
+
+  return result;
 }
 
 
@@ -239,7 +302,13 @@ static void store_term_value(ef_table_t *vtable, term_t var, value_t value) {
     m = ptr_hmap_get(&vtable->map, tvalue);
     assert (m->val != NULL);
   }
+
   ivector_push(m->val, var);
+  if (term_is_atomic(vtable->terms, var)) {
+    store_term_priority(vtable, var, 0);
+    store_term_priority(vtable, tvalue, 0);
+    store_rep(vtable, tvalue, var);
+  }
 }
 
 
@@ -280,6 +349,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   if (!is_unknown(table, fun->def)) {
     valuei = fun->def;
     // TODO
+    printf("warning: need to handle default values in function interpretations\n");
   }
 
   if (n != 0) {
@@ -308,20 +378,82 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
 /*
  * Fill the value table
  */
-void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t n) {
+void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k) {
   uint32_t i;
   value_kind_t kind;
 
   // first pass: process top-level terms
-  for (i=0; i<n; i++) {
+  for (i=0; i<k; i++) {
     store_term_value(vtable, vars[i], values[i]);
   }
 
   // second pass: process function values
-  for (i=0; i<n; i++) {
+  for (i=0; i<k; i++) {
     kind = object_kind(vtable->vtbl, values[i]);
     if (kind == FUNCTION_VALUE)
       store_func_values(vtable, vars[i], values[i]);
+  }
+
+  // third pass: process function instances
+  uint32_t j, n, m, prio, best_prio;
+  int_queue_t queue;
+  ptr_hmap_pair_t *p;
+  ptr_hmap_t *map;
+  int_hmap_t *var_rep;
+  term_t tvalue, x, best_x;
+  ivector_t *v;
+
+  map = &vtable->map;
+  var_rep = &vtable->var_rep;
+  m = map->size;
+
+  init_int_queue(&queue, m);
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    if (int_hmap_find(var_rep, p->key) == NULL) {
+      int_queue_push(&queue, p->key);
+    }
+  }
+  m = queue.size;
+  j = 0;
+  while(!int_queue_is_empty(&queue)) {
+    tvalue = int_queue_pop(&queue);
+    p = ptr_hmap_find(map, tvalue);
+    assert(p != NULL);
+    v = p->val;
+    n = v->size;
+
+    best_prio = UINT32_MAX;
+    best_x = NULL_TERM;
+    assert(n != 0);
+
+    for(i=0; i<n; i++) {
+      x = v->data[i];
+      prio = calculate_priority(vtable, x);
+      if (prio > 0) {
+        store_term_priority(vtable, x, prio);
+        if (prio < best_prio) {
+          best_prio = prio;
+          best_x = x;
+        }
+      }
+    }
+    if (best_x != NULL_TERM) {
+      store_term_priority(vtable, tvalue, best_prio);
+      store_rep(vtable, tvalue, best_x);
+      m--;
+      j = 0;
+    }
+    else {
+      j++;
+      int_queue_push(&queue, tvalue);
+    }
+    if (j >= m) {
+      printf("Unable to clear dependency for %s\n", yices_term_to_string(tvalue, 120, 1, 0));
+      print_ef_table(stdout, vtable);
+      assert(0);
+    }
   }
 }
 
@@ -397,23 +529,41 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
     return value;
   }
   else {
+    term_t x, best_x;
+    int_hmap_pair_t *p;
     uint32_t i, n, m;
     ivector_t *v;
-    term_t x;
-    term_t xc;
+    uint32_t best_prio;
 
-    v = r->val;
-    n = v->size;
-    assert(n != 0);
+    p = int_hmap_find(&vtable->var_rep, value);
+    if (p != NULL) {
+      best_x = p->val;
+    }
+    else {
+      v = r->val;
+      n = v->size;
+      best_prio = UINT32_MAX;
+      best_x = NULL_TERM;
+      assert(n != 0);
 
-    for(i=0; i<n; i++) {
-      x = v->data[i];
-      if (term_is_composite(vtable->terms, x)) {
-        xc = x;
+      for(i=0; i<n; i++) {
+        x = v->data[i];
+        p = int_hmap_find(&vtable->priority, x);
+        if (p != NULL) {
+          if (p->val < best_prio) {
+            best_prio = p->val;
+            best_x = x;
+          }
+        }
+        if (best_x == NULL_TERM)
+          best_x = x;
       }
-      else {
-        return x;
-      }
+      store_rep(vtable, value, best_x);
+      assert(0);
+    }
+
+    if (!term_is_composite(vtable->terms, best_x)) {
+      return best_x;
     }
 
     // function value
@@ -425,9 +575,9 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
     term_t f, frep;
     bool present;
 
-    assert(term_kind(vtable->terms, xc) == APP_TERM);
+    assert(term_kind(vtable->terms, best_x) == APP_TERM);
 
-    app = app_term_desc(vtable->terms, xc);
+    app = app_term_desc(vtable->terms, best_x);
     m = app->arity - 1;
 
     init_ivector(&args, m);
@@ -449,7 +599,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
       }
     }
 
-    xcrep = term_substitution(vtable, args.data, argsrep.data, args.size, xc);
+    xcrep = term_substitution(vtable, args.data, argsrep.data, args.size, best_x);
 
     delete_ivector(&args);
     delete_ivector(&argsrep);

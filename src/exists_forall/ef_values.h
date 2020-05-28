@@ -42,6 +42,8 @@ typedef struct ef_table_s {
   term_table_t *terms;
 
   val_converter_t convert;
+  int_hmap_t priority;
+  int_hmap_t var_rep;
 } ef_table_t;
 
 
