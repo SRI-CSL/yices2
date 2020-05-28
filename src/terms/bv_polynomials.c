@@ -180,6 +180,35 @@ bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {
 
 
 /*
+ * Check whethere (p1 - p2) is a constant
+ */
+bool delta_bvpoly_is_constant(bvpoly_t *p1, bvpoly_t *p2) {
+  bvmono_t *b1, *b2;
+  uint32_t k;
+
+  assert(p1->bitsize == p2->bitsize);
+
+  k = p1->width;
+  b1 = p1->mono;
+  b2 = p2->mono;
+
+  // skip the constant terms
+  if (b1->var == const_idx) b1 ++;
+  if (b2->var == const_idx) b2 ++;
+
+  // check that the remaining terms are equal
+  while (b1->var == b2->var) {
+    if (b1->var == max_idx) return true;
+    if (bvconst_neq(b1->coeff, b2->coeff, k)) return false;
+    b1 ++;
+    b2 ++;
+  }
+
+  return false;
+}
+
+
+/*
  * Check whether p is equal to k + x for a non-zero constant k and a variable x
  * - p must be normalized
  */
@@ -188,3 +217,11 @@ bool bvpoly_is_const_plus_var(bvpoly_t *p, int32_t x) {
     bvconst_is_one(p->mono[1].coeff, p->width);
 }
 
+
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant k
+ * and variable x.
+ */
+bool bvpoly_is_offset(bvpoly_t *p) {
+  return p->nterms == 2 && p->mono[0].var == const_idx && bvconst_is_one(p->mono[1].coeff, p->width);
+}

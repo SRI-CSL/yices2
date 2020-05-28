@@ -133,11 +133,23 @@ extern bool disequal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2);
 
 
 /*
+ * Check whether (p1 - p2) is a constant (i.e., p1 and p2 have the same
+ * monomials but may have a distinct constant).
+ */
+extern bool delta_bvpoly64_is_constant(bvpoly64_t *p1, bvpoly64_t *p2);
+
+
+/*
  * Check whether p is equal to k + x for a non-zero constant k and a variable x
  */
 extern bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x);
 
 
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant k
+ * and variable x.
+ */
+extern bool bvpoly64_is_offset(bvpoly64_t *p);
 
 
 #endif /* __BV64_POLYNOMIALS_H */

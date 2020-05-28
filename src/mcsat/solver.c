@@ -1326,7 +1326,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
  * is encountered.
  */
 static
-bool mcsat_propagate(mcsat_solver_t* mcsat) {
+bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
 
   uint32_t plugin_i;
   plugin_t* plugin;
@@ -1339,7 +1339,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
     // Propagate with all the plugins in turn
     for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagting with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
       // Make the token
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
@@ -1350,6 +1350,25 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
       }
       if (prop_token.used > 0) {
         someone_propagated = true;
+      }
+    }
+    // If at base level, plugins can do some more expensive learning/propagation
+    if (run_learning && !someone_propagated && trail_is_at_base_level(mcsat->trail)) {
+      // Propagate with all the plugins in turn
+      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
+          mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): learning with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        }
+        // Make the token
+        trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
+        // Propagate
+        plugin = mcsat->plugins[plugin_i].plugin;
+        if (plugin->learn) {
+          plugin->learn(plugin, (trail_token_t*) &prop_token);
+        }
+        if (prop_token.used > 0) {
+          someone_propagated = true;
+        }
       }
     }
   } while (someone_propagated && trail_is_consistent(mcsat->trail));
@@ -1412,7 +1431,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   }
 
   // Do propagation
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
 }
 
 /**
@@ -1422,7 +1441,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 static
 bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t bound) {
 
-  uint32_t i;
+  uint32_t i, unassigned_count;
   term_t literal;
   term_t literal_pos;
   variable_t literal_var;
@@ -1431,7 +1450,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
   term_t to_decide_atom = NULL_TERM;
   variable_t to_decide_var = variable_null;
 
-  for (i = 0; i < literals->size; ++ i) {
+  for (i = 0, unassigned_count = 0; i < literals->size; ++ i) {
 
     literal = literals->data[i];
     literal_pos = unsigned_term(literal);
@@ -1446,6 +1465,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
 
     // Can be decided?
     if (!trail_has_value(mcsat->trail, literal_var)) {
+      unassigned_count ++;
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
         mcsat_trace_printf(mcsat->ctx->trace, "unassigned!\n");
       }
@@ -1472,6 +1492,10 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
     trail_add_decision(mcsat->trail, to_decide_var, value, MCSAT_MAX_PLUGINS);
     return true;
   } else {
+    if (unassigned_count > 0) {
+      // Couldn't find a bound decision, do arbitrary
+      return mcsat_decide_one_of(mcsat, literals, NULL_TERM);
+    }
     return false;
   }
 }
@@ -1574,7 +1598,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   }
 
   // Propagate any
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
   bool propagated = old_trail_size < mcsat->trail->elements.size;
 
   // Decide a literal if necessary. At this point, if it was UIP they are all
@@ -1922,7 +1946,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       // [backjump-decide]
       assignment_type_t top_var_type = trail_get_assignment_type(mcsat->trail, top_var);
       if (top_var_type == DECISION) {
-        assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
+        // assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
         decision_bound = variable_db_get_term(mcsat->var_db, top_var);
         break;
       }
@@ -2385,6 +2409,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // Whether to run learning
+  bool learning = true;
+
   while (!mcsat->stop_search) {
 
     // Do we restart
@@ -2398,7 +2425,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_process_requests(mcsat);
 
     // Do propagation
-    mcsat_propagate(mcsat);
+    mcsat_propagate(mcsat, learning);
+    learning = false;
 
     // If inconsistent, analyze the conflict
     if (!trail_is_consistent(mcsat->trail)) {
