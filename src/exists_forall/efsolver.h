@@ -235,7 +235,7 @@ typedef struct ef_solver_s {
   tracer_t *trace;
 
   // Support for mbqi
-  ef_value_table_t value_table;
+  ef_table_t value_table;
 } ef_solver_t;
 
 

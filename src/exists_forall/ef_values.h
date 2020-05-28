@@ -33,7 +33,7 @@
  * Term value table object:
  * - map = hash_map from term values to term vector
  */
-typedef struct ef_value_table_s {
+typedef struct ef_table_s {
   ptr_hmap_t map;
   ptr_hmap_t type_map;
   int_hmap_t val_map;
@@ -42,61 +42,61 @@ typedef struct ef_value_table_s {
   term_table_t *terms;
 
   val_converter_t convert;
-} ef_value_table_t;
+} ef_table_t;
 
 
 /*
  * Initialize the value table
  */
-extern void init_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
+extern void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
 
 
 /*
  * Delete the value table
  */
-extern void delete_ef_value_table(ef_value_table_t *vtable);
+extern void delete_ef_table(ef_table_t *vtable);
 
 
 /*
  * Reset the value table and all ivector objects
  */
-extern void reset_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
+extern void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
 
 
 /*
  * Print the value table
  */
-extern void print_ef_value_table(FILE *f, ef_value_table_t *vtable);
+extern void print_ef_table(FILE *f, ef_table_t *vtable);
 
 
 /*
  * Fill the value table
  */
-extern void fill_ef_value_table(ef_value_table_t *vtable, term_t *vars, value_t *values, uint32_t n);
+extern void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t n);
 
 /*
  * Add entry to type map
  */
-extern void store_type_value(ef_value_table_t *vtable, value_t value, term_t tvalue, bool check);
+extern void store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, bool check);
 
 
 /*
  * Get value representative
  */
-extern term_t ef_get_value(ef_value_table_t *vtable, term_t value);
+extern term_t ef_get_value(ef_table_t *vtable, term_t value);
 
 
 /*
  * Set values from the value table
  */
-extern void set_values_from_value_table(ef_value_table_t *vtable, term_t *vars, term_t *values, uint32_t n);
+extern void ef_set_values_from_table(ef_table_t *vtable, term_t *vars, term_t *values, uint32_t n);
 
 
-extern term_t constraint_distinct(ef_value_table_t *vtable);
+extern term_t constraint_distinct(ef_table_t *vtable);
 
-extern term_t constraint_distinct_filter(ef_value_table_t *vtable, uint32_t n, term_t *vars);
+extern term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars);
 
-extern term_t constraint_scalar(ef_value_table_t *vtable, uint32_t n, term_t *t);
+extern term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t);
 
 
 

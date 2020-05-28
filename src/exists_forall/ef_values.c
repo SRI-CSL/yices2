@@ -38,7 +38,7 @@
 /*
  * Initialize the value table
  */
-void init_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms) {
+void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms) {
   init_ptr_hmap(&vtable->map, 0);
   init_ptr_hmap(&vtable->type_map, 0);
   init_int_hmap(&vtable->val_map, 0);
@@ -53,7 +53,7 @@ void init_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_man
 /*
  * Delete the value table and all ivector objects
  */
-void delete_ef_value_table(ef_value_table_t *vtable) {
+void delete_ef_table(ef_table_t *vtable) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
 
@@ -94,7 +94,7 @@ void delete_ef_value_table(ef_value_table_t *vtable) {
 /*
  * Reset the value table and all ivector objects
  */
-void reset_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms) {
+void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
 
@@ -136,7 +136,7 @@ void reset_ef_value_table(ef_value_table_t *vtable, value_table_t *vtbl, term_ma
 /*
  * Print the value table and all ivector objects
  */
-void print_ef_value_table(FILE *f, ef_value_table_t *vtable) {
+void print_ef_table(FILE *f, ef_table_t *vtable) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
   int_hmap_t *imap;
@@ -181,7 +181,7 @@ void print_ef_value_table(FILE *f, ef_value_table_t *vtable) {
 /*
  * Store mapping type to value
  */
-void store_type_value(ef_value_table_t *vtable, value_t value, term_t tvalue, bool check) {
+void store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, bool check) {
   ptr_hmap_pair_t *r;
   value_kind_t kind;
   type_t tau;
@@ -217,7 +217,7 @@ void store_type_value(ef_value_table_t *vtable, value_t value, term_t tvalue, bo
 /*
  * Store mapping value to var
  */
-static void store_term_value(ef_value_table_t *vtable, term_t var, value_t value) {
+static void store_term_value(ef_table_t *vtable, term_t var, value_t value) {
   int_hmap_pair_t *vm;
   ptr_hmap_pair_t *m;
   term_t tvalue;
@@ -246,7 +246,7 @@ static void store_term_value(ef_value_table_t *vtable, term_t var, value_t value
 /*
  * Store function mapping values to var
  */
-static void store_func_values(ef_value_table_t *vtable, term_t func, value_t c) {
+static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   val_converter_t *convert;
   value_table_t *table;
   term_table_t *terms;
@@ -308,7 +308,7 @@ static void store_func_values(ef_value_table_t *vtable, term_t func, value_t c) 
 /*
  * Fill the value table
  */
-void fill_ef_value_table(ef_value_table_t *vtable, term_t *vars, value_t *values, uint32_t n) {
+void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t n) {
   uint32_t i;
   value_kind_t kind;
 
@@ -353,7 +353,7 @@ static bool term_is_var(term_table_t *terms, term_t t) {
  * - return code < 0 means that an error occurred during the substitution
  *   (cf. apply_term_subst in term_substitution.h).
  */
-static term_t term_substitution(ef_value_table_t *vtable, term_t *var, term_t *value, uint32_t n, term_t t) {
+static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, uint32_t n, term_t t) {
   term_subst_t subst;
   term_t g;
   int_hmap_pair_t *p;
@@ -387,7 +387,7 @@ static term_t term_substitution(ef_value_table_t *vtable, term_t *var, term_t *v
 /*
  * Get value representative helper
  */
-term_t ef_get_value_rep(ef_value_table_t *vtable, term_t value, int_hset_t *requests) {
+term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) {
   ptr_hmap_pair_t *r;
 
   r = ptr_hmap_find(&vtable->map, value);
@@ -462,7 +462,7 @@ term_t ef_get_value_rep(ef_value_table_t *vtable, term_t value, int_hset_t *requ
 /*
  * Get value representative
  */
-term_t ef_get_value(ef_value_table_t *vtable, term_t value) {
+term_t ef_get_value(ef_table_t *vtable, term_t value) {
   int_hset_t value_requests;
   term_t rep;
 
@@ -477,7 +477,7 @@ term_t ef_get_value(ef_value_table_t *vtable, term_t value) {
 /*
  * Set values from the value table
  */
-void set_values_from_value_table(ef_value_table_t *vtable, term_t *vars, term_t *values, uint32_t n) {
+void ef_set_values_from_table(ef_table_t *vtable, term_t *vars, term_t *values, uint32_t n) {
   uint32_t i;
   term_t x;
 
@@ -498,7 +498,7 @@ static term_t constraint_distinct_elements(ivector_t *v) {
     return yices_distinct(v->size, v->data);
 }
 
-term_t constraint_distinct(ef_value_table_t *vtable) {
+term_t constraint_distinct(ef_table_t *vtable) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
   type_t tau;
@@ -520,7 +520,7 @@ term_t constraint_distinct(ef_value_table_t *vtable) {
   return result;
 }
 
-term_t constraint_distinct_filter(ef_value_table_t *vtable, uint32_t n, term_t *vars) {
+term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) {
   ptr_hmap_t map;
   ptr_hmap_pair_t *p;
   uint32_t i;
@@ -568,7 +568,7 @@ term_t constraint_distinct_filter(ef_value_table_t *vtable, uint32_t n, term_t *
   return result;
 }
 
-static term_t constraint_scalar_element(ef_value_table_t *vtable, term_t t) {
+static term_t constraint_scalar_element(ef_table_t *vtable, term_t t) {
   term_t result;
   type_t tau;
   ptr_hmap_pair_t *r;
@@ -596,7 +596,7 @@ static term_t constraint_scalar_element(ef_value_table_t *vtable, term_t t) {
   return result;
 }
 
-term_t constraint_scalar(ef_value_table_t *vtable, uint32_t n, term_t *t) {
+term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t) {
   term_t result;
   uint32_t i;
 

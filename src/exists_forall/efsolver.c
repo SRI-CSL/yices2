@@ -112,7 +112,7 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
   ef_cnstr_t *cnstr;
   uint32_t j, n;
   term_t x;
-  ef_value_table_t *vtable;
+  ef_table_t *vtable;
 
   prob = solver->prob;
   assert(i < ef_prob_num_constraints(prob));
@@ -181,7 +181,7 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
 
   solver->trace = NULL;
 
-  init_ef_value_table(&solver->value_table, NULL, __yices_globals.manager, __yices_globals.terms);
+  init_ef_table(&solver->value_table, NULL, __yices_globals.manager, __yices_globals.terms);
 }
 
 
@@ -221,7 +221,7 @@ void delete_ef_solver(ef_solver_t *solver) {
   delete_ivector(&solver->all_vars);
   delete_ivector(&solver->all_values);
 
-  delete_ef_value_table(&solver->value_table);
+  delete_ef_table(&solver->value_table);
 }
 
 
@@ -505,11 +505,11 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
       // build the ef value table
 
       // first, reset ef table
-      reset_ef_value_table(&solver->value_table, model_get_vtbl(mdl), __yices_globals.manager, __yices_globals.terms);
+      reset_ef_table(&solver->value_table, model_get_vtbl(mdl), __yices_globals.manager, __yices_globals.terms);
 
       // second, fill in all evars
       n = ef_prob_num_evars(solver->prob);
-      fill_ef_value_table(&solver->value_table, var, mdl_values.data, n);
+      fill_ef_table(&solver->value_table, var, mdl_values.data, n);
 
       // third, fill in uninterpreted types
       value_table_t *vtbl;
@@ -540,7 +540,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
 
 #if TRACE
       // FOR DEBUGGING
-      print_ef_value_table(stdout, &solver->value_table);
+      print_ef_table(stdout, &solver->value_table);
 #endif
 //      assert(0);
     }
