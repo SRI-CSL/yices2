@@ -385,7 +385,7 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, te
   assertions[1] = b;
   assertions[2] = opposite_term(c);
 
-#if TRACE
+#if 0
   printf("Forall Context Constraint:\n");
   yices_pp_term_array(stdout, 3, assertions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -797,6 +797,9 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
    */
   sampling_ctx = get_forall_context(solver);
   ucode = assert_formula(sampling_ctx, cnstr->assumption);
+#if TRACE
+  printf("\nSAMPLING constraint[%d]:\nASSUMING: %s\n", i, yices_term_to_string(cnstr->assumption, 120, 1, 0));
+#endif
   while (ucode == CTX_NO_ERROR) {
     trace_printf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
     status = satisfy_context(solver, sampling_ctx, cnstr->uvars, nvars, value, NULL, false);
@@ -806,19 +809,25 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       // learned condition on X:
       cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
       if (cnd < 0) {
-	solver->status = EF_STATUS_SUBST_ERROR;
-	solver->error_code = cnd;
-	goto done;
+        solver->status = EF_STATUS_SUBST_ERROR;
+        solver->error_code = cnd;
+        goto done;
       }
       ecode = update_exists_context(solver, cnd);
+
+#if TRACE
+      printf("Instance:\n");
+      print_forall_witness(stdout, solver, i);
+      printf("LEARNING: %s\n", yices_term_to_string(cnd, 120, 1, 0));
+#endif
       if (ecode < 0) {
-	solver->status = EF_STATUS_ASSERT_ERROR;
-	solver->error_code = ecode;
-	goto done;
+        solver->status = EF_STATUS_ASSERT_ERROR;
+        solver->error_code = ecode;
+        goto done;
       }
       if (ecode == TRIVIALLY_UNSAT) {
-	solver->status = EF_STATUS_UNSAT;
-	goto done;
+        solver->status = EF_STATUS_UNSAT;
+        goto done;
       }
       break;
 
@@ -978,9 +987,8 @@ static term_t ef_generalize2(ef_prob_t *prob, term_t cex_cnstr, uint32_t i, term
   n = ef_constraint_num_uvars(cnstr);
   g = yices_implies(cex_cnstr, cnstr->guarantee);
   g = ef_substitution(prob, cnstr->uvars, value, n, g);
-#if TRACE
-  printf("\nGENERALIZE 2: instantiating\n");
-  yices_pp_term(stdout, cnstr->guarantee, 120, UINT32_MAX, 0);
+#if EF_VERBOSE
+  printf("GENERALIZE 2:\nClause:   %s\n", yices_term_to_string(cnstr->guarantee, 120, 1, 0));
 #endif
   return g;
 }

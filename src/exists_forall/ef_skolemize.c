@@ -79,7 +79,7 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
   n = args->size;
   c = args->data;
 
-#if TRACE
+#if 0
     printf("Updating: %s\n", yices_term_to_string(t, 120, 1, 0));
     yices_pp_term_array(stdout, n, c, 120, 120, 0, 0);
 #endif

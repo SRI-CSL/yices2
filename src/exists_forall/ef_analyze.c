@@ -313,13 +313,13 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
   parent = &parent_map;
   init_int_hmap(parent, 0);
 
-#if TRACE
+#if 0
     printf("toplevel %d\n", toplevel);
 #endif
 
   while (! int_queue_is_empty(queue)) {
     t = int_queue_pop(queue);
-#if TRACE
+#if 0
     printf("term: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
 
@@ -436,7 +436,7 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
     // t was not flattened: add it to resu
     ivector_push(resu, t);
 
-#if TRACE
+#if 0
     printf("pushing: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
   }
