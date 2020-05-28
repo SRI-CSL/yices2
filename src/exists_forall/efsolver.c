@@ -123,7 +123,7 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
   for (j=0; j<n; j++) {
     x = solver->uvalue_aux.data[j];
     // replace x by representative
-    solver->uvalue_aux.data[j] = get_value_rep(vtable, x);
+    solver->uvalue_aux.data[j] = ef_get_value(vtable, x);
 #if EF_VERBOSE
       printf("Instance %s := %s [from %s]\n", yices_get_term_name(cnstr->uvars[j]),
           yices_term_to_string(solver->uvalue_aux.data[j], 120, 1, 0),

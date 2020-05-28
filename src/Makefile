@@ -130,6 +130,7 @@ core_src_c := \
 	exists_forall/ef_parameters.c \
 	exists_forall/ef_problem.c \
 	exists_forall/ef_values.c \
+	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \

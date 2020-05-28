@@ -83,7 +83,7 @@ extern void store_type_value(ef_value_table_t *vtable, value_t value, term_t tva
 /*
  * Get value representative
  */
-extern term_t get_value_rep(ef_value_table_t *vtable, term_t value);
+extern term_t ef_get_value(ef_value_table_t *vtable, term_t value);
 
 
 /*

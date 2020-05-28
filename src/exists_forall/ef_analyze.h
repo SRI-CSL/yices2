@@ -107,6 +107,7 @@ typedef struct ef_analyzer_s {
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;
+  uint32_t num_skolem;
 } ef_analyzer_t;
 
 

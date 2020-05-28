@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 #include "utils/int_vectors.h"
+#include "utils/int_hash_sets.h"
 #include "utils/memalloc.h"
 #include "exists_forall/ef_values.h"
 
@@ -384,13 +385,15 @@ static term_t term_substitution(ef_value_table_t *vtable, term_t *var, term_t *v
 
 
 /*
- * Get value representative
+ * Get value representative helper
  */
-term_t get_value_rep(ef_value_table_t *vtable, term_t value) {
+term_t ef_get_value_rep(ef_value_table_t *vtable, term_t value, int_hset_t *requests) {
   ptr_hmap_pair_t *r;
 
-  r = ptr_hmap_get(&vtable->map, value);
-  if (r->val == NULL) {
+  r = ptr_hmap_find(&vtable->map, value);
+  if (r == NULL) {
+    printf("Unable to find a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
+    assert(0);
     return value;
   }
   else {
@@ -405,7 +408,7 @@ term_t get_value_rep(ef_value_table_t *vtable, term_t value) {
 
     for(i=0; i<n; i++) {
       x = v->data[i];
-      if (yices_term_is_composite(x)) {
+      if (term_is_composite(vtable->terms, x)) {
         xc = x;
       }
       else {
@@ -413,23 +416,33 @@ term_t get_value_rep(ef_value_table_t *vtable, term_t value) {
       }
     }
 
+    // function value
+    int_hset_add(requests, value);
+
     composite_term_t *app;
     ivector_t args, argsrep;
     term_t xcrep;
     term_t f, frep;
+    bool present;
 
     assert(term_kind(vtable->terms, xc) == APP_TERM);
 
     app = app_term_desc(vtable->terms, xc);
-    m = app->arity;
+    m = app->arity - 1;
 
     init_ivector(&args, m);
     init_ivector(&argsrep, m);
 
-    for(i=0; i<m; i++) {
+    for(i=1; i<=m; i++) {
       f = app->arg[i];
-      frep = get_value_rep(vtable, f);
 
+      present = int_hset_member(requests, f);
+      if (present) {
+        printf("Circular dependency encountered while finding a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
+        assert(0);
+      }
+
+      frep = ef_get_value_rep(vtable, f, requests);
       if (f != frep) {
         ivector_push(&args, f);
         ivector_push(&argsrep, frep);
@@ -447,6 +460,21 @@ term_t get_value_rep(ef_value_table_t *vtable, term_t value) {
 
 
 /*
+ * Get value representative
+ */
+term_t ef_get_value(ef_value_table_t *vtable, term_t value) {
+  int_hset_t value_requests;
+  term_t rep;
+
+  init_int_hset(&value_requests, 2);
+  rep = ef_get_value_rep(vtable, value, &value_requests);
+  delete_int_hset(&value_requests);
+
+  return rep;
+}
+
+
+/*
  * Set values from the value table
  */
 void set_values_from_value_table(ef_value_table_t *vtable, term_t *vars, term_t *values, uint32_t n) {
@@ -457,7 +485,7 @@ void set_values_from_value_table(ef_value_table_t *vtable, term_t *vars, term_t 
     x = values[i];
     if (is_utype_term(vtable->terms, x)) {
       // replace x by representative
-      values[i] = get_value_rep(vtable, x);
+      values[i] = ef_get_value(vtable, x);
     }
   }
 }
@@ -554,7 +582,7 @@ static term_t constraint_scalar_element(ef_value_table_t *vtable, term_t t) {
   if (yices_type_is_uninterpreted(tau)) {
     r = ptr_hmap_find(&vtable->type_map, tau);
 
-    if (r->val != NULL) {
+    if (r != NULL) {
       v = r->val;
       n = v->size;
 

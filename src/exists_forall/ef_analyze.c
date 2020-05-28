@@ -34,6 +34,7 @@
 #include "terms/term_utils.h"
 
 #include "yices.h"
+#include "exists_forall/ef_skolemize.h"
 
 #define TRACE 0
 
@@ -130,6 +131,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
+  ef->num_skolem = 0;
 }
 
 
@@ -147,6 +149,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
+  ef->num_skolem = 0;
 }
 
 
@@ -166,130 +169,6 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->aux);
 }
 
-
-typedef struct ef_skolem_s {
-  term_t func;
-  term_t fapp;
-} ef_skolem_t;
-
-/*
- * Skolemize variable x using uvars as skolem arguments
- */
-static ef_skolem_t ef_skolemize(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
-  type_t *domt;
-  type_t rt;
-  uint32_t i;
-  term_table_t *terms;
-  ef_skolem_t skolem;
-
-  terms = ef->terms;
-
-  domt = (type_t *) safe_malloc(n * sizeof(type_t));
-  for (i=0; i<n; i++) {
-    domt[i] = term_type(terms, uvars[i]);
-  }
-  rt = term_type(terms, x);
-
-  type_t funct = yices_function_type(n, domt, rt);
-  skolem.func = yices_new_uninterpreted_term(funct);
-
-  const char *prefix = "skolem_";
-  const char *suffix = yices_get_term_name(x);
-
-  char *name = (char *) safe_malloc(strlen(prefix) + strlen(suffix) + 1);
-  strcpy(name, prefix);
-  strcat(name, suffix);
-
-  yices_set_term_name(skolem.func, name);
-  safe_free(name);
-
-  skolem.fapp = yices_application(skolem.func, n, uvars);
-
-#if TRACE
-  printf("Skolemization: %s --> %s", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
-#endif
-  return skolem;
-}
-
-
-
-/*
- * Skolemize existentials in an analyzer
- */
-static term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t t) {
-  uint32_t i, m, n;
-  ivector_t uvars;
-  int_hmap_pair_t *r;
-  term_t p;
-  composite_term_t *d;
-  term_table_t *terms;
-  term_t *a;
-  term_t body;
-
-    terms = ef->terms;
-    init_ivector(&uvars, 10);
-
-    /* the existential case
-     * t is (NOT (FORALL x_0 ... x_k : body)
-     * body is the last argument in the term descriptor
-     */
-    d = forall_term_desc(terms, t);
-    n = d->arity - 1;
-    assert(n >= 1);
-    a = d->arg;
-    body = opposite_term(d->arg[n]);
-
-  if (!toplevel) {
-    r = int_hmap_find(parent, t);
-    while(r != NULL) {
-      p = r->val;
-      if (term_kind(terms, p) == FORALL_TERM) {
-        if (is_pos_term(p)) {
-          d = forall_term_desc(terms, p);
-          m = d->arity;
-          assert(m >= 2);
-          for (i=0; i<m-1; i++) {
-            ivector_push(&uvars, d->arg[i]);
-          }
-        }
-      }
-      r = int_hmap_find(parent, p);
-    }
-  }
-
-  if (uvars.size == 0) {
-    for(i = 0; i < n; i++){
-      r = int_hmap_find(&ef->existentials, a[i]);
-      assert(r == NULL);
-      int_hmap_add(&ef->existentials, a[i], a[i]);
-    }
-  }
-  else {
-    term_subst_t subst;
-    term_t *skolems;
-    ef_skolem_t sk;
-
-    skolems = (term_t *) safe_malloc(n * sizeof(term_t));
-
-    for(i = 0; i < n; i++){
-      r = int_hmap_find(&ef->existentials, a[i]);
-      assert(r == NULL);
-
-      sk = ef_skolemize(ef, a[i], uvars.size, uvars.data);
-      skolems[i] = sk.fapp;
-      int_hmap_add(&ef->existentials, a[i], sk.func);
-    }
-
-    init_term_subst(&subst, ef->manager, n, a, skolems);
-    body = apply_term_subst(&subst, body);
-    delete_term_subst(&subst);
-
-    safe_free(skolems);
-  }
-
-  delete_ivector(&uvars);
-  return body;
-}
 
 /*
  * FLATTENING OPERATIONS
@@ -595,12 +474,17 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   uint32_t i, fsize;
   ivector_t *foralls;
   int32_t *fdata;
+  ef_skolemize_t sk;
+  term_t skolem;
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
+  init_ef_skolemize(&sk, ef, f_ite, f_iff);
+
   ivector_reset(v);
   for (i=0; i<n; i++) {
-    ef_push_term(ef, a[i]);
+    skolem = ef_skolemize(&sk, a[i]);
+    ef_push_term(ef, skolem);
   }
 
   /* FIRST PASS: do the exists */
@@ -617,6 +501,8 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 
   /* SECOND PASS: do the foralls */
   ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
+
+  delete_ef_skolemize(&sk);
 }
 
 /*
