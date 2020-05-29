@@ -456,7 +456,8 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
   uint32_t i;
   ivector_t mdl_values;
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  stat = context_status(ctx);
+  assert(stat == STATUS_IDLE || stat == STATUS_UNSAT);
 
   stat = check_context(ctx, solver->parameters);
   switch (stat) {
@@ -661,6 +662,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     uvar_cnstr_old = uvar_cnstr;
     bound++;
     context_pop(forall_ctx);
+    code = CTX_NO_ERROR;
   }
   safe_free(value);
 

@@ -701,6 +701,7 @@ term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) 
        p != NULL;
        p = ptr_hmap_next_record(&map, p)) {
     v = p->val;
+    ivector_remove_duplicates(v);
     result = yices_and2(result, constraint_distinct_elements(v));
   }
 
