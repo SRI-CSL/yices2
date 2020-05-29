@@ -360,7 +360,7 @@ static void init_forall_context(ef_solver_t *solver) {
 
   assert(solver->forall_context == NULL);
   ctx = (context_t *) safe_malloc(sizeof(context_t));
-  init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_MULTICHECKS, solver->arch, false);
+  init_context(ctx, solver->prob->terms, solver->logic, CTX_MODE_PUSHPOP, solver->arch, false);
   solver->forall_context = ctx;
   if (solver->trace != NULL) {
     context_set_trace(ctx, solver->trace);
@@ -610,10 +610,10 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
   ef_cnstr_t *cnstr;
   term_t *value;
   term_t g;
-  uint32_t n;
+  int32_t n, bound;
   int32_t code;
   smt_status_t status;
-  term_t uvar_cnstr;
+  term_t uvar_cnstr, uvar_cnstr_old;
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
@@ -633,16 +633,39 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
   n = ef_constraint_num_uvars(cnstr);
   resize_ivector(&solver->uvalue_aux, n);
   solver->uvalue_aux.size = n;
-  value = solver->uvalue_aux.data;
 
   forall_ctx = get_forall_context(solver);
+  code = forall_context_assert(solver, domain_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
 
-  uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars);
-  uvar_cnstr = yices_and2(domain_cnstr, uvar_cnstr);
+  value = (term_t *) safe_malloc(n * sizeof(term_t));
+  uvar_cnstr_old = yices_true();
+  bound = 0;
+  while(code == CTX_NO_ERROR) {
+    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound);
+#if TRACE
+    printf("uvar_cnstr: %s\n", yices_term_to_string(uvar_cnstr, 120, 1, 0));
+#endif
 
-  code = forall_context_assert(solver, uvar_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
-  if (code == CTX_NO_ERROR) {
+    context_push(forall_ctx);
+    code = assert_formula(forall_ctx, uvar_cnstr);
+    if (code < 0)
+      break;
+
     status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
+    if (status != STATUS_UNSAT || uvar_cnstr == uvar_cnstr_old) {
+      for(i=0; i<n; i++) {
+        solver->uvalue_aux.data[i] = value[i];
+      }
+      break;
+    }
+    uvar_cnstr_old = uvar_cnstr;
+    bound++;
+    context_pop(forall_ctx);
+  }
+  safe_free(value);
+
+
+  if (code == CTX_NO_ERROR) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:

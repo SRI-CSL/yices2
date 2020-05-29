@@ -98,7 +98,7 @@ extern term_t constraint_distinct(ef_table_t *vtable);
 
 extern term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars);
 
-extern term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t);
+extern term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound);
 
 
 

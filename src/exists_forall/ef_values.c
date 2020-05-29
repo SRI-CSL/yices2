@@ -208,7 +208,8 @@ static void store_rep(ef_table_t *vtable, term_t tvalue, term_t var) {
   int_hmap_pair_t *p;
 
   p = int_hmap_get(&vtable->var_rep, tvalue);
-  p->val = var;
+  if (p->val < 0)
+    p->val = var;
 }
 
 /*
@@ -718,12 +719,13 @@ term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) 
   return result;
 }
 
-static term_t constraint_scalar_element(ef_table_t *vtable, term_t t) {
-  term_t result;
+static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bound) {
+  term_t result, u;
   type_t tau;
   ptr_hmap_pair_t *r;
+  int_hmap_pair_t *p;
   ivector_t *v;
-  term_t *eq;
+  ivector_t eq;
   uint32_t n, i;
 
   result = yices_true();
@@ -736,23 +738,32 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t) {
       v = r->val;
       n = v->size;
 
-      eq = (term_t *) safe_malloc(n * sizeof(term_t));
-      for(i=0; i<n; i++)
-        eq[i] = yices_eq(t, v->data[i]);
+      init_ivector(&eq, n);
 
-      result = yices_and2(result, yices_or(n, eq));
+      for(i=0; i<n; i++) {
+        u = v->data[i];
+        if (bound >= 0) {
+          p = int_hmap_find(&vtable->priority, u);
+          if(p != NULL && p->val > bound)
+              continue;
+          }
+        ivector_push(&eq, yices_eq(t, u));
+      }
+      result = yices_and2(result, yices_or(eq.size, eq.data));
+
+      delete_ivector(&eq);
     }
   }
   return result;
 }
 
-term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t) {
+term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound) {
   term_t result;
   uint32_t i;
 
   result = yices_true();
   for(i=0; i<n; i++) {
-    result = yices_and2(result, constraint_scalar_element(vtable, t[i]));
+    result = yices_and2(result, constraint_scalar_element(vtable, t[i], bound));
   }
 
   return result;
