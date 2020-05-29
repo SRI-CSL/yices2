@@ -125,9 +125,22 @@ extern bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2);
 
 
 /*
+ * Check whethere (p1 - p2) is a constant
+ */
+extern bool delta_bvpoly_is_constant(bvpoly_t *p1, bvpoly_t *p2);
+
+
+/*
  * Check whether p is of the form k + x for a non-zero constant k
  */
 extern bool bvpoly_is_const_plus_var(bvpoly_t *p, int32_t x);
+
+
+/*
+ * Check whether p is a polynomial of ther form k + x for some non-zero constant k
+ * and variable x.
+ */
+extern bool bvpoly_is_offset(bvpoly_t *p);
 
 
 #endif /* __BV_POLYNOMIALS_H */

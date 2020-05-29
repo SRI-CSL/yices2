@@ -2284,6 +2284,7 @@ static void print_float_value(double value) {
 
 static void print_terms_value(smt2_globals_t *g, const ivector_t* order) {
   smt2_pp_t printer;
+
   init_pretty_printer(&printer, g);
   pp_open_block(&printer.pp, PP_OPEN_VPAR); // open '('
   if (order != NULL) {
@@ -2567,7 +2568,9 @@ static void timeout_handler(void *data) {
   assert(data == &__smt2_globals);
 
   g = data;
-  if (g->ctx != NULL && context_status(g->ctx) == STATUS_SEARCHING) {
+  if (g->efmode && g->ef_client.efsolver != NULL && g->ef_client.efsolver->status == EF_STATUS_SEARCHING) {
+    ef_solver_stop_search(g->ef_client.efsolver);
+  } else if (g->ctx != NULL && context_status(g->ctx) == STATUS_SEARCHING) {
     context_stop_search(g->ctx);
   }
 }
@@ -2708,6 +2711,8 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
 
   return stat;
 }
+
+
 
 
 /*
@@ -3024,13 +3029,18 @@ static void show_delayed_assertions(smt2_globals_t *g) {
   uint32_t i, n;
 
   if (g->benchmark_mode) {
+    fprintf(g->out, "--- All terms ---\n");
+    pp_term_table(g->out, __yices_globals.terms);
+    fprintf(g->out, "\n");
+
+    fprintf(g->out, "--- Assertions --\n");
     v = g->assertions.data;
     n = g->assertions.size;
 
     init_pretty_printer(&printer, g);
     for (i=0; i<n; i++) {
-      pp_term_full(&printer->pp, __yices_globals.terms, v[i]);
-      flush_smt2_pp(&printer, true);
+      pp_term(&printer.pp, __yices_globals.terms, v[i]);
+      flush_smt2_pp(&printer);
     }
     delete_smt2_pp(&printer, true);
   }
@@ -3201,9 +3211,18 @@ static void efsolve_cmd(smt2_globals_t *g) {
 
   if (g->efmode) {
     efc = &g->ef_client;
+    if (g->timeout != 0) {
+      if (! g->timeout_initialized) {
+        init_timeout();
+        g->timeout_initialized = true;
+      }
+      g->interrupted = false;
+      start_timeout(g->timeout, timeout_handler, g);
+    }
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
-             qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
+	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer);
+    if (g-> timeout != 0) clear_timeout();
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
@@ -3653,15 +3672,16 @@ static model_t *get_ef_model(smt2_globals_t *g) {
  * - printer = pretty printer object
  * - vtbl = value table where v is stored
  * - token_queue = whatever was parsed
+ * - tau = type of the term to print
  * - i = index of the SMT2 expression for t in token_queue
  */
-static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
+static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, type_t tau, int32_t i) {
   pp_open_block(&printer->pp, PP_OPEN_PAR);
   pp_smt2_expr(&printer->pp, token_queue, i);
   if (__smt2_globals.clean_model_format) {
     smt2_pp_object(printer, vtbl, v);
   } else {
-    smt2_pp_smt2_object(printer, vtbl, v);
+    smt2_pp_smt2_object(printer, vtbl, v, tau);
   }
   pp_close_block(&printer->pp, true);
 }
@@ -3671,10 +3691,11 @@ static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_
  * Print a list of pairs terms/values
  * - the list of terms an array of n expression indices expr[0..n-1]
  *   where expr[i] is an valid start index in token_queue
- * - the corresponding values as in v[0 ... n-1]
+ * - the corresponding values are in v[0 ... n-1]
+ * - the corresponding types are in tau[0 ... n-1]
  */
 static void print_term_value_list(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue,
-                                  int32_t *expr, value_t *v, uint32_t n) {
+                                  int32_t *expr, value_t *v, type_t *tau, uint32_t n) {
   uint32_t i;
   value_t x, u;
 
@@ -3684,7 +3705,7 @@ static void print_term_value_list(smt2_pp_t *printer, value_table_t *vtbl, etk_q
   for (i=0; i<n; i++) {
     x = v[i];
     if (x < 0) x = u;
-    print_term_value(printer, vtbl, token_queue, x, expr[i]);
+    print_term_value(printer, vtbl, token_queue, x, tau[i], expr[i]);
   }
   pp_close_block(&printer->pp, true); // close ')'
 }
@@ -3716,6 +3737,27 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
   }
   delete_evaluator(&evaluator);
 }
+
+/*
+ * Collect the types of every term in array t[]
+ * - n = number of terms in this arrray
+ * - add the types in order to vector v
+ */
+static void collect_term_types(term_t *t, uint32_t n, ivector_t *v) {
+  term_table_t *terms;
+  uint32_t i;
+  type_t tau;
+
+  terms = __yices_globals.terms;
+
+  ivector_reset(v);
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    tau = term_type(terms, t[i]);
+    ivector_push(v, tau);
+  }
+}
+
 
 
 /*
@@ -4404,6 +4446,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_etk_queue(&g->token_queue);
   init_ivector(&g->token_slices, 0);
   init_ivector(&g->val_vector, 0);
+  init_ivector(&g->type_vector, 0);
 
   // print area for get-value
   //  g->pp_area.width = 120;
@@ -4472,6 +4515,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_etk_queue(&g->token_queue);
   delete_ivector(&g->token_slices);
   delete_ivector(&g->val_vector);
+  delete_ivector(&g->type_vector);
 
   close_output_file(g);
   close_error_file(g);
@@ -4764,6 +4808,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
   etk_queue_t *queue;
   ivector_t *slices;
   ivector_t *values;
+  ivector_t *types;
   model_t *mdl;
 
   __smt2_globals.stats.num_get_value ++;
@@ -4782,6 +4827,10 @@ void smt2_get_value(term_t *a, uint32_t n) {
     values = &__smt2_globals.val_vector;
     evaluate_term_values(mdl, a, n, values);
 
+    // collect their types in types->data[0 ... n-1]
+    types = &__smt2_globals.type_vector;
+    collect_term_types(a, n, types);
+
     queue = &__smt2_globals.token_queue;
     slices = &__smt2_globals.token_slices;
     assert(slices->size == 0);
@@ -4790,7 +4839,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
     assert(slices->size == n);
 
     init_pretty_printer(&printer, &__smt2_globals);
-    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
+    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, types->data, n);
     delete_smt2_pp(&printer, true);
     vtbl_empty_queue(&mdl->vtbl); // cleanup the internal queue
     ivector_reset(slices);
@@ -6285,7 +6334,7 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	// show_delayed_assertions(&__smt2_globals);
+	//	show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
         check_delayed_assertions(&__smt2_globals);
 #else

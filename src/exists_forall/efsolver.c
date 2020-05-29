@@ -187,6 +187,22 @@ void delete_ef_solver(ef_solver_t *solver) {
 }
 
 
+/*
+ * Stop the exists-forall search.
+ */
+void ef_solver_stop_search(ef_solver_t *solver) {
+  context_t *exists_ctx, *forall_ctx;
+
+  exists_ctx = solver->exists_context;
+  forall_ctx = solver->forall_context;
+
+  if (solver->status == EF_STATUS_SEARCHING) {
+    if (exists_ctx != NULL) context_stop_search(exists_ctx);
+    if (forall_ctx != NULL) context_stop_search(forall_ctx);
+    solver->status = EF_STATUS_INTERRUPTED;
+  }
+}
+
 
 /*
  * Set the trace:

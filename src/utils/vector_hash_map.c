@@ -117,6 +117,7 @@ void init_vector_hmap(vector_hmap_t *hmap, uint32_t n) {
   }
   hmap->data = tmp;
   hmap->size = n;
+  hmap->nelems = 0;
   hmap->resize_threshold = (uint32_t) (n * VECTOR_HMAP_RESIZE_RATIO);
 }
 

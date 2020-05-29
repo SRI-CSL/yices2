@@ -9035,6 +9035,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   if (underconstrained(solver)) {
     if (simplex_try_naive_integer_search(solver)) {
       trace_printf(solver->core->trace, 10, "(feasible by naive search)\n");
+      solver->bstack.prop_ptr = solver->bstack.fix_ptr;
       return true;
     }
   }
@@ -9065,6 +9066,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     if (! simplex_assignment_integer_valid(solver)){
       abort();
     }
+    solver->bstack.prop_ptr = solver->bstack.fix_ptr;
     return true;
   }
 

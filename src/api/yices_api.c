@@ -962,10 +962,10 @@ static void delete_fvars(void) {
  * Initialize the table of global objects
  */
 static void init_globals(yices_globals_t *glob) {
-  type_table_t *types = (type_table_t *)safe_malloc(sizeof(type_table_t));
-  term_table_t *terms = (term_table_t *)safe_malloc(sizeof(term_table_t));
-  term_manager_t *manager = (term_manager_t *)safe_malloc(sizeof(term_manager_t));
-  pprod_table_t *pprods = (pprod_table_t *)safe_malloc(sizeof(pprod_table_t));
+  type_table_t *types = (type_table_t *) safe_malloc(sizeof(type_table_t));
+  term_table_t *terms = (term_table_t *) safe_malloc(sizeof(term_table_t));
+  term_manager_t *manager = (term_manager_t *) safe_malloc(sizeof(term_manager_t));
+  pprod_table_t *pprods = (pprod_table_t *) safe_malloc(sizeof(pprod_table_t));
 
   memset(types, 0, sizeof(type_table_t));
   memset(terms, 0, sizeof(term_table_t));
@@ -1101,13 +1101,24 @@ EXPORTED void yices_exit(void) {
 }
 
 
-
 /*
  * Full reset: delete everything
  */
 EXPORTED void yices_reset(void) {
   yices_exit();
   yices_init();
+}
+
+
+/*
+ * Enable more rewrite rules in the term manager
+ */
+static void _o_enable_bvite_offset(void) {
+  __yices_globals.manager->simplify_bvite_offset = true;
+}
+
+void yices_enable_bvite_offset(void) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_enable_bvite_offset());
 }
 
 
