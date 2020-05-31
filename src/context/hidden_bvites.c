@@ -267,7 +267,7 @@ static bool check_matching_entries(half_ite_table_t *table, half_ite_t *h1, half
 
     if (is_bvsub(terms, h2->a, &x, &y) && is_bvconst_term(terms, h2->b))  {
       if ((h1->a == x && h1->b == y) || (h1->a == y && h1->b == x)) {
-	// h2: (not c) => (bvsub x y) = b and  h2: x == y
+	// h2: (not c) => (bvsub x y) = b and  h1: x == y
 	assert_ite_zero_equality(table, h2->a, h2->c, h2->b);
 	return true;
       }
@@ -275,8 +275,8 @@ static bool check_matching_entries(half_ite_table_t *table, half_ite_t *h1, half
 
     if (is_bvsub(terms, h2->b, &x, &y) && is_bvconst_term(terms, h2->a)) {
       if ((h1->a == x && h1->b == y) || (h1->a == y && h1->b == x)) {
-	// h2: (not c) => (bvsub x y) = b and  h2: x == y
-	assert_ite_zero_equality(table, h2->a, h2->c, h2->b);
+	// h2: (not c) => a = (bvsub x y) and  h1: x == y
+	assert_ite_zero_equality(table, h2->b, h2->c, h2->a);
 	return true;
       }
     }
