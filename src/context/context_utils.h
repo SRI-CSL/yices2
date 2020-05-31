@@ -491,7 +491,7 @@ static inline void enable_chase_bvite(context_t *ctx) {
 }
 
 static inline void disable_chase_bvite(context_t *ctx) {
-  ctx->options |= CHASE_BVITE_OPTION_MASK;
+  ctx->options &= ~CHASE_BVITE_OPTION_MASK;
 }
 
 
