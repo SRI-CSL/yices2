@@ -348,9 +348,9 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   i = 0;
 
   if (!is_unknown(table, fun->def)) {
-    valuei = fun->def;
     // TODO
-    printf("warning: need to handle default values in function interpretations\n");
+    if (n == 0)
+      printf("warning: need to handle default values in function interpretations\n");
   }
 
   if (n != 0) {
@@ -413,7 +413,9 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     if (int_hmap_find(var_rep, p->key) == NULL) {
-      int_queue_push(&queue, p->key);
+      if (is_utype_term(vtable->terms, p->key)) {
+        int_queue_push(&queue, p->key);
+      }
     }
   }
   m = queue.size;
@@ -616,6 +618,10 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
 term_t ef_get_value(ef_table_t *vtable, term_t value) {
   int_hset_t value_requests;
   term_t rep;
+
+  if (!is_utype_term(vtable->terms, value)) {
+    return value;
+  }
 
   init_int_hset(&value_requests, 2);
   rep = ef_get_value_rep(vtable, value, &value_requests);

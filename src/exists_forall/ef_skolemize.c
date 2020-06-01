@@ -86,10 +86,48 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
 
   result = NULL_TERM;
   switch (kind) {
+  case ARITH_EQ_ATOM:
   case EQ_TERM:            // equality
+  case ARITH_BINEQ_ATOM:
     assert(n == 2);
     result = mk_eq(tm, c[0], c[1]);
     break;
+  case ARITH_GE_ATOM:
+    assert(n == 2);
+    result = mk_arith_geq(tm, c[0], c[1]);
+    break;
+  case ARITH_IS_INT_ATOM:
+    assert(n == 1);
+    result = mk_arith_is_int(tm, c[0]);
+    break;
+  case ARITH_FLOOR:
+    assert(n == 1);
+    result = mk_arith_floor(tm, c[0]);
+    break;
+  case ARITH_CEIL:
+    assert(n == 1);
+    result = mk_arith_ceil(tm, c[0]);
+    break;
+//  case ARITH_ROOT_ATOM:
+//    TODO
+
+  case ITE_TERM:
+  case ITE_SPECIAL: {
+    assert(n == 3);
+    type_t tau = term_type(tm->terms, c[1]);
+    result = mk_ite(tm, c[0], c[1], c[2], tau);
+  } break;
+  case APP_TERM:
+    result = mk_application(tm, c[0], n-1, &c[1]);
+    break;
+//  case UPDATE_TERM:
+//  case TUPLE_TERM:
+//    TODO
+  case DISTINCT_TERM:
+    result = mk_distinct(tm, n, c);
+    break;
+//  case LAMBDA_TERM:
+//    TODO
   case OR_TERM:            // n-ary OR
     assert(n > 1);
     result = mk_or(tm, n, c);
@@ -97,6 +135,24 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
   case XOR_TERM:           // n-ary XOR
     result = mk_xor(tm, n, c);
     break;
+
+  case ARITH_RDIV:
+    assert(n == 2);
+    result = mk_arith_rdiv(tm, c[0], c[1]);
+    break;
+  case ARITH_IDIV:
+    assert(n == 2);
+    result = mk_arith_idiv(tm, c[0], c[1]);
+    break;
+  case ARITH_MOD:
+    assert(n == 2);
+    result = mk_arith_mod(tm, c[0], c[1]);
+    break;
+  case ARITH_DIVIDES_ATOM:
+    assert(n == 2);
+    result = mk_arith_divides(tm, c[0], c[1]);
+    break;
+
   case BV_ARRAY:
     assert(n >= 1);
     result = mk_bvarray(tm, n, c);
@@ -145,16 +201,18 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     assert(n == 2);
     result = mk_bvsge(tm, c[0], c[1]);
     break;
-  case ITE_TERM: {
-    assert(n == 3);
-    type_t tau = term_type(tm->terms, c[1]);
-    result = mk_ite(tm, c[0], c[1], c[2], tau);
-  }
-  break;
-  case APP_TERM:
-    result = mk_application(tm, c[0], n-1, &c[1]);
-    break;
+
+//  case SELECT_TERM:
+//  case BIT_TERM:
+//    TODO
+
+//  case POWER_PRODUCT:
+//  case ARITH_POLY:
+//  case BV64_POLY:
+//  case BV_POLY:
+//    TODO
   default:
+    printf("Unsupported term %s of kind %d\n", yices_term_to_string(t, 120, 120, 0), kind);
     assert(false);
   }
 
