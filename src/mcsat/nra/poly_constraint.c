@@ -77,43 +77,6 @@ struct poly_constraint_db_struct {
   ivector_t all_constraint_variables;
 };
 
-static
-void poly_constraint_gc_mark(const poly_constraint_t* constraint, nra_plugin_t* nra, gc_info_t* gc_vars) {
-  lp_variable_list_t vars;
-  lp_variable_list_construct(&vars);
-  lp_polynomial_get_variables(constraint->polynomial, &vars);
-  uint32_t var_i;
-  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
-    lp_variable_t x_lp = vars.list[var_i];
-    variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
-    gc_info_mark(gc_vars, x);
-  }
-  lp_variable_list_destruct(&vars);
-}
-
-void poly_constraint_db_gc_mark(poly_constraint_db_t* db, gc_info_t* gc_vars) {
-  // Look for any constraints at the current gc level
-  uint32_t marked_i = 0;
-  for (marked_i = gc_vars->marked_first; marked_i < gc_vars->marked.size; marked_i ++) {
-    // Current variable
-    variable_t constraint_var = gc_vars->marked.data[marked_i];
-    // Check if in database
-    int_hmap_pair_t* find = int_hmap_find(&db->var_to_constraint_map, constraint_var);
-    if (find != NULL) {
-      // It's a constraint, mark the variables
-      assert(find->val < db->constraints.size);
-      poly_constraint_t* constraint = db->constraints.data[find->val];
-      if (ctx_trace_enabled(db->nra->ctx, "nra::gc")) {
-        ctx_trace_printf(db->nra->ctx, "Marking variables of :");
-        poly_constraint_print(constraint, ctx_trace_out(db->nra->ctx));
-        ctx_trace_printf(db->nra->ctx, "\n");
-      }
-      // Mark the variables in the constraint
-      poly_constraint_gc_mark(constraint, db->nra, gc_vars);
-    }
-  }
-}
-
 void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_vars) {
 
   pvector_t new_constraints;
@@ -701,13 +664,12 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
   lp_interval_assignment_reset(m);
 
   // Setup the assignment x -> I(x)
-  lp_variable_list_t vars;
-  lp_variable_list_construct(&vars);
-  lp_polynomial_get_variables(cstr->polynomial, &vars);
-  uint32_t var_i;
-  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
-    lp_variable_t x_lp = vars.list[var_i];
-    variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
+  assert(watch_list_manager_has_constraint(&nra->wlm, constraint_var));
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, constraint_var);
+  variable_t* vars = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+  for (; *vars != variable_null; vars++) {
+    variable_t x = *vars;
+    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
@@ -730,7 +692,6 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
   }
 
   // Remove temps
-  lp_variable_list_destruct(&vars);
   lp_interval_destruct(&value);
 
   return result;
