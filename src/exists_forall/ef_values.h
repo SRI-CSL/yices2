@@ -28,6 +28,7 @@
 
 #include "yices_types.h"
 #include "model/val_to_term.h"
+#include "model/fresh_value_maker.h"
 
 /*
  * Term value table object:
@@ -44,6 +45,7 @@ typedef struct ef_table_s {
   val_converter_t convert;
   int_hmap_t priority;
   int_hmap_t var_rep;
+  fresh_val_maker_t *fval_maker;
 } ef_table_t;
 
 

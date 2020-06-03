@@ -396,6 +396,7 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
       break;
 
     case FORALL_TERM:
+      assert(0);
       if (is_pos_term(t)) {
         //if we are on the first pass we defer foralls
         if (toplevel){
@@ -484,23 +485,24 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   ivector_reset(v);
   for (i=0; i<n; i++) {
     skolem = ef_skolemize(&sk, a[i]);
-    ef_push_term(ef, skolem);
+    ivector_push(v, skolem);
+//    ef_push_term(ef, skolem);
   }
 
-  /* FIRST PASS: do the exists */
-  ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
-
-    
-  //push the foralls into the queue (they are already in the cache)
-  foralls = &ef->foralls;
-  fdata = foralls->data;
-  fsize = foralls->size;
-  for (i=0; i<fsize; i++) {
-    int_queue_push(&ef->queue, fdata[i]);
-  }
-
-  /* SECOND PASS: do the foralls */
-  ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
+//  /* FIRST PASS: do the exists */
+//  ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
+//
+//
+//  //push the foralls into the queue (they are already in the cache)
+//  foralls = &ef->foralls;
+//  fdata = foralls->data;
+//  fsize = foralls->size;
+//  for (i=0; i<fsize; i++) {
+//    int_queue_push(&ef->queue, fdata[i]);
+//  }
+//
+//  /* SECOND PASS: do the foralls */
+//  ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
 
   delete_ef_skolemize(&sk);
 }

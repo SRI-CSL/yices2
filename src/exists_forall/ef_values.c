@@ -49,6 +49,7 @@ void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr,
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
   init_int_hmap(&vtable->priority, 0);
   init_int_hmap(&vtable->var_rep, 0);
+  vtable->fval_maker = NULL;
 }
 
 
@@ -92,6 +93,8 @@ void delete_ef_table(ef_table_t *vtable) {
   delete_val_converter(&vtable->convert);
   delete_int_hmap(&vtable->priority);
   delete_int_hmap(&vtable->var_rep);
+  if (vtable->fval_maker != NULL)
+    safe_free(vtable->fval_maker);
 }
 
 
@@ -136,6 +139,14 @@ void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
   int_hmap_reset(&vtable->priority);
   int_hmap_reset(&vtable->var_rep);
+
+  if (vtable->fval_maker == NULL) {
+    vtable->fval_maker = (fresh_val_maker_t *) safe_malloc(sizeof(fresh_val_maker_t));
+  }
+  else {
+    delete_fresh_val_maker(vtable->fval_maker);
+  }
+  init_fresh_val_maker(vtable->fval_maker, vtbl);
 }
 
 
@@ -313,6 +324,47 @@ static void store_term_value(ef_table_t *vtable, term_t var, value_t value) {
 }
 
 
+static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
+  ptr_hmap_pair_t *r;
+  ivector_t *v;
+  uint32_t i, n, best_prio;
+  term_t x, best_x;
+  int_hmap_pair_t *p;
+  value_t value;
+
+  r = ptr_hmap_find(&vtable->type_map, tau);
+  if (r == NULL) {
+    value = make_fresh_const(vtable->fval_maker, tau);
+    x = convert_value(&vtable->convert, value);
+    store_term_value(vtable, x, value);
+//    print_ef_table(stdout, vtable);
+//    printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
+//    assert(0);
+    return x;
+  }
+
+  v = r->val;
+  n = v->size;
+  best_prio = UINT32_MAX;
+  best_x = NULL_TERM;
+  assert(n != 0);
+
+  for(i=0; i<n; i++) {
+    x = v->data[i];
+    p = int_hmap_find(&vtable->priority, x);
+    if (p != NULL) {
+      if (p->val < best_prio) {
+        best_prio = p->val;
+        best_x = x;
+      }
+    }
+    if (best_x == NULL_TERM)
+      best_x = x;
+  }
+  assert(best_x != NULL_TERM);
+  return best_x;
+}
+
 /*
  * Store function mapping values to var
  */
@@ -322,6 +374,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_table_t *terms;
   type_table_t *types;
   type_t tau;
+  function_type_t *funt;
 
   convert = &vtable->convert;
   table = vtable->vtbl;
@@ -334,9 +387,11 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   value_fun_t *fun;
   value_map_t *mp;
   uint32_t m, n, i, j;
-  term_t vari;
+  term_t x;
   value_t valuei;
   term_t *args;
+  bool flag_default;
+  ptr_hmap_pair_t *r;
 
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
 
@@ -346,12 +401,6 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   m = fun->arity;
   n = fun->map_size;
   i = 0;
-
-  if (!is_unknown(table, fun->def)) {
-    // TODO
-    if (n == 0)
-      printf("warning: need to handle default values in function interpretations\n");
-  }
 
   if (n != 0) {
     // entries present in map
@@ -363,15 +412,46 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
       assert(mp->arity == m);
 
       for (j=0; j<m; j++) {
-        args[j] = convert_value(convert, mp->arg[j]);
+        x = convert_value(convert, mp->arg[j]);
+//        r = ptr_hmap_find(&vtable->map, x);
+//        if (r == NULL)
+//          store_term_value(vtable, x, mp->arg[j]);
+        args[j] = x;
       }
 
-      vari = mk_application(convert->manager, func, m, args);
+      x = mk_application(convert->manager, func, m, args);
       valuei = mp->val;
-      store_term_value(vtable, vari, valuei);
+      store_term_value(vtable, x, valuei);
     }
 
     safe_free(args);
+  }
+
+  if (!is_unknown(table, fun->def)) {
+    // TODO
+//    if (n == 0) {
+//      // create a type compatible instance
+//      assert(m > 0);
+//      args = (term_t *) safe_malloc(m * sizeof(term_t));
+//
+//      funt = function_type_desc(types, fun->type);
+//      flag_default = true;
+//      for (j=0; j<m; j++) {
+//        x = get_any_term_of_type(vtable, funt->domain[j]);
+//        args[j] = x;
+//        flag_default &= (x != NULL_TERM);
+//      }
+//      if (flag_default) {
+//        x = mk_application(convert->manager, func, m, args);
+//        valuei = fun->def;
+//        store_term_value(vtable, x, valuei);
+//      }
+//      else {
+//        printf("warning: unable to find an instance mapping for the function %s\n", yices_term_to_string(func, 120, 120, 0));
+////        assert(0);
+//      }
+//      safe_free(args);
+//    }
   }
 }
 
@@ -522,14 +602,16 @@ static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, 
 /*
  * Get value representative helper
  */
-term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) {
+term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) {
   ptr_hmap_pair_t *r;
+//  printf("rep for %s\n", yices_term_to_string(value, 120, 1, 0));
 
   r = ptr_hmap_find(&vtable->map, value);
   if (r == NULL) {
-    printf("Unable to find a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
-    assert(0);
-    return value;
+    return NULL_TERM;
+//    printf("Unable to find a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
+//    assert(0);
+//    return value;
   }
   else {
     term_t x, best_x;
@@ -570,7 +652,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
     }
 
     // function value
-    int_hset_add(requests, value);
+    int_hmap_add(requests, value, value);
 
     composite_term_t *app;
     ivector_t args, argsrep;
@@ -589,7 +671,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
     for(i=1; i<=m; i++) {
       f = app->arg[i];
 
-      present = int_hset_member(requests, f);
+      present = (int_hmap_find(requests, f) != NULL);
       if (present) {
         printf("Circular dependency encountered while finding a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
         assert(0);
@@ -607,6 +689,8 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
     delete_ivector(&args);
     delete_ivector(&argsrep);
 
+    int_hmap_erase(requests, int_hmap_find(requests, value));
+
     return xcrep;
   }
 }
@@ -616,35 +700,18 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hset_t *requests) 
  * Get value representative
  */
 term_t ef_get_value(ef_table_t *vtable, term_t value) {
-  int_hset_t value_requests;
+  int_hmap_t value_requests;
   term_t rep;
 
   if (!is_utype_term(vtable->terms, value)) {
     return value;
   }
 
-  init_int_hset(&value_requests, 2);
+  init_int_hmap(&value_requests, 0);
   rep = ef_get_value_rep(vtable, value, &value_requests);
   delete_int_hset(&value_requests);
 
   return rep;
-}
-
-
-/*
- * Set values from the value table
- */
-void ef_set_values_from_table(ef_table_t *vtable, term_t *vars, term_t *values, uint32_t n) {
-  uint32_t i;
-  term_t x;
-
-  for (i=0; i<n; i++) {
-    x = values[i];
-    if (is_utype_term(vtable->terms, x)) {
-      // replace x by representative
-      values[i] = ef_get_value(vtable, x);
-    }
-  }
 }
 
 

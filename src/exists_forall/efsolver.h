@@ -217,7 +217,7 @@ typedef struct ef_solver_s {
   context_t *exists_context;
   context_t *forall_context;
   model_t *exists_model;
-  term_t *evalue;
+  ivector_t evalue;
   term_t *uvalue;
 
   // Support for implicant construction and projection
@@ -236,6 +236,7 @@ typedef struct ef_solver_s {
 
   // Support for mbqi
   ef_table_t value_table;
+  ivector_t new_vars;
 } ef_solver_t;
 
 
