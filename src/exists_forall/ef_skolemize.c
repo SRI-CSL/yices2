@@ -233,23 +233,31 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
   terms = ef->terms;
   ef->num_skolem++;
 
-  domt = (type_t *) safe_malloc(n * sizeof(type_t));
-  for (i=0; i<n; i++) {
-    domt[i] = term_type(terms, uvars[i]);
-  }
-  rt = term_type(terms, x);
-
-  type_t funct = yices_function_type(n, domt, rt);
-  skolem.func = yices_new_uninterpreted_term(funct);
-
   char name[50];
   sprintf (name, "skolem%d_%s", ef->num_skolem, yices_get_term_name(x));
+
+  if (n == 0) {
+    rt = term_type(terms, x);
+    skolem.func = yices_new_uninterpreted_term(rt);
+    skolem.fapp = skolem.func;
+  }
+  else {
+    domt = (type_t *) safe_malloc(n * sizeof(type_t));
+    for (i=0; i<n; i++) {
+      domt[i] = term_type(terms, uvars[i]);
+    }
+    rt = term_type(terms, x);
+
+    type_t funct = yices_function_type(n, domt, rt);
+    skolem.func = yices_new_uninterpreted_term(funct);
+    skolem.fapp = yices_application(skolem.func, n, uvars);
+  }
+
   yices_set_term_name(skolem.func, name);
 
-  skolem.fapp = yices_application(skolem.func, n, uvars);
 
 #if TRACE
-  printf("Skolemization: %s --> %s", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
+  printf("Skolemization: %s --> %s\n", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
 #endif
   return skolem;
 }
@@ -282,35 +290,25 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   a = d->arg;
   body = opposite_term(d->arg[n]);
 
-  if (uvars->size == 0) {
-    for(i = 0; i < n; i++){
-      r = int_hmap_find(&ef->existentials, a[i]);
-      assert(r == NULL);
-      int_hmap_add(&ef->existentials, a[i], a[i]);
-    }
+  term_subst_t subst;
+  term_t *skolems;
+  ef_skolem_t skolem;
+
+  skolems = (term_t *) safe_malloc(n * sizeof(term_t));
+
+  for(i = 0; i < n; i++){
+    r = int_hmap_find(&ef->existentials, a[i]);
+    assert(r == NULL);
+
+    skolem = ef_skolem_term(ef, a[i], uvars->size, uvars->data);
+    skolems[i] = skolem.fapp;
   }
-  else {
-    term_subst_t subst;
-    term_t *skolems;
-    ef_skolem_t sk;
 
-    skolems = (term_t *) safe_malloc(n * sizeof(term_t));
+  init_term_subst(&subst, ef->manager, n, a, skolems);
+  body = apply_term_subst(&subst, body);
+  delete_term_subst(&subst);
 
-    for(i = 0; i < n; i++){
-      r = int_hmap_find(&ef->existentials, a[i]);
-      assert(r == NULL);
-
-      sk = ef_skolem_term(ef, a[i], uvars->size, uvars->data);
-      skolems[i] = sk.fapp;
-      int_hmap_add(&ef->existentials, a[i], sk.func);
-    }
-
-    init_term_subst(&subst, ef->manager, n, a, skolems);
-    body = apply_term_subst(&subst, body);
-    delete_term_subst(&subst);
-
-    safe_free(skolems);
-  }
+  safe_free(skolems);
 
   return body;
 }

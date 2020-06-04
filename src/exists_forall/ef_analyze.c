@@ -480,7 +480,8 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
-  init_ef_skolemize(&sk, ef, f_ite, f_iff);
+  // flatten ite and iff should be true for correct skolemization
+  init_ef_skolemize(&sk, ef, true, true);
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
