@@ -390,9 +390,8 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
 
 
 /*
- * WRAPPERS FOR CADICAL
+ * WRAPPERS FOR KISSAT
  */
-
 #if HAVE_KISSAT
 static void kissat_add_empty_clause(void *solver) {
   kissat_add(solver, 0);
