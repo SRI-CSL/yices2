@@ -315,10 +315,25 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
 
 
 /*
+ * - t = skolemized term
+ * - q = whether original term contained quantifiers or not
+ */
+typedef struct sk_pair_s {
+  term_t t;
+  bool q;
+} sk_pair_t;
+
+static inline term_t sk_update(sk_pair_t sp, bool *is_quantified) {
+  *is_quantified |= sp.q;
+  return sp.t;
+}
+
+/*
  * Convert a term to negated normal form and skolemize
+ * - returns a pair <skolemized_t, is_quantified>
  *
  */
-static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
+static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   term_manager_t *mgr;
   term_table_t *terms;
   term_kind_t kind;
@@ -326,6 +341,8 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   uint32_t i, n;
   ivector_t args;
   term_t result, u, v;
+  bool resultq = false;
+  sk_pair_t sp;
 
   mgr = sk->mgr;
   terms = sk->terms;
@@ -344,7 +361,7 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (sk->flatten_ite && is_boolean_term(terms, d->arg[1])) {
+        if (is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (not (ite C A B))
@@ -357,18 +374,28 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = opposite_term(v);                             // (not B)
           u = mk_implies(mgr, d->arg[0], u);                // (C => u)
           v = mk_implies(mgr, opposite_term(d->arg[0]), v); // (not C) => v
-          u = ef_skolemize_term(sk, u);
-          v = ef_skolemize_term(sk, v);
-          ivector_push(&args, u);
-          ivector_push(&args, v);
-          result = mk_and(mgr, 2, args.data);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          sp = ef_skolemize_term(sk, v);
+          v = sk_update(sp, &resultq);
+
+          if (sk->flatten_ite || resultq) {
+            ivector_push(&args, u);
+            ivector_push(&args, v);
+            result = mk_and(mgr, 2, args.data);
+          }
+          else {
+            result = t;
+          }
         }
         break;
 
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (sk->flatten_iff && is_boolean_term(terms, d->arg[0])) {
+        if (is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (not (iff A B))
@@ -379,11 +406,20 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = mk_implies(mgr, d->arg[1], d->arg[0]); // (v => u);
           u = opposite_term(u);
           v = opposite_term(v);
-          u = ef_skolemize_term(sk, u);
-          v = ef_skolemize_term(sk, v);
-          ivector_push(&args, u);
-          ivector_push(&args, v);
-          result = mk_or(mgr, 2, args.data);
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          sp = ef_skolemize_term(sk, v);
+          v = sk_update(sp, &resultq);
+
+          if (sk->flatten_iff || resultq) {
+            ivector_push(&args, u);
+            ivector_push(&args, v);
+            result = mk_or(mgr, 2, args.data);
+          }
+          else {
+            result = t;
+          }
         }
         break;
 
@@ -396,8 +432,11 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         n = d->arity;
         for (i=0; i<n; i++) {
           u = opposite_term(d->arg[i]);
-          v = ef_skolemize_term(sk, u);
-          ivector_push(&args, v);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          ivector_push(&args, u);
         }
         result = mk_and(mgr, n, args.data);
         break;
@@ -408,7 +447,9 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
          * it flattens to (exists .. (not body))
          */
         u = ef_skolem_body(sk, t);
-        result = ef_skolemize_term(sk, u);
+        sp = ef_skolemize_term(sk, u);
+        result = sk_update(sp, &resultq);
+        resultq = true;
         break;
 
       default:
@@ -420,7 +461,10 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       if (result == NULL_TERM) {
         for(i=0; i<n; i++) {
           u = term_child(terms, v, i);
-          u = ef_skolemize_term(sk, u);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
           ivector_push(&args, u);
         }
         result = opposite_term(ef_update_composite(sk, v, &args));
@@ -432,7 +476,7 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (sk->flatten_ite && is_boolean_term(terms, d->arg[1])) {
+        if (is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (ite C A B)
@@ -443,18 +487,28 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = d->arg[2];                                    // B
           u = mk_implies(mgr, d->arg[0], u);                // (C => u)
           v = mk_implies(mgr, opposite_term(d->arg[0]), v); // (not C) => v
-          u = ef_skolemize_term(sk, u);
-          v = ef_skolemize_term(sk, v);
-          ivector_push(&args, u);
-          ivector_push(&args, v);
-          result = mk_and(mgr, 2, args.data);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          sp = ef_skolemize_term(sk, v);
+          v = sk_update(sp, &resultq);
+
+          if (sk->flatten_ite || resultq) {
+            ivector_push(&args, u);
+            ivector_push(&args, v);
+            result = mk_and(mgr, 2, args.data);
+          }
+          else {
+            result = t;
+          }
         }
         break;
 
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (sk->flatten_iff && is_boolean_term(terms, d->arg[0])) {
+        if (is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (iff A B)
@@ -463,11 +517,21 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
            */
           u = mk_implies(mgr, d->arg[0], d->arg[1]); // (u => v)
           v = mk_implies(mgr, d->arg[1], d->arg[0]); // (v => u);
-          u = ef_skolemize_term(sk, u);
-          v = ef_skolemize_term(sk, v);
-          ivector_push(&args, u);
-          ivector_push(&args, v);
-          result = mk_and(mgr, 2, args.data);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          sp = ef_skolemize_term(sk, v);
+          v = sk_update(sp, &resultq);
+
+          if (sk->flatten_iff || resultq) {
+            ivector_push(&args, u);
+            ivector_push(&args, v);
+            result = mk_and(mgr, 2, args.data);
+          }
+          else {
+            result = t;
+          }
         }
         break;
 
@@ -483,7 +547,9 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         }
 
         u = d->arg[n];
-        result = ef_skolemize_term(sk, u);
+        sp = ef_skolemize_term(sk, u);
+        result = sk_update(sp, &resultq);
+        resultq = true;
 
         for (i=0; i<n; i++) {
           ivector_pop(&sk->uvars);
@@ -497,7 +563,10 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       if (result == NULL_TERM) {
         for(i=0; i<n; i++) {
           u = term_child(terms, t, i);
-          u = ef_skolemize_term(sk, u);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
           ivector_push(&args, u);
         }
         result = ef_update_composite(sk, unsigned_term(t), &args);
@@ -508,7 +577,15 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   }
 
   assert(result != NULL_TERM);
-  return result;
+
+
+#if TRACE
+  printf("Original (%d): %s\nSkolemized: %s\n", resultq,  yices_term_to_string(t, 120, 1, 0), yices_term_to_string(result, 120, 1, 0));
+#endif
+
+  sp.t = result;
+  sp.q = resultq;
+  return sp;
 }
 
 
@@ -516,7 +593,9 @@ static term_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
  * Get the skolemized version of term t
  */
 term_t ef_skolemize(ef_skolemize_t *sk, term_t t) {
-  return ef_skolemize_term(sk, t);
+  sk_pair_t sp;
+  sp = ef_skolemize_term(sk, t);
+  return sp.t;
 }
 
 

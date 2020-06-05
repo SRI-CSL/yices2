@@ -428,7 +428,7 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, te
   assertions[1] = b;
   assertions[2] = opposite_term(c);
 
-#if 0
+#if TRACE
   printf("Forall Context Constraint:\n");
   yices_pp_term_array(stdout, 3, assertions, 120, UINT32_MAX, 0, 0);
 #endif
