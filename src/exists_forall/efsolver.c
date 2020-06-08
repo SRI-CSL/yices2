@@ -428,7 +428,7 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, te
   assertions[1] = b;
   assertions[2] = opposite_term(c);
 
-#if TRACE
+#if 0
   printf("Forall Context Constraint:\n");
   yices_pp_term_array(stdout, 3, assertions, 120, UINT32_MAX, 0, 0);
 #endif
@@ -683,20 +683,31 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
   value = (term_t *) safe_malloc(n * sizeof(term_t));
   uvar_cnstr_old = yices_true();
-  bound = 0;
+  bound = 1;
+  bool done = false;
   while(code == CTX_NO_ERROR) {
-    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound);
+    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound, &done);
 #if TRACE
-    printf("uvar_cnstr: %s\n", yices_term_to_string(uvar_cnstr, 120, 1, 0));
+    printf("uvar_cnstr: %s\n", yices_term_to_string(uvar_cnstr, 1200, 1, 0));
 #endif
+    if (bound > 0 && uvar_cnstr_old == uvar_cnstr) {
+      bound++;
+      continue;
+    }
 
     context_push(forall_ctx);
     code = assert_formula(forall_ctx, uvar_cnstr);
+#if 0
+    printf("[%d] forall_ctx code: %d\n", i, code);
+#endif
     if (code < 0)
       break;
 
     status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
-    if (status != STATUS_UNSAT || uvar_cnstr == uvar_cnstr_old) {
+#if TRACE
+    printf("[%d] forall_ctx status: %d\n", i, status);
+#endif
+    if (status != STATUS_UNSAT || done) {
       for(i=0; i<n; i++) {
         solver->uvalue_aux.data[i] = value[i];
       }

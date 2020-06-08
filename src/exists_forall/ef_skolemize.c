@@ -365,15 +365,11 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (not (ite C A B))
-           *    u := (C => not A)
-           *    v := (not C => not B)
+           *    u := (C and !A)
+           *    v := (!C and !B)
            */
-          u = d->arg[1];                                    // A
-          v = d->arg[2];                                    // B
-          u = opposite_term(u);                             // (not A)
-          v = opposite_term(v);                             // (not B)
-          u = mk_implies(mgr, d->arg[0], u);                // (C => u)
-          v = mk_implies(mgr, opposite_term(d->arg[0]), v); // (not C) => v
+          u = mk_binary_and(mgr, d->arg[0], opposite_term(d->arg[1]));             // (C and !A)
+          v = mk_binary_and(mgr, opposite_term(d->arg[0]), opposite_term(d->arg[2])); // (!C and !B)
 
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
@@ -382,9 +378,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = sk_update(sp, &resultq);
 
           if (sk->flatten_ite || resultq) {
-            ivector_push(&args, u);
-            ivector_push(&args, v);
-            result = mk_and(mgr, 2, args.data);
+            result = mk_binary_or(mgr, u, v);
           }
           else {
             result = t;
@@ -399,13 +393,12 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (not (iff A B))
-           * flatten to not(A => B) or not(B => A)
+           * flatten to (A and !B) or (!A and B)
            *
            */
-          u = mk_implies(mgr, d->arg[0], d->arg[1]); // (u => v)
-          v = mk_implies(mgr, d->arg[1], d->arg[0]); // (v => u);
-          u = opposite_term(u);
-          v = opposite_term(v);
+          u = mk_binary_and(mgr, d->arg[0], opposite_term(d->arg[1])); // (A and !B)
+          v = mk_binary_and(mgr, opposite_term(d->arg[0]), d->arg[1]); // (!A and B)
+
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
 
@@ -413,9 +406,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = sk_update(sp, &resultq);
 
           if (sk->flatten_iff || resultq) {
-            ivector_push(&args, u);
-            ivector_push(&args, v);
-            result = mk_or(mgr, 2, args.data);
+            result = mk_binary_or(mgr, u, v);
           }
           else {
             result = t;
@@ -479,14 +470,12 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         if (is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
-           * t is (ite C A B)
-           *    u := (C => A)
-           *    v := (not C => B)
+           * t is (ite C A B) = (u or v)
+           *    u := (C and A)
+           *    v := (not C and B)
            */
-          u = d->arg[1];                                    // A
-          v = d->arg[2];                                    // B
-          u = mk_implies(mgr, d->arg[0], u);                // (C => u)
-          v = mk_implies(mgr, opposite_term(d->arg[0]), v); // (not C) => v
+          u = mk_binary_and(mgr, d->arg[0], d->arg[1]);                // (C and A)
+          v = mk_binary_and(mgr, opposite_term(d->arg[0]), d->arg[2]); // (not C) and B
 
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
@@ -495,9 +484,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = sk_update(sp, &resultq);
 
           if (sk->flatten_ite || resultq) {
-            ivector_push(&args, u);
-            ivector_push(&args, v);
-            result = mk_and(mgr, 2, args.data);
+            result = mk_binary_or(mgr, u, v);
           }
           else {
             result = t;
@@ -512,11 +499,11 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (iff A B)
-           * flatten to (A => B) and (B => A)
+           * flatten to (A and B) or (!A and !B)
            *
            */
-          u = mk_implies(mgr, d->arg[0], d->arg[1]); // (u => v)
-          v = mk_implies(mgr, d->arg[1], d->arg[0]); // (v => u);
+          u = mk_binary_and(mgr, d->arg[0], d->arg[1]);                               // (u and v)
+          v = mk_binary_and(mgr, opposite_term(d->arg[0]), opposite_term(d->arg[1])); // (!u and !v);
 
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
@@ -525,9 +512,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           v = sk_update(sp, &resultq);
 
           if (sk->flatten_iff || resultq) {
-            ivector_push(&args, u);
-            ivector_push(&args, v);
-            result = mk_and(mgr, 2, args.data);
+            result = mk_binary_or(mgr, u, v);
           }
           else {
             result = t;

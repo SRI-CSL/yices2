@@ -793,7 +793,7 @@ term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) 
   return result;
 }
 
-static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bound) {
+static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bound, bool *done) {
   term_t result, u;
   type_t tau;
   ptr_hmap_pair_t *r;
@@ -801,6 +801,7 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
   ivector_t *v;
   ivector_t eq;
   uint32_t n, i;
+  bool skipped = false;
 
   result = yices_true();
   tau = yices_type_of_term(t);
@@ -818,12 +819,20 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
         u = v->data[i];
         if (bound >= 0) {
           p = int_hmap_find(&vtable->priority, u);
-          if(p != NULL && p->val > bound)
-              continue;
+          if(p != NULL && p->val > bound) {
+            skipped = true;
+            continue;
           }
+        }
         ivector_push(&eq, yices_eq(t, u));
       }
       result = yices_and2(result, yices_or(eq.size, eq.data));
+      if (bound >= 0) {
+        *done = !skipped;
+      }
+      else {
+        *done = true;
+      }
 
       delete_ivector(&eq);
     }
@@ -831,13 +840,19 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
   return result;
 }
 
-term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound) {
-  term_t result;
+term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound, bool *done) {
+  term_t result, resulti;
   uint32_t i;
+  bool donei;
 
   result = yices_true();
+  *done = true;
   for(i=0; i<n; i++) {
-    result = yices_and2(result, constraint_scalar_element(vtable, t[i], bound));
+    donei = false;
+    resulti = constraint_scalar_element(vtable, t[i], bound, &donei);
+    result = yices_and2(result, resulti);
+    if (!donei)
+      *done = false;
   }
 
   return result;
