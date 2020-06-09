@@ -5408,6 +5408,14 @@ void smt_clear(smt_core_t *s) {
   } else {
     // no state to restore. Just backtrack and clear the assignment
     backtrack_to_base_level(s);
+    if (s->assumptions) {
+      // remove the assumptions
+      s->has_assumptions = false;
+      s->num_assumptions = 0;
+      s->assumption_index = 0;
+      s->assumptions = NULL;
+      s->bad_assumption = null_literal;
+    }
     s->status = STATUS_IDLE;
   }
 }
