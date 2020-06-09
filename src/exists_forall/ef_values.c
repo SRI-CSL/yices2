@@ -827,16 +827,11 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
         ivector_push(&eq, yices_eq(t, u));
       }
       result = yices_and2(result, yices_or(eq.size, eq.data));
-      if (bound >= 0) {
-        *done = !skipped;
-      }
-      else {
-        *done = true;
-      }
 
       delete_ivector(&eq);
     }
   }
+  *done = !skipped;
   return result;
 }
 

@@ -510,7 +510,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
     mdl = yices_new_model(true);
     build_model(mdl, ctx);
 
-#if TRACE
+#if 0
     // FOR DEBUGGING
     printf("Full Model:\n");
     yices_print_model(stdout, mdl);
@@ -632,129 +632,6 @@ static smt_status_t ef_solver_check_exists(ef_solver_t *solver) {
   return satisfy_context(solver, solver->exists_context, evar, n, solver->evalue.data, &solver->exists_model, true);
 }
 
-
-
-/*
- * Test the current exists model using universal constraint i
- * - i must be a valid index (i.e., 0 <= i < solver->prob->num_cnstr)
- * - this checks the assertion B_i and not C_i after replacing existential
- *   variables by their values (stored in evalue)
- * - return code:
- *   if STATUS_SAT (or STATUS_UNKNOWN): a model of (B_i and not C_i)
- *   is found and stored in uvalue_aux
- *   if STATUS_UNSAT: no model found (current exists model is good as
- *   far as constraint i is concerned)
- *   anything else: an error or interruption
- *
- * - if we get an error or interruption, solver->status is updated
- *   otherwise, it is kept as is (should be EF_STATUS_SEARCHING)
- */
-static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t domain_cnstr, uint32_t i) {
-  context_t *forall_ctx;
-  ef_cnstr_t *cnstr;
-  term_t *value;
-  term_t g;
-  int32_t n, bound;
-  int32_t code;
-  smt_status_t status;
-  term_t uvar_cnstr, uvar_cnstr_old;
-
-  assert(i < ef_prob_num_constraints(solver->prob));
-  cnstr = solver->prob->cnstr + i;
-
-  n = ef_prob_num_evars(solver->prob);
-  g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue.data, n, cnstr->guarantee);
-  if (g < 0) {
-    // error in substitution
-    solver->status = EF_STATUS_SUBST_ERROR;
-    solver->error_code = g;
-    return STATUS_ERROR;
-  }
-
-  /*
-   * make uvalue_aux large enough
-   */
-  n = ef_constraint_num_uvars(cnstr);
-  resize_ivector(&solver->uvalue_aux, n);
-  solver->uvalue_aux.size = n;
-
-  forall_ctx = get_forall_context(solver);
-  code = forall_context_assert(solver, domain_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
-
-  value = (term_t *) safe_malloc(n * sizeof(term_t));
-  uvar_cnstr_old = yices_true();
-  bound = 1;
-  bool done = false;
-  while(code == CTX_NO_ERROR) {
-    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound, &done);
-#if TRACE
-    printf("uvar_cnstr: %s\n", yices_term_to_string(uvar_cnstr, 1200, 1, 0));
-#endif
-    if (bound > 0 && uvar_cnstr_old == uvar_cnstr) {
-      bound++;
-      continue;
-    }
-
-    context_push(forall_ctx);
-    code = assert_formula(forall_ctx, uvar_cnstr);
-#if 0
-    printf("[%d] forall_ctx code: %d\n", i, code);
-#endif
-    if (code < 0)
-      break;
-
-    status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
-#if TRACE
-    printf("[%d] forall_ctx status: %d\n", i, status);
-#endif
-    if (status != STATUS_UNSAT || done) {
-      for(i=0; i<n; i++) {
-        solver->uvalue_aux.data[i] = value[i];
-      }
-      break;
-    }
-    uvar_cnstr_old = uvar_cnstr;
-    bound++;
-    context_pop(forall_ctx);
-    code = CTX_NO_ERROR;
-  }
-  safe_free(value);
-
-
-  if (code == CTX_NO_ERROR) {
-    switch (status) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
-      break;
-
-    case STATUS_UNSAT:
-      break;
-
-    case STATUS_INTERRUPTED:
-      solver->status = EF_STATUS_INTERRUPTED;
-      break;
-
-    default:
-      solver->status = EF_STATUS_CHECK_ERROR;
-      solver->error_code = status;
-      break;
-    }
-
-  } else if (code == TRIVIALLY_UNSAT) {
-    assert(context_status(forall_ctx) == STATUS_UNSAT);
-    status = STATUS_UNSAT;
-
-  } else {
-    // error in assertion
-    solver->status = EF_STATUS_ASSERT_ERROR;
-    solver->error_code = code;
-    status = STATUS_ERROR;
-  }
-
-  clear_forall_context(solver, true);
-
-  return status;
-}
 
 
 
@@ -1261,6 +1138,184 @@ static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
 
 
 
+/*
+ * Test the current exists model using universal constraint i
+ * - i must be a valid index (i.e., 0 <= i < solver->prob->num_cnstr)
+ * - this checks the assertion B_i and not C_i after replacing existential
+ *   variables by their values (stored in evalue)
+ * - return code:
+ *   if STATUS_SAT (or STATUS_UNKNOWN): a model of (B_i and not C_i)
+ *   is found and stored in uvalue_aux
+ *   if STATUS_UNSAT: no model found (current exists model is good as
+ *   far as constraint i is concerned)
+ *   anything else: an error or interruption
+ *
+ * - if we get an error or interruption, solver->status is updated
+ *   otherwise, it is kept as is (should be EF_STATUS_SEARCHING)
+ */
+static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t domain_cnstr, uint32_t i) {
+  context_t *forall_ctx;
+  ef_cnstr_t *cnstr;
+  term_t *value;
+  term_t g;
+  int32_t n, bound;
+  int32_t code;
+  smt_status_t status, exists_status;
+  term_t uvar_cnstr, uvar_cnstr_old;
+  term_t cex_cnstr;
+  uint32_t j, numlearnt;
+
+  assert(i < ef_prob_num_constraints(solver->prob));
+  cnstr = solver->prob->cnstr + i;
+
+  n = ef_prob_num_evars(solver->prob);
+  g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue.data, n, cnstr->guarantee);
+  if (g < 0) {
+    // error in substitution
+    solver->status = EF_STATUS_SUBST_ERROR;
+    solver->error_code = g;
+    return STATUS_ERROR;
+  }
+
+  /*
+   * make uvalue_aux large enough
+   */
+  n = ef_constraint_num_uvars(cnstr);
+  resize_ivector(&solver->uvalue_aux, n);
+  solver->uvalue_aux.size = n;
+
+  forall_ctx = get_forall_context(solver);
+  code = forall_context_assert(solver, domain_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
+
+  value = (term_t *) safe_malloc(n * sizeof(term_t));
+  uvar_cnstr_old = yices_true();
+  bound = 0;
+  bool done = false;
+  numlearnt = 0;
+
+  while(code == CTX_NO_ERROR && !done) {
+    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound, &done);
+#if TRACE
+    printf("uvar_cnstr: %s\n\n", yices_term_to_string(uvar_cnstr, 1200, 1, 0));
+#endif
+    if (bound > 0 && !done && uvar_cnstr_old == uvar_cnstr) {
+      bound++;
+      continue;
+    }
+
+    context_push(forall_ctx);
+    code = assert_formula(forall_ctx, uvar_cnstr);
+    if (code < 0)
+      break;
+
+    while(true) {
+      status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
+#if TRACE
+      printf("[%d] forall_ctx status: %d\n", i, status);
+#endif
+      if (status != STATUS_UNSAT || done) {
+        for(j=0; j<n; j++) {
+          solver->uvalue_aux.data[j] = value[j];
+        }
+      }
+
+      if (status == STATUS_SAT || status == STATUS_UNKNOWN) {
+#if TRACE
+        printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
+        print_forall_witness(stdout, solver, i);
+        printf("\n");
+        fflush(stdout);
+#endif
+
+        replace_forall_witness(solver, i);
+
+        cex_cnstr = constraint_distinct_filter(&solver->value_table, n, solver->uvalue_aux.data);
+#if TRACE
+        printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
+#endif
+
+#if TRACE
+        printf("New counterexample for constraint[%"PRIu32"]\n", i);
+        print_forall_witness(stdout, solver, i);
+        printf("\n");
+        fflush(stdout);
+#endif
+
+        ef_solver_learn(solver, cex_cnstr, i);
+        numlearnt++;
+        if (context_status(solver->exists_context) == STATUS_UNSAT) {
+          break;
+        }
+        if (numlearnt > 10)
+          break;
+
+        code = yices_assert_blocking_clause(forall_ctx);
+#if TRACE
+        printf("[%d] code: %d\n", i, code);
+#endif
+        if (code < 0)
+          break;
+      }
+      else {
+        break;
+      }
+    }
+
+    if (numlearnt != 0) {
+      status = STATUS_SAT;
+      break;
+    }
+
+    if (done)
+      break;
+
+    uvar_cnstr_old = uvar_cnstr;
+    bound++;
+    context_pop(forall_ctx);
+    code = CTX_NO_ERROR;
+  }
+  safe_free(value);
+
+#if TRACE
+  printf("[%d] forall_ctx final status: %d\n", i, context_status(forall_ctx));
+#endif
+
+  if (code == CTX_NO_ERROR) {
+    switch (status) {
+    case STATUS_SAT:
+    case STATUS_UNKNOWN:
+      break;
+
+    case STATUS_UNSAT:
+      break;
+
+    case STATUS_INTERRUPTED:
+      solver->status = EF_STATUS_INTERRUPTED;
+      break;
+
+    default:
+      solver->status = EF_STATUS_CHECK_ERROR;
+      solver->error_code = status;
+      break;
+    }
+
+  } else if (code == TRIVIALLY_UNSAT) {
+    assert(context_status(forall_ctx) == STATUS_UNSAT);
+    status = STATUS_UNSAT;
+
+  } else {
+    // error in assertion
+    solver->status = EF_STATUS_ASSERT_ERROR;
+    solver->error_code = code;
+    status = STATUS_ERROR;
+  }
+
+  clear_forall_context(solver, true);
+
+  return status;
+}
+
+
 
 /*
  * EF SOLVER: INNER LOOP
@@ -1337,39 +1392,37 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     trace_candidate_check(solver, i, status);
 
 #if TRACE
-  cnstr = solver->prob->cnstr + i;
-  printf("[%d] status %d:   %s\n", i, status, yices_term_to_string(cnstr->guarantee, 120, 1, 0));
+    cnstr = solver->prob->cnstr + i;
+    printf("[%d] status %d:   %s\n", i, status, yices_term_to_string(cnstr->guarantee, 120, 1, 0));
 #endif
 
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
 
-#if TRACE
-      printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
-      print_forall_witness(stdout, solver, i);
-      printf("\n");
-      fflush(stdout);
-#endif
-
-      replace_forall_witness(solver, i);
-
-      m = ef_constraint_num_uvars(solver->prob->cnstr + i);
-      cex_cnstr = constraint_distinct_filter(&solver->value_table, m, solver->uvalue_aux.data);
-#if TRACE
-      printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
-#endif
-
-
-#if TRACE
-      printf("New counterexample for constraint[%"PRIu32"]\n", i);
-      print_forall_witness(stdout, solver, i);
-      printf("\n");
-      fflush(stdout);
-#endif
-
-      ef_solver_learn(solver, cex_cnstr, i);
-//      assert(0);
+//#if TRACE
+//      printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
+//      print_forall_witness(stdout, solver, i);
+//      printf("\n");
+//      fflush(stdout);
+//#endif
+//
+//      replace_forall_witness(solver, i);
+//
+//      m = ef_constraint_num_uvars(solver->prob->cnstr + i);
+//      cex_cnstr = constraint_distinct_filter(&solver->value_table, m, solver->uvalue_aux.data);
+//#if TRACE
+//      printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
+//#endif
+//
+//#if TRACE
+//      printf("New counterexample for constraint[%"PRIu32"]\n", i);
+//      print_forall_witness(stdout, solver, i);
+//      printf("\n");
+//      fflush(stdout);
+//#endif
+//
+//      ef_solver_learn(solver, cex_cnstr, i);
 
     default:
       i ++;
