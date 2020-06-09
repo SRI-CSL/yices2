@@ -9054,6 +9054,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
+    context_clear_unsat(ctx);
     if (context_status(ctx) == STATUS_UNSAT) {
       return STATUS_UNSAT;
     }
