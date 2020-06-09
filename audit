@@ -1,1 +1,0 @@
-./scripts/check-globals.sh build/x86_64-pc-linux-gnu-debug/obj/*/*.o build/x86_64-pc-linux-gnu-debug/obj/*/*/*.o
