@@ -144,7 +144,7 @@ void ef_solve(ef_client_t *efc, uint32_t n, term_t *assertions, param_t *paramet
        * If the problem has integer or real variables, we force GEN_BY_PROJ
        */
       ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
-		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters);
+		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters, efc->ef_parameters.max_numlearnt);
       efc->efdone = true;
     }
   }

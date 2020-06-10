@@ -47,7 +47,7 @@ void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr,
   vtable->terms = terms;
 
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
-  init_int_hmap(&vtable->priority, 0);
+  init_int_hmap(&vtable->generation, 0);
   init_int_hmap(&vtable->var_rep, 0);
   vtable->fval_maker = NULL;
 }
@@ -91,7 +91,7 @@ void delete_ef_table(ef_table_t *vtable) {
   vtable->terms = NULL;
 
   delete_val_converter(&vtable->convert);
-  delete_int_hmap(&vtable->priority);
+  delete_int_hmap(&vtable->generation);
   delete_int_hmap(&vtable->var_rep);
   if (vtable->fval_maker != NULL)
     safe_free(vtable->fval_maker);
@@ -137,7 +137,7 @@ void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr
 
   delete_val_converter(&vtable->convert);
   init_val_converter(&vtable->convert, vtbl, mgr, terms);
-  int_hmap_reset(&vtable->priority);
+  int_hmap_reset(&vtable->generation);
   int_hmap_reset(&vtable->var_rep);
 
   if (vtable->fval_maker == NULL) {
@@ -180,8 +180,8 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
     fprintf(f, " -> %s\n", yices_term_to_string(ip->val, 120, 1, 0));
   }
 
-  fprintf(f, "\n== EF PRIORITY ==\n");
-  imap = &vtable->priority;
+  fprintf(f, "\n== EF GENERATION ==\n");
+  imap = &vtable->generation;
   for (ip = int_hmap_first_record(imap);
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
@@ -202,13 +202,13 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
 
 
 /*
- * Add / update var priority
+ * Add / update var generation
  */
-static void store_term_priority(ef_table_t *vtable, term_t var, uint32_t priority) {
+static void store_term_generation(ef_table_t *vtable, term_t var, uint32_t gen) {
   int_hmap_pair_t *p;
 
-  p = int_hmap_get(&vtable->priority, var);
-  p->val = priority;
+  p = int_hmap_get(&vtable->generation, var);
+  p->val = gen;
 }
 
 
@@ -219,14 +219,18 @@ static void store_rep(ef_table_t *vtable, term_t tvalue, term_t var) {
   int_hmap_pair_t *p;
 
   p = int_hmap_get(&vtable->var_rep, tvalue);
-  if (p->val < 0)
+  if (p->val < 0) {
     p->val = var;
+#if TRACE
+    printf("%s -rep-> %s\n", yices_term_to_string(tvalue, 120, 1, 0), yices_term_to_string(var, 120, 1, 0));
+#endif
+  }
 }
 
 /*
- * Calculate var priority
+ * Calculate var generation
  */
-static uint32_t calculate_priority(ef_table_t *vtable, term_t xc) {
+static uint32_t calculate_generation(ef_table_t *vtable, term_t xc) {
   composite_term_t *app;
   term_t f;
   int_hmap_pair_t *p;
@@ -237,17 +241,19 @@ static uint32_t calculate_priority(ef_table_t *vtable, term_t xc) {
 
   app = app_term_desc(vtable->terms, xc);
   m = app->arity - 1;
-  result = 1;
+  result = 0;
 
   for(i=1; i<=m; i++) {
     f = app->arg[i];
 
-    p = int_hmap_find(&vtable->priority, f);
+    p = int_hmap_find(&vtable->generation, f);
     if (p == NULL) {
       return 0;
     }
-    result += p->val;
+    if (p->val > result)
+      result = p->val;
   }
+  result += 1;
 
   return result;
 }
@@ -317,53 +323,53 @@ static void store_term_value(ef_table_t *vtable, term_t var, value_t value) {
 
   ivector_push(m->val, var);
   if (term_is_atomic(vtable->terms, var)) {
-    store_term_priority(vtable, var, 0);
-    store_term_priority(vtable, tvalue, 0);
+    store_term_generation(vtable, var, 0);
+    store_term_generation(vtable, tvalue, 0);
     store_rep(vtable, tvalue, var);
   }
 }
 
 
-static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
-  ptr_hmap_pair_t *r;
-  ivector_t *v;
-  uint32_t i, n, best_prio;
-  term_t x, best_x;
-  int_hmap_pair_t *p;
-  value_t value;
-
-  r = ptr_hmap_find(&vtable->type_map, tau);
-  if (r == NULL) {
-    value = make_fresh_const(vtable->fval_maker, tau);
-    x = convert_value(&vtable->convert, value);
-    store_term_value(vtable, x, value);
-//    print_ef_table(stdout, vtable);
-//    printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
-//    assert(0);
-    return x;
-  }
-
-  v = r->val;
-  n = v->size;
-  best_prio = UINT32_MAX;
-  best_x = NULL_TERM;
-  assert(n != 0);
-
-  for(i=0; i<n; i++) {
-    x = v->data[i];
-    p = int_hmap_find(&vtable->priority, x);
-    if (p != NULL) {
-      if (p->val < best_prio) {
-        best_prio = p->val;
-        best_x = x;
-      }
-    }
-    if (best_x == NULL_TERM)
-      best_x = x;
-  }
-  assert(best_x != NULL_TERM);
-  return best_x;
-}
+//static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
+//  ptr_hmap_pair_t *r;
+//  ivector_t *v;
+//  uint32_t i, n, best_gen;
+//  term_t x, best_x;
+//  int_hmap_pair_t *p;
+//  value_t value;
+//
+//  r = ptr_hmap_find(&vtable->type_map, tau);
+//  if (r == NULL) {
+//    value = make_fresh_const(vtable->fval_maker, tau);
+//    x = convert_value(&vtable->convert, value);
+//    store_term_value(vtable, x, value);
+////    print_ef_table(stdout, vtable);
+////    printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
+////    assert(0);
+//    return x;
+//  }
+//
+//  v = r->val;
+//  n = v->size;
+//  best_gen = UINT32_MAX;
+//  best_x = NULL_TERM;
+//  assert(n != 0);
+//
+//  for(i=0; i<n; i++) {
+//    x = v->data[i];
+//    p = int_hmap_find(&vtable->generation, x);
+//    if (p != NULL) {
+//      if (p->val < best_gen) {
+//        best_gen = p->val;
+//        best_x = x;
+//      }
+//    }
+//    if (best_x == NULL_TERM)
+//      best_x = x;
+//  }
+//  assert(best_x != NULL_TERM);
+//  return best_x;
+//}
 
 /*
  * Store function mapping values to var
@@ -374,7 +380,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_table_t *terms;
   type_table_t *types;
   type_t tau;
-  function_type_t *funt;
+//  function_type_t *funt;
 
   convert = &vtable->convert;
   table = vtable->vtbl;
@@ -390,8 +396,8 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_t x;
   value_t valuei;
   term_t *args;
-  bool flag_default;
-  ptr_hmap_pair_t *r;
+//  bool flag_default;
+//  ptr_hmap_pair_t *r;
 
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
 
@@ -476,7 +482,7 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
   }
 
   // third pass: process function instances
-  uint32_t j, n, m, prio, best_prio;
+  uint32_t j, n, m, gen, best_gen;
   int_queue_t queue;
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
@@ -493,7 +499,8 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     if (int_hmap_find(var_rep, p->key) == NULL) {
-      if (is_utype_term(vtable->terms, p->key)) {
+//      if (is_utype_term(vtable->terms, p->key))
+      {
         int_queue_push(&queue, p->key);
       }
     }
@@ -507,23 +514,23 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
     v = p->val;
     n = v->size;
 
-    best_prio = UINT32_MAX;
+    best_gen = UINT32_MAX;
     best_x = NULL_TERM;
     assert(n != 0);
 
     for(i=0; i<n; i++) {
       x = v->data[i];
-      prio = calculate_priority(vtable, x);
-      if (prio > 0) {
-        store_term_priority(vtable, x, prio);
-        if (prio < best_prio) {
-          best_prio = prio;
+      gen = calculate_generation(vtable, x);
+      if (gen > 0) {
+        store_term_generation(vtable, x, gen);
+        if (gen < best_gen) {
+          best_gen = gen;
           best_x = x;
         }
       }
     }
     if (best_x != NULL_TERM) {
-      store_term_priority(vtable, tvalue, best_prio);
+      store_term_generation(vtable, tvalue, best_gen);
       store_rep(vtable, tvalue, best_x);
       m--;
       j = 0;
@@ -618,7 +625,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
     int_hmap_pair_t *p;
     uint32_t i, n, m;
     ivector_t *v;
-    uint32_t best_prio;
+    uint32_t best_gen;
 
     p = int_hmap_find(&vtable->var_rep, value);
     if (p != NULL) {
@@ -627,16 +634,16 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
     else {
       v = r->val;
       n = v->size;
-      best_prio = UINT32_MAX;
+      best_gen = UINT32_MAX;
       best_x = NULL_TERM;
       assert(n != 0);
 
       for(i=0; i<n; i++) {
         x = v->data[i];
-        p = int_hmap_find(&vtable->priority, x);
+        p = int_hmap_find(&vtable->generation, x);
         if (p != NULL) {
-          if (p->val < best_prio) {
-            best_prio = p->val;
+          if (p->val < best_gen) {
+            best_gen = p->val;
             best_x = x;
           }
         }
@@ -703,18 +710,21 @@ term_t ef_get_value(ef_table_t *vtable, term_t value) {
   int_hmap_t value_requests;
   term_t rep;
 
-  if (!is_utype_term(vtable->terms, value)) {
-    return value;
-  }
-
   init_int_hmap(&value_requests, 0);
   rep = ef_get_value_rep(vtable, value, &value_requests);
-  delete_int_hset(&value_requests);
+  delete_int_hmap(&value_requests);
+
+  if (rep == NULL_TERM && !is_utype_term(vtable->terms, value)) {
+    rep = value;
+  }
 
   return rep;
 }
 
 
+/*
+ * Get the distinct condition over terms in vector v
+ */
 static term_t constraint_distinct_elements(ivector_t *v) {
   if (v->size < 2)
     return yices_true();
@@ -722,6 +732,9 @@ static term_t constraint_distinct_elements(ivector_t *v) {
     return yices_distinct(v->size, v->data);
 }
 
+/*
+ * Get the distinct conditions over uninterpreted domain term values
+ */
 term_t constraint_distinct(ef_table_t *vtable) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
@@ -744,6 +757,9 @@ term_t constraint_distinct(ef_table_t *vtable) {
   return result;
 }
 
+/*
+ * Get the distinct conditions over vars
+ */
 term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) {
   ptr_hmap_t map;
   ptr_hmap_pair_t *p;
@@ -793,7 +809,10 @@ term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars) 
   return result;
 }
 
-static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bound, bool *done) {
+/*
+ * Get the scalar domain constraint (upto generation) for a term
+ */
+static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t generation, bool *done) {
   term_t result, u;
   type_t tau;
   ptr_hmap_pair_t *r;
@@ -817,9 +836,9 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
 
       for(i=0; i<n; i++) {
         u = v->data[i];
-        if (bound >= 0) {
-          p = int_hmap_find(&vtable->priority, u);
-          if(p != NULL && p->val > bound) {
+        if (generation >= 0) {
+          p = int_hmap_find(&vtable->generation, u);
+          if(p != NULL && p->val > generation) {
             skipped = true;
             continue;
           }
@@ -835,7 +854,10 @@ static term_t constraint_scalar_element(ef_table_t *vtable, term_t t, int32_t bo
   return result;
 }
 
-term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound, bool *done) {
+/*
+ * Get the scalar domain constraints (upto generation) for an array of terms
+ */
+term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t generation, bool *done) {
   term_t result, resulti;
   uint32_t i;
   bool donei;
@@ -844,7 +866,7 @@ term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t boun
   *done = true;
   for(i=0; i<n; i++) {
     donei = false;
-    resulti = constraint_scalar_element(vtable, t[i], bound, &donei);
+    resulti = constraint_scalar_element(vtable, t[i], generation, &donei);
     result = yices_and2(result, resulti);
     if (!donei)
       *done = false;

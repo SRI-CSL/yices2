@@ -264,7 +264,7 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
 
 
 /*
- * Skolemize existentials in an analyzer
+ * Skolemize an existential term
  */
 static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   ef_analyzer_t *ef;
@@ -331,6 +331,7 @@ static inline term_t sk_update(sk_pair_t sp, bool *is_quantified) {
 /*
  * Convert a term to negated normal form and skolemize
  * - returns a pair <skolemized_t, is_quantified>
+ * is_quantified is used to decide flattening of Boolean conditions
  *
  */
 static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
@@ -349,7 +350,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   kind = term_kind(terms, t);
   result = NULL_TERM;
 
-  if (term_is_atomic(terms, unsigned_term(t)))
+  if (!term_is_composite(terms, unsigned_term(t)))
     result = t;
   else {
     n = term_num_children(terms, t);
@@ -546,6 +547,7 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       }
 
       if (result == NULL_TERM) {
+        n = term_num_children(terms, t);
         for(i=0; i<n; i++) {
           u = term_child(terms, t, i);
 

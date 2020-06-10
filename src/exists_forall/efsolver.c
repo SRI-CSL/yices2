@@ -556,29 +556,31 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
       fill_ef_table(&solver->value_table, var, mdl_values.data, n);
 
       // third, fill in uninterpreted types
-      value_table_t *vtbl;
-      egraph_t *egraph;
-      egraph_model_t *egraph_mdl;
-      ivector_t *v;
-      uint32_t m;
+      if (context_has_egraph(ctx)) {
+        value_table_t *vtbl;
+        egraph_t *egraph;
+        egraph_model_t *egraph_mdl;
+        ivector_t *v;
+        uint32_t m;
 
-      class_t c;
-      value_t val;
-      term_t tval;
+        class_t c;
+        value_t val;
+        term_t tval;
 
-      vtbl = model_get_vtbl(mdl);
-      egraph = ctx->egraph;
-      egraph_mdl = &egraph->mdl;
-      v = &egraph_mdl->root_classes;
-      m = v->size;
+        vtbl = model_get_vtbl(mdl);
+        egraph = ctx->egraph;
+        egraph_mdl = &egraph->mdl;
+        v = &egraph_mdl->root_classes;
+        m = v->size;
 
-      for (i=0; i<m; i++) {
-        c = v->data[i];
-        if (egraph_class_type(egraph, c) == ETYPE_NONE) {
-          assert(egraph_class_is_root_class(egraph, c));
-          val = egraph_mdl->value[c];
-          tval = convert_value_to_term(__yices_globals.manager, mdl->terms, vtbl, val);
-          store_type_value(&solver->value_table, val, tval, true);
+        for (i=0; i<m; i++) {
+          c = v->data[i];
+          if (egraph_class_type(egraph, c) == ETYPE_NONE) {
+            assert(egraph_class_is_root_class(egraph, c));
+            val = egraph_mdl->value[c];
+            tval = convert_value_to_term(__yices_globals.manager, mdl->terms, vtbl, val);
+            store_type_value(&solver->value_table, val, tval, true);
+          }
         }
       }
 
@@ -1143,6 +1145,7 @@ static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
  * - i must be a valid index (i.e., 0 <= i < solver->prob->num_cnstr)
  * - this checks the assertion B_i and not C_i after replacing existential
  *   variables by their values (stored in evalue)
+ * - learn multiple lemmas (upto max_numlearnt)
  * - return code:
  *   if STATUS_SAT (or STATUS_UNKNOWN): a model of (B_i and not C_i)
  *   is found and stored in uvalue_aux
@@ -1156,14 +1159,13 @@ static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
 static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t domain_cnstr, uint32_t i) {
   context_t *forall_ctx;
   ef_cnstr_t *cnstr;
-  term_t *value;
   term_t g;
-  int32_t n, bound;
+  int32_t n, generation;
   int32_t code;
-  smt_status_t status, exists_status;
+  smt_status_t status;
   term_t uvar_cnstr, uvar_cnstr_old;
   term_t cex_cnstr;
-  uint32_t j, numlearnt;
+  uint32_t numlearnt;
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
@@ -1187,37 +1189,37 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
   forall_ctx = get_forall_context(solver);
   code = forall_context_assert(solver, domain_cnstr, cnstr->assumption, g); // assert B_i(Y_i) and not g(Y_i)
 
-  value = (term_t *) safe_malloc(n * sizeof(term_t));
   uvar_cnstr_old = yices_true();
-  bound = 0;
+  generation = 0;
   bool done = false;
   numlearnt = 0;
 
+  // iterate till not reached max generation
   while(code == CTX_NO_ERROR && !done) {
-    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, bound, &done);
+    // assert domain constrainst for uvars
+    uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, generation, &done);
 #if TRACE
     printf("uvar_cnstr: %s\n\n", yices_term_to_string(uvar_cnstr, 1200, 1, 0));
 #endif
-    if (bound > 0 && !done && uvar_cnstr_old == uvar_cnstr) {
-      bound++;
+
+    // if new constraint same as the last one and not done, increment generation and continue
+    if (generation > 0 && !done && uvar_cnstr_old == uvar_cnstr) {
+      generation++;
       continue;
     }
 
+    // add the domain constraint
     context_push(forall_ctx);
     code = assert_formula(forall_ctx, uvar_cnstr);
     if (code < 0)
       break;
 
+    // inner loop: learn multiple lemmas if possible
     while(true) {
-      status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, value, NULL, false);
+      status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, solver->uvalue_aux.data, NULL, false);
 #if TRACE
       printf("[%d] forall_ctx status: %d\n", i, status);
 #endif
-      if (status != STATUS_UNSAT || done) {
-        for(j=0; j<n; j++) {
-          solver->uvalue_aux.data[j] = value[j];
-        }
-      }
 
       if (status == STATUS_SAT || status == STATUS_UNKNOWN) {
 #if TRACE
@@ -1227,8 +1229,11 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
         fflush(stdout);
 #endif
 
+        // replace term values in counterexample with their representatives
         replace_forall_witness(solver, i);
 
+        // add the distinct constraint on representatives since the term values are implicitly distinct
+        // cex_cnstr forms the antecedent
         cex_cnstr = constraint_distinct_filter(&solver->value_table, n, solver->uvalue_aux.data);
 #if TRACE
         printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
@@ -1243,12 +1248,17 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
         ef_solver_learn(solver, cex_cnstr, i);
         numlearnt++;
+
+        // if exists context has become UNSAT, then break
         if (context_status(solver->exists_context) == STATUS_UNSAT) {
           break;
         }
-        if (numlearnt > 10)
+
+        // if learnt enough, then break
+        if (numlearnt > solver->max_numlearnt)
           break;
 
+        // add a blocking clause to learn more
         code = yices_assert_blocking_clause(forall_ctx);
 #if TRACE
         printf("[%d] code: %d\n", i, code);
@@ -1261,20 +1271,21 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
       }
     }
 
+    // if learnt something, then break (no need to learn for higher generations)
     if (numlearnt != 0) {
       status = STATUS_SAT;
       break;
     }
 
+    // if reached highest generation, then break
     if (done)
       break;
 
     uvar_cnstr_old = uvar_cnstr;
-    bound++;
+    generation++;
     context_pop(forall_ctx);
     code = CTX_NO_ERROR;
   }
-  safe_free(value);
 
 #if TRACE
   printf("[%d] forall_ctx final status: %d\n", i, context_status(forall_ctx));
@@ -1364,10 +1375,8 @@ static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t 
  */
 static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   smt_status_t status;
-  uint32_t i, n, m;
+  uint32_t i, n;
   term_t domain_cnstr;
-  term_t cex_cnstr;
-  ef_cnstr_t *cnstr;
 
   n = ef_prob_num_constraints(solver->prob);
 
@@ -1381,6 +1390,8 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   }
 
   i = solver->scan_idx;
+  // domain_cnstr is the constraint asserting uninterpreted domains are composed of distinct constants.
+  // domain_cnstr is trivially true if domain represented with constant terms.
   domain_cnstr = constraint_distinct(&solver->value_table);
 #if TRACE
   printf("domain_cnstr: %s\n", yices_term_to_string(domain_cnstr, 120, 1, 0));
@@ -1399,31 +1410,7 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     switch (status) {
     case STATUS_SAT:
     case STATUS_UNKNOWN:
-
-//#if TRACE
-//      printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
-//      print_forall_witness(stdout, solver, i);
-//      printf("\n");
-//      fflush(stdout);
-//#endif
-//
-//      replace_forall_witness(solver, i);
-//
-//      m = ef_constraint_num_uvars(solver->prob->cnstr + i);
-//      cex_cnstr = constraint_distinct_filter(&solver->value_table, m, solver->uvalue_aux.data);
-//#if TRACE
-//      printf("cex_cnstr: %s\n", yices_term_to_string(cex_cnstr, 120, 1, 0));
-//#endif
-//
-//#if TRACE
-//      printf("New counterexample for constraint[%"PRIu32"]\n", i);
-//      print_forall_witness(stdout, solver, i);
-//      printf("\n");
-//      fflush(stdout);
-//#endif
-//
-//      ef_solver_learn(solver, cex_cnstr, i);
-
+      // Moved learning to ef_solver_test_exists_model
     default:
       i ++;
       if (i == n) {
@@ -1551,11 +1538,12 @@ static void ef_solver_search(ef_solver_t *solver) {
  *   (as in ef_solver_search).
  */
 void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
-		     ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters) {
+		     ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters, uint32_t max_numlearnt) {
   solver->parameters = parameters;
   solver->option = gen_mode;
   solver->max_samples = max_samples;
   solver->max_iters = max_iters;
+  solver->max_numlearnt = max_numlearnt;
   solver->scan_idx = 0;
 
   // adjust mode

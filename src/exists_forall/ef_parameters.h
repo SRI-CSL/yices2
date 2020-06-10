@@ -42,6 +42,7 @@ typedef struct ef_param_s {
   ef_gen_option_t gen_mode;
   uint32_t max_samples;
   uint32_t max_iters;
+  uint32_t max_numlearnt;
 } ef_param_t;
 
 

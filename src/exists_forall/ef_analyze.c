@@ -489,6 +489,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 //    ef_push_term(ef, skolem);
   }
 
+// ef_skolemize takes care of the below already
 //  /* FIRST PASS: do the exists */
 //  ef_flatten_quantifiers_conjuncts(ef, true, f_ite, f_iff, v);
 //
@@ -744,13 +745,22 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       r = int_hmap_find(&ef->existentials, t);
       if (r != NULL) {
         ivector_push(evar, r->val);
+#if TRACE
+        printf("EVAR: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
       } else {
         ivector_push(uvar, t);
+#if TRACE
+        printf("UVAR: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
       }
       break;
 
     case UNINTERPRETED_TERM:
       ivector_push(evar, t);
+#if TRACE
+      printf("EVAR: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
       break;
 
     case ARITH_EQ_ATOM:

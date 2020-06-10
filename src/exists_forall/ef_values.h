@@ -35,16 +35,16 @@
  * - map = hash_map from term values to term vector
  */
 typedef struct ef_table_s {
-  ptr_hmap_t map;
-  ptr_hmap_t type_map;
-  int_hmap_t val_map;
+  ptr_hmap_t map;         // map from term value to vector of terms with that value
+  ptr_hmap_t type_map;    // map from type to vector of term values in the model
+  int_hmap_t val_map;     // map from value to term value
   value_table_t *vtbl;
   term_manager_t *mgr;
   term_table_t *terms;
 
   val_converter_t convert;
-  int_hmap_t priority;
-  int_hmap_t var_rep;
+  int_hmap_t generation;          // map from term to generation of the term
+  int_hmap_t var_rep;             // map from term value to representative
   fresh_val_maker_t *fval_maker;
 } ef_table_t;
 
@@ -96,11 +96,20 @@ extern term_t ef_get_value(ef_table_t *vtable, term_t value);
 extern void ef_set_values_from_table(ef_table_t *vtable, term_t *vars, term_t *values, uint32_t n);
 
 
+/*
+ * Get the distinct conditions over uninterpreted domain term values
+ */
 extern term_t constraint_distinct(ef_table_t *vtable);
 
+/*
+ * Get the distinct conditions over vars
+ */
 extern term_t constraint_distinct_filter(ef_table_t *vtable, uint32_t n, term_t *vars);
 
-extern term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t bound, bool *done);
+/*
+ * Get the scalar domain constraints (upto generation) for an array of terms
+ */
+extern term_t constraint_scalar(ef_table_t *vtable, uint32_t n, term_t *t, int32_t generation, bool *done);
 
 
 

@@ -210,6 +210,7 @@ typedef struct ef_solver_s {
   ef_gen_option_t option;    // generalization mode
   uint32_t max_samples;      // bound on pre-sampling: 0 means no pre-sampling
   uint32_t max_iters;        // bound on outer iterations
+  uint32_t max_numlearnt;    // bound on inner iterations
   uint32_t iters;            // number of outer iterations
   uint32_t scan_idx;         // first universal constraint to check
 
@@ -280,7 +281,7 @@ extern void ef_solver_set_trace(ef_solver_t *solver, tracer_t *trace);
  * Also solver->iters stores the number of iterations required.
  */
 extern void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
-			    ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters);
+			    ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters, uint32_t max_numlearnt);
 
 
 /*
