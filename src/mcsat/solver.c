@@ -1838,7 +1838,7 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
 
 static
 bool mcsat_conflict_with_assumptions(mcsat_solver_t* mcsat, uint32_t conflict_level) {
-  // If we decided some assumptinos, then backtracked under that level
+  // If we decided some assumptions, then backtracked under that level
   if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
     return true;
   }
@@ -2406,7 +2406,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Make sure we have variables for all the assumptions
   if (n_assumptions > 0) {
-    mcsat->interpolant = NULL_TERM;
     assert(mcsat->assumption_vars.size == 0);
     uint32_t i;
     for (i = 0; i < n_assumptions; ++ i) {
@@ -2426,11 +2425,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       ivector_push(&mcsat->assertion_vars, x_var);
       mcsat_process_registeration_queue(mcsat);
     }
-  } else {
-    mcsat->interpolant = false_term;
   }
 
   // Initialize assumption info
+  mcsat->interpolant = NULL_TERM;
   mcsat->variable_in_conflict = variable_null;
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
@@ -2440,6 +2438,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // If we're already unsat, just return
   if (!trail_is_consistent(mcsat->trail)) {
+    if (n_assumptions > 0) {
+      mcsat->interpolant = false_term;
+    }
     mcsat->status = STATUS_UNSAT;
     return;
   }
