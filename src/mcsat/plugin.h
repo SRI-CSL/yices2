@@ -139,6 +139,11 @@ struct trail_token_s {
    */
   void (*lemma) (trail_token_t* token, term_t lemma);
 
+  /**
+   * Add a definition lemma that will stay for as long as the variable is there.
+   */
+  void (*definition_lemma) (trail_token_t* token, term_t lemma, term_t x);
+
 };
 
 /**

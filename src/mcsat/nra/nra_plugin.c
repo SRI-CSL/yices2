@@ -477,9 +477,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t abs_n = _o_yices_ite(_o_yices_arith_geq0_atom(n), n, _o_yices_neg(n));
     term_t c3 = opposite_term(arith_geq_atom(terms, _o_yices_sub(r, abs_n)));
 
-    prop->lemma(prop, _o_yices_implies(guard, c1));
-    prop->lemma(prop, _o_yices_implies(guard, c2));
-    prop->lemma(prop, _o_yices_implies(guard, c3));
+    prop->definition_lemma(prop, _o_yices_implies(guard, c1), t);
+    prop->definition_lemma(prop, _o_yices_implies(guard, c2), t);
+    prop->definition_lemma(prop, _o_yices_implies(guard, c3), t);
     return;
   }
   if (t_kind == ARITH_RDIV) {
@@ -493,7 +493,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
     term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
     term_t c = _o_yices_eq(m, _o_yices_mul(n, q));
-    prop->lemma(prop, _o_yices_implies(guard, c));
+    prop->definition_lemma(prop, _o_yices_implies(guard, c), t);
     return;
   }
 
@@ -1720,7 +1720,7 @@ void nra_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   // like to keep are the lemmas that restrict top level feasibility sets.
   feasible_set_db_gc_mark(nra->feasible_set_db, gc_vars);
   // We also need to mark all the real variables that are in use
-  poly_constraint_db_gc_mark(nra->constraint_db, gc_vars);
+  watch_list_manager_gc_mark(&nra->wlm, gc_vars);
 }
 
 static

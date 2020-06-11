@@ -9272,7 +9272,7 @@ int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height
   area.height = height;
   area.offset = offset;
   area.stretch = false;
-  area.truncate = true;
+  area.truncate = false;
 
   init_default_yices_pp(&printer, f, &area);
   model_pp_full(&printer, mdl);
@@ -9325,7 +9325,7 @@ char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, ui
   area.height = height;
   area.offset = offset;
   area.stretch = false;
-  area.truncate = true;
+  area.truncate = false;
 
   init_default_yices_pp(&printer, NULL, &area);
   model_pp_full(&printer, mdl);
