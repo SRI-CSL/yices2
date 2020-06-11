@@ -116,8 +116,5 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
 /** Add a new constraint */
 void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var);
 
-/** Mark all the variables from the constraints */
-void poly_constraint_db_gc_mark(poly_constraint_db_t* db, gc_info_t* gc_vars);
-
 /** Remove unised constraints */
 void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_vars);

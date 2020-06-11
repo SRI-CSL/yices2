@@ -264,12 +264,10 @@ static void do_export(context_t *ctx, const char *s) {
 /*
  * Force bitblasting then export
  * - s = filename
- * - ctx's status must be IDLE when this is called
  */
 static void bitblast_then_export(context_t *ctx, const char *s) {
   smt_status_t stat;
 
-  assert(context_status(ctx) == STATUS_IDLE);
   stat = precheck_context(ctx);
   switch (stat) {
   case STATUS_UNKNOWN:
