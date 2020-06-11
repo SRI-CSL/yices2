@@ -2438,9 +2438,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // If we're already unsat, just return
   if (!trail_is_consistent(mcsat->trail)) {
-    if (n_assumptions > 0) {
-      mcsat->interpolant = false_term;
-    }
+    mcsat->interpolant = false_term;
     mcsat->status = STATUS_UNSAT;
     return;
   }
