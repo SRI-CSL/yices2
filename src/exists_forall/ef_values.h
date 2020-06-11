@@ -46,6 +46,7 @@ typedef struct ef_table_s {
   int_hmap_t generation;          // map from term to generation of the term
   int_hmap_t var_rep;             // map from term value to representative
   fresh_val_maker_t *fval_maker;
+  uint32_t max_generation;
 } ef_table_t;
 
 

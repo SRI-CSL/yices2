@@ -50,6 +50,7 @@ void init_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr,
   init_int_hmap(&vtable->generation, 0);
   init_int_hmap(&vtable->var_rep, 0);
   vtable->fval_maker = NULL;
+  vtable->max_generation = 0;
 }
 
 
@@ -147,6 +148,7 @@ void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr
     delete_fresh_val_maker(vtable->fval_maker);
   }
   init_fresh_val_maker(vtable->fval_maker, vtbl);
+  vtable->max_generation = 0;
 }
 
 
@@ -180,7 +182,7 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
     fprintf(f, " -> %s\n", yices_term_to_string(ip->val, 120, 1, 0));
   }
 
-  fprintf(f, "\n== EF GENERATION ==\n");
+  fprintf(f, "\n== EF GENERATION (max: %d) ==\n", vtable->max_generation);
   imap = &vtable->generation;
   for (ip = int_hmap_first_record(imap);
        ip != NULL;
@@ -209,6 +211,8 @@ static void store_term_generation(ef_table_t *vtable, term_t var, uint32_t gen) 
 
   p = int_hmap_get(&vtable->generation, var);
   p->val = gen;
+  if (gen > vtable->max_generation)
+    vtable->max_generation = gen;
 }
 
 
@@ -541,6 +545,8 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
     }
     if (j >= m) {
       printf("Unable to clear dependency for %s\n", yices_term_to_string(tvalue, 120, 1, 0));
+      store_term_generation(vtable, tvalue, vtable->max_generation+1);
+//      break;
       print_ef_table(stdout, vtable);
       assert(0);
     }

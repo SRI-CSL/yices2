@@ -1274,6 +1274,9 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     // if learnt something, then break (no need to learn for higher generations)
     if (numlearnt != 0) {
       status = STATUS_SAT;
+#if EF_VERBOSE
+      printf("--> Learnt %d lemmas\n\n", numlearnt);
+#endif
       break;
     }
 
@@ -1401,11 +1404,6 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     trace_printf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
     status = ef_solver_test_exists_model(solver, domain_cnstr, i);
     trace_candidate_check(solver, i, status);
-
-#if TRACE
-    cnstr = solver->prob->cnstr + i;
-    printf("[%d] status %d:   %s\n", i, status, yices_term_to_string(cnstr->guarantee, 120, 1, 0));
-#endif
 
     switch (status) {
     case STATUS_SAT:
