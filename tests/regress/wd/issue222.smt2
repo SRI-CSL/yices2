@@ -1,0 +1,7 @@
+(set-logic QF_AUFBV)
+(declare-const b (_ BitVec 10))
+(declare-const arr-0 (Array (_ BitVec 40) (_ BitVec 10)))
+(assert (bvsgt (bvsub b (bvmul b b)) b))
+(check-sat)
+(check-sat)
+(assert (bvsge (select arr-0 ((_ repeat 8) ((_ extract 9 5) (bvmul b b)))) (_ bv0 10)))
