@@ -543,7 +543,7 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     if (int_hmap_find(var_rep, p->key) == NULL) {
-//      if (is_utype_term(vtable->terms, p->key))
+      if (is_utype_term(vtable->terms, p->key))
       {
         int_queue_push(&queue, p->key);
       }
