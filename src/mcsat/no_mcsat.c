@@ -35,7 +35,7 @@ void mcsat_destruct(mcsat_solver_t *mcsat) {
 }
 
 smt_status_t mcsat_status(const mcsat_solver_t *mcsat) {
-  return STATUS_IDLE;
+  return STATUS_ERROR;
 }
 
 void mcsat_reset(mcsat_solver_t *mcsat) {

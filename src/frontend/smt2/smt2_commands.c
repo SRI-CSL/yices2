@@ -2690,7 +2690,6 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
   g->interrupted = false;
   start_timeout(g->timeout, timeout_handler, g);
   stat = check_with_model(g->ctx, params, n, vars, values);
-  g->check_with_model_status = stat;
   clear_timeout();
 
   /*
@@ -2706,6 +2705,8 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
     // we don't want to report "interrupted" that's not SMT2 compliant
     stat = STATUS_UNKNOWN;
   }
+
+  g->check_with_model_status = stat;
 
   return stat;
 }
@@ -4140,6 +4141,16 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
   } else {
+    // Could be that we called check-sat after
+    smt_status_t ctx_status = context_status(g->ctx);
+    switch (ctx_status) {
+    case STATUS_SAT:
+    case STATUS_UNSAT:
+      g->check_with_model_status = ctx_status;
+      break;
+    default:
+      break;
+    }
     smt_status_t status = g->check_with_model_status;
     switch (status) {
     case STATUS_UNKNOWN:

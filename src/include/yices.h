@@ -3166,9 +3166,12 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
  * - model = model to assume
+ * - n = number of assumptions
  * - t = variables to use, i.e., we check context && t = mdl(t)
+ * - the variables t[0] ... t[n-1] must all be uninterpreted terms
  *
- * It behaves the same as the previous function.
+ * It behaves the same as the previous function. Note that if the model will take
+ * default values for variables in t that are not explicitly defined.
  *
  * If this function returns STATUS_UNSAT, then one can construct a model interpolant by
  * calling function yices_get_model_interpolant.
