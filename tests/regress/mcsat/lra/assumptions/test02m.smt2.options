@@ -1,1 +1,2 @@
---mcsat
+--mcsat --incremental
+

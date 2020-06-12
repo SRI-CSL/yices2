@@ -1,3 +1,4 @@
+(set-option :produce-unsat-model-interpolants true)
 (set-logic QF_LRA)
 
 (declare-const x Real)
@@ -9,3 +10,5 @@
 (check-sat-assuming-model (x y) ((/ 1 2) (/ 1 2)))
 
 (get-model)
+
+(get-unsat-model-interpolant)

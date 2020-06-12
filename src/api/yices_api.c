@@ -9079,8 +9079,6 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
   // Make sure only variables are allowed
   for (i = 0; i < n; ++ i) {
     bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
-    /* bool has_value = model_find_term_value(mdl, t[i]) != null_value; */
-    /* if (!is_variable || !has_value) { */
     if (!is_variable) {
       error_report_t *error = get_yices_error();
       error->code = CTX_OPERATION_NOT_SUPPORTED;
@@ -9145,12 +9143,6 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * Construct a model interpolant core.
  */
 EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
-
-  if (context_status(ctx) != STATUS_UNSAT) {
-    set_error_code(CTX_INVALID_OPERATION);
-    return -1;
-  }
-
   return context_get_unsat_model_interpolant(ctx);
 }
 

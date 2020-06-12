@@ -619,6 +619,9 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
   if (stat == STATUS_IDLE) {
     mcsat_solve(ctx->mcsat, params, mdl, n, t);
     stat = mcsat_status(ctx->mcsat);
+    if (n > 0 && stat == STATUS_UNSAT) {
+      context_clear(ctx);
+    }
   }
 
   return stat;

@@ -1016,6 +1016,7 @@ void mcsat_push(mcsat_solver_t* mcsat) {
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
 
+  mcsat->interpolant = NULL_TERM;
 }
 
 
@@ -1085,6 +1086,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   // Set the status back to idle
   mcsat->status = STATUS_IDLE;
+  mcsat->interpolant = NULL_TERM;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::pop end\n");
@@ -2550,9 +2552,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat->stop_search = false;
   }
 
-  // Remove temps
-  delete_ivector(&mcsat->assumption_vars);
-
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
@@ -2624,6 +2623,7 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
 
 int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
   mcsat_assert_formulas_internal(mcsat, n, f, true);
+  mcsat->interpolant = NULL_TERM;
   return CTX_NO_ERROR;
 }
 
