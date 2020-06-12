@@ -79,10 +79,23 @@ extern void print_ef_table(FILE *f, ef_table_t *vtable);
  */
 extern void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t n);
 
+
+/*
+ * Post-process the value table
+ */
+extern void postprocess_ef_table(ef_table_t *vtable, bool check);
+
 /*
  * Add entry to type map
+ * returns true if type_map is modified
  */
-extern void store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, bool check);
+extern bool store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, bool check);
+
+
+/*
+ * Store mapping value to var
+ */
+extern bool store_term_value(ef_table_t *vtable, term_t var, value_t value, bool allowNew);
 
 
 /*

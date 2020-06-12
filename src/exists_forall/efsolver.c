@@ -104,25 +104,25 @@ void print_full_map(FILE *f, ef_solver_t *solver) {
 }
 
 
-term_t create_new_uvar_instance(ef_solver_t *solver, term_t x) {
-  ivector_t *v;
-  type_t tau;
+term_t create_new_evar_instance(ef_solver_t *solver, type_t tau, const char *str) {
   term_t result;
-
-  v = &solver->new_vars;
-  tau = yices_type_of_term(x);
-  result = yices_new_uninterpreted_term(tau);
-
+  ivector_t *v;
   char name[50];
-  sprintf (name, "instance%d_%s", v->size+1, yices_get_term_name(x));
+
+  result = yices_new_uninterpreted_term(tau);
+  v = &solver->new_vars;
+
+  sprintf (name, "instance%d_%s", v->size+1, str);
   yices_set_term_name(result, name);
+
+  ivector_push(v, result);
 
   ef_prob_add_evars(solver->prob, &result, 1);
   ivector_push(&solver->evalue, result);
   assert(ef_prob_num_evars(solver->prob) == solver->evalue.size);
 
 #if EF_VERBOSE
-  printf("New variable instance: %s\n", yices_term_to_string(result, 120, 1, 0));
+  printf("New variable instance: %s\n", name);
 #endif
   return result;
 }
@@ -139,6 +139,7 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
   ef_table_t *vtable;
   int_hmap_t new_values;
   int_hmap_pair_t *p;
+  type_t tau;
 
   prob = solver->prob;
   assert(i < ef_prob_num_constraints(prob));
@@ -154,7 +155,8 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
     if (rep == NULL_TERM) {
       p = int_hmap_get(&new_values, x);
       if(p->val < 0) {
-        rep = create_new_uvar_instance(solver, cnstr->uvars[j]);
+        tau = yices_type_of_term(cnstr->uvars[j]);
+        rep = create_new_evar_instance(solver, tau, yices_get_term_name(cnstr->uvars[j]));
         p->val = rep;
       }
       else {
@@ -498,6 +500,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
   uint32_t count;
   uint32_t i;
   ivector_t mdl_values;
+  term_t t;
 
   stat = context_status(ctx);
   assert(stat == STATUS_IDLE || stat == STATUS_UNSAT);
@@ -562,10 +565,12 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
         egraph_model_t *egraph_mdl;
         ivector_t *v;
         uint32_t m;
+        term_t tval;
+        type_t tau;
 
         class_t c;
         value_t val;
-        term_t tval;
+        bool updated;
 
         vtbl = model_get_vtbl(mdl);
         egraph = ctx->egraph;
@@ -579,10 +584,17 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
             assert(egraph_class_is_root_class(egraph, c));
             val = egraph_mdl->value[c];
             tval = convert_value_to_term(__yices_globals.manager, mdl->terms, vtbl, val);
-            store_type_value(&solver->value_table, val, tval, true);
+            updated = store_term_value(&solver->value_table, tval, val, false);
+            if (!updated) {
+              tau = yices_type_of_term(tval);
+              t = create_new_evar_instance(solver, tau, yices_get_type_name(tau));
+              store_term_value(&solver->value_table, t, val, true);
+            }
           }
         }
       }
+
+      postprocess_ef_table(&solver->value_table, true);
 
 #if TRACE
       // FOR DEBUGGING
@@ -1255,7 +1267,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
         }
 
         // if learnt enough, then break
-        if (numlearnt > solver->max_numlearnt)
+        if (numlearnt >= solver->max_numlearnt)
           break;
 
         // add a blocking clause to learn more

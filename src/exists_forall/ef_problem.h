@@ -69,6 +69,9 @@ typedef struct ef_cnstr_s {
   term_t *uvars;     // universal variables
   term_t assumption; // B(y)
   term_t guarantee;  // C(x, y)
+
+  term_t *pvars;     // pattern variables
+  term_t constraint;  // B(y) -> C(x, y) with pattern variables
 } ef_cnstr_t;
 
 
@@ -86,6 +89,8 @@ typedef struct ef_prob_s {
   uint32_t num_cnstr;     // number of forall constraints
   uint32_t cnstr_size;    // size of array cnstr
   ef_cnstr_t *cnstr;      // array of constraint descriptors
+
+  term_t *all_pvars;      // pattern variables
 } ef_prob_t;
 
 
@@ -144,7 +149,7 @@ extern void ef_prob_add_condition(ef_prob_t *prob, term_t t);
  * - all_uvars := all_uvars union uv
  */
 extern void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *uv, uint32_t nuv,
-				   term_t assumption, term_t guarantee);
+				   term_t assumption, term_t guarantee, term_t *pv, term_t constraint);
 
 
 

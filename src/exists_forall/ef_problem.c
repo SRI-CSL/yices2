@@ -34,6 +34,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
   prob->manager = mngr;
   prob->all_evars = NULL;
   prob->all_uvars = NULL;
+  prob->all_pvars = NULL;
   prob->conditions = NULL;
   prob->num_cnstr = 0;
   prob->cnstr_size = 0;
@@ -47,6 +48,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
 void reset_ef_prob(ef_prob_t *prob) {
   reset_index_vector(prob->all_evars);
   reset_index_vector(prob->all_uvars);
+  reset_index_vector(prob->all_pvars);
   reset_index_vector(prob->conditions);
   prob->num_cnstr = 0;
 }
@@ -60,12 +62,14 @@ void delete_ef_prob(ef_prob_t *prob) {
 
   delete_index_vector(prob->all_evars);
   delete_index_vector(prob->all_uvars);
+  delete_index_vector(prob->all_pvars);
   delete_index_vector(prob->conditions);
 
   n = prob->num_cnstr;
   for (i=0; i<n; i++) {
     delete_index_vector(prob->cnstr[i].evars);
     delete_index_vector(prob->cnstr[i].uvars);
+    delete_index_vector(prob->cnstr[i].pvars);
   }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;
@@ -193,6 +197,10 @@ void ef_prob_add_uvars(ef_prob_t *prob, term_t *v, uint32_t n) {
   add_to_vector(&prob->all_uvars, v, n);
 }
 
+void ef_prob_add_pvars(ef_prob_t *prob, term_t *v, uint32_t n) {
+  add_to_vector(&prob->all_pvars, v, n);
+}
+
 
 
 
@@ -216,7 +224,7 @@ void ef_prob_add_condition(ef_prob_t *prob, term_t t) {
  * - all_uvars := all_uvars union uv
  */
 void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *uv, uint32_t nuv,
-			    term_t assumption, term_t guarantee) {
+			    term_t assumption, term_t guarantee, term_t *pv, term_t constraint) {
   uint32_t i;
 
   i = prob->num_cnstr;
@@ -226,12 +234,15 @@ void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *u
   assert(i < prob->cnstr_size);
   prob->cnstr[i].evars = make_index_vector(ev, nev);
   prob->cnstr[i].uvars = make_index_vector(uv, nuv);
+  prob->cnstr[i].pvars = make_index_vector(pv, nuv);
   prob->cnstr[i].assumption = assumption;
   prob->cnstr[i].guarantee = guarantee;
+  prob->cnstr[i].constraint = constraint;
   prob->num_cnstr = i+1;
 
   ef_prob_add_evars(prob, ev, nev);
   ef_prob_add_uvars(prob, uv, nuv);
+  ef_prob_add_pvars(prob, pv, nuv);
 }
 
 
@@ -256,6 +267,10 @@ uint32_t ef_constraint_num_evars(ef_cnstr_t *cnstr) {
 
 uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr) {
   return iv_len(cnstr->uvars);
+}
+
+uint32_t ef_constraint_num_pvars(ef_cnstr_t *cnstr) {
+  return iv_len(cnstr->pvars);
 }
 
 

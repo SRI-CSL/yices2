@@ -472,9 +472,10 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
  * it is kept as is in the ef->flat vector.
  */
 static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
-  uint32_t i, fsize;
-  ivector_t *foralls;
-  int32_t *fdata;
+  uint32_t i;
+//  uint32_t fsize;
+//  ivector_t *foralls;
+//  int32_t *fdata;
   ef_skolemize_t sk;
   term_t skolem;
   
@@ -748,6 +749,8 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
 #if TRACE
         printf("EVAR: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
+        // evars already skolemized!
+        assert(0);
       } else {
         ivector_push(uvar, t);
 #if TRACE
@@ -759,7 +762,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
     case UNINTERPRETED_TERM:
       ivector_push(evar, t);
 #if TRACE
-      printf("EVAR: %s\n", yices_term_to_string(t, 120, 1, 0));
+      printf("APP: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
       break;
 
@@ -1221,9 +1224,12 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
  *    Then we add the universal constraint (forall y: A => G) to prob.
  */
 static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
-  term_t a, g;
+  term_t x, a, g, constraint;
+  term_t *pvars;
+  uint32_t i, n;
 
-  if (c->uvars.size == 0) {
+  n = c->uvars.size;
+  if (n == 0) {
     // no universal variables
 
     // convert all evars to clones and make ground
@@ -1235,10 +1241,27 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     ef_prob_add_evars(prob, c->evars.data, c->evars.size);
 
   } else {
+    // get in the variable form, and as well as in the ground form
+
+    // variable form
+    pvars = (term_t *) safe_malloc(n * sizeof(term_t));
+    for(i=0; i<n; i++) {
+      x = c->uvars.data[i];
+      pvars[i] = x;
+    }
+
+    // build the assumption: not (or c->assumptions)
+    a = opposite_term(ef_make_or(ef, &c->assumptions));
+
+    // guarantee = or c->guarantees
+    g = ef_make_or(ef, &c->guarantees);
+
+    constraint = mk_implies(prob->manager, a, g);
+
+    // ground form
     // convert all uvars to clones and make ground
+    // evars already skolemized!
     ef_clone_variable_array(ef, c->uvars.data, c->uvars.size);
-    // convert all evars to clones and make ground
-    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
     ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
@@ -1260,7 +1283,9 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     g = ef_make_or(ef, &c->guarantees);
 
     ef_prob_add_constraint(prob, c->evars.data, c->evars.size,
-			   c->uvars.data, c->uvars.size, a, g);
+			   c->uvars.data, c->uvars.size, a, g, pvars, constraint);
+
+    safe_free(pvars);
   }
 }
 
