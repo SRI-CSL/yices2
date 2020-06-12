@@ -122,8 +122,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Tracing in libpoly
   if (false) {
-    lp_trace_enable("coefficient::interval");
-    lp_trace_enable("polynomial::bounds");
+    lp_trace_enable("coefficient");
+    lp_trace_enable("coefficient::sgn");
   }
 
   // Trace pscs
@@ -446,17 +446,19 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
   // The variable
   variable_t t_var = variable_db_get_variable(nra->ctx->var_db, t);
 
-  // Check for div and mod
-  if (t_kind == ARITH_MOD) {
+  // Check for cases that need lemmas
+  // We still process these down the line as they need s
+  switch (t_kind) {
+  case ARITH_MOD: {
     // Just make sure that the div is registered
     composite_term_t* mod = arith_mod_term_desc(terms, t);
     term_t a = mod->arg[0];
     term_t b = mod->arg[1];
     term_t t_div = arith_idiv(terms, a, b);
     variable_db_get_variable(nra->ctx->var_db, t_div);
-    return;
+    break;
   }
-  if (t_kind == ARITH_IDIV) {
+  case ARITH_IDIV: {
     // Make sure that mod has a variable
     composite_term_t* div = arith_idiv_term_desc(terms, t);
     term_t q = t;
@@ -478,9 +480,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->definition_lemma(prop, _o_yices_implies(guard, c1), t);
     prop->definition_lemma(prop, _o_yices_implies(guard, c2), t);
     prop->definition_lemma(prop, _o_yices_implies(guard, c3), t);
-    return;
+    break;
   }
-  if (t_kind == ARITH_RDIV) {
+  case ARITH_RDIV: {
     composite_term_t* div = arith_rdiv_term_desc(terms, t);
     term_t q = t;
     term_t m = div->arg[0];
@@ -492,11 +494,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
     term_t c = _o_yices_eq(m, _o_yices_mul(n, q));
     prop->definition_lemma(prop, _o_yices_implies(guard, c), t);
-    return;
+    break;
   }
-
-  // Check for floor, ceil
-  if (t_kind == ARITH_FLOOR) {
+  case ARITH_FLOOR: {
     term_t arg = arith_floor_arg(terms, t);
 
     // t <= arg < t+1: t is int so it should be fine
@@ -506,11 +506,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
-    return;
+    break;
   }
-
-  // Check for floor, ceil
-  if (t_kind == ARITH_CEIL) {
+  case ARITH_CEIL: {
     term_t arg = arith_ceil_arg(terms, t);
 
     // t-1 < arg <= t: t is int so it should be fine
@@ -520,7 +518,10 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
-    return;
+    break;
+  }
+  default:
+    break;
   }
 
   // The vector to collect variables
