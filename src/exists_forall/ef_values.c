@@ -319,7 +319,7 @@ bool store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, bool che
 /*
  * Store mapping tvalue to var
  */
-static void store_term_tvalue(ef_table_t *vtable, term_t var, term_t tvalue) {
+static void store_term_tvalue(ef_table_t *vtable, term_t var, term_t tvalue, uint32_t gen) {
   ptr_hmap_pair_t *m;
 
   m = ptr_hmap_get(&vtable->map, tvalue);
@@ -327,8 +327,8 @@ static void store_term_tvalue(ef_table_t *vtable, term_t var, term_t tvalue) {
 
   ivector_push(m->val, var);
   if (term_is_atomic(vtable->terms, var)) {
-    store_term_generation(vtable, var, 0);
-    store_term_generation(vtable, tvalue, 0);
+    store_term_generation(vtable, var, gen);
+    store_term_generation(vtable, tvalue, gen);
     store_rep(vtable, tvalue, var);
   }
 }
@@ -337,16 +337,13 @@ static void store_term_tvalue(ef_table_t *vtable, term_t var, term_t tvalue) {
 /*
  * Store mapping value to var
  */
-bool store_term_value(ef_table_t *vtable, term_t var, value_t value, bool allowNew) {
+bool store_term_value(ef_table_t *vtable, term_t var, value_t value, uint32_t gen) {
   int_hmap_pair_t *vm;
   ptr_hmap_pair_t *m;
   term_t tvalue;
 
   vm = int_hmap_get(&vtable->val_map, value);
   if (vm->val < 0) {
-    if (!allowNew)
-      return false;
-
     tvalue = convert_val(&vtable->convert, value);
     vm->val = tvalue;
 
@@ -360,8 +357,16 @@ bool store_term_value(ef_table_t *vtable, term_t var, value_t value, bool allowN
     tvalue = vm->val;
   }
 
-  store_term_tvalue(vtable, var, tvalue);
+  store_term_tvalue(vtable, var, tvalue, gen);
   return true;
+}
+
+
+/*
+ * Check whether value is present in ef table or not
+ */
+bool check_value_present(ef_table_t *vtable, value_t value) {
+  return (int_hmap_find(&vtable->val_map, value) != NULL);
 }
 
 
@@ -378,7 +383,7 @@ static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
     printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
     value = make_fresh_const(vtable->fval_maker, tau);
     x = convert_value(&vtable->convert, value);
-    store_term_value(vtable, x, value, true);
+    store_term_value(vtable, x, value, 0);
 //    print_ef_table(stdout, vtable);
 //    assert(0);
     return x;
@@ -433,6 +438,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_t *args;
   bool flag_default;
   ptr_hmap_pair_t *r;
+  uint32_t gen;
 
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
 
@@ -462,7 +468,8 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
 
       x = mk_application(convert->manager, func, m, args);
       valuei = mp->val;
-      store_term_value(vtable, x, valuei, true);
+      gen = calculate_generation(vtable, x);
+      store_term_value(vtable, x, valuei, gen);
     }
 
     safe_free(args);
@@ -508,7 +515,7 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
 
   // first pass: process top-level terms
   for (i=0; i<k; i++) {
-    store_term_value(vtable, vars[i], values[i], true);
+    store_term_value(vtable, vars[i], values[i], 0);
   }
 
   // second pass: process function values
@@ -705,6 +712,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
       best_gen = UINT32_MAX;
       best_x = NULL_TERM;
 
+//      return NULL_TERM;
       if (n == 0)
         return NULL_TERM;
 

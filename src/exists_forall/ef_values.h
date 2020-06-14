@@ -95,7 +95,13 @@ extern bool store_type_value(ef_table_t *vtable, value_t value, term_t tvalue, b
 /*
  * Store mapping value to var
  */
-extern bool store_term_value(ef_table_t *vtable, term_t var, value_t value, bool allowNew);
+extern bool store_term_value(ef_table_t *vtable, term_t var, value_t value, uint32_t gen);
+
+
+/*
+ * Check whether value is present in ef table or not
+ */
+extern bool check_value_present(ef_table_t *vtable, value_t value);
 
 
 /*

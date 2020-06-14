@@ -500,7 +500,6 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
   uint32_t count;
   uint32_t i;
   ivector_t mdl_values;
-  term_t t;
 
   stat = context_status(ctx);
   assert(stat == STATUS_IDLE || stat == STATUS_UNSAT);
@@ -566,11 +565,11 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
         ivector_t *v;
         uint32_t m;
         term_t tval;
+        term_t t;
         type_t tau;
 
         class_t c;
         value_t val;
-        bool updated;
 
         vtbl = model_get_vtbl(mdl);
         egraph = ctx->egraph;
@@ -584,11 +583,11 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
             assert(egraph_class_is_root_class(egraph, c));
             val = egraph_mdl->value[c];
             tval = convert_value_to_term(__yices_globals.manager, mdl->terms, vtbl, val);
-            updated = store_term_value(&solver->value_table, tval, val, false);
-            if (!updated) {
+//            store_type_value(&solver->value_table, val, tval, true);
+            if (!check_value_present(&solver->value_table, val)) {
               tau = yices_type_of_term(tval);
               t = create_new_evar_instance(solver, tau, yices_get_type_name(tau));
-              store_term_value(&solver->value_table, t, val, true);
+              store_term_value(&solver->value_table, t, val, 1);
             }
           }
         }

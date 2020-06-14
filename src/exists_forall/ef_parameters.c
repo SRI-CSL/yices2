@@ -23,8 +23,8 @@
 #include "exists_forall/ef_parameters.h"
 
 void init_ef_params(ef_param_t *p) {
-  p->flatten_iff = true;
-  p->flatten_ite = true;
+  p->flatten_iff = false;
+  p->flatten_ite = false;
   p->gen_mode = EF_GEN_AUTO_OPTION;
   p->max_samples = 0;
   p->max_iters = 10000;
