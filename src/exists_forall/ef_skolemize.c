@@ -272,7 +272,6 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   ivector_t *uvars;
   term_t body;
   composite_term_t *d;
-  int_hmap_pair_t *r;
   uint32_t i, n;
   term_t *a;
 
@@ -297,8 +296,7 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   skolems = (term_t *) safe_malloc(n * sizeof(term_t));
 
   for(i = 0; i < n; i++){
-    r = int_hmap_find(&ef->existentials, a[i]);
-    assert(r == NULL);
+    assert(int_hmap_find(&ef->existentials, a[i]) == NULL);
 
     skolem = ef_skolem_term(ef, a[i], uvars->size, uvars->data);
     skolems[i] = skolem.fapp;

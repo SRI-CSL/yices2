@@ -420,18 +420,12 @@ bool check_value_present(ef_table_t *vtable, value_t value) {
 static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   val_converter_t *convert;
   value_table_t *table;
-  term_table_t *terms;
-  type_table_t *types;
-  type_t tau;
 //  function_type_t *funt;
 
   convert = &vtable->convert;
   table = vtable->vtbl;
-  terms = vtable->terms;
-  types = terms->types;
-  tau = term_type(terms, func);
 
-  assert(yices_type_is_function(tau));
+  assert(yices_type_is_function(term_type(vtable->terms, func)));
 
   value_fun_t *fun;
   value_map_t *mp;
@@ -446,7 +440,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
 
   fun = table->desc[c].ptr;
-  assert(is_function_type(types, fun->type));
+  assert(is_function_type(vtable->terms->types, fun->type));
 
   m = fun->arity;
   n = fun->map_size;
@@ -633,7 +627,7 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
  * Check whether t is either a variable or an uninterpreted term
  * - t must be a good positive term
  */
-static bool term_is_var(term_table_t *terms, term_t t) {
+static inline bool term_is_var(term_table_t *terms, term_t t) {
   assert(good_term(terms, t) && is_pos_term(t));
   switch (term_kind(terms, t)) {
   case UNINTERPRETED_TERM:

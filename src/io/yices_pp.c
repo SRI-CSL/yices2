@@ -25,7 +25,7 @@
 #include <poly/algebraic_number.h>
 #endif
 #include "io/yices_pp.h"
-
+#include "io/type_printer.h"
 
 /*
  * OPEN BLOCK DESCRIPTORS
