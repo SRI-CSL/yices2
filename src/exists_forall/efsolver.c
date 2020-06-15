@@ -1183,6 +1183,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
+  status = STATUS_ERROR;
 
   n = ef_prob_num_evars(solver->prob);
   g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue.data, n, cnstr->guarantee);
@@ -1190,7 +1191,8 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     // error in substitution
     solver->status = EF_STATUS_SUBST_ERROR;
     solver->error_code = g;
-    return STATUS_ERROR;
+    status = STATUS_ERROR;
+    return status;
   }
 
   /*

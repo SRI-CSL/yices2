@@ -623,21 +623,21 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
  */
 
 
-/*
- * Check whether t is either a variable or an uninterpreted term
- * - t must be a good positive term
- */
-static inline bool term_is_var(term_table_t *terms, term_t t) {
-  assert(good_term(terms, t) && is_pos_term(t));
-  switch (term_kind(terms, t)) {
-  case UNINTERPRETED_TERM:
-  case CONSTANT_TERM:
-    return true;
-
-  default:
-    return false;
- }
-}
+///*
+// * Check whether t is either a variable or an uninterpreted term
+// * - t must be a good positive term
+// */
+//static inline bool term_is_var(term_table_t *terms, term_t t) {
+//  assert(good_term(terms, t) && is_pos_term(t));
+//  switch (term_kind(terms, t)) {
+//  case UNINTERPRETED_TERM:
+//  case CONSTANT_TERM:
+//    return true;
+//
+//  default:
+//    return false;
+// }
+//}
 
 /*
  * Apply the substitution defined by var and value to term t
@@ -665,7 +665,11 @@ static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, 
     p->val = value[i];
 
     assert(is_pos_term(x));
-    assert(term_is_var(subst.terms, x));
+//    assert(term_is_var(subst.terms, x));
+    assert(good_term(subst.terms, x));
+    assert(is_pos_term(x));
+    assert(term_kind(subst.terms, x) == UNINTERPRETED_TERM ||
+           term_kind(subst.terms, x) == CONSTANT_TERM);
     assert(good_term(subst.terms, p->val));
   }
 
