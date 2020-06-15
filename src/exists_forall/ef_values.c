@@ -373,46 +373,46 @@ bool check_value_present(ef_table_t *vtable, value_t value) {
 }
 
 
-static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
-  ptr_hmap_pair_t *r;
-  ivector_t *v;
-  uint32_t i, n, best_gen;
-  term_t x, best_x;
-  int_hmap_pair_t *p;
-  value_t value;
-
-  r = ptr_hmap_find(&vtable->type_map, tau);
-  if (r == NULL) {
-    printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
-    value = make_fresh_const(vtable->fval_maker, tau);
-    x = convert_value(&vtable->convert, value);
-    store_term_value(vtable, x, value, 0);
-//    print_ef_table(stdout, vtable);
-//    assert(0);
-    return x;
-  }
-
-  v = r->val;
-  n = v->size;
-  best_gen = UINT32_MAX;
-  best_x = NULL_TERM;
-  assert(n != 0);
-
-  for(i=0; i<n; i++) {
-    x = v->data[i];
-    p = int_hmap_find(&vtable->generation, x);
-    if (p != NULL) {
-      if (p->val < best_gen) {
-        best_gen = p->val;
-        best_x = x;
-      }
-    }
-    if (best_x == NULL_TERM)
-      best_x = x;
-  }
-  assert(best_x != NULL_TERM);
-  return best_x;
-}
+//static term_t get_any_term_of_type(ef_table_t *vtable, type_t tau) {
+//  ptr_hmap_pair_t *r;
+//  ivector_t *v;
+//  uint32_t i, n, best_gen;
+//  term_t x, best_x;
+//  int_hmap_pair_t *p;
+//  value_t value;
+//
+//  r = ptr_hmap_find(&vtable->type_map, tau);
+//  if (r == NULL) {
+//    printf("Unable to find any term of type %s\n", yices_type_to_string(tau, 120, 1, 0));
+//    value = make_fresh_const(vtable->fval_maker, tau);
+//    x = convert_value(&vtable->convert, value);
+//    store_term_value(vtable, x, value, 0);
+////    print_ef_table(stdout, vtable);
+////    assert(0);
+//    return x;
+//  }
+//
+//  v = r->val;
+//  n = v->size;
+//  best_gen = UINT32_MAX;
+//  best_x = NULL_TERM;
+//  assert(n != 0);
+//
+//  for(i=0; i<n; i++) {
+//    x = v->data[i];
+//    p = int_hmap_find(&vtable->generation, x);
+//    if (p != NULL) {
+//      if (p->val < best_gen) {
+//        best_gen = p->val;
+//        best_x = x;
+//      }
+//    }
+//    if (best_x == NULL_TERM)
+//      best_x = x;
+//  }
+//  assert(best_x != NULL_TERM);
+//  return best_x;
+//}
 
 /*
  * Store function mapping values to var
@@ -423,7 +423,7 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_table_t *terms;
   type_table_t *types;
   type_t tau;
-  function_type_t *funt;
+//  function_type_t *funt;
 
   convert = &vtable->convert;
   table = vtable->vtbl;
@@ -439,8 +439,8 @@ static void store_func_values(ef_table_t *vtable, term_t func, value_t c) {
   term_t x;
   value_t valuei;
   term_t *args;
-  bool flag_default;
-  ptr_hmap_pair_t *r;
+//  bool flag_default;
+//  ptr_hmap_pair_t *r;
   uint32_t gen;
 
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
@@ -592,11 +592,13 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
     else {
       j++;
       if (j >= m) {
+#if TRACE
         if (check) {
           print_ef_table(stdout, vtable, false);
           printf("Unable to clear dependency for %s\n", yices_term_to_string(tvalue, 120, 1, 0));
           assert(0);
         }
+#endif
 
 //        x = yices_new_uninterpreted_term(term_type(vtable->terms, tvalue));
 //        store_term_tvalue(vtable, x, tvalue);

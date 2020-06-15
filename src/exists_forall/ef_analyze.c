@@ -185,269 +185,269 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
 }
 
 
-/*
- * Add parent mapping [ c -> p ]
- *
- */
-static void ef_add_parent(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t c, term_t p) {
-  int_hmap_pair_t *r;
-
-  if (!toplevel) {
-    r = int_hmap_get(parent, c);
-    assert(r->val < 0);
-    r->val = p;
-  }
-
-  ef_push_term(ef, c);
-}
-
-
-/*
- * Check whether we should apply distributivity to (or a[0] .... a[n-1)
- * - heuristic: return true if exactly one of a[i] is a conjunct
- */
-static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
-  term_table_t *terms;
-  uint32_t i, n;
-  bool result;
-  term_t t;
-
-  terms = ef->terms;
-  result = false;
-  n = d->arity;
-  for (i=0; i<n; i++) {
-    t = d->arg[i];
-    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
-      // t is not (or ...) i.e., a conjunct
-      result = !result;
-      if (!result) break;  // second conjunct
-    }
-  }
-
-  return result;
-}
-
-/*
- * Apply distributivity and flatten
- * - this function rewrites
- *     (or a[0] ... a[n-2] (and b[0] ... b[m-1]))
- *   to (and (or a[0] ... a[n-2] b[0])
- *            ...
- *           (or a[0] ... a[n-2] b[m-1]))
- *   then push all terms
- *      (or a[0] ... a[n-1] b[j]) to the queue
- *
- * - the rewriting is applied to the first a[j] that's a conjunct.
- */
-static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, bool toplevel, int_hmap_t *parent, term_t p) {
-  term_table_t *terms;
-  composite_term_t *b;
-  ivector_t *v;
-  uint32_t i, j, k, n, m;
-  term_t t;
-
-  terms = ef->terms;
-
-  j = 0; // Stop GCC warning
-
-  /*
-   * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
-   * - store that term's descriptor in b
-   * - store its index in j
-   */
-  b = NULL;
-  n = d->arity;
-  for (i=0; i<n; i++) {
-    t = d->arg[i];
-    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
-      b = or_term_desc(terms, t);
-      j = i;
-    }
-  }
-
-  /*
-   * a[j] is (not (or b[0] ... b[m-1])) == not b
-   * d->arg is (or a[0] ... a[n-1])
-   */
-  assert(b != NULL);
-
-  v = &ef->aux;
-  m = b->arity;
-  for (k=0; k<m; k++) {
-    /*
-     * IMPORTANT: we make a full copy of d->arg into v
-     * at every iteration of this loop. This is required because
-     * mk_or modifies v->data.
-     */
-    ivector_reset(v);
-    ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
-    for (i=0; i<n; i++) {
-      if (i != j) {
-        ivector_push(v, d->arg[i]); // a[i] for i/=j
-      }
-    }
-    t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
-    ef_add_parent(ef, toplevel, parent, t, p);
-  }
-}
+///*
+// * Add parent mapping [ c -> p ]
+// *
+// */
+//static void ef_add_parent(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t c, term_t p) {
+//  int_hmap_pair_t *r;
+//
+//  if (!toplevel) {
+//    r = int_hmap_get(parent, c);
+//    assert(r->val < 0);
+//    r->val = p;
+//  }
+//
+//  ef_push_term(ef, c);
+//}
 
 
-/*
- * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
- * - toplevel: true means we can handle exists, false we can handle foralls
- * - store the result in resu
- * - f_ite: if true, also flatten any Boolean if-then-else
- *   f_iff: if true, also flatten any iff term
- */
-static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, bool f_ite, bool f_iff, ivector_t *resu) {
-  term_table_t *terms;
-  int_queue_t *queue;
-  composite_term_t *d;
-  term_t t, u, v, w;
-  uint32_t i, n;
-  int_hmap_t parent_map;
-  int_hmap_t *parent;
+///*
+// * Check whether we should apply distributivity to (or a[0] .... a[n-1)
+// * - heuristic: return true if exactly one of a[i] is a conjunct
+// */
+//static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
+//  term_table_t *terms;
+//  uint32_t i, n;
+//  bool result;
+//  term_t t;
+//
+//  terms = ef->terms;
+//  result = false;
+//  n = d->arity;
+//  for (i=0; i<n; i++) {
+//    t = d->arg[i];
+//    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
+//      // t is not (or ...) i.e., a conjunct
+//      result = !result;
+//      if (!result) break;  // second conjunct
+//    }
+//  }
+//
+//  return result;
+//}
 
-  queue = &ef->queue;
-  terms = ef->terms;
-  parent = &parent_map;
-  init_int_hmap(parent, 0);
+///*
+// * Apply distributivity and flatten
+// * - this function rewrites
+// *     (or a[0] ... a[n-2] (and b[0] ... b[m-1]))
+// *   to (and (or a[0] ... a[n-2] b[0])
+// *            ...
+// *           (or a[0] ... a[n-2] b[m-1]))
+// *   then push all terms
+// *      (or a[0] ... a[n-1] b[j]) to the queue
+// *
+// * - the rewriting is applied to the first a[j] that's a conjunct.
+// */
+//static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, bool toplevel, int_hmap_t *parent, term_t p) {
+//  term_table_t *terms;
+//  composite_term_t *b;
+//  ivector_t *v;
+//  uint32_t i, j, k, n, m;
+//  term_t t;
+//
+//  terms = ef->terms;
+//
+//  j = 0; // Stop GCC warning
+//
+//  /*
+//   * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
+//   * - store that term's descriptor in b
+//   * - store its index in j
+//   */
+//  b = NULL;
+//  n = d->arity;
+//  for (i=0; i<n; i++) {
+//    t = d->arg[i];
+//    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
+//      b = or_term_desc(terms, t);
+//      j = i;
+//    }
+//  }
+//
+//  /*
+//   * a[j] is (not (or b[0] ... b[m-1])) == not b
+//   * d->arg is (or a[0] ... a[n-1])
+//   */
+//  assert(b != NULL);
+//
+//  v = &ef->aux;
+//  m = b->arity;
+//  for (k=0; k<m; k++) {
+//    /*
+//     * IMPORTANT: we make a full copy of d->arg into v
+//     * at every iteration of this loop. This is required because
+//     * mk_or modifies v->data.
+//     */
+//    ivector_reset(v);
+//    ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
+//    for (i=0; i<n; i++) {
+//      if (i != j) {
+//        ivector_push(v, d->arg[i]); // a[i] for i/=j
+//      }
+//    }
+//    t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
+//    ef_add_parent(ef, toplevel, parent, t, p);
+//  }
+//}
 
-#if 0
-    printf("toplevel %d\n", toplevel);
-#endif
 
-  while (! int_queue_is_empty(queue)) {
-    t = int_queue_pop(queue);
-#if 0
-    printf("term: %s\n", yices_term_to_string(t, 120, 1, 0));
-#endif
-
-    switch (term_kind(terms, t)) {
-    case ITE_TERM:
-    case ITE_SPECIAL:
-      d = ite_term_desc(terms, t);
-      assert(d->arity == 3);
-      if (f_ite && is_boolean_term(terms, d->arg[1])) {
-        assert(is_boolean_term(terms, d->arg[2]));
-        /*
-         * If t is (ite C A B)
-         *    u := (C => A)
-         *    v := (not C => B)
-         * Otherwise, t is (not (ite C A B))
-         *    u := (C => not A)
-         *    v := (not C => not B)
-         */
-        u = d->arg[1];  // A
-        v = d->arg[2];  // B
-        if (is_neg_term(t)) {
-          u = opposite_term(u);
-          v = opposite_term(v);
-        }
-        u = mk_implies(ef->manager, d->arg[0], u); // (C => u)
-        v = mk_implies(ef->manager, opposite_term(d->arg[0]), v); // (not C) => v
-
-        ef_add_parent(ef, toplevel, parent, u, t);
-        ef_add_parent(ef, toplevel, parent, v, t);
-        continue;
-      }
-      break;
-
-    case EQ_TERM:
-      d = eq_term_desc(terms, t);
-      assert(d->arity == 2);
-      if (f_iff && is_boolean_term(terms, d->arg[0])) {
-        assert(is_boolean_term(terms, d->arg[1]));
-        /*
-         * t is either (iff A B) or (not (iff A B)):
-         */
-        u = d->arg[0]; // A
-        v = d->arg[1]; // B
-        if (is_neg_term(t)) {
-          u = opposite_term(u);
-        }
-        // flatten to (u => v) and (v => u)
-        w = mk_implies(ef->manager, u, v); // (u => v)
-        u = mk_implies(ef->manager, v, u); // (v => u);
-
-        ef_add_parent(ef, toplevel, parent, w, t);
-        ef_add_parent(ef, toplevel, parent, u, t);
-        continue;
-      }
-      break;
-
-    case OR_TERM:
-      d = or_term_desc(terms, t);
-      if (is_neg_term(t)) {
-        /*
-         * t is (not (or a[0] ... a[n-1]))
-         * it flattens to (and (not a[0]) ... (not a[n-1]))
-         */
-        n = d->arity;
-        for (i=0; i<n; i++) {
-          u = opposite_term(d->arg[i]);
-          ef_add_parent(ef, toplevel, parent, u, t);
-        }
-        continue;
-      } else if (ef_distribute_is_cheap(ef, d)) {
-        ef_flatten_distribute(ef, d, toplevel, parent, t);
-        continue;
-      }
-      break;
-
-    case FORALL_TERM:
-      assert(0);
-      if (is_pos_term(t)) {
-        //if we are on the first pass we defer foralls
-        if (toplevel){
-          ivector_push(&ef->foralls, t);
-          continue;
-        }
-        d = forall_term_desc(terms, t);
-        n = d->arity;
-        assert(n >= 2);
-        /*
-         * t is (FORALL x_0 ... x_k : body)
-         * body is the last argument in the term descriptor
-         */
-        u = d->arg[n-1];
-        ef_add_parent(ef, toplevel, parent, u, t);
-        continue;
-      } else {
-//        //if we are not on the first pass we punt on exists
-//        if ( ! toplevel){
-//          break;
+///*
+// * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
+// * - toplevel: true means we can handle exists, false we can handle foralls
+// * - store the result in resu
+// * - f_ite: if true, also flatten any Boolean if-then-else
+// *   f_iff: if true, also flatten any iff term
+// */
+//static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, bool f_ite, bool f_iff, ivector_t *resu) {
+//  term_table_t *terms;
+//  int_queue_t *queue;
+//  composite_term_t *d;
+//  term_t t, u, v, w;
+//  uint32_t i, n;
+//  int_hmap_t parent_map;
+//  int_hmap_t *parent;
+//
+//  queue = &ef->queue;
+//  terms = ef->terms;
+//  parent = &parent_map;
+//  init_int_hmap(parent, 0);
+//
+//#if 0
+//    printf("toplevel %d\n", toplevel);
+//#endif
+//
+//  while (! int_queue_is_empty(queue)) {
+//    t = int_queue_pop(queue);
+//#if 0
+//    printf("term: %s\n", yices_term_to_string(t, 120, 1, 0));
+//#endif
+//
+//    switch (term_kind(terms, t)) {
+//    case ITE_TERM:
+//    case ITE_SPECIAL:
+//      d = ite_term_desc(terms, t);
+//      assert(d->arity == 3);
+//      if (f_ite && is_boolean_term(terms, d->arg[1])) {
+//        assert(is_boolean_term(terms, d->arg[2]));
+//        /*
+//         * If t is (ite C A B)
+//         *    u := (C => A)
+//         *    v := (not C => B)
+//         * Otherwise, t is (not (ite C A B))
+//         *    u := (C => not A)
+//         *    v := (not C => not B)
+//         */
+//        u = d->arg[1];  // A
+//        v = d->arg[2];  // B
+//        if (is_neg_term(t)) {
+//          u = opposite_term(u);
+//          v = opposite_term(v);
 //        }
-        d = forall_term_desc(terms, t);
-        n = d->arity;
-        assert(n >= 2);
-        /* the existential case
-         * t is (NOT (FORALL x_0 ... x_k : body)
-         * body is the last argument in the term descriptor
-         */
-        u = ef_analyzer_add_existentials(ef, toplevel, parent, t);
-        ef_add_parent(ef, toplevel, parent, u, t);
-        continue;
-      }
-      
-    default:
-      break;
-    }
-
-    // t was not flattened: add it to resu
-    ivector_push(resu, t);
-
-#if 0
-    printf("pushing: %s\n", yices_term_to_string(t, 120, 1, 0));
-#endif
-  }
-
-  delete_int_hmap(parent);
-
-  // clean up the cache
-  assert(int_queue_is_empty(queue));
-  int_hset_reset(&ef->cache);
-}
+//        u = mk_implies(ef->manager, d->arg[0], u); // (C => u)
+//        v = mk_implies(ef->manager, opposite_term(d->arg[0]), v); // (not C) => v
+//
+//        ef_add_parent(ef, toplevel, parent, u, t);
+//        ef_add_parent(ef, toplevel, parent, v, t);
+//        continue;
+//      }
+//      break;
+//
+//    case EQ_TERM:
+//      d = eq_term_desc(terms, t);
+//      assert(d->arity == 2);
+//      if (f_iff && is_boolean_term(terms, d->arg[0])) {
+//        assert(is_boolean_term(terms, d->arg[1]));
+//        /*
+//         * t is either (iff A B) or (not (iff A B)):
+//         */
+//        u = d->arg[0]; // A
+//        v = d->arg[1]; // B
+//        if (is_neg_term(t)) {
+//          u = opposite_term(u);
+//        }
+//        // flatten to (u => v) and (v => u)
+//        w = mk_implies(ef->manager, u, v); // (u => v)
+//        u = mk_implies(ef->manager, v, u); // (v => u);
+//
+//        ef_add_parent(ef, toplevel, parent, w, t);
+//        ef_add_parent(ef, toplevel, parent, u, t);
+//        continue;
+//      }
+//      break;
+//
+//    case OR_TERM:
+//      d = or_term_desc(terms, t);
+//      if (is_neg_term(t)) {
+//        /*
+//         * t is (not (or a[0] ... a[n-1]))
+//         * it flattens to (and (not a[0]) ... (not a[n-1]))
+//         */
+//        n = d->arity;
+//        for (i=0; i<n; i++) {
+//          u = opposite_term(d->arg[i]);
+//          ef_add_parent(ef, toplevel, parent, u, t);
+//        }
+//        continue;
+//      } else if (ef_distribute_is_cheap(ef, d)) {
+//        ef_flatten_distribute(ef, d, toplevel, parent, t);
+//        continue;
+//      }
+//      break;
+//
+//    case FORALL_TERM:
+//      assert(0);
+//      if (is_pos_term(t)) {
+//        //if we are on the first pass we defer foralls
+//        if (toplevel){
+//          ivector_push(&ef->foralls, t);
+//          continue;
+//        }
+//        d = forall_term_desc(terms, t);
+//        n = d->arity;
+//        assert(n >= 2);
+//        /*
+//         * t is (FORALL x_0 ... x_k : body)
+//         * body is the last argument in the term descriptor
+//         */
+//        u = d->arg[n-1];
+//        ef_add_parent(ef, toplevel, parent, u, t);
+//        continue;
+//      } else {
+////        //if we are not on the first pass we punt on exists
+////        if ( ! toplevel){
+////          break;
+////        }
+//        d = forall_term_desc(terms, t);
+//        n = d->arity;
+//        assert(n >= 2);
+//        /* the existential case
+//         * t is (NOT (FORALL x_0 ... x_k : body)
+//         * body is the last argument in the term descriptor
+//         */
+//        u = ef_analyzer_add_existentials(ef, toplevel, parent, t);
+//        ef_add_parent(ef, toplevel, parent, u, t);
+//        continue;
+//      }
+//
+//    default:
+//      break;
+//    }
+//
+//    // t was not flattened: add it to resu
+//    ivector_push(resu, t);
+//
+//#if 0
+//    printf("pushing: %s\n", yices_term_to_string(t, 120, 1, 0));
+//#endif
+//  }
+//
+//  delete_int_hmap(parent);
+//
+//  // clean up the cache
+//  assert(int_queue_is_empty(queue));
+//  int_hset_reset(&ef->cache);
+//}
 
 
 /*
@@ -907,33 +907,33 @@ static bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
 }
 
 
-/*
- * Remove uninterpreted function symbols from v
- * - this is intended to be used for v that satisfies all_basic_vars
- * - return the number of terms removed
- */
-static uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
-  term_table_t *terms;
-  term_t x;
-  uint32_t i, j, n;
-
-  terms = ef->terms;
-
-  j = 0;
-  n = v->size;
-  for (i=0; i<n; i++) {
-    x = v->data[i];
-    if (! is_function_term(terms, x)) {
-      // keep x
-      v->data[j] = x;
-      j ++;
-    }
-  }
-
-  ivector_shrink(v, j);
-
-  return n - j;
-}
+///*
+// * Remove uninterpreted function symbols from v
+// * - this is intended to be used for v that satisfies all_basic_vars
+// * - return the number of terms removed
+// */
+//static uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
+//  term_table_t *terms;
+//  term_t x;
+//  uint32_t i, j, n;
+//
+//  terms = ef->terms;
+//
+//  j = 0;
+//  n = v->size;
+//  for (i=0; i<n; i++) {
+//    x = v->data[i];
+//    if (! is_function_term(terms, x)) {
+//      // keep x
+//      v->data[j] = x;
+//      j ++;
+//    }
+//  }
+//
+//  ivector_shrink(v, j);
+//
+//  return n - j;
+//}
 
 
 
