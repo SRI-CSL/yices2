@@ -597,7 +597,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
 
 #if TRACE
       // FOR DEBUGGING
-      print_ef_table(stdout, &solver->value_table);
+      print_ef_table(stdout, &solver->value_table, false);
 #endif
 //      assert(0);
     }

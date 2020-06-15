@@ -71,7 +71,7 @@ extern void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager
 /*
  * Print the value table
  */
-extern void print_ef_table(FILE *f, ef_table_t *vtable);
+extern void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed);
 
 
 /*

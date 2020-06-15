@@ -155,7 +155,7 @@ void reset_ef_table(ef_table_t *vtable, value_table_t *vtbl, term_manager_t *mgr
 /*
  * Print the value table and all ivector objects
  */
-void print_ef_table(FILE *f, ef_table_t *vtable) {
+void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed) {
   ptr_hmap_pair_t *p;
   ptr_hmap_t *map;
   int_hmap_t *imap;
@@ -187,7 +187,7 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
   for (ip = int_hmap_first_record(imap);
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
-    if (is_utype_term(vtable->terms, ip->key))
+    if (detailed || is_utype_term(vtable->terms, ip->key))
       fprintf(f, "%s -> %d\n", yices_term_to_string(ip->key, 120, 1, 0), ip->val);
   }
 
@@ -196,7 +196,7 @@ void print_ef_table(FILE *f, ef_table_t *vtable) {
   for (ip = int_hmap_first_record(imap);
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
-    if (is_utype_term(vtable->terms, ip->key))
+    if (detailed || is_utype_term(vtable->terms, ip->key))
       fprintf(f, "%s -> %s\n", yices_term_to_string(ip->key, 120, 1, 0), yices_term_to_string(ip->val, 120, 1, 0));
   }
 
@@ -260,13 +260,16 @@ static uint32_t calculate_generation(ef_table_t *vtable, term_t xc) {
 
   for(i=1; i<=m; i++) {
     f = app->arg[i];
-
-    p = int_hmap_find(&vtable->generation, f);
-    if (p == NULL) {
-      return 0;
+    if (is_utype_term(vtable->terms, f)) {
+      p = int_hmap_find(&vtable->generation, f);
+      if (p == NULL) {
+        return 0;
+      }
+      if (p->val > result)
+        result = p->val;
     }
-    if (p->val > result)
-      result = p->val;
+    else
+      result = f;
   }
   result += 1;
 
@@ -590,7 +593,7 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
       j++;
       if (j >= m) {
         if (check) {
-          print_ef_table(stdout, vtable);
+          print_ef_table(stdout, vtable, false);
           printf("Unable to clear dependency for %s\n", yices_term_to_string(tvalue, 120, 1, 0));
           assert(0);
         }
