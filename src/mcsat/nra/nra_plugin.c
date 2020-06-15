@@ -790,6 +790,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     if (!feasible) {
       nra_plugin_report_conflict(nra, prop, x);
     } else {
+      bool x_in_conflict = false;
       // If the variable is integer, check that is has an integer solution
       if (nra->conflict_variable_int == variable_null && variable_db_is_int(nra->ctx->var_db, x)) {
         // Check if there is an integer value
@@ -798,11 +799,12 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
         if (!lp_value_is_integer(&v)) {
           nra->conflict_variable_int = x;
+          x_in_conflict = true;
         }
         lp_value_destruct(&v);
       }
       // If the value is implied at zero level, propagate it
-      if (!trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
+      if (!x_in_conflict && !trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
         const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
         if (lp_feasibility_set_is_point(feasible)) {
           lp_value_t x_value;
