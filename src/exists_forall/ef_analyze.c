@@ -36,6 +36,7 @@
 #include "yices.h"
 #include "exists_forall/ef_skolemize.h"
 
+#define EF_VERBOSE 0
 #define TRACE 0
 
 
@@ -103,9 +104,9 @@ void print_ef_clause(FILE *f, ef_clause_t *cl) {
   fprintf(f, "\nEF Clause: uvars\n");
   yices_pp_term_array(f, cl->uvars.size, cl->uvars.data, 120, UINT32_MAX, 0, 1);
   fprintf(f, "\nEF Clause: assumptions\n");
-  yices_pp_term_array(f, cl->assumptions.size, cl->assumptions.data, 120, UINT32_MAX, 0, 0);
+  yices_pp_term_array(f, cl->assumptions.size, cl->assumptions.data, 120, 2, 0, 0);
   fprintf(f, "\nEF Clause: guarantees\n");
-  yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, UINT32_MAX, 0, 0);
+  yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, 2, 0, 0);
   fprintf(f, "---\n");
 }
 
@@ -1264,7 +1265,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
     // simplify the clause: attempt to eliminate some universal variables.
-#if TRACE
+#if EF_VERBOSE
     printf("\nINITIAL CLAUSE\n\n");
     print_ef_clause(stdout, c);
 #endif

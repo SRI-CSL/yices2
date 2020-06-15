@@ -151,7 +151,10 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
   for (j=0; j<n; j++) {
     x = solver->uvalue_aux.data[j];
     // replace x by representative
-    rep = ef_get_value(vtable, x);
+    if (is_utype_term(solver->prob->terms, x))
+      rep = ef_get_value(vtable, x);
+    else
+      rep = x;
     if (rep == NULL_TERM) {
       p = int_hmap_get(&new_values, x);
       if(p->val < 0) {
@@ -1477,9 +1480,9 @@ static void ef_solver_search(ef_solver_t *solver) {
 	       ef_prob_num_constraints(solver->prob),
 	       ef_prob_num_evars(solver->prob),
 	       ef_prob_num_uvars(solver->prob));
-#if TRACE
+#if EF_VERBOSE
   printf("\nConditions on the exists variables:\n");
-  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, UINT32_MAX, 0, 0);
+  yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, 2, 0, 0);
 #endif
 
   ef_solver_start(solver);
