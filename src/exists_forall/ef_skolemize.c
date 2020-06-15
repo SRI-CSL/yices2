@@ -577,10 +577,32 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
 /*
  * Get the skolemized version of term t
  */
-term_t ef_skolemize(ef_skolemize_t *sk, term_t t) {
+void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   sk_pair_t sp;
+  term_t skolem;
+  composite_term_t *d;
+  uint32_t i, n;
+
   sp = ef_skolemize_term(sk, t);
-  return sp.t;
+  skolem = sp.t;
+
+  if (is_neg_term(skolem) && term_kind(sk->terms, skolem) == OR_TERM) {
+    // flatten top-level and into separate constraints
+
+    /*
+     * skolem is (not (or a[0] ... a[n-1]))
+     * add (not a[0]), ..., (not a[n-1]) to vector v
+     */
+
+    d = or_term_desc(sk->terms, skolem);
+    n = d->arity;
+
+    for (i=0; i<n; i++) {
+      ivector_push(v, opposite_term(d->arg[i]));
+    }
+  }
+  else
+    ivector_push(v, skolem);
 }
 
 

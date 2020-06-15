@@ -57,7 +57,7 @@ extern void delete_ef_skolemize(ef_skolemize_t *sk);
 /*
  * Get the skolemized version of term t
  */
-extern term_t ef_skolemize(ef_skolemize_t *sk, term_t t);
+extern void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v);
 
 
 

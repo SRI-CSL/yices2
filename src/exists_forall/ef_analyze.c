@@ -477,7 +477,6 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 //  ivector_t *foralls;
 //  int32_t *fdata;
   ef_skolemize_t sk;
-  term_t skolem;
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
@@ -485,9 +484,8 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
-    skolem = ef_skolemize(&sk, a[i]);
-    ivector_push(v, skolem);
-//    ef_push_term(ef, skolem);
+    ef_skolemize(&sk, a[i], v);
+//    ef_push_term(ef, a[i]);
   }
 
 // ef_skolemize takes care of the below already
