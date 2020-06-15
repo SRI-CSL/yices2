@@ -424,10 +424,4 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
 extern void context_gc_mark(context_t *ctx);
 
 
-/*
- * Statistics about each solvers
- */
-
-extern void print_statistics(FILE *f, context_t *ctx);
-
 #endif /* __CONTEXT_H */

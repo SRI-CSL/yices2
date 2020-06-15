@@ -4464,13 +4464,6 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
 
 
-/*
- * Print context stats on FILE f
- * - f must be open/writable
- *
- */
-__YICES_DLLSPEC__ extern void yices_print_context_statistics(FILE *f, context_t *ctx);
-
 #ifdef __cplusplus
 } /* close extern "C" { */
 #endif

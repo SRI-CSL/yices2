@@ -11559,13 +11559,3 @@ void _o_yices_garbage_collect(const term_t t[], uint32_t nt,
   release_list_locks();
 
 }
-
-
-/*
- * Print context stats on FILE f
- * - f must be open/writable
- *
- */
-EXPORTED void yices_print_context_statistics(FILE *f, context_t *ctx) {
-	print_statistics(f, ctx);
-}
