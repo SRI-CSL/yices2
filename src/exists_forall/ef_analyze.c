@@ -699,11 +699,11 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
       break;
 
     case VARIABLE:
-      if(int_hset_member(&ef->existentials, t)){
-	  ivector_push(evar, t);
-	} else {
-	  ivector_push(uvar, t);
-	}
+      if (int_hset_member(&ef->existentials, t)) {
+	ivector_push(evar, t);
+      } else {
+	ivector_push(uvar, t);
+      }
       break;
 
     case UNINTERPRETED_TERM:
