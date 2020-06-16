@@ -1210,9 +1210,11 @@ static void check_smt2_reset_assertions(tstack_t *stack, stack_elem_t *f, uint32
 }
 
 static void eval_smt2_reset_assertions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  tstack_reset(stack);
+  tstack_reset_buffers(stack);
   smt2_reset_assertions();
-  tstack_pop_frame(stack);
-  no_result(stack);
+  //  tstack_pop_frame(stack);
+  //  no_result(stack);
 }
 
 /*

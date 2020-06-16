@@ -69,11 +69,27 @@ static void extend_pprod_table(pprod_table_t *table) {
   table->size = n;
 }
 
+/*
+ * Remove all products from table->data
+ */
+static void free_pprods(pprod_table_t *table) {
+  pprod_t *p;
+  uint32_t i, n;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    p = table->data[i];
+    if (! has_int_tag(p)) {
+      safe_free(p);
+    }
+  }
+}
 
 /*
  * Empty the table
  */
 void reset_pprod_table(pprod_table_t *table) {
+  free_pprods(table);
   table->nelems = 0;
   table->free_idx = -1;
   reset_int_htbl(&table->htbl);
@@ -85,16 +101,6 @@ void reset_pprod_table(pprod_table_t *table) {
  * Delete the table and its content
  */
 void delete_pprod_table(pprod_table_t *table) {
-  pprod_t *p;
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
-      safe_free(p);
-    }
-  }
   safe_free(table->data);
   delete_bitvector(table->mark);
   table->data = NULL;
