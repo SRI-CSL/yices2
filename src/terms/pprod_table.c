@@ -101,6 +101,7 @@ void reset_pprod_table(pprod_table_t *table) {
  * Delete the table and its content
  */
 void delete_pprod_table(pprod_table_t *table) {
+  free_pprods(table);
   safe_free(table->data);
   delete_bitvector(table->mark);
   table->data = NULL;
