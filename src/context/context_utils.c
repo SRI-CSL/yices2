@@ -728,6 +728,7 @@ void context_free_edge_map(context_t *ctx) {
   tmp = ctx->edge_map;
   if (tmp != NULL) {
     delete_int_rat_hmap(tmp);
+    safe_free(tmp);
     ctx->edge_map = NULL;
   }
 }
