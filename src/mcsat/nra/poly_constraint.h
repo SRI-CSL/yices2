@@ -1,4 +1,4 @@
-/*
+ /*
  * This file is part of the Yices SMT Solver.
  * Copyright (C) 2017 SRI International.
  *
@@ -52,6 +52,9 @@ void poly_constraint_print_mathematica(const poly_constraint_t* cstr, bool neage
 /** Get the feasible set of the constraint */
 lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, const lp_assignment_t* m, bool negated);
 
+/** Infer the bounds for this constraint (inferred_vars are lp_variables). Returns true if conflict detected. */
+bool poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars);
+
 /**
  * Is this a valid constraint in the current order.
  */
@@ -83,6 +86,12 @@ lp_variable_t poly_constraint_get_variable(const poly_constraint_t* cstr);
 /** Get the root index (if a root constraint) */
 uint32_t poly_constraint_get_root_index(const poly_constraint_t* cstr);
 
+/** Check if the constraint is unit */
+bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_t* M);
+
+/** Try to resolve the two constraints with Fourier-Motzkin resolution */
+bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, const poly_constraint_t* c1, bool c1_negated, nra_plugin_t* nra, ivector_t* out);
+
 /** Construct the database */
 void poly_constraint_db_construct(poly_constraint_db_t* db, nra_plugin_t* nra);
 
@@ -95,14 +104,17 @@ void poly_constraint_db_destruct(poly_constraint_db_t* db);
 /** Delete the database */
 void poly_constraint_db_delete(poly_constraint_db_t* db);
 
+/** Get all constraints (as variables) */
+const ivector_t* poly_constraint_db_get_constraints(const poly_constraint_db_t* db);
+
 /** Get the constraint of the variable (must exist) */
 const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variable_t constraint_var);
 
+/** Compute an approximation of the constraint value with interval computation */
+const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, variable_t constraint_var, nra_plugin_t* nra);
+
 /** Add a new constraint */
 void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var);
-
-/** Mark all the variables from the constraints */
-void poly_constraint_db_gc_mark(poly_constraint_db_t* db, gc_info_t* gc_vars);
 
 /** Remove unised constraints */
 void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_vars);

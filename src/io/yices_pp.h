@@ -64,6 +64,7 @@ typedef enum pp_atom_type {
   PP_QSTRING_ATOM,    // content = string with open and close quotes
   PP_SMT2_BV64_ATOM,  // like PP_BV64_ATOM but with SMT2 #b prefix
   PP_SMT2_BV_ATOM,    // like PP_BV_ATOM but with SMT2 prefix
+  PP_SMT2_INTEGER_AS_REAL,   // print <integer>.0
   PP_SMT2_QID_ATOM,   // like PP_ID_ATOM with quotes
 } pp_atom_type_t;
 
@@ -427,6 +428,12 @@ extern void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, ch
 extern void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 
+/*
+ * Another SMT2 special
+ * - print an integer converted to real as in 12.0 instead of 12
+ * - the value is provided as a rational but the denominator must be one.
+ */
+extern void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q);
 
 
 /*

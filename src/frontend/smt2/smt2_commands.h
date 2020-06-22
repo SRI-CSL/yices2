@@ -432,6 +432,7 @@ typedef struct smt2_globals_s {
   etk_queue_t token_queue;
   ivector_t token_slices;
   ivector_t val_vector;
+  ivector_t type_vector;
 
   // pretty-printer area
   pp_area_t pp_area;

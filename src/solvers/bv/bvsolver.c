@@ -760,6 +760,23 @@ static bool bvvar_in_select_queue(bv_solver_t *solver, thvar_t x) {
   return false;
 }
 
+/*
+ * Also for debugging: check whether x is bitblasted or compiled
+ * to a variable that's bit-blasted.
+ */
+static bool bvvar_is_bitblasted_or_compiled(bv_solver_t *solver, thvar_t x) {
+  thvar_t y;
+
+  if (bvvar_is_bitblasted(&solver->vtbl, x)) {
+    return true;
+  }
+  if (solver->compiler != NULL) {
+    y = bvvar_compiles_to(solver->compiler, x);
+    return y > 0 && bvvar_is_bitblasted(&solver->vtbl, y);
+  }
+  return false;
+}
+
 #endif
 
 
@@ -782,7 +799,7 @@ static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     bv_queue_push(&solver->select_queue, x);
   }
 
-  assert(bvvar_is_bitblasted(&solver->vtbl, x) || bvvar_in_select_queue(solver, x));
+  assert(bvvar_is_bitblasted_or_compiled(solver, x) || bvvar_in_select_queue(solver, x));
 
   return tmp;
 }

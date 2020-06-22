@@ -683,7 +683,7 @@ static bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t 
     case ARITH_FLOOR:
     case ARITH_CEIL:
     case ARITH_ABS:
-      ef_push_unsigned_term(ef, arith_atom_arg(terms, t));
+      ef_push_unsigned_term(ef, unary_term_arg(terms, t));
       break;
 
     case ITE_TERM:

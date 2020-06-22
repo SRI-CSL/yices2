@@ -1712,6 +1712,8 @@ static thvar_t map_bvpoly64_to_bv(context_t *ctx, bvpoly64_t *p) {
   thvar_t *a;
   thvar_t x;
 
+  assert(p->nterms > 0);
+
   n = p->nterms;
   a = alloc_istack_array(&ctx->istack, n);
 
@@ -1742,6 +1744,8 @@ static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
   uint32_t i, n;
   thvar_t *a;
   thvar_t x;
+
+  assert(p->nterms > 0);
 
   n = p->nterms;
   a = alloc_istack_array(&ctx->istack, n);

@@ -39,7 +39,7 @@ typedef struct vhmap_vector_s {
 
 
 /*
- * Default and max sizes of an vector 
+ * Default and max sizes of a vector
  */
 #define DEF_VHMAP_VECTOR_SIZE 10
 #define MAX_VHMAP_VECTOR_SIZE ((uint32_t)((UINT32_MAX-sizeof(vhmap_vector_t))/sizeof(int32_t)))
@@ -73,25 +73,21 @@ typedef struct vector_hmap_s {
  */
 extern void init_vector_hmap(vector_hmap_t *hmap, uint32_t n);
 
-
 /*
  * Empty the table
  */
 extern void reset_vector_hmap(vector_hmap_t *hmap);
-
 
 /*
  * Delete: free memory
  */
 extern void delete_vector_hmap(vector_hmap_t *hmap);
 
-
 /*
  * Get the vector of key k
  * - return NULL if there's no vector of key k
  */
 extern vhmap_vector_t *vector_hmap_find(const vector_hmap_t *hmap, int32_t k);
-
 
 /*
  * Add element x to the vector of key k

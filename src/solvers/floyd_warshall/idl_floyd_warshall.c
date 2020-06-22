@@ -1931,7 +1931,7 @@ static void idl_rename_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map)
   mono = p->mono;
 
   // deal with p's constant term if any
-  if (map[0] == null_thvar) {
+  if (n > 0 && map[0] == null_thvar) {
     assert(mono[0].var == const_idx);
     poly_buffer_add_const(b, &mono[0].coeff);
     n --;

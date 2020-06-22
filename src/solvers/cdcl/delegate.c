@@ -28,6 +28,10 @@
 #include "cryptominisat5/cmsat_c.h"
 #endif
 
+#ifdef HAVE_KISSAT
+#include "kissat.h"
+#endif
+
 #include "solvers/cdcl/delegate.h"
 #include "solvers/cdcl/new_sat_solver.h"
 #include "utils/memalloc.h"
@@ -160,11 +164,7 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
 }
 
 
-/*
- * WRAPPERS FOR CADICAL
- */
-
-#if HAVE_CADICAL
+#if HAVE_CADICAL || HAVE_KISSAT
 /*
  * Conversion from literal_t to dimacs:
  * - in Yices, variables are indexed from 0 to nvars-1.
@@ -178,7 +178,13 @@ static inline int lit2dimacs(literal_t l) {
   int x = var_of(l) + 1;
   return is_pos(l) ? x : - x;
 }
+#endif
 
+/*
+ * WRAPPERS FOR CADICAL
+ */
+
+#if HAVE_CADICAL
 static void cadical_add_empty_clause(void *solver) {
   ccadical_add(solver, 0);
 }
@@ -383,6 +389,110 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
 #endif
 
 
+/*
+ * WRAPPERS FOR KISSAT
+ */
+#if HAVE_KISSAT
+static void kissat_add_empty_clause(void *solver) {
+  kissat_add(solver, 0);
+}
+
+static void kissat_add_unit_clause(void *solver, literal_t l) {
+  kissat_add(solver, lit2dimacs(l));
+  kissat_add(solver, 0);
+}
+
+static void kissat_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
+  kissat_add(solver, lit2dimacs(l1));
+  kissat_add(solver, lit2dimacs(l2));
+  kissat_add(solver, 0);
+}
+
+static void kissat_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
+  kissat_add(solver, lit2dimacs(l1));
+  kissat_add(solver, lit2dimacs(l2));
+  kissat_add(solver, lit2dimacs(l3));
+  kissat_add(solver, 0);
+}
+
+static void kissat_add_clause(void *solver, uint32_t n, literal_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    kissat_add(solver, lit2dimacs(a[i]));
+  }
+  kissat_add(solver, 0);
+}
+
+static smt_status_t kissat_check(void *solver) {
+  switch (kissat_solve(solver)) {
+  case 10: return STATUS_SAT;
+  case 20: return STATUS_UNSAT;
+  default: return STATUS_UNKNOWN;
+  }
+}
+
+
+/*
+ * Important: the rest of Yices (including the bit-vector solver)
+ * assumes that the backend SAT solver assign a value to all variables.
+ * kissat does not do this. It may return that variable x has
+ * value "unknown". This means that 'x' does not occur in any clause
+ * sent to kissat.
+ * We convert  unknown to VAL_FALSE here.
+ */
+static bval_t kissat_get_value(void *solver, bvar_t x) {
+  int v;
+
+  v = kissat_value(solver, x + 1); // x+1 = variable in kissat = positive literal
+  // v = value assigned in kissat: -1 means false, +1 means true, 0 means unknown
+
+  return (v <= 0) ? VAL_FALSE : VAL_TRUE;
+}
+
+static void kissat_set_verbosity(void *solver, uint32_t level) {
+  // verbosity 0 --> nothing (quiet = true)
+  // verbosity 1 --> normal kissat output (quiet = false)
+  // verbosity 2 --> kissat verbosity 1
+  // verbosity 3 --> kissat verbosity 2
+  if (level == 0) {
+    kissat_set_option(solver, "quiet", 1);
+  } else {
+    kissat_set_option(solver, "quiet", 0);
+    if (level == 2) {
+      kissat_set_option(solver, "verbose", 1);
+    } else if (level >= 3) {
+      kissat_set_option(solver, "verbose", 2);
+    }
+  }
+}
+
+static void kissat_delete(void *solver) {
+  kissat_release(solver);
+}
+
+static void kissat_as_delegate(delegate_t *d, uint32_t nvars) {
+  d->solver = kissat_init();
+  kissat_set_option(d->solver, "quiet", 1); // no output from kissat by default
+  init_ivector(&d->buffer, 0); // not used
+  d->add_empty_clause = kissat_add_empty_clause;
+  d->add_unit_clause = kissat_add_unit_clause;
+  d->add_binary_clause = kissat_add_binary_clause;
+  d->add_ternary_clause = kissat_add_ternary_clause;
+  d->add_clause = kissat_add_clause;
+  d->check = kissat_check;
+  d->get_value = kissat_get_value;
+  d->set_verbosity = kissat_set_verbosity;
+  d->delete = kissat_delete;
+  d->keep_var = NULL;
+  d->var_def2 = NULL;
+  d->var_def3 = NULL;
+  d->preprocess = NULL;
+  d->export = NULL;
+}
+
+#endif
+
 
 /*
  * Create and initialize a delegate structure
@@ -404,6 +514,11 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
 #if HAVE_CRYPTOMINISAT
   } else if (strcmp("cryptominisat", solver_name) == 0) {
     cryptominisat_as_delegate(d, nvars);
+    return true;
+#endif
+#if HAVE_KISSAT
+  } else if (strcmp("kissat", solver_name) == 0) {
+    kissat_as_delegate(d, nvars);
     return true;
 #endif
   }
@@ -439,6 +554,15 @@ bool supported_delegate(const char *solver_name, bool *unknown) {
   if (strcmp("cryptominisat", solver_name) == 0) {
     *unknown = false;
 #if HAVE_CRYPTOMINISAT
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  if (strcmp("kissat", solver_name) == 0) {
+    *unknown = false;
+#if HAVE_KISSAT
     return true;
 #else
     return false;

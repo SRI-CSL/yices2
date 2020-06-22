@@ -1,0 +1,8 @@
+(set-logic QF_RDL)
+(declare-const x10 Real)
+(declare-const x12 Real)
+(declare-const x17 Real)
+(assert (= (- x10 669) x17))
+(assert (= x12 (- 642 x10)))
+(assert (= 642 x10))
+(check-sat)

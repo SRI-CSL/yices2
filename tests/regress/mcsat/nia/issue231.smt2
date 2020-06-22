@@ -1,0 +1,7 @@
+(set-logic QF_NIA)
+(declare-fun _substvar_76_ () Bool)
+(declare-const i3 Int)
+(assert (or _substvar_76_ (> 732 (mod i3 0))))
+(assert (distinct 62 (div 0 0)))
+(check-sat)
+(exit)

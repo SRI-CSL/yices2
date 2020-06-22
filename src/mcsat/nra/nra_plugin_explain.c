@@ -1017,6 +1017,26 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     int_mset_destruct(&variables);
   }
 
+  // Check if there is a simple Fourier-Motzkin explanation
+  if (false && core->size == 2 && lemma_reasons->size == 0) {
+    variable_t c0_var = core->data[0];
+    variable_t c1_var = core->data[1];
+    bool c0_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c0_var);
+    bool c1_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c1_var);
+    const poly_constraint_t* c0 = poly_constraint_db_get(nra->constraint_db, c0_var);
+    const poly_constraint_t* c1 = poly_constraint_db_get(nra->constraint_db, c1_var);
+    bool resolved = poly_constraint_resolve_fm(c0, c0_negated, c1, c1_negated, nra, conflict);
+    if (resolved) {
+      term_t c0_term = variable_db_get_term(nra->ctx->var_db, c0_var);
+      if (c0_negated) c0_term = opposite_term(c0_term);
+      term_t c1_term = variable_db_get_term(nra->ctx->var_db, c1_var);
+      if (c1_negated) c1_term = opposite_term(c1_term);
+      ivector_push(conflict, c0_term);
+      ivector_push(conflict, c1_term);
+      return;
+    }
+  }
+
   // Create the map from variables to
   lp_projection_map_t projection_map;
   lp_projection_map_construct(&projection_map, nra);
@@ -1027,8 +1047,20 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     variable_t constraint_var = core->data[core_i];
     assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
-    const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
-    lp_projection_map_add(&projection_map, p);
+    // If the polynomial isn't unit, it is a global inference, so we explain with a different polynomial
+    if (!poly_constraint_is_unit(constraint, nra->lp_data.lp_assignment)) {
+      const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
+      lp_sign_condition_t sgn_condition = poly_constraint_get_sign_condition(constraint);
+      bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
+      lp_variable_t x = poly_constraint_get_top_variable(constraint);
+      lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
+      lp_projection_map_add(&projection_map, p_inference_reason);
+      lp_polynomial_delete(p_inference_reason);
+    } else {
+      const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
+      lp_projection_map_add(&projection_map, p);
+    }
+
   }
 
   // Add all the top-level reasons for the conflict variable
