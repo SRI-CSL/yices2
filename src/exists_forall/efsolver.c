@@ -870,7 +870,7 @@ static void ef_solver_start(ef_solver_t *solver) {
     solver->error_code = code;
   } else if (code == TRIVIALLY_UNSAT) {
     solver->status = EF_STATUS_UNSAT;
-  } else if (solver->max_samples > 0 && !context_has_egraph(solver->exists_context)) {
+  } else if (solver->max_samples > 0 && !solver->prob->has_uint) {
     /*
      * run the pre-sampling stuff
      */

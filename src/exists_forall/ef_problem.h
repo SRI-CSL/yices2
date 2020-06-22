@@ -72,6 +72,7 @@ typedef struct ef_cnstr_s {
 
   term_t *pvars;     // pattern variables
   term_t constraint;  // B(y) -> C(x, y) with pattern variables
+  bool has_uint; // true if constraint has an uninterpreted function/sort
 } ef_cnstr_t;
 
 
@@ -91,6 +92,7 @@ typedef struct ef_prob_s {
   ef_cnstr_t *cnstr;      // array of constraint descriptors
 
   term_t *all_pvars;      // pattern variables
+  bool has_uint;     // true if prob has an uninterpreted function/sort
 } ef_prob_t;
 
 

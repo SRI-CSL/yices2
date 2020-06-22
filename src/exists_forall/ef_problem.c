@@ -39,6 +39,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
   prob->num_cnstr = 0;
   prob->cnstr_size = 0;
   prob->cnstr = NULL;
+  prob->has_uint = false;
 }
 
 
@@ -51,6 +52,7 @@ void reset_ef_prob(ef_prob_t *prob) {
   reset_index_vector(prob->all_pvars);
   reset_index_vector(prob->conditions);
   prob->num_cnstr = 0;
+  prob->has_uint = false;
 }
 
 
@@ -73,6 +75,7 @@ void delete_ef_prob(ef_prob_t *prob) {
   }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;
+  prob->has_uint = false;
 }
 
 
@@ -201,6 +204,26 @@ void ef_prob_add_pvars(ef_prob_t *prob, term_t *v, uint32_t n) {
   add_to_vector(&prob->all_pvars, v, n);
 }
 
+/*
+ * return true if array a has an uninterpreted function/sort
+ */
+bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
+  term_table_t *terms;
+  term_t t;
+  uint32_t i;
+
+  terms = prob->terms;
+
+  for(i=0; i<n; i++) {
+    t = a[i];
+    if (is_utype_term(terms, t) || is_function_term(terms, t)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 
 
 
@@ -226,6 +249,7 @@ void ef_prob_add_condition(ef_prob_t *prob, term_t t) {
 void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *uv, uint32_t nuv,
 			    term_t assumption, term_t guarantee, term_t *pv, term_t constraint) {
   uint32_t i;
+  bool has_uint;
 
   i = prob->num_cnstr;
   if (i == prob->cnstr_size) {
@@ -239,6 +263,11 @@ void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *u
   prob->cnstr[i].guarantee = guarantee;
   prob->cnstr[i].constraint = constraint;
   prob->num_cnstr = i+1;
+
+  has_uint = ef_prob_has_uint(prob, ev, nev);
+  prob->cnstr[i].has_uint = has_uint;
+  if (has_uint)
+    prob->has_uint = true;
 
   ef_prob_add_evars(prob, ev, nev);
   ef_prob_add_uvars(prob, uv, nuv);
