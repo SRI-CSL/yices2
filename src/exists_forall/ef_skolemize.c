@@ -44,6 +44,7 @@ void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, bool f_ite, 
   sk->mgr = analyzer->manager;
   sk->terms = analyzer->terms;
   init_ivector(&sk->uvars, 10);
+  init_ivector(&sk->aux, 10);
 }
 
 
@@ -58,6 +59,7 @@ void delete_ef_skolemize(ef_skolemize_t *sk) {
   sk->mgr = NULL;
   sk->terms = NULL;
   delete_ivector(&sk->uvars);
+  delete_ivector(&sk->aux);
 }
 
 
@@ -327,6 +329,99 @@ static inline term_t sk_update(sk_pair_t sp, bool *is_quantified) {
 }
 
 /*
+ * Check whether we should apply distributivity to (or a[0] .... a[n-1)
+ * - heuristic: return true if exactly one of a[i] is a conjunct
+ */
+static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
+  term_table_t *terms;
+  uint32_t i, n;
+  bool result;
+  term_t t;
+
+  terms = ef->terms;
+  result = false;
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    t = d->arg[i];
+    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
+      // t is not (or ...) i.e., a conjunct
+      result = !result;
+      if (!result) break;  // second conjunct
+    }
+  }
+
+  return result;
+}
+
+/*
+ * Apply distributivity and flatten
+ * - this function rewrites
+ *     (or a[0] ... a[n-2] (and b[0] ... b[m-1]))
+ *   to (and (or a[0] ... a[n-2] b[0])
+ *            ...
+ *           (or a[0] ... a[n-2] b[m-1]))
+ *   then push all terms to aux and return
+ *      (and (or a[0] ... a[n-1] b[j]) ...)
+ *
+ * - the rewriting is applied to the first a[j] that's a conjunct.
+ */
+static term_t ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, ivector_t *aux) {
+  term_table_t *terms;
+  composite_term_t *b;
+  ivector_t *v;
+  uint32_t i, j, k, n, m;
+  term_t t;
+
+  terms = ef->terms;
+
+  j = 0; // Stop GCC warning
+
+  /*
+   * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
+   * - store that term's descriptor in b
+   * - store its index in j
+   */
+  b = NULL;
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    t = d->arg[i];
+    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
+      b = or_term_desc(terms, t);
+      j = i;
+    }
+  }
+
+  /*
+   * a[j] is (not (or b[0] ... b[m-1])) == not b
+   * d->arg is (or a[0] ... a[n-1])
+   */
+  assert(b != NULL);
+
+  ivector_reset(aux);
+
+  v = &ef->aux;
+  m = b->arity;
+  for (k=0; k<m; k++) {
+    /*
+     * IMPORTANT: we make a full copy of d->arg into v
+     * at every iteration of this loop. This is required because
+     * mk_or modifies v->data.
+     */
+    ivector_reset(v);
+    ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
+    for (i=0; i<n; i++) {
+      if (i != j) {
+        ivector_push(v, d->arg[i]); // a[i] for i/=j
+      }
+    }
+    t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
+    ivector_push(aux, t);
+  }
+
+  return mk_and(ef->manager, aux->size, aux->data);
+}
+
+/*
  * Convert a term to negated normal form and skolemize
  * - returns a pair <skolemized_t, is_quantified>
  * is_quantified is used to decide flattening of Boolean conditions
@@ -519,6 +614,24 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         }
         break;
 
+      case OR_TERM:
+        n = term_num_children(terms, t);
+        for(i=0; i<n; i++) {
+          u = term_child(terms, t, i);
+
+          sp = ef_skolemize_term(sk, u);
+          u = sk_update(sp, &resultq);
+
+          ivector_push(&args, u);
+        }
+        result = ef_update_composite(sk, unsigned_term(t), &args);
+
+        d = or_term_desc(terms, result);
+        if (ef_distribute_is_cheap(sk->analyzer, d)) {
+          result = ef_flatten_distribute(sk->analyzer, d, &sk->aux);
+        }
+        break;
+
       case FORALL_TERM:
         /*
          * t is (forall .. body)
@@ -573,20 +686,15 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   return sp;
 }
 
-
 /*
- * Get the skolemized version of term t
+ * Flattens nested (and .. (and .. ) .. ) and adds them to v
  */
-void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
-  sk_pair_t sp;
-  term_t skolem;
+static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   composite_term_t *d;
   uint32_t i, n;
+  term_t arg;
 
-  sp = ef_skolemize_term(sk, t);
-  skolem = sp.t;
-
-  if (is_neg_term(skolem) && term_kind(sk->terms, skolem) == OR_TERM) {
+  if (is_neg_term(t) && term_kind(sk->terms, t) == OR_TERM) {
     // flatten top-level and into separate constraints
 
     /*
@@ -594,15 +702,38 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
      * add (not a[0]), ..., (not a[n-1]) to vector v
      */
 
-    d = or_term_desc(sk->terms, skolem);
+    d = or_term_desc(sk->terms, t);
     n = d->arity;
 
     for (i=0; i<n; i++) {
-      ivector_push(v, opposite_term(d->arg[i]));
+      arg = opposite_term(d->arg[i]);
+      ef_flatten_and(sk, arg, v);
     }
   }
   else
-    ivector_push(v, skolem);
+    ivector_push(v, t);
+
+}
+
+/*
+ * Get the skolemized version of term t
+ */
+void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
+  sk_pair_t sp;
+  term_t skolem;
+
+#if 0
+  printf("Skolemizing: %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
+
+  sp = ef_skolemize_term(sk, t);
+  skolem = sp.t;
+
+#if 0
+  printf("Skolemized:  %s\n", yices_term_to_string(skolem, 120, 1, 0));
+#endif
+
+  ef_flatten_and(sk, skolem, v);
 }
 
 

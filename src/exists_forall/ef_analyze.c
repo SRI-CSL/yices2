@@ -203,95 +203,6 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
 //}
 
 
-///*
-// * Check whether we should apply distributivity to (or a[0] .... a[n-1)
-// * - heuristic: return true if exactly one of a[i] is a conjunct
-// */
-//static bool ef_distribute_is_cheap(ef_analyzer_t *ef, composite_term_t *d) {
-//  term_table_t *terms;
-//  uint32_t i, n;
-//  bool result;
-//  term_t t;
-//
-//  terms = ef->terms;
-//  result = false;
-//  n = d->arity;
-//  for (i=0; i<n; i++) {
-//    t = d->arg[i];
-//    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM) {
-//      // t is not (or ...) i.e., a conjunct
-//      result = !result;
-//      if (!result) break;  // second conjunct
-//    }
-//  }
-//
-//  return result;
-//}
-
-///*
-// * Apply distributivity and flatten
-// * - this function rewrites
-// *     (or a[0] ... a[n-2] (and b[0] ... b[m-1]))
-// *   to (and (or a[0] ... a[n-2] b[0])
-// *            ...
-// *           (or a[0] ... a[n-2] b[m-1]))
-// *   then push all terms
-// *      (or a[0] ... a[n-1] b[j]) to the queue
-// *
-// * - the rewriting is applied to the first a[j] that's a conjunct.
-// */
-//static void ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, bool toplevel, int_hmap_t *parent, term_t p) {
-//  term_table_t *terms;
-//  composite_term_t *b;
-//  ivector_t *v;
-//  uint32_t i, j, k, n, m;
-//  term_t t;
-//
-//  terms = ef->terms;
-//
-//  j = 0; // Stop GCC warning
-//
-//  /*
-//   * Find the first term among a[0 ... n-1] that's of the form (not (or ...))
-//   * - store that term's descriptor in b
-//   * - store its index in j
-//   */
-//  b = NULL;
-//  n = d->arity;
-//  for (i=0; i<n; i++) {
-//    t = d->arg[i];
-//    if (is_neg_term(t) && term_kind(terms, t) == OR_TERM && b == NULL) {
-//      b = or_term_desc(terms, t);
-//      j = i;
-//    }
-//  }
-//
-//  /*
-//   * a[j] is (not (or b[0] ... b[m-1])) == not b
-//   * d->arg is (or a[0] ... a[n-1])
-//   */
-//  assert(b != NULL);
-//
-//  v = &ef->aux;
-//  m = b->arity;
-//  for (k=0; k<m; k++) {
-//    /*
-//     * IMPORTANT: we make a full copy of d->arg into v
-//     * at every iteration of this loop. This is required because
-//     * mk_or modifies v->data.
-//     */
-//    ivector_reset(v);
-//    ivector_push(v, opposite_term(b->arg[k]));   // this is not b[k]
-//    for (i=0; i<n; i++) {
-//      if (i != j) {
-//        ivector_push(v, d->arg[i]); // a[i] for i/=j
-//      }
-//    }
-//    t = mk_or(ef->manager, v->size, v->data);  // t is (or b[i] a[0] ...)
-//    ef_add_parent(ef, toplevel, parent, t, p);
-//  }
-//}
-
 
 ///*
 // * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
@@ -488,6 +399,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
     ef_skolemize(&sk, a[i], v);
 //    ef_push_term(ef, a[i]);
   }
+  ivector_remove_duplicates(v);
 
 // ef_skolemize takes care of the below already
 //  /* FIRST PASS: do the exists */

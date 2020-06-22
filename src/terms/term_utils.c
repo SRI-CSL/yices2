@@ -35,7 +35,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "term_printer.h"
+#include "io/term_printer.h"
 
 static void print_finite_domain(FILE *f, term_table_t *tbl, finite_domain_t *d) {
   uint32_t i, n;

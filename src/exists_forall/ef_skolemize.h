@@ -39,6 +39,7 @@ typedef struct ef_skolemize_s {
   term_manager_t *mgr;
   term_table_t *terms;
   ivector_t uvars;
+  ivector_t aux;
 } ef_skolemize_t;
 
 
