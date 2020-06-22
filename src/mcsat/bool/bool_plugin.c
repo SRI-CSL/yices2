@@ -767,6 +767,9 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
   // Boolean plugin only explains evaluation of assigned false literals
   term_t t_unsigned = unsigned_term(t);
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
+  if (t_var == variable_null) {
+    return false;
+  }
   int_mset_add(vars, t_var);
   if (t_var != variable_null && trail_has_value_at(trail, t_var, trail_size)) {
     bool negated = is_neg_term(t);
