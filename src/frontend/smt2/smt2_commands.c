@@ -4140,6 +4140,8 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
 
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
+  } else if (g->ctx == NULL) {
+    print_error("Call (check-sat-assuming-model) first");
   } else {
     // Could be that we called check-sat after
     smt_status_t ctx_status = context_status(g->ctx);
