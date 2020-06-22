@@ -1,0 +1,5 @@
+(set-logic LIA)
+(declare-const i3 Int)
+(declare-const i7 Int)
+(assert (forall ((q75 Int) (q76 Bool) (q77 Bool) (q78 Int)) (=> (= (+ 0 i3 (div i7 542)) 0) q76)))
+(check-sat)

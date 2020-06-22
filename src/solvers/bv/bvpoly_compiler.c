@@ -256,6 +256,23 @@ static void bv_compiler_store_map(bvc_t *c, thvar_t x, thvar_t y) {
 }
 
 
+#if 0
+/*
+ * FOR DEBUGGING
+ */
+static void show_cmap(bvc_t *c) {
+  thvar_t i, x;
+
+  for (i=1; i<c->vtbl->nvars; i++) {
+    x = bvvar_compiles_to(c, i);
+    if (x >= 0) {
+      printf("  cmap[%"PRId32"] = %"PRId32"\n", i, x);
+    }
+  }
+  printf("\n");
+}
+#endif
+
 
 /*
  * CONSTRUCTORS FOR ELEMENTARY EXPRESSIONS
@@ -1389,7 +1406,7 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   r  = bvc_dag_nocc_of_var(&c->dag, x); // node occurrence mapped to x
   if (bvc_dag_nocc_has_flipped(&c->dag, r)) {
     r = negate_occ(r);
- }
+  }
 
   y = bvc_dag_get_nocc_compilation(&c->dag, r); // r is compiled to y
   assert(y >= 0);
@@ -1405,7 +1422,25 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   if (sign != 0) {
     y = bv_compiler_get_bvneg(c, y);
   }
-  assert(0 < y && y < c->vtbl->nvars && x != y);
+
+  /*
+   * NOTE: it's OK for a variable compile to itself (and it can happen).
+   * See issue220.
+   *
+   * When process_queue is called, we have
+   * - u3 := [prod u2 ^ 2]
+   * - u4 := [poly u2 + 2 * u3]
+   * - u5 := [constant 0]
+   * and in the bvsolver's vtbl:
+   * - root(u3) is u5
+   * - root(u2) is u4
+   *
+   * So, we compile u4 to root(u2) + 2 * root(u3) = u4 + 0 = u4.
+   *
+   * The bv_solver will break the cycle later.
+   */
+  //  assert(0 < y && y < c->vtbl->nvars && x != y);
+  assert(0 < y && y < c->vtbl->nvars);
   p->val = y;
 }
 

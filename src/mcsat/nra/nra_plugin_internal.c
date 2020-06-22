@@ -42,18 +42,6 @@ void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, i
   case ARITH_ROOT_ATOM:
     nra_plugin_get_term_variables(nra, arith_root_atom_desc(terms, atom)->p, vars_out);
     break;
-  case ARITH_RDIV:
-    nra_plugin_get_term_variables(nra, arith_rdiv_term_desc(terms, atom)->arg[0], vars_out);
-    nra_plugin_get_term_variables(nra, arith_rdiv_term_desc(terms, atom)->arg[1], vars_out);
-    break;
-  case ARITH_IDIV:
-    nra_plugin_get_term_variables(nra, arith_idiv_term_desc(terms, atom)->arg[0], vars_out);
-    nra_plugin_get_term_variables(nra, arith_idiv_term_desc(terms, atom)->arg[1], vars_out);
-    break;
-  case ARITH_MOD:
-    nra_plugin_get_term_variables(nra, arith_mod_term_desc(terms, atom)->arg[0], vars_out);
-    nra_plugin_get_term_variables(nra, arith_mod_term_desc(terms, atom)->arg[1], vars_out);
-    break;
   default:
     // We're fine, just a variable, arithmetic term to eval, or a foreign term
     nra_plugin_get_term_variables(nra, constraint, vars_out);
