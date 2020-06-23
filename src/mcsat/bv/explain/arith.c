@@ -606,7 +606,7 @@ uint32_t get_longest(interval_t** intervals, uint32_t number_intervals){
     assert(intervals[i] != NULL);
     assert(interval_get_bitwidth(intervals[i]) == interval_get_bitwidth(intervals[0]));
     // If it is longer than the previous longest, we update the latter
-    if (bvconstant_lt(&intervals[0]->length, &intervals[i]->length)){
+    if (bvconstant_lt(&intervals[result]->length, &intervals[i]->length)){
       result = i;
     }
   }
