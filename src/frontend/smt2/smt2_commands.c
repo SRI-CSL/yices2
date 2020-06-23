@@ -68,6 +68,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "utils/cputime.h"
 #include "utils/memsize.h"
@@ -1584,6 +1585,12 @@ static void show_funsolver_stats(int fd, print_buffer_t *b, fun_solver_t *solver
   print_string_and_uint32(fd, b, " :array-extensionality-axioms ", fun_solver_num_extensionality_axioms(solver));
 }
 
+static void show_quantsolver_stats(int fd, print_buffer_t *b, quant_solver_t *solver) {
+  print_string_and_uint32(fd, b, " :quantifiers ", quant_solver_num_quantifiers(solver));
+  print_string_and_uint32(fd, b, " :patterns ", quant_solver_num_patterns(solver));
+  print_string_and_uint32(fd, b, " :instances ", quant_solver_num_instances(solver));
+}
+
 static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
   simplex_collect_statistics(solver);
   print_string_and_uint32(fd, b, " :simplex-init-vars ", simplex_num_init_vars(solver));
@@ -1647,6 +1654,10 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
 
   if (context_has_fun_solver(ctx)) {
     show_funsolver_stats(fd, b, ctx->fun_solver);
+  }
+
+  if (context_has_quant_solver(ctx)) {
+    show_quantsolver_stats(fd, b, ctx->quant_solver);
   }
 
   if (context_has_arith_solver(ctx)) {

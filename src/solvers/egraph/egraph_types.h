@@ -1178,6 +1178,17 @@ typedef struct fun_egraph_interface_s {
 
 
 
+/*
+ * QUANTIFIER-SOLVER INTERFACE
+ */
+typedef thvar_t (*make_quant_var_quant_t)(void *solver, type_t tau);
+
+typedef struct quant_egraph_interface_s {
+  make_quant_var_quant_t    create_quant_var;
+} quant_egraph_interface_t;
+
+
+
 /***********
  *  MODEL  *
  **********/
@@ -1458,6 +1469,7 @@ struct egraph_s {
    * - arith_eg: egraph interface for arith solver
    * - bv_eg:    egraph interface for the bitvector solver
    * - fun_eg:   egraph interface for the array/function solver
+   * - quant_eg:   egraph interface for the quantifier solver
    */
   void *th[NUM_SATELLITES];
   th_ctrl_interface_t *ctrl[NUM_SATELLITES];
@@ -1469,6 +1481,7 @@ struct egraph_s {
   arith_egraph_interface_t *arith_eg;
   bv_egraph_interface_t  *bv_eg;
   fun_egraph_interface_t *fun_eg;
+  quant_egraph_interface_t *quant_eg;
 
 
   /*

@@ -93,6 +93,7 @@
 #include "solvers/bv/bvsolver.h"
 #include "solvers/bv/dimacs_printer.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/rationals.h"
 #include "utils/command_line.h"
@@ -1931,6 +1932,13 @@ static void show_funsolver_stats(fun_solver_stats_t *stat) {
   printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
 }
 
+static void show_quantsolver_stats(quant_solver_stats_t *stat) {
+  printf("Quantifiers\n");
+  printf(" quantifiers             : %"PRIu32"\n", stat->num_quantifiers);
+  printf(" patterns                : %"PRIu32"\n", stat->num_patterns);
+  printf(" instances               : %"PRIu32"\n", stat->num_instances);
+}
+
 static void show_simplex_stats(simplex_stats_t *stat) {
   printf("Simplex\n");
   printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
@@ -1995,6 +2003,7 @@ static void yices_showstats_cmd(void) {
   egraph_t *egraph;
   simplex_solver_t *simplex;
   fun_solver_t *fsolver;
+  quant_solver_t *qsolver;
   double run_time;
   double mem_used;
 
@@ -2016,8 +2025,12 @@ static void yices_showstats_cmd(void) {
       printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
       printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
       if (context_has_fun_solver(context)) {
-	fsolver = context->fun_solver;
-	show_funsolver_stats(&fsolver->stats);
+        fsolver = context->fun_solver;
+        show_funsolver_stats(&fsolver->stats);
+      }
+      if (context_has_quant_solver(context)) {
+        qsolver = context->quant_solver;
+        show_quantsolver_stats(&qsolver->stats);
       }
     }
 

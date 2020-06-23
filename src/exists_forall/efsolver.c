@@ -319,6 +319,9 @@ static void init_exists_context(ef_solver_t *solver) {
   if (solver->trace != NULL) {
     context_set_trace(ctx, solver->trace);
   }
+  if (solver->ematching) {
+    create_quant_solver(ctx);
+  }
 }
 
 /*
@@ -1552,12 +1555,14 @@ static void ef_solver_search(ef_solver_t *solver) {
  *   (as in ef_solver_search).
  */
 void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
-		     ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters, uint32_t max_numlearnt) {
+		     ef_gen_option_t gen_mode, uint32_t max_samples, uint32_t max_iters, uint32_t max_numlearnt,
+		     bool ematching) {
   solver->parameters = parameters;
   solver->option = gen_mode;
   solver->max_samples = max_samples;
   solver->max_iters = max_iters;
   solver->max_numlearnt = max_numlearnt;
+  solver->ematching = ematching;
   solver->scan_idx = 0;
 
   // adjust mode

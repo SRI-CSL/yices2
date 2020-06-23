@@ -29,5 +29,6 @@ void init_ef_params(ef_param_t *p) {
   p->max_samples = 5;
   p->max_iters = 10000;
   p->max_numlearnt = 10;
+  p->ematching = false;
 }
 
