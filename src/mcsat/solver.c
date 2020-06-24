@@ -205,7 +205,7 @@ struct mcsat_solver_s {
   /** Plugin the reported a conflict */
   mcsat_plugin_context_t* plugin_in_conflict;
 
-  /** Variable that is in conflict (if found during assumpion decisions) */
+  /** Variable that is in conflict (if found during assumption decisions) */
   variable_t variable_in_conflict;
 
   /** Lemmas reported by plugins  */
@@ -2124,7 +2124,15 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
   plugin_trail_token_t decision_token;
 
   bool assumption_decided = false;
-  for (; !assumption_decided && !mcsat->trail->inconsistent && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
+  for (; !assumption_decided && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
+
+    // Break if any conflicts
+    if (mcsat->trail->inconsistent) {
+      break;
+    }
+    if (mcsat->variable_in_conflict != variable_null) {
+      break;
+    }
 
     // The variable (should exists already)
     var_term = assumptions[mcsat->assumption_i];
@@ -2158,7 +2166,6 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
           mcsat->plugin_in_conflict = mcsat->plugins[plugin_i].plugin_ctx;
         }
         mcsat->variable_in_conflict = var;
-        trail_set_inconsistent(mcsat->trail);
       }
     } else {
       // Plugin used to check/decide
@@ -2498,6 +2505,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
     // If inconsistent, analyze the conflict
     if (!trail_is_consistent(mcsat->trail)) {
+      goto conflict;
+    }
+    if (mcsat->variable_in_conflict != variable_null) {
       goto conflict;
     }
 
