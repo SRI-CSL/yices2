@@ -25,7 +25,7 @@
 #include "terms/rba_buffer_terms.h"
 
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 #include <inttypes.h>
@@ -37,27 +37,26 @@
 //The term_manager enforces the presburger conditions on multiplications.
 bool is_presburger_literal(term_table_t *terms, term_t t) {
   bool retval;
-  term_t u, k; 
+  term_t u, k;
   composite_term_t *args;
-  
-  switch (term_kind(terms, t)) {
 
-  case ARITH_EQ_ATOM:           //(u = 0)
+  switch (term_kind(terms, t)) {
+  case ARITH_EQ_ATOM:           // (u = 0)
     u = arith_eq_arg(terms, t);
     retval = is_integer_term(terms, u);
     break;
 
-  case ARITH_GE_ATOM:           //(u >= 0)   
+  case ARITH_GE_ATOM:           // (u >= 0)
     u = arith_ge_arg(terms, t);
     retval = is_integer_term(terms, u);
     break;
-    
-  case ARITH_BINEQ_ATOM:        //(u0 = u1)
+
+  case ARITH_BINEQ_ATOM:        // (u0 = u1)
     args = arith_bineq_atom_desc(terms, t);
     retval = is_integer_term(terms, args->arg[0]) && is_integer_term(terms, args->arg[1]);
     break;
-    
-  case ARITH_DIVIDES_ATOM:      //±(k | u)
+
+  case ARITH_DIVIDES_ATOM:      // ±(k | u)
     args = arith_divides_atom_desc(terms, t);
     k = args->arg[0];
     u = args->arg[1];
@@ -67,17 +66,16 @@ bool is_presburger_literal(term_table_t *terms, term_t t) {
   default:
     retval = false;
   }
-  
+
   return retval;
 }
 
 
-/* 
+/*
  * Initializes the bounds. Note that a set of constraints need
  * not actually have any such bounds, so they start out NULL.
  */
 static void init_cooper(cooper_t *cooper) {
-
   cooper->glb = NULL;
   q_init(&cooper->glbv);
 
@@ -88,15 +86,13 @@ static void init_cooper(cooper_t *cooper) {
 
   q_init(&cooper->delta);
   q_set_one(&cooper->delta);
-
 }
 
 
-/* 
- * This is the same as resetting. Things return to the initial state 
-*/
+/*
+ * This is the same as resetting. Things return to the initial state
+ */
 static void delete_cooper(cooper_t *cooper) {
-
   if (cooper->glb != NULL) {
     free_polynomial(cooper->glb);
     cooper->glb = NULL;
@@ -113,7 +109,7 @@ static void delete_cooper(cooper_t *cooper) {
     free_polynomial(cooper->poly);
     cooper->poly = NULL;
   }
-  
+
   q_clear(&cooper->delta);
 }
 
@@ -218,7 +214,7 @@ static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer
   tmp->tag = tag;
   tmp->nterms = n;
   //if we are a divisor constraint initialize the divisor slot
-  if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
+  if (tag == PRES_POS_DIVIDES || tag == PRES_NEG_DIVIDES) {
     tmp->divisor = (rational_t *) safe_malloc(sizeof(rational_t));
     q_init(tmp->divisor);
   } else {
@@ -241,29 +237,29 @@ static presburger_constraint_t *make_presburger_constraint(poly_buffer_t *buffer
  */
 static void free_presburger_constraint(presburger_constraint_t *c) {
   clear_monarray(c->mono, c->nterms);
-  if(c->divisor != NULL){
+  if (c->divisor != NULL) {
     q_clear(c->divisor);
     safe_free(c->divisor);
-    c->divisor = NULL;	 
+    c->divisor = NULL;
   }
   safe_free(c);
 }
 
 /*
- * Frees all the constraints in pres, and resets the constraints pvector
+ * Free all the constraints in pres, and reset the constraints pvector
  */
-static void free_constraints(presburger_t *pres){
+static void free_constraints(presburger_t *pres) {
   uint32_t i;
   presburger_constraint_t *c;
   pvector_t *constraints;
 
-  constraints = &pres->constraints; 
-  for(i = 0; i < constraints->size; i++){
+  constraints = &pres->constraints;
+  for (i = 0; i < constraints->size; i++) {
     c = (presburger_constraint_t *) constraints->data[i];
     free_presburger_constraint(c);
   }
   pvector_reset(constraints);
-  
+
 }
 
 /*
@@ -279,8 +275,8 @@ static void free_constraints(presburger_t *pres){
 static void init_presburger_vtbl(presburger_vtbl_t *table, uint32_t n) {
   if (n == 0) {
     n = DEF_PRESBURGER_VTBL_SIZE;
-  } 
-  
+  }
+
   if (n > MAX_PRESBURGER_VTBL_SIZE) {
     out_of_memory();
   }
@@ -291,7 +287,7 @@ static void init_presburger_vtbl(presburger_vtbl_t *table, uint32_t n) {
 
   init_ivector(&table->eliminables, 0);
   init_int_hset(&table->elims, 0);
-  
+
   table->variables = (term_t *) safe_malloc(n * sizeof(term_t));
   table->values = (rational_t *) safe_malloc(n * sizeof(rational_t));
 
@@ -331,9 +327,9 @@ static void reset_presburger_vtbl(presburger_vtbl_t *table) {
 
   ivector_reset(&table->eliminables);
   int_hset_reset(&table->elims);
-  
+
   int_hmap_reset(&table->vmap);
-  
+
   table->nvars = 0;
   table->nelims = 0;
 }
@@ -344,7 +340,7 @@ static void reset_presburger_vtbl(presburger_vtbl_t *table) {
  */
 static void delete_presburger_vtbl(presburger_vtbl_t *table) {
   uint32_t i, n;
-  
+
   n = table->nvars;
   for (i=0; i<n; i++) {
     q_clear(table->values + i);
@@ -352,7 +348,7 @@ static void delete_presburger_vtbl(presburger_vtbl_t *table) {
 
   delete_ivector(&table->eliminables);
   delete_int_hset(&table->elims);
-  
+
   delete_int_hmap(&table->vmap);
 
   safe_free(table->variables);
@@ -385,14 +381,14 @@ static void presburger_vtbl_add_var(presburger_vtbl_t *table, term_t x, bool to_
 
   table->variables[i] = x;
   q_set(table->values + i, q);
-  
+
   if (to_elim) {
     assert(!int_hset_member(&table->elims, x));
     table->nelims ++;
     ivector_push(&table->eliminables, x);
     int_hset_add(&table->elims, x);
   }
-  
+
 }
 
 
@@ -456,7 +452,7 @@ void delete_presburger_projector(presburger_t *pres) {
 
 
 
-void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *q){
+void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *q) {
   assert(good_term(pres->terms, x) && pres->constraints.size == 0);
   presburger_vtbl_add_var(&pres->vtbl, x, to_elim, q);
 }
@@ -465,7 +461,7 @@ void presburger_add_var(presburger_t *pres, term_t x, bool to_elim, rational_t *
  * Close the set of variables and prepare for addition of constraints.
  * - this function must be called once all variables have been added
  *   and before adding the first constraint.
- 
+
  */
 void presburger_close_var_set(presburger_t *pres) {
   close_presburger_vtbl(&pres->vtbl);
@@ -474,7 +470,7 @@ void presburger_close_var_set(presburger_t *pres) {
 static void presburger_add_cnstr(presburger_t *pres, presburger_constraint_t *c) {
   pvector_t *constraints;
 
-  constraints = &pres->constraints; 
+  constraints = &pres->constraints;
   c->id = constraints->size;
   pvector_push(&pres->constraints, c);
 }
@@ -495,7 +491,7 @@ static int32_t presburger_index_of_term(presburger_vtbl_t *vtbl, term_t x) {
  */
 static inline rational_t *presburger_var_val(presburger_vtbl_t *vtbl, term_t x) {
   int32_t idx = presburger_index_of_term(vtbl, x);
-  
+
   return vtbl->values + idx;
 }
 
@@ -505,12 +501,12 @@ static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, m
   q_clear(val);
   for (i=0; i<nterms; i++) {
     x = mono[i].var;
-    if(x == const_idx){
+    if (x == const_idx) {
       q_add(val, &mono[i].coeff);
     } else {
       q_addmul(val, &mono[i].coeff, presburger_var_val(vtbl, x));
     }
-  }  
+  }
 }
 
 /*
@@ -540,7 +536,9 @@ static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t
     q_set(&aux, &buffer->mono[0].coeff);
     q_integer_rem(&aux, divisor);
     r = q_is_zero(&aux);
-    if (tag == PRES_NEG_DIVIDES){ r = !r; }
+    if (tag == PRES_NEG_DIVIDES) {
+      r = !r;
+    }
     break;
   }
 
@@ -564,10 +562,10 @@ static bool presburger_good_constraint(presburger_t *pres, presburger_constraint
   rational_t aux;
   bool result;
   presburger_tag_t tag;
-  
+
   result = false;
   tag = c->tag;
-  
+
   q_init(&aux);
   presburger_eval_cnstr_in_model(&pres->vtbl, &aux, c);
   switch (tag) {
@@ -584,27 +582,30 @@ static bool presburger_good_constraint(presburger_t *pres, presburger_constraint
   case PRES_NEG_DIVIDES:
     q_integer_rem(&aux, c->divisor);
     result = q_is_zero(&aux);
-    if (tag == PRES_NEG_DIVIDES){ result = !result; }
+    if (tag == PRES_NEG_DIVIDES) {
+      result = !result;
+    }
   }
   q_clear(&aux);
-  
+
   return result;
 }
 
 /*
  * Check whether all the constraints are true in the model
  */
-static bool presburger_good(presburger_t *pres){
+static bool presburger_good(presburger_t *pres) {
   int32_t i, nconstraints;
   pvector_t *constraints;
   presburger_constraint_t *constraint;
   constraints = &pres->constraints;
   nconstraints = constraints->size;
 
-  //go through the constraints
-  for(i = 0; i < nconstraints; i++){
-    constraint = (presburger_constraint_t *)constraints->data[i];
-    if( ! presburger_good_constraint(pres, constraint) ){ return false; }
+  for (i = 0; i < nconstraints; i++) {
+    constraint = (presburger_constraint_t *) constraints->data[i];
+    if (!presburger_good_constraint(pres, constraint)) {
+      return false;
+    }
   }
 
   return true;
@@ -628,13 +629,13 @@ static void add_constraint_from_buffer(presburger_t *pres, poly_buffer_t *buffer
     reset_poly_buffer(buffer);
   } else {
     c = make_presburger_constraint(buffer, tag);
-    if((tag == PRES_POS_DIVIDES) || (tag == PRES_NEG_DIVIDES)){
+    if (tag == PRES_POS_DIVIDES || tag == PRES_NEG_DIVIDES) {
       assert(divisor != NULL);
       q_set(c->divisor, divisor);
       q_normalize(c->divisor);
       assert(q_is_integer(c->divisor));
     }
-    
+
     assert(presburger_good_constraint(pres, c));
 
     presburger_add_cnstr(pres, c);
@@ -732,7 +733,7 @@ static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq)
 
   terms = pres->terms;
   switch (term_kind(terms, t1)) {
-  case ARITH_CONSTANT:    
+  case ARITH_CONSTANT:
     poly_buffer_add_const(buffer, rational_term_desc(terms, t1));
     break;
 
@@ -746,7 +747,7 @@ static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq)
   }
 
   switch (term_kind(terms, t2)) {
-  case ARITH_CONSTANT:    
+  case ARITH_CONSTANT:
     poly_buffer_sub_const(buffer, rational_term_desc(terms, t2));
     break;
 
@@ -761,14 +762,14 @@ static void presburger_add_arith_bineq(presburger_t *pres, composite_term_t *eq)
   add_constraint_from_buffer(pres, buffer, PRES_EQ, NULL);
 }
 
-// constraint (t1 | t2) 
+// constraint (t1 | t2)
 static void presburger_add_arith_divides(presburger_t *pres, composite_term_t *divides, bool positive) {
   poly_buffer_t *buffer;
   term_table_t *terms;
   term_t k, u;
 
   terms = pres->terms;
-  
+
   assert(divides->arity == 2);
 
   k = divides->arg[0];
@@ -847,9 +848,9 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
     } else {
       t = arith_eq_arg(terms, c);
       if (term_kind(terms, t) == ARITH_POLY) {
-	presburger_add_poly_eq_zero(pres, poly_term_desc(terms, t));
+        presburger_add_poly_eq_zero(pres, poly_term_desc(terms, t));
       } else {
-	presburger_add_var_eq_zero(pres, t);
+        presburger_add_var_eq_zero(pres, t);
       }
     }
     break;
@@ -863,20 +864,20 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
     break;
 
   case ARITH_GE_ATOM:
-    t = arith_ge_arg(terms, c);    
+    t = arith_ge_arg(terms, c);
     if (is_pos_term(c)) {
       // atom (t >= 0)
       if (term_kind(terms, t) == ARITH_POLY) {
-	presburger_add_poly_geq_zero(pres, poly_term_desc(terms, t));
+        presburger_add_poly_geq_zero(pres, poly_term_desc(terms, t));
       } else {
-	presburger_add_var_geq_zero(pres, t);
+        presburger_add_var_geq_zero(pres, t);
       }
     } else {
       // atom (t < 0)
       if (term_kind(terms, t) == ARITH_POLY) {
-	presburger_add_poly_lt_zero(pres, poly_term_desc(terms, t));
+        presburger_add_poly_lt_zero(pres, poly_term_desc(terms, t));
       } else {
-	presburger_add_var_lt_zero(pres, t);
+        presburger_add_var_lt_zero(pres, t);
       }
     }
     break;
@@ -889,7 +890,7 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
     }
     break;
 
-    
+
   default:
     code = PRES_ERROR_NOT_PRESBURGER_LITERAL;
     break;
@@ -899,7 +900,7 @@ int32_t presburger_add_constraint(presburger_t *pres, term_t c) {
 }
 
 /*
- * Checks to see if the constraint mentions y, and if so returns true and stores it's coefficient in value.
+ * Checks to see if the constraint mentions y, and if so returns true and stores its coefficient in value.
  * If not returns false, and leaves value untouched.
  * - constraint to check
  * - y a variable
@@ -909,86 +910,78 @@ static bool has_coefficient(presburger_constraint_t *constraint, term_t y, ratio
   int32_t i;
   uint32_t nterms;
   term_t var;
-  
+
   assert(value != NULL);
 
   nterms = constraint->nterms;
 
-  for(i = 0; i < nterms; i++){
+  for (i = 0; i < nterms; i++) {
     var = constraint->mono[i].var;
-    if (var == y){
+    if (var == y) {
       *value = &constraint->mono[i].coeff;
       return true;
     }
-    if(var > y){  //FIXME: is this correct?
+    if (var > y) {  //FIXME: is this correct?
       return false;
     }
   }
   return false;
-
 }
 
 
 /*
- *  Scales the constraint so that the coefficient of y would be lcm; then sets the
- *  actual coefficient of y to be 1. This is the normalization phase of Cooper's 
- *  algorithm.
- *
+ * Scales the constraint so that the coefficient of y would be lcm; then sets the
+ * actual coefficient of y to be 1. This is the normalization phase of Cooper's
+ * algorithm.
  */
 static void scale_constraint(presburger_constraint_t *constraint, term_t y, rational_t* lcm) {
   rational_t factor;
   rational_t *aux, *coeff, *divisor;
   int32_t i;
   uint32_t nterms;
-  monomial_t *mono;   
-  
-  
-  if (has_coefficient(constraint, y, &coeff)) {
+  monomial_t *mono;
 
+  if (has_coefficient(constraint, y, &coeff)) {
     //first determine the factor by which we need to multiply.
     q_init(&factor);
     q_set(&factor, lcm);
     q_div(&factor, coeff);
     //keep it positive
-    if (q_is_neg(&factor)) { 
+    if (q_is_neg(&factor)) {
       q_neg(&factor);
     }
 
     nterms = constraint->nterms;
     mono = constraint->mono;
-  
-    for(i = 0; i < nterms; i++){
+
+    for (i = 0; i < nterms; i++) {
       aux = &mono[i].coeff;
-      if (mono[i].var == y){
-	if (q_is_neg(aux)){
-	  q_set_minus_one(aux);
-	} else {
-	  q_set_one(aux);
-	}
+      if (mono[i].var == y) {
+        if (q_is_neg(aux)) {
+          q_set_minus_one(aux);
+        } else {
+          q_set_one(aux);
+        }
       } else {
-	q_mul(aux, &factor);
+        q_mul(aux, &factor);
       }
     }
 
     //if it is a divibility constraint the divisor needs to be scaled too.
     divisor = constraint->divisor;
     if (divisor != NULL) {
-
-      assert((constraint->tag == PRES_POS_DIVIDES) || (constraint->tag == PRES_NEG_DIVIDES));
-
+      assert(constraint->tag == PRES_POS_DIVIDES || constraint->tag == PRES_NEG_DIVIDES);
       q_mul(divisor, &factor);
     }
-  
+
     q_clear(&factor);
-
   }
-
 }
 
-/* convert all the constraints in pres to the form where the the coeff of
+/*
+ * Convert all the constraints in pres to the form where the the coeff of
  * y is plus or minus one.
- * - y must be in the eliminables 
- *
+ * - y must be in the eliminables
  */
 static void presburger_normalize(presburger_t *pres, term_t y) {
   rational_t lcm;
@@ -998,7 +991,7 @@ static void presburger_normalize(presburger_t *pres, term_t y) {
   presburger_constraint_t *constraint;
   poly_buffer_t *buffer;
   presburger_vtbl_t *vtbl;
-  
+
   assert(int_hset_member(&pres->vtbl.elims, y));
 
   constraints = &pres->constraints;
@@ -1007,28 +1000,27 @@ static void presburger_normalize(presburger_t *pres, term_t y) {
   q_set_one(&lcm);
 
   //pass one: compute the lcm of the coeffs of y
-  for(i = 0; i < nconstraints; i++){
-    constraint = (presburger_constraint_t *)constraints->data[i];
+  for (i = 0; i < nconstraints; i++) {
+    constraint = (presburger_constraint_t *) constraints->data[i];
     rp = NULL;
-    if(has_coefficient(constraint, y, &rp)){
+    if (has_coefficient(constraint, y, &rp)) {
       q_lcm(&lcm, rp);
     }
   }
-  
-  if( ! q_is_one(&lcm)){
 
+  if (! q_is_one(&lcm)) {
     //pass two:
     // scale the constraints accordingly, and set the coefficient of y to 1.
-    for(i = 0; i < nconstraints; i++){
+    for (i = 0; i < nconstraints; i++) {
       constraint = (presburger_constraint_t *)constraints->data[i];
       scale_constraint(constraint, y, &lcm);
     }
-    
+
     // update the value of y in the vtbl to lcm * old_value
     vtbl = &pres->vtbl;
     yindex = presburger_index_of_term(vtbl, y);
     q_mul(&vtbl->values[yindex], &lcm);
-    
+
     // add the constraint that lcm divides y
     buffer = &pres->buffer;
     assert(poly_buffer_is_zero(buffer));
@@ -1039,39 +1031,43 @@ static void presburger_normalize(presburger_t *pres, term_t y) {
     assert(presburger_good(pres));
 
   }
-  
+
   q_clear(&lcm);
 }
 
 
-static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, bool positive, bool isge){
+static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constraint_t *constraint, term_t y, bool positive, bool isge) {
   uint32_t i, nterms;
   term_t var;
   rational_t one;
-  
+
   nterms = constraint->nterms;
-  
+
   q_init(&one);
   q_set_one(&one);
-  
-  if(positive){
+
+  if (positive) {
     //subtract all non-y monomials in constraint from the buffer
-    for(i = 0; i < nterms; i++){
+    for (i = 0; i < nterms; i++) {
       var = constraint-> mono[i].var;
-      if (var != y){
-	poly_buffer_sub_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
+      if (var != y) {
+        poly_buffer_sub_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
       }
     }
-    if (isge){ poly_buffer_sub_const(buffer, &one); }
+    if (isge) {
+      poly_buffer_sub_const(buffer, &one);
+    }
   } else {
     //add all the non-y monomials in constraint to the buffer
-    for(i = 0; i < nterms; i++){
+    for (i = 0; i < nterms; i++) {
       var = constraint->mono[i].var;
-      if (var != y){
-	poly_buffer_add_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
+      if (var != y) {
+        poly_buffer_add_monomial(buffer, var, (rational_t *)&constraint->mono[i].coeff);
       }
     }
-    if (isge){ poly_buffer_add_const(buffer, &one); }
+    if (isge) {
+      poly_buffer_add_const(buffer, &one);
+    }
   }
   q_clear(&one);
   normalize_poly_buffer(buffer);
@@ -1080,41 +1076,39 @@ static polynomial_t *extract_poly(poly_buffer_t *buffer, const presburger_constr
 
 /*
  * Cooperizes the constraint (leaving it unchanged). Should always return true.
- * If it returns true, then 
- * - kind will contain the form of the cooper term:  
+ * If it returns true, then
+ * - kind will contain the form of the cooper term:
  *   VAR_NONE: y does not occur in the constraint
- *   VAR_LT: y < e  
- *   VAR_GT: e < y  
- *   VAR_EQ: y = e or 
+ *   VAR_LT: y < e
+ *   VAR_GT: e < y
+ *   VAR_EQ: y = e or
  *   VAR_DV: ±(k | y + r)
  * - in the case of  VAR_LT, VAR_GT, or VAR_EQ poly will contain the corresponding polynomial term e
  * - in the case of VAR_DV  we merely compute q_lcm(lcm, k), thus altering the lcm passed in.
  *
  */
-static bool cooperize_constraint(poly_buffer_t *buffer, presburger_constraint_t *constraint, term_t y, cooper_tag_t* kind, polynomial_t **poly, rational_t* lcm){
+static bool cooperize_constraint(poly_buffer_t *buffer, presburger_constraint_t *constraint, term_t y, cooper_tag_t* kind,
+                                 polynomial_t **poly, rational_t* lcm) {
   presburger_tag_t tag;
   rational_t *coeff;
   bool positive;
-    
+
   assert((kind != NULL) && (poly != NULL) && (lcm != NULL) && q_is_pos(lcm));
-  
-  if( ! has_coefficient(constraint, y, &coeff)){
+
+  if (! has_coefficient(constraint, y, &coeff)) {
     *kind = VAR_NONE;
     return true;
   }
 
   positive = q_is_pos(coeff);
-  
   tag = constraint->tag;
-  
-  switch(tag){
-
+  switch(tag) {
   case PRES_GT:
   case PRES_GE:
     *kind = positive ? VAR_GT : VAR_LT;
     *poly = extract_poly(buffer, constraint, y, positive, tag == PRES_GE);
     return true;
-    
+
   case PRES_EQ:
     *kind = VAR_EQ;
     *poly = extract_poly(buffer, constraint, y, positive, false);
@@ -1126,10 +1120,9 @@ static bool cooperize_constraint(poly_buffer_t *buffer, presburger_constraint_t 
     *kind = VAR_DV;
     return true;
 
-  default: return false;
+  default:
+    return false;
   }
-
-  return true;
 }
 
 
@@ -1143,160 +1136,149 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
   presburger_vtbl_t *vtbl;
   rational_t val;
   polynomial_t *poly;
-  
+
   vtbl = &pres->vtbl;
 
   buffer = &pres->buffer;
   constraints = &pres->constraints;
   nconstraints = constraints->size;
-  
+
   reset_poly_buffer(buffer);
-  
-  //go through the constraints
-  for(i = 0; i < nconstraints; i++){
+
+  for (i = 0; i < nconstraints; i++) {
     constraint = (presburger_constraint_t *)constraints->data[i];
-    if(!cooperize_constraint(buffer, constraint, y, &kind, &poly, &cooper->delta)){
+    if (!cooperize_constraint(buffer, constraint, y, &kind, &poly, &cooper->delta)) {
       //shouldn't happen; need to set a flag, cleanup, and exit
       assert(false);
       return;
     }
-    switch(kind){
-
+    switch(kind) {
       //nothing to do in these cases
     case VAR_NONE:
     case VAR_DV:
       break;
-      
+
     case VAR_LT:
       // poly is an upper bound
       q_init(&val);
       eval_polynomial_in_model(vtbl, &val, poly->mono, poly->nterms);
-      if(cooper->lub == NULL){
-	cooper->lub = poly;
-	q_set(&cooper->lubv, &val);
+      if (cooper->lub == NULL) {
+        cooper->lub = poly;
+        q_set(&cooper->lubv, &val);
+      } else if (q_lt(&val, &cooper->lubv)) {
+        // poly is the new lub
+        free_polynomial(cooper->lub);
+        cooper->lub = poly;
+        q_set(&cooper->lubv, &val);
       } else {
-	if(q_lt(&val, &cooper->lubv)){
-	  // poly is the new lub
-	  free_polynomial(cooper->lub);
-	  cooper->lub = poly;
-	  q_set(&cooper->lubv, &val);
-	} else {
-	  // current lub still good; just clean up
-	  free_polynomial(poly);
-	  poly = NULL;
-	}
+        // current lub still good; just clean up
+        free_polynomial(poly);
+        poly = NULL;
       }
       q_clear(&val);
       break;
-      
+
     case VAR_GT:
       // poly is a lower bound
       q_init(&val);
       eval_polynomial_in_model(vtbl, &val, poly->mono, poly->nterms);
-      if(cooper->glb == NULL){
-	cooper->glb = poly;
-	q_set(&cooper->glbv, &val);
+      if (cooper->glb == NULL) {
+        cooper->glb = poly;
+        q_set(&cooper->glbv, &val);
+      } else if (q_gt(&val, &cooper->glbv)) {
+        // poly is the new glb
+        free_polynomial(cooper->glb);
+        cooper->glb = poly;
+        q_set(&cooper->glbv, &val);
       } else {
-	if(q_gt(&val, &cooper->glbv)){
-	  // poly is the new glb
-	  free_polynomial(cooper->glb);
-	  cooper->glb = poly;
-	  q_set(&cooper->glbv, &val);
-	} else {
-	  // current glb still good; just clean up
-	  free_polynomial(poly);
-	  poly = NULL;
-	}
+        // current glb still good; just clean up
+        free_polynomial(poly);
+        poly = NULL;
       }
       q_clear(&val);
       break;
-    
-      
+
     case VAR_EQ:
       // y = poly; our work is almost over
-      if(cooper->poly == NULL){
-	cooper->poly = poly;
+      if (cooper->poly == NULL) {
+        cooper->poly = poly;
       } else {
-	// current exact solution can stay
-	free_polynomial(poly);
-	poly = NULL;
+        // current exact solution can stay
+        free_polynomial(poly);
+        poly = NULL;
       }
       break;
-      
+
     default:
       assert(false);
     }
   }
 }
 
-static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *cooper, rational_t *val){
+static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *cooper, rational_t *val) {
   poly_buffer_t *solution;
   polynomial_t *result;
   presburger_vtbl_t *vtbl;
   rational_t yval;
   rational_t tmp;
-  
+
   vtbl = &pres->vtbl;
   solution = &pres->buffer;
-  
+
   q_init(&yval);
   q_set(&yval, presburger_var_val(vtbl, y));
- 
+
   reset_poly_buffer(solution);
 
-  if(cooper->poly != NULL){
+  if (cooper->poly != NULL) {
     //found a trivial solution:  y = poly
-    
     poly_buffer_add_poly(solution, cooper->poly);
     q_set(val, &yval);
-    
-  } else if((cooper->glb == NULL) && (cooper->lub == NULL) && (cooper->poly == NULL)){
-    
+
+  } else if (cooper->glb == NULL && cooper->lub == NULL && cooper->poly == NULL) {
     //no trivial solution nor upper and lower bounds; need to find a solution near 0.
-    if(q_is_neg(&yval)){
+    if (q_is_neg(&yval)) {
       q_sub(val, &yval);
     } else {
       q_add(val, &yval);
     }
     q_integer_rem(val, &cooper->delta);
     poly_buffer_add_const(solution, val);
-    
-  } else if(cooper->glb != NULL){
-    
-    //got a lower bound; need to find a solution just above it 
+
+  } else if (cooper->glb != NULL) {
+    //got a lower bound; need to find a solution just above it
     q_add(val, &yval);
     q_sub(val, &cooper->glbv);
     q_integer_rem(val, &cooper->delta);
     //if val is zero we need to make it delta (or as Dejan suggested search for the smallest?)
-    if(q_is_zero(val)){
+    if (q_is_zero(val)) {
       q_set(val, &cooper->delta);
     }
     q_add(val, &cooper->glbv);
-    
+
     poly_buffer_add_poly(solution, cooper->glb);
     poly_buffer_add_const(solution, val);
-    
+
   } else {
-    
     //got an upper bound; need to find a solution just below it
     q_init(&tmp);
     q_set(&tmp, &cooper->lubv);
     q_set(val, &cooper->lubv);
     q_integer_rem(&tmp, &cooper->delta);
     //if tmp is zero we need to make it delta (or as Dejan suggested search for the smallest?)
-    if(q_is_zero(&tmp)){
+    if (q_is_zero(&tmp)) {
       q_set(&tmp, &cooper->delta);
     }
     q_sub(val, &tmp);
-    
+
     poly_buffer_add_poly(solution, cooper->lub);
     poly_buffer_sub_const(solution, &tmp);
-    
     q_clear(&tmp);
-    
   }
+
   normalize_poly_buffer(solution);
   result = poly_buffer_get_poly(solution);
+
   return result;
 }
 
@@ -1304,29 +1286,28 @@ static polynomial_t* presburger_solve(presburger_t *pres, term_t y, cooper_t *co
  * Replaces all occurrences of the variable y by the polynomial solution in the constraint.
  * If y does not appear ut returns the original constraint. Otherwise it constructs a new one.
  */
-static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pres, term_t y, polynomial_t *solution, presburger_constraint_t *c){
+static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pres, term_t y, polynomial_t *solution, presburger_constraint_t *c) {
   poly_buffer_t *buffer;
   rational_t *coeff;
   uint32_t i, nterms;
   presburger_constraint_t *retval;
-  
+
   buffer = &pres->buffer;
   reset_poly_buffer(buffer);
 
-  if(has_coefficient(c, y, &coeff)){
+  if (has_coefficient(c, y, &coeff)) {
     assert(q_is_one(coeff) || q_is_minus_one(coeff));
 
     nterms = c->nterms;
-    for(i = 0; i < nterms; i++){
-
-      if (c->mono[i].var == y){
-	if(q_is_one(coeff)){
-	  poly_buffer_add_poly(buffer, solution);
-	} else {
-	  poly_buffer_sub_poly(buffer, solution);
-	}
+    for (i = 0; i < nterms; i++) {
+      if (c->mono[i].var == y) {
+        if (q_is_one(coeff)) {
+          poly_buffer_add_poly(buffer, solution);
+        } else {
+          poly_buffer_sub_poly(buffer, solution);
+        }
       } else {
-	poly_buffer_add_monomial(buffer,  c->mono[i].var, &c->mono[i].coeff);
+        poly_buffer_add_monomial(buffer,  c->mono[i].var, &c->mono[i].coeff);
       }
     }
     normalize_poly_buffer(buffer);
@@ -1335,14 +1316,14 @@ static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pre
   } else {
     retval = c;
   }
-  
+
   return retval;
 }
 
 /*
  * Replaces all occurrences of the variable y by the polynomial solution in the constraints.
  */
-static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solution){
+static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solution) {
   int32_t i, nconstraints;
   pvector_t *constraints;
   presburger_constraint_t *old_constraint;
@@ -1351,11 +1332,10 @@ static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solutio
   constraints = &pres->constraints;
   nconstraints = constraints->size;
 
-  //go through the constraints
-  for(i = 0; i < nconstraints; i++){
+  for (i = 0; i < nconstraints; i++) {
     old_constraint = (presburger_constraint_t *)constraints->data[i];
     new_constraint = presburger_subst_in_constraint(pres, y, solution, old_constraint);
-    if(old_constraint != new_constraint){  
+    if (old_constraint != new_constraint) {
       constraints->data[i] = new_constraint;
       free_presburger_constraint(old_constraint);
     }
@@ -1366,20 +1346,19 @@ static void presburger_subst(presburger_t *pres, term_t y, polynomial_t *solutio
  * Apply the variable elimination procedure
  * - no variable or constraint can be added after this function is called.
  */
-void presburger_eliminate(presburger_t *pres){
+void presburger_eliminate(presburger_t *pres) {
   term_t y;
   ivector_t *eliminables;
   presburger_vtbl_t *vtbl;
   rational_t value_of_solution;
   polynomial_t *solution;
   cooper_t cooper;
-  
+
   vtbl = &pres->vtbl;
   eliminables = &vtbl->eliminables;
   q_init(&value_of_solution);
-  
-  while(eliminables->size > 0){
 
+  while (eliminables->size > 0) {
     y = ivector_pop2(eliminables);
 
     //normalize the coefficient of y to be 1
@@ -1394,7 +1373,7 @@ void presburger_eliminate(presburger_t *pres){
 
     //eliminate y in favor of the above solution
     presburger_subst(pres, y, solution);
-    
+
     delete_cooper(&cooper);
 
     // BD: memory leak
@@ -1453,7 +1432,7 @@ static term_t presburger_convert_constraint(presburger_t *pres, presburger_const
     k = mk_arith_constant(pres->manager,  c->divisor);
     u = mk_arith_term(pres->manager, buffer);
     t = mk_arith_divides(pres->manager, k, u);
-    if (c->tag == PRES_NEG_DIVIDES){
+    if (c->tag == PRES_NEG_DIVIDES) {
       t = opposite_term(t);
     }
     break;
@@ -1471,10 +1450,10 @@ static term_t presburger_convert_constraint(presburger_t *pres, presburger_const
  *   term that's added to vector v
  * - v is not reset
  *
- * So the set of constraints after in pres->constraint is equivalent to 
+ * So the set of constraints after in pres->constraint is equivalent to
  * the conjunction of formulas added to v.
  */
-void presburger_get_formula_vector(presburger_t *pres, ivector_t *v){
+void presburger_get_formula_vector(presburger_t *pres, ivector_t *v) {
   int32_t i, nconstraints;
   pvector_t *constraints;
   presburger_constraint_t *constraint;
@@ -1482,13 +1461,12 @@ void presburger_get_formula_vector(presburger_t *pres, ivector_t *v){
 
   constraints = &pres->constraints;
   nconstraints = constraints->size;
-  //go through the constraints
-  for(i = 0; i < nconstraints; i++){
+  // go through the constraints
+  for (i = 0; i < nconstraints; i++) {
     constraint = (presburger_constraint_t *)constraints->data[i];
     t = presburger_convert_constraint(pres, constraint);
     ivector_push(v, t);
   }
-
 }
 
 
@@ -1497,7 +1475,7 @@ void presburger_get_formula_vector(presburger_t *pres, ivector_t *v){
  * - returns either true_term or a conjunction of arithmetic constraints
  *   that do not contain the eliminated variables.
  */
-term_t presburger_get_formula(presburger_t *pres){
+term_t presburger_get_formula(presburger_t *pres) {
   ivector_t v;
   term_t t;
 

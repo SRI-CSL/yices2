@@ -121,7 +121,7 @@ void init_projector(projector_t *proj, model_t *mdl, term_manager_t *mngr, uint3
   proj->val_subst = NULL;
 
   proj->is_presburger = true;  
-  
+  proj->presburger = NULL;
 }
 
 
@@ -290,6 +290,7 @@ void delete_projector(projector_t *proj) {
   proj_delete_elim_subst(proj);
   proj_delete_arith_proj(proj);
   proj_delete_val_subst(proj);
+  proj_delete_presburger_proj(proj);
 }
 
 
@@ -748,12 +749,13 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
     proj_elim_by_substitution(proj);
   }
   if (proj->flag == NO_ERROR && proj->arith_literals.size > 0) {
-    if(proj->is_presburger){
+    if (proj->is_presburger) {
       proj_process_presburger_literals(proj);
     } else {
       proj_process_arith_literals(proj);
     }
   }
+
   if (proj->flag == NO_ERROR && proj->num_evars > 0) {  
     // some variables were not eliminated in the first two phases
     // replace them by their value in the model
