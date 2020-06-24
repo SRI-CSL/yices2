@@ -152,21 +152,24 @@ static void print_presburger_monomial(FILE *f, rational_t *coeff, int32_t x, boo
   }
 }
 
-static void print_presburger_constraint(FILE *f, presburger_constraint_t *c) {
-  uint32_t i, n;
+static void print_mon_array(FILE *f, uint32_t n, monomial_t *mono) {
+  uint32_t i;
   bool first;
 
-  fprintf(f, "constraint[%"PRIu32"]: (", c->id);
-  n = c->nterms;
   if (n == 0) {
     fputc('0', f);
   } else {
     first = true;
     for (i=0; i<n; i++) {
-      print_presburger_monomial(f, &c->mono[i].coeff, c->mono[i].var, first);
+      print_presburger_monomial(f, &mono[i].coeff, mono[i].var, first);
       first = false;
     }
   }
+}
+
+static void print_presburger_constraint(FILE *f, presburger_constraint_t *c) {
+  fprintf(f, "constraint[%"PRIu32"]: (", c->id);
+  print_mon_array(f, c->nterms, c->mono);
 
   switch (c->tag) {
   case PRES_GT:
@@ -190,13 +193,63 @@ static void print_presburger_constraint(FILE *f, presburger_constraint_t *c) {
     break;
   }
 }
+
+/*
+ * FOR DEBUGGING: PRINT ALL CONSTRAINTS
+ */
+static void show_constraints(presburger_t *pres) {
+  uint32_t i, n;
+  pvector_t *constraints;
+
+  constraints = &pres->constraints;
+  n = constraints->size;
+  for (i=0; i<n; i++) {
+    print_presburger_constraint(stdout, constraints->data[i]);
+    printf("\n");
+  }
+  printf("\n");
+}
+
+static void show_poly(polynomial_t *p) {
+  print_mon_array(stdout, p->nterms, p->mono);
+}
+
+static void show_values(presburger_t *pres) {
+  presburger_vtbl_t *vtbl;
+  uint32_t i, n;
+
+  vtbl = &pres->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    printf("  val[x!%"PRId32"] = ", vtbl->variables[i]);
+    q_print(stdout, vtbl->values + i);
+    printf("\n");
+  }
+}
+
+static void show_vars_to_eliminate(presburger_t *pres) {
+  ivector_t *v;
+  uint32_t i, n;
+
+  v = &pres->vtbl.eliminables;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    printf(" x!%"PRId32, v->data[i]);
+  }
+  printf("\n");
+}
+
 #endif
+
+
 
 
 /*
  * Create a new constraint from the content of buffer
  * - buffer must be normalized (and non-zero)
  * - tag = constraint type
+ *
+ * BD: this does not handle divisibility constraints.
  *
  * Side effect: reset buffer
  */
@@ -1345,7 +1398,12 @@ static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pre
     retval = NULL;
     if (! poly_buffer_is_constant(buffer)) {
       retval = make_presburger_constraint(buffer, c->tag);
-      assert(presburger_good_constraint(pres, retval));
+      // copy id to help debugging
+      retval->id = c->id;
+      // it's safe to copy the divisor from c to retval.
+      // this is irrelevant if c->tag is not DIV
+      q_set(&retval->divisor, &c->divisor);
+      //      assert(presburger_good_constraint(pres, retval));
     }
   } else {
     retval = c;
@@ -1397,11 +1455,28 @@ void presburger_eliminate(presburger_t *pres) {
   eliminables = &vtbl->eliminables;
   q_init(&value_of_solution);
 
+#if 0
+  printf("=== Presburger eliminate ===\n\n");
+
+  printf("input constraints\n");
+  show_constraints(pres);
+  printf("values in model\n");
+  show_values(pres);
+  printf("\n");
+  printf("vars to eliminate\n");
+  show_vars_to_eliminate(pres);
+  printf("\n");
+#endif
+
   while (eliminables->size > 0) {
     y = ivector_pop2(eliminables);
 
+    //    printf("--- Elimimating variable x!%"PRId32" ---\n", y);;
+
     // normalize the coefficient of y to be 1
     presburger_normalize(pres, y);
+    //    printf("After normalization\n");
+    //    show_constraints(pres);
 
     // go through the constraints and compute the lub, glb and delta.
     init_cooper(&cooper);
@@ -1411,8 +1486,19 @@ void presburger_eliminate(presburger_t *pres) {
     // BD: why is there a value_of_solution here? It's not used.
     solution = presburger_solve(pres, y, &cooper, &value_of_solution);
 
+    //    printf("Substitution:  x!%"PRId32" := ", y);
+    //    show_poly(solution);
+    //    printf("\n\n");
+
     // eliminate y in favor of the above solution
     presburger_subst(pres, y, solution);
+
+    //    printf("After substitution\n");
+    //    show_constraints(pres);
+
+    assert(presburger_good(pres));
+
+    //    printf("----\n");
 
     delete_cooper(&cooper);
 
