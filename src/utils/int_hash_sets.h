@@ -119,6 +119,7 @@ extern bool int_hset_add(int_hset_t *set, uint32_t x);
  * - all elements get stored in data[0 ... nelems]
  *   (including zero if it's present)
  * - no addition is supported after compaction
+ * - calls to int_hset_member will also fail
  */
 extern void int_hset_close(int_hset_t *set);
 

@@ -175,7 +175,7 @@ static inline int32_t poly_buffer_get_index(poly_buffer_t *buffer, int32_t x) {
 /*
  * Add monomial a * x to the buffer
  */
-void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
+void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -194,7 +194,7 @@ void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
 /*
  * Add monomial b * a * x to the buffer
  */
-void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b) {
+void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a, const rational_t *b) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -214,7 +214,7 @@ void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a
 /*
  * Subtract monomial a * x from the buffer
  */
-void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
+void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -233,7 +233,7 @@ void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
 /*
  * Subtract monomial b * a * x to the buffer
  */
-void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b) {
+void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a, const rational_t *b) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -312,7 +312,7 @@ void poly_buffer_clear_monomial(poly_buffer_t *buffer, int32_t x) {
 /*
  * Add p to buffer
  */
-void poly_buffer_add_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) {
+void poly_buffer_add_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -324,7 +324,7 @@ void poly_buffer_add_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) 
 /*
  * Subtract p from buffer
  */
-void poly_buffer_sub_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) {
+void poly_buffer_sub_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -336,7 +336,7 @@ void poly_buffer_sub_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n) 
 /*
  * Add a * p to buffer
  */
-void poly_buffer_addmul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a) {
+void poly_buffer_addmul_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n, const rational_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -348,7 +348,7 @@ void poly_buffer_addmul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t 
 /*
  * Subtract a * p from buffer
  */
-void poly_buffer_submul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a) {
+void poly_buffer_submul_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n, const rational_t *a) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -477,7 +477,7 @@ void poly_buffer_negate(poly_buffer_t *buffer) {
 /*
  * Post-normalization: multiply all coefficients by a non-zero constant a
  */
-void poly_buffer_rescale(poly_buffer_t *buffer, rational_t *a) {
+void poly_buffer_rescale(poly_buffer_t *buffer, const rational_t *a) {
   uint32_t i, n;
 
   assert(q_is_nonzero(a));
