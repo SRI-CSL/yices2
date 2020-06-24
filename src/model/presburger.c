@@ -1141,8 +1141,8 @@ static polynomial_t *cooperize_constraint(poly_buffer_t *buffer, presburger_cons
     *kind = VAR_EQ;
     return extract_poly(buffer, constraint, y, positive, false);
 
-  case PRES_POS_DIVIDES:
-  case PRES_NEG_DIVIDES:
+  default:
+    assert(tag == PRES_POS_DIVIDES || tag == PRES_NEG_DIVIDES);
     q_lcm(lcm, &constraint->divisor);
     *kind = VAR_DV;
     return NULL;
@@ -1168,6 +1168,8 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
   n = constraints->size;
 
   reset_poly_buffer(buffer);
+
+  kind = VAR_NONE; // stop a GCC warning
 
   for (i = 0; i < n; i++) {
     constraint = (presburger_constraint_t *)constraints->data[i];
