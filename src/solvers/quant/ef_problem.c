@@ -26,6 +26,11 @@
 #include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 
+#define TRACE 0
+
+#if TRACE
+  #include "yices.h"
+#endif
 
 /*
  * Delete pattern map
@@ -330,6 +335,7 @@ void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *u
 }
 
 
+#if TRACE
 /*
  * Print a forall constraint
  */
@@ -358,6 +364,7 @@ void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr) {
 
   fprintf(f, "\n");
 }
+#endif
 
 /*
  * Size of vectors
