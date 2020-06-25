@@ -1,0 +1,7 @@
+(set-logic LIA)
+(declare-const a Int)
+(declare-const b Int)
+(assert (< (+ a 3) b))
+(assert (forall ((x Int)) (=> (and (<= a (* 3 x)) (<= (* 3 x) b)) (= x 2))))
+(check-sat)
+(exit)
