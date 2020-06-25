@@ -133,13 +133,14 @@ void ef_solve(ef_client_t *efc, uint32_t n, term_t *assertions, param_t *paramet
   build_ef_problem(efc, n, assertions, patterns);
 
   if (efc->efcode == EF_NO_ERROR){
-    if(! efc->efdone) {
+    if (!efc->efdone) {
       assert(efc->efsolver == NULL);
       efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
       init_ef_solver(efc->efsolver, efc->efprob, logic_code, arch);
       if (tracer != NULL) {
 	ef_solver_set_trace(efc->efsolver, tracer);
       }
+
       /*
        * If the problem has integer or real variables, we force GEN_BY_PROJ
        */

@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(declare-fun v0 () (_ BitVec 13))
+(declare-fun v1 () (_ BitVec 27))
+(declare-fun v2 () (_ BitVec 10))
+(assert (let ((e3 (_ bv198924 19))) (let ((e4 (bvmul ((_ zero_extend 9) v2) (_ bv198924 19)))) (let ((e5 (bvlshr ((_ zero_extend 14) v0) v1))) (let ((e6 (bvugt ((_ zero_extend 17) v2) e5))) (let ((e7 (= e5 ((_ sign_extend 8) (bvmul ((_ zero_extend 9) v2) (_ bv198924 19)))))) (let ((e8 (bvsgt ((_ sign_extend 3) v2) v0))) (let ((e9 (bvslt e5 ((_ zero_extend 14) v0)))) (let ((e10 (bvslt ((_ sign_extend 8) (_ bv198924 19)) v1))) (let ((e11 (and (bvugt ((_ zero_extend 17) v2) e5) (= e5 ((_ sign_extend 8) (bvmul ((_ zero_extend 9) v2) (_ bv198924 19)))) (bvsgt ((_ sign_extend 3) v2) v0) (bvslt e5 ((_ zero_extend 14) v0)) (bvslt ((_ sign_extend 8) (_ bv198924 19)) v1)))) (and (bvugt ((_ zero_extend 17) v2) e5) (= e5 ((_ sign_extend 8) (bvmul ((_ zero_extend 9) v2) (_ bv198924 19)))) (bvsgt ((_ sign_extend 3) v2) v0) (bvslt e5 ((_ zero_extend 14) v0)) (bvslt ((_ sign_extend 8) (_ bv198924 19)) v1))))))))))))
+(check-sat)

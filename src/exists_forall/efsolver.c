@@ -101,7 +101,7 @@ void print_full_map(FILE *f, ef_solver_t *solver) {
     fprintf(f, "%s := ", yices_get_term_name(solver->all_vars.data[i]));
     yices_pp_term(f, solver->all_values.data[i], 100, 1, 10);
   }
-  fprintf(f, "(%"PRIu32" variables)\n", n);
+  fprintf(f, "(%"PRIu32" variables)\n\n", n);
 }
 
 
@@ -1488,6 +1488,10 @@ static void ef_solver_search(ef_solver_t *solver) {
 	       ef_prob_num_evars(solver->prob),
 	       ef_prob_num_uvars(solver->prob));
 #if EF_VERBOSE
+  printf("\nExists variables\n");
+  yices_pp_term_array(stdout, ef_prob_num_evars(solver->prob), solver->prob->all_evars, 120, UINT32_MAX, 0, 1);
+  printf("\nForall variables\n");
+  yices_pp_term_array(stdout, ef_prob_num_uvars(solver->prob), solver->prob->all_uvars, 120, UINT32_MAX, 0, 1);
   printf("\nConditions on the exists variables:\n");
   yices_pp_term_array(stdout, ef_prob_num_conditions(solver->prob), solver->prob->conditions, 120, 2, 0, 0);
 #endif

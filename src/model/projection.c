@@ -141,9 +141,6 @@ static int_hset_t *proj_get_avars_to_keep(projector_t *proj) {
 }
 
 
-
-
-
 /*
  * Allocate and initialize elim_subst
  */
@@ -408,7 +405,6 @@ static void proj_add_arith_literal(projector_t *proj, term_t t) {
 void projector_add_literal(projector_t *proj, term_t t) {
   assert(true_formula(proj, t));
 
-  
   if (is_arithmetic_literal(proj->terms, t)) {
 
     //see if we are still on song for cooperdom
@@ -557,7 +553,7 @@ static void proj_process_arith_literals(projector_t *proj) {
 
   // Pass all variables from proj->avars to the arith_projector
   n = proj->arith_vars.size;
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_arith_var(proj, x, false);
@@ -638,7 +634,7 @@ static void proj_process_presburger_literals(projector_t *proj) {
 
   // Pass all variables from proj->avars to the arith_projector
   n = proj->arith_vars.size;
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_presburger_var(proj, x, false);
