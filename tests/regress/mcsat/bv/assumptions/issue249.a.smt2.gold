@@ -1,0 +1,4 @@
+unsat
+false
+sat
+(error "No unsat interpolant. The context is satisfiable")

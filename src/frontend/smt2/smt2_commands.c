@@ -3179,6 +3179,7 @@ static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t 
   if (g->trivially_unsat) {
     // list of unsat assumption is empty
     report_status(g, STATUS_UNSAT);
+    g->check_with_model_status = STATUS_UNSAT;
   } else {
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -4141,7 +4142,11 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
   } else if (g->ctx == NULL) {
-    print_error("Call (check-sat-assuming-model) first");
+    if (g->check_with_model_status == STATUS_UNSAT) {
+      smt2_echo("false");
+    } else {
+      print_error("Call (check-sat-assuming-model) first");
+    }
   } else {
     // Could be that we called check-sat after
     smt_status_t ctx_status = context_status(g->ctx);
