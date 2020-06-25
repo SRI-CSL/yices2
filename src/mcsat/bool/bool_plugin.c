@@ -771,7 +771,7 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
     return false;
   }
   int_mset_add(vars, t_var);
-  if (t_var != variable_null && trail_has_value_at(trail, t_var, trail_size)) {
+  if (trail_has_value_at(trail, t_var, trail_size)) {
     bool negated = is_neg_term(t);
     const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
     if (negated) {

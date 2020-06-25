@@ -324,6 +324,7 @@ static
 bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
 
   const mcsat_solver_t* mcsat = ((const mcsat_evaluator_t*) self)->solver;
+  assert(value != NULL);
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::resolve")) {
     FILE* out = trace_out(mcsat->ctx->trace);
@@ -387,7 +388,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
     }
   }
 
-  if (value != NULL && !evaluates) {
+  if (!evaluates) {
     // Maybe the term itself evaluates
     term_t t_unsigned = unsigned_term(t);
     variable_t t_var = variable_db_get_variable_if_exists(mcsat->var_db, t_unsigned);

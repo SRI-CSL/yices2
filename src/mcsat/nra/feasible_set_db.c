@@ -381,7 +381,7 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
   } else if (value != NULL) {
     assert(value->type == VALUE_LIBPOLY);
     if (!lp_feasibility_set_contains(current, &value->lp_value)) {
-      // Cure already unsat with the value, done
+      // Core already unsat with the value, done
       return;
     }
   }
