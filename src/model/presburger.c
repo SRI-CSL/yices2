@@ -452,8 +452,9 @@ static void close_presburger_vtbl(presburger_vtbl_t *vtbl) {
   }
 
   // No reason to call this since all the variables to eliminate are already stored
-  // eliminitables. Calling this function causes assert(int_hset_member(...elims, y));
+  // eliminables. Calling this function causes assert(int_hset_member(...elims, y));
   // to fail later.
+
   //  int_hset_close(&vtbl->elims);
 }
 
@@ -546,12 +547,18 @@ static inline rational_t *presburger_var_val(presburger_vtbl_t *vtbl, term_t x) 
   return vtbl->values + presburger_index_of_term(vtbl, x);;
 }
 
-static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, monomial_t *mono, uint32_t nterms) {
+/*
+ * Evaluate a polynomial in the model
+ * - vtbl = variable table (to get values of variables in the model)
+ * - the polynomial is stored in mono[0 ... n-1]
+ * - the polynomial value is returned in *val.
+ */
+static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, monomial_t *mono, uint32_t n) {
   uint32_t i;
   term_t x;
 
   q_clear(val);
-  for (i=0; i<nterms; i++) {
+  for (i=0; i<n; i++) {
     x = mono[i].var;
     if (x == const_idx) {
       q_add(val, &mono[i].coeff);
@@ -560,6 +567,18 @@ static void eval_polynomial_in_model(presburger_vtbl_t *vtbl, rational_t *val, m
     }
   }
 }
+
+#if 0
+// NOT USED YET
+/*
+ * Same thing but the polynomial is stored in buffer.
+ * - the buffer must be normalized
+ * - the value is returnd in *val
+ */
+static void eval_buffer_in_model(presburger_vtbl_t *vtbl, rational_t *val, poly_buffer_t *buffer) {
+  eval_polynomial_in_model(vtbl, val, poly_buffer_mono(buffer), poly_buffer_nterms(buffer));
+}
+#endif
 
 /*
  * For debugging: check that the constraint defined by buffer/tag/divisor
@@ -974,6 +993,16 @@ static rational_t *get_coefficient(presburger_constraint_t *constraint, term_t y
 }
 
 
+#if 0
+// NOT USED
+/*
+ * Check whether y occurs in contraint
+ */
+static inline bool occurs_in_constraint(term_t y, presburger_constraint_t *constraint) {
+  return get_coefficient(constraint, y) != NULL;
+}
+#endif
+
 
 /*
  * Scales the constraint so that the coefficient of y would be lcm; then sets the
@@ -1292,11 +1321,13 @@ static void presburger_cooperize(presburger_t *pres, term_t y, cooper_t *cooper)
 
 /*
  * Compute a polynomial to substitute for y in the constraints.
- * - the constraints are of the from P(y)
+ * - the constraints are of the from P(y) and are all true in the model
+ * - we compute a polynomial e such that P(e) still holds in the model
+ *   and y does not occur in e.
  *
- * IAN & DEJAN: ADD COMMENTS WHAT'S THE USE OF val??
+ * - cooper summarizes what we known about the constraints:
  */
-static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *cooper, rational_t *val) {
+static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *cooper) {
   poly_buffer_t *solution;
   polynomial_t *result;
   presburger_vtbl_t *vtbl;
@@ -1306,55 +1337,82 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
   vtbl = &pres->vtbl;
   solution = &pres->buffer;
 
-  q_init(&yval);
-  q_set(&yval, presburger_var_val(vtbl, y));
-
   reset_poly_buffer(solution);
 
   if (cooper->poly != NULL) {
-    //found a trivial solution:  y = poly
+    /*
+     * We have a constraint of the form (y == e)
+     * return e.
+     *
+     * TODO: why are we making a copy of e here??
+     */
     poly_buffer_add_poly(solution, cooper->poly);
-    q_set(val, &yval);
-
-  } else if (cooper->glb == NULL && cooper->lub == NULL && cooper->poly == NULL) {
-    //no trivial solution nor upper and lower bounds; need to find a solution near 0.
-    if (q_is_neg(&yval)) {
-      q_sub(val, &yval);
-    } else {
-      q_add(val, &yval);
-    }
-    q_integer_rem(val, &cooper->delta);
-    poly_buffer_add_const(solution, val);
-
-  } else if (cooper->glb != NULL) {
-    //got a lower bound; need to find a solution just above it
-    q_add(val, &yval);
-    q_sub(val, &cooper->glbv);
-    q_integer_rem(val, &cooper->delta);
-    //if val is zero we need to make it delta (or as Dejan suggested search for the smallest?)
-    if (q_is_zero(val)) {
-      q_set(val, &cooper->delta);
-    }
-    q_add(val, &cooper->glbv);
-
-    poly_buffer_add_poly(solution, cooper->glb);
-    poly_buffer_add_const(solution, val);
 
   } else {
-    //got an upper bound; need to find a solution just below it
-    q_init(&tmp);
-    q_set(&tmp, &cooper->lubv);
-    q_set(val, &cooper->lubv);
-    q_integer_rem(&tmp, &cooper->delta);
-    //if tmp is zero we need to make it delta (or as Dejan suggested search for the smallest?)
-    if (q_is_zero(&tmp)) {
-      q_set(&tmp, &cooper->delta);
-    }
-    q_sub(val, &tmp);
 
-    poly_buffer_add_poly(solution, cooper->lub);
-    poly_buffer_sub_const(solution, &tmp);
-    q_clear(&tmp);
+    /*
+     * Compute yval = the integer in [0 ... delta-1]
+     * such that yval == value of y  modulo delta.
+     *
+     * TOOD: this is useless: we have val(y) == 0 modulo delta
+     * by construction.
+     */
+    q_init(&yval);
+    q_set(&yval, presburger_var_val(vtbl, y));
+    q_integer_rem(&yval, &cooper->delta);
+    assert(q_is_zero(&yval));
+
+    if (cooper->glb != NULL) {
+      /*
+       * We have a lower bound L:
+       * - we know val(y) > val(L) since (y > L) holds in the model
+       * - for all constraints of the form (y > L_i), we have val(L) >= val(L_i)
+       * - for all constraints of the form (y < U_i), we must val(L) < val(y) < val(U_i)
+       *
+       * We return L + k such that val(L + k) == val(y) mod delta and k>0
+       * since val(y) == 0 mod delta, we pick k = delta - (val(L) rem delta).
+       */
+      q_init(&tmp);
+      q_set(&tmp, &cooper->glbv);             // glbv is val(L)
+      q_integer_rem(&tmp, &cooper->delta);
+      q_sub(&tmp, &cooper->delta);            // this is -k = (val(L) rem delta) - delta
+      assert(q_is_neg(&tmp));
+
+      poly_buffer_add_poly(solution, cooper->glb);
+      poly_buffer_sub_const(solution, &tmp);
+      q_clear(&tmp);
+
+    } else if (cooper->lub != NULL) {
+      /*
+       * No lower bound + an upper bound U:
+       * - we know val(y) < val(U) since (y < U) holds in the model
+       * - for all constraints of the form (y < U_i), we have val(U) <= val(U_i)
+       *
+       * We return U - k such that val(U - k) == val(y) mod delta and k>0
+       * so k = delta - (val(U) rem delta).
+       */
+      q_init(&tmp);
+      q_set(&tmp, &cooper->lubv);           // lubv is val(U)
+      q_integer_rem(&tmp, &cooper->delta);
+      q_sub(&tmp, &cooper->delta);          // this is -k = (val(U) rem delta) - delta
+      assert(q_is_neg(&tmp));
+
+      poly_buffer_add_poly(solution, cooper->lub);
+      poly_buffer_add_const(solution, &tmp);
+      q_clear(&tmp);
+
+    } else {
+      assert(cooper->glb == NULL && cooper->lub == NULL && cooper->poly == NULL);
+      /*
+       * All constraints are of the form (c | y + p) or (not (c | y + p))
+       * cooper->delta contains the LCM of all the c's.
+       *
+       * We pick the constant polynomial e such that 0 <= e < delta
+       * and (val(y) == e) mod delta.
+       */
+      //      poly_buffer_add_const(solution, &yval);
+      assert(poly_buffer_is_zero(solution));
+    }
   }
 
   normalize_poly_buffer(solution);
@@ -1403,7 +1461,6 @@ static presburger_constraint_t *presburger_subst_in_constraint(presburger_t *pre
       // it's safe to copy the divisor from c to retval.
       // this is irrelevant if c->tag is not DIV
       q_set(&retval->divisor, &c->divisor);
-      //      assert(presburger_good_constraint(pres, retval));
     }
   } else {
     retval = c;
@@ -1447,15 +1504,13 @@ void presburger_eliminate(presburger_t *pres) {
   term_t y;
   ivector_t *eliminables;
   presburger_vtbl_t *vtbl;
-  rational_t value_of_solution;
   polynomial_t *solution;
   cooper_t cooper;
 
   vtbl = &pres->vtbl;
   eliminables = &vtbl->eliminables;
-  q_init(&value_of_solution);
 
-#if 0
+#if TRACE
   printf("=== Presburger eliminate ===\n\n");
 
   printf("input constraints\n");
@@ -1471,34 +1526,40 @@ void presburger_eliminate(presburger_t *pres) {
   while (eliminables->size > 0) {
     y = ivector_pop2(eliminables);
 
-    //    printf("--- Elimimating variable x!%"PRId32" ---\n", y);;
+#if TRACE
+    printf("--- Elimimating variable x!%"PRId32" ---\n", y);;
+#endif
 
     // normalize the coefficient of y to be 1
     presburger_normalize(pres, y);
-    //    printf("After normalization\n");
-    //    show_constraints(pres);
+#if TRACE
+    printf("After normalization\n");
+    show_constraints(pres);
+#endif
 
     // go through the constraints and compute the lub, glb and delta.
     init_cooper(&cooper);
     presburger_cooperize(pres, y, &cooper);
 
     // apply dejan's lemma to obtain a solution
-    // BD: why is there a value_of_solution here? It's not used.
-    solution = presburger_solve(pres, y, &cooper, &value_of_solution);
+    solution = presburger_solve(pres, y, &cooper);
 
-    //    printf("Substitution:  x!%"PRId32" := ", y);
-    //    show_poly(solution);
-    //    printf("\n\n");
+#if TRACE
+    printf("Substitution:  x!%"PRId32" := ", y);
+    show_poly(solution);
+    printf("\n\n");
+#endif
 
     // eliminate y in favor of the above solution
     presburger_subst(pres, y, solution);
 
-    //    printf("After substitution\n");
-    //    show_constraints(pres);
+#if TRACE
+    printf("After substitution\n");
+    show_constraints(pres);
+    printf("----\n");
+#endif
 
     assert(presburger_good(pres));
-
-    //    printf("----\n");
 
     delete_cooper(&cooper);
 
