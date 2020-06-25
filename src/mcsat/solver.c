@@ -247,6 +247,9 @@ struct mcsat_solver_s {
   /** Level at which last assumption has been decided (-1 if not yet) */
   int32_t assumptions_decided_level;
 
+  /** Model used for assumptions solving */
+  model_t* assumptions_model;
+
   /** Interpolant */
   term_t interpolant;
 
@@ -1826,14 +1829,19 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
         bool value = trail_get_boolean_value(trail, var);
         substitution = value ? true_term : false_term;
       }
-      conflict_resolve_propagation(conflict, var, substitution, &reason, false);
+      conflict_resolve_propagation(conflict, var, substitution, &reason);
+    } else {
+      // Continue with resolution
+      conflict->trail_size --;
     }
-
-    // Continue with resolution
-    conflict->trail_size --;
   }
 
   term_t interpolant = conflict_get_formula(conflict);
+
+  if (trace_enabled(trace, "mcsat::interpolant::check")) {
+    value_t v = model_get_term_value(mcsat->assumptions_model, interpolant);
+    assert(is_false(&mcsat->assumptions_model->vtbl, v));
+  }
 
   return interpolant;
 }
@@ -2043,7 +2051,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 //          fprintf(stderr, "skipping propagation (bool)\n");
         }
       }
-      conflict_resolve_propagation(&conflict, var, substitution, &reason, true);
+      conflict_resolve_propagation(&conflict, var, substitution, &reason);
       // The trail pops with the resolution step
     } else {
       // Have to pop the trail manually
@@ -2415,6 +2423,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Make sure we have variables for all the assumptions
   if (n_assumptions > 0) {
+    if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
+      mcsat_trace_printf(mcsat->ctx->trace, "solving with assumptions\n");
+    }
     assert(mcsat->assumption_vars.size == 0);
     uint32_t i;
     for (i = 0; i < n_assumptions; ++ i) {
@@ -2441,6 +2452,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->variable_in_conflict = variable_null;
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
+  mcsat->assumptions_model = mdl;
 
   // Start the search
   mcsat->status = STATUS_SEARCHING;

@@ -721,7 +721,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
           prop->add(prop, x, &x_value);
           mcsat_value_destruct(&x_value);
         }
-	delete_bvconstant(&x_bv_value);
+        delete_bvconstant(&x_bv_value);
       }
     }
   }

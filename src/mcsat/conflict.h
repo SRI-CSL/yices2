@@ -164,7 +164,7 @@ uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict);
 void conflict_recompute_level_info(conflict_t* conflict);
 
 /** Resolve the given variable by using ((and reasons) => var = substitution). */
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons, bool pop_trail);
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons);
 
 /** Get all the variables responsible for the conflict (internal reference) */
 ivector_t* conflict_get_variables(conflict_t* conflict);

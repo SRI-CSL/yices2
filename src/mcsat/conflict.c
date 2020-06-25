@@ -544,11 +544,13 @@ void conflict_recompute_level_info(conflict_t* conflict) {
 
 
 
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons, bool pop_trail) {
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons) {
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
     mcsat_trace_printf(conflict->tracer, "conflict = \n");
     conflict_print(conflict, trace_out(conflict->tracer));
+    trail_print(conflict->trail, trace_out(conflict->tracer));
+    variable_db_print_variable(conflict->var_db, var, trace_out(conflict->tracer));
   }
 
   int_hmap_pair_t* find_var;
@@ -565,7 +567,8 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   // * remove disjuncts
   // * add substitution
 
-  assert(!pop_trail || trail_back(conflict->trail) == var);
+  assert(conflict->use_trail_size || trail_back(conflict->trail) == var);
+  assert(!conflict->use_trail_size || trail_at(conflict->trail, conflict->trail_size-1) == var);
   assert(trail_get_assignment_type(conflict->trail, var) == PROPAGATION);
 
   // Got through all the variables where the resolution variable is top and
@@ -606,8 +609,11 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
   }
 
   // Pop the trail
-  if (pop_trail) {
+  if (!conflict->use_trail_size) {
     trail_pop_propagation(conflict->trail);
+  } else {
+    assert(trail_size > 0);
+    conflict->trail_size --;
   }
 
   // Add the substitution disjuncts
