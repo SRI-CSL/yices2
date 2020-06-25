@@ -1797,6 +1797,7 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
     // Skip the conflict variable (it was propagated)
     if (var == mcsat->variable_in_conflict) {
       conflict->trail_size --;
+      conflict_recompute_level_info(conflict);
       continue;
     }
 
@@ -1841,7 +1842,12 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
 
   if (trace_enabled(trace, "mcsat::interpolant::check")) {
     value_t v = model_get_term_value(mcsat->assumptions_model, interpolant);
-    assert(is_false(&mcsat->assumptions_model->vtbl, v));
+    bool interpolant_is_false = is_false(&mcsat->assumptions_model->vtbl, v);
+    if (!interpolant_is_false) {
+      model_print(trace_out(trace), mcsat->assumptions_model);
+      trace_term_ln(trace, conflict->terms, interpolant);
+    }
+    assert(interpolant_is_false);
   }
 
   return interpolant;
