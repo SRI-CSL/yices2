@@ -1351,16 +1351,10 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
   } else {
 
     /*
-     * Compute yval = the integer in [0 ... delta-1]
-     * such that yval == value of y  modulo delta.
-     *
-     * TOOD: this is useless: we have val(y) == 0 modulo delta
-     * by construction.
+     * Copy yval = val(y) in the model
      */
     q_init(&yval);
     q_set(&yval, presburger_var_val(vtbl, y));
-    q_integer_rem(&yval, &cooper->delta);
-    assert(q_is_zero(&yval));
 
     if (cooper->glb != NULL) {
       /*
@@ -1369,18 +1363,21 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
        * - for all constraints of the form (y > L_i), we have val(L) >= val(L_i)
        * - for all constraints of the form (y < U_i), we must val(L) < val(y) < val(U_i)
        *
-       * We return L + k such that val(L + k) == val(y) mod delta and k>0
-       * since val(y) == 0 mod delta, we pick k = delta - (val(L) rem delta).
+       * We return L + k such that val(L + k) == val(y) mod delta and k>0.
+       * So we must have k = val(y) - val(L) modulo delta.
+       *
+       * We pick k = rem(val(y) - val(L), delta) if that's positive
+       * of k = delta if rem(val(y) - val(L), delta) is 0.
        */
-      q_init(&tmp);
-      q_set(&tmp, &cooper->glbv);             // glbv is val(L)
-      q_integer_rem(&tmp, &cooper->delta);
-      q_sub(&tmp, &cooper->delta);            // this is -k = (val(L) rem delta) - delta
-      assert(q_is_neg(&tmp));
+      q_sub(&yval, &cooper->glbv);            // yval := val(y) - val(L)
+      q_integer_rem(&yval, &cooper->delta);   // rem(val(y) - val(L), delta)
+      if (q_is_zero(&yval)) {
+	q_set(&yval, &cooper->delta);
+      }
+      assert(q_is_pos(&yval));
 
       poly_buffer_add_poly(solution, cooper->glb);
-      poly_buffer_sub_const(solution, &tmp);
-      q_clear(&tmp);
+      poly_buffer_add_const(solution, &yval);
 
     } else if (cooper->lub != NULL) {
       /*
@@ -1389,16 +1386,22 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
        * - for all constraints of the form (y < U_i), we have val(U) <= val(U_i)
        *
        * We return U - k such that val(U - k) == val(y) mod delta and k>0
-       * so k = delta - (val(U) rem delta).
+       * So we must have k = val(U) - val(y) mod delta.
+       *
+       * We pick k = rem(val(U) - val(y)) mod delta if that's positive
+       * of delta if that's zero
        */
       q_init(&tmp);
       q_set(&tmp, &cooper->lubv);           // lubv is val(U)
+      q_sub(&tmp, &yval);                   // tmp := val(U) - val(y)
       q_integer_rem(&tmp, &cooper->delta);
-      q_sub(&tmp, &cooper->delta);          // this is -k = (val(U) rem delta) - delta
-      assert(q_is_neg(&tmp));
+      if (q_is_zero(&tmp)) {
+	q_set(&tmp, &cooper->delta);
+      }
+      assert(q_is_pos(&tmp));
 
       poly_buffer_add_poly(solution, cooper->lub);
-      poly_buffer_add_const(solution, &tmp);
+      poly_buffer_sub_const(solution, &tmp);
       q_clear(&tmp);
 
     } else {
@@ -1410,9 +1413,11 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
        * We pick the constant polynomial e such that 0 <= e < delta
        * and (val(y) == e) mod delta.
        */
-      //      poly_buffer_add_const(solution, &yval);
-      assert(poly_buffer_is_zero(solution));
+      q_integer_rem(&yval, &cooper->delta);
+      poly_buffer_add_const(solution, &yval);
     }
+
+    q_clear(&yval);
   }
 
   normalize_poly_buffer(solution);
