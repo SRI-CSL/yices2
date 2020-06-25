@@ -1,0 +1,7 @@
+(set-logic QF_ALIA)
+(declare-const v4 Bool)
+(declare-const i0 Int)
+(declare-const arr-3553886098962206176_-6204533237720909863-0 (Array Bool Int))
+(assert (> (select arr-3553886098962206176_-6204533237720909863-0 false) 178))
+(assert (>= (- 0 (select arr-3553886098962206176_-6204533237720909863-0 false) i0 (select arr-3553886098962206176_-6204533237720909863-0 v4) 0) (- 81) i0 (select arr-3553886098962206176_-6204533237720909863-0 v4) i0))
+(check-sat)
