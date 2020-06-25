@@ -165,16 +165,16 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
 }
 
 
-
 /*
  * Add a[0 ... n-1] to the existentials in an analyzer 
  */
 static void ef_analyzer_add_existentials(ef_analyzer_t *ef, term_t *a, uint32_t n) {
   uint32_t i;
-  for(i = 0; i < n; i++){
+  for (i = 0; i < n; i++) {
     int_hset_add(&ef->existentials, a[i]);
   }
 }
+
 
 /*
  * FLATTENING OPERATIONS
@@ -388,7 +388,7 @@ static void ef_flatten_quantifiers_conjuncts(ef_analyzer_t *ef, bool toplevel, b
 	continue;
       } else {
 	//if we are not on the first pass we punt on exists
-	if ( ! toplevel){
+	if (! toplevel) {
 	  break;
 	}
 	d = forall_term_desc(terms, t);
@@ -1004,7 +1004,7 @@ static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
   
   for (i=0; i<n; i++) {
     orig = v[i];
-    if(term_kind(ef->terms, orig) == VARIABLE){
+    if (term_kind(ef->terms, orig) == VARIABLE) {
       v[i] = ef_clone_variable(ef, orig);
     }
   }

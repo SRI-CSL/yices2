@@ -1,0 +1,5 @@
+(set-logic LIA)
+(declare-const v11 Bool)
+(declare-const v20 Bool)
+(assert (forall ((q0 Int) (q1 Bool) (q2 Bool) (q3 Int) (q4 Bool) (q5 Int)) (=> (xor q2 v11 v20) (> 0 q5))))
+(check-sat)
