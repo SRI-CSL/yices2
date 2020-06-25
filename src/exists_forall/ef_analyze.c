@@ -46,6 +46,7 @@
 static void init_ef_clause(ef_clause_t *cl) {
   init_ivector(&cl->evars, 10);
   init_ivector(&cl->uvars, 10);
+  init_ivector(&cl->pvars, 10);
   init_ivector(&cl->assumptions, 10);
   init_ivector(&cl->guarantees, 10);
 }
@@ -53,6 +54,7 @@ static void init_ef_clause(ef_clause_t *cl) {
 static void reset_ef_clause(ef_clause_t *cl) {
   ivector_reset(&cl->evars);
   ivector_reset(&cl->uvars);
+  ivector_reset(&cl->pvars);
   ivector_reset(&cl->assumptions);
   ivector_reset(&cl->guarantees);
 }
@@ -60,6 +62,7 @@ static void reset_ef_clause(ef_clause_t *cl) {
 static void delete_ef_clause(ef_clause_t *cl) {
   delete_ivector(&cl->evars);
   delete_ivector(&cl->uvars);
+  delete_ivector(&cl->pvars);
   delete_ivector(&cl->assumptions);
   delete_ivector(&cl->guarantees);
 }
@@ -383,7 +386,7 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
-static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
+static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
   uint32_t i;
 //  uint32_t fsize;
 //  ivector_t *foralls;
@@ -392,7 +395,30 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
-  init_ef_skolemize(&sk, ef, f_ite, f_iff);
+#if 0
+  uint32_t j;
+  ptr_hmap_pair_t *r;
+  ivector_t *rv;
+
+  for(j=0; j<n; j++) {
+    printf("assertion: ");
+    yices_pp_term(stdout, a[j], 120, 1, 0);
+  }
+
+  printf("\n== PATTERNS ==\n");
+  for (r = ptr_hmap_first_record(prob->patterns);
+       r != NULL;
+       r = ptr_hmap_next_record(prob->patterns, r)) {
+    rv = r->val;
+    printf("  term: ");
+    yices_pp_term(stdout, r->key, 120, 1, 0);
+    printf("  patterns (#%d): \n", rv->size);
+    yices_pp_term_array(stdout, rv->size, rv->data, 120, UINT32_MAX, 0, 0);
+  }
+#endif
+
+
+  init_ef_skolemize(&sk, ef, prob, f_ite, f_iff);
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
@@ -400,6 +426,21 @@ static void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_i
 //    ef_push_term(ef, a[i]);
   }
   ivector_remove_duplicates(v);
+  ef_skolemize_patterns(&sk);
+
+
+#if 0
+  printf("\n== SKOLEMIZED PATTERNS ==\n");
+  for (r = ptr_hmap_first_record(prob->patterns);
+       r != NULL;
+       r = ptr_hmap_next_record(prob->patterns, r)) {
+    rv = r->val;
+    printf("  term: ");
+    yices_pp_term(stdout, r->key, 120, 1, 0);
+    printf("  patterns (#%d): \n", rv->size);
+    yices_pp_term_array(stdout, rv->size, rv->data, 120, UINT32_MAX, 0, 0);
+  }
+#endif
 
 // ef_skolemize takes care of the below already
 //  /* FIRST PASS: do the exists */
@@ -966,15 +1007,16 @@ static term_t ef_clone_variable(ef_analyzer_t *ef, term_t x) {
  * Replace all elements of v that are variables by their clones
  * - all elements must be either variables or uninterpreted constants
  */
-static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
+static void ef_clone_variable_array(ef_analyzer_t *ef, term_t *v, uint32_t n, ivector_t *pvars) {
   uint32_t i;
   term_t orig;
   
   for (i=0; i<n; i++) {
     orig = v[i];
-    if(term_kind(ef->terms, orig) == VARIABLE){
-      v[i] = ef_clone_variable(ef, orig);
-    }
+    assert (term_kind(ef->terms, orig) == VARIABLE);
+
+    ivector_push(pvars, orig);
+    v[i] = ef_clone_variable(ef, orig);
   }
 }
 
@@ -1036,7 +1078,7 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
   int_hset_t uvars;
   elim_subst_t elim;
   uint32_t i, j, n;
-  term_t x, t, u;
+  term_t x, p, t, u;
 
   init_term_set(&uvars, c->uvars.size, c->uvars.data);
   init_elim_subst(&elim, ef->manager, &uvars);
@@ -1060,6 +1102,7 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
   j = 0;
   for (i=0; i<n; i++) {
     x = c->uvars.data[i];
+    p = c->pvars.data[i];
     t = elim_subst_get_map(&elim, x);
     // TEMPORARY: print the substitution
     if (t >= 0) {
@@ -1070,10 +1113,12 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
     } else {
       // x is kept in uvars
       c->uvars.data[j] = x;
+      c->pvars.data[j] = p;
       j ++;
     }
   }
   ivector_shrink(&c->uvars, j);
+  ivector_shrink(&c->pvars, j);
 
 
   if (j < n) {
@@ -1135,17 +1180,18 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
  *    Then we add the universal constraint (forall y: A => G) to prob.
  */
 static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
-  term_t x, a, g, constraint;
-  term_t *pvars;
-  uint32_t i, n;
+  term_t a, g;
+  uint32_t n;
 
   n = c->uvars.size;
   if (n == 0) {
     // no universal variables
 
-    // convert all evars to clones and make ground
-    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
-    t = ef_make_ground(ef, t);
+    // evars already skolemized, t is already ground
+
+//    // convert all evars to clones and make ground
+//    ef_clone_variable_array(ef, c->evars.data, c->evars.size);
+//    t = ef_make_ground(ef, t);
 
     //add condition
     ef_prob_add_condition(prob, t);
@@ -1154,25 +1200,16 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
   } else {
     // get in the variable form, and as well as in the ground form
 
-    // variable form
-    pvars = (term_t *) safe_malloc(n * sizeof(term_t));
-    for(i=0; i<n; i++) {
-      x = c->uvars.data[i];
-      pvars[i] = x;
-    }
-
     // build the assumption: not (or c->assumptions)
     a = opposite_term(ef_make_or(ef, &c->assumptions));
 
     // guarantee = or c->guarantees
     g = ef_make_or(ef, &c->guarantees);
 
-    constraint = mk_implies(prob->manager, a, g);
-
     // ground form
     // convert all uvars to clones and make ground
     // evars already skolemized!
-    ef_clone_variable_array(ef, c->uvars.data, c->uvars.size);
+    ef_clone_variable_array(ef, c->uvars.data, c->uvars.size, &c->pvars);
     ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
     ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
 
@@ -1194,9 +1231,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     g = ef_make_or(ef, &c->guarantees);
 
     ef_prob_add_constraint(prob, c->evars.data, c->evars.size,
-			   c->uvars.data, c->uvars.size, a, g, pvars, constraint);
-
-    safe_free(pvars);
+			   c->uvars.data, c->uvars.size, a, g, c->pvars.data);
   }
 }
 
@@ -1230,7 +1265,7 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, 
   init_ef_clause(&clause);
 
   v = &ef->flat;
-  ef_add_assertions(ef, n, a, f_ite, f_iff, v);
+  ef_add_assertions(ef, prob, n, a, f_ite, f_iff, v);
 
   n = v->size;
   for (i=0; i<n; i++) {

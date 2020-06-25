@@ -425,15 +425,4 @@ extern void context_gc_mark(context_t *ctx);
 
 
 
-/*
- * QUANTIFIER SUPPORT
- */
-
-/*
- * Create the quant solver and attach it to the egraph
- */
-extern void create_quant_solver(context_t *ctx);
-
-
-
 #endif /* __CONTEXT_H */

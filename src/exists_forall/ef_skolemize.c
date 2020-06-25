@@ -34,10 +34,20 @@
 #define TRACE 0
 
 /*
+ * - t = skolemized term
+ * - q = whether original term contained quantifiers or not
+ */
+typedef struct sk_pair_s {
+  term_t t;
+  bool q;
+} sk_pair_t;
+
+/*
  * Initialize the skolemize object
  */
-void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, bool f_ite, bool f_iff) {
+void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff) {
   sk->analyzer = analyzer;
+  sk->prob = prob;
   sk->flatten_ite = f_ite;
   sk->flatten_iff = f_iff;
 
@@ -45,6 +55,8 @@ void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, bool f_ite, 
   sk->terms = analyzer->terms;
   init_ivector(&sk->uvars, 10);
   init_ivector(&sk->aux, 10);
+
+  init_ptr_hmap(&sk->cache, 0);
 }
 
 
@@ -53,6 +65,7 @@ void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, bool f_ite, 
  */
 void delete_ef_skolemize(ef_skolemize_t *sk) {
   sk->analyzer = NULL;
+  sk->prob = NULL;
   sk->flatten_ite = false;
   sk->flatten_iff = false;
 
@@ -60,6 +73,18 @@ void delete_ef_skolemize(ef_skolemize_t *sk) {
   sk->terms = NULL;
   delete_ivector(&sk->uvars);
   delete_ivector(&sk->aux);
+
+  ptr_hmap_pair_t *p;
+  ptr_hmap_t *map;
+
+  map = &sk->cache;
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    sk_pair_t* skp = p->val;
+    safe_free(skp);
+  }
+  delete_ptr_hmap(map);
 }
 
 
@@ -313,19 +338,9 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   return body;
 }
 
-
-/*
- * - t = skolemized term
- * - q = whether original term contained quantifiers or not
- */
-typedef struct sk_pair_s {
-  term_t t;
-  bool q;
-} sk_pair_t;
-
-static inline term_t sk_update(sk_pair_t sp, bool *is_quantified) {
-  *is_quantified |= sp.q;
-  return sp.t;
+static inline term_t sk_update(sk_pair_t *sp, bool *is_quantified) {
+  *is_quantified |= sp->q;
+  return sp->t;
 }
 
 /*
@@ -427,7 +442,21 @@ static term_t ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, ivec
  * is_quantified is used to decide flattening of Boolean conditions
  *
  */
-static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
+static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
+  ptr_hmap_pair_t *r;
+
+  r = ptr_hmap_get(&sk->cache, t);
+  if (r->val != NULL) {
+    return r->val;
+  }
+
+  sk_pair_t sp_;
+  sk_pair_t *sp_result, *sp;
+
+  r->val = safe_malloc(sizeof(sk_pair_t));
+  sp_result = r->val;
+  sp = &sp_;
+
   term_manager_t *mgr;
   term_table_t *terms;
   term_kind_t kind;
@@ -436,7 +465,6 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ivector_t args;
   term_t result, u, v;
   bool resultq = false;
-  sk_pair_t sp;
 
   mgr = sk->mgr;
   terms = sk->terms;
@@ -681,9 +709,9 @@ static sk_pair_t ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   printf("Original (%d): %s\nSkolemized: %s\n", resultq,  yices_term_to_string(t, 120, 1, 0), yices_term_to_string(result, 120, 1, 0));
 #endif
 
-  sp.t = result;
-  sp.q = resultq;
-  return sp;
+  sp_result->t = result;
+  sp_result->q = resultq;
+  return sp_result;
 }
 
 /*
@@ -719,7 +747,7 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
  * Get the skolemized version of term t
  */
 void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
-  sk_pair_t sp;
+  sk_pair_t *sp;
   term_t skolem;
 
 #if 0
@@ -727,13 +755,79 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
 #endif
 
   sp = ef_skolemize_term(sk, t);
-  skolem = sp.t;
+  skolem = sp->t;
 
 #if 0
   printf("Skolemized:  %s\n", yices_term_to_string(skolem, 120, 1, 0));
 #endif
 
   ef_flatten_and(sk, skolem, v);
+}
+
+
+/*
+ * Skolemize patterns
+ */
+extern void ef_skolemize_patterns(ef_skolemize_t *sk) {
+  ptr_hmap_t *patterns1;
+
+  patterns1 = sk->prob->patterns;
+  if (patterns1 != NULL) {
+    ptr_hmap_t *patterns2;
+    ptr_hmap_pair_t *r1, *r2;
+    ivector_t *rv1, *rv2;
+    uint32_t i, n;
+    term_t *pdata;
+    sk_pair_t *sp;
+    term_t key2;
+
+    patterns2 = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+    init_ptr_hmap(patterns2, 0);
+
+    for (r1 = ptr_hmap_first_record(patterns1);
+         r1 != NULL;
+         r1 = ptr_hmap_next_record(patterns1, r1)) {
+      rv1 = r1->val;
+      n = rv1->size;
+
+#if 0
+      printf("Skolemizing pattern: \n");
+      printf("  term: ");
+      yices_pp_term(stdout, r1->key, 120, 1, 0);
+      printf("  patterns (#%d): \n", n);
+      yices_pp_term_array(stdout, n, rv1->data, 120, UINT32_MAX, 0, 0);
+#endif
+
+      sp = ef_skolemize_term(sk, r1->key);
+      key2 = sp->t;
+
+      r2 = ptr_hmap_get(patterns2, key2);
+      if (r2->val == NULL) {
+        r2->val = safe_malloc(sizeof(ivector_t));
+        init_ivector(r2->val, rv1->size);
+      }
+
+      rv2 = r2->val;
+      pdata = rv1->data;
+      for(i=0; i<n; i++) {
+        sp = ef_skolemize_term(sk, pdata[i]);
+        ivector_push(rv2, sp->t);
+      }
+
+#if 0
+      printf("Skolemized pattern: \n");
+      printf("  term: ");
+      yices_pp_term(stdout, r2->key, 120, 1, 0);
+      printf("  patterns (#%d): \n", rv2->size);
+      yices_pp_term_array(stdout, rv2->size, rv2->data, 120, UINT32_MAX, 0, 0);
+#endif
+
+    }
+
+    delete_pattern_map(patterns1);
+    safe_free(patterns1);
+    sk->prob->patterns = patterns2;
+  }
 }
 
 

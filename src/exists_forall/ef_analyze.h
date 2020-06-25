@@ -50,7 +50,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "exists_forall/ef_problem.h"
+#include "solvers/quant/ef_problem.h"
 #include "terms/term_manager.h"
 #include "terms/term_substitution.h"
 #include "utils/int_hash_sets.h"
@@ -73,6 +73,7 @@
 typedef struct ef_clause_s {
   ivector_t evars; // existential variables
   ivector_t uvars; // universal variables
+  ivector_t pvars; // pattern variables
   ivector_t assumptions;
   ivector_t guarantees;
 } ef_clause_t;

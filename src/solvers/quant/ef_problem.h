@@ -67,11 +67,10 @@
 typedef struct ef_cnstr_s {
   term_t *evars;     // existential variables
   term_t *uvars;     // universal variables
+  term_t *pvars;     // pattern variables
   term_t assumption; // B(y)
   term_t guarantee;  // C(x, y)
 
-  term_t *pvars;     // pattern variables
-  term_t constraint;  // B(y) -> C(x, y) with pattern variables
   bool has_uint; // true if constraint has an uninterpreted function/sort
 } ef_cnstr_t;
 
@@ -86,13 +85,14 @@ typedef struct ef_prob_s {
   term_manager_t *manager;
   term_t *all_evars;      // existential variables
   term_t *all_uvars;      // universal variables
+  term_t *all_pvars;      // pattern variables
   term_t *conditions;     // constraints on x = A_1(x), ..., A_n(x)
   uint32_t num_cnstr;     // number of forall constraints
   uint32_t cnstr_size;    // size of array cnstr
   ef_cnstr_t *cnstr;      // array of constraint descriptors
 
-  term_t *all_pvars;      // pattern variables
-  bool has_uint;     // true if prob has an uninterpreted function/sort
+  bool has_uint;          // true if prob has an uninterpreted function/sort
+  ptr_hmap_t *patterns;   // map from term to smt2 patterns
 } ef_prob_t;
 
 
@@ -102,10 +102,16 @@ typedef struct ef_prob_s {
 
 
 /*
+ * Delete pattern map
+ */
+extern void delete_pattern_map(ptr_hmap_t *m);
+
+
+/*
  * Initialization: all empty
  * - mngr = relevant term manager
  */
-extern void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr);
+extern void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns);
 
 
 /*
@@ -151,8 +157,13 @@ extern void ef_prob_add_condition(ef_prob_t *prob, term_t t);
  * - all_uvars := all_uvars union uv
  */
 extern void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *uv, uint32_t nuv,
-				   term_t assumption, term_t guarantee, term_t *pv, term_t constraint);
+				   term_t assumption, term_t guarantee, term_t *pv);
 
+
+/*
+ * Print a forall constraint
+ */
+extern void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr);
 
 
 /*

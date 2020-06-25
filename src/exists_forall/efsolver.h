@@ -127,7 +127,7 @@
 #include "api/search_parameters.h"
 #include "api/smt_logic_codes.h"
 #include "context/context_types.h"
-#include "exists_forall/ef_problem.h"
+#include "solvers/quant/ef_problem.h"
 #include "exists_forall/ef_values.h"
 #include "io/tracer.h"
 

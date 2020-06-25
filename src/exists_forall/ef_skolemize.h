@@ -33,6 +33,7 @@
  */
 typedef struct ef_skolemize_s {
   ef_analyzer_t *analyzer;
+  ef_prob_t *prob;
   bool flatten_ite;
   bool flatten_iff;
 
@@ -40,13 +41,15 @@ typedef struct ef_skolemize_s {
   term_table_t *terms;
   ivector_t uvars;
   ivector_t aux;
+
+  ptr_hmap_t cache;
 } ef_skolemize_t;
 
 
 /*
  * Initialize the skolemize object
  */
-extern void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, bool f_ite, bool f_iff);
+extern void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff);
 
 
 /*
@@ -59,6 +62,12 @@ extern void delete_ef_skolemize(ef_skolemize_t *sk);
  * Get the skolemized version of term t
  */
 extern void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v);
+
+
+/*
+ * Skolemize patterns
+ */
+extern void ef_skolemize_patterns(ef_skolemize_t *sk);
 
 
 

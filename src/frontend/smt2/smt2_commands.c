@@ -473,6 +473,39 @@ static void reset_smt2_name_stack(smt2_name_stack_t *s) {
 }
 
 
+
+/*
+ * PATTERN MAP
+ */
+
+/*
+ * Initialize; nothing allocated yet
+ */
+static void init_smt2_pattern_map(ptr_hmap_t *m) {
+  init_ptr_hmap(m, 0);
+}
+
+/*
+ * Deletion
+ */
+static void delete_smt2_pattern_map(ptr_hmap_t *m) {
+  ptr_hmap_pair_t *p;
+
+  for (p = ptr_hmap_first_record(m);
+       p != NULL;
+       p = ptr_hmap_next_record(m, p)) {
+    ivector_t* list_vector = p->val;
+    if (list_vector != NULL) {
+      delete_ivector(list_vector);
+      safe_free(list_vector);
+    }
+  }
+  delete_ptr_hmap(m);
+}
+
+
+
+
 /*
  * PUSH/POP STACK
  */
@@ -2805,6 +2838,11 @@ static bool has_uf(term_t *a, uint32_t n) {
  */
 static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
   if (t != true_term) {
+#if 0
+    printf("adding assertion: ");
+    yices_pp_term(stdout, t, 120, 1, 0);
+#endif
+
     ivector_push(&g->assertions, t);
     if (t == false_term) {
       g->trivially_unsat = true;
@@ -3077,7 +3115,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
     }
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
 	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
-             g->tracer);
+             g->tracer, &g->term_patterns);
     if (g-> timeout != 0) clear_timeout();
 
     if (efc->efcode != EF_NO_ERROR) {
@@ -4242,6 +4280,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->trivially_unsat = false;
   g->trivially_sat = false;
   g->frozen = false;
+
+  init_smt2_pattern_map(&g->term_patterns);
 }
 
 
@@ -4272,6 +4312,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   }
   delete_ivector(&g->assertions);
   delete_ivector(&g->var_order);
+
+  delete_smt2_pattern_map(&g->term_patterns);
 
   delete_smt2_stack(&g->stack);
   delete_smt2_name_stack(&g->term_names);
@@ -6496,7 +6538,26 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
  * - for a quantified term, op is either MK_EXISTS or MK_FORALL
  */
 void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
-  // TBD
+  ptr_hmap_pair_t *r;
+  uint32_t i;
+
+  r = ptr_hmap_get(&__smt2_globals.term_patterns, t);
+  if (r->val == NULL) {
+    r->val = safe_malloc(sizeof(ivector_t));
+    init_ivector(r->val, 0);
+  }
+
+  for(i=0; i<n; i++) {
+#if 0
+    printf("adding pattern:\n");
+    printf("  term: ");
+    yices_pp_term(stdout, t, 120, 1, 0);
+    printf("  pattern: ");
+    yices_pp_term(stdout, p[i], 120, 1, 0);
+#endif
+
+    ivector_push(r->val, p[i]);
+  }
 }
 
 /*

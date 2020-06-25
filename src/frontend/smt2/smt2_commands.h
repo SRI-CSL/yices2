@@ -452,6 +452,8 @@ typedef struct smt2_globals_s {
   bool trivially_unsat;
   bool trivially_sat;
   bool frozen;
+
+  ptr_hmap_t term_patterns;
 } smt2_globals_t;
 
 

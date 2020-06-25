@@ -3041,7 +3041,7 @@ static void print_ef_status(void) {
  */
 static void yices_efsolve_cmd(void) {
   if (efmode) {
-    ef_solve(&ef_client_globals, assertions.top, assertions.data, &parameters, logic_code, arch, tracer);
+    ef_solve(&ef_client_globals, assertions.top, assertions.data, &parameters, logic_code, arch, tracer, NULL);
     if (ef_client_globals.efcode != EF_NO_ERROR) {
       // error in preprocessing
       print_ef_analyze_code(ef_client_globals.efcode);
@@ -3128,7 +3128,7 @@ static void export_ef_problem(const char *s) {
   ivector_t all_ef;
   int code;
 
-  build_ef_problem(&ef_client_globals, assertions.top, assertions.data);
+  build_ef_problem(&ef_client_globals, assertions.top, assertions.data, NULL);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
     print_ef_analyze_code(ef_client_globals.efcode);
   } else {

@@ -38,12 +38,57 @@
 #include "utils/int_hash_map2.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
+#include "solvers/quant/ef_problem.h"
 
 
 
 /*
- * GRAPH/VARIABLES
+ * PATTERNS
  */
+
+/*
+ * Single pattern
+ */
+typedef struct pattern_s {
+  term_t p;         // pattern expression
+  term_t *pvars;    // pattern variables
+  term_t *fun;      // functions that appear in the pattern
+  term_t *fapps;    // function applications that appear in the pattern
+  term_t *consts;    // constants that appear in the pattern
+} pattern_t;
+
+/*
+ * Pattern table
+ */
+typedef struct pattern_table_s {
+  uint32_t size;
+  uint32_t npatterns;
+  pattern_t *data;
+} pattern_table_t;
+
+#define DEF_PATTERN_TABLE_SIZE  20
+#define MAX_PATTERN_TABLE_SIZE  (UINT32_MAX/8)
+
+/*
+ * Single quantifier constraint
+ */
+typedef struct quant_cnstr_s {
+  term_t t;
+  int32_t *patterns;  // pattern indices in pattern table
+} quant_cnstr_t;
+
+/*
+ * Quantifier table
+ */
+typedef struct quant_table_s {
+  uint32_t size;
+  uint32_t nquant;
+  quant_cnstr_t *data;
+} quant_table_t;
+
+#define DEF_QUANT_TABLE_SIZE  20
+#define MAX_QUANT_TABLE_SIZE  (UINT32_MAX/8)
+
 
 
 /*
@@ -92,12 +137,17 @@ typedef struct quant_solver_s {
   /*
    * Main components
    */
+  ef_prob_t *prob;
+  pattern_table_t ptbl;   // pattern table
+  quant_table_t qtbl;     // quant table
+
 // TODO
 
   /*
    * Buffers
    */
   ivector_t aux_vector;
+  int_hmap_t aux_map;
   ivector_t lemma_vector;
 
 } quant_solver_t;
@@ -272,6 +322,14 @@ static inline uint32_t quant_solver_num_instances(quant_solver_t *solver) {
 // TODO
 
 
+/*********************
+ *  PROBLEM SUPPORT  *
+ ********************/
+
+/*
+ * Attach problem to solver
+ */
+extern void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob);
 
 
 

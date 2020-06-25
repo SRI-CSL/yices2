@@ -5318,25 +5318,6 @@ static void create_fun_solver(context_t *ctx) {
 
 
 /*
- * Create the quant solver and attach it to the egraph
- */
-void create_quant_solver(context_t *ctx) {
-  quant_solver_t *solver;
-
-  assert(ctx->egraph != NULL && ctx->quant_solver == NULL);
-
-  solver = (quant_solver_t *) safe_malloc(sizeof(quant_solver_t));
-  init_quant_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph, ctx->types);
-  egraph_attach_quantsolver(ctx->egraph, solver, quant_solver_ctrl_interface(solver),
-                          quant_solver_egraph_interface(solver),
-                          quant_solver_quant_egraph_interface(solver));
-
-  ctx->quant_solver = solver;
-}
-
-
-
-/*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point
  * - if the architecture is either AUTO_IDL or AUTO_RDL, no theory solver

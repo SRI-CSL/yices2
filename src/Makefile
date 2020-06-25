@@ -125,10 +125,10 @@ core_src_c := \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
 	context/symmetry_breaking.c \
+	context/quant_context.c \
 	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
 	exists_forall/ef_parameters.c \
-	exists_forall/ef_problem.c \
 	exists_forall/ef_values.c \
 	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
@@ -209,6 +209,7 @@ core_src_c := \
 	solvers/simplex/matrices.c \
 	solvers/simplex/offset_equalities.c \
 	solvers/simplex/simplex.c \
+	solvers/quant/ef_problem.c \
 	solvers/quant/quant_solver.c \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \

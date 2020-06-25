@@ -41,6 +41,7 @@
 #include "api/yices_globals.h"
 #include "model/val_to_term.h"
 #include "model/model_queries.h"
+#include "context/quant_context.h"
 
 #define EF_VERBOSE 0
 #define TRACE 0
@@ -321,6 +322,7 @@ static void init_exists_context(ef_solver_t *solver) {
   }
   if (solver->ematching) {
     create_quant_solver(ctx);
+    context_attach_quant_prob(ctx, solver->prob);
   }
 }
 
