@@ -653,11 +653,6 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           ivector_push(&args, u);
         }
         result = ef_update_composite(sk, unsigned_term(t), &args);
-
-        d = or_term_desc(terms, result);
-        if (ef_distribute_is_cheap(sk->analyzer, d)) {
-          result = ef_flatten_distribute(sk->analyzer, d, &sk->aux);
-        }
         break;
 
       case FORALL_TERM:
@@ -704,6 +699,12 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
 
   assert(result != NULL_TERM);
 
+  if (is_pos_term(result) && term_kind(terms, result) == OR_TERM) {
+    d = or_term_desc(terms, result);
+    if (ef_distribute_is_cheap(sk->analyzer, d)) {
+      result = ef_flatten_distribute(sk->analyzer, d, &sk->aux);
+    }
+  }
 
 #if TRACE
   printf("Original (%d): %s\nSkolemized: %s\n", resultq,  yices_term_to_string(t, 120, 1, 0), yices_term_to_string(result, 120, 1, 0));
