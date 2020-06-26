@@ -112,9 +112,7 @@ static void collect_finite_domain(term_table_t *tbl, int_hset_t *cache, ivector_
       }
     } else {
       // t must be a constant, not already in v
-      assert(term_kind(tbl, t) == ARITH_CONSTANT ||
-             term_kind(tbl, t) == BV64_CONSTANT ||
-             term_kind(tbl, t) == BV_CONSTANT);
+      assert(is_const_term(tbl, t));
       ivector_push(v, t);
     }
   }
