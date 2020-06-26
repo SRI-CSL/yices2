@@ -4504,7 +4504,9 @@ static void convert_expl_to_clause(ivector_t *v) {
 static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v) {
 #if TRACE
   uint32_t i, j, n;
+  literal_t l;
   bool show;
+  void *atom;
 #endif
 
   assert(v->size == 0);
@@ -4513,18 +4515,36 @@ static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v
 #if TRACE
   show = true;
   n = v->size;
+  if (show) {
+    printf("---> Simplex: conflict clause (size = %"PRIu32")\n", n);
+    show = false;
+  }
   for (i=0; i<n; i++) {
-    for (j=i+1; j<n; j++) {
-      if (v->data[i] == v->data[j]) {
-	if (show) {
-	  printf("---> Simplex: conflict clause (size = %"PRIu32")\n", n);
-	  show = false;
-	}
-	printf("     duplicate literal: %"PRId32" (at index %"PRIu32" and %"PRIu32")\n", v->data[i], i, j);
+    printf(" ");
+    print_literal(stdout, v->data[i]);
+  }
+  printf("\n");
+  for (i=0; i<n; i++) {
+    l = v->data[i];
+    atom = bvar_atom(solver->core, var_of(l));
+    if (atom != NULL) {
+      printf("    ");
+      print_literal(stdout, l);
+      printf(" := ");
+      if (atom_tag(atom) == ARITH_ATM_TAG) {
+	print_simplex_atom_of_literal(stdout, solver, l);
+      } else {
+	print_egraph_atom_of_literal(stdout, solver->egraph, l);
       }
+      printf("\n");
     }
   }
-
+  printf("\n");
+  for (j=i+1; j<n; j++) {
+    if (v->data[i] == v->data[j]) {
+      printf("     duplicate literal: %"PRId32" (at index %"PRIu32" and %"PRIu32")\n", v->data[i], i, j);
+    }
+  }
 #endif
 }
 
@@ -4706,9 +4726,9 @@ static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, 
 
 /*
  * This function checks whether the bounds are consistent.  It
- * constructs a feasible solution if they are are return true.  It
- * builds a conflict clause and add it to the core otherwise, and it
- * returns false.
+ * constructs a feasible solution if they are and return true.
+ * Otherwsie, it builds a conflict clause and add it to the core
+ * otherwise, and it returns false.
  *
  * Preconditions: same as simplex_check_feasibility.
  */
@@ -9917,8 +9937,19 @@ bool simplex_propagate(simplex_solver_t *solver) {
 
   assert(! solver->unsat_before_search);
 
+  /*
+   * NOTE: we must check whether there are infeasible_vars here.
+   *
+   * If we get a conflict, we generate a clause that causes backtracking.
+   * But it may happen that nothing is propagated to the simplex after this
+   * backtracking (i.e., the assertion_queue does not change and the
+   * eassertion_queue is empty). In that case, we could end up with
+   * an invalid tableau and variable assignment because nothing will
+   * force us to restore feasibility. See issues 251 and 253.
+   */
   if (solver->assertion_queue.prop_ptr < solver->assertion_queue.top ||
-      eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+      eassertion_queue_is_nonempty(&solver->egraph_queue) ||
+      !int_heap_is_empty(&solver->infeasible_vars)) {
 
     // process all assertions
     feasible = simplex_process_assertions(solver);
