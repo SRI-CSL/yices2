@@ -305,22 +305,48 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
 }
 
-term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_manager_t* tm) {
+term_t mcsat_value_to_term(const mcsat_value_t* mcsat_value, term_manager_t* tm) {
+
+  term_t result = NULL_TERM;
+
   switch (mcsat_value->type) {
   case VALUE_BOOLEAN:
     if (mcsat_value->b) {
-      return true_term;
+      result = true_term;
     } else {
-      return false_term;
+      result = false_term;
     }
+    break;
   case VALUE_BV: {
     const bvconstant_t* bv = &mcsat_value->bv_value;
-    return mk_bv_constant(tm, (bvconstant_t*) bv);
+    result = mk_bv_constant(tm, (bvconstant_t*) bv);
+    break;
   }
+  case VALUE_RATIONAL: {
+    result = mk_arith_constant(tm, (rational_t*) &mcsat_value->q);
+    break;
+  }
+  case VALUE_LIBPOLY:
+    if (lp_value_is_rational(&mcsat_value->lp_value)) {
+      lp_rational_t lp_q;
+      lp_rational_construct(&lp_q);
+      lp_value_get_rational(&mcsat_value->lp_value, &lp_q);
+      rational_t q;
+      q_init(&q);
+      q_set_mpq(&q, &lp_q);
+      result = mk_arith_constant(tm, &q);
+      q_clear(&q);
+      lp_rational_destruct(&lp_q);
+    } else {
+      assert(false);
+      result = NULL_TERM;
+    }
+    break;
   default:
     assert(false);
   }
-  return NULL_TERM;
+
+  return result;
 }
 
 value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {

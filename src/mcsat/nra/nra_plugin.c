@@ -1587,24 +1587,34 @@ term_t nra_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   // We only propagate evaluations, and we explain them using the literal itself
+  // The only other propagations are at 0-level, and those we explain with the value and no reasons
   term_t atom = variable_db_get_term(nra->ctx->var_db, var);
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_explain_propagation():\n");
     ctx_trace_term(nra->ctx, atom);
   }
-  bool value = trail_get_boolean_value(nra->ctx->trail, var);
+  const mcsat_value_t* value = trail_get_value(nra->ctx->trail, var);
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
-    ctx_trace_printf(nra->ctx, "assigned to %s\n", value ? "true" : "false");
+    ctx_trace_printf(nra->ctx, "assigned to:");
+    mcsat_value_print(value, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
   }
 
-  if (value) {
-    // atom => atom = true
-    ivector_push(reasons, atom);
-    return bool2term(true);
+  if (value->type == VALUE_BOOLEAN) {
+    if (value->b) {
+      // atom => atom = true
+      ivector_push(reasons, atom);
+      return bool2term(true);
+    } else {
+      // neg atom => atom = false
+      ivector_push(reasons, opposite_term(atom));
+      return bool2term(false);
+    }
   } else {
-    // neg atom => atom = false
-    ivector_push(reasons, opposite_term(atom));
-    return bool2term(false);
+    // we just return true => var = value
+    // this is only allowed at base level when explaining under assumptions
+    assert(trail_is_at_base_level(nra->ctx->trail));
+    return mcsat_value_to_term(value, nra->ctx->tm);
   }
 }
 
