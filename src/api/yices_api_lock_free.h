@@ -573,6 +573,9 @@ extern int32_t _o_yices_clear_term_name(term_t t);
 
 extern context_t *_o_yices_new_context(const ctx_config_t *config);
 
+//iam: this one is defined in context.c
+extern int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
+
 /****************
  *  UNSAT CORE  *
  ***************/

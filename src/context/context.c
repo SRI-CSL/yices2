@@ -5602,7 +5602,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
-  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5792,7 +5792,7 @@ static void context_show_assertions(const context_t *ctx, uint32_t n, const term
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -6013,11 +6013,6 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
   return code;
 }
 
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
-}
-
-
 /*
  * Assert all formulas f[0] ... f[n-1]
  * The context status must be IDLE.
@@ -6029,7 +6024,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
  *   determined
  * - otherwise, the code is negative to report an error.
  */
-int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
@@ -6056,6 +6051,11 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   return code;
 }
+
+int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_assert_formulas(ctx, n, f));
+}
+
 
 
 

@@ -143,7 +143,7 @@ yices_globals_t __yices_globals = {
 };
 
 
-  
+
 /*
  * SYNCHRONIZING ACCESS TO GLOBAL TABLE.
  */
@@ -9574,7 +9574,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   yices_obtain_mutex();
   init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
   context_set_default_options(&context, logic, arch, iflag, qflag);
-  code = assert_formulas(&context, n, f);
+  code = _o_assert_formulas(&context, n, f);
   yices_release_mutex();
 
   if (code < 0) {
@@ -9723,7 +9723,7 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   yices_obtain_mutex();
   init_context(&context, __yices_globals.terms, QF_BV, CTX_MODE_ONECHECK, arch, qflag);
   context_set_default_options(&context, QF_BV, arch, iflag, qflag);
-  code = assert_formulas(&context, n, f);
+  code = _o_assert_formulas(&context, n, f);
   yices_release_mutex();
 
   if (code < 0) {
