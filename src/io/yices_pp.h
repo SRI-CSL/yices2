@@ -32,6 +32,7 @@
 #include "terms/rationals.h"
 #include "utils/object_stores.h"
 #include "utils/string_buffers.h"
+#include "model/concrete_values.h"
 
 
 /*
@@ -433,6 +434,63 @@ extern void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
  * - the value is provided as a rational but the denominator must be one.
  */
 extern void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q);
+
+
+/*
+ * PRINT UTILITIES BORROWED FROM SMT2 PRINTER
+ */
+
+/*
+ * Default printer for bitvector
+ */
+extern void pp_bitvector(yices_pp_t *printer, value_bv_t *b);
+
+/*
+ * For uninterpreted constants: always print an abstract name
+ */
+extern void pp_unint_name(yices_pp_t *printer, value_t c);
+
+/*
+ * Function: always use a default name, even if fun has a name
+ */
+extern void pp_fun_name(yices_pp_t *printer, value_t c);
+
+/*
+ * Format to display a function:
+ * (function <name>
+ *   (type (-> tau_1 ... tau_n sigma))
+ *   (= (<name> x_1 ... x_n) y_1)
+ *    ...
+ *   (default z))
+ */
+extern void pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau);
+
+/*
+ * Print the function c
+ * - if show_default is true, also print the default falue
+ */
+extern void pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+
+/*
+ * Expand update c and print it as a function
+ * - the name "@fun_c"
+ * - if show_default is true, also print the default value
+ */
+extern void normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+
+/*
+ * Print object c on stream f
+ *
+ * There's no support for tuples or mappings in SMT2. They should never occur here.
+ */
+extern void pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
+
+/*
+ * Print object c on FILE f
+ *
+ */
+extern void pp_value(FILE *f, value_table_t *table, value_t c);
+
 
 
 /*

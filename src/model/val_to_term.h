@@ -27,6 +27,7 @@
 #include <setjmp.h>
 
 #include "model/concrete_values.h"
+#include "terms/term_manager.h"
 #include "terms/terms.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_stack.h"
@@ -56,6 +57,7 @@ enum {
  */
 typedef struct val_converter_s {
   value_table_t *vtbl;
+  term_manager_t *manager;
   term_table_t *terms;
   int_hmap_t cache;
   int_stack_t stack;
@@ -66,7 +68,7 @@ typedef struct val_converter_s {
 /*
  * Initialization for vtbl + terms
  */
-extern void init_val_converter(val_converter_t *convert, value_table_t *vtbl, term_table_t *terms);
+extern void init_val_converter(val_converter_t *convert, value_table_t *vtbl, term_manager_t *mgr, term_table_t *terms);
 
 
 /*
@@ -105,7 +107,7 @@ extern term_t convert_simple_value(term_table_t *terms, value_table_t *vtbl, val
  * - this tries convert_simple_value first then use a val_converter if needed.
  * - return a negative code if there's an error (same codes as convert_value)
  */
-extern term_t convert_value_to_term(term_table_t *terms, value_table_t *vtbl, value_t v);
+extern term_t convert_value_to_term(term_manager_t *mgr, term_table_t *terms, value_table_t *vtbl, value_t v);
 
 
 /*
@@ -117,7 +119,13 @@ extern term_t convert_value_to_term(term_table_t *terms, value_table_t *vtbl, va
  * - returns the number of values that could be successfully converted to terms
  *   (this is an integer between 0 and n).
  */
-extern uint32_t convert_value_array(term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b);
+extern uint32_t convert_value_array(term_manager_t *mgr, term_table_t *terms, value_table_t *vtbl, uint32_t n, int32_t *b);
 
+
+/*
+ * Recursive conversion of primitive and tuple terms
+ * - raise an exception via longjmp if the conversion fails.
+ */
+extern term_t convert_val(val_converter_t *convert, value_t v);
 
 #endif /* __VAL_TO_TERM_H */

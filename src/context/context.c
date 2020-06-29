@@ -31,6 +31,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
@@ -5316,8 +5317,6 @@ static void create_fun_solver(context_t *ctx) {
 }
 
 
-
-
 /*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point
@@ -5337,6 +5336,7 @@ static void init_solvers(context_t *ctx) {
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   // Create egraph first, then satellite solvers
   if (solvers & EGRPH) {
@@ -5488,6 +5488,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   /*
    * Global tables + gate manager
@@ -5593,6 +5594,12 @@ void delete_context(context_t *ctx) {
     delete_fun_solver(ctx->fun_solver);
     safe_free(ctx->fun_solver);
     ctx->fun_solver = NULL;
+  }
+
+  if (ctx->quant_solver != NULL) {
+    delete_quant_solver(ctx->quant_solver);
+    safe_free(ctx->quant_solver);
+    ctx->quant_solver = NULL;
   }
 
   if (ctx->bv_solver != NULL) {
