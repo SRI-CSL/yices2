@@ -1853,6 +1853,9 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
   saved_trail = tmp;
   trail_destruct(&saved_trail);
 
+  // Remove temps
+  delete_ivector(&reason);
+
   return interpolant;
 }
 
