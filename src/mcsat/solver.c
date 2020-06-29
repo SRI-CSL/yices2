@@ -1931,6 +1931,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     }
     mcsat->status = STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
+    delete_ivector(&reason);
     return;
   } else {
     assert(plugin->get_conflict);
