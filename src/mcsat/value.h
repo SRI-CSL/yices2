@@ -81,6 +81,9 @@ void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
 
+/** Construct a copy of n values */
+void mcsat_value_construct_copy_n(mcsat_value_t *value, const mcsat_value_t *from, uint32_t n);
+
 /** Construct an MCSAT value from given value */
 void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t* vtbl, value_t v);
 

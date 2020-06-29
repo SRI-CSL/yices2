@@ -46,7 +46,7 @@ void delete_ivector(ivector_t *v) {
   v->data = NULL;
 }
 
-void  extend_ivector(ivector_t *v) {
+void extend_ivector(ivector_t *v) {
   uint32_t n;
 
   n = v->capacity;

@@ -84,6 +84,14 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
   }
 }
 
+void mcsat_value_construct_copy_n(mcsat_value_t *value, const mcsat_value_t *from, uint32_t n) {
+  uint32_t i;
+  for (i = 0; i < n; ++ i) {
+    mcsat_value_construct_copy(value + i, from + i);
+  }
+}
+
+
 /** Construct a MCSAT value from a constant term */
 void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table_t* terms, term_t t) {
   term_kind_t t_kind = term_kind(terms, t);

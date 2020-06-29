@@ -59,6 +59,17 @@ void mcsat_model_construct(mcsat_model_t* m) {
   mcsat_model_ensure_capacity(m, MCSAT_MODEL_INITIAL_CAPACITY);
 }
 
+void mcsat_model_construct_copy(mcsat_model_t* m, const mcsat_model_t* from) {
+  m->capacity = 0;
+  m->values = NULL;
+  m->timestamps = NULL;
+  mcsat_model_ensure_capacity(m, from->capacity);
+  m->size = from->size;
+  mcsat_value_construct_copy_n(m->values, from->values, m->capacity);
+  memcpy(m->timestamps, from->timestamps, m->capacity * sizeof(uint32_t));
+  m->timestamp = from->timestamp;
+}
+
 void mcsat_model_destruct(mcsat_model_t* m) {
   uint32_t i;
   for (i = 0; i < m->size; ++ i) {

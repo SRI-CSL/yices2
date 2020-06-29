@@ -1225,7 +1225,7 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 }
 
 static
-bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
+bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
   bool result = true;
 
@@ -1242,7 +1242,7 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   ivector_t* var_list = int_mset_get_list(vars);
   uint32_t i = 0;
   for (i = 0; i < var_list->size; ++ i) {
-    bool var_evaluates = trail_has_value_at(bv->ctx->trail, var_list->data[i], trail_size);
+    bool var_evaluates = trail_has_value(bv->ctx->trail, var_list->data[i]);
     if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
       FILE* out = ctx_trace_out(bv->ctx);
       fprintf(out, "%"PRIu32": ", i);

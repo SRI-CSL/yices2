@@ -260,13 +260,10 @@ struct plugin_s {
   term_t (*explain_propagation) (plugin_t* plugin, variable_t var, ivector_t* reasons);
 
   /**
-   * Explain an evaluation. Return true if the constraint indeed evaluates, and
-   * collect the variables that are responsible for the evaluation. If given
-   * value is not NULL, and the term evaluates, then put the evaluation into it.
-   * If the value is NULL, just collect the variables that contribute to the
-   * value. The output variables should be mcsat variables (variable_t).
+   * Explain an evaluation. Return true if the constraint indeed evaluates to the
+   * given value. The output variables should be mcsat variables (variable_t).
    */
-  bool (*explain_evaluation) (plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size);
+  bool (*explain_evaluation) (plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value);
 
   /**
    * Push the internal context.

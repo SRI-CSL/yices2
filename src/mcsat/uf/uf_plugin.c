@@ -472,7 +472,7 @@ term_t uf_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 }
 
 static
-bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
+bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
@@ -508,10 +508,10 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     if (rhs_var == variable_null) {
       return false;
     }
-    if (!trail_has_value_at(trail, lhs_var, trail_size)) {
+    if (!trail_has_value(trail, lhs_var)) {
       return false;
     }
-    if (!trail_has_value_at(trail, rhs_var, trail_size)) {
+    if (!trail_has_value(trail, rhs_var)) {
       return false;
     }
 

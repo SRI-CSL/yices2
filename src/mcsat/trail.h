@@ -81,6 +81,7 @@ struct mcsat_trail_s {
 
   /** Are we in conflict */
   bool inconsistent;
+
 };
 
 /**
@@ -88,6 +89,9 @@ struct mcsat_trail_s {
  * size.
  */
 void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db);
+
+/** Copy contruct */
+void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from);
 
 /** Destruct a given trail */
 void trail_destruct(mcsat_trail_t* trail);
@@ -156,17 +160,6 @@ bool trail_has_value(const mcsat_trail_t* trail, variable_t var) {
   bool has_value = (trail->level.data[var] >= 0);
   assert(!has_value || mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE);
   return has_value;
-}
-
-/**
- * Same as above, but looking only up-to given size.
- */
-static inline
-bool trail_has_value_at(const mcsat_trail_t* trail, variable_t var, uint32_t size) {
-  if (!trail_has_value(trail, var)) {
-    return false;
-  }
-  return trail_get_index(trail, var) < size;
 }
 
 /** Returns true if the variable has a cached value other than NONE */

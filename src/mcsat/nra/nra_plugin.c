@@ -324,10 +324,6 @@ const mcsat_value_t* nra_plugin_constraint_evaluate(nra_plugin_t* nra, variable_
 
   assert(!trail_has_value(nra->ctx->trail, cstr_var));
 
-  if (ctx_trace_enabled(nra->ctx, "nra::evaluate")) {
-    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
-  }
-
   // Check if it is a valid constraints
   const poly_constraint_t* cstr = poly_constraint_db_get(nra->constraint_db, cstr_var);
   if (!poly_constraint_is_valid(cstr)) {
@@ -407,6 +403,7 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
 
   if (ctx_trace_enabled(nra->ctx, "nra::evaluate")) {
     trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, cstr_var));
   }
 
   // Compute the evaluation timestamp
@@ -416,6 +413,9 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
   if (cstr_value) {
     bool ok = prop->add_at_level(prop, cstr_var, cstr_value, cstr_level);
     (void)ok;
+//    if (cstr_level < nra->ctx->trail->decision_level) {
+//      fprintf(stderr, "HERE");
+//    }
     assert(ok);
   }
 
@@ -1619,7 +1619,7 @@ term_t nra_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
 }
 
 static
-bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
+bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   bool result = true;
@@ -1631,7 +1631,7 @@ bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars,
   ivector_t* var_list = int_mset_get_list(vars);
   size_t i = 0;
   for (i = 0; i < var_list->size; ++ i) {
-    if (!trail_has_value_at(nra->ctx->trail, var_list->data[i], trail_size)) {
+    if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
       result = false;
     }
   }

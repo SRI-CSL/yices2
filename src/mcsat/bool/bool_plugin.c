@@ -758,7 +758,7 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
   return bool2term(var_value);
 }
 
-bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value, uint32_t trail_size) {
+bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   const variable_db_t* var_db = bp->ctx->var_db;
@@ -771,7 +771,7 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
     return false;
   }
   int_mset_add(vars, t_var);
-  if (trail_has_value_at(trail, t_var, trail_size)) {
+  if (trail_has_value(trail, t_var)) {
     bool negated = is_neg_term(t);
     const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
     if (negated) {

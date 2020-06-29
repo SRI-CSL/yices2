@@ -363,7 +363,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "explaining eval with: %s\n", mcsat->plugins[mcsat->kind_owners[i]].plugin_name);
         }
-        evaluates = plugin->explain_evaluation(plugin, t, vars, value, trail_size);
+        evaluates = plugin->explain_evaluation(plugin, t, vars, value);
         if (evaluates) {
           return true;
         }
@@ -380,7 +380,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "explaining eval with: %s\n", mcsat->plugins[mcsat->type_owners[i]].plugin_name);
         }
-        evaluates = plugin->explain_evaluation(plugin, t, vars, value, trail_size);
+        evaluates = plugin->explain_evaluation(plugin, t, vars, value);
         if (evaluates) {
           return true;
         }
@@ -393,7 +393,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
     term_t t_unsigned = unsigned_term(t);
     variable_t t_var = variable_db_get_variable_if_exists(mcsat->var_db, t_unsigned);
     if (t_var != variable_null) {
-      if (trail_has_value_at(mcsat->trail, t_var, trail_size)) {
+      if (trail_has_value(mcsat->trail, t_var)) {
         const mcsat_value_t* t_var_value = trail_get_value(mcsat->trail, t_var);
         bool negated = is_neg_term(t);
         if ((negated && t_var_value->b != value->b)
@@ -1396,7 +1396,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
     // Propagate with all the plugins in turn
     for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagting with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagating with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
       // Make the token
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
@@ -1749,7 +1749,6 @@ static
 term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
 
   variable_t var;
-  uint32_t var_index;
   plugin_t* plugin = NULL;
   uint32_t plugin_i = MCSAT_MAX_PLUGINS;
   tracer_t* trace = mcsat->ctx->trace;
@@ -1763,20 +1762,16 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
   mcsat_trail_t* trail = mcsat->trail;
 
   conflict->check_false = false;
-  conflict->use_trail_size = true;
-  conflict->trail_size = trail->elements.size;
+
+  // We save the trail, and then restore at the end
+  mcsat_trail_t saved_trail;
+  trail_construct_copy(&saved_trail, mcsat->trail);
 
   // Analyze while at least one variable at conflict level
-  while (conflict->trail_size > 0) {
+  while (trail_size(mcsat->trail) > 0) {
 
     // Variable we might be resolving
-    var_index = conflict->trail_size - 1;
-    var = trail_at(trail, var_index);
-
-    // If the top variable is level lower than the conflict, recompute
-    if (trail_get_level(trail, var) < conflict_get_level(conflict)) {
-      conflict_recompute_level_info(conflict);
-    }
+    var = trail_back(mcsat->trail);
 
     if (trace_enabled(trace, "mcsat::conflict")) {
       mcsat_trace_printf(trace, "current trail:\n");
@@ -1790,13 +1785,14 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
 
     // Skip decisions
     if (trail_get_assignment_type(mcsat->trail, var) == DECISION) {
-      conflict->trail_size --;
+      trail_pop_decision(mcsat->trail);
+      conflict_recompute_level_info(conflict);
       continue;
     }
 
     // Skip the conflict variable (it was propagated)
     if (var == mcsat->variable_in_conflict) {
-      conflict->trail_size --;
+      trail_pop_propagation(mcsat->trail);
       conflict_recompute_level_info(conflict);
       continue;
     }
@@ -1834,7 +1830,7 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
       conflict_resolve_propagation(conflict, var, substitution, &reason);
     } else {
       // Continue with resolution
-      conflict->trail_size --;
+      trail_pop_propagation(mcsat->trail);
     }
   }
 
@@ -1849,6 +1845,13 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* conflict) {
     }
     assert(interpolant_is_false);
   }
+
+  // Restore the trail
+  mcsat_trail_t tmp;
+  tmp = *mcsat->trail;
+  *mcsat->trail = saved_trail;
+  saved_trail = tmp;
+  trail_destruct(&saved_trail);
 
   return interpolant;
 }
