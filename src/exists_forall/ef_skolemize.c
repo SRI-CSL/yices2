@@ -135,6 +135,10 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     assert(n == 1);
     result = mk_arith_ceil(tm, c[0]);
     break;
+  case ARITH_ABS:
+    assert(n == 1);
+    result = mk_arith_abs(tm, c[0]);
+    break;
 //  case ARITH_ROOT_ATOM:
 //    TODO
 
