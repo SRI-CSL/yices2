@@ -25,93 +25,10 @@
 
 
 
+#include "solvers/quant/ematch_compile.h"
 #include "solvers/quant/quant_solver.h"
 #include "utils/pair_hash_sets.h"
-#include "solvers/quant/quant_pattern.h"
-
-/*
- * E-match opcodes
- */
-typedef enum ematch_opcodes_s {
-  EMATCH_NOOP,           // [ noop ]
-  EMATCH_STOP,           // [ stop ]
-  EMATCH_INIT,           // [ init(f, next) ]
-  EMATCH_BIND,           // [ bind(i, f, o, next) ]
-  EMATCH_CHECK,          // [ check(i, t, next) ]
-  EMATCH_COMPARE,        // [ compare(i, j, next) ]
-  EMATCH_CHOOSE,         // [ choose(alt, next) ]
-  EMATCH_YIELD,          // [ yield(i1, ..., ik) ]
-  EMATCH_BACKTRACK,      // [ backtrack ]
-  EMATCH_CHOOSEAPP,      // [ choose-app(o, next, s, j) ]
-  EMATCH_FILTER,         // [ filter(i, fs, next) ]
-} ematch_opcodes_t;
-
-#define NUM_EMATCH_OPCODES (EMATCH_CHOOSEAPP+1)
-
-
-/*
- * E-match instruction
- */
-typedef struct ematch_instr_s {
-  ematch_opcodes_t op;
-
-  term_t f;
-  term_t t;
-
-  uint32_t i;
-  uint32_t j;
-  uint32_t o;
-
-  int_pair_t *subs;
-  uint32_t nsubs;
-
-  int32_t alt;
-  int32_t next;
-
-} ematch_instr_t;
-
-
-/*
- * E-match instruction table
- */
-typedef struct ematch_instr_table_s {
-  uint32_t size;
-  uint32_t ninstr;
-  ematch_instr_t *data;
-} ematch_instr_table_t;
-
-#define DEF_EMATCH_INSTR_TABLE_SIZE  20
-#define MAX_EMATCH_INSTR_TABLE_SIZE  (UINT32_MAX/8)
-
-
-/*
- * Stack for ematch instruction:
- * - for every push: keep an ematch_instr
- */
-typedef struct ematch_stack_s {
-  uint32_t size;
-  uint32_t top;
-  ematch_instr_t **data;
-} ematch_stack_t;
-
-#define DEF_EMATCH_STACK_SIZE 20
-#define MAX_EMATCH_STACK_SIZE (UINT32_MAX/sizeof(ematch_instr_t))
-
-
-/*
- * E-match compile
- */
-typedef struct ematch_compile_s {
-  int_hmap_t W[4];              // working set: map from register indices to patterns
-                                // one each for compare (0), check (1), filter (2), others (3)
-
-  int_hmap_t V;                 // variables: map from variables to register indices
-  int32_t o;                    // offset: value of the next available register index
-
-  ematch_instr_table_t *itbl;   // ematch instruction table
-  term_table_t *terms;          // term table
-} ematch_compile_t;
-
+#include "solvers/quant/ematch_instr_stack.h"
 
 /*
  * E-match globals
@@ -128,16 +45,9 @@ typedef struct ematch_globals_s {
 } ematch_globals_t;
 
 
-/*
- * Compile based on working set
- */
-int32_t ematch_compile(ematch_compile_t *comp);
-
-
 /****************
  *   EMATCHING  *
  ***************/
-
 
 /*
  * Initialize pattern compiler
@@ -154,10 +64,12 @@ extern void reset_ematch(ematch_globals_t *em);
  */
 extern void delete_ematch(ematch_globals_t *em);
 
+
 /*
  * Compile all patterns and fill in the pattern2code map
  */
 extern void ematch_compile_all_patterns(ematch_globals_t *em);
+
 
 
 #endif /* __QUANT_EMATCHING_H */
