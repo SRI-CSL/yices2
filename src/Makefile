@@ -210,6 +210,8 @@ core_src_c := \
 	solvers/simplex/offset_equalities.c \
 	solvers/simplex/simplex.c \
 	solvers/quant/ef_problem.c \
+	solvers/quant/quant_pattern.c \
+	solvers/quant/quant_ematching.c \
 	solvers/quant/quant_solver.c \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \

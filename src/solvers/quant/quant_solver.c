@@ -26,6 +26,7 @@
 
 #include "io/tracer.h"
 #include "solvers/quant/quant_solver.h"
+#include "solvers/quant/quant_ematching.h"
 #include "utils/hash_functions.h"
 #include "utils/index_vectors.h"
 #include "utils/int_array_sort2.h"
@@ -36,7 +37,6 @@
 #include "utils/ptr_partitions.h"
 #include "terms/term_explorer.h"
 #include "yices.h"
-
 
 #define TRACE 0
 
@@ -49,86 +49,6 @@
 
 #endif
 
-
-
-
-/*******************
- *  PATTERN TABLE  *
- ******************/
-
-/*
- * Initialize: default size
- */
-static void init_pattern_table(pattern_table_t *table) {
-  assert(DEF_PATTERN_TABLE_SIZE < MAX_PATTERN_TABLE_SIZE);
-
-  table->size = DEF_PATTERN_TABLE_SIZE;
-  table->npatterns = 0;
-  table->data = (pattern_t *) safe_malloc(DEF_PATTERN_TABLE_SIZE * sizeof(pattern_t));
-}
-
-
-/*
- * Make the table 50% larger
- */
-static void extend_pattern_table(pattern_table_t *table) {
-  uint32_t n;
-
-  n = table->size + 1;
-  n += n>>1;
-  if (n >= MAX_PATTERN_TABLE_SIZE) {
-    out_of_memory();
-  }
-  table->data = (pattern_t *) safe_realloc(table->data, n * sizeof(pattern_t));
-  table->size = n;
-}
-
-
-/*
- * Remove all patterns of index >= n
- */
-static void shrink_pattern_table(pattern_table_t *table, uint32_t n) {
-  assert(n <= table->npatterns);
-
-  table->npatterns = n;
-}
-
-
-/*
- * Empty the table: delete all pattern objects
- */
-static void reset_pattern_table(pattern_table_t *table) {
-  shrink_pattern_table(table, 0);
-}
-
-
-/*
- * Delete the table
- */
-static void delete_pattern_table(pattern_table_t *table) {
-  shrink_pattern_table(table, 0);
-
-  safe_free(table->data);
-  table->data = NULL;
-}
-
-
-/*
- * Allocate a new pattern index i
- * - data[i] is not initialized
- */
-static int32_t pattern_table_alloc(pattern_table_t *table) {
-  uint32_t i;
-
-  i = table->npatterns;
-  if (i == table->size) {
-    extend_pattern_table(table);
-  }
-  assert(i < table->size);
-  table->npatterns = i+1;
-
-  return i;
-}
 
 
 /********************
@@ -294,6 +214,7 @@ static int32_t quant_solver_add_pattern(quant_solver_t *solver, term_t p, term_t
   pat->fun = make_index_vector(f, nf);
   pat->fapps = make_index_vector(fa, nfa);
   pat->consts = make_index_vector(c, nc);
+  pat->code = -1;
 
   return i;
 }
@@ -517,7 +438,7 @@ static void quant_setup_patterns(quant_solver_t *solver, term_t t, ivector_t *pa
 /*
  * Preprocess problem constraint
  */
-static int32_t quant_preprocess_cnstr(quant_solver_t *solver, term_t t, ivector_t *patterns) {
+static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, term_t t, ivector_t *patterns) {
   int32_t i;
   ivector_t *v;
 
@@ -548,9 +469,15 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
     for (r = ptr_hmap_first_record(patterns);
          r != NULL;
          r = ptr_hmap_next_record(patterns, r)) {
-      quant_preprocess_cnstr(solver, r->key, r->val);
+      quant_preprocess_assertion_with_pattern(solver, r->key, r->val);
     }
   }
+
+  ematch_globals_t em;
+  init_ematch(&em, solver->prob->terms, &solver->ptbl);
+  ematch_compile_all_patterns(&em);
+
+//  assert(0);
 }
 
 /*
