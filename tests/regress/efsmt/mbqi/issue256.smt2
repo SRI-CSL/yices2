@@ -1,0 +1,6 @@
+(set-logic UF)
+(declare-fun _substvar_41_ () Bool)
+(declare-const v6 Bool)
+(declare-const v7 Bool)
+(assert (=> (and (=> v6 false) (=> v7 v6) v7) _substvar_41_))
+(check-sat)

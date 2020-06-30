@@ -129,11 +129,11 @@ and in the third case take B to be U.
 
 In each case we can find a  k  in { 1, ...., delta } such that
 
-Delta[B + k]   in the first two cases, and
+Delta[B + k]  in the first two cases, and
 
 Delta[B - k] in the third.
 
-Thus we eliminate y by B + k   or B - k according to the nature of the original
+Thus we eliminate y by B + k or B - k according to the nature of the original
 set of constraints.
 
 

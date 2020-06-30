@@ -121,7 +121,7 @@ void init_projector(projector_t *proj, model_t *mdl, term_manager_t *mngr, uint3
   proj->val_subst = NULL;
 
   proj->is_presburger = true;  
-  
+  proj->presburger = NULL;
 }
 
 
@@ -139,9 +139,6 @@ static int_hset_t *proj_get_avars_to_keep(projector_t *proj) {
   }
   return tmp;
 }
-
-
-
 
 
 /*
@@ -218,7 +215,7 @@ static void proj_build_val_subst(projector_t *proj) {
   }
 
   // convert v->data[0 ... n-1] to constant terms
-  m = convert_value_array(proj->terms, model_get_vtbl(proj->mdl), n, v->data);
+  m = convert_value_array(proj->mngr, proj->terms, model_get_vtbl(proj->mdl), n, v->data);
   assert(m <= n);
   if (m < n) {
     // no subcode for conversion errors
@@ -290,6 +287,7 @@ void delete_projector(projector_t *proj) {
   proj_delete_elim_subst(proj);
   proj_delete_arith_proj(proj);
   proj_delete_val_subst(proj);
+  proj_delete_presburger_proj(proj);
 }
 
 
@@ -407,7 +405,6 @@ static void proj_add_arith_literal(projector_t *proj, term_t t) {
 void projector_add_literal(projector_t *proj, term_t t) {
   assert(true_formula(proj, t));
 
-  
   if (is_arithmetic_literal(proj->terms, t)) {
 
     //see if we are still on song for cooperdom
@@ -556,7 +553,7 @@ static void proj_process_arith_literals(projector_t *proj) {
 
   // Pass all variables from proj->avars to the arith_projector
   n = proj->arith_vars.size;
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_arith_var(proj, x, false);
@@ -637,7 +634,7 @@ static void proj_process_presburger_literals(projector_t *proj) {
 
   // Pass all variables from proj->avars to the arith_projector
   n = proj->arith_vars.size;
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_presburger_var(proj, x, false);
@@ -748,12 +745,13 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
     proj_elim_by_substitution(proj);
   }
   if (proj->flag == NO_ERROR && proj->arith_literals.size > 0) {
-    if(proj->is_presburger){
+    if (proj->is_presburger) {
       proj_process_presburger_literals(proj);
     } else {
       proj_process_arith_literals(proj);
     }
   }
+
   if (proj->flag == NO_ERROR && proj->num_evars > 0) {  
     // some variables were not eliminated in the first two phases
     // replace them by their value in the model

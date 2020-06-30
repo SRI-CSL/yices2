@@ -109,12 +109,12 @@ extern void reset_poly_buffer(poly_buffer_t *buffer);
  *
  * The result is not in normal form.
  */
-extern void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a);
-extern void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a);
+extern void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a);
+extern void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a);
 extern void poly_buffer_add_var(poly_buffer_t *buffer, int32_t x);
 extern void poly_buffer_sub_var(poly_buffer_t *buffer, int32_t x);
-extern void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b);
-extern void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b);
+extern void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a, const rational_t *b);
+extern void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, const rational_t *a, const rational_t *b);
 
 
 /*
@@ -127,11 +127,11 @@ extern void poly_buffer_clear_monomial(poly_buffer_t *buffer, int32_t x);
 /*
  * Short cuts: for add_const and sub_const
  */
-static inline void poly_buffer_add_const(poly_buffer_t *buffer, rational_t *a) {
+static inline void poly_buffer_add_const(poly_buffer_t *buffer, const rational_t *a) {
   poly_buffer_add_monomial(buffer, const_idx, a);
 }
 
-static inline void poly_buffer_sub_const(poly_buffer_t *buffer, rational_t *a) {
+static inline void poly_buffer_sub_const(poly_buffer_t *buffer, const rational_t *a) {
   poly_buffer_sub_monomial(buffer, const_idx, a);
 }
 
@@ -161,29 +161,29 @@ static inline void poly_buffer_clear_const(poly_buffer_t *buffer) {
  * addmul means add a * p to buffer
  * submul maans subtract a * p from buffer
  */
-extern void poly_buffer_add_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n);
-extern void poly_buffer_sub_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n);
-extern void poly_buffer_addmul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a);
-extern void poly_buffer_submul_monarray(poly_buffer_t *buffer, monomial_t *p, uint32_t n, rational_t *a);
+extern void poly_buffer_add_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n);
+extern void poly_buffer_sub_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n);
+extern void poly_buffer_addmul_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n, const rational_t *a);
+extern void poly_buffer_submul_monarray(poly_buffer_t *buffer, const monomial_t *p, uint32_t n, const rational_t *a);
 
 
 
 /*
  * Same operations with p given as a polynomial object
  */
-static inline  void poly_buffer_add_poly(poly_buffer_t *buffer, polynomial_t *p) {
+static inline  void poly_buffer_add_poly(poly_buffer_t *buffer, const polynomial_t *p) {
   poly_buffer_add_monarray(buffer, p->mono, p->nterms);
 }
 
-static inline void poly_buffer_sub_poly(poly_buffer_t *buffer, polynomial_t *p) {
+static inline void poly_buffer_sub_poly(poly_buffer_t *buffer, const polynomial_t *p) {
   poly_buffer_sub_monarray(buffer, p->mono, p->nterms);
 }
 
-static inline void poly_buffer_addmul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
+static inline void poly_buffer_addmul_poly(poly_buffer_t *buffer, const polynomial_t *p, const rational_t *a) {
   poly_buffer_addmul_monarray(buffer, p->mono, p->nterms, a);
 }
 
-static inline void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t *a) {
+static inline void poly_buffer_submul_poly(poly_buffer_t *buffer, const polynomial_t *p, const rational_t *a) {
   poly_buffer_submul_monarray(buffer, p->mono, p->nterms, a);
 }
 
@@ -197,8 +197,6 @@ static inline void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *
  *   for all basic variables y.
  */
 extern void poly_buffer_substitution(poly_buffer_t *buffer, matrix_t *matrix);
-
-
 
 
 
@@ -257,7 +255,7 @@ extern void poly_buffer_negate(poly_buffer_t *buffer);
  * Multiply by constant a (a must not be zero)
  * - this keeps the buffer normalized if it is when the function is called
  */
-extern void poly_buffer_rescale(poly_buffer_t *buffer, rational_t *a);
+extern void poly_buffer_rescale(poly_buffer_t *buffer, const rational_t *a);
 
 
 

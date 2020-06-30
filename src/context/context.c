@@ -31,6 +31,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
@@ -1712,6 +1713,8 @@ static thvar_t map_bvpoly64_to_bv(context_t *ctx, bvpoly64_t *p) {
   thvar_t *a;
   thvar_t x;
 
+  assert(p->nterms > 0);
+
   n = p->nterms;
   a = alloc_istack_array(&ctx->istack, n);
 
@@ -1742,6 +1745,8 @@ static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
   uint32_t i, n;
   thvar_t *a;
   thvar_t x;
+
+  assert(p->nterms > 0);
 
   n = p->nterms;
   a = alloc_istack_array(&ctx->istack, n);
@@ -5312,8 +5317,6 @@ static void create_fun_solver(context_t *ctx) {
 }
 
 
-
-
 /*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point
@@ -5333,6 +5336,7 @@ static void init_solvers(context_t *ctx) {
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   // Create egraph first, then satellite solvers
   if (solvers & EGRPH) {
@@ -5484,6 +5488,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   /*
    * Global tables + gate manager
@@ -5591,6 +5596,12 @@ void delete_context(context_t *ctx) {
     ctx->fun_solver = NULL;
   }
 
+  if (ctx->quant_solver != NULL) {
+    delete_quant_solver(ctx->quant_solver);
+    safe_free(ctx->quant_solver);
+    ctx->quant_solver = NULL;
+  }
+
   if (ctx->bv_solver != NULL) {
     delete_bv_solver(ctx->bv_solver);
     safe_free(ctx->bv_solver);
@@ -5598,7 +5609,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
-  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5788,7 +5799,7 @@ static void context_show_assertions(const context_t *ctx, uint32_t n, const term
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -6009,11 +6020,6 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
   return code;
 }
 
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
-}
-
-
 /*
  * Assert all formulas f[0] ... f[n-1]
  * The context status must be IDLE.
@@ -6025,7 +6031,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
  *   determined
  * - otherwise, the code is negative to report an error.
  */
-int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
@@ -6052,6 +6058,11 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   return code;
 }
+
+int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_assert_formulas(ctx, n, f));
+}
+
 
 
 
@@ -6454,145 +6465,5 @@ void context_gc_mark(context_t *ctx) {
 
   if (ctx->mcsat != NULL) {
     mcsat_gc_mark(ctx->mcsat);
-  }
-}
-
-
-/*
- * Statistics about each solvers
- */
-void print_core_stats(FILE *f, smt_core_t *core) {
-  fprintf(f, ":boolean-variables %"PRIu32"\n", num_vars(core));
-  fprintf(f, ":atoms %"PRIu32"\n", num_atoms(core));
-  fprintf(f, ":clauses %"PRIu32"\n", num_clauses(core));
-  fprintf(f, ":restarts %"PRIu32"\n", num_restarts(core));
-  fprintf(f, ":clause-db-reduce %"PRIu32"\n", num_reduce_calls(core));
-  fprintf(f, ":clause-db-simplify %"PRIu32"\n", num_simplify_calls(core));
-  fprintf(f, ":decisions %"PRIu64"\n", num_decisions(core));
-  fprintf(f, ":conflicts %"PRIu64"\n", num_conflicts(core));
-  fprintf(f, ":theory-conflicts %"PRIu32"\n", num_theory_conflicts(core));
-  fprintf(f, ":boolean-propagations %"PRIu64"\n", num_propagations(core));
-  fprintf(f, ":theory-propagations %"PRIu32"\n", num_theory_propagations(core));
-}
-
-void print_egraph_stats(FILE *f, egraph_t *egraph) {
-  fprintf(f, ":egraph-terms %"PRIu32"\n", egraph_num_terms(egraph));
-  fprintf(f, ":egraph-atoms %"PRIu32"\n", egraph_num_atoms(egraph));
-  fprintf(f, ":egraph-conflicts %"PRIu32"\n", egraph_num_conflicts(egraph));
-  fprintf(f, ":egraph-ackermann-lemmas %"PRIu32"\n", egraph_all_ackermann(egraph));
-  fprintf(f, ":egraph-final-checks %"PRIu32"\n", egraph_num_final_checks(egraph));
-  fprintf(f, ":egraph-interface-lemmas %"PRIu32"\n", egraph_num_interface_eqs(egraph));
-}
-
-void print_funsolver_stats(FILE *f, fun_solver_t *solver) {
-  fprintf(f, ":array-vars %"PRIu32"\n", fun_solver_num_vars(solver));
-  fprintf(f, ":array-edges %"PRIu32"\n", fun_solver_num_edges(solver));
-  fprintf(f, ":array-update1-axioms %"PRIu32"\n", fun_solver_num_update1_axioms(solver));
-  fprintf(f, ":array-update2-axioms %"PRIu32"\n", fun_solver_num_update2_axioms(solver));
-  fprintf(f, ":array-extensionality-axioms %"PRIu32"\n", fun_solver_num_extensionality_axioms(solver));
-}
-
-void print_simplex_stats(FILE *f, simplex_solver_t *solver) {
-  simplex_collect_statistics(solver);
-  fprintf(f, ":simplex-init-vars %"PRIu32"\n", simplex_num_init_vars(solver));
-  fprintf(f, ":simplex-init-rows %"PRIu32"\n", simplex_num_init_rows(solver));
-  fprintf(f, ":simplex-init-atoms %"PRIu32"\n", simplex_num_init_atoms(solver));
-  fprintf(f, ":simplex-vars %"PRIu32"\n", simplex_num_vars(solver));
-  fprintf(f, ":simplex-rows %"PRIu32"\n", simplex_num_rows(solver));
-  fprintf(f, ":simplex-atoms %"PRIu32"\n", simplex_num_atoms(solver));
-  fprintf(f, ":simplex-pivots %"PRIu32"\n", simplex_num_pivots(solver));
-  fprintf(f, ":simplex-conflicts %"PRIu32"\n", simplex_num_conflicts(solver));
-  fprintf(f, ":simplex-interface-lemmas %"PRIu32"\n", simplex_num_interface_lemmas(solver));
-  if (simplex_num_make_integer_feasible(solver) > 0 ||
-      simplex_num_dioph_checks(solver) > 0) {
-    fprintf(f, ":simplex-integer-vars %"PRIu32"\n", simplex_num_integer_vars(solver));
-    fprintf(f, ":simplex-branch-and-bound %"PRIu32"\n", simplex_num_branch_and_bound(solver));
-    fprintf(f, ":simplex-gomory-cuts %"PRIu32"\n", simplex_num_gomory_cuts(solver));
-    // bound strenthening
-    fprintf(f, ":simplex-bound-conflicts %"PRIu32"\n", simplex_num_bound_conflicts(solver));
-    fprintf(f, ":simplex-bound-recheck-conflicts %"PRIu32"\n", simplex_num_bound_recheck_conflicts(solver));
-    // integrality test
-    fprintf(f, ":simplex-itest-conflicts %"PRIu32"\n", simplex_num_itest_conflicts(solver));
-    fprintf(f, ":simplex-itest-bound-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    fprintf(f, ":simplex-itest-recheck-conflicts %"PRIu32"\n", simplex_num_itest_bound_conflicts(solver));
-    // diophantine solver
-    fprintf(f, ":simplex-gcd-conflicts %"PRIu32"\n", simplex_num_dioph_gcd_conflicts(solver));
-    fprintf(f, ":simplex-dioph-checks %"PRIu32"\n", simplex_num_dioph_checks(solver));
-    fprintf(f, ":simplex-dioph-conflicts %"PRIu32"\n", simplex_num_dioph_conflicts(solver));
-    fprintf(f, ":simplex-dioph-bound-conflicts %"PRIu32"\n", simplex_num_dioph_bound_conflicts(solver));
-    fprintf(f, ":simplex-dioph-recheck-conflicts %"PRIu32"\n", simplex_num_dioph_recheck_conflicts(solver));
-  }
-}
-
-void print_bvsolver_stats(FILE *f, bv_solver_t *solver) {
-  fprintf(f, ":bvsolver-vars %"PRIu32"\n", bv_solver_num_vars(solver));
-  fprintf(f, ":bvsolver-atoms %"PRIu32"\n", bv_solver_num_atoms(solver));
-  fprintf(f, ":bvsolver-equiv-lemmas %"PRIu32"\n", bv_solver_equiv_lemmas(solver));
-  fprintf(f, ":bvsolver-interface-lemmas %"PRIu32"\n", bv_solver_interface_lemmas(solver));
-}
-
-void print_idl_fw_stats(FILE *f, idl_solver_t *solver) {
-  fprintf(f, ":idl-solver-vars %"PRIu32"\n", idl_num_vars(solver));
-  fprintf(f, ":idl-solver-atoms %"PRIu32"\n", idl_num_atoms(solver));
-}
-
-void print_rdl_fw_stats(FILE *f, rdl_solver_t *solver) {
-  fprintf(f, ":rdl-solver-vars %"PRIu32"\n", rdl_num_vars(solver));
-  fprintf(f, ":rdl-solver-atoms %"PRIu32"\n", rdl_num_atoms(solver));
-}
-
-
-/*
- * Context statistics
- */
-void print_ctx_stats(FILE *f, context_t *ctx) {
-  assert(ctx->core != NULL);
-  print_core_stats(f, ctx->core);
-
-  if (context_has_egraph(ctx)) {
-    print_egraph_stats(f, ctx->egraph);
-  }
-
-  if (context_has_fun_solver(ctx)) {
-    print_funsolver_stats(f, ctx->fun_solver);
-  }
-  if (context_has_arith_solver(ctx)) {
-    if (context_has_simplex_solver(ctx)) {
-      print_simplex_stats(f, ctx->arith_solver);
-    } else if (context_has_idl_solver(ctx)) {
-      print_idl_fw_stats(f, ctx->arith_solver);
-    } else {
-      assert(context_has_rdl_solver(ctx));
-      print_rdl_fw_stats(f, ctx->arith_solver);
-    }
-  }
-
-  if (context_has_bv_solver(ctx)) {
-    print_bvsolver_stats(f, ctx->bv_solver);
-  }
-
-//  if (ctx->mcsat != NULL) {
-//    mcsat_print_stats(ctx->mcsat, __smt2_globals.out);
-//  }
-}
-
-
-/*
- * Global state
- */
-void print_statistics(FILE *f, context_t *ctx) {
-//  double time, mem;
-
-//  time = get_cpu_time();
-//  mem = mem_size() / (1024*1024);
-
-  fprintf(f, ":num-terms %"PRIu32"\n", yices_num_terms());
-  fprintf(f, ":num-types %"PRIu32"\n", yices_num_types());
-//  fprintf(f, ":total-run-time %.3f\n", time);
-//  if (mem > 0) {
-//    fprintf(f, ":mem-usage %.3f\n", mem);
-//  }
-  if (ctx != NULL) {
-    print_ctx_stats(f, ctx);
   }
 }

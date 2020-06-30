@@ -207,6 +207,15 @@ struct mcsat_solver_s {
   /** Lemmas reported by plugins  */
   ivector_t plugin_lemmas;
 
+  /** Lemmas defining a variable. Will be re-asserted on pop if the variable is still there */
+  ivector_t plugin_definition_lemmas;
+
+  /** Variables of definition lemmas (as terms) */
+  ivector_t plugin_definition_vars;
+
+  /** Last processed definition lemma */
+  uint32_t plugin_definition_lemmas_i;
+
   /** Number of plugins */
   uint32_t plugins_count;
 
@@ -502,6 +511,21 @@ void trail_token_lemma(trail_token_t* token, term_t lemma) {
   ivector_push(&tk->ctx->mcsat->plugin_lemmas, lemma);
 }
 
+static
+void trail_token_definition_lemma(trail_token_t* token, term_t lemma, term_t t) {
+  plugin_trail_token_t* tk = (plugin_trail_token_t*) token;
+
+  if (ctx_trace_enabled(&tk->ctx->ctx, "trail::lemma")) {
+    ctx_trace_printf(&tk->ctx->ctx, "plugin %s reporting a definition lemma\n", tk->ctx->plugin_name);
+    ctx_trace_term(&tk->ctx->ctx, lemma);
+  }
+
+  tk->used ++;
+
+  // Remember the definition
+  ivector_push(&tk->ctx->mcsat->plugin_definition_lemmas, lemma);
+  ivector_push(&tk->ctx->mcsat->plugin_definition_vars, t);
+}
 
 /** Concstruct the trail token */
 static inline
@@ -510,6 +534,7 @@ void trail_token_construct(plugin_trail_token_t* token, mcsat_plugin_context_t* 
   token->token_interface.add_at_level = trail_token_add_at_level;
   token->token_interface.conflict = trail_token_conflict;
   token->token_interface.lemma = trail_token_lemma;
+  token->token_interface.definition_lemma = trail_token_definition_lemma;
   token->ctx = ctx;
   token->x = x;
   token->used = 0;
@@ -802,6 +827,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
+  init_ivector(&mcsat->plugin_definition_lemmas, 0);
+  init_ivector(&mcsat->plugin_definition_vars, 0);
+  mcsat->plugin_definition_lemmas_i = 0;
 
   // Construct stats
   statistics_construct(&mcsat->stats);
@@ -843,6 +871,8 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   preprocessor_destruct(&mcsat->preprocessor);
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
+  delete_ivector(&mcsat->plugin_definition_lemmas);
+  delete_ivector(&mcsat->plugin_definition_vars);
   statistics_destruct(&mcsat->stats);
   scope_holder_destruct(&mcsat->scope);
 }
@@ -942,6 +972,7 @@ void mcsat_push(mcsat_solver_t* mcsat) {
   scope_holder_push(&mcsat->scope,
       &mcsat->assertion_vars.size,
       &mcsat->assertion_terms_original.size,
+      &mcsat->plugin_definition_lemmas.size,
       NULL);
   // Regular push for the internal data structures
   mcsat_push_internal(mcsat);
@@ -984,13 +1015,15 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   // Internal stuff pop
   uint32_t assertion_vars_size = 0;
-  uint32_t assertion_terms_original_size = 0;
+  uint32_t assertion_terms_size = 0;
+  uint32_t definition_lemmas_size = 0;
   scope_holder_pop(&mcsat->scope,
       &assertion_vars_size,
-      &assertion_terms_original_size,
+      &assertion_terms_size,
+      &definition_lemmas_size,
       NULL);
   ivector_shrink(&mcsat->assertion_vars, assertion_vars_size);
-  ivector_shrink(&mcsat->assertion_terms_original, assertion_terms_original_size);
+  ivector_shrink(&mcsat->assertion_terms_original, assertion_terms_size);
 
   // Pop the preprocessor
   preprocessor_pop(&mcsat->preprocessor);
@@ -1001,6 +1034,24 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   // Garbage collect
   mcsat_gc(mcsat, false);
   (*mcsat->solver_stats.gc_calls) ++;
+
+  // Definition lemmas (keep the ones that need the definition (variable still active)
+  uint32_t lemma_i = definition_lemmas_size, lemma_to_keep = definition_lemmas_size;
+  for (; lemma_i < mcsat->plugin_definition_lemmas.size; ++ lemma_i) {
+    term_t lemma = mcsat->plugin_definition_lemmas.data[lemma_i];
+    term_t variable = mcsat->plugin_definition_vars.data[lemma_i];
+    if (variable_db_has_variable(mcsat->var_db, variable)) {
+      mcsat->plugin_definition_lemmas.data[lemma_to_keep] = lemma;
+      mcsat->plugin_definition_vars.data[lemma_to_keep] = variable;
+      lemma_to_keep ++;
+    }
+  }
+  ivector_shrink(&mcsat->plugin_definition_lemmas, lemma_to_keep);
+  ivector_shrink(&mcsat->plugin_definition_vars, lemma_to_keep);
+  mcsat->plugin_definition_lemmas_i = definition_lemmas_size;
+  if (definition_lemmas_size < mcsat->plugin_definition_lemmas.size) {
+    mcsat_assert_formulas(mcsat, 0, NULL);
+  }
 
   // Set the status back to idle
   mcsat->status = STATUS_IDLE;
@@ -1282,7 +1333,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
  * is encountered.
  */
 static
-bool mcsat_propagate(mcsat_solver_t* mcsat) {
+bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
 
   uint32_t plugin_i;
   plugin_t* plugin;
@@ -1295,7 +1346,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
     // Propagate with all the plugins in turn
     for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagting with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
       // Make the token
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
@@ -1306,6 +1357,25 @@ bool mcsat_propagate(mcsat_solver_t* mcsat) {
       }
       if (prop_token.used > 0) {
         someone_propagated = true;
+      }
+    }
+    // If at base level, plugins can do some more expensive learning/propagation
+    if (run_learning && !someone_propagated && trail_is_at_base_level(mcsat->trail)) {
+      // Propagate with all the plugins in turn
+      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
+          mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): learning with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        }
+        // Make the token
+        trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
+        // Propagate
+        plugin = mcsat->plugins[plugin_i].plugin;
+        if (plugin->learn) {
+          plugin->learn(plugin, (trail_token_t*) &prop_token);
+        }
+        if (prop_token.used > 0) {
+          someone_propagated = true;
+        }
       }
     }
   } while (someone_propagated && trail_is_consistent(mcsat->trail));
@@ -1368,7 +1438,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   }
 
   // Do propagation
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
 }
 
 /**
@@ -1378,7 +1448,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 static
 bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t bound) {
 
-  uint32_t i;
+  uint32_t i, unassigned_count;
   term_t literal;
   term_t literal_pos;
   variable_t literal_var;
@@ -1387,7 +1457,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
   term_t to_decide_atom = NULL_TERM;
   variable_t to_decide_var = variable_null;
 
-  for (i = 0; i < literals->size; ++ i) {
+  for (i = 0, unassigned_count = 0; i < literals->size; ++ i) {
 
     literal = literals->data[i];
     literal_pos = unsigned_term(literal);
@@ -1402,6 +1472,7 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
 
     // Can be decided?
     if (!trail_has_value(mcsat->trail, literal_var)) {
+      unassigned_count ++;
       if (trace_enabled(mcsat->ctx->trace, "mcsat::lemma")) {
         mcsat_trace_printf(mcsat->ctx->trace, "unassigned!\n");
       }
@@ -1428,6 +1499,10 @@ bool mcsat_decide_one_of(mcsat_solver_t* mcsat, ivector_t* literals, term_t boun
     trail_add_decision(mcsat->trail, to_decide_var, value, MCSAT_MAX_PLUGINS);
     return true;
   } else {
+    if (unassigned_count > 0) {
+      // Couldn't find a bound decision, do arbitrary
+      return mcsat_decide_one_of(mcsat, literals, NULL_TERM);
+    }
     return false;
   }
 }
@@ -1528,7 +1603,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   }
 
   // Propagate any
-  mcsat_propagate(mcsat);
+  mcsat_propagate(mcsat, false);
   bool propagated = old_trail_size < mcsat->trail->elements.size;
 
   // Decide a literal if necessary. At this point, if it was UIP they are all
@@ -1718,7 +1793,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       // [backjump-decide]
       assignment_type_t top_var_type = trail_get_assignment_type(mcsat->trail, top_var);
       if (top_var_type == DECISION) {
-        assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
+        // assert(variable_db_get_term(mcsat->var_db, top_var) < conflict_get_max_literal_of(&conflict, top_var));
         decision_bound = variable_db_get_term(mcsat->var_db, top_var);
         break;
       }
@@ -2036,6 +2111,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // Whether to run learning
+  bool learning = true;
+
   while (!mcsat->stop_search) {
 
     // Do we restart
@@ -2049,7 +2127,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
     mcsat_process_requests(mcsat);
 
     // Do propagation
-    mcsat_propagate(mcsat);
+    mcsat_propagate(mcsat, learning);
+    learning = false;
 
     // If inconsistent, analyze the conflict
     if (!trail_is_consistent(mcsat->trail)) {
@@ -2142,6 +2221,20 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
   preprocessor_set_tracer(&mcsat->preprocessor, tracer);
 }
 
+static
+void mcsat_flush_lemmas(mcsat_solver_t* mcsat, ivector_t* out) {
+  // Flush regular lemmas
+  ivector_add(out, mcsat->plugin_lemmas.data, mcsat->plugin_lemmas.size);
+  ivector_reset(&mcsat->plugin_lemmas);
+
+  // Copy definition lemmas
+  uint32_t i = mcsat->plugin_definition_lemmas_i;
+  for (; i < mcsat->plugin_definition_lemmas.size; ++ i) {
+    ivector_push(out, mcsat->plugin_definition_lemmas.data[i]);
+  }
+  mcsat->plugin_definition_lemmas_i = mcsat->plugin_definition_lemmas.size;
+}
+
 int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
   uint32_t i;
 
@@ -2150,9 +2243,12 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
     ivector_push(&mcsat->assertion_terms_original, f[i]);
   }
 
-  // Preprocess the formulas (preprocessor might throw)
+  // Add any leftover lemmas
   ivector_t* assertions = &mcsat->assertions_tmp;
   ivector_reset(assertions);
+  mcsat_flush_lemmas(mcsat, assertions);
+
+  // Preprocess the formulas (preprocessor might throw)
   ivector_add(assertions, f, n);
   for (i = 0; i < assertions->size; ++ i) {
     term_t f = assertions->data[i];
@@ -2165,8 +2261,7 @@ int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f
     // Assert it
     mcsat_assert_formula(mcsat, assertions->data[i]);
     // Add any lemmas that were added
-    ivector_add(assertions, mcsat->plugin_lemmas.data, mcsat->plugin_lemmas.size);
-    ivector_reset(&mcsat->plugin_lemmas);
+    mcsat_flush_lemmas(mcsat, assertions);
   }
 
   // Delete the temp

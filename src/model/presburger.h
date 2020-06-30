@@ -37,7 +37,6 @@
  *   PRES_EQ           = 2       equality   (poly = 0)
  *   PRES_POS_DIVIDES  = 3       divides    + (k | poly)
  *   PRES_NEG_DIVIDES  = 4       divides    - (k | poly)
- *
  */
 typedef enum {
   PRES_GT           = 0,
@@ -48,14 +47,14 @@ typedef enum {
 } presburger_tag_t;
 
 /*
- * Tags for identifying the Cooper form of a constraint.
+ * Tags for identifying the Cooper form of a constraint:
+ * When eliminating variable y
  *
+ *  VAR_NONE: means that y does not occur
  *  VAR_LT   y < e
  *  VAR_GT   e < y
  *  VAR_EQ   y = e
- *  VAR_PD   d | y + r
- *  VAR_ND   not (d | y + r)
- *
+ *  VAR_DV   (d | y + r)  or  not (d | y + r)
  */
 typedef enum {
   VAR_NONE = -1,
@@ -72,7 +71,7 @@ typedef enum {
  * - glb, the (strict) greatest lower bound on y
  * - glbv, the value of the blb in the model
  * - poly, and exact solution "y = poly" if there is such a constraint
- * - delta, the lcm of all the (in)divisibility constraints.
+ * - delta, the lcm of all the divisibility constraints and non-divisibility contraints.
  */
 typedef struct cooper_s {
   //the greatest lower bound and its value
@@ -90,16 +89,17 @@ typedef struct cooper_s {
 
 /*
  * Presburger constraint:
- * - id = constraint id (it's index in the constraints pvector)
+ * - id = constraint id (its index in the constraints pvector)
  * - tag = constraint type
  * - nterms = number of monomials
  * - mono = array of nterms + 1 monomials
- * we use the same conventions as in polynomials.h:
+ *
+ * We use the same conventions as in polynomials.h:
  * - the monomials are ordered by increasing variable index
  * - mono[nterms] contains the end marker max_idx
  * - const_idx = 0 denotes the constant
  * - divisor; used if the constraint is a divides ±(k | u)
- *   stores the value of k
+ *   stores the value of k. Set to 0 in other cases.
  *
  * - the id is a counter incremented with every new constraint
  */
@@ -107,7 +107,7 @@ typedef struct presburger_constraint_s {
   uint32_t id;
   presburger_tag_t tag;
   uint32_t nterms;
-  rational_t *divisor;  // non-null only when tag is either PRES_POS_DIVIDES, or  PRES_NEG_DIVIDES.
+  rational_t divisor;   // used only if tag is PRES_POS_DIVIDES or PRES_NEG_DIVIDES
   monomial_t mono[0];   // real size = nterms+1
 } presburger_constraint_t;
 
@@ -127,7 +127,6 @@ enum {
 
 /*
  * An impoverished version Bruno's arith_proj vtbl.
- *
  */
 typedef struct presburger_vtbl_s {
   uint32_t nvars;   // number of variables
@@ -143,7 +142,7 @@ typedef struct presburger_vtbl_s {
   rational_t *values;
 
   // mapping a variable to its index in the variables array
-  // which should also be the index of it's value in the values
+  // which should also be the index of its value in the values
   // array
   int_hmap_t vmap;
 } presburger_vtbl_t;
@@ -166,10 +165,19 @@ typedef struct presburger_s {
   poly_buffer_t buffer;
 } presburger_t;
 
+
 /*
  * Check that the term in question is indeed a presburger literal.
  * The most likely reason this would fail is that the term contained
  * Real variables or constants.
+ *
+ * Returns true if t or (not t) is a term of the following form:
+ *  ARITH_EQ_ATOM: (u == 0)
+ *  ARITH_GE_ATOM: (u >= 0)
+ *  ARITH_BINEQ_ATOM: (u == v)
+ *  ARITH_DIVDES_ATOM: (k | u)
+ *
+ * where u and v are integer terms.
  */
 extern bool is_presburger_literal(term_table_t *table, term_t t);
 
@@ -181,14 +189,12 @@ extern bool is_presburger_literal(term_table_t *table, term_t t);
  */
 extern void init_presburger_projector(presburger_t *pres, term_manager_t *mngr, uint32_t n, uint32_t c);
 
-
 /*
  * Reset:
  * - remove all variables and constraints
  * - reset all internal tables.
  */
 extern void reset_presburger_projector(presburger_t *pres);
-
 
 /*
  * Delete: free memory
@@ -228,6 +234,7 @@ extern void presburger_close_var_set(presburger_t *pres);
  *    (NOT (ARITH_DIVIDES_ATOM k t))
  *   where t, t1, t2 are either variables declared in proj or linear
  *   polynomials in variables declared in proj, and k is an integer constant.
+ *
  * - c must be true in the model specified by calls to presburger_add_var
  * - no variables can be added after this function is called
  *

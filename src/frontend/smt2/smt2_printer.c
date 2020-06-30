@@ -81,6 +81,26 @@ static void smt2_pp_integer(smt2_pp_t *printer, rational_t *q) {
   }
 }
 
+// integer value printed in the SMT syntax for reals
+// no change to q
+static void smt2_pp_integer_as_real(smt2_pp_t *printer, rational_t *q) {
+  rational_t aux;
+
+  assert(q_is_integer(q));
+
+  if (q_is_neg(q)) {
+    q_init(&aux);
+    q_set_neg(&aux, q);
+    pp_open_block(&printer->pp, PP_OPEN_MINUS);
+    pp_smt2_integer_as_real(&printer->pp, &aux);
+    pp_close_block(&printer->pp, true);
+    q_clear(&aux);
+  } else {
+    pp_smt2_integer_as_real(&printer->pp, q);
+  }
+}
+
+
 static void smt2_pp_rational(smt2_pp_t *printer, rational_t *q) {
   rational_t num, den;
 
@@ -163,6 +183,19 @@ void smt2_pp_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
   case TUPLE_VALUE:
   default:
     assert(false);
+  }
+}
+
+
+/*
+ * Variant with a type argument.
+ * - this is used to format integer value as reals when printing objects
+ */
+static void smt2_pp_typed_object(smt2_pp_t *printer, value_table_t *table, value_t c, type_t tau) {
+  if (object_is_integer(table, c) && is_real_type(tau)) {
+    smt2_pp_integer_as_real(printer, vtbl_rational(table, c));
+  } else {
+    smt2_pp_object(printer, table, c);
   }
 }
 
@@ -427,7 +460,7 @@ static void smt2_pp_object_in_def(smt2_pp_t *printer, value_table_t *table, type
   } else if (object_is_update(table, c)) {
     smt2_pp_array_update(printer, table, c);
   } else {
-    smt2_pp_object(printer, table, c);
+    smt2_pp_typed_object(printer, table, c, tau);
   }
 }
 
@@ -576,7 +609,7 @@ void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name, typ
 /*
  * Variant of smt2_pp_object that uses SMT2 syntax for arrays
  */
-void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
+void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c, type_t tau) {
   value_fun_t *fun;
 
   if (object_is_function(table, c)) {
@@ -585,6 +618,6 @@ void smt2_pp_smt2_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
   } else if (object_is_update(table, c)) {
     smt2_pp_array_update(printer, table, c);
   } else {
-    smt2_pp_object(printer, table, c);
+    smt2_pp_typed_object(printer, table, c, tau);
   }
 }

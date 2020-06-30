@@ -139,6 +139,11 @@ struct trail_token_s {
    */
   void (*lemma) (trail_token_t* token, term_t lemma);
 
+  /**
+   * Add a definition lemma that will stay for as long as the variable is there.
+   */
+  void (*definition_lemma) (trail_token_t* token, term_t lemma, term_t x);
+
 };
 
 /**
@@ -213,6 +218,13 @@ struct plugin_s {
    * only once. If must is true, the plugin must decide on the variable.
    */
   void (*decide) (plugin_t* plugin, variable_t x, trail_token_t* decide, bool must);
+
+  /**
+   * Optional: learn using the given trail token. This is called at base level after
+   * propagation is done and there is no conflict. This is a chance to perform some
+   * more expensive reasoning and propagate consequences.
+   */
+  void (*learn) (plugin_t* plugin, trail_token_t* prop);
 
   /**
    * Explain the conflict that you reported. The plugin should return a conflict
@@ -291,6 +303,7 @@ void plugin_construct(plugin_t* plugin) {
   plugin->new_lemma_notify      = NULL;
   plugin->propagate             = NULL;
   plugin->decide                = NULL;
+  plugin->learn                 = NULL;
   plugin->get_conflict          = NULL;
   plugin->explain_propagation   = NULL;
   plugin->explain_evaluation    = NULL;

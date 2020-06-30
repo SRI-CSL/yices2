@@ -24,6 +24,9 @@
 #include <poly/variable_db.h>
 #include <poly/variable_list.h>
 #include <poly/feasibility_set.h>
+#include <poly/interval.h>
+#include <poly/assignment.h>
+#include <poly/polynomial_vector.h>
 
 /**
  * A constraint of the form sgn(p(x)) = sgn_conition.
@@ -69,44 +72,10 @@ struct poly_constraint_db_struct {
 
   /** Map from variables to constraint references */
   int_hmap_t var_to_constraint_map;
+
+  /** List of all constraint variables */
+  ivector_t all_constraint_variables;
 };
-
-static
-void poly_constraint_gc_mark(const poly_constraint_t* constraint, nra_plugin_t* nra, gc_info_t* gc_vars) {
-  lp_variable_list_t vars;
-  lp_variable_list_construct(&vars);
-  lp_polynomial_get_variables(constraint->polynomial, &vars);
-  uint32_t var_i;
-  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
-    lp_variable_t x_lp = vars.list[var_i];
-    variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
-    gc_info_mark(gc_vars, x);
-  }
-  lp_variable_list_destruct(&vars);
-}
-
-void poly_constraint_db_gc_mark(poly_constraint_db_t* db, gc_info_t* gc_vars) {
-  // Look for any constraints at the current gc level
-  uint32_t marked_i = 0;
-  for (marked_i = gc_vars->marked_first; marked_i < gc_vars->marked.size; marked_i ++) {
-    // Current variable
-    variable_t constraint_var = gc_vars->marked.data[marked_i];
-    // Check if in database
-    int_hmap_pair_t* find = int_hmap_find(&db->var_to_constraint_map, constraint_var);
-    if (find != NULL) {
-      // It's a constraint, mark the variables
-      assert(find->val < db->constraints.size);
-      poly_constraint_t* constraint = db->constraints.data[find->val];
-      if (ctx_trace_enabled(db->nra->ctx, "nra::gc")) {
-        ctx_trace_printf(db->nra->ctx, "Marking variables of :");
-        poly_constraint_print(constraint, ctx_trace_out(db->nra->ctx));
-        ctx_trace_printf(db->nra->ctx, "\n");
-      }
-      // Mark the variables in the constraint
-      poly_constraint_gc_mark(constraint, db->nra, gc_vars);
-    }
-  }
-}
 
 void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_vars) {
 
@@ -117,10 +86,11 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
   init_int_hmap(&new_var_to_constraint_map, 0);
 
   // Move the constraints
-  int_hmap_pair_t* it = int_hmap_first_record(&db->var_to_constraint_map);
-  for (; it != NULL; it = int_hmap_next_record(&db->var_to_constraint_map, it)) {
+  uint32_t i, to_keep = 0;
+  for (i = 0; i < db->all_constraint_variables.size; ++ i) {
+    variable_t old_constraint_var = db->all_constraint_variables.data[i];
+    int_hmap_pair_t* it = int_hmap_find(&db->var_to_constraint_map, old_constraint_var);
     // Do we keep it
-    variable_t old_constraint_var = it->key;
     variable_t new_constraint_var = gc_info_get_reloc(gc_vars, old_constraint_var);
     poly_constraint_t* constraint = db->constraints.data[it->val];
     if (new_constraint_var != gc_vars->null_value) {
@@ -128,6 +98,7 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
       uint32_t new_index = new_constraints.size;
       pvector_push(&new_constraints, constraint);
       int_hmap_add(&new_var_to_constraint_map, new_constraint_var, new_index);
+      db->all_constraint_variables.data[to_keep ++] = new_constraint_var;
     } else {
       if (ctx_trace_enabled(db->nra->ctx, "nra::gc")) {
         ctx_trace_printf(db->nra->ctx, "Removing constraint :");
@@ -144,6 +115,7 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, const gc_info_t* gc_v
   delete_int_hmap(&db->var_to_constraint_map);
   db->constraints = new_constraints;
   db->var_to_constraint_map = new_var_to_constraint_map;
+  ivector_shrink(&db->all_constraint_variables, to_keep);
 }
 
 
@@ -278,6 +250,149 @@ lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* 
   return feasible;
 }
 
+bool poly_constraint_infer_bounds(const poly_constraint_t* cstr, bool negated, lp_interval_assignment_t* m, ivector_t* inferred_vars) {
+
+  // TODO: is it possible to support root constraints
+  if (poly_constraint_is_root_constraint(cstr)) {
+    return false;
+  }
+
+  // Infer some bounds
+  int inference_result = lp_polynomial_constraint_infer_bounds(cstr->polynomial, cstr->sgn_condition, negated, m);
+  if (inference_result == 0) {
+    return false;
+  }
+  if (inference_result == -1) {
+    return true;
+  }
+
+  lp_variable_list_t vars;
+  lp_variable_list_construct(&vars);
+  lp_polynomial_get_variables(cstr->polynomial, &vars);
+  uint32_t var_i;
+  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
+    lp_variable_t x_lp = vars.list[var_i];
+    const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
+    if (x_interval != NULL) {
+      // something is inferred
+      ivector_push(inferred_vars, x_lp);
+    }
+  }
+  lp_variable_list_destruct(&vars);
+
+  return false;
+}
+
+bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, const poly_constraint_t* c1, bool c1_negated, nra_plugin_t* nra, ivector_t* out) {
+
+  lp_polynomial_context_t* ctx = nra->lp_data.lp_ctx;
+  lp_assignment_t* m = nra->lp_data.lp_assignment;
+
+  if (poly_constraint_is_root_constraint(c0) || poly_constraint_is_root_constraint(c1)) {
+    return false;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+    ctx_trace_printf(nra->ctx, "c0 %s: ", c0_negated ? "(negated)" : "");
+    poly_constraint_print(c0, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+    ctx_trace_printf(nra->ctx, "c1 %s: ", c1_negated ? "(negated)" : "");
+    poly_constraint_print(c1, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+  }
+
+  lp_polynomial_vector_t* assumptions = lp_polynomial_vector_new(ctx);
+
+  lp_sign_condition_t R_sgn_condition;
+  lp_polynomial_t* R = lp_polynomial_new(ctx);
+  lp_sign_condition_t c0_sgn_condition = c0_negated ? lp_sign_condition_negate(c0->sgn_condition) : c0->sgn_condition;
+  lp_sign_condition_t c1_sgn_condition = c1_negated ? lp_sign_condition_negate(c1->sgn_condition) : c1->sgn_condition;
+  bool ok = lp_polynomial_constraint_resolve_fm(c0->polynomial, c0_sgn_condition, c1->polynomial, c1_sgn_condition, m, R, &R_sgn_condition, assumptions);
+  if (ok) {
+    // (C1 && C2 && assumptions && !(p R2 0)) => false
+    term_manager_t* tm = nra->ctx->tm;
+    size_t n = lp_polynomial_vector_size(assumptions);
+    size_t i;
+    for (i = 0; i < n; ++ i) {
+      lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
+      term_t assumption_i_p_term = lp_polynomial_to_yices_term(nra, assumption_p_i);
+      int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
+      term_t assumption_i = NULL_TERM;
+      if (assumption_i_p_sgn < 0) {
+        assumption_i = mk_arith_term_lt0(tm, assumption_i_p_term);
+      } else if (assumption_i_p_sgn > 0) {
+        assumption_i = mk_arith_term_gt0(tm, assumption_i_p_term);
+      } else {
+        assumption_i = mk_arith_term_eq0(tm, assumption_i_p_term);
+      }
+      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+        ctx_trace_printf(nra->ctx, "adding FM assumption: ");
+        ctx_trace_term(nra->ctx, assumption_i);
+      }
+      ivector_push(out, assumption_i);
+      lp_polynomial_delete(assumption_p_i);
+    }
+    term_t R_p_term = lp_polynomial_to_yices_term(nra, R);
+    term_t R_term = NULL_TERM;
+    switch (R_sgn_condition) {
+    case LP_SGN_LT_0:
+      R_term = mk_arith_term_lt0(tm, R_p_term);
+      break;
+    case LP_SGN_LE_0:
+      R_term = mk_arith_term_leq0(tm, R_p_term);
+      break;
+    case LP_SGN_EQ_0:
+      R_term = mk_arith_term_eq0(tm, R_p_term);
+      break;
+    case LP_SGN_NE_0:
+      R_term = mk_arith_term_neq0(tm, R_p_term);
+      break;
+    case LP_SGN_GT_0:
+      R_term = mk_arith_term_gt0(tm, R_p_term);
+      break;
+    case LP_SGN_GE_0:
+      R_term = mk_arith_term_geq0(tm, R_p_term);
+      break;
+    }
+    R_term = opposite_term(R_term);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+      ctx_trace_printf(nra->ctx, "adding resolvent: ");
+      ctx_trace_term(nra->ctx, R_term);
+    }
+    ivector_push(out, R_term);
+  }
+
+  lp_polynomial_delete(R);
+  lp_polynomial_vector_delete(assumptions);
+
+  return ok;
+}
+
+
+bool poly_constraint_is_unit(const poly_constraint_t* cstr, const lp_assignment_t* M) {
+  lp_variable_t x = lp_polynomial_top_variable(cstr->polynomial);
+  if (lp_assignment_get_value(M, x)->type != LP_VALUE_NONE) {
+    return false;
+  }
+
+  bool result = true;
+
+  lp_variable_list_t vars;
+  lp_variable_list_construct(&vars);
+  lp_polynomial_get_variables(cstr->polynomial, &vars);
+  uint32_t var_i;
+  for (var_i = 0; var_i < vars.list_size; ++ var_i) {
+    lp_variable_t x_lp = vars.list[var_i];
+    if (x_lp != x && lp_assignment_get_value(M, x_lp)->type == LP_VALUE_NONE) {
+      result = false;
+      break;
+    }
+  }
+  lp_variable_list_destruct(&vars);
+
+  return result;
+}
+
 lp_variable_t poly_constraint_get_top_variable(const poly_constraint_t* cstr) {
   return lp_polynomial_top_variable(cstr->polynomial);
 }
@@ -287,6 +402,7 @@ void poly_constraint_db_construct(poly_constraint_db_t* db, nra_plugin_t* nra) {
 
   init_pvector(&db->constraints, 0);
   init_int_hmap(&db->var_to_constraint_map, 0);
+  init_ivector(&db->all_constraint_variables, 0);
 }
 
 poly_constraint_db_t* poly_constraint_db_new(nra_plugin_t* nra) {
@@ -307,12 +423,18 @@ void poly_constraint_db_destruct(poly_constraint_db_t* db) {
 
   delete_pvector(&db->constraints);
   delete_int_hmap(&db->var_to_constraint_map);
+  delete_ivector(&db->all_constraint_variables);
 }
 
 void poly_constraint_db_delete(poly_constraint_db_t* db) {
   poly_constraint_db_destruct(db);
   safe_free(db);
 }
+
+const ivector_t* poly_constraint_db_get_constraints(const poly_constraint_db_t* db) {
+  return &db->all_constraint_variables;
+}
+
 
 bool poly_constraint_db_check(const poly_constraint_db_t* db) {
   uint32_t i;
@@ -494,6 +616,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   // Add the constraint
   pvector_push(&db->constraints, cstr);
   int_hmap_add(&db->var_to_constraint_map, constraint_var, index);
+  ivector_push(&db->all_constraint_variables, constraint_var);
 
   // assert(poly_constraint_db_check(db));
 }
@@ -524,4 +647,52 @@ bool poly_constraint_evaluate(const poly_constraint_t* cstr, nra_plugin_t* nra, 
   }
 
   return true;
+}
+
+const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, variable_t constraint_var, nra_plugin_t* nra) {
+  const mcsat_value_t* result = NULL;
+
+  // Get the constraints
+  const poly_constraint_t* cstr = poly_constraint_db_get(db, constraint_var);
+  if (poly_constraint_is_root_constraint(cstr)) {
+    // TODO: check if possible
+    return NULL;
+  }
+
+  // Reset the interval assignment
+  lp_interval_assignment_t* m = nra->lp_data.lp_interval_assignment;
+  lp_interval_assignment_reset(m);
+
+  // Setup the assignment x -> I(x)
+  assert(watch_list_manager_has_constraint(&nra->wlm, constraint_var));
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, constraint_var);
+  variable_t* vars = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+  for (; *vars != variable_null; vars++) {
+    variable_t x = *vars;
+    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+    lp_interval_t x_interval;
+    lp_interval_construct_full(&x_interval);
+    feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
+    lp_interval_assignment_set_interval(m, x_lp, &x_interval);
+    lp_interval_destruct(&x_interval);
+  }
+
+  // Evaluate the polynomial
+  lp_interval_t value;
+  lp_interval_construct_full(&value);
+  lp_polynomial_interval_value(cstr->polynomial, m, &value);
+
+  lp_sign_condition_t pos = cstr->sgn_condition;
+  lp_sign_condition_t neg = lp_sign_condition_negate(cstr->sgn_condition);
+
+  if (lp_sign_condition_consistent_interval(pos, &value)) {
+    result = &mcsat_value_true;
+  } else if (lp_sign_condition_consistent_interval(neg, &value)) {
+    result = &mcsat_value_false;
+  }
+
+  // Remove temps
+  lp_interval_destruct(&value);
+
+  return result;
 }

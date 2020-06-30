@@ -2492,19 +2492,29 @@ void record_theory_conflict(smt_core_t *s, literal_t *a) {
     }
   }
   printf("}\n");
-#endif
   fflush(stdout);
+#endif
 
 #if DEBUG
   check_theory_conflict(s, a);
 #endif
 
-  assert(! s->inconsistent && ! s->theory_conflict);
-  s->stats.th_conflicts ++;
-  s->inconsistent = true;
-  s->theory_conflict = true;
-  s->false_clause = NULL;
-  s->conflict = a;
+  /*
+   * NOTE: it's possible to have several conflicts
+   * in one smt_propagate call. We keep the first one.
+   *
+   * Example: egraph progagates equality or disequality to the bvsolver,
+   * as part of base_propagates. Then the bvsolver may create a unit clause
+   * that may be false. (issue221)
+   */
+  if (! s->inconsistent) {
+    assert(! s->theory_conflict);
+    s->stats.th_conflicts ++;
+    s->inconsistent = true;
+    s->theory_conflict = true;
+    s->false_clause = NULL;
+    s->conflict = a;
+  }
 }
 
 
@@ -5408,6 +5418,14 @@ void smt_clear(smt_core_t *s) {
   } else {
     // no state to restore. Just backtrack and clear the assignment
     backtrack_to_base_level(s);
+    if (s->assumptions) {
+      // remove the assumptions
+      s->has_assumptions = false;
+      s->num_assumptions = 0;
+      s->assumption_index = 0;
+      s->assumptions = NULL;
+      s->bad_assumption = null_literal;
+    }
     s->status = STATUS_IDLE;
   }
 }

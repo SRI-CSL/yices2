@@ -275,6 +275,27 @@ static term_t get_subst_of_unint(term_subst_t *subst, term_t x) {
 
 
 /*
+ * Lookup the term mapped to x where x is constant
+ * - lookup x in the map
+ * - if x is not there return x
+ */
+static term_t get_subst_of_const(term_subst_t *subst, term_t x) {
+  int_hmap_pair_t *p;
+  term_t y;
+
+  assert(is_pos_term(x) && term_kind(subst->terms, x) == CONSTANT_TERM);
+
+  y = x;
+  p = int_hmap_find(&subst->map, x);
+  if (p != NULL) {
+    y = p->val;
+  }
+
+  return y;
+}
+
+
+/*
  * Check whether the result of subst(t) is stored in the cache
  * - t must be a valid term in subst->terms
  * - this takes the renaming context into account
@@ -1327,7 +1348,6 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
   t = unsigned_term(t);
 
   switch (term_kind(terms, t)) {
-  case CONSTANT_TERM:
   case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
@@ -1340,6 +1360,10 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
 
   case UNINTERPRETED_TERM:
     result = get_subst_of_unint(subst, t);
+    break;
+
+  case CONSTANT_TERM:
+    result = get_subst_of_const(subst, t);
     break;
 
   default:

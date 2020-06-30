@@ -652,6 +652,7 @@ struct context_s {
   void *arith_solver;
   void *bv_solver;
   void *fun_solver;
+  void *quant_solver;
 
   // solver internalization interfaces
   arith_interface_t arith;

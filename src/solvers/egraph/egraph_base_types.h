@@ -409,12 +409,13 @@ typedef enum etype_s {
   ETYPE_INT,      // 0
   ETYPE_REAL,     // 1
   ETYPE_BV,       // 2
-  ETYPE_FUNCTION, // 3
+  ETYPE_QUANT,    // 3
+  ETYPE_FUNCTION, // 4
 
   // etypes internal to the egraph
-  ETYPE_BOOL,     // 4
-  ETYPE_TUPLE,    // 5
-  ETYPE_NONE,     // 6
+  ETYPE_BOOL,     // 5
+  ETYPE_TUPLE,    // 6
+  ETYPE_NONE,     // 7
 
 } etype_t;
 

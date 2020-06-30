@@ -87,7 +87,7 @@ extern void context_pop(context_t *ctx);
 /*
  * Options for the simplex solver. If the context already contains
  * a simplex solver, then these options are set in this solver.
- * Otherwise,, they will be set at the time the simplex solver is 
+ * Otherwise, they will be set at the time the simplex solver is
  * constructed and added to the simplex solver.
  */
 extern void enable_splx_eager_lemmas(context_t *ctx);
@@ -204,6 +204,20 @@ extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t
  *   is copied into the model
  */
 extern void context_build_model(model_t *model, context_t *ctx);
+
+/*
+ * Build a model for the current context (including all satellite solvers)
+ * - the context status must be SAT (or UNKNOWN)
+ * - if model->has_alias is true, we store the term substitution
+ *   defined by ctx->intern_tbl into the model
+ * - cleanup of satellite models needed using clean_solver_models()
+ */
+extern void build_model(model_t *model, context_t *ctx);
+
+/*
+ * Cleanup solver models
+ */
+extern void clean_solver_models(context_t *ctx);
 
 
 /*
@@ -410,10 +424,5 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
 extern void context_gc_mark(context_t *ctx);
 
 
-/*
- * Statistics about each solvers
- */
-
-extern void print_statistics(FILE *f, context_t *ctx);
 
 #endif /* __CONTEXT_H */
