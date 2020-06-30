@@ -2162,7 +2162,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params) {
               fprintf(out, "Assertion not true in model: ");
               trace_term_ln(mcsat->ctx->trace, mcsat->terms, assertion);
               fprintf(out, "In model:\n");
-              model_print(out, &model);
+              model_print(out, &model, PP_LANG_YICES);
             }
             assert(assertion_is_true);
           }
