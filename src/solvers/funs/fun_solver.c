@@ -39,6 +39,7 @@
 #include "io/tracer.h"
 #include "model/fun_trees.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/funs/stratification.h"
 #include "utils/hash_functions.h"
 #include "utils/index_vectors.h"
 #include "utils/int_array_sort2.h"
@@ -1118,7 +1119,6 @@ static inline thvar_t root_var(fun_solver_t *solver, thvar_t x) {
 }
 
 
-
 /*
  * Build the equivalence classes
  * - set root[x] for all variables
@@ -1149,7 +1149,6 @@ static void fun_solver_build_classes(fun_solver_t *solver) {
       vtbl->next[x] = i;
     }
   }
-
 }
 
 
@@ -2314,7 +2313,6 @@ literal_t fun_solver_select_eq_polarity(fun_solver_t *solver, thvar_t x1, thvar_
  * INTERFACE EQUALITIES
  */
 
-
 /*
  * Propagate c = (apply f i_1 ... i_n) to all root variables z reachable
  * from x = root variable for f via a non-masking path.
@@ -2561,8 +2559,9 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
       if (p > h) p = h;
 
 #if TRACE
-      printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
-             sigma, h, i - m);
+      printf("---> connected components of type tau: %"PRId32"\n", tau);
+      printf("--->   range type: sigma = %"PRId32" of card = %"PRIu32"\n", sigma, h);
+      printf("--->   num classes = %"PRIu32"\n", i - m);
       fflush(stdout);
 #endif
 
@@ -2595,7 +2594,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
 	solver->base_value[k] = buffer.data[h];
 #if TRACE
-	printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
+	printf("--->   base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
 	h ++;
 	if (h >= p) h = 0;
@@ -2864,6 +2863,45 @@ static void fun_solver_release_model(fun_solver_t *solver) {
 
 
 /*
+ * Stratification
+ * - build stratification structure
+ */
+static void fun_solver_stratify(stratification_t *levels, fun_solver_t *solver) {
+  fun_vartable_t *vtbl;
+  diseq_stack_t *dstack;
+  uint32_t i, n;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (vtbl->root[i] == i) {
+      stratify_incr_var_count(levels, fun_var_type(vtbl, i));
+    }
+  }
+  dstack = &solver->dstack;
+  n = dstack->top;
+  for (i=0; i<n; i++) {
+    x = dstack->data[i].left;
+    stratify_incr_diseq_count(levels, fun_var_type(vtbl, x));
+  }
+  stratify_make_arrays(levels);
+
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (vtbl->root[i] == i) {
+      stratify_add_var(levels, i, fun_var_type(vtbl, i));
+    }
+  }
+  n = dstack->top;
+  for (i=0; i<n; i++) {
+    x = dstack->data[i].left;
+    stratify_add_diseq(levels, i, fun_var_type(vtbl, x));
+  }
+}
+
+
+/*
  * Build a model that attempt to minimize conflicts with the egraph.
  * Add instance of the extensionality axiom for the conflicts that remain.
  * - max_eq is ignored (we use max_extensionality instead)
@@ -2878,6 +2916,7 @@ static void fun_solver_release_model(fun_solver_t *solver) {
  * distinct values.
  */
 uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
+  stratification_t levels;
   fun_vartable_t *vtbl;
   diseq_stack_t *dstack;
   int_hclass_t hclass;
@@ -2914,10 +2953,18 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   printf("\n");
 #endif
 
+  // testing
+  init_stratification(&levels, solver->types);
+  fun_solver_stratify(&levels, solver);
+  //  printf("---- Stratification ----\n");
+  //  print_fsolver_stratification(stdout, &levels, solver);
+  //  printf("\n");
+  delete_stratification(&levels);
+
   /*
    * We keep track of the current number of variables before
    * generating any extensionality axioms (extensionality axioms
-   * may create new variables in this solver.
+   * may create new variables in this solver).
    */
   nv0 = solver->vtbl.nvars;
   neq = 0;
