@@ -275,6 +275,11 @@ typedef struct type_mtbl_s {
  *    but they must all be set to '0' too.
  *
  *    bit 7 is used as a mark during garbage collection
+ * - depth[i] = syntactic depth:
+ *    for atomic types and type variables: depth = 0
+ *    for tuple type (tau_1 x ... x tau_n): depth = 1 + max depth(tau_i)
+ *    for function type (tau_1 ... tau_n -> tau_0): depth = 1 + max depth(tau_i)
+ *    for instance type F(tau_1, ... , tau_n): depth = 1 + max depth(tau_i)
  *
  * Other components:
  * - size = size of all arrays above

@@ -367,3 +367,34 @@ void print_fsolver_diseqs(FILE *f, fun_solver_t *solver) {
 }
 
 
+/*
+ * Print stratification structure
+ */
+void print_fsolver_stratification(FILE *f, stratification_t *s, fun_solver_t *solver) {
+  diseq_stack_t *dstack;
+  uint32_t i, j, k, n, m, d;
+
+  i = 0;
+  n = strat_num_levels(s);
+  for (k=0; k<n; k++) {
+    m = num_vars_in_stratum(s, k);
+    for (j=0; j<m; j++) {
+      fprintf(f, "f!%"PRId32": level = %"PRIu32"\n", s->vars[i], k);
+      i ++;
+    }
+  }
+  fprintf(f, "\n");
+  
+  dstack = &solver->dstack;
+  i = 0;
+  for (k=0; k<n; k++) {
+    m = num_diseqs_in_stratum(s, k);
+    for (j=0; j<m; j++) {
+      d = s->diseqs[i];
+      fprintf(f, "diseq[%"PRIu32"]: level = %"PRIu32": f!%"PRId32" != f!%"PRId32"\n",
+	      d, k, dstack->data[d].left, dstack->data[d].right);
+      i ++;
+    }
+  }
+  fprintf(f, "\n");
+}

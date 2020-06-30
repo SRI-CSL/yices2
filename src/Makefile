@@ -200,7 +200,9 @@ core_src_c := \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \
+	solvers/funs/fun_level.c \
 	solvers/funs/fun_solver.c \
+	solvers/funs/stratification.c \
 	solvers/simplex/arith_atomtable.c \
 	solvers/simplex/arith_vartable.c \
 	solvers/simplex/diophantine_systems.c \
