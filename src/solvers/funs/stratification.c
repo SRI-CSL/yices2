@@ -228,3 +228,32 @@ void stratify_add_diseq(stratification_t *s, uint32_t i, type_t sigma) {
   s->diseqs[j] = i;
   s->strata[k].diseq_idx ++;  
 }
+
+
+/*
+ * Beginning of slices
+ * - this should be cheap to compute because the number of levels should be small
+ */
+uint32_t first_var_in_stratum(const stratification_t *s, uint32_t k) {
+  uint32_t i, v;
+
+  assert(k < s->nlevels);
+
+  v = 0;
+  for (i=0; i<k; i++) {
+    v += s->strata[i].nvars;
+  }
+  return v;
+}
+
+uint32_t first_diseq_in_stratum(const stratification_t *s, uint32_t k) {
+  uint32_t i, d;
+
+  assert(k < s->nlevels);
+
+  d = 0;
+  for (i=0; i<k; i++) {
+    d += s->strata[i].ndiseqs;
+  }
+  return d;
+}

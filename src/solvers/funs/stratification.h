@@ -174,11 +174,16 @@ static inline uint32_t num_vars_in_stratum(const stratification_t *s, uint32_t i
   return s->strata[i].nvars;
 }
 
+// start of variable slice for stratum i
+extern uint32_t first_var_in_stratum(const stratification_t *s, uint32_t i);
+
 // number of disequalities in stratum i
 static inline uint32_t num_diseqs_in_stratum(const stratification_t *s, uint32_t i) {
   assert(i < s->nlevels);
   return s->strata[i].ndiseqs;
 }
 
+// start of disequality slice for stratum i
+extern uint32_t first_diseq_in_stratum(const stratification_t *s, uint32_t i);
 
 #endif /* __STRATIFICATION_H */
