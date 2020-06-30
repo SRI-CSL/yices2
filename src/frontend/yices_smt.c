@@ -2004,7 +2004,7 @@ static int process_benchmark(char *filename) {
   if (dump_context) {
     context.options |= DUMP_OPTION_MASK;
   }
-  init_trace (&tracer);
+  init_trace (&tracer, PP_LANG_YICES);
   set_trace_vlevel(&tracer, 3);
   context_set_trace(&context, &tracer);
   context_exists = true;

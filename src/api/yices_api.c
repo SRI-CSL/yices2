@@ -6188,7 +6188,7 @@ int32_t _o_yices_pp_type(FILE *f, type_t tau, pp_lang_t lang, uint32_t width, ui
   area.stretch = false;
   area.truncate = true;
 
-  init_default_yices_pp(&printer, f, &area);
+  init_default_yices_pp(&printer, lang, f, &area);
   pp_type_exp(&printer, __yices_globals.types, tau);
   flush_yices_pp(&printer);
 
@@ -6248,7 +6248,7 @@ int32_t _o_yices_pp_term(FILE *f, term_t t, pp_lang_t lang, uint32_t width, uint
   area.stretch = false;
   area.truncate = true;
 
-  init_default_yices_pp(&printer, f, &area);
+  init_default_yices_pp(&printer, lang, f, &area);
   pp_term_full(&printer, __yices_globals.terms, t);
   flush_yices_pp(&printer);
 
@@ -6308,9 +6308,9 @@ int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], pp_lang_t 
   area.truncate = true;
 
   if (horiz == 0) {
-    init_default_yices_pp(&printer, f, &area); // default: PP_VMODE
+    init_default_yices_pp(&printer, lang, f, &area); // default: PP_VMODE
   } else {
-    init_yices_pp(&printer, f, &area, PP_HVMODE, 0); // horizontal/vertical mode
+    init_yices_pp(&printer, lang, f, &area, PP_HVMODE, 0); // horizontal/vertical mode
   }
 
   for (i=0; i<n; i++) {
@@ -6373,7 +6373,7 @@ char *_o_yices_type_to_string(type_t tau, pp_lang_t lang, uint32_t width, uint32
   area.stretch = false;
   area.truncate = true;
 
-  init_default_yices_pp(&printer, NULL, &area);
+  init_default_yices_pp(&printer, lang, NULL, &area);
   pp_type_exp(&printer, __yices_globals.types, tau);
   flush_yices_pp(&printer);
 
@@ -6406,7 +6406,7 @@ char *_o_yices_term_to_string(term_t t, pp_lang_t lang, uint32_t width, uint32_t
   area.stretch = false;
   area.truncate = true;
 
-  init_default_yices_pp(&printer, NULL, &area);
+  init_default_yices_pp(&printer, lang, NULL, &area);
   pp_term_full(&printer, __yices_globals.terms, t);
   flush_yices_pp(&printer);
 
@@ -9151,7 +9151,7 @@ int32_t _o_yices_pp_model(FILE *f, model_t *mdl, pp_lang_t lang, uint32_t width,
   area.stretch = false;
   area.truncate = false;
 
-  init_default_yices_pp(&printer, f, &area);
+  init_default_yices_pp(&printer, lang, f, &area);
   model_pp_full(&printer, mdl);
   flush_yices_pp(&printer);
 
@@ -9204,7 +9204,7 @@ char *_o_yices_model_to_string(model_t *mdl, pp_lang_t lang, uint32_t width, uin
   area.stretch = false;
   area.truncate = false;
 
-  init_default_yices_pp(&printer, NULL, &area);
+  init_default_yices_pp(&printer, lang, NULL, &area);
   model_pp_full(&printer, mdl);
   flush_yices_pp(&printer);
 
@@ -9304,7 +9304,7 @@ int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t 
   area.stretch = false;
   area.truncate = true;
 
-  init_default_yices_pp(&printer, f, &area);
+  init_default_yices_pp(&printer, lang, f, &area);
   model_pp_eval_terms(&printer, mdl, a, n);
   flush_yices_pp(&printer);
 

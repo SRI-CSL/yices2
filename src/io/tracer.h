@@ -46,18 +46,20 @@ typedef struct tracer_s {
   bool print_failed;     // true if printing fails
   int err_code;          // copy of errno when failure was reported
   pvector_t trace_tags;  // list of tags
+  pp_lang_t lang;        // output language
 } tracer_t;
 
 
 /*
  * Initialize to defaults
  */
-static inline void init_trace(tracer_t *tracer) {
+static inline void init_trace(tracer_t *tracer, pp_lang_t lang) {
   tracer->file = stderr;
   tracer->pp = NULL;
   tracer->vlevel = 0;
   tracer->print_failed = false;
   tracer->err_code = 0;
+  tracer->lang = lang;
   init_pvector(&tracer->trace_tags, 5);
 }
 

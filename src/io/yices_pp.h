@@ -270,6 +270,7 @@ typedef struct yices_pp_s {
   pp_close_token_t close_par;
   void *close[2];  // close[0] = nopar, close[1] = par
   string_buffer_t buffer;
+  pp_lang_t lang;
 } yices_pp_t;
 
 
@@ -293,15 +294,15 @@ extern void init_yices_pp_tables(void);
  *
  * If area is NULL, then the default is used (cf. pretty_printer.h)
  */
-extern void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
+extern void init_yices_pp(yices_pp_t *printer, pp_lang_t lang, FILE *file, pp_area_t *area,
                           pp_print_mode_t mode, uint32_t indent);
 
 
 /*
  * Variant: use default mode and indent
  */
-static inline void init_default_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area) {
-  init_yices_pp(printer, file, area, PP_VMODE, 0);
+static inline void init_default_yices_pp(yices_pp_t *printer, pp_lang_t lang, FILE *file, pp_area_t *area) {
+  init_yices_pp(printer, lang, file, area, PP_VMODE, 0);
 }
 
 
@@ -489,7 +490,7 @@ extern void pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
  * Print object c on FILE f
  *
  */
-extern void pp_value(FILE *f, value_table_t *table, value_t c);
+extern void pp_value(FILE *f, value_table_t *table, value_t c, pp_lang_t lang);
 
 
 

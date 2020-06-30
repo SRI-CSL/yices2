@@ -1105,7 +1105,7 @@ static int process_benchmark(void) {
 
 #if COMMAND_LINE_OPTIONS
   if (verbose) {
-    init_trace(&tracer);
+    init_trace(&tracer, PP_LANG_YICES);
     set_trace_vlevel(&tracer, 2);
     context_set_trace(&context, &tracer);
   }

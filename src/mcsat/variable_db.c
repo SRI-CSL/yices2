@@ -147,7 +147,7 @@ uint32_t variable_db_size(const variable_db_t* var_db) {
 
 void variable_db_print_variable(const variable_db_t* var_db, variable_t x, FILE* out) {
   yices_pp_t printer;
-  init_yices_pp(&printer, out, NULL, PP_HMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, out, NULL, PP_HMODE, 0);
   pp_term_full(&printer, var_db->terms, variable_db_get_term(var_db, x));
   flush_pp(&printer.pp, false);
   delete_yices_pp(&printer, false);

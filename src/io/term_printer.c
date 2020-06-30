@@ -2774,7 +2774,7 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
   area.truncate = true;
   area.stretch = false;
 
-  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, f, &area, PP_VMODE, 0);
 
   n = tbl->nelems;
   for (i=0; i<n; i++) {
@@ -2812,7 +2812,7 @@ void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t
     default_area.truncate = false;
     area = &default_area;
   }
-  init_yices_pp(&printer, f, area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, f, area, PP_VMODE, 0);
   pp_term_exp(&printer, tbl, t);
   flush_yices_pp(&printer);
   delete_yices_pp(&printer, false);
@@ -2830,7 +2830,7 @@ void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t 
     default_area.truncate = false;
     area = &default_area;
   }
-  init_yices_pp(&printer, f, area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, f, area, PP_VMODE, 0);
   pp_term_full(&printer, tbl, t);
   flush_yices_pp(&printer);
   delete_yices_pp(&printer, false);

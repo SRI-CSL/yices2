@@ -2677,7 +2677,7 @@ static void show_core(const assumptions_and_core_t *a) {
   uint32_t i, n;
   assumption_t *d;
 
-  init_yices_pp(&printer, stdout, &pp_area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, stdout, &pp_area, PP_VMODE, 0);
   pp_open_block(&printer, PP_OPEN_PAR);
 
   n = a->core.size;
@@ -3816,7 +3816,7 @@ int yices_main(int argc, char *argv[]) {
    */
   if (verbosity > 0) {
     tracer = (tracer_t *) safe_malloc(sizeof(tracer_t));
-    init_trace(tracer);
+    init_trace(tracer, PP_LANG_YICES);
     set_trace_vlevel(tracer, verbosity);
   }
 

@@ -24,7 +24,7 @@
 
 void term_print_to_file(FILE* out, term_table_t* terms, term_t t) {
   yices_pp_t printer;
-  init_yices_pp(&printer, out, NULL, PP_HMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, out, NULL, PP_HMODE, 0);
   pp_term_full(&printer, terms, t);
   flush_pp(&printer.pp, false);
   delete_yices_pp(&printer, false);

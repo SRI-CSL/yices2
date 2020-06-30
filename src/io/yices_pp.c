@@ -566,9 +566,14 @@ static void free_close_token(yices_pp_t *printer, pp_close_token_t *tk) {
  * - indent = initial indentation
  * If area is NULL, then the default is used (cf. pretty_printer.h)
  */
-void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
+void init_yices_pp(yices_pp_t *printer, pp_lang_t lang, FILE *file, pp_area_t *area,
                    pp_print_mode_t mode, uint32_t indent) {
   pp_token_converter_t converter;
+
+  /*
+   * Set the language of the printer
+   */
+  printer->lang = lang;
 
   /*
    * Initialize the stores, close tokens, and buffer first
@@ -1261,10 +1266,10 @@ void pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
  * Print object c on FILE f
  *
  */
-void pp_value(FILE *f, value_table_t *table, value_t c) {
+void pp_value(FILE *f, value_table_t *table, value_t c, pp_lang_t lang) {
   yices_pp_t printer;
   pp_area_t area = {  40, UINT32_MAX, 0, false, false,  };
-  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+  init_yices_pp(&printer, lang, f, &area, PP_VMODE, 0);
 
   pp_object(&printer, table, c);
 

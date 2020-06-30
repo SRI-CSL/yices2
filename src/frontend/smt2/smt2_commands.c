@@ -1783,7 +1783,7 @@ static tracer_t *get_tracer(smt2_globals_t *g) {
   tmp = g->tracer;
   if (tmp == NULL) {
     tmp = (tracer_t *) safe_malloc(sizeof(tracer_t));
-    init_trace(tmp);
+    init_trace(tmp, PP_LANG_SMT2);
     set_trace_vlevel(tmp, g->verbosity);
     set_trace_file(tmp, g->err);
     g->tracer = tmp;

@@ -145,7 +145,7 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
         const conflict_element_t* element = conflict->elements + current;
 
         yices_pp_t printer;
-        init_yices_pp(&printer, out, NULL, PP_HMODE, 0);
+        init_yices_pp(&printer, PP_LANG_YICES, out, NULL, PP_HMODE, 0);
         pp_term_full(&printer, conflict->terms, element->D);
         flush_pp(&printer.pp, false);
         delete_yices_pp(&printer, false);

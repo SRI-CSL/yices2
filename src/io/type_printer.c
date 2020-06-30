@@ -533,7 +533,7 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
   area.truncate = true;
   area.stretch = false;
 
-  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, f, &area, PP_VMODE, 0);
 
   n = tbl->nelems;
   for (i=0; i<n; i++) {

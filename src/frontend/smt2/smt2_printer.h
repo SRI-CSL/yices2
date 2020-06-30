@@ -66,7 +66,7 @@ typedef struct smt2_pp_s {
  * - dec: value for bv_decimal
  */
 static inline void init_smt2_pp(smt2_pp_t *printer, FILE *file, pp_area_t *area, pp_print_mode_t mode, bool dec) {
-  init_yices_pp(&printer->pp, file, area, mode, 0);
+  init_yices_pp(&printer->pp, PP_LANG_SMT2, file, area, mode, 0);
   mpz_init(printer->aux);
   printer->bv_as_decimal = dec;
 }

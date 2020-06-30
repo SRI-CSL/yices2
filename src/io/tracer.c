@@ -38,7 +38,7 @@ static yices_pp_t *tracer_get_pp(tracer_t *tracer) {
   pp = tracer->pp;
   if (pp == NULL) {
     pp = (yices_pp_t *) safe_malloc(sizeof(yices_pp_t));
-    init_default_yices_pp(pp, tracer->file, NULL);
+    init_default_yices_pp(pp, tracer->lang, tracer->file, NULL);
     tracer->pp = pp;
   }
 

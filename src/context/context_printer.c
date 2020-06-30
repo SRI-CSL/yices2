@@ -281,7 +281,7 @@ void pp_context(FILE *f, context_t *ctx) {
   area.stretch = false;
   area.truncate = false;
 
-  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+  init_yices_pp(&printer, PP_LANG_YICES, f, &area, PP_VMODE, 0);
   pp_string(&printer, "Substitutions");
   flush_yices_pp(&printer);
   pp_intern_substitutions(&printer, &ctx->intern);
