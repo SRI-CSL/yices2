@@ -229,16 +229,58 @@ static void ematch_print_W(ematch_compile_t *comp, const char *comment) {
   int_hmap_t *W;
   int_hmap_pair_t *ip;
 
-  W = &comp->W;
-  printf("COMP.W #%d %s\n", W->nelems, comment);
-  for (ip = int_hmap_first_record(W);
-       ip != NULL;
-       ip = int_hmap_next_record(W, ip)) {
-    if (ip->key >= 0) {
-      printf("  %d -> ", ip->key);
-      yices_pp_term(stdout, ip->val, 120, 1, 0);
+  W = &comp->W[0];
+  if (W->nelems > 0) {
+    printf("COMP.W (compare) #%d %s\n", W->nelems, comment);
+    for (ip = int_hmap_first_record(W);
+         ip != NULL;
+         ip = int_hmap_next_record(W, ip)) {
+      if (ip->key >= 0) {
+        printf("  %d -> ", ip->key);
+        yices_pp_term(stdout, ip->val, 120, 1, 0);
+      }
     }
   }
+
+  W = &comp->W[1];
+  if (W->nelems > 0) {
+    printf("COMP.W (check) #%d %s\n", W->nelems, comment);
+    for (ip = int_hmap_first_record(W);
+         ip != NULL;
+         ip = int_hmap_next_record(W, ip)) {
+      if (ip->key >= 0) {
+        printf("  %d -> ", ip->key);
+        yices_pp_term(stdout, ip->val, 120, 1, 0);
+      }
+    }
+  }
+
+  W = &comp->W[2];
+  if (W->nelems > 0) {
+    printf("COMP.W (filter) #%d %s\n", W->nelems, comment);
+    for (ip = int_hmap_first_record(W);
+         ip != NULL;
+         ip = int_hmap_next_record(W, ip)) {
+      if (ip->key >= 0) {
+        printf("  %d -> ", ip->key);
+        yices_pp_term(stdout, ip->val, 120, 1, 0);
+      }
+    }
+  }
+
+  W = &comp->W[3];
+  if (W->nelems > 0) {
+    printf("COMP.W (other) #%d %s\n", W->nelems, comment);
+    for (ip = int_hmap_first_record(W);
+         ip != NULL;
+         ip = int_hmap_next_record(W, ip)) {
+      if (ip->key >= 0) {
+        printf("  %d -> ", ip->key);
+        yices_pp_term(stdout, ip->val, 120, 1, 0);
+      }
+    }
+  }
+
 }
 #endif
 
@@ -258,21 +300,10 @@ static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t)
   assert(term_kind(comp->terms, t) != APP_TERM);
 
   instr->op = EMATCH_CHECK;
-
-  int_hmap_t *W;
-  int_hmap_pair_t *ip;
-//  term_t rhs;
-
-  W = &comp->W;
-  ip = int_hmap_find(W, i);
-  assert(ip != NULL);
-//  rhs = ip->val;
-  int_hmap_erase(W, ip);
-
   instr->i = i;
   instr->t = t;
 
-#if TRACE
+#if 0
   printf("    (pre) instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->t, 120, 1, 0), instr->next);
 #endif
 
@@ -281,9 +312,6 @@ static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t)
 #if TRACE
   printf("    instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->t, 120, 1, 0), instr->next);
 #endif
-
-  // Undo changes to comp
-//  int_hmap_add(W, i, rhs);
 
   return idx;
 }
@@ -294,17 +322,8 @@ static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t)
 static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
   int32_t idx;
 
-  int_hmap_t *W;
   int_hmap_t *V;
   int_hmap_pair_t *ip;
-//  term_t rhs;
-
-  W = &comp->W;
-
-  ip = int_hmap_find(W, i);
-  assert(ip != NULL);
-//  rhs = ip->val;
-  int_hmap_erase(W, ip);
 
   V = &comp->V;
   ip = int_hmap_find(V, x);
@@ -329,7 +348,7 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
     instr->i = i;
     instr->j = ip->val;
 
-#if TRACE
+#if 0
     printf("    (pre) instr%d: compare(%d, %d, instr%d)\n", idx, instr->i, instr->j, instr->next);
 #endif
 
@@ -340,16 +359,13 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
 #endif
   }
 
-  // Undo changes to comp
-//  int_hmap_add(W, i, rhs);
-
   return idx;
 }
 
 /*
  * Compile filter
  */
-static int32_t* ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f, int32_t *next) {
+static int32_t ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f) {
   ematch_instr_table_t *itbl;
   int32_t idx;
   ematch_instr_t *instr;
@@ -358,7 +374,6 @@ static int32_t* ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t 
   idx = ematch_instr_table_alloc(itbl);
   instr = &itbl->data[idx];
 
-  *next = idx;
   instr->op = EMATCH_FILTER;
   instr->i = i;
   instr->subs = (int_pair_t *) safe_malloc(1 * sizeof(int_pair_t));
@@ -366,11 +381,51 @@ static int32_t* ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t 
   instr->subs[0].left = i;
   instr->subs[0].right = f;
 
-#if TRACE
-  printf("    instr%d: filter(%d, %s, instr++)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), idx);
+#if 0
+  printf("    (pre) instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
 #endif
 
-  return &instr->next;
+  instr->next = ematch_compile(comp);
+
+#if TRACE
+  printf("    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
+#endif
+
+  return idx;
+}
+
+static void ematch_add_to_W(ematch_compile_t *comp, int32_t i, term_t t) {
+  term_table_t *terms;
+
+  terms = comp->terms;
+  switch (term_kind(terms, t)) {
+    case VARIABLE:
+      int_hmap_add(&comp->W[0], i, t);
+      break;
+
+    case CONSTANT_TERM:
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+      int_hmap_add(&comp->W[1], i, t);
+      break;
+
+    case UNINTERPRETED_TERM:
+      if (is_function_term(terms, t)) {
+        printf("Unexpected term (kind %d): ", term_kind(terms, t));
+        yices_pp_term(stdout, t, 120, 1, 0);
+        assert(false);
+      } else {
+        int_hmap_add(&comp->W[1], i, t);
+      }
+      break;
+
+    case APP_TERM:
+      int_hmap_add(&comp->W[2], i, composite_term_arg(terms, t, 0));
+      // fall-through intended
+    default:
+      int_hmap_add(&comp->W[3], i, t);
+    }
 }
 
 /*
@@ -390,34 +445,13 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
 
   composite_term_t *app;
   uint32_t n, offset;
-  int_hmap_t *W;
-  int_hmap_pair_t *ip;
-  term_table_t *terms;
-//  term_t rhs;
 
-  terms = comp->terms;
-  app = app_term_desc(terms, f);
+  app = app_term_desc(comp->terms, f);
   n = app->arity - 1;
   offset = comp->o;
 
-  W = &comp->W;
-
-  ip = int_hmap_find(W, i);
-  assert(ip != NULL);
-//  rhs = ip->val;
-
-  int_hmap_erase(W, ip);
-
-  int32_t *next;
-  term_t fx;
-
-  next = &instr->next;
   for(j=0; j<n; j++) {
-    fx = app->arg[j+1];
-    if (term_kind(terms, fx) == APP_TERM) {
-      next = ematch_compile_filter(comp, offset+j, composite_term_arg(terms, fx, 0), next);
-    }
-    int_hmap_add(W, offset+j, fx);
+    ematch_add_to_W(comp, offset+j, app->arg[j+1]);
   }
   comp->o = offset + n;
 
@@ -425,23 +459,17 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
   instr->f = app->arg[0];
   instr->o = offset;
 
-#if TRACE
+#if 0
   printf("    (pre) instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
-  *next = ematch_compile(comp);
+  instr->next = ematch_compile(comp);
 
 #if TRACE
   printf("    instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
   // Undo changes to comp
-//  for(i=1; i<n; i++) {
-//    ip = int_hmap_find(W, offset+i);
-//    assert(ip != NULL);
-//    int_hmap_erase(W, ip);
-//  }
-//  int_hmap_add(W, i, rhs);
   comp->o = offset;
 
   return idx;
@@ -458,8 +486,6 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
   instr = &itbl->data[idx];
-
-  assert(comp->W.nelems == 0);
 
   instr->op = EMATCH_YIELD;
 
@@ -498,39 +524,35 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
  */
 int32_t ematch_compile(ematch_compile_t *comp) {
   int32_t idx;
+
+  int_hmap_pair_t *ip;
+  int32_t i, j;
+  term_t x;
   int_hmap_t *W;
 
-  W = &comp->W;
-  idx = -1;
-
-  if (W->nelems == 0) {
-    idx = ematch_compile_empty(comp);
-  } else {
-    term_table_t *terms;
-    int_hmap_pair_t *ip;
-    int32_t i;
-    term_t x;
-
-    terms = comp->terms;
-    i = -1;
-    x = NULL_TERM;
-
+  i = -1;
+  x = NULL_TERM;
+  for(j=0; j<4; j++) {
+    W = &comp->W[j];
     for (ip = int_hmap_first_record(W);
          ip != NULL;
          ip = int_hmap_next_record(W, ip)) {
       if (ip->key > 0) {
-//      if (ip->key > 0 && (i < 0 || ip->key < i)) {
         i = ip->key;
         x = ip->val;
+        int_hmap_erase(W, ip);
         break;
       }
     }
-    assert(i >= 0);
+    if (i > 0)
+      break;
+  }
 
-#if 0
-    printf("Processing entry: %d -> ", i);
-    yices_pp_term(stdout, x, 120, 1, 0);
-#endif
+  if (i == -1) {
+    idx = ematch_compile_empty(comp);
+  } else {
+    term_table_t *terms;
+    terms = comp->terms;
 
     switch(term_kind(terms, x)) {
     case CONSTANT_TERM:
@@ -542,9 +564,7 @@ int32_t ematch_compile(ematch_compile_t *comp) {
 
     case UNINTERPRETED_TERM:
       if (is_function_term(terms, x)) {
-        printf("Unexpected term (kind %d): ", term_kind(terms, x));
-        yices_pp_term(stdout, x, 120, 1, 0);
-        assert(false);
+        idx = ematch_compile_filter(comp, i, x);
       } else {
         idx = ematch_compile_const(comp, i, x);
       }
@@ -597,52 +617,32 @@ static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app
 
   instr->op = EMATCH_INIT;
 
-  int_hmap_t *W;
   uint32_t j, n, offset;
 
-  n = app->arity - 1;
+  n = app->arity;
   offset = comp->o;
 
   instr->f = app->arg[0];
   instr->o = offset;
 
-  W = &comp->W;
-  assert(comp->V.nelems == 0);
-
-  term_table_t *terms;
-  int32_t *next;
-  term_t fx;
-
-  terms = comp->terms;
-  next = &instr->next;
-  for(j=0; j<n; j++) {
-    fx = app->arg[j+1];
-    if (term_kind(terms, fx) == APP_TERM) {
-      next = ematch_compile_filter(comp, offset+j+1, composite_term_arg(terms, fx, 0), next);
-    }
-    int_hmap_add(W, offset+j+1, fx);
+  for(j=1; j<n; j++) {
+    ematch_add_to_W(comp, offset+j, app->arg[j]);
   }
-  comp->o += n+1;
+  comp->o = offset + n;
 
-#if TRACE
+#if 0
   printf("    (pre) instr%d: init(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 //  ematch_print_W(comp, "(func: post)");
 #endif
 
-  *next = ematch_compile(comp);
+  instr->next = ematch_compile(comp);
 
 #if TRACE
   printf("    instr%d: init(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
   // Undo changes to comp
-//  int_hmap_pair_t *ip;
-//  for(j=0; j<n; j++) {
-//    ip = int_hmap_find(W, offset+j+1);
-//    assert(ip != NULL);
-//    int_hmap_erase(W, ip);
-//  }
-  comp->o -= (n+1);
+  comp->o = offset;
 
   return idx;
 }
@@ -656,7 +656,6 @@ static int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
   term_table_t *terms;
   term_kind_t kind;
 
-  assert(comp->W.nelems == 0);
   assert(comp->V.nelems == 0);
 
   idx = -1;
@@ -687,7 +686,11 @@ static int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
  * Initialize pattern compiler
  */
 static void init_ematch_compiler(ematch_compile_t *comp, ematch_instr_table_t *itbl, term_table_t *terms) {
-  init_int_hmap(&comp->W, 0);
+  init_int_hmap(&comp->W[0], 0);
+  init_int_hmap(&comp->W[1], 0);
+  init_int_hmap(&comp->W[2], 0);
+  init_int_hmap(&comp->W[3], 0);
+
   init_int_hmap(&comp->V, 0);
 
   comp->o = 0;
@@ -699,7 +702,11 @@ static void init_ematch_compiler(ematch_compile_t *comp, ematch_instr_table_t *i
  * Reset pattern compiler
  */
 static void reset_ematch_compiler(ematch_compile_t *comp) {
-  int_hmap_reset(&comp->W);
+  int_hmap_reset(&comp->W[0]);
+  int_hmap_reset(&comp->W[1]);
+  int_hmap_reset(&comp->W[2]);
+  int_hmap_reset(&comp->W[3]);
+
   int_hmap_reset(&comp->V);
 
   comp->o = 0;
@@ -711,7 +718,11 @@ static void reset_ematch_compiler(ematch_compile_t *comp) {
  * Delete pattern compiler
  */
 static void delete_ematch_compiler(ematch_compile_t *comp) {
-  delete_int_hmap(&comp->W);
+  delete_int_hmap(&comp->W[0]);
+  delete_int_hmap(&comp->W[1]);
+  delete_int_hmap(&comp->W[2]);
+  delete_int_hmap(&comp->W[3]);
+
   delete_int_hmap(&comp->V);
 
   comp->o = 0;

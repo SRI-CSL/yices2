@@ -102,9 +102,11 @@ typedef struct ematch_stack_s {
  * E-match compile
  */
 typedef struct ematch_compile_s {
-  int_hmap_t W;         // working set: map from register indices to patterns
-  int_hmap_t V;         // variables: map from variables to register indices
-  int32_t o;           // offset: value of the next available register index
+  int_hmap_t W[4];              // working set: map from register indices to patterns
+                                // one each for compare (0), check (1), filter (2), others (3)
+
+  int_hmap_t V;                 // variables: map from variables to register indices
+  int32_t o;                    // offset: value of the next available register index
 
   ematch_instr_table_t *itbl;   // ematch instruction table
   term_table_t *terms;          // term table
