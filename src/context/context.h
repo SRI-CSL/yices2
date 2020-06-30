@@ -87,7 +87,7 @@ extern void context_pop(context_t *ctx);
 /*
  * Options for the simplex solver. If the context already contains
  * a simplex solver, then these options are set in this solver.
- * Otherwise,, they will be set at the time the simplex solver is 
+ * Otherwise, they will be set at the time the simplex solver is
  * constructed and added to the simplex solver.
  */
 extern void enable_splx_eager_lemmas(context_t *ctx);
