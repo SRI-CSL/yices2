@@ -66,7 +66,7 @@ extern void model_print_term_value(FILE *f, model_t *model, term_t t);
  *
  * Then we should also print the map of fun!1 and fun!2.
  */
-extern void model_print(FILE *f, model_t *model);
+extern void model_print(FILE *f, model_t *model, pp_lang_t lang);
 
 /*
  * Print model, including the aliased terms
@@ -75,7 +75,7 @@ extern void model_print(FILE *f, model_t *model);
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-extern void model_print_full(FILE *f, model_t *model);
+extern void model_print_full(FILE *f, model_t *model, pp_lang_t lang);
 
 /*
  * Print the values of all terms in array a
@@ -87,7 +87,7 @@ extern void model_print_full(FILE *f, model_t *model);
  * - then the function prints the value of all function terms that occur
  *   in a value (cf., model_print).
  */
-extern void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t n);
+extern void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t n, pp_lang_t lang);
 
 /*
  * Evaluate and print the values of all terms in array a
@@ -101,7 +101,7 @@ extern void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t
  * - This is the more general than model_print_terms, since it can handle more than
  *   uninterpreted terms.
  */
-extern void model_print_eval_terms(FILE *f, model_t *model, const term_t *a, uint32_t n);
+extern void model_print_eval_terms(FILE *f, model_t *model, const term_t *a, uint32_t n, pp_lang_t lang);
 
 /*
  * Variants: use a pretty printer

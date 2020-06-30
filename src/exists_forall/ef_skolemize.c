@@ -239,7 +239,7 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
 //  case BV_POLY:
 //    TODO
   default:
-    printf("Unsupported term %s of kind %d\n", yices_term_to_string(t, 120, 120, 0), kind);
+    printf("Unsupported term %s of kind %d\n", yices_term_to_string(t, PP_LANG_YICES, 120, 120, 0), kind);
     assert(false);
   }
 

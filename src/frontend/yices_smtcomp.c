@@ -972,7 +972,7 @@ static void show_implicant(FILE *f, model_t *mdl, smt_benchmark_t *bench) {
     fflush(f);
   } else {
     fprintf(f, "\nIMPLICANT:\n");
-    yices_pp_term_array(f, v.size, v.data, 120, UINT32_MAX, 0, 0);
+    yices_pp_term_array(f, v.size, v.data, PP_LANG_YICES, 120, UINT32_MAX, 0, 0);
     fflush(f);
   }
 
@@ -1315,10 +1315,10 @@ static int process_benchmark(void) {
       context_build_model(model, &context);
       printf("\n");
       if (full_model) {
-        model_print_full(stdout, model);
+        model_print_full(stdout, model, PP_LANG_YICES);
 	show_implicant(stdout, model, &bench);
       } else {
-        model_print(stdout, model);
+        model_print(stdout, model, PP_LANG_YICES);
       }
       printf("\n");
 #if CHECK_MODEL

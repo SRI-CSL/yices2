@@ -103,13 +103,13 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
  */
 void print_ef_clause(FILE *f, ef_clause_t *cl) {
   fprintf(f, "EF Clause: evars\n");
-  yices_pp_term_array(f, cl->evars.size, cl->evars.data, 120, UINT32_MAX, 0, 1);
+  yices_pp_term_array(f, cl->evars.size, cl->evars.data, 120, UINT32_MAX, 0, 1, PP_LANG_YICES);
   fprintf(f, "\nEF Clause: uvars\n");
-  yices_pp_term_array(f, cl->uvars.size, cl->uvars.data, 120, UINT32_MAX, 0, 1);
+  yices_pp_term_array(f, cl->uvars.size, cl->uvars.data, 120, UINT32_MAX, 0, 1, PP_LANG_YICES);
   fprintf(f, "\nEF Clause: assumptions\n");
-  yices_pp_term_array(f, cl->assumptions.size, cl->assumptions.data, 120, 2, 0, 0);
+  yices_pp_term_array(f, cl->assumptions.size, cl->assumptions.data, 120, 2, 0, 0, PP_LANG_YICES);
   fprintf(f, "\nEF Clause: guarantees\n");
-  yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, 2, 0, 0);
+  yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, 2, 0, 0, PP_LANG_YICES);
   fprintf(f, "---\n");
 }
 

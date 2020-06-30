@@ -4241,8 +4241,8 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  *    code = OUTPUT_ERROR if writing to file f failed.
  *    in this case, errno, perror, etc. can be used for diagnostic.
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
-__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
 
 /*
@@ -4277,7 +4277,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *    code = OUTPUT_ERROR
  *
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[],
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], pp_lang_t lang,
                                                      uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
 
@@ -4335,7 +4335,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, const 
  * means that b is a function from int to boo, such that (b 0) and (b 1) are true
  * and (b i) is false for any i not equal to 0 or 1.
  */
-__YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
+__YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl, pp_lang_t lang);
 
 
 /*
@@ -4352,7 +4352,7 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
  *   code = OUTPUT_ERROR (means that writing to f failed)
  *   in this case, errno, perror, etc. can be used for diagnostic.
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
 
 /*
@@ -4371,7 +4371,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  *
  * Since 2.6.2.
  */
-__YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]);
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang);
 
 /*
  * Pretty print the values of n terms in  a model
@@ -4396,7 +4396,7 @@ __YICES_DLLSPEC__ extern int32_t yices_print_term_values(FILE *f, model_t *mdl, 
  *
  * Since 2.6.2.
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],pp_lang_t lang,
 						      uint32_t width, uint32_t height, uint32_t offset);
 
 
@@ -4410,26 +4410,26 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_values(FILE *f, model_t *mdl, uin
  *   code is set to OUTPUT_ERROR
  *   and errno, perror can be used for diagnostic.
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_type_fd(int fd, type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_fd(int fd, term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[],
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], pp_lang_t lang,
                                                         uint32_t width, uint32_t height, uint32_t offset, int32_t horiz);
 
-__YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl);
+__YICES_DLLSPEC__ extern int32_t yices_print_model_fd(int fd, model_t *mdl, pp_lang_t lang);
 
-__YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
-
-/*
- * Since 2.6.2.
- */
-__YICES_DLLSPEC__ extern int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]);
+__YICES_DLLSPEC__ extern int32_t yices_pp_model_fd(int fd, model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
 /*
  * Since 2.6.2.
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
+__YICES_DLLSPEC__ extern int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang);
+
+/*
+ * Since 2.6.2.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang,
 							 uint32_t width, uint32_t height, uint32_t offset);
 
 
@@ -4450,8 +4450,8 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term_values_fd(int fd, model_t *mdl, u
  *    term1 = t
  *
  */
-__YICES_DLLSPEC__ extern char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset);
-__YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern char *yices_type_to_string(type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
 
 /*
@@ -4461,7 +4461,7 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  * Returns a '\0'-terminated string otherwise. This string must be deleted
  * when no longer needed by calling yices_free_string.
  */
-__YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset);
 
 
 #ifdef __cplusplus

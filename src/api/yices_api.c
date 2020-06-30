@@ -6166,11 +6166,11 @@ term_t _o_yices_bvslt_atom(term_t t1, term_t t2) {
  * - f = output file to use
  * - width, height, offset = print area
  */
-EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_type(f, tau, width, height, offset));
+EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_type(f, tau, lang, width, height, offset));
 }
 
-int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+int32_t _o_yices_pp_type(FILE *f, type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6204,7 +6204,7 @@ int32_t _o_yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, u
   return code;
 }
 
-EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   FILE *tmp_fp;
   int32_t retval;
 
@@ -6213,7 +6213,7 @@ EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t h
     file_output_error();
     return -1;
   }
-  retval = yices_pp_type(tmp_fp, tau, width, height, offset);
+  retval = yices_pp_type(tmp_fp, tau, lang, width, height, offset);
   fclose(tmp_fp);
 
   return retval;
@@ -6226,11 +6226,11 @@ EXPORTED int32_t yices_pp_type_fd(int fd, type_t tau, uint32_t width, uint32_t h
  * - f = output file to use
  * - width, height, offset = print area
  */
-EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term(f, t, width, height, offset));
+EXPORTED int32_t yices_pp_term(FILE *f, term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term(f, t, lang, width, height, offset));
 }
 
-int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+int32_t _o_yices_pp_term(FILE *f, term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6264,7 +6264,7 @@ int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uin
   return code;
 }
 
-EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   FILE *tmp_fp;
   int32_t retval;
 
@@ -6273,7 +6273,7 @@ EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t hei
     file_output_error();
     return -1;
   }
-  retval = yices_pp_term(tmp_fp, t, width, height, offset);
+  retval = yices_pp_term(tmp_fp, t, lang, width, height, offset);
   fclose(tmp_fp);
 
   return retval;
@@ -6284,11 +6284,11 @@ EXPORTED int32_t yices_pp_term_fd(int fd, term_t t, uint32_t width, uint32_t hei
  * - f = output file to use
  * - width, height, offset = print area
  */
-EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term_array(f, n, a, width, height, offset, horiz));
+EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_term_array(f, n, a, lang, width, height, offset, horiz));
 }
 
-int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -6330,7 +6330,7 @@ int32_t _o_yices_pp_term_array(FILE *f, uint32_t n, const term_t a[], uint32_t w
   return code;
 }
 
-EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
+EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset, int32_t horiz) {
   FILE *tmp_fp;
   int32_t retval;
 
@@ -6339,7 +6339,7 @@ EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], ui
     file_output_error();
     return -1;
   }
-  retval = yices_pp_term_array(tmp_fp, n, a, width, height, offset,  horiz);
+  retval = yices_pp_term_array(tmp_fp, n, a, lang, width, height, offset,  horiz);
   fclose(tmp_fp);
 
   return retval;
@@ -6350,11 +6350,11 @@ EXPORTED int32_t yices_pp_term_array_fd(int fd, uint32_t n, const term_t a[], ui
 /*
  * Conversion to strings
  */
-EXPORTED char *yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_type_to_string(tau, width, height, offset));
+EXPORTED char *yices_type_to_string(type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_type_to_string(tau, lang, width, height, offset));
 }
 
-char *_o_yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+char *_o_yices_type_to_string(type_t tau, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
@@ -6383,11 +6383,11 @@ char *_o_yices_type_to_string(type_t tau, uint32_t width, uint32_t height, uint3
   return str;
 }
 
-EXPORTED char *yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_term_to_string(t, width, height, offset));
+EXPORTED char *yices_term_to_string(term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char*,  __yices_globals.lock, _o_yices_term_to_string(t, lang, width, height, offset));
 }
 
-char *_o_yices_term_to_string(term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+char *_o_yices_term_to_string(term_t t, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
@@ -9101,19 +9101,19 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * Print model mdl on FILE f
  * - f must be open/writable
  */
-EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
-  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_print_model(f, mdl));
+EXPORTED void yices_print_model(FILE *f, model_t *mdl, pp_lang_t lang) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_print_model(f, mdl, lang));
 }
 
-void _o_yices_print_model(FILE *f, model_t *mdl) {
-  model_print_full(f, mdl);
+void _o_yices_print_model(FILE *f, model_t *mdl, pp_lang_t lang) {
+  model_print_full(f, mdl, lang);
 }
 
-EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_print_model_fd(fd, mdl));
+EXPORTED int32_t yices_print_model_fd(int fd, model_t *mdl, pp_lang_t lang) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_print_model_fd(fd, mdl, lang));
 }
 
-int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
+int32_t _o_yices_print_model_fd(int fd, model_t *mdl, pp_lang_t lang) {
   FILE *tmp_fp;
 
   tmp_fp = fd_2_tmp_fp(fd);
@@ -9121,7 +9121,7 @@ int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
     file_output_error();
     return -1;
   }
-  model_print_full(tmp_fp, mdl);
+  model_print_full(tmp_fp, mdl, lang);
   fclose(tmp_fp);
 
   return 0;
@@ -9133,11 +9133,11 @@ int32_t _o_yices_print_model_fd(int fd, model_t *mdl) {
  * - f = output file to use
  * - width, height, offset = print area
  */
-EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_model(f, mdl, width, height, offset));
+EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_pp_model(f, mdl, lang, width, height, offset));
 }
 
-int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+int32_t _o_yices_pp_model(FILE *f, model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   int32_t code;
@@ -9167,7 +9167,7 @@ int32_t _o_yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height
   return code;
 }
 
-EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   FILE *tmp_fp;
   int32_t retval;
 
@@ -9176,7 +9176,7 @@ EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_
     file_output_error();
     return -1;
   }
-  retval = yices_pp_model(tmp_fp, mdl, width, height, offset);
+  retval = yices_pp_model(tmp_fp, mdl, lang, width, height, offset);
   fclose(tmp_fp);
 
   return retval;
@@ -9185,11 +9185,11 @@ EXPORTED int32_t yices_pp_model_fd(int fd, model_t *mdl, uint32_t width, uint32_
 /*
  * Convert mdl to a string
  */
-EXPORTED char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(char *,  __yices_globals.lock, _o_yices_model_to_string(mdl, width, height, offset));
+EXPORTED char *yices_model_to_string(model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
+  MT_PROTECT(char *,  __yices_globals.lock, _o_yices_model_to_string(mdl, lang, width, height, offset));
 }
 
-char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset) {
+char *_o_yices_model_to_string(model_t *mdl, pp_lang_t lang, uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
   char *str;
@@ -9229,21 +9229,21 @@ char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, ui
  *   code = INVALID_TERM
  *   term1 = a[i]
  */
-EXPORTED int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]) {
-  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_print_term_values(f, mdl, n, a));
+EXPORTED int32_t yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_print_term_values(f, mdl, n, a, lang));
 }
 
-int32_t _o_yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[]) {
+int32_t _o_yices_print_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang) {
   if (! check_good_terms(__yices_globals.manager, n, a)) {
     return -1;
   }
-  model_print_eval_terms(f, mdl, a, n);
+  model_print_eval_terms(f, mdl, a, n, lang);
 
   return 0;
 }
 
 // Variant with a file descriptor
-EXPORTED int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[]) {
+EXPORTED int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang) {
   FILE *tmp_fp;
   int32_t code;
 
@@ -9252,7 +9252,7 @@ EXPORTED int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, co
     file_output_error();
     return -1;
   }
-  code = yices_print_term_values(tmp_fp, mdl, n, a);
+  code = yices_print_term_values(tmp_fp, mdl, n, a, lang);
   fclose(tmp_fp);
 
   return code;
@@ -9280,12 +9280,12 @@ EXPORTED int32_t yices_print_term_values_fd(int fd, model_t *mdl, uint32_t n, co
  *   code = OUTPUT_ERROR
  *   in this case, errno, perror, etc. can be used for diagnostic.
  */
-EXPORTED int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+EXPORTED int32_t yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang,
 				      uint32_t width, uint32_t height, uint32_t offset) {
-  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_pp_term_values(f, mdl, n, a, width, height, offset));
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_pp_term_values(f, mdl, n, a, lang, width, height, offset));
 }
 
-int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[],
+int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang,
 				uint32_t width, uint32_t height, uint32_t offset) {
   yices_pp_t printer;
   pp_area_t area;
@@ -9321,7 +9321,7 @@ int32_t _o_yices_pp_term_values(FILE *f, model_t *mdl, uint32_t n, const term_t 
 }
 
 // Variant with a file descriptor
-EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[],
+EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const term_t a[], pp_lang_t lang,
 					 uint32_t width, uint32_t height, uint32_t offset) {
   FILE *tmp_fp;
   int32_t code;
@@ -9331,7 +9331,7 @@ EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const
     file_output_error();
     return -1;
   }
-  code = yices_pp_term_values(tmp_fp, mdl, n, a, width, height, offset);
+  code = yices_pp_term_values(tmp_fp, mdl, n, a, lang, width, height, offset);
   fclose(tmp_fp);
 
   return code;

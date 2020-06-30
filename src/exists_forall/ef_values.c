@@ -168,9 +168,9 @@ void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed) {
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     v = p->val;
-    yices_pp_type(f, p->key, 100, 1, 10);
+    yices_pp_type(f, p->key, PP_LANG_YICES, 100, 1, 10);
     fprintf(f, " -> ");
-    yices_pp_term_array(f, v->size, v->data, 120, UINT32_MAX, 0, 1);
+    yices_pp_term_array(f, v->size, v->data, PP_LANG_YICES, 120, UINT32_MAX, 0, 1);
   }
 
 //  fprintf(f, "\n== EF VALUES ==\n");
@@ -188,7 +188,7 @@ void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed) {
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
     if (detailed || is_utype_term(vtable->terms, ip->key))
-      fprintf(f, "%s -> %d\n", yices_term_to_string(ip->key, 120, 1, 0), ip->val);
+      fprintf(f, "%s -> %d\n", yices_term_to_string(ip->key, PP_LANG_YICES, 120, 1, 0), ip->val);
   }
 
   fprintf(f, "\n== EF REPS ==\n");
@@ -197,7 +197,7 @@ void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed) {
        ip != NULL;
        ip = int_hmap_next_record(imap, ip)) {
     if (detailed || is_utype_term(vtable->terms, ip->key))
-      fprintf(f, "%s -> %s\n", yices_term_to_string(ip->key, 120, 1, 0), yices_term_to_string(ip->val, 120, 1, 0));
+      fprintf(f, "%s -> %s\n", yices_term_to_string(ip->key, PP_LANG_YICES, 120, 1, 0), yices_term_to_string(ip->val, PP_LANG_YICES, 120, 1, 0));
   }
 
   fprintf(f, "\n== EF VALUE TERMS ==\n");
@@ -206,8 +206,8 @@ void print_ef_table(FILE *f, ef_table_t *vtable, bool detailed) {
        p != NULL;
        p = ptr_hmap_next_record(map, p)) {
     v = p->val;
-    fprintf(f, "%s -> ", yices_term_to_string(p->key, 1200, 1, 0));
-    yices_pp_term_array(f, v->size, v->data, 1200, UINT32_MAX, 0, 1);
+    fprintf(f, "%s -> ", yices_term_to_string(p->key, PP_LANG_YICES, 1200, 1, 0));
+    yices_pp_term_array(f, v->size, v->data, PP_LANG_YICES, 1200, UINT32_MAX, 0, 1);
   }
 
   fprintf(f, "\n");
@@ -761,7 +761,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
 
       present = (int_hmap_find(requests, f) != NULL);
       if (present) {
-        printf("Circular dependency encountered while finding a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
+        printf("Circular dependency encountered while finding a representative for term: %s\n", yices_term_to_string(value, PP_LANG_YICES, 120, 1, 0));
         assert(0);
       }
 

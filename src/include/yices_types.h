@@ -618,4 +618,17 @@ typedef struct error_report_s {
   int64_t badval;
 } error_report_t;
 
+
+/*
+ * Output languages for prining terms, values, models, ...
+ *
+ * PP_LANG_YICES: Yices internal language
+ * PP_LANG_SMT2: SMTLIB v2
+ */
+typedef enum {
+  PP_LANG_YICES,
+  PP_LANG_SMT2
+} pp_lang_t;
+
+
 #endif  /* YICES_TYPES_H */

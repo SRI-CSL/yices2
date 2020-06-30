@@ -244,7 +244,7 @@ static bool term_to_print(void *aux, term_t t) {
  * Print the values of all terms in array a
  * - n = number of terms in a
  */
-void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t n) {
+void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t n, pp_lang_t lang) {
   model_print_bool_assignments(f, model, a, n);
   model_print_arithmetic_assignments(f, model, a, n);
   model_print_bitvector_assignments(f, model, a, n);
@@ -258,12 +258,12 @@ void model_print_terms(FILE *f, model_t *model, const term_t *a, uint32_t n) {
 /*
  * Print the model->map table
  */
-void model_print(FILE *f, model_t *model) {
+void model_print(FILE *f, model_t *model, pp_lang_t lang) {
   ivector_t v;
 
   init_ivector(&v, 0);
   model_collect_terms(model, false, model->terms, term_to_print, &v);
-  model_print_terms(f, model, v.data, v.size);
+  model_print_terms(f, model, v.data, v.size, lang);
   delete_ivector(&v);
 }
 
@@ -394,7 +394,7 @@ static void eval_and_print_term(FILE *f, evaluator_t *eval, term_t t) {
  * - this is the same as mode_print_terms, except that the function tries
  *   to compute the value of these terms (as in model_print_full).
  */
-void model_print_eval_terms(FILE *f, model_t *model, const term_t *a, uint32_t n) {
+void model_print_eval_terms(FILE *f, model_t *model, const term_t *a, uint32_t n, pp_lang_t lang) {
   evaluator_t eval;
   uint32_t i;
 
@@ -579,7 +579,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, const te
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-void model_print_full(FILE *f, model_t *model) {
+void model_print_full(FILE *f, model_t *model, pp_lang_t lang) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;
@@ -633,7 +633,7 @@ void model_print_full(FILE *f, model_t *model) {
     delete_evaluator(&eval);
     delete_ivector(&v);
   } else {
-    model_print(f, model);
+    model_print(f, model, lang);
   }
 }
 

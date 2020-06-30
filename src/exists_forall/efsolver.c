@@ -62,7 +62,7 @@ void print_ef_solution(FILE *f, ef_solver_t *solver) {
 
   for (i=0; i<n; i++) {
     fprintf(f, "%s := ", yices_get_term_name(prob->all_evars[i]));
-    yices_pp_term(f, solver->evalue.data[i], 100, 1, 10);
+    yices_pp_term(f, solver->evalue.data[i], PP_LANG_YICES, 100, 1, 10);
   }
 }
 
@@ -82,7 +82,7 @@ void print_forall_witness(FILE *f, ef_solver_t *solver, uint32_t i) {
   n = ef_constraint_num_uvars(cnstr);
   for (j=0; j<n; j++) {
     fprintf(f, "%s := ", yices_get_term_name(cnstr->uvars[j]));
-    yices_pp_term(f, solver->uvalue_aux.data[j], 100, 1, 10);
+    yices_pp_term(f, solver->uvalue_aux.data[j], PP_LANG_YICES, 100, 1, 10);
   }
 }
 
@@ -99,7 +99,7 @@ void print_full_map(FILE *f, ef_solver_t *solver) {
   assert(n == solver->all_values.size);
   for (i=0; i<n; i++) {
     fprintf(f, "%s := ", yices_get_term_name(solver->all_vars.data[i]));
-    yices_pp_term(f, solver->all_values.data[i], 100, 1, 10);
+    yices_pp_term(f, solver->all_values.data[i], PP_LANG_YICES, 100, 1, 10);
   }
   fprintf(f, "(%"PRIu32" variables)\n\n", n);
 }

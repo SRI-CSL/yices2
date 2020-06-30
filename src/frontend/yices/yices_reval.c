@@ -2857,7 +2857,7 @@ static model_t *efsolver_model(void) {
  * Basic model display on stdout
  */
 static void show_model(model_t *mdl) {
-  if (yices_pp_model(stdout, mdl, 140, UINT32_MAX, 0) < 0) {
+  if (yices_pp_model(stdout, mdl, PP_LANG_YICES, 140, UINT32_MAX, 0) < 0) {
     report_system_error("stdout");
   }
   fflush(stdout);
@@ -2873,7 +2873,7 @@ static void show_reduced_model(model_t *mdl) {
 
   init_ivector(&support, 0);
   model_get_terms_support(mdl, assertions.top, assertions.data, &support);
-  if (yices_pp_term_values(stdout, mdl, support.size, support.data, 140, UINT32_MAX, 0) < 0) {
+  if (yices_pp_term_values(stdout, mdl, support.size, support.data, PP_LANG_YICES, 140, UINT32_MAX, 0) < 0) {
     report_system_error("stdout");
   }
   delete_ivector(&support);
@@ -3222,7 +3222,7 @@ static void yices_show_implicant_cmd(void) {
     if (code < 0) {
       report_show_implicant_error(yices_error_code());
     } else {
-      if (yices_pp_term_array(stdout, v.size, v.data, 140, UINT32_MAX, 0, 0) < 0) {
+      if (yices_pp_term_array(stdout, v.size, v.data, PP_LANG_YICES, 140, UINT32_MAX, 0, 0) < 0) {
 	/*
 	 * Error in pp_term_array
 	 */

@@ -444,7 +444,7 @@ static void quant_process_pattern_term(quant_solver_t *solver, term_t t, ivector
 
   default:
     printf("Unsupported term (kind %d): ", kind);
-    yices_pp_term(stdout, x, 120, 1, 0);
+    yices_pp_term(stdout, x, PP_LANG_YICES, 120, 1, 0);
     assert(false);
   }
 }
