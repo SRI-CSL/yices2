@@ -152,6 +152,54 @@ static void ematch_print_W(ematch_compile_t *comp, const char *comment) {
 }
 #endif
 
+void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool recursive) {
+  ematch_instr_t *instr;
+
+  assert(idx >= 0 && idx < itbl->ninstr);
+  instr = &itbl->data[idx];
+
+  switch(instr->op) {
+  case EMATCH_INIT:
+    fprintf(f, "    instr%d: init(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  case EMATCH_BIND:
+    fprintf(f, "    instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  case EMATCH_CHECK:
+    fprintf(f, "    instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  case EMATCH_COMPARE:
+    fprintf(f, "    instr%d: compare(%d, %d, instr%d)\n", idx, instr->i, instr->j, instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  case EMATCH_YIELD: {
+      int32_t i, n;
+      n = instr->nsubs;
+      fprintf(f, "    instr%d: yield(#%d entries: ", idx, n);
+      for (i=0; i<n; i++) {
+        fprintf(f, "%d <- %s, ", instr->subs[i].right, yices_term_to_string(instr->subs[i].left, 120, 1, 0));
+      }
+      fprintf(f, ")\n");
+    }
+    break;
+  case EMATCH_FILTER:
+    fprintf(f, "    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  default:
+    fprintf(f, "Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
+    assert(0);
+  }
+}
+
 /*
  * Compile constant
  */
@@ -169,16 +217,16 @@ static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t)
 
   instr->op = EMATCH_CHECK;
   instr->i = i;
-  instr->t = t;
+  instr->f = t;
 
 #if 0
-  printf("    (pre) instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->t, 120, 1, 0), instr->next);
+  printf("    (pre) instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
   instr->next = ematch_compile(comp);
 
-#if TRACE
-  printf("    instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->t, 120, 1, 0), instr->next);
+#if 0
+  printf("    instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
   return idx;
@@ -222,7 +270,7 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
 
     instr->next = ematch_compile(comp);
 
-#if TRACE
+#if 0
     printf("    instr%d: compare(%d, %d, instr%d)\n", idx, instr->i, instr->j, instr->next);
 #endif
   }
@@ -255,7 +303,7 @@ static int32_t ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f
 
   instr->next = ematch_compile(comp);
 
-#if TRACE
+#if 0
   printf("    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
 #endif
 
@@ -333,12 +381,12 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
 
   instr->next = ematch_compile(comp);
 
-#if TRACE
+#if 0
   printf("    instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
   // Undo changes to comp
-  comp->o = offset;
+//  comp->o = offset;
 
   return idx;
 }
@@ -376,7 +424,7 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
     }
   }
 
-#if TRACE
+#if 0
   printf("    instr%d: yield(#%d entries: ", idx, instr->nsubs);
   for (i=0; i<n; i++) {
     printf("%d <- %s, ", instr->subs[i].right, yices_term_to_string(instr->subs[i].left, 120, 1, 0));
@@ -392,12 +440,12 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
  */
 int32_t ematch_compile(ematch_compile_t *comp) {
   int32_t idx;
-
   int_hmap_pair_t *ip;
   int32_t i, j;
   term_t x;
   int_hmap_t *W;
 
+  idx = -1;
   i = -1;
   x = NULL_TERM;
   for(j=0; j<4; j++) {
@@ -505,12 +553,12 @@ static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app
 
   instr->next = ematch_compile(comp);
 
-#if TRACE
+#if 0
   printf("    instr%d: init(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
   // Undo changes to comp
-  comp->o = offset;
+//  comp->o = offset;
 
   return idx;
 }
@@ -533,12 +581,15 @@ int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
 #if TRACE
     printf("  pattern: ");
     yices_pp_term(stdout, pat, 120, 1, 0);
+    printf("    offset: %d\n", comp->o);
 #endif
 
     idx = ematch_compile_func(comp, app_term_desc(terms, pat));
 
 #if TRACE
-    printf("  code: instr%d\n", idx);
+    printf("    code: instr%d\n", idx);
+    ematch_print_instr(stdout, comp->itbl, idx, true);
+//    printf("    offset (new): %d\n", comp->o);
 #endif
   } else {
     printf("Unsupported pattern term (kind %d): ", kind);

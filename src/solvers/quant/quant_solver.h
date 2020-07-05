@@ -40,6 +40,7 @@
 #include "utils/ptr_vectors.h"
 #include "solvers/quant/ef_problem.h"
 #include "solvers/quant/quant_pattern.h"
+#include "solvers/quant/quant_ematching.h"
 
 
 
@@ -114,6 +115,7 @@ typedef struct quant_solver_s {
   ef_prob_t *prob;
   pattern_table_t ptbl;   // pattern table
   quant_table_t qtbl;     // quant table
+  ematch_globals_t em;    // ematching
 
 // TODO
 
@@ -303,7 +305,7 @@ static inline uint32_t quant_solver_num_instances(quant_solver_t *solver) {
 /*
  * Attach problem to solver
  */
-extern void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob);
+extern void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, intern_tbl_t *intern);
 
 
 

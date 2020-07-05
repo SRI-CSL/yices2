@@ -23,7 +23,6 @@
 #ifndef __EMATCH_INSTR_H
 #define __EMATCH_INSTR_H
 
-#include "solvers/quant/quant_solver.h"
 #include "utils/pair_hash_sets.h"
 #include "solvers/quant/quant_pattern.h"
 
@@ -33,7 +32,7 @@
 typedef enum ematch_opcodes_s {
   EMATCH_NOOP,           // [ noop ]
   EMATCH_STOP,           // [ stop ]
-  EMATCH_INIT,           // [ init(f, next) ]
+  EMATCH_INIT,           // [ init(f, o, next) ]
   EMATCH_BIND,           // [ bind(i, f, o, next) ]
   EMATCH_CHECK,          // [ check(i, t, next) ]
   EMATCH_COMPARE,        // [ compare(i, j, next) ]
@@ -44,7 +43,7 @@ typedef enum ematch_opcodes_s {
   EMATCH_FILTER,         // [ filter(i, fs, next) ]
 } ematch_opcodes_t;
 
-#define NUM_EMATCH_OPCODES (EMATCH_CHOOSEAPP+1)
+#define NUM_EMATCH_OPCODES (EMATCH_FILTER+1)
 
 
 /*
@@ -52,9 +51,10 @@ typedef enum ematch_opcodes_s {
  */
 typedef struct ematch_instr_s {
   ematch_opcodes_t op;
+  int32_t idx;            // index in instruction table
 
   term_t f;
-  term_t t;
+  occ_t occ;              // occurence, used later during execution
 
   uint32_t i;
   uint32_t j;

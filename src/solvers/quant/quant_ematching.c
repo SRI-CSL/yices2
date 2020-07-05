@@ -47,35 +47,59 @@
 /*
  * Initialize ematching
  */
-void init_ematch(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl) {
-  em->ptbl = ptbl;
+void init_ematch(ematch_globals_t *em) {
+  em->ptbl = NULL;
+  em->egraph = NULL;
   init_ematch_instr_table(&em->itbl);
-  init_ematch_compiler(&em->comp, &em->itbl, terms);
+  init_ematch_compiler(&em->comp, &em->itbl, NULL);
+  init_ematch_exec(&em->exec, &em->comp);
   init_int_hmap(&em->pattern2code, 0);
-  init_ivector(&em->reg, 10);
-  init_ematch_stack(&em->bstack);
 }
 
 /*
  * Reset ematching
  */
 void reset_ematch(ematch_globals_t *em) {
+  em->ptbl = NULL;
+  em->egraph = NULL;
   reset_ematch_instr_table(&em->itbl);
   reset_ematch_compiler(&em->comp);
+  reset_ematch_exec(&em->exec);
   int_hmap_reset(&em->pattern2code);
-  ivector_reset(&em->reg);
-  reset_ematch_stack(&em->bstack);
 }
 
 /*
  * Delete ematching
  */
 void delete_ematch(ematch_globals_t *em) {
+  em->egraph = NULL;
   delete_ematch_instr_table(&em->itbl);
   delete_ematch_compiler(&em->comp);
+  delete_ematch_exec(&em->exec);
   delete_int_hmap(&em->pattern2code);
-  delete_ivector(&em->reg);
-  delete_ematch_stack(&em->bstack);
+}
+
+/*
+ * Attach pattern table
+ */
+void ematch_attach_ptbl(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl, intern_tbl_t *intern) {
+  assert(ptbl != NULL);
+  assert(terms != NULL);
+  assert(intern != NULL);
+
+  em->ptbl = ptbl;
+  em->comp.terms = terms;
+  em->exec.terms = terms;
+  em->exec.intern = intern;
+}
+
+/*
+ * Attach egraph
+ */
+void ematch_attach_egraph(ematch_globals_t *em, egraph_t *egraph) {
+  assert(egraph != NULL);
+  em->egraph = egraph;
+  em->exec.egraph = egraph;
 }
 
 /*
@@ -83,16 +107,17 @@ void delete_ematch(ematch_globals_t *em) {
  */
 void ematch_compile_all_patterns(ematch_globals_t *em) {
   ematch_compile_t *comp;
+  pattern_table_t *ptbl;
   int_hmap_t *pc;
+  pattern_t *pat;
   uint32_t i;
   term_t t;
   int_hmap_pair_t *ip;
-  pattern_table_t *ptbl;
-  pattern_t *pat;
 
-  ptbl = em->ptbl;
   comp =  &em->comp;
+  ptbl = em->ptbl;
   pc = &em->pattern2code;
+  comp->o = 0;
 
   for(i=0; i<ptbl->npatterns; i++) {
     pat = &ptbl->data[i];
@@ -102,5 +127,23 @@ void ematch_compile_all_patterns(ematch_globals_t *em) {
       ip->val = ematch_compile_pattern(comp, t);
       pat->code = ip->val;
     }
+  }
+}
+
+/*
+ * Execute all patterns
+ */
+void ematch_execute_all_patterns(ematch_globals_t *em) {
+  ematch_exec_t *exec;
+  pattern_table_t *ptbl;
+  uint32_t i;
+  pattern_t *pat;
+
+  exec =  &em->exec;
+  ptbl = em->ptbl;
+
+  for(i=0; i<ptbl->npatterns; i++) {
+    pat = &ptbl->data[i];
+    ematch_exec_pattern(exec, pat);
   }
 }

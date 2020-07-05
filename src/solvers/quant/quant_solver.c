@@ -472,22 +472,22 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
       quant_preprocess_assertion_with_pattern(solver, r->key, r->val);
     }
   }
-
-  ematch_globals_t em;
-  init_ematch(&em, solver->prob->terms, &solver->ptbl);
-  ematch_compile_all_patterns(&em);
-
-//  assert(0);
 }
 
 /*
  * Attach problem to solver
  */
-void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob) {
+void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, intern_tbl_t *intern) {
   assert(solver->prob == NULL);
 
   solver->prob = prob;
   quant_preprocess_prob(solver);
+
+  ematch_attach_ptbl(&solver->em, solver->prob->terms, &solver->ptbl, intern);
+  ematch_compile_all_patterns(&solver->em);
+
+  ematch_attach_egraph(&solver->em, solver->egraph);
+
 }
 
 
@@ -535,10 +535,12 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   solver->prob = NULL;
   init_pattern_table(&solver->ptbl);
   init_quant_table(&solver->qtbl);
+  init_ematch(&solver->em);
 
   init_ivector(&solver->aux_vector, 10);
   init_int_hmap(&solver->aux_map, 0);
   init_ivector(&solver->lemma_vector, 10);
+
 }
 
 
@@ -548,6 +550,7 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
 void delete_quant_solver(quant_solver_t *solver) {
   delete_pattern_table(&solver->ptbl);
   delete_quant_table(&solver->qtbl);
+  delete_ematch(&solver->em);
 
   delete_ivector(&solver->aux_vector);
   delete_int_hmap(&solver->aux_map);
@@ -566,6 +569,7 @@ void quant_solver_reset(quant_solver_t *solver) {
   solver->prob = NULL;
   reset_pattern_table(&solver->ptbl);
   reset_quant_table(&solver->qtbl);
+  reset_ematch(&solver->em);
 
   ivector_reset(&solver->aux_vector);
   int_hmap_reset(&solver->aux_map);
@@ -656,8 +660,13 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #if TRACE
   print_egraph_terms(stdout, solver->egraph);
   printf("\n\n");
-  print_egraph_root_classes_details(stdout, solver->egraph);
+  print_egraph_root_classes(stdout, solver->egraph);
+//  print_egraph_root_classes_details(stdout, solver->egraph);
 #endif
+
+  ematch_execute_all_patterns(&solver->em);
+
+  assert(0);
 
   // nothing to do
   return FCHECK_SAT;

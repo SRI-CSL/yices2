@@ -25,10 +25,7 @@
 
 
 
-#include "solvers/quant/ematch_compile.h"
-#include "solvers/quant/quant_solver.h"
-#include "utils/pair_hash_sets.h"
-#include "solvers/quant/ematch_instr_stack.h"
+#include "solvers/quant/ematch_execute.h"
 
 /*
  * E-match globals
@@ -36,12 +33,11 @@
 typedef struct ematch_globals_s {
   ematch_instr_table_t itbl;   // instruction table
   ematch_compile_t comp;       // pattern compiler
-
+  ematch_exec_t exec;          // code executer
   int_hmap_t pattern2code;     // map from pattern term to index in instruction table
-  ivector_t reg;               // register array
-  ematch_stack_t bstack;       // instruction stack
 
   pattern_table_t *ptbl;       // link to pattern table
+  egraph_t *egraph;            // link to egraph
 } ematch_globals_t;
 
 
@@ -52,7 +48,7 @@ typedef struct ematch_globals_s {
 /*
  * Initialize pattern compiler
  */
-extern void init_ematch(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl);
+extern void init_ematch(ematch_globals_t *em);
 
 /*
  * Reset ematching
@@ -66,9 +62,25 @@ extern void delete_ematch(ematch_globals_t *em);
 
 
 /*
+ * Attach pattern table
+ */
+extern void ematch_attach_ptbl(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl, intern_tbl_t *intern);
+
+/*
+ * Attach egraph
+ */
+extern void ematch_attach_egraph(ematch_globals_t *em, egraph_t *egraph);
+
+
+/*
  * Compile all patterns and fill in the pattern2code map
  */
 extern void ematch_compile_all_patterns(ematch_globals_t *em);
+
+/*
+ * Execute all patterns
+ */
+extern void ematch_execute_all_patterns(ematch_globals_t *em);
 
 
 

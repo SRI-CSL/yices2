@@ -103,7 +103,7 @@ int32_t ematch_instr_table_alloc(ematch_instr_table_t *table) {
 
   instr->op = EMATCH_NOOP;
   instr->f = NULL_TERM;
-  instr->t = NULL_TERM;
+  instr->occ = null_occurrence;
   instr->i = 0;
   instr->j = 0;
   instr->o = 0;
@@ -111,6 +111,7 @@ int32_t ematch_instr_table_alloc(ematch_instr_table_t *table) {
   instr->nsubs = 0;
   instr->alt = -1;
   instr->next = -1;
+  instr->idx = i;
 
   return i;
 }

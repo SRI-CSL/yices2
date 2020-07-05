@@ -31,6 +31,7 @@
 typedef struct ematch_compile_s {
   int_hmap_t W[4];              // working set: map from register indices to patterns
                                 // one each for compare (0), check (1), filter (2), others (3)
+                                // preference order: compare > check > filter > others
 
   int_hmap_t V;                 // variables: map from variables to register indices
   int32_t o;                    // offset: value of the next available register index
@@ -60,6 +61,9 @@ extern void delete_ematch_compiler(ematch_compile_t *comp);
  * - returns an index in the instruction table
  */
 extern int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat);
+
+
+extern void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool recursive);
 
 
 /*
