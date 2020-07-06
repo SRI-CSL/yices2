@@ -1613,7 +1613,8 @@ term_t nra_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
   } else {
     // we just return true => var = value
     // this is only allowed at base level when explaining under assumptions
-    assert(trail_is_at_base_level(nra->ctx->trail));
+    // there is currently no was to assert this properly
+    // assert(trail_is_at_base_level(nra->ctx->trail));
     return mcsat_value_to_term(value, nra->ctx->tm);
   }
 }
