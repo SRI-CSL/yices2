@@ -184,7 +184,7 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
       n = instr->nsubs;
       fprintf(f, "    instr%d: yield(#%d entries: ", idx, n);
       for (i=0; i<n; i++) {
-        fprintf(f, "%d <- %s, ", instr->subs[i].right, yices_term_to_string(instr->subs[i].left, 120, 1, 0));
+        fprintf(f, "%s -> %d, ", yices_term_to_string(instr->subs[i].left, 120, 1, 0), instr->subs[i].right);
       }
       fprintf(f, ")\n");
     }
@@ -193,6 +193,9 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
     fprintf(f, "    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
     if (recursive)
       ematch_print_instr(f, itbl, instr->next, recursive);
+    break;
+  case EMATCH_CHOOSEAPP:
+    fprintf(f, "    instr%d: choose-app(%d, instr%d, %d)\n", idx, instr->o, instr->next, instr->j);
     break;
   default:
     fprintf(f, "Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);

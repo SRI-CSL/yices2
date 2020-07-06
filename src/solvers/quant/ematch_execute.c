@@ -92,10 +92,11 @@ void delete_ematch_exec(ematch_exec_t *exec) {
 static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
   composite_t *p;
   uint32_t i, n;
-  term_t x;
+  eterm_t x;
+  occ_t occi;
 
 #if TRACE
-  printf("  Finding all fapps for eterm: ");
+  printf("  Finding all fapps for function ");
   print_eterm_id(stdout, f);
   printf("\n");
 #endif
@@ -107,17 +108,64 @@ static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
       if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
         x = term_of_occ(composite_child(p, 0));
         if (x == f) {
-          ivector_push(out, i);
+          occi = pos_occ(i);
+          ivector_push(out, occi);
 #if TRACE
           fputs("    (pushing) ", stdout);
-          print_eterm_id(stdout, i);
+          print_occurrence(stdout, occi);
           fputc('\n', stdout);
 #endif
         }
       }
     }
   }
+}
 
+/*
+ * Collect function applications for function f in the class of occ, and push in out vector
+ */
+static void egraph_get_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ, ivector_t *out) {
+  composite_t *p;
+  eterm_t ti, x;
+  occ_t occi;
+
+
+#if TRACE
+  printf("  Finding all fapps for function ");
+  print_eterm_id(stdout, f);
+  printf(" in the class of ");
+  print_occurrence(stdout, occ);
+  printf("\n");
+#endif
+
+  occi = occ;
+  do {
+    ti = term_of_occ(occi);
+    p = egraph_term_body(egraph, ti);
+    if (composite_body(p)) {
+      if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
+        x = term_of_occ(composite_child(p, 0));
+        if (x == f) {
+          ivector_push(out, occi);
+#if TRACE
+          fputs("    (pushing) ", stdout);
+          print_occurrence(stdout, occi);
+          fputc('\n', stdout);
+#endif
+        }
+      }
+    }
+    occi = egraph_next(egraph, occi);
+    assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
+  } while (occi != occ);
+
+}
+
+/*
+ * Check if t1 and t2 are equal in the egraph or not
+ */
+static bool egraph_terms_are_equal(egraph_t *egraph, occ_t t1, occ_t t2) {
+  return (egraph_label(egraph, t1) == egraph_label(egraph, t2));
 }
 
 
@@ -219,10 +267,51 @@ static void ematch_exec_set_reg(ematch_exec_t *exec, occ_t t, uint32_t idx) {
 }
 
 /*
+ * Execute EMATCH BACKTRACK
+ */
+static void ematch_exec_backtrack(ematch_exec_t *exec) {
+  ematch_stack_t *bstack;
+  int32_t idx;
+
+  bstack = &exec->bstack;
+  if (bstack->top != 0) {
+    idx = ematch_stack_top(bstack);
+    ematch_stack_pop(bstack);
+    ematch_exec_instr(exec, idx);
+  } else {
+    // stop
+  }
+}
+
+/*
+ * Execute EMATCH CHOOSEAPP
+ */
+static int32_t ematch_compile_chooseapp(ematch_compile_t *comp, int32_t o, int32_t bind, int32_t j) {
+  ematch_instr_table_t *itbl;
+  int32_t idx;
+  ematch_instr_t *instr;
+
+  itbl = comp->itbl;
+  idx = ematch_instr_table_alloc(itbl);
+  instr = &itbl->data[idx];
+
+  instr->op = EMATCH_CHOOSEAPP;
+  instr->o = o;
+  instr->next = bind;
+  instr->j = j;
+
+#if 0
+  printf("    (pre) instr%d: choose-app(%d, instr%d, %d)\n", idx, instr->o, instr->next, instr->j);
+#endif
+
+  return idx;
+}
+
+/*
  * Execute EMATCH_INIT code
  */
 static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
-  eterm_t t;
+  occ_t occ;
   occ_t focc;
   composite_t *fapp;
   ivector_t *reg;
@@ -234,12 +323,12 @@ static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
   assert(i >= 0);
   assert(i < reg->size);
 
-  t = exec->reg.data[i];
+  occ = exec->reg.data[i];
 
   focc = instr_f2occ(exec, instr);
   assert(is_pos_occ(focc));
 
-  fapp = egraph_term_body(exec->egraph, t);
+  fapp = egraph_term_body(exec->egraph, term_of_occ(occ));
   assert(composite_kind(fapp) == COMPOSITE_APPLY);
   assert(composite_child(fapp, 0) == focc);
 
@@ -255,30 +344,180 @@ static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
  * Execute EMATCH_BIND code
  */
 static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
+  eterm_t regt, ef;
+  occ_t focc;
+  ivector_t *reg;
+  int32_t i, j, n;
+  ivector_t fapps;
+  int32_t chooseapp;
+
+  reg = &exec->reg;
+
+  i = instr->i;
+  assert(i >= 0);
+  assert(i < reg->size);
+
+  regt = exec->reg.data[i];
+
+  focc = instr_f2occ(exec, instr);
+  assert(focc != null_occurrence);
+  assert(is_pos_occ(focc));
+  ef = term_of_occ(focc);
+
+  init_ivector(&fapps, 4);
+
+  egraph_get_fapps_in_class(exec->egraph, ef, regt, &fapps);
+  n = fapps.size;
+
+  instr->subs = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
+  instr->nsubs = n;
+  for(j=0; j<n; j++) {
+#if TRACE
+    printf("    choosing fapps: ");
+    print_occurrence(stdout, fapps.data[j]);
+    printf("\n");
+#endif
+    instr->subs[j].left = fapps.data[j];
+  }
+
+  delete_ivector(&fapps);
+
+  chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
+  ematch_stack_save(&exec->bstack, chooseapp);
+
+  ematch_exec_backtrack(exec);
+}
+
+/*
+ * Execute EMATCH_CHOOSEAPP code
+ * - instr->next is the corresponding bind
+ */
+static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
+  uint32_t i, j, n;
+  int32_t idx, chooseapp, offset;
+  ematch_instr_t *bind;
+  occ_t occ, focc;
+  composite_t *fapp;
+
+  offset = instr->o;
+  j = instr->j;
+  idx = instr->next;
+  assert(idx >=0 && idx < exec->itbl->ninstr);
+  bind = &exec->itbl->data[idx];
+
+  if (bind->nsubs >= j) {
+    occ = bind->subs[j-1].left;
+
+    focc = instr_f2occ(exec, bind);
+    assert(is_pos_occ(focc));
+
+    fapp = egraph_term_body(exec->egraph, term_of_occ(occ));
+    assert(composite_kind(fapp) == COMPOSITE_APPLY);
+    assert(composite_child(fapp, 0) == focc);
+
+    n = composite_arity(fapp);
+    for(i=1; i<n; i++) {
+      ematch_exec_set_reg(exec, composite_child(fapp, i), offset+i-1);
+    }
+
+    chooseapp = ematch_compile_chooseapp(exec->comp, offset, idx, j+1);
+    ematch_stack_save(&exec->bstack, chooseapp);
+
+    ematch_exec_instr(exec, bind->next);
+  } else {
+    ematch_exec_backtrack(exec);
+  }
 }
 
 /*
  * Execute EMATCH_CHECK code
  */
 static void ematch_exec_check(ematch_exec_t *exec, ematch_instr_t *instr) {
+  occ_t lhs, rhs;
+  ivector_t *reg;
+  int32_t i;
+
+  reg = &exec->reg;
+
+  i = instr->i;
+  assert(i >= 0);
+  assert(i < reg->size);
+  lhs = exec->reg.data[i];
+
+  rhs = instr_f2occ(exec, instr);
+  assert(egraph_term_is_atomic(exec->egraph, term_of_occ(rhs)));
+
+  if (egraph_terms_are_equal(exec->egraph, rhs, lhs)) {
+    ematch_exec_instr(exec, instr->next);
+  } else {
+    ematch_exec_backtrack(exec);
+  }
 }
 
 /*
  * Execute EMATCH_COMPARE code
  */
 static void ematch_exec_compare(ematch_exec_t *exec, ematch_instr_t *instr) {
+  occ_t lhs, rhs;
+  ivector_t *reg;
+  int32_t i, j;
+
+  reg = &exec->reg;
+
+  i = instr->i;
+  assert(i >= 0);
+  assert(i < reg->size);
+  lhs = exec->reg.data[i];
+
+  j = instr->j;
+  assert(j >= 0);
+  assert(j < reg->size);
+  rhs = exec->reg.data[j];
+
+  if (egraph_terms_are_equal(exec->egraph, lhs, rhs)) {
+    ematch_exec_instr(exec, instr->next);
+  } else {
+    ematch_exec_backtrack(exec);
+  }
 }
 
 /*
  * Execute EMATCH_YIELD code
  */
 static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
+  int32_t i, n;
+  term_t lhs;
+  int32_t idx;
+  ivector_t *reg;
+  occ_t rhs;
+
+  reg = &exec->reg;
+  n = instr->nsubs;
+
+  printf("    yielding (#%d entries) ", n);
+  for (i=0; i<n; i++) {
+    lhs = instr->subs[i].left;
+
+    idx = instr->subs[i].right;
+    assert(idx >= 0);
+    assert(idx < reg->size);
+    rhs = exec->reg.data[idx];
+
+    printf("%s -> ", yices_term_to_string(lhs, 120, 1, 0));
+    print_occurrence(stdout, rhs);
+    printf(", ");
+  }
+  printf("\n");
+
+  ematch_exec_backtrack(exec);
 }
 
 /*
  * Execute EMATCH_FILTER code
  */
 static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
+  // TODO
+  ematch_exec_instr(exec, instr->next);
 }
 
 
@@ -314,6 +553,9 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
     break;
   case EMATCH_FILTER:
     ematch_exec_filter(exec, instr);
+    break;
+  case EMATCH_CHOOSEAPP:
+    ematch_exec_chooseapp(exec, instr);
     break;
   default:
     printf("Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);

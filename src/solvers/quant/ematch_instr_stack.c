@@ -35,7 +35,7 @@ void init_ematch_stack(ematch_stack_t *stack) {
 
   stack->size = DEF_EMATCH_STACK_SIZE;
   stack->top = 0;
-  stack->data = (ematch_instr_t **) safe_malloc(DEF_EMATCH_STACK_SIZE * sizeof(ematch_instr_t *));
+  stack->data = (int32_t *) safe_malloc(DEF_EMATCH_STACK_SIZE * sizeof(int32_t));
 }
 
 
@@ -51,7 +51,7 @@ static void extend_ematch_stack(ematch_stack_t *stack) {
     out_of_memory();
   }
 
-  stack->data = (ematch_instr_t **) safe_realloc(stack->data, n * sizeof(ematch_instr_t *));
+  stack->data = (int32_t *) safe_realloc(stack->data, n * sizeof(int32_t));
   stack->size = n;
 }
 
@@ -76,7 +76,7 @@ void delete_ematch_stack(ematch_stack_t *stack) {
 /*
  * Save data for the current top element:
  */
-void ematch_stack_save(ematch_stack_t *stack, ematch_instr_t *instr) {
+void ematch_stack_save(ematch_stack_t *stack, int32_t idx) {
   uint32_t i;
 
   i = stack->top;
@@ -84,7 +84,7 @@ void ematch_stack_save(ematch_stack_t *stack, ematch_instr_t *instr) {
     extend_ematch_stack(stack);
   }
   assert(i < stack->size);
-  stack->data[i] = instr;
+  stack->data[i] = idx;
   stack->top = i + 1;
 }
 
@@ -92,7 +92,7 @@ void ematch_stack_save(ematch_stack_t *stack, ematch_instr_t *instr) {
 /*
  * Get the top record
  */
-ematch_instr_t *ematch_stack_top(ematch_stack_t *stack) {
+int32_t ematch_stack_top(ematch_stack_t *stack) {
   assert(stack->top > 0);
   return stack->data[stack->top - 1];
 }

@@ -659,6 +659,7 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 
 #if TRACE
   print_egraph_terms(stdout, solver->egraph);
+//  print_egraph_terms_details(stdout, solver->egraph);
   printf("\n\n");
   print_egraph_root_classes(stdout, solver->egraph);
 //  print_egraph_root_classes_details(stdout, solver->egraph);

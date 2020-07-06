@@ -59,7 +59,15 @@ static void extend_ematch_instr_table(ematch_instr_table_t *table) {
  * Remove all ematch_instr of index >= n
  */
 static void shrink_ematch_instr_table(ematch_instr_table_t *table, uint32_t n) {
+  uint32_t i;
+
   assert(n <= table->ninstr);
+
+  for(i=n; i<table->ninstr; i++) {
+    if (table->data[i].subs != NULL) {
+      safe_free(table->data[i].subs);
+    }
+  }
 
   table->ninstr = n;
 }
