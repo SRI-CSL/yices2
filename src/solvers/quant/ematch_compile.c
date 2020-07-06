@@ -190,7 +190,7 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
     }
     break;
   case EMATCH_FILTER:
-    fprintf(f, "    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
+    fprintf(f, "    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
     if (recursive)
       ematch_print_instr(f, itbl, instr->next, recursive);
     break;
@@ -295,19 +295,16 @@ static int32_t ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f
 
   instr->op = EMATCH_FILTER;
   instr->i = i;
-  instr->subs = (int_pair_t *) safe_malloc(1 * sizeof(int_pair_t));
-  instr->nsubs = 1;
-  instr->subs[0].left = i;
-  instr->subs[0].right = f;
+  instr->f = f;
 
 #if 0
-  printf("    (pre) instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
+  printf("    (pre) instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
   instr->next = ematch_compile(comp);
 
 #if 0
-  printf("    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->subs[0].right, 120, 1, 0), instr->next);
+  printf("    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
   return idx;

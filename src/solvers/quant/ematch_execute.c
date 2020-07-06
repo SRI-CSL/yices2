@@ -162,6 +162,42 @@ static void egraph_get_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ, iv
 }
 
 /*
+ * Check if a function application for function f occurs in the class of occ
+ */
+static bool egraph_has_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ) {
+  composite_t *p;
+  eterm_t ti, x;
+  occ_t occi;
+
+
+#if TRACE
+  printf("  Checking if an fapp for function ");
+  print_eterm_id(stdout, f);
+  printf(" present in the class of ");
+  print_occurrence(stdout, occ);
+  printf("\n");
+#endif
+
+  occi = occ;
+  do {
+    ti = term_of_occ(occi);
+    p = egraph_term_body(egraph, ti);
+    if (composite_body(p)) {
+      if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
+        x = term_of_occ(composite_child(p, 0));
+        if (x == f) {
+          return true;
+        }
+      }
+    }
+    occi = egraph_next(egraph, occi);
+    assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
+  } while (occi != occ);
+
+  return false;
+}
+
+/*
  * Check if t1 and t2 are equal in the egraph or not
  */
 static bool egraph_terms_are_equal(egraph_t *egraph, occ_t t1, occ_t t2) {
@@ -511,8 +547,26 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
  * Execute EMATCH_FILTER code
  */
 static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
-  // TODO
-  ematch_exec_instr(exec, instr->next);
+  eterm_t regt, ef;
+  occ_t focc;
+  int32_t i;
+
+  i = instr->i;
+  assert(i >= 0);
+  assert(i < exec->reg.size);
+
+  regt = exec->reg.data[i];
+
+  focc = instr_f2occ(exec, instr);
+  assert(focc != null_occurrence);
+  assert(is_pos_occ(focc));
+  ef = term_of_occ(focc);
+
+  if (egraph_has_fapps_in_class(exec->egraph, ef, regt)) {
+    ematch_exec_instr(exec, instr->next);
+  } else {
+    ematch_exec_backtrack(exec);
+  }
 }
 
 
