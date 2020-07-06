@@ -21,6 +21,9 @@
  */
 
 #include "solvers/quant/ematch_execute.h"
+#include "terms/term_explorer.h"
+#include "context/internalization_codes.h"
+#include "solvers/egraph/egraph_printer.h"
 #include "yices.h"
 
 #define TRACE 0
@@ -30,11 +33,8 @@
 #include <stdio.h>
 
 #include "solvers/cdcl/smt_core_printer.h"
-#include "solvers/egraph/egraph_printer.h"
-#include "context/internalization_codes.h"
 
 #include "io/yices_pp.h"
-#include "terms/term_explorer.h"
 
 #endif
 
@@ -312,25 +312,21 @@ static int32_t ematch_compile_chooseapp(ematch_compile_t *comp, int32_t o, int32
  */
 static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
   occ_t occ;
-  occ_t focc;
   composite_t *fapp;
-  ivector_t *reg;
   int32_t i, j, n;
 
-  reg = &exec->reg;
   i = instr->o;
 
   assert(i >= 0);
-  assert(i < reg->size);
+  assert(i < exec->reg.size);
 
   occ = exec->reg.data[i];
 
-  focc = instr_f2occ(exec, instr);
-  assert(is_pos_occ(focc));
+  assert(is_pos_occ(instr_f2occ(exec, instr)));
 
   fapp = egraph_term_body(exec->egraph, term_of_occ(occ));
   assert(composite_kind(fapp) == COMPOSITE_APPLY);
-  assert(composite_child(fapp, 0) == focc);
+  assert(composite_child(fapp, 0) == instr_f2occ(exec, instr));
 
   n = composite_arity(fapp);
   for(j=1; j<n; j++) {
@@ -346,16 +342,13 @@ static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
 static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
   eterm_t regt, ef;
   occ_t focc;
-  ivector_t *reg;
   int32_t i, j, n;
   ivector_t fapps;
   int32_t chooseapp;
 
-  reg = &exec->reg;
-
   i = instr->i;
   assert(i >= 0);
-  assert(i < reg->size);
+  assert(i < exec->reg.size);
 
   regt = exec->reg.data[i];
 
@@ -396,7 +389,7 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
   uint32_t i, j, n;
   int32_t idx, chooseapp, offset;
   ematch_instr_t *bind;
-  occ_t occ, focc;
+  occ_t occ;
   composite_t *fapp;
 
   offset = instr->o;
@@ -408,12 +401,11 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
   if (bind->nsubs >= j) {
     occ = bind->subs[j-1].left;
 
-    focc = instr_f2occ(exec, bind);
-    assert(is_pos_occ(focc));
+    assert(is_pos_occ(instr_f2occ(exec, bind)));
 
     fapp = egraph_term_body(exec->egraph, term_of_occ(occ));
     assert(composite_kind(fapp) == COMPOSITE_APPLY);
-    assert(composite_child(fapp, 0) == focc);
+    assert(composite_child(fapp, 0) == instr_f2occ(exec, bind));
 
     n = composite_arity(fapp);
     for(i=1; i<n; i++) {
@@ -442,7 +434,7 @@ static void ematch_exec_check(ematch_exec_t *exec, ematch_instr_t *instr) {
   i = instr->i;
   assert(i >= 0);
   assert(i < reg->size);
-  lhs = exec->reg.data[i];
+  lhs = reg->data[i];
 
   rhs = instr_f2occ(exec, instr);
   assert(egraph_term_is_atomic(exec->egraph, term_of_occ(rhs)));
@@ -467,12 +459,12 @@ static void ematch_exec_compare(ematch_exec_t *exec, ematch_instr_t *instr) {
   i = instr->i;
   assert(i >= 0);
   assert(i < reg->size);
-  lhs = exec->reg.data[i];
+  lhs = reg->data[i];
 
   j = instr->j;
   assert(j >= 0);
   assert(j < reg->size);
-  rhs = exec->reg.data[j];
+  rhs = reg->data[j];
 
   if (egraph_terms_are_equal(exec->egraph, lhs, rhs)) {
     ematch_exec_instr(exec, instr->next);
@@ -501,11 +493,14 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
     idx = instr->subs[i].right;
     assert(idx >= 0);
     assert(idx < reg->size);
-    rhs = exec->reg.data[idx];
+    rhs = reg->data[idx];
 
+#if 1
     printf("%s -> ", yices_term_to_string(lhs, 120, 1, 0));
-    print_occurrence(stdout, rhs);
+//    print_occurrence(stdout, rhs);
+    printf("OCC%d", rhs);
     printf(", ");
+#endif
   }
   printf("\n");
 
