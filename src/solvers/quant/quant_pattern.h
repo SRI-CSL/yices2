@@ -67,7 +67,7 @@ extern void init_pattern_table(pattern_table_t *table);
  */
 extern void reset_pattern_table(pattern_table_t *table);
 
-  /*
+ /*
  * Delete the table
  */
 extern void delete_pattern_table(pattern_table_t *table);

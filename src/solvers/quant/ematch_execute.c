@@ -43,13 +43,15 @@
 /*
  * Initialize code executer
  */
-void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp) {
+void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_table_t *instbl) {
   init_ivector(&exec->reg, 10);
   init_ematch_stack(&exec->bstack);
 
   exec->comp = comp;
   exec->itbl = comp->itbl;
   exec->terms = comp->terms;
+  exec->instbl = instbl;
+
   exec->egraph = NULL;
   exec->intern = NULL;
 }
@@ -64,6 +66,8 @@ void reset_ematch_exec(ematch_exec_t *exec) {
   exec->comp = NULL;
   exec->itbl = NULL;
   exec->terms = NULL;
+  exec->instbl = NULL;
+
   exec->egraph = NULL;
   exec->intern = NULL;
 }
@@ -78,9 +82,12 @@ void delete_ematch_exec(ematch_exec_t *exec) {
   exec->comp = NULL;
   exec->itbl = NULL;
   exec->terms = NULL;
+  exec->instbl = NULL;
+
   exec->egraph = NULL;
   exec->intern = NULL;
 }
+
 
 /**********************
  *   EGRAPH COMMANDS  *
@@ -186,6 +193,9 @@ static bool egraph_has_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ) {
       if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
         x = term_of_occ(composite_child(p, 0));
         if (x == f) {
+#if TRACE
+          printf("    found!\n");
+#endif
           return true;
         }
       }
@@ -193,6 +203,10 @@ static bool egraph_has_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ) {
     occi = egraph_next(egraph, occi);
     assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
   } while (occi != occ);
+
+#if TRACE
+  printf("    not found!\n");
+#endif
 
   return false;
 }
@@ -257,7 +271,6 @@ static occ_t term2occ(intern_tbl_t *tbl, term_t t) {
   return occ;
 }
 
-
 /*
  * Set register at idx to term t
  */
@@ -272,7 +285,6 @@ static occ_t instr_f2occ(ematch_exec_t *exec, ematch_instr_t *instr) {
 
   return occ;
 }
-
 
 /*
  * Set register at idx to term t
@@ -320,7 +332,7 @@ static void ematch_exec_backtrack(ematch_exec_t *exec) {
 }
 
 /*
- * Execute EMATCH CHOOSEAPP
+ * Compile EMATCH CHOOSEAPP
  */
 static int32_t ematch_compile_chooseapp(ematch_compile_t *comp, int32_t o, int32_t bind, int32_t j) {
   ematch_instr_table_t *itbl;
@@ -513,28 +525,38 @@ static void ematch_exec_compare(ematch_exec_t *exec, ematch_instr_t *instr) {
  * Execute EMATCH_YIELD code
  */
 static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
-  int32_t i, n;
+  instance_table_t *insttbl;
+  instance_t *inst;
+  int32_t i, j, n;
   term_t lhs;
   int32_t idx;
   ivector_t *reg;
   occ_t rhs;
 
+  insttbl = exec->instbl;
   reg = &exec->reg;
   n = instr->nsubs;
 
-  printf("    yielding (#%d entries) ", n);
-  for (i=0; i<n; i++) {
-    lhs = instr->subs[i].left;
+  i = instance_table_alloc(insttbl, n);
+  inst = insttbl->data + i;
+  assert(inst->size == n);
 
-    idx = instr->subs[i].right;
+  printf("    yielding (#%d entries) ", n);
+  for (j=0; j<n; j++) {
+    lhs = instr->subs[j].left;
+
+    idx = instr->subs[j].right;
     assert(idx >= 0);
     assert(idx < reg->size);
     rhs = reg->data[idx];
 
-#if 1
+    inst->vdata[j] = lhs;
+    inst->odata[j] = rhs;
+
+#if TRACE
     printf("%s -> ", yices_term_to_string(lhs, 120, 1, 0));
-//    print_occurrence(stdout, rhs);
-    printf("OCC%d", rhs);
+    print_occurrence(stdout, rhs);
+//    printf("OCC%d", rhs);
     printf(", ");
 #endif
   }
@@ -568,7 +590,6 @@ static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
     ematch_exec_backtrack(exec);
   }
 }
-
 
 /*
  * Execute a code sequence corresponding to idx in instruction table
@@ -611,6 +632,11 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
     assert(0);
   }
 }
+
+
+/***********************
+ *   PATTERN EXECUTER  *
+ **********************/
 
 /*
  * Execute the code sequence for a pattern

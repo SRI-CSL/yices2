@@ -35,6 +35,7 @@ typedef struct ematch_globals_s {
   ematch_compile_t comp;       // pattern compiler
   ematch_exec_t exec;          // code executer
   int_hmap_t pattern2code;     // map from pattern term to index in instruction table
+  instance_table_t instbl;     // instance table
 
   pattern_table_t *ptbl;       // link to pattern table
   egraph_t *egraph;            // link to egraph

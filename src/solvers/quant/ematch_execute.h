@@ -25,6 +25,7 @@
 
 #include "solvers/quant/ematch_compile.h"
 #include "solvers/quant/ematch_instr_stack.h"
+#include "solvers/quant/ematch_instance.h"
 
 
 
@@ -38,6 +39,7 @@ typedef struct ematch_exec_s {
   ematch_compile_t *comp;       // ematch compiler
   ematch_instr_table_t *itbl;   // ematch instruction table
   term_table_t *terms;          // term table
+  instance_table_t *instbl;     // instance table
 
   egraph_t *egraph;             // link to egraph
   intern_tbl_t *intern;         // link to internalization table
@@ -47,7 +49,7 @@ typedef struct ematch_exec_s {
 /*
  * Initialize code executer
  */
-extern void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp);
+extern void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_table_t *instbl);
 
 /*
  * Reset code executer

@@ -52,8 +52,9 @@ void init_ematch(ematch_globals_t *em) {
   em->egraph = NULL;
   init_ematch_instr_table(&em->itbl);
   init_ematch_compiler(&em->comp, &em->itbl, NULL);
-  init_ematch_exec(&em->exec, &em->comp);
+  init_ematch_exec(&em->exec, &em->comp, &em->instbl);
   init_int_hmap(&em->pattern2code, 0);
+  init_instance_table(&em->instbl);
 }
 
 /*
@@ -66,6 +67,7 @@ void reset_ematch(ematch_globals_t *em) {
   reset_ematch_compiler(&em->comp);
   reset_ematch_exec(&em->exec);
   int_hmap_reset(&em->pattern2code);
+  reset_instance_table(&em->instbl);
 }
 
 /*
@@ -77,6 +79,7 @@ void delete_ematch(ematch_globals_t *em) {
   delete_ematch_compiler(&em->comp);
   delete_ematch_exec(&em->exec);
   delete_int_hmap(&em->pattern2code);
+  delete_instance_table(&em->instbl);
 }
 
 /*

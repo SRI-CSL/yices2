@@ -22,6 +22,7 @@
 
 
 #include "solvers/quant/quant_pattern.h"
+#include "utils/index_vectors.h"
 
 
 
@@ -49,7 +50,18 @@ static void extend_pattern_table(pattern_table_t *table) {
  * Remove all patterns of index >= n
  */
 static void shrink_pattern_table(pattern_table_t *table, uint32_t n) {
+  uint32_t i;
+  pattern_t *pat;
+
   assert(n <= table->npatterns);
+
+  for(i=n; i<table->npatterns; i++) {
+    pat = &table->data[i];
+    delete_index_vector(pat->pvars);
+    delete_index_vector(pat->fun);
+    delete_index_vector(pat->fapps);
+    delete_index_vector(pat->consts);
+  }
 
   table->npatterns = n;
 }
