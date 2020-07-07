@@ -29,6 +29,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 
 
@@ -90,6 +91,16 @@ static void show_funsolver_stats(FILE *f, fun_solver_stats_t *stat) {
   fprintf(f, " update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
   fprintf(f, " update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
   fprintf(f, " extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
+}
+
+/*
+ * Quantifier solver statistics
+ */
+static void show_quantsolver_stats(FILE *f, quant_solver_stats_t *stat) {
+  fprintf(f, "Quantifiers\n");
+  fprintf(f, " quantifiers             : %"PRIu32"\n", stat->num_quantifiers);
+  fprintf(f, " patterns                : %"PRIu32"\n", stat->num_patterns);
+  fprintf(f, " instances               : %"PRIu32"\n", stat->num_instances);
 }
 
 /*
@@ -192,6 +203,7 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
   egraph_t *egraph;
   simplex_solver_t *simplex;
   fun_solver_t *fsolver;
+  quant_solver_t *qsolver;
 
   core = ctx->core;
   egraph = ctx->egraph;
@@ -206,6 +218,10 @@ void yices_show_statistics(FILE *f, context_t *ctx) {
     if (context_has_fun_solver(ctx)) {
       fsolver = ctx->fun_solver;
       show_funsolver_stats(f, &fsolver->stats);
+    }
+    if (context_has_quant_solver(ctx)) {
+      qsolver = ctx->quant_solver;
+      show_quantsolver_stats(f, &qsolver->stats);
     }
   }
 

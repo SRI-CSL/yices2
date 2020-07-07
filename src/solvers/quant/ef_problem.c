@@ -21,23 +21,75 @@
  */
 
 #include <assert.h>
+#include <solvers/quant/ef_problem.h>
 
-#include "exists_forall/ef_problem.h"
 #include "utils/index_vectors.h"
 #include "utils/memalloc.h"
+
+#define TRACE 0
+
+#if TRACE
+  #include "yices.h"
+#endif
+
+/*
+ * Delete pattern map
+ */
+void delete_pattern_map(ptr_hmap_t *m) {
+  ptr_hmap_pair_t *p;
+  for (p = ptr_hmap_first_record(m);
+       p != NULL;
+       p = ptr_hmap_next_record(m, p)) {
+    ivector_t* list_vector = p->val;
+    if (list_vector != NULL) {
+      delete_ivector(list_vector);
+      safe_free(list_vector);
+    }
+  }
+  delete_ptr_hmap(m);
+}
 
 /*
  * Initialization: all empty
  */
-void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
+void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
   prob->terms = term_manager_get_terms(mngr);
   prob->manager = mngr;
   prob->all_evars = NULL;
   prob->all_uvars = NULL;
+  prob->all_pvars = NULL;
   prob->conditions = NULL;
   prob->num_cnstr = 0;
   prob->cnstr_size = 0;
   prob->cnstr = NULL;
+  prob->has_uint = false;
+
+  prob->patterns = NULL;
+  if (patterns != NULL) {
+    ptr_hmap_t *patterns2;
+    ivector_t *pv1;
+    ptr_hmap_pair_t *r1, *r2;
+    uint32_t n;
+
+    prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+
+    patterns2 = prob->patterns;
+    init_ptr_hmap(patterns2, 0);
+
+    for (r1 = ptr_hmap_first_record(patterns);
+         r1 != NULL;
+         r1 = ptr_hmap_next_record(patterns, r1)) {
+      pv1 = r1->val;
+      n = pv1->size;
+
+      r2 = ptr_hmap_get(patterns2, r1->key);
+      if (r2->val == NULL) {
+        r2->val = safe_malloc(sizeof(ivector_t));
+        init_ivector(r2->val, n);
+      }
+      ivector_add(r2->val, pv1->data, n);
+    }
+  }
 }
 
 
@@ -47,8 +99,16 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr) {
 void reset_ef_prob(ef_prob_t *prob) {
   reset_index_vector(prob->all_evars);
   reset_index_vector(prob->all_uvars);
+  reset_index_vector(prob->all_pvars);
   reset_index_vector(prob->conditions);
   prob->num_cnstr = 0;
+  prob->has_uint = false;
+
+  if (prob->patterns != NULL) {
+    delete_pattern_map(prob->patterns);
+    safe_free(prob->patterns);
+    prob->patterns = NULL;
+  }
 }
 
 
@@ -60,6 +120,7 @@ void delete_ef_prob(ef_prob_t *prob) {
 
   delete_index_vector(prob->all_evars);
   delete_index_vector(prob->all_uvars);
+  delete_index_vector(prob->all_pvars);
   delete_index_vector(prob->conditions);
 
   n = prob->num_cnstr;
@@ -69,6 +130,13 @@ void delete_ef_prob(ef_prob_t *prob) {
   }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;
+  prob->has_uint = false;
+
+  if (prob->patterns != NULL) {
+    delete_pattern_map(prob->patterns);
+    safe_free(prob->patterns);
+    prob->patterns = NULL;
+  }
 }
 
 
@@ -193,6 +261,30 @@ void ef_prob_add_uvars(ef_prob_t *prob, term_t *v, uint32_t n) {
   add_to_vector(&prob->all_uvars, v, n);
 }
 
+void ef_prob_add_pvars(ef_prob_t *prob, term_t *v, uint32_t n) {
+  add_to_vector(&prob->all_pvars, v, n);
+}
+
+/*
+ * return true if array a has an uninterpreted function/sort
+ */
+bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
+  term_table_t *terms;
+  term_t t;
+  uint32_t i;
+
+  terms = prob->terms;
+
+  for(i=0; i<n; i++) {
+    t = a[i];
+    if (is_utype_term(terms, t) || is_function_term(terms, t)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 
 
 
@@ -216,8 +308,9 @@ void ef_prob_add_condition(ef_prob_t *prob, term_t t) {
  * - all_uvars := all_uvars union uv
  */
 void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *uv, uint32_t nuv,
-			    term_t assumption, term_t guarantee) {
+			    term_t assumption, term_t guarantee, term_t *pv) {
   uint32_t i;
+  bool has_uint;
 
   i = prob->num_cnstr;
   if (i == prob->cnstr_size) {
@@ -226,14 +319,52 @@ void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *u
   assert(i < prob->cnstr_size);
   prob->cnstr[i].evars = make_index_vector(ev, nev);
   prob->cnstr[i].uvars = make_index_vector(uv, nuv);
+  prob->cnstr[i].pvars = make_index_vector(pv, nuv);
   prob->cnstr[i].assumption = assumption;
   prob->cnstr[i].guarantee = guarantee;
   prob->num_cnstr = i+1;
 
+  has_uint = ef_prob_has_uint(prob, ev, nev);
+  prob->cnstr[i].has_uint = has_uint;
+  if (has_uint)
+    prob->has_uint = true;
+
   ef_prob_add_evars(prob, ev, nev);
   ef_prob_add_uvars(prob, uv, nuv);
+  ef_prob_add_pvars(prob, pv, nuv);
 }
 
+
+#if TRACE
+/*
+ * Print a forall constraint
+ */
+void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr) {
+  uint32_t n;
+
+  fprintf(f, "  constraint:\n");
+
+  n = ef_constraint_num_uvars(cnstr);
+  fprintf(f, "    pvars (#%d): ", n);
+  yices_pp_term_array(f, n, cnstr->pvars, 120, 1, 0, 1);
+
+  n = ef_constraint_num_uvars(cnstr);
+  fprintf(f, "    uvars (#%d): ", n);
+  yices_pp_term_array(f, n, cnstr->uvars, 120, 1, 0, 1);
+
+  n = ef_constraint_num_evars(cnstr);
+  fprintf(f, "    evars (#%d): ", n);
+  yices_pp_term_array(f, n, cnstr->evars, 120, 1, 0, 1);
+
+  fprintf(f, "    assumption: ");
+  yices_pp_term(f, cnstr->assumption, 120, 1, 0);
+
+  fprintf(f, "    guarantee: ");
+  yices_pp_term(f, cnstr->guarantee, 120, 1, 0);
+
+  fprintf(f, "\n");
+}
+#endif
 
 /*
  * Size of vectors

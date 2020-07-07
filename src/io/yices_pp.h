@@ -32,6 +32,7 @@
 #include "terms/rationals.h"
 #include "utils/object_stores.h"
 #include "utils/string_buffers.h"
+#include "model/concrete_values.h"
 
 
 /*
@@ -71,11 +72,22 @@ typedef enum pp_atom_type {
 
 
 /*
- * Descriptors of ID, BV, BV64 atoms
+ * Descriptors of STRING, ID, BV, BV64 atoms
+ * - for all atoms that have a string component, we optionally
+ *   make a clone of the string  when the atom is created.
+ * - if so, we set cloned to true.
+ * - if not, we set cloned to false.
+ * - same convention for the integer array bv in pp_bv_s
  */
+typedef struct pp_string_s  {
+  const char *string;
+  bool cloned;
+} pp_string_t;
+
 typedef struct pp_id_s {
   const char *prefix;
   int32_t index;
+  bool cloned;
 } pp_id_t;
 
 typedef struct pp_bv64_s {
@@ -86,6 +98,7 @@ typedef struct pp_bv64_s {
 typedef struct pp_bv_s {
   uint32_t *bv;
   uint32_t nbits;
+  bool cloned;
 } pp_bv_t;
 
 
@@ -98,6 +111,7 @@ typedef struct pp_bv_s {
 typedef struct pp_qstr_s {
   const char *str;
   char quote[2];
+  bool cloned;
 } pp_qstr_t;
 
 
@@ -108,6 +122,7 @@ typedef struct pp_qid_s {
   const char *prefix;
   int32_t index;
   char quote[2];
+  bool cloned;
 } pp_qid_t;
 
 
@@ -118,7 +133,7 @@ typedef struct pp_atom_s {
   pp_atomic_token_t tk; // prefix defined in pretty_printer.h
   union {
     char c;
-    const char *string;
+    pp_string_t string;
     pp_id_t id;
     int32_t i32;
     uint32_t u32;
@@ -363,6 +378,23 @@ static inline int yices_pp_errno(yices_pp_t *printer) {
  */
 
 /*
+ * Safe atoms:
+ * - pp_rational make an internal copy of q
+ * - pp_mpz, pp_mpq: the z or the q is translated to a rational
+ * - pp_algebraic: converted to a double
+ */
+extern void pp_char(yices_pp_t *printer, char c);
+extern void pp_bool(yices_pp_t *printer, bool tt);
+extern void pp_int32(yices_pp_t *printer, int32_t x);
+extern void pp_uint32(yices_pp_t *printer, uint32_t x);
+extern void pp_mpz(yices_pp_t *printer, mpz_t z);
+extern void pp_mpq(yices_pp_t *printer, mpq_t q);
+extern void pp_rational(yices_pp_t *printer, rational_t *q);
+extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
+extern void pp_algebraic(yices_pp_t *printer, void *a);
+
+/*
+ * String and bv atoms without cloning
  * - pp_id(printer, prefix, id): prints <prefix><id>
  *   (example, pp_id(printer, "tau_", 23) prints "tau_23")
  * - pp_varid(printer, prefix, id): prints <prefix>!<id>
@@ -373,19 +405,22 @@ static inline int yices_pp_errno(yices_pp_t *printer) {
  * function in pp_id. Function pp_bv does not make a copy
  * of the word array *bv either.
  */
-extern void pp_char(yices_pp_t *printer, char c);
 extern void pp_string(yices_pp_t *printer, const char *s);
 extern void pp_id(yices_pp_t *printer, const char *prefix, int32_t id);
 extern void pp_varid(yices_pp_t *printer, const char *prefix, int32_t id);
-extern void pp_bool(yices_pp_t *printer, bool tt);
-extern void pp_int32(yices_pp_t *printer, int32_t x);
-extern void pp_uint32(yices_pp_t *printer, uint32_t x);
-extern void pp_mpz(yices_pp_t *printer, mpz_t z);
-extern void pp_mpq(yices_pp_t *printer, mpq_t q);
-extern void pp_rational(yices_pp_t *printer, rational_t *q);
-extern void pp_algebraic(yices_pp_t *printer, void *a);
-extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
+
+/*
+ * String and bv atoms with cloning
+ * - these print the same  thing as above but they make an internal
+ *   copy of the string or bv array.
+ */
+extern void pp_clone_string(yices_pp_t *printer, const char *s);
+extern void pp_clone_id(yices_pp_t *printer, const char *prefix, int32_t id);
+extern void pp_clone_varid(yices_pp_t *printer, const char *prefix, int32_t id);
+extern void pp_clone_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
+
+
 
 /*
  * Print 0b0...0, 0b0...01, or 0b1...1: n = number of bits
@@ -409,23 +444,35 @@ extern void pp_separator(yices_pp_t *printer, const char *s);
  * Examples
  *   pp_qstring(printer, '"', '"', "abcde") will print "abcde" (quotes included)
  *   pp_qstring(printer, '\'', '\0', "abcde") will print 'abcde
+ *
+ * The default version does not make a copy of s, so s must remain valid until
+ * the printer is flushed. The clone  version makes an internal copy of s.
  */
 extern void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s);
+extern void pp_clone_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s);
 
 /*
  * Quoted id:
  * - same as pp_id but with open and close quote
  *
  * Examples: pp_quoted_id(printer, "x!", 20, '|', '|') will print |x!20|
+ *
+ * The default version does not make a copy of prefix, so prefix must remain valid until
+ * the printer is flushed. The clone  version makes an internal copy of prefix.
  */
 extern void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote);
+extern void pp_clone_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote);
 
 /*
  * Variant(s) for SMT2 atoms
  * - pp_smt2_bv uses the prefix #b instead of 0b
+ *
+ * pp_smt2_bv: does not make a copy of bv.
+ * pp_clone_smt2_bv: makes an internal copy.
  */
 extern void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
+extern void pp_clone_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 
 /*
  * Another SMT2 special
@@ -433,6 +480,63 @@ extern void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
  * - the value is provided as a rational but the denominator must be one.
  */
 extern void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q);
+
+
+/*
+ * PRINT UTILITIES BORROWED FROM SMT2 PRINTER
+ */
+
+/*
+ * Default printer for bitvector
+ */
+extern void pp_bitvector(yices_pp_t *printer, value_bv_t *b);
+
+/*
+ * For uninterpreted constants: always print an abstract name
+ */
+extern void pp_unint_name(yices_pp_t *printer, value_t c);
+
+/*
+ * Function: always use a default name, even if fun has a name
+ */
+extern void pp_fun_name(yices_pp_t *printer, value_t c);
+
+/*
+ * Format to display a function:
+ * (function <name>
+ *   (type (-> tau_1 ... tau_n sigma))
+ *   (= (<name> x_1 ... x_n) y_1)
+ *    ...
+ *   (default z))
+ */
+extern void pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau);
+
+/*
+ * Print the function c
+ * - if show_default is true, also print the default falue
+ */
+extern void pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+
+/*
+ * Expand update c and print it as a function
+ * - the name "@fun_c"
+ * - if show_default is true, also print the default value
+ */
+extern void normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+
+/*
+ * Print object c on stream f
+ *
+ * There's no support for tuples or mappings in SMT2. They should never occur here.
+ */
+extern void pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
+
+/*
+ * Print object c on FILE f
+ *
+ */
+extern void pp_value(FILE *f, value_table_t *table, value_t c);
+
 
 
 /*

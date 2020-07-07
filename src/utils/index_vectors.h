@@ -66,7 +66,6 @@ static inline uint32_t iv_capacity(int32_t *v) {
 #define MAX_IDX_VECTOR_SIZE (((uint32_t)(UINT32_MAX-sizeof(index_vector_t)))/4)
 
 
-
 /*
  * Add elem k at the end of vector *v
  * - if *v is NULL, allocate a fresh vector of default size

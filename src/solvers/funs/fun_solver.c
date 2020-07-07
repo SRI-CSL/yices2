@@ -39,6 +39,7 @@
 #include "io/tracer.h"
 #include "model/fun_trees.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/funs/stratification.h"
 #include "utils/hash_functions.h"
 #include "utils/index_vectors.h"
 #include "utils/int_array_sort2.h"
@@ -1118,7 +1119,6 @@ static inline thvar_t root_var(fun_solver_t *solver, thvar_t x) {
 }
 
 
-
 /*
  * Build the equivalence classes
  * - set root[x] for all variables
@@ -1149,7 +1149,6 @@ static void fun_solver_build_classes(fun_solver_t *solver) {
       vtbl->next[x] = i;
     }
   }
-
 }
 
 
@@ -2314,7 +2313,6 @@ literal_t fun_solver_select_eq_polarity(fun_solver_t *solver, thvar_t x1, thvar_
  * INTERFACE EQUALITIES
  */
 
-
 /*
  * Propagate c = (apply f i_1 ... i_n) to all root variables z reachable
  * from x = root variable for f via a non-masking path.
@@ -2561,8 +2559,9 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
       if (p > h) p = h;
 
 #if TRACE
-      printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
-             sigma, h, i - m);
+      printf("---> connected components of type tau: %"PRId32"\n", tau);
+      printf("--->   range type: sigma = %"PRId32" of card = %"PRIu32"\n", sigma, h);
+      printf("--->   num classes = %"PRIu32"\n", i - m);
       fflush(stdout);
 #endif
 
@@ -2595,7 +2594,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
 	solver->base_value[k] = buffer.data[h];
 #if TRACE
-	printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
+	printf("--->   base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
 	h ++;
 	if (h >= p) h = 0;
@@ -2864,6 +2863,121 @@ static void fun_solver_release_model(fun_solver_t *solver) {
 
 
 /*
+ * Stratification
+ * - build stratification structure
+ */
+static void fun_solver_stratify(stratification_t *levels, fun_solver_t *solver) {
+  fun_vartable_t *vtbl;
+  diseq_stack_t *dstack;
+  uint32_t i, n;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (vtbl->root[i] == i) {
+      stratify_incr_var_count(levels, fun_var_type(vtbl, i));
+    }
+  }
+  dstack = &solver->dstack;
+  n = dstack->top;
+  for (i=0; i<n; i++) {
+    x = dstack->data[i].left;
+    stratify_incr_diseq_count(levels, fun_var_type(vtbl, x));
+  }
+  stratify_make_arrays(levels);
+
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (vtbl->root[i] == i) {
+      stratify_add_var(levels, i, fun_var_type(vtbl, i));
+    }
+  }
+  n = dstack->top;
+  for (i=0; i<n; i++) {
+    x = dstack->data[i].left;
+    stratify_add_diseq(levels, i, fun_var_type(vtbl, x));
+  }
+}
+
+
+/*
+ * Check for extensionality axioms for explicit disequalities at level k
+ * in the stratification.
+ * - max_eq = bound on the number of aximos to generate
+ * - return the total number of axioms produced
+ */
+static uint32_t gen_extensionality_for_diseqs(fun_solver_t *solver, stratification_t *levels,
+					      uint32_t k, uint32_t max_eqs) {
+  diseq_stack_t *dstack;
+  uint32_t i, d, n, start_idx;
+  uint32_t neqs;
+  thvar_t x, y;
+
+  n = num_diseqs_in_stratum(levels, k);
+  if (n == 0) return 0; // nothing to do
+
+  dstack = &solver->dstack;
+
+  neqs = 0;
+
+  start_idx = first_diseq_in_stratum(levels, k);
+  for (i=start_idx; i<start_idx+n; i++) {
+    d = levels->diseqs[i];
+    assert(d < dstack->top);
+    x = dstack->data[d].left;
+    y = dstack->data[d].right;
+    if (fun_solver_var_equal_in_model(solver, x, y)) {
+      fun_solver_extensionality_axiom(solver, x, y);
+      neqs ++;
+      if (neqs == max_eqs) break;
+    }
+  }
+
+  return neqs;
+}
+
+
+/*
+ * Check for extensionality axioms caused by conflicts between
+ * Egraph classes and solver model
+ * - we create an axiom if (t == u) for the solver (same values in the model)
+ *   but t and u are in different classes in the egraph
+ * - k = stratification levels (only variables at this level are considered)
+ * - hclass = hash table for checking  t == u
+ * - max_eqs = bound on the number of axioms to generate
+ * - return the total number of axioms produced
+ */
+static uint32_t gen_extensionality_for_vars(fun_solver_t *solver, stratification_t *levels,
+					    int_hclass_t *hclass, uint32_t k, uint32_t max_eqs) {
+  uint32_t i, n, start_idx;
+  uint32_t neqs;
+  thvar_t x, y;
+
+  n = num_vars_in_stratum(levels, k);
+  if (n == 0) return 0; // nothing to do
+
+  neqs = 0;
+  start_idx = first_var_in_stratum(levels, k);
+
+  for (i=start_idx; i<start_idx+n; i++) {
+    x = levels->vars[i];
+    assert(0 <= x && x < solver->vtbl.nvars);
+    assert(solver->vtbl.root[x] == x);
+
+    y = int_hclass_get_rep(hclass, x);
+    if (y != x) {
+      fun_solver_extensionality_axiom(solver, y, x);
+      neqs ++;
+      if (neqs == max_eqs) break;
+    }
+  }
+
+  return neqs;
+}
+
+
+/*
  * Build a model that attempt to minimize conflicts with the egraph.
  * Add instance of the extensionality axiom for the conflicts that remain.
  * - max_eq is ignored (we use max_extensionality instead)
@@ -2878,11 +2992,9 @@ static void fun_solver_release_model(fun_solver_t *solver) {
  * distinct values.
  */
 uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
-  fun_vartable_t *vtbl;
-  diseq_stack_t *dstack;
+  stratification_t levels;
   int_hclass_t hclass;
-  int32_t i, x, y, n, nv0;
-  uint32_t neq;
+  uint32_t k, n, neqs, nv0, max_eqs;
 
   assert(!solver->bases_ready && !solver->apps_ready);
 
@@ -2900,6 +3012,9 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   fun_solver_init_base_value(solver);
   fun_solver_assign_base_values(solver);
 
+  init_stratification(&levels, solver->types);
+  fun_solver_stratify(&levels, solver);
+
 #if TRACE
   printf("Egraph:\n");
   print_egraph_terms(stdout, solver->egraph);
@@ -2912,60 +3027,49 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   printf("\nDisequalities:\n");
   print_fsolver_diseqs(stdout, solver);
   printf("\n");
+  printf("\nStratification:\n");
+  print_fsolver_stratification(stdout, &levels, solver);
+  printf("\n");
 #endif
+
+
+  // hclass to check for more conflicts egraph classes and the solver model.
+  init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) fun_solver_model_hash,
+                  (iclass_match_fun_t) fun_solver_var_equal_in_model);
 
   /*
    * We keep track of the current number of variables before
    * generating any extensionality axioms (extensionality axioms
-   * may create new variables in this solver.
+   * may create new variables in this solver).
+   *
+   * If new variables are created, the current model is wrong.
    */
   nv0 = solver->vtbl.nvars;
-  neq = 0;
-  max_eq = solver->max_extensionality;
+  max_eqs = solver->max_extensionality;
+  neqs = 0;
 
-  // go through the explicit disequalities first
-  dstack = &solver->dstack;
-  n = dstack->top;
-  for (i=0; i<n; i++) {
-    x = dstack->data[i].left;
-    y = dstack->data[i].right;
-    if (fun_solver_var_equal_in_model(solver, x, y)) {
-      fun_solver_extensionality_axiom(solver, x, y);
-      neq ++;
-      if (neq == max_eq) goto done;
-    }
-  }
+  assert(max_eqs > 0);
 
-  /*
-   * If the first pass has created more variables.  we can't trust the
-   * current model. So we skip the second pass.
-   */
-  if (nv0 < solver->vtbl.nvars) goto done;
+  // process each level (level 0 is always empty)
+  n = strat_num_levels(&levels);
+  for (k=1; k<n; k++) {
+    // handle the explicit disequalities first
+    neqs += gen_extensionality_for_diseqs(solver, &levels, k, max_eqs);
+    assert(neqs <= max_eqs);
+    if (neqs == max_eqs || nv0 < solver->vtbl.nvars) break;
 
-  // check for more conflicts between the egraph classes and the solver model.
-  init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) fun_solver_model_hash,
-                  (iclass_match_fun_t) fun_solver_var_equal_in_model);
-
-  vtbl = &solver->vtbl;
-  n = vtbl->nvars;
-  for (i=0; i<n; i++) {
-    if (vtbl->root[i] == i) {
-      x = int_hclass_get_rep(&hclass, i);
-      if (x != i) {
-        fun_solver_extensionality_axiom(solver, x, i);
-        neq ++;
-        if (neq == max_eq) break;
-      }
-    }
+    // then variables in this level
+    neqs += gen_extensionality_for_vars(solver, &levels, &hclass, k, max_eqs - neqs);
+    assert(neqs <= max_eqs);
+    if (neqs == max_eqs || nv0 < solver->vtbl.nvars) break;
   }
 
   delete_int_hclass(&hclass);
-
- done:
+  delete_stratification(&levels);
   fun_solver_release_model(solver);
-  solver->reconciled = (neq == 0);
+  solver->reconciled = (neqs == 0);
 
-  return neq;
+  return neqs;
 }
 
 

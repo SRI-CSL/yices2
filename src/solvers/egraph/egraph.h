@@ -82,6 +82,17 @@ extern void egraph_attach_funsolver(egraph_t *egraph,
                                     th_egraph_interface_t *eg,
                                     fun_egraph_interface_t *fun_eg);
 
+/*
+ * Attach a quant subsolver
+ * - solver = pointer to the subsolver object
+ * - ctrl, eg, quant_eg  = interface descriptors
+ */
+void egraph_attach_quantsolver(egraph_t *egraph,
+                               void *solver,
+                               th_ctrl_interface_t *ctrl,
+                               th_egraph_interface_t *eg,
+                               quant_egraph_interface_t *quant_eg);
+
 
 /*
  * Get the egraph control and smt interface descriptors

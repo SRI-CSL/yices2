@@ -37,6 +37,7 @@
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/diseq_stacks.h"
 #include "solvers/egraph/egraph.h"
+#include "solvers/funs/fun_level.h"
 #include "terms/types.h"
 #include "utils/bitvectors.h"
 #include "utils/int_hash_map2.h"

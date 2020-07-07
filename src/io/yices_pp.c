@@ -25,7 +25,7 @@
 #include <poly/algebraic_number.h>
 #endif
 #include "io/yices_pp.h"
-
+#include "io/type_printer.h"
 
 /*
  * OPEN BLOCK DESCRIPTORS
@@ -430,7 +430,7 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     s = buffer->data;
     break;
   case PP_STRING_ATOM:
-    s = atm->data.string;
+    s = atm->data.string.string;
     break;
   case PP_ID_ATOM:
     build_id(buffer, atm->data.id.prefix, atm->data.id.index);
@@ -542,9 +542,47 @@ static void free_atomic_token(yices_pp_t *printer, pp_atomic_token_t *tk) {
   pp_atom_t *atm;
 
   atm = (pp_atom_t *) tk;
-  if (tk->user_tag == PP_RATIONAL_ATOM) {
+  switch (tk->user_tag) {
+  case PP_RATIONAL_ATOM:
     q_clear(&atm->data.rat);
+    break;
+
+  case PP_STRING_ATOM:
+    if (atm->data.string.cloned) {
+      safe_free((void*) atm->data.string.string);
+    }
+    break;
+
+  case PP_ID_ATOM:
+  case PP_VARID_ATOM:
+    if (atm->data.id.cloned) {
+      safe_free((void*) atm->data.id.prefix);
+    }
+    break;
+
+  case PP_BV_ATOM:
+  case PP_SMT2_BV_ATOM:
+    if (atm->data.bv.cloned) {
+      safe_free((void*) atm->data.bv.bv);
+    }
+    break;
+
+  case PP_QSTRING_ATOM:
+    if (atm->data.qstr.cloned) {
+      safe_free((void*) atm->data.qstr.str);
+    }
+    break;
+
+  case PP_SMT2_QID_ATOM:
+    if (atm->data.qid.cloned)  {
+      safe_free((void*) atm->data.qid.prefix);
+    }
+    break;
+
+  default:
+    break;
   }
+
   objstore_free(&printer->atom_store, tk);
   string_buffer_reset(&printer->buffer);
 }
@@ -647,11 +685,174 @@ void delete_yices_pp(yices_pp_t *printer, bool flush) {
 
 
 /*
- * Allocate an atom
+ * Allocate an atom.
  */
 static inline pp_atom_t *new_atom(yices_pp_t *printer) {
   return (pp_atom_t *) objstore_alloc(&printer->atom_store);
 }
+
+
+/*
+ * Utility: make a clone of string s
+ */
+static char *clone_str(const char *s) {
+  char *copy;
+  uint32_t n;
+
+  n = strlen(s);
+  if (n + 1 < n) {
+    out_of_memory(); // overflow
+  }
+  copy = safe_malloc(n+1);
+  strcpy(copy, s);
+
+  return copy;
+}
+
+/*
+ * Build and push atomic token:
+ * - clone the string argument if the clone flag is true.
+ */
+static void pp_string_token(yices_pp_t *printer, const char *s, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+  uint32_t n;
+
+  n = strlen(s);
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_STRING_ATOM);
+  atom->data.string.string = clone ? clone_str(s) : s;
+  atom->data.string.cloned = clone;
+
+  pp_push_token(&printer->pp, tk);
+
+}
+
+static void pp_id_token(yices_pp_t *printer, const char *prefix, int32_t index, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // we use the buffer to get the token size
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_id(buffer, prefix, index);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_ID_ATOM);
+  atom->data.id.prefix = clone ? clone_str(prefix) : prefix;
+  atom->data.id.index = index;
+  atom->data.id.cloned = clone;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+static void pp_varid_token(yices_pp_t *printer, const char *prefix, int32_t index, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // we use the buffer to get the token size
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_varid(buffer, prefix, index);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_VARID_ATOM);
+  atom->data.id.prefix = clone ? clone_str(prefix) : prefix;
+  atom->data.id.index = index;
+  atom->data.id.cloned = clone;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+static void pp_qstring_token(yices_pp_t *printer, char open_quote, char close_quote, const char *s, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+  uint32_t n;
+
+  n = strlen(s) + (open_quote != '\0') + (close_quote != '\0');
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_QSTRING_ATOM);
+  atom->data.qstr.str = clone ?  clone_str(s) : s;
+  atom->data.qstr.quote[0] = open_quote;
+  atom->data.qstr.quote[1] = close_quote;
+  atom->data.qstr.cloned = clone;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+static void pp_quoted_id_token(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // get the token size using buffer
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_id(buffer, prefix, id);
+  n = string_buffer_length(buffer) + (open_quote != '\0') + (close_quote != '\0');
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_SMT2_QID_ATOM);
+  atom->data.qid.prefix = clone ? clone_str(prefix) : prefix;
+  atom->data.qid.index = id;
+  atom->data.qid.quote[0] = open_quote;
+  atom->data.qid.quote[1] = close_quote;
+  atom->data.qid.cloned =  clone;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+/*
+ * Make a copy of array a
+ * - n = number of bits
+ * - a is an array of ceil(n/32) integers
+ */
+static uint32_t *clone_bv_array(const uint32_t *a, uint32_t n) {
+  uint32_t *copy;
+  uint32_t i;
+
+  n = (n+31)>>5; // ceil(n/32)
+  copy = safe_malloc(n * sizeof(uint32_t));
+  for (i=0; i<n; i++) {
+    copy[i] = a[i];
+  }
+  return copy;
+}
+
+
+/*
+ * Token for a bit-vector bv
+ * - tag is either PP_BV_ATOM or PP_SMT2_BV_ATOM
+ * - make a copy of bv if clone is true
+ */
+static void pp_bv_token(yices_pp_t *printer, pp_atom_type_t tag, uint32_t *bv, uint32_t n, bool clone) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n);
+  assert(tag == PP_BV_ATOM || tag == PP_SMT2_BV_ATOM);
+
+  atom = new_atom(printer);
+  // bitvector constants are printed as 0bxxx... or #bxxxxx
+  // so  the length is n+2
+  tk = init_atomic_token(&atom->tk, n+2, tag);
+  atom->data.bv.bv = clone ? clone_bv_array(bv, n) : bv;
+  atom->data.bv.nbits = n;
+  atom->data.bv.cloned = clone;
+
+  pp_push_token(&printer->pp, tk);
+}
+
 
 
 /*
@@ -672,63 +873,36 @@ void pp_char(yices_pp_t *printer, char c) {
  * String s: no copy is made
  */
 void pp_string(yices_pp_t *printer, const char *s) {
-  pp_atom_t *atom;
-  void *tk;
-  uint32_t n;
-
-  n = strlen(s);
-  atom = new_atom(printer);
-  tk = init_atomic_token(&atom->tk, n, PP_STRING_ATOM);
-  atom->data.string = s;
-
-  pp_push_token(&printer->pp, tk);
+  pp_string_token(printer, s, false);
 }
-
 
 /*
- * Identifier: as above, we don't copy the prefix
+ * String s: make a copy
  */
-void pp_id(yices_pp_t *printer, const char *prefix, int32_t index) {
-  pp_atom_t *atom;
-  void *tk;
-  string_buffer_t *buffer;
-  uint32_t n;
-
-  // we use the buffer to get the token size
-  buffer = &printer->buffer;
-  assert(string_buffer_length(buffer) == 0);
-  build_id(buffer, prefix, index);
-  n = string_buffer_length(buffer);
-  string_buffer_reset(buffer);
-
-  atom = new_atom(printer);
-  tk = init_atomic_token(&atom->tk, n, PP_ID_ATOM);
-  atom->data.id.prefix = prefix;
-  atom->data.id.index = index;
-
-  pp_push_token(&printer->pp, tk);
+void pp_clone_string(yices_pp_t *printer, const char *s) {
+  pp_string_token(printer, s, true);
 }
 
+/*
+ * Identifier: don't copy the prefix
+ */
+void pp_id(yices_pp_t *printer, const char *prefix, int32_t index) {
+  pp_id_token(printer, prefix, index, false);
+}
 
+void pp_clone_id(yices_pp_t *printer, const char *prefix, int32_t index) {
+  pp_id_token(printer, prefix, index, true);
+}
+
+/*
+ * Variable + index
+ */
 void pp_varid(yices_pp_t *printer, const char *prefix, int32_t index) {
-  pp_atom_t *atom;
-  void *tk;
-  string_buffer_t *buffer;
-  uint32_t n;
+  pp_varid_token(printer,  prefix, index, false);
+}
 
-  // we use the buffer to get the token size
-  buffer = &printer->buffer;
-  assert(string_buffer_length(buffer) == 0);
-  build_varid(buffer, prefix, index);
-  n = string_buffer_length(buffer);
-  string_buffer_reset(buffer);
-
-  atom = new_atom(printer);
-  tk = init_atomic_token(&atom->tk, n, PP_VARID_ATOM);
-  atom->data.id.prefix = prefix;
-  atom->data.id.index = index;
-
-  pp_push_token(&printer->pp, tk);
+void pp_clone_varid(yices_pp_t *printer, const char *prefix, int32_t index) {
+  pp_varid_token(printer,  prefix, index, true);
 }
 
 void pp_bool(yices_pp_t *printer, bool tt) {
@@ -744,7 +918,6 @@ void pp_bool(yices_pp_t *printer, bool tt) {
 
   pp_push_token(&printer->pp, tk);
 }
-
 
 void pp_int32(yices_pp_t *printer, int32_t x) {
   pp_atom_t *atom;
@@ -810,7 +983,6 @@ void pp_mpz(yices_pp_t *printer, mpz_t z) {
   pp_push_token(&printer->pp, tk);
 }
 
-
 void pp_mpq(yices_pp_t *printer, mpq_t q) {
   pp_atom_t *atom;
   void *tk;
@@ -830,7 +1002,6 @@ void pp_mpq(yices_pp_t *printer, mpq_t q) {
 
   pp_push_token(&printer->pp, tk);
 }
-
 
 void pp_rational(yices_pp_t *printer, rational_t *q) {
   pp_atom_t *atom;
@@ -874,7 +1045,6 @@ void pp_algebraic(yices_pp_t *printer, void *a) {
 #endif
 }
 
-
 void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
   pp_atom_t *atom;
   void *tk;
@@ -895,20 +1065,12 @@ void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
  * No copy of bv is made
  */
 void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
-  pp_atom_t *atom;
-  void *tk;
-
-  assert(0 < n);
-  atom = new_atom(printer);
-  // bitvector constants are printed as 0bxxx... so
-  // the length is n+2
-  tk = init_atomic_token(&atom->tk, n+2, PP_BV_ATOM);
-  atom->data.bv.bv = bv;
-  atom->data.bv.nbits = n;
-
-  pp_push_token(&printer->pp, tk);
+  pp_bv_token(printer, PP_BV_ATOM, bv, n, false);
 }
 
+void pp_clone_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
+  pp_bv_token(printer, PP_BV_ATOM, bv, n, true);
+}
 
 /*
  * Bitvector constants: 0, 1, -1
@@ -961,7 +1123,8 @@ void pp_separator(yices_pp_t *printer, const char *s) {
   n = strlen(s);
   atom = new_atom(printer);
   tk = init_separator_token(&atom->tk, n, PP_STRING_ATOM);
-  atom->data.string = s;
+  atom->data.string.string = s;
+  atom->data.string.cloned = false;
 
   pp_push_token(&printer->pp, tk);
 }
@@ -977,20 +1140,12 @@ void pp_separator(yices_pp_t *printer, const char *s) {
  *   pp_qstring(printer, '\'', '\0', "abcde") will print 'abcde
  */
 void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s) {
-  pp_atom_t *atom;
-  void *tk;
-  uint32_t n;
-
-  n = strlen(s) + (open_quote != '\0') + (close_quote != '\0');
-  atom = new_atom(printer);
-  tk = init_atomic_token(&atom->tk, n, PP_QSTRING_ATOM);
-  atom->data.qstr.str = s;
-  atom->data.qstr.quote[0] = open_quote;
-  atom->data.qstr.quote[1] = close_quote;
-
-  pp_push_token(&printer->pp, tk);
+  pp_qstring_token(printer, open_quote, close_quote, s, false);
 }
 
+void pp_clone_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s) {
+  pp_qstring_token(printer, open_quote, close_quote, s, true);
+}
 
 /*
  * Variants of pp_bv and pp_bv64 for the SMT2 notation
@@ -1011,18 +1166,11 @@ void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
 }
 
 void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
-  pp_atom_t *atom;
-  void *tk;
+  pp_bv_token(printer, PP_SMT2_BV_ATOM, bv, n, false);
+}
 
-  assert(0 < n);
-  atom = new_atom(printer);
-  // bitvector constants are printed as #bxxx... so
-  // the length is n+2
-  tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV_ATOM);
-  atom->data.bv.bv = bv;
-  atom->data.bv.nbits = n;
-
-  pp_push_token(&printer->pp, tk);
+void pp_clone_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
+  pp_bv_token(printer, PP_SMT2_BV_ATOM, bv, n, true);
 }
 
 
@@ -1054,7 +1202,6 @@ void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q) {
 }
 
 
-
 /*
  * Quoted id:
  * - same as pp_id but with open and close quote
@@ -1062,26 +1209,197 @@ void pp_smt2_integer_as_real(yices_pp_t *printer, rational_t *q) {
  * Examples: pp_quoted_id(printer, "x!", 20, '|', '|') will print |x!20|
  */
 void pp_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote) {
-  pp_atom_t *atom;
-  void *tk;
-  string_buffer_t *buffer;
-  uint32_t n;
+  pp_quoted_id_token(printer, prefix, id, open_quote, close_quote, false);
+}
 
-  // get the token size using buffer
-  buffer = &printer->buffer;
-  assert(string_buffer_length(buffer) == 0);
-  build_id(buffer, prefix, id);
-  n = string_buffer_length(buffer) + (open_quote != '\0') + (close_quote != '\0');
-  string_buffer_reset(buffer);
+void pp_clone_quoted_id(yices_pp_t *printer, const char *prefix, int32_t id, char open_quote, char close_quote) {
+  pp_quoted_id_token(printer, prefix, id, open_quote, close_quote, true);
+}
 
-  atom = new_atom(printer);
-  tk = init_atomic_token(&atom->tk, n, PP_SMT2_QID_ATOM);
-  atom->data.qid.prefix = prefix;
-  atom->data.qid.index = id;
-  atom->data.qid.quote[0] = open_quote;
-  atom->data.qid.quote[1] = close_quote;
+/*
+ * PRINT UTILITIES BORROWED FROM SMT2 PRINTER
+ */
 
-  pp_push_token(&printer->pp, tk);
+/*
+ * Default printer for bitvector
+ */
+void pp_bitvector(yices_pp_t *printer, value_bv_t *b) {
+  pp_smt2_bv(printer, b->data, b->nbits);
+}
+
+/*
+ * For uninterpreted constants: always print an abstract name
+ */
+void pp_unint_name(yices_pp_t *printer, value_t c) {
+  pp_id(printer, "@const_", c);
+}
+
+/*
+ * Function: always use a default name, even if fun has a name
+ */
+void pp_fun_name(yices_pp_t *printer, value_t c) {
+  pp_id(printer, "@fun_", c);
+}
+
+/*
+ * Format to display a function:
+ * (function <name>
+ *   (type (-> tau_1 ... tau_n sigma))
+ *   (= (<name> x_1 ... x_n) y_1)
+ *    ...
+ *   (default z))
+ */
+void pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau) {
+  pp_open_block(printer, PP_OPEN_FUNCTION);
+  pp_id(printer, "@fun_", c);
+  pp_open_block(printer, PP_OPEN_TYPE);
+  pp_type(printer, table->type_table, tau);
+  pp_close_block(printer, true);
+}
+
+/*
+ * Print the function c
+ * - if show_default is true, also print the default falue
+ */
+void pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default) {
+  value_fun_t *fun;
+  value_map_t *mp;
+  uint32_t i, n;
+  uint32_t j, m;
+
+  assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
+  fun = table->desc[c].ptr;
+
+  pp_function_header(printer, table, c, fun->type);
+
+  m = fun->arity;
+  n = fun->map_size;
+  for (i=0; i<n; i++) {
+    pp_open_block(printer, PP_OPEN_EQ);  // (=
+    pp_open_block(printer, PP_OPEN_PAR); // (fun
+    pp_fun_name(printer, c);
+
+    mp = vtbl_map(table, fun->map[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      pp_object(printer, table, mp->arg[j]);
+    }
+    pp_close_block(printer, true); // close of (fun ...
+    pp_object(printer, table, mp->val);
+    pp_close_block(printer, true); // close (= ..
+  }
+
+  if (show_default && !is_unknown(table, fun->def)) {
+    pp_open_block(printer, PP_OPEN_DEFAULT); // (default
+    pp_object(printer, table, fun->def);
+    pp_close_block(printer, true); // close (default ..
+  }
+  pp_close_block(printer, true); // close (function ...
+}
+
+/*
+ * Expand update c and print it as a function
+ * - the name "@fun_c"
+ * - if show_default is true, also print the default value
+ */
+void normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default) {
+  map_hset_t *hset;
+  value_map_t *mp;
+  value_t def;
+  type_t tau;
+  uint32_t i, j, n, m;
+
+  // build the mapping for c in hset1
+  vtbl_expand_update(table, c, &def, &tau);
+  hset = table->hset1;
+  assert(hset != NULL);
+
+  pp_function_header(printer, table, c, tau);
+
+  /*
+   * hset->data contains an array of mapping objects
+   * hset->nelems = number of elements in hset->data
+   */
+  m = vtbl_update(table, c)->arity;
+  n = hset->nelems;
+  for (i=0; i<n; i++) {
+    pp_open_block(printer, PP_OPEN_EQ);
+    pp_open_block(printer, PP_OPEN_PAR);
+    pp_fun_name(printer, c);
+
+    mp = vtbl_map(table, hset->data[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      pp_object(printer, table, mp->arg[j]);
+    }
+    pp_close_block(printer, true); // close (name arg[0] ... arg[m-1])
+    pp_object(printer, table, mp->val);
+    pp_close_block(printer, true); // close (=
+  }
+
+  if (show_default && !is_unknown(table, def)) {
+    pp_open_block(printer, PP_OPEN_DEFAULT);
+    pp_object(printer, table, def);
+    pp_close_block(printer, true);
+  }
+  pp_close_block(printer, true);  // close the (function ...
+}
+
+/*
+ * Print object c on stream f
+ *
+ * There's no support for tuples or mappings in SMT2. They should never occur here.
+ */
+void pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
+  assert(0 <= c && c < table->nobjects);
+
+  switch (table->kind[c]) {
+  case UNKNOWN_VALUE:
+    pp_string(printer, "???");
+    break;
+  case BOOLEAN_VALUE:
+    pp_bool(printer, table->desc[c].integer);
+    break;
+  case RATIONAL_VALUE:
+    pp_rational(printer, &table->desc[c].rational);
+    break;
+  case ALGEBRAIC_VALUE:
+    pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case BITVECTOR_VALUE:
+    pp_bitvector(printer, table->desc[c].ptr);
+    break;
+  case UNINTERPRETED_VALUE:
+    pp_unint_name(printer, c);
+    break;
+  case FUNCTION_VALUE:
+    pp_fun_name(printer, c);
+    pp_function(printer, table, c, true);
+    break;
+  case UPDATE_VALUE:   // updates are treated like functions
+    pp_fun_name(printer, c);
+    normalize_and_pp_update(printer, table, c, true);
+    break;
+
+  case MAP_VALUE:
+  case TUPLE_VALUE:
+  default:
+    assert(false);
+  }
+}
+
+/*
+ * Print object c on FILE f
+ *
+ */
+void pp_value(FILE *f, value_table_t *table, value_t c) {
+  yices_pp_t printer;
+  pp_area_t area = {  40, UINT32_MAX, 0, false, false,  };
+  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+
+  pp_object(&printer, table, c);
+
+  delete_yices_pp(&printer, true);
 }
 
 

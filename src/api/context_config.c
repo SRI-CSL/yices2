@@ -695,7 +695,7 @@ bool logic_requires_mcsat(smt_logic_t code) {
  * - LIA is not tested.
  */
 bool logic_is_supported_by_ef(smt_logic_t code) {
-  return code == NONE || code == BV || code == IDL || code == LRA || code == RDL || code == LIA;
+  return code == NONE || code == BV || code == IDL || code == LRA || code == RDL || code == LIA || code == UF;
 }
 
 
@@ -706,6 +706,9 @@ int32_t ef_arch_for_logic(smt_logic_t code) {
   switch (code) {
   case NONE:
     return CTX_ARCH_NOSOLVERS;
+
+  case UF:
+    return CTX_ARCH_EG;
 
   case BV:
     return CTX_ARCH_BV;

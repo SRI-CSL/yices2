@@ -143,7 +143,7 @@ yices_globals_t __yices_globals = {
 };
 
 
-  
+
 /*
  * SYNCHRONIZING ACCESS TO GLOBAL TABLE.
  */
@@ -9689,7 +9689,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   yices_obtain_mutex();
   init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
   context_set_default_options(&context, logic, arch, iflag, qflag);
-  code = assert_formulas(&context, n, f);
+  code = _o_assert_formulas(&context, n, f);
   yices_release_mutex();
 
   if (code < 0) {
@@ -9838,7 +9838,7 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   yices_obtain_mutex();
   init_context(&context, __yices_globals.terms, QF_BV, CTX_MODE_ONECHECK, arch, qflag);
   context_set_default_options(&context, QF_BV, arch, iflag, qflag);
-  code = assert_formulas(&context, n, f);
+  code = _o_assert_formulas(&context, n, f);
   yices_release_mutex();
 
   if (code < 0) {
@@ -11053,7 +11053,7 @@ term_t _o_yices_get_value_as_term(model_t *mdl, term_t t) {
   }
 
   vtbl = model_get_vtbl(mdl);
-  a = convert_value_to_term(__yices_globals.terms, vtbl, v);
+  a = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, v);
   if (a < 0) {
     set_error_code(EVAL_CONVERSION_FAILED);
     return NULL_TERM;
@@ -11164,7 +11164,7 @@ int32_t _o_yices_term_array_value(model_t *mdl, uint32_t n, const term_t a[], te
     return -1;
   }
 
-  count = convert_value_array(__yices_globals.terms, model_get_vtbl(mdl), n, b);
+  count = convert_value_array(__yices_globals.manager, __yices_globals.terms, model_get_vtbl(mdl), n, b);
   if (count < n) {
     set_error_code(EVAL_CONVERSION_FAILED);
     return -1;

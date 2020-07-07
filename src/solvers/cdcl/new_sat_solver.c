@@ -6148,7 +6148,8 @@ static void process_lit_equiv(sat_solver_t *solver, literal_t l1, literal_t l2) 
   } else {
     // subst[l2] := l1
     set_lit_subst(solver, l2, l1);
-    if (lit_rank(solver, l2) > lit_rank(solver, l1)) {
+    // in preprocess mode, rank[l1] and rank[l2] are not initialized.
+    if (!solver->preprocess && lit_rank(solver, l2) > lit_rank(solver, l1)) {
       swap_lit_ranks(solver, l1, l2);
     }
     if (solver->verbosity >= 6) {

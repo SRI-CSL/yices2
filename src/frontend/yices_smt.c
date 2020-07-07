@@ -59,6 +59,7 @@
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_fw_printer.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "solvers/simplex/simplex_printer.h"
 
@@ -1121,6 +1122,16 @@ static void show_funsolver_stats(fun_solver_stats_t *stat) {
 }
 
 /*
+ * Quantifier solver statistics
+ */
+static void show_quantsolver_stats(quant_solver_stats_t *stat) {
+  printf("Quantifiers\n");
+  printf(" quantifiers             : %"PRIu32"\n", stat->num_quantifiers);
+  printf(" patterns                : %"PRIu32"\n", stat->num_patterns);
+  printf(" instances               : %"PRIu32"\n", stat->num_instances);
+}
+
+/*
  * Simplex statistics
  */
 static void show_simplex_stats(simplex_stats_t *stat) {
@@ -1207,6 +1218,7 @@ static void print_results(void) {
   egraph_t *egraph;
   simplex_solver_t *simplex;
   fun_solver_t *fsolver;
+  quant_solver_t *qsolver;
   uint32_t resu;
   double mem_used;
 
@@ -1229,6 +1241,10 @@ static void print_results(void) {
     if (context_has_fun_solver(&context)) {
       fsolver = context.fun_solver;
       show_funsolver_stats(&fsolver->stats);
+    }
+    if (context_has_quant_solver(&context)) {
+      qsolver = context.quant_solver;
+      show_quantsolver_stats(&qsolver->stats);
     }
   }
 

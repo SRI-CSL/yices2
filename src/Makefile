@@ -125,10 +125,12 @@ core_src_c := \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
 	context/symmetry_breaking.c \
+	context/quant_context.c \
 	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
 	exists_forall/ef_parameters.c \
-	exists_forall/ef_problem.c \
+	exists_forall/ef_values.c \
+	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
 	frontend/yices/yices_lexer.c \
@@ -198,7 +200,9 @@ core_src_c := \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \
+	solvers/funs/fun_level.c \
 	solvers/funs/fun_solver.c \
+	solvers/funs/stratification.c \
 	solvers/simplex/arith_atomtable.c \
 	solvers/simplex/arith_vartable.c \
 	solvers/simplex/diophantine_systems.c \
@@ -207,6 +211,8 @@ core_src_c := \
 	solvers/simplex/matrices.c \
 	solvers/simplex/offset_equalities.c \
 	solvers/simplex/simplex.c \
+	solvers/quant/ef_problem.c \
+	solvers/quant/quant_solver.c \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \
 	terms/bit_term_conversion.c \

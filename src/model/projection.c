@@ -215,7 +215,7 @@ static void proj_build_val_subst(projector_t *proj) {
   }
 
   // convert v->data[0 ... n-1] to constant terms
-  m = convert_value_array(proj->terms, model_get_vtbl(proj->mdl), n, v->data);
+  m = convert_value_array(proj->mngr, proj->terms, model_get_vtbl(proj->mdl), n, v->data);
   assert(m <= n);
   if (m < n) {
     // no subcode for conversion errors

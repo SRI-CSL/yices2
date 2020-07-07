@@ -6077,6 +6077,20 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     c = FCHECK_CONTINUE;
   }
 
+  if (c == FCHECK_SAT) {
+    if (egraph->ctrl[ETYPE_QUANT] != NULL) {
+      // quant solver
+      c = egraph->ctrl[ETYPE_QUANT]->final_check(egraph->th[ETYPE_QUANT]);
+      if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+        printf("---> exit at quant final check\n");
+        fflush(stdout);
+#endif
+        return c;
+      }
+    }
+  }
+
   return c;
 }
 
@@ -6189,6 +6203,21 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   }
 
   egraph_release_models(egraph);
+
+
+  if (c == FCHECK_SAT) {
+    if (egraph->ctrl[ETYPE_QUANT] != NULL) {
+      // quant solver
+      c = egraph->ctrl[ETYPE_QUANT]->final_check(egraph->th[ETYPE_QUANT]);
+      if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+        printf("---> exit at quant final check\n");
+        fflush(stdout);
+#endif
+        return c;
+      }
+    }
+  }
 
   return c;
 }
@@ -6796,6 +6825,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   egraph->arith_eg = NULL;
   egraph->bv_eg = NULL;
   egraph->fun_eg = NULL;
+  egraph->quant_eg = NULL;
 
   // model-construction object
   init_egraph_model(&egraph->mdl);
@@ -6861,6 +6891,25 @@ void egraph_attach_funsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t
   egraph->fun_eg = fun_eg;
 }
 
+
+/*
+ * Attach a quant subsolver
+ * - solver = pointer to the subsolver object
+ * - ctrl, eg, quant_eg  = interface descriptors
+ */
+void egraph_attach_quantsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
+                             th_egraph_interface_t *eg, quant_egraph_interface_t *quant_eg) {
+  etype_t id;
+
+//  assert(egraph->core == NULL && egraph->ctrl[ETYPE_QUANT] == NULL);
+  assert(egraph->ctrl[ETYPE_QUANT] == NULL);
+
+  id = ETYPE_QUANT;
+  egraph->th[id] = solver;
+  egraph->ctrl[id] = ctrl;
+  egraph->eg[id] = eg;
+  egraph->quant_eg = quant_eg;
+}
 
 /*
  * Get the egraph control and smt interfaces:

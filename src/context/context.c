@@ -31,6 +31,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
@@ -5316,8 +5317,6 @@ static void create_fun_solver(context_t *ctx) {
 }
 
 
-
-
 /*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point
@@ -5337,6 +5336,7 @@ static void init_solvers(context_t *ctx) {
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   // Create egraph first, then satellite solvers
   if (solvers & EGRPH) {
@@ -5488,6 +5488,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->arith_solver = NULL;
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
+  ctx->quant_solver = NULL;
 
   /*
    * Global tables + gate manager
@@ -5595,6 +5596,12 @@ void delete_context(context_t *ctx) {
     ctx->fun_solver = NULL;
   }
 
+  if (ctx->quant_solver != NULL) {
+    delete_quant_solver(ctx->quant_solver);
+    safe_free(ctx->quant_solver);
+    ctx->quant_solver = NULL;
+  }
+
   if (ctx->bv_solver != NULL) {
     delete_bv_solver(ctx->bv_solver);
     safe_free(ctx->bv_solver);
@@ -5602,7 +5609,7 @@ void delete_context(context_t *ctx) {
   }
 
   delete_gate_manager(&ctx->gate_manager);
-  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */ 
+  /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5792,7 +5799,7 @@ static void context_show_assertions(const context_t *ctx, uint32_t n, const term
  *   CTX_NO_ERROR if the assertions were processed without error
  *   a negative error code otherwise.
  */
-static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
   ivector_t *v;
   uint32_t i;
   int code;
@@ -6013,11 +6020,6 @@ static int32_t _o_context_process_assertions(context_t *ctx, uint32_t n, const t
   return code;
 }
 
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term_t *a) {
-  MT_PROTECT(int32_t, __yices_globals.lock, _o_context_process_assertions(ctx, n, a));
-}
-
-
 /*
  * Assert all formulas f[0] ... f[n-1]
  * The context status must be IDLE.
@@ -6029,7 +6031,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
  *   determined
  * - otherwise, the code is negative to report an error.
  */
-int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
@@ -6056,6 +6058,11 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   return code;
 }
+
+int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_assert_formulas(ctx, n, f));
+}
+
 
 
 
