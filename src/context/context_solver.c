@@ -467,7 +467,6 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
 
 /*
  * Initialize the search parameters based on params.
- * If params is NULL, we use default values.
  */
 static void context_set_search_parameters(context_t *ctx, const param_t *params) {
   smt_core_t *core;
@@ -475,10 +474,6 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
   simplex_solver_t *simplex;
   fun_solver_t *fsolver;
   uint32_t quota;
-
-  if (params == NULL) {
-    params = get_default_params();
-  }
 
   /*
    * Set core parameters
@@ -565,10 +560,15 @@ static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
 /*
  * Initialize search parameters then call solve
  * - if ctx->status is not IDLE, return the status.
+ * - if params is NULL, we use default values.
  */
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_core_t *core;
   smt_status_t stat;
+
+  if (params == NULL) {
+    params = get_default_params();
+  }
 
   if (ctx->mcsat != NULL) {
     return call_mcsat_solver(ctx, params);
