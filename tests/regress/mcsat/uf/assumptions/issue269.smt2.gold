@@ -1,0 +1,24 @@
+sat
+unsat
+(or (>= (* -1 i12) 0) (>= (* -1 i7) 0) (>= (* -1 i2) 0))
+sat
+sat
+(error "No unsat interpolant. The context is satisfiable")
+unsat
+unsat
+false
+unsat
+unsat
+false
+unsat
+unsat
+false
+unsat
+unsat
+false
+unsat
+unsat
+false
+unsat
+false
+unsat
