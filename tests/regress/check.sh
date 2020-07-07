@@ -100,6 +100,10 @@ then
   TIME_LIMIT=60
 fi
 
+if [[ -z "$COMMAND_PREFIX" ]];
+then
+  COMMAND_PREFIX=""
+fi
 
 #
 # Check if MCSAT is supported
@@ -170,7 +174,7 @@ for file in $all_tests; do
     (
       ulimit -S -t $TIME_LIMIT &> /dev/null
       ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
-      (time ./$bin_dir/$binary $options ./$file >& $outfile ) >& $timefile
+      (time $COMMAND_PREFIX ./$bin_dir/$binary $options ./$file >& $outfile ) >& $timefile
     )
     thetime=`cat $timefile`
 
