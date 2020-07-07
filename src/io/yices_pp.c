@@ -812,16 +812,16 @@ static void pp_quoted_id_token(yices_pp_t *printer, const char *prefix, int32_t 
   pp_push_token(&printer->pp, tk);
 }
 
-
 /*
- * Token for a bit-vector bv
- * - tag is either PP_BV_ATOM or PP_SMT2_BV_ATOM
- * - make a copy of bv if clone is true
+ * Make a copy of array a
+ * - n = number of bits
+ * - a is an array of ceil(n/32) integers
  */
-static uint32_t *clone_uint32_array(const uint32_t *a, uint32_t n) {
+static uint32_t *clone_bv_array(const uint32_t *a, uint32_t n) {
   uint32_t *copy;
   uint32_t i;
 
+  n = (n+31)>>5; // ceil(n/32)
   copy = safe_malloc(n * sizeof(uint32_t));
   for (i=0; i<n; i++) {
     copy[i] = a[i];
@@ -829,6 +829,12 @@ static uint32_t *clone_uint32_array(const uint32_t *a, uint32_t n) {
   return copy;
 }
 
+
+/*
+ * Token for a bit-vector bv
+ * - tag is either PP_BV_ATOM or PP_SMT2_BV_ATOM
+ * - make a copy of bv if clone is true
+ */
 static void pp_bv_token(yices_pp_t *printer, pp_atom_type_t tag, uint32_t *bv, uint32_t n, bool clone) {
   pp_atom_t *atom;
   void *tk;
@@ -840,7 +846,7 @@ static void pp_bv_token(yices_pp_t *printer, pp_atom_type_t tag, uint32_t *bv, u
   // bitvector constants are printed as 0bxxx... or #bxxxxx
   // so  the length is n+2
   tk = init_atomic_token(&atom->tk, n+2, tag);
-  atom->data.bv.bv = clone ? clone_uint32_array(bv, n) : bv;
+  atom->data.bv.bv = clone ? clone_bv_array(bv, n) : bv;
   atom->data.bv.nbits = n;
   atom->data.bv.cloned = clone;
 
