@@ -103,6 +103,8 @@ fi
 if [[ -z "$COMMAND_PREFIX" ]];
 then
   COMMAND_PREFIX=""
+else
+  echo "Using command prefix: $COMMAND_PREFIX"
 fi
 
 #
