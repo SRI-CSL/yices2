@@ -35,7 +35,7 @@ make MODE=$BUILD_TYPE
 
 # Add valgrind if asked
 if [[ $ENABLE_VALGRIND == ON ]]; then
-  COMMAND_PREFIX="valgrind -q"
+  export COMMAND_PREFIX="valgrind -q"
 fi
 
 # Run checking
