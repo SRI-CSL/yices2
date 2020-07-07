@@ -41,6 +41,7 @@ typedef struct pattern_s {
   term_t *consts;   // constants that appear in the pattern
 
   int32_t code;     // index in ematch instruction table
+  ptr_hmap_t matches;  // map from top fapp to set of indices in instance table
 } pattern_t;
 
 /*
@@ -78,6 +79,11 @@ extern void delete_pattern_table(pattern_table_t *table);
  */
 extern int32_t pattern_table_alloc(pattern_table_t *table);
 
+/*
+ * Create a new pattern
+ */
+extern int32_t pattern_table_add_pattern(pattern_table_t *ptbl, term_t p, term_t *pv, uint32_t npv,
+    term_t *f, uint32_t nf, term_t *fa, uint32_t nfa, term_t *c, uint32_t nc);
 
 
 #endif /* __QUANT_PATTERN_H */

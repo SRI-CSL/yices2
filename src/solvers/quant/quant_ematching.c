@@ -32,6 +32,7 @@
 
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "utils/index_vectors.h"
 
 #include "yices.h"
 #include "io/yices_pp.h"
@@ -49,6 +50,8 @@
  */
 void init_ematch(ematch_globals_t *em) {
   em->ptbl = NULL;
+  em->qtbl = NULL;
+  em->ctx = NULL;
   em->egraph = NULL;
   init_ematch_instr_table(&em->itbl);
   init_ematch_compiler(&em->comp, &em->itbl, NULL);
@@ -62,6 +65,8 @@ void init_ematch(ematch_globals_t *em) {
  */
 void reset_ematch(ematch_globals_t *em) {
   em->ptbl = NULL;
+  em->qtbl = NULL;
+  em->ctx = NULL;
   em->egraph = NULL;
   reset_ematch_instr_table(&em->itbl);
   reset_ematch_compiler(&em->comp);
@@ -74,6 +79,9 @@ void reset_ematch(ematch_globals_t *em) {
  * Delete ematching
  */
 void delete_ematch(ematch_globals_t *em) {
+  em->ptbl = NULL;
+  em->qtbl = NULL;
+  em->ctx = NULL;
   em->egraph = NULL;
   delete_ematch_instr_table(&em->itbl);
   delete_ematch_compiler(&em->comp);
@@ -83,17 +91,20 @@ void delete_ematch(ematch_globals_t *em) {
 }
 
 /*
- * Attach pattern table
+ * Attach tables
  */
-void ematch_attach_ptbl(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl, intern_tbl_t *intern) {
+void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
+      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx) {
   assert(ptbl != NULL);
   assert(terms != NULL);
-  assert(intern != NULL);
+  assert(ctx != NULL);
 
   em->ptbl = ptbl;
+  em->qtbl = qtbl;
+  em->ctx = ctx;
   em->comp.terms = terms;
   em->exec.terms = terms;
-  em->exec.intern = intern;
+  em->exec.intern = &ctx->intern;
 }
 
 /*
@@ -150,3 +161,4 @@ void ematch_execute_all_patterns(ematch_globals_t *em) {
     ematch_exec_pattern(exec, pat);
   }
 }
+

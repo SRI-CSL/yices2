@@ -211,13 +211,6 @@ static bool egraph_has_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ) {
   return false;
 }
 
-/*
- * Check if t1 and t2 are equal in the egraph or not
- */
-static bool egraph_terms_are_equal(egraph_t *egraph, occ_t t1, occ_t t2) {
-  return (egraph_label(egraph, t1) == egraph_label(egraph, t2));
-}
-
 
 /********************
  *   CODE EXECUTER  *
@@ -487,7 +480,7 @@ static void ematch_exec_check(ematch_exec_t *exec, ematch_instr_t *instr) {
   rhs = instr_f2occ(exec, instr);
   assert(egraph_term_is_atomic(exec->egraph, term_of_occ(rhs)));
 
-  if (egraph_terms_are_equal(exec->egraph, rhs, lhs)) {
+  if (egraph_equal_occ(exec->egraph, rhs, lhs)) {
     ematch_exec_instr(exec, instr->next);
   } else {
     ematch_exec_backtrack(exec);
@@ -514,7 +507,7 @@ static void ematch_exec_compare(ematch_exec_t *exec, ematch_instr_t *instr) {
   assert(j < reg->size);
   rhs = reg->data[j];
 
-  if (egraph_terms_are_equal(exec->egraph, lhs, rhs)) {
+  if (egraph_equal_occ(exec->egraph, lhs, rhs)) {
     ematch_exec_instr(exec, instr->next);
   } else {
     ematch_exec_backtrack(exec);
@@ -541,7 +534,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   inst = insttbl->data + i;
   assert(inst->size == n);
 
-  printf("    yielding (#%d entries) ", n);
+  printf("    match%d: (#%d entries) ", i, n);
   for (j=0; j<n; j++) {
     lhs = instr->subs[j].left;
 
@@ -646,15 +639,18 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
   term_kind_t kind;
   ivector_t fapps;
   term_t f;
-  uint32_t i, n;
-  occ_t occ;
+  uint32_t i, j, n;
+  occ_t occ, fapp;
   eterm_t ef;
+  uint32_t oldsz, newsz;
+  ptr_hmap_t *matches;
+  ptr_hmap_pair_t *p;
+  ivector_t *v;
 
 #if TRACE
     printf("\nMatching pattern: ");
     yices_pp_term(stdout, pat->p, 120, 1, 0);
 #endif
-
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
   if (kind == APP_TERM) {
@@ -662,22 +658,54 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
     occ = term2occ(exec->intern, f);
     if (occ != null_occurrence) {
       ef = term_of_occ(occ);
+      matches = &pat->matches;
 
       init_ivector(&fapps, 4);
+      oldsz = exec->instbl->ninstances;
 
       egraph_get_all_fapps(exec->egraph, ef, &fapps);
       n = fapps.size;
       for(i=0; i<n; i++) {
+        fapp = fapps.data[i];
+        p = ptr_hmap_find(matches, fapp);
+        if (p != NULL) {
+          // skip fapps for which we have already found atleast one match
+          continue;
+        }
+
 #if TRACE
         printf("  Matching fapp: ");
-        print_eterm_id(stdout, fapps.data[i]);
+        print_eterm_id(stdout, fapp);
         printf("\n");
 #endif
         ematch_exec_set_reg(exec, fapps.data[i], 0);
         ematch_exec_instr(exec, pat->code);
-      }
-      assert(0);
 
+        newsz = exec->instbl->ninstances;
+        if (newsz != oldsz) {
+#if TRACE
+          printf("  Found %d new matches from fapp ", (newsz-oldsz));
+          print_eterm_id(stdout, fapp);
+          printf("\n");
+#endif
+
+          p = ptr_hmap_get(matches, fapp);
+          assert(p->val == NULL);
+          p->val = safe_malloc(sizeof(int_hset_t));
+          v = p->val;
+          init_ivector(v, 0);
+
+          for(j=oldsz; j!=newsz; j++) {
+            ivector_push(v, j);
+#if TRACE
+            printf("    (added) match%d\n", j);
+#endif
+          }
+          ivector_remove_duplicates(v);
+
+          oldsz = newsz;
+        }
+      }
       delete_ivector(&fapps);
     }
   }

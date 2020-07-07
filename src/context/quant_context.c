@@ -45,7 +45,7 @@ void create_quant_solver(context_t *ctx) {
 void context_attach_quant_prob(context_t *ctx, ef_prob_t *prob) {
   assert(ctx->egraph != NULL && ctx->quant_solver != NULL);
 
-  quant_solver_attach_prob(ctx->quant_solver, prob, &ctx->intern);
+  quant_solver_attach_prob(ctx->quant_solver, prob, ctx);
 }
 
 

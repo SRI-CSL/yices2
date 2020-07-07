@@ -37,8 +37,10 @@
 #include "utils/ptr_partitions.h"
 #include "terms/term_explorer.h"
 #include "yices.h"
+#include "context/internalization_codes.h"
+#include "context/context.h"
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 
@@ -48,86 +50,6 @@
 #include "solvers/egraph/egraph_printer.h"
 
 #endif
-
-
-
-/********************
- *  QUANT TABLE  *
- *******************/
-
-/*
- * Initialize: default size
- */
-static void init_quant_table(quant_table_t *table) {
-  assert(DEF_QUANT_TABLE_SIZE < MAX_QUANT_TABLE_SIZE);
-
-  table->size = DEF_QUANT_TABLE_SIZE;
-  table->nquant = 0;
-  table->data = (quant_cnstr_t *) safe_malloc(DEF_QUANT_TABLE_SIZE * sizeof(quant_cnstr_t));
-}
-
-
-/*
- * Make the table 50% larger
- */
-static void extend_quant_table(quant_table_t *table) {
-  uint32_t n;
-
-  n = table->size + 1;
-  n += n>>1;
-  if (n >= MAX_QUANT_TABLE_SIZE) {
-    out_of_memory();
-  }
-  table->data = (quant_cnstr_t *) safe_realloc(table->data, n * sizeof(quant_cnstr_t));
-  table->size = n;
-}
-
-
-/*
- * Remove all quantifiers of index >= n
- */
-static void shrink_quant_table(quant_table_t *table, uint32_t n) {
-  assert(n <= table->nquant);
-
-  table->nquant = n;
-}
-
-
-/*
- * Empty the table: delete all quant objects
- */
-static void reset_quant_table(quant_table_t *table) {
-  shrink_quant_table(table, 0);
-}
-
-
-/*
- * Delete the table
- */
-static void delete_quant_table(quant_table_t *table) {
-  shrink_quant_table(table, 0);
-
-  safe_free(table->data);
-  table->data = NULL;
-}
-
-
-/*
- * Allocate a new quant index i
- * - data[i] is not initialized
- */
-static int32_t quant_table_alloc(quant_table_t *table) {
-  uint32_t i;
-
-  i = table->nquant;
-  if (i == table->size) {
-    extend_quant_table(table);
-  }
-  assert(i < table->size);
-  table->nquant = i+1;
-
-  return i;
-}
 
 
 #if TRACE
@@ -189,54 +111,6 @@ static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i
 }
 
 #endif
-
-
-/*********************
- *  PROBLEM SUPPORT  *
- ********************/
-
-/*
- * Create a new pattern
- */
-static int32_t quant_solver_add_pattern(quant_solver_t *solver, term_t p, term_t *pv, uint32_t npv,
-    term_t *f, uint32_t nf, term_t *fa, uint32_t nfa, term_t *c, uint32_t nc) {
-  pattern_table_t *ptbl;
-  pattern_t *pat;
-  int32_t i;
-
-  ptbl = &solver->ptbl;
-
-  i = pattern_table_alloc(ptbl);
-  pat = ptbl->data + i;
-
-  pat->p = p;
-  pat->pvars = make_index_vector(pv, npv);
-  pat->fun = make_index_vector(f, nf);
-  pat->fapps = make_index_vector(fa, nfa);
-  pat->consts = make_index_vector(c, nc);
-  pat->code = -1;
-
-  return i;
-}
-
-/*
- * Create a new quantifier constraint
- */
-static int32_t quant_solver_add_cnstr(quant_solver_t *solver, term_t t, int32_t *pv, uint32_t npv) {
-  quant_table_t *qtbl;
-  quant_cnstr_t *qcnstr;
-  int32_t i;
-
-  qtbl = &solver->qtbl;
-
-  i = quant_table_alloc(qtbl);
-  qcnstr = qtbl->data + i;
-
-  qcnstr->t = t;
-  qcnstr->patterns = make_index_vector(pv, npv);
-
-  return i;
-}
 
 
 /**************************
@@ -394,7 +268,7 @@ static int32_t quant_preprocess_pattern(quant_solver_t *solver, term_t t, term_t
   ivector_remove_duplicates(&fa);
   ivector_remove_duplicates(&c);
 
-  i = quant_solver_add_pattern(solver, pat, pv.data, pv.size, f.data, f.size,
+  i = pattern_table_add_pattern(&solver->ptbl, pat, pv.data, pv.size, f.data, f.size,
                            fa.data, fa.size, c.data, c.size);
 
   delete_ivector(&pv);
@@ -446,7 +320,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
   ivector_reset(v);
 
   quant_setup_patterns(solver, t, patterns, v);
-  i = quant_solver_add_cnstr(solver, t, v->data, v->size);
+  i = quant_table_add_cnstr(&solver->qtbl, t, v->data, v->size);
 
 #if TRACE
   quant_solver_print_cnstr(stdout, solver, i);
@@ -477,18 +351,165 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
 /*
  * Attach problem to solver
  */
-void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, intern_tbl_t *intern) {
+void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t *ctx) {
   assert(solver->prob == NULL);
 
   solver->prob = prob;
   quant_preprocess_prob(solver);
 
-  ematch_attach_ptbl(&solver->em, solver->prob->terms, &solver->ptbl, intern);
+  ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx);
   ematch_compile_all_patterns(&solver->em);
 
   ematch_attach_egraph(&solver->em, solver->egraph);
 
 }
+
+
+/***********************
+ *  EMATCHING SUPPORT  *
+ **********************/
+
+/*
+ * Instantiate constraint cnstr with match at index idx
+ */
+bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, uint32_t idx) {
+  int_hset_t *instances;
+  ematch_globals_t *em;
+  context_t *ctx;
+  intern_tbl_t *intern;
+  instance_table_t *instbl;
+  instance_t * inst;
+  term_t t;
+  uint32_t i, n;
+  term_t lhs;
+  occ_t rhs;
+
+  instances = &cnstr->instances;
+  if (int_hset_member(instances, idx)) {
+    return false;
+  }
+
+  em = &solver->em;
+  ctx = em->ctx;
+  intern = &ctx->intern;
+  instbl = &em->instbl;
+  t = cnstr->t;
+
+  assert(idx < instbl->ninstances);
+  inst = &instbl->data[idx];
+
+#if 0
+  printf("\nInstantiating %s\n", yices_term_to_string(t, 120, 1, 0));
+#endif
+//  assert(is_boolean_term(ctx->terms, t));
+//  assert(intern_tbl_is_root(&ctx->intern, t));
+//  assert(term_is_true(ctx, t));
+
+  n = inst->size;
+  for(i=0; i<n; i++) {
+    lhs = inst->vdata[i];
+    rhs = inst->odata[i];
+
+#if 0
+    printf("quant solver: term%d -> occ%d\n", lhs, rhs);
+#endif
+
+    if (intern_tbl_root_is_mapped(intern, lhs)) {
+      intern_tbl_remap_root(intern, lhs, occ2code(rhs));
+    } else {
+      intern_tbl_map_root(intern, lhs, occ2code(rhs));
+    }
+  }
+  assert_toplevel_instance(ctx, t);
+
+  int_hset_add(instances, idx);
+
+  return true;
+}
+
+/*
+ * Match and learn instances for a given cnstr at index idx
+ */
+uint32_t ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
+  uint32_t count;
+  ematch_globals_t *em;
+  ematch_exec_t *exec;
+  pattern_table_t *ptbl;
+  quant_table_t *qtbl;
+  uint32_t npat, i, n;
+  quant_cnstr_t *cnstr;
+  int32_t *patterns;
+  pattern_t *pat;
+  ptr_hmap_t *matches;
+  ptr_hmap_pair_t *p;
+  ivector_t *v;
+
+  count = 0;
+  em = &solver->em;
+  exec =  &em->exec;
+  qtbl = em->qtbl;
+  ptbl = em->ptbl;
+
+  cnstr = qtbl->data + idx;
+  patterns = cnstr->patterns;
+  npat = iv_len(patterns);
+  if (npat != 0) {
+    if (npat == 1) {
+      pat = &ptbl->data[0];
+      ematch_exec_pattern(exec, pat);
+
+      matches = &pat->matches;
+      for (p = ptr_hmap_first_record(matches);
+           p != NULL;
+           p = ptr_hmap_next_record(matches, p)) {
+        v = p->val;
+        assert(v != NULL);
+        n = v->size;
+        for(i=0; i<n; i++) {
+          if (ematch_cnstr_instantiate(solver, cnstr, v->data[i])) {
+            count++;
+          }
+        }
+      }
+
+#if TRACE
+      if(count != 0) {
+        printf("\nFound #%d instances for ", count);
+        yices_pp_term(stdout, cnstr->t, 120, 1, 0);
+        printf("\n");
+      }
+#endif
+
+    } else {
+      printf("Found #%d patterns for ", npat);
+      yices_pp_term(stdout, cnstr->t, 120, 1, 0);
+      printf("Multi-patterns not supported.");
+      assert(0);
+    }
+  }
+
+  return count;
+}
+
+/*
+ * Match and learn instances
+ */
+uint32_t ematch_process_all_cnstr(quant_solver_t *solver) {
+  uint32_t count;
+  quant_table_t *qtbl;
+  uint32_t i, n;
+
+  count = 0;
+  qtbl = &solver->qtbl;
+  n = qtbl->nquant;
+
+  for(i=0; i<n; i++) {
+    count += ematch_process_cnstr(solver, i);
+  }
+
+  return count;
+}
+
 
 
 /**********************
@@ -657,20 +678,41 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
   printf("\n**** QUANTSOLVER: FINAL CHECK ***\n\n");
 #endif
 
+//#if TRACE
+//  print_egraph_terms(stdout, solver->egraph);
+////  print_egraph_terms_details(stdout, solver->egraph);
+//  printf("\n\n");
+//  print_egraph_root_classes(stdout, solver->egraph);
+////  print_egraph_root_classes_details(stdout, solver->egraph);
+//#endif
+//
+//  printf("\n(BEGIN) Intern. mappings:\n");
+//  print_context_intern_mapping(stdout, solver->em.ctx);
+
+//  ematch_execute_all_patterns(&solver->em);
+
+  uint32_t count;
+  count = ematch_process_all_cnstr(solver);
+  if (count != 0) {
+    printf("EMATCH: learnt %d instances\n", count);
+  }
+
+//#if TRACE
+//  print_egraph_terms(stdout, solver->egraph);
+////  print_egraph_terms_details(stdout, solver->egraph);
+//  printf("\n\n");
+//  print_egraph_root_classes(stdout, solver->egraph);
+////  print_egraph_root_classes_details(stdout, solver->egraph);
+//#endif
+//
+//  printf("\n(END) Intern. mappings:\n");
+//  print_context_intern_mapping(stdout, solver->em.ctx);
+
 #if TRACE
-  print_egraph_terms(stdout, solver->egraph);
-//  print_egraph_terms_details(stdout, solver->egraph);
-  printf("\n\n");
-  print_egraph_root_classes(stdout, solver->egraph);
-//  print_egraph_root_classes_details(stdout, solver->egraph);
+  printf("\n**** QUANTSOLVER: FINAL CHECK DONE ***\n\n");
 #endif
 
-  ematch_execute_all_patterns(&solver->em);
-
-  assert(0);
-
-  // nothing to do
-  return FCHECK_SAT;
+  return (count==0) ? FCHECK_SAT : FCHECK_CONTINUE;
 }
 
 

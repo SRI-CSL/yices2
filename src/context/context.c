@@ -2521,6 +2521,13 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
      */
     code = intern_tbl_map_of_root(&ctx->intern, r);
     u = translate_code_to_eterm(ctx, r, code);
+
+#if 0
+    if(term_kind(ctx->terms, r) == VARIABLE) {
+      printf("internalize: term%d -> occ%d\n", r, u);
+    }
+#endif
+
   } else {
     /*
      * Compute r's internalization:
@@ -4675,6 +4682,127 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   longjmp(ctx->env, code);
 }
 
+
+/*
+ * Assert toplevel instance formula t:
+ * - t is a boolean term (or the negation of a boolean term)
+ */
+void assert_toplevel_instance(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  int32_t code;
+  bool tt;
+
+  assert(is_boolean_term(ctx->terms, t));
+
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+
+  if (! intern_tbl_root_is_mapped(&ctx->intern, t)) {
+    // make t to be a root in the internalization table and map to true
+    intern_tbl_map_root(&ctx->intern, t, bool2code(tt));
+  }
+
+  /*
+   * Now: t is a root and has positive polarity
+   * - tt indicates whether we assert t or (not t):
+   *   tt true: assert t
+   *   tt false: assert (not t)
+   */
+  terms = ctx->terms;
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case UNINTERPRETED_TERM:
+    // should be eliminated by flattening
+    code = INTERNAL_ERROR;
+    goto abort;
+
+  case ITE_TERM:
+  case ITE_SPECIAL:
+    assert_toplevel_ite(ctx, ite_term_desc(terms, t), tt);
+    break;
+
+  case OR_TERM:
+    assert_toplevel_or(ctx, or_term_desc(terms, t), tt);
+    break;
+
+  case XOR_TERM:
+    assert_toplevel_xor(ctx, xor_term_desc(terms, t), tt);
+    break;
+
+  case EQ_TERM:
+    assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
+    break;
+
+  case ARITH_IS_INT_ATOM:
+    assert_toplevel_arith_is_int(ctx, arith_is_int_arg(terms, t), tt);
+    break;
+
+  case ARITH_EQ_ATOM:
+    assert_toplevel_arith_eq(ctx, arith_eq_arg(terms, t), tt);
+    break;
+
+  case ARITH_GE_ATOM:
+    assert_toplevel_arith_geq(ctx, arith_ge_arg(terms, t), tt);
+    break;
+
+  case ARITH_BINEQ_ATOM:
+    assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
+    break;
+
+  case ARITH_DIVIDES_ATOM:
+    assert_toplevel_arith_divides(ctx, arith_divides_atom_desc(terms, t), tt);
+    break;
+
+  case APP_TERM:
+    assert_toplevel_apply(ctx, app_term_desc(terms, t), tt);
+    break;
+
+  case SELECT_TERM:
+    assert_toplevel_select(ctx, select_term_desc(terms, t), tt);
+    break;
+
+  case DISTINCT_TERM:
+    assert_toplevel_distinct(ctx, distinct_term_desc(terms, t), tt);
+    break;
+
+  case VARIABLE:
+    code = FREE_VARIABLE_IN_FORMULA;
+    goto abort;
+
+  case FORALL_TERM:
+    if (context_in_strict_mode(ctx)) {
+      code = QUANTIFIERS_NOT_SUPPORTED;
+      goto abort;
+    }
+    break;
+
+  case BIT_TERM:
+    assert_toplevel_bit_select(ctx, bit_term_desc(terms, t), tt);
+    break;
+
+  case BV_EQ_ATOM:
+    assert_toplevel_bveq(ctx, bveq_atom_desc(terms, t), tt);
+    break;
+
+  case BV_GE_ATOM:
+    assert_toplevel_bvge(ctx, bvge_atom_desc(terms, t), tt);
+    break;
+
+  case BV_SGE_ATOM:
+    assert_toplevel_bvsge(ctx, bvsge_atom_desc(terms, t), tt);
+    break;
+
+  default:
+    code = INTERNAL_ERROR;
+    goto abort;
+  }
+
+  return;
+
+ abort:
+   printf("Error encountered during quantifier instantiation (code: %d)\n", code);
+   assert(0);
+}
 
 
 /*

@@ -119,3 +119,14 @@ int32_t instance_table_alloc(instance_table_t *table, uint32_t n) {
 
   return i;
 }
+
+
+/*
+ * Deallocate the last instance
+ */
+void instance_table_dealloc(instance_table_t *table) {
+  uint32_t n;
+  n = table->ninstances;
+  assert(n > 0);
+  shrink_instance_table(table, n-1);
+}

@@ -124,4 +124,3 @@ int32_t ematch_instr_table_alloc(ematch_instr_table_t *table) {
   return i;
 }
 
-

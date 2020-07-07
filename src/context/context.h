@@ -424,5 +424,15 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
 extern void context_gc_mark(context_t *ctx);
 
 
+/*
+ * QUANTIFIER SUPPORT
+ */
+
+/*
+ * Assert toplevel instance formula t:
+ * - t is a boolean term (or the negation of a boolean term)
+ */
+extern void assert_toplevel_instance(context_t *ctx, term_t t);
+
 
 #endif /* __CONTEXT_H */

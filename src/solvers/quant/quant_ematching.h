@@ -25,6 +25,7 @@
 
 
 
+#include "solvers/quant/quant_cnstr.h"
 #include "solvers/quant/ematch_execute.h"
 
 /*
@@ -38,7 +39,9 @@ typedef struct ematch_globals_s {
   instance_table_t instbl;     // instance table
 
   pattern_table_t *ptbl;       // link to pattern table
+  quant_table_t *qtbl;         // link to quant cnstr table
   egraph_t *egraph;            // link to egraph
+  context_t *ctx;              // link to context
 } ematch_globals_t;
 
 
@@ -63,9 +66,10 @@ extern void delete_ematch(ematch_globals_t *em);
 
 
 /*
- * Attach pattern table
+ * Attach tables
  */
-extern void ematch_attach_ptbl(ematch_globals_t *em, term_table_t *terms, pattern_table_t *ptbl, intern_tbl_t *intern);
+extern void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
+      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx);
 
 /*
  * Attach egraph
@@ -82,7 +86,6 @@ extern void ematch_compile_all_patterns(ematch_globals_t *em);
  * Execute all patterns
  */
 extern void ematch_execute_all_patterns(ematch_globals_t *em);
-
 
 
 #endif /* __QUANT_EMATCHING_H */
