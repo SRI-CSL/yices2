@@ -601,6 +601,9 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
     // clean state
+    if (params == NULL) {
+      params = get_default_params();
+    }
     context_set_search_parameters(ctx, params);
     solve(core, params, n, a);
     stat = smt_status(core);
