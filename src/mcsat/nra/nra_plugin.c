@@ -794,13 +794,15 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     } else {
       bool x_in_conflict = false;
       // If the variable is integer, check that is has an integer solution
-      if (nra->conflict_variable_int == variable_null && variable_db_is_int(nra->ctx->var_db, x)) {
+      if (variable_db_is_int(nra->ctx->var_db, x)) {
         // Check if there is an integer value
         lp_value_t v;
         lp_value_construct_none(&v);
         lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
         if (!lp_value_is_integer(&v)) {
-          nra->conflict_variable_int = x;
+          if (nra->conflict_variable_int == variable_null) {
+            nra->conflict_variable_int = x;
+          }
           x_in_conflict = true;
         }
         lp_value_destruct(&v);

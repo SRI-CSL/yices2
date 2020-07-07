@@ -1003,6 +1003,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
       ctx_trace_printf(nra->ctx, "core[%u] = ", i);
       ctx_trace_term(nra->ctx, core_i_t);
     }
+    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
     ivector_t* variables_list = int_mset_get_list(&variables);
     for (i = 0; i < variables_list->size; ++ i) {
       variable_t var = variables_list->data[i];
@@ -1048,15 +1049,22 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
     const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
     // If the polynomial isn't unit, it is a global inference, so we explain with a different polynomial
-    if (!poly_constraint_is_unit(constraint, nra->lp_data.lp_assignment)) {
+    bool is_unit = poly_constraint_is_unit(constraint, nra->lp_data.lp_assignment);
+    bool is_speculation = int_mset_contains(pos, constraint_var) || int_mset_contains(neg, constraint_var);
+    bool is_inference = false;
+    if (!is_unit && !is_speculation) {
       const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
       lp_sign_condition_t sgn_condition = poly_constraint_get_sign_condition(constraint);
       bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
       lp_variable_t x = poly_constraint_get_top_variable(constraint);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
-      lp_projection_map_add(&projection_map, p_inference_reason);
-      lp_polynomial_delete(p_inference_reason);
-    } else {
+      if (p_inference_reason != NULL) {
+        is_inference = true;
+        lp_projection_map_add(&projection_map, p_inference_reason);
+        lp_polynomial_delete(p_inference_reason);
+      }
+    }
+    if (!is_inference) {
       const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
       lp_projection_map_add(&projection_map, p);
     }

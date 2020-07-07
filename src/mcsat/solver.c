@@ -296,6 +296,11 @@ struct mcsat_solver_s {
 };
 
 static
+bool mcsat_is_consistent(mcsat_solver_t* mcsat) {
+  return trail_is_consistent(mcsat->trail) && mcsat->variable_in_conflict == variable_null;
+}
+
+static
 void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bound);
 
 static
@@ -997,7 +1002,7 @@ void mcsat_push(mcsat_solver_t* mcsat) {
     trail_print(mcsat->trail, trace_out(mcsat->ctx->trace));
   }
 
-  if (!trail_is_consistent(mcsat->trail)) {
+  if (!mcsat_is_consistent(mcsat)) {
     mcsat->inconsistent_push_calls ++;
     return;
   }
@@ -1394,7 +1399,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
     // Repeat until no plugin makes any progress
     someone_propagated = false;
     // Propagate with all the plugins in turn
-    for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+    for (plugin_i = 0; mcsat_is_consistent(mcsat) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
         mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagating with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
@@ -1412,7 +1417,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
     // If at base level, plugins can do some more expensive learning/propagation
     if (run_learning && !someone_propagated && trail_is_at_base_level(mcsat->trail)) {
       // Propagate with all the plugins in turn
-      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && mcsat->variable_in_conflict != variable_null && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+      for (plugin_i = 0; mcsat_is_consistent(mcsat) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
         if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
           mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): learning with %s\n", mcsat->plugins[plugin_i].plugin_name);
         }
@@ -1428,7 +1433,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
         }
       }
     }
-  } while (someone_propagated && trail_is_consistent(mcsat->trail));
+  } while (someone_propagated && mcsat_is_consistent(mcsat));
 
   return someone_propagated;
 }
@@ -1445,7 +1450,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   }
 
   // If we're unsat, no more assertions
-  if (!trail_is_consistent(mcsat->trail)) {
+  if (!mcsat_is_consistent(mcsat)) {
     return;
   }
 
@@ -1661,7 +1666,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   // Decide a literal if necessary. At this point, if it was UIP they are all
   // assigned. If not, we assign arbitrary.
   bool decided = false;
-  bool consistent = trail_is_consistent(mcsat->trail);
+  bool consistent = mcsat_is_consistent(mcsat);
   if (consistent) {
     decided = mcsat_decide_one_of(mcsat, &unassigned, decision_bound);
   }
@@ -2472,7 +2477,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->status = STATUS_SEARCHING;
 
   // If we're already unsat, just return
-  if (!trail_is_consistent(mcsat->trail)) {
+  if (!mcsat_is_consistent(mcsat)) {
     mcsat->interpolant = false_term;
     mcsat->status = STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
@@ -2501,7 +2506,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   while (!mcsat->stop_search) {
 
     // Do we restart
-    if (trail_is_consistent(mcsat->trail) && restart_resource > luby.restart_threshold) {
+    if (mcsat_is_consistent(mcsat) && restart_resource > luby.restart_threshold) {
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
@@ -2515,7 +2520,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     learning = false;
 
     // If inconsistent, analyze the conflict
-    if (!trail_is_consistent(mcsat->trail)) {
+    if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
     }
 
@@ -2531,10 +2536,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // If inconsistent, analyze the conflict
-    if (!trail_is_consistent(mcsat->trail)) {
-      goto conflict;
-    }
-    if (mcsat->variable_in_conflict != variable_null) {
+    if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
     }
 
@@ -2547,7 +2549,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // If inconsistent, analyze the conflict
-    if (!trail_is_consistent(mcsat->trail)) {
+    if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
     }
 
