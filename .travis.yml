@@ -19,7 +19,7 @@ env:
       ENABLE_COVERAGE=OFF
       ENABLE_VALGRIND=ON
       CONFIGURE_FLAGS="--enable-mcsat"
-      TIME_LIMIT=600
+      TIME_LIMIT=60
     - BUILD_TYPE=debug
       ENABLE_COVERAGE=OFF
       ENABLE_VALGRIND=OFF
@@ -29,7 +29,7 @@ env:
       ENABLE_COVERAGE=OFF
       ENABLE_VALGRIND=ON
       CONFIGURE_FLAGS="--enable-thread-safety"
-      TIME_LIMIT=600
+      TIME_LIMIT=60
     - BUILD_TYPE=release
       ENABLE_COVERAGE=OFF
       ENABLE_VALGRIND=OFF
