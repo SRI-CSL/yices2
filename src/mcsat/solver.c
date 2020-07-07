@@ -1412,7 +1412,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
     // If at base level, plugins can do some more expensive learning/propagation
     if (run_learning && !someone_propagated && trail_is_at_base_level(mcsat->trail)) {
       // Propagate with all the plugins in turn
-      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
+      for (plugin_i = 0; trail_is_consistent(mcsat->trail) && mcsat->variable_in_conflict != variable_null && plugin_i < mcsat->plugins_count; ++ plugin_i) {
         if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
           mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): learning with %s\n", mcsat->plugins[plugin_i].plugin_name);
         }
@@ -2475,6 +2475,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   if (!trail_is_consistent(mcsat->trail)) {
     mcsat->interpolant = false_term;
     mcsat->status = STATUS_UNSAT;
+    assert(int_queue_is_empty(&mcsat->registration_queue));
     return;
   }
 
@@ -2588,6 +2589,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat->stop_search = false;
   }
 
+  // Make sure any additional terms are registered
+  mcsat_process_registeration_queue(mcsat);
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
