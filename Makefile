@@ -231,7 +231,7 @@ endif
 # Check build mode
 #
 default_mode=release
-allowed_modes=release debug devel profile gcov valgrind purify quantify gperftools
+allowed_modes=release debug devel profile gcov valgrind purify quantify gperftools sanitize
 MODE ?= $(default_mode)
 
 YICES_MODE := $(filter $(allowed_modes), $(MODE))
