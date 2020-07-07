@@ -98,8 +98,12 @@ term_t mk_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* c)
     assert(n == 3);
     type_t tau = term_type(tm->terms, c[1]);
     result = mk_ite(tm, c[0], c[1], c[2], tau);
+    break;
   }
-  break;
+  case ARITH_BINEQ_ATOM:
+    assert(n == 2);
+    result = mk_arith_eq(tm, c[0], c[1]);
+    break;
   default:
     assert(false);
   }
@@ -217,6 +221,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
+    case ARITH_BINEQ_ATOM:
     {
       composite_term_t* desc = composite_term_desc(terms, current);
       n = desc->arity;
