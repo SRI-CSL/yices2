@@ -30,7 +30,15 @@ CFLAGS='-Werror' ./configure $CONFIGURE_FLAGS
 # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
-make MODE=$BUILD_TYPE 
+# Build Yices2
+make MODE=$BUILD_TYPE
+
+# Add valgrind if asked
+if [[ $ENABLE_VALGRIND == ON ]]; then
+  export COMMAND_PREFIX="valgrind -q"
+fi
+
+# Run checking
 make MODE=$BUILD_TYPE check
 
 RETURN="$?"
