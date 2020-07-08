@@ -172,6 +172,7 @@ void bool_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&bp->clauses);
   delete_ivector(&bp->lemmas);
   bcp_watch_manager_destruct(&bp->wlm);
+  delete_ivector(&bp->clauses_to_repropagate); // BD: fixed memory leak
   delete_ivector(&bp->reason);
   delete_ivector(&bp->propagated);
   scope_holder_destruct(&bp->scope);
