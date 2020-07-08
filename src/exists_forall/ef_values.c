@@ -615,6 +615,9 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
         int_queue_push(&queue, tvalue);
     }
   }
+
+  // BD: fix memory leak
+  delete_int_queue(&queue);
 }
 
 
