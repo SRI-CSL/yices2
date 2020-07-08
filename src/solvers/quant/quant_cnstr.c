@@ -71,6 +71,11 @@ void shrink_quant_table(quant_table_t *table, uint32_t n) {
     cnstr = &table->data[i];
     delete_index_vector(cnstr->patterns);
     delete_int_hset(&cnstr->instances);
+
+    delete_index_vector(cnstr->uvars);
+    delete_index_vector(cnstr->fun);
+    delete_index_vector(cnstr->fapps);
+    delete_index_vector(cnstr->consts);
   }
 
   table->nquant = n;
@@ -130,4 +135,69 @@ int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv, uint32
 
   return i;
 }
+
+/*
+ * Check constraint at index idx
+ * - if assertion has more variables than variables in patterns, return false
+ */
+bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_t idx) {
+  quant_cnstr_t *cnstr;
+  int_hmap_t vmap;
+  int_hmap_pair_t *p;
+  uint32_t i, j, m, n;
+  term_t x;
+  pattern_t *pat;
+  bool result;
+
+  result = true;
+  cnstr = qtbl->data + idx;
+
+  if(iv_len(cnstr->patterns) == 0) {
+    return result;
+  }
+
+  init_int_hmap(&vmap, 0);
+  n = iv_len(cnstr->uvars);
+
+  for(i=0; i<n; i++) {
+    x = cnstr->uvars[i];
+    p = int_hmap_get(&vmap, x);
+    assert(p->val < 0);
+    p->val = 0;
+  }
+
+  n = iv_len(cnstr->patterns);
+
+  for (i=0; i<n; i++) {
+    pat = ptbl->data + cnstr->patterns[i];
+    m = iv_len(pat->pvars);
+    for(j=0; j<m; j++) {
+      x = pat->pvars[j];
+      p = int_hmap_find(&vmap, x);
+      if (p == NULL) {
+//        printf("Pattern has more variables than term\n");
+//        assert(0);
+      } else {
+        p->val = 1;
+      }
+    }
+  }
+
+  for (p = int_hmap_first_record(&vmap);
+       p != NULL;
+       p = int_hmap_next_record(&vmap, p)) {
+    if (p->val != 1) {
+      result = false;
+      printf("Missing variable in patterns: %d\n", p->key);
+#if 0
+      yices_pp_term(stdout, p->key, 120, 1, 0);
+#endif
+    }
+  }
+
+  delete_int_hmap(&vmap);
+
+  return result;
+}
+
 

@@ -138,6 +138,13 @@ void ematch_compile_all_patterns(ematch_globals_t *em) {
     t = pat->p;
     ip = int_hmap_get(pc, t);
     if (ip->val < 0) {
+      int_hmap_reset(&comp->W[0]);
+      int_hmap_reset(&comp->W[1]);
+      int_hmap_reset(&comp->W[2]);
+      int_hmap_reset(&comp->W[3]);
+      int_hmap_reset(&comp->V);
+      comp->o = 0;
+
       ip->val = ematch_compile_pattern(comp, t);
       pat->code = ip->val;
     }

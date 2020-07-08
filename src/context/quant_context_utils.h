@@ -17,26 +17,22 @@
  */
 
 /*
- * SUPPORT FOR QUANTIFIERS
+ * CONTEXT UTILITIES FOR QUANTIFIERS
  */
 
-#ifndef __QUANT_CONTEXT_H
-#define __QUANT_CONTEXT_H
+#ifndef __QUANT_CONTEXT_UTILS_H
+#define __QUANT_CONTEXT_UTILS_H
 
-#include "context/quant_context_utils.h"
-#include "solvers/quant/quant_solver.h"
+#include "context/context.h"
 
 
 /*
- * Create the quant solver and attach it to the egraph
+ * Assert toplevel instance formula t:
+ * - t is a boolean term (or the negation of a boolean term)
  */
-extern void create_quant_solver(context_t *ctx);
-
-/*
- * Attach problem to quant solver
- */
-extern void context_attach_quant_prob(context_t *ctx, ef_prob_t *prob);
+extern void quant_assert_toplevel_formula(context_t *ctx, term_t t);
 
 
 
-#endif /* __QUANT_CONTEXT_H */
+
+#endif /* __QUANT_CONTEXT_UTILS_H */

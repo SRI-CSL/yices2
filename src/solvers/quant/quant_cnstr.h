@@ -33,6 +33,11 @@ typedef struct quant_cnstr_s {
   term_t t;
   int32_t *patterns;  // pattern indices in pattern table
   int_hset_t instances; // match indices in instance table for whom instances are learnt
+
+  term_t *uvars;    // universal variables
+  term_t *fun;      // functions that appear in the constraint
+  term_t *fapps;    // function applications that appear in the constraint
+  term_t *consts;   // constants that appear in the constraint
 } quant_cnstr_t;
 
 /*
@@ -89,6 +94,12 @@ extern int32_t quant_table_alloc(quant_table_t *table);
  * Create a new quantifier constraint
  */
 extern int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv, uint32_t npv);
+
+/*
+ * Check constraint at index idx
+ * - if assertion has more variables than variables in patterns, return false
+ */
+extern bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_t idx);
 
 
 

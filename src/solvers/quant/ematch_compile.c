@@ -208,12 +208,12 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
  */
 static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t) {
   ematch_instr_table_t *itbl;
-  int32_t idx;
+  int32_t idx, next;
   ematch_instr_t *instr;
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data + idx;
 
   assert(term_kind(comp->terms, t) != VARIABLE);
   assert(term_kind(comp->terms, t) != APP_TERM);
@@ -226,11 +226,16 @@ static int32_t ematch_compile_const(ematch_compile_t *comp, int32_t i, term_t t)
   printf("    (pre) instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
-  instr->next = ematch_compile(comp);
+  next = ematch_compile(comp);
+  instr = itbl->data + idx;
+  instr->next = next;
 
 #if 0
   printf("    instr%d: check(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
+
+  assert(instr->idx == idx);
+  assert(idx >= 0);
 
   return idx;
 }
@@ -258,10 +263,11 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
   } else {
     ematch_instr_table_t *itbl;
     ematch_instr_t *instr;
+    int32_t next;
 
     itbl = comp->itbl;
     idx = ematch_instr_table_alloc(itbl);
-    instr = &itbl->data[idx];
+    instr = itbl->data + idx;
 
     instr->op = EMATCH_COMPARE;
     instr->i = i;
@@ -271,12 +277,18 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
     printf("    (pre) instr%d: compare(%d, %d, instr%d)\n", idx, instr->i, instr->j, instr->next);
 #endif
 
-    instr->next = ematch_compile(comp);
+    next = ematch_compile(comp);
+    instr = itbl->data + idx;
+    instr->next = next;
 
 #if 0
     printf("    instr%d: compare(%d, %d, instr%d)\n", idx, instr->i, instr->j, instr->next);
 #endif
+
+    assert(instr->idx == idx);
   }
+
+  assert(idx >= 0);
 
   return idx;
 }
@@ -286,12 +298,12 @@ static int32_t ematch_compile_var(ematch_compile_t *comp, int32_t i, term_t x) {
  */
 static int32_t ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f) {
   ematch_instr_table_t *itbl;
-  int32_t idx;
+  int32_t idx, next;
   ematch_instr_t *instr;
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data + idx;
 
   instr->op = EMATCH_FILTER;
   instr->i = i;
@@ -301,11 +313,16 @@ static int32_t ematch_compile_filter(ematch_compile_t *comp, int32_t i, term_t f
   printf("    (pre) instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
 
-  instr->next = ematch_compile(comp);
+  next = ematch_compile(comp);
+  instr = itbl->data + idx;
+  instr->next = next;
 
 #if 0
   printf("    instr%d: filter(%d, %s, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->next);
 #endif
+
+  assert(instr->idx == idx);
+  assert(idx >= 0);
 
   return idx;
 }
@@ -349,12 +366,12 @@ static void ematch_add_to_W(ematch_compile_t *comp, int32_t i, term_t t) {
  */
 static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) {
   ematch_instr_table_t *itbl;
-  int32_t idx, j;
+  int32_t idx, next, j;
   ematch_instr_t *instr;
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data+ idx;
 
   assert(term_kind(comp->terms, f) == APP_TERM);
   instr->op = EMATCH_BIND;
@@ -379,7 +396,9 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
   printf("    (pre) instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
 #endif
 
-  instr->next = ematch_compile(comp);
+  next = ematch_compile(comp);
+  instr = itbl->data + idx;
+  instr->next = next;
 
 #if 0
   printf("    instr%d: bind(%d, %s, %d, instr%d)\n", idx, instr->i, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
@@ -387,6 +406,9 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
 
   // Undo changes to comp
 //  comp->o = offset;
+
+  assert(instr->idx == idx);
+  assert(idx >= 0);
 
   return idx;
 }
@@ -401,7 +423,7 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data + idx;
 
   instr->op = EMATCH_YIELD;
 
@@ -432,6 +454,9 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
   printf(")\n");
 #endif
 
+  assert(instr->idx == idx);
+  assert(idx >= 0);
+
   return idx;
 }
 
@@ -460,7 +485,7 @@ int32_t ematch_compile(ematch_compile_t *comp) {
         break;
       }
     }
-    if (i > 0)
+    if (i != -1)
       break;
   }
 
@@ -469,6 +494,11 @@ int32_t ematch_compile(ematch_compile_t *comp) {
   } else {
     term_table_t *terms;
     terms = comp->terms;
+
+#if TRACE
+    printf("  choosing %d (kind: %d) -> ", i, term_kind(terms, x));
+    yices_pp_term(stdout, x, 120, 1, 0);
+#endif
 
     switch(term_kind(terms, x)) {
     case CONSTANT_TERM:
@@ -516,6 +546,8 @@ int32_t ematch_compile(ematch_compile_t *comp) {
 
   }
 
+  assert(idx >= 0);
+
   return idx;
 }
 
@@ -524,12 +556,12 @@ int32_t ematch_compile(ematch_compile_t *comp) {
  */
 static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app) {
   ematch_instr_table_t *itbl;
-  int32_t idx;
+  int32_t idx, next;
   ematch_instr_t *instr;
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data + idx;
 
   instr->op = EMATCH_INIT;
 
@@ -551,7 +583,9 @@ static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app
 //  ematch_print_W(comp, "(func: post)");
 #endif
 
-  instr->next = ematch_compile(comp);
+  next = ematch_compile(comp);
+  instr = itbl->data + idx;
+  instr->next = next;
 
 #if 0
   printf("    instr%d: init(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
@@ -559,6 +593,10 @@ static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app
 
   // Undo changes to comp
 //  comp->o = offset;
+
+  assert(instr->idx == idx);
+  assert(itbl->data[idx].next == instr->next);
+  assert(idx >= 0);
 
   return idx;
 }

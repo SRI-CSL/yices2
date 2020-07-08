@@ -334,7 +334,7 @@ static int32_t ematch_compile_chooseapp(ematch_compile_t *comp, int32_t o, int32
 
   itbl = comp->itbl;
   idx = ematch_instr_table_alloc(itbl);
-  instr = &itbl->data[idx];
+  instr = itbl->data + idx;
 
   instr->op = EMATCH_CHOOSEAPP;
   instr->o = o;
@@ -394,30 +394,33 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
   regt = exec->reg.data[i];
 
   focc = instr_f2occ(exec, instr);
-  assert(focc != null_occurrence);
-  assert(is_pos_occ(focc));
-  ef = term_of_occ(focc);
+  if (focc == null_occurrence) {
+    // do nothing
+  } else {
+    assert(is_pos_occ(focc));
+    ef = term_of_occ(focc);
 
-  init_ivector(&fapps, 4);
+    init_ivector(&fapps, 4);
 
-  egraph_get_fapps_in_class(exec->egraph, ef, regt, &fapps);
-  n = fapps.size;
+    egraph_get_fapps_in_class(exec->egraph, ef, regt, &fapps);
+    n = fapps.size;
 
-  instr->subs = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
-  instr->nsubs = n;
-  for(j=0; j<n; j++) {
-#if TRACE
-    printf("    choosing fapps: ");
-    print_occurrence(stdout, fapps.data[j]);
-    printf("\n");
-#endif
-    instr->subs[j].left = fapps.data[j];
+    instr->subs = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
+    instr->nsubs = n;
+    for(j=0; j<n; j++) {
+  #if TRACE
+      printf("    choosing fapps: ");
+      print_occurrence(stdout, fapps.data[j]);
+      printf("\n");
+  #endif
+      instr->subs[j].left = fapps.data[j];
+    }
+
+    delete_ivector(&fapps);
+
+    chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
+    ematch_stack_save(&exec->bstack, chooseapp);
   }
-
-  delete_ivector(&fapps);
-
-  chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-  ematch_stack_save(&exec->bstack, chooseapp);
 
   ematch_exec_backtrack(exec);
 }
@@ -455,6 +458,7 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
 
     chooseapp = ematch_compile_chooseapp(exec->comp, offset, idx, j+1);
     ematch_stack_save(&exec->bstack, chooseapp);
+    bind = &exec->itbl->data[idx];
 
     ematch_exec_instr(exec, bind->next);
   } else {
@@ -478,12 +482,16 @@ static void ematch_exec_check(ematch_exec_t *exec, ematch_instr_t *instr) {
   lhs = reg->data[i];
 
   rhs = instr_f2occ(exec, instr);
-  assert(egraph_term_is_atomic(exec->egraph, term_of_occ(rhs)));
-
-  if (egraph_equal_occ(exec->egraph, rhs, lhs)) {
-    ematch_exec_instr(exec, instr->next);
-  } else {
+  if (rhs == null_occurrence) {
     ematch_exec_backtrack(exec);
+  } else {
+    assert(egraph_term_is_atomic(exec->egraph, term_of_occ(rhs)));
+
+    if (egraph_equal_occ(exec->egraph, rhs, lhs)) {
+      ematch_exec_instr(exec, instr->next);
+    } else {
+      ematch_exec_backtrack(exec);
+    }
   }
 }
 
@@ -573,14 +581,18 @@ static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
   regt = exec->reg.data[i];
 
   focc = instr_f2occ(exec, instr);
-  assert(focc != null_occurrence);
-  assert(is_pos_occ(focc));
-  ef = term_of_occ(focc);
-
-  if (egraph_has_fapps_in_class(exec->egraph, ef, regt)) {
-    ematch_exec_instr(exec, instr->next);
-  } else {
+  if (focc == null_occurrence) {
     ematch_exec_backtrack(exec);
+  } else {
+    assert(focc != null_occurrence);
+    assert(is_pos_occ(focc));
+    ef = term_of_occ(focc);
+
+    if (egraph_has_fapps_in_class(exec->egraph, ef, regt)) {
+      ematch_exec_instr(exec, instr->next);
+    } else {
+      ematch_exec_backtrack(exec);
+    }
   }
 }
 
@@ -641,7 +653,6 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
   term_t f;
   uint32_t i, j, n;
   occ_t occ, fapp;
-  eterm_t ef;
   uint32_t oldsz, newsz;
   ptr_hmap_t *matches;
   ptr_hmap_pair_t *p;
@@ -650,6 +661,8 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
 #if TRACE
     printf("\nMatching pattern: ");
     yices_pp_term(stdout, pat->p, 120, 1, 0);
+    printf("  Pattern code:\n");
+    ematch_print_instr(stdout, exec->itbl, pat->code, true);
 #endif
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
@@ -657,13 +670,12 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
     f = term_child(terms, pat->p, 0);
     occ = term2occ(exec->intern, f);
     if (occ != null_occurrence) {
-      ef = term_of_occ(occ);
       matches = &pat->matches;
 
       init_ivector(&fapps, 4);
       oldsz = exec->instbl->ninstances;
 
-      egraph_get_all_fapps(exec->egraph, ef, &fapps);
+      egraph_get_all_fapps(exec->egraph, term_of_occ(occ), &fapps);
       n = fapps.size;
       for(i=0; i<n; i++) {
         fapp = fapps.data[i];
@@ -675,9 +687,10 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
 
 #if TRACE
         printf("  Matching fapp: ");
-        print_eterm_id(stdout, fapp);
+        print_occurrence(stdout, fapp);
         printf("\n");
 #endif
+
         ematch_exec_set_reg(exec, fapps.data[i], 0);
         ematch_exec_instr(exec, pat->code);
 
@@ -685,7 +698,7 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
         if (newsz != oldsz) {
 #if TRACE
           printf("  Found %d new matches from fapp ", (newsz-oldsz));
-          print_eterm_id(stdout, fapp);
+          print_occurrence(stdout, fapp);
           printf("\n");
 #endif
 
