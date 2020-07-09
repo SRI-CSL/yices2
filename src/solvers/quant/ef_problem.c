@@ -76,18 +76,20 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
   patterns2 = prob->patterns;
   init_ptr_hmap(patterns2, 0);
 
-  for (r1 = ptr_hmap_first_record(patterns);
-       r1 != NULL;
-       r1 = ptr_hmap_next_record(patterns, r1)) {
-    pv1 = r1->val;
-    n = pv1->size;
+  if (patterns != NULL) {
+    for (r1 = ptr_hmap_first_record(patterns);
+         r1 != NULL;
+         r1 = ptr_hmap_next_record(patterns, r1)) {
+      pv1 = r1->val;
+      n = pv1->size;
 
-    r2 = ptr_hmap_get(patterns2, r1->key);
-    if (r2->val == NULL) {
-      r2->val = safe_malloc(sizeof(ivector_t));
-      init_ivector(r2->val, n);
+      r2 = ptr_hmap_get(patterns2, r1->key);
+      if (r2->val == NULL) {
+        r2->val = safe_malloc(sizeof(ivector_t));
+        init_ivector(r2->val, n);
+      }
+      ivector_add(r2->val, pv1->data, n);
     }
-    ivector_add(r2->val, pv1->data, n);
   }
 
 }
