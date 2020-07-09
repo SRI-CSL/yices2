@@ -137,128 +137,35 @@ static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i
  * Infer patterns for term t
  *   infer new patterns and add them to patterns vector
  */
-static void quant_infer_patterns(quant_solver_t *solver, term_t t, ivector_t *patterns) {
-  // TBD
-}
+static void quant_infer_patterns(quant_solver_t *solver, term_t t, ivector_t *patterns, ivector_t *uvars) {
+  ivector_t prospectives;
+  term_t x;
 
-/*
- * Recursively push all variables, functions, function applications and constants that occur in term t
- */
-static void quant_process_pattern_term(quant_solver_t *solver, term_t t, ivector_t *pv, ivector_t *f,
-    ivector_t *fa, ivector_t *c) {
-  term_table_t *terms;
-  term_t x, u;
-  term_kind_t kind;
-  uint32_t i, n;
+#if TRACE
+  printf("  Inferring pattern for ");
+  yices_pp_term(stdout, t, 120, 1, 0);
+#endif
 
-  terms = solver->prob->terms;
-  x = unsigned_term(t);
-  kind = term_kind(terms, x);
+  init_ivector(&prospectives, 4);
 
-  // process all children (if any)
-  n = term_num_children(terms, x);
-  for(i=0; i<n; i++) {
-    u = term_child(terms, x, i);
-    quant_process_pattern_term(solver, u, pv, f, fa, c);
+  quant_infer_single_pattern(solver->prob->terms, t, uvars, &prospectives);
+
+  if (prospectives.size != 0) {
+    x = prospectives.data[0];
+    ivector_push(patterns, x);
+    assert(patterns->size == 1);
+
+#if TRACE
+    printf("    found #%d prospectives: ", prospectives.size);
+    yices_pp_term_array(stdout, prospectives.size, prospectives.data, 120, 1, 0, 1);
+    printf("    choosing prospective: ");
+    yices_pp_term(stdout, x, 120, 1, 0);
+#endif
   }
 
-  switch (kind) {
-  case CONSTANT_TERM:
-  case ARITH_CONSTANT:
-  case BV64_CONSTANT:
-  case BV_CONSTANT:
-    // nothing to do
-    break;
-
-  case UNINTERPRETED_TERM:
-    // add to vector c
-    if (is_function_term(terms, x)) {
-      ivector_push(f, x);
-#if 0
-      printf("    adding function: ");
-      yices_pp_term(stdout, x, 120, 1, 0);
-#endif
-    } else {
-      ivector_push(c, x);
-#if 0
-      printf("    adding constant: ");
-      yices_pp_term(stdout, x, 120, 1, 0);
-#endif
-    }
-    break;
-
-  case VARIABLE:
-    // add to vector pv
-    ivector_push(pv, x);
-#if 0
-    printf("    adding var: ");
-    yices_pp_term(stdout, x, 120, 1, 0);
-#endif
-    break;
-
-  case APP_TERM:
-    // add to vector fa
-    ivector_push(fa, x);
-#if 0
-    printf("    adding fapp: ");
-    yices_pp_term(stdout, x, 120, 1, 0);
-#endif
-    break;
-
-  case ARITH_EQ_ATOM:
-  case EQ_TERM:            // equality
-  case ARITH_BINEQ_ATOM:
-  case BV_EQ_ATOM:
-  case ITE_TERM:
-  case ITE_SPECIAL:
-  case DISTINCT_TERM:
-  case OR_TERM:            // n-ary OR
-  case XOR_TERM:           // n-ary XOR
-    // nothing to do
-    break;
-
-//  case ARITH_GE_ATOM:
-//  case ARITH_IS_INT_ATOM:
-//  case ARITH_FLOOR:
-//  case ARITH_CEIL:
-//  case ARITH_ROOT_ATOM:
-//  case UPDATE_TERM:
-//  case TUPLE_TERM:
-//  case ARITH_RDIV:
-//  case ARITH_IDIV:
-//  case ARITH_MOD:
-//  case ARITH_DIVIDES_ATOM:
-//  case BV_ARRAY:
-//  case BV_DIV:
-//  case BV_REM:
-//  case BV_SDIV:
-//  case BV_SREM:
-//  case BV_SMOD:
-//  case BV_SHL:
-//  case BV_LSHR:
-//  case BV_ASHR:
-//  case BV_GE_ATOM:
-//  case BV_SGE_ATOM:
-//  case SELECT_TERM:
-//  case BIT_TERM:
-//  case POWER_PRODUCT:
-//  case ARITH_POLY:
-//  case BV64_POLY:
-//  case BV_POLY:
-//    // add to vector fa
-//#if 0
-//    printf("    adding fapp: ");
-//    yices_pp_term(stdout, x, 120, 1, 0);
-//#endif
-//    ivector_push(fa, x);
-//    break;
-
-  default:
-    printf("Unsupported term (kind %d): ", kind);
-    yices_pp_term(stdout, x, 120, 1, 0);
-    assert(false);
-  }
+  delete_ivector(&prospectives);
 }
+
 
 /*
  * Preprocess pattern, add pattern to pattern table, and return its index
@@ -278,7 +185,7 @@ static int32_t quant_preprocess_pattern(quant_solver_t *solver, term_t t, term_t
   init_ivector(&fa, 5);
   init_ivector(&c, 5);
 
-  quant_process_pattern_term(solver, pat, &pv, &f, &fa, &c);
+  quant_process_pattern_term(solver->prob->terms, pat, &pv, &f, &fa, &c);
   ivector_remove_duplicates(&pv);
   ivector_remove_duplicates(&f);
   ivector_remove_duplicates(&fa);
@@ -292,6 +199,11 @@ static int32_t quant_preprocess_pattern(quant_solver_t *solver, term_t t, term_t
   delete_ivector(&fa);
   delete_ivector(&c);
 
+#if 0
+  printf("    Adding pattern:\n");
+  quant_solver_print_pattern(stdout, solver, i);
+#endif
+
   r->val = i;
   return i;
 }
@@ -302,7 +214,7 @@ static int32_t quant_preprocess_pattern(quant_solver_t *solver, term_t t, term_t
  *   else, infer patterns
  *   add all the final patterns and push their indices in out vector
  */
-static void quant_setup_patterns(quant_solver_t *solver, term_t t, ivector_t *patterns, ivector_t *out) {
+static void quant_setup_patterns(quant_solver_t *solver, term_t t, ivector_t *patterns, ivector_t *uvars, ivector_t *out) {
   uint32_t i, n;
   term_t *data;
   term_t x;
@@ -310,9 +222,12 @@ static void quant_setup_patterns(quant_solver_t *solver, term_t t, ivector_t *pa
 
   n = patterns->size;
   if (n == 0) {
-    quant_infer_patterns(solver, t, patterns);
+    quant_infer_patterns(solver, t, patterns, uvars);
     n = patterns->size;
   }
+#if 0
+  printf("  Total #%d patterns\n", n);
+#endif
 
   data = patterns->data;
   for (i=0; i<n; i++) {
@@ -344,16 +259,16 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
   init_ivector(&fa, 5);
   init_ivector(&c, 5);
 
-  quant_setup_patterns(solver, t, patterns, &v);
-
-  i = quant_table_add_cnstr(qtbl, t, v.data, v.size);
-  cnstr = qtbl->data + i;
-
-  quant_process_pattern_term(solver, t, &pv, &f, &fa, &c);
+  quant_process_pattern_term(solver->prob->terms, t, &pv, &f, &fa, &c);
   ivector_remove_duplicates(&pv);
   ivector_remove_duplicates(&f);
   ivector_remove_duplicates(&fa);
   ivector_remove_duplicates(&c);
+
+  quant_setup_patterns(solver, t, patterns, &pv, &v);
+
+  i = quant_table_add_cnstr(qtbl, t, v.data, v.size);
+  cnstr = qtbl->data + i;
 
   cnstr->uvars = make_index_vector(pv.data, pv.size);
   cnstr->fun = make_index_vector(f.data, f.size);

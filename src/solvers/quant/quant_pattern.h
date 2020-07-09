@@ -85,5 +85,16 @@ extern int32_t pattern_table_alloc(pattern_table_t *table);
 extern int32_t pattern_table_add_pattern(pattern_table_t *ptbl, term_t p, term_t *pv, uint32_t npv,
     term_t *f, uint32_t nf, term_t *fa, uint32_t nfa, term_t *c, uint32_t nc);
 
+/*
+ * Recursively push all variables, functions, function applications and constants that occur in term t
+ */
+extern void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, ivector_t *f,
+    ivector_t *fa, ivector_t *c);
+
+/*
+ * Infer single patterns for term t, by recursively finding fapps which contain all uvars
+ */
+extern void quant_infer_single_pattern(term_table_t *terms, term_t t, ivector_t *uvars, ivector_t *out);
+
 
 #endif /* __QUANT_PATTERN_H */

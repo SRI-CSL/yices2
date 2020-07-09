@@ -777,7 +777,7 @@ extern void ef_skolemize_patterns(ef_skolemize_t *sk) {
   ptr_hmap_t *patterns1;
 
   patterns1 = sk->prob->patterns;
-  if (patterns1 != NULL) {
+  if (patterns1 != NULL && patterns1->nelems != 0) {
     ptr_hmap_t *patterns2;
     ptr_hmap_pair_t *r1, *r2;
     ivector_t *rv1, *rv2;

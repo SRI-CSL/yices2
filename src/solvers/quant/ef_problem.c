@@ -65,31 +65,31 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
   prob->has_uint = false;
 
   prob->patterns = NULL;
-  if (patterns != NULL) {
-    ptr_hmap_t *patterns2;
-    ivector_t *pv1;
-    ptr_hmap_pair_t *r1, *r2;
-    uint32_t n;
 
-    prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+  ptr_hmap_t *patterns2;
+  ivector_t *pv1;
+  ptr_hmap_pair_t *r1, *r2;
+  uint32_t n;
 
-    patterns2 = prob->patterns;
-    init_ptr_hmap(patterns2, 0);
+  prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
 
-    for (r1 = ptr_hmap_first_record(patterns);
-         r1 != NULL;
-         r1 = ptr_hmap_next_record(patterns, r1)) {
-      pv1 = r1->val;
-      n = pv1->size;
+  patterns2 = prob->patterns;
+  init_ptr_hmap(patterns2, 0);
 
-      r2 = ptr_hmap_get(patterns2, r1->key);
-      if (r2->val == NULL) {
-        r2->val = safe_malloc(sizeof(ivector_t));
-        init_ivector(r2->val, n);
-      }
-      ivector_add(r2->val, pv1->data, n);
+  for (r1 = ptr_hmap_first_record(patterns);
+       r1 != NULL;
+       r1 = ptr_hmap_next_record(patterns, r1)) {
+    pv1 = r1->val;
+    n = pv1->size;
+
+    r2 = ptr_hmap_get(patterns2, r1->key);
+    if (r2->val == NULL) {
+      r2->val = safe_malloc(sizeof(ivector_t));
+      init_ivector(r2->val, n);
     }
+    ivector_add(r2->val, pv1->data, n);
   }
+
 }
 
 
