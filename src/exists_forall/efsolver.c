@@ -320,7 +320,7 @@ static void init_exists_context(ef_solver_t *solver) {
   if (solver->trace != NULL) {
     context_set_trace(ctx, solver->trace);
   }
-  if (solver->ematching) {
+  if (solver->ematching && solver->prob->has_uint) {
     create_quant_solver(ctx);
     context_attach_quant_prob(ctx, solver->prob);
   }
