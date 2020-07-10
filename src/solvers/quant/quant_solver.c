@@ -40,7 +40,9 @@
 #include "context/internalization_codes.h"
 #include "context/quant_context_utils.h"
 
-#define TRACE 1
+#define EM_VERBOSE 0
+
+#define TRACE 0
 
 #if TRACE
 
@@ -51,8 +53,6 @@
 
 #endif
 
-
-#if TRACE
 
 /**********************
  *  PRINTING SUPPORT  *
@@ -88,8 +88,6 @@ static void quant_solver_print_pattern(FILE *f, quant_solver_t *solver, uint32_t
   fprintf(f, "\n");
 
 }
-
-#endif
 
 static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i) {
   quant_cnstr_t *qcnstr;
@@ -140,6 +138,7 @@ static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i
 static void quant_infer_patterns(quant_solver_t *solver, term_t t, ivector_t *patterns, ivector_t *uvars) {
   ivector_t prospectives;
   term_t x;
+  uint32_t i, n;
 
 #if TRACE
   printf("  Inferring pattern for ");
@@ -150,16 +149,21 @@ static void quant_infer_patterns(quant_solver_t *solver, term_t t, ivector_t *pa
 
   quant_infer_single_pattern(solver->prob->terms, t, uvars, &prospectives);
 
-  if (prospectives.size != 0) {
-    x = prospectives.data[0];
-    ivector_push(patterns, x);
-    assert(patterns->size == 1);
+  n = prospectives.size;
+  if (n != 0) {
+#if TRACE
+    printf("    found #%d prospectives: ", n);
+    yices_pp_term_array(stdout, n, prospectives.data, 120, 1, 0, 1);
+#endif
+
+//    n = 1;    // restrict to only the first inferred pattern
+    for(i=0; i<n; i++) {
+      x = prospectives.data[i];
+      ivector_push(patterns, x);
+    }
 
 #if TRACE
-    printf("    found #%d prospectives: ", prospectives.size);
-    yices_pp_term_array(stdout, prospectives.size, prospectives.data, 120, 1, 0, 1);
-    printf("    choosing prospective: ");
-    yices_pp_term(stdout, x, 120, 1, 0);
+    printf("    added #%d patterns\n", n);
 #endif
   }
 
@@ -322,6 +326,7 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 
   solver->prob = prob;
   quant_preprocess_prob(solver);
+//  assert(0);
 
   ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx);
   ematch_compile_all_patterns(&solver->em);
@@ -352,6 +357,9 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
 
   instances = &cnstr->instances;
   if (int_hset_member(instances, idx)) {
+#if TRACE
+    printf("\n  already done with match%d\n", idx);
+#endif
     return false;
   }
 
@@ -364,6 +372,10 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
   assert(idx < instbl->ninstances);
   inst = &instbl->data[idx];
 
+#if TRACE
+  printf("\n  generating instance with match%d\n", idx);
+#endif
+
 #if 0
   printf("\nInstantiating %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
@@ -371,7 +383,7 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
 //  assert(intern_tbl_is_root(&ctx->intern, t));
 //  assert(term_is_true(ctx, t));
 
-  n = inst->size;
+  n = inst->nelems;
   assert(n == iv_len(pat->pvars));
   for(i=0; i<n; i++) {
     lhs = unsigned_term(inst->vdata[i]);
@@ -417,7 +429,7 @@ uint32_t ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
   ematch_exec_t *exec;
   pattern_table_t *ptbl;
   quant_table_t *qtbl;
-  uint32_t npat, i, n;
+  uint32_t npat, i, j, n;
   quant_cnstr_t *cnstr;
   int32_t *patterns;
   pattern_t *pat;
@@ -432,11 +444,24 @@ uint32_t ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
   ptbl = em->ptbl;
 
   cnstr = qtbl->data + idx;
+
+#if TRACE
+  printf("-------------------\n");
+  printf("Trying matching cnstr @%d: ", idx);
+  yices_pp_term(stdout, cnstr->t, 120, 1, 0);
+#endif
+
   patterns = cnstr->patterns;
   npat = iv_len(patterns);
   if (npat != 0) {
-    if (npat == 1) {
-      pat = ptbl->data + patterns[0];
+    for(j=0; j<npat; j++) {
+      pat = ptbl->data + patterns[j];
+
+#if TRACE
+      printf("\n  Matching pattern @%d: ", patterns[j]);
+      yices_pp_term(stdout, pat->p, 120, 1, 0);
+#endif
+
       ematch_exec_pattern(exec, pat);
 
       matches = &pat->matches;
@@ -452,21 +477,13 @@ uint32_t ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
           }
         }
       }
+    }
 
 #if TRACE
-      if(count != 0) {
-        printf("\nFound #%d instances for ", count);
-        yices_pp_term(stdout, cnstr->t, 120, 1, 0);
-        printf("\n");
-      }
-#endif
-
-    } else {
-      printf("Found #%d patterns for ", npat);
-      yices_pp_term(stdout, cnstr->t, 120, 1, 0);
-      printf("Multi-patterns not supported.");
-      assert(0);
+    if(count != 0) {
+      printf("\nFound #%d instances for cnstr @%d\n", count, idx);
     }
+#endif
   }
 
   return count;
@@ -676,9 +693,6 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
   count = 0;
 
   count = ematch_process_all_cnstr(solver);
-  if (count != 0) {
-    printf("EMATCH: learnt %d instances\n", count);
-  }
 
 //#if TRACE
 //  print_egraph_terms(stdout, solver->egraph);
@@ -690,6 +704,12 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 //
 //  printf("\n(END) Intern. mappings:\n");
 //  print_context_intern_mapping(stdout, solver->em.ctx);
+
+#if EM_VERBOSE
+  if (count != 0) {
+    printf("EMATCH: learnt %d instances\n", count);
+  }
+#endif
 
 #if TRACE
   printf("\n**** QUANTSOLVER: FINAL CHECK DONE ***\n\n");

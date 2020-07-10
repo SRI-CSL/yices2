@@ -60,7 +60,8 @@ typedef struct ematch_instr_s {
   uint32_t j;
   uint32_t o;
 
-  int_pair_t *subs;
+  term_t *vdata;
+  int32_t *idata;
   uint32_t nsubs;
 
   int32_t alt;

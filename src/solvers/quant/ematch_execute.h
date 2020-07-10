@@ -35,6 +35,7 @@
 typedef struct ematch_exec_s {
   ivector_t reg;                // register array
   ematch_stack_t bstack;        // instruction stack
+  ivector_t aux_vector;         // temporary vector
 
   ematch_compile_t *comp;       // ematch compiler
   ematch_instr_table_t *itbl;   // ematch instruction table
@@ -68,8 +69,9 @@ extern void ematch_exec_instr(ematch_exec_t *exec, int32_t idx);
 
 /*
  * Execute the code sequence for a pattern
+ * - returns number of matches found
  */
-extern void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat);
+extern uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat);
 
 
 #endif /* __EMATCH_EXECUTE_H */

@@ -64,8 +64,11 @@ static void shrink_ematch_instr_table(ematch_instr_table_t *table, uint32_t n) {
   assert(n <= table->ninstr);
 
   for(i=n; i<table->ninstr; i++) {
-    if (table->data[i].subs != NULL) {
-      safe_free(table->data[i].subs);
+    if (table->data[i].vdata != NULL) {
+      safe_free(table->data[i].vdata);
+    }
+    if (table->data[i].idata != NULL) {
+      safe_free(table->data[i].idata);
     }
   }
 
@@ -115,7 +118,8 @@ int32_t ematch_instr_table_alloc(ematch_instr_table_t *table) {
   instr->i = 0;
   instr->j = 0;
   instr->o = 0;
-  instr->subs = NULL;
+  instr->vdata = NULL;
+  instr->idata = NULL;
   instr->nsubs = 0;
   instr->alt = -1;
   instr->next = -1;

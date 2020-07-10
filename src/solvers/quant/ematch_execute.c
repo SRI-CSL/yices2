@@ -46,6 +46,7 @@
 void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_table_t *instbl) {
   init_ivector(&exec->reg, 10);
   init_ematch_stack(&exec->bstack);
+  init_ivector(&exec->aux_vector, 4);
 
   exec->comp = comp;
   exec->itbl = comp->itbl;
@@ -62,6 +63,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
 void reset_ematch_exec(ematch_exec_t *exec) {
   ivector_reset(&exec->reg);
   reset_ematch_stack(&exec->bstack);
+  ivector_reset(&exec->aux_vector);
 
   exec->comp = NULL;
   exec->itbl = NULL;
@@ -78,6 +80,7 @@ void reset_ematch_exec(ematch_exec_t *exec) {
 void delete_ematch_exec(ematch_exec_t *exec) {
   delete_ivector(&exec->reg);
   delete_ematch_stack(&exec->bstack);
+  delete_ivector(&exec->aux_vector);
 
   exec->comp = NULL;
   exec->itbl = NULL;
@@ -405,7 +408,7 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
     egraph_get_fapps_in_class(exec->egraph, ef, regt, &fapps);
     n = fapps.size;
 
-    instr->subs = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
+    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
     instr->nsubs = n;
     for(j=0; j<n; j++) {
   #if TRACE
@@ -413,7 +416,7 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
       print_occurrence(stdout, fapps.data[j]);
       printf("\n");
   #endif
-      instr->subs[j].left = fapps.data[j];
+      instr->idata[j] = fapps.data[j];
     }
 
     delete_ivector(&fapps);
@@ -443,7 +446,7 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
   bind = &exec->itbl->data[idx];
 
   if (bind->nsubs >= j) {
-    occ = bind->subs[j-1].left;
+    occ = bind->idata[j-1];
 
     assert(is_pos_occ(instr_f2occ(exec, bind)));
 
@@ -527,41 +530,54 @@ static void ematch_exec_compare(ematch_exec_t *exec, ematch_instr_t *instr) {
  */
 static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   instance_table_t *insttbl;
-  instance_t *inst;
   int32_t i, j, n;
-  term_t lhs;
   int32_t idx;
   ivector_t *reg;
   occ_t rhs;
+  ivector_t v;
 
   insttbl = exec->instbl;
   reg = &exec->reg;
   n = instr->nsubs;
 
-  i = instance_table_alloc(insttbl, n);
-  inst = insttbl->data + i;
-  assert(inst->size == n);
+  init_ivector(&v, n);
 
-  printf("    match%d: (#%d entries) ", i, n);
   for (j=0; j<n; j++) {
-    lhs = instr->subs[j].left;
-
-    idx = instr->subs[j].right;
+    idx = instr->idata[j];
     assert(idx >= 0);
     assert(idx < reg->size);
     rhs = reg->data[idx];
+    ivector_push(&v, rhs);
+  }
 
-    inst->vdata[j] = lhs;
-    inst->odata[j] = rhs;
+  i = mk_instance(insttbl, instr->idx, n, instr->vdata, v.data);
+  ivector_push(&exec->aux_vector, i);
 
 #if TRACE
-    printf("%s -> ", yices_term_to_string(lhs, 120, 1, 0));
-    print_occurrence(stdout, rhs);
-//    printf("OCC%d", rhs);
+  instance_t *inst;
+  term_t lhs;
+
+  inst = insttbl->data + i;
+  assert(inst->nelems == n);
+
+  printf("    match%d: (#%d entries) ", i, n);
+  for (j=0; j<n; j++) {
+    lhs = instr->vdata[j];
+    rhs = inst->vdata[j];
+    assert(lhs == rhs);
+
+    idx = instr->idata[j];
+    lhs = reg->data[idx];
+    rhs = inst->odata[j];
+    assert(lhs == rhs);
+
+    printf("%d -> ", inst->vdata[j]);
+//    printf("%s -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0));
+    print_occurrence(stdout, inst->odata[j]);
     printf(", ");
-#endif
   }
   printf("\n");
+#endif
 
   ematch_exec_backtrack(exec);
 }
@@ -645,25 +661,26 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
 
 /*
  * Execute the code sequence for a pattern
+ * - returns number of matches found
  */
-void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
+uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
+  uint32_t count;
   term_table_t *terms;
   term_kind_t kind;
   ivector_t fapps;
   term_t f;
-  uint32_t i, j, n;
+  uint32_t i, j, n, m;
   occ_t occ, fapp;
-  uint32_t oldsz, newsz;
   ptr_hmap_t *matches;
   ptr_hmap_pair_t *p;
-  ivector_t *v;
+  ivector_t *aux, *v;
 
 #if TRACE
-    printf("\nMatching pattern: ");
-    yices_pp_term(stdout, pat->p, 120, 1, 0);
     printf("  Pattern code:\n");
     ematch_print_instr(stdout, exec->itbl, pat->code, true);
 #endif
+
+  count = 0;
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
   if (kind == APP_TERM) {
@@ -672,8 +689,18 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
     if (occ != null_occurrence) {
       matches = &pat->matches;
 
+      for (p = ptr_hmap_first_record(matches);
+           p != NULL;
+           p = ptr_hmap_next_record(matches, p)) {
+        ivector_t *v = p->val;
+        if (v != NULL) {
+          delete_ivector(v);
+          safe_free(v);
+        }
+      }
+      ptr_hmap_reset(matches);
+
       init_ivector(&fapps, 4);
-      oldsz = exec->instbl->ninstances;
 
       egraph_get_all_fapps(exec->egraph, term_of_occ(occ), &fapps);
       n = fapps.size;
@@ -690,38 +717,39 @@ void ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
         print_occurrence(stdout, fapp);
         printf("\n");
 #endif
+        aux = &exec->aux_vector;
+        ivector_reset(aux);
 
         ematch_exec_set_reg(exec, fapps.data[i], 0);
         ematch_exec_instr(exec, pat->code);
 
-        newsz = exec->instbl->ninstances;
-        if (newsz != oldsz) {
+        ivector_remove_duplicates(aux);
+        m = aux->size;
+
+        if (m != 0) {
 #if TRACE
-          printf("  Found %d new matches from fapp ", (newsz-oldsz));
+          printf("  Found %d matches from fapp ", m);
           print_occurrence(stdout, fapp);
           printf("\n");
 #endif
 
+          count += m;
           p = ptr_hmap_get(matches, fapp);
           assert(p->val == NULL);
-          p->val = safe_malloc(sizeof(int_hset_t));
+          p->val = safe_malloc(sizeof(ivector_t));
           v = p->val;
-          init_ivector(v, 0);
+          init_ivector(v, m);
 
-          for(j=oldsz; j!=newsz; j++) {
-            ivector_push(v, j);
-#if TRACE
-            printf("    (added) match%d\n", j);
-#endif
+          for(j=0; j!=m; j++) {
+            ivector_push(v, aux->data[j]);
           }
-          ivector_remove_duplicates(v);
-
-          oldsz = newsz;
         }
       }
       delete_ivector(&fapps);
     }
   }
+
+  return count;
 }
 
 

@@ -34,11 +34,13 @@
  * Single instance match
  */
 typedef struct instance_s {
-  term_t *vdata;    // variables to be replaced
-  occ_t *odata;     // occurrences in egraph that replaces variables
+  term_t *vdata;            // variables to be replaced
+  occ_t *odata;             // occurrences in egraph that replaces variables
 
-  uint32_t size;    // size of vdata/odata
+  uint32_t nelems;          // size of vdata/odata
+  int32_t compile_idx;      // index of yield instruction in compile instruction table
 } instance_t;
+
 
 /*
  * Instance table
@@ -47,6 +49,8 @@ typedef struct instance_table_s {
   uint32_t size;
   uint32_t ninstances;
   instance_t *data;
+
+  int_htbl_t htbl;  // hash table mapping instance hash to index in table
 } instance_table_t;
 
 #define DEF_INSTANCE_TABLE_SIZE  20
@@ -74,6 +78,12 @@ extern void delete_instance_table(instance_table_t *table);
  * - vdata/odata are not initialized
  */
 extern int32_t instance_table_alloc(instance_table_t *table, uint32_t n);
+
+
+/*
+ * Create or retrieve the instance
+ */
+extern int32_t mk_instance(instance_table_t *table, int32_t compile_idx, uint32_t n, term_t *vdata, occ_t *odata);
 
 
 

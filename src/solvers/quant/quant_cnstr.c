@@ -163,13 +163,15 @@ bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_
     x = cnstr->uvars[i];
     p = int_hmap_get(&vmap, x);
     assert(p->val < 0);
-    p->val = 0;
+    p->val = -1;
   }
 
   n = iv_len(cnstr->patterns);
 
   for (i=0; i<n; i++) {
     pat = ptbl->data + cnstr->patterns[i];
+
+    // mark all pattern vars in vmap with value i
     m = iv_len(pat->pvars);
     for(j=0; j<m; j++) {
       x = pat->pvars[j];
@@ -178,20 +180,21 @@ bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_
 //        printf("Pattern has more variables than term\n");
 //        assert(0);
       } else {
-        p->val = 1;
+        p->val = i;
       }
     }
-  }
 
-  for (p = int_hmap_first_record(&vmap);
-       p != NULL;
-       p = int_hmap_next_record(&vmap, p)) {
-    if (p->val != 1) {
-      result = false;
-      printf("Missing variable in patterns: %d\n", p->key);
+    // check all uvars in vmap to have value i
+    for (p = int_hmap_first_record(&vmap);
+         p != NULL;
+         p = int_hmap_next_record(&vmap, p)) {
+      if (p->val != i) {
+        result = false;
+        printf("Missing variable in patterns: %d\n", p->key);
 #if 0
-      yices_pp_term(stdout, p->key, 120, 1, 0);
+        yices_pp_term(stdout, p->key, 120, 1, 0);
 #endif
+      }
     }
   }
 

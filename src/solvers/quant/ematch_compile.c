@@ -184,7 +184,7 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
       n = instr->nsubs;
       fprintf(f, "    instr%d: yield(#%d entries: ", idx, n);
       for (i=0; i<n; i++) {
-        fprintf(f, "%s -> %d, ", yices_term_to_string(instr->subs[i].left, 120, 1, 0), instr->subs[i].right);
+        fprintf(f, "%s -> %d, ", yices_term_to_string(instr->vdata[i], 120, 1, 0), instr->idata[i]);
       }
       fprintf(f, ")\n");
     }
@@ -433,15 +433,16 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
 
   V = &comp->V;
   n = V->nelems;
-  instr->subs = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
+  instr->vdata = (term_t *) safe_malloc(n * sizeof(term_t));
+  instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
   instr->nsubs = n;
   i = 0;
   for (ip = int_hmap_first_record(V);
        ip != NULL;
        ip = int_hmap_next_record(V, ip)) {
     if (ip->key >= 0) {
-      instr->subs[i].left = ip->key;
-      instr->subs[i].right = ip->val;
+      instr->vdata[i] = ip->key;
+      instr->idata[i] = ip->val;
       i++;
     }
   }
@@ -449,7 +450,7 @@ static int32_t ematch_compile_empty(ematch_compile_t *comp) {
 #if 0
   printf("    instr%d: yield(#%d entries: ", idx, instr->nsubs);
   for (i=0; i<n; i++) {
-    printf("%d <- %s, ", instr->subs[i].right, yices_term_to_string(instr->subs[i].left, 120, 1, 0));
+    printf("%d <- %s, ", instr->idata[i], yices_term_to_string(instr->vdata[i], 120, 1, 0));
   }
   printf(")\n");
 #endif
