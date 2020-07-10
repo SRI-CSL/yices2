@@ -195,6 +195,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
     case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
     case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
+    case ARITH_CONSTANT:   // arithmetic constants
       current_subst = current;
       break;
 
