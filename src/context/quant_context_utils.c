@@ -175,15 +175,17 @@ void quant_assert_toplevel_formula(context_t *ctx, term_t t) {
   term_table_t *terms;
   int32_t code;
   bool tt;
+  intern_tbl_t *intern;
 
   assert(is_boolean_term(ctx->terms, t));
 
   tt = is_pos_term(t);
   t = unsigned_term(t);
+  intern = &ctx->intern;
 
-  if (! intern_tbl_root_is_mapped(&ctx->intern, t)) {
+  if (! intern_tbl_root_is_mapped(intern, t)) {
     // make t to be a root in the internalization table and map to true
-    intern_tbl_map_root(&ctx->intern, t, bool2code(tt));
+    intern_tbl_map_root(intern, t, bool2code(tt));
   }
 
   /*
@@ -195,10 +197,21 @@ void quant_assert_toplevel_formula(context_t *ctx, term_t t) {
   terms = ctx->terms;
   switch (term_kind(terms, t)) {
   case CONSTANT_TERM:
+    assert(intern_tbl_root_is_mapped(intern, t));
+    if (intern_tbl_map_of_root(intern, t) == bool2code(! tt)) {
+      code = TRIVIALLY_UNSAT;
+      goto abort;
+    }
+    break;
+
   case UNINTERPRETED_TERM:
-    // should be eliminated by flattening
-    code = INTERNAL_ERROR;
-    goto abort;
+    assert(intern_tbl_root_is_free(intern, t));
+    if (context_var_elim_enabled(ctx)) {
+      intern_tbl_add_subst(intern, t, bool2term(tt));
+    } else {
+      intern_tbl_map_root(intern, t, bool2code(tt));
+    }
+    break;
 
   case ITE_TERM:
   case ITE_SPECIAL:

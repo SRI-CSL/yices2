@@ -92,6 +92,7 @@ typedef struct quant_solver_s {
   pattern_table_t ptbl;   // pattern table
   quant_table_t qtbl;     // quant table
   ematch_globals_t em;    // ematching
+  uint32_t num_instances; // the number of instanced generated in each call to final_check
 
 // TODO
 
@@ -109,7 +110,7 @@ typedef struct quant_solver_s {
 /*
  * Default bounds
  */
-#define DEFAULT_MAX_INSTANCES    1000
+#define DEFAULT_MAX_INSTANCES    100
 
 
 

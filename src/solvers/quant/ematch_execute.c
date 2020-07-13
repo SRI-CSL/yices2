@@ -576,8 +576,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
       rhs = inst->odata[j];
       assert(lhs == rhs);
 
-      printf("%d -> ", inst->vdata[j]);
-  //    printf("%s -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0));
+      printf("%s (%d) -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0), inst->vdata[j]);
       print_occurrence(stdout, inst->odata[j]);
       printf(", ");
     }
