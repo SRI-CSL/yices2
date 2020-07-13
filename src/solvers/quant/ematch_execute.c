@@ -24,6 +24,7 @@
 #include "terms/term_explorer.h"
 #include "context/internalization_codes.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "solvers/egraph/egraph_base_types.h"
 #include "yices.h"
 
 #define TRACE 0
@@ -56,6 +57,8 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->egraph = NULL;
   exec->intern = NULL;
   exec->early_exit = true;
+  exec->max_fdepth = 10;
+  exec->max_vdepth = 4;
 }
 
 /*
@@ -100,7 +103,8 @@ void delete_ematch_exec(ematch_exec_t *exec) {
 /*
  * Collect all function applications for function f, and push in out vector
  */
-static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
+static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out) {
+  egraph_t *egraph;
   composite_t *p;
   uint32_t i, n;
   eterm_t x;
@@ -112,6 +116,7 @@ static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
   printf("\n");
 #endif
 
+  egraph = exec->egraph;
   n = egraph->terms.nterms;
   for (i=0; i<n; i++) {
     p = egraph_term_body(egraph, i);
@@ -119,13 +124,24 @@ static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
       if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
         x = term_of_occ(composite_child(p, 0));
         if (x == f) {
-          occi = pos_occ(i);
-          ivector_push(out, occi);
+          if (composite_depth(egraph, p) < exec->max_fdepth) {
+            occi = pos_occ(i);
+            ivector_push(out, occi);
 #if TRACE
-          fputs("    (pushing) ", stdout);
-          print_occurrence(stdout, occi);
-          fputc('\n', stdout);
+            fputs("    (pushing) ", stdout);
+            print_occurrence(stdout, occi);
+            printf(" @ depth %d", composite_depth(egraph, p));
+            fputc('\n', stdout);
 #endif
+          }
+          else {
+#if TRACE
+            fputs("    (filtered) ", stdout);
+            print_composite(stdout, p);
+            printf(" @ depth %d", composite_depth(egraph, p));
+            fputc('\n', stdout);
+#endif
+          }
         }
       }
     }
@@ -135,7 +151,8 @@ static void egraph_get_all_fapps(egraph_t *egraph, eterm_t f, ivector_t *out) {
 /*
  * Collect function applications for function f in the class of occ, and push in out vector
  */
-static void egraph_get_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ, ivector_t *out) {
+static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+  egraph_t *egraph;
   composite_t *p;
   eterm_t ti, x;
   occ_t occi;
@@ -149,6 +166,7 @@ static void egraph_get_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ, iv
   printf("\n");
 #endif
 
+  egraph = exec->egraph;
   occi = occ;
   do {
     ti = term_of_occ(occi);
@@ -157,12 +175,23 @@ static void egraph_get_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ, iv
       if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
         x = term_of_occ(composite_child(p, 0));
         if (x == f) {
-          ivector_push(out, occi);
+          if (composite_depth(egraph, p) < exec->max_fdepth) {
+            ivector_push(out, occi);
 #if TRACE
-          fputs("    (pushing) ", stdout);
-          print_occurrence(stdout, occi);
-          fputc('\n', stdout);
+            fputs("    (pushing) ", stdout);
+            print_occurrence(stdout, occi);
+            printf(" @ depth %d", composite_depth(egraph, p));
+            fputc('\n', stdout);
 #endif
+          }
+          else {
+#if TRACE
+            fputs("    (filtered) ", stdout);
+            print_composite(stdout, p);
+            printf(" @ depth %d", composite_depth(egraph, p));
+            fputc('\n', stdout);
+#endif
+          }
         }
       }
     }
@@ -406,7 +435,7 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
 
     init_ivector(&fapps, 4);
 
-    egraph_get_fapps_in_class(exec->egraph, ef, regt, &fapps);
+    egraph_get_fapps_in_class(exec, ef, regt, &fapps);
     n = fapps.size;
 
     instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
@@ -536,10 +565,12 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   ivector_t *reg;
   occ_t rhs;
   ivector_t v;
+  int32_t maxdepth, cdepth;
 
   insttbl = exec->instbl;
   reg = &exec->reg;
   n = instr->nsubs;
+  maxdepth = DEF_DEPTH;
 
   init_ivector(&v, n);
 
@@ -549,39 +580,43 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
     assert(idx < reg->size);
     rhs = reg->data[idx];
     ivector_push(&v, rhs);
+    cdepth = occ_depth(exec->egraph, rhs);
+    maxdepth = (cdepth > maxdepth) ? cdepth : maxdepth;
   }
 
   i = mk_instance(insttbl, instr->idx, n, instr->vdata, v.data);
-  if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
-    ivector_push(&exec->aux_vector, i);
-    if(exec->early_exit) {
-      reset_ematch_stack(&exec->bstack);
-    }
+  if (maxdepth < exec->max_vdepth) {
+    if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
+      ivector_push(&exec->aux_vector, i);
+      if(exec->early_exit) {
+        reset_ematch_stack(&exec->bstack);
+      }
 
 #if TRACE
-    instance_t *inst;
-    term_t lhs;
+      instance_t *inst;
+      term_t lhs;
 
-    inst = insttbl->data + i;
-    assert(inst->nelems == n);
+      inst = insttbl->data + i;
+      assert(inst->nelems == n);
 
-    printf("    match%d: (#%d entries) ", i, n);
-    for (j=0; j<n; j++) {
-      lhs = instr->vdata[j];
-      rhs = inst->vdata[j];
-      assert(lhs == rhs);
+      printf("    match%d: (#%d entries @ depth %d) ", i, n, maxdepth);
+      for (j=0; j<n; j++) {
+        lhs = instr->vdata[j];
+        rhs = inst->vdata[j];
+        assert(lhs == rhs);
 
-      idx = instr->idata[j];
-      lhs = reg->data[idx];
-      rhs = inst->odata[j];
-      assert(lhs == rhs);
+        idx = instr->idata[j];
+        lhs = reg->data[idx];
+        rhs = inst->odata[j];
+        assert(lhs == rhs);
 
-      printf("%s (%d) -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0), inst->vdata[j]);
-      print_occurrence(stdout, inst->odata[j]);
-      printf(", ");
-    }
-    printf("\n");
+        printf("%s (%d) -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0), inst->vdata[j]);
+        print_occurrence(stdout, inst->odata[j]);
+        printf(", ");
+      }
+      printf("\n");
 #endif
+    }
   }
 
   ematch_exec_backtrack(exec);
@@ -708,7 +743,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 
       init_ivector(&fapps, 4);
 
-      egraph_get_all_fapps(exec->egraph, term_of_occ(occ), &fapps);
+      egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
       n = fapps.size;
       for(i=0; i<n; i++) {
         fapp = fapps.data[i];

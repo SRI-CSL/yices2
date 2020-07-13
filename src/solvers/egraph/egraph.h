@@ -678,4 +678,28 @@ static inline uint32_t egraph_num_interface_eqs(egraph_t *egraph) {
 
 
 
+
+/***********************
+ *  EMATCHING HELPERS  *
+ **********************/
+
+/*
+ * Find (and store) the function depth of composite cmp
+ */
+extern int32_t composite_depth(egraph_t *egraph, composite_t *cmp);
+
+/*
+ * Find (and store) the function depth of eterm t
+ */
+extern int32_t eterm_depth(egraph_t *egraph, eterm_t t);
+
+/*
+ * Find (and store) the function depth of occurence t
+ */
+static inline int32_t occ_depth(egraph_t *egraph, occ_t t) {
+  return eterm_depth(egraph, term_of_occ(t));
+}
+
+
+
 #endif /* __EGRAPH_H */

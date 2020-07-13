@@ -469,7 +469,7 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
 #if TRACE
     printf("reverse map: ");
     print_occurrence(stdout, rhs);
-    printf(" --> ");
+    printf(" @ depth %d --> ", occ_depth(solver->egraph, rhs));
     yices_pp_term(stdout, x, 120, 1, 0);
     printf("\n");
 #endif

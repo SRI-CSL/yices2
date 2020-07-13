@@ -63,6 +63,7 @@ static inline void init_header(composite_t *c, uint32_t tg) {
   c->tag = tg;
   c->hash = 0;
   c->id = null_eterm;
+  c->depth = UNKNOWN_DEPTH;
 }
 
 static void init_hooks(composite_t *c) {
