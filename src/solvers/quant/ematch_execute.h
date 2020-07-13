@@ -44,6 +44,8 @@ typedef struct ematch_exec_s {
 
   egraph_t *egraph;             // link to egraph
   intern_tbl_t *intern;         // link to internalization table
+  int_hset_t *filter;           // instance indices to filter out (since already learnt)
+  bool early_exit;              // exit finding matches as soon as a new instance match is found
 } ematch_exec_t;
 
 
@@ -71,7 +73,7 @@ extern void ematch_exec_instr(ematch_exec_t *exec, int32_t idx);
  * Execute the code sequence for a pattern
  * - returns number of matches found
  */
-extern uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat);
+extern uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter);
 
 
 #endif /* __EMATCH_EXECUTE_H */

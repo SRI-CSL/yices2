@@ -360,6 +360,7 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
 #if TRACE
     printf("\n  already done with match%d\n", idx);
 #endif
+    assert(0);
     return false;
   }
 
@@ -462,7 +463,7 @@ uint32_t ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
       yices_pp_term(stdout, pat->p, 120, 1, 0);
 #endif
 
-      ematch_exec_pattern(exec, pat);
+      ematch_exec_pattern(exec, pat, &cnstr->instances);
 
       matches = &pat->matches;
       for (p = ptr_hmap_first_record(matches);

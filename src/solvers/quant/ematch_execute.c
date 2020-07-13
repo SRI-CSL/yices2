@@ -55,6 +55,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
 
   exec->egraph = NULL;
   exec->intern = NULL;
+  exec->early_exit = true;
 }
 
 /*
@@ -551,33 +552,38 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   }
 
   i = mk_instance(insttbl, instr->idx, n, instr->vdata, v.data);
-  ivector_push(&exec->aux_vector, i);
+  if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
+    ivector_push(&exec->aux_vector, i);
+    if(exec->early_exit) {
+      reset_ematch_stack(&exec->bstack);
+    }
 
 #if TRACE
-  instance_t *inst;
-  term_t lhs;
+    instance_t *inst;
+    term_t lhs;
 
-  inst = insttbl->data + i;
-  assert(inst->nelems == n);
+    inst = insttbl->data + i;
+    assert(inst->nelems == n);
 
-  printf("    match%d: (#%d entries) ", i, n);
-  for (j=0; j<n; j++) {
-    lhs = instr->vdata[j];
-    rhs = inst->vdata[j];
-    assert(lhs == rhs);
+    printf("    match%d: (#%d entries) ", i, n);
+    for (j=0; j<n; j++) {
+      lhs = instr->vdata[j];
+      rhs = inst->vdata[j];
+      assert(lhs == rhs);
 
-    idx = instr->idata[j];
-    lhs = reg->data[idx];
-    rhs = inst->odata[j];
-    assert(lhs == rhs);
+      idx = instr->idata[j];
+      lhs = reg->data[idx];
+      rhs = inst->odata[j];
+      assert(lhs == rhs);
 
-    printf("%d -> ", inst->vdata[j]);
-//    printf("%s -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0));
-    print_occurrence(stdout, inst->odata[j]);
-    printf(", ");
-  }
-  printf("\n");
+      printf("%d -> ", inst->vdata[j]);
+  //    printf("%s -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0));
+      print_occurrence(stdout, inst->odata[j]);
+      printf(", ");
+    }
+    printf("\n");
 #endif
+  }
 
   ematch_exec_backtrack(exec);
 }
@@ -663,7 +669,7 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
  * Execute the code sequence for a pattern
  * - returns number of matches found
  */
-uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
+uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter) {
   uint32_t count;
   term_table_t *terms;
   term_kind_t kind;
@@ -680,6 +686,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
     ematch_print_instr(stdout, exec->itbl, pat->code, true);
 #endif
 
+  exec->filter = filter;
   count = 0;
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
@@ -719,8 +726,9 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat) {
 #endif
         aux = &exec->aux_vector;
         ivector_reset(aux);
-
         ematch_exec_set_reg(exec, fapps.data[i], 0);
+        assert(exec->bstack.top == 0);
+
         ematch_exec_instr(exec, pat->code);
 
         ivector_remove_duplicates(aux);
