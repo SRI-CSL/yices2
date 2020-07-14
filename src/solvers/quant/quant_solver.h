@@ -50,9 +50,18 @@ typedef struct quant_solver_stats_s {
   uint32_t num_quantifiers;
   uint32_t num_patterns;
 
-  // number of instances generated
-  uint32_t num_instances;
+  uint32_t num_instances;             // number of instances generated per search
+  uint32_t num_instances_per_round;   // number of instanced generated in each call to final_check
+
+  uint32_t max_instances;             // max number of instances generated per search
+  uint32_t max_instances_per_round;   // max number of instanced generated in each call to final_check
 } quant_solver_stats_t;
+
+/*
+ * Default bounds
+ */
+#define DEFAULT_MAX_INSTANCES              500
+#define DEFAULT_MAX_INSTANCES_PER_ROUND    5
 
 
 
@@ -80,19 +89,12 @@ typedef struct quant_solver_s {
   quant_solver_stats_t stats;
 
   /*
-   * Search parameters
-   * - bound on the number of instanced generated in each call to final_check
-   */
-  uint32_t max_instances;
-
-  /*
    * Main components
    */
   ef_prob_t *prob;
   pattern_table_t ptbl;   // pattern table
   quant_table_t qtbl;     // quant table
   ematch_globals_t em;    // ematching
-  uint32_t num_instances; // the number of instanced generated in each call to final_check
 
 // TODO
 
@@ -105,12 +107,6 @@ typedef struct quant_solver_s {
 
 } quant_solver_t;
 
-
-
-/*
- * Default bounds
- */
-#define DEFAULT_MAX_INSTANCES    100
 
 
 
@@ -234,13 +230,20 @@ extern void quant_solver_reset(quant_solver_t *solver);
  **************************/
 
 /*
- * Maximal number of quantifier instances (per call to final_check)
+ * Maximal number of quantifier instances (per search)
  */
 static inline void quant_solver_set_max_instances(quant_solver_t *solver, uint32_t n) {
   assert(n > 0);
-  solver->max_instances = n;
+  solver->stats.max_instances = n;
 }
 
+/*
+ * Maximal number of quantifier instances (per call to final_check)
+ */
+static inline void quant_solver_set_max_instances_per_round(quant_solver_t *solver, uint32_t n) {
+  assert(n > 0);
+  solver->stats.max_instances_per_round = n;
+}
 
 
 /****************

@@ -30,7 +30,25 @@
 
 #include "api/yices_globals.h"
 
+#define TRACE 0
 
+
+/*
+ * Enable quant flag to allow adding quantifier instances
+ */
+void context_enable_quant(context_t *ctx) {
+  assert(!context_quant_enabled(ctx));
+  ctx->en_quant = true;
+}
+
+
+/*
+ * Disable quant flag to allow adding quantifier instances
+ */
+void context_disable_quant(context_t *ctx) {
+  assert(context_quant_enabled(ctx));
+  ctx->en_quant = false;
+}
 
 
 /*

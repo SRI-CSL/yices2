@@ -27,6 +27,18 @@
 
 
 /*
+ * Enable quant flag to allow adding quantifier instances
+ */
+extern void context_enable_quant(context_t *ctx);
+
+
+/*
+ * Disable quant flag to allow adding quantifier instances
+ */
+extern void context_disable_quant(context_t *ctx);
+
+
+/*
  * Assert toplevel instance formula t:
  * - t is a boolean term (or the negation of a boolean term)
  */

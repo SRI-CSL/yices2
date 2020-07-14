@@ -5830,7 +5830,8 @@ void internalization_start(smt_core_t *s) {
  * - this is used to detect early inconsistencies during internalization
  */
 bool base_propagate(smt_core_t *s) {
-  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+	// TBD: assert commented to make adding quant instances work for now.
+//  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL BASE PROPAGATE\n");

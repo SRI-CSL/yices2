@@ -337,6 +337,42 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 }
 
 
+/**********************
+ *  STATISTIC RECORD  *
+ *********************/
+
+static void init_quant_solver_statistics(quant_solver_stats_t *stat) {
+  stat->num_quantifiers = 0;
+  stat->num_patterns = 0;
+  stat->num_instances = 0;
+  stat->num_instances_per_round = 0;
+
+  stat->max_instances = DEFAULT_MAX_INSTANCES;
+  stat->max_instances_per_round = DEFAULT_MAX_INSTANCES_PER_ROUND;
+}
+
+static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
+  init_quant_solver_statistics(stat);
+}
+
+static inline void ematch_reset_start_stats(quant_solver_t *solver) {
+  solver->stats.num_instances = 0;
+}
+
+static inline void ematch_reset_round_stats(quant_solver_t *solver) {
+  solver->stats.num_instances_per_round = 0;
+}
+
+static inline void ematch_update_round_stats(quant_solver_t *solver) {
+  solver->stats.num_instances += solver->stats.num_instances_per_round;
+}
+
+static inline bool ematch_reached_round_limit(quant_solver_t *solver) {
+  return (solver->stats.num_instances_per_round >= solver->stats.max_instances_per_round) ||
+         ((solver->stats.num_instances + solver->stats.num_instances_per_round) >= solver->stats.max_instances);
+}
+
+
 /***********************
  *  EMATCHING SUPPORT  *
  **********************/
@@ -381,7 +417,7 @@ static term_t term_substitution(quant_solver_t *solver, term_t *var, term_t *val
 /*
  * Find the term mapped to a given occurence
  */
-term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
+static term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
   term_table_t *terms;
   uint32_t i, n;
   term_t r;
@@ -410,7 +446,8 @@ term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
 /*
  * Instantiate constraint cnstr with match at index idx
  */
-bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, pattern_t *pat, uint32_t idx) {
+static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, pattern_t *pat, uint32_t midx) {
+  quant_cnstr_t *cnstr;
   int_hset_t *instances;
   ematch_globals_t *em;
   context_t *ctx;
@@ -418,14 +455,17 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
   instance_table_t *instbl;
   instance_t * inst;
   term_t t;
-  uint32_t i, n, pol;
-  term_t x;
+  uint32_t i, n;
+  term_t rhst;
   occ_t rhs;
 
+  assert(cidx < solver->qtbl.nquant);
+  cnstr = solver->qtbl.data + cidx;
+
   instances = &cnstr->instances;
-  if (int_hset_member(instances, idx)) {
+  if (int_hset_member(instances, midx)) {
 #if TRACE
-    printf("\n  already done with match%d\n", idx);
+    printf("\n  already done with match%d\n", midx);
 #endif
 //    assert(0);
     return false;
@@ -437,11 +477,11 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
   instbl = &em->instbl;
   t = cnstr->t;
 
-  assert(idx < instbl->ninstances);
-  inst = &instbl->data[idx];
+  assert(midx < instbl->ninstances);
+  inst = instbl->data + midx;
 
-#if TRACE
-  printf("\n  generating instance with match%d\n", idx);
+#if EM_VERBOSE
+  printf("#%d EMATCHED: cnstr%d::match%d\n", solver->stats.num_instances_per_round, cidx, midx);
 #endif
 
 #if 0
@@ -454,42 +494,40 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
   n = inst->nelems;
   assert(n == iv_len(pat->pvars));
 
+  term_t *keys = (term_t *) safe_malloc(n * sizeof(term_t));
   term_t *values = (term_t *) safe_malloc(n * sizeof(term_t));
   for(i=0; i<n; i++) {
     rhs = inst->odata[i];
-    pol = polarity_of_occ(rhs);
-    rhs = pos_occ(term_of_occ(rhs));
+    assert(is_pos_occ(rhs));
+    assert(occ_depth(solver->egraph, rhs) < solver->em.exec.max_vdepth);
 
-    x = find_intern_mapping(intern, rhs);
-    if(pol) {
-      x = opposite_term(x);
-    }
-    values[i] = x;
-    assert(x != NULL_TERM);
+    rhst = find_intern_mapping(intern, rhs);
+    assert(rhst != NULL_TERM);
+
+    keys[i] = inst->vdata[i];
+    values[i] = rhst;
+
 #if TRACE
     printf("reverse map: ");
     print_occurrence(stdout, rhs);
     printf(" @ depth %d --> ", occ_depth(solver->egraph, rhs));
-    yices_pp_term(stdout, x, 120, 1, 0);
+    yices_pp_term(stdout, rhst, 120, 1, 0);
     printf("\n");
 #endif
   }
 
-  t = term_substitution(solver, pat->pvars, values, n, t);
+  t = term_substitution(solver, keys, values, n, t);
+  safe_free(keys);
+  safe_free(values);
+
 #if TRACE
     printf("Instance: ");
     yices_pp_term(stdout, t, 120, 1, 0);
     printf("\n");
 #endif
 
-  int32_t code = setjmp(ctx->env);
-  if (code == 0) {
-    quant_assert_toplevel_formula(ctx, t);
-    int_hset_add(instances, idx);
-  } else {
-    printf("Failure in ematch instantiation with code: %d\n", code);
-    exit(1);
-  }
+  assert_formula(ctx, t);
+  int_hset_add(instances, midx);
 
   return true;
 }
@@ -497,7 +535,7 @@ bool ematch_cnstr_instantiate(quant_solver_t *solver, quant_cnstr_t *cnstr, patt
 /*
  * Match and learn instances for a given cnstr at index idx
  */
-static void ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
+static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
   ematch_globals_t *em;
   ematch_exec_t *exec;
   pattern_table_t *ptbl;
@@ -509,20 +547,21 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
   ptr_hmap_t *matches;
   ptr_hmap_pair_t *p;
   ivector_t *v;
+  smt_status_t status;
 
   em = &solver->em;
   exec =  &em->exec;
   qtbl = em->qtbl;
   ptbl = em->ptbl;
 
-  cnstr = qtbl->data + idx;
+  cnstr = qtbl->data + cidx;
 
 #if TRACE
   uint32_t oldcount;
-  oldcount = solver->num_instances;
+  oldcount = solver->stats.num_instances_per_round;
 
   printf("-------------------\n");
-  printf("Trying matching cnstr @%d: ", idx);
+  printf("Trying matching cnstr @%d: ", cidx);
   yices_pp_term(stdout, cnstr->t, 120, 1, 0);
 #endif
 
@@ -547,11 +586,16 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
         assert(v != NULL);
         n = v->size;
         for(i=0; i<n; i++) {
-          if (ematch_cnstr_instantiate(solver, cnstr, pat, v->data[i])) {
-            solver->num_instances++;
-            if(solver->num_instances == solver->max_instances) {
+          status = smt_status(solver->core);
+          if (status != STATUS_SEARCHING) {
+            printf("\nSMT status: %d\n", status);
+            assert(status == STATUS_UNSAT);
+            goto done;
+          } else if (ematch_cnstr_instantiate(solver, cidx, pat, v->data[i])) {
+            solver->stats.num_instances_per_round++;
+            if(ematch_reached_round_limit(solver)) {
 #if TRACE
-              printf("\nReached max limit of #%d instances\n", solver->max_instances);
+              printf("\nReached max round limit after learning #%d instances\n", solver->stats.num_instances_per_round);
 #endif
               goto done;
             }
@@ -563,8 +607,8 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t idx) {
 
 done:
 #if TRACE
-  if((solver->num_instances - oldcount) != 0) {
-    printf("\nFound #%d instances for cnstr @%d\n", (solver->num_instances - oldcount), idx);
+  if((solver->stats.num_instances_per_round - oldcount) != 0) {
+    printf("\nFound #%d instances for cnstr @%d\n", (solver->stats.num_instances_per_round - oldcount), cidx);
   }
 #endif
   return;
@@ -580,28 +624,22 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   qtbl = &solver->qtbl;
   n = qtbl->nquant;
 
+  context_enable_quant(solver->em.ctx);
+
+  ematch_reset_round_stats(solver);
+
   for(i=0; i<n; i++) {
     ematch_process_cnstr(solver, i);
-    if (solver->num_instances == solver->max_instances)
-      return;
+    if (ematch_reached_round_limit(solver))
+      break;
   }
+
+  ematch_update_round_stats(solver);
+
+  context_disable_quant(solver->em.ctx);
+
 }
 
-
-
-/**********************
- *  STATISTIC RECORD  *
- *********************/
-
-static void init_quant_solver_statistics(quant_solver_stats_t *stat) {
-  stat->num_quantifiers = 0;
-  stat->num_patterns = 0;
-  stat->num_instances = 0;
-}
-
-static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
-  init_quant_solver_statistics(stat);
-}
 
 
 /*****************
@@ -627,8 +665,6 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   solver->decision_level = 0;
 
   init_quant_solver_statistics(&solver->stats);
-
-  solver->max_instances = DEFAULT_MAX_INSTANCES;
 
   solver->prob = NULL;
   init_pattern_table(&solver->ptbl);
@@ -733,6 +769,7 @@ void quant_solver_start_search(quant_solver_t *solver) {
   printf("\n=== START SEARCH ===\n");
   printf("\n\n");
 #endif
+  ematch_reset_start_stats(solver);
 }
 
 
@@ -751,7 +788,7 @@ bool quant_solver_propagate(quant_solver_t *solver) {
  *
  */
 fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
-#if TRACE
+#if EM_VERBOSE
   printf("\n**** QUANTSOLVER: FINAL CHECK ***\n\n");
 #endif
 
@@ -768,7 +805,6 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 
 //  ematch_execute_all_patterns(&solver->em);
 
-  solver->num_instances = 0;
   ematch_process_all_cnstr(solver);
 
 //#if TRACE
@@ -783,16 +819,15 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 //  print_context_intern_mapping(stdout, solver->em.ctx);
 
 #if EM_VERBOSE
-  if (solver->num_instances != 0) {
-    printf("EMATCH: learnt %d instances\n", solver->num_instances);
-  }
+  printf("\nEMATCH: learnt total %d instances (%d new)\n",
+      solver->stats.num_instances, solver->stats.num_instances_per_round);
 #endif
 
-#if TRACE
+#if EM_VERBOSE
   printf("\n**** QUANTSOLVER: FINAL CHECK DONE ***\n\n");
 #endif
 
-  return (solver->num_instances==0) ? FCHECK_SAT : FCHECK_CONTINUE;
+  return (solver->stats.num_instances_per_round==0) ? FCHECK_SAT : FCHECK_CONTINUE;
 }
 
 
