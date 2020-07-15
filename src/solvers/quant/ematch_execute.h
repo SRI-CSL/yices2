@@ -48,8 +48,9 @@ typedef struct ematch_exec_s {
   int_hset_t *filter;           // instance indices to filter out (since already learnt)
 
   bool early_exit;              // exit finding matches as soon as a new instance match is found
-  int32_t max_fdepth;           // max function composition depth allowed for the fapps during matching
-  int32_t max_vdepth;           // max function composition depth allowed for the variable matches
+  uint32_t max_fdepth;          // max function composition depth allowed for the fapps during matching
+  uint32_t max_vdepth;          // max function composition depth allowed for the variable matches
+  uint32_t max_fapps;           // max bound on function applications allowed during matching
 } ematch_exec_t;
 
 

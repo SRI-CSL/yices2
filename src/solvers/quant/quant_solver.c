@@ -344,13 +344,20 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 static void init_quant_solver_statistics(quant_solver_stats_t *stat) {
   stat->num_quantifiers = 0;
   stat->num_patterns = 0;
+
   stat->num_instances = 0;
+  stat->num_instances_per_search = 0;
   stat->num_instances_per_round = 0;
-  stat->num_rounds = 0;
+
+  stat->num_rounds_per_search = 0;
+  stat->num_search = 0;
 
   stat->max_instances = DEFAULT_MAX_INSTANCES;
+  stat->max_instances_per_search = DEFAULT_MAX_INSTANCES_PER_SEARCH;
   stat->max_instances_per_round = DEFAULT_MAX_INSTANCES_PER_ROUND;
-  stat->max_rounds = DEFAULT_MAX_ROUNDS;
+
+  stat->max_rounds_per_search = DEFAULT_MAX_ROUNDS_PER_SEARCH;
+  stat->max_search = DEFAULT_MAX_SEARCH;
 }
 
 static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
@@ -358,26 +365,29 @@ static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
 }
 
 static inline void ematch_reset_start_stats(quant_solver_t *solver) {
-  solver->stats.num_instances = 0;
-//  solver->stats.num_rounds = 0;
+  solver->stats.num_search++;
+  solver->stats.num_instances_per_search = 0;
+  solver->stats.num_rounds_per_search = 0;
 }
 
 static inline void ematch_reset_round_stats(quant_solver_t *solver) {
   solver->stats.num_instances_per_round = 0;
 }
 
-static inline void ematch_update_round_stats(quant_solver_t *solver) {
-  solver->stats.num_instances += solver->stats.num_instances_per_round;
-}
-
 static inline bool ematch_reached_instance_limit(quant_solver_t *solver) {
-  return (solver->stats.num_instances_per_round >= solver->stats.max_instances_per_round) ||
-         ((solver->stats.num_instances + solver->stats.num_instances_per_round) >= solver->stats.max_instances);
+  return (solver->stats.num_instances >= solver->stats.max_instances) ||
+         (solver->stats.num_instances_per_search >= solver->stats.max_instances_per_search) ||
+         (solver->stats.num_instances_per_round >= solver->stats.max_instances_per_round);
 }
 
 static inline bool ematch_reached_round_limit(quant_solver_t *solver) {
-  return (solver->stats.num_rounds >= solver->stats.max_rounds);
+  return (solver->stats.num_rounds_per_search >= solver->stats.max_rounds_per_search);
 }
+
+static inline bool ematch_reached_search_limit(quant_solver_t *solver) {
+  return (solver->stats.num_search >= solver->stats.max_search);
+}
+
 
 /***********************
  *  EMATCHING SUPPORT  *
@@ -487,7 +497,9 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   inst = instbl->data + midx;
 
 #if EM_VERBOSE
-  printf("R%d EMATCHED: #%d cnstr%d::match%d\n", solver->stats.num_rounds,
+  printf("S%d:R%d EMATCHED: #%d cnstr%d::match%d\n",
+      solver->stats.num_search,
+      solver->stats.num_rounds_per_search,
       solver->stats.num_instances_per_round, cidx, midx);
 #endif
 
@@ -602,6 +614,8 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
         } else {
           if (ematch_cnstr_instantiate(solver, cidx, pat, matches->data[i])) {
             solver->stats.num_instances_per_round++;
+            solver->stats.num_instances_per_search++;
+            solver->stats.num_instances++;
           }
         }
       }
@@ -636,8 +650,6 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
       break;
     ematch_process_cnstr(solver, i);
   }
-
-  ematch_update_round_stats(solver);
 
   context_disable_quant(solver->em.ctx);
 
@@ -791,17 +803,23 @@ bool quant_solver_propagate(quant_solver_t *solver) {
  *
  */
 fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
-  if (solver->stats.num_rounds == 0) {
+  if (solver->stats.num_search == 1) {
 #if EM_VERBOSE
-    printf("\nEMATCH: initial round\n\n");
+    printf("\nEMATCH: initial search\n\n");
 #endif
-    solver->stats.num_rounds++;
     return FCHECK_SAT;
  }
 
   if (ematch_reached_round_limit(solver)) {
 #if EM_VERBOSE
-    printf("\nEMATCH: reached round limit (%d rounds)\n\n", solver->stats.num_rounds);
+    printf("\nEMATCH: reached round limit (%d rounds)\n\n", solver->stats.num_rounds_per_search);
+#endif
+    return FCHECK_SAT;
+ }
+
+  if (ematch_reached_search_limit(solver)) {
+#if EM_VERBOSE
+    printf("\nEMATCH: reached search limit (%d searches)\n\n", solver->stats.num_search);
 #endif
     return FCHECK_SAT;
  }
@@ -837,11 +855,15 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 //  print_context_intern_mapping(stdout, solver->em.ctx);
 
 #if EM_VERBOSE
-  printf("\nR%d EMATCH: learnt total %d instances (%d new)\n", solver->stats.num_rounds,
-      solver->stats.num_instances, solver->stats.num_instances_per_round);
+  printf("\nS%d:R%d EMATCH: learnt total %d instances (%d new, %d in current search)\n",
+      solver->stats.num_search,
+      solver->stats.num_rounds_per_search,
+      solver->stats.num_instances,
+      solver->stats.num_instances_per_round,
+      solver->stats.num_instances_per_search);
 #endif
 
-  solver->stats.num_rounds++;
+  solver->stats.num_rounds_per_search++;
 
 #if EM_VERBOSE
   printf("\n**** QUANTSOLVER: FINAL CHECK DONE ***\n\n");

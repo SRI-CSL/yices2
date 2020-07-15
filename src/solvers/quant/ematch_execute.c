@@ -59,6 +59,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->early_exit = true;
   exec->max_fdepth = 10;
   exec->max_vdepth = 4;
+  exec->max_fapps = 10;
 }
 
 /*
@@ -133,6 +134,13 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
             printf(" @ depth %d", composite_depth(egraph, p));
             fputc('\n', stdout);
 #endif
+
+            if (out->size >= exec->max_fapps) {
+#if TRACE
+              printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+              break;
+            }
           }
           else {
 #if TRACE
@@ -183,6 +191,13 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
             printf(" @ depth %d", composite_depth(egraph, p));
             fputc('\n', stdout);
 #endif
+
+            if (out->size >= exec->max_fapps) {
+#if TRACE
+              printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+              break;
+            }
           }
           else {
 #if TRACE
@@ -411,6 +426,38 @@ static void ematch_exec_init(ematch_exec_t *exec, ematch_instr_t *instr) {
 }
 
 /*
+ * Execute all chooseapps without adding as separate instructions
+ * - instr is the corresponding bind
+ */
+static void ematch_exec_all_chooseapps(ematch_exec_t *exec, ematch_instr_t *instr) {
+  occ_t occ;
+  composite_t *fapp;
+  ematch_instr_t *bind;
+  uint32_t m, j, k, n;
+  int32_t offset;
+
+  offset = instr->o;
+  bind = instr;
+  n = instr->nsubs;
+  for(j=1; j<=n; j++) {
+    occ = instr->idata[j-1];
+
+    assert(is_pos_occ(instr_f2occ(exec, bind)));
+
+    fapp = egraph_term_body(exec->egraph, term_of_occ(occ));
+    assert(composite_kind(fapp) == COMPOSITE_APPLY);
+    assert(composite_child(fapp, 0) == instr_f2occ(exec, bind));
+
+    m = composite_arity(fapp);
+    for(k=1; k<m; k++) {
+      ematch_exec_set_reg(exec, composite_child(fapp, k), offset+k-1);
+    }
+
+    ematch_exec_instr(exec, bind->next);
+  }
+}
+
+/*
  * Execute EMATCH_BIND code
  */
 static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
@@ -418,7 +465,6 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
   occ_t focc;
   int32_t i, j, n;
   ivector_t fapps;
-  int32_t chooseapp;
 
   i = instr->i;
   assert(i >= 0);
@@ -441,22 +487,25 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
     instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
     instr->nsubs = n;
     for(j=0; j<n; j++) {
-  #if TRACE
+#if TRACE
       printf("    choosing fapps: ");
       print_occurrence(stdout, fapps.data[j]);
       printf("\n");
-  #endif
+#endif
       instr->idata[j] = fapps.data[j];
     }
 
     delete_ivector(&fapps);
 
-    chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-    ematch_stack_save(&exec->bstack, chooseapp);
+    ematch_exec_all_chooseapps(exec, instr);
+
+//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
+//    ematch_stack_save(&exec->bstack, chooseapp);
   }
 
   ematch_exec_backtrack(exec);
 }
+
 
 /*
  * Execute EMATCH_CHOOSEAPP code
@@ -473,7 +522,7 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
   j = instr->j;
   idx = instr->next;
   assert(idx >=0 && idx < exec->itbl->ninstr);
-  bind = &exec->itbl->data[idx];
+  bind = exec->itbl->data + idx;
 
   if (bind->nsubs >= j) {
     occ = bind->idata[j-1];
@@ -491,7 +540,7 @@ static void ematch_exec_chooseapp(ematch_exec_t *exec, ematch_instr_t *instr) {
 
     chooseapp = ematch_compile_chooseapp(exec->comp, offset, idx, j+1);
     ematch_stack_save(&exec->bstack, chooseapp);
-    bind = &exec->itbl->data[idx];
+    bind = exec->itbl->data + idx;
 
     ematch_exec_instr(exec, bind->next);
   } else {
@@ -686,6 +735,8 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
     ematch_exec_filter(exec, instr);
     break;
   case EMATCH_CHOOSEAPP:
+    // chooseapps now processed without creating as separate instr
+    assert(0);
     ematch_exec_chooseapp(exec, instr);
     break;
   default:
