@@ -6170,7 +6170,7 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
 
   if (check_logic()) {
     if (__smt2_globals.produce_unsat_cores) {
-      print_error("check-sat-assuming is not supported when :produce-unsat-assumptions is true");
+      print_error("check-sat-assuming is not supported when :produce-unsat-cores is true");
     } else if (mcsat_is_required(&__smt2_globals)) {
       print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
     } else if (__smt2_globals.benchmark_mode) {
