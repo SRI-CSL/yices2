@@ -52,16 +52,19 @@ typedef struct quant_solver_stats_s {
 
   uint32_t num_instances;             // number of instances generated per search
   uint32_t num_instances_per_round;   // number of instanced generated in each call to final_check
+  uint32_t num_rounds;                // number of rounds of ematching run per search
 
   uint32_t max_instances;             // max number of instances generated per search
   uint32_t max_instances_per_round;   // max number of instanced generated in each call to final_check
+  uint32_t max_rounds;                // max number of rounds of ematching run per search
 } quant_solver_stats_t;
 
 /*
  * Default bounds
  */
-#define DEFAULT_MAX_INSTANCES              500
-#define DEFAULT_MAX_INSTANCES_PER_ROUND    5
+#define DEFAULT_MAX_INSTANCES             50
+#define DEFAULT_MAX_INSTANCES_PER_ROUND   5
+#define DEFAULT_MAX_ROUNDS                1000
 
 
 

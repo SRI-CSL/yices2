@@ -40,8 +40,8 @@ typedef struct pattern_s {
   term_t *fapps;    // function applications that appear in the pattern
   term_t *consts;   // constants that appear in the pattern
 
-  int32_t code;     // index in ematch instruction table
-  ptr_hmap_t matches;  // map from top fapp to set of indices in instance table
+  int32_t code;        // index in ematch instruction table
+  ivector_t matches;  // vector of indices in instance table that are found matches
 } pattern_t;
 
 /*

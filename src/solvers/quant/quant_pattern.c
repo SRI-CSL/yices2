@@ -65,8 +65,6 @@ static void extend_pattern_table(pattern_table_t *table) {
 static void shrink_pattern_table(pattern_table_t *table, uint32_t n) {
   uint32_t i;
   pattern_t *pat;
-  ptr_hmap_pair_t *p;
-  ptr_hmap_t *map;
 
   assert(n <= table->npatterns);
 
@@ -77,17 +75,7 @@ static void shrink_pattern_table(pattern_table_t *table, uint32_t n) {
     delete_index_vector(pat->fapps);
     delete_index_vector(pat->consts);
 
-    map = &pat->matches;
-    for (p = ptr_hmap_first_record(map);
-         p != NULL;
-         p = ptr_hmap_next_record(map, p)) {
-      ivector_t *v = p->val;
-      if (v != NULL) {
-        delete_ivector(v);
-        safe_free(v);
-      }
-    }
-    delete_ptr_hmap(map);
+    delete_ivector(&pat->matches);
   }
 
   table->npatterns = n;
@@ -160,7 +148,7 @@ int32_t pattern_table_add_pattern(pattern_table_t *ptbl, term_t p, term_t *pv, u
   pat->fapps = make_index_vector(fa, nfa);
   pat->consts = make_index_vector(c, nc);
   pat->code = -1;
-  init_ptr_hmap(&pat->matches, 0);
+  init_ivector(&pat->matches, 4);
 
   return i;
 }

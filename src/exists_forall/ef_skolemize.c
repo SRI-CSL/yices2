@@ -45,11 +45,12 @@ typedef struct sk_pair_s {
 /*
  * Initialize the skolemize object
  */
-void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff) {
+void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff, bool ematching) {
   sk->analyzer = analyzer;
   sk->prob = prob;
   sk->flatten_ite = f_ite;
   sk->flatten_iff = f_iff;
+  sk->ematching = ematching;
 
   sk->mgr = analyzer->manager;
   sk->terms = analyzer->terms;
@@ -68,6 +69,7 @@ void delete_ef_skolemize(ef_skolemize_t *sk) {
   sk->prob = NULL;
   sk->flatten_ite = false;
   sk->flatten_iff = false;
+  sk->ematching = false;
 
   sk->mgr = NULL;
   sk->terms = NULL;
@@ -469,11 +471,13 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ivector_t args;
   term_t result, u, v;
   bool resultq = false;
+  bool en_flattening = false;
 
   mgr = sk->mgr;
   terms = sk->terms;
   kind = term_kind(terms, t);
   result = NULL_TERM;
+  en_flattening = sk->ematching;
 
   if (!term_is_composite(terms, unsigned_term(t)))
     result = t;
@@ -487,7 +491,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (is_boolean_term(terms, d->arg[1])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (not (ite C A B))
@@ -515,7 +519,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (is_boolean_term(terms, d->arg[0])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (not (iff A B))
@@ -593,7 +597,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (is_boolean_term(terms, d->arg[1])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (ite C A B) = (u or v)
@@ -621,7 +625,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (is_boolean_term(terms, d->arg[0])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (iff A B)

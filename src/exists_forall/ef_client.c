@@ -76,7 +76,8 @@ void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap
     init_ef_prob(efc->efprob, __yices_globals.manager, patterns);
     efc->efcode = ef_analyze(&analyzer, efc->efprob, n, assertions,
 			     efc->ef_parameters.flatten_ite,
-			     efc->ef_parameters.flatten_iff);
+			     efc->ef_parameters.flatten_iff,
+			     efc->ef_parameters.ematching);
     delete_ef_analyzer(&analyzer);
   }
 }

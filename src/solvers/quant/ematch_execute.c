@@ -710,10 +710,9 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   ivector_t fapps;
   term_t f;
   uint32_t i, j, n, m;
-  occ_t occ, fapp;
-  ptr_hmap_t *matches;
-  ptr_hmap_pair_t *p;
-  ivector_t *aux, *v;
+  occ_t occ;
+  ivector_t *matches;
+  ivector_t *aux;
 
 #if TRACE
     printf("  Pattern code:\n");
@@ -730,30 +729,16 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
     if (occ != null_occurrence) {
       matches = &pat->matches;
 
-      for (p = ptr_hmap_first_record(matches);
-           p != NULL;
-           p = ptr_hmap_next_record(matches, p)) {
-        ivector_t *v = p->val;
-        if (v != NULL) {
-          delete_ivector(v);
-          safe_free(v);
-        }
-      }
-      ptr_hmap_reset(matches);
+      ivector_reset(matches);
 
       init_ivector(&fapps, 4);
 
       egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
       n = fapps.size;
       for(i=0; i<n; i++) {
-        fapp = fapps.data[i];
-        p = ptr_hmap_find(matches, fapp);
-        if (p != NULL) {
-          // skip fapps for which we have already found atleast one match
-          continue;
-        }
-
 #if TRACE
+        occ_t fapp = fapps.data[i];
+
         printf("  Matching fapp: ");
         print_occurrence(stdout, fapp);
         printf("\n");
@@ -776,14 +761,9 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 #endif
 
           count += m;
-          p = ptr_hmap_get(matches, fapp);
-          assert(p->val == NULL);
-          p->val = safe_malloc(sizeof(ivector_t));
-          v = p->val;
-          init_ivector(v, m);
 
           for(j=0; j!=m; j++) {
-            ivector_push(v, aux->data[j]);
+            ivector_push(matches, aux->data[j]);
           }
         }
       }
