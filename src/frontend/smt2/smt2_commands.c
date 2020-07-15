@@ -6169,7 +6169,9 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
   tprint_calls("check-sat-assuming", __smt2_globals.stats.num_check_sat_assuming);
 
   if (check_logic()) {
-    if (mcsat_is_required(&__smt2_globals)) {
+    if (__smt2_globals.produce_unsat_cores) {
+      print_error("check-sat-assuming is not supported when :produce-unsat-assumptions is true");
+    } else if (mcsat_is_required(&__smt2_globals)) {
       print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
     } else if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
