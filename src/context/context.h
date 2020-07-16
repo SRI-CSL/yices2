@@ -135,6 +135,20 @@ extern int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
 
 
 /*
+ * Assert all formulas f[0] ... f[n-1] during quantifier instantiation
+ * The context status must be SEARCHING.
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT means that an inconsistency is detected
+ *   (in that case the context status is set to UNSAT)
+ * - CTX_NO_ERROR means no internalization error and status not
+ *   determined
+ * - otherwise, the code is negative to report an error.
+ */
+extern int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
+
+
+/*
  * Convert boolean term t to a literal l in context ctx
  * - return a negative code if there's an error
  * - return a literal (l >= 0) otherwise.

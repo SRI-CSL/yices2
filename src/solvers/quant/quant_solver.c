@@ -545,7 +545,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
     printf("\n");
 #endif
 
-  assert_formula(ctx, t);
+  quant_assert_formulas(ctx, 1, &t);
   int_hset_add(instances, midx);
 
   return true;

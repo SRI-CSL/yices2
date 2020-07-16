@@ -6126,6 +6126,44 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   return code;
 }
 
+/*
+ * Assert all formulas f[0] ... f[n-1] during quantifier instantiation
+ * The context status must be SEARCHING.
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT means that an inconsistency is detected
+ *   (in that case the context status is set to UNSAT)
+ * - CTX_NO_ERROR means no internalization error and status not
+ *   determined
+ * - otherwise, the code is negative to report an error.
+ */
+int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+  int32_t code;
+
+  assert(context_quant_enabled(ctx));
+  assert(smt_status(ctx->core) == STATUS_SEARCHING);
+
+  code = context_process_assertions(ctx, n, f);
+  if (code == TRIVIALLY_UNSAT) {
+    if (ctx->arch == CTX_ARCH_AUTO_IDL || ctx->arch == CTX_ARCH_AUTO_RDL) {
+      // cleanup: reset arch/config to 'no theory'
+      assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL &&
+      ctx->mode == CTX_MODE_ONECHECK);
+      ctx->arch = CTX_ARCH_NOSOLVERS;
+      ctx->theories = 0;
+      ctx->options = 0;
+    }
+
+    if( smt_status(ctx->core) != STATUS_UNSAT) {
+      // force UNSAT in the core
+      add_empty_clause(ctx->core);
+      ctx->core->status = STATUS_UNSAT;
+    }
+  }
+
+  return code;
+}
+
 int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   MT_PROTECT(int32_t, __yices_globals.lock, _o_assert_formulas(ctx, n, f));
 }
