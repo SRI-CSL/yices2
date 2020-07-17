@@ -6102,8 +6102,8 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
-         smt_status(ctx->core) == STATUS_IDLE ||
-         (context_quant_enabled(ctx) && smt_status(ctx->core) == STATUS_SEARCHING));
+         smt_status(ctx->core) == STATUS_IDLE);
+  assert(!context_quant_enabled(ctx));
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {

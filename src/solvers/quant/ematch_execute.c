@@ -36,6 +36,7 @@
 #include "solvers/cdcl/smt_core_printer.h"
 
 #include "io/yices_pp.h"
+#include "io/type_printer.h"
 
 #endif
 
@@ -102,61 +103,6 @@ void delete_ematch_exec(ematch_exec_t *exec) {
  *********************/
 
 /*
- * Collect all function applications for function f, and push in out vector
- */
-static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out) {
-  egraph_t *egraph;
-  composite_t *p;
-  uint32_t i, n;
-  eterm_t x;
-  occ_t occi;
-
-#if TRACE
-  printf("  Finding all fapps for function ");
-  print_eterm_id(stdout, f);
-  printf("\n");
-#endif
-
-  egraph = exec->egraph;
-  n = egraph->terms.nterms;
-  for (i=0; i<n; i++) {
-    p = egraph_term_body(egraph, i);
-    if (composite_body(p)) {
-      if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
-        x = term_of_occ(composite_child(p, 0));
-        if (x == f) {
-          if (composite_depth(egraph, p) < exec->max_fdepth) {
-            occi = pos_occ(i);
-            ivector_push(out, occi);
-#if TRACE
-            fputs("    (pushing) ", stdout);
-            print_occurrence(stdout, occi);
-            printf(" @ depth %d", composite_depth(egraph, p));
-            fputc('\n', stdout);
-#endif
-
-            if (out->size >= exec->max_fapps) {
-#if TRACE
-              printf("    reached fapps limit of %d\n", exec->max_fdepth);
-#endif
-              break;
-            }
-          }
-          else {
-#if TRACE
-            fputs("    (filtered) ", stdout);
-            print_composite(stdout, p);
-            printf(" @ depth %d", composite_depth(egraph, p));
-            fputc('\n', stdout);
-#endif
-          }
-        }
-      }
-    }
-  }
-}
-
-/*
  * Collect function applications for function f in the class of occ, and push in out vector
  */
 static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
@@ -191,13 +137,8 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
             printf(" @ depth %d", composite_depth(egraph, p));
             fputc('\n', stdout);
 #endif
-
-            if (out->size >= exec->max_fapps) {
-#if TRACE
-              printf("    reached fapps limit of %d\n", exec->max_fdepth);
-#endif
-              break;
-            }
+            // just need to find a single fapp in the class (since congruent fapps)
+            break;
           }
           else {
 #if TRACE
@@ -215,6 +156,46 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
   } while (occi != occ);
 
 }
+
+/*
+ * Collect all function applications for function f, and push in out vector
+ */
+static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out) {
+  egraph_t *egraph;
+  uint32_t i, n;
+  occ_t occi;
+  type_t ranget;
+
+  egraph = exec->egraph;
+  ranget = function_type_range(egraph->types, egraph_term_real_type(egraph, f));
+  n = egraph->terms.nterms;
+
+#if TRACE
+  printf("  Finding all fapps for function ");
+  print_eterm_id(stdout, f);
+//  print_eterm_details(stdout, exec->egraph, f);
+  printf(" of range type ");
+  print_type(stdout, egraph->types, ranget);
+  printf("\n");
+#endif
+
+  n = egraph_num_classes(egraph);
+  for (i=0; i<n; i++) {
+    if (egraph_class_is_root_class(egraph, i)) {
+      occi = egraph_class_root(egraph, i);
+      if (egraph_term_real_type(egraph, term_of_occ(occi)) == ranget) {
+        egraph_get_fapps_in_class(exec, f, occi, out);
+        if (out->size >= exec->max_fapps) {
+#if TRACE
+          printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+          break;
+        }
+      }
+    }
+  }
+}
+
 
 /*
  * Check if a function application for function f occurs in the class of occ
