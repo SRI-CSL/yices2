@@ -157,6 +157,7 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
 
   assert(idx >= 0 && idx < itbl->ninstr);
   instr = &itbl->data[idx];
+//  recursive = false;
 
   switch(instr->op) {
   case EMATCH_INIT:

@@ -132,6 +132,8 @@ int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv, uint32
   qcnstr->t = t;
   qcnstr->patterns = make_index_vector(pv, npv);
   init_int_hset(&qcnstr->instances, 0);
+  qcnstr->enable = NULL_TERM;
+  qcnstr->enable_lit = null_literal;
 
   return i;
 }

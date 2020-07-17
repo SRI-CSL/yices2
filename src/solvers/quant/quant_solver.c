@@ -44,8 +44,9 @@
 #define EM_VERBOSE 0
 
 #define TRACE 0
+#define TRACE_LIGHT 0
 
-#if TRACE
+#if TRACE || TRACE_VERBOSE
 
 #include <stdio.h>
 
@@ -98,6 +99,9 @@ static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i
 
   qcnstr = solver->qtbl.data + i;
   fprintf(f, "\nqcnstr[%d]:\n", i);
+
+  fprintf(f, "  en: ");
+  yices_pp_term(f, qcnstr->enable, 120, 1, 0);
 
   fprintf(f, "  expr: ");
   yices_pp_term(f, qcnstr->t, 120, 1, 0);
@@ -256,6 +260,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
   quant_cnstr_t *cnstr;
   ivector_t pv, f, fa, c;
   bool valid;
+  char name[16];
 
   qtbl = &solver->qtbl;
   init_ivector(&v, 1);
@@ -274,6 +279,10 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
 
   i = quant_table_add_cnstr(qtbl, t, v.data, v.size);
   cnstr = qtbl->data + i;
+
+  cnstr->enable = new_uninterpreted_term(solver->prob->terms, bool_type(solver->prob->terms->types));
+  sprintf (name, "quant$%d", i);
+  yices_set_term_name(cnstr->enable, name);
 
   cnstr->uvars = make_index_vector(pv.data, pv.size);
   cnstr->fun = make_index_vector(f.data, f.size);
@@ -320,6 +329,25 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
 }
 
 /*
+ * Assert all enable constraints
+ */
+static void ematch_assert_all_enables(quant_solver_t *solver) {
+  quant_table_t *qtbl;
+  uint32_t i, n;
+  quant_cnstr_t *cnstr;
+  context_t *ctx;
+
+  qtbl = &solver->qtbl;
+  n = qtbl->nquant;
+  ctx = solver->em.ctx;
+
+  for(i=0; i<n; i++) {
+    cnstr = qtbl->data + i;
+    assert_formula(ctx, cnstr->enable);
+  }
+}
+
+/*
  * Attach problem to solver
  */
 void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t *ctx) {
@@ -334,6 +362,7 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 
   ematch_attach_egraph(&solver->em, solver->egraph);
 
+  ematch_assert_all_enables(solver);
 }
 
 
@@ -496,7 +525,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   assert(midx < instbl->ninstances);
   inst = instbl->data + midx;
 
-#if EM_VERBOSE
+#if TRACE
   printf("S%d:R%d EMATCHED: #%d cnstr%d::match%d\n",
       solver->stats.num_search,
       solver->stats.num_rounds_per_search,
@@ -536,16 +565,60 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   }
 
   t = term_substitution(solver, keys, values, n, t);
+
   safe_free(keys);
   safe_free(values);
 
-#if TRACE
-    printf("Instance: ");
+#if EM_VERBOSE
+    printf("EMATCH Instance: ");
     yices_pp_term(stdout, t, 120, 1, 0);
     printf("\n");
 #endif
 
   quant_assert_formulas(ctx, 1, &t);
+
+  if (cnstr->enable_lit == null_literal) {
+    cnstr->enable_lit = not(context_internalize(ctx, cnstr->enable));
+//    cnstr->enable_lit = context_internalize(ctx, cnstr->enable);
+  }
+
+  ivector_t *lits, *ants;
+  ivector_t *units;
+  literal_t l;
+
+  lits = &solver->base_literals;
+  ants = &solver->base_antecedents;
+  units = &solver->aux_vector;
+
+  ivector_reset(units);
+
+#if TRACE_LIGHT
+  printf("(BEGIN): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
+#endif
+
+  add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
+
+#if TRACE_LIGHT
+  printf("(END): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
+#endif
+
+  n = units->size;
+  for(i=0; i<n; i++) {
+    l = units->data[i];
+    if (solver->decision_level == solver->base_level) {
+      implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
+    } else {
+#if TRACE_LIGHT
+      printf("EMATCH: Delaying unit base clause: { ");
+      print_literal(stdout, l);
+      printf(" }\n");
+#endif
+      ivector_push(lits, l);
+      ivector_push(ants, cnstr->enable_lit);
+    }
+  }
+  ivector_reset(units);
+
   int_hset_add(instances, midx);
 
   return true;
@@ -685,6 +758,8 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   init_pattern_table(&solver->ptbl);
   init_quant_table(&solver->qtbl);
   init_ematch(&solver->em);
+  init_ivector(&solver->base_literals, 10);
+  init_ivector(&solver->base_antecedents, 10);
 
   init_ivector(&solver->aux_vector, 10);
   init_int_hmap(&solver->aux_map, 0);
@@ -700,6 +775,8 @@ void delete_quant_solver(quant_solver_t *solver) {
   delete_pattern_table(&solver->ptbl);
   delete_quant_table(&solver->qtbl);
   delete_ematch(&solver->em);
+  delete_ivector(&solver->base_literals);
+  delete_ivector(&solver->base_antecedents);
 
   delete_ivector(&solver->aux_vector);
   delete_int_hmap(&solver->aux_map);
@@ -719,6 +796,8 @@ void quant_solver_reset(quant_solver_t *solver) {
   reset_pattern_table(&solver->ptbl);
   reset_quant_table(&solver->qtbl);
   reset_ematch(&solver->em);
+  ivector_reset(&solver->base_literals);
+  ivector_reset(&solver->base_antecedents);
 
   ivector_reset(&solver->aux_vector);
   int_hmap_reset(&solver->aux_map);
@@ -734,6 +813,11 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
 
   k = solver->decision_level + 1;
   solver->decision_level = k;
+
+#if TRACE_VERBOSE
+  printf("---> QUANTSOLVER:   Increasing decision level to %d\n", k);
+  fflush(stdout);
+#endif
 }
 
 
@@ -743,6 +827,41 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
 void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
   assert(solver->base_level <= back_level && back_level < solver->decision_level);
   solver->decision_level = back_level;
+
+#if TRACE_VERBOSE
+  printf("---> QUANTSOLVER:   Backtracking to level %d\n", back_level);
+  fflush(stdout);
+#endif
+
+  // add all delayed base literals (with antecedents)
+  if (solver->decision_level == solver->base_level) {
+    uint32_t i, n;
+    ivector_t *lits, *ants;
+    literal_t l;
+
+    lits = &solver->base_literals;
+    ants = &solver->base_antecedents;
+
+    n = lits->size;
+    assert(ants->size == n);
+
+    if (n != 0) {
+#if TRACE_LIGHT
+      printf("EMATCH: Adding %d delayed unit base clauses\n", n);
+#endif
+
+      for(i=0; i<n; i++) {
+        l = lits->data[i];
+        if (literal_base_value(solver->core, l) != VAL_TRUE) {
+          implied_literal(solver->core, l, mk_literal_antecedent(ants->data[i]));
+        }
+      }
+
+      ivector_reset(lits);
+      ivector_reset(ants);
+    }
+  }
+
 }
 
 
@@ -828,34 +947,62 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
   printf("\n**** QUANTSOLVER: FINAL CHECK ***\n\n");
 #endif
 
-//#if TRACE
+#if TRACE
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
 //  print_egraph_root_classes(stdout, solver->egraph);
 ////  print_egraph_root_classes_details(stdout, solver->egraph);
-//#endif
 //
 //  printf("\n(BEGIN) Intern. mappings:\n");
 //  print_context_intern_mapping(stdout, solver->em.ctx);
+
+  printf("\n(BEGIN) Binary clauses:\n");
+  print_binary_clauses(stdout, solver->core);
+
+  printf("\n(BEGIN) Problem clauses:\n");
+  print_problem_clauses(stdout, solver->core);
+
+  printf("\n(BEGIN) Learnt clauses:\n");
+  print_learned_clauses(stdout, solver->core);
+
+  printf("\n(BEGIN) Lemmas:\n");
+  print_lemmas(stdout, solver->core);
+#endif
+
+//  if (solver->stats.num_rounds_per_search == 8) {
+//    assert(0);
+//  }
 
 //  ematch_execute_all_patterns(&solver->em);
 
   ematch_process_all_cnstr(solver);
 
-//#if TRACE
+#if TRACE
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
 //  print_egraph_root_classes(stdout, solver->egraph);
 ////  print_egraph_root_classes_details(stdout, solver->egraph);
-//#endif
 //
 //  printf("\n(END) Intern. mappings:\n");
 //  print_context_intern_mapping(stdout, solver->em.ctx);
+//
+  printf("\n(END) Binary clauses:\n");
+  print_binary_clauses(stdout, solver->core);
+
+  printf("\n(END) Problem clauses:\n");
+  print_problem_clauses(stdout, solver->core);
+
+  printf("\n(END) Learnt clauses:\n");
+  print_learned_clauses(stdout, solver->core);
+
+  printf("\n(END) Lemmas:\n");
+  print_lemmas(stdout, solver->core);
+#endif
 
 #if EM_VERBOSE
-  printf("\nS%d:R%d EMATCH: learnt total %d instances (%d new, %d in current search)\n",
+  printf("S%d:R%d EMATCH: learnt total %d instances (%d new, %d in current search)\n",
       solver->stats.num_search,
       solver->stats.num_rounds_per_search,
       solver->stats.num_instances,

@@ -38,6 +38,9 @@ typedef struct quant_cnstr_s {
   term_t *fun;      // functions that appear in the constraint
   term_t *fapps;    // function applications that appear in the constraint
   term_t *consts;   // constants that appear in the constraint
+
+  term_t enable;        // boolean term that enables this constraint
+  literal_t enable_lit; // literal corresponding to enable term
 } quant_cnstr_t;
 
 /*

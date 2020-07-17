@@ -1635,6 +1635,21 @@ extern void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, litera
 extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
 
 
+/*********************************
+ *  QUANTIFIER INSTANCE CLAUSES  *
+ ********************************/
+
+/*
+ * Add all queued quant lemmas to the database.
+ * - this may cause backtracking
+ * - a conflict clause may be recorded
+ * If so, conflict resolution must be called outside this function
+ * Literal en is the enable associated with the quantifier instance
+ */
+extern void add_all_quant_lemmas(smt_core_t *s, literal_t en, ivector_t *units);
+
+
+
 /******************************
  *  ACCESS TO THE GATE TABLE  *
  *****************************/
@@ -1708,6 +1723,13 @@ extern void stop_search(smt_core_t *s);
  *   propagation stack with empty antecedent.
  */
 extern void decide_literal(smt_core_t *s, literal_t l);
+
+
+/*
+ * Assign literal l to true with the given antecedent
+ * - s->mark[v] is set if decision level = base level
+ */
+extern void implied_literal(smt_core_t *s, literal_t l, antecedent_t a);
 
 
 /*

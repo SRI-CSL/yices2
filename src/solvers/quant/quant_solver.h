@@ -107,6 +107,9 @@ typedef struct quant_solver_s {
   quant_table_t qtbl;     // quant table
   ematch_globals_t em;    // ematching
 
+  ivector_t base_literals;
+  ivector_t base_antecedents;
+
 // TODO
 
   /*

@@ -33,9 +33,10 @@
 
 
 #define TRACE 0
+#define TRACE_LIGHT 0
 #define DEBUG 0
 
-#if DEBUG || TRACE
+#if DEBUG || TRACE || TRACE_LIGHT
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2014,7 +2015,7 @@ void set_bvar_activity(smt_core_t *s, bvar_t x, double a) {
 static void assign_literal(smt_core_t *s, literal_t l) {
   bvar_t v;
 
-#if TRACE
+#if TRACE_LIGHT
   printf("---> DPLL:   Assigning literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
@@ -2071,7 +2072,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
 
   s->stats.decisions ++;
 
-#if TRACE
+#if TRACE_LIGHT
   printf("\n---> DPLL:   Decision: literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
@@ -2084,12 +2085,12 @@ void decide_literal(smt_core_t *s, literal_t l) {
  * Assign literal l to true with the given antecedent
  * - s->mark[v] is set if decision level = base level
  */
-static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
+void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   bvar_t v;
 
   assert(literal_is_unassigned(s, l));
 
-#if TRACE
+#if TRACE_LIGHT
   printf("---> DPLL:   Implied literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
@@ -2171,7 +2172,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
       x = random_uint(s, s->nvars);
       assert(0 <= x && x < s->nvars);
       if (bval_is_undef(v[x])) {
-#if TRACE
+#if TRACE_LIGHT
 	printf("---> DPLL:   Random selection: variable ");
 	print_bvar(stdout, x);
 	printf("\n");
@@ -2349,7 +2350,7 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
   literal_t *u, l;
   bvar_t x;
 
-#if TRACE
+#if TRACE_LIGHT
   printf("---> DPLL:   Backtracking to level %"PRIu32"\n\n", back_level);
   fflush(stdout);
 #endif
@@ -2416,7 +2417,7 @@ static void backtrack_to_base_level(smt_core_t *s) {
  * Record a two-literal conflict: clause {l0, l1} is false
  */
 static void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
-#if TRACE
+#if TRACE_LIGHT
   printf("\n---> DPLL:   Binary conflict: {");
   print_literal(stdout, l0);
   printf(", ");
@@ -2439,7 +2440,7 @@ static void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
  * Record cl as a conflict clause
  */
 static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
-#if TRACE
+#if TRACE_LIGHT
   uint32_t i;
   literal_t ll;
 
@@ -2473,7 +2474,7 @@ static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
  * - all literals in a must be false in the current assignment
  */
 void record_theory_conflict(smt_core_t *s, literal_t *a) {
-#if TRACE
+#if TRACE_LIGHT
   uint32_t i;
   literal_t l;
 
@@ -2876,7 +2877,7 @@ static inline uint32_t d_level(smt_core_t *s, literal_t l) {
  * - we put the function here because it's used by add_learned_clause
  */
 static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
-#if TRACE
+#if TRACE_LIGHT
   printf("---> DPLL:   Add binary clause: { ");
   print_literal(stdout, l1);
   printf(" ");
@@ -4477,6 +4478,129 @@ static void add_all_lemmas(smt_core_t *s) {
 }
 
 
+/*********************************
+ *  QUANTIFIER INSTANCE CLAUSES  *
+ ********************************/
+
+/*
+ * Add quant instance lemma: similar to add_clause
+ * - n = length of the lemma
+ * - a = array of literals (lemma is a[0] ... a[n-1])
+ */
+static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l, ivector_t *units) {
+  if (preprocess_clause(s, &n, a)) {
+#if TRACE_LIGHT
+    uint32_t i;
+    printf("---> DPLL:   Add quant clause: {");
+    for (i=0; i<n; i++) {
+      printf(" ");
+      print_literal(stdout, a[i]);
+    }
+    printf(" }\n");
+    fflush(stdout);
+#endif
+
+#if 1
+    if (n > 2) {
+      add_simplified_clause(s, n, a);
+    } else if (n == 2) {
+      add_simplified_binary_clause(s, a[0], a[1]);
+    } else if (n == 1) {
+//      add_simplified_unit_clause(s, a[0]);
+//      direct_binary_clause(s, l, a[0]);
+
+      if (s->decision_level == s->base_level) {
+        add_simplified_unit_clause(s, a[0]);
+      } else {
+        ivector_push(units, a[0]);
+        switch(literal_value(s, a[0])) {
+        case VAL_FALSE:
+          // conflict, backtrack to base level and imply the literal
+          backtrack_to_base_level(s);
+          break;
+        case VAL_TRUE:
+#if TRACE_LIGHT
+          printf("---> DPLL:   true unit lemma\n");
+#endif
+          break; // true clause
+        case VAL_UNDEF_FALSE:
+        case VAL_UNDEF_TRUE:
+          implied_literal(s, a[0], mk_literal_antecedent(l));
+          break;
+        }
+      }
+
+    } else {
+      backtrack_to_base_level(s);
+      record_empty_conflict(s);
+    }
+  }
+#else
+    if (n > 2) {
+      new_problem_clause(s, n, a);
+    } else if (n == 2) {
+      direct_binary_clause(s, a[0], a[1]);
+    } else if (n == 1) {
+      direct_binary_clause(s, l, a[0]);
+      // implied literal may be already assigned during base propagate
+//      if (literal_is_unassigned(s, a[0])) {
+//        implied_literal(s, a[0], mk_literal_antecedent(l));
+//      }
+    } else {
+      backtrack_to_base_level(s);
+      record_empty_conflict(s);
+    }
+  }
+#endif
+
+#if TRACE
+  else {
+    printf("---> DPLL:   Skipped true lemma\n");
+    fflush(stdout);
+  }
+#endif
+
+}
+
+
+/*
+ * Add all queued quant lemmas to the database.
+ * - this may cause backtracking
+ * - a conflict clause may be recorded
+ * If so, conflict resolution must be called outside this function
+ * Literal en is the enable associated with the quantifier instance
+ */
+void add_all_quant_lemmas(smt_core_t *s, literal_t l, ivector_t *units) {
+  lemma_block_t *tmp;
+  literal_t *lemma;
+  uint32_t i, j, n;
+
+  for (i=0; i<s->lemmas.free_block; i++) {
+    tmp = s->lemmas.block[i];
+    lemma = tmp->data;
+    j = 0;
+    while (j < tmp->ptr) {
+      /*
+       * it's possible for new lemmas to be added within this loop
+       * because clause addition may cause backtracking and
+       * the theory solver is allowed to create lemmas within backtrack.
+       */
+      n = lemma_length(lemma);
+      add_quant_lemma(s, n, lemma, l, units);
+      n ++; // skip the end marker
+      j += n;
+      lemma += n;
+    }
+  }
+
+  // Empty the queue now:
+  reset_lemma_queue(&s->lemmas);
+}
+
+
+
+
+
 
 
 
@@ -5831,7 +5955,7 @@ void internalization_start(smt_core_t *s) {
  */
 bool base_propagate(smt_core_t *s) {
 	// TBD: assert commented to make adding quant instances work for now.
-//  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL BASE PROPAGATE\n");

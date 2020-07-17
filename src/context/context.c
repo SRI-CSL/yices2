@@ -6011,7 +6011,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -6029,7 +6029,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -6047,7 +6047,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -6065,7 +6065,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -6209,7 +6209,10 @@ int32_t context_internalize(context_t *ctx, term_t t) {
   code = setjmp(ctx->env);
   if (code == 0) {
     // we must call internalization start first
-    internalization_start(ctx->core);
+    if (!context_quant_enabled(ctx)) {
+      // TBD: make sure this is correct
+      internalization_start(ctx->core);
+    }
     l = internalize_to_literal(ctx, t);
   } else {
     assert(code < 0);

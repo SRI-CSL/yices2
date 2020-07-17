@@ -45,6 +45,7 @@
 
 #define EF_VERBOSE 0
 #define TRACE 0
+#define TRACE_LIGHT 0
 
 /*
  * PRINT STUFF
@@ -524,6 +525,16 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
     // FOR DEBUGGING
     printf("Full Model:\n");
     yices_print_model(stdout, mdl);
+    pp_context(stdout, ctx);
+
+    print_egraph_terms(stdout, ctx->egraph);
+//  print_egraph_terms_details(stdout, ctx->egraph);
+    printf("\n\n");
+    print_egraph_root_classes(stdout, ctx->egraph);
+//  print_egraph_root_classes_details(stdout, ctx->egraph);
+
+    printf("\n(BEGIN) Intern. mappings:\n");
+    print_context_intern_mapping(stdout, ctx);
 #endif
 
     // get values of terms in var as terms
@@ -1515,7 +1526,14 @@ static void ef_solver_search(ef_solver_t *solver) {
       printf("\n");
 #endif
       trace_puts(solver->trace, 4, "(EF: Found candidate model)\n");
+
+#if TRACE_LIGHT
+      printf("========= TESTING EXISTS MODEL ===========\n");
+#endif
       ef_solver_check_exists_model(solver);
+#if TRACE_LIGHT
+      printf("========= TESTING EXISTS MODEL DONE ===========\n");
+#endif
       break;
 
     case STATUS_UNSAT:
