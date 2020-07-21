@@ -131,6 +131,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
         if (x == f) {
           if (composite_depth(egraph, p) < exec->max_fdepth) {
             ivector_push(out, occi);
+
 #if TRACE
             fputs("    (pushing) ", stdout);
             print_occurrence(stdout, occi);
@@ -252,8 +253,12 @@ static occ_t term2occ(intern_tbl_t *tbl, term_t t) {
   term_t r;
   int32_t code;
   occ_t occ;
+  bool negate;
 
   occ = null_occurrence;
+  negate = is_neg_term(t);
+  if (negate)
+    t = opposite_term(t);
 
   if (! intern_tbl_term_present(tbl, t)) {
 //    fputs(" not internalized\n", stdout);
@@ -271,10 +276,9 @@ static occ_t term2occ(intern_tbl_t *tbl, term_t t) {
 //      fputs("          internalized to: ", stdout);
       code = intern_tbl_map_of_root(tbl, unsigned_term(r));
       if (code_is_valid(code) && code_is_eterm(code)) {
-        if (is_pos_term(r)) {
-          occ = code2occ(code);
-        } else {
-          occ = opposite_occ(code2occ(code));
+        occ = code2occ(code);
+        if ((is_pos_term(r) && negate) || (is_neg_term(r) && !negate)) {
+          occ = opposite_occ(occ);
         }
       } else {
 //      fputs(" not valid/eterm\n", stdout);
@@ -666,6 +670,7 @@ static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
 
   regt = exec->reg.data[i];
 
+  assert(is_pos_term(instr->f));
   focc = instr_f2occ(exec, instr);
   if (focc == null_occurrence) {
     ematch_exec_backtrack(exec);
@@ -757,6 +762,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   kind = term_kind(terms, pat->p);
   if (kind == APP_TERM) {
     f = term_child(terms, pat->p, 0);
+    assert(is_pos_term(f));
     occ = term2occ(exec->intern, f);
     if (occ != null_occurrence) {
       matches = &pat->matches;

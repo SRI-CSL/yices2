@@ -477,7 +477,8 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   terms = sk->terms;
   kind = term_kind(terms, t);
   result = NULL_TERM;
-  en_flattening = sk->ematching;
+//  en_flattening = sk->ematching;
+  en_flattening = true;
 
   if (!term_is_composite(terms, unsigned_term(t)))
     result = t;

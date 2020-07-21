@@ -293,9 +293,24 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
 
   valid = quant_table_check_cnstr(qtbl, &solver->ptbl, i);
   if (!valid) {
-//    printf("\nError in assertion + pattern for:\n");
-//    quant_solver_print_cnstr(stdout, solver, i);
-    assert(0);
+#if TRACE
+    printf("\nError in assertion + pattern for:\n");
+    quant_solver_print_cnstr(stdout, solver, i);
+#endif
+
+    ivector_reset(patterns);
+    ivector_reset(&v);
+    delete_index_vector(cnstr->patterns);
+
+    quant_setup_patterns(solver, t, patterns, &pv, &v);
+    cnstr->patterns = make_index_vector(v.data, v.size);
+
+    valid = quant_table_check_cnstr(qtbl, &solver->ptbl, i);
+#if TRACE
+    printf("\nNew assertion + pattern for:\n");
+    quant_solver_print_cnstr(stdout, solver, i);
+#endif
+    assert(valid);
   }
 
   delete_ivector(&v);
@@ -469,6 +484,11 @@ static term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
   uint32_t i, n;
   term_t r;
   int32_t code;
+  bool negate;
+
+  negate = is_neg_occ(rhs);
+  if (negate)
+    rhs = opposite_occ(rhs);
 
   terms = tbl->terms;
   n = tbl->map.top;
@@ -480,7 +500,7 @@ static term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
         if (code_is_valid(code) &&
             code_is_eterm(code) &&
             code2occ(code) == rhs) {
-          return r;
+          return negate ? opposite_term(r) : r;
         }
       }
     }
@@ -548,7 +568,6 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   term_t *values = (term_t *) safe_malloc(n * sizeof(term_t));
   for(i=0; i<n; i++) {
     rhs = inst->odata[i];
-    assert(is_pos_occ(rhs));
     assert(occ_depth(solver->egraph, rhs) < solver->em.exec.max_vdepth);
 
     rhst = find_intern_mapping(intern, rhs);
@@ -608,7 +627,11 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   for(i=0; i<n; i++) {
     l = units->data[i];
     if (solver->decision_level == solver->base_level) {
-      implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
+      if (literal_is_unassigned(solver->core, l)) {
+        implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
+      } else {
+        assert(literal_value(solver->core, l) == VAL_TRUE);
+      }
     } else {
 #if TRACE_LIGHT
       printf("EMATCH: Delaying unit base clause: { ");

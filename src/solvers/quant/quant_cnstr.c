@@ -192,8 +192,8 @@ bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_
          p = int_hmap_next_record(&vmap, p)) {
       if (p->val != i) {
         result = false;
-        printf("Missing variable in patterns: %d\n", p->key);
 #if 0
+        printf("Missing variable in patterns: %d\n", p->key);
         yices_pp_term(stdout, p->key, 120, 1, 0);
 #endif
       }
