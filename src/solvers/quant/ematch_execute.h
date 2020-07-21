@@ -50,8 +50,16 @@ typedef struct ematch_exec_s {
   bool early_exit;              // exit finding matches as soon as a new instance match is found
   uint32_t max_fdepth;          // max function composition depth allowed for the fapps during matching
   uint32_t max_vdepth;          // max function composition depth allowed for the variable matches
-  uint32_t max_fapps;           // max bound on function applications allowed during matching
+  uint32_t max_fapps;           // max bound on the number of function applications allowed during matching
 } ematch_exec_t;
+
+/*
+ * Default execution bounds/parameters
+ */
+#define DEF_EARLY_EXIT      true
+#define DEF_MAX_FDEPTH      10
+#define DEF_MAX_VDEPTH      4
+#define DEF_MAX_FAPPS       10
 
 
 /*

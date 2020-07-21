@@ -57,10 +57,10 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
 
   exec->egraph = NULL;
   exec->intern = NULL;
-  exec->early_exit = true;
-  exec->max_fdepth = 10;
-  exec->max_vdepth = 4;
-  exec->max_fapps = 10;
+  exec->early_exit = DEF_EARLY_EXIT;
+  exec->max_fdepth = DEF_MAX_FDEPTH;
+  exec->max_vdepth = DEF_MAX_VDEPTH;
+  exec->max_fapps = DEF_MAX_FAPPS;
 }
 
 /*
@@ -721,7 +721,7 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
     ematch_exec_chooseapp(exec, instr);
     break;
   default:
-    printf("Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
+//    printf("Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
     assert(0);
   }
 }

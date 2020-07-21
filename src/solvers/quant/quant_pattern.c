@@ -229,8 +229,8 @@ void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, iv
     break;
 
   default:
-    printf("Unsupported term (kind %d): ", kind);
-    yices_pp_term(stdout, x, 120, 1, 0);
+//    printf("Unsupported term (kind %d): ", kind);
+//    yices_pp_term(stdout, x, 120, 1, 0);
     assert(false);
   }
 }
@@ -295,8 +295,8 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
         break;
 
       default:
-        printf("Unsupported term (kind %d): ", kind);
-        yices_pp_term(stdout, x, 120, 1, 0);
+//        printf("Unsupported term (kind %d): ", kind);
+//        yices_pp_term(stdout, x, 120, 1, 0);
         assert(false);
       }
 
@@ -346,8 +346,8 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
     break;
 
   default:
-    printf("Unsupported term (kind %d): ", kind);
-    yices_pp_term(stdout, x, 120, 1, 0);
+//    printf("Unsupported term (kind %d): ", kind);
+//    yices_pp_term(stdout, x, 120, 1, 0);
     assert(false);
   }
 }

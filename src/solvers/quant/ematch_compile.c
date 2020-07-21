@@ -199,7 +199,7 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
     fprintf(f, "    instr%d: choose-app(%d, instr%d, %d)\n", idx, instr->o, instr->next, instr->j);
     break;
   default:
-    fprintf(f, "Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
+//    fprintf(f, "Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
     assert(0);
   }
 }
@@ -346,8 +346,8 @@ static void ematch_add_to_W(ematch_compile_t *comp, int32_t i, term_t t) {
 
     case UNINTERPRETED_TERM:
       if (is_function_term(terms, t)) {
-        printf("Unexpected term (kind %d): ", term_kind(terms, t));
-        yices_pp_term(stdout, t, 120, 1, 0);
+//        printf("Unexpected term (kind %d): ", term_kind(terms, t));
+//        yices_pp_term(stdout, t, 120, 1, 0);
         assert(false);
       } else {
         int_hmap_add(&comp->W[1], i, t);
@@ -535,14 +535,14 @@ int32_t ematch_compile(ematch_compile_t *comp) {
     case DISTINCT_TERM:
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
-      printf("Unexpected term (kind %d): ", term_kind(terms, x));
-      yices_pp_term(stdout, x, 120, 1, 0);
+//      printf("Unexpected term (kind %d): ", term_kind(terms, x));
+//      yices_pp_term(stdout, x, 120, 1, 0);
       assert(false);
       break;
 
     default:
-      printf("Unsupported term (kind %d): ", term_kind(terms, x));
-      yices_pp_term(stdout, x, 120, 1, 0);
+//      printf("Unsupported term (kind %d): ", term_kind(terms, x));
+//      yices_pp_term(stdout, x, 120, 1, 0);
       assert(false);
     }
 
@@ -632,8 +632,8 @@ int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
 //    printf("    offset (new): %d\n", comp->o);
 #endif
   } else {
-    printf("Unsupported pattern term (kind %d): ", kind);
-    yices_pp_term(stdout, pat, 120, 1, 0);
+//    printf("Unsupported pattern term (kind %d): ", kind);
+//    yices_pp_term(stdout, pat, 120, 1, 0);
     assert(false);
   }
 

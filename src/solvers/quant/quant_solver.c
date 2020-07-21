@@ -60,6 +60,7 @@
  *  PRINTING SUPPORT  *
  *********************/
 
+# if 0
 static void quant_solver_print_pattern(FILE *f, quant_solver_t *solver, uint32_t i) {
   pattern_t *pat;
   uint32_t n;
@@ -130,6 +131,7 @@ static void quant_solver_print_cnstr(FILE *f, quant_solver_t *solver, uint32_t i
   fprintf(f, "\n");
 
 }
+#endif
 
 
 /**************************
@@ -291,8 +293,8 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
 
   valid = quant_table_check_cnstr(qtbl, &solver->ptbl, i);
   if (!valid) {
-    printf("\nError in assertion + pattern for:\n");
-    quant_solver_print_cnstr(stdout, solver, i);
+//    printf("\nError in assertion + pattern for:\n");
+//    quant_solver_print_cnstr(stdout, solver, i);
     assert(0);
   }
 
