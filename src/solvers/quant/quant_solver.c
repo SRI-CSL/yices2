@@ -863,9 +863,11 @@ void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
     uint32_t i, n;
     ivector_t *lits, *ants;
     literal_t l;
+    smt_core_t *s;
 
     lits = &solver->base_literals;
     ants = &solver->base_antecedents;
+    s = solver->core;
 
     n = lits->size;
     assert(ants->size == n);
@@ -877,8 +879,22 @@ void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
 
       for(i=0; i<n; i++) {
         l = lits->data[i];
-        if (literal_base_value(solver->core, l) != VAL_TRUE) {
-          implied_literal(solver->core, l, mk_literal_antecedent(ants->data[i]));
+#if TRACE
+        printf("EMATCH: Assigning literal: ");
+        print_literal(stdout, l);
+        printf("\n");
+#endif
+
+        switch(literal_value(s, l)) {
+        case VAL_FALSE:
+          record_empty_conflict(s);
+          break;
+        case VAL_TRUE:
+          break; // true clause
+        case VAL_UNDEF_FALSE:
+        case VAL_UNDEF_TRUE:
+          implied_literal(s, l, mk_literal_antecedent(ants->data[i]));
+          break;
         }
       }
 

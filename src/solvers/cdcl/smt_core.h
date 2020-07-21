@@ -1648,6 +1648,13 @@ extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
  */
 extern void add_all_quant_lemmas(smt_core_t *s, literal_t en, ivector_t *units);
 
+/*
+ * Record the empty clause as a conflict
+ * - if resolve conflict is called after this, it will do the
+ * right thing (namely, see that the conflict can't be resolved).
+ */
+extern void record_empty_conflict(smt_core_t *s);
+
 
 
 /******************************

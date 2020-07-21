@@ -4227,7 +4227,7 @@ static bool on_the_fly(smt_core_t *s) {
  * - if resolve conflict is called after this, it will do the
  * right thing (namely, see that the conflict can't be resolved).
  */
-static void record_empty_conflict(smt_core_t *s) {
+void record_empty_conflict(smt_core_t *s) {
   assert(s->decision_level == s->base_level);
 
 #if TRACE
@@ -4487,8 +4487,10 @@ static void add_all_lemmas(smt_core_t *s) {
  * - n = length of the lemma
  * - a = array of literals (lemma is a[0] ... a[n-1])
  */
-static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l, ivector_t *units) {
+static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l_ant, ivector_t *units) {
+  literal_t l;
   if (preprocess_clause(s, &n, a)) {
+
 #if TRACE_LIGHT
     uint32_t i;
     printf("---> DPLL:   Add quant clause: {");
@@ -4500,34 +4502,58 @@ static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l
     fflush(stdout);
 #endif
 
-#if 1
     if (n > 2) {
-      add_simplified_clause(s, n, a);
-    } else if (n == 2) {
-      add_simplified_binary_clause(s, a[0], a[1]);
-    } else if (n == 1) {
-//      add_simplified_unit_clause(s, a[0]);
-//      direct_binary_clause(s, l, a[0]);
+      // simply add clause, don't simplify (since can otherwise trigger conflicts/backtracks)
 
-      if (s->decision_level == s->base_level) {
-        add_simplified_unit_clause(s, a[0]);
-      } else {
-        ivector_push(units, a[0]);
-        switch(literal_value(s, a[0])) {
-        case VAL_FALSE:
+      new_problem_clause(s, n, a);
+//      add_simplified_clause(s, n, a);
+    } else if (n == 2) {
+      // simply add clause, don't simplify (since can otherwise trigger conflicts/backtracks)
+
+      direct_binary_clause(s, a[0], a[1]);
+//      add_simplified_binary_clause(s, a[0], a[1]);
+    } else if (n == 1) {
+      // check and add as delayed clause
+
+      l = a[0];
+      switch(literal_value(s, l)) {
+      case VAL_FALSE:
+#if 0
+        printf("---> DPLL:   backtracking: ");
+        print_literal(stdout, l);
+        printf(" is assigned false at level %d\n", s->level[var_of(l)]);
+#endif
+        if (s->decision_level == s->base_level) {
+          // conflict, backtrack to base level and record conflict
+          backtrack_to_base_level(s);
+          record_empty_conflict(s);
+        } else {
           // conflict, backtrack to base level and imply the literal
           backtrack_to_base_level(s);
-          break;
-        case VAL_TRUE:
-#if TRACE_LIGHT
-          printf("---> DPLL:   true unit lemma\n");
-#endif
-          break; // true clause
-        case VAL_UNDEF_FALSE:
-        case VAL_UNDEF_TRUE:
-          implied_literal(s, a[0], mk_literal_antecedent(l));
-          break;
+          implied_literal(s, l, mk_literal_antecedent(l_ant));
         }
+        break;
+      case VAL_TRUE:
+#if 0
+        printf("---> DPLL:   true unit lemma\n");
+#endif
+        if (s->decision_level != s->base_level) {
+          // add to delayed base unit clauses
+          ivector_push(units, l);
+        }
+        break; // true clause
+      case VAL_UNDEF_FALSE:
+      case VAL_UNDEF_TRUE:
+#if 0
+        printf("---> DPLL:   implying\n");
+#endif
+        // imply literal
+        implied_literal(s, l, mk_literal_antecedent(l_ant));
+        if (s->decision_level != s->base_level) {
+          // add to delayed base unit clauses
+          ivector_push(units, l);
+        }
+        break;
       }
 
     } else {
@@ -4535,23 +4561,6 @@ static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l
       record_empty_conflict(s);
     }
   }
-#else
-    if (n > 2) {
-      new_problem_clause(s, n, a);
-    } else if (n == 2) {
-      direct_binary_clause(s, a[0], a[1]);
-    } else if (n == 1) {
-      direct_binary_clause(s, l, a[0]);
-      // implied literal may be already assigned during base propagate
-//      if (literal_is_unassigned(s, a[0])) {
-//        implied_literal(s, a[0], mk_literal_antecedent(l));
-//      }
-    } else {
-      backtrack_to_base_level(s);
-      record_empty_conflict(s);
-    }
-  }
-#endif
 
 #if TRACE
   else {
