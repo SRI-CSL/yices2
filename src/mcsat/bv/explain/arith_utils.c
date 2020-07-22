@@ -401,7 +401,9 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
             bvconstant_t newcoeff;
             init_bvconstant(&newcoeff);
             bvconstant_copy(&newcoeff, w, coeff);
-            bvconst_shift_right(newcoeff.data, w, shift, false);
+            bool sign_bit = bvconst_tst_bit(newcoeff.data, w-1);
+            bvconst_shift_right(newcoeff.data, w, shift, sign_bit); // arithmetic right shift
+            bvconstant_normalize(&newcoeff);
             // Now we build the new monomial variable
             term_t sbits[w];
             for (uint32_t k=0; k<w; k++){
@@ -435,7 +437,7 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
           uint32_t shift = ctz64(coeff);
           assert(shift < w);
           if (shift > 0) { // Coefficient is even, we rewrite
-            coeff = bvconst64_lshr(coeff, (uint64_t) shift, w);
+            coeff = bvconst64_ashr(coeff, (uint64_t) shift, w);
             assert(tst_bit64(coeff, 0));
             // Now we build the new monomial variable
             term_t sbits[w];
