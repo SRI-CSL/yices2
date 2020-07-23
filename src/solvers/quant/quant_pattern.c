@@ -239,22 +239,24 @@ void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, iv
 /*
  * Recursively check if an fapp contains all uvars, and if yes, push in out vector
  */
-static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *uvarMap, uint32_t nuvars, ivector_t *out) {
+static bool quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *uvarMap, uint32_t nuvars, ivector_t *out) {
   term_t x, u;
   term_kind_t kind;
   uint32_t i, n;
   int_hmap_pair_t *p, *p2;
   int_hmap_t tmpMap;
   int_hmap_t *childMap;
+  bool skip;
 
+  skip = false;
   childMap = &tmpMap;
   x = unsigned_term(t);
   kind = term_kind(terms, x);
 
-#if TRACE
-  printf("    processing term ");
-  yices_pp_term(stdout, t, 120, 1, 0);
-#endif
+//#if TRACE
+//  printf("    processing term ");
+//  yices_pp_term(stdout, t, 1200, 1, 0);
+//#endif
 
   // process all children (if any)
   n = term_num_children(terms, x);
@@ -263,7 +265,7 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
     for(i=0; i<n; i++) {
       u = term_child(terms, x, i);
       int_hmap_reset(childMap);
-      quant_infer_single_fapps(terms, u, childMap, nuvars, out);
+      skip |= quant_infer_single_fapps(terms, u, childMap, nuvars, out);
 
       // add child map to parent based on the kind of child
       switch (term_kind(terms, u)) {
@@ -324,7 +326,7 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
     break;
 
   case APP_TERM:
-    if (uvarMap->nelems == nuvars) {
+    if (!skip && uvarMap->nelems == nuvars) {
       ivector_push(out, x);
 #if TRACE
       printf("    found fapp: ");
@@ -343,6 +345,7 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
   case OR_TERM:            // n-ary OR
   case XOR_TERM:           // n-ary XOR
     // reset the map
+    skip = true;
     break;
 
   default:
@@ -350,6 +353,21 @@ static void quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
 //    yices_pp_term(stdout, x, 120, 1, 0);
     assert(false);
   }
+
+#if TRACE
+  printf("    term (%d): ", skip);
+  yices_pp_term(stdout, t, 1200, 1, 0);
+  printf("    table: ");
+  for (p = int_hmap_first_record(uvarMap);
+       p != NULL;
+       p = int_hmap_next_record(uvarMap, p)) {
+//    yices_pp_term_array(stdout, 1, &p->key, 120, 0, 0, 1);
+    printf("%s -> %d, ", yices_term_to_string(p->key, 120, 1, 0), p->val);
+  }
+  printf("\n");
+#endif
+
+  return skip;
 }
 
 /*
