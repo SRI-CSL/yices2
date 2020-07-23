@@ -858,51 +858,6 @@ void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
   fflush(stdout);
 #endif
 
-  // add all delayed base literals (with antecedents)
-  if (solver->decision_level == solver->base_level) {
-    uint32_t i, n;
-    ivector_t *lits, *ants;
-    literal_t l;
-    smt_core_t *s;
-
-    lits = &solver->base_literals;
-    ants = &solver->base_antecedents;
-    s = solver->core;
-
-    n = lits->size;
-    assert(ants->size == n);
-
-    if (n != 0) {
-#if TRACE_LIGHT
-      printf("EMATCH: Adding %d delayed unit base clauses\n", n);
-#endif
-
-      for(i=0; i<n; i++) {
-        l = lits->data[i];
-#if TRACE
-        printf("EMATCH: Assigning literal: ");
-        print_literal(stdout, l);
-        printf("\n");
-#endif
-
-        switch(literal_value(s, l)) {
-        case VAL_FALSE:
-          record_empty_conflict(s);
-          break;
-        case VAL_TRUE:
-          break; // true clause
-        case VAL_UNDEF_FALSE:
-        case VAL_UNDEF_TRUE:
-          implied_literal(s, l, mk_literal_antecedent(ants->data[i]));
-          break;
-        }
-      }
-
-      ivector_reset(lits);
-      ivector_reset(ants);
-    }
-  }
-
 }
 
 
@@ -953,7 +908,55 @@ void quant_solver_start_search(quant_solver_t *solver) {
  * - all the work is done in final_check
  */
 bool quant_solver_propagate(quant_solver_t *solver) {
-  return true;
+  bool result;
+  uint32_t i, n;
+  ivector_t *lits, *ants;
+  literal_t l;
+  smt_core_t *s;
+
+  result = true;
+  lits = &solver->base_literals;
+  ants = &solver->base_antecedents;
+  s = solver->core;
+
+  n = lits->size;
+  assert(ants->size == n);
+
+  // add all delayed base literals (with antecedents)
+  if (n != 0) {
+#if TRACE_LIGHT
+    printf("EMATCH: Propagating %d delayed unit base clauses\n", n);
+#endif
+
+    for(i=0; i<n; i++) {
+      l = lits->data[i];
+#if TRACE_LIGHT
+      printf("EMATCH: Propagating literal: ");
+      print_literal(stdout, l);
+      printf("\n");
+#endif
+
+      switch(literal_value(s, l)) {
+      case VAL_FALSE:
+        record_unit_theory_conflict(s, l);
+        result = false;
+        break;
+      case VAL_TRUE:
+        break; // true clause
+      case VAL_UNDEF_FALSE:
+      case VAL_UNDEF_TRUE:
+        implied_literal(s, l, mk_literal_antecedent(ants->data[i]));
+        break;
+      }
+    }
+
+    if (solver->decision_level == solver->base_level) {
+      ivector_reset(lits);
+      ivector_reset(ants);
+    }
+  }
+
+  return result;
 }
 
 

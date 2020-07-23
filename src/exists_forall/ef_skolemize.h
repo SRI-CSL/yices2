@@ -42,6 +42,7 @@ typedef struct ef_skolemize_s {
   term_table_t *terms;
   ivector_t uvars;
   ivector_t aux;
+  bool has_uvars;
 
   ptr_hmap_t cache;
 } ef_skolemize_t;

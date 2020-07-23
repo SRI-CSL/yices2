@@ -669,6 +669,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
          * t is (forall .. body)
          * it flattens to body
          */
+        sk->has_uvars = true;
         d = forall_term_desc(terms, t);
         n = d->arity - 1;
         for (i=0; i<n; i++) {
@@ -724,6 +725,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   return sp_result;
 }
 
+#if 1
 /*
  * Flattens nested (and .. (and .. ) .. ) and adds them to v
  */
@@ -752,6 +754,7 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
     ivector_push(v, t);
 
 }
+#endif
 
 /*
  * Get the skolemized version of term t
@@ -759,11 +762,14 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
 void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   sk_pair_t *sp;
   term_t skolem;
+  ptr_hmap_t *patterns;
+  ptr_hmap_pair_t *p;
 
 #if 0
   printf("Skolemizing: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
 
+  sk->has_uvars = false;
   sp = ef_skolemize_term(sk, t);
   skolem = sp->t;
 
@@ -771,6 +777,19 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   printf("Skolemized:  %s\n", yices_term_to_string(skolem, 120, 1, 0));
 #endif
 
+  if (sk->has_uvars) {
+    // add empty pattern
+    patterns = sk->prob->patterns;
+    if (patterns != NULL) {
+      p = ptr_hmap_get(patterns, t);
+      if (p->val == NULL) {
+        p->val = safe_malloc(sizeof(ivector_t));
+        init_ivector(p->val, 1);
+      }
+    }
+  }
+
+//  ivector_push(v, skolem);
   ef_flatten_and(sk, skolem, v);
 }
 

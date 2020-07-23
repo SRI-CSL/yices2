@@ -430,6 +430,11 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, te
 
 
 #if 0
+  for(j=0; j<v->size; j++) {
+    printf("SKOLEMIZED assertion: ");
+    yices_pp_term(stdout, v->data[j], 120, 1, 0);
+  }
+
   printf("\n== SKOLEMIZED PATTERNS ==\n");
   for (r = ptr_hmap_first_record(prob->patterns);
        r != NULL;
@@ -1180,10 +1185,8 @@ static void ef_simplify_clause(ef_analyzer_t *ef, ef_clause_t *c) {
  *    Then we add the universal constraint (forall y: A => G) to prob.
  */
 static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
-  term_t a, g, constraint;
+  term_t a, g;
   uint32_t n;
-  ptr_hmap_t *patterns;
-  ptr_hmap_pair_t *p;
 
   n = c->uvars.size;
   if (n == 0) {
@@ -1208,16 +1211,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     // guarantee = or c->guarantees
     g = ef_make_or(ef, &c->guarantees);
 
-    // add empty pattern
-    constraint = yices_implies(a, g);
-    patterns = prob->patterns;
-    if (patterns != NULL) {
-      p = ptr_hmap_get(patterns, constraint);
-      if (p->val == NULL) {
-        p->val = safe_malloc(sizeof(ivector_t));
-        init_ivector(p->val, n);
-      }
-    }
+    // empty patterns already added during skolemization
 
     // ground form
     // convert all uvars to clones and make ground

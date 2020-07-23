@@ -2088,14 +2088,14 @@ void decide_literal(smt_core_t *s, literal_t l) {
 void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   bvar_t v;
 
-  assert(literal_is_unassigned(s, l));
-
 #if TRACE_LIGHT
   printf("---> DPLL:   Implied literal ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", s->decision_level);
   fflush(stdout);
 #endif
+
+  assert(literal_is_unassigned(s, l));
 
   s->stats.propagations ++;
 
@@ -4486,6 +4486,7 @@ static void add_all_lemmas(smt_core_t *s) {
  * Add quant instance lemma: similar to add_clause
  * - n = length of the lemma
  * - a = array of literals (lemma is a[0] ... a[n-1])
+ * Note: Be careful about backtracking here (which can add new unit clauses from quant solver).
  */
 static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l_ant, ivector_t *units) {
   literal_t l;
@@ -4523,13 +4524,19 @@ static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l
         print_literal(stdout, l);
         printf(" is assigned false at level %d\n", s->level[var_of(l)]);
 #endif
-        if (s->decision_level == s->base_level) {
-          // conflict, backtrack to base level and record conflict
-          backtrack_to_base_level(s);
+
+        // conflict, backtrack to base level
+        backtrack_to_base_level(s);
+
+        // imply the literal or record conflict
+        switch (literal_base_value(s, l)) {
+        case VAL_FALSE:
           record_empty_conflict(s);
-        } else {
-          // conflict, backtrack to base level and imply the literal
-          backtrack_to_base_level(s);
+          break;
+        case VAL_TRUE:
+          break; // true clause
+        default:
+          // imply literal
           implied_literal(s, l, mk_literal_antecedent(l_ant));
         }
         break;
