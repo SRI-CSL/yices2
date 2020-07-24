@@ -259,6 +259,9 @@ term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const
       }
     }
 
+    // BD: remove a false alarm produced by the clang static analyzer
+    assert(subexplainer != NULL);
+
     if (ctx_trace_enabled(exp->ctx, "mcsat::bv::explain")) {
       FILE* out = ctx_trace_out(exp->ctx);
       fprintf(out, "subtheory %s\n", subexplainer->name);
