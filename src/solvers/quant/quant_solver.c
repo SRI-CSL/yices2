@@ -627,11 +627,14 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   for(i=0; i<n; i++) {
     l = units->data[i];
     if (solver->decision_level == solver->base_level) {
-      if (literal_is_unassigned(solver->core, l)) {
-        implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
-      }
-      else if (literal_value(solver->core, l) == VAL_FALSE) {
+      switch(literal_base_value(solver->core, l)) {
+      case VAL_FALSE:
         record_unit_theory_conflict(solver->core, l);
+        break;
+      case VAL_TRUE:
+        break;
+      default:
+        implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
       }
     } else {
 #if TRACE_LIGHT
