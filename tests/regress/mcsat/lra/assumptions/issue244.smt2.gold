@@ -1,2 +1,2 @@
 unsat
-(< (* -1 v0) 0)
+(or (< (* -1 v0) 0) (not (arith-root-atom < 0 v0 (+ (* -1 v0) (* 2 (^ v0 2))))) (not (arith-root-atom < 0 v0 (+ v0 (* 2 (^ v0 2))))))

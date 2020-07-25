@@ -1,6 +1,6 @@
 sat
 unsat
-(or (>= (* -1 i12) 0) (>= (* -1 i7) 0) (>= (* -1 i2) 0))
+(or (>= (* -1 i12) 0) (>= (* -1 i7) 0) (>= (* -1 i2) 0) (not (arith-root-atom > 0 i12 (+ (* -1 i2) (* 3009 i7 i12)))))
 sat
 sat
 (error "No unsat interpolant. The context is satisfiable")
