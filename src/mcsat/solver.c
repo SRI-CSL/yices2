@@ -360,7 +360,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
   }
 
   if (!is_equality) {
-    for (i = kind; mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
+    for (i = kind; mcsat->kind_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TERM_KINDS) {
       int_mset_clear(vars);
       plugin = mcsat->plugins[mcsat->kind_owners[i]].plugin;
       if (plugin->explain_evaluation) {
@@ -377,7 +377,7 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
   } else {
     composite_term_t* eq_desc = composite_term_desc(mcsat->terms, t);
     type_kind = term_type_kind(mcsat->terms, eq_desc->arg[0]);
-    for (i = type_kind; mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += MCSAT_MAX_PLUGINS) {
+    for (i = type_kind; mcsat->type_owners[i] != MCSAT_MAX_PLUGINS; i += NUM_TERM_KINDS) {
       int_mset_clear(vars);
       plugin = mcsat->plugins[mcsat->type_owners[i]].plugin;
       if (plugin->explain_evaluation) {
