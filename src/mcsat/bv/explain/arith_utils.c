@@ -1,19 +1,8 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2019 SRI International.
+ * The Yices SMT Solver. Copyright 2015 SRI International.
  *
- * Yices is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Yices is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ * This program may only be used subject to the noncommercial end user
+ * license agreement which is downloadable along with this program.
  */
 
 #include "mcsat/tracing.h"
@@ -231,7 +220,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+      if (!bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
         if (monom_var == const_idx) // constant coefficient gets aded to the buffer bv_poly
           bvarith_buffer_add_const(buffer, t_poly->mono[i].coeff);
         else // Otherwise we add the w-bit monomial to the bv_poly
@@ -242,7 +231,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (!bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+      if (bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
         bvconstant_t coeff;
         init_bvconstant(&coeff);
         bvconstant_copy(&coeff, w, t_poly->mono[i].coeff);
@@ -264,7 +253,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     // Now going into each monomial
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+      if (!tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
         if (monom_var == const_idx) // constant coefficient gets added to the buffer bv_poly
           bvarith64_buffer_add_const(buffer, t_poly->mono[i].coeff);
         else // Otherwise we add the w-bit monomial to the bv_poly
@@ -275,7 +264,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith64_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (!tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+      if (tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
         if (monom_var == const_idx)
           bvarith64_buffer_add_const(buffer, - t_poly->mono[i].coeff); // constant coefficient gets added to the buffer bv_poly
         else
@@ -330,8 +319,9 @@ term_t arith_le(term_manager_t* tm, term_t left, term_t right) {
     return true_term;
   }
   // (left <= 0) and (-1 <= right) turns into (left == right)
-  if (arith_is_zero(terms, right)) {
-    return arith_eq0(tm, left);
+  if (arith_is_zero(terms, right)
+      || arith_is_minus_one(terms, left)) {
+    return arith_eq0(tm, arith_sub(tm, left, right));
   }
   // (1 <= right) turns into (right != 0)
   if (arith_is_one(terms, left)) {
