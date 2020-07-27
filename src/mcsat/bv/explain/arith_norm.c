@@ -869,10 +869,8 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
   }
 
   default: {
-    assert(!is_boolean_term(terms,t));
-    term_t tmp = term_extract(tm, t, 0, w);
-    arith_analyse_t* analysis = arith_analyse(norm, tmp);
-    return finalise(norm, t, analysis);
+    assert(false);
+    return NULL_TERM; // Just to prevent compiler complaining
   }
   }
 }

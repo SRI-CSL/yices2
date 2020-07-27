@@ -1389,7 +1389,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       ctx_trace_term(ctx, csttrail->conflict_var_term);
     }
 
-    switch (term_kind(terms, atom_term)) {
+    term_kind_t kind = term_kind(terms, atom_term);
+
+    switch (kind) {
     case EQ_TERM : 
     case BV_EQ_ATOM:
     case BV_GE_ATOM: 
@@ -1454,7 +1456,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         result = false;
         break;
       }
-      if (t0_coeff * t1_coeff == -1) {
+      if ( (kind != EQ_TERM)
+           && (kind != BV_EQ_ATOM)
+           && (t0_coeff * t1_coeff == -1) ) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);
