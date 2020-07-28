@@ -1200,11 +1200,12 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
   } else {
     // get in the variable form, and as well as in the ground form
 
+    // BD: this duplicates the code below
     // build the assumption: not (or c->assumptions)
-    a = opposite_term(ef_make_or(ef, &c->assumptions));
-
+    //    a = opposite_term(ef_make_or(ef, &c->assumptions));
     // guarantee = or c->guarantees
-    g = ef_make_or(ef, &c->guarantees);
+    //    g = ef_make_or(ef, &c->guarantees);
+    //
 
     // ground form
     // convert all uvars to clones and make ground

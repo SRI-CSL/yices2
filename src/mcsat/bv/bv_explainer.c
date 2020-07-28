@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2017 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #if defined(CYGWIN) || defined(MINGW)
@@ -195,6 +206,10 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
     }
   }
 
+  // BD: try to remove a false alarm produced by
+  // the clang static analyzer
+  assert(subexplainer != NULL);
+
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(exp->ctx);
     fprintf(out, "subtheory %s\n", subexplainer->name);
@@ -243,6 +258,9 @@ term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const
         break;
       }
     }
+
+    // BD: remove a false alarm produced by the clang static analyzer
+    assert(subexplainer != NULL);
 
     if (ctx_trace_enabled(exp->ctx, "mcsat::bv::explain")) {
       FILE* out = ctx_trace_out(exp->ctx);

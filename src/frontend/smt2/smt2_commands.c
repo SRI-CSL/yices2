@@ -5170,7 +5170,7 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
   case PARAM_MCSAT_VAR_ORDER:
     print_terms_value(g,g->mcsat_options.var_order);
     break;
-    
+
   case PARAM_UNKNOWN:
   default:
     freport_bug(g->err,"invalid parameter id in 'yices_get_option'");
@@ -5845,7 +5845,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       }
     }
     break;
-    
+
   case PARAM_MCSAT_VAR_ORDER:
     if (param_val_to_terms(param, val, &terms, &reason)) {
       g->mcsat_options.var_order = terms;
@@ -6440,7 +6440,9 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
   tprint_calls("check-sat-assuming", __smt2_globals.stats.num_check_sat_assuming);
 
   if (check_logic()) {
-    if (__smt2_globals.benchmark_mode) {
+    if (__smt2_globals.produce_unsat_cores) {
+      print_error("check-sat-assuming is not supported when :produce-unsat-cores is true");
+    } else if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
         print_error("the exists/forall solver does not support check-sat with assumptions");
       } else if (__smt2_globals.frozen) {
@@ -6779,7 +6781,7 @@ void smt2_reset_all(void) {
   timeout = __smt2_globals.timeout;
   print_success = __smt2_globals.print_success;
   verbosity = __smt2_globals.verbosity;
-  
+
   delete_smt2_globals(&__smt2_globals);
   delete_attr_vtbl(&avtbl); // must be done last
   yices_reset_tables();
