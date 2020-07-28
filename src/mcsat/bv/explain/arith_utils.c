@@ -375,17 +375,15 @@ bool arith_is_sum_norm(term_table_t* terms, term_t t) {
 // returns the number of low bit zeros in t
 term_t term_zeros(term_manager_t* tm, term_t t) {
   term_table_t* terms = tm->terms;
-  switch (term_kind(terms, t)) {
-  case BV_ARRAY: {  // Concatenated boolean terms
+  if (term_kind(terms, t) == BV_ARRAY) {  // Concatenated boolean terms
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
     uint32_t w = term_bitsize(terms, t);
-    // First, we copy the array of bits
     for (uint32_t i = 0; i < w; i++)
       if (concat_desc->arg[i] != false_term)
         return i;
     return w;
-  }
-  default: return 0;
+  } else {
+    return 0;
   }
 }
 
