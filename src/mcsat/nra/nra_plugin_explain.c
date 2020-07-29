@@ -101,6 +101,9 @@ struct lp_projection_map_struct {
   /** The assignment */
   const lp_assignment_t* m;
 
+  /** Whether to use root constraints for cell description */
+  bool use_root_constraints_for_cells;
+
   /** The nra plugin */
   nra_plugin_t* nra;
 };
@@ -117,6 +120,7 @@ void lp_projection_map_construct(lp_projection_map_t* map, nra_plugin_t* nra) {
   map->var_db = nra->lp_data.lp_var_db;
   map->order = nra->lp_data.lp_var_order;
   map->m = nra->lp_data.lp_assignment;
+  map->use_root_constraints_for_cells = true;
   map->nra = nra;
 
   lp_polynomial_hash_set_construct(&map->all_polynomials);
@@ -306,7 +310,13 @@ int lp_projection_map_print(const lp_projection_map_t* map, FILE* out) {
   return ret;
 }
 
-term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x, size_t root_index, const lp_polynomial_t* p, root_atom_rel_t r) {
+/**
+ * Describe a part of a (or the whole) cell. If map->use_root_constraints_for_cells is true root constraints
+ * will be used for full precision (unless not needed). If map->use_root_constraints_for_cells is false
+ * then the cell part will be described using polynomial constraints only. The output is pushed
+ * into the given vector as terms.
+ */
+void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_t x, size_t root_index, const lp_polynomial_t* p, root_atom_rel_t r, ivector_t* out) {
   assert(lp_polynomial_top_variable(p) == x);
   assert(lp_polynomial_lc_sgn(p) > 0);
 
@@ -351,43 +361,42 @@ term_t lp_projection_map_mk_root_atom(lp_projection_map_t* map, lp_variable_t x,
     }
   } else {
     // Regular root atom
-    variable_t x_var = nra_plugin_get_variable_from_lp_variable(map->nra, x);
-    term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
-    term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
-    root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
+    if (map->use_root_constraints_for_cells) {
+      variable_t x_var = nra_plugin_get_variable_from_lp_variable(map->nra, x);
+      term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
+      term_t p_term = lp_polynomial_to_yices_term(map->nra, p);
+      root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
+    } else {
+      // Add all the derivatives according to the sign in the current model, disregard the root type
+      lp_polynomial_t* current = lp_polynomial_new_copy(p);
+      lp_polynomial_t* current_d = lp_polynomial_new(map->ctx);
+      while (!lp_polynomial_is_constant(current) && lp_polynomial_top_variable(current) == x) {
+        int current_sgn = lp_polynomial_sgn(current, map->m);
+        term_t current_term = lp_polynomial_to_yices_term(map->nra, current);
+        term_t current_literal = NULL_TERM;
+        if (current_sgn < 0) {
+          current_literal = mk_arith_term_lt0(tm, current_term);
+        } else if (current_sgn > 0) {
+          current_literal = mk_arith_term_gt0(tm, current_term);
+        } else {
+          current_literal = mk_arith_term_eq0(tm, current_term);
+        }
+        // Add to output
+        ivector_push(out, current_literal);
+        // Compute derivative and continue
+        lp_polynomial_derivative(current_d, current);
+        lp_polynomial_swap(current_d, current);
+      }
+      // Remove temps
+      lp_polynomial_delete(current);
+      lp_polynomial_delete(current_d);
+    }
   }
 
   assert(term_kind(tm->terms, root_atom) != CONSTANT_TERM);
 
-  return root_atom;
+  ivector_push(out, root_atom);
 }
-
-#ifndef NDEBUG
-static
-bool ensure_true(plugin_context_t* ctx, term_t literal) {
-  term_t atom = unsigned_term(literal);
-  variable_t atom_var = variable_db_get_variable_if_exists(ctx->var_db, atom);
-  bool ok = true;
-  if (atom_var != variable_null) {
-    if (trail_has_value(ctx->trail, atom_var)) {
-      const mcsat_value_t* atom_value = trail_get_value(ctx->trail, atom_var);
-      if (atom_value->type != VALUE_BOOLEAN) {
-        fprintf(stderr, "Value not Boolean\n");
-        ok = false;
-      } else if (atom_value->b == (literal != atom)){
-        fprintf(stderr, "Value is false (should be true)\n");
-        ok = false;
-      }
-    }
-  }
-  if (!ok) {
-    fprintf(stderr, "var = %d\n", atom_var);
-  }
-
-  return ok;
-}
-
-#endif
 
 /**
  * Compare two polynomials by degree. Otherwise, go for the leading coefficients
@@ -631,34 +640,16 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
 
   // Add the cell constraint
   if (lp_interval_is_point(&x_cell)) {
-    term_t eq_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ);
-    ivector_push(out, eq_root_atom);
-    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
-      ctx_trace_printf(ctx, "eq_root_atom = "); ctx_trace_term(ctx, eq_root_atom);
-    }
-    assert(ensure_true(ctx, eq_root_atom));
+    lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ, out);
   } else {
-
     const lp_value_t* x_cell_lb = lp_interval_get_lower_bound(&x_cell);
     const lp_value_t* x_cell_ub = lp_interval_get_upper_bound(&x_cell);
-
     assert(lp_value_cmp(x_cell_lb, x_cell_ub) < 0);
-
     if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
-      term_t lb_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT);
-      ivector_push(out, lb_root_atom);
-      if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
-        ctx_trace_printf(ctx, "lb_root_atom = "); ctx_trace_term(ctx, lb_root_atom);
-      }
-      assert(ensure_true(ctx, lb_root_atom));
+      lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT, out);
     }
     if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
-      term_t ub_root_atom = lp_projection_map_mk_root_atom(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT);
-      ivector_push(out, ub_root_atom);
-      if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
-        ctx_trace_printf(ctx, "ub_root_atom = "); ctx_trace_term(ctx, ub_root_atom);
-      }
-      assert(ensure_true(ctx, ub_root_atom));
+     lp_projection_map_describe_cell_part(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT, out);
     }
   }
 
@@ -1098,3 +1089,26 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   // Remove the projection map
   lp_projection_map_destruct(&projection_map);
 }
+
+void nra_plugin_describe_cell(nra_plugin_t* nra, variable_t constraint_var, ivector_t* out_literals) {
+
+  assert(trail_has_value(nra->ctx->trail, constraint_var));
+  assert(trail_get_boolean_value(nra->ctx->trail, constraint_var));
+
+  // Create the map from variables to polynomials
+  lp_projection_map_t projection_map;
+  lp_projection_map_construct(&projection_map, nra);
+  projection_map.use_root_constraints_for_cells = false;
+
+  // Add all the polynomial
+  const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+  const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
+  lp_projection_map_add(&projection_map, p);
+
+  // Project
+  lp_projection_map_project(&projection_map, out_literals);
+
+  // Remove the projection map
+  lp_projection_map_destruct(&projection_map);
+}
+
