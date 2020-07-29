@@ -107,11 +107,11 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, APP_TERM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
-  ctx->request_term_notification_by_kind(ctx, EQ_TERM);
+  ctx->request_term_notification_by_kind(ctx, APP_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
+  ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);

@@ -36,8 +36,8 @@ typedef struct {
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->ctx = ctx;
-  ctx->request_term_notification_by_kind(ctx, ITE_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
+  ctx->request_term_notification_by_kind(ctx, ITE_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 }
 
 void ite_plugin_destruct(plugin_t* plugin) {

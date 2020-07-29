@@ -146,11 +146,11 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bp->trail_i = 0;
   bp->propagated_size = 0;
 
-  ctx->request_term_notification_by_kind(ctx, OR_TERM);
-  ctx->request_term_notification_by_kind(ctx, XOR_TERM);
-  ctx->request_term_notification_by_kind(ctx, EQ_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
+  ctx->request_term_notification_by_kind(ctx, OR_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, XOR_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 
   ctx->request_term_notification_by_type(ctx, BOOL_TYPE);
 

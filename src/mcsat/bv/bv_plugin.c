@@ -168,24 +168,24 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_generic_heap(&bv->visit_heap, 0, 0, term_visit_cmp, NULL);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
-  ctx->request_term_notification_by_kind(ctx, BV_DIV);
-  ctx->request_term_notification_by_kind(ctx, BV_REM);
-  ctx->request_term_notification_by_kind(ctx, BV_SDIV);
-  ctx->request_term_notification_by_kind(ctx, BV_SREM);
-  ctx->request_term_notification_by_kind(ctx, BV_SMOD);
-  ctx->request_term_notification_by_kind(ctx, BV_SHL);
-  ctx->request_term_notification_by_kind(ctx, BV_LSHR);
-  ctx->request_term_notification_by_kind(ctx, BV_ASHR);
-  ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
-  ctx->request_term_notification_by_kind(ctx, BV_POLY);
-  ctx->request_term_notification_by_kind(ctx, BV64_POLY);
-  ctx->request_term_notification_by_kind(ctx, BIT_TERM);
-  ctx->request_term_notification_by_kind(ctx, BV_CONSTANT);
-  ctx->request_term_notification_by_kind(ctx, BV64_CONSTANT);
+  ctx->request_term_notification_by_kind(ctx, BV_ARRAY, false);
+  ctx->request_term_notification_by_kind(ctx, BV_DIV, false);
+  ctx->request_term_notification_by_kind(ctx, BV_REM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SDIV, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SREM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SMOD, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SHL, false);
+  ctx->request_term_notification_by_kind(ctx, BV_LSHR, false);
+  ctx->request_term_notification_by_kind(ctx, BV_ASHR, false);
+  ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
+  ctx->request_term_notification_by_kind(ctx, BV_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, BV64_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, BIT_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, BV64_CONSTANT, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, BITVECTOR_TYPE);

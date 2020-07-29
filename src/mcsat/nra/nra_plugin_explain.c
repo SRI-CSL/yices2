@@ -370,7 +370,7 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
       // Add all the derivatives according to the sign in the current model, disregard the root type
       lp_polynomial_t* current = lp_polynomial_new_copy(p);
       lp_polynomial_t* current_d = lp_polynomial_new(map->ctx);
-      while (!lp_polynomial_is_constant(current) && lp_polynomial_top_variable(current) == x) {
+      while (!lp_polynomial_is_constant(current)) {
         int current_sgn = lp_polynomial_sgn(current, map->m);
         term_t current_term = lp_polynomial_to_yices_term(map->nra, current);
         term_t current_literal = NULL_TERM;
@@ -383,6 +383,9 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
         }
         // Add to output
         ivector_push(out, current_literal);
+        // If the top variable is not x anymore, we're done (we added it already)
+        if (lp_polynomial_top_variable(current) != x)
+          break;
         // Compute derivative and continue
         lp_polynomial_derivative(current_d, current);
         lp_polynomial_swap(current_d, current);
@@ -1092,20 +1095,21 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   lp_projection_map_destruct(&projection_map);
 }
 
-void nra_plugin_describe_cell(nra_plugin_t* nra, variable_t constraint_var, ivector_t* out_literals) {
-
-  assert(trail_has_value(nra->ctx->trail, constraint_var));
-  assert(trail_get_boolean_value(nra->ctx->trail, constraint_var));
+void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals) {
 
   // Create the map from variables to polynomials
   lp_projection_map_t projection_map;
   lp_projection_map_construct(&projection_map, nra);
   projection_map.use_root_constraints_for_cells = false;
 
-  // Add all the polynomial
-  const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
-  const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
-  lp_projection_map_add(&projection_map, p);
+  if (ctx_trace_enabled(nra->ctx, "nra::simplify_conflict")) {
+    ctx_trace_printf(nra->ctx, "p = "); ctx_trace_term(nra->ctx, p);
+  }
+
+  // Addd the polynomial
+  lp_polynomial_t* p_poly = lp_polynomial_from_term(nra, nra->ctx->terms, p, NULL);
+  lp_projection_map_add(&projection_map, p_poly);
+  lp_polynomial_delete(p_poly);
 
   // Project
   lp_projection_map_project(&projection_map, out_literals);

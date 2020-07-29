@@ -133,20 +133,20 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   }
 
   // Atoms
-  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
-  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
-  ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR);
+  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM, true);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_CEIL, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR, false);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT);
-  ctx->request_term_notification_by_kind(ctx, ARITH_POLY);
-  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
+  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
 
   // Types (we add INT because it's there for ITEs over int constants)
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
@@ -2043,6 +2043,31 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
 
 }
 
+bool nra_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+
+  // We only simplify root constraints
+  term_t lit_pos = unsigned_term(lit);
+  term_kind_t lit_kind = term_kind(nra->ctx->terms, lit_pos);
+  if (lit_kind != ARITH_ROOT_ATOM) {
+    return false;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "nra::simplify_conflict")) {
+    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+    ctx_trace_term(nra->ctx, lit_pos);
+  }
+
+  // Get the polynomial of the root atom
+  root_atom_t* root_atom = arith_root_atom_desc(nra->ctx->terms, lit_pos);
+  term_t lit_p = root_atom->p;
+
+  // Cell will be described as a conjunction of true atoms
+  nra_plugin_describe_cell(nra, lit_p, output);
+
+  return true;
+}
+
 plugin_t* nra_plugin_allocator(void) {
   nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -2058,6 +2083,7 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation  = nra_plugin_explain_evaluation;
+  plugin->plugin_interface.simplify_conflict_literal = nra_plugin_simplify_conflict_literal;
   plugin->plugin_interface.push                = nra_plugin_push;
   plugin->plugin_interface.pop                 = nra_plugin_pop;
   plugin->plugin_interface.gc_mark             = nra_plugin_gc_mark;
