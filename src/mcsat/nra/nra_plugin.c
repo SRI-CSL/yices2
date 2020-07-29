@@ -814,10 +814,12 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           lp_value_t x_value;
           lp_value_construct_none(&x_value);
           lp_feasibility_set_pick_value(feasible, &x_value);
-          mcsat_value_t value;
-          mcsat_value_construct_lp_value(&value, &x_value);
-          prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-          mcsat_value_destruct(&value);
+          if (lp_value_is_rational(&x_value)) {
+            mcsat_value_t value;
+            mcsat_value_construct_lp_value(&value, &x_value);
+            prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
+            mcsat_value_destruct(&value);
+          }
           lp_value_destruct(&x_value);
         }
       }
