@@ -390,6 +390,8 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
       // Remove temps
       lp_polynomial_delete(current);
       lp_polynomial_delete(current_d);
+      // Done
+      return;
     }
   }
 
