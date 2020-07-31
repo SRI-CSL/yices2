@@ -1895,7 +1895,9 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
     value_t v = model_get_term_value(mcsat->assumptions_model, interpolant);
     bool interpolant_is_false = is_false(&mcsat->assumptions_model->vtbl, v);
     if (!interpolant_is_false) {
+      fprintf(trace_out(trace), "model:\n");
       model_print(trace_out(trace), mcsat->assumptions_model);
+      fprintf(trace_out(trace), "interpolant:\n");
       trace_term_ln(trace, conflict.terms, interpolant);
     }
     assert(interpolant_is_false);

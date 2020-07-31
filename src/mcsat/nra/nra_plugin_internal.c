@@ -22,6 +22,7 @@
 #include "mcsat/tracing.h"
 
 #include "utils/int_hash_map.h"
+#include "libpoly_utils.h"
 
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, int_mset_t* vars_out) {
 
@@ -248,8 +249,10 @@ void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, vari
   (*nra->stats.conflicts_int) ++;
 }
 
-void nra_plugin_report_assumption_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
+void nra_plugin_report_assumption_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable, const mcsat_value_t* value) {
   prop->conflict(prop);
   nra->conflict_variable_assumption = variable;
+  assert(value->type == VALUE_LIBPOLY);
+  lp_value_assign(&nra->conflict_variable_value, &value->lp_value);
   (*nra->stats.conflicts_assumption) ++;
 }

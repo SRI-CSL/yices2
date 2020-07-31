@@ -159,6 +159,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
   nra->conflict_variable_assumption = variable_null;
+  lp_value_construct_none(&nra->conflict_variable_value);
 
   nra->global_bound_term = NULL_TERM;
 
@@ -1501,8 +1502,7 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
 }
 
 static
-void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t* neg,
-    variable_t x, ivector_t* conflict) {
+void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
   size_t i;
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
@@ -1531,14 +1531,43 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, int_mset_t* pos, int_
     }
   }
 
-  // No projection needed, we just return the core
-  assert(lemma_reasons.size == 0);
-  assert(core.size == 1);
-  variable_t constraint_var = core.data[0];
-  term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
-  assert(trail_has_value(nra->ctx->trail, constraint_var));
-  ivector_push(conflict, constraint_term);
-  ivector_push(conflict, opposite_term(constraint_term));
+  // The assumptions conflict is either with a single constraints, or with a unit lemma
+  // - single constraint: return C or !C (one is assigned, other one evaluates)
+  // - unit lemma: return the lemma itself
+  if (lemma_reasons.size > 0) {
+    assert(core.size == 0);
+    // We don't know the actual lemma terms, just the variables
+    // We do know that if we evaluate with the conflict variable the terms should eval to false
+    // 1. Setup the model with the conflict variable
+    variable_t var = nra->conflict_variable_assumption;
+    lp_variable_t lp_var = nra_plugin_get_lp_variable(nra, var);
+    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &nra->conflict_variable_value);
+    lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
+    for (i = 0; i < lemma_reasons.size; ++ i) {
+      // 2. Evaluate the constraint and figure out how it evaluates to false
+      variable_t constraint_var = lemma_reasons.data[i];
+      const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+      bool constraint_value = false;
+      bool ok = poly_constraint_evaluate(constraint, nra, &constraint_value);
+      assert(ok);
+      term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+      if (constraint_value) {
+        ivector_push(conflict, constraint_term);
+      } else {
+        ivector_push(conflict, opposite_term(constraint_term));
+      }
+    }
+    // 3. Pop the model
+    lp_variable_order_pop(nra->lp_data.lp_var_order);
+    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, 0);
+  } else {
+    assert(core.size == 1);
+    variable_t constraint_var = core.data[0];
+    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    assert(trail_has_value(nra->ctx->trail, constraint_var));
+    ivector_push(conflict, constraint_term);
+    ivector_push(conflict, opposite_term(constraint_term));
+  }
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): conflict:\n");
@@ -1571,7 +1600,7 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   } else if (nra->conflict_variable_int != variable_null) {
     nra_plugin_get_int_conflict(nra, &pos, &neg, nra->conflict_variable_int, conflict);
   } else if (nra->conflict_variable_assumption != variable_null) {
-    nra_plugin_get_assumption_conflict(nra, &pos, &neg, nra->conflict_variable_assumption, conflict);
+    nra_plugin_get_assumption_conflict(nra, nra->conflict_variable_assumption, conflict);
   }
 
   int_mset_destruct(&pos);
@@ -1726,6 +1755,7 @@ void nra_plugin_pop(plugin_t* plugin) {
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
   nra->conflict_variable_assumption = variable_null;
+  lp_value_assign_raw(&nra->conflict_variable_value, LP_VALUE_NONE, 0);
 
   // We undid last decision, so we're back to normal
   nra->last_decided_and_unprocessed = variable_null;
@@ -1940,27 +1970,6 @@ void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
 }
 
 static
-const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* alternative) {
-  lp_value_t lp_value;
-  lp_rational_t rat_value;
-  switch (value->type) {
-  case VALUE_LIBPOLY:
-    return value;
-  case VALUE_RATIONAL:
-    lp_rational_construct(&rat_value);
-    q_get_mpq((rational_t*)&value->q, &rat_value);
-    lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
-    mcsat_value_construct_lp_value(alternative, &lp_value);
-    lp_value_destruct(&lp_value);
-    lp_rational_destruct(&rat_value);
-    return alternative;
-  default:
-    assert(false);
-  }
-  return NULL;
-}
-
-static
 void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
   // If we get a rational, conver to lp_value_t
@@ -1974,7 +1983,7 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
   // Check if this was feasible
   if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
     // Ouch, conflict
-    nra_plugin_report_assumption_conflict(nra, decide, x);
+    nra_plugin_report_assumption_conflict(nra, decide, x, lp_value);
   }
   // Remove temps
   if (lp_value != value) {

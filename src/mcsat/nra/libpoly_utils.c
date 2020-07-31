@@ -321,3 +321,23 @@ term_t lp_polynomial_to_yices_term(nra_plugin_t* nra, const lp_polynomial_t* lp_
   return result;
 }
 
+const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* alternative) {
+  lp_value_t lp_value;
+  lp_rational_t rat_value;
+  switch (value->type) {
+  case VALUE_LIBPOLY:
+    return value;
+  case VALUE_RATIONAL:
+    lp_rational_construct(&rat_value);
+    q_get_mpq((rational_t*)&value->q, &rat_value);
+    lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+    mcsat_value_construct_lp_value(alternative, &lp_value);
+    lp_value_destruct(&lp_value);
+    lp_rational_destruct(&rat_value);
+    return alternative;
+  default:
+    assert(false);
+  }
+  return NULL;
+}
+
