@@ -1549,6 +1549,7 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
       bool constraint_value = false;
       bool ok = poly_constraint_evaluate(constraint, nra, &constraint_value);
+      (void) ok;
       assert(ok);
       term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
       if (constraint_value) {
