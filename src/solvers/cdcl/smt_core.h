@@ -1645,8 +1645,9 @@ extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
  * - a conflict clause may be recorded
  * If so, conflict resolution must be called outside this function
  * Literal en is the enable associated with the quantifier instance
+ * Return the total number of lemmas learnt
  */
-extern void add_all_quant_lemmas(smt_core_t *s, literal_t en, ivector_t *units);
+extern uint32_t add_all_quant_lemmas(smt_core_t *s, literal_t en, ivector_t *units);
 
 /*
  * Record the empty clause as a conflict

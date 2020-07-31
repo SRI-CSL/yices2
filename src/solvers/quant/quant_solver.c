@@ -40,13 +40,14 @@
 #include "context/internalization_codes.h"
 #include "context/quant_context_utils.h"
 #include "terms/term_substitution.h"
+#include "utils/prng.h"
 
 #define EM_VERBOSE 0
 
 #define TRACE 0
 #define TRACE_LIGHT 0
 
-#if TRACE || TRACE_VERBOSE
+#if TRACE || TRACE_LIGHT
 
 #include <stdio.h>
 
@@ -293,7 +294,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
 
   valid = quant_table_check_cnstr(qtbl, &solver->ptbl, i);
   if (!valid) {
-#if TRACE
+#if TRACE_LIGHT
     printf("\nError in assertion + pattern for:\n");
     quant_solver_print_cnstr(stdout, solver, i);
 #endif
@@ -306,7 +307,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
     cnstr->patterns = make_index_vector(v.data, v.size);
 
     valid = quant_table_check_cnstr(qtbl, &solver->ptbl, i);
-#if TRACE
+#if TRACE_LIGHT
     printf("\nNew assertion + pattern for:\n");
     quant_solver_print_cnstr(stdout, solver, i);
 #endif
@@ -319,7 +320,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
   delete_ivector(&fa);
   delete_ivector(&c);
 
-#if TRACE
+#if TRACE_LIGHT
   quant_solver_print_cnstr(stdout, solver, i);
 #endif
 
@@ -336,6 +337,8 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
 
   prob = solver->prob;
   patterns = prob->patterns;
+  int_hmap_reset(&solver->aux_map);
+
   if (patterns != NULL) {
     for (r = ptr_hmap_first_record(patterns);
          r != NULL;
@@ -372,6 +375,7 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 
   solver->prob = prob;
   quant_preprocess_prob(solver);
+  learner_setup(&solver->learner);
 //  assert(0);
 
   ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx);
@@ -414,6 +418,8 @@ static inline void ematch_reset_start_stats(quant_solver_t *solver) {
   solver->stats.num_search++;
   solver->stats.num_instances_per_search = 0;
   solver->stats.num_rounds_per_search = 0;
+
+  learner_reset_round(&solver->learner);
 }
 
 static inline void ematch_reset_round_stats(quant_solver_t *solver) {
@@ -525,6 +531,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   uint32_t i, n;
   term_t rhst;
   occ_t rhs;
+  uint32_t cost;
 
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
@@ -613,13 +620,15 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
 
   ivector_reset(units);
 
-#if TRACE_LIGHT
+#if TRACE
   printf("(BEGIN): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
 #endif
 
-  add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
+  cost = add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
+  learner_update_lemma_reward(&solver->learner, cost);
 
-#if TRACE_LIGHT
+
+#if TRACE
   printf("(END): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
 #endif
 
@@ -637,7 +646,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
         implied_literal(solver->core, l, mk_literal_antecedent(cnstr->enable_lit));
       }
     } else {
-#if TRACE_LIGHT
+#if TRACE
       printf("EMATCH: Delaying unit base clause: { ");
       print_literal(stdout, l);
       printf(" }\n");
@@ -667,6 +676,7 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
   pattern_t *pat;
   ivector_t *matches;
   smt_status_t status;
+  uint32_t oldcount, nadded;
 
   em = &solver->em;
   exec =  &em->exec;
@@ -674,11 +684,10 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
   ptbl = em->ptbl;
 
   cnstr = qtbl->data + cidx;
-
-#if TRACE
-  uint32_t oldcount;
   oldcount = solver->stats.num_instances_per_round;
+  nadded = 0;
 
+#if TRACE_LIGHT
   printf("-------------------\n");
   printf("Trying matching cnstr @%d: ", cidx);
   yices_pp_term(stdout, cnstr->t, 120, 1, 0);
@@ -725,27 +734,29 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
   }
 
 done:
-#if TRACE
-  if((solver->stats.num_instances_per_round - oldcount) != 0) {
-    printf("\nFound #%d instances for cnstr @%d\n", (solver->stats.num_instances_per_round - oldcount), cidx);
+  nadded = (solver->stats.num_instances_per_round - oldcount);
+  if (nadded != 0) {
+    learner_add_cnstr(&solver->learner, cidx);
+  }
+
+#if TRACE_LIGHT
+  if(nadded != 0) {
+    printf("Found #%d instances for cnstr @%d\n", nadded, cidx);
   }
 #endif
   return;
 }
 
+
 /*
- * Match and learn instances
+ * Match and learn all instances in serial order
  */
-static void ematch_process_all_cnstr(quant_solver_t *solver) {
+static void ematch_process_cnstr_all(quant_solver_t *solver) {
   quant_table_t *qtbl;
   uint32_t i, n;
 
   qtbl = &solver->qtbl;
   n = qtbl->nquant;
-
-  context_enable_quant(solver->em.ctx);
-
-  ematch_reset_round_stats(solver);
 
   for(i=0; i<n; i++) {
     if (ematch_reached_instance_limit(solver))
@@ -753,10 +764,136 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
     ematch_process_cnstr(solver, i);
   }
 
-  context_disable_quant(solver->em.ctx);
+}
+
+/*
+ * Match and learn instances in random order
+ */
+static void ematch_process_cnstr_random(quant_solver_t *solver) {
+  quant_table_t *qtbl;
+  uint32_t i, n, randIdx;
+  int_hmap_t *aux;
+  int_hmap_pair_t *p;
+  uint32_t seed;
+
+#if TRACE_LIGHT
+  printf("\tInstantiation mode: Explore\n");
+#endif
+
+  qtbl = &solver->qtbl;
+  n = qtbl->nquant;
+  aux = &solver->aux_map;
+  seed = solver->learner.seed;
+
+  int_hmap_reset(aux);
+
+  for(i=0; i<n; i++) {
+    randIdx = random_uint(&seed, n);
+    assert(randIdx >=0 && randIdx < n);
+
+    p = int_hmap_get(aux, randIdx);
+    if (p->val < 0) {
+      if (ematch_reached_instance_limit(solver))
+        break;
+
+      p->val = 1;
+      ematch_process_cnstr(solver, randIdx);
+    } else {
+      // already present in aux
+      // do nothing
+    }
+  }
 
 }
 
+/*
+ * Match and learn instances based on greedy (priority) order
+ */
+static void ematch_process_cnstr_greedy(quant_solver_t *solver) {
+  quant_table_t *qtbl;
+  uint32_t i, n;
+  learner_t *learner;
+  generic_heap_t *heap;
+  ivector_t *aux;
+
+#if TRACE_LIGHT
+  printf("\tInstantiation mode: Exploit\n");
+#endif
+
+  qtbl = &solver->qtbl;
+  n = qtbl->nquant;
+  learner = &solver->learner;
+  heap = &learner->cnstr_heap;
+  aux = &solver->aux_vector2;
+
+  ivector_reset(aux);
+
+  while(!generic_heap_is_empty(heap)) {
+    if (ematch_reached_instance_limit(solver))
+      break;
+
+    // pop out top element
+    i = generic_heap_get_min(heap);
+    assert(i >=0 && i < n);
+    ivector_push(aux, i);
+
+    ematch_process_cnstr(solver, i);
+
+    // TODO: possibly modify cnstr priorities here
+  }
+
+  // add all popped indices back to heap
+  n = aux->size;
+  for(i=0; i<n; i++) {
+    generic_heap_add(heap, aux->data[i]);
+  }
+
+}
+
+/*
+ * Match and learn instances based on epsilon-greedy approach
+ */
+static void ematch_process_cnstr_epsilon_greedy(quant_solver_t *solver) {
+  learner_t *learner;
+  uint32_t randIdx;
+
+  learner = &solver->learner;
+  randIdx = random_uint(&learner->seed, RL_EPSILON_MAX);
+  if (randIdx < learner->epsilon) {
+    ematch_process_cnstr_random(solver);
+  } else {
+    ematch_process_cnstr_greedy(solver);
+  }
+
+}
+
+/*
+ * Match and learn instances
+ */
+static void ematch_process_all_cnstr(quant_solver_t *solver) {
+
+  learner_update_last_round(&solver->learner);
+
+  context_enable_quant(solver->em.ctx);
+  ematch_reset_round_stats(solver);
+
+  switch(solver->iter_mode) {
+  case ITERATE_RANDOM:
+    ematch_process_cnstr_random(solver);
+    break;
+  case ITERATE_GREEDY:
+    ematch_process_cnstr_greedy(solver);
+    break;
+  case ITERATE_EPSILONGREEDY:
+    ematch_process_cnstr_epsilon_greedy(solver);
+    break;
+  default:
+    ematch_process_cnstr_all(solver);
+  }
+
+  context_disable_quant(solver->em.ctx);
+
+}
 
 
 /*****************
@@ -787,12 +924,15 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   init_pattern_table(&solver->ptbl);
   init_quant_table(&solver->qtbl);
   init_ematch(&solver->em);
+  init_learner(&solver->learner, &solver->qtbl);
+  solver->iter_mode = ITERATE_EPSILONGREEDY;
+
   init_ivector(&solver->base_literals, 10);
   init_ivector(&solver->base_antecedents, 10);
 
   init_ivector(&solver->aux_vector, 10);
+  init_ivector(&solver->aux_vector2, 10);
   init_int_hmap(&solver->aux_map, 0);
-  init_ivector(&solver->lemma_vector, 10);
 
 }
 
@@ -804,12 +944,14 @@ void delete_quant_solver(quant_solver_t *solver) {
   delete_pattern_table(&solver->ptbl);
   delete_quant_table(&solver->qtbl);
   delete_ematch(&solver->em);
+  delete_learner(&solver->learner);
+
   delete_ivector(&solver->base_literals);
   delete_ivector(&solver->base_antecedents);
 
   delete_ivector(&solver->aux_vector);
+  delete_ivector(&solver->aux_vector2);
   delete_int_hmap(&solver->aux_map);
-  delete_ivector(&solver->lemma_vector);
 }
 
 
@@ -825,12 +967,14 @@ void quant_solver_reset(quant_solver_t *solver) {
   reset_pattern_table(&solver->ptbl);
   reset_quant_table(&solver->qtbl);
   reset_ematch(&solver->em);
+  reset_learner(&solver->learner);
+
   ivector_reset(&solver->base_literals);
   ivector_reset(&solver->base_antecedents);
 
   ivector_reset(&solver->aux_vector);
+  ivector_reset(&solver->aux_vector2);
   int_hmap_reset(&solver->aux_map);
-  ivector_reset(&solver->lemma_vector);
 }
 
 
@@ -842,8 +986,9 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
 
   k = solver->decision_level + 1;
   solver->decision_level = k;
+  learner_update_decision_reward(&solver->learner);
 
-#if TRACE_VERBOSE
+#if TRACE_LIGHT
   printf("---> QUANTSOLVER:   Increasing decision level to %d\n", k);
   fflush(stdout);
 #endif
@@ -856,8 +1001,9 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
 void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
   assert(solver->base_level <= back_level && back_level < solver->decision_level);
   solver->decision_level = back_level;
+  learner_update_backtrack_reward(&solver->learner, (solver->decision_level - back_level));
 
-#if TRACE_VERBOSE
+#if TRACE_LIGHT
   printf("---> QUANTSOLVER:   Backtracking to level %d\n", back_level);
   fflush(stdout);
 #endif
@@ -899,7 +1045,7 @@ void quant_solver_start_internalization(quant_solver_t *solver) {
  * Start search
  */
 void quant_solver_start_search(quant_solver_t *solver) {
-#if TRACE
+#if TRACE_LIGHT
   printf("\n=== START SEARCH ===\n");
   printf("\n\n");
 #endif
@@ -928,13 +1074,13 @@ bool quant_solver_propagate(quant_solver_t *solver) {
 
   // add all delayed base literals (with antecedents)
   if (n != 0) {
-#if TRACE_LIGHT
+#if TRACE
     printf("EMATCH: Propagating %d delayed unit base clauses\n", n);
 #endif
 
     for(i=0; i<n; i++) {
       l = lits->data[i];
-#if TRACE_LIGHT
+#if TRACE
       printf("EMATCH: Propagating literal: ");
       print_literal(stdout, l);
       printf("\n");

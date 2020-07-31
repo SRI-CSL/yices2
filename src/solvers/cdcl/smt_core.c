@@ -4585,12 +4585,14 @@ static void add_quant_lemma(smt_core_t *s, uint32_t n, literal_t *a, literal_t l
  * - a conflict clause may be recorded
  * If so, conflict resolution must be called outside this function
  * Literal en is the enable associated with the quantifier instance
+ * Return the total number of lemmas learnt
  */
-void add_all_quant_lemmas(smt_core_t *s, literal_t l, ivector_t *units) {
+uint32_t add_all_quant_lemmas(smt_core_t *s, literal_t l, ivector_t *units) {
   lemma_block_t *tmp;
   literal_t *lemma;
-  uint32_t i, j, n;
+  uint32_t i, j, n, cost;
 
+  cost = 0;
   for (i=0; i<s->lemmas.free_block; i++) {
     tmp = s->lemmas.block[i];
     lemma = tmp->data;
@@ -4606,11 +4608,14 @@ void add_all_quant_lemmas(smt_core_t *s, literal_t l, ivector_t *units) {
       n ++; // skip the end marker
       j += n;
       lemma += n;
+      cost++;
     }
   }
 
   // Empty the queue now:
   reset_lemma_queue(&s->lemmas);
+
+  return cost;
 }
 
 

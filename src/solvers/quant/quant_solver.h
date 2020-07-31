@@ -40,6 +40,7 @@
 #include "utils/ptr_vectors.h"
 #include "solvers/quant/ef_problem.h"
 #include "solvers/quant/quant_ematching.h"
+#include "solvers/quant/rl_learner.h"
 
 
 /*
@@ -76,6 +77,18 @@ typedef struct quant_solver_stats_s {
 #define DEFAULT_MAX_SEARCH                5000
 
 
+
+/*
+ * Tags identifying the iteration order
+ */
+typedef enum {
+  ITERATE_ALL,
+  ITERATE_RANDOM,
+  ITERATE_GREEDY,
+  ITERATE_EPSILONGREEDY,
+} iterate_kind_t;
+
+
 /*
  * FULL SOLVER
  */
@@ -107,6 +120,9 @@ typedef struct quant_solver_s {
   quant_table_t qtbl;     // quant table
   ematch_globals_t em;    // ematching
 
+  iterate_kind_t iter_mode;  // iteration mode over constraints
+  learner_t learner;         // Reinforce learner
+
   ivector_t base_literals;
   ivector_t base_antecedents;
 
@@ -116,8 +132,8 @@ typedef struct quant_solver_s {
    * Buffers
    */
   ivector_t aux_vector;
+  ivector_t aux_vector2;
   int_hmap_t aux_map;
-  ivector_t lemma_vector;
 
 } quant_solver_t;
 

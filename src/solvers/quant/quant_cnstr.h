@@ -26,6 +26,12 @@
 
 #include "solvers/quant/quant_pattern.h"
 
+
+typedef struct cnstr_stats_s {
+  double Q;
+
+} cnstr_stats_t;
+
 /*
  * Single quantifier constraint
  */
@@ -41,6 +47,8 @@ typedef struct quant_cnstr_s {
 
   term_t enable;        // boolean term that enables this constraint
   literal_t enable_lit; // literal corresponding to enable term
+
+  cnstr_stats_t stats;  // stats useful to the RL learner
 } quant_cnstr_t;
 
 /*
@@ -103,6 +111,16 @@ extern int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv,
  * - if assertion has more variables than variables in patterns, return false
  */
 extern bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_t idx);
+
+/*
+ * Print constraint priority
+ */
+extern void quant_print_cnstr_priority(quant_table_t *qtbl, uint32_t i);
+
+/*
+ * Print all constraints priority
+ */
+extern void quant_print_all_cnstr_priority(quant_table_t *qtbl);
 
 
 
