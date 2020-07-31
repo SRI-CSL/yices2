@@ -419,7 +419,7 @@ static inline void ematch_reset_start_stats(quant_solver_t *solver) {
   solver->stats.num_instances_per_search = 0;
   solver->stats.num_rounds_per_search = 0;
 
-  learner_reset_round(&solver->learner);
+  learner_reset_round(&solver->learner, true);
 }
 
 static inline void ematch_reset_round_stats(quant_solver_t *solver) {
@@ -625,8 +625,9 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
 #endif
 
   cost = add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
-  learner_update_lemma_reward(&solver->learner, cost);
-
+  if (cost > 0) {
+    learner_update_lemma_reward(&solver->learner, cost, cidx);
+  }
 
 #if TRACE
   printf("(END): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
@@ -736,6 +737,9 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
 done:
   nadded = (solver->stats.num_instances_per_round - oldcount);
   if (nadded != 0) {
+    if (oldcount == 0) {
+      ivector_reset(&solver->learner.latest_cnstr);
+    }
     learner_add_cnstr(&solver->learner, cidx);
   }
 
@@ -754,6 +758,10 @@ done:
 static void ematch_process_cnstr_all(quant_solver_t *solver) {
   quant_table_t *qtbl;
   uint32_t i, n;
+
+#if TRACE_LIGHT
+  printf("  Instantiation mode: All\n");
+#endif
 
   qtbl = &solver->qtbl;
   n = qtbl->nquant;
@@ -777,7 +785,7 @@ static void ematch_process_cnstr_random(quant_solver_t *solver) {
   uint32_t seed;
 
 #if TRACE_LIGHT
-  printf("\tInstantiation mode: Explore\n");
+  printf("  Instantiation mode: Explore\n");
 #endif
 
   qtbl = &solver->qtbl;
@@ -817,7 +825,7 @@ static void ematch_process_cnstr_greedy(quant_solver_t *solver) {
   ivector_t *aux;
 
 #if TRACE_LIGHT
-  printf("\tInstantiation mode: Exploit\n");
+  printf("  Instantiation mode: Exploit\n");
 #endif
 
   qtbl = &solver->qtbl;
@@ -872,7 +880,11 @@ static void ematch_process_cnstr_epsilon_greedy(quant_solver_t *solver) {
  */
 static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
-  learner_update_last_round(&solver->learner);
+  learner_update_last_round(&solver->learner, true);
+
+#if TRACE_LIGHT
+  quant_print_all_cnstr_priority(solver->learner.qtbl, "(begin)");
+#endif
 
   context_enable_quant(solver->em.ctx);
   ematch_reset_round_stats(solver);
@@ -892,6 +904,12 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   }
 
   context_disable_quant(solver->em.ctx);
+
+  learner_reset_round(&solver->learner, false);
+
+#if TRACE_LIGHT
+  quant_print_all_cnstr_priority(solver->learner.qtbl, "(end)");
+#endif
 
 }
 
@@ -1000,8 +1018,9 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
  */
 void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
   assert(solver->base_level <= back_level && back_level < solver->decision_level);
-  solver->decision_level = back_level;
+
   learner_update_backtrack_reward(&solver->learner, (solver->decision_level - back_level));
+  solver->decision_level = back_level;
 
 #if TRACE_LIGHT
   printf("---> QUANTSOLVER:   Backtracking to level %d\n", back_level);

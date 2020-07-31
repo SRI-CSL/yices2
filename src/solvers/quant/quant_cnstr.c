@@ -231,10 +231,10 @@ void quant_print_cnstr_priority(quant_table_t *qtbl, uint32_t i) {
 /*
  * Print all constraints priority
  */
-void quant_print_all_cnstr_priority(quant_table_t *qtbl) {
+void quant_print_all_cnstr_priority(quant_table_t *qtbl, const char *comment) {
   uint32_t i, n;
 
-  printf("  Q values:\n");
+  printf("  Q values %s:\n", comment);
 
   n = qtbl->nquant;
   for(i=0; i<n; i++) {

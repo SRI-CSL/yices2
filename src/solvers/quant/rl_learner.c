@@ -48,7 +48,7 @@ static bool cmp_cnstr(void *table, int32_t x, int32_t y) {
   xstat = &qtbl->data[x].stats;
   ystat = &qtbl->data[y].stats;
 
-  return xstat->Q < ystat->Q;
+  return xstat->Q > ystat->Q;
 }
 
 
@@ -81,12 +81,14 @@ void learner_setup(learner_t *learner) {
 /*
  * Reset learner stats for ematch round
  */
-void learner_reset_round(learner_t *learner) {
-  ivector_reset(&learner->latest_cnstr);
+void learner_reset_round(learner_t *learner, bool reset) {
+  if (reset) {
+    ivector_reset(&learner->latest_cnstr);
+  }
+
   learner->latest_reward = 0;
 #if TRACE
-  quant_print_all_cnstr_priority(learner->qtbl);
-  printf("  New reward = %.2f (resetted)\n", learner->latest_reward);
+  printf("  New reward (reset) = %.2f\n", learner->latest_reward);
 #endif
 }
 
@@ -94,40 +96,57 @@ void learner_reset_round(learner_t *learner) {
 /*
  * Update learner stats/rewards for the last ematch round
  */
-void learner_update_last_round(learner_t *learner) {
+void learner_update_last_round(learner_t *learner, bool update_heap) {
   quant_table_t *qtbl;
   uint32_t i, n, cIdx;
   ivector_t *latest_cnstr;
   quant_cnstr_t *cnstr;
 
-  qtbl = learner->qtbl;
-  latest_cnstr = &learner->latest_cnstr;
-  n = latest_cnstr->size;
+  if (update_heap || learner->latest_reward != 0) {
+    qtbl = learner->qtbl;
+    latest_cnstr = &learner->latest_cnstr;
+    n = latest_cnstr->size;
 
-  for(i=0; i<n; i++) {
-    cIdx = latest_cnstr->data[i];
-    assert(cIdx < qtbl->nquant);
+    for(i=0; i<n; i++) {
+      cIdx = latest_cnstr->data[i];
+      assert(cIdx < qtbl->nquant);
 
-    cnstr = qtbl->data + cIdx;
-    cnstr->stats.Q += learner->alpha * (learner->latest_reward - cnstr->stats.Q);
-    generic_heap_update(&learner->cnstr_heap, cIdx);
+      cnstr = qtbl->data + cIdx;
 
-//#if TRACE
-//    quant_print_cnstr_priority(qtbl, cIdx);
-//#endif
+      if (learner->latest_reward != 0) {
+        cnstr->stats.Q += learner->alpha * (learner->latest_reward - cnstr->stats.Q);
+#if TRACE
+        printf("  New reward (cumulative) for cnstr @%d = %.2f\n", cIdx, learner->latest_reward);
+#endif
+      }
+
+      if (update_heap) {
+        generic_heap_update(&learner->cnstr_heap, cIdx);
+      }
+    }
+
+    learner->latest_reward = 0;
   }
-
-  learner_reset_round(learner);
 }
 
 
 /*
- * Update learner lemma reward for the latest ematch round
+ * Update learner lemma reward for the constraint i
  */
-void learner_update_lemma_reward(learner_t *learner, uint32_t cost) {
-  learner->latest_reward += (RL_LEMMA_COST_FACTOR * cost);
+void learner_update_lemma_reward(learner_t *learner, uint32_t cost, uint32_t i) {
+  quant_table_t *qtbl;
+  quant_cnstr_t *cnstr;
+  double reward;
+
+  qtbl = learner->qtbl;
+  assert(i < qtbl->nquant);
+
+  cnstr = qtbl->data + i;
+  reward = (- RL_LEMMA_COST_FACTOR * cost);
+
+  cnstr->stats.Q += learner->alpha * (reward - cnstr->stats.Q);
 #if TRACE
-  printf("  New reward = %.2f\n", learner->latest_reward);
+  printf("  New reward (lemma) for cnstr @%d = %.2f\n", i, reward);
 #endif
 }
 
@@ -135,20 +154,33 @@ void learner_update_lemma_reward(learner_t *learner, uint32_t cost) {
  * Update learner decision cost (negative rewards) for the latest ematch round
  */
 void learner_update_decision_reward(learner_t *learner) {
-  learner->latest_reward -= RL_DECISION_COST_FACTOR;
+  double reward;
+
+  if (learner->latest_cnstr.size != 0) {
+    reward = (- RL_DECISION_COST_FACTOR);
+    learner->latest_reward += reward;
 #if TRACE
-  printf("  New reward = %.2f\n", learner->latest_reward);
+    printf("  New reward (decision) = %.2f\n", reward);
 #endif
+  }
 }
 
 /*
  * Update learner backtrack reward for the latest ematch round
  */
 void learner_update_backtrack_reward(learner_t *learner, uint32_t jump) {
-  learner->latest_reward += (RL_BACKTRACK_REWARD_FACTOR * jump);
+  double reward;
+
+  if (learner->latest_cnstr.size != 0) {
+    reward = (RL_BACKTRACK_REWARD_FACTOR * jump);
+    learner->latest_reward += reward;
 #if TRACE
-  printf("  New reward = %.2f\n", learner->latest_reward);
+    printf("  New reward (backtrack) = %.2f\n", reward);
 #endif
+
+    learner_update_last_round(learner, false);
+  }
+
 }
 
 /*

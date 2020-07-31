@@ -120,7 +120,7 @@ extern void quant_print_cnstr_priority(quant_table_t *qtbl, uint32_t i);
 /*
  * Print all constraints priority
  */
-extern void quant_print_all_cnstr_priority(quant_table_t *qtbl);
+extern void quant_print_all_cnstr_priority(quant_table_t *qtbl, const char *comment);
 
 
 

@@ -54,18 +54,18 @@ extern void learner_setup(learner_t *learner);
 /*
  * Reset learner stats for ematch round
  */
-extern void learner_reset_round(learner_t *learner);
+extern void learner_reset_round(learner_t *learner, bool reset);
 
 /*
  * Update learner stats/rewards for the last ematch round
  */
-extern void learner_update_last_round(learner_t *learner);
+extern void learner_update_last_round(learner_t *learner, bool update_heap);
 
 
 /*
- * Update learner lemma cost (negative rewards) for the latest ematch round
+ * Update learner lemma reward for the constraint i
  */
-extern void learner_update_lemma_reward(learner_t *learner, uint32_t cost);
+extern void learner_update_lemma_reward(learner_t *learner, uint32_t cost, uint32_t i);
 
 /*
  * Update learner decision cost (negative rewards) for the latest ematch round
