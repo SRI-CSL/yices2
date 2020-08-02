@@ -1346,7 +1346,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
     // Propagate with all the plugins in turn
     for (plugin_i = 0; trail_is_consistent(mcsat->trail) && plugin_i < mcsat->plugins_count; ++ plugin_i) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat::propagate")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagting with %s\n", mcsat->plugins[plugin_i].plugin_name);
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_propagate(): propagating with %s\n", mcsat->plugins[plugin_i].plugin_name);
       }
       // Make the token
       trail_token_construct(&prop_token, mcsat->plugins[plugin_i].plugin_ctx, variable_null);
