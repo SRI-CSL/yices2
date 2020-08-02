@@ -1052,7 +1052,9 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
       const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
       lp_sign_condition_t sgn_condition = poly_constraint_get_sign_condition(constraint);
       bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
-      lp_variable_t x = poly_constraint_get_top_variable(constraint);
+      variable_t conflict_var = nra->conflict_variable;
+      if (conflict_var == variable_null) conflict_var = nra->conflict_variable_int;
+      lp_variable_t x = nra_plugin_get_lp_variable(nra, conflict_var);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
       if (p_inference_reason != NULL) {
         is_inference = true;
