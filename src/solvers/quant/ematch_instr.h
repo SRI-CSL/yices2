@@ -41,9 +41,10 @@ typedef enum ematch_opcodes_s {
   EMATCH_BACKTRACK,      // [ backtrack ]
   EMATCH_CHOOSEAPP,      // [ choose-app(o, next, s, j) ]
   EMATCH_FILTER,         // [ filter(i, fs, next) ]
+  EMATCH_CONTINUE,       // [ continue(f, o, next) ]
 } ematch_opcodes_t;
 
-#define NUM_EMATCH_OPCODES (EMATCH_FILTER+1)
+#define NUM_EMATCH_OPCODES (EMATCH_CONTINUE+1)
 
 
 /*

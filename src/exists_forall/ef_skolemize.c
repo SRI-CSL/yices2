@@ -154,8 +154,10 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     result = mk_application(tm, c[0], n-1, &c[1]);
     break;
 //  case UPDATE_TERM:
-//  case TUPLE_TERM:
 //    TODO
+  case TUPLE_TERM:
+    result = mk_tuple(tm, n, c);
+    break;
   case DISTINCT_TERM:
     result = mk_distinct(tm, n, c);
     break;

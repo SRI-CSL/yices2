@@ -156,6 +156,11 @@ static void quant_infer_patterns(quant_solver_t *solver, term_t t, ivector_t *pa
   init_ivector(&prospectives, 4);
 
   quant_infer_single_pattern(solver->prob->terms, t, uvars, &prospectives);
+  if (prospectives.size == 0) {
+    quant_infer_multi_pattern(solver->prob->terms, t, uvars, &prospectives);
+  }
+
+  ivector_remove_duplicates(&prospectives);
 
   n = prospectives.size;
   if (n != 0) {
@@ -279,6 +284,7 @@ static int32_t quant_preprocess_assertion_with_pattern(quant_solver_t *solver, t
   ivector_remove_duplicates(&c);
 
   quant_setup_patterns(solver, t, patterns, &pv, &v);
+  ivector_remove_duplicates(&v);
 
   i = quant_table_add_cnstr(qtbl, t, v.data, v.size);
   cnstr = qtbl->data + i;
@@ -531,7 +537,6 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   uint32_t i, n;
   term_t rhst;
   occ_t rhs;
-  uint32_t cost;
 
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
@@ -603,6 +608,30 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
     printf("\n");
 #endif
 
+  ivector_push(&solver->round_cnstrs, cidx);
+  ivector_push(&solver->round_instances, t);
+
+  int_hset_add(instances, midx);
+
+  return true;
+}
+
+/*
+ * Add quant instantiate constraint to solver
+ */
+static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t t) {
+  quant_cnstr_t *cnstr;
+  context_t *ctx;
+  ematch_globals_t *em;
+  uint32_t i, n;
+  uint32_t cost;
+
+  em = &solver->em;
+  ctx = em->ctx;
+
+  assert(cidx < solver->qtbl.nquant);
+  cnstr = solver->qtbl.data + cidx;
+
   quant_assert_formulas(ctx, 1, &t);
 
   if (cnstr->enable_lit == null_literal) {
@@ -656,11 +685,8 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
       ivector_push(ants, cnstr->enable_lit);
     }
   }
+
   ivector_reset(units);
-
-  int_hset_add(instances, midx);
-
-  return true;
 }
 
 /*
@@ -832,7 +858,7 @@ static void ematch_process_cnstr_greedy(quant_solver_t *solver) {
   n = qtbl->nquant;
   learner = &solver->learner;
   heap = &learner->cnstr_heap;
-  aux = &solver->aux_vector2;
+  aux = &solver->aux_vector;
 
   ivector_reset(aux);
 
@@ -879,12 +905,16 @@ static void ematch_process_cnstr_epsilon_greedy(quant_solver_t *solver) {
  * Match and learn instances
  */
 static void ematch_process_all_cnstr(quant_solver_t *solver) {
+  uint32_t i, n;
 
   learner_update_last_round(&solver->learner, true);
 
 #if TRACE_LIGHT
   quant_print_all_cnstr_priority(solver->learner.qtbl, "(begin)");
 #endif
+
+  ivector_reset(&solver->round_cnstrs);
+  ivector_reset(&solver->round_instances);
 
   context_enable_quant(solver->em.ctx);
   ematch_reset_round_stats(solver);
@@ -901,6 +931,12 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
     break;
   default:
     ematch_process_cnstr_all(solver);
+  }
+
+  n = solver->round_cnstrs.size;
+  assert(n == solver->round_instances.size);
+  for(i=0; i<n; i++) {
+    ematch_add_quant_cnstr(solver, solver->round_cnstrs.data[i], solver->round_instances.data[i]);
   }
 
   context_disable_quant(solver->em.ctx);
@@ -948,10 +984,12 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   init_ivector(&solver->base_literals, 10);
   init_ivector(&solver->base_antecedents, 10);
 
+  init_ivector(&solver->round_cnstrs, 10);
+  init_ivector(&solver->round_instances, 10);
+
   init_ivector(&solver->aux_vector, 10);
   init_ivector(&solver->aux_vector2, 10);
   init_int_hmap(&solver->aux_map, 0);
-
 }
 
 
@@ -966,6 +1004,9 @@ void delete_quant_solver(quant_solver_t *solver) {
 
   delete_ivector(&solver->base_literals);
   delete_ivector(&solver->base_antecedents);
+
+  delete_ivector(&solver->round_cnstrs);
+  delete_ivector(&solver->round_instances);
 
   delete_ivector(&solver->aux_vector);
   delete_ivector(&solver->aux_vector2);
@@ -989,6 +1030,9 @@ void quant_solver_reset(quant_solver_t *solver) {
 
   ivector_reset(&solver->base_literals);
   ivector_reset(&solver->base_antecedents);
+
+  ivector_reset(&solver->round_cnstrs);
+  ivector_reset(&solver->round_instances);
 
   ivector_reset(&solver->aux_vector);
   ivector_reset(&solver->aux_vector2);

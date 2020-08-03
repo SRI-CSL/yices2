@@ -96,5 +96,10 @@ extern void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t 
  */
 extern void quant_infer_single_pattern(term_table_t *terms, term_t t, ivector_t *uvars, ivector_t *out);
 
+/*
+ * Infer multi patterns for term t, by recursively finding fapps which contain all uvars
+ */
+extern void quant_infer_multi_pattern(term_table_t *terms, term_t t, ivector_t *uvars, ivector_t *out);
+
 
 #endif /* __QUANT_PATTERN_H */

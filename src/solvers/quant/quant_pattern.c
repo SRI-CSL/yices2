@@ -225,6 +225,7 @@ void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, iv
   case DISTINCT_TERM:
   case OR_TERM:            // n-ary OR
   case XOR_TERM:           // n-ary XOR
+  case TUPLE_TERM:
     // nothing to do
     break;
 
@@ -381,6 +382,285 @@ void quant_infer_single_pattern(term_table_t *terms, term_t t, ivector_t *uvars,
   delete_int_hmap(&uvarMap);
 }
 
+
+/*
+ * Recursively fill uvars to fapps, and fapps to uvars tables
+ */
+static bool quant_infer_multi_fapps(term_table_t *terms, term_t t, ptr_hmap_t *uv2fapp, ptr_hmap_t *fapp2uv) {
+  term_t x, u;
+  term_kind_t kind;
+  uint32_t i, n;
+  bool skip;
+  ptr_hmap_pair_t *u2f, *f2u;
+
+  skip = false;
+  x = unsigned_term(t);
+  kind = term_kind(terms, x);
+
+#if TRACE
+  printf("    processing term ");
+  yices_pp_term(stdout, t, 1200, 1, 0);
+#endif
+
+  // process all children (if any)
+  n = term_num_children(terms, x);
+  if (n != 0) {
+    for(i=0; i<n; i++) {
+      u = term_child(terms, x, i);
+      skip |= quant_infer_multi_fapps(terms, u, uv2fapp, fapp2uv);
+    }
+  }
+
+  // find fapps
+  switch (kind) {
+  case CONSTANT_TERM:
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+  case UNINTERPRETED_TERM:
+  case VARIABLE:
+    // nothing to do
+    break;
+
+  case APP_TERM:
+    if (!skip) {
+#if TRACE
+      printf("    fapp: ");
+      yices_pp_term(stdout, x, 120, 1, 0);
+#endif
+      n = term_num_children(terms, x);
+      if (n != 0) {
+        for(i=0; i<n; i++) {
+          u = term_child(terms, x, i);
+          if (term_kind(terms, u) == VARIABLE) {
+#if TRACE
+            printf("      var: ");
+            yices_pp_term(stdout, u, 120, 1, 0);
+#endif
+            u2f = ptr_hmap_get(uv2fapp, u);
+            if (u2f->val == NULL) {
+              u2f->val = safe_malloc(sizeof(ivector_t));
+              init_ivector(u2f->val, 0);
+            }
+            ivector_push(u2f->val, x);
+
+            f2u = ptr_hmap_get(fapp2uv, x);
+            if (f2u->val == NULL) {
+              f2u->val = safe_malloc(sizeof(ivector_t));
+              init_ivector(f2u->val, 0);
+            }
+            ivector_push(f2u->val, u);
+          } else if (term_kind(terms, u) == APP_TERM) {
+            f2u = ptr_hmap_find(fapp2uv, u);
+            if (f2u != NULL) {
+              uint32_t j, m;
+              ivector_t *uvars;
+              uvars = f2u->val;
+              m = uvars->size;
+              for(j=0; j<m; j++) {
+                u = uvars->data[j];
+                assert (term_kind(terms, u) == VARIABLE);
+#if TRACE
+                  printf("      var: ");
+                  yices_pp_term(stdout, u, 120, 1, 0);
+#endif
+
+                u2f = ptr_hmap_get(uv2fapp, u);
+                assert(u2f->val != NULL);
+                ivector_push(u2f->val, x);
+
+                f2u = ptr_hmap_get(fapp2uv, x);
+                if (f2u->val == NULL) {
+                  f2u->val = safe_malloc(sizeof(ivector_t));
+                  init_ivector(f2u->val, 0);
+                }
+                ivector_push(f2u->val, u);
+              }
+            }
+          }
+        }
+      }
+    }
+    break;
+
+  case ARITH_EQ_ATOM:
+  case EQ_TERM:            // equality
+  case ARITH_BINEQ_ATOM:
+  case BV_EQ_ATOM:
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case DISTINCT_TERM:
+  case OR_TERM:            // n-ary OR
+  case XOR_TERM:           // n-ary XOR
+    // reset the map
+    skip = true;
+    break;
+
+  default:
+//    printf("Unsupported term (kind %d): ", kind);
+//    yices_pp_term(stdout, x, 120, 1, 0);
+    assert(false);
+  }
+
+  return skip;
+}
+
+/*
+ * Infer multi patterns for term t, by recursively finding fapps which contain all uvars
+ */
+void quant_infer_multi_pattern(term_table_t *terms, term_t t, ivector_t *uvars, ivector_t *out) {
+  ptr_hmap_t uv2fapp, fapp2uv;
+  ptr_hmap_pair_t *p;
+  ptr_hmap_t *map;
+  ivector_t* v;
+  uint32_t i, n;
+
+  init_ptr_hmap(&uv2fapp, 0);
+  init_ptr_hmap(&fapp2uv, 0);
+
+  quant_infer_multi_fapps(terms, t, &uv2fapp, &fapp2uv);
+
+  map = &uv2fapp;
+#if TRACE
+  printf("\n  uv2fapps (%d):\n", map->nelems);
+#endif
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    v = p->val;
+    ivector_remove_duplicates(v);
+#if TRACE
+    printf("    %s -> ", yices_term_to_string(p->key, 100, 1, 0));
+    yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 1);
+#endif
+  }
+
+  map = &fapp2uv;
+#if TRACE
+  printf("\n  fapp2uv (%d):\n", map->nelems);
+#endif
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    v = p->val;
+    ivector_remove_duplicates(v);
+#if TRACE
+    printf("    %s -> ", yices_term_to_string(p->key, 100, 1, 0));
+    yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 1);
+#endif
+  }
+#if TRACE
+  printf("\n");
+#endif
+
+  int_hmap_t uvMap;
+  int_hmap_pair_t *ip;
+  ivector_t multiPat;
+  term_t u, f, pat;
+
+  init_int_hmap(&uvMap, 0);
+  init_ivector(&multiPat, 2);
+
+  n = uvars->size;
+  for(i=0; i<n; i++) {
+    ip = int_hmap_get(&uvMap, uvars->data[i]);
+    assert(ip->val < 0);
+    ip->val = 1;
+  }
+
+  while(true) {
+    u = NULL_TERM;
+    for (ip = int_hmap_first_record(&uvMap);
+         ip != NULL;
+         ip = int_hmap_next_record(&uvMap, ip)) {
+      if (ip->val == 1) {
+        ip->val = 2;
+        u = ip->key;
+        break;
+      }
+    }
+    if (u == NULL_TERM) {
+      break;
+    }
+
+#if TRACE
+    printf("    choosing uvar: ");
+    yices_pp_term(stdout, u, 120, 1, 0);
+#endif
+
+    p = ptr_hmap_find(&uv2fapp, u);
+    if (p == NULL) {
+      ivector_reset(&multiPat);
+      break;
+    }
+    v = p->val;
+    n = v->size;
+    assert(n != 0);
+    f = v->data[n-1];
+    ivector_push(&multiPat, f);
+#if TRACE
+    printf("    choosing fapp: ");
+    yices_pp_term(stdout, f, 120, 1, 0);
+#endif
+
+    p = ptr_hmap_find(&fapp2uv, f);
+    assert(p != NULL);
+    v = p->val;
+    n = v->size;
+#if TRACE
+    printf("    uvars: ");
+    yices_pp_term_array(stdout, v->size, v->data, 120, UINT32_MAX, 0, 1);
+#endif
+
+    for(i=0; i<n; i++) {
+      ip = int_hmap_find(&uvMap, v->data[i]);
+      assert(ip != NULL);
+      ip->val = 2;
+    }
+  }
+
+  if (multiPat.size != 0) {
+    assert(multiPat.size > 1);
+    pat = yices_tuple(multiPat.size, multiPat.data);
+    if (pat == NULL_TERM) {
+//      yices_print_error(stdout);
+      assert(0);
+    }
+    ivector_push(out, pat);
+
+#if TRACE
+    printf("  Multi pattern: ");
+    yices_pp_term(stdout, pat, 120, 1, 0);
+#endif
+  }
+
+  delete_int_hmap(&uvMap);
+  delete_ivector(&multiPat);
+
+  map = &uv2fapp;
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    v = p->val;
+    if (v != NULL) {
+      delete_ivector(v);
+      safe_free(v);
+    }
+  }
+  delete_ptr_hmap(map);
+
+  map = &fapp2uv;
+  for (p = ptr_hmap_first_record(map);
+       p != NULL;
+       p = ptr_hmap_next_record(map, p)) {
+    v = p->val;
+    if (v != NULL) {
+      delete_ivector(v);
+      safe_free(v);
+    }
+  }
+  delete_ptr_hmap(map);
+}
 
 
 

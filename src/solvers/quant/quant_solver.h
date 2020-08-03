@@ -126,6 +126,9 @@ typedef struct quant_solver_s {
   ivector_t base_literals;
   ivector_t base_antecedents;
 
+  ivector_t round_cnstrs;
+  ivector_t round_instances;
+
 // TODO
 
   /*

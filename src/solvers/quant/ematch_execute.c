@@ -491,6 +491,48 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
   ematch_exec_backtrack(exec);
 }
 
+/*
+ * Execute EMATCH_CONTINUE code
+ */
+static void ematch_exec_continue(ematch_exec_t *exec, ematch_instr_t *instr) {
+  eterm_t ef;
+  occ_t focc;
+  int32_t j, n;
+  ivector_t fapps;
+
+  focc = instr_f2occ(exec, instr);
+  if (focc == null_occurrence) {
+    // do nothing
+  } else {
+    assert(is_pos_occ(focc));
+    ef = term_of_occ(focc);
+
+    init_ivector(&fapps, 4);
+
+    egraph_get_all_fapps(exec, ef, &fapps);
+    n = fapps.size;
+
+    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+    instr->nsubs = n;
+    for(j=0; j<n; j++) {
+#if TRACE
+      printf("    choosing fapps: ");
+      print_occurrence(stdout, fapps.data[j]);
+      printf("\n");
+#endif
+      instr->idata[j] = fapps.data[j];
+    }
+
+    delete_ivector(&fapps);
+
+    ematch_exec_all_chooseapps(exec, instr);
+
+//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
+//    ematch_stack_save(&exec->bstack, chooseapp);
+  }
+
+  ematch_exec_backtrack(exec);
+}
 
 /*
  * Execute EMATCH_CHOOSEAPP code
@@ -725,6 +767,9 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
     assert(0);
     ematch_exec_chooseapp(exec, instr);
     break;
+  case EMATCH_CONTINUE:
+    ematch_exec_continue(exec, instr);
+    break;
   default:
 //    printf("Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
     assert(0);
@@ -745,7 +790,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   term_table_t *terms;
   term_kind_t kind;
   ivector_t fapps;
-  term_t f;
+  term_t f, x;
   uint32_t i, j, n, m;
   occ_t occ;
   ivector_t *matches;
@@ -761,52 +806,60 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
   if (kind == APP_TERM) {
-    f = term_child(terms, pat->p, 0);
-    assert(is_pos_term(f));
-    occ = term2occ(exec->intern, f);
-    if (occ != null_occurrence) {
-      matches = &pat->matches;
+    x = pat->p;
+  } else if (kind == TUPLE_TERM) {
+    x = tuple_term_desc(terms, pat->p)->arg[0];
+  } else {
+//    printf("Unsupported pattern term (kind %d): ", kind);
+//    yices_pp_term(stdout, pat->p, 120, 1, 0);
+    assert(0);
+  }
 
-      ivector_reset(matches);
+  f = term_child(terms, x, 0);
+  assert(is_pos_term(f));
+  occ = term2occ(exec->intern, f);
+  if (occ != null_occurrence) {
+    matches = &pat->matches;
 
-      init_ivector(&fapps, 4);
+    ivector_reset(matches);
 
-      egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
-      n = fapps.size;
-      for(i=0; i<n; i++) {
+    init_ivector(&fapps, 4);
+
+    egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
+    n = fapps.size;
+    for(i=0; i<n; i++) {
 #if TRACE
-        occ_t fapp = fapps.data[i];
+      occ_t fapp = fapps.data[i];
 
-        printf("  Matching fapp: ");
+      printf("  Matching fapp: ");
+      print_occurrence(stdout, fapp);
+      printf("\n");
+#endif
+      aux = &exec->aux_vector;
+      ivector_reset(aux);
+      ematch_exec_set_reg(exec, fapps.data[i], 0);
+      assert(exec->bstack.top == 0);
+
+      ematch_exec_instr(exec, pat->code);
+
+      ivector_remove_duplicates(aux);
+      m = aux->size;
+
+      if (m != 0) {
+#if TRACE
+        printf("  Found %d matches from fapp ", m);
         print_occurrence(stdout, fapp);
         printf("\n");
 #endif
-        aux = &exec->aux_vector;
-        ivector_reset(aux);
-        ematch_exec_set_reg(exec, fapps.data[i], 0);
-        assert(exec->bstack.top == 0);
 
-        ematch_exec_instr(exec, pat->code);
+        count += m;
 
-        ivector_remove_duplicates(aux);
-        m = aux->size;
-
-        if (m != 0) {
-#if TRACE
-          printf("  Found %d matches from fapp ", m);
-          print_occurrence(stdout, fapp);
-          printf("\n");
-#endif
-
-          count += m;
-
-          for(j=0; j!=m; j++) {
-            ivector_push(matches, aux->data[j]);
-          }
+        for(j=0; j!=m; j++) {
+          ivector_push(matches, aux->data[j]);
         }
       }
-      delete_ivector(&fapps);
     }
+    delete_ivector(&fapps);
   }
 
   return count;

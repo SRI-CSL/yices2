@@ -50,6 +50,8 @@ void init_ematch_compiler(ematch_compile_t *comp, ematch_instr_table_t *itbl, te
 
   init_int_hmap(&comp->V, 0);
 
+  init_int_queue(&comp->patterns, 0);
+
   comp->o = 0;
   comp->itbl = itbl;
   comp->terms = terms;
@@ -66,6 +68,8 @@ void reset_ematch_compiler(ematch_compile_t *comp) {
 
   int_hmap_reset(&comp->V);
 
+  int_queue_reset(&comp->patterns);
+
   comp->o = 0;
   comp->itbl = NULL;
   comp->terms = NULL;
@@ -81,6 +85,8 @@ void delete_ematch_compiler(ematch_compile_t *comp) {
   delete_int_hmap(&comp->W[3]);
 
   delete_int_hmap(&comp->V);
+
+  delete_int_queue(&comp->patterns);
 
   comp->o = 0;
   comp->itbl = NULL;
@@ -197,6 +203,11 @@ void ematch_print_instr(FILE *f, ematch_instr_table_t *itbl, int32_t idx, bool r
     break;
   case EMATCH_CHOOSEAPP:
     fprintf(f, "    instr%d: choose-app(%d, instr%d, %d)\n", idx, instr->o, instr->next, instr->j);
+    break;
+  case EMATCH_CONTINUE:
+    fprintf(f, "    instr%d: continue(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
+    if (recursive)
+      ematch_print_instr(f, itbl, instr->next, recursive);
     break;
   default:
 //    fprintf(f, "Unsupported ematch instruction instr%d of type: %d\n", idx, instr->op);
@@ -415,6 +426,57 @@ static int32_t ematch_compile_fapp(ematch_compile_t *comp, int32_t i, term_t f) 
 }
 
 /*
+ * Compile continue
+ */
+static int32_t ematch_compile_continue(ematch_compile_t *comp, term_t f) {
+  ematch_instr_table_t *itbl;
+  int32_t idx, next, j;
+  ematch_instr_t *instr;
+
+  itbl = comp->itbl;
+  idx = ematch_instr_table_alloc(itbl);
+  instr = itbl->data+ idx;
+
+  assert(term_kind(comp->terms, f) == APP_TERM);
+  instr->op = EMATCH_CONTINUE;
+
+  composite_term_t *app;
+  uint32_t n, offset;
+
+  app = app_term_desc(comp->terms, f);
+  n = app->arity - 1;
+  offset = comp->o;
+
+  for(j=0; j<n; j++) {
+    ematch_add_to_W(comp, offset+j, app->arg[j+1]);
+  }
+  comp->o = offset + n;
+
+  instr->f = app->arg[0];
+  instr->o = offset;
+
+#if 0
+  printf("    (pre) instr%d: continue(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
+#endif
+
+  next = ematch_compile(comp);
+  instr = itbl->data + idx;
+  instr->next = next;
+
+#if 0
+  printf("    instr%d: continue(%s, %d, instr%d)\n", idx, yices_term_to_string(instr->f, 120, 1, 0), instr->o, instr->next);
+#endif
+
+  // Undo changes to comp
+//  comp->o = offset;
+
+  assert(instr->idx == idx);
+  assert(idx >= 0);
+
+  return idx;
+}
+
+/*
  * Compile empty set
  */
 static int32_t ematch_compile_empty(ematch_compile_t *comp) {
@@ -492,7 +554,12 @@ int32_t ematch_compile(ematch_compile_t *comp) {
   }
 
   if (i == -1) {
-    idx = ematch_compile_empty(comp);
+    if (int_queue_is_empty(&comp->patterns)) {
+      idx = ematch_compile_empty(comp);
+    } else {
+      x = int_queue_pop(&comp->patterns);
+      idx = ematch_compile_continue(comp, x);
+    }
   } else {
     term_table_t *terms;
     terms = comp->terms;
@@ -604,6 +671,24 @@ static int32_t ematch_compile_func(ematch_compile_t *comp, composite_term_t *app
 }
 
 /*
+ * Compile multi pattern
+ */
+static int32_t ematch_compile_multi(ematch_compile_t *comp, uint32_t n, term_t *a) {
+  uint32_t i;
+  term_t pat;
+
+  assert(n > 1);
+
+  for (i=1; i<n; i++) {
+    int_queue_push(&comp->patterns, a[i]);
+  }
+
+  pat = a[0];
+
+  return ematch_compile_func(comp, app_term_desc(comp->terms, pat));
+}
+
+/*
  * Compile pattern to an instruction sequence
  * - returns an index in the instruction table
  */
@@ -611,6 +696,7 @@ int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
   int32_t idx;
   term_table_t *terms;
   term_kind_t kind;
+  composite_term_t *d;
 
   assert(comp->V.nelems == 0);
 
@@ -625,6 +711,21 @@ int32_t ematch_compile_pattern(ematch_compile_t *comp, term_t pat) {
 #endif
 
     idx = ematch_compile_func(comp, app_term_desc(terms, pat));
+
+#if TRACE
+    printf("    code: instr%d\n", idx);
+    ematch_print_instr(stdout, comp->itbl, idx, true);
+//    printf("    offset (new): %d\n", comp->o);
+#endif
+  } else if (kind == TUPLE_TERM) {
+#if TRACE
+    printf("  pattern (multi): ");
+    yices_pp_term(stdout, pat, 120, 1, 0);
+    printf("    offset: %d\n", comp->o);
+#endif
+
+    d = tuple_term_desc(terms, pat);
+    idx = ematch_compile_multi(comp, d->arity, d->arg);
 
 #if TRACE
     printf("    code: instr%d\n", idx);

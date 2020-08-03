@@ -6539,7 +6539,7 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
  */
 void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
   ptr_hmap_pair_t *r;
-  uint32_t i;
+  term_t x;
 
   r = ptr_hmap_get(&__smt2_globals.term_patterns, t);
   if (r->val == NULL) {
@@ -6547,17 +6547,20 @@ void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
     init_ivector(r->val, 0);
   }
 
-  for(i=0; i<n; i++) {
 #if 0
-    printf("adding pattern:\n");
-    printf("  term: ");
-    yices_pp_term(stdout, t, 120, 1, 0);
-    printf("  pattern: ");
-    yices_pp_term(stdout, p[i], 120, 1, 0);
+  printf("adding pattern:\n");
+  printf("  term: ");
+  yices_pp_term(stdout, t, 120, 1, 0);
+  printf("  pattern: ");
+  yices_pp_term_array(stdout, n, p, 120, 1, 0, 1);
 #endif
 
-    ivector_push(r->val, p[i]);
+  if (n == 1) {
+    x = p[0];
+  } else {
+    x = yices_tuple(n, p);
   }
+  ivector_push(r->val, x);
 }
 
 /*

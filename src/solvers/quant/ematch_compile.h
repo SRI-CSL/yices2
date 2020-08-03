@@ -33,6 +33,8 @@ typedef struct ematch_compile_s {
                                 // one each for compare (0), check (1), filter (2), others (3)
                                 // preference order: compare > check > filter > others
 
+  int_queue_t patterns;         // pattern terms
+
   int_hmap_t V;                 // variables: map from variables to register indices
   int32_t o;                    // offset: value of the next available register index
 
