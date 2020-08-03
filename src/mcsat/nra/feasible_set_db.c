@@ -371,13 +371,19 @@ void feasible_set_get_conflict_reason_indices(feasible_set_db_t* db, variable_t 
 }
 
 static
-void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_set_t* current, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
+void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_set_t* current, const mcsat_value_t* value, ivector_t* reasons, uint32_t begin, uint32_t end, ivector_t* out) {
 
   uint32_t i;
 
   if (lp_feasibility_set_is_empty(current)) {
     // Core already unsat, done
     return;
+  } else if (value != NULL) {
+    assert(value->type == VALUE_LIBPOLY);
+    if (!lp_feasibility_set_contains(current, &value->lp_value)) {
+      // Core already unsat with the value, done
+      return;
+    }
   }
 
   assert(begin < end);
@@ -400,7 +406,7 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
     lp_feasibility_set_delete(intersect);
   }
   uint32_t old_out_size = out->size;
-  feasible_set_quickxplain(db, feasible_A, reasons, begin + n, end, out);
+  feasible_set_quickxplain(db, feasible_A, value, reasons, begin + n, end, out);
   lp_feasibility_set_delete(feasible_A);
 
   // Now, assert the minimized second half, and minimize the first half
@@ -412,7 +418,7 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
     lp_feasibility_set_swap(intersect, feasible_B);
     lp_feasibility_set_delete(intersect);
   }
-  feasible_set_quickxplain(db, feasible_B, reasons, begin, begin + n, out);
+  feasible_set_quickxplain(db, feasible_B, value, reasons, begin, begin + n, out);
   lp_feasibility_set_delete(feasible_B);
 }
 
@@ -493,7 +499,7 @@ void print_conflict_reasons(FILE* out, feasible_set_db_t* db, nra_plugin_t* nra,
 }
 
 static
-void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reasons_indices) {
+void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra, const mcsat_value_t* x_value, ivector_t* reasons_indices) {
   // The set we're trying to make empty
   lp_feasibility_set_t* S = lp_feasibility_set_new_full();
 
@@ -508,7 +514,7 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   // Minimize the core
   ivector_t out;
   init_ivector(&out, 0);
-  feasible_set_quickxplain(db, S, reasons_indices, 0, reasons_indices->size, &out);
+  feasible_set_quickxplain(db, S, x_value, reasons_indices, 0, reasons_indices->size, &out);
   ivector_swap(reasons_indices, &out);
   delete_ivector(&out);
 
@@ -561,7 +567,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
   return conflict;
 }
 
-void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
+void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
   if (ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
     ctx_trace_printf(db->ctx, "get_reasons of: ");
@@ -576,7 +582,7 @@ void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* n
   feasible_set_get_conflict_reason_indices(db, x, &reasons_indices);
 
   // Do a first pass filter from the back
-  feasible_set_filter_reason_indices(db, nra, &reasons_indices);
+  feasible_set_filter_reason_indices(db, nra, x_value, &reasons_indices);
 
   // Return the conjunctive reasons
   uint32_t i;

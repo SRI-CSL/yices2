@@ -47,13 +47,12 @@ static uint32_t name_size = 0;
 static char **name = NULL;
 
 
-
 static const char * const etype2string[] = {
-  "int ", "real", "bv  ", "fun ", "bool", "tupl", "none", "<invalid etype>",
+  "int ", "real", "bv  ", "quant ", "fun ", "bool", "tupl", "none", "<invalid etype>",
 };
 
 static const char * const etype2theory[] = {
-  "arith", "ariht", "bv", "fun", "bool", "tuple", "none", "<invalid etype>",
+  "arith", "arith", "bv", "quant", "fun", "bool", "tuple", "none", "<invalid etype>",
 };
 
 static const char * const cmpkind2string[] = {

@@ -36,6 +36,28 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db) {
   trail->inconsistent = false;
 }
 
+static inline
+void init_ivector_copy(ivector_t* v, const ivector_t* from) {
+  init_ivector(v, from->size);
+  ivector_add(v, from->data, from->size);
+}
+
+void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from) {
+  trail->var_db = from->var_db;
+  init_ivector_copy(&trail->elements, &from->elements);
+  init_ivector_copy(&trail->to_repropagate, &from->to_repropagate);
+  init_ivector_copy(&trail->level_sizes, &from->level_sizes);
+  trail->decision_level = from->decision_level;
+  trail->decision_level_base = from->decision_level_base;
+  mcsat_model_construct_copy(&trail->model, &from->model);
+  init_ivector_copy(&trail->type, &from->type);
+  init_ivector_copy(&trail->level, &from->level);
+  init_ivector_copy(&trail->index, &from->index);
+  init_ivector_copy(&trail->id, &from->id);
+  init_ivector_copy(&trail->unassigned, &from->unassigned);
+  trail->inconsistent = from->inconsistent;
+}
+
 void trail_destruct(mcsat_trail_t* trail) {
   trail->var_db = NULL;
   delete_ivector(&trail->elements);

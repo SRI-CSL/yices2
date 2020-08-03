@@ -1,0 +1,2 @@
+unsat
+(/= (bv-extract 3 0 y) 0b0110)

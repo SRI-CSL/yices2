@@ -1,0 +1,12 @@
+(set-option :produce-unsat-model-interpolants true)
+(set-logic QF_NIA)
+(declare-const v5 Bool)
+(declare-const i0 Int)
+(declare-const i1 Int)
+(declare-const i4 Int)
+(declare-const i5 Int)
+(assert (or (= (> (- (- 738 36)) i1) (distinct i1 738)) (and (> (- (- 738 36)) i1) (distinct i0 i4) (distinct i1 738) v5) (= (> (- (- 738 36)) i1) (distinct i1 738))))
+(check-sat)
+(check-sat-assuming-model (i1 i4 i5) (38480 38075 25214))
+(get-unsat-model-interpolant)
+

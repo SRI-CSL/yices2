@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2019 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <inttypes.h>
@@ -1378,7 +1389,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
       ctx_trace_term(ctx, csttrail->conflict_var_term);
     }
 
-    switch (term_kind(terms, atom_term)) {
+    term_kind_t kind = term_kind(terms, atom_term);
+
+    switch (kind) {
     case EQ_TERM : 
     case BV_EQ_ATOM:
     case BV_GE_ATOM: 
@@ -1443,7 +1456,9 @@ bool can_explain_conflict(bv_subexplainer_t* this, const ivector_t* conflict_cor
         result = false;
         break;
       }
-      if (t0_coeff * t1_coeff == -1) {
+      if ( (kind != EQ_TERM)
+           && (kind != BV_EQ_ATOM)
+           && (t0_coeff * t1_coeff == -1) ) {
         // Turns out we actually can't deal with the constraint. We stop
         if (ctx_trace_enabled(ctx, "mcsat::bv::arith::fail")) {
           FILE* out = ctx_trace_out(ctx);

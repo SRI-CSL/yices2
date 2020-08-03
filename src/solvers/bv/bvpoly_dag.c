@@ -3546,7 +3546,11 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
         }
 
         cleanup_prod(p);
-        if (prod_node_is_elementary(dag, p)) {
+        assert(pprod_is_normalized(p));
+        if (p->len == 1 && p->prod[0].exp == 1) {
+	  // i is n^1
+	  convert_to_alias(dag, i, p->prod[0].var);
+	} else if (prod_node_is_elementary(dag, p)) {
           bvc_dag_move_to_elementary_list(dag, i);
         }
       }
@@ -3606,8 +3610,11 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
 	      dag->desc[i] = &p->header;
 	    }
 	  }
-	  assert(pprod_is_normalized(p));	   
-	  if (prod_node_is_elementary(dag, p)) {
+	  assert(pprod_is_normalized(p));
+	  if (p->len == 1 && p->prod[0].exp == 1) {
+	    // i is n^1
+	    convert_to_alias(dag, i, p->prod[0].var);
+	  } else if (prod_node_is_elementary(dag, p)) {
 	    bvc_dag_move_to_elementary_list(dag, i);
 	  }
 	}

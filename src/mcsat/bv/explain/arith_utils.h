@@ -74,6 +74,10 @@ term_t arith_lt(term_manager_t* tm, term_t left, term_t right);
 // This function returns (left <= right), simplifying the result
 term_t arith_le(term_manager_t* tm, term_t left, term_t right);
 
+/**
+   Normalising sums so that coefficients are odd.
+**/
+
 // Outputs true if
 // - not a bv_poly or bv64 poly, or;
 // - if it is a bv_poly or bv64_poly, and none of the (non-constant) coefficients is even
@@ -83,6 +87,10 @@ bool arith_is_sum_norm(term_table_t* terms, term_t t);
 // if one of the (non-constant) coefficients is even it can be divided by 2 and the monomial's variable could be multiplied by 2 by a shift.
 // This simplification is done iteratively until the property above is true.
 term_t arith_sum_norm(term_manager_t* tm, term_t u);
+
+/**
+   Apparently useful somewhere.
+**/
 
 static inline
 bool arith_is_no_triv(term_t t){

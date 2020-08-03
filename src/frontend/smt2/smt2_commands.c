@@ -623,6 +623,43 @@ static void reset_smt2_stack(smt2_stack_t *s) {
  */
 
 /*
+ * Check sat with model assumptions and (TODO) build the interpolant
+ */
+static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint32_t n, const term_t vars[], const term_t values[]) {
+  uint32_t i;
+  term_t x;
+  value_t x_value;
+  ivector_t assumptions;
+  smt_status_t status;
+
+  model_t mdl;
+  evaluator_t mdl_evaluator;
+
+  // Init model and evaluation
+  init_model(&mdl, ctx->terms, true);
+  init_evaluator(&mdl_evaluator, &mdl);
+
+  // Copy over to model
+  init_ivector(&assumptions, n);
+  for (i = 0; i < n; ++ i) {
+    x = vars[i];
+    x_value = eval_in_model(&mdl_evaluator, values[i]);
+    model_map_term(&mdl, x, x_value);
+    ivector_push(&assumptions, x);
+  }
+
+  // Solve
+  status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+
+  // Remove temps
+  delete_ivector(&assumptions);
+  delete_evaluator(&mdl_evaluator);
+  delete_model(&mdl);
+
+  return status;
+}
+
+/*
  * Check sat with assumptions and build an unsat core
  */
 static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[], ivector_t *core) {
@@ -635,6 +672,27 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
   if (context_status(ctx) == STATUS_UNSAT) {
     ivector_reset(core);
     return STATUS_UNSAT;
+  }
+
+  // If MCSAT use the model solving command
+  if (ctx->mcsat) {
+    // Copy over to model
+    model_t mdl;
+    init_model(&mdl, ctx->terms, true);
+    init_ivector(&assumptions, n);
+    for (i = 0; i < n; ++ i) {
+      term_t x = unsigned_term(a[i]);
+      value_t val = is_pos_term(a[i]) ? vtbl_mk_bool(&mdl.vtbl, true) : vtbl_mk_bool(&mdl.vtbl, false);
+      model_map_term(&mdl, x, val);
+      ivector_push(&assumptions, x);
+    }
+    // Solve
+    status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+    // Remove temps
+    delete_ivector(&assumptions);
+    delete_model(&mdl);
+
+    return status;
   }
 
   // convert a[0] ... a[n-1] to assumptions
@@ -673,6 +731,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
   stats->num_assert = 0;
   stats->num_check_sat = 0;
   stats->num_check_sat_assuming = 0;
+  stats->num_check_sat_assuming_model = 0;
   stats->num_push = 0;
   stats->num_pop = 0;
   stats->num_get_value = 0;
@@ -1138,6 +1197,9 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
   "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
+  "variables and values not matching",  // TSTACK_VARIABLES_VALUES_NOT_MATCHING
+  "a constant value required",          // TSTACK_NOT_A_CONSTANT,
+  "a variable required",                // TSTACK_NOT_A_VARIABLE
   NULL,                                 // TSTACK_YICES_ERROR
   "missing symbol in :named attribute", // SMT2_MISSING_NAME
   "no pattern given",                   // SMT2_MISSING_PATTERN
@@ -1273,6 +1335,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "get-proof",            // SMT2_GET_PROOF
   "get-unsat-assumptions",  // SMT2_GET_UNSAT_ASSUMPTIONS
   "get-unsat-core",       // SMT2_GET_UNSAT_CORE
+  "get-unsat-model-interpolant", // SMT2_GET_UNSAT_MODEL_INTERPOLANT
   "get-value",            // SMT2_GET_VALUE
   "get-option",           // SMT2_GET_OPTION
   "get-info",             // SMT2_GET_INFO
@@ -1284,6 +1347,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "assert",               // SMT2_ASSERT,
   "check-sat",            // SMT2_CHECK_SAT,
   "check-sat-assuming",   // SMT2_CHECK_SAT_ASSUMING,
+  "check-sat-assuming-model" // SMT2_CHECK_SAT_ASSUMING_MODEL
   "declare-sort",         // SMT2_DECLARE_SORT
   "define-sort",          // SMT2_DEFINE_SORT
   "declare-fun",          // SMT2_DECLARE_FUN
@@ -1395,6 +1459,9 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_NOT_A_SYMBOL:
   case TSTACK_NOT_A_RATIONAL:
   case TSTACK_NOT_A_TYPE:
+  case TSTACK_NOT_A_CONSTANT:
+  case TSTACK_NOT_A_VARIABLE:
+  case TSTACK_VARIABLES_VALUES_NOT_MATCHING:
   case TSTACK_ARITH_ERROR:
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
@@ -2184,6 +2251,17 @@ static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, ava
   }
 }
 
+static void set_unsat_model_interpolants_option(smt2_globals_t *g, const char *name, aval_t value) {
+  bool flag;
+
+  if (aval_is_boolean(g->avtbl, value, &flag)) {
+   g->produce_unsat_model_interpolants = flag;
+   report_success();
+  } else {
+    print_error("option %s requires a Boolean value", name);
+  }
+}
+
 
 /*
  * OUTPUT OF INFO AND OPTIONS
@@ -2628,6 +2706,54 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
   return stat;
 }
 
+/*
+ * Check with model assumptions:
+ * - params = search parameters
+ * - n = size of model
+ * - vars = the variables
+ * - values = the values
+ */
+static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *params, uint32_t n, const term_t vars[], const term_t values[]) {
+  smt_status_t stat;
+
+  if (g->timeout == 0) {
+    // no timeout
+    stat = check_with_model(g->ctx, params, n, vars, values);
+    g->check_with_model_status = stat;
+    return stat;
+  }
+
+  /*
+   * We call init_timeout only now because the internal timeout
+   * consumes resources even if it's never used.
+   */
+  if (! g->timeout_initialized) {
+    init_timeout();
+    g->timeout_initialized = true;
+  }
+  g->interrupted = false;
+  start_timeout(g->timeout, timeout_handler, g);
+  stat = check_with_model(g->ctx, params, n, vars, values);
+  clear_timeout();
+
+  /*
+   * Attempt to cleanly recover from interrupt
+   */
+  if (stat == STATUS_INTERRUPTED) {
+    trace_printf(g->tracer, 2, "(check-sat-assuming-model: interrupted)\n");
+    g->interrupted = true;
+    if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
+      context_cleanup(g->ctx);
+      assert(context_status(g->ctx) == STATUS_IDLE);
+    }
+    // we don't want to report "interrupted" that's not SMT2 compliant
+    stat = STATUS_UNKNOWN;
+  }
+
+  g->check_with_model_status = stat;
+
+  return stat;
+}
 
 
 
@@ -3091,6 +3217,35 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
   }
 }
 
+/*
+ * Check sat with model assumptions
+ */
+static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t n, const term_t vars[], const term_t values[]) {
+  int32_t code;
+  smt_status_t status;
+
+  g->frozen = true;
+  if (g->trivially_unsat) {
+    // list of unsat assumption is empty
+    report_status(g, STATUS_UNSAT);
+    g->check_with_model_status = STATUS_UNSAT;
+  } else {
+    init_smt2_context(g);
+    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      // error during assertion processing
+      print_yices_error(true);
+      return;
+    }
+    init_search_parameters(g);
+    if (g->random_seed != 0) {
+      g->parameters.random_seed = g->random_seed;
+    }
+    status = check_sat_with_model(g, &g->parameters, n, vars, values);
+    report_status(g, status);
+  }
+}
+
 
 /*
  * EXISTS/FORALL SOLVER
@@ -3159,6 +3314,9 @@ static void cleanup_context(smt2_globals_t *g) {
   if (g->unsat_assumptions != NULL) {
     free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
+  }
+  if (g->check_with_model_status != STATUS_UNSAT) {
+    g->check_with_model_status = STATUS_IDLE;
   }
 
   switch (context_status(g->ctx)) {
@@ -3323,8 +3481,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
 
 
 /*
- * Check with assumptions:
- * - not supported by the mcsat solver
+ * Check with assumptions
  */
 static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_t *a) {
   assumptions_and_core_t *assumptions;
@@ -3365,6 +3522,39 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       bad_status_bug(g->err);
       break;
     }
+  }
+
+  flush_out();
+}
+
+/*
+ * Check with assumptions
+ */
+static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const term_t vars[], const term_t values[]) {
+  smt_status_t status;
+
+  cleanup_context(g);
+
+  switch (context_status(g->ctx)) {
+  case STATUS_IDLE:
+    if (g->random_seed != 0) {
+      g->parameters.random_seed = g->random_seed;
+    }
+    status = check_sat_with_model(g, &g->parameters, n, vars, values);
+    report_status(g, status);
+    break;
+
+  case STATUS_UNSAT:
+    show_status(STATUS_UNSAT);
+    break;
+
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
   }
 
   flush_out();
@@ -3992,6 +4182,62 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
   }
 }
 
+/*
+ * Print the the model interpolant if any
+ */
+static void show_unsat_model_interpolant(smt2_globals_t *g) {
+  smt2_pp_t printer;
+
+  if (!g->produce_unsat_model_interpolants) {
+    print_error("not supported: :produce-unsat-model-interpolants is false");
+  } else if (g->ctx == NULL) {
+    if (g->check_with_model_status == STATUS_UNSAT) {
+      smt2_echo("false");
+    } else {
+      print_error("Call (check-sat-assuming-model) first");
+    }
+  } else {
+    // Could be that we called check-sat after
+    smt_status_t ctx_status = context_status(g->ctx);
+    switch (ctx_status) {
+    case STATUS_SAT:
+    case STATUS_UNSAT:
+      g->check_with_model_status = ctx_status;
+      break;
+    default:
+      break;
+    }
+    smt_status_t status = g->check_with_model_status;
+    switch (status) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+	  print_error("No unsat interpolant. The context is satisfiable");
+	  break;
+
+    case STATUS_UNSAT: {
+      term_t unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
+	  if (unsat_model_interpolant == NULL_TERM) {
+	    print_error("Call (check-sat-assuming-model) first");
+	  } else {
+	    init_pretty_printer(&printer, g);
+	    pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
+	    delete_smt2_pp(&printer, true);
+	  }
+	  break;
+    }
+    case STATUS_IDLE:
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+      print_error("No unsat interpolant. The context is not unsatisfiable");
+      break;
+
+    default:
+      print_out("BUG: unexpected status in get-unsat-model-interpolant");
+	  freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
+	  break;
+    }
+  }
+}
 
 
 /*
@@ -4232,6 +4478,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->produce_proofs = false;
   g->produce_unsat_cores = false;
   g->produce_unsat_assumptions = false;
+  g->produce_unsat_model_interpolants = false;
   g->produce_models = false;
   g->produce_assignments = false;
   g->random_seed = 0;  // 0 means any seed is good
@@ -4593,6 +4840,29 @@ void smt2_get_unsat_assumptions(void) {
   }
 }
 
+/* Check whether MCSAT solver is going to be used. */
+static bool mcsat_enabled(smt2_globals_t *g) {
+  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
+}
+
+/*
+ * Get the interpolant for the model: formula implied by the assertions that
+ * evaluates to false.
+ */
+void smt2_get_unsat_model_interpolant(void) {
+  __smt2_globals.stats.num_get_unsat_model_interpolant ++;
+  __smt2_globals.stats.num_commands ++;
+  tprint_calls("get-unsat-model-interpolant", __smt2_globals.stats.num_get_unsat_model_interpolant);
+
+  if (check_logic()) {
+    if (!mcsat_enabled(&__smt2_globals)) {
+      print_error("get-unsat-model-interpolant is only supported in MCSAT");
+    } else {
+      show_unsat_model_interpolant(&__smt2_globals);
+    }
+  }
+}
+
 
 /*
  * Get the values of terms in the model
@@ -4900,7 +5170,7 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
   case PARAM_MCSAT_VAR_ORDER:
     print_terms_value(g,g->mcsat_options.var_order);
     break;
-    
+
   case PARAM_UNKNOWN:
   default:
     freport_bug(g->err,"invalid parameter id in 'yices_get_option'");
@@ -4975,6 +5245,10 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRODUCE_UNSAT_CORES:
     print_boolean_value(g->produce_unsat_cores);
     break;
+
+  case SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANTS:
+	print_boolean_value(g->produce_unsat_model_interpolants);
+	break;
 
   case SMT2_KW_EXPAND_DEFINITIONS:
   case SMT2_KW_INTERACTIVE_MODE:
@@ -5571,7 +5845,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       }
     }
     break;
-    
+
   case PARAM_MCSAT_VAR_ORDER:
     if (param_val_to_terms(param, val, &terms, &reason)) {
       g->mcsat_options.var_order = terms;
@@ -5680,6 +5954,13 @@ void smt2_set_option(const char *name, aval_t value) {
     // optional: if true,  get-unsat-cores can be used
     if (option_can_be_set(name)) {
       set_unsat_core_option(g, name, value);
+    }
+    break;
+
+  case SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANTS:
+    // optional: if true, get-unsat-model-interpolant can be used
+    if (option_can_be_set(name)) {
+      set_unsat_model_interpolants_option(g, name, value);
     }
     break;
 
@@ -6146,16 +6427,6 @@ void smt2_check_sat(void) {
   }
 }
 
-
-/*
- * Check whether the logic requires mcsat or the mcsat flag is set.
- * In either case, check_sat_assuming is not supported.
- */
-static bool mcsat_is_required(smt2_globals_t *g) {
-  assert(g->logic_code != SMT_UNKNOWN);
-  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
-}
-
 /*
  * Check sat with assumptions:
  * - n = number of assumptions
@@ -6169,8 +6440,8 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
   tprint_calls("check-sat-assuming", __smt2_globals.stats.num_check_sat_assuming);
 
   if (check_logic()) {
-    if (mcsat_is_required(&__smt2_globals)) {
-      print_error("check-sat-assuming is not supported in logic %s", __smt2_globals.logic_name);
+    if (__smt2_globals.produce_unsat_cores) {
+      print_error("check-sat-assuming is not supported when :produce-unsat-cores is true");
     } else if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.efmode) {
         print_error("the exists/forall solver does not support check-sat with assumptions");
@@ -6184,6 +6455,34 @@ void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a) {
     }
   }
 }
+
+/*
+ * Check sat with model as assumptions:
+ * - n = number of assumptions
+ * - vars = array of variables
+ * - values = array of values
+ */
+void smt2_check_sat_assuming_model(uint32_t n, const term_t vars[], const term_t values[]) {
+  __smt2_globals.stats.num_check_sat_assuming_model ++;
+  __smt2_globals.stats.num_commands ++;
+  tprint_calls("check-sat-assuming-model", __smt2_globals.stats.num_check_sat_assuming_model);
+
+  if (check_logic()) {
+    if (!mcsat_enabled(&__smt2_globals)) {
+      print_error("check-sat-assuming-model is only supported in MCSAT");
+    } else if (__smt2_globals.benchmark_mode) {
+      if (__smt2_globals.efmode) {
+        print_error("the exists/forall solver does not support check-sat with assumptions");
+      } else if (__smt2_globals.frozen) {
+        print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");
+      } else {
+        check_delayed_assertions_assuming_model(&__smt2_globals, n, vars, values);
+      }
+    } else {
+      ctx_check_sat_assuming_model(&__smt2_globals, n, vars, values);
+    }
+  }}
+
 
 /*
  * Declare a new sort:
@@ -6482,7 +6781,7 @@ void smt2_reset_all(void) {
   timeout = __smt2_globals.timeout;
   print_success = __smt2_globals.print_success;
   verbosity = __smt2_globals.verbosity;
-  
+
   delete_smt2_globals(&__smt2_globals);
   delete_attr_vtbl(&avtbl); // must be done last
   yices_reset_tables();

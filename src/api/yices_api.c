@@ -8290,7 +8290,25 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     }
   }
 
-  return _o_yices_create_context(logic, arch, mode, iflag, qflag);
+  context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
+
+  if (config->trace_tags != NULL) {
+    // Make new trace
+    tracer_t *trace = (tracer_t*) safe_malloc(sizeof(tracer_t));
+    init_trace(trace);
+    set_trace_file(trace, stderr);
+    // Copy over the trace tag to the tracer
+    char *saveptr = NULL;
+    char *tag = strtok_r(config->trace_tags, ",", &saveptr);
+    while (tag != NULL) {
+      pvector_push(&trace->trace_tags, tag);
+      tag = strtok_r(NULL, ",", &saveptr);
+    }
+    // Set it to the context
+    context_set_trace(ctx, trace);
+  }
+
+  return ctx;
 }
 
 
@@ -8993,6 +9011,96 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
+/*
+ * Check context with model
+ * - n = number of assumptions
+ * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
+ */
+EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
+    model_t* mdl, uint32_t n, const term_t t[]) {
+
+  param_t default_params;
+  smt_status_t stat;
+  uint32_t i;
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    if (!context_supports_multichecks(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (!context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED: {
+    error_report_t *error = get_yices_error();
+    error->code = CTX_INVALID_OPERATION;
+    return STATUS_ERROR;
+  }
+  case STATUS_ERROR:
+  default: {
+    error_report_t *error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
+    return STATUS_ERROR;
+  }
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // Make sure only variables are allowed
+  for (i = 0; i < n; ++ i) {
+    bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
+    if (!is_variable) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+  }
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_model(ctx, params, mdl, n, t);
+  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+  return stat;
+}
+
 
 /*
  * Interrupt the search:
@@ -9029,6 +9137,13 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   yices_reset_term_vector(v);
   context_build_unsat_core(ctx, (ivector_t *) v);
   return 0;
+}
+
+/*
+ * Construct a model interpolant core.
+ */
+EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+  return context_get_unsat_model_interpolant(ctx);
 }
 
 

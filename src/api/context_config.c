@@ -82,6 +82,7 @@ static const int32_t solver_code[NUM_SOLVER_CODES] = {
 typedef enum ctx_config_key {
   CTX_CONFIG_KEY_MODE,
   CTX_CONFIG_KEY_SOLVER_TYPE,
+  CTX_CONFIG_KEY_TRACE_TAGS,
   CTX_CONFIG_KEY_ARITH_FRAGMENT,
   CTX_CONFIG_KEY_UF_SOLVER,
   CTX_CONFIG_KEY_ARRAY_SOLVER,
@@ -99,6 +100,7 @@ static const char *const config_key_names[NUM_CONFIG_KEYS] = {
   "bv-solver",
   "mode",
   "solver-type",
+  "trace",
   "uf-solver",
 };
 
@@ -109,6 +111,7 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_BV_SOLVER,
   CTX_CONFIG_KEY_MODE,
   CTX_CONFIG_KEY_SOLVER_TYPE,
+  CTX_CONFIG_KEY_TRACE_TAGS,
   CTX_CONFIG_KEY_UF_SOLVER,
 };
 
@@ -241,6 +244,7 @@ static const ctx_config_t default_config = {
   CTX_CONFIG_DEFAULT,     // bv
   CTX_CONFIG_DEFAULT,     // arith
   ARITH_LIRA,             // fragment
+  NULL,                   // trace tags
 };
 
 
@@ -358,6 +362,10 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     } else {
       config->solver_type = v;
     }
+    break;
+
+  case CTX_CONFIG_KEY_TRACE_TAGS:
+    config->trace_tags = strdup(value);
     break;
 
   case CTX_CONFIG_KEY_ARITH_FRAGMENT:

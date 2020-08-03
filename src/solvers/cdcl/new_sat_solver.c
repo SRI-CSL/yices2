@@ -7115,7 +7115,7 @@ static void pp_process_subst_pure(sat_solver_t *solver) {
   n = v->size;
   for (i=0; i<n; i++) {
     l = full_lit_subst(solver, v->data[i]);
-    if (false && lit_is_unassigned(solver, l) && solver->occ[not(l)] == 0) {
+    if (lit_is_unassigned(solver, l) && solver->occ[not(l)] == 0) {
       pp_push_pure_literal(solver, l);
     }
   }

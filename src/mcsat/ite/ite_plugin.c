@@ -36,8 +36,8 @@ typedef struct {
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->ctx = ctx;
-  ctx->request_term_notification_by_kind(ctx, ITE_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
+  ctx->request_term_notification_by_kind(ctx, ITE_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 }
 
 void ite_plugin_destruct(plugin_t* plugin) {
@@ -95,6 +95,7 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = NULL;
   plugin->plugin_interface.propagate           = NULL;
   plugin->plugin_interface.decide              = NULL;
+  plugin->plugin_interface.decide_assignment   = NULL;
   plugin->plugin_interface.get_conflict        = NULL;
   plugin->plugin_interface.explain_propagation = NULL;
   plugin->plugin_interface.explain_evaluation  = NULL;

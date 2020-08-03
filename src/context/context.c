@@ -6363,6 +6363,8 @@ void context_clear_unsat(context_t *ctx) {
   if (ctx->mcsat == NULL) {
     smt_clear_unsat(ctx->core);
     assert(smt_base_level(ctx->core) == ctx->base_level);
+  } else {
+    mcsat_clear(ctx->mcsat);
   }
 }
 

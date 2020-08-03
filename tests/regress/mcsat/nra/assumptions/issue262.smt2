@@ -1,0 +1,7 @@
+(set-option :produce-unsat-model-interpolants true)
+(set-logic QF_UFNRA)
+(declare-const r1 Real)
+(declare-const r7 Real)
+(assert (or (= (* r1 r1 5.7306 5.7306 r1) (- 5.7306) (- 5.7306))))
+(check-sat-assuming-model ( r1 r7) (29354.0 61.85))
+(get-unsat-model-interpolant)

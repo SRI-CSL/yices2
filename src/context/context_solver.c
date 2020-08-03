@@ -549,7 +549,7 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
 }
 
 static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
-  mcsat_solve(ctx->mcsat, params);
+  mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
   return mcsat_status(ctx->mcsat);
 }
 
@@ -595,8 +595,6 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   smt_core_t *core;
   smt_status_t stat;
 
-  assert(ctx->mcsat == NULL); // MC-SAT doesn't support assumptions yet
-
   core = ctx->core;
   stat = smt_status(core);
   if (stat == STATUS_IDLE) {
@@ -612,6 +610,25 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   return stat;
 }
 
+/*
+ * Check with given model
+ * - if mcsat status is not IDLE, return the status.
+ */
+smt_status_t check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
+  assert(ctx->mcsat != NULL);
+  smt_status_t stat;
+
+  stat = mcsat_status(ctx->mcsat);
+  if (stat == STATUS_IDLE) {
+    mcsat_solve(ctx->mcsat, params, mdl, n, t);
+    stat = mcsat_status(ctx->mcsat);
+    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
+      context_clear(ctx);
+    }
+  }
+
+  return stat;
+}
 
 
 /*
@@ -1178,3 +1195,9 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
     v->data[i] = t;
   }
 }
+
+extern term_t context_get_unsat_model_interpolant(context_t *ctx) {
+  assert(ctx->mcsat != NULL);
+  return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+}
+

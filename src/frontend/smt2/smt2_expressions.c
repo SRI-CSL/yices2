@@ -73,6 +73,7 @@ void push_smt2_token(etk_queue_t *queue, smt2_token_t tk, const char *str, uint3
   case SMT2_TK_ASSERT:
   case SMT2_TK_CHECK_SAT:
   case SMT2_TK_CHECK_SAT_ASSUMING:
+  case SMT2_TK_CHECK_SAT_ASSUMING_MODEL:
   case SMT2_TK_DECLARE_SORT:
   case SMT2_TK_DECLARE_CONST:
   case SMT2_TK_DECLARE_FUN:
@@ -88,6 +89,7 @@ void push_smt2_token(etk_queue_t *queue, smt2_token_t tk, const char *str, uint3
   case SMT2_TK_GET_PROOF:
   case SMT2_TK_GET_UNSAT_ASSUMPTIONS:
   case SMT2_TK_GET_UNSAT_CORE:
+  case SMT2_TK_GET_UNSAT_MODEL_INTERPOLANT:
   case SMT2_TK_GET_VALUE:
   case SMT2_TK_POP:
   case SMT2_TK_PUSH:
@@ -169,6 +171,7 @@ static void pp_smt2_token(yices_pp_t *printer, etoken_t *token) {
   case SMT2_TK_GET_PROOF:
   case SMT2_TK_GET_UNSAT_ASSUMPTIONS:
   case SMT2_TK_GET_UNSAT_CORE:
+  case SMT2_TK_GET_UNSAT_MODEL_INTERPOLANT:
   case SMT2_TK_GET_VALUE:
   case SMT2_TK_POP:
   case SMT2_TK_PUSH:

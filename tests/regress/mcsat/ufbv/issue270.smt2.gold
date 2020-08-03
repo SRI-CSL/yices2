@@ -1,0 +1,7 @@
+unsat
+(bv-lt
+ (bv-concat (bv-extract 6 3 bv_16-0) 0b0101001010101010010101010100101010101001010101010010101010100101010101001010101010010101)
+ (bool-to-bv (bit bv_16-0 6) true false true false true false false true false true false true false true false true false false true false true false true
+             false true false true false false true false true false true false true false true false false true false true false true false true false true
+             false false true false true false true false true false true false false true false true false true false true false true false false true false
+             true false true false true false true false false true false true false (bit bv_16-0 3) (bit bv_16-0 4) (bit bv_16-0 5)))

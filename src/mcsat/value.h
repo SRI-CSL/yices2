@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef MCSAT_VALUE_H_
 #define MCSAT_VALUE_H_
 
@@ -72,11 +72,20 @@ void mcsat_value_construct_rational(mcsat_value_t *value, const rational_t *q);
 /** Construct a value from the libpoly value */
 void mcsat_value_construct_lp_value(mcsat_value_t *value, const lp_value_t *lp_value);
 
+/** Construct a value from the libpoly value */
+void mcsat_value_construct_lp_value_direct(mcsat_value_t *value, lp_value_type_t type, void* data);
+
 /** Construct a bv value. Passing NULL for bv_value will leave the bvconstant default-initialized. */
 void mcsat_value_construct_bv_value(mcsat_value_t *value, const bvconstant_t *bv_value);
 
 /** Construct a copy */
 void mcsat_value_construct_copy(mcsat_value_t *value, const mcsat_value_t *from);
+
+/** Construct a copy of n values */
+void mcsat_value_construct_copy_n(mcsat_value_t *value, const mcsat_value_t *from, uint32_t n);
+
+/** Construct an MCSAT value from given value */
+void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t* vtbl, value_t v);
 
 /** Construct a value from a constant term */
 void mcsat_value_construct_from_constant_term(mcsat_value_t* value, term_table_t* terms, term_t c);
