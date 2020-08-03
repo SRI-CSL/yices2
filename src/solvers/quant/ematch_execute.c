@@ -805,6 +805,8 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   count = 0;
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
+  x = NULL_TERM;
+
   if (kind == APP_TERM) {
     x = pat->p;
   } else if (kind == TUPLE_TERM) {
