@@ -1,0 +1,4 @@
+sat
+(= x false)
+(= y false)
+(= z true)

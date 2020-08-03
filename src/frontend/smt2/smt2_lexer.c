@@ -61,6 +61,7 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "assert",                // SMT2_TK_ASSERT
   "check-sat",             // SMT2_TK_CHECK_SAT
   "check-sat-assuming",    // SMT2_TK_CHECK_SAT_ASSUMING
+  "check-sat-assuming-model", // SMT2_TK_CHECK_SAT_ASSUMING_MODEL
   "declare-sort",          // SMT2_TK_DECLARE_SORT
   "declare-const",         // SMT2_TK_DECLARE_CONST
   "declare-fun",           // SMT2_TK_DECLARE_FUN
@@ -77,6 +78,7 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "get-proof",             // SMT2_TK_GET_PROOF
   "get-unsat-assumptions", // SMT2_TK_GET_UNSAT_ASSUMPTIONS
   "get-unsat-core",        // SMT2_TK_GET_UNSAT_CORE
+  "get-unsat-model-interpolant", // SMT2_TK_GET_UNSAT_MODEL_INTERPOLANT
   "get-value",             // SMT2_TK_GET_VALUE
   "pop",                   // SMT2_TK_POP
   "push",                  // SMT2_TK_PUSH
@@ -108,6 +110,7 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":produce-proofs",          // SMT2_KW_PRODUCE_PROOFS
   ":produce-unsat-assumptions",   // SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS
   ":produce-unsat-cores",     // SMT2_KW_PRODUCE_UNSAT_CORES
+  ":produce-unsat-model-interpolants", // SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANS
   ":random-seed",             // SMT2_KW_RANDOM_SEED
   ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
   ":reproducible-resource-limit",  // SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT

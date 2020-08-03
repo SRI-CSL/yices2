@@ -107,11 +107,11 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, APP_TERM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
-  ctx->request_term_notification_by_kind(ctx, EQ_TERM);
+  ctx->request_term_notification_by_kind(ctx, APP_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
+  ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);
@@ -493,6 +493,14 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     variable_t lhs_var = variable_db_get_variable_if_exists(var_db, lhs_term);
     variable_t rhs_var = variable_db_get_variable_if_exists(var_db, rhs_term);
 
+    // Add to variables
+    if (lhs_var != variable_null) {
+      int_mset_add(vars, lhs_var);
+    }
+    if (rhs_var != variable_null) {
+      int_mset_add(vars, rhs_var);
+    }
+
     // Check if both are assigned
     if (lhs_var == variable_null) {
       return false;
@@ -513,10 +521,9 @@ bool uf_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
     bool negated = is_neg_term(t);
     if ((negated && (value->b != lhs_eq_rhs)) ||
         (!negated && (value->b == lhs_eq_rhs))) {
-      int_mset_add(vars, lhs_var);
-      int_mset_add(vars, rhs_var);
       return true;
     }
+
   }
 
   // Default: return false for cases like f(x) -> false, this is done in the
@@ -781,6 +788,7 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = 0;
   plugin->plugin_interface.propagate             = uf_plugin_propagate;
   plugin->plugin_interface.decide                = uf_plugin_decide;
+  plugin->plugin_interface.decide_assignment     = NULL;
   plugin->plugin_interface.get_conflict          = uf_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = uf_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = uf_plugin_explain_evaluation;

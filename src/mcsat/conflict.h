@@ -55,12 +55,9 @@ typedef struct mcsat_evaluator_interface_s mcsat_evaluator_interface_t;
 struct mcsat_evaluator_interface_s {
 
   /**
-   * Check if the term evaluates. Regardless if the term evaluates or not,
-   * the function returns the full set of variables that are considered as
+   * Check if the term evaluates to given value. Regardless if the term evaluates
+   * or not, the function returns the full set of variables that are considered as
    * the assignment frontier for the evaluation.
-   *
-   * If value != NULL, and the term evaluates, the output value should be
-   * assigned to it.
    */
   bool (*evaluates) (const mcsat_evaluator_interface_t* self, term_t t, int_mset_t* vars, const mcsat_value_t* value);
 };
@@ -120,13 +117,16 @@ typedef struct conflict_s {
   /** Evaluator so that we can evaluate terms */
   const mcsat_evaluator_interface_t* evaluator;
 
+  /** Whether to demand literals to evaluate to false */
+  bool check_false;
+
 } conflict_t;
 
 /**
  * Construct the conflict. The conflict_lits are literals (terms) that evaluate
  * to true and the lemma (and conflict_lits) => false is valid.
  */
-void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits,
+void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, bool check_false,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
     term_manager_t* tm, tracer_t* tracer);
 
@@ -139,7 +139,7 @@ void conflict_print(const conflict_t* conflict, FILE* out);
 /** Returns the level at which the conflict is false. */
 uint32_t conflict_get_level(const conflict_t* conflict);
 
-/** Returns true if the variable is part of the conflit (not necessarily as top) */
+/** Returns true if the variable is part of the conflict (not necessarily as top) */
 bool conflict_contains(const conflict_t* conflict, variable_t var);
 
 /** Returns true if the variable is part of the conflict (as top) */
@@ -178,5 +178,7 @@ term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var);
 /** Run Yices to check that the conflict is a valid statement */
 void conflict_check(conflict_t* conflict);
 
+/** Returns the clause of the conflict */
+term_t conflict_get_formula(conflict_t* conflict);
 
 #endif

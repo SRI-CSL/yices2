@@ -1,0 +1,1 @@
+--mcsat --incremental --trace mcsat::interpolant::check

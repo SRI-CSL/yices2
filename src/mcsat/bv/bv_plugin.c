@@ -45,6 +45,12 @@ typedef enum {
   BV_PROP_SINGLETON
 } bv_propagation_type_t;
 
+typedef enum {
+  BV_CONFLICT_UNIT,
+  BV_CONFLICT_EVAL,
+  BV_CONFLICT_ASSUMPTION
+} bv_conflict_type_t;
+
 typedef struct {
 
   /** The plugin interface */
@@ -68,8 +74,8 @@ typedef struct {
   /** Conflict variable */
   variable_t conflict_variable;
 
-  /** Bool is the conflict evaluation conflic */
-  bool conflict_is_eval;
+  /** Bool is the conflict evaluation conflict */
+  bv_conflict_type_t conflict_type;
 
   /** Exception handler */
   jmp_buf* exception;
@@ -135,7 +141,7 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   bv->last_decided_and_unprocessed = variable_null;
   bv->conflict_variable = variable_null;
-  bv->conflict_is_eval = false;
+  bv->conflict_type = BV_CONFLICT_UNIT;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_construct(...)\n");
@@ -162,24 +168,24 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_generic_heap(&bv->visit_heap, 0, 0, term_visit_cmp, NULL);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, BV_ARRAY);
-  ctx->request_term_notification_by_kind(ctx, BV_DIV);
-  ctx->request_term_notification_by_kind(ctx, BV_REM);
-  ctx->request_term_notification_by_kind(ctx, BV_SDIV);
-  ctx->request_term_notification_by_kind(ctx, BV_SREM);
-  ctx->request_term_notification_by_kind(ctx, BV_SMOD);
-  ctx->request_term_notification_by_kind(ctx, BV_SHL);
-  ctx->request_term_notification_by_kind(ctx, BV_LSHR);
-  ctx->request_term_notification_by_kind(ctx, BV_ASHR);
-  ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
-  ctx->request_term_notification_by_kind(ctx, BV_POLY);
-  ctx->request_term_notification_by_kind(ctx, BV64_POLY);
-  ctx->request_term_notification_by_kind(ctx, BIT_TERM);
-  ctx->request_term_notification_by_kind(ctx, BV_CONSTANT);
-  ctx->request_term_notification_by_kind(ctx, BV64_CONSTANT);
+  ctx->request_term_notification_by_kind(ctx, BV_ARRAY, false);
+  ctx->request_term_notification_by_kind(ctx, BV_DIV, false);
+  ctx->request_term_notification_by_kind(ctx, BV_REM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SDIV, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SREM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SMOD, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SHL, false);
+  ctx->request_term_notification_by_kind(ctx, BV_LSHR, false);
+  ctx->request_term_notification_by_kind(ctx, BV_ASHR, false);
+  ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
+  ctx->request_term_notification_by_kind(ctx, BV_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, BV64_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, BIT_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, BV64_CONSTANT, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, BITVECTOR_TYPE);
@@ -597,7 +603,7 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
   reset_generic_heap(&bv->visit_heap);
 }
 
-void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bool is_eval) {
+void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bv_conflict_type_t type) {
   // Although we do full propagation for shared sorts (Bool) a conflict can
   // still happen. For example if we have
   //  x = bool2bv(y)
@@ -605,7 +611,7 @@ void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t 
   // how Boolean plugin propagates values
   prop->conflict(prop);
   bv->conflict_variable = variable;
-  bv->conflict_is_eval = is_eval;
+  bv->conflict_type = type;
   (*bv->stats.conflicts) ++;
 }
 
@@ -627,7 +633,7 @@ void bv_plugin_process_fully_assigned_constraint(bv_plugin_t* bv, trail_token_t*
         fprintf(out, "cstr = "); ctx_trace_term(bv->ctx, variable_db_get_term(bv->ctx->var_db, cstr));
         trail_print(bv->ctx->trail, out);
       }
-      bv_plugin_report_conflict(bv, prop, cstr, true);
+      bv_plugin_report_conflict(bv, prop, cstr, BV_CONFLICT_EVAL);
     }
   }
 }
@@ -696,7 +702,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
 
   // If the intervals are empty, we have a conflict
   if (!feasible) {
-    bv_plugin_report_conflict(bv, prop, x, false);
+    bv_plugin_report_conflict(bv, prop, x, BV_CONFLICT_UNIT);
   } else {
     if (!trail_has_value(trail, x)) {
       bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
@@ -726,7 +732,7 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
           prop->add(prop, x, &x_value);
           mcsat_value_destruct(&x_value);
         }
-	delete_bvconstant(&x_bv_value);
+        delete_bvconstant(&x_bv_value);
       }
     }
   }
@@ -1052,7 +1058,7 @@ void bv_plugin_pop(plugin_t* plugin) {
 
   // Undo conflict
   bv->conflict_variable = variable_null;
-  bv->conflict_is_eval = false;
+  bv->conflict_type = BV_CONFLICT_UNIT;
 
   // We undid last decision, so we're back to normal
   bv->last_decided_and_unprocessed = variable_null;
@@ -1099,7 +1105,7 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   }
 
   // If the conflict is an evaluation, just return A or !A
-  if (bv->conflict_is_eval) {
+  if (bv->conflict_type == BV_CONFLICT_EVAL) {
     term_t cstr = variable_db_get_term(var_db, bv->conflict_variable);
     ivector_push(conflict, cstr);
     ivector_push(conflict, opposite_term(cstr));
@@ -1110,7 +1116,17 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   ivector_t conflict_core, lemma_reasons;
   init_ivector(&conflict_core, 0);
   init_ivector(&lemma_reasons, 0);
-  bv_feasible_set_db_get_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons, EXPLAIN_EMPTY);
+
+  switch (bv->conflict_type) {
+  case BV_CONFLICT_UNIT:
+    bv_feasible_set_db_get_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons, EXPLAIN_EMPTY);
+    break;
+  case BV_CONFLICT_ASSUMPTION:
+    bv_feasible_set_db_get_reasons(bv->feasible, bv->conflict_variable, &conflict_core, &lemma_reasons, EXPLAIN_ASSUMPTION);
+    break;
+  default:
+    assert(false);
+  }
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     trail_print(trail, ctx_trace_out(bv->ctx));
@@ -1125,7 +1141,22 @@ void bv_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   }
 
   // Explain with the appropriate theory
-  bv_explainer_get_conflict(&bv->explainer, &conflict_core, bv->conflict_variable, conflict);
+  switch (bv->conflict_type) {
+  case BV_CONFLICT_UNIT:
+    bv_explainer_get_conflict(&bv->explainer, &conflict_core, bv->conflict_variable, conflict);
+    break;
+  case BV_CONFLICT_ASSUMPTION: {
+    assert(conflict_core.size == 1);
+    assert(lemma_reasons.size == 0);
+    variable_t constraint_var = conflict_core.data[0];
+    term_t constraint_term = variable_db_get_term(bv->ctx->var_db, constraint_var);
+    ivector_push(conflict, constraint_term);
+    ivector_push(conflict, opposite_term(constraint_term));
+    break;
+  }
+  default:
+    assert(false);
+  }
 
   // Remove temps
   delete_ivector(&conflict_core);
@@ -1207,6 +1238,7 @@ term_t bv_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 static
 bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
+  bool result = true;
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::conflict")) {
     FILE* out = ctx_trace_out(bv->ctx);
@@ -1232,13 +1264,12 @@ bool bv_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
       }
     }
     if (!var_evaluates) {
-      int_mset_clear(vars);
-      return false;
+      result = false;
     }
   }
 
   // All variables assigned
-  return true;
+  return result;
 }
 
 // Required as plugin_t field
@@ -1330,6 +1361,27 @@ void bv_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   watch_list_manager_gc_sweep_lists(&bv->wlm, gc_vars);
 }
 
+static
+void bv_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
+  bv_plugin_t* bv = (bv_plugin_t*) plugin;
+
+  // Decide the variable anyhow
+  bv->last_decided_and_unprocessed = x;
+  decide->add(decide, x, value);
+
+  // Get the feasibility set and check
+  bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
+  term_t x_term = variable_db_get_term(bv->ctx->var_db, x);
+  assert(value->type == VALUE_BV);
+  if (feasible.bdd[0] != NULL) {
+    bool ok = bv_bdd_manager_is_model(bv->bddm, x_term, feasible, &value->bv_value);
+    if (!ok) {
+      // Ouch, conflict
+      bv_plugin_report_conflict(bv, decide, x, BV_CONFLICT_ASSUMPTION);
+    }
+  }
+}
+
 plugin_t* bv_plugin_allocator(void) {
   bv_plugin_t* plugin = safe_malloc(sizeof(bv_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -1340,6 +1392,7 @@ plugin_t* bv_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = NULL;
   plugin->plugin_interface.propagate             = bv_plugin_propagate;
   plugin->plugin_interface.decide                = bv_plugin_decide;
+  plugin->plugin_interface.decide_assignment     = bv_plugin_decide_assignment;
   plugin->plugin_interface.get_conflict          = bv_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = bv_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = bv_plugin_explain_evaluation;

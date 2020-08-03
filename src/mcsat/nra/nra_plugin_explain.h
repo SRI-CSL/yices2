@@ -31,3 +31,9 @@
  * */
 void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict);
+
+/**
+ * Construct a cell for a given polynomial that captures the current model. The cell is is
+ * described in terms of polynomial constraints only.
+ */
+void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals);

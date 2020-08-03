@@ -149,6 +149,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = c16;
       goto loop;
 
+    case check_sat_assuming_model_next_goto_c17:
+      tstack_push_op(tstack, SMT2_CHECK_SAT_ASSUMING_MODEL, &loc);
+      state = c17;
+      goto loop;
+
     case get_assertions_next_goto_r0:
       tstack_push_op(tstack, SMT2_GET_ASSERTIONS, &loc);
       state = r0;
@@ -168,6 +173,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       tstack_push_op(tstack, SMT2_GET_UNSAT_CORE, &loc);
       state = r0;
       goto loop;
+
+    case get_unsat_model_interpolant_next_goto_r0:
+       tstack_push_op(tstack, SMT2_GET_UNSAT_MODEL_INTERPOLANT, &loc);
+       state = r0;
+       goto loop;
 
     case get_assignment_next_goto_r0:
       tstack_push_op(tstack, SMT2_GET_ASSIGNMENT, &loc);
@@ -462,6 +472,29 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       tstack_push_not_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c16d;
       goto loop;
+
+    case next_goto_c17a:
+      state = c17a;
+      goto loop;
+
+    case symbol_next_goto_c17a:
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      state = c17a;
+      goto loop;
+
+    case next_goto_c17b:
+      state = c17b;
+      goto loop;
+
+    case next_push_c17c_goto_t0:
+      parser_push_state(stack, c17c);
+      state = t0;
+      goto loop;
+
+    case push_c17c_goto_t0:
+      parser_push_state(stack, c17c);
+      state = t0;
+      goto skip_token;
 
     case numeral_next_return:
       tstack_push_rational(tstack, tkval(lex), &loc);
