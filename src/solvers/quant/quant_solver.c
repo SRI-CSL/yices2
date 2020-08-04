@@ -539,6 +539,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   uint32_t i, n;
   term_t rhst;
   occ_t rhs;
+  uint32_t term_cost;
 
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
@@ -557,6 +558,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   intern = &ctx->intern;
   instbl = &em->instbl;
   t = cnstr->t;
+  term_cost = ctx->terms->nelems;
 
   assert(midx < instbl->ninstances);
   inst = instbl->data + midx;
@@ -601,6 +603,11 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
 
   t = term_substitution(solver, keys, values, n, t);
 
+  term_cost = ctx->terms->nelems - term_cost;
+  if (term_cost > 0) {
+    learner_update_term_reward(&solver->learner, term_cost, cidx);
+  }
+
   safe_free(keys);
   safe_free(values);
 
@@ -626,22 +633,22 @@ static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t
   context_t *ctx;
   ematch_globals_t *em;
   uint32_t i, n;
-  uint32_t term_cost, lemma_cost;
+  uint32_t lemma_cost;
+//  uint32_t term_cost;
 
   em = &solver->em;
   ctx = em->ctx;
 
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
-
-  term_cost = ctx->terms->nelems;
+//  term_cost = ctx->terms->nelems;
 
   quant_assert_formulas(ctx, 1, &t);
 
-  term_cost = ctx->terms->nelems - term_cost;
-  if (term_cost > 0) {
-    learner_update_lemma_reward(&solver->learner, term_cost, cidx);
-  }
+//  term_cost = ctx->terms->nelems - term_cost;
+//  if (term_cost > 0) {
+//    learner_update_term_reward(&solver->learner, term_cost, cidx);
+//  }
 
   if (cnstr->enable_lit == null_literal) {
     cnstr->enable_lit = not(context_internalize(ctx, cnstr->enable));
