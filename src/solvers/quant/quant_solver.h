@@ -66,17 +66,6 @@ typedef struct quant_solver_stats_s {
   uint32_t max_search;                // max number of searches
 } quant_solver_stats_t;
 
-/*
- * Default bounds
- */
-#define DEFAULT_MAX_INSTANCES_PER_ROUND   10
-#define DEFAULT_MAX_INSTANCES_PER_SEARCH  100
-#define DEFAULT_MAX_INSTANCES             100000
-
-#define DEFAULT_MAX_ROUNDS_PER_SEARCH     50
-#define DEFAULT_MAX_SEARCH                5000
-
-
 
 /*
  * Tags identifying the iteration order
@@ -87,6 +76,19 @@ typedef enum {
   ITERATE_GREEDY,
   ITERATE_EPSILONGREEDY,
 } iterate_kind_t;
+
+
+/*
+ * Default bounds
+ */
+#define DEFAULT_MAX_INSTANCES_PER_ROUND   10
+#define DEFAULT_MAX_INSTANCES_PER_SEARCH  100
+#define DEFAULT_MAX_INSTANCES             100000
+
+#define DEFAULT_MAX_ROUNDS_PER_SEARCH     50
+#define DEFAULT_MAX_SEARCH                5000
+
+#define DEFAULT_ITERATE_MODE              ITERATE_EPSILONGREEDY
 
 
 /*

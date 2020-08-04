@@ -114,10 +114,12 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
 
 #if TRACE
   printf("  Finding all fapps for function ");
-  print_eterm_id(stdout, f);
+  intern_tbl_print_reverse(exec->intern, pos_occ(f));
+//  print_eterm_id(stdout, f);
   printf(" in the class of ");
-  print_occurrence(stdout, occ);
-  printf("\n");
+  intern_tbl_print_reverse(exec->intern, occ);
+//  print_occurrence(stdout, occ);
+//  printf("\n");
 #endif
 
   egraph = exec->egraph;
@@ -133,13 +135,27 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
             ivector_push(out, occi);
 
 #if TRACE
-            fputs("    (pushing) ", stdout);
+            printf("    (pushing) ");
             print_occurrence(stdout, occi);
-            printf(" @ depth %d", composite_depth(egraph, p));
-            fputc('\n', stdout);
+            printf(" @ depth %d: ", composite_depth(egraph, p));
+            term_t r;
+            r = intern_tbl_reverse_map(exec->intern, occi);
+            if (r != NULL_TERM) {
+              yices_pp_term(stdout, r, 120, 1, 0);
+            } else {
+              printf("\n");
+            }
 #endif
+
+            if (out->size >= exec->max_fapps) {
+#if TRACE
+              printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+              break;
+            }
+
             // just need to find a single fapp in the class (since congruent fapps)
-            break;
+//            break;
           }
           else {
 #if TRACE
@@ -173,11 +189,14 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
 
 #if TRACE
   printf("  Finding all fapps for function ");
-  print_eterm_id(stdout, f);
+  intern_tbl_print_reverse(exec->intern, pos_occ(f));
+//  print_eterm_id(stdout, f);
 //  print_eterm_details(stdout, exec->egraph, f);
   printf(" of range type ");
   print_type(stdout, egraph->types, ranget);
   printf("\n");
+//  printf("Root classes:\n");
+//  print_egraph_root_classes(stdout, egraph);
 #endif
 
   n = egraph_num_classes(egraph);
@@ -185,6 +204,9 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
     if (egraph_class_is_root_class(egraph, i)) {
       occi = egraph_class_root(egraph, i);
       if (egraph_term_real_type(egraph, term_of_occ(occi)) == ranget) {
+#if TRACE
+        print_class(stdout, egraph, i);
+#endif
         egraph_get_fapps_in_class(exec, f, occi, out);
         if (out->size >= exec->max_fapps) {
 #if TRACE
@@ -201,18 +223,22 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
 /*
  * Check if a function application for function f occurs in the class of occ
  */
-static bool egraph_has_fapps_in_class(egraph_t *egraph, eterm_t f, occ_t occ) {
+static bool egraph_has_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ) {
+  egraph_t *egraph;
   composite_t *p;
   eterm_t ti, x;
   occ_t occi;
 
+  egraph = exec->egraph;
 
 #if TRACE
   printf("  Checking if an fapp for function ");
-  print_eterm_id(stdout, f);
+  intern_tbl_print_reverse(exec->intern, pos_occ(f));
+//  print_eterm_id(stdout, f);
   printf(" present in the class of ");
-  print_occurrence(stdout, occ);
-  printf("\n");
+  intern_tbl_print_reverse(exec->intern, occ);
+//  print_occurrence(stdout, occ);
+//  printf("\n");
 #endif
 
   occi = occ;
@@ -334,8 +360,9 @@ static void ematch_exec_set_reg(ematch_exec_t *exec, occ_t t, uint32_t idx) {
 
 #if TRACE
   printf("    setting reg[%d] := ", idx);
-  print_occurrence(stdout, t);
-  printf("\n");
+  intern_tbl_print_reverse(exec->intern, t);
+//  print_occurrence(stdout, t);
+//  printf("\n");
 #endif
 
 }
@@ -661,36 +688,46 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   }
 
   i = mk_instance(insttbl, instr->idx, n, instr->vdata, v.data);
-  if (maxdepth < exec->max_vdepth) {
-    if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
-      ivector_push(&exec->aux_vector, i);
-      if(exec->early_exit) {
-        reset_ematch_stack(&exec->bstack);
-      }
 
 #if TRACE
-      instance_t *inst;
-      term_t lhs;
+  instance_t *inst;
+  term_t lhs;
 
-      inst = insttbl->data + i;
-      assert(inst->nelems == n);
+  inst = insttbl->data + i;
+  assert(inst->nelems == n);
 
-      printf("    match%d: (#%d entries @ depth %d) ", i, n, maxdepth);
-      for (j=0; j<n; j++) {
-        lhs = instr->vdata[j];
-        rhs = inst->vdata[j];
-        assert(lhs == rhs);
+  printf("    match%d: (#%d entries @ depth %d)\n", i, n, maxdepth);
+  for (j=0; j<n; j++) {
+    lhs = instr->vdata[j];
+    rhs = inst->vdata[j];
+    assert(lhs == rhs);
 
-        idx = instr->idata[j];
-        lhs = reg->data[idx];
-        rhs = inst->odata[j];
-        assert(lhs == rhs);
+    idx = instr->idata[j];
+    lhs = reg->data[idx];
+    rhs = inst->odata[j];
+    assert(lhs == rhs);
 
-        printf("%s (%d) -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0), inst->vdata[j]);
-        print_occurrence(stdout, inst->odata[j]);
-        printf(", ");
+    printf("\t  %s -> ", yices_term_to_string(inst->vdata[j], 120, 1, 0));
+    intern_tbl_print_reverse(exec->intern, rhs);
+//    printf("\n");
+  }
+#endif
+
+  if (maxdepth < exec->max_vdepth) {
+    if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
+#if TRACE
+      printf("    match%d added\n", i);
+#endif
+      ivector_push(&exec->aux_vector, i);
+      if(exec->early_exit) {
+#if TRACE
+        printf("    early exit\n");
+#endif
+        reset_ematch_stack(&exec->bstack);
       }
-      printf("\n");
+    } else {
+#if TRACE
+      printf("    match%d filtered out\n", i);
 #endif
     }
   }
@@ -721,7 +758,7 @@ static void ematch_exec_filter(ematch_exec_t *exec, ematch_instr_t *instr) {
     assert(is_pos_occ(focc));
     ef = term_of_occ(focc);
 
-    if (egraph_has_fapps_in_class(exec->egraph, ef, regt)) {
+    if (egraph_has_fapps_in_class(exec, ef, regt)) {
       ematch_exec_instr(exec, instr->next);
     } else {
       ematch_exec_backtrack(exec);

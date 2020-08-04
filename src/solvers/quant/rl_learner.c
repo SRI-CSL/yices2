@@ -71,6 +71,7 @@ void learner_setup(learner_t *learner) {
    cnstr = qtbl->data + i;
    npat = iv_len(cnstr->patterns);
    if (npat != 0) {
+     cnstr->stats.Q = RL_INITIAL_Q_DEFAULT;
      generic_heap_add(heap, i);
    }
  }
@@ -129,6 +130,26 @@ void learner_update_last_round(learner_t *learner, bool update_heap) {
   }
 }
 
+
+/*
+ * Update learner term reward for the constraint i
+ */
+void learner_update_term_reward(learner_t *learner, uint32_t cost, uint32_t i) {
+  quant_table_t *qtbl;
+  quant_cnstr_t *cnstr;
+  double reward;
+
+  qtbl = learner->qtbl;
+  assert(i < qtbl->nquant);
+
+  cnstr = qtbl->data + i;
+  reward = (- RL_TERM_COST_FACTOR * cost);
+
+  cnstr->stats.Q += learner->alpha * (reward - cnstr->stats.Q);
+#if TRACE
+  printf("  New reward (term) for cnstr @%d = %.2f\n", i, reward);
+#endif
+}
 
 /*
  * Update learner lemma reward for the constraint i

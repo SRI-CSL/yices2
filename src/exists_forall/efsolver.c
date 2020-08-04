@@ -1518,6 +1518,7 @@ static void ef_solver_search(ef_solver_t *solver) {
     case STATUS_UNKNOWN:
       // we have a candidate exists model
       // check it and learn what we can
+//      assert(0);
 
 #if TRACE
       // FOR DEBUGGING

@@ -492,6 +492,8 @@ static term_t term_substitution(quant_solver_t *solver, term_t *var, term_t *val
  * Find the term mapped to a given occurence
  */
 static term_t find_intern_mapping(intern_tbl_t *tbl, occ_t rhs) {
+  return intern_tbl_reverse_map(tbl, rhs);
+
   term_table_t *terms;
   uint32_t i, n;
   term_t r;
@@ -588,7 +590,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
     keys[i] = inst->vdata[i];
     values[i] = rhst;
 
-#if TRACE
+#if 0
     printf("reverse map: ");
     print_occurrence(stdout, rhs);
     printf(" @ depth %d --> ", occ_depth(solver->egraph, rhs));
@@ -624,7 +626,7 @@ static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t
   context_t *ctx;
   ematch_globals_t *em;
   uint32_t i, n;
-  uint32_t cost;
+  uint32_t term_cost, lemma_cost;
 
   em = &solver->em;
   ctx = em->ctx;
@@ -632,7 +634,14 @@ static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
 
+  term_cost = ctx->terms->nelems;
+
   quant_assert_formulas(ctx, 1, &t);
+
+  term_cost = ctx->terms->nelems - term_cost;
+  if (term_cost > 0) {
+    learner_update_lemma_reward(&solver->learner, term_cost, cidx);
+  }
 
   if (cnstr->enable_lit == null_literal) {
     cnstr->enable_lit = not(context_internalize(ctx, cnstr->enable));
@@ -653,9 +662,9 @@ static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t
   printf("(BEGIN): decision level = %d (base level = %d)\n", solver->decision_level, solver->base_level);
 #endif
 
-  cost = add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
-  if (cost > 0) {
-    learner_update_lemma_reward(&solver->learner, cost, cidx);
+  lemma_cost = add_all_quant_lemmas(solver->core, cnstr->enable_lit, units);
+  if (lemma_cost > 0) {
+    learner_update_lemma_reward(&solver->learner, lemma_cost, cidx);
   }
 
 #if TRACE
@@ -979,7 +988,7 @@ void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
   init_quant_table(&solver->qtbl);
   init_ematch(&solver->em);
   init_learner(&solver->learner, &solver->qtbl);
-  solver->iter_mode = ITERATE_EPSILONGREEDY;
+  solver->iter_mode = DEFAULT_ITERATE_MODE;
 
   init_ivector(&solver->base_literals, 10);
   init_ivector(&solver->base_antecedents, 10);

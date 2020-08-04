@@ -39,10 +39,12 @@ typedef struct learner_s {
 } learner_t;
 
 #define RL_EPSILON_MAX              1000
-#define RL_EPSILON_DEFAULT          100
+#define RL_EPSILON_DEFAULT          150
 #define RL_ALPHA_DEFAULT            0.1
+#define RL_INITIAL_Q_DEFAULT        100
 
-#define RL_LEMMA_COST_FACTOR        0.2
+#define RL_TERM_COST_FACTOR         0.3
+#define RL_LEMMA_COST_FACTOR        0.1
 #define RL_DECISION_COST_FACTOR     1
 #define RL_BACKTRACK_REWARD_FACTOR  2
 
@@ -61,6 +63,11 @@ extern void learner_reset_round(learner_t *learner, bool reset);
  */
 extern void learner_update_last_round(learner_t *learner, bool update_heap);
 
+
+/*
+ * Update learner term reward for the constraint i
+ */
+extern void learner_update_term_reward(learner_t *learner, uint32_t cost, uint32_t i);
 
 /*
  * Update learner lemma reward for the constraint i
