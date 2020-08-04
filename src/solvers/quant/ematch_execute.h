@@ -59,7 +59,7 @@ typedef struct ematch_exec_s {
 #define DEF_EARLY_EXIT      true
 #define DEF_MAX_FDEPTH      10
 #define DEF_MAX_VDEPTH      4
-#define DEF_MAX_FAPPS       10
+#define DEF_MAX_FAPPS       30
 
 
 /*

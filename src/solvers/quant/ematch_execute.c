@@ -26,6 +26,9 @@
 #include "solvers/egraph/egraph_printer.h"
 #include "solvers/egraph/egraph_base_types.h"
 #include "yices.h"
+#include "solvers/egraph/composites.h"
+#include "context/internalization_printer.h"
+
 
 #define TRACE 0
 
@@ -120,6 +123,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
   intern_tbl_print_reverse(exec->intern, occ);
 //  print_occurrence(stdout, occ);
 //  printf("\n");
+  uint32_t old_sz = out->size;
 #endif
 
   egraph = exec->egraph;
@@ -128,42 +132,46 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     ti = term_of_occ(occi);
     p = egraph_term_body(egraph, ti);
     if (composite_body(p)) {
-      if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
+      if (valid_entry(p) &&
+          composite_kind(p) == COMPOSITE_APPLY) {
         x = term_of_occ(composite_child(p, 0));
         if (x == f) {
-          if (composite_depth(egraph, p) < exec->max_fdepth) {
-            ivector_push(out, occi);
+          // check if following if is redundant
+          if (congruence_table_is_root(&egraph->ctable, p, egraph->terms.label)) {
+            if (composite_depth(egraph, p) < exec->max_fdepth) {
+              ivector_push(out, occi);
 
 #if TRACE
-            printf("    (pushing) ");
-            print_occurrence(stdout, occi);
-            printf(" @ depth %d: ", composite_depth(egraph, p));
-            term_t r;
-            r = intern_tbl_reverse_map(exec->intern, occi);
-            if (r != NULL_TERM) {
-              yices_pp_term(stdout, r, 120, 1, 0);
-            } else {
-              printf("\n");
+              printf("    (pushing) ");
+              print_occurrence(stdout, occi);
+              printf(" @ depth %d: ", composite_depth(egraph, p));
+              term_t r;
+              r = intern_tbl_reverse_map(exec->intern, occi);
+              if (r != NULL_TERM) {
+                yices_pp_term(stdout, r, 120, 1, 0);
+              } else {
+                printf("\n");
+              }
+#endif
+
+              if (out->size >= exec->max_fapps) {
+#if TRACE
+                printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+                break;
+              }
+
+//               just need to find a single fapp in the class (since congruent fapps)
+//              break;
             }
-#endif
-
-            if (out->size >= exec->max_fapps) {
+            else {
 #if TRACE
-              printf("    reached fapps limit of %d\n", exec->max_fdepth);
+              fputs("    (filtered) ", stdout);
+              print_composite(stdout, p);
+              printf(" @ depth %d", composite_depth(egraph, p));
+              fputc('\n', stdout);
 #endif
-              break;
             }
-
-            // just need to find a single fapp in the class (since congruent fapps)
-//            break;
-          }
-          else {
-#if TRACE
-            fputs("    (filtered) ", stdout);
-            print_composite(stdout, p);
-            printf(" @ depth %d", composite_depth(egraph, p));
-            fputc('\n', stdout);
-#endif
           }
         }
       }
@@ -172,6 +180,9 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
   } while (occi != occ);
 
+#if TRACE
+    printf("    added %d fapps\n", (out->size - old_sz));
+#endif
 }
 
 /*
