@@ -3179,7 +3179,17 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
     const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
-
+/*
+ * Check satisfiability: check whether assertions stored in ctx are satisfiable.
+ *
+ * - params is an optional structure to store heuristic parameters
+ * - if params is NULL, default parameter settings are used.
+ *
+ * If this function returns STATUS_UNSAT, then one can obtain the interpolant from
+ * the context. If the this function returns STATUS_SAT, and build_model is true,
+ * the model can be obtained from the context (and is owned by the user).
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model);
 
 /*
  * Add a blocking clause: this is intended to help enumerate different models

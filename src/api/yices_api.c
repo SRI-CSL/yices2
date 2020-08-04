@@ -9011,10 +9011,101 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
+EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model) {
+
+  int32_t ret = 0;
+  model_t *model = NULL;
+  smt_status_t result = STATUS_UNKNOWN;
+  ivector_t model_vars, interpolants;
+
+  // Push A and B so we can revert
+  ret = yices_push(ctx->ctx_A);
+  if (ret) {
+    return STATUS_ERROR;
+  }
+  ret = yices_push(ctx->ctx_B);
+  if (ret) {
+    yices_pop(ctx->ctx_A);
+    return STATUS_ERROR;
+  }
+
+  // Search: find models of B and refute with B
+  // Collect all the model interpolants
+  init_ivector(&model_vars, 0);
+  init_ivector(&interpolants, 0);
+  while (true) {
+
+    // Check if the current B is satisfiable
+    result = yices_check_context(ctx->ctx_B, params);
+
+    // UNSAT, interrupts and errors, we're done
+    if (result != STATUS_SAT) {
+      break;
+    }
+
+    // B is satisfiable, refute
+    model = yices_get_model(ctx->ctx_B, 1);
+    if (model == NULL) {
+      result = STATUS_ERROR;
+      break;
+    }
+
+    // Get the variables of the model
+    model_get_relevant_vars(model, &model_vars);
+
+    // Check if A can be satisfied by the model of B
+    result = yices_check_context_with_model(ctx->ctx_A, params, model, model_vars.size, model_vars.data);
+
+    // SAT, interrupts and errors, we're done
+    if (result != STATUS_UNSAT) {
+      break;
+    }
+
+    // UNSAT, get the interpolant
+    term_t model_interpolant = yices_get_model_interpolant(ctx->ctx_A);
+    if (model_interpolant == NULL_TERM) {
+      result = STATUS_ERROR;
+      break;
+    }
+    ivector_push(&interpolants, model_interpolant);
+  }
+
+  if (result == STATUS_UNSAT) {
+    // Construct the interpolant if UNSAT
+    ctx->interpolant = yices_and(interpolants.size, interpolants.data);
+  } else if (result == STATUS_SAT && build_model) {
+    // Construct the model if SAT and asked
+    ctx->model = yices_get_model(ctx->ctx_A, 1);
+  }
+
+  // Pop both contexts
+  if (result != STATUS_ERROR) {
+    ret = yices_pop(ctx->ctx_B);
+    if (ret) {
+      result = STATUS_ERROR;
+    } else {
+      ret = yices_pop(ctx->ctx_A);
+      if (ret) {
+        result = STATUS_ERROR;
+      }
+    }
+  }
+
+  // Free temp variables
+  if (model != NULL) {
+    delete_model(model);
+  }
+  delete_ivector(&interpolants);
+  delete_ivector(&model_vars);
+
+  return result;
+}
+
+
 /*
  * Check context with model
- * - n = number of assumptions
- * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
+ * - n = number of model assumptions
+ * - a[0] ... a[n-1] = n assumptions.
  */
 EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
     model_t* mdl, uint32_t n, const term_t t[]) {
