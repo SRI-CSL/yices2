@@ -9068,6 +9068,13 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
       break;
     }
     ivector_push(&interpolants, model_interpolant);
+
+    // Add the inteprolant to B
+    yices_assert_formula(ctx->ctx_B, model_interpolant);
+
+    // Reset the model
+    yices_free_model(model);
+    model = NULL;
   }
 
   if (result == STATUS_UNSAT) {
@@ -9093,7 +9100,7 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
 
   // Free temp variables
   if (model != NULL) {
-    delete_model(model);
+    yices_free_model(model);
   }
   delete_ivector(&interpolants);
   delete_ivector(&model_vars);
