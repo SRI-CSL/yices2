@@ -1004,7 +1004,7 @@ static
 void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
 
 static
-void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal);
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
@@ -1212,7 +1212,7 @@ static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
 
 /** Pass true to mark terms and types in the internal yices term tables */
 static
-void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
+void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
 
   uint32_t i;
   variable_t var;
@@ -1307,13 +1307,24 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_internal) {
   var_queue_gc_sweep(&mcsat->var_queue, &gc_vars);
 
   // If asked mark all the terms
-  if (mark_internal) {
+  if (mark_and_gc_internal) {
     for (i = 0; i < gc_vars.marked.size; ++ i) {
       variable_t x = gc_vars.marked.data[i];
       term_t x_term = variable_db_get_term(mcsat->var_db, x);
       term_t x_type = term_type(mcsat->terms, x_term);
       term_table_set_gc_mark(mcsat->terms, index_of(x_term));
       type_table_set_gc_mark(mcsat->types, x_type);
+    }
+
+    // Mark with each plugin
+    for (i = 0; i < mcsat->plugins_count; ++ i) {
+      if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
+        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking with %s\n", mcsat->plugins[i].plugin_name);
+      }
+      plugin = mcsat->plugins[i].plugin;
+      if (plugin->gc_mark_and_clear) {
+        plugin->gc_mark_and_clear(plugin);
+      }
     }
   }
 
@@ -1402,6 +1413,8 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
  */
 static
 bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
+
+  assert(int_queue_is_empty(&mcsat->registration_queue));
 
   uint32_t plugin_i;
   plugin_t* plugin;

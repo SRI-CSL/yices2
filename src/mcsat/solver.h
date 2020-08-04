@@ -124,7 +124,8 @@ void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out);
 void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out);
 
 /*
- * Mark all terms/types that need to be kept.
+ * Mark all terms/types that need to be kept and clear all term
+ * caches that might contain unnecessary terms.
  */
 void mcsat_gc_mark(mcsat_solver_t* mcsat);
 

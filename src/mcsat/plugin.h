@@ -298,6 +298,12 @@ struct plugin_s {
   void (*gc_mark) (plugin_t* plugin, gc_info_t* gc);
 
   /**
+   * Mark all the internal terms that are not part of variables using term_table_set_gc_mark
+   * and clear any internal caches.
+   */
+  void (*gc_mark_and_clear) (plugin_t* plugin);
+
+  /**
    * Use the gc info to collect all the useful stuff.
    * @param gc the set of variables marked to keep
    */
@@ -313,23 +319,24 @@ struct plugin_s {
 /** Construct the plugin */
 static inline
 void plugin_construct(plugin_t* plugin) {
-  plugin->construct                = NULL;
-  plugin->destruct                 = NULL;
-  plugin->new_term_notify          = NULL;
-  plugin->new_lemma_notify         = NULL;
-  plugin->propagate                = NULL;
-  plugin->decide                   = NULL;
-  plugin->learn                    = NULL;
-  plugin->get_conflict             = NULL;
-  plugin->explain_propagation      = NULL;
-  plugin->explain_evaluation       = NULL;
+  plugin->construct                 = NULL;
+  plugin->destruct                  = NULL;
+  plugin->new_term_notify           = NULL;
+  plugin->new_lemma_notify          = NULL;
+  plugin->propagate                 = NULL;
+  plugin->decide                    = NULL;
+  plugin->learn                     = NULL;
+  plugin->get_conflict              = NULL;
+  plugin->explain_propagation       = NULL;
+  plugin->explain_evaluation        = NULL;
   plugin->simplify_conflict_literal = NULL;
-  plugin->push                     = NULL;
-  plugin->pop                      = NULL;
-  plugin->build_model              = NULL;
-  plugin->gc_mark                  = NULL;
-  plugin->gc_sweep                 = NULL;
-  plugin->set_exception_handler    = NULL;
+  plugin->push                      = NULL;
+  plugin->pop                       = NULL;
+  plugin->build_model               = NULL;
+  plugin->gc_mark                   = NULL;
+  plugin->gc_mark_and_clear          = NULL;
+  plugin->gc_sweep                  = NULL;
+  plugin->set_exception_handler     = NULL;
 }
 
 
