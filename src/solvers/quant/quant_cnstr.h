@@ -27,11 +27,6 @@
 #include "solvers/quant/quant_pattern.h"
 
 
-typedef struct cnstr_stats_s {
-  double Q;
-
-} cnstr_stats_t;
-
 /*
  * Single quantifier constraint
  */
@@ -47,8 +42,6 @@ typedef struct quant_cnstr_s {
 
   term_t enable;        // boolean term that enables this constraint
   literal_t enable_lit; // literal corresponding to enable term
-
-  cnstr_stats_t stats;  // stats useful to the RL learner
 } quant_cnstr_t;
 
 /*

@@ -25,85 +25,89 @@
 #define __RL_LEARNER_H
 
 #include "solvers/quant/quant_cnstr.h"
+#include "utils/uint_learner.h"
 
-typedef struct learner_s {
-  generic_heap_t cnstr_heap;   // heap with cnstr indices in priority order
-  uint32_t seed;               // random seed
-  uint32_t epsilon;            // in range 0 - (RL_EPSILON_MAX-1)
-  double alpha;                // learning rate
-
-  ivector_t latest_cnstr;        // constraints asserted in the latest ematch round
-  double latest_reward;         // reward for the latest ematch round
-
+typedef struct cnstr_learner_s {
+  uint_learner_t learner;      // learner
   quant_table_t *qtbl;         // link to quant table
-} learner_t;
+} cnstr_learner_t;
 
-#define RL_EPSILON_MAX              1000
-#define RL_EPSILON_DEFAULT          150
-#define RL_ALPHA_DEFAULT            0.1
-#define RL_INITIAL_Q_DEFAULT        100
+#define CNSTR_RL_EPSILON_MAX              1000
+#define CNSTR_RL_EPSILON_DEFAULT          150
+#define CNSTR_RL_ALPHA_DEFAULT            0.1
+#define CNSTR_RL_INITIAL_Q_DEFAULT        100
 
-#define RL_TERM_COST_FACTOR         0.3
-#define RL_LEMMA_COST_FACTOR        0.1
-#define RL_DECISION_COST_FACTOR     1
-#define RL_BACKTRACK_REWARD_FACTOR  2
+#define CNSTR_RL_TERM_COST_FACTOR         0.3
+#define CNSTR_RL_LEMMA_COST_FACTOR        0.1
+#define CNSTR_RL_DECISION_COST_FACTOR     1
+#define CNSTR_RL_BACKTRACK_REWARD_FACTOR  2
 
 /*
  * Setup learner: iterate over each quant cnstr and setup initial priorities
  */
-extern void learner_setup(learner_t *learner);
+extern void cnstr_learner_setup(cnstr_learner_t *learner);
 
 /*
  * Reset learner stats for ematch round
  */
-extern void learner_reset_round(learner_t *learner, bool reset);
+extern void cnstr_learner_reset_round(cnstr_learner_t *learner, bool reset);
 
 /*
  * Update learner stats/rewards for the last ematch round
  */
-extern void learner_update_last_round(learner_t *learner, bool update_heap);
+extern void cnstr_learner_update_last_round(cnstr_learner_t *learner, bool update_heap);
 
 
 /*
  * Update learner term reward for the constraint i
  */
-extern void learner_update_term_reward(learner_t *learner, uint32_t cost, uint32_t i);
+extern void cnstr_learner_update_term_reward(cnstr_learner_t *learner, uint32_t cost, uint32_t i);
 
 /*
  * Update learner lemma reward for the constraint i
  */
-extern void learner_update_lemma_reward(learner_t *learner, uint32_t cost, uint32_t i);
+extern void cnstr_learner_update_lemma_reward(cnstr_learner_t *learner, uint32_t cost, uint32_t i);
 
 /*
  * Update learner decision cost (negative rewards) for the latest ematch round
  */
-extern void learner_update_decision_reward(learner_t *learner);
+extern void cnstr_learner_update_decision_reward(cnstr_learner_t *learner);
 
 /*
  * Update learner backtrack reward for the latest ematch round
  */
-extern void learner_update_backtrack_reward(learner_t *learner, uint32_t jump);
+extern void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t jump);
+
 
 /*
  * Add constraint to learner for the latest ematch round
  */
-extern void learner_add_cnstr(learner_t *learner, uint32_t i);
+static inline void cnstr_learner_add_cnstr(cnstr_learner_t *learner, uint32_t i) {
+  uint_learner_add_index(&learner->learner, i);
+}
+
+/*
+ * Reset constraints for the latest ematch round
+ */
+static inline void cnstr_learner_reset_cnstr(cnstr_learner_t *learner) {
+  uint_learner_reset_indices(&learner->learner);
+}
 
 
 /*
  * Initialize learner
  */
-extern void init_learner(learner_t *learner, quant_table_t *qtbl);
+extern void init_cnstr_learner(cnstr_learner_t *learner, quant_table_t *qtbl);
 
 /*
  * Reset learner
  */
-extern void reset_learner(learner_t *learner);
+extern void reset_cnstr_learner(cnstr_learner_t *learner);
 
 /*
  * Delete learner
  */
-extern void delete_learner(learner_t *learner);
+extern void delete_cnstr_learner(cnstr_learner_t *learner);
 
 
 #endif /* __RL_LEARNER_H */

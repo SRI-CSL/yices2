@@ -120,14 +120,6 @@ int32_t quant_table_alloc(quant_table_t *table) {
 
 
 /*
- * Reset cnstr stats
- */
-static void reset_cnstr_stats(cnstr_stats_t *stat) {
-  stat->Q = 0;
-}
-
-
-/*
  * Create a new quantifier constraint
  */
 int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv, uint32_t npv) {
@@ -142,7 +134,6 @@ int32_t quant_table_add_cnstr(quant_table_t *qtbl, term_t t, int32_t *pv, uint32
   init_int_hset(&qcnstr->instances, 0);
   qcnstr->enable = NULL_TERM;
   qcnstr->enable_lit = null_literal;
-  reset_cnstr_stats(&qcnstr->stats);
 
   return i;
 }
@@ -214,32 +205,4 @@ bool quant_table_check_cnstr(quant_table_t *qtbl, pattern_table_t *ptbl, uint32_
   return result;
 }
 
-
-/*
- * Print constraint priority
- */
-void quant_print_cnstr_priority(quant_table_t *qtbl, uint32_t i) {
-  quant_cnstr_t *cnstr;
-
-  assert(i < qtbl->nquant);
-  cnstr = qtbl->data + i;
-
-  printf("\tQ(cnstr @%d) = %.2f\n", i, cnstr->stats.Q);
-}
-
-
-/*
- * Print all constraints priority
- */
-void quant_print_all_cnstr_priority(quant_table_t *qtbl, const char *comment) {
-  uint32_t i, n;
-
-  printf("  Q values %s:\n", comment);
-
-  n = qtbl->nquant;
-  for(i=0; i<n; i++) {
-    quant_print_cnstr_priority(qtbl, i);
-  }
-
-}
 

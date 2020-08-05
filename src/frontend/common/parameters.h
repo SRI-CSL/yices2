@@ -29,6 +29,7 @@
 #include "utils/int_vectors.h"
 #include "api/search_parameters.h"
 #include "exists_forall/ef_parameters.h"
+#include "solvers/quant/quant_parameters.h"
 
 /*
  * Search parameters and internalization options can be set individually
@@ -95,6 +96,8 @@ typedef enum yices_param {
   PARAM_EF_GEN_MODE,
   PARAM_EF_MAX_SAMPLES,
   PARAM_EF_MAX_ITERS,
+  // quant solver
+  PARAM_EMATCH_MODE,
   // mcsat options
   PARAM_MCSAT_NRA_MGCD,
   PARAM_MCSAT_NRA_NLSAT,
@@ -146,6 +149,7 @@ typedef struct param_val_s {
 extern const char *param2string[];
 extern const char *branching2string[];
 extern const char *efgen2string[];
+extern const char *ematchmode2string[];
 
 
 /*
@@ -192,6 +196,13 @@ extern bool param_val_to_branching(const char *name, const param_val_t *v, branc
  * - we use a general implementation so that we can add more modes later
  */
 extern bool param_val_to_genmode(const char *name, const param_val_t *v, ef_gen_option_t *value, char **reason);
+
+/*
+ * EMATCH mode
+ * - allowed modes are "all" or "random" or "epsilongreedy"
+ * - we use a general implementation so that we can add more modes later
+ */
+extern bool param_val_to_ematchmode(const char *name, const param_val_t *v, iterate_kind_t *value, char **reason);
 
 
 #endif /* __FRONTEND_COMMON_PARAMETERS_H */

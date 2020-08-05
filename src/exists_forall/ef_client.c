@@ -67,13 +67,13 @@ void delete_ef_client(ef_client_t *efc) {
  * - do nothing if efprob exists already
  * - store the internalization code in the global efcode flag
  */
-void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap_t *patterns) {
+void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap_t *patterns, param_t *parameters) {
   ef_analyzer_t analyzer;
 
   if (efc->efprob == NULL) {
     efc->efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
     init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(efc->efprob, __yices_globals.manager, patterns);
+    init_ef_prob(efc->efprob, __yices_globals.manager, patterns, parameters);
     efc->efcode = ef_analyze(&analyzer, efc->efprob, n, assertions,
 			     efc->ef_parameters.flatten_ite,
 			     efc->ef_parameters.flatten_iff,
@@ -131,7 +131,7 @@ model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code){
  */
 void ef_solve(ef_client_t *efc, uint32_t n, term_t *assertions, param_t *parameters,
 	      smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer, ptr_hmap_t *patterns) {
-  build_ef_problem(efc, n, assertions, patterns);
+  build_ef_problem(efc, n, assertions, patterns, parameters);
 
   if (efc->efcode == EF_NO_ERROR){
     if (!efc->efdone) {

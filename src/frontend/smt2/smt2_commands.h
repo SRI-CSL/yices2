@@ -454,6 +454,10 @@ typedef struct smt2_globals_s {
   bool frozen;
 
   ptr_hmap_t term_patterns;
+
+  // EMATCH mode
+  int32_t ematch_mode;
+
 } smt2_globals_t;
 
 

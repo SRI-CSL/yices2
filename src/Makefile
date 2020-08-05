@@ -210,6 +210,7 @@ core_src_c := \
 	solvers/simplex/matrices.c \
 	solvers/simplex/offset_equalities.c \
 	solvers/simplex/simplex.c \
+	solvers/quant/quant_parameters.c \
 	solvers/quant/ef_problem.c \
 	solvers/quant/quant_pattern.c \
 	solvers/quant/quant_cnstr.c \
@@ -327,7 +328,8 @@ core_src_c := \
 	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c \
-	utils/vector_hash_map.c
+	utils/vector_hash_map.c \
+	utils/uint_learner.c
 
 #
 # Optional: mcsat solver

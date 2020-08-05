@@ -26,6 +26,8 @@
 #include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 
+#include "api/search_parameters.h"
+
 #define TRACE 0
 
 #if TRACE
@@ -52,7 +54,7 @@ void delete_pattern_map(ptr_hmap_t *m) {
 /*
  * Initialization: all empty
  */
-void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
+void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, param_t *parameters) {
   prob->terms = term_manager_get_terms(mngr);
   prob->manager = mngr;
   prob->all_evars = NULL;
@@ -65,6 +67,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
   prob->has_uint = false;
 
   prob->patterns = NULL;
+  prob->parameters = parameters;
 
   ptr_hmap_t *patterns2;
   ivector_t *pv1;

@@ -3113,6 +3113,12 @@ static void efsolve_cmd(smt2_globals_t *g) {
       g->interrupted = false;
       start_timeout(g->timeout, timeout_handler, g);
     }
+
+    if (g->ematch_mode >= 0) {
+      aval_t aval_mode = attr_vtbl_symbol(__smt2_globals.avtbl, ematchmode2string[g->ematch_mode]);
+      smt2_set_option(":yices-ematch-mode", aval_mode);
+    }
+
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
 	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer, &g->term_patterns);
@@ -4877,6 +4883,10 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
+  case PARAM_EMATCH_MODE:
+    print_string_value(ematchmode2string[g->parameters.ematch_mode]);
+    break;
+
   case PARAM_MCSAT_NRA_BOUND:
     print_boolean_value(g->mcsat_options.nra_bound);
     break;
@@ -5509,6 +5519,12 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->ef_client.ef_parameters.max_iters = n;
+    }
+    break;
+
+  case PARAM_EMATCH_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      g->parameters.ematch_mode = n;
     }
     break;
 

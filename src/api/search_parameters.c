@@ -26,6 +26,7 @@
 #include "api/search_parameters.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
+#include "solvers/quant/quant_solver.h"
 #include "utils/string_utils.h"
 
 
@@ -164,6 +165,8 @@ static const param_t default_settings = {
 
   DEFAULT_MAX_UPDATE_CONFLICTS,
   DEFAULT_MAX_EXTENSIONALITY,
+
+  DEFAULT_EMATCH_MODE,
 };
 
 
@@ -220,9 +223,11 @@ typedef enum param_key {
   // array solver
   PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_MAX_EXTENSIONALITY,
+  // quant solver
+  PARAM_EMATCH_MODE,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
+#define NUM_PARAM_KEYS (PARAM_EMATCH_MODE+1)
 
 // parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
@@ -240,6 +245,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "dyn-ack-threshold",
   "dyn-bool-ack",
   "dyn-bool-ack-threshold",
+  "ematch-mode",
   "fast-restarts",
   "icheck",
   "icheck-period",
@@ -278,6 +284,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_DYN_BOOL_ACK,
   PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_FAST_RESTART,
+  PARAM_EMATCH_MODE,
   PARAM_SIMPLEX_ICHECK,
   PARAM_ICHECK_PERIOD,
   PARAM_MAX_ACK,

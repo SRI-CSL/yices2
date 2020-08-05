@@ -25,10 +25,7 @@
 #define __QUANT_SOLVER_H
 
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <assert.h>
-
+#include "solvers/quant/quant_parameters.h"
 #include "context/context_types.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/diseq_stacks.h"
@@ -68,30 +65,6 @@ typedef struct quant_solver_stats_s {
 
 
 /*
- * Tags identifying the iteration order
- */
-typedef enum {
-  ITERATE_ALL,
-  ITERATE_RANDOM,
-  ITERATE_GREEDY,
-  ITERATE_EPSILONGREEDY,
-} iterate_kind_t;
-
-
-/*
- * Default bounds
- */
-#define DEFAULT_MAX_INSTANCES_PER_ROUND   10
-#define DEFAULT_MAX_INSTANCES_PER_SEARCH  100
-#define DEFAULT_MAX_INSTANCES             100000
-
-#define DEFAULT_MAX_ROUNDS_PER_SEARCH     50
-#define DEFAULT_MAX_SEARCH                5000
-
-#define DEFAULT_ITERATE_MODE              ITERATE_EPSILONGREEDY
-
-
-/*
  * FULL SOLVER
  */
 typedef struct quant_solver_s {
@@ -123,7 +96,7 @@ typedef struct quant_solver_s {
   ematch_globals_t em;    // ematching
 
   iterate_kind_t iter_mode;  // iteration mode over constraints
-  learner_t learner;         // Reinforce learner
+  cnstr_learner_t learner;         // Reinforce learner
 
   ivector_t base_literals;
   ivector_t base_antecedents;
@@ -141,7 +114,6 @@ typedef struct quant_solver_s {
   int_hmap_t aux_map;
 
 } quant_solver_t;
-
 
 
 
