@@ -68,7 +68,7 @@
  * - convert an integer or real term t to an arithmetic variable
  * - convert a bitvector term t to a bitvector variable
  */
-//static occ_t internalize_to_eterm(context_t *ctx, term_t t);
+static occ_t internalize_to_eterm(context_t *ctx, term_t t);
 static literal_t internalize_to_literal(context_t *ctx, term_t t);
 static thvar_t internalize_to_arith(context_t *ctx, term_t t);
 static thvar_t internalize_to_bv(context_t *ctx, term_t t);
@@ -2489,7 +2489,7 @@ static literal_t map_bit_select_to_literal(context_t *ctx, select_term_t *select
  *  INTERNALIZATION TO ETERM: TOPLEVEL  *
  ***************************************/
 
-occ_t internalize_to_eterm(context_t *ctx, term_t t) {
+static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
   term_table_t *terms;
   term_t r;
   uint32_t polarity;
@@ -2521,13 +2521,6 @@ occ_t internalize_to_eterm(context_t *ctx, term_t t) {
      */
     code = intern_tbl_map_of_root(&ctx->intern, r);
     u = translate_code_to_eterm(ctx, r, code);
-
-#if 0
-    if(term_kind(ctx->terms, r) == VARIABLE) {
-      printf("internalize_eterm: term%d -> occ%d\n", r, u);
-    }
-#endif
-
   } else {
     /*
      * Compute r's internalization:
@@ -3128,12 +3121,6 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
      */
     code = intern_tbl_map_of_root(&ctx->intern, r);
     l = translate_code_to_literal(ctx, code);
-
-#if 0
-    if(term_kind(ctx->terms, r) == VARIABLE) {
-      printf("internalize_literal: term%d -> occ%d\n", r, u);
-    }
-#endif
 
   } else {
     /*
@@ -3775,7 +3762,7 @@ static void assert_toplevel_select(context_t *ctx, select_term_t *select, bool t
  * - if tt is true, assert t1 == t2
  * - if tt is false, assert t1 != t2
  */
-void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt) {
+static void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt) {
   term_t t;
   literal_t l1, l2;
 
@@ -4300,7 +4287,7 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
  * - if tt is true: assert (ite c t1 t2)
  * - if tt is false: assert (not (ite c t1 t2))
  */
-void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
+static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
   conditional_t *d;
   literal_t l1, l2, l3;
 
@@ -4331,7 +4318,7 @@ void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
  * - it tt is true: add a clause
  * - it tt is false: assert (not t1) ... (not t_n)
  */
-void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
+static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
   ivector_t *v;
   int32_t *a;
   uint32_t i, n;
@@ -4402,7 +4389,7 @@ void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
 /*
  * Top-level (xor t1 ... t_n) == tt
  */
-void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) {
+static void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) {
   int32_t *a;
   uint32_t i, n;
 
@@ -4733,6 +4720,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
  abort:
   longjmp(ctx->env, code);
 }
+
 
 
 /*

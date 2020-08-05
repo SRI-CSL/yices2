@@ -438,38 +438,5 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
 extern void context_gc_mark(context_t *ctx);
 
 
-/*
- * EXPORTS FOR QUANT CONTEXT
- */
-
-/*
- * Top-level boolean if-then-else (ite c t1 t2)
- * - if tt is true: assert (ite c t1 t2)
- * - if tt is false: assert (not (ite c t1 t2))
- */
-extern void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt);
-
-/*
- * Top-level (or t1 ... t_n)
- * - it tt is true: add a clause
- * - it tt is false: assert (not t1) ... (not t_n)
- */
-extern void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt);
-
-/*
- * Top-level (xor t1 ... t_n) == tt
- */
-extern void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt);
-
-/*
- * Top-level equality between Boolean terms
- * - if tt is true, assert t1 == t2
- * - if tt is false, assert t1 != t2
- */
-extern void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt);
-
-extern occ_t internalize_to_eterm(context_t *ctx, term_t t);
-
-
 
 #endif /* __CONTEXT_H */
