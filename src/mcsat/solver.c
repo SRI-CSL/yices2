@@ -771,7 +771,7 @@ uint32_t mcsat_add_plugin(mcsat_solver_t* mcsat, plugin_allocator_t plugin_alloc
   // Add the plugin to the list of plugins
   mcsat->plugins[plugin_i].plugin = plugin;
   mcsat->plugins[plugin_i].plugin_ctx = plugin_ctx;
-  mcsat->plugins[plugin_i].plugin_name = strdup(plugin_name);
+  mcsat->plugins[plugin_i].plugin_name = safe_strdup(plugin_name);
   mcsat->plugins_count ++;
 
   return plugin_i;

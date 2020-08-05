@@ -119,6 +119,7 @@ struct ctx_config_s {
  * - array_config = NONE
  * - bv_config    = NONE
  * - arith_config = NONE
+ * - trace_tags = NULL
  *
  * In this configuration, a context supports propositional logic only.
  */
@@ -144,7 +145,7 @@ extern int32_t config_set_logic(ctx_config_t *config, const char *logic);
  *
  * This can't be used to set config->logic: key must be one of "mode",
  * "arith-fragment", "uf-solver", "array-solver", "bv-solver",
- * "arith-solver".
+ * "arith-solver" or "trace".
  *
  * Return code:
  *   -1 if the key is not recognized
@@ -186,6 +187,11 @@ extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, con
                              context_mode_t *mode, bool *iflag, bool *qflag);
 
 
+
+/*
+ * Cleanup: this frees config->trace_tags is non-NULL.
+ */
+extern void delete_config(ctx_config_t *config);
 
 
 /*

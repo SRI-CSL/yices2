@@ -73,7 +73,7 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
  * Enable a tag to trace.
  */
 static inline void enable_trace_tag(tracer_t *tracer, const char* tag) {
-  pvector_push(&tracer->trace_tags, strdup(tag));
+  pvector_push(&tracer->trace_tags, safe_strdup(tag));
 }
 
 /*

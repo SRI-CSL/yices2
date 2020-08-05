@@ -24,6 +24,7 @@
 #include <assert.h>
 
 #include "api/context_config.h"
+#include "utils/memalloc.h"
 #include "utils/string_utils.h"
 
 
@@ -365,7 +366,7 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     break;
 
   case CTX_CONFIG_KEY_TRACE_TAGS:
-    config->trace_tags = strdup(value);
+    config->trace_tags = safe_strdup(value);
     break;
 
   case CTX_CONFIG_KEY_ARITH_FRAGMENT:
@@ -672,6 +673,12 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
 }
 
 
+/*
+ * Cleanup a configutation descriptor
+ */
+void delete_config(ctx_config_t *config) {
+  safe_free(config->trace_tags);
+}
 
 
 /*
