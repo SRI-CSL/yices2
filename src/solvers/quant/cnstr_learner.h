@@ -17,12 +17,12 @@
  */
 
 /*
- * REINFORCEMENT LEARNER
+ * REINFORCEMENT LEARNER FOR QUANT CONSTRAINTS
  */
 
 
-#ifndef __RL_LEARNER_H
-#define __RL_LEARNER_H
+#ifndef __CNSTR_LEARNER_H
+#define __CNSTR_LEARNER_H
 
 #include "solvers/quant/quant_cnstr.h"
 #include "utils/uint_learner.h"
@@ -110,4 +110,4 @@ extern void reset_cnstr_learner(cnstr_learner_t *learner);
 extern void delete_cnstr_learner(cnstr_learner_t *learner);
 
 
-#endif /* __RL_LEARNER_H */
+#endif /* __CNSTR_LEARNER_H */

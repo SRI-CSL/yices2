@@ -214,7 +214,7 @@ core_src_c := \
 	solvers/quant/ef_problem.c \
 	solvers/quant/quant_pattern.c \
 	solvers/quant/quant_cnstr.c \
-	solvers/quant/rl_learner.c \
+	solvers/quant/cnstr_learner.c \
 	solvers/quant/ematch_instr.c \
 	solvers/quant/ematch_instr_stack.c \
 	solvers/quant/ematch_instance.c \

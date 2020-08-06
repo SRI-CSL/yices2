@@ -37,7 +37,7 @@
 #include "utils/ptr_vectors.h"
 #include "solvers/quant/ef_problem.h"
 #include "solvers/quant/quant_ematching.h"
-#include "solvers/quant/rl_learner.h"
+#include "solvers/quant/cnstr_learner.h"
 
 
 /*

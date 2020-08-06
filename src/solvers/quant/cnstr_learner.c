@@ -17,11 +17,11 @@
  */
 
 /*
- * REINFORCEMENT LEARNER
+ * REINFORCEMENT LEARNER FOR QUANT CONSTRAINTS
  */
 
 
-#include "solvers/quant/rl_learner.h"
+#include "solvers/quant/cnstr_learner.h"
 #include "utils/index_vectors.h"
 #include "utils/prng.h"
 
@@ -65,7 +65,6 @@ void cnstr_learner_setup(cnstr_learner_t *learner) {
       generic_heap_add(heap, i);
     }
   }
-
 }
 
 
