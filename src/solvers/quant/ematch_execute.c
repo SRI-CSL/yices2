@@ -28,11 +28,14 @@
 #include "yices.h"
 #include "solvers/egraph/composites.h"
 #include "context/internalization_printer.h"
+#include "utils/prng.h"
 
+
+#define TRACE_LIGHT 0
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || TRACE_LIGHT
 
 #include <stdio.h>
 
@@ -52,6 +55,8 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   init_ivector(&exec->reg, 10);
   init_ematch_stack(&exec->bstack);
   init_ivector(&exec->aux_vector, 4);
+  init_ivector(&exec->aux_vector2, 4);
+  init_int_hmap(&exec->aux_map, 0);
 
   exec->comp = comp;
   exec->itbl = comp->itbl;
@@ -73,6 +78,8 @@ void reset_ematch_exec(ematch_exec_t *exec) {
   ivector_reset(&exec->reg);
   reset_ematch_stack(&exec->bstack);
   ivector_reset(&exec->aux_vector);
+  ivector_reset(&exec->aux_vector2);
+  int_hmap_reset(&exec->aux_map);
 
   exec->comp = NULL;
   exec->itbl = NULL;
@@ -90,6 +97,8 @@ void delete_ematch_exec(ematch_exec_t *exec) {
   delete_ivector(&exec->reg);
   delete_ematch_stack(&exec->bstack);
   delete_ivector(&exec->aux_vector);
+  delete_ivector(&exec->aux_vector2);
+  delete_int_hmap(&exec->aux_map);
 
   exec->comp = NULL;
   exec->itbl = NULL;
@@ -106,13 +115,13 @@ void delete_ematch_exec(ematch_exec_t *exec) {
  *********************/
 
 /*
- * Collect function applications for function f in the class of occ, and push in out vector
+ * Collect function applications for function f in the class of occ, and push in aux vector
  */
-static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+static void egraph_get_all_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *aux) {
   egraph_t *egraph;
   composite_t *p;
   eterm_t ti, x;
-  occ_t occi;
+  occ_t occi, occp;
 
 
 #if TRACE
@@ -123,7 +132,7 @@ static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t 
   intern_tbl_print_reverse(exec->intern, occ);
 //  print_occurrence(stdout, occ);
 //  printf("\n");
-  uint32_t old_sz = out->size;
+  uint32_t old_sz = aux->size;
 #endif
 
   egraph = exec->egraph;
@@ -139,32 +148,22 @@ static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t 
           // check if following if is redundant
           if (congruence_table_is_root(&egraph->ctable, p, egraph->terms.label)) {
             if (composite_depth(egraph, p) < exec->max_fdepth) {
-              ivector_push(out, occi);
+              occp = pos_occ(ti);
+              ivector_push(aux, occp);
 
 #if TRACE
               printf("    (pushing) ");
-              print_occurrence(stdout, occi);
+              print_occurrence(stdout, occp);
               printf(" @ depth %d: ", composite_depth(egraph, p));
               term_t r;
-              r = intern_tbl_reverse_map(exec->intern, occi);
+              r = intern_tbl_reverse_map(exec->intern, occp);
               if (r != NULL_TERM) {
                 yices_pp_term(stdout, r, 120, 1, 0);
               } else {
                 printf("\n");
               }
 #endif
-
-              if (out->size >= exec->max_fapps) {
-#if TRACE
-                printf("    reached fapps limit of %d\n", exec->max_fdepth);
-#endif
-                break;
-              }
-
-//               just need to find a single fapp in the class (since congruent fapps)
-//              break;
-            }
-            else {
+            } else {
 #if TRACE
               fputs("    (filtered) ", stdout);
               print_composite(stdout, p);
@@ -181,15 +180,284 @@ static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t 
   } while (occi != occ);
 
 #if TRACE
+    printf("    added %d fapps\n", (aux->size - old_sz));
+#endif
+}
+
+/*
+ * Add fapps to out vector in serial order
+ */
+static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+  ivector_t *aux;
+  uint32_t i, n;
+
+#if TRACE_LIGHT
+  printf("  FAPPS mode: All\n");
+#endif
+
+  aux = &exec->aux_vector2;
+  egraph_get_all_fapps_in_class(exec, f, occ, aux);
+  n = aux->size;
+
+  for(i=0; i<n; i++) {
+    if (out->size >= exec->max_fapps) {
+#if TRACE
+      printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+      break;
+    }
+    ivector_push(out, aux->data[i]);
+  }
+}
+
+/*
+ * Add fapps to out vector in random order
+ */
+static void egraph_get_fapps_in_class_random(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+  ivector_t *aux;
+  uint32_t i, n, randIdx;
+  int_hmap_t *auxMap;
+  int_hmap_pair_t *p;
+  uint32_t *seed;
+
+#if TRACE_LIGHT
+  printf("  FAPPS mode: Explore\n");
+#endif
+
+  aux = &exec->aux_vector2;
+  egraph_get_all_fapps_in_class(exec, f, occ, aux);
+  n = aux->size;
+
+  auxMap = &exec->aux_map;
+  seed = uint_learner_get_seed(&exec->term_learner->learner);
+
+  int_hmap_reset(auxMap);
+
+  for(i=0; i<n; i++) {
+    randIdx = random_uint(seed, n);
+    assert(randIdx >=0 && randIdx < n);
+
+    p = int_hmap_get(auxMap, randIdx);
+    if (p->val < 0) {
+      if (out->size >= exec->max_fapps) {
+#if TRACE
+        printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+        break;
+      }
+
+      p->val = 1;
+      ivector_push(out, aux->data[randIdx]);
+    } else {
+      // already present in aux
+      // try again
+      i--;
+    }
+  }
+}
+
+/*
+ * Add fapps to out vector in greedy (priority) order
+ */
+static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+
+#if TRACE_LIGHT
+  printf("  FAPPS mode: Exploit\n");
+#endif
+
+  generic_heap_t *main_heap, *aux_heap;
+
+  egraph_t *egraph;
+  composite_t *p;
+  eterm_t ti, x;
+  occ_t occi, occp;
+
+  main_heap = &exec->term_learner->learner.heap;
+  aux_heap = &exec->term_learner->aux_heap;
+
+  reset_generic_heap(aux_heap);
+
+#if TRACE
+  printf("  Finding all fapps for function ");
+  intern_tbl_print_reverse(exec->intern, pos_occ(f));
+//  print_eterm_id(stdout, f);
+  printf(" in the class of ");
+  intern_tbl_print_reverse(exec->intern, occ);
+//  print_occurrence(stdout, occ);
+//  printf("\n");
+  uint32_t old_sz = aux->size;
+#endif
+
+
+  egraph = exec->egraph;
+  occi = occ;
+  do {
+    ti = term_of_occ(occi);
+    p = egraph_term_body(egraph, ti);
+    if (composite_body(p)) {
+      if (valid_entry(p) &&
+          composite_kind(p) == COMPOSITE_APPLY) {
+        x = term_of_occ(composite_child(p, 0));
+        if (x == f) {
+          // check if present in main heap
+          if (generic_heap_member(main_heap, ti)) {
+            // check if following if is redundant
+            if (congruence_table_is_root(&egraph->ctable, p, egraph->terms.label)) {
+              if (composite_depth(egraph, p) < exec->max_fdepth) {
+                generic_heap_add(aux_heap, ti);
+              } else {
+#if TRACE
+                fputs("    (filtered) ", stdout);
+                print_composite(stdout, p);
+                printf(" @ depth %d", composite_depth(egraph, p));
+                fputc('\n', stdout);
+#endif
+              }
+            }
+          } else {
+#if TRACE
+            fputs("    (filtered: not in heap) ", stdout);
+            ti = term_of_occ(occi);
+            p = egraph_term_body(exec->egraph, ti);
+            printf("    (term) ");
+            print_eterm_id(stdout, ti);
+            printf(": ");
+            print_eterm(stdout, exec->egraph, ti);
+            printf(": ");
+            print_composite(stdout, p);
+            printf(" @ depth %d", composite_depth(egraph, p));
+            fputc('\n', stdout);
+#endif
+          }
+        }
+      }
+    }
+    occi = egraph_next(egraph, occi);
+    assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
+  } while (occi != occ);
+
+#if TRACE
     printf("    added %d fapps\n", (out->size - old_sz));
 #endif
+
+  while(!generic_heap_is_empty(aux_heap)) {
+    if (out->size >= exec->max_fapps) {
+#if TRACE
+      printf("    reached fapps limit of %d\n", exec->max_fdepth);
+#endif
+      break;
+    }
+
+    // pop out top element
+    ti = generic_heap_get_min(aux_heap);
+    assert(egraph_term_is_valid(egraph, ti));
+    occp = pos_occ(ti);
+    ivector_push(out, occp);
+
+#if TRACE
+    p = egraph_term_body(egraph, ti);
+    printf("    (pushing) ");
+    print_occurrence(stdout, occp);
+    printf(" @ depth %d: ", composite_depth(egraph, p));
+    term_t r;
+    r = intern_tbl_reverse_map(exec->intern, occp);
+    if (r != NULL_TERM) {
+      yices_pp_term(stdout, r, 120, 1, 0);
+    } else {
+      printf("\n");
+    }
+#endif
+  }
+}
+
+/*
+ * Add fapps to out vector based on epsilon-greedy approach
+ */
+static void egraph_get_fapps_in_class_epsilon_greedy(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+  uint_learner_t *learner;
+  uint32_t randIdx;
+
+  learner = &exec->term_learner->learner;
+  randIdx = random_uint(uint_learner_get_seed(learner), TERM_RL_EPSILON_MAX);
+  if (randIdx < uint_learner_get_epsilon(learner)) {
+    egraph_get_fapps_in_class_random(exec, f, occ, out);
+  } else {
+    egraph_get_fapps_in_class_greedy(exec, f, occ, out);
+  }
 }
 
 /*
  * Collect function applications for function f in the class of occ, and push in out vector
  */
 static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
-  egraph_get_fapps_in_class_all(exec, f, occ, out);
+  term_learner_t *term_learner;
+
+#if TRACE_LIGHT
+  uint32_t i, oldcount, n;
+  oldcount = out->size;
+#endif
+
+  term_learner = exec->term_learner;
+
+#if TRACE
+  uint_learner_print_indices_priority(&term_learner->learner, "(begin)");
+#endif
+
+  ivector_reset(&exec->aux_vector2);
+
+  switch(term_learner->iter_mode) {
+  case ITERATE_RANDOM:
+    egraph_get_fapps_in_class_random(exec, f, occ, out);
+    break;
+  case ITERATE_GREEDY:
+    egraph_get_fapps_in_class_greedy(exec, f, occ, out);
+    break;
+  case ITERATE_EPSILONGREEDY:
+    egraph_get_fapps_in_class_epsilon_greedy(exec, f, occ, out);
+    break;
+  default:
+    egraph_get_fapps_in_class_all(exec, f, occ, out);
+  }
+
+#if TRACE_LIGHT
+  occ_t occi;
+  eterm_t ti;
+
+  n = out->size;
+  for(i=oldcount; i<n; i++) {
+    occi = out->data[i];
+    assert(is_pos_occ(occi));
+
+    ti = term_of_occ(occi);
+//    term_learner_add_cnstr(term_learner, ti);
+
+#if TRACE
+    composite_t *p;
+    p = egraph_term_body(exec->egraph, ti);
+    printf("    (term) ");
+    print_eterm_id(stdout, ti);
+    printf(": ");
+    print_eterm(stdout, exec->egraph, ti);
+    printf("\n    (pushing) ");
+    print_occurrence(stdout, occi);
+    printf(" @ depth %d: ", composite_depth(exec->egraph, p));
+    term_t r;
+    r = intern_tbl_reverse_map(exec->intern, occi);
+    if (r != NULL_TERM) {
+      yices_pp_term(stdout, r, 120, 1, 0);
+    } else {
+      printf("\n");
+    }
+#endif
+
+    uint_learner_print_index_priority(&term_learner->learner, ti);
+  }
+#endif
+
+#if TRACE
+  uint_learner_print_indices_priority(&term_learner->learner, "(end)");
+#endif
+
 }
 
 
@@ -851,6 +1119,8 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   occ_t occ;
   ivector_t *matches;
   ivector_t *aux;
+  term_learner_t *term_learner;
+  eterm_t tf;
 
 #if TRACE
     printf("  Pattern code:\n");
@@ -862,6 +1132,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
   x = NULL_TERM;
+  term_learner = exec->term_learner;
 
   if (kind == APP_TERM) {
     x = pat->p;
@@ -886,6 +1157,8 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
     egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
     n = fapps.size;
     for(i=0; i<n; i++) {
+      tf = term_of_occ(fapps.data[i]);
+
 #if TRACE
       occ_t fapp = fapps.data[i];
 
@@ -893,6 +1166,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
       print_occurrence(stdout, fapp);
       printf("\n");
 #endif
+
       aux = &exec->aux_vector;
       ivector_reset(aux);
       ematch_exec_set_reg(exec, fapps.data[i], 0);
@@ -915,6 +1189,11 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
         for(j=0; j!=m; j++) {
           ivector_push(matches, aux->data[j]);
         }
+
+        term_learner_add_latest(term_learner, tf);
+        term_learner_update_match_reward(term_learner, tf);
+      } else {
+        term_learner_update_unmatch_reward(term_learner, tf);
       }
     }
     delete_ivector(&fapps);

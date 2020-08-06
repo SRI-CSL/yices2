@@ -32,11 +32,10 @@
 
 /*
  * Setup learner: iterate over each term and add to heap
- * - add to heap only when patterns are present
  */
 void term_learner_setup(term_learner_t *learner) {
   uint_learner_t *uint_learner;
-  term_table_t *terms;
+  eterm_table_t *terms;
   uint32_t i, n;
 
   generic_heap_t *heap;
@@ -44,10 +43,10 @@ void term_learner_setup(term_learner_t *learner) {
   uint_learner_stats_t *s;
 
   uint_learner = &learner->learner;
-  terms = learner->terms;
+  terms = &learner->egraph->terms;
   assert(terms != NULL);
 
-  n = terms->nelems;
+  n = terms->nterms;
   heap = &uint_learner->heap;
   pv = &uint_learner->stats;
 
@@ -56,6 +55,36 @@ void term_learner_setup(term_learner_t *learner) {
   for(i=0; i<n; i++) {
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
     s->Q = uint_learner->initQ;
+    pvector_push(pv, s);
+
+    generic_heap_add(heap, i);
+  }
+}
+
+/*
+ * Extend setup learner: iterate over each new term and add to heap
+ */
+void term_learner_setup_extend(term_learner_t *learner) {
+  uint_learner_t *uint_learner;
+  eterm_table_t *terms;
+  uint32_t i, n, oldsz;
+
+  generic_heap_t *heap;
+  pvector_t *pv;
+  uint_learner_stats_t *s;
+
+  uint_learner = &learner->learner;
+  terms = &learner->egraph->terms;
+  assert(terms != NULL);
+
+  n = terms->nterms;
+  heap = &uint_learner->heap;
+  pv = &uint_learner->stats;
+  oldsz = pv->size;
+
+  for(i=oldsz; i<n; i++) {
+    s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
+    s->Q = (TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR * uint_learner->initQ);
     pvector_push(pv, s);
 
     generic_heap_add(heap, i);
@@ -94,7 +123,7 @@ void term_learner_update_last_round(term_learner_t *learner, bool update_heap) {
 
     for(i=0; i<n; i++) {
       cIdx = latest_terms->data[i];
-      assert(cIdx < learner->terms->nelems);
+      assert(cIdx < learner->egraph->terms.nterms);
 
       if (uint_learner_get_reward(uint_learner) != 0) {
         uint_learner_updateQ_latest(uint_learner, cIdx);
@@ -111,6 +140,39 @@ void term_learner_update_last_round(term_learner_t *learner, bool update_heap) {
 
     uint_learner_reset_reward(uint_learner);
   }
+}
+
+
+/*
+ * Update learner match reward for the term i
+ */
+void term_learner_update_match_reward(term_learner_t *learner, uint32_t i) {
+  double reward;
+
+  assert(i < learner->egraph->terms.nterms);
+
+  reward = (TERM_RL_MATCH_REWARD_FACTOR);
+  uint_learner_updateQ(&learner->learner, i, reward);
+
+#if TRACE
+  printf("  New reward (match) for term @%d = %.2f\n", i, reward);
+#endif
+}
+
+/*
+ * Update learner unmatch reward for the term i
+ */
+void term_learner_update_unmatch_reward(term_learner_t *learner, uint32_t i) {
+  double reward;
+
+  assert(i < learner->egraph->terms.nterms);
+
+  reward = (- TERM_RL_UNMATCH_COST_FACTOR);
+  uint_learner_updateQ(&learner->learner, i, reward);
+
+#if TRACE
+  printf("  New reward (unmatch) for term @%d = %.2f\n", i, reward);
+#endif
 }
 
 
@@ -168,8 +230,10 @@ void init_term_learner(term_learner_t *learner) {
   uint_learner_set_alpha(uint_learner, TERM_RL_ALPHA_DEFAULT);
   uint_learner_set_initQ(uint_learner, TERM_RL_INITIAL_Q_DEFAULT);
 
-  learner->terms = NULL;
+  learner->egraph = NULL;
   learner->iter_mode = DEFAULT_EMATCH_MODE;
+
+  init_generic_heap(&learner->aux_heap, 0, 0, uint_learner->heap.cmp, &uint_learner->stats);
 }
 
 /*
@@ -177,6 +241,7 @@ void init_term_learner(term_learner_t *learner) {
  */
 void reset_term_learner(term_learner_t *learner) {
   reset_uint_learner(&learner->learner);
+  reset_generic_heap(&learner->aux_heap);
 }
 
 /*
@@ -184,7 +249,8 @@ void reset_term_learner(term_learner_t *learner) {
  */
 void delete_term_learner(term_learner_t *learner) {
   delete_uint_learner(&learner->learner);
-  learner->terms = NULL;
+  learner->egraph = NULL;
+  delete_generic_heap(&learner->aux_heap);
 }
 
 

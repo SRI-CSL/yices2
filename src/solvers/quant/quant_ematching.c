@@ -107,7 +107,6 @@ void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
   em->exec.intern = &ctx->intern;
 
   em->exec.term_learner = tl;
-  em->exec.term_learner->terms = terms;
 }
 
 /*
@@ -117,6 +116,7 @@ void ematch_attach_egraph(ematch_globals_t *em, egraph_t *egraph) {
   assert(egraph != NULL);
   em->egraph = egraph;
   em->exec.egraph = egraph;
+  em->exec.term_learner->egraph = egraph;
 }
 
 /*

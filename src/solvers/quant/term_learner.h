@@ -31,25 +31,34 @@
 
 typedef struct term_learner_s {
   uint_learner_t learner;      // learner
-  term_table_t *terms;         // link to terms table
+  egraph_t *egraph;            // link to egraph
   iterate_kind_t iter_mode;    // iteration mode over terms
+
+  generic_heap_t aux_heap;     // temporary heap with term indices in priority order
 } term_learner_t;
 
-#define TERM_RL_EPSILON_MAX              1000
-#define TERM_RL_EPSILON_DEFAULT          150
-#define TERM_RL_ALPHA_DEFAULT            0.1
-#define TERM_RL_INITIAL_Q_DEFAULT        100
+#define TERM_RL_EPSILON_MAX                     1000
+#define TERM_RL_EPSILON_DEFAULT                 400
+#define TERM_RL_ALPHA_DEFAULT                   0.2
+#define TERM_RL_INITIAL_Q_DEFAULT               100
+#define TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR    0.1
 
-#define TERM_RL_TERM_COST_FACTOR         0.3
-#define TERM_RL_LEMMA_COST_FACTOR        0.1
-#define TERM_RL_DECISION_COST_FACTOR     1
-#define TERM_RL_BACKTRACK_REWARD_FACTOR  2
+#define TERM_RL_UNMATCH_COST_FACTOR             0.1
+#define TERM_RL_MATCH_REWARD_FACTOR             0.3
+#define TERM_RL_DECISION_COST_FACTOR            1
+#define TERM_RL_BACKTRACK_REWARD_FACTOR         4
 
 
 /*
  * Setup learner: iterate over each term and setup initial priorities
  */
 extern void term_learner_setup(term_learner_t *learner);
+
+/*
+ * Extend setup learner: iterate over each new term and add to heap
+ */
+extern void term_learner_setup_extend(term_learner_t *learner);
+
 
 /*
  * Reset learner stats for ematch round
@@ -63,6 +72,21 @@ extern void term_learner_update_last_round(term_learner_t *learner, bool update_
 
 
 /*
+ * Update learner match reward for the term i
+ */
+extern void term_learner_update_match_reward(term_learner_t *learner, uint32_t i);
+
+/*
+ * Update learner unmatch reward for the term i
+ */
+extern void term_learner_update_unmatch_reward(term_learner_t *learner, uint32_t i);
+
+/*
+ * Update learner decision cost (negative rewards) for the latest ematch round
+ */
+extern void term_learner_update_decision_reward(term_learner_t *learner);
+
+/*
  * Update learner backtrack reward for the latest ematch round
  */
 extern void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump);
@@ -71,7 +95,7 @@ extern void term_learner_update_backtrack_reward(term_learner_t *learner, uint32
 /*
  * Add constraint to learner for the latest ematch round
  */
-static inline void term_learner_add_cnstr(term_learner_t *learner, uint32_t i) {
+static inline void term_learner_add_latest(term_learner_t *learner, uint32_t i) {
   uint_learner_add_index(&learner->learner, i);
 }
 

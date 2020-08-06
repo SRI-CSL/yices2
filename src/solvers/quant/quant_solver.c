@@ -391,13 +391,12 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
 //  assert(0);
 
   ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx, &solver->term_learner);
+  ematch_attach_egraph(&solver->em, solver->egraph);
 
   term_learner_setup(&solver->term_learner);
   cnstr_learner_setup(&solver->cnstr_learner);
 
   ematch_compile_all_patterns(&solver->em);
-
-  ematch_attach_egraph(&solver->em, solver->egraph);
 
   ematch_assert_all_enables(solver);
 }
@@ -936,10 +935,14 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   uint32_t i, n;
 
   term_learner_update_last_round(&solver->term_learner, true);
+  term_learner_reset_latest(&solver->term_learner);
+  term_learner_setup_extend(&solver->term_learner);
+
   cnstr_learner_update_last_round(&solver->cnstr_learner, true);
 
 #if TRACE_LIGHT
-  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(begin)");
+//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
 #endif
 
   ivector_reset(&solver->round_cnstrs);
@@ -974,7 +977,8 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   cnstr_learner_reset_round(&solver->cnstr_learner, false);
 
 #if TRACE_LIGHT
-  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(end)");
+//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
 #endif
 
 }
@@ -1084,6 +1088,7 @@ void quant_solver_increase_decision_level(quant_solver_t *solver) {
   k = solver->decision_level + 1;
   solver->decision_level = k;
   cnstr_learner_update_decision_reward(&solver->cnstr_learner);
+  term_learner_update_decision_reward(&solver->term_learner);
 
 #if TRACE_LIGHT
   printf("---> QUANTSOLVER:   Increasing decision level to %d\n", k);
@@ -1099,6 +1104,7 @@ void quant_solver_backtrack(quant_solver_t *solver, uint32_t back_level) {
   assert(solver->base_level <= back_level && back_level < solver->decision_level);
 
   cnstr_learner_update_backtrack_reward(&solver->cnstr_learner, (solver->decision_level - back_level));
+  term_learner_update_backtrack_reward(&solver->term_learner, (solver->decision_level - back_level));
   solver->decision_level = back_level;
 
 #if TRACE_LIGHT

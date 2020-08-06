@@ -37,6 +37,8 @@ typedef struct ematch_exec_s {
   ivector_t reg;                // register array
   ematch_stack_t bstack;        // instruction stack
   ivector_t aux_vector;         // temporary vector
+  ivector_t aux_vector2;        // temporary vector
+  int_hmap_t aux_map;           // temporary table
 
   ematch_compile_t *comp;       // ematch compiler
   ematch_instr_table_t *itbl;   // ematch instruction table
@@ -61,9 +63,9 @@ typedef struct ematch_exec_s {
  * Default execution bounds/parameters
  */
 #define DEF_EARLY_EXIT      true
-#define DEF_MAX_FDEPTH      10
-#define DEF_MAX_VDEPTH      4
-#define DEF_MAX_FAPPS       30
+#define DEF_MAX_FDEPTH      100
+#define DEF_MAX_VDEPTH      40
+#define DEF_MAX_FAPPS       5
 
 
 /*
