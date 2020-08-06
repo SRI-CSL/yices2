@@ -933,6 +933,7 @@ static void ematch_process_cnstr_epsilon_greedy(quant_solver_t *solver) {
  */
 static void ematch_process_all_cnstr(quant_solver_t *solver) {
   uint32_t i, n;
+  smt_status_t status;
 
   term_learner_update_last_round(&solver->term_learner, true);
   term_learner_reset_latest(&solver->term_learner);
@@ -968,6 +969,14 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   n = solver->round_cnstrs.size;
   assert(n == solver->round_instances.size);
   for(i=0; i<n; i++) {
+    status = smt_status(solver->core);
+    if (status != STATUS_SEARCHING) {
+#if TRACE
+      printf("\nSMT status: %d\n", status);
+#endif
+      assert(status == STATUS_UNSAT);
+      break;
+    }
     ematch_add_quant_cnstr(solver, solver->round_cnstrs.data[i], solver->round_instances.data[i]);
   }
 
