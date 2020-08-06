@@ -94,7 +94,7 @@ void delete_ematch(ematch_globals_t *em) {
  * Attach tables
  */
 void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
-      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx) {
+      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx, term_learner_t *tl) {
   assert(ptbl != NULL);
   assert(terms != NULL);
   assert(ctx != NULL);
@@ -105,6 +105,9 @@ void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
   em->comp.terms = terms;
   em->exec.terms = terms;
   em->exec.intern = &ctx->intern;
+
+  em->exec.term_learner = tl;
+  em->exec.term_learner->terms = terms;
 }
 
 /*

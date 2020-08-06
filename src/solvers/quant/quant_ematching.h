@@ -69,7 +69,7 @@ extern void delete_ematch(ematch_globals_t *em);
  * Attach tables
  */
 extern void ematch_attach_tbl(ematch_globals_t *em, term_table_t *terms,
-      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx);
+      pattern_table_t *ptbl, quant_table_t *qtbl, context_t *ctx, term_learner_t *tl);
 
 /*
  * Attach egraph

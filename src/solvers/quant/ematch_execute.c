@@ -108,7 +108,7 @@ void delete_ematch_exec(ematch_exec_t *exec) {
 /*
  * Collect function applications for function f in the class of occ, and push in out vector
  */
-static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
   egraph_t *egraph;
   composite_t *p;
   eterm_t ti, x;
@@ -184,6 +184,14 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     printf("    added %d fapps\n", (out->size - old_sz));
 #endif
 }
+
+/*
+ * Collect function applications for function f in the class of occ, and push in out vector
+ */
+static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ, ivector_t *out) {
+  egraph_get_fapps_in_class_all(exec, f, occ, out);
+}
+
 
 /*
  * Collect all function applications for function f, and push in out vector

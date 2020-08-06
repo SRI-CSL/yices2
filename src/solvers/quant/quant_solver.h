@@ -95,8 +95,8 @@ typedef struct quant_solver_s {
   quant_table_t qtbl;     // quant table
   ematch_globals_t em;    // ematching
 
-  iterate_kind_t iter_mode;  // iteration mode over constraints
-  cnstr_learner_t learner;         // Reinforce learner
+  cnstr_learner_t cnstr_learner;    // Reinforce learner for quant constraints
+  term_learner_t term_learner;      // Reinforce learner for terms
 
   ivector_t base_literals;
   ivector_t base_antecedents;

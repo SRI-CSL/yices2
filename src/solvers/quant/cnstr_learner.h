@@ -26,10 +26,13 @@
 
 #include "solvers/quant/quant_cnstr.h"
 #include "utils/uint_learner.h"
+#include "solvers/quant/quant_parameters.h"
+
 
 typedef struct cnstr_learner_s {
   uint_learner_t learner;      // learner
   quant_table_t *qtbl;         // link to quant table
+  iterate_kind_t iter_mode;    // iteration mode over constraints
 } cnstr_learner_t;
 
 #define CNSTR_RL_EPSILON_MAX              1000

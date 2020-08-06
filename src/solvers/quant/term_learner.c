@@ -17,11 +17,11 @@
  */
 
 /*
- * REINFORCEMENT LEARNER FOR QUANT CONSTRAINTS
+ * REINFORCEMENT LEARNER FOR TERMS
  */
 
 
-#include "solvers/quant/cnstr_learner.h"
+#include "solvers/quant/term_learner.h"
 #include "utils/index_vectors.h"
 #include "utils/prng.h"
 
@@ -31,24 +31,23 @@
 
 
 /*
- * Setup learner: iterate over each quant cnstr and add to heap
+ * Setup learner: iterate over each term and add to heap
  * - add to heap only when patterns are present
  */
-void cnstr_learner_setup(cnstr_learner_t *learner) {
+void term_learner_setup(term_learner_t *learner) {
   uint_learner_t *uint_learner;
-  quant_table_t *qtbl;
-  quant_cnstr_t *cnstr;
-  uint32_t i, n, npat;
+  term_table_t *terms;
+  uint32_t i, n;
 
   generic_heap_t *heap;
   pvector_t *pv;
   uint_learner_stats_t *s;
 
   uint_learner = &learner->learner;
-  qtbl = learner->qtbl;
-  assert(qtbl != NULL);
+  terms = learner->terms;
+  assert(terms != NULL);
 
-  n = qtbl->nquant;
+  n = terms->nelems;
   heap = &uint_learner->heap;
   pv = &uint_learner->stats;
 
@@ -59,11 +58,7 @@ void cnstr_learner_setup(cnstr_learner_t *learner) {
     s->Q = uint_learner->initQ;
     pvector_push(pv, s);
 
-    cnstr = qtbl->data + i;
-    npat = iv_len(cnstr->patterns);
-    if (npat != 0) {
-      generic_heap_add(heap, i);
-    }
+    generic_heap_add(heap, i);
   }
 }
 
@@ -71,14 +66,14 @@ void cnstr_learner_setup(cnstr_learner_t *learner) {
 /*
  * Reset learner stats for ematch round
  */
-void cnstr_learner_reset_round(cnstr_learner_t *learner, bool reset) {
+void term_learner_reset_round(term_learner_t *learner, bool reset) {
   if (reset) {
     uint_learner_reset_indices(&learner->learner);
   }
 
   uint_learner_reset_reward(&learner->learner);
 #if TRACE
-  printf("  New reward (reset) = %.2f\n", uint_learner_get_reward(&learner->learner));
+  printf("  New term reward (reset) = %.2f\n", uint_learner_get_reward(&learner->learner));
 #endif
 }
 
@@ -86,26 +81,26 @@ void cnstr_learner_reset_round(cnstr_learner_t *learner, bool reset) {
 /*
  * Update learner stats/rewards for the last ematch round
  */
-void cnstr_learner_update_last_round(cnstr_learner_t *learner, bool update_heap) {
+void term_learner_update_last_round(term_learner_t *learner, bool update_heap) {
   uint_learner_t *uint_learner;
   uint32_t i, n, cIdx;
-  ivector_t *latest_cnstr;
+  ivector_t *latest_terms;
 
   uint_learner = &learner->learner;
 
   if (update_heap || uint_learner_get_reward(uint_learner) != 0) {
-    latest_cnstr = &uint_learner->latest_indices;
-    n = latest_cnstr->size;
+    latest_terms = &uint_learner->latest_indices;
+    n = latest_terms->size;
 
     for(i=0; i<n; i++) {
-      cIdx = latest_cnstr->data[i];
-      assert(cIdx < learner->qtbl->nquant);
+      cIdx = latest_terms->data[i];
+      assert(cIdx < learner->terms->nelems);
 
       if (uint_learner_get_reward(uint_learner) != 0) {
         uint_learner_updateQ_latest(uint_learner, cIdx);
 
 #if TRACE
-        printf("  New reward (cumulative) for cnstr @%d = %.2f\n", cIdx, uint_learner_get_reward(uint_learner));
+        printf("  New term reward (cumulative) for term @%d = %.2f\n", cIdx, uint_learner_get_reward(uint_learner));
 #endif
       }
 
@@ -120,52 +115,20 @@ void cnstr_learner_update_last_round(cnstr_learner_t *learner, bool update_heap)
 
 
 /*
- * Update learner term reward for the constraint i
- */
-void cnstr_learner_update_term_reward(cnstr_learner_t *learner, uint32_t cost, uint32_t i) {
-  double reward;
-
-  assert(i < learner->qtbl->nquant);
-
-  reward = (- CNSTR_RL_TERM_COST_FACTOR * cost);
-  uint_learner_updateQ(&learner->learner, i, reward);
-
-#if TRACE
-  printf("  New reward (term) for cnstr @%d = %.2f\n", i, reward);
-#endif
-}
-
-/*
- * Update learner lemma reward for the constraint i
- */
-void cnstr_learner_update_lemma_reward(cnstr_learner_t *learner, uint32_t cost, uint32_t i) {
-  double reward;
-
-  assert(i < learner->qtbl->nquant);
-
-  reward = (- CNSTR_RL_LEMMA_COST_FACTOR * cost);
-  uint_learner_updateQ(&learner->learner, i, reward);
-
-#if TRACE
-  printf("  New reward (lemma) for cnstr @%d = %.2f\n", i, reward);
-#endif
-}
-
-/*
  * Update learner decision cost (negative rewards) for the latest ematch round
  */
-void cnstr_learner_update_decision_reward(cnstr_learner_t *learner) {
+void term_learner_update_decision_reward(term_learner_t *learner) {
   double reward;
   uint_learner_t *uint_learner;
 
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (- CNSTR_RL_DECISION_COST_FACTOR);
+    reward = (- TERM_RL_DECISION_COST_FACTOR);
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE
-    printf("  New reward (decision) = %.2f\n", reward);
+    printf("  New term reward (decision) = %.2f\n", reward);
 #endif
   }
 }
@@ -173,21 +136,21 @@ void cnstr_learner_update_decision_reward(cnstr_learner_t *learner) {
 /*
  * Update learner backtrack reward for the latest ematch round
  */
-void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t jump) {
+void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump) {
   double reward;
   uint_learner_t *uint_learner;
 
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (CNSTR_RL_BACKTRACK_REWARD_FACTOR * jump);
+    reward = (TERM_RL_BACKTRACK_REWARD_FACTOR * jump);
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE
-    printf("  New reward (backtrack) = %.2f\n", reward);
+    printf("  New term reward (backtrack) = %.2f\n", reward);
 #endif
 
-    cnstr_learner_update_last_round(learner, false);
+    term_learner_update_last_round(learner, false);
   }
 
 }
@@ -196,32 +159,32 @@ void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t ju
 /*
  * Initialize learner
  */
-void init_cnstr_learner(cnstr_learner_t *learner, quant_table_t *qtbl) {
+void init_term_learner(term_learner_t *learner) {
   uint_learner_t *uint_learner;
 
   uint_learner = &learner->learner;
-  init_uint_learner(uint_learner, qtbl->nquant);
-  uint_learner_set_epsilon(uint_learner, CNSTR_RL_EPSILON_DEFAULT);
-  uint_learner_set_alpha(uint_learner, CNSTR_RL_ALPHA_DEFAULT);
-  uint_learner_set_initQ(uint_learner, CNSTR_RL_INITIAL_Q_DEFAULT);
+  init_uint_learner(uint_learner, 10);
+  uint_learner_set_epsilon(uint_learner, TERM_RL_EPSILON_DEFAULT);
+  uint_learner_set_alpha(uint_learner, TERM_RL_ALPHA_DEFAULT);
+  uint_learner_set_initQ(uint_learner, TERM_RL_INITIAL_Q_DEFAULT);
 
-  learner->qtbl = qtbl;
+  learner->terms = NULL;
   learner->iter_mode = DEFAULT_EMATCH_MODE;
 }
-
 
 /*
  * Reset learner
  */
-void reset_cnstr_learner(cnstr_learner_t *learner) {
+void reset_term_learner(term_learner_t *learner) {
   reset_uint_learner(&learner->learner);
 }
-
 
 /*
  * Delete learner
  */
-void delete_cnstr_learner(cnstr_learner_t *learner) {
+void delete_term_learner(term_learner_t *learner) {
   delete_uint_learner(&learner->learner);
-  learner->qtbl = NULL;
+  learner->terms = NULL;
 }
+
+

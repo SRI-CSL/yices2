@@ -26,6 +26,7 @@
 #include "solvers/quant/ematch_compile.h"
 #include "solvers/quant/ematch_instr_stack.h"
 #include "solvers/quant/ematch_instance.h"
+#include "solvers/quant/term_learner.h"
 
 
 
@@ -51,6 +52,9 @@ typedef struct ematch_exec_s {
   uint32_t max_fdepth;          // max function composition depth allowed for the fapps during matching
   uint32_t max_vdepth;          // max function composition depth allowed for the variable matches
   uint32_t max_fapps;           // max bound on the number of function applications allowed during matching
+
+  term_learner_t *term_learner;     // Reinforce learner
+  iterate_kind_t *iter_mode;         // iteration mode
 } ematch_exec_t;
 
 /*
