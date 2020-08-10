@@ -170,12 +170,6 @@ struct param_s {
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
 
-  /*
-   * QUANT SOLVER PARAMETERS
-   * - ematch_mode: mode for ematching
-   */
-  int32_t ematch_mode;
-
 };
 
 

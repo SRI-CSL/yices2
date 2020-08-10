@@ -29,9 +29,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "solvers/quant/ef_parameters.h"
 #include "exists_forall/ef_analyze.h"
 #include "exists_forall/efsolver.h"
-#include "exists_forall/ef_parameters.h"
 
 /*
  * These are essentially the old ef globals found in yices_reval and smt2_command.

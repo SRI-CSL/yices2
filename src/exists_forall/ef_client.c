@@ -73,7 +73,7 @@ void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap
   if (efc->efprob == NULL) {
     efc->efprob = (ef_prob_t *) safe_malloc(sizeof(ef_prob_t));
     init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(efc->efprob, __yices_globals.manager, patterns, parameters);
+    init_ef_prob(efc->efprob, __yices_globals.manager, patterns, &efc->ef_parameters);
     efc->efcode = ef_analyze(&analyzer, efc->efprob, n, assertions,
 			     efc->ef_parameters.flatten_ite,
 			     efc->ef_parameters.flatten_iff,

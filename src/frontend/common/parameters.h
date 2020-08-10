@@ -26,10 +26,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "solvers/quant/ef_parameters.h"
 #include "utils/int_vectors.h"
 #include "api/search_parameters.h"
-#include "exists_forall/ef_parameters.h"
-#include "solvers/quant/quant_parameters.h"
+#include "terms/rationals.h"
 
 /*
  * Search parameters and internalization options can be set individually
@@ -97,7 +97,8 @@ typedef enum yices_param {
   PARAM_EF_MAX_SAMPLES,
   PARAM_EF_MAX_ITERS,
   // quant solver
-  PARAM_EMATCH_MODE,
+  PARAM_EMATCH_CNSTR_MODE,
+  PARAM_EMATCH_TERM_MODE,
   // mcsat options
   PARAM_MCSAT_NRA_MGCD,
   PARAM_MCSAT_NRA_NLSAT,

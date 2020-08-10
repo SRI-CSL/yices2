@@ -353,6 +353,9 @@ static void quant_preprocess_prob(quant_solver_t *solver) {
       quant_preprocess_assertion_with_pattern(solver, r->key, r->val);
     }
   }
+
+  solver->stats.num_quantifiers = solver->qtbl.nquant;
+  solver->stats.num_patterns = solver->ptbl.npatterns;
 }
 
 /*
@@ -380,10 +383,11 @@ static void ematch_assert_all_enables(quant_solver_t *solver) {
 void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t *ctx) {
   assert(solver->prob == NULL);
 
-  solver->term_learner.iter_mode = prob->parameters->ematch_mode;
-  solver->cnstr_learner.iter_mode = prob->parameters->ematch_mode;
+  solver->cnstr_learner.iter_mode = prob->parameters->ematch_cnstr_mode;
+  solver->term_learner.iter_mode = prob->parameters->ematch_term_mode;
 #if EM_VERBOSE
-  printf("EMATCH mode: %d (%s)\n", solver->cnstr_learner.iter_mode, ematchmode2string[solver->cnstr_learner.iter_mode]);
+  printf("EMATCH CNSTR mode: %d (%s)\n", solver->cnstr_learner.iter_mode, ematchmode2string[solver->cnstr_learner.iter_mode]);
+  printf("EMATCH TERM mode: %d (%s)\n", solver->term_learner.iter_mode, ematchmode2string[solver->term_learner.iter_mode]);
 #endif
 
   solver->prob = prob;
@@ -943,7 +947,7 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
 #if TRACE_LIGHT
 //  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
-  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
+//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
 #endif
 
   ivector_reset(&solver->round_cnstrs);
@@ -987,7 +991,7 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
 #if TRACE_LIGHT
 //  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
-  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
+//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
 #endif
 
 }

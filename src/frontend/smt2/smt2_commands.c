@@ -1720,6 +1720,7 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
 static void show_statistics(smt2_globals_t *g) {
   print_buffer_t buffer;
   double time, mem;
+  context_t *ctx;
 
   time = get_cpu_time();
   mem = mem_size() / (1024*1024);
@@ -1730,9 +1731,15 @@ static void show_statistics(smt2_globals_t *g) {
   if (mem > 0) {
     print_string_and_float(g->out_fd, &buffer, " :mem-usage ", mem);
   }
-  if (g->ctx != NULL) {
-    show_ctx_stats(g->out_fd, &buffer, g->ctx);
+  if (g->efmode && g->ef_client.efsolver != NULL) {
+    ctx = g->ef_client.efsolver->exists_context;
+  } else {
+    ctx = g->ctx;
   }
+  if (ctx != NULL) {
+    show_ctx_stats(g->out_fd, &buffer, ctx);
+  }
+
   print_char_and_newline(g->out_fd, &buffer, ')');
   flush_out();
 }
@@ -3112,11 +3119,6 @@ static void efsolve_cmd(smt2_globals_t *g) {
       }
       g->interrupted = false;
       start_timeout(g->timeout, timeout_handler, g);
-    }
-
-    if (g->ematch_mode >= 0) {
-      aval_t aval_mode = attr_vtbl_symbol(__smt2_globals.avtbl, ematchmode2string[g->ematch_mode]);
-      smt2_set_option(":yices-ematch-mode", aval_mode);
     }
 
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
@@ -4883,8 +4885,12 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
-  case PARAM_EMATCH_MODE:
-    print_string_value(ematchmode2string[g->parameters.ematch_mode]);
+  case PARAM_EMATCH_CNSTR_MODE:
+    print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_cnstr_mode]);
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_term_mode]);
     break;
 
   case PARAM_MCSAT_NRA_BOUND:
@@ -5522,9 +5528,15 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
-  case PARAM_EMATCH_MODE:
+  case PARAM_EMATCH_CNSTR_MODE:
     if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
-      g->parameters.ematch_mode = n;
+      g->ef_client.ef_parameters.ematch_cnstr_mode = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      g->ef_client.ef_parameters.ematch_term_mode = n;
     }
     break;
 

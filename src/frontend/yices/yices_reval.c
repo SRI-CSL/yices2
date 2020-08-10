@@ -1404,8 +1404,12 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_iters, n);
     break;
 
-  case PARAM_EMATCH_MODE:
-    show_string_param(param2string[p], ematchmode2string[parameters.ematch_mode], n);
+  case PARAM_EMATCH_CNSTR_MODE:
+    show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_cnstr_mode], n);
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_term_mode], n);
     break;
 
   case PARAM_UNKNOWN:
@@ -1846,9 +1850,16 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     }
     break;
 
-  case PARAM_EMATCH_MODE:
+  case PARAM_EMATCH_CNSTR_MODE:
     if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
-      parameters.ematch_mode = n;
+      ef_client_globals.ef_parameters.ematch_cnstr_mode = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_term_mode = n;
       print_ok();
     }
     break;

@@ -155,12 +155,6 @@
  *   the forall context)
  * - code = result of the last assertion (negative code is an error)
  */
-typedef enum ef_gen_option {
-  EF_NOGEN_OPTION,        // option 1 above
-  EF_GEN_BY_SUBST_OPTION, // option 2 above
-  EF_GEN_BY_PROJ_OPTION,  // model-based projection (cheap quantifier elimination)
-  EF_GEN_AUTO_OPTION,     // select between PROJ or SUBST depending on variables
-} ef_gen_option_t;
 
 
 /*

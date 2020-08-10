@@ -54,7 +54,7 @@ void delete_pattern_map(ptr_hmap_t *m) {
 /*
  * Initialization: all empty
  */
-void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, param_t *parameters) {
+void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, ef_param_t *parameters) {
   prob->terms = term_manager_get_terms(mngr);
   prob->manager = mngr;
   prob->all_evars = NULL;

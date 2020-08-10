@@ -59,7 +59,7 @@
 
 #include "terms/term_manager.h"
 #include "utils/int_vectors.h"
-
+#include "solvers/quant/ef_parameters.h"
 
 /*
  * Descriptor for a universal constraint
@@ -93,7 +93,7 @@ typedef struct ef_prob_s {
 
   bool has_uint;          // true if prob has an uninterpreted function/sort
   ptr_hmap_t *patterns;   // map from term to smt2 patterns
-  param_t *parameters;
+  ef_param_t *parameters; // link to EF parameters
 } ef_prob_t;
 
 
@@ -112,7 +112,7 @@ extern void delete_pattern_map(ptr_hmap_t *m);
  * Initialization: all empty
  * - mngr = relevant term manager
  */
-extern void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, param_t *parameters);
+extern void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, ef_param_t *parameters);
 
 
 /*
