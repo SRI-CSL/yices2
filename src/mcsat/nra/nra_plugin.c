@@ -62,6 +62,7 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   nra->stats.propagations = statistics_new_int(nra->ctx->stats, "mcsat::nra::propagations");
   nra->stats.conflicts = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts");
   nra->stats.conflicts_int = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_int");
+  nra->stats.conflicts_assumption = statistics_new_int(nra->ctx->stats, "mcsat::nra::conflicts_assumption");
   nra->stats.constraints_attached = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_attached");
   nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
   nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
@@ -132,20 +133,20 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   }
 
   // Atoms
-  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM);
-  ctx->request_term_notification_by_kind(ctx, ARITH_MOD);
-  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV);
-  ctx->request_term_notification_by_kind(ctx, ARITH_CEIL);
-  ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR);
+  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_ROOT_ATOM, true);
+  ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_RDIV, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_CEIL, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FLOOR, false);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT);
-  ctx->request_term_notification_by_kind(ctx, ARITH_POLY);
-  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT);
+  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
 
   // Types (we add INT because it's there for ITEs over int constants)
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
@@ -157,6 +158,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
+  lp_value_construct_none(&nra->conflict_variable_value);
 
   nra->global_bound_term = NULL_TERM;
 
@@ -322,10 +325,6 @@ const mcsat_value_t* nra_plugin_constraint_evaluate(nra_plugin_t* nra, variable_
 
   assert(!trail_has_value(nra->ctx->trail, cstr_var));
 
-  if (ctx_trace_enabled(nra->ctx, "nra::evaluate")) {
-    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
-  }
-
   // Check if it is a valid constraints
   const poly_constraint_t* cstr = poly_constraint_db_get(nra->constraint_db, cstr_var);
   if (!poly_constraint_is_valid(cstr)) {
@@ -405,6 +404,7 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
 
   if (ctx_trace_enabled(nra->ctx, "nra::evaluate")) {
     trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, cstr_var));
   }
 
   // Compute the evaluation timestamp
@@ -414,6 +414,9 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
   if (cstr_value) {
     bool ok = prop->add_at_level(prop, cstr_var, cstr_value, cstr_level);
     (void)ok;
+//    if (cstr_level < nra->ctx->trail->decision_level) {
+//      fprintf(stderr, "HERE");
+//    }
     assert(ok);
   }
 
@@ -792,13 +795,15 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     } else {
       bool x_in_conflict = false;
       // If the variable is integer, check that is has an integer solution
-      if (nra->conflict_variable_int == variable_null && variable_db_is_int(nra->ctx->var_db, x)) {
+      if (variable_db_is_int(nra->ctx->var_db, x)) {
         // Check if there is an integer value
         lp_value_t v;
         lp_value_construct_none(&v);
         lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
         if (!lp_value_is_integer(&v)) {
-          nra->conflict_variable_int = x;
+          if (nra->conflict_variable_int == variable_null) {
+            nra->conflict_variable_int = x;
+          }
           x_in_conflict = true;
         }
         lp_value_destruct(&v);
@@ -810,10 +815,12 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           lp_value_t x_value;
           lp_value_construct_none(&x_value);
           lp_feasibility_set_pick_value(feasible, &x_value);
-          mcsat_value_t value;
-          mcsat_value_construct_lp_value(&value, &x_value);
-          prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-          mcsat_value_destruct(&value);
+          if (lp_value_is_rational(&x_value)) {
+            mcsat_value_t value;
+            mcsat_value_construct_lp_value(&value, &x_value);
+            prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
+            mcsat_value_destruct(&value);
+          }
           lp_value_destruct(&x_value);
         }
       }
@@ -1266,7 +1273,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   ivector_t core, lemma_reasons;
   init_ivector(&core, 0);
   init_ivector(&lemma_reasons, 0);
-  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, &core, &lemma_reasons);
+  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, NULL, &core, &lemma_reasons);
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): core:\n");
@@ -1489,10 +1496,93 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
     }
   }
 
-  // Remove tempss
+  // Remove temps
   int_mset_destruct(&to_resolve);
   lp_value_destruct(&v);
 }
+
+static
+void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector_t* conflict) {
+  size_t i;
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): ");
+    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, x));
+  }
+
+  // Get the value of x (responsible for conflict)
+  const mcsat_value_t* x_value = trail_get_value(nra->ctx->trail, x);
+
+  // The assertions on x that are in conflict (as constraint variables)
+  ivector_t core, lemma_reasons;
+  init_ivector(&core, 0);
+  init_ivector(&lemma_reasons, 0);
+  feasible_set_db_get_conflict_reasons(nra->feasible_set_db, nra, x, x_value, &core, &lemma_reasons);
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): core:\n");
+    for (i = 0; i < core.size; ++ i) {
+      ctx_trace_printf(nra->ctx, "[%zu] (", i);
+      if (trail_has_value(nra->ctx->trail, core.data[i])) {
+        mcsat_value_print(trail_get_value(nra->ctx->trail, core.data[i]), ctx_trace_out(nra->ctx));
+      }
+      ctx_trace_printf(nra->ctx, "): ");
+      ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, core.data[i]));
+    }
+  }
+
+  // The assumptions conflict is either with a single constraints, or with a unit lemma
+  // - single constraint: return C or !C (one is assigned, other one evaluates)
+  // - unit lemma: return the lemma itself
+  if (lemma_reasons.size > 0) {
+    assert(core.size == 0);
+    // We don't know the actual lemma terms, just the variables
+    // We do know that if we evaluate with the conflict variable the terms should eval to false
+    // 1. Setup the model with the conflict variable
+    variable_t var = nra->conflict_variable_assumption;
+    lp_variable_t lp_var = nra_plugin_get_lp_variable(nra, var);
+    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &nra->conflict_variable_value);
+    lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
+    for (i = 0; i < lemma_reasons.size; ++ i) {
+      // 2. Evaluate the constraint and figure out how it evaluates to false
+      variable_t constraint_var = lemma_reasons.data[i];
+      const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+      bool constraint_value = false;
+      bool ok = poly_constraint_evaluate(constraint, nra, &constraint_value);
+      (void) ok;
+      assert(ok);
+      term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+      if (constraint_value) {
+        ivector_push(conflict, constraint_term);
+      } else {
+        ivector_push(conflict, opposite_term(constraint_term));
+      }
+    }
+    // 3. Pop the model
+    lp_variable_order_pop(nra->lp_data.lp_var_order);
+    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, 0);
+  } else {
+    assert(core.size == 1);
+    variable_t constraint_var = core.data[0];
+    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    assert(trail_has_value(nra->ctx->trail, constraint_var));
+    ivector_push(conflict, constraint_term);
+    ivector_push(conflict, opposite_term(constraint_term));
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+    ctx_trace_printf(nra->ctx, "nra_plugin_get_assumption_conflict(): conflict:\n");
+    for (i = 0; i < conflict->size; ++ i) {
+      ctx_trace_printf(nra->ctx, "[%zu]: ", i);
+      ctx_trace_term(nra->ctx, conflict->data[i]);
+    }
+  }
+
+  // Remove temps
+  delete_ivector(&core);
+  delete_ivector(&lemma_reasons);
+}
+
 
 static
 void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
@@ -1510,8 +1600,8 @@ void nra_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     nra_plugin_get_real_conflict(nra, &pos, &neg, nra->conflict_variable, conflict);
   } else if (nra->conflict_variable_int != variable_null) {
     nra_plugin_get_int_conflict(nra, &pos, &neg, nra->conflict_variable_int, conflict);
-  } else {
-    assert(false);
+  } else if (nra->conflict_variable_assumption != variable_null) {
+    nra_plugin_get_assumption_conflict(nra, nra->conflict_variable_assumption, conflict);
   }
 
   int_mset_destruct(&pos);
@@ -1531,30 +1621,43 @@ term_t nra_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   // We only propagate evaluations, and we explain them using the literal itself
+  // The only other propagations are at 0-level, and those we explain with the value and no reasons
   term_t atom = variable_db_get_term(nra->ctx->var_db, var);
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_explain_propagation():\n");
     ctx_trace_term(nra->ctx, atom);
   }
-  bool value = trail_get_boolean_value(nra->ctx->trail, var);
+  const mcsat_value_t* value = trail_get_value(nra->ctx->trail, var);
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
-    ctx_trace_printf(nra->ctx, "assigned to %s\n", value ? "true" : "false");
+    ctx_trace_printf(nra->ctx, "assigned to:");
+    mcsat_value_print(value, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
   }
 
-  if (value) {
-    // atom => atom = true
-    ivector_push(reasons, atom);
-    return bool2term(true);
+  if (value->type == VALUE_BOOLEAN) {
+    if (value->b) {
+      // atom => atom = true
+      ivector_push(reasons, atom);
+      return bool2term(true);
+    } else {
+      // neg atom => atom = false
+      ivector_push(reasons, opposite_term(atom));
+      return bool2term(false);
+    }
   } else {
-    // neg atom => atom = false
-    ivector_push(reasons, opposite_term(atom));
-    return bool2term(false);
+    // we just return true => var = value
+    // this is only allowed at base level when explaining under assumptions
+    // there is currently no was to assert this properly
+    // assert(trail_is_at_base_level(nra->ctx->trail));
+    return mcsat_value_to_term(value, nra->ctx->tm);
   }
 }
 
 static
 bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
+
+  bool result = true;
 
   // Get all the variables and make sure they are all assigned.
   nra_plugin_get_constraint_variables(nra, t, vars);
@@ -1564,13 +1667,12 @@ bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars,
   size_t i = 0;
   for (i = 0; i < var_list->size; ++ i) {
     if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
-      int_mset_clear(vars);
-      return false;
+      result = false;
     }
   }
 
   // All variables assigned
-  return true;
+  return result;
 }
 
 static
@@ -1653,6 +1755,8 @@ void nra_plugin_pop(plugin_t* plugin) {
   // Unset the conflict
   nra->conflict_variable = variable_null;
   nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
+  lp_value_assign_raw(&nra->conflict_variable_value, LP_VALUE_NONE, 0);
 
   // We undid last decision, so we're back to normal
   nra->last_decided_and_unprocessed = variable_null;
@@ -1866,6 +1970,27 @@ void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   nra->exception = handler;
 }
 
+static
+void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+  // If we get a rational, conver to lp_value_t
+  mcsat_value_t tmp;
+  const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
+  // Get the feasibility set
+  lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
+  // Decide the variable anyhow
+  decide->add(decide, x, lp_value);
+  nra->last_decided_and_unprocessed = x;
+  // Check if this was feasible
+  if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
+    // Ouch, conflict
+    nra_plugin_report_assumption_conflict(nra, decide, x, lp_value);
+  }
+  // Remove temps
+  if (lp_value != value) {
+    lp_value_destruct(&tmp.lp_value);
+  }
+}
 
 static
 void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
@@ -1930,6 +2055,31 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
 
 }
 
+bool nra_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
+  nra_plugin_t* nra = (nra_plugin_t*) plugin;
+
+  // We only simplify root constraints
+  term_t lit_pos = unsigned_term(lit);
+  term_kind_t lit_kind = term_kind(nra->ctx->terms, lit_pos);
+  if (lit_kind != ARITH_ROOT_ATOM) {
+    return false;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "nra::simplify_conflict")) {
+    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+    ctx_trace_term(nra->ctx, lit_pos);
+  }
+
+  // Get the polynomial of the root atom
+  root_atom_t* root_atom = arith_root_atom_desc(nra->ctx->terms, lit_pos);
+  term_t lit_p = root_atom->p;
+
+  // Cell will be described as a conjunction of true atoms
+  nra_plugin_describe_cell(nra, lit_p, output);
+
+  return true;
+}
+
 plugin_t* nra_plugin_allocator(void) {
   nra_plugin_t* plugin = safe_malloc(sizeof(nra_plugin_t));
   plugin_construct((plugin_t*) plugin);
@@ -1940,10 +2090,12 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.event_notify        = nra_plugin_event_notify;
   plugin->plugin_interface.propagate           = nra_plugin_propagate;
   plugin->plugin_interface.decide              = nra_plugin_decide;
+  plugin->plugin_interface.decide_assignment   = nra_plugin_decide_assignment;
   plugin->plugin_interface.learn               = nra_plugin_learn;
   plugin->plugin_interface.get_conflict        = nra_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation = nra_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation  = nra_plugin_explain_evaluation;
+  plugin->plugin_interface.simplify_conflict_literal = nra_plugin_simplify_conflict_literal;
   plugin->plugin_interface.push                = nra_plugin_push;
   plugin->plugin_interface.pop                 = nra_plugin_pop;
   plugin->plugin_interface.gc_mark             = nra_plugin_gc_mark;

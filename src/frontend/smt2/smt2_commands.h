@@ -139,6 +139,7 @@ typedef enum smt2_opcodes {
   SMT2_GET_PROOF,                       // [get-proof]
   SMT2_GET_UNSAT_ASSUMPTIONS,           // [get-unsat-assumptions]
   SMT2_GET_UNSAT_CORE,                  // [get-unsat-core]
+  SMT2_GET_UNSAT_MODEL_INTERPOLANT,     // [get-unsat-model-interpolant]
   SMT2_GET_VALUE,                       // [get-value <term> ... <term> ]
   SMT2_GET_OPTION,                      // [get-option <keyword> ]
   SMT2_GET_INFO,                        // [get-info <keyword> ]
@@ -150,6 +151,7 @@ typedef enum smt2_opcodes {
   SMT2_ASSERT,                          // [assert <term> ]
   SMT2_CHECK_SAT,                       // [check-sat ]
   SMT2_CHECK_SAT_ASSUMING,              // [check-sat-assuming <literals>* ]
+  SMT2_CHECK_SAT_ASSUMING_MODEL,        // [check-sat-assuming (<symbol>*) (<term>*)]
   SMT2_DECLARE_SORT,                    // [declare-sort <symbol> <numeral> ]
   SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
   SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
@@ -267,12 +269,14 @@ typedef struct smt2_cmd_stats_s {
   uint32_t num_assert;
   uint32_t num_check_sat;
   uint32_t num_check_sat_assuming;
+  uint32_t num_check_sat_assuming_model;
   uint32_t num_push;
   uint32_t num_pop;
   uint32_t num_get_value;
   uint32_t num_get_assignment;
   uint32_t num_get_unsat_core;
   uint32_t num_get_unsat_assumptions;
+  uint32_t num_get_unsat_model_interpolant;
 } smt2_cmd_stats_t;
 
 
@@ -382,6 +386,7 @@ typedef struct smt2_globals_s {
   bool produce_proofs;            // default = false (not supported)
   bool produce_unsat_cores;       // default = false
   bool produce_unsat_assumptions; // default = false
+  bool produce_unsat_model_interpolants; // default = false
   bool produce_models;            // default = false
   bool produce_assignments;       // default = false
   uint32_t random_seed;           // default = 0
@@ -427,6 +432,9 @@ typedef struct smt2_globals_s {
   // allocated on demand
   assumptions_and_core_t *unsat_core;
   assumptions_and_core_t *unsat_assumptions;
+
+  // status of the last call to check-with-model
+  smt_status_t check_with_model_status;
 
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;
@@ -603,6 +611,13 @@ extern void smt2_get_unsat_assumptions(void);
 
 
 /*
+ * Get the unsat model interpolant: a formula implied by the assertion that
+ * evaluates to false.
+ */
+extern void smt2_get_unsat_model_interpolant(void);
+
+
+/*
  * Get the values of terms in the model
  * - the terms are listed in array a
  * - n = number of elements in the array
@@ -688,6 +703,14 @@ extern void smt2_check_sat(void);
  * i.e., a pair symbol name/polarity.
  */
 extern void smt2_check_sat_assuming(uint32_t n, signed_symbol_t *a);
+
+/*
+ * Check satisfiability with model assumptions:
+ * - n = number of assumptions
+ * - vars = array of variables
+ * - values = array of values to be assigned to variables
+ */
+extern void smt2_check_sat_assuming_model(uint32_t n, const term_t vars[], const term_t values[]);
 
 /*
  * Declare a new sort:

@@ -241,8 +241,6 @@ static harray_t *support_of_bvpoly(support_constructor_t *constructor, bvpoly_t 
 
 /*
  * Support for a product p
- *
- * TODO: check if one of the term in the product is zero
  */
 static harray_t *support_of_pprod(support_constructor_t *constructor, pprod_t *p) {
   harray_t **sup;

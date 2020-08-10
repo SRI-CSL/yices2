@@ -295,22 +295,29 @@ static yices_lock_t model_list_lock;
 
 
 /*
- * Context configuration and parameter descriptors
- * are stored in one list.
+ * Context configurations
  */
 typedef struct {
   dl_list_t header;
   ctx_config_t config;
 } ctx_config_elem_t;
 
+static dl_list_t config_list;
+#ifdef THREAD_SAFE
+static yices_lock_t config_list_lock;
+#endif
+
+/*
+ * Solver parameter descriptors
+ */
 typedef struct {
   dl_list_t header;
   param_t param;
 } param_structure_elem_t;
 
-static dl_list_t generic_list;
+static dl_list_t parameter_list;
 #ifdef THREAD_SAFE
-static yices_lock_t generic_list_lock;
+static yices_lock_t parameter_list_lock;
 #endif
 
 
@@ -322,7 +329,8 @@ static inline void init_list_locks(void){
   create_yices_lock(&bvlogic_buffer_list_lock);
   create_yices_lock(&context_list_lock);
   create_yices_lock(&model_list_lock);
-  create_yices_lock(&generic_list_lock);
+  create_yices_lock(&config_list_lock);
+  create_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -334,7 +342,8 @@ static inline void delete_list_locks(void){
   destroy_yices_lock(&bvlogic_buffer_list_lock);
   destroy_yices_lock(&context_list_lock);
   destroy_yices_lock(&model_list_lock);
-  destroy_yices_lock(&generic_list_lock);
+  destroy_yices_lock(&config_list_lock);
+  destroy_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -347,7 +356,8 @@ static inline void get_list_locks(void){
   get_yices_lock(&bvlogic_buffer_list_lock);
   get_yices_lock(&context_list_lock);
   get_yices_lock(&model_list_lock);
-  get_yices_lock(&generic_list_lock);
+  get_yices_lock(&config_list_lock);
+  get_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -360,7 +370,8 @@ static inline void release_list_locks(void){
   release_yices_lock(&bvlogic_buffer_list_lock);
   release_yices_lock(&context_list_lock);
   release_yices_lock(&model_list_lock);
-  release_yices_lock(&generic_list_lock);
+  release_yices_lock(&config_list_lock);
+  release_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -753,6 +764,7 @@ static inline void _o_free_model(model_t *m) {
   list_remove(elem);
   safe_free(elem);
 }
+
 static inline void free_model(model_t *m) {
   MT_PROTECT_VOID(model_list_lock, _o_free_model(m));
 }
@@ -794,6 +806,13 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
 }
 
 /*
+ * Config from a header l
+ */
+static inline ctx_config_t *config_of_header(dl_list_t *l) {
+  return (ctx_config_t *) (((char *) l) + offsetof(ctx_config_elem_t, config));
+}
+
+/*
  * Allocate a structure and insert it into the generic
  * WARNING: the record is not initialized
  */
@@ -801,24 +820,24 @@ static inline ctx_config_t *_o_alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
-  list_insert_next(&generic_list, &new_elem->header);
+  list_insert_next(&config_list, &new_elem->header);
   return &new_elem->config;
 }
 
 static ctx_config_t *alloc_config_structure(void) {
-  MT_PROTECT(ctx_config_t *, generic_list_lock, _o_alloc_config_structure());
+  MT_PROTECT(ctx_config_t *, config_list_lock, _o_alloc_config_structure());
 }
 
 static inline param_t *_o_alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
-  list_insert_next(&generic_list, &new_elem->header);
+  list_insert_next(&parameter_list, &new_elem->header);
   return &new_elem->param;
 }
 
 static param_t *alloc_param_structure(void) {
-  MT_PROTECT(param_t *, generic_list_lock,  _o_alloc_param_structure());
+  MT_PROTECT(param_t *, parameter_list_lock,  _o_alloc_param_structure());
 }
 
 /*
@@ -833,7 +852,7 @@ static inline void _o_free_config_structure(ctx_config_t *c) {
 }
 
 static void free_config_structure(ctx_config_t *c) {
-  MT_PROTECT_VOID(generic_list_lock, _o_free_config_structure(c));
+  MT_PROTECT_VOID(config_list_lock, _o_free_config_structure(c));
 }
 
 static inline void _o_free_param_structure(param_t *p) {
@@ -845,24 +864,40 @@ static inline void _o_free_param_structure(param_t *p) {
 }
 
 static void free_param_structure(param_t *p) {
-  MT_PROTECT_VOID(generic_list_lock, _o_free_param_structure(p));
+  MT_PROTECT_VOID(parameter_list_lock, _o_free_param_structure(p));
 }
 
 
 /*
- * Empty the generic list
+ * Empty the list of configs
  */
-static void free_generic_list(void) {
+static void free_config_list(void) {
   dl_list_t *elem, *aux;
 
-  elem = generic_list.next;
-  while (elem != &generic_list) {
+  elem = config_list.next;
+  while (elem != &config_list) {
+    aux = elem->next;
+    delete_config(config_of_header(elem));
+    safe_free(elem);
+    elem = aux;
+  }
+  clear_list(&config_list);
+}
+
+
+/*
+ * Empty the list of parameter descriptors
+ */
+static void free_parameter_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = parameter_list.next;
+  while (elem != &parameter_list) {
     aux = elem->next;
     safe_free(elem);
     elem = aux;
   }
-
-  clear_list(&generic_list);
+  clear_list(&parameter_list);
 }
 
 
@@ -1047,7 +1082,8 @@ EXPORTED void yices_init(void) {
   // other dynamic object lists
   clear_list(&context_list);
   clear_list(&model_list);
-  clear_list(&generic_list);
+  clear_list(&config_list);
+  clear_list(&parameter_list);
 
   // registries for garbage collection
   root_terms = NULL;
@@ -1087,7 +1123,8 @@ EXPORTED void yices_exit(void) {
 
   free_context_list();
   free_model_list();
-  free_generic_list();
+  free_config_list();
+  free_parameter_list();
 
   delete_list_locks();
 
@@ -7896,6 +7933,7 @@ EXPORTED ctx_config_t *yices_new_config(void) {
  * Delete
  */
 EXPORTED void yices_free_config(ctx_config_t *config) {
+  delete_config(config);
   free_config_structure(config);
 }
 
@@ -8290,7 +8328,25 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     }
   }
 
-  return _o_yices_create_context(logic, arch, mode, iflag, qflag);
+  context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
+
+  if (config != NULL && config->trace_tags != NULL) {
+    // Make new trace
+    tracer_t *trace = (tracer_t*) safe_malloc(sizeof(tracer_t));
+    init_trace(trace);
+    set_trace_file(trace, stderr);
+    // Copy over the trace tag to the tracer
+    char *saveptr = NULL;
+    char *tag = strtok_r(config->trace_tags, ",", &saveptr);
+    while (tag != NULL) {
+      pvector_push(&trace->trace_tags, tag);
+      tag = strtok_r(NULL, ",", &saveptr);
+    }
+    // Set it to the context
+    context_set_trace(ctx, trace);
+  }
+
+  return ctx;
 }
 
 
@@ -8993,6 +9049,96 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
+/*
+ * Check context with model
+ * - n = number of assumptions
+ * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
+ */
+EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
+    model_t* mdl, uint32_t n, const term_t t[]) {
+
+  param_t default_params;
+  smt_status_t stat;
+  uint32_t i;
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    if (!context_supports_multichecks(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (!context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED: {
+    error_report_t *error = get_yices_error();
+    error->code = CTX_INVALID_OPERATION;
+    return STATUS_ERROR;
+  }
+  case STATUS_ERROR:
+  default: {
+    error_report_t *error = get_yices_error();
+    error->code = INTERNAL_EXCEPTION;
+    return STATUS_ERROR;
+  }
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // Make sure only variables are allowed
+  for (i = 0; i < n; ++ i) {
+    bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
+    if (!is_variable) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+  }
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_model(ctx, params, mdl, n, t);
+  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+  return stat;
+}
+
 
 /*
  * Interrupt the search:
@@ -9029,6 +9175,13 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   yices_reset_term_vector(v);
   context_build_unsat_core(ctx, (ivector_t *) v);
   return 0;
+}
+
+/*
+ * Construct a model interpolant core.
+ */
+EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+  return context_get_unsat_model_interpolant(ctx);
 }
 
 

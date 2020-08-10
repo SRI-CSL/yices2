@@ -17,6 +17,7 @@ struct keyword_s;
 :produce-proofs,              SMT2_KW_PRODUCE_PROOFS
 :produce-unsat-assumptions,   SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS
 :produce-unsat-cores,         SMT2_KW_PRODUCE_UNSAT_CORES
+:produce-unsat-model-interpolants, SMT2_KW_PRODUCE_UNSAT_MODEL_INTERPOLANTS
 :random-seed,                 SMT2_KW_RANDOM_SEED
 :regular-output-channel,      SMT2_KW_REGULAR_OUTPUT
 :reproducible-resource-limit, SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT

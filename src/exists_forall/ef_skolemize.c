@@ -286,6 +286,8 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
     type_t funct = yices_function_type(n, domt, rt);
     skolem.func = yices_new_uninterpreted_term(funct);
     skolem.fapp = yices_application(skolem.func, n, uvars);
+
+    safe_free(domt); // BD: fix memory leak
   }
 
   yices_set_term_name(skolem.func, name);

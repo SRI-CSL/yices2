@@ -200,7 +200,9 @@ core_src_c := \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \
+	solvers/funs/fun_level.c \
 	solvers/funs/fun_solver.c \
+	solvers/funs/stratification.c \
 	solvers/simplex/arith_atomtable.c \
 	solvers/simplex/arith_vartable.c \
 	solvers/simplex/diophantine_systems.c \
@@ -809,6 +811,10 @@ ifeq ($(YICES_MODE),gcov)
 CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage -g -O0
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
+ifeq ($(YICES_MODE),sanitize)
+CFLAGS := $(CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
 CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -832,7 +838,7 @@ endif
 endif
 endif
 endif
-
+endif
 
 #
 # Object files to include in the dynamic libraries

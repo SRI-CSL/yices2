@@ -21,6 +21,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include "utils/memalloc.h"
@@ -96,3 +97,15 @@ void *safe_realloc(void *ptr, size_t size) {
 }
 
 
+/*
+ * Wrapper for strdup
+ */
+char *safe_strdup(const char *s) {
+  char *tmp;
+
+  tmp = strdup(s);
+  if (tmp == NULL) {
+    out_of_memory();
+  }
+  return tmp;
+}

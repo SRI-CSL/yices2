@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "mcsat/value.h"
 
 #include <assert.h>
@@ -45,6 +45,11 @@ void mcsat_value_construct_rational(mcsat_value_t* value, const rational_t* q) {
 void mcsat_value_construct_lp_value(mcsat_value_t* value, const lp_value_t* lp_value) {
   value->type = VALUE_LIBPOLY;
   lp_value_construct_copy(&value->lp_value, lp_value);
+}
+
+void mcsat_value_construct_lp_value_direct(mcsat_value_t *value, lp_value_type_t type, void* data) {
+  value->type = VALUE_LIBPOLY;
+  lp_value_construct(&value->lp_value, type, data);
 }
 
 void mcsat_value_construct_bv_value(mcsat_value_t* value, const bvconstant_t* bvvalue) {
@@ -78,6 +83,14 @@ void mcsat_value_construct_copy(mcsat_value_t* value, const mcsat_value_t* from)
     assert(false);
   }
 }
+
+void mcsat_value_construct_copy_n(mcsat_value_t *value, const mcsat_value_t *from, uint32_t n) {
+  uint32_t i;
+  for (i = 0; i < n; ++ i) {
+    mcsat_value_construct_copy(value + i, from + i);
+  }
+}
+
 
 /** Construct a MCSAT value from a constant term */
 void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table_t* terms, term_t t) {
@@ -221,12 +234,12 @@ void mcsat_value_print(const mcsat_value_t* value, FILE* out) {
 }
 
 bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
-  assert(v1->type == v2->type);
   if (v1 == v2) {
     return true;
   }
   switch (v1->type) {
   case VALUE_BOOLEAN:
+    assert(v2->type == VALUE_BOOLEAN);
     return v1->b == v2->b;
   case VALUE_RATIONAL:
     if (v2->type == VALUE_RATIONAL) {
@@ -261,6 +274,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
       return cmp == 0;
     }
   case VALUE_BV: {
+    assert(v2->type == VALUE_BV);
     assert(v1->bv_value.bitsize == v2->bv_value.bitsize);
     return bvconst_eq(v1->bv_value.data, v2->bv_value.data, v1->bv_value.width);
   }
@@ -299,22 +313,48 @@ uint32_t mcsat_value_hash(const mcsat_value_t* v) {
   }
 }
 
-term_t mcsat_value_to_term(const mcsat_value_t *mcsat_value, term_manager_t* tm) {
+term_t mcsat_value_to_term(const mcsat_value_t* mcsat_value, term_manager_t* tm) {
+
+  term_t result = NULL_TERM;
+
   switch (mcsat_value->type) {
   case VALUE_BOOLEAN:
     if (mcsat_value->b) {
-      return true_term;
+      result = true_term;
     } else {
-      return false_term;
+      result = false_term;
     }
+    break;
   case VALUE_BV: {
     const bvconstant_t* bv = &mcsat_value->bv_value;
-    return mk_bv_constant(tm, (bvconstant_t*) bv);
+    result = mk_bv_constant(tm, (bvconstant_t*) bv);
+    break;
   }
+  case VALUE_RATIONAL: {
+    result = mk_arith_constant(tm, (rational_t*) &mcsat_value->q);
+    break;
+  }
+  case VALUE_LIBPOLY:
+    if (lp_value_is_rational(&mcsat_value->lp_value)) {
+      lp_rational_t lp_q;
+      lp_rational_construct(&lp_q);
+      lp_value_get_rational(&mcsat_value->lp_value, &lp_q);
+      rational_t q;
+      q_init(&q);
+      q_set_mpq(&q, &lp_q);
+      result = mk_arith_constant(tm, &q);
+      q_clear(&q);
+      lp_rational_destruct(&lp_q);
+    } else {
+      assert(false);
+      result = NULL_TERM;
+    }
+    break;
   default:
     assert(false);
   }
-  return NULL_TERM;
+
+  return result;
 }
 
 value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *types, type_t type, value_table_t* vtbl) {
@@ -356,6 +396,34 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
     assert(false);
   }
   return value;
+}
+
+void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t* vtbl, value_t v) {
+  value_kind_t v_kind = object_kind(vtbl, v);
+  switch (v_kind) {
+  case BOOLEAN_VALUE:
+    mcsat_value_construct_bool(mcsat_value, is_true(vtbl, v));
+    break;
+  case RATIONAL_VALUE:
+    mcsat_value_construct_rational(mcsat_value, vtbl_rational(vtbl, v));
+    break;
+  case ALGEBRAIC_VALUE: {
+    lp_algebraic_number_t* a = vtbl_algebraic_number(vtbl, v);
+    mcsat_value_construct_lp_value_direct(mcsat_value, LP_VALUE_ALGEBRAIC, a);;
+    break;
+  }
+  case BITVECTOR_VALUE: {
+    value_bv_t* v1 = vtbl_bitvector(vtbl, v);
+    bvconstant_t v2;
+    init_bvconstant(&v2);
+    bvconstant_copy(&v2, v1->nbits, v1->data);
+    mcsat_value_construct_bv_value(mcsat_value, &v2);
+    delete_bvconstant(&v2);
+    break;
+  }
+  default:
+    assert(false);
+  }
 }
 
 bool mcsat_value_is_zero(const mcsat_value_t* value) {

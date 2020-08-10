@@ -76,18 +76,24 @@ void mcsat_pop(mcsat_solver_t* mcsat);
 int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f);
 
 /*
- * Solve asserted constraints.
+ * Solve asserted constraints module given model.
  *
  * @param params Heuristic parameters. If params is NULL, the default settings
  *               are used.
+ * @param mdl the model to use. If mdl is NULL, solve with no model
+ * @param mdl_filter part of the model to use. If mdl_filter is NULL, use the whole model.
  */
-void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params);
+void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
 /*
  * Add the model to the yices model
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
+/*
+ * Get model interpolant.
+ */
+term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat);
 
 /*
  * Interrupt the search

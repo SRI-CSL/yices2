@@ -6917,6 +6917,7 @@ static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t
   assert(v->size == 0);
   t1 = bvvar_get_eterm(&solver->vtbl, x1);
   t2 = bvvar_get_eterm(&solver->vtbl, x2);
+  assert(t1 >= 0 && t2 >= 0); // remove a warning
   egraph_explain_term_eq(solver->egraph, t1, t2, id, v);
 }
 

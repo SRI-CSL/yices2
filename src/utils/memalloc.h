@@ -71,4 +71,9 @@ static inline void safe_free(void *ptr)  {
 }
 
 
+/*
+ * Wrapper for strdup
+ */
+extern char *safe_strdup(const char *s);
+
 #endif

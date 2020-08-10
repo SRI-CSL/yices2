@@ -20,7 +20,6 @@
 #include "utils/memalloc.h"
 #include "io/simple_printf.h"
 
-#include <string.h>
 #include <assert.h>
 
 /** Construct the statistics */
@@ -48,7 +47,7 @@ statistic_int_t* statistics_new_int(statistics_t* stats, const char* name) {
   new = safe_malloc(sizeof(statistic_t));
   new->type = STATISTIC_INT;
   new->int_data = 0;
-  new->name = strdup(name);
+  new->name = safe_strdup(name);
   new->next = stats->first;
 
   stats->first = new;
@@ -64,7 +63,7 @@ statistic_avg_t* statistics_new_avg(statistics_t* stats, const char* name) {
   new->type = STATISTIC_AVG;
   new->avg_data.avg = 0;
   new->avg_data.n = 0;
-  new->name = strdup(name);
+  new->name = safe_strdup(name);
   new->next = stats->first;
 
   stats->first = new;

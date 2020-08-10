@@ -35,7 +35,7 @@ void mcsat_destruct(mcsat_solver_t *mcsat) {
 }
 
 smt_status_t mcsat_status(const mcsat_solver_t *mcsat) {
-  return STATUS_IDLE;
+  return STATUS_ERROR;
 }
 
 void mcsat_reset(mcsat_solver_t *mcsat) {
@@ -54,7 +54,7 @@ int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f
   return 0;
 }
 
-void mcsat_solve(mcsat_solver_t *mcsat, const param_t *params) {
+void mcsat_solve(mcsat_solver_t *mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
 }
 
 void mcsat_set_tracer(mcsat_solver_t *mcsat, tracer_t *tracer) {
@@ -75,4 +75,7 @@ void mcsat_gc_mark(mcsat_solver_t* mcsat) {
 void mcsat_stop_search(mcsat_solver_t* mcsat) {
 }
 
+term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
+  return NULL_TERM;
+}
 

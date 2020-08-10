@@ -54,6 +54,24 @@ void int_mset_add(int_mset_t* set, int32_t x) {
   set->size ++;
 }
 
+void int_mset_add_n(int_mset_t* set, int32_t x, uint32_t n) {
+  int_hmap_pair_t* find_x;
+
+  assert(x != set->null_element);
+  assert(n > 0);
+
+  find_x = int_hmap_find(&set->count_map, x);
+  if (find_x == NULL) {
+    int_hmap_add(&set->count_map, x, n);
+    int_hmap_add(&set->element_list_position, x, set->element_list.size);
+    ivector_push(&set->element_list, x);
+  } else {
+    find_x->val += n;
+  }
+
+  set->size += n;
+}
+
 uint32_t int_mset_contains(const int_mset_t* set, int32_t x) {
   int_hmap_pair_t* find_x;
   int_hmap_t* set_nonconst;

@@ -1,8 +1,19 @@
 /*
- * The Yices SMT Solver. Copyright 2015 SRI International.
+ * This file is part of the Yices SMT Solver.
+ * Copyright (C) 2019 SRI International.
  *
- * This program may only be used subject to the noncommercial end user
- * license agreement which is downloadable along with this program.
+ * Yices is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Yices is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "mcsat/tracing.h"
@@ -220,7 +231,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+      if (!bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
         if (monom_var == const_idx) // constant coefficient gets aded to the buffer bv_poly
           bvarith_buffer_add_const(buffer, t_poly->mono[i].coeff);
         else // Otherwise we add the w-bit monomial to the bv_poly
@@ -231,7 +242,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (!bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+      if (bvconst_tst_bit(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
         bvconstant_t coeff;
         init_bvconstant(&coeff);
         bvconstant_copy(&coeff, w, t_poly->mono[i].coeff);
@@ -253,7 +264,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     // Now going into each monomial
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
+      if (!tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is positive
         if (monom_var == const_idx) // constant coefficient gets added to the buffer bv_poly
           bvarith64_buffer_add_const(buffer, t_poly->mono[i].coeff);
         else // Otherwise we add the w-bit monomial to the bv_poly
@@ -264,7 +275,7 @@ term_t arith_eq0(term_manager_t* tm, term_t t) {
     bvarith64_buffer_prepare(buffer, w); // Setting the desired width
     for (uint32_t i = 0; i < t_poly->nterms; ++ i) {
       term_t monom_var = t_poly->mono[i].var;
-      if (!tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
+      if (tst_bit64(t_poly->mono[i].coeff, w-1)) { // coefficient is negative
         if (monom_var == const_idx)
           bvarith64_buffer_add_const(buffer, - t_poly->mono[i].coeff); // constant coefficient gets added to the buffer bv_poly
         else
@@ -319,8 +330,9 @@ term_t arith_le(term_manager_t* tm, term_t left, term_t right) {
     return true_term;
   }
   // (left <= 0) and (-1 <= right) turns into (left == right)
-  if (arith_is_zero(terms, right)) {
-    return arith_eq0(tm, left);
+  if (arith_is_zero(terms, right)
+      || arith_is_minus_one(terms, left)) {
+    return arith_eq0(tm, arith_sub(tm, left, right));
   }
   // (1 <= right) turns into (right != 0)
   if (arith_is_one(terms, left)) {
@@ -360,6 +372,21 @@ bool arith_is_sum_norm(term_table_t* terms, term_t t) {
   return true;
 }
 
+// returns the number of low bit zeros in t
+term_t term_zeros(term_manager_t* tm, term_t t) {
+  term_table_t* terms = tm->terms;
+  if (term_kind(terms, t) == BV_ARRAY) {  // Concatenated boolean terms
+    composite_term_t* concat_desc = bvarray_term_desc(terms, t);
+    uint32_t w = term_bitsize(terms, t);
+    for (uint32_t i = 0; i < w; i++)
+      if (concat_desc->arg[i] != false_term)
+        return i;
+    return w;
+  } else {
+    return 0;
+  }
+}
+
 // This normalizes the term by making sure that property above is satisfied (at the top-level, no recursion)
 // if one of the (non-constant) coefficients is even it can be divided by 2 and the monomial's variable could be multiplied by 2 by a shift.
 // This simplification is done iteratively until the property above is true.
@@ -384,13 +411,17 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
         if (monom_var == const_idx) // constant coefficient gets added to the buffer bv_poly
           bvarith_buffer_add_const(buffer, coeff);
         else {
-          uint32_t k     = t_poly->width;
-          uint32_t shift = (uint32_t) bvconst_ctz(coeff, k); // TODO: check with Bruno that coeff is normalized
-          if (shift > 0) { // Coefficient is even, we rewrite
+          uint32_t k         = t_poly->width;
+          uint32_t var_zeros = term_zeros(tm, t); // how many zeros are in the monomial's variable
+          uint32_t shift     = (uint32_t) bvconst_ctz(coeff, k); // TODO: check with Bruno that coeff is normalized
+          if (var_zeros > 0 || shift > 0) { // Coefficient is even, we rewrite
             bvconstant_t newcoeff;
             init_bvconstant(&newcoeff);
             bvconstant_copy(&newcoeff, w, coeff);
-            bvconst_shift_right(newcoeff.data, w, shift, false);
+            bvconst_shift_left(newcoeff.data, w, var_zeros, false);
+            bool sign_bit = bvconst_tst_bit(newcoeff.data, w-1);
+            bvconst_shift_right(newcoeff.data, w, shift + var_zeros, sign_bit); // arithmetic right shift
+            bvconstant_normalize(&newcoeff);
             // Now we build the new monomial variable
             term_t sbits[w];
             for (uint32_t k=0; k<w; k++){
@@ -421,10 +452,12 @@ term_t arith_sum_norm(term_manager_t* tm, term_t u) {
         if (monom_var == const_idx) // constant coefficient gets added to the buffer bv_poly
           bvarith64_buffer_add_const(buffer, coeff);
         else {
+          uint32_t var_zeros = term_zeros(tm, t); // how many zeros are in the monomial's variable
           uint32_t shift = ctz64(coeff);
           assert(shift < w);
-          if (shift > 0) { // Coefficient is even, we rewrite
-            coeff = bvconst64_lshr(coeff, (uint64_t) shift, w);
+          if (var_zeros > 0 || shift > 0) { // Coefficient is even, we rewrite
+            coeff = bvconst64_lshl(coeff, (uint64_t) var_zeros, w);
+            coeff = bvconst64_ashr(coeff, (uint64_t) shift, w);
             assert(tst_bit64(coeff, 0));
             // Now we build the new monomial variable
             term_t sbits[w];

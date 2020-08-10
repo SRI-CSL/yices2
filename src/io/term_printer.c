@@ -2382,7 +2382,8 @@ static void pp_bv_slice(yices_pp_t *printer, term_table_t *tbl, bvslice_t *d, in
     break;
 
   case BVSLICE_CONST:
-    pp_bv(printer, d->desc.c.value, d->desc.c.nbits);
+    // we must make a copy of d->desc.c.value
+    pp_clone_bv(printer, d->desc.c.value, d->desc.c.nbits);
     break;
   }
 }

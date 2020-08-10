@@ -46,6 +46,9 @@ void int_mset_construct(int_mset_t* set, uint32_t null_element);
 /** Add an element */
 void int_mset_add(int_mset_t* set, int32_t x);
 
+/** Add an element n times */
+void int_mset_add_n(int_mset_t* set, int32_t x, uint32_t n);
+
 /** Remove an element (all occurrences) */
 void int_mset_remove_all(int_mset_t* set, int32_t x);
 

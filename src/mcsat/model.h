@@ -40,6 +40,9 @@ struct mcsat_model_s {
 /** Construct a new model */
 void mcsat_model_construct(mcsat_model_t* m);
 
+/** Construct a copy of the model */
+void mcsat_model_construct_copy(mcsat_model_t* m, const mcsat_model_t* from);
+
 /** Destruct a new model */
 void mcsat_model_destruct(mcsat_model_t* m);
 

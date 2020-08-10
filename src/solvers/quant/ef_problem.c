@@ -132,6 +132,7 @@ void delete_ef_prob(ef_prob_t *prob) {
   for (i=0; i<n; i++) {
     delete_index_vector(prob->cnstr[i].evars);
     delete_index_vector(prob->cnstr[i].uvars);
+    delete_index_vector(prob->cnstr[i].pvars);
   }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;

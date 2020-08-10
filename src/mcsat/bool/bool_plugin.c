@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "mcsat/bool/bool_plugin.h"
 
 #include "mcsat/bool/clause_db.h"
@@ -146,11 +146,11 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bp->trail_i = 0;
   bp->propagated_size = 0;
 
-  ctx->request_term_notification_by_kind(ctx, OR_TERM);
-  ctx->request_term_notification_by_kind(ctx, XOR_TERM);
-  ctx->request_term_notification_by_kind(ctx, EQ_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_TERM);
-  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL);
+  ctx->request_term_notification_by_kind(ctx, OR_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, XOR_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 
   ctx->request_term_notification_by_type(ctx, BOOL_TYPE);
 
@@ -172,6 +172,7 @@ void bool_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&bp->clauses);
   delete_ivector(&bp->lemmas);
   bcp_watch_manager_destruct(&bp->wlm);
+  delete_ivector(&bp->clauses_to_repropagate); // BD: fixed memory leak
   delete_ivector(&bp->reason);
   delete_ivector(&bp->propagated);
   scope_holder_destruct(&bp->scope);
@@ -507,9 +508,10 @@ void bool_plugin_add_new_clauses(bool_plugin_t* bp, trail_token_t* prop) {
       if (propagation_level == bp->ctx->trail->decision_level) {
         bool_plugin_propagate_literal(bp, c->literals[0], prop, c_ref);
       } else {
-        // Propagates at lower level
+        // Propagates at lower level (this happens with assumptions)
+        // we don't currently repropagate since we don't need to
         ivector_push(&bp->clauses_to_repropagate, c_ref);
-        assert(false);
+        bool_plugin_propagate_literal(bp, c->literals[0], prop, c_ref);
       }
     }
   }
@@ -763,10 +765,14 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
   const variable_db_t* var_db = bp->ctx->var_db;
   const mcsat_trail_t* trail = bp->ctx->trail;
 
-  // Bool plugin only explains evaluation of assigned false literals
+  // Boolean plugin only explains evaluation of assigned false literals
   term_t t_unsigned = unsigned_term(t);
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
-  if (t_var != variable_null && trail_has_cached_value(trail, t_var)) {
+  if (t_var == variable_null) {
+    return false;
+  }
+  int_mset_add(vars, t_var);
+  if (trail_has_value(trail, t_var)) {
     bool negated = is_neg_term(t);
     const mcsat_value_t* t_var_value = trail_get_value(trail, t_var);
     if (negated) {
@@ -973,6 +979,12 @@ void bool_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   bp->exception = handler;
 }
 
+static
+void bool_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
+  // Nothing to do here apart from setting the value
+  decide->add(decide, x, value);
+}
+
 
 plugin_t* bool_plugin_allocator(void) {
   bool_plugin_t* plugin = safe_malloc(sizeof(bool_plugin_t));
@@ -984,6 +996,7 @@ plugin_t* bool_plugin_allocator(void) {
   plugin->plugin_interface.event_notify          = bool_plugin_event_notify;
   plugin->plugin_interface.propagate             = bool_plugin_propagate;
   plugin->plugin_interface.decide                = bool_plugin_decide;
+  plugin->plugin_interface.decide_assignment     = bool_plugin_decide_assignment;
   plugin->plugin_interface.get_conflict          = bool_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = bool_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = bool_plugin_explain_evaluation;
