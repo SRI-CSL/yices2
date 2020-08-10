@@ -26,6 +26,8 @@
 #include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 
+#include "api/search_parameters.h"
+
 #define TRACE 0
 
 #if TRACE
@@ -52,7 +54,7 @@ void delete_pattern_map(ptr_hmap_t *m) {
 /*
  * Initialization: all empty
  */
-void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
+void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, ef_param_t *parameters) {
   prob->terms = term_manager_get_terms(mngr);
   prob->manager = mngr;
   prob->all_evars = NULL;
@@ -65,17 +67,19 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
   prob->has_uint = false;
 
   prob->patterns = NULL;
+  prob->parameters = parameters;
+
+  ptr_hmap_t *patterns2;
+  ivector_t *pv1;
+  ptr_hmap_pair_t *r1, *r2;
+  uint32_t n;
+
+  prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+
+  patterns2 = prob->patterns;
+  init_ptr_hmap(patterns2, 0);
+
   if (patterns != NULL) {
-    ptr_hmap_t *patterns2;
-    ivector_t *pv1;
-    ptr_hmap_pair_t *r1, *r2;
-    uint32_t n;
-
-    prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
-
-    patterns2 = prob->patterns;
-    init_ptr_hmap(patterns2, 0);
-
     for (r1 = ptr_hmap_first_record(patterns);
          r1 != NULL;
          r1 = ptr_hmap_next_record(patterns, r1)) {
@@ -90,6 +94,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns) {
       ivector_add(r2->val, pv1->data, n);
     }
   }
+
 }
 
 

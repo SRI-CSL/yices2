@@ -725,6 +725,9 @@ struct context_s {
 
   // options for the mcsat solver
   mcsat_options_t mcsat_options;
+
+  // flag for enabling adding quant instances
+  bool en_quant;
 };
 
 

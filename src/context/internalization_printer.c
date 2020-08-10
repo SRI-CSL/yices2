@@ -30,6 +30,7 @@
 #include "io/type_printer.h"
 #include "solvers/cdcl/smt_core_printer.h"
 #include "solvers/egraph/egraph_printer.h"
+#include "yices.h"
 
 
 /*
@@ -119,6 +120,43 @@ void print_term_intern(FILE *f, intern_tbl_t *tbl, term_t t) {
   }
 }
 
+
+/*
+ * Print reverse internalization data for code:
+ * - print what's mapped to code if any
+ */
+void print_intern_reverse(FILE *f, intern_tbl_t *tbl, int32_t code) {
+  type_table_t *types;
+  term_t r;
+  type_t tau;
+  int_hmap_pair_t *ip;
+
+  types = tbl->types;
+  ip = int_hmap_find(&tbl->reverse_map, code);
+  if (ip != NULL) {
+    r = ip->val;
+    tau = intern_tbl_type_of_root(tbl, r);
+    print_intern_code(f, code, types, tau);
+    fputs(" -> ", f);
+    yices_pp_term(f, r, 120, 1, 0);
+  }
+}
+
+
+/*
+ * Print the term mapped to occurrence x (if any)
+ */
+void intern_tbl_print_reverse(intern_tbl_t *tbl, occ_t x) {
+  term_t r;
+  r = intern_tbl_reverse_map(tbl, x);
+  if (r != NULL_TERM) {
+//    printf("%s", yices_term_to_string(r, 120, 1, 0));
+    yices_pp_term(stdout, r, 120, 1, 0);
+  } else {
+    print_occurrence(stdout, x);
+    printf("\n");
+  }
+}
 
 
 /*

@@ -90,6 +90,7 @@
 #include "utils/backtrack_arrays.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
+#include "solvers/egraph/egraph_base_types.h"
 
 
 /*
@@ -106,6 +107,8 @@ typedef struct intern_tbl_s {
 
   int_hset_t *cache;  // allocated on demand
   int_queue_t *queue; // allocated on demand
+
+  int_hmap_t reverse_map;   // map from occurence to term
 } intern_tbl_t;
 
 
@@ -266,6 +269,10 @@ extern void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x);
  */
 extern void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x);
 
+/*
+ * Return the term mapped to occurence x (if any)
+ */
+extern term_t intern_tbl_reverse_map(intern_tbl_t *tbl, occ_t x);
 
 
 /*

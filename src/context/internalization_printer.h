@@ -35,6 +35,16 @@
  */
 extern void print_term_intern(FILE *f, intern_tbl_t *tbl, term_t t);
 
+/*
+ * Print reverse internalization data for code:
+ * - print what's mapped to code if any
+ */
+extern void print_intern_reverse(FILE *f, intern_tbl_t *tbl, int32_t code);
+
+/*
+ * Print the term mapped to occurrence x (if any)
+ */
+extern void intern_tbl_print_reverse(intern_tbl_t *tbl, occ_t x);
 
 /*
  * Print all substitution data in tbl

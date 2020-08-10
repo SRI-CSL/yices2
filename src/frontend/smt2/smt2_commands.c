@@ -1787,6 +1787,7 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
 static void show_statistics(smt2_globals_t *g) {
   print_buffer_t buffer;
   double time, mem;
+  context_t *ctx;
 
   time = get_cpu_time();
   mem = mem_size() / (1024*1024);
@@ -1797,9 +1798,15 @@ static void show_statistics(smt2_globals_t *g) {
   if (mem > 0) {
     print_string_and_float(g->out_fd, &buffer, " :mem-usage ", mem);
   }
-  if (g->ctx != NULL) {
-    show_ctx_stats(g->out_fd, &buffer, g->ctx);
+  if (g->efmode && g->ef_client.efsolver != NULL) {
+    ctx = g->ef_client.efsolver->exists_context;
+  } else {
+    ctx = g->ctx;
   }
+  if (ctx != NULL) {
+    show_ctx_stats(g->out_fd, &buffer, ctx);
+  }
+
   print_char_and_newline(g->out_fd, &buffer, ')');
   flush_out();
 }
@@ -3268,6 +3275,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
       g->interrupted = false;
       start_timeout(g->timeout, timeout_handler, g);
     }
+
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
 	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer, &g->term_patterns);
@@ -5147,6 +5155,14 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
+  case PARAM_EMATCH_CNSTR_MODE:
+    print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_cnstr_mode]);
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_term_mode]);
+    break;
+
   case PARAM_MCSAT_NRA_BOUND:
     print_boolean_value(g->mcsat_options.nra_bound);
     break;
@@ -5783,6 +5799,18 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->ef_client.ef_parameters.max_iters = n;
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      g->ef_client.ef_parameters.ematch_cnstr_mode = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      g->ef_client.ef_parameters.ematch_term_mode = n;
     }
     break;
 
@@ -6838,7 +6866,7 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
  */
 void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
   ptr_hmap_pair_t *r;
-  uint32_t i;
+  term_t x;
 
   r = ptr_hmap_get(&__smt2_globals.term_patterns, t);
   if (r->val == NULL) {
@@ -6846,17 +6874,20 @@ void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
     init_ivector(r->val, 0);
   }
 
-  for(i=0; i<n; i++) {
 #if 0
-    printf("adding pattern:\n");
-    printf("  term: ");
-    yices_pp_term(stdout, t, 120, 1, 0);
-    printf("  pattern: ");
-    yices_pp_term(stdout, p[i], 120, 1, 0);
+  printf("adding pattern:\n");
+  printf("  term: ");
+  yices_pp_term(stdout, t, 120, 1, 0);
+  printf("  pattern: ");
+  yices_pp_term_array(stdout, n, p, 120, 1, 0, 1);
 #endif
 
-    ivector_push(r->val, p[i]);
+  if (n == 1) {
+    x = p[0];
+  } else {
+    x = yices_tuple(n, p);
   }
+  ivector_push(r->val, x);
 }
 
 /*

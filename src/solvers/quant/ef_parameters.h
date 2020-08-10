@@ -26,7 +26,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "exists_forall/efsolver.h"
+#include "solvers/quant/quant_parameters.h"
+
+typedef enum ef_gen_option {
+  EF_NOGEN_OPTION,        // option 1 above
+  EF_GEN_BY_SUBST_OPTION, // option 2 above
+  EF_GEN_BY_PROJ_OPTION,  // model-based projection (cheap quantifier elimination)
+  EF_GEN_AUTO_OPTION,     // select between PROJ or SUBST depending on variables
+} ef_gen_option_t;
 
 /*
  * Parameters for the EF solver
@@ -44,6 +51,14 @@ typedef struct ef_param_s {
   uint32_t max_iters;
   uint32_t max_numlearnt;
   bool ematching;
+
+  /*
+   * QUANT SOLVER PARAMETERS
+   * - ematch_mode: mode for ematching
+   */
+  int32_t ematch_cnstr_mode;
+  int32_t ematch_term_mode;
+
 } ef_param_t;
 
 

@@ -694,5 +694,13 @@ static inline context_mode_t context_get_mode(context_t *ctx) {
 }
 
 
+/*
+ * Read the enable quant flag
+ */
+static inline bool context_quant_enabled(context_t *ctx) {
+  return ctx->en_quant;
+}
+
+
 #endif /* __CONTEXT_UTILS_H */
 

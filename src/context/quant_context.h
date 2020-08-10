@@ -23,7 +23,7 @@
 #ifndef __QUANT_CONTEXT_H
 #define __QUANT_CONTEXT_H
 
-#include "context/context.h"
+#include "context/quant_context_utils.h"
 #include "solvers/quant/quant_solver.h"
 
 

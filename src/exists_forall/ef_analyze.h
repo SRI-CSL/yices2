@@ -164,7 +164,8 @@ extern void delete_ef_analyzer(ef_analyzer_t *ef);
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */
-extern ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff);
+extern ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a,
+    bool f_ite, bool f_iff, bool ematching);
 
 
 #endif /* __EF_ANALYZE_H */

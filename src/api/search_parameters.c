@@ -26,6 +26,7 @@
 #include "api/search_parameters.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
+#include "solvers/quant/quant_solver.h"
 #include "utils/string_utils.h"
 
 

@@ -1404,6 +1404,14 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_iters, n);
     break;
 
+  case PARAM_EMATCH_CNSTR_MODE:
+    show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_cnstr_mode], n);
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_term_mode], n);
+    break;
+
   case PARAM_UNKNOWN:
   default:
     freport_bug(stderr,"invalid parameter id in 'show_param'");
@@ -1838,6 +1846,20 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       ef_client_globals.ef_parameters.max_iters = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_cnstr_mode = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_MODE:
+    if (param_val_to_ematchmode(param, val, (iterate_kind_t *)&n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_term_mode = n;
       print_ok();
     }
     break;
@@ -3128,7 +3150,7 @@ static void export_ef_problem(const char *s) {
   ivector_t all_ef;
   int code;
 
-  build_ef_problem(&ef_client_globals, assertions.top, assertions.data, NULL);
+  build_ef_problem(&ef_client_globals, assertions.top, assertions.data, NULL, &parameters);
   if (ef_client_globals.efcode != EF_NO_ERROR) {
     print_ef_analyze_code(ef_client_globals.efcode);
   } else {

@@ -1131,6 +1131,7 @@ static eterm_t new_composite_eterm(egraph_t *egraph, composite_t *cmp) {
   eterm_t t;
   t = new_eterm(&egraph->terms, cmp);
   cmp->id = t;
+  cmp->depth = UNKNOWN_DEPTH;
   return t;
 }
 
@@ -5394,6 +5395,87 @@ static bool egraph_is_high_order(egraph_t *egraph) {
 }
 
 
+/*
+ * Find the maximum function depth of the children of composite cmp
+ * - scan children from i to cmp's arity (i=0 or i=1 to skip the first child)
+ */
+static int32_t composite_max_child_depth(egraph_t *egraph, composite_t *cmp, uint32_t i) {
+  uint32_t n;
+  int32_t maxdepth, cdepth;
+  eterm_t x;
+  composite_t *c;
+
+  n = composite_arity(cmp);
+  maxdepth = DEF_DEPTH;
+  while (i < n) {
+    x = term_of_occ(composite_child(cmp, i));
+    c = egraph_term_body(egraph, x);
+    if (composite_body(c)) {
+      cdepth = composite_depth(egraph, c);
+      maxdepth = (cdepth > maxdepth) ? cdepth : maxdepth;
+    }
+    i ++;
+  }
+  return maxdepth;
+}
+
+
+/*
+ * Find (and store) the function depth of composite cmp
+ */
+int32_t composite_depth(egraph_t *egraph, composite_t *cmp) {
+  if (cmp->depth != UNKNOWN_DEPTH) {
+#if 0
+    printf("cmp_depth (cached) is %d for ", cmp->depth);
+    print_composite(stdout, cmp);
+    printf("\n");
+#endif
+    return cmp->depth;
+  }
+
+  int32_t depth;
+  depth = UNKNOWN_DEPTH;
+
+  switch (composite_kind(cmp)) {
+  case COMPOSITE_APPLY:
+  case COMPOSITE_UPDATE:
+    depth = 1 + composite_max_child_depth(egraph, cmp, 1);
+    break;
+  case COMPOSITE_TUPLE:
+  case COMPOSITE_EQ:
+  case COMPOSITE_ITE:
+  case COMPOSITE_DISTINCT:
+  case COMPOSITE_OR:
+  case COMPOSITE_LAMBDA:
+    depth = composite_max_child_depth(egraph, cmp, 0);
+    break;
+  default:
+    assert(false);
+  }
+
+  cmp->depth = depth;
+#if 0
+  printf("cmp_depth is %d for ", depth);
+  print_composite(stdout, cmp);
+  printf("\n");
+#endif
+
+  return depth;
+}
+
+
+/*
+ * Find (and store) the function depth of eterm t
+ */
+int32_t eterm_depth(egraph_t *egraph, eterm_t t) {
+  composite_t *c;
+
+  c = egraph_term_body(egraph, t);
+  if (composite_body(c))
+    return composite_depth(egraph, c);
+  else
+    return DEF_DEPTH;
+}
 
 
 /******************************************************************

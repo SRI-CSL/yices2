@@ -36,11 +36,13 @@ typedef struct ef_skolemize_s {
   ef_prob_t *prob;
   bool flatten_ite;
   bool flatten_iff;
+  bool ematching;
 
   term_manager_t *mgr;
   term_table_t *terms;
   ivector_t uvars;
   ivector_t aux;
+  bool has_uvars;
 
   ptr_hmap_t cache;
 } ef_skolemize_t;
@@ -49,7 +51,8 @@ typedef struct ef_skolemize_s {
 /*
  * Initialize the skolemize object
  */
-extern void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff);
+extern void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob,
+    bool f_ite, bool f_iff, bool ematching);
 
 
 /*

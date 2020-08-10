@@ -67,6 +67,7 @@
 #include "io/simple_printf.h"
 #include "solvers/cdcl/delegate.h"
 #include "utils/command_line.h"
+#include "solvers/quant/quant_parameters.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -115,6 +116,10 @@ static int32_t mcsat_bv_var_size;
 
 static pvector_t trace_tags;
 
+// ef solver options
+static int32_t ef_ematch_cnstr_mode;
+static int32_t ef_ematch_term_mode;
+
 
 /****************************
  *  COMMAND-LINE ARGUMENTS  *
@@ -141,9 +146,12 @@ typedef enum optid {
   mcsat_nra_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
   trace_opt,               // enable a trace tag
+  show_ef_help_opt,        // print help about the ef options
+  ematch_cnstr_mode_opt,   // set cnstr mode in ematching
+  ematch_term_mode_opt,    // set term mode in ematching
 } optid_t;
 
-#define NUM_OPTIONS (trace_opt+1)
+#define NUM_OPTIONS (ematch_term_mode_opt+1)
 
 /*
  * Option descriptors
@@ -169,6 +177,9 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
+  { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
+  { "ematch-cnstr-mode", '\0', MANDATORY_STRING, ematch_cnstr_mode_opt },
+  { "ematch-term-mode", '\0', MANDATORY_STRING, ematch_term_mode_opt },
 };
 
 
@@ -207,6 +218,7 @@ static void print_help(const char *progname) {
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Use the MCSat solver\n"
          "    --mcsat-help              Show the MCSat options\n"
+         "    --ef-help                 Show the EF options\n"
          "\n"
          "For bug reports and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -222,6 +234,16 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
        	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+         "\n");
+  fflush(stdout);
+}
+
+static void print_ef_help(const char *progname) {
+  printf("Usage: %s [option] filename\n"
+         "    or %s [option]\n\n", progname, progname);
+  printf("EF options:\n"
+         "    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all)\n"
+         "    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all)"
          "\n");
   fflush(stdout);
 }
@@ -290,6 +312,9 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_bv_var_size = -1;
 
   init_pvector(&trace_tags, 5);
+
+  ef_ematch_cnstr_mode = -1;
+  ef_ematch_term_mode = -1;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -471,6 +496,27 @@ static void parse_command_line(int argc, char *argv[]) {
 #endif
         break;
 
+      case show_ef_help_opt:
+        print_ef_help(parser.command_name);
+        code = YICES_EXIT_SUCCESS;
+        goto exit;
+
+      case ematch_cnstr_mode_opt:
+        ef_ematch_cnstr_mode = supported_ematch_mode(elem.s_value);
+        if (ef_ematch_cnstr_mode < 0) {
+          fprintf(stderr, "%s: unsupported ematching constraint mode: %s\n", parser.command_name, elem.s_value);
+          goto bad_usage;
+        }
+        break;
+
+      case ematch_term_mode_opt:
+        ef_ematch_term_mode = supported_ematch_mode(elem.s_value);
+        if (ef_ematch_term_mode < 0) {
+          fprintf(stderr, "%s: unsupported ematching term mode: %s\n", parser.command_name, elem.s_value);
+          goto bad_usage;
+        }
+        break;
+
       case trace_opt:
         pvector_push(&trace_tags, elem.s_value);
         break;
@@ -573,6 +619,23 @@ static void setup_mcsat(void) {
     smt2_set_option(":yices-mcsat-bv-var-size", aval_bv_var_size);
     q_clear(&q);
   }
+}
+
+static void setup_ef(void) {
+//  aval_t aval_true;
+//
+//  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (ef_ematch_cnstr_mode >= 0) {
+    aval_t aval_mode = attr_vtbl_symbol(__smt2_globals.avtbl, ematchmode2string[ef_ematch_cnstr_mode]);
+    smt2_set_option(":yices-ematch-cnstr-mode", aval_mode);
+  }
+
+  if (ef_ematch_term_mode >= 0) {
+    aval_t aval_mode = attr_vtbl_symbol(__smt2_globals.avtbl, ematchmode2string[ef_ematch_term_mode]);
+    smt2_set_option(":yices-ematch-term-mode", aval_mode);
+  }
+
 }
 
 
@@ -729,6 +792,7 @@ int main(int argc, char *argv[]) {
   }
 
   setup_mcsat();
+  setup_ef();
 
   while (smt2_active()) {
     if (prompt) {

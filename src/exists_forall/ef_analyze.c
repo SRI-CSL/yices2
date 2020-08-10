@@ -386,7 +386,7 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
-static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
+static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, bool ematching, ivector_t *v) {
   uint32_t i;
 //  uint32_t fsize;
 //  ivector_t *foralls;
@@ -418,7 +418,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, te
 #endif
 
 
-  init_ef_skolemize(&sk, ef, prob, f_ite, f_iff);
+  init_ef_skolemize(&sk, ef, prob, f_ite, f_iff, ematching);
 
   ivector_reset(v);
   for (i=0; i<n; i++) {
@@ -430,6 +430,11 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, te
 
 
 #if 0
+  for(j=0; j<v->size; j++) {
+    printf("SKOLEMIZED assertion: ");
+    yices_pp_term(stdout, v->data[j], 120, 1, 0);
+  }
+
   printf("\n== SKOLEMIZED PATTERNS ==\n");
   for (r = ptr_hmap_first_record(prob->patterns);
        r != NULL;
@@ -1207,6 +1212,8 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
     //    g = ef_make_or(ef, &c->guarantees);
     //
 
+    // empty patterns already added during skolemization
+
     // ground form
     // convert all uvars to clones and make ground
     // evars already skolemized!
@@ -1252,7 +1259,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */
-ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff) {
+ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, bool ematching) {
   ef_clause_t clause;
   ivector_t *v;
   uint32_t i;
@@ -1266,7 +1273,7 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, 
   init_ef_clause(&clause);
 
   v = &ef->flat;
-  ef_add_assertions(ef, prob, n, a, f_ite, f_iff, v);
+  ef_add_assertions(ef, prob, n, a, f_ite, f_iff, ematching, v);
 
   n = v->size;
   for (i=0; i<n; i++) {

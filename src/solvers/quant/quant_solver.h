@@ -25,10 +25,7 @@
 #define __QUANT_SOLVER_H
 
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <assert.h>
-
+#include "solvers/quant/quant_parameters.h"
 #include "context/context_types.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/diseq_stacks.h"
@@ -39,56 +36,8 @@
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
 #include "solvers/quant/ef_problem.h"
-
-
-
-/*
- * PATTERNS
- */
-
-/*
- * Single pattern
- */
-typedef struct pattern_s {
-  term_t p;         // pattern expression
-  term_t *pvars;    // pattern variables
-  term_t *fun;      // functions that appear in the pattern
-  term_t *fapps;    // function applications that appear in the pattern
-  term_t *consts;    // constants that appear in the pattern
-} pattern_t;
-
-/*
- * Pattern table
- */
-typedef struct pattern_table_s {
-  uint32_t size;
-  uint32_t npatterns;
-  pattern_t *data;
-} pattern_table_t;
-
-#define DEF_PATTERN_TABLE_SIZE  20
-#define MAX_PATTERN_TABLE_SIZE  (UINT32_MAX/8)
-
-/*
- * Single quantifier constraint
- */
-typedef struct quant_cnstr_s {
-  term_t t;
-  int32_t *patterns;  // pattern indices in pattern table
-} quant_cnstr_t;
-
-/*
- * Quantifier table
- */
-typedef struct quant_table_s {
-  uint32_t size;
-  uint32_t nquant;
-  quant_cnstr_t *data;
-} quant_table_t;
-
-#define DEF_QUANT_TABLE_SIZE  20
-#define MAX_QUANT_TABLE_SIZE  (UINT32_MAX/8)
-
+#include "solvers/quant/quant_ematching.h"
+#include "solvers/quant/cnstr_learner.h"
 
 
 /*
@@ -99,10 +48,20 @@ typedef struct quant_solver_stats_s {
   uint32_t num_quantifiers;
   uint32_t num_patterns;
 
-  // number of instances generated
-  uint32_t num_instances;
-} quant_solver_stats_t;
+  uint32_t num_instances;             // number of instances generated (total)
+  uint32_t num_instances_per_search;  // number of instances generated per search
+  uint32_t num_instances_per_round;   // number of instanced generated in each call to final_check
 
+  uint32_t num_rounds_per_search;     // number of rounds of ematching run per search
+  uint32_t num_search;                // number of searches
+
+  uint32_t max_instances;             // max number of instances generated (total)
+  uint32_t max_instances_per_search;  // max number of instances generated per search
+  uint32_t max_instances_per_round;   // max number of instanced generated in each call to final_check
+
+  uint32_t max_rounds_per_search;     // max number of rounds of ematching run per search
+  uint32_t max_search;                // max number of searches
+} quant_solver_stats_t;
 
 
 /*
@@ -129,17 +88,21 @@ typedef struct quant_solver_s {
   quant_solver_stats_t stats;
 
   /*
-   * Search parameters
-   * - bound on the number of instanced generated in each call to final_check
-   */
-  uint32_t max_instances;
-
-  /*
    * Main components
    */
   ef_prob_t *prob;
   pattern_table_t ptbl;   // pattern table
   quant_table_t qtbl;     // quant table
+  ematch_globals_t em;    // ematching
+
+  cnstr_learner_t cnstr_learner;    // Reinforce learner for quant constraints
+  term_learner_t term_learner;      // Reinforce learner for terms
+
+  ivector_t base_literals;
+  ivector_t base_antecedents;
+
+  ivector_t round_cnstrs;
+  ivector_t round_instances;
 
 // TODO
 
@@ -147,17 +110,10 @@ typedef struct quant_solver_s {
    * Buffers
    */
   ivector_t aux_vector;
+  ivector_t aux_vector2;
   int_hmap_t aux_map;
-  ivector_t lemma_vector;
 
 } quant_solver_t;
-
-
-
-/*
- * Default bounds
- */
-#define DEFAULT_MAX_INSTANCES    1000
 
 
 
@@ -281,13 +237,20 @@ extern void quant_solver_reset(quant_solver_t *solver);
  **************************/
 
 /*
- * Maximal number of quantifier instances (per call to final_check)
+ * Maximal number of quantifier instances (per search)
  */
 static inline void quant_solver_set_max_instances(quant_solver_t *solver, uint32_t n) {
   assert(n > 0);
-  solver->max_instances = n;
+  solver->stats.max_instances = n;
 }
 
+/*
+ * Maximal number of quantifier instances (per call to final_check)
+ */
+static inline void quant_solver_set_max_instances_per_round(quant_solver_t *solver, uint32_t n) {
+  assert(n > 0);
+  solver->stats.max_instances_per_round = n;
+}
 
 
 /****************
@@ -329,7 +292,7 @@ static inline uint32_t quant_solver_num_instances(quant_solver_t *solver) {
 /*
  * Attach problem to solver
  */
-extern void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob);
+extern void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t *ctx);
 
 
 

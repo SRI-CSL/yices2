@@ -125,10 +125,10 @@ core_src_c := \
 	context/pseudo_subst.c \
 	context/shared_terms.c \
 	context/symmetry_breaking.c \
+	context/quant_context_utils.c \
 	context/quant_context.c \
 	exists_forall/ef_client.c \
 	exists_forall/ef_analyze.c \
-	exists_forall/ef_parameters.c \
 	exists_forall/ef_values.c \
 	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
@@ -211,7 +211,19 @@ core_src_c := \
 	solvers/simplex/matrices.c \
 	solvers/simplex/offset_equalities.c \
 	solvers/simplex/simplex.c \
+	solvers/quant/quant_parameters.c \
+	solvers/quant/ef_parameters.c \
 	solvers/quant/ef_problem.c \
+	solvers/quant/quant_pattern.c \
+	solvers/quant/quant_cnstr.c \
+	solvers/quant/cnstr_learner.c \
+	solvers/quant/term_learner.c \
+	solvers/quant/ematch_instr.c \
+	solvers/quant/ematch_instr_stack.c \
+	solvers/quant/ematch_instance.c \
+	solvers/quant/ematch_compile.c \
+	solvers/quant/ematch_execute.c \
+	solvers/quant/quant_ematching.c \
 	solvers/quant/quant_solver.c \
 	terms/balanced_arith_buffers.c \
 	terms/bit_expr.c \
@@ -319,7 +331,8 @@ core_src_c := \
 	utils/uint_array_sort2.c \
 	utils/uint_rbtrees.c \
 	utils/use_vectors.c \
-	utils/vector_hash_map.c
+	utils/vector_hash_map.c \
+	utils/uint_learner.c
 
 #
 # Optional: mcsat solver

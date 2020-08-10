@@ -3257,7 +3257,12 @@ static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     } else if (g != true_occ) {
       assert(ctx->egraph != NULL);
-      egraph_assert_axiom(ctx->egraph, g);
+      if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+        egraph_assert_axiom(ctx->egraph, g);
+      } else {
+        l = egraph_make_eq(ctx->egraph, g, true_occ);
+        add_unit_clause(ctx->core, l);
+      }
     }
   } else {
     l = code2literal(x);
@@ -3658,10 +3663,19 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
   if (context_has_egraph(ctx)) {
     u = internalize_to_eterm(ctx, t1);
     v = internalize_to_eterm(ctx, t2);
-    if (tt) {
-      egraph_assert_eq_axiom(ctx->egraph, u, v);
+    if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+      if (tt) {
+        egraph_assert_eq_axiom(ctx->egraph, u, v);
+      } else {
+        egraph_assert_diseq_axiom(ctx->egraph, u, v);
+      }
     } else {
-      egraph_assert_diseq_axiom(ctx->egraph, u, v);
+      literal_t l = egraph_make_eq(ctx->egraph, u, v);
+      if (tt) {
+        add_unit_clause(ctx->core, l);
+      } else {
+        add_unit_clause(ctx->core, not(l));
+      }
     }
   } else {
     x = internalize_to_arith(ctx, t1);
@@ -3703,10 +3717,19 @@ static void assert_toplevel_apply(context_t *ctx, composite_term_t *app, bool tt
     a[i] = internalize_to_eterm(ctx, app->arg[i]);
   }
 
-  if (tt) {
-    egraph_assert_pred_axiom(ctx->egraph, a[0], n-1, a+1);
+  if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+    if (tt) {
+      egraph_assert_pred_axiom(ctx->egraph, a[0], n-1, a+1);
+    } else {
+      egraph_assert_notpred_axiom(ctx->egraph, a[0], n-1, a+1);
+    }
   } else {
-    egraph_assert_notpred_axiom(ctx->egraph, a[0], n-1, a+1);
+    literal_t l = egraph_make_pred(ctx->egraph, a[0], n-1, a+1);
+    if (tt) {
+      add_unit_clause(ctx->core, l);
+    } else {
+      add_unit_clause(ctx->core, not(l));
+    }
   }
 
   free_istack_array(&ctx->istack, a);
@@ -3725,7 +3748,12 @@ static void assert_toplevel_select(context_t *ctx, select_term_t *select, bool t
   if (! tt) {
     u = opposite_occ(u);
   }
-  egraph_assert_axiom(ctx->egraph, u);
+  if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+    egraph_assert_axiom(ctx->egraph, u);
+  } else {
+    literal_t l = egraph_make_eq(ctx->egraph, u, true_occ);
+    add_unit_clause(ctx->core, l);
+  }
 }
 
 
@@ -3794,10 +3822,19 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
   } else {
     u1 = internalize_to_eterm(ctx, eq->arg[0]);
     u2 = internalize_to_eterm(ctx, eq->arg[1]);
-    if (tt) {
-      egraph_assert_eq_axiom(ctx->egraph, u1, u2);
+    if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+      if (tt) {
+        egraph_assert_eq_axiom(ctx->egraph, u1, u2);
+      } else {
+        egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
+      }
     } else {
-      egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
+      literal_t l = egraph_make_eq(ctx->egraph, u1, u2);
+      if (tt) {
+        add_unit_clause(ctx->core, l);
+      } else {
+        add_unit_clause(ctx->core, not(l));
+      }
     }
   }
 }
@@ -3853,10 +3890,19 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
       a[i] = internalize_to_eterm(ctx, distinct->arg[i]);
     }
 
-    if (tt) {
-      egraph_assert_distinct_axiom(ctx->egraph, n, a);
+    if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
+      if (tt) {
+        egraph_assert_distinct_axiom(ctx->egraph, n, a);
+      } else {
+        egraph_assert_notdistinct_axiom(ctx->egraph, n, a);
+      }
     } else {
-      egraph_assert_notdistinct_axiom(ctx->egraph, n, a);
+      literal_t l = egraph_make_distinct(ctx->egraph, n, a);
+      if (tt) {
+        add_unit_clause(ctx->core, l);
+      } else {
+        add_unit_clause(ctx->core, not(l));
+      }
     }
 
   } else if (is_arithmetic_term(ctx->terms, distinct->arg[0])) {
@@ -5557,6 +5603,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
    */
   init_solvers(ctx);
+
+  ctx->en_quant = false;
 }
 
 
@@ -5817,6 +5865,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
 
     // If using MCSAT, just check and done
     if (ctx->mcsat != NULL) {
+      // TBD: quant support
+      assert(!context_quant_enabled(ctx));
       code = mcsat_assert_formulas(ctx->mcsat, n, a);
       goto done;
     }
@@ -5843,6 +5893,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      */
 
     switch (ctx->arch) {
+    // TBD: make sure following preprocessings work with quant enabled
     case CTX_ARCH_EG:
       /*
        * UF problem: we must process subst_eqs last since the
@@ -5926,7 +5977,10 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
     /*
      * Notify the core + solver(s)
      */
-    internalization_start(ctx->core);
+    if (!context_quant_enabled(ctx)) {
+	// TBD: make sure this is correct
+      internalization_start(ctx->core);
+    }
 
     /*
      * Assert top_eqs, top_atoms, top_formulas, top_interns
@@ -5945,7 +5999,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -5963,7 +6017,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -5981,7 +6035,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -5999,7 +6053,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
       } while (i < n);
 
       // one round of propagation
-      if (! base_propagate(ctx->core)) {
+      if (!context_quant_enabled(ctx) && ! base_propagate(ctx->core)) {
         code = TRIVIALLY_UNSAT;
         goto done;
       }
@@ -6037,6 +6091,7 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
          smt_status(ctx->core) == STATUS_IDLE);
+  assert(!context_quant_enabled(ctx));
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {
@@ -6044,6 +6099,44 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       // cleanup: reset arch/config to 'no theory'
       assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL &&
 	     ctx->mode == CTX_MODE_ONECHECK);
+      ctx->arch = CTX_ARCH_NOSOLVERS;
+      ctx->theories = 0;
+      ctx->options = 0;
+    }
+
+    if( smt_status(ctx->core) != STATUS_UNSAT) {
+      // force UNSAT in the core
+      add_empty_clause(ctx->core);
+      ctx->core->status = STATUS_UNSAT;
+    }
+  }
+
+  return code;
+}
+
+/*
+ * Assert all formulas f[0] ... f[n-1] during quantifier instantiation
+ * The context status must be SEARCHING.
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT means that an inconsistency is detected
+ *   (in that case the context status is set to UNSAT)
+ * - CTX_NO_ERROR means no internalization error and status not
+ *   determined
+ * - otherwise, the code is negative to report an error.
+ */
+int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
+  int32_t code;
+
+  assert(context_quant_enabled(ctx));
+  assert(smt_status(ctx->core) == STATUS_SEARCHING);
+
+  code = context_process_assertions(ctx, n, f);
+  if (code == TRIVIALLY_UNSAT) {
+    if (ctx->arch == CTX_ARCH_AUTO_IDL || ctx->arch == CTX_ARCH_AUTO_RDL) {
+      // cleanup: reset arch/config to 'no theory'
+      assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL &&
+      ctx->mode == CTX_MODE_ONECHECK);
       ctx->arch = CTX_ARCH_NOSOLVERS;
       ctx->theories = 0;
       ctx->options = 0;
@@ -6104,7 +6197,10 @@ int32_t context_internalize(context_t *ctx, term_t t) {
   code = setjmp(ctx->env);
   if (code == 0) {
     // we must call internalization start first
-    internalization_start(ctx->core);
+    if (!context_quant_enabled(ctx)) {
+      // TBD: make sure this is correct
+      internalization_start(ctx->core);
+    }
     l = internalize_to_literal(ctx, t);
   } else {
     assert(code < 0);

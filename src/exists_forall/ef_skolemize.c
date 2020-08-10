@@ -45,11 +45,12 @@ typedef struct sk_pair_s {
 /*
  * Initialize the skolemize object
  */
-void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff) {
+void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob, bool f_ite, bool f_iff, bool ematching) {
   sk->analyzer = analyzer;
   sk->prob = prob;
   sk->flatten_ite = f_ite;
   sk->flatten_iff = f_iff;
+  sk->ematching = ematching;
 
   sk->mgr = analyzer->manager;
   sk->terms = analyzer->terms;
@@ -68,6 +69,7 @@ void delete_ef_skolemize(ef_skolemize_t *sk) {
   sk->prob = NULL;
   sk->flatten_ite = false;
   sk->flatten_iff = false;
+  sk->ematching = false;
 
   sk->mgr = NULL;
   sk->terms = NULL;
@@ -135,6 +137,10 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     assert(n == 1);
     result = mk_arith_ceil(tm, c[0]);
     break;
+  case ARITH_ABS:
+    assert(n == 1);
+    result = mk_arith_abs(tm, c[0]);
+    break;
 //  case ARITH_ROOT_ATOM:
 //    TODO
 
@@ -148,8 +154,10 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     result = mk_application(tm, c[0], n-1, &c[1]);
     break;
 //  case UPDATE_TERM:
-//  case TUPLE_TERM:
 //    TODO
+  case TUPLE_TERM:
+    result = mk_tuple(tm, n, c);
+    break;
   case DISTINCT_TERM:
     result = mk_distinct(tm, n, c);
     break;
@@ -467,11 +475,14 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ivector_t args;
   term_t result, u, v;
   bool resultq = false;
+  bool en_flattening = false;
 
   mgr = sk->mgr;
   terms = sk->terms;
   kind = term_kind(terms, t);
   result = NULL_TERM;
+//  en_flattening = sk->ematching;
+  en_flattening = true;
 
   if (!term_is_composite(terms, unsigned_term(t)))
     result = t;
@@ -485,7 +496,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (is_boolean_term(terms, d->arg[1])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (not (ite C A B))
@@ -513,7 +524,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (is_boolean_term(terms, d->arg[0])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (not (iff A B))
@@ -591,7 +602,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case ITE_SPECIAL:
         d = ite_term_desc(terms, t);
         assert(d->arity == 3);
-        if (is_boolean_term(terms, d->arg[1])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[1])) {
           assert(is_boolean_term(terms, d->arg[2]));
           /*
            * t is (ite C A B) = (u or v)
@@ -619,7 +630,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       case EQ_TERM:
         d = eq_term_desc(terms, t);
         assert(d->arity == 2);
-        if (is_boolean_term(terms, d->arg[0])) {
+        if (en_flattening && is_boolean_term(terms, d->arg[0])) {
           assert(is_boolean_term(terms, d->arg[1]));
           /*
            * t is (iff A B)
@@ -662,6 +673,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
          * t is (forall .. body)
          * it flattens to body
          */
+        sk->has_uvars = true;
         d = forall_term_desc(terms, t);
         n = d->arity - 1;
         for (i=0; i<n; i++) {
@@ -717,6 +729,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   return sp_result;
 }
 
+#if 1
 /*
  * Flattens nested (and .. (and .. ) .. ) and adds them to v
  */
@@ -745,6 +758,7 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
     ivector_push(v, t);
 
 }
+#endif
 
 /*
  * Get the skolemized version of term t
@@ -752,11 +766,14 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
 void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   sk_pair_t *sp;
   term_t skolem;
+  ptr_hmap_t *patterns;
+  ptr_hmap_pair_t *p;
 
 #if 0
   printf("Skolemizing: %s\n", yices_term_to_string(t, 120, 1, 0));
 #endif
 
+  sk->has_uvars = false;
   sp = ef_skolemize_term(sk, t);
   skolem = sp->t;
 
@@ -764,6 +781,19 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   printf("Skolemized:  %s\n", yices_term_to_string(skolem, 120, 1, 0));
 #endif
 
+  if (sk->has_uvars) {
+    // add empty pattern
+    patterns = sk->prob->patterns;
+    if (patterns != NULL) {
+      p = ptr_hmap_get(patterns, t);
+      if (p->val == NULL) {
+        p->val = safe_malloc(sizeof(ivector_t));
+        init_ivector(p->val, 1);
+      }
+    }
+  }
+
+//  ivector_push(v, skolem);
   ef_flatten_and(sk, skolem, v);
 }
 
@@ -775,7 +805,7 @@ extern void ef_skolemize_patterns(ef_skolemize_t *sk) {
   ptr_hmap_t *patterns1;
 
   patterns1 = sk->prob->patterns;
-  if (patterns1 != NULL) {
+  if (patterns1 != NULL && patterns1->nelems != 0) {
     ptr_hmap_t *patterns2;
     ptr_hmap_pair_t *r1, *r2;
     ivector_t *rv1, *rv2;

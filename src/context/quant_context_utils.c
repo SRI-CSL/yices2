@@ -17,18 +17,36 @@
  */
 
 /*
- * Parameters for the EF client.
+ * CONTEXT UTILITIES FOR QUANTIFIERS
  */
 
-#include "exists_forall/ef_parameters.h"
+#include "context/quant_context_utils.h"
+#include "context/context_simplifier.h"
+#include "context/context_utils.h"
+#include "context/internalization_codes.h"
+#include "context/ite_flattener.h"
+#include "terms/term_utils.h"
+#include "utils/memalloc.h"
 
-void init_ef_params(ef_param_t *p) {
-  p->flatten_iff = false;
-  p->flatten_ite = false;
-  p->gen_mode = EF_GEN_AUTO_OPTION;
-  p->max_samples = 5;
-  p->max_iters = 10000;
-  p->max_numlearnt = 10;
-  p->ematching = false;
+#include "api/yices_globals.h"
+
+#define TRACE 0
+
+
+/*
+ * Enable quant flag to allow adding quantifier instances
+ */
+void context_enable_quant(context_t *ctx) {
+  assert(!context_quant_enabled(ctx));
+  ctx->en_quant = true;
+}
+
+
+/*
+ * Disable quant flag to allow adding quantifier instances
+ */
+void context_disable_quant(context_t *ctx) {
+  assert(context_quant_enabled(ctx));
+  ctx->en_quant = false;
 }
 
