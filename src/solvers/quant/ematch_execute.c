@@ -69,6 +69,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->max_fdepth = DEF_MAX_FDEPTH;
   exec->max_vdepth = DEF_MAX_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
+  exec->max_matches = DEF_MAX_MATCHES;
 }
 
 /*
@@ -202,7 +203,7 @@ static void egraph_get_fapps_in_class_all(ematch_exec_t *exec, eterm_t f, occ_t 
   for(i=0; i<n; i++) {
     if (out->size >= exec->max_fapps) {
 #if TRACE
-      printf("    reached fapps limit of %d\n", exec->max_fdepth);
+      printf("    reached fapps limit of %d\n", exec->max_fapps);
 #endif
       break;
     }
@@ -241,7 +242,7 @@ static void egraph_get_fapps_in_class_random(ematch_exec_t *exec, eterm_t f, occ
     if (p->val < 0) {
       if (out->size >= exec->max_fapps) {
 #if TRACE
-        printf("    reached fapps limit of %d\n", exec->max_fdepth);
+        printf("    reached fapps limit of %d\n", exec->max_fapps);
 #endif
         break;
       }
@@ -285,7 +286,7 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
   intern_tbl_print_reverse(exec->intern, occ);
 //  print_occurrence(stdout, occ);
 //  printf("\n");
-  uint32_t old_sz = aux->size;
+  uint32_t old_sz = out->size;
 #endif
 
 
@@ -336,14 +337,10 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
     assert(term_of_occ(occi) != term_of_occ(occ) || occi == occ);
   } while (occi != occ);
 
-#if TRACE
-    printf("    added %d fapps\n", (out->size - old_sz));
-#endif
-
   while(!generic_heap_is_empty(aux_heap)) {
     if (out->size >= exec->max_fapps) {
 #if TRACE
-      printf("    reached fapps limit of %d\n", exec->max_fdepth);
+      printf("    reached fapps limit of %d\n", exec->max_fapps);
 #endif
       break;
     }
@@ -368,6 +365,11 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
     }
 #endif
   }
+
+#if TRACE
+  printf("    added %d fapps\n", (out->size - old_sz));
+#endif
+
 }
 
 /*
@@ -400,7 +402,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
   term_learner = exec->term_learner;
 
 #if TRACE
-  uint_learner_print_indices_priority(&term_learner->learner, "(begin)");
+//  uint_learner_print_indices_priority(&term_learner->learner, "(begin)");
 #endif
 
   ivector_reset(&exec->aux_vector2);
@@ -431,7 +433,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     ti = term_of_occ(occi);
 //    term_learner_add_cnstr(term_learner, ti);
 
-#if TRACE
+#if 0
     composite_t *p;
     p = egraph_term_body(exec->egraph, ti);
     printf("    (term) ");
@@ -455,7 +457,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
 #endif
 
 #if TRACE
-  uint_learner_print_indices_priority(&term_learner->learner, "(end)");
+//  uint_learner_print_indices_priority(&term_learner->learner, "(end)");
 #endif
 
 }
@@ -497,7 +499,7 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
         egraph_get_fapps_in_class(exec, f, occi, out);
         if (out->size >= exec->max_fapps) {
 #if TRACE
-          printf("    reached fapps limit of %d\n", exec->max_fdepth);
+          printf("    reached fapps limit of %d\n", exec->max_fapps);
 #endif
           break;
         }
@@ -732,7 +734,7 @@ static void ematch_exec_all_chooseapps(ematch_exec_t *exec, ematch_instr_t *inst
   occ_t occ;
   composite_t *fapp;
   ematch_instr_t *bind;
-  uint32_t m, j, k, n;
+  uint32_t m, j, k, n, nmatches;
   int32_t offset;
 
   offset = instr->o;
@@ -753,6 +755,16 @@ static void ematch_exec_all_chooseapps(ematch_exec_t *exec, ematch_instr_t *inst
     }
 
     ematch_exec_instr(exec, bind->next);
+
+    nmatches = exec->aux_vector.size;
+    if (nmatches != 0) {
+      if(exec->early_exit || nmatches >= exec->max_matches) {
+#if TRACE
+        printf("    chooseapp exit\n");
+#endif
+        break;
+      }
+    }
   }
 }
 
@@ -1006,7 +1018,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
       printf("    match%d added\n", i);
 #endif
       ivector_push(&exec->aux_vector, i);
-      if(exec->early_exit) {
+      if(exec->early_exit || exec->aux_vector.size >= exec->max_matches) {
 #if TRACE
         printf("    early exit\n");
 #endif
@@ -1109,7 +1121,7 @@ void ematch_exec_instr(ematch_exec_t *exec, int32_t idx) {
  * Execute the code sequence for a pattern
  * - returns number of matches found
  */
-uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter) {
+uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter, uint32_t nmatches) {
   uint32_t count;
   term_table_t *terms;
   term_kind_t kind;
@@ -1128,6 +1140,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 #endif
 
   exec->filter = filter;
+  exec->max_matches = nmatches;
   count = 0;
   terms = exec->terms;
   kind = term_kind(terms, pat->p);

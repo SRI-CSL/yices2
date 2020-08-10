@@ -389,6 +389,7 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
   printf("EMATCH CNSTR mode: %d (%s)\n", solver->cnstr_learner.iter_mode, ematchmode2string[solver->cnstr_learner.iter_mode]);
   printf("EMATCH TERM mode: %d (%s)\n", solver->term_learner.iter_mode, ematchmode2string[solver->term_learner.iter_mode]);
 #endif
+//  assert(0);
 
   solver->prob = prob;
   quant_preprocess_prob(solver);
@@ -761,7 +762,7 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
       yices_pp_term(stdout, pat->p, 120, 1, 0);
 #endif
 
-      ematch_exec_pattern(exec, pat, &cnstr->instances);
+      ematch_exec_pattern(exec, pat, &cnstr->instances, solver->stats.max_instances_per_round);
 
       matches = &pat->matches;
       n = matches->size;
