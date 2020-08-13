@@ -204,11 +204,13 @@ typedef struct ef_solver_s {
   ef_gen_option_t option;    // generalization mode
   uint32_t max_samples;      // bound on pre-sampling: 0 means no pre-sampling
   uint32_t max_iters;        // bound on outer iterations
-  uint32_t max_numlearnt;    // bound on inner iterations
+  uint32_t max_numlearnt_per_round;    // bound on inner iterations
   bool ematching;            // use ematching or not
 
+  uint32_t num_models;       // total number of exists models
   uint32_t iters;            // number of outer iterations
-  uint32_t numlearnt;        // number of inner iterations
+  uint32_t numiters;         // total number of counterexample iterations
+  uint32_t numlearnt;        // total number of inner iterations
   uint32_t scan_idx;         // first universal constraint to check
 
   // Exists and forall contexts + exists model

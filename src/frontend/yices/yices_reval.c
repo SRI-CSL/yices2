@@ -1404,6 +1404,14 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_iters, n);
     break;
 
+  case PARAM_EF_MAX_LEMMAS_PER_ROUND:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.max_numlearnt_per_round, n);
+    break;
+
+  case PARAM_EMATCH_EN:
+    show_bool_param(param2string[p], ef_client_globals.ef_parameters.ematching, n);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_cnstr_mode], n);
     break;
@@ -1846,6 +1854,20 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       ef_client_globals.ef_parameters.max_iters = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EF_MAX_LEMMAS_PER_ROUND:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.max_numlearnt_per_round = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_EN:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      ef_client_globals.ef_parameters.ematching = tt;
       print_ok();
     }
     break;

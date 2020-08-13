@@ -1686,8 +1686,8 @@ static void show_funsolver_stats(int fd, print_buffer_t *b, fun_solver_t *solver
 }
 
 static void show_quantsolver_stats(int fd, print_buffer_t *b, quant_solver_t *solver) {
-  print_string_and_uint32(fd, b, " :quantifiers ", quant_solver_num_quantifiers(solver));
-  print_string_and_uint32(fd, b, " :patterns ", quant_solver_num_patterns(solver));
+  print_string_and_uint32(fd, b, " :ematch-quantifiers ", quant_solver_num_quantifiers(solver));
+  print_string_and_uint32(fd, b, " :ematch-patterns ", quant_solver_num_patterns(solver));
   print_string_and_uint32(fd, b, " :ematch-instances ", quant_solver_num_instances(solver));
 }
 
@@ -1784,7 +1784,9 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
  *
  */
 static void show_ef_stats(int fd, print_buffer_t *b, ef_client_t *efc) {
-  print_string_and_uint32(fd, b, " :mbqi-iterations ", efc->efsolver->iters);
+  print_string_and_uint32(fd, b, " :quantifiers ", efc->efprob->num_cnstr);
+  print_string_and_uint32(fd, b, " :mbqi-models ", efc->efsolver->num_models);
+  print_string_and_uint32(fd, b, " :mbqi-cex ", efc->efsolver->numiters);
   print_string_and_uint32(fd, b, " :mbqi-instances ", efc->efsolver->numlearnt);
 }
 
@@ -1800,7 +1802,8 @@ static void show_statistics(smt2_globals_t *g) {
   time = get_cpu_time();
   mem = mem_size() / (1024*1024);
 
-  print_string_and_uint32(g->out_fd, &buffer, "(:num-terms ", yices_num_terms());
+  print_char_and_newline(g->out_fd, &buffer, '(');
+  print_string_and_uint32(g->out_fd, &buffer, " :num-terms ", yices_num_terms());
   print_string_and_uint32(g->out_fd, &buffer, " :num-types ", yices_num_types());
   print_string_and_float(g->out_fd, &buffer, " :total-run-time ", time);
   if (mem > 0) {
@@ -5167,6 +5170,14 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.max_iters);
     break;
 
+  case PARAM_EF_MAX_LEMMAS_PER_ROUND:
+    print_uint32_value(g->ef_client.ef_parameters.max_numlearnt_per_round);
+    break;
+
+  case PARAM_EMATCH_EN:
+    print_boolean_value(g->ef_client.ef_parameters.ematching);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_cnstr_mode]);
     break;
@@ -5811,6 +5822,18 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_EF_MAX_ITERS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->ef_client.ef_parameters.max_iters = n;
+    }
+    break;
+
+  case PARAM_EF_MAX_LEMMAS_PER_ROUND:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.max_numlearnt_per_round = n;
+    }
+    break;
+
+  case PARAM_EMATCH_EN:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      g->ef_client.ef_parameters.ematching = tt;
     }
     break;
 

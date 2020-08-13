@@ -20,7 +20,7 @@
  * Parameters for the EF client.
  */
 
-#include <solvers/quant/ef_parameters.h>
+#include "solvers/quant/ef_parameters.h"
 #include "solvers/quant/quant_parameters.h"
 
 void init_ef_params(ef_param_t *p) {
@@ -28,9 +28,10 @@ void init_ef_params(ef_param_t *p) {
   p->flatten_ite = false;
   p->gen_mode = EF_GEN_AUTO_OPTION;
   p->max_samples = 5;
-  p->max_iters = 10000;
-  p->max_numlearnt = 10;
-  p->ematching = true;
+
+  p->max_iters = DEF_MBQI_MAX_ITERS;
+  p->max_numlearnt_per_round = DEF_MBQI_MAX_LEMMAS_PER_ROUND;
+  p->ematching = DEF_EMATCH_EN;
 
   p->ematch_cnstr_mode = DEFAULT_EMATCH_MODE;
   p->ematch_term_mode = DEFAULT_EMATCH_MODE;

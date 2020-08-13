@@ -96,7 +96,9 @@ typedef enum yices_param {
   PARAM_EF_GEN_MODE,
   PARAM_EF_MAX_SAMPLES,
   PARAM_EF_MAX_ITERS,
+  PARAM_EF_MAX_LEMMAS_PER_ROUND,
   // quant solver
+  PARAM_EMATCH_EN,
   PARAM_EMATCH_CNSTR_MODE,
   PARAM_EMATCH_TERM_MODE,
   // mcsat options

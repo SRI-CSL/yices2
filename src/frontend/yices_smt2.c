@@ -117,6 +117,10 @@ static int32_t mcsat_bv_var_size;
 static pvector_t trace_tags;
 
 // ef solver options
+static bool ef_en_ematch;
+static int32_t ef_mbqi_max_iter;
+static int32_t ef_mbqi_max_lemma_per_round;
+
 static int32_t ef_ematch_cnstr_mode;
 static int32_t ef_ematch_term_mode;
 
@@ -147,6 +151,9 @@ typedef enum optid {
   mcsat_bv_var_size_opt,   // set size of bitvector variables
   trace_opt,               // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
+  ematch_en_opt,           // enable ematching
+  mbqi_max_iter_opt,       // set max mbqi iterations
+  mbqi_lemmas_per_round_opt,  // set max mbqi lemmas per round
   ematch_cnstr_mode_opt,   // set cnstr mode in ematching
   ematch_term_mode_opt,    // set term mode in ematching
 } optid_t;
@@ -178,6 +185,9 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
   { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
+  { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
+  { "mbqi-max-iter", '\0', MANDATORY_INT, mbqi_max_iter_opt },
+  { "mbqi-lemmas-per-round", '\0', MANDATORY_INT, mbqi_lemmas_per_round_opt },
   { "ematch-cnstr-mode", '\0', MANDATORY_STRING, ematch_cnstr_mode_opt },
   { "ematch-term-mode", '\0', MANDATORY_STRING, ematch_term_mode_opt },
 };
@@ -241,10 +251,13 @@ static void print_mcsat_help(const char *progname) {
 static void print_ef_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
          "    or %s [option]\n\n", progname, progname);
-  printf("EF options:\n"
-         "    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all)\n"
-         "    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all)"
-         "\n");
+  printf("EF options:\n");
+  printf("    --ematch                        Toggle enabling/disabling ematching (default: %s)\n", (DEF_EMATCH_EN?"true":"false"));
+  printf("    --mbqi-max-iter=<M>             Set the max number of mbqi iterations (default: %d)\n", DEF_MBQI_MAX_ITERS);
+  printf("    --mbqi-lemmas-per-round=<M>     Set the max number of lemmas per mbqi round (default: %d)\n", DEF_MBQI_MAX_LEMMAS_PER_ROUND);
+  printf("    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
+  printf("    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all) (default: epsilongreedy)");
+  printf("\n");
   fflush(stdout);
 }
 
@@ -313,6 +326,9 @@ static void parse_command_line(int argc, char *argv[]) {
 
   init_pvector(&trace_tags, 5);
 
+  ef_en_ematch = DEF_EMATCH_EN;
+  ef_mbqi_max_iter = -1;
+  ef_mbqi_max_lemma_per_round = -1;
   ef_ematch_cnstr_mode = -1;
   ef_ematch_term_mode = -1;
 
@@ -501,6 +517,32 @@ static void parse_command_line(int argc, char *argv[]) {
         code = YICES_EXIT_SUCCESS;
         goto exit;
 
+      case ematch_en_opt:
+        ef_en_ematch = !ef_en_ematch;
+        break;
+
+      case mbqi_max_iter_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_mbqi_max_iter = v;
+        break;
+
+      case mbqi_lemmas_per_round_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_mbqi_max_lemma_per_round = v;
+        break;
+
       case ematch_cnstr_mode_opt:
         ef_ematch_cnstr_mode = supported_ematch_mode(elem.s_value);
         if (ef_ematch_cnstr_mode < 0) {
@@ -622,9 +664,34 @@ static void setup_mcsat(void) {
 }
 
 static void setup_ef(void) {
-//  aval_t aval_true;
-//
-//  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+  aval_t aval_true, aval_false;
+
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+  aval_false = attr_vtbl_symbol(__smt2_globals.avtbl, "false");
+
+  if (ef_en_ematch != DEF_EMATCH_EN) {
+    smt2_set_option(":yices-ematch-en", (ef_en_ematch?aval_true:aval_false));
+  }
+
+  if (ef_mbqi_max_iter >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_mbqi_max_iter);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ef-max-iters", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_mbqi_max_lemma_per_round >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_mbqi_max_lemma_per_round);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ef-max-lemmas-per-round", aval_max);
+    q_clear(&q);
+  }
 
   if (ef_ematch_cnstr_mode >= 0) {
     aval_t aval_mode = attr_vtbl_symbol(__smt2_globals.avtbl, ematchmode2string[ef_ematch_cnstr_mode]);

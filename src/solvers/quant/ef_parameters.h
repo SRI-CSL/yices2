@@ -28,6 +28,10 @@
 
 #include "solvers/quant/quant_parameters.h"
 
+#define DEF_MBQI_MAX_ITERS              10000
+#define DEF_MBQI_MAX_LEMMAS_PER_ROUND   5
+#define DEF_EMATCH_EN   true
+
 typedef enum ef_gen_option {
   EF_NOGEN_OPTION,        // option 1 above
   EF_GEN_BY_SUBST_OPTION, // option 2 above
@@ -49,7 +53,7 @@ typedef struct ef_param_s {
   ef_gen_option_t gen_mode;
   uint32_t max_samples;
   uint32_t max_iters;
-  uint32_t max_numlearnt;
+  uint32_t max_numlearnt_per_round;
   bool ematching;
 
   /*

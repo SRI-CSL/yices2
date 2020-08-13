@@ -203,7 +203,9 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   solver->max_samples = 0;
   solver->max_iters = 0;
 
+  solver->num_models = 0;
   solver->iters = 0;
+  solver->numiters = 0;
   solver->numlearnt = 0;
   solver->scan_idx = 0;
 
@@ -1290,7 +1292,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
         }
 
         // if learnt enough, then break
-        if (numlearnt >= solver->max_numlearnt)
+        if (numlearnt >= solver->max_numlearnt_per_round)
           break;
 
         // add a blocking clause to learn more
@@ -1436,7 +1438,9 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
   printf("domain_cnstr: %s\n", yices_term_to_string(domain_cnstr, 120, 1, 0));
 #endif
 
+  solver->num_models += 1;
   do {
+    solver->numiters += 1;
     trace_printf(solver->trace, 4, "(EF: testing candidate against constraint %"PRIu32")\n", i);
     status = ef_solver_test_exists_model(solver, domain_cnstr, i);
     trace_candidate_check(solver, i, status);
@@ -1590,7 +1594,7 @@ void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
   solver->option = gen_mode;
   solver->max_samples = max_samples;
   solver->max_iters = max_iters;
-  solver->max_numlearnt = max_numlearnt;
+  solver->max_numlearnt_per_round = max_numlearnt;
   solver->ematching = ematching;
   solver->scan_idx = 0;
 
