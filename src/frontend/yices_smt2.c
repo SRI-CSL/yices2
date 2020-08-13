@@ -121,6 +121,12 @@ static bool ef_en_ematch;
 static int32_t ef_mbqi_max_iter;
 static int32_t ef_mbqi_max_lemma_per_round;
 
+static int32_t ef_ematch_inst_per_round;
+static int32_t ef_ematch_inst_per_search;
+static int32_t ef_ematch_inst_total;
+static int32_t ef_ematch_rounds_per_search;
+static int32_t ef_ematch_search_total;
+
 static int32_t ef_ematch_cnstr_mode;
 static int32_t ef_ematch_term_mode;
 
@@ -154,8 +160,13 @@ typedef enum optid {
   ematch_en_opt,           // enable ematching
   mbqi_max_iter_opt,       // set max mbqi iterations
   mbqi_lemmas_per_round_opt,  // set max mbqi lemmas per round
-  ematch_cnstr_mode_opt,   // set cnstr mode in ematching
-  ematch_term_mode_opt,    // set term mode in ematching
+  ematch_inst_per_round_opt,    // set max ematch instances per round
+  ematch_inst_per_search_opt,   // set max ematch instances per search
+  ematch_inst_total_opt,              // set max ematch instances
+  ematch_rounds_per_search_opt, // set max ematch rounds per search
+  ematch_search_total_opt,            // set max ematch rounds per search
+  ematch_cnstr_mode_opt,            // set cnstr mode in ematching
+  ematch_term_mode_opt,             // set term mode in ematching
 } optid_t;
 
 #define NUM_OPTIONS (ematch_term_mode_opt+1)
@@ -188,6 +199,11 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
   { "mbqi-max-iter", '\0', MANDATORY_INT, mbqi_max_iter_opt },
   { "mbqi-lemmas-per-round", '\0', MANDATORY_INT, mbqi_lemmas_per_round_opt },
+  { "ematch-inst-per-round", '\0', MANDATORY_INT, ematch_inst_per_round_opt },
+  { "ematch-inst-per-search", '\0', MANDATORY_INT, ematch_inst_per_search_opt },
+  { "ematch-inst-total", '\0', MANDATORY_INT, ematch_inst_total_opt },
+  { "ematch-rounds-per-search", '\0', MANDATORY_INT, ematch_rounds_per_search_opt },
+  { "ematch-search-total", '\0', MANDATORY_INT, ematch_search_total_opt },
   { "ematch-cnstr-mode", '\0', MANDATORY_STRING, ematch_cnstr_mode_opt },
   { "ematch-term-mode", '\0', MANDATORY_STRING, ematch_term_mode_opt },
 };
@@ -253,11 +269,17 @@ static void print_ef_help(const char *progname) {
          "    or %s [option]\n\n", progname, progname);
   printf("EF options:\n");
   printf("    --ematch                        Toggle enabling/disabling ematching (default: %s)\n", (DEF_EMATCH_EN?"true":"false"));
+  printf("    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
+  printf("    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
+  printf("\n");
+  printf("  Fine-grained options\n");
   printf("    --mbqi-max-iter=<M>             Set the max number of mbqi iterations (default: %d)\n", DEF_MBQI_MAX_ITERS);
   printf("    --mbqi-lemmas-per-round=<M>     Set the max number of lemmas per mbqi round (default: %d)\n", DEF_MBQI_MAX_LEMMAS_PER_ROUND);
-  printf("    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
-  printf("    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all) (default: epsilongreedy)");
-  printf("\n");
+  printf("    --ematch-inst-per-round=<M>     Set the max number of instances per ematch round (default: %d)\n", DEFAULT_MAX_INSTANCES_PER_ROUND);
+  printf("    --ematch-inst-per-search=<M>    Set the max number of instances per ematch seach (default: %d)\n", DEFAULT_MAX_INSTANCES_PER_SEARCH);
+  printf("    --ematch-inst-total=<M>         Set the max number of ematch instances total (default: %d)\n", DEFAULT_MAX_INSTANCES);
+  printf("    --ematch-rounds-per-search=<M>  Set the max number of rounds per ematch seach (default: %d)\n", DEFAULT_MAX_ROUNDS_PER_SEARCH);
+  printf("    --ematch-search-total=<M>       Set the max number of ematch searches total (default: %d)\n", DEFAULT_MAX_SEARCH);
   fflush(stdout);
 }
 
@@ -329,6 +351,11 @@ static void parse_command_line(int argc, char *argv[]) {
   ef_en_ematch = DEF_EMATCH_EN;
   ef_mbqi_max_iter = -1;
   ef_mbqi_max_lemma_per_round = -1;
+  ef_ematch_inst_per_round = -1;
+  ef_ematch_inst_per_search = -1;
+  ef_ematch_inst_total = -1;
+  ef_ematch_rounds_per_search = -1;
+  ef_ematch_search_total = -1;
   ef_ematch_cnstr_mode = -1;
   ef_ematch_term_mode = -1;
 
@@ -543,6 +570,61 @@ static void parse_command_line(int argc, char *argv[]) {
         ef_mbqi_max_lemma_per_round = v;
         break;
 
+      case ematch_inst_per_round_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_inst_per_round = v;
+        break;
+
+      case ematch_inst_per_search_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_inst_per_search = v;
+        break;
+
+      case ematch_inst_total_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_inst_total = v;
+        break;
+
+      case ematch_rounds_per_search_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_rounds_per_search = v;
+        break;
+
+      case ematch_search_total_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_search_total = v;
+        break;
+
       case ematch_cnstr_mode_opt:
         ef_ematch_cnstr_mode = supported_ematch_mode(elem.s_value);
         if (ef_ematch_cnstr_mode < 0) {
@@ -690,6 +772,56 @@ static void setup_ef(void) {
     q_set32(&q, ef_mbqi_max_lemma_per_round);
     aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
     smt2_set_option(":yices-ef-max-lemmas-per-round", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_inst_per_round >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_inst_per_round);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-inst-per-round", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_inst_per_search >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_inst_per_search);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-inst-per-search", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_inst_total >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_inst_total);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-inst-total", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_rounds_per_search >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_rounds_per_search);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-rounds-per-search", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_search_total >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_search_total);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-search-total", aval_max);
     q_clear(&q);
   }
 

@@ -33,6 +33,12 @@ void init_ef_params(ef_param_t *p) {
   p->max_numlearnt_per_round = DEF_MBQI_MAX_LEMMAS_PER_ROUND;
   p->ematching = DEF_EMATCH_EN;
 
+  p->ematch_inst_per_round = DEFAULT_MAX_INSTANCES_PER_ROUND;
+  p->ematch_inst_per_search = DEFAULT_MAX_INSTANCES_PER_SEARCH;
+  p->ematch_inst_total = DEFAULT_MAX_INSTANCES;
+  p->ematch_rounds_per_search = DEFAULT_MAX_ROUNDS_PER_SEARCH;
+  p->ematch_search_total = DEFAULT_MAX_SEARCH;
+
   p->ematch_cnstr_mode = DEFAULT_EMATCH_MODE;
   p->ematch_term_mode = DEFAULT_EMATCH_MODE;
 }

@@ -1412,6 +1412,26 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_bool_param(param2string[p], ef_client_globals.ef_parameters.ematching, n);
     break;
 
+  case PARAM_EMATCH_INST_PER_ROUND:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_inst_per_round, n);
+    break;
+
+  case PARAM_EMATCH_INST_PER_SEARCH:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_inst_per_search, n);
+    break;
+
+  case PARAM_EMATCH_INST_TOTAL:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_inst_total, n);
+    break;
+
+  case PARAM_EMATCH_ROUNDS_PER_SEARCH:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_rounds_per_search, n);
+    break;
+
+  case PARAM_EMATCH_SEARCH_TOTAL:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_search_total, n);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_cnstr_mode], n);
     break;
@@ -1868,6 +1888,41 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EMATCH_EN:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       ef_client_globals.ef_parameters.ematching = tt;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_INST_PER_ROUND:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_inst_per_round = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_INST_PER_SEARCH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_inst_per_search = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_INST_TOTAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_inst_total = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_ROUNDS_PER_SEARCH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_rounds_per_search = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_SEARCH_TOTAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_search_total = n;
       print_ok();
     }
     break;

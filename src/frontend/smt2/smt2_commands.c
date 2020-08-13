@@ -1689,6 +1689,8 @@ static void show_quantsolver_stats(int fd, print_buffer_t *b, quant_solver_t *so
   print_string_and_uint32(fd, b, " :ematch-quantifiers ", quant_solver_num_quantifiers(solver));
   print_string_and_uint32(fd, b, " :ematch-patterns ", quant_solver_num_patterns(solver));
   print_string_and_uint32(fd, b, " :ematch-instances ", quant_solver_num_instances(solver));
+  print_string_and_uint32(fd, b, " :ematch-rounds ", solver->stats.num_rounds);
+  print_string_and_uint32(fd, b, " :ematch-searches ", solver->stats.num_search);
 }
 
 static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
@@ -5178,6 +5180,26 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_boolean_value(g->ef_client.ef_parameters.ematching);
     break;
 
+  case PARAM_EMATCH_INST_PER_ROUND:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_inst_per_round);
+    break;
+
+  case PARAM_EMATCH_INST_PER_SEARCH:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_inst_per_search);
+    break;
+
+  case PARAM_EMATCH_INST_TOTAL:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_inst_total);
+    break;
+
+  case PARAM_EMATCH_ROUNDS_PER_SEARCH:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_rounds_per_search);
+    break;
+
+  case PARAM_EMATCH_SEARCH_TOTAL:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_search_total);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_cnstr_mode]);
     break;
@@ -5834,6 +5856,36 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_EMATCH_EN:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->ef_client.ef_parameters.ematching = tt;
+    }
+    break;
+
+  case PARAM_EMATCH_INST_PER_ROUND:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_inst_per_round = n;
+    }
+    break;
+
+  case PARAM_EMATCH_INST_PER_SEARCH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_inst_per_search = n;
+    }
+    break;
+
+  case PARAM_EMATCH_INST_TOTAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_inst_total = n;
+    }
+    break;
+
+  case PARAM_EMATCH_ROUNDS_PER_SEARCH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_rounds_per_search = n;
+    }
+    break;
+
+  case PARAM_EMATCH_SEARCH_TOTAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_search_total = n;
     }
     break;
 

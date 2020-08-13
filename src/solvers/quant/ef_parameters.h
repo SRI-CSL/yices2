@@ -54,12 +54,20 @@ typedef struct ef_param_s {
   uint32_t max_samples;
   uint32_t max_iters;
   uint32_t max_numlearnt_per_round;
+
   bool ematching;
 
   /*
    * QUANT SOLVER PARAMETERS
    * - ematch_mode: mode for ematching
    */
+
+  uint32_t ematch_inst_per_round;
+  uint32_t ematch_inst_per_search;
+  uint32_t ematch_inst_total;
+  uint32_t ematch_rounds_per_search;
+  uint32_t ematch_search_total;
+
   int32_t ematch_cnstr_mode;
   int32_t ematch_term_mode;
 
