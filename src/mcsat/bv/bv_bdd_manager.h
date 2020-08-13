@@ -131,3 +131,6 @@ bool bv_bdd_manager_bdd_is_point(const bv_bdd_manager_t* bddm, bdd_t bdd, uint32
 
 /** Intersect the two BDDs (result attached) */
 bdd_t bv_bdd_manager_bdd_intersect(bv_bdd_manager_t* bddm, bdd_t bdd1, bdd_t bdd2);
+
+/** Mark all the terms in the term manager */
+void bv_bdd_manager_mark_terms(bv_bdd_manager_t* bddm);
