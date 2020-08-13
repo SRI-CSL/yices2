@@ -48,8 +48,8 @@ typedef enum {
 #define DEFAULT_MAX_INSTANCES_PER_SEARCH  100
 #define DEFAULT_MAX_INSTANCES             100000
 
-#define DEFAULT_MAX_ROUNDS_PER_SEARCH     50
-#define DEFAULT_MAX_SEARCH                5000
+#define DEFAULT_MAX_ROUNDS_PER_SEARCH     30
+#define DEFAULT_MAX_SEARCH                200
 
 #define DEFAULT_EMATCH_MODE              ITERATE_EPSILONGREEDY
 

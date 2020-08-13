@@ -66,8 +66,8 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->egraph = NULL;
   exec->intern = NULL;
   exec->early_exit = DEF_EARLY_EXIT;
-  exec->max_fdepth = DEF_MAX_FDEPTH;
-  exec->max_vdepth = DEF_MAX_VDEPTH;
+  exec->max_fdepth = DEF_INITIAL_FDEPTH;
+  exec->max_vdepth = DEF_INITIAL_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
   exec->max_matches = DEF_MAX_MATCHES;
 }
@@ -988,14 +988,14 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
 
   i = mk_instance(insttbl, instr->idx, n, instr->vdata, v.data);
 
-#if TRACE
+#if TRACE_LIGHT
   instance_t *inst;
   term_t lhs;
 
   inst = insttbl->data + i;
   assert(inst->nelems == n);
 
-  printf("    match%d: (#%d entries @ depth %d)\n", i, n, maxdepth);
+  printf("    match%d: (#%d entries @ depth %d, vdepth-limit %d, fdepth-limit %d)\n", i, n, maxdepth, exec->max_vdepth, exec->max_fdepth);
   for (j=0; j<n; j++) {
     lhs = instr->vdata[j];
     rhs = inst->vdata[j];
@@ -1014,21 +1014,25 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
 
   if (maxdepth < exec->max_vdepth) {
     if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
-#if TRACE
+#if TRACE_LIGHT
       printf("    match%d added\n", i);
 #endif
       ivector_push(&exec->aux_vector, i);
       if(exec->early_exit || exec->aux_vector.size >= exec->max_matches) {
-#if TRACE
+#if TRACE_LIGHT
         printf("    early exit\n");
 #endif
         reset_ematch_stack(&exec->bstack);
       }
     } else {
-#if TRACE
-      printf("    match%d filtered out\n", i);
+#if TRACE_LIGHT
+      printf("    match%d filtered out (already present)\n", i);
 #endif
     }
+  } else {
+#if TRACE_LIGHT
+    printf("    match%d filtered out (too high depth)\n", i);
+#endif
   }
 
   ematch_exec_backtrack(exec);

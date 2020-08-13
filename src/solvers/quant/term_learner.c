@@ -37,6 +37,9 @@ void term_learner_setup(term_learner_t *learner) {
   uint_learner_t *uint_learner;
   eterm_table_t *terms;
   uint32_t i, n;
+  egraph_t *egraph;
+  composite_t *p;
+  uint32_t depth;
 
   generic_heap_t *heap;
   pvector_t *pv;
@@ -52,8 +55,23 @@ void term_learner_setup(term_learner_t *learner) {
 
   reset_uint_learner_stats(uint_learner);
 
+  egraph = learner->egraph;
+
   for(i=0; i<n; i++) {
+    depth = 0;
+    p = egraph_term_body(egraph, i);
+    if (composite_body(p)) {
+      if (valid_entry(p) &&
+          composite_kind(p) == COMPOSITE_APPLY) {
+        depth = composite_depth(egraph, p);
+        if (depth > learner->max_depth)
+          learner->max_depth = depth;
+      }
+    }
+
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
+    s->Q = (uint_learner->initQ -
+            TERM_RL_DEPTH_COST_FACTOR * depth);
     s->Q = uint_learner->initQ;
     pvector_push(pv, s);
 
@@ -68,6 +86,9 @@ void term_learner_setup_extend(term_learner_t *learner) {
   uint_learner_t *uint_learner;
   eterm_table_t *terms;
   uint32_t i, n, oldsz;
+  egraph_t *egraph;
+  composite_t *p;
+  uint32_t depth;
 
   generic_heap_t *heap;
   pvector_t *pv;
@@ -82,9 +103,21 @@ void term_learner_setup_extend(term_learner_t *learner) {
   pv = &uint_learner->stats;
   oldsz = pv->size;
 
+  egraph = learner->egraph;
+
   for(i=oldsz; i<n; i++) {
+    depth = 0;
+    p = egraph_term_body(egraph, i);
+    if (composite_body(p)) {
+      if (valid_entry(p) &&
+          composite_kind(p) == COMPOSITE_APPLY) {
+        depth = composite_depth(egraph, p);
+      }
+    }
+
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
-    s->Q = (TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR * uint_learner->initQ);
+    s->Q = (TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR * uint_learner->initQ -
+            TERM_RL_DEPTH_COST_FACTOR * depth);
     pvector_push(pv, s);
 
     generic_heap_add(heap, i);
@@ -234,6 +267,7 @@ void init_term_learner(term_learner_t *learner) {
   learner->iter_mode = DEFAULT_EMATCH_MODE;
 
   init_generic_heap(&learner->aux_heap, 0, 0, uint_learner->heap.cmp, &uint_learner->stats);
+  learner->max_depth = 0;
 }
 
 /*
@@ -242,6 +276,7 @@ void init_term_learner(term_learner_t *learner) {
 void reset_term_learner(term_learner_t *learner) {
   reset_uint_learner(&learner->learner);
   reset_generic_heap(&learner->aux_heap);
+  learner->max_depth = 0;
 }
 
 /*

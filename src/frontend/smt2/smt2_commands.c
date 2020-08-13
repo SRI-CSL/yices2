@@ -1688,7 +1688,7 @@ static void show_funsolver_stats(int fd, print_buffer_t *b, fun_solver_t *solver
 static void show_quantsolver_stats(int fd, print_buffer_t *b, quant_solver_t *solver) {
   print_string_and_uint32(fd, b, " :quantifiers ", quant_solver_num_quantifiers(solver));
   print_string_and_uint32(fd, b, " :patterns ", quant_solver_num_patterns(solver));
-  print_string_and_uint32(fd, b, " :instances ", quant_solver_num_instances(solver));
+  print_string_and_uint32(fd, b, " :ematch-instances ", quant_solver_num_instances(solver));
 }
 
 static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
@@ -1780,6 +1780,14 @@ static void show_ctx_stats(int fd, print_buffer_t *b, context_t *ctx) {
   }
 }
 
+/*
+ *
+ */
+static void show_ef_stats(int fd, print_buffer_t *b, ef_client_t *efc) {
+  print_string_and_uint32(fd, b, " :mbqi-iterations ", efc->efsolver->iters);
+  print_string_and_uint32(fd, b, " :mbqi-instances ", efc->efsolver->numlearnt);
+}
+
 
 /*
  * Global state
@@ -1800,11 +1808,15 @@ static void show_statistics(smt2_globals_t *g) {
   }
   if (g->efmode && g->ef_client.efsolver != NULL) {
     ctx = g->ef_client.efsolver->exists_context;
+    if (ctx != NULL) {
+      show_ctx_stats(g->out_fd, &buffer, ctx);
+    }
+    show_ef_stats(g->out_fd, &buffer, &g->ef_client);
   } else {
     ctx = g->ctx;
-  }
-  if (ctx != NULL) {
-    show_ctx_stats(g->out_fd, &buffer, ctx);
+    if (ctx != NULL) {
+      show_ctx_stats(g->out_fd, &buffer, ctx);
+    }
   }
 
   print_char_and_newline(g->out_fd, &buffer, ')');

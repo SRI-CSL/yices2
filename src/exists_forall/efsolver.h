@@ -208,6 +208,7 @@ typedef struct ef_solver_s {
   bool ematching;            // use ematching or not
 
   uint32_t iters;            // number of outer iterations
+  uint32_t numlearnt;        // number of inner iterations
   uint32_t scan_idx;         // first universal constraint to check
 
   // Exists and forall contexts + exists model

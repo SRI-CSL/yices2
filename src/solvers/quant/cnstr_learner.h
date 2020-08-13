@@ -36,8 +36,8 @@ typedef struct cnstr_learner_s {
 } cnstr_learner_t;
 
 #define CNSTR_RL_EPSILON_MAX              1000
-#define CNSTR_RL_EPSILON_DEFAULT          150
-#define CNSTR_RL_ALPHA_DEFAULT            0.1
+#define CNSTR_RL_EPSILON_DEFAULT          200
+#define CNSTR_RL_ALPHA_DEFAULT            0.2
 #define CNSTR_RL_INITIAL_Q_DEFAULT        100
 
 #define CNSTR_RL_TERM_COST_FACTOR         0.3

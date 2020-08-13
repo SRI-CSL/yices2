@@ -202,6 +202,9 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   solver->option = EF_GEN_BY_SUBST_OPTION;
   solver->max_samples = 0;
   solver->max_iters = 0;
+
+  solver->iters = 0;
+  solver->numlearnt = 0;
   solver->scan_idx = 0;
 
   solver->exists_context = NULL;
@@ -1306,6 +1309,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     // if learnt something, then break (no need to learn for higher generations)
     if (numlearnt != 0) {
       status = STATUS_SAT;
+      solver->numlearnt += numlearnt;
 #if EF_VERBOSE
       printf("--> Learnt %d lemmas\n\n", numlearnt);
 #endif

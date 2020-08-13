@@ -398,9 +398,6 @@ void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t
   ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx, &solver->term_learner);
   ematch_attach_egraph(&solver->em, solver->egraph);
 
-  term_learner_setup(&solver->term_learner);
-  cnstr_learner_setup(&solver->cnstr_learner);
-
   ematch_compile_all_patterns(&solver->em);
 
   ematch_assert_all_enables(solver);
@@ -1238,6 +1235,16 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #if EM_VERBOSE
     printf("\nEMATCH: initial search\n\n");
 #endif
+
+    term_learner_setup(&solver->term_learner);
+    solver->em.exec.max_fdepth = solver->term_learner.max_depth;
+    solver->em.exec.max_vdepth = solver->term_learner.max_depth/2;
+#if EM_VERBOSE
+    printf("EMATCH TERM learner max depth: %d\n", solver->term_learner.max_depth);
+#endif
+
+    cnstr_learner_setup(&solver->cnstr_learner);
+
     return FCHECK_SAT;
  }
 
@@ -1321,6 +1328,28 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
       solver->stats.num_instances_per_round,
       solver->stats.num_instances_per_search);
 #endif
+
+  if (solver->stats.num_instances_per_round == 0) {
+    if (solver->em.exec.max_fdepth < DEF_MAX_FDEPTH)
+      solver->em.exec.max_fdepth++;
+    if (solver->em.exec.max_vdepth < DEF_MAX_VDEPTH)
+      solver->em.exec.max_vdepth++;
+
+#if EM_VERBOSE
+    printf("(re-running ematching)\n");
+#endif
+
+    ematch_process_all_cnstr(solver);
+
+#if EM_VERBOSE
+  printf("S%d:R%d EMATCH (re-run): learnt total %d instances (%d new, %d in current search)\n",
+      solver->stats.num_search,
+      solver->stats.num_rounds_per_search,
+      solver->stats.num_instances,
+      solver->stats.num_instances_per_round,
+      solver->stats.num_instances_per_search);
+#endif
+  }
 
   solver->stats.num_rounds_per_search++;
 

@@ -35,6 +35,7 @@ typedef struct term_learner_s {
   iterate_kind_t iter_mode;    // iteration mode over terms
 
   generic_heap_t aux_heap;     // temporary heap with term indices in priority order
+  uint32_t max_depth;          // max function depth corresponding to the term stored in learner
 } term_learner_t;
 
 #define TERM_RL_EPSILON_MAX                     1000
@@ -47,6 +48,7 @@ typedef struct term_learner_s {
 #define TERM_RL_MATCH_REWARD_FACTOR             0.3
 #define TERM_RL_DECISION_COST_FACTOR            1
 #define TERM_RL_BACKTRACK_REWARD_FACTOR         4
+#define TERM_RL_DEPTH_COST_FACTOR               0.8
 
 
 /*

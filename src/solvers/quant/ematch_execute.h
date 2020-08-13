@@ -64,6 +64,8 @@ typedef struct ematch_exec_s {
  * Default execution bounds/parameters
  */
 #define DEF_EARLY_EXIT      true
+#define DEF_INITIAL_FDEPTH  10
+#define DEF_INITIAL_VDEPTH  4
 #define DEF_MAX_FDEPTH      100
 #define DEF_MAX_VDEPTH      40
 #define DEF_MAX_FAPPS       5
