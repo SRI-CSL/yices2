@@ -1691,6 +1691,12 @@ static void show_quantsolver_stats(int fd, print_buffer_t *b, quant_solver_t *so
   print_string_and_uint32(fd, b, " :ematch-instances ", quant_solver_num_instances(solver));
   print_string_and_uint32(fd, b, " :ematch-rounds ", solver->stats.num_rounds);
   print_string_and_uint32(fd, b, " :ematch-searches ", solver->stats.num_search);
+  print_string_and_uint32(fd, b, " :ematch-trial-fdepth ", solver->em.exec.fdepth);
+  print_string_and_uint32(fd, b, " :ematch-trial-vdepth ", solver->em.exec.vdepth);
+  print_string_and_uint32(fd, b, " :ematch-cnstr-epsilon ", solver->cnstr_learner.learner.epsilon);
+  print_string_and_float(fd, b, " :ematch-cnstr-alpha ", solver->cnstr_learner.learner.alpha);
+  print_string_and_uint32(fd, b, " :ematch-term-epsilon ", solver->term_learner.learner.epsilon);
+  print_string_and_float(fd, b, " :ematch-term-alpha ", solver->term_learner.learner.alpha);
 }
 
 static void show_simplex_stats(int fd, print_buffer_t *b, simplex_solver_t *solver) {
@@ -5200,8 +5206,40 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_uint32_value(g->ef_client.ef_parameters.ematch_search_total);
     break;
 
+  case PARAM_EMATCH_TRIAL_FDEPTH:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_exec_max_fdepth);
+    break;
+
+  case PARAM_EMATCH_TRIAL_VDEPTH:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_exec_max_vdepth);
+    break;
+
+  case PARAM_EMATCH_TRIAL_FAPPS:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_exec_max_fapps);
+    break;
+
+  case PARAM_EMATCH_TRIAL_MATCHES:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_exec_max_matches);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_cnstr_mode]);
+    break;
+
+  case PARAM_EMATCH_CNSTR_EPSILON:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_cnstr_epsilon);
+    break;
+
+  case PARAM_EMATCH_CNSTR_ALPHA:
+    print_float_value(g->ef_client.ef_parameters.ematch_cnstr_alpha);
+    break;
+
+  case PARAM_EMATCH_TERM_EPSILON:
+    print_uint32_value(g->ef_client.ef_parameters.ematch_term_epsilon);
+    break;
+
+  case PARAM_EMATCH_TERM_ALPHA:
+    print_float_value(g->ef_client.ef_parameters.ematch_term_alpha);
     break;
 
   case PARAM_EMATCH_TERM_MODE:
@@ -5886,6 +5924,54 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
   case PARAM_EMATCH_SEARCH_TOTAL:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       g->ef_client.ef_parameters.ematch_search_total = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_FDEPTH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_exec_max_fdepth = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_VDEPTH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_exec_max_vdepth = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_FAPPS:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_exec_max_fapps = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_MATCHES:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_exec_max_matches = n;
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_EPSILON:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_cnstr_epsilon = n;
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_ALPHA:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      g->ef_client.ef_parameters.ematch_cnstr_alpha = x;
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_EPSILON:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->ef_client.ef_parameters.ematch_term_epsilon = n;
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_ALPHA:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      g->ef_client.ef_parameters.ematch_term_alpha = x;
     }
     break;
 

@@ -38,18 +38,6 @@ typedef struct term_learner_s {
   uint32_t max_depth;          // max function depth corresponding to the term stored in learner
 } term_learner_t;
 
-#define TERM_RL_EPSILON_MAX                     1000
-#define TERM_RL_EPSILON_DEFAULT                 400
-#define TERM_RL_ALPHA_DEFAULT                   0.2
-#define TERM_RL_INITIAL_Q_DEFAULT               100
-#define TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR    0.1
-
-#define TERM_RL_UNMATCH_COST_FACTOR             0.1
-#define TERM_RL_MATCH_REWARD_FACTOR             0.3
-#define TERM_RL_DECISION_COST_FACTOR            1
-#define TERM_RL_BACKTRACK_REWARD_FACTOR         4
-#define TERM_RL_DEPTH_COST_FACTOR               0.8
-
 
 /*
  * Setup learner: iterate over each term and setup initial priorities

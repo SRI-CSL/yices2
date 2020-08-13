@@ -127,6 +127,16 @@ static int32_t ef_ematch_inst_total;
 static int32_t ef_ematch_rounds_per_search;
 static int32_t ef_ematch_search_total;
 
+static int32_t ef_ematch_trial_fdepth;
+static int32_t ef_ematch_trial_vdepth;
+static int32_t ef_ematch_trial_fapps;
+static int32_t ef_ematch_trial_matches;
+
+static int32_t ef_ematch_cnstr_epsilon;
+static double ef_ematch_cnstr_alpha;
+static int32_t ef_ematch_term_epsilon;
+static double ef_ematch_term_alpha;
+
 static int32_t ef_ematch_cnstr_mode;
 static int32_t ef_ematch_term_mode;
 
@@ -157,14 +167,22 @@ typedef enum optid {
   mcsat_bv_var_size_opt,   // set size of bitvector variables
   trace_opt,               // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
-  ematch_en_opt,           // enable ematching
-  mbqi_max_iter_opt,       // set max mbqi iterations
-  mbqi_lemmas_per_round_opt,  // set max mbqi lemmas per round
-  ematch_inst_per_round_opt,    // set max ematch instances per round
-  ematch_inst_per_search_opt,   // set max ematch instances per search
-  ematch_inst_total_opt,              // set max ematch instances
-  ematch_rounds_per_search_opt, // set max ematch rounds per search
-  ematch_search_total_opt,            // set max ematch rounds per search
+  ematch_en_opt,                    // enable ematching
+  mbqi_max_iter_opt,                // set max mbqi iterations
+  mbqi_lemmas_per_round_opt,        // set max mbqi lemmas per round
+  ematch_inst_per_round_opt,        // set max ematch instances per round
+  ematch_inst_per_search_opt,       // set max ematch instances per search
+  ematch_inst_total_opt,            // set max ematch instances
+  ematch_rounds_per_search_opt,     // set max ematch rounds per search
+  ematch_search_total_opt,          // set max ematch rounds per search
+  ematch_trial_fdepth_opt,          // set max function depth in each ematch trial
+  ematch_trial_vdepth_opt,          // set max variable depth in each ematch trial
+  ematch_trial_fapps_opt,           // set max function apps in each ematch trial
+  ematch_trial_matches_opt,         // set max matches in each ematch trial
+  ematch_cnstr_epsilon_opt,         // set ematch constraint learner epsilon
+  ematch_cnstr_alpha_opt,           // set ematch constraint learner learning rate
+  ematch_term_epsilon_opt,          // set ematch term learner epsilon
+  ematch_term_alpha_opt,            // set ematch term learner learning rate
   ematch_cnstr_mode_opt,            // set cnstr mode in ematching
   ematch_term_mode_opt,             // set term mode in ematching
 } optid_t;
@@ -204,6 +222,14 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "ematch-inst-total", '\0', MANDATORY_INT, ematch_inst_total_opt },
   { "ematch-rounds-per-search", '\0', MANDATORY_INT, ematch_rounds_per_search_opt },
   { "ematch-search-total", '\0', MANDATORY_INT, ematch_search_total_opt },
+  { "ematch-trial-fdepth", '\0', MANDATORY_INT, ematch_trial_fdepth_opt },
+  { "ematch-trial-vdepth", '\0', MANDATORY_INT, ematch_trial_vdepth_opt },
+  { "ematch-trial-fapps", '\0', MANDATORY_INT, ematch_trial_fapps_opt },
+  { "ematch-trial-matches", '\0', MANDATORY_INT, ematch_trial_matches_opt },
+  { "ematch-cnstr-epsilon", '\0', MANDATORY_INT, ematch_cnstr_epsilon_opt },
+  { "ematch-cnstr-alpha", '\0', MANDATORY_FLOAT, ematch_cnstr_alpha_opt },
+  { "ematch-term-epsilon", '\0', MANDATORY_INT, ematch_term_epsilon_opt },
+  { "ematch-term-alpha", '\0', MANDATORY_FLOAT, ematch_term_alpha_opt },
   { "ematch-cnstr-mode", '\0', MANDATORY_STRING, ematch_cnstr_mode_opt },
   { "ematch-term-mode", '\0', MANDATORY_STRING, ematch_term_mode_opt },
 };
@@ -272,14 +298,27 @@ static void print_ef_help(const char *progname) {
   printf("    --ematch-cnstr-mode=<M>         Set the ematching constraint mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
   printf("    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
   printf("\n");
+  printf("  Learner options\n");
+  printf("    --ematch-cnstr-epsilon=<M>      Set the epsilon for ematch constraint learner (between 0-%d) (default: %d)\n", CNSTR_RL_EPSILON_MAX, CNSTR_RL_EPSILON_DEFAULT);
+  printf("    --ematch-cnstr-alpha=<M>        Set the learning rate for ematch constraint learner (between 0-1) (default: %.2f)\n", CNSTR_RL_ALPHA_DEFAULT);
+  printf("    --ematch-term-epsilon=<M>       Set the epsilon for ematch term learner (between 0-%d) (default: %d)\n", TERM_RL_EPSILON_MAX, TERM_RL_EPSILON_DEFAULT);
+  printf("    --ematch-term-alpha=<M>         Set the learning rate for ematch term learner (between 0-1) (default: %.2f)\n", TERM_RL_ALPHA_DEFAULT);
+  printf("\n");
   printf("  Fine-grained options\n");
+  printf("   (mbqi)\n");
   printf("    --mbqi-max-iter=<M>             Set the max number of mbqi iterations (default: %d)\n", DEF_MBQI_MAX_ITERS);
   printf("    --mbqi-lemmas-per-round=<M>     Set the max number of lemmas per mbqi round (default: %d)\n", DEF_MBQI_MAX_LEMMAS_PER_ROUND);
+  printf("   (ematch)\n");
   printf("    --ematch-inst-per-round=<M>     Set the max number of instances per ematch round (default: %d)\n", DEFAULT_MAX_INSTANCES_PER_ROUND);
   printf("    --ematch-inst-per-search=<M>    Set the max number of instances per ematch seach (default: %d)\n", DEFAULT_MAX_INSTANCES_PER_SEARCH);
   printf("    --ematch-inst-total=<M>         Set the max number of ematch instances total (default: %d)\n", DEFAULT_MAX_INSTANCES);
   printf("    --ematch-rounds-per-search=<M>  Set the max number of rounds per ematch seach (default: %d)\n", DEFAULT_MAX_ROUNDS_PER_SEARCH);
   printf("    --ematch-search-total=<M>       Set the max number of ematch searches total (default: %d)\n", DEFAULT_MAX_SEARCH);
+  printf("   (ematch trial)\n");
+  printf("    --ematch-trial-matches=<M>      Set the max matches allowed in each ematch trial (default: %d)\n", DEF_MAX_MATCHES);
+  printf("    --ematch-trial-fapps=<M>        Set the max function apps considered in each ematch trial (default: %d)\n", DEF_MAX_FAPPS);
+  printf("    --ematch-trial-fdepth=<M>       Set the max function depth allowed in each fapp considered during ematch trial (default: %d)\n", DEF_MAX_FDEPTH);
+  printf("    --ematch-trial-vdepth=<M>       Set the max function depth allowed in each match considered during ematch trial (default: %d)\n", DEF_MAX_VDEPTH);
   fflush(stdout);
 }
 
@@ -356,6 +395,14 @@ static void parse_command_line(int argc, char *argv[]) {
   ef_ematch_inst_total = -1;
   ef_ematch_rounds_per_search = -1;
   ef_ematch_search_total = -1;
+  ef_ematch_trial_fdepth = -1;
+  ef_ematch_trial_vdepth = -1;
+  ef_ematch_trial_fapps = -1;
+  ef_ematch_trial_matches = -1;
+  ef_ematch_cnstr_epsilon = -1;
+  ef_ematch_cnstr_alpha = -1;
+  ef_ematch_term_epsilon = -1;
+  ef_ematch_term_alpha = -1;
   ef_ematch_cnstr_mode = -1;
   ef_ematch_term_mode = -1;
 
@@ -625,6 +672,92 @@ static void parse_command_line(int argc, char *argv[]) {
         ef_ematch_search_total = v;
         break;
 
+      case ematch_trial_fdepth_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_trial_fdepth = v;
+        break;
+
+      case ematch_trial_vdepth_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_trial_vdepth = v;
+        break;
+
+      case ematch_trial_fapps_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_trial_fapps = v;
+        break;
+
+      case ematch_trial_matches_opt:
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_trial_matches = v;
+        break;
+
+      case ematch_cnstr_epsilon_opt:
+        v = elem.i_value;
+        if (v < 0 || v > CNSTR_RL_EPSILON_MAX) {
+          fprintf(stderr, "%s: epsilon should be between 0 and %d\n", parser.command_name, CNSTR_RL_EPSILON_MAX);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_cnstr_epsilon = v;
+        break;
+
+      case ematch_cnstr_alpha_opt:
+        if (elem.d_value < 0 || elem.d_value > 1) {
+          fprintf(stderr, "%s: learning rate should be between 0 and 1\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_cnstr_alpha = elem.d_value;
+        break;
+
+      case ematch_term_epsilon_opt:
+        v = elem.i_value;
+        if (v < 0 || v > TERM_RL_EPSILON_MAX) {
+          fprintf(stderr, "%s: epsilon should be between 0 and %d\n", parser.command_name, TERM_RL_EPSILON_MAX);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_term_epsilon = v;
+        break;
+
+      case ematch_term_alpha_opt:
+        if (elem.d_value < 0 || elem.d_value > 1) {
+          fprintf(stderr, "%s: learning rate should be between 0 and 1\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        ef_ematch_term_alpha = elem.d_value;
+        break;
+
       case ematch_cnstr_mode_opt:
         ef_ematch_cnstr_mode = supported_ematch_mode(elem.s_value);
         if (ef_ematch_cnstr_mode < 0) {
@@ -822,6 +955,88 @@ static void setup_ef(void) {
     q_set32(&q, ef_ematch_search_total);
     aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
     smt2_set_option(":yices-ematch-search-total", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_trial_fdepth >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_trial_fdepth);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-trial-fdepth", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_trial_vdepth >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_trial_vdepth);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-trial-vdepth", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_trial_fapps >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_trial_fapps);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-trial-fapps", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_trial_matches >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_trial_matches);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-trial-matches", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_cnstr_epsilon >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_cnstr_epsilon);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-cnstr-epsilon", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_cnstr_alpha >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    // accurate upto 3 decimal places
+    q_set_int32(&q, (int32_t)(ef_ematch_cnstr_alpha*1000), 1000);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-cnstr-alpha", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_term_epsilon >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, ef_ematch_term_epsilon);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-term-epsilon", aval_max);
+    q_clear(&q);
+  }
+
+  if (ef_ematch_term_alpha >= 0) {
+    aval_t aval_max;
+    rational_t q;
+    q_init(&q);
+    // accurate upto 3 decimal places
+    q_set_int32(&q, (int32_t)(ef_ematch_term_alpha*1000), 1000);
+    aval_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-ematch-term-alpha", aval_max);
     q_clear(&q);
   }
 

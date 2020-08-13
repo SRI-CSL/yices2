@@ -68,6 +68,16 @@ typedef struct ef_param_s {
   uint32_t ematch_rounds_per_search;
   uint32_t ematch_search_total;
 
+  uint32_t ematch_exec_max_fdepth;
+  uint32_t ematch_exec_max_vdepth;
+  uint32_t ematch_exec_max_fapps;
+  uint32_t ematch_exec_max_matches;
+
+  uint32_t ematch_cnstr_epsilon;
+  double ematch_cnstr_alpha;
+  uint32_t ematch_term_epsilon;
+  double ematch_term_alpha;
+
   int32_t ematch_cnstr_mode;
   int32_t ematch_term_mode;
 

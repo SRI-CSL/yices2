@@ -1432,6 +1432,38 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_search_total, n);
     break;
 
+  case PARAM_EMATCH_TRIAL_FDEPTH:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_exec_max_fdepth, n);
+    break;
+
+  case PARAM_EMATCH_TRIAL_VDEPTH:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_exec_max_vdepth, n);
+    break;
+
+  case PARAM_EMATCH_TRIAL_FAPPS:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_exec_max_fapps, n);
+    break;
+
+  case PARAM_EMATCH_TRIAL_MATCHES:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_exec_max_matches, n);
+    break;
+
+  case PARAM_EMATCH_CNSTR_EPSILON:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_cnstr_epsilon, n);
+    break;
+
+  case PARAM_EMATCH_CNSTR_ALPHA:
+    show_float_param(param2string[p], ef_client_globals.ef_parameters.ematch_cnstr_alpha, n);
+    break;
+
+  case PARAM_EMATCH_TERM_EPSILON:
+    show_pos32_param(param2string[p], ef_client_globals.ef_parameters.ematch_term_epsilon, n);
+    break;
+
+  case PARAM_EMATCH_TERM_ALPHA:
+    show_float_param(param2string[p], ef_client_globals.ef_parameters.ematch_term_alpha, n);
+    break;
+
   case PARAM_EMATCH_CNSTR_MODE:
     show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_cnstr_mode], n);
     break;
@@ -1923,6 +1955,62 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EMATCH_SEARCH_TOTAL:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       ef_client_globals.ef_parameters.ematch_search_total = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_FDEPTH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_exec_max_fdepth = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_VDEPTH:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_exec_max_vdepth = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_FAPPS:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_exec_max_fapps = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TRIAL_MATCHES:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_exec_max_matches = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_EPSILON:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_cnstr_epsilon = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_CNSTR_ALPHA:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      ef_client_globals.ef_parameters.ematch_cnstr_alpha = x;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_EPSILON:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      ef_client_globals.ef_parameters.ematch_term_epsilon = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_EMATCH_TERM_ALPHA:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      ef_client_globals.ef_parameters.ematch_term_alpha = x;
       print_ok();
     }
     break;

@@ -39,6 +39,16 @@ void init_ef_params(ef_param_t *p) {
   p->ematch_rounds_per_search = DEFAULT_MAX_ROUNDS_PER_SEARCH;
   p->ematch_search_total = DEFAULT_MAX_SEARCH;
 
+  p->ematch_exec_max_fdepth = DEF_MAX_FDEPTH;
+  p->ematch_exec_max_vdepth = DEF_MAX_VDEPTH;
+  p->ematch_exec_max_fapps = DEF_MAX_FAPPS;
+  p->ematch_exec_max_matches = DEF_MAX_MATCHES;
+
+  p->ematch_cnstr_epsilon = CNSTR_RL_EPSILON_DEFAULT;
+  p->ematch_cnstr_alpha = CNSTR_RL_ALPHA_DEFAULT;
+  p->ematch_term_epsilon = TERM_RL_EPSILON_DEFAULT;
+  p->ematch_term_alpha = TERM_RL_ALPHA_DEFAULT;
+
   p->ematch_cnstr_mode = DEFAULT_EMATCH_MODE;
   p->ematch_term_mode = DEFAULT_EMATCH_MODE;
 }

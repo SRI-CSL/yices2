@@ -65,8 +65,12 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
 
   exec->egraph = NULL;
   exec->intern = NULL;
-  exec->max_fdepth = DEF_INITIAL_FDEPTH;
-  exec->max_vdepth = DEF_INITIAL_VDEPTH;
+
+  exec->fdepth = DEF_INITIAL_FDEPTH;
+  exec->vdepth = DEF_INITIAL_VDEPTH;
+
+  exec->max_fdepth = DEF_MAX_FDEPTH;
+  exec->max_vdepth = DEF_MAX_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
   exec->max_matches = DEF_MAX_MATCHES;
 }
@@ -147,7 +151,7 @@ static void egraph_get_all_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t 
         if (x == f) {
           // check if following if is redundant
           if (congruence_table_is_root(&egraph->ctable, p, egraph->terms.label)) {
-            if (composite_depth(egraph, p) < exec->max_fdepth) {
+            if (composite_depth(egraph, p) < exec->fdepth) {
               occp = pos_occ(ti);
               ivector_push(aux, occp);
 
@@ -303,7 +307,7 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
           if (generic_heap_member(main_heap, ti)) {
             // check if following if is redundant
             if (congruence_table_is_root(&egraph->ctable, p, egraph->terms.label)) {
-              if (composite_depth(egraph, p) < exec->max_fdepth) {
+              if (composite_depth(egraph, p) < exec->fdepth) {
                 generic_heap_add(aux_heap, ti);
               } else {
 #if TRACE
@@ -994,7 +998,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   inst = insttbl->data + i;
   assert(inst->nelems == n);
 
-  printf("    match%d: (#%d entries @ depth %d, vdepth-limit %d, fdepth-limit %d)\n", i, n, maxdepth, exec->max_vdepth, exec->max_fdepth);
+  printf("    match%d: (#%d entries @ depth %d, vdepth-limit %d, fdepth-limit %d)\n", i, n, maxdepth, exec->vdepth, exec->fdepth);
   for (j=0; j<n; j++) {
     lhs = instr->vdata[j];
     rhs = inst->vdata[j];
@@ -1011,7 +1015,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
   }
 #endif
 
-  if (maxdepth < exec->max_vdepth) {
+  if (maxdepth < exec->vdepth) {
     if (exec->filter == NULL || !int_hset_member(exec->filter, i)) {
 #if TRACE_LIGHT
       printf("    match%d added\n", i);
