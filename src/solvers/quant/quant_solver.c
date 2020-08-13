@@ -378,9 +378,9 @@ static void ematch_assert_all_enables(quant_solver_t *solver) {
 }
 
 static void quant_solver_attach_parameters(quant_solver_t *solver, ef_prob_t *prob) {
-  solver->stats.max_instances = prob->parameters->ematch_inst_per_round;
+  solver->stats.max_instances_per_round = prob->parameters->ematch_inst_per_round;
   solver->stats.max_instances_per_search = prob->parameters->ematch_inst_per_search;
-  solver->stats.max_instances_per_round = prob->parameters->ematch_inst_total;
+  solver->stats.max_instances = prob->parameters->ematch_inst_total;
   solver->stats.max_rounds_per_search = prob->parameters->ematch_rounds_per_search;
   solver->stats.max_search = prob->parameters->ematch_search_total;
 

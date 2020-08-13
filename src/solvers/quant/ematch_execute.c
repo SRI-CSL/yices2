@@ -65,7 +65,6 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
 
   exec->egraph = NULL;
   exec->intern = NULL;
-  exec->early_exit = DEF_EARLY_EXIT;
   exec->max_fdepth = DEF_INITIAL_FDEPTH;
   exec->max_vdepth = DEF_INITIAL_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
@@ -758,7 +757,7 @@ static void ematch_exec_all_chooseapps(ematch_exec_t *exec, ematch_instr_t *inst
 
     nmatches = exec->aux_vector.size;
     if (nmatches != 0) {
-      if(exec->early_exit || nmatches >= exec->max_matches) {
+      if(nmatches >= exec->max_matches) {
 #if TRACE
         printf("    chooseapp exit\n");
 #endif
@@ -1018,7 +1017,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
       printf("    match%d added\n", i);
 #endif
       ivector_push(&exec->aux_vector, i);
-      if(exec->early_exit || exec->aux_vector.size >= exec->max_matches) {
+      if(exec->aux_vector.size >= exec->max_matches) {
 #if TRACE_LIGHT
         printf("    early exit\n");
 #endif
@@ -1137,17 +1136,21 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   ivector_t *aux;
   term_learner_t *term_learner;
   eterm_t tf;
+  uint32_t max_matches_orig;
 
 #if TRACE
     printf("  Pattern code:\n");
     ematch_print_instr(stdout, exec->itbl, pat->code, true);
 #endif
 
+  max_matches_orig = exec->max_matches;
+  if (nmatches < exec->max_matches)
+    exec->max_matches = nmatches;
+
   exec->filter = filter;
-  exec->max_matches = nmatches;
-  count = 0;
   terms = exec->terms;
   kind = term_kind(terms, pat->p);
+  count = 0;
   x = NULL_TERM;
   term_learner = exec->term_learner;
 
@@ -1209,12 +1212,16 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 
         term_learner_add_latest(term_learner, tf);
         term_learner_update_match_reward(term_learner, tf);
+
+        if (matches->size >= nmatches)
+          break;
       } else {
         term_learner_update_unmatch_reward(term_learner, tf);
       }
     }
     delete_ivector(&fapps);
   }
+  exec->max_matches = max_matches_orig;
 
   return count;
 }
