@@ -35,15 +35,6 @@ typedef struct cnstr_learner_s {
   iterate_kind_t iter_mode;    // iteration mode over constraints
 } cnstr_learner_t;
 
-#define CNSTR_RL_EPSILON_MAX              1000
-#define CNSTR_RL_EPSILON_DEFAULT          150
-#define CNSTR_RL_ALPHA_DEFAULT            0.1
-#define CNSTR_RL_INITIAL_Q_DEFAULT        100
-
-#define CNSTR_RL_TERM_COST_FACTOR         0.3
-#define CNSTR_RL_LEMMA_COST_FACTOR        0.1
-#define CNSTR_RL_DECISION_COST_FACTOR     1
-#define CNSTR_RL_BACKTRACK_REWARD_FACTOR  2
 
 /*
  * Setup learner: iterate over each quant cnstr and setup initial priorities

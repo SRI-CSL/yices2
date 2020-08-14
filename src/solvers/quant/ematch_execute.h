@@ -50,22 +50,17 @@ typedef struct ematch_exec_s {
 
   int_hset_t *filter;           // instance indices to filter out (since already learnt)
 
-  bool early_exit;              // exit finding matches as soon as a new instance match is found
+  uint32_t fdepth;              // function composition depth allowed for the fapps during matching
+  uint32_t vdepth;              // function composition depth allowed for the variable matches
+
   uint32_t max_fdepth;          // max function composition depth allowed for the fapps during matching
   uint32_t max_vdepth;          // max function composition depth allowed for the variable matches
   uint32_t max_fapps;           // max bound on the number of function applications allowed during matching
+  uint32_t max_matches;         // max bound on the number of new matches allowed during matching
 
   term_learner_t *term_learner;     // Reinforce learner
   iterate_kind_t *iter_mode;         // iteration mode
 } ematch_exec_t;
-
-/*
- * Default execution bounds/parameters
- */
-#define DEF_EARLY_EXIT      true
-#define DEF_MAX_FDEPTH      100
-#define DEF_MAX_VDEPTH      40
-#define DEF_MAX_FAPPS       5
 
 
 /*
@@ -92,7 +87,7 @@ extern void ematch_exec_instr(ematch_exec_t *exec, int32_t idx);
  * Execute the code sequence for a pattern
  * - returns number of matches found
  */
-extern uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter);
+extern uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *filter, uint32_t nmatches);
 
 
 #endif /* __EMATCH_EXECUTE_H */

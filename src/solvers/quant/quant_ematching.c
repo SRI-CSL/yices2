@@ -168,7 +168,7 @@ void ematch_execute_all_patterns(ematch_globals_t *em) {
 
   for(i=0; i<ptbl->npatterns; i++) {
     pat = &ptbl->data[i];
-    ematch_exec_pattern(exec, pat, NULL);
+    ematch_exec_pattern(exec, pat, NULL, 10);
   }
 }
 

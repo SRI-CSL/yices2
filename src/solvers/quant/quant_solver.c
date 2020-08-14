@@ -377,28 +377,47 @@ static void ematch_assert_all_enables(quant_solver_t *solver) {
   }
 }
 
+static void quant_solver_attach_parameters(quant_solver_t *solver, ef_prob_t *prob) {
+
+  solver->stats.max_instances_per_round = prob->parameters->ematch_inst_per_round;
+  solver->stats.max_instances_per_search = prob->parameters->ematch_inst_per_search;
+  solver->stats.max_instances = prob->parameters->ematch_inst_total;
+  solver->stats.max_rounds_per_search = prob->parameters->ematch_rounds_per_search;
+  solver->stats.max_search = prob->parameters->ematch_search_total;
+
+  solver->em.exec.max_fdepth = prob->parameters->ematch_exec_max_fdepth;
+  solver->em.exec.max_vdepth = prob->parameters->ematch_exec_max_vdepth;
+  solver->em.exec.max_fapps = prob->parameters->ematch_exec_max_fapps;
+  solver->em.exec.max_matches = prob->parameters->ematch_exec_max_matches;
+
+  solver->cnstr_learner.iter_mode = prob->parameters->ematch_cnstr_mode;
+  solver->term_learner.iter_mode = prob->parameters->ematch_term_mode;
+
+  uint_learner_set_epsilon(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_epsilon);
+  uint_learner_set_alpha(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_alpha);
+  uint_learner_set_epsilon(&solver->term_learner.learner, prob->parameters->ematch_term_epsilon);
+  uint_learner_set_alpha(&solver->term_learner.learner, prob->parameters->ematch_term_alpha);
+
+#if EM_VERBOSE
+  printf("EMATCH CNSTR mode: %d (%s)\n", solver->cnstr_learner.iter_mode, ematchmode2string[solver->cnstr_learner.iter_mode]);
+  printf("EMATCH TERM mode: %d (%s)\n", solver->term_learner.iter_mode, ematchmode2string[solver->term_learner.iter_mode]);
+#endif
+//  assert(0);
+}
+
 /*
  * Attach problem to solver
  */
 void quant_solver_attach_prob(quant_solver_t *solver, ef_prob_t *prob, context_t *ctx) {
   assert(solver->prob == NULL);
 
-  solver->cnstr_learner.iter_mode = prob->parameters->ematch_cnstr_mode;
-  solver->term_learner.iter_mode = prob->parameters->ematch_term_mode;
-#if EM_VERBOSE
-  printf("EMATCH CNSTR mode: %d (%s)\n", solver->cnstr_learner.iter_mode, ematchmode2string[solver->cnstr_learner.iter_mode]);
-  printf("EMATCH TERM mode: %d (%s)\n", solver->term_learner.iter_mode, ematchmode2string[solver->term_learner.iter_mode]);
-#endif
-
+  quant_solver_attach_parameters(solver, prob);
   solver->prob = prob;
   quant_preprocess_prob(solver);
 //  assert(0);
 
   ematch_attach_tbl(&solver->em, solver->prob->terms, &solver->ptbl, &solver->qtbl, ctx, &solver->term_learner);
   ematch_attach_egraph(&solver->em, solver->egraph);
-
-  term_learner_setup(&solver->term_learner);
-  cnstr_learner_setup(&solver->cnstr_learner);
 
   ematch_compile_all_patterns(&solver->em);
 
@@ -421,6 +440,8 @@ static void init_quant_solver_statistics(quant_solver_stats_t *stat) {
   stat->num_rounds_per_search = 0;
   stat->num_search = 0;
 
+  stat->num_rounds = 0;
+
   stat->max_instances = DEFAULT_MAX_INSTANCES;
   stat->max_instances_per_search = DEFAULT_MAX_INSTANCES_PER_SEARCH;
   stat->max_instances_per_round = DEFAULT_MAX_INSTANCES_PER_ROUND;
@@ -429,22 +450,6 @@ static void init_quant_solver_statistics(quant_solver_stats_t *stat) {
   stat->max_search = DEFAULT_MAX_SEARCH;
 }
 
-static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
-  init_quant_solver_statistics(stat);
-}
-
-static inline void ematch_reset_start_stats(quant_solver_t *solver) {
-  solver->stats.num_search++;
-  solver->stats.num_instances_per_search = 0;
-  solver->stats.num_rounds_per_search = 0;
-
-  term_learner_reset_round(&solver->term_learner, true);
-  cnstr_learner_reset_round(&solver->cnstr_learner, true);
-}
-
-static inline void ematch_reset_round_stats(quant_solver_t *solver) {
-  solver->stats.num_instances_per_round = 0;
-}
 
 static inline bool ematch_reached_instance_limit(quant_solver_t *solver) {
   return (solver->stats.num_instances >= solver->stats.max_instances) ||
@@ -459,6 +464,25 @@ static inline bool ematch_reached_round_limit(quant_solver_t *solver) {
 static inline bool ematch_reached_search_limit(quant_solver_t *solver) {
   return (solver->stats.num_search >= solver->stats.max_search);
 }
+
+static inline void reset_quant_solver_statistics(quant_solver_stats_t *stat) {
+  init_quant_solver_statistics(stat);
+}
+
+static inline void ematch_reset_start_stats(quant_solver_t *solver) {
+  if (!ematch_reached_search_limit(solver))
+    solver->stats.num_search++;
+  solver->stats.num_instances_per_search = 0;
+  solver->stats.num_rounds_per_search = 0;
+
+  term_learner_reset_round(&solver->term_learner, true);
+  cnstr_learner_reset_round(&solver->cnstr_learner, true);
+}
+
+static inline void ematch_reset_round_stats(quant_solver_t *solver) {
+  solver->stats.num_instances_per_round = 0;
+}
+
 
 
 /***********************
@@ -598,7 +622,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   term_t *values = (term_t *) safe_malloc(n * sizeof(term_t));
   for(i=0; i<n; i++) {
     rhs = inst->odata[i];
-    assert(occ_depth(solver->egraph, rhs) < solver->em.exec.max_vdepth);
+    assert(occ_depth(solver->egraph, rhs) < solver->em.exec.vdepth);
 
     rhst = find_intern_mapping(intern, rhs);
     assert(rhst != NULL_TERM);
@@ -761,7 +785,7 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
       yices_pp_term(stdout, pat->p, 120, 1, 0);
 #endif
 
-      ematch_exec_pattern(exec, pat, &cnstr->instances);
+      ematch_exec_pattern(exec, pat, &cnstr->instances, solver->stats.max_instances_per_round);
 
       matches = &pat->matches;
       n = matches->size;
@@ -1237,6 +1261,16 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #if EM_VERBOSE
     printf("\nEMATCH: initial search\n\n");
 #endif
+
+    term_learner_setup(&solver->term_learner);
+    solver->em.exec.fdepth = solver->term_learner.max_depth;
+    solver->em.exec.vdepth = solver->term_learner.max_depth/2;
+#if EM_VERBOSE
+    printf("EMATCH TERM learner max depth: %d\n", solver->term_learner.max_depth);
+#endif
+
+    cnstr_learner_setup(&solver->cnstr_learner);
+
     return FCHECK_SAT;
  }
 
@@ -1321,7 +1355,30 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
       solver->stats.num_instances_per_search);
 #endif
 
+  if (solver->stats.num_instances_per_round == 0) {
+    if (solver->em.exec.fdepth < solver->em.exec.max_fdepth)
+      solver->em.exec.fdepth++;
+    if (solver->em.exec.vdepth < solver->em.exec.max_vdepth)
+      solver->em.exec.vdepth++;
+
+#if EM_VERBOSE
+    printf("(re-running ematching)\n");
+#endif
+
+    ematch_process_all_cnstr(solver);
+
+#if EM_VERBOSE
+  printf("S%d:R%d EMATCH (re-run): learnt total %d instances (%d new, %d in current search)\n",
+      solver->stats.num_search,
+      solver->stats.num_rounds_per_search,
+      solver->stats.num_instances,
+      solver->stats.num_instances_per_round,
+      solver->stats.num_instances_per_search);
+#endif
+  }
+
   solver->stats.num_rounds_per_search++;
+  solver->stats.num_rounds++;
 
 #if EM_VERBOSE
   printf("\n**** QUANTSOLVER: FINAL CHECK DONE ***\n\n");
