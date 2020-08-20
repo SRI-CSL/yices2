@@ -60,7 +60,7 @@ typedef struct polypair_s {
 
 typedef struct arith_s {
 
-  /** Interfact of the subexplainer */
+  /** Interface of the subexplainer */
   bv_subexplainer_t super;
 
   arith_norm_t norm; // Environment for normalising terms

@@ -1334,6 +1334,18 @@ void bv_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   watch_list_manager_gc_mark(&bv->wlm, gc_vars);
 }
 
+static
+void bv_plugin_gc_mark_and_clear(plugin_t* plugin) {
+  bv_plugin_t* bv = (bv_plugin_t*) plugin;
+  // Mark all the terms in the BDD manager
+  bv_bdd_manager_mark_terms(bv->bddm);
+  // Reset all the explainers
+  bv_explainer_destruct(&bv->explainer);
+  bv_explainer_construct(&bv->explainer, bv->ctx, &bv->wlm, &bv->evaluator);
+  // Clear the evaluation cache
+  bv_evaluator_clear_cache(&bv->evaluator);
+}
+
 // Required as plugin_t field
 
 static
@@ -1399,6 +1411,7 @@ plugin_t* bv_plugin_allocator(void) {
   plugin->plugin_interface.push                  = bv_plugin_push;
   plugin->plugin_interface.pop                   = bv_plugin_pop;
   plugin->plugin_interface.gc_mark               = bv_plugin_gc_mark;
+  plugin->plugin_interface.gc_mark_and_clear     = bv_plugin_gc_mark_and_clear;
   plugin->plugin_interface.gc_sweep              = bv_plugin_gc_sweep;
   plugin->plugin_interface.set_exception_handler = bv_plugin_set_exception_handler;
 

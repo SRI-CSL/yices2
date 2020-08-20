@@ -618,4 +618,15 @@ typedef struct error_report_s {
   int64_t badval;
 } error_report_t;
 
+/*
+ * A context for interpolation. It consists of two regular context objects
+ * ctx_A and ctx_B.
+ */
+typedef struct interpolation_context_s {
+  context_t *ctx_A;
+  context_t *ctx_B;
+  term_t interpolant;
+  model_t *model;
+} interpolation_context_t;
+
 #endif  /* YICES_TYPES_H */
