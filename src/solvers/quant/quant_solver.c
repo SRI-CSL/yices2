@@ -393,9 +393,9 @@ static void quant_solver_attach_parameters(quant_solver_t *solver, ef_prob_t *pr
   solver->cnstr_learner.iter_mode = prob->parameters->ematch_cnstr_mode;
   solver->term_learner.iter_mode = prob->parameters->ematch_term_mode;
 
-  uint_learner_set_epsilon(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_epsilon);
+  solver->cnstr_learner.min_epsilon = prob->parameters->ematch_cnstr_epsilon;
+  solver->term_learner.min_epsilon = prob->parameters->ematch_term_epsilon;
   uint_learner_set_alpha(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_alpha);
-  uint_learner_set_epsilon(&solver->term_learner.learner, prob->parameters->ematch_term_epsilon);
   uint_learner_set_alpha(&solver->term_learner.learner, prob->parameters->ematch_term_alpha);
 
 #if EM_VERBOSE
@@ -1012,6 +1012,13 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
   term_learner_reset_round(&solver->term_learner, false);
   cnstr_learner_reset_round(&solver->cnstr_learner, false);
+
+  if (solver->stats.num_rounds % CNSTR_RL_EPSILON_DECAY_ROUNDS == 0) {
+    cnstr_learner_decay_epsilon(&solver->cnstr_learner);
+  }
+  if (solver->stats.num_rounds % TERM_RL_EPSILON_DECAY_ROUNDS == 0) {
+    term_learner_decay_epsilon(&solver->term_learner);
+  }
 
 #if TRACE_LIGHT
 //  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
