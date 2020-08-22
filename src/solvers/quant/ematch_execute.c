@@ -798,30 +798,30 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
     egraph_get_fapps_in_class(exec, ef, regt, &fapps);
     n = fapps.size;
 
-    // BD: memory leak here: instr->idata may be non-NULL here.
-    // Not clear whether that's the right fix.
-    // Why is instr->idata overwritten?
     if (n > 0) {
-      instr->idata = (int32_t *) safe_realloc(instr->idata, n * sizeof(int32_t));
-    }
-    //    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      // store fapps in idata to access in ematch_exec_all_chooseapps
 
-    instr->nsubs = n;
-    for(j=0; j<n; j++) {
+      assert(instr->idata == NULL);
+      instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      instr->nsubs = n;
+
+      for(j=0; j<n; j++) {
 #if TRACE
-      printf("    choosing fapps: ");
-      print_occurrence(stdout, fapps.data[j]);
-      printf("\n");
+        printf("    choosing fapps: ");
+        print_occurrence(stdout, fapps.data[j]);
+        printf("\n");
 #endif
-      instr->idata[j] = fapps.data[j];
+        instr->idata[j] = fapps.data[j];
+      }
+
+      ematch_exec_all_chooseapps(exec, instr);
+
+      safe_free(instr->idata);
+      instr->idata = NULL;
+      instr->nsubs = 0;
     }
 
     delete_ivector(&fapps);
-
-    ematch_exec_all_chooseapps(exec, instr);
-
-//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-//    ematch_stack_save(&exec->bstack, chooseapp);
   }
 
   ematch_exec_backtrack(exec);
@@ -848,28 +848,30 @@ static void ematch_exec_continue(ematch_exec_t *exec, ematch_instr_t *instr) {
     egraph_get_all_fapps(exec, ef, &fapps);
     n = fapps.size;
 
-    // BD: memory leak again: instr->idata may be non-NULL here.
     if (n > 0) {
-      instr->idata = (int32_t *) safe_realloc(instr->idata, n * sizeof(int32_t));
-    }
-    //    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      // store fapps in idata to access in ematch_exec_all_chooseapps
 
-    instr->nsubs = n;
-    for(j=0; j<n; j++) {
+      assert(instr->idata == NULL);
+      instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      instr->nsubs = n;
+
+      for(j=0; j<n; j++) {
 #if TRACE
-      printf("    choosing fapps: ");
-      print_occurrence(stdout, fapps.data[j]);
-      printf("\n");
+        printf("    choosing fapps: ");
+        print_occurrence(stdout, fapps.data[j]);
+        printf("\n");
 #endif
-      instr->idata[j] = fapps.data[j];
+        instr->idata[j] = fapps.data[j];
+      }
+
+      ematch_exec_all_chooseapps(exec, instr);
+
+      safe_free(instr->idata);
+      instr->idata = NULL;
+      instr->nsubs = 0;
     }
 
     delete_ivector(&fapps);
-
-    ematch_exec_all_chooseapps(exec, instr);
-
-//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-//    ematch_stack_save(&exec->bstack, chooseapp);
   }
 
   ematch_exec_backtrack(exec);
