@@ -71,7 +71,7 @@ void term_learner_setup(term_learner_t *learner) {
 
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
     s->Q = (uint_learner->initQ -
-            TERM_RL_DEPTH_COST_FACTOR * depth);
+            TERM_RL_DEPTH_COST_FACTOR * ((double) depth));
     s->Q = uint_learner->initQ;
     pvector_push(pv, s);
 
@@ -117,7 +117,7 @@ void term_learner_setup_extend(term_learner_t *learner) {
 
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
     s->Q = (TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR * uint_learner->initQ -
-            TERM_RL_DEPTH_COST_FACTOR * depth);
+            TERM_RL_DEPTH_COST_FACTOR * ((double) depth));
     pvector_push(pv, s);
 
     generic_heap_add(heap, i);
@@ -239,7 +239,7 @@ void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (TERM_RL_BACKTRACK_REWARD_FACTOR * jump);
+    reward = (TERM_RL_BACKTRACK_REWARD_FACTOR * ((double) jump));
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE

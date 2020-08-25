@@ -172,8 +172,14 @@ static void egraph_get_all_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t 
 #if TRACE
               fputs("    (filtered) ", stdout);
               print_composite(stdout, p);
-              printf(" @ depth %d", composite_depth(egraph, p));
-              fputc('\n', stdout);
+              printf(" @ depth %d: ", composite_depth(egraph, p));
+              term_t r;
+              r = intern_tbl_reverse_map(exec->intern, occi);
+              if (r != NULL_TERM) {
+                yices_pp_term(stdout, r, 120, 1, 0);
+              } else {
+                fputc('\n', stdout);
+              }
 #endif
             }
           }
@@ -314,8 +320,14 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
 #if TRACE
                 fputs("    (filtered) ", stdout);
                 print_composite(stdout, p);
-                printf(" @ depth %d", composite_depth(egraph, p));
-                fputc('\n', stdout);
+                printf(" @ depth %d: ", composite_depth(egraph, p));
+                term_t r;
+                r = intern_tbl_reverse_map(exec->intern, occi);
+                if (r != NULL_TERM) {
+                  yices_pp_term(stdout, r, 120, 1, 0);
+                } else {
+                  fputc('\n', stdout);
+                }
 #endif
               }
             }
@@ -437,7 +449,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     ti = term_of_occ(occi);
 //    term_learner_add_cnstr(term_learner, ti);
 
-#if 0
+#if TRACE
     composite_t *p;
     p = egraph_term_body(exec->egraph, ti);
     printf("    (term) ");
@@ -497,7 +509,7 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
     if (egraph_class_is_root_class(egraph, i)) {
       occi = egraph_class_root(egraph, i);
       if (egraph_term_real_type(egraph, term_of_occ(occi)) == ranget) {
-#if TRACE
+#if 0
         print_class(stdout, egraph, i);
 #endif
         egraph_get_fapps_in_class(exec, f, occi, out);

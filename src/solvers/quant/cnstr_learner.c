@@ -127,7 +127,7 @@ void cnstr_learner_update_term_reward(cnstr_learner_t *learner, uint32_t cost, u
 
   assert(i < learner->qtbl->nquant);
 
-  reward = (- CNSTR_RL_TERM_COST_FACTOR * cost);
+  reward = (- CNSTR_RL_TERM_COST_FACTOR * ((double) cost));
   uint_learner_updateQ(&learner->learner, i, reward);
 
 #if TRACE
@@ -143,7 +143,7 @@ void cnstr_learner_update_lemma_reward(cnstr_learner_t *learner, uint32_t cost, 
 
   assert(i < learner->qtbl->nquant);
 
-  reward = (- CNSTR_RL_LEMMA_COST_FACTOR * cost);
+  reward = (- CNSTR_RL_LEMMA_COST_FACTOR * ((double) cost));
   uint_learner_updateQ(&learner->learner, i, reward);
 
 #if TRACE
@@ -180,7 +180,7 @@ void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t ju
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (CNSTR_RL_BACKTRACK_REWARD_FACTOR * jump);
+    reward = (CNSTR_RL_BACKTRACK_REWARD_FACTOR * ((double) jump));
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE

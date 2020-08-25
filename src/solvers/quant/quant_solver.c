@@ -62,7 +62,7 @@
  *  PRINTING SUPPORT  *
  *********************/
 
-# if 0
+# if TRACE_LIGHT
 static void quant_solver_print_pattern(FILE *f, quant_solver_t *solver, uint32_t i) {
   pattern_t *pat;
   uint32_t n;
@@ -969,9 +969,9 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
   cnstr_learner_update_last_round(&solver->cnstr_learner, true);
 
-#if TRACE_LIGHT
-//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
-//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
+#if TRACE
+  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
 #endif
 
   ivector_reset(&solver->round_cnstrs);
@@ -1020,9 +1020,9 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
     term_learner_decay_epsilon(&solver->term_learner);
   }
 
-#if TRACE_LIGHT
-//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
-//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
+#if TRACE
+  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
 #endif
 
 }
@@ -1305,7 +1305,7 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
   printf("\n**** QUANTSOLVER: FINAL CHECK ***\n\n");
 #endif
 
-#if TRACE
+#if 0
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
@@ -1336,7 +1336,7 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 
   ematch_process_all_cnstr(solver);
 
-#if TRACE
+#if 0
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
