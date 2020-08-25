@@ -57,12 +57,13 @@ typedef enum {
 /*
  * Default bounds ematching execution/trial
  */
-#define DEF_INITIAL_FDEPTH  12
-#define DEF_INITIAL_VDEPTH  5
-#define DEF_MAX_FDEPTH      120
-#define DEF_MAX_VDEPTH      50
-#define DEF_MAX_FAPPS       5
-#define DEF_MAX_MATCHES     1
+#define DEF_INITIAL_FDEPTH  10
+#define DEF_INITIAL_VDEPTH  4
+#define DEF_MAX_FDEPTH      100
+#define DEF_MAX_VDEPTH      30
+#define DEF_MAX_FAPPS       10
+#define DEF_MAX_MATCHES     DEFAULT_MAX_INSTANCES_PER_ROUND
+#define DEF_MAX_MATCHES_PER_YIELD     1
 
 
 /*
@@ -71,7 +72,7 @@ typedef enum {
 #define CNSTR_RL_ALPHA_DEFAULT            0.1
 #define CNSTR_RL_EPSILON_MAX              1000
 #define CNSTR_RL_EPSILON_MIN              200
-#define CNSTR_RL_EPSILON_DEF              999
+#define CNSTR_RL_EPSILON_DEF              (2*CNSTR_RL_EPSILON_MIN)
 #define CNSTR_RL_EPSILON_DECAY            0.999
 #define CNSTR_RL_EPSILON_DECAY_ROUNDS     1
 
@@ -85,10 +86,10 @@ typedef enum {
 /*
  * Default parameters for ematching term learner
  */
-#define TERM_RL_ALPHA_DEFAULT                   0.1
+#define TERM_RL_ALPHA_DEFAULT                   0.2
 #define TERM_RL_EPSILON_MAX                     1000
 #define TERM_RL_EPSILON_MIN                     200
-#define TERM_RL_EPSILON_DEF                     999
+#define TERM_RL_EPSILON_DEF                     (2*TERM_RL_EPSILON_MIN)
 #define TERM_RL_EPSILON_DECAY                   0.999
 #define TERM_RL_EPSILON_DECAY_ROUNDS            1
 

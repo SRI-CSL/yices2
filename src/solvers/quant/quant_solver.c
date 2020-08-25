@@ -1269,9 +1269,15 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
     printf("\nEMATCH: initial search\n\n");
 #endif
 
+	uint32_t maxd = solver->term_learner.max_depth + 1;
+
     term_learner_setup(&solver->term_learner);
-    solver->em.exec.fdepth = solver->term_learner.max_depth;
-    solver->em.exec.vdepth = solver->term_learner.max_depth/2;
+
+    solver->em.exec.max_fdepth = (8*maxd < solver->em.exec.max_fdepth) ? 8*maxd : solver->em.exec.max_fdepth;
+    solver->em.exec.max_vdepth = (4*maxd < solver->em.exec.max_vdepth) ? 4*maxd : solver->em.exec.max_vdepth;
+    solver->em.exec.fdepth     = (2*maxd < solver->em.exec.fdepth)     ? 2*maxd : solver->em.exec.fdepth;
+    solver->em.exec.vdepth     = (1*maxd < solver->em.exec.vdepth)     ? 1*maxd : solver->em.exec.vdepth;
+
 #if EM_VERBOSE
     printf("EMATCH TERM learner max depth: %d\n", solver->term_learner.max_depth);
 #endif
@@ -1363,6 +1369,11 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #endif
 
   if (solver->stats.num_instances_per_round == 0) {
+    uint32_t fd_orig, vd_orig;
+
+    fd_orig = solver->em.exec.fdepth;
+    vd_orig = solver->em.exec.vdepth;
+
     if (solver->em.exec.fdepth < solver->em.exec.max_fdepth)
       solver->em.exec.fdepth++;
     if (solver->em.exec.vdepth < solver->em.exec.max_vdepth)
@@ -1382,6 +1393,11 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
       solver->stats.num_instances_per_round,
       solver->stats.num_instances_per_search);
 #endif
+
+    if (solver->stats.num_instances_per_round == 0) {
+      solver->em.exec.fdepth = fd_orig;
+      solver->em.exec.vdepth = vd_orig;
+    }
   }
 
   solver->stats.num_rounds_per_search++;

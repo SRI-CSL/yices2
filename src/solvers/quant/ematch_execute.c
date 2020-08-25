@@ -73,6 +73,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->max_vdepth = DEF_MAX_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
   exec->max_matches = DEF_MAX_MATCHES;
+  exec->max_matches_per_yield = DEF_MAX_MATCHES_PER_YIELD;
 }
 
 /*
@@ -1038,7 +1039,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
       printf("    match%d added\n", i);
 #endif
       ivector_push(&exec->aux_vector, i);
-      if(exec->aux_vector.size >= exec->max_matches) {
+      if(exec->aux_vector.size >= exec->max_matches_per_yield) {
 #if TRACE_LIGHT
         printf("    early exit\n");
 #endif
