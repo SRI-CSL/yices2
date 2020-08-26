@@ -3904,6 +3904,7 @@ term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, const term_t a
   // try simplification
   while (term_kind(tbl, fun) == UPDATE_TERM) {
     // fun is (update f b_1 ... b_n v)
+    assert(is_pos_term(fun));
     update = update_term_desc(tbl, fun);
     assert(update->arity == n+2);
 
@@ -3917,7 +3918,7 @@ term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, const term_t a
   }
 
   // build (update fun a_1 .. a_n new_v): try second simplification
-  if (term_kind(tbl, new_v) == APP_TERM) {
+  if (is_pos_term(new_v) && term_kind(tbl, new_v) == APP_TERM) {
     app = app_term_desc(tbl, new_v);
     if (app->arity == n+1 && app->arg[0] == fun &&
         equal_term_arrays(n, app->arg + 1, arg)) {
