@@ -3747,6 +3747,7 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, const ter
   }
 
   while (term_kind(tbl, fun) == UPDATE_TERM) {
+    assert(is_pos_term(fun));
     // fun is (update f (a_1 ... a_n) v)
     update = update_term_desc(tbl, fun);
     assert(update->arity == n+2);
