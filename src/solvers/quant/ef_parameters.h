@@ -29,7 +29,7 @@
 #include "solvers/quant/quant_parameters.h"
 
 #define DEF_MBQI_MAX_ITERS              10000
-#define DEF_MBQI_MAX_LEMMAS_PER_ROUND   10
+#define DEF_MBQI_MAX_LEMMAS_PER_ROUND   5
 #define DEF_EMATCH_EN   true
 
 typedef enum ef_gen_option {

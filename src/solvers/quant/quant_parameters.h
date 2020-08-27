@@ -57,27 +57,27 @@ typedef enum {
 /*
  * Default bounds ematching execution/trial
  */
-#define DEF_INITIAL_FDEPTH  10
-#define DEF_INITIAL_VDEPTH  4
-#define DEF_MAX_FDEPTH      100
-#define DEF_MAX_VDEPTH      30
-#define DEF_MAX_FAPPS       10
-#define DEF_MAX_MATCHES     DEFAULT_MAX_INSTANCES_PER_ROUND
+#define DEF_INITIAL_FDEPTH            30
+#define DEF_INITIAL_VDEPTH            10
+#define DEF_MAX_FDEPTH                100
+#define DEF_MAX_VDEPTH                40
+#define DEF_MAX_FAPPS                 5
+#define DEF_MAX_MATCHES               1
 #define DEF_MAX_MATCHES_PER_YIELD     1
 
 
 /*
  * Default parameters for ematching constraint learner
  */
-#define CNSTR_RL_ALPHA_DEFAULT            0.1
+#define CNSTR_RL_ALPHA_DEFAULT            0.2
 #define CNSTR_RL_EPSILON_MAX              1000
 #define CNSTR_RL_EPSILON_MIN              200
-#define CNSTR_RL_EPSILON_DEF              (2*CNSTR_RL_EPSILON_MIN)
+#define CNSTR_RL_EPSILON_DEF              (CNSTR_RL_EPSILON_MIN)
 #define CNSTR_RL_EPSILON_DECAY            0.999
 #define CNSTR_RL_EPSILON_DECAY_ROUNDS     1
 
 #define CNSTR_RL_INITIAL_Q_DEFAULT        100
-#define CNSTR_RL_TERM_COST_FACTOR         1.0
+#define CNSTR_RL_TERM_COST_FACTOR         0.3
 #define CNSTR_RL_LEMMA_COST_FACTOR        0.1
 #define CNSTR_RL_DECISION_COST_FACTOR     1.0
 #define CNSTR_RL_BACKTRACK_REWARD_FACTOR  2.0
@@ -88,15 +88,15 @@ typedef enum {
  */
 #define TERM_RL_ALPHA_DEFAULT                   0.2
 #define TERM_RL_EPSILON_MAX                     1000
-#define TERM_RL_EPSILON_MIN                     200
-#define TERM_RL_EPSILON_DEF                     (2*TERM_RL_EPSILON_MIN)
+#define TERM_RL_EPSILON_MIN                     400
+#define TERM_RL_EPSILON_DEF                     (TERM_RL_EPSILON_MIN)
 #define TERM_RL_EPSILON_DECAY                   0.999
 #define TERM_RL_EPSILON_DECAY_ROUNDS            1
 
 #define TERM_RL_INITIAL_Q_DEFAULT               100
 #define TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR    0.1
-#define TERM_RL_UNMATCH_COST_FACTOR             0.2
-#define TERM_RL_MATCH_REWARD_FACTOR             0.6
+#define TERM_RL_UNMATCH_COST_FACTOR             0.1
+#define TERM_RL_MATCH_REWARD_FACTOR             0.3
 #define TERM_RL_DECISION_COST_FACTOR            1.0
 #define TERM_RL_BACKTRACK_REWARD_FACTOR         4.0
 #define TERM_RL_DEPTH_COST_FACTOR               0.8
