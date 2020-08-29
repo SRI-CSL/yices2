@@ -240,9 +240,9 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(void) {
   printf("Yices %s\n"
-	 "Copyright SRI International.\n"
+   "Copyright SRI International.\n"
          "Linked with GMP %s\n"
-	 "Copyright Free Software Foundation, Inc.\n"
+   "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
          "Platform: %s (%s)\n"
          "Revision: %s\n",
@@ -257,7 +257,7 @@ static void print_help(const char *progname) {
   printf("Option summary:\n"
          "    --version, -V             Show version and exit\n"
          "    --help, -h                Print this message and exit\n"
-	       "    --verbosity=<level>       Set verbosity level (default = 0)\n"
+         "    --verbosity=<level>       Set verbosity level (default = 0)\n"
          "             -v <level>\n"
          "    --timeout=<timeout>       Set a timeout in seconds (default = no timeout)\n"
          "           -t <timeout>\n"
@@ -265,7 +265,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
-	 "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
+         "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Use the MCSat solver\n"
@@ -285,7 +285,7 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
          "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
-       	 "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+         "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
          "\n");
   fflush(stdout);
 }
@@ -427,163 +427,128 @@ static void parse_command_line(int argc, char *argv[]) {
       k = elem.key;
       switch (k) {
       case show_version_opt:
-	print_version();
-	code = YICES_EXIT_SUCCESS;
-	goto exit;
+        print_version();
+        code = YICES_EXIT_SUCCESS;
+        goto exit;
 
       case show_help_opt:
-	print_help(parser.command_name);
-	code = YICES_EXIT_SUCCESS;
-	goto exit;
+        print_help(parser.command_name);
+        code = YICES_EXIT_SUCCESS;
+        goto exit;
 
       case show_mcsat_help_opt:
-	print_mcsat_help(parser.command_name);
-	code = YICES_EXIT_SUCCESS;
-	goto exit;
+        print_mcsat_help(parser.command_name);
+        code = YICES_EXIT_SUCCESS;
+        goto exit;
 
       case show_stats_opt:
-	show_stats = true;
-	break;
+        show_stats = true;
+        break;
 
       case verbosity_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
-	  goto bad_usage;
-	}
-	verbosity = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
+          goto bad_usage;
+        }
+        verbosity = v;
+        break;
 
       case timeout_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the timeout must be non-negative\n", parser.command_name);
-	  goto bad_usage;
-	}
-	timeout = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the timeout must be non-negative\n", parser.command_name);
+          goto bad_usage;
+        }
+        timeout = v;
+        break;
 
       case incremental_opt:
-	incremental = true;
-	break;
+        incremental = true;
+        break;
 
       case interactive_opt:
-	interactive = true;
-	break;
+        interactive = true;
+        break;
 
       case delegate_opt:
-	if (delegate == NULL) {
-	  unknown_delegate = true;
-	  if (supported_delegate(elem.s_value, &unknown_delegate)) {
-	    delegate = copy_string(elem.s_value);
-	  } else if (unknown_delegate) {
-	    fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'kissat' or 'cryptominisat')\n",
-		    parser.command_name, elem.s_value);
-	    goto bad_usage;
-	  } else {
-	    fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support %s\n", parser.command_name, elem.s_value);
-	    goto bad_usage;
-	  }
-	} else if (strcmp(elem.s_value, delegate) != 0) {
-	  fprintf(stderr, "%s: can't have several delegates\n", parser.command_name);
-	  goto bad_usage;
-	}
-	break;
+        if (delegate == NULL) {
+          unknown_delegate = true;
+          if (supported_delegate(elem.s_value, &unknown_delegate)) {
+          delegate = copy_string(elem.s_value);
+        } else if (unknown_delegate) {
+          fprintf(stderr, "%s: unknown delegate: %s (choices are 'y2sat' or 'cadical' or 'kissat' or 'cryptominisat')\n",
+          parser.command_name, elem.s_value);
+          goto bad_usage;
+        } else {
+          fprintf(stderr, "%s: unsupported delegate: this version was not compiled to support %s\n", parser.command_name, elem.s_value);
+          goto bad_usage;
+        }
+      } else if (strcmp(elem.s_value, delegate) != 0) {
+        fprintf(stderr, "%s: can't have several delegates\n", parser.command_name);
+        goto bad_usage;
+      }
+      break;
 
       case dimacs_opt:
-	if (dimacsfile == NULL) {
-	  dimacsfile = copy_string(elem.s_value);
-	  if (dimacsfile == NULL) {
-	    // copy_string failed
-	    fprintf(stderr, "%s: file-name %s is too long\n", parser.command_name, elem.s_value);
-	    code = YICES_EXIT_USAGE;
-	    goto exit;
-	  }
-	} else {
-	  fprintf(stderr, "%s: can't give more than one dimacs file\n", parser.command_name);
-	  goto bad_usage;
-	}
-	break;
+        if (dimacsfile == NULL) {
+          dimacsfile = copy_string(elem.s_value);
+          if (dimacsfile == NULL) {
+            // copy_string failed
+            fprintf(stderr, "%s: file-name %s is too long\n", parser.command_name, elem.s_value);
+            code = YICES_EXIT_USAGE;
+            goto exit;
+         }
+        } else {
+          fprintf(stderr, "%s: can't give more than one dimacs file\n", parser.command_name);
+          goto bad_usage;
+        }
+        break;
 
       case smt2format_opt:
-	smt2_model_format = true;
-	break;
+        smt2_model_format = true;
+        break;
 
       case bvdecimal_opt:
-	bvdecimal = true;
-	break;
+        bvdecimal = true;
+        break;
 
       case mcsat_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
-	mcsat = true;
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat  = true;
         break;
 
       case mcsat_nra_mgcd_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
+        if (! yices_has_mcsat()) goto no_mcsat;
         mcsat_nra_mgcd = true;
         break;
 
       case mcsat_nra_nlsat_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
+        if (! yices_has_mcsat()) goto no_mcsat;
         mcsat_nra_nlsat = true;
         break;
 
       case mcsat_nra_bound_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
+        if (! yices_has_mcsat()) goto no_mcsat;
         mcsat_nra_bound = true;
         break;
 
       case mcsat_nra_bound_min_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the min value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        mcsat_nra_bound_min = v;
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_nra_bound_min = elem.i_value;
         break;
 
       case mcsat_nra_bound_max_opt:
-	if (! yices_has_mcsat()) {
-	  goto no_mcsat;
-	}
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        mcsat_nra_bound_max = v;
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_nra_bound_max = elem.i_value;
         break;
 
       case mcsat_bv_var_size_opt:
-#if HAVE_MCSAT
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the size value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        mcsat_bv_var_size = v;
-#else
-        fprintf(stderr, "mcsat is not supported: %s was not compiled with mcsat support\n", parser.command_name);
-        code = YICES_EXIT_USAGE;
-        goto exit;
-#endif
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_bv_var_size = elem.i_value;
         break;
 
       case show_ef_help_opt:
@@ -596,165 +561,77 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case mbqi_max_iter_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_mbqi_max_iter = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_mbqi_max_iter = elem.i_value;
         break;
 
       case mbqi_lemmas_per_round_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_mbqi_max_lemma_per_round = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_mbqi_max_lemma_per_round = elem.i_value;
         break;
 
       case ematch_inst_per_round_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_inst_per_round = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_inst_per_round = elem.i_value;
         break;
 
       case ematch_inst_per_search_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_inst_per_search = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_inst_per_search = elem.i_value;
         break;
 
       case ematch_inst_total_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_inst_total = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_inst_total = elem.i_value;
         break;
 
       case ematch_rounds_per_search_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_rounds_per_search = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_rounds_per_search = elem.i_value;
         break;
 
       case ematch_search_total_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_search_total = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_search_total = elem.i_value;
         break;
 
       case ematch_trial_fdepth_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_trial_fdepth = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_trial_fdepth = elem.i_value;
         break;
 
       case ematch_trial_vdepth_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_trial_vdepth = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_trial_vdepth = elem.i_value;
         break;
 
       case ematch_trial_fapps_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_trial_fapps = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_trial_fapps = elem.i_value;
         break;
 
       case ematch_trial_matches_opt:
-        v = elem.i_value;
-        if (v < 0) {
-          fprintf(stderr, "%s: the max value must be non-negative\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_trial_matches = v;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        ef_ematch_trial_matches = elem.i_value;
         break;
 
       case ematch_cnstr_epsilon_opt:
-        v = elem.i_value;
-        if (v < 0 || v > CNSTR_RL_EPSILON_MAX) {
-          fprintf(stderr, "%s: epsilon should be between 0 and %d\n", parser.command_name, CNSTR_RL_EPSILON_MAX);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_cnstr_epsilon = v;
+        if (! validate_integer_option(&parser, &elem, 0, CNSTR_RL_EPSILON_MAX)) goto bad_usage;
+        ef_ematch_cnstr_epsilon = elem.i_value;
         break;
 
       case ematch_cnstr_alpha_opt:
-        if (elem.d_value < 0 || elem.d_value > 1) {
-          fprintf(stderr, "%s: learning rate should be between 0 and 1\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
         ef_ematch_cnstr_alpha = elem.d_value;
         break;
 
       case ematch_term_epsilon_opt:
-        v = elem.i_value;
-        if (v < 0 || v > TERM_RL_EPSILON_MAX) {
-          fprintf(stderr, "%s: epsilon should be between 0 and %d\n", parser.command_name, TERM_RL_EPSILON_MAX);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
-        ef_ematch_term_epsilon = v;
+        if (! validate_integer_option(&parser, &elem, 0, TERM_RL_EPSILON_MAX)) goto bad_usage;
+        ef_ematch_term_epsilon = elem.i_value;
         break;
 
       case ematch_term_alpha_opt:
-        if (elem.d_value < 0 || elem.d_value > 1) {
-          fprintf(stderr, "%s: learning rate should be between 0 and 1\n", parser.command_name);
-          print_usage(parser.command_name);
-          code = YICES_EXIT_USAGE;
-          goto exit;
-        }
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
         ef_ematch_term_alpha = elem.d_value;
         break;
 

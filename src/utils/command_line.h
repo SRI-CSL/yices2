@@ -193,4 +193,32 @@ extern void cmdline_print_error(cmdline_parser_t *p, cmdline_elem_t *e);
 extern void cmdline_invalid_argument(cmdline_parser_t *p, cmdline_elem_t *e, char *explanation);
 
 
+/*
+ * Validate an integer option
+ * - e = command-line element being processed
+ * - min = minimal value
+ * - max = maximal value
+ *
+ * This returns true if min <= option value <= max
+ * Otherwise, the function prints an error message and returns false.
+ */
+extern bool validate_integer_option(cmdline_parser_t *p, cmdline_elem_t *e, int32_t min, int32_t max);
+
+
+/*
+ * Validate a floating-point option
+ * - e = command-line option being processed
+ * - min = minimal value (DBL_MIN means no lower bound)
+ * - max = maximal value (DBL_MAX means no upper bound)
+ * - min_strict: true means  check min < e->d_value
+ *               false means check min <= e->d_value
+ * - max_strict: true  means check e->d_value < max
+ *               false means check e->d_value <= max
+ *
+ * Return true the checks pass.
+ * Otherwise, print an error message and return false.
+ */
+extern bool validate_double_option(cmdline_parser_t *p, cmdline_elem_t *e, double min, bool min_strict, double max, bool max_strict);
+
+
 #endif /* __COMMAND_LINE_H */
