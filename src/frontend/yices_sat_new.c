@@ -671,109 +671,80 @@ static void parse_command_line(int argc, char *argv[]) {
 	break;
 
       case var_decay_opt:
-	if (elem.d_value < 0 || elem.d_value > 1) {
-	  fprintf(stderr, "var-decay must be between 0 and 1.\n");
-	  goto bad_usage;
-	}
+	// must be in [0.0, 1.1]
+	if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
 	var_decay_given = true;
 	var_decay = elem.d_value;
 	break;
 
       case clause_decay_opt:
-	if (elem.d_value < 0 || elem.d_value > 1) {
-	  fprintf(stderr, "clause-decay must be between 0 and 1.\n");
-	  goto bad_usage;
-	}
+	// must be in [0.0, 1.1]
+	if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
 	clause_decay_given = true;
 	clause_decay = elem.d_value;
 	break;
 
       case randomness_opt:
-	if (elem.d_value < 0 || elem.d_value > 1) {
-	  fprintf(stderr, "randomness must be between 0 and 1.\n");
-	  goto bad_usage;
-	}
+	// must be in [0.0, 1.1]
+	if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
 	randomness_given = true;
 	randomness = elem.d_value;
 	break;
 
       case stack_threshold_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "stack-threshold can't be negative.\n");
-	  goto bad_usage;
-	}
+	// must be >=0
+	if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
 	stack_threshold_given = true;
 	stack_threshold = elem.i_value;
 	break;
 
       case keep_lbd_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "keep-lbd can't be negative.\n");
-	  goto bad_usage;
-	}
+	// must be >= 0
+	if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
 	keep_lbd_given = true;
 	keep_lbd = elem.i_value;
 	break;
 
       case reduce_fraction_opt:
-	if (elem.i_value < 0 || elem.i_value > 32) {
-	  fprintf(stderr, "reduce-fraction must be between 0 and 32.\n");
-	  goto bad_usage;
-	}
+	// range: [0, 32]
+	if (! validate_integer_option(&parser, &elem, 0, 32)) goto bad_usage;
 	reduce_fraction_given = true;
 	reduce_fraction = elem.i_value;
 	break;
 
       case reduce_interval_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "reduce-interval must be positive.\n");
-	  goto bad_usage;
-	}
+	// must be positive
+	if (! validate_integer_option(&parser, &elem, 1, INT32_MAX)) goto bad_usage;
 	reduce_interval_given = true;
 	reduce_interval = elem.i_value;
 	break;
 
       case reduce_delta_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "reduce-deltal must be positive.\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 1, INT32_MAX)) goto bad_usage;
 	reduce_delta_given = true;
 	reduce_delta = elem.i_value;
 	break;
 
       case restart_interval_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "restart-interval must be positive.\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 1, INT32_MAX)) goto bad_usage;
 	restart_interval_given = true;
 	restart_interval = elem.i_value;
 	break;
 
       case subsume_skip_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "subsume-skip can't be negative.\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
 	subsume_skip_given = true;
 	subsume_skip = elem.i_value;
 	break;
 
       case var_elim_skip_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "var-elim-skip can't be negative\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
 	var_elim_skip_given = true;
 	var_elim_skip = elem.i_value;
 	break;
 
       case res_clause_limit_opt:
-	if (elem.i_value < 0) {
-	  fprintf(stderr, "res-clause-limit can't be negative\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
 	res_clause_limit_given = true;
 	res_clause_limit = elem.i_value;
 	break;
@@ -784,19 +755,13 @@ static void parse_command_line(int argc, char *argv[]) {
 	break;
 
       case simplify_interval_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "simplify-interval must be positive.\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 1, INT32_MAX)) goto bad_usage;
 	simplify_interval_given = true;
 	simplify_interval = elem.i_value;
 	break;
 
       case simplify_bin_delta_opt:
-	if (elem.i_value <= 0) {
-	  fprintf(stderr, "simplify-bin-delta must be positive.\n");
-	  goto bad_usage;
-	}
+	if (! validate_integer_option(&parser, &elem, 1, INT32_MAX)) goto bad_usage;
 	simplify_bin_delta_given = true;
 	simplify_bin_delta = elem.i_value;
 	break;
