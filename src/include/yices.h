@@ -3800,7 +3800,7 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
 /*
  * Value of term t as a node descriptor.
  *
- * The function returns 0 it t's value can be computed, -1 otherwise.
+ * The function returns 0 if t's value can be computed, -1 otherwise.
  * If t's value can be computed, the corresponding node descriptor is
  * returned in *val.
  *
