@@ -3170,7 +3170,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * - t = variables to use, i.e., we check context && t = mdl(t)
  * - the variables t[0] ... t[n-1] must all be uninterpreted terms
  *
- * It behaves the same as the previous function. Note that if the model will take
+ * It behaves the same as the previous function. Note that the model will take
  * default values for variables in t that are not explicitly defined.
  *
  * If this function returns STATUS_UNSAT, then one can construct a model interpolant by
@@ -3800,7 +3800,7 @@ __YICES_DLLSPEC__ extern void yices_reset_yval_vector(yval_vector_t *v);
 /*
  * Value of term t as a node descriptor.
  *
- * The function returns 0 it t's value can be computed, -1 otherwise.
+ * The function returns 0 if t's value can be computed, -1 otherwise.
  * If t's value can be computed, the corresponding node descriptor is
  * returned in *val.
  *
