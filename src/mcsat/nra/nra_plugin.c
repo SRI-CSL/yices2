@@ -123,8 +123,9 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Tracing in libpoly
   if (false) {
-    lp_trace_enable("coefficient");
-    lp_trace_enable("coefficient::sgn");
+//    lp_trace_enable("coefficient");
+//    lp_trace_enable("coefficient::sgn");
+    lp_trace_enable("coefficient::interval");
   }
 
   // Trace pscs

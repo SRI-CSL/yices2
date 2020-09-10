@@ -674,6 +674,13 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(db->nra->ctx, " ");
+      ctx_trace_term(db->nra->ctx, variable_db_get_term(db->nra->ctx->var_db, x));
+      ctx_trace_printf(db->nra->ctx, " ");
+      lp_interval_print(&x_interval, ctx_trace_out(db->nra->ctx));
+      ctx_trace_printf(db->nra->ctx, "\n");
+    }
     lp_interval_assignment_set_interval(m, x_lp, &x_interval);
     lp_interval_destruct(&x_interval);
   }
@@ -682,6 +689,12 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
   lp_interval_t value;
   lp_interval_construct_full(&value);
   lp_polynomial_interval_value(cstr->polynomial, m, &value);
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+    poly_constraint_print(cstr, ctx_trace_out(db->nra->ctx));
+    ctx_trace_printf(db->nra->ctx, " -> ");
+    lp_interval_print(&value, ctx_trace_out(db->nra->ctx));
+    ctx_trace_printf(db->nra->ctx, "\n");
+  }
 
   lp_sign_condition_t pos = cstr->sgn_condition;
   lp_sign_condition_t neg = lp_sign_condition_negate(cstr->sgn_condition);
