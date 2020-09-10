@@ -477,7 +477,7 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
 
   egraph = exec->egraph;
   ranget = function_type_range(egraph->types, egraph_term_real_type(egraph, f));
-  n = egraph->terms.nterms;
+  //  n = egraph->terms.nterms; BD: dead store
 
 #if TRACE
   printf("  Finding all fapps for function ");

@@ -373,7 +373,8 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
       while (!lp_polynomial_is_constant(current)) {
         int current_sgn = lp_polynomial_sgn(current, map->m);
         term_t current_term = lp_polynomial_to_yices_term(map->nra, current);
-        term_t current_literal = NULL_TERM;
+	//        term_t current_literal = NULL_TERM; // infer dead store
+	term_t current_literal;
         if (current_sgn < 0) {
           current_literal = mk_arith_term_lt0(tm, current_term);
         } else if (current_sgn > 0) {

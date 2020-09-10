@@ -266,7 +266,8 @@ bool bv_feasible_set_db_update(bv_feasible_set_db_t* db, variable_t x, bdd_t new
 
   assert(db->updates_size == db->updates.size);
   bv_bdd_manager_t* bddm = db->bddm;
-  bool feasible = true;
+  //  bool feasible = true; // BD: infer reports a dead store
+  bool feasible;
   term_table_t* terms = db->ctx->terms;
   variable_db_t* var_db = db->ctx->var_db;
   term_t x_term = variable_db_get_term(var_db, x);

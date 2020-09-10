@@ -460,12 +460,12 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
     return r->val;
   }
 
-  sk_pair_t sp_;
+  //  sk_pair_t sp_;   // BD: used only in dead store
   sk_pair_t *sp_result, *sp;
 
   r->val = safe_malloc(sizeof(sk_pair_t));
   sp_result = r->val;
-  sp = &sp_;
+  //  sp = &sp_; // infer: dead store
 
   term_manager_t *mgr;
   term_table_t *terms;

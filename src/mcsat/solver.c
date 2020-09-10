@@ -1809,7 +1809,8 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
 
   variable_t var;
   plugin_t* plugin = NULL;
-  uint32_t plugin_i = MCSAT_MAX_PLUGINS;
+  //  uint32_t plugin_i = MCSAT_MAX_PLUGINS; // BD: infer dead store
+  uint32_t plugin_i;
   tracer_t* trace = mcsat->ctx->trace;
   term_t substitution;
 

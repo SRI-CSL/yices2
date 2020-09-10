@@ -317,7 +317,8 @@ bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, co
       lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
       term_t assumption_i_p_term = lp_polynomial_to_yices_term(nra, assumption_p_i);
       int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
-      term_t assumption_i = NULL_TERM;
+      //      term_t assumption_i = NULL_TERM; // infer dead store
+      term_t assumption_i;
       if (assumption_i_p_sgn < 0) {
         assumption_i = mk_arith_term_lt0(tm, assumption_i_p_term);
       } else if (assumption_i_p_sgn > 0) {

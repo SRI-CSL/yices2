@@ -870,7 +870,8 @@ void eq_graph_print_node(const eq_graph_t* eq, const eq_node_t* n, FILE* out, bo
 
 void eq_graph_print_class(const eq_graph_t* eq, eq_node_id_t start_node_id, FILE* out) {
   const eq_node_t* n = eq_graph_get_node_const(eq, start_node_id);
-  eq_node_id_t n_id = start_node_id;
+  //  eq_node_id_t n_id = start_node_id; // BD: dead store reported by infer
+  eq_node_id_t n_id;
   bool first = true;
   do {
     if (!first) { fprintf(out, ", "); }
