@@ -504,6 +504,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     cstr_polynomial = lp_polynomial_from_term(db->nra, terms, t1, NULL);
     sgn_condition = LP_SGN_GE_0;
     break;
+  case EQ_TERM:
   case ARITH_BINEQ_ATOM: {
     // LHS = RHS
     t1 = composite_term_arg(terms, constraint_var_term, 0);

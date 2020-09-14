@@ -36,6 +36,7 @@ void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, i
   case ARITH_GE_ATOM:
     nra_plugin_get_term_variables(nra, arith_atom_arg(terms, atom), vars_out);
     break;
+  case EQ_TERM:
   case ARITH_BINEQ_ATOM:
     nra_plugin_get_term_variables(nra, composite_term_arg(terms, atom, 0), vars_out);
     nra_plugin_get_term_variables(nra, composite_term_arg(terms, atom, 1), vars_out);

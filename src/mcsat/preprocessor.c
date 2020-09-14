@@ -411,6 +411,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
     case BITVECTOR_TYPE:
+    case SCALAR_TYPE:
       break;
     default:
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);

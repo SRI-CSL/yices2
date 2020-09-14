@@ -152,8 +152,10 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Types (we add INT because it's there for ITEs over int constants)
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
   ctx->request_term_notification_by_type(ctx, INT_TYPE);
+  ctx->request_term_notification_by_type(ctx, SCALAR_TYPE);
   ctx->request_decision_calls(ctx, REAL_TYPE);
   ctx->request_decision_calls(ctx, INT_TYPE);
+  ctx->request_decision_calls(ctx, SCALAR_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
 
@@ -524,6 +526,25 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, ineq2);
     break;
   }
+  case UNINTERPRETED_TERM: {
+    // If scalar, add lemma
+    type_kind_t type_kind = term_type_kind(terms, t);
+    if (type_kind == SCALAR_TYPE) {
+      // 0 <= t < type size
+      type_t type =  term_type(terms, t);
+      uint32_t type_size = scalar_type_cardinal(terms->types, type);
+      ivector_t disjuncts;
+      init_ivector(&disjuncts, type_size);
+      for (i=0; i < type_size; i++) {
+        term_t disjunct = _o_yices_eq(t, _o_yices_constant(type, i));
+        ivector_push(&disjuncts, disjunct);
+      }
+      term_t tcc = _o_yices_or(type_size, disjuncts.data);
+      prop->lemma(prop, tcc);
+      delete_ivector(&disjuncts);
+    }
+    break;
+  }
   default:
     break;
   }
@@ -614,16 +635,48 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Stats
     (*nra->stats.constraints_attached) ++;
   } else {
-    // Add the variable to libpoly if not a constant
-    if (t_kind != ARITH_CONSTANT) {
+    // Either constants or variables
+    switch (t_kind) {
+    case ARITH_CONSTANT:  {
+      // Propagate constant value
+      lp_rational_t rat_value;
+      lp_rational_construct(&rat_value);
+      q_get_mpq(rational_term_desc(terms, t), &rat_value);
+      lp_value_t lp_value;
+      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+      mcsat_value_t mcsat_value;
+      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
+      mcsat_value_destruct(&mcsat_value);
+      lp_value_destruct(&lp_value);
+      lp_rational_destruct(&rat_value);
+      break;
+    }
+    case CONSTANT_TERM: {
+      // Propagate constant value
+      int32_t int_value;
+      _o_yices_scalar_const_value(t, &int_value);
+      lp_rational_t rat_value;
+      lp_rational_construct_from_int(&rat_value, int_value, 1);
+      lp_value_t lp_value;
+      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+      mcsat_value_t mcsat_value;
+      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
+      mcsat_value_destruct(&mcsat_value);
+      lp_value_destruct(&lp_value);
+      lp_rational_destruct(&rat_value);
+      break;
+    }
+    default: {
+
       if (!nra_plugin_term_has_lp_variable(nra, t)) {
         nra_plugin_add_lp_variable_from_term(nra, t);
       }
 
       if (nra->ctx->options->nra_bound) {
-
         if (nra->global_bound_term == NULL_TERM) {
-          term_table_t* terms = nra->ctx->terms;
+          term_table_t *terms = nra->ctx->terms;
           type_t reals = int_type(terms->types);
           nra->global_bound_term = new_uninterpreted_term(terms, reals);
           set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
@@ -660,20 +713,8 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
           }
         }
       }
-
-    } else {
-      // Propagate constant value
-      lp_rational_t rat_value;
-      lp_rational_construct(&rat_value);
-      q_get_mpq(rational_term_desc(terms, t), &rat_value);
-      lp_value_t lp_value;
-      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
-      mcsat_value_t mcsat_value;
-      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
-      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
-      mcsat_value_destruct(&mcsat_value);
-      lp_value_destruct(&lp_value);
-      lp_rational_destruct(&rat_value);
+      break;
+    }
     }
   }
 

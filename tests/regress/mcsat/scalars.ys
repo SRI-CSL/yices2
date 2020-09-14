@@ -1,0 +1,10 @@
+(define-type T (scalar a b))
+
+(define x :: T)
+(define y :: T)
+
+(assert (not (= x y )))
+
+(check)
+(show-model)
+
