@@ -44,6 +44,10 @@ void init_evaluator(evaluator_t *eval, model_t *model) {
   eval->terms = model->terms;
   eval->vtbl = &model->vtbl;
 
+  // give default interpretations for the divide by zero
+  // functions.
+  vtbl_set_default_zero_divide(eval->vtbl);
+
   init_int_hmap(&eval->cache, 0); // use the default hmap size
   init_istack(&eval->stack);
   // eval->env is not initialized
