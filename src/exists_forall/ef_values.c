@@ -20,6 +20,12 @@
  * Build a value table mapping a value to a list of terms.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 

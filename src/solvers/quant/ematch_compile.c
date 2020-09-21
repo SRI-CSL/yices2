@@ -20,6 +20,11 @@
  * PATTERN COMPILER FOR E-MATCHING
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
 
 #include "solvers/quant/ematch_compile.h"
 #include "yices.h"

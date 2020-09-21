@@ -20,6 +20,11 @@
  * QUANTIFIER PATTERNS
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
 
 #include "solvers/quant/quant_pattern.h"
 #include "utils/index_vectors.h"

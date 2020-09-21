@@ -20,6 +20,12 @@
  * PRINT INTERNALIZATION TABLE
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <assert.h>
 #include <inttypes.h>
 

@@ -20,6 +20,11 @@
  * Skolemization for the EF solver.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
 
 #include <stdint.h>
 #include <stdio.h>
