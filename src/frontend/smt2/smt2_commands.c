@@ -982,7 +982,7 @@ static void print_yices_error(bool full) {
     print_out("maximal polynomial degree exceeded");
     break;
   case DIVISION_BY_ZERO:
-    print_out("division by zero");
+    unsupported_construct("division by zero");
     break;
   case POS_INT_REQUIRED:
     print_out("integer argument must be positive");
@@ -1135,11 +1135,12 @@ static void print_yices_error(bool full) {
 
 
 /*
- * Print an internalization error code
+ * Print an internalization error code: force exit
  */
 static void print_internalization_error(int32_t code) {
   yices_internalization_error(code);
   print_yices_error(true);
+  done = true;
 }
 
 /*
@@ -1148,6 +1149,7 @@ static void print_internalization_error(int32_t code) {
 static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
   print_error("%s", efcode2error[code]);
+  done = true;
 }
 
 
@@ -1507,8 +1509,8 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   }
 
   close_error();
+  done = true;
 }
-
 
 
 /*
@@ -3045,6 +3047,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
       if (code < 0) {
 	print_yices_error(true);
+	done = true;
 	return;
       }
 
@@ -3056,6 +3059,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       if (code < 0) {
 	// error during assertion processing
 	print_yices_error(true);
+	done = true;
 	return;
       }
 
@@ -3188,6 +3192,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     if (code < 0) {
       // error during assertion processing
       print_yices_error(true);
+      done = true;
       return;
     }
     init_search_parameters(g);
@@ -3201,6 +3206,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     if (status == STATUS_ERROR) {
       free_assumptions(g->unsat_core);
       g->unsat_core = NULL;
+      done = true;
     }
   }
 }
@@ -3229,6 +3235,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       if (code < 0) {
         // error during assertion processing
         print_yices_error(true);
+	done = true;
         return;
       }
       init_search_parameters(g);
@@ -3242,6 +3249,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
         // cleanup
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
+	done = true;
       }
     }
   }
@@ -3265,6 +3273,7 @@ static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t 
     if (code < 0) {
       // error during assertion processing
       print_yices_error(true);
+      done = true;
       return;
     }
     init_search_parameters(g);
@@ -3376,6 +3385,22 @@ static void cleanup_context(smt2_globals_t *g) {
   }
 }
 
+#if 0
+static void show_assertion(smt2_globals_t *g, term_t t) {
+  smt2_pp_t printer;
+
+  fprintf(g->out, "--- All terms ---\n");
+  pp_term_table(g->out, __yices_globals.terms);
+  fprintf(g->out, "\n");
+
+  fprintf(g->out, "\nadd_assertion\n");
+  init_pretty_printer(&printer, g);
+  pp_term_full(&printer.pp, __yices_globals.terms, t);
+  flush_smt2_pp(&printer);
+  delete_smt2_pp(&printer, true);
+}
+#endif
+
 /*
  * Assert t in g->ctx
  * - t is known to be a Boolean term here
@@ -3385,6 +3410,8 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   int32_t code;
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+
+  //  show_assertion(g, t);
 
   switch (context_status(g->ctx)) {
   case STATUS_IDLE:
@@ -3536,6 +3563,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       if (status == STATUS_ERROR) {
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
+	done = true;
       }
       break;
 
@@ -6711,6 +6739,7 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
       macro = yices_type_constructor(name, arity);
       if (macro < 0) {
         print_yices_error(true);
+	done = true;
       } else {
         save_macro_name(&__smt2_globals, name);
         report_success();
@@ -6744,6 +6773,7 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
       macro = yices_type_macro(name, n, var, body);
       if (macro < 0) {
         print_yices_error(true);
+	done = true;
       } else {
         save_macro_name(&__smt2_globals, name);
         report_success();
@@ -6814,6 +6844,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
     if (! yices_check_term_type(body, tau)) {
       // ? print a better error message?
       print_yices_error(true);
+      done = true;
       return;
     }
 
@@ -6838,6 +6869,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
       t = yices_lambda(n, var, t);
       if (t < 0) {
         print_yices_error(true);
+	done = true;
         return;
       }
     }

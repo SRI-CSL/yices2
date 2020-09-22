@@ -1427,6 +1427,24 @@ static bool is_non_zero_rational(term_table_t *tbl, term_t t, rational_t *val) {
   return false;
 }
 
+
+/*
+ * Error in division: either the divisor is zero or is non-constant
+ */
+static void __attribute__((noreturn))  bad_divisor(context_t *ctx, term_t t) {
+  term_table_t *tbl;
+  int code;
+
+  tbl = ctx->terms;
+  assert(is_arithmetic_term(tbl, t) && is_pos_term(t));
+
+  code = FORMULA_NOT_LINEAR;
+  if (term_kind(tbl, t) == ARITH_CONSTANT && q_is_zero(rational_term_desc(tbl, t))) {
+    code = DIV_BY_ZERO;
+  }
+  longjmp(ctx->env, code);
+}
+
 /*
  * Convert (/ t1 t2) to an arithmetic variable
  * - t2 must be a non-zero arithmetic constant
@@ -1434,7 +1452,7 @@ static bool is_non_zero_rational(term_table_t *tbl, term_t t, rational_t *val) {
 static thvar_t map_rdiv_to_arith(context_t *ctx, composite_term_t *div) {
   // Could try to evaluate t2 then check whether that's a constant
   assert(div->arity == 2);
-  longjmp(ctx->env, FORMULA_NOT_LINEAR);
+  bad_divisor(ctx, div->arg[1]);
 }
 
 
@@ -1458,7 +1476,7 @@ static thvar_t map_idiv_to_arith(context_t *ctx, composite_term_t *div) {
     // division by a non-constant or by zero: not supported by default
     // arithmetic solver for now
     q_clear(&k);
-    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+    bad_divisor(ctx, div->arg[1]);
   }
   q_clear(&k);
 
@@ -1497,7 +1515,7 @@ static thvar_t map_mod_to_arith(context_t *ctx, composite_term_t *mod) {
   } else {
     // Non-constant or zero divider
     q_clear(&k);
-    longjmp(ctx->env, FORMULA_NOT_LINEAR);
+    bad_divisor(ctx, mod->arg[1]);
   }
 
   q_clear(&k);
@@ -2593,7 +2611,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
         break;
 
       case ARITH_RDIV:
-	assert(is_real_type(tau));
+	assert(is_arithmetic_type(tau));
 	x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
 	u = translate_arithvar_to_eterm(ctx, x);
 	break;
