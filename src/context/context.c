@@ -3599,11 +3599,11 @@ static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     }
 
-  } else {
+  } else if (intern_tbl_sound_subst(intern, t1, t2)) {
     /*
      * Internalize t2 to x.
      * If t1 is still free after that, we can map t1 to x
-     * otherwise, t2 depends on t1 so we can't substitute
+     * otherwise, t2 depends on t1 so we can't substitute.
      */
     x = internalize_to_arith(ctx, t2);
     if (intern_tbl_root_is_free(intern, t1)) {
@@ -3616,6 +3616,10 @@ static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
       // assert x == y in the arithmetic solver
       ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, true);
     }
+  } else {
+    x = internalize_to_arith(ctx, t1);
+    y = internalize_to_arith(ctx, t2);
+    ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, true);
   }
 }
 

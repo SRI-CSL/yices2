@@ -1133,8 +1133,11 @@ static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t
       // unsat by type incompatibility
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     }
-  } else {
+  } else if (intern_tbl_sound_subst(intern, t1, t2)) {
     ivector_push(&ctx->subst_eqs, e);
+  } else {
+    // can't substitute
+    ivector_push(&ctx->top_eqs, e);
   }
 }
 
