@@ -1,1 +1,1 @@
-(error "mcsat: named terms not supported")
+(error "mcsat: checking with assumptions only supports variables as assumptions")

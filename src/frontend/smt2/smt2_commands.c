@@ -1119,7 +1119,7 @@ static void print_yices_error(bool full) {
     print_out("mcsat: unsupported theory");
     break;
   case MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED:
-    print_out("mcsat: named terms not supported");
+    print_out("mcsat: checking with assumptions only supports variables as assumptions");
     break;
 
   case OUTPUT_ERROR:

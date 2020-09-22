@@ -2520,7 +2520,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       // Apply the pre-processor. If the variable is substituted, we
       // need to add the equality x = t
       term_t x = assumptions[i];
-      assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM);
+      assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
       assert(is_pos_term(x));
       term_t x_pre = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
       if (x != x_pre) {
