@@ -1,0 +1,6 @@
+(set-logic QF_LIRA)
+(declare-const i8 Int)
+(declare-const r11 Real)
+(assert (<= 0.0 r11))
+(assert (= (to_real i8) 0.9125 r11))
+(check-sat)
