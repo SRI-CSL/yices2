@@ -2780,7 +2780,7 @@ static bool fun_solver_var_equal_in_model(fun_solver_t *solver, thvar_t x1, thva
  *
  * To compute sample_value(x):
  * - if x has finite domain and default[x] is a fresh object and it's
- *   relevant for x, sample_vlaue(x) = default[x]
+ *   relevant for x, sample_value(x) = default[x]
  * - otherwise sample_value(x) = max of default[x] and egraph labels
  *   of all elements that occur in app[x]
  *
@@ -2824,7 +2824,11 @@ static int32_t fun_solver_sample_value_for_var(fun_solver_t *solver, thvar_t x) 
     return d;
   }
 
-  d = -1;
+  if (fun_var_has_finite_domain(vtbl, x) &&
+      app_size >= card_of_domain_type(solver->types, fun_var_type(vtbl, x))) {
+    // d is not relevant
+    d = -1;
+  }
   for (i=0; i<app_size; i++) {
     c = v[i];
     label = egraph_term_label(solver->egraph, c->id);
