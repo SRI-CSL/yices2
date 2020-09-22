@@ -187,11 +187,29 @@ ifeq ($(YICES_MODE),gcov)
   CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
+ifeq ($(YICES_MODE),sanitize)
+CFLAGS := $(CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
   CFLAGS := $(CFLAGS) -O3 -g
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-  CFLAGS := $(CFLAGS) -g
+ifeq ($(YICES_MODE),gperftools)
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+ifeq ($(POSIXOS),linux)
+  LIBS += -Wl,--no-as-needed -lprofiler
+else
+  LIBS += -lprofiler
+endif
+else
+#
+# debug mode
+#
+CFLAGS := $(CFLAGS) -g
+endif
+endif
 endif
 endif
 endif
