@@ -9218,7 +9218,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
     bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
     if (!is_variable) {
       error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      error->code = MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
   }

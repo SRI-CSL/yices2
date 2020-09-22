@@ -687,7 +687,7 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
       ivector_push(&assumptions, x);
     }
     // Solve
-    status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+    status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
     // Remove temps
     delete_ivector(&assumptions);
     delete_model(&mdl);
@@ -1117,6 +1117,9 @@ static void print_yices_error(bool full) {
 
   case MCSAT_ERROR_UNSUPPORTED_THEORY:
     print_out("mcsat: unsupported theory");
+    break;
+  case MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED:
+    print_out("mcsat: named terms not supported");
     break;
 
   case OUTPUT_ERROR:
@@ -3563,7 +3566,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       if (status == STATUS_ERROR) {
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
-	done = true;
+        done = true;
       }
       break;
 

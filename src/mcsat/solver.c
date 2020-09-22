@@ -2232,6 +2232,7 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
     // The variable (should exists already)
     var_term = assumptions[mcsat->assumption_i];
     var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
+    assert(var != variable_null);
     // Get the owner that will 'decide' the value of the variable
     plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
     assert(plugin_i != MCSAT_MAX_PLUGINS);
@@ -2519,17 +2520,17 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       // Apply the pre-processor. If the variable is substituted, we
       // need to add the equality x = t
       term_t x = assumptions[i];
+      assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM);
       assert(is_pos_term(x));
-      term_t t = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
-      if (x != t) {
+      term_t x_pre = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
+      if (x != x_pre) {
         // Assert x = t although we solved it already :(
-        term_t eq = mk_eq(&mcsat->tm, x, t);
+        term_t eq = mk_eq(&mcsat->tm, x, x_pre);
         mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
       }
-
       // Make sure the variable is registered (maybe it doesn't appear in assertions)
       variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
-      ivector_push(&mcsat->assertion_vars, x_var);
+      ivector_push(&mcsat->assumption_vars, x_var);
       mcsat_process_registeration_queue(mcsat);
     }
   }
@@ -2549,7 +2550,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat->interpolant = false_term;
     mcsat->status = STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
-    return;
+    goto solve_done;
   }
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::solve")) {
@@ -2661,6 +2662,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Make sure any additional terms are registered
   mcsat_process_registeration_queue(mcsat);
+
+solve_done:
+
+  ivector_reset(&mcsat->assumption_vars);
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
