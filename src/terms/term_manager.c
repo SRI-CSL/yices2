@@ -3198,6 +3198,7 @@ term_t mk_direct_arith_root_atom_eq(rba_buffer_t* b, term_table_t* terms, uint32
   return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_EQ, simplify_ite);
 }
 
+
 /*
  * ARITHMETIC FUNCTIONS
  */
@@ -3327,6 +3328,37 @@ term_t mk_arith_abs(term_manager_t *manager, term_t t) {
 
 
 /*
+ * FLOOR AND CEIL
+ */
+
+/*
+ * Floor/ceil of a rational constant
+ */
+static term_t arith_constant_floor(term_manager_t *manager, rational_t *q) {
+  rational_t *aux;
+
+  aux = &manager->r0;
+  q_set(aux, q);
+  q_floor(aux);
+  q_normalize(aux);
+
+  return arith_constant(manager->terms, aux);
+}
+
+static term_t arith_constant_ceil(term_manager_t *manager, rational_t *q) {
+  rational_t *aux;
+
+  aux = &manager->r0;
+  q_set(aux, q);
+  q_ceil(aux);
+  q_normalize(aux);
+
+  return arith_constant(manager->terms, aux);
+}
+
+
+
+/*
  * (floor t) and (ceil t)
  * - if t is an integer --> t
  * - otherwise, build the term.
@@ -3342,6 +3374,10 @@ term_t mk_arith_floor(term_manager_t *manager, term_t t) {
   tbl = manager->terms;
   if (is_integer_term(tbl, t)) return t;
 
+  if (term_kind(tbl, t) == ARITH_CONSTANT) {
+    return arith_constant_floor(manager, rational_term_desc(tbl, t));
+  }
+
   return arith_floor(tbl, t);
 }
 
@@ -3350,6 +3386,10 @@ term_t mk_arith_ceil(term_manager_t *manager, term_t t) {
 
   tbl = manager->terms;
   if (is_integer_term(tbl, t)) return t;
+
+  if (term_kind(tbl, t) == ARITH_CONSTANT) {
+    return arith_constant_ceil(manager, rational_term_desc(tbl, t));
+  }
 
   return arith_ceil(manager->terms, t);
 }
