@@ -8331,8 +8331,8 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
 
   if (config != NULL && config->trace_tags != NULL) {
-    // Make new trace
-    tracer_t *trace = (tracer_t*) safe_malloc(sizeof(tracer_t));
+    // Make new tracer
+    tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
     init_trace(trace);
     set_trace_file(trace, stderr);
     // Copy over the trace tag to the tracer
