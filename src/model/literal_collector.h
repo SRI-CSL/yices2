@@ -34,7 +34,7 @@
  *   2) p_1 /\ p_2 /\ ... /\ p_n => (t == u)
  *   3) u is atomic:
  *      if t is Boolean, u is either true_term or false_term
- *      otherwise u a term with no if-then-else subterms
+ *      otherwise u is a term with no if-then-else subterms
  *      (e.g., u is an arithmetic term with no if-then-elses).
  *
  * - informally, u is the result of simplifying t modulo p_1 ... p_n
