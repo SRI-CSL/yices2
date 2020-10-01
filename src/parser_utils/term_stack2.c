@@ -195,6 +195,9 @@ static void alloc_tstack(tstack_t *stack, uint32_t nops) {
   stack->sbuffer = NULL;
   stack->sbuffer_size = 0;
 
+  stack->name_buffer = NULL;
+  stack->name_buffer_size = 0;
+
   init_bvconstant(&stack->bvconst_buffer);
 
   stack->abuffer = NULL;
@@ -835,6 +838,29 @@ void extend_sbuffer(tstack_t *stack, uint32_t n) {
   stack->sbuffer = (signed_symbol_t *) safe_realloc(stack->sbuffer, new_size * sizeof(signed_symbol_t));
   stack->sbuffer_size = new_size;
 }
+
+
+/*
+ * Make the name buffer large enough for n names
+ */
+void extend_name_buffer(tstack_t *stack, uint32_t n) {
+  uint32_t new_size;
+
+  assert(stack->name_buffer_size < n);
+
+  new_size = stack->name_buffer_size + 1;
+  new_size += new_size;
+  if (new_size < n) new_size = n;
+
+  if (new_size > MAX_NAME_BUFFER_SIZE) {
+    out_of_memory();
+  }
+
+  stack->name_buffer = (char **) safe_realloc(stack->name_buffer, new_size * sizeof(char *));
+  stack->name_buffer_size = new_size;
+}
+
+
 
 
 
@@ -2970,23 +2996,52 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [bind <string> <term>]
+ * [bind <string> <term>  .... <string> <term>]
  */
+// bind is parallel: we process a block of pairs <name, term>
+// the result of bind is a list of bindings object
+// they are pushed on the stack and will be removed when we
+// pop out of the enclosing let.
+
 static void check_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+
   check_op(stack, BIND);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_SYMBOL);
+  check_size(stack, n >= 2);
+  check_size(stack, (n & 0x1) == 0);
+  for (i=0; i<n; i+=2) {
+    check_tag(stack, f+i, TAG_SYMBOL);
+  }
 }
 
 static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
+  term_t *values;
+  char **names;
   char *name;
+  term_t t;
+  uint32_t i, j, nb;
 
-  name = f[0].val.string;
-  t = get_term(stack, f+1);
-  _o_yices_set_term_name(t, name);
+  nb = n/2;
+  assert(nb > 0);
+
+  values = get_aux_buffer(stack, nb);
+  names = get_name_buffer(stack, nb);
+  j = 0;
+  for (i=0; i<nb; i++) {
+    name = f[j].val.string;
+    j ++;
+    t = get_term(stack, f+j);
+    j ++;
+    _o_yices_set_term_name(t, name);
+    names[i] = name;
+    values[i] = t;
+  }
   tstack_pop_frame(stack);
-  set_binding_result(stack, t, name);
+
+  // push back the bindings
+  for (i=0; i<nb; i++) {
+    set_binding_result(stack, values[i], names[i]);
+  }
 }
 
 
@@ -3040,7 +3095,7 @@ static void eval_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
 
 /*
- * [let <binding> ... <binding> <term>]
+ * [let [do-bind <binding> ... <binding> <term>]
  */
 static void check_let(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, LET);
@@ -5485,7 +5540,7 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // BIND
   0, // DECLARE_VAR
   0, // DECLARE_TYPE_VAR
-  1, // LET
+  0, // LET
   0, // MK_BV_TYPE
   0, // MK_SCALAR_TYPE
   0, // MK_TUPLE_TYPE
@@ -5814,6 +5869,11 @@ void delete_tstack(tstack_t *stack) {
   if (stack->sbuffer != NULL) {
     safe_free(stack->sbuffer);
     stack->sbuffer = NULL;
+  }
+
+  if (stack->name_buffer != NULL) {
+    safe_free(stack->name_buffer);
+    stack->name_buffer = NULL;
   }
 
   delete_bvconstant(&stack->bvconst_buffer);

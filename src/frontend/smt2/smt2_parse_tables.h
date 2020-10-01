@@ -161,17 +161,18 @@ typedef enum actions {
   symbol_next_push_t8a_goto_t0,
 
   // (let ...
-  next_goto_t2a,
+  bind_next_goto_t2a,
   next_goto_t2b,
   symbol_next_push_t2d_goto_t0,
   next_goto_t2e,
-  next_push_r0_goto_t0,
+  close_next_push_r0_goto_t0,
 
   // (exists ... and (forall ...
   next_goto_t3a,
   next_goto_t3b,
   symbol_next_push_t3d_goto_s0,
   next_goto_t3e,
+  next_push_r0_goto_t0,
 
   // (! <term> ...
   check_keyword_then_branch,
@@ -372,7 +373,7 @@ static const uint8_t check[BSIZE] = {
 };
 
 // Value table
-static const uint8_t 	value[BSIZE] = {
+static const uint8_t value[BSIZE] = {
   next_goto_c1,
   next_return,
   empty_command_return,
@@ -476,7 +477,7 @@ static const uint8_t 	value[BSIZE] = {
   next_push_s10_goto_s0,
   symbol_next_goto_c9b,
   numeral_next_goto_s8,
-  next_goto_t2a,
+  bind_next_goto_t2a,
   next_goto_t2b,
   symbol_next_goto_c11a,
   next_goto_a1,
@@ -491,7 +492,7 @@ static const uint8_t 	value[BSIZE] = {
   symbol_next_return,
   next_goto_a1,
   next_goto_t2b,
-  next_push_r0_goto_t0,
+  close_next_push_r0_goto_t0,
   numeral_next_return,
   decimal_next_return,
   hexadecimal_next_return,

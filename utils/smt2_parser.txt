@@ -781,7 +781,7 @@ t1           let                next; goto t2
              <symbol>           next; push t8a; goto t0
 
 // after '(let'
-t2           (                  next; goto t2a
+t2           (                  next; goto t2a // start bind
 
 t2a          (                  next; goto t2b
 
@@ -790,7 +790,7 @@ t2b          <symbol>           next; push t2d; goto t0
 t2d          )                  next; goto t2e
 
 t2e          (                  next; goto t2b
-             )                  next; push r0; goto t0
+             )                  next; push r0; goto t0 // end bind
 
 // after '(exists' or '(forall'
 t3           (                  next; goto t3a

@@ -68,7 +68,7 @@ enum actions {
   get_proof_next_goto_r0,
   get_unsat_assumptions_next_goto_r0,
   get_unsat_core_next_goto_r0,
-  get_unsat_model_inerpolant_next_goto_r0,
+  get_unsat_model_interpolant_next_goto_r0,
   get_value_next_goto_c12,
   pop_next_goto_c3,
   push_next_goto_c3,
@@ -82,7 +82,7 @@ enum actions {
   // arguments to the commands
   numeral_next_goto_r0,
   keyword_next_goto_r0,
-  symbol_next_goto_r0,  
+  symbol_next_goto_r0,
   keyword_next_goto_c6a,
   next_return,
   push_r0_goto_a0,
@@ -130,7 +130,7 @@ enum actions {
   keyword_next_return,
 
   // sorts
-  sort_sumbol_next_return,
+  sort_symbol_next_return,
   next_goto_s1,
   next_goto_s2,
   next_goto_s5,
@@ -146,10 +146,10 @@ enum actions {
   // terms
   term_symbol_next_return,
   next_goto_t1,
-  next_goto_t2,           // (let 
+  next_goto_t2,           // (let
   forall_next_goto_t3,    // (forall
   exists_next_goto_t3,    // (exists
-  next_push_t4a_goto_t0,  // (! 
+  next_push_t4a_goto_t0,  // (!
   next_goto_t5,           // (as
   next_goto_t6,           // ((
   next_goto_t7,           // (_
@@ -158,17 +158,18 @@ enum actions {
   symbol_next_push_t8a_goto_t0,
 
   // (let ...
-  next_goto_t2a,
+  bind_next_goto_t2a,
   next_goto_t2b,
   symbol_next_push_t2d_goto_t0,
   next_goto_t2e,
-  next_push_r0_goto_t0,
+  close_next_push_r0_goto_t0,
 
   // (exists ... and (forall ...
   next_goto_t3a,
   next_goto_t3b,
   symbol_next_push_t3d_goto_s0,
   next_goto_t3e,
+  next_push_r0_goto_t0,
 
   // (! <term> ...
   check_keyword_then_branch,
@@ -201,11 +202,11 @@ enum actions {
   // ((_ ...
   symbol_next_goto_t6i,
   numeral_next_goto_t6j,
-  
+
   // (_ ...
   symbol_next_goto_t7a,
   numeral_next_goto_t7b,
-  
+
   // after <term> in a function application
   push_t8a_goto_t0,
 
@@ -482,7 +483,7 @@ static triple_t triples[] = {
   { t1, SMT2_TK_ECHO, "symbol_next_push_t8a_goto_t0" },
   { t1, SMT2_TK_RESET, "symbol_next_push_t8a_goto_t0" },
 
-  { t2, SMT2_TK_LP, "next_goto_t2a" },
+  { t2, SMT2_TK_LP, "bind_next_goto_t2a" },
   { t2, DEFAULT_TOKEN, "error_lp_expected" },
 
   { t2a, SMT2_TK_LP, "next_goto_t2b" },
@@ -499,7 +500,7 @@ static triple_t triples[] = {
   { t2d, DEFAULT_TOKEN, "error_rp_expected" },
 
   { t2e, SMT2_TK_LP, "next_goto_t2b" },
-  { t2e, SMT2_TK_RP, "next_push_r0_goto_t0" },
+  { t2e, SMT2_TK_RP, "close_next_push_r0_goto_t0" },
 
   { t3, SMT2_TK_LP, "next_goto_t3a" },
   { t3, DEFAULT_TOKEN, "error_lp_expected" },
