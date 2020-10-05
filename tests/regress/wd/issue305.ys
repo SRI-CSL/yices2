@@ -1,0 +1,6 @@
+(define-type U)
+(define x::U)
+(define y::U)
+(assert (/= x y))
+(assert (let ((x y) (y x)) (= x y)))
+(check)
