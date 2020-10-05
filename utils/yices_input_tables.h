@@ -208,10 +208,11 @@ enum actions {
   e14_varname_next_goto_e12,       // var decl in quantifier except the first one
   e14_next_push_r0_goto_e0,        // end of var decls
 
-  next_goto_e16,
+  bind_next_goto_e16,              // start of <binding-list>
   next_goto_e17,
   termname_next_push_e19_goto_e0,  // name in binding
   next_goto_e20,
+  close_next_push_r0_goto_e0,      // end of <binding-list>
 
   error_lpar_expected,
   error_symbol_expected,
@@ -577,7 +578,7 @@ static triple_t triples[] = {
   { e14, TK_RP, "e14_next_push_r0_goto_e0" },
   { e14, TK_SYMBOL, "e14_varname_next_goto_e12" },
 
-  { e15, TK_LP, "next_goto_e16" },
+  { e15, TK_LP, "bind_next_goto_e16" },
   { e15, DEFAULT_TOKEN, "error_lpar_expected" },
 
   { e16, TK_LP, "next_goto_e17" },
@@ -590,7 +591,7 @@ static triple_t triples[] = {
   { e19, DEFAULT_TOKEN, "error_rpar_expected" },
 
   { e20, TK_LP, "next_goto_e17" },
-  { e20, TK_RP, "next_push_r0_goto_e0" },
+  { e20, TK_RP, "close_next_push_r0_goto_e0" },
 
   { r0, TK_RP, "ret" },
   { r0, DEFAULT_TOKEN, "error_rpar_expected" },

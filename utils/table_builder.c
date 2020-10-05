@@ -54,8 +54,8 @@
  * The specification file must define 
  * NSTATES, NTOKENS, DEFAULT_TOKEN, DEFAULT_VALUE, and triple
  */
-#include "smt2_input_tables.h"
-// #include "yices_input_tables.h"
+// #include "smt2_input_tables.h"
+#include "yices_input_tables.h"
 
 /*
  * Descriptor for each state
