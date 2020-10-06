@@ -163,8 +163,6 @@ static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
  */
 
 /*
- * TODO: deal with other SMT2 nonsense
- *
  * 1) mk_implies can take more than two arguments
  *    (=> a b c) is interpreted as (=> a (=> b c))
  *
@@ -175,6 +173,8 @@ static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
  * 3) missing operators: div, mod, abs, divisible
  *    note: div is marked as left-associative!
  *    (div a b c) is interpreted as (div (div a b) c)
+ *
+ * 4) restrictions on bvnand, bvnor, bvxnor
  */
 
 /*
@@ -342,6 +342,83 @@ static void eval_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
+
+
+/*
+ * bvnand, bvnor, bvxnor:
+ *
+ * In the default implementation (term_stack2.c), we use the following rules
+ *   (bvnand x_1 ... x_n) = (bvnot (bvand x_1 ... x_n))
+ *   (bvnor x_1 ... x_n)  = (bvnot (bvor x_1 ... x_n))
+ *   (bvxnor x_1 ... x_n) = (bvnot (bvxor x_1 ... x_n))
+ *
+ * In SMT-LIB2, we want to limit them to two arguments only. CVC4 and z3 use
+ * this rule for bvxnot
+ *   (bxnor x_1 x_2 x_3) = (bvxnor (bvxnor x1 x2) x3)
+ * The standard says that bvxnor is not associatived.
+ *
+ * To be safe, we restrict bvnand, bvnor, bvxnor to exactly two arguments here.
+ */
+
+/*
+ * [mk-bv-nand <bv> <bv>]
+ */
+static void check_smt2_mk_bv_nand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_NAND);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_nand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvand_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * [mk-bv-nor <bv> <bv>]
+ */
+static void check_smt2_mk_bv_nor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_NOR);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_nor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvor_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * [mk-bv-xnor <bv> <bv>]
+ */
+static void check_smt2_mk_bv_xnor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_XNOR);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_xnor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvxor_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
 
 
 
@@ -2454,6 +2531,9 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, MK_GT, false, eval_smt2_mk_gt, check_smt2_mk_gt);
   tstack_add_op(stack, MK_LE, false, eval_smt2_mk_le, check_smt2_mk_le);
   tstack_add_op(stack, MK_LT, false, eval_smt2_mk_lt, check_smt2_mk_lt);
+  tstack_add_op(stack, MK_BV_NAND, false, eval_smt2_mk_bv_nand, check_smt2_mk_bv_nand);
+  tstack_add_op(stack, MK_BV_NOR, false, eval_smt2_mk_bv_nor, check_smt2_mk_bv_nor);
+  tstack_add_op(stack, MK_BV_XNOR, false, eval_smt2_mk_bv_xnor, check_smt2_mk_bv_xnor);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
   tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);
