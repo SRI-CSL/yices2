@@ -5637,9 +5637,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  */
 void delete_context(context_t *ctx) {
   if (ctx->core != NULL) {
-    if (ctx->arch != CTX_ARCH_AUTO_IDL && ctx->arch != CTX_ARCH_AUTO_RDL) {
-      delete_smt_core(ctx->core);
-    }
+    delete_smt_core(ctx->core);
     safe_free(ctx->core);
     ctx->core = NULL;
   }
