@@ -1578,7 +1578,7 @@ rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
  * Variant: Check whether e stores a non-zero rational constant
  * If so, store the value in result.
  */
-static bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
+bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
   rational_t *d;
   term_t t;
   bool ok;
@@ -3794,30 +3794,7 @@ static void check_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 2);
 }
 
-#if 0
-// THIS VERSION ONLY ALLOWS DIVISION BY NON-ZERO CONSTANTS
-static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rational_t *divisor;
-  rba_buffer_t *b;
-
-  divisor = get_divisor(stack, f+1);
-
-  if (f->tag == TAG_RATIONAL) {
-    q_div(& f->val.rational, divisor);
-    copy_result_and_pop_frame(stack, f);
-
-  } else {
-    b = tstack_get_abuffer(stack);
-
-    add_elem(stack, b, f);
-    rba_buffer_div_const(b, divisor);
-    tstack_pop_frame(stack);
-    set_arith_result(stack, b);
-  }
-}
-#endif
-
-// GENERIC VERSION: THE DIVIDER CAN BE ZERO OF NON-CONSTANT
+// GENERIC VERSION: THE DIVIDER CAN BE ZERO OR NON-CONSTANT
 static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rba_buffer_t *b;
   rational_t divider;

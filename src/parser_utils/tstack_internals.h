@@ -193,6 +193,13 @@ extern int32_t get_integer(tstack_t *stack, stack_elem_t *e);
  */
 extern rational_t *get_divisor(tstack_t *stack, stack_elem_t *den);
 
+/*
+ * Check whether e is a non-zero rational constant.
+ * If so, store its value in result and return true.
+ * If not, leave result unchanged and return false.
+ */
+extern bool elem_is_nz_constant(stack_elem_t *e, rational_t *result);
+
 
 /*
  * Convert element e into a signed symbol:
