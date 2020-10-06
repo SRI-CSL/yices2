@@ -5706,6 +5706,7 @@ void delete_context(context_t *ctx) {
   context_free_explorer(ctx);
 
   context_free_dl_profile(ctx);
+  context_free_edge_map(ctx);
   context_free_arith_buffer(ctx);
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
