@@ -331,6 +331,8 @@ void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, term_t *u
   prob->num_cnstr = i+1;
 
   has_uint = ef_prob_has_uint(prob, ev, nev);
+  if (!has_uint)
+    has_uint = ef_prob_has_uint(prob, uv, nuv);
   prob->cnstr[i].has_uint = has_uint;
   if (has_uint)
     prob->has_uint = true;
