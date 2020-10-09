@@ -127,7 +127,7 @@ void cnstr_learner_update_term_reward(cnstr_learner_t *learner, uint32_t cost, u
 
   assert(i < learner->qtbl->nquant);
 
-  reward = (- CNSTR_RL_TERM_COST_FACTOR * cost);
+  reward = (- CNSTR_RL_TERM_COST_FACTOR * ((double) cost));
   uint_learner_updateQ(&learner->learner, i, reward);
 
 #if TRACE
@@ -143,7 +143,7 @@ void cnstr_learner_update_lemma_reward(cnstr_learner_t *learner, uint32_t cost, 
 
   assert(i < learner->qtbl->nquant);
 
-  reward = (- CNSTR_RL_LEMMA_COST_FACTOR * cost);
+  reward = (- CNSTR_RL_LEMMA_COST_FACTOR * ((double) cost));
   uint_learner_updateQ(&learner->learner, i, reward);
 
 #if TRACE
@@ -180,7 +180,7 @@ void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t ju
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (CNSTR_RL_BACKTRACK_REWARD_FACTOR * jump);
+    reward = (CNSTR_RL_BACKTRACK_REWARD_FACTOR * ((double) jump));
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE
@@ -192,6 +192,21 @@ void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t ju
 
 }
 
+/*
+ * Decrease learner epsilon by decay factor (bounded by minimum value)
+ */
+void cnstr_learner_decay_epsilon(cnstr_learner_t *learner) {
+  uint_learner_t *uint_learner;
+  uint32_t value;
+
+  uint_learner = &learner->learner;
+  value = uint_learner_get_epsilon(uint_learner);
+  if (value > learner->min_epsilon) {
+    uint_learner_set_epsilon(uint_learner, (uint32_t)(CNSTR_RL_EPSILON_DECAY*value));
+  } else {
+    uint_learner_set_epsilon(uint_learner, learner->min_epsilon);
+  }
+}
 
 /*
  * Initialize learner
@@ -201,12 +216,13 @@ void init_cnstr_learner(cnstr_learner_t *learner, quant_table_t *qtbl) {
 
   uint_learner = &learner->learner;
   init_uint_learner(uint_learner, qtbl->nquant);
-  uint_learner_set_epsilon(uint_learner, CNSTR_RL_EPSILON_DEFAULT);
+  uint_learner_set_epsilon(uint_learner, CNSTR_RL_EPSILON_DEF);
   uint_learner_set_alpha(uint_learner, CNSTR_RL_ALPHA_DEFAULT);
   uint_learner_set_initQ(uint_learner, CNSTR_RL_INITIAL_Q_DEFAULT);
 
   learner->qtbl = qtbl;
   learner->iter_mode = DEFAULT_EMATCH_MODE;
+  learner->min_epsilon = CNSTR_RL_EPSILON_MIN;
 }
 
 

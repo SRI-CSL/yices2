@@ -33,6 +33,7 @@ typedef struct cnstr_learner_s {
   uint_learner_t learner;      // learner
   quant_table_t *qtbl;         // link to quant table
   iterate_kind_t iter_mode;    // iteration mode over constraints
+  uint32_t min_epsilon;        // min epsilon value
 } cnstr_learner_t;
 
 
@@ -71,6 +72,11 @@ extern void cnstr_learner_update_decision_reward(cnstr_learner_t *learner);
  * Update learner backtrack reward for the latest ematch round
  */
 extern void cnstr_learner_update_backtrack_reward(cnstr_learner_t *learner, uint32_t jump);
+
+/*
+ * Decrease learner epsilon by decay factor (bounded by minimum value)
+ */
+extern void cnstr_learner_decay_epsilon(cnstr_learner_t *learner);
 
 
 /*

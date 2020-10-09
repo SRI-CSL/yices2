@@ -95,7 +95,7 @@ static inline uint32_t *uint_learner_get_seed(uint_learner_t *learner) {
  * - epsilon should be in the range [0 .. UINT_RL_EPSILON_MAX)
  */
 static inline void uint_learner_set_epsilon(uint_learner_t *learner, uint32_t epsilon) {
-  assert(epsilon < UINT_RL_EPSILON_MAX);
+  assert(epsilon <= UINT_RL_EPSILON_MAX);
   learner->epsilon = epsilon;
 }
 

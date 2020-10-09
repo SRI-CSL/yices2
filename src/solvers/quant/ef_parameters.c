@@ -44,9 +44,9 @@ void init_ef_params(ef_param_t *p) {
   p->ematch_exec_max_fapps = DEF_MAX_FAPPS;
   p->ematch_exec_max_matches = DEF_MAX_MATCHES;
 
-  p->ematch_cnstr_epsilon = CNSTR_RL_EPSILON_DEFAULT;
+  p->ematch_cnstr_epsilon = CNSTR_RL_EPSILON_MIN;
   p->ematch_cnstr_alpha = CNSTR_RL_ALPHA_DEFAULT;
-  p->ematch_term_epsilon = TERM_RL_EPSILON_DEFAULT;
+  p->ematch_term_epsilon = TERM_RL_EPSILON_MIN;
   p->ematch_term_alpha = TERM_RL_ALPHA_DEFAULT;
 
   p->ematch_cnstr_mode = DEFAULT_EMATCH_MODE;

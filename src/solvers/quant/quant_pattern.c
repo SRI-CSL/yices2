@@ -620,8 +620,11 @@ void quant_infer_multi_pattern(term_table_t *terms, term_t t, ivector_t *uvars, 
   }
 
   if (multiPat.size != 0) {
-    assert(multiPat.size > 1);
-    pat = yices_tuple(multiPat.size, multiPat.data);
+    if (multiPat.size == 1) {
+      pat = multiPat.data[0];
+    } else {
+      pat = yices_tuple(multiPat.size, multiPat.data);
+    }
     if (pat == NULL_TERM) {
 //      yices_print_error(stdout);
       assert(0);

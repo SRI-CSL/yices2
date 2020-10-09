@@ -36,6 +36,7 @@ typedef struct term_learner_s {
 
   generic_heap_t aux_heap;     // temporary heap with term indices in priority order
   uint32_t max_depth;          // max function depth corresponding to the term stored in learner
+  uint32_t min_epsilon;        // min epsilon value
 } term_learner_t;
 
 
@@ -80,6 +81,11 @@ extern void term_learner_update_decision_reward(term_learner_t *learner);
  * Update learner backtrack reward for the latest ematch round
  */
 extern void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump);
+
+/*
+ * Decrease learner epsilon by decay factor (bounded by minimum value)
+ */
+extern void term_learner_decay_epsilon(term_learner_t *learner);
 
 
 /*

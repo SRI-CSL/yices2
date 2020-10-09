@@ -564,7 +564,7 @@ int32_t ematch_compile(ematch_compile_t *comp) {
     term_table_t *terms;
     terms = comp->terms;
 
-#if TRACE
+#if 0
     printf("  choosing %d (kind: %d) -> ", i, term_kind(terms, x));
     yices_pp_term(stdout, x, 120, 1, 0);
 #endif

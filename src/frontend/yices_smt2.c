@@ -299,9 +299,9 @@ static void print_ef_help(const char *progname) {
   printf("    --ematch-term-mode=<M>          Set the ematching term mode (can be epsilongreedy, random, all) (default: epsilongreedy)\n");
   printf("\n");
   printf("  Learner options\n");
-  printf("    --ematch-cnstr-epsilon=<M>      Set the epsilon for ematch constraint learner (between 0-%d) (default: %d)\n", CNSTR_RL_EPSILON_MAX, CNSTR_RL_EPSILON_DEFAULT);
+  printf("    --ematch-cnstr-epsilon=<M>      Set the minimum epsilon for ematch constraint learner (between 0-%d) (default: %d)\n", CNSTR_RL_EPSILON_MAX, CNSTR_RL_EPSILON_MIN);
   printf("    --ematch-cnstr-alpha=<M>        Set the learning rate for ematch constraint learner (between 0-1) (default: %.2f)\n", CNSTR_RL_ALPHA_DEFAULT);
-  printf("    --ematch-term-epsilon=<M>       Set the epsilon for ematch term learner (between 0-%d) (default: %d)\n", TERM_RL_EPSILON_MAX, TERM_RL_EPSILON_DEFAULT);
+  printf("    --ematch-term-epsilon=<M>       Set the minimum epsilon for ematch term learner (between 0-%d) (default: %d)\n", TERM_RL_EPSILON_MAX, TERM_RL_EPSILON_MIN);
   printf("    --ematch-term-alpha=<M>         Set the learning rate for ematch term learner (between 0-1) (default: %.2f)\n", TERM_RL_ALPHA_DEFAULT);
   printf("\n");
   printf("  Fine-grained options\n");

@@ -57,9 +57,10 @@ typedef struct ematch_exec_s {
   uint32_t max_vdepth;          // max function composition depth allowed for the variable matches
   uint32_t max_fapps;           // max bound on the number of function applications allowed during matching
   uint32_t max_matches;         // max bound on the number of new matches allowed during matching
+  uint32_t max_matches_per_yield;   // max bound on the number of new matches allowed during yield
 
   term_learner_t *term_learner;     // Reinforce learner
-  iterate_kind_t *iter_mode;         // iteration mode
+  iterate_kind_t *iter_mode;        // iteration mode
 } ematch_exec_t;
 
 

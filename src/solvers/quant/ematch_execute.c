@@ -73,6 +73,7 @@ void init_ematch_exec(ematch_exec_t *exec, ematch_compile_t *comp, instance_tabl
   exec->max_vdepth = DEF_MAX_VDEPTH;
   exec->max_fapps = DEF_MAX_FAPPS;
   exec->max_matches = DEF_MAX_MATCHES;
+  exec->max_matches_per_yield = DEF_MAX_MATCHES_PER_YIELD;
 }
 
 /*
@@ -171,8 +172,14 @@ static void egraph_get_all_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t 
 #if TRACE
               fputs("    (filtered) ", stdout);
               print_composite(stdout, p);
-              printf(" @ depth %d", composite_depth(egraph, p));
-              fputc('\n', stdout);
+              printf(" @ depth %d: ", composite_depth(egraph, p));
+              term_t r;
+              r = intern_tbl_reverse_map(exec->intern, occi);
+              if (r != NULL_TERM) {
+                yices_pp_term(stdout, r, 120, 1, 0);
+              } else {
+                fputc('\n', stdout);
+              }
 #endif
             }
           }
@@ -313,8 +320,14 @@ static void egraph_get_fapps_in_class_greedy(ematch_exec_t *exec, eterm_t f, occ
 #if TRACE
                 fputs("    (filtered) ", stdout);
                 print_composite(stdout, p);
-                printf(" @ depth %d", composite_depth(egraph, p));
-                fputc('\n', stdout);
+                printf(" @ depth %d: ", composite_depth(egraph, p));
+                term_t r;
+                r = intern_tbl_reverse_map(exec->intern, occi);
+                if (r != NULL_TERM) {
+                  yices_pp_term(stdout, r, 120, 1, 0);
+                } else {
+                  fputc('\n', stdout);
+                }
 #endif
               }
             }
@@ -436,7 +449,7 @@ static void egraph_get_fapps_in_class(ematch_exec_t *exec, eterm_t f, occ_t occ,
     ti = term_of_occ(occi);
 //    term_learner_add_cnstr(term_learner, ti);
 
-#if 0
+#if TRACE
     composite_t *p;
     p = egraph_term_body(exec->egraph, ti);
     printf("    (term) ");
@@ -496,7 +509,7 @@ static void egraph_get_all_fapps(ematch_exec_t *exec, eterm_t f, ivector_t *out)
     if (egraph_class_is_root_class(egraph, i)) {
       occi = egraph_class_root(egraph, i);
       if (egraph_term_real_type(egraph, term_of_occ(occi)) == ranget) {
-#if TRACE
+#if 0
         print_class(stdout, egraph, i);
 #endif
         egraph_get_fapps_in_class(exec, f, occi, out);
@@ -798,30 +811,30 @@ static void ematch_exec_bind(ematch_exec_t *exec, ematch_instr_t *instr) {
     egraph_get_fapps_in_class(exec, ef, regt, &fapps);
     n = fapps.size;
 
-    // BD: memory leak here: instr->idata may be non-NULL here.
-    // Not clear whether that's the right fix.
-    // Why is instr->idata overwritten?
     if (n > 0) {
-      instr->idata = (int32_t *) safe_realloc(instr->idata, n * sizeof(int32_t));
-    }
-    //    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      // store fapps in idata to access in ematch_exec_all_chooseapps
 
-    instr->nsubs = n;
-    for(j=0; j<n; j++) {
+      assert(instr->idata == NULL);
+      instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      instr->nsubs = n;
+
+      for(j=0; j<n; j++) {
 #if TRACE
-      printf("    choosing fapps: ");
-      print_occurrence(stdout, fapps.data[j]);
-      printf("\n");
+        printf("    choosing fapps: ");
+        print_occurrence(stdout, fapps.data[j]);
+        printf("\n");
 #endif
-      instr->idata[j] = fapps.data[j];
+        instr->idata[j] = fapps.data[j];
+      }
+
+      ematch_exec_all_chooseapps(exec, instr);
+
+      safe_free(instr->idata);
+      instr->idata = NULL;
+      instr->nsubs = 0;
     }
 
     delete_ivector(&fapps);
-
-    ematch_exec_all_chooseapps(exec, instr);
-
-//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-//    ematch_stack_save(&exec->bstack, chooseapp);
   }
 
   ematch_exec_backtrack(exec);
@@ -848,28 +861,30 @@ static void ematch_exec_continue(ematch_exec_t *exec, ematch_instr_t *instr) {
     egraph_get_all_fapps(exec, ef, &fapps);
     n = fapps.size;
 
-    // BD: memory leak again: instr->idata may be non-NULL here.
     if (n > 0) {
-      instr->idata = (int32_t *) safe_realloc(instr->idata, n * sizeof(int32_t));
-    }
-    //    instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      // store fapps in idata to access in ematch_exec_all_chooseapps
 
-    instr->nsubs = n;
-    for(j=0; j<n; j++) {
+      assert(instr->idata == NULL);
+      instr->idata = (int32_t *) safe_malloc(n * sizeof(int32_t));
+      instr->nsubs = n;
+
+      for(j=0; j<n; j++) {
 #if TRACE
-      printf("    choosing fapps: ");
-      print_occurrence(stdout, fapps.data[j]);
-      printf("\n");
+        printf("    choosing fapps: ");
+        print_occurrence(stdout, fapps.data[j]);
+        printf("\n");
 #endif
-      instr->idata[j] = fapps.data[j];
+        instr->idata[j] = fapps.data[j];
+      }
+
+      ematch_exec_all_chooseapps(exec, instr);
+
+      safe_free(instr->idata);
+      instr->idata = NULL;
+      instr->nsubs = 0;
     }
 
     delete_ivector(&fapps);
-
-    ematch_exec_all_chooseapps(exec, instr);
-
-//    int32_t chooseapp = ematch_compile_chooseapp(exec->comp, instr->o, instr->idx, 1);
-//    ematch_stack_save(&exec->bstack, chooseapp);
   }
 
   ematch_exec_backtrack(exec);
@@ -1036,7 +1051,7 @@ static void ematch_exec_yield(ematch_exec_t *exec, ematch_instr_t *instr) {
       printf("    match%d added\n", i);
 #endif
       ivector_push(&exec->aux_vector, i);
-      if(exec->aux_vector.size >= exec->max_matches) {
+      if(exec->aux_vector.size >= exec->max_matches_per_yield) {
 #if TRACE_LIGHT
         printf("    early exit\n");
 #endif

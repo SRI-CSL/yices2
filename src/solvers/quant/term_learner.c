@@ -71,7 +71,7 @@ void term_learner_setup(term_learner_t *learner) {
 
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
     s->Q = (uint_learner->initQ -
-            TERM_RL_DEPTH_COST_FACTOR * depth);
+            TERM_RL_DEPTH_COST_FACTOR * ((double) depth));
     s->Q = uint_learner->initQ;
     pvector_push(pv, s);
 
@@ -117,7 +117,7 @@ void term_learner_setup_extend(term_learner_t *learner) {
 
     s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
     s->Q = (TERM_RL_INITIAL_Q_EXTEND_COST_FACTOR * uint_learner->initQ -
-            TERM_RL_DEPTH_COST_FACTOR * depth);
+            TERM_RL_DEPTH_COST_FACTOR * ((double) depth));
     pvector_push(pv, s);
 
     generic_heap_add(heap, i);
@@ -134,6 +134,7 @@ void term_learner_reset_round(term_learner_t *learner, bool reset) {
   }
 
   uint_learner_reset_reward(&learner->learner);
+
 #if TRACE
   printf("  New term reward (reset) = %.2f\n", uint_learner_get_reward(&learner->learner));
 #endif
@@ -238,7 +239,7 @@ void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump
   uint_learner = &learner->learner;
 
   if (!uint_learner_empty_indices(uint_learner)) {
-    reward = (TERM_RL_BACKTRACK_REWARD_FACTOR * jump);
+    reward = (TERM_RL_BACKTRACK_REWARD_FACTOR * ((double) jump));
     uint_learner_add_reward(uint_learner, reward);
 
 #if TRACE
@@ -250,6 +251,22 @@ void term_learner_update_backtrack_reward(term_learner_t *learner, uint32_t jump
 
 }
 
+/*
+ * Decrease learner epsilon by decay factor (bounded by minimum value)
+ */
+void term_learner_decay_epsilon(term_learner_t *learner) {
+  uint_learner_t *uint_learner;
+  uint32_t value;
+
+  uint_learner = &learner->learner;
+  value = uint_learner_get_epsilon(uint_learner);
+  if (value > learner->min_epsilon) {
+    uint_learner_set_epsilon(uint_learner, (uint32_t)(TERM_RL_EPSILON_DECAY*value));
+  } else {
+    uint_learner_set_epsilon(uint_learner, learner->min_epsilon);
+  }
+}
+
 
 /*
  * Initialize learner
@@ -259,7 +276,7 @@ void init_term_learner(term_learner_t *learner) {
 
   uint_learner = &learner->learner;
   init_uint_learner(uint_learner, 10);
-  uint_learner_set_epsilon(uint_learner, TERM_RL_EPSILON_DEFAULT);
+  uint_learner_set_epsilon(uint_learner, TERM_RL_EPSILON_DEF);
   uint_learner_set_alpha(uint_learner, TERM_RL_ALPHA_DEFAULT);
   uint_learner_set_initQ(uint_learner, TERM_RL_INITIAL_Q_DEFAULT);
 
@@ -268,6 +285,7 @@ void init_term_learner(term_learner_t *learner) {
 
   init_generic_heap(&learner->aux_heap, 0, 0, uint_learner->heap.cmp, &uint_learner->stats);
   learner->max_depth = 0;
+  learner->min_epsilon = TERM_RL_EPSILON_MIN;
 }
 
 /*

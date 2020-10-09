@@ -62,7 +62,7 @@
  *  PRINTING SUPPORT  *
  *********************/
 
-# if 0
+# if TRACE_LIGHT
 static void quant_solver_print_pattern(FILE *f, quant_solver_t *solver, uint32_t i) {
   pattern_t *pat;
   uint32_t n;
@@ -393,9 +393,9 @@ static void quant_solver_attach_parameters(quant_solver_t *solver, ef_prob_t *pr
   solver->cnstr_learner.iter_mode = prob->parameters->ematch_cnstr_mode;
   solver->term_learner.iter_mode = prob->parameters->ematch_term_mode;
 
-  uint_learner_set_epsilon(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_epsilon);
+  solver->cnstr_learner.min_epsilon = prob->parameters->ematch_cnstr_epsilon;
+  solver->term_learner.min_epsilon = prob->parameters->ematch_term_epsilon;
   uint_learner_set_alpha(&solver->cnstr_learner.learner, prob->parameters->ematch_cnstr_alpha);
-  uint_learner_set_epsilon(&solver->term_learner.learner, prob->parameters->ematch_term_epsilon);
   uint_learner_set_alpha(&solver->term_learner.learner, prob->parameters->ematch_term_alpha);
 
 #if EM_VERBOSE
@@ -969,9 +969,9 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
 
   cnstr_learner_update_last_round(&solver->cnstr_learner, true);
 
-#if TRACE_LIGHT
-//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
-//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
+#if TRACE
+  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: begin)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: begin)");
 #endif
 
   ivector_reset(&solver->round_cnstrs);
@@ -1013,9 +1013,16 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   term_learner_reset_round(&solver->term_learner, false);
   cnstr_learner_reset_round(&solver->cnstr_learner, false);
 
-#if TRACE_LIGHT
-//  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
-//  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
+  if (solver->stats.num_rounds % CNSTR_RL_EPSILON_DECAY_ROUNDS == 0) {
+    cnstr_learner_decay_epsilon(&solver->cnstr_learner);
+  }
+  if (solver->stats.num_rounds % TERM_RL_EPSILON_DECAY_ROUNDS == 0) {
+    term_learner_decay_epsilon(&solver->term_learner);
+  }
+
+#if TRACE
+  uint_learner_print_indices_priority(&solver->cnstr_learner.learner, "(cnstr: end)");
+  uint_learner_print_indices_priority(&solver->term_learner.learner, "(term: end)");
 #endif
 
 }
@@ -1263,8 +1270,10 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #endif
 
     term_learner_setup(&solver->term_learner);
+
     solver->em.exec.fdepth = solver->term_learner.max_depth;
-    solver->em.exec.vdepth = solver->term_learner.max_depth/2;
+    solver->em.exec.vdepth = 0.5*solver->term_learner.max_depth;
+
 #if EM_VERBOSE
     printf("EMATCH TERM learner max depth: %d\n", solver->term_learner.max_depth);
 #endif
@@ -1292,7 +1301,7 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
   printf("\n**** QUANTSOLVER: FINAL CHECK ***\n\n");
 #endif
 
-#if TRACE
+#if 0
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
@@ -1323,7 +1332,7 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 
   ematch_process_all_cnstr(solver);
 
-#if TRACE
+#if 0
 //  print_egraph_terms(stdout, solver->egraph);
 ////  print_egraph_terms_details(stdout, solver->egraph);
 //  printf("\n\n");
@@ -1356,10 +1365,15 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
 #endif
 
   if (solver->stats.num_instances_per_round == 0) {
+    uint32_t fd_orig, vd_orig;
+
+    fd_orig = solver->em.exec.fdepth;
+    vd_orig = solver->em.exec.vdepth;
+
     if (solver->em.exec.fdepth < solver->em.exec.max_fdepth)
-      solver->em.exec.fdepth++;
+      solver->em.exec.fdepth += 1;
     if (solver->em.exec.vdepth < solver->em.exec.max_vdepth)
-      solver->em.exec.vdepth++;
+      solver->em.exec.vdepth += 1;
 
 #if EM_VERBOSE
     printf("(re-running ematching)\n");
@@ -1375,6 +1389,11 @@ fcheck_code_t quant_solver_final_check(quant_solver_t *solver) {
       solver->stats.num_instances_per_round,
       solver->stats.num_instances_per_search);
 #endif
+
+    if (solver->stats.num_instances_per_round == 0) {
+      solver->em.exec.fdepth = fd_orig;
+      solver->em.exec.vdepth = vd_orig;
+    }
   }
 
   solver->stats.num_rounds_per_search++;
