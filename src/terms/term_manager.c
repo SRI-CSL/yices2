@@ -552,7 +552,7 @@ static term_t bvarray_get_var(term_table_t *tbl, const term_t *a, uint32_t n) {
 /*
  * Convert array a to a term
  * - side effect: use bv0
- */
+< */
 static term_t bvarray_get_term(term_manager_t *manager, const term_t *a, uint32_t n) {
   term_table_t *terms;
   bvconstant_t *bv;
@@ -5308,6 +5308,99 @@ static int32_t bvconst_term_is_power_of_two(bvconst_term_t *b) {
 
 
 /*
+ * Unsigned division by zero: the result is 0b11...1.
+ * - divide t1 by 0
+ * side effect: use bv0
+ */
+static term_t bvdiv_by_zero(term_manager_t *manager, term_t t1) {
+  bvconstant_t *bv;
+  uint32_t n;
+
+  n = term_bitsize(manager->terms, t1);
+  bv = &manager->bv0;
+  bvconstant_set_all_one(bv, n);
+  return mk_bv_constant(manager, bv);
+}
+
+/*
+ * Auxiliary function: build (ite c 0b11111 0b00001) = (ite c -1 +1)
+ * - n = number of bits
+ * - c = boolean term
+ * side effect: use vector0
+ */
+static term_t mk_ite_minus_or_plus_one(term_manager_t *manager, term_t c, uint32_t n) {
+  term_t *a;
+  uint32_t i;
+
+  /*
+   * build (ite c 0b11111 0b00001) as an array of booleans a
+   *  a[0] = true_term (i.e., 1)
+   *  a[1] = c
+   *  ..
+   *  a[n-1] = c
+   */
+  resize_ivector(&manager->vector0, n);
+  a = manager->vector0.data;
+  a[0] = true_term;
+  for (i=1; i<n; i++) {
+    a[i] = c;
+  }
+
+  return bvarray_get_term(manager, a, n);
+}
+
+/*
+ * Signed or unsigned division of t by itself:
+ * - the result is (ite (= t zero) 0b11111 0b00001)
+ *
+ * This holds because (bvdiv zero zero) = (bvsdiv zero zero) = 0b11111
+ */
+static term_t bvdiv_by_self(term_manager_t *manager, term_t t) {
+  term_t zero, eq;
+  uint32_t n;
+
+  n = term_bitsize(manager->terms, t);
+  zero = make_zero_bv(manager, n);
+  eq = mk_bitvector_eq(manager, t, zero);
+
+  return mk_ite_minus_or_plus_one(manager, eq, n);
+}
+
+
+/*
+ * Signed division of t1 by zero
+ * - the result is (ite (not b[n-1]) 0b111111 0b000001)
+ * where b[n-1] is the sign bit of t1
+ *
+ * I.e., if t1 < 0  then  (bvsrem t1 zero) = 0b000001
+ *       if t1 >= 0 then  (bvsrem t1 zero) = 0b111111
+ */
+static term_t bvsdiv_by_zero(term_manager_t *manager, term_t t1) {
+  uint32_t n;
+  term_t sign;
+
+  n = term_bitsize(manager->terms, t1);
+  assert(n > 0);
+
+  sign = mk_bitextract(manager, t1, n-1);
+
+  return mk_ite_minus_or_plus_one(manager, opposite_term(sign), n);
+}
+
+
+/*
+ * ren/srem/smod of t by t
+ * - the result is always zero
+ */
+static term_t bvrem_by_self(term_manager_t *manager, term_t t) {
+  uint32_t n;
+
+  n = term_bitsize(manager->terms, t);
+  return make_zero_bv(manager, n);
+}
+
+
+/*
  * UNSIGNED DIVISION: QUOTIENT
  */
 static term_t bvdiv_const64(term_manager_t *manager, bvconst64_term_t *a, bvconst64_term_t *b) {
@@ -5321,7 +5414,6 @@ static term_t bvdiv_const64(term_manager_t *manager, bvconst64_term_t *a, bvcons
 
   return bv64_constant(manager->terms, n, x);
 }
-
 
 static term_t bvdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_term_t *b) {
   bvconstant_t *bv;
@@ -5339,7 +5431,6 @@ static term_t bvdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_te
   return bvconst_term(manager->terms, n, bv->data);
 }
 
-
 // divide t1 by 2^k
 static term_t bvdiv_power(term_manager_t *manager, term_t t1, uint32_t k) {
   bvlogic_buffer_t *b;
@@ -5356,6 +5447,8 @@ static term_t bvdiv_power(term_manager_t *manager, term_t t1, uint32_t k) {
 
 term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
+  bvconst_term_t *bv;
+  bvconst64_term_t *bv64;
   int32_t k;
 
   tbl = manager->terms;
@@ -5365,20 +5458,23 @@ term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
 
   switch (term_kind(tbl, t2)) {
   case BV64_CONSTANT:
+    bv64 = bvconst64_term_desc(tbl, t2);
+    assert(bv64->value == norm64(bv64->value, bv64->bitsize));
     if (term_kind(tbl, t1) == BV64_CONSTANT) {
-      return bvdiv_const64(manager, bvconst64_term_desc(tbl, t1), bvconst64_term_desc(tbl, t2));
+      return bvdiv_const64(manager, bvconst64_term_desc(tbl, t1), bv64);
     }
-    k = bvconst64_term_is_power_of_two(bvconst64_term_desc(tbl, t2));
+    k = bvconst64_term_is_power_of_two(bv64);
     if (k >= 0) {
       return bvdiv_power(manager, t1, k);
     }
     break;
 
   case BV_CONSTANT:
+    bv = bvconst_term_desc(tbl, t2);
     if (term_kind(tbl, t1) == BV_CONSTANT) {
-      return bvdiv_const(manager, bvconst_term_desc(tbl, t1), bvconst_term_desc(tbl, t2));
+      return bvdiv_const(manager, bvconst_term_desc(tbl, t1), bv);
     }
-    k = bvconst_term_is_power_of_two(bvconst_term_desc(tbl, t2));
+    k = bvconst_term_is_power_of_two(bv);
     if (k >= 0) {
       return bvdiv_power(manager, t1, k);
     }
@@ -5387,6 +5483,10 @@ term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
   default:
     break;
   }
+
+  if (term_is_bvzero(manager->terms, t2)) return bvdiv_by_zero(manager, t1);
+
+  if (t1 == t2) return bvdiv_by_self(manager, t1);
 
   return bvdiv_term(tbl, t1, t2);
 }
@@ -5473,6 +5573,12 @@ term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
     break;
   }
 
+  // (bvrem x 0) is x
+  if (term_is_bvzero(manager->terms, t2)) return t1;
+
+  // (bvrem x x) is 0 (even if x = 0)
+  if (t1 == t2) return bvrem_by_self(manager, t1);
+
   return bvrem_term(tbl, t1, t2);
 }
 
@@ -5508,6 +5614,8 @@ static term_t bvsdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_t
   return bvconst_term(manager->terms, n, bv->data);
 }
 
+
+
 term_t mk_bvsdiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
@@ -5532,6 +5640,12 @@ term_t mk_bvsdiv(term_manager_t *manager, term_t t1, term_t t2) {
   default:
     break;
   }
+
+  // (bvsdiv t1 0)
+  if (term_is_bvzero(manager->terms, t2)) return bvsdiv_by_zero(manager, t1);
+
+  // (bvsdiv t t) = (bvdiv t t)
+  if (t1 == t2) return bvdiv_by_self(manager, t1);
 
   return bvsdiv_term(tbl, t1, t2);
 }
@@ -5593,6 +5707,12 @@ term_t mk_bvsrem(term_manager_t *manager, term_t t1, term_t t2) {
     break;
   }
 
+  // (bvsrem x 0) is x
+  if (term_is_bvzero(manager->terms, t2)) return t1;
+
+  // (bvsrem x x) is 0 (even if x = 0)
+  if (t1 == t2) return bvrem_by_self(manager, t1);
+
   return bvsrem_term(tbl, t1, t2);
 }
 
@@ -5653,6 +5773,13 @@ term_t mk_bvsmod(term_manager_t *manager, term_t t1, term_t t2) {
   default:
     break;
   }
+
+  // (bvsmod x 0) is x
+  if (term_is_bvzero(manager->terms, t2)) return t1;
+
+  // (bvsmod x x) is 0 (even if x = 0)
+  if (t1 == t2) return bvrem_by_self(manager, t1);
+
 
   return bvsmod_term(tbl, t1, t2);
 }
