@@ -614,6 +614,9 @@ value_t vtbl_mk_default(type_table_t* types, value_table_t *vtbl, type_t tau) {
   case BITVECTOR_TYPE:
     return vtbl_mk_bv_zero(vtbl, bv_type_size(types, tau));
     break;
+  case UNINTERPRETED_TYPE:
+    return vtbl_mk_const(vtbl, tau, 0, "");
+    break;
   default:
     assert(false);
   }
