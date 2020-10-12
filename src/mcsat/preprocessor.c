@@ -259,10 +259,16 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
     // Variables are already pure
     return t;
   case CONSTANT_TERM:
+    if (t == false_term) {
+      // false is special because it is a negation of true
+      break;
+    } else {
+      return t;
+    }
   case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
-    // Constants are also pure
+    // Constants are also pure (except for false)
     return t;
   case APP_TERM:
     // Uninterpreted functions are also already purified
