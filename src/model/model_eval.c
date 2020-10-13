@@ -234,7 +234,17 @@ static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
   value_t v;
 
   v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_integer(eval_get_rational(eval, v)));
+
+  if (object_is_rational(eval->vtbl, v)) {
+    return vtbl_mk_bool(eval->vtbl, q_is_integer(vtbl_rational(eval->vtbl, v)));
+  } else {
+#ifdef HAVE_MCSAT
+    return vtbl_mk_bool(eval->vtbl, lp_algebraic_number_is_integer(vtbl_algebraic_number(eval->vtbl, v)));
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR;
+#endif
+  }
 }
 
 
