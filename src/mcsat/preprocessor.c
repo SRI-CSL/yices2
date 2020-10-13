@@ -251,30 +251,30 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
  */
 static inline
 term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
+
   term_table_t* terms = pre->terms;
-  // We don't purify variables
-  term_kind_t t_kind = term_kind(terms, t);
-  switch (t_kind) {
-  case UNINTERPRETED_TERM:
-    // Variables are already pure
-    return t;
-  case CONSTANT_TERM:
-    if (t == false_term) {
-      // false is special because it is a negation of true
-      break;
-    } else {
+
+  // Negated terms must be purified
+  if (is_pos_term(t)) {
+    // We don't purify variables
+    term_kind_t t_kind = term_kind(terms, t);
+    switch (t_kind) {
+    case UNINTERPRETED_TERM:
+      // Variables are already pure
       return t;
+    case CONSTANT_TERM:
+      return t;
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+      // Constants are also pure (except for false)
+      return t;
+    case APP_TERM:
+      // Uninterpreted functions are also already purified
+      return t;
+    default:
+      break;
     }
-  case ARITH_CONSTANT:
-  case BV64_CONSTANT:
-  case BV_CONSTANT:
-    // Constants are also pure (except for false)
-    return t;
-  case APP_TERM:
-    // Uninterpreted functions are also already purified
-    return t;
-  default:
-    break;
   }
 
   // Everything else gets purified. Check if in the cache
