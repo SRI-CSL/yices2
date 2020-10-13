@@ -300,7 +300,7 @@ static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
   
   if (object_is_rational(eval->vtbl, v)) {
     q_init(&q);
-    q_set(&q, eval_get_rational(eval, v)); // q := value of t
+    q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
     q_ceil(&q);
     q_normalize(&q);
 
@@ -335,16 +335,31 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
   rational_t q;
   value_t v;
 
+#ifdef HAVE_MCSAT
+  lp_algebraic_number_t a_neg;
+#endif
+
   v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
   
-  q_init(&q);
-  q_set_abs(&q, eval_get_rational(eval, v)); // q := value of t
-  q_normalize(&q);
+  if (object_is_rational(eval->vtbl, v)) {
+    q_init(&q);
+    q_set_abs(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+    q_normalize(&q);
 
-  v = vtbl_mk_rational(eval->vtbl, &q);
+    v = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+  } else {
+#ifdef HAVE_MCSAT
+    lp_algebraic_number_construct_zero(&a_neg);
+    lp_algebraic_number_neg(&a_neg, vtbl_algebraic_number(eval->vtbl, v));
+    v = vtbl_mk_algebraic(eval->vtbl, &a_neg);
+    lp_algebraic_number_destruct(&a_neg);
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR;
+#endif
+  }
 
   return v;
 }
