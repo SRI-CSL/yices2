@@ -268,6 +268,7 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
   
     clear_rational(&q);
   } else {
+#ifdef HAVE_MCSAT
     lp_integer_construct(&a_floor);
     lp_algebraic_number_floor(vtbl_algebraic_number(eval->vtbl, v), &a_floor);
     q_init(&q);
@@ -277,6 +278,10 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
 
     clear_rational(&q);
     lp_integer_destruct(&a_floor);
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR;
+#endif
   }
 
   return v;
@@ -288,19 +293,36 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
  */
 static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
   rational_t q;
+  lp_integer_t a_ceil;
   value_t v;
 
   v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
   
-  q_init(&q);
-  q_set(&q, eval_get_rational(eval, v)); // q := value of t
-  q_ceil(&q);
-  q_normalize(&q);
+  if (object_is_rational(eval->vtbl, v)) {
+    q_init(&q);
+    q_set(&q, eval_get_rational(eval, v)); // q := value of t
+    q_ceil(&q);
+    q_normalize(&q);
 
-  v = vtbl_mk_rational(eval->vtbl, &q);
+    v = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+  } else {
+#ifdef HAVE_MCSAT
+    lp_integer_construct(&a_ceil);
+    lp_algebraic_number_ceiling(vtbl_algebraic_number(eval->vtbl, v), &a_ceil);
+    q_init(&q);
+    q_set_mpz(&q, &a_ceil);
+
+    v = vtbl_mk_rational(eval->vtbl, &q);
+
+    clear_rational(&q);
+    lp_integer_destruct(&a_ceil);
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR;
+#endif
+  }
 
   return v;
 }
