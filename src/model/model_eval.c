@@ -336,6 +336,7 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
   value_t v;
 
 #ifdef HAVE_MCSAT
+  const lp_algebraic_number_t* a;
   lp_algebraic_number_t a_neg;
 #endif
 
@@ -351,10 +352,16 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
     clear_rational(&q);
   } else {
 #ifdef HAVE_MCSAT
-    lp_algebraic_number_construct_zero(&a_neg);
-    lp_algebraic_number_neg(&a_neg, vtbl_algebraic_number(eval->vtbl, v));
-    v = vtbl_mk_algebraic(eval->vtbl, &a_neg);
-    lp_algebraic_number_destruct(&a_neg);
+    a = vtbl_algebraic_number(eval->vtbl, v);
+    // If negative, negate, otherwise stays same
+    if (lp_algebraic_number_sgn(a) < 0) {
+      lp_algebraic_number_construct_zero(&a_neg);
+      lp_algebraic_number_neg(&a_neg, a);
+
+      v = vtbl_mk_algebraic(eval->vtbl, &a_neg);
+
+      lp_algebraic_number_destruct(&a_neg);
+    }
 #else
     assert(false);
     return MDL_EVAL_INTERNAL_ERROR;
