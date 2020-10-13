@@ -954,10 +954,6 @@ void mcsat_notify_plugins(mcsat_solver_t* mcsat, plugin_notify_kind_t kind) {
 }
 
 void mcsat_reset(mcsat_solver_t* mcsat) {
-  // Pop to level 0
-  while (mcsat->trail->decision_level_base > 0) {
-    mcsat_pop(mcsat);
-  }
   // Reset everything
   const context_t* ctx = mcsat->ctx;
   mcsat_destruct(mcsat);
