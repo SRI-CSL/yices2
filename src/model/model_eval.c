@@ -253,19 +253,31 @@ static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
  */
 static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
   rational_t q;
+  lp_integer_t a_floor;
   value_t v;
 
   v = eval_term(eval, t);
-  assert(object_is_rational(eval->vtbl, v));
+
+  if (object_is_rational(eval->vtbl, v)) {
+    q_init(&q);
+    q_set(&q, vtbl_rational(eval->vtbl, v)); // q := value of t
+    q_floor(&q);
+    q_normalize(&q);
+
+    v = vtbl_mk_rational(eval->vtbl, &q);
   
-  q_init(&q);
-  q_set(&q, eval_get_rational(eval, v)); // q := value of t
-  q_floor(&q);
-  q_normalize(&q);
+    clear_rational(&q);
+  } else {
+    lp_integer_construct(&a_floor);
+    lp_algebraic_number_floor(vtbl_algebraic_number(eval->vtbl, v), &a_floor);
+    q_init(&q);
+    q_set_mpz(&q, &a_floor);
 
-  v = vtbl_mk_rational(eval->vtbl, &q);
+    v = vtbl_mk_rational(eval->vtbl, &q);
 
-  clear_rational(&q);
+    clear_rational(&q);
+    lp_integer_destruct(&a_floor);
+  }
 
   return v;
 }
