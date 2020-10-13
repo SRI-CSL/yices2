@@ -1247,20 +1247,20 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_IS_INT_ATOM:
-	v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
-	break;
+        v = eval_arith_is_int(eval, arith_is_int_arg(terms, t));
+        break;
 
       case ARITH_FLOOR:
-	v = eval_arith_floor(eval, arith_floor_arg(terms, t));
-	break;
+        v = eval_arith_floor(eval, arith_floor_arg(terms, t));
+        break;
 
       case ARITH_CEIL:
-	v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
-	break;
+        v = eval_arith_ceil(eval, arith_ceil_arg(terms, t));
+        break;
 
       case ARITH_ABS:
-	v = eval_arith_abs(eval, arith_abs_arg(terms, t));
-	break;
+        v = eval_arith_abs(eval, arith_abs_arg(terms, t));
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -1311,20 +1311,20 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_RDIV:
-	v = eval_arith_rdiv(eval, arith_rdiv_term_desc(terms, t));
-	break;
+        v = eval_arith_rdiv(eval, arith_rdiv_term_desc(terms, t));
+        break;
 
       case ARITH_IDIV:
-	v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));
-	break;
+        v = eval_arith_idiv(eval, arith_idiv_term_desc(terms, t));
+        break;
 
       case ARITH_MOD:
-	v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
-	break;
+        v = eval_arith_mod(eval, arith_mod_term_desc(terms, t));
+        break;
 
       case ARITH_DIVIDES_ATOM:
-	v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
-	break;
+        v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
+        break;
 
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
