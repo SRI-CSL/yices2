@@ -26,6 +26,10 @@
 #include "model/model_eval.h"
 #include "terms/bv64_constants.h"
 
+#ifdef HAVE_MCSAT
+#include "poly/algebraic_number.h"
+#endif
+
 
 /*
  * Wrapper for q_clear to avoid compilation warnings
@@ -189,7 +193,17 @@ static value_t eval_arith_eq(evaluator_t *eval, term_t t) {
   value_t v;
 
   v = eval_term(eval, t);
-  return vtbl_mk_bool(eval->vtbl, q_is_zero(eval_get_rational(eval, v)));
+
+  if (object_is_rational(eval->vtbl, v)) {
+    return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_rational(eval->vtbl, v)));
+  } else {
+#ifdef HAVE_MCSAT
+    return vtbl_mk_bool(eval->vtbl, lp_algebraic_number_sgn(vtbl_algebraic_number(eval->vtbl, v)) == 0);
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR;
+#endif
+  }
 }
 
 
