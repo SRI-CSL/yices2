@@ -52,6 +52,16 @@ static inline byte_t *extend_bitvector(byte_t *bv, uint32_t n) {
 }
 
 
+/*
+ * Wrapper around memset to avoid warnings with sanitize
+ * - malloc(0) is allowed to return NULL
+ * - the C standard does not say whether memset(NULL, c, 0) is allowed
+ * - compiling with the address sanitizer complains on memset(NUL,...)
+ * - so we check for that here.
+ */
+static inline void do_memset(byte_t *b, int c, uint32_t n) {
+  if (n > 0) memset(b, c, n);
+}
 
 /*
  * Allocate a bitvector of n bits and initialize all to 0
@@ -61,7 +71,7 @@ static inline byte_t *allocate_bitvector0(uint32_t n) {
 
   n = (n + 7) >> 3;
   tmp = (byte_t *) safe_malloc(n);
-  memset(tmp, 0, n);
+  do_memset(tmp, 0, n);
   return tmp;
 }
 
@@ -79,7 +89,7 @@ static inline byte_t *extend_bitvector0(byte_t *bv, uint32_t n, uint32_t m) {
   m = (m + 7) >> 3;
   assert(m <= n);
   tmp = (byte_t *) safe_realloc(bv, n);
-  memset(tmp + m, 0, n - m);
+  do_memset(tmp + m, 0, n - m);
   return tmp;
 }
 
@@ -99,7 +109,7 @@ static inline void delete_bitvector(byte_t *bv) {
  */
 static inline void clear_bitvector(byte_t *bv, uint32_t n) {
   n = (n + 7) >> 3;
-  memset(bv, 0, n);
+  do_memset(bv, 0, n);
 }
 
 
@@ -109,7 +119,7 @@ static inline void clear_bitvector(byte_t *bv, uint32_t n) {
  */
 static inline void set_bitvector(byte_t *bv, uint32_t n) {
   n = (n + 7) >> 3;
-  memset(bv, 0xff, n);
+  do_memset(bv, 0xff, n);
 }
 
 
