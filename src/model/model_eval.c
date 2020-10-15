@@ -27,6 +27,7 @@
 #include "terms/bv64_constants.h"
 
 #ifdef HAVE_MCSAT
+#include "poly/rational.h"
 #include "poly/algebraic_number.h"
 #endif
 
@@ -371,21 +372,56 @@ static value_t eval_arith_abs(evaluator_t *eval, term_t t) {
   return v;
 }
 
+#ifdef HAVE_MCSAT
+static inline
+void lp_rational_construct_from_rational(lp_rational_t* q_lp, const rational_t* q) {
+  if (is_ratgmp(q)) {
+    lp_rational_construct_copy(q_lp, get_gmp(q));
+  } else {
+    lp_rational_construct_from_int(q_lp, get_num(q), get_den(q));
+  }
+}
+#endif
 
 /*
  * Arithmetic atom: v1 == v2
  */
 static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
+  bool result;
   value_t v1, v2;
-
   assert(eq->arity == 2);
 
   v1 = eval_term(eval, eq->arg[0]);
   v2 = eval_term(eval, eq->arg[1]);
-  assert(object_is_rational(eval->vtbl, v1) &&
-         object_is_rational(eval->vtbl, v2));
 
-  return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
+  if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
+    result = v1 == v2; // because of hash consing
+  } else {
+#ifdef HAVE_MCSAT
+    lp_rational_t q;
+    bool v1_algebraic = object_is_algebraic(eval->vtbl, v1);
+    bool v2_algebraic = object_is_algebraic(eval->vtbl, v2);
+    lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(eval->vtbl, v1) : NULL;
+    lp_algebraic_number_t* a2 = v2_algebraic ? vtbl_algebraic_number(eval->vtbl, v2) : NULL;
+    if (v1_algebraic && v2_algebraic) {
+      result = lp_algebraic_number_cmp(a1, a2) == 0;
+    } else if (v1_algebraic) {
+      lp_rational_construct_from_rational(&q, vtbl_rational(eval->vtbl, v2));
+      result = lp_algebraic_number_cmp_rational(a1, &q);
+      lp_rational_destruct(&q);
+    } else {
+      assert(v2_algebraic);
+      lp_rational_construct_from_rational(&q, vtbl_rational(eval->vtbl, v1));
+      result = lp_algebraic_number_cmp_rational(a2, &q);
+      lp_rational_destruct(&q);
+    }
+#else
+    assert(false);
+    return MDL_EVAL_INTERNAL_ERROR:
+#endif
+  }
+
+  return vtbl_mk_bool(eval->vtbl, result);
 }
 
 
