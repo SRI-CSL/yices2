@@ -138,10 +138,19 @@ static rational_t *eval_get_rational(evaluator_t *eval, value_t v) {
 }
 
 /*
- * Check whether v is zero: returns false if v is algebraic
+ * Check whether v is zero
  */
 static bool eval_is_zero(evaluator_t *eval, value_t v) {
-  return object_is_rational(eval->vtbl, v) && q_is_zero(vtbl_rational(eval->vtbl, v));
+  if (object_is_rational(eval->vtbl, v)) {
+    return q_is_zero(vtbl_rational(eval->vtbl, v));
+  } else {
+#ifdef HAVE_MCSAT
+    return lp_algebraic_number_sgn(vtbl_algebraic_number(eval->vtbl, v)) == 0;
+#else
+    assert(false);
+    return false;
+#endif
+  }
 }
 
 /*
@@ -157,6 +166,19 @@ static rational_t *eval_get_nz_rational(evaluator_t *eval, value_t v) {
   }
   return q;
 }
+
+#ifdef HAVE_MCSAT
+static lp_algebraic_number_t *eval_get_nz_algebraic(evaluator_t *eval, value_t v) {
+  lp_algebraic_number_t *a;
+
+  a = vtbl_algebraic_number(eval->vtbl, v);
+  if (lp_algebraic_number_sgn(a) == 0) {
+    longjmp(eval->env, MDL_EVAL_FAILED);
+  }
+  return a;
+}
+#endif
+
 
 
 /*
@@ -424,6 +446,35 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
   return vtbl_mk_bool(eval->vtbl, result);
 }
 
+/*
+ * Compute division when one of the arguments is algebraic and return the result.
+ */
+#ifdef HAVE_MCSAT
+static void eval_arith_rdiv_algebraic(evaluator_t *eval, value_t v1, value_t v2, lp_algebraic_number_t* result) {
+  bool v1_algebraic = object_is_algebraic(eval->vtbl, v1);
+  bool v2_algebraic = object_is_algebraic(eval->vtbl, v2);
+  lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(eval->vtbl, v1) : NULL;
+  lp_algebraic_number_t* a2 = v2_algebraic ? eval_get_nz_algebraic(eval->vtbl, v2) : NULL;
+  if (v1_algebraic && v2_algebraic) {
+    lp_algebraic_number_div(result, a1, a2);
+  } else {
+    lp_rational_t tmp_q;
+    lp_algebraic_number_t tmp_a;
+    if (v1_algebraic) {
+      lp_rational_construct_from_rational(&tmp_q, eval_get_nz_rational(eval->vtbl, v2));
+      lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
+      lp_algebraic_number_div(result, a1, &tmp_a);
+    } else {
+      assert(v2_algebraic);
+      lp_rational_construct_from_rational(&tmp_q, vtbl_rational(eval->vtbl, v1));
+      lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
+      lp_algebraic_number_div(result, &tmp_a, a2);
+    }
+    lp_algebraic_number_destruct(&tmp_a);
+    lp_rational_destruct(&tmp_q);
+  }
+}
+#endif
 
 /*
  * Arithmetic term: (/ v1 v2) (division)
@@ -437,48 +488,23 @@ static value_t eval_arith_rdiv(evaluator_t *eval, composite_term_t *d) {
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
 
-  if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
-    if (eval_is_zero(eval, v2)) {
-      o = vtbl_eval_rdiv_by_zero(eval->vtbl, v1);
-    } else {
-      q_init(&q);
-      q_set(&q, eval_get_rational(eval, v1));
-      q_div(&q, eval_get_nz_rational(eval, v2));
-      q_normalize(&q);
+  if (eval_is_zero(eval, v2)) {
+    o = vtbl_eval_rdiv_by_zero(eval->vtbl, v1);
+  } else if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
+    q_init(&q);
+    q_set(&q, vtbl_rational(eval->vtbl, v1));
+    q_div(&q, eval_get_nz_rational(eval, v2));
+    q_normalize(&q);
 
-      o = vtbl_mk_rational(eval->vtbl, &q);
+    o = vtbl_mk_rational(eval->vtbl, &q);
 
-      clear_rational(&q);
-    }
+    clear_rational(&q);
   } else {
 #ifdef HAVE_MCSAT
-    bool v1_algebraic = object_is_algebraic(eval->vtbl, v1);
-    bool v2_algebraic = object_is_algebraic(eval->vtbl, v2);
-    lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(eval->vtbl, v1) : NULL;
-    lp_algebraic_number_t* a2 = v2_algebraic ? vtbl_algebraic_number(eval->vtbl, v2) : NULL;
     lp_algebraic_number_t result;
     lp_algebraic_number_construct_zero(&result);
-    if (v1_algebraic && v2_algebraic) {
-      lp_algebraic_number_div(&result, a1, a2);
-    } else {
-      lp_rational_t tmp_q;
-      lp_algebraic_number_t tmp_a;
-      if (v1_algebraic) {
-        lp_rational_construct_from_rational(&tmp_q, vtbl_rational(eval->vtbl, v2));
-        lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
-        lp_algebraic_number_div(&result, a1, &tmp_a);
-      } else {
-        assert(v2_algebraic);
-        lp_rational_construct_from_rational(&tmp_q, vtbl_rational(eval->vtbl, v1));
-        lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
-        lp_algebraic_number_div(&result, &tmp_a, a2);
-      }
-      lp_algebraic_number_destruct(&tmp_a);
-      lp_rational_destruct(&tmp_q);
-    }
-
+    eval_arith_rdiv_algebraic(eval, v1, v2, &result);
     o = vtbl_mk_algebraic(eval->vtbl, &result);
-
     lp_algebraic_number_destruct(&result);
 #else
     assert(false);
@@ -501,17 +527,45 @@ static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
 
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
-  
+
   if (eval_is_zero(eval, v2)) {
     o = vtbl_eval_idiv_by_zero(eval->vtbl, v1);
-  } else {
+  } else if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
     q_init(&q);
-    q_smt2_div(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2));
+    q_smt2_div(&q, vtbl_rational(eval->vtbl, v1), eval_get_nz_rational(eval, v2));
     q_normalize(&q);
 
     o = vtbl_mk_rational(eval->vtbl, &q);
 
     clear_rational(&q);
+  } else {
+#ifdef HAVE_MCSAT
+    // TODO(algebraic): is this necessary should we not assume that arguments are integers?
+    lp_integer_t div_z;
+    lp_integer_construct(&div_z);
+    lp_algebraic_number_t div_a;
+    lp_algebraic_number_construct_zero(&div_a);
+    eval_arith_rdiv_algebraic(eval, v1, v2, &div_a);
+    if (lp_algebraic_number_sgn(&div_a) > 0) {
+      lp_algebraic_number_floor(&div_a, &div_z); // round down
+    } else {
+      lp_algebraic_number_ceiling(&div_a, &div_z); // round up
+    }
+
+    q_init(&q);
+    q_set_mpz(&q, &div_z);
+
+    o = vtbl_mk_rational(eval->vtbl, &q);
+
+    clear_rational(&q);
+
+    lp_algebraic_number_destruct(&div_a);
+    lp_integer_destruct(&div_z);
+
+#else
+    assert(false);
+    o = MDL_EVAL_INTERNAL_ERROR;
+#endif
   }
 
   return o;
