@@ -454,14 +454,14 @@ static void eval_arith_rdiv_algebraic(evaluator_t *eval, value_t v1, value_t v2,
   bool v1_algebraic = object_is_algebraic(eval->vtbl, v1);
   bool v2_algebraic = object_is_algebraic(eval->vtbl, v2);
   lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(eval->vtbl, v1) : NULL;
-  lp_algebraic_number_t* a2 = v2_algebraic ? eval_get_nz_algebraic(eval->vtbl, v2) : NULL;
+  lp_algebraic_number_t* a2 = v2_algebraic ? eval_get_nz_algebraic(eval, v2) : NULL;
   if (v1_algebraic && v2_algebraic) {
     lp_algebraic_number_div(result, a1, a2);
   } else {
     lp_rational_t tmp_q;
     lp_algebraic_number_t tmp_a;
     if (v1_algebraic) {
-      lp_rational_construct_from_rational(&tmp_q, eval_get_nz_rational(eval->vtbl, v2));
+      lp_rational_construct_from_rational(&tmp_q, eval_get_nz_rational(eval, v2));
       lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
       lp_algebraic_number_div(result, a1, &tmp_a);
     } else {
@@ -561,7 +561,6 @@ static value_t eval_arith_idiv(evaluator_t *eval, composite_term_t *d) {
 
     lp_algebraic_number_destruct(&div_a);
     lp_integer_destruct(&div_z);
-
 #else
     assert(false);
     o = MDL_EVAL_INTERNAL_ERROR;
@@ -586,7 +585,7 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
 
   if (eval_is_zero(eval, v2)) {
     o = vtbl_eval_mod_by_zero(eval->vtbl, v1);
-  } else {
+  } else if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
     q_init(&q);
     q_smt2_mod(&q, eval_get_rational(eval, v1), eval_get_nz_rational(eval, v2)); 
     q_normalize(&q);
@@ -594,6 +593,48 @@ static value_t eval_arith_mod(evaluator_t *eval, composite_term_t *d) {
     o = vtbl_mk_rational(eval->vtbl, &q);
 
     clear_rational(&q);
+  } else {
+#ifdef HAVE_MCSAT
+    // TODO(algebraic): is this necessary should we not assume that arguments are integers?
+    lp_integer_t div_z;
+    lp_integer_construct(&div_z);
+    lp_algebraic_number_t a, div_a;
+    lp_algebraic_number_construct_zero(&a);
+
+    // a = x / y
+    eval_arith_rdiv_algebraic(eval, v1, v2, &a);
+
+    // div_z := (div x y)
+    if (lp_algebraic_number_sgn(&a) > 0) {
+      lp_algebraic_number_floor(&a, &div_z); // round down
+    } else {
+      lp_algebraic_number_ceiling(&a, &div_z); // round up
+    }
+
+    // div_a := (div x y)
+    lp_algebraic_number_construct_from_integer(&div_a, &div_z);
+
+    // q := y * (div x y)
+
+    // q := - x + y * (div x y)
+
+    // q := x - y * (div x y) = (mod x y)
+
+    q_init(&q);
+    q_set_mpz(&q, &div_z);
+
+    o = vtbl_mk_rational(eval->vtbl, &q);
+
+    clear_rational(&q);
+
+    lp_algebraic_number_destruct(&a);
+    lp_algebraic_number_destruct(&div_a);
+    lp_integer_destruct(&div_z);
+
+#else
+    assert(false);
+    o = MDL_EVAL_INTERNAL_ERROR;
+#endif
   }
 
   return o;

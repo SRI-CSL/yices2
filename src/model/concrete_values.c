@@ -3480,6 +3480,8 @@ value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, uint32_
  * - f must be a function or update object of arity n
  * - a[0] ... a[n-1] must be non-null values
  * Return unknown if the map is not defined for a[0 ... n-1]
+ *
+ * TODO(algebraic): algebraic numbers are not canonical!
  */
 value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value_t *a) {
   value_update_t *u;
