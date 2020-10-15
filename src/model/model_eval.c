@@ -437,19 +437,54 @@ static value_t eval_arith_rdiv(evaluator_t *eval, composite_term_t *d) {
   v1 = eval_term(eval, d->arg[0]);
   v2 = eval_term(eval, d->arg[1]);
 
-  if (eval_is_zero(eval, v2)) {
-    o = vtbl_eval_rdiv_by_zero(eval->vtbl, v1);
+  if (object_is_rational(eval->vtbl, v1) && object_is_rational(eval->vtbl, v2)) {
+    if (eval_is_zero(eval, v2)) {
+      o = vtbl_eval_rdiv_by_zero(eval->vtbl, v1);
+    } else {
+      q_init(&q);
+      q_set(&q, eval_get_rational(eval, v1));
+      q_div(&q, eval_get_nz_rational(eval, v2));
+      q_normalize(&q);
+
+      o = vtbl_mk_rational(eval->vtbl, &q);
+
+      clear_rational(&q);
+    }
   } else {
-    q_init(&q);  
-    q_set(&q, eval_get_rational(eval, v1));
-    q_div(&q, eval_get_nz_rational(eval, v2));
-    q_normalize(&q);
-    
-    o = vtbl_mk_rational(eval->vtbl, &q);
+#ifdef HAVE_MCSAT
+    bool v1_algebraic = object_is_algebraic(eval->vtbl, v1);
+    bool v2_algebraic = object_is_algebraic(eval->vtbl, v2);
+    lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(eval->vtbl, v1) : NULL;
+    lp_algebraic_number_t* a2 = v2_algebraic ? vtbl_algebraic_number(eval->vtbl, v2) : NULL;
+    lp_algebraic_number_t result;
+    lp_algebraic_number_construct_zero(&result);
+    if (v1_algebraic && v2_algebraic) {
+      lp_algebraic_number_div(&result, a1, a2);
+    } else {
+      lp_rational_t tmp_q;
+      lp_algebraic_number_t tmp_a;
+      if (v1_algebraic) {
+        lp_rational_construct_from_rational(&tmp_q, vtbl_rational(eval->vtbl, v2));
+        lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
+        lp_algebraic_number_div(&result, a1, &tmp_a);
+      } else {
+        assert(v2_algebraic);
+        lp_rational_construct_from_rational(&tmp_q, vtbl_rational(eval->vtbl, v1));
+        lp_algebraic_number_construct_from_rational(&tmp_a, &tmp_q);
+        lp_algebraic_number_div(&result, &tmp_a, a2);
+      }
+      lp_algebraic_number_destruct(&tmp_a);
+      lp_rational_destruct(&tmp_q);
+    }
 
-    clear_rational(&q);
+    o = vtbl_mk_algebraic(eval->vtbl, &result);
+
+    lp_algebraic_number_destruct(&result);
+#else
+    assert(false);
+    o = MDL_EVAL_INTERNAL_ERROR;
+#endif
   }
-
 
   return o;
 }
