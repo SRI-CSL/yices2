@@ -20,9 +20,15 @@
  * PRINT INTERNALIZATION TABLE
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#define __YICES_DLLSPEC__ EXPORTED
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
+
 #include <assert.h>
 #include <inttypes.h>
-
 
 #include "context/internalization_codes.h"
 #include "context/internalization_printer.h"
