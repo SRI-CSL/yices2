@@ -3384,18 +3384,19 @@ conditional_t *context_make_conditional(context_t *ctx, composite_term_t *ite) {
 term_t simplify_conditional(context_t *ctx, conditional_t *d) {
   uint32_t i, n;
   bool all_false;
-  term_t result;
+  term_t r, result;
 
   n = d->nconds;
   all_false = true;
   result = NULL_TERM;
 
   for (i=0; i<n; i++) {
-    if (term_is_true(ctx, d->pair[i].cond)) {
+    r = intern_tbl_get_root(&ctx->intern, d->pair[i].cond);
+    if (term_is_true(ctx, r)) {
       result = d->pair[i].val;
       goto done;
     }
-    all_false &= term_is_false(ctx, d->pair[i].cond);
+    all_false &= term_is_false(ctx, r);
   }
 
   if (all_false) {

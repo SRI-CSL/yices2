@@ -4266,7 +4266,6 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
     return;
   }
 
-
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
