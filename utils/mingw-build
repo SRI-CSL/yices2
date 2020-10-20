@@ -57,7 +57,7 @@ fi
 # gmp64 = directory where libgmp-10.dll compatible with mingw64 resides
 #
 # vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
-vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2017/Community"
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2019/Community"
 gmp32="/home/bruno/tools/mingw32/bin"
 gmp64="/home/bruno/tools/mingw64/bin"
 
@@ -70,7 +70,7 @@ gmp64="/home/bruno/tools/mingw64/bin"
 # Need to add gmp32 and gmp64 to the path so that mkreadme can
 # run yices (dynamic version).
 #
-export PATH=${vsbase}/VC/Tools/MSVC/14.10.25017/bin/HostX86/x86:${vsbase}/Common7/IDE:${gmp32}:${gmp64}:${PATH}
+export PATH=${vsbase}/VC/Tools/MSVC/14.27.29110/bin/HostX86/x86:${vsbase}/Common7/IDE:${gmp32}:${gmp64}:${PATH}
 
 #
 # Keep track of the current directory
@@ -87,7 +87,7 @@ for dist in $what; do
       arch=x86
       ;;
     mingw64)
-      buildir=build/x86_64-pc-mingw32-release
+      buildir=build/x86_64-unknown-mingw32-release
       arch=x64
       ;;
   esac

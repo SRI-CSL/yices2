@@ -356,6 +356,73 @@ AC_ARG_WITH([pic-libpoly-include-dir],
    [])
 
 
+dnl
+dnl Same thing for CUDD
+dnl
+static_lcudd=""
+AC_ARG_WITH([static-libcudd],
+   [AS_HELP_STRING([--with-static-libcudd=<path>],[Full path to libcudd.a])],
+   [if test $use_mcsat = "no" ; then
+      AC_MSG_WARN([Ignoring option --with-static-libcudd since MCSAT support is disabled])
+    else
+      if test "x$withval" = x; then
+        AC_MSG_WARN([--with-static-cudd was used but no path was given. Using defaults])
+      else
+        static_lcudd=$withval
+      fi
+    fi
+   ],
+   [])
+
+static_includelcudd=""
+AC_ARG_WITH([static-libcudd-include-dir],
+   [AS_HELP_STRING([--with-static-libcudd-include-dir=<directory>],
+            [Path to include files compatible with libcudd.a (e.g., /usr/local/include)])],
+   [if test $use_mcsat = "no" ; then
+      AC_MSG_WARN([Ignoring option --with-static-libcudd-include-dir since MCSAT support is disabled])
+    else
+      if test "x$withval" = x; then
+         AC_MSG_WARN([--with-static-libcudd-include-dir was used but no directory was given. Using defaults])
+      else
+        static_includelcudd=$withval
+      fi
+    fi
+   ],
+   [])
+
+
+pic_lcudd=""
+AC_ARG_WITH([pic-libcudd],
+   [AS_HELP_STRING([--with-pic-libcudd=<path>],[Full path to a relocatable libcudd.a])],
+   [if test $use_mcsat = "no" ; then
+      AC_MSG_WARN([Ignoring option --with-pic-libcudd since MCSAT support is disabled])
+    else
+      if test "x$withval" = x; then
+         AC_MSG_WARN([--with-pic-libcudd was used but no path was given. Using defaults])
+      else
+         pic_lcudd=$withval
+      fi
+    fi
+   ],
+   [])
+
+pic_includelcudd=""
+AC_ARG_WITH([pic-libcudd-include-dir],
+   [AS_HELP_STRING([--with-pic-libcudd-include-dir=<directory>],
+            [Path to include files compatible with the relocatable libcudd.a])],
+   [if test $use_mcsat = "no" ; then
+      AC_MSG_WARN([Ignoring option --with-pic-libcudd-include-dir since MCSAT support is disabled])
+    else
+      if test "x$withval" = x; then
+         AC_MSG_WARN([--with-pic-libcudd-include-dir was used but no directory was given. Using defaults])
+      else
+         pic_includelcudd=$withval
+      fi
+    fi
+   ],
+   [])
+
+
 
 dnl
 dnl Option to enable thread-safety
@@ -730,6 +797,116 @@ fi
 ])
 
 
+
+dnl
+dnl CSL_CHECK_LIBCUDD(libcudd,includedir,libs)
+dnl ------------------------------------------
+dnl attempt to compile and run a test program that calls libcudd
+dnl set run_ok to "yes" if the program executes and exits with 0.
+dnl set run_ok to "no" otherwise.
+dnl
+dnl libcudd must be the full-path name to the library to test.
+dnl includedir must be a directory where 'cudd.h' can be found.
+dnl libs may contain GMP libraries to use
+dnl
+AC_DEFUN([CSL_CHECK_LIBCUDD],
+[
+save_cppflags=$CPPFLAGS
+save_libs=$LIBS
+#
+# Add the -I option to CPPFLAGS
+# Add $1 then $3 to LIBS
+#
+if test "x$2" != x ; then
+   CPPFLAGS="-I$2 $CPPFLAGS"
+fi
+LIBS="$1"
+if test "x$3" != x ; then
+   LIBS="$LIBS $3"
+fi
+AC_MSG_CHECKING([whether $1 is usable])
+#
+# Test program
+#
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <cudd.h>
+]],
+[[
+DdManager *m = Cudd_Init(0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS,0);
+DdNode *bdd = Cudd_bddNewVar(m);
+Cudd_Quit(m);
+]])
+
+],run_ok=yes,run_ok=no,run_ok=no)
+AC_MSG_RESULT([$run_ok])
+#
+# restore CPPFLAGS and LIBS
+#
+CPPFLAGS=$save_cppflags
+LIBS=$save_libs
+])
+
+
+dnl
+dnl CSL_CHECK_STATIC_LIBCUDD(libcudd,includedir)
+dnl --------------------------------------------
+dnl Try to find a usable libcudd.a.
+dnl If $1 is not empty, it's assumed to be the full path to libcudd.a
+dnl If $2 is not empty, it's assumed to be the path to the
+dnl corresponding include directory that includes cudd.h
+dnl
+dnl If the test succeeds. then this macro sets STATIC_LIBCUDD to
+dnl the full path for libcudd.a and STATIC_LIBCUDD_INCLUDE_DIR to $2.
+dnl
+AC_DEFUN([CSL_CHECK_STATIC_LIBCUDD],
+[
+AC_MSG_NOTICE([Searching for a usable libcudd.a])
+CSL_CHECK_HEADER([cudd.h],$2,--with-static-libcudd-include-dir)
+#
+# If $1 is empty search for it in the
+#
+if test -z "$1" ; then
+   CSL_COLLECT_LIBRARY_PATHS
+   #
+   # $search_libs contains the directories to search
+   #
+   AC_MSG_NOTICE([Searching in $search_libs])
+   for ldir in $search_libs ; do
+      AC_MSG_CHECKING([for libcudd.a in $ldir])
+      if test -f $ldir/libcudd.a ; then
+         AC_MSG_RESULT(found)
+         testlib=$ldir/libcudd.a
+         CSL_CHECK_LIBCUDD($testlib,$testincludedir,$3)
+         if test $run_ok = yes ; then
+            STATIC_LIBCUDD=$testlib
+            STATIC_LIBCUDD_INCLUDE_DIR=$testincludedir
+            break
+         fi
+      else
+         AC_MSG_RESULT(no)
+      fi
+   done
+#
+else
+  # got --with-static-libcudd=xxxx
+  CSL_CHECK_LIB_PATH($1,--with-static-libcudd)
+  CSL_CHECK_LIBCUDD($testlib,$testincludedir,$3)
+  if test $run_ok = yes; then
+     STATIC_LIBCUDD=$testlib
+     STATIC_LIBCUDD_INCLUDE_DIR=$testincludedir
+  else
+     AC_MSG_ERROR([*** $1 does not appear to be usable: check option --with-static-libcudd ***])
+  fi
+fi
+
+if test "x$STATIC_LIBCUDD" = x; then
+   AC_MSG_WARN([*** No usable libcudd.a library was found ***])
+fi
+])
+
+
 #
 # CHECK LIBRARIES
 # ---------------
@@ -800,7 +977,7 @@ fi
 # Position-independent static version of LIBPOLY
 #
 PIC_LIBPOLY="$STATIC_LIBPOLY"
-PIB_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
+PIC_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
 AC_SUBST(PIC_LIBPOLY)
 AC_SUBST(PIC_LIBPOLY_INCLUDE_DIR)
 if test $use_mcsat = yes ; then
@@ -822,6 +999,40 @@ if test $use_mcsat = yes ; then
        PIC_LIBPOLY_INCLUDE_DIR=$testincludedir
      else
        AC_MSG_ERROR([*** $testlib does not appear to be usable: check option --with-pic-libpoly ***])
+     fi
+  fi
+fi
+
+#
+# libcudd.a
+#
+STATIC_LIBCUDD=""
+STATIC_LIBCUDD_INCLUDE_DIR=""
+AC_SUBST(STATIC_LIBCUDD)
+AC_SUBST(STATIC_LIBCUDD_INCLUDE_DIR)
+if test $use_mcsat = yes ; then
+  auxlib=""
+  CSL_CHECK_STATIC_LIBCUDD($static_lcudd,$static_includelcudd,$auxlibs)
+fi
+
+#
+# Position-independent static version of LIBCUDD
+#
+PIC_LIBCUDD="$STATIC_LIBCUDD"
+PIC_LIBCUDD_INCLUDE_DIR="$STATIC_LIBCUDD_INCLUDE_DIR"
+AC_SUBST(PIC_LIBCUDD)
+AC_SUBST(PIC_LIBCUDD_INCLUDE_DIR)
+if test $use_mcsat = yes ; then
+  if test "x$pic_lcudd" != x ; then
+     CSL_CHECK_HEADER([cudd.h],$pic_includelcudd,--with-pic-libcudd-include-dir)
+     CSL_CHECK_LIB_PATH($pic_lcudd,--with-pic-lcudd)
+     auxlibs=""
+     CSL_CHECK_STATIC_LIBCUDD($pic_lcudd,$pic_includelcudd,$auxlibs)
+     if test $run_ok = yes; then
+       PIC_LIBCUDD=$testlib
+       PIC_LIBCUDD_INCLUDE_DIR=$testincludedir
+     else
+       AC_MSG_ERROR([*** $testlib does not appear to be usable: check option --with-pic-libcudd ***])
      fi
   fi
 fi
