@@ -1365,9 +1365,7 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
 }
 
 static uint32_t hash_algebraic_value(void *a) {
-  // Can't hash, internal representation can change and they are not canonical
-  // We just return 0 and hope for the best
-  return 0;
+  return lp_algebraic_number_hash(a);
 }
 
 static uint32_t hash_const_value(const_hobj_t *o) {
@@ -1565,7 +1563,7 @@ static value_t build_algebraic_value(algebraic_hobj_t *o) {
   table->kind[i] = ALGEBRAIC_VALUE;
   table->desc[i].ptr = safe_malloc(sizeof(lp_algebraic_number_t));
   lp_algebraic_number_construct_copy(table->desc[i].ptr, o->a);
-  clr_bit(table->canonical, i);
+  set_bit(table->canonical, i);
 
   return i;
 #else
