@@ -192,7 +192,7 @@ static param_t parameters;
 
 
 /*
- * Flag to indicate we are in exists/forall mode.
+ * Flag to indicate whether we are in exists/forall mode.
  */
 static bool efmode;
 
@@ -712,7 +712,7 @@ static const char signum_msg[24] = "\nInterrupted by signal ";
 static char signum_buffer[100];
 
 /*
- * Write signal number of file 2 (assumed to be stderr): we can't use
+ * Write signal number on file 2 (assumed to be stderr): we can't use
  * fprintf because it's not safe in a signal handler.
  */
 static void write_signum(int signum) {
