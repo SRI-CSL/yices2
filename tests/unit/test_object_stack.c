@@ -94,15 +94,14 @@ static void print_stack(FILE *f, objstack_t *stack) {
 
 static void test1(void) {
   objstack_t stack;
-  void *o;
 
   printf("\n=== test1 ===\n\n");
   init_objstack(&stack); 
   printf("initial stack\n");
   print_stack(stdout, &stack);
 
-  o = objstack_alloc(&stack, 10, NULL);
-  o = objstack_alloc(&stack, 1000, NULL);
+  objstack_alloc(&stack, 10, NULL);
+  objstack_alloc(&stack, 1000, NULL);
   printf("\nafter two allocs\n");
   print_stack(stdout, &stack);
 
@@ -110,8 +109,8 @@ static void test1(void) {
   printf("\nafter pop\n");
   print_stack(stdout, &stack);
 
-  o = objstack_alloc(&stack, MAX_OBJSTACK_SIZE, NULL);
-  o = objstack_alloc(&stack, 2000, NULL);
+  objstack_alloc(&stack, MAX_OBJSTACK_SIZE, NULL);
+  objstack_alloc(&stack, 2000, NULL);
   printf("\nafter max alloc\n");
   print_stack(stdout, &stack);
 
@@ -187,9 +186,11 @@ static void test2(void) {
       reset_objstack(&stack);
       depth = 0;
     } else if (rnd <= 10) {
+      printf("push\n");
       alloc(&stack, depth);
       depth ++;
     } else if (depth > 0) {
+      printf("pop\n");
       objstack_pop(&stack);
       depth --;
     }
