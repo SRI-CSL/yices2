@@ -136,6 +136,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
   ef->num_skolem = 0;
+  ef->uint_skolem = true;
 }
 
 
@@ -1274,6 +1275,11 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, 
 
   v = &ef->flat;
   ef_add_assertions(ef, prob, n, a, f_ite, f_iff, ematching, v);
+
+  if (!ef->uint_skolem) {
+    return_code = EF_NESTED_QUANTIFIER;
+      goto done;
+  }
 
   n = v->size;
   for (i=0; i<n; i++) {

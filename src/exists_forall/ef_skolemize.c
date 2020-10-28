@@ -260,11 +260,12 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
  */
 ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
-  type_t rt;
+  type_t rt, tau;
   uint32_t i;
   term_table_t *terms;
   ef_skolem_t skolem;
 
+  bool uint_skolem = true;
   terms = ef->terms;
   ef->num_skolem++;
 
@@ -279,7 +280,9 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
   else {
     domt = (type_t *) safe_malloc(n * sizeof(type_t));
     for (i=0; i<n; i++) {
-      domt[i] = term_type(terms, uvars[i]);
+      tau = term_type(terms, uvars[i]);
+      domt[i] = tau;
+      uint_skolem = uint_skolem && (yices_type_is_bool(tau) || yices_type_is_scalar(tau) || yices_type_is_uninterpreted(tau));
     }
     rt = term_type(terms, x);
 
@@ -292,6 +295,9 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
 
   yices_set_term_name(skolem.func, name);
 
+  if (!uint_skolem) {
+    ef->uint_skolem = false;
+  }
 
 #if TRACE
   printf("Skolemization: %s --> %s\n", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
