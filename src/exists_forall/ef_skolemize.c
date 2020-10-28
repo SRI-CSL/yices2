@@ -261,16 +261,19 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
 ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
   type_t rt, tau;
-  uint32_t i;
+  uint32_t i, nameLength;
   term_table_t *terms;
   ef_skolem_t skolem;
+  const char *xname;
 
   bool uint_skolem = true;
   terms = ef->terms;
   ef->num_skolem++;
 
-  char name[50];
-  sprintf (name, "skolem%d_%s", ef->num_skolem, yices_get_term_name(x));
+  xname = yices_get_term_name(x);
+  nameLength = 50 + strlen(xname);
+  char name[nameLength];
+  sprintf (name, "skolem%d_%s", ef->num_skolem, xname);
 
   if (n == 0) {
     rt = term_type(terms, x);
