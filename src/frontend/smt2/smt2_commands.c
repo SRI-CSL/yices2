@@ -6340,7 +6340,7 @@ void smt2_set_logic(const char *name) {
 
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
-    print_error("logic %s is not supported by the mscat solver", name);
+    print_error("logic %s is not supported by the mcsat solver", name);
     return;
   }
 
