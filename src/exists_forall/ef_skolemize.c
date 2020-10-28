@@ -576,6 +576,27 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         result = mk_and(mgr, n, args.data);
         break;
 
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (not (xor a[0] ... a[n-1]))
+         * it flattens to (not (xor (xor a[0] a[1]) a[2]) ... ) a[n-1]))
+         */
+        n = d->arity;
+        if (n == 0) {
+          assert(0);
+        } else {
+          u = d->arg[0];
+          for (i=1; i<n; i++) {
+            u = mk_binary_xor(mgr, u, d->arg[i]);
+          }
+        }
+        v = opposite_term(u);
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
+        break;
+
       case FORALL_TERM:
         /*
          * t is (not (forall .. body))
@@ -675,6 +696,27 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           ivector_push(&args, u);
         }
         result = ef_update_composite(sk, unsigned_term(t), &args);
+        break;
+
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (xor a[0] ... a[n-1])
+         * it flattens to (xor (xor a[0] a[1]) a[2]) ... ) a[n-1])
+         */
+        n = d->arity;
+        if (n == 0) {
+          assert(0);
+        } else {
+          u = d->arg[0];
+          for (i=1; i<n; i++) {
+            u = mk_binary_xor(mgr, u, d->arg[i]);
+          }
+        }
+        v = u;
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
         break;
 
       case FORALL_TERM:
