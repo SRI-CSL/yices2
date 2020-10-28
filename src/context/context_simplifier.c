@@ -1033,13 +1033,16 @@ void try_bitvector_factoring(context_t *ctx, bvfactoring_t *r, term_t t1, term_t
  * Check whether t1 and t2 have the same factor decomposition
  */
 bool equal_bitvector_factors(context_t *ctx, term_t t1, term_t t2) {
-  bvfactoring_t factoring;
+  bvfactoring_t *factoring;
   bool eq;
 
-  init_bvfactoring(&factoring);
-  try_bitvector_factoring(ctx, &factoring, t1, t2);
-  eq = factoring.code == BVFACTOR_EQUAL;
-  delete_bvfactoring(&factoring);
+  factoring = objstack_alloc(&ctx->ostack, sizeof(bvfactoring_t),
+			     (cleaner_t) delete_bvfactoring);
+  init_bvfactoring(factoring);
+  try_bitvector_factoring(ctx, factoring, t1, t2);
+  eq = factoring->code == BVFACTOR_EQUAL;
+  //  delete_bvfactoring(&factoring);
+  objstack_pop(&ctx->ostack);
 
   return eq;
 }
@@ -2732,21 +2735,23 @@ static void add_implied_equalities(context_t *ctx, epartition_t *p) {
 void analyze_uf(context_t *ctx) {
   ivector_t *v;
   uint32_t i, n;
-  eq_learner_t eql;
+  eq_learner_t *eql;
   epartition_t *p;
 
-  init_eq_learner(&eql, ctx->terms);
+  eql = objstack_alloc(&ctx->ostack, sizeof(eq_learner_t), (cleaner_t) delete_eq_learner);
+  init_eq_learner(eql, ctx->terms);
   v = &ctx->top_formulas;
   n = v->size;
 
   for (i=0; i<n; i++) {
-    p = eq_learner_process(&eql, v->data[i]);
+    p = eq_learner_process(eql, v->data[i]);
     if (p->nclasses > 0) {
       add_implied_equalities(ctx, p);
     }
   }
 
-  delete_eq_learner(&eql);
+  //  delete_eq_learner(&eql);
+  objstack_pop(&ctx->ostack);
 }
 
 
@@ -3076,16 +3081,18 @@ static void update_dleq_stats(context_t *ctx, term_t x, term_t y, rational_t *a,
  * - idl = true to check for IDL, false for RDL
  */
 static bool check_dl_eq0_atom(context_t *ctx, term_t t, bool idl) {
-  dl_term_t triple;
+  dl_term_t *triple;
   bool result;
 
-  init_dl_term(&triple);
-  result = dl_convert_term(ctx, &triple, t) && check_dl_fragment(ctx, &triple, idl);
+  triple = objstack_alloc(&ctx->ostack, sizeof(dl_term_t), (cleaner_t) delete_dl_term);
+  init_dl_term(triple);
+  result = dl_convert_term(ctx, triple, t) && check_dl_fragment(ctx, triple, idl);
   if (result) {
     // a + x - y = 0 <--> (y - x = a)
-    update_dleq_stats(ctx, triple.y, triple.x, &triple.a, idl);
+    update_dleq_stats(ctx, triple->y, triple->x, &triple->a, idl);
   }
-  delete_dl_term(&triple);
+  //  delete_dl_term(&triple);
+  objstack_pop(&ctx->ostack);
 
   return result;
 }
@@ -3094,17 +3101,19 @@ static bool check_dl_eq0_atom(context_t *ctx, term_t t, bool idl) {
  * Check atom (t >= 0) and update statistics
  */
 static bool check_dl_geq0_atom(context_t *ctx, term_t t, bool idl) {
-  dl_term_t triple;
+  dl_term_t *triple;
   bool result;
 
-  init_dl_term(&triple);
-  result = dl_convert_term(ctx, &triple, t) && check_dl_fragment(ctx, &triple, idl);
+  triple = objstack_alloc(&ctx->ostack, sizeof(dl_term_t), (cleaner_t) delete_dl_term);
+  init_dl_term(triple);
+  result = dl_convert_term(ctx, triple, t) && check_dl_fragment(ctx, triple, idl);
   if (result) {
     // a + x - y >= 0 <--> (y - x <= -a)
-    q_neg(&triple.a);
-    update_dl_stats(ctx, triple.y, triple.x, &triple.a, idl);
+    q_neg(&triple->a);
+    update_dl_stats(ctx, triple->y, triple->x, &triple->a, idl);
   }
-  delete_dl_term(&triple);
+  //  delete_dl_term(triple);
+  objstack_pop(&ctx->ostack);
 
   return result;
 }
@@ -3113,16 +3122,18 @@ static bool check_dl_geq0_atom(context_t *ctx, term_t t, bool idl) {
  * Check atom (t1 == t2) and update statistics
  */
 static bool check_dl_eq_atom(context_t *ctx, term_t t1, term_t t2, bool idl) {
-  dl_term_t triple;
+  dl_term_t *triple;
   bool result;
 
-  init_dl_term(&triple);
-  result = dl_convert_diff(ctx, &triple, t1, t2) && check_dl_fragment(ctx, &triple, idl);
+  triple = objstack_alloc(&ctx->ostack, sizeof(dl_term_t), (cleaner_t) delete_dl_term);
+  init_dl_term(triple);
+  result = dl_convert_diff(ctx, triple, t1, t2) && check_dl_fragment(ctx, triple, idl);
   if (result) {
     // a + x - y = 0 <--> (y - x = a)
-    update_dleq_stats(ctx, triple.y, triple.x, &triple.a, idl);
+    update_dleq_stats(ctx, triple->y, triple->x, &triple->a, idl);
   }
-  delete_dl_term(&triple);
+  //  delete_dl_term(triple);
+  objstack_pop(&ctx->ostack);
 
   return result;
 }
@@ -3629,28 +3640,29 @@ static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
  * Break symmetries
  */
 void break_uf_symmetries(context_t *ctx) {
-  sym_breaker_t breaker;
+  sym_breaker_t *breaker;
   sym_breaker_sets_t *sets;
   rng_record_t **v;
   uint32_t i, j, n;
 
-  init_sym_breaker(&breaker, ctx);
-  collect_range_constraints(&breaker);
+  breaker = objstack_alloc(&ctx->ostack, sizeof(sym_breaker_t), (cleaner_t) delete_sym_breaker);
+  init_sym_breaker(breaker, ctx);
+  collect_range_constraints(breaker);
 
 #if TRACE_SYM_BREAKING
-  show_range_constraints(&breaker);
+  show_range_constraints(breaker);
 #endif
 
-  v = breaker.sorted_constraints;
-  n = breaker.num_constraints;
+  v = breaker->sorted_constraints;
+  n = breaker->num_constraints;
   if (n > 0) {
     // test of symmetry breaking
-    sets = &breaker.sets;
+    sets = &breaker->sets;
     for (i=0; i<n; i++) {
-      if (check_assertion_invariance(&breaker, v[i])) {
+      if (check_assertion_invariance(breaker, v[i])) {
 #if TRACE_SYM_BREAKING
 	printf("Breaking symmetries using set[%"PRIu32"]:", i);
-	print_constant_set(&breaker, v[i]);
+	print_constant_set(breaker, v[i]);
 	printf("\n");
 #endif
 	breaker_sets_copy_record(sets, v[i]);
@@ -3658,21 +3670,21 @@ void break_uf_symmetries(context_t *ctx) {
 	  if (range_record_subset(v[j], v[i])) {
 #if TRACE_SYM_BREAKING
 	    printf("Adding set[%"PRIu32"]:", j);
-	    print_constant_set(&breaker, v[j]);
+	    print_constant_set(breaker, v[j]);
 	    printf("\n");
 #endif
 	    breaker_sets_add_record(sets, v[j]);
 	  }
 	}
 #if TRACE_SYM_BREAKING
-	print_candidates(&breaker, sets);
+	print_candidates(breaker, sets);
 	printf("\n");
 #endif
-	break_symmetries(&breaker, sets);
+	break_symmetries(breaker, sets);
       } else {
 #if TRACE_SYM_BREAKING
 	printf("Set[%"PRIu32"]:", i);
-	print_constant_set(&breaker, v[i]);
+	print_constant_set(breaker, v[i]);
 	printf(" not symmetrical\n\n");
 #endif
       }
@@ -3684,7 +3696,8 @@ void break_uf_symmetries(context_t *ctx) {
 #endif
   }
 
-  delete_sym_breaker(&breaker);
+  //  delete_sym_breaker(breaker);
+  objstack_pop(&ctx->ostack);
 }
 
 
@@ -3695,18 +3708,21 @@ void break_uf_symmetries(context_t *ctx) {
  *****************************/
 
 void process_conditional_definitions(context_t *ctx) {
-  cond_def_collector_t collect;
+  cond_def_collector_t *collect;
   ivector_t *v;
   uint32_t i, n;
 
   v = &ctx->top_formulas;
   n = v->size;
   if (n > 0) {
-    init_cond_def_collector(&collect, ctx);
+    collect = objstack_alloc(&ctx->ostack, sizeof(cond_def_collector_t),
+			     (cleaner_t) delete_cond_def_collector);
+    init_cond_def_collector(collect, ctx);
     for (i=0; i<n; i++) {
-      extract_conditional_definitions(&collect, v->data[i]);
+      extract_conditional_definitions(collect, v->data[i]);
     }
-    analyze_conditional_definitions(&collect);
-    delete_cond_def_collector(&collect);
+    analyze_conditional_definitions(collect);
+    //    delete_cond_def_collector(&collect);
+    objstack_pop(&ctx->ostack);
   }
 }
