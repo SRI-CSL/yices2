@@ -1,0 +1,5 @@
+(set-logic UF)
+(declare-fun uf4 (Bool Bool Bool Bool) Bool)
+(declare-sort S0 0)
+(assert (forall ((q14 S0) (q15 Bool) (q16 Bool) (q17 Bool)) (= true true true true (uf4 (not (exists ((q8 Bool) (q9 Bool) (q10 Bool) (q11 Bool) (q12 Bool) (q13 Bool)) (exists ((q0 Bool) (q1 Bool) (q2 Bool) (q3 Bool) (q4 Bool) (q5 Bool)) q5))) true true (exists ((q0 Bool) (q1 Bool) (q2 Bool) (q3 Bool) (q4 Bool) (q5 Bool)) (not (=> q5 false)))) true (uf4 (not (exists ((q8 Bool) (q9 Bool) (q10 Bool) (q11 Bool) (q12 Bool) (q13 Bool)) (exists ((q0 Bool) (q1 Bool) (q2 Bool) (q3 Bool) (q4 Bool) (q5 Bool)) q5))) true true true))))
+(check-sat)
