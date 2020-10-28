@@ -153,7 +153,8 @@ typedef enum smt_logic {
    * Added 2018/05/17: special code for the 'ALL' logic
    * as in (set-logic ALL).
    *
-   * We interpret this a QF_AUFLIRA + QF_BV
+   * We interpret this a QF_AUFLIRA + QF_BV unless MCSAT is
+   * enabled in which case it is QF_UFNIRA + QF_BV.
    */
   SMT_ALL,
 

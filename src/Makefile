@@ -300,6 +300,7 @@ core_src_c := \
 	utils/int_vectors.c \
 	utils/mark_vectors.c \
 	utils/memalloc.c \
+	utils/object_stack.c \
 	utils/object_stores.c \
 	utils/pair_hash_map.c \
 	utils/pair_hash_map2.c \
