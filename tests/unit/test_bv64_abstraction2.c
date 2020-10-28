@@ -178,28 +178,28 @@ static void make_interval_set(bv64_abs_t a[30], uint32_t n) {
   // for each we set the sign bit to undef then to some literal
   make_interval(a+11, min, max, sign_undef);
   make_interval(a+12, min, max, 2);
-  make_interval(a+13, min, max, 2^1); // flip the sign
+  make_interval(a+13, min, max, 0x2^1); // flip the sign
   make_interval(a+14, min, max, 6);
 
   make_interval(a+15, min/2, 2, sign_undef);
   make_interval(a+16, min/2, 2, 2);
-  make_interval(a+17, min/2, 2, 2^1);
+  make_interval(a+17, min/2, 2, 0x2^1);
   make_interval(a+17, min/2, 2, 8);
 
   make_interval(a+18, -4, 5, sign_undef);
   make_interval(a+19, -4, 5, 2);
-  make_interval(a+20, -4, 5, 2^1);
+  make_interval(a+20, -4, 5, 0x2^1);
   make_interval(a+21, -4, 5, 10);
 
   make_interval(a+22, -5, 4, sign_undef);
   make_interval(a+23, -5, 4, 2);
-  make_interval(a+24, -5, 4, 2^1);
+  make_interval(a+24, -5, 4, 0x2^1);
   make_interval(a+25, -5, 4, 10);
 
   // corner cases: max is 0
   make_interval(a+26, -7, 0, sign_undef);
   make_interval(a+27, -7, 0, 2);
-  make_interval(a+28, -7, 0, 2^1);
+  make_interval(a+28, -7, 0, 0x2^1);
   make_interval(a+29, -7, 0, 10);
 }
 
