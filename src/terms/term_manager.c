@@ -6220,6 +6220,8 @@ term_t mk_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, const term
  * - given a polynomial p and a term t that occurs in p
  * - construct the polynomial q such that (t == q) is equivalent to (p == 0)
  *   (i.e., write p as a.t + r and construct  q :=  -r/a).
+ *
+ * BUG FIX: if t is an integer and q is not, return NULL_TERM
  */
 term_t mk_arith_elim_poly(term_manager_t *mngr, polynomial_t *p, term_t t) {
   rba_buffer_t *b;
@@ -6278,6 +6280,12 @@ term_t mk_arith_elim_poly(term_manager_t *mngr, polynomial_t *p, term_t t) {
     if (! q_is_one(a)) {
       rba_buffer_div_const(b, a);
     }
+  }
+
+  if (is_integer_term(mngr->terms, t) && !arith_poly_is_integer(mngr->terms, b)) {
+    // t is an integer term, -r/a is not so (p == 0) is not equivalent to t=-r/a
+    reset_rba_buffer(b);
+    return NULL_TERM;
   }
 
   return mk_arith_term(mngr, b);

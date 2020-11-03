@@ -668,6 +668,9 @@ extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, 
  * - given a polynomial p and a term t that occurs in p,
  *   construct the polynomial q such that (t == q) is equivalent to (p == 0)
  *   (i.e., write p as a.t + r and construct  q :=  -r/a).
+ * - returns a term equal to q if (t == q) is equivalent to (a.t + r == 0)
+ * - return NULL_TERM if the types of t and q are not compatible (i.e., t is an
+ *   integer term, but q is not an integer polynomial).
  */
 extern term_t mk_arith_elim_poly(term_manager_t *manager, polynomial_t *p, term_t t);
 

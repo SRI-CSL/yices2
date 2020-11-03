@@ -79,7 +79,7 @@ extern void delete_elim_subst(elim_subst_t *subst);
  *   (BV_EQ_ATOM t u)   (t == u) for bivector terms t and u
  *
  * If check_cycles is true, we also check for substitution cycles before
- * adding [y --> t] to the full_susbt, and returns false if there's a cycle.
+ * adding [y --> t] to the full_susbt, and return false if there's a cycle.
  */
 extern bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles);
 
@@ -92,7 +92,7 @@ extern bool elim_subst_try_map(elim_subst_t *subst, term_t f, bool check_cycles)
  *   (EQ t u) where t and u are uninterpreted or Boolean
  *   (NOT (eq t u)) if t and u are Boolean
  *   (BV_EQ_ATOM t u)   (t == u) for bivector terms t and u
- *   
+ *
  */
 extern bool elim_subst_try_cheap_map(elim_subst_t *subst, term_t f, bool check_cycles);
 
