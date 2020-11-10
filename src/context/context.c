@@ -439,7 +439,7 @@ static void ite_prepare_antecedents(ivector_t *v) {
  * - tau = type of the term (ite c1 t1 t2)
  */
 static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal_t c, type_t tau) {
-  ite_flattener_t flattener;
+  ite_flattener_t *flattener;
   ivector_t *buffer;
   term_t x;
   occ_t u, v;
@@ -447,18 +447,20 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
 
   u = pos_occ(make_egraph_variable(ctx, tau));
 
-  init_ite_flattener(&flattener);
-  ite_flattener_push(&flattener, ite, c);
+  flattener = objstack_alloc(&ctx->ostack, sizeof(ite_flattener_t), (cleaner_t) delete_ite_flattener);
+  init_ite_flattener(flattener);
 
-  while (ite_flattener_is_nonempty(&flattener)) {
-    if (ite_flattener_last_lit_false(&flattener)) {
+  ite_flattener_push(flattener, ite, c);
+
+  while (ite_flattener_is_nonempty(flattener)) {
+    if (ite_flattener_last_lit_false(flattener)) {
       // dead branch
-      ite_flattener_next_branch(&flattener);
+      ite_flattener_next_branch(flattener);
       continue;
     }
-    assert(ite_flattener_branch_is_live(&flattener));
+    assert(ite_flattener_branch_is_live(flattener));
 
-    x = ite_flattener_leaf(&flattener);
+    x = ite_flattener_leaf(flattener);
     x = intern_tbl_get_root(&ctx->intern, x);
 
     /*
@@ -481,7 +483,7 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
       ite = ite_term_desc(ctx->terms, x);
       assert(ite->arity == 3);
       c = internalize_to_literal(ctx, ite->arg[0]);
-      ite_flattener_push(&flattener, ite, c);
+      ite_flattener_push(flattener, ite, c);
     } else {
       /*
        * Add the clause [branch conditions => x = u]
@@ -491,17 +493,18 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
 
       buffer = &ctx->aux_vector;
       assert(buffer->size == 0);
-      ite_flattener_get_clause(&flattener, buffer);
+      ite_flattener_get_clause(flattener, buffer);
       ite_prepare_antecedents(buffer);
       ivector_push(buffer, l);
       add_clause(ctx->core, buffer->size, buffer->data);
       ivector_reset(buffer);
 
-      ite_flattener_next_branch(&flattener);
+      ite_flattener_next_branch(flattener);
     }
   }
 
-  delete_ite_flattener(&flattener);
+   //  delete_ite_flattener(&flattener);
+  objstack_pop(&ctx->ostack);
 
   return u;
 }
@@ -1096,25 +1099,27 @@ static thvar_t map_conditional_to_arith(context_t *ctx, conditional_t *c, bool i
  * - is_int = true if the if-then-else term is integer (otherwise it's real)
  */
 static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, literal_t c, bool is_int) {
-  ite_flattener_t flattener;
+  ite_flattener_t *flattener;
   ivector_t *buffer;
   term_t x;
   thvar_t u, v;
 
   u = ctx->arith.create_var(ctx->arith_solver, is_int);
 
-  init_ite_flattener(&flattener);
-  ite_flattener_push(&flattener, ite, c);
+  flattener = objstack_alloc(&ctx->ostack, sizeof(ite_flattener_t), (cleaner_t) delete_ite_flattener);
+  init_ite_flattener(flattener);
 
-  while (ite_flattener_is_nonempty(&flattener)) {
-    if (ite_flattener_last_lit_false(&flattener)) {
+  ite_flattener_push(flattener, ite, c);
+
+  while (ite_flattener_is_nonempty(flattener)) {
+    if (ite_flattener_last_lit_false(flattener)) {
       // dead branch
-      ite_flattener_next_branch(&flattener);
+      ite_flattener_next_branch(flattener);
       continue;
     }
-    assert(ite_flattener_branch_is_live(&flattener));
+    assert(ite_flattener_branch_is_live(flattener));
 
-    x = ite_flattener_leaf(&flattener);
+    x = ite_flattener_leaf(flattener);
     x = intern_tbl_get_root(&ctx->intern, x);
 
     /*
@@ -1131,7 +1136,7 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
       ite = ite_term_desc(ctx->terms, x);
       assert(ite->arity == 3);
       c = internalize_to_literal(ctx, ite->arg[0]);
-      ite_flattener_push(&flattener, ite, c);
+      ite_flattener_push(flattener, ite, c);
     } else {
       /*
        * Add the clause [branch conditions => x = u]
@@ -1140,17 +1145,18 @@ static thvar_t flatten_ite_to_arith(context_t *ctx, composite_term_t *ite, liter
 
       buffer = &ctx->aux_vector;
       assert(buffer->size == 0);
-      ite_flattener_get_clause(&flattener, buffer);
+      ite_flattener_get_clause(flattener, buffer);
       ite_prepare_antecedents(buffer);
       // assert [buffer \/ v = u]
       ctx->arith.assert_clause_vareq_axiom(ctx->arith_solver, buffer->size, buffer->data, v, u);
       ivector_reset(buffer);
 
-      ite_flattener_next_branch(&flattener);
+      ite_flattener_next_branch(flattener);
     }
   }
 
-  delete_ite_flattener(&flattener);
+  //  delete_ite_flattener(&flattener);
+   objstack_pop(&ctx->ostack);
 
   return u;
 }
@@ -4266,7 +4272,6 @@ static void assert_toplevel_conditional(context_t *ctx, conditional_t *c, bool t
     return;
   }
 
-
   n = c->nconds;
   a = alloc_istack_array(&ctx->istack, n + 1);
 
@@ -4571,24 +4576,27 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
    * Try Factoring
    */
   if (!tt) {
-    bvfactoring_t factoring;
+    bvfactoring_t *factoring;
     bool eq = false;
 
-    init_bvfactoring(&factoring);
-    try_bitvector_factoring(ctx, &factoring, t1, t2);
-    switch (factoring.code) {
+    factoring = objstack_alloc(&ctx->ostack, sizeof(bvfactoring_t), (cleaner_t) delete_bvfactoring);
+    init_bvfactoring(factoring);
+
+    try_bitvector_factoring(ctx, factoring, t1, t2);
+    switch (factoring->code) {
     case BVFACTOR_EQUAL:
       eq = true;
       break;
 
     case BVFACTOR_FOUND:
-      assert_factored_inequality(ctx, &factoring);
+      assert_factored_inequality(ctx, factoring);
       break;
 
     default:
       break;
     }
-    delete_bvfactoring(&factoring);
+    // delete_bvfactoring(&factoring);
+    objstack_pop(&ctx->ostack);
 
     if (eq) {
       longjmp(ctx->env, TRIVIALLY_UNSAT);
@@ -5591,6 +5599,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_int_queue(&ctx->queue, 0);
   init_istack(&ctx->istack);
+  init_objstack(&ctx->ostack);
   init_sharing_map(&ctx->sharing, &ctx->intern);
   init_objstore(&ctx->cstore, sizeof(conditional_t), 32);
   init_assumption_stack(&ctx->assumptions);
@@ -5691,6 +5700,7 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->aux_vector);
   delete_int_queue(&ctx->queue);
   delete_istack(&ctx->istack);
+  delete_objstack(&ctx->ostack);
   delete_sharing_map(&ctx->sharing);
   delete_objstore(&ctx->cstore);
   delete_assumption_stack(&ctx->assumptions);
@@ -5746,6 +5756,7 @@ void reset_context(context_t *ctx) {
   ivector_reset(&ctx->aux_vector);
   int_queue_reset(&ctx->queue);
   reset_istack(&ctx->istack);
+  reset_objstack(&ctx->ostack);
   reset_sharing_map(&ctx->sharing);
   reset_objstore(&ctx->cstore);
   reset_assumption_stack(&ctx->assumptions);
@@ -6086,6 +6097,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
      */
     ivector_reset(&ctx->aux_vector);
     reset_istack(&ctx->istack);
+    reset_objstack(&ctx->ostack);
     int_queue_reset(&ctx->queue);
     context_free_subst(ctx);
     context_free_marks(ctx);

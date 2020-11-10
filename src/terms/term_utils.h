@@ -249,11 +249,13 @@ extern uint64_t lower_bound_signed64(term_table_t *tbl, term_t t);
  * Special cases of bitvector terms.  These functions check whether t
  * is one of the following bit-vector constants:
  * - zero: 0b0000...00  (smallest unsigned value)
+ * - one:0b0000...01
  * - minus one: 0b1111...11 (largest unsigned value)
  * - smallest negative value: 0b1000...00
  * - largest positive value: 0b0111...11
  */
 extern bool bvterm_is_zero(term_table_t *tbl, term_t t);
+extern bool bvterm_is_one(term_table_t  *tbl, term_t t);
 extern bool bvterm_is_minus_one(term_table_t *tbl, term_t t);
 extern bool bvterm_is_min_signed(term_table_t *tbl, term_t t);
 extern bool bvterm_is_max_signed(term_table_t *tbl, term_t t);

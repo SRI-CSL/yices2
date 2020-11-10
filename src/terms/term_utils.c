@@ -1558,6 +1558,24 @@ bool bvterm_is_zero(term_table_t *tbl, term_t t) {
   }
 }
 
+bool bvterm_is_one(term_table_t *tbl, term_t t) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    return bvconst64_term_desc(tbl, t)->value == 1;
+
+  case BV_CONSTANT:
+    n = (term_bitsize(tbl, t) + 31) >> 5; // number of words
+    return bvconst_is_one(bvconst_term_desc(tbl, t)->data, n);
+
+  default:
+    return false;
+  }
+}
+
 bool bvterm_is_minus_one(term_table_t *tbl, term_t t) {
   uint32_t n;
 

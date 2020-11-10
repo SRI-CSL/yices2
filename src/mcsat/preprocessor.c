@@ -548,13 +548,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
         }
       }
 
-     if (eq_solve_var != NULL_TERM) {
-       // Check again to make sure we don't have something like x = x + 1
-       if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
-         // Do it again
-         children_done = false;
-       }
-     }
+      if (eq_solve_var != NULL_TERM) {
+        // Check again to make sure we don't have something like x = x + 1
+        if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
+          // Do it again
+          children_done = false;
+        }
+      }
 
       if (children_done) {
         if (eq_solve_var != NULL_TERM) {
@@ -578,6 +578,20 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case ARITH_ABS:
+    {
+      term_t arg = arith_abs_arg(terms, current);
+      term_t arg_pre = preprocessor_get(pre, arg);
+      if (arg_pre == NULL_TERM) {
+        ivector_push(pre_stack, arg);
+      } else {
+        type_t arg_pre_type = term_type(pre->terms, arg_pre);
+        term_t arg_pre_is_positive = mk_arith_term_geq0(&pre->tm, arg_pre);
+        term_t arg_negative = yices_neg(arg_pre);
+        current_pre = mk_ite(&pre->tm, arg_pre_is_positive, arg_pre, arg_negative, arg_pre_type);
+      }
+      break;
+    }
     case BV_SDIV:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);

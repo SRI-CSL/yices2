@@ -2290,8 +2290,8 @@ static void set_unsat_model_interpolants_option(smt2_globals_t *g, const char *n
   bool flag;
 
   if (aval_is_boolean(g->avtbl, value, &flag)) {
-   g->produce_unsat_model_interpolants = flag;
-   report_success();
+    g->produce_unsat_model_interpolants = flag;
+    report_success();
   } else {
     print_error("option %s requires a Boolean value", name);
   }
@@ -2542,7 +2542,7 @@ static assumptions_and_core_t *collect_named_assumptions(uint32_t n, const signe
  */
 
 /*
- * Check whether we can set the context in One-check mode
+ * Check whether we can set the context in one-check mode
  * - we can if g->benchmark is true
  *   and g->produce_unsat_cores and g->produce_unsat_assumptions
  *   are both false.
@@ -4052,6 +4052,8 @@ static bval_t obj2bval(value_table_t *vtbl, value_t v) {
  * assertions are trivially satisfiable, no context is
  * constructed, but we have a model.
  *
+ * This is also used to print assignments when we use the ef-solver.
+ *
  * We print whatever default values get assigned to the
  * boolean terms in the model.
  */
@@ -4140,6 +4142,22 @@ static void show_assignment(smt2_globals_t *g) {
       break;
     }
   }
+}
+
+
+/*
+ * Show assignment in exists/forall mode
+ */
+static void show_ef_assignment(smt2_globals_t *g) {
+  model_t *mdl;
+  smt2_pp_t printer;
+
+  mdl = get_ef_model(g);
+  if (mdl == NULL) return;
+
+  init_pretty_printer(&printer, g);
+  print_model_assignment(&printer, &g->named_bools, mdl);
+  delete_smt2_pp(&printer, true);
 }
 
 
@@ -4836,7 +4854,11 @@ void smt2_get_assignment(void) {
   tprint_calls("get-assignment", __smt2_globals.stats.num_get_assignment);
 
   if (check_logic()) {
-    show_assignment(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      show_ef_assignment(&__smt2_globals);
+    } else {
+      show_assignment(&__smt2_globals);
+    }
   }
 }
 
@@ -4884,7 +4906,11 @@ void smt2_get_unsat_core(void) {
   tprint_calls("get-unsat-core", __smt2_globals.stats.num_get_unsat_core);
 
   if (check_logic()) {
-    show_unsat_core(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      print_error("get-unsat-core is not supported in logic %s", __smt2_globals.logic_name);
+    } else {
+      show_unsat_core(&__smt2_globals);
+    }
   }
 }
 
@@ -4898,7 +4924,11 @@ void smt2_get_unsat_assumptions(void) {
   tprint_calls("get-unsat-assumptions", __smt2_globals.stats.num_get_unsat_assumptions);
 
   if (check_logic()) {
-    show_unsat_assumptions(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      print_error("get-unsat-assumptions is not supported in logic %s", __smt2_globals.logic_name);
+    } else {
+      show_unsat_assumptions(&__smt2_globals);
+    }
   }
 }
 
@@ -6310,7 +6340,7 @@ void smt2_set_logic(const char *name) {
 
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
-    print_error("logic %s is not supported by the mscat solver", name);
+    print_error("logic %s is not supported by the mcsat solver", name);
     return;
   }
 
@@ -6508,13 +6538,14 @@ void smt2_assert(term_t t, bool special) {
           print_error("assertions are not allowed after (check-sat) in non-incremental mode");
         } else {
           /*
-           * if produce unsat core is set and t is special,
+	   * Otherwise, if produce unsat core is set and t is special,
            * we just skip it. The term is stored in the named_asserts table
            * and will be treated as an assumption when check-sat is called.
            */
           if (!special || !g->produce_unsat_cores) {
             add_delayed_assertion(g, t);
           } else {
+	    assert(!g->efmode);
             trace_printf(g->tracer, 20, "(skipping named assertion)\n");
           }
           report_success();

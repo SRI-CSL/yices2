@@ -48,6 +48,7 @@
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"
 #include "utils/int_vectors.h"
+#include "utils/object_stack.h"
 #include "utils/mark_vectors.h"
 #include "utils/pair_hash_map2.h"
 
@@ -681,6 +682,7 @@ struct context_s {
   ivector_t aux_vector;
   int_queue_t queue;
   int_stack_t istack;
+  objstack_t ostack;
 
   // data about shared subterms
   sharing_map_t sharing;
