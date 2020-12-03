@@ -592,6 +592,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       }
       break;
     }
+
     case BV_SDIV:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
