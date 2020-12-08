@@ -1113,3 +1113,33 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
   }
 }
 
+
+static inline
+void preprocessor_gc_mark_term(preprocessor_t* pre, term_t t) {
+  term_table_set_gc_mark(pre->terms, index_of(t));
+  type_table_set_gc_mark(pre->terms->types, term_type(pre->terms, t));
+}
+
+void preprocessor_gc_mark(preprocessor_t* pre) {
+  uint32_t i;
+
+  for (i = 0; i < pre->preprocess_map_list.size; ++ i) {
+    term_t t = pre->preprocess_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pre = preprocessor_get(pre, t);
+    preprocessor_gc_mark_term(pre, t_pre);
+  }
+
+  for (i = 0; i < pre->equalities_list.size; ++ i) {
+    term_t t = pre->equalities_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+  }
+
+  for (i = 0; i < pre->purification_map_list.size; ++ i) {
+    term_t t = pre->purification_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pure = int_hmap_find(&pre->purification_map, t)->val;
+    preprocessor_gc_mark_term(pre, t_pure);
+  }
+}
+

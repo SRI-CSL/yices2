@@ -1322,6 +1322,9 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
         plugin->gc_mark_and_clear(plugin);
       }
     }
+
+    // Mark with the preprocessor
+    preprocessor_gc_mark(&mcsat->preprocessor);
   }
 
   // Done, destruct
