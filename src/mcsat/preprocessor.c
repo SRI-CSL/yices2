@@ -920,6 +920,21 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case ARITH_IS_INT_ATOM:
+    {
+      // replace with t <= floor(t)
+      term_t child = arith_is_int_arg(terms, current);
+      term_t child_pre = preprocessor_get(pre, child);
+      if (child_pre != NULL_TERM) {
+        child_pre = preprocessor_purify(pre, child_pre, out);
+        current_pre = arith_floor(terms, child_pre);
+        current_pre = mk_arith_leq(tm, child_pre, current_pre);
+      } else {
+        ivector_push(pre_stack, child);
+      }
+      break;
+    }
+
     case ARITH_FLOOR:        // floor: purify, but its interpreted
     {
       term_t child = arith_floor_arg(terms, current);
