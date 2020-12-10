@@ -976,8 +976,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case DISTINCT_TERM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
-      bool children_done = true;
 
+      // Arrays not supported yet
+      if (term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+
+      bool children_done = true;
       n = desc->arity;
 
       ivector_t children;
