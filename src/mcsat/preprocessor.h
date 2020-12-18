@@ -96,4 +96,7 @@ void preprocessor_pop(preprocessor_t* pre);
 /** Add any variable substitutions to the model */
 void preprocessor_build_model(preprocessor_t* pre, model_t* model);
 
+/** Mark all the terms in the preprocessor */
+void preprocessor_gc_mark(preprocessor_t* pre);
+
 #endif

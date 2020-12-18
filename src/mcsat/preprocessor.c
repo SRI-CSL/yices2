@@ -920,6 +920,21 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case ARITH_IS_INT_ATOM:
+    {
+      // replace with t <= floor(t)
+      term_t child = arith_is_int_arg(terms, current);
+      term_t child_pre = preprocessor_get(pre, child);
+      if (child_pre != NULL_TERM) {
+        child_pre = preprocessor_purify(pre, child_pre, out);
+        current_pre = arith_floor(terms, child_pre);
+        current_pre = mk_arith_leq(tm, child_pre, current_pre);
+      } else {
+        ivector_push(pre_stack, child);
+      }
+      break;
+    }
+
     case ARITH_FLOOR:        // floor: purify, but its interpreted
     {
       term_t child = arith_floor_arg(terms, current);
@@ -961,8 +976,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case DISTINCT_TERM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
-      bool children_done = true;
 
+      // Arrays not supported yet
+      if (term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+
+      bool children_done = true;
       n = desc->arity;
 
       ivector_t children;
@@ -1110,6 +1130,36 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
     } else {
       model_add_substitution(model, eq_var, zero_term);
     }
+  }
+}
+
+
+static inline
+void preprocessor_gc_mark_term(preprocessor_t* pre, term_t t) {
+  term_table_set_gc_mark(pre->terms, index_of(t));
+  type_table_set_gc_mark(pre->terms->types, term_type(pre->terms, t));
+}
+
+void preprocessor_gc_mark(preprocessor_t* pre) {
+  uint32_t i;
+
+  for (i = 0; i < pre->preprocess_map_list.size; ++ i) {
+    term_t t = pre->preprocess_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pre = preprocessor_get(pre, t);
+    preprocessor_gc_mark_term(pre, t_pre);
+  }
+
+  for (i = 0; i < pre->equalities_list.size; ++ i) {
+    term_t t = pre->equalities_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+  }
+
+  for (i = 0; i < pre->purification_map_list.size; ++ i) {
+    term_t t = pre->purification_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pure = int_hmap_find(&pre->purification_map, t)->val;
+    preprocessor_gc_mark_term(pre, t_pure);
   }
 }
 
