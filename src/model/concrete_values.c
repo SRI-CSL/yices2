@@ -1365,7 +1365,12 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
 }
 
 static uint32_t hash_algebraic_value(algebraic_hobj_t *a) {
+#ifdef HAVE_MCSAT
   return lp_algebraic_number_hash_approx(a->a, 5);
+#else
+  assert(false);
+  return 0
+#endif
 }
 
 static uint32_t hash_const_value(const_hobj_t *o) {
