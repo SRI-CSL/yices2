@@ -94,7 +94,7 @@ static inline int32_t gen_implicant_error(int32_t error) {
 }
 
 static inline int32_t gen_projection_error(proj_flag_t error) {
-  assert(PROJ_ERROR_NON_LINEAR <= error && error <= PROJ_ERROR_BAD_ARITH_LITERAL);
+  assert(PROJ_ERROR_BAD_ARITH_LITERAL <= error && error <= PROJ_ERROR_NON_LINEAR);
   return error + (GEN_PROJ_ERROR_NON_LINEAR - PROJ_ERROR_NON_LINEAR);
 }
 
