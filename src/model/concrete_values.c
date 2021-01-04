@@ -1364,8 +1364,8 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
   return jenkins_hash_mix2(h_num, h_den);
 }
 
-static uint32_t hash_algebraic_value(void *a) {
-  return lp_algebraic_number_hash(a);
+static uint32_t hash_algebraic_value(algebraic_hobj_t *a) {
+  return lp_algebraic_number_hash_approx(a->a, 5);
 }
 
 static uint32_t hash_const_value(const_hobj_t *o) {
