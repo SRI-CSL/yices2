@@ -8336,12 +8336,14 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     init_trace(trace);
     set_trace_file(trace, stderr);
     // Copy over the trace tag to the tracer
+    char *trace_tags = safe_strdup(config->trace_tags);
     char *saveptr = NULL;
-    char *tag = strtok_r(config->trace_tags, ",", &saveptr);
+    char *tag = strtok_r(trace_tags, ",", &saveptr);
     while (tag != NULL) {
       pvector_push(&trace->trace_tags, tag);
       tag = strtok_r(NULL, ",", &saveptr);
     }
+    safe_free(trace_tags);
     // Set it to the context
     context_set_trace(ctx, trace);
   }
