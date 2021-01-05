@@ -276,7 +276,6 @@ static value_t eval_arith_is_int(evaluator_t *eval, term_t t) {
  */
 static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
   rational_t q;
-  lp_integer_t a_floor;
   value_t v;
 
   v = eval_term(eval, t);
@@ -292,6 +291,7 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
     clear_rational(&q);
   } else {
 #ifdef HAVE_MCSAT
+    lp_integer_t a_floor;
     lp_integer_construct(&a_floor);
     lp_algebraic_number_floor(vtbl_algebraic_number(eval->vtbl, v), &a_floor);
     q_init(&q);
@@ -316,7 +316,6 @@ static value_t eval_arith_floor(evaluator_t *eval, term_t t) {
  */
 static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
   rational_t q;
-  lp_integer_t a_ceil;
   value_t v;
 
   v = eval_term(eval, t);
@@ -332,6 +331,7 @@ static value_t eval_arith_ceil(evaluator_t *eval, term_t t) {
     clear_rational(&q);
   } else {
 #ifdef HAVE_MCSAT
+    lp_integer_t a_ceil;
     lp_integer_construct(&a_ceil);
     lp_algebraic_number_ceiling(vtbl_algebraic_number(eval->vtbl, v), &a_ceil);
     q_init(&q);
