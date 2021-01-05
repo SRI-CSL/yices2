@@ -1574,9 +1574,11 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
   }
 
   // The assumptions conflict is either with a single constraints, or with a unit lemma
-  // - single constraint: return C or !C (one is assigned, other one evaluates)
-  // - unit lemma: return the lemma itself
+  // 1. unit lemma: return the lemma itself
+  // 2. single constraint from evaluation: return C or !C
+  // 3. single constraint from interval inference: return C => explain(I)
   if (lemma_reasons.size > 0) {
+    // Case 1: unit lemma
     assert(core.size == 0);
     // We don't know the actual lemma terms, just the variables
     // We do know that if we evaluate with the conflict variable the terms should eval to false
@@ -1605,11 +1607,59 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, 0);
   } else {
     assert(core.size == 1);
+
+    // Get all the data
     variable_t constraint_var = core.data[0];
     term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+    assert(!poly_constraint_is_root_constraint(constraint));
     assert(trail_has_value(nra->ctx->trail, constraint_var));
-    ivector_push(conflict, constraint_term);
-    ivector_push(conflict, opposite_term(constraint_term));
+
+    bool constraint_value = trail_get_boolean_value(nra->ctx->trail, constraint_var);
+    const lp_polynomial_t* constraint_p = poly_constraint_get_polynomial(constraint);
+    lp_sign_condition_t constraint_sgn_condition = poly_constraint_get_sign_condition(constraint);
+
+    // Constraint itself
+    if (constraint_value) {
+      ivector_push(conflict, constraint_term);
+    } else {
+      ivector_push(conflict, opposite_term(constraint_term));
+    }
+
+    // Get the reason of the inference
+    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+    lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
+    if (p_reason_lp != NULL) {
+      // Case 3: single constraint from interval inference
+      term_t p_reason = lp_polynomial_to_yices_term(nra, p_reason_lp);
+
+      // Get the sign of the polynomial
+      assert(trail_has_value(nra->ctx->trail, x));
+      assert(lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp)->type == LP_VALUE_NONE);
+      lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, &nra->conflict_variable_value);
+      int sgn = lp_polynomial_sgn(p_reason_lp, nra->lp_data.lp_assignment);
+      lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, 0);
+
+      // Construct the explanation
+      term_t reason = NULL_TERM;
+      if (sgn == 0) {
+        reason = mk_arith_term_eq0(nra->ctx->tm, p_reason);
+      } else if (sgn > 0) {
+        reason = mk_arith_term_gt0(nra->ctx->tm, p_reason);
+      } else {
+        reason = mk_arith_term_lt0(nra->ctx->tm, p_reason);
+      }
+      ivector_push(conflict, reason);
+      lp_polynomial_delete(p_reason_lp);
+    } else {
+      // Case 2: single constraint evaluation
+      // Add negated constraint (evaluates to false)
+      if (constraint_value) {
+        ivector_push(conflict, opposite_term(constraint_term));
+      } else {
+        ivector_push(conflict, constraint_term);
+      }
+    }
   }
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
