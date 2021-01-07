@@ -1631,7 +1631,7 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
     if (p_reason_lp != NULL) {
       // Case 3: single constraint from interval inference
-      term_t p_reason = lp_polynomial_to_yices_term(nra, p_reason_lp);
+      term_t p_reason = lp_polynomial_to_yices_term_nra(p_reason_lp, nra);
 
       // Get the sign of the polynomial
       assert(trail_has_value(nra->ctx->trail, x));

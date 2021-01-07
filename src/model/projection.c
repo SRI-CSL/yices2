@@ -33,7 +33,7 @@
 
 
 #ifdef HAVE_MCSAT
-#include "mcsat/nra/nra_projection.h"
+#include "mcsat/nra/nra_plugin_explain.h"
 #endif
 
 
