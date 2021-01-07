@@ -1109,7 +1109,7 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
     ctx_trace_printf(nra->ctx, "p = "); ctx_trace_term(nra->ctx, p);
   }
 
-  // Addd the polynomial
+  // Add the polynomial
   lp_polynomial_t* p_poly = lp_polynomial_from_term(nra, nra->ctx->terms, p, NULL);
   lp_projection_map_add(&projection_map, p_poly);
   lp_polynomial_delete(p_poly);

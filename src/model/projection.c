@@ -31,6 +31,12 @@
 #include "terms/term_sets.h"
 #include "utils/memalloc.h"
 
+
+#ifdef HAVE_MCSAT
+#include "mcsat/nra/nra_projection.h"
+#endif
+
+
 #define TRACE 0
 
 #if TRACE
@@ -122,6 +128,8 @@ void init_projector(projector_t *proj, model_t *mdl, term_manager_t *mngr, uint3
 
   proj->is_presburger = true;  
   proj->presburger = NULL;
+
+  proj->is_nonlinear = false;
 }
 
 
@@ -313,7 +321,7 @@ static void proj_add_arith_var(projector_t *proj, term_t x) {
     if (! int_hset_member(&proj->vars_to_elim, x)) {
       avars = proj_get_avars_to_keep(proj);
       if (int_hset_add(avars, x)) {
-	ivector_push(&proj->arith_vars, x);
+        ivector_push(&proj->arith_vars, x);
       }
     }
   } else {
@@ -322,9 +330,12 @@ static void proj_add_arith_var(projector_t *proj, term_t x) {
   }
 }
 
+static void proj_add_arith_term(projector_t *proj, term_t t);
+
 // collect the variables of p
 static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
   uint32_t i, n;
+  term_t var;
 
   n = p->nterms;
   i = 0;
@@ -333,7 +344,30 @@ static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
     i ++; // skip the constant
   }
   while (i < n) {
-    proj_add_arith_var(proj, p->mono[i].var);
+    var = p->mono[i].var;
+    proj_add_arith_term(proj, var);
+    i ++;
+  }
+}
+
+// collect the variables of p
+static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
+  uint32_t i, n;
+  term_t var;
+
+#ifdef HAVE_MCSAT
+  proj->is_nonlinear = true;
+#else
+  proj_error(proj, PROJ_ERROR_NON_LINEAR, POWER_PRODUCT);
+  return
+#endif
+
+  n = p->len;
+  i = 0;
+
+  while (i < n) {
+    var = p->prod[i].var;
+    proj_add_arith_term(proj, var);
     i ++;
   }
 }
@@ -354,6 +388,10 @@ static void proj_add_arith_term(projector_t *proj, term_t t) {
 
   case ARITH_POLY:
     proj_add_poly_vars(proj, poly_term_desc(terms, t));
+    break;
+
+  case POWER_PRODUCT:
+    proj_add_pprod_vars(proj, pprod_term_desc(terms, t));
     break;
 
   default:
@@ -530,6 +568,14 @@ static void proj_process_arith_literals(projector_t *proj) {
   printf("[1]  --> Process arith_literals\n");
   fflush(stdout);
 #endif
+
+  if (proj->is_nonlinear) {
+    code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, &proj->arith_vars, proj->avars_to_keep);
+    if (code < 0) {
+      proj_error(proj, PROJ_ERROR_NON_LINEAR, code);
+    }
+    return;
+  }
 
   proj_build_arith_proj(proj);
 

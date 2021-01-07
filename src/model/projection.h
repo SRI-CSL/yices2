@@ -112,9 +112,12 @@ typedef struct projector_s {
   arith_projector_t *arith_proj;
   term_subst_t *val_subst;
 
-  //cooper playground
+  // cooper playground
   bool is_presburger;
   presburger_t *presburger;
+
+  // nonlinear arithmetic
+  bool is_nonlinear;
 
 } projector_t;
 
