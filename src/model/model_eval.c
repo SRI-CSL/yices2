@@ -439,7 +439,7 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
     }
 #else
     assert(false);
-    return MDL_EVAL_INTERNAL_ERROR:
+    return MDL_EVAL_INTERNAL_ERROR;
 #endif
   }
 
