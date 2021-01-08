@@ -185,7 +185,6 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
 lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* terms, int_hmap_t* term_to_lp_map, lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
 
   uint32_t i, j;
-  variable_t var;
   lp_variable_t lp_var;
 
   lp_polynomial_t* result = lp_polynomial_new(lp_ctx);
