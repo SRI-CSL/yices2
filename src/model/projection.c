@@ -352,15 +352,11 @@ static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
 
 // collect the variables of p
 static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
+#ifdef HAVE_MCSAT
   uint32_t i, n;
   term_t var;
 
-#ifdef HAVE_MCSAT
   proj->is_nonlinear = true;
-#else
-  proj_error(proj, PROJ_ERROR_NON_LINEAR, POWER_PRODUCT);
-  return
-#endif
 
   n = p->len;
   i = 0;
@@ -370,6 +366,10 @@ static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
     proj_add_arith_term(proj, var);
     i ++;
   }
+#else
+  proj_error(proj, PROJ_ERROR_NON_LINEAR, POWER_PRODUCT);
+  return;
+#endif
 }
 
 
