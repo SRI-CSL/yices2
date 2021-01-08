@@ -569,6 +569,7 @@ static void proj_process_arith_literals(projector_t *proj) {
   fflush(stdout);
 #endif
 
+#ifdef HAVE_MCSAT
   if (proj->is_nonlinear) {
     code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, &proj->arith_vars, proj->avars_to_keep);
     if (code < 0) {
@@ -576,6 +577,9 @@ static void proj_process_arith_literals(projector_t *proj) {
     }
     return;
   }
+#endif
+
+  assert(!proj->is_nonlinear);
 
   proj_build_arith_proj(proj);
 
