@@ -28,7 +28,7 @@
 #include "utils/prng.h"
 #include "utils/ptr_array_sort.h"
 
-static void qsort_ptr_array(void **a, uint32_t n);
+static void qsort_ptr_array(uint32_t *prng, void **a, uint32_t n);
 
 /*
  * Insertion sort
@@ -55,11 +55,11 @@ static void isort_ptr_array(void **a, uint32_t n) {
 /*
  * Sort: use either insertion or quick sort
  */
-static inline void sort_array(void **a, uint32_t n) {
+static inline void sort_array(uint32_t *prng, void **a, uint32_t n) {
   if (n < 10) {
     isort_ptr_array(a, n);
   } else {
-    qsort_ptr_array(a, n);
+    qsort_ptr_array(prng, a, n);
   }
 }
 
@@ -67,13 +67,12 @@ static inline void sort_array(void **a, uint32_t n) {
 /*
  * Quick sort: requires n > 1
  */
-static void qsort_ptr_array(void **a, uint32_t n) {
+static void qsort_ptr_array(uint32_t *prng, void **a, uint32_t n) {
   uint32_t i, j;
   uintptr_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(prng, n);
   x = (uintptr_t) a[i];
 
   // swap x and a[0]
@@ -100,9 +99,9 @@ static void qsort_ptr_array(void **a, uint32_t n) {
   a[j] = (void*) x;
 
   // sort subarrays
-  sort_array(a, j);
+  sort_array(prng, a, j);
   j ++;
-  sort_array(a + j, n - j);
+  sort_array(prng, a + j, n - j);
 }
 
 
@@ -110,5 +109,7 @@ static void qsort_ptr_array(void **a, uint32_t n) {
  * External call
  */
 void ptr_array_sort(void **a, uint32_t n) {
-  sort_array(a, n);
+  uint32_t prng;
+  prng = PRNG_DEFAULT_SEED;
+  sort_array(&prng, a, n);
 }

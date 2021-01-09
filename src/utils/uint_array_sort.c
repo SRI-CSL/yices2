@@ -27,7 +27,7 @@
 #include "utils/uint_array_sort.h"
 #include "utils/prng.h"
 
-static void qsort_uint_array(uint32_t *a, uint32_t n);
+static void qsort_uint_array(uint32_t *prng, uint32_t *a, uint32_t n);
 
 // insertion sort
 static void isort_uint_array(uint32_t *a, uint32_t n) {
@@ -46,22 +46,21 @@ static void isort_uint_array(uint32_t *a, uint32_t n) {
   }
 }
 
-static inline void sort_array(uint32_t *a, uint32_t n) {
+static inline void sort_array(uint32_t *prng, uint32_t *a, uint32_t n) {
   if (n < 10) {
     isort_uint_array(a, n);
   } else {
-    qsort_uint_array(a, n);
+    qsort_uint_array(prng, a, n);
   }
 }
 
 // quick sort: requires n > 1
-static void qsort_uint_array(uint32_t *a, uint32_t n) {
+static void qsort_uint_array(uint32_t *prng, uint32_t *a, uint32_t n) {
   uint32_t i, j;
   uint32_t x, y;
-  uint32_t seed = PRNG_DEFAULT_SEED;
 
   // x = random pivot
-  i = random_uint(&seed, n);
+  i = random_uint(prng, n);
   x = a[i];
 
   // swap x and a[0]
@@ -86,9 +85,9 @@ static void qsort_uint_array(uint32_t *a, uint32_t n) {
   a[j] = x;
 
   // sort a[0...j-1] and a[j+1 .. n-1]
-  sort_array(a, j);
+  sort_array(prng, a, j);
   j++;
-  sort_array(a + j, n - j);
+  sort_array(prng, a + j, n - j);
 }
 
 
@@ -96,5 +95,7 @@ static void qsort_uint_array(uint32_t *a, uint32_t n) {
  * External call
  */
 void uint_array_sort(uint32_t *a, uint32_t n) {
-  sort_array(a, n);
+  uint32_t prng;
+  prng = PRNG_DEFAULT_SEED;
+  sort_array(&prng, a, n);
 }
