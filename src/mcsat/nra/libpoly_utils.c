@@ -63,7 +63,7 @@ lp_polynomial_t* lp_polynomial_from_power_product_nra(nra_plugin_t* nra, pprod_t
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_power_product(pprod_t* pp, int_hmap_t* term_to_lp_map, lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+lp_polynomial_t* lp_polynomial_from_power_product(pprod_t* pp, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
 
   // The monomials
   lp_monomial_t lp_monomial;
@@ -182,7 +182,7 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* terms, int_hmap_t* term_to_lp_map, lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* terms, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
 
   uint32_t i, j;
   lp_variable_t lp_var;
@@ -321,7 +321,7 @@ lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t t, lp_int
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap_t* term_to_lp_map, lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
   term_kind_t kind;
   lp_polynomial_t* result = NULL;
 

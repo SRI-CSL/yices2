@@ -22,6 +22,7 @@
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
 #include "mcsat/utils/int_mset.h"
+#include "terms/term_manager.h"
 
 typedef struct nra_plugin_s nra_plugin_t;
 
@@ -60,4 +61,4 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  *
  * @return 0 on success, negative if failure (e.g., integer arithmetic).
  */
-int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, ivector_t* vars, int_hset_t* vars_to_keep);
+int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm, ivector_t* vars, int_hset_t* vars_to_keep);

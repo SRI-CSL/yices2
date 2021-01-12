@@ -36,11 +36,27 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
 lp_polynomial_t* lp_polynomial_from_power_product_nra(nra_plugin_t* nra, pprod_t * pp, lp_integer_t* c);
 
 /**
+ * Create a libpoly polynomial from a yices power product. Returns lp_p = pp * c.
+ *
+ * @param term_to_lp_map a map from variables (terms) to variables (libpoly).
+ */
+lp_polynomial_t* lp_polynomial_from_power_product(pprod_t* pp, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c);
+
+/**
  * Create a libpoly polynomial from a yices term. Returns the polynomial
  * lp_p and a positive integer constant c, such that lp_p = p * c. If c is
  * NULL it is ignored.
  */
 lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t p, lp_integer_t* c);
+
+/**
+ * Create a libpoly polynomial from a yices term. Returns the polynomial
+ * lp_p and a positive integer constant c, such that lp_p = p * c. If c is
+ * NULL it is ignored.
+ *
+ * @param term_to_lp_map a map from variables (terms) to variables (libpoly).
+ */
+lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c);
 
 /**
  * Construct an p/q from a rational constant. If any of p or q are
