@@ -142,6 +142,11 @@ ifneq ($(OPTION),)
   ifeq ($(POSIXOS),linux)
     ifeq ($(OPTION),32bits)
       newarch=$(subst x86_64,i686,$(ARCH))
+    else
+    ifeq ($(OPTION),mingw32)
+      newarch=i686-w64-mingw32
+      POSIXOS=mingw
+    endif
     endif
   else
   ifeq ($(POSIXOS),darwin)
