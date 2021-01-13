@@ -156,6 +156,7 @@ static value_t lit_collector_eval(lit_collector_t *collect, term_t t) {
 
   v = eval_in_model(&collect->eval, t);
   if (v < 0) {
+    fprintf(stderr, "ERROR!!!\n");
     longjmp(collect->env, v);
   }
   return v;

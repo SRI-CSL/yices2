@@ -1441,6 +1441,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
   term_table_t *terms;
   bool negative;
   value_t v;
+  term_kind_t t_kind;
 
   negative = is_neg_term(t);
   t = unsigned_term(t);
@@ -1456,7 +1457,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
     if (v == null_value) {
       terms = eval->terms;
 
-      switch (term_kind(terms, t)) {
+      t_kind = term_kind(terms, t);
+      switch (t_kind) {
       case CONSTANT_TERM:
         if (t == true_term) {
           v = vtbl_mk_true(eval->vtbl);

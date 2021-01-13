@@ -523,7 +523,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
   case STATUS_SAT:
   case STATUS_UNKNOWN:
     // build the model (and retain egraph model)
-    mdl = yices_new_model(true);
+    mdl = yices_new_model_internal(true);
     build_model(mdl, ctx);
 
 #if 0

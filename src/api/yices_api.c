@@ -9332,7 +9332,7 @@ model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
 /*
  * Return an empty model
  */
-model_t *yices_new_model(bool keep_subst) {
+model_t *yices_new_model_internal(bool keep_subst) {
   model_t *mdl;
 
   mdl = alloc_model();
@@ -9631,9 +9631,123 @@ model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t ma
     return NULL;
   }
 
-  mdl = yices_new_model(true);
+  mdl = yices_new_model_internal(true);
   build_model_from_map(mdl, n, var, map);
   return mdl;
+}
+
+
+EXPORTED extern model_t *yices_new_model() {
+  MT_PROTECT(model_t *,  __yices_globals.lock, _o_yices_new_model());
+}
+
+model_t *_o_yices_new_model() {
+  return yices_new_model_internal(true);
+}
+
+
+EXPORTED int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_bool(model, var, val));
+}
+
+int32_t _o_yices_model_set_bool(model_t* model, term_t var, int32_t val) {
+
+  if (model_find_term_value(model, var) != null_value) {
+    return -1;
+  }
+  if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
+    return -2;
+  }
+  if (term_type_kind(model->terms, var) != BOOL_TYPE) {
+    return -3;
+  }
+
+  model_map_term(model, var, val ? vtbl_mk_true(&model->vtbl) : vtbl_mk_false(&model->vtbl));
+
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_mpz(model, var, val));
+}
+
+int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
+  rational_t q;
+  value_t q_val;
+
+  if (model_find_term_value(model, var) != null_value) {
+    return -1;
+  }
+  if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
+    return -2;
+  }
+  if (term_type_kind(model->terms, var) != INT_TYPE) {
+    return -3;
+  }
+
+
+  q_init(&q);
+  q_set_mpz(&q, val);
+  q_val = vtbl_mk_rational(&model->vtbl, &q);
+  q_clear(&q);
+
+  model_map_term(model, var, q_val);
+
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_mpq(model_t* model, term_t var, mpq_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_mpq(model, var, val));
+}
+
+int32_t _o_yices_model_set_mpq(model_t* model, term_t var, mpq_t val) {
+  rational_t q;
+  value_t q_val;
+
+  if (model_find_term_value(model, var) != null_value) {
+    return -1;
+  }
+  if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
+    return -2;
+  }
+  if (term_type_kind(model->terms, var) != REAL_TYPE) {
+    return -3;
+  }
+
+  q_init(&q);
+  q_set_mpq(&q, val);
+  q_val = vtbl_mk_rational(&model->vtbl, &q);
+  q_clear(&q);
+
+  model_map_term(model, var, q_val);
+
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_algebraic_number(model_t* model, term_t var, const lp_algebraic_number_t* val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_algebraic_number(model, var, val));
+}
+
+int32_t _o_yices_model_set_algebraic_number(model_t* model, term_t var, const lp_algebraic_number_t* val) {
+  value_t a_val;
+
+  if (model_find_term_value(model, var) != null_value) {
+    return -1;
+  }
+  if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
+    return -2;
+  }
+  if (term_type_kind(model->terms, var) != REAL_TYPE) {
+    return -3;
+  }
+
+  a_val = vtbl_mk_algebraic(&model->vtbl, (void*) val);
+  model_map_term(model, var, a_val);
+
+  return 0;
 }
 
 
@@ -9704,7 +9818,7 @@ bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
   yices_obtain_mutex();
 
   result = true;
-  mdl = yices_new_model(true);
+  mdl = yices_new_model_internal(true);
   init_evaluator(&evaluator, mdl);
   for (i=0; i<n; i++) {
     if (!eval_to_true_in_model(&evaluator, a[i])) {
@@ -10388,7 +10502,7 @@ int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic
   return -1;
 
 #else
-  // NO SUPPORT FOT MCSAT
+  // NO SUPPORT FOR MCSAT
   set_error_code(EVAL_NOT_SUPPORTED);
   return -1;
 #endif

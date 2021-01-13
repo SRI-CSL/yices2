@@ -3397,6 +3397,19 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
+__YICES_DLLSPEC__ extern model_t *yices_new_model(int32_t keep_subst);
+
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val);
+#ifdef __GMP_H__
+__YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t* model, term_t var, mpz_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t* model, term_t var, mpq_t val);
+#endif
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_model_set_algebraic_number(model_t* model, term_t var, const lp_algebraic_number_t* val);
+#endif
+
+
+
 
 /*
  * Collect all the uninterpreted terms that have a value in model mdl.

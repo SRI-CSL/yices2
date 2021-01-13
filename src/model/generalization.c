@@ -256,7 +256,7 @@ int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const t
   int32_t code;
 
   // if n == 0, there's nothing to do
-  code =0;
+  code = 0;
   if (n > 0) {
     terms = term_manager_get_terms(mngr);
     init_ivector(&reals, 10);
