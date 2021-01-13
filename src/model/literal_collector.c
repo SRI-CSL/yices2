@@ -55,6 +55,10 @@
 #include "model/literal_collector.h"
 #include "utils/int_array_sort2.h"
 
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
+
 
 /*
  * Initialization: prepare collector for model mdl
@@ -245,7 +249,11 @@ static int lit_collector_sign_in_model(lit_collector_t *collect, term_t t) {
   assert(is_arithmetic_term(collect->terms, t));
 
   v = lit_collector_eval(collect, t);
-  return q_sgn(vtbl_rational(&collect->model->vtbl, v));
+  if (object_is_rational(&collect->model->vtbl, v)) {
+    return q_sgn(vtbl_rational(&collect->model->vtbl, v));
+  } else {
+    return lp_algebraic_number_sgn(vtbl_algebraic_number(&collect->model->vtbl, v));
+  }
 }
 
 

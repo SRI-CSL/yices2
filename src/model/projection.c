@@ -571,12 +571,25 @@ static void proj_process_arith_literals(projector_t *proj) {
 
 #ifdef HAVE_MCSAT
   if (proj->is_nonlinear) {
+    // project
     code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,
         proj->num_evars, proj->evars,
         proj->arith_vars.size, proj->arith_vars.data);
     if (code < 0) {
       proj_error(proj, PROJ_ERROR_NON_LINEAR, code);
     }
+    // remove the arithmetic variables from the elimination list
+    terms = proj->terms;
+    n = proj->num_evars;
+    j = 0;
+    for (i=0; i<n; i++) {
+      x = proj->evars[i];
+      if (!is_arithmetic_term(terms, x)) {
+        proj->evars[j] = x;
+        j ++;
+      }
+    }
+    proj->num_evars = j;
     return;
   }
 #endif

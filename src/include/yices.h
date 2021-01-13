@@ -3397,7 +3397,7 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
-__YICES_DLLSPEC__ extern model_t *yices_new_model(int32_t keep_subst);
+__YICES_DLLSPEC__ extern model_t *yices_new_model();
 
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val);
 #ifdef __GMP_H__

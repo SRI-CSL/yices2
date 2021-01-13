@@ -42,6 +42,13 @@
 #include <poly/polynomial.h>
 #include <poly/interval.h>
 
+#define TRACE 0
+
+#if TRACE
+#include <inttypes.h>
+#include "io/term_printer.h"
+#endif
+
 static
 void polynomial_buffer_ensure_size(lp_polynomial_t*** buffer, uint32_t* buffer_size, uint32_t size, const lp_polynomial_context_t* ctx) {
   if (*buffer_size < size) {
@@ -446,6 +453,11 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
           current_literal = mk_arith_term_eq0(tm, current_term);
         }
         // Add to output
+#if TRACE
+        fprintf(stderr, "Adding cell part (1): ");
+        print_term(stderr, map->tm->terms, current_literal);
+        fprintf(stderr, "\n");
+#endif
         ivector_push(out, current_literal);
         // If the top variable is not x anymore, we're done (we added it already)
         if (lp_polynomial_top_variable(current) != x)
@@ -463,6 +475,12 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
   }
 
   assert(term_kind(tm->terms, root_atom) != CONSTANT_TERM);
+
+#if TRACE
+    fprintf(stderr, "Adding cell part (2): ");
+    print_term(stderr, map->tm->terms, root_atom);
+    fprintf(stderr, "\n");
+#endif
 
   ivector_push(out, root_atom);
 }
@@ -535,6 +553,10 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
     ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
   }
+
+#if TRACE
+  fprintf(stderr, "x_set = "); lp_polynomial_hash_set_print(x_set, stderr); fprintf(stderr, "\n");
+#endif
 
   // Simplify the polynomials based on gcd:
   //   * If two polynomials evaluate to 0, they should be mutually prime
@@ -708,19 +730,21 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   }
 
   // Add the cell constraint
-  if (lp_interval_is_point(&x_cell)) {
-    lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ, out);
-  } else {
-    const lp_value_t* x_cell_lb = lp_interval_get_lower_bound(&x_cell);
-    const lp_value_t* x_cell_ub = lp_interval_get_upper_bound(&x_cell);
-    assert(lp_value_cmp(x_cell_lb, x_cell_ub) < 0);
-    if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
-      lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT, out);
+  if (out) {
+    if (lp_interval_is_point(&x_cell)) {
+      lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_EQ, out);
+    } else {
+      const lp_value_t* x_cell_lb = lp_interval_get_lower_bound(&x_cell);
+      const lp_value_t* x_cell_ub = lp_interval_get_upper_bound(&x_cell);
+      assert(lp_value_cmp(x_cell_lb, x_cell_ub) < 0);
+      if (x_cell_lb->type != LP_VALUE_MINUS_INFINITY) {
+        lp_projection_map_describe_cell_part(map, x, x_cell_a_root_index, (*x_cell_a_p), ROOT_ATOM_GT, out);
+      }
+      if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
+       lp_projection_map_describe_cell_part(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT, out);
+      }
     }
-    if (x_cell_ub->type != LP_VALUE_PLUS_INFINITY) {
-     lp_projection_map_describe_cell_part(map, x, x_cell_b_root_index, (*x_cell_b_p), ROOT_ATOM_LT, out);
     }
-  }
 
   // Destruct the cell
   lp_interval_destruct(&x_cell);
@@ -887,12 +911,17 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
     //   - relationship between p in U, and u
     //   - relationship between l and u
     bool top = lp_assignment_get_value(map->m, x)->type == LP_VALUE_NONE;
+    bool output_cell = (cell_variables == NULL || int_hset_member(cell_variables, x));
 
-    if (!top || (cell_variables != NULL && int_hset_member(cell_variables, x))) {
+#if TRACE
+    fprintf(stderr, "Projecting variable: %s\n", lp_variable_db_get_name(map->ctx->var_db, x));
+#endif
+
+    if (!top) {
       // Generate the cell, and get the bounding polynomials
       x_cell_a_p = NULL;
       x_cell_b_p = NULL;
-      lp_projection_map_construct_cell(map, x, out, &x_cell_a_p, &x_cell_b_p);
+      lp_projection_map_construct_cell(map, x, output_cell ? out : NULL, &x_cell_a_p, &x_cell_b_p);
       // Reduce the polynomials
       if (x_cell_a_p != NULL) {
         lp_projection_map_reduce(map, x, x_cell_a_p, x_cell_a_p_r);
@@ -1246,13 +1275,6 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int
   lp_polynomial_delete(cstr_polynomial);
 }
 
-#define TRACE 1
-
-#if TRACE
-#include <inttypes.h>
-#include "io/term_printer.h"
-#endif
-
 int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
     uint32_t n_vars_to_elim, const term_t *vars_to_elim,
     uint32_t n_vars_to_keep, const term_t *vars_to_keep) {
@@ -1372,7 +1394,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
   for (i = 0; i < literals->size; ++ i) {
     term_t l = literals->data[i];
 #if TRACE
-    fprintf(stderr, "Adding constraints: ");
+    fprintf(stderr, "C[%i] = ", i);
     print_term(stderr, tm->terms, l);
     fprintf(stderr, "\n");
 #endif

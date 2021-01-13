@@ -658,6 +658,42 @@ static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
   return vtbl_mk_bool(eval->vtbl, divides);
 }
 
+static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
+  lp_algebraic_number_t prod, tmp;
+  mpq_t q;
+  uint32_t i, n;
+  term_t t;
+  value_t o;
+
+  mpq_init(q);
+  lp_algebraic_number_construct_one(&prod);
+
+  n = p->len;
+  for (i=0; i<n && lp_algebraic_number_sgn(&prod) != 0; i++) {
+    t = p->prod[i].var;
+    o = eval_term(eval, t);
+    // prod[i] is v ^ k so q := q * (o ^ k)
+    if (object_is_rational(eval->vtbl, o)) {
+      q_get_mpq(vtbl_rational(eval->vtbl, o), q);
+      lp_algebraic_number_construct_from_rational(&tmp, q);
+    } else {
+      lp_algebraic_number_construct_copy(&tmp, vtbl_algebraic_number(eval->vtbl, o));
+    }
+    lp_algebraic_number_pow(&tmp,  &tmp, p->prod[i].exp);
+    fprintf(stderr, "prod = "); lp_algebraic_number_print(&prod, stderr); fprintf(stderr, "\n");
+    fprintf(stderr, "tmp = "); lp_algebraic_number_print(&tmp, stderr); fprintf(stderr, "\n");
+    lp_algebraic_number_mul(&prod, &prod, &tmp);
+    lp_algebraic_number_destruct(&tmp);
+  }
+
+  o = vtbl_mk_algebraic(eval->vtbl, &prod);
+
+  mpq_clear(q);
+  lp_algebraic_number_destruct(&prod);
+
+  return o;
+}
+
 
 /*
  * Power product: arithmetic
@@ -676,7 +712,14 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
     t = p->prod[i].var;
     o = eval_term(eval, t);
     // prod[i] is v ^ k so q := q * (o ^ k)
-    q_mulexp(&prod, eval_get_rational(eval, o), p->prod[i].exp);
+    if (object_is_rational(eval->vtbl, o)) {
+      q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
+    } else {
+      // We need algebraic number computation
+      o = eval_arith_pprod_algebraic(eval, p);
+      clear_rational(&prod);
+      return o;
+    }
   }
 
   o = vtbl_mk_rational(eval->vtbl, &prod);
@@ -686,6 +729,45 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
   return o;
 }
 
+static value_t eval_arith_poly_algebraic(evaluator_t *eval, polynomial_t *p) {
+  lp_algebraic_number_t sum, tmp_c, tmp_t;
+  uint32_t i, n;
+  term_t t;
+  value_t v;
+  mpq_t q;
+
+  mpq_init(q);
+  lp_algebraic_number_construct_zero(&sum); // sum = 0
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    q_get_mpq(&p->mono[i].coeff, q);
+    lp_algebraic_number_construct_from_rational(&tmp_c, q);
+    if (t == const_idx) {
+      lp_algebraic_number_add(&sum, &sum, &tmp_c);
+    } else {
+      v = eval_term(eval, t);
+      if (object_is_rational(eval->vtbl, v)) {
+        q_get_mpq(vtbl_rational(eval->vtbl, v), q);
+        lp_algebraic_number_construct_from_rational(&tmp_t, q);
+      } else {
+        lp_algebraic_number_construct_copy(&tmp_t, vtbl_algebraic_number(eval->vtbl, v));
+      }
+      lp_algebraic_number_mul(&tmp_t, &tmp_c, &tmp_t);
+      lp_algebraic_number_add(&sum, &sum, &tmp_t);
+      lp_algebraic_number_destruct(&tmp_t);
+    }
+    lp_algebraic_number_destruct(&tmp_c);
+  }
+
+  // convert sum to an object
+  v = vtbl_mk_algebraic(eval->vtbl, &sum);
+
+  mpq_clear(q);
+  lp_algebraic_number_destruct(&sum);
+
+  return v;}
 
 /*
  * Arithmetic polynomial
@@ -705,7 +787,13 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
       q_add(&sum, &p->mono[i].coeff);
     } else {
       v = eval_term(eval, t);
-      q_addmul(&sum, &p->mono[i].coeff, eval_get_rational(eval, v)); // sum := sum + coeff * aux
+      if (object_is_rational(eval->vtbl, v)) {
+        q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
+      } else {
+        v = eval_arith_poly_algebraic(eval, p);
+        clear_rational(&sum);
+        return v;
+      }
     }
   }
 
