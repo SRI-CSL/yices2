@@ -54,11 +54,13 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  *
  * @param literal the literals L above
  * @param mdl the model M above
- * @param vars all variables of L
- * @param vars_to_keep the variables allowed in L' (subset of vars)
+ * @param vars_to_elim variables to eliminate
+ * @param vars_to_keep variables to keep
  *
  * On return the literals vector will contain L'.
  *
  * @return 0 on success, negative if failure (e.g., integer arithmetic).
  */
-int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm, ivector_t* vars, int_hset_t* vars_to_keep);
+int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
+    uint32_t n_vars_to_elim, const term_t *vars_to_elim,
+    uint32_t n_vars_to_keep, const term_t *vars_to_keep);

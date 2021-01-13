@@ -25,6 +25,7 @@
 #include "terms/term_manager.h"
 
 #include <poly/monomial.h>
+#include <poly/variable_db.h>
 
 #include <gmp.h>
 
@@ -557,5 +558,21 @@ const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* 
     assert(false);
   }
   return NULL;
+}
+
+lp_variable_t lp_variable_from_term(term_t t, term_table_t* terms, lp_variable_db_t* lp_var_db) {
+
+  // Name of the term
+  char buffer[100];
+  char* var_name = term_name(terms, t);
+  if (var_name == NULL) {
+    var_name = buffer;
+    sprintf(var_name, "#%d", t);
+  }
+
+  // Make the variable
+  lp_variable_t lp_var = lp_variable_db_new_variable(lp_var_db, var_name);
+
+  return lp_var;
 }
 

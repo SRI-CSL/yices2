@@ -87,3 +87,8 @@ term_t lp_polynomial_to_yices_term(const lp_polynomial_t* lp_p, term_table_t* te
  * Ensure value is an lp_value. If not the passed alternative will be constructed to an equivalent lp_value.
  */
 const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* alternative);
+
+/**
+ * Create a lp_variable from term.
+ */
+lp_variable_t lp_variable_from_term(term_t t, term_table_t* terms, lp_variable_db_t* lp_var_db);
