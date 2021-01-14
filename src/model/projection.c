@@ -570,6 +570,22 @@ static void proj_process_arith_literals(projector_t *proj) {
 #endif
 
 #ifdef HAVE_MCSAT
+  // check if there are any variables assigned to an algebraic number in the model
+  // TODO: is this necessary, linear projection shouldn't rely on rationals
+  for (i = 0; !proj->is_nonlinear && i < proj->num_evars; ++ i) {
+    x = proj->evars[i];
+    value_t v = model_get_term_value(proj->mdl, x);
+    if (object_is_algebraic(&proj->mdl->vtbl, v)) {
+      proj->is_nonlinear = true;
+    }
+  }
+  for (i = 0; !proj->is_nonlinear && i < proj->arith_vars.size; ++ i) {
+    x = proj->arith_vars.data[i];
+    value_t v = model_get_term_value(proj->mdl, x);
+    if (object_is_algebraic(&proj->mdl->vtbl, v)) {
+      proj->is_nonlinear = true;
+    }
+  }
   if (proj->is_nonlinear) {
     // project
     code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,

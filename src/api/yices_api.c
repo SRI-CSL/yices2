@@ -9091,6 +9091,10 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
       break;
     }
 
+//    fprintf(stderr, "model to refute:\n");
+//    model_print_full(stderr, model);
+//    fprintf(stderr, "\n");
+
     // Get the variables of the model
     model_get_relevant_vars(model, &model_vars);
 
@@ -9109,6 +9113,10 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
       break;
     }
     ivector_push(&interpolants, model_interpolant);
+
+//    fprintf(stderr, "model interpolant:\n");
+//    print_term_full(stderr, ctx->ctx_A->terms, model_interpolant);
+//    fprintf(stderr, "\n");
 
     // Add the inteprolant to B
     yices_assert_formula(ctx->ctx_B, model_interpolant);
