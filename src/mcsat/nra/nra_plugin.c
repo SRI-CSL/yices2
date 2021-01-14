@@ -1626,11 +1626,31 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       ivector_push(conflict, opposite_term(constraint_term));
     }
 
-    // Get the reason of the inference
-    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
-    lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
-    if (p_reason_lp != NULL) {
+    // Check if the constraint evaluates
+    variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, constraint_var);
+    const variable_t* var_i = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+    bool constraint_evaluates = true;
+    while (constraint_evaluates && *var_i != variable_null) {
+      if (!trail_has_value(nra->ctx->trail, *var_i)) {
+        constraint_evaluates = false;
+      }
+      var_i ++;
+    }
+    if (constraint_evaluates) {
+      // Case 2: single constraint evaluation
+      // Add negated constraint (evaluates to false)
+      if (constraint_value) {
+        ivector_push(conflict, opposite_term(constraint_term));
+      } else {
+        ivector_push(conflict, constraint_term);
+      }
+    } else {
       // Case 3: single constraint from interval inference
+      // Get the reason of the inference
+      lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+      lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
+      assert(p_reason_lp != NULL);
+
       term_t p_reason = lp_polynomial_to_yices_term(nra, p_reason_lp);
 
       // Get the sign of the polynomial
@@ -1638,6 +1658,11 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       assert(lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp)->type == LP_VALUE_NONE);
       lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, &nra->conflict_variable_value);
       int sgn = lp_polynomial_sgn(p_reason_lp, nra->lp_data.lp_assignment);
+      if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+        ctx_trace_printf(nra->ctx, "p_reason = ");
+        ctx_trace_term(nra->ctx, p_reason);
+        lp_assignment_print(nra->lp_data.lp_assignment, ctx_trace_out(nra->ctx));
+      }
       lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, 0);
 
       // Construct the explanation
@@ -1651,14 +1676,6 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       }
       ivector_push(conflict, reason);
       lp_polynomial_delete(p_reason_lp);
-    } else {
-      // Case 2: single constraint evaluation
-      // Add negated constraint (evaluates to false)
-      if (constraint_value) {
-        ivector_push(conflict, opposite_term(constraint_term));
-      } else {
-        ivector_push(conflict, constraint_term);
-      }
     }
   }
 
@@ -2076,6 +2093,10 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
   // Check if this was feasible
   if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
     // Ouch, conflict
+    if (ctx_trace_enabled(nra->ctx, "mcsat::decide")) {
+      ctx_trace_printf(nra->ctx, "decide conflict!\nfeasible = ");
+      lp_feasibility_set_print(feasible, ctx_trace_out(nra->ctx));
+    }
     nra_plugin_report_assumption_conflict(nra, decide, x, lp_value);
   }
   // Remove temps
