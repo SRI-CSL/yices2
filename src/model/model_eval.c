@@ -680,8 +680,6 @@ static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
       lp_algebraic_number_construct_copy(&tmp, vtbl_algebraic_number(eval->vtbl, o));
     }
     lp_algebraic_number_pow(&tmp,  &tmp, p->prod[i].exp);
-    fprintf(stderr, "prod = "); lp_algebraic_number_print(&prod, stderr); fprintf(stderr, "\n");
-    fprintf(stderr, "tmp = "); lp_algebraic_number_print(&tmp, stderr); fprintf(stderr, "\n");
     lp_algebraic_number_mul(&prod, &prod, &tmp);
     lp_algebraic_number_destruct(&tmp);
   }

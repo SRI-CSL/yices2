@@ -9674,7 +9674,8 @@ EXPORTED int32_t yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
 
 int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
   rational_t q;
-  value_t q_val;
+  bvconstant_t b;
+  value_t v;
 
   if (model_find_term_value(model, var) != null_value) {
     return -1;
@@ -9682,17 +9683,30 @@ int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
     return -2;
   }
-  if (term_type_kind(model->terms, var) != INT_TYPE) {
+
+  type_kind_t var_type = term_type_kind(model->terms, var);
+  switch (var_type) {
+  case INT_TYPE:
+    q_init(&q);
+    q_set_mpz(&q, val);
+    v = vtbl_mk_rational(&model->vtbl, &q);
+    q_clear(&q);
+    break;
+  case BITVECTOR_TYPE:
+    if (mpz_sgn(val) < 0) {
+      return -4;
+    }
+    init_bvconstant(&b);
+    bvconstant_set_bitsize(&b, term_bitsize(model->terms, var));
+    bvconst_set_mpz(b.data, b.width, val);
+    v = vtbl_mk_bv_from_constant(&model->vtbl, &b);
+    delete_bvconstant(&b);
+    break;
+  default:
     return -3;
   }
 
-
-  q_init(&q);
-  q_set_mpz(&q, val);
-  q_val = vtbl_mk_rational(&model->vtbl, &q);
-  q_clear(&q);
-
-  model_map_term(model, var, q_val);
+  model_map_term(model, var, v);
 
   return 0;
 }
@@ -9712,8 +9726,13 @@ int32_t _o_yices_model_set_mpq(model_t* model, term_t var, mpq_t val) {
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
     return -2;
   }
-  if (term_type_kind(model->terms, var) != REAL_TYPE) {
+
+  type_kind_t var_type = term_type_kind(model->terms, var);
+  if (var_type != REAL_TYPE && var_type != INT_TYPE) {
     return -3;
+  }
+  if (var_type == INT_TYPE && !mpq_is_integer(val)) {
+    return -4;
   }
 
   q_init(&q);
