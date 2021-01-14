@@ -429,12 +429,12 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
       result = lp_algebraic_number_cmp(a1, a2) == 0;
     } else if (v1_algebraic) {
       lp_rational_construct_from_rational(&q, vtbl_rational(eval->vtbl, v2));
-      result = lp_algebraic_number_cmp_rational(a1, &q);
+      result = lp_algebraic_number_cmp_rational(a1, &q) == 0;
       lp_rational_destruct(&q);
     } else {
       assert(v2_algebraic);
       lp_rational_construct_from_rational(&q, vtbl_rational(eval->vtbl, v1));
-      result = lp_algebraic_number_cmp_rational(a2, &q);
+      result = lp_algebraic_number_cmp_rational(a2, &q) == 0;
       lp_rational_destruct(&q);
     }
 #else
