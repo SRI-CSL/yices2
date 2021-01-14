@@ -54,8 +54,10 @@
 
 #include "model/literal_collector.h"
 #include "utils/int_array_sort2.h"
+#include "io/term_printer.h"
 
 #ifdef HAVE_MCSAT
+#include <poly/rational.h>
 #include <poly/algebraic_number.h>
 #endif
 
@@ -214,6 +216,17 @@ static bool is_true_in_model(lit_collector_t *collect, term_t t) {
  * SUPPORT FOR PROCESSING OF ARITHMETIC ATOMS
  */
 
+#ifdef HAVE_MCSAT
+static inline
+void lp_rational_construct_from_rational(lp_rational_t* q_lp, const rational_t* q) {
+  if (is_ratgmp(q)) {
+    lp_rational_construct_copy(q_lp, get_gmp(q));
+  } else {
+    lp_rational_construct_from_int(q_lp, get_num(q), get_den(q));
+  }
+}
+#endif
+
 /*
  * Compare the values of t1 and t2 in the model
  * - both t1 and t2 must be arithmetic terms
@@ -232,7 +245,30 @@ static int arith_cmp_in_model(lit_collector_t *collect, term_t t1, term_t t2) {
   v1 = lit_collector_eval(collect, t1);
   v2 = lit_collector_eval(collect, t2);
   vtbl = &collect->model->vtbl;
-  return q_cmp(vtbl_rational(vtbl, v1), vtbl_rational(vtbl, v2));
+
+  if (object_is_rational(vtbl, v1) && object_is_rational(vtbl, v2)) {
+    return q_cmp(vtbl_rational(vtbl, v1), vtbl_rational(vtbl, v2));
+  } else {
+    lp_rational_t q;
+    int result;
+    bool v1_algebraic = object_is_algebraic(vtbl, v1);
+    bool v2_algebraic = object_is_algebraic(vtbl, v2);
+    lp_algebraic_number_t* a1 = v1_algebraic ? vtbl_algebraic_number(vtbl, v1) : NULL;
+    lp_algebraic_number_t* a2 = v2_algebraic ? vtbl_algebraic_number(vtbl, v2) : NULL;
+    if (v1_algebraic && v2_algebraic) {
+      result = lp_algebraic_number_cmp(a1, a2);
+    } else if (v1_algebraic) {
+      lp_rational_construct_from_rational(&q, vtbl_rational(vtbl, v2));
+      result = lp_algebraic_number_cmp_rational(a1, &q);
+      lp_rational_destruct(&q);
+    } else {
+      assert(v2_algebraic);
+      lp_rational_construct_from_rational(&q, vtbl_rational(vtbl, v1));
+      result = -lp_algebraic_number_cmp_rational(a2, &q);
+      lp_rational_destruct(&q);
+    }
+    return result;
+  }
 }
 
 
@@ -554,7 +590,7 @@ static term_t lit_collector_visit_arith_bineq(lit_collector_t *collect, term_t t
       // atom (t1 == t2)
       r = true_term;
       if (t1 != eq->arg[0] || t2 != eq->arg[1]) {
-	t = mk_arith_eq(collect->manager, t1, t2);
+        t = mk_arith_eq(collect->manager, t1, t2);
       }
     } else {
       // atom (t1 > t2)
