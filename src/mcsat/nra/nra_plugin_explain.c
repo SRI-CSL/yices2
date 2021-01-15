@@ -1418,6 +1418,8 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
   lp_projection_map_destruct(&projector);
   delete_int_hset(&vars_to_keep_set);
   lp_variable_db_detach(lp_var_db);
+  lp_variable_order_detach(lp_var_order);
+  lp_polynomial_context_detach(lp_ctx);
   lp_assignment_destruct(&lp_assignment);
   delete_int_hmap(&term_to_lp_var_map);
   delete_int_hmap(&lp_var_to_term_map);
