@@ -2823,6 +2823,7 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
 }
 
 void mcsat_gc_mark(mcsat_solver_t* mcsat) {
+  mcsat_clear(mcsat);
   mcsat_gc(mcsat, true);
 }
 
