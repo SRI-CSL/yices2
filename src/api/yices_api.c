@@ -8343,7 +8343,6 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
       pvector_push(&trace->trace_tags, tag);
       tag = strtok_r(NULL, ",", &saveptr);
     }
-    safe_free(trace_tags);
     // Set it to the context
     context_set_trace(ctx, trace);
   }
@@ -9117,6 +9116,20 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
 //    fprintf(stderr, "model interpolant:\n");
 //    print_term_full(stderr, ctx->ctx_A->terms, model_interpolant);
 //    fprintf(stderr, "\n");
+
+//    // Check that it falsifies the model
+//    evaluator_t evaluator;
+//    init_evaluator(&evaluator, model);
+//    value_t interpolant_value = eval_in_model(&evaluator, model_interpolant);
+//    assert(is_false(&model->vtbl, interpolant_value));
+//    delete_evaluator(&evaluator);
+//
+//    // Check that it is implied by A
+//    yices_push(ctx->ctx_A);
+//    yices_assert_formula(ctx->ctx_A, opposite_term(model_interpolant));
+//    smt_status_t interpolant_status = yices_check_context(ctx->ctx_A, NULL);
+//    assert(interpolant_status == STATUS_UNSAT);
+//    yices_pop(ctx->ctx_A);
 
     // Add the inteprolant to B
     yices_assert_formula(ctx->ctx_B, model_interpolant);

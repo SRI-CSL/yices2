@@ -131,7 +131,7 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
   }
   fprintf(out, "\n");
 
-  fprintf(out, "disjuncts:\n");
+  fprintf(out, "disjuncts with vars:\n");
 
   n = conflict->var_to_element_map.size;
   data = conflict->var_to_element_map.data;
@@ -163,6 +163,22 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
       fprintf(out, "\n");
     }
     data ++;
+  }
+
+  fprintf(out, "all disjuncts:\n");
+
+  const ivector_t* ls = &conflict->disjuncts.element_list;
+  for (i = 0; i < ls->size; i ++ ) {
+    term_t l = ls->data[i];
+    if (l != conflict->disjuncts.null_element && int_mset_contains(&conflict->disjuncts, l)) {
+      fprintf(out, " ");
+      yices_pp_t printer;
+      init_yices_pp(&printer, out, NULL, PP_HMODE, 0);
+      pp_term_full(&printer, conflict->terms, l);
+      flush_pp(&printer.pp, false);
+      delete_yices_pp(&printer, false);
+      fprintf(out, "\n");
+    }
   }
 }
 
@@ -434,6 +450,11 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
       element->next = find->val;
       find->val = element_ref;
     }
+  } else {
+    // Conflict disjunct doesn't have a variable, this is worrisome
+    if (trace_enabled(conflict->tracer, "mcsat::conflict")) {
+      trace_term_ln(conflict->tracer, conflict->terms, disjunct);
+    }
   }
 
   // Add to set of disjuncts
@@ -692,6 +713,14 @@ ivector_t* conflict_get_literals(conflict_t* conflict) {
   return int_mset_get_list(&conflict->disjuncts);
 }
 
+void conflict_get_negated_literals(conflict_t* conflict, ivector_t* out) {
+  uint32_t i;
+  ivector_t* literals = conflict_get_literals(conflict);
+  for (i = 0; i < literals->size; ++ i) {
+    ivector_push(out, opposite_term(literals->data[i]));
+  }
+}
+
 term_t conflict_get_formula(conflict_t* conflict) {
   uint32_t i;
   ivector_t disjuncts;
@@ -705,4 +734,3 @@ term_t conflict_get_formula(conflict_t* conflict) {
   delete_ivector(&disjuncts);
   return formula;
 }
-
