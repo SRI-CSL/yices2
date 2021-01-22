@@ -128,6 +128,8 @@
  *   and we don't exit on error.
  * - print_success: if this flag is true, we print "ok" after every
  *   command that would otherwise print nothing.
+ * - abort_on_int: if true then exit when SIGINT is received instead
+ *   of returning to input processing (the default).
  * - verbosity: verbosity level
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
@@ -145,6 +147,10 @@
  *   by default, these are NULL
  * - mcsat_requested: option --mscat (this forces use of the MC-SAT solver
  *   for logic where MC-SAT is not the default).
+ * - print-success: print success for commands that would otherwise
+ *   complete silently
+ * - abort-on-int: abort execution on SIGINT instead of returning to
+ *   input processing
  *
  * CONTEXT CONFIGURATION
  * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
@@ -164,6 +170,7 @@ static uint32_t include_depth;
 static bool interactive;
 static bool done;
 static bool print_success;
+static bool abort_on_int;
 static int32_t verbosity;
 static tracer_t *tracer;
 
@@ -269,6 +276,7 @@ enum {
   version_flag,
   help_flag,
   print_success_flag,
+  abort_on_int_flag,
   verbosity_option,
 };
 
@@ -282,6 +290,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "print-success", '\0', FLAG_OPTION, print_success_flag },
+  { "abort-on-int", '\0', FLAG_OPTION, abort_on_int_flag },
   { "verbosity", 'v', MANDATORY_INT, verbosity_option },
 };
 
@@ -412,6 +421,7 @@ static void process_command_line(int argc, char *argv[]) {
   mcsat_requested = false;
   verbosity = 0;
   print_success = false;
+  abort_on_int = false;
   tracer = NULL;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
@@ -494,6 +504,10 @@ static void process_command_line(int argc, char *argv[]) {
       case print_success_flag:
 	print_success = true;
 	break;
+
+      case abort_on_int_flag:
+        abort_on_int = true;
+        break;
 
       case verbosity_option:
 	v = elem.i_value;
@@ -792,7 +806,7 @@ static void default_handler(int signum) {
  * Initialize the signal handlers
  */
 static void init_handlers(void) {
-  signal(SIGINT, sigint_handler);
+  signal(SIGINT, abort_on_int ? default_handler : sigint_handler);
   signal(SIGABRT, default_handler);
 #ifndef MINGW
   signal(SIGXCPU, default_handler);
