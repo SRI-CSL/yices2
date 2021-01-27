@@ -687,7 +687,7 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
       ivector_push(&assumptions, x);
     }
     // Solve
-    status = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+    status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
     // Remove temps
     delete_ivector(&assumptions);
     delete_model(&mdl);
@@ -982,7 +982,7 @@ static void print_yices_error(bool full) {
     print_out("maximal polynomial degree exceeded");
     break;
   case DIVISION_BY_ZERO:
-    print_out("division by zero");
+    unsupported_construct("division by zero");
     break;
   case POS_INT_REQUIRED:
     print_out("integer argument must be positive");
@@ -1118,6 +1118,9 @@ static void print_yices_error(bool full) {
   case MCSAT_ERROR_UNSUPPORTED_THEORY:
     print_out("mcsat: unsupported theory");
     break;
+  case MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED:
+    print_out("mcsat: checking with assumptions only supports variables as assumptions");
+    break;
 
   case OUTPUT_ERROR:
     print_out(" IO error");
@@ -1135,11 +1138,12 @@ static void print_yices_error(bool full) {
 
 
 /*
- * Print an internalization error code
+ * Print an internalization error code: force exit
  */
 static void print_internalization_error(int32_t code) {
   yices_internalization_error(code);
   print_yices_error(true);
+  done = true;
 }
 
 /*
@@ -1148,6 +1152,7 @@ static void print_internalization_error(int32_t code) {
 static void print_ef_analyze_error(ef_code_t code) {
   assert(code != EF_NO_ERROR);
   print_error("%s", efcode2error[code]);
+  done = true;
 }
 
 
@@ -1507,8 +1512,8 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   }
 
   close_error();
+  done = true;
 }
-
 
 
 /*
@@ -2285,8 +2290,8 @@ static void set_unsat_model_interpolants_option(smt2_globals_t *g, const char *n
   bool flag;
 
   if (aval_is_boolean(g->avtbl, value, &flag)) {
-   g->produce_unsat_model_interpolants = flag;
-   report_success();
+    g->produce_unsat_model_interpolants = flag;
+    report_success();
   } else {
     print_error("option %s requires a Boolean value", name);
   }
@@ -2537,7 +2542,7 @@ static assumptions_and_core_t *collect_named_assumptions(uint32_t n, const signe
  */
 
 /*
- * Check whether we can set the context in One-check mode
+ * Check whether we can set the context in one-check mode
  * - we can if g->benchmark is true
  *   and g->produce_unsat_cores and g->produce_unsat_assumptions
  *   are both false.
@@ -3045,6 +3050,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
       if (code < 0) {
 	print_yices_error(true);
+	done = true;
 	return;
       }
 
@@ -3056,6 +3062,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       if (code < 0) {
 	// error during assertion processing
 	print_yices_error(true);
+	done = true;
 	return;
       }
 
@@ -3188,6 +3195,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     if (code < 0) {
       // error during assertion processing
       print_yices_error(true);
+      done = true;
       return;
     }
     init_search_parameters(g);
@@ -3201,6 +3209,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     if (status == STATUS_ERROR) {
       free_assumptions(g->unsat_core);
       g->unsat_core = NULL;
+      done = true;
     }
   }
 }
@@ -3229,6 +3238,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       if (code < 0) {
         // error during assertion processing
         print_yices_error(true);
+	done = true;
         return;
       }
       init_search_parameters(g);
@@ -3242,6 +3252,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
         // cleanup
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
+	done = true;
       }
     }
   }
@@ -3265,6 +3276,7 @@ static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t 
     if (code < 0) {
       // error during assertion processing
       print_yices_error(true);
+      done = true;
       return;
     }
     init_search_parameters(g);
@@ -3376,6 +3388,22 @@ static void cleanup_context(smt2_globals_t *g) {
   }
 }
 
+#if 0
+static void show_assertion(smt2_globals_t *g, term_t t) {
+  smt2_pp_t printer;
+
+  fprintf(g->out, "--- All terms ---\n");
+  pp_term_table(g->out, __yices_globals.terms);
+  fprintf(g->out, "\n");
+
+  fprintf(g->out, "\nadd_assertion\n");
+  init_pretty_printer(&printer, g);
+  pp_term_full(&printer.pp, __yices_globals.terms, t);
+  flush_smt2_pp(&printer);
+  delete_smt2_pp(&printer, true);
+}
+#endif
+
 /*
  * Assert t in g->ctx
  * - t is known to be a Boolean term here
@@ -3385,6 +3413,8 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   int32_t code;
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+
+  //  show_assertion(g, t);
 
   switch (context_status(g->ctx)) {
   case STATUS_IDLE:
@@ -3536,6 +3566,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       if (status == STATUS_ERROR) {
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
+        done = true;
       }
       break;
 
@@ -4021,6 +4052,8 @@ static bval_t obj2bval(value_table_t *vtbl, value_t v) {
  * assertions are trivially satisfiable, no context is
  * constructed, but we have a model.
  *
+ * This is also used to print assignments when we use the ef-solver.
+ *
  * We print whatever default values get assigned to the
  * boolean terms in the model.
  */
@@ -4109,6 +4142,22 @@ static void show_assignment(smt2_globals_t *g) {
       break;
     }
   }
+}
+
+
+/*
+ * Show assignment in exists/forall mode
+ */
+static void show_ef_assignment(smt2_globals_t *g) {
+  model_t *mdl;
+  smt2_pp_t printer;
+
+  mdl = get_ef_model(g);
+  if (mdl == NULL) return;
+
+  init_pretty_printer(&printer, g);
+  print_model_assignment(&printer, &g->named_bools, mdl);
+  delete_smt2_pp(&printer, true);
 }
 
 
@@ -4805,7 +4854,11 @@ void smt2_get_assignment(void) {
   tprint_calls("get-assignment", __smt2_globals.stats.num_get_assignment);
 
   if (check_logic()) {
-    show_assignment(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      show_ef_assignment(&__smt2_globals);
+    } else {
+      show_assignment(&__smt2_globals);
+    }
   }
 }
 
@@ -4853,7 +4906,11 @@ void smt2_get_unsat_core(void) {
   tprint_calls("get-unsat-core", __smt2_globals.stats.num_get_unsat_core);
 
   if (check_logic()) {
-    show_unsat_core(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      print_error("get-unsat-core is not supported in logic %s", __smt2_globals.logic_name);
+    } else {
+      show_unsat_core(&__smt2_globals);
+    }
   }
 }
 
@@ -4867,7 +4924,11 @@ void smt2_get_unsat_assumptions(void) {
   tprint_calls("get-unsat-assumptions", __smt2_globals.stats.num_get_unsat_assumptions);
 
   if (check_logic()) {
-    show_unsat_assumptions(&__smt2_globals);
+    if (__smt2_globals.efmode) {
+      print_error("get-unsat-assumptions is not supported in logic %s", __smt2_globals.logic_name);
+    } else {
+      show_unsat_assumptions(&__smt2_globals);
+    }
   }
 }
 
@@ -6279,7 +6340,7 @@ void smt2_set_logic(const char *name) {
 
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
   if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
-    print_error("logic %s is not supported by the mscat solver", name);
+    print_error("logic %s is not supported by the mcsat solver", name);
     return;
   }
 
@@ -6477,13 +6538,14 @@ void smt2_assert(term_t t, bool special) {
           print_error("assertions are not allowed after (check-sat) in non-incremental mode");
         } else {
           /*
-           * if produce unsat core is set and t is special,
+	   * Otherwise, if produce unsat core is set and t is special,
            * we just skip it. The term is stored in the named_asserts table
            * and will be treated as an assumption when check-sat is called.
            */
           if (!special || !g->produce_unsat_cores) {
             add_delayed_assertion(g, t);
           } else {
+	    assert(!g->efmode);
             trace_printf(g->tracer, 20, "(skipping named assertion)\n");
           }
           report_success();
@@ -6711,6 +6773,7 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
       macro = yices_type_constructor(name, arity);
       if (macro < 0) {
         print_yices_error(true);
+	done = true;
       } else {
         save_macro_name(&__smt2_globals, name);
         report_success();
@@ -6744,6 +6807,7 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
       macro = yices_type_macro(name, n, var, body);
       if (macro < 0) {
         print_yices_error(true);
+	done = true;
       } else {
         save_macro_name(&__smt2_globals, name);
         report_success();
@@ -6814,6 +6878,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
     if (! yices_check_term_type(body, tau)) {
       // ? print a better error message?
       print_yices_error(true);
+      done = true;
       return;
     }
 
@@ -6838,6 +6903,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
       t = yices_lambda(n, var, t);
       if (t < 0) {
         print_yices_error(true);
+	done = true;
         return;
       }
     }

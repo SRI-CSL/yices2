@@ -6,8 +6,6 @@ compiler:
   - gcc
   - clang
 
-sudo: required
-
 env:
   matrix:
     - BUILD_TYPE=debug

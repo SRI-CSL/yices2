@@ -270,6 +270,10 @@ struct tstack_s {
   signed_symbol_t *sbuffer;
   uint32_t sbuffer_size;
 
+  // vector to store names (i.e., symbols)
+  char **name_buffer;
+  uint32_t name_buffer_size;
+
   // buffer to convert stack elements to bitvector constants
   bvconstant_t bvconst_buffer;
 
@@ -306,10 +310,15 @@ struct tstack_s {
 #define MAX_TERM_STACK_SIZE (UINT32_MAX/sizeof(stack_elem_t))
 
 /*
- * Default and maximal size of the t_aux vector
+ * Default and maximal size of the aux vector
  */
 #define DEFAULT_AUX_SIZE 256
 #define MAX_AUX_SIZE (UINT32_MAX/4)
+
+/*
+ * Maximal size of the name vector
+ */
+#define MAX_NAME_BUFFER_SIZE (UINT32_MAX/sizeof(char*))
 
 
 /*
@@ -384,7 +393,7 @@ enum base_opcodes {
   DEFINE_TERM,        // [define-term <symbol> <type>] or [define-term <symbol> <type> <value> ]
 
   // bindings
-  BIND,               // [bind <symbol> <term> ]
+  BIND,               // [bind <symbol> <term> ... <symbol> <term> ]
   DECLARE_VAR,        // [declare-var <symbol> <type> ]
   DECLARE_TYPE_VAR,   // [declare-type-var <symbol> ]
   LET,                // [let <binding> ... <binding> <term> ]

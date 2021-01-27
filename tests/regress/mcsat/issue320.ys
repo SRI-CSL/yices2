@@ -1,0 +1,7 @@
+(define a::int)
+(define b::int)
+(define c::int)
+(assert (= (+ a b c) 0))
+(push)
+(check)
+(reset)

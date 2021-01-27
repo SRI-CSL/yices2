@@ -214,10 +214,11 @@ typedef enum actions {
   e14_varname_next_goto_e12,       // var decl in quantifier except the first one
   e14_next_push_r0_goto_e0,        // end of var decls
 
-  next_goto_e16,
+  bind_next_goto_e16,              // start of <binding-list>
   next_goto_e17,
   termname_next_push_e19_goto_e0,  // name in binding
   next_goto_e20,
+  close_next_push_r0_goto_e0,      // end of <binding-list>
 
   error_lpar_expected,
   error_symbol_expected,
@@ -295,7 +296,7 @@ static const uint8_t base[NSTATES] = {
 };
 
 // Check table
-static const int check[BSIZE] = {
+static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,  41,  41,
@@ -528,7 +529,7 @@ static const uint8_t value[BSIZE] = {
   next_goto_e11,
   e11_varname_next_goto_e12,
   next_push_e14_goto_t0,
-  next_goto_e16,
+  bind_next_goto_e16,
   ret,
   symbol_next_goto_c16,
   symbol_next_goto_r0,
@@ -560,7 +561,7 @@ static const uint8_t value[BSIZE] = {
   true_return,
   false_return,
   next_goto_e17,
-  next_push_r0_goto_e0,
+  close_next_push_r0_goto_e0,
   error,
   error,
   e14_varname_next_goto_e12,

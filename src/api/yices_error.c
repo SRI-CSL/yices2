@@ -494,6 +494,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "mcsat: unsupported theory\n");
     break;
 
+  case MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED:
+    code = fprintf(f, "mcsat: checking with assumptions only supports variables as assumptions\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     code = fprintf(f, "internal error\n");

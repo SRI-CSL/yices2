@@ -8331,8 +8331,8 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
 
   if (config != NULL && config->trace_tags != NULL) {
-    // Make new trace
-    tracer_t *trace = (tracer_t*) safe_malloc(sizeof(tracer_t));
+    // Make new tracer
+    tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
     init_trace(trace);
     set_trace_file(trace, stderr);
     // Copy over the trace tag to the tracer
@@ -8507,6 +8507,7 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   CTX_FORMULA_NOT_IDL,
   CTX_FORMULA_NOT_RDL,
   CTX_NONLINEAR_ARITH_NOT_SUPPORTED,
+  DIVISION_BY_ZERO,
   CTX_TOO_MANY_ARITH_VARS,
   CTX_TOO_MANY_ARITH_ATOMS,
   CTX_ARITH_SOLVER_EXCEPTION,
@@ -9217,7 +9218,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
     bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
     if (!is_variable) {
       error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      error->code = MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
   }

@@ -46,7 +46,7 @@
  * Buffer = tree of monomials.
  *
  * Each node in the tree is identified by an index (uint32_t)
- * - index 0 = null_node)is a marker for leaves
+ * - index 0 (= null_node) is a marker for leaves
  * - other nodes have an index between 1 and nterms
  *
  * The tree is represented using three arrays:
@@ -195,7 +195,6 @@ static inline bool rba_buffer_is_zero(const rba_buffer_t *b) {
 }
 
 
-
 /*
  * Check whether b is constant
  */
@@ -204,7 +203,6 @@ extern bool rba_buffer_is_constant(const rba_buffer_t *b);
 
 /*
  * Check whether b is constant and nonzero
- * - b must be normalized
  */
 extern bool rba_buffer_is_nonzero(const rba_buffer_t *b);
 
@@ -235,7 +233,6 @@ extern bool rba_buffer_is_product(const rba_buffer_t *b, pprod_t **r);
 
 /*
  * Get degree of polynomial in buffer b.
- * - b must be normalized
  * - returns 0 if b is zero
  */
 extern uint32_t rba_buffer_degree(const rba_buffer_t *b);
@@ -559,7 +556,7 @@ extern void rba_buffer_mul_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t *
  * Multiply b by  p ^ d
  * - pp = power products for the variables of p
  * - use aux as an auxiliary buffer (aux must be distinct from b)
- * - store the result in b (normalized)
+ * - store the result in b
  */
 extern void rba_buffer_mul_monarray_power(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, uint32_t d, rba_buffer_t *aux);
 

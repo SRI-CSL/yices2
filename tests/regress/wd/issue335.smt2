@@ -1,0 +1,6 @@
+(set-logic QF_ALIA)
+(declare-fun _substvar_760_ () Bool)
+(declare-fun arr0 () (Array Bool Int))
+(assert (or (>= (select (store (store arr0 false 39) (= arr0 (store arr0 false 39) arr0 arr0 arr0) 1127) false) 65) _substvar_760_))
+(assert (distinct (store (store arr0 false 39) (= arr0 arr0 arr0 (store arr0 false 39) arr0) 1127) (store arr0 false 39) arr0))
+(check-sat)

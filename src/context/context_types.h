@@ -48,6 +48,7 @@
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"
 #include "utils/int_vectors.h"
+#include "utils/object_stack.h"
 #include "utils/mark_vectors.h"
 #include "utils/pair_hash_map2.h"
 
@@ -681,6 +682,7 @@ struct context_s {
   ivector_t aux_vector;
   int_queue_t queue;
   int_stack_t istack;
+  objstack_t ostack;
 
   // data about shared subterms
   sharing_map_t sharing;
@@ -771,20 +773,21 @@ enum {
   FORMULA_NOT_IDL = -14,
   FORMULA_NOT_RDL = -15,
   FORMULA_NOT_LINEAR = -16,
-  TOO_MANY_ARITH_VARS = -17,
-  TOO_MANY_ARITH_ATOMS = -18,
-  ARITHSOLVER_EXCEPTION = -19,
+  DIV_BY_ZERO = -17,
+  TOO_MANY_ARITH_VARS = -18,
+  TOO_MANY_ARITH_ATOMS = -19,
+  ARITHSOLVER_EXCEPTION = -20,
   // bv solver errors
-  BVSOLVER_EXCEPTION = -20,
+  BVSOLVER_EXCEPTION = -21,
   // mcsat errors
-  MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -21
+  MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -22
 };
 
 
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 22
+#define NUM_INTERNALIZATION_ERRORS 23
 
 
 

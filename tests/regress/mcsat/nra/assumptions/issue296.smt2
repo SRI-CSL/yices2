@@ -1,0 +1,7 @@
+(set-logic QF_NRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (! (distinct x y z) :named A))
+(check-sat-assuming (A))
+(get-model)

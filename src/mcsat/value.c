@@ -363,8 +363,9 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
   case VALUE_BOOLEAN:
     value = vtbl_mk_bool(vtbl, mcsat_value->b);
     break;
-  case VALUE_RATIONAL:
-    if (type_kind(types, type) == UNINTERPRETED_TYPE) {
+  case VALUE_RATIONAL: {
+    type_kind_t kind = type_kind(types, type);
+    if (kind == UNINTERPRETED_TYPE || kind == SCALAR_TYPE) {
       int32_t id;
       bool ok = q_get32((rational_t *)&mcsat_value->q, &id);
       (void) ok; // unused in release build
@@ -374,6 +375,7 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
       value = vtbl_mk_rational(vtbl, (rational_t *) &mcsat_value->q);
     }
     break;
+  }
   case VALUE_LIBPOLY:
     if (lp_value_is_rational(&mcsat_value->lp_value)) {
       lp_rational_t lp_q;
@@ -382,7 +384,16 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
       rational_t q;
       q_init(&q);
       q_set_mpq(&q, &lp_q);
-      value = vtbl_mk_rational(vtbl, &q);
+      type_kind_t kind = type_kind(types, type);
+      if (kind == UNINTERPRETED_TYPE || kind == SCALAR_TYPE) {
+        int32_t id;
+        bool ok = q_get32(&q, &id);
+        (void) ok; // unused in release build
+        assert(ok);
+        value = vtbl_mk_const(vtbl, type, id, NULL);
+      } else {
+        value = vtbl_mk_rational(vtbl, &q);
+      }
       q_clear(&q);
       lp_rational_destruct(&lp_q);
     } else {

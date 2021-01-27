@@ -193,6 +193,13 @@ extern int32_t get_integer(tstack_t *stack, stack_elem_t *e);
  */
 extern rational_t *get_divisor(tstack_t *stack, stack_elem_t *den);
 
+/*
+ * Check whether e is a non-zero rational constant.
+ * If so, store its value in result and return true.
+ * If not, leave result unchanged and return false.
+ */
+extern bool elem_is_nz_constant(stack_elem_t *e, rational_t *result);
+
 
 /*
  * Convert element e into a signed symbol:
@@ -246,6 +253,19 @@ static inline signed_symbol_t *get_sbuffer(tstack_t *stack, uint32_t n) {
   }
   return stack->sbuffer;
 }
+
+/*
+ * Make the name buffer large enough for n names
+ */
+extern void extend_name_buffer(tstack_t *stack, uint32_t n);
+
+static inline char **get_name_buffer(tstack_t *stack, uint32_t n) {
+  if (stack->name_buffer_size < n) {
+    extend_name_buffer(stack, n);
+  }
+  return stack->name_buffer;
+}
+
 
 /*
  * ARITHMETIC AND BITVECTOR OPERATIONS

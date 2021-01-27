@@ -88,21 +88,26 @@ static inline bool tracing(tracer_t *tracer, uint32_t lvl) {
  * Check whether the tracing tag has been enabled.
  * - return false if trace is NULL;
  */
-bool tracing_tag(tracer_t *tracer, const char *tag);
+extern bool tracing_tag(tracer_t *tracer, const char *tag);
 
 /*
  * Change output file:
  * - f must be open and writable
- * - close the current file if it's not stderr
  * - reset the print_failed and err_code flags
- * - also close and delete the tracer->pp object if there is one
+ * - close and delete the tracer->pp object if there is one
+ *
+ * NOTE:
+ * - this has no effect if f == tracer->file
+ * - this does not close the current tracer->file
  */
 extern void set_trace_file(tracer_t *tracer, FILE *f);
 
 /*
  * Close/delete the tracer
- * - close the current file if it's not stderr
  * - close and delete the pp object if any
+ * - delete the tracing tags
+ *
+ * NOTE: this does not close tracer->file.
  */
 extern void delete_trace(tracer_t *tracer);
 

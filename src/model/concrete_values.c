@@ -1978,8 +1978,6 @@ value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) 
 }
 
 
-
-
 /*
  * Mapping object (a[0] ... a[n-1]  |-> v)
  * - return a mapping object
@@ -1997,8 +1995,6 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
 
   return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &map_hobj);
 }
-
-
 
 
 /*
@@ -2064,7 +2060,6 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
   hset_add_map(table, hset, u);
   normalize_update(table, f, hset, &def, &tau);
 
-
   // hash consing
   update_hobj.m.hash = (hobj_hash_t) hash_update_value;
   update_hobj.m.eq = (hobj_eq_t) equal_update_value;
@@ -2084,6 +2079,31 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
   return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &update_hobj);
 }
 
+
+/*
+ * Create a constant function of type tau and value def
+ * - tau must be a function type (-> .... sigma)
+ * - def must be an object of a type compatible with sigma
+ * - def must not be unknown
+ */
+value_t vtbl_mk_constant_function(value_table_t *table, type_t tau, value_t def) {
+  fun_hobj_t fun_hobj;
+
+  assert(good_object(table, def) && !object_is_unknown(table, def));
+
+  fun_hobj.m.hash = (hobj_hash_t) hash_fun_value;
+  fun_hobj.m.eq = (hobj_eq_t) equal_fun_value;
+  fun_hobj.m.build = (hobj_build_t) build_fun_value;
+  fun_hobj.table = table;
+  fun_hobj.type = tau;
+  fun_hobj.arity = function_type_arity(table->type_table, tau);
+  fun_hobj.def = def;
+  fun_hobj.map_size = 0;
+  fun_hobj.map = NULL;
+  fun_hobj.ambiguous = false;
+
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
+}
 
 
 /***********************************************
@@ -2158,6 +2178,37 @@ void vtbl_set_zero_mod(value_table_t *table, value_t f) {
   table->zero_mod_fun = f;
 }
 
+
+/*
+ * Set a default interpretation for the divide-by-zero functions.
+ * The default is (rdiv x 0) = 0  (idiv x 0) = 0 and (mod x 0) = 0 for all real x.
+ * - if any of the zero_div function is already assigned, it is kept.
+ */
+void vtbl_set_default_zero_divide(value_table_t *table) {
+  value_t f, z;
+  type_t tau;
+
+  if (table->zero_rdiv_fun == null_value ||
+      table->zero_idiv_fun == null_value ||
+      table->zero_mod_fun == null_value) {
+    tau = real_type(table->type_table);
+    tau = function_type(table->type_table, tau, 1, &tau); // [real -> real]
+
+    z = vtbl_mk_int32(table, 0);
+    f = vtbl_mk_constant_function(table, tau, z);
+    assert(is_plausible_div_by_zero(table, f));
+
+    if (table->zero_rdiv_fun == null_value) {
+      table->zero_rdiv_fun = f;
+    }
+    if (table->zero_idiv_fun == null_value) {
+      table->zero_idiv_fun = f;
+    }
+    if (table->zero_mod_fun == null_value) {
+      table->zero_mod_fun = f;
+    }
+  }
+}
 
 
 

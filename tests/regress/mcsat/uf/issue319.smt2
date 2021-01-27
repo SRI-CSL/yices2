@@ -1,0 +1,7 @@
+(set-logic QF_UFLIA)
+(declare-fun uf5 (Bool Bool Bool Bool Bool) Bool)
+(check-sat)
+(check-sat)
+(declare-const v18 Bool)
+(check-sat)
+(assert (uf5 true true (not v18) true true))

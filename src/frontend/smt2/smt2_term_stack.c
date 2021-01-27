@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "api/yices_extensions.h"
+#include "api/yices_api_lock_free.h"
 #include "api/yices_globals.h"
 #include "frontend/smt2/attribute_values.h"
 #include "frontend/smt2/smt2_commands.h"
@@ -163,8 +164,6 @@ static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
  */
 
 /*
- * TODO: deal with other SMT2 nonsense
- *
  * 1) mk_implies can take more than two arguments
  *    (=> a b c) is interpreted as (=> a (=> b c))
  *
@@ -175,6 +174,10 @@ static void check_integer_term(tstack_t *stack, stack_elem_t *e) {
  * 3) missing operators: div, mod, abs, divisible
  *    note: div is marked as left-associative!
  *    (div a b c) is interpreted as (div (div a b) c)
+ *
+ * 4) restrictions on bvnand, bvnor, bvxnor
+ *
+ * 5) n-ary division
  */
 
 /*
@@ -342,6 +345,83 @@ static void eval_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   tstack_pop_frame(stack);
   set_term_result(stack, t);
 }
+
+
+/*
+ * bvnand, bvnor, bvxnor:
+ *
+ * In the default implementation (term_stack2.c), we use the following rules
+ *   (bvnand x_1 ... x_n) = (bvnot (bvand x_1 ... x_n))
+ *   (bvnor x_1 ... x_n)  = (bvnot (bvor x_1 ... x_n))
+ *   (bvxnor x_1 ... x_n) = (bvnot (bvxor x_1 ... x_n))
+ *
+ * In SMT-LIB2, we want to limit them to two arguments only. CVC4 and z3 use
+ * this rule for bvxnor
+ *   (bxnor x_1 x_2 x_3) = (bvxnor (bvxnor x1 x2) x3)
+ * The standard says that bvxnor is not associatived.
+ *
+ * To be safe, we restrict bvnand, bvnor, bvxnor to exactly two arguments here.
+ */
+
+/*
+ * [mk-bv-nand <bv> <bv>]
+ */
+static void check_smt2_mk_bv_nand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_NAND);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_nand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvand_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * [mk-bv-nor <bv> <bv>]
+ */
+static void check_smt2_mk_bv_nor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_NOR);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_nor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvor_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * [mk-bv-xnor <bv> <bv>]
+ */
+static void check_smt2_mk_bv_xnor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_XNOR);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_bv_xnor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  bvlogic_buffer_t *b;
+
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f);
+  bvxor_elem(stack, b, f+1);
+  bvlogic_buffer_not(b);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
 
 
 
@@ -658,8 +738,6 @@ static void eval_smt2_abs(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_DIV);
   check_size(stack, n >= 2);
-
-  //  fprintf(stderr, "div\n");
 }
 
 static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -687,8 +765,6 @@ static void eval_smt2_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_MOD);
   check_size(stack, n == 2);
-
-  //  fprintf(stderr, "mod\n");
 }
 
 static void eval_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -713,8 +789,6 @@ static void eval_smt2_mod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void check_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_MK_DIVISIBLE);
   check_size(stack, n == 2);
-
-  //  fprintf(stderr, "divisible\n");
 }
 
 static void eval_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -729,6 +803,107 @@ static void eval_smt2_divisible(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_term_result(stack, t);
 }
 
+
+/*
+ * n-ary division: [/ x1 x2 ... xn]
+ *
+ * This is interpreted as left-associative:
+ * (/ a b c) is (/ (/ a b) c)
+ *
+ * We rewrite this to (/ a (* b c))
+ */
+static void check_smt2_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_DIVISION);
+  check_size(stack, n >= 2);
+}
+
+/*
+ * Auxiliary function: compute the divisor = product f[0] x ... x f[n-1]
+ * If the divisor is a non-zero rational, it is returned in d and the function
+ * returns NULL_TERM
+ * Otherwise, the function leaves d unchanged and returns a term equal to the divisor
+ */
+static term_t make_divisor_product(tstack_t *stack, stack_elem_t *f, uint32_t n, rational_t *d) {
+  rba_buffer_t *b;
+  mono_t *m;
+  uint32_t i;
+  term_t t;
+
+  assert(n >= 1);
+
+  t = NULL_TERM;
+  if (n == 1) {
+    if (elem_is_nz_constant(f, d)) {
+      assert(q_is_nonzero(d));
+    } else {
+      t = get_term(stack, f);
+    }
+  } else {
+    // compute the product f[0] x ... x f[n-1]
+    b = yices_new_arith_buffer();
+    assert(rba_buffer_is_zero(b));
+
+    // note: this loop may fail and call longjmp
+    // but the buffer b will be deleted on a call to yices_exit
+    // so there's no risk of memory leak.
+    add_elem(stack, b, f);
+    for (i=1; i<n; i++) {
+      mul_elem(stack, b, f+i);
+    }
+
+    if (rba_buffer_is_nonzero(b)) {
+      // b is a non-zero constant
+      m = rba_buffer_get_constant_mono(b);
+      assert(m != NULL);
+      q_set(d, &m->coeff);
+      assert(q_is_nonzero(d));
+    } else {
+      t = arith_buffer_get_term(b);
+    }
+    yices_free_arith_buffer(b);
+  }
+
+  return t;
+}
+
+static void eval_smt2_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  rba_buffer_t *b;
+  rational_t divider;
+  term_t t1, t2, t;
+
+  assert(n >= 2);
+
+  q_init(&divider);
+  t2 = make_divisor_product(stack, f+1, n-1, &divider);
+  if (t2 == NULL_TERM) {
+    // division by a constant
+    assert(q_is_nonzero(&divider));
+    if (f->tag == TAG_RATIONAL) {
+      q_div(&f->val.rational, &divider);
+      copy_result_and_pop_frame(stack, f);
+    } else {
+      b = tstack_get_abuffer(stack);
+      add_elem(stack, b, f);
+      rba_buffer_div_const(b, &divider);
+      tstack_pop_frame(stack);
+      set_arith_result(stack, b);
+    }
+  } else {
+    // the divisor is t2
+    t1 = get_term(stack, f);
+    t = _o_yices_division(t1, t2);
+    check_term(stack, t);
+    tstack_pop_frame(stack);
+    set_term_result(stack,  t);
+  }
+
+  /*
+   * It's safe to clear the divider only here.
+   * If the code above raises an exception, divider is still 0/1
+   * and q_clear would do nothing anyway.
+   */
+  q_clear(&divider);
+}
 
 
 /*
@@ -1600,14 +1775,14 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   MK_LT,                 // SMT2_SYM_LT
   MK_GE,                 // SMT2_SYM_GE
   MK_GT,                 // SMT2_SYM_GT
-  SMT2_MK_DIV,           // SMT2_SYM_DIV (integer division not supported)
+  SMT2_MK_DIV,           // SMT2_SYM_DIV (integer division)
   SMT2_MK_MOD,           // SMT2_SYM_MOD
   SMT2_MK_ABS,           // SMT2_SYM_ABS
-  SMT2_MK_TO_REAL,       // SMT2_SYM_TO_REAL (?? could use a NO_OP for that one)
+  SMT2_MK_TO_REAL,       // SMT2_SYM_TO_REAL (NO_OP for that one)
   SMT2_MK_TO_INT,        // SMT2_SYM_TO_INT
   SMT2_MK_IS_INT,        // SMT2_SYM_IS_INT
   SMT2_MK_DIVISIBLE,     // SMT2_SYM_DIVISIBLE
-  MK_BV_CONST,           // SMT2_SYM_BV_CONSTANT ( for _bv<value> size)
+  MK_BV_CONST,           // SMT2_SYM_BV_CONSTANT (for _bv<value> size)
   MK_BV_TYPE,            // SMT2_SYM_BITVEC
   MK_BV_CONCAT,          // SMT2_SYM_CONCAT
   MK_BV_EXTRACT,         // SMT2_SYM_EXTRACT
@@ -2454,6 +2629,9 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, MK_GT, false, eval_smt2_mk_gt, check_smt2_mk_gt);
   tstack_add_op(stack, MK_LE, false, eval_smt2_mk_le, check_smt2_mk_le);
   tstack_add_op(stack, MK_LT, false, eval_smt2_mk_lt, check_smt2_mk_lt);
+  tstack_add_op(stack, MK_BV_NAND, false, eval_smt2_mk_bv_nand, check_smt2_mk_bv_nand);
+  tstack_add_op(stack, MK_BV_NOR, false, eval_smt2_mk_bv_nor, check_smt2_mk_bv_nor);
+  tstack_add_op(stack, MK_BV_XNOR, false, eval_smt2_mk_bv_xnor, check_smt2_mk_bv_xnor);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
   tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);
@@ -2506,4 +2684,5 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_smt2_to_int, check_smt2_to_int);
   tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_smt2_is_int, check_smt2_is_int);
   tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_smt2_divisible, check_smt2_divisible);
+  tstack_add_op(stack, MK_DIVISION, false, eval_smt2_mk_division, check_smt2_mk_division);
 }

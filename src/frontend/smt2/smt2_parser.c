@@ -697,7 +697,10 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = t0;
       goto loop;
 
-    case next_goto_t2a:
+    case bind_next_goto_t2a:
+      // "let ("
+      // start of a BIND block of pairs <symbol> <values>
+      tstack_push_op(tstack, BIND, &loc);
       state = t2a;
       goto loop;
 
@@ -707,18 +710,17 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_push_t2d_goto_t0:
       // in (let (.. (<symbol> <term>) ...) ...)
-      tstack_push_op(tstack, BIND, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, t2d);
       state = t0;
       goto loop;
 
     case next_goto_t2e:
-      tstack_eval(tstack); // eval the BIND
       state = t2e;
       goto loop;
 
-    case next_push_r0_goto_t0:
+    case close_next_push_r0_goto_t0:
+      tstack_eval(tstack); // eval the BIND
       parser_push_state(stack, r0);
       state = t0;
       goto loop;
@@ -742,6 +744,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case next_goto_t3e:
       tstack_eval(tstack); // eval DECLARE_VAR
       state = t3e;
+      goto loop;
+
+    case next_push_r0_goto_t0:
+      parser_push_state(stack, r0);
+      state = t0;
       goto loop;
 
     case check_keyword_then_branch:

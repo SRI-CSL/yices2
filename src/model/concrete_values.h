@@ -514,6 +514,15 @@ extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value
 
 
 /*
+ * Create a constant function of type tau and value def
+ * - tau must be a function type (-> .... sigma)
+ * - def must be an object of a type compatible with sigma
+ * - def must not be unknown
+ */
+extern value_t vtbl_mk_constant_function(value_table_t *table, type_t tau, value_t def);
+
+
+/*
  * DIVISIONS BY ZERO
  */
 
@@ -530,6 +539,13 @@ extern void vtbl_set_zero_rdiv(value_table_t *table, value_t f);
 extern void vtbl_set_zero_idiv(value_table_t *table, value_t f);
 extern void vtbl_set_zero_mod(value_table_t *table, value_t f);
 
+
+/*
+ * Set a default interpretation for the divide-by-zero functions.
+ * The default is (rdiv x 0) = 0  (idiv x 0) = 0 and (mod x 0) = 0 for all real x.
+ * - if any of the zero_div function is already assigned, it is kept.
+ */
+extern void vtbl_set_default_zero_divide(value_table_t *table);
 
 
 /*

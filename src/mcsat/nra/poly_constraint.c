@@ -317,7 +317,8 @@ bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, co
       lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
       term_t assumption_i_p_term = lp_polynomial_to_yices_term(nra, assumption_p_i);
       int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
-      term_t assumption_i = NULL_TERM;
+      //      term_t assumption_i = NULL_TERM; // infer dead store
+      term_t assumption_i;
       if (assumption_i_p_sgn < 0) {
         assumption_i = mk_arith_term_lt0(tm, assumption_i_p_term);
       } else if (assumption_i_p_sgn > 0) {
@@ -503,6 +504,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     cstr_polynomial = lp_polynomial_from_term(db->nra, terms, t1, NULL);
     sgn_condition = LP_SGN_GE_0;
     break;
+  case EQ_TERM:
   case ARITH_BINEQ_ATOM: {
     // LHS = RHS
     t1 = composite_term_arg(terms, constraint_var_term, 0);
@@ -673,6 +675,13 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(db->nra->ctx, " ");
+      ctx_trace_term(db->nra->ctx, variable_db_get_term(db->nra->ctx->var_db, x));
+      ctx_trace_printf(db->nra->ctx, " ");
+      lp_interval_print(&x_interval, ctx_trace_out(db->nra->ctx));
+      ctx_trace_printf(db->nra->ctx, "\n");
+    }
     lp_interval_assignment_set_interval(m, x_lp, &x_interval);
     lp_interval_destruct(&x_interval);
   }
@@ -681,6 +690,12 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
   lp_interval_t value;
   lp_interval_construct_full(&value);
   lp_polynomial_interval_value(cstr->polynomial, m, &value);
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+    poly_constraint_print(cstr, ctx_trace_out(db->nra->ctx));
+    ctx_trace_printf(db->nra->ctx, " -> ");
+    lp_interval_print(&value, ctx_trace_out(db->nra->ctx));
+    ctx_trace_printf(db->nra->ctx, "\n");
+  }
 
   lp_sign_condition_t pos = cstr->sgn_condition;
   lp_sign_condition_t neg = lp_sign_condition_negate(cstr->sgn_condition);

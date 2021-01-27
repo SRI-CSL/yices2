@@ -20,6 +20,13 @@
  * Build a value table mapping a value to a list of terms.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#define __YICES_DLLSPEC__ EXPORTED
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 

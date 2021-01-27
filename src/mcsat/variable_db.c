@@ -186,7 +186,13 @@ bool variable_db_is_real(const variable_db_t* var_db, variable_t x) {
 }
 
 bool variable_db_is_int(const variable_db_t* var_db, variable_t x) {
-  return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == INT_TYPE;
+  switch (term_type_kind(var_db->terms, variable_db_get_term(var_db, x))) {
+  case INT_TYPE:
+  case SCALAR_TYPE:
+    return true;
+  default:
+    return false;
+  }
 }
 
 bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x) {

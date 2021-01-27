@@ -314,6 +314,16 @@ extern bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
  */
 extern bool intern_tbl_valid_const_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
+/*
+ * Check whether the substitution [r1 := r2] is sound
+ * - r1 must be a root
+ * - r2 must be frozen
+ * - returns true if r1 is a free root and r2's type is a subtype of r1's class type
+ *
+ * E.g., if r1 has integer type and r2 has real type then the substitution is not
+ * sound.
+ */
+extern bool intern_tbl_sound_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 /*
  * Add the substitution [r1 := r2] to the table.

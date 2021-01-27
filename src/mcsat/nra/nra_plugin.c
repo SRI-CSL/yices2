@@ -123,8 +123,9 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Tracing in libpoly
   if (false) {
-    lp_trace_enable("coefficient");
-    lp_trace_enable("coefficient::sgn");
+//    lp_trace_enable("coefficient");
+//    lp_trace_enable("coefficient::sgn");
+    lp_trace_enable("coefficient::interval");
   }
 
   // Trace pscs
@@ -151,8 +152,10 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Types (we add INT because it's there for ITEs over int constants)
   ctx->request_term_notification_by_type(ctx, REAL_TYPE);
   ctx->request_term_notification_by_type(ctx, INT_TYPE);
+  ctx->request_term_notification_by_type(ctx, SCALAR_TYPE);
   ctx->request_decision_calls(ctx, REAL_TYPE);
   ctx->request_decision_calls(ctx, INT_TYPE);
+  ctx->request_decision_calls(ctx, SCALAR_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
 
@@ -523,6 +526,25 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     prop->lemma(prop, ineq2);
     break;
   }
+  case UNINTERPRETED_TERM: {
+    // If scalar, add lemma
+    type_kind_t type_kind = term_type_kind(terms, t);
+    if (type_kind == SCALAR_TYPE) {
+      // 0 <= t < type size
+      type_t type =  term_type(terms, t);
+      uint32_t type_size = scalar_type_cardinal(terms->types, type);
+      ivector_t disjuncts;
+      init_ivector(&disjuncts, type_size);
+      for (i=0; i < type_size; i++) {
+        term_t disjunct = _o_yices_eq(t, _o_yices_constant(type, i));
+        ivector_push(&disjuncts, disjunct);
+      }
+      term_t tcc = _o_yices_or(type_size, disjuncts.data);
+      prop->lemma(prop, tcc);
+      delete_ivector(&disjuncts);
+    }
+    break;
+  }
   default:
     break;
   }
@@ -613,16 +635,48 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Stats
     (*nra->stats.constraints_attached) ++;
   } else {
-    // Add the variable to libpoly if not a constant
-    if (t_kind != ARITH_CONSTANT) {
+    // Either constants or variables
+    switch (t_kind) {
+    case ARITH_CONSTANT:  {
+      // Propagate constant value
+      lp_rational_t rat_value;
+      lp_rational_construct(&rat_value);
+      q_get_mpq(rational_term_desc(terms, t), &rat_value);
+      lp_value_t lp_value;
+      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+      mcsat_value_t mcsat_value;
+      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
+      mcsat_value_destruct(&mcsat_value);
+      lp_value_destruct(&lp_value);
+      lp_rational_destruct(&rat_value);
+      break;
+    }
+    case CONSTANT_TERM: {
+      // Propagate constant value
+      int32_t int_value;
+      _o_yices_scalar_const_value(t, &int_value);
+      lp_rational_t rat_value;
+      lp_rational_construct_from_int(&rat_value, int_value, 1);
+      lp_value_t lp_value;
+      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
+      mcsat_value_t mcsat_value;
+      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
+      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
+      mcsat_value_destruct(&mcsat_value);
+      lp_value_destruct(&lp_value);
+      lp_rational_destruct(&rat_value);
+      break;
+    }
+    default: {
+
       if (!nra_plugin_term_has_lp_variable(nra, t)) {
         nra_plugin_add_lp_variable_from_term(nra, t);
       }
 
       if (nra->ctx->options->nra_bound) {
-
         if (nra->global_bound_term == NULL_TERM) {
-          term_table_t* terms = nra->ctx->terms;
+          term_table_t *terms = nra->ctx->terms;
           type_t reals = int_type(terms->types);
           nra->global_bound_term = new_uninterpreted_term(terms, reals);
           set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
@@ -659,20 +713,8 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
           }
         }
       }
-
-    } else {
-      // Propagate constant value
-      lp_rational_t rat_value;
-      lp_rational_construct(&rat_value);
-      q_get_mpq(rational_term_desc(terms, t), &rat_value);
-      lp_value_t lp_value;
-      lp_value_construct(&lp_value, LP_VALUE_RATIONAL, &rat_value);
-      mcsat_value_t mcsat_value;
-      mcsat_value_construct_lp_value(&mcsat_value, &lp_value);
-      prop->add_at_level(prop, t_var, &mcsat_value, nra->ctx->trail->decision_level_base);
-      mcsat_value_destruct(&mcsat_value);
-      lp_value_destruct(&lp_value);
-      lp_rational_destruct(&rat_value);
+      break;
+    }
     }
   }
 
@@ -1532,9 +1574,11 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
   }
 
   // The assumptions conflict is either with a single constraints, or with a unit lemma
-  // - single constraint: return C or !C (one is assigned, other one evaluates)
-  // - unit lemma: return the lemma itself
+  // 1. unit lemma: return the lemma itself
+  // 2. single constraint from evaluation: return C or !C
+  // 3. single constraint from interval inference: return C => explain(I)
   if (lemma_reasons.size > 0) {
+    // Case 1: unit lemma
     assert(core.size == 0);
     // We don't know the actual lemma terms, just the variables
     // We do know that if we evaluate with the conflict variable the terms should eval to false
@@ -1563,11 +1607,76 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, 0);
   } else {
     assert(core.size == 1);
+
+    // Get all the data
     variable_t constraint_var = core.data[0];
     term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+    assert(!poly_constraint_is_root_constraint(constraint));
     assert(trail_has_value(nra->ctx->trail, constraint_var));
-    ivector_push(conflict, constraint_term);
-    ivector_push(conflict, opposite_term(constraint_term));
+
+    bool constraint_value = trail_get_boolean_value(nra->ctx->trail, constraint_var);
+    const lp_polynomial_t* constraint_p = poly_constraint_get_polynomial(constraint);
+    lp_sign_condition_t constraint_sgn_condition = poly_constraint_get_sign_condition(constraint);
+
+    // Constraint itself
+    if (constraint_value) {
+      ivector_push(conflict, constraint_term);
+    } else {
+      ivector_push(conflict, opposite_term(constraint_term));
+    }
+
+    // Check if the constraint evaluates
+    variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, constraint_var);
+    const variable_t* var_i = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+    bool constraint_evaluates = true;
+    while (constraint_evaluates && *var_i != variable_null) {
+      if (!trail_has_value(nra->ctx->trail, *var_i)) {
+        constraint_evaluates = false;
+      }
+      var_i ++;
+    }
+    if (constraint_evaluates) {
+      // Case 2: single constraint evaluation
+      // Add negated constraint (evaluates to false)
+      if (constraint_value) {
+        ivector_push(conflict, opposite_term(constraint_term));
+      } else {
+        ivector_push(conflict, constraint_term);
+      }
+    } else {
+      // Case 3: single constraint from interval inference
+      // Get the reason of the inference
+      lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+      lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
+      assert(p_reason_lp != NULL);
+
+      term_t p_reason = lp_polynomial_to_yices_term(nra, p_reason_lp);
+
+      // Get the sign of the polynomial
+      assert(trail_has_value(nra->ctx->trail, x));
+      assert(lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp)->type == LP_VALUE_NONE);
+      lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, &nra->conflict_variable_value);
+      int sgn = lp_polynomial_sgn(p_reason_lp, nra->lp_data.lp_assignment);
+      if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
+        ctx_trace_printf(nra->ctx, "p_reason = ");
+        ctx_trace_term(nra->ctx, p_reason);
+        lp_assignment_print(nra->lp_data.lp_assignment, ctx_trace_out(nra->ctx));
+      }
+      lp_assignment_set_value(nra->lp_data.lp_assignment, x_lp, 0);
+
+      // Construct the explanation
+      term_t reason = NULL_TERM;
+      if (sgn == 0) {
+        reason = mk_arith_term_eq0(nra->ctx->tm, p_reason);
+      } else if (sgn > 0) {
+        reason = mk_arith_term_gt0(nra->ctx->tm, p_reason);
+      } else {
+        reason = mk_arith_term_lt0(nra->ctx->tm, p_reason);
+      }
+      ivector_push(conflict, reason);
+      lp_polynomial_delete(p_reason_lp);
+    }
   }
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
@@ -1984,6 +2093,10 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
   // Check if this was feasible
   if (feasible != NULL && !lp_feasibility_set_contains(feasible, &lp_value->lp_value)) {
     // Ouch, conflict
+    if (ctx_trace_enabled(nra->ctx, "mcsat::decide")) {
+      ctx_trace_printf(nra->ctx, "decide conflict!\nfeasible = ");
+      lp_feasibility_set_print(feasible, ctx_trace_out(nra->ctx));
+    }
     nra_plugin_report_assumption_conflict(nra, decide, x, lp_value);
   }
   // Remove temps

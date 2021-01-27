@@ -1260,7 +1260,9 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto loop;
 
-    case next_goto_e16:
+    case bind_next_goto_e16:
+      // start of <binding-list>
+      tstack_push_op(tstack, BIND, &loc);
       state = e16;
       goto loop;
 
@@ -1270,17 +1272,22 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case termname_next_push_e19_goto_e0:
       // name in binding
-      tstack_push_op(tstack, BIND, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, e19);
       state = e0;
       goto loop;
 
     case next_goto_e20:
-      // end of let binding: evaluate the binding
-      tstack_eval(tstack);
+      // closing parenthesis in (<name> <term>) binding
       state = e20;
       goto loop;
+
+    case close_next_push_r0_goto_e0:
+      // end of <binding->list>
+      tstack_eval(tstack); // evaluate the BIND
+      parser_push_state(stack, r0);
+      state = e0;
+      goto  loop;
 
     case error_lpar_expected:
       syntax_error(lex, err, TK_LP);

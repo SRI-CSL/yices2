@@ -65,29 +65,6 @@ void reset_uint_learner_stats(uint_learner_t *learner) {
 }
 
 
-/*
- * Setup learner: iterate over each index from [0 .. n-1] and add to heap
- */
-void uint_learner_setup(uint_learner_t *learner, uint32_t n) {
- generic_heap_t *heap;
- pvector_t *pv;
- uint_learner_stats_t *s;
- uint32_t i;
-
- heap = &learner->heap;
- pv = &learner->stats;
-
- reset_uint_learner_stats(learner);
-
- for(i=0; i<n; i++) {
-   s = (uint_learner_stats_t *) safe_malloc(sizeof(uint_learner_stats_t));
-   s->Q = learner->initQ;
-   pvector_push(pv, s);
-
-   generic_heap_add(heap, i);
- }
-}
-
 
 /*
  * Initialize learner

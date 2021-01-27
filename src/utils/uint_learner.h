@@ -70,11 +70,6 @@ extern void reset_uint_learner(uint_learner_t *learner);
 extern void delete_uint_learner(uint_learner_t *learner);
 
 /*
- * Setup learner: iterate over each index from [0 .. n-1] and add to heap
- */
-extern void uint_learner_setup(uint_learner_t *learner, uint32_t n);
-
-/*
  * Reset learner stats vector
  */
 extern void reset_uint_learner_stats(uint_learner_t *learner);

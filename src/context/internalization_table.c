@@ -749,6 +749,32 @@ bool intern_tbl_valid_const_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
 }
 
 
+/*
+ * Check whether the substitution [r1 := r2] is sound
+ * - r1 must be a root
+ * - r2 must be frozen
+ * - returns true if r1 is a free root and r2's type is a subtype of r1's class type
+ *
+ * E.g., if r1 has integer type and r2 has real type then the substitution is not
+ * sound.
+ */
+bool intern_tbl_sound_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
+  type_t tau1, tau2;
+  bool ok;
+
+  assert(is_pos_term(r1) && intern_tbl_is_root(tbl, r1) && intern_tbl_is_root(tbl, r2));
+
+  ok = false;
+
+  if (intern_tbl_root_is_free(tbl, r1)) {
+    tau1 = intern_tbl_type_of_root(tbl, r1);
+    tau2 = intern_tbl_type_of_root(tbl, r2);
+    ok = is_subtype(tbl->types, tau2, tau1);
+  }
+
+  return ok;
+}
+
 
 /*
  * Add the substitution [r1 := r2] to the table.

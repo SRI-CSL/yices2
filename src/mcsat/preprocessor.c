@@ -251,24 +251,30 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
  */
 static inline
 term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
+
   term_table_t* terms = pre->terms;
-  // We don't purify variables
-  term_kind_t t_kind = term_kind(terms, t);
-  switch (t_kind) {
-  case UNINTERPRETED_TERM:
-    // Variables are already pure
-    return t;
-  case CONSTANT_TERM:
-  case ARITH_CONSTANT:
-  case BV64_CONSTANT:
-  case BV_CONSTANT:
-    // Constants are also pure
-    return t;
-  case APP_TERM:
-    // Uninterpreted functions are also already purified
-    return t;
-  default:
-    break;
+
+  // Negated terms must be purified
+  if (is_pos_term(t)) {
+    // We don't purify variables
+    term_kind_t t_kind = term_kind(terms, t);
+    switch (t_kind) {
+    case UNINTERPRETED_TERM:
+      // Variables are already pure
+      return t;
+    case CONSTANT_TERM:
+      return t;
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+      // Constants are also pure (except for false)
+      return t;
+    case APP_TERM:
+      // Uninterpreted functions are also already purified
+      return t;
+    default:
+      break;
+    }
   }
 
   // Everything else gets purified. Check if in the cache
@@ -411,6 +417,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
     case BITVECTOR_TYPE:
+    case SCALAR_TYPE:
       break;
     default:
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
@@ -541,13 +548,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
         }
       }
 
-     if (eq_solve_var != NULL_TERM) {
-       // Check again to make sure we don't have something like x = x + 1
-       if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
-         // Do it again
-         children_done = false;
-       }
-     }
+      if (eq_solve_var != NULL_TERM) {
+        // Check again to make sure we don't have something like x = x + 1
+        if (preprocessor_get(pre, eq_solve_var) != NULL_TERM) {
+          // Do it again
+          children_done = false;
+        }
+      }
 
       if (children_done) {
         if (eq_solve_var != NULL_TERM) {
@@ -568,6 +575,21 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       delete_ivector(&children);
 
+      break;
+    }
+
+    case ARITH_ABS:
+    {
+      term_t arg = arith_abs_arg(terms, current);
+      term_t arg_pre = preprocessor_get(pre, arg);
+      if (arg_pre == NULL_TERM) {
+        ivector_push(pre_stack, arg);
+      } else {
+        type_t arg_pre_type = term_type(pre->terms, arg_pre);
+        term_t arg_pre_is_positive = mk_arith_term_geq0(&pre->tm, arg_pre);
+        term_t arg_negative = yices_neg(arg_pre);
+        current_pre = mk_ite(&pre->tm, arg_pre_is_positive, arg_pre, arg_negative, arg_pre_type);
+      }
       break;
     }
 
@@ -898,6 +920,21 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case ARITH_IS_INT_ATOM:
+    {
+      // replace with t <= floor(t)
+      term_t child = arith_is_int_arg(terms, current);
+      term_t child_pre = preprocessor_get(pre, child);
+      if (child_pre != NULL_TERM) {
+        child_pre = preprocessor_purify(pre, child_pre, out);
+        current_pre = arith_floor(terms, child_pre);
+        current_pre = mk_arith_leq(tm, child_pre, current_pre);
+      } else {
+        ivector_push(pre_stack, child);
+      }
+      break;
+    }
+
     case ARITH_FLOOR:        // floor: purify, but its interpreted
     {
       term_t child = arith_floor_arg(terms, current);
@@ -939,8 +976,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case DISTINCT_TERM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
-      bool children_done = true;
 
+      // Arrays not supported yet
+      if (term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+
+      bool children_done = true;
       n = desc->arity;
 
       ivector_t children;
@@ -1088,6 +1130,36 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
     } else {
       model_add_substitution(model, eq_var, zero_term);
     }
+  }
+}
+
+
+static inline
+void preprocessor_gc_mark_term(preprocessor_t* pre, term_t t) {
+  term_table_set_gc_mark(pre->terms, index_of(t));
+  type_table_set_gc_mark(pre->terms->types, term_type(pre->terms, t));
+}
+
+void preprocessor_gc_mark(preprocessor_t* pre) {
+  uint32_t i;
+
+  for (i = 0; i < pre->preprocess_map_list.size; ++ i) {
+    term_t t = pre->preprocess_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pre = preprocessor_get(pre, t);
+    preprocessor_gc_mark_term(pre, t_pre);
+  }
+
+  for (i = 0; i < pre->equalities_list.size; ++ i) {
+    term_t t = pre->equalities_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+  }
+
+  for (i = 0; i < pre->purification_map_list.size; ++ i) {
+    term_t t = pre->purification_map_list.data[i];
+    preprocessor_gc_mark_term(pre, t);
+    term_t t_pure = int_hmap_find(&pre->purification_map, t)->val;
+    preprocessor_gc_mark_term(pre, t_pure);
   }
 }
 

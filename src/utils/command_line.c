@@ -20,6 +20,8 @@
  * SUPPORT FOR PARSING COMMAND-LINE ARGUMENTS
  */
 
+#include <float.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -636,8 +638,6 @@ void cmdline_print_error(cmdline_parser_t *p, cmdline_elem_t *e) {
 }
 
 
-
-
 /*
  * Invalid option argument.
  */
@@ -647,4 +647,113 @@ void cmdline_invalid_argument(cmdline_parser_t *p, cmdline_elem_t *e, char *expl
   } else {
     fprintf(stderr, "invalid parameter to %s (%s)\n", e->arg, explanation);
   }
+}
+
+
+/*
+ * Validate an integer option:
+ * - e = command-line element being parsed
+ * - min = minimal value
+ * - max = maximal value
+ *
+ * This returns true if min <= option value <= max.
+ * Otherwise, the function prrints an error message and returns false.
+ */
+bool validate_integer_option(cmdline_parser_t *p, cmdline_elem_t *e, int32_t min, int32_t max) {
+  if (min <= e->i_value && e->i_value <= max) {
+    return true;
+  }
+
+  if (p->command_name != NULL) {
+    fprintf(stderr, "%s: ", p->command_name);
+  }
+  print_option_name(stderr, e);
+  if (max == INT32_MAX) {
+    if (min == 0) {
+      fputs(" must not be negative\n", stderr);
+    } else if (min == 1) {
+      fputs(" must be positiver\n", stderr);
+    } else {
+      fprintf(stderr, " must be at least %"PRId32"\n", min);
+    }
+  } else if (min == INT32_MIN) {
+    if (max == 0) {
+      fputs(" must not be positive\n", stderr);
+    } else if (max == -1) {
+      fputs(" must be negative\n", stderr);
+    } else {
+      fprintf(stderr, " must be no more than %"PRId32"\n", max);
+    }
+  } else {
+    fprintf(stderr, " must be between %"PRId32" and %"PRId32"\n", min, max);
+  }
+
+  return false;
+}
+
+
+/*
+ * Validate a floating-point option
+ * - e = command-line option being processed
+ * - min = minimal value (DBL_MIN means no lower bound)
+ * - max = maximal value (DBL_MAX means no upper bound)
+ * - min_strict: true means  check min < e->d_value
+ *               false means check min <= e->d_value
+ * - max_strict: true  means check e->d_value < max
+ *               false means check e->d_value <= max
+ *
+ * Return true the checks pass.
+ * Otherwise, print an error message and return false.
+ */
+bool validate_double_option(cmdline_parser_t *p, cmdline_elem_t *e, double min, bool min_strict, double max, bool max_strict) {
+  bool good_lb, good_ub;
+  char left_bracket, right_bracket;
+
+  good_lb = min_strict ? e->d_value > min : e->d_value >= min;
+  good_ub = max_strict ? e->d_value < max : e->d_value <= max;
+  if (good_lb && good_ub) {
+    return true;
+  }
+
+  if (p->command_name != NULL) {
+    fprintf(stderr, "%s: ", p->command_name);
+  }
+  print_option_name(stderr, e);
+  if (max == DBL_MAX) {
+    // no meaningfull upper bound
+    if (min == 0) {
+      if (min_strict) {
+        fputs(" must be positive\n", stderr);
+      } else {
+        fputs(" must be positive or zero\n",  stderr);
+      }
+    } else {
+      if (min_strict) {
+        fprintf(stderr, " must be more than %.2f\n", min);
+      } else {
+        fprintf(stderr, " must be at least %.2f\n", min);
+      }
+    }
+  } else if (min == DBL_MIN) {
+    // no lower bound
+    if (max == 0) {
+      if (max_strict) {
+        fputs(" must be negative\n", stderr);
+      } else {
+        fputs(" must be negative or zero\n", stderr);
+      }
+    } else {
+      if (max_strict) {
+        fprintf(stderr, " must be less than %.2f\n", max);
+      } else {
+        fprintf(stderr, " must be no more than %.2f\n", max);
+      }
+    }
+  } else {
+    left_bracket = min_strict ? '(' : '[';
+    right_bracket = max_strict ? ')' : ']';
+    fprintf(stderr, " must be in the interval %c%.2f, %.2f%c\n", left_bracket, min, max, right_bracket);
+  }
+
+  return false;
 }

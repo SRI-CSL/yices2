@@ -20,7 +20,12 @@
  * SOLVER FOR QUANTIFIERS
  */
 
-
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#define __YICES_DLLSPEC__ EXPORTED
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
 
 #include <inttypes.h>
 

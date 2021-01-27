@@ -53,8 +53,7 @@ typedef bool (* heap_cmp_fun_t)(void *data, int32_t x, int32_t y);
  * - size = full size of array heap
  * - idx_size = size of the heap_index array
  *
- * Ordering is defined by:
- * - heap->cmp and heap->data
+ * The ordering is defined by heap->cmp and heap->data
  * - both are setup when the heap is initialized
  */
 typedef struct generic_heap_s {

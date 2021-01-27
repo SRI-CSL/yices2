@@ -68,9 +68,9 @@ static void resize_stratification(stratification_t *s, uint32_t n) {
   // try to double the existing size
   new_size = s->size << 1;
   if (new_size > MAX_STRATIFICATION_SIZE) new_size = MAX_STRATIFICATION_SIZE;
-  if (new_size < n) new_size = n;
+  if (new_size <= n) new_size = n + 1;
 
-  assert(new_size >= n && new_size <= MAX_STRATIFICATION_SIZE);
+  assert(new_size > n && new_size <= MAX_STRATIFICATION_SIZE);
   s->strata = (stratum_t *) safe_realloc(s->strata, new_size * sizeof(stratum_t));
   s->size = new_size;
 }

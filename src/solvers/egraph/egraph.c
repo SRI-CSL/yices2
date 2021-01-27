@@ -2350,18 +2350,19 @@ static void egraph_reactivate_dynamic_terms(egraph_t *egraph) {
 bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   uint32_t *dmask;
   composite_t *eq;
-  class_t c1, c2;
+  elabel_t l1, l2;
 
-  c1 = egraph_class(egraph, t1);
-  c2 = egraph_class(egraph, t2);
+  l1 = egraph_label(egraph, t1);
+  l2 = egraph_label(egraph, t2);
 
-  if (c1 == c2) {
-    return polarity_of_occ(t1) != polarity_of_occ(t2);
-  }
+  if (l1 == l2) return false;
+  if (l1 == opposite_label(l2))  return true;  // t1 == (not t2)
 
-  dmask = egraph->classes.dmask;
-  if ((dmask[c1] & dmask[c2]) != 0) {
-    return true;
+  if (is_pos_label(l1) && is_pos_label(l2)) {
+    dmask = egraph->classes.dmask;
+    if ((dmask[class_of(l1)] & dmask[class_of(l2)]) != 0) {
+      return true;
+    }
   }
 
   eq = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
