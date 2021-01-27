@@ -589,6 +589,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
          * it flattens to (not (xor (xor a[0] a[1]) a[2]) ... ) a[n-1]))
          */
         n = d->arity;
+        u = NULL_TERM;
         if (n == 0) {
           assert(0);
         } else {
@@ -711,6 +712,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
          * it flattens to (xor (xor a[0] a[1]) a[2]) ... ) a[n-1])
          */
         n = d->arity;
+        u = NULL_TERM;
         if (n == 0) {
           assert(0);
         } else {
