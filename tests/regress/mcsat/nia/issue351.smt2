@@ -1,0 +1,7 @@
+(set-logic QF_NIRA)
+(declare-fun i4 () Int)
+(declare-fun i9 () Int)
+(declare-fun r4 () Real)
+(assert (= 0.0 r4))
+(assert (= 0 (+ 1 i4 1 1 i4 i9 (* i9 (to_int r4)))))
+(check-sat)
