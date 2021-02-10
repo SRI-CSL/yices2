@@ -115,8 +115,8 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
   c = args->data;
 
 #if 0
-    printf("Updating: %s\n", yices_term_to_string(t, 120, 1, 0));
-    yices_pp_term_array(stdout, n, c, 120, 120, 0, 0);
+  printf("Updating: %s\n", yices_term_to_string(t, 120, 1, 0));
+  yices_pp_term_array(stdout, n, c, 120, 120, 0, 0);
 #endif
 
   result = NULL_TERM;
@@ -260,9 +260,28 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
   return result;
 }
 
+/*
+ * Create a name for a new skolem constant:
+ * - the name is stored in ef's string buffer
+ * - id is an integer that uniquely identifies the skolem constant
+ * - origin is the original name of the existential variable being skolemized
+ *
+ * The skolem name is of the form "skolem<id>_<origin>".
+ */
+static void build_skolem_name(ef_analyzer_t *ef, uint32_t id, const char *origin) {
+  string_buffer_reset(&ef->sbuffer);
+  string_buffer_append_string(&ef->sbuffer, "skolem");
+  string_buffer_append_uint32(&ef->sbuffer, id);
+  if (origin != NULL) {
+    string_buffer_append_char(&ef->sbuffer, '_');
+    string_buffer_append_string(&ef->sbuffer, origin);
+  }
+  string_buffer_close(&ef->sbuffer);
+}
 
 /*
  * Skolemize variable x using uvars as skolem arguments
+ * - n = number of terms in uvars
  */
 ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
@@ -273,9 +292,6 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
 
   terms = ef->terms;
   ef->num_skolem++;
-
-  char name[50];
-  sprintf (name, "skolem%d_%s", ef->num_skolem, yices_get_term_name(x));
 
   if (n == 0) {
     rt = term_type(terms, x);
@@ -295,8 +311,8 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
 
     safe_free(domt); // BD: fix memory leak
   }
-
-  yices_set_term_name(skolem.func, name);
+  build_skolem_name(ef, ef->num_skolem, yices_get_term_name(x));
+  yices_set_term_name(skolem.func, ef->sbuffer.data);
 
 
 #if TRACE

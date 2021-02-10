@@ -135,6 +135,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->evars, 32);
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
+  init_string_buffer(&ef->sbuffer, 50);
   ef->num_skolem = 0;
 }
 
@@ -153,6 +154,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->evars);
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
+  string_buffer_reset(&ef->sbuffer);
   ef->num_skolem = 0;
 }
 
@@ -171,6 +173,7 @@ void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_ivector(&ef->evars);
   delete_ivector(&ef->uvars);
   delete_ivector(&ef->aux);
+  delete_string_buffer(&ef->sbuffer);
 }
 
 

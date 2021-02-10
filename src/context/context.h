@@ -27,6 +27,23 @@
 #include "context/context_utils.h"
 
 
+/****************************
+ *  ARCHITECTURE & SOLVERS  *
+ ***************************/
+
+/*
+ * Check whether a given architecture includes a specific solver
+ */
+extern bool context_arch_has_egraph(context_arch_t arch);
+extern bool context_arch_has_bv(context_arch_t arch);
+extern bool context_arch_has_fun(context_arch_t arch);
+extern bool context_arch_has_arith(context_arch_t arch);
+extern bool context_arch_has_simplex(context_arch_t arch);
+extern bool context_arch_has_ifw(context_arch_t arch);
+extern bool context_arch_has_rfw(context_arch_t arch);
+extern bool context_arch_has_mcsat(context_arch_t arch);
+
+
 /********************************
  *  INITIALIZATION AND CONTROL  *
  *******************************/

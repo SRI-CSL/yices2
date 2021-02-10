@@ -699,7 +699,6 @@ bool logic_requires_mcsat(smt_logic_t code) {
  * Check whether a logic is supported by the exists/forall solver
  * - logics with quantifiers and BV or linear arithmetic are supported
  * - logic "NONE" == purely Boolean is supported too
- * - LIA is not tested.
  */
 bool logic_is_supported_by_ef(smt_logic_t code) {
   return code == NONE || code == BV || code == IDL || code == LRA || code == RDL || code == LIA || code == UF;

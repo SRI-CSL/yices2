@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 #include "api/yices_globals.h"
-
+#include "context/context.h"
 #include "exists_forall/ef_client.h"
 
 #include "yices.h"
@@ -131,6 +131,10 @@ model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code){
  */
 void ef_solve(ef_client_t *efc, uint32_t n, term_t *assertions, param_t *parameters,
 	      smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer, ptr_hmap_t *patterns) {
+  // disable ematching etc. if we don't have an egraph.
+  if (! context_arch_has_egraph(arch)) {
+    efc->ef_parameters.ematching = false;
+  }
   build_ef_problem(efc, n, assertions, patterns, parameters);
 
   if (efc->efcode == EF_NO_ERROR){

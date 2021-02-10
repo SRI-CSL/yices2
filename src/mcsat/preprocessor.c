@@ -941,11 +941,20 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       term_t child_pre = preprocessor_get(pre, child);
 
       if (child_pre != NULL_TERM) {
-        child_pre = preprocessor_purify(pre, child_pre, out);
-        if (child_pre != child) {
-          current_pre = arith_floor(terms, child_pre);
+        if (term_kind(terms, child_pre) == ARITH_CONSTANT) {
+          rational_t floor;
+          q_init(&floor);
+          q_set(&floor, rational_term_desc(terms, child_pre));
+          q_floor(&floor);
+          current_pre = arith_constant(terms, &floor);
+          q_clear(&floor);
         } else {
-          current_pre = current;
+          child_pre = preprocessor_purify(pre, child_pre, out);
+          if (child_pre != child) {
+            current_pre = arith_floor(terms, child_pre);
+          } else {
+            current_pre = current;
+          }
         }
       } else {
         ivector_push(pre_stack, child);

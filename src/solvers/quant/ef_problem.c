@@ -280,8 +280,7 @@ bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
   uint32_t i;
 
   terms = prob->terms;
-
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     t = a[i];
     if (is_utype_term(terms, t) || is_function_term(terms, t)) {
       return true;
