@@ -398,6 +398,22 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "delegate not available\n");
     break;
 
+  case CTX_EF_ASSERTIONS_CONTAIN_UF:
+    code = fprintf(f, "uninterpreted functions not supported by the exists/forall solver\n");
+    break;
+
+  case CTX_EF_NOT_EXISTS_FORALL:
+    code = fprintf(f, "assertions are not in the exists/forall fragment\n");
+    break;
+
+  case CTX_EF_HIGH_ORDER_VARS:
+    code = fprintf(f, "high-order quantifiers are not supported\n");
+    break;
+
+  case CTX_EF_INTERNAL_ERROR:
+    code = fprintf(f, "the exists/forall solver failed\n");
+    break;
+
   case CTX_INVALID_CONFIG:
     code = fprintf(f, "invalid context configuration\n");
     break;
@@ -885,6 +901,22 @@ char *error_string(void) {
 
   case CTX_DELEGATE_NOT_AVAILABLE:
     nchar = snprintf(buffer, BUFFER_SIZE, "delegate not available");
+    break;
+
+  case CTX_EF_ASSERTIONS_CONTAIN_UF:
+    nchar = snprintf(buffer, BUFFER_SIZE, "uninterpreted functions not supported by the exists/forall solver\n");
+    break;
+
+  case CTX_EF_NOT_EXISTS_FORALL:
+    nchar = snprintf(buffer, BUFFER_SIZE, "assertions are not in the exists/forall fragment\n");
+    break;
+
+  case CTX_EF_HIGH_ORDER_VARS:
+    nchar = snprintf(buffer, BUFFER_SIZE, "high-order quantifiers are not supported\n");
+    break;
+
+  case CTX_EF_INTERNAL_ERROR:
+    nchar = snprintf(buffer, BUFFER_SIZE, "the exists/forall solver failed\n");
     break;
 
   case CTX_INVALID_CONFIG:
