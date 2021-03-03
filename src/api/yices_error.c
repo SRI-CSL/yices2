@@ -407,7 +407,7 @@ int32_t print_error(FILE *f) {
     break;
 
   case CTX_EF_HIGH_ORDER_VARS:
-    code = fprintf(f, "high-order quantifiers are not supported\n");
+    code = fprintf(f, "high-order and tuple variables are not supported\n");
     break;
 
   case CTX_EF_INTERNAL_ERROR:
@@ -912,7 +912,7 @@ char *error_string(void) {
     break;
 
   case CTX_EF_HIGH_ORDER_VARS:
-    nchar = snprintf(buffer, BUFFER_SIZE, "high-order quantifiers are not supported\n");
+    nchar = snprintf(buffer, BUFFER_SIZE, "high-order and tuple variables are not supported\n");
     break;
 
   case CTX_EF_INTERNAL_ERROR:
