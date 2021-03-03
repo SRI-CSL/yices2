@@ -74,7 +74,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, e
   ptr_hmap_pair_t *r1, *r2;
   uint32_t n;
 
-  prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+  prob->patterns = (ptr_hmap_t *) safe_malloc(sizeof(ptr_hmap_t));
 
   patterns2 = prob->patterns;
   init_ptr_hmap(patterns2, 0);

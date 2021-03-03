@@ -1004,7 +1004,6 @@ extern bool type_has_finite_range(type_table_t *table, type_t tau);
  *    common subtype inf(tau1, tau2).
  */
 
-
 /*
  * Check whether type i is maximal (i.e., no strict supertype)
  */
@@ -1012,7 +1011,6 @@ static inline bool is_maxtype(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
   return tbl->flags[i] & TYPE_IS_MAXIMAL_MASK;
 }
-
 
 /*
  * Check whether tau is minimal (i.e., no strict subtype)
@@ -1066,7 +1064,6 @@ extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
 
 
 
-
 /*
  *  MATCHING
  */
@@ -1107,7 +1104,7 @@ extern bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, typ
  * If all calls to type_matcher_add_constraint succeed, call
  * this function to construct the solution.
  * - the solution is stored in arrays matcher->var and matcher->map
- * - for all i in 0 and matcher->nvars - 1,
+ * - for all i from 0 to matcher->nvars - 1,
  *   matcher->var[i] is a type variable X
  *   matcher->map[i] is the mapping of X in the substitution
  *
