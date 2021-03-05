@@ -20,11 +20,6 @@
  * Processing for formulas for EF-solving
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
 
 #include <assert.h>
 
@@ -33,11 +28,20 @@
 #include "terms/term_sets.h"
 #include "terms/term_utils.h"
 
-#include "yices.h"
 #include "exists_forall/ef_skolemize.h"
 
 #define EF_VERBOSE 0
 #define TRACE 0
+
+#if EF_VERBOSE || TRACE
+// need yices.h for the pretty printer
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+#include "yices.h"
+#endif
 
 
 /*
@@ -98,10 +102,11 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
 }
 
 
+#if EF_VERBOSE
 /*
  * Print a clause
  */
-void print_ef_clause(FILE *f, ef_clause_t *cl) {
+static void print_ef_clause(FILE *f, ef_clause_t *cl) {
   fprintf(f, "EF Clause: evars\n");
   yices_pp_term_array(f, cl->evars.size, cl->evars.data, 120, UINT32_MAX, 0, 1);
   fprintf(f, "\nEF Clause: uvars\n");
@@ -112,7 +117,7 @@ void print_ef_clause(FILE *f, ef_clause_t *cl) {
   yices_pp_term_array(f, cl->guarantees.size, cl->guarantees.data, 120, 2, 0, 0);
   fprintf(f, "---\n");
 }
-
+#endif
 
 
 /*
@@ -389,7 +394,7 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
  */
-static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, bool ematching, ivector_t *v) {
+static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_t *a, bool f_ite, bool f_iff, bool ematching, ivector_t *v) {
   uint32_t i;
 //  uint32_t fsize;
 //  ivector_t *foralls;
@@ -913,9 +918,6 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
   } else if (!all_basic_vars(ef, evar)) {
     c = EF_HIGH_ORDER_EVAR;
   }
-//  else if (remove_uninterpreted_functions(ef, evar) > 0)  {
-//    c = EF_UNINTERPRETED_FUN;
-//  }
 
   return c;
 }
@@ -1262,7 +1264,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */
-ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff, bool ematching) {
+ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_t *a, bool f_ite, bool f_iff, bool ematching) {
   ef_clause_t clause;
   ivector_t *v;
   uint32_t i;

@@ -71,6 +71,8 @@
 
 #include "context/context.h"
 
+#include "exists_forall/ef_client.h"
+
 #include "frontend/yices/yices_parser.h"
 
 #include "io/model_printer.h"
@@ -9772,6 +9774,109 @@ static bool check_delegate(const char *delegate) {
 
 
 /*
+ * Convert an error code from the ef-analyzer to an external
+ * error code for Yices.
+ */
+static const error_code_t efcode2yices_error[NUM_EF_CODES] = {
+  NO_ERROR,                     // EF_NO_ERROR
+  CTX_EF_ASSERTIONS_CONTAIN_UF, // EF_UNINTERPRETED_FUN
+  CTX_EF_NOT_EXISTS_FORALL,     // EF_NESTED_QUANTIFIER
+  CTX_EF_HIGH_ORDER_VARS,       // EF_HIGH_ORDER_UVAR
+  CTX_EF_HIGH_ORDER_VARS,       // EF_HIGH_ORDER_EVAR
+  CTX_EF_INTERNAL_ERROR,        // EF_ERROR
+};
+
+/*
+ * Call the exists/forall solver on a set of assertions
+ * - logic = expected logic (e.g., UF)
+ * - if we get a model and result != NULL, return the model in *result.
+ */
+static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_logic_t logic, model_t **result) {
+  ef_client_t efc;
+  ef_solver_t *efsolver;
+  ef_status_t ef_stat;
+  efmodel_error_code_t ef_code;
+  int32_t error;
+  model_t *model;
+  smt_status_t stat;
+  param_t parameters;
+
+  init_ef_client(&efc);
+  yices_set_default_params(&parameters, logic, ef_arch_for_logic(logic), CTX_MODE_ONECHECK);
+
+  ef_solve(&efc, n, f, &parameters, qf_fragment(logic), ef_arch_for_logic(logic), NULL, NULL);
+  if (efc.efcode != EF_NO_ERROR) {
+    // error in preprocessing. no efsolver created
+    set_error_code(efcode2yices_error[efc.efcode]);
+    stat = STATUS_ERROR;
+
+  } else {
+
+    // check error and status from the ef solver
+    efsolver = efc.efsolver;
+    ef_stat = efsolver->status;
+    error = efsolver->error_code;
+
+    switch (ef_stat) {
+    case EF_STATUS_SAT:
+      model = ef_export_model(&efc, &ef_code);
+      assert(ef_code == EFMODEL_CODE_NO_ERROR);
+      *result = model;
+      stat = STATUS_SAT;
+      break;
+
+    case EF_STATUS_UNSAT:
+      stat = STATUS_UNSAT;
+      break;
+
+    case EF_STATUS_UNKNOWN:
+      stat = STATUS_UNKNOWN;
+      break;
+
+    case EF_STATUS_INTERRUPTED:
+      stat = STATUS_INTERRUPTED;
+      break;
+
+    case EF_STATUS_SUBST_ERROR:
+      if (error == -1) {
+	set_error_code(DEGREE_OVERFLOW);
+      } else {
+	assert(error == -2);
+	set_error_code(CTX_EF_INTERNAL_ERROR);
+      }
+      stat = STATUS_ERROR;
+      break;
+
+    case EF_STATUS_ASSERT_ERROR:
+      assert(error < 0);
+      yices_internalization_error(error);
+      stat = STATUS_ERROR;
+      break;
+
+    case EF_STATUS_PROJECTION_ERROR:
+      if (error == PROJ_ERROR_NON_LINEAR) {
+	set_error_code(CTX_NONLINEAR_ARITH_NOT_SUPPORTED);
+      } else {
+	set_error_code(CTX_EF_INTERNAL_ERROR);
+      }
+      stat = STATUS_ERROR;
+      break;
+
+    default:
+      // todo: give more precise diagnostic
+      set_error_code(CTX_EF_INTERNAL_ERROR);
+      stat = STATUS_ERROR;
+      break;
+    }
+  }
+
+  delete_ef_client(&efc);
+
+  return stat;
+}
+
+
+/*
  * Check satisfiability of n formulas f[0 ... n-1]
  * - f[0 ... n-1] are known to be boolean terms
  */
@@ -9797,6 +9902,10 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
       set_error_code(CTX_UNKNOWN_LOGIC);
       return STATUS_ERROR;
     }
+    if (logic_is_supported_by_ef(logic)) {
+      return yices_ef_check_formulas(f, n, logic, result);
+    }
+
     if (! logic_is_supported(logic) ||
 	(! yices_has_mcsat() && logic_requires_mcsat(logic))) {
       set_error_code(CTX_LOGIC_NOT_SUPPORTED);

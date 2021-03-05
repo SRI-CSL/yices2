@@ -354,7 +354,7 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
 
   skolems = (term_t *) safe_malloc(n * sizeof(term_t));
 
-  for(i = 0; i < n; i++){
+  for (i = 0; i < n; i++){
     assert(int_hmap_find(&ef->existentials, a[i]) == NULL);
 
     skolem = ef_skolem_term(ef, a[i], uvars->size, uvars->data);
@@ -607,7 +607,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       v = unsigned_term(t);
       n = term_num_children(terms, v);
       if (result == NULL_TERM) {
-        for(i=0; i<n; i++) {
+        for (i=0; i<n; i++) {
           u = term_child(terms, v, i);
 
           sp = ef_skolemize_term(sk, u);

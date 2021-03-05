@@ -67,7 +67,7 @@ void delete_ef_client(ef_client_t *efc) {
  * - do nothing if efprob exists already
  * - store the internalization code in the global efcode flag
  */
-void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap_t *patterns, param_t *parameters) {
+void build_ef_problem(ef_client_t *efc, uint32_t n, const term_t *assertions, ptr_hmap_t *patterns, param_t *parameters) {
   ef_analyzer_t analyzer;
 
   if (efc->efprob == NULL) {
@@ -117,6 +117,22 @@ model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code){
 
 
 /*
+ * Same as ef_get_model but also detach the model from efc
+ * so that deletion of efc will not delete the model.
+ */
+model_t *ef_export_model(ef_client_t *efc, efmodel_error_code_t *code) {
+  model_t *mdl;
+
+  mdl = ef_get_model(efc, code);
+  if (mdl != NULL) {
+    assert(mdl = efc->efsolver->exists_model);
+    efc->efsolver->exists_model = NULL;
+  }
+  return mdl;
+}
+
+
+/*
  * Call the exists/forall solver on an array of assertions.
  * - n = number of assertions
  * - assertions =  array of n Boolean terms
@@ -129,7 +145,7 @@ model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code){
  * logic_code must be quantifier free and arch must be a context
  * architecture compatible with this logic.
  */
-void ef_solve(ef_client_t *efc, uint32_t n, term_t *assertions, param_t *parameters,
+void ef_solve(ef_client_t *efc, uint32_t n, const term_t *assertions, param_t *parameters,
 	      smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer, ptr_hmap_t *patterns) {
   // disable ematching etc. if we don't have an egraph.
   if (! context_arch_has_egraph(arch)) {
