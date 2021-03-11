@@ -658,6 +658,7 @@ static value_t eval_arith_divides(evaluator_t *eval, composite_term_t *d) {
   return vtbl_mk_bool(eval->vtbl, divides);
 }
 
+#ifdef HAVE_MCSAT
 static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
   lp_algebraic_number_t prod, tmp;
   mpq_t q;
@@ -691,7 +692,7 @@ static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
 
   return o;
 }
-
+#endif
 
 /*
  * Power product: arithmetic
@@ -713,10 +714,15 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
     if (object_is_rational(eval->vtbl, o)) {
       q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
     } else {
+#ifdef HAVE_MCSAT
       // We need algebraic number computation
       o = eval_arith_pprod_algebraic(eval, p);
       clear_rational(&prod);
       return o;
+#else
+      assert(false);
+      return MDL_EVAL_INTERNAL_ERROR;
+#endif
     }
   }
 
@@ -727,6 +733,7 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
   return o;
 }
 
+#ifdef HAVE_MCSAT
 static value_t eval_arith_poly_algebraic(evaluator_t *eval, polynomial_t *p) {
   lp_algebraic_number_t sum, tmp_c, tmp_t;
   uint32_t i, n;
@@ -765,7 +772,9 @@ static value_t eval_arith_poly_algebraic(evaluator_t *eval, polynomial_t *p) {
   mpq_clear(q);
   lp_algebraic_number_destruct(&sum);
 
-  return v;}
+  return v;
+}
+#endif
 
 /*
  * Arithmetic polynomial
@@ -788,9 +797,14 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
       if (object_is_rational(eval->vtbl, v)) {
         q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
       } else {
+#ifdef HAVE_MCSAT
         v = eval_arith_poly_algebraic(eval, p);
         clear_rational(&sum);
         return v;
+#else
+        assert(false);
+        return MDL_EVAL_INTERNAL_ERROR;
+#endif
       }
     }
   }

@@ -249,6 +249,7 @@ static int arith_cmp_in_model(lit_collector_t *collect, term_t t1, term_t t2) {
   if (object_is_rational(vtbl, v1) && object_is_rational(vtbl, v2)) {
     return q_cmp(vtbl_rational(vtbl, v1), vtbl_rational(vtbl, v2));
   } else {
+#ifdef HAVE_MCSAT
     lp_rational_t q;
     int result;
     bool v1_algebraic = object_is_algebraic(vtbl, v1);
@@ -268,6 +269,10 @@ static int arith_cmp_in_model(lit_collector_t *collect, term_t t1, term_t t2) {
       lp_rational_destruct(&q);
     }
     return result;
+#else
+    assert(false);
+    longjmp(collect->env, MDL_EVAL_INTERNAL_ERROR);
+#endif
   }
 }
 
@@ -288,7 +293,12 @@ static int lit_collector_sign_in_model(lit_collector_t *collect, term_t t) {
   if (object_is_rational(&collect->model->vtbl, v)) {
     return q_sgn(vtbl_rational(&collect->model->vtbl, v));
   } else {
+#ifdef HAVE_MCSAT
     return lp_algebraic_number_sgn(vtbl_algebraic_number(&collect->model->vtbl, v));
+#else
+    assert(false);
+    longjmp(collect->env, MDL_EVAL_INTERNAL_ERROR);
+#endif
   }
 }
 
