@@ -8330,21 +8330,29 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
 
-  if (config != NULL && config->trace_tags != NULL) {
-    // Make new tracer
-    tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
-    init_trace(trace);
-    set_trace_file(trace, stderr);
-    // Copy over the trace tag to the tracer
-    char *trace_tags = safe_strdup(config->trace_tags);
-    char *saveptr = NULL;
-    char *tag = strtok_r(trace_tags, ",", &saveptr);
-    while (tag != NULL) {
-      pvector_push(&trace->trace_tags, tag);
-      tag = strtok_r(NULL, ",", &saveptr);
+  // Additional setup for MCSAT options in the config
+  if (config != NULL) {
+    // If trace tags are passed in, set them
+    if (config->trace_tags != NULL) {
+      // Make new tracer
+      tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
+      init_trace(trace);
+      set_trace_file(trace, stderr);
+      // Copy over the trace tag to the tracer
+      char *trace_tags = safe_strdup(config->trace_tags);
+      char *saveptr = NULL;
+      char *tag = strtok_r(trace_tags, ",", &saveptr);
+      while (tag != NULL) {
+        pvector_push(&trace->trace_tags, tag);
+        tag = strtok_r(NULL, ",", &saveptr);
+      }
+      // Set it to the context
+      context_set_trace(ctx, trace);
     }
-    // Set it to the context
-    context_set_trace(ctx, trace);
+    // If model interpolation is enabled, set it
+    if (config->model_interpolation) {
+      ctx->mcsat_options.model_interpolation = true;
+    }
   }
 
   return ctx;
@@ -9058,6 +9066,12 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
   smt_status_t result = STATUS_UNKNOWN;
   ivector_t model_vars, interpolants;
 
+  // The context must stupport interpolation
+  if (! context_supports_model_interpolation(ctx->ctx_A)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
   // Push A and B so we can revert
   ret = yices_push(ctx->ctx_A);
   if (ret) {
@@ -9197,6 +9211,11 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
+    if (! context_supports_model_interpolation(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
     context_clear(ctx);
     break;
 
@@ -9210,6 +9229,11 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
       return STATUS_ERROR;
     }
     if (!context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_supports_model_interpolation(ctx)) {
       error_report_t *error = get_yices_error();
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
@@ -9303,6 +9327,10 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * Construct a model interpolant core.
  */
 EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+  if (! context_supports_model_interpolation(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return -1;
+  }
   return context_get_unsat_model_interpolant(ctx);
 }
 
@@ -9673,14 +9701,26 @@ EXPORTED int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val) {
 
 int32_t _o_yices_model_set_bool(model_t* model, term_t var, int32_t val) {
 
+  error_report_t *error;
+
   if (model_find_term_value(model, var) != null_value) {
+    error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = var;
     return -1;
   }
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
-    return -2;
+    error = get_yices_error();
+    error->code = MDL_UNINT_REQUIRED;
+    error->term1 = var;
+    return -1;
   }
   if (term_type_kind(model->terms, var) != BOOL_TYPE) {
-    return -3;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = var;
+    error->type1 = bool_type(model->terms->types);
+    return -1;
   }
 
   model_map_term(model, var, val ? vtbl_mk_true(&model->vtbl) : vtbl_mk_false(&model->vtbl));
@@ -9697,12 +9737,19 @@ int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
   rational_t q;
   bvconstant_t b;
   value_t v;
+  error_report_t *error;
 
   if (model_find_term_value(model, var) != null_value) {
+    error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = var;
     return -1;
   }
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
-    return -2;
+    error = get_yices_error();
+    error->code = MDL_UNINT_REQUIRED;
+    error->term1 = var;
+    return -1;
   }
 
   type_kind_t var_type = term_type_kind(model->terms, var);
@@ -9715,7 +9762,9 @@ int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
     break;
   case BITVECTOR_TYPE:
     if (mpz_sgn(val) < 0) {
-      return -4;
+      error = get_yices_error();
+      error->code = MDL_NONNEG_INT_REQUIRED;
+      return -1;
     }
     init_bvconstant(&b);
     bvconstant_set_bitsize(&b, term_bitsize(model->terms, var));
@@ -9724,7 +9773,11 @@ int32_t _o_yices_model_set_mpz(model_t* model, term_t var, mpz_t val) {
     delete_bvconstant(&b);
     break;
   default:
-    return -3;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = var;
+    error->type1 = int_type(model->terms->types);
+    return -1;
   }
 
   model_map_term(model, var, v);
@@ -9740,20 +9793,35 @@ EXPORTED int32_t yices_model_set_mpq(model_t* model, term_t var, mpq_t val) {
 int32_t _o_yices_model_set_mpq(model_t* model, term_t var, mpq_t val) {
   rational_t q;
   value_t q_val;
+  error_report_t *error;
 
   if (model_find_term_value(model, var) != null_value) {
+    error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = var;
     return -1;
   }
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
-    return -2;
+    error = get_yices_error();
+    error->code = MDL_UNINT_REQUIRED;
+    error->term1 = var;
+    return -1;
   }
 
   type_kind_t var_type = term_type_kind(model->terms, var);
   if (var_type != REAL_TYPE && var_type != INT_TYPE) {
-    return -3;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = var;
+    error->type1 = real_type(model->terms->types);
+    return -1;
   }
   if (var_type == INT_TYPE && !mpq_is_integer(val)) {
-    return -4;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = var;
+    error->type1 = real_type(model->terms->types);
+    return -1;
   }
 
   q_init(&q);
@@ -9773,15 +9841,26 @@ EXPORTED int32_t yices_model_set_algebraic_number(model_t* model, term_t var, co
 
 int32_t _o_yices_model_set_algebraic_number(model_t* model, term_t var, const lp_algebraic_number_t* val) {
   value_t a_val;
+  error_report_t *error;
 
   if (model_find_term_value(model, var) != null_value) {
+    error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = var;
     return -1;
   }
   if (term_kind(model->terms, var) != UNINTERPRETED_TERM) {
-    return -2;
+    error = get_yices_error();
+    error->code = MDL_UNINT_REQUIRED;
+    error->term1 = var;
+    return -1;
   }
   if (term_type_kind(model->terms, var) != REAL_TYPE) {
-    return -3;
+    error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = var;
+    error->type1 = real_type(model->terms->types);
+    return -1;
   }
 
   a_val = vtbl_mk_algebraic(&model->vtbl, (void*) val);

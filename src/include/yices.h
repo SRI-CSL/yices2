@@ -2786,6 +2786,10 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    | "LIA"               |  linear integer arithmetic
  *                    | "LRA"               |  linear real arithmetic
  *                    | "LIRA"              |  mixed linear arithmetic (real + integer variables)
+ *   ----------------------------------------------------------------------------------------
+ *   "model-interpolation" | "false"        | don't enable model interpolation (default)
+ *                         | "true"         | enable model interpolation
+ *
  *
  *
  *
@@ -3161,7 +3165,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
 
 /*
  * Check satisfiability under model: check whether the assertions stored in ctx
- * conjoined with the assignment of the model is satisfiable.
+ * conjoined with the assignment of the model is satisfiable. The context must
+ * have MCSAT and model inerpolation enabled.
  *
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
@@ -3173,21 +3178,25 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * It behaves the same as the previous function. Note that the model will take
  * default values for variables in t that are not explicitly defined.
  *
- * If this function returns STATUS_UNSAT, then one can construct a model interpolant by
- * calling function yices_get_model_interpolant.
+ * If the context does not have the MCSAT solver enabled, STATUS_ERROR is returned.
+ * If this function returns STATUS_UNSAT, and model interpolation is enabled,
+ * then one can construct a model interpolant by calling function
+ * yices_get_model_interpolant.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
     const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
 /*
- * Check satisfiability: check whether assertions stored in ctx are satisfiable.
+ * Check satisfiability: check whether combined assertions stored in ctx are satisfiable.
  *
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
  *
  * If this function returns STATUS_UNSAT, then one can obtain the interpolant from
  * the context. If the this function returns STATUS_SAT, and build_model is true,
- * the model can be obtained from the context (and is owned by the user).
+ * the model can be obtained from the context (and is owned by the user). Otherwise,
+ * the function returns STATUS_ERROR and sets the yices error report (code =
+ * CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model);
 
@@ -3323,6 +3332,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
  *
  * Error code:
  * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ * - CTX_INVALID_OPRRATION if the context is not configured with model interpolation
  */
 __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
 
@@ -3397,13 +3407,42 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
+/*
+ * Build an empty model. The model can be populated using the functions below.
+ */
 __YICES_DLLSPEC__ extern model_t *yices_new_model();
 
+/*
+ * Set the value of the given Boolean variable to the given Boolean value.
+ *
+ * In case of error, the function returns -1 and sets up the error report as in yices_model_from_map.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val);
+
+
+/*
+ * Set the value of the given integer or bitvector variable to the given integer value.
+ *
+ * In case of error, the function returns -1 and sets up the error report as in yices_model_from_map.
+ */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t* model, term_t var, mpz_t val);
+#endif
+
+/*
+ * Set the value of the given real (integer) variable to the given rational (int) value.
+ *
+ * In case of error, the function returns -1 and sets up the error report as in yices_model_from_map.
+ */
+#ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t* model, term_t var, mpq_t val);
 #endif
+
+/*
+ * Set the value of the given variable to the given algebraic value.
+ *
+ * In case of error, the function returns -1 and sets up the error report as in yices_model_from_map.
+ */
 #ifdef LIBPOLY_VERSION
 __YICES_DLLSPEC__ extern int32_t yices_model_set_algebraic_number(model_t* model, term_t var, const lp_algebraic_number_t* val);
 #endif

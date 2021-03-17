@@ -851,7 +851,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         lp_value_destruct(&v);
       }
       // If the value is implied at zero level, propagate it
-      if (false && !x_in_conflict && !trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
+      if (!nra->ctx->options->model_interpolation && !x_in_conflict && !trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
         const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
         if (lp_feasibility_set_is_point(feasible)) {
           lp_value_t x_value;
@@ -2141,16 +2141,19 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     }
 
     // Approximate the value
-    const mcsat_value_t* constraint_value = NULL; // poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
-    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
-      ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
-      FILE* out = ctx_trace_out(nra->ctx);
-      if (constraint_value != NULL) {
-        mcsat_value_print(constraint_value, out);
-      } else {
-        fprintf(out, "no value");
+    const mcsat_value_t* constraint_value = NULL;
+    if (!nra->ctx->options->model_interpolation) {
+      constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
+      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+        ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
+        FILE* out = ctx_trace_out(nra->ctx);
+        if (constraint_value != NULL) {
+          mcsat_value_print(constraint_value, out);
+        } else {
+          fprintf(out, "no value");
+        }
+        fprintf(out, "\n");
       }
-      fprintf(out, "\n");
     }
     if (constraint_value != NULL) {
       if (has_value) {

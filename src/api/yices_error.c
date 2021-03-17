@@ -466,6 +466,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "model-construction failed\n");
     break;
 
+  case MDL_NONNEG_INT_REQUIRED:
+    code = fprintf(f, "model value must be non-negative\n");
+    break;
+
   case YVAL_INVALID_OP:
     code = fprintf(f, "invalid operation on yval\n");
     break;
@@ -953,6 +957,10 @@ char *error_string(void) {
 
   case MDL_CONSTRUCTION_FAILED: // not used
     nchar = snprintf(buffer, BUFFER_SIZE, "model-construction failed");
+    break;
+
+  case MDL_NONNEG_INT_REQUIRED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "value must be non-negative");
     break;
 
   case YVAL_INVALID_OP:

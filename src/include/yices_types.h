@@ -440,6 +440,7 @@ typedef enum error_code {
   MDL_DUPLICATE_VAR,
   MDL_FTYPE_NOT_ALLOWED,
   MDL_CONSTRUCTION_FAILED,
+  MDL_NONNEG_INT_REQUIRED,
 
   /*
    * Error codes in DAG/node queries
@@ -621,7 +622,8 @@ typedef struct error_report_s {
 
 /*
  * A context for interpolation. It consists of two regular context objects
- * ctx_A and ctx_B.
+ * ctx_A and ctx_B. The ctx_A context should be a context with MCSAT enabled
+ * and model interpolation enabled.
  */
 typedef struct interpolation_context_s {
   context_t *ctx_A;

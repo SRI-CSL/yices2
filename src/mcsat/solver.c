@@ -1999,6 +1999,10 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (mcsat->variable_in_conflict != variable_null) {
     // This conflict happened because an assumption conflicts with an already
     // propagated value. We're unsat here, but we need to produce a clause
+    if (!mcsat->ctx->mcsat_options.model_interpolation) {
+      // No need to compute the interpolant, it's disabled
+      return;
+    }
     if (plugin) {
       term_t t = plugin->explain_propagation(plugin, mcsat->variable_in_conflict, &reason);
       term_t x = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
@@ -2175,7 +2179,9 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
     mcsat->status = STATUS_UNSAT;
-    mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+    if (mcsat->ctx->mcsat_options.model_interpolation) {
+      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+    }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
