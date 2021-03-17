@@ -9,7 +9,7 @@ Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
-and bindings for [Python](https://github.com/SRI-CSL/yices2_python_bindings), [Go](https://github.com/SRI-CSL/yices2_go_bindings), and [OCaml](https://github.com/SRI-CSL/yices2_ocaml_bindings).
+and bindings for [Java](https://github.com/SRI-CSL/yices2_java_bindings), [Python](https://github.com/SRI-CSL/yices2_python_bindings), [Go](https://github.com/SRI-CSL/yices2_go_bindings), and [OCaml](https://github.com/SRI-CSL/yices2_ocaml_bindings).
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.

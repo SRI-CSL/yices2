@@ -53,8 +53,8 @@ typedef struct ef_param_s {
   ef_gen_option_t gen_mode;
   uint32_t max_samples;
   uint32_t max_iters;
-  uint32_t max_numlearnt_per_round;
 
+  uint32_t max_numlearnt_per_round;
   bool ematching;
 
   /*

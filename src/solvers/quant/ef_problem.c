@@ -74,7 +74,7 @@ void init_ef_prob(ef_prob_t *prob, term_manager_t *mngr, ptr_hmap_t *patterns, e
   ptr_hmap_pair_t *r1, *r2;
   uint32_t n;
 
-  prob->patterns = (ptr_hmap_t *) safe_malloc(1 * sizeof(ptr_hmap_t));
+  prob->patterns = (ptr_hmap_t *) safe_malloc(sizeof(ptr_hmap_t));
 
   patterns2 = prob->patterns;
   init_ptr_hmap(patterns2, 0);
@@ -280,8 +280,7 @@ bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
   uint32_t i;
 
   terms = prob->terms;
-
-  for(i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     t = a[i];
     if (is_utype_term(terms, t) || is_function_term(terms, t)) {
       return true;

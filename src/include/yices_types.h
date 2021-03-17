@@ -412,6 +412,15 @@ typedef enum error_code {
   CTX_DELEGATE_NOT_AVAILABLE,
 
   /*
+   * Error codes for exists/forall solver & quantifiers
+   * (since 2021/03/01)
+   */
+  CTX_EF_ASSERTIONS_CONTAIN_UF = 440,
+  CTX_EF_NOT_EXISTS_FORALL = 441,
+  CTX_EF_HIGH_ORDER_VARS = 442,
+  CTX_EF_INTERNAL_ERROR = 443,
+
+  /*
    * Errors in context configurations and search parameter settings
    */
   CTX_INVALID_CONFIG = 500,

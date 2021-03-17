@@ -56,7 +56,7 @@
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
 #include "utils/int_vectors.h"
-
+#include "utils/string_buffers.h"
 
 /*
  * EF clause = a disjunction of formulas: assumptions and guarantees
@@ -94,6 +94,7 @@ typedef struct ef_clause_s {
  * - evars = reusable vector to collect existential variables (no longer just uninterpreted terms)
  * - uvars = reusable vector to collect universal variables (variables)
  * - aux = auxiliary general-purpose vectors
+ * - sbuffer = string buffer to store the names of skolem constants
  */
 typedef struct ef_analyzer_s {
   term_table_t *terms;
@@ -108,6 +109,7 @@ typedef struct ef_analyzer_s {
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;
+  string_buffer_t sbuffer;
   uint32_t num_skolem;
 } ef_analyzer_t;
 
@@ -164,7 +166,7 @@ extern void delete_ef_analyzer(ef_analyzer_t *ef);
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */
-extern ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a,
+extern ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_t *a,
     bool f_ite, bool f_iff, bool ematching);
 
 

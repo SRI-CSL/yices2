@@ -61,7 +61,7 @@ extern void delete_ef_client(ef_client_t *ef_client);
  * - do nothing if efprob exists already
  * - store the internalization code in the global efcode flag
  */
-extern void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, ptr_hmap_t *patterns, param_t *parameters);
+extern void build_ef_problem(ef_client_t *efc, uint32_t n, const term_t *assertions, ptr_hmap_t *patterns, param_t *parameters);
 
 /*
  * Call the exists/forall solver on an array of assertions.
@@ -76,7 +76,7 @@ extern void build_ef_problem(ef_client_t *efc, uint32_t n, term_t *assertions, p
  * logic_code must be quantifier free and arch must be a context
  * architecture compatible with this logic.
  */
-extern void ef_solve(ef_client_t *efc, uint32_t m, term_t *assertions, param_t *parameters,
+extern void ef_solve(ef_client_t *efc, uint32_t m, const term_t *assertions, param_t *parameters,
 		     smt_logic_t logic_code, context_arch_t arch, tracer_t *tracer, ptr_hmap_t *patterns);
 
 
@@ -99,5 +99,12 @@ extern const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES];
  */
 extern model_t *ef_get_model(ef_client_t *efc, efmodel_error_code_t *code);
 
+/*
+ * Export the model if any:
+ * - return the existing model in the client if any and detach it
+ *   from efc so that the model will survive the deletion of efc.
+ * - the exported model can be freed later by calling yices_free_model.
+ */
+extern model_t *ef_export_model(ef_client_t *efc, efmodel_error_code_t *code);
 
 #endif /* __EF_CLIENT_H */

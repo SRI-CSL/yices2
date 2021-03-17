@@ -202,6 +202,8 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   solver->option = EF_GEN_BY_SUBST_OPTION;
   solver->max_samples = 0;
   solver->max_iters = 0;
+  solver->max_numlearnt_per_round = 0;
+  solver->ematching = false;
 
   solver->num_models = 0;
   solver->iters = 0;

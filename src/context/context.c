@@ -5103,6 +5103,45 @@ static th_smt_interface_t null_smt = {
 
 
 
+/****************************
+ *  ARCHITECTURE & SOLVERS  *
+ ***************************/
+
+/*
+ * Check whether a given architecture includes a specific solver
+ */
+bool context_arch_has_egraph(context_arch_t arch) {
+  return arch_components[arch] & EGRPH;
+}
+
+bool context_arch_has_bv(context_arch_t arch) {
+  return arch_components[arch] & BVSLVR;
+}
+
+bool context_arch_has_fun(context_arch_t arch) {
+  return arch_components[arch] & FSLVR;
+}
+
+bool context_arch_has_arith(context_arch_t arch) {
+  return arch_components[arch] & (SPLX|IFW|RFW);
+}
+
+bool context_arch_has_mcsat(context_arch_t arch) {
+  return arch_components[arch] & MCSAT;
+}
+
+bool context_arch_has_simplex(context_arch_t arch) {
+  return arch_components[arch] & SPLX;
+}
+
+bool context_arch_has_ifw(context_arch_t arch) {
+  return arch_components[arch] & IFW;
+}
+
+bool context_arch_has_rfw(context_arch_t arch) {
+  return arch_components[arch] & RFW;
+}
+
 
 /****************************
  *  SOLVER INITIALIZATION   *
