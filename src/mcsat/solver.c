@@ -1999,27 +1999,25 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (mcsat->variable_in_conflict != variable_null) {
     // This conflict happened because an assumption conflicts with an already
     // propagated value. We're unsat here, but we need to produce a clause
-    if (!mcsat->ctx->mcsat_options.model_interpolation) {
-      // No need to compute the interpolant, it's disabled
-      return;
-    }
-    if (plugin) {
-      term_t t = plugin->explain_propagation(plugin, mcsat->variable_in_conflict, &reason);
-      term_t x = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
-      term_t x_eq_t = mk_eq(&mcsat->tm, x, t);
-      // reason => x_eq_t is valid
-      // reason && x_eq_t evaluates to false with assumptions
-      // but x_eq_t evaluates to true with trail
-      ivector_push(&reason, opposite_term(x_eq_t));
-      conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
-      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
-      conflict_destruct(&conflict);
-    } else {
-      // an assertion, interpolant is !assertion
-      mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
-      bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
-      if (!value) {
-        mcsat->interpolant = opposite_term(mcsat->interpolant);
+    if (mcsat->ctx->mcsat_options.model_interpolation) {
+      if (plugin) {
+        term_t t = plugin->explain_propagation(plugin, mcsat->variable_in_conflict, &reason);
+        term_t x = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        term_t x_eq_t = mk_eq(&mcsat->tm, x, t);
+        // reason => x_eq_t is valid
+        // reason && x_eq_t evaluates to false with assumptions
+        // but x_eq_t evaluates to true with trail
+        ivector_push(&reason, opposite_term(x_eq_t));
+        conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
+        mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+        conflict_destruct(&conflict);
+      } else {
+        // an assertion, interpolant is !assertion
+        mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
+        if (!value) {
+          mcsat->interpolant = opposite_term(mcsat->interpolant);
+        }
       }
     }
     mcsat->status = STATUS_UNSAT;
