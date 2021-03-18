@@ -5293,7 +5293,7 @@ EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
   aux[1] = t2;
   aux[2] = t3;
 
-  return yices_bvor(3, aux);
+  return yices_bvxor(3, aux);
 }
 
 
