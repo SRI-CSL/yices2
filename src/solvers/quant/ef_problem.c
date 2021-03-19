@@ -452,23 +452,3 @@ void ef_prob_collect_conjuncts(ef_prob_t *prob, ivector_t *v) {
   }
 }
 
-
-/*
- * Check whether some of the existential variables are skolem functions
- */
-bool ef_prob_has_skolem_functions(const ef_prob_t *prob) {
-  term_table_t *terms;
-  term_t *vars;
-  uint32_t i, n;
-
-  terms = prob->terms;
-  vars = prob->all_evars;
-  n = iv_len(vars);
-  for (i=0; i<n; i++) {
-    if (is_function_term(terms, vars[i])) {
-      return true;
-    }
-  }
-
-  return false;
-}

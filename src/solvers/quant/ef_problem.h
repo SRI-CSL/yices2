@@ -211,10 +211,4 @@ extern uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr);
 extern void ef_prob_collect_conjuncts(ef_prob_t *prob, ivector_t *v);
 
 
-/*
- * Check whether some of the existential variables are skolem functions
- */
-extern bool ef_prob_has_skolem_functions(const ef_prob_t *prob);
-
-
 #endif /* __EF_PROBLEM_H */
