@@ -9930,6 +9930,133 @@ int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp
 }
 
 
+
+/*
+ * Assignment to a bitvector variable
+ */
+
+/*
+ * Check that var is a bit-vector variable, with no value in model,
+ * and if so return the number of bits in var.
+ * If not set error code and return 0.
+ */
+static uint32_t check_var_and_get_bitsize(model_t *model, term_t var) {
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_bitvector_term(__yices_globals.manager, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return 0;
+  }
+
+  return term_bitsize(__yices_globals.terms, var);
+}
+
+static inline void yices_model_set_bvconstant(model_t *model, term_t var, bvconstant_t *b) {
+  assert(term_bitsize(__yices_globals.terms, var) == b->bitsize);
+  model_map_term(model, var, vtbl_mk_bv_from_constant(&model->vtbl, b));
+}
+
+EXPORTED int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_int32(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set32_signed(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_int64(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_int64(model_t *model, term_t var, int64_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set64_signed(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_uint32(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set32(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_uint64(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set64(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_mpz(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
+  mpz_t aux;
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  /*
+   * bvconst_set_mpz requires val>=0
+   * for sign-extend, we copy |val| into aux
+   * copy aux into bv0 then negate bv0
+   */
+  bvconstant_set_bitsize(&bv0, n);
+  if (mpz_sgn(val) >= 0) {
+    bvconst_set_mpz(bv0.data, bv0.width, val);
+  } else {
+    mpz_init_set(aux, val);
+    mpz_abs(aux, aux);
+    bvconst_set_mpz(bv0.data, bv0.width, aux);
+    bvconst_negate(bv0.data, bv0.width);
+    mpz_clear(aux);
+  }
+
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+
+
 /*
  * Export the list of uninterpreted terms that have a value in mdl.
  * - the variables are stored in term_vector v

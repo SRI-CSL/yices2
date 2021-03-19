@@ -1449,6 +1449,10 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_minus_one(uint32_t n);
  * bit i of the constant is 0 if a[i] == 0
  * bit i of the constant is 1 if a[i] != 0
  *
+ * The input is interpreted little-endian:
+ * a[0] = low-order bit (least significant)
+ * a[n-1] = high-order bit (most significant)
+ *
  * Error report:
  * if n = 0
  *    code = POS_INT_REQUIRED
@@ -3462,14 +3466,13 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_algebraic_number(model_t *model
 
 
 /*
- * Assign a value to a bitvector variable.
- * The value can be given as a regular integer, GMP integer, or array of integers.
+ * Assign an integer value to a bitvector variable.
  *
  * Rules for truncation and zero/sign extension:
  * - let n be the number of bits in var
- * - if val has more than n bits then it is truncated. The n least significant bits are used,
- *   other bits are ignored.
- * - if val has fewer than n bits the value is obtained by zero or sign extension, depending
+ * - if val has more than n bits then it is truncated. The n least significant bits are used.
+ *   Other bits are ignored.
+ * - if val has fewer than n bits, the value is obtained by zero or sign extension, depending
  *   on the function:
  *     yices_model_set_bv_int32:  sign extension
  *     yices_model_set_bv_int64:  sign extension
@@ -3486,6 +3489,23 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_uint64(model_t *model, term_
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
 #endif
+
+
+/*
+ * Assign a bitvector variable using an array of bits.
+ * - var = bitvector variable
+ * - a = array of n bits
+ * - var must be an uninterpreted term of type (bitvector n)
+ *   (and var must not have a value in model).
+ *
+ * Elements of a are interpreted as in yices_bvconst_from_array:
+ * - bit i is 0 if a[i] == 0 and bit i is 1 if a[i] != 0
+ * - a[0] is the low-order bit
+ * - a[n-1] is the high-order bit
+ *
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
+
 
 
 
