@@ -109,8 +109,10 @@ typedef struct ef_analyzer_s {
   ivector_t evars;
   ivector_t uvars;
   ivector_t aux;
+
   string_buffer_t sbuffer;
   uint32_t num_skolem;
+  uint32_t num_skolem_funs;
 } ef_analyzer_t;
 
 
@@ -119,12 +121,13 @@ typedef struct ef_analyzer_s {
  * EXISTS/FORALL format
  */
 typedef enum ef_code {
-  EF_NO_ERROR = 0,       // everything fine
-  EF_UNINTERPRETED_FUN,  // formula contains uninterpreted function or predicates
-  EF_NESTED_QUANTIFIER,  // nested quantifiers that can't be flattened (e.g., exists inside forall)
-  EF_HIGH_ORDER_UVAR,    // universal variables have non-atomic types
-  EF_HIGH_ORDER_EVAR,    // existential variables not atomic
-  EF_ERROR,              // other errors
+  EF_NO_ERROR = 0,         // everything fine
+  EF_UNINTERPRETED_FUN,    // formula contains uninterpreted function or predicates
+  EF_NESTED_QUANTIFIER,    // nested quantifiers that can't be flattened (e.g., exists inside forall)
+  EF_HIGH_ORDER_UVAR,      // universal variables have non-atomic types
+  EF_HIGH_ORDER_EVAR,      // existential variables not atomic
+  EF_SKOLEMIZATION_ERROR,  // failed to skolemize (found some terms not supported by the skolemizer)
+  EF_ERROR,                // other errors
 } ef_code_t;
 
 #define NUM_EF_CODES (EF_ERROR+1)
