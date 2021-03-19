@@ -50,14 +50,12 @@
 #include "frontend/smt2/smt2_printer.h"
 #include "io/term_printer.h"
 #include "frontend/smt2/smt2_symbol_printer.h"
+#include "mcsat/options.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
 #include "solvers/bv/dimacs_printer.h"
 #include "utils/refcount_strings.h"
-
-
 #include "utils/timeout.h"
-#include "mcsat/options.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"

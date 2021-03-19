@@ -44,6 +44,11 @@ typedef struct ef_skolemize_s {
   ivector_t aux;
   bool has_uvars;
 
+  // for error reporting: some terms are not supported
+  // if we see them, we set failed to true and store the term kind in unsupported
+  bool failed;
+  term_kind_t unsupported;
+
   ptr_hmap_t cache;
 } ef_skolemize_t;
 
@@ -73,16 +78,27 @@ extern void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v);
 extern void ef_skolemize_patterns(ef_skolemize_t *sk);
 
 
-
+/*
+ * Skolemize variable x using uvars as skolem arguments
+ * - n = number of variables in uvars
+ * - increment ef->num_skolem_funs if n>0.
+ * - return a pair of terms (func, fapp):
+ *    func = skolem function or skolem constant
+ *    fapp = term that represents x
+ *
+ * - if n = 0:
+ *    func is a skolem constant of the same type as x
+ *    fapp is equal to func
+ * - if n > 0
+ *    func is a skolem function of type [s_1 ... s_n-> tau]
+ *    fapp is the term (func uvars[0] ... unvars[n-1])
+ *   where s_i = type of uvars[i-1] and tau = type of x.
+ */
 typedef struct ef_skolem_s {
   term_t func;
   term_t fapp;
 } ef_skolem_t;
 
-
-/*
- * Skolemize variable x using uvars as skolem arguments
- */
 extern ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars);
 
 
@@ -90,7 +106,6 @@ extern ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_
  * Skolemize existentials in an analyzer
  */
 extern term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t t);
-
 
 
 #endif /* __EF_SKOLEMIZE_H */

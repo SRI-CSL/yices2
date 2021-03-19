@@ -31,7 +31,12 @@
 #define TRACE 0
 
 #if TRACE
-  #include "yices.h"
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+#include "yices.h"
 #endif
 
 /*
@@ -274,7 +279,7 @@ void ef_prob_add_pvars(ef_prob_t *prob, term_t *v, uint32_t n) {
 /*
  * return true if array a has an uninterpreted function/sort
  */
-bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
+static bool ef_prob_has_uint(ef_prob_t *prob, term_t *a, uint32_t n) {
   term_table_t *terms;
   term_t t;
   uint32_t i;
@@ -355,7 +360,6 @@ void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr) {
   fprintf(f, "    pvars (#%d): ", n);
   yices_pp_term_array(f, n, cnstr->pvars, 120, 1, 0, 1);
 
-  n = ef_constraint_num_uvars(cnstr);
   fprintf(f, "    uvars (#%d): ", n);
   yices_pp_term_array(f, n, cnstr->uvars, 120, 1, 0, 1);
 
@@ -371,6 +375,14 @@ void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr) {
 
   fprintf(f, "\n");
 }
+
+#else
+/*
+ * Do nothing: but make sure the function is defined
+ */
+void ef_print_constraint(FILE *f, ef_cnstr_t *cnstr) {
+}
+
 #endif
 
 /*
@@ -438,4 +450,25 @@ void ef_prob_collect_conjuncts(ef_prob_t *prob, ivector_t *v) {
     t = mk_implies(prob->manager, prob->cnstr[i].assumption, prob->cnstr[i].guarantee);
     ivector_push(v, t);
   }
+}
+
+
+/*
+ * Check whether some of the existential variables are skolem functions
+ */
+bool ef_prob_has_skolem_functions(const ef_prob_t *prob) {
+  term_table_t *terms;
+  term_t *vars;
+  uint32_t i, n;
+
+  terms = prob->terms;
+  vars = prob->all_evars;
+  n = iv_len(vars);
+  for (i=0; i<n; i++) {
+    if (is_function_term(terms, vars[i])) {
+      return true;
+    }
+  }
+
+  return false;
 }

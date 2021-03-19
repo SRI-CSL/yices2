@@ -42,6 +42,7 @@ void init_ef_client(ef_client_t *efc) {
   efc->efprob = NULL;
   efc->efsolver = NULL;
   efc->efcode = EF_NO_ERROR;
+  efc->has_skolem_functions = false;
   efc->efdone = false;
 }
 
@@ -78,16 +79,11 @@ void build_ef_problem(ef_client_t *efc, uint32_t n, const term_t *assertions, pt
 			     efc->ef_parameters.flatten_ite,
 			     efc->ef_parameters.flatten_iff,
 			     efc->ef_parameters.ematching);
+    efc->has_skolem_functions = analyzer.num_skolem_funs > 0;
     delete_ef_analyzer(&analyzer);
   }
 }
 
-
-const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES] = {
-  "No error",
-  "No model, did not find a solution",
-  "Can't build a model. Call the exists forall solver first"
-};
 
 
 /*
@@ -153,7 +149,21 @@ void ef_solve(ef_client_t *efc, uint32_t n, const term_t *assertions, param_t *p
   }
   build_ef_problem(efc, n, assertions, patterns, parameters);
 
-  if (efc->efcode == EF_NO_ERROR){
+  if (efc->efcode == EF_UNINTERPRETED_FUN) {
+    // we have uninterpreted functions as existential variables
+    // this is OK if we have an egraph
+    // otherwise we check whether some of these exists variables
+    // are skolem functions to give a better error report.
+    if (context_arch_has_egraph(arch)) {
+      // we can try ematching or mbi
+      efc->efcode = EF_NO_ERROR;
+    } else if (efc->has_skolem_functions) {
+      // not an exists/forall problem
+      efc->efcode = EF_NESTED_QUANTIFIER;
+    }
+  }
+
+  if (efc->efcode == EF_NO_ERROR) {
     if (!efc->efdone) {
       assert(efc->efsolver == NULL);
       efc->efsolver = (ef_solver_t *) safe_malloc(sizeof(ef_solver_t));
@@ -161,13 +171,10 @@ void ef_solve(ef_client_t *efc, uint32_t n, const term_t *assertions, param_t *p
       if (tracer != NULL) {
 	ef_solver_set_trace(efc->efsolver, tracer);
       }
-
-      /*
-       * If the problem has integer or real variables, we force GEN_BY_PROJ
-       */
       ef_solver_check(efc->efsolver, parameters, efc->ef_parameters.gen_mode,
-		      efc->ef_parameters.max_samples, efc->ef_parameters.max_iters, efc->ef_parameters.max_numlearnt_per_round,
-		      efc->ef_parameters.ematching);
+			efc->ef_parameters.max_samples, efc->ef_parameters.max_iters,
+			efc->ef_parameters.max_numlearnt_per_round,
+			efc->ef_parameters.ematching);
       efc->efdone = true;
     }
   }
