@@ -43,8 +43,10 @@ typedef struct ef_client_s {
   ef_prob_t *efprob;
   // ef solver
   ef_solver_t *efsolver;
-  // result from ef_analyze of  the conversion to exists/forall
+  // result from ef_analyze of the conversion to exists/forall
   ef_code_t efcode;
+  // whether skolem functions were introduced in ef_analyze
+  bool has_skolem_functions;
   // have we solved already?
   bool efdone;
 } ef_client_t;
@@ -90,8 +92,6 @@ typedef enum {
 } efmodel_error_code_t;
 
 #define NUM_EFMODEL_ERROR_CODES 3
-
-extern const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES];
 
 /*
  * Model from the ef client.

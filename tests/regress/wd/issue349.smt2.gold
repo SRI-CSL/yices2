@@ -1,1 +1,1 @@
-(error "UF is not allowed in logic BV")
+(error "uninterpreted functions are not supported by the exists/forall solver")

@@ -43,5 +43,9 @@ extern const char* const ef_status2string[];
  */
 extern const char * const code2error[];
 
+/*
+ * error in ef model construction
+ */
+extern const char *const efmodelcode2error[];
 
 #endif /* __FRONTEND_COMMON_TABLES_H */

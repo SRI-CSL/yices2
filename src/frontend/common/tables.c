@@ -20,6 +20,7 @@
 #include "context/context_types.h"
 #include "exists_forall/efsolver.h"
 #include "exists_forall/ef_analyze.h"
+#include "exists_forall/ef_client.h"
 #include "frontend/common/tables.h"
 
 
@@ -42,10 +43,11 @@ const char* const status2string[NUM_SMT_STATUSES] = {
  */
 const char * const efcode2error[NUM_EF_CODES] = {
   "no error",
-  "assertions contain uninterpreted functions",
+  "uninterpreted functions are not supported by the exists/forall solver",
   "invalid quantifier nesting (not an exists/forall problem)",
   "non-atomic universal variables",
   "non-atomic existential variables",
+  "skolemization failed",
   "internal error",
 };
 
@@ -98,5 +100,14 @@ const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "arithmetic solver exception",
   "bitvector solver exception",
   "formula not supported by the mc-sat solver",
+};
+
+/*
+ * Why model construction failed in the exists/forall solver.
+ */
+const char *const efmodelcode2error[NUM_EFMODEL_ERROR_CODES] = {
+  "No error",
+  "No model, did not find a solution",
+  "Can't build a model. Call the exists forall solver first"
 };
 
