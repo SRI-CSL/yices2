@@ -34,6 +34,72 @@
 #include "utils/memalloc.h"
 #include "yices.h"
 
+/*
+ * Conversion of term_kind to a string for diagnosis
+ * - badval contains an integer that we intepret as a term_kind
+ *   if it's between CONSTANT_TERM and BV_POLY
+ * - if not we retun the empty string
+ */
+static const char* const term_kind2string[NUM_TERM_KINDS] = {
+  NULL,             //  UNUSED_TERM
+  NULL,             //  RESERVED_TERM
+
+  "uninterpreted or Boolean constant",  // CONSTANT_TERM
+  "rational constant",                  // ARITH_CONSTANT
+  "bitvector constant",                 // BV64_CONSTANT
+  "bitvector constant",                 // BV_CONSTANT
+  "variable",                           // VARIABLE
+  "uninterpreted term",                 // UNINTERPRETED_TERM
+  "arithmetic equality",                // ARITH_EQ_ATOM
+  "arithmetic inequality",              // ARITH_GE_ATOM
+  "is-int atom",                        // ARITH_IS_INT_ATOM
+  "floor",                              // ARITH_FLOOR
+  "ceil",                               // ARITH_CEIL
+  "absolute value",                     // ARITH_ABS
+  "algebraic root",                     // ARITH_ROOT_ATOM
+  "if-then-else",                       // ITE_TERM
+  "if-then-else",                       // ITE_SPECIAL
+  "uninterpreted function or predicate", // APP_TERM
+  "function update",                     // UPDATE_TERM
+  "tuple constructor",                   // TUPLE_TERM
+  "equality",                            // EQ_TERM
+  "distinct",                            // DISTINCT_TERM
+  "quantifier",                          // FORALL_TERM
+  "lambda term",                         // LAMBDA_TERM
+  "or",                                  // OR_TERM
+  "xor",                                 // XOR_TERM
+  "arithmetic equality",                 // ARITH_BINEQ_ATOM
+  "division",                            // ARITH_RDIV
+  "integer division",                    // ARITH_IDIV
+  "mod",                                 // ARITH_MOD
+  "divides",                             // ARITH_DIVIDES_ATOM
+  "bit-vector",                          // BV_ARRAY
+  "bv-div",                              // BV_DIV
+  "bv-rem",                              // BV_REM
+  "bv-sdiv",                             // BV_SDIV
+  "bv-srem",                             // BV_SREM
+  "bv-smod",                             // BV_SMOD
+  "bv-shl",                              // BV_SHL
+  "bv-lshr",                             // BV_LSHR
+  "bv-ashr",                             // BV_ASHR
+  "bit-vector equality",                 // BV_EQ_ATOM
+  "bit-vector inequality",               // BV_GE_ATOM
+  "bit-vector inequality",               // BV_SGE_ATOM
+  "tuple projection",                    // SELECT_TERM
+  "bit extrction",                       // BIT_TERM
+  "product",                             // POWER_PRODUCT
+  "polynomial",                          // ARITH_POLY
+  "bit-vector polynomial",               // BV64_POLY
+  "bit-vector polynomial",               // BV_POLY
+};
+
+static const char *term_kind2str(int64_t badval) {
+  if (CONSTANT_TERM <= badval && badval <= BV_POLY) {
+    return term_kind2string[badval];
+  } else {
+    return "";
+  }
+}
 
 int32_t print_error(FILE *f) {
   error_report_t *error;
@@ -504,6 +570,10 @@ int32_t print_error(FILE *f) {
 
   case MDL_GEN_FAILED:
     code = fprintf(f, "generalization failed\n");
+    break;
+
+  case MDL_GEN_UNSUPPORTED_TERM:
+    code = fprintf(f, "generalization failed: unsupported term: %s\n", term_kind2str(error->badval));
     break;
 
   case OUTPUT_ERROR:
@@ -1013,6 +1083,10 @@ char *error_string(void) {
 
   case MDL_GEN_FAILED:
     nchar = snprintf(buffer, BUFFER_SIZE, "generalization failed");
+    break;
+
+  case MDL_GEN_UNSUPPORTED_TERM:
+    nchar = snprintf(buffer, BUFFER_SIZE, "generalization failed: unsupported term: %s\n", term_kind2str(error->badval));
     break;
 
   case OUTPUT_ERROR:

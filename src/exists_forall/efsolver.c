@@ -197,6 +197,7 @@ void init_ef_solver(ef_solver_t *solver, ef_prob_t *prob, smt_logic_t logic, con
   solver->arch = arch;
   solver->status = EF_STATUS_IDLE;
   solver->error_code = 0;
+  solver->error_detail = 0;
 
   solver->parameters = NULL;
   solver->option = EF_GEN_BY_SUBST_OPTION;
@@ -1061,12 +1062,13 @@ static term_t ef_generalize3(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) 
   yices_pp_term_array(stdout, n, cnstr->uvars, 120, UINT32_MAX, 0, 0);
 #endif
 
-  
-  pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w);
+  code = 0;
+  pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w, &code);
 
   if (pflag != PROJ_NO_ERROR) {
     solver->status = EF_STATUS_PROJECTION_ERROR;
     solver->error_code = pflag;
+    solver->error_detail = code;
     return NULL_TERM;
   }
 

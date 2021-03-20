@@ -11926,7 +11926,7 @@ int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a
  * Convert a negative error code v from generalization.h into the
  * corresponding yices error code.
  */
-#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_BAD_ARITH_LITERAL)+1)
+#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM)+1)
 
 static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
   NO_ERROR,                  // 0
@@ -11948,11 +11948,21 @@ static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_CONVERT
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_SUBST
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_ARITH_LITERAL
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_PRESBURGER_LITERAL
+  MDL_GEN_UNSUPPORTED_TERM,  // GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM
 };
 
 static inline error_code_t yices_gen_error(int32_t v) {
   assert(0 <= -v && v < NUM_GEN_ERROR_CODES);
   return gen_error2code[-v];
+}
+
+static void report_gen_error(int32_t code, int32_t bad_term_kind) {
+  error_report_t *error = get_yices_error();
+  error->code = yices_gen_error(code);
+  if (code == GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM) {
+    error->badval = bad_term_kind;
+  }
 }
 
 
@@ -11974,8 +11984,9 @@ EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims,
 }
 
 int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-					yices_gen_mode_t mode, term_vector_t *v) {
+				  yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
+  int32_t extra_error;
 
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_boolean_term(__yices_globals.manager, t) ||
@@ -11983,6 +11994,7 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     return -1;
   }
 
+  extra_error = 0;
   v->size = 0;
   switch (mode) {
   case YICES_GEN_BY_SUBST:
@@ -11990,16 +12002,16 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
   default:
-    code = generalize_model(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = generalize_model(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
   }
 
   if (code < 0) {
-    set_error_code(yices_gen_error(code));
+    report_gen_error(code, extra_error);
     return -1;
   }
 
@@ -12018,6 +12030,7 @@ EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const ter
 term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
 					     yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
+  int32_t extra_error;
 
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a) ||
@@ -12025,6 +12038,7 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
     return NULL_TERM;
   }
 
+  extra_error = 0;
   v->size = 0;
   switch (mode) {
   case YICES_GEN_BY_SUBST:
@@ -12032,16 +12046,16 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
   default:
-    code = generalize_model(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v);
+    code = generalize_model(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
     break;
   }
 
   if (code < 0) {
-    set_error_code(yices_gen_error(code));
+    report_gen_error(code, extra_error);
     return -1;
   }
 

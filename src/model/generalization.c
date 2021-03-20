@@ -75,8 +75,8 @@ static void split_elim_array(term_table_t *terms, uint32_t n, const term_t v[], 
  *   we renumber them to [-13 .. -9]
  * - implicant construction errors are in the range [-8 ... -2]
  *   MDL_EVAL_FORMULA_FALSE = -8 and MDL_EVAL_INTERNAL_ERROR = -2
- * - projection errors are in the range -1 to -5
- *   we renumber to [-18 .. -14]
+ * - projection errors are in the range [-7 .. - 1]
+ *   we renumber to [-20 .. -14]
  */
 static inline int32_t gen_eval_error(int32_t error) {
   assert(MDL_EVAL_FAILED <= error && error <= MDL_EVAL_INTERNAL_ERROR);
@@ -94,7 +94,7 @@ static inline int32_t gen_implicant_error(int32_t error) {
 }
 
 static inline int32_t gen_projection_error(proj_flag_t error) {
-  assert(PROJ_ERROR_BAD_ARITH_LITERAL <= error && error <= PROJ_ERROR_NON_LINEAR);
+  assert(PROJ_ERROR_UNSUPPORTED_ARITH_TERM <= error && error <= PROJ_ERROR_NON_LINEAR);
   return error + (GEN_PROJ_ERROR_NON_LINEAR - PROJ_ERROR_NON_LINEAR);
 }
 
@@ -139,7 +139,6 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
     goto done;
   }
 
-
   // build the substitution: elim[i] := aux.data[i]
   // then apply it to every term in vector v
   code = 0;
@@ -170,10 +169,11 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
  * - elim[0 ... nelims-1] = variables to eliminate
  * - on entry to the function, v must contain the formulas to project
  *   the result is returned in place (in vector v)
+ * - extra_error = to stoe another error code for diagnosis (see projection.h).
  *
  * Return code: 0 if no error, an error code otherwise
  */
-static int32_t gen_model_by_proj(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v) {
+static int32_t gen_model_by_proj(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
   ivector_t implicant;
   int32_t code;
   proj_flag_t pflag;
@@ -188,7 +188,7 @@ static int32_t gen_model_by_proj(model_t *mdl, term_manager_t *mngr, uint32_t ne
   
   ivector_reset(v); // reset v to collect the projection result
   code = 0;
-  pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, v);
+  pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, v, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
   }
@@ -230,15 +230,16 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
  * - f[0 ... n-1] = formulas true in mdl
  * - elim[0 ... nelims-1] = variables to eliminate
  * - v = result vector
+ * - extra_error: to help diagnose errors if something breaks.
  *
  * - returned code: 0 if no error, an error code otherwise
  * - error codes are listed in generalization.h
  */
 int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v) {
+				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
   ivector_copy(v, f, n);
   assert(v->size == n);
-  return gen_model_by_proj(mdl, mngr, nelims, elim, v);
+  return gen_model_by_proj(mdl, mngr, nelims, elim, v, extra_error);
 }
 
 
@@ -249,7 +250,7 @@ int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, 
  * - 2) use projection to eliminate the real variables
  */
 int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-			 uint32_t nelims, const term_t elim[], ivector_t *v) {
+			 uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
   term_table_t *terms;
   ivector_t discretes;
   ivector_t reals;
@@ -268,7 +269,7 @@ int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const t
       code = gen_model_by_subst(mdl, mngr, discretes.size, discretes.data, v);
     }
     if (code == 0 && reals.size > 0) {
-      code = gen_model_by_proj(mdl, mngr, reals.size, reals.data, v);
+      code = gen_model_by_proj(mdl, mngr, reals.size, reals.data, v, extra_error);
     }
 
     delete_ivector(&reals);
