@@ -451,9 +451,6 @@ void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap
   init_ivector(&s->aux_vector2, 0);
   init_ivector(&s->aux_vector3, 0);
   init_ivector(&s->aux_vector4, 0);
-
-  // EXPERIMENT: NOW DONE IN context.c
-  //  smt_core_make_etable(solver);
 }
 
 
@@ -667,8 +664,6 @@ static void commit_buffer(bit_blaster_t *s, cbuffer_t *buffer) {
 /*
  * LARGE OR
  */
-
-
 #ifndef NDEBUG
 
 /*
@@ -1006,10 +1001,6 @@ static inline literal_t make_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
 
   l = bit_blaster_fresh_literal(s);
   bit_blaster_assert_xor3(s, a, b, not(l));
-
-  // EXPERIMENT
-  //  smt_core_record_xor_def(s->solver, l, a, b);
-
   return l;
 }
 
@@ -1130,11 +1121,7 @@ void bit_blaster_xor2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t
 
   if (cbuffer_nvars(buffer) != 3) {
     cbuffer_simplify(buffer);
-  } else {
-    // EXPERIMENTAL
-    //    smt_core_record_xor_def(s->solver, x, a, b);
   }
-
   commit_buffer(s, buffer);
 }
 
