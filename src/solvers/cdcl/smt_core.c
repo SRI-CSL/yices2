@@ -258,6 +258,59 @@ static inline void delete_learned_clause(clause_t *cl) {
 
 
 
+/*************************
+ *  DEFINITION CLAUSES   *
+ ************************/
+
+/*
+ * Get pointer to the definition clause in which cl is embedded
+ */
+static inline def_clause_t *defcl(const clause_t *cl) {
+  return (def_clause_t *)(((char *) cl) - offsetof(def_clause_t, clause));
+}
+
+/*
+ * Get the defined variable of cl
+ */
+bvar_t defined_var(const clause_t *cl) {
+  return defcl(cl)->def_var;
+}
+
+/*
+ * Allocate and initilaize an new definition clause
+ * - x = defined variable
+ * - len = number of literals
+ * - lit = array of literals
+ */
+static clause_t *new_definition_clause(bvar_t x, uint32_t len, const literal_t *lit) {
+  def_clause_t *tmp;
+  clause_t *result;
+  uint32_t i;
+
+  tmp = (def_clause_t *) safe_malloc(sizeof(def_clause_t) + sizeof(literal_t) + len * sizeof(literal_t));
+
+  tmp->def_var = x;
+  result = &tmp->clause;
+  for (i=0; i<len; i++) {
+    result->cl[i] = lit[i];
+  }
+  result->cl[i] = end_clause; // end marker
+
+  return result;
+}
+
+
+/*
+ * Delete definition clause cl
+ */
+static inline void delete_definition_clause(clause_t *cl) {
+  safe_free(defcl(cl));
+}
+
+
+
+
+
 /********************
  *  CLAUSE VECTORS  *
  *******************/
@@ -1117,7 +1170,28 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
 }
 
 
+/*
+ * Push literal array + def variable x as a lemma:
+ * - the def lemma is stored as [x, a[0] ... a[n-1], null_literal]
+ */
+static void push_def_lemma(lemma_queue_t *queue, bvar_t x, uint32_t n, literal_t *a) {
+  lemma_block_t *blk;
+  uint32_t i;
+  literal_t *b;
 
+  blk = find_block_for_lemma(queue, n+2);
+  assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1]
+         && blk->ptr + n + 1 < blk->size);
+
+  b = blk->data + blk->ptr;
+  b[0] = x;
+  for (i=0; i<n; i++) {
+    b[1+i] = a[i];
+  }
+  b[1+i] = null_literal;
+  i ++;
+  blk->ptr += i;
+}
 
 
 /*
@@ -1540,8 +1614,8 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   // clause database: all empty
   s->problem_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   s->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
+  s->def_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
   init_ivector(&s->binary_clauses, 0);
-
 
   /*
    * Variable-indexed arrays
@@ -1581,6 +1655,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_stack(&s->stack, n);
   init_heap(&s->heap, n);
   init_lemma_queue(&s->lemmas);
+  init_lemma_queue(&s->def_lemmas);
   init_statistics(&s->stats);
   init_atom_table(&s->atoms);
   init_gate_table(&s->gates);
@@ -1634,6 +1709,13 @@ void delete_smt_core(smt_core_t *s) {
   }
   delete_clause_vector(cl);
 
+  cl = s->def_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_definition_clause(cl[i]);
+  }
+  delete_clause_vector(cl);
+
   delete_ivector(&s->binary_clauses);
 
   // var-indexed arrays
@@ -1653,13 +1735,11 @@ void delete_smt_core(smt_core_t *s) {
   delete_stack(&s->stack);
   delete_heap(&s->heap);
   delete_lemma_queue(&s->lemmas);
+  delete_lemma_queue(&s->def_lemmas);
   delete_atom_table(&s->atoms);
   delete_gate_table(&s->gates);
   delete_trail_stack(&s->trail_stack);
   delete_checkpoint_stack(&s->checkpoints);
-
-  // EXPERIMENTAL
-  //  delete_etable(s);
 }
 
 
@@ -1701,6 +1781,13 @@ void reset_smt_core(smt_core_t *s) {
   }
   reset_clause_vector(cl);
 
+  cl = s->def_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    delete_definition_clause(cl[i]);
+  }
+  reset_clause_vector(cl);
+
   ivector_reset(&s->binary_clauses);
 
   // delete binary-watched literal vectors
@@ -1712,6 +1799,7 @@ void reset_smt_core(smt_core_t *s) {
   reset_stack(&s->stack);
   reset_heap(&s->heap);
   reset_lemma_queue(&s->lemmas);
+  reset_lemma_queue(&s->def_lemmas);
   reset_statistics(&s->stats);
   reset_atom_table(&s->atoms);
   reset_gate_table(&s->gates);
@@ -2955,11 +3043,6 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     implied_literal(s, l0, mk_literal_antecedent(l1));
 
   } else {
-
-    // EXPERIMENTAL
-    //    if (s->etable != NULL) {
-    //      test_eq_clause(s, "after simplification", n, a);
-    //    }
 
     // find literal of second highest level in a[0 ... n-1]
     j = 1;
@@ -4394,6 +4477,72 @@ void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, literal_t l3)
 
 
 
+/****************************
+ *  ADD DEFINITION CLAUSES  *
+ ***************************/
+
+/*
+ * Allocate and initialize a new definition clause
+ */
+void add_def_clause(smt_core_t *s, bvar_t x, uint32_t n, literal_t *a) {
+  ivector_t *v;
+  clause_t *cl;
+
+  if (on_the_fly(s)) {
+#if DEBUG
+    check_lemma(s, n, a);
+#endif
+    push_def_lemma(&s->def_lemmas, x, n, a);
+    return;
+  }
+
+  // use s->buffer2 as an auxiliary buffer to make a copy of a[0 .. n-1]
+  v = &s->buffer2;
+  assert(v->size == 0);
+  ivector_copy(v, a, n);
+  assert(v->size == n);
+
+  // use the copy here
+  a = v->data;
+  if (preprocess_clause(s, &n, a)) {
+    if (n >= 2) {
+      cl = new_definition_clause(x, n, a);
+      add_clause_to_vector(&s->def_clauses, cl);
+    } else if (n == 1) {
+      add_simplified_unit_clause(s, a[0]);
+    } else {
+      record_empty_conflict(s);
+    }
+  }
+#if TRACE
+  else {
+    printf("---> DPLL:   Skipped true def clause\n");
+    fflush(stdout);
+  }
+#endif
+
+  ivector_reset(v);
+}
+
+void add_binary_def_clause(smt_core_t *s, bvar_t x, literal_t l1, literal_t l2) {
+  literal_t a[2];
+
+  a[0] = l1;
+  a[1] = l2;
+  add_def_clause(s, x, 2, a);
+}
+
+void add_ternary_def_clause(smt_core_t *s, bvar_t x, literal_t l1, literal_t l2, literal_t l3) {
+  literal_t a[3];
+
+  a[0] = l1;
+  a[1] = l2;
+  a[2] = l3;
+  add_def_clause(s, x, 3, a);
+}
+
+
+
 
 
 /********************************
@@ -4475,6 +4624,70 @@ static void add_all_lemmas(smt_core_t *s) {
 
   // Empty the queue now:
   reset_lemma_queue(&s->lemmas);
+}
+
+
+/*
+ * Add a[0, ... n-1] as a definition clause:
+ * - a[0] = variable defined
+ * - a[1 ... n-1] = clause literals
+ */
+static void add_def_lemma(smt_core_t *s, uint32_t n, literal_t *a) {
+  clause_t *cl;
+  bvar_t x;
+
+  assert(n > 2);
+  x = a[0];
+  n --;
+  a ++;
+  if (preprocess_clause(s, &n, a)) {
+    if (n >= 2) {
+      cl = new_definition_clause(x, n, a);
+      add_clause_to_vector(&s->def_clauses, cl);
+    } else if (n == 1) {
+      add_simplified_unit_clause(s, a[0]);
+    } else {
+      backtrack_to_base_level(s);
+      record_empty_conflict(s);
+    }
+  }
+#if TRACE
+  else {
+    printf("---> DPLL:   Skipped true def lemma\n");
+    fflush(stdout);
+  }
+#endif
+}
+
+/*
+ * Add all definition lemmas to the def clause vector
+ */
+static void add_all_def_lemmas(smt_core_t *s) {
+  lemma_block_t *tmp;
+  literal_t *lemma;
+  uint32_t i, j, n;
+
+
+  for (i=0; i<s->lemmas.free_block; i++) {
+    tmp = s->lemmas.block[i];
+    lemma = tmp->data;
+    j = 0;
+    while (j < tmp->ptr) {
+      /*
+       * it's possible for new lemmas to be added within this loop
+       * because clause addition may cause backtracking and
+       * the theory solver is allowed to create lemmas within backtrack.
+       */
+      n = lemma_length(lemma);
+      add_def_lemma(s, n, lemma);
+      n ++; // skip the end marker
+      j += n;
+      lemma += n;
+    }
+  }
+
+  // Empty the queue now:
+  reset_lemma_queue(&s->def_lemmas);
 }
 
 
@@ -6119,6 +6332,9 @@ static bool smt_core_process(smt_core_t *s, uint64_t max_conflicts) {
 
     } else if (! empty_lemma_queue(&s->lemmas)) {
       add_all_lemmas(s);
+
+    } else if (! empty_lemma_queue(&s->def_lemmas)) {
+      add_all_def_lemmas(s);
 
     } else {
       /*

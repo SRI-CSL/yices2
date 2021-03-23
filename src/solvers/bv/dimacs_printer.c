@@ -91,6 +91,27 @@ void dimacs_print_binary_clause(FILE *f, literal_t l1, literal_t l2) {
 }
 
 
+static void dimacs_print_def_clause(FILE *f, clause_t *cl) {
+  bvar_t x;
+  uint32_t i;
+  literal_t l;
+
+  x = defined_var(cl);
+  i = 0;
+  l = cl->cl[0];
+  while (l >= 0) {
+    dimacs_print_literal(f, l);
+    fputc(' ', f);
+    if (var_of(l) == x) {
+      dimacs_print_literal(f, l);
+      fputc(' ', f);
+    }
+    i ++;
+    l = cl->cl[i];
+  }
+  fputs("0\n", f);
+}
+
 /*
  * Print clauses of core
  */
@@ -149,6 +170,19 @@ static void dimacs_print_problem_clauses(FILE *f, smt_core_t *core) {
   dimacs_print_clause_vector(f, core->problem_clauses);
 }
 
+static void dimacs_print_def_clauses(FILE *f, smt_core_t *core) {
+  clause_t **vector;
+  uint32_t i, n;
+
+  vector = core->def_clauses;
+  if (vector != NULL) {
+    n = get_cv_size(vector);
+    for (i=0; i<n; i++) {
+      dimacs_print_def_clause(f, vector[i]);
+    }
+  }
+}
+
 // all the clauses (including the learned caluses)
 static void dimacs_print_all_clauses(FILE *f, smt_core_t *core) {
   dimacs_print_problem_clauses(f, core);
@@ -164,7 +198,7 @@ static void dimacs_print_header(FILE *f, smt_core_t *core) {
   uint32_t num_clauses;
 
   num_clauses = num_empty_clauses(core) + num_unit_clauses(core) + num_binary_clauses(core) +
-    num_prob_clauses(core) + 1;
+    num_prob_clauses(core) + num_def_clauses(core) + 1;
 
   fprintf(f, "p cnf %"PRIu32" %"PRIu32"\n", core->nvars, num_clauses);
 }
@@ -177,7 +211,7 @@ static void dimacs_print_full_header(FILE *f, smt_core_t *core) {
   uint32_t num_clauses;
 
   num_clauses = num_empty_clauses(core) + num_unit_clauses(core) + num_binary_clauses(core) +
-    num_prob_clauses(core) + num_learned_clauses(core) + 1;
+    num_prob_clauses(core) + num_learned_clauses(core) + num_def_clauses(core) + 1;
 
   fprintf(f, "p cnf %"PRIu32" %"PRIu32"\n", core->nvars, num_clauses);
 }
@@ -190,6 +224,7 @@ static void dimacs_print_full_header(FILE *f, smt_core_t *core) {
  */
 void dimacs_print_core(FILE *f, smt_core_t *core) {
   dimacs_print_header(f, core);
+  dimacs_print_def_clauses(f, core);
   dimacs_print_problem_clauses(f, core);
 }
 
@@ -200,6 +235,7 @@ void dimacs_print_core(FILE *f, smt_core_t *core) {
  */
 void dimacs_print_full_core(FILE *f, smt_core_t *core) {
   dimacs_print_full_header(f, core);
+  dimacs_print_def_clauses(f, core);
   dimacs_print_all_clauses(f, core);
 }
 

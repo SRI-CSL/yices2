@@ -123,6 +123,14 @@ typedef struct learned_clause_s {
 
 
 /*
+ * Experimental: clause that's part of the definition of a variable x
+ */
+typedef struct def_clause_s {
+  bvar_t def_var;
+  clause_t clause;
+} def_clause_t;
+
+/*
  * Tagging/untagging of link pointers
  */
 #define LINK_TAG ((uintptr_t) 0x1)
@@ -1012,6 +1020,7 @@ typedef struct smt_core_s {
   /* Clause database */
   clause_t **problem_clauses;
   clause_t **learned_clauses;
+  clause_t **def_clauses;
 
   ivector_t binary_clauses;  // Keeps a copy of binary clauses added at base_levels>0
 
@@ -1031,8 +1040,9 @@ typedef struct smt_core_s {
   /* Heap */
   var_heap_t heap;
 
-  /* Lemma queue */
+  /* Lemma queues */
   lemma_queue_t lemmas;
+  lemma_queue_t def_lemmas;
 
   /* Statistics */
   dpll_stats_t stats;
@@ -1372,10 +1382,14 @@ static inline uint64_t num_learned_literals(smt_core_t *s) {
   return s->stats.learned_literals;
 }
 
+static inline uint32_t num_def_clauses(smt_core_t *s) {
+  return get_cv_size(s->def_clauses);
+}
+
 // all clauses
 static inline uint32_t num_clauses(smt_core_t *s) {
   return num_empty_clauses(s) + num_unit_clauses(s) + num_binary_clauses(s) +
-    num_prob_clauses(s) + num_learned_clauses(s);
+    num_prob_clauses(s) + num_learned_clauses(s) + num_def_clauses(s);
 }
 
 // average size of the learned clauses
@@ -1633,6 +1647,20 @@ extern void add_binary_clause(smt_core_t *s, literal_t l1, literal_t l2);
 extern void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, literal_t l3);
 
 extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
+
+
+/*
+ * Definition clauses:
+ * - special/experimental support for clauses that define a variable x
+ */
+extern void add_binary_def_clause(smt_core_t *s, bvar_t x, literal_t l1, literal_t l2);
+extern void add_ternary_def_clause(smt_core_t *s, bvar_t x, literal_t l1, literal_t l2, literal_t l3);
+extern void add_def_clause(smt_core_t *s, bvar_t x, uint32_t n, literal_t *a);
+
+/*
+ * Get the defined var for a clause cl
+ */
+extern bvar_t defined_var(const clause_t *cl);
 
 
 /*********************************
