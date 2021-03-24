@@ -293,10 +293,11 @@ static void build_skolem_name(ef_analyzer_t *ef, uint32_t id, const char *origin
  */
 ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
-  type_t rt;
+  type_t rt, tau;
   uint32_t i;
   term_table_t *terms;
   ef_skolem_t skolem;
+  bool uint_skolem = true;
 
   terms = ef->terms;
   ef->num_skolem++;
@@ -309,7 +310,9 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
   else {
     domt = (type_t *) safe_malloc(n * sizeof(type_t));
     for (i=0; i<n; i++) {
-      domt[i] = term_type(terms, uvars[i]);
+      tau = term_type(terms, uvars[i]);
+      domt[i] = tau;
+      uint_skolem = uint_skolem && (yices_type_is_bool(tau) || yices_type_is_scalar(tau) || yices_type_is_uninterpreted(tau));
     }
     rt = term_type(terms, x);
 
@@ -324,6 +327,9 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
   build_skolem_name(ef, ef->num_skolem, yices_get_term_name(x));
   yices_set_term_name(skolem.func, ef->sbuffer.data);
 
+  if (!uint_skolem) {
+    ef->uint_skolem = false;
+  }
 
 #if TRACE
   printf("Skolemization: %s --> %s\n", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
@@ -593,6 +599,25 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         result = mk_and(mgr, n, args.data);
         break;
 
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (not (xor a[0] ... a[n-1]))
+         * it flattens to (not (xor (xor a[0] a[1]) a[2]) ... ) a[n-1]))
+         */
+        n = d->arity;
+        u = NULL_TERM;
+	assert(n > 0);
+	u = d->arg[0];
+	for (i=1; i<n; i++) {
+	  u = mk_binary_xor(mgr, u, d->arg[i]);
+        }
+        v = opposite_term(u);
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
+        break;
+
       case FORALL_TERM:
         /*
          * t is (not (forall .. body))
@@ -690,6 +715,25 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
           ivector_push(&args, u);
         }
         result = ef_update_composite(sk, unsigned_term(t), &args);
+        break;
+
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (xor a[0] ... a[n-1])
+         * it flattens to (xor (xor a[0] a[1]) a[2]) ... ) a[n-1])
+         */
+        n = d->arity;
+        u = NULL_TERM;
+	assert(n > 0);
+	u = d->arg[0];
+	for (i=1; i<n; i++) {
+	  u = mk_binary_xor(mgr, u, d->arg[i]);
+	}
+        v = u;
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
         break;
 
       case FORALL_TERM:

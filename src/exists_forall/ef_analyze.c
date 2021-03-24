@@ -142,6 +142,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
 
   ef->num_skolem = 0;
   ef->num_skolem_funs = 0;
+  ef->uint_skolem = true;
 }
 
 
@@ -1307,6 +1308,11 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_
   if (!ef_add_assertions(ef, prob, n, a, f_ite, f_iff, ematching, v)) {
     return_code = EF_SKOLEMIZATION_ERROR;
     goto done;
+  }
+
+  if (!ef->uint_skolem) {
+    return_code = EF_NESTED_QUANTIFIER;
+      goto done;
   }
 
   n = v->size;

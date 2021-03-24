@@ -113,6 +113,7 @@ typedef struct ef_analyzer_s {
   string_buffer_t sbuffer;
   uint32_t num_skolem;
   uint32_t num_skolem_funs;
+  bool uint_skolem;
 } ef_analyzer_t;
 
 
