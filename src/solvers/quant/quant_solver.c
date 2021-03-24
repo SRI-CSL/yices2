@@ -506,6 +506,7 @@ static term_t term_substitution(quant_solver_t *solver, term_t *var, term_t *val
   int_hmap_pair_t *p;
   uint32_t i;
   term_t x;
+  term_t val;
 
   subst.mngr = solver->prob->manager;
   subst.terms = solver->prob->terms;
@@ -516,8 +517,13 @@ static term_t term_substitution(quant_solver_t *solver, term_t *var, term_t *val
 
   for (i=0; i<n; i++) {
     x = var[i];
+    val = value[i];
+    if (is_neg_term(x)) {
+      x = opposite_term(x);
+      val = opposite_term(val);
+    }
     p = int_hmap_get(&subst.map, x);
-    p->val = value[i];
+    p->val = val;
 
     assert(is_pos_term(x));
     assert(good_term(subst.terms, x));

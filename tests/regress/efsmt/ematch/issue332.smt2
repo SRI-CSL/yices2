@@ -1,0 +1,6 @@
+(set-logic UF)
+(declare-fun uf4_2 (Bool Bool Bool Bool) Bool)
+(declare-fun uf7_2 (Bool Bool Bool Bool Bool Bool Bool) Bool)
+(assert (uf7_2 true (not (exists ((q0 Bool) (q1 Bool) (q2 Bool) (q3 Bool)) q2)) true true true true true))
+(assert (uf4_2 true true true true))
+(check-sat)
