@@ -5293,7 +5293,7 @@ EXPORTED term_t yices_bvxor3(term_t t1, term_t t2, term_t t3) {
   aux[1] = t2;
   aux[2] = t3;
 
-  return yices_bvor(3, aux);
+  return yices_bvxor(3, aux);
 }
 
 
@@ -9783,6 +9783,7 @@ static const error_code_t efcode2yices_error[NUM_EF_CODES] = {
   CTX_EF_NOT_EXISTS_FORALL,     // EF_NESTED_QUANTIFIER
   CTX_EF_HIGH_ORDER_VARS,       // EF_HIGH_ORDER_UVAR
   CTX_EF_HIGH_ORDER_VARS,       // EF_HIGH_ORDER_EVAR
+  CTX_EF_INTERNAL_ERROR,        // EF_SKOLEMIZATION_ERROR
   CTX_EF_INTERNAL_ERROR,        // EF_ERROR
 };
 

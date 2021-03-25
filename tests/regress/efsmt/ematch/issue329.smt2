@@ -1,0 +1,7 @@
+(set-logic UF)
+(declare-const v2 Bool)
+(declare-const v8 Bool)
+(declare-const v12 Bool)
+(assert (xor false false v12 true v8 true false true))
+(assert (= false false false (xor false (= true (not (exists ((q7 Bool) (q8 Bool) (q9 Bool)) q9)) v2) v12 true v8 true false true) v8 false false))
+(check-sat)

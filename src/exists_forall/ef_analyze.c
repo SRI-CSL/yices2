@@ -17,10 +17,8 @@
  */
 
 /*
- * Processing for formulas for EF-solving
+ * Processing of formulas for EF-solving
  */
-
-
 #include <assert.h>
 
 #include "exists_forall/ef_analyze.h"
@@ -141,7 +139,10 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   init_ivector(&ef->uvars, 32);
   init_ivector(&ef->aux, 10);
   init_string_buffer(&ef->sbuffer, 50);
+
   ef->num_skolem = 0;
+  ef->num_skolem_funs = 0;
+  ef->uint_skolem = true;
 }
 
 
@@ -160,7 +161,9 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
   ivector_reset(&ef->uvars);
   ivector_reset(&ef->aux);
   string_buffer_reset(&ef->sbuffer);
+
   ef->num_skolem = 0;
+  ef->num_skolem_funs = 0;
 }
 
 
@@ -386,6 +389,8 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
  *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
+ * - ematching flag:
+ *
  *  We make two passes. In the first pass (when toplevel is true) we handle exists, and push 
  *  any foralls onto a deferred queue, leaving ef->flat to accumulate. Then in the second pass
  *  push the deferred foralls onto the ef->queue and do a second pass.
@@ -393,13 +398,13 @@ static void ef_push_term(ef_analyzer_t *ef, term_t t) {
  *
  * Note: this does not do type checking. If any term in a is not Boolean,
  * it is kept as is in the ef->flat vector.
+ *
+ * Return true if the skolemization works, false otherwise.
  */
-static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_t *a, bool f_ite, bool f_iff, bool ematching, ivector_t *v) {
-  uint32_t i;
-//  uint32_t fsize;
-//  ivector_t *foralls;
-//  int32_t *fdata;
+static bool ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_t *a, bool f_ite, bool f_iff, bool ematching, ivector_t *v) {
   ef_skolemize_t sk;
+  uint32_t i;
+  bool ok;
   
   assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
 
@@ -408,7 +413,7 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, co
   ptr_hmap_pair_t *r;
   ivector_t *rv;
 
-  for(j=0; j<n; j++) {
+  for (j=0; j<n; j++) {
     printf("assertion: ");
     yices_pp_term(stdout, a[j], 120, 1, 0);
   }
@@ -431,7 +436,6 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, co
   ivector_reset(v);
   for (i=0; i<n; i++) {
     ef_skolemize(&sk, a[i], v);
-//    ef_push_term(ef, a[i]);
   }
   ivector_remove_duplicates(v);
   ef_skolemize_patterns(&sk);
@@ -471,7 +475,10 @@ static void ef_add_assertions(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, co
 //  /* SECOND PASS: do the foralls */
 //  ef_flatten_quantifiers_conjuncts(ef, false, f_ite, f_iff, v);
 
+  ok = !sk.failed;
   delete_ef_skolemize(&sk);
+
+  return ok;
 }
 
 /*
@@ -901,6 +908,23 @@ static bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
 //}
 
 
+/*
+ * Check whether v contains uninterpreted funcsions
+ */
+static bool has_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
+  term_table_t *terms;
+  uint32_t i, n;
+
+  terms = ef->terms;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    if (is_function_term(terms, v->data[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 
 /*
  * Get the variables of t and check for errors
@@ -917,6 +941,8 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
     c = EF_HIGH_ORDER_UVAR;
   } else if (!all_basic_vars(ef, evar)) {
     c = EF_HIGH_ORDER_EVAR;
+  } else if (has_uninterpreted_functions(ef, evar)) {
+    c = EF_UNINTERPRETED_FUN;
   }
 
   return c;
@@ -1252,6 +1278,7 @@ static void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
 /*
  * FULL PROCESSING
  */
+
 /*
  * Full processing:
  * - build problem descriptor from a set of assertions
@@ -1278,7 +1305,15 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_
   init_ef_clause(&clause);
 
   v = &ef->flat;
-  ef_add_assertions(ef, prob, n, a, f_ite, f_iff, ematching, v);
+  if (!ef_add_assertions(ef, prob, n, a, f_ite, f_iff, ematching, v)) {
+    return_code = EF_SKOLEMIZATION_ERROR;
+    goto done;
+  }
+
+  if (!ef->uint_skolem) {
+    return_code = EF_NESTED_QUANTIFIER;
+      goto done;
+  }
 
   n = v->size;
   for (i=0; i<n; i++) {
@@ -1295,6 +1330,16 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_
       goto done;
     }
   }
+
+#if 0
+  n = ef_prob_num_evars(prob);
+  printf("EXISTS VARIABLES\n");
+  yices_pp_term_array(stdout, n, prob->all_evars, 120, UINT32_MAX, 0, 0);
+
+  n = ef_prob_num_uvars(prob);
+  printf("FORALL VARIABLES\n");
+  yices_pp_term_array(stdout, n, prob->all_uvars, 120, UINT32_MAX, 0, 0);
+#endif
 
  done:
   delete_ef_clause(&clause);

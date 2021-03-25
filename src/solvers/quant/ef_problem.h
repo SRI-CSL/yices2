@@ -70,8 +70,7 @@ typedef struct ef_cnstr_s {
   term_t *pvars;     // pattern variables
   term_t assumption; // B(y)
   term_t guarantee;  // C(x, y)
-
-  bool has_uint; // true if constraint has an uninterpreted function/sort
+  bool has_uint;     // true if constraint has an uninterpreted function/sort
 } ef_cnstr_t;
 
 
@@ -134,11 +133,11 @@ extern bool ef_prob_is_empty(ef_prob_t *prob);
 
 
 /*
- * Add v[0...n-1] to all_evars or all_uvars (remove duplicates)
+ * Add v[0...n-1] to all_evars or all_uvars or all_pvars (remove duplicates)
  */
 extern void ef_prob_add_evars(ef_prob_t *prob, term_t *v, uint32_t n);
 extern void ef_prob_add_uvars(ef_prob_t *prob, term_t *v, uint32_t n);
-
+extern void ef_prob_add_pvars(ef_prob_t *prob, term_t *v, uint32_t n);
 
 /*
  * Add t as a constraint on x
@@ -150,6 +149,7 @@ extern void ef_prob_add_condition(ef_prob_t *prob, term_t t);
  * Add a universal constraint:
  * - ev = existential variables, nev = size of the ev array
  * - uv = universal variables, nuv = size of the uv array
+ * - pv = pattern variables, must be of the same size as uv (i.e., nuv).
  * - assumption = formula on uv
  * - guarantee = formula on uv and ev
  *

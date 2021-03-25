@@ -62,6 +62,10 @@ void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *p
   sk->terms = analyzer->terms;
   init_ivector(&sk->uvars, 10);
   init_ivector(&sk->aux, 10);
+  sk->has_uvars = false;
+
+  sk->failed = false;
+  sk->unsupported = RESERVED_TERM; // anything will do.
 
   init_ptr_hmap(&sk->cache, 0);
 }
@@ -97,16 +101,17 @@ void delete_ef_skolemize(ef_skolemize_t *sk) {
 
 
 /*
- * Construct a composite term by updating it's children.
- *
+ * Construct a composite term by updating its children.
  */
-static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t *args) {
+static term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t *args) {
   term_manager_t *tm;
   term_table_t *terms;
   term_kind_t kind;
   term_t result;
   uint32_t n;
   term_t *c;
+
+  assert(is_pos_term(t) && term_is_composite(sk->terms, t));
 
   tm = sk->mgr;
   terms = sk->terms;
@@ -147,8 +152,6 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     assert(n == 1);
     result = mk_arith_abs(tm, c[0]);
     break;
-//  case ARITH_ROOT_ATOM:
-//    TODO
 
   case ITE_TERM:
   case ITE_SPECIAL: {
@@ -156,19 +159,18 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     type_t tau = term_type(tm->terms, c[1]);
     result = mk_ite(tm, c[0], c[1], c[2], tau);
   } break;
+
   case APP_TERM:
     result = mk_application(tm, c[0], n-1, &c[1]);
     break;
-//  case UPDATE_TERM:
-//    TODO
+
   case TUPLE_TERM:
     result = mk_tuple(tm, n, c);
     break;
   case DISTINCT_TERM:
     result = mk_distinct(tm, n, c);
     break;
-//  case LAMBDA_TERM:
-//    TODO
+
   case OR_TERM:            // n-ary OR
     assert(n > 1);
     result = mk_or(tm, n, c);
@@ -243,18 +245,24 @@ static inline term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t
     result = mk_bvsge(tm, c[0], c[1]);
     break;
 
-//  case SELECT_TERM:
-//  case BIT_TERM:
-//    TODO
-
-//  case POWER_PRODUCT:
-//  case ARITH_POLY:
-//  case BV64_POLY:
-//  case BV_POLY:
-//    TODO
+  case ARITH_ROOT_ATOM:
+  case LAMBDA_TERM:
+  case UPDATE_TERM:
+  case SELECT_TERM:
+  case BIT_TERM:
+  case POWER_PRODUCT:
+  case ARITH_POLY:
+  case BV64_POLY:
+  case BV_POLY:
   default:
-    printf("Unsupported term %s of kind %d\n", yices_term_to_string(t, 120, 120, 0), kind);
-    assert(false);
+    //    printf("Unsupported term %s of kind %d\n", yices_term_to_string(t, 120, 120, 0), kind);
+    //    assert(false);
+    if (! sk->failed) {
+      sk->failed = true;
+      sk->unsupported = kind;
+    }
+    result = t; // we return t unchanged in this case.
+    break;
   }
 
   return result;
@@ -285,10 +293,11 @@ static void build_skolem_name(ef_analyzer_t *ef, uint32_t id, const char *origin
  */
 ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
-  type_t rt;
+  type_t rt, tau;
   uint32_t i;
   term_table_t *terms;
   ef_skolem_t skolem;
+  bool uint_skolem = true;
 
   terms = ef->terms;
   ef->num_skolem++;
@@ -301,7 +310,9 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
   else {
     domt = (type_t *) safe_malloc(n * sizeof(type_t));
     for (i=0; i<n; i++) {
-      domt[i] = term_type(terms, uvars[i]);
+      tau = term_type(terms, uvars[i]);
+      domt[i] = tau;
+      uint_skolem = uint_skolem && (yices_type_is_bool(tau) || yices_type_is_scalar(tau) || yices_type_is_uninterpreted(tau));
     }
     rt = term_type(terms, x);
 
@@ -310,10 +321,15 @@ ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvar
     skolem.fapp = yices_application(skolem.func, n, uvars);
 
     safe_free(domt); // BD: fix memory leak
+
+    ef->num_skolem_funs ++;
   }
   build_skolem_name(ef, ef->num_skolem, yices_get_term_name(x));
   yices_set_term_name(skolem.func, ef->sbuffer.data);
 
+  if (!uint_skolem) {
+    ef->uint_skolem = false;
+  }
 
 #if TRACE
   printf("Skolemization: %s --> %s\n", yices_get_term_name(x), yices_term_to_string(skolem.fapp, 120, 1, 0));
@@ -338,7 +354,7 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
   terms = sk->terms;
   uvars = &sk->uvars;
 
-  /* the existential case
+  /*
    * t is (NOT (FORALL x_0 ... x_k : body)
    * body is the last argument in the term descriptor
    */
@@ -354,7 +370,7 @@ static term_t ef_skolem_body(ef_skolemize_t *sk, term_t t) {
 
   skolems = (term_t *) safe_malloc(n * sizeof(term_t));
 
-  for (i = 0; i < n; i++){
+  for (i = 0; i < n; i++) {
     assert(int_hmap_find(&ef->existentials, a[i]) == NULL);
 
     skolem = ef_skolem_term(ef, a[i], uvars->size, uvars->data);
@@ -472,7 +488,6 @@ static term_t ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, ivec
  * Convert a term to negated normal form and skolemize
  * - returns a pair <skolemized_t, is_quantified>
  * is_quantified is used to decide flattening of Boolean conditions
- *
  */
 static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ptr_hmap_pair_t *r;
@@ -482,12 +497,10 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
     return r->val;
   }
 
-  //  sk_pair_t sp_;   // BD: used only in dead store
   sk_pair_t *sp_result, *sp;
 
   r->val = safe_malloc(sizeof(sk_pair_t));
   sp_result = r->val;
-  //  sp = &sp_; // infer: dead store
 
   term_manager_t *mgr;
   term_table_t *terms;
@@ -497,18 +510,17 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ivector_t args;
   term_t result, u, v;
   bool resultq = false;
-  bool en_flattening = false;
+  bool en_flattening;
 
   mgr = sk->mgr;
   terms = sk->terms;
   kind = term_kind(terms, t);
   result = NULL_TERM;
-//  en_flattening = sk->ematching;
   en_flattening = true;
 
-  if (!term_is_composite(terms, unsigned_term(t)))
+  if (!term_is_composite(terms, unsigned_term(t))) {
     result = t;
-  else {
+  } else {
     n = term_num_children(terms, t);
     init_ivector(&args, n);
 
@@ -536,8 +548,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
 
           if (sk->flatten_ite || resultq) {
             result = mk_binary_or(mgr, u, v);
-          }
-          else {
+          } else {
             result = t;
           }
         }
@@ -564,8 +575,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
 
           if (sk->flatten_iff || resultq) {
             result = mk_binary_or(mgr, u, v);
-          }
-          else {
+          } else {
             result = t;
           }
         }
@@ -589,6 +599,25 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         result = mk_and(mgr, n, args.data);
         break;
 
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (not (xor a[0] ... a[n-1]))
+         * it flattens to (not (xor (xor a[0] a[1]) a[2]) ... ) a[n-1]))
+         */
+        n = d->arity;
+        u = NULL_TERM;
+	assert(n > 0);
+	u = d->arg[0];
+	for (i=1; i<n; i++) {
+	  u = mk_binary_xor(mgr, u, d->arg[i]);
+        }
+        v = opposite_term(u);
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
+        break;
+
       case FORALL_TERM:
         /*
          * t is (not (forall .. body))
@@ -609,10 +638,8 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
       if (result == NULL_TERM) {
         for (i=0; i<n; i++) {
           u = term_child(terms, v, i);
-
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
-
           ivector_push(&args, u);
         }
         result = opposite_term(ef_update_composite(sk, v, &args));
@@ -690,6 +717,25 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         result = ef_update_composite(sk, unsigned_term(t), &args);
         break;
 
+      case XOR_TERM:
+        d = xor_term_desc(terms, t);
+        /*
+         * t is (xor a[0] ... a[n-1])
+         * it flattens to (xor (xor a[0] a[1]) a[2]) ... ) a[n-1])
+         */
+        n = d->arity;
+        u = NULL_TERM;
+	assert(n > 0);
+	u = d->arg[0];
+	for (i=1; i<n; i++) {
+	  u = mk_binary_xor(mgr, u, d->arg[i]);
+	}
+        v = u;
+        sp = ef_skolemize_term(sk, v);
+        v = sk_update(sp, &resultq);
+        result = v;
+        break;
+
       case FORALL_TERM:
         /*
          * t is (forall .. body)
@@ -751,7 +797,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   return sp_result;
 }
 
-#if 1
+
 /*
  * Flattens nested (and .. (and .. ) .. ) and adds them to v
  */
@@ -780,7 +826,7 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
     ivector_push(v, t);
 
 }
-#endif
+
 
 /*
  * Get the skolemized version of term t
@@ -815,7 +861,6 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
     }
   }
 
-//  ivector_push(v, skolem);
   ef_flatten_and(sk, skolem, v);
 }
 
@@ -823,7 +868,7 @@ void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
 /*
  * Skolemize patterns
  */
-extern void ef_skolemize_patterns(ef_skolemize_t *sk) {
+void ef_skolemize_patterns(ef_skolemize_t *sk) {
   ptr_hmap_t *patterns1;
 
   patterns1 = sk->prob->patterns;
@@ -899,22 +944,22 @@ term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t
   term_t *a;
   term_t body;
 
-    terms = ef->terms;
-    init_ivector(&uvars, 10);
+  terms = ef->terms;
+  init_ivector(&uvars, 10);
 
-    /* the existential case
-     * t is (NOT (FORALL x_0 ... x_k : body)
-     * body is the last argument in the term descriptor
-     */
-    d = forall_term_desc(terms, t);
-    n = d->arity - 1;
-    assert(n >= 1);
-    a = d->arg;
-    body = opposite_term(d->arg[n]);
+  /* the existential case
+   * t is (NOT (FORALL x_0 ... x_k : body)
+   * body is the last argument in the term descriptor
+   */
+  d = forall_term_desc(terms, t);
+  n = d->arity - 1;
+  assert(n >= 1);
+  a = d->arg;
+  body = opposite_term(d->arg[n]);
 
   if (!toplevel) {
     r = int_hmap_find(parent, t);
-    while(r != NULL) {
+    while (r != NULL) {
       p = r->val;
       if (term_kind(terms, p) == FORALL_TERM) {
         if (is_pos_term(p)) {
@@ -931,20 +976,19 @@ term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t
   }
 
   if (uvars.size == 0) {
-    for(i = 0; i < n; i++){
+    for (i=0; i<n; i++) {
       r = int_hmap_find(&ef->existentials, a[i]);
       assert(r == NULL);
       int_hmap_add(&ef->existentials, a[i], a[i]);
     }
-  }
-  else {
+  } else {
     term_subst_t subst;
     term_t *skolems;
     ef_skolem_t sk;
 
     skolems = (term_t *) safe_malloc(n * sizeof(term_t));
 
-    for(i = 0; i < n; i++){
+    for (i=0; i<n; i++) {
       r = int_hmap_find(&ef->existentials, a[i]);
       assert(r == NULL);
 

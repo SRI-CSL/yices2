@@ -762,7 +762,7 @@ static void setup_ef(void) {
   aval_false = attr_vtbl_symbol(__smt2_globals.avtbl, "false");
 
   if (ef_en_ematch != DEF_EMATCH_EN) {
-    smt2_set_option(":yices-ematch-en", (ef_en_ematch?aval_true:aval_false));
+    smt2_set_option(":yices-ematch-en", (ef_en_ematch ? aval_true : aval_false));
   }
 
   if (ef_mbqi_max_iter >= 0) {
