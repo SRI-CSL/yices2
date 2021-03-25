@@ -464,6 +464,7 @@ typedef enum error_code {
   MDL_GEN_TYPE_NOT_SUPPORTED = 900,
   MDL_GEN_NONLINEAR,
   MDL_GEN_FAILED,
+  MDL_GEN_UNSUPPORTED_TERM,
 
   /*
    * MCSAT error codes

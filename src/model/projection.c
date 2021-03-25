@@ -306,27 +306,20 @@ void delete_projector(projector_t *proj) {
 
 /*
  * Process x as an arithmetic variable
- * - if x is not a variable: ignore it and set proj->flag
  * - if x is a variable to eliminate, do nothing
  * - otherwise add x to avars_to_keep and arith_vars if it's not present already
  */
 static void proj_add_arith_var(projector_t *proj, term_t x) {
   int_hset_t *avars;
-  term_kind_t k;
 
-  assert(is_pos_term(x) && is_arithmetic_term(proj->terms, x));
+  assert(is_pos_term(x) && is_arithmetic_term(proj->terms, x) &&
+	 term_kind(proj->terms, x) == UNINTERPRETED_TERM);
 
-  k = term_kind(proj->terms, x);
-  if (k == UNINTERPRETED_TERM) {
-    if (! int_hset_member(&proj->vars_to_elim, x)) {
-      avars = proj_get_avars_to_keep(proj);
-      if (int_hset_add(avars, x)) {
-        ivector_push(&proj->arith_vars, x);
-      }
+  if (! int_hset_member(&proj->vars_to_elim, x)) {
+    avars = proj_get_avars_to_keep(proj);
+    if (int_hset_add(avars, x)) {
+      ivector_push(&proj->arith_vars, x);
     }
-  } else {
-    // error: store the term kind for diagnosis
-    proj_error(proj, PROJ_ERROR_NON_LINEAR, k);    
   }
 }
 
@@ -373,16 +366,21 @@ static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
 }
 
 
-// either add t or its variables if t is a polynomial
-// non-linear terms are not supported here
+// either add t or its variables if t is a polynomial or a power product
 static void proj_add_arith_term(projector_t *proj, term_t t) {
   term_table_t *terms;
+  term_kind_t k;
 
   terms = proj->terms;
 
   assert(is_arithmetic_term(terms, t));
 
-  switch (term_kind(terms, t)) {
+  k = term_kind(terms, t);
+  switch (k) {
+  case UNINTERPRETED_TERM:
+    proj_add_arith_var(proj, t);
+    break;
+
   case ARITH_CONSTANT:
     break;
 
@@ -395,8 +393,8 @@ static void proj_add_arith_term(projector_t *proj, term_t t) {
     break;
 
   default:
-    // this will report an error if t isn't a variable
-    proj_add_arith_var(proj, t);
+    // not supported
+    proj_error(proj, PROJ_ERROR_UNSUPPORTED_ARITH_TERM, k);
     break;
   }  
 }
@@ -589,10 +587,11 @@ static void proj_process_arith_literals(projector_t *proj) {
   if (proj->is_nonlinear) {
     // project
     code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,
-        proj->num_evars, proj->evars,
-        proj->arith_vars.size, proj->arith_vars.data);
+				      proj->num_evars, proj->evars,
+				      proj->arith_vars.size, proj->arith_vars.data);
     if (code < 0) {
       proj_error(proj, PROJ_ERROR_NON_LINEAR, code);
+      return;
     }
     // remove the arithmetic variables from the elimination list
     terms = proj->terms;
@@ -858,15 +857,23 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
  * - mdl = model that satisfies all literals a[0 ... n-1]
  * - mngr = term manager such that mngr->terms == mdl->terms
  * - the result is added to vector v (v is not reset)
+ * - extra_error = to store more error information.
  *
  * The terms in a[0 ... n-1] must all be arithmetic/bitvectors
  * or Boolean literals. (A Boolean literal is either (= p q) or
  * (not (= p q)) or p or (not p), where p and q are Boolean terms).
  *
+ * Return code: PROJ_NO_ERROR if everything worked or a negative
+ * error code otherwise.
+
+ * If the return code is PROJ_ERROR_UNSUPPORTED_ARITH_TERM then
+ * *extra_error contains the term_kind of the invalid term encountered.
+ *
+ * Otherwise, extra_error is unchanged.
  * Return code: 0 means no error
  */
 proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
-			     uint32_t nvars, const term_t *var, ivector_t *v) {
+			     uint32_t nvars, const term_t *var, ivector_t *v, int32_t *extra_error) {
   projector_t proj;
   proj_flag_t code;
   uint32_t i;
@@ -875,9 +882,9 @@ proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, con
   for (i=0; i<n; i++) {
     projector_add_literal(&proj, a[i]);
     if (proj.flag < 0) {
-      // record the error code: currently, the only possible error is
-      // that literal a[i] is a non-linear arithmetic constraint.
+      // unsupported term or non-linear arithmetic
       code = proj.flag;
+      *extra_error = proj.error_code;
       goto abort;
     }
   }
