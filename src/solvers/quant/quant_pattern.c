@@ -439,10 +439,14 @@ static bool quant_infer_multi_fapps(term_table_t *terms, term_t t, ptr_hmap_t *u
         for(i=0; i<n; i++) {
           u = term_child(terms, x, i);
           if (term_kind(terms, u) == VARIABLE) {
+            if (is_neg_term(u)) {
+              u = opposite_term(u);
+            }
 #if TRACE
             printf("      var: ");
             yices_pp_term(stdout, u, 120, 1, 0);
 #endif
+            assert(is_pos_term(u));
             u2f = ptr_hmap_get(uv2fapp, u);
             if (u2f->val == NULL) {
               u2f->val = safe_malloc(sizeof(ivector_t));
@@ -470,7 +474,7 @@ static bool quant_infer_multi_fapps(term_table_t *terms, term_t t, ptr_hmap_t *u
                   printf("      var: ");
                   yices_pp_term(stdout, u, 120, 1, 0);
 #endif
-
+                assert(is_pos_term(u));
                 u2f = ptr_hmap_get(uv2fapp, u);
                 assert(u2f->val != NULL);
                 ivector_push(u2f->val, x);
