@@ -63,11 +63,11 @@ static void assert_ordef_clauses(smt_core_t *s, literal_t l, ivector_t *v) {
 
   n = v->size;
   for (i=0; i<n; i++) {
-    add_binary_clause(s, l, not(v->data[i]));
+    add_binary_def_clause(s, var_of(l), l, not(v->data[i]));
   }
 
   ivector_push(v, not(l));
-  add_clause(s, n+1, v->data);
+  add_def_clause(s, var_of(l), n+1, v->data);
 }
 
 
@@ -245,13 +245,15 @@ literal_t mk_and_gate3(gate_manager_t *m, literal_t l1, literal_t l2, literal_t 
  * Create a literal l and assert clauses equivalent to l=(xor l1 l2)
  */
 static literal_t assert_xordef2(smt_core_t *s, literal_t l1, literal_t l2) {
+  bvar_t x;
   literal_t l;
 
-  l = pos_lit(create_boolean_variable(s));
-  add_ternary_clause(s, not(l1), not(l2), not(l));
-  add_ternary_clause(s, not(l1), l2, l);
-  add_ternary_clause(s, l1, not(l2), l);
-  add_ternary_clause(s, l1, l2, not(l));
+  x = create_boolean_variable(s);
+  l = pos_lit(x);
+  add_ternary_def_clause(s, x, not(l1), not(l2), not(l));
+  add_ternary_def_clause(s, x, not(l1), l2, l);
+  add_ternary_def_clause(s, x, l1, not(l2), l);
+  add_ternary_def_clause(s, x, l1, l2, not(l));
   return l;
 }
 
@@ -489,6 +491,7 @@ static literal_t mk_ite_aux(gate_manager_t *m, literal_t c, literal_t l1, litera
   smt_core_t *s;
   boolgate_t *g;
   literal_t a[3], l;
+  bvar_t x;
 
   a[0] = c;
   a[1] = l1;
@@ -497,12 +500,13 @@ static literal_t mk_ite_aux(gate_manager_t *m, literal_t c, literal_t l1, litera
   l = g->lit[3];
   if (l == null_literal) {
     s = m->core;
-    l = pos_lit(create_boolean_variable(s));
+    x = create_boolean_variable(s);
+    l = pos_lit(x);
     g->lit[3] = l;
-    add_ternary_clause(s, not(l), c, l2);
-    add_ternary_clause(s, not(l), not(c), l1);
-    add_ternary_clause(s, l, c, not(l2));
-    add_ternary_clause(s, l, not(c), not(l1));
+    add_ternary_def_clause(s, x, not(l), c, l2);
+    add_ternary_def_clause(s, x, not(l), not(c), l1);
+    add_ternary_def_clause(s, x, l, c, not(l2));
+    add_ternary_def_clause(s, x, l, not(c), not(l1));
 
     /*
      * Redundant clauses that may help propagation:

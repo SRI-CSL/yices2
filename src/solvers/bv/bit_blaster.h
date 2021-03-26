@@ -44,6 +44,8 @@
  * - var[0 .. 3] = boolean variables occurring in the set
  *   if there are fewer than 4 variables, then var is
  *   padded with null_bvar
+ * - def = variable being defined by the clauses (or null_bvar if there's
+ *   no such variable).
  * - nclauses = number of clauses in the set
  * - each clause is identified by an index between 0 and nclauses-1
  * - data = two-dimensional array.
@@ -72,6 +74,7 @@ typedef struct cbuffer_s {
   uint32_t nclauses;
   uint32_t mask;
   bool is_unsat;
+  bvar_t def;
   bvar_t var[CBUFFER_NVARS];
   uint8_t signature[CBUFFER_NCLAUSES];
   int8_t data[CBUFFER_NCLAUSES][CBUFFER_NVARS];

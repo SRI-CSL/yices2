@@ -953,6 +953,7 @@ typedef struct smt_core_s {
   th_ctrl_interface_t th_ctrl;     // control functions
   th_smt_interface_t th_smt;       // SMT-specific operations
   bool bool_only;                  // true means no theory propagation required
+  bool enable_def_clauses;
 
   /* Status */
   int32_t status;

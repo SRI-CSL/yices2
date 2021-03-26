@@ -1537,6 +1537,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->th_ctrl = *ctrl; // make a full copy
   s->th_smt = *smt;   // ditto
   s->bool_only = false;
+  s->enable_def_clauses = false;
 
   s->status = STATUS_IDLE;
 
@@ -4227,7 +4228,6 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
 
 
-
 /*
  * Simplify clause a[0... n-1]
  * - remove all literals false at base-level
@@ -4487,6 +4487,11 @@ void add_ternary_clause(smt_core_t *s, literal_t l1, literal_t l2, literal_t l3)
 void add_def_clause(smt_core_t *s, bvar_t x, uint32_t n, literal_t *a) {
   ivector_t *v;
   clause_t *cl;
+
+  if (! s->enable_def_clauses) {
+    add_clause(s, n, a);
+    return;
+  }
 
   if (on_the_fly(s)) {
 #if DEBUG

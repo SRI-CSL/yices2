@@ -60,6 +60,7 @@ static void trace_clause(uint32_t n, literal_t *a);
 static void init_cbuffer(cbuffer_t *buffer) {
   uint32_t j;
 
+  buffer->def = null_bvar;
   for (j=0; j<CBUFFER_NVARS; j++) {
     buffer->var[j] = null_bvar;
   }
@@ -537,11 +538,16 @@ static void bit_blaster_add_quad_clause(bit_blaster_t *s, literal_t l1, literal_
 }
 
 
-static void bit_blaster_add_clause(bit_blaster_t *s, uint32_t n, literal_t *a) {
+// clause with an optional defined var x
+static void bit_blaster_add_clause(bit_blaster_t *s, bvar_t x, uint32_t n, literal_t *a) {
 #if TRACE
   trace_clause(n, a);
 #endif
-  add_clause(s->solver, n, a);
+  if (x == null_bvar) {
+    add_clause(s->solver, n, a);
+  } else {
+    add_def_clause(s->solver, x, n, a);
+  }
 }
 
 
@@ -640,6 +646,7 @@ static void push_quad_clause(bit_blaster_t *s, cbuffer_t *buffer,
 static void commit_buffer(bit_blaster_t *s, cbuffer_t *buffer) {
   literal_t aux[CBUFFER_NVARS];
   uint32_t i, n, k;
+  bvar_t x;
 
 #if TRACE
   trace_cbuffer(buffer);
@@ -649,9 +656,10 @@ static void commit_buffer(bit_blaster_t *s, cbuffer_t *buffer) {
     bit_blaster_add_empty_clause(s);
   } else {
     n = buffer->nclauses;
+    x = buffer->def;
     for (i=0; i<n; i++) {
       k = cbuffer_extract_clause(buffer, i, aux);
-      bit_blaster_add_clause(s, k, aux);
+      bit_blaster_add_clause(s, x, k, aux);
     }
   }
   reset_cbuffer(buffer);
@@ -820,7 +828,7 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
         bit_blaster_add_binary_clause(s, x, not(a[i]));
       }
       ivector_push(v, not(x));
-      bit_blaster_add_clause(s, n+1, v->data);
+      bit_blaster_add_clause(s, null_bvar, n+1, v->data);
 
     } else {
       assert(0 <= k && k < n);
@@ -850,14 +858,14 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
           assert(a[i] != x && a[i] != not(x));
           a[i-1] = a[i];
         }
-        bit_blaster_add_clause(s, n-1, a);
+        bit_blaster_add_clause(s, null_bvar, n-1, a);
 
       }
     }
     break;
 
   case VAL_TRUE:
-    bit_blaster_add_clause(s, n, a);
+    bit_blaster_add_clause(s, null_bvar, n, a);
     break;
   }
 }
@@ -1684,7 +1692,7 @@ static literal_t bit_blaster_create_or(bit_blaster_t *s, ivector_t *v) {
   }
 
   ivector_push(v, not(l));
-  bit_blaster_add_clause(s, n+1, v->data);
+  bit_blaster_add_clause(s, null_bvar, n+1, v->data);
 
   return l;
 }
