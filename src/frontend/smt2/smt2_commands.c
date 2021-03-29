@@ -299,6 +299,7 @@ static int32_t export_delayed_assertions(context_t *ctx, uint32_t n, term_t *a, 
 
   code = CTX_OPERATION_NOT_SUPPORTED;
   if (ctx->logic == QF_BV && ctx->mode == CTX_MODE_ONECHECK) {
+    context_enable_def_clauses(ctx);
     code = yices_assert_formulas(ctx, n, a);
     if (code == 0) {
       bitblast_then_export(ctx, s);

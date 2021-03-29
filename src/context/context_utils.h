@@ -705,5 +705,15 @@ static inline bool context_quant_enabled(context_t *ctx) {
 }
 
 
+/*
+ * Enable definition clause (to be done before bit-blasting).
+ */
+static inline void context_enable_def_clauses(context_t *ctx) {
+  if (ctx->core != NULL) {
+    ctx->core->enable_def_clauses = true;
+  }
+}
+
+
 #endif /* __CONTEXT_UTILS_H */
 
