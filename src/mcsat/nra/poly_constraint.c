@@ -315,7 +315,7 @@ bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, co
     size_t i;
     for (i = 0; i < n; ++ i) {
       lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
-      term_t assumption_i_p_term = lp_polynomial_to_yices_term(nra, assumption_p_i);
+      term_t assumption_i_p_term = lp_polynomial_to_yices_term_nra(assumption_p_i, nra);
       int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
       //      term_t assumption_i = NULL_TERM; // infer dead store
       term_t assumption_i;
@@ -333,7 +333,7 @@ bool poly_constraint_resolve_fm(const poly_constraint_t* c0, bool c0_negated, co
       ivector_push(out, assumption_i);
       lp_polynomial_delete(assumption_p_i);
     }
-    term_t R_p_term = lp_polynomial_to_yices_term(nra, R);
+    term_t R_p_term = lp_polynomial_to_yices_term_nra(R, nra);
     term_t R_term = NULL_TERM;
     switch (R_sgn_condition) {
     case LP_SGN_LT_0:
@@ -494,14 +494,14 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   case ARITH_EQ_ATOM: {
     // p == 0
     t1 = arith_atom_arg(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term(db->nra, terms, t1, NULL);
+    cstr_polynomial = lp_polynomial_from_term_nra(db->nra, t1, NULL);
     sgn_condition = LP_SGN_EQ_0;
     break;
   }
   case ARITH_GE_ATOM:
     // p >= 0
     t1 = arith_atom_arg(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term(db->nra, terms, t1, NULL);
+    cstr_polynomial = lp_polynomial_from_term_nra(db->nra, t1, NULL);
     sgn_condition = LP_SGN_GE_0;
     break;
   case EQ_TERM:
@@ -513,8 +513,8 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     lp_integer_t t1_c, t2_c;
     lp_integer_construct(&t1_c);
     lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_from_term(db->nra, terms, t1, &t1_c);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term(db->nra, terms, t2, &t2_c);
+    lp_polynomial_t* t1_p = lp_polynomial_from_term_nra(db->nra, t1, &t1_c);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(db->nra, t2, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
@@ -534,7 +534,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
   }
   case ARITH_ROOT_ATOM: {
     root_atom_t* r = arith_root_atom_desc(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term(db->nra, terms, r->p, NULL);
+    cstr_polynomial = lp_polynomial_from_term_nra(db->nra, r->p, NULL);
     variable_t x = variable_db_get_variable_if_exists(db->nra->ctx->var_db, r->x);
     assert(x != variable_null);
     cstr_root_variable = nra_plugin_get_lp_variable(db->nra, x);
@@ -573,7 +573,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     lp_polynomial_t* t1_p = lp_polynomial_alloc();
     lp_variable_t constraint_lp_var = nra_plugin_get_lp_variable(db->nra, constraint_var);
     lp_polynomial_construct_simple(t1_p, db->nra->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term(db->nra, terms, constraint_var_term, &t2_c);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(db->nra, constraint_var_term, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);

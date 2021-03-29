@@ -105,6 +105,10 @@ void trail_print(const mcsat_trail_t* trail, FILE* out) {
       uint32_t l_end = trail_get_level(trail, var);
       for (; l < l_end; ++ l) {
         fprintf(out, "\n ----------- PUSH -------------- \n");
+        // This is just a printout heuristic for simple examples with incremental solving.
+        // Level of previous variable could be small becuase it was propagated late
+        // For example [x *-> 0 [1], b1 *-> false [2], (x > 0) -> false [1], b2 -> false [2]
+        // Above trail would print the push between the last two elements.
       }
     }
 
@@ -217,6 +221,7 @@ void trail_add_propagation(mcsat_trail_t* trail, variable_t x, const mcsat_value
   assert(x >= 0);
   assert(!trail_has_value(trail, x));
   assert(level >= trail->decision_level_base);
+  assert(level <= trail->decision_level);
   // Set the value
   trail_set_value(trail, x, value, id, PROPAGATION, level);
   // Push the element
@@ -230,6 +235,7 @@ void trail_pop_propagation(mcsat_trail_t* trail) {
   // Undo the value with the addition of decision unmark
   x = ivector_last(&trail->elements);
   x_level = trail_get_level(trail, x);
+  assert(x_level <= trail->decision_level);
   if (x_level == trail->decision_level) {
     trail_undo_value(trail, x);
     // Don't unset model value, keep for caching: mcsat_model_unset_value(&trail->model, x);

@@ -180,16 +180,7 @@ int nra_plugin_variable_has_lp_variable(nra_plugin_t* nra, variable_t mcsat_var)
 
 void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t) {
 
-  // Name of the term
-  char buffer[100];
-  char* var_name = term_name(nra->ctx->terms, t);
-  if (var_name == NULL) {
-    var_name = buffer;
-    sprintf(var_name, "#%d", t);
-  }
-
-  // Make the variable
-  lp_variable_t lp_var = lp_variable_db_new_variable(nra->lp_data.lp_var_db, var_name);
+  lp_variable_t lp_var = lp_variable_from_term(t, nra->ctx->terms, nra->lp_data.lp_var_db);
   variable_t mcsat_var = variable_db_get_variable(nra->ctx->var_db, t);
 
   assert(int_hmap_find(&nra->lp_data.lp_to_mcsat_var_map, lp_var) == NULL);

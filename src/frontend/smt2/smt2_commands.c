@@ -621,7 +621,7 @@ static void reset_smt2_stack(smt2_stack_t *s) {
  */
 
 /*
- * Check sat with model assumptions and (TODO) build the interpolant
+ * Check sat with model assumptions and build the interpolant
  */
 static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint32_t n, const term_t vars[], const term_t values[]) {
   uint32_t i;
@@ -2289,6 +2289,7 @@ static void set_unsat_model_interpolants_option(smt2_globals_t *g, const char *n
 
   if (aval_is_boolean(g->avtbl, value, &flag)) {
     g->produce_unsat_model_interpolants = flag;
+    g->mcsat_options.model_interpolation = true;
     report_success();
   } else {
     print_error("option %s requires a Boolean value", name);

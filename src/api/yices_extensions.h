@@ -523,7 +523,7 @@ extern void yices_set_default_params(param_t *params, smt_logic_t logic, context
  * Allocate a new model (initialized and empty)
  * - keep_subst = whether to support alias_map (cf. models.h)
  */
-extern model_t *yices_new_model(bool keep_subst);
+extern model_t *yices_new_model_internal(bool keep_subst);
 
 
 /*

@@ -59,6 +59,7 @@ typedef enum {
   PROJ_ERROR_IN_SUBST = -4,
   PROJ_ERROR_BAD_ARITH_LITERAL = -5,
   PROJ_ERROR_BAD_PRESBURGER_LITERAL = -6,
+  PROJ_ERROR_UNSUPPORTED_ARITH_TERM = -7,
 } proj_flag_t;
 
 
@@ -112,9 +113,12 @@ typedef struct projector_s {
   arith_projector_t *arith_proj;
   term_subst_t *val_subst;
 
-  //cooper playground
+  // cooper playground
   bool is_presburger;
   presburger_t *presburger;
+
+  // nonlinear arithmetic
+  bool is_nonlinear;
 
 } projector_t;
 
@@ -141,7 +145,11 @@ extern void delete_projector(projector_t *proj);
  * Add literal t to the projector
  * - t must be true in the model
  * - sets proj->flag to PROJ_ERROR_NON_LINEAR if t is a non-linear constraint
- *   (e.g., t is p >= 0 or p == 0 where p is non-linear).
+ *   (e.g., t is p >= 0 or p == 0 where p is non-linear) and MCSAT is not
+ *   supported.
+ * - sets proj->flag to PROJ_ERROR_UNSUPPORTED_ARITH_TERM if t or one of its
+ *   subterms is not an uninterpreted term. In this case, proj->error_code
+ *   stores the type_kind of this unsupported term (as defined in terms.h).
  */
 extern void projector_add_literal(projector_t *proj, term_t t);
 
@@ -165,15 +173,22 @@ extern proj_flag_t run_projector(projector_t *proj, ivector_t *v);
  * - mdl = model that satisfies all literals a[0 ... n-1]
  * - mngr = term manager such that mngr->terms == mdl->terms
  * - the result is added to vector v (v is not reset)
+ * - extra_error = to store more error information.
  *
  * The terms in a[0 ... n-1] must all be arithmetic/bitvectors
  * or Boolean literals. (A Boolean literal is either (= p q) or
  * (not (= p q)) or p or (not p), where p and q are Boolean terms).
  *
- * Return code: same as run_projector.
+ * Return code: PROJ_NO_ERROR if everything worked or a negative
+ * error code otherwise.
+ *
+ * If the return code is PROJ_ERROR_UNSUPPORTED_ARITH_TERM or PROJ_ERROR_NON_LINEAR
+ * then *extra_error contains the term_kind of the invalid term encountered.
+ *
+ * Otherwise, extra_error is unchanged.
  */
 extern proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
-				    uint32_t nvars, const term_t *var, ivector_t *v);
+				    uint32_t nvars, const term_t *var, ivector_t *v, int32_t *extra_error);
 
 
 #endif /* __PROJECTION_H */
