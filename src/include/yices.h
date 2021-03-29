@@ -1449,6 +1449,10 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_minus_one(uint32_t n);
  * bit i of the constant is 0 if a[i] == 0
  * bit i of the constant is 1 if a[i] != 0
  *
+ * The input is interpreted little-endian:
+ * a[0] = low-order bit (least significant)
+ * a[n-1] = high-order bit (most significant)
+ *
  * Error report:
  * if n = 0
  *    code = POS_INT_REQUIRED
@@ -2786,6 +2790,10 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    | "LIA"               |  linear integer arithmetic
  *                    | "LRA"               |  linear real arithmetic
  *                    | "LIRA"              |  mixed linear arithmetic (real + integer variables)
+ *   ----------------------------------------------------------------------------------------
+ *   "model-interpolation" | "false"        | don't enable model interpolation (default)
+ *                         | "true"         | enable model interpolation
+ *
  *
  *
  *
@@ -3161,7 +3169,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
 
 /*
  * Check satisfiability under model: check whether the assertions stored in ctx
- * conjoined with the assignment of the model is satisfiable.
+ * conjoined with the assignment of the model is satisfiable. The context must
+ * have MCSAT and model inerpolation enabled.
  *
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
@@ -3173,21 +3182,25 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * It behaves the same as the previous function. Note that the model will take
  * default values for variables in t that are not explicitly defined.
  *
- * If this function returns STATUS_UNSAT, then one can construct a model interpolant by
- * calling function yices_get_model_interpolant.
+ * If the context does not have the MCSAT solver enabled, STATUS_ERROR is returned.
+ * If this function returns STATUS_UNSAT, and model interpolation is enabled,
+ * then one can construct a model interpolant by calling function
+ * yices_get_model_interpolant.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
-    const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
+    const param_t *params, model_t *mdl, uint32_t n, const term_t t[]);
 
 /*
- * Check satisfiability: check whether assertions stored in ctx are satisfiable.
+ * Check satisfiability: check whether combined assertions stored in ctx are satisfiable.
  *
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
  *
  * If this function returns STATUS_UNSAT, then one can obtain the interpolant from
  * the context. If the this function returns STATUS_SAT, and build_model is true,
- * the model can be obtained from the context (and is owned by the user).
+ * the model can be obtained from the context (and is owned by the user). Otherwise,
+ * the function returns STATUS_ERROR and sets the yices error report (code =
+ * CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model);
 
@@ -3323,6 +3336,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
  *
  * Error code:
  * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ * - CTX_INVALID_OPRRATION if the context is not configured with model interpolation
  */
 __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
 
@@ -3396,6 +3410,104 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
+
+
+/*
+ * Build an empty model: no error.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_new_model(void);
+
+
+/*
+ * The following functions extend a model by assigning a value to a variable
+ * - var must be an uninterpreted term
+ * - var must not have a value in model
+ *
+ * All functions return -1 if there's an error and set the error report.
+ * They return 0 otherwise.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var is not valid
+ * - code = MDL_UNINT_REQUIRED if var is not uninterpreted
+ * - code = TYPE_MISMATCH if the variable and the value don't have compatible types.
+ * - code = MDL_DUPLICATE_VAR if var already has a value in model
+ */
+
+/*
+ * Assign a value to a Boolean variable
+ * - val 0 means false, anything else means true.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t *model, term_t var, int32_t val);
+
+/*
+ * Assign a value to a numerical variable.  The value can be given as
+ * an integer, a GMP integer, a GMP rational, or an algebraic number.
+ *
+ * The assignment fails (TYPE_MISMATCH) is the variable has integer type
+ * and the value is not an integer.
+ *
+ * For functions yices_model_set_rational32 and
+ * yices_model_set_rational64, the value is num/den.  These two
+ * functions fail and report DIVISION_BY_ZERO if den is zero.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t val, uint64_t den);
+
+#ifdef __GMP_H__
+__YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+#endif
+
+#ifdef LIBPOLY_VERSION
+__YICES_DLLSPEC__ extern int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val);
+#endif
+
+
+/*
+ * Assign an integer value to a bitvector variable.
+ *
+ * Rules for truncation and zero/sign extension:
+ * - let n be the number of bits in var
+ * - if val has more than n bits then it is truncated. The n least significant bits are used.
+ *   Other bits are ignored.
+ * - if val has fewer than n bits, the value is obtained by zero or sign extension, depending
+ *   on the function:
+ *     yices_model_set_bv_int32:  sign extension
+ *     yices_model_set_bv_int64:  sign extension
+ *     yices_model_set_bv_uint32: zero extension
+ *     yices_model_set_bv_uint64: zero extension
+ *     yices_model_set_bv_mpz:    sign extension
+ *
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val);
+
+#ifdef __GMP_H__
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
+#endif
+
+
+/*
+ * Assign a bitvector variable using an array of bits.
+ * - var = bitvector variable
+ * - a = array of n bits
+ * - var must be an uninterpreted term of type (bitvector n)
+ *   (and var must not have a value in model).
+ *
+ * Elements of a are interpreted as in yices_bvconst_from_array:
+ * - bit i is 0 if a[i] == 0 and bit i is 1 if a[i] != 0
+ * - a[0] is the low-order bit
+ * - a[n-1] is the high-order bit
+ *
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
+
+
+
 
 
 /*

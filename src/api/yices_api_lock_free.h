@@ -601,6 +601,34 @@ extern char *_o_yices_model_to_string(model_t *mdl, uint32_t width, uint32_t hei
 
 extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
 
+extern model_t *_o_yices_new_model();
+
+extern int32_t _o_yices_model_set_bool(model_t *model, term_t var, int32_t val);
+
+extern int32_t _o_yices_model_set_int32(model_t *model, term_t var, int32_t val);
+
+extern int32_t _o_yices_model_set_int64(model_t *model, term_t var, int64_t val);
+
+extern int32_t _o_yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den);
+
+extern int32_t _o_yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den);
+
+extern int32_t _o_yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
+
+extern int32_t _o_yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+
+extern int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val);
+
+extern int32_t _o_yices_model_set_bv_int32(model_t *model, term_t var, int32_t val);
+
+extern int32_t _o_yices_model_set_bv_int64(model_t *model, term_t var, int64_t val);
+
+extern int32_t _o_yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val);
+
+extern int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val);
+
+extern int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
+
 
 /************************
  *  VALUES IN A MODEL   *

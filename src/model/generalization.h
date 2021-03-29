@@ -81,6 +81,8 @@ enum {
   GEN_PROJ_ERROR_IN_CONVERT = -16,
   GEN_PROJ_ERROR_IN_SUBST = -17,
   GEN_PROJ_ERROR_BAD_ARITH_LITERAL = -18,
+  GEN_PROJ_ERROR_BAD_PRESBURGER_LITERAL = -19,
+  GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM = -20,
 };
 
 
@@ -92,20 +94,24 @@ enum {
  *   as a variable to keep (i.e., an X variable).
  * - the generalization is returned in vector v (v is not reset, 
  *   the result formulas are added to v)
+ * - extra_error: to help diagnose errors if something breaks.
  *
  * There are two main variants for generalization by substitution or by projection
  * - the generic form: generalize_model applies generalization by projection
  *   if some variables to eliminate are arithmetic variables. It uses
  *   generalization by substitution otherwise.
+ *
+ * If gen_model_by_projection or generalize_model fail and return GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
+ * then *extra_error stores the term_kind of the bad terms that caused projection to fail (see projection.h).
  */
 extern int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					 uint32_t nelims, const term_t elim[], ivector_t *v);
 
 extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				       uint32_t nelims, const term_t elim[], ivector_t *v);
+				       uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v);
+				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
 
 
 

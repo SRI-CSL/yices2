@@ -31,6 +31,12 @@
 #include "terms/term_sets.h"
 #include "utils/memalloc.h"
 
+
+#ifdef HAVE_MCSAT
+#include "mcsat/nra/nra_plugin_explain.h"
+#endif
+
+
 #define TRACE 0
 
 #if TRACE
@@ -122,6 +128,8 @@ void init_projector(projector_t *proj, model_t *mdl, term_manager_t *mngr, uint3
 
   proj->is_presburger = true;  
   proj->presburger = NULL;
+
+  proj->is_nonlinear = false;
 }
 
 
@@ -298,33 +306,29 @@ void delete_projector(projector_t *proj) {
 
 /*
  * Process x as an arithmetic variable
- * - if x is not a variable: ignore it and set proj->flag
  * - if x is a variable to eliminate, do nothing
  * - otherwise add x to avars_to_keep and arith_vars if it's not present already
  */
 static void proj_add_arith_var(projector_t *proj, term_t x) {
   int_hset_t *avars;
-  term_kind_t k;
 
-  assert(is_pos_term(x) && is_arithmetic_term(proj->terms, x));
+  assert(is_pos_term(x) && is_arithmetic_term(proj->terms, x) &&
+	 term_kind(proj->terms, x) == UNINTERPRETED_TERM);
 
-  k = term_kind(proj->terms, x);
-  if (k == UNINTERPRETED_TERM) {
-    if (! int_hset_member(&proj->vars_to_elim, x)) {
-      avars = proj_get_avars_to_keep(proj);
-      if (int_hset_add(avars, x)) {
-	ivector_push(&proj->arith_vars, x);
-      }
+  if (! int_hset_member(&proj->vars_to_elim, x)) {
+    avars = proj_get_avars_to_keep(proj);
+    if (int_hset_add(avars, x)) {
+      ivector_push(&proj->arith_vars, x);
     }
-  } else {
-    // error: store the term kind for diagnosis
-    proj_error(proj, PROJ_ERROR_NON_LINEAR, k);    
   }
 }
+
+static void proj_add_arith_term(projector_t *proj, term_t t);
 
 // collect the variables of p
 static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
   uint32_t i, n;
+  term_t var;
 
   n = p->nterms;
   i = 0;
@@ -333,22 +337,50 @@ static void proj_add_poly_vars(projector_t *proj, polynomial_t *p) {
     i ++; // skip the constant
   }
   while (i < n) {
-    proj_add_arith_var(proj, p->mono[i].var);
+    var = p->mono[i].var;
+    proj_add_arith_term(proj, var);
     i ++;
   }
 }
 
+// collect the variables of p
+static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
+#ifdef HAVE_MCSAT
+  uint32_t i, n;
+  term_t var;
 
-// either add t or its variables if t is a polynomial
-// non-linear terms are not supported here
+  proj->is_nonlinear = true;
+
+  n = p->len;
+  i = 0;
+
+  while (i < n) {
+    var = p->prod[i].var;
+    proj_add_arith_term(proj, var);
+    i ++;
+  }
+#else
+  proj_error(proj, PROJ_ERROR_NON_LINEAR, POWER_PRODUCT);
+  return;
+#endif
+}
+
+
+// either add t or its variables if t is a polynomial or a power product
 static void proj_add_arith_term(projector_t *proj, term_t t) {
   term_table_t *terms;
+  term_kind_t k;
 
   terms = proj->terms;
 
   assert(is_arithmetic_term(terms, t));
 
-  switch (term_kind(terms, t)) {
+  k = term_kind(terms, t);
+  switch (k) {
+  case UNINTERPRETED_TERM:
+    proj_add_arith_var(proj, t);
+    break;
+
   case ARITH_CONSTANT:
     break;
 
@@ -356,9 +388,13 @@ static void proj_add_arith_term(projector_t *proj, term_t t) {
     proj_add_poly_vars(proj, poly_term_desc(terms, t));
     break;
 
+  case POWER_PRODUCT:
+    proj_add_pprod_vars(proj, pprod_term_desc(terms, t));
+    break;
+
   default:
-    // this will report an error if t isn't a variable
-    proj_add_arith_var(proj, t);
+    // not supported
+    proj_error(proj, PROJ_ERROR_UNSUPPORTED_ARITH_TERM, k);
     break;
   }  
 }
@@ -530,6 +566,50 @@ static void proj_process_arith_literals(projector_t *proj) {
   printf("[1]  --> Process arith_literals\n");
   fflush(stdout);
 #endif
+
+#ifdef HAVE_MCSAT
+  // check if there are any variables assigned to an algebraic number in the model
+  // TODO: is this necessary, linear projection shouldn't rely on rationals
+  for (i = 0; !proj->is_nonlinear && i < proj->num_evars; ++ i) {
+    x = proj->evars[i];
+    value_t v = model_get_term_value(proj->mdl, x);
+    if (object_is_algebraic(&proj->mdl->vtbl, v)) {
+      proj->is_nonlinear = true;
+    }
+  }
+  for (i = 0; !proj->is_nonlinear && i < proj->arith_vars.size; ++ i) {
+    x = proj->arith_vars.data[i];
+    value_t v = model_get_term_value(proj->mdl, x);
+    if (object_is_algebraic(&proj->mdl->vtbl, v)) {
+      proj->is_nonlinear = true;
+    }
+  }
+  if (proj->is_nonlinear) {
+    // project
+    code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,
+				      proj->num_evars, proj->evars,
+				      proj->arith_vars.size, proj->arith_vars.data);
+    if (code < 0) {
+      proj_error(proj, PROJ_ERROR_NON_LINEAR, code);
+      return;
+    }
+    // remove the arithmetic variables from the elimination list
+    terms = proj->terms;
+    n = proj->num_evars;
+    j = 0;
+    for (i=0; i<n; i++) {
+      x = proj->evars[i];
+      if (!is_arithmetic_term(terms, x)) {
+        proj->evars[j] = x;
+        j ++;
+      }
+    }
+    proj->num_evars = j;
+    return;
+  }
+#endif
+
+  assert(!proj->is_nonlinear);
 
   proj_build_arith_proj(proj);
 
@@ -777,15 +857,23 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
  * - mdl = model that satisfies all literals a[0 ... n-1]
  * - mngr = term manager such that mngr->terms == mdl->terms
  * - the result is added to vector v (v is not reset)
+ * - extra_error = to store more error information.
  *
  * The terms in a[0 ... n-1] must all be arithmetic/bitvectors
  * or Boolean literals. (A Boolean literal is either (= p q) or
  * (not (= p q)) or p or (not p), where p and q are Boolean terms).
  *
+ * Return code: PROJ_NO_ERROR if everything worked or a negative
+ * error code otherwise.
+
+ * If the return code is PROJ_ERROR_UNSUPPORTED_ARITH_TERM then
+ * *extra_error contains the term_kind of the invalid term encountered.
+ *
+ * Otherwise, extra_error is unchanged.
  * Return code: 0 means no error
  */
 proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
-			     uint32_t nvars, const term_t *var, ivector_t *v) {
+			     uint32_t nvars, const term_t *var, ivector_t *v, int32_t *extra_error) {
   projector_t proj;
   proj_flag_t code;
   uint32_t i;
@@ -794,9 +882,9 @@ proj_flag_t project_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, con
   for (i=0; i<n; i++) {
     projector_add_literal(&proj, a[i]);
     if (proj.flag < 0) {
-      // record the error code: currently, the only possible error is
-      // that literal a[i] is a non-linear arithmetic constraint.
+      // unsupported term or non-linear arithmetic
       code = proj.flag;
+      *extra_error = proj.error_code;
       goto abort;
     }
   }

@@ -190,6 +190,9 @@ typedef enum ef_status {
  *   error_code = the unexpected status
  * - status = EF_STATUS_ASSERT_ERROR
  *   error_code = exception code from context_assert_formulas
+ * - status = EF_STATUS_PROJECTION_ERROR:
+ *   error_code = exception code from projection.h
+ *   error_detail = extra_error returned by project_literals
  */
 typedef struct ef_solver_s {
   // Input problem + logic and architecture codes
@@ -198,6 +201,7 @@ typedef struct ef_solver_s {
   context_arch_t arch;
   ef_status_t status;
   int32_t error_code;        // for diagnostic
+  int32_t error_detail;      // for diagnostic
 
   // Parameters used during the search
   const param_t *parameters; // search parameters

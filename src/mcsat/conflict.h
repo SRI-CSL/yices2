@@ -160,8 +160,11 @@ ivector_t* conflict_get_variables(conflict_t* conflict);
 /** Get all the variables that were ever in the conflict */
 const int_mset_t* conflict_get_variables_all(conflict_t* conflict);
 
-/** Get all the literals */
+/** Get all the literals of the conflict clause */
 ivector_t* conflict_get_literals(conflict_t* conflict);
+
+/** Get all the literals of the conflict clause negated */
+void conflict_get_negated_literals(conflict_t* conflict, ivector_t* out);
 
 /** Get all the literals of the given variable */
 void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* literals);
@@ -180,5 +183,9 @@ void conflict_check(conflict_t* conflict);
 
 /** Returns the clause of the conflict */
 term_t conflict_get_formula(conflict_t* conflict);
+
+/** Returns the all the disjuncts of the conflict */
+void conflict_get_disjuncts(conflict_t* conflict, ivector_t* disjuncts);
+
 
 #endif

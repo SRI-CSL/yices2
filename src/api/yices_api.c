@@ -1893,6 +1893,41 @@ static bool check_arith_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 
+#if 0
+// NOT USED
+// Check whether t is an integer term, t must be valid.
+static bool check_integer_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (! is_integer_term(tbl, t)) {
+    error_report_t *error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = t;
+    error->type1 = int_type(tbl->types);
+    return false;
+  }
+  return true;
+}
+#endif
+
+// Check whether t is a real term, t must be valid.
+static bool check_real_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (! is_real_term(tbl, t)) {
+    error_report_t *error = get_yices_error();
+    error->code = TYPE_MISMATCH;
+    error->term1 = t;
+    error->type1 = int_type(tbl->types);
+    return false;
+  }
+  return true;
+}
+
 // Check whether t is an arithmetic constant, t must be valid
 static bool check_arith_constant(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -2503,20 +2538,69 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
 
 
 /*
+ * Support for incremental model construction
+ */
+// check that var is uninterpreted.
+static bool check_uninterpreted(term_table_t *terms, term_t var) {
+  if (is_neg_term(var) || term_kind(terms, var) != UNINTERPRETED_TERM) {
+    error_report_t *error = get_yices_error();
+    error->code = MDL_UNINT_REQUIRED;
+    error->term1 = var;
+    return false;
+  }
+
+  return true;
+}
+
+// check that var has no value in model
+static bool check_unassigned_in_model(model_t *model, term_t var) {
+  if (model_find_term_value(model, var) != null_value) {
+    error_report_t *error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = var;
+    return false;
+  }
+
+  return true;
+}
+
+// check that assigning q to var is type correct
+static bool check_var_match_rational(term_table_t *terms, term_t var, rational_t *q) {
+  error_report_t *error;
+
+  if (is_integer_term(terms, var)) {
+    if (!q_is_integer(q)) {
+      error = get_yices_error();
+      error->code = TYPE_MISMATCH;
+      error->term1 = var;
+      error->type1 = int_type(terms->types);
+      return false;
+    }
+  }
+
+  if (! is_real_term(terms, var)) {
+    if (!q_is_integer(q)) {
+      error = get_yices_error();
+      error->code = TYPE_MISMATCH;
+      error->term1 = var;
+      error->type1 = real_type(terms->types);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
  * Support for direct model construction given two arrays var and map
  */
 
 // Check that all elements of v are uninterpreted terms
 static bool check_all_uninterpreted(term_table_t *terms, uint32_t n, const term_t *var) {
   uint32_t i;
-  term_t x;
 
   for (i=0; i<n; i++) {
-    x = var[i];
-    if (is_neg_term(x) || term_kind(terms, x) != UNINTERPRETED_TERM) {
-      error_report_t *error = get_yices_error();
-      error->code = MDL_UNINT_REQUIRED;
-      error->term1 = x;
+    if (! check_uninterpreted(terms, var[i])) {
       return false;
     }
   }
@@ -8332,20 +8416,29 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
 
-  if (config != NULL && config->trace_tags != NULL) {
-    // Make new tracer
-    tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
-    init_trace(trace);
-    set_trace_file(trace, stderr);
-    // Copy over the trace tag to the tracer
-    char *saveptr = NULL;
-    char *tag = strtok_r(config->trace_tags, ",", &saveptr);
-    while (tag != NULL) {
-      pvector_push(&trace->trace_tags, tag);
-      tag = strtok_r(NULL, ",", &saveptr);
+  // Additional setup for MCSAT options in the config
+  if (config != NULL) {
+    // If trace tags are passed in, set them
+    if (config->trace_tags != NULL) {
+      // Make new tracer
+      tracer_t *trace = (tracer_t *) safe_malloc(sizeof(tracer_t));
+      init_trace(trace);
+      set_trace_file(trace, stderr);
+      // Copy over the trace tag to the tracer
+      char *trace_tags = safe_strdup(config->trace_tags);
+      char *saveptr = NULL;
+      char *tag = strtok_r(trace_tags, ",", &saveptr);
+      while (tag != NULL) {
+        pvector_push(&trace->trace_tags, tag);
+        tag = strtok_r(NULL, ",", &saveptr);
+      }
+      // Set it to the context
+      context_set_trace(ctx, trace);
     }
-    // Set it to the context
-    context_set_trace(ctx, trace);
+    // If model interpolation is enabled, set it
+    if (config->model_interpolation) {
+      ctx->mcsat_options.model_interpolation = true;
+    }
   }
 
   return ctx;
@@ -9059,6 +9152,12 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
   smt_status_t result = STATUS_UNKNOWN;
   ivector_t model_vars, interpolants;
 
+  // The context must stupport interpolation
+  if (! context_supports_model_interpolation(ctx->ctx_A)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
   // Push A and B so we can revert
   ret = yices_push(ctx->ctx_A);
   if (ret) {
@@ -9091,6 +9190,10 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
       break;
     }
 
+//    fprintf(stderr, "model to refute:\n");
+//    model_print_full(stderr, model);
+//    fprintf(stderr, "\n");
+
     // Get the variables of the model
     model_get_relevant_vars(model, &model_vars);
 
@@ -9109,6 +9212,24 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
       break;
     }
     ivector_push(&interpolants, model_interpolant);
+
+//    fprintf(stderr, "model interpolant:\n");
+//    print_term_full(stderr, ctx->ctx_A->terms, model_interpolant);
+//    fprintf(stderr, "\n");
+
+//    // Check that it falsifies the model
+//    evaluator_t evaluator;
+//    init_evaluator(&evaluator, model);
+//    value_t interpolant_value = eval_in_model(&evaluator, model_interpolant);
+//    assert(is_false(&model->vtbl, interpolant_value));
+//    delete_evaluator(&evaluator);
+//
+//    // Check that it is implied by A
+//    yices_push(ctx->ctx_A);
+//    yices_assert_formula(ctx->ctx_A, opposite_term(model_interpolant));
+//    smt_status_t interpolant_status = yices_check_context(ctx->ctx_A, NULL);
+//    assert(interpolant_status == STATUS_UNSAT);
+//    yices_pop(ctx->ctx_A);
 
     // Add the inteprolant to B
     yices_assert_formula(ctx->ctx_B, model_interpolant);
@@ -9176,6 +9297,11 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
     }
+    if (! context_supports_model_interpolation(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
     context_clear(ctx);
     break;
 
@@ -9189,6 +9315,11 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
       return STATUS_ERROR;
     }
     if (!context_has_mcsat(ctx)) {
+      error_report_t *error = get_yices_error();
+      error->code = CTX_OPERATION_NOT_SUPPORTED;
+      return STATUS_ERROR;
+    }
+    if (! context_supports_model_interpolation(ctx)) {
       error_report_t *error = get_yices_error();
       error->code = CTX_OPERATION_NOT_SUPPORTED;
       return STATUS_ERROR;
@@ -9282,6 +9413,10 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * Construct a model interpolant core.
  */
 EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+  if (! context_supports_model_interpolation(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return -1;
+  }
   return context_get_unsat_model_interpolant(ctx);
 }
 
@@ -9332,7 +9467,7 @@ model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
 /*
  * Return an empty model
  */
-model_t *yices_new_model(bool keep_subst) {
+model_t *yices_new_model_internal(bool keep_subst) {
   model_t *mdl;
 
   mdl = alloc_model();
@@ -9631,10 +9766,295 @@ model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const term_t ma
     return NULL;
   }
 
-  mdl = yices_new_model(true);
+  mdl = yices_new_model_internal(true);
   build_model_from_map(mdl, n, var, map);
   return mdl;
 }
+
+
+
+/*
+ * Create an empty model.
+ */
+EXPORTED extern model_t *yices_new_model() {
+  MT_PROTECT(model_t *,  __yices_globals.lock, _o_yices_new_model());
+}
+
+model_t *_o_yices_new_model() {
+  return yices_new_model_internal(true);
+}
+
+
+/*
+ * Extend a model by assigning a Boolean variable.
+ * - var must be an uninterpreted term of Boolean type
+ * - var must not have a value in model
+ * - the value of var is set to false if val == 0 or to true if val != 0.
+ *
+ * Return -1 if there's an error and set the error report.
+ * Return 0 otherwise.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var is not valid
+ * - code = MDL_UNINT_REQUIRED if var is not uninterpreted
+ * - code = MDL_DUPLICATE_VAR if var already has a value in model
+ * - code = TYPE_MISMATCH if var is not Boolean
+ */
+EXPORTED int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_bool(model, var, val));
+}
+
+int32_t _o_yices_model_set_bool(model_t* model, term_t var, int32_t val) {
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_boolean_term(__yices_globals.manager, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+  model_map_term(model, var, vtbl_mk_bool(&model->vtbl, val));
+
+  return 0;
+}
+
+
+/*
+ * Assign a value to a numerical variable.  The value can be given as
+ * an integer, a GMP integer, a GMP rational, or an algebraic number.
+ *
+ * The assignment fails (TYPE_MISMATCH) is the variable has integer type
+ * and the value is not an integer.
+ *
+ * For functions yices_model_set_rational32 and
+ * yices_model_set_rational64, the value is num/den.  These two
+ * functions fail and report DIVISION_BY_ZERO if den is zero.
+ */
+
+/*
+ * Auxiliary function: assign a rational value *q to var
+ */
+static int32_t yices_model_set_q(model_t *model, term_t var, rational_t *q) {
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_var_match_rational(__yices_globals.terms, var, q) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+  model_map_term(model, var, vtbl_mk_rational(&model->vtbl, q));
+  return 0;
+}
+
+/*
+ * API functions
+ */
+EXPORTED int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_int32(model, var, val));
+}
+
+int32_t _o_yices_model_set_int32(model_t *model, term_t var, int32_t val) {
+  q_set32(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_int64(model, var, val));
+}
+
+int32_t _o_yices_model_set_int64(model_t *model, term_t var, int64_t val) {
+  q_set64(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_rational32(model, var, num, den));
+}
+
+int32_t _o_yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den) {
+  if (den == 0) {
+    set_error_code(DIVISION_BY_ZERO);
+    return -1;
+  }
+  q_set_int32(&r0, num, den);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_rational64(model, var, num, den));
+}
+
+int32_t _o_yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den) {
+  if (den == 0) {
+    set_error_code(DIVISION_BY_ZERO);
+    return -1;
+  }
+  q_set_int64(&r0, num, den);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_mpz(model, var, val));
+}
+
+int32_t _o_yices_model_set_mpz(model_t *model, term_t var, mpz_t val) {
+  q_set_mpz(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_mpq(model, var, val));
+}
+
+int32_t _o_yices_model_set_mpq(model_t *model, term_t var, mpq_t val) {
+  q_set_mpq(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+
+EXPORTED int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_algebraic_number(model, var, val));
+}
+
+int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val) {
+  value_t a_val;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_real_term(__yices_globals.manager, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  a_val = vtbl_mk_algebraic(&model->vtbl, (void*) val);
+  model_map_term(model, var, a_val);
+
+  return 0;
+}
+
+
+
+/*
+ * Assignment to a bitvector variable
+ */
+
+/*
+ * Check that var is a bit-vector variable, with no value in model,
+ * and if so return the number of bits in var.
+ * If not set error code and return 0.
+ */
+static uint32_t check_var_and_get_bitsize(model_t *model, term_t var) {
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_bitvector_term(__yices_globals.manager, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return 0;
+  }
+
+  return term_bitsize(__yices_globals.terms, var);
+}
+
+static inline void yices_model_set_bvconstant(model_t *model, term_t var, bvconstant_t *b) {
+  assert(term_bitsize(__yices_globals.terms, var) == b->bitsize);
+  model_map_term(model, var, vtbl_mk_bv_from_constant(&model->vtbl, b));
+}
+
+EXPORTED int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_int32(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set32_signed(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_int64(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_int64(model_t *model, term_t var, int64_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set64_signed(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_uint32(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set32(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
+EXPORTED int32_t yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_uint64(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val) {
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set64(bv0.data, bv0.width, val);
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_mpz(model, var, val));
+}
+
+int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
+  mpz_t aux;
+  uint32_t n;
+
+  n = check_var_and_get_bitsize(model, var);
+  if (n == 0) return -1;
+
+  /*
+   * bvconst_set_mpz requires val>=0
+   * for sign-extend, we copy |val| into aux
+   * copy aux into bv0 then negate bv0
+   */
+  bvconstant_set_bitsize(&bv0, n);
+  if (mpz_sgn(val) >= 0) {
+    bvconst_set_mpz(bv0.data, bv0.width, val);
+  } else {
+    mpz_init_set(aux, val);
+    mpz_abs(aux, aux);
+    bvconst_set_mpz(bv0.data, bv0.width, aux);
+    bvconst_negate(bv0.data, bv0.width);
+    mpz_clear(aux);
+  }
+
+  yices_model_set_bvconstant(model, var, &bv0);
+  return 0;
+}
+
+
 
 
 /*
@@ -9704,7 +10124,7 @@ bool trivially_true_assertions(const term_t *a, uint32_t n, model_t **model) {
   yices_obtain_mutex();
 
   result = true;
-  mdl = yices_new_model(true);
+  mdl = yices_new_model_internal(true);
   init_evaluator(&evaluator, mdl);
   for (i=0; i<n; i++) {
     if (!eval_to_true_in_model(&evaluator, a[i])) {
@@ -10496,7 +10916,7 @@ int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic
   return -1;
 
 #else
-  // NO SUPPORT FOT MCSAT
+  // NO SUPPORT FOR MCSAT
   set_error_code(EVAL_NOT_SUPPORTED);
   return -1;
 #endif
@@ -11506,7 +11926,7 @@ int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a
  * Convert a negative error code v from generalization.h into the
  * corresponding yices error code.
  */
-#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_BAD_ARITH_LITERAL)+1)
+#define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM)+1)
 
 static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
   NO_ERROR,                  // 0
@@ -11528,11 +11948,21 @@ static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_CONVERT
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_IN_SUBST
   MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_ARITH_LITERAL
+  MDL_GEN_FAILED,            // GEN_PROJ_ERROR_BAD_PRESBURGER_LITERAL
+  MDL_GEN_UNSUPPORTED_TERM,  // GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM
 };
 
 static inline error_code_t yices_gen_error(int32_t v) {
   assert(0 <= -v && v < NUM_GEN_ERROR_CODES);
   return gen_error2code[-v];
+}
+
+static void report_gen_error(int32_t code, int32_t bad_term_kind) {
+  error_report_t *error = get_yices_error();
+  error->code = yices_gen_error(code);
+  if (code == GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM) {
+    error->badval = bad_term_kind;
+  }
 }
 
 
@@ -11554,8 +11984,9 @@ EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims,
 }
 
 int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-					yices_gen_mode_t mode, term_vector_t *v) {
+				  yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
+  int32_t extra_error;
 
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_boolean_term(__yices_globals.manager, t) ||
@@ -11563,6 +11994,7 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     return -1;
   }
 
+  extra_error = 0;
   v->size = 0;
   switch (mode) {
   case YICES_GEN_BY_SUBST:
@@ -11570,16 +12002,16 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
   default:
-    code = generalize_model(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v);
+    code = generalize_model(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
   }
 
   if (code < 0) {
-    set_error_code(yices_gen_error(code));
+    report_gen_error(code, extra_error);
     return -1;
   }
 
@@ -11598,6 +12030,7 @@ EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const ter
 term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
 					     yices_gen_mode_t mode, term_vector_t *v) {
   int32_t code;
+  int32_t extra_error;
 
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a) ||
@@ -11605,6 +12038,7 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
     return NULL_TERM;
   }
 
+  extra_error = 0;
   v->size = 0;
   switch (mode) {
   case YICES_GEN_BY_SUBST:
@@ -11612,16 +12046,16 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v);
+    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
   default:
-    code = generalize_model(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v);
+    code = generalize_model(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
     break;
   }
 
   if (code < 0) {
-    set_error_code(yices_gen_error(code));
+    report_gen_error(code, extra_error);
     return -1;
   }
 

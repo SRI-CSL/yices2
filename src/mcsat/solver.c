@@ -1775,7 +1775,7 @@ uint32_t mcsat_compute_backtrack_level(mcsat_solver_t* mcsat, uint32_t level) {
 }
 
 /**
- * Input: literals that are can evaluate to true (or false if negated)
+ * Input: literals that can evaluate to true (or false if negated)
  * Output: simplified literals that can evaluate to true and imply the input literals
  */
 static
@@ -1816,8 +1816,7 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
   // First we try to massage the conflict into presentable form
   ivector_t literals;
   init_ivector(&literals, 0);
-  ivector_t* input_disjuncts = int_mset_get_list(&input_conflict->disjuncts);
-  mcsat_simplify_literals(mcsat, input_disjuncts, true, &literals);
+  conflict_get_negated_literals(input_conflict, &literals);
 
   ivector_t reason_literals;
   init_ivector(&reason_literals, 0);
@@ -1886,7 +1885,6 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
 
       // Resolve the variable
       ivector_reset(&literals);
-      ivector_reset(&reason_literals);
       if (plugin) {
         assert(plugin->explain_propagation);
         substitution = plugin->explain_propagation(plugin, var, &literals);
@@ -1894,15 +1892,33 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
         bool value = trail_get_boolean_value(trail, var);
         substitution = value ? true_term : false_term;
       }
-      mcsat_simplify_literals(mcsat, &literals, false, &reason_literals);
-      conflict_resolve_propagation(&conflict, var, substitution, &reason_literals);
+      conflict_resolve_propagation(&conflict, var, substitution, &literals);
     } else {
       // Continue with resolution
       trail_pop_propagation(mcsat->trail);
     }
   }
 
-  term_t interpolant = conflict_get_formula(&conflict);
+  if (trace_enabled(trace, "mcsat::conflict")) {
+    mcsat_trace_printf(trace, "final conflict:\n");
+    conflict_print(&conflict, trace->file);
+  }
+
+  // Restore the trail
+  mcsat_trail_t tmp;
+  tmp = *mcsat->trail;
+  *mcsat->trail = saved_trail;
+  saved_trail = tmp;
+  trail_destruct(&saved_trail);
+
+  // Simplify the conflict literals
+  ivector_t* final_literals = conflict_get_literals(&conflict);
+  ivector_reset(&literals);
+  mcsat_simplify_literals(mcsat, final_literals, true, &literals);
+
+  // Construct the interpolant
+  term_t interpolant = literals.size == 0 ? true_term : mk_and(&mcsat->tm, literals.size, literals.data);
+  interpolant = opposite_term(interpolant);
 
   if (trace_enabled(trace, "mcsat::interpolant::check")) {
     value_t v = model_get_term_value(mcsat->assumptions_model, interpolant);
@@ -1916,17 +1932,15 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
     assert(interpolant_is_false);
   }
 
-  // Restore the trail
-  mcsat_trail_t tmp;
-  tmp = *mcsat->trail;
-  *mcsat->trail = saved_trail;
-  saved_trail = tmp;
-  trail_destruct(&saved_trail);
-
   // Remove temps
   delete_ivector(&literals);
   delete_ivector(&reason_literals);
   conflict_destruct(&conflict);
+
+  if (trace_enabled(trace, "mcsat::conflict")) {
+    mcsat_trace_printf(trace, "interpolant:\n");
+    trace_term_ln(trace, conflict.terms, interpolant);
+  }
 
   return interpolant;
 }
@@ -1985,23 +1999,25 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (mcsat->variable_in_conflict != variable_null) {
     // This conflict happened because an assumption conflicts with an already
     // propagated value. We're unsat here, but we need to produce a clause
-    if (plugin) {
-      term_t t = plugin->explain_propagation(plugin, mcsat->variable_in_conflict, &reason);
-      term_t x = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
-      term_t x_eq_t = mk_eq(&mcsat->tm, x, t);
-      // reason => x_eq_t is valid
-      // reason && x_eq_t evaluates to false with assumptions
-      // but x_eq_t evaluates to true with trail
-      ivector_push(&reason, opposite_term(x_eq_t));
-      conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
-      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
-      conflict_destruct(&conflict);
-    } else {
-      // an assertion, interpolant is !assertion
-      mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
-      bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
-      if (!value) {
-        mcsat->interpolant = opposite_term(mcsat->interpolant);
+    if (mcsat->ctx->mcsat_options.model_interpolation) {
+      if (plugin) {
+        term_t t = plugin->explain_propagation(plugin, mcsat->variable_in_conflict, &reason);
+        term_t x = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        term_t x_eq_t = mk_eq(&mcsat->tm, x, t);
+        // reason => x_eq_t is valid
+        // reason && x_eq_t evaluates to false with assumptions
+        // but x_eq_t evaluates to true with trail
+        ivector_push(&reason, opposite_term(x_eq_t));
+        conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
+        mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+        conflict_destruct(&conflict);
+      } else {
+        // an assertion, interpolant is !assertion
+        mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
+        if (!value) {
+          mcsat->interpolant = opposite_term(mcsat->interpolant);
+        }
       }
     }
     mcsat->status = STATUS_UNSAT;
@@ -2161,7 +2177,9 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
     mcsat->status = STATUS_UNSAT;
-    mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+    if (mcsat->ctx->mcsat_options.model_interpolation) {
+      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+    }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
@@ -2823,6 +2841,7 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
 }
 
 void mcsat_gc_mark(mcsat_solver_t* mcsat) {
+  mcsat_clear(mcsat);
   mcsat_gc(mcsat, true);
 }
 
@@ -2833,4 +2852,3 @@ void mcsat_stop_search(mcsat_solver_t* mcsat) {
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
   return mcsat->interpolant;
 }
-
