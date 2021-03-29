@@ -538,7 +538,7 @@ static void bit_blaster_add_quad_clause(bit_blaster_t *s, literal_t l1, literal_
 }
 
 
-// clause with an optional defined var x
+// clauses with an optional defined var x
 static void bit_blaster_add_clause(bit_blaster_t *s, bvar_t x, uint32_t n, literal_t *a) {
 #if TRACE
   trace_clause(n, a);
@@ -550,6 +550,13 @@ static void bit_blaster_add_clause(bit_blaster_t *s, bvar_t x, uint32_t n, liter
   }
 }
 
+static void bit_blaster_add_binary_def_clause(bit_blaster_t *s, bvar_t x, literal_t l1, literal_t l2) {
+  assert(x != null_bvar);
+#if TRACE
+  trace_binary_clause(l1, l2);
+#endif
+  add_binary_def_clause(s->solver, x, l1, l2);
+}
 
 bvar_t bit_blaster_new_var(bit_blaster_t *s) {
   return create_boolean_variable(s->solver);
@@ -825,10 +832,10 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
     if (k < 0) {
       // No simplifications
       for (i=0; i<n; i++) {
-        bit_blaster_add_binary_clause(s, x, not(a[i]));
+        bit_blaster_add_binary_def_clause(s, var_of(x), x, not(a[i]));
       }
       ivector_push(v, not(x));
-      bit_blaster_add_clause(s, null_bvar, n+1, v->data);
+      bit_blaster_add_clause(s, var_of(x), n+1, v->data);
 
     } else {
       assert(0 <= k && k < n);
@@ -969,13 +976,15 @@ static uint32_t simplify_xor(bit_blaster_t *s, uint32_t n, literal_t *a, literal
 
 /*
  * Assert (xor a b) and (xor a b c)
+ * These xor encode a defintion x = (xor ...) so x is the variable defined by
+ * thesse xor constraints.
  */
-static void bit_blaster_assert_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
+static void bit_blaster_assert_xor2(bit_blaster_t *s, thvar_t x, literal_t a, literal_t b) {
   bit_blaster_add_binary_clause(s, a, b);
   bit_blaster_add_binary_clause(s, not(a), not(b));
 }
 
-static void bit_blaster_assert_xor3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
+static void bit_blaster_assert_xor3(bit_blaster_t *s, thvar_t x, literal_t a, literal_t b, literal_t c) {
   bit_blaster_add_ternary_clause(s, a, b, c);
   bit_blaster_add_ternary_clause(s, a, not(b), not(c));
   bit_blaster_add_ternary_clause(s, not(a), b, not(c));
@@ -987,7 +996,7 @@ static void bit_blaster_assert_xor3(bit_blaster_t *s, literal_t a, literal_t b, 
  * Assert (xor a b c d)
  */
 // clauses for (xor a b c d) = 1
-static void bit_blaster_assert_xor4(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t d) {
+static void bit_blaster_assert_xor4(bit_blaster_t *s, thvar_t x, literal_t a, literal_t b, literal_t c, literal_t d) {
   bit_blaster_add_quad_clause(s, a, b, c, d);
   bit_blaster_add_quad_clause(s, a, b, not(c), not(d));
   bit_blaster_add_quad_clause(s, a, not(b), c, not(d));
@@ -1008,7 +1017,7 @@ static inline literal_t make_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
   literal_t l;
 
   l = bit_blaster_fresh_literal(s);
-  bit_blaster_assert_xor3(s, a, b, not(l));
+  bit_blaster_assert_xor3(s, var_of(l), a, b, not(l));
   return l;
 }
 
@@ -1020,7 +1029,7 @@ static inline literal_t make_xor3(bit_blaster_t *s, literal_t a, literal_t b, li
   literal_t l;
 
   l = bit_blaster_fresh_literal(s);
-  bit_blaster_assert_xor4(s, a, b, c, not(l));
+  bit_blaster_assert_xor4(s, var_of(l), a, b, c, not(l));
   return l;
 }
 
@@ -1052,10 +1061,11 @@ static literal_t bit_blaster_create_xor(bit_blaster_t *s, uint32_t n, literal_t 
 
 /*
  * Add clauses asserting (xor a[0] ... a[n-1])
+ * - x is the defined variable
  * - the literals a[0] ... a[n-1] are stored in v
  * - v must be non-empty
  */
-static void bit_blaster_assert_xor(bit_blaster_t *s, ivector_t *v) {
+static void bit_blaster_assert_xor(bit_blaster_t *s, thvar_t x, ivector_t *v) {
   uint32_t n;
   literal_t l, *a;
 
@@ -1122,6 +1132,7 @@ void bit_blaster_xor2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_ternary_clause(s, buffer, not(a), not(b), not(x));
   push_ternary_clause(s, buffer, not(a), b, x);
   push_ternary_clause(s, buffer, a, not(b), x);
@@ -1143,6 +1154,7 @@ void bit_blaster_xor3_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_quad_clause(s, buffer, not(a), not(b), not(c), x);
   push_quad_clause(s, buffer, not(a), not(b), c, not(x));
   push_quad_clause(s, buffer, not(a), b, not(c), not(x));
@@ -1168,6 +1180,7 @@ void bit_blaster_or2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_binary_clause(s, buffer, not(a), x);
   push_binary_clause(s, buffer, not(b), x);
   push_ternary_clause(s, buffer, a, b, not(x));
@@ -1188,6 +1201,7 @@ void bit_blaster_or3_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_binary_clause(s, buffer, not(a), x);
   push_binary_clause(s, buffer, not(b), x);
   push_binary_clause(s, buffer, not(c), x);
@@ -1210,6 +1224,7 @@ void bit_blaster_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, li
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_ternary_clause(s, buffer, c, b, not(x));
   push_ternary_clause(s, buffer, c, not(b), x);
   push_ternary_clause(s, buffer, not(c), a, not(x));
@@ -1239,6 +1254,7 @@ void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, l
   buffer = &s->buffer;
   assert(buffer->nclauses == 0);
 
+  buffer->def = var_of(x);
   push_ternary_clause(s, buffer, a, b, not(x));
   push_ternary_clause(s, buffer, not(a), not(b), x);
   push_ternary_clause(s, buffer, a, c, not(x));
@@ -1335,7 +1351,7 @@ void bit_blaster_xor_gate(bit_blaster_t *s, uint32_t n, literal_t *a, literal_t 
     if (! sgn) {
       v->data[0] = not(v->data[0]);
     }
-    bit_blaster_assert_xor(s, v);
+    bit_blaster_assert_xor(s, var_of(x), v);
   }
 }
 
@@ -1688,11 +1704,11 @@ static literal_t bit_blaster_create_or(bit_blaster_t *s, ivector_t *v) {
 
   l = bit_blaster_fresh_literal(s);
   for (i=0; i<n; i++) {
-    bit_blaster_add_binary_clause(s, l, not(a[i]));
+    bit_blaster_add_binary_def_clause(s, var_of(l), l, not(a[i]));
   }
 
   ivector_push(v, not(l));
-  bit_blaster_add_clause(s, null_bvar, n+1, v->data);
+  bit_blaster_add_clause(s, var_of(l), n+1, v->data);
 
   return l;
 }
