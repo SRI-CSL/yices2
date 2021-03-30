@@ -287,6 +287,16 @@ static clause_t *new_definition_clause(bvar_t x, uint32_t len, const literal_t *
   clause_t *result;
   uint32_t i;
 
+#if TRACE
+  printf("---> DPLL:   Add definition clause for p!%"PRId32" {", x);
+  for (i=0; i<len; i++) {
+    printf(" ");
+    print_literal(stdout, lit[i]);
+  }
+  printf(" }\n");
+  fflush(stdout);
+#endif
+
   tmp = (def_clause_t *) safe_malloc(sizeof(def_clause_t) + sizeof(literal_t) + len * sizeof(literal_t));
 
   tmp->def_var = x;
@@ -1189,8 +1199,7 @@ static void push_def_lemma(lemma_queue_t *queue, bvar_t x, uint32_t n, literal_t
     b[1+i] = a[i];
   }
   b[1+i] = null_literal;
-  i ++;
-  blk->ptr += i;
+  blk->ptr += i+2;
 }
 
 
@@ -2966,7 +2975,7 @@ static inline uint32_t d_level(smt_core_t *s, literal_t l) {
  * - we put the function here because it's used by add_learned_clause
  */
 static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
-#if TRACE_LIGHT
+#if TRACE_LIGHT || TRACE
   printf("---> DPLL:   Add binary clause: { ");
   print_literal(stdout, l1);
   printf(" ");
@@ -4673,8 +4682,8 @@ static void add_all_def_lemmas(smt_core_t *s) {
   uint32_t i, j, n;
 
 
-  for (i=0; i<s->lemmas.free_block; i++) {
-    tmp = s->lemmas.block[i];
+  for (i=0; i<s->def_lemmas.free_block; i++) {
+    tmp = s->def_lemmas.block[i];
     lemma = tmp->data;
     j = 0;
     while (j < tmp->ptr) {

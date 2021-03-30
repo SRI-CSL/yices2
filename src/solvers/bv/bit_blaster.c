@@ -1092,6 +1092,7 @@ static void swap_for_xor_def(bvar_t x, uint32_t n, literal_t *a) {
   uint32_t i;
   literal_t l;
 
+  l = null_literal; // prevent GCC warning
   for (i=0; i<n; i++) {
     l = a[i];
     if (var_of(l) == x) break;
