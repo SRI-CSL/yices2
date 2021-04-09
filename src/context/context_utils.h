@@ -685,6 +685,9 @@ static inline bool context_supports_cleaninterrupt(context_t *ctx) {
   return (ctx->options & CLEANINT_OPTION_MASK) != 0;
 }
 
+static inline bool context_supports_model_interpolation(context_t* ctx) {
+  return (ctx->mcsat != NULL && ctx->mcsat_options.model_interpolation);
+}
 
 /*
  * Read the mode flag

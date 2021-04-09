@@ -26,7 +26,7 @@
 static inline
 bool ctx_trace_enabled(const plugin_context_t* ctx, const char* tag) {
 #ifndef NDEBUG
-  return (ctx->tracer != NULL && tracing_tag(ctx->tracer, tag));
+  return (ctx != NULL && ctx->tracer != NULL && tracing_tag(ctx->tracer, tag));
 #else
   return false;
 #endif

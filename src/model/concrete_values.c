@@ -1364,10 +1364,13 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
   return jenkins_hash_mix2(h_num, h_den);
 }
 
-static uint32_t hash_algebraic_value(void *a) {
-  // Can't hash, internal representation can change and they are not canonical
-  // We just return 0 and hope for the best
+static uint32_t hash_algebraic_value(algebraic_hobj_t *a) {
+#ifdef HAVE_MCSAT
+  return lp_algebraic_number_hash_approx(a->a, 5);
+#else
+  assert(false);
   return 0;
+#endif
 }
 
 static uint32_t hash_const_value(const_hobj_t *o) {
@@ -1565,7 +1568,7 @@ static value_t build_algebraic_value(algebraic_hobj_t *o) {
   table->kind[i] = ALGEBRAIC_VALUE;
   table->desc[i].ptr = safe_malloc(sizeof(lp_algebraic_number_t));
   lp_algebraic_number_construct_copy(table->desc[i].ptr, o->a);
-  clr_bit(table->canonical, i);
+  set_bit(table->canonical, i);
 
   return i;
 #else
@@ -3480,6 +3483,8 @@ value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, uint32_
  * - f must be a function or update object of arity n
  * - a[0] ... a[n-1] must be non-null values
  * Return unknown if the map is not defined for a[0 ... n-1]
+ *
+ * TODO(algebraic): algebraic numbers are not canonical!
  */
 value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value_t *a) {
   value_update_t *u;
