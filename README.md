@@ -188,7 +188,7 @@ If you want the MC-SAT solver, follow these instructions:
 1. Install SRI's library for polynomial manipulation. It's available
    on [github](https://github.com/SRI-CSL/libpoly).
 
-2. Install the CUDD library for binary-decision diagrams. We recommand
+2. Install the CUDD library for binary-decision diagrams. We recommend
    using the github distribution: https://github.com/ivmai/cudd.
 
 3. After you've installed libpoly and CUDD, add option
