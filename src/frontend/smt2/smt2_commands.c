@@ -3342,7 +3342,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
  * - if the context is UNSAT, remove assumptions if any
  *
  * After this: the status can be either IDLE or UNSAT.
- * UNSAT means the there were no assumptions.
+ * UNSAT means that there were no assumptions.
  */
 static void cleanup_context(smt2_globals_t *g) {
   if (g->model != NULL) {
