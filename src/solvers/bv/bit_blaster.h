@@ -165,175 +165,18 @@ extern void reset_bit_blaster(bit_blaster_t *blaster);
 extern void bit_blaster_eq(bit_blaster_t *blaster, literal_t a, literal_t b);
 
 
-/*
- * Constraint: x = (xor a b) or (xor a b x) = 0
- */
-extern void bit_blaster_xor2_gate(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t x);
-
-
-/*
- * Constraint: x = (xor a b c) or (xor a b c x) = 0
- */
-extern void bit_blaster_xor3_gate(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c, literal_t x);
-
-
-/*
- * Constraint: x = (or a b)
- */
-extern void bit_blaster_or2_gate(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t x);
-
-
-/*
- * Constraint: x = (or a b c)
- */
-extern void bit_blaster_or3_gate(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c, literal_t x);
-
-
-/*
- * Constraint: x = (ite c a b)
- */
-extern void bit_blaster_mux(bit_blaster_t *blaster, literal_t c, literal_t a, literal_t b, literal_t x);
-
-
-/*
- * Constraint: x = (cmp a b c)
- * Defined as: x = ((a > b) or (a = b and c))
- *
- * This is used to encode (bvuge u v) or (bvsge u v) via the following equations:
- * 1) (bvuge u v) = (u[n] > v[n]) or (u[n] == v[n] and (bvuge u[n-1 .. 1] v[n-1 .. 1]))
- * 2) (bvsge u v) = (v[n] > u[n]) or (u[n] == v[n] and (bvuge u[n-1 .. 1] v[n-1 .. 1]))
- */
-extern void bit_blaster_cmp(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c, literal_t x);
-
-
-/*
- * Constraint: x = (majority a b c)
- */
-extern void bit_blaster_maj3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c, literal_t x);
-
-
-/*
- * Constraint: x = (or a[0] ... a[n-1])
- */
-extern void bit_blaster_or_gate(bit_blaster_t *blaster, uint32_t n, literal_t *a, literal_t x);
-
-
-/*
- * Constraint: x = (xor a[0] ... a[n-1])
- */
-extern void bit_blaster_xor_gate(bit_blaster_t *blaster, uint32_t n, literal_t *a, literal_t x);
-
-
-/*
- * Constraint: (x, y) = half-add(a, b) where x = sum, y = carry
- * This is encoded as
- *    x = (xor a b)
- *    y = (and a b)
- */
-extern void bit_blaster_half_adder(bit_blaster_t *blaster, literal_t a, literal_t b,
-                                   literal_t x, literal_t y);
-
-/*
- * Constraint: (x, y) = full-adder(a, b, c) where x = sum, y = carry
- * This is encoded as
- *    x = (xor a b c)
- *    y = (majority a b c)
- */
-extern void bit_blaster_full_adder(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c,
-                                   literal_t x, literal_t y);
-
-
-
-
-
 
 /*****************
  *  SIMPLIFIER   *
  ****************/
 
 /*
- * All functions below attempt to reduce an expression to a literal.
- * They return null_literal when they fail.
- * They take into account the base-value of all literals.
- */
-
-/*
- * (xor a b)
- */
-extern literal_t bit_blaster_eval_xor2(bit_blaster_t *blaster, literal_t a, literal_t b);
-
-
-/*
- * (xor a b c)
- */
-extern literal_t bit_blaster_eval_xor3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
-
-/*
- * (eq a b)
- */
-static inline literal_t bit_blaster_eval_eq(bit_blaster_t *blaster, literal_t a, literal_t b) {
-  return bit_blaster_eval_xor2(blaster, not(a), b);
-}
-
-
-/*
- * (or a b)
- */
-extern literal_t bit_blaster_eval_or2(bit_blaster_t *blaster, literal_t a, literal_t b);
-
-
-/*
- * (or a b c)
- */
-extern literal_t bit_blaster_eval_or3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
-
-/*
- * (ite c a b)
- */
-extern literal_t bit_blaster_eval_mux(bit_blaster_t *blaster, literal_t c, literal_t a, literal_t b);
-
-
-/*
- * (a > b): i.e. (a and not b)
- */
-extern literal_t bit_blaster_eval_gt(bit_blaster_t *blaster, literal_t a, literal_t b);
-
-
-/*
- * (cmp a b c) i.e., ((a > b) or (a = b and c))
- */
-extern literal_t bit_blaster_eval_cmp(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
-
-/*
- * (majority a b c)
- */
-extern literal_t bit_blaster_eval_maj3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
-
-/*
- * (or a[0] ... a[n-1])
- */
-extern literal_t bit_blaster_eval_or(bit_blaster_t *blaster, uint32_t n, literal_t *a);
-
-
-/*
- * (xor a[0] ... a[n-1])
- */
-extern literal_t bit_blaster_eval_xor(bit_blaster_t *blaster, uint32_t n, literal_t *a);
-
-
-
-/*
- * (bveq a b): a and b are vectors of n bits
+ * Check whether (bveq a b) simplifies.
+ * - a and b are vectors of n bits
+ * - return a literal l <=> (bveq a b) if a simplification is found
+ * - return null_literal otherwise
  */
 extern literal_t bit_blaster_eval_bveq(bit_blaster_t *blaster, uint32_t n, literal_t *a, literal_t *b);
-
-
-
-
 
 
 /*******************************
@@ -366,52 +209,15 @@ static inline literal_t bit_blaster_fresh_literal(bit_blaster_t *blaster) {
  */
 
 /*
- * (xor a[0] ... a[n-1])
- */
-extern literal_t bit_blaster_make_xor(bit_blaster_t *blaster, uint32_t n, literal_t *a);
-
-/*
  * (xor a b)
  */
 extern literal_t bit_blaster_make_xor2(bit_blaster_t *blaster, literal_t a, literal_t b);
-
-
-/*
- * (xor a b c)
- */
-extern literal_t bit_blaster_make_xor3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
 
 /*
  * (eq a b)
  */
 static inline literal_t bit_blaster_make_eq(bit_blaster_t *blaster, literal_t a, literal_t b) {
   return bit_blaster_make_xor2(blaster, not(a), b);
-}
-
-
-/*
- * (or a[0] ... a[n-1])
- */
-extern literal_t bit_blaster_make_or(bit_blaster_t *blaster, uint32_t n, literal_t *a);
-
-/*
- * (or a b)
- */
-extern literal_t bit_blaster_make_or2(bit_blaster_t *blaster, literal_t a, literal_t b);
-
-
-/*
- * (or a b c)
- */
-extern literal_t bit_blaster_make_or3(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c);
-
-
-/*
- * (and a b)
- */
-static inline literal_t bit_blaster_make_and2(bit_blaster_t *blaster, literal_t a, literal_t b) {
-  return not(bit_blaster_make_or2(blaster, not(a), not(b)));
 }
 
 

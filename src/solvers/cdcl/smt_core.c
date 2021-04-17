@@ -4497,6 +4497,8 @@ void add_def_clause(smt_core_t *s, bvar_t x, uint32_t n, literal_t *a) {
   ivector_t *v;
   clause_t *cl;
 
+  assert(n >= 2);
+
   if (! s->enable_def_clauses) {
     add_clause(s, n, a);
     return;
