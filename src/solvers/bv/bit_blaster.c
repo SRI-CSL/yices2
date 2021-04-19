@@ -452,6 +452,7 @@ void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap
   init_ivector(&s->aux_vector2, 0);
   init_ivector(&s->aux_vector3, 0);
   init_ivector(&s->aux_vector4, 0);
+  s->last_fresh = null_bvar;
 }
 
 
@@ -477,6 +478,7 @@ void reset_bit_blaster(bit_blaster_t *s) {
   ivector_reset(&s->aux_vector2);
   ivector_reset(&s->aux_vector3);
   ivector_reset(&s->aux_vector4);
+  s->last_fresh = null_bvar;
 }
 
 
@@ -544,7 +546,7 @@ static void bit_blaster_add_clause(bit_blaster_t *s, bvar_t x, uint32_t n, liter
 #if TRACE
   trace_clause(n, a);
 #endif
-  if (x == null_bvar || x == const_bvar) {
+  if (x == null_bvar || x != s->last_fresh) {
     add_clause(s->solver, n, a);
   } else {
     add_def_clause(s->solver, x, n, a);
@@ -552,25 +554,29 @@ static void bit_blaster_add_clause(bit_blaster_t *s, bvar_t x, uint32_t n, liter
 }
 
 static void bit_blaster_add_binary_def_clause(bit_blaster_t *s, bvar_t x, literal_t l1, literal_t l2) {
-  assert(x != null_bvar && x != const_bvar);
 #if TRACE
   trace_binary_clause(l1, l2);
 #endif
-  add_binary_def_clause(s->solver, x, l1, l2);
+  if (x == null_bvar || x != s->last_fresh) {
+    add_binary_clause(s->solver, l1, l2);
+  } else {
+    add_binary_def_clause(s->solver, x, l1, l2);
+  }
 }
 
 static void bit_blaster_add_ternary_def_clause(bit_blaster_t *s, bvar_t x, literal_t l1, literal_t l2, literal_t l3) {
-  assert(x != null_bvar && x != const_bvar);
 #if TRACE
   trace_ternary_clause(l1, l2, l3);
 #endif
-  add_ternary_def_clause(s->solver, x, l1, l2, l3);
+  if (x == null_bvar || x  != s->last_fresh) {
+    add_ternary_clause(s->solver, l1, l2, l3);
+  } else {
+    add_ternary_def_clause(s->solver, x, l1, l2, l3);
+  }
 }
 
 static void bit_blaster_add_quad_def_clause(bit_blaster_t *s, bvar_t x, literal_t l1, literal_t l2, literal_t l3, literal_t l4) {
   literal_t aux[4];
-
-  assert(x != null_bvar && x != const_bvar);
 
 #if TRACE
   trace_quad_clause(l1, l2, l3, l4);
@@ -581,11 +587,19 @@ static void bit_blaster_add_quad_def_clause(bit_blaster_t *s, bvar_t x, literal_
   aux[2] = l3;
   aux[3] = l4;
 
-  add_def_clause(s->solver, x, 4, aux);
+  if (x == null_bvar || x != s->last_fresh) {
+    add_clause(s->solver, 4, aux);
+  } else {
+    add_def_clause(s->solver, x, 4, aux);
+  }
 }
 
 bvar_t bit_blaster_new_var(bit_blaster_t *s) {
-  return create_boolean_variable(s->solver);
+  bvar_t x;
+
+  x = create_boolean_variable(s->solver);
+  s->last_fresh = x;
+  return x;
 }
 
 
@@ -2499,7 +2513,7 @@ void bit_blaster_make_bvsge2(bit_blaster_t *s, literal_t *a, literal_t *b, liter
 
 /*
  * Get the literal mapped to pseudo-literal u
- * - create a fresh literal ad attach it to u if needed
+ * - create a fresh literal and attach it to u if needed
  */
 static literal_t concretize_pseudo_lit(bit_blaster_t *s, literal_t u) {
   remap_table_t *rmap;

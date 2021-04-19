@@ -94,6 +94,7 @@ typedef struct cbuffer_s {
  * - remap_table to interface with the bvsolver
  * - gate table for hash consing
  * - buffers
+ * - last_fresh variable
  */
 typedef struct bit_blaster_s {
   smt_core_t *solver;
@@ -104,6 +105,7 @@ typedef struct bit_blaster_s {
   ivector_t aux_vector2;
   ivector_t aux_vector3;
   ivector_t aux_vector4;
+  bvar_t last_fresh;
 } bit_blaster_t;
 
 
