@@ -1600,6 +1600,10 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
   case EF_STATUS_PROJECTION_ERROR:
     if (error == PROJ_ERROR_NON_LINEAR) {
       print_error("the exists/forall solver failed: non-linear arithmetic is not supported");
+    } else if (error == PROJ_ERROR_UNSUPPORTED_ARITH_TERM ||
+	       error == PROJ_ERROR_BAD_ARITH_LITERAL ||
+	       error == PROJ_ERROR_BAD_PRESBURGER_LITERAL) {
+      print_error("the exists/forall solver failed: unsupported term");
     } else {
       freport_bug(g->err, "the exists/forall solver failed: projection error");
     }
