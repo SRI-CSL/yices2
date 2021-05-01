@@ -1600,6 +1600,10 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
   case EF_STATUS_PROJECTION_ERROR:
     if (error == PROJ_ERROR_NON_LINEAR) {
       print_error("the exists/forall solver failed: non-linear arithmetic is not supported");
+    } else if (error == PROJ_ERROR_UNSUPPORTED_ARITH_TERM ||
+	       error == PROJ_ERROR_BAD_ARITH_LITERAL ||
+	       error == PROJ_ERROR_BAD_PRESBURGER_LITERAL) {
+      print_error("the exists/forall solver failed: unsupported term");
     } else {
       freport_bug(g->err, "the exists/forall solver failed: projection error");
     }
@@ -3342,7 +3346,7 @@ static void efsolve_cmd(smt2_globals_t *g) {
  * - if the context is UNSAT, remove assumptions if any
  *
  * After this: the status can be either IDLE or UNSAT.
- * UNSAT means the there were no assumptions.
+ * UNSAT means that there were no assumptions.
  */
 static void cleanup_context(smt2_globals_t *g) {
   if (g->model != NULL) {
