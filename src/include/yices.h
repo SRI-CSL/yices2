@@ -2795,8 +2795,6 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                         | "true"         | enable model interpolation
  *
  *
- *
- *
  * The function returns -1 if there's an error, 0 otherwise.
  *
  * Error codes:
@@ -3168,39 +3166,65 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
 									   uint32_t n, const term_t t[]);
 
 /*
- * Check satisfiability under model: check whether the assertions stored in ctx
- * conjoined with the assignment of the model is satisfiable. The context must
- * have MCSAT and model inerpolation enabled.
+ * Check satisfiability modulo a model.
  *
+ * Check whether the assertions stored in ctx conjoined with a variable assignment defined by a
+ * model are satisfiable.
+ * - ctx must be a context initialized with support for MCSAT
+ *   (see yices_new_context, yices_new_config, yices_set_config).
  * - params is an optional structure to store heuristic parameters
- * - if params is NULL, default parameter settings are used.
- * - model = model to assume
- * - n = number of assumptions
- * - t = variables to use, i.e., we check context && t = mdl(t)
- * - the variables t[0] ... t[n-1] must all be uninterpreted terms
+ *   if params is NULL, default parameter settings are used.
+ * - mdl is a model
+ * - t is an array of n terms
+ * - the terms t[0] ... t[n-1] must all be uninterpreted terms
  *
- * It behaves the same as the previous function. Note that the model will take
- * default values for variables in t that are not explicitly defined.
+ * This function checks statisfiability of the constraints in ctx conjoined with
+ * a conjunction of equalities defined by t[i] and the model, namely,
+ *    t[0] == v_0 /\ .... /\ t[n-1] = v_{n-1}
+ * where v_i is the value of t[i] in mdl.
+ *
+ * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
+ *
+ * Error codes: TBD
  *
  * If the context does not have the MCSAT solver enabled, STATUS_ERROR is returned.
- * If this function returns STATUS_UNSAT, and model interpolation is enabled,
- * then one can construct a model interpolant by calling function
- * yices_get_model_interpolant.
+ *
+ * If this function returns STATUS_UNSAT and the context supports
+ * model interpolation, then one can construct a model interpolant by
+ * calling function yices_get_model_interpolant.
  */
-__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx,
-    const param_t *params, model_t *mdl, uint32_t n, const term_t t[]);
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
+								     model_t *mdl, uint32_t n, const term_t t[]);
 
 /*
- * Check satisfiability: check whether combined assertions stored in ctx are satisfiable.
+ * Check satisfiability and compute interpolant.
  *
+ * Check whether the combined assertions stored in ctx are satisfiable. If they are
+ * not compute an interpolants (defined on variables common to both contexts).
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
  *
- * If this function returns STATUS_UNSAT, then one can obtain the interpolant from
- * the context. If the this function returns STATUS_SAT, and build_model is true,
- * the model can be obtained from the context (and is owned by the user). Otherwise,
- * the function returns STATUS_ERROR and sets the yices error report (code =
- * CTX_INVALID_OPERATION).
+ * The interpolation_context is a structure with four components defined as follows:
+ *
+ *  typedef  struct interpolation_context_s {
+ *     context_t *ctx_A;
+ *     context_t *ctx_B;
+ *     term_t interpolant;
+ *     model_t *model;
+ *  } interpolation_context_t;
+ *
+ * To call this function:
+ * - ctx->ctx_A must be a context initialized with support for MCSAT and interpolation.
+ * - ctx->ctx_B can be an other context (not necessarily with MCSAT support)
+ *
+ * If this function returns STATUS_UNSAT, then an interpolant is returned in ctx->interpolant.
+ *
+ * If this function returns STATUS_SAT and build_model is true, then
+ * a model is returned in ctx->model. This model must be freed when no-longer need by
+ * calling yices_free_model.
+ *
+ * If something is wrong, the function returns STATUS_ERROR and sets the yices error report
+ * (code = CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model);
 
@@ -3326,7 +3350,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
  * Construct and return a model interpolant.
  *
  * If ctx status is unsat, this function returns a model interpolant.
- * Otherwise, it sets an error core an NULL_TERM.
+ * Otherwise, it sets an error code and return NULL_TERM.
  *
  * This is intended to be used after a call to
  * yices_check_context_with_model that returned STATUS_UNSAT. In

@@ -629,7 +629,6 @@ static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint
   value_t x_value;
   ivector_t assumptions;
   smt_status_t status;
-
   model_t mdl;
   evaluator_t mdl_evaluator;
 
