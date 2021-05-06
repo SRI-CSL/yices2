@@ -1115,7 +1115,8 @@ static void print_yices_error(bool full) {
   case MCSAT_ERROR_UNSUPPORTED_THEORY:
     print_out("mcsat: unsupported theory");
     break;
-  case MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED:
+
+  case MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED:
     print_out("mcsat: checking with assumptions only supports variables as assumptions");
     break;
 
@@ -3360,9 +3361,7 @@ static void cleanup_context(smt2_globals_t *g) {
     free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
   }
-  if (g->check_with_model_status != STATUS_UNSAT) {
-    g->check_with_model_status = STATUS_IDLE;
-  }
+  g->check_with_model_status = STATUS_IDLE;
 
   switch (context_status(g->ctx)) {
   case STATUS_UNKNOWN:
@@ -3456,9 +3455,9 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
-  if (g->unsat_assumptions != NULL) {
+  if (g->unsat_assumptions != NULL || g->check_with_model_status != STATUS_IDLE) {
     /*
-     * the context's status was based on the assumptions
+     * the context's status was based on the assumptions or assumed model
      * we reset everything here to be safe.
      */
     cleanup_context(g);
@@ -4269,6 +4268,7 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
  */
 static void show_unsat_model_interpolant(smt2_globals_t *g) {
   smt2_pp_t printer;
+  term_t unsat_model_interpolant;
 
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
@@ -4279,44 +4279,39 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
       print_error("Call (check-sat-assuming-model) first");
     }
   } else {
-    // Could be that we called check-sat after
-    smt_status_t ctx_status = context_status(g->ctx);
-    switch (ctx_status) {
+    switch (context_status(g->ctx)) {
     case STATUS_SAT:
-    case STATUS_UNSAT:
-      g->check_with_model_status = ctx_status;
+      print_error("No model interpolant. The context is satisfiable");
       break;
-    default:
-      break;
-    }
-    smt_status_t status = g->check_with_model_status;
-    switch (status) {
+
     case STATUS_UNKNOWN:
-    case STATUS_SAT:
-	  print_error("No unsat interpolant. The context is satisfiable");
-	  break;
-
-    case STATUS_UNSAT: {
-      term_t unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
-	  if (unsat_model_interpolant == NULL_TERM) {
-	    print_error("Call (check-sat-assuming-model) first");
-	  } else {
-	    init_pretty_printer(&printer, g);
-	    pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
-	    delete_smt2_pp(&printer, true);
-	  }
-	  break;
-    }
-    case STATUS_IDLE:
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
-      print_error("No unsat interpolant. The context is not unsatisfiable");
+      print_error("No model interpolant. The context is not knwon to be unsatisfiable");
       break;
 
+    case STATUS_UNSAT:
+      unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
+      if (unsat_model_interpolant == NULL_TERM) {
+	print_error("Call (check-sat-assuming-model) first");
+      } else {
+	init_pretty_printer(&printer, g);
+	pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
+	delete_smt2_pp(&printer, true);
+      }
+      break;
+
+    case STATUS_IDLE:
+      print_error("Call (check-sat-assuming-model) first");
+      break;
+
+    case STATUS_INTERRUPTED:
+      print_error("No model interpolant. Last call to check-sat timedout");
+      break;
+
+    case STATUS_SEARCHING:
     default:
       print_out("BUG: unexpected status in get-unsat-model-interpolant");
-	  freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
-	  break;
+      freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
+      break;
     }
   }
 }
@@ -4589,6 +4584,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
 
   g->unsat_core = NULL;
   g->unsat_assumptions = NULL;
+  g->check_with_model_status = STATUS_IDLE;
 
   init_etk_queue(&g->token_queue);
   init_ivector(&g->token_slices, 0);
@@ -6746,7 +6742,8 @@ void smt2_check_sat_assuming_model(uint32_t n, const term_t vars[], const term_t
     } else {
       ctx_check_sat_assuming_model(&__smt2_globals, n, vars, values);
     }
-  }}
+  }
+}
 
 
 /*

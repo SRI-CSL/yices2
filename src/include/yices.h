@@ -3108,8 +3108,9 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
 
 
 /*
- * Check satisfiability: check whether the assertions stored in ctx
- * are satisfiable.
+ * Check satisfiability
+ *
+ * Check whether the assertions stored in ctx are satisfiable.
  * - params is an optional structure that stores heuristic parameters.
  * - if params is NULL, default parameter settings are used.
  *
@@ -3147,8 +3148,9 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
 
 
 /*
- * Check satisfiability under assumptions: check whether the
- * assertions stored in ctx conjoined with n assumptions is
+ * Check satisfiability under assumptions.
+ *
+ * Check whether the assertions stored in ctx conjoined with n assumptions are
  * satisfiable.
  * - params is an optional structure to store heuristic parameters
  * - if params is NULL, default parameter settings are used.
@@ -3156,9 +3158,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
  * - t = array of n assumptions
  * - the assumptions t[0] ... t[n-1] must all be valid Boolean terms
  *
- * It behaves the same as the previous function.
- *
- * If this function returns STATUS_UNSAT, then one can construct an unsat core by
+ * This function behaves the same as the previous function.
+ * If it returns STATUS_UNSAT, then one can construct an unsat core by
  * calling function yices_get_unsat_core. The unsat core is a subset of t[0] ... t[n-1]
  * that's inconsistent with ctx.
  */
@@ -3180,7 +3181,9 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  *
  * This function checks statisfiability of the constraints in ctx conjoined with
  * a conjunction of equalities defined by t[i] and the model, namely,
+ *
  *    t[0] == v_0 /\ .... /\ t[n-1] = v_{n-1}
+ *
  * where v_i is the value of t[i] in mdl.
  *
  * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
@@ -3349,18 +3352,19 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
 /*
  * Construct and return a model interpolant.
  *
- * If ctx status is unsat, this function returns a model interpolant.
+ * If ctx status is unsat and the ctx was configured with model-interpolation,
+ * this function returns a model interpolant.
  * Otherwise, it sets an error code and return NULL_TERM.
  *
  * This is intended to be used after a call to
- * yices_check_context_with_model that returned STATUS_UNSAT. In
- * this case, the function builds an model interpolant. The model interpolant
- * is a clause implied by the current context that is false in the model provides
- * to yices_check_context_with_model.
+ * yices_check_context_with_model that returned STATUS_UNSAT. In this
+ * case, the function builds an model interpolant. The model
+ * interpolant is a clause implied by the current context that is
+ * false in the model provides to yices_check_context_with_model.
  *
  * Error code:
+ * - CTX_OPERATION_NOT_SUPPORTED if the context is not configured with model interpolation
  * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
- * - CTX_INVALID_OPRRATION if the context is not configured with model interpolation
  */
 __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
 

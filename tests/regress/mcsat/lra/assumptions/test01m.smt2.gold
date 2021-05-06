@@ -2,4 +2,4 @@ sat
 (= x (/ 1 2))
 (= y (/ 1 2))
 (= z 0)
-(error "No unsat interpolant. The context is satisfiable")
+(error "No model interpolant. The context is satisfiable")

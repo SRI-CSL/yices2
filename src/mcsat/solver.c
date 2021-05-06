@@ -1119,6 +1119,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   mcsat->status = STATUS_IDLE;
+  mcsat->interpolant = NULL_TERM; // BD
 }
 
 /**
