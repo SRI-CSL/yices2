@@ -9416,7 +9416,7 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
  * NOTEs:
  * - if the context is configured for model interpolation, it will
  *   construct an interpolant on calls to check_context_with_model
- *   and also on class to a regular check_context.
+ *   and also on calls to regular check_context.
  * - in the later case, the interpolant is 'false'
  */
 EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {

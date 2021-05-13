@@ -67,8 +67,8 @@ typedef struct solver_new_variable_notify_s {
 } solver_new_variable_notify_t;
 
 /**
- * Context of each plugin encapsulate it's essential information, including
- * the solver itself, it's index in the solver and it's name (for debugging
+ * Context of each plugin encapsulates its essential information, including
+ * the solver itself, its index in the solver and its name (for debugging
  * purposes).
  */
 typedef struct mcsat_plugin_context_s {

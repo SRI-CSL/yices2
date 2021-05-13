@@ -779,7 +779,17 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
         bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
         if (!consistent) {
           nra_plugin_report_conflict(nra, prop, constraint_var);
-        }
+        } else if (variable_db_is_int(nra->ctx->var_db, x)) {
+	  // BD: if x is an integer, we must check that there are integers in the interval.
+	  lp_value_t v;
+	  lp_value_construct_none(&v);
+	  lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
+	  if (! lp_value_is_integer(&v)) {
+	    nra->conflict_variable_int = x;
+	    nra_plugin_report_conflict(nra, prop, x);
+	  }
+	  lp_value_destruct(&v);
+	}
       }
     }
 
