@@ -53,6 +53,7 @@ char *clone_string(const char *str) {
  */
 void string_decref(char *s) {
   string_t *h;
+
   h = string_header(s);
   assert(h->ref > 0);
   h->ref --;

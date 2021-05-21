@@ -67,8 +67,8 @@ typedef struct solver_new_variable_notify_s {
 } solver_new_variable_notify_t;
 
 /**
- * Context of each plugin encapsulate it's essential information, including
- * the solver itself, it's index in the solver and it's name (for debugging
+ * Context of each plugin encapsulates its essential information, including
+ * the solver itself, its index in the solver and its name (for debugging
  * purposes).
  */
 typedef struct mcsat_plugin_context_s {
@@ -1119,6 +1119,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   mcsat->status = STATUS_IDLE;
+  mcsat->interpolant = NULL_TERM; // BD
 }
 
 /**

@@ -2484,8 +2484,8 @@ static bool term_is_var_or_uninterpreted(term_table_t *tbl, term_t t) {
   case UNINTERPRETED_TERM:
     return true;
   default:
-  return false;
- }
+    return false;
+  }
 }
 
 // Check that all terms of v are variables or uninterpreted terms
@@ -9040,13 +9040,12 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   return stat;
 }
 
-//IAM: experiment to see if we can keep some concurrency.
+
+/*
+ * CHECK WITH ASSUMPTIONS
+ */
 static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
-  if (! check_good_terms(__yices_globals.manager, n, a) ||
-      ! check_boolean_args(__yices_globals.manager, n, a)) {
-    return false; // Bad assumptions
-  }
-  return true;
+  return check_good_terms(__yices_globals.manager, n, a) && check_boolean_args(__yices_globals.manager, n, a);
 }
 
 static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
@@ -9145,8 +9144,102 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
-EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model) {
 
+/*
+ * CHECK WITH A MODEL
+ */
+
+/*
+ * Check that all terms in array t[0 ... n-1] are valid and that they are all
+ * uninterpreted or variables.
+ */
+static bool _o_good_terms_for_check_with_model(uint32_t n, const term_t t[]) {
+  return check_good_terms(__yices_globals.manager, n, t) && check_good_vars_or_uninterpreted(__yices_globals.manager, n, t);
+}
+
+static bool good_terms_for_check_with_model(uint32_t n, const term_t t[]) {
+  MT_PROTECT(bool, __yices_globals.lock, _o_good_terms_for_check_with_model(n, t));
+}
+
+/*
+ * Check context with model
+ * - param = parameter for check sat (or NULL for default parameters)
+ * - mdl = a model
+ * - t = array of n variables or uninterpred terms
+ *
+ * This checks ctx /\ t[0] = val(mdl, t[0]) /\ .... /\ t[n-1] = val(mdl, t[n-1])
+ */
+EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
+  param_t default_params;
+  smt_status_t stat;
+
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  if (! good_terms_for_check_with_model(n, t)) {
+    // this sets the error code already (to VARIABLE_REQUIRED)
+    // but Dejan created another error code that means the same thing here.
+    set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    set_error_code(CTX_INVALID_OPERATION);
+    return STATUS_ERROR;
+
+  case STATUS_ERROR:
+  default:
+    set_error_code(INTERNAL_EXCEPTION);
+    return STATUS_ERROR;
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_model(ctx, params, mdl, n, t);
+  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+  return stat;
+}
+
+
+
+/*
+ * CHECK SAT AND COMPUTE INTERPOLANT
+ */
+EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model) {
   int32_t ret = 0;
   model_t *model = NULL;
   smt_status_t result = STATUS_UNKNOWN;
@@ -9244,7 +9337,7 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     ctx->interpolant = yices_and(interpolants.size, interpolants.data);
   } else if (result == STATUS_SAT && build_model) {
     // Construct the model if SAT and asked
-    ctx->model = yices_get_model(ctx->ctx_A, 1);
+    ctx->model = yices_get_model(ctx->ctx_A, true);
   }
 
   // Pop both contexts
@@ -9270,106 +9363,6 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
   return result;
 }
 
-
-/*
- * Check context with model
- * - n = number of model assumptions
- * - a[0] ... a[n-1] = n assumptions.
- */
-EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
-    model_t* mdl, uint32_t n, const term_t t[]) {
-
-  param_t default_params;
-  smt_status_t stat;
-  uint32_t i;
-
-  // cleanup
-  switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (! context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (! context_has_mcsat(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (! context_supports_model_interpolation(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    context_clear(ctx);
-    break;
-
-  case STATUS_IDLE:
-    break;
-
-  case STATUS_UNSAT:
-    if (!context_supports_multichecks(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (!context_has_mcsat(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    if (! context_supports_model_interpolation(ctx)) {
-      error_report_t *error = get_yices_error();
-      error->code = CTX_OPERATION_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-    context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
-    }
-    break;
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED: {
-    error_report_t *error = get_yices_error();
-    error->code = CTX_INVALID_OPERATION;
-    return STATUS_ERROR;
-  }
-  case STATUS_ERROR:
-  default: {
-    error_report_t *error = get_yices_error();
-    error->code = INTERNAL_EXCEPTION;
-    return STATUS_ERROR;
-  }
-  }
-
-  assert(context_status(ctx) == STATUS_IDLE);
-
-  // Make sure only variables are allowed
-  for (i = 0; i < n; ++ i) {
-    bool is_variable = term_is_var_or_uninterpreted(ctx->terms, t[i]);
-    if (!is_variable) {
-      error_report_t *error = get_yices_error();
-      error->code = MCSAT_ERROR_NAMED_TERMS_NOT_SUPPORTED;
-      return STATUS_ERROR;
-    }
-  }
-
-  // set parameters
-  if (params == NULL) {
-    yices_default_params_for_context(ctx, &default_params);
-    params = &default_params;
-  }
-
-  // call check
-  stat = check_context_with_model(ctx, params, mdl, n, t);
-  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
-    context_cleanup(ctx);
-  }
-
-  return stat;
-}
 
 
 /*
@@ -9409,15 +9402,39 @@ EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
   return 0;
 }
 
+
+/**********************
+ * MODEL INTERPOLANT  *
+ *********************/
+
 /*
- * Construct a model interpolant core.
+ * Return the model interpolant
+ * - this fails and return NULL_TERM if the context does not support
+ *   model interpolation.
+ * - this also fails if the context's status is not UNSAT
+ *
+ * NOTEs:
+ * - if the context is configured for model interpolation, it will
+ *   construct an interpolant on calls to check_context_with_model
+ *   and also on calls to regular check_context.
+ * - in the later case, the interpolant is 'false'
  */
 EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
+  term_t result;
+
+  result = NULL_TERM;
   if (! context_supports_model_interpolation(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return -1;
+  } else if (context_status(ctx) != STATUS_UNSAT) {
+    set_error_code(CTX_INVALID_OPERATION);
+  } else {
+    result = context_get_unsat_model_interpolant(ctx);
+    if (result == NULL_TERM) {
+      set_error_code(INTERNAL_EXCEPTION);
+    }
   }
-  return context_get_unsat_model_interpolant(ctx);
+
+  return result;
 }
 
 

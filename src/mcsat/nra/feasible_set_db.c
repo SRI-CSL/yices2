@@ -29,7 +29,7 @@
 
 /**
  * Element in the list. Each element contains a pointer to the previous
- * version, the reason for the update (reason) and it's feasible set, and
+ * version, the reason for the update (reason) and its feasible set, and
  * the new feasible set.
  */
 typedef struct {
@@ -212,7 +212,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   bool feasible = true;
 
   if (ctx_trace_enabled(db->ctx, "nra::feasible_set_db")) {
-    fprintf(ctx_trace_out(db->ctx), "feasible_set_db_update");
+    fprintf(ctx_trace_out(db->ctx), "feasible_set_db_update\n");
     feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
 

@@ -1231,9 +1231,6 @@ void model_pp_full(yices_pp_t *printer, model_t *model) {
     // compute their values
     eval_terms_in_model(&eval, v.data, v.size);
 
-    n = v.size;
-    a = v.data;
-
     // second pass: collect all uninterpreted terms that
     // have a value in model or in the evaluator.
     ivector_reset(&v);
@@ -1242,6 +1239,8 @@ void model_pp_full(yices_pp_t *printer, model_t *model) {
 
     // sort the terms so that we have consistent printouts with different
     // algorithms
+    n = v.size;
+    a = v.data;
     int_array_sort(a, n);
 
     eval_pp_bool_assignments(printer, &eval, a, n);

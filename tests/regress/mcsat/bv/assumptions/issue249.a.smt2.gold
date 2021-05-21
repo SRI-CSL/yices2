@@ -1,4 +1,4 @@
 unsat
 false
 sat
-(error "No unsat interpolant. The context is satisfiable")
+(error "No model interpolant. The context is satisfiable")

@@ -611,19 +611,23 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
 
 /*
  * Check with given model
- * - if mcsat status is not IDLE, return the status.
+ * - if mcsat status is not IDLE, return the status
  */
 smt_status_t check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
-  assert(ctx->mcsat != NULL);
   smt_status_t stat;
+
+  assert(ctx->mcsat != NULL);
 
   stat = mcsat_status(ctx->mcsat);
   if (stat == STATUS_IDLE) {
     mcsat_solve(ctx->mcsat, params, mdl, n, t);
     stat = mcsat_status(ctx->mcsat);
-    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
-      context_clear(ctx);
-    }
+
+    // BD: this looks wrong. We shouldn't call clear yet.
+    // we want the status to remain STATUS_UNSAT until the next call to check or assert.
+    //    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
+    //      context_clear(ctx);
+    //    }
   }
 
   return stat;
@@ -1195,7 +1199,11 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
   }
 }
 
-extern term_t context_get_unsat_model_interpolant(context_t *ctx) {
+
+/*
+ * MODEL INTERPOLANT
+ */
+term_t context_get_unsat_model_interpolant(context_t *ctx) {
   assert(ctx->mcsat != NULL);
   return mcsat_get_unsat_model_interpolant(ctx->mcsat);
 }
