@@ -107,7 +107,7 @@ int32_t print_error(FILE *f) {
 
   error = yices_error_report();
   switch (error->code) {
-  case NO_ERROR:
+  case NO_YICES_ERROR:
     code = fprintf(f, "no error\n");
     break;
 
@@ -620,7 +620,7 @@ char *error_string(void) {
 
   error = yices_error_report();
   switch (error->code) {
-  case NO_ERROR:
+  case NO_YICES_ERROR:
     nchar = snprintf(buffer, BUFFER_SIZE, "no error");
     break;
 

@@ -44,22 +44,22 @@ static const vars_t vars =
 static board_t b;
 
 /* initialize the board */
-static bool init_board(void){
+static bool init_board(void) {
   int32_t i;
   int32_t j;
 
-  if(integer_t == NULL_TYPE){
+  if (integer_t == NULL_TYPE) {
     integer_t = yices_int_type();
     assert(integer_t != NULL_TYPE);
   }
 
   for(i = 0; i < DIMENSION; i++)
-    for(j = 0; j < DIMENSION; j++){
+    for(j = 0; j < DIMENSION; j++) {
       term_t slot = yices_new_uninterpreted_term(integer_t);
 
       yices_set_term_name(slot, vars[i][j]);
 
-      if(slot == NULL_TERM){
+      if (slot == NULL_TERM) {
         return false;
       }
       b[i][j] = slot;
@@ -75,7 +75,7 @@ real	0m17.724s
 user	0m17.708s
 sys	    0m0.004s
 
-term_t between_1_and_9(term_t x){
+term_t between_1_and_9(term_t x) {
   return yices_and2(yices_arith_leq_atom(yices_int32(1), x), yices_arith_leq_atom(x, yices_int32(9)));
 }
  */
@@ -87,10 +87,10 @@ user	0m0.204s
 sys	    0m0.012s
 
  */
-term_t between_1_and_9(term_t x){
+term_t between_1_and_9(term_t x) {
   int32_t i;
   term_t choices[9];
-  for(i = 0; i < DIMENSION; i++){
+  for(i = 0; i < DIMENSION; i++) {
     choices[i] = yices_arith_eq_atom(yices_int32(i + 1), x);
   }
   return yices_or(9, choices);
@@ -101,7 +101,7 @@ term_t between_1_and_9(term_t x){
 /* A yices term asserting that all 9 terms are distinct. Not the most elegant but ... */
 term_t distinct(term_t t1, term_t t2, term_t t3,
                 term_t t4, term_t t5, term_t t6,
-                term_t t7, term_t t8, term_t t9){
+                term_t t7, term_t t8, term_t t9) {
   term_t dset[9];
 
   dset[0] = t1;
@@ -117,25 +117,25 @@ term_t distinct(term_t t1, term_t t2, term_t t3,
   return yices_distinct(9, dset);
 }
 
-bool assert_sudoku_rules(context_t *ctx, board_t b){
+bool assert_sudoku_rules(context_t *ctx, board_t b) {
   int32_t yices_errcode;
   int32_t i;
   int32_t j;
 
   for(i = 0; i < DIMENSION; i++)
-    for(j = 0; j < DIMENSION; j++){
+    for(j = 0; j < DIMENSION; j++) {
       term_t b_1_9 = between_1_and_9(b[i][j]);
-      if(DEBUG){
+      if (DEBUG) {
         yices_pp_term(stdout, b_1_9, 1024, 0, 0);
       }
       yices_errcode = yices_assert_formula(ctx, b_1_9);
-      if(yices_errcode != NO_ERROR){
+      if (yices_errcode != NO_YICES_ERROR) {
         fprintf(stderr, "assert_sudoku_rules 'between_1_and_9' failed: %s\n", yices_error_string());
         return false;
       }
     }
 
-  for(i = 0; i < DIMENSION; i++){
+  for(i = 0; i < DIMENSION; i++) {
     /* row i is distinct */
     yices_assert_formula(ctx, distinct(b[i][0], b[i][1], b[i][2],
                                        b[i][3], b[i][4], b[i][5],
@@ -148,8 +148,8 @@ bool assert_sudoku_rules(context_t *ctx, board_t b){
   }
 
   /* each 3x3 square is distinct */
-  for(i = 0; i < DIMENSION / 3; i++){
-    for(j = 0; j < DIMENSION / 3; j++){
+  for(i = 0; i < DIMENSION / 3; i++) {
+    for(j = 0; j < DIMENSION / 3; j++) {
       yices_assert_formula(ctx, distinct(b[(3 * i) + 0][(3 * j)], b[(3 * i) + 0][(3 * j) + 1], b[(3 * i) + 0][(3 * j) + 2],
                                          b[(3 * i) + 1][(3 * j)], b[(3 * i) + 1][(3 * j) + 1], b[(3 * i) + 1][(3 * j) + 2],
                                          b[(3 * i) + 2][(3 * j)], b[(3 * i) + 2][(3 * j) + 1], b[(3 * i) + 2][(3 * j) + 2]));
@@ -158,18 +158,18 @@ bool assert_sudoku_rules(context_t *ctx, board_t b){
  return true;
 }
 
-bool pose_problem(context_t *ctx, board_t b, const game_t g){
+bool pose_problem(context_t *ctx, board_t b, const game_t g) {
   int32_t yices_errcode;
   int32_t i;
   int32_t j;
 
-  for(i = 0; i < DIMENSION; i++){
-    for(j = 0; j < DIMENSION; j++){
+  for(i = 0; i < DIMENSION; i++) {
+    for(j = 0; j < DIMENSION; j++) {
       int32_t value = g[i][j];
       assert((value >= 0) && (value <= 9));
-      if(value > 0){
+      if (value > 0) {
         yices_errcode = yices_assert_formula(ctx, yices_arith_eq_atom(yices_int32(value), b[i][j]));
-        if(yices_errcode != NO_ERROR){
+        if (yices_errcode != NO_YICES_ERROR) {
           fprintf(stderr, "pose_problem for row %d column %d failed: %s\n", i, j, yices_error_string());
           return false;
         }
@@ -181,34 +181,34 @@ bool pose_problem(context_t *ctx, board_t b, const game_t g){
 }
 
 
-bool get_solution(context_t *ctx, board_t b,  game_t solution){
+bool get_solution(context_t *ctx, board_t b,  game_t solution) {
   int32_t yices_errcode;
   int32_t i;
   int32_t j;
   int32_t value;
   model_t *model = yices_get_model(ctx, 1);
 
-  if (model == NULL){
+  if (model == NULL) {
         fprintf(stderr, "get_solution failed (yices_get_model returned NULL): %s\n", yices_error_string());
         return false;
   }
 
-  if(DEBUG){
+  if (DEBUG) {
     yices_pp_model(stdout, model, 1024, 0, 0);
   }
 
-  for(i = 0; i < DIMENSION; i++){
-    for(j = 0; j < DIMENSION; j++){
+  for(i = 0; i < DIMENSION; i++) {
+    for(j = 0; j < DIMENSION; j++) {
 
       yices_errcode = yices_get_int32_value(model, b[i][j], &value);
 
-      if (yices_errcode != NO_ERROR){
+      if (yices_errcode != NO_YICES_ERROR) {
         fprintf(stderr, "get_solution for row %d column %d failed: %s\n", i, j, yices_error_string());
         return false;
       }
 
       solution[i][j] = value;
-      if(DEBUG){ fprintf(stderr, "solution[%d][%d] = %d\n", i, j, value); }
+      if (DEBUG) { fprintf(stderr, "solution[%d][%d] = %d\n", i, j, value); }
 
     }
   }
@@ -218,19 +218,19 @@ bool get_solution(context_t *ctx, board_t b,  game_t solution){
   return true;
 }
 
-bool check_solution(const game_t game, const game_t solution){
+bool check_solution(const game_t game, const game_t solution) {
   int32_t i;
   int32_t j;
   int32_t answer;
   int32_t required;
 
-  for(i = 0; i < DIMENSION; i++){
-    for(j = 0; j < DIMENSION; j++){
+  for(i = 0; i < DIMENSION; i++) {
+    for(j = 0; j < DIMENSION; j++) {
       answer = solution[i][j];
-      if (answer <= 0){ return false; }
-      if (answer > 9){ return false; }
+      if (answer <= 0) { return false; }
+      if (answer > 9) { return false; }
       required = game[i][j];
-      if(required > 0 && required != answer){ return false; }
+      if (required > 0 && required != answer) { return false; }
     }
   }
 
@@ -256,19 +256,19 @@ const game_t test_game_1 =
   };
 
 
-void print_solution(FILE* fp, game_t solution){
+void print_solution(FILE* fp, game_t solution) {
   int32_t i;
   int32_t j;
 
-  for(i = 0; i < DIMENSION; i++){
-    for(j = 0; j < DIMENSION; j++){
-      if(j > 0 && (j % 3 == 0)){
+  for(i = 0; i < DIMENSION; i++) {
+    for(j = 0; j < DIMENSION; j++) {
+      if (j > 0 && (j % 3 == 0)) {
         putchar(' ');
       }
-      if(i > 0 && i % 3 == 0 && j == 0){
+      if (i > 0 && i % 3 == 0 && j == 0) {
         putchar('\n');
       }
-      if( j % 9 == 0){
+      if ( j % 9 == 0) {
         putchar('\n');
       }
       putchar(solution[i][j] + 48);
@@ -284,7 +284,7 @@ int main(int argc, char* argv[]) {
 
   yices_init();
 
-  if(!init_board()){
+  if (!init_board()) {
     fprintf(stderr, "Initializing board failed: %s\n", yices_error_string());
   }
 
@@ -302,19 +302,19 @@ int main(int argc, char* argv[]) {
     yices_free_config(config);
 
 
-    if(!assert_sudoku_rules(ctx, b)){
+    if (!assert_sudoku_rules(ctx, b)) {
       fprintf(stderr, "Asserting Sudoku rules failed: %s\n", yices_error_string());
     }
 
-    if(!pose_problem(ctx, b, test_game_1)){
+    if (!pose_problem(ctx, b, test_game_1)) {
       fprintf(stderr, "Asserting the initial conditions failed: %s\n", yices_error_string());
     }
 
     status = yices_check_context(ctx, NULL);
 
-    if(status == STATUS_SAT){
+    if (status == STATUS_SAT) {
 
-      if(get_solution(ctx, b,  solution)){
+      if (get_solution(ctx, b,  solution)) {
 
         print_solution(stdout, solution);
 

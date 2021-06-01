@@ -798,10 +798,10 @@ static void proj_subst_vector(projector_t *proj, ivector_t *v) {
 
 static void proj_elim_by_model_value(projector_t *proj) {
   proj_build_val_subst(proj);
-  if (proj->flag == NO_ERROR) {
+  if (proj->flag == PROJ_NO_ERROR) {
     proj_subst_vector(proj, &proj->gen_literals);
   }
-  if (proj->flag == NO_ERROR) {
+  if (proj->flag == PROJ_NO_ERROR) {
     proj_subst_vector(proj, &proj->arith_literals);
   }
   proj_delete_val_subst(proj);
@@ -821,10 +821,10 @@ static void proj_elim_by_model_value(projector_t *proj) {
  * - v is not reset
  */
 proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
-  if (proj->flag == NO_ERROR && proj->gen_literals.size > 0) {
+  if (proj->flag == PROJ_NO_ERROR && proj->gen_literals.size > 0) {
     proj_elim_by_substitution(proj);
   }
-  if (proj->flag == NO_ERROR && proj->arith_literals.size > 0) {
+  if (proj->flag == PROJ_NO_ERROR && proj->arith_literals.size > 0) {
     if (proj->is_presburger) {
       proj_process_presburger_literals(proj);
     } else {
@@ -832,13 +832,13 @@ proj_flag_t run_projector(projector_t *proj, ivector_t *v) {
     }
   }
 
-  if (proj->flag == NO_ERROR && proj->num_evars > 0) {  
+  if (proj->flag == PROJ_NO_ERROR && proj->num_evars > 0) {
     // some variables were not eliminated in the first two phases
     // replace them by their value in the model
     proj_elim_by_model_value(proj);
   } 
   
-  if (proj->flag == NO_ERROR) {
+  if (proj->flag == PROJ_NO_ERROR) {
     /*
      * Copy the results in v
      */

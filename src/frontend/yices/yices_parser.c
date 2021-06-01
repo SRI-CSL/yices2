@@ -115,12 +115,12 @@ static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
 
 /*
  * Table for conversion of tstack error codes to yices error codes
- * (NO_ERROR means a bug)
+ * (NO_YICES_ERROR means a bug)
  */
 static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
-  NO_ERROR,                     //  TSTACK_NO_ERROR
-  NO_ERROR,                     //  TSTACK_INTERNAL_ERROR
-  NO_ERROR,                     //  TSTACK_OP_NOT_IMPLEMENTED
+  NO_YICES_ERROR,               //  TSTACK_NO_ERROR
+  NO_YICES_ERROR,               //  TSTACK_INTERNAL_ERROR
+  NO_YICES_ERROR,               //  TSTACK_OP_NOT_IMPLEMENTED
   UNDEFINED_TERM_NAME,          //  TSTACK_UNDEF_TERM
   UNDEFINED_TYPE_NAME,          //  TSTACK_UNDEF_TYPE
   INVALID_RATIONAL_FORMAT,      //  TSTACK_RATIONAL_FORMAT
@@ -131,7 +131,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   REDEFINED_TERM_NAME,          //  TSTACK_TERMNAME_REDEF
   DUPLICATE_NAME_IN_SCALAR,     //  TSTACK_DUPLICATE_SCALAR_NAME
   DUPLICATE_VAR_NAME,           //  TSTACK_DUPLICATE_VAR_NAME
-  NO_ERROR,                     //  TSTACK_INVALID_OP
+  NO_YICES_ERROR,               //  TSTACK_INVALID_OP
   WRONG_NUMBER_OF_ARGUMENTS,    //  TSTACK_INVALID_FRAME
   INTEGER_OVERFLOW,             //  TSTACK_INTEGER_OVERFLOW
   NONNEG_INT_REQUIRED,          //  TSTACK_NEGATIVE_EXPONENT
@@ -148,8 +148,8 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   BVARITH_ERROR,                //  TSTACK_BVARITH_ERROR
   BVARITH_ERROR,                //  TSTACK_BVLOGIC_ERROR
   TYPE_MISMATCH_IN_DEF,         //  TSTACK_TYPE_ERROR_IN_DEFTERM
-  NO_ERROR,                     //  TSTACK_STRINGS_ARE_NOT_TERMS
-  NO_ERROR,                     //  TSTACK_YICES_ERROR
+  NO_YICES_ERROR,               //  TSTACK_STRINGS_ARE_NOT_TERMS
+  NO_YICES_ERROR,               //  TSTACK_YICES_ERROR
 };
 
 
@@ -164,7 +164,7 @@ static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
   error->column = tstack->error_loc.column;
   if (exception != TSTACK_YICES_ERROR) {
     error->code = tstack_error2yices_error[exception];
-    if (error->code == NO_ERROR) {
+    if (error->code == NO_YICES_ERROR) {
       report_bug("Internal error");
     }
   }

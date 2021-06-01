@@ -297,7 +297,7 @@ typedef enum yices_gen_mode {
  *   that depends on the error code.
  */
 typedef enum error_code {
-  NO_ERROR = 0,
+  NO_YICES_ERROR = 0,
 
   /*
    * Errors in type or term construction
