@@ -57,7 +57,7 @@ typedef struct ef_skolemize_s {
  * Initialize the skolemize object
  */
 extern void init_ef_skolemize(ef_skolemize_t *sk, ef_analyzer_t *analyzer, ef_prob_t *prob,
-    bool f_ite, bool f_iff, bool ematching);
+			      bool f_ite, bool f_iff, bool ematching);
 
 
 /*
@@ -67,7 +67,12 @@ extern void delete_ef_skolemize(ef_skolemize_t *sk);
 
 
 /*
- * Get the skolemized version of term t
+ * Skolemize an assertion t and flatten conjuncts:
+ * - add the result to vector v
+ * - this first computes the skolemization sk of term t
+ * - if the term sk is a conjunction (i.e. of the form (NOT (OR ...)) then
+ *   sk is flattened and the conjuncts are added to vector v
+ * - if sk is not a conjunction, it's added as is to v.
  */
 extern void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v);
 
@@ -77,35 +82,6 @@ extern void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v);
  */
 extern void ef_skolemize_patterns(ef_skolemize_t *sk);
 
-
-/*
- * Skolemize variable x using uvars as skolem arguments
- * - n = number of variables in uvars
- * - increment ef->num_skolem_funs if n>0.
- * - return a pair of terms (func, fapp):
- *    func = skolem function or skolem constant
- *    fapp = term that represents x
- *
- * - if n = 0:
- *    func is a skolem constant of the same type as x
- *    fapp is equal to func
- * - if n > 0
- *    func is a skolem function of type [s_1 ... s_n-> tau]
- *    fapp is the term (func uvars[0] ... unvars[n-1])
- *   where s_i = type of uvars[i-1] and tau = type of x.
- */
-typedef struct ef_skolem_s {
-  term_t func;
-  term_t fapp;
-} ef_skolem_t;
-
-extern ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars);
-
-
-/*
- * Skolemize existentials in an analyzer
- */
-extern term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t *parent, term_t t);
 
 
 #endif /* __EF_SKOLEMIZE_H */

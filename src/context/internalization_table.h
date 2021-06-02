@@ -276,6 +276,11 @@ extern term_t intern_tbl_reverse_map(intern_tbl_t *tbl, occ_t x);
 
 
 /*
+ * Return the term mapped to literal l if any
+ */
+extern term_t intern_tbl_reverse_lit_map(intern_tbl_t *tbl, literal_t l);
+
+/*
  * SUBSTITUTIONS
  */
 

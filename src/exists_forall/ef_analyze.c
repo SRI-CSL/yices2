@@ -1312,7 +1312,7 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, const term_
 
   if (!ef->uint_skolem) {
     return_code = EF_NESTED_QUANTIFIER;
-      goto done;
+    goto done;
   }
 
   n = v->size;

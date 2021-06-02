@@ -410,7 +410,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   if (ip->val < 0) {
     ip->val = r;
 #if 0
-    printf("  mapping: ");
+    printf("  inverse-map:  mapping: ");
     print_intern_reverse(stdout, tbl, x);
 #endif
   }
@@ -444,20 +444,29 @@ void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x) {
  * Return the term mapped to occurrence x (if any)
  */
 term_t intern_tbl_reverse_map(intern_tbl_t *tbl, occ_t x) {
-  term_t r;
-  bool negate;
   int_hmap_pair_t *ip;
 
-  negate = is_neg_occ(x);
-  if (negate) {
-    x = opposite_occ(x);
-  }
-
   ip = int_hmap_find(&tbl->reverse_map, occ2code(x));
-  if (ip != NULL) {
-    r = ip->val;
-    return negate ? opposite_term(r) : r;
-  }
+  if (ip != NULL) return ip->val;
+
+  ip = int_hmap_find(&tbl->reverse_map, occ2code(opposite_occ(x)));
+  if (ip != NULL) return opposite_term(ip->val);
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Return the term mapped to literal l if any
+ */
+term_t intern_tbl_reverse_lit_map(intern_tbl_t *tbl, literal_t l) {
+  int_hmap_pair_t *ip;
+
+  ip = int_hmap_find(&tbl->reverse_map, literal2code(l));
+  if (ip != NULL) return ip->val;
+
+  ip = int_hmap_find(&tbl->reverse_map, literal2code(not(l)));
+  if (ip != NULL) return opposite_term(ip->val);
 
   return NULL_TERM;
 }

@@ -36,7 +36,6 @@
 typedef struct instance_s {
   term_t *vdata;            // variables to be replaced
   occ_t *odata;             // occurrences in egraph that replaces variables
-
   uint32_t nelems;          // size of vdata/odata
   int32_t compile_idx;      // index of yield instruction in compile instruction table
 } instance_t;
@@ -84,9 +83,6 @@ extern int32_t instance_table_alloc(instance_table_t *table, uint32_t n);
  * Create or retrieve the instance
  */
 extern int32_t mk_instance(instance_table_t *table, int32_t compile_idx, uint32_t n, term_t *vdata, occ_t *odata);
-
-
-
 
 
 #endif /* __EMATCH_INSTANCE_H */
