@@ -160,7 +160,7 @@ static void resize_ptr_hclass(ptr_hclass_t *table) {
  * Search for the representative in x's equivalence class
  * - return NULL if there's none
  */
-void *ptr_hclass_find_rep(ptr_hclass_t *table, void *x) {
+void *ptr_hclass_find_rep(const ptr_hclass_t *table, void *x) {
   uint32_t h, mask;
   void *y;
 

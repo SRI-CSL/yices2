@@ -95,14 +95,14 @@ extern void reset_simple_cache(simple_cache_t *cache);
  * - k must be non-negative
  * - return NULL if there's no matching entry
  */
-extern simple_cache_entry_t *simple_cache_find(simple_cache_t *cache, int32_t k);
+extern simple_cache_entry_t *simple_cache_find(const simple_cache_t *cache, int32_t k);
 
 
 /*
  * Get the entry for key k
  * - key must be non-negative
  */
-extern simple_cache_entry_t *simple_cache_get(simple_cache_t *cache, int32_t k);
+extern simple_cache_entry_t *simple_cache_get(const simple_cache_t *cache, int32_t k);
 
 
 /*

@@ -198,7 +198,7 @@ static inline void cache_set_level(cache_t *cache, uint32_t n) {
  * Find a cache element for <tag, x, y>
  * - return NULL if there's no matching element in the hash table
  */
-extern cache_elem_t *cache_find(cache_t *cache, uint16_t tag, int32_t x, int32_t y);
+extern cache_elem_t *cache_find(const cache_t *cache, uint16_t tag, int32_t x, int32_t y);
 
 /*
  * Find or store element <tag, x, y> in the cache

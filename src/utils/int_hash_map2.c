@@ -175,7 +175,7 @@ static void int_hmap2_extend(int_hmap2_t *hmap) {
  * Find record with key (k0, kl)
  * - return NULL if that record is not in the table
  */
-int_hmap2_rec_t *int_hmap2_find(int_hmap2_t *hmap, int32_t k0, int32_t k1) {
+int_hmap2_rec_t *int_hmap2_find(const int_hmap2_t *hmap, int32_t k0, int32_t k1) {
   int_hmap2_rec_t *r;
   uint32_t i, mask;
 

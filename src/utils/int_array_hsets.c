@@ -36,7 +36,7 @@
 /*
  * Hash code of array a[0 ...n-1]
  */
-static inline uint32_t hash_array(int32_t *a, uint32_t n) {
+static inline uint32_t hash_array(const int32_t *a, uint32_t n) {
   return jenkins_hash_intarray(a, n);
 }
 
@@ -45,7 +45,7 @@ static inline uint32_t hash_array(int32_t *a, uint32_t n) {
  * Create descriptor for a[0 ... n-1]
  * - don't set the hash code
  */
-static harray_t *make_harray(int32_t *a, uint32_t n) {
+static harray_t *make_harray(const int32_t *a, uint32_t n) {
   harray_t *tmp;
   uint32_t i;
 
@@ -66,7 +66,7 @@ static harray_t *make_harray(int32_t *a, uint32_t n) {
 /*
  * Check whether v == a[0...n-1]
  */
-static bool eq_harray(harray_t *p, int32_t *a, uint32_t n) {
+static bool eq_harray(const harray_t *p, const int32_t *a, uint32_t n) {
   uint32_t i;
 
   if (p->nelems != n) {
@@ -181,7 +181,7 @@ void reset_int_array_hset(int_array_hset_t *set) {
  * - p->hash must be the correct hash code for p
  * - data must not contain DELETED_HARRAY marks and must have room for p
  */
-static void int_array_hset_clean_copy(harray_t **data, harray_t *p, uint32_t mask) {
+static void int_array_hset_clean_copy(harray_t **data, const harray_t *p, uint32_t mask) {
   uint32_t i;
 
   i = p->hash & mask;
@@ -259,7 +259,7 @@ static void int_array_hset_extend(int_array_hset_t *set) {
 /*
  * Search for array a[0 ... n-1]
  */
-harray_t *int_array_hset_find(int_array_hset_t *set, uint32_t n, int32_t *a) {
+harray_t *int_array_hset_find(const int_array_hset_t *set, uint32_t n, const int32_t *a) {
   harray_t *p;
   uint32_t i, h, mask;
 
@@ -282,7 +282,7 @@ harray_t *int_array_hset_find(int_array_hset_t *set, uint32_t n, int32_t *a) {
 /*
  * Find or create descriptor for a[0...n-1]
  */
-harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, int32_t *a) {
+harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, const int32_t *a) {
   harray_t *p;
   uint32_t i, j, h, mask;
 
@@ -331,7 +331,7 @@ harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, int32_t *a) {
  * Remove a from the set
  * - no change if a is not in the set
  */
-void int_array_hset_remove(int_array_hset_t *set, uint32_t n, int32_t *a) {
+void int_array_hset_remove(int_array_hset_t *set, uint32_t n, const int32_t *a) {
   harray_t *p;
   uint32_t i, h, mask;
 

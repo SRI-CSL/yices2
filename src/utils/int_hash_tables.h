@@ -102,9 +102,9 @@ typedef struct int_htbl_s {
  *  o->build(o) can signal an error by returning a negative number
  *  if that happens, nothing is added to the hash table
  */
-typedef uint32_t (*hobj_hash_t)(void *);
-typedef bool     (*hobj_eq_t)(void *, int32_t);
-typedef int32_t  (*hobj_build_t)(void*);
+typedef uint32_t (*hobj_hash_t)(const void *);
+typedef bool     (*hobj_eq_t)(const void *, int32_t);
+typedef int32_t  (*hobj_build_t)(const void*);
 
 typedef struct int_hobj_s {
   hobj_hash_t hash;
@@ -143,13 +143,13 @@ extern void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v);
  * Get index of object equal to o if present in the hash table,
  * return NULL_VALUE (-1) if no such object is present.
  */
-extern int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o);
+extern int32_t int_htbl_find_obj(const int_htbl_t *table, const int_hobj_t *o);
 
 /*
  * Get index of object equal to o if present, otherwise, build o and return
  * the new index.
  */
-extern int32_t int_htbl_get_obj(int_htbl_t *table, int_hobj_t *o);
+extern int32_t int_htbl_get_obj(int_htbl_t *table, const int_hobj_t *o);
 
 
 #endif /* __INT_HASH_TABLES */

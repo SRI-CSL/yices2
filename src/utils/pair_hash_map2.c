@@ -339,7 +339,7 @@ static void pmap2_htbl_clean_copy(pmap2_rec_t **a, pmap2_rec_t *e, uint32_t mask
  * Check whether pointer e is non NULL and different from
  * PMAP2_DELETED. (We use the fact that NULL = 0 and PMAP2_DELETED = 1.
  */
-static inline bool live_record(pmap2_rec_t *e) {
+static inline bool live_record(const pmap2_rec_t *e) {
   return (((uintptr_t) e) >> 1) != 0;
 }
 
@@ -571,8 +571,8 @@ void pmap2_pop(pmap2_t *pmap) {
  * Search for record of key <k0, k1>
  * - return NULL if there's no matching record
  */
-pmap2_rec_t *pmap2_find(pmap2_t *pmap, int32_t k0, int32_t k1) {
-  pmap2_htbl_t *htbl;
+pmap2_rec_t *pmap2_find(const pmap2_t *pmap, int32_t k0, int32_t k1) {
+  const pmap2_htbl_t *htbl;
   pmap2_rec_t *e;
   uint32_t i, mask;
 

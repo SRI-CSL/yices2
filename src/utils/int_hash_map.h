@@ -87,7 +87,7 @@ extern void delete_int_hmap(int_hmap_t *hmap);
 /*
  * Find record with key k. Return NULL if there's none
  */
-extern int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k);
+extern int_hmap_pair_t *int_hmap_find(const int_hmap_t *hmap, int32_t k);
 
 
 /*
@@ -144,8 +144,8 @@ extern void int_hmap_iterate(int_hmap_t *hmap, void *aux, int_hmap_iterator_t f)
  * - next(p) gives the next record after p or NULL
  * IMPORTANT: The hmap must not be modified between calls to next
  */
-extern int_hmap_pair_t *int_hmap_first_record(int_hmap_t *hmap);
-extern int_hmap_pair_t *int_hmap_next_record(int_hmap_t *hmap, int_hmap_pair_t *p);
+extern int_hmap_pair_t *int_hmap_first_record(const int_hmap_t *hmap);
+extern int_hmap_pair_t *int_hmap_next_record(const int_hmap_t *hmap, const int_hmap_pair_t *p);
 
 
 #endif /* __INT_HASH_MAP_H */

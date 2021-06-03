@@ -115,7 +115,7 @@ static uint32_t hash_pair(int32_t k0, int32_t k1) {
 /*
  * Check whether d is a valid record: non-null, not deleted
  */
-static inline bool valid_record(pmap_rec_t *r) {
+static inline bool valid_record(const pmap_rec_t *r) {
   return r->val != NULL && r->val != DELETED_PTR;
 }
 
@@ -208,7 +208,7 @@ static void pmap_extend(pmap_t *hmap) {
  * Find record with key (k0, k1)
  * - return NULL if that key is not in the table
  */
-pmap_rec_t *pmap_find(pmap_t *hmap, int32_t k0, int32_t k1) {
+pmap_rec_t *pmap_find(const pmap_t *hmap, int32_t k0, int32_t k1) {
   uint32_t mask, j;
   pmap_rec_t *d;
 

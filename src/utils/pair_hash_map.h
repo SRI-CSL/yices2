@@ -95,7 +95,7 @@ extern void delete_pmap(pmap_t *hmap);
 /*
  * Find record with key (k0, k1). Return NULL if there's none
  */
-extern pmap_rec_t *pmap_find(pmap_t *hmap, int32_t k0, int32_t k1);
+extern pmap_rec_t *pmap_find(const pmap_t *hmap, int32_t k0, int32_t k1);
 
 /*
  * Get record with key (k0, k1). If one is in the table return it.

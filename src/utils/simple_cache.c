@@ -111,7 +111,7 @@ static uint32_t hash_key(uint32_t x) {
  * Entry for key k
  * - k must be non-negative
  */
-simple_cache_entry_t *simple_cache_get(simple_cache_t *cache, int32_t k) {
+simple_cache_entry_t *simple_cache_get(const simple_cache_t *cache, int32_t k) {
   uint32_t i;
 
   assert(k >= 0);
@@ -124,7 +124,7 @@ simple_cache_entry_t *simple_cache_get(simple_cache_t *cache, int32_t k) {
  * - k must be non-negative
  * - return NULL if k is not in the cache
  */
-simple_cache_entry_t *simple_cache_find(simple_cache_t *cache, int32_t k) {
+simple_cache_entry_t *simple_cache_find(const simple_cache_t *cache, int32_t k) {
   simple_cache_entry_t *e;
 
   e = simple_cache_get(cache, k);

@@ -43,8 +43,8 @@
  * - match(aux, ptr1, ptr2) must return true if ptr1 and ptr2 are in
  *   the same class
  */
-typedef uint32_t (*pclass_hash_fun_t)(void *aux, void *ptr);
-typedef bool (*pclass_match_fun_t)(void *aux, void *ptr1, void *ptr2);
+typedef uint32_t (*pclass_hash_fun_t)(const void *aux, const void *ptr);
+typedef bool (*pclass_match_fun_t)(const void *aux, const void *ptr1, const void *ptr2);
 
 /*
  * Hash table
@@ -98,7 +98,7 @@ extern void reset_ptr_hclass(ptr_hclass_t *table);
  * Search for the representative in p's equivalence class
  * - return NULL is there's none
  */
-extern void *ptr_hclass_find_rep(ptr_hclass_t *table, void *p);
+extern void *ptr_hclass_find_rep(const ptr_hclass_t *table, void *p);
 
 
 /*
