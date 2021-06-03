@@ -181,7 +181,7 @@ void reset_int_array_hset(int_array_hset_t *set) {
  * - p->hash must be the correct hash code for p
  * - data must not contain DELETED_HARRAY marks and must have room for p
  */
-static void int_array_hset_clean_copy(harray_t **data, const harray_t *p, uint32_t mask) {
+static void int_array_hset_clean_copy(harray_t **data, harray_t *p, uint32_t mask) {
   uint32_t i;
 
   i = p->hash & mask;
