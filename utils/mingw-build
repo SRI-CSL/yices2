@@ -59,7 +59,7 @@ fi
 # vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
 vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2019/Community"
 gmp32="/home/bruno/tools/mingw32/bin"
-gmp64="/home/bruno/tools/mingw64/bin"
+gmp64="/home/bdutertre/mingw/bin"
 
 
 #
