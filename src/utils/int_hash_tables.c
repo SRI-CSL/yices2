@@ -261,7 +261,7 @@ void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v) {
 /*
  * Find index of object equal to o or return -1 if no such index is in the hash table.
  */
-int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o) {
+int32_t int_htbl_find_obj(const int_htbl_t *table, const int_hobj_t *o) {
   uint32_t mask, j, k;
   int32_t v;
   int_hrec_t *r;
@@ -288,7 +288,7 @@ int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o) {
  * Allocate an index for o (by calling build) then store this index and k in
  * record r. k must be the hash code of o.
  */
-static int32_t int_htbl_store_new_obj(int_htbl_t *table, int_hrec_t *r, uint32_t k, int_hobj_t *o) {
+static int32_t int_htbl_store_new_obj(int_htbl_t *table, int_hrec_t *r, uint32_t k, const int_hobj_t *o) {
   int32_t v;
 
   v = o->build(o);
@@ -313,7 +313,7 @@ static int32_t int_htbl_store_new_obj(int_htbl_t *table, int_hrec_t *r, uint32_t
  * Otherwise, allocate an index by calling o->build(o) then store that index
  * in the table.
  */
-int32_t int_htbl_get_obj(int_htbl_t *table, int_hobj_t *o) {
+int32_t int_htbl_get_obj(int_htbl_t *table, const int_hobj_t *o) {
   uint32_t mask, j, k;
   int32_t v;
   int_hrec_t *r;

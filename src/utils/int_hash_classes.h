@@ -109,7 +109,7 @@ extern void reset_int_hclass(int_hclass_t *table);
  * Search for the representative in i's equivalence class
  * - return null_idx (-1) is there's none
  */
-extern int32_t int_hclass_find_rep(int_hclass_t *table, int32_t i);
+extern int32_t int_hclass_find_rep(const int_hclass_t *table, int32_t i);
 
 
 /*

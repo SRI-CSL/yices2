@@ -550,7 +550,7 @@ static uint32_t hash_key(uint16_t tag, int32_t x, int32_t y) {
 /*
  * Check whether e has key <tag, x, y>
  */
-static inline bool elem_matches(cache_elem_t *e, uint16_t tag, int32_t x, int32_t y) {
+static inline bool elem_matches(const cache_elem_t *e, uint16_t tag, int32_t x, int32_t y) {
   return e->tag == tag && e->data[0] == x && e->data[1] == y;
 }
 
@@ -558,8 +558,8 @@ static inline bool elem_matches(cache_elem_t *e, uint16_t tag, int32_t x, int32_
  * Search for a cached element of key <tag, x, y>
  * - return NULL if it's not in the table
  */
-cache_elem_t *cache_find(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
-  cache_htbl_t *htbl;
+cache_elem_t *cache_find(const cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
+  const cache_htbl_t *htbl;
   uint32_t j, h, mask;
   cache_elem_t *e;
 

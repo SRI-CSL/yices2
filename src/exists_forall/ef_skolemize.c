@@ -154,14 +154,13 @@ static term_t ef_update_composite(ef_skolemize_t *sk, term_t t, ivector_t *args)
     break;
 
   case ITE_TERM:
-  case ITE_SPECIAL: {
+  case ITE_SPECIAL:
     assert(n == 3);
-    type_t tau = term_type(tm->terms, c[1]);
-    result = mk_ite(tm, c[0], c[1], c[2], tau);
-  } break;
+    result = mk_ite(tm, c[0], c[1], c[2], term_type(tm->terms, t));
+    break;
 
   case APP_TERM:
-    result = mk_application(tm, c[0], n-1, &c[1]);
+    result = mk_application(tm, c[0], n-1, c + 1);
     break;
 
   case TUPLE_TERM:
@@ -287,11 +286,36 @@ static void build_skolem_name(ef_analyzer_t *ef, uint32_t id, const char *origin
   string_buffer_close(&ef->sbuffer);
 }
 
+
+/*
+ * Pair to represent the result of skolemizing a term
+ * - func is a skolem constant or function
+ * - fapp is either the same as func (if that's a constant)
+ *   of a term of the form (func ....).
+ */
+typedef struct ef_skolem_s {
+  term_t func;
+  term_t fapp;
+} ef_skolem_t;
+
+
 /*
  * Skolemize variable x using uvars as skolem arguments
  * - n = number of terms in uvars
+ * - increment ef->num_skolem_funs if n>0.
+ * - return a pair of terms (func, fapp):
+ *    func = skolem function or skolem constant
+ *    fapp = term that represents x
+ *
+ * - if n = 0:
+ *    func is a skolem constant of the same type as x
+ *    fapp is equal to func
+ * - if n > 0
+ *    func is a skolem function of type [s_1 ... s_n-> tau]
+ *    fapp is the term (func uvars[0] ... unvars[n-1])
+ *   where s_i = type of uvars[i-1] and tau = type of x.
  */
-ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
+static ef_skolem_t ef_skolem_term(ef_analyzer_t *ef, term_t x, uint32_t n, term_t *uvars) {
   type_t *domt;
   type_t rt, tau;
   uint32_t i;
@@ -487,7 +511,15 @@ static term_t ef_flatten_distribute(ef_analyzer_t *ef, composite_term_t *d, ivec
 /*
  * Convert a term to negated normal form and skolemize
  * - returns a pair <skolemized_t, is_quantified>
- * is_quantified is used to decide flattening of Boolean conditions
+ *   is_quantified is used to decide flattening of Boolean conditions
+ * - skolemize_t is the skolemization of t.
+ * - is_quantified is true if t itself or one of its subterm is (forall ...) or (not (forall ...)).
+ *
+ * Side effects:
+ * - the map t -> pair <skolemize_t, is_quant>  is stored in sk->cache
+ * - sk->has_uvar is set to true if t is (forall ...)
+ *   or if a subterm of t is a (forall ...) with positive polarity.
+ *   or if some term of the from (Q ... (forall ...) ...) occurs in t.
  */
 static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
   ptr_hmap_pair_t *r;
@@ -537,7 +569,7 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
            *    u := (C and !A)
            *    v := (!C and !B)
            */
-          u = mk_binary_and(mgr, d->arg[0], opposite_term(d->arg[1]));             // (C and !A)
+          u = mk_binary_and(mgr, d->arg[0], opposite_term(d->arg[1]));                // (C and !A)
           v = mk_binary_and(mgr, opposite_term(d->arg[0]), opposite_term(d->arg[2])); // (!C and !B)
 
           sp = ef_skolemize_term(sk, u);
@@ -633,9 +665,13 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         break;
       }
 
-      v = unsigned_term(t);
-      n = term_num_children(terms, v);
+      /*
+       * BD: this handles non-boolean equality, distinct, and other composite
+       * terms that return a Boolean.
+       */
       if (result == NULL_TERM) {
+	v = unsigned_term(t);
+	n = term_num_children(terms, v);
         for (i=0; i<n; i++) {
           u = term_child(terms, v, i);
           sp = ef_skolemize_term(sk, u);
@@ -762,14 +798,16 @@ static sk_pair_t *ef_skolemize_term(ef_skolemize_t *sk, term_t t) {
         break;
       }
 
+      /*
+       * BD: this handles non-boolean equality, distinct, and other composite
+       * terms that return a Boolean.
+       */
       if (result == NULL_TERM) {
         n = term_num_children(terms, t);
-        for(i=0; i<n; i++) {
+        for (i=0; i<n; i++) {
           u = term_child(terms, t, i);
-
           sp = ef_skolemize_term(sk, u);
           u = sk_update(sp, &resultq);
-
           ivector_push(&args, u);
         }
         result = ef_update_composite(sk, unsigned_term(t), &args);
@@ -829,7 +867,18 @@ static void ef_flatten_and(ef_skolemize_t *sk, term_t t, ivector_t *v) {
 
 
 /*
- * Get the skolemized version of term t
+ * Get the skolemized version of term t:
+ * - add the result to vector v
+ * - this first computes the skolemization sk of term t
+ * - if the term sk is a conjunction (i.e. of the form (NOT (OR ...)) then
+ *   sk is flattened and the conjuncts are added to vector v
+ * - if sk is not a conjunction, it's added to v as is.
+ *
+ * Side effects:
+ * - sk->cache is updated to store mappings from t and its subterms to their skolemization
+ * - sk->has_uvar is set to true if t contains (FORALL ...) subterms
+ * - allocate a pattern descriptor for t in sk->prob->patterns if there isn't one already.
+ *   (the pattern descriptor is a vector of terms).
  */
 void ef_skolemize(ef_skolemize_t *sk, term_t t, ivector_t *v) {
   sk_pair_t *sp;
@@ -909,7 +958,7 @@ void ef_skolemize_patterns(ef_skolemize_t *sk) {
 
       rv2 = r2->val;
       pdata = rv1->data;
-      for(i=0; i<n; i++) {
+      for (i=0; i<n; i++) {
         sp = ef_skolemize_term(sk, pdata[i]);
         ivector_push(rv2, sp->t);
       }
@@ -930,6 +979,10 @@ void ef_skolemize_patterns(ef_skolemize_t *sk) {
   }
 }
 
+
+#if 0
+
+// NOT USED
 
 /*
  * Skolemize existentials in an analyzer
@@ -1008,3 +1061,4 @@ term_t ef_analyzer_add_existentials(ef_analyzer_t *ef, bool toplevel, int_hmap_t
   return body;
 }
 
+#endif

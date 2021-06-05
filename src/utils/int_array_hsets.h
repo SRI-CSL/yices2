@@ -99,20 +99,20 @@ extern void reset_int_array_hset(int_array_hset_t *set);
  * - a[0 ... n-1] must be an array of n elements
  * - return NULL if it's not in the set
  */
-extern harray_t *int_array_hset_find(int_array_hset_t *set, uint32_t n, int32_t *a);
+extern harray_t *int_array_hset_find(const int_array_hset_t *set, uint32_t n, const int32_t *a);
 
 
 /*
  * Get descriptor for a[0 ... n-1]. Create it if it's not in set already.
  */
-extern harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, int32_t *a);
+extern harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, const int32_t *a);
 
 
 /*
  * Remove set a[0...n-1] from the set
  * - no change if a is not present
  */
-extern void int_array_hset_remove(int_array_hset_t *set, uint32_t n, int32_t *a);
+extern void int_array_hset_remove(int_array_hset_t *set, uint32_t n, const int32_t *a);
 
 
 /*

@@ -96,7 +96,7 @@ extern void delete_int_hmap2(int_hmap2_t *hmap);
  * Find record with key (k0, k1). Return NULL if there's none.
  * - k0 and k1 must be non-negative.
  */
-extern int_hmap2_rec_t *int_hmap2_find(int_hmap2_t *hmap, int32_t k0, int32_t k1);
+extern int_hmap2_rec_t *int_hmap2_find(const int_hmap2_t *hmap, int32_t k0, int32_t k1);
 
 /*
  * Get record with key (k0, k1).

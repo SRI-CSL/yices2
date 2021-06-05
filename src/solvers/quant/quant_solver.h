@@ -106,8 +106,6 @@ typedef struct quant_solver_s {
   ivector_t round_cnstrs;
   ivector_t round_instances;
 
-// TODO
-
   /*
    * Buffers
    */
@@ -132,7 +130,7 @@ typedef struct quant_solver_s {
  * - ttbl = attached type table
  */
 extern void init_quant_solver(quant_solver_t *solver, smt_core_t *core,
-                            gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl);
+			      gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl);
 
 
 /*
@@ -151,20 +149,7 @@ extern th_ctrl_interface_t *quant_solver_ctrl_interface(quant_solver_t *solver);
  */
 extern th_egraph_interface_t *quant_solver_egraph_interface(quant_solver_t *solver);
 extern quant_egraph_interface_t *quant_solver_quant_egraph_interface(quant_solver_t *solver);
-// TODO
 
-
-
-
-/*******************************
- *  INTERNALIZATION FUNCTIONS  *
- ******************************/
-
-/*
- * These functions are exported for testing only.
- * They are used via the quantsolver_interface.
- */
-// TODO
 
 
 
@@ -212,25 +197,6 @@ extern void quant_solver_pop(quant_solver_t *solver);
 extern void quant_solver_reset(quant_solver_t *solver);
 
 
-
-/********************************
- *  EGRAPH INTERFACE FUNCTIONS  *
- *******************************/
-// TODO
-
-
-
-
-/**********************
- *  MODEL GENERATION  *
- *********************/
-
-/*
- * These functions are exported for testing only.
- * The egraph uses the quant_egraph interface.
- */
-
-// TODO
 
 
 
@@ -280,11 +246,12 @@ static inline uint32_t quant_solver_num_instances(quant_solver_t *solver) {
   return solver->stats.num_instances;
 }
 
-
 /********************************
  *  GARBAGE COLLECTION SUPPORT  *
  *******************************/
 // TODO
+
+
 
 
 /*********************

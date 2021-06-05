@@ -186,7 +186,7 @@ static void ptr_hmap_extend(ptr_hmap_t *hmap) {
  * Find record with key k
  * - return NULL if k is not in the table
  */
-ptr_hmap_pair_t *ptr_hmap_find(ptr_hmap_t *hmap, int32_t k) {
+ptr_hmap_pair_t *ptr_hmap_find(const ptr_hmap_t *hmap, int32_t k) {
   uint32_t mask, j;
   ptr_hmap_pair_t *d;
 
@@ -344,7 +344,7 @@ void ptr_hmap_remove_records(ptr_hmap_t *hmap, void *aux, ptr_hmap_filter_t f) {
 /*
  * First non-empty record in the table, starting from p
  */
-static ptr_hmap_pair_t *ptr_hmap_get_next(ptr_hmap_t *hmap, ptr_hmap_pair_t *p) {
+static const ptr_hmap_pair_t *ptr_hmap_get_next(const ptr_hmap_t *hmap, const ptr_hmap_pair_t *p) {
   ptr_hmap_pair_t *end;
 
   end = hmap->data + hmap->size;
@@ -360,17 +360,17 @@ static ptr_hmap_pair_t *ptr_hmap_get_next(ptr_hmap_t *hmap, ptr_hmap_pair_t *p) 
 /*
  * Get the first non-empty record or NULL if the table is empty
  */
-ptr_hmap_pair_t *ptr_hmap_first_record(ptr_hmap_t *hmap) {
-  return ptr_hmap_get_next(hmap, hmap->data);
+ptr_hmap_pair_t *ptr_hmap_first_record(const ptr_hmap_t *hmap) {
+  return (ptr_hmap_pair_t *) ptr_hmap_get_next(hmap, hmap->data);
 }
 
 
 /*
  * Next record after p or NULL
  */
-ptr_hmap_pair_t *ptr_hmap_next_record(ptr_hmap_t *hmap, ptr_hmap_pair_t *p) {
+ptr_hmap_pair_t *ptr_hmap_next_record(const ptr_hmap_t *hmap, const ptr_hmap_pair_t *p) {
   assert(p != NULL && p<hmap->data + hmap->size && p->key >= 0);
-  return ptr_hmap_get_next(hmap, p+1);
+  return (ptr_hmap_pair_t *) ptr_hmap_get_next(hmap, p+1);
 }
 
 

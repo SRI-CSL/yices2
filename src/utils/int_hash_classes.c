@@ -166,7 +166,7 @@ static void resize_int_hclass(int_hclass_t *table) {
  * Search for the representative in x's equivalence class
  * - return null_idx (-1) is there's none
  */
-int32_t int_hclass_find_rep(int_hclass_t *table, int32_t x) {
+int32_t int_hclass_find_rep(const int_hclass_t *table, int32_t x) {
   uint32_t h, mask;
   int32_t y;
 

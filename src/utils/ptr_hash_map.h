@@ -87,7 +87,7 @@ extern void delete_ptr_hmap(ptr_hmap_t *hmap);
 /*
  * Find record with key k. Return NULL if there's none
  */
-extern ptr_hmap_pair_t *ptr_hmap_find(ptr_hmap_t *hmap, int32_t k);
+extern ptr_hmap_pair_t *ptr_hmap_find(const ptr_hmap_t *hmap, int32_t k);
 
 
 /*
@@ -126,8 +126,8 @@ extern void ptr_hmap_remove_records(ptr_hmap_t *hmap, void *aux, ptr_hmap_filter
  * - next(p) gives the next record after p or NULL
  * IMPORTANT: The hmap must not be modified between calls to next
  */
-extern ptr_hmap_pair_t *ptr_hmap_first_record(ptr_hmap_t *hmap);
-extern ptr_hmap_pair_t *ptr_hmap_next_record(ptr_hmap_t *hmap, ptr_hmap_pair_t *p);
+extern ptr_hmap_pair_t *ptr_hmap_first_record(const ptr_hmap_t *hmap);
+extern ptr_hmap_pair_t *ptr_hmap_next_record(const ptr_hmap_t *hmap, const ptr_hmap_pair_t *p);
 
 
 #endif /* __PTR_HASH_MAP_H */

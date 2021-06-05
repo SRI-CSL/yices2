@@ -1173,8 +1173,8 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
   uint32_t max_matches_orig;
 
 #if TRACE
-    printf("  Pattern code:\n");
-    ematch_print_instr(stdout, exec->itbl, pat->code, true);
+  printf("  Pattern code:\n");
+  ematch_print_instr(stdout, exec->itbl, pat->code, true);
 #endif
 
   max_matches_orig = exec->max_matches;
@@ -1210,7 +1210,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 
     egraph_get_all_fapps(exec, term_of_occ(occ), &fapps);
     n = fapps.size;
-    for(i=0; i<n; i++) {
+    for (i=0; i<n; i++) {
       tf = term_of_occ(fapps.data[i]);
 
 #if TRACE
@@ -1240,7 +1240,7 @@ uint32_t ematch_exec_pattern(ematch_exec_t *exec, pattern_t *pat, int_hset_t *fi
 
         count += m;
 
-        for(j=0; j!=m; j++) {
+        for (j=0; j<m; j++) {
           ivector_push(matches, aux->data[j]);
         }
 

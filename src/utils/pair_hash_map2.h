@@ -228,7 +228,7 @@ static inline void pmap2_set_level(pmap2_t *pmap, uint32_t n) {
  * Find the record with with key <k0, k1>
  * - return NULL if there's no such record in the table.
  */
-extern pmap2_rec_t *pmap2_find(pmap2_t *pmap, int32_t k0, int32_t k1);
+extern pmap2_rec_t *pmap2_find(const pmap2_t *pmap, int32_t k0, int32_t k1);
 
 
 /*

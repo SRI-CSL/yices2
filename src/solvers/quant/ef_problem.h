@@ -49,6 +49,8 @@
  *
  * To store sets of terms: we use the index_vector data structure
  * (cf. index_vectors.h).
+ *
+ * NOTE: these comments are probably out-of-date. Aman changed this a lot.
  */
 
 #ifndef __EF_PROBLEM_H
