@@ -121,7 +121,7 @@ model_t *ef_export_model(ef_client_t *efc, efmodel_error_code_t *code) {
 
   mdl = ef_get_model(efc, code);
   if (mdl != NULL) {
-    assert(mdl = efc->efsolver->exists_model);
+    assert(mdl == efc->efsolver->exists_model);
     efc->efsolver->exists_model = NULL;
   }
   return mdl;
