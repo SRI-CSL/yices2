@@ -1068,7 +1068,7 @@ int main(int argc, char *argv[]) {
     smt2_set_delegate(delegate);
     if (dimacsfile != NULL) smt2_set_dimacs_file(dimacsfile);
   }
-  if (!incremental && delegate == NULL && dimacsfile == NULL && supported_delegate("kissat", &aux) {
+  if (!incremental && delegate == NULL && dimacsfile == NULL && supported_delegate("kissat", &aux)) {
     // for SMT COMP ONLY
     smt2_set_delegate("kissat");
   }
