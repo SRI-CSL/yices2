@@ -1039,6 +1039,7 @@ int main(int argc, char *argv[]) {
   int32_t code;
   uint32_t i;
   bool prompt;
+  bool aux;
 
   prompt = false;
   parse_command_line(argc, argv);
@@ -1066,6 +1067,10 @@ int main(int argc, char *argv[]) {
   if (delegate != NULL) {
     smt2_set_delegate(delegate);
     if (dimacsfile != NULL) smt2_set_dimacs_file(dimacsfile);
+  }
+  if (!incremental && delegate == NULL && dimacsfile == NULL && supported_delegate("kissat", &aux) {
+    // for SMT COMP ONLY
+    smt2_set_delegate("kissat");
   }
 
   init_smt2_tstack(&stack);
