@@ -136,7 +136,6 @@ static void smt2_pp_unint_name(smt2_pp_t *printer, value_t c) {
   pp_id(&printer->pp, "@const_", c);
 }
 
-
 /*
  * Function: always use a default name, even if fun has a name
  */
@@ -340,6 +339,7 @@ void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, bool sho
 
 /*
  * Variant of smt2_pp_object that uses SMT2 syntax for arrays
+ * and add explict type when printing uninterpreted constants.
  */
 static void smt2_pp_object_in_def(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c);
 
@@ -454,11 +454,27 @@ static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value
   }
 }
 
+
+/*
+ * Print an uninterpreted constant value with explicit type
+ */
+static void smt2_pp_unint_with_type(smt2_pp_t *printer, type_table_t *ttbl, value_t c, type_t tau) {
+  // (as @const_c <tau>)
+  pp_open_block(&printer->pp, PP_OPEN_SMT2_AS);
+  smt2_pp_unint_name(printer, c);
+  smt2_pp_type(printer, ttbl, tau);
+  pp_close_block(&printer->pp, true);
+}
+
 static void smt2_pp_object_in_def(smt2_pp_t *printer, value_table_t *table, type_t tau, value_t c) {
+  assert(0 <= c && c < table->nobjects);
+
   if (object_is_function(table, c)) {
     smt2_pp_array(printer, table, tau, c);
   } else if (object_is_update(table, c)) {
     smt2_pp_array_update(printer, table, c);
+  } else if (object_is_unint(table, c)) {
+    smt2_pp_unint_with_type(printer, table->type_table, c, tau);
   } else {
     smt2_pp_typed_object(printer, table, c, tau);
   }

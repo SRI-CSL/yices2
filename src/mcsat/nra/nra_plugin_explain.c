@@ -509,7 +509,7 @@ void gcd_simplify_zero(const lp_polynomial_context_t* ctx, lp_polynomial_t** pol
         const lp_polynomial_t* q = polys[j];
         if (lp_polynomial_sgn(q, m) == 0) {
           lp_polynomial_gcd(gcd, p, q);
-          if (!lp_polynomial_is_constant(gcd)) {
+          if (!lp_polynomial_is_constant(gcd) && lp_polynomial_sgn(gcd, m) == 0) {
             lp_polynomial_swap(polys[j], gcd);
             break;
           }
@@ -558,9 +558,9 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   fprintf(stderr, "x_set = "); lp_polynomial_hash_set_print(x_set, stderr); fprintf(stderr, "\n");
 #endif
 
-  // Simplify the polynomials based on gcd:
-  //   * If two polynomials evaluate to 0, they should be mutually prime
-  //   * We just check: if both 0 and gcd, then we keep the gcd reducing the size
+  // Simplify the polynomials that evaluate to zero based on gcd:
+  //   * If two polynomials evaluate to 0, and their gcd also evaluates to 0,
+  //     we can remove both of them and replace them by the gcd.
   gcd_simplify_zero(map->ctx, x_set->data, &x_set->size, map->m);
 
   // Sort the polynomials by degree

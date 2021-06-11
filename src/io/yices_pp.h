@@ -244,9 +244,10 @@ typedef enum {
   PP_OPEN_SMT2_DEF,     // (define-fun ...)
   PP_OPEN_SMT2_STORE,   // (store <array> <index> <value>)
   PP_OPEN_SMT2_AS_CONST,  // (as const <type> <value>)  (for constant arrays. type is the array type).
+  PP_OPEN_SMT2_AS,        // (as <identifier> <type> )
 } pp_open_type_t;
 
-#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_SMT2_AS_CONST + 1))
+#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_SMT2_AS + 1))
 
 
 

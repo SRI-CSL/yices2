@@ -1620,6 +1620,11 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_arith_abs(eval, arith_abs_arg(terms, t));
         break;
 
+      case ARITH_ROOT_ATOM:
+	// not supported (but don't crash if we see them)
+	v = vtbl_mk_unknown(eval->vtbl);
+	break;
+
       case ITE_TERM:
       case ITE_SPECIAL:
         v = eval_ite(eval, ite_term_desc(terms, t));

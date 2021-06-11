@@ -7646,6 +7646,24 @@ static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, com
 
 
 /*
+ * Get a default constant for functions of type tau
+ * - when we generate a model for a function f of type tau,
+ *   then we have values for a finite number of terms of the form
+ *    f(a_11 ... a_1k) .... f(a_n1 ... a_nk)
+ * - to print the model in SMT format, we need to extend f to a full
+ *   function by giving a default value f(x_1, ..., x_k) for
+ *   points other than a_1, ..., a_n.
+ * - we can extend f with an arbitrary default value when we're in QF_UF because
+ *   only the f(a_11, ... a_1k) matter for satisfying the assertions.
+ *
+ * We check whether we have high-order terms here and return unknown as the default in
+ * such a case (as this means we're outside of QF_UF).
+ */
+static value_t egraph_make_default_fun_value(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
+  return egraph->is_high_order ? vtbl_mk_unknown(vtbl) : vtbl_make_object(vtbl, function_type_range(egraph->types, tau));
+}
+
+/*
  * Build a mapping from the composite terms in c's parent vector
  * - tau = type of class c
  */
@@ -7675,8 +7693,11 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
     }
   }
 
+
   // function without a default value
-  v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
+  //  v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
+  v = egraph_make_default_fun_value(egraph, vtbl, tau);
+  v = vtbl_mk_function(vtbl, tau, j, all_maps, v);
 
   free_istack_array(&egraph->istack, all_maps);
 
@@ -7950,6 +7971,12 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   egraph->mdl.fval_maker = fval;
 
   egraph_collect_root_classes(egraph);
+
+  /*
+   * Check whether we have high order terms
+   * - this sets egraph->is_high_order to true in this case
+   */
+  (void) egraph_is_high_order(egraph);
 
   // assign a value to all root classes
   egraph_model_for_root_classes(egraph, vtbl);
