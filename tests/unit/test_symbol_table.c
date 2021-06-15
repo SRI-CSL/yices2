@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <math.h>
 #include <inttypes.h>
 
 #include "utils/cputime.h"
@@ -213,7 +212,7 @@ int main(int argc, char *argv[]) {
 
   printf("\n--- overwriting ---\n");
   for (i=10; i<n_words/5; i ++) {
-  printf("adding %s: new val = %"PRIu32"\n", words[i], 999999 - i);
+    printf("adding %s: new val = %"PRIu32"\n", words[i], 999999 - i);
     stbl_add(&sym_table, words[i], 999999 - i);
   }
 
