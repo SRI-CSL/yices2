@@ -17,3 +17,4 @@
 *.pyc
 .directory
 .settings/*
+tests/api/*.log
