@@ -8389,6 +8389,7 @@ context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_
 EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
   MT_PROTECT(context_t *, __yices_globals.lock, _o_yices_new_context(config));
 }
+
 context_t *_o_yices_new_context(const ctx_config_t *config) {
   smt_logic_t logic;
   context_arch_t arch;

@@ -169,8 +169,7 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
 }
 
 void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict) {
-  ctx_config_t* config = yices_new_config();
-  context_t* ctx = yices_new_context(config);
+  context_t* ctx = yices_new_context(NULL);
   uint32_t i;
   for (i = 0; i < conflict->size; ++ i) {
     yices_assert_formula(ctx, conflict->data[i]);
@@ -179,7 +178,6 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   (void) result;
   assert(result == STATUS_UNSAT);
   yices_free_context(ctx);
-  yices_free_config(config);
 }
 
 void print_counters(bv_explainer_t* exp){
