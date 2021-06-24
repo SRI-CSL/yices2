@@ -156,7 +156,6 @@ ifeq ($(POSIXOS),freebsd)
   CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
-else
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
@@ -186,11 +185,10 @@ endif
 endif
 
 
-
 #
-# Warning levels: for the unit tests we don't use -Winline
+# Warning levels
 #
-CFLAGS += -Wall -Wredundant-decls
+CFLAGS += -Wall -Wredundant-decls -Wextra -Wpedantic
 ifeq ($(POSIXOS),mingw)
   CFLAGS += -Wno-format
 endif
@@ -215,11 +213,29 @@ ifeq ($(YICES_MODE),gcov)
   CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
+ifeq ($(YICES_MODE),sanitize)
+CFLAGS := $(CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
   CFLAGS := $(CFLAGS) -O3 -g
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-  CFLAGS := $(CFLAGS) -g
+ifeq ($(YICES_MODE),gperftools)
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+ifeq ($(POSIXOS),linux)
+  LIBS += -Wl,--no-as-needed -lprofiler
+else
+  LIBS += -lprofiler
+endif
+else
+#
+# debug mode
+#
+CFLAGS := $(CFLAGS) -g
+endif
+endif
 endif
 endif
 endif
@@ -345,6 +361,11 @@ $(static_objdir)/%.o: %.c
 
 # All test binaries, using dynamic GMP library
 all: $(tests)
+	@ echo === Running tests ===
+	@ rm -f *.log
+	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ echo
+	@ ./print_summary.sh tests.log
 
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
@@ -352,6 +373,11 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 
 # Test binaries compiled statically
 all-static: $(static_tests)
+	@ echo === Running tests ===
+	@ rm -f *.log
+	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ echo
+	@ ./print_summary.sh tests.log
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
