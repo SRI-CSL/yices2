@@ -715,7 +715,6 @@ ifeq ($(POSIXOS),freebsd)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
-
 else
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
