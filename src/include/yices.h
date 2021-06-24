@@ -125,17 +125,38 @@ __YICES_DLLSPEC__ extern int32_t yices_is_thread_safe(void);
  **************************************/
 
 /*
- * This function must be called before anything else to initialize
- * internal data structures.
+ * In single threaded mode, this function must be called before anything else to initialize
+ * internal data structures. In multithreaded mode you should instead do:
+ *
+ *  yices_global_init();      // once per process
+ * 
+ *  yices_per_thread_init();  // each thread must call this (after the global init has been done)
+ *
  */
 __YICES_DLLSPEC__ extern void yices_init(void);
 
+__YICES_DLLSPEC__ extern void yices_global_init(void);
+
+__YICES_DLLSPEC__ extern void yices_per_thread_init(void);
 
 /*
- * Delete all internal data structures and objects
+ * In single threaded mode, this deletes all internal data structures and objects
  * - this must be called to avoid memory leaks
+ *
+ *  In multithreaded mode, 
+ *
+ * yices_per_thread__exit();  // each thread should call this prior to exiting
+ *
+ * yices_global_exit();       // should be called by the (main) thread prior to exiting.
+ *
  */
 __YICES_DLLSPEC__ extern void yices_exit(void);
+
+__YICES_DLLSPEC__ extern void yices_global_exit(void);
+
+__YICES_DLLSPEC__ extern void yices_per_thread_exit(void);
+
+
 
 
 /*

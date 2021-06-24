@@ -37,6 +37,8 @@
 #include "terms/free_var_collector.h"
 #include "terms/term_manager.h"
 
+#include "yices_thread_local.h"
+
 typedef struct yices_globals_s {
 #ifdef THREAD_SAFE
   yices_lock_t lock;       // a lock protecting the globals
@@ -55,6 +57,6 @@ typedef struct yices_globals_s {
 
 } yices_globals_t;
 
-extern yices_globals_t __yices_globals;
+extern YICES_THREAD_LOCAL yices_globals_t __yices_globals;
 
 #endif /* __YICES_GLOBALS_H */

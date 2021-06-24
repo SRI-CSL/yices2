@@ -116,7 +116,7 @@ typedef void lp_algebraic_number_t;
 
 #include "yices.h"
 
-
+#include "yices_thread_local.h"
 
 /****************************
  *  GLOBAL DATA STRUCTURES  *
@@ -124,10 +124,10 @@ typedef void lp_algebraic_number_t;
 
 
 // rational for building terms: protected by ownership of global lock.
-static rational_t r0;
+static YICES_THREAD_LOCAL rational_t r0;
 
 // buffer for building bitvector constants: protected by ownership of global lock.
-static bvconstant_t bv0;
+static YICES_THREAD_LOCAL bvconstant_t bv0;
 
 /*
  * Initial sizes of the type and term tables.
@@ -139,7 +139,7 @@ static bvconstant_t bv0;
  * Global table. The actual initialization is done in yices_init() and
  * init_globals().
  */
-yices_globals_t __yices_globals = {
+YICES_THREAD_LOCAL yices_globals_t __yices_globals = {
 };
 
 
@@ -1012,6 +1012,12 @@ static void clear_globals(yices_globals_t *glob) {
 /*
  * Initialize all global objects
  */
+
+//__YICES_DLLSPEC__ extern void yices_global_init(void);
+
+//__YICES_DLLSPEC__ extern void yices_per_thread_init(void);
+
+
 EXPORTED void yices_init(void) {
   error_report_t *error;
   // setup the TLS and error report structure
@@ -1059,6 +1065,12 @@ EXPORTED void yices_init(void) {
 /*
  * Cleanup: delete all tables and internal data structures
  */
+
+// __YICES_DLLSPEC__ extern void yices_global_exit(void);
+
+// __YICES_DLLSPEC__ extern void yices_per_thread_exit(void);
+
+
 EXPORTED void yices_exit(void) {
   // registries
   if (root_terms != NULL) {
