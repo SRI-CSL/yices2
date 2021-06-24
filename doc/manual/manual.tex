@@ -49,7 +49,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.2}}
+Version 2.6.4}}
 \end{titlepage}
 
 \maketitle
@@ -173,7 +173,7 @@ first add our PPA to your list of repositories then install package
 You can also install the library and development files as follows:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  sudo apt-get install yices2-dev libyices2.5
+  sudo apt-get install yices2-dev libyices2.6
 \end{lstlisting}
 \end{small}
 
@@ -213,7 +213,7 @@ Four solvers are currently included:
 \item  \texttt{yices-smt} is  a solver  for input  in  the SMT-LIB~1.2
   notation~\cite{SMTLIB12:2006}.
 
-\item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.0
+\item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.x
   notation~\cite{SMTLIB25:2015}.
 
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
@@ -233,7 +233,7 @@ utilities, and the \LaTeX\ source for this manual.
 \section{Language Bindings}
 \label{python-bindings}
 
-We currently provide wrappers to the Yices API for Python and (experimental) binding or Go and
+We currently provide wrappers to the Yices API for Python, Java, Go and
 OCaml. Source code for these different wrappers is maintained on different GitHub repositories.
 
 \paragraph{Python:} \url{https://github.com/SRI-CSL/yices2_python_bindings}. The easiest way
@@ -244,10 +244,14 @@ to install these Python bindings is to use \texttt{pip}:
 \end{lstlisting}
 \end{small}
 
+\paragraph{Java:} \url{https://github.com/SRI-CSL/yices2_java_bindings}. The bindings can be
+installed with \texttt{ant} or with a dedicated shell script. Consult the repository's README
+for details.
+
 \paragraph{Go:} \url{https://github.com/SRI-CSL/yices2_go_bindings}.  The code can be installed with
 \begin{small}
 \begin{lstlisting}[language=sh]
-  go get github.com/ianamason/yices2_go_bindings/cmd/yices_info
+  go get github.com/SRI-CSL/yices2_go_bindings/cmd/yices_info
 \end{lstlisting}
 \end{small}
 
@@ -260,12 +264,13 @@ The current Yices~2 release supports quantifier-free combinations of
 linear and non-linear integer and real arithmetic, uninterpreted
 function, arrays, and bitvectors. Currently, Yices~2 supports most
 SMT-LIB logics that do not involve quantifiers as summarized in
-Table~\ref{supported-logics}.  The meaning of the logics and theories
-in this table is explained at the SMT-LIB website
-(\url{http://www.smtlib.org}).  In addition, Yices~2 supports a more
-general set of array operations than required by SMT-LIB, and Yices~2
-has support for tuple and enumeration types, which are not part of
-SMT-LIB.
+Table~\ref{supported-logics}.  Since version 2.6.4, Yices~2 also
+supports the UF theory (i.e., first order logic with equality)/ The
+meaning of the logics and theories in this table is explained at the
+SMT-LIB website (\url{http://www.smtlib.org}).  In addition, Yices~2
+supports a more general set of array operations than required by
+SMT-LIB, and Yices~2 has support for tuple and enumeration types,
+which are not part of SMT-LIB.
 
 %% ALIA
 %% AUFLIA
@@ -368,6 +373,8 @@ SMT-LIB.
 \textsf{QF\_UFNIRA} & \desc{Uninterpreted Functions, Mixed Nonlinear Arithmetic} & yes \\
 \hline
 \textsf{QF\_UFNRA} & \desc{Uninterpreted Functions, Nonlinear Real Arithmetic} & yes \\
+\hline
+\textsf{UF} & \desc{Quantifiers, Uninterpreted Functions} & yes \\
 \hline
 \textsf{UFLRA} & \desc{Nonlinear Real Arithmetic, Quantifiers, Uninterpreted Functions} & no \\
 \hline
@@ -523,7 +530,7 @@ After this, compiling and installing Yices use standard steps.
 If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follow these steps:
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={cd}]
-   tar xvf yices-2.6.2-src.tgx
+   tar xvf yices-2.6.2-src.tgz
    cd yices-2.6.2
    ./configure
    make -j
@@ -638,10 +645,12 @@ location.
 \section{Third-Party SAT Solvers}
 
 It is now possible for Yices to use third-party backend SAT solvers
-for bitvector solving. Currently, we support two SAT solvers:
-CaDiCaL~\cite{Biere:cadical:2019} and
-CryptoMiniSat~\cite{Soos+etal:extending:2009}. You can compile Yices
-with support for both or only one of these solvers.
+for bitvector solving. Currently, we support three SAT solvers:
+CaDiCaL~\cite{Biere:cadical:2019},
+CryptoMiniSat~\cite{Soos+etal:extending:2009}, and
+Kissat~\cite{BiereFazekasFleuryHeisinger-SAT-Competition-2020-solvers}.
+You can compile Yices with support for all or a subset of these
+solvers.
 
 \subsection*{CaDiCaL}
 
@@ -708,13 +717,47 @@ Yices requires a patched version of CryptoMiniSat~5 that we provide at
 \end{small}
 \end{enumerate}
 
-\subsection*{Configure Yices~2}
+\subsection*{Kissat}
 
-If both CaDiCaL and CryptoMiniSat are installed, you can configure Yices~2 as follows to use them:
+We provide a patched version of Kissat that fixes an issue. Download
+this patched version at \url{https://github.com/BrunoDutertre/kissat}. The original is
+at \url{https://github.com/arminbiere/kissat}. To compile the code, follow these instructions:
+\begin{enumerate}
+\item Clone the repository:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT' \
-       LIBS='-lcryptominisat5 -lcadical -lstdc++ -lm'
+  git clone https://github.com/BrunoDutertre/kissat
+\end{lstlisting}
+\end{small}
+\item Run the configure script with option \texttt{-fPIC}:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  cd kissat
+  ./configure -fPIC
+\end{lstlisting}
+\end{small}
+\item Build the code
+\begin{small}
+\begin{lstlisting}[language=sh]
+  make
+\end{lstlisting}
+\end{small}
+\item Install the library and header files in a convenient location (such as \texttt{/usr/local}):
+\begin{small}
+\begin{lstlisting}[language=sh]
+  sudo install build/libkissat.a /usr/local/lib
+  sudo install -m644 src/kissat.h /usr/local/include
+\end{lstlisting}
+\end{small}
+\end{enumerate}
+
+\subsection*{Configure Yices~2}
+
+If all third-party SAT solver are installed, you can configure Yices~2 as follows to use them:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
+       LIBS='-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm'
 \end{lstlisting}
 \end{small}
 After this, you can build and install Yices as usual:
@@ -739,6 +782,14 @@ If you want only CryptoMiniSat, you can use
        LIBS='-lcryptominisat5 -lstdc++'
 \end{lstlisting}
 \end{small}
+If you want only Kissat, use this command:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS=-DHAVE_KISSAT \
+       LIBS='-kissat -lm'
+\end{lstlisting}
+\end{small}
+
 Compilation with these backend SAT solver is compatible with MCSAT, so
 you add option \texttt{--enable-mcsat} to any of these configure commands.
 
@@ -761,7 +812,7 @@ models across several threads is not supported (unless you implement
 your own locking mechanism).
 
 \medskip\noindent
-In the current version (Yices~2.6.2), threat-safety and MCSAT are not compatible.
+In the current version (Yices~2.6.4), threat-safety and MCSAT are not compatible.
 It is not possible to build Yices to support MCSAT and be re-entrant.
 
 
@@ -1401,6 +1452,11 @@ Yices notations. The MCSAT solver is required for nonlinear
 arithmetic, but it also supports other theories such as uninterpreted
 functions or bitvectors.
 
+The MCSAT solver implements functions that can be used for
+constructing interpolants and it also supports a new form of SMT
+solving that we call {\em solving modulo a model\/}. An explanation
+of these concepts and application to interpolant construction for
+non-linear arithmetic are presented in a preprint~\cite{jovanovic2021interpolation}.
 
 \section{Third-Party SAT Solvers}
 
@@ -1771,7 +1827,7 @@ options are supported.
 
   Mode \texttt{one-shot} is required to use the Floyd-Warshall solvers.
 
-\item[--mcsat] Force use the MCSAT solver.
+\item[--mcsat] Force use of the MCSAT solver.
 
   This option forces \texttt{yices} to use the MCSAT solver instead of
   the default CDCL($T$) solver. By default, MCSAT is used only if the
@@ -3694,10 +3750,10 @@ Yices~2.6.2, it is possible to select an alternative Boolean SAT solver as follo
    yices-smt2 --delegate=<solver-name>
 \end{lstlisting}
 \end{small}
-where \texttt{<solver-name>} is either \texttt{cadical}, or
-\texttt{cryptominisat}, or \texttt{y2sat}.  The first two variants
-select either CaDiCaL or CryptoMiniSat5 as backend solvers. Support for these
-two third-party solvers must be enabled at compilation time as
+where \texttt{<solver-name>} is either \texttt{cadical},
+\texttt{cryptominisat}, \texttt{kissat}, or \texttt{y2sat}.  The first three variants
+select either CaDiCaL, CryptoMiniSat5, or Kissat as backend solver. Support for these
+third-party solvers must be enabled at compilation time as
 explained in Chapter~\ref{compilation}. The \texttt{y2sat} solver is
 an experimental SAT solver that is part of the Yices code. It is
 always available.
@@ -3821,6 +3877,8 @@ Here is the full list of command-line options supported by
 \item[--help, -h] Show a summary of command-line options and exit.
 
 \item[--mcsat-help] Show extra options used only by the MCSAT solver.
+
+\item[--ef-help] Show extra options used only by the Exists-Forall solver.
 
 \end{options}
 
@@ -3953,11 +4011,156 @@ use any character string that can be interpreted as a file name by the
 underlying operating system.
 
 
+\subsection{Solving Modulo a Model}
 
-%% \subsubsection*{Non-standard Extensions}
+Yices provides a few commands that are not defined in SMT-LIB~2.0 but
+should be useful. These commands include support for solving modulo a
+model and generating a model interpolant~\cite{jovanovic2021interpolation}.
+Figure~\ref{model-interpolant} illustrates the use of two non-standard
+commands:\\
+\begin{itemize}
+\item \texttt{check-sat-assuming-model}: check whether a partial model $M$ can be
+extended into a full model $M'$ that satisfies all the assertions so far.
 
-%% Yices provides a few commands that are not defined in SMT-LIB~2.0 but
-%% should be useful. Similar commands are available in other solvers such
+This command takes two arguments. The first argument must be a list of distinct variables
+and the second argument must be a list of constants. Both lists must have the same length
+and they define the assumed partial model $M$.
+
+For example, the command
+\begin{footnotesize}
+\begin{verbatim}
+   (check-sat-assuming-model (a b c) (1 1 1))
+\end{verbatim}
+\end{footnotesize}
+means ``check satisfibiliy assuming the model $a=1$, $b=1$, and $c=1$.''
+
+\item \texttt{get-unsat-model-interpolant}: if a partial model $M$
+  cannot be extended to into a full model of the assertions, this
+  command produces a \emph{model interpolant\/}. This interpolant is a
+  formula implied by the assertion and is false in $M$. This formula
+  contains only variables that occur in $M$ and it explains why $M$ is
+  not a good model for the assertions.
+
+  Command \texttt{get-unsat-model-interpolant} takes no arguments. It must be called after a call to
+  \texttt{check-sat-assuming-model} that returned \texttt{unsat}.
+\end{itemize}
+
+\begin{figure}
+\begin{center}
+\begin{footnotesize}
+\begin{verbatim}
+     (set-option :produce-unsat-model-interpolants true)
+
+     (set-logic QF_NRA)
+
+     (declare-const x Real)
+     (declare-const a Real)
+     (declare-const b Real)
+     (declare-const c Real)
+
+     ;; quadratic equation
+     (assert (= (+ (* a x x) (* b x) c) 0))
+
+     ;; check satisfiability assuming a=1, b=1, c=1
+     (check-sat-assuming-model (a b c) (1 1 1))
+     (get-unsat-model-interpolant)
+
+     ;; check satisfiability assuming a=-1, b=1, c=-1
+     (check-sat-assuming-model (a b c) ((- 1) 1 (- 1)))
+     (get-unsat-model-interpolant)
+
+     ;; check satisfibility assuming a=0, b=0, c=1
+     (check-sat-assuming-model (a b c) (0 0 1))
+     (get-unsat-model-interpolant)
+\end{verbatim}
+\end{footnotesize}
+\end{center}
+\caption{Satisfiability Assuming a Model and Model Interpolants}
+\label{model-interpolant}
+\end{figure}
+
+\medskip\noindent
+The first line of the script in Figure~\ref{model-interpolant} sets an
+option that is enables support for solving modulo a model. This option
+must occur before the usual \texttt{(set-logic ...)} command. Solving
+modulo a model is currently relies on the MCSAT solver of Yices, so
+the logic selected must be supported by MCSAT. In the example, the
+logic is quantifier-free non-linear real arithmetic.
+
+\medskip\noindent
+The example contains a single assertion, namely, the quadratic
+equation
+\begin{eqnarray*}
+  a x^2 + b x + c & = & 0
+\end{eqnarray*}
+where variables $a$, $b$, $c$, and $x$ are all reals. Solving assuming a model allows one
+to discover conditions on $a$, $b$, and $c$ under which this quadratic equation has no solution.
+
+\medskip\noindent For example, the first call to
+\texttt{check-sat-assuming-model} assumes that $a=1$,
+$b=1$, and $c=1$. Under these conditions, the equation has no
+solution, so the first \texttt{check-sat-assuming-model} will produce
+\texttt{unsat}.
+
+\medskip\noindent
+The subsequent call to \texttt{get-unsat-model-interpolant} will produce the
+following formula:
+\begin{footnotesize}
+\begin{verbatim}
+    (or (>= (* -1 a) 0) (>= (+ (* -4 a c) (^ b 2)) 0))
+\end{verbatim}
+\end{footnotesize}
+This formula is implied by the assertion and it is false when $a=1$,
+$b=1$ and $c=1$. It is a symbolic explanation of why the equation has
+no solutions under our assumptions. The formula rules out the model
+$a=1, b=1, c=1$ but it generalizes to other models. In more standard
+mathematical notations, one can read the model interpolant as the
+well-known necessary condition on the discriminant for solutions to
+exist:
+\begin{displaymath}
+   a x^2 + b x + c = 0 \wedge a > 0 \Rightarrow b^2-4ac \geq 0.
+\end{displaymath}
+We note that interpolant construction does not always produce the most
+general explanation; the following would rule out more
+models
+\begin{displaymath}
+   a x^2 + b x + c = 0 \wedge a \neq 0 \Rightarrow b^2-4ac \geq 0.
+\end{displaymath}
+
+\medskip\noindent The second call to \texttt{check-sat-assuming-model}
+is a case where both $a$ and $c$ are negative. The model interpolant
+in this case is
+\begin{footnotesize}
+\begin{verbatim}
+    (or (>= (+ (* -4 a c) (^ b 2)) 0) (>= a 0))
+\end{verbatim}
+\end{footnotesize}
+which can be read as:
+\begin{displaymath}
+   a x^2 + b x + c = 0 \wedge a < 0 \Rightarrow b^2-4ac \geq 0.
+\end{displaymath}
+The two interpolants in conjunction give a necessary condition on the
+discrimant that holds when the equation is quadratic, that is, when
+$a$ is not zero.
+
+\medskip\noindent 
+Finally, the last call to \texttt{check-sat-assuming-model} covers a
+degenerate case, where $a$ and $b$ are both null and $c$ is positive. 
+This time, the model interpolant is 
+\begin{footnotesize}
+\begin{verbatim}
+    (or (>= (* -1 c) 0) (/= b 0) (/= a 0))
+\end{verbatim}
+\end{footnotesize}
+which is equivalent to
+\begin{displaymath}
+   a x^2 + b x + c = 0 \wedge a = 0 \wedge b = 0 \Rightarrow c \leq 0.
+\end{displaymath}
+Again, this is not the most general explanation but it rules out the
+model we started from, namely, $a=0$, $b=0$, $c=1$.
+
+
+%% Similar commands are available in other solvers such
 %% as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}} and
 %% Z3\footnote{\url{http://rise4fun.com/z3/tutorial/guide}}.
 

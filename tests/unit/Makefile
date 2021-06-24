@@ -98,6 +98,16 @@ ifeq ($(ENABLE_MCSAT),yes)
   CPPFLAGS+=-DHAVE_MCSAT
 endif
 
+#
+# Whether we have thread safety
+# If so on Unix systems, we must add -pthread to CFLAGS
+#
+PTRHEAD=
+ifeq ($(THREAD_SAFE),1)
+  CPPFLAGS += -DTHREAD_SAFE
+  PTHREAD= -pthread
+endif
+
 
 #
 # OS-dependent compilation flags
@@ -124,32 +134,50 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
-  LIBS+=-pthread
+  LIBS+=$(PTHREAD)
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden -pthread
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
 else
+ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
-  CFLAGS += -fvisibility=hidden -pthread
   STATIC=-static
+  CPPFLAGS := $(CPPFLAGS) -DNETBSD
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS=
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
+else
+ifeq ($(POSIXOS),unix)
+  PIC=-fPIC
+  STATIC=-static
+  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  BIN_LDFLAGS=
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
+else
+ $(error "Don't know how to compile on $(POSIXOS)")
+endif
+endif
 endif
 endif
 endif
