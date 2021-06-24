@@ -173,7 +173,7 @@ first add our PPA to your list of repositories then install package
 You can also install the library and development files as follows:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  sudo apt-get install yices2-dev libyices2.5
+  sudo apt-get install yices2-dev libyices2.6
 \end{lstlisting}
 \end{small}
 
@@ -213,7 +213,7 @@ Four solvers are currently included:
 \item  \texttt{yices-smt} is  a solver  for input  in  the SMT-LIB~1.2
   notation~\cite{SMTLIB12:2006}.
 
-\item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.0
+\item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.x
   notation~\cite{SMTLIB25:2015}.
 
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
@@ -645,7 +645,7 @@ location.
 \section{Third-Party SAT Solvers}
 
 It is now possible for Yices to use third-party backend SAT solvers
-for bitvector solving. Currently, we support threeSAT solvers:
+for bitvector solving. Currently, we support three SAT solvers:
 CaDiCaL~\cite{Biere:cadical:2019},
 CryptoMiniSat~\cite{Soos+etal:extending:2009}, and
 Kissat~\cite{BiereFazekasFleuryHeisinger-SAT-Competition-2020-solvers}.
@@ -1827,7 +1827,7 @@ options are supported.
 
   Mode \texttt{one-shot} is required to use the Floyd-Warshall solvers.
 
-\item[--mcsat] Force use the MCSAT solver.
+\item[--mcsat] Force use of the MCSAT solver.
 
   This option forces \texttt{yices} to use the MCSAT solver instead of
   the default CDCL($T$) solver. By default, MCSAT is used only if the
@@ -3751,7 +3751,7 @@ Yices~2.6.2, it is possible to select an alternative Boolean SAT solver as follo
 \end{lstlisting}
 \end{small}
 where \texttt{<solver-name>} is either \texttt{cadical},
-\texttt{cryptominisat}, \texttt{kissat}, or \texttt{y2sat}.  The first thre variants
+\texttt{cryptominisat}, \texttt{kissat}, or \texttt{y2sat}.  The first three variants
 select either CaDiCaL, CryptoMiniSat5, or Kissat as backend solver. Support for these
 third-party solvers must be enabled at compilation time as
 explained in Chapter~\ref{compilation}. The \texttt{y2sat} solver is
