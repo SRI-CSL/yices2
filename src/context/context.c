@@ -2083,7 +2083,8 @@ static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *disti
   a = alloc_istack_array(&ctx->istack, n);
   if (context_has_egraph(ctx)) {
     // fail if arguments are functions and we don't support high-order terms
-    check_high_order_support(ctx, distinct->arg, n);
+    // checking the first argument is enough since they all have the same type
+    check_high_order_support(ctx, distinct->arg, 1);
 
     // default: translate to the egraph
     for (i=0; i<n; i++) {
@@ -3953,7 +3954,9 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
   a = alloc_istack_array(&ctx->istack, n);
 
   if (context_has_egraph(ctx)) {
-    check_high_order_support(ctx, distinct->arg, n);
+    // fail if arguments have function types and we don't
+    // have a function/array solver
+    check_high_order_support(ctx, distinct->arg, 1);
 
     // forward the assertion to the egraph
     for (i=0; i<n; i++) {
