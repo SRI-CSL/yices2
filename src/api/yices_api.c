@@ -8608,7 +8608,8 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   CTX_TOO_MANY_ARITH_ATOMS,
   CTX_ARITH_SOLVER_EXCEPTION,
   CTX_BV_SOLVER_EXCEPTION,
-  MCSAT_ERROR_UNSUPPORTED_THEORY
+  MCSAT_ERROR_UNSUPPORTED_THEORY,
+  CTX_HIGH_ORDER_FUN_NOT_SUPPORTED,
 };
 
 static inline void convert_internalization_error(int32_t code) {

@@ -780,14 +780,16 @@ enum {
   // bv solver errors
   BVSOLVER_EXCEPTION = -21,
   // mcsat errors
-  MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -22
+  MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -22,
+  // new code: added 2021/06/29
+  HIGH_ORDER_FUN_NOT_SUPPORTED = -23,
 };
 
 
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 23
+#define NUM_INTERNALIZATION_ERRORS 24
 
 
 

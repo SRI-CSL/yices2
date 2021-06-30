@@ -257,6 +257,25 @@ static int32_t uf_error_code(context_t *ctx, term_t t) {
 }
 
 
+/*
+ * Utility to filter out high-order terms:
+ * - check whether any term in a[0 ... n-1] has function type.
+ * - if so throw an exception (via lonjmp) if the context does not include
+ *   the array solver.
+ */
+static void check_high_order_support(context_t *ctx, const term_t *a, uint32_t n) {
+  uint32_t i;
+
+  if (! context_has_fun_solver(ctx)) {
+    for (i=0; i<n; i++) {
+      if (is_function_term(ctx->terms, a[i])) {
+	longjmp(ctx->env, HIGH_ORDER_FUN_NOT_SUPPORTED);
+      }
+    }
+  }
+}
+
+
 /***********************************************
  *  CONVERSION OF COMPOSITES TO EGRAPH TERMS   *
  **********************************************/
@@ -272,6 +291,9 @@ static occ_t map_apply_to_eterm(context_t *ctx, composite_term_t *app, type_t ta
 
   assert(app->arity > 0);
   n = app->arity;
+
+  check_high_order_support(ctx, app->arg+1, n-1);
+
   a = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {
     a[i] = internalize_to_eterm(ctx, app->arg[i]);
@@ -503,7 +525,7 @@ static occ_t flatten_ite_to_eterm(context_t *ctx, composite_term_t *ite, literal
     }
   }
 
-   //  delete_ite_flattener(&flattener);
+  //  delete_ite_flattener(&flattener);
   objstack_pop(&ctx->ostack);
 
   return u;
@@ -520,6 +542,9 @@ static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau)
   occ_t u1, u2, u3;
   literal_t c, l1, l2;
 
+  // NOTE: we could reject (ite c t1 t2) when t1 and t2 are functions and we
+  // don't have a function/array solver. But it looks like the egraph can
+  // handle it so we accept it. Strictly, it's not a part of UF or QF_UF.
 
   d = context_make_conditional(ctx, ite);
   if (d != NULL) {
@@ -600,6 +625,9 @@ static occ_t map_tuple_to_eterm(context_t *ctx, composite_term_t *tuple, type_t 
   uint32_t i, n;
 
   n = tuple->arity;
+
+  check_high_order_support(ctx, tuple->arg, n);
+
   a = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {
     a[i] = internalize_to_eterm(ctx, tuple->arg[i]);
@@ -1868,6 +1896,9 @@ static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
     l2 = internalize_to_literal(ctx, eq->arg[1]);
     l = mk_iff_gate(&ctx->gate_manager, l1, l2);
   } else {
+    // filter out high-order terms. It's enough to check eq->arg[0]
+    check_high_order_support(ctx, eq->arg, 1);
+
     u = internalize_to_eterm(ctx, eq->arg[0]);
     v = internalize_to_eterm(ctx, eq->arg[1]);
     l = egraph_make_eq(ctx->egraph, u, v);
@@ -2051,6 +2082,9 @@ static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *disti
   n = distinct->arity;
   a = alloc_istack_array(&ctx->istack, n);
   if (context_has_egraph(ctx)) {
+    // fail if arguments are functions and we don't support high-order terms
+    check_high_order_support(ctx, distinct->arg, n);
+
     // default: translate to the egraph
     for (i=0; i<n; i++) {
       a[i] = internalize_to_eterm(ctx, distinct->arg[i]);
@@ -3740,6 +3774,9 @@ static void assert_toplevel_apply(context_t *ctx, composite_term_t *app, bool tt
   assert(app->arity > 0);
 
   n = app->arity;
+
+  check_high_order_support(ctx, app->arg+1, n-1);
+
   a = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {
     a[i] = internalize_to_eterm(ctx, app->arg[i]);
@@ -3848,6 +3885,9 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
     assert(is_boolean_term(ctx->terms, eq->arg[1]));
     assert_toplevel_iff(ctx, eq->arg[0], eq->arg[1], tt);
   } else {
+    // filter out high-order terms. It's enough to check eq->arg[0]
+    check_high_order_support(ctx, eq->arg, 1);
+
     u1 = internalize_to_eterm(ctx, eq->arg[0]);
     u2 = internalize_to_eterm(ctx, eq->arg[1]);
     if (!context_quant_enabled(ctx) || egraph_is_at_base_level(ctx->egraph)) {
@@ -3913,6 +3953,8 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
   a = alloc_istack_array(&ctx->istack, n);
 
   if (context_has_egraph(ctx)) {
+    check_high_order_support(ctx, distinct->arg, n);
+
     // forward the assertion to the egraph
     for (i=0; i<n; i++) {
       a[i] = internalize_to_eterm(ctx, distinct->arg[i]);
@@ -4319,6 +4361,8 @@ static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) 
   literal_t l1, l2, l3;
 
   assert(ite->arity == 3);
+
+  // high-order ite should work. See map_ite_to_eterm
 
   d = context_make_conditional(ctx, ite);
   if (d != NULL) {
