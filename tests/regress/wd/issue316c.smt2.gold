@@ -1,0 +1,13 @@
+sat
+(= f @fun_2)
+(= g @fun_4)
+(= h @fun_6)
+(function @fun_2
+ (type (Array U U))
+ (default @const_1))
+(function @fun_4
+ (type (Array U U))
+ (default @const_3))
+(function @fun_6
+ (type (Array U U))
+ (default @const_5))
