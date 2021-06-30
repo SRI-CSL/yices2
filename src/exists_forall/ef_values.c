@@ -229,8 +229,7 @@ static void store_term_generation(ef_table_t *vtable, term_t var, uint32_t gen) 
 
   p = int_hmap_get(&vtable->generation, var);
   p->val = gen;
-  if (gen > vtable->max_generation)
-    vtable->max_generation = gen;
+  if (gen > vtable->max_generation) vtable->max_generation = gen;
 }
 
 
@@ -258,22 +257,20 @@ static uint32_t calculate_generation(ef_table_t *vtable, term_t xc) {
   int_hmap_pair_t *p;
   uint32_t i, m, result;
 
-
   assert(term_kind(vtable->terms, xc) == APP_TERM);
 
   app = app_term_desc(vtable->terms, xc);
   m = app->arity - 1;
   result = 0;
 
-  for(i=1; i<=m; i++) {
+  for (i=1; i<=m; i++) {
     f = app->arg[i];
     if (is_utype_term(vtable->terms, f)) {
       p = int_hmap_find(&vtable->generation, f);
       if (p == NULL) {
         return 0;
       }
-      if (p->val > result)
-        result = p->val;
+      if (p->val > result) result = p->val;
     }
     else
       result = f;
@@ -376,7 +373,7 @@ bool store_term_value(ef_table_t *vtable, term_t var, value_t value, uint32_t ge
  * Check whether value is present in ef table or not
  */
 bool check_value_present(ef_table_t *vtable, value_t value) {
-  return (int_hmap_find(&vtable->val_map, value) != NULL);
+  return int_hmap_find(&vtable->val_map, value) != NULL;
 }
 
 
@@ -674,8 +671,6 @@ static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, 
     p = int_hmap_get(&subst.map, x);
     p->val = value[i];
 
-    assert(is_pos_term(x));
-//    assert(term_is_var(subst.terms, x));
     assert(good_term(subst.terms, x));
     assert(is_pos_term(x));
     assert(term_kind(subst.terms, x) == UNINTERPRETED_TERM ||
@@ -695,7 +690,6 @@ static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, 
  */
 term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) {
   ptr_hmap_pair_t *r;
-//  printf("rep for %s\n", yices_term_to_string(value, 120, 1, 0));
 
   if (is_boolean_term(vtable->terms, value)) {
     return value;
@@ -704,11 +698,7 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
   r = ptr_hmap_find(&vtable->map, value);
   if (r == NULL) {
     return NULL_TERM;
-//    printf("Unable to find a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
-//    assert(0);
-//    return value;
-  }
-  else {
+  } else {
     term_t x, best_x;
     int_hmap_pair_t *p;
     uint32_t i, n, m;
@@ -725,21 +715,16 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
       best_gen = UINT32_MAX;
       best_x = NULL_TERM;
 
-//      return NULL_TERM;
-      if (n == 0)
-        return NULL_TERM;
+      if (n == 0) return NULL_TERM;
 
-      for(i=0; i<n; i++) {
+      for (i=0; i<n; i++) {
         x = v->data[i];
         p = int_hmap_find(&vtable->generation, x);
-        if (p != NULL) {
-          if (p->val < best_gen) {
-            best_gen = p->val;
-            best_x = x;
-          }
-        }
-        if (best_x == NULL_TERM)
-          best_x = x;
+        if (p != NULL && p->val < best_gen) {
+	  best_gen = p->val;
+	  best_x = x;
+	}
+        if (best_x == NULL_TERM) best_x = x;
       }
       store_rep(vtable, value, best_x);
       assert(0);

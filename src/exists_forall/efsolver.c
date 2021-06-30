@@ -114,7 +114,7 @@ term_t create_new_evar_instance(ef_solver_t *solver, type_t tau, const char *str
   result = yices_new_uninterpreted_term(tau);
   v = &solver->new_vars;
 
-  sprintf (name, "instance%d_%s", v->size+1, str);
+  snprintf(name, sizeof(name), "instance%d_%s", v->size+1, str); // BD: FIXED BUFFER OVERFLOW HERE
   yices_set_term_name(result, name);
 
   ivector_push(v, result);
@@ -159,7 +159,7 @@ void replace_forall_witness(ef_solver_t *solver, uint32_t i) {
       rep = x;
     if (rep == NULL_TERM) {
       p = int_hmap_get(&new_values, x);
-      if(p->val < 0) {
+      if (p->val < 0) {
         tau = yices_type_of_term(cnstr->uvars[j]);
         rep = create_new_evar_instance(solver, tau, yices_get_term_name(cnstr->uvars[j]));
         p->val = rep;
@@ -536,17 +536,15 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
     pp_context(stdout, ctx);
 
     print_egraph_terms(stdout, ctx->egraph);
-//  print_egraph_terms_details(stdout, ctx->egraph);
     printf("\n\n");
     print_egraph_root_classes(stdout, ctx->egraph);
-//  print_egraph_root_classes_details(stdout, ctx->egraph);
 
     printf("\n(BEGIN) Intern. mappings:\n");
     print_context_intern_mapping(stdout, ctx);
 #endif
 
     // get values of terms in var as terms
-//    code = yices_term_array_value(mdl, n, var, value);
+    // code = yices_term_array_value(mdl, n, var, value);
 
     eval_code = evaluate_term_array(mdl, n, var, value);
     if (eval_code < 0) {
@@ -1236,7 +1234,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
   numlearnt = 0;
 
   // iterate till not reached max generation
-  while(code == CTX_NO_ERROR && !done) {
+  while (code == CTX_NO_ERROR && !done) {
     // assert domain constrainst for uvars
     uvar_cnstr = constraint_scalar(&solver->value_table, n, cnstr->uvars, generation, &done);
 #if TRACE
@@ -1256,7 +1254,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
       break;
 
     // inner loop: learn multiple lemmas if possible
-    while(true) {
+    while (true) {
       status = satisfy_context(solver, forall_ctx, cnstr->uvars, n, solver->uvalue_aux.data, NULL, false);
 #if TRACE
       printf("[%d] forall_ctx status: %d\n", i, status);
@@ -1269,7 +1267,6 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
         printf("\n");
         fflush(stdout);
 #endif
-
         // replace term values in counterexample with their representatives
         replace_forall_witness(solver, i);
 
@@ -1530,8 +1527,6 @@ static void ef_solver_search(ef_solver_t *solver) {
     case STATUS_UNKNOWN:
       // we have a candidate exists model
       // check it and learn what we can
-//      assert(0);
-
 #if TRACE
       // FOR DEBUGGING
       printf("Candidate exists model:\n");
