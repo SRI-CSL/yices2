@@ -193,11 +193,11 @@ int32_t yices_release_mutex(void){
  * - In the thread safe version they are protected by the __yices_globals.lock
  *
  */
-static sparse_array_t *root_terms;
-static sparse_array_t *root_types;
+static YICES_THREAD_LOCAL sparse_array_t *root_terms;
+static YICES_THREAD_LOCAL sparse_array_t *root_types;
 
-static sparse_array_t the_root_terms;
-static sparse_array_t the_root_types;
+static YICES_THREAD_LOCAL sparse_array_t the_root_terms;
+static YICES_THREAD_LOCAL sparse_array_t the_root_types;
 
 
 
@@ -215,6 +215,7 @@ static sparse_array_t the_root_types;
 
 /*
  * Doubly-linked list of arithmetic buffers
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -228,6 +229,7 @@ static yices_lock_t arith_buffer_list_lock;
 
 /*
  * Doubly-linked list of bitvector arithmetic buffers
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -242,6 +244,7 @@ static yices_lock_t bvarith_buffer_list_lock;
 
 /*
  * Variant: 64bit buffers
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -256,6 +259,7 @@ static yices_lock_t bvarith64_buffer_list_lock;
 
 /*
  * Doubly-linked list of bitvector buffers
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -270,6 +274,7 @@ static yices_lock_t bvlogic_buffer_list_lock;
 
 /*
  * Doubly-linked list of contexts
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -284,6 +289,7 @@ static yices_lock_t context_list_lock;
 
 /*
  * Models
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -298,6 +304,7 @@ static yices_lock_t model_list_lock;
 
 /*
  * Context configurations
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -311,6 +318,7 @@ static yices_lock_t config_list_lock;
 
 /*
  * Solver parameter descriptors
+ * BD says: move into globals
  */
 typedef struct {
   dl_list_t header;
@@ -1050,12 +1058,11 @@ static void clear_globals(yices_globals_t *glob) {
  * Initialize all global objects
  */
 
-//__YICES_DLLSPEC__ extern void yices_global_init(void);
+EXPORTED void yices_global_init(void){
+  init_yices_pp_tables();
+}
 
-//__YICES_DLLSPEC__ extern void yices_per_thread_init(void);
-
-
-EXPORTED void yices_init(void) {
+EXPORTED void yices_per_thread_init(void){
   error_report_t *error;
   // setup the TLS and error report structure
   init_yices_error();
@@ -1068,8 +1075,7 @@ EXPORTED void yices_init(void) {
   // make the global list locks
   init_list_locks();
 
-  init_yices_pp_tables();
-  init_bvconstants();
+ init_bvconstants();
   init_rationals();
 
   q_init(&r0);
@@ -1096,7 +1102,12 @@ EXPORTED void yices_init(void) {
   // registries for garbage collection
   root_terms = NULL;
   root_types = NULL;
+}
 
+
+EXPORTED void yices_init(void) {
+  yices_global_init();
+  yices_per_thread_init();
 }
 
 
@@ -1104,12 +1115,11 @@ EXPORTED void yices_init(void) {
  * Cleanup: delete all tables and internal data structures
  */
 
-// __YICES_DLLSPEC__ extern void yices_global_exit(void);
+EXPORTED void yices_global_exit(void){
+  // nothing here yet
+}
 
-// __YICES_DLLSPEC__ extern void yices_per_thread_exit(void);
-
-
-EXPORTED void yices_exit(void) {
+EXPORTED void yices_per_thread_exit(void){
   // registries
   if (root_terms != NULL) {
     assert(root_terms == &the_root_terms);
@@ -1149,6 +1159,12 @@ EXPORTED void yices_exit(void) {
   cleanup_bvconstants();
 
   free_yices_error();
+}
+
+
+EXPORTED void yices_exit(void) {
+  yices_per_thread_exit();
+  yices_global_exit();
 }
 
 
