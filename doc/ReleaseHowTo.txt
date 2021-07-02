@@ -1,0 +1,88 @@
+HOW TO PREPARE A YICES RELEASE
+
+1) Update the version number.
+
+First, in the top-level Makefile, we have
+
+  MAJOR = 2
+  MINOR = 6
+  PATCH_LEVEL = 2
+
+
+Other places that need updates
+
+In src/include/yices.h
+
+  #define __YICES_VERSION            2
+  #define __YICES_VERSION_MAJOR      6
+  #define __YICES_VERSION_PATCHLEVEL 2
+
+In the doc:
+
+  doc/manual/manual.tex
+  doc/sphinx/source/conf.py 
+  doc/yices.1
+  doc/yices-sat.1
+  doc/yices-smt.1
+  doc/yices-smt2.1
+
+
+2) Prepare a release on Github
+
+3) Ian builds homebrew and ppa packages from the Github release
+
+4) Build distributions to include on the yices.csl.sri.com  webpage.
+
+   From the yices2 directory, distributions are copied (as compressed tarfiles)
+   in the ./distributions directory.
+  
+   Source:
+   make source-distribution
+
+   Linux:
+   make static-distribution (on a linux machine)
+
+   Mac intel:
+   make static-distribution (on a Mac)
+
+   Mac arm/M1:
+   make static-distrbution (on a new Mac/Ian has one)
+
+
+   Windows:
+
+   1) find a Windows VM with everything on it, then
+      run  ./utils/mingw-build mingw64 in the top-level yices2 directory
+
+   2) export the Windows tar file to another machine (Linux works)
+
+   3) run ./utils/dosify <windows-tar-file> to fix end-of-line formatting
+      in ASCII files and convert the tarfile to zip.
+   
+
+5) Update the doc in doc/sphinx then run
+
+      make html
+
+   in there. This will generate the html doc in build/html
+
+     
+
+6) Update the webpages for yices.csl.sri.com:
+
+   - clone https://github.com/SRI-CSL/Portals
+
+   - modify the content in  yices.csl.sri.com/data
+
+    - fix the version numbers in
+
+    yices.csl.sri.com/template-mappings/version-filter.properties
+
+
+    Then there's a way to automatically install the updates on
+    the webserver (ask Ian).
+
+    Manual step: copy the Sphinx doc from buid/html to doc on
+    the webserver.
+
+
