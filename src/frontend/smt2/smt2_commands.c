@@ -1058,6 +1058,10 @@ static void print_yices_error(bool full) {
     unsupported_construct("uninterpreted sorts are");
     break;
 
+  case CTX_HIGH_ORDER_FUN_NOT_SUPPORTED:
+    unsupported_construct("high-order functions are");
+    break;
+
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
     unsupported_construct("non-linear arithmetic is");
     break;

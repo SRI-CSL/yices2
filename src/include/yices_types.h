@@ -395,6 +395,7 @@ typedef enum error_code {
   CTX_SCALAR_NOT_SUPPORTED,   // added 2015/03/26
   CTX_TUPLE_NOT_SUPPORTED,    // added 2015/03/26
   CTX_UTYPE_NOT_SUPPORTED,    // added 2015/03/26
+  CTX_HIGH_ORDER_FUN_NOT_SUPPORTED, // added 2021/06/29
 
 
   /*
