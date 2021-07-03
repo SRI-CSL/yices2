@@ -49,6 +49,8 @@ typedef struct thread_data {
  * extras if not NULL should be of the same length as nthread, and each element is put in the appropriate void* extra
  * slot in the thread data.
  *
+ * It then waits for each thread to terminate.
+ *
  */
 extern void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main, bool verbose);
 

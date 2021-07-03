@@ -99,7 +99,7 @@ echo $strippedname
 
 ulimit -S -t $TIME_LIMIT &> /dev/null
 ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
-(time $test >& $outfile ) >& $timefile
+(time $test 2>&1 $outfile ) >& $timefile
 exitcode=$?
 thetime=`cat $timefile`
 
