@@ -448,6 +448,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "the context does not support uninterpreted types\n");
     break;
 
+  case  CTX_HIGH_ORDER_FUN_NOT_SUPPORTED:
+    code = fprintf(f, "the context does not support high-order functions\n");
+    break;
+
   case CTX_INVALID_OPERATION:
     code = fprintf(f, "the context state does not allow operation\n");
     break;
@@ -959,6 +963,10 @@ char *error_string(void) {
 
   case CTX_UTYPE_NOT_SUPPORTED:
     nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support uninterpreted types");
+    break;
+
+  case CTX_HIGH_ORDER_FUN_NOT_SUPPORTED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "the context does not support high-order functions");
     break;
 
   case CTX_INVALID_OPERATION:

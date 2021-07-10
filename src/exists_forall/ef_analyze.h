@@ -17,7 +17,7 @@
  */
 
 /*
- * Processing of terms t as part EF-solving
+ * Processing of terms as part EF-solving
  */
 
 /*

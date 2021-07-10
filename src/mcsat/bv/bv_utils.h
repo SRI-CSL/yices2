@@ -467,8 +467,7 @@ static inline
 bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
   if (t == old) return true;
   term_manager_t* tm   = ctx->tm;
-  ctx_config_t* config = yices_new_config();
-  context_t* yctx      = yices_new_context(config);
+  context_t* yctx      = yices_new_context(NULL);
   yices_assert_formula(yctx, mk_neq(tm, old, t));
   smt_status_t output = yices_check_context(yctx, NULL);
   bool result = (output == STATUS_UNSAT);
@@ -481,7 +480,6 @@ bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
     assert(false);
   }
   yices_free_context(yctx);
-  yices_free_config(config);
   return result;
 }
 

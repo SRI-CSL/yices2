@@ -156,7 +156,6 @@ ifeq ($(POSIXOS),freebsd)
   CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
-else
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
@@ -186,11 +185,10 @@ endif
 endif
 
 
-
 #
-# Warning levels: for the unit tests we don't use -Winline
+# Warning levels
 #
-CFLAGS += -Wall -Wredundant-decls
+CFLAGS += -Wall -Wredundant-decls -Wextra -Wpedantic
 ifeq ($(POSIXOS),mingw)
   CFLAGS += -Wno-format
 endif
@@ -363,6 +361,11 @@ $(static_objdir)/%.o: %.c
 
 # All test binaries, using dynamic GMP library
 all: $(tests)
+	@ echo === Running tests ===
+	@ rm -f *.log
+	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ echo
+	@ ./print_summary.sh tests.log
 
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
@@ -370,6 +373,11 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 
 # Test binaries compiled statically
 all-static: $(static_tests)
+	@ echo === Running tests ===
+	@ rm -f *.log
+	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ echo
+	@ ./print_summary.sh tests.log
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)

@@ -1,5 +1,4 @@
 a
-a
 accumulateState
 addr
 adjust
@@ -18,9 +17,7 @@ bv-concat
 bv-extract
 bv-ge
 bv-gt
-bv-gt
 bv-le
-bv-lt
 bv-lt
 bv-mul
 bv-neg

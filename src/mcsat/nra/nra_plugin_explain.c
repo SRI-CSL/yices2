@@ -477,9 +477,9 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
   assert(term_kind(tm->terms, root_atom) != CONSTANT_TERM);
 
 #if TRACE
-    fprintf(stderr, "Adding cell part (2): ");
-    print_term(stderr, map->tm->terms, root_atom);
-    fprintf(stderr, "\n");
+  fprintf(stderr, "Adding cell part (2): ");
+  print_term(stderr, map->tm->terms, root_atom);
+  fprintf(stderr, "\n");
 #endif
 
   ivector_push(out, root_atom);

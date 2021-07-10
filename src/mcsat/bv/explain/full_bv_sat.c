@@ -34,7 +34,7 @@
 #include "utils/int_vectors.h"
 #include "utils/int_array_sort2.h"
 
-#include "context/context_types.h"
+#include "context/context.h"
 
 #include "terms/term_manager.h"
 
@@ -58,28 +58,48 @@ typedef struct {
   /** MCSAT plugin context */
   plugin_context_t* ctx;
 
-  /** Yices config */
-  ctx_config_t* config;
-
   /** Yices context */
   context_t* yices_ctx;
 
 } bb_sat_solver_t;
 
-void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, bool incremental) {
 
+/*
+ * BUG FIX:
+ * - The Yices API maintains globals lists of configs and contexts to delete them all when
+ *   yices_exit() is called.
+ * - This means that yices_free_context/yices_free_config are not re-entrant.
+ * - It's not safe to use yices_new_config, yices_new_context, yice_free_context, yices_free_config here.
+ * - We must allocate and free the context locally.
+ */
+static context_t *new_yices_bv_context(plugin_context_t *ctx) {
+  context_t *yctx;
+
+  yctx = safe_malloc(sizeof(context_t));
+  init_context(yctx, ctx->terms, QF_BV, CTX_MODE_PUSHPOP, CTX_ARCH_BV, false);
+  // default options
+  enable_variable_elimination(yctx);
+  enable_bvarith_elimination(yctx);
+  enable_diseq_and_or_flattening(yctx);
+
+  return yctx;
+}
+
+static void free_yices_bv_context(context_t *yctx) {
+  delete_context(yctx);
+  safe_free(yctx);
+}
+
+
+void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, bool incremental) {
   substitution_construct(&solver->subst, ctx->tm, ctx->tracer);
   init_ivector(&solver->vars_to_assign, 0);
   solver->ctx = ctx;
   solver->incremental = incremental;
 
   // Create an instance of Yices
-  solver->config = yices_new_config();
-  int32_t ret = yices_default_config_for_logic(solver->config, "QF_BV");
-  (void) ret;
-  assert(ret == 0);
-  solver->yices_ctx = _o_yices_new_context(solver->config);
-  assert (solver->yices_ctx != NULL);
+  // See above. we can't use yices_new_context
+  solver->yices_ctx = new_yices_bv_context(ctx);
 
   // Incremental, do a push
   if (incremental) {
@@ -92,8 +112,7 @@ void bb_sat_solver_destruct(bb_sat_solver_t* solver) {
   delete_ivector(&solver->vars_to_assign);
 
   // Delete the yices instance
-  yices_free_context(solver->yices_ctx);
-  yices_free_config(solver->config);
+  free_yices_bv_context(solver->yices_ctx);
 }
 
 void bb_sat_solver_reset(bb_sat_solver_t* solver) {

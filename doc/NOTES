@@ -34,10 +34,13 @@ The source code is organized as follows:
 
   src/solvers:        CDCL-based SAT solvers + theory solvers
 
+  src/mcsat:	      MCSAT baded solvers and plugins
+
   src/context:        Support for creating and manipulating contexts and for simplification
                       and preprocessing of assertions.
 
   src/exists_forall:  Solver for exists/forall problems
+
   
   src/api:            Functions and data structures needed to implement the Yices API.
 

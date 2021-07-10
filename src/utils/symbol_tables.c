@@ -135,7 +135,7 @@ static void stbl_restore_list(stbl_rec_t **tmp, uint32_t mask, stbl_rec_t *list)
   uint32_t i;
 
   // reverse the list
-  p = NULL;;
+  p = NULL;
   while (list != NULL) {
     r = list->next;
     list->next = p;
@@ -519,13 +519,13 @@ void stbl_remove_records(stbl_t *sym_table, void *aux, stbl_filter_t f) {
     while (r != NULL) {
       p = r->next;
       if (f(aux, r)) {
-	sym_table->finalize(r);
-	stbl_free_record(sym_table, r);
-	r = p;
+        sym_table->finalize(r);
+        stbl_free_record(sym_table, r);
+        r = p;
       } else {
-	// keep r
-	*q = r;
-	q = &r->next;
+        // keep r
+        *q = r;
+        q = &r->next;
       }
     }
     *q = NULL;
