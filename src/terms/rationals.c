@@ -51,10 +51,10 @@ static YICES_THREAD_LOCAL mpq_store_t  mpq_store;
  *  String buffer for parsing.
  */
 #ifdef THREAD_SAFE
-static yices_lock_t string_buffer_lock;
+static YICES_THREAD_LOCAL yices_lock_t string_buffer_lock;
 #endif
-static char* string_buffer = NULL;
-static uint32_t string_buffer_length = 0;
+static YICES_THREAD_LOCAL char* string_buffer = NULL;
+static YICES_THREAD_LOCAL uint32_t string_buffer_length = 0;
 
 /*
  * Print an error then abort on division by zero
