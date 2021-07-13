@@ -35,13 +35,16 @@
 
 #include "mt/yices_locks.h"
 #include "mt/thread_macros.h"
+#include "api/yices_thread_local.h"
+
 #include "terms/rationals.h"
 #include "terms/mpq_stores.h"
 #include "utils/gcd.h"
 
 
 
-static mpq_store_t  mpq_store;
+
+static YICES_THREAD_LOCAL mpq_store_t  mpq_store;
 
 
 /*

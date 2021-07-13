@@ -118,6 +118,7 @@ typedef void lp_algebraic_number_t;
 
 #include "yices.h"
 
+// iam: maybe move into mt/thread_macros.h ?
 #include "yices_thread_local.h"
 
 /****************************
@@ -222,9 +223,9 @@ typedef struct {
   rba_buffer_t buffer;
 } arith_buffer_elem_t;
 
-static dl_list_t arith_buffer_list;
+static YICES_THREAD_LOCAL dl_list_t arith_buffer_list;
 #ifdef THREAD_SAFE
-static yices_lock_t arith_buffer_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t arith_buffer_list_lock;
 #endif
 
 /*
@@ -236,9 +237,9 @@ typedef struct {
   bvarith_buffer_t buffer;
 } bvarith_buffer_elem_t;
 
-static dl_list_t bvarith_buffer_list;
+static YICES_THREAD_LOCAL dl_list_t bvarith_buffer_list;
 #ifdef THREAD_SAFE
-static yices_lock_t bvarith_buffer_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t bvarith_buffer_list_lock;
 #endif
 
 
@@ -251,9 +252,9 @@ typedef struct {
   bvarith64_buffer_t buffer;
 } bvarith64_buffer_elem_t;
 
-static dl_list_t bvarith64_buffer_list;
+static YICES_THREAD_LOCAL dl_list_t bvarith64_buffer_list;
 #ifdef THREAD_SAFE
-static yices_lock_t bvarith64_buffer_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t bvarith64_buffer_list_lock;
 #endif
 
 
@@ -266,9 +267,9 @@ typedef struct {
   bvlogic_buffer_t buffer;
 } bvlogic_buffer_elem_t;
 
-static dl_list_t bvlogic_buffer_list;
+static YICES_THREAD_LOCAL dl_list_t bvlogic_buffer_list;
 #ifdef THREAD_SAFE
-static yices_lock_t bvlogic_buffer_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t bvlogic_buffer_list_lock;
 #endif
 
 
@@ -281,9 +282,9 @@ typedef struct {
   context_t context;
 } context_elem_t;
 
-static dl_list_t context_list;
+static YICES_THREAD_LOCAL dl_list_t context_list;
 #ifdef THREAD_SAFE
-static yices_lock_t context_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t context_list_lock;
 #endif
 
 
@@ -296,9 +297,9 @@ typedef struct {
   model_t model;
 } model_elem_t;
 
-static dl_list_t model_list;
+static YICES_THREAD_LOCAL dl_list_t model_list;
 #ifdef THREAD_SAFE
-static yices_lock_t model_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t model_list_lock;
 #endif
 
 
@@ -311,9 +312,9 @@ typedef struct {
   ctx_config_t config;
 } ctx_config_elem_t;
 
-static dl_list_t config_list;
+static YICES_THREAD_LOCAL dl_list_t config_list;
 #ifdef THREAD_SAFE
-static yices_lock_t config_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t config_list_lock;
 #endif
 
 /*
@@ -325,9 +326,9 @@ typedef struct {
   param_t param;
 } param_structure_elem_t;
 
-static dl_list_t parameter_list;
+static YICES_THREAD_LOCAL dl_list_t parameter_list;
 #ifdef THREAD_SAFE
-static yices_lock_t parameter_list_lock;
+static YICES_THREAD_LOCAL yices_lock_t parameter_list_lock;
 #endif
 
 
