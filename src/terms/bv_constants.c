@@ -35,6 +35,7 @@
 #include "utils/object_stores.h"
 
 
+#include "api/yices_thread_local.h"
 
 /*****************
  *  ALLOCATION   *
@@ -73,9 +74,9 @@ typedef struct {
 
 
 /*
- * Global allocator
+ * Global allocator  iam: why is this not protected by a lock?
  */
-static bvconst_allocator_t allocator;
+static YICES_THREAD_LOCAL bvconst_allocator_t allocator;
 
 
 /*
