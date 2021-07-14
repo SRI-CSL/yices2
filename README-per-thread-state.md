@@ -7,7 +7,7 @@ Build via:
 
 ```
 autoconf
-./configure --enable-thread-safety
+./configure --enable-thread-safety  CFLAGS=-DPER_THREAD_STATE
 make
 sudo make install
 ```

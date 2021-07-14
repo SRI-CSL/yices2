@@ -16,15 +16,25 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef THREAD_SAFE
+#include "yices_locks.h"
 
-#ifdef PER_THREAD_STATE
-#include "yices_locks_dummy.c"
-#else 
-#ifndef MINGW
-#include "yices_locks_posix.c"
-#else
-#include "yices_locks_win.c"
-#endif
-#endif
-#endif
+
+int32_t create_yices_lock(yices_lock_t* lock){
+  return 0;
+}
+
+int32_t try_yices_lock(yices_lock_t* lock){
+  return 0;
+}
+
+int32_t get_yices_lock(yices_lock_t* lock){
+  return 0;
+}
+
+int32_t release_yices_lock(yices_lock_t* lock){
+  return 0;
+}
+
+void destroy_yices_lock(yices_lock_t* lock){
+  return;
+}
