@@ -112,12 +112,11 @@ typedef void lp_algebraic_number_t;
 
 
 #include "mt/thread_macros.h"
+#include "mt/yices_thread_local.h"
 
 
 #include "yices.h"
 
-// iam: maybe move into mt/thread_macros.h ?
-#include "yices_thread_local.h"
 
 /****************************
  *  GLOBAL DATA STRUCTURES  *
@@ -125,10 +124,10 @@ typedef void lp_algebraic_number_t;
 
 
 // rational for building terms: protected by ownership of global lock.
-static YICES_THREAD_LOCAL rational_t r0;
+static YICES_PTS_LOCAL rational_t r0;
 
 // buffer for building bitvector constants: protected by ownership of global lock.
-static YICES_THREAD_LOCAL bvconstant_t bv0;
+static YICES_PTS_LOCAL bvconstant_t bv0;
 
 /*
  * Initial sizes of the type and term tables.
@@ -140,7 +139,7 @@ static YICES_THREAD_LOCAL bvconstant_t bv0;
  * Global table. The actual initialization is done in yices_init() and
  * init_globals().
  */
-YICES_THREAD_LOCAL yices_globals_t __yices_globals = {
+YICES_PTS_LOCAL yices_globals_t __yices_globals = {
 };
 
 
@@ -192,11 +191,11 @@ int32_t yices_release_mutex(void){
  * - In the thread safe version they are protected by the __yices_globals.lock
  *
  */
-static YICES_THREAD_LOCAL sparse_array_t *root_terms;
-static YICES_THREAD_LOCAL sparse_array_t *root_types;
+static YICES_PTS_LOCAL sparse_array_t *root_terms;
+static YICES_PTS_LOCAL sparse_array_t *root_types;
 
-static YICES_THREAD_LOCAL sparse_array_t the_root_terms;
-static YICES_THREAD_LOCAL sparse_array_t the_root_types;
+static YICES_PTS_LOCAL sparse_array_t the_root_terms;
+static YICES_PTS_LOCAL sparse_array_t the_root_types;
 
 
 
@@ -221,9 +220,9 @@ typedef struct {
   rba_buffer_t buffer;
 } arith_buffer_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t arith_buffer_list;
+static YICES_PTS_LOCAL dl_list_t arith_buffer_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t arith_buffer_list_lock;
+static YICES_PTS_LOCAL yices_lock_t arith_buffer_list_lock;
 #endif
 
 /*
@@ -235,9 +234,9 @@ typedef struct {
   bvarith_buffer_t buffer;
 } bvarith_buffer_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t bvarith_buffer_list;
+static YICES_PTS_LOCAL dl_list_t bvarith_buffer_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t bvarith_buffer_list_lock;
+static YICES_PTS_LOCAL yices_lock_t bvarith_buffer_list_lock;
 #endif
 
 
@@ -250,9 +249,9 @@ typedef struct {
   bvarith64_buffer_t buffer;
 } bvarith64_buffer_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t bvarith64_buffer_list;
+static YICES_PTS_LOCAL dl_list_t bvarith64_buffer_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t bvarith64_buffer_list_lock;
+static YICES_PTS_LOCAL yices_lock_t bvarith64_buffer_list_lock;
 #endif
 
 
@@ -265,9 +264,9 @@ typedef struct {
   bvlogic_buffer_t buffer;
 } bvlogic_buffer_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t bvlogic_buffer_list;
+static YICES_PTS_LOCAL dl_list_t bvlogic_buffer_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t bvlogic_buffer_list_lock;
+static YICES_PTS_LOCAL yices_lock_t bvlogic_buffer_list_lock;
 #endif
 
 
@@ -280,9 +279,9 @@ typedef struct {
   context_t context;
 } context_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t context_list;
+static YICES_PTS_LOCAL dl_list_t context_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t context_list_lock;
+static YICES_PTS_LOCAL yices_lock_t context_list_lock;
 #endif
 
 
@@ -295,9 +294,9 @@ typedef struct {
   model_t model;
 } model_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t model_list;
+static YICES_PTS_LOCAL dl_list_t model_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t model_list_lock;
+static YICES_PTS_LOCAL yices_lock_t model_list_lock;
 #endif
 
 
@@ -312,9 +311,9 @@ typedef struct {
   ctx_config_t config;
 } ctx_config_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t config_list;
+static YICES_PTS_LOCAL dl_list_t config_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t config_list_lock;
+static YICES_PTS_LOCAL yices_lock_t config_list_lock;
 #endif
 
 /*
@@ -326,9 +325,9 @@ typedef struct {
   param_t param;
 } param_structure_elem_t;
 
-static YICES_THREAD_LOCAL dl_list_t parameter_list;
+static YICES_PTS_LOCAL dl_list_t parameter_list;
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t parameter_list_lock;
+static YICES_PTS_LOCAL yices_lock_t parameter_list_lock;
 #endif
 
 

@@ -32,12 +32,14 @@
 #define __YICES_GLOBALS_H
 
 #include "mt/yices_locks.h"
+#include "mt/yices_thread_local.h"
+
 #include "frontend/yices/yices_parser.h"
 #include "parser_utils/term_stack2.h"
 #include "terms/free_var_collector.h"
 #include "terms/term_manager.h"
 
-#include "yices_thread_local.h"
+
 
 typedef struct yices_globals_s {
 #ifdef THREAD_SAFE
@@ -57,6 +59,6 @@ typedef struct yices_globals_s {
 
 } yices_globals_t;
 
-extern YICES_THREAD_LOCAL yices_globals_t __yices_globals;
+extern YICES_PTS_LOCAL yices_globals_t __yices_globals;
 
 #endif /* __YICES_GLOBALS_H */
