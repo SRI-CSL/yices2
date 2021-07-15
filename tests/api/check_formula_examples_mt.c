@@ -7,9 +7,6 @@
 #include "mt/threads.h"
 
 
-//gcc  -I../src/ check_formula_examples_mt.c -o check_formula_examples_mt -lyices -pthread ../build/x86_64-pc-linux-gnu-debug/obj/mt/threads.o
-//valgrind --tool=helgrind ./check_formula_examples_mt  10
-
 #define NUM_FORMULAS 3
 
 static term_t new_var(type_t tau, const char *name) {
@@ -25,7 +22,7 @@ static void build_formulas(term_t* formula, uint32_t nformula) {
   term_t z = new_var(bv, "z");
 
   // three formulas
-  if (nformula >= 3){
+  if (nformula >= NUM_FORMULAS){
     formula[0] = yices_bveq_atom(yices_bvmul(x, y), yices_bvconst_uint32(20, 12289));
     formula[1] = yices_bveq_atom(yices_bvmul(y, z), yices_bvconst_uint32(20, 20031));
     formula[2] = yices_bveq_atom(yices_bvmul(x, z), yices_bvconst_uint32(20, 10227));
@@ -79,7 +76,7 @@ static void test(term_t* formula, uint32_t nformula, const char *delegate) {
   fflush(stdout);
 }
 
-yices_thread_result_t YICES_THREAD_ATTR thread_main(void *td) {
+yices_thread_result_t YICES_THREAD_ATTR thread_main(void * td) {
   
   yices_per_thread_init();
 
@@ -87,11 +84,9 @@ yices_thread_result_t YICES_THREAD_ATTR thread_main(void *td) {
 
   build_formulas(formula, NUM_FORMULAS);
 
-  printf("Testing Yices %s (%s, %s)\n", yices_version, yices_build_arch, yices_build_mode);
-
-  //thread_data_t* tdata = (thread_data_t *)td;
-  //term_t* formula = *((term_t **)tdata->extra);
-
+  thread_data_t* tdata = (thread_data_t *)td;
+  int32_t id = tdata != NULL ? tdata->id : 0;
+  printf("Testing Yices %s (%s, %s) tid=%d\n", yices_version, yices_build_arch, yices_build_mode, id);
 
   show_formulas(formula, NUM_FORMULAS);
 
@@ -111,7 +106,6 @@ int main(int argc, char* argv[]){
   int32_t nthreads;
   if(argc != 2){
     nthreads = 2;
-    //mt_test_usage(argc, argv);
   } else {
     nthreads = strtol(argv[1], NULL, 10);
   }
@@ -129,18 +123,10 @@ int main(int argc, char* argv[]){
       thread_data_t tdata = {0, stdout, NULL};
       thread_main(&tdata);
     } else {
-      //term_t* fp[nthreads];
-      //each thread gets their own pointer to the formula array
-      //for(int i = 0; i < nthreads; i++){
-      // fp[i] = formula;
-      //}
       launch_threads(nthreads, NULL, sizeof(term_t*), "thread_main", thread_main, true);
     }
     
-    //free(formula);
     yices_global_exit();
-
-   
   }
   
   return 0;

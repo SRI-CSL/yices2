@@ -35,7 +35,7 @@
 
 #include "mt/yices_locks.h"
 #include "mt/thread_macros.h"
-#include "api/yices_thread_local.h"
+#include "mt/yices_thread_local.h"
 
 #include "terms/rationals.h"
 #include "terms/mpq_stores.h"
@@ -44,17 +44,17 @@
 
 
 
-static YICES_THREAD_LOCAL mpq_store_t  mpq_store;
+static YICES_PTS_LOCAL mpq_store_t  mpq_store;
 
 
 /*
  *  String buffer for parsing.
  */
 #ifdef THREAD_SAFE
-static YICES_THREAD_LOCAL yices_lock_t string_buffer_lock;
+static YICES_PTS_LOCAL yices_lock_t string_buffer_lock;
 #endif
-static YICES_THREAD_LOCAL char* string_buffer = NULL;
-static YICES_THREAD_LOCAL uint32_t string_buffer_length = 0;
+static YICES_PTS_LOCAL char* string_buffer = NULL;
+static YICES_PTS_LOCAL uint32_t string_buffer_length = 0;
 
 /*
  * Print an error then abort on division by zero

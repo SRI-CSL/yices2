@@ -23,8 +23,7 @@
 #include "yices.h"
 
 #include "mt/thread_macros.h"
-
-#include "yices_thread_local.h"
+#include "mt/yices_thread_local.h"
 
 /*
  * Thread Local Errors
