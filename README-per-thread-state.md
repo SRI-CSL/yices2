@@ -12,10 +12,8 @@ make
 sudo make install
 ```
 
-## Notes to Self
+## Example
 
-If all the state becomes thread local, then presumably we can get rid of all the locking?
+yices2/tests/api/check_formula_examples_mt.c
 
 
-
-### Commands
