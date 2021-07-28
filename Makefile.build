@@ -500,7 +500,7 @@ install-linux install-unix: install-default
 # be added to the hints file.' In other words, ldconfig on FreeBSD doesn't create the symbolic link,
 # as on Linux.
 install-freebsd: install-default
-	$(LDCONFIG) -m $(DESTDIR)$(libdir) && (cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
+	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(MAJOR) libyices.so)
 
 install-netbsd: install-default
 	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
