@@ -2469,7 +2469,7 @@ void bit_blaster_assert_bvult(bit_blaster_t *s, literal_t *a, literal_t *b, uint
 
 
 /*
- * Assert a >= b, unsigned. n must be positive.
+ * Assert a >= b, signed. n must be positive.
  */
 void bit_blaster_assert_bvsge(bit_blaster_t *s, literal_t *a, literal_t *b, uint32_t n) {
   literal_t l;

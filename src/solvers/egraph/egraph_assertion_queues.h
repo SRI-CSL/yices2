@@ -216,6 +216,7 @@ static inline eassertion_t *eassertion_queue_start(eassertion_queue_t *queue) {
  * Get the end pointer
  */
 static inline eassertion_t *eassertion_queue_end(eassertion_queue_t *queue) {
+  assert(queue->data != NULL);
   return (eassertion_t *) (queue->data + queue->top);
 }
 
