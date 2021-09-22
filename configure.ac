@@ -540,7 +540,7 @@ if ((__GNU_MP_VERSION < 4) ||
   }
 ]])
 
-],run_ok=yes,run_ok=no,run_ok=no)
+],run_ok=yes,run_ok=no,run_ok=yes)
 AC_MSG_RESULT([$run_ok])
 #
 # restore CPPFLAGS and LIBS

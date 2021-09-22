@@ -86,7 +86,7 @@ MKVERSION=./utils/make_source_version
 #
 srcdir = src
 srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
-    solvers/funs solvers/bv solvers/egraph solvers/cdcl solvers/simplex \
+    solvers/funs solvers/bv solvers/egraph solvers/cdcl solvers/simplex solvers/quant \
     parser_utils model scratch api frontend frontend/common \
     frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
     mcsat mcsat/eq mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/bv \
@@ -94,6 +94,7 @@ srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
 
 testdir = tests/unit
 regressdir = tests/regress
+apitestdir = tests/api
 
 #
 # Build directory: for this architecture and mode
@@ -282,6 +283,22 @@ static-test: static_build_subdirs version
 	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all-static
 
 #
+# API tests: link with libyices.a like tests
+#
+check-api: build_subdirs version
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
+	@ echo "=== Building tests ==="
+	@ $(MAKE) -C $(apitestdir) BUILD=../../$(build_dir) all
+
+static-check-api: static_build_subdirs version
+	@ echo "=== Building libraries with GMP ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
+	@ echo "=== Building tests ==="
+	@ $(MAKE) -C $(apitestdir) BUILD=../../$(build_dir) all-static
+
+
+#
 # Regressions
 #
 check: regress
@@ -303,7 +320,7 @@ static-regress: static_build_subdirs version
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
-    regress static-regress check static-check
+    regress static-regress check static-check check-api static-check-api
 
 
 #

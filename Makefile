@@ -142,6 +142,11 @@ ifneq ($(OPTION),)
   ifeq ($(POSIXOS),linux)
     ifeq ($(OPTION),32bits)
       newarch=$(subst x86_64,i686,$(ARCH))
+    else
+    ifeq ($(OPTION),mingw32)
+      newarch=i686-w64-mingw32
+      POSIXOS=mingw
+    endif
     endif
   else
   ifeq ($(POSIXOS),darwin)
@@ -231,7 +236,7 @@ endif
 # Check build mode
 #
 default_mode=release
-allowed_modes=release debug devel profile gcov valgrind purify quantify gperftools
+allowed_modes=release debug devel profile gcov valgrind purify quantify gperftools sanitize
 MODE ?= $(default_mode)
 
 YICES_MODE := $(filter $(allowed_modes), $(MODE))
@@ -272,7 +277,8 @@ checkgmake:
 # lib, obj, etc. so that the Makefile will work event if directories
 # or files with these names are present.
 #
-.DEFAULT doc all bin lib obj dist static-bin static-lib static-obj static-dist install test static-test: checkgmake
+.DEFAULT doc all bin lib obj dist static-bin static-lib static-obj static-dist install test static-test \
+   check static-check check-api static-check-api: checkgmake
 	@ echo "Mode:     $(YICES_MODE)"
 	@ echo "Platform: $(ARCH)"
 	@ $(MAKE) -f Makefile.build \
@@ -288,6 +294,5 @@ checkgmake:
 	$@
 
 
-.PHONY: checkgmake show-config doc all bin lib obj dist \
-        static-bin static-lib static-obj static-dist install \
-        test static-test default
+.PHONY: checkgmake show-config doc all bin lib obj dist static-bin static-lib static-obj static-dist install \
+        test static-test default check static-check chesk-api static-check-api

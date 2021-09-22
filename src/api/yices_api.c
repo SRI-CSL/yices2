@@ -301,8 +301,6 @@ static YICES_PTS_LOCAL yices_lock_t model_list_lock;
 
 
 /*
- * Context configuration and parameter descriptors
- * are stored in one list.
  * Context configurations
  * BD says: move into globals
  */
@@ -339,7 +337,8 @@ static inline void init_list_locks(void){
   create_yices_lock(&bvlogic_buffer_list_lock);
   create_yices_lock(&context_list_lock);
   create_yices_lock(&model_list_lock);
-  create_yices_lock(&generic_list_lock);
+  create_yices_lock(&config_list_lock);
+  create_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -351,7 +350,8 @@ static inline void delete_list_locks(void){
   destroy_yices_lock(&bvlogic_buffer_list_lock);
   destroy_yices_lock(&context_list_lock);
   destroy_yices_lock(&model_list_lock);
-  destroy_yices_lock(&generic_list_lock);
+  destroy_yices_lock(&config_list_lock);
+  destroy_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -364,7 +364,8 @@ static inline void get_list_locks(void){
   get_yices_lock(&bvlogic_buffer_list_lock);
   get_yices_lock(&context_list_lock);
   get_yices_lock(&model_list_lock);
-  get_yices_lock(&generic_list_lock);
+  get_yices_lock(&config_list_lock);
+  get_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -377,7 +378,8 @@ static inline void release_list_locks(void){
   release_yices_lock(&bvlogic_buffer_list_lock);
   release_yices_lock(&context_list_lock);
   release_yices_lock(&model_list_lock);
-  release_yices_lock(&generic_list_lock);
+  release_yices_lock(&config_list_lock);
+  release_yices_lock(&parameter_list_lock);
 #endif
 }
 
@@ -713,7 +715,6 @@ static void free_context_list(void) {
   elem = context_list.next;
   while (elem != &context_list) {
     aux = elem->next;
-    delete_context(context_of_header(elem));
     safe_free(elem);
     elem = aux;
   }
@@ -770,6 +771,7 @@ static inline void _o_free_model(model_t *m) {
   list_remove(elem);
   safe_free(elem);
 }
+
 static inline void free_model(model_t *m) {
   MT_PROTECT_VOID(model_list_lock, _o_free_model(m));
 }
@@ -810,6 +812,7 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
   return (dl_list_t *) (((char *) p) - offsetof(param_structure_elem_t, param));
 }
 
+
 /*
  * Allocate a structure and insert it into the generic
  * WARNING: the record is not initialized
@@ -818,24 +821,24 @@ static inline ctx_config_t *_o_alloc_config_structure(void) {
   ctx_config_elem_t *new_elem;
 
   new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
-  list_insert_next(&generic_list, &new_elem->header);
+  list_insert_next(&config_list, &new_elem->header);
   return &new_elem->config;
 }
 
 static ctx_config_t *alloc_config_structure(void) {
-  MT_PROTECT(ctx_config_t *, generic_list_lock, _o_alloc_config_structure());
+  MT_PROTECT(ctx_config_t *, config_list_lock, _o_alloc_config_structure());
 }
 
 static inline param_t *_o_alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
-  list_insert_next(&generic_list, &new_elem->header);
+  list_insert_next(&parameter_list, &new_elem->header);
   return &new_elem->param;
 }
 
 static param_t *alloc_param_structure(void) {
-  MT_PROTECT(param_t *, generic_list_lock,  _o_alloc_param_structure());
+  MT_PROTECT(param_t *, parameter_list_lock,  _o_alloc_param_structure());
 }
 
 /*
@@ -850,7 +853,7 @@ static inline void _o_free_config_structure(ctx_config_t *c) {
 }
 
 static void free_config_structure(ctx_config_t *c) {
-  MT_PROTECT_VOID(generic_list_lock, _o_free_config_structure(c));
+  MT_PROTECT_VOID(config_list_lock, _o_free_config_structure(c));
 }
 
 static inline void _o_free_param_structure(param_t *p) {
@@ -862,24 +865,39 @@ static inline void _o_free_param_structure(param_t *p) {
 }
 
 static void free_param_structure(param_t *p) {
-  MT_PROTECT_VOID(generic_list_lock, _o_free_param_structure(p));
+  MT_PROTECT_VOID(parameter_list_lock, _o_free_param_structure(p));
 }
 
 
 /*
- * Empty the generic list
+ * Empty the list of configs
  */
-static void free_generic_list(void) {
+static void free_config_list(void) {
   dl_list_t *elem, *aux;
 
-  elem = generic_list.next;
-  while (elem != &generic_list) {
+  elem = config_list.next;
+  while (elem != &config_list) {
     aux = elem->next;
     safe_free(elem);
     elem = aux;
   }
+  clear_list(&config_list);
+}
 
-  clear_list(&generic_list);
+
+/*
+ * Empty the list of parameter descriptors
+ */
+static void free_parameter_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = parameter_list.next;
+  while (elem != &parameter_list) {
+    aux = elem->next;
+    safe_free(elem);
+    elem = aux;
+  }
+  clear_list(&parameter_list);
 }
 
 
@@ -1068,7 +1086,8 @@ EXPORTED void yices_per_thread_init(void){
   // other dynamic object lists
   clear_list(&context_list);
   clear_list(&model_list);
-  clear_list(&generic_list);
+  clear_list(&config_list);
+  clear_list(&parameter_list);
 
   // registries for garbage collection
   root_terms = NULL;
@@ -1118,7 +1137,8 @@ EXPORTED void yices_per_thread_exit(void){
 
   free_context_list();
   free_model_list();
-  free_generic_list();
+  free_config_list();
+  free_parameter_list();
 
   delete_list_locks();
 
@@ -1136,6 +1156,7 @@ EXPORTED void yices_exit(void) {
   yices_per_thread_exit();
   yices_global_exit();
 }
+
 
 /*
  * Full reset: delete everything
@@ -8912,13 +8933,12 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
   return stat;
 }
 
-//IAM: experiment to see if we can keep some concurrency.
+
+/*
+ * CHECK WITH ASSUMPTIONS
+ */
 static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
-  if (! check_good_terms(__yices_globals.manager, n, a) ||
-      ! check_boolean_args(__yices_globals.manager, n, a)) {
-    return false; // Bad assumptions
-  }
-  return true;
+  return check_good_terms(__yices_globals.manager, n, a) && check_boolean_args(__yices_globals.manager, n, a);
 }
 
 static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
