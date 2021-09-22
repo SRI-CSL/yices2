@@ -302,26 +302,17 @@ static YICES_THREAD_LOCAL yices_lock_t model_list_lock;
 
 
 /*
-<<<<<<< HEAD
  * Context configuration and parameter descriptors
  * are stored in one list.
-=======
  * Context configurations
  * BD says: move into globals
->>>>>>> 1f8c4638... Partition init and exit into global and per-thread.
  */
 typedef struct {
   dl_list_t header;
   ctx_config_t config;
 } ctx_config_elem_t;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-static dl_list_t config_list;
-=======
 static YICES_THREAD_LOCAL dl_list_t config_list;
->>>>>>> faaeb978... One test passes with two threads.
 #ifdef THREAD_SAFE
 static YICES_THREAD_LOCAL yices_lock_t config_list_lock;
 #endif
@@ -330,21 +321,14 @@ static YICES_THREAD_LOCAL yices_lock_t config_list_lock;
  * Solver parameter descriptors
  * BD says: move into globals
  */
->>>>>>> 1f8c4638... Partition init and exit into global and per-thread.
 typedef struct {
   dl_list_t header;
   param_t param;
 } param_structure_elem_t;
 
-<<<<<<< HEAD
-static dl_list_t generic_list;
-#ifdef THREAD_SAFE
-static yices_lock_t generic_list_lock;
-=======
 static YICES_THREAD_LOCAL dl_list_t parameter_list;
 #ifdef THREAD_SAFE
 static YICES_THREAD_LOCAL yices_lock_t parameter_list_lock;
->>>>>>> faaeb978... One test passes with two threads.
 #endif
 
 
@@ -1149,14 +1133,10 @@ EXPORTED void yices_per_thread_exit(void){
 }
 
 
-<<<<<<< HEAD
-=======
 EXPORTED void yices_exit(void) {
   yices_per_thread_exit();
   yices_global_exit();
 }
-
->>>>>>> 1f8c4638... Partition init and exit into global and per-thread.
 
 /*
  * Full reset: delete everything
