@@ -3195,6 +3195,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * If this function returns STATUS_UNSAT and the context supports
  * model interpolation, then one can construct a model interpolant by
  * calling function yices_get_model_interpolant.
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
 								     model_t *mdl, uint32_t n, const term_t t[]);
@@ -3228,6 +3230,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * If something is wrong, the function returns STATUS_ERROR and sets the yices error report
  * (code = CTX_INVALID_OPERATION).
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model);
 
@@ -3365,6 +3369,8 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
  * Error code:
  * - CTX_OPERATION_NOT_SUPPORTED if the context is not configured with model interpolation
  * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
 
@@ -3442,6 +3448,8 @@ __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t 
 
 /*
  * Build an empty model: no error.
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern model_t *yices_new_model(void);
 
@@ -3464,6 +3472,8 @@ __YICES_DLLSPEC__ extern model_t *yices_new_model(void);
 /*
  * Assign a value to a Boolean variable
  * - val 0 means false, anything else means true.
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t *model, term_t var, int32_t val);
 
@@ -3477,6 +3487,8 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t *model, term_t var
  * For functions yices_model_set_rational32 and
  * yices_model_set_rational64, the value is num/den.  These two
  * functions fail and report DIVISION_BY_ZERO if den is zero.
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val);
@@ -3508,6 +3520,8 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_algebraic_number(model_t *model
  *     yices_model_set_bv_uint64: zero extension
  *     yices_model_set_bv_mpz:    sign extension
  *
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val);
@@ -3531,6 +3545,8 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_mpz(model_t *model, term_t v
  * - a[0] is the low-order bit
  * - a[n-1] is the high-order bit
  *
+ *
+ * Since 2.6.4.
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
