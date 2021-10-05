@@ -3188,13 +3188,21 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  *
  * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
  *
- * Error codes: TBD
- *
- * If the context does not have the MCSAT solver enabled, STATUS_ERROR is returned.
- *
  * If this function returns STATUS_UNSAT and the context supports
  * model interpolation, then one can construct a model interpolant by
  * calling function yices_get_model_interpolant.
+ *
+ * Error codes:
+ *
+ * if one of the terms t[i] is not an uninterpreted term
+ *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * If the context does not have the MCSAT solver enabled
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * If the resulting status is STATUS_SAT and context does not support multichecks
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
  *
  * Since 2.6.4.
  */
