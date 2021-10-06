@@ -3429,6 +3429,13 @@ __YICES_DLLSPEC__ extern model_t *yices_get_model(context_t *ctx, int32_t keep_s
  */
 __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 
+/*
+ * Build an empty model: no error.
+ *
+ * Since 2.6.4.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_new_model(void);
+
 
 /*
  * Build a model from a term-to-term mapping:
@@ -3452,14 +3459,6 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  * - code = MDL_CONSTRUCTION_FAILED: something else went wrong
  */
 __YICES_DLLSPEC__ extern model_t *yices_model_from_map(uint32_t n, const term_t var[], const term_t map[]);
-
-
-/*
- * Build an empty model: no error.
- *
- * Since 2.6.4.
- */
-__YICES_DLLSPEC__ extern model_t *yices_new_model(void);
 
 
 /*
