@@ -3500,7 +3500,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bool(model_t *model, term_t var
 __YICES_DLLSPEC__ extern int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den);
-__YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t val, uint64_t den);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den);
 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
