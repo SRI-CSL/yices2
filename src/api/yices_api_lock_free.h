@@ -629,6 +629,7 @@ extern int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t
 
 extern int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
 
+extern int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
 /************************
  *  VALUES IN A MODEL   *

@@ -10070,10 +10070,46 @@ int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
   }
 
   yices_model_set_bvconstant(model, var, &bv0);
+
   return 0;
 }
 
 
+
+/*
+ * Assign a bitvector variable using an array of bits.
+ * - var = bitvector variable
+ * - a = array of n bits
+ * - var must be an uninterpreted term of type (bitvector n)
+ *   (and var must not have a value in model).
+ *
+ * Elements of a are interpreted as in yices_bvconst_from_array:
+ * - bit i is 0 if a[i] == 0 and bit i is 1 if a[i] != 0
+ * - a[0] is the low-order bit
+ * - a[n-1] is the high-order bit
+ */
+EXPORTED int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_bv_from_array(model, var, n, a));
+}
+
+int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]) {
+  uint32_t nbits;
+
+  nbits = check_var_and_get_bitsize(model, var);
+  if (nbits == 0) return -1;
+
+  if (n != nbits) {
+    // could also report EMPTY_BITVECTOR if n == 0
+    set_error_code(INCOMPATIBLE_BVSIZES);
+    return -1;
+  }
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_set_array(bv0.data, a, n);
+  yices_model_set_bvconstant(model, var, &bv0);
+
+  return 0;
+}
 
 
 /*
