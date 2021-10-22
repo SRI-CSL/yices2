@@ -224,6 +224,6 @@
 (assert (= (select x4 (_ bv24 5)) (_ bv0 32)))
 (assert (not (=> p35 p84)))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

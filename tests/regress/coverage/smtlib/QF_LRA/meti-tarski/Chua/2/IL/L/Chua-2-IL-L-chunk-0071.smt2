@@ -24,6 +24,6 @@ Submitted by Dejan Jovanovic for SMT-LIB.
 (declare-fun skoX () Real)
 (assert (let ((?v_0 (* skoC (/ 86400000 2025130727)))) (and (not (<= 0 skoX)) (or (not (<= ?v_0 skoS)) (not (<= skoS ?v_0))))))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

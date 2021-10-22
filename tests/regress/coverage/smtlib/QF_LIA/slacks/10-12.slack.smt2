@@ -48,6 +48,6 @@
 (assert (>= (+ (- x6_plus) x6_minus) 1))
 (assert (>= (+ (- x1_plus) (- x3_plus) (- x4_plus) x5_plus (- x6_plus) x9_plus x1_minus x3_minus x4_minus (- x5_minus) x6_minus (- x9_minus)) 0))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

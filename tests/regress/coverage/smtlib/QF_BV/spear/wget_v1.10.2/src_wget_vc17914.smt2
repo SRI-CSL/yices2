@@ -621,6 +621,6 @@ Spear Sf2Smt translator.
 (assert (= (= Fresh__80 (_ bv1 1)) (= ((_ extract 0 0) (_ bv0 64)) o16706920)))
 (assert (= (_ bv1 1) Fresh__80))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

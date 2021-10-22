@@ -2783,6 +2783,6 @@ CVC format using CVC Lite
 (assert (= (- (- (- (- (- (- (- (- (- (- (- (- (- r227 r226) r216) r204) r192) r181) r171) r160) r147) r135) r123) r112) r102) r91) 0))
 (assert (= (- (- (- (- (- (- (- (- (- (- (- (- (- r12 r227) r218) r206) r194) r183) r173) r163) r149) r137) r125) r114) r104) r94) 0))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

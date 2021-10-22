@@ -137,5 +137,5 @@
 (assert (= (_ bv0 112) (bvand ((_ rotate_right 1) shift3) shift2)))
 (assert (= (_ bv0 112) (bvand ((_ rotate_right 1) shift2) shift1)))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)

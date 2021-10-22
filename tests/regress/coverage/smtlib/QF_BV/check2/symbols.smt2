@@ -36,6 +36,6 @@
 (assert (not (= || | |)))
 (assert (distinct (distinct || | | )(distinct |~!@$%^&*_-+=<>.?/|  v0)))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

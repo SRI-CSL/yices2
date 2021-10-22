@@ -10,6 +10,6 @@
 (declare-fun x4 () Real)
 (assert (and (<= (- x1 x2) (/ 1 1000000000000000000000000000000000)) (<= (- x2 x3) (/ 1 2000000000000000000000000000000011)) (<= (- x3 x4) (/ (- 1) 1000000000000000000000000000000000)) (<= (- x4 x1) (/ (- 1) 2000000000000000000000000000000012))))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

@@ -69,6 +69,6 @@ http://www.ai.dist.unige.it/pdpar05/
 (assert (= i_465 (sk a_456 a_464)))
 (assert (not (= e_466 e_467)))
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (exit)

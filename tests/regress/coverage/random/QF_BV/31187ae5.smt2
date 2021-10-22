@@ -40,7 +40,7 @@ e32
 )))))))))))))))))))))))))))))))))
 
 (check-sat)
-(set-option :regular-output-channel "/dev/null")
+(set-option :regular-output-channel "NUL")
 (get-model)
 (get-value (term3))
 (get-value (term4))
