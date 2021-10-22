@@ -128,7 +128,7 @@ static void resize_sparse_array(sparse_array_t *a, uint32_t nb) {
   // n = current size, nblocks = new size
   // we avoid realloc here (to save the cost of copying the full array)
   tmp = (uint32_t *) safe_malloc(nblocks * (BSIZE * sizeof(uint32_t)));
-  a->clean = extend_bitvector0(a->clean, n, nblocks);
+  a->clean = extend_bitvector0(a->clean, nblocks, n);
 
   // copy all clean blocks from a->data to tmp
   n = a->nblocks;

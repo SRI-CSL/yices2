@@ -530,9 +530,9 @@ typedef enum error_code {
  *  TYPE_MISMATCH              term1, type1
  *  INCOMPATIBLE_TYPES         term1, type1, term2, type2
  *  DUPLICATE_VARIABLE         term1
- *  INCOMPATIBLE_BVSIZES       term1, type1, term2, type2
+ *  INCOMPATIBLE_BVSIZES       none
  *  EMPTY_BITVECTOR            none
- *  ARITHCONSTANT_REQUIRED    term1
+ *  ARITHCONSTANT_REQUIRED     term1
  *  INVALID_MACRO              badval
  *  TOO_MANY_MACRO_PARAMS      badval
  *  TYPE_VAR_REQUIRED          type1
