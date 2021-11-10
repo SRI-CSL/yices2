@@ -190,11 +190,12 @@ typedef enum {
   CTX_ARCH_AUTO_IDL,     // either simplex or integer floyd-warshall
   CTX_ARCH_AUTO_RDL,     // either simplex or real floyd-warshall
 
-  CTX_ARCH_MCSAT         // mcsat solver
+  CTX_ARCH_MCSAT,        // mcsat solver
+  CTX_ARCH_MCSATARITH,   // use mcsat just for arithmetic
 } context_arch_t;
 
 
-#define NUM_ARCH (CTX_ARCH_MCSAT+1)
+#define NUM_ARCH (CTX_ARCH_MCSATARITH+1)
 
 
 /*

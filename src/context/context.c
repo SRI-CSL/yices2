@@ -31,6 +31,7 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/mcarith/mcarith.h"
 #include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
@@ -4961,7 +4962,8 @@ static const uint32_t arch2theories[NUM_ARCH] = {
   IDL_MASK,                    //  CTX_ARCH_AUTO_IDL
   RDL_MASK,                    //  CTX_ARCH_AUTO_RDL
 
-  UF_MASK|ARITH_MASK|FUN_MASK  //  CTX_ARCH_MCSAT
+  UF_MASK|ARITH_MASK|FUN_MASK, //  CTX_ARCH_MCSAT
+  ARITH_MASK                   //  CTX_ARCH_MCSATARITH 
 };
 
 
@@ -4979,6 +4981,7 @@ static const uint32_t arch2theories[NUM_ARCH] = {
 #define BVSLVR 0x10
 #define FSLVR  0x20
 #define MCSAT  0x40
+#define AMCSAT 0x80
 
 static const uint8_t arch_components[NUM_ARCH] = {
   0,                        //  CTX_ARCH_NOSOLVERS
@@ -4999,7 +5002,8 @@ static const uint8_t arch_components[NUM_ARCH] = {
   0,                        //  CTX_ARCH_AUTO_IDL
   0,                        //  CTX_ARCH_AUTO_RDL
 
-  MCSAT                     //  CTX_ARCH_MCSAT
+  MCSAT,                    //  CTX_ARCH_MCSAT
+  AMCSAT                    //  CTX_ARCH_MCSATARITH
 };
 
 
@@ -5170,7 +5174,7 @@ bool context_arch_has_fun(context_arch_t arch) {
 }
 
 bool context_arch_has_arith(context_arch_t arch) {
-  return arch_components[arch] & (SPLX|IFW|RFW);
+  return arch_components[arch] & (AMCSAT|SPLX|IFW|RFW);
 }
 
 bool context_arch_has_mcsat(context_arch_t arch) {
@@ -5329,6 +5333,44 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
   simplex_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
   ctx->arith = *simplex_arith_interface(solver);
+}
+
+/*
+ * Create an initialize the simplex solver and attach it to the core
+ * or to the egraph if the egraph exists.
+ */
+static void create_mcarith_solver(context_t *ctx) {
+  mcarith_solver_t *solver;
+  smt_mode_t cmode;
+
+  assert(ctx->arith_solver == NULL && ctx->core != NULL);
+
+  cmode = core_mode[ctx->mode];
+  init_mcarith_solver(&solver, ctx);
+                         
+  // row saving must be enabled unless we're in ONECHECK mode
+  if (ctx->mode != CTX_MODE_ONECHECK) {
+    longjmp(ctx->env, INTERNAL_ERROR);
+
+//    simplex_enable_row_saving(solver);
+  }
+
+  if (ctx->egraph != NULL) {
+    // FIXME
+    longjmp(ctx->env, INTERNAL_ERROR);
+    // attach the simplex solver as a satellite solver to the egraph
+//    egraph_attach_arithsolver(ctx->egraph, solver, mcarith_ctrl_interface(solver),
+//                              mcarith_smt_interface(solver), simplex_egraph_interface(solver),
+//                              simplex_arith_egraph_interface(solver));
+  } else {
+    // attach simplex to the core and initialize the core
+    init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, mcarith_ctrl_interface(solver),
+                  mcarith_smt_interface(solver), cmode);
+  }
+
+  //simplex_solver_init_jmpbuf(solver, &ctx->env);
+  ctx->arith_solver = solver;
+  ctx->arith = *mcarith_arith_interface(solver);
 }
 
 
@@ -5511,7 +5553,9 @@ static void init_solvers(context_t *ctx) {
   }
 
   // Arithmetic solver
-  if (solvers & SPLX) {
+  if (solvers & AMCSAT) {
+    create_mcarith_solver(ctx);
+  } else if (solvers & SPLX) {
     create_simplex_solver(ctx, false);
   } else if (solvers & IFW) {
     create_idl_solver(ctx, false);
@@ -5606,7 +5650,7 @@ static inline bool valid_mode(context_mode_t mode) {
 }
 
 static inline bool valid_arch(context_arch_t arch) {
-  return CTX_ARCH_NOSOLVERS <= arch && arch <= CTX_ARCH_MCSAT;
+  return CTX_ARCH_NOSOLVERS <= arch && arch < NUM_ARCH;
 }
 #endif
 

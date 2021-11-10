@@ -203,6 +203,7 @@ core_src_c := \
 	solvers/funs/fun_level.c \
 	solvers/funs/fun_solver.c \
 	solvers/funs/stratification.c \
+	solvers/mcarith/mcarith.c \
 	solvers/simplex/arith_atomtable.c \
 	solvers/simplex/arith_vartable.c \
 	solvers/simplex/diophantine_systems.c \
@@ -495,6 +496,7 @@ bin_src_c := \
 	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
+	frontend/yices_smt2_lc.c \
 	frontend/yices_smtcomp.c \
 
 #
