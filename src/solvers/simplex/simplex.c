@@ -10122,7 +10122,7 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
 
 
 /*
- * Clear: nothing to to
+ * Clear: nothing to clear.
  */
 void simplex_clear(simplex_solver_t *solver) {
 }
