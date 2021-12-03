@@ -25,10 +25,10 @@ was compiled with this option or not.
 If Yices is compiled with this option, it is possible to use the library in
 multi-threaded applications.  All calls to API functions that create
 terms or types are protected by a global lock, but it is possible to
-operate on separate contexts and model in parallel. In particular,
-distinct threds can call :c:func:`yices_check_context` on different
+operate on separate contexts and models in parallel. In particular,
+distinct threads can call :c:func:`yices_check_context` on different
 contexts in parallel without locking.
 
 You still have to ensure that distinct threads do not operate on the same
-context or models at the same time.
+context or model at the same time.
 
