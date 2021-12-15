@@ -8450,6 +8450,10 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
  * Delete ctx
  */
 EXPORTED void yices_free_context(context_t *ctx) {
+  MT_PROTECT_VOID(__yices_globals.lock, _o_yices_free_context(ctx));
+}
+
+void _o_yices_free_context(context_t *ctx) {
   delete_context(ctx);
   free_context(ctx);
 }
