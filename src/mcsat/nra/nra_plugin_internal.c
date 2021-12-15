@@ -90,6 +90,8 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
           }
         }
       } else {
+        // product inside polynomial cannot be another polynormial.
+        assert(term_kind(terms, product) != ARITH_POLY);
         // Variable, or foreign term
         var = variable_db_get_variable(var_db, product);
         int_mset_add(vars_out, var);
