@@ -605,6 +605,8 @@ extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const te
 
 extern model_t *_o_yices_new_model();
 
+extern void _o_yices_free_model(model_t *mdl);
+
 extern int32_t _o_yices_model_set_bool(model_t *model, term_t var, int32_t val);
 
 extern int32_t _o_yices_model_set_int32(model_t *model, term_t var, int32_t val);
