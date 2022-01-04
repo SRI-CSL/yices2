@@ -1478,11 +1478,14 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t i;
 
   // Remove any added edges
-  const eq_edge_t* edge = eq->edges + eq->edges_size;
-  while (eq->edges_size > edges_size) {
-    edge --;
-    eq->edges_size --;
-    eq->graph.data[edge->u] = edge->next;
+  if (eq->edges_size > 0) {
+    const eq_edge_t* edge = eq->edges + eq->edges_size;
+    assert(eq->edges != NULL);
+    while (eq->edges_size > edges_size) {
+      edge --;
+      eq->edges_size --;
+      eq->graph.data[edge->u] = edge->next;
+    }
   }
 
   // Unmerge the nodes, in order

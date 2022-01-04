@@ -56,7 +56,7 @@ YICES_TOP_DIR=$(shell pwd)
 #
 MAJOR = 2
 MINOR = 6
-PATCH_LEVEL = 2
+PATCH_LEVEL = 4
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 
@@ -295,4 +295,4 @@ checkgmake:
 
 
 .PHONY: checkgmake show-config doc all bin lib obj dist static-bin static-lib static-obj static-dist install \
-        test static-test default check static-check chesk-api static-check-api
+        test static-test default check static-check check-api static-check-api

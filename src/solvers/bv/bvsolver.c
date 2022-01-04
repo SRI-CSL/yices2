@@ -2311,16 +2311,18 @@ static void bv_solver_remove_bounds(bv_solver_t *solver, uint32_t n) {
   assert(0 <= n && n <= queue->top);
 
   i = queue->top;
-  d = queue->data + i;
-  while (i > n) {
-    i --;
-    d --;
-    x = bound_atom_var(solver, d->atom_id);
-    assert(0 <= x && x < queue->bsize);
-    queue->bound[x] = d->pre;
+  if (i > 0) {
+    assert(queue->data != NULL);
+    d = queue->data + i;
+    while (i > n) {
+      i --;
+      d --;
+      x = bound_atom_var(solver, d->atom_id);
+      assert(0 <= x && x < queue->bsize);
+      queue->bound[x] = d->pre;
+    }
+    queue->top = n;
   }
-
-  queue->top = n;
 }
 
 

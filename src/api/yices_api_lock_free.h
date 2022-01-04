@@ -573,6 +573,8 @@ extern int32_t _o_yices_clear_term_name(term_t t);
 
 extern context_t *_o_yices_new_context(const ctx_config_t *config);
 
+extern void _o_yices_free_context(context_t *ctx);
+
 //iam: this one is defined in context.c
 extern int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
 
@@ -603,6 +605,8 @@ extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const te
 
 extern model_t *_o_yices_new_model();
 
+extern void _o_yices_free_model(model_t *mdl);
+
 extern int32_t _o_yices_model_set_bool(model_t *model, term_t var, int32_t val);
 
 extern int32_t _o_yices_model_set_int32(model_t *model, term_t var, int32_t val);
@@ -629,6 +633,7 @@ extern int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t
 
 extern int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
 
+extern int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
 /************************
  *  VALUES IN A MODEL   *

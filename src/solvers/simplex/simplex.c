@@ -9602,57 +9602,63 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
   thvar_t x, y, z;
   thvar_t pre_x, pre_y;
 
-  a = eassertion_queue_start(&solver->egraph_queue);
-  end = eassertion_queue_end(&solver->egraph_queue);
+  if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+    /*
+     * If the queue is empty, the call to eassertion_queue_end computes NULL + 0,
+     * which is undefined behavior (reported when compiled with MODE=sanitize).
+     */
+    a = eassertion_queue_start(&solver->egraph_queue);
+    end = eassertion_queue_end(&solver->egraph_queue);
 
-  pre_x = null_thvar;
-  pre_y = null_thvar;
+    pre_x = null_thvar;
+    pre_y = null_thvar;
 
-  while (a < end) {
-    switch (eassertion_get_kind(a)) {
-    case EGRAPH_VAR_EQ:
-      if (! simplex_process_var_eq(solver, a->var[0], a->var[1], a->id)) {
+    while (a < end) {
+      switch (eassertion_get_kind(a)) {
+      case EGRAPH_VAR_EQ:
+	if (! simplex_process_var_eq(solver, a->var[0], a->var[1], a->id)) {
 #if 0
-	printf("---> SIMPLEX CONFLICT on g!%"PRId32" == g!%"PRId32"\n",
-	       arith_var_eterm(&solver->vtbl, a->var[0]),
-	       arith_var_eterm(&solver->vtbl, a->var[1]));
+	  printf("---> SIMPLEX CONFLICT on g!%"PRId32" == g!%"PRId32"\n",
+		 arith_var_eterm(&solver->vtbl, a->var[0]),
+		 arith_var_eterm(&solver->vtbl, a->var[1]));
 #endif
-        reset_eassertion_queue(&solver->egraph_queue);
-        return false;
-      }
-      break;
+	  reset_eassertion_queue(&solver->egraph_queue);
+	  return false;
+	}
+	break;
 
-    case EGRAPH_VAR_DISEQ:
-      x = a->var[0];
-      y = a->var[1];
-      if (x > y) {
-        z = x; x = y; y = z;
-      }
-      if (pre_x != x || pre_y != y) {
-        /*
-         * We use pre_x and pre_y as a cache to filter out duplicate
-         * disequalities.  That's imperfect but that filters out a lot
-         * of redundant disequalities, since the egraph tends to send
-         * several times the same disequality in a sequence.
-         */
-        simplex_process_var_diseq(solver, x, y);
-        pre_x = x;
-        pre_y = y;
-      }
-      break;
+      case EGRAPH_VAR_DISEQ:
+	x = a->var[0];
+	y = a->var[1];
+	if (x > y) {
+	  z = x; x = y; y = z;
+	}
+	if (pre_x != x || pre_y != y) {
+	  /*
+	   * We use pre_x and pre_y as a cache to filter out duplicate
+	   * disequalities.  That's imperfect but that filters out a lot
+	   * of redundant disequalities, since the egraph tends to send
+	   * several times the same disequality in a sequence.
+	   */
+	  simplex_process_var_diseq(solver, x, y);
+	  pre_x = x;
+	  pre_y = y;
+	}
+	break;
 
-    case EGRAPH_VAR_DISTINCT:
-      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
-      break;
+      case EGRAPH_VAR_DISTINCT:
+	simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
+	break;
 
-    default:
-      assert(false);
-      break;
+      default:
+	assert(false);
+	break;
+      }
+      a = eassertion_next(a);
     }
-    a = eassertion_next(a);
-  }
 
-  reset_eassertion_queue(&solver->egraph_queue);
+    reset_eassertion_queue(&solver->egraph_queue);
+  }
 
   return true;
 }
@@ -9679,41 +9685,43 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
          ! solver->unsat_before_search &&
          solver->base_level == solver->decision_level);
 
-  a = eassertion_queue_start(&solver->egraph_queue);
-  end = eassertion_queue_end(&solver->egraph_queue);
+  if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+    a = eassertion_queue_start(&solver->egraph_queue);
+    end = eassertion_queue_end(&solver->egraph_queue);
 
-  while (a < end) {
-    switch (eassertion_get_kind(a)) {
-    case EGRAPH_VAR_EQ:
-      /*
-       * Since we're at the base level, we can treat the equality
-       * as an axiom.
-       */
-      simplex_assert_vareq_axiom(solver, a->var[0], a->var[1], true);
-      if (solver->unsat_before_search) {
-        // record the conflict in core
-        record_empty_theory_conflict(solver->core);
-        reset_eassertion_queue(&solver->egraph_queue);
-        return false;
+    while (a < end) {
+      switch (eassertion_get_kind(a)) {
+      case EGRAPH_VAR_EQ:
+	/*
+	 * Since we're at the base level, we can treat the equality
+	 * as an axiom.
+	 */
+	simplex_assert_vareq_axiom(solver, a->var[0], a->var[1], true);
+	if (solver->unsat_before_search) {
+	  // record the conflict in core
+	  record_empty_theory_conflict(solver->core);
+	  reset_eassertion_queue(&solver->egraph_queue);
+	  return false;
+	}
+	break;
+
+      case EGRAPH_VAR_DISEQ:
+	simplex_process_var_diseq(solver, a->var[0], a->var[1]);
+	break;
+
+      case EGRAPH_VAR_DISTINCT:
+	simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
+	break;
+
+      default:
+	assert(false);
+	break;
       }
-      break;
-
-    case EGRAPH_VAR_DISEQ:
-      simplex_process_var_diseq(solver, a->var[0], a->var[1]);
-      break;
-
-    case EGRAPH_VAR_DISTINCT:
-      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
-      break;
-
-    default:
-      assert(false);
-      break;
+      a = eassertion_next(a);
     }
-    a = eassertion_next(a);
-  }
 
-  reset_eassertion_queue(&solver->egraph_queue);
+    reset_eassertion_queue(&solver->egraph_queue);
+  }
 
   return true;
 }

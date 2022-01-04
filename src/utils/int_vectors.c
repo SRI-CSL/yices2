@@ -87,14 +87,12 @@ void ivector_copy(ivector_t *v, const int32_t *a, uint32_t n) {
 
 // add array a to v. n = size of a
 void ivector_add(ivector_t *v, const int32_t *a, uint32_t n) {
-  int32_t *b;
   uint32_t i, m;
 
   m = v->size;
   resize_ivector(v, n + m);
-  b = v->data + m;
   for (i=0; i<n; i++) {
-    b[i] = a[i];
+    v->data[m + i] = a[i];
   }
   v->size = n + m;
 }

@@ -133,6 +133,7 @@ extern void bvconstant_set_all_one(bvconstant_t *b, uint32_t n);
  */
 extern void bvconstant_copy(bvconstant_t *b, uint32_t n, const uint32_t *a);
 
+
 /*
  * Variant: initialize with a 64bit constant a, and normalize.
  * - n = number of bits

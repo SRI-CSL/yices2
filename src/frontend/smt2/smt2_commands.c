@@ -1534,6 +1534,7 @@ static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
  */
 static void show_status(smt_status_t status) {
   print_out("%s\n", status2string[status]);
+  flush_out();
 }
 
 
@@ -1622,7 +1623,6 @@ static void report_ef_status(smt2_globals_t *g, ef_client_t *efc) {
   case EF_STATUS_SEARCHING:
     freport_bug(g->err, "the exists/forall solver failed: unexpected status: %s\n", ef_status2string[stat]);
     break;
-
   }
 }
 
@@ -3032,12 +3032,12 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
   if (g->trivially_unsat) {
     trace_printf(g->tracer, 3, "(check-sat: trivially unsat)\n");
-    print_out("unsat\n");
+    report_status(g, STATUS_UNSAT);
   } else if (trivially_true_assertions(g->assertions.data, g->assertions.size, &model)) {
     trace_printf(g->tracer, 3, "(check-sat: trivially true)\n");
-    print_out("sat\n");
     g->trivially_sat = true;
     g->model = model;
+    report_status(g, STATUS_SAT);
   } else {
     /*
      * check for mislabeled benchmarks: some benchmarks
@@ -3104,8 +3104,6 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       report_status(g, status);
     }
   }
-
-  flush_out();
 }
 
 
@@ -3434,7 +3432,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   case STATUS_UNSAT:
     /*
      * Ignore the assertion. We don't try to check whether
-     * t is a correct assertion (e.g., no free variables in f).
+     * t is a correct assertion (e.g., no free variables in t).
      */
     report_success();
     break;
@@ -3491,7 +3489,6 @@ static void ctx_check_sat(smt2_globals_t *g) {
     bad_status_bug(g->err);
     break;
   }
-  flush_out();
 }
 
 
@@ -3505,7 +3502,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
          context_supports_pushpop(g->ctx));
 
   if (g->unsat_core != NULL) {
-    // nothing had changed since the previous call to check_sat
+    // nothing has changed since the previous call to check_sat
     show_status(g->unsat_core->status);
   } else {
     // we build this first, even if the context is SAT or UNSAT
@@ -3542,7 +3539,6 @@ static void ctx_unsat_core(smt2_globals_t *g) {
       break;
     }
   }
-  flush_out();
 }
 
 
@@ -3590,8 +3586,6 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
       break;
     }
   }
-
-  flush_out();
 }
 
 /*
@@ -3623,8 +3617,6 @@ static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const te
     bad_status_bug(g->err);
     break;
   }
-
-  flush_out();
 }
 
 
@@ -4278,7 +4270,8 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
   } else if (g->ctx == NULL) {
     if (g->check_with_model_status == STATUS_UNSAT) {
-      smt2_echo("false");
+      print_out("false");
+      flush_out();
     } else {
       print_error("Call (check-sat-assuming-model) first");
     }
@@ -4405,7 +4398,7 @@ static inline void check_stack(smt2_globals_t *g) {
  */
 
 /*
- * The names store in g->model_term_names are strings with reference
+ * The names stored in g->model_term_names are strings with reference
  * count. We push a name in this vector when we process
  *
  *  (declare-fun <name> ....)
@@ -6346,7 +6339,7 @@ void smt2_set_logic(const char *name) {
     return;
   }
 
-  // if the logic requires MCSAT, check whether this was compiled withn MCSAT support
+  // if the logic requires MCSAT, check whether this was compiled with MCSAT support
   if (logic_requires_mcsat(code) && !yices_has_mcsat()) {
     print_error("logic %s is not supported since yices was not built with mcsat support", name);
     return;
