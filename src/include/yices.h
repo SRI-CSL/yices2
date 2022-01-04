@@ -3181,7 +3181,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * - t is an array of n terms
  * - the terms t[0] ... t[n-1] must all be uninterpreted terms
  *
- * This function checks statisfiability of the constraints in ctx conjoined with
+ * This function checks satisfiability of the constraints in ctx conjoined with
  * a conjunction of equalities defined by t[i] and the model, namely,
  *
  *    t[0] == v_0 /\ .... /\ t[n-1] = v_{n-1}
@@ -3419,7 +3419,7 @@ __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
  *   based on the value of 'y' and 'z' in 'M'.
  *
  * It's always better to set 'keep_subst' true. The only exceptions
- * are some of the large SMT_LIB benchmarks where millions of uninterpreted 
+ * are some of the large SMT_LIB benchmarks where millions of uninterpreted
  * terms are eliminated.  In such cases, it saves memory to set 'keep_subst'
  * false, and model construction is faster too.
  */
