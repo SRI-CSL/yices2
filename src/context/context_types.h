@@ -54,6 +54,10 @@
 
 #include "mcsat/solver.h"
 
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#endif
+
 /***********************
  *  OPTIONAL FEATURES  *
  **********************/
@@ -248,6 +252,30 @@ enum {
 };
 
 
+/**
+ * Tag for representing a value returned by arithmetic solver.
+ */
+typedef enum arithval_tag {
+  ARITHVAL_ERROR,
+  ARITHVAL_RATIONAL,
+#ifdef HAVE_MCSAT
+  ARITHVAL_ALGEBRAIC,
+#endif
+} arithval_tag_t;
+
+/*
+ * Tagged union to represent pointers to either rational or algebraic numbers.
+ * The flag can ERROR/RATIONAL/ALGEBRAIC
+ */
+typedef struct {
+  arithval_tag_t tag;
+  union {
+    rational_t q;
+#ifdef HAVE_MCSAT
+    lp_algebraic_number_t alg_number;
+#endif
+  } val;
+} arithval_in_model_t;
 
 
 /**************************
@@ -382,7 +410,7 @@ enum {
  * 21) bool arith_var_is_int(void *solver, thvar_t x):
  *     - return true if x is an integer variable, false otherwise.
  *
- * 
+ *
  * Exception mechanism
  * -------------------
  * When the solver is created and initialized it's given a pointer b to a jmp_buf internal to
@@ -402,6 +430,7 @@ typedef thvar_t (*create_arith_var_fun_t)(void *solver, bool is_int);
 typedef thvar_t (*create_arith_const_fun_t)(void *solver, rational_t *q);
 typedef thvar_t (*create_arith_poly_fun_t)(void *solver, polynomial_t *p, thvar_t *map);
 typedef thvar_t (*create_arith_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *map);
+typedef thvar_t (*create_arith_rdiv_fun_t)(void* solver, thvar_t num, thvar_t den);
 
 typedef literal_t (*create_arith_atom_fun_t)(void *solver, thvar_t x);
 typedef literal_t (*create_arith_patom_fun_t)(void *solver, polynomial_t *p, thvar_t *map);
@@ -418,7 +447,7 @@ typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
 
 typedef void (*build_model_fun_t)(void *solver);
 typedef void (*free_model_fun_t)(void *solver);
-typedef bool (*arith_val_in_model_fun_t)(void *solver, thvar_t x, rational_t *v);
+typedef bool (*arith_val_in_model_fun_t)(void *solver, thvar_t x, arithval_in_model_t* v);
 
 typedef bool (*arith_var_is_int_fun_t)(void *solver, thvar_t x);
 
@@ -427,6 +456,7 @@ typedef struct arith_interface_s {
   create_arith_const_fun_t create_const;
   create_arith_poly_fun_t create_poly;
   create_arith_pprod_fun_t create_pprod;
+  create_arith_rdiv_fun_t create_rdiv;
 
   create_arith_atom_fun_t create_eq_atom;
   create_arith_atom_fun_t create_ge_atom;
@@ -717,7 +747,9 @@ struct context_s {
   bvpoly_buffer_t *bvpoly_buffer;
 
   // auxiliary buffers for model construction
-  rational_t aux;
+//  rational_t aux;
+  arithval_in_model_t aval;
+
   bvconstant_t bv_buffer;
 
   // for exception handling
@@ -760,7 +792,7 @@ enum {
   TYPE_ERROR = -2,
   // general errors
   FREE_VARIABLE_IN_FORMULA = -3,
-  LOGIC_NOT_SUPPORTED = -4,  
+  LOGIC_NOT_SUPPORTED = -4,
   UF_NOT_SUPPORTED = -5,
   SCALAR_NOT_SUPPORTED = -6,
   TUPLE_NOT_SUPPORTED = -7,

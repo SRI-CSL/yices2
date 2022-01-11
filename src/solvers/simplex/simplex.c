@@ -2854,6 +2854,15 @@ thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map)
   abort();
 }
 
+/*
+ * Placeholder for a division.
+ */
+thvar_t simplex_create_rdiv(simplex_solver_t *solver, thvar_t num, thvar_t den) {
+  if (solver->env != NULL) {
+    longjmp(*solver->env, FORMULA_NOT_LINEAR);
+  }
+  abort();
+}
 
 /*
  * Attach egraph term t to a variable v
@@ -12665,9 +12674,10 @@ void simplex_free_model(simplex_solver_t *solver) {
 /*
  * Value of variable x in the model
  */
-bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v) {
+bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, arithval_in_model_t* res) {
   assert(solver->value != NULL && 0 <= x && x < solver->vtbl.nvars);
-  q_set(v, solver->value + x);
+  assert(res->tag == ARITHVAL_RATIONAL);
+  q_set(&res->val.q, solver->value + x);
   return true;
 }
 
@@ -12706,6 +12716,7 @@ static arith_interface_t simplex_context = {
   (create_arith_const_fun_t) simplex_create_const,
   (create_arith_poly_fun_t) simplex_create_poly,
   (create_arith_pprod_fun_t) simplex_create_pprod,
+  (create_arith_rdiv_fun_t) simplex_create_rdiv,
 
   (create_arith_atom_fun_t) simplex_create_eq_atom,
   (create_arith_atom_fun_t) simplex_create_ge_atom,

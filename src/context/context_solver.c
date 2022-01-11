@@ -892,14 +892,29 @@ static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
  * Value of arithmetic variable x in ctx->arith_solver
  */
 static value_t arith_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
-  rational_t *a;
+  arithval_in_model_t *a;
   value_t v;
 
   assert(context_has_arith_solver(ctx));
 
-  a = &ctx->aux;
+  a = &ctx->aval;
   if (ctx->arith.value_in_model(ctx->arith_solver, x, a)) {
-    v = vtbl_mk_rational(vtbl, a);
+    switch (a->tag) {
+      case ARITHVAL_RATIONAL:
+        v = vtbl_mk_rational(vtbl, &a->val.q);
+        break;
+#ifdef HAVE_MCSAT
+      case ARITHVAL_ALGEBRAIC:
+        v = vtbl_mk_algebraic(vtbl, &a->val.alg_number);
+        lp_algebraic_number_destruct(&a->val.alg_number);
+        a->tag = ARITHVAL_RATIONAL;
+        q_init(&a->val.q);
+        break;
+#endif
+      default:
+        v = vtbl_mk_unknown(vtbl);
+        break;
+    }
   } else {
     v = vtbl_mk_unknown(vtbl);
   }

@@ -10731,12 +10731,6 @@ int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
  *   code = EVAL_OVERFLOW
  */
 
-typedef enum arithval_tag {
-  ARITHVAL_ERROR,
-  ARITHVAL_RATIONAL,
-  ARITHVAL_ALGEBRAIC,
-} arithval_tag_t;
-
 /*
  * Tagged union to represent pointers to either rational or algebraic numbers.
  * The flag can ERROR/RATIONAL/ALGEBRAIC

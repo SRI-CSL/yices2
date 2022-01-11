@@ -29,38 +29,17 @@
 #include "mcsat/trail.h"
 #include "mcsat/variable_db.h"
 
+#include "model/models.h"
+#include "model/model_queries.h"
+
+#include "yices.h"
+
 extern void simplex_attach_eterm(simplex_solver_t *solver, thvar_t v, eterm_t t);
 extern thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q);
 extern eterm_t simplex_eterm_of_var(simplex_solver_t *solver, thvar_t v);
 extern void simplex_start_internalization(simplex_solver_t *solver);
-
-/**
- * Initialize b from a power product with variables translated by map. 
- */
-static
-void init_pp_buffer_from_pprod_map(pp_buffer_t* b, pprod_t* p, int32_t* map, size_t map_size) {
-  init_pp_buffer(b, p->len);
-  for (uint32_t i = 0; i < p->len; ++i) {
-    varexp_t* v = p->prod + i;
-    assert(v->var < map_size);
-    pp_buffer_set_varexp(b, map[v->var], v->exp);
-  }
-  pp_buffer_normalize(b);
-}
-
-/**
- * Initialize b from a power product with variables translated by map. 
- */
-static
-void init_pp_buffer_from_index_pprod_map(pp_buffer_t* b, pprod_t* p, int32_t* map, size_t map_size) {
-  init_pp_buffer(b, p->len);
-  for (uint32_t i = 0; i < p->len; ++i) {
-    varexp_t* v = p->prod + i;
-    assert(v->var < map_size);
-    pp_buffer_set_varexp(b, map[v->var], v->exp);
-  }
-  pp_buffer_normalize(b);
-}
+void simplex_assert_clause_vareq_axiom(simplex_solver_t *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y);
+void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
 
 /**
  * Allocate a polynomial from an existing polynomial, but mapping variables.
@@ -71,7 +50,7 @@ polynomial_t* alloc_polynomial_from_map(polynomial_t* p, thvar_t* map, int32_t v
   polynomial_t* pv = alloc_raw_polynomial(n);
   if (n == 0) return pv;
 
-  q_set(&pv->mono[0].coeff, &p->mono[0].coeff);  
+  q_set(&pv->mono[0].coeff, &p->mono[0].coeff);
   if (p->mono[0].var == const_idx) {
     pv->mono[0].var = 0;
   } else {
@@ -79,7 +58,7 @@ polynomial_t* alloc_polynomial_from_map(polynomial_t* p, thvar_t* map, int32_t v
     pv->mono[0].var = map[0];
   }
   for (uint32_t i = 1; i < n; ++i) {
-    q_set(&pv->mono[i].coeff, &p->mono[i].coeff);  
+    q_set(&pv->mono[i].coeff, &p->mono[i].coeff);
     assert(0 <= map[i] && map[i] < var_count);
     pv->mono[i].var = map[i];
   }
@@ -103,12 +82,12 @@ enum mcarith_assertion_type { VAR_EQ, VAR_EQ0, VAR_GE0, POLY_EQ0, POLY_GE0, ATOM
 
 /**
  * Assertion for mcarith.
- * 
+ *
  * type and def value determine the assertion.
  * tt indicates if the assertion is true or false.
  * lit indicates the literal associated with the assetion (or null_literal if none).
- * 
- * 
+ *
+ *
  * VAR_EQ: An equality between two theory variables.
  *   def.eq contains the left-hand and right hand side theory variables.
  * VAR_EQ0: A theory variable is equal to 0.
@@ -170,13 +149,13 @@ typedef struct mcarith_undo_stack_s {
  */
 static void init_mcarith_undo_stack(mcarith_undo_stack_t *stack, uint32_t n) {
   assert(0 < n);
-  
+
   stack->size = n;
   stack->top = 0;
   stack->data = safe_malloc(n * sizeof(mcarith_undo_record_t));
 }
 
-/* 
+/*
  * Double the undo stack size
  */
 static void extend_mcarith_undo_stack(mcarith_undo_stack_t* stack) {
@@ -190,7 +169,7 @@ static void extend_mcarith_undo_stack(mcarith_undo_stack_t* stack) {
 /*
  * Push an undo record to the stack.
  */
-static void mcarith_push_undo_record(mcarith_undo_stack_t* stack, uint32_t n_a) {
+static void mcarith_undo_push_record(mcarith_undo_stack_t* stack, uint32_t n_a) {
   uint32_t i = stack->top;
   assert (stack->size > 0);
   // Double stack size if needed
@@ -205,10 +184,44 @@ static void mcarith_push_undo_record(mcarith_undo_stack_t* stack, uint32_t n_a) 
 /*
  * Push an undo record to the stack.
  */
-static mcarith_undo_record_t* mcarith_pop_undo_record(mcarith_undo_stack_t* stack) {
+static mcarith_undo_record_t* mcarith_undo_pop_record(mcarith_undo_stack_t* stack) {
   assert(stack->top > 0);
   return stack->data + --stack->top;
 }
+
+/*
+ * Reset to given undo level (which should be greater than current one.
+ */
+static
+mcarith_undo_record_t* mcarith_undo_backtrack(mcarith_undo_stack_t* stack, uint32_t back_level) {
+  assert(stack->top > back_level);
+  stack->top = back_level;
+  return stack->data + back_level;
+}
+
+// Reset undo stack.
+static
+void mcarith_undo_reset(mcarith_undo_stack_t* stack) {
+  stack->top = 0;
+}
+
+// Variables kinds specific to mcsat
+typedef enum {
+  MCVAR_SIMPLEX = 0,  // Defined in simplex variable table
+  MCVAR_PPROD = 1, // A power product
+  MCVAR_RDIV = 2 // A real division
+} mcsatvar_kind_t;
+
+typedef struct {
+  mcsatvar_kind_t kind;
+  union {
+    pprod_t* pprod;
+    struct {
+      thvar_t num;
+      thvar_t den;
+    } rdiv;
+  } def;
+} mcsatvar_def_t;
 
 // Note.
 //  This conditional causes MCSAT to create new tables for types products and terms.
@@ -218,6 +231,12 @@ static mcarith_undo_record_t* mcarith_pop_undo_record(mcarith_undo_stack_t* stac
 struct mcarith_solver_s {
   // Simple solver
   simplex_solver_t simplex;
+  // Context for mcsat solver
+  context_t mcsat_ctx;
+  // MCSat solver
+  mcsat_solver_t* mcsat;
+  // Model returned by mcsat
+  model_t* model;
 
 #ifdef MCSAT_STANDALONE_TERMS
   // Type table for mcsat
@@ -234,19 +253,15 @@ struct mcarith_solver_s {
   // Term Table for mcsat
   term_table_t* terms;
 #endif
-
   // Size of var_terms array
   uint32_t var_terms_size;
-  // Map theory variables to term.
+  // Map theory variables to term so we can send them to MCSat
   term_t* var_terms;
-  
+
   // Size of atom term array
   uint32_t atom_terms_size;
   // Map atom indices to term (or NULL_TERM if unassigned).
   term_t* atom_terms;
-
-  // Information about theory variables.
-  //mcarith_var_t* vars;
 
   // Assertion array
   mcarith_assertion_t* assertions;
@@ -259,33 +274,33 @@ struct mcarith_solver_s {
 };
 
 #ifdef MCSAT_STANDALONE_TERMS
-static 
-pprod_table_t* mcarith_solver_pprods(const mcarith_solver_t* s) {
+static
+pprod_table_t* mcarith_solver_pprods(mcarith_solver_t* s) {
   return &s->pprods;
 }
 
 static
-type_table_t* mcarith_solver_types(const mcarith_solver_t* s) {
+type_table_t* mcarith_solver_types(mcarith_solver_t* s) {
   return &s->types;
 }
 
 static
-term_table_t* mcarith_solver_terms(const mcarith_solver_t* s) {
+term_table_t* mcarith_solver_terms(mcarith_solver_t* s) {
   return &s->terms;
 }
 #else
-static 
-pprod_table_t* mcarith_solver_pprods(const mcarith_solver_t* s) {
+static
+pprod_table_t* mcarith_solver_pprods(mcarith_solver_t* s) {
   return s->pprods;
 }
 
 static
-type_table_t* mcarith_solver_types(const mcarith_solver_t* s) {
+type_table_t* mcarith_solver_types(mcarith_solver_t* s) {
   return s->types;
 }
 
 static
-term_table_t* mcarith_solver_terms(const mcarith_solver_t* s) {
+term_table_t* mcarith_solver_terms(mcarith_solver_t* s) {
   return s->terms;
 }
 #endif
@@ -299,18 +314,21 @@ void init_mcarith_solver(mcarith_solver_t **solver, context_t* ctx) {
   mcarith_solver_t* s = safe_malloc(sizeof(mcarith_solver_t));
   init_simplex_solver(&s->simplex, ctx->core, &ctx->gate_manager, ctx->egraph);
 
+  s->mcsat = 0;
+  s->model = 0;
+
 #ifdef MCSAT_STANDALONE_TERMS
   // Initialize mcsat type table
   init_type_table(&s->types, 64);
   // Initialize mcsat power product table.
-  init_pprod_table(&s->pprods, 0); // Use default size  
+  init_pprod_table(&s->pprods, 0); // Use default size
   // Initialize term table
   const uint32_t init_termtable_size = 1024;
   init_term_table(&s->terms, init_termtable_size, &s->types, &s->pprods);
 #else
   s->types = ctx->types;
   s->pprods = ctx->terms->pprods;
-  s->terms = ctx->terms;  
+  s->terms = ctx->terms;
   assert(ctx->types == ctx->terms->types);
 #endif
 
@@ -338,7 +356,18 @@ void init_mcarith_solver(mcarith_solver_t **solver, context_t* ctx) {
   *solver = s;
 }
 
+static
+void mcarith_free_mcsat(mcarith_solver_t* s) {
+  if (s->mcsat) {
+    mcsat_destruct(s->mcsat);
+    safe_free(s->mcsat);
+    delete_context(&s->mcsat_ctx);
+    s->mcsat = 0;
+  }
+}
+
 void destroy_mcarith_solver(mcarith_solver_t* s) {
+  mcarith_free_mcsat(s);
   // Free assertions
   for (uint32_t i = 0; i != s->assertion_count; ++i) {
     free_mcarith_assertion(s->assertions + i);
@@ -356,7 +385,7 @@ void destroy_mcarith_solver(mcarith_solver_t* s) {
   // Free solver
   delete_simplex_solver(&s->simplex);
   // Free solver itself
-  safe_free(s);  
+  safe_free(s);
 }
 
 /*
@@ -374,7 +403,7 @@ void realloc_term_array(uint32_t* size_ptr, term_t** term_array, uint32_t new_si
 }
 
 /*
- * This resizes var_Terms to make sure it is large enough
+ * This resizes var_terms to make sure it is large enough
  * to reference all vtbl entries.
  */
 static inline
@@ -397,8 +426,8 @@ static
 term_t get_term(mcarith_solver_t* solver, thvar_t v) {
   arith_vartable_t* table = &solver->simplex.vtbl;
   assert(0 <= v && v < table->nvars);
-  
-  term_t t = solver->var_terms[v];  
+
+  term_t t = solver->var_terms[v];
   if (t != NULL_TERM) return t;
 
   uint8_t tag = table->tag[v];
@@ -448,7 +477,7 @@ static
 void rba_buffer_add_mcarithvar(mcarith_solver_t* solver, rba_buffer_t* b, thvar_t v) {
   arith_vartable_t* table = &solver->simplex.vtbl;
   assert(0 <= v && v < table->nvars);
-  
+
   uint8_t tag = table->tag[v];
   switch (tag & AVARTAG_KIND_MASK) {
   case AVARTAG_KIND_POLY: {
@@ -482,7 +511,7 @@ static
 void rba_buffer_sub_mcarithvar(mcarith_solver_t* solver, rba_buffer_t* b, thvar_t v) {
   arith_vartable_t* table = &solver->simplex.vtbl;
   assert(0 <= v && v < table->nvars);
-  
+
   uint8_t tag = table->tag[v];
   switch (tag & AVARTAG_KIND_MASK) {
   case AVARTAG_KIND_POLY: {
@@ -511,7 +540,7 @@ void rba_buffer_sub_mcarithvar(mcarith_solver_t* solver, rba_buffer_t* b, thvar_
   }
 }
 
-/* 
+/*
  * Return the term associated with the given atom index.
  */
 static
@@ -570,21 +599,11 @@ term_t get_atom(mcarith_solver_t* solver, int32_t atom_index) {
 }
 
 /*
- * Create a new variable that represents constant q
- * - add a matrix column if that's a new variable
- */
-thvar_t mcarith_create_const(mcarith_solver_t *solver, rational_t *q) {
-  thvar_t v = simplex_create_const(&solver->simplex, q);
-  uint8_t tag = solver->simplex.vtbl.tag[v];
-  assert((tag & AVARTAG_KIND_MASK) == AVARTAG_KIND_CONST);
-  return v;
-}
-
-/*
  * Create a power of products.
  */
 static
-thvar_t mcarith_create_pprod(mcarith_solver_t *solver, pprod_t *p, thvar_t *map) {
+thvar_t mcarith_create_pprod(void *s, pprod_t *p, thvar_t *map) {
+  mcarith_solver_t *solver = s;
   assert(pprod_degree(p) > 1);
   assert(!pp_is_empty(p));
   assert(!pp_is_var(p));
@@ -603,12 +622,34 @@ thvar_t mcarith_create_pprod(mcarith_solver_t *solver, pprod_t *p, thvar_t *map)
   }
   pp_buffer_normalize(&b);
 
-
   // Create term
+  assert(solver->var_terms_size > v);
   solver->var_terms[v] = pprod_term_from_buffer(mcarith_solver_terms(solver), &b);
-
   // Free buffer and return
   delete_pp_buffer(&b);
+  return v;
+}
+
+/*
+ * Create a divison
+ */
+static
+thvar_t mcarith_create_rdiv(void *s, thvar_t num, thvar_t den) {
+  mcarith_solver_t *solver;
+  thvar_t v;
+  term_t nt;
+  term_t dt;
+
+  solver = s;
+  // Create theory variable
+  v = simplex_create_var(&solver->simplex, false);
+
+  // Assign term
+  mcarith_check_var_size(solver);
+  nt = get_term(solver, num);
+  dt = get_term(solver, den);
+  solver->var_terms[v] = arith_rdiv(mcarith_solver_terms(solver), nt, dt);
+
   return v;
 }
 
@@ -630,7 +671,6 @@ mcarith_assertion_t* alloc_top_assertion(mcarith_solver_t* s) {
     return s->assertions + cnt;
   }
 }
-
 
 /********************************
  *  SMT AND CONTROL INTERFACES  *
@@ -668,16 +708,16 @@ bool mcarith_propagate(mcarith_solver_t *solver) {
 /*
  * Initializes an rba buffer from a polynomial while translating polynomial variables
  * using the var_terms array.
- * 
+ *
  * @param pprods Power product table for rba buffer.
  * @param b Buffer to initialize
  * @param p Polynomial to initialize
  * @param var_terms Variable term array used to map from polynomial variables to terms.
  * @param var_count Size of var_terms array
  */
-static 
+static
 void init_rba_buffer_from_poly(mcarith_solver_t* solver,
-                               rba_buffer_t* b, 
+                               rba_buffer_t* b,
                                polynomial_t* p) {
   init_rba_buffer(b, mcarith_solver_pprods(solver));
   uint32_t n = p->nterms;
@@ -696,16 +736,15 @@ void init_rba_buffer_from_poly(mcarith_solver_t* solver,
  */
 static
 fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
+  mcarith_free_mcsat(solver);
 
-  context_t ctx;
   const bool qflag = false; // Quantifiers not allowed
   term_table_t* terms = mcarith_solver_terms(solver);
-  init_context(&ctx, terms, QF_NRA, CTX_MODE_ONECHECK, CTX_ARCH_MCSAT, qflag);
+  init_context(&solver->mcsat_ctx, terms, QF_NRA, CTX_MODE_ONECHECK, CTX_ARCH_MCSAT, qflag);
+  solver->mcsat = mcsat_new(&solver->mcsat_ctx);
 
-  mcsat_solver_t* mcsat = mcsat_new(&ctx);
-
-  term_t* assertions = safe_malloc(sizeof(term_t) * solver->assertion_count);
-  literal_t* literals = safe_malloc(sizeof(literal_t) * solver->assertion_count + 1);
+  term_t* assertions = safe_malloc(sizeof(term_t) * (solver->assertion_count + 1));
+  literal_t* literals = safe_malloc(sizeof(literal_t) * (solver->assertion_count + 1));
   size_t literal_count = 0;
   mcarith_check_var_size(solver);
   for (size_t i = 0; i < solver->assertion_count; ++i) {
@@ -734,7 +773,7 @@ fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
       delete_rba_buffer(&b);
       break;
     case ATOM_ASSERT:
-      p = get_atom(solver, a->def.atom); 
+      p = get_atom(solver, a->def.atom);
       break;
     default:
       longjmp(*solver->simplex.env, INTERNAL_ERROR);
@@ -746,18 +785,21 @@ fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
     }
     assertions[i] = a->tt ? p : not_term(terms, p);
   }
+  assertions[solver->assertion_count] = assertions[solver->assertion_count-1];
   literals[literal_count] = end_clause;
 
-  int32_t r = mcsat_assert_formulas(mcsat, solver->assertion_count, assertions);  
-  fcheck_code_t result; 
+  int32_t r = mcsat_assert_formulas(solver->mcsat, solver->assertion_count+1, assertions);
+  fcheck_code_t result;
   if (r == TRIVIALLY_UNSAT) {
     record_theory_conflict(solver->simplex.core, literals);
+      mcarith_free_mcsat(solver);
     result = FCHECK_CONTINUE;
   } else if (r == CTX_NO_ERROR) {
     result = FCHECK_SAT;
-    mcsat_solve(mcsat, 0, 0, 0, 0);
-    switch (mcsat_status(mcsat)) {
+    mcsat_solve(solver->mcsat, 0, 0, 0, 0);
+    switch (mcsat_status(solver->mcsat)) {
     case STATUS_UNKNOWN:
+      mcarith_free_mcsat(solver);
       safe_free(literals);
       result = FCHECK_UNKNOWN;
       break;
@@ -766,7 +808,7 @@ fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
       result = FCHECK_SAT;
       break;
     case STATUS_UNSAT:
-      // TODO:
+      mcarith_free_mcsat(solver);
       // - record a conflict (by calling record_theory_conflict)
       // - create lemmas or atoms in the core
       record_theory_conflict(solver->simplex.core, literals);
@@ -777,19 +819,30 @@ fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
     case STATUS_INTERRUPTED:
     case STATUS_ERROR:
     default:
+      mcarith_free_mcsat(solver);
       safe_free(literals);
       longjmp(*solver->simplex.env, INTERNAL_ERROR);
       break;
     }
   } else {
+    mcarith_free_mcsat(solver);
     safe_free(literals);
     longjmp(*solver->simplex.env, INTERNAL_ERROR);
   }
 
-  mcsat_destruct(mcsat);
-  safe_free(mcsat);
-  delete_context(&ctx);
   return result;
+}
+
+/*
+ * Free assertions added since undo record was created.
+ */
+static
+void mcarith_backtrack_assertions(mcarith_solver_t* solver, uint32_t assertion_count) {
+  assert(assertion_count <= solver->assertion_count);
+  for (uint32_t i = assertion_count; i != solver->assertion_count; ++i) {
+    free_mcarith_assertion(solver->assertions + i);
+  }
+  solver->assertion_count = assertion_count;
 }
 
 /*
@@ -797,26 +850,25 @@ fcheck_code_t mcarith_final_check(mcarith_solver_t *solver) {
  */
 void mcarith_increase_decision_level(mcarith_solver_t *solver) {
   simplex_increase_decision_level(&solver->simplex);
-  assert(0); //FIXME  
+  mcarith_undo_push_record(&solver->undo_stack, solver->assertion_count);
 }
-
 
 /*
  * Full backtrack
  */
 void mcarith_backtrack(mcarith_solver_t *solver, uint32_t back_level) {
-#if TRACE
-  printf("---> Mcarith: backtracking to level %"PRIu32"\n", back_level);
-#endif
-  assert(0); //FIXME  
+  mcarith_undo_record_t* r = mcarith_undo_backtrack(&solver->undo_stack, back_level);
+  mcarith_backtrack_assertions(solver, r->n_assertions);
+  simplex_backtrack(&solver->simplex, back_level);
 }
 
 /*
  * Start a new base level
  */
-void mcarith_push(mcarith_solver_t *solver) {
+static void mcarith_push(mcarith_solver_t *solver) {
+  assert(0);
   simplex_push(&solver->simplex);
-  mcarith_push_undo_record(&solver->undo_stack, solver->assertion_count);
+  mcarith_undo_push_record(&solver->undo_stack, solver->assertion_count);
 }
 
 /*
@@ -824,11 +876,8 @@ void mcarith_push(mcarith_solver_t *solver) {
  */
 void mcarith_pop(mcarith_solver_t *solver) {
   // Reset assertions
-  mcarith_undo_record_t* r = mcarith_pop_undo_record(&solver->undo_stack);
-  for (uint32_t i = r->n_assertions; i != solver->assertion_count; ++i) {
-    free_mcarith_assertion(solver->assertions + i);
-  }
-  solver->assertion_count = r->n_assertions;
+  mcarith_undo_record_t* r =  mcarith_undo_pop_record(&solver->undo_stack);
+  mcarith_backtrack_assertions(solver, r->n_assertions);
   // Pop simplex state
   simplex_pop(&solver->simplex);
 }
@@ -837,16 +886,16 @@ void mcarith_pop(mcarith_solver_t *solver) {
  * Reset to the empty solver
  */
 void mcarith_reset(mcarith_solver_t *solver) {
-  assert(0); //FIXME  
-  //mcsat_reset(solver->mcsat);
+  simplex_reset(&solver->simplex);
+
+  mcarith_undo_reset(&solver->undo_stack);
+  mcarith_backtrack_assertions(solver, 0);
 }
 
 /*
  * Clear: nothing to clear.
  */
 void mcarith_clear(mcarith_solver_t *solver) {
-  assert(0); //FIXME  
-  //mcsat_clear(solver->mcsat);
 }
 
 static th_ctrl_interface_t mcarith_control = {
@@ -901,7 +950,7 @@ bool mcarith_assert_atom(mcarith_solver_t *solver, void *atom_pointer, literal_t
  * - expl is a pointer to a propagation object in solver->arena
  */
 void mcarith_expand_explanation(mcarith_solver_t *solver, literal_t l, void *expl, ivector_t *v) {
-  assert(0); // This function should not be called.
+  simplex_expand_explanation(&solver->simplex, l, expl, v);
 }
 
 /*
@@ -909,8 +958,7 @@ void mcarith_expand_explanation(mcarith_solver_t *solver, literal_t l, void *exp
  * - a = atom attached to l = mcarith atom index packed in a void* pointer
  */
 literal_t mcarith_select_polarity(mcarith_solver_t *solver, void *a, literal_t l) {
-  assert(0); //FIXME  
-  return l; // Do nothing
+  return simplex_select_polarity(&solver->simplex, a, l);
 }
 
 static th_smt_interface_t mcarith_smt = {
@@ -927,8 +975,7 @@ static th_smt_interface_t mcarith_smt = {
  *   in the solver
  */
 thvar_t mcarith_create_poly(mcarith_solver_t *solver, polynomial_t *p, thvar_t *map) {
-  assert(0); //FIXME  
-  return 0; // FIXME
+  return simplex_create_poly(&solver->simplex, p, map);
 }
 
 /*
@@ -936,8 +983,7 @@ thvar_t mcarith_create_poly(mcarith_solver_t *solver, polynomial_t *p, thvar_t *
  * - this attach the atom to the smt_core
  */
 literal_t mcarith_create_eq_atom(mcarith_solver_t *solver, thvar_t x) {
-  assert(0); //FIXME  
-  return 0; // FIXME
+  return simplex_create_eq_atom(&solver->simplex, x);
 }
 
 /*
@@ -945,8 +991,7 @@ literal_t mcarith_create_eq_atom(mcarith_solver_t *solver, thvar_t x) {
  * - this attach the atom to the smt_core
  */
 literal_t mcarith_create_ge_atom(mcarith_solver_t *solver, thvar_t x) {
-  assert(0); //FIXME  
-  return 0; // FIXME
+  return simplex_create_ge_atom(&solver->simplex, x);
 }
 
 /*
@@ -954,8 +999,7 @@ literal_t mcarith_create_ge_atom(mcarith_solver_t *solver, thvar_t x) {
  * - apply the renaming defined by map
  */
 literal_t mcarith_create_poly_eq_atom(mcarith_solver_t *solver, polynomial_t *p, thvar_t *map) {
-  assert(0); //FIXME  
-  return 0; // FIXME
+  return simplex_create_poly_eq_atom(&solver->simplex, p, map);
 }
 
 /*
@@ -963,8 +1007,7 @@ literal_t mcarith_create_poly_eq_atom(mcarith_solver_t *solver, polynomial_t *p,
  * - replace the variables of p as defined by map
  */
 literal_t mcarith_create_poly_ge_atom(mcarith_solver_t *solver, polynomial_t *p, thvar_t *map) {
-  assert(0); //FIXME  
-  return 0; // FIXME
+  return simplex_create_poly_ge_atom(&solver->simplex, p, map);
 }
 
 /*
@@ -1043,7 +1086,6 @@ void mcarith_assert_vareq_axiom(mcarith_solver_t *solver, thvar_t x, thvar_t y, 
   simplex_assert_vareq_axiom(&solver->simplex, x, y, tt);
 
   mcarith_assertion_t* assert = alloc_top_assertion(solver);
-
   assert->type = VAR_EQ;
   assert->def.eq.lhs = x;
   assert->def.eq.rhs = y;
@@ -1055,16 +1097,14 @@ void mcarith_assert_vareq_axiom(mcarith_solver_t *solver, thvar_t x, thvar_t y, 
  * Assert (c ==> x == y)
  */
 void mcarith_assert_cond_vareq_axiom(mcarith_solver_t *solver, literal_t c, thvar_t x, thvar_t y) {
-  assert(0); //FIXME  
-  //FIXME
+  simplex_assert_cond_vareq_axiom(&solver->simplex, c, x, y);
 }
 
 /*
  * Assert (c[0] \/ ... \/ c[n-1] \/ x == y)
  */
 void mcarith_assert_clause_vareq_axiom(mcarith_solver_t *solver, uint32_t n, literal_t *c, thvar_t x, thvar_t y) {
-  assert(0); //FIXME  
-  //FIXME
+  simplex_assert_clause_vareq_axiom(&solver->simplex, n, c, x, y);
 }
 
 /*
@@ -1073,8 +1113,6 @@ void mcarith_assert_clause_vareq_axiom(mcarith_solver_t *solver, uint32_t n, lit
 bool mcarith_var_is_integer(mcarith_solver_t *solver, thvar_t x) {
   return arith_var_is_int(&solver->simplex.vtbl, x);
 }
-
-
 
 /*
  * Attach egraph term t to a variable v
@@ -1097,18 +1135,29 @@ static eterm_t mcarith_eterm_of_var(mcarith_solver_t *solver, thvar_t v) {
 /*
  * Model construction
  */
-void mcarith_build_model(mcarith_solver_t *solver) {
-  // FIXME
-  assert(0);
-  printf("mcarith_build_model\n");
+static void mcarith_build_model(void* s) {
+  mcarith_solver_t* solver = s;
+
+  model_t *model;
+  assert(solver->mcsat);
+  assert(!solver->model);
+  // Create model
+  model = yices_new_model();
+  mcsat_build_model(solver->mcsat, model);
+  solver->model = model;
+
+  mcarith_free_mcsat(solver);
 }
 
 /*
  * Free the model
  */
-void mcarith_free_model(mcarith_solver_t *solver) {
-  //FIXME
-  printf("mcarith_free_model\n");
+static void mcarith_free_model(void* s) {
+  mcarith_solver_t* solver = s;
+  assert(solver->model);
+
+  yices_free_model(solver->model);
+  solver->model = 0;
 }
 
 /*
@@ -1116,9 +1165,42 @@ void mcarith_free_model(mcarith_solver_t *solver) {
  * If x has a value, then this returns true and sets v.  If not, then it returns
  * false.
  */
-bool mcarith_value_in_model(mcarith_solver_t *solver, thvar_t x, rational_t *v) {
-  printf("mcarith_value_in_model\n");
-  return false; // FIXME
+static
+bool mcarith_value_in_model(void* s, thvar_t x, arithval_in_model_t* res) {
+  mcarith_solver_t* solver;
+  term_t t;
+  model_t* mdl;
+  value_t v;
+  value_table_t* vtbl;
+
+  assert(res->tag == ARITHVAL_RATIONAL);
+
+  solver = s;
+  t = solver->var_terms[x];
+  if (t == NULL_TERM)
+    return false;
+
+  mdl = solver->model;
+  assert(mdl);
+
+  v  = model_get_term_value(mdl, t);
+  if (v < 0) {
+    return false;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+  if (object_is_rational(vtbl, v)) {
+    q_set(&res->val.q, vtbl_rational(vtbl, v));
+  } else if (object_is_algebraic(vtbl, v)) {
+    lp_algebraic_number_t* n = vtbl_algebraic_number(vtbl, v);
+    q_clear(&res->val.q);
+    res->tag = ARITHVAL_ALGEBRAIC;
+    lp_algebraic_number_construct_copy(&res->val.alg_number, n);
+    return true;
+  }
+
+  // Should not happen.
+  return false;
 }
 
 #pragma endregion Models
@@ -1131,7 +1213,8 @@ static arith_interface_t mcarith_context = {
   .create_var = (create_arith_var_fun_t) simplex_create_var,
   .create_const = (create_arith_const_fun_t) simplex_create_const,
   .create_poly = (create_arith_poly_fun_t) mcarith_create_poly,
-  .create_pprod = (create_arith_pprod_fun_t) mcarith_create_pprod,
+  .create_pprod = mcarith_create_pprod,
+  .create_rdiv = mcarith_create_rdiv,
 
   .create_eq_atom = (create_arith_atom_fun_t) mcarith_create_eq_atom,
   .create_ge_atom = (create_arith_atom_fun_t) mcarith_create_ge_atom,
@@ -1150,9 +1233,9 @@ static arith_interface_t mcarith_context = {
   .attach_eterm = (attach_eterm_fun_t) mcarith_attach_eterm,
   .eterm_of_var = (eterm_of_var_fun_t) mcarith_eterm_of_var,
 
-  .build_model = (build_model_fun_t) mcarith_build_model,
-  .free_model = (free_model_fun_t) mcarith_free_model,
-  .value_in_model = (arith_val_in_model_fun_t) mcarith_value_in_model,
+  .build_model    = mcarith_build_model,
+  .free_model     = mcarith_free_model,
+  .value_in_model = mcarith_value_in_model,
 
   .arith_var_is_int = (arith_var_is_int_fun_t) mcarith_var_is_integer,
 };
@@ -1174,39 +1257,3 @@ th_ctrl_interface_t *mcarith_ctrl_interface(mcarith_solver_t *solver) {
 th_smt_interface_t *mcarith_smt_interface(mcarith_solver_t *solver) {
   return &mcarith_smt;
 }
-
-/*
-static th_egraph_interface_t simplex_egraph = {
-  (assert_eq_fun_t) simplex_assert_var_eq,
-  (assert_diseq_fun_t) simplex_assert_var_diseq,
-  (assert_distinct_fun_t) simplex_assert_var_distinct,
-  (check_diseq_fun_t) simplex_check_disequality,
-  (is_constant_fun_t) simplex_var_is_constant,
-  (expand_eq_exp_fun_t) simplex_expand_th_explanation,
-  (reconcile_model_fun_t) simplex_reconcile_model,
-  (prepare_model_fun_t) simplex_prep_model,
-  (equal_in_model_fun_t) simplex_var_equal_in_model,
-  (gen_inter_lemma_fun_t) simplex_gen_interface_lemma,
-  (release_model_fun_t) simplex_release_model,
-  (build_partition_fun_t) simplex_build_model_partition,
-  (free_partition_fun_t) simplex_release_model_partition,
-  (attach_to_var_fun_t) simplex_attach_eterm,
-  (get_eterm_fun_t) simplex_eterm_of_var,
-  (select_eq_polarity_fun_t) simplex_select_eq_polarity,
-};
-
-
-static arith_egraph_interface_t simplex_arith_egraph = {
-  (make_arith_var_fun_t) simplex_create_var,
-  (arith_val_fun_t) simplex_value_in_model,
-};
-
-
-th_egraph_interface_t *simplex_egraph_interface(simplex_solver_t *solver) {
-  return &simplex_egraph;
-}
-
-arith_egraph_interface_t *simplex_arith_egraph_interface(simplex_solver_t *solver) {
-  return &simplex_arith_egraph;
-}
-*/

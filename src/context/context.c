@@ -1487,7 +1487,17 @@ static void __attribute__((noreturn))  bad_divisor(context_t *ctx, term_t t) {
 static thvar_t map_rdiv_to_arith(context_t *ctx, composite_term_t *div) {
   // Could try to evaluate t2 then check whether that's a constant
   assert(div->arity == 2);
-  bad_divisor(ctx, div->arg[1]);
+  thvar_t x;
+  thvar_t num;
+  thvar_t den;
+
+  num = internalize_to_arith(ctx, div->arg[0]);
+  den = internalize_to_arith(ctx, div->arg[1]);
+  if (ctx->arith.create_rdiv == NULL) {
+    bad_divisor(ctx, div->arg[1]);
+  }
+  x = ctx->arith.create_rdiv(ctx->arith_solver, num, den);
+  return x;
 }
 
 
@@ -2653,10 +2663,10 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
         break;
 
       case ARITH_RDIV:
-	assert(is_arithmetic_type(tau));
-	x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
-	u = translate_arithvar_to_eterm(ctx, x);
-	break;
+	      assert(is_arithmetic_type(tau));
+  	    x = map_rdiv_to_arith(ctx, arith_rdiv_term_desc(terms, r));
+	      u = translate_arithvar_to_eterm(ctx, x);
+	      break;
 
       case ARITH_IDIV:
 	assert(is_integer_type(tau));
@@ -4963,7 +4973,7 @@ static const uint32_t arch2theories[NUM_ARCH] = {
   RDL_MASK,                    //  CTX_ARCH_AUTO_RDL
 
   UF_MASK|ARITH_MASK|FUN_MASK, //  CTX_ARCH_MCSAT
-  ARITH_MASK                   //  CTX_ARCH_MCSATARITH 
+  ARITH_MASK                   //  CTX_ARCH_MCSATARITH
 };
 
 
@@ -5347,7 +5357,7 @@ static void create_mcarith_solver(context_t *ctx) {
 
   cmode = core_mode[ctx->mode];
   init_mcarith_solver(&solver, ctx);
-                         
+
   // row saving must be enabled unless we're in ONECHECK mode
   if (ctx->mode != CTX_MODE_ONECHECK) {
     longjmp(ctx->env, INTERNAL_ERROR);
@@ -5751,7 +5761,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
 
   ctx->bvpoly_buffer = NULL;
 
-  q_init(&ctx->aux);
+  ctx->aval.tag = ARITHVAL_RATIONAL;
+  q_init(&ctx->aval.val.q);
   init_bvconstant(&ctx->bv_buffer);
 
   ctx->trace = NULL;
@@ -5769,6 +5780,42 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
 }
 
 
+void arithval_in_model_delete(arithval_in_model_t* v);
+
+void arithval_in_model_delete(arithval_in_model_t* v) {
+  switch (v->tag) {
+  case ARITHVAL_RATIONAL:
+    q_clear(&v->val.q);
+    break;
+  #ifdef HAVE_MCSAT
+  case ARITHVAL_ALGEBRAIC:
+    lp_algebraic_number_destruct(&v->val.alg_number);
+  #endif
+  default:
+    break;
+  }
+  v->tag = ARITHVAL_ERROR;
+}
+
+void arithval_in_model_reset(arithval_in_model_t* v) {
+  switch (v->tag) {
+    case ARITHVAL_RATIONAL:
+      q_clear(&v->val.q);
+      break;
+#ifdef HAVE_MCSAT
+    case ARITHVAL_ALGEBRAIC:
+      lp_algebraic_number_destruct(&v->
+      val.alg_number);
+      v->tag = ARITHVAL_RATIONAL;
+      q_init(&v->val.q);
+      break;
+#endif
+    default:
+      v->tag = ARITHVAL_RATIONAL;
+      q_init(&v->val.q);
+      break;
+  }
+}
 
 
 /*
@@ -5851,7 +5898,7 @@ void delete_context(context_t *ctx) {
 
   context_free_bvpoly_buffer(ctx);
 
-  q_clear(&ctx->aux);
+  arithval_in_model_delete(&ctx->aval);
   delete_bvconstant(&ctx->bv_buffer);
 }
 
@@ -5905,7 +5952,7 @@ void reset_context(context_t *ctx) {
 
   context_free_bvpoly_buffer(ctx);
 
-  q_clear(&ctx->aux);
+  arithval_in_model_reset(&ctx->aval);
 }
 
 
