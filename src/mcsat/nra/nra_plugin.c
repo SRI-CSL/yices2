@@ -44,7 +44,7 @@
 #include "mcsat/nra/poly_constraint.h"
 #include "mcsat/nra/nra_plugin_explain.h"
 
-#include "terms/terms.h"
+#include "terms/rba_buffer_terms.h"
 #include "utils/int_array_sort2.h"
 #include "terms/term_explorer.h"
 #include "utils/refcount_strings.h"
@@ -429,11 +429,104 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
 }
 
 static
+term_t mk_one(term_manager_t* tm) {
+  rational_t r0;
+  q_init(&r0);
+  q_set32(&r0, 1);
+  term_t r = mk_arith_constant(tm, &r0);
+  q_clear(&r0);
+  return r;
+}
+
+static
+term_t mk_add(term_manager_t* tm, term_t t1, term_t t2) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  b = term_manager_get_arith_buffer(tm);
+  tbl = tm->terms;
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_add_term(b, tbl, t2);
+
+  return mk_arith_term(tm, b);
+}
+
+static
+term_t mk_sub(term_manager_t* tm, term_t t1, term_t t2) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  b = term_manager_get_arith_buffer(tm);
+  tbl = tm->terms;
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_sub_term(b, tbl, t2);
+
+  return mk_arith_term(tm, b);
+}
+
+static
+term_t mk_neg(term_manager_t* tm, term_t t1) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  b = term_manager_get_arith_buffer(tm);
+  tbl = tm->terms;
+  reset_rba_buffer(b);
+  rba_buffer_sub_term(b, tbl, t1);
+
+  return mk_arith_term(tm, b);
+}
+
+static
+term_t mk_mul(term_manager_t* tm, term_t t1, term_t t2) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+
+  b = term_manager_get_arith_buffer(tm);
+  tbl = tm->terms;
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_mul_term(b, tbl, t2);
+
+  return mk_arith_term(tm, b);
+}
+
+static
+term_t mk_ite_with_supertype(term_manager_t* tm, term_t cond, term_t then_term, term_t else_term) {
+  term_table_t *tbl;
+  type_t tau;
+
+  // Check whether then/else are compatible and get the supertype
+  tbl = tm->terms;
+  tau = super_type(tm->types, term_type(tbl, then_term), term_type(tbl, else_term));
+  assert (tau != NULL_TYPE);
+
+  return mk_ite(tm, cond, then_term, else_term, tau);
+}
+
+static
+term_t mk_simp_or(term_manager_t* tm, uint32_t n, term_t arg[]) {
+  switch (n) {
+  case 0:
+    return false_term;
+  case 1:
+    return arg[0];
+  case 2:
+    return mk_binary_or(tm, arg[0], arg[1]);
+  default:
+    return mk_or(tm, n, arg);
+  }
+}
+
+static
 void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
 
   uint32_t i;
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
   term_table_t* terms = nra->ctx->terms;
+  term_manager_t* tm = nra->ctx->tm;
 
   if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_new_term_notify: ");
@@ -476,16 +569,16 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Add a lemma (assuming non-zero):
     // (div m n)
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
-    term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
-    term_t c1 = _o_yices_eq(m, _o_yices_add(_o_yices_mul(n, q), r));
+    term_t guard = opposite_term(mk_arith_term_eq0(tm, n));
+    term_t c1 = mk_eq(tm, m, mk_add(tm, mk_mul(tm, n, q), r));
     term_t c2 = arith_geq_atom(terms, r);
     // r < (abs n) same as not (r - abs) >= 0
-    term_t abs_n = _o_yices_ite(_o_yices_arith_geq0_atom(n), n, _o_yices_neg(n));
-    term_t c3 = opposite_term(arith_geq_atom(terms, _o_yices_sub(r, abs_n)));
+    term_t abs_n = mk_ite_with_supertype(tm, mk_arith_term_geq0(tm, n), n, mk_neg(tm, n));
+    term_t c3 = opposite_term(arith_geq_atom(terms, mk_sub(tm, r, abs_n)));
 
-    prop->definition_lemma(prop, _o_yices_implies(guard, c1), t);
-    prop->definition_lemma(prop, _o_yices_implies(guard, c2), t);
-    prop->definition_lemma(prop, _o_yices_implies(guard, c3), t);
+    prop->definition_lemma(prop, mk_implies(tm, guard, c1), t);
+    prop->definition_lemma(prop, mk_implies(tm, guard, c2), t);
+    prop->definition_lemma(prop, mk_implies(tm, guard, c3), t);
     break;
   }
   case ARITH_RDIV: {
@@ -497,18 +590,18 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     // Add a lemma (assuming non-zero):
     // (n != 0) => m = n*q
     // (and (= m (+ (* n q) r)) (<= 0 r (- (abs n) 1))))))
-    term_t guard = opposite_term(_o_yices_arith_eq0_atom(n));
-    term_t c = _o_yices_eq(m, _o_yices_mul(n, q));
-    prop->definition_lemma(prop, _o_yices_implies(guard, c), t);
+    term_t guard = opposite_term(mk_arith_term_eq0(tm, n));
+    term_t c = mk_eq(tm, m, mk_mul(tm, n, q));
+    prop->definition_lemma(prop, mk_implies(tm, guard, c), t);
     break;
   }
   case ARITH_FLOOR: {
     term_t arg = arith_floor_arg(terms, t);
 
     // t <= arg < t+1: t is int so it should be fine
-    term_t ineq1 = _o_yices_arith_geq_atom(arg, t);
-    term_t t_1 = _o_yices_add(t, _o_yices_rational32(1, 1));
-    term_t ineq2 = _o_yices_arith_gt_atom(t_1, arg);
+    term_t ineq1 = mk_arith_geq(tm, arg, t);
+    term_t t_1 = mk_add(tm, t, mk_one(tm));
+    term_t ineq2 = mk_arith_gt(tm, t_1, arg);
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
@@ -518,9 +611,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     term_t arg = arith_ceil_arg(terms, t);
 
     // t-1 < arg <= t: t is int so it should be fine
-    term_t t_1 = _o_yices_sub(t, _o_yices_rational32(1, 1));
-    term_t ineq1 = _o_yices_arith_gt_atom(arg, t_1);
-    term_t ineq2 = _o_yices_arith_geq_atom(t, arg);
+    term_t t_1 = mk_sub(tm, t, mk_one(tm));
+    term_t ineq1 = mk_arith_gt(tm, arg, t_1);
+    term_t ineq2 = mk_arith_geq(tm, t, arg);
 
     prop->lemma(prop, ineq1);
     prop->lemma(prop, ineq2);
@@ -536,10 +629,10 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       ivector_t disjuncts;
       init_ivector(&disjuncts, type_size);
       for (i=0; i < type_size; i++) {
-        term_t disjunct = _o_yices_eq(t, _o_yices_constant(type, i));
+        term_t disjunct = mk_eq(tm, t, mk_constant(tm, type, i));
         ivector_push(&disjuncts, disjunct);
       }
-      term_t tcc = _o_yices_or(type_size, disjuncts.data);
+      term_t tcc = mk_simp_or(tm, type_size, disjuncts.data);
       prop->lemma(prop, tcc);
       delete_ivector(&disjuncts);
     }
@@ -655,7 +748,8 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     case CONSTANT_TERM: {
       // Propagate constant value
       int32_t int_value;
-      _o_yices_scalar_const_value(t, &int_value);
+      int_value = generic_const_value(terms, t);
+
       lp_rational_t rat_value;
       lp_rational_construct_from_int(&rat_value, int_value, 1);
       lp_value_t lp_value;
@@ -683,10 +777,10 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
         }
 
         // Add bound lemma b - t >= 0 && t + b >= 0
-        term_t ub_term = _o_yices_sub(nra->global_bound_term, t);
-        term_t lb_term = _o_yices_add(nra->global_bound_term, t);
-        term_t ub = _o_yices_arith_geq0_atom(ub_term);
-        term_t lb = _o_yices_arith_geq0_atom(lb_term);
+        term_t ub_term = mk_sub(tm, nra->global_bound_term, t);
+        term_t lb_term = mk_add(tm, nra->global_bound_term, t);
+        term_t ub = mk_arith_term_geq0(tm, ub_term);
+        term_t lb = mk_arith_term_geq0(tm, lb_term);
         prop->lemma(prop, ub);
         prop->lemma(prop, lb);
 
@@ -698,7 +792,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_min);
             term_t min = mk_arith_constant(nra->ctx->tm, &q);
-            term_t min_bound = _o_yices_arith_geq_atom(nra->global_bound_term, min);
+            term_t min_bound = mk_arith_geq(tm, nra->global_bound_term, min);
             prop->lemma(prop, min_bound);
             q_clear(&q);
           }
@@ -707,7 +801,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
             q_init(&q);
             q_set32(&q, nra->ctx->options->nra_bound_max);
             term_t max = mk_arith_constant(nra->ctx->tm, &q);
-            term_t max_bound = _o_yices_arith_leq_atom(nra->global_bound_term, max);
+            term_t max_bound = mk_arith_leq(tm, nra->global_bound_term, max);
             prop->lemma(prop, max_bound);
             q_clear(&q);
           }
