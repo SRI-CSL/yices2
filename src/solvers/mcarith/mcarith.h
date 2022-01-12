@@ -37,8 +37,14 @@ typedef struct mcarith_solver_s mcarith_solver_t;
  */
 extern void init_mcarith_solver(mcarith_solver_t **solver, context_t* ctx);
 
+/*
+ * Enable row saving (to support push/pop/multiple checks)
+ * - must be done before any assertions
+ */
+void mcarith_enable_row_saving(mcarith_solver_t *solver);
+
 /**
- * 
+ *
  */
 extern void destroy_mcarith_solver(mcarith_solver_t* solver);
 
