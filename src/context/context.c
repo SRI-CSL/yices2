@@ -5360,7 +5360,7 @@ static void create_mcarith_solver(context_t *ctx) {
 
   // row saving must be enabled unless we're in ONECHECK mode
   if (ctx->mode != CTX_MODE_ONECHECK) {
-    simplex_enable_row_saving(solver);
+    mcarith_enable_row_saving(solver);
   }
 
   if (ctx->egraph != NULL) {
