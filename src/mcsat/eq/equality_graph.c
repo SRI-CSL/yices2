@@ -721,6 +721,97 @@ eq_node_id_t eq_graph_add_fun_term(eq_graph_t* eq, term_t t, term_t f_term, term
   return f_id;
 }
 
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f_term, uint32_t n, const term_t *c_terms)
+{
+  term_kind_t f_kind = UNINTERPRETED_TERM;
+
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
+  {
+    ctx_trace_printf(eq->ctx, "eq_graph_add_update_term[%s](): ", eq->name);
+    ctx_trace_term(eq->ctx, t);
+  }
+
+  assert(n >= 1);
+  assert(f_term == NULL_TERM || f_kind == UNINTERPRETED_TERM);
+
+  // Add the term f
+  eq_node_id_t f_id = eq_graph_add_term_internal(eq, t);
+
+  // We add the function term f(x_1, ..., x_n) as a sequence of pair nodes:
+  //
+  //   n_1 = (x_n-1, x_n)
+  //   n_2 = (x_n-2, n_1)
+  //      ...
+  //   n_n = (f, n_n-1)
+  //
+  // These nodes we do congruence over.
+
+  // Where we put the children
+  uint32_t children_start = eq->children_list.size;
+  uint32_t children_size = 0;
+
+  // Add the function itself
+  eq_node_type_t final_pair_type;
+  if (f_kind == UNINTERPRETED_TERM)
+  {
+    assert(f_term != NULL_TERM);
+    eq_node_id_t c = eq_graph_add_term(eq, f_term);
+    ivector_push(&eq->children_list, c);
+    children_size++;
+    final_pair_type = EQ_NODE_PAIR;
+  }
+
+  // Add the real children
+  uint32_t i = 0;
+  for (i = 0; i < n; ++i)
+  {
+    eq_node_id_t c = eq_graph_add_term(eq, c_terms[i]);
+    ivector_push(&eq->children_list, c);
+    children_size++;
+  }
+  ivector_push(&eq->children_list, eq_node_null);
+  const eq_node_id_t *c_nodes = (const eq_node_id_t *)eq->children_list.data + children_start;
+
+  // Add the pairs for children
+  assert(children_size >= 2);
+  i = children_size - 1;
+
+
+  // todo: how to deal with multiple dimensions?
+
+  // the index to be updated - f(idx)
+  eq_node_id_t idx = c_nodes[1];
+
+  // the value of the update in (f idx value)
+  eq_node_id_t value = c_nodes[children_size - 1];
+
+  eq_node_id_t p2 = eq_graph_add_pair(eq, EQ_NODE_PAIR, f_id, idx, children_size, children_start);
+
+  // Store in the hash table
+  eq_graph_update_pair_hash(eq, p2);
+  
+  // Add the equality (select (update f idx value) idx) = value
+  merge_queue_push_init(&eq->merge_queue, value, p2, REASON_IS_FUNCTION_DEF, 0);
+
+
+  // We added lots of stuff, maybe there were merges
+  eq_graph_propagate(eq);
+
+  return f_id;
+}
+
+// eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f, uint32_t n, const term_t *children)
+// {
+
+//   if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
+//   {
+//     ctx_trace_printf(eq->ctx, "eq_graph_ufun_term[%s](): ", eq->name);
+//     ctx_trace_term(eq->ctx, t);
+//   }
+
+//   return eq_graph_add_fun_term(eq, t, f, UNINTERPRETED_TERM, n, children);
+// }
+
 eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t n, const term_t* children) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
@@ -1728,6 +1819,10 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   case REASON_IS_CONGRUENCE: {
     // Get the reasons of the arguments
     // We are guaranteed that these are top-level function nodes
+    //
+    // TODO: This doesn't hold for update terms: if we try to explain
+    // [(update a1 (x) y), x] (id=11, idx=4) {a1, x, y, x} == [t!13, x]  (id=5, idx=0) {t!13, x}
+    // u_c is a1 and v_c is t!13
     const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
     const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
     while (*u_c != eq_node_null) {

@@ -122,6 +122,8 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
   }
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
+  case UPDATE_TERM:         // update of an array
+    return update_term_desc(terms, t);
   case ARITH_RDIV:          // division: (/ x y)
     return arith_rdiv_term_desc(terms, t);
   case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
@@ -194,6 +196,8 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case APP_TERM:           // application of an uninterpreted function
     assert(n > 1);
     return mk_application(tm, children[0], n-1, children + 1);
+  case UPDATE_TERM:
+    return mk_update(tm, children[0], n-2, children + 1, children[n-1]);
   case ARITH_RDIV:
     assert(n == 2);
     return mk_arith_rdiv(tm, children[0], children[1]);
@@ -485,10 +489,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       n = desc->arity;
 
+      /*
       // Arrays not supported yet
       if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
+      */
 
       // Is this a top-level equality assertion
       bool is_equality =
@@ -877,6 +883,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     // FOLLOWING ARE UNINTEPRETED, SO WE PURIFY THE ARGUMENTS
 
     case APP_TERM:           // application of an uninterpreted function
+    case UPDATE_TERM:        // update array
     case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
@@ -986,10 +993,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
 
+      /*
       // Arrays not supported yet
       if (term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
+      */
 
       bool children_done = true;
       n = desc->arity;

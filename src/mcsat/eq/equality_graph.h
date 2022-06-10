@@ -223,6 +223,8 @@ eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 /** Returns the number of terms in the graph */
 uint32_t eq_graph_term_size(const eq_graph_t* eq);
 
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f, uint32_t n, const term_t *children);
+
 /**
  * Add an uninterpreted function term to the database (if not there) and
  * return id. This will also run propagation. If the term was added before

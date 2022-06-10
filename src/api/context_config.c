@@ -694,7 +694,7 @@ void delete_config(ctx_config_t *config) {
  * Check whether a logic is supported by the MCSAT solver
  */
 bool logic_is_supported_by_mcsat(smt_logic_t code) {
-  return code == SMT_ALL || !(logic_has_arrays(code) || logic_has_quantifiers(code));
+  return code == SMT_ALL || !(logic_has_quantifiers(code));
 }
 
 /*
