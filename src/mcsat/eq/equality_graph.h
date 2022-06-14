@@ -223,7 +223,15 @@ eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t);
 /** Returns the number of terms in the graph */
 uint32_t eq_graph_term_size(const eq_graph_t* eq);
 
-eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f, uint32_t n, const term_t *children);
+/**
+ * Adds an update term (e.g., update a x y) where the value a[x] is updated to y
+ *
+ * @param t the full term itself
+ * @param n the number of children
+ * @param children the direct subterms of the term
+ * @return eq_node_id_t
+ */
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, const term_t *children);
 
 /**
  * Add an uninterpreted function term to the database (if not there) and

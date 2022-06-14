@@ -197,7 +197,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_update_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+    eq_graph_add_update_term(&uf->eq_graph, t, t_desc->arity - 1, t_desc->arg + 1);
     children_start = 1;
     break;
   case ARITH_RDIV:

@@ -721,49 +721,31 @@ eq_node_id_t eq_graph_add_fun_term(eq_graph_t* eq, term_t t, term_t f_term, term
   return f_id;
 }
 
-eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f_term, uint32_t n, const term_t *c_terms)
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, const term_t *c_terms)
 {
-  term_kind_t f_kind = UNINTERPRETED_TERM;
-
-      if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
   {
     ctx_trace_printf(eq->ctx, "eq_graph_add_update_term[%s](): ", eq->name);
     ctx_trace_term(eq->ctx, t);
   }
 
-  assert(n >= 1);
-  assert(f_term == NULL_TERM || f_kind == UNINTERPRETED_TERM);
+  assert(n >= 2);
 
-  // Add the term f
+  // Add the full term
   eq_node_id_t f_id = eq_graph_add_term_internal(eq, t);
-
-  // We add the function term f(x_1, ..., x_n) as a sequence of pair nodes:
-  //
-  //   n_1 = (x_n-1, x_n)
-  //   n_2 = (x_n-2, n_1)
-  //      ...
-  //   n_n = (f, n_n-1)
-  //
-  // These nodes we do congruence over.
 
   // Where we put the children
   uint32_t children_start = eq->children_list.size;
   uint32_t children_size = 0;
 
-  // Add the function itself
-  eq_node_type_t final_pair_type;
-  if (f_kind == UNINTERPRETED_TERM)
-  {
-    assert(f_term != NULL_TERM);
-    eq_node_id_t c = eq_graph_add_term(eq, f_term);
-    ivector_push(&eq->children_list, c);
-    children_size++;
-    final_pair_type = EQ_NODE_PAIR;
-  }
+  // add the full update term as the first child (equivalend to f in a function application)
+  // eq_node_id_t full_term = eq_graph_add_term(eq, t);
+  ivector_push(&eq->children_list, f_id);
+  children_size++;
 
-  // Add the real children
+  // Add the first n-1 children (representing the index to be updated)
   uint32_t i = 0;
-  for (i = 0; i < n; ++i)
+  for (i = 0; i < n-1; ++i)
   {
     eq_node_id_t c = eq_graph_add_term(eq, c_terms[i]);
     ivector_push(&eq->children_list, c);
@@ -772,20 +754,26 @@ eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t f_term, u
   ivector_push(&eq->children_list, eq_node_null);
   const eq_node_id_t *c_nodes = (const eq_node_id_t *)eq->children_list.data + children_start;
 
+  // add the last child as the update value to the graph (but don't push it to the children list!)
+  eq_node_id_t value = eq_graph_add_term(eq, c_terms[n-1]);
+
+  // ivector_push(&eq->children_list, eq_node_null);
+  // const eq_node_id_t *c_nodes = (const eq_node_id_t *)eq->children_list.data + children_start;
+
   // Add the pairs for children
   assert(children_size >= 2);
   i = children_size - 1;
+  eq_node_id_t p2 = c_nodes[i];
+  for (--i; i > 0; --i)
+  {
+    eq_node_id_t p1 = c_nodes[i];
+    // Add the graph node (p1, p2) with children if root
+    p2 = eq_graph_add_pair(eq, EQ_NODE_PAIR, p1, p2, 0, 0);
+    // Store in the hash table
+    eq_graph_update_pair_hash(eq, p2);
+  }
 
-
-  // todo: how to deal with multiple dimensions?
-
-  // the index to be updated - f(idx)
-  eq_node_id_t idx = c_nodes[1];
-
-  // the value of the update in (f idx value)
-  eq_node_id_t value = c_nodes[children_size - 1];
-
-  eq_node_id_t p2 = eq_graph_add_pair(eq, EQ_NODE_PAIR, f_id, idx, children_size, children_start);
+  p2 = eq_graph_add_pair(eq, EQ_NODE_PAIR, f_id, p2, children_size, children_start);
 
   // Store in the hash table
   eq_graph_update_pair_hash(eq, p2);
