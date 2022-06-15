@@ -441,7 +441,12 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
     ctx_trace_printf(eq->ctx, "eq_graph_add_term[%s](): ", eq->name);
-    ctx_trace_term(eq->ctx, t);
+    if (t == 0) {
+      ctx_trace_printf(eq->ctx, "update\n");
+    }
+    else {
+      ctx_trace_term(eq->ctx, t);
+    }
   }
 
   // Check if already there
@@ -465,7 +470,7 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t* eq, term_t t) {
   assert(eq->kind_list.size + eq->terms_list.size + eq->values_list.size + eq->pair_list.size / 2 == eq->nodes_size);
 
   // If the node is a constant, we also create a value for it
-  bool is_const = is_const_term(eq->ctx->terms, t);
+  bool is_const = t != 0 && is_const_term(eq->ctx->terms, t);
   if (is_const) {
     mcsat_value_t t_value;
     mcsat_value_construct_from_constant_term(&t_value, eq->ctx->terms, t);
@@ -889,6 +894,9 @@ void eq_graph_print_node(const eq_graph_t* eq, const eq_node_t* n, FILE* out, bo
   }
   case EQ_NODE_TERM: {
     term_t t = eq->terms_list.data[n->index];
+    if (t == 0) {
+      fprintf(out, "update");
+    } else 
     term_print_to_file(out, eq->ctx->terms, t);
     if (print_extra) {
       fprintf(out, " (id=%"PRIu32", idx=%"PRIu32")", n_id, n->index);
