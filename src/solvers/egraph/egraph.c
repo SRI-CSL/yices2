@@ -2068,6 +2068,7 @@ static bool analyze_or(egraph_t *egraph, composite_t *p) {
   }
 
   // if one t_i == true then true_label is in sgn->sigma[0]
+  // (or ... true ...) == true
   if (sgn->sigma[0] == true_label) {
     t = find_child_label(egraph, p, true_label);
     assert(t >= 0);
