@@ -1046,6 +1046,10 @@ static void print_yices_error(bool full) {
     unsupported_construct("quantifiers are");
     break;
 
+  case CTX_LAMBDAS_NOT_SUPPORTED:
+    unsupported_construct("lambdas are");
+    break;
+
   case CTX_SCALAR_NOT_SUPPORTED:
     unsupported_construct("scalar types are");
     break;
