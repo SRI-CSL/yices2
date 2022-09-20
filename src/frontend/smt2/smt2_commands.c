@@ -1046,6 +1046,10 @@ static void print_yices_error(bool full) {
     unsupported_construct("quantifiers are");
     break;
 
+  case CTX_LAMBDAS_NOT_SUPPORTED:
+    unsupported_construct("lambdas are");
+    break;
+
   case CTX_SCALAR_NOT_SUPPORTED:
     unsupported_construct("scalar types are");
     break;
@@ -3727,8 +3731,11 @@ static model_t *get_model(smt2_globals_t *g) {
         print_error("can't build a model. Call (check-sat) first");
         break;
 
-      case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
+	print_error("the search was interrupted. No model is available");
+	break;
+
+      case STATUS_SEARCHING:
       default:
         print_out("BUG: unexpected context status");
         freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4131,8 +4138,11 @@ static void show_assignment(smt2_globals_t *g) {
       print_error("can't build the assignment. Call (check-sat) first");
       break;
 
-    case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
+      print_error("can't build the assignment. The search was interrupted");
+      break;
+
+    case STATUS_SEARCHING:
     default:
       print_out("BUG: unexpected context status");
       freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4208,9 +4218,12 @@ static void show_unsat_core(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
+      case STATUS_INTERRUPTED:
+	print_error("No unsat core. The search was interrupted");
+	break;
+
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected status in get-unsat-core");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-core");
@@ -4247,9 +4260,12 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
+      case STATUS_INTERRUPTED:
+	print_error("No unsat assumptions. The search was interrupted");
+	break;
+
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected status in get-unsat-assumptions");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-assumptions");
