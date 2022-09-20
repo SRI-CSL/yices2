@@ -86,7 +86,7 @@ typedef struct eq_graph_s {
   /** Map from values to id */
   value_hmap_t value_to_id;
 
-  /** Map from pairs to ids */
+    /** Map from pairs to ids */
   pmap2_t pair_to_id;
 
   /** Map from eqality pairs to ids */
@@ -176,6 +176,21 @@ typedef struct eq_graph_s {
   /** The actual uselist per node */
   ivector_t uselist;
 
+  /** Map from arrays to their updates */
+  ptr_hmap_t array_to_updates;
+
+  /** Map from arrays to app terms that read the respectice array */
+  ptr_hmap_t array_to_reads;
+
+  /** Map from indices to app terms that read at the respective index */
+  ptr_hmap_t idx_to_reads;
+
+  /** Map from temr types to app terms with the corresponding domain */
+  ptr_hmap_t idxtype_to_arrays;
+
+  /** Map from types to diff symbols */
+  int_hmap_t type_to_diff;
+
   /** Chronological list uf uselist updates */
   ivector_t uselist_updates;
 
@@ -227,11 +242,12 @@ uint32_t eq_graph_term_size(const eq_graph_t* eq);
  * Adds an update term (e.g., update a x y) where the value a[x] is updated to y
  *
  * @param t the full term itself
+ * @param array_t the array term that gets updated
  * @param n the number of children
  * @param children the direct subterms of the term
  * @return eq_node_id_t
  */
-eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, const term_t *children);
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t arr_t, uint32_t n, const term_t *children);
 
 /**
  * Add an uninterpreted function term to the database (if not there) and

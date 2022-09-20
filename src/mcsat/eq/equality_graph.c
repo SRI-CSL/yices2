@@ -18,6 +18,7 @@
 
 #include "equality_graph.h"
 #include "utils/memalloc.h"
+#include "utils/refcount_strings.h"
 #include "mcsat/tracing.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/trail.h"
@@ -117,6 +118,10 @@ static inline const char *eq_graph_reason_to_string(eq_reason_type_t reason)
     return "assigned in trail";
   case REASON_IS_USER:
     return "user asserted";
+  case REASON_IS_READ_OF_UPDATE:
+    return "read of update";
+  case REASON_IS_UNAFFECTED_UPDATE:
+    return "unaffected update";
   default:
     assert(false);
   }
@@ -145,6 +150,10 @@ static inline const char *eq_graph_reason_to_short_string(eq_reason_type_t reaso
     return "trail";
   case REASON_IS_USER:
     return "user";
+  case REASON_IS_READ_OF_UPDATE:
+    return "upd-read";
+  case REASON_IS_UNAFFECTED_UPDATE:
+    return "unaff upd";
   default:
     assert(false);
   }
@@ -252,6 +261,7 @@ void eq_graph_construct(eq_graph_t *eq, plugin_context_t *ctx, const char *name)
 
   init_int_hmap(&eq->kind_to_id, 0);
   init_int_hmap(&eq->term_to_id, 0);
+  init_int_hmap(&eq->type_to_diff, 0);
   init_value_hmap(&eq->value_to_id, 0);
   init_pmap2(&eq->pair_to_id);
   init_pmap2(&eq->eq_pair_to_id);
@@ -275,6 +285,11 @@ void eq_graph_construct(eq_graph_t *eq, plugin_context_t *ctx, const char *name)
 
   init_ivector(&eq->uselist, 0);
   init_ivector(&eq->uselist_updates, 0);
+
+  init_ptr_hmap(&eq->array_to_updates, 0);
+  init_ptr_hmap(&eq->array_to_reads, 0);
+  init_ptr_hmap(&eq->idx_to_reads, 0);
+  init_ptr_hmap(&eq->idxtype_to_arrays, 0);
 
   init_ivector(&eq->children_list, 0);
   init_int_hmap(&eq->node_to_children, 0);
@@ -309,6 +324,7 @@ void eq_graph_destruct(eq_graph_t *eq)
 
   delete_int_hmap(&eq->kind_to_id);
   delete_int_hmap(&eq->term_to_id);
+  delete_int_hmap(&eq->type_to_diff);
   delete_value_hmap(&eq->value_to_id);
   delete_pmap2(&eq->pair_to_id);
   delete_pmap2(&eq->eq_pair_to_id);
@@ -334,6 +350,12 @@ void eq_graph_destruct(eq_graph_t *eq)
 
   delete_ivector(&eq->uselist);
   delete_ivector(&eq->uselist_updates);
+
+  delete_ptr_hmap(&eq->array_to_updates);
+  delete_ptr_hmap(&eq->array_to_reads);
+  delete_ptr_hmap(&eq->idx_to_reads);
+  delete_ptr_hmap(&eq->idxtype_to_arrays);
+  
 
   delete_ivector(&eq->children_list);
   delete_int_hmap(&eq->node_to_children);
@@ -392,6 +414,149 @@ static eq_uselist_id_t eq_graph_new_uselist_node(eq_graph_t *eq, eq_node_id_t no
 
   // Return the new element
   return id;
+}
+
+void eq_graph_print_node(const eq_graph_t *eq, const eq_node_t *n, FILE *out, bool print_extra);
+
+static void eq_graph_print_node_mapping(eq_graph_t *eq, ptr_hmap_t *node_map);
+
+/*
+  todo: we need a better data structure to record these mappings. None of the existing structures seem to really
+  meet our requirements. We need a data structure that 
+  - maps from an integer (node id) to a duplicate-free, iterable set of integers (node ids),
+    i.e., something like an iterable hash set. 
+  - can support element removal (and ideally push/pop operations directly)
+*/
+static void eq_graph_record_node_mapping(eq_graph_t *eq, ptr_hmap_t *node_map, eq_node_id_t idx_id, eq_node_id_t v_id)
+{
+
+  ptr_hmap_pair_t *pair = ptr_hmap_get(node_map, idx_id);
+
+  ivector_t *value_set;
+  bool already_there = false;
+  if (pair->val == NULL)
+  {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+    {
+      ctx_trace_printf(eq->ctx, "  creating new entry for key: ");
+      eq_graph_print_node(eq, eq_graph_get_node(eq, idx_id), stderr, false);
+      ctx_trace_printf(eq->ctx, "\n");
+    }
+
+    pair->val = safe_malloc(sizeof(ivector_t));
+    init_ivector(pair->val, 0);
+  }
+  else if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+  {
+    ctx_trace_printf(eq->ctx, "  found existing entry for key: ");
+    eq_graph_print_node(eq, eq_graph_get_node(eq, idx_id), stderr, false);
+    ctx_trace_printf(eq->ctx, "\n");
+  }
+    
+
+  value_set = pair->val;  
+  
+  for (int i = 0; i < value_set->size; i++)
+  {
+    if (value_set->data[i] == v_id)
+    {
+      already_there = true;
+
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+      {
+        ctx_trace_printf(eq->ctx, "  found existing entry for value: ");
+        eq_graph_print_node(eq, eq_graph_get_node(eq, v_id), stderr, false);
+        ctx_trace_printf(eq->ctx, "\n");
+      }
+
+      break;
+    }
+  }
+
+  if (!already_there)
+  {
+    ivector_push(value_set, v_id);
+  }
+}
+
+static void eq_graph_record_reads(eq_graph_t *eq, eq_node_id_t arr_id, eq_node_id_t idx_id, eq_node_id_t app_id )
+{
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+    {
+      ctx_trace_printf(eq->ctx, "recording index-to-read mapping: ");
+      eq_graph_print_node(eq, eq_graph_get_node(eq, idx_id), stderr, false);
+      ctx_trace_printf(eq->ctx, " -> ");
+      eq_graph_print_node(eq, eq_graph_get_node(eq, app_id), stderr, false);
+      ctx_trace_printf(eq->ctx, "\n");
+    }
+    eq_graph_record_node_mapping(eq, &eq->idx_to_reads, idx_id, app_id);
+
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+    {
+      ctx_trace_printf(eq->ctx, "recording array-to-read mapping: ");
+      eq_graph_print_node(eq, eq_graph_get_node(eq, arr_id), stderr, false);
+      ctx_trace_printf(eq->ctx, " -> ");
+      eq_graph_print_node(eq, eq_graph_get_node(eq, app_id), stderr, false);
+      ctx_trace_printf(eq->ctx, "\n");
+    }
+    eq_graph_record_node_mapping(eq, &eq->array_to_reads, arr_id, app_id);
+}
+
+static ivector_t eq_graph_get_node_mapping(eq_graph_t *eq, ptr_hmap_t *node_map, eq_node_id_t idx_id)
+{
+  ivector_t res;
+  init_ivector(&res, 0);
+
+  eq_node_id_t start_node_id = eq_graph_get_node(eq, idx_id)->find;
+  eq_node_t *n = eq_graph_get_node(eq, start_node_id);
+  eq_node_id_t n_id = start_node_id;
+  do
+  {
+    if (eq_graph_is_term(eq, n_id))
+    {
+      ptr_hmap_pair_t *pair = ptr_hmap_find(node_map, n_id);
+      if (pair != NULL)
+      {
+        ivector_t s = *(ivector_t *)pair->val;
+        for (int i = 0; i < s.size; i++)
+        {
+          ivector_push(&res, s.data[i]);
+        }
+      }
+    }
+
+    n = eq->nodes + n->next;
+    n_id = eq_graph_get_node_id(eq, n);
+  } while (n_id != start_node_id);
+  return res;
+}
+
+static void eq_graph_print_node_mapping(eq_graph_t *eq, ptr_hmap_t *node_map)
+{
+  ptr_hmap_pair_t *pair = ptr_hmap_first_record(node_map);
+  while (pair != NULL)
+  {
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, pair->key), ctx_trace_out(eq->ctx), true);
+    ctx_trace_printf(eq->ctx, " -> {");
+    ivector_t s = *(ivector_t *)pair->val;
+    bool first = true;
+
+    for (uint32_t i = 0; i < s.size; i++)
+    {
+      if (first)
+      {
+        first = false;
+      }
+      else
+      {
+        ctx_trace_printf(eq->ctx, ", ");
+      }
+      eq_node_id_t v_id = s.data[i];
+      eq_graph_print_node(eq, eq_graph_get_node(eq, v_id), ctx_trace_out(eq->ctx), true);
+    }
+    ctx_trace_printf(eq->ctx, "}\n");
+    pair = ptr_hmap_next_record(node_map, pair);
+  }
 }
 
 static eq_node_id_t eq_graph_new_node(eq_graph_t *eq, eq_node_type_t type, uint32_t index)
@@ -482,6 +647,8 @@ static eq_node_id_t eq_graph_add_kind(eq_graph_t *eq, term_kind_t kind)
   return id;
 }
 
+static void eq_graph_handle_extensionality(eq_graph_t *eq, term_t x_term);
+
 eq_node_id_t eq_graph_add_term_internal(eq_graph_t *eq, term_t t)
 {
 
@@ -529,6 +696,10 @@ eq_node_id_t eq_graph_add_term_internal(eq_graph_t *eq, term_t t)
     eq_node_id_t v_id = eq_graph_add_value(eq, &t_value);
     mcsat_value_destruct(&t_value);
     merge_queue_push_init(&eq->merge_queue, id, v_id, REASON_IS_CONSTANT_DEF, 0);
+
+    // if we create a value for some term, we also handle any potential
+    // implications on extensional arrays
+    eq_graph_handle_extensionality(eq, t);
   }
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
@@ -548,6 +719,20 @@ uint32_t eq_graph_term_size(const eq_graph_t *eq)
 eq_node_id_t eq_graph_add_term(eq_graph_t *eq, term_t t)
 {
   eq_node_id_t id = eq_graph_add_term_internal(eq, t);
+
+  // whenever we encounter functions, record them in the map from
+  // idx types to arrays s.t. we can easily find them when handling 
+  // extensionality after we have a new value for something
+  if (t != 0)
+  {
+    type_t t_type = term_type(eq->ctx->terms, t);
+    if (is_function_type(eq->ctx->types, t_type))
+    {
+      type_t idx_type = function_type_domain(eq->ctx->types, t_type, 0);
+      eq_graph_record_node_mapping(eq, &eq->idxtype_to_arrays, idx_type, id);
+    }
+  }
+
   eq_graph_propagate(eq);
   return id;
 }
@@ -801,6 +986,23 @@ static eq_node_id_t eq_graph_add_fun_term(eq_graph_t *eq, term_t t, term_t f_ter
   // Store in the hash table
   eq_graph_update_pair_hash(eq, p2);
 
+  // f_term = 0 represents an appterm (update ...), which is not really an app term, but only a 
+  // trick to use congruence for update terms
+  if (f_kind == UNINTERPRETED_TERM && f_term != 0)  
+  {
+
+    // todo: currently we only support arrays with a single index, but we have diff terms
+    // which are functions on two arguments. We don't need to handle extensionality on
+    // these diff functions, so we can exclude them here by requiring n ==1, but this should
+    // be handled in a more consistent way
+    if (n == 1)
+    {
+      eq_node_id_t arr_id = eq_graph_term_id(eq, f_term);
+      eq_node_id_t idx_id = eq_graph_term_id(eq, c_terms[0]);
+      eq_graph_record_reads(eq, arr_id, idx_id, f_id);
+    }
+  }
+
   // Add the equality f = p2
   merge_queue_push_init(&eq->merge_queue, f_id, p2, REASON_IS_FUNCTION_DEF, 0);
 
@@ -810,7 +1012,7 @@ static eq_node_id_t eq_graph_add_fun_term(eq_graph_t *eq, term_t t, term_t f_ter
   return f_id;
 }
 
-eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, const term_t *c_terms)
+eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t arr_t, uint32_t n, const term_t *c_terms)
 {
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq"))
   {
@@ -823,11 +1025,14 @@ eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, cons
   // Add the full term
   eq_node_id_t f_id = eq_graph_add_term_internal(eq, t);
 
+  // Add the array term
+  eq_node_id_t arr_id = eq_graph_add_term(eq, arr_t);
+
   // Where we put the children
   uint32_t children_start = eq->children_list.size;
   uint32_t children_size = 0;
 
-  // add the full update term as the first child (equivalend to f in a function application)
+  // add the full update term as the first child (equivalent to f in a function application)
   // eq_node_id_t full_term = eq_graph_add_term(eq, t);
   ivector_push(&eq->children_list, f_id);
   children_size++;
@@ -848,7 +1053,7 @@ eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, cons
 
   // Add the pairs for children
   assert(children_size >= 2);
-  i = children_size - 1;
+  i = children_size - 1;  // children size excludes the value for the update (the last child)
   eq_node_id_t p2 = c_nodes[i];
   for (--i; i > 0; --i)
   {
@@ -861,11 +1066,35 @@ eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, uint32_t n, cons
 
   p2 = eq_graph_add_pair(eq, EQ_NODE_PAIR, f_id, p2, children_size, children_start);
 
+  term_t idx_terms[children_size-1];
+
+  for (i=0; i<children_size-1; i++) {
+    idx_terms[i] = c_terms[i];
+  }
+
+  term_t read_update = app_term(eq->ctx->terms, t, children_size-1, idx_terms);
+  ctx_trace_term(eq->ctx, read_update);
+
   // Store in the hash table
   eq_graph_update_pair_hash(eq, p2);
 
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+  {
+    ctx_trace_printf(eq->ctx, "recording update mapping: ");
+    eq_graph_print_node(eq, eq_graph_get_node(eq, arr_id), stderr, false);
+    ctx_trace_printf(eq->ctx, " -> ");
+    eq_graph_print_node(eq, eq_graph_get_node(eq, f_id), stderr, false);
+    ctx_trace_printf(eq->ctx, "\n");
+  }
+  eq_graph_record_node_mapping(eq, &eq->array_to_updates, arr_id, f_id);
+
+  eq_node_id_t read_update_id = eq_graph_add_ufun_term(eq, read_update, t, children_size - 1, idx_terms);
+
+  // Add the equality between the pair-wise representation and the actual read update term
+  merge_queue_push_init(&eq->merge_queue, read_update_id, p2, REASON_IS_FUNCTION_DEF, 0);
+
   // Add the equality (select (update f idx value) idx) = value
-  merge_queue_push_init(&eq->merge_queue, value, p2, REASON_IS_FUNCTION_DEF, 0);
+  merge_queue_push_init(&eq->merge_queue, value, p2, REASON_IS_READ_OF_UPDATE, 0);
 
   // We added lots of stuff, maybe there were merges
   eq_graph_propagate(eq);
@@ -1594,216 +1823,166 @@ const mcsat_value_t *eq_graph_get_propagated_term_value(const eq_graph_t *eq, te
   return eq->values_list.data + n_find->index;
 }
 
-/******************************************************************************
- *
- *  begin update additions
- *
- ******************************************************************************/
-
-/*
-  gets the node ids of all application terms that read at idx_term
-  - goes through the use list of idx_term
-  - for each node that uses idx_term, iterate over its equivalence class
-    to find application terms
-  - for each found application term, look at the composite term, to see
-    whether its read index matches idx_term. If so, collect the node id.
-
-  returns the id of the node that represents the *actual application term*
-  (N.B. there are always equivalent nodes that represent the application
-        via nested pairs.)
-*/
-ivector_t get_app_term_ids(const eq_graph_t *eq, term_t search_idx_term)
+// todo: maybe record false equalities only on the find nodes?
+// would be more efficient, but would require additional record keeping to 
+// deal with backtracking
+eq_node_id_t eq_graph_are_disequal(eq_graph_t *eq, term_t x_t, term_t y_t)
 {
-  ivector_t app_node_ids;
-  init_ivector(&app_node_ids, 0);
+  assert(eq_graph_has_term(eq, x_t));
+  assert(eq_graph_has_term(eq, y_t));
+  eq_node_id_t x_id = eq_graph_term_id(eq, x_t);
+  eq_node_id_t y_id = eq_graph_term_id(eq, y_t);
 
-  term_table_t *terms = eq->ctx->terms;
+  const eq_node_t *x = eq_graph_get_node_const(eq, x_id);
+  const eq_node_t *y = eq_graph_get_node_const(eq,y_id);
 
-  eq_node_id_t search_id = eq_graph_term_id_if_exists(eq, search_idx_term);
-  eq_uselist_id_t ul_id = eq->uselist.data[search_id];
-
-  while (ul_id != eq_uselist_null)
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
   {
-    const eq_uselist_t *ul = eq->uselist_nodes + ul_id;
-    eq_node_id_t start_node_id = eq_graph_get_node(eq, ul->node)->find;
+    ctx_trace_printf(eq->ctx, "        looking for disequality: ");
+    eq_graph_print_node(eq, x, ctx_trace_out(eq->ctx), false);
+    ctx_trace_printf(eq->ctx, " != ");
+    eq_graph_print_node(eq, y, ctx_trace_out(eq->ctx), false);
 
-    eq_node_t *n = eq_graph_get_node(eq, start_node_id);
-    eq_node_id_t n_id = start_node_id;
-    do
-    {
-      if (eq_graph_is_term(eq, n_id))
-      {
-        term_t t = eq->terms_list.data[n->index];
-        if (t != 0 && term_kind(terms, t) == APP_TERM)
-        {
-          composite_term_t *t_desc = app_term_desc(terms, t);
-          term_t idx_term = t_desc->arg[1];
-          if (search_idx_term == idx_term)
-          {
-            ivector_push(&app_node_ids, n_id);
-          }
-        }
-      }
-      n = eq->nodes + n->next;
-      n_id = eq_graph_get_node_id(eq, n);
-    } while (n_id != start_node_id);
-    ul_id = ul->next;
+    ctx_trace_printf(eq->ctx, " (representatives: ");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, x->find), ctx_trace_out(eq->ctx), false);
+    ctx_trace_printf(eq->ctx, " != ");
+    eq_graph_print_node(eq, eq_graph_get_node_const(eq, y->find), ctx_trace_out(eq->ctx), false);
+    ctx_trace_printf(eq->ctx, ")\n");
   }
-  return app_node_ids;
-}
 
-/*
-  get all the update nodes that update the given application term
-  - goes through the use list of the given app_node_id
-  - for each use, go through that one's respective use list
-    (update terms are represent as nested pairs [update, [a, [i, v]]],
-    the use list of application term "a" only shows the rhs of the update
-    pair ([a, [i, v]]), so we need to go through that one's use list to
-    find the full update pair)
-  - for each of the results, we check whether the node is a pair and the
-    lhs is an update term. If so, we collect the node id.
-
-    returns the ids of the nodes that represent the nested pairs of update terms
-*/
-ivector_t get_update_node_ids(const eq_graph_t *eq, term_t app_node_id)
-{
-
-  ivector_t update_pair_ids;
-  init_ivector(&update_pair_ids, 0);
-
-  eq_node_t *app_node = eq_graph_get_node(eq, app_node_id);
-  term_t t = eq->terms_list.data[app_node->index];
-
-  term_table_t *terms = eq->ctx->terms;
-  composite_term_t *t_desc = app_term_desc(terms, t);
-  term_t f_term = t_desc->arg[0];
-
-  eq_node_id_t f_id = eq_graph_term_id_if_exists(eq, f_term);
-  eq_uselist_id_t f_use_id = eq->uselist.data[f_id];
-  while (f_use_id != eq_uselist_null)
+  // nodes are in the same class -> can't be different
+  if (x->find == y->find)
   {
-    const eq_uselist_t *ul = eq->uselist_nodes + f_use_id;
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
+    {
+      ctx_trace_printf(eq->ctx, "        nodes are in the same class\n");
+    }
+    return false;
+  }
 
-    eq_node_id_t r_id = eq_graph_get_node(eq, ul->node)->find;
-    eq_node_id_t n_id = r_id;
-    eq_node_t *r = eq_graph_get_node(eq, r_id);
-    eq_node_t *n = r;
+  // nodes have different values -> must be different
+  if (eq_graph_term_has_value(eq, x_t) && eq_graph_term_has_value(eq, y_t) && eq_graph_get_value(eq, x->find) != eq_graph_get_value(eq, y->find))
+  {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
+    {
+      ctx_trace_printf(eq->ctx, "        nodes have different values\n");
+    }
+    term_t t = eq_term(eq->ctx->terms, x_t, y_t);
+    composite_term_t *t_desc = eq_term_desc(eq->ctx->terms, t);
+    eq_node_id_t t_id = eq_graph_add_ifun_term(eq, t, EQ_TERM, 2, t_desc->arg);
+    variable_db_get_variable(eq->ctx->var_db, t);
+    merge_queue_push_init(&eq->merge_queue, t_id, eq->false_node_id, REASON_IS_EVALUATION, t_id);
+    eq_graph_propagate(eq);
+    return true;
+  }
+
+  // Go through use-lists and look for equalities asserted to be false
+  eq_uselist_id_t i = eq->uselist.data[x_id];
+
+  while (i != eq_uselist_null)
+  {
+    const eq_uselist_t *ul = eq->uselist_nodes + i;
+    eq_node_id_t n_id = ul->node;
+
+    // go through the equivalent nodes of the use list
+    eq_node_id_t use_start_node_id = eq_graph_get_node(eq, n_id)->find;
+    eq_node_t *use_equiv_n = eq_graph_get_node(eq, use_start_node_id);
+    eq_node_id_t use_equiv_id = use_start_node_id;
     do
     {
-      eq_uselist_id_t use_id2 = eq->uselist.data[n_id];
 
-      while (use_id2 != eq_uselist_null)
+      if (use_equiv_n->type == EQ_NODE_EQ_PAIR && use_equiv_n->find == eq->false_node_id)
       {
-        const eq_uselist_t *ul2 = eq->uselist_nodes + use_id2;
+        eq_node_id_t p1_id = eq->pair_list.data[use_equiv_n->index];
+        eq_node_id_t p2_id = eq->pair_list.data[use_equiv_n->index + 1];
 
-        /*
-          we are looking for update terms represented in the
-          form of nested pairs:
-          p0 = [update, p1]
-          p1 = [f_term, p2]
-          p2 = [idx, value]
-          (where the term 'update' is 0)
-        */
-        if (eq_graph_is_pair(eq, ul2->node))
+        eq_node_t *p1 = eq_graph_get_node(eq, p1_id);
+        eq_node_t *p2 = eq_graph_get_node(eq, p2_id);
+
+        term_t x_match = NULL_TERM;
+        term_t y_match = NULL_TERM;
+       
+        if (x->find == p1->find && y->find == p2->find)
         {
-
-          eq_node_id_t p0_id = ul2->node;
-          eq_node_t *p0 = eq_graph_get_node(eq, ul2->node);
-          eq_node_id_t p0l_id = eq->pair_list.data[p0->index];
-          eq_node_t *p0l = eq_graph_get_node(eq, p0l_id);
-
-          eq_node_id_t p1_id = eq->pair_list.data[p0->index + 1];
-          eq_node_t *p1 = eq_graph_get_node(eq, p1_id);
-
-          if (eq_graph_is_term(eq, p0l_id))
+          x_match = eq_graph_get_term(eq, p1_id);
+          y_match = eq_graph_get_term(eq, p2_id);
+          if(ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
           {
-            if (eq->terms_list.data[p0l->index] == 0)
+            if(x != p1)
             {
-              // sanity check: the right-hand side of the update pair should be the term that we searched for
-              assert(p1_id == n_id);
-              assert(eq_graph_is_pair(eq, p1_id));
-
-              eq_node_id_t p1l_id = eq->pair_list.data[p1->index];
-              (assert(f_id == p1l_id));
-
-              ivector_push(&update_pair_ids, p0_id);
+              ctx_trace_printf(eq->ctx, "        (");
+              eq_graph_print_node(eq, x, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, " == ");
+              eq_graph_print_node(eq, p1, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, "\n");
+            }
+            if (y != p2)
+            {
+              ctx_trace_printf(eq->ctx, "        (");
+              eq_graph_print_node(eq, y, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, " == ");
+              eq_graph_print_node(eq, p2, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, ")\n");
             }
           }
         }
-        use_id2 = ul2->next;
+        else if(x->find == p2->find && y->find == p1->find)
+        {
+          x_match = eq_graph_get_term(eq, p2_id);
+          y_match = eq_graph_get_term(eq, p1_id);
+          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
+          {
+            if (x != p2)
+            {
+              ctx_trace_printf(eq->ctx, "        (");
+              eq_graph_print_node(eq, x, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, " == ");
+              eq_graph_print_node(eq, p2, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, ")\n");
+            }
+            if (y != p1)
+            {
+              ctx_trace_printf(eq->ctx, "        (");
+              eq_graph_print_node(eq, y, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, " == ");
+              eq_graph_print_node(eq, p1, ctx_trace_out(eq->ctx), false);
+              ctx_trace_printf(eq->ctx, ")\n");
+            }
+          }
+        }
+
+        if (x_match != NULL_TERM)
+        {
+          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
+          {
+            ctx_trace_printf(eq->ctx, "      * found disequality: ");
+            eq_graph_print_node(eq, p1, ctx_trace_out(eq->ctx), false);
+            ctx_trace_printf(eq->ctx, " != ");
+            eq_graph_print_node(eq, p2, ctx_trace_out(eq->ctx), false);
+            ctx_trace_printf(eq->ctx, "\n");
+          }
+
+          term_t t = eq_term(eq->ctx->terms, x_t, y_t);
+          composite_term_t *t_desc = eq_term_desc(eq->ctx->terms, t);
+          eq_node_id_t t_id = eq_graph_add_ifun_term(eq, t, EQ_TERM, 2, t_desc->arg);
+          variable_db_get_variable(eq->ctx->var_db, t);
+          merge_queue_push_init(&eq->merge_queue, t_id, eq->false_node_id, REASON_IS_EVALUATION, use_equiv_id);
+          eq_graph_propagate(eq);
+
+          return true;
+        }
       }
-
-      n = eq->nodes + n->next;
-      n_id = eq_graph_get_node_id(eq, n);
-    } while (n_id != r_id);
-
-    f_use_id = ul->next;
+      use_equiv_n = eq->nodes + use_equiv_n->next;
+      use_equiv_id = eq_graph_get_node_id(eq, use_equiv_n);
+    } while (use_equiv_id != use_start_node_id);
+   
+    i = ul->next;
   }
-  return update_pair_ids;
-}
-
-term_t get_update_idx(const eq_graph_t *eq, eq_node_id_t p0_id)
-{
-  eq_node_t *p0 = eq_graph_get_node(eq, p0_id);
-  eq_node_id_t p0l_id = eq->pair_list.data[p0->index];
-  eq_node_t *p0l = eq_graph_get_node(eq, p0l_id);
-
-  eq_node_id_t p1_id = eq->pair_list.data[p0->index + 1];
-  eq_node_t *p1 = eq_graph_get_node(eq, p1_id);
-
-  assert(eq->terms_list.data[p0l->index] == 0);
-
-  eq_node_id_t p2_id = eq->pair_list.data[p1->index + 1];
-  eq_node_t *p2 = eq_graph_get_node(eq, p2_id);
-  eq_node_id_t p2l_id = eq->pair_list.data[p2->index];
-  eq_node_t *p2l = eq_graph_get_node(eq, p2l_id); // the update idx
-
-  term_t idx_term = eq->terms_list.data[p2l->index];
-
-  return idx_term;
-}
-
-eq_node_id_t get_app_pair_id(const eq_graph_t *eq, eq_node_id_t app_node_id)
-{
-  eq_node_id_t app_pair_id = eq_node_null;
-
-  term_table_t *terms = eq->ctx->terms;
-
-  const eq_node_t *app_node = eq_graph_get_node_const(eq, app_node_id);
-  composite_term_t *t_desc = app_term_desc(terms, eq->terms_list.data[app_node->index]);
-  term_t f_term = t_desc->arg[0];
-  term_t idx_term = t_desc->arg[1];
-
-  eq_node_id_t start_node_id = app_node->find;
-  eq_node_id_t n_id = start_node_id;
-  const eq_node_t *n = eq_graph_get_node_const(eq, n_id);
-  do
-  {
-    if (eq_graph_is_pair(eq, n_id))
-    {
-      eq_node_id_t lhs_id = eq->pair_list.data[n->index];
-      eq_node_id_t rhs_id = eq->pair_list.data[n->index + 1];
-
-      term_t l_term = eq_graph_get_term(eq, lhs_id);
-      term_t r_term = eq_graph_get_term(eq, rhs_id);
-
-      if (l_term == f_term && r_term == idx_term)
-      {
-        app_pair_id = n_id;
-        break;
-      }
-    }
-    n = eq->nodes + n->next;
-    n_id = eq_graph_get_node_id(eq, n);
-  } while (n_id != start_node_id);
-
-  assert(app_pair_id != eq_node_null);
-  return app_pair_id;
+  return false;
 }
 
 void handle_app_term_update(eq_graph_t *eq, eq_node_id_t app_node_id)
 {
-
   FILE *out = ctx_trace_out(eq->ctx);
 
   term_table_t *terms = eq->ctx->terms;
@@ -1811,7 +1990,8 @@ void handle_app_term_update(eq_graph_t *eq, eq_node_id_t app_node_id)
   term_t t = eq->terms_list.data[app_node->index];
 
   composite_term_t *t_desc = app_term_desc(terms, t);
-  term_t idx_term = t_desc->arg[1];
+  term_t read_idx_term = t_desc->arg[1];
+  eq_node_id_t read_idx_id = eq_graph_term_id(eq, read_idx_term);
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
   {
@@ -1821,92 +2001,61 @@ void handle_app_term_update(eq_graph_t *eq, eq_node_id_t app_node_id)
   }
 
   // get all updates of those arrays
-  ivector_t update_node_ids = get_update_node_ids(eq, app_node_id);
+  term_t f_term = t_desc->arg[0];
+  eq_node_id_t f_id = eq_graph_term_id_if_exists(eq, f_term);
+  ivector_t update_node_ids = eq_graph_get_node_mapping(eq, &eq->array_to_updates, f_id);
+
 
   // go through all those updates and find the ones that are updated at different idx
   for (int i = 0; i < update_node_ids.size; ++i)
   {
     eq_node_id_t update_node_id = update_node_ids.data[i];
-    term_t update_idx = get_update_idx(eq, update_node_id);
-    
+    term_t update_term = eq_graph_get_term(eq, update_node_id);
+
+    composite_term_t *t_desc = update_term_desc(terms, update_term);
+
+    // the compound term has children [a, i, v], i.e., the update idx is at position 1
+    term_t update_idx_term = t_desc->arg[1];
+
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
     {
       fprintf(out, "    - update to array: ");
       eq_graph_print_node(eq, eq_graph_get_node_const(eq, update_node_id), out, false);
       fprintf(out, "\n");
     }
-    
-    // updates at a position different than the read (at idx_term)
-    if (!eq_graph_are_equal(eq, update_idx, idx_term))
+
+    if (eq_graph_are_disequal(eq, update_idx_term, read_idx_term))
     {
       if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
       {
         fprintf(out, "      read and write indices are different\n");
       }
-      
 
-      // go through the equivalent nodes of the update node and their respective 
-      // use lists to see whether the updated array is read at idx_term
-      eq_node_id_t start_node_id = eq_graph_get_node_const(eq, update_node_id)->find;
-      eq_node_id_t n_id = start_node_id;
-      const eq_node_t *n = eq_graph_get_node_const(eq, n_id);
-      do
+      // go through all reads of the updated array and check if its read ad idx_term
+      ivector_t update_read_ids = eq_graph_get_node_mapping(eq, &eq->array_to_reads, update_node_id);
+
+      for (int i = 0; i < update_read_ids.size; ++i)
       {
-        // fprintf(out, "        - checking node: ");
-        // eq_graph_print_node(eq, n, out, false);
-        // fprintf(out, "\n");
-        eq_uselist_id_t ul_id = eq->uselist.data[n_id];
-        while (ul_id != eq_uselist_null)
+        eq_node_id_t update_read_id = update_read_ids.data[i];
+        term_t update_read = eq_graph_get_term(eq, update_read_id);
+        composite_term_t *update_read_desc = app_term_desc(eq->ctx->terms, update_read);
+        term_t update_read_idx_term = update_read_desc->arg[1];
+
+        eq_node_id_t update_read_idx_id = eq_graph_term_id(eq, update_read_idx_term);
+
+        if (eq_graph_get_node_const(eq, update_read_idx_id)->find == eq_graph_get_node_const(eq, read_idx_id)->find)
         {
-          const eq_uselist_t *ul = eq->uselist_nodes + ul_id;
-          const eq_node_t *use_node = eq_graph_get_node_const(eq, ul->node);
-
-          // fprintf(out, "        ");
-          // eq_graph_print_node(eq, use_node, out, false);
-
-          if (eq_graph_is_pair(eq, ul->node))
+          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
           {
-            // fprintf(out, "          - pair: ");
-            // eq_graph_print_node(eq, use_node, out, false);
-            // fprintf(out, "\n");
-
-            eq_node_id_t lhs_id = eq->pair_list.data[use_node->index];
-            eq_node_id_t rhs_id = eq->pair_list.data[use_node->index + 1];
-
-            if (eq_graph_is_term(eq, rhs_id))
-            {
-              term_t r_term = eq_graph_get_term(eq, rhs_id);
-
-              if (lhs_id == n_id && r_term == idx_term)
-              {
-
-                
-                eq_node_id_t app_pair_id = get_app_pair_id(eq, app_node_id);
-
-                if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
-                {
-                  fprintf(out, "      equivalent node: ");
-                  eq_graph_print_node(eq, eq_graph_get_node_const(eq, n_id), out, false);
-                  fprintf(out, " read at ");
-                  eq_graph_print_node(eq, eq_graph_get_node_const(eq, rhs_id), out, false);
-                  fprintf(out, "\n");
-                  fprintf(out, "      -> merging ");
-                  eq_graph_print_node(eq, eq_graph_get_node_const(eq, app_pair_id), out, false);
-                  fprintf(out, " with ");
-                  eq_graph_print_node(eq, eq_graph_get_node_const(eq, ul->node), out, false);
-                  fprintf(out, "\n");
-                }
-                
-                // todo: define a suitable merge reason (with reason_data)
-                merge_queue_push_init(&eq->merge_queue, app_pair_id, ul->node, REASON_IS_FUNCTION_DEF, 0);
-              }
-            }
+            fprintf(out, "      -> merging ");
+            eq_graph_print_node(eq, eq_graph_get_node_const(eq, app_node_id), out, false);
+            fprintf(out, " with ");
+            eq_graph_print_node(eq, eq_graph_get_node_const(eq, update_read_id), out, false);
+            fprintf(out, "\n");
           }
-          ul_id = ul->next;
+          merge_queue_push_init(&eq->merge_queue, app_node_id, update_read_id, REASON_IS_UNAFFECTED_UPDATE, update_node_id);
         }
-        n = eq->nodes + n->next;
-        n_id = eq_graph_get_node_id(eq, n);
-      } while (n_id != start_node_id);
+      }
     }
   }
 }
@@ -1917,8 +2066,6 @@ void handle_updates(eq_graph_t *eq, term_t x_term)
   term_table_t *terms = eq->ctx->terms;
   eq_node_id_t x_id = eq_graph_term_id_if_exists(eq, x_term);
 
-  // eq_graph_print(eq, out);
-
   if (x_id != eq_node_null)
   {
     term_kind_t x_kind = term_kind(terms, x_term);
@@ -1926,7 +2073,7 @@ void handle_updates(eq_graph_t *eq, term_t x_term)
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
     {
       fprintf(out, "\n**** eq_graph_handle_updates ****\n");
-      fprintf(out, "term :");
+      fprintf(out, "term (kind %i): ", x_kind);
       ctx_trace_term(eq->ctx, x_term);
     }
     
@@ -1935,38 +2082,354 @@ void handle_updates(eq_graph_t *eq, term_t x_term)
       case CONSTANT_TERM:
       case UNINTERPRETED_TERM:
       {
-        // get all arrays that are read at x_term
-        ivector_t app_node_ids = get_app_term_ids(eq, x_term);
+
+        // get all the application terms that read at x_term
+        ivector_t app_node_ids = eq_graph_get_node_mapping(eq, &eq->idx_to_reads, x_id);
+
+        for (int i = 0; i < app_node_ids.size; ++i)
+        {
+          handle_app_term_update(eq, app_node_ids.data[i]);
+        }
+
+        // get all the application terms that read x_term anywhere
+        app_node_ids = eq_graph_get_node_mapping(eq, &eq->array_to_reads, x_id);
 
         // go through all those arrays and find the ones that are updated
         for (int i = 0; i < app_node_ids.size; ++i)
         {
-          eq_node_id_t app_node_id = app_node_ids.data[i];
-          handle_app_term_update(eq, app_node_id);
+          handle_app_term_update(eq, app_node_ids.data[i]);
         }
+
         break;
       }
       case APP_TERM:
       {
         handle_app_term_update(eq, x_id);
         break;
-      } 
+      }
+      case UPDATE_TERM:
+      {
+        composite_term_t *t_desc = update_term_desc(terms, eq_graph_get_term(eq, x_id));
+        term_t array_term = t_desc->arg[0];
+        term_t update_index_term = t_desc->arg[1];
+
+        eq_node_id_t array_id = eq_graph_term_id(eq, array_term);
+
+        // gets all reads of the original array that has been updated here
+        ivector_t app_node_ids = eq_graph_get_node_mapping(eq, &eq->array_to_reads, array_id);
+        for (int i = 0; i < app_node_ids.size; ++i)
+        {
+          eq_node_id_t app_node_id = app_node_ids.data[i];
+          term_t app_t = eq_graph_get_term(eq, app_node_id);
+          composite_term_t *app_desc = app_term_desc(terms, app_t);
+          term_t app_index_term = app_desc->arg[1];
+          if (eq_graph_are_disequal(eq, update_index_term, app_index_term))
+          {
+            handle_app_term_update(eq, app_node_id);
+          }
+        }
+        break;
+      }
+
+      case EQ_TERM:
+      {
+        composite_term_t *t_desc = eq_term_desc(terms, x_term);
+        term_t lhs = t_desc->arg[0];
+        term_t rhs = t_desc->arg[1];
+        handle_updates(eq, lhs);
+        handle_updates(eq, rhs);
+      }
+
       default:
         // assert(false);
         break;
     }
   }
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array"))
+}
+
+// find the egraph node for the given value and iterate over the nodes in
+// its equivalence class until we find the first term node and return that one
+static eq_node_id_t eq_graph_term_id_for_value(eq_graph_t *eq, const mcsat_value_t *v)
+{
+  value_hmap_pair_t *find = value_hmap_find(&eq->value_to_id, v);
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
   {
-    ctx_trace_printf(eq->ctx, "**** done ****\n\n");
+    ctx_trace_printf(eq->ctx, "   value: ");
+    mcsat_value_print(v, stderr);
+    ctx_trace_printf(eq->ctx, ", id: %i", find->val);
+  }
+    
+  eq_node_id_t start_node_id = eq_graph_get_node(eq, find->val)->find;
+  eq_node_t *n = eq_graph_get_node(eq, start_node_id);
+  eq_node_id_t n_id = start_node_id;
+
+  do
+  {
+    if (eq_graph_is_term(eq, n_id))
+    {
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+      {
+        fprintf(stderr, ", term: ");
+        eq_graph_print_node(eq, n, ctx_trace_out(eq->ctx), true);
+        fprintf(stderr, "\n");
+      }
+      return n_id;
+    }
+    n = eq->nodes + n->next;
+    n_id = eq_graph_get_node_id(eq, n);
+  }while (n_id != start_node_id);
+  
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+  {
+    fprintf(stderr, ", no term\n");
+  }
+  return eq_node_null;
+}
+
+static void eq_graph_record_equal_reads(eq_graph_t *eq, term_t arr1, term_t arr2, term_t idx)
+{
+  term_table_t *terms = eq->ctx->terms;
+  term_t app1 = app_term(terms, arr1, 1, &idx);
+  term_t app2 = app_term(terms, arr2, 1, &idx);
+  
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+  {
+    ctx_trace_printf(eq->ctx, "eq_graph_record_equal_reads():\n");
+    ctx_trace_printf(eq->ctx, " - ");
+    ctx_trace_term(eq->ctx, app1);
+    ctx_trace_printf(eq->ctx, " - ");
+    ctx_trace_term(eq->ctx, app2);
+  }
+
+  // add the new app terms and their corresponding pair representations to the graph and assert
+  // that the representations are equal
+  eq_node_id_t app1_id = eq_graph_add_term(eq, app1);
+  eq_node_id_t app1_pair_id = eq_graph_add_ufun_term(eq, app1, arr1, 1, &idx);
+  merge_queue_push_init(&eq->merge_queue, app1_id, app1_pair_id, REASON_IS_FUNCTION_DEF, 0);
+
+  eq_node_id_t app2_id = eq_graph_add_term(eq, app2);
+  eq_node_id_t app2_pair_id = eq_graph_add_ufun_term(eq, app2, arr2, 1, &idx);
+  merge_queue_push_init(&eq->merge_queue, app2_id, app2_pair_id, REASON_IS_FUNCTION_DEF, 0);
+}
+
+// handle two arrays that are supposed to be equal:
+// go through all existing values, get a corresponding term for each value
+// and record app terms for both arrays at that term
+static void eq_graph_handle_equal_arrays(eq_graph_t *eq, term_t lhs, term_t rhs)
+{
+  assert(is_function_type(eq->ctx->types, term_type(eq->ctx->terms, lhs)));
+  assert(is_function_type(eq->ctx->types, term_type(eq->ctx->terms, rhs)));
+
+  term_table_t *terms = eq->ctx->terms;
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+  {
+    ctx_trace_printf(eq->ctx, "handling equality between arrays:\n");
+    ctx_trace_printf(eq->ctx, " - lhs: ");
+    ctx_trace_term(eq->ctx, lhs);
+    ctx_trace_printf(eq->ctx, " - rhs: ");
+    ctx_trace_term(eq->ctx, rhs);
+  }
+
+  type_t l_type = term_type(terms, lhs);
+  type_t idx_type = function_type_domain(eq->ctx->types, l_type, 0);
+
+  /*
+    note: value_hmap also provides functions to iterate over the value_to_id map directly,
+    but this does not seem to work correctly (next_record eventually returns some non-null
+    entry after we've iterated over all values). Presumably this is a known issue (or not 
+    the intended way to use it), as other iterations over values (cf. eg., removal of values 
+    in eq_graph_pop(*eq)) also iterate over values_list instead of iterating over the 
+    value_to_identries directly.)
+  */
+  // iterate over all values recorded in the egraph
+  for (int i = 0; i < eq->values_list.size; ++i)
+  {
+    const mcsat_value_t *v = eq->values_list.data + i;
+    eq_node_id_t t_id = eq_graph_term_id_for_value(eq, v);
+
+    if (t_id == eq_node_null)
+    {
+      continue;
+    }
+
+    term_t t = eq_graph_get_term(eq, t_id);
+
+    if (good_term(terms, t) && term_type(terms, t) == idx_type)
+    {
+      eq_graph_record_equal_reads(eq, lhs, rhs, t);
+    }
   }
 }
 
-/******************************************************************************
- *
- *  end update additions
- *
- ******************************************************************************/
+static void eq_graph_handle_extensionality(eq_graph_t *eq, term_t x_term)
+{
+
+  term_table_t *terms = eq->ctx->terms;
+  eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
+
+  type_t x_type = term_type(terms, x_term);
+
+  // check whether we have any arrays with a domain that matches the type of x_term
+  ivector_t array_ids = eq_graph_get_node_mapping(eq, &eq->idxtype_to_arrays, x_type);
+
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+  {
+    if (array_ids.size > 0)
+    {
+      ctx_trace_printf(eq->ctx, "eq_graph_handle_extensionality(): found arrays with domain that matches type of ");
+      ctx_trace_term(eq->ctx, x_term);
+    }
+  }
+
+  // go through all the arrays that we found, check whether we have any 
+  // true equality assertions about them, and if so, record reads
+  for (int i = 0; i < array_ids.size; ++i)
+  {
+    term_t arr = eq_graph_get_term(eq, array_ids.data[i]);
+    eq_node_id_t arr_id = eq_graph_term_id(eq, arr);
+
+    // Go through use-lists look for equalities asserted to be true
+    eq_uselist_id_t i = eq->uselist.data[arr_id];
+    while (i != eq_uselist_null)
+    {
+      const eq_uselist_t *ul = eq->uselist_nodes + i;
+      eq_node_id_t n_id = ul->node;
+      const eq_node_t *n = eq_graph_get_node_const(eq, n_id);
+      if (n->type == EQ_NODE_EQ_PAIR && n->find == eq->true_node_id)
+      {
+        eq_node_id_t lhs_id = eq->pair_list.data[n->index];
+        eq_node_id_t rhs_id = eq->pair_list.data[n->index + 1];
+
+        term_t lhs = eq_graph_get_term(eq, lhs_id);
+        term_t rhs = eq_graph_get_term(eq, rhs_id);
+
+        eq_graph_record_equal_reads(eq, lhs, rhs, x_term);
+      }
+      i = ul->next;
+    }
+  }
+
+  // if x_term is an equality, we either
+  // - (for a false equality) record a diff term to indicate the position at which the arrays differ
+  // - (for a true equality) ensure that both arrays have read terms for all currently existing 
+  //   values of matching type
+  term_kind_t x_kind = term_kind(terms, x_term);
+  if (x_kind == EQ_TERM)
+  {
+    composite_term_t *t_desc = eq_term_desc(terms, x_term);
+    term_t lhs = t_desc->arg[0];
+    term_t rhs = t_desc->arg[1];
+
+    type_t l_type = term_type(terms, lhs);
+
+    if (!is_function_type(eq->ctx->types, l_type))
+    {
+      return;
+    }
+
+    // disequal arrays
+    if (eq_graph_get_node(eq, x_id)->find == eq->false_node_id)
+    {
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+      {
+        ctx_trace_printf(eq->ctx, "eq_graph_handle_extensionality(): handling disequal arrays:\n");
+        ctx_trace_printf(eq->ctx, " - ");
+        ctx_trace_term(eq->ctx, lhs);
+        ctx_trace_printf(eq->ctx, " - ");
+        ctx_trace_term(eq->ctx, rhs);
+      }
+
+      // see if we already have a diff term for this type
+      int_hmap_pair_t *find = int_hmap_find(&eq->type_to_diff, l_type);
+
+      type_t idx_type = function_type_domain(eq->ctx->types, l_type, 0);
+
+      term_t diff_fun;
+
+      // create a new diff symbol for this type
+      if (find == NULL)
+      {
+        type_t dom[] = {l_type, l_type};
+
+        type_t diff_fun_type = function_type(eq->ctx->types, idx_type, 2, dom);
+        diff_fun = new_uninterpreted_term(terms, diff_fun_type);
+
+        char fun_name_str[10];
+        sprintf(fun_name_str, "diff_%i", l_type);
+        set_term_name(terms, diff_fun, clone_string(fun_name_str));
+
+        int_hmap_add(&eq->type_to_diff, l_type, diff_fun);
+
+        if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+        {
+          ctx_trace_printf(eq->ctx, "recording new diff symbol for type %i: ", l_type);
+          ctx_trace_term(eq->ctx, diff_fun);
+        }
+      }
+
+      // we already have a diff term for this type
+      else
+      {
+        diff_fun = find->val;
+        if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+        {
+          ctx_trace_printf(eq->ctx, "existing diff symbol for type %i: ", l_type);
+          ctx_trace_term(eq->ctx, diff_fun);
+        }
+      }
+
+      // create diff term
+      term_t args[] = {lhs, rhs};
+      term_t diff_term = app_term(terms, diff_fun, 2, args);
+
+      if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
+      {
+        ctx_trace_printf(eq->ctx,  "new diff term (term id: %i): ", diff_term);
+        ctx_trace_term(eq->ctx, diff_term);
+      }
+
+      // add diff term to egraph
+      composite_term_t *diff_term_desc = app_term_desc(terms, diff_term);
+      eq_graph_add_ufun_term(eq, diff_term, diff_term_desc->arg[0], diff_term_desc->arity - 1, diff_term_desc->arg + 1);
+
+      variable_db_get_variable(eq->ctx->var_db, diff_term);
+      
+      // create read terms at the diff index for both arrays
+      term_t read_arg[] = {diff_term}; 
+      term_t l_read_term = app_term(terms, lhs, 1, read_arg);
+      term_t r_read_term = app_term(terms, rhs, 1, read_arg);
+
+      // add the new read terms to var db
+      variable_db_get_variable(eq->ctx->var_db, l_read_term);
+      variable_db_get_variable(eq->ctx->var_db, r_read_term);
+
+      // add new read terms to egraph
+      composite_term_t *l_read_desc = app_term_desc(terms, l_read_term);
+      eq_graph_add_ufun_term(eq, l_read_term, l_read_desc->arg[0], l_read_desc->arity - 1, l_read_desc->arg + 1);
+
+      composite_term_t *r_read_desc = app_term_desc(terms, r_read_term);
+      eq_graph_add_ufun_term(eq, r_read_term, r_read_desc->arg[0], r_read_desc->arity - 1, r_read_desc->arg + 1);
+
+      // // now assert that the two reads are disequal
+      term_t eq_reads_term = eq_term(terms, l_read_term, r_read_term);
+
+      variable_db_get_variable(eq->ctx->var_db, eq_reads_term);
+
+      composite_term_t *eq_reads_term_desc = eq_term_desc(terms, eq_reads_term);
+      eq_node_id_t eq_reads_id = eq_graph_add_ifun_term(eq, eq_reads_term, EQ_TERM, 2, eq_reads_term_desc->arg);
+
+      eq_graph_assert_eq(eq, eq_reads_id, eq->false_node_id, REASON_IS_IN_TRAIL, diff_term, true);
+      
+    }
+
+    // equal arrays: record reads for all current values that match 
+    // the functions' domain
+    else if (eq_graph_get_node(eq, x_id)->find == eq->true_node_id) {
+      eq_graph_handle_equal_arrays(eq, lhs, rhs);
+    }
+  }
+}
 
 void eq_graph_propagate_trail(eq_graph_t *eq)
 {
@@ -1985,7 +2448,28 @@ void eq_graph_propagate_trail(eq_graph_t *eq)
     variable_t x = trail_at(trail, eq->trail_i);
     term_t x_term = variable_db_get_term(var_db, x);
 
-    handle_updates(eq, x_term);
+
+    // explicitly record any equalities and their values in the egraph
+    // (needed for array updates to determine whether read and write 
+    // indices are different)
+    if (x_term != true_term && x_term != false_term)
+    {
+
+      term_table_t *terms = eq->ctx->terms;
+      term_kind_t x_kind = term_kind(terms, x_term);
+
+      if (x_kind == EQ_TERM)
+      {
+        composite_term_t *t_desc = eq_term_desc(terms, x_term);
+
+        eq_node_id_t eq_id = eq_graph_add_ifun_term(eq, x_term, EQ_TERM, 2, t_desc->arg);
+        const mcsat_value_t *v = trail_get_value(trail, x);
+
+        eq_node_id_t v_id = eq_graph_add_value(eq, v);
+        eq_graph_assert_eq(eq, v_id, eq_id, REASON_IS_IN_TRAIL, x, true);
+        eq_graph_handle_extensionality(eq, x_term);
+      }
+    }
 
     if (eq_graph_has_term(eq, x_term))
     {
@@ -1993,11 +2477,16 @@ void eq_graph_propagate_trail(eq_graph_t *eq)
       eq_node_id_t v_id = eq_graph_add_value(eq, v);
       eq_node_id_t x_id = eq_graph_term_id(eq, x_term);
       eq_graph_assert_eq(eq, v_id, x_id, REASON_IS_IN_TRAIL, x, false);
+      eq_graph_handle_extensionality(eq, x_term);
     }
+
+    handle_updates(eq, x_term);
+
   }
 
   // Run propagation
   eq_graph_propagate(eq);
+
 }
 
 void eq_graph_propagate_trail_assertion(eq_graph_t *eq, term_t atom)
@@ -2076,6 +2565,53 @@ void eq_graph_push(eq_graph_t *eq)
   }
 
   assert(merge_queue_is_empty(&eq->merge_queue));
+}
+
+void eq_graph_pop_node_mapping(eq_graph_t *eq, ptr_hmap_t *node_map)
+{
+  ivector_t keys_to_pop;
+  init_ivector(&keys_to_pop, 0);
+  ptr_hmap_pair_t *pair = ptr_hmap_first_record(node_map);
+  while (pair != NULL)
+  {
+    if (pair->key >= eq->nodes_size)
+    {
+      ivector_push(&keys_to_pop, pair->key);
+      delete_ivector(pair->val);
+    }
+    else
+    {
+      ivector_t s = *(ivector_t *)pair->val;
+
+      ivector_t keep;
+      init_ivector(&keep, 0);
+
+      for (int i = s.size - 1; i >= 0; i--)
+      {
+        if (s.data[i] < eq->nodes_size)
+        {
+          // records should be added in order - once we find a record
+          // to keep, there shouldn't be any more records to delete
+          break;
+        }
+        else 
+        {
+          ivector_pop(pair->val);
+        }
+      }
+    }
+    pair = ptr_hmap_next_record(node_map, pair);
+  }
+
+  for (uint32_t i = 0; i < keys_to_pop.size; i++)
+  {
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::nodemaps"))
+    {
+      ctx_trace_printf(eq->ctx, "popping entry with key %i\n", keys_to_pop.data[i]);
+    }
+    pair = ptr_hmap_get(node_map, keys_to_pop.data[i]);
+    ptr_hmap_erase(node_map, pair);
+  }
 }
 
 void eq_graph_pop(eq_graph_t *eq)
@@ -2225,6 +2761,12 @@ void eq_graph_pop(eq_graph_t *eq)
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
   }
+
+  eq_graph_pop_node_mapping(eq, &eq->array_to_updates);
+  eq_graph_pop_node_mapping(eq, &eq->array_to_reads);
+  eq_graph_pop_node_mapping(eq, &eq->idx_to_reads);
+  eq_graph_pop_node_mapping(eq, &eq->idxtype_to_arrays);
+  
 }
 
 /**
@@ -2371,8 +2913,96 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
   case REASON_IS_IN_TRAIL:
   case REASON_IS_FUNCTION_DEF:
   case REASON_IS_CONSTANT_DEF:
+  case REASON_IS_READ_OF_UPDATE:
     // Nothing to do really, terms already added
     break;
+
+  /*
+    we have reads of two different arrays U, V at the same index i, represented as pair nodes.
+    I.e., something like
+    u = [U,i], v = [V,i]
+    where V is equivalent to some update on U, i.e., V <=> (update U j v) with i != j
+    - Note1: V can be something *equivalent* to the update, we don't necessarily see the actual update to U here,
+            in particular the update might be something like (update W i v), i.e., we might see an update at idx i,
+            as long W != U)
+            The actual update term which updated the original array is stored in the reason. 
+    - Note2: We don't necessarily know which side of the edge has the original array and which one the updated.
+            We figure this out below by comparing the two arrays of the edges with the one that is updated in 
+            the reason.
+  */
+  case REASON_IS_UNAFFECTED_UPDATE:
+  {
+
+    term_t read1_term = eq_graph_get_term(eq, eq_graph_get_node_id(eq, u));
+    term_t read2_term = eq_graph_get_term(eq, eq_graph_get_node_id(eq, v));
+
+    composite_term_t *t1_desc = app_term_desc(eq->ctx->terms, read1_term);
+    composite_term_t *t2_desc = app_term_desc(eq->ctx->terms, read2_term);
+
+    // we don't need the idx1/idx2 nodes below, just use them once for a sanity check to assert
+    // that they are in the same equiv class
+    eq_node_t *idx1 = eq_graph_get_node(eq, eq_graph_term_id_if_exists(eq, t1_desc->arg[1]));
+    eq_node_t *idx2 = eq_graph_get_node(eq, eq_graph_term_id_if_exists(eq, t2_desc->arg[1]));
+    assert(idx1->find == idx2->find);
+
+    term_t arr1_term = t1_desc->arg[0];      // the first array being read
+    term_t arr2_term = t2_desc->arg[0];      // the second array being read
+    term_t read_idx_term = t1_desc->arg[1];  // the address where the arrays are read
+
+    eq_node_id_t arr1_id = eq_graph_term_id(eq, arr1_term);
+    eq_node_id_t arr2_id = eq_graph_term_id(eq, arr2_term);
+
+    // in reason.data we stored the actual term that updates U, which is equivalent to the array V that we see in edge node v
+    term_t update_term = eq_graph_get_term(eq, e->reason.data);
+    composite_term_t *update_desc = update_term_desc(eq->ctx->terms, update_term);
+    term_t update_idx_term = update_desc->arg[1]; // the index where the original array was updated
+    eq_node_id_t update_id = eq_graph_term_id(eq, update_term);
+
+    eq_node_t *arr1_node = eq_graph_get_node(eq, arr1_id);
+    eq_node_t *update_array_node = eq_graph_get_node(eq, update_id);
+
+    // use the reason to figure out which side of the edge has the original array and which one
+    // has the array equivalent to the update of the original array
+    eq_node_id_t update_equiv_id = eq_node_null;
+    if (arr1_node->find == update_array_node->find)
+      update_equiv_id = arr1_id;
+    else
+      update_equiv_id = arr2_id;
+
+    // sanity checks: we should now have found a node that is equivalent to the update of the original array
+    assert(update_equiv_id != eq_node_null);
+    assert(eq_graph_get_node_const(eq, update_equiv_id)->find == eq_graph_get_node_const(eq, e->reason.data)->find);
+
+    // get and explain the disequality between read and update index
+    term_t diff_indices = eq_term(eq->ctx->terms, update_idx_term, read_idx_term);
+
+    eq_node_id_t diff_id = eq_graph_term_id_if_exists(eq, diff_indices);
+    if (diff_id == eq_node_null)
+    {
+      diff_indices = eq_term(eq->ctx->terms, read_idx_term, update_idx_term);
+      diff_id = eq_graph_term_id_if_exists(eq, diff_indices);
+    }
+
+    if (diff_id == eq_node_null)
+    {
+      ctx_trace_printf(eq->ctx, "diff indices: ");
+      ctx_trace_term(eq->ctx, diff_indices);
+    }
+
+    assert(diff_id != eq_node_null);
+
+    diff_indices = opposite_term(diff_indices);
+    ivector_push(reasons_data, diff_indices);
+
+    // explain the equivalence between the update to U and the array V
+    if (update_id != update_equiv_id)
+    {
+      eq_graph_explain(eq, update_id, update_equiv_id, reasons_data, reasons_type, terms_used);
+    }
+
+    break;
+  }
+
   case REASON_IS_USER:
   {
     // User added, nothing to do, but add to reasons
@@ -2401,9 +3031,6 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
     // Get the reasons of the arguments
     // We are guaranteed that these are top-level function nodes
     //
-    // TODO: This doesn't hold for update terms: if we try to explain
-    // [(update a1 (x) y), x] (id=11, idx=4) {a1, x, y, x} == [t!13, x]  (id=5, idx=0) {t!13, x}
-    // u_c is a1 and v_c is t!13
     const eq_node_id_t *u_c = eq_graph_get_children(eq, e->u);
     const eq_node_id_t *v_c = eq_graph_get_children(eq, e->v);
     while (*u_c != eq_node_null)
@@ -2588,6 +3215,10 @@ static void eq_graph_explain_clear_cache(const eq_graph_t *eq_const)
  *    - each A can evaluate to true in the trail (or is added by user)
  *    - t2 must evaluate to v in the trail
  */
+
+// - explain_data is an empty vector (passed in as reasons)
+// - explain_types is NULL
+// - terms_used is is uf->tmp
 static path_terms_t eq_graph_explain(const eq_graph_t *eq, eq_node_id_t n1_id, eq_node_id_t n2_id, ivector_t *reasons_data, ivector_t *reasons_type, int_mset_t *terms_used)
 {
 
@@ -3033,6 +3664,12 @@ bool eq_graph_get_forbidden(const eq_graph_t *eq, term_t x, pvector_t *values, c
   eq_node_id_t x_id = eq_graph_term_id_if_exists(eq, x);
   assert(x_id != eq_node_null);
 
+  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::forbidden"))
+  {
+    ctx_trace_printf(eq->ctx, "mcsat::eq::forbidden for: ");
+    ctx_trace_term(eq->ctx, x);
+  }
+
   // Go through use-lists look for equalities asserted to false
   eq_uselist_id_t i = eq->uselist.data[x_id];
   while (i != eq_uselist_null)
@@ -3058,6 +3695,14 @@ bool eq_graph_get_forbidden(const eq_graph_t *eq, term_t x, pvector_t *values, c
         }
         if (values != NULL)
         {
+          if (ctx_trace_enabled(eq->ctx, "mcsat::eq::forbidden"))
+          {
+            ctx_trace_printf(eq->ctx, "forbidden: ");
+            mcsat_value_print(v_forbidden, ctx_trace_out(eq->ctx));
+            ctx_trace_printf(eq->ctx, " == ");
+            ctx_trace_term(eq->ctx, eq_graph_get_term(eq, y_id));
+          }
+
           pvector_push(values, (void *)v_forbidden);
         }
       }

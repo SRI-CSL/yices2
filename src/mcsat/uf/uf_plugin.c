@@ -156,7 +156,7 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
       if (t_var != variable_null) {
         // Only set values of uninterpreted and boolean type
         type_kind_t t_type_kind = term_type_kind(uf->ctx->terms, t);
-        if (t_type_kind == UNINTERPRETED_TYPE || t_type_kind == BOOL_TYPE) {
+        if (t_type_kind == UNINTERPRETED_TYPE || t_type_kind == BOOL_TYPE || t_type_kind == FUNCTION_TYPE) {
           const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
           if (!trail_has_value(uf->ctx->trail, t_var)) {
             if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
@@ -197,7 +197,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_update_term(&uf->eq_graph, t, t_desc->arity - 1, t_desc->arg + 1);
+    eq_graph_add_update_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     eq_graph_add_ufun_term(&uf->eq_graph, t, 0, t_desc->arity, t_desc->arg );
     children_start = 1;
     break;
@@ -382,7 +382,12 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     ctx_trace_printf(uf->ctx, "\n");
   }
 
-  int32_t picked_value = 0;
+  // todo: come up with a better numbering scheme that ensures that 
+  // we assign different values to different sorts
+  term_table_t *terms = uf->ctx->terms;
+  type_t t_type = term_type(terms, x_term);
+  int32_t picked_value = t_type * 10000;
+
   if (!cache_ok) {
     // Pick smallest value not in forbidden list
     ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
@@ -397,11 +402,11 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       ctx_trace_printf(uf->ctx, "\n");
     }
     uint32_t i;
-    picked_value = 0;
+    // picked_value = 0;
     for (i = 0; i < forbidden.size; ++ i) {
       const mcsat_value_t* v = forbidden.data[i];
       assert(v->type == VALUE_RATIONAL);
-      int32_t v_int = 0;
+      int32_t v_int = picked_value;   // this doesn't really make sense with the logic below
       bool ok = q_get32((rational_t*)&v->q, &v_int);
       (void) ok;
       assert(ok);

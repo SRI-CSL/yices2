@@ -268,6 +268,7 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
   // If the disjunct is false by Boolean assignment then the variable is the
   // variable of the term
   disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
+
   if (disjunct_pos_var != variable_null && trail_has_value(conflict->trail, disjunct_pos_var)) {
     disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
     if (disjunct_pos != disjunct) {
@@ -280,10 +281,51 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
     }
   }
 
+  /*
+   todo: this helps to avoid issues for a term like (= a b) that doesn't have a value on the trail, but its symmetric variant
+   (= b a) has. More precisely: we might be able to find a cached value for it, but has_value might still return false 
+   (due to other trail levels?).
+   What's the correct way to handle such symmetric equalities? (The eq graph is aware of both variants and their equivalence, 
+   but this doesn't even get to the eq graph, because the exact term is not part of the trail.)
+  */
+  if ((disjunct_pos_var == variable_null || !trail_has_value(conflict->trail, disjunct_pos_var)) && term_kind(conflict->terms, disjunct_pos) == EQ_TERM)
+  {
+    composite_term_t *eq_desc = eq_term_desc(conflict->terms, disjunct_pos);
+    term_t sym_eq = eq_term(conflict->terms, eq_desc->arg[1], eq_desc->arg[0]);
+    variable_t sym_eq_var = variable_db_get_variable_if_exists(conflict->var_db, sym_eq);
+    if (sym_eq_var != variable_null)
+    {
+      if (trail_has_cached_value(conflict->trail, sym_eq_var))
+      {
+        disjunct_value = trail_get_cached_value(conflict->trail, disjunct_pos_var)->b;
+      }
+      else if (trail_has_value(conflict->trail, sym_eq_var))
+      {
+        disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
+      }
+      if (disjunct_pos != disjunct)
+      {
+        disjunct_value = !disjunct_value;
+      }
+      if (!disjunct_value)
+      {
+        // Its false, just add the variable
+        int_mset_add(variables, sym_eq_var);
+        return;
+      }
+    }
+  }
+
   // Get the sub-variables
   const mcsat_value_t* value = negated ? &mcsat_value_true : &mcsat_value_false;
   disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, value);
   (void)disjunct_evaluates;
+
+  if (conflict->check_false && !disjunct_evaluates)
+  {
+    mcsat_trace_printf(conflict->tracer, "problematic disjunct: ");
+    trace_term_ln(conflict->tracer, conflict->terms, disjunct);
+  }
   assert(!conflict->check_false || disjunct_evaluates);
 }
 

@@ -2666,6 +2666,11 @@ static void pp_name_if_any(yices_pp_t *printer, term_table_t *tbl, term_t t) {
 static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level, bool polarity) {
   int32_t i;
 
+  if (t == 0) {
+    pp_string(printer, "[update]");
+    return;
+  }
+
   assert(good_term(tbl, t));
 
   if (yices_pp_is_full(printer)) return;

@@ -420,6 +420,30 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
     }
   }
 
+  // todo: why are symmetric equalities not handled automatically?
+  if (is_equality)
+  {
+
+    composite_term_t *eq_desc = composite_term_desc(mcsat->terms, t);
+    term_t sym_eq = eq_term(mcsat->terms, eq_desc->arg[1], eq_desc->arg[0]);
+
+    variable_t t_var = variable_db_get_variable_if_exists(mcsat->var_db, sym_eq);
+    if (t_var != variable_null)
+    {
+      if (trail_has_value(mcsat->trail, t_var))
+      {
+        const mcsat_value_t *t_var_value = trail_get_value(mcsat->trail, t_var);
+        bool negated = is_neg_term(t);
+        if ((negated && t_var_value->b != value->b) || (!negated && t_var_value->b == value->b))
+        {
+          int_mset_clear(vars);
+          int_mset_add(vars, t_var);
+          return true;
+        }
+      }
+    }
+  }
+
   return false;
 }
 
@@ -1414,6 +1438,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 static
 bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
 
+  mcsat_process_registeration_queue(mcsat);
   assert(int_queue_is_empty(&mcsat->registration_queue));
 
   uint32_t plugin_i;
@@ -1438,6 +1463,7 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
       }
       if (prop_token.used > 0) {
         someone_propagated = true;
+        mcsat_process_registeration_queue(mcsat);
       }
     }
     // If at base level, plugins can do some more expensive learning/propagation
@@ -2745,6 +2771,7 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
   for (i = 0; i < assertions->size; ++ i) {
     // Assert it
     mcsat_assert_formula(mcsat, assertions->data[i]);
+    mcsat_process_registeration_queue(mcsat);
     // Add any lemmas that were added
     mcsat_flush_lemmas(mcsat, assertions);
   }

@@ -26,15 +26,17 @@ typedef uint32_t eq_node_id_t;
 #define eq_node_null ((eq_node_id_t) -1)
 
 typedef enum {
-  REASON_IS_FUNCTION_DEF,   // f(x, y) = (f (x y)), no data
-  REASON_IS_CONSTANT_DEF,   // term(5) = value(5), no data
-  REASON_IS_CONGRUENCE,     // x = y -> f(x) = f(y), no data
-  REASON_IS_CONGRUENCE_EQ_SYM,  // special case of congruence for equality with symmetry
-  REASON_IS_TRUE_EQUALITY,  // (x = y) = true ->  x = y, data = eq id
-  REASON_IS_REFLEXIVITY,    // x = y -> (x = y) = true, data = eq id
-  REASON_IS_EVALUATION,     // x = v1, y = v2 -> (x = y) = false, data = eq id
-  REASON_IS_IN_TRAIL,       // trail propagated, data = term that evaluates to true in trail
-  REASON_IS_USER            // Asserted by user
+  REASON_IS_FUNCTION_DEF,      // f(x, y) = (f (x y)), no data
+  REASON_IS_CONSTANT_DEF,      // term(5) = value(5), no data
+  REASON_IS_CONGRUENCE,        // x = y -> f(x) = f(y), no data
+  REASON_IS_CONGRUENCE_EQ_SYM, // special case of congruence for equality with symmetry
+  REASON_IS_TRUE_EQUALITY,     // (x = y) = true ->  x = y, data = eq id
+  REASON_IS_REFLEXIVITY,       // x = y -> (x = y) = true, data = eq id
+  REASON_IS_EVALUATION,        // x = v1, y = v2 -> (x = y) = false, data = eq id
+  REASON_IS_IN_TRAIL,          // trail propagated, data = term that evaluates to true in trail
+  REASON_IS_USER,              // Asserted by user
+  REASON_IS_READ_OF_UPDATE,    // Read at an index that has been updated before
+  REASON_IS_UNAFFECTED_UPDATE, // Read at a different position than a write
 } eq_reason_type_t;
 
 /** Reason for a deduction/assertion */
