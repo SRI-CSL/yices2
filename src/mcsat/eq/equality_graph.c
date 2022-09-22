@@ -2187,32 +2187,6 @@ static eq_node_id_t eq_graph_term_id_for_value(eq_graph_t *eq, const mcsat_value
   return eq_node_null;
 }
 
-static void eq_graph_record_equal_reads(eq_graph_t *eq, term_t arr1, term_t arr2, term_t idx)
-{
-  term_table_t *terms = eq->ctx->terms;
-  term_t app1 = app_term(terms, arr1, 1, &idx);
-  term_t app2 = app_term(terms, arr2, 1, &idx);
-  
-  if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
-  {
-    ctx_trace_printf(eq->ctx, "eq_graph_record_equal_reads():\n");
-    ctx_trace_printf(eq->ctx, " - ");
-    ctx_trace_term(eq->ctx, app1);
-    ctx_trace_printf(eq->ctx, " - ");
-    ctx_trace_term(eq->ctx, app2);
-  }
-
-  // add the new app terms and their corresponding pair representations to the graph and assert
-  // that the representations are equal
-  eq_node_id_t app1_id = eq_graph_add_term(eq, app1);
-  eq_node_id_t app1_pair_id = eq_graph_add_ufun_term(eq, app1, arr1, 1, &idx);
-  merge_queue_push_init(&eq->merge_queue, app1_id, app1_pair_id, REASON_IS_FUNCTION_DEF, 0);
-
-  eq_node_id_t app2_id = eq_graph_add_term(eq, app2);
-  eq_node_id_t app2_pair_id = eq_graph_add_ufun_term(eq, app2, arr2, 1, &idx);
-  merge_queue_push_init(&eq->merge_queue, app2_id, app2_pair_id, REASON_IS_FUNCTION_DEF, 0);
-}
-
 // handle two arrays that are supposed to be equal:
 // go through all existing values, get a corresponding term for each value
 // and record app terms for both arrays at that term
@@ -2224,7 +2198,7 @@ static void eq_graph_handle_equal_arrays(eq_graph_t *eq, term_t lhs, term_t rhs)
   term_table_t *terms = eq->ctx->terms;
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
   {
-    ctx_trace_printf(eq->ctx, "handling equality between arrays:\n");
+    // ctx_trace_printf(eq->ctx, "handling equality between arrays:\n");
     ctx_trace_printf(eq->ctx, " - lhs: ");
     ctx_trace_term(eq->ctx, lhs);
     ctx_trace_printf(eq->ctx, " - rhs: ");
@@ -2253,11 +2227,15 @@ static void eq_graph_handle_equal_arrays(eq_graph_t *eq, term_t lhs, term_t rhs)
       continue;
     }
 
-    term_t t = eq_graph_get_term(eq, t_id);
+    term_t idx = eq_graph_get_term(eq, t_id);
 
-    if (good_term(terms, t) && term_type(terms, t) == idx_type)
+    if (good_term(terms, idx) && term_type(terms, idx) == idx_type)
     {
-      eq_graph_record_equal_reads(eq, lhs, rhs, t);
+      term_t l_app = app_term(terms, lhs, 1, &idx);
+      term_t r_app = app_term(terms, rhs, 1, &idx);
+  
+      eq_graph_add_ufun_term(eq, l_app, lhs, 1, &idx);
+      eq_graph_add_ufun_term(eq, r_app, rhs, 1, &idx);
     }
   }
 }
@@ -2282,32 +2260,12 @@ static void eq_graph_handle_extensionality(eq_graph_t *eq, term_t x_term)
     }
   }
 
-  // go through all the arrays that we found, check whether we have any 
-  // true equality assertions about them, and if so, record reads
+  // go through all the arrays that we found and create corresponding read terms
   for (int i = 0; i < array_ids.size; ++i)
   {
     term_t arr = eq_graph_get_term(eq, array_ids.data[i]);
-    eq_node_id_t arr_id = eq_graph_term_id(eq, arr);
-
-    // Go through use-lists look for equalities asserted to be true
-    eq_uselist_id_t i = eq->uselist.data[arr_id];
-    while (i != eq_uselist_null)
-    {
-      const eq_uselist_t *ul = eq->uselist_nodes + i;
-      eq_node_id_t n_id = ul->node;
-      const eq_node_t *n = eq_graph_get_node_const(eq, n_id);
-      if (n->type == EQ_NODE_EQ_PAIR && n->find == eq->true_node_id)
-      {
-        eq_node_id_t lhs_id = eq->pair_list.data[n->index];
-        eq_node_id_t rhs_id = eq->pair_list.data[n->index + 1];
-
-        term_t lhs = eq_graph_get_term(eq, lhs_id);
-        term_t rhs = eq_graph_get_term(eq, rhs_id);
-
-        eq_graph_record_equal_reads(eq, lhs, rhs, x_term);
-      }
-      i = ul->next;
-    }
+    term_t app = app_term(terms, arr, 1, &x_term);
+    eq_graph_add_ufun_term(eq, app, arr, 1, &x_term);
   }
 
   // if x_term is an equality, we either
