@@ -198,16 +198,16 @@ static inline const eq_node_id_t *eq_graph_get_children(const eq_graph_t *eq, eq
   }
 }
 
-#ifndef NDEBUG
-static inline bool eq_graph_has_children(const eq_graph_t *eq, eq_node_id_t id)
-{
-  return eq_graph_get_children(eq, id) != NULL;
-}
-
 static inline bool eq_graph_is_term(const eq_graph_t *eq, eq_node_id_t n_id)
 {
   const eq_node_t *n = eq_graph_get_node_const(eq, n_id);
   return n->type == EQ_NODE_TERM;
+}
+
+#ifndef NDEBUG
+static inline bool eq_graph_has_children(const eq_graph_t *eq, eq_node_id_t id)
+{
+  return eq_graph_get_children(eq, id) != NULL;
 }
 
 static inline bool eq_graph_is_value(const eq_graph_t *eq, eq_node_id_t n_id)
