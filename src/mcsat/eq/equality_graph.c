@@ -1090,6 +1090,8 @@ eq_node_id_t eq_graph_add_update_term(eq_graph_t *eq, term_t t, term_t arr_t, ui
 
   eq_node_id_t read_update_id = eq_graph_add_ufun_term(eq, read_update, t, children_size - 1, idx_terms);
 
+  variable_db_get_variable(eq->ctx->var_db, read_update);
+
   // Add the equality between the pair-wise representation and the actual read update term
   merge_queue_push_init(&eq->merge_queue, read_update_id, p2, REASON_IS_FUNCTION_DEF, 0);
 
@@ -1955,11 +1957,11 @@ eq_node_id_t eq_graph_are_disequal(eq_graph_t *eq, term_t x_t, term_t y_t)
         {
           if (ctx_trace_enabled(eq->ctx, "mcsat::eq::disequal"))
           {
-            ctx_trace_printf(eq->ctx, "      * found disequality: ");
+            ctx_trace_printf(eq->ctx, "      * found disequality: (/= ");
             eq_graph_print_node(eq, p1, ctx_trace_out(eq->ctx), false);
-            ctx_trace_printf(eq->ctx, " != ");
+            ctx_trace_printf(eq->ctx, " ");
             eq_graph_print_node(eq, p2, ctx_trace_out(eq->ctx), false);
-            ctx_trace_printf(eq->ctx, "\n");
+            ctx_trace_printf(eq->ctx, ")\n");
           }
 
           term_t t = eq_term(eq->ctx->terms, x_t, y_t);
@@ -2111,8 +2113,6 @@ void handle_updates(eq_graph_t *eq, term_t x_term)
       {
         composite_term_t *t_desc = update_term_desc(terms, eq_graph_get_term(eq, x_id));
         term_t array_term = t_desc->arg[0];
-        term_t update_index_term = t_desc->arg[1];
-
         eq_node_id_t array_id = eq_graph_term_id(eq, array_term);
 
         // gets all reads of the original array that has been updated here
@@ -2120,13 +2120,7 @@ void handle_updates(eq_graph_t *eq, term_t x_term)
         for (int i = 0; i < app_node_ids.size; ++i)
         {
           eq_node_id_t app_node_id = app_node_ids.data[i];
-          term_t app_t = eq_graph_get_term(eq, app_node_id);
-          composite_term_t *app_desc = app_term_desc(terms, app_t);
-          term_t app_index_term = app_desc->arg[1];
-          if (eq_graph_are_disequal(eq, update_index_term, app_index_term))
-          {
-            handle_app_term_update(eq, app_node_id);
-          }
+          handle_app_term_update(eq, app_node_id);
         }
         break;
       }
@@ -2198,7 +2192,6 @@ static void eq_graph_handle_equal_arrays(eq_graph_t *eq, term_t lhs, term_t rhs)
   term_table_t *terms = eq->ctx->terms;
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::array::equality"))
   {
-    // ctx_trace_printf(eq->ctx, "handling equality between arrays:\n");
     ctx_trace_printf(eq->ctx, " - lhs: ");
     ctx_trace_term(eq->ctx, lhs);
     ctx_trace_printf(eq->ctx, " - rhs: ");
@@ -2236,6 +2229,10 @@ static void eq_graph_handle_equal_arrays(eq_graph_t *eq, term_t lhs, term_t rhs)
   
       eq_graph_add_ufun_term(eq, l_app, lhs, 1, &idx);
       eq_graph_add_ufun_term(eq, r_app, rhs, 1, &idx);
+
+      variable_db_get_variable(eq->ctx->var_db, l_app);
+      variable_db_get_variable(eq->ctx->var_db, r_app);
+      
     }
   }
 }
@@ -2266,6 +2263,8 @@ static void eq_graph_handle_extensionality(eq_graph_t *eq, term_t x_term)
     term_t arr = eq_graph_get_term(eq, array_ids.data[i]);
     term_t app = app_term(terms, arr, 1, &x_term);
     eq_graph_add_ufun_term(eq, app, arr, 1, &x_term);
+    variable_db_get_variable(eq->ctx->var_db, app);
+      
   }
 
   // if x_term is an equality, we either
