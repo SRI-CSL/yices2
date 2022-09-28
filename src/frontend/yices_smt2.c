@@ -153,7 +153,7 @@ typedef enum optid {
   verbosity_opt,           // set verbosity on the command line
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
-  smt2format_opt,          // use SMT-LIB2 format for models
+  yicesformat_opt,         // use the Yices model format for models
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
@@ -201,7 +201,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "timeout", 't', MANDATORY_INT, timeout_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
-  { "smt2-model-format", '\0', FLAG_OPTION, smt2format_opt },
+  { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
@@ -264,7 +264,7 @@ static void print_help(const char *progname) {
          "    --stats, -s               Print statistics once all commands have been processed\n"
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
-         "    --smt2-model-format       Display models in the SMT-LIB 2 format (default = false)\n"
+         "    --yices-model-format      Display models in the Yices model format (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
@@ -369,7 +369,7 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
-  smt2_model_format = false;
+  smt2_model_format = true;
   bvdecimal = false;
   show_stats = false;
   verbosity = 0;
@@ -505,8 +505,8 @@ static void parse_command_line(int argc, char *argv[]) {
         }
         break;
 
-      case smt2format_opt:
-        smt2_model_format = true;
+      case yicesformat_opt:
+        smt2_model_format = false;
         break;
 
       case bvdecimal_opt:
