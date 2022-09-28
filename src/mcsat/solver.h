@@ -83,7 +83,7 @@ int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f
  * @param mdl the model to use. If mdl is NULL, solve with no model
  * @param mdl_filter part of the model to use. If mdl_filter is NULL, use the whole model.
  */
-void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
+void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t mdl_filter[]);
 
 /*
  * Add the model to the yices model
