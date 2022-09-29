@@ -2896,8 +2896,6 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
     composite_term_t *t1_desc = app_term_desc(eq->ctx->terms, read1_term);
     composite_term_t *t2_desc = app_term_desc(eq->ctx->terms, read2_term);
 
-    // we don't need the idx1/idx2 nodes below, just use them once for a sanity check to assert
-    // that they are in the same equiv class
     eq_node_t *idx1 = eq_graph_get_node(eq, eq_graph_term_id_if_exists(eq, t1_desc->arg[1]));
     eq_node_t *idx2 = eq_graph_get_node(eq, eq_graph_term_id_if_exists(eq, t2_desc->arg[1]));
     assert(idx1->find == idx2->find);
@@ -2912,6 +2910,9 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
     // in reason.data we stored the actual term that updates U, which is equivalent to the array V that we see in edge node v
     term_t update_term = eq_graph_get_term(eq, e->reason.data);
     composite_term_t *update_desc = update_term_desc(eq->ctx->terms, update_term);
+    // the actual array that is being updated (not necessarily the original input array, but equivalent)
+    term_t array_to_be_updated = update_desc->arg[0]; 
+    eq_node_id_t array_to_be_updated_id = eq_graph_term_id(eq, array_to_be_updated);
     term_t update_idx_term = update_desc->arg[1]; // the index where the original array was updated
     eq_node_id_t update_id = eq_graph_term_id(eq, update_term);
 
@@ -2920,38 +2921,93 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
 
     // use the reason to figure out which side of the edge has the original array and which one
     // has the array equivalent to the update of the original array
+    eq_node_id_t orig_array_id;
     eq_node_id_t update_equiv_id = eq_node_null;
     if (arr1_node->find == update_array_node->find)
+    {
       update_equiv_id = arr1_id;
+      orig_array_id = arr2_id;
+    }
     else
+    {
       update_equiv_id = arr2_id;
+      orig_array_id = arr1_id;
+    }
 
     // sanity checks: we should now have found a node that is equivalent to the update of the original array
     assert(update_equiv_id != eq_node_null);
     assert(eq_graph_get_node_const(eq, update_equiv_id)->find == eq_graph_get_node_const(eq, e->reason.data)->find);
 
-    // get and explain the disequality between read and update index
-    term_t diff_indices = eq_term(eq->ctx->terms, update_idx_term, read_idx_term);
+    // get the disequality between read and update index
+    term_t different_indices = eq_term(eq->ctx->terms, update_idx_term, read_idx_term);
 
-    eq_node_id_t diff_id = eq_graph_term_id_if_exists(eq, diff_indices);
-    if (diff_id == eq_node_null)
+    eq_node_id_t different_indices_id = eq_graph_term_id_if_exists(eq, different_indices);
+    if (different_indices_id == eq_node_null)
     {
-      diff_indices = eq_term(eq->ctx->terms, read_idx_term, update_idx_term);
-      diff_id = eq_graph_term_id_if_exists(eq, diff_indices);
+      different_indices = eq_term(eq->ctx->terms, read_idx_term, update_idx_term);
+      different_indices_id = eq_graph_term_id_if_exists(eq, diff_indices);
     }
 
     if (diff_id == eq_node_null)
     {
       ctx_trace_printf(eq->ctx, "diff indices: ");
-      ctx_trace_term(eq->ctx, diff_indices);
+      ctx_trace_term(eq->ctx, different_indices);
     }
 
     assert(diff_id != eq_node_null);
 
-    diff_indices = opposite_term(diff_indices);
-    ivector_push(reasons_data, diff_indices);
+    different_indices = opposite_term(different_indices);
 
-    // explain the equivalence between the update to U and the array V
+    if (ctx_trace_enabled(eq->ctx, "mcsat::eq::explain"))
+    {
+      ctx_trace_printf(eq->ctx, "explaining unaffected update:\n");
+      if (update_equiv_id == arr1_id)
+      {
+        ctx_trace_printf(eq->ctx, "read of original array: ");  
+        ctx_trace_term(eq->ctx, read2_term);
+        ctx_trace_printf(eq->ctx, "read of updated array:  ");  
+        ctx_trace_term(eq->ctx, read1_term);
+      }
+      else
+      {
+        ctx_trace_printf(eq->ctx, "read of original array: ");  
+        ctx_trace_term(eq->ctx, read1_term);
+        ctx_trace_printf(eq->ctx, "read of updated array:  ");  
+        ctx_trace_term(eq->ctx, read2_term);
+      }
+      ctx_trace_printf(eq->ctx, "update term:            ");
+      ctx_trace_term(eq->ctx, update_term);
+      ctx_trace_printf(eq->ctx, "update equiv term:      ");
+      eq_graph_print_node(eq, eq_graph_get_node_const(eq, update_equiv_id), ctx_trace_out(eq->ctx), false);
+      ctx_trace_printf(eq->ctx, "\n");
+    }
+
+    // add (/= read_idx update_idx) to the reasons and explain it
+    ivector_push(reasons_data, different_indices);
+    eq_graph_explain(eq, diff_id, eq->false_node_id, reasons_data, reasons_type, terms_used);
+
+    // explain equivalence between read indices of the original and the updated array
+    if (idx1 != idx2)
+    {
+      eq_node_id_t idx1_id = eq_graph_get_node_id(eq, idx1);
+      eq_node_id_t idx2_id = eq_graph_get_node_id(eq, idx2);
+      eq_graph_explain(eq, idx1_id, idx2_id, reasons_data, reasons_type, terms_used);
+    }
+
+    if (array_to_be_updated_id != orig_array_id)
+    {
+      eq_graph_explain(eq, array_to_be_updated_id, orig_array_id, reasons_data, reasons_type, terms_used);
+    }
+
+    // explain the equivalence between the actual node that we handle in this edge 
+    // and the node that contains the update term to the original array
+    // e.g., we might an edge between nodes
+    // n1: (a (i))  - the original read term
+    // n2: (b (i))  - the update_equiv, where b represents some update to a at some index j different from i,
+    //                i.e., (b == update (j) (v))
+    //                but we don't necessarily see the actual update to a nor the index j here
+    // That's why we stored the term (update a (j) (v)) in reason.data when we merged n1 and n2 s.t. 
+    // we can use it for the explanation now
     if (update_id != update_equiv_id)
     {
       eq_graph_explain(eq, update_id, update_equiv_id, reasons_data, reasons_type, terms_used);
