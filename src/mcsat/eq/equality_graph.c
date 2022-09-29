@@ -2945,16 +2945,16 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
     if (different_indices_id == eq_node_null)
     {
       different_indices = eq_term(eq->ctx->terms, read_idx_term, update_idx_term);
-      different_indices_id = eq_graph_term_id_if_exists(eq, diff_indices);
+      different_indices_id = eq_graph_term_id_if_exists(eq, different_indices);
     }
 
-    if (diff_id == eq_node_null)
+    if (different_indices_id == eq_node_null)
     {
       ctx_trace_printf(eq->ctx, "diff indices: ");
       ctx_trace_term(eq->ctx, different_indices);
     }
 
-    assert(diff_id != eq_node_null);
+    assert(different_indices_id != eq_node_null);
 
     different_indices = opposite_term(different_indices);
 
@@ -2984,7 +2984,7 @@ static path_terms_t eq_graph_explain_edge(const eq_graph_t *eq, const eq_edge_t 
 
     // add (/= read_idx update_idx) to the reasons and explain it
     ivector_push(reasons_data, different_indices);
-    eq_graph_explain(eq, diff_id, eq->false_node_id, reasons_data, reasons_type, terms_used);
+    eq_graph_explain(eq, different_indices_id, eq->false_node_id, reasons_data, reasons_type, terms_used);
 
     // explain equivalence between read indices of the original and the updated array
     if (idx1 != idx2)
