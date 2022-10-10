@@ -112,12 +112,15 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, UPDATE_TERM, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);
+  ctx->request_term_notification_by_type(ctx, FUNCTION_TYPE);
 
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
+  ctx->request_decision_calls(ctx, FUNCTION_TYPE);
 
   // Equality graph
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
@@ -192,6 +195,11 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     children_start = 1;
     break;
+  case UPDATE_TERM:
+    t_desc = update_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    children_start = 1;
+    break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, ARITH_RDIV, 2, t_desc->arg);
@@ -249,6 +257,7 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   case ARITH_IDIV:
   case ARITH_RDIV:
   case APP_TERM:
+  case UPDATE_TERM:
   case EQ_TERM:
     // Application terms (or other terms we treat as uninterpreted)
     uf_plugin_add_to_eq_graph(uf, t, true);
