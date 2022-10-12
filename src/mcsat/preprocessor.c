@@ -274,6 +274,7 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
       // Constants are also pure (except for false)
       return t;
     case APP_TERM:
+    case UPDATE_TERM:
       // Uninterpreted functions are also already purified
       return t;
     default:
