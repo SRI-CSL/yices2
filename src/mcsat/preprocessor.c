@@ -277,6 +277,8 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
     case APP_TERM:
       // Uninterpreted functions are also already purified
       return t;
+    case UPDATE_TERM:
+      return t;
     default:
       break;
     }
