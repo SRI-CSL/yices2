@@ -56,6 +56,12 @@ typedef struct {
   /** Stuff added to eq_graph */
   ivector_t eq_graph_addition_trail;
 
+  /** Update terms */
+  ivector_t update_terms;
+
+  /** Update eq_graph nodes */
+  ivector_t eq_graph_update_nodes;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -125,6 +131,8 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Equality graph
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
   init_ivector(&uf->eq_graph_addition_trail, 0);
+  init_ivector(&uf->update_terms, 0);
+  init_ivector(&uf->eq_graph_update_nodes, 0);
 
   // stats
   uf_plugin_stats_init(uf);
@@ -138,6 +146,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
   int_mset_destruct(&uf->tmp);
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
+  delete_ivector(&uf->update_terms);
+  delete_ivector(&uf->eq_graph_update_nodes);
 }
 
 static
@@ -189,6 +199,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   // Add to equality graph
   composite_term_t* t_desc = NULL;
   uint32_t children_start = 0;
+  eq_node_id_t* eq_graph_update_node = NULL;
   switch (t_kind) {
   case APP_TERM:
     t_desc = app_term_desc(terms, t);
@@ -197,8 +208,9 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
-    children_start = 1;
+    eq_graph_update_node = eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    ivector_push(&uf->update_terms, t);
+    ivector_push(&uf->eq_graph_update_nodes, eq_graph_update_node);
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
@@ -305,8 +317,10 @@ void uf_plugin_push(plugin_t* plugin) {
 
   // Pop the int variable values
   scope_holder_push(&uf->scope,
-      &uf->eq_graph_addition_trail.size,
-      NULL);
+		    &uf->eq_graph_addition_trail.size,
+		    &uf->update_terms.size,
+		    &uf->eq_graph_update_nodes.size,
+		    NULL);
 
   eq_graph_push(&uf->eq_graph);
 }
@@ -316,11 +330,13 @@ void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   uint32_t old_eq_graph_addition_trail_size;
+  uint32_t t1, t2;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
-      &old_eq_graph_addition_trail_size,
-      NULL);
+		   &old_eq_graph_addition_trail_size,
+		   &t1, &t2,
+		   NULL);
 
   eq_graph_pop(&uf->eq_graph);
 
