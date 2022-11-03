@@ -231,8 +231,7 @@ uint32_t eq_graph_term_size(const eq_graph_t* eq);
  *
  * @param t the full term itself (e.g., f(x, y, 1))
  * @param f the function symbol  (e.g. f)
- * @param children the direct subterms of the term including the function itself
- *        (e.g., [f, x, y, 1]).
+ * @param children the direct subterms of the term (e.g., [x, y, 1]).
  */
 eq_node_id_t eq_graph_add_ufun_term(eq_graph_t* eq, term_t t, term_t f, uint32_t n, const term_t* children);
 

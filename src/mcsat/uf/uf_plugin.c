@@ -315,7 +315,7 @@ static
 void uf_plugin_push(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  // Pop the int variable values
+  // Push the int variable values
   scope_holder_push(&uf->scope,
 		    &uf->eq_graph_addition_trail.size,
 		    &uf->update_terms.size,
