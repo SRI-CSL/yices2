@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build
 
 inputs:
   mode:
@@ -44,4 +44,3 @@ runs:
         # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make MODE=${{ inputs.mode }}
-        make MODE=${{ inputs.mode }} check

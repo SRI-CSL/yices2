@@ -38,9 +38,14 @@ jobs:
     - name: Install Dependencies
       uses: ./.github/actions/install-dependencies
 
-    - name: Build and Test
-      uses: ./.github/actions/build-and-test
+    - name: Build
+      uses: ./.github/actions/build
       with:
         mode: ${{ matrix.mode }}
         config-opt: ${{ matrix.config-opt }}
+
+    - name: Test
+      uses: ./.github/actions/test
+      with:
+        mode: ${{ matrix.mode }}
 

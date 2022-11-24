@@ -1,0 +1,13 @@
+name: Test
+
+inputs:
+  mode:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Test Yices
+      shell: bash
+      run:
+        make MODE=${{ inputs.mode }} check
