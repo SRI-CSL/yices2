@@ -8,28 +8,12 @@ jobs:
   build:
     strategy:
       matrix:
-        include:
-          - name: ubuntu:debug:enable-mcsat
-            os: ubuntu-latest
-            mode: debug
-            config-opt: --enable-mcsat
+        os: [ubuntu-latest]
+        mode: [debug, release]
+        config-opt: [--enable-mcsat, --enable-thread-safety]
+        env: [CC=gcc CXX=g++, CC=clang CXX=clang++]
 
-          - name: ubuntu:debug:enable-thread-safety
-            os: ubuntu-latest
-            mode: debug
-            config-opt: --enable-thread-safety
-
-          - name: ubuntu:release:enable-mcsat
-            os: ubuntu-latest
-            mode: release
-            config-opt: --enable-mcsat
-
-          - name: ubuntu:release:enable-thread-safety
-            os: ubuntu-latest
-            mode: release
-            config-opt: --enable-thread-safety
-
-    name: ${{ matrix.name }}
+    name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }}
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -43,6 +27,7 @@ jobs:
       with:
         mode: ${{ matrix.mode }}
         config-opt: ${{ matrix.config-opt }}
+        env: ${{ matrix.env }}
 
     - name: Test
       uses: ./.github/actions/test
