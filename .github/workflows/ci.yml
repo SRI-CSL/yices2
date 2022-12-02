@@ -12,6 +12,11 @@ jobs:
         mode: [debug, release]
         config-opt: [--enable-mcsat, --enable-thread-safety]
         env: [CC=gcc CXX=g++, CC=clang CXX=clang++]
+        include:
+          - os: ubuntu-latest
+            mode: gcov
+            config-opt: --enable-mcsat
+            env: CC=gcc CXX=g++
 
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }}
     runs-on: ${{ matrix.os }}
@@ -34,3 +39,13 @@ jobs:
       with:
         mode: ${{ matrix.mode }}
 
+    - name: Coverage
+      if: matrix.mode == 'gcov'
+      uses: ./.github/actions/coverage
+
+    - name: Coveralls
+      if: matrix.mode == 'gcov'
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: 'coverage.info'
