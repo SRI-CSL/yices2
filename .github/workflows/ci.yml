@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        mode: [debug, release]
+        config-opt: [--enable-mcsat, --enable-thread-safety]
+        env: [CC=gcc CXX=g++, CC=clang CXX=clang++]
+
+    name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Dependencies
+      uses: ./.github/actions/install-dependencies
+
+    - name: Build
+      uses: ./.github/actions/build
+      with:
+        mode: ${{ matrix.mode }}
+        config-opt: ${{ matrix.config-opt }}
+        env: ${{ matrix.env }}
+
+    - name: Test
+      uses: ./.github/actions/test
+      with:
+        mode: ${{ matrix.mode }}
+

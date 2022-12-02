@@ -1,0 +1,16 @@
+name: Install Dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux Dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        echo "Install Linux dependencies"
+        sudo apt-get update
+        sudo apt-get install -y libgmp-dev gperf
+        sudo apt-get install -y python3-pip
+        sudo apt-get install -y lcov
+        sudo gem install coveralls-lcov
+        echo "Install Linux dependencies [DONE]"
