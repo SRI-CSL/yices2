@@ -45,8 +45,9 @@ Running Yices on the above problem gives a solution
 ```
 > yices-smt2 lra.smt2
 sat
-(= x 2)
-(= y (- 1))
+(model
+  (define-fun x () Real 2.0)
+  (define-fun y () Real (- 1.0)))
 ```
 
 #### Bit-Vectors
@@ -72,8 +73,9 @@ Running Yices on the above problem gives
 ```
 > yices-smt2 bv.smt2
 sat
-(= x #b01000000000000000000000000000000)
-(= y #b01000000000000000000000000000000)
+(model
+  (define-fun x () (_ BitVec 32) #b01000000000000000000000000000000)
+  (define-fun y () (_ BitVec 32) #b01000000000000000000000000000000))
 ```
 
 #### Non-Linear Arithmetic
@@ -98,8 +100,9 @@ Running Yices on the above problem gives
 
 ```
 sat
-(= x 0.894427)
-(= y 0.447214)
+(model
+  (define-fun x () Real 0.894427)
+  (define-fun y () Real 0.447214))
 ```
 
 ## Installing Prebuilt Binaries
