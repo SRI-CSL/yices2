@@ -83,8 +83,11 @@ instructions:
 1) Install SRI's library for polynomial manipulation. It's available
    on github (https://github.com/SRI-CSL/libpoly).
 
-2) After you've installed libpoly, add option --enable-mcsat to 
-   the configure command. In details, type this in the toplevel
+2) Install the CUDD library for binary-decision diagrams. We recommend
+   using the github distribution: https://github.com/ivmai/cudd.
+
+3) After you've installed libpoly and cudd, add option --enable-mcsat 
+   to the configure command. In details, type this in the toplevel
    Yices directory:
 
     autoconf
