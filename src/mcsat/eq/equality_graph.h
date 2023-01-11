@@ -266,6 +266,9 @@ eq_node_id_t eq_graph_term_id_if_exists(const eq_graph_t* eq, term_t t);
 /** Returns true if term is a representative of its class */
 bool eq_graph_term_is_rep(const eq_graph_t* eq, term_t t);
 
+/** Returns the representative test of the class the given term belongs to */
+term_t eq_graph_term_get_rep(const eq_graph_t* eq, term_t t);
+
 /** Push the context */
 void eq_graph_push(eq_graph_t* eq);
 

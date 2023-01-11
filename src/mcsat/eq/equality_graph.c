@@ -763,6 +763,13 @@ bool eq_graph_term_is_rep(const eq_graph_t* eq, term_t t) {
   return n->find == id;
 }
 
+term_t eq_graph_term_get_rep(const eq_graph_t* eq, term_t t) {
+  eq_node_id_t id = eq_graph_term_id(eq, t);
+  const eq_node_t* n = eq_graph_get_node_const(eq, id);
+  const eq_node_t* n_rep = eq_graph_get_node_const(eq, n->find);
+  return eq->terms_list.data[n_rep->index];
+}
+
 
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v) {
   value_hmap_pair_t* find = value_hmap_find(&eq->value_to_id, v);
