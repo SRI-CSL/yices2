@@ -1117,7 +1117,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     return;
   }
 
-  uf_plugin_array_propagations(uf, prop);
+  if (uf->array_terms.size > 0) {
+    uf_plugin_array_propagations(uf, prop);
+  }
 }
 
 static
