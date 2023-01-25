@@ -316,8 +316,8 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
         // Only set values of uninterpreted and boolean type
         type_kind_t t_type_kind = term_type_kind(uf->ctx->terms, t);
         if (t_type_kind == UNINTERPRETED_TYPE ||
-	    t_type_kind == FUNCTION_TYPE ||
-	    t_type_kind == BOOL_TYPE) {
+            t_type_kind == FUNCTION_TYPE ||
+            t_type_kind == BOOL_TYPE) {
           const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
           if (!trail_has_value(uf->ctx->trail, t_var)) {
             if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
@@ -327,7 +327,7 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
               mcsat_value_print(v, out);
               fprintf(out, "\n");
             }
-	    
+            
             prop->add(prop, t_var, v);
             (*uf->stats.propagations) ++;
           } else {
@@ -389,17 +389,14 @@ static void uf_plugin_add_diff_terms_vars(uf_plugin_t* uf, term_t arr) {
       variable_db_get_variable(uf->ctx->var_db, arr2);
       variable_t v;
       v = variable_db_get_variable(uf->ctx->var_db, _o_yices_eq(arr, arr2));
-      if (trail_has_value(uf->ctx->trail, v)) {
-	assert(false);
-      }
 
       term_t args[2];
       if (arr < arr2) {
-	args[0] = arr;
-	args[1] = arr2;
+        args[0] = arr;
+        args[1] = arr2;
       } else {
-	args[0] = arr2;
-	args[1] = arr;
+        args[0] = arr2;
+        args[1] = arr;
       }
       term_t diff_term = app_term(terms, diff_fun, 2, args);
       term_t select_arg[] = {diff_term};
@@ -409,9 +406,6 @@ static void uf_plugin_add_diff_terms_vars(uf_plugin_t* uf, term_t arr) {
       //v = variable_db_get_variable(uf->ctx->var_db, diff_select1);
       //v = variable_db_get_variable(uf->ctx->var_db, diff_select2);
       v = variable_db_get_variable(uf->ctx->var_db, _o_yices_eq(diff_select1, diff_select2));
-      if (trail_has_value(uf->ctx->trail, v)) {
-	assert(false);
-      }
     }
   }
 }
@@ -468,13 +462,13 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     uint32_t i;
     for (i = 0; i < 2; ++ i) {
       if (is_function_term(terms, t_desc->arg[i]) &&
-	  term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM) {
-	//uf_plugin_add_diff_terms_vars(uf, t_desc->arg[i]);
-	//for (j = 0; j < uf->array_terms.size; ++j) {
-	  //variable_db_get_variable(uf->ctx->var_db,
-	  //				   _o_yices_eq(uf->array_terms.data[j], t_desc->arg[i]));
-	//}
-	ivector_push(&uf->array_terms, t_desc->arg[i]);
+          term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM) {
+        //uf_plugin_add_diff_terms_vars(uf, t_desc->arg[i]);
+        //for (j = 0; j < uf->array_terms.size; ++j) {
+          //variable_db_get_variable(uf->ctx->var_db,
+          //                               _o_yices_eq(uf->array_terms.data[j], t_desc->arg[i]));
+        //}
+        ivector_push(&uf->array_terms, t_desc->arg[i]);
       }
     }
     break;
@@ -543,39 +537,40 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 static
-bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop,
+                               const ivector_t* array_terms) {
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, k;
 
   // array-idx lemma
-  for (i = 0; i < uf->array_terms.size; ++i) {
-    term_t arr = uf->array_terms.data[i];
+  for (i = 0; i < array_terms->size; ++i) {
+    term_t arr = array_terms->data[i];
     term_kind_t t_kind = term_kind(terms, arr);
     if (t_kind == UPDATE_TERM) {
       composite_term_t* t_desc = update_term_desc(terms, arr);
       term_t r = app_term(terms, arr, t_desc->arity - 2, t_desc->arg + 1);
       term_t v = t_desc->arg[t_desc->arity - 1];
       if (!eq_graph_term_has_value(&uf->eq_graph, r) ||
-	  !eq_graph_term_has_value(&uf->eq_graph, v))
-	continue;
+          !eq_graph_term_has_value(&uf->eq_graph, v))
+        continue;
       if (!eq_graph_are_equal(&uf->eq_graph, r, v)) {
-	ivector_push(&uf->conflict, _o_yices_neq(r, v));
+        ivector_push(&uf->conflict, _o_yices_neq(r, v));
 
-	prop->conflict(prop);
-	(*uf->stats.conflicts) ++;
-	//ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
-	//uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
-	statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+        prop->conflict(prop);
+        (*uf->stats.conflicts) ++;
+        //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
+        //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+        statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
 
-	if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
-	  ctx_trace_printf(uf->ctx, ">1 Array conflict 1 BEGIN\n");
-	  for (k = 0; k < uf->conflict.size; ++ k) {
-	    ctx_trace_term(uf->ctx, uf->conflict.data[k]);
-	  }
-	  ctx_trace_printf(uf->ctx, ">1 Array conflict 1 END\n");
-	}
+        if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
+          ctx_trace_printf(uf->ctx, ">1 Array conflict 1 BEGIN\n");
+          for (k = 0; k < uf->conflict.size; ++ k) {
+            ctx_trace_term(uf->ctx, uf->conflict.data[k]);
+          }
+          ctx_trace_printf(uf->ctx, ">1 Array conflict 1 END\n");
+        }
 
-	return false;
+        return false;
       }
     }
   }
@@ -584,7 +579,7 @@ bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop) {
 
 static
 bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2, term_t idx,
-			       ivector_t* indices) {
+                               ivector_t* indices) {
   int_hset_t path_idx_set;
   init_int_hset(&path_idx_set, 0);
 
@@ -605,12 +600,12 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2, term_t
     uint32_t k;
     for (k = 0; k < path_idx_set.nelems; ++ k) {
       if (!eq_graph_term_has_value(&uf->eq_graph, path_idx_set.data[k])) {
-	res = false;
-	break;
+        res = false;
+        break;
       }
 
       if (indices) {
-	ivector_push(indices, path_idx_set.data[k]);
+        ivector_push(indices, path_idx_set.data[k]);
       }
     }
   }
@@ -625,8 +620,9 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2, term_t
 }
 
 static
-bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
-				       term_t idx, ivector_t* cond) {
+bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_terms,
+                                       term_t arr1, term_t arr2,
+                                       term_t idx, ivector_t* cond) {
   assert(eq_graph_term_has_value(&uf->eq_graph, idx));
 
   ivector_t indices;
@@ -641,7 +637,7 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, term_t arr1, term_t arr2
   if (uf_plugin_array_weak_eq_i(uf, arr1, arr2, idx, &indices)) {
     for (k =0; k < indices.size; ++k) {
       if (eq_graph_are_equal(&uf->eq_graph, idx, indices.data[k]))
-	return false;
+        return false;
     }
     for (k =0; k < indices.size; ++k) {
       ivector_push(cond, _o_yices_neq(idx, indices.data[k]));
@@ -652,17 +648,8 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, term_t arr1, term_t arr2
   bool res = false;
   term_table_t* terms = uf->ctx->terms;
 
-  int_hset_t seen, seen2;
-
-  init_int_hset(&seen, 0);
-  init_int_hset(&seen2, 0);
-
-  for (i = 0; !res && i < uf->select_terms.size; ++ i) {
-    term_t t_i = uf->select_terms.data[i];
-
-    if (int_hset_member(&seen, t_i))
-      continue;
-    int_hset_add(&seen, t_i);
+  for (i = 0; !res && i < select_terms->size; ++ i) {
+    term_t t_i = select_terms->data[i];
 
     if (!eq_graph_term_has_value(&uf->eq_graph, t_i))
       continue;
@@ -670,162 +657,151 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, term_t arr1, term_t arr2
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
 
     if (!eq_graph_term_has_value(&uf->eq_graph, e_i_desc->arg[1]) ||
-	!eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], idx))
+        !eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], idx))
       continue;
 
     if (!uf_plugin_array_weak_eq_i(uf, arr1, e_i_desc->arg[0], idx, &indices))
       continue;
     
-    int_hset_reset(&seen2);
-    for (j = 0; !res && j < uf->select_terms.size; ++ j) {
-      term_t t_j = uf->select_terms.data[j];
+    for (j = 0; !res && j < select_terms->size; ++ j) {
+      term_t t_j = select_terms->data[j];
       if (t_i == t_j)
-	continue;
-
-      if (int_hset_member(&seen2, t_j))
-	continue;
-      int_hset_add(&seen2, t_j);
+        continue;
 
       if (!eq_graph_term_has_value(&uf->eq_graph, t_j) ||
-	  !eq_graph_are_equal(&uf->eq_graph, t_i, t_j))
-	continue;
+          !eq_graph_are_equal(&uf->eq_graph, t_i, t_j))
+        continue;
 
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
 
       if (!eq_graph_term_has_value(&uf->eq_graph, e_j_desc->arg[1]) ||
-	  !eq_graph_are_equal(&uf->eq_graph, e_j_desc->arg[1], idx))
-	continue;
+          !eq_graph_are_equal(&uf->eq_graph, e_j_desc->arg[1], idx))
+        continue;
 
       if (!uf_plugin_array_weak_eq_i(uf, arr2, e_j_desc->arg[0], idx, &indices))
-	continue;
+        continue;
       else {
-	res = true;
-	if (cond) {
-	  // Conditions of arr1 weakly-eq-i to a and arr2 weakly-eq-i to b'
-	  for (k = 0; k < indices.size; ++k) {
-	    if (eq_graph_are_equal(&uf->eq_graph, indices.data[k], idx) ||
-		eq_graph_are_equal(&uf->eq_graph, indices.data[k], e_i_desc->arg[1]) ||
-		eq_graph_are_equal(&uf->eq_graph, indices.data[k], e_j_desc->arg[1])) {
-	      res = false;
-	      break;
-	    }
-	  }
+        res = true;
+        if (cond) {
+          // Conditions of arr1 weakly-eq-i to a and arr2 weakly-eq-i to b'
+          for (k = 0; k < indices.size; ++k) {
+            if (eq_graph_are_equal(&uf->eq_graph, indices.data[k], idx) ||
+                eq_graph_are_equal(&uf->eq_graph, indices.data[k], e_i_desc->arg[1]) ||
+                eq_graph_are_equal(&uf->eq_graph, indices.data[k], e_j_desc->arg[1])) {
+              res = false;
+              break;
+            }
+          }
 
-	  if (res) {
-	    for (k =0; k < indices.size; ++k) {
-	      ivector_push(cond, _o_yices_neq(idx, indices.data[k]));
-	    }
-	    ivector_push(cond, _o_yices_eq(idx, e_i_desc->arg[1]));
-	    ivector_push(cond, _o_yices_eq(t_i, t_j));
-	    ivector_push(cond, _o_yices_eq(idx, e_j_desc->arg[1]));
-	  }
-	}
+          if (res) {
+            for (k =0; k < indices.size; ++k) {
+              ivector_push(cond, _o_yices_neq(idx, indices.data[k]));
+            }
+            ivector_push(cond, _o_yices_eq(idx, e_i_desc->arg[1]));
+            ivector_push(cond, _o_yices_eq(t_i, t_j));
+            ivector_push(cond, _o_yices_eq(idx, e_j_desc->arg[1]));
+          }
+        }
       }
     }
   }
 
   if (!res && cond) {
     ivector_shrink(cond, cond_old_size);
-  } else {
-    ivector_remove_duplicates(cond);
-  }
-
-  delete_int_hset(&seen2);
-  delete_int_hset(&seen);
+  } 
 
   return res;
 }
 
 static
-bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
+                               const ivector_t* array_terms,
+                               const ivector_t* select_terms) {
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j, k;
 
   ivector_t cond;
   int_hset_t path_idx_set;
-  int_hset_t seen, seen2;
 
   init_ivector(&cond, 0);
   init_int_hset(&path_idx_set, 0);
-  init_int_hset(&seen, 0);
-  init_int_hset(&seen2, 0);
 
-  for (i = 0; i < uf->array_terms.size; ++i) {
-    term_t arr1 = uf->array_terms.data[i];
+  for (i = 0; i < array_terms->size; ++i) {
+    term_t arr1 = array_terms->data[i];
     term_t arr1_rep = eq_graph_term_get_rep(&uf->eq_graph, arr1);
     type_t arr1_type = term_type(terms, arr1);
     if (!eq_graph_term_has_value(&uf->eq_graph, arr1) ||
-	!eq_graph_term_has_value(&uf->eq_graph, arr1_rep))
+        !eq_graph_term_has_value(&uf->eq_graph, arr1_rep))
       continue;
 
-    for (j = i + 1; j < uf->array_terms.size; ++j) {
-      term_t arr2 = uf->array_terms.data[j];
+    for (j = i + 1; j < array_terms->size; ++j) {
+      term_t arr2 = array_terms->data[j];
       term_t arr2_rep = eq_graph_term_get_rep(&uf->eq_graph, arr2);
       type_t arr2_type = term_type(terms, arr2);
       if (arr1 == arr2 || arr1_type != arr2_type ||
-	  !eq_graph_term_has_value(&uf->eq_graph, arr2) ||
-	  !eq_graph_term_has_value(&uf->eq_graph, arr2_rep))
-	continue;
+          !eq_graph_term_has_value(&uf->eq_graph, arr2) ||
+          !eq_graph_term_has_value(&uf->eq_graph, arr2_rep))
+        continue;
 
       if (eq_graph_are_equal(&uf->eq_graph, arr1, arr2))
-	continue;
+        continue;
 
       int_hset_reset(&path_idx_set);
       fun_node_t* fn_arr1 = get_rep(uf_plugin_get_fun_node(uf, arr1),
-				    &path_idx_set);
+                                    &path_idx_set);
       fun_node_t* fn_arr2 = get_rep(uf_plugin_get_fun_node(uf, arr2),
-				    &path_idx_set);
+                                    &path_idx_set);
 
       if (fn_arr1 == fn_arr2) {
-	int_hset_close(&path_idx_set);
-	bool ok = true;
-	for (k = 0; k < path_idx_set.nelems; ++ k) {
-	  if (!eq_graph_term_has_value(&uf->eq_graph, path_idx_set.data[k])) {
-	    ok = false;
-	    break;
-	  }
-	}
-	for (k = 0; ok && k < path_idx_set.nelems; ++ k) {
-	  if (!uf_plugin_array_weak_congruence_i(uf, arr1, arr2,
-						 path_idx_set.data[k], &cond)) {
-	    ok = false;
-	    break;
-	  }
-	}
+        int_hset_close(&path_idx_set);
+        bool ok = true;
+        for (k = 0; k < path_idx_set.nelems; ++ k) {
+          if (!eq_graph_term_has_value(&uf->eq_graph, path_idx_set.data[k])) {
+            ok = false;
+            break;
+          }
+        }
+        for (k = 0; ok && k < path_idx_set.nelems; ++ k) {
+          if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
+                                                 path_idx_set.data[k], &cond)) {
+            ok = false;
+            break;
+          }
+        }
 
-	if (ok) {
-	  // [NOTE] we don't need Cond(P) -- condition on the path
-	  if (arr1 != arr1_rep) {
-	    ctx_trace_term(uf->ctx, arr1);
-	    ctx_trace_term(uf->ctx, arr1_rep);
-	    //ivector_push(&uf->conflict, _o_yices_eq(arr1, arr1_rep));
-	  }
-	  if (arr2 != arr2_rep) {
-	    ctx_trace_term(uf->ctx, arr2);
-	    ctx_trace_term(uf->ctx, arr2_rep);
-	    //ivector_push(&uf->conflict, _o_yices_eq(arr2, arr2_rep));
-	  }
-	  for (k = 0; k < cond.size; ++k) {
-	    ivector_push(&uf->conflict, cond.data[k]);
-	  }
-	  ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
+        if (ok) {
+          // [NOTE] we don't need Cond(P) -- condition on the path
+          if (arr1 != arr1_rep) {
+            ctx_trace_term(uf->ctx, arr1);
+            ctx_trace_term(uf->ctx, arr1_rep);
+            //ivector_push(&uf->conflict, _o_yices_eq(arr1, arr1_rep));
+          }
+          if (arr2 != arr2_rep) {
+            ctx_trace_term(uf->ctx, arr2);
+            ctx_trace_term(uf->ctx, arr2_rep);
+            //ivector_push(&uf->conflict, _o_yices_eq(arr2, arr2_rep));
+          }
+          for (k = 0; k < cond.size; ++k) {
+            ivector_push(&uf->conflict, cond.data[k]);
+          }
+          ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
 
-	  prop->conflict(prop);
-	  (*uf->stats.conflicts) ++;
-	  //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
-	  //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
-	  statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+          prop->conflict(prop);
+          (*uf->stats.conflicts) ++;
+          //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
+          //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+          statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
 
-	  if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
-	    ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
-	    for (k = 0; k < uf->conflict.size; ++ k) {
-	      ctx_trace_term(uf->ctx, uf->conflict.data[k]);
-	    }
-	    ctx_trace_printf(uf->ctx, ">2 Array conflict END 2\n");
-	  }
+          if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
+            ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
+            for (k = 0; k < uf->conflict.size; ++ k) {
+              ctx_trace_term(uf->ctx, uf->conflict.data[k]);
+            }
+            ctx_trace_printf(uf->ctx, ">2 Array conflict END 2\n");
+          }
 
-	  goto done;
-	}
+          goto done;
+        }
       }
     }
   }
@@ -833,20 +809,19 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop) {
  done:
   delete_ivector(&cond);
   delete_int_hset(&path_idx_set);
-  delete_int_hset(&seen2);
-  delete_int_hset(&seen);
 
   return (uf->conflict.size == 0);
 }
 
 static
-bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
+                                    const ivector_t* array_terms) {
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j, k;
 
   // array-ext lemma
-  for (i = 0; i < uf->array_terms.size; ++i) {
-    term_t arr1 = uf->array_terms.data[i];
+  for (i = 0; i < array_terms->size; ++i) {
+    term_t arr1 = array_terms->data[i];
     if (!eq_graph_term_has_value(&uf->eq_graph, arr1))
       continue;
 
@@ -860,53 +835,53 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop) {
       assert(false);
     }
 
-    for (j = i + 1; j < uf->array_terms.size; ++j) {
-      term_t arr2 = uf->array_terms.data[j];
+    for (j = i + 1; j < array_terms->size; ++j) {
+      term_t arr2 = array_terms->data[j];
       if (!eq_graph_term_has_value(&uf->eq_graph, arr2))
-	continue;
+        continue;
 
       type_t arr2_type = term_type(terms, arr2);
       if (arr1 == arr2 || arr1_type != arr2_type)
-	continue;
+        continue;
 
       term_t args[2];
       if (arr1 < arr2) {
-	args[0] = arr1;
-	args[1] = arr2;
+        args[0] = arr1;
+        args[1] = arr2;
       } else {
-	args[0] = arr2;
-	args[1] = arr1;
+        args[0] = arr2;
+        args[1] = arr1;
       }
       term_t diff_term = app_term(terms, diff_fun, 2, args);
       term_t select_arg[] = {diff_term};
       term_t diff_select1 = app_term(terms, arr1, 1, select_arg);
       term_t diff_select2 = app_term(terms, arr2, 1, select_arg);
       if (!eq_graph_term_has_value(&uf->eq_graph, diff_term) ||
-	  !eq_graph_term_has_value(&uf->eq_graph, diff_select1) ||
-	  !eq_graph_term_has_value(&uf->eq_graph, diff_select2))
-	continue;
+          !eq_graph_term_has_value(&uf->eq_graph, diff_select1) ||
+          !eq_graph_term_has_value(&uf->eq_graph, diff_select2))
+        continue;
 
       if (!eq_graph_are_equal(&uf->eq_graph, arr1, arr2) &&
-	  eq_graph_are_equal(&uf->eq_graph, diff_select1, diff_select2)) {
+          eq_graph_are_equal(&uf->eq_graph, diff_select1, diff_select2)) {
       
-	ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
-	ivector_push(&uf->conflict, _o_yices_eq(diff_select1, diff_select2));
+        ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
+        ivector_push(&uf->conflict, _o_yices_eq(diff_select1, diff_select2));
 
-	prop->conflict(prop);
-	(*uf->stats.conflicts) ++;
-	//ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
-	//uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
-	statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+        prop->conflict(prop);
+        (*uf->stats.conflicts) ++;
+        //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
+        //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+        statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
 
-	if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
-	  ctx_trace_printf(uf->ctx, ">2 Array conflict 2 BEGIN\n");
-	  for (k = 0; k < uf->conflict.size; ++ k) {
-	    ctx_trace_term(uf->ctx, uf->conflict.data[k]);
-	  }
-	  ctx_trace_printf(uf->ctx, ">2 Array conflict 2 END\n");
-	}
+        if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
+          ctx_trace_printf(uf->ctx, ">2 Array conflict 2 BEGIN\n");
+          for (k = 0; k < uf->conflict.size; ++ k) {
+            ctx_trace_term(uf->ctx, uf->conflict.data[k]);
+          }
+          ctx_trace_printf(uf->ctx, ">2 Array conflict 2 END\n");
+        }
 
-	return false;
+        return false;
       }
     }
   }
@@ -915,7 +890,9 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop) {
 }
 
 static
-bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
+                                           const ivector_t* array_terms,
+                                           const ivector_t* select_terms) {
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j;//, k;
   bool updates_present = false;
@@ -924,16 +901,9 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
   // we start from a fresh weak equivalence graph
   clear_fun_node_map(&uf->fun_node_map);
 
-  int_hset_t seen;
-  init_int_hset(&seen, 0);
   // build the graph
-  for (i = 0; i < uf->array_terms.size; ++ i) {
-    term_t t = uf->array_terms.data[i];
-    if (int_hset_member(&seen, t))
-      continue;
-
-    int_hset_add(&seen, t);
-     
+  for (i = 0; i < array_terms->size; ++ i) {
+    term_t t = array_terms->data[i];
     term_kind_t t_kind = term_kind(terms, t);
     assert(is_function_term(terms, t));
     assert(t_kind == UNINTERPRETED_TERM || t_kind == UPDATE_TERM);
@@ -951,20 +921,13 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
   if (!updates_present) {
     return true;
   }
-  
-  int_hset_t seen2;
+
   int_hset_t path_idx_set;
-  init_int_hset(&seen2, 0);
   init_int_hset(&path_idx_set, 0);
-  int_hset_reset(&seen);
 
   // generalized read-over-write lemma
-  for (i = 0; i < uf->select_terms.size; ++ i) {
-    term_t t_i = uf->select_terms.data[i];
-
-    if (int_hset_member(&seen, t_i))
-      continue;
-    int_hset_add(&seen, t_i);
+  for (i = 0; i < select_terms->size; ++ i) {
+    term_t t_i = select_terms->data[i];
 
     if (!eq_graph_term_has_value(&uf->eq_graph, t_i))
       continue;
@@ -974,94 +937,87 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
     if (!eq_graph_term_has_value(&uf->eq_graph, e_i_desc->arg[1]))
       continue;
 
-    int_hset_reset(&seen2);
-    for (j = 0; j < uf->select_terms.size; ++ j) {
-      term_t t_j = uf->select_terms.data[j];
+    for (j = 0; j < select_terms->size; ++ j) {
+      term_t t_j = select_terms->data[j];
       if (t_i == t_j)
-	continue;
-
-      if (int_hset_member(&seen2, t_j))
-	continue;
-      int_hset_add(&seen2, t_j);
+        continue;
 
       if (!eq_graph_term_has_value(&uf->eq_graph, t_j))
-	continue;
+        continue;
 
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
 
       if (!eq_graph_term_has_value(&uf->eq_graph, e_j_desc->arg[1]))
-	continue;
+        continue;
       
       if (!eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], e_j_desc->arg[1]) ||
-	  eq_graph_are_equal(&uf->eq_graph, t_i, t_j))
-	continue;
+          eq_graph_are_equal(&uf->eq_graph, t_i, t_j))
+        continue;
 
       int_hset_reset(&path_idx_set);
       fun_node_t* fn_i = get_rep_i(uf_plugin_get_fun_node(uf, e_i_desc->arg[0]),
-				   e_i_desc->arg[1], &path_idx_set);
+                                   e_i_desc->arg[1], &path_idx_set);
       fun_node_t* fn_j = get_rep_i(uf_plugin_get_fun_node(uf, e_j_desc->arg[0]),
-				   e_i_desc->arg[1], &path_idx_set);
+                                   e_i_desc->arg[1], &path_idx_set);
       assert(fn_i != NULL);
       assert(fn_j != NULL);
 
       if (fn_i == fn_j) {
-	// found conflict
-	assert(uf->conflict.size == 0);
-	if (e_i_desc->arg[1] != e_j_desc->arg[1])
-	  ivector_push(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
-	ivector_push(&uf->conflict, _o_yices_neq(t_i, t_j));
-	
-	int_hset_close(&path_idx_set);
-	bool ok = true;
-	uint32_t k;
-	for (k = 0; k < path_idx_set.nelems; ++ k) {
-	  if (path_idx_set.data[k] != e_i_desc->arg[1] &&
-	      path_idx_set.data[k] != e_j_desc->arg[1]) {
-	    if (!eq_graph_term_has_value(&uf->eq_graph, path_idx_set.data[k]) ||
-		eq_graph_are_equal(&uf->eq_graph,
-				   e_i_desc->arg[1], path_idx_set.data[k])) {
-	      ivector_reset(&uf->conflict);
-	      ok = false;
-	      break;
-	    }
-	    
-	    ivector_push(&uf->conflict, _o_yices_neq(e_i_desc->arg[1], path_idx_set.data[k]));
-	  } else {
-	    ivector_reset(&uf->conflict);
-	    ok = false;
-	    break;
-	  }
-	}
+        // found conflict
+        assert(uf->conflict.size == 0);
+        if (e_i_desc->arg[1] != e_j_desc->arg[1])
+          ivector_push(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
+        ivector_push(&uf->conflict, _o_yices_neq(t_i, t_j));
+        
+        int_hset_close(&path_idx_set);
+        bool ok = true;
+        uint32_t k;
+        for (k = 0; k < path_idx_set.nelems; ++ k) {
+          if (path_idx_set.data[k] != e_i_desc->arg[1] &&
+              path_idx_set.data[k] != e_j_desc->arg[1]) {
+            if (!eq_graph_term_has_value(&uf->eq_graph, path_idx_set.data[k]) ||
+                eq_graph_are_equal(&uf->eq_graph,
+                                   e_i_desc->arg[1], path_idx_set.data[k])) {
+              ivector_reset(&uf->conflict);
+              ok = false;
+              break;
+            }
+            
+            ivector_push(&uf->conflict, _o_yices_neq(e_i_desc->arg[1], path_idx_set.data[k]));
+          } else {
+            ivector_reset(&uf->conflict);
+            ok = false;
+            break;
+          }
+        }
 
-	if (!ok)
-	  ivector_reset(&uf->conflict);
+        if (!ok)
+          ivector_reset(&uf->conflict);
 
-	if (uf->conflict.size > 0) {
-	  // Report conflict
-	  prop->conflict(prop);
-	  (*uf->stats.conflicts) ++;
-	  //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
-	  //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
-	  statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+        if (uf->conflict.size > 0) {
+          // Report conflict
+          prop->conflict(prop);
+          (*uf->stats.conflicts) ++;
+          //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
+          //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+          statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
 
-	  if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
-	    ctx_trace_printf(uf->ctx, ">3 Array conflict BEGIN 3\n");
-	    for (k = 0; k < uf->conflict.size; ++ k) {
-	      ctx_trace_term(uf->ctx, uf->conflict.data[k]);
-	    }
-	    ctx_trace_printf(uf->ctx, ">3 Array conflict END 3\n");
-	  }
+          if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
+            ctx_trace_printf(uf->ctx, ">3 Array conflict BEGIN 3\n");
+            for (k = 0; k < uf->conflict.size; ++ k) {
+              ctx_trace_term(uf->ctx, uf->conflict.data[k]);
+            }
+            ctx_trace_printf(uf->ctx, ">3 Array conflict END 3\n");
+          }
 
-	  goto done;
-	}
+          goto done;
+        }
       }
     }
   }
 
  done:
   delete_int_hset(&path_idx_set);
-  delete_int_hset(&seen2);
-  delete_int_hset(&seen);
 
   return !(uf->conflict.size > 0);
 }
@@ -1069,13 +1025,29 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
 static
 void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
-  //if (!uf_plugin_array_idx_lemma(uf, prop))
+  bool ok = true;
+
+  ivector_t array_terms;
+  init_ivector(&array_terms, 0);
+  ivector_copy(&array_terms, uf->array_terms.data, uf->array_terms.size);
+  ivector_remove_duplicates(&array_terms);
+
+  ivector_t select_terms;
+  init_ivector(&select_terms, 0);
+  ivector_copy(&select_terms, uf->select_terms.data, uf->select_terms.size);
+  ivector_remove_duplicates(&select_terms);
+  
+  //if (!uf_plugin_array_idx_lemma(uf, prop, &select_terms))
   //  return;
 
-  if (!uf_plugin_array_read_over_write_lemma(uf, prop))
-    return;
+  ok = !uf_plugin_array_read_over_write_lemma(uf, prop, &array_terms, &select_terms); 
 
-  uf_plugin_array_ext_lemma(uf, prop);
+  if (!ok) {
+    uf_plugin_array_ext_lemma(uf, prop, &array_terms, &select_terms);
+  }
+
+  delete_ivector(&select_terms);
+  delete_ivector(&array_terms);
 }
 
 static
