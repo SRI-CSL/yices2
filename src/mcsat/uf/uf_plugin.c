@@ -69,14 +69,8 @@ typedef struct {
   /** Array terms */
   ivector_t array_terms;
 
-  /** Array eq_graph nodes */
-  ivector_t eq_graph_array_nodes;
-
   /** Select terms */
   ivector_t select_terms;
-
-  /** Select eq_graph nodes */
-  ivector_t eq_graph_select_nodes;
 
   /** Map from types to diff symbols */
   int_hmap_t type_to_diff;
@@ -277,9 +271,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->eq_graph_addition_trail, 0);
 
   init_ivector(&uf->array_terms, 0);
-  init_ivector(&uf->eq_graph_array_nodes, 0);
   init_ivector(&uf->select_terms, 0);
-  init_ivector(&uf->eq_graph_select_nodes, 0);
 
   init_int_hmap(&uf->type_to_diff, 0);
   init_int_hset(&uf->diff_funs, 0);
@@ -299,9 +291,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
   delete_ivector(&uf->array_terms);
-  delete_ivector(&uf->eq_graph_array_nodes);
   delete_ivector(&uf->select_terms);
-  delete_ivector(&uf->eq_graph_select_nodes);
 
   delete_int_hmap(&uf->type_to_diff);
   delete_int_hset(&uf->diff_funs);
@@ -443,7 +433,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = app_term_desc(terms, t);
     eq_node = eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     ivector_push(&uf->select_terms, t);
-    ivector_push(&uf->eq_graph_select_nodes, eq_node);
     break;
   case UPDATE_TERM:
     //uf_plugin_add_diff_terms_vars(uf, t);
@@ -458,7 +447,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     //eq_graph_add_ifun_term(&uf->eq_graph, r_lemma, EQ_TERM, 2, r_lemma_args);
 
     ivector_push(&uf->array_terms, t);
-    ivector_push(&uf->eq_graph_array_nodes, eq_node);
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     break;
   case ARITH_RDIV:
@@ -487,7 +475,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 	  //				   _o_yices_eq(uf->array_terms.data[j], t_desc->arg[i]));
 	//}
 	ivector_push(&uf->array_terms, t_desc->arg[i]);
-	ivector_push(&uf->eq_graph_array_nodes, t_desc->arg[i]);
       }
     }
     break;
@@ -931,6 +918,7 @@ static
 bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop) {
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j;//, k;
+  bool updates_present = false;
 
   // clear the fun node map
   // we start from a fresh weak equivalence graph
@@ -956,9 +944,14 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
       fun_node_t *a = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
       term_t ai = t_desc->arg[1];
       add_store(a, b, ai);
+      updates_present = true;
     }
   }
 
+  if (!updates_present) {
+    return true;
+  }
+  
   int_hset_t seen2;
   int_hset_t path_idx_set;
   init_int_hset(&seen2, 0);
@@ -1076,8 +1069,8 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
 static
 void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
-  if (!uf_plugin_array_idx_lemma(uf, prop))
-    return;
+  //if (!uf_plugin_array_idx_lemma(uf, prop))
+  //  return;
 
   if (!uf_plugin_array_read_over_write_lemma(uf, prop))
     return;
@@ -1126,12 +1119,10 @@ void uf_plugin_push(plugin_t* plugin) {
 
   // Push the int variable values
   scope_holder_push(&uf->scope,
-		    &uf->eq_graph_addition_trail.size,
-		    &uf->array_terms.size,
-		    &uf->eq_graph_array_nodes.size,
-		    &uf->select_terms.size,
-		    &uf->eq_graph_select_nodes.size,
-		    NULL);
+                    &uf->eq_graph_addition_trail.size,
+                    &uf->array_terms.size,
+                    &uf->select_terms.size,
+                    NULL);
 
   eq_graph_push(&uf->eq_graph);
 }
@@ -1141,19 +1132,16 @@ void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   uint32_t old_eq_graph_addition_trail_size;
-  uint32_t t1, t2, t3, t4;
+  uint32_t t1, t2;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
-		   &old_eq_graph_addition_trail_size,
-		   &t1, &t2,
-		   &t3, &t4,
-		   NULL);
+                   &old_eq_graph_addition_trail_size,
+                   &t1, &t2,
+                   NULL);
 
   ivector_shrink(&uf->array_terms, t1);
-  ivector_shrink(&uf->eq_graph_array_nodes, t2);
-  ivector_shrink(&uf->select_terms, t3);
-  ivector_shrink(&uf->eq_graph_select_nodes, t4);
+  ivector_shrink(&uf->select_terms, t2);
 
   eq_graph_pop(&uf->eq_graph);
 
