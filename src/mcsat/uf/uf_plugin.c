@@ -442,14 +442,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   case APP_TERM:
     t_desc = app_term_desc(terms, t);
     eq_node = eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
-    // check if the app term is an array select
-    //if ((is_function_term(terms, t_desc->arg[0]) &&
-    //	 term_kind(terms, t_desc->arg[0]) == UNINTERPRETED_TERM &&
-    //	 !int_hset_member(&uf->diff_funs, t_desc->arg[0])) ||
-    //	term_kind(terms, t_desc->arg[0]) == UPDATE_TERM) {
-      ivector_push(&uf->select_terms, t);
-      ivector_push(&uf->eq_graph_select_nodes, eq_node);
-      //}
+    ivector_push(&uf->select_terms, t);
+    ivector_push(&uf->eq_graph_select_nodes, eq_node);
     break;
   case UPDATE_TERM:
     //uf_plugin_add_diff_terms_vars(uf, t);
@@ -466,7 +460,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     ivector_push(&uf->array_terms, t);
     ivector_push(&uf->eq_graph_array_nodes, eq_node);
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
-    //children_start = 1;
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
