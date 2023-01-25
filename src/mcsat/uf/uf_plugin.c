@@ -41,6 +41,8 @@
 
 #include "api/yices_api_lock_free.h"
 
+#define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
+
 typedef struct {
 
   /** The plugin interface */
@@ -84,6 +86,9 @@ typedef struct {
 
   /** Map: terms to fun_nodes */
   ptr_hmap_t fun_node_map;
+
+  /** Function Values to types map */
+  ptr_hmap_t fun_val_type_map;
 
   /** Tmp vector */
   int_mset_t tmp;
@@ -248,6 +253,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
+  init_ptr_hmap(&uf->fun_val_type_map, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -288,6 +294,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
+  delete_ptr_hmap(&uf->fun_val_type_map);
   int_mset_destruct(&uf->tmp);
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
@@ -436,15 +443,13 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = app_term_desc(terms, t);
     eq_node = eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     // check if the app term is an array select
-    if ((is_function_term(terms, t_desc->arg[0]) &&
-	 term_kind(terms, t_desc->arg[0]) == UNINTERPRETED_TERM &&
-	 !int_hset_member(&uf->diff_funs, t_desc->arg[0])) ||
-	term_kind(terms, t_desc->arg[0]) == UPDATE_TERM) {
+    //if ((is_function_term(terms, t_desc->arg[0]) &&
+    //	 term_kind(terms, t_desc->arg[0]) == UNINTERPRETED_TERM &&
+    //	 !int_hset_member(&uf->diff_funs, t_desc->arg[0])) ||
+    //	term_kind(terms, t_desc->arg[0]) == UPDATE_TERM) {
       ivector_push(&uf->select_terms, t);
       ivector_push(&uf->eq_graph_select_nodes, eq_node);
-    } else {
-      children_start = 1;
-    }
+      //}
     break;
   case UPDATE_TERM:
     //uf_plugin_add_diff_terms_vars(uf, t);
@@ -460,6 +465,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 
     ivector_push(&uf->array_terms, t);
     ivector_push(&uf->eq_graph_array_nodes, eq_node);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+    //children_start = 1;
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
@@ -1214,34 +1221,60 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     ctx_trace_printf(uf->ctx, "\n");
   }
 
+  term_table_t *terms = uf->ctx->terms;
+  type_t x_type = term_type(terms, x_term);
   int32_t picked_value = 0;
   if (!cache_ok) {
     // Pick smallest value not in forbidden list
     ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
-      ctx_trace_printf(uf->ctx, "picking !=");
-      uint32_t i;
+    uint32_t i;
+    // function types have different value picking strategy
+    if (term_type_kind(terms, x_term) != FUNCTION_TYPE) {
       for (i = 0; i < forbidden.size; ++ i) {
         const mcsat_value_t* v = forbidden.data[i];
-        ctx_trace_printf(uf->ctx, " ");
-        mcsat_value_print(v, ctx_trace_out(uf->ctx));
+        assert(v->type == VALUE_RATIONAL);
+        int32_t v_int = 0;
+        bool ok = q_get32((rational_t*)&v->q, &v_int);
+        (void) ok;
+        assert(ok);
+        if (picked_value < v_int) {
+          // found a gap
+          break;
+        } else {
+          picked_value = v_int + 1;
+        }
       }
-      ctx_trace_printf(uf->ctx, "\n");
-    }
-    uint32_t i;
-    picked_value = 0;
-    for (i = 0; i < forbidden.size; ++ i) {
-      const mcsat_value_t* v = forbidden.data[i];
-      assert(v->type == VALUE_RATIONAL);
-      int32_t v_int = 0;
-      bool ok = q_get32((rational_t*)&v->q, &v_int);
-      (void) ok;
-      assert(ok);
-      if (picked_value < v_int) {
-        // Found a gap, pick
-        break;
-      } else {
-        picked_value = v_int + 1;
+      // DECIDE_FUNCTION_VALUE_START is the starting point for function values
+      assert(picked_value < DECIDE_FUNCTION_VALUE_START);
+    } else {
+      if (forbidden.size > 0) {
+        uint32_t max_forbidden_val = 0;
+        const mcsat_value_t* v = forbidden.data[forbidden.size - 1];
+        assert(v->type == VALUE_RATIONAL);
+        bool ok = q_get32((rational_t*)&v->q, &max_forbidden_val);
+        (void) ok;
+        assert(ok);
+        picked_value = max_forbidden_val + 1;
+      }
+      if (picked_value < DECIDE_FUNCTION_VALUE_START) {
+        // starting point for function values
+        picked_value = DECIDE_FUNCTION_VALUE_START;
+      }
+
+      while (true) {
+	ptr_hmap_pair_t *picked_val_type = ptr_hmap_find(&uf->fun_val_type_map, picked_value);
+	// if not in the map, pick it and safe in the map
+	if (picked_val_type == NULL) {
+	  picked_val_type = ptr_hmap_get(&uf->fun_val_type_map, picked_value);
+	  picked_val_type->val = x_type;
+	  break;
+	}
+	// if in the map and the type agrees then pick the value
+	if (picked_val_type->val == x_type) {
+	  break;
+	}
+	// picked value not good, increment and check in the loop
+	picked_value += 1;
       }
     }
   } else {
