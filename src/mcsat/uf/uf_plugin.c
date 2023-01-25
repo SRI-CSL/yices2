@@ -477,7 +477,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = eq_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
     // remember array terms
-    uint32_t i,j;
+    uint32_t i;
     for (i = 0; i < 2; ++ i) {
       if (is_function_term(terms, t_desc->arg[i]) &&
 	  term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM) {
@@ -864,7 +864,7 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop) {
       continue;
 
     type_t arr1_type = term_type(terms, arr1);
-    type_t idx1_type = function_type_domain(uf->ctx->types, arr1_type, 0);
+    //type_t idx1_type = function_type_domain(uf->ctx->types, arr1_type, 0);
     term_t diff_fun;
     int_hmap_pair_t *diff = int_hmap_find(&uf->type_to_diff, arr1_type);
     if (diff != NULL) {
@@ -930,7 +930,7 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop) {
 static
 bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop) {
   term_table_t* terms = uf->ctx->terms;
-  uint32_t i, j, k;
+  uint32_t i, j;//, k;
 
   // clear the fun node map
   // we start from a fresh weak equivalence graph
@@ -1075,8 +1075,6 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop)
 
 static
 void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
-  term_table_t* terms = uf->ctx->terms;
-  uint32_t i, j, k;
 
   if (!uf_plugin_array_idx_lemma(uf, prop))
     return;
