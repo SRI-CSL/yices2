@@ -425,23 +425,14 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   switch (t_kind) {
   case APP_TERM:
     t_desc = app_term_desc(terms, t);
-    eq_node = eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     ivector_push(&uf->select_terms, t);
     break;
   case UPDATE_TERM:
     //uf_plugin_add_diff_terms_vars(uf, t);
     t_desc = update_term_desc(terms, t);
-    eq_node = eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
-
-    //term_t r = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
-    //variable_db_get_variable(uf->ctx->var_db, r);
-    //term_t r_lemma = _o_yices_eq(r, t_desc->arg[t_desc->arity - 1]);
-    //term_t r_lemma_args[] = {r, t_desc->arg[t_desc->arity - 1]};
-    //variable_db_get_variable(uf->ctx->var_db, r_lemma);
-    //eq_graph_add_ifun_term(&uf->eq_graph, r_lemma, EQ_TERM, 2, r_lemma_args);
-
+    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
     ivector_push(&uf->array_terms, t);
-    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
