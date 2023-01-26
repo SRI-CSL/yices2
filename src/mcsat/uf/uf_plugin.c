@@ -192,7 +192,6 @@ static void add_store(fun_node_t* a, fun_node_t* b, term_t idx) {
     int_array_hset_t s;
     init_int_array_hset(&s, 0);
     int_array_hset_get(&s, s.size, &idx);
-    assert(int_array_hset_find(&s, s.size, &idx) != NULL);
     add_secondary(&s, a, b);
     delete_int_array_hset(&s);
   } else {
@@ -455,10 +454,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
       if (is_function_term(terms, t_desc->arg[i]) &&
           term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM) {
         //uf_plugin_add_diff_terms_vars(uf, t_desc->arg[i]);
-        //for (j = 0; j < uf->array_terms.size; ++j) {
-          //variable_db_get_variable(uf->ctx->var_db,
-          //                               _o_yices_eq(uf->array_terms.data[j], t_desc->arg[i]));
-        //}
         ivector_push(&uf->array_terms, t_desc->arg[i]);
       }
     }
