@@ -229,7 +229,6 @@ void clear_fun_node_map(ptr_hmap_t *m) {
   ptr_hmap_reset(m);
 }
 
-
 static
 void uf_plugin_stats_init(uf_plugin_t* uf) {
   // Add statistics
@@ -532,6 +531,12 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   }
 }
 
+static inline void add_if_not_true_term(ivector_t* vec, term_t t) {
+  if (t != true_term) {
+    ivector_push(vec, t);
+  }
+}
+
 static
 bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop,
                                const ivector_t* array_terms) {
@@ -550,7 +555,9 @@ bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop,
           !eq_graph_term_has_value(&uf->eq_graph, v))
         continue;
       if (!eq_graph_are_equal(&uf->eq_graph, r, v)) {
-        ivector_push(&uf->conflict, _o_yices_neq(r, v));
+        add_if_not_true_term(&uf->conflict, _o_yices_neq(r, v));
+	ivector_remove_duplicates(&uf->conflict);
+
         if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
           ctx_trace_printf(uf->ctx, ">1 Array conflict 1 BEGIN\n");
           for (k = 0; k < uf->conflict.size; ++ k) {
@@ -767,9 +774,11 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
             //ivector_push(&uf->conflict, _o_yices_eq(arr2, arr2_rep));
           }
           for (k = 0; k < cond.size; ++k) {
-            ivector_push(&uf->conflict, cond.data[k]);
+            add_if_not_true_term(&uf->conflict, cond.data[k]);
           }
           ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
+
+	  ivector_remove_duplicates(&uf->conflict);
 
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
             ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
@@ -844,8 +853,10 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
       if (!eq_graph_are_equal(&uf->eq_graph, arr1, arr2) &&
           eq_graph_are_equal(&uf->eq_graph, diff_select1, diff_select2)) {
       
-        ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
-        ivector_push(&uf->conflict, _o_yices_eq(diff_select1, diff_select2));
+        add_if_not_true_term(&uf->conflict, _o_yices_neq(arr1, arr2));
+        add_if_not_true_term(&uf->conflict, _o_yices_eq(diff_select1, diff_select2));
+
+	ivector_remove_duplicates(&uf->conflict);
 
         if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
           ctx_trace_printf(uf->ctx, ">2 Array conflict 2 BEGIN\n");
@@ -876,6 +887,7 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
   // generalized read-over-write lemma
   for (i = 0; i < select_terms->size; ++ i) {
     term_t t_i = select_terms->data[i];
+    type_t t_i_type = term_type(terms, t_i);
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
     if (!eq_graph_term_has_value(&uf->eq_graph, t_i) ||
         !eq_graph_term_has_value(&uf->eq_graph, e_i_desc->arg[1])) {
@@ -884,8 +896,10 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
     
     for (j = 0; j < select_terms->size; ++ j) {
       term_t t_j = select_terms->data[j];
+      type_t t_j_type = term_type(terms, t_j);
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
       if (t_i == t_j ||
+	  t_i_type != t_j_type ||
           !eq_graph_term_has_value(&uf->eq_graph, t_j) ||
           !eq_graph_term_has_value(&uf->eq_graph, e_j_desc->arg[1]) ||
           !eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], e_j_desc->arg[1]) ||
@@ -907,9 +921,9 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
         // found conflict
         assert(uf->conflict.size == 0);
         if (e_i_desc->arg[1] != e_j_desc->arg[1]) {
-          ivector_push(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
+          add_if_not_true_term(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
         }
-        ivector_push(&uf->conflict, _o_yices_neq(t_i, t_j));
+        add_if_not_true_term(&uf->conflict, _o_yices_neq(t_i, t_j));
         
         int_hset_close(&path_idx_set);
         bool ok = true;
@@ -924,7 +938,8 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
               break;
             }
             
-            ivector_push(&uf->conflict, _o_yices_neq(e_i_desc->arg[1], path_idx_set.data[k]));
+            add_if_not_true_term(&uf->conflict,
+                                 _o_yices_neq(e_i_desc->arg[1], path_idx_set.data[k]));
           } else {
             ok = false;
             break;
@@ -936,6 +951,8 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
         }
         
         if (uf->conflict.size > 0) {
+          ivector_remove_duplicates(&uf->conflict);
+
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
             ctx_trace_printf(uf->ctx, ">3 Array conflict BEGIN 3\n");
             for (k = 0; k < uf->conflict.size; ++ k) {
