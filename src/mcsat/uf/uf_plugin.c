@@ -163,7 +163,7 @@ static void make_rep_i(fun_node_t* n) {
     make_rep_i(n);
   } else {
     make_rep_i(n->s);
-    n->s->s = n->s;
+    n->s->s = n;
     n->s = NULL;
   }
 }
@@ -188,11 +188,14 @@ static void add_secondary(int_array_hset_t* idx_set, fun_node_t* a, fun_node_t* 
   
   bool rm_idx;
   rm_idx = false;
+  if (int_array_hset_find(idx_set, idx_set->size, &a->pi) == NULL) {
+    rm_idx = true;
+  }
+
   if (int_array_hset_find(idx_set, idx_set->size, &a->pi) == NULL &&
       get_rep_i(a, a->pi, NULL) != b) {
     make_rep_i(a);
     a->s = b;
-    rm_idx = true;
   }
 
   int_array_hset_get(idx_set, idx_set->size, &a->pi);
