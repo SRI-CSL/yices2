@@ -122,35 +122,38 @@ static inline fun_node_t *new_node() {
 }
 
 static const fun_node_t* get_rep(const fun_node_t* n, int_hset_t* path_idx_set) {
-  if (n->p == NULL) {
-    return n;
+  fun_node_t* res = n;
+
+  while (res->p != NULL) {
+    //store indices
+    if (path_idx_set != NULL) {
+      int_hset_add(path_idx_set, res->pi);
+    }
+    res = res->p;
   }
 
-  if (path_idx_set != NULL) {
-    int_hset_add(path_idx_set, n->pi);
-  }
-
-  return get_rep(n->p, path_idx_set);
+  return res;
 }
 
 static const fun_node_t* get_rep_i(const fun_node_t* n, const term_t idx, int_hset_t* path_idx_set) {
-  if (n->p == NULL) {
-    return n;
-  }
+  fun_node_t* res = n;
 
-  if (n->pi != idx) {
-    // record indices
-    if (path_idx_set) {
-      int_hset_add(path_idx_set, n->pi);
+  while (res->p != NULL) {
+    if (res->pi == idx) {
+      if (res->s == NULL) {
+	break;
+      }
+      res = res->s;
+    } else {
+      // record indices
+      if (path_idx_set) {
+	int_hset_add(path_idx_set, res->pi);
+      }
+      res = res->p;
     }
-    return get_rep_i(n->p, idx, path_idx_set);
   }
 
-  if (n->s == NULL) {
-    return n;
-  }
-
-  return get_rep_i(n->s, idx, path_idx_set);
+  return res;
 }
 
 static void make_rep_i(fun_node_t* n) {
@@ -182,26 +185,16 @@ static void make_rep(fun_node_t* n) {
 }
 
 static void add_secondary(int_array_hset_t* idx_set, fun_node_t* a, fun_node_t* b) {
-  if (a == b) {
-    return;
-  }
-  
-  bool rm_idx;
-  rm_idx = false;
-  if (int_array_hset_find(idx_set, idx_set->size, &a->pi) == NULL) {
-    rm_idx = true;
-  }
+  fun_node_t* n = a;
 
-  if (int_array_hset_find(idx_set, idx_set->size, &a->pi) == NULL &&
-      get_rep_i(a, a->pi, NULL) != b) {
-    make_rep_i(a);
-    a->s = b;
-  }
-
-  int_array_hset_get(idx_set, idx_set->size, &a->pi);
-  add_secondary(idx_set, a->p, b);
-  if (rm_idx) {
-    int_array_hset_remove(idx_set, idx_set->size, &a->pi);
+  while (n != b) {
+    if (int_array_hset_find(idx_set, idx_set->size, &n->pi) == NULL &&
+	get_rep_i(n, n->pi, NULL) != b) {
+      make_rep_i(n);
+      n->s = b;
+    }
+    int_array_hset_get(idx_set, idx_set->size, &a->pi);
+    n = n->p;
   }
 }
 
