@@ -121,8 +121,8 @@ static inline fun_node_t *new_node() {
   return n;
 }
 
-static const fun_node_t* get_rep(const fun_node_t* n, int_hset_t* path_idx_set) {
-  fun_node_t* res = n;
+static const fun_node_t* get_rep(const eq_graph_t* eq_graph, const fun_node_t* n, int_hset_t* path_idx_set) {
+  const fun_node_t* res = n;
 
   while (res->p != NULL) {
     //store indices
@@ -135,11 +135,11 @@ static const fun_node_t* get_rep(const fun_node_t* n, int_hset_t* path_idx_set) 
   return res;
 }
 
-static const fun_node_t* get_rep_i(const fun_node_t* n, const term_t idx, int_hset_t* path_idx_set) {
-  fun_node_t* res = n;
+static const fun_node_t* get_rep_i(const eq_graph_t* eq_graph, const fun_node_t* n, const term_t idx, int_hset_t* path_idx_set) {
+  const fun_node_t* res = n;
 
   while (res->p != NULL) {
-    if (res->pi == idx) {
+    if (eq_graph_are_equal(eq_graph, res->pi, idx)) {
       if (res->s == NULL) {
 	break;
       }
@@ -156,59 +156,59 @@ static const fun_node_t* get_rep_i(const fun_node_t* n, const term_t idx, int_hs
   return res;
 }
 
-static void make_rep_i(fun_node_t* n) {
+static void make_rep_i(const eq_graph_t* eq_graph, fun_node_t* n) {
   if (n->s == NULL) {
     return;
   }
 
-  if (n->s->pi != n->pi) {
+  if (!eq_graph_are_equal(eq_graph, n->s->pi, n->pi)) {
     n->s = n->s->p;
-    make_rep_i(n);
+    make_rep_i(eq_graph, n);
   } else {
-    make_rep_i(n->s);
+    make_rep_i(eq_graph, n->s);
     n->s->s = n;
     n->s = NULL;
   }
 }
 
-static void make_rep(fun_node_t* n) {
+static void make_rep(const eq_graph_t* eq_graph, fun_node_t* n) {
   if (n->p == NULL) {
     return;
   }
 
-  make_rep(n->p);
+  make_rep(eq_graph, n->p);
   // invert primary edge
   n->p->p = n;
   n->p->pi = n->pi;
   n->p = NULL;
-  make_rep_i(n);
+  make_rep_i(eq_graph, n);
 }
 
-static void add_secondary(int_array_hset_t* idx_set, fun_node_t* a, fun_node_t* b) {
-  fun_node_t* n = a;
+static void add_secondary(const eq_graph_t* eq_graph, int_array_hset_t* idx_set, fun_node_t* a, fun_node_t* b) {
+  fun_node_t* n = b;
 
-  while (n != b) {
+  while (n != a) {
     if (int_array_hset_find(idx_set, idx_set->size, &n->pi) == NULL &&
-	get_rep_i(n, n->pi, NULL) != b) {
-      make_rep_i(n);
-      n->s = b;
+	get_rep_i(eq_graph, n, n->pi, NULL) != a) {
+      make_rep_i(eq_graph, n);
+      n->s = a;
     }
-    int_array_hset_get(idx_set, idx_set->size, &a->pi);
+    int_array_hset_get(idx_set, idx_set->size, &b->pi);
     n = n->p;
   }
 }
 
-static void add_store(fun_node_t* a, fun_node_t* b, term_t idx) {
-  make_rep(b);
-  if (get_rep(a, NULL) == b) {
+static void add_store(const eq_graph_t* eq_graph, fun_node_t* a, fun_node_t* b, term_t idx) {
+  make_rep(eq_graph, a);
+  if (get_rep(eq_graph, b, NULL) == a) {
     int_array_hset_t s;
     init_int_array_hset(&s, 0);
     int_array_hset_get(&s, s.size, &idx);
-    add_secondary(&s, a, b);
+    add_secondary(eq_graph, &s, a, b);
     delete_int_array_hset(&s);
   } else {
-    b->p = a;
-    b->pi = idx;
+    a->p = b;
+    a->pi = idx;
   }
 }
 
@@ -438,7 +438,15 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     //uf_plugin_add_diff_terms_vars(uf, t);
     t_desc = update_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    // remember array term
     ivector_push(&uf->array_terms, t);
+    // remember select terms
+    term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
+    variable_db_get_variable(uf->ctx->var_db, r1);
+    ivector_push(&uf->select_terms, r1);
+    term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
+    variable_db_get_variable(uf->ctx->var_db, r2);
+    ivector_push(&uf->select_terms, r2);
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
@@ -574,9 +582,9 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
   int_hset_t path_idx_set;
   init_int_hset(&path_idx_set, 0);
 
-  const fun_node_t* fn_arr1 = get_rep_i(uf_plugin_get_fun_node(uf, arr1),
+  const fun_node_t* fn_arr1 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1),
                                         idx, &path_idx_set);
-  const fun_node_t* fn_arr2 = get_rep_i(uf_plugin_get_fun_node(uf, arr2),
+  const fun_node_t* fn_arr2 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2),
                                         idx, &path_idx_set);
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
@@ -748,9 +756,9 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
       }
       
       int_hset_reset(&path_idx_set);
-      const fun_node_t* fn_arr1 = get_rep(uf_plugin_get_fun_node(uf, arr1),
+      const fun_node_t* fn_arr1 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1),
                                           &path_idx_set);
-      const fun_node_t* fn_arr2 = get_rep(uf_plugin_get_fun_node(uf, arr2),
+      const fun_node_t* fn_arr2 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2),
                                           &path_idx_set);
 
       if (fn_arr1 == fn_arr2) {
@@ -914,11 +922,13 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
       
       int_hset_reset(&path_idx_set);
       const fun_node_t* fn_i =
-        get_rep_i(uf_plugin_get_fun_node(uf, e_i_desc->arg[0]), e_i_desc->arg[1],
+        get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_i_desc->arg[0]),
+		  e_i_desc->arg[1],
                   &path_idx_set);
       const fun_node_t* fn_j =
-        get_rep_i(uf_plugin_get_fun_node(uf, e_j_desc->arg[0]), e_i_desc->arg[1],
-                  &path_idx_set);
+        get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_j_desc->arg[0]),
+		  e_i_desc->arg[1],
+		  &path_idx_set);
       assert(fn_i != NULL);
       assert(fn_j != NULL);
 
@@ -1006,7 +1016,7 @@ void uf_plugin_array_build_weak_eq_graph(uf_plugin_t* uf, const ivector_t* array
       composite_term_t* t_desc = update_term_desc(terms, t);
       fun_node_t *a = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
       term_t ai = t_desc->arg[1];
-      add_store(a, b, ai);
+      add_store(&uf->eq_graph, a, b, ai);
       *updates_present = true;
     }
   }
