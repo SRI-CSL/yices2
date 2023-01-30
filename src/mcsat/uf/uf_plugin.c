@@ -191,7 +191,7 @@ static void add_secondary(const eq_graph_t* eq_graph, int_array_hset_t* idx_set,
     if (int_array_hset_find(idx_set, idx_set->size, &n->pi) == NULL &&
 	get_rep_i(eq_graph, n, n->pi, NULL) != b) {
       make_rep_i(eq_graph, n);
-      n->s = a;
+      n->s = b;
     }
     int_array_hset_get(idx_set, idx_set->size, &a->pi);
     n = n->p;
