@@ -185,30 +185,30 @@ static void make_rep(const eq_graph_t* eq_graph, fun_node_t* n) {
 }
 
 static void add_secondary(const eq_graph_t* eq_graph, int_array_hset_t* idx_set, fun_node_t* a, fun_node_t* b) {
-  fun_node_t* n = b;
+  fun_node_t* n = a;
 
   while (n != a) {
     if (int_array_hset_find(idx_set, idx_set->size, &n->pi) == NULL &&
-	get_rep_i(eq_graph, n, n->pi, NULL) != a) {
+	get_rep_i(eq_graph, n, n->pi, NULL) != b) {
       make_rep_i(eq_graph, n);
       n->s = a;
     }
-    int_array_hset_get(idx_set, idx_set->size, &b->pi);
+    int_array_hset_get(idx_set, idx_set->size, &a->pi);
     n = n->p;
   }
 }
 
 static void add_store(const eq_graph_t* eq_graph, fun_node_t* a, fun_node_t* b, term_t idx) {
-  make_rep(eq_graph, a);
-  if (get_rep(eq_graph, b, NULL) == a) {
+  make_rep(eq_graph, b);
+  if (get_rep(eq_graph, a, NULL) == b) {
     int_array_hset_t s;
     init_int_array_hset(&s, 0);
     int_array_hset_get(&s, s.size, &idx);
     add_secondary(eq_graph, &s, a, b);
     delete_int_array_hset(&s);
   } else {
-    a->p = b;
-    a->pi = idx;
+    b->p = a;
+    b->pi = idx;
   }
 }
 
@@ -559,7 +559,6 @@ bool uf_plugin_array_idx_lemma(uf_plugin_t* uf, trail_token_t* prop,
         continue;
       if (!eq_graph_are_equal(&uf->eq_graph, r, v)) {
         add_if_not_true_term(&uf->conflict, _o_yices_neq(r, v));
-        ivector_remove_duplicates(&uf->conflict);
 
         if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
           ctx_trace_printf(uf->ctx, ">1 Array conflict 1 BEGIN\n");
@@ -793,6 +792,8 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
 
           ivector_remove_duplicates(&uf->conflict);
 
+          assert(uf->conflict.size > 1);
+
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
             ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
             for (k = 0; k < uf->conflict.size; ++ k) {
@@ -871,6 +872,8 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
 
         ivector_remove_duplicates(&uf->conflict);
 
+        assert(uf->conflict.size > 1);
+
         if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
           ctx_trace_printf(uf->ctx, ">2 Array conflict 2 BEGIN\n");
           for (k = 0; k < uf->conflict.size; ++ k) {
@@ -923,12 +926,12 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
       int_hset_reset(&path_idx_set);
       const fun_node_t* fn_i =
         get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_i_desc->arg[0]),
-		  e_i_desc->arg[1],
+                  e_i_desc->arg[1],
                   &path_idx_set);
       const fun_node_t* fn_j =
         get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_j_desc->arg[0]),
-		  e_i_desc->arg[1],
-		  &path_idx_set);
+                  e_i_desc->arg[1],
+                  &path_idx_set);
       assert(fn_i != NULL);
       assert(fn_j != NULL);
 
@@ -972,6 +975,8 @@ bool uf_plugin_array_read_over_write_lemma(uf_plugin_t* uf, trail_token_t* prop,
         
         if (uf->conflict.size > 0) {
           ivector_remove_duplicates(&uf->conflict);
+
+          assert(uf->conflict.size > 1);
 
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
             ctx_trace_printf(uf->ctx, ">3 Array conflict BEGIN 3\n");
