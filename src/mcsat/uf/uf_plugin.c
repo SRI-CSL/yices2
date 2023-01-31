@@ -141,13 +141,13 @@ static const fun_node_t* get_rep_i(const eq_graph_t* eq_graph, const fun_node_t*
   while (res->p != NULL) {
     if (eq_graph_are_equal(eq_graph, res->pi, idx)) {
       if (res->s == NULL) {
-	break;
+        break;
       }
       res = res->s;
     } else {
       // record indices
       if (path_idx_set) {
-	int_hset_add(path_idx_set, res->pi);
+        int_hset_add(path_idx_set, res->pi);
       }
       res = res->p;
     }
@@ -189,7 +189,7 @@ static void add_secondary(const eq_graph_t* eq_graph, int_array_hset_t* idx_set,
 
   while (n != a) {
     if (int_array_hset_find(idx_set, idx_set->size, &n->pi) == NULL &&
-	get_rep_i(eq_graph, n, n->pi, NULL) != b) {
+        get_rep_i(eq_graph, n, n->pi, NULL) != b) {
       make_rep_i(eq_graph, n);
       n->s = b;
     }
@@ -437,7 +437,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   case UPDATE_TERM:
     //uf_plugin_add_diff_terms_vars(uf, t);
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t, t_desc->arity, t_desc->arg);
     // remember array term
     ivector_push(&uf->array_terms, t);
     // remember select terms
@@ -470,7 +470,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
         //uf_plugin_add_diff_terms_vars(uf, t_desc->arg[i]);
         ivector_push(&uf->array_terms, t_desc->arg[i]);
       } else if (term_kind(terms, t_desc->arg[i]) == APP_TERM) {
-	ivector_push(&uf->select_terms, t_desc->arg[i]);
+        ivector_push(&uf->select_terms, t_desc->arg[i]);
       }
     }
     break;
@@ -703,6 +703,15 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
         }
 
         if (res) {
+          assert(eq_graph_term_has_value(&uf->eq_graph, arr1));
+          assert(eq_graph_term_has_value(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1)->t));
+          assert(eq_graph_term_has_value(&uf->eq_graph, arr2));
+          assert(eq_graph_term_has_value(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2)->t));
+          assert(eq_graph_are_equal(&uf->eq_graph, arr1,
+                                    uf_plugin_get_fun_node(uf, arr1)->t));
+          assert(eq_graph_are_equal(&uf->eq_graph, arr2,
+                                    uf_plugin_get_fun_node(uf, arr2)->t));
+
           add_if_not_true_term(cond, _o_yices_eq(arr1,
                                                  uf_plugin_get_fun_node(uf, arr1)->t));
           add_if_not_true_term(cond, _o_yices_eq(arr2,
@@ -791,6 +800,15 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
           add_if_not_true_term(&uf->conflict,
                                _o_yices_eq(arr2,
                                            uf_plugin_get_fun_node(uf, arr2)->t));
+
+          assert(eq_graph_term_has_value(&uf->eq_graph, arr1));
+          assert(eq_graph_term_has_value(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1)->t));
+          assert(eq_graph_term_has_value(&uf->eq_graph, arr2));
+          assert(eq_graph_term_has_value(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2)->t));
+          assert(eq_graph_are_equal(&uf->eq_graph, arr1,
+                                    uf_plugin_get_fun_node(uf, arr1)->t));
+          assert(eq_graph_are_equal(&uf->eq_graph, arr2,
+                                    uf_plugin_get_fun_node(uf, arr2)->t));
 
           for (k = 0; k < cond.size; ++k) {
             add_if_not_true_term(&uf->conflict, cond.data[k]);
@@ -1044,6 +1062,26 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
   ok = uf_plugin_array_idx_lemma(uf, prop, &array_terms);
 
+  // check if all the revlevant terms have an assigned value
+  uint32_t i;
+  term_table_t* terms = uf->ctx->terms;
+  composite_term_t* t_desc = NULL;
+  for (i = 0; ok && i < array_terms.size; ++i) {
+    if (!eq_graph_term_has_value(&uf->eq_graph, array_terms.data[i])) {
+      ok = false;
+    }
+  }
+  for (i = 0; ok && i < select_terms.size; ++i) {
+    if (!eq_graph_term_has_value(&uf->eq_graph, select_terms.data[i])) {
+      ok = false;
+    } else {
+      t_desc = app_term_desc(terms, select_terms.data[i]);
+      if (!eq_graph_term_has_value(&uf->eq_graph, t_desc->arg[1])) {
+	ok = false;
+      }
+    }
+  }
+  
   if (ok) {
     bool updates_present = false;
     uf_plugin_array_build_weak_eq_graph(uf, &array_terms, &updates_present);
