@@ -141,7 +141,7 @@ static inline fun_node_t *new_node() {
 }
 
 static const fun_node_t* get_rep(const eq_graph_t* eq_graph,
-				 const fun_node_t* n) {
+                                 const fun_node_t* n) {
   const fun_node_t* res = n;
   while (res->p != NULL) {
     res = res->p;
@@ -150,7 +150,7 @@ static const fun_node_t* get_rep(const eq_graph_t* eq_graph,
 }
 
 static uint32_t count_primary(const eq_graph_t* eq_graph,
-			      const fun_node_t* n) {
+                              const fun_node_t* n) {
   uint32_t res = 0;
   const fun_node_t* tmp = n;
   
@@ -162,7 +162,7 @@ static uint32_t count_primary(const eq_graph_t* eq_graph,
 }
 
 static const fun_node_t* get_rep_i(const eq_graph_t* eq_graph, const fun_node_t* n,
-				   const term_t idx) {
+                                   const term_t idx) {
   const fun_node_t* res = n;
   while (res->p != NULL) {
     if (eq_graph_are_equal(eq_graph, res->pi, idx)) {
@@ -178,7 +178,7 @@ static const fun_node_t* get_rep_i(const eq_graph_t* eq_graph, const fun_node_t*
 }
 
 static uint32_t count_secondary(const eq_graph_t* eq_graph, const fun_node_t* n,
-				const term_t idx) {
+                                const term_t idx) {
   uint32_t res = 0;
   const fun_node_t* tmp = n;
   while (tmp->p != NULL) {
@@ -196,7 +196,7 @@ static uint32_t count_secondary(const eq_graph_t* eq_graph, const fun_node_t* n,
 }
 
 static const fun_node_t* find_secondary_node(const eq_graph_t* eq_graph,
-				       fun_node_t* n, term_t idx) {
+                                             fun_node_t* n, term_t idx) {
   const fun_node_t* res = n;
   while (res->p != NULL && !eq_graph_are_equal(eq_graph, res->pi, idx)) {
     res = res->p;
@@ -229,6 +229,8 @@ static void make_rep_i(uf_plugin_t* uf, fun_node_t* n) {
     n->s = NULL;
     n->sstore = NULL_TERM;
   }
+  assert(n->s == NULL);
+  assert(n->sstore == NULL_TERM);
 }
 
 static void make_rep(uf_plugin_t* uf, fun_node_t* n) {
@@ -248,7 +250,7 @@ static void make_rep(uf_plugin_t* uf, fun_node_t* n) {
 }
 
 static void add_secondary(uf_plugin_t* uf, int_hset_t* idx_set,
-			  fun_node_t* a, fun_node_t* b, term_t store) {
+                          fun_node_t* a, fun_node_t* b, term_t store) {
   fun_node_t* n = a;
   while (n != b) {
     assert(n->p);
@@ -257,7 +259,6 @@ static void add_secondary(uf_plugin_t* uf, int_hset_t* idx_set,
       make_rep_i(uf, n);
       n->s = b;
       n->sstore = store;
-      assert(n->pi != uf_plugin_get_index_from_store(uf, store));
     }
     int_hset_add(idx_set, n->pi);
     n = n->p;
@@ -459,8 +460,8 @@ static fun_node_t *uf_plugin_get_fun_node(uf_plugin_t* uf, term_t t) {
 }
 
 static void uf_plugin_compute_weak_path(uf_plugin_t* uf, fun_node_t* a,
-					fun_node_t* b, int_hset_t* indices,
-					int_hset_t* path) {
+                                        fun_node_t* b, int_hset_t* indices,
+                                        int_hset_t* path) {
   ctx_trace_printf(uf->ctx, "WEAK PATH\n ");
 
   //arr1 and arr2 must be in the same weak equivalence class
@@ -506,42 +507,46 @@ static void uf_plugin_compute_weak_path(uf_plugin_t* uf, fun_node_t* a,
 }
 
 static fun_node_t* uf_plugin_compute_path_secondary(uf_plugin_t* uf, fun_node_t* a,
-						    term_t idx,
-						    int_hset_t* indices,
-						    int_hset_t* path) {
+                                                    term_t idx,
+                                                    int_hset_t* indices,
+                                                    int_hset_t* path) {
   fun_node_t* res = NULL;
   term_table_t* terms = uf->ctx->terms;
-  fun_node_t* tmp = find_secondary_node(&uf->eq_graph, a, idx);
+  const fun_node_t* tmp = find_secondary_node(&uf->eq_graph, a, idx);
   composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
 
   assert(tmp->pi != NULL_TERM);
   assert(tmp->s);
-  assert(tmp->pi == idx);
-  assert(t_desc->arg[1] != idx);
+  assert(eq_graph_are_equal(&uf->eq_graph, tmp->pi, idx));
+  if (t_desc->arg[1] == idx) {
+    ctx_trace_term(uf->ctx, tmp->sstore);
+    ctx_trace_term(uf->ctx, t_desc->arg[1]);
+    ctx_trace_term(uf->ctx, idx);
+    ctx_trace_term(uf->ctx, tmp->pstore);
+    ctx_trace_term(uf->ctx, tmp->pi);
+  }
+
+  int_hset_add(path, a->t);
 
   if (find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) != tmp) {
     ctx_trace_printf(uf->ctx, "HERE 1\n");
     uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, tmp->sstore), indices, path);
 
-    assert(!int_hset_member(indices, idx));
-
     ctx_trace_printf(uf->ctx, "inner old count %"PRIi32"\n", count_secondary(&uf->eq_graph, a, idx));
-    res = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
+    res = tmp->s;
     ctx_trace_printf(uf->ctx, "inner new count %"PRIi32"\n", count_secondary(&uf->eq_graph, res, idx));
     int_hset_add(path, tmp->sstore);
   } else {
     ctx_trace_printf(uf->ctx, "HERE 2\n");
     uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, t_desc->arg[0]), indices, path);
 
-    assert(!int_hset_member(indices, idx));
-
     res = uf_plugin_get_fun_node(uf, tmp->sstore);
     ctx_trace_printf(uf->ctx, "inner new count %"PRIi32"\n", count_secondary(&uf->eq_graph, res, idx));
     int_hset_add(path, t_desc->arg[0]);
   }
-  int_hset_add(path, a->t);
+
   int_hset_add(indices, t_desc->arg[1]);
-  assert(!int_hset_member(indices, idx));
+
   return res;
 }
 
@@ -567,24 +572,26 @@ static void uf_plugin_compute_weak_path_i(uf_plugin_t* uf, term_t arr1,
     ctx_trace_printf(uf->ctx, "new count %"PRIi32"\n", count_secondary(&uf->eq_graph, a, idx));
     sec_cnt1--;
     assert(count_secondary(&uf->eq_graph, a, idx) == sec_cnt1);
+    assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
   }
   while (sec_cnt2 > sec_cnt1) {
     ctx_trace_printf(uf->ctx, "DECREMENTING COUNT 2\n ");
     b = uf_plugin_compute_path_secondary(uf, b, idx, indices, path);
     sec_cnt2--;
     assert(count_secondary(&uf->eq_graph, b, idx) == sec_cnt2);
+    assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
   }
 
   assert(sec_cnt1 == sec_cnt2);
-  while (sec_cnt2 > 0 && find_secondary_node(&uf->eq_graph, a, idx) != find_secondary_node(&uf->eq_graph, b, idx)) {
+  while (sec_cnt1 > 0 && find_secondary_node(&uf->eq_graph, a, idx) != find_secondary_node(&uf->eq_graph, b, idx)) {
     ctx_trace_printf(uf->ctx, "DECREMENTING COUNT 1 & 2\n ");
     assert(count_secondary(&uf->eq_graph, a, idx) == count_secondary(&uf->eq_graph, b, idx));
     a = uf_plugin_compute_path_secondary(uf, a, idx, indices, path);
     b = uf_plugin_compute_path_secondary(uf, b, idx, indices, path);
+    assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
   }
 
   uf_plugin_compute_weak_path(uf, a, b, indices, path);
-  assert(!int_hset_member(indices, idx));
   
   int_hset_add(path, arr2);
 }
@@ -854,13 +861,16 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
     // add indices
     int_hset_close(&index_set);
     for (k = 0; k < index_set.nelems; ++k) {
-      assert(idx != index_set.data[k]);
+      if (eq_graph_are_equal(&uf->eq_graph, idx, index_set.data[k])) {
+        res = false;
+        break;
+      }
       ivector_push(indices, index_set.data[k]);
     }
     
     int_hset_close(&path);
     // add path eq conditions
-    for (k = 0; k < path.nelems; ++k) {
+    for (k = 0; res && k < path.nelems; ++k) {
       add_if_not_true_term(cond,
                            _o_yices_eq(path.data[k],
                                        uf_plugin_get_fun_rep(uf, path.data[k])));
@@ -1036,20 +1046,20 @@ bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
 
         ivector_shrink(&cond, 0);
         int_hset_reset(&path);
-	int_hset_reset(&indices);
+        int_hset_reset(&indices);
         uf_plugin_compute_weak_path(uf, uf_plugin_get_fun_node(uf, arr1),
-				    uf_plugin_get_fun_node(uf, arr2), &indices, &path);
+                                    uf_plugin_get_fun_node(uf, arr2), &indices, &path);
         int_hset_close(&path);
-	int_hset_close(&indices);
+        int_hset_close(&indices);
         for (k = 0; ok && k < indices.nelems; ++ k) {
           ctx_trace_printf(uf->ctx, ">2 Trying INDEX: ");
           term_t idx = indices.data[k];
-	  if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
-						 idx, &cond)) {
-	    ok = false;
-	    break;
-	  }
-	}
+          if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
+                                                 idx, &cond)) {
+            ok = false;
+            break;
+          }
+        }
 
         if (ok) {
           for (k = 0; k < path.nelems; ++k) {
@@ -1244,8 +1254,8 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
       ivector_shrink(&cond, 0);
 
       if (uf_plugin_array_weak_eq_i(uf, e_i_desc->arg[0], e_j_desc->arg[0],
-				    e_i_desc->arg[1], &indices, &cond)) {
-	ctx_trace_printf(uf->ctx, "FOUND CONFLICT\n ");
+                                    e_i_desc->arg[1], &indices, &cond)) {
+        ctx_trace_printf(uf->ctx, "FOUND CONFLICT\n ");
         // found conflict
         assert(uf->conflict.size == 0);
         add_if_not_true_term(&uf->conflict,
@@ -1258,7 +1268,7 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
         add_if_not_true_term(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
         add_if_not_true_term(&uf->conflict, _o_yices_neq(t_i, t_j));
 
-	bool ok = true;
+        bool ok = true;
         for (k = 0; k < indices.size; ++ k) {
           assert(indices.data[k] != e_i_desc->arg[1]);
           if (eq_graph_are_equal(&uf->eq_graph,
