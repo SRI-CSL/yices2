@@ -32,6 +32,7 @@
 
 #include "utils/ptr_array_sort2.h"
 #include "utils/ptr_hash_map.h"
+#include "utils/ptr_sets.h"
 #include "utils/refcount_strings.h"
 
 #include "model/models.h"
@@ -89,6 +90,9 @@ typedef struct {
   /** Function Values to types map */
   ptr_hmap_t fun_val_type_map;
 
+  /** Function Values to term (one rep term) */
+  int_hmap_t fun_val_term_map;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -137,124 +141,141 @@ static inline fun_node_t *new_node() {
 }
 
 static const fun_node_t* get_rep(const eq_graph_t* eq_graph,
-				 const fun_node_t* n,
-				 int_hset_t* path_idx_set,
-				 ivector_t* cond) {
+				 const fun_node_t* n) {
   const fun_node_t* res = n;
-
   while (res->p != NULL) {
-    //store indices
-    if (path_idx_set != NULL) {
-      int_hset_add(path_idx_set, res->pi);
-    }
-
-    assert(res->pstore);
-    if (cond) {
-      add_if_not_true_term(cond,
-			   _o_yices_eq(res->pstore, res->t));
-    }
-
     res = res->p;
   }
+  return res;
+}
 
+static uint32_t count_primary(const eq_graph_t* eq_graph,
+			      const fun_node_t* n) {
+  uint32_t res = 0;
+  const fun_node_t* tmp = n;
+  
+  while (tmp->p != NULL) {
+    tmp = tmp->p;
+    res++;
+  }
   return res;
 }
 
 static const fun_node_t* get_rep_i(const eq_graph_t* eq_graph, const fun_node_t* n,
-				   const term_t idx, int_hset_t* path_idx_set,
-				   ivector_t* cond) {
+				   const term_t idx) {
   const fun_node_t* res = n;
-
   while (res->p != NULL) {
     if (eq_graph_are_equal(eq_graph, res->pi, idx)) {
       if (res->s == NULL) {
         break;
       }
-
-      assert(res->sstore);
-      if (cond) {
-	add_if_not_true_term(cond,
-			     _o_yices_eq(res->sstore, res->t));
-      }
-
       res = res->s;
     } else {
-      // record indices
-      if (path_idx_set) {
-        int_hset_add(path_idx_set, res->pi);
-      }
-
-      assert(res->pstore);
-      if (cond) {
-	add_if_not_true_term(cond,
-			     _o_yices_eq(res->pstore, res->t));
-      }
-
       res = res->p;
     }
   }
-
   return res;
 }
 
-static void make_rep_i(const eq_graph_t* eq_graph, fun_node_t* n) {
+static uint32_t count_secondary(const eq_graph_t* eq_graph, const fun_node_t* n,
+				const term_t idx) {
+  uint32_t res = 0;
+  const fun_node_t* tmp = n;
+  while (tmp->p != NULL) {
+    if (eq_graph_are_equal(eq_graph, tmp->pi, idx)) {
+      if (tmp->s == NULL) {
+        break;
+      }
+      tmp = tmp->s;
+      res++;
+    } else {
+      tmp = tmp->p;
+    }
+  }
+  return res;
+}
+
+static const fun_node_t* find_secondary_node(const eq_graph_t* eq_graph,
+				       fun_node_t* n, term_t idx) {
+  const fun_node_t* res = n;
+  while (res->p != NULL && !eq_graph_are_equal(eq_graph, res->pi, idx)) {
+    res = res->p;
+  }
+  return res;
+}
+
+static term_t uf_plugin_get_index_from_store(uf_plugin_t* uf, term_t store) {
+  term_table_t* terms = uf->ctx->terms;
+  assert(term_kind(terms, store) == UPDATE_TERM);
+
+  composite_term_t* t_desc = update_term_desc(terms, store);
+  return t_desc->arg[1];
+}
+
+static void make_rep_i(uf_plugin_t* uf, fun_node_t* n) {
   if (n->s == NULL) {
     return;
   }
 
-  if (!eq_graph_are_equal(eq_graph, n->s->pi, n->pi)) {
+  if (!eq_graph_are_equal(&uf->eq_graph,
+                          n->s->pi, n->pi)) {
     n->s = n->s->p;
     n->sstore = n->s->pstore;
-    make_rep_i(eq_graph, n);
+    make_rep_i(uf, n);
   } else {
-    make_rep_i(eq_graph, n->s);
+    make_rep_i(uf, n->s);
     n->s->s = n;
     n->s->sstore = n->sstore;
     n->s = NULL;
+    n->sstore = NULL_TERM;
   }
 }
 
-static void make_rep(const eq_graph_t* eq_graph, fun_node_t* n) {
+static void make_rep(uf_plugin_t* uf, fun_node_t* n) {
   if (n->p == NULL) {
     return;
   }
 
-  make_rep(eq_graph, n->p);
+  make_rep(uf, n->p);
   // invert primary edge
   n->p->p = n;
   n->p->pstore = n->pstore;
   n->p->pi = n->pi;
   n->p = NULL;
+  make_rep_i(uf, n);
   n->pstore = NULL_TERM;
-  make_rep_i(eq_graph, n);
   n->pi = NULL_TERM;
 }
 
-static void add_secondary(const eq_graph_t* eq_graph, int_hset_t* idx_set,
+static void add_secondary(uf_plugin_t* uf, int_hset_t* idx_set,
 			  fun_node_t* a, fun_node_t* b, term_t store) {
   fun_node_t* n = a;
-
   while (n != b) {
+    assert(n->p);
     if (!int_hset_member(idx_set, n->pi) &&
-        get_rep_i(eq_graph, n, n->pi, NULL, NULL) != b) {
-      make_rep_i(eq_graph, n);
+        get_rep_i(&uf->eq_graph, n, n->pi) != b) {
+      make_rep_i(uf, n);
       n->s = b;
       n->sstore = store;
+      assert(n->pi != uf_plugin_get_index_from_store(uf, store));
     }
-    int_hset_add(idx_set, a->pi);
+    int_hset_add(idx_set, n->pi);
     n = n->p;
   }
 }
 
-static void add_store(const eq_graph_t* eq_graph, fun_node_t* a, fun_node_t* b,
+static void add_store(uf_plugin_t* uf, fun_node_t* a, fun_node_t* b,
                       term_t idx, term_t store) {
-  assert(a != b);
-  make_rep(eq_graph, b);
-  if (get_rep(eq_graph, a, NULL, NULL) == b) {
+  if (a == b) {
+    return;
+  }
+
+  make_rep(uf, b);
+  if (get_rep(&uf->eq_graph, a) == b) {
     int_hset_t s;
     init_int_hset(&s, 0);
     int_hset_add(&s, idx);
-    add_secondary(eq_graph, &s, a, b, store);
+    add_secondary(uf, &s, a, b, store);
     delete_int_hset(&s);
   } else {
     assert(b->p == NULL);
@@ -267,15 +288,15 @@ static void add_store(const eq_graph_t* eq_graph, fun_node_t* a, fun_node_t* b,
 /* * */
 
 static
-void clear_fun_node_map(ptr_hmap_t *m) {
+void uf_plugin_clear_fun_node_map(uf_plugin_t* uf) {
   ptr_hmap_pair_t *p;
-  for (p = ptr_hmap_first_record(m);
+  for (p = ptr_hmap_first_record(&uf->fun_node_map);
        p != NULL;
-       p = ptr_hmap_next_record(m, p)) {
+       p = ptr_hmap_next_record(&uf->fun_node_map, p)) {
     safe_free((fun_node_t *) p->val);
   }
-  ptr_hmap_reset(m);
-  assert(m->nelems == 0);
+  ptr_hmap_reset(&uf->fun_node_map);
+  int_hmap_reset(&uf->fun_val_term_map);
 }
 
 static
@@ -311,6 +332,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
   init_ptr_hmap(&uf->fun_val_type_map, 0);
+  init_int_hmap(&uf->fun_val_term_map, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -360,8 +382,9 @@ void uf_plugin_destruct(plugin_t* plugin) {
 
   delete_int_hmap(&uf->type_to_diff);
   delete_int_hset(&uf->diff_funs);
-  clear_fun_node_map(&uf->fun_node_map);
+  uf_plugin_clear_fun_node_map(uf);
   delete_ptr_hmap(&uf->fun_node_map);
+  delete_int_hmap(&uf->fun_val_term_map);
 }
 
 static
@@ -405,18 +428,165 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
   }
 }
 
+static term_t uf_plugin_get_fun_rep(uf_plugin_t* uf, term_t t) {
+  assert(eq_graph_term_has_value(&uf->eq_graph, t));
+
+  mcsat_value_t* val = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
+  int32_t v_int = 0;
+  bool ok = q_get32((rational_t*)&val->q, &v_int);
+  (void) ok;
+
+  int_hmap_pair_t *v = int_hmap_find(&uf->fun_val_term_map, v_int);
+  if (v == NULL) {
+    v = int_hmap_get(&uf->fun_val_term_map, v_int);
+    v->val = t;
+  }
+
+  return v->val;
+}
+
 static fun_node_t *uf_plugin_get_fun_node(uf_plugin_t* uf, term_t t) {
-  term_t t_rep = eq_graph_term_get_rep(&uf->eq_graph, t);
+  term_t t_rep = uf_plugin_get_fun_rep(uf, t);
   ptr_hmap_pair_t *v = ptr_hmap_find(&uf->fun_node_map, t_rep);
   if (v == NULL) {
     v = ptr_hmap_get(&uf->fun_node_map, t_rep);
     fun_node_t *n = new_node();
     n->t = t_rep;
     v->val = n;
-    return n;
-  } else {
-    return v->val;
   }
+
+  return v->val;
+}
+
+static void uf_plugin_compute_weak_path(uf_plugin_t* uf, fun_node_t* a,
+					fun_node_t* b, int_hset_t* indices,
+					int_hset_t* path) {
+  ctx_trace_printf(uf->ctx, "WEAK PATH\n ");
+
+  //arr1 and arr2 must be in the same weak equivalence class
+  assert(get_rep(&uf->eq_graph, a) == get_rep(&uf->eq_graph, b));
+
+  if (a == b) {
+    return;
+  }
+
+  uint32_t prim_cnt1 = count_primary(&uf->eq_graph, a);
+  uint32_t prim_cnt2 = count_primary(&uf->eq_graph, b);
+  fun_node_t* n1 = a;
+  fun_node_t* n2 = b;
+
+  while (prim_cnt1 > prim_cnt2) {
+    int_hset_add(path, n1->pstore);
+    assert(n1->pi == uf_plugin_get_index_from_store(uf, n1->pstore));
+    int_hset_add(indices, n1->pi);
+    n1 = n1->p;
+    prim_cnt1--;
+  }
+  while (prim_cnt2 > prim_cnt1) {
+    int_hset_add(path, n2->pstore);
+    assert(n2->pi == uf_plugin_get_index_from_store(uf, n2->pstore));
+    int_hset_add(indices, n2->pi);
+    n2 = n2->p;
+    prim_cnt2--;
+  }
+  while (n1 != n2) {
+    assert(n1->p);
+    assert(n2->p);
+    int_hset_add(path, n1->pstore);
+    int_hset_add(path, n2->pstore);
+    assert(n1->pi == uf_plugin_get_index_from_store(uf, n1->pstore));
+    assert(n2->pi == uf_plugin_get_index_from_store(uf, n2->pstore));
+    int_hset_add(indices, n1->pi);
+    int_hset_add(indices, n2->pi);
+    n1 = n1->p;
+    n2 = n2->p;
+  }
+
+  assert(n1 == n2);
+}
+
+static fun_node_t* uf_plugin_compute_path_secondary(uf_plugin_t* uf, fun_node_t* a,
+						    term_t idx,
+						    int_hset_t* indices,
+						    int_hset_t* path) {
+  fun_node_t* res = NULL;
+  term_table_t* terms = uf->ctx->terms;
+  fun_node_t* tmp = find_secondary_node(&uf->eq_graph, a, idx);
+  composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
+
+  assert(tmp->pi != NULL_TERM);
+  assert(tmp->s);
+  assert(tmp->pi == idx);
+  assert(t_desc->arg[1] != idx);
+
+  if (find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) != tmp) {
+    ctx_trace_printf(uf->ctx, "HERE 1\n");
+    uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, tmp->sstore), indices, path);
+
+    assert(!int_hset_member(indices, idx));
+
+    ctx_trace_printf(uf->ctx, "inner old count %"PRIi32"\n", count_secondary(&uf->eq_graph, a, idx));
+    res = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
+    ctx_trace_printf(uf->ctx, "inner new count %"PRIi32"\n", count_secondary(&uf->eq_graph, res, idx));
+    int_hset_add(path, tmp->sstore);
+  } else {
+    ctx_trace_printf(uf->ctx, "HERE 2\n");
+    uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, t_desc->arg[0]), indices, path);
+
+    assert(!int_hset_member(indices, idx));
+
+    res = uf_plugin_get_fun_node(uf, tmp->sstore);
+    ctx_trace_printf(uf->ctx, "inner new count %"PRIi32"\n", count_secondary(&uf->eq_graph, res, idx));
+    int_hset_add(path, t_desc->arg[0]);
+  }
+  int_hset_add(path, a->t);
+  int_hset_add(indices, t_desc->arg[1]);
+  assert(!int_hset_member(indices, idx));
+  return res;
+}
+
+static void uf_plugin_compute_weak_path_i(uf_plugin_t* uf, term_t arr1,
+                                          term_t arr2, term_t idx,
+                                          int_hset_t* indices,
+                                          int_hset_t* path) {
+  ctx_trace_printf(uf->ctx, "WEAK PATH I\n ");
+  term_table_t* terms = uf->ctx->terms;
+
+  fun_node_t* a = uf_plugin_get_fun_node(uf, arr1);
+  fun_node_t* b = uf_plugin_get_fun_node(uf, arr2);
+  uint32_t sec_cnt1 = count_secondary(&uf->eq_graph, a, idx);  
+  uint32_t sec_cnt2 = count_secondary(&uf->eq_graph, b, idx);
+
+  assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
+
+  int_hset_add(path, arr1);
+  while (sec_cnt1 > sec_cnt2) {
+    ctx_trace_printf(uf->ctx, "DECREMENTING COUNT 1\n ");
+    ctx_trace_printf(uf->ctx, "old count %"PRIi32"\n", count_secondary(&uf->eq_graph, a, idx));
+    a = uf_plugin_compute_path_secondary(uf, a, idx, indices, path);
+    ctx_trace_printf(uf->ctx, "new count %"PRIi32"\n", count_secondary(&uf->eq_graph, a, idx));
+    sec_cnt1--;
+    assert(count_secondary(&uf->eq_graph, a, idx) == sec_cnt1);
+  }
+  while (sec_cnt2 > sec_cnt1) {
+    ctx_trace_printf(uf->ctx, "DECREMENTING COUNT 2\n ");
+    b = uf_plugin_compute_path_secondary(uf, b, idx, indices, path);
+    sec_cnt2--;
+    assert(count_secondary(&uf->eq_graph, b, idx) == sec_cnt2);
+  }
+
+  assert(sec_cnt1 == sec_cnt2);
+  while (sec_cnt2 > 0 && find_secondary_node(&uf->eq_graph, a, idx) != find_secondary_node(&uf->eq_graph, b, idx)) {
+    ctx_trace_printf(uf->ctx, "DECREMENTING COUNT 1 & 2\n ");
+    assert(count_secondary(&uf->eq_graph, a, idx) == count_secondary(&uf->eq_graph, b, idx));
+    a = uf_plugin_compute_path_secondary(uf, a, idx, indices, path);
+    b = uf_plugin_compute_path_secondary(uf, b, idx, indices, path);
+  }
+
+  uf_plugin_compute_weak_path(uf, a, b, indices, path);
+  assert(!int_hset_member(indices, idx));
+  
+  int_hset_add(path, arr2);
 }
 
 static void uf_plugin_add_diff_terms_vars(uf_plugin_t* uf, term_t arr) {
@@ -554,6 +724,16 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
         eq_graph_propagate_trail_assertion(&uf->eq_graph, c);
       }
     }
+    if (is_function_term(terms, c)) {
+      if (USE_ARRAY_DIFF) {
+        uf_plugin_add_diff_terms_vars(uf, c);
+      }
+      ivector_push(&uf->array_terms, c);
+    }
+    if (term_kind(terms, c) == APP_TERM &&
+        !int_hset_member(&uf->diff_funs, c)) {
+      ivector_push(&uf->select_terms, c);
+    }
   }
 
   // Record addition so we can re-add on backtracks
@@ -639,19 +819,24 @@ bool uf_plugin_array_idx_check(uf_plugin_t* uf, trail_token_t* prop,
 static
 bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
                                term_t idx,
-			       ivector_t* indices, ivector_t* cond) {
-  int_hset_t path_idx_set;
-  init_int_hset(&path_idx_set, 0);
+                               ivector_t* indices, ivector_t* cond) {
+  term_table_t* terms = uf->ctx->terms;
+  ctx_trace_printf(uf->ctx, "CHECKING ARRAY WEAK EQ I\n ");
+
+  int_hset_t index_set, path;
+  bool res = false;
+  uint32_t old_indices_size, old_cond_size;
 
   const fun_node_t* fn_arr1 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1),
-                                        idx, &path_idx_set, cond);
+                                        idx);
   const fun_node_t* fn_arr2 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2),
-                                        idx, &path_idx_set, cond);
+                                        idx);
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
 
-  bool res = false;
-  uint32_t old_indices_size, old_cond_size;
+  init_int_hset(&index_set, 0);
+  init_int_hset(&path, 0);
+
   if (indices) {
     old_indices_size = indices->size;
   }
@@ -660,13 +845,25 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
   }
 
   if (fn_arr1 == fn_arr2) {
-    res = true;
-    int_hset_close(&path_idx_set);
+    composite_term_t* t_desc = NULL;
     uint32_t k;
-    if (indices) {
-      for (k = 0; k < path_idx_set.nelems; ++ k) {
-        ivector_push(indices, path_idx_set.data[k]);
-      }
+
+    res = true;
+    uf_plugin_compute_weak_path_i(uf, arr1, arr2, idx, &index_set, &path);
+
+    // add indices
+    int_hset_close(&index_set);
+    for (k = 0; k < index_set.nelems; ++k) {
+      assert(idx != index_set.data[k]);
+      ivector_push(indices, index_set.data[k]);
+    }
+    
+    int_hset_close(&path);
+    // add path eq conditions
+    for (k = 0; k < path.nelems; ++k) {
+      add_if_not_true_term(cond,
+                           _o_yices_eq(path.data[k],
+                                       uf_plugin_get_fun_rep(uf, path.data[k])));
     }
   }
 
@@ -678,7 +875,7 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
     ivector_shrink(cond, old_cond_size);
   }
 
-  delete_int_hset(&path_idx_set);
+  delete_int_hset(&path);
 
   return res;
 }
@@ -692,10 +889,10 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
   bool res = false;
   term_table_t* terms = uf->ctx->terms;
 
-  ivector_t indices;
   uint32_t i, j, k;
   uint32_t cond_old_size;
   
+  ivector_t indices;
   init_ivector(&indices, 0);
 
   if (cond) {
@@ -704,23 +901,33 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
 
   if (uf_plugin_array_weak_eq_i(uf, arr1, arr2, idx, &indices, cond)) {
     for (k =0; k < indices.size; ++k) {
+      assert(idx != indices.data[k]);
       if (eq_graph_are_equal(&uf->eq_graph, idx, indices.data[k])) {
         goto nextcheck;
       }
     }
+
+    ctx_trace_printf(uf->ctx, ">2 WEAKLY CONG 1 \n ");
+    res = true;
+
     for (k =0; k < indices.size; ++k) {
       add_if_not_true_term(cond, _o_yices_neq(idx, indices.data[k]));
     }
+
     add_if_not_true_term(cond,
                          _o_yices_eq(arr1,
-                                     uf_plugin_get_fun_node(uf, arr1)->t));
+                                     uf_plugin_get_fun_rep(uf, arr1)));
     add_if_not_true_term(cond,
                          _o_yices_eq(arr2,
-                                     uf_plugin_get_fun_node(uf, arr2)->t));
-    return true;
+                                     uf_plugin_get_fun_rep(uf, arr2)));
+    goto done;
   }
 
  nextcheck:
+  if (cond) {
+    ivector_shrink(cond, cond_old_size);
+  }
+
   for (i = 0; !res && i < select_terms->size; ++ i) {
     term_t t_i = select_terms->data[i];
     type_t t_i_type = term_type(terms, t_i);
@@ -734,13 +941,12 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
       continue;
     }
 
-    uint32_t size1 = indices.size;
+    uint32_t size1 = cond->size;
     for (j = 0; !res && j < select_terms->size; ++ j) {
-      assert(indices.size == size1);
+      ivector_shrink(cond, size1);
       term_t t_j = select_terms->data[j];
       type_t t_j_type = term_type(terms, t_j);
-      if (t_i == t_j ||
-          t_i_type != t_j_type ||
+      if (t_i_type != t_j_type ||
           !eq_graph_are_equal(&uf->eq_graph, t_i, t_j)) {
         continue;
       }
@@ -762,19 +968,14 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
         }
 
         if (res) {
-          assert(eq_graph_are_equal(&uf->eq_graph, arr1,
-                                    uf_plugin_get_fun_node(uf, arr1)->t));
-          assert(eq_graph_are_equal(&uf->eq_graph, arr2,
-                                    uf_plugin_get_fun_node(uf, arr2)->t));
-
           add_if_not_true_term(cond, _o_yices_eq(arr1,
-                                                 uf_plugin_get_fun_node(uf, arr1)->t));
+                                                 uf_plugin_get_fun_rep(uf, arr1)));
           add_if_not_true_term(cond, _o_yices_eq(arr2,
-                                                 uf_plugin_get_fun_node(uf, arr2)->t));
+                                                 uf_plugin_get_fun_rep(uf, arr2)));
           add_if_not_true_term(cond, _o_yices_eq(e_i_desc->arg[0],
-                                                 uf_plugin_get_fun_node(uf, e_i_desc->arg[0])->t));
+                                                 uf_plugin_get_fun_rep(uf, e_i_desc->arg[0])));
           add_if_not_true_term(cond, _o_yices_eq(e_j_desc->arg[0],
-                                                 uf_plugin_get_fun_node(uf, e_j_desc->arg[0])->t));
+                                                 uf_plugin_get_fun_rep(uf, e_j_desc->arg[0])));
           for (k =0; k < indices.size; ++k) {
             add_if_not_true_term(cond, _o_yices_neq(idx, indices.data[k]));
           }
@@ -786,10 +987,12 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
     }
   }
 
+ done:
   if (!res && cond) {
     ivector_shrink(cond, cond_old_size);
   }
 
+  delete_ivector(&indices);
   return res;
 }
 
@@ -797,21 +1000,24 @@ static
 bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
                                const ivector_t* array_terms,
                                const ivector_t* select_terms) {
+  ctx_trace_printf(uf->ctx, "ARRAY EXT CHECK \n");
+
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j, k;
 
   ivector_t cond;
-  int_hset_t path_idx_set;
+  int_hset_t path, indices;
 
   init_ivector(&cond, 0);
-  init_int_hset(&path_idx_set, 0);
+  init_int_hset(&path, 0);
+  init_int_hset(&indices, 0);
 
   for (i = 0; i < array_terms->size; ++i) {
     term_t arr1 = array_terms->data[i];
     type_t arr1_type = term_type(terms, arr1);
     assert(variable_db_get_variable_if_exists(uf->ctx->var_db, arr1) != variable_null);
     
-    for (j = 1; j < array_terms->size; ++j) {
+    for (j = i + 1; j < array_terms->size; ++j) {
       term_t arr2 = array_terms->data[j];
       type_t arr2_type = term_type(terms, arr2);
       if (arr1 == arr2 || arr1_type != arr2_type ||
@@ -819,46 +1025,57 @@ bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
         continue;
       }
       
-      int_hset_reset(&path_idx_set);
-      ivector_shrink(&cond, 0);
-      const fun_node_t* fn_arr1 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1),
-                                          &path_idx_set, &cond);
-      const fun_node_t* fn_arr2 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2),
-                                          &path_idx_set, &cond);
+      const fun_node_t* fn_arr1 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1));
+      const fun_node_t* fn_arr2 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2));
 
       if (fn_arr1 == fn_arr2) {
-        int_hset_close(&path_idx_set);
-        bool ok = true;
+        ctx_trace_printf(uf->ctx, "ARRAY EXT CHEK : POSSIBLE CONFLICT\n ");
 
-        for (k = 0; ok && k < path_idx_set.nelems; ++ k) {
-          if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
-                                                 path_idx_set.data[k], &cond)) {
-            ok = false;
-            break;
-          }
-        }
+        bool ok = true;
+        composite_term_t* t_desc = NULL;
+
+        ivector_shrink(&cond, 0);
+        int_hset_reset(&path);
+	int_hset_reset(&indices);
+        uf_plugin_compute_weak_path(uf, uf_plugin_get_fun_node(uf, arr1),
+				    uf_plugin_get_fun_node(uf, arr2), &indices, &path);
+        int_hset_close(&path);
+	int_hset_close(&indices);
+        for (k = 0; ok && k < indices.nelems; ++ k) {
+          ctx_trace_printf(uf->ctx, ">2 Trying INDEX: ");
+          term_t idx = indices.data[k];
+	  if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
+						 idx, &cond)) {
+	    ok = false;
+	    break;
+	  }
+	}
 
         if (ok) {
+          for (k = 0; k < path.nelems; ++k) {
+            add_if_not_true_term(&uf->conflict,
+                                 _o_yices_eq(path.data[k],
+                                             uf_plugin_get_fun_rep(uf, path.data[k])));
+          }
+
           add_if_not_true_term(&uf->conflict,
                                _o_yices_eq(arr1,
-                                           uf_plugin_get_fun_node(uf, arr1)->t));
+                                           uf_plugin_get_fun_rep(uf, arr1)));
           add_if_not_true_term(&uf->conflict,
                                _o_yices_eq(arr2,
-                                           uf_plugin_get_fun_node(uf, arr2)->t));
-
-          assert(eq_graph_are_equal(&uf->eq_graph, arr1,
-                                    uf_plugin_get_fun_node(uf, arr1)->t));
-          assert(eq_graph_are_equal(&uf->eq_graph, arr2,
-                                    uf_plugin_get_fun_node(uf, arr2)->t));
+                                           uf_plugin_get_fun_rep(uf, arr2)));
 
           for (k = 0; k < cond.size; ++k) {
             add_if_not_true_term(&uf->conflict, cond.data[k]);
           }
+
           ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
+          ctx_trace_printf(uf->ctx, ">2 Array 1: ");
+          ctx_trace_term(uf->ctx, arr1);
+          ctx_trace_printf(uf->ctx, ">2 Array 2: ");
+          ctx_trace_term(uf->ctx, arr2);
 
           ivector_remove_duplicates(&uf->conflict);
-
-          assert(uf->conflict.size > 1);
 
           if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
             ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
@@ -868,6 +1085,8 @@ bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
             ctx_trace_printf(uf->ctx, ">2 Array conflict END 2\n");
           }
 
+          assert(uf->conflict.size > 1);
+
           goto done;
         }
       }
@@ -876,7 +1095,7 @@ bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
 
  done:
   delete_ivector(&cond);
-  delete_int_hset(&path_idx_set);
+  delete_int_hset(&path);
 
   return (uf->conflict.size == 0);
 }
@@ -929,8 +1148,6 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
 
     ivector_remove_duplicates(&uf->conflict);
 
-    assert(uf->conflict.size > 1);
-
     if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
       ctx_trace_printf(uf->ctx, ">2 Array conflict 2 BEGIN\n");
       uint32_t k;
@@ -939,6 +1156,8 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
       }
       ctx_trace_printf(uf->ctx, ">2 Array conflict 2 END\n");
     }
+
+    assert(uf->conflict.size > 1);
 
     return false;
   }
@@ -989,12 +1208,13 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
                                            const ivector_t* array_terms,
                                            const ivector_t* select_terms) {
   term_table_t* terms = uf->ctx->terms;
-  uint32_t i, j;
+  uint32_t i, j, k;
 
-  int_hset_t path_idx_set;
-  ivector_t cond;
-  init_int_hset(&path_idx_set, 0);
+  ivector_t cond, indices;
   init_ivector(&cond, 0);
+  init_ivector(&indices, 0);
+
+  ctx_trace_printf(uf->ctx, "CHECKING READ OVER WRITE\n ");
 
   // generalized read-over-write lemma
   for (i = 0; i < select_terms->size; ++ i) {
@@ -1002,55 +1222,53 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
     type_t t_i_type = term_type(terms, t_i);
     assert(variable_db_get_variable_if_exists(uf->ctx->var_db, t_i) != variable_null);
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
-    
-    for (j = 0; j < select_terms->size; ++ j) {
+
+    ctx_trace_printf(uf->ctx, "SELECT TERM 1 : ");
+    ctx_trace_term(uf->ctx, t_i);
+    for (j = 1; j < select_terms->size; ++ j) {
       term_t t_j = select_terms->data[j];
       type_t t_j_type = term_type(terms, t_j);
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
       if (t_i == t_j ||
           t_i_type != t_j_type ||
           !eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], e_j_desc->arg[1]) ||
+          //eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[0], e_j_desc->arg[0]) ||
           eq_graph_are_equal(&uf->eq_graph, t_i, t_j)) {
         continue;
       }
       
-      int_hset_reset(&path_idx_set);
-      ivector_shrink(&cond, 0);
-      const fun_node_t* fn_i =
-        get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_i_desc->arg[0]),
-                  e_i_desc->arg[1], &path_idx_set, &cond);
-      const fun_node_t* fn_j =
-        get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, e_j_desc->arg[0]),
-                  e_i_desc->arg[1], &path_idx_set, &cond);
-      assert(fn_i != NULL);
-      assert(fn_j != NULL);
+      ctx_trace_printf(uf->ctx, "SELECT TERM 2 : ");
+      ctx_trace_term(uf->ctx, t_j);
 
-      if (fn_i == fn_j) {
+      ivector_shrink(&indices, 0);
+      ivector_shrink(&cond, 0);
+
+      if (uf_plugin_array_weak_eq_i(uf, e_i_desc->arg[0], e_j_desc->arg[0],
+				    e_i_desc->arg[1], &indices, &cond)) {
+	ctx_trace_printf(uf->ctx, "FOUND CONFLICT\n ");
         // found conflict
         assert(uf->conflict.size == 0);
         add_if_not_true_term(&uf->conflict,
                              _o_yices_eq(e_i_desc->arg[0],
-                                         uf_plugin_get_fun_node(uf, e_i_desc->arg[0])->t));
+                                         uf_plugin_get_fun_rep(uf, e_i_desc->arg[0])));
         add_if_not_true_term(&uf->conflict,
                              _o_yices_eq(e_j_desc->arg[0],
-                                         uf_plugin_get_fun_node(uf, e_j_desc->arg[0])->t));
+                                         uf_plugin_get_fun_rep(uf, e_j_desc->arg[0])));
 
         add_if_not_true_term(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
         add_if_not_true_term(&uf->conflict, _o_yices_neq(t_i, t_j));
 
-        int_hset_close(&path_idx_set);
-        bool ok = true;
-        uint32_t k;
-        for (k = 0; k < path_idx_set.nelems; ++ k) {
-          assert(path_idx_set.data[k] != e_i_desc->arg[1]);
+	bool ok = true;
+        for (k = 0; k < indices.size; ++ k) {
+          assert(indices.data[k] != e_i_desc->arg[1]);
           if (eq_graph_are_equal(&uf->eq_graph,
-                                 e_i_desc->arg[1], path_idx_set.data[k])) {
+                                 e_i_desc->arg[1], indices.data[k])) {
             ok = false;
             break;
           }
 
           add_if_not_true_term(&uf->conflict,
-                               _o_yices_neq(e_i_desc->arg[1], path_idx_set.data[k]));
+                               _o_yices_neq(e_i_desc->arg[1], indices.data[k]));
         }
 
         if (!ok) {
@@ -1079,7 +1297,8 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
   }
 
  done:
-  delete_int_hset(&path_idx_set);
+  delete_ivector(&indices);
+  delete_ivector(&cond);
 
   return uf->conflict.size == 0;
 }
@@ -1091,7 +1310,7 @@ void uf_plugin_array_build_weak_eq_graph(uf_plugin_t* uf, const ivector_t* array
 
   // clear the fun node map
   // we start from a fresh weak equivalence graph
-  clear_fun_node_map(&uf->fun_node_map);
+  uf_plugin_clear_fun_node_map(uf);
 
   // build the graph
   for (i = 0; i < array_terms->size; ++ i) {
@@ -1105,9 +1324,13 @@ void uf_plugin_array_build_weak_eq_graph(uf_plugin_t* uf, const ivector_t* array
       composite_term_t* t_desc = update_term_desc(terms, t);
       fun_node_t *a = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
       term_t ai = t_desc->arg[1];
-      add_store(&uf->eq_graph, a, b, ai, t);
+      ctx_trace_printf(uf->ctx, "ADDING STORE ");
+      ctx_trace_term(uf->ctx, t);
+      add_store(uf, a, b, ai, t);
     }
   }
+  ctx_trace_printf(uf->ctx, "ADDING STORE DONE");
+
 }
 
 static
