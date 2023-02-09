@@ -436,12 +436,15 @@ static term_t uf_plugin_get_fun_rep(uf_plugin_t* uf, term_t t) {
   int32_t v_int = 0;
   bool ok = q_get32((rational_t*)&val->q, &v_int);
   (void) ok;
+  assert(ok);
 
   int_hmap_pair_t *v = int_hmap_find(&uf->fun_val_term_map, v_int);
   if (v == NULL) {
     v = int_hmap_get(&uf->fun_val_term_map, v_int);
     v->val = t;
   }
+
+  assert(eq_graph_are_equal(&uf->eq_graph, t, v->val));
 
   return v->val;
 }
@@ -467,6 +470,7 @@ static void uf_plugin_compute_weak_path(uf_plugin_t* uf, fun_node_t* a,
   //arr1 and arr2 must be in the same weak equivalence class
   assert(get_rep(&uf->eq_graph, a) == get_rep(&uf->eq_graph, b));
 
+  int_hset_add(path, a->t);
   if (a == b) {
     return;
   }
@@ -504,6 +508,8 @@ static void uf_plugin_compute_weak_path(uf_plugin_t* uf, fun_node_t* a,
   }
 
   assert(n1 == n2);
+
+  int_hset_add(path, b->t);
 }
 
 static fun_node_t* uf_plugin_compute_path_secondary(uf_plugin_t* uf, fun_node_t* a,
@@ -518,23 +524,20 @@ static fun_node_t* uf_plugin_compute_path_secondary(uf_plugin_t* uf, fun_node_t*
   assert(tmp->pi != NULL_TERM);
   assert(tmp->s);
   assert(eq_graph_are_equal(&uf->eq_graph, tmp->pi, idx));
-  if (t_desc->arg[1] == idx) {
-    //ctx_trace_term(uf->ctx, tmp->sstore);
-    //ctx_trace_term(uf->ctx, t_desc->arg[1]);
-    //ctx_trace_term(uf->ctx, idx);
-    //ctx_trace_term(uf->ctx, tmp->pstore);
-    //ctx_trace_term(uf->ctx, tmp->pi);
-  }
 
   int_hset_add(path, a->t);
 
   if (find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) != tmp) {
+    //assert(find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, tmp->sstore), idx) == tmp);
     uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, tmp->sstore), indices, path);
+
     res = tmp->s;
     int_hset_add(path, tmp->sstore);
   } else {
+    //assert(find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) == tmp);
     uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, t_desc->arg[0]), indices, path);
-    res = uf_plugin_get_fun_node(uf, tmp->sstore);
+
+    res = tmp->s;
     int_hset_add(path, t_desc->arg[0]);
   }
 
@@ -1310,8 +1313,8 @@ void uf_plugin_array_build_weak_eq_graph(uf_plugin_t* uf, const ivector_t* array
     assert(is_function_term(terms, t));
     assert(t_kind == UNINTERPRETED_TERM || t_kind == UPDATE_TERM);
 
+    fun_node_t *b = uf_plugin_get_fun_node(uf, t);
     if (t_kind == UPDATE_TERM) {
-      fun_node_t *b = uf_plugin_get_fun_node(uf, t);
       composite_term_t* t_desc = update_term_desc(terms, t);
       fun_node_t *a = uf_plugin_get_fun_node(uf, t_desc->arg[0]);
       term_t ai = t_desc->arg[1];
