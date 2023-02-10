@@ -535,13 +535,12 @@ static fun_node_t* uf_plugin_compute_path_secondary(uf_plugin_t* uf, fun_node_t*
   const fun_node_t* tmp = find_secondary_node(&uf->eq_graph, a, idx);
 
   assert(tmp->sstore != NULL_TERM);
-  composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
-
   assert(tmp->pi != NULL_TERM);
   assert(tmp->s);
   assert(eq_graph_are_equal(&uf->eq_graph, tmp->pi, idx));
   assert(!eq_graph_are_equal(&uf->eq_graph, idx,
 			     uf_plugin_get_index_from_store(uf, tmp->sstore)));
+  composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
 
   if (find_secondary_node(&uf->eq_graph, uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) == tmp) {
     uf_plugin_compute_weak_path(uf, a, uf_plugin_get_fun_node(uf, t_desc->arg[0]), indices, path);
@@ -681,7 +680,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
       uf_plugin_add_diff_terms_vars(uf, t);
     }
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ufun_term(&uf->eq_graph, t, t, t_desc->arity, t_desc->arg);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
     // remember array term
     ivector_push(&uf->array_terms, t);
     // remember select terms
@@ -839,10 +838,10 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
   bool res = false;
   uint32_t old_indices_size, old_cond_size;
 
-  const fun_node_t* fn_arr1 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1),
-                                        idx);
-  const fun_node_t* fn_arr2 = get_rep_i(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2),
-                                        idx);
+  const fun_node_t* fn_arr1 = get_rep_i(&uf->eq_graph,
+					uf_plugin_get_fun_node(uf, arr1), idx);
+  const fun_node_t* fn_arr2 = get_rep_i(&uf->eq_graph,
+					uf_plugin_get_fun_node(uf, arr2), idx);
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
 
