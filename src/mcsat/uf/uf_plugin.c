@@ -100,6 +100,11 @@ typedef struct {
     statistic_int_t* egraph_terms;
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
+    statistic_int_t* array_terms;
+    statistic_int_t* select_terms;
+    statistic_int_t* array_update1_axioms;
+    statistic_int_t* array_update2_axioms;
+    statistic_int_t* array_ext_axioms;
     statistic_avg_t* avg_conflict_size;
     statistic_avg_t* avg_explanation_size;
   } stats;
@@ -338,6 +343,11 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.propagations = statistics_new_int(uf->ctx->stats, "mcsat::uf::propagations");
   uf->stats.conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::conflicts");
   uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
+  uf->stats.array_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::array_terms");
+  uf->stats.select_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::select_terms");
+  uf->stats.array_update1_axioms = statistics_new_int(uf->ctx->stats, "mcsat::uf::array_update1_axioms");
+  uf->stats.array_update2_axioms = statistics_new_int(uf->ctx->stats, "mcsat::uf::array_update2_axioms");
+  uf->stats.array_ext_axioms = statistics_new_int(uf->ctx->stats, "mcsat::uf::array_ext_axioms");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
   uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
 }
@@ -806,6 +816,7 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     variable_db_get_variable(uf->ctx->var_db, r);
     term_t r_lemma = _o_yices_eq(r, t_desc->arg[t_desc->arity - 1]);
     prop->definition_lemma(prop, r_lemma, t);
+    (*uf->stats.array_update1_axioms) ++;
   }
 }
 
@@ -1093,6 +1104,7 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
       }
 
       assert(uf->conflict.size > 1);
+      (*uf->stats.array_ext_axioms) ++;
     }
   }
 
@@ -1204,6 +1216,7 @@ bool uf_plugin_array_ext_diff_lemma(uf_plugin_t* uf, trail_token_t* prop,
     }
 
     assert(uf->conflict.size > 1);
+    (*uf->stats.array_ext_axioms) ++;
 
     return false;
   }
@@ -1321,6 +1334,7 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
           }
 
           assert(uf->conflict.size > 1);
+	  (*uf->stats.array_update2_axioms) ++;
 
           goto done;
         }
@@ -1406,6 +1420,9 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
       }
     }
   }
+
+  (*uf->stats.array_terms) = array_terms.size;
+  (*uf->stats.select_terms) = select_terms.size;
 
   if (updates_present) {
     if (USE_ARRAY_DIFF && ok) {
