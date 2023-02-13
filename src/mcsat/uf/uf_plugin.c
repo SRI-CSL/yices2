@@ -1406,50 +1406,49 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
       }
     }
   }
-  
-  if (USE_ARRAY_DIFF && ok) {
-    ok = uf_plugin_array_ext_diff_check(uf, prop, &array_eq_terms, NULL);
-  }
 
-  if (ok) {
-    if (!USE_ARRAY_DIFF || updates_present) {
-      uf_plugin_array_build_weak_eq_graph(uf, &array_terms);
+  if (updates_present) {
+    if (USE_ARRAY_DIFF && ok) {
+      ok = uf_plugin_array_ext_diff_check(uf, prop, &array_eq_terms, NULL);
     }
-    if (updates_present) {
+
+    if (ok) {
+      uf_plugin_array_build_weak_eq_graph(uf, &array_terms);
       ok = uf_plugin_array_read_over_write_check(uf, prop, &array_terms, &select_terms); 
     }
-  }
 
-  if (ok) {
-    if (USE_ARRAY_DIFF) {
-      ok = uf_plugin_array_ext_diff_check(uf, prop, NULL, &array_terms);
-    } else {
-      ok = uf_plugin_array_ext_check(uf, prop, &array_eq_terms, &array_terms, &select_terms);
-    }
-  }
-
-  if (uf->conflict.size > 0) {
-    // Report conflict
-    term_t t;
-    prop->conflict(prop);
-    (*uf->stats.conflicts) ++;
-    // extract terms used in the conflict
-    for (i = 0; i < uf->conflict.size; ++i) {
-      t = uf->conflict.data[i];
-      if (term_kind(terms, t) == EQ_TERM) {
-	t_desc = eq_term_desc(terms, t);
-	int_mset_add(&uf->tmp, t_desc->arg[0]);
-	int_mset_add(&uf->tmp, t_desc->arg[1]);
+    if (ok) {
+      if (USE_ARRAY_DIFF) {
+        ok = uf_plugin_array_ext_diff_check(uf, prop, NULL, &array_terms);
       } else {
-        assert(false);
+        ok = uf_plugin_array_ext_check(uf, prop, &array_eq_terms, &array_terms, &select_terms);
       }
     }
-    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
-    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
-  }
 
+    if (uf->conflict.size > 0) {
+      // Report conflict
+      term_t t;
+      prop->conflict(prop);
+      (*uf->stats.conflicts) ++;
+      // extract terms used in the conflict
+      for (i = 0; i < uf->conflict.size; ++i) {
+        t = uf->conflict.data[i];
+        if (term_kind(terms, t) == EQ_TERM) {
+          t_desc = eq_term_desc(terms, t);
+          int_mset_add(&uf->tmp, t_desc->arg[0]);
+          int_mset_add(&uf->tmp, t_desc->arg[1]);
+        } else {
+          assert(false);
+        }
+      }
+      uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+      statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    }
+  }
+  
   delete_ivector(&select_terms);
   delete_ivector(&array_terms);
+  delete_ivector(&array_eq_terms);
 }
 
 static
