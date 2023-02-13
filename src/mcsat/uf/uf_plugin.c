@@ -1430,10 +1430,21 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
   if (uf->conflict.size > 0) {
     // Report conflict
+    term_t t;
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
-    //ivector_copy(&uf->tmp, &uf->conflict, uf->conflict.size);
-    //uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    // extract terms used in the conflict
+    for (i = 0; i < uf->conflict.size; ++i) {
+      t = uf->conflict.data[i];
+      if (term_kind(terms, t) == EQ_TERM) {
+	t_desc = eq_term_desc(terms, t);
+	int_mset_add(&uf->tmp, t_desc->arg[0]);
+	int_mset_add(&uf->tmp, t_desc->arg[1]);
+      } else {
+        assert(false);
+      }
+    }
+    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 
