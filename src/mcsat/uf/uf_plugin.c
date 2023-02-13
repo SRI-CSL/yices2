@@ -202,7 +202,7 @@ static const fun_node_t* find_secondary_node(const eq_graph_t* eq_graph,
   return res;
 }
 
-static term_t uf_plugin_get_index_from_store(uf_plugin_t* uf, term_t store) {
+static inline term_t uf_plugin_get_index_from_store(uf_plugin_t* uf, term_t store) {
   term_table_t* terms = uf->ctx->terms;
   assert(term_kind(terms, store) == UPDATE_TERM);
 
@@ -231,7 +231,7 @@ static void make_rep_i(uf_plugin_t* uf, fun_node_t* n) {
     next->sstore = prev_store;
 
     assert(!eq_graph_are_equal(&uf->eq_graph, next->pi,
-  			       uf_plugin_get_index_from_store(uf, next->sstore)));
+                               uf_plugin_get_index_from_store(uf, next->sstore)));
 
     prev = next;
     prev_store = tmp_sec_store;
@@ -473,9 +473,9 @@ static fun_node_t *uf_plugin_get_fun_node(uf_plugin_t* uf, term_t t) {
   return v->val;
 }
 
-static term_t uf_plugin_compute_weak_path_primary(uf_plugin_t* uf, term_t arr,
-						  int_hset_t* indices,
-						  int_hset_t* path_eq) {
+static inline term_t uf_plugin_compute_weak_path_primary(uf_plugin_t* uf, term_t arr,
+                                                  int_hset_t* indices,
+                                                  int_hset_t* path_eq) {
   const fun_node_t* a = uf_plugin_get_fun_node(uf, arr);
   term_t res = NULL_TERM;
   composite_term_t* t_desc = NULL;
@@ -499,7 +499,7 @@ static term_t uf_plugin_compute_weak_path_primary(uf_plugin_t* uf, term_t arr,
 }
 
 static void uf_plugin_compute_weak_path(uf_plugin_t* uf, term_t arr1,
-					term_t arr2, int_hset_t* indices,
+                                        term_t arr2, int_hset_t* indices,
                                         int_hset_t* path_eq) {
   const fun_node_t* a = uf_plugin_get_fun_node(uf, arr1);
   const fun_node_t* b = uf_plugin_get_fun_node(uf, arr2);
@@ -1026,8 +1026,8 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
 
 static
 bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
-			       term_t arr1, term_t arr2,
-			       const ivector_t* select_terms) {
+                               term_t arr1, term_t arr2,
+                               const ivector_t* select_terms) {
   bool res = true;
   term_table_t* terms = uf->ctx->terms;
 
@@ -1062,9 +1062,9 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
     for (k = 0; k < indices.nelems; ++ k) {
       term_t idx = indices.data[k];
       if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
-					     idx, &cond)) {
-	ok = false;
-	break;
+                                             idx, &cond)) {
+        ok = false;
+        break;
       }
     }
 
@@ -1073,11 +1073,11 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
 
       int_hset_close(&path_eq);
       for (k = 0; k < path_eq.nelems; ++k) {
-	add_if_not_true_term(&uf->conflict, path_eq.data[k]);
+        add_if_not_true_term(&uf->conflict, path_eq.data[k]);
       }
 
       for (k = 0; k < cond.size; ++k) {
-	add_if_not_true_term(&uf->conflict, cond.data[k]);
+        add_if_not_true_term(&uf->conflict, cond.data[k]);
       }
 
       ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
@@ -1085,11 +1085,11 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
       ivector_remove_duplicates(&uf->conflict);
 
       if (ctx_trace_enabled(uf->ctx, "uf_plugin::array")) {
-	ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
-	for (k = 0; k < uf->conflict.size; ++ k) {
-	  ctx_trace_term(uf->ctx, uf->conflict.data[k]);
-	}
-	ctx_trace_printf(uf->ctx, ">2 Array conflict END 2\n");
+        ctx_trace_printf(uf->ctx, ">2 Array conflict BEGIN 2\n");
+        for (k = 0; k < uf->conflict.size; ++ k) {
+          ctx_trace_term(uf->ctx, uf->conflict.data[k]);
+        }
+        ctx_trace_printf(uf->ctx, ">2 Array conflict END 2\n");
       }
 
       assert(uf->conflict.size > 1);
@@ -1105,7 +1105,7 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
 
 static
 bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
-			       const ivector_t* array_eq_terms,
+                               const ivector_t* array_eq_terms,
                                const ivector_t* array_terms,
                                const ivector_t* select_terms) {
   uint32_t i, j;
@@ -1135,8 +1135,8 @@ bool uf_plugin_array_ext_check(uf_plugin_t* uf, trail_token_t* prop,
     for (j = i + 1; res && j < array_terms->size; ++j) {
       arr2 = array_terms->data[j];
       if (!int_hset_member(&seen, _o_yices_eq(arr1, arr2))) {
-	res = uf_plugin_array_ext_lemma(uf, prop, arr1, arr2, select_terms);
-	int_hset_add(&seen, _o_yices_eq(arr1, arr2));
+        res = uf_plugin_array_ext_lemma(uf, prop, arr1, arr2, select_terms);
+        int_hset_add(&seen, _o_yices_eq(arr1, arr2));
       }
     }
   }
