@@ -1290,7 +1290,6 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
       if (t_i == t_j ||
           t_i_type != t_j_type ||
           !eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], e_j_desc->arg[1]) ||
-          eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[0], e_j_desc->arg[0]) ||
           eq_graph_are_equal(&uf->eq_graph, t_i, t_j)) {
         continue;
       }
