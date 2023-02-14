@@ -990,7 +990,7 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
       size2 = path_cond->size;
     }
 
-    for (j = 1; !res && j < select_terms->size; ++ j) {
+    for (j = 0; !res && j < select_terms->size; ++ j) {
       term_t t_j = select_terms->data[j];
       type_t t_j_type = term_type(terms, t_j);
       if (t_i_type != t_j_type ||
