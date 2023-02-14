@@ -457,7 +457,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
 }
 
 static
-void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* prop) {
+  bool propagated = false;
   // Process any propagated terms
   if (eq_graph_has_propagated_terms(&uf->eq_graph)) {
     uint32_t i = 0;
@@ -487,6 +488,8 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
             
             prop->add(prop, t_var, v);
             (*uf->stats.propagations) ++;
+
+	    propagated = true;
           } else {
             // Ignore, we will report conflict
           }
@@ -495,6 +498,8 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
     }
     delete_ivector(&eq_propagations);
   }
+
+  return propagated;
 }
 
 static fun_node_t *uf_plugin_get_fun_node(uf_plugin_t* uf, term_t t) {
@@ -1353,6 +1358,21 @@ void uf_plugin_array_build_weak_eq_graph(uf_plugin_t* uf, const ivector_t* array
 static
 void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
+  // optimization: skip array checks if not all terms (present in the
+  // eq_graph) have a value assigned in the graph
+  variable_db_t* var_db = uf->ctx->var_db;
+  term_t t = NULL_TERM;
+  int_hmap_pair_t* it;
+  for (it = int_hmap_first_record(&var_db->term_to_variable_map);
+       it != NULL;
+       it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
+    t = it->key;
+    if (eq_graph_has_term(&uf->eq_graph, t) &&
+        !eq_graph_term_has_value(&uf->eq_graph, t)) {
+      return;
+    }
+  }
+
   bool ok = true;
 
   ivector_t array_eq_terms, array_terms, select_terms;
@@ -1371,28 +1391,13 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
   //ok = uf_plugin_array_idx_check(uf, prop, &array_terms);
 
+  // check if updates are present.
   bool updates_present = false;
-
-  // check if all the revlevant terms have an assigned value
   uint32_t i;
   term_table_t* terms = uf->ctx->terms;
-  composite_term_t* t_desc = NULL;
   for (i = 0; ok && i < array_terms.size; ++i) {
-    if (!eq_graph_term_has_value(&uf->eq_graph, array_terms.data[i])) {
-      ok = false;
-    }
     if (term_kind(terms, array_terms.data[i]) == UPDATE_TERM) {
       updates_present = true;
-    }
-  }
-  for (i = 0; ok && i < select_terms.size; ++i) {
-    if (!eq_graph_term_has_value(&uf->eq_graph, select_terms.data[i])) {
-      ok = false;
-    } else {
-      t_desc = app_term_desc(terms, select_terms.data[i]);
-      if (!eq_graph_term_has_value(&uf->eq_graph, t_desc->arg[1])) {
-        ok = false;
-      }
     }
   }
 
@@ -1419,7 +1424,6 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
 
     if (uf->conflict.size > 0) {
       // Report conflict
-      term_t t;
       prop->conflict(prop);
       (*uf->stats.conflicts) ++;
       // extract terms used in the conflict
@@ -1459,7 +1463,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
-  uf_plugin_process_eq_graph_propagations(uf, prop);
+  bool eq_propagated = uf_plugin_process_eq_graph_propagations(uf, prop);
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
@@ -1473,7 +1477,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     return;
   }
 
-  if (uf->array_terms.size > 0) {
+  // skip array propagation if the EQ has done propgation
+  // check array propgation only if array terms are present
+  if (!eq_propagated && uf->array_terms.size > 0) {
     uf_plugin_array_propagations(uf, prop);
   }
 }
