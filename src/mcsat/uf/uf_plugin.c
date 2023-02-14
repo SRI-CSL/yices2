@@ -1367,7 +1367,7 @@ void uf_plugin_array_propagations(uf_plugin_t* uf, trail_token_t* prop) {
        it != NULL;
        it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
     t = it->key;
-    if (eq_graph_has_term(&uf->eq_graph, t) &&
+    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t) &&
         !eq_graph_term_has_value(&uf->eq_graph, t)) {
       return;
     }
