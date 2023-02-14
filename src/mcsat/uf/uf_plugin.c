@@ -93,6 +93,15 @@ typedef struct {
   /** Function Values to term (one rep term) */
   int_hmap_t fun_val_term_map;
 
+  /** Weak path equalities **/
+  ivector_t path_cond;
+
+  /** Weak path indices **/
+  ivector_t path_indices1;
+
+  /** Weak path indices **/
+  ivector_t path_indices2;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -385,6 +394,9 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->conflict, 0);
   init_ptr_hmap(&uf->fun_val_type_map, 0);
   init_int_hmap(&uf->fun_val_term_map, 0);
+  init_ivector(&uf->path_cond, 0);
+  init_ivector(&uf->path_indices1, 0);
+  init_ivector(&uf->path_indices2, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -426,6 +438,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->conflict);
   delete_ptr_hmap(&uf->fun_val_type_map);
   int_mset_destruct(&uf->tmp);
+
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
   delete_ivector(&uf->array_terms);
@@ -434,6 +447,10 @@ void uf_plugin_destruct(plugin_t* plugin) {
 
   delete_int_hmap(&uf->type_to_diff);
   delete_int_hset(&uf->diff_funs);
+  delete_ivector(&uf->path_cond);
+  delete_ivector(&uf->path_indices1);
+  delete_ivector(&uf->path_indices2);
+
   uf_plugin_clear_fun_node_map(uf);
   delete_ptr_hmap(&uf->fun_node_map);
   delete_int_hmap(&uf->fun_val_term_map);
@@ -493,8 +510,8 @@ static fun_node_t *uf_plugin_get_fun_node(uf_plugin_t* uf, term_t t) {
 }
 
 static inline term_t uf_plugin_compute_weak_path_primary(uf_plugin_t* uf, term_t arr,
-                                                  int_hset_t* indices,
-                                                  int_hset_t* path_eq) {
+							 ivector_t* indices,
+							 ivector_t* path_cond) {
   const fun_node_t* a = uf_plugin_get_fun_node(uf, arr);
   term_t res = NULL_TERM;
   composite_term_t* t_desc = NULL;
@@ -504,22 +521,22 @@ static inline term_t uf_plugin_compute_weak_path_primary(uf_plugin_t* uf, term_t
   t_desc = update_term_desc(terms, a->pstore);
 
   if (eq_graph_are_equal(&uf->eq_graph, t_desc->arg[0], arr)) {
-    int_hset_add(path_eq, _o_yices_eq(t_desc->arg[0], arr));
+    ivector_push(path_cond, _o_yices_eq(t_desc->arg[0], arr));
     res = a->pstore;
   } else {
-    int_hset_add(path_eq, _o_yices_eq(a->pstore, arr));
+    ivector_push(path_cond, _o_yices_eq(a->pstore, arr));
     res = t_desc->arg[0];
   }
 
   assert(a->pi == uf_plugin_get_index_from_store(uf, a->pstore));
-  int_hset_add(indices, a->pi);
+  ivector_push(indices, a->pi);
 
   return res;
 }
 
 static void uf_plugin_compute_weak_path(uf_plugin_t* uf, term_t arr1,
-                                        term_t arr2, int_hset_t* indices,
-                                        int_hset_t* path_eq) {
+                                        term_t arr2, ivector_t* indices,
+                                        ivector_t* path_cond) {
   const fun_node_t* a = uf_plugin_get_fun_node(uf, arr1);
   const fun_node_t* b = uf_plugin_get_fun_node(uf, arr2);
 
@@ -527,7 +544,7 @@ static void uf_plugin_compute_weak_path(uf_plugin_t* uf, term_t arr1,
   assert(get_rep(&uf->eq_graph, a) == get_rep(&uf->eq_graph, b));
 
   if (a == b) {
-    int_hset_add(path_eq, _o_yices_eq(arr1, arr2));
+    ivector_push(path_cond, _o_yices_eq(arr1, arr2));
     return;
   }
 
@@ -537,35 +554,35 @@ static void uf_plugin_compute_weak_path(uf_plugin_t* uf, term_t arr1,
   term_t t2 = arr2;
   
   while (prim_cnt1 > prim_cnt2) {
-    t1 = uf_plugin_compute_weak_path_primary(uf, t1, indices, path_eq);
+    t1 = uf_plugin_compute_weak_path_primary(uf, t1, indices, path_cond);
     a = a->p;
     prim_cnt1--;
   }
 
   while (prim_cnt2 > prim_cnt1) {
-    t2 = uf_plugin_compute_weak_path_primary(uf, t2, indices, path_eq);
+    t2 = uf_plugin_compute_weak_path_primary(uf, t2, indices, path_cond);
     b = b->p;
     prim_cnt2--;
   }
 
   while (a != b) {
-    t1 = uf_plugin_compute_weak_path_primary(uf, t1, indices, path_eq);
+    t1 = uf_plugin_compute_weak_path_primary(uf, t1, indices, path_cond);
     a = a->p;
 
-    t2 = uf_plugin_compute_weak_path_primary(uf, t2, indices, path_eq);
+    t2 = uf_plugin_compute_weak_path_primary(uf, t2, indices, path_cond);
     b = b->p;
   }
 
   assert(a == b);
   if (t1 != t2) {
-    int_hset_add(path_eq, _o_yices_eq(t1, t2));
+    ivector_push(path_cond, _o_yices_eq(t1, t2));
   }
 }
 
 static term_t uf_plugin_compute_path_secondary(uf_plugin_t* uf, term_t arr,
                                                term_t idx,
-                                               int_hset_t* indices,
-                                               int_hset_t* path_eq) {
+                                               ivector_t* indices,
+                                               ivector_t* path_cond) {
   term_t res = NULL_TERM;
   term_table_t* terms = uf->ctx->terms;
   const fun_node_t* tmp = find_secondary_node_const(&uf->eq_graph,
@@ -582,25 +599,25 @@ static term_t uf_plugin_compute_path_secondary(uf_plugin_t* uf, term_t arr,
 
   if (find_secondary_node_const(&uf->eq_graph,
 				uf_plugin_get_fun_node(uf, t_desc->arg[0]), idx) == tmp) {
-    uf_plugin_compute_weak_path(uf, arr, t_desc->arg[0], indices, path_eq);
+    uf_plugin_compute_weak_path(uf, arr, t_desc->arg[0], indices, path_cond);
     res = tmp->sstore;
   } else {
     assert(find_secondary_node_const(&uf->eq_graph,
 				     uf_plugin_get_fun_node(uf, tmp->sstore), idx) == tmp);
 
-    uf_plugin_compute_weak_path(uf, arr, tmp->sstore, indices, path_eq);
+    uf_plugin_compute_weak_path(uf, arr, tmp->sstore, indices, path_cond);
     res = t_desc->arg[0];
   }
 
-  int_hset_add(indices, t_desc->arg[1]);
+  ivector_push(indices, t_desc->arg[1]);
 
   return res;
 }
 
 static void uf_plugin_compute_weak_path_i(uf_plugin_t* uf, term_t arr1,
                                           term_t arr2, term_t idx,
-                                          int_hset_t* indices,
-                                          int_hset_t* path_eq) {
+                                          ivector_t* indices,
+                                          ivector_t* path_cond) {
   const fun_node_t* a = uf_plugin_get_fun_node(uf, arr1);
   const fun_node_t* b = uf_plugin_get_fun_node(uf, arr2);
   uint32_t sec_cnt1 = count_secondary(&uf->eq_graph, a, idx);  
@@ -609,14 +626,14 @@ static void uf_plugin_compute_weak_path_i(uf_plugin_t* uf, term_t arr1,
   assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
 
   while (sec_cnt1 > sec_cnt2) {
-    arr1 = uf_plugin_compute_path_secondary(uf, arr1, idx, indices, path_eq);
+    arr1 = uf_plugin_compute_path_secondary(uf, arr1, idx, indices, path_cond);
     sec_cnt1--;
     a = uf_plugin_get_fun_node(uf, arr1);
     assert(count_secondary(&uf->eq_graph, a, idx) == sec_cnt1);
     assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
   }
   while (sec_cnt2 > sec_cnt1) {
-    arr2 = uf_plugin_compute_path_secondary(uf, arr2, idx, indices, path_eq);
+    arr2 = uf_plugin_compute_path_secondary(uf, arr2, idx, indices, path_cond);
     sec_cnt2--;
     b = uf_plugin_get_fun_node(uf, arr2);
     assert(count_secondary(&uf->eq_graph, b, idx) == sec_cnt2);
@@ -626,14 +643,14 @@ static void uf_plugin_compute_weak_path_i(uf_plugin_t* uf, term_t arr1,
   assert(sec_cnt1 == sec_cnt2);
   while (find_secondary_node_const(&uf->eq_graph, a, idx) != find_secondary_node_const(&uf->eq_graph, b, idx)) {
     assert(count_secondary(&uf->eq_graph, a, idx) == count_secondary(&uf->eq_graph, b, idx));
-    arr1 = uf_plugin_compute_path_secondary(uf, arr1, idx, indices, path_eq);
-    arr2 = uf_plugin_compute_path_secondary(uf, arr2, idx, indices, path_eq);
+    arr1 = uf_plugin_compute_path_secondary(uf, arr1, idx, indices, path_cond);
+    arr2 = uf_plugin_compute_path_secondary(uf, arr2, idx, indices, path_cond);
     a = uf_plugin_get_fun_node(uf, arr1);
     b = uf_plugin_get_fun_node(uf, arr2);
     assert(get_rep_i(&uf->eq_graph, a, idx) == get_rep_i(&uf->eq_graph, b, idx));
   }
 
-  uf_plugin_compute_weak_path(uf, arr1, arr2, indices, path_eq);
+  uf_plugin_compute_weak_path(uf, arr1, arr2, indices, path_cond);
 }
 
 static void uf_plugin_add_diff_terms_vars(uf_plugin_t* uf, term_t arr) {
@@ -867,10 +884,9 @@ bool uf_plugin_array_idx_check(uf_plugin_t* uf, trail_token_t* prop,
 static
 bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
                                term_t idx,
-                               ivector_t* indices, ivector_t* cond) {
-  int_hset_t index_set, path_eq;
+                               ivector_t* indices, ivector_t* path_cond) {
   bool res = false;
-  uint32_t old_indices_size, old_cond_size;
+  uint32_t old_indices_size, old_path_cond_size;
 
   const fun_node_t* fn_arr1 = get_rep_i(&uf->eq_graph,
                                         uf_plugin_get_fun_node(uf, arr1), idx);
@@ -879,36 +895,25 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
 
-  init_int_hset(&index_set, 0);
-  init_int_hset(&path_eq, 0);
-
   if (indices) {
     old_indices_size = indices->size;
   }
-  if (cond) {
-    old_cond_size = cond->size;
+  if (path_cond) {
+    old_path_cond_size = path_cond->size;
   }
 
   if (fn_arr1 == fn_arr2) {
     uint32_t k;
 
     res = true;
-    uf_plugin_compute_weak_path_i(uf, arr1, arr2, idx, &index_set, &path_eq);
+    uf_plugin_compute_weak_path_i(uf, arr1, arr2, idx, indices, path_cond);
 
     // add indices
-    int_hset_close(&index_set);
-    for (k = 0; k < index_set.nelems; ++k) {
-      if (eq_graph_are_equal(&uf->eq_graph, idx, index_set.data[k])) {
+    for (k = old_indices_size; k < indices->size; ++k) {
+      if (eq_graph_are_equal(&uf->eq_graph, idx, indices->data[k])) {
         res = false;
         break;
       }
-      ivector_push(indices, index_set.data[k]);
-    }
-    
-    int_hset_close(&path_eq);
-    // add path eq conditions
-    for (k = 0; res && k < path_eq.nelems; ++k) {
-      add_if_not_true_term(cond, path_eq.data[k]);
     }
   }
 
@@ -916,12 +921,9 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
     ivector_shrink(indices, old_indices_size);
   }
 
-  if (!res && cond) {
-    ivector_shrink(cond, old_cond_size);
+  if (!res && path_cond) {
+    ivector_shrink(path_cond, old_path_cond_size);
   }
-
-  delete_int_hset(&path_eq);
-  delete_int_hset(&index_set);
 
   return res;
 }
@@ -929,42 +931,40 @@ bool uf_plugin_array_weak_eq_i(uf_plugin_t* uf, term_t arr1, term_t arr2,
 static
 bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_terms,
                                        term_t arr1, term_t arr2,
-                                       term_t idx, ivector_t* cond) {
+                                       term_t idx, ivector_t* path_cond) {
   assert(eq_graph_term_has_value(&uf->eq_graph, idx));
 
   bool res = false;
   term_table_t* terms = uf->ctx->terms;
 
   uint32_t i, j, k;
-  uint32_t cond_old_size;
+  uint32_t old_path_cond_size;
   
-  ivector_t indices;
-  init_ivector(&indices, 0);
-
-  if (cond) {
-    cond_old_size = cond->size;
+  if (path_cond) {
+    old_path_cond_size = path_cond->size;
   }
 
-  if (uf_plugin_array_weak_eq_i(uf, arr1, arr2, idx, &indices, cond)) {
-    for (k =0; k < indices.size; ++k) {
-      assert(idx != indices.data[k]);
-      if (eq_graph_are_equal(&uf->eq_graph, idx, indices.data[k])) {
+  ivector_shrink(&uf->path_indices1, 0);
+  if (uf_plugin_array_weak_eq_i(uf, arr1, arr2, idx, &uf->path_indices1, path_cond)) {
+    for (k =0; k < uf->path_indices1.size; ++k) {
+      assert(idx != uf->path_indices1.data[k]);
+      if (eq_graph_are_equal(&uf->eq_graph, idx, uf->path_indices1.data[k])) {
         goto nextcheck;
       }
     }
 
     res = true;
 
-    for (k =0; k < indices.size; ++k) {
-      add_if_not_true_term(cond, _o_yices_neq(idx, indices.data[k]));
+    for (k =0; k < uf->path_indices1.size; ++k) {
+      add_if_not_true_term(path_cond, _o_yices_neq(idx, uf->path_indices1.data[k]));
     }
 
     goto done;
   }
 
  nextcheck:
-  if (cond) {
-    ivector_shrink(cond, cond_old_size);
+  if (path_cond) {
+    ivector_shrink(path_cond, old_path_cond_size);
   }
 
   for (i = 0; !res && i < select_terms->size; ++ i) {
@@ -972,18 +972,17 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
     type_t t_i_type = term_type(terms, t_i);
     assert(variable_db_get_variable_if_exists(uf->ctx->var_db, t_i) != variable_null);
 
-    ivector_shrink(&indices, 0);
+    ivector_shrink(&uf->path_indices1, 0);
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
     if (!eq_graph_are_equal(&uf->eq_graph, e_i_desc->arg[1], idx) ||
-        !uf_plugin_array_weak_eq_i(uf, arr1, e_i_desc->arg[0], idx, &indices, cond)) {
-      assert(indices.size == 0);
+        !uf_plugin_array_weak_eq_i(uf, arr1, e_i_desc->arg[0], idx, &uf->path_indices1, path_cond)) {
       continue;
     }
 
-    uint32_t size1 = indices.size;
+    uint32_t size1 = uf->path_indices1.size;
     uint32_t size2;
-    if (cond) {
-      size2 = cond->size;
+    if (path_cond) {
+      size2 = path_cond->size;
     }
 
     for (j = 1; !res && j < select_terms->size; ++ j) {
@@ -994,35 +993,35 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
         continue;
       }
       
-      ivector_shrink(&indices, size1);
-      if (cond) {
-        ivector_shrink(cond, size2);
+      ivector_shrink(&uf->path_indices1, size1);
+      if (path_cond) {
+        ivector_shrink(path_cond, size2);
       }
 
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
       if (!eq_graph_are_equal(&uf->eq_graph, e_j_desc->arg[1], idx) ||
-          !uf_plugin_array_weak_eq_i(uf, arr2, e_j_desc->arg[0], idx, &indices, cond)) {
+          !uf_plugin_array_weak_eq_i(uf, arr2, e_j_desc->arg[0], idx, &uf->path_indices1, path_cond)) {
         continue;
       }
       
       res = true;
-      if (cond) {
+      if (path_cond) {
         // Conditions of arr1 weakly-eq-i to a and arr2 weakly-eq-i to b'
-        for (k = 0; k < indices.size; ++k) {
-          if (eq_graph_are_equal(&uf->eq_graph, indices.data[k], idx)) {
+        for (k = 0; k < uf->path_indices1.size; ++k) {
+          if (eq_graph_are_equal(&uf->eq_graph, uf->path_indices1.data[k], idx)) {
             res = false;
             break;
           }
         }
 
         if (res) {
-          for (k =0; k < indices.size; ++k) {
-            add_if_not_true_term(cond, _o_yices_neq(idx, indices.data[k]));
+          for (k = 0; k < uf->path_indices1.size; ++k) {
+            add_if_not_true_term(path_cond, _o_yices_neq(idx, uf->path_indices1.data[k]));
           }
 
-          add_if_not_true_term(cond, _o_yices_eq(idx, e_i_desc->arg[1]));
-          add_if_not_true_term(cond, _o_yices_eq(t_i, t_j));
-          add_if_not_true_term(cond, _o_yices_eq(idx, e_j_desc->arg[1]));
+          add_if_not_true_term(path_cond, _o_yices_eq(idx, e_i_desc->arg[1]));
+          add_if_not_true_term(path_cond, _o_yices_eq(t_i, t_j));
+          add_if_not_true_term(path_cond, _o_yices_eq(idx, e_j_desc->arg[1]));
 
           goto done;
         }
@@ -1031,11 +1030,9 @@ bool uf_plugin_array_weak_congruence_i(uf_plugin_t* uf, const ivector_t* select_
   }
 
  done:
-  if (!res && cond) {
-    ivector_shrink(cond, cond_old_size);
+  if (!res && path_cond) {
+    ivector_shrink(path_cond, old_path_cond_size);
   }
-
-  delete_ivector(&indices);
 
   return res;
 }
@@ -1054,13 +1051,6 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
     return res;
   }
       
-  ivector_t cond;
-  int_hset_t path_eq, indices;
-
-  init_ivector(&cond, 0);
-  init_int_hset(&path_eq, 0);
-  init_int_hset(&indices, 0);
-
   const fun_node_t* fn_arr1 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr1));
   const fun_node_t* fn_arr2 = get_rep(&uf->eq_graph, uf_plugin_get_fun_node(uf, arr2));
 
@@ -1068,16 +1058,15 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
     bool ok = true;
     uint32_t k;
     
-    ivector_shrink(&cond, 0);
-    int_hset_reset(&path_eq);
-    int_hset_reset(&indices);
-    uf_plugin_compute_weak_path(uf, arr1, arr2, &indices, &path_eq);
-    
-    int_hset_close(&indices);
-    for (k = 0; k < indices.nelems; ++ k) {
-      term_t idx = indices.data[k];
+    ivector_shrink(&uf->path_cond, 0);
+    ivector_shrink(&uf->path_indices2, 0);
+    uf_plugin_compute_weak_path(uf, arr1, arr2, &uf->path_indices2, &uf->path_cond);
+
+    ivector_remove_duplicates(&uf->path_indices2);
+    for (k = 0; k < uf->path_indices2.size; ++ k) {
+      term_t idx = uf->path_indices2.data[k];
       if (!uf_plugin_array_weak_congruence_i(uf, select_terms, arr1, arr2,
-                                             idx, &cond)) {
+                                             idx, &uf->path_cond)) {
         ok = false;
         break;
       }
@@ -1086,13 +1075,8 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
     if (ok) {
       res = false;
 
-      int_hset_close(&path_eq);
-      for (k = 0; k < path_eq.nelems; ++k) {
-        add_if_not_true_term(&uf->conflict, path_eq.data[k]);
-      }
-
-      for (k = 0; k < cond.size; ++k) {
-        add_if_not_true_term(&uf->conflict, cond.data[k]);
+      for (k = 0; k < uf->path_cond.size; ++k) {
+        add_if_not_true_term(&uf->conflict, uf->path_cond.data[k]);
       }
 
       ivector_push(&uf->conflict, _o_yices_neq(arr1, arr2));
@@ -1111,10 +1095,6 @@ bool uf_plugin_array_ext_lemma(uf_plugin_t* uf, trail_token_t* prop,
       (*uf->stats.array_ext_axioms) ++;
     }
   }
-
-  delete_ivector(&cond);
-  delete_int_hset(&path_eq);
-  delete_int_hset(&indices);
 
   return res;
 }
@@ -1272,10 +1252,6 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
   term_table_t* terms = uf->ctx->terms;
   uint32_t i, j, k;
 
-  ivector_t cond, indices;
-  init_ivector(&cond, 0);
-  init_ivector(&indices, 0);
-
   // generalized read-over-write lemma
   for (i = 0; i < select_terms->size; ++ i) {
     term_t t_i = select_terms->data[i];
@@ -1294,32 +1270,32 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
         continue;
       }
       
-      ivector_shrink(&indices, 0);
-      ivector_shrink(&cond, 0);
+      ivector_shrink(&uf->path_indices1, 0);
+      ivector_shrink(&uf->path_cond, 0);
 
       if (uf_plugin_array_weak_eq_i(uf, e_i_desc->arg[0], e_j_desc->arg[0],
-                                    e_i_desc->arg[1], &indices, &cond)) {
+                                    e_i_desc->arg[1], &uf->path_indices1, &uf->path_cond)) {
         // found conflict
         assert(uf->conflict.size == 0);
 
         bool ok = true;
-        for (k = 0; k < indices.size; ++ k) {
-          assert(indices.data[k] != e_i_desc->arg[1]);
+        for (k = 0; k < uf->path_indices1.size; ++ k) {
+          assert(uf->path_indices1.data[k] != e_i_desc->arg[1]);
           if (eq_graph_are_equal(&uf->eq_graph,
-                                 e_i_desc->arg[1], indices.data[k])) {
+                                 e_i_desc->arg[1], uf->path_indices1.data[k])) {
             ok = false;
             break;
           }
 
           add_if_not_true_term(&uf->conflict,
-                               _o_yices_neq(e_i_desc->arg[1], indices.data[k]));
+                               _o_yices_neq(e_i_desc->arg[1], uf->path_indices1.data[k]));
         }
 
         if (!ok) {
           ivector_reset(&uf->conflict);
         } else {
-          for (k = 0; k < cond.size; ++k) {
-            add_if_not_true_term(&uf->conflict, cond.data[k]);
+          for (k = 0; k < uf->path_cond.size; ++k) {
+            add_if_not_true_term(&uf->conflict, uf->path_cond.data[k]);
           }
 
           add_if_not_true_term(&uf->conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
@@ -1345,9 +1321,6 @@ bool uf_plugin_array_read_over_write_check(uf_plugin_t* uf, trail_token_t* prop,
   }
 
  done:
-  delete_ivector(&indices);
-  delete_ivector(&cond);
-
   return uf->conflict.size == 0;
 }
 
