@@ -21,6 +21,7 @@
 #include "mcsat/tracing.h"
 
 #include "utils/refcount_strings.h"
+#include "utils/int_array_sort2.h"
 
 
 #define USE_ARRAY_DIFF 0 //experimental
@@ -1229,6 +1230,22 @@ term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term
   return r_lemma;
 }
 
+/* Compare terms according to their heuristic score
+ */
+static
+bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
+  plugin_context_t* ctx = (plugin_context_t*) data;
+
+  variable_t v1 = variable_db_get_variable_if_exists(ctx->var_db, t1);
+  variable_t v2 = variable_db_get_variable_if_exists(ctx->var_db, t2);
+
+  if (v1 != variable_null && v2 != variable_null) {
+    return ctx->cmp_variables(ctx, v1, v2) > 0;
+  } else {
+    return t1 > t2;
+  }
+}
+
 /* The main method to check array conflicts. The conflict vector will
  * contain conflicting terms if an array conflict is found. It assumes
  * that all terms (assignable) present in the array_terms and
@@ -1266,10 +1283,16 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   init_ivector(&array_terms, 0);
   ivector_copy(&array_terms, weq->array_terms.data, weq->array_terms.size);
   ivector_remove_duplicates(&array_terms);
-
+  // TODO: Heuristic to try
+  // store array terms according to heuristic score
+  int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
+  
   init_ivector(&select_terms, 0);
   ivector_copy(&select_terms, weq->select_terms.data, weq->select_terms.size);
   ivector_remove_duplicates(&select_terms);
+  // TODO: Heuristic to try
+  // store select terms according to heuristic score
+  //int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 
   //ok = weq_graph_array_idx_check(weq, conflict, &array_terms);
 
