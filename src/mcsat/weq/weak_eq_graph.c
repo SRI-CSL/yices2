@@ -211,13 +211,13 @@ static uint32_t count_primary(const weq_graph_node_t* n) {
  * are not equivalent to idx.
  */
 static const weq_graph_node_t* weq_graph_get_rep_i(const weq_graph_t* weq,
-						   const weq_graph_node_t* n,
-						   const term_t idx) {
+                                                   const weq_graph_node_t* n,
+                                                   const term_t idx) {
   const weq_graph_node_t* res = n;
   while (res->p != NULL) {
     if (eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
       if (res->s == NULL) {
-	// no secondary edge means that we have found the node
+        // no secondary edge means that we have found the node
         break;
       }
       res = res->s;
@@ -233,7 +233,7 @@ static const weq_graph_node_t* weq_graph_get_rep_i(const weq_graph_t* weq,
  */
 static
 uint32_t weq_graph_count_secondary(const weq_graph_t* weq, const weq_graph_node_t* n,
-				   const term_t idx) {
+                                   const term_t idx) {
   uint32_t res = 0;
   const weq_graph_node_t* tmp = n;
   while (tmp->p != NULL) {
@@ -254,7 +254,7 @@ uint32_t weq_graph_count_secondary(const weq_graph_t* weq, const weq_graph_node_
  */
 static
 weq_graph_node_t* weq_graph_find_secondary_node(weq_graph_t* weq,
-						weq_graph_node_t* n, term_t idx) {
+                                                weq_graph_node_t* n, term_t idx) {
   weq_graph_node_t* res = n;
   while (res->p != NULL && !eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
     res = res->p;
@@ -266,8 +266,8 @@ weq_graph_node_t* weq_graph_find_secondary_node(weq_graph_t* weq,
  */
 static
 const weq_graph_node_t* weq_graph_find_secondary_node_const(weq_graph_t* weq,
-							    const weq_graph_node_t* n,
-							    term_t idx) {
+                                                            const weq_graph_node_t* n,
+                                                            term_t idx) {
   const weq_graph_node_t* res = n;
   while (res->p != NULL && !eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
     res = res->p;
@@ -379,7 +379,7 @@ static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t) {
  * store is saved as the update term for that secondary edge.
  */
 static void weq_graph_add_secondary(weq_graph_t* weq, int_hset_t* idx_set,
-				    weq_graph_node_t* a, weq_graph_node_t* b, term_t store) {
+                                    weq_graph_node_t* a, weq_graph_node_t* b, term_t store) {
   assert(b->p == NULL);
   weq_graph_node_t* n = a;
   while (n != b) {
@@ -401,7 +401,7 @@ static void weq_graph_add_secondary(weq_graph_t* weq, int_hset_t* idx_set,
  * Add the store (update term) on the primary edge or call add-secondary.
  */
 static void weq_graph_add_store(weq_graph_t* weq, weq_graph_node_t* a, weq_graph_node_t* b,
-				term_t idx, term_t store) {
+                                term_t idx, term_t store) {
   if (a == b) {
     return;
   }
@@ -442,8 +442,8 @@ static weq_graph_node_t *weq_graph_get_node(weq_graph_t* weq, term_t t) {
  */
 static
 term_t weq_graph_compute_weak_path_primary(weq_graph_t* weq, term_t arr,
-					   ivector_t* indices,
-					   ivector_t* path_cond) {
+                                           ivector_t* indices,
+                                           ivector_t* path_cond) {
   const weq_graph_node_t* a = weq_graph_get_node(weq, arr);
   term_t res = NULL_TERM;
   composite_term_t* t_desc = NULL;
@@ -520,9 +520,9 @@ static void weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
  */
 static
 term_t weq_graph_compute_path_secondary(weq_graph_t* weq, term_t arr,
-					term_t idx,
-					ivector_t* indices,
-					ivector_t* path_cond) {
+                                        term_t idx,
+                                        ivector_t* indices,
+                                        ivector_t* path_cond) {
   term_t res = NULL_TERM;
   term_table_t* terms = weq->ctx->terms;
   const weq_graph_node_t* tmp =
@@ -538,13 +538,13 @@ term_t weq_graph_compute_path_secondary(weq_graph_t* weq, term_t arr,
   composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
 
   if (weq_graph_find_secondary_node_const(weq, weq_graph_get_node(weq, t_desc->arg[0]),
-					  idx) == tmp) {
+                                          idx) == tmp) {
     weq_graph_compute_weak_path(weq, arr, t_desc->arg[0], indices, path_cond);
     res = tmp->sstore;
   } else {
     assert(weq_graph_find_secondary_node_const(weq,
-					       weq_graph_get_node(weq, tmp->sstore),
-					       idx) == tmp);
+                                               weq_graph_get_node(weq, tmp->sstore),
+                                               idx) == tmp);
 
     weq_graph_compute_weak_path(weq, arr, tmp->sstore, indices, path_cond);
     res = t_desc->arg[0];
@@ -560,16 +560,16 @@ term_t weq_graph_compute_path_secondary(weq_graph_t* weq, term_t arr,
  */
 static
 void weq_graph_compute_weak_path_i(weq_graph_t* weq, term_t arr1,
-				   term_t arr2, term_t idx,
-				   ivector_t* indices,
-				   ivector_t* path_cond) {
+                                   term_t arr2, term_t idx,
+                                   ivector_t* indices,
+                                   ivector_t* path_cond) {
   const weq_graph_node_t* a = weq_graph_get_node(weq, arr1);
   const weq_graph_node_t* b = weq_graph_get_node(weq, arr2);
   uint32_t sec_cnt1 = weq_graph_count_secondary(weq, a, idx);  
   uint32_t sec_cnt2 = weq_graph_count_secondary(weq, b, idx);
 
   assert(weq_graph_get_rep_i(weq, a, idx) ==
-	 weq_graph_get_rep_i(weq, b, idx));
+         weq_graph_get_rep_i(weq, b, idx));
 
   while (sec_cnt1 > sec_cnt2) {
     arr1 = weq_graph_compute_path_secondary(weq, arr1, idx, indices, path_cond);
@@ -590,10 +590,10 @@ void weq_graph_compute_weak_path_i(weq_graph_t* weq, term_t arr1,
 
   assert(sec_cnt1 == sec_cnt2);
   while (weq_graph_find_secondary_node_const(weq, a, idx) !=
-	 weq_graph_find_secondary_node_const(weq, b, idx)) {
+         weq_graph_find_secondary_node_const(weq, b, idx)) {
 
     assert(weq_graph_count_secondary(weq, a, idx) ==
-	   weq_graph_count_secondary(weq, b, idx));
+           weq_graph_count_secondary(weq, b, idx));
 
     arr1 = weq_graph_compute_path_secondary(weq, arr1, idx, indices, path_cond);
     arr2 = weq_graph_compute_path_secondary(weq, arr2, idx, indices, path_cond);
@@ -712,7 +712,7 @@ bool weq_graph_array_idx_check(weq_graph_t* weq, ivector_t* conflict,
 static
 bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
                                term_t idx, ivector_t* indices,
-			       ivector_t* path_cond) {
+                               ivector_t* path_cond) {
   bool res = false;
   uint32_t old_indices_size, old_path_cond_size;
 
@@ -1087,7 +1087,7 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
     for (i = 0; res && i < array_terms->size; ++i) {
       term_t arr1 = array_terms->data[i];
       assert(variable_db_get_variable_if_exists(weq->ctx->var_db, arr1) !=
-	     variable_null);
+             variable_null);
       if (!eq_graph_term_has_value(weq->eq_graph, arr1)) {
         continue;
       }
@@ -1172,7 +1172,7 @@ bool weq_graph_array_read_over_write_check(weq_graph_t* weq, ivector_t* conflict
           }
 
           assert(conflict->size > 1);
-	  (*weq->stats.array_update2_axioms) ++;
+          (*weq->stats.array_update2_axioms) ++;
 
           goto done;
         }
@@ -1188,7 +1188,7 @@ bool weq_graph_array_read_over_write_check(weq_graph_t* weq, ivector_t* conflict
  */
 static
 void weq_graph_array_build_weak_eq_graph(weq_graph_t* weq,
-					 const ivector_t* array_terms) {
+                                         const ivector_t* array_terms) {
   term_table_t* terms = weq->ctx->terms;
   uint32_t i;
 

@@ -194,7 +194,7 @@ bool uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
             prop->add(prop, t_var, v);
             (*uf->stats.propagations) ++;
 
-	    propagated = true;
+            propagated = true;
           } else {
             // Ignore, we will report conflict
           }
