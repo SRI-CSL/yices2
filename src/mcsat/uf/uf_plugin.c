@@ -233,9 +233,9 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     variable_db_get_variable(uf->ctx->var_db, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
     // TODO: can we check if the domain is finite? if so, we can guard this extra select term
-    /* term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1); */
-    /* variable_db_get_variable(uf->ctx->var_db, r2); */
-    /* ivector_push(&uf->select_terms, r2); */
+    term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
+    variable_db_get_variable(uf->ctx->var_db, r2);
+    weq_graph_add_select_term(&uf->weq_graph, r2);
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
