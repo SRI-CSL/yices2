@@ -1282,12 +1282,25 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   //ok = weq_graph_array_idx_check(weq, conflict, &array_terms);
 
   // check if updates are present.
+  // also make sure that relevant array terms have been assinged values
   bool updates_present = false;
   uint32_t i;
   term_table_t* terms = weq->ctx->terms;
+  composite_term_t* t_desc = NULL;
   for (i = 0; ok && i < array_terms.size; ++i) {
+    if (!eq_graph_term_has_value(weq->eq_graph, array_terms.data[i])) {
+       ok = false;
+    }
     if (term_kind(terms, array_terms.data[i]) == UPDATE_TERM) {
       updates_present = true;
+    }
+  }
+  for (i = 0; ok && i < select_terms.size; ++i) {
+    t_desc = app_term_desc(terms, select_terms.data[i]);
+    if (!eq_graph_term_has_value(weq->eq_graph, select_terms.data[i]) ||
+	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[0]) ||
+	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[1])) {
+	ok = false;
     }
   }
 
