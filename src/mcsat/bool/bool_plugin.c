@@ -769,8 +769,32 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
   term_t t_unsigned = unsigned_term(t);
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
   if (t_var == variable_null) {
+    // trying one step further to evaluate equality terms
+    if (term_kind(bp->ctx->terms, t_unsigned) == EQ_TERM) {
+      composite_term_t* t_desc = eq_term_desc(bp->ctx->terms, t);
+      term_t t1 = t_desc->arg[0];
+      term_t t2 = t_desc->arg[1];
+      assert(t1 != NULL_TERM);
+      assert(t2 != NULL_TERM);
+      variable_t t1_var = variable_db_get_variable_if_exists(var_db, t1);
+      variable_t t2_var = variable_db_get_variable_if_exists(var_db, t2);
+      if (t1_var != variable_null && t2_var != variable_null) {
+	if (trail_has_value(trail, t1_var) && trail_has_value(trail, t2_var)) {
+	  bool negated = is_neg_term(t);
+	  const mcsat_value_t* t1_var_value = trail_get_value(trail, t1_var);
+	  const mcsat_value_t* t2_var_value = trail_get_value(trail, t2_var);
+	  if (negated) {
+	    return (t1_var_value->b == t2_var_value->b) != value->b;
+	  } else {
+	    return (t1_var_value->b == t2_var_value->b) == value->b;
+	  }
+	}
+      }
+    }
+    // couldn't evaluate
     return false;
   }
+
   int_mset_add(vars, t_var);
   if (trail_has_value(trail, t_var)) {
     bool negated = is_neg_term(t);

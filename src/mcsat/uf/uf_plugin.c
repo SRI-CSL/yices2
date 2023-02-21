@@ -25,13 +25,19 @@
 #include "mcsat/value.h"
 
 #include "mcsat/eq/equality_graph.h"
+#include "mcsat/weq/weak_eq_graph.h"
 
 #include "utils/int_array_sort2.h"
 #include "utils/ptr_array_sort2.h"
+
 #include "model/models.h"
 
 #include "terms/terms.h"
 #include "inttypes.h"
+
+
+#define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
+
 
 typedef struct {
 
@@ -56,6 +62,12 @@ typedef struct {
   /** Stuff added to eq_graph */
   ivector_t eq_graph_addition_trail;
 
+  /** Weak Equality graph for array reasoning */
+  weq_graph_t weq_graph;
+
+  /** Function Values to types map */
+  ptr_hmap_t fun_val_type_map;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -71,6 +83,7 @@ typedef struct {
   jmp_buf* exception;
 
 } uf_plugin_t;
+
 
 static
 void uf_plugin_stats_init(uf_plugin_t* uf) {
@@ -104,6 +117,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
+  init_ptr_hmap(&uf->fun_val_type_map, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -112,16 +126,22 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ARITH_IDIV, false);
   ctx->request_term_notification_by_kind(ctx, ARITH_MOD, false);
   ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, UPDATE_TERM, false);
 
   // Types
   ctx->request_term_notification_by_type(ctx, UNINTERPRETED_TYPE);
+  ctx->request_term_notification_by_type(ctx, FUNCTION_TYPE);
 
   // Decisions
   ctx->request_decision_calls(ctx, UNINTERPRETED_TYPE);
+  ctx->request_decision_calls(ctx, FUNCTION_TYPE);
 
   // Equality graph
   eq_graph_construct(&uf->eq_graph, ctx, "uf");
   init_ivector(&uf->eq_graph_addition_trail, 0);
+
+  // Weak Equality graph
+  weq_graph_construct(&uf->weq_graph, ctx, &uf->eq_graph);
 
   // stats
   uf_plugin_stats_init(uf);
@@ -132,13 +152,18 @@ void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
+  delete_ptr_hmap(&uf->fun_val_type_map);
   int_mset_destruct(&uf->tmp);
+
   eq_graph_destruct(&uf->eq_graph);
   delete_ivector(&uf->eq_graph_addition_trail);
+
+  weq_graph_destruct(&uf->weq_graph);
 }
 
 static
-void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* prop) {
+bool uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* prop) {
+  bool propagated = false;
   // Process any propagated terms
   if (eq_graph_has_propagated_terms(&uf->eq_graph)) {
     uint32_t i = 0;
@@ -151,9 +176,11 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
       // Variable to propagate
       variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
       if (t_var != variable_null) {
-        // Only set values of uninterpreted and boolean type
+        // Only set values of uninterpreted, function and boolean type
         type_kind_t t_type_kind = term_type_kind(uf->ctx->terms, t);
-        if (t_type_kind == UNINTERPRETED_TYPE || t_type_kind == BOOL_TYPE) {
+        if (t_type_kind == UNINTERPRETED_TYPE ||
+            t_type_kind == FUNCTION_TYPE ||
+            t_type_kind == BOOL_TYPE) {
           const mcsat_value_t* v = eq_graph_get_propagated_term_value(&uf->eq_graph, t);
           if (!trail_has_value(uf->ctx->trail, t_var)) {
             if (ctx_trace_enabled(uf->ctx, "mcsat::eq::propagate")) {
@@ -163,8 +190,11 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
               mcsat_value_print(v, out);
               fprintf(out, "\n");
             }
+            
             prop->add(prop, t_var, v);
             (*uf->stats.propagations) ++;
+
+            propagated = true;
           } else {
             // Ignore, we will report conflict
           }
@@ -173,6 +203,8 @@ void uf_plugin_process_eq_graph_propagations(uf_plugin_t* uf, trail_token_t* pro
     }
     delete_ivector(&eq_propagations);
   }
+
+  return propagated;
 }
 
 static
@@ -185,12 +217,25 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 
   // Add to equality graph
   composite_term_t* t_desc = NULL;
-  uint32_t children_start = 0;
   switch (t_kind) {
   case APP_TERM:
     t_desc = app_term_desc(terms, t);
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
-    children_start = 1;
+    weq_graph_add_select_term(&uf->weq_graph, t);
+    break;
+  case UPDATE_TERM:
+    t_desc = update_term_desc(terms, t);
+    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    // remember array term
+    weq_graph_add_array_term(&uf->weq_graph, t);
+    // remember select terms
+    term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
+    variable_db_get_variable(uf->ctx->var_db, r1);
+    weq_graph_add_select_term(&uf->weq_graph, r1);
+    // TODO: can we check if the domain is finite? if so, we can guard this extra select term
+    term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
+    variable_db_get_variable(uf->ctx->var_db, r2);
+    weq_graph_add_select_term(&uf->weq_graph, r2);
     break;
   case ARITH_RDIV:
     t_desc = arith_rdiv_term_desc(terms, t);
@@ -207,6 +252,16 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
   case EQ_TERM:
     t_desc = eq_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
+    // remember array terms
+    if (is_function_term(terms, t_desc->arg[0])) {
+      weq_graph_add_array_eq_term(&uf->weq_graph, t);
+    }
+    uint32_t i;
+    for (i = 0; i < 2; ++ i) {
+      if (is_function_term(terms, t_desc->arg[i])) {
+        weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[i]);
+      }
+    }
     break;
   default:
     assert(false);
@@ -214,7 +269,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 
   // Make sure the subterms are registered
   uint32_t i;
-  for (i = children_start; i < t_desc->arity; ++ i) {
+  for (i = 0; i < t_desc->arity; ++ i) {
     term_t c = t_desc->arg[i];
     variable_t c_var = variable_db_get_variable(uf->ctx->var_db, c);
     if (trail_has_value(uf->ctx->trail, c_var)) {
@@ -236,19 +291,21 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
 static
 void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  term_table_t* terms = uf->ctx->terms;
 
   if (ctx_trace_enabled(uf->ctx, "mcsat::new_term")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_new_term_notify: ");
     ctx_trace_term(uf->ctx, t);
   }
 
-  term_kind_t t_kind = term_kind(uf->ctx->terms, t);
+  term_kind_t t_kind = term_kind(terms, t);
 
   switch (t_kind) {
   case ARITH_MOD:
   case ARITH_IDIV:
   case ARITH_RDIV:
   case APP_TERM:
+  case UPDATE_TERM:
   case EQ_TERM:
     // Application terms (or other terms we treat as uninterpreted)
     uf_plugin_add_to_eq_graph(uf, t, true);
@@ -258,6 +315,11 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     break;
   }
 
+  // eagerly add array idx lemma
+  if (t_kind == UPDATE_TERM) {
+    term_t r_lemma = weq_graph_get_array_update_idx_lemma(&uf->weq_graph, t);
+    prop->definition_lemma(prop, r_lemma, t);
+  }
 }
 
 static
@@ -276,7 +338,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
-  uf_plugin_process_eq_graph_propagations(uf, prop);
+  bool eq_propagated = uf_plugin_process_eq_graph_propagations(uf, prop);
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
@@ -287,6 +349,49 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL, &uf->tmp);
     uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
+
+  // optimization: skip array checks if some terms, that are present
+  // in the eq_graph, don't have an assigned value.
+  variable_db_t* var_db = uf->ctx->var_db;
+  term_t t = NULL_TERM;
+  bool all_assigned = true;
+  int_hmap_pair_t* it;
+  for (it = int_hmap_first_record(&var_db->term_to_variable_map);
+       it != NULL;
+       it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
+    t = it->key;
+    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t) &&
+        !eq_graph_term_has_value(&uf->eq_graph, t)) {
+      all_assigned = false;
+      break;
+    }
+  }
+  
+  // skip array propagation if the EQ has done propgation
+  // check array propgation only if array terms are present
+  if (!eq_propagated && all_assigned) {
+    assert(uf->conflict.size == 0);
+    weq_graph_check_array_conflict(&uf->weq_graph, &uf->conflict);
+    if (uf->conflict.size > 0) {
+      // Report conflict
+      prop->conflict(prop);
+      (*uf->stats.conflicts) ++;
+      // extract terms used in the conflict
+      /* for (i = 0; i < weq->conflict.size; ++i) { */
+      /*   t = weq->conflict.data[i]; */
+      /*   if (term_kind(terms, t) == EQ_TERM) { */
+      /*     t_desc = eq_term_desc(terms, t); */
+      /*     int_mset_add(&weq->tmp, t_desc->arg[0]); */
+      /*     int_mset_add(&weq->tmp, t_desc->arg[1]); */
+      /*   } else { */
+      /*     assert(false); */
+      /*   } */
+      /* } */
+      /* weq_graph_bump_terms_and_reset(weq, &weq->tmp); */
+      statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    }
   }
 }
 
@@ -296,9 +401,10 @@ void uf_plugin_push(plugin_t* plugin) {
 
   // Push the int variable values
   scope_holder_push(&uf->scope,
-      &uf->eq_graph_addition_trail.size,
-      NULL);
+                    &uf->eq_graph_addition_trail.size,
+                    NULL);
 
+  weq_graph_push(&uf->weq_graph);
   eq_graph_push(&uf->eq_graph);
 }
 
@@ -310,9 +416,10 @@ void uf_plugin_pop(plugin_t* plugin) {
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
-      &old_eq_graph_addition_trail_size,
-      NULL);
+                   &old_eq_graph_addition_trail_size,
+                   NULL);
 
+  weq_graph_pop(&uf->weq_graph);
   eq_graph_pop(&uf->eq_graph);
 
   // Re-add all the terms to eq graph
@@ -372,34 +479,60 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     ctx_trace_printf(uf->ctx, "\n");
   }
 
+  term_table_t *terms = uf->ctx->terms;
+  type_t x_type = term_type(terms, x_term);
   int32_t picked_value = 0;
   if (!cache_ok) {
     // Pick smallest value not in forbidden list
     ptr_array_sort2(forbidden.data, forbidden.size, NULL, value_cmp);
-    if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
-      ctx_trace_printf(uf->ctx, "picking !=");
-      uint32_t i;
+    uint32_t i;
+    // function types have different value picking strategy
+    if (term_type_kind(terms, x_term) != FUNCTION_TYPE) {
       for (i = 0; i < forbidden.size; ++ i) {
         const mcsat_value_t* v = forbidden.data[i];
-        ctx_trace_printf(uf->ctx, " ");
-        mcsat_value_print(v, ctx_trace_out(uf->ctx));
+        assert(v->type == VALUE_RATIONAL);
+        int32_t v_int = 0;
+        bool ok = q_get32((rational_t*)&v->q, &v_int);
+        (void) ok;
+        assert(ok);
+        if (picked_value < v_int) {
+          // found a gap
+          break;
+        } else {
+          picked_value = v_int + 1;
+        }
       }
-      ctx_trace_printf(uf->ctx, "\n");
-    }
-    uint32_t i;
-    picked_value = 0;
-    for (i = 0; i < forbidden.size; ++ i) {
-      const mcsat_value_t* v = forbidden.data[i];
-      assert(v->type == VALUE_RATIONAL);
-      int32_t v_int = 0;
-      bool ok = q_get32((rational_t*)&v->q, &v_int);
-      (void) ok;
-      assert(ok);
-      if (picked_value < v_int) {
-        // Found a gap, pick
-        break;
-      } else {
-        picked_value = v_int + 1;
+      // DECIDE_FUNCTION_VALUE_START is the starting point for function values
+      assert(picked_value < DECIDE_FUNCTION_VALUE_START);
+    } else {
+      if (forbidden.size > 0) {
+        uint32_t max_forbidden_val = 0;
+        const mcsat_value_t* v = forbidden.data[forbidden.size - 1];
+        assert(v->type == VALUE_RATIONAL);
+        bool ok = q_get32((rational_t*)&v->q, &max_forbidden_val);
+        (void) ok;
+        assert(ok);
+        picked_value = max_forbidden_val + 1;
+      }
+      if (picked_value < DECIDE_FUNCTION_VALUE_START) {
+        // starting point for function values
+        picked_value = DECIDE_FUNCTION_VALUE_START;
+      }
+
+      while (true) {
+        ptr_hmap_pair_t *picked_val_type = ptr_hmap_find(&uf->fun_val_type_map, picked_value);
+        // if not in the map, pick it and safe in the map
+        if (picked_val_type == NULL) {
+          picked_val_type = ptr_hmap_get(&uf->fun_val_type_map, picked_value);
+          picked_val_type->val = x_type;
+          break;
+        }
+        // if in the map and the type agrees then pick the value
+        if (picked_val_type->val == x_type) {
+          break;
+        }
+        // picked value not good, increment and check in the loop
+        picked_value += 1;
       }
     }
   } else {
@@ -573,6 +706,7 @@ type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, 
   type_t ints = int_type(types);
 
   switch (app_kind) {
+  case UPDATE_TERM:
   case APP_TERM:
     return term_type(terms, f);
   case ARITH_RDIV:

@@ -128,6 +128,8 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return arith_idiv_term_desc(terms, t);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     return arith_mod_term_desc(terms, t);
+  case UPDATE_TERM:
+    return update_term_desc(terms, t);
   case DISTINCT_TERM:
     return distinct_term_desc(terms, t);
   case BV_ARRAY:
@@ -203,6 +205,9 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     assert(n == 2);
     return mk_arith_mod(tm, children[0], children[1]);
+  case UPDATE_TERM:
+    assert(n > 2);
+    return mk_update(tm, children[0], n-2, children + 1, children[n-1]);
   case BV_ARRAY:
     assert(n >= 1);
     return mk_bvarray(tm, n, children);
@@ -271,6 +276,8 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
       return t;
     case APP_TERM:
       // Uninterpreted functions are also already purified
+      return t;
+    case UPDATE_TERM:
       return t;
     default:
       break;
@@ -485,11 +492,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       n = desc->arity;
 
+      /*
       // Arrays not supported yet
       if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-
+      */
+ 
       // Is this a top-level equality assertion
       bool is_equality =
           current_kind == EQ_TERM ||
@@ -880,6 +889,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
+    case UPDATE_TERM:        // update array
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
       bool children_done = true;
