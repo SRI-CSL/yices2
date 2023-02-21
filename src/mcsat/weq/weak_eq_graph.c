@@ -1256,21 +1256,6 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   if (weq->array_terms.size == 0) {
     return;
   }
-  
-  // optimization: skip array checks if not all terms (present in the
-  // eq_graph) have a value assigned in the graph
-  variable_db_t* var_db = weq->ctx->var_db;
-  term_t t = NULL_TERM;
-  int_hmap_pair_t* it;
-  for (it = int_hmap_first_record(&var_db->term_to_variable_map);
-       it != NULL;
-       it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
-    t = it->key;
-    if (t >= 0 && eq_graph_has_term(weq->eq_graph, t) &&
-        !eq_graph_term_has_value(weq->eq_graph, t)) {
-      return;
-    }
-  }
 
   bool ok = true;
 
