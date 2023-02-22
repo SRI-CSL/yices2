@@ -1270,7 +1270,7 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   ivector_remove_duplicates(&array_terms);
   // TODO: Heuristic to try
   // store array terms according to heuristic score
-  int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
+  //int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
   
   init_ivector(&select_terms, 0);
   ivector_copy(&select_terms, weq->select_terms.data, weq->select_terms.size);
