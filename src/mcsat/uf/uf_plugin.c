@@ -29,6 +29,7 @@
 
 #include "utils/int_array_sort2.h"
 #include "utils/ptr_array_sort2.h"
+#include "utils/int_hash_sets.h"
 
 #include "model/models.h"
 
@@ -65,8 +66,8 @@ typedef struct {
   /** Weak Equality graph for array reasoning */
   weq_graph_t weq_graph;
 
-  /** Function Values to types map */
-  ptr_hmap_t fun_val_type_map;
+  /** Function Values that have been used */
+  int_hset_t fun_used_values;
 
   /** Tmp vector */
   int_mset_t tmp;
@@ -117,7 +118,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
-  init_ptr_hmap(&uf->fun_val_type_map, 0);
+  init_int_hset(&uf->fun_used_values, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -152,7 +153,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
-  delete_ptr_hmap(&uf->fun_val_type_map);
+  delete_int_hset(&uf->fun_used_values);
   int_mset_destruct(&uf->tmp);
 
   eq_graph_destruct(&uf->eq_graph);
@@ -505,6 +506,8 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       // DECIDE_FUNCTION_VALUE_START is the starting point for function values
       assert(picked_value < DECIDE_FUNCTION_VALUE_START);
     } else {
+      /* we pick different values for different functions. Equal
+	 functions get equal values via equality propagation. */
       if (forbidden.size > 0) {
         uint32_t max_forbidden_val = 0;
         const mcsat_value_t* v = forbidden.data[forbidden.size - 1];
@@ -519,21 +522,11 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
         picked_value = DECIDE_FUNCTION_VALUE_START;
       }
 
-      while (true) {
-        ptr_hmap_pair_t *picked_val_type = ptr_hmap_find(&uf->fun_val_type_map, picked_value);
-        // if not in the map, pick it and safe in the map
-        if (picked_val_type == NULL) {
-          picked_val_type = ptr_hmap_get(&uf->fun_val_type_map, picked_value);
-          picked_val_type->val = x_type;
-          break;
-        }
-        // if in the map and the type agrees then pick the value
-        if (picked_val_type->val == x_type) {
-          break;
-        }
-        // picked value not good, increment and check in the loop
+      while (int_hset_member(&uf->fun_used_values, picked_value)) {
         picked_value += 1;
       }
+      // save the used value
+      int_hset_add(&uf->fun_used_values, picked_value);
     }
   } else {
     assert(x_cached_value->type == VALUE_RATIONAL);
