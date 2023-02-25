@@ -276,6 +276,9 @@ const weq_graph_node_t* weq_graph_find_secondary_node_const(weq_graph_t* weq,
   return res;
 }
 
+
+#ifndef NDEBUG
+
 /* helper function to extract index from an update term
  */
 static inline
@@ -285,6 +288,9 @@ term_t weq_graph_get_index_from_store(weq_graph_t* weq, term_t store) {
   composite_term_t* t_desc = update_term_desc(terms, store);
   return t_desc->arg[1];
 }
+
+#endif
+
 
 /* add t to vec if t is not the true term
  */
@@ -672,6 +678,7 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
 /* Check Array idx lemma.
  * Read over write 1: when idices are equal.
  */
+/*
 static
 bool weq_graph_array_idx_check(weq_graph_t* weq, ivector_t* conflict,
                                const ivector_t* array_terms) {
@@ -706,6 +713,8 @@ bool weq_graph_array_idx_check(weq_graph_t* weq, ivector_t* conflict,
   }
   return true;
 }
+*/
+
 
 /* Checks if arr1 and arr2 terms are weakly equivalanet on index idx.
  * If it is case, it also stores indices and path conditions.
@@ -725,12 +734,8 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
 
-  if (indices) {
-    old_indices_size = indices->size;
-  }
-  if (path_cond) {
-    old_path_cond_size = path_cond->size;
-  }
+  old_indices_size = indices->size;
+  old_path_cond_size = path_cond->size;
 
   if (fn_arr1 == fn_arr2) {
     uint32_t k;
@@ -747,11 +752,11 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
     }
   }
 
-  if (!res && indices) {
+  if (!res) {
     ivector_shrink(indices, old_indices_size);
   }
 
-  if (!res && path_cond) {
+  if (!res) {
     ivector_shrink(path_cond, old_path_cond_size);
   }
 
@@ -1232,6 +1237,7 @@ term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term
 
 /* Compare terms according to their heuristic score
  */
+/*
 static
 bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
   plugin_context_t* ctx = (plugin_context_t*) data;
@@ -1245,6 +1251,7 @@ bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
     return t1 > t2;
   }
 }
+*/
 
 /* The main method to check array conflicts. The conflict vector will
  * contain conflicting terms if an array conflict is found. It assumes

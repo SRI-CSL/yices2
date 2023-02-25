@@ -481,7 +481,6 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   }
 
   term_table_t *terms = uf->ctx->terms;
-  type_t x_type = term_type(terms, x_term);
   int32_t picked_value = 0;
   if (!cache_ok) {
     // Pick smallest value not in forbidden list
@@ -509,7 +508,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       /* we pick different values for different functions. Equal
 	 functions get equal values via equality propagation. */
       if (forbidden.size > 0) {
-        uint32_t max_forbidden_val = 0;
+        int32_t max_forbidden_val = 0;
         const mcsat_value_t* v = forbidden.data[forbidden.size - 1];
         assert(v->type == VALUE_RATIONAL);
         bool ok = q_get32((rational_t*)&v->q, &max_forbidden_val);
