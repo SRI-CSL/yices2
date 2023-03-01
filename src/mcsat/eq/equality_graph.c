@@ -1340,6 +1340,11 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
   return eq->values_list.data + n_find->index;
 }
 
+eq_node_id_t eq_graph_get_propagated_term_value_id(const eq_graph_t* eq, term_t t) {
+  const mcsat_value_t* val = eq_graph_get_propagated_term_value(eq, t);
+  return eq_graph_value_id(eq, val);
+}
+
 void eq_graph_propagate_trail(eq_graph_t* eq) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
