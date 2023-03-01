@@ -296,6 +296,9 @@ bool eq_graph_has_propagated_term_value(const eq_graph_t* eq, term_t t);
 /** Get the value of a propagated term. */
 const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, term_t t);
 
+/** Get the eq_node_id of a propagated term value. */
+eq_node_id_t eq_graph_get_propagated_term_value_id(const eq_graph_t* eq, term_t t);
+
 /** Propagate the trail */
 void eq_graph_propagate_trail(eq_graph_t* eq);
 

@@ -58,8 +58,8 @@ typedef struct weq_graph_s {
   /** Map: terms to fun_nodes */
   ptr_hmap_t fun_node_map;
 
-  /** Function Values to term (one rep term) */
-  int_hmap_t fun_val_term_map;
+  /** Value eq_node_id to term (one rep term) */
+  int_hmap_t val_id_term_map;
 
   /** Weak path equalities **/
   ivector_t path_cond;

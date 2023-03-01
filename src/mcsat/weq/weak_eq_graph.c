@@ -43,7 +43,7 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   init_int_hset(&weq->diff_funs, 0);
   init_ptr_hmap(&weq->fun_node_map, 0);
 
-  init_int_hmap(&weq->fun_val_term_map, 0);
+  init_int_hmap(&weq->val_id_term_map, 0);
   init_ivector(&weq->path_cond, 0);
   init_ivector(&weq->path_indices1, 0);
   init_ivector(&weq->path_indices2, 0);
@@ -66,7 +66,7 @@ void weq_graph_destruct(weq_graph_t* weq) {
 
   weq_graph_clear(weq);
   delete_ptr_hmap(&weq->fun_node_map);
-  delete_int_hmap(&weq->fun_val_term_map);
+  delete_int_hmap(&weq->val_id_term_map);
 }
 
 void weq_graph_push(weq_graph_t* weq) {
@@ -166,7 +166,7 @@ void weq_graph_clear(weq_graph_t* weq) {
     safe_free((weq_graph_node_t *) p->val);
   }
   ptr_hmap_reset(&weq->fun_node_map);
-  int_hmap_reset(&weq->fun_val_term_map);
+  int_hmap_reset(&weq->val_id_term_map);
 }
 
 /* Create a new weq_graph node
@@ -365,15 +365,11 @@ static void weq_graph_make_rep(weq_graph_t* weq, weq_graph_node_t* n) {
 static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t) {
   assert(eq_graph_term_has_value(weq->eq_graph, t));
 
-  const mcsat_value_t* val = eq_graph_get_propagated_term_value(weq->eq_graph, t);
-  int32_t v_int = 0;
-  bool ok = q_get32((rational_t*)&val->q, &v_int);
-  (void) ok;
-  assert(ok);
+  eq_node_id_t val_id = eq_graph_get_propagated_term_value_id(weq->eq_graph, t);
 
-  int_hmap_pair_t *v = int_hmap_find(&weq->fun_val_term_map, v_int);
+  int_hmap_pair_t *v = int_hmap_find(&weq->val_id_term_map, val_id);
   if (v == NULL) {
-    v = int_hmap_get(&weq->fun_val_term_map, v_int);
+    v = int_hmap_get(&weq->val_id_term_map, val_id);
     v->val = t;
   }
 
@@ -754,9 +750,6 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
 
   if (!res) {
     ivector_shrink(indices, old_indices_size);
-  }
-
-  if (!res) {
     ivector_shrink(path_cond, old_path_cond_size);
   }
 
@@ -974,10 +967,10 @@ bool weq_graph_array_ext_check(weq_graph_t* weq, ivector_t* conflict,
     }
   }
 
-  for (i = 0; res && i < array_terms->size; ++i) {
+  for (i = 1; res && i < array_terms->size; ++i) {
     arr1 = array_terms->data[i];
     
-    for (j = i + 1; res && j < array_terms->size; ++j) {
+    for (j = 0; res && j < i; ++j) {
       arr2 = array_terms->data[j];
       if (!int_hset_member(&seen, _o_yices_eq(arr1, arr2))) {
         res = weq_graph_array_ext_lemma(weq, conflict, arr1, arr2, select_terms);
@@ -1090,7 +1083,7 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
   }
 
   if (array_terms) {
-    for (i = 0; res && i < array_terms->size; ++i) {
+    for (i = 1; res && i < array_terms->size; ++i) {
       term_t arr1 = array_terms->data[i];
       assert(variable_db_get_variable_if_exists(weq->ctx->var_db, arr1) !=
              variable_null);
@@ -1098,7 +1091,7 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
         continue;
       }
 
-      for (j = i + 1; res && j < array_terms->size; ++j) {
+      for (j = 0; res && j < i; ++j) {
         term_t arr2 = array_terms->data[j];
         res = weq_graph_array_ext_diff_lemma(weq, conflict, arr1, arr2);
       }
@@ -1119,13 +1112,13 @@ bool weq_graph_array_read_over_write_check(weq_graph_t* weq, ivector_t* conflict
   uint32_t i, j, k;
 
   // generalized read-over-write lemma
-  for (i = 0; i < select_terms->size; ++ i) {
+  for (i = 1; i < select_terms->size; ++ i) {
     term_t t_i = select_terms->data[i];
     type_t t_i_type = term_type(terms, t_i);
     assert(variable_db_get_variable_if_exists(weq->ctx->var_db, t_i) != variable_null);
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
 
-    for (j = i + 1; j < select_terms->size; ++ j) {
+    for (j = 0; j < i; ++ j) {
       term_t t_j = select_terms->data[j];
       type_t t_j_type = term_type(terms, t_j);
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
@@ -1253,6 +1246,23 @@ bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
 }
 */
 
+static
+void copy_uniques(ivector_t *to, ivector_t *from) {
+  int_hset_t seen;
+  init_int_hset(&seen, 0);
+
+  term_t t = NULL_TERM;
+  uint32_t i;
+  for (i = 0; i < from->size; ++i) {
+    t = from->data[i];
+    if (!int_hset_member(&seen, t)) {
+      ivector_push(to, t);
+      int_hset_add(&seen, t);
+    }
+  }
+}
+
+
 /* The main method to check array conflicts. The conflict vector will
  * contain conflicting terms if an array conflict is found. It assumes
  * that all terms (assignable) present in the array_terms and
@@ -1265,23 +1275,19 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   }
 
   bool ok = true;
-
   ivector_t array_eq_terms, array_terms, select_terms;
 
   init_ivector(&array_eq_terms, 0);
-  ivector_copy(&array_eq_terms, weq->array_eq_terms.data, weq->array_eq_terms.size);
-  ivector_remove_duplicates(&array_eq_terms);
+  copy_uniques(&array_eq_terms, &weq->array_eq_terms); 
 
   init_ivector(&array_terms, 0);
-  ivector_copy(&array_terms, weq->array_terms.data, weq->array_terms.size);
-  ivector_remove_duplicates(&array_terms);
+  copy_uniques(&array_terms, &weq->array_terms);
   // TODO: Heuristic to try
   // store array terms according to heuristic score
   //int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
   
   init_ivector(&select_terms, 0);
-  ivector_copy(&select_terms, weq->select_terms.data, weq->select_terms.size);
-  ivector_remove_duplicates(&select_terms);
+  copy_uniques(&select_terms, &weq->select_terms);
   // TODO: Heuristic to try
   // store select terms according to heuristic score
   //int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
