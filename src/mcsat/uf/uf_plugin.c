@@ -385,8 +385,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       uint32_t i;
       for (i = 0; i < uf->conflict.size; ++i) {
         t = uf->conflict.data[i];
-	ctx_trace_printf(uf->ctx, "TERM IS : ");
-	ctx_trace_term(uf->ctx, t);
 	if (term_kind(terms, t) == EQ_TERM) {
           t_desc = eq_term_desc(terms, t);
         } else if (term_kind(terms, t) == BV_EQ_ATOM) {
