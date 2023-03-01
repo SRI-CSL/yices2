@@ -1313,7 +1313,7 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
     if (!eq_graph_term_has_value(weq->eq_graph, select_terms.data[i]) ||
 	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[0]) ||
 	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[1])) {
-	ok = false;
+      ok = false;
     }
   }
 

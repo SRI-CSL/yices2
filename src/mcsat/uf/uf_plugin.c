@@ -385,13 +385,17 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       uint32_t i;
       for (i = 0; i < uf->conflict.size; ++i) {
         t = uf->conflict.data[i];
-        if (term_kind(terms, t) == EQ_TERM) {
+	ctx_trace_printf(uf->ctx, "TERM IS : ");
+	ctx_trace_term(uf->ctx, t);
+	if (term_kind(terms, t) == EQ_TERM) {
           t_desc = eq_term_desc(terms, t);
-          int_mset_add(&uf->tmp, t_desc->arg[0]);
-          int_mset_add(&uf->tmp, t_desc->arg[1]);
-        } else {
+        } else if (term_kind(terms, t) == BV_EQ_ATOM) {
+	  t_desc = bveq_atom_desc(terms, t);
+	} else {
           assert(false);
         }
+	int_mset_add(&uf->tmp, t_desc->arg[0]);
+	int_mset_add(&uf->tmp, t_desc->arg[1]);
       }
       uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
