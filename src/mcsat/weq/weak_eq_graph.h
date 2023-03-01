@@ -71,6 +71,7 @@ typedef struct weq_graph_s {
   ivector_t path_indices2;
 
   struct {
+    statistic_int_t* array_check_calls;
     statistic_int_t* array_terms;
     statistic_int_t* select_terms;
     statistic_int_t* array_update1_axioms;

@@ -91,12 +91,12 @@ void weq_graph_pop(weq_graph_t* weq) {
 }
 
 void weq_graph_stats_init(weq_graph_t* weq) {
+  weq->stats.array_check_calls = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_check_calls");
   weq->stats.array_terms = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_terms");
   weq->stats.select_terms = statistics_new_int(weq->ctx->stats, "mcsat::uf::select_terms");
   weq->stats.array_update1_axioms = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_update1_axioms");
   weq->stats.array_update2_axioms = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_update2_axioms");
   weq->stats.array_ext_axioms = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_ext_axioms");
-
 }
 
 // declaration
@@ -1321,8 +1321,12 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   (*weq->stats.select_terms) = select_terms.size;
 
   if (updates_present) {
-    if (USE_ARRAY_DIFF && ok) {
-      ok = weq_graph_array_ext_diff_check(weq, conflict, &array_eq_terms, NULL);
+    if (ok) {
+      (*weq->stats.array_check_calls) ++;
+
+      if (USE_ARRAY_DIFF) {
+	ok = weq_graph_array_ext_diff_check(weq, conflict, &array_eq_terms, NULL);
+      }
     }
 
     if (ok) {
