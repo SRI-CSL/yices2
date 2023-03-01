@@ -189,9 +189,9 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_EGFUNSPLX,  // QF_ALIA
   CTX_ARCH_EGFUNSPLX,  // QF_ALRA
   CTX_ARCH_EGFUNSPLX,  // QF_ALIRA
-  -1,                  // QF_ANIA
-  -1,                  // QF_ANRA
-  -1,                  // QF_ANIRA
+  CTX_ARCH_MCSAT,      // QF_ANIA
+  CTX_ARCH_MCSAT,      // QF_ANRA
+  CTX_ARCH_MCSAT,      // QF_ANIRA
   CTX_ARCH_EGFUN,      // QF_AUF
   CTX_ARCH_EGBV,       // QF_UFBV
   CTX_ARCH_EGSPLX,     // QF_UFIDL
@@ -206,9 +206,9 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLRA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIRA
-  -1,                  // QF_AUFNIA
-  -1,                  // QF_AUFNRA
-  -1,                  // QF_AUFNIRA
+  CTX_ARCH_MCSAT,      // QF_AUFNIA
+  CTX_ARCH_MCSAT,      // QF_AUFNRA
+  CTX_ARCH_MCSAT,      // QF_AUFNIRA
 
   CTX_ARCH_EGFUNSPLXBV,  // ALL interpreted as QF_AUFLIRA + QF_BV
 };
