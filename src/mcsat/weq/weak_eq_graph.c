@@ -20,8 +20,9 @@
 
 #include "mcsat/tracing.h"
 
+//#include "utils/int_array_sort2.h"
+#include "utils/ptr_vectors.h"
 #include "utils/refcount_strings.h"
-#include "utils/int_array_sort2.h"
 
 
 #define USE_ARRAY_DIFF 0 //experimental
@@ -344,17 +345,37 @@ static void weq_graph_make_rep(weq_graph_t* weq, weq_graph_node_t* n) {
     return;
   }
 
-  // TODO: make the code non-recursive
-  weq_graph_make_rep(weq, n->p);
-  // invert primary edge
-  n->p->p = n;
-  n->p->pstore = n->pstore;
-  n->p->pi = n->pi;
-  n->p = NULL;
-  // fix weak-i representatives
-  weq_graph_make_rep_i(weq, n);
-  n->pstore = NULL_TERM;
-  n->pi = NULL_TERM;
+  weq_graph_node_t* tmp = n;
+  weq_graph_node_t* prev = NULL;
+  weq_graph_node_t* next = NULL;
+  pvector_t to_process;
+  init_pvector(&to_process, 0);
+
+  // invert all the primary edges
+  // first goto the root and keep track of the visited nodes in a stack
+  while (tmp) {
+    pvector_push(&to_process, tmp);
+    tmp = tmp->p;
+  }
+
+  // now invert he primary edges by popping nodes from the stack
+  prev = pvector_pop2(&to_process);
+  while (to_process.size > 0) {
+    next = pvector_pop2(&to_process);
+    prev->p = next;
+    prev->pstore = next->pstore;
+    prev->pi = next->pi;
+
+    next->p = NULL;
+    // make sure the node is weak-rep-i
+    weq_graph_make_rep_i(weq, next);
+    next->pstore = NULL_TERM;
+    next->pi = NULL_TERM;
+
+    prev = next;
+  }
+
+  delete_pvector(&to_process);
 }
 
 /* Get representative term w.r.t. the equality graph.
