@@ -1,0 +1,21 @@
+;; test for Yices (taken from SMT 2008 paper by Sava Krstic et al.)
+
+(define-type Index)
+(define-type Element)
+(define-type Array (-> Index Index Element))
+
+(define a::Array)
+(define b::Array)
+(define i0::Index)
+(define i1::Index)
+(define x0::Element)
+(define x1::Element)
+
+
+(assert (not (= (update (update a (i0 i1) x0) (i1 i0) x1)
+ (update (update b (i1 i0) x1) (i0 i1) x0))))
+
+(assert (= a b))
+
+(check)
+
