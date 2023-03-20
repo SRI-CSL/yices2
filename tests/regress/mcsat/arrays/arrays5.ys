@@ -18,4 +18,4 @@
 (assert (= a b))
 
 (check)
-(show-model)
+
