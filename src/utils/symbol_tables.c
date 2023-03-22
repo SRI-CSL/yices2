@@ -526,6 +526,7 @@ void stbl_remove_records(stbl_t *sym_table, void *aux, stbl_filter_t f) {
         // keep r
         *q = r;
         q = &r->next;
+        r = p;
       }
     }
     *q = NULL;
