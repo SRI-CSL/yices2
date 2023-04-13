@@ -127,7 +127,7 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.clause_score_limit = 1e20;
 
   // Clause database compact
-  bp->heuristic_params.lemma_limit_init = 2000;
+  bp->heuristic_params.lemma_limit_init = 1000;
   bp->heuristic_params.lemma_limit_factor = 1.1;
 
   // Bool var scoring
