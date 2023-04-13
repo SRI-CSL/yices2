@@ -343,7 +343,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
-  bool eq_propagated = uf_plugin_process_eq_graph_propagations(uf, prop);
+  uf_plugin_process_eq_graph_propagations(uf, prop);
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
@@ -374,9 +374,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     }
   }
   
-  // skip array propagation if the EQ has done propgation
-  // check array propgation only if array terms are present
-  if (!eq_propagated && all_assigned) {
+  if (all_assigned) {
     assert(uf->conflict.size == 0);
     weq_graph_check_array_conflict(&uf->weq_graph, &uf->conflict);
     if (uf->conflict.size > 0) {
