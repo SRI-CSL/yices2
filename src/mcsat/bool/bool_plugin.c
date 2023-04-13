@@ -123,12 +123,12 @@ static
 void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   // Clause scoring
   bp->heuristic_params.clause_score_bump_factor = 1;
-  bp->heuristic_params.clause_score_decay_factor = 0.95;
+  bp->heuristic_params.clause_score_decay_factor = 0.999;
   bp->heuristic_params.clause_score_limit = 1e20;
 
   // Clause database compact
-  bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.02;
+  bp->heuristic_params.lemma_limit_init = 2000;
+  bp->heuristic_params.lemma_limit_factor = 1.1;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 5;
@@ -868,9 +868,11 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   clause_db_t* db = &bp->clause_db;
 
   uint32_t i;
+  float act_threshold;
   variable_t var;
   clause_ref_t clause_ref;
   mcsat_clause_t* c;
+  mcsat_clause_tag_t *c_tag;
 
   if (gc_vars->level == 0) {
 
@@ -880,10 +882,19 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     // Sort the lemmas based on scores
     int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
+    // avg activity score
+    act_threshold = bp->heuristic_params.clause_score_bump_factor / bp->lemmas.size;
+
     // Mark all the variables in half of lemmas as used
     for (i = 0; i < bp->lemmas.size / 2; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
+      c_tag = clause_db_get_tag(db, clause_ref);
+      if (c_tag->score <= act_threshold) {
+        // consider clauses with score higher than the avg activity score
+        // since the clauses are sorted according to their scores, we break here
+        break;
+      }
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
