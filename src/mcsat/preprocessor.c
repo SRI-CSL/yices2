@@ -505,9 +505,11 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
           current_kind == BV_EQ_ATOM ||
           current_kind == ARITH_BINEQ_ATOM ||
           current_kind == ARITH_EQ_ATOM;
+      // don't rewrite if the equality is between Boolean terms
+      bool is_boolean = is_boolean_type(term_type(pre->terms, desc->arg[0]));
 
       term_t eq_solve_var = NULL_TERM;
-      if (is_assertion && is_equality) {
+      if (is_assertion && is_equality && !is_boolean) {
         if (current == t) {
           eq_solve_var = preprocessor_get_eq_solved_var(pre, t);
           if (eq_solve_var == NULL_TERM) {
