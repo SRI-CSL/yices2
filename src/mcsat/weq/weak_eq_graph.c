@@ -20,7 +20,7 @@
 
 #include "mcsat/tracing.h"
 
-//#include "utils/int_array_sort2.h"
+#include "utils/int_array_sort2.h"
 #include "utils/ptr_vectors.h"
 #include "utils/refcount_strings.h"
 
@@ -1251,7 +1251,6 @@ term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term
 
 /* Compare terms according to their heuristic score
  */
-/*
 static
 bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
   plugin_context_t* ctx = (plugin_context_t*) data;
@@ -1265,7 +1264,6 @@ bool weq_graph_array_terms_compare(void *data, term_t t1, term_t t2) {
     return t1 > t2;
   }
 }
-*/
 
 static
 void copy_uniques(ivector_t *to, ivector_t *from) {
@@ -1303,15 +1301,13 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
 
   init_ivector(&array_terms, 0);
   copy_uniques(&array_terms, &weq->array_terms);
-  // TODO: Heuristic to try
   // store array terms according to heuristic score
-  //int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
+  int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
   
   init_ivector(&select_terms, 0);
   copy_uniques(&select_terms, &weq->select_terms);
-  // TODO: Heuristic to try
   // store select terms according to heuristic score
-  //int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
+  int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 
   //ok = weq_graph_array_idx_check(weq, conflict, &array_terms);
 
