@@ -152,7 +152,7 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // NRA
   false,   // NIRA
   false,   // RDL
-  false,    // UF
+  false,   // UF
   false,   // ABV
   false,   // ALIA
   false,   // ALRA
