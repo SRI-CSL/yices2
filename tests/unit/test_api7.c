@@ -152,7 +152,7 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // NRA
   false,   // NIRA
   false,   // RDL
-  false,   // UF
+  false,    // UF
   false,   // ABV
   false,   // ALIA
   false,   // ALRA
@@ -193,9 +193,9 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_ALIA
   true,    // QF_ALRA
   true,    // QF_ALIRA
-  false,   // QF_ANIA
-  false,   // QF_ANRA
-  false,   // QF_ANIRA
+  true,    // QF_ANIA
+  true,    // QF_ANRA
+  true,    // QF_ANIRA
   true,    // QF_AUF
   true,    // QF_UFBV
   true,    // QF_UFIDL
@@ -210,9 +210,9 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_AUFLIA
   true,    // QF_AUFLRA
   true,    // QF_AUFLIRA
-  false,   // QF_AUFNIA
-  false,   // QF_AUFNRA
-  false,   // QF_AUFNIRA
+  true,    // QF_AUFNIA
+  true,    // QF_AUFNRA
+  true,    // QF_AUFNIRA
 
   true,    // ALL ==> QF_AUFLIRA + QF+_BV
 };
