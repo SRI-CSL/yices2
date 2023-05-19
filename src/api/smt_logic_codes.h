@@ -101,6 +101,8 @@ typedef enum smt_logic {
 
   //  Arrays + uninterpreted functions + another theory
   AUFBV,       // arrays + uninterpreted functions + bitvectors
+  AUFBVLIA,    // arrays + uninterpreted functions + bitvectors + linear integer arithmetic
+  AUFBVNIA,    // arrays + uninterpreted functions + bitvectors + nonlinear integer arithmetic
   AUFLIA,      // arrays + uninterpreted functions + linear integer arithmetic
   AUFLRA,      // arrays + uninterpreted functions + linear real arithmetic
   AUFLIRA,     // arrays + uninterpreted functions + mixed linear arithmetic
@@ -147,6 +149,8 @@ typedef enum smt_logic {
 
   //  Arrays + uninterpreted functions + another theory
   QF_AUFBV,    // arrays + uninterpreted functions + bitvectors
+  QF_AUFBVLIA, // arrays + uninterpreted functions + bitvectors + linear integer arithmetic
+  QF_AUFBVNIA, // arrays + uninterpreted functions + bitvectors + nonlinear integer arithmetic
   QF_AUFLIA,   // arrays + uninterpreted functions + linear integer arithmetic
   QF_AUFLRA,   // arrays + uninterpreted functions + linear real arithmetic
   QF_AUFLIRA,  // arrays + uninterpreted functions + mixed linear arithmetic

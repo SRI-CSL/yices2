@@ -168,6 +168,8 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   -1,                  // UFNIRA
   -1,                  // UFRDL
   -1,                  // AUFBV
+  -1,                  // AUFBVLIA
+  -1,                  // AUFBVNIA
   -1,                  // AUFLIA
   -1,                  // AUFLRA
   -1,                  // AUFLIRA
@@ -206,6 +208,8 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_MCSAT,      // QF_UFNIRA
   CTX_ARCH_EGSPLX,     // QF_UFRDL
   CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLXBV, // QF_AUFBVLIA
+  CTX_ARCH_MCSAT,      // QF_AUFBVNIA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLRA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIRA
