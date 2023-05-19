@@ -55,6 +55,9 @@
  * (except that we don't have AIDL and ARDL?).
  *
  * Then, for each logic, we have a quantifier-free variant.
+ *
+ * 05/18/2023: Add UF+BV+integer arithmetic
+ * --------------------------------------------------
  */
 typedef enum smt_logic {
   NONE,        // added 12/27/2012
@@ -86,6 +89,7 @@ typedef enum smt_logic {
 
   //  Uninterpreted function + another theory
   UFBV,        // uninterpreted functions + bitvectors
+  UFBVLIA,     // uninterpreted functions + bitvectors + linear integer arithmetic
   UFIDL,       // uninterpreted functions + integer difference logic
   UFLIA,       // uninterpreted functions + linear integer arithmetic
   UFLRA,       // uninterpreted functions + linear real arithmetic
@@ -131,6 +135,7 @@ typedef enum smt_logic {
 
   //  Uninterpreted function + another theory
   QF_UFBV,     // uninterpreted functions + bitvectors
+  QF_UFBVLIA,  // uninterpreted functions + bitvectors + linear integer arithmetic
   QF_UFIDL,    // uninterpreted functions + integer difference logic
   QF_UFLIA,    // uninterpreted functions + linear integer arithmetic
   QF_UFLRA,    // uninterpreted functions + linear real arithmetic
