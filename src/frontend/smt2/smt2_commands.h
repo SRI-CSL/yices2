@@ -292,7 +292,7 @@ typedef struct smt2_cmd_stats_s {
  *   global_decls is false by default.
  * - clean_model_format is false by default. This flag determines how models
  *   are displayed in (get-model). If the flag is false, we use the SMT2-style
- *   format (not clean!). Otherwise, we use the Yices-style format.
+ *.  format (not clean!). Otherwise, we use the Yices-style format.
  * - bvconst_in_decimal is false by default. This flag determines how bit-vector
  *   constants are displayed in (get-model) and (get-value ..>). If the flag
  *   is true, we print them in decimal otherwise, we print them in binary.
