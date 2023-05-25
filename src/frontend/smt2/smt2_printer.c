@@ -607,17 +607,10 @@ void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name, typ
   types = table->type_table;
   pp_open_block(&printer->pp, PP_OPEN_SMT2_DEF);
   smt2_pp_symbol(printer, name);
-  if (object_is_function(table, c)) {
-    smt2_pp_function_params(printer, types, tau);
-    smt2_pp_function_definition(printer, table, tau, c);
-  } else if (object_is_update(table, c)) {
-    smt2_pp_function_params(printer, types, tau);
-    smt2_pp_update_definition(printer, table, c);
-  } else {
-    pp_string(&printer->pp, "()");
-    smt2_pp_type(printer, types, tau);
-    smt2_pp_object_in_def(printer, table, tau, c);
-  }
+  pp_string(&printer->pp, "()");
+  smt2_pp_type(printer, types, tau);
+  smt2_pp_object_in_def(printer, table, tau, c);
+
   pp_close_block(&printer->pp, true);
 }
 
