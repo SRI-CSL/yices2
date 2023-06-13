@@ -1221,7 +1221,6 @@ void weq_graph_array_build_weak_eq_graph(weq_graph_t* weq,
     term_t t = array_terms->data[i];
     term_kind_t t_kind = term_kind(terms, t);
     assert(is_function_term(terms, t));
-    assert(t_kind == UNINTERPRETED_TERM || t_kind == UPDATE_TERM);
 
     weq_graph_node_t *b = weq_graph_get_node(weq, t);
     if (t_kind == UPDATE_TERM) {
