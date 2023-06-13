@@ -1281,6 +1281,34 @@ void copy_uniques(ivector_t *to, ivector_t *from) {
   }
 }
 
+/* filtered select terms in the select_terms vector,
+ * according to the current array terms.
+ * Basically, we keep select terms whose first argument (i.e. an array)
+ * is present in the arrays_terms vector.
+ */
+static
+void filter_select_terms(const term_table_t* terms, ivector_t *select_terms,
+			 const ivector_t *array_terms) {
+  uint32_t i, j;
+  composite_term_t* select_desc;
+  int_hset_t array_terms_set;
+  init_int_hset(&array_terms_set, 0);
+
+  for (i = 0; i < array_terms->size; ++i) {
+    int_hset_add(&array_terms_set, array_terms->data[i]);
+  }
+
+  j = 0;
+  for (i = 0; i < select_terms->size; ++i) {
+    select_desc = app_term_desc(terms, select_terms->data[i]);
+    if (int_hset_member(&array_terms_set, select_desc->arg[0])) {
+      select_terms->data[j++] = select_terms->data[i];
+    }
+  }
+  ivector_shrink(select_terms, j);
+
+  delete_int_hset(&array_terms_set);
+}
 
 /* The main method to check array conflicts. The conflict vector will
  * contain conflicting terms if an array conflict is found. It assumes
@@ -1306,6 +1334,8 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   
   init_ivector(&select_terms, 0);
   copy_uniques(&select_terms, &weq->select_terms);
+  // filter select terms
+  filter_select_terms(weq->ctx->terms, &select_terms, &array_terms);
   // store select terms according to heuristic score
   int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 
