@@ -1278,6 +1278,8 @@ void copy_uniques(ivector_t *to, ivector_t *from) {
       int_hset_add(&seen, t);
     }
   }
+
+  delete_int_hset(&seen);
 }
 
 /* filtered select terms in the select_terms vector,
