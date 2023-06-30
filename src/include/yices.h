@@ -3256,7 +3256,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(int
  * - ctx's status flag is updated to STATUS_IDLE (if the new clause is not empty) or
  *   to STATUS_UNSAT (if the new clause is the empty clause).
  *
- * Return code: 0 if there's no error, -1 if there's an error.
+ * Return blocking clause if there's no error, -1 if there's an error.
  *
  * Error report:
  * if ctx's status is different from STATUS_SAT or STATUS_UNKNOWN
@@ -3264,7 +3264,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(int
  * if ctx is not configured to support multiple checks
  *    code = CTX_OPERATION_NOT_SUPPORTED
  */
-__YICES_DLLSPEC__ extern int32_t yices_assert_blocking_clause(context_t *ctx);
+__YICES_DLLSPEC__ extern term_t yices_assert_blocking_clause(context_t *ctx);
 
 
 /*

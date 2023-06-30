@@ -8801,7 +8801,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  *   The status is then updated to IDLE (if the new clause is not empty) or
  *   to UNSAT (if the new clause is the empty clause).
  *
- * Return code: 0 if there's no error, -1 if there's an error.
+ * Return blocking clause if there's no error, -1 if there's an error.
  *
  * Error report:
  * if ctx's status is different from SAT or UNKNOWN
@@ -8814,8 +8814,7 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (context_supports_multichecks(ctx)) {
-      assert_blocking_clause(ctx);
-      return 0;
+      return assert_blocking_clause(ctx);
     } else {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;

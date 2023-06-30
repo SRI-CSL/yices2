@@ -6584,7 +6584,6 @@ void context_clear_unsat(context_t *ctx) {
 }
 
 
-
 /*
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
@@ -6592,16 +6591,12 @@ void context_clear_unsat(context_t *ctx) {
  *   (say l_1, ..., l_k) then clears the current assignment and adds the
  *  clause ((not l_1) \/ ... \/ (not l_k)).
  *
- * Return code:
- * - TRIVIALLY_UNSAT: means that the blocking clause is empty (i.e., k = 0)
- *   (in that case, the context status is set to UNSAT)
- * - CTX_NO_ERROR: means that the blocking clause is not empty (i.e., k > 0)
- *   (In this case, the context status is set to IDLE)
+ * Return blocking clause
  */
 int32_t assert_blocking_clause(context_t *ctx) {
   ivector_t *v;
   uint32_t i, n;
-  int32_t code;
+  term_t clause, t;
 
   assert(smt_status(ctx->core) == STATUS_SAT ||
          smt_status(ctx->core) == STATUS_UNKNOWN);
@@ -6613,6 +6608,13 @@ int32_t assert_blocking_clause(context_t *ctx) {
   n = v->size;
   for (i=0; i<n; i++) {
     v->data[i] = not(v->data[i]);
+    t = intern_tbl_reverse_lit_map(&ctx->intern, v->data[i]);
+    assert(t != NULL_TERM);
+    if (i == 0) {
+      clause = t;
+    } else {
+      clause = mk_binary_or(__yices_globals.manager, clause, t);
+    }
   }
 
   // prepare for the new assertion + notify solvers of a new assertion
@@ -6624,15 +6626,14 @@ int32_t assert_blocking_clause(context_t *ctx) {
   ivector_reset(v);
 
   // force UNSAT if n = 0
-  code = CTX_NO_ERROR;
   if (n == 0) {
-    code = TRIVIALLY_UNSAT;
+    clause = false_term;
     ctx->core->status = STATUS_UNSAT;
   }
 
   assert(n == 0 || smt_status(ctx->core) == STATUS_IDLE);
 
-  return code;
+  return clause;
 }
 
 
