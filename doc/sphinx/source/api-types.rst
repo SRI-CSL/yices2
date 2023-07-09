@@ -1014,6 +1014,22 @@ Error Reports
 
       Attempt to use a delegate that was not included in the Yices library at compilation time.
 
+   .. c:enum:: CTX_EF_ASSERTIONS_CONTAIN_UF
+
+      Uninterpreted functions not supported by the exists/forall solver.
+
+   .. c:enum:: CTX_EF_NOT_EXISTS_FORALL
+
+      Assertions are not in the exists/forall fragment.
+
+   .. c:enum:: CTX_EF_HIGH_ORDER_VARS
+
+      High-order and tuple variables are not supported.
+
+   .. c:enum:: CTX_EF_INTERNAL_ERROR
+
+      The exists/forall solver failed.
+
    .. c:enum:: CTX_INVALID_CONFIG
 
       Reported by :c:func:`yices_new_context` if the requested
