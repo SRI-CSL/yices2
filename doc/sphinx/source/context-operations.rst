@@ -111,8 +111,8 @@ If you configure a context for a logic such as ``"QF_NRA"`` or ``"QF_UFNIA"``
 then MCSat will be automatically selected.
 
 The MCSat solver does not currently support as many features as the
-DPLL(T) implementation. In particular, MCSat does not yet support push
-and pop.
+DPLL(T) implementation. In particular, MCSat does not yet support
+computing unsat cores.
 
 
 **Theory Solvers**
@@ -222,14 +222,12 @@ each call to :c:func:`yices_check_context`.  This introduces overhead,
 but the context can be restored to a clean state if the search is
 interrupted.
 
-Currently, MCSat supports only mode one-shot.
-
 For DPLL(T), the four operating modes can be used, except if a
 Floyd-Warshal theory solver is used. The Floyd-Warshal solvers are
 specialized for difference logic and support only mode one-shot.
 
 
-The default mode is push-pop for DPLL(T) and one-shot for MCSat.
+The default mode is push-pop.
 
 
 
@@ -842,7 +840,6 @@ returns the core in a term vector. A full example is in file
 :file:`examples/example_unsat_core.c` included in the Yices
 distribution.
 
-
 .. c:function:: smt_status_t yices_check_context_with_assumptions(context_t* ctx, const param_t* params, uint32_t n, const term_t t[])
 
    Checks whether *n* assumptions are satisfiable in a context *ctx*.
@@ -933,6 +930,186 @@ distribution.
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
+
+
+Check Modulo a Model and Model Interpolant
+------------------------------------------
+
+When checking satisfiability, it is possible to provide a partial
+model such that the satisfiability is checked for the assertions in
+conjunction with the provided model. To use this functionality, the
+context must be a context initialized with support for MCSAT (see
+yices_new_context, yices_new_config, yices_set_config).
+Here is an example::
+
+   ctx_config_t* config = yices_new_config();
+   yices_set_config(config, "solver-type", "mcsat");
+   context_t *ctx = yices_new_context(config);
+   yices_assert_formula(ctx, f);
+   status = yices_check_context_with_model(ctx, NULL, model, 5, a);
+
+In this fragment, we first create a yices configuration ``config``
+then we set its parameter ``solver-type`` to ``mcsat``. Then, we
+create a context ``ctx`` using ``config``. After that we assert a
+formula ``f``.  In the call to check, we give an array of five
+uninterpreted terms ``a[0]``, ..., ``a[4]``.  This amounts to checking
+the conjunction of ``f`` and the equalities between the unintpreted
+terms and their value in the ``model``.
+
+The check modulo a model provides an additional functionality, namely,
+the construction of a model interpolant, if the yices context is
+unsatisfiable and supports model interpolation (see
+yices_set_config). This model interpolant is constructed by calling
+:c:func:`yices_get_model_interpolant`.
+
+
+.. c:function:: smt_status_t yices_check_context_with_model(context_t* ctx, const param_t* params, model_t *mdl, uint32_t n, const term_t t[])
+
+   Checks whether *n* assumptions are satisfiable in a context *ctx*.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *params* is an optional structure to a search-parameter structure.
+
+   - *mdl* is a model
+
+   - *n* is the number of assumptions
+
+   - *t* is an array of *n* uninterpreted terms
+
+   The *params* structure controls search heuristics. If *params* is NULL, default
+   settings are used. See :ref:`params` and :c:func:`yices_check_context`.
+
+   This function checks statisfiability of the constraints in ctx
+   conjoined with a conjunction of equalities defined by *t[i]* and the
+   model, namely,
+
+   *t[0] == v_0 /\ .... /\ t[n-1] = v_{n-1}*,
+
+   where *v_i* is the value of *t[i]* in *mdl*.
+
+   NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
+   picked for *v_i*.
+
+   If this function returns STATUS_UNSAT and the context supports
+   model interpolation, then one can construct a model interpolant by
+   calling function :c:func:`yices_get_model_interpolant`.
+
+   More precisely:
+
+   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`STATUS_UNSAT`.
+
+   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
+     or :c:enum:`STATUS_UNKNOWN` then the function checks whether
+     *ctx* conjoined with the *n* equalities given by *mdl* and *t* is
+     satisfiable. This is done even if *n* is zero.  The function will
+     then return a code as in :c:func:`yices_check_context`.
+
+   - If *ctx*'status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+
+
+   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   configured for one-shot solving and *ctx*'s status is anything
+   other than :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If one of the terms *t[i]* is not an uninterpreted:
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
+
+   - If the context does not have the MCSAT solver enabled:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the resulting status is :c:enum:`STATUS_SAT` and context does not support multichecks:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+.. c:function:: term_t yices_get_model_interpolant(context_t* ctx)
+
+   Construct and return a model interpolant.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+
+   If *ctx* status is unsat and the context was configured with model-interpolation,
+   this function returns a model interpolant.
+   Otherwise, it sets an error code and return NULL_TERM.
+
+   This is intended to be used after a call to
+   :c:func:`yices_check_context_with_model` that returned
+   :c:enum:`STATUS_UNSAT`. In this case, the function builds an model
+   interpolant. The model interpolant is a clause implied by the
+   current context that is false in the model provides to
+   :c:func:`yices_check_context_with_model`.
+
+   **Error report**
+
+   - If the context is not configured with model interpolation:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the context's status is not :c:enum:`STATUS_UNSAT`:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+
+Check and Compute Interpolant
+-----------------------------
+
+It is possible to check assertions and compute an interpolant if the
+assertions are unsatisfiable. This functionality requires having two
+contexts that are stored in a *interpolation_context*. The
+*interpolation_context* is a struct with four components defined
+as follows::
+
+   typedef struct interpolation_context_s {
+     context_t *ctx_A;
+     context_t *ctx_B;
+     term_t interpolant;
+     model_t *model;
+   } interpolation_context_t;
+
+
+.. c:function:: smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model)
+
+   Check satisfiability and compute interpolant.
+
+   **Parameters**
+
+   - *ctx* is a interpolation context
+
+   - *params* is an optional structure to a search-parameter structure.
+
+   - *build_model* is a Boolean flag
+
+   The *params* structure controls search heuristics. If *params* is NULL, default
+   settings are used. See :ref:`params` and :c:func:`yices_check_context`.
+
+   To call this function:
+
+   - *ctx->ctx_A* must be a context initialized with support for MCSAT and interpolation.
+
+   - *ctx->ctx_B* can be another context (not necessarily with MCSAT support).
+
+   If this function returns :c:enum:`STATUS_UNSAT`, then an
+   interpolant is returned in *ctx->interpolant*.
+
+   If this function returns :c:enum:`STATUS_SAT` and *build_model* is
+   true, then a model is returned in *ctx->model*. This model must be
+   freed when no-longer needed by calling :c:func:`yices_free_model`.
+
+   **Error report**
+
+   - If something is wrong:
+
+     -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
 
 .. _params:
