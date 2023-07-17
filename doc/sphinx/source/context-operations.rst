@@ -1010,7 +1010,7 @@ yices_set_config). This model interpolant is constructed by calling
      satisfiable. This is done even if *n* is zero.  The function will
      then return a code as in :c:func:`yices_check_context`.
 
-   - If *ctx*'status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+   - If *ctx*'s status is anything else, the function returns :c:enum:`STATUS_ERROR`.
 
 
    This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
