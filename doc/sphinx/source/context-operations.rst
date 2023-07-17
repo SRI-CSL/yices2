@@ -112,7 +112,9 @@ then MCSat will be automatically selected.
 
 The MCSat solver does not currently support as many features as the
 DPLL(T) implementation. In particular, MCSat does not yet support
-computing unsat cores.
+computing unsat cores. However, unsat cores in MCSat can be computed
+using :c:func:`yices_check_context_with_model` and
+:c:func:`yices_get_model_interpolant`.
 
 
 **Theory Solvers**
