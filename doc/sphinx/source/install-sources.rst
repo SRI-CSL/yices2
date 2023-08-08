@@ -177,14 +177,18 @@ Third-Party SAT Solvers
 -----------------------
 
 Yices can use third-party SAT solvers as backends to the bit-vector
-solvers.  We call these *delegates*. Currently two third-party solvers
-are supported
+solvers. Currently one internal and three third-party solvers are
+supported
 
-1. Armin Biere's `CaDiCal <https://github.com/arminbiere/cadical>`_
+1. Internal y2sat SAT solver (default solver)
 
-2. Mate Soos' `CryptoMiniSAT <https://www.msoos.org/cryptominisat5>`_
+2. Armin Biere's `CaDiCal <https://github.com/arminbiere/cadical>`_
 
-You can compile Yices with one or both of these SAT solvers.
+3. Mate Soos' `CryptoMiniSAT <https://www.msoos.org/cryptominisat5>`_
+
+4. Armin Biere's `Kissat (patched version) <https://github.com/BrunoDutertre/kissat>`_
+
+You can also compile Yices with any of these SAT solvers.
 
 Install CaDiCaL
 ...............
@@ -235,16 +239,34 @@ This will install CryptoMiniSAT in ``/usr/local/``.
 There are more detailed build instructions in the CryptoMiniSAT ``README``.
 
 
+Install Kissat
+..............
+
+We provide a patched version of Kissat that fixes an issue. Download
+this patched version at https://github.com/BrunoDutertre/kissat. The
+original is at https://github.com/arminbiere/kissat. To compile the
+code, follow these instructions:
+
+.. code-block:: sh
+
+   git clone https://github.com/BrunoDutertre/kissat
+   cd kissat
+   ./configure -fPIC
+   make
+   sudo install build/libkissat.a /usr/local/lib
+   sudo install -m644 src/kissat.h /usr/local/include
+
+
 Configure and Build Yices with Third-Party Solvers
 ..................................................
 
-To build Yices with support for both CaDiCaL and CryptoMiniSAT, use the following
+To build Yices with support for all third-party solvers, use the following
 configure command in the top-level yices source directory:
 
 .. code-block:: sh
 
-   ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT' \
-        LIBS=’-lcryptominisat5 -lcadical -lstdc++ -lm’
+   ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
+        LIBS=’-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm’
 
 If you want only CaDiCaL:
 
@@ -257,6 +279,12 @@ If you want only CryptoMiniSAT:
 .. code-block:: sh
 
    ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT LIBS=’-lcryptominisat5 -lstdc++’
+
+If you want only Kissat, use this command:
+
+.. code-block:: sh
+
+   ./configure CPPFLAGS=-DHAVE_KISSAT LIBS=’-lkissat -lm’
 
 After any of these ``configure`` commands, you can build Yices as usual:
 

@@ -2654,9 +2654,8 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t n
  * - mcsat: solver based on the Model-Constructing Satisfiability Calculus
  *
  * The "mcsat" solver is required for formulas that use non-linear
- * arithmetic. Currently the mcsat solver does not support push and
- * pop. If you select "mcsat" as the solver type, no other
- * configuration is necessary.
+ * arithmetic. If you select "mcsat" as the solver type, no other
+ * configuration is necessary (incremental and push-pop usages are enabled).
  *
  * If you select "dpllt" as the solver type, then you can define the
  * combination of theory solvers you want to include.
