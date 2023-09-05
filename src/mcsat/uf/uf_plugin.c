@@ -892,10 +892,10 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
 
   // Since we make functions when we see a new one, we also construct the last function
   if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
-    type_t tau = get_function_application_type(terms, app_kind, app_f);
+    type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
     type_t range_tau = function_type_range(terms->types, tau);
     value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-    switch (app_kind) {
+    switch (prev_app_kind) {
     case ARITH_RDIV:
       vtbl_set_zero_rdiv(vtbl, f_value);
       break;
