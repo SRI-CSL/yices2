@@ -33,6 +33,7 @@
 #include "mcsat/eq/equality_graph.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 #include "eq_ext_con.h"
 
 
@@ -1543,7 +1544,7 @@ term_t explain_propagation(bv_subexplainer_t* this, const ivector_t* reasons_in,
   if (ok) {
     // Concat the terms
     if (to_concat.size > 1) {
-      result_subst = yices_bvconcat(to_concat.size, to_concat.data);
+      result_subst = _o_yices_bvconcat(to_concat.size, to_concat.data);
     } else {
       result_subst = to_concat.data[0];
     }

@@ -870,10 +870,6 @@ fi
 AC_SUBST(THREAD_SAFE)
 if test "x$thread_safe" = xyes ; then
    THREAD_SAFE=1
-   # iam: the aim is to eventually eliminate this restriction, but not before the 2.6.2 release.
-   if test $use_mcsat = yes ; then
-      AC_MSG_ERROR([Building with both --enable-mcsat and --enable-thread-safety is currently not supported.])
-   fi
 fi
 
 dnl
