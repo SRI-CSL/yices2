@@ -182,6 +182,7 @@ static arith_solver_t arith_solver;
  */
 static uint32_t timeout;
 
+static timeout_t *to;
 
 /*
  * Filename given on the command line
@@ -2040,15 +2041,15 @@ static int process_benchmark(char *filename) {
     start_search_time = get_cpu_time();
 
     if (timeout > 0) {
-      init_timeout();
-      start_timeout(timeout, timeout_handler, &context);
+      to = init_timeout();
+      start_timeout(to, timeout, timeout_handler, &context);
     }
     code = check_context(&context, search_options);
     clear_handler();
 
     if (timeout > 0) {
-      clear_timeout();
-      delete_timeout();
+      clear_timeout(to);
+      delete_timeout(to);
     }
 
     print_results();

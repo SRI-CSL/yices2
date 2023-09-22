@@ -44,15 +44,53 @@
 
 #include <assert.h>
 
+#include "utils/error.h"
+#include "utils/memalloc.h"
 #include "utils/timeout.h"
 #include "yices_exit_codes.h"
 
+#if !defined(MINGW) && defined(THREAD_SAFE)
+#include <pthread.h>
+#endif
+
+/*
+ * Timeout state:
+ * - NOT_READY: initial state and after call to delete_timeout
+ * - READY: ready to be started (state after init_timeout
+ *          and after clear_timeout)
+ * - ACTIVE: after a call to start_timeout, before the timer fires
+ *           or the timeout is canceled
+ * - CANCELED: used by clear_timeout
+ * - FIRED: after the handler has been called
+ */
+typedef enum timeout_state {
+  TIMEOUT_NOT_READY, // 0
+  TIMEOUT_READY,
+  TIMEOUT_ACTIVE,
+  TIMEOUT_CANCELED,
+  TIMEOUT_FIRED,
+} timeout_state_t;
+
+
+typedef struct timeout_s {
+  timeout_state_t state;
+  timeout_handler_t handler;
+  void *param;
+#ifdef THREAD_SAFE
+  struct timeval tv;
+  pthread_t thread;
+  int pipe[2];
+#endif
+} timeout_t;
+
+#ifndef THREAD_SAFE
 
 /*
  * Global structure common to both implementation.
  */
 static timeout_t the_timeout;
 
+#endif
 
 #ifndef MINGW
 
@@ -65,7 +103,115 @@ static timeout_t the_timeout;
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/errno.h>
 
+#ifdef THREAD_SAFE
+
+timeout_t *init_timeout(void) {
+  timeout_t *timeout;
+
+  timeout = (timeout_t *) safe_malloc(sizeof(timeout_t));
+
+  timeout->state = TIMEOUT_READY;
+  timeout->handler = NULL;
+  timeout->param = NULL;
+  timeout->tv.tv_sec = 0;
+  timeout->tv.tv_usec = 0;
+  timeout->pipe[0] = timeout->pipe[1] = -1;
+
+  return timeout;
+}
+
+void delete_timeout(timeout_t *timeout) {
+  /* The read end of the pipe should have been closed by the timer
+     thread. */
+  assert(timeout->pipe[0] == -1);
+  /* The write end of the pipe should have been closed by
+     clear_timer. */
+  assert(timeout->pipe[1] == -1);
+  
+  safe_free(timeout);
+}
+
+static void *timer_thread(void *arg) {
+  timeout_t *timeout;
+  int fd;
+  fd_set readfds;
+  
+  timeout = (timeout_t *) arg;
+
+  fd = timeout->pipe[0];
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+
+  /* Watch the read end of the pipe until the timeout occurs. */
+  switch (select(fd + 1, &readfds,
+		 /*writefds=*/NULL, /*errorfds=*/NULL,
+		 &timeout->tv)) {
+  case -1:
+    /* Error. */
+    perror_fatal("timer_thread: select");
+    break;
+
+  case 0:
+    /* Timeout. */
+    timeout->state = TIMEOUT_FIRED;
+    timeout->handler(timeout->param);
+    break;
+
+  case 1:
+    /* Canceled. */
+    assert(FD_ISSET(fd, &readfds));
+    timeout->state = TIMEOUT_CANCELED;
+    break;
+
+  default:
+    assert(0);
+  }
+
+  /* Close the read end of the pipe. */
+  if (close(timeout->pipe[0]) == -1)
+    perror_fatal("timer_thread: close");
+  timeout->pipe[0] = -1;
+  
+  return NULL;
+}
+
+void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
+  int ret;
+  
+  assert(delay > 0 && timeout->state == TIMEOUT_READY && handler != NULL);
+
+  timeout->state = TIMEOUT_ACTIVE;
+  timeout->tv.tv_sec = delay;
+  timeout->tv.tv_usec = 0;
+  timeout->handler = handler;
+  timeout->param = param;
+
+  if (pipe(timeout->pipe) == -1)
+    perror_fatal("start_timeout: pipe");
+
+  ret = pthread_create(&timeout->thread, /*attr=*/NULL, timer_thread, timeout);
+  if (ret)
+    perror_fatal_code("start_timeout: pthread_create", ret);
+}
+
+void clear_timeout(timeout_t *timeout) {
+  void *value;
+  
+  /* Tell the thread to exit. */
+  if (close(timeout->pipe[1]) == -1)
+    perror_fatal("clear_timeout: close");
+  timeout->pipe[1] = -1;
+
+  /* Wait for the thread to exit. */
+  if (pthread_join(timeout->thread, &value) == -1)
+    perror_fatal("clear_timeout: pthread_join");
+
+  timeout->state = TIMEOUT_READY;
+}
+
+#else /* !defined(THREAD_SAFE) */
 
 /*
  * To save the original SIG_ALRM handler
@@ -92,7 +238,7 @@ static void alarm_handler(int signum) {
  * - install the alarm_handler (except on Solaris)
  * - initialize state to READY
  */
-void init_timeout(void) {
+timeout_t *init_timeout(void) {
 #ifndef SOLARIS
   saved_handler = signal(SIGALRM, alarm_handler);
   if (saved_handler == SIG_ERR) {
@@ -104,6 +250,8 @@ void init_timeout(void) {
   the_timeout.state = TIMEOUT_READY;;
   the_timeout.handler = NULL;
   the_timeout.param = NULL;
+
+  return &the_timeout;
 }
 
 
@@ -116,11 +264,12 @@ void init_timeout(void) {
  *
  * On Solaris: set the signal handler here.
  */
-void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
-  assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
-  the_timeout.state = TIMEOUT_ACTIVE;
-  the_timeout.handler = handler;
-  the_timeout.param = param;
+void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
+  assert(timeout == &the_timeout);
+  assert(delay > 0 && timeout->state == TIMEOUT_READY && handler != NULL);
+  timeout->state = TIMEOUT_ACTIVE;
+  timeout->handler = handler;
+  timeout->param = param;
 
 #ifdef SOLARIS
   saved_handler = signal(SIGALRM, alarm_handler);
@@ -140,14 +289,16 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
  * - cancel the timeout if it's not fired
  * - set state to READY
  */
-void clear_timeout(void) {
+void clear_timeout(timeout_t *timeout) {
+  assert(timeout == &the_timeout);
+  
   // TODO: Check whether we should block the signals here?
-  if (the_timeout.state == TIMEOUT_ACTIVE) {
+  if (the_timeout->state == TIMEOUT_ACTIVE) {
     // not fired;
-    the_timeout.state = TIMEOUT_CANCELED;
+    the_timeout->state = TIMEOUT_CANCELED;
     (void) alarm(0); // cancel the alarm
   }
-  the_timeout.state = TIMEOUT_READY;
+  the_timeout->state = TIMEOUT_READY;
 }
 
 
@@ -156,14 +307,17 @@ void clear_timeout(void) {
  * - cancel the timeout if it's active
  * - restore the original handler
  */
-void delete_timeout(void) {
-  if (the_timeout.state == TIMEOUT_ACTIVE) {
+void delete_timeout(timeout_t *timeout) {
+  assert(timeout == &the_timeout);
+  
+  if (timeout->state == TIMEOUT_ACTIVE) {
     (void) alarm(0);
   }
   (void) signal(SIGALRM, saved_handler);
-  the_timeout.state = TIMEOUT_NOT_READY;
+  timeout->state = TIMEOUT_NOT_READY;
 }
 
+#endif /* defined(THREAD_SAFE) */
 
 #else
 
@@ -210,7 +364,7 @@ static VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
  * Initialization:
  * - create the timer queue
  */
-void init_timeout(void) {
+timeout_t *init_timeout(void) {
   timer_queue = CreateTimerQueue();
   if (timer_queue == NULL) {
     fprintf(stderr, "Yices: CreateTimerQueue failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
@@ -221,6 +375,8 @@ void init_timeout(void) {
   the_timeout.state = TIMEOUT_READY;
   the_timeout.handler = NULL;
   the_timeout.param = NULL;
+
+  return &the_timeout;
 }
 
 
@@ -231,9 +387,10 @@ void init_timeout(void) {
  * - handler = handler to call if fired
  * - param = parameter for the handler
  */
-void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
+void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
   DWORD duetime;
 
+  assert(timeout == &the_timeout);
   assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
 
   duetime = delay * 1000; // delay in milliseconds
@@ -255,9 +412,11 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
 /*
  * Delete the timer
  */
-void clear_timeout(void) {
+void clear_timeout(timeout_t *timeout) {
   // GetLastError returns DWORD, which is an unsigned 32bit integer
   uint32_t error_code;
+
+  assert(timeout == &the_timeout);
 
   if (the_timeout.state == TIMEOUT_ACTIVE || the_timeout.state == TIMEOUT_FIRED) {
     if (the_timeout.state == TIMEOUT_ACTIVE) {
@@ -292,7 +451,9 @@ void clear_timeout(void) {
  * Final cleanup:
  * - delete the timer_queue
  */
-void delete_timeout(void) {
+void delete_timeout(timeout_t *timeout) {
+  assert(timeout == &the_timeout);
+  
   if (! DeleteTimerQueueEx(timer_queue, INVALID_HANDLE_VALUE)) {
     fprintf(stderr, "Yices: DeleteTimerQueueEx failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);

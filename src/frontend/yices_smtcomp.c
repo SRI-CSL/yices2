@@ -184,6 +184,8 @@ static tracer_t tracer;
  */
 static uint32_t timeout;
 
+static timeout_t *to;
+
 /*
  * Input file given on the command line.
  * If this is NULL, we read from stdin.
@@ -1292,14 +1294,14 @@ static int process_benchmark(void) {
     start_search_time = get_cpu_time();
 
     if (timeout > 0) {
-      init_timeout();
-      start_timeout(timeout, timeout_handler, &context);
+      to = init_timeout();
+      start_timeout(to, timeout, timeout_handler, &context);
     }
     code = check_context(&context, &params);
     clear_handler();
     if (timeout > 0) {
-      clear_timeout();
-      delete_timeout();
+      clear_timeout(to);
+      delete_timeout(to);
     }
     print_results();
 

@@ -138,7 +138,7 @@
  * OTHER
  * - timeout: timeout value in second (applies to check)
  *   timeout value = 0 means no timeout
- * - timeout_initialized: true once init_timeout is called
+ * - to: the timeout structure
  *
  * COMMAND-LINE OPTIONS:
  * - logic_name: logic to use (option --logic=xxx)
@@ -175,7 +175,7 @@ static int32_t verbosity;
 static tracer_t *tracer;
 
 static uint32_t timeout;
-static bool timeout_initialized;
+static timeout_t *to;
 
 static char *logic_name;
 static char *arith_name;
@@ -261,8 +261,6 @@ static assumptions_and_core_t *unsat_assumptions;
 static pp_area_t pp_area = {
   140, UINT32_MAX, 0, false, false
 };
-
-
 
 /**************************
  *  COMMAND-LINE OPTIONS  *
@@ -2542,11 +2540,10 @@ static void timeout_handler(void *data) {
  */
 static void set_timeout(void) {
   if (timeout > 0) {
-    if (!timeout_initialized) {
-      init_timeout();
-      timeout_initialized = true;
+    if (!to) {
+      to = init_timeout();
     }
-    start_timeout(timeout, timeout_handler, context);
+    start_timeout(to, timeout, timeout_handler, context);
   }
 }
 
@@ -2555,8 +2552,8 @@ static void set_timeout(void) {
  */
 static void reset_timeout(void) {
   if (timeout > 0) {
-    assert(timeout_initialized);
-    clear_timeout();
+    assert(to);
+    clear_timeout(to);
     timeout = 0;
   }
 }
@@ -3999,7 +3996,7 @@ int yices_main(int argc, char *argv[]) {
    */
   interactive = false;
   timeout = 0;
-  timeout_initialized = false;
+  to = NULL;
   include_depth = 0;
   ready_time = 0.0;
   check_process_time = 0.0;
@@ -4111,8 +4108,8 @@ int yices_main(int argc, char *argv[]) {
 
   yices_exit();
 
-  if (timeout_initialized) {
-    delete_timeout();
+  if (to) {
+    delete_timeout(to);
   }
 
   return exit_code;
