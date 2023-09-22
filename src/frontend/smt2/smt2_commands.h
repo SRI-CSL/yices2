@@ -50,6 +50,7 @@
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
 #include "utils/string_hash_map.h"
+#include "utils/timeout.h"
 #include "parser_utils/lexer.h"
 #include "parser_utils/term_stack2.h"
 #include "io/tracer.h"
@@ -401,7 +402,7 @@ typedef struct smt2_globals_s {
 
   // timeout
   uint32_t timeout;           // default = 0 (no timeout)
-  bool timeout_initialized;   // initially false. true once init_timeout is called
+  timeout_t *to;              // initially NULL. Non-NULL once init_timeout is called
   bool interrupted;           // true if the most recent call to check_sat timed out
 
   // optional: delegate sat solver for QF_BV

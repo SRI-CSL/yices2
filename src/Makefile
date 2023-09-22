@@ -276,6 +276,7 @@ core_src_c := \
 	utils/csets.c \
 	utils/cputime.c \
 	utils/dep_tables.c \
+	utils/error.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
 	utils/hash_functions.c \
@@ -494,7 +495,6 @@ bin_src_c := \
 	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
-	frontend/yices_smt2_mt.c \
 	frontend/yices_smtcomp.c \
 
 #

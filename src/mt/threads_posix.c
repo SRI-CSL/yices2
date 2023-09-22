@@ -21,6 +21,9 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/resource.h>
+
+#include "utils/error.h"
 
 void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char* test, yices_thread_main_t thread_main, bool verbose){
   int32_t retcode, thread;
@@ -29,6 +32,10 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
   thread_data_t* tdata = (thread_data_t*)calloc(nthreads, sizeof(thread_data_t)); 
 
   pthread_t* tids = (pthread_t*)calloc(nthreads, sizeof(pthread_t));
+  pthread_attr_t attr;
+  size_t stacksize;
+  struct rlimit rlp;
+  
   if((tdata == NULL) || (tids == NULL)){
     fprintf(stderr, "Couldn't alloc memory for %d threads\n", nthreads);
     exit(EXIT_FAILURE);
@@ -38,6 +45,19 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
     printf("%d threads\n", nthreads);
   }
 
+  /* Give child threads the same stack size as the main thread. */
+  if (getrlimit(RLIMIT_STACK, &rlp) == -1)
+    perror_fatal("launch_threads: getrlimit");
+  retcode = pthread_attr_init(&attr);
+  if (retcode == -1)
+    perror_fatal_code("launch_threads: pthread_attr_init", retcode);
+  retcode = pthread_attr_getstacksize(&attr, &stacksize);
+  if (retcode == -1)
+    perror_fatal_code("launch_threads: pthread_attr_getstacksize", retcode);
+  retcode = pthread_attr_setstacksize(&attr, rlp.rlim_cur);
+  if (retcode == -1)
+    perror_fatal_code("launch_threads: pthread_attr_setstacksize", retcode);
+    
   for(thread = 0; thread < nthreads; thread++){
     snprintf(buff, 1024, "/tmp/%s_%d.txt", test, thread);
     if(verbose){
@@ -48,18 +68,19 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
       tdata[thread].extra = (extras + (thread * extra_sz));
     }
     tdata[thread].output = fopen(buff, "w");
-    if(tdata[thread].output == NULL){
-      fprintf(stderr, "fopen failed: %s\n", strerror(errno));
-      exit(EXIT_FAILURE);
-    }
+    if(tdata[thread].output == NULL)
+      perror_fatal("launch_threads: fopen");
 
-    retcode =  pthread_create(&tids[thread], NULL, thread_main, &tdata[thread]);
-    if(retcode){
-      fprintf(stderr, "pthread_create failed: %s\n", strerror(retcode));
-      exit(EXIT_FAILURE);
-    }
+    retcode =  pthread_create(&tids[thread], &attr, thread_main, &tdata[thread]);
+    if(retcode)
+      perror_fatal_code("launch_threads: pthread_create", retcode);
   }
 
+  retcode = pthread_attr_destroy(&attr);
+  if (retcode)
+    perror_fatal_code("launch_threads: pthread_attr_destroy", retcode);
+    
+  
   if(verbose){
     printf("threads away\n\n");
   }
@@ -67,10 +88,8 @@ void launch_threads(int32_t nthreads, void* extras, size_t extra_sz, const char*
 
   for(thread = 0; thread < nthreads; thread++){
     retcode = pthread_join(tids[thread], NULL);
-    if(retcode){
-      fprintf(stderr, "pthread_join failed: %s\n", strerror(retcode));
-      exit(EXIT_FAILURE);
-    }
+    if(retcode)
+      perror_fatal_code("launch_threads: pthread_join", retcode);
     fclose(tdata[thread].output);
   }
 

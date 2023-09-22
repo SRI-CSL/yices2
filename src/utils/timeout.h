@@ -53,26 +53,6 @@
 
 #include <stdint.h>
 
-
-/*
- * Timeout state:
- * - NOT_READY: initial state and after call to delete_timeout
- * - READY: ready to be started (state after init_timeout
- *          and after clear_timeout)
- * - ACTIVE: after a call to start_timeout, before the timer fires
- *           or the timeout is canceled
- * - CANCELED: used by clear_timeout
- * - FIRED: after the handler has been called
- */
-typedef enum timeout_state {
-  TIMEOUT_NOT_READY, // 0
-  TIMEOUT_READY,
-  TIMEOUT_ACTIVE,
-  TIMEOUT_CANCELED,
-  TIMEOUT_FIRED,
-} timeout_state_t;
-
-
 /*
  * Handler: a function with a single (void*) parameter
  * - should do something cheap and fast.
@@ -83,11 +63,7 @@ typedef void (*timeout_handler_t)(void *data);
 /*
  * Internal structure used to manage the timeout
  */
-typedef struct timeout_s {
-  timeout_state_t state;
-  timeout_handler_t handler;
-  void *param;
-} timeout_t;
+typedef struct timeout_s timeout_t;
 
 
 
@@ -98,7 +74,7 @@ typedef struct timeout_s {
 /*
  * Initialize internal structures
  */
-extern void init_timeout(void);
+extern timeout_t *init_timeout(void);
 
 
 /*
@@ -107,20 +83,20 @@ extern void init_timeout(void);
  * - handler = the handler to call
  * - param = data passed to the handler
  */
-extern void start_timeout(uint32_t delay, timeout_handler_t handler, void *param);
+extern void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param);
 
 
 /*
  * Cancel the timeout if it's not fired.
  * Cleanup any structure allocated by start timeout.
  */
-extern void clear_timeout(void);
+extern void clear_timeout(timeout_t *timeout);
 
 
 /*
  * Final cleanup
  */
-extern void delete_timeout(void);
+extern void delete_timeout(timeout_t *timeout);
 
 
 
