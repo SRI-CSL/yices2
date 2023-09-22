@@ -1108,6 +1108,11 @@ EXPORTED void yices_exit(void) {
     delete_sparse_array(&the_root_types);
   }
 
+  free_parameter_list();
+  free_config_list();
+  free_model_list();
+  free_context_list();
+
   delete_parsing_objects();
   delete_fvars();
 
@@ -1122,11 +1127,6 @@ EXPORTED void yices_exit(void) {
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
   free_arith_buffer_list();
-
-  free_context_list();
-  free_model_list();
-  free_config_list();
-  free_parameter_list();
 
   delete_list_locks();
 
