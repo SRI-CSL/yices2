@@ -633,7 +633,7 @@ dynamic and static libraries in different locations:
 2) Build GMP as a static library in a different location (say
    /tools/static_gmp/). This can be done by giving options
 
-      --disable-share --enable-static --prefix=/tools/static_gmp
+      --disable-shared --enable-static --prefix=/tools/static_gmp
 
    to GMP's configure script.  This will build
 
