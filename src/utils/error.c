@@ -23,7 +23,7 @@
 #include "yices_exit_codes.h"
 
 void perror_fatal(const char *s) {
-  perror_fatal(s, errno);
+  perror(s);
   exit(YICES_EXIT_INTERNAL_ERROR);
 }
 
