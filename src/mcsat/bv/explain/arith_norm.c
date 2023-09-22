@@ -777,7 +777,9 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
 
   case BV_ARRAY: {  // Concatenated boolean terms
     composite_term_t* concat_desc = bvarray_term_desc(terms, t);
-    term_t ebits[w]; // Where we build the result
+    term_t *ebits; // Where we build the result
+
+    ebits = (term_t *) safe_malloc(w * sizeof(term_t));
 
     // First, we eliminate BIT_TERM-over-BV_ARRAYs:
     for (uint32_t i = 0; i < w; i++)
@@ -791,7 +793,11 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     // preproc[1][i] is the term_t arith_normalise_upto(k,top+1) (normalised version of k over the lowest top+1 bits), let's call it norm
     // preproc[2][i] is the value returned by bv_evaluator_not_free_up_to(norm), let's call it maxeval
     // preproc[3][i] is the term_t arith_normalise_upto(norm,maxeval), if maxeval is not 0
-    term_t preproc[4][w];
+
+    term_t *preproc[4];
+    for (int i = 0; i < 4; i ++)
+      preproc[i] = (term_t *) safe_malloc(4 * w * sizeof(term_t));
+    
     // We initialise the hashmap
     fix_htbl_init(preproc[0], w);
       
@@ -865,6 +871,11 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
     arith_analyse_t analysis;
     init_analysis(&analysis);
     analyse_bvarray(norm, w, ebits, &analysis);
+
+    for (int i = 0; i < 4; i ++)
+      safe_free(preproc[i]);
+    safe_free(ebits);
+    
     return finalise(norm, t, &analysis);
   }
 
