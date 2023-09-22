@@ -29,19 +29,20 @@
 #include "mcsat/tracing.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 #include <inttypes.h>
 
 #define CONFLICT_DEFAULT_ELEMENT_SIZE 100
 
 void conflict_check(conflict_t* conflict) {
   ctx_config_t* config = yices_new_config();
-  context_t* ctx = yices_new_context(config);
+  context_t* ctx = _o_yices_new_context(config);
   uint32_t i;
   const ivector_t* literals = &conflict->disjuncts.element_list;
   for (i = 0; i < literals->size; ++i) {
     term_t literal = literals->data[i];
     literal = opposite_term(literal);
-    int32_t ret = yices_assert_formula(ctx, literal);
+    int32_t ret = _o_yices_assert_formula(ctx, literal);
     if (ret != 0) {
       // unsupported by regular yices
       fprintf(stderr, "skipping conflict (ret)\n");
@@ -52,7 +53,7 @@ void conflict_check(conflict_t* conflict) {
   smt_status_t result = yices_check_context(ctx, NULL);
   (void) result;
   assert(result == STATUS_UNSAT);
-  yices_free_context(ctx);
+  _o_yices_free_context(ctx);
   yices_free_config(config);
 }
 

@@ -6291,8 +6291,12 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
  * - otherwise, the code is negative. The assertion could
  *   not be processed.
  */
+int32_t _o_assert_formula(context_t *ctx, term_t f) {
+  return _o_assert_formulas(ctx, 1, &f);
+}
+
 int32_t assert_formula(context_t *ctx, term_t f) {
-  return assert_formulas(ctx, 1, &f);
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_assert_formula(ctx, f));
 }
 
 

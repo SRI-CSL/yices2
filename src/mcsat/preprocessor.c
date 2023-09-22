@@ -34,6 +34,7 @@
 #include "context/context_types.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 
 void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler, const mcsat_options_t* options) {
   pre->terms = terms;
@@ -459,8 +460,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
                 size = 0;
               }
             }
-            current_pre = yices_bvconcat(n_vars, vars);
-            term_t eq = yices_eq(current, current_pre);
+            current_pre = _o_yices_bvconcat(n_vars, vars);
+            term_t eq = _o_yices_eq(current, current_pre);
             preprocessor_mark_eq(pre, eq, current);
           }
         }
@@ -598,7 +599,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       } else {
         type_t arg_pre_type = term_type(pre->terms, arg_pre);
         term_t arg_pre_is_positive = mk_arith_term_geq0(&pre->tm, arg_pre);
-        term_t arg_negative = yices_neg(arg_pre);
+        term_t arg_negative = _o_yices_neg(arg_pre);
         current_pre = mk_ite(&pre->tm, arg_pre_is_positive, arg_pre, arg_negative, arg_pre_type);
       }
       break;
@@ -718,7 +719,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
             trace_term_ln(pre->tracer, terms, arg_pre);
           }
           // For simplification purposes use API
-          current_pre = yices_bitextract(arg_pre, index);
+          current_pre = _o_yices_bitextract(arg_pre, index);
           assert(current_pre != NULL_TERM);
         }
       }
