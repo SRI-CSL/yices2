@@ -637,7 +637,7 @@ dynamic and static libraries in different locations:
 
    to GMP's configure script.  This will build
 
-       /tools/static_gmp/lib/libgmp.dll.a
+       /tools/static_gmp/lib/libgmp.a
 
    and the corresponding 'gmp.h' will be in /tools/static_gmp/include.
 
@@ -647,7 +647,7 @@ configure script so that it can find 'libgmp.a' in its nonstandard
 location and the corresponding 'gmp.h'. The best way to do this is
 to configure Yices using:
 
-    ./configure --with-static-gmp=/tools/static_gmp/lib/libgmp.dll.a \
+    ./configure --with-static-gmp=/tools/static_gmp/lib/libgmp.a \
                 --with-static-gmp-include-dir=/tools/static_gmp/include
 
 
