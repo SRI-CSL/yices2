@@ -262,7 +262,7 @@ timeout_t *init_timeout(void) {
  */
 void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
   assert(timeout == &the_timeout);
-  assert(delay > 0 && timeout->state == TIMEOUT_READY && handler != NULL);
+  assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
   the_timeout.state = TIMEOUT_ACTIVE;
   the_timeout.handler = handler;
   the_timeout.param = param;
