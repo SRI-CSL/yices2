@@ -43,15 +43,15 @@
  */
 
 #include <assert.h>
+#if !defined(MINGW) && defined(THREAD_SAFE)
+#include <pthread.h>
+#include <sys/time.h>
+#endif
 
 #include "utils/error.h"
 #include "utils/memalloc.h"
 #include "utils/timeout.h"
 #include "yices_exit_codes.h"
-
-#if !defined(MINGW) && defined(THREAD_SAFE)
-#include <pthread.h>
-#endif
 
 /*
  * Timeout state:
@@ -108,12 +108,7 @@ static timeout_t the_timeout;
 
 #ifdef THREAD_SAFE
 
-#include <sys/time.h>
-
-static inline void check_pthread(int err, const char *msg) {
-  if (err)
-    perror_fatal_code(msg, err);
-}
+#include "mt/threads.h"
 
 timeout_t *init_timeout(void) {
   timeout_t *timeout;
@@ -126,19 +121,19 @@ timeout_t *init_timeout(void) {
   timeout->ts.tv_sec = 0;
   timeout->ts.tv_nsec = 0;
 
-  check_pthread(pthread_mutex_init(&timeout->mutex, /*attr=*/NULL),
-		"start_timeout: pthread_mutex_init");
-  check_pthread(pthread_cond_init(&timeout->cond, /*attr=*/NULL),
-		"start_timeout: pthread_cond_init");
+  check_thread_api(pthread_mutex_init(&timeout->mutex, /*attr=*/NULL),
+		   "start_timeout: pthread_mutex_init");
+  check_thread_api(pthread_cond_init(&timeout->cond, /*attr=*/NULL),
+		   "start_timeout: pthread_cond_init");
   
   return timeout;
 }
 
 void delete_timeout(timeout_t *timeout) {
-  check_pthread(pthread_cond_destroy(&timeout->cond),
-		"delete_timeout: pthread_cond_destroy");
-  check_pthread(pthread_mutex_destroy(&timeout->mutex),
-		"delete_timeout: pthread_mutex_destroy");
+  check_thread_api(pthread_cond_destroy(&timeout->cond),
+		   "delete_timeout: pthread_cond_destroy");
+  check_thread_api(pthread_mutex_destroy(&timeout->mutex),
+		   "delete_timeout: pthread_mutex_destroy");
     
   safe_free(timeout);
 }
@@ -149,8 +144,8 @@ static void *timer_thread(void *arg) {
   timeout = (timeout_t *) arg;
 
   /* Get exclusive access to the state. */
-  check_pthread(pthread_mutex_lock(&timeout->mutex),
-		"timer_thread: pthread_mutex_lock");
+  check_thread_api(pthread_mutex_lock(&timeout->mutex),
+		   "timer_thread: pthread_mutex_lock");
   /* It is theoretically possible that the timeout has already been
      canceled by a quick call to clear_timeout. If so, we do not need
      to wait. */
@@ -167,8 +162,8 @@ static void *timer_thread(void *arg) {
     timeout->handler(timeout->param);
   }
 
-  check_pthread(pthread_mutex_unlock(&timeout->mutex),
-		"timer_thread: pthread_mutex_unlock");
+  check_thread_api(pthread_mutex_unlock(&timeout->mutex),
+		   "timer_thread: pthread_mutex_unlock");
   
   return NULL;
 }
@@ -188,26 +183,26 @@ void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler
   timeout->ts.tv_sec = tv.tv_sec + delay;
   timeout->ts.tv_nsec = 1000 * tv.tv_usec;
 
-  check_pthread(pthread_create(&timeout->thread, /*attr=*/NULL,
-			       timer_thread, timeout),
-		"start_timeout: pthread_create");
+  check_thread_api(pthread_create(&timeout->thread, /*attr=*/NULL,
+				  timer_thread, timeout),
+		   "start_timeout: pthread_create");
 }
 
 void clear_timeout(timeout_t *timeout) {
   void *value;
   
   /* Tell the thread to exit. */
-  check_pthread(pthread_mutex_lock(&timeout->mutex),
-		"clear_timeout: pthread_mutex_lock");
+  check_thread_api(pthread_mutex_lock(&timeout->mutex),
+		   "clear_timeout: pthread_mutex_lock");
   timeout->state = TIMEOUT_CANCELED;
-  check_pthread(pthread_mutex_unlock(&timeout->mutex),
-		"clear_timeout: pthread_mutex_unlock");
-  check_pthread(pthread_cond_signal(&timeout->cond),
-		"clear_timeout: pthread_cond_signal");
+  check_thread_api(pthread_mutex_unlock(&timeout->mutex),
+		   "clear_timeout: pthread_mutex_unlock");
+  check_thread_api(pthread_cond_signal(&timeout->cond),
+		   "clear_timeout: pthread_cond_signal");
 
   /* Wait for the thread to exit. */
-  check_pthread(pthread_join(timeout->thread, &value),
-		"clear_timeout: pthread_join");
+  check_thread_api(pthread_join(timeout->thread, &value),
+		   "clear_timeout: pthread_join");
 
   timeout->state = TIMEOUT_READY;
 }
