@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "utils/error.h"
+
 /* the thread main */
 #ifdef MINGW
 #define YICES_THREAD_ATTR  __stdcall
@@ -58,5 +60,17 @@ extern void mt_test_usage(int32_t argc, char* argv[]);
 
 extern yices_thread_result_t yices_thread_exit(void);
 
+/*
+ * Wrap around a thread API call. If the API call indicates error,
+ * print the message, a description of the error, and exit.
+ */
+#ifndef MINGW
+#define check_thread_api(expr, msg) (expr)
+#else
+static inline void check_thread_api(int expr, const char *msg) {
+  if (expr)
+    perror_fatal_code(msg, expr);
+}
+#endif
 
 #endif /* __THREADS_H */
