@@ -53,7 +53,7 @@ int32_t create_yices_lock(yices_lock_t* lock){
 		   "create_yices_lock: pthread_mutex_init");
 
 #ifndef NDEBUG
-  check_thread_api(pthread_mutexattr_destroy(mattr)
+  check_thread_api(pthread_mutexattr_destroy(mattr));
 #endif
 
   return 0;
