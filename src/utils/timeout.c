@@ -289,12 +289,12 @@ void clear_timeout(timeout_t *timeout) {
   assert(timeout == &the_timeout);
   
   // TODO: Check whether we should block the signals here?
-  if (the_timeout->state == TIMEOUT_ACTIVE) {
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
     // not fired;
-    the_timeout->state = TIMEOUT_CANCELED;
+    the_timeout.state = TIMEOUT_CANCELED;
     (void) alarm(0); // cancel the alarm
   }
-  the_timeout->state = TIMEOUT_READY;
+  the_timeout.state = TIMEOUT_READY;
 }
 
 
@@ -306,11 +306,11 @@ void clear_timeout(timeout_t *timeout) {
 void delete_timeout(timeout_t *timeout) {
   assert(timeout == &the_timeout);
   
-  if (timeout->state == TIMEOUT_ACTIVE) {
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
     (void) alarm(0);
   }
   (void) signal(SIGALRM, saved_handler);
-  timeout->state = TIMEOUT_NOT_READY;
+  the_timeout.state = TIMEOUT_NOT_READY;
 }
 
 #endif /* defined(THREAD_SAFE) */
