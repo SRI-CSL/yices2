@@ -77,9 +77,10 @@ typedef struct timeout_s {
   timeout_handler_t handler;
   void *param;
 #ifdef THREAD_SAFE
-  struct timeval tv;
+  struct timespec ts;
   pthread_t thread;
-  int pipe[2];
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
 #endif
 } timeout_t;
 
@@ -107,6 +108,13 @@ static timeout_t the_timeout;
 
 #ifdef THREAD_SAFE
 
+#include <sys/time.h>
+
+static inline void check_pthread(int err, const char *msg) {
+  if (err)
+    perror_fatal_code(msg, err);
+}
+
 timeout_t *init_timeout(void) {
   timeout_t *timeout;
 
@@ -115,98 +123,91 @@ timeout_t *init_timeout(void) {
   timeout->state = TIMEOUT_READY;
   timeout->handler = NULL;
   timeout->param = NULL;
-  timeout->tv.tv_sec = 0;
-  timeout->tv.tv_usec = 0;
-  timeout->pipe[0] = timeout->pipe[1] = -1;
+  timeout->ts.tv_sec = 0;
+  timeout->ts.tv_nsec = 0;
 
+  check_pthread(pthread_mutex_init(&timeout->mutex, /*attr=*/NULL),
+		"start_timeout: pthread_mutex_init");
+  check_pthread(pthread_cond_init(&timeout->cond, /*attr=*/NULL),
+		"start_timeout: pthread_cond_init");
+  
   return timeout;
 }
 
 void delete_timeout(timeout_t *timeout) {
-  /* The read end of the pipe should have been closed by the timer
-     thread. */
-  assert(timeout->pipe[0] == -1);
-  /* The write end of the pipe should have been closed by
-     clear_timer. */
-  assert(timeout->pipe[1] == -1);
-  
+  check_pthread(pthread_cond_destroy(&timeout->cond),
+		"delete_timeout: pthread_cond_destroy");
+  check_pthread(pthread_mutex_destroy(&timeout->mutex),
+		"delete_timeout: pthread_mutex_destroy");
+    
   safe_free(timeout);
 }
 
 static void *timer_thread(void *arg) {
   timeout_t *timeout;
-  int fd;
-  fd_set readfds;
   
   timeout = (timeout_t *) arg;
 
-  fd = timeout->pipe[0];
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-
-  /* Watch the read end of the pipe until the timeout occurs. */
-  switch (select(fd + 1, &readfds,
-		 /*writefds=*/NULL, /*errorfds=*/NULL,
-		 &timeout->tv)) {
-  case -1:
-    /* Error. */
-    perror_fatal("timer_thread: select");
-    break;
-
-  case 0:
-    /* Timeout. */
-    timeout->state = TIMEOUT_FIRED;
-    timeout->handler(timeout->param);
-    break;
-
-  case 1:
-    /* Canceled. */
-    assert(FD_ISSET(fd, &readfds));
-    timeout->state = TIMEOUT_CANCELED;
-    break;
-
-  default:
-    assert(0);
+  /* Get exclusive access to the state. */
+  check_pthread(pthread_mutex_lock(&timeout->mutex),
+		"timer_thread: pthread_mutex_lock");
+  /* It is theoretically possible that the timeout has already been
+     canceled by a quick call to clear_timeout. If so, we do not need
+     to wait. */
+  if (timeout->state != TIMEOUT_CANCELED) {
+    int ret = pthread_cond_timedwait(&timeout->cond, &timeout->mutex,
+				     &timeout->ts);
+    if (ret && ret != ETIMEDOUT)
+      perror_fatal_code("timer_thread: pthread_cond_timedwait", ret);
   }
 
-  /* Close the read end of the pipe. */
-  if (close(timeout->pipe[0]) == -1)
-    perror_fatal("timer_thread: close");
-  timeout->pipe[0] = -1;
+  /* If the timeout wasn't canceled, then the timeout expired. */
+  if (timeout->state != TIMEOUT_CANCELED) {
+    timeout->state = TIMEOUT_FIRED;
+    timeout->handler(timeout->param);
+  }
+
+  check_pthread(pthread_mutex_unlock(&timeout->mutex),
+		"timer_thread: pthread_mutex_unlock");
   
   return NULL;
 }
 
 void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
-  int ret;
+  struct timeval tv;
   
   assert(delay > 0 && timeout->state == TIMEOUT_READY && handler != NULL);
 
   timeout->state = TIMEOUT_ACTIVE;
-  timeout->tv.tv_sec = delay;
-  timeout->tv.tv_usec = 0;
   timeout->handler = handler;
   timeout->param = param;
 
-  if (pipe(timeout->pipe) == -1)
-    perror_fatal("start_timeout: pipe");
+  /* Compute the desired stop time. */
+  if (gettimeofday(&tv, /*tzp=*/NULL) == -1)
+    perror_fatal("start_timeout: gettimeofday");
+  timeout->ts.tv_sec = tv.tv_sec + delay;
+  timeout->ts.tv_nsec = 1000 * tv.tv_usec;
 
-  ret = pthread_create(&timeout->thread, /*attr=*/NULL, timer_thread, timeout);
-  if (ret)
-    perror_fatal_code("start_timeout: pthread_create", ret);
+  check_pthread(pthread_create(&timeout->thread, /*attr=*/NULL,
+			       timer_thread, timeout),
+		"start_timeout: pthread_create");
 }
 
 void clear_timeout(timeout_t *timeout) {
   void *value;
   
   /* Tell the thread to exit. */
-  if (close(timeout->pipe[1]) == -1)
-    perror_fatal("clear_timeout: close");
-  timeout->pipe[1] = -1;
+  check_pthread(pthread_mutex_lock(&timeout->mutex),
+		"clear_timeout: pthread_mutex_lock");
+  timeout->state = TIMEOUT_CANCELED;
+  check_pthread(pthread_mutex_unlock(&timeout->mutex),
+		"clear_timeout: pthread_mutex_unlock");
+  check_pthread(pthread_cond_signal(&timeout->cond),
+		"clear_timeout: pthread_cond_signal");
 
   /* Wait for the thread to exit. */
-  if (pthread_join(timeout->thread, &value) == -1)
-    perror_fatal("clear_timeout: pthread_join");
+  check_pthread(pthread_join(timeout->thread, &value),
+		"clear_timeout: pthread_join");
 
   timeout->state = TIMEOUT_READY;
 }
