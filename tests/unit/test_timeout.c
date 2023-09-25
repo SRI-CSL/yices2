@@ -92,16 +92,16 @@ static void show_counter(uint32_t *c, uint32_t n) {
 /*
  * Test: n = size of the counter, t = timeout value
  */
-static void test_timeout(uint32_t *c, uint32_t n, uint32_t timeout) {
+static void test_timeout(timeout_t *to, uint32_t *c, uint32_t n, uint32_t timeout) {
   double start, end;
 
   printf("---> test: size = %"PRIu32", timeout = %"PRIu32" s\n", n, timeout);
   fflush(stdout);
   wrapper.interrupted  = false;
-  start_timeout(timeout, handler, &wrapper);
+  start_timeout(to, timeout, handler, &wrapper);
   start = get_cpu_time();
   loop(c, n);
-  clear_timeout();
+  clear_timeout(to);
   end = get_cpu_time();
   printf("     cpu time = %.2f s\n", end - start);
   fflush(stdout);
@@ -127,15 +127,16 @@ static uint32_t counter[64];
 int main(void) {
   uint32_t n;
   uint32_t time;
-
-  init_timeout();
+  timeout_t *timeout;
+  
+  timeout = init_timeout();
 
   time = 20;
   for (n=5; n<40; n++) {
-    test_timeout(counter, n, time);
+    test_timeout(timeout, counter, n, time);
   }
 
-  delete_timeout();
+  delete_timeout(timeout);
 
   return 0;
 }
