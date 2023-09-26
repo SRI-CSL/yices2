@@ -796,7 +796,7 @@ term_t arith_normalise_upto(arith_norm_t* norm, term_t u, uint32_t w){
 
     term_t *preproc[4];
     for (int i = 0; i < 4; i ++)
-      preproc[i] = (term_t *) safe_malloc(4 * w * sizeof(term_t));
+      preproc[i] = (term_t *) safe_malloc(w * sizeof(term_t));
     
     // We initialise the hashmap
     fix_htbl_init(preproc[0], w);
