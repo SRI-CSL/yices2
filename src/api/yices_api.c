@@ -10772,9 +10772,11 @@ static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) 
   if (object_is_rational(vtbl, v)) {
     r->tag = ARITHVAL_RATIONAL;
     r->val.q = vtbl_rational(vtbl, v);
+#ifdef HAVE_MCSAT
   } else if (object_is_algebraic(vtbl, v)) {
     r->tag = ARITHVAL_ALGEBRAIC;
     r->val.p = vtbl_algebraic_number(vtbl, v);
+#endif
   } else {
     // should not happen since t is an arithmetic term
     set_error_code(INTERNAL_EXCEPTION);

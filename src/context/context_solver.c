@@ -887,7 +887,6 @@ static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
   return v;
 }
 
-
 /*
  * Value of arithmetic variable x in ctx->arith_solver
  */

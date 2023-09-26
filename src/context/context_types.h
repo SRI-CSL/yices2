@@ -258,25 +258,14 @@ enum {
 typedef enum arithval_tag {
   ARITHVAL_ERROR,
   ARITHVAL_RATIONAL,
-#ifdef HAVE_MCSAT
   ARITHVAL_ALGEBRAIC,
-#endif
 } arithval_tag_t;
 
 /*
  * Tagged union to represent pointers to either rational or algebraic numbers.
  * The flag can ERROR/RATIONAL/ALGEBRAIC
  */
-typedef struct {
-  arithval_tag_t tag;
-  union {
-    rational_t q;
-#ifdef HAVE_MCSAT
-    lp_algebraic_number_t alg_number;
-#endif
-  } val;
-} arithval_in_model_t;
-
+typedef struct arithval_in_model_s arithval_in_model_t;
 
 /**************************
  *  ARITHMETIC INTERFACE  *
@@ -661,6 +650,16 @@ typedef struct dl_data_s {
 /**************
  *  CONTEXT   *
  *************/
+
+struct arithval_in_model_s {
+  arithval_tag_t tag;
+  union {
+    rational_t q;
+#ifdef HAVE_MCSAT
+    lp_algebraic_number_t alg_number;
+#endif
+  } val;
+};
 
 struct context_s {
   // mode + architecture + logic code

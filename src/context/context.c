@@ -5349,6 +5349,7 @@ static void create_simplex_solver(context_t *ctx, bool automatic) {
  * Create an initialize the simplex solver and attach it to the core
  * or to the egraph if the egraph exists.
  */
+#ifdef HAVE_MCSAT
 static void create_mcarith_solver(context_t *ctx) {
   mcarith_solver_t *solver;
   smt_mode_t cmode;
@@ -5380,7 +5381,12 @@ static void create_mcarith_solver(context_t *ctx) {
   ctx->arith_solver = solver;
   ctx->arith = *mcarith_arith_interface(solver);
 }
-
+#else
+static void create_mcarith_solver(context_t *ctx) {
+  fprintf(stderr, "mcarithmetic solver not supported.\n");
+  exit(-1);
+}
+#endif
 
 /*
  * Create IDL/SIMPLEX solver based on ctx->dl_profile
@@ -5777,9 +5783,6 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->en_quant = false;
 }
 
-
-void arithval_in_model_delete(arithval_in_model_t* v);
-
 void arithval_in_model_delete(arithval_in_model_t* v) {
   switch (v->tag) {
   case ARITHVAL_RATIONAL:
@@ -5802,8 +5805,7 @@ void arithval_in_model_reset(arithval_in_model_t* v) {
       break;
 #ifdef HAVE_MCSAT
     case ARITHVAL_ALGEBRAIC:
-      lp_algebraic_number_destruct(&v->
-      val.alg_number);
+      lp_algebraic_number_destruct(&v->val.alg_number);
       v->tag = ARITHVAL_RATIONAL;
       q_init(&v->val.q);
       break;

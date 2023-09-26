@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#ifdef HAVE_MCSAT
 #ifndef __MCARITH_H
 #define __MCARITH_H
 
@@ -65,5 +65,5 @@ extern th_smt_interface_t *mcarith_smt_interface(mcarith_solver_t *solver);
 extern th_egraph_interface_t *mcarith_egraph_interface(mcarith_solver_t *solver);
 extern arith_egraph_interface_t *mcarith_arith_egraph_interface(mcarith_solver_t *solver);
 
-
+#endif
 #endif
