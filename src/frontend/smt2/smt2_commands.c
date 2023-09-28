@@ -76,6 +76,7 @@
 #include "mt/threads.h"
 #include "mt/thread_macros.h"
 
+#define FORCE_MCSAT_ARITH
 
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
@@ -2587,6 +2588,9 @@ static void init_smt2_context(smt2_globals_t *g) {
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
+#ifdef FORCE_MCSAT_ARITH
+  arch = CTX_ARCH_MCSATARITH;
+#else
   if (g->mcsat) {
     // force MCSAT independent of the logic
     arch = CTX_ARCH_MCSAT;
@@ -2606,6 +2610,7 @@ static void init_smt2_context(smt2_globals_t *g) {
       break;
     }
   }
+#endif
 
   if (arch == CTX_ARCH_MCSAT) {
     iflag = false;

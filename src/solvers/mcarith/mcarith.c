@@ -319,6 +319,7 @@ term_table_t* mcarith_solver_terms(mcarith_solver_t* s) {
  * Initialize a mcarith solver
  */
 void init_mcarith_solver(mcarith_solver_t **solver, context_t* ctx) {
+  printf("init_mcarith_solver\n");
   const uint32_t init_assertion_capacity = 64;
 
   mcarith_solver_t* s = safe_malloc(sizeof(mcarith_solver_t));
@@ -1004,10 +1005,16 @@ term_t mk_assertion_pred(mcarith_solver_t *solver, mcarith_assertion_t* a) {
   }
 }
 
+/*
+ * Cleanup and return final check conflict
+ *
+ * Note.  This should be updated to derive conflict clause from mcsat information.
+ */
 static
-void init_conflict(ivector_t* conflict, mcarith_solver_t *solver) {
-  ivector_reset(conflict);
-  uint32_t acnt = solver->assertion_count;
+fcheck_code_t final_check_conflict(mcarith_solver_t* solver) {
+  ivector_t* conflict = &solver->simplex.expl_vector;
+  uint32_t acnt =  solver->assertion_count;
+  // Add negation of all clauses with literal set.
   for (size_t i = 0; i < acnt; ++i) {
     mcarith_assertion_t* a = solver->assertions + i;
     if (a->lit != null_literal) {
@@ -1016,6 +1023,11 @@ void init_conflict(ivector_t* conflict, mcarith_solver_t *solver) {
     }
   }
   ivector_push(conflict, end_clause);
+  // Record conflict data with solver.
+  record_theory_conflict(solver->simplex.core, conflict->data);
+  // Free mcsat solver
+  mcarith_free_mcsat(solver);
+  return FCHECK_CONTINUE;
 }
 
 /*
@@ -1025,32 +1037,31 @@ static
 fcheck_code_t mcarith_final_check(void* s) {
   mcarith_solver_t *solver;
   term_table_t* terms;
-  uint32_t acnt;
-  term_t t;
+  fcheck_code_t simplex_result;
 
+  // Conflict clause
+  ivector_t* conflict;
+
+  // Initialize variables
   solver = s;
   terms = mcarith_solver_terms(solver);
+
   assert(!solver->simplex.unsat_before_search);
 
-  fcheck_code_t result;
-
-  result = simplex_final_check(&solver->simplex);
-  if (result == FCHECK_CONTINUE) {
-    return result;
-  }
-
+  
+  simplex_result = simplex_final_check(&solver->simplex);
+  if (simplex_result == FCHECK_CONTINUE) return FCHECK_CONTINUE;
+  
   mcarith_free_mcsat(solver);
 
   const bool qflag = false; // Quantifiers not allowed
   init_context(&solver->mcsat_ctx, terms, QF_NRA, CTX_MODE_ONECHECK, CTX_ARCH_MCSAT, qflag);
   solver->mcsat = mcsat_new(&solver->mcsat_ctx);
 
-  acnt = solver->assertion_count;
-//  ivector_t* assertions = &solver->mcsat_assertions;
   ivector_reset(&solver->mcsat_assertions);
 
   mcarith_check_var_size(solver);
-  for (size_t i = 0; i < acnt; ++i) {
+  for (size_t i = 0; i < solver->assertion_count; ++i) {
     mcarith_assertion_t* a = solver->assertions + i;
 
     term_t p = mk_assertion_pred(solver, a);
@@ -1059,31 +1070,17 @@ fcheck_code_t mcarith_final_check(void* s) {
 
   int32_t r = mcsat_assert_formulas(solver->mcsat, solver->mcsat_assertions.size, solver->mcsat_assertions.data);
   if (r == TRIVIALLY_UNSAT) {
-    mcarith_free_mcsat(solver);
-    ivector_t* conflict = &solver->simplex.expl_vector;
-    init_conflict(conflict, solver);
-    record_theory_conflict(solver->simplex.core, conflict->data);
-    result = FCHECK_CONTINUE;
+    return final_check_conflict(solver);
   } else if (r == CTX_NO_ERROR) {
-    result = FCHECK_SAT;
     mcsat_solve(solver->mcsat, 0, 0, 0, 0);
     switch (mcsat_status(solver->mcsat)) {
     case STATUS_UNKNOWN:
       mcarith_free_mcsat(solver);
-      result = FCHECK_UNKNOWN;
-      break;
+      return FCHECK_UNKNOWN;
     case STATUS_SAT:
-      result = FCHECK_SAT;
-      break;
+      return FCHECK_SAT;
     case STATUS_UNSAT:
-      mcarith_free_mcsat(solver);
-      // - record a conflict (by calling record_theory_conflict)
-      // - create lemmas or atoms in the core
-      ivector_t* conflict = &solver->simplex.expl_vector;
-      init_conflict(conflict, solver);
-      record_theory_conflict(solver->simplex.core, conflict->data);
-      result = FCHECK_CONTINUE;
-      break;
+      return final_check_conflict(solver);
     case STATUS_IDLE:
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
@@ -1091,14 +1088,12 @@ fcheck_code_t mcarith_final_check(void* s) {
     default:
       mcarith_free_mcsat(solver);
       longjmp(*solver->simplex.env, INTERNAL_ERROR);
-      break;
     }
   } else {
     mcarith_free_mcsat(solver);
     longjmp(*solver->simplex.env, INTERNAL_ERROR);
   }
 
-  return result;
 }
 
 /*
