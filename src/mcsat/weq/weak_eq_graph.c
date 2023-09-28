@@ -1289,9 +1289,11 @@ void copy_uniques(ivector_t *to, ivector_t *from) {
  */
 static
 void filter_select_terms(const term_table_t* terms, ivector_t *select_terms,
-			 const ivector_t *array_terms) {
+                         const ivector_t *array_terms) {
   uint32_t i, j;
   composite_term_t* select_desc;
+  term_t t;
+  term_kind_t t_kind;
   int_hset_t array_terms_set;
   init_int_hset(&array_terms_set, 0);
 
@@ -1301,10 +1303,20 @@ void filter_select_terms(const term_table_t* terms, ivector_t *select_terms,
 
   j = 0;
   for (i = 0; i < select_terms->size; ++i) {
-    select_desc = app_term_desc(terms, select_terms->data[i]);
-    if (int_hset_member(&array_terms_set, select_desc->arg[0])) {
-      select_terms->data[j++] = select_terms->data[i];
-    }
+    t = select_terms->data[i];
+    do {
+      /* The array term (first arg) in the select term can be a select
+       * term that returns an array term. We loop to get the array
+       * variable or the store term.
+       */
+      select_desc = app_term_desc(terms, t);
+      t = select_desc->arg[0];
+      if (int_hset_member(&array_terms_set, t)) {
+        select_terms->data[j++] = select_terms->data[i];
+        break;
+      }
+      t_kind = term_kind(terms, t);
+    } while (t_kind == APP_TERM);
   }
   ivector_shrink(select_terms, j);
 
