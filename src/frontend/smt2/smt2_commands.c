@@ -1046,6 +1046,10 @@ static void print_yices_error(bool full) {
     unsupported_construct("quantifiers are");
     break;
 
+  case CTX_LAMBDAS_NOT_SUPPORTED:
+    unsupported_construct("lambdas are");
+    break;
+
   case CTX_SCALAR_NOT_SUPPORTED:
     unsupported_construct("scalar types are");
     break;
@@ -2649,8 +2653,13 @@ static void init_search_parameters(smt2_globals_t *g) {
 static void timeout_handler(void *data) {
   smt2_globals_t *g;
 
+#ifndef THREAD_SAFE
   assert(data == &__smt2_globals);
-
+#else
+  /* In the multi-threaded case there are multiple copies of the
+     global data. */
+#endif /* THREAD_SAFE */
+  
   g = data;
   if (g->efmode && g->ef_client.efsolver != NULL && g->ef_client.efsolver->status == EF_STATUS_SEARCHING) {
     ef_solver_stop_search(g->ef_client.efsolver);
@@ -2675,14 +2684,13 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
    * We call init_timeout only now because the internal timeout
    * consumes resources even if it's never used.
    */
-  if (! g->timeout_initialized) {
-    init_timeout();
-    g->timeout_initialized = true;
+  if (! g->to) {
+    g->to = init_timeout();
   }
   g->interrupted = false;
-  start_timeout(g->timeout, timeout_handler, g);
+  start_timeout(g->to, g->timeout, timeout_handler, g);
   stat = check_context(g->ctx, params);
-  clear_timeout();
+  clear_timeout(g->to);
 
   /*
    * Attempt to cleanly recover from interrupt
@@ -2721,15 +2729,14 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
    * We call init_timeout only now because the internal timeout
    * consumes resources even if it's never used.
    */
-  if (! g->timeout_initialized) {
-    init_timeout();
-    g->timeout_initialized = true;
+  if (! g->to) {
+    g->to = init_timeout();
   }
   g->interrupted = false;
-  start_timeout(g->timeout, timeout_handler, g);
+  start_timeout(g->to, g->timeout, timeout_handler, g);
   stat = check_with_assumptions(g->ctx, params, a->assumptions.size, a->assumptions.data, &a->core);
   a->status = stat;
-  clear_timeout();
+  clear_timeout(g->to);
 
   /*
    * Attempt to cleanly recover from interrupt
@@ -2769,14 +2776,13 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
    * We call init_timeout only now because the internal timeout
    * consumes resources even if it's never used.
    */
-  if (! g->timeout_initialized) {
-    init_timeout();
-    g->timeout_initialized = true;
+  if (! g->to) {
+    g->to = init_timeout();
   }
   g->interrupted = false;
-  start_timeout(g->timeout, timeout_handler, g);
+  start_timeout(g->to, g->timeout, timeout_handler, g);
   stat = check_with_model(g->ctx, params, n, vars, values);
-  clear_timeout();
+  clear_timeout(g->to);
 
   /*
    * Attempt to cleanly recover from interrupt
@@ -3022,7 +3028,7 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 /*
  * Check satisfiability of all assertions
  */
-static void check_delayed_assertions(smt2_globals_t *g) {
+static void check_delayed_assertions(smt2_globals_t *g, bool report) {
   int32_t code;
   smt_status_t status;
   model_t *model;
@@ -3032,12 +3038,14 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
   if (g->trivially_unsat) {
     trace_printf(g->tracer, 3, "(check-sat: trivially unsat)\n");
-    report_status(g, STATUS_UNSAT);
+    if (report)
+      report_status(g, STATUS_UNSAT);
   } else if (trivially_true_assertions(g->assertions.data, g->assertions.size, &model)) {
     trace_printf(g->tracer, 3, "(check-sat: trivially true)\n");
     g->trivially_sat = true;
     g->model = model;
-    report_status(g, STATUS_SAT);
+    if (report)
+      report_status(g, STATUS_SAT);
   } else {
     /*
      * check for mislabeled benchmarks: some benchmarks
@@ -3101,7 +3109,8 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 	status = check_sat_with_timeout(g, &g->parameters);
       }
 
-      report_status(g, status);
+      if (report)
+	report_status(g, status);
     }
   }
 }
@@ -3308,18 +3317,17 @@ static void efsolve_cmd(smt2_globals_t *g) {
   if (g->efmode) {
     efc = &g->ef_client;
     if (g->timeout != 0) {
-      if (! g->timeout_initialized) {
-        init_timeout();
-        g->timeout_initialized = true;
+      if (! g->to) {
+        g->to = init_timeout();
       }
       g->interrupted = false;
-      start_timeout(g->timeout, timeout_handler, g);
+      start_timeout(g->to, g->timeout, timeout_handler, g);
     }
 
     ef_solve(efc, g->assertions.size, g->assertions.data, &g->parameters,
 	     qf_fragment(g->logic_code), ef_arch_for_logic(g->logic_code),
              g->tracer, &g->term_patterns);
-    if (g-> timeout != 0) clear_timeout();
+    if (g-> timeout != 0) clear_timeout(g->to);
 
     if (efc->efcode != EF_NO_ERROR) {
       // error in preprocessing
@@ -3727,8 +3735,11 @@ static model_t *get_model(smt2_globals_t *g) {
         print_error("can't build a model. Call (check-sat) first");
         break;
 
-      case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
+	print_error("the search was interrupted. No model is available");
+	break;
+
+      case STATUS_SEARCHING:
       default:
         print_out("BUG: unexpected context status");
         freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4131,8 +4142,11 @@ static void show_assignment(smt2_globals_t *g) {
       print_error("can't build the assignment. Call (check-sat) first");
       break;
 
-    case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
+      print_error("can't build the assignment. The search was interrupted");
+      break;
+
+    case STATUS_SEARCHING:
     default:
       print_out("BUG: unexpected context status");
       freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4208,9 +4222,12 @@ static void show_unsat_core(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
+      case STATUS_INTERRUPTED:
+	print_error("No unsat core. The search was interrupted");
+	break;
+
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected status in get-unsat-core");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-core");
@@ -4247,9 +4264,12 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
+      case STATUS_INTERRUPTED:
+	print_error("No unsat assumptions. The search was interrupted");
+	break;
+
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected status in get-unsat-assumptions");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-assumptions");
@@ -4561,7 +4581,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_params_to_defaults(&g->parameters);
   g->nthreads = 0;
   g->timeout = 0;
-  g->timeout_initialized = false;
+  g->to = NULL;
   g->interrupted = false;
   g->delegate = NULL;
   g->avtbl = NULL;
@@ -4613,8 +4633,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
  * - delete the timeout object if it's initialized
  */
 static void delete_smt2_globals(smt2_globals_t *g) {
-  if (g->timeout_initialized) {
-    delete_timeout();
+  if (g->to) {
+    delete_timeout(g->to);
   }
   delete_info_table(g);
   if (g->logic_name != NULL) {
@@ -6582,7 +6602,7 @@ static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(v
   g->out = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
   g->err = output;   // /tmp/check_delayed_assertions_thread_<thread index>.txt
 
-  check_delayed_assertions(g);
+  check_delayed_assertions(g, /*report=*/false);
 
   return yices_thread_exit();
 }
@@ -6605,18 +6625,22 @@ static smt_status_t get_status_from_globals(smt2_globals_t *g) {
 static void check_delayed_assertions_mt(smt2_globals_t *g) {
   bool success;
   uint32_t i, n;
+  bool verbose;
 
   n = g->nthreads;
   assert(n > 0);
 
+  verbose = g->verbosity > 0;
+    
   smt2_globals_t *garray =  (smt2_globals_t *) safe_malloc(n * sizeof(smt2_globals_t));
   for(i = 0; i < n; i++) {
     garray[i] = __smt2_globals;  // just copy them for now.
     garray[i].tracer = NULL;     // only main thread can use this.
   }
-  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, true);
-  fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
-  check_delayed_assertions(g);
+  launch_threads(n, garray, sizeof(smt2_globals_t), "check_delayed_assertions_thread", check_delayed_assertions_thread, verbose);
+  if (verbose)
+    fprintf(stderr, "All threads finished. Now computing check_delayed_assertions in main thread.\n");
+  check_delayed_assertions(g, /*report=*/true);
 
   //could check that they are all OK
 
@@ -6630,11 +6654,9 @@ static void check_delayed_assertions_mt(smt2_globals_t *g) {
     //free the model if there is one, and free the context.
     //IAM: valgrind says there is no leak here. This is puzzling.
   }
-  if (success) {
-    fprintf(stderr, "SUCCESS: All threads agree.\n");
-  } else {
-    fprintf(stderr, "FAILURE: Threads disagree.\n");
-  }
+  if (verbose)
+    fprintf(stderr,
+	    success ? "SUCCESS: All threads agree.\n" : "FAILURE: Threads disagree.\n");
   safe_free(garray);
 }
 #endif
@@ -6663,10 +6685,10 @@ void smt2_check_sat(void) {
       } else {
 	//	show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
-        check_delayed_assertions(&__smt2_globals);
+        check_delayed_assertions(&__smt2_globals, /*report=*/true);
 #else
         if (__smt2_globals.nthreads == 0) {
-          check_delayed_assertions(&__smt2_globals);
+          check_delayed_assertions(&__smt2_globals, /*report=*/true);
         } else {
 	  check_delayed_assertions_mt(&__smt2_globals);
 	}

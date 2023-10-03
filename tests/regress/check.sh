@@ -34,13 +34,33 @@
 # what's expected.
 #
 
-if test $# != 2 ; then
-   echo "Usage: $0 <test-directory> <bin-directory>"
+usage() {
+   echo "Usage: $0 <test-directory> <bin-directory> [test1] [test2] ..."
    exit
+}
+    
+smt2_options=
+
+while getopts "s:" o; do
+    case "$o" in
+	s)
+	    smt2_options=${OPTARG}
+	    ;;
+	*)
+	    usage
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if test $# "<" 2 ; then
+    usage
 fi
 
 regress_dir=$1
 bin_dir=$2
+shift 2
+all_tests="$@"
 
 # Make sure fatal errors go to stderr
 export LIBC_FATAL_STDERR_=1
@@ -112,11 +132,13 @@ else
     MCSAT_FILTER="."
 fi
 
-all_tests=$(
-    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
-    grep $REGRESS_FILTER | grep $MCSAT_FILTER |
-    sort
-)
+if test -z "$all_tests"; then
+    all_tests=$(
+	find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
+	    grep $REGRESS_FILTER | grep $MCSAT_FILTER |
+	    sort
+    )
+fi
 
 for file in $all_tests; do
 
@@ -125,9 +147,12 @@ for file in $all_tests; do
     # Get the binary based on the filename
     filename=`basename "$file"`
 
+    options=
+    
     case $filename in
         *.smt2)
             binary=yices_smt2
+	    options=$smt2_options
             ;;
         *.smt)
             binary=yices_smtcomp
@@ -144,11 +169,10 @@ for file in $all_tests; do
     # Get the options
     if [ -e "$file.options" ]
     then
-        options=`cat $file.options`
+        options="$options `cat $file.options`"
         echo " [ $options ]"
     	test_string="$file [ $options ]"
     else
-        options=
         test_string="$file"
         echo
     fi
@@ -172,12 +196,13 @@ for file in $all_tests; do
       ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
       (time ./$bin_dir/$binary $options ./$file >& $outfile ) >& $timefile
     )
+    status=$?
     thetime=`cat $timefile`
 
     # Do the diff
     DIFF=`diff -w $outfile $gold`
 
-    if [ $? -eq 0 ]
+    if [ $? -eq 0 ] && [ $status -eq 0 ]
     then
         echo -n $green
     	echo PASS [${thetime} s]

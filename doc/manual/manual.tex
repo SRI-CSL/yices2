@@ -786,7 +786,7 @@ If you want only Kissat, use this command:
 \begin{small}
 \begin{lstlisting}[language=sh]
   ./configure CPPFLAGS=-DHAVE_KISSAT \
-       LIBS='-kissat -lm'
+       LIBS='-lkissat -lm'
 \end{lstlisting}
 \end{small}
 
@@ -3707,7 +3707,7 @@ in a different format defined by SMT-LIB (see~\cite{SMTLIB26:2017}).
 To use this format, you must invoke \texttt{yices-smt2} as follows
 \begin{small}
 \begin{lstlisting}[language=sh]
-   yices-smt2 --smt2-model-format
+   yices-smt2 --yices-model-format
 \end{lstlisting}
 \end{small}
 
@@ -3860,7 +3860,7 @@ Here is the full list of command-line options supported by
   after all commands have been executed (i.e., after reaching the
   command \texttt{(exit)} or the end of the input file).
 
-\item[--smt2-model-format] Display models in the SMT-LIB~2 format.
+\item[--yices-model-format] Display models in the Yices model format.
 
 \item[--bvconst-in-decimal] Prints bit-vector constants as numbers
   (using the SMT-LIB~2 decimal syntax), instead of constants in binary

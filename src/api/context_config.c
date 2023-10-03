@@ -158,6 +158,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   -1,                  // ANIRA
   -1,                  // AUF
   -1,                  // UFBV
+  -1,                  // UFBVLIA
   -1,                  // UFIDL
   -1,                  // UFLIA
   -1,                  // UFLRA
@@ -167,6 +168,8 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   -1,                  // UFNIRA
   -1,                  // UFRDL
   -1,                  // AUFBV
+  -1,                  // AUFBVLIA
+  -1,                  // AUFBVNIA
   -1,                  // AUFLIA
   -1,                  // AUFLRA
   -1,                  // AUFLIRA
@@ -189,11 +192,13 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_EGFUNSPLX,  // QF_ALIA
   CTX_ARCH_EGFUNSPLX,  // QF_ALRA
   CTX_ARCH_EGFUNSPLX,  // QF_ALIRA
-  -1,                  // QF_ANIA
-  -1,                  // QF_ANRA
-  -1,                  // QF_ANIRA
+  CTX_ARCH_MCSAT,      // QF_ANIA
+  CTX_ARCH_MCSAT,      // QF_ANRA
+  CTX_ARCH_MCSAT,      // QF_ANIRA
   CTX_ARCH_EGFUN,      // QF_AUF
   CTX_ARCH_EGBV,       // QF_UFBV
+  CTX_ARCH_EGSPLXBV,   // QF_UFBVLIA
+
   CTX_ARCH_EGSPLX,     // QF_UFIDL
   CTX_ARCH_EGSPLX,     // QF_UFLIA
   CTX_ARCH_EGSPLX,     // QF_UFLRA
@@ -203,12 +208,14 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_MCSAT,      // QF_UFNIRA
   CTX_ARCH_EGSPLX,     // QF_UFRDL
   CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLXBV, // QF_AUFBVLIA
+  CTX_ARCH_MCSAT,      // QF_AUFBVNIA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLRA
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIRA
-  -1,                  // QF_AUFNIA
-  -1,                  // QF_AUFNRA
-  -1,                  // QF_AUFNIRA
+  CTX_ARCH_MCSAT,      // QF_AUFNIA
+  CTX_ARCH_MCSAT,      // QF_AUFNRA
+  CTX_ARCH_MCSAT,      // QF_AUFNIRA
 
   CTX_ARCH_EGFUNSPLXBV,  // ALL interpreted as QF_AUFLIRA + QF_BV
 };
@@ -694,7 +701,7 @@ void delete_config(ctx_config_t *config) {
  * Check whether a logic is supported by the MCSAT solver
  */
 bool logic_is_supported_by_mcsat(smt_logic_t code) {
-  return code == SMT_ALL || !(logic_has_arrays(code) || logic_has_quantifiers(code));
+  return code == SMT_ALL || !logic_has_quantifiers(code);
 }
 
 /*

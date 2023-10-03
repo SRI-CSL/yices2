@@ -38,6 +38,7 @@
 #include "explain/full_bv_trivial.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 #include <inttypes.h>
 
 void bv_subexplainer_construct(bv_subexplainer_t* exp, const char* name, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
@@ -169,15 +170,15 @@ void bv_explainer_normalize_conflict(bv_explainer_t* exp, ivector_t* conflict_ou
 }
 
 void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict) {
-  context_t* ctx = yices_new_context(NULL);
+  context_t* ctx = _o_yices_new_context(NULL);
   uint32_t i;
   for (i = 0; i < conflict->size; ++ i) {
-    yices_assert_formula(ctx, conflict->data[i]);
+    _o_yices_assert_formula(ctx, conflict->data[i]);
   }
   smt_status_t result = yices_check_context(ctx, NULL);
   (void) result;
   assert(result == STATUS_UNSAT);
-  yices_free_context(ctx);
+  _o_yices_free_context(ctx);
 }
 
 void print_counters(bv_explainer_t* exp){

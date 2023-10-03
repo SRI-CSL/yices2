@@ -142,8 +142,8 @@ void bb_sat_solver_add_variable(bb_sat_solver_t* solver, variable_t var, bool wi
     term_t var_fresh;
     term_kind_t kind = term_kind(solver->yices_ctx->terms, var_term);
     if (kind != UNINTERPRETED_TERM) {
-      type_t var_type = yices_type_of_term(var_term);
-      var_fresh = yices_new_uninterpreted_term(var_type);
+      type_t var_type = _o_yices_type_of_term(var_term);
+      var_fresh = _o_yices_new_uninterpreted_term(var_type);
     } else {
       var_fresh = var_term;
     }
@@ -163,7 +163,7 @@ void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_ter
     fprintf(out, "  previously \n");
     ctx_trace_term(solver->ctx, assertion_term);
   }
-  yices_assert_formula(solver->yices_ctx, assertion_term);
+  _o_yices_assert_formula(solver->yices_ctx, assertion_term);
 }
 
 /**
@@ -276,7 +276,7 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
   }
 
   // Check the assumptions (should be unsat)
-  smt_status_t status = yices_check_context_with_assumptions(solver->yices_ctx, NULL, assumptions.size, assumptions.data);
+  smt_status_t status = _o_yices_check_context_with_assumptions(solver->yices_ctx, NULL, assumptions.size, assumptions.data);
   (void) status;
   assert(status == STATUS_UNSAT);
 

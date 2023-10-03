@@ -34,6 +34,7 @@
 #include "context/context_types.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 
 void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* handler, const mcsat_options_t* options) {
   pre->terms = terms;
@@ -128,6 +129,8 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     return arith_idiv_term_desc(terms, t);
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     return arith_mod_term_desc(terms, t);
+  case UPDATE_TERM:
+    return update_term_desc(terms, t);
   case DISTINCT_TERM:
     return distinct_term_desc(terms, t);
   case BV_ARRAY:
@@ -203,6 +206,9 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
   case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
     assert(n == 2);
     return mk_arith_mod(tm, children[0], children[1]);
+  case UPDATE_TERM:
+    assert(n > 2);
+    return mk_update(tm, children[0], n-2, children + 1, children[n-1]);
   case BV_ARRAY:
     assert(n >= 1);
     return mk_bvarray(tm, n, children);
@@ -271,6 +277,8 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
       return t;
     case APP_TERM:
       // Uninterpreted functions are also already purified
+      return t;
+    case UPDATE_TERM:
       return t;
     default:
       break;
@@ -452,8 +460,8 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
                 size = 0;
               }
             }
-            current_pre = yices_bvconcat(n_vars, vars);
-            term_t eq = yices_eq(current, current_pre);
+            current_pre = _o_yices_bvconcat(n_vars, vars);
+            term_t eq = _o_yices_eq(current, current_pre);
             preprocessor_mark_eq(pre, eq, current);
           }
         }
@@ -485,20 +493,24 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       n = desc->arity;
 
+      /*
       // Arrays not supported yet
       if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-
+      */
+ 
       // Is this a top-level equality assertion
       bool is_equality =
           current_kind == EQ_TERM ||
           current_kind == BV_EQ_ATOM ||
           current_kind == ARITH_BINEQ_ATOM ||
           current_kind == ARITH_EQ_ATOM;
+      // don't rewrite if the equality is between Boolean terms
+      bool is_boolean = is_boolean_type(term_type(pre->terms, desc->arg[0]));
 
       term_t eq_solve_var = NULL_TERM;
-      if (is_assertion && is_equality) {
+      if (is_assertion && is_equality && !is_boolean) {
         if (current == t) {
           eq_solve_var = preprocessor_get_eq_solved_var(pre, t);
           if (eq_solve_var == NULL_TERM) {
@@ -587,7 +599,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       } else {
         type_t arg_pre_type = term_type(pre->terms, arg_pre);
         term_t arg_pre_is_positive = mk_arith_term_geq0(&pre->tm, arg_pre);
-        term_t arg_negative = yices_neg(arg_pre);
+        term_t arg_negative = _o_yices_neg(arg_pre);
         current_pre = mk_ite(&pre->tm, arg_pre_is_positive, arg_pre, arg_negative, arg_pre_type);
       }
       break;
@@ -707,7 +719,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
             trace_term_ln(pre->tracer, terms, arg_pre);
           }
           // For simplification purposes use API
-          current_pre = yices_bitextract(arg_pre, index);
+          current_pre = _o_yices_bitextract(arg_pre, index);
           assert(current_pre != NULL_TERM);
         }
       }
@@ -880,6 +892,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
+    case UPDATE_TERM:        // update array
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
       bool children_done = true;

@@ -1,1 +1,1 @@
---incremental
+--incremental --yices-model-format

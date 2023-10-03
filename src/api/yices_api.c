@@ -1130,6 +1130,11 @@ EXPORTED void yices_per_thread_exit(void){
     delete_sparse_array(&the_root_types);
   }
 
+  free_parameter_list();
+  free_config_list();
+  free_model_list();
+  free_context_list();
+
   delete_parsing_objects();
   delete_fvars();
 
@@ -1144,11 +1149,6 @@ EXPORTED void yices_per_thread_exit(void){
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
   free_arith_buffer_list();
-
-  free_context_list();
-  free_model_list();
-  free_config_list();
-  free_parameter_list();
 
   delete_list_locks();
 
@@ -8697,10 +8697,10 @@ static inline bool yices_assert_formula_checks(term_t t) {
   MT_PROTECT(bool,  __yices_globals.lock, _o_yices_assert_formula_checks(t));
 }
 
-EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
+int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
 
-  if (! yices_assert_formula_checks(t)) {
+  if (! _o_yices_assert_formula_checks(t)) {
     return -1;
   }
 
@@ -8739,7 +8739,7 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
 
   assert(context_status(ctx) == STATUS_IDLE);
 
-  code = assert_formula(ctx, t);
+  code = _o_assert_formula(ctx, t);
   if (code < 0) {
     // error during internalization
     convert_internalization_error(code);
@@ -8750,6 +8750,10 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   return 0;
 }
 
+EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
+  MT_PROTECT(int32_t, __yices_globals.lock,
+	     _o_yices_assert_formula(ctx, t));
+}
 
 
 
@@ -9082,23 +9086,19 @@ static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
   return check_good_terms(__yices_globals.manager, n, a) && check_boolean_args(__yices_globals.manager, n, a);
 }
 
-static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
-  MT_PROTECT(bool,  __yices_globals.lock, _o_unsat_core_check_assumptions(n, a));
-}
-
 /*
  * Check context with assumptions
  * - n = number of assumptions
  * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
  */
-EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
+smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
   param_t default_params;
   ivector_t assumptions;
   smt_status_t stat;
   uint32_t i;
   literal_t l;
 
-  if (!unsat_core_check_assumptions(n, a)) {
+  if (!_o_unsat_core_check_assumptions(n, a)) {
     return STATUS_ERROR; // Bad assumptions
   }
 
@@ -9141,8 +9141,6 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
 
   assert(context_status(ctx) == STATUS_IDLE);
 
-  yices_obtain_mutex();
-
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
   for (i=0; i<n; i++) {
@@ -9157,8 +9155,6 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
     ivector_push(&assumptions, l);
   }
   assert(assumptions.size == n);
-
-  yices_release_mutex();
 
   // set parameters
   if (params == NULL) {
@@ -9178,6 +9174,9 @@ EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const
   return stat;
 }
 
+EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_yices_check_context_with_assumptions(ctx, params, n, a));
+}
 
 /*
  * CHECK WITH A MODEL
