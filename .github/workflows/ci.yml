@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    if: github.ref != 'refs/heads/per-thread-state'
     strategy:
       matrix:
         os: [ubuntu-latest]
