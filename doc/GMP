@@ -387,6 +387,8 @@ different path from the dynamic GMP path):
      --prefix=.... \
      --disable-shared --build=i686-pc-cygwin
 
+Add the dynamic and static bin paths to the PATH env variable.
+
 
 UPDATE (2012/02/15)
 
