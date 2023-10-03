@@ -373,20 +373,19 @@ For GMP 5.0.1, it's also a good idea to get the patch at
 Otherwise, make check will fail for t-perfpow.
 
 
-Then, give the following options to GMP's configure script:
+Then, give the following options to GMP's configure script
+(update the prefix path) for the dynamic GMP:
 
   ./configure --disable-static --enable-shared \
     --prefix=.... \
-    --host=x86_64-pc-mingw32 --build=i686-pc-cygwin \
-    CC=/usr/bin/x86_64-w64-mingw32-gcc \
-    NM=/usr/bin/x86_64-w64-mingw32-nm \
-    AR=/usr/bin/x86_64-w64-mingw32-ar \
-    CC_FOR_BUILD=gcc \
+    --host=x86_64-pc-mingw32 --build=i686-pc-cygwin 
 
+Then, for the static GMP (update the prefix path -- use a 
+different path from the dynamic GMP path):
 
-It's important to specify NM as the x86_64 version. Otherwise the
-'./configure' fails. Not sure specifying AR=... is required.
-
+   ./configure --host=x86_64-w64-mingw32 --enable-static \
+     --prefix=.... \
+     --disable-shared --build=i686-pc-cygwin
 
 
 UPDATE (2012/02/15)
@@ -399,8 +398,5 @@ mingw64, 'make check' failed with this complaint:
 
 To fix this, I just did:
    /usr/bin/x86_64-w64-mingw32-ranlib ./tests/.libs/libtests.a
-
-(Playing with with RANLIB= ... or other options to configure
- did not help).
 
 Then 'make check' proceeded without problems after that.
