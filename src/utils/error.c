@@ -32,10 +32,10 @@ void perror_fatal_code(const char *s, int err) {
   
 #ifdef MINGW
   fprintf(stderr, "%s: %s\n", s, strerror(err));
-  exit(YICES_EXIT_INTERNAL_ERROR);
 #else
   strerror_r(err, buffer, sizeof(buffer));
   fprintf(stderr, "%s: %s\n", s, buffer);
-  exit(YICES_EXIT_INTERNAL_ERROR);
 #endif
+
+  exit(YICES_EXIT_INTERNAL_ERROR);
 }
