@@ -76,7 +76,7 @@ typedef struct timeout_s {
   timeout_state_t state;
   timeout_handler_t handler;
   void *param;
-#ifdef THREAD_SAFE
+#if !defined(MINGW) && defined(THREAD_SAFE)
   struct timespec ts;
   pthread_t thread;
   pthread_mutex_t mutex;
@@ -84,14 +84,11 @@ typedef struct timeout_s {
 #endif
 } timeout_t;
 
-#ifndef THREAD_SAFE
-
 /*
  * Global structure common to both implementation.
  */
 static timeout_t the_timeout;
 
-#endif
 
 #ifndef MINGW
 
