@@ -84,10 +84,15 @@ typedef struct timeout_s {
 #endif
 } timeout_t;
 
+
+#if !defined(THREAD_SAFE) || defined(MINGW)
+
 /*
  * Global structure common to both implementation.
  */
 static timeout_t the_timeout;
+
+#endif
 
 
 #ifndef MINGW
