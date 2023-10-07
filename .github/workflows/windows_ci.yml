@@ -26,7 +26,7 @@ jobs:
           coreutils,
           gperf,
           m4,
-	  make,
+          make,
           mingw64-x86_64-gcc-core,
           moreutils,
           wget
