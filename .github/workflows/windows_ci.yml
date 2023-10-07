@@ -23,6 +23,7 @@ jobs:
       with:
         # Packages to install
         packages: |
+          autoconf,
           coreutils,
           gperf,
           m4,
