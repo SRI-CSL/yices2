@@ -56,7 +56,7 @@ jobs:
         autoconf && 
         ${{ inputs.env }} ./configure --host=x86_64-w64-mingw32 ${{ inputs.config-opt }} CPPFLAGS=-I/tools/dynamic_gmp/include LDFLAGS=-L/tools/dynamic_gmp/lib --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include && 
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} && 
-        make OPTION=mingw64 MODE=${{ inputs.mode }}
+        make OPTION=mingw64 MODE=${{ matrix.mode }}
 
     - name: Run Yices API Tests
       shell: bash
@@ -64,4 +64,4 @@ jobs:
         CYGWIN: winsymlinks:native
       run: >-
         export PATH=/tools/dynamic_gmp/bin:/tools/static_gmp/bin:$PATH &&
-        make OPTION=mingw64 MODE=${{ inputs.mode }} check-api
+        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api
