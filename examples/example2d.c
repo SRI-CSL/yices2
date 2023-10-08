@@ -92,7 +92,7 @@ int main(void) {
   }
   
   switch (yices_check_context(ctx, p)) {
-  case STATUS_SAT:
+  case SMT_STATUS_SAT:
     // build the model and print it
     printf("Satisfiable\n");
     mdl = yices_get_model(ctx, true);
@@ -107,18 +107,18 @@ int main(void) {
     yices_free_model(mdl);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     printf("Unsatisfiable\n");
     break;
 
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_UNKNOWN:
     printf("Status is unknown\n");
     break;
 
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  case STATUS_ERROR:
+  case SMT_STATUS_IDLE:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
+  case SMT_STATUS_ERROR:
     // these codes should not be returned
     printf("Bug: unexpected status returned\n");
     break;

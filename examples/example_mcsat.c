@@ -130,8 +130,8 @@ static void test_mcsat(void) {
   if (code < 0) print_error();
 
   status = yices_check_context(ctx, NULL);
-  if (status != STATUS_SAT) {
-    fprintf(stderr, "Test failed: status != STATUS_SAT\n");
+  if (status != SMT_STATUS_SAT) {
+    fprintf(stderr, "Test failed: status != SMT_STATUS_SAT\n");
     exit(1);
   }
 

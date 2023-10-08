@@ -345,7 +345,7 @@ static int32_t exists_context_assert_conditions(ef_solver_t *solver) {
 
   ctx = solver->exists_context;
 
-  assert(ctx != NULL && context_status(ctx) == STATUS_IDLE);
+  assert(ctx != NULL && context_status(ctx) == SMT_STATUS_IDLE);
 
   n = ef_prob_num_conditions(solver->prob);
   return assert_formulas(ctx, n, solver->prob->conditions);
@@ -368,11 +368,11 @@ static int32_t update_exists_context(ef_solver_t *solver, term_t f) {
 
   status = context_status(ctx);
   switch (status) {
-  case STATUS_SAT:
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
     context_clear(ctx);
-    assert(context_status(ctx) == STATUS_IDLE);
-  case STATUS_IDLE:
+    assert(context_status(ctx) == SMT_STATUS_IDLE);
+  case SMT_STATUS_IDLE:
     code = assert_formula(ctx, f);
     break;
 
@@ -440,7 +440,7 @@ static int32_t forall_context_assert(ef_solver_t *solver, term_t a, term_t b, te
 
   ctx = solver->forall_context;
 
-  assert(ctx != NULL && context_status(ctx) == STATUS_IDLE);
+  assert(ctx != NULL && context_status(ctx) == SMT_STATUS_IDLE);
   assert(is_boolean_term(ctx->terms, b) && is_boolean_term(ctx->terms, c));
 
   assertions[0] = a;
@@ -503,12 +503,12 @@ static context_t *get_forall_context(ef_solver_t *solver) {
  * - model = to export the model (if model is NULL, nothing is exported)
  *
  * The return code is as in check_context:
- * 1) if code = STATUS_SAT then the context is satisfiable
+ * 1) if code = SMT_STATUS_SAT then the context is satisfiable
  *    and a model is stored in value[0 ... n-1]
  *    - value[i] = a constant term mapped to evar[i] in the model
- * 2) code = STATUS_UNSAT: not satisfiable
+ * 2) code = SMT_STATUS_UNSAT: not satisfiable
  *
- * 3) other codes report an error of some kind or STATUS_INTERRUPTED
+ * 3) other codes report an error of some kind or SMT_STATUS_INTERRUPTED
  */
 static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t *var, uint32_t n, term_t *value, model_t **model, bool is_exists) {
   smt_status_t stat;
@@ -519,12 +519,12 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
   ivector_t mdl_values;
 
   stat = context_status(ctx);
-  assert(stat == STATUS_IDLE || stat == STATUS_UNSAT);
+  assert(stat == SMT_STATUS_IDLE || stat == SMT_STATUS_UNSAT);
 
   stat = check_context(ctx, solver->parameters);
   switch (stat) {
-  case STATUS_SAT:
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
     // build the model (and retain egraph model)
     mdl = yices_new_model_internal(true);
     build_model(mdl, ctx);
@@ -549,7 +549,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
     eval_code = evaluate_term_array(mdl, n, var, value);
     if (eval_code < 0) {
       // can't convert the model to values
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       assert(0);
     }
 
@@ -559,7 +559,7 @@ static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t 
     count = convert_value_array(__yices_globals.manager, __yices_globals.terms, model_get_vtbl(mdl), n, value);
     if (count < n) {
       // can't convert values to terms
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       assert(0);
     }
 
@@ -798,8 +798,8 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
     trace_printf(solver->trace, 4, "(EF: start: sampling universal variables)\n");
     status = satisfy_context(solver, sampling_ctx, cnstr->uvars, nvars, value, NULL, false);
     switch (status) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
       // learned condition on X:
       cnd = ef_substitution(solver->prob, cnstr->uvars, value, nvars, cnstr->guarantee);
       if (cnd < 0) {
@@ -825,11 +825,11 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       }
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // no more samples for this constraints
       goto done;
 
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_INTERRUPTED:
       solver->status = EF_STATUS_INTERRUPTED;
       goto done;
 
@@ -1184,9 +1184,9 @@ static void ef_solver_learn(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) {
  *   variables by their values (stored in evalue)
  * - learn multiple lemmas (upto max_numlearnt)
  * - return code:
- *   if STATUS_SAT (or STATUS_UNKNOWN): a model of (B_i and not C_i)
+ *   if SMT_STATUS_SAT (or SMT_STATUS_UNKNOWN): a model of (B_i and not C_i)
  *   is found and stored in uvalue_aux
- *   if STATUS_UNSAT: no model found (current exists model is good as
+ *   if SMT_STATUS_UNSAT: no model found (current exists model is good as
  *   far as constraint i is concerned)
  *   anything else: an error or interruption
  *
@@ -1206,7 +1206,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
   assert(i < ef_prob_num_constraints(solver->prob));
   cnstr = solver->prob->cnstr + i;
-  status = STATUS_ERROR;
+  status = SMT_STATUS_ERROR;
 
   n = ef_prob_num_evars(solver->prob);
   g = ef_substitution(solver->prob, solver->prob->all_evars, solver->evalue.data, n, cnstr->guarantee);
@@ -1214,7 +1214,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     // error in substitution
     solver->status = EF_STATUS_SUBST_ERROR;
     solver->error_code = g;
-    status = STATUS_ERROR;
+    status = SMT_STATUS_ERROR;
     return status;
   }
 
@@ -1260,7 +1260,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
       printf("[%d] forall_ctx status: %d\n", i, status);
 #endif
 
-      if (status == STATUS_SAT || status == STATUS_UNKNOWN) {
+      if (status == SMT_STATUS_SAT || status == SMT_STATUS_UNKNOWN) {
 #if TRACE
         printf("Orig. counterexample for constraint[%"PRIu32"]\n", i);
         print_forall_witness(stdout, solver, i);
@@ -1288,7 +1288,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
         numlearnt++;
 
         // if exists context has become UNSAT, then break
-        if (context_status(solver->exists_context) == STATUS_UNSAT) {
+        if (context_status(solver->exists_context) == SMT_STATUS_UNSAT) {
           break;
         }
 
@@ -1311,7 +1311,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
     // if learnt something, then break (no need to learn for higher generations)
     if (numlearnt != 0) {
-      status = STATUS_SAT;
+      status = SMT_STATUS_SAT;
       solver->numlearnt += numlearnt;
 #if EF_VERBOSE
       printf("--> Learnt %d lemmas\n\n", numlearnt);
@@ -1335,14 +1335,14 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
 
   if (code == CTX_NO_ERROR) {
     switch (status) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       break;
 
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_INTERRUPTED:
       solver->status = EF_STATUS_INTERRUPTED;
       break;
 
@@ -1353,14 +1353,14 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     }
 
   } else if (code == TRIVIALLY_UNSAT) {
-    assert(context_status(forall_ctx) == STATUS_UNSAT);
-    status = STATUS_UNSAT;
+    assert(context_status(forall_ctx) == SMT_STATUS_UNSAT);
+    status = SMT_STATUS_UNSAT;
 
   } else {
     // error in assertion
     solver->status = EF_STATUS_ASSERT_ERROR;
     solver->error_code = code;
-    status = STATUS_ERROR;
+    status = SMT_STATUS_ERROR;
   }
 
   clear_forall_context(solver, true);
@@ -1380,16 +1380,16 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
  */
 static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t status) {
   switch (status) {
-  case STATUS_SAT:
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
     trace_printf(solver->trace, 4, "(EF: candidate rejected: failed constraint %"PRIu32")\n", i);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     trace_printf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
     break;
 
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_INTERRUPTED:
     trace_printf(solver->trace, 4, "(EF: candidate check was interrupted)\n");
     break;
 
@@ -1447,8 +1447,8 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
     trace_candidate_check(solver, i, status);
 
     switch (status) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
       // Moved learning to ef_solver_test_exists_model
     default:
       i ++;
@@ -1458,10 +1458,10 @@ static void  ef_solver_check_exists_model(ef_solver_t *solver) {
       break;
     }
 
-  } while (status == STATUS_UNSAT && i != solver->scan_idx);
+  } while (status == SMT_STATUS_UNSAT && i != solver->scan_idx);
 
   solver->scan_idx = i; // prepare for the next call
-  if (status == STATUS_UNSAT) {
+  if (status == SMT_STATUS_UNSAT) {
     // done a full scan
     solver->status = EF_STATUS_SAT;
   }
@@ -1523,8 +1523,8 @@ static void ef_solver_search(ef_solver_t *solver) {
 
     stat = ef_solver_check_exists(solver);
     switch (stat) {
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
       // we have a candidate exists model
       // check it and learn what we can
 #if TRACE
@@ -1544,12 +1544,12 @@ static void ef_solver_search(ef_solver_t *solver) {
 #endif
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       trace_puts(solver->trace, 4, "(EF: No candidate model)\n");
       solver->status = EF_STATUS_UNSAT;
       break;
 
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_INTERRUPTED:
       trace_puts(solver->trace, 4, "(EF: Interrupted)\n");
       solver->status = EF_STATUS_INTERRUPTED;
       break;

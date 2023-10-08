@@ -52,7 +52,7 @@ void conflict_check(conflict_t* conflict) {
   }
   smt_status_t result = yices_check_context(ctx, NULL);
   (void) result;
-  assert(result == STATUS_UNSAT);
+  assert(result == SMT_STATUS_UNSAT);
   _o_yices_free_context(ctx);
   yices_free_config(config);
 }

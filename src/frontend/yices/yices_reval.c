@@ -775,7 +775,7 @@ static void sigint_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
-  if (context_status(context) == STATUS_SEARCHING) {
+  if (context_status(context) == SMT_STATUS_SEARCHING) {
     context_stop_search(context);
   }
 
@@ -932,7 +932,7 @@ static void print_status(smt_status_t stat) {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    print_status(STATUS_UNSAT);
+    print_status(SMT_STATUS_UNSAT);
   } else if (code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
@@ -1150,25 +1150,25 @@ static void cleanup_context(void) {
 
   cleanup_globals();
   switch(context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     context_clear(context);
-    assert(context_status(context) == STATUS_IDLE);
+    assert(context_status(context) == SMT_STATUS_IDLE);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // remove assumptions if any
     context_clear_unsat(context);
-    assert(context_status(context) == STATUS_IDLE ||
-	   context_status(context) == STATUS_UNSAT);
+    assert(context_status(context) == SMT_STATUS_IDLE ||
+	   context_status(context) == SMT_STATUS_UNSAT);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     // nothing to do
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     // should not happen
     freport_bug(stderr, "unexpected context status");
@@ -2345,13 +2345,13 @@ static void yices_push_cmd(void) {
     simple_istack_push(&assertions);
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       context_push(context);
       labeled_assertions_push(&labeled_assertions);
       print_ok();
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // cannot take (push)
       fputs("The context is unsat; (push) is not allowed\n", stderr);
       fflush(stderr);
@@ -2381,11 +2381,11 @@ static void yices_pop_cmd(void) {
     simple_istack_pop(&assertions);
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       context_clear_unsat(context);
       // fall through intended
 
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       context_pop(context);
       assert(!labeled_assertions_empty_trail(&labeled_assertions));
       labeled_assertions_pop(&labeled_assertions);
@@ -2423,7 +2423,7 @@ static void yices_assert_cmd(term_t f) {
     /*
      * Non-incremental
      */
-    if (context_status(context) != STATUS_IDLE) {
+    if (context_status(context) != SMT_STATUS_IDLE) {
       report_error("more assertions are not allowed");
     } else if (yices_term_is_bool(f)) {
       simple_istack_add(&assertions, f);
@@ -2438,7 +2438,7 @@ static void yices_assert_cmd(term_t f) {
      */
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       if (yices_term_is_bool(f)) {
 	code = assert_formula(context, f);
 	if (code == CTX_NO_ERROR) {
@@ -2450,7 +2450,7 @@ static void yices_assert_cmd(term_t f) {
       }
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // cannot take more assertions
       if (context_base_level(context) == 0) {
 	fputs("The context is unsat. Try (reset).\n", stderr);
@@ -2489,14 +2489,14 @@ static void yices_named_assert_cmd(term_t t, char *label) {
 
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       clone = clone_string(label);
       add_labeled_assertion(&labeled_assertions, t, clone);
       simple_istack_add(&assertions, t);
       print_ok();
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // We could add the labeled assertion even though
       // the context is unsat, but that wouldn't be consistent
       // with the regular assert.
@@ -2523,7 +2523,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
  */
 static void timeout_handler(void *data) {
   assert(data == context && context != NULL);
-  if (context_status(data) == STATUS_SEARCHING) {
+  if (context_status(data) == SMT_STATUS_SEARCHING) {
     context_stop_search(data);
     if (verbosity > 0) {
       // Fix this: not safe in a handler
@@ -2594,7 +2594,7 @@ static smt_status_t do_check(void) {
 /*
  * Check with assumptions and build a core:
  * - a = assumption structure: every term in a->assumptions must be a valid, boolean term
- * - return STATUS_ERROR if an assumption can't be processed
+ * - return SMT_STATUS_ERROR if an assumption can't be processed
  */
 static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   ivector_t aux;
@@ -2606,9 +2606,9 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   ivector_reset(&a->core);
 
   // if the context is already unsat, there's nothing to do and the core is empty.
-  if (context_status(context) == STATUS_UNSAT) {
-    a->status = STATUS_UNSAT;
-    return STATUS_UNSAT;
+  if (context_status(context) == SMT_STATUS_UNSAT) {
+    a->status = SMT_STATUS_UNSAT;
+    return SMT_STATUS_UNSAT;
   }
 
   // add the assumptions to the core
@@ -2619,7 +2619,7 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
     if (l < 0) {
       // failed to convert data[i]
       print_internalization_code(l);
-      status = STATUS_ERROR;
+      status = SMT_STATUS_ERROR;
       goto done;
     }
     ivector_push(&aux, l);
@@ -2638,7 +2638,7 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   reset_timeout();
 
   // compute the unsat core and store it in a
-  if (status == STATUS_UNSAT) {
+  if (status == SMT_STATUS_UNSAT) {
     context_build_unsat_core(context, &a->core);
   }
 
@@ -2666,7 +2666,7 @@ static smt_status_t check_unsat_core(void) {
   collect_assumptions_from_stack(a, &labeled_assertions.assertions);
 
   status = do_check_with_assumptions(a);
-  if (status == STATUS_ERROR) {
+  if (status == SMT_STATUS_ERROR) {
     // cleanup
     free_assumptions(a);
   } else {
@@ -2699,11 +2699,11 @@ static smt_status_t check_assuming(uint32_t n, const signed_symbol_t *s) {
       report_not_boolean_term(s[index].name);
     }
     free_assumptions(a);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   status = do_check_with_assumptions(a);
-  if (status == STATUS_ERROR) {
+  if (status == SMT_STATUS_ERROR) {
     free_assumptions(a);
   } else {
     unsat_assumptions = a;
@@ -2731,11 +2731,11 @@ static void yices_check_cmd(void) {
     assert(assertions.nlevels == 0);
     code = assert_formulas(context, assertions.top, assertions.data);
     if (code == CTX_NO_ERROR) {
-      assert(context_status(context) == STATUS_IDLE);
+      assert(context_status(context) == SMT_STATUS_IDLE);
       stat = do_check();
       print_status(stat);
       // force exit if the check was interrupted
-      done = (stat == STATUS_INTERRUPTED);
+      done = (stat == SMT_STATUS_INTERRUPTED);
 
     } else {
       if (code == TRIVIALLY_UNSAT) {
@@ -2760,15 +2760,15 @@ static void yices_check_cmd(void) {
 
     stat = context_status(context);
     switch (stat) {
-    case STATUS_UNKNOWN:
-    case STATUS_UNSAT:
-    case STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
+    case SMT_STATUS_UNSAT:
+    case SMT_STATUS_SAT:
       // already solved: print the status
       print_status(stat);
       timeout = 0;  // clear timeout to be consistent
       break;
 
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       if (labeled_assertion_stack_is_empty(&labeled_assertions)) {
 	/*
 	 * Regular check: no labeled assertions
@@ -2777,10 +2777,10 @@ static void yices_check_cmd(void) {
 	// if the search was interrupted, cleanup
 	stat = do_check();
 	print_status(stat);
-	if (stat == STATUS_INTERRUPTED) {
+	if (stat == SMT_STATUS_INTERRUPTED) {
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
-	    assert(context_status(context) == STATUS_IDLE);
+	    assert(context_status(context) == SMT_STATUS_IDLE);
 	  } else {
 	    // force quit
 	    done = true;
@@ -2792,14 +2792,14 @@ static void yices_check_cmd(void) {
 	 * as assumptions.
 	 */
 	stat = check_unsat_core();
-	if (stat != STATUS_ERROR) {
+	if (stat != SMT_STATUS_ERROR) {
 	  print_status(stat);
 	}
-	if (stat == STATUS_INTERRUPTED) {
+	if (stat == SMT_STATUS_INTERRUPTED) {
 	  // try to cleanup if we're in interactive mode
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
-	    assert(context_status(context) == STATUS_IDLE);
+	    assert(context_status(context) == SMT_STATUS_IDLE);
 	    if (unsat_core != NULL) {
 	      free_assumptions(unsat_core);
 	      unsat_core = NULL;
@@ -2812,8 +2812,8 @@ static void yices_check_cmd(void) {
       }
       break;
 
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_SEARCHING:
+    case SMT_STATUS_INTERRUPTED:
     default:
       // this should not happen
       freport_bug(stderr,"unexpected context status in 'check'");
@@ -2844,14 +2844,14 @@ static void yices_check_assuming_cmd(uint32_t n, const signed_symbol_t *a) {
     cleanup_context();
 
     status = check_assuming(n, a);
-    if (status != STATUS_ERROR) {
+    if (status != SMT_STATUS_ERROR) {
       print_status(status);
     }
-    if (status == STATUS_INTERRUPTED) {
+    if (status == SMT_STATUS_INTERRUPTED) {
       if (mode == CTX_MODE_INTERACTIVE) {
 	// recover
 	context_cleanup(context);
-	assert(context_status(context) == STATUS_IDLE);
+	assert(context_status(context) == SMT_STATUS_IDLE);
 	if (unsat_assumptions != NULL) {
 	  free_assumptions(unsat_assumptions);
 	  unsat_assumptions = NULL;
@@ -2909,18 +2909,18 @@ static void yices_show_unsat_core_cmd(void) {
       report_error("can't build an unsat core: call (check) first");
     } else {
       switch (unsat_core->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case SMT_STATUS_UNKNOWN:
+      case SMT_STATUS_SAT:
 	report_error("no unsat core: the context is satisfiable");
 	break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
 	show_core(unsat_core);
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_IDLE:
+      case SMT_STATUS_SEARCHING:
+      case SMT_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-core'");
 	break;
@@ -2945,18 +2945,18 @@ static void yices_show_unsat_assumptions_cmd(void) {
       report_error("no unsat assumptions: call (check-assuming) first");
     } else {
       switch (unsat_assumptions->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case SMT_STATUS_UNKNOWN:
+      case SMT_STATUS_SAT:
 	report_error("no unsat assumptions: the context is satisfiable");
 	break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
 	show_core(unsat_assumptions);
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_IDLE:
+      case SMT_STATUS_SEARCHING:
+      case SMT_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-assumptions'");
 	break;
@@ -2981,8 +2981,8 @@ static bool context_has_model(const char *cmd_name) {
 
   has_model = false;
   switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (model == NULL) {
       model = new_model();
       context_build_model(model, context);
@@ -2990,18 +2990,18 @@ static bool context_has_model(const char *cmd_name) {
     has_model = true;
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     fputs("The context is unsat. No model.\n", stderr);
     fflush(stderr);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     fputs("Can't build a model. Call (check) first.\n", stderr);
     fflush(stderr);
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     // this should not happen
     freport_bug(stderr,"unexpected context status in '%s'", cmd_name);
@@ -3285,10 +3285,10 @@ static void do_export(context_t *ctx, const char *s) {
 static void bitblast_then_export(context_t *ctx, const char *s) {
   smt_status_t stat;
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
   stat = precheck_context(ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_UNKNOWN:
     do_export(ctx, s);
     if (context_supports_multichecks(ctx)) {
       assert(ctx == context);
@@ -3296,14 +3296,14 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     do_export(ctx, s);
     break;
 
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_INTERRUPTED:
     if (context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
-      assert(context_status(ctx) == STATUS_IDLE);
+      assert(context_status(ctx) == SMT_STATUS_IDLE);
     }
     report_error("export-to-dimacs interrupted\n");
     break;
@@ -3386,7 +3386,7 @@ static void yices_export_cmd(const char *s) {
       export_assertions(s);
     } else {
       assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
-      if (context_status(context) == STATUS_IDLE) {
+      if (context_status(context) == SMT_STATUS_IDLE) {
 	bitblast_then_export(context, s);
       } else {
 	do_export(context, s);

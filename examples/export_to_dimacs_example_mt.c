@@ -39,8 +39,8 @@ static void show_formulas(term_t* formula, uint32_t n) {
 
 static char *status_to_string(smt_status_t status) {
   switch (status) {
-  case STATUS_SAT: return "sat";
-  case STATUS_UNSAT: return "unsat";
+  case SMT_STATUS_SAT: return "sat";
+  case SMT_STATUS_UNSAT: return "unsat";
   default: return "bug";
   }
 }

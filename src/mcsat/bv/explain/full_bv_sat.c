@@ -278,7 +278,7 @@ void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* co
   // Check the assumptions (should be unsat)
   smt_status_t status = _o_yices_check_context_with_assumptions(solver->yices_ctx, NULL, assumptions.size, assumptions.data);
   (void) status;
-  assert(status == STATUS_UNSAT);
+  assert(status == SMT_STATUS_UNSAT);
 
   // Get the unsat core
   int32_t ret = yices_get_unsat_core(solver->yices_ctx, core);

@@ -6209,7 +6209,7 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
-         smt_status(ctx->core) == STATUS_IDLE);
+         smt_status(ctx->core) == SMT_STATUS_IDLE);
   assert(!context_quant_enabled(ctx));
 
   code = context_process_assertions(ctx, n, f);
@@ -6223,10 +6223,10 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != SMT_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = SMT_STATUS_UNSAT;
     }
   }
 
@@ -6248,7 +6248,7 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(context_quant_enabled(ctx));
-  assert(smt_status(ctx->core) == STATUS_SEARCHING);
+  assert(smt_status(ctx->core) == SMT_STATUS_SEARCHING);
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {
@@ -6261,10 +6261,10 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != SMT_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = SMT_STATUS_UNSAT;
     }
   }
 
@@ -6607,8 +6607,8 @@ int32_t assert_blocking_clause(context_t *ctx) {
   uint32_t i, n;
   int32_t code;
 
-  assert(smt_status(ctx->core) == STATUS_SAT ||
-         smt_status(ctx->core) == STATUS_UNKNOWN);
+  assert(smt_status(ctx->core) == SMT_STATUS_SAT ||
+         smt_status(ctx->core) == SMT_STATUS_UNKNOWN);
 
   // get decision literals and build the blocking clause
   v = &ctx->aux_vector;
@@ -6631,10 +6631,10 @@ int32_t assert_blocking_clause(context_t *ctx) {
   code = CTX_NO_ERROR;
   if (n == 0) {
     code = TRIVIALLY_UNSAT;
-    ctx->core->status = STATUS_UNSAT;
+    ctx->core->status = SMT_STATUS_UNSAT;
   }
 
-  assert(n == 0 || smt_status(ctx->core) == STATUS_IDLE);
+  assert(n == 0 || smt_status(ctx->core) == SMT_STATUS_IDLE);
 
   return code;
 }

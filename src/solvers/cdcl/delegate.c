@@ -73,18 +73,18 @@ static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
 static smt_status_t ysat_check(void *solver) {
   // use new sat solver
   switch (nsat_solve(solver)) {
-  case STAT_SAT: return STATUS_SAT;
-  case STAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case STAT_SAT: return SMT_STATUS_SAT;
+  case STAT_UNSAT: return SMT_STATUS_UNSAT;
+  default: return SMT_STATUS_UNKNOWN;
   }
 }
 
 static smt_status_t ysat_preprocess(void *solver) {
   // use new sat solver
   switch (nsat_apply_preprocessing(solver)) {
-  case STAT_SAT: return STATUS_SAT;
-  case STAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case STAT_SAT: return SMT_STATUS_SAT;
+  case STAT_UNSAT: return SMT_STATUS_UNSAT;
+  default: return SMT_STATUS_UNKNOWN;
   }
 }
 
@@ -218,9 +218,9 @@ static void cadical_add_clause(void *solver, uint32_t n, literal_t *a) {
 
 static smt_status_t cadical_check(void *solver) {
   switch (ccadical_sat(solver)) {
-  case 10: return STATUS_SAT;
-  case 20: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case 10: return SMT_STATUS_SAT;
+  case 20: return SMT_STATUS_UNSAT;
+  default: return SMT_STATUS_UNKNOWN;
   }
 }
 
@@ -344,9 +344,9 @@ static void cryptominisat_add_clause(void *solver, uint32_t n, literal_t *a) {
 
 static smt_status_t cryptominisat_check(void *solver) {
   switch (cmsat_solve(solver)) {
-  case CMSAT_SAT: return STATUS_SAT;
-  case CMSAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case CMSAT_SAT: return SMT_STATUS_SAT;
+  case CMSAT_UNSAT: return SMT_STATUS_UNSAT;
+  default: return SMT_STATUS_UNKNOWN;
   }
 }
 
@@ -435,9 +435,9 @@ static void kissat_add_clause(void *solver, uint32_t n, literal_t *a) {
 
 static smt_status_t kissat_check(void *solver) {
   switch (kissat_solve(solver)) {
-  case 10: return STATUS_SAT;
-  case 20: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case 10: return SMT_STATUS_SAT;
+  case 20: return SMT_STATUS_UNSAT;
+  default: return SMT_STATUS_UNKNOWN;
   }
 }
 
@@ -832,7 +832,7 @@ smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
  * Copy all the clauses of core to delegate d then call the delegate's preprocessor
  */
 smt_status_t preprocess_with_delegate(delegate_t *d, smt_core_t *core) {
-  if (d->preprocess == NULL) return STATUS_UNKNOWN; // not supported
+  if (d->preprocess == NULL) return SMT_STATUS_UNKNOWN; // not supported
 
   copy_problem_clauses(d, core);
   if (d->keep_var != NULL) {

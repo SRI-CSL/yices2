@@ -825,17 +825,17 @@ typedef struct dpll_stats_s {
 #if 0
 // this type is now imported from yices_types.h
 typedef enum smt_status {
-  STATUS_IDLE,
-  STATUS_SEARCHING,
-  STATUS_UNKNOWN,
-  STATUS_SAT,
-  STATUS_UNSAT,
-  STATUS_INTERRUPTED,
-  STATUS_ERROR, // not used by the context operations/only by yices_api
+  SMT_STATUS_IDLE,
+  SMT_STATUS_SEARCHING,
+  SMT_STATUS_UNKNOWN,
+  SMT_STATUS_SAT,
+  SMT_STATUS_UNSAT,
+  SMT_STATUS_INTERRUPTED,
+  SMT_STATUS_ERROR, // not used by the context operations/only by yices_api
 } smt_status_t;
 #endif
 
-#define NUM_SMT_STATUSES (STATUS_ERROR+1)
+#define NUM_SMT_STATUSES (SMT_STATUS_ERROR+1)
 
 /*
  * Optional features: stored as bits in the solver option_flag
@@ -1620,8 +1620,8 @@ extern bool smt_easy_sat(smt_core_t *s);
  * Special forms are provided for unit, binary, and ternary clauses (also
  * for the empty clause).
  *
- * Clauses can be added before the search, when s->status is STATUS_IDLE
- * or on-the-fly, when s->status is STATUS_SEARCHING.
+ * Clauses can be added before the search, when s->status is SMT_STATUS_IDLE
+ * or on-the-fly, when s->status is SMT_STATUS_SEARCHING.
  *
  * If s->status is SEARCHING and s->decision_level > s->base_level,
  * then the clause is a not added immediately, it's copied into the
@@ -1890,13 +1890,13 @@ extern void record_ternary_theory_conflict(smt_core_t *s, literal_t l1, literal_
  * Close the search: mark s as either SAT or UNKNOWN
  */
 static inline void end_search_sat(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
-  s->status = STATUS_SAT;
+  assert(s->status == SMT_STATUS_SEARCHING || s->status == SMT_STATUS_INTERRUPTED);
+  s->status = SMT_STATUS_SAT;
 }
 
 static inline void end_search_unknown(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
-  s->status = STATUS_UNKNOWN;
+  assert(s->status == SMT_STATUS_SEARCHING || s->status == SMT_STATUS_INTERRUPTED);
+  s->status = SMT_STATUS_UNKNOWN;
 }
 
 
@@ -1914,7 +1914,7 @@ extern void smt_cleanup(smt_core_t *s);
 /*
  * Clear assignment and enable addition of new clauses after a search.
  * - this can be called if s->status is UNKNOWN or SAT
- * - s->status is reset to STATUS_IDLE and the current boolean
+ * - s->status is reset to SMT_STATUS_IDLE and the current boolean
  *   assignment is cleared (i.e., we backtrack to the current base_level)
  */
 extern void smt_clear(smt_core_t *s);
@@ -1924,15 +1924,15 @@ extern void smt_clear(smt_core_t *s);
  * Cleanup after the search returned unsat
  * - s->status must be UNSAT.
  * - if there are assumptions, this removes them and reset s->status
- *   to STATUS_IDLE
+ *   to SMT_STATUS_IDLE
  * - if clean_interrupt is enabled, this also restores s to its state
  *   before the search: learned clauses are deleted, lemmas, variables
  *   and atoms created during the search are deleted.
  * - if clean_interrupt is disabled and there are no assumptions,
  *   this does nothing.
  *
- * On exit, s->status is either STATUS_UNSAT (if no assumptions
- * were removed) or STATUS_IDLE (if assumptions were removed).
+ * On exit, s->status is either SMT_STATUS_UNSAT (if no assumptions
+ * were removed) or SMT_STATUS_IDLE (if assumptions were removed).
  */
 extern void smt_clear_unsat(smt_core_t *s);
 

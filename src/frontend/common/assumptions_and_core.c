@@ -37,7 +37,7 @@ assumptions_and_core_t *new_assumptions(term_table_t *terms) {
   init_assumption_table(&a->table);
   init_ivector(&a->assumptions, 0);
   init_ivector(&a->core, 0);
-  a->status = STATUS_IDLE;
+  a->status = SMT_STATUS_IDLE;
   return a;
 }
 
