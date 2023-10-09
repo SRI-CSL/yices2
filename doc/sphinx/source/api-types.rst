@@ -421,29 +421,29 @@ Contexts
    Context state::
 
      typedef enum smt_status {
-       STATUS_IDLE,
-       STATUS_SEARCHING,
-       STATUS_UNKNOWN,
-       STATUS_SAT,
-       STATUS_UNSAT,
-       STATUS_INTERRUPTED,
-       STATUS_ERROR
+       SMT_STATUS_IDLE,
+       SMT_STATUS_SEARCHING,
+       SMT_STATUS_UNKNOWN,
+       SMT_STATUS_SAT,
+       SMT_STATUS_UNSAT,
+       SMT_STATUS_INTERRUPTED,
+       SMT_STATUS_ERROR
      } smt_status_t;
 
    The type :c:type:`smt_status_t` enumerates the possible states of a
    context. It is also the type returned by the function that checks
    whether a context is satisfiable. The following codes are defined:
 
-   .. c:enum:: STATUS_IDLE
+   .. c:enum:: SMT_STATUS_IDLE
 
       Initial context state.
 
       In this state, it is possible to assert formulas in the context.
-      After assertions, the state may change to :c:enum:`STATUS_UNSAT` if
+      After assertions, the state may change to :c:enum:`SMT_STATUS_UNSAT` if
       the assertions are trivially unsatisfiable. Otherwise, the state
-      remains :c:enum:`STATUS_IDLE`.
+      remains :c:enum:`SMT_STATUS_IDLE`.
 
-   .. c:enum:: STATUS_SEARCHING
+   .. c:enum:: SMT_STATUS_SEARCHING
 
       State during search.
 
@@ -451,18 +451,18 @@ Contexts
       :c:func:`yices_check_context`.  It remains in this state until
       either the solver completes or the search is interrupted.
       
-   .. c:enum:: STATUS_UNKNOWN
+   .. c:enum:: SMT_STATUS_UNKNOWN
 
       State entered when the search terminates but is inconclusive.
 
       This may happen if the context's solver is not complete for the specific
       logic used. For example, the logic may have quantifiers.
 
-   .. c:enum:: STATUS_SAT
+   .. c:enum:: SMT_STATUS_SAT
 
       State entered when the search terminates and the assertions are satisfiable.
 
-   .. c:enum:: STATUS_UNSAT
+   .. c:enum:: SMT_STATUS_UNSAT
 
       State entered when the assertions are known to be unsatisfiable.
 
@@ -470,15 +470,15 @@ Contexts
       asserted (if the inconsistency is detected by formula
       simplification), or when the search terminates.
 
-   .. c:enum:: STATUS_INTERRUPTED
+   .. c:enum:: SMT_STATUS_INTERRUPTED
 
       State entered when the search is interrupted.
 
-      When a context is in the state :c:enum:`STATUS_SEARCHING` then the search
+      When a context is in the state :c:enum:`SMT_STATUS_SEARCHING` then the search
       can be interrupted through a call to :c:func:`yices_stop_search`. This
-      moves the context's state to :c:enum:`STATUS_INTERRUPTED`.
+      moves the context's state to :c:enum:`SMT_STATUS_INTERRUPTED`.
 
-   .. c:enum:: STATUS_ERROR
+   .. c:enum:: SMT_STATUS_ERROR
 
       This is an error code. It is returned by functions that operate on a
       context when the operation cannot be performed.
