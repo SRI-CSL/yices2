@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: Build and install libpoly
-      if: inputs.config-opt == '--enable-mcsat'
+      if: contains(inputs.config-opt, '--enable-mcsat')
       shell: bash
       run: |
         pushd .
@@ -26,7 +26,7 @@ runs:
         sudo make install
         popd
     - name: Build and install CUDD
-      if: inputs.config-opt == '--enable-mcsat'
+      if: contains(inputs.config-opt, '--enable-mcsat')
       shell: bash
       run: |
         pushd .
