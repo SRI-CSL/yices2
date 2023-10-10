@@ -72,15 +72,6 @@ typedef struct param_s param_t;
 
 
 /*
- * Hack for fixing windows build when using the thread-safe option.
- * Better fix requires renaming symbols, so it will be done in the
- * non-backward compatible release (2.8).
- */
-#if defined(MINGW) && defined(THREAD_SAFE) && defined(STATUS_INTERRUPTED)
-#undef STATUS_INTERRUPTED
-#endif
-
-/*
  * Context status code
  */
 typedef enum smt_status {
@@ -89,7 +80,7 @@ typedef enum smt_status {
   STATUS_UNKNOWN,
   STATUS_SAT,
   STATUS_UNSAT,
-  STATUS_INTERRUPTED,
+  YICES_STATUS_INTERRUPTED, /* renaming because of a clash with windows defined symbol */
   STATUS_ERROR
 } smt_status_t;
 

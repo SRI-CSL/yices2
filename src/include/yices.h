@@ -52,6 +52,16 @@
 #define __YICES_DLLSPEC__
 #endif
 
+/*
+ * On mingw with the thread-safety option:
+ * STATUS_INTERRUPTED is a defined symbol in windows. 
+ * We have renamed the symbol in yices_types.h and here 
+ * we redefine the STATUS_INTERRUPTED symbol to be backward compatible.
+ * This will be removed in the non-backward compatible release (Yices 2.8).
+ */
+#if !defined(MINGW) || !defined(THREAD_SAFE)
+#define STATUS_INTERRUPTED YICES_STATUS_INTERRUPTED
+#endif
 
 #ifdef __cplusplus
 extern "C" {

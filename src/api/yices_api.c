@@ -8510,7 +8510,7 @@ EXPORTED int32_t yices_push(context_t *ctx) {
     }
     assert(context_status(ctx) == STATUS_UNSAT);
     // fall through
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   case STATUS_SEARCHING:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
@@ -8555,7 +8555,7 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     context_clear(ctx);
     break;
 
@@ -8699,7 +8699,7 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
@@ -8773,7 +8773,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
@@ -8828,7 +8828,7 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   case STATUS_UNSAT:
   case STATUS_IDLE:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
@@ -9029,13 +9029,13 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       params = &default_params;
     }
     stat = check_context(ctx, params);
-    if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     stat = STATUS_ERROR;
     break;
@@ -9101,7 +9101,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return STATUS_ERROR;
 
@@ -9136,7 +9136,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 
   // call check
   stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
-  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+  if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
 
@@ -9212,7 +9212,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return STATUS_ERROR;
 
@@ -9232,7 +9232,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 
   // call check
   stat = check_context_with_model(ctx, params, mdl, n, t);
-  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+  if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
 
@@ -10316,7 +10316,7 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
       break;
 
     case EF_STATUS_INTERRUPTED:
-      stat = STATUS_INTERRUPTED;
+      stat = YICES_STATUS_INTERRUPTED;
       break;
 
     case EF_STATUS_SUBST_ERROR:

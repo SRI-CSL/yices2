@@ -158,7 +158,7 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t reduc
   uint64_t max_conflicts;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
 
@@ -527,8 +527,8 @@ static const char * const status2string[] = {
 };
 
 static void print_status(FILE *f, smt_status_t s) {
-  if (s > STATUS_INTERRUPTED) {
-    s = STATUS_INTERRUPTED + 1;
+  if (s > YICES_STATUS_INTERRUPTED) {
+    s = YICES_STATUS_INTERRUPTED + 1;
   }
   fputs(status2string[s], f);
 }
