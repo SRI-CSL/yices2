@@ -149,13 +149,13 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == SMT_STATUS_SEARCHING || smt_status(core) == SMT_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
 
   smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  while (smt_status(core) == SMT_STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -203,13 +203,13 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == SMT_STATUS_SEARCHING || smt_status(core) == SMT_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
 
   smt_bounded_process(core, max_conflicts);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
+  while (smt_status(core) == SMT_STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -262,13 +262,13 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == SMT_STATUS_SEARCHING || smt_status(core) == SMT_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
 
   smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  while (smt_status(core) == SMT_STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       deletions = core->stats.learned_clauses_deleted;
@@ -394,7 +394,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
   // initialize then do a propagation + simplification step.
   start_search(core, n, a);
   trace_start(core);
-  if (smt_status(core) == STATUS_SEARCHING) {
+  if (smt_status(core) == SMT_STATUS_SEARCHING) {
     // loop
     for (;;) {
       switch (params->branching) {
@@ -422,7 +422,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
         break;
       }
 
-      if (smt_status(core) != STATUS_SEARCHING) break;
+      if (smt_status(core) != SMT_STATUS_SEARCHING) break;
 
       smt_restart(core);
       //      smt_partial_restart_var(core);
@@ -575,7 +575,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
 
   core = ctx->core;
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     // clean state: the search can proceed
     context_set_search_parameters(ctx, params);
     solve(core, params, 0, NULL);
@@ -596,7 +596,7 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
 
   core = ctx->core;
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     // clean state
     if (params == NULL) {
       params = get_default_params();
@@ -619,13 +619,13 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
   assert(ctx->mcsat != NULL);
 
   stat = mcsat_status(ctx->mcsat);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     mcsat_solve(ctx->mcsat, params, mdl, n, t);
     stat = mcsat_status(ctx->mcsat);
 
     // BD: this looks wrong. We shouldn't call clear yet.
-    // we want the status to remain STATUS_UNSAT until the next call to check or assert.
-    //    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
+    // we want the status to remain SMT_STATUS_UNSAT until the next call to check or assert.
+    //    if (n > 0 && stat == SMT_STATUS_UNSAT && context_supports_multichecks(ctx)) {
     //      context_clear(ctx);
     //    }
   }
@@ -660,17 +660,17 @@ smt_status_t precheck_context(context_t *ctx) {
   core = ctx->core;
 
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 
-    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+    assert(stat == SMT_STATUS_UNSAT || stat == SMT_STATUS_SEARCHING ||
+	   stat == SMT_STATUS_INTERRUPTED);
 
-    if (stat == STATUS_SEARCHING) {
+    if (stat == SMT_STATUS_SEARCHING) {
       end_search_unknown(core);
-      stat = STATUS_UNKNOWN;
+      stat = SMT_STATUS_UNKNOWN;
     }
   }
 
@@ -697,17 +697,17 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
   core = ctx->core;
 
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 
-    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+    assert(stat == SMT_STATUS_UNSAT || stat == SMT_STATUS_SEARCHING ||
+	   stat == SMT_STATUS_INTERRUPTED);
 
-    if (stat == STATUS_SEARCHING) {
+    if (stat == SMT_STATUS_SEARCHING) {
       if (smt_easy_sat(core)) {
-	stat = STATUS_SAT;
+	stat = SMT_STATUS_SAT;
       } else {
 	// call the delegate
 	init_delegate(&delegate, sat_solver, num_vars(core));
@@ -715,7 +715,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 
 	stat = solve_with_delegate(&delegate, core);
 	set_smt_status(core, stat);
-	if (stat == STATUS_SAT) {
+	if (stat == SMT_STATUS_SAT) {
 	  for (x=0; x<num_vars(core); x++) {
 	    v = delegate_get_value(&delegate, x);
 	    set_bvar_value(core, x, v);
@@ -757,15 +757,15 @@ int32_t bitblast_then_export_to_dimacs(context_t *ctx, const char *filename, smt
 
   code = 0;
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 
-    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+    assert(stat == SMT_STATUS_UNSAT || stat == SMT_STATUS_SEARCHING ||
+	   stat == SMT_STATUS_INTERRUPTED);
 
-    if (stat == STATUS_SEARCHING) {
+    if (stat == SMT_STATUS_SEARCHING) {
       code = 1;
       f = fopen(filename, "w");
       if (f == NULL) {
@@ -814,17 +814,17 @@ int32_t process_then_export_to_dimacs(context_t *ctx, const char *filename, smt_
 
   code = 0;
   stat = smt_status(core);
-  if (stat == STATUS_IDLE) {
+  if (stat == SMT_STATUS_IDLE) {
     start_search(core, 0, NULL);
     smt_process(core);
     stat = smt_status(core);
 
-    assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+    assert(stat == SMT_STATUS_UNSAT || stat == SMT_STATUS_SEARCHING ||
+	   stat == SMT_STATUS_INTERRUPTED);
 
-    if (stat == STATUS_SEARCHING) {
+    if (stat == SMT_STATUS_SEARCHING) {
       if (smt_easy_sat(core)) {
-	stat = STATUS_SAT;
+	stat = SMT_STATUS_SAT;
       } else {
 	// call the delegate
 	init_delegate(&delegate, "y2sat", num_vars(core));
@@ -832,12 +832,12 @@ int32_t process_then_export_to_dimacs(context_t *ctx, const char *filename, smt_
 
 	stat = preprocess_with_delegate(&delegate, core);
 	set_smt_status(core, stat);
-	if (stat == STATUS_SAT) {
+	if (stat == SMT_STATUS_SAT) {
 	  for (x=0; x<num_vars(core); x++) {
 	    v = delegate_get_value(&delegate, x);
 	    set_bvar_value(core, x, v);
 	  }
-	} else if (stat == STATUS_UNKNOWN) {
+	} else if (stat == SMT_STATUS_UNKNOWN) {
 	  code = 1;
 	  f = fopen(filename, "w");
 	  if (f == NULL) {
@@ -1056,7 +1056,7 @@ void build_model(model_t *model, context_t *ctx) {
   uint32_t i, n;
   term_t t;
 
-  assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN || mcsat_status(ctx->mcsat) == STATUS_SAT);
+  assert(smt_status(ctx->core) == SMT_STATUS_SAT || smt_status(ctx->core) == SMT_STATUS_UNKNOWN || mcsat_status(ctx->mcsat) == SMT_STATUS_SAT);
 
   /*
    * First build assignments in the satellite solvers
@@ -1187,7 +1187,7 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
   term_t t;
 
   core = ctx->core;
-  assert(core != NULL && core->status == STATUS_UNSAT);
+  assert(core != NULL && core->status == SMT_STATUS_UNSAT);
   build_unsat_core(core, v);
 
   // convert from literals to terms

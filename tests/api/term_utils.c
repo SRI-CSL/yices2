@@ -28,7 +28,7 @@ int main(void) {
     term_t abs_term = yices_abs(ite_term);
 
     yices_assert_formula(ctx, yices_eq(abs_term, one));
-    assert(yices_check_context(ctx, NULL) == STATUS_SAT);
+    assert(yices_check_context(ctx, NULL) == SMT_STATUS_SAT);
     assert(!yices_error_code());
 
     yices_free_context(ctx);

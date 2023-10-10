@@ -96,7 +96,7 @@ static void check_with_model(context_t *ctx, model_t *model, term_t assertion, u
   }
 
   switch (yices_check_context_with_model(ctx, NULL, model, n, t)) {
-  case STATUS_SAT:
+  case SMT_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -110,7 +110,7 @@ static void check_with_model(context_t *ctx, model_t *model, term_t assertion, u
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -123,7 +123,7 @@ static void check_with_model(context_t *ctx, model_t *model, term_t assertion, u
     }
     break;
     
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
     fprintf(stderr, "Check with model failed\n");
     yices_print_error(stderr);
     exit(1);
@@ -160,7 +160,7 @@ static void check(context_t *ctx, term_t assertion) {
   }
 
   switch (yices_check_context(ctx, NULL)) {
-  case STATUS_SAT:
+  case SMT_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -174,7 +174,7 @@ static void check(context_t *ctx, term_t assertion) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -187,7 +187,7 @@ static void check(context_t *ctx, term_t assertion) {
     }
     break;
     
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
     fprintf(stderr, "Check failed\n");
     yices_print_error(stderr);
     exit(1);

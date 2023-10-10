@@ -269,15 +269,15 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
 
   stat = precheck_context(ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
+  case SMT_STATUS_UNKNOWN:
     do_export(ctx, s);
     break;
 
-  case STATUS_SAT:
-  case STATUS_UNSAT:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_UNSAT:
     break;
 
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_INTERRUPTED:
     fprintf(stderr, "Export to dimacs interrupted\n");
     break;
 
@@ -666,9 +666,9 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
   uint32_t i;
 
   // if ctx is already unsat, the core is empty
-  if (context_status(ctx) == STATUS_UNSAT) {
+  if (context_status(ctx) == SMT_STATUS_UNSAT) {
     ivector_reset(core);
-    return STATUS_UNSAT;
+    return SMT_STATUS_UNSAT;
   }
 
   // If MCSAT use the model solving command
@@ -699,14 +699,14 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     if (l < 0) {
       // error when processing term a[i]
       yices_internalization_error(l);
-      status = STATUS_ERROR;
+      status = SMT_STATUS_ERROR;
       goto done;
     }
     ivector_push(&assumptions, l);
   }
 
   status = check_context_with_assumptions(ctx, params, n, assumptions.data);
-  if (status == STATUS_UNSAT) {
+  if (status == SMT_STATUS_UNSAT) {
     context_build_unsat_core(ctx, core);
   }
 
@@ -1548,14 +1548,14 @@ static void show_status(smt_status_t status) {
  */
 static void report_status(smt2_globals_t *g, smt_status_t status) {
   switch (status) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_UNSAT:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_UNSAT:
+  case SMT_STATUS_INTERRUPTED:
     show_status(status);
     break;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
     print_yices_error(true);
     break;
 
@@ -2663,7 +2663,7 @@ static void timeout_handler(void *data) {
   g = data;
   if (g->efmode && g->ef_client.efsolver != NULL && g->ef_client.efsolver->status == EF_STATUS_SEARCHING) {
     ef_solver_stop_search(g->ef_client.efsolver);
-  } else if (g->ctx != NULL && context_status(g->ctx) == STATUS_SEARCHING) {
+  } else if (g->ctx != NULL && context_status(g->ctx) == SMT_STATUS_SEARCHING) {
     context_stop_search(g->ctx);
   }
 }
@@ -2695,15 +2695,15 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == SMT_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
-      assert(context_status(g->ctx) == STATUS_IDLE);
+      assert(context_status(g->ctx) == SMT_STATUS_IDLE);
     }
     // we don't want to report "interrupted" that's not SMT2 compliant
-    stat = STATUS_UNKNOWN;
+    stat = SMT_STATUS_UNKNOWN;
   }
 
   return stat;
@@ -2741,15 +2741,15 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == SMT_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat-assuming: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
-      assert(context_status(g->ctx) == STATUS_IDLE);
+      assert(context_status(g->ctx) == SMT_STATUS_IDLE);
     }
     // we don't want to report "interrupted" that's not SMT2 compliant
-    stat = STATUS_UNKNOWN;
+    stat = SMT_STATUS_UNKNOWN;
   }
 
   return stat;
@@ -2787,15 +2787,15 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == SMT_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat-assuming-model: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
       context_cleanup(g->ctx);
-      assert(context_status(g->ctx) == STATUS_IDLE);
+      assert(context_status(g->ctx) == SMT_STATUS_IDLE);
     }
     // we don't want to report "interrupted" that's not SMT2 compliant
-    stat = STATUS_UNKNOWN;
+    stat = SMT_STATUS_UNKNOWN;
   }
 
   g->check_with_model_status = stat;
@@ -3039,13 +3039,13 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
   if (g->trivially_unsat) {
     trace_printf(g->tracer, 3, "(check-sat: trivially unsat)\n");
     if (report)
-      report_status(g, STATUS_UNSAT);
+      report_status(g, SMT_STATUS_UNSAT);
   } else if (trivially_true_assertions(g->assertions.data, g->assertions.size, &model)) {
     trace_printf(g->tracer, 3, "(check-sat: trivially true)\n");
     g->trivially_sat = true;
     g->model = model;
     if (report)
-      report_status(g, STATUS_SAT);
+      report_status(g, SMT_STATUS_SAT);
   } else {
     /*
      * check for mislabeled benchmarks: some benchmarks
@@ -3093,7 +3093,7 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
 	    perror(g->dimacs_file);
 	    exit(YICES_EXIT_SYSTEM_ERROR);
 	  }
-	  if (status == STATUS_UNKNOWN) {
+	  if (status == SMT_STATUS_UNKNOWN) {
 	    // don't print anything
 	    return;
 	  }
@@ -3159,7 +3159,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
 
-  if (g->unsat_core->status == STATUS_UNSAT) {
+  if (g->unsat_core->status == SMT_STATUS_UNSAT) {
     saved_context = g->ctx;
     g->ctx = NULL;
     init_smt2_context(g);
@@ -3175,7 +3175,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
       fflush(stdout);
     } else {
       status = check_context(g->ctx, &g->parameters);
-      if (status != STATUS_UNSAT) {
+      if (status != SMT_STATUS_UNSAT) {
         printf("**** BUG: INVALID UNSAT CORE ****\n");
         fflush(stdout);
       }
@@ -3201,8 +3201,8 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
   g->unsat_core = collect_named_assertions(g);
   if (g->trivially_unsat) {
     // the core is empty
-    g->unsat_core->status = STATUS_UNSAT;
-    report_status(g, STATUS_UNSAT);
+    g->unsat_core->status = SMT_STATUS_UNSAT;
+    report_status(g, SMT_STATUS_UNSAT);
   } else {
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -3220,7 +3220,7 @@ static void delayed_assertions_unsat_core(smt2_globals_t *g) {
     //    validate_unsat_core(g);
     report_status(g, status);
 
-    if (status == STATUS_ERROR) {
+    if (status == SMT_STATUS_ERROR) {
       free_assumptions(g->unsat_core);
       g->unsat_core = NULL;
       done = true;
@@ -3244,8 +3244,8 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
     g->unsat_assumptions = assumptions;
     if (g->trivially_unsat) {
       // list of unsat assumption is empty
-      assumptions->status = STATUS_UNSAT;
-      report_status(g, STATUS_UNSAT);
+      assumptions->status = SMT_STATUS_UNSAT;
+      report_status(g, SMT_STATUS_UNSAT);
     } else {
       init_smt2_context(g);
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -3262,7 +3262,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
 
-      if (status == STATUS_ERROR) {
+      if (status == SMT_STATUS_ERROR) {
         // cleanup
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
@@ -3282,8 +3282,8 @@ static void check_delayed_assertions_assuming_model(smt2_globals_t *g, uint32_t 
   g->frozen = true;
   if (g->trivially_unsat) {
     // list of unsat assumption is empty
-    report_status(g, STATUS_UNSAT);
-    g->check_with_model_status = STATUS_UNSAT;
+    report_status(g, SMT_STATUS_UNSAT);
+    g->check_with_model_status = SMT_STATUS_UNSAT;
   } else {
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
@@ -3371,28 +3371,28 @@ static void cleanup_context(smt2_globals_t *g) {
     free_assumptions(g->unsat_assumptions);
     g->unsat_assumptions  = NULL;
   }
-  g->check_with_model_status = STATUS_IDLE;
+  g->check_with_model_status = SMT_STATUS_IDLE;
 
   switch (context_status(g->ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     // return to IDLE
     context_clear(g->ctx);
-    assert(context_status(g->ctx) == STATUS_IDLE);
+    assert(context_status(g->ctx) == SMT_STATUS_IDLE);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // try to to remove assumptions
     context_clear_unsat(g->ctx);
-    assert (context_status(g->ctx) == STATUS_IDLE ||
-            context_status(g->ctx) == STATUS_UNSAT);
+    assert (context_status(g->ctx) == SMT_STATUS_IDLE ||
+            context_status(g->ctx) == SMT_STATUS_UNSAT);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3428,7 +3428,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   //  show_assertion(g, t);
 
   switch (context_status(g->ctx)) {
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     code = assert_formula(g->ctx, t);
     if (code < 0) {
       print_internalization_error(code);
@@ -3437,7 +3437,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     /*
      * Ignore the assertion. We don't try to check whether
      * t is a correct assertion (e.g., no free variables in t).
@@ -3445,10 +3445,10 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     report_success();
     break;
 
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3465,7 +3465,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
 
-  if (g->unsat_assumptions != NULL || g->check_with_model_status != STATUS_IDLE) {
+  if (g->unsat_assumptions != NULL || g->check_with_model_status != SMT_STATUS_IDLE) {
     /*
      * the context's status was based on the assumptions or assumed model
      * we reset everything here to be safe.
@@ -3475,14 +3475,14 @@ static void ctx_check_sat(smt2_globals_t *g) {
 
   stat = context_status(g->ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
-  case STATUS_UNSAT:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_UNSAT:
+  case SMT_STATUS_SAT:
     // already solved: print the status
     show_status(stat);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     // change the seed if needed
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
@@ -3491,8 +3491,8 @@ static void ctx_check_sat(smt2_globals_t *g) {
     report_status(g, stat);
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3517,31 +3517,31 @@ static void ctx_unsat_core(smt2_globals_t *g) {
     g->unsat_core = collect_named_assertions(g);
     stat = context_status(g->ctx);
     switch (stat) {
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // already solved: store the status and print it
       // the unsat core is empty
       g->unsat_core->status = stat;
       show_status(stat);
       break;
 
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       // change the seed if needed
       if (g->random_seed != 0) {
         g->parameters.random_seed = g->random_seed;
       }
       stat = check_sat_with_assumptions(g, &g->parameters, g->unsat_core);
       report_status(g, stat);
-      if (stat == STATUS_ERROR) {
+      if (stat == SMT_STATUS_ERROR) {
         free_assumptions(g->unsat_core);
         g->unsat_core = NULL;
       }
       break;
 
-    case STATUS_SAT:
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
       // this should not happen.
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_SEARCHING:
+    case SMT_STATUS_INTERRUPTED:
     default:
       bad_status_bug(g->err);
       break;
@@ -3566,29 +3566,29 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
   if (assumptions != NULL) {
     g->unsat_assumptions = assumptions;
     switch (context_status(g->ctx)) {
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       if (g->random_seed != 0) {
         g->parameters.random_seed = g->random_seed;
       }
       status = check_sat_with_assumptions(g, &g->parameters, assumptions);
       report_status(g, status);
-      if (status == STATUS_ERROR) {
+      if (status == SMT_STATUS_ERROR) {
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
         done = true;
       }
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       // the context is already unsat so the list of unsat assumptions is empty
-      assumptions->status = STATUS_UNSAT;
-      show_status(STATUS_UNSAT);
+      assumptions->status = SMT_STATUS_UNSAT;
+      show_status(SMT_STATUS_UNSAT);
       break;
 
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
+    case SMT_STATUS_SEARCHING:
+    case SMT_STATUS_INTERRUPTED:
     default:
       bad_status_bug(g->err);
       break;
@@ -3605,7 +3605,7 @@ static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const te
   cleanup_context(g);
 
   switch (context_status(g->ctx)) {
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     if (g->random_seed != 0) {
       g->parameters.random_seed = g->random_seed;
     }
@@ -3613,14 +3613,14 @@ static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const te
     report_status(g, status);
     break;
 
-  case STATUS_UNSAT:
-    show_status(STATUS_UNSAT);
+  case SMT_STATUS_UNSAT:
+    show_status(SMT_STATUS_UNSAT);
     break;
 
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3637,18 +3637,18 @@ static void ctx_push(smt2_globals_t *g) {
   cleanup_context(g);
 
   switch (context_status(g->ctx)) {
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     context_push(g->ctx);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     g->pushes_after_unsat ++;
     break;
 
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3665,11 +3665,11 @@ static void ctx_pop(smt2_globals_t *g) {
   cleanup_context(g);
 
   switch (context_status(g->ctx)) {
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     context_pop(g->ctx);
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     if (g->pushes_after_unsat > 0) {
       g->pushes_after_unsat --;
     } else {
@@ -3678,10 +3678,10 @@ static void ctx_pop(smt2_globals_t *g) {
     }
     break;
 
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3722,24 +3722,24 @@ static model_t *get_model(smt2_globals_t *g) {
     } else {
       // context exists
       switch (context_status(g->ctx)) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case SMT_STATUS_UNKNOWN:
+      case SMT_STATUS_SAT:
         mdl = yices_get_model(g->ctx, true);
         break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
         print_error("the context is unsatisfiable");
         break;
 
-      case STATUS_IDLE:
+      case SMT_STATUS_IDLE:
         print_error("can't build a model. Call (check-sat) first");
         break;
 
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_INTERRUPTED:
 	print_error("the search was interrupted. No model is available");
 	break;
 
-      case STATUS_SEARCHING:
+      case SMT_STATUS_SEARCHING:
       default:
         print_out("BUG: unexpected context status");
         freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4127,26 +4127,26 @@ static void show_assignment(smt2_globals_t *g) {
 
   } else {
     switch (context_status(g->ctx)) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
+    case SMT_STATUS_UNKNOWN:
+    case SMT_STATUS_SAT:
       init_pretty_printer(&printer, g);
       print_assignment(&printer, g->ctx, &g->named_bools);
       delete_smt2_pp(&printer, true);
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       print_error("the context is unsatisfiable");
       break;
 
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       print_error("can't build the assignment. Call (check-sat) first");
       break;
 
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_INTERRUPTED:
       print_error("can't build the assignment. The search was interrupted");
       break;
 
-    case STATUS_SEARCHING:
+    case SMT_STATUS_SEARCHING:
     default:
       print_out("BUG: unexpected context status");
       freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4210,24 +4210,24 @@ static void show_unsat_core(smt2_globals_t *g) {
       print_error("Can't build an unsat core. Call (check-sat) first");
     } else {
       switch (unsat_core->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case SMT_STATUS_UNKNOWN:
+      case SMT_STATUS_SAT:
         print_error("No unsat core. The context is satisfiable");
         break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
         init_pretty_printer(&printer, g);
         print_assumption_list(&printer, &unsat_core->table,
                               unsat_core->core.size, unsat_core->core.data);
         delete_smt2_pp(&printer, true);
         break;
 
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_INTERRUPTED:
 	print_error("No unsat core. The search was interrupted");
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
+      case SMT_STATUS_IDLE:
+      case SMT_STATUS_SEARCHING:
       default:
         print_out("BUG: unexpected status in get-unsat-core");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-core");
@@ -4252,24 +4252,24 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
       print_error("Call (check-sat-assuming) first");
     } else {
       switch (unsat_assumptions->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case SMT_STATUS_UNKNOWN:
+      case SMT_STATUS_SAT:
         print_error("No unsat assumptions. The context is satisfiable");
         break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
         init_pretty_printer(&printer, g);
         print_assumption_list(&printer, &unsat_assumptions->table,
                               unsat_assumptions->core.size, unsat_assumptions->core.data);
         delete_smt2_pp(&printer, true);
         break;
 
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_INTERRUPTED:
 	print_error("No unsat assumptions. The search was interrupted");
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
+      case SMT_STATUS_IDLE:
+      case SMT_STATUS_SEARCHING:
       default:
         print_out("BUG: unexpected status in get-unsat-assumptions");
         freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-assumptions");
@@ -4289,7 +4289,7 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
   if (!g->produce_unsat_model_interpolants) {
     print_error("not supported: :produce-unsat-model-interpolants is false");
   } else if (g->ctx == NULL) {
-    if (g->check_with_model_status == STATUS_UNSAT) {
+    if (g->check_with_model_status == SMT_STATUS_UNSAT) {
       print_out("false");
       flush_out();
     } else {
@@ -4297,15 +4297,15 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
     }
   } else {
     switch (context_status(g->ctx)) {
-    case STATUS_SAT:
+    case SMT_STATUS_SAT:
       print_error("No model interpolant. The context is satisfiable");
       break;
 
-    case STATUS_UNKNOWN:
+    case SMT_STATUS_UNKNOWN:
       print_error("No model interpolant. The context is not knwon to be unsatisfiable");
       break;
 
-    case STATUS_UNSAT:
+    case SMT_STATUS_UNSAT:
       unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
       if (unsat_model_interpolant == NULL_TERM) {
 	print_error("Call (check-sat-assuming-model) first");
@@ -4316,15 +4316,15 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
       }
       break;
 
-    case STATUS_IDLE:
+    case SMT_STATUS_IDLE:
       print_error("Call (check-sat-assuming-model) first");
       break;
 
-    case STATUS_INTERRUPTED:
+    case SMT_STATUS_INTERRUPTED:
       print_error("No model interpolant. Last call to check-sat timedout");
       break;
 
-    case STATUS_SEARCHING:
+    case SMT_STATUS_SEARCHING:
     default:
       print_out("BUG: unexpected status in get-unsat-model-interpolant");
       freport_bug(__smt2_globals.err, "BUG: unexpected status in get-unsat-model-interpolant");
@@ -4398,7 +4398,7 @@ static void check_stack(smt2_globals_t *g) {
       freport_bug(g->err, "Internal error: unexpected context status");
     }
 
-    if (g->pushes_after_unsat > 0 && context_status(g->ctx) != STATUS_UNSAT) {
+    if (g->pushes_after_unsat > 0 && context_status(g->ctx) != SMT_STATUS_UNSAT) {
       freport_bug(g->err, "Invalid stack: push_after_unsat is positive but context is not unsat");
     }
   }
@@ -4502,7 +4502,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
       }
     } else {
       switch (context_status(g->ctx)) {
-      case STATUS_UNKNOWN:
+      case SMT_STATUS_UNKNOWN:
         if (g->interrupted) {
           print_kw_symbol_pair(":reason-unknown", "timeout");
         } else {
@@ -4511,20 +4511,20 @@ static void explain_unknown_status(smt2_globals_t *g) {
         flush_out();
         break;
 
-      case STATUS_SAT:
+      case SMT_STATUS_SAT:
         print_error("the context is satisfiable");
         break;
 
-      case STATUS_UNSAT:
+      case SMT_STATUS_UNSAT:
         print_error("the context is unsatisfiable");
         break;
 
-      case STATUS_IDLE:
+      case SMT_STATUS_IDLE:
         print_error("can't tell until you call (check-sat)");
         break;
 
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case SMT_STATUS_SEARCHING:
+      case SMT_STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected context status");
         freport_bug(__smt2_globals.err, "BUG: unexpected context status");
@@ -4601,7 +4601,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
 
   g->unsat_core = NULL;
   g->unsat_assumptions = NULL;
-  g->check_with_model_status = STATUS_IDLE;
+  g->check_with_model_status = SMT_STATUS_IDLE;
 
   init_etk_queue(&g->token_queue);
   init_ivector(&g->token_slices, 0);
@@ -6609,9 +6609,9 @@ static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(v
 
 static smt_status_t get_status_from_globals(smt2_globals_t *g) {
   if (g->trivially_unsat) {
-    return STATUS_UNSAT;
+    return SMT_STATUS_UNSAT;
   } else if (g->trivially_sat) {
-    return STATUS_SAT;
+    return SMT_STATUS_SAT;
   } else {
     assert(g->ctx);
     return yices_context_status(g->ctx);

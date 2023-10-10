@@ -177,7 +177,7 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   }
   smt_status_t result = yices_check_context(ctx, NULL);
   (void) result;
-  assert(result == STATUS_UNSAT);
+  assert(result == SMT_STATUS_UNSAT);
   _o_yices_free_context(ctx);
 }
 

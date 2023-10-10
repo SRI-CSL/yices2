@@ -25,7 +25,7 @@ int main(void)
 
   term_t check_zero_t1 = yices_arith_eq_atom(yices_zero(), r_1);
   yices_assert_formula(ctx, check_zero_t1);
-  assert(yices_check_context(ctx, NULL) == STATUS_SAT);
+  assert(yices_check_context(ctx, NULL) == SMT_STATUS_SAT);
   model_t* mdl = yices_get_model(ctx, 1);
   term_t check_mdl;
   assert(yices_get_bool_value(mdl, check_zero_t1, &check_mdl) == 0);

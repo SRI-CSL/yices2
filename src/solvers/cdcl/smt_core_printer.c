@@ -51,8 +51,8 @@ void print_bval(FILE *f, bval_t b) {
  * Status
  */
 void print_status(FILE *f, smt_status_t s) {
-  if (s > STATUS_INTERRUPTED) {
-    s = STATUS_INTERRUPTED + 1;
+  if (s > SMT_STATUS_INTERRUPTED) {
+    s = SMT_STATUS_INTERRUPTED + 1;
   }
   fputs(status2string[s], f);
 }

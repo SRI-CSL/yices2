@@ -801,7 +801,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = SMT_STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
 
   // New term manager
@@ -1004,7 +1004,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
-  assert(mcsat->status == STATUS_IDLE); // We must have clear before
+  assert(mcsat->status == SMT_STATUS_IDLE); // We must have clear before
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::push start\n");
@@ -1052,7 +1052,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   if (mcsat->inconsistent_push_calls > 0) {
     mcsat->inconsistent_push_calls --;
-    mcsat->status = STATUS_IDLE;
+    mcsat->status = SMT_STATUS_IDLE;
     return;
   }
 
@@ -1103,7 +1103,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   }
 
   // Set the status back to idle
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = SMT_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
@@ -1118,7 +1118,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = SMT_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM; // BD
 }
 
@@ -1760,7 +1760,7 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
    }
    smt_status_t result = yices_check_context(ctx, NULL);
    (void) result;
-   assert(result == STATUS_UNSAT);
+   assert(result == SMT_STATUS_UNSAT);
    yices_free_context(ctx);
    yices_free_config(config);
 }
@@ -2021,7 +2021,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         }
       }
     }
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = SMT_STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
     delete_ivector(&reason);
     return;
@@ -2177,14 +2177,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = SMT_STATUS_UNSAT;
     if (mcsat->ctx->mcsat_options.model_interpolation) {
       mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = SMT_STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
@@ -2561,12 +2561,12 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->assumptions_model = mdl;
 
   // Start the search
-  mcsat->status = STATUS_SEARCHING;
+  mcsat->status = SMT_STATUS_SEARCHING;
 
   // If we're already unsat, just return
   if (!mcsat_is_consistent(mcsat)) {
     mcsat->interpolant = false_term;
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = SMT_STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
     goto solve_done;
   }
@@ -2641,7 +2641,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Nothing to decide, we're satisfiable
-    mcsat->status = STATUS_SAT;
+    mcsat->status = SMT_STATUS_SAT;
     if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
       mcsat_check_model(mcsat, true);
     }
@@ -2656,7 +2656,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If at level 0 we're unsat
     if (n_assumptions == 0 && trail_is_at_base_level(mcsat->trail)) {
       mcsat->interpolant = false_term;
-      mcsat->status = STATUS_UNSAT;
+      mcsat->status = SMT_STATUS_UNSAT;
       break;
     }
 
@@ -2664,7 +2664,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_analyze_conflicts(mcsat, &restart_resource);
 
     // Analysis might have discovered base level conflict
-    if (mcsat->status == STATUS_UNSAT) {
+    if (mcsat->status == SMT_STATUS_UNSAT) {
       break;
     }
 
@@ -2672,8 +2672,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   if (mcsat->stop_search) {
-    if (mcsat->status == STATUS_SEARCHING) {
-      mcsat->status = STATUS_INTERRUPTED;
+    if (mcsat->status == SMT_STATUS_SEARCHING) {
+      mcsat->status = SMT_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;
   }

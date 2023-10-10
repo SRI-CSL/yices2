@@ -91,7 +91,7 @@ static smt_status_t simple_check(context_t *ctx) {
   result = yices_check_context(ctx, NULL);
 
   switch (result) {
-  case STATUS_SAT:
+  case SMT_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -105,7 +105,7 @@ static smt_status_t simple_check(context_t *ctx) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -118,7 +118,7 @@ static smt_status_t simple_check(context_t *ctx) {
     }
     break;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
     fprintf(stderr, "Check failed\n");
     yices_print_error(stderr);
     break;
@@ -156,7 +156,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
   result = yices_check_context_with_model(ctx, NULL, model, n, t);
   
   switch (result) {
-  case STATUS_SAT:
+  case SMT_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -170,7 +170,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
     }
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -183,7 +183,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
     }
     break;
     
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
     fprintf(stderr, "Check with model failed\n");
     yices_print_error(stderr);
     break;
@@ -325,7 +325,7 @@ static void run_test02m(void) {
 
   // check-with-model
   stat = check_with_model(ctx, model, 3, var);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }
@@ -341,14 +341,14 @@ static void run_test02m(void) {
 
   // check with model: unsat + interpolant
   stat = check_with_model(ctx, model, 3, var);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }
 
   // check-sat: sat
   stat = simple_check(ctx);
-  if (stat != STATUS_SAT) {
+  if (stat != SMT_STATUS_SAT) {
     fprintf(stderr, "Incorrect answer from check-sat: expected SAT\n");
     exit(1);
   }
@@ -358,7 +358,7 @@ static void run_test02m(void) {
 
   // check with model: unsat + interpolant
   stat = check_with_model(ctx, model, 3, var);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }
@@ -374,7 +374,7 @@ static void run_test02m(void) {
 
   // check with model: unsat + interpolant
   stat = check_with_model(ctx, model, 3, var);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }
@@ -393,14 +393,14 @@ static void run_test02m(void) {
 
   // simple check: expect UNSAT + interpolant
   stat = simple_check(ctx);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check: expected UNSAT\n");
     exit(1);
   }
 
   // check with model: unsat + interpolant (should be false)
   stat = check_with_model(ctx, model, 3, var);
-  if (stat != STATUS_UNSAT) {
+  if (stat != SMT_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }

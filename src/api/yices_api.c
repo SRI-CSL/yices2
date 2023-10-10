@@ -8494,34 +8494,34 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_IDLE) {
+    if (context_status(ctx) == SMT_STATUS_IDLE) {
       break;
     }
-    assert(context_status(ctx) == STATUS_UNSAT);
+    assert(context_status(ctx) == SMT_STATUS_UNSAT);
     // fall through
-  case STATUS_INTERRUPTED:
-  case STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
   context_push(ctx);
 
   return 0;
@@ -8553,31 +8553,31 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
+  case SMT_STATUS_INTERRUPTED:
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     context_clear_unsat(ctx);
     break;
 
-  case STATUS_SEARCHING:
+  case SMT_STATUS_SEARCHING:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE ||
-	 context_status(ctx) == STATUS_UNSAT);
+  assert(context_status(ctx) == SMT_STATUS_IDLE ||
+	 context_status(ctx) == SMT_STATUS_UNSAT);
   context_pop(ctx);
 
   return 0;
@@ -8677,8 +8677,8 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
@@ -8686,30 +8686,30 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == SMT_STATUS_UNSAT) {
       // nothing to do
       return 0;
     }
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
 
   code = _o_assert_formula(ctx, t);
   if (code < 0) {
@@ -8751,8 +8751,8 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
@@ -8760,30 +8760,30 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == SMT_STATUS_UNSAT) {
       // nothing to do
       return 0;
     }
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
 
   code = assert_formulas(ctx, n, t);
   if (code < 0) {
@@ -8815,8 +8815,8 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  */
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (context_supports_multichecks(ctx)) {
       assert_blocking_clause(ctx);
       return 0;
@@ -8825,14 +8825,14 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
       return -1;
     }
 
-  case STATUS_UNSAT:
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_UNSAT:
+  case SMT_STATUS_IDLE:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
@@ -9000,7 +9000,7 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  *
  *    The returned status is also stored as the new ctx's status flag.
  *
- * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR',
+ * 3) Otherwise, the function does nothing and returns 'SMT_STATUS_ERROR',
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
@@ -9009,41 +9009,41 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
   stat = context_status(ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     // remove assumptions if any
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == SMT_STATUS_UNSAT) {
       // no assumptions removed: still unsat
       break;
     }
-    assert(context_status(ctx) == STATUS_IDLE);
+    assert(context_status(ctx) == SMT_STATUS_IDLE);
 
     // fall through intended
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     if (params == NULL) {
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
     stat = check_context(ctx, params);
-    if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    if (stat == SMT_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    stat = STATUS_ERROR;
+    stat = SMT_STATUS_ERROR;
     break;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    stat = STATUS_ERROR;
+    stat = SMT_STATUS_ERROR;
     break;
   }
 
@@ -9071,47 +9071,47 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   literal_t l;
 
   if (!_o_unsat_core_check_assumptions(n, a)) {
-    return STATUS_ERROR; // Bad assumptions
+    return SMT_STATUS_ERROR; // Bad assumptions
   }
 
   // cleanup
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return SMT_STATUS_ERROR;
     }
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return SMT_STATUS_ERROR;
     }
     // try to remove the previous assumptions if any
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
+    if (context_status(ctx) == SMT_STATUS_UNSAT) {
+      return SMT_STATUS_UNSAT;
     }
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
 
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
@@ -9120,7 +9120,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
     if (l < 0) {
       // error when converting a[i] to a literal
       convert_internalization_error(l);
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       yices_release_mutex();
       goto cleanup;
     }
@@ -9136,7 +9136,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 
   // call check
   stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
-  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+  if (stat == SMT_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
 
@@ -9180,49 +9180,49 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 
   if (! context_has_mcsat(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   if (! good_terms_for_check_with_model(n, t)) {
     // this sets the error code already (to VARIABLE_REQUIRED)
     // but Dejan created another error code that means the same thing here.
     set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   // cleanup
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return SMT_STATUS_ERROR;
     }
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case SMT_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case SMT_STATUS_UNSAT:
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
+    if (context_status(ctx) == SMT_STATUS_UNSAT) {
+      return SMT_STATUS_UNSAT;
     }
     break;
 
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case SMT_STATUS_SEARCHING:
+  case SMT_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
 
-  case STATUS_ERROR:
+  case SMT_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == SMT_STATUS_IDLE);
 
   // set parameters
   if (params == NULL) {
@@ -9232,7 +9232,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 
   // call check
   stat = check_context_with_model(ctx, params, mdl, n, t);
-  if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+  if (stat == SMT_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
 
@@ -9247,24 +9247,24 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model) {
   int32_t ret = 0;
   model_t *model = NULL;
-  smt_status_t result = STATUS_UNKNOWN;
+  smt_status_t result = SMT_STATUS_UNKNOWN;
   ivector_t model_vars, interpolants;
 
   // The context must stupport interpolation
   if (! context_supports_model_interpolation(ctx->ctx_A)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   // Push A and B so we can revert
   ret = yices_push(ctx->ctx_A);
   if (ret) {
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
   ret = yices_push(ctx->ctx_B);
   if (ret) {
     yices_pop(ctx->ctx_A);
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   // Search: find models of B and refute with B
@@ -9277,14 +9277,14 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     result = yices_check_context(ctx->ctx_B, params);
 
     // UNSAT, interrupts and errors, we're done
-    if (result != STATUS_SAT) {
+    if (result != SMT_STATUS_SAT) {
       break;
     }
 
     // B is satisfiable, refute
     model = yices_get_model(ctx->ctx_B, 1);
     if (model == NULL) {
-      result = STATUS_ERROR;
+      result = SMT_STATUS_ERROR;
       break;
     }
 
@@ -9299,14 +9299,14 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     result = yices_check_context_with_model(ctx->ctx_A, params, model, model_vars.size, model_vars.data);
 
     // SAT, interrupts and errors, we're done
-    if (result != STATUS_UNSAT) {
+    if (result != SMT_STATUS_UNSAT) {
       break;
     }
 
     // UNSAT, get the interpolant
     term_t model_interpolant = yices_get_model_interpolant(ctx->ctx_A);
     if (model_interpolant == NULL_TERM) {
-      result = STATUS_ERROR;
+      result = SMT_STATUS_ERROR;
       break;
     }
     ivector_push(&interpolants, model_interpolant);
@@ -9326,7 +9326,7 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
 //    yices_push(ctx->ctx_A);
 //    yices_assert_formula(ctx->ctx_A, opposite_term(model_interpolant));
 //    smt_status_t interpolant_status = yices_check_context(ctx->ctx_A, NULL);
-//    assert(interpolant_status == STATUS_UNSAT);
+//    assert(interpolant_status == SMT_STATUS_UNSAT);
 //    yices_pop(ctx->ctx_A);
 
     // Add the inteprolant to B
@@ -9337,23 +9337,23 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     model = NULL;
   }
 
-  if (result == STATUS_UNSAT) {
+  if (result == SMT_STATUS_UNSAT) {
     // Construct the interpolant if UNSAT
     ctx->interpolant = yices_and(interpolants.size, interpolants.data);
-  } else if (result == STATUS_SAT && build_model) {
+  } else if (result == SMT_STATUS_SAT && build_model) {
     // Construct the model if SAT and asked
     ctx->model = yices_get_model(ctx->ctx_A, true);
   }
 
   // Pop both contexts
-  if (result != STATUS_ERROR) {
+  if (result != SMT_STATUS_ERROR) {
     ret = yices_pop(ctx->ctx_B);
     if (ret) {
-      result = STATUS_ERROR;
+      result = SMT_STATUS_ERROR;
     } else {
       ret = yices_pop(ctx->ctx_A);
       if (ret) {
-        result = STATUS_ERROR;
+        result = SMT_STATUS_ERROR;
       }
     }
   }
@@ -9380,7 +9380,7 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
  * INTERRUPTED. Otherwise, the function does nothing.
  */
 EXPORTED void yices_stop_search(context_t *ctx) {
-  if (context_status(ctx) == STATUS_SEARCHING) {
+  if (context_status(ctx) == SMT_STATUS_SEARCHING) {
     context_stop_search(ctx);
   }
 }
@@ -9397,7 +9397,7 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  * - returns -1 if there's an error
  */
 EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
-  if (context_status(ctx) != STATUS_UNSAT) {
+  if (context_status(ctx) != SMT_STATUS_UNSAT) {
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
   }
@@ -9430,7 +9430,7 @@ EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
   result = NULL_TERM;
   if (! context_supports_model_interpolation(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-  } else if (context_status(ctx) != STATUS_UNSAT) {
+  } else if (context_status(ctx) != SMT_STATUS_UNSAT) {
     set_error_code(CTX_INVALID_OPERATION);
   } else {
     result = context_get_unsat_model_interpolant(ctx);
@@ -9469,8 +9469,8 @@ model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
   assert(ctx != NULL);
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case SMT_STATUS_UNKNOWN:
+  case SMT_STATUS_SAT:
     mdl = alloc_model();
     init_model(mdl, __yices_globals.terms, (keep_subst != 0));
     context_build_model(mdl, ctx);
@@ -10290,7 +10290,7 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
   if (efc.efcode != EF_NO_ERROR) {
     // error in preprocessing. no efsolver created
     set_error_code(efcode2yices_error[efc.efcode]);
-    stat = STATUS_ERROR;
+    stat = SMT_STATUS_ERROR;
 
   } else {
 
@@ -10304,19 +10304,19 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
       model = ef_export_model(&efc, &ef_code);
       assert(ef_code == EFMODEL_CODE_NO_ERROR);
       *result = model;
-      stat = STATUS_SAT;
+      stat = SMT_STATUS_SAT;
       break;
 
     case EF_STATUS_UNSAT:
-      stat = STATUS_UNSAT;
+      stat = SMT_STATUS_UNSAT;
       break;
 
     case EF_STATUS_UNKNOWN:
-      stat = STATUS_UNKNOWN;
+      stat = SMT_STATUS_UNKNOWN;
       break;
 
     case EF_STATUS_INTERRUPTED:
-      stat = STATUS_INTERRUPTED;
+      stat = SMT_STATUS_INTERRUPTED;
       break;
 
     case EF_STATUS_SUBST_ERROR:
@@ -10326,13 +10326,13 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
 	assert(error == -2);
 	set_error_code(CTX_EF_INTERNAL_ERROR);
       }
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       break;
 
     case EF_STATUS_ASSERT_ERROR:
       assert(error < 0);
       yices_internalization_error(error);
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       break;
 
     case EF_STATUS_PROJECTION_ERROR:
@@ -10341,13 +10341,13 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
       } else {
 	set_error_code(CTX_EF_INTERNAL_ERROR);
       }
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       break;
 
     default:
       // todo: give more precise diagnostic
       set_error_code(CTX_EF_INTERNAL_ERROR);
-      stat = STATUS_ERROR;
+      stat = SMT_STATUS_ERROR;
       break;
     }
   }
@@ -10382,7 +10382,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
     logic = smt_logic_code(logic_name);
     if (logic == SMT_UNKNOWN) {
       set_error_code(CTX_UNKNOWN_LOGIC);
-      return STATUS_ERROR;
+      return SMT_STATUS_ERROR;
     }
     if (logic_is_supported_by_ef(logic)) {
       return yices_ef_check_formulas(f, n, logic, result);
@@ -10391,7 +10391,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
     if (! logic_is_supported(logic) ||
 	(! yices_has_mcsat() && logic_requires_mcsat(logic))) {
       set_error_code(CTX_LOGIC_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return SMT_STATUS_ERROR;
     }
 
     arch = arch_for_logic(logic);
@@ -10401,16 +10401,16 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
 
   // validate the delegate if given
   if (logic == QF_BV && delegate != NULL && !check_delegate(delegate)) {
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
 
   // check for trivial unsat then trivial sat
   if (trivially_false_assertions(f, n)) {
-    return STATUS_UNSAT;
+    return SMT_STATUS_UNSAT;
   }
 
   if (trivially_true_assertions(f, n, result)) {
-    return STATUS_SAT;
+    return SMT_STATUS_SAT;
   }
 
   // initialize the context and assert the formulas
@@ -10423,7 +10423,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   if (code < 0) {
     // error in assert_formulas
     convert_internalization_error(code);
-    status = STATUS_ERROR;
+    status = SMT_STATUS_ERROR;
     goto cleanup;
   }
 
@@ -10436,7 +10436,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   }
 
   // get the model
-  if (status == STATUS_SAT && result != NULL) {
+  if (status == SMT_STATUS_SAT && result != NULL) {
     // yices_get_model takes the lock so we don't
     // need to do it ourselves.
     model = yices_get_model(&context, true);
@@ -10463,9 +10463,9 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
  * assert f in this context and check whether the context is satisfiable.
  *
  * The return value is
- *   STATUS_SAT if f is satisfiable,
- *   STATUS_UNSAT if f is not satisifiable
- *   STATUS_ERROR if something goes wrong
+ *   SMT_STATUS_SAT if f is satisfiable,
+ *   SMT_STATUS_UNSAT if f is not satisifiable
+ *   SMT_STATUS_ERROR if something goes wrong
  *
  * If the formula is satisfiable and model != NULL, then a model of f is returned in *model.
  * That model must be deleted when no-longer needed by calling yices_free_model.
@@ -10481,7 +10481,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
  * If delegate is NULL, the default SAT solver is used.
  *
  * Support for "cadical" and "cryptominisat" must be enabled at compilation
- * time. The "y2sat" solver is always available. The function will return STATUS_ERROR
+ * time. The "y2sat" solver is always available. The function will return SMT_STATUS_ERROR
  * and store an error code if the requested delegate is not available.
  *
  * Error codes:
@@ -10512,7 +10512,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
  */
 EXPORTED smt_status_t yices_check_formula(term_t f, const char *logic, model_t **model, const char *delegate) {
   if (! yices_assert_formula_checks(f)) {
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
   return yices_do_check_formulas(&f, 1, logic, model, delegate);
 }
@@ -10527,7 +10527,7 @@ EXPORTED smt_status_t yices_check_formula(term_t f, const char *logic, model_t *
  */
 EXPORTED smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const char *logic, model_t **model, const char *delegate) {
   if (! yices_assert_formulas_checks(n, f)) {
-    return STATUS_ERROR;
+    return SMT_STATUS_ERROR;
   }
   return yices_do_check_formulas(f, n, logic, model, delegate);
 }
@@ -10550,12 +10550,12 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   int32_t code;
 
   if (trivially_false_assertions(f, n)) {
-    *status = STATUS_UNSAT;
+    *status = SMT_STATUS_UNSAT;
     return 0;
   }
 
   if (trivially_true_assertions(f, n, NULL)) {
-    *status = STATUS_SAT;
+    *status = SMT_STATUS_SAT;
     return 0;
   }
 
@@ -10577,7 +10577,7 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   }
 
   if (code == TRIVIALLY_UNSAT) {
-    *status = STATUS_UNSAT;
+    *status = SMT_STATUS_UNSAT;
     code = 0;
     goto done;
   }

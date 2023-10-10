@@ -27,7 +27,7 @@ int main(void)
   val = yices_idiv(val, val);
 
   yices_assert_formula(ctx, yices_arith_eq_atom(val, yices_int32(1)));
-  assert(yices_check_context(ctx, NULL) == STATUS_SAT);
+  assert(yices_check_context(ctx, NULL) == SMT_STATUS_SAT);
 
   assert(!yices_error_code());
 

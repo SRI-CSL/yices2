@@ -1269,9 +1269,9 @@ static void print_results(void) {
   }
   printf("\n\n");
 
-  if (resu == STATUS_SAT) {
+  if (resu == SMT_STATUS_SAT) {
     printf("sat\n");
-  } else if (resu == STATUS_UNSAT) {
+  } else if (resu == SMT_STATUS_UNSAT) {
     printf("unsat\n");
   } else {
     printf("unknown\n");
@@ -2054,7 +2054,7 @@ static int process_benchmark(char *filename) {
 
     print_results();
 
-    if (show_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
+    if (show_model && (code == SMT_STATUS_SAT || code == SMT_STATUS_UNKNOWN)) {
       model = new_model();
       context_build_model(model, &context);
       printf("\nMODEL\n");
