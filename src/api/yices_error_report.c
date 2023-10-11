@@ -19,8 +19,4 @@
 
 #include "api/yices_error_report.h"
 
-#ifndef MINGW
 #include "yices_error_report_posix.c"
-#else
-#include "yices_error_report_win.c"
-#endif
