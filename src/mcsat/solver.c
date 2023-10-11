@@ -2673,7 +2673,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   if (mcsat->stop_search) {
     if (mcsat->status == STATUS_SEARCHING) {
-      mcsat->status = STATUS_INTERRUPTED;
+      mcsat->status = YICES_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;
   }
