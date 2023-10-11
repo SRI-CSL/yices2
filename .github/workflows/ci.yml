@@ -18,6 +18,10 @@ jobs:
             mode: gcov
             config-opt: --enable-mcsat
             env: CC=gcc CXX=g++
+          - os: ubuntu-latest
+            mode: debug
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc CXX=g++
 
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }}
     runs-on: ${{ matrix.os }}

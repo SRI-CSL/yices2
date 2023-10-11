@@ -508,7 +508,7 @@ static context_t *get_forall_context(ef_solver_t *solver) {
  *    - value[i] = a constant term mapped to evar[i] in the model
  * 2) code = STATUS_UNSAT: not satisfiable
  *
- * 3) other codes report an error of some kind or STATUS_INTERRUPTED
+ * 3) other codes report an error of some kind or YICES_STATUS_INTERRUPTED
  */
 static smt_status_t satisfy_context(ef_solver_t *solver, context_t *ctx, term_t *var, uint32_t n, term_t *value, model_t **model, bool is_exists) {
   smt_status_t stat;
@@ -829,7 +829,7 @@ static void ef_sample_constraint(ef_solver_t *solver, uint32_t i) {
       // no more samples for this constraints
       goto done;
 
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
       solver->status = EF_STATUS_INTERRUPTED;
       goto done;
 
@@ -1342,7 +1342,7 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     case STATUS_UNSAT:
       break;
 
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
       solver->status = EF_STATUS_INTERRUPTED;
       break;
 
@@ -1389,7 +1389,7 @@ static void trace_candidate_check(ef_solver_t *solver, uint32_t i, smt_status_t 
     trace_printf(solver->trace, 4, "(EF: candidate passed constraint %"PRIu32")\n", i);
     break;
 
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     trace_printf(solver->trace, 4, "(EF: candidate check was interrupted)\n");
     break;
 
@@ -1549,7 +1549,7 @@ static void ef_solver_search(ef_solver_t *solver) {
       solver->status = EF_STATUS_UNSAT;
       break;
 
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
       trace_puts(solver->trace, 4, "(EF: Interrupted)\n");
       solver->status = EF_STATUS_INTERRUPTED;
       break;
