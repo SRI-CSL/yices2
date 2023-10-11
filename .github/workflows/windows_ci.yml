@@ -9,8 +9,9 @@ jobs:
       matrix:
         os: [windows-latest]
         mode: [debug, release]
+        config-opt: [' ', --enable-thread-safety]
 
-    name: ${{ matrix.os }}|${{ matrix.mode }}
+    name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt}}
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -54,7 +55,7 @@ jobs:
         CYGWIN: winsymlinks:native
       run: >-
         autoconf && 
-        ./configure --host=x86_64-w64-mingw32 CPPFLAGS=-I/tools/dynamic_gmp/include LDFLAGS=-L/tools/dynamic_gmp/lib --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include && 
+        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS=-I/tools/dynamic_gmp/include LDFLAGS=-L/tools/dynamic_gmp/lib --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include && 
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} && 
         make OPTION=mingw64 MODE=${{ matrix.mode }}
 
