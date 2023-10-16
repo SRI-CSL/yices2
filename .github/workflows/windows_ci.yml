@@ -1,0 +1,68 @@
+name: Windows CI
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest]
+        mode: [debug, release]
+        config-opt: [' ', --enable-thread-safety]
+
+    name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt}}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - run: git config --global core.autocrlf input
+
+    - uses: actions/checkout@v3
+
+    - name: Install Cygwin Dependencies
+      uses: cygwin/cygwin-install-action@v4
+      with:
+        # Packages to install
+        packages: |
+          autoconf,
+          coreutils,
+          gperf,
+          m4,
+          make,
+          mingw64-x86_64-gcc-core,
+          moreutils,
+          wget
+
+    - name: Building GMP
+      shell: bash
+      env:
+        CYGWIN: winsymlinks:native
+      run: >-
+        pushd . && 
+        mkdir -p /tools && cd /tools && mkdir -p dynamic_gmp && mkdir -p static_gmp && 
+        wget https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz &&
+        tar xf gmp-6.3.0.tar.xz && 
+        cd gmp-6.3.0 &&
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-shared --disable-static --prefix=/tools/dynamic_gmp &&
+        make && make install && make clean && 
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-static --disable-shared --prefix=/tools/static_gmp && 
+        make && make install && 
+        popd
+
+    - name: Building Yices
+      shell: bash
+      env:
+        CYGWIN: winsymlinks:native
+      run: >-
+        autoconf && 
+        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS=-I/tools/dynamic_gmp/include LDFLAGS=-L/tools/dynamic_gmp/lib --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include && 
+        export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} && 
+        make OPTION=mingw64 MODE=${{ matrix.mode }}
+
+    - name: Run Yices API Tests
+      shell: bash
+      env:
+        CYGWIN: winsymlinks:native
+      run: >-
+        export PATH=/tools/dynamic_gmp/bin:/tools/static_gmp/bin:$PATH &&
+        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api

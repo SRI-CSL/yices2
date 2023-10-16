@@ -277,7 +277,7 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
   case STATUS_UNSAT:
     break;
 
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     fprintf(stderr, "Export to dimacs interrupted\n");
     break;
 
@@ -1551,7 +1551,7 @@ static void report_status(smt2_globals_t *g, smt_status_t status) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
   case STATUS_UNSAT:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     show_status(status);
     break;
 
@@ -2695,7 +2695,7 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == YICES_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
@@ -2741,7 +2741,7 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == YICES_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat-assuming: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
@@ -2787,7 +2787,7 @@ static smt_status_t check_sat_with_model(smt2_globals_t *g, const param_t *param
   /*
    * Attempt to cleanly recover from interrupt
    */
-  if (stat == STATUS_INTERRUPTED) {
+  if (stat == YICES_STATUS_INTERRUPTED) {
     trace_printf(g->tracer, 2, "(check-sat-assuming-model: interrupted)\n");
     g->interrupted = true;
     if (context_get_mode(g->ctx) == CTX_MODE_INTERACTIVE) {
@@ -3392,7 +3392,7 @@ static void cleanup_context(smt2_globals_t *g) {
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3448,7 +3448,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3492,7 +3492,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3541,7 +3541,7 @@ static void ctx_unsat_core(smt2_globals_t *g) {
     case STATUS_UNKNOWN:
       // this should not happen.
     case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
     default:
       bad_status_bug(g->err);
       break;
@@ -3588,7 +3588,7 @@ static void ctx_check_sat_assuming(smt2_globals_t *g, uint32_t n, signed_symbol_
     case STATUS_UNKNOWN:
     case STATUS_SAT:
     case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
     default:
       bad_status_bug(g->err);
       break;
@@ -3620,7 +3620,7 @@ static void ctx_check_sat_assuming_model(smt2_globals_t *g, uint32_t n, const te
   case STATUS_UNKNOWN:
   case STATUS_SAT:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3648,7 +3648,7 @@ static void ctx_push(smt2_globals_t *g) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3681,7 +3681,7 @@ static void ctx_pop(smt2_globals_t *g) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     bad_status_bug(g->err);
     break;
@@ -3735,7 +3735,7 @@ static model_t *get_model(smt2_globals_t *g) {
         print_error("can't build a model. Call (check-sat) first");
         break;
 
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
 	print_error("the search was interrupted. No model is available");
 	break;
 
@@ -4142,7 +4142,7 @@ static void show_assignment(smt2_globals_t *g) {
       print_error("can't build the assignment. Call (check-sat) first");
       break;
 
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
       print_error("can't build the assignment. The search was interrupted");
       break;
 
@@ -4222,7 +4222,7 @@ static void show_unsat_core(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
 	print_error("No unsat core. The search was interrupted");
 	break;
 
@@ -4264,7 +4264,7 @@ static void show_unsat_assumptions(smt2_globals_t *g) {
         delete_smt2_pp(&printer, true);
         break;
 
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
 	print_error("No unsat assumptions. The search was interrupted");
 	break;
 
@@ -4320,7 +4320,7 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
       print_error("Call (check-sat-assuming-model) first");
       break;
 
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
       print_error("No model interpolant. Last call to check-sat timedout");
       break;
 
@@ -4524,7 +4524,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
         break;
 
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
       default:
         print_out("BUG: unexpected context status");
         freport_bug(__smt2_globals.err, "BUG: unexpected context status");

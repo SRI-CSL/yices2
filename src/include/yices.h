@@ -52,6 +52,16 @@
 #define __YICES_DLLSPEC__
 #endif
 
+/*
+ * On mingw with the thread-safety option:
+ * STATUS_INTERRUPTED is a defined symbol in windows. 
+ * We have renamed the symbol in yices_types.h and here 
+ * we redefine the STATUS_INTERRUPTED symbol to be backward compatible.
+ * This will be removed in the non-backward compatible release (Yices 2.8).
+ */
+#if !defined(MINGW) || !defined(THREAD_SAFE)
+#define STATUS_INTERRUPTED YICES_STATUS_INTERRUPTED
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -2830,11 +2840,14 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *
  *   QF_AUF:      arrays + uninterpreted functions
  *   QF_AUFBV:    arrays, bitvectors, uninterpreted functions
+ *   QF_AUFBVLIA: arrays, bitvectors, uninterpreted functions, and linear integer arithmetic
+ *   QF_AUFBVNIA: arrays, bitvectors, uninterpreted functions, and nonlinear integer arithmetic
  *   QF_AUFLIA:   arrays, uninterpreted functions, and linear integer arithmetic
  *   QF_AUFLRA:   arrays, uninterpreted functions, and linear real arithmetic
  *   QF_AUFLIRA:  arrays, uninterpreted functions, and mixed linear arithmetic
  *
  *   QF_UFBV:     uninterpreted functions + bitvectors
+ *   QF_UFBVLIA:  uninterpreted functions + bitvectors + linear integer arithmetic
  *   QF_UFIDL:    uninterpreted functions + integer difference logic
  *   QF_UFLIA:    uninterpreted functions + linear integer arithmetic
  *   QF_UFLRA:    uninterpreted functions + linear real arithmetic

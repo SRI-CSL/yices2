@@ -2047,7 +2047,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
   assert(literal_is_unassigned(s, l));
 
   // Increase decision level
@@ -4218,7 +4218,7 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
 static bool on_the_fly(smt_core_t *s) {
   assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) ||
          (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) ||
-         (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
+         (s->status == YICES_STATUS_INTERRUPTED && s->decision_level >= s->base_level));
   return s->status != STATUS_IDLE;
 }
 
@@ -5485,7 +5485,7 @@ void smt_pop(smt_core_t *s) {
    * Abort if push_pop is not enabled or if there's no pushed state
    */
   assert((s->option_flag & PUSH_POP_MASK) != 0 && s->base_level > 0 &&
-         s->status != STATUS_INTERRUPTED && s->status != STATUS_SEARCHING);
+         s->status != YICES_STATUS_INTERRUPTED && s->status != STATUS_SEARCHING);
 
   // We need to backtrack before calling the pop function of th_solver
   backtrack_to_base_level(s);
@@ -5537,7 +5537,7 @@ static void smt_interrupt_pop(smt_core_t *s) {
  * - we just call pop
  */
 void smt_cleanup(smt_core_t *s) {
-  assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT)
+  assert((s->status == YICES_STATUS_INTERRUPTED || s->status == STATUS_UNSAT)
          && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0);
   s->status = STATUS_IDLE; // make sure pop does not abort
   smt_interrupt_pop(s);
@@ -5628,7 +5628,7 @@ void smt_clear_unsat(smt_core_t *s) {
  */
 void smt_checkpoint(smt_core_t *s) {
   assert(s->status == STATUS_SEARCHING ||
-         s->status == STATUS_INTERRUPTED);
+         s->status == YICES_STATUS_INTERRUPTED);
   push_checkpoint(&s->checkpoints, s->decision_level, s->nvars);
   s->cp_flag = false;
 }
@@ -6074,7 +6074,7 @@ void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
  */
 void stop_search(smt_core_t *s) {
   if (s->status == STATUS_SEARCHING) {
-    s->status = STATUS_INTERRUPTED;
+    s->status = YICES_STATUS_INTERRUPTED;
   }
 }
 
@@ -6168,7 +6168,7 @@ bool smt_bounded_process(smt_core_t *s, uint64_t max_conflicts) {
  *   is done.
  */
 void smt_final_check(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
   if (s->status == STATUS_SEARCHING) {
     switch (s->th_ctrl.final_check(s->th_solver)) {
@@ -6205,7 +6205,7 @@ bool smt_easy_sat(smt_core_t *s) {
   assert(s->bool_only);
 
   for (;;) {
-    assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+    assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
     smt_propagation(s);
     assert(empty_lemma_queue(&s->lemmas));
     assert(! s->cp_flag);
@@ -6332,7 +6332,7 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
  */
 void smt_restart(smt_core_t *s) {
 
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL RESTART\n");
@@ -6354,7 +6354,7 @@ void smt_partial_restart(smt_core_t *s) {
   bvar_t x;
   uint32_t i, k, n;
 
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART\n");
@@ -6406,7 +6406,7 @@ void smt_partial_restart_var(smt_core_t *s) {
   bvar_t x;
   uint32_t i, n;
 
-  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");
