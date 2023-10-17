@@ -43,7 +43,14 @@
  */
 
 #include <assert.h>
-#if !defined(MINGW) && defined(THREAD_SAFE)
+#ifdef MINGW
+// Use the oldest version of the Windows API.
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0500
+#endif
+
+#include <windows.h>
+#elif defined(THREAD_SAFE)
 #include <pthread.h>
 #include <sys/time.h>
 #endif
@@ -76,7 +83,10 @@ typedef struct timeout_s {
   timeout_state_t state;
   timeout_handler_t handler;
   void *param;
-#if !defined(MINGW) && defined(THREAD_SAFE)
+#ifdef MINGW
+  HANDLE timer_queue;
+  HANDLE timer;
+#elif defined(THREAD_SAFE)
   struct timespec ts;
   pthread_t thread;
   pthread_mutex_t mutex;
@@ -85,15 +95,22 @@ typedef struct timeout_s {
 } timeout_t;
 
 
-#if !defined(THREAD_SAFE) || defined(MINGW)
+#if !defined(MINGW) && !defined(THREAD_SAFE)
 
 /*
- * Global structure common to both implementation.
+ * Global structure for single-threaded case.
  */
 static timeout_t the_timeout;
 
 #endif
 
+/* Initialize the timeout fields common to all implementations. */
+
+static inline void init_base_timeout(timeout_t *timeout) {
+  timeout->state = TIMEOUT_READY;
+  timeout->handler = NULL;
+  timeout->param = NULL;
+}
 
 #ifndef MINGW
 
@@ -117,9 +134,7 @@ timeout_t *init_timeout(void) {
 
   timeout = (timeout_t *) safe_malloc(sizeof(timeout_t));
 
-  timeout->state = TIMEOUT_READY;
-  timeout->handler = NULL;
-  timeout->param = NULL;
+  init_base_timeout(timeout);
   timeout->ts.tv_sec = 0;
   timeout->ts.tv_nsec = 0;
 
@@ -245,9 +260,7 @@ timeout_t *init_timeout(void) {
   }
 #endif
 
-  the_timeout.state = TIMEOUT_READY;;
-  the_timeout.handler = NULL;
-  the_timeout.param = NULL;
+  init_base_timeout(&the_timeout);
 
   return &the_timeout;
 }
@@ -324,25 +337,9 @@ void delete_timeout(timeout_t *timeout) {
  *   WINDOWS/MINGW IMPLEMENTATION   *
  ***********************************/
 
-// BD: don't know what this is for.
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
-#endif
-
-#include <windows.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-
-/*
- * Global variable:
- * - handler for a timer queue
- * - handler for a timer
- */
-static HANDLE timer_queue;
-static HANDLE timer;
-
 
 /*
  * Callback function for the timer
@@ -351,9 +348,11 @@ static HANDLE timer;
  *   call the handler.
  */
 static VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
-  if (the_timeout.state == TIMEOUT_ACTIVE) {
-    the_timeout.state = TIMEOUT_FIRED;
-    the_timeout.handler(the_timeout.param);
+  timeout_t *timeout = (timeout_t *) param;
+  
+  if (timeout->state == TIMEOUT_ACTIVE) {
+    timeout->state = TIMEOUT_FIRED;
+    timeout->handler(timeout->param);
   }
 }
 
@@ -363,18 +362,20 @@ static VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
  * - create the timer queue
  */
 timeout_t *init_timeout(void) {
-  timer_queue = CreateTimerQueue();
-  if (timer_queue == NULL) {
+  timeout_t *timeout = (timeout_t *) safe_malloc(sizeof(timeout_t));
+
+  init_base_timeout(timeout);
+
+  timeout->timer_queue = CreateTimerQueue();
+  if (timeout->timer_queue == NULL) {
     fprintf(stderr, "Yices: CreateTimerQueue failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
   }
 
-  the_timeout.state = TIMEOUT_READY;
-  the_timeout.handler = NULL;
-  the_timeout.param = NULL;
+  timeout->timer = NULL;
 
-  return &the_timeout;
+  return timeout;
 }
 
 
@@ -388,16 +389,19 @@ timeout_t *init_timeout(void) {
 void start_timeout(timeout_t *timeout, uint32_t delay, timeout_handler_t handler, void *param) {
   DWORD duetime;
 
-  assert(timeout == &the_timeout);
-  assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
+  assert(delay > 0 && timeout->state == TIMEOUT_READY && handler != NULL);
 
   duetime = delay * 1000; // delay in milliseconds
-  if (CreateTimerQueueTimer(&timer, timer_queue, (WAITORTIMERCALLBACK) timer_callback,
-                            NULL, duetime, 0, 0)) {
+  if (CreateTimerQueueTimer(&timeout->timer,
+			    timeout->timer_queue,
+			    (WAITORTIMERCALLBACK) timer_callback,
+                            timeout, duetime,
+			    /*Period=*/0,
+			    /*Flags=*/WT_EXECUTEDEFAULT)) {
     // timer created
-    the_timeout.state = TIMEOUT_ACTIVE;
-    the_timeout.handler = handler;
-    the_timeout.param = param;
+    timeout->state = TIMEOUT_ACTIVE;
+    timeout->handler = handler;
+    timeout->param = param;
   } else {
     fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
@@ -414,12 +418,10 @@ void clear_timeout(timeout_t *timeout) {
   // GetLastError returns DWORD, which is an unsigned 32bit integer
   uint32_t error_code;
 
-  assert(timeout == &the_timeout);
-
-  if (the_timeout.state == TIMEOUT_ACTIVE || the_timeout.state == TIMEOUT_FIRED) {
-    if (the_timeout.state == TIMEOUT_ACTIVE) {
+  if (timeout->state == TIMEOUT_ACTIVE || timeout->state == TIMEOUT_FIRED) {
+    if (timeout->state == TIMEOUT_ACTIVE) {
       // active and not fired yet
-      the_timeout.state = TIMEOUT_CANCELED; // will prevent call to handle
+      timeout->state = TIMEOUT_CANCELED; // will prevent call to handle
     }
 
     /*
@@ -430,7 +432,8 @@ void clear_timeout(timeout_t *timeout) {
      * Second try: give INVALID_HANDLE_VALUE?
      * This causes SEG FAULT in ntdll.dll
      */
-    if (! DeleteTimerQueueTimer(timer_queue, timer, INVALID_HANDLE_VALUE)) {
+    if (! DeleteTimerQueueTimer(timeout->timer_queue, timeout->timer,
+				INVALID_HANDLE_VALUE)) {
       error_code = (uint32_t) GetLastError();
       // The Microsoft doc says we should try again
       // unless error code is ERROR_IO_PENDING??
@@ -440,7 +443,7 @@ void clear_timeout(timeout_t *timeout) {
     }
   }
 
-  the_timeout.state = TIMEOUT_READY;
+  timeout->state = TIMEOUT_READY;
 }
 
 
@@ -450,13 +453,13 @@ void clear_timeout(timeout_t *timeout) {
  * - delete the timer_queue
  */
 void delete_timeout(timeout_t *timeout) {
-  assert(timeout == &the_timeout);
-  
-  if (! DeleteTimerQueueEx(timer_queue, INVALID_HANDLE_VALUE)) {
+  if (! DeleteTimerQueueEx(timeout->timer_queue, INVALID_HANDLE_VALUE)) {
     fprintf(stderr, "Yices: DeleteTimerQueueEx failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
   }
+
+  safe_free(timeout);
 }
 
 
