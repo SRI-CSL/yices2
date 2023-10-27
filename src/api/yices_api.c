@@ -2637,11 +2637,11 @@ static bool check_all_distinct(term_table_t *terms, uint32_t n, const term_t *va
   result = true;
   if (n > 1) {
 
-    if (n > terms->live_terms) {
+    if (n > live_terms(terms)) {
       /*
        * there must be duplicates
        * we check this first just to be safe
-       * since n <= terms->live_terms <= YICES_MAX_TERMS,
+       * since n <= live_terms <= YICES_MAX_TERMS,
        * we know that n * sizeof(term_t) fits in 32bits
        * (which matters when we call safe_malloc(n * sizeof(term_t)).
        */
@@ -12241,7 +12241,7 @@ EXPORTED uint32_t yices_num_terms(void) {
 }
 
 uint32_t _o_yices_num_terms(void) {
-  return __yices_globals.terms->live_terms;
+  return live_terms(__yices_globals.terms);
 }
 
 EXPORTED uint32_t yices_num_types(void) {

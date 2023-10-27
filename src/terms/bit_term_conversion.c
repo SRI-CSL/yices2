@@ -42,7 +42,7 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t, ui
   assert(good_term(table, t) && is_boolean_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case CONSTANT_TERM:
     assert(i == bool_const);
     x = true_bit;

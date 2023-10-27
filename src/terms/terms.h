@@ -190,6 +190,7 @@
 #include "terms/pprod_table.h"
 #include "terms/types.h"
 #include "utils/bitvectors.h"
+#include "utils/indexed_table.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
 #include "utils/int_vectors.h"
@@ -434,13 +435,23 @@ typedef struct special_term_s {
  * - pair  (idx, arg) for select term
  * - ptr to a composite, polynomial, power-product, or bvconst
  */
-typedef union {
-  int32_t integer;
-  void *ptr;
-  rational_t rational;
-  select_term_t select;
-} term_desc_t;
+typedef struct {
+  /* The term descriptor. */
+  union {
+    int32_t integer;
+    void *ptr;
+    rational_t rational;
+    select_term_t select;
+    /* This must be the first element. */
+    indexed_table_elem_t elem;
+  };
 
+  /* The kind of term. */
+  uint8_t kind;
+  
+  /* The type of the term. */
+  type_t type;
+} term_desc_t;
 
 /*
  * Finalizer function: this is called when a special_term
@@ -487,15 +498,9 @@ typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
  * - pbuffer: to store an array of pprods
  */
 typedef struct term_table_s {
-  uint8_t *kind;
-  term_desc_t *desc;
-  type_t *type;
-  byte_t *mark;
+  indexed_table_t terms;
 
-  uint32_t size;
-  uint32_t nelems;
-  int32_t free_idx;
-  uint32_t live_terms;
+  byte_t *mark;
 
   type_table_t *types;
   pprod_table_t *pprods;
@@ -509,8 +514,6 @@ typedef struct term_table_s {
   ivector_t ibuffer;
   pvector_t pbuffer;
 } term_table_t;
-
-
 
 
 /*
@@ -531,6 +534,19 @@ extern void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl,
  */
 extern void delete_term_table(term_table_t *table);
 
+/*
+ * Returns the number of terms in the table.
+ */
+static inline uint32_t nterms(const term_table_t *table) {
+  return indexed_table_nelems(&table->terms);
+}
+
+/*
+ * Returns the number of live terms in the table.
+ */
+static inline uint32_t live_terms(const term_table_t *table) {
+  return indexed_table_live_elems(&table->terms);
+}
 
 /*
  * Install f as the special finalizer
@@ -1134,88 +1150,96 @@ static inline void term_table_reset_pbuffer(term_table_t *table) {
  * From a term index i
  */
 static inline bool valid_term_idx(const term_table_t *table, int32_t i) {
-  return 0 <= i && i < table->nelems;
+  return 0 <= i && i < nterms(table);
+}
+
+static inline term_desc_t *term_desc(const term_table_t *table,
+					  int32_t i) {
+  return &((term_desc_t *) table->terms.elems)[i];
+}
+
+static inline term_kind_t unchecked_kind_for_idx(const term_table_t *table,
+						 int32_t i) {
+  return term_desc(table, i)->kind;
 }
 
 static inline bool live_term_idx(const term_table_t *table, int32_t i) {
-  return valid_term_idx(table, i) && table->kind[i] != UNUSED_TERM;
+  return valid_term_idx(table, i)
+    && term_desc(table, i)->kind != UNUSED_TERM;
 }
 
 static inline bool good_term_idx(const term_table_t *table, int32_t i) {
-  return valid_term_idx(table, i) && table->kind[i] > RESERVED_TERM;
+  return valid_term_idx(table, i)
+    && term_desc(table, i)->kind > RESERVED_TERM;
 }
 
 static inline type_t type_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return table->type[i];
+  return term_desc(table, i)->type;
 }
 
 static inline term_kind_t kind_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return table->kind[i];
+  return unchecked_kind_for_idx(table, i);
 }
 
 // descriptor converted to an appropriate type
 static inline int32_t integer_value_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return table->desc[i].integer;
+  return term_desc(table, i)->integer;
+}
+
+static inline void *ptr_for_idx(const term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return term_desc(table, i)->ptr;
 }
 
 static inline composite_term_t *composite_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (composite_term_t *) table->desc[i].ptr;
+  return (composite_term_t *) ptr_for_idx(table, i);
 }
 
 static inline select_term_t *select_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return &table->desc[i].select;
+  return &term_desc(table, i)->select;
 }
 
 static inline root_atom_t *root_atom_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (root_atom_t *) table->desc[i].ptr;
+  return (root_atom_t *) ptr_for_idx(table, i);
 }
 
 static inline pprod_t *pprod_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (pprod_t *) table->desc[i].ptr;
+  return (pprod_t *) ptr_for_idx(table, i);
 }
 
 static inline rational_t *rational_for_idx(const term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return &table->desc[i].rational;
+  return &term_desc(table, i)->rational;
 }
 
 static inline polynomial_t *polynomial_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (polynomial_t *) table->desc[i].ptr;
+  return (polynomial_t *) ptr_for_idx(table, i);
 }
 
 static inline bvconst64_term_t *bvconst64_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (bvconst64_term_t *) table->desc[i].ptr;
+  return (bvconst64_term_t *) ptr_for_idx(table, i);
 }
 
 static inline bvconst_term_t *bvconst_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (bvconst_term_t *) table->desc[i].ptr;
+  return (bvconst_term_t *) ptr_for_idx(table, i);
 }
 
 static inline bvpoly64_t *bvpoly64_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (bvpoly64_t *) table->desc[i].ptr;
+  return (bvpoly64_t *) ptr_for_idx(table, i);
 }
 
 static inline bvpoly_t *bvpoly_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return (bvpoly_t *) table->desc[i].ptr;
+  return (bvpoly_t *) ptr_for_idx(table, i);
 }
 
 
 // bitsize of bitvector terms
 static inline uint32_t bitsize_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return bv_type_size(table->types, table->type[i]);
+  return bv_type_size(table->types, type_for_idx(table, i));
 }
 
 
@@ -1665,8 +1689,7 @@ static inline special_term_t *special_desc(composite_term_t *p) {
 }
 
 static inline special_term_t *special_for_idx(const term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
-  return special_desc(table->desc[i].ptr);
+  return special_desc(ptr_for_idx(table, i));
 }
 
 static inline composite_term_t *ite_special_term_desc(const term_table_t *table, term_t t) {
