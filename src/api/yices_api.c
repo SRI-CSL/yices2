@@ -12249,7 +12249,7 @@ EXPORTED uint32_t yices_num_types(void) {
 }
 
 uint32_t _o_yices_num_types(void) {
-  return __yices_globals.types->live_types;
+  return live_types(__yices_globals.types);
 }
 
 

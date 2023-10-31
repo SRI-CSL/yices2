@@ -438,12 +438,13 @@ typedef struct special_term_s {
 typedef struct {
   /* The term descriptor. */
   union {
+    /* This must be the first element in term_desc_t. */
+    indexed_table_elem_t elem;
+
     int32_t integer;
     void *ptr;
     rational_t rational;
     select_term_t select;
-    /* This must be the first element. */
-    indexed_table_elem_t elem;
   };
 
   /* The kind of term. */
@@ -463,21 +464,6 @@ typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
 
 /*
  * Term table: valid terms have indices between 0 and nelems - 1
- *
- * For each i between 0 and nelems - 1
- * - kind[i] = term kind
- * - type[i] = type
- * - desc[i] = term descriptor
- * - mark[i] = one bit used during garbage collection
- * - size = size of these arrays.
- *
- * After deletion, term indices are recycled into a free list.
- * - free_idx = start of the free list (-1 if the list is empty)
- * - if i is in the free list then kind[i] is UNUSED and
- *   desc[i].integer is the index of the next term in the free list
- *   (or -1 if i is the last element in the free list).
- *
- * - live_terms = number of actual terms = nelems - size of the free list
  *
  * Symbol table and name table:
  * - stbl is a symbol table that maps names (strings) to term occurrences.

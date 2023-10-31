@@ -3661,10 +3661,6 @@ void term_table_gc(term_table_t *table, bool keep_named) {
     stbl_remove_records(&table->stbl, table, dead_term_symbol);
   }
 
-  // force garbage collection in the type and power-product tables
-  type_table_gc(table->types, keep_named);
-  pprod_table_gc(table->pprods);
-
   // delete the unmarked terms
   n = nterms(table);
   for (i=0; i<n; i++) {
@@ -3673,6 +3669,12 @@ void term_table_gc(term_table_t *table, bool keep_named) {
       delete_term(table, i);
     }
   }
+
+  /* Now, garbage collect the types and power products. This
+     collection must be done after the terms have been removed so that
+     any use of types from within delete_term is valid. */
+  type_table_gc(table->types, keep_named);
+  pprod_table_gc(table->pprods);
 
   // clear the marks
   clear_bitvector(table->mark, n);

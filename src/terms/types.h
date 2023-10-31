@@ -67,6 +67,7 @@
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_map2.h"
 #include "utils/int_hash_tables.h"
+#include "utils/indexed_table.h"
 #include "utils/symbol_tables.h"
 #include "utils/tagged_pointers.h"
 #include "utils/tuple_hash_map.h"
@@ -147,22 +148,6 @@ typedef struct {
   uint32_t arity;
   type_t param[0];
 } instance_type_t;
-
-
-/*
- * Descriptor: either a pointer to a descriptor or an integer. The size
- * of a bitvector type or scalar type i is stored in desc[i].integer.
- * Also each type variable is identified by an index stored in desc[i].integer.
- *
- * For deleted types, desc[i].integer is also used as pointer to the
- * next element in the free list.
- */
-typedef union {
-  int32_t next;
-  uint32_t integer;
-  void *ptr;
-} type_desc_t;
-
 
 
 /*
@@ -252,43 +237,51 @@ typedef struct type_mtbl_s {
 #define TYPE_MACRO_MAX_SIZE   (UINT32_MAX/sizeof(void*))
 
 
+typedef struct type_desc_s {
+  union {
+    indexed_table_elem_t elem;
+    uint32_t integer;
+    void *ptr;
+  };
+  
+  /* The kind of type. */
+  uint8_t kind;
 
+  /*
+   *    bit 0 of flag is 1 if i is finite
+   *    bit 1 of flag is 1 if i is a unit type
+   *    bit 2 of flag is 1 if card[i] is exact
+   *    bit 3 of flag is 1 if i has no strict supertype
+   *    bit 4 of flag is 1 if i has no strict subtype
+   *
+   *    bit 5 of flag is 1 if i is a ground type (i.e., no variables
+   *    occur in i). If this bit is '0', then bits 0 to 4 are not used,
+   *    but they must all be set to '0' too.
+   *
+   *    bit 7 is used as a mark during garbage collection
+   */
+  uint8_t flags;
+
+  /* Cardinality, of UINT32_MAX if infinite or >= UINT32_MAX. */
+  uint32_t card;
+
+  /* string id or NULL */
+  char *name;
+
+  /*
+   * syntactic depth:
+   * for atomic types and type variables: depth = 0
+   * or tuple type (tau_1 x ... x tau_n): depth = 1 + max depth(tau_i)
+   * for function type (tau_1 ... tau_n -> tau_0): depth = 1 + max depth(tau_i)
+   * for instance type F(tau_1, ... , tau_n): depth = 1 + max depth(tau_i)
+   */
+  uint32_t depth;
+} type_desc_t;
 
 /*
  * Type table: valid type indices are between 0 and nelems - 1
  *
- * For each i between 0 and nelems - 1,
- * - kind[i] = type kind
- * - desc[i] = type descriptor
- * - card[i] = cardinality of type i or
- *             UINT32_MAX if i is infinite or has card > UINT32_MAX
- * - name[i] = string id or NULL.
- * - flags[i] = 8bit flags:
- *    bit 0 of flag[i] is 1 if i is finite
- *    bit 1 of flag[i] is 1 if i is a unit type
- *    bit 2 of flag[i] is 1 if card[i] is exact
- *    bit 3 of flag[i] is 1 if i has no strict supertype
- *    bit 4 of flag[i] is 1 if i has no strict subtype
- *
- *    bit 5 of flag[i] is 1 if i is a ground type (i.e., no variables
- *    occur in i). If this bit is '0', then bits 0 to 4 are not used,
- *    but they must all be set to '0' too.
- *
- *    bit 7 is used as a mark during garbage collection
- * - depth[i] = syntactic depth:
- *    for atomic types and type variables: depth = 0
- *    for tuple type (tau_1 x ... x tau_n): depth = 1 + max depth(tau_i)
- *    for function type (tau_1 ... tau_n -> tau_0): depth = 1 + max depth(tau_i)
- *    for instance type F(tau_1, ... , tau_n): depth = 1 + max depth(tau_i)
- *
- * Other components:
- * - size = size of all arrays above
- * - nelems = number of elements in the array
- * - free_idx = start of the free list (-1 means empty free list).
- *   The free list contains the deleted types: for each i in the list,
- *     kind[i] = UNUSED_TYPE
- *     desc[i].next = index of i's successor in the list (or -1).
- * - live_types = number of types = nelems - size of the free_list
+ * - types = indexed_table_t of type_desc_t
  * - htbl = hash table for hash consing
  * - stbl = symbol table for named types
  *   stbl stores a mapping from strings to type ids.
@@ -307,17 +300,7 @@ typedef struct type_mtbl_s {
  * Macro table: also allocated on demand
  */
 typedef struct type_table_s {
-  uint8_t *kind;
-  type_desc_t *desc;
-  uint32_t *card;
-  uint8_t *flags;
-  char **name;
-  uint32_t *depth;
-
-  uint32_t size;
-  uint32_t nelems;
-  int32_t free_idx;
-  uint32_t live_types;
+  indexed_table_t types;
 
   int_htbl_t htbl;
   stbl_t stbl;
@@ -447,13 +430,41 @@ extern void init_type_table(type_table_t *table, uint32_t n);
  */
 extern void delete_type_table(type_table_t *table);
 
+/*
+ * Returns the number of types.
+ */
+static inline uint32_t ntypes(const type_table_t *table) {
+  return indexed_table_nelems(&table->types);
+}
+
+/*
+ * Returns the number of live types.
+ */
+static inline uint32_t live_types(const type_table_t *table) {
+  return indexed_table_live_elems(&table->types);
+}
 
 /*
  * Reset: remove all types and macros, and empty the symbol_table
  */
 extern void reset_type_table(type_table_t *table);
 
+/* 
+ * Return the ith type descriptor.
+ */
+static inline type_desc_t *type_desc(const type_table_t *table,
+				     int32_t i) {
+  return &((type_desc_t *) table->types.elems)[i];
+}
 
+static inline bool valid_type(type_table_t *tbl, type_t i) {
+  return 0 <= i && i < ntypes(tbl);
+}
+
+static inline type_kind_t type_kind(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return type_desc(tbl, i)->kind;
+}
 
 /*
  * TYPE CONSTRUCTORS
@@ -463,17 +474,17 @@ extern void reset_type_table(type_table_t *table);
  * Predefined types
  */
 static inline type_t bool_type(type_table_t *table) {
-  assert(table->nelems > bool_id && table->kind[bool_id] == BOOL_TYPE);
+  assert(type_kind(table, bool_id) == BOOL_TYPE);
   return bool_id;
 }
 
 static inline type_t int_type(type_table_t *table) {
-  assert(table->nelems > int_id && table->kind[int_id] == INT_TYPE);
+  assert(type_kind(table, int_id) == INT_TYPE);
   return int_id;
 }
 
 static inline type_t real_type(type_table_t *table) {
-  assert(table->nelems > real_id && table->kind[real_id] == REAL_TYPE);
+  assert(type_kind(table, real_id) == REAL_TYPE);
   return real_id;
 }
 
@@ -754,18 +765,10 @@ static inline bool is_arithmetic_type(type_t i) {
 /*
  * Extract components from the table
  */
-static inline bool valid_type(type_table_t *tbl, type_t i) {
-  return 0 <= i && i < tbl->nelems;
-}
-
-static inline type_kind_t type_kind(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->kind[i];
-}
 
 // check for deleted types
 static inline bool good_type(type_table_t *tbl, type_t i) {
-  return valid_type(tbl, i) && (tbl->kind[i] != UNUSED_TYPE);
+  return valid_type(tbl, i) && type_kind(tbl, i) != UNUSED_TYPE;
 }
 
 static inline bool bad_type(type_table_t *tbl, type_t i) {
@@ -773,38 +776,38 @@ static inline bool bad_type(type_table_t *tbl, type_t i) {
 }
 
 
+static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return type_desc(tbl, i)->flags;
+}
+
 // ground type: does not contain variables
 static inline bool ground_type(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
-  return tbl->flags[i] & TYPE_IS_GROUND_MASK;
+  return type_flags(tbl, i) & TYPE_IS_GROUND_MASK;
 }
 
 
 // access card, flags, name, depth of non-deleted type
 static inline uint32_t type_card(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
-  return tbl->card[i];
-}
-
-static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
-  assert(good_type(tbl, i));
-  return tbl->flags[i];
+  return type_desc(tbl, i)->card;
 }
 
 static inline char *type_name(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
-  return tbl->name[i];
+  return type_desc(tbl, i)->name;
 }
 
 static inline uint32_t type_depth(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
-  return tbl->depth[i];
+  return type_desc(tbl, i)->depth;
 }
 
 // check whether i is atomic (i.e., not a tuple or function type)
 static inline bool is_atomic_type(type_table_t *tbl, type_t i) {
   assert(ground_type(tbl, i));
-  return tbl->kind[i] <= UNINTERPRETED_TYPE;
+  return type_kind(tbl, i) <= UNINTERPRETED_TYPE;
 }
 
 // bit vector types
@@ -814,7 +817,7 @@ static inline bool is_bv_type(type_table_t *tbl, type_t i) {
 
 static inline uint32_t bv_type_size(type_table_t *tbl, type_t i) {
   assert(is_bv_type(tbl, i));
-  return tbl->desc[i].integer;
+  return type_desc(tbl, i)->integer;
 }
 
 // uninterpreted types
@@ -829,7 +832,7 @@ static inline bool is_scalar_type(type_table_t *tbl, type_t i) {
 
 static inline uint32_t scalar_type_cardinal(type_table_t *tbl, type_t i) {
   assert(is_scalar_type(tbl, i));
-  return tbl->desc[i].integer;
+  return type_desc(tbl, i)->integer;
 }
 
 
@@ -840,7 +843,7 @@ static inline bool is_type_variable(type_table_t *tbl, type_t i) {
 
 static inline uint32_t type_variable_id(type_table_t *tbl, type_t i) {
   assert(is_type_variable(tbl, i));
-  return tbl->desc[i].integer;
+  return type_desc(tbl, i)->integer;
 }
 
 
@@ -851,17 +854,17 @@ static inline bool is_tuple_type(type_table_t *tbl, type_t i) {
 
 static inline tuple_type_t *tuple_type_desc(type_table_t *tbl, type_t i) {
   assert(is_tuple_type(tbl, i));
-  return (tuple_type_t *) tbl->desc[i].ptr;
+  return (tuple_type_t *) type_desc(tbl, i)->ptr;
 }
 
 static inline uint32_t tuple_type_arity(type_table_t *tbl, type_t i) {
   assert(is_tuple_type(tbl, i));
-  return ((tuple_type_t *) tbl->desc[i].ptr)->nelem;
+  return ((tuple_type_t *) type_desc(tbl, i)->ptr)->nelem;
 }
 
 static inline type_t tuple_type_component(type_table_t *tbl, type_t i, int32_t j) {
   assert(0 <= j && j <  tuple_type_arity(tbl, i));
-  return ((tuple_type_t *) tbl->desc[i].ptr)->elem[j];
+  return ((tuple_type_t *) type_desc(tbl, i)->ptr)->elem[j];
 }
 
 
@@ -872,22 +875,22 @@ static inline bool is_function_type(type_table_t *tbl, type_t i) {
 
 static inline function_type_t *function_type_desc(type_table_t *tbl, type_t i) {
   assert(is_function_type(tbl, i));
-  return (function_type_t *) tbl->desc[i].ptr;
+  return (function_type_t *) type_desc(tbl, i)->ptr;
 }
 
 static inline type_t function_type_range(type_table_t *tbl, type_t i) {
   assert(is_function_type(tbl, i));
-  return ((function_type_t *) tbl->desc[i].ptr)->range;
+  return ((function_type_t *) type_desc(tbl, i)->ptr)->range;
 }
 
 static inline uint32_t function_type_arity(type_table_t *tbl, type_t i) {
   assert(is_function_type(tbl, i));
-  return ((function_type_t *) tbl->desc[i].ptr)->ndom;
+  return ((function_type_t *) type_desc(tbl, i)->ptr)->ndom;
 }
 
 static inline type_t function_type_domain(type_table_t *tbl, type_t i, int32_t j) {
   assert(0 <= j && j < function_type_arity(tbl, i));
-  return ((function_type_t *) tbl->desc[i].ptr)->domain[j];
+  return ((function_type_t *) type_desc(tbl, i)->ptr)->domain[j];
 }
 
 
@@ -898,7 +901,7 @@ static inline bool is_instance_type(type_table_t *tbl, type_t i) {
 
 static inline instance_type_t *instance_type_desc(type_table_t *tbl, type_t i) {
   assert(is_instance_type(tbl, i));
-  return (instance_type_t *) tbl->desc[i].ptr;
+  return (instance_type_t *) type_desc(tbl, i)->ptr;
 }
 
 static inline int32_t instance_type_cid(type_table_t *tbl, type_t i) {
@@ -939,17 +942,17 @@ static inline type_t instance_type_param(type_table_t *tbl, type_t i, int32_t j)
  */
 static inline bool is_finite_type(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_IS_FINITE_MASK;
+  return type_flags(tbl, i) & TYPE_IS_FINITE_MASK;
 }
 
 static inline bool is_unit_type(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_IS_UNIT_MASK;
+  return type_flags(tbl, i) & TYPE_IS_UNIT_MASK;
 }
 
 static inline bool type_card_is_exact(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & CARD_IS_EXACT_MASK;
+  return type_flags(tbl, i) & CARD_IS_EXACT_MASK;
 }
 
 
@@ -1009,7 +1012,7 @@ extern bool type_has_finite_range(type_table_t *table, type_t tau);
  */
 static inline bool is_maxtype(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_IS_MAXIMAL_MASK;
+  return type_flags(tbl, i) & TYPE_IS_MAXIMAL_MASK;
 }
 
 /*
@@ -1017,7 +1020,7 @@ static inline bool is_maxtype(type_table_t *tbl, type_t i) {
  */
 static inline bool is_mintype(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_IS_MINIMAL_MASK;
+  return type_flags(tbl, i) & TYPE_IS_MINIMAL_MASK;
 }
 
 
@@ -1146,7 +1149,7 @@ extern type_t apply_type_matching(type_matcher_t *matcher, type_t tau);
  */
 static inline void type_table_set_gc_mark(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
-  tbl->flags[i] |= TYPE_GC_MARK;
+  type_desc(tbl, i)->flags |= TYPE_GC_MARK;
 }
 
 /*
@@ -1154,7 +1157,7 @@ static inline void type_table_set_gc_mark(type_table_t *tbl, type_t i) {
  */
 static inline void type_table_clr_gc_mark(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  tbl->flags[i] &= ~TYPE_GC_MARK;
+  type_desc(tbl, i)->flags &= ~TYPE_GC_MARK;
 }
 
 /*
@@ -1162,7 +1165,7 @@ static inline void type_table_clr_gc_mark(type_table_t *tbl, type_t i) {
  */
 static inline bool type_is_marked(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_GC_MARK;
+  return type_flags(tbl, i) & TYPE_GC_MARK;
 }
 
 
