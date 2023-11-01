@@ -1,5 +1,5 @@
 /*
- * Examples of check_with_model and model interpolants
+ * Test mcsat model hint api
  */
 
 #include <stdbool.h>
@@ -11,7 +11,7 @@
 #include <yices.h>
 
 /*
- * Create an MCSAT context that supports model interpolants
+ * Create an MCSAT context 
  */
 static context_t *make_mcsat_context(void) {
   ctx_config_t *config;
@@ -20,8 +20,6 @@ static context_t *make_mcsat_context(void) {
 
   config = yices_new_config();
   code = yices_set_config(config, "solver-type", "mcsat");
-  if (code < 0) goto error;
-  code = yices_set_config(config, "model-interpolation", "true");
   if (code < 0) goto error;
   context = yices_new_context(config);
   if (context == NULL) goto error;
@@ -71,7 +69,7 @@ static term_t make_unsat_constraint(term_t var[2]) {
 
 
 /*
- * Check with model
+ * Check context with  model and hint
  */
 static smt_status_t check_with_model_and_hint(context_t *ctx, model_t *model, term_t assertion, uint32_t n, const term_t t[], uint32_t m) {
   int32_t code = yices_assert_formula(ctx, assertion);
