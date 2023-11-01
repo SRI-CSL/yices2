@@ -9240,6 +9240,83 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 }
 
 
+/*
+ * Check context with model and hint
+ * - param = parameter for check sat (or NULL for default parameters)
+ * - mdl = a model
+ * - t = array of n variables or uninterpred terms
+ * - m = number of terms that are asserted to be equal to their model values,
+ *       the remaining are treated as hints
+ *
+ * This checks ctx /\ t[0] = val(mdl, t[0]) /\ .... /\ t[m-1] = val(mdl, t[m-1])
+ */
+EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m) {
+
+  param_t default_params;
+  smt_status_t stat;
+
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  if (! good_terms_for_check_with_model(n, t)) {
+    // this sets the error code already (to VARIABLE_REQUIRED)
+    // but Dejan created another error code that means the same thing here.
+    set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  // cleanup
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+      return STATUS_ERROR;
+    }
+    context_clear(ctx);
+    break;
+
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    context_clear_unsat(ctx);
+    if (context_status(ctx) == STATUS_UNSAT) {
+      return STATUS_UNSAT;
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case YICES_STATUS_INTERRUPTED:
+    set_error_code(CTX_INVALID_OPERATION);
+    return STATUS_ERROR;
+
+  case STATUS_ERROR:
+  default:
+    set_error_code(INTERNAL_EXCEPTION);
+    return STATUS_ERROR;
+  }
+
+  assert(context_status(ctx) == STATUS_IDLE);
+
+  // set parameters
+  if (params == NULL) {
+    yices_default_params_for_context(ctx, &default_params);
+    params = &default_params;
+  }
+
+  // call check
+  stat = check_context_with_model_and_hint(ctx, params, mdl, n, t, m);
+  if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+    context_cleanup(ctx);
+  }
+
+  return stat;
+}
+
+
 
 /*
  * CHECK SAT AND COMPUTE INTERPOLANT

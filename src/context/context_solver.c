@@ -633,6 +633,16 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
   return stat;
 }
 
+/*
+ * Check with given model and hints
+ * - set the model hint and call check_context_with_model
+ */
+smt_status_t check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m) {
+  mcsat_set_model_hint(ctx->mcsat, mdl, n, t);
+
+  return check_context_with_model(ctx, params, mdl, m, t);
+}
+
 
 /*
  * Precheck: force generation of clauses and other stuff that's
