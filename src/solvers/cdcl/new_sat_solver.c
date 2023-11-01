@@ -3827,7 +3827,7 @@ static inline bool var_is_eliminated(const sat_solver_t *solver, bvar_t x) {
  * Check whether variable x is active (i.e., not assigned at level 0) and not eliminated
  */
 static bool var_is_active(const sat_solver_t *solver, bvar_t x) {
-  return var_is_unassigned(solver, x) & ! var_is_eliminated(solver, x);
+  return var_is_unassigned(solver, x) && ! var_is_eliminated(solver, x);
 }
 
 /*

@@ -146,7 +146,6 @@ clause_ref_t clause_get_ref(const clause_db_t* db, const mcsat_tagged_clause_t* 
 static
 bool clause_check(const mcsat_tagged_clause_t* clause, const variable_db_t* var_db, bool assert) {
   const mcsat_literal_t* lit;
-  uint32_t i;
 
   if (clause->tag.type == CLAUSE_DEFINITION) {
     if (!variable_db_is_variable(var_db, clause->tag.var, assert)) {
@@ -155,14 +154,12 @@ bool clause_check(const mcsat_tagged_clause_t* clause, const variable_db_t* var_
     }
   }
 
-  i = 0;
   lit = clause->clause.literals;
   while (*lit != mcsat_literal_null) {
     if (!variable_db_is_variable(var_db, literal_get_variable(*lit), assert)) {
       assert(!assert);
       return false;
     }
-    i ++;
     lit ++;
   }
 
