@@ -9267,6 +9267,8 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
     return STATUS_ERROR;
   }
 
+  assert(m <= n);
+
   // cleanup
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
