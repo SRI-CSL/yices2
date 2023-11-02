@@ -331,6 +331,42 @@ void uf_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 static
+void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
+  uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  assert(uf->conflict.size == 0);
+
+  // check array conflicts
+  weq_graph_check_array_conflict(&uf->weq_graph, &uf->conflict);
+
+  if (uf->conflict.size > 0) {
+    // Report conflict
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
+    // extract terms used in the conflict
+    term_t t;
+    term_table_t *terms = uf->ctx->terms;
+    composite_term_t* t_desc = NULL;
+    uint32_t i;
+    for (i = 0; i < uf->conflict.size; ++i) {
+      t = uf->conflict.data[i];
+      if (term_kind(terms, t) == EQ_TERM) {
+	t_desc = eq_term_desc(terms, t);
+      } else if (term_kind(terms, t) == BV_EQ_ATOM) {
+	t_desc = bveq_atom_desc(terms, t);
+      } else if (term_kind(terms, t) == ARITH_BINEQ_ATOM) {
+	t_desc = arith_bineq_atom_desc(terms, t);
+      } else {
+	assert(false);
+      }
+      int_mset_add(&uf->tmp, t_desc->arg[0]);
+      int_mset_add(&uf->tmp, t_desc->arg[1]);
+    }
+    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+  }
+}
+
+static
 void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
@@ -930,6 +966,7 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.propagate             = uf_plugin_propagate;
   plugin->plugin_interface.decide                = uf_plugin_decide;
   plugin->plugin_interface.decide_assignment     = NULL;
+  plugin->plugin_interface.learn                 = uf_plugin_learn;
   plugin->plugin_interface.get_conflict          = uf_plugin_get_conflict;
   plugin->plugin_interface.explain_propagation   = uf_plugin_explain_propagation;
   plugin->plugin_interface.explain_evaluation    = uf_plugin_explain_evaluation;

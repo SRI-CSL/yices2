@@ -1282,13 +1282,99 @@ void copy_uniques(ivector_t *to, ivector_t *from) {
   delete_int_hset(&seen);
 }
 
+/* filter array-eq-terms based on the current model.  We keep the
+ * array terms (array variables and update terms) that have been
+ * assigned a value in the equality graph. For array variables, it is
+ * just a value assigned to the variable. For update terms, we check
+ * if update term, array term in the update, index term, value term
+ * have been assigned a value.
+ */
+static
+void filter_array_eq_terms(const weq_graph_t* weq, const term_table_t* terms,
+			   ivector_t *array_eq_terms) {
+  uint32_t i, j;
+  term_t t, arr1, arr2;
+  composite_term_t* t_desc;
+  composite_term_t* update_desc;
+  
+  j = 0;
+  for (i = 0; i < array_eq_terms->size; ++i) {
+    t = array_eq_terms->data[i];
+    t_desc = eq_term_desc(terms, t);
+    arr1 = t_desc->arg[0];
+    arr2 = t_desc->arg[1];
+
+    if (!eq_graph_term_has_value(weq->eq_graph, arr1) ||
+	!eq_graph_term_has_value(weq->eq_graph, arr2)) {
+      continue;
+    }
+
+    if (term_kind(terms, arr1) == UPDATE_TERM) {
+      update_desc = update_term_desc(terms, arr1);
+      if (!eq_graph_term_has_value(weq->eq_graph, update_desc->arg[0]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[1]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[2])) {
+	continue;
+      }
+    }
+    if (term_kind(terms, arr2) == UPDATE_TERM) {
+      update_desc = update_term_desc(terms, arr2);
+      if (!eq_graph_term_has_value(weq->eq_graph, update_desc->arg[0]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[1]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[2])) {
+	continue;
+      }
+    }
+
+    array_eq_terms->data[j++] = array_eq_terms->data[i];
+  }
+  ivector_shrink(array_eq_terms, j);
+}
+
+/* filter array-terms based on the current model.  We keep the
+ * array terms (array variables and update terms) that have been
+ * assigned a value in the equality graph. For array variables, it is
+ * just a value assigned to the variable. For update terms, we check
+ * if update term, array term in the update, index term, value term
+ * have been assigned a value.
+ */
+static
+void filter_array_terms(const weq_graph_t* weq,	const term_table_t* terms,
+			ivector_t *array_terms) {
+  uint32_t i, j;
+  term_t t;
+  composite_term_t* update_desc;
+  
+  j = 0;
+  for (i = 0; i < array_terms->size; ++i) {
+    t = array_terms->data[i];
+    if (!eq_graph_term_has_value(weq->eq_graph, t)) {
+      continue;
+    }
+
+    if (term_kind(terms, t) == UPDATE_TERM) {
+      update_desc = update_term_desc(terms, t);
+      if (!eq_graph_term_has_value(weq->eq_graph, update_desc->arg[0]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[1]) ||
+	  !eq_graph_term_has_value(weq->eq_graph, update_desc->arg[2])) {
+	continue;
+      }
+    }
+
+    array_terms->data[j++] = array_terms->data[i];
+  }
+  ivector_shrink(array_terms, j);
+}
+
 /* filtered select terms in the select_terms vector,
  * according to the current array terms.
  * Basically, we keep select terms whose first argument (i.e. an array)
  * is present in the arrays_terms vector.
+ * Moreover, we filter terms that don't have values assigned in the equality graph.
  */
 static
-void filter_select_terms(const term_table_t* terms, ivector_t *select_terms,
+void filter_select_terms(const weq_graph_t* weq,
+			 const term_table_t* terms, ivector_t *select_terms,
                          const ivector_t *array_terms) {
   uint32_t i, j;
   composite_term_t* select_desc;
@@ -1304,6 +1390,14 @@ void filter_select_terms(const term_table_t* terms, ivector_t *select_terms,
   j = 0;
   for (i = 0; i < select_terms->size; ++i) {
     t = select_terms->data[i];
+    select_desc = app_term_desc(terms, t);
+    // check if the equality graph contains model values.
+    if (!eq_graph_term_has_value(weq->eq_graph, t) ||
+	!eq_graph_term_has_value(weq->eq_graph, select_desc->arg[0]) ||
+	!eq_graph_term_has_value(weq->eq_graph, select_desc->arg[1])) {
+      continue;
+    }
+    
     do {
       /* The array term (first arg) in the select term can be a select
        * term that returns an array term. We loop to get the array
@@ -1339,16 +1433,19 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
 
   init_ivector(&array_eq_terms, 0);
   copy_uniques(&array_eq_terms, &weq->array_eq_terms); 
+  filter_array_eq_terms(weq, weq->ctx->terms, &array_eq_terms);
 
   init_ivector(&array_terms, 0);
   copy_uniques(&array_terms, &weq->array_terms);
+  // filter array terms
+  filter_array_terms(weq, weq->ctx->terms, &array_terms);
   // store array terms according to heuristic score
   int_array_sort2(array_terms.data, array_terms.size, weq->ctx, weq_graph_array_terms_compare);
   
   init_ivector(&select_terms, 0);
   copy_uniques(&select_terms, &weq->select_terms);
   // filter select terms
-  filter_select_terms(weq->ctx->terms, &select_terms, &array_terms);
+  filter_select_terms(weq, weq->ctx->terms, &select_terms, &array_terms);
   // store select terms according to heuristic score
   int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 
@@ -1366,14 +1463,6 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
     }
     if (term_kind(terms, array_terms.data[i]) == UPDATE_TERM) {
       updates_present = true;
-    }
-  }
-  for (i = 0; ok && i < select_terms.size; ++i) {
-    t_desc = app_term_desc(terms, select_terms.data[i]);
-    if (!eq_graph_term_has_value(weq->eq_graph, select_terms.data[i]) ||
-	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[0]) ||
-	!eq_graph_term_has_value(weq->eq_graph, t_desc->arg[1])) {
-      ok = false;
     }
   }
 
