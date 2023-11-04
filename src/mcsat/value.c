@@ -415,12 +415,24 @@ void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t*
   case BOOLEAN_VALUE:
     mcsat_value_construct_bool(mcsat_value, is_true(vtbl, v));
     break;
-  case RATIONAL_VALUE:
-    mcsat_value_construct_rational(mcsat_value, vtbl_rational(vtbl, v));
+  case RATIONAL_VALUE: {
+    rational_t* value_q = vtbl_rational(vtbl, v);
+    mpq_t value_mpq;
+    mpq_init(value_mpq);
+    q_get_mpq(value_q, value_mpq);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_RATIONAL, value_mpq);
+    mcsat_value_construct_lp_value(mcsat_value, &value_lp);
+    lp_value_destruct(&value_lp);
+    mpq_clear(value_mpq);
     break;
+  }
   case ALGEBRAIC_VALUE: {
     lp_algebraic_number_t* a = vtbl_algebraic_number(vtbl, v);
-    mcsat_value_construct_lp_value_direct(mcsat_value, LP_VALUE_ALGEBRAIC, a);;
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_ALGEBRAIC, a);
+    mcsat_value_construct_lp_value(mcsat_value, &value_lp);
+    lp_value_destruct(&value_lp);
     break;
   }
   case BITVECTOR_VALUE: {

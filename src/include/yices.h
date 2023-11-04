@@ -3196,7 +3196,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * This function checks statisfiability of the constraints in ctx conjoined with
  * a conjunction of equalities defined by t[i] and the model, namely,
  *
- *    t[0] == v_0 /\ .... /\ t[n-1] = v_{n-1}
+ *    t[0] = v_0 /\ .... /\ t[n-1] = v_{n-1}
  *
  * where v_i is the value of t[i] in mdl.
  *
@@ -3222,6 +3222,58 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params,
 								     model_t *mdl, uint32_t n, const term_t t[]);
+
+/*
+ * Check satisfiability modulo a model and hints.
+ *
+ * Check whether the assertions stored in ctx conjoined with a model are satisfiable.
+ * - ctx must be a context initialized with support for MCSAT
+ *   (see yices_new_context, yices_new_config, yices_set_config).
+ * - params is an optional structure to store heuristic parameters
+ *   if params is NULL, default parameter settings are used.
+ * - mdl is a model
+ * - t is an array of n terms
+ * - the terms t[0] ... t[n-1] must all be uninterpreted terms
+ *
+ * This function checks statisfiability of the constraints in ctx
+ * conjoined with a conjunction of equalities defined by first m terms
+ * in t and their model values, namely,
+ *
+ *    t[0] = v_0 /\ .... /\ t[m-1] = v_{m-1}
+ *
+ * and the remaining n-m terms in t are provided with hints from the
+ * model, i.e.
+ *
+ *    t[m], ... , t[n-1] will be given v_{m}, ... , v_{n-1} values when deciding
+ *
+ * where v_i is the value of t[i] in mdl.
+ *
+ * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
+ *
+ * If this function returns STATUS_UNSAT and the context supports
+ * model interpolation, then one can construct a model interpolant by
+ * calling function yices_get_model_interpolant.
+ *
+ * Error codes:
+ *
+ * if one of the terms t[i] is not an uninterpreted term
+ *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * If the context does not have the MCSAT solver enabled
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * If the resulting status is STATUS_SAT and context does not support multichecks
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ *
+ * Since 2.6.4.
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(context_t *ctx,
+									      const param_t *params,
+									      model_t *mdl,
+									      uint32_t n,
+									      const term_t t[],
+									      uint32_t m);
 
 /*
  * Check satisfiability and compute interpolant.
