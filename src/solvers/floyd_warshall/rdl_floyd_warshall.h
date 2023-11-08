@@ -803,7 +803,7 @@ static inline rational_t *rdl_vertex_value(rdl_solver_t *solver, int32_t x) {
  * Value of variable v in the model
  * - copy the value into q and return true
  */
-extern bool rdl_value_in_model(rdl_solver_t *solver, thvar_t v, rational_t *q);
+extern bool rdl_value_in_model(rdl_solver_t *solver, thvar_t v, arithval_in_model_t* res);
 
 
 

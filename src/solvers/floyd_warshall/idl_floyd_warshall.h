@@ -763,7 +763,7 @@ static inline int32_t idl_vertex_value(idl_solver_t *solver, int32_t x) {
  * Value of variable v in the model
  * - copy the value in rational q and return true
  */
-extern bool idl_value_in_model(idl_solver_t *solver, thvar_t v, rational_t *q);
+extern bool idl_value_in_model(idl_solver_t *solver, thvar_t v, arithval_in_model_t* res);
 
 
 /*

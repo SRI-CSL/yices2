@@ -2489,7 +2489,12 @@ thvar_t rdl_create_pprod(rdl_solver_t *solver, pprod_t *p, thvar_t *map) {
   rdl_exception(solver, FORMULA_NOT_RDL);
 }
 
-
+/*
+ * Internalization for a division: always fails with NOT_RDL exception
+ */
+static thvar_t rdl_create_rdiv(rdl_solver_t *solver, thvar_t num, thvar_t den) {
+  rdl_exception(solver, FORMULA_NOT_RDL);
+}
 
 /*
  * ATOM CONSTRUCTORS
@@ -3225,8 +3230,12 @@ void rdl_free_model(rdl_solver_t *solver) {
  * Value of variable x in the model
  * - copy the value in v and return true
  */
-bool rdl_value_in_model(rdl_solver_t *solver, thvar_t x, rational_t *v) {
+bool rdl_value_in_model(rdl_solver_t *solver, thvar_t x, arithval_in_model_t* res) {
   dl_triple_t *d;
+  rational_t* v;
+
+  assert(res->tag == ARITHVAL_RATIONAL);
+  v = &res->val.q;
 
   assert(solver->value != NULL && 0 <= x && x < solver->vtbl.nvars);
   d = dl_var_triple(&solver->vtbl, x);
@@ -3299,6 +3308,7 @@ static arith_interface_t rdl_intern = {
   (create_arith_const_fun_t) rdl_create_const,
   (create_arith_poly_fun_t) rdl_create_poly,
   (create_arith_pprod_fun_t) rdl_create_pprod,
+  (create_arith_rdiv_fun_t) rdl_create_rdiv,
 
   (create_arith_atom_fun_t) rdl_create_eq_atom,
   (create_arith_atom_fun_t) rdl_create_ge_atom,

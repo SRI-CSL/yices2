@@ -2227,7 +2227,12 @@ thvar_t idl_create_pprod(idl_solver_t *solver, pprod_t *p, thvar_t *map) {
   idl_exception(solver, FORMULA_NOT_IDL);
 }
 
-
+/*
+ * Internalization for a division: always fails with NOT_RDL exception
+ */
+static thvar_t idl_create_rdiv(idl_solver_t *solver, thvar_t num, thvar_t den) {
+  idl_exception(solver, FORMULA_NOT_RDL);
+}
 
 /*
  * ATOM CONSTRUCTORS
@@ -2670,7 +2675,7 @@ void idl_free_model(idl_solver_t *solver) {
  * Value of variable x in the model
  * - copy the value in v and return true
  */
-bool idl_value_in_model(idl_solver_t *solver, thvar_t x, rational_t *v) {
+bool idl_value_in_model(idl_solver_t *solver, thvar_t x, arithval_in_model_t* res) {
   dl_triple_t *d;
   int32_t aux;
 
@@ -2686,8 +2691,9 @@ bool idl_value_in_model(idl_solver_t *solver, thvar_t x, rational_t *v) {
     aux -= idl_vertex_value(solver, d->source);
   }
 
-  q_set32(v, aux); // aux is the value of (target - source) in the model
-  q_add(v, &d->constant);
+  assert(res->tag == ARITHVAL_RATIONAL);
+  q_set32(&res->val.q, aux); // aux is the value of (target - source) in the model
+  q_add(&res->val.q, &d->constant);
 
   return true;
 }
@@ -2744,6 +2750,7 @@ static arith_interface_t idl_intern = {
   (create_arith_const_fun_t) idl_create_const,
   (create_arith_poly_fun_t) idl_create_poly,
   (create_arith_pprod_fun_t) idl_create_pprod,
+  (create_arith_rdiv_fun_t) idl_create_rdiv,
 
   (create_arith_atom_fun_t) idl_create_eq_atom,
   (create_arith_atom_fun_t) idl_create_ge_atom,

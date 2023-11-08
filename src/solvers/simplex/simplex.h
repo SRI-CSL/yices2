@@ -312,7 +312,7 @@ extern void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t 
 extern void simplex_start_search(simplex_solver_t *solver);
 
 /*
- * Stop the search: sets flag solver->interrupted to true and 
+ * Stop the search: sets flag solver->interrupted to true and
  * stops the diophantine solver if it's active.
  * - the solver->interrupted flag is set to false by start_search
  * - currently, the interrupted flag is checked in every iteration
@@ -395,7 +395,7 @@ extern void simplex_reset(simplex_solver_t *solver);
  * Model construction
  */
 extern void simplex_build_model(simplex_solver_t *solver);
-extern bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v);
+extern bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, arithval_in_model_t* res);
 extern void simplex_free_model(simplex_solver_t *solver);
 
 

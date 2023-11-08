@@ -10810,12 +10810,6 @@ int32_t _o_yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
  *   code = EVAL_OVERFLOW
  */
 
-typedef enum arithval_tag {
-  ARITHVAL_ERROR,
-  ARITHVAL_RATIONAL,
-  ARITHVAL_ALGEBRAIC,
-} arithval_tag_t;
-
 /*
  * Tagged union to represent pointers to either rational or algebraic numbers.
  * The flag can ERROR/RATIONAL/ALGEBRAIC
@@ -10857,9 +10851,11 @@ static void yices_get_arith_value(model_t *mdl, term_t t, arithval_struct_t *r) 
   if (object_is_rational(vtbl, v)) {
     r->tag = ARITHVAL_RATIONAL;
     r->val.q = vtbl_rational(vtbl, v);
+#ifdef HAVE_MCSAT
   } else if (object_is_algebraic(vtbl, v)) {
     r->tag = ARITHVAL_ALGEBRAIC;
     r->val.p = vtbl_algebraic_number(vtbl, v);
+#endif
   } else {
     // should not happen since t is an arithmetic term
     set_error_code(INTERNAL_EXCEPTION);
