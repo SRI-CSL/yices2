@@ -1588,7 +1588,8 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
 
-  s->etable = NULL;
+  // EXPERIMENTAL
+  // s->etable = NULL;
   s->trace = NULL;
 
   s->interrupt_push = false;

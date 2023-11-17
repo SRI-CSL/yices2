@@ -63,7 +63,7 @@
 
 
 // EXPERIMENTAL
-#include "scratch/booleq_table.h"
+// #include "scratch/booleq_table.h"
 
 
 /***********
@@ -1051,7 +1051,7 @@ typedef struct smt_core_s {
   bool cp_flag;  // set true when backtracking. false when checkpoints are added
 
   /* EXPERIMENTAL (default to NULL) */
-  booleq_table_t *etable;
+  // booleq_table_t *etable;
 
   /* Tracer object (default to NULL) */
   tracer_t *trace;
