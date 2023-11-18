@@ -2551,6 +2551,7 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     assert(x_value >= 0);
     trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
     mcsat_value_destruct(&value);
+    mcsat_process_registeration_queue(mcsat);
   }
 
   mcsat_pop(mcsat);
