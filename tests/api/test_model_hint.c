@@ -32,6 +32,23 @@ static context_t *make_mcsat_context(void) {
   return NULL;
 }
 
+static term_t make_simple_eq_constraint(term_t var[2]) {
+  type_t integer;
+  term_t x, y, p;
+
+  integer = yices_int_type();
+  x = yices_new_uninterpreted_term(integer);
+  yices_set_term_name(x, "x");
+  y = yices_new_uninterpreted_term(integer);
+  yices_set_term_name(y, "y");
+
+  var[0] = x;
+  var[1] = y;
+
+  p = yices_arith_eq_atom(x, y); // p is x = y
+  return p;    // p < 1
+}
+
 /*
  * Create assertion x^2 + y^2 < 1
  * - return terms x and y in var:
@@ -208,11 +225,36 @@ static void check_unsat_with_model(bool use_hint) {
   yices_free_context(ctx);
 }
 
+void check_simple() {
+  context_t *ctx;
+  model_t *model;
+  term_t vars[2];
+  term_t assertion;
+  int32_t code;
+
+  ctx = make_mcsat_context();
+  assertion = make_simple_eq_constraint(vars);
+
+  model = yices_new_model();
+  code = yices_model_set_int32(model, vars[1], 4);
+  if (code < 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+
+  smt_status_t status;
+  status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
+  assert(status == STATUS_SAT);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
 
 int main(void) {  
   yices_init();
   if (yices_has_mcsat()) {
     printf("MCSAT supported\n");
+    check_simple();
     check_with_sat_model(false);
     check_with_sat_model(true);
     check_with_unsat_model(false);
