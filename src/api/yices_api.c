@@ -9318,6 +9318,28 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
   return stat;
 }
 
+/*
+ * Set variable ordering for making mcsat decisions.
+ *
+ * NOTE: This will overwrite the previously set ordering.
+ */
+EXPORTED smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[], uint32_t n) {
+
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  ivector_t *order = &ctx->mcsat_var_order;
+  ivector_reset(order);
+
+  uint32_t i;
+  for (i = 0; i < n; ++i) {
+    ivector_push(order, t[i]);
+  }
+
+  return STATUS_IDLE;
+}
 
 
 /*
