@@ -36,12 +36,12 @@
  */
 static inline bool add_underflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
   assert(a == ((b + c) & mask64(n)));
-  return is_neg64(b, n) & is_neg64(c, n) & is_pos64(a, n);
+  return is_neg64(b, n) && is_neg64(c, n) && is_pos64(a, n);
 }
 
 static inline bool add_overflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
   assert(a == ((b + c) & mask64(n)));
-  return is_pos64(b, n) & is_pos64(c, n) & is_neg64(a, n);
+  return is_pos64(b, n) && is_pos64(c, n) && is_neg64(a, n);
 }
 
 
@@ -52,12 +52,12 @@ static inline bool add_overflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n
  */
 static inline bool sub_underflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
   assert(a == ((b - c) & mask64(n)));
-  return is_neg64(b, n) & is_pos64(c, n) & is_pos64(a, n);
+  return is_neg64(b, n) && is_pos64(c, n) && is_pos64(a, n);
 }
 
 static inline bool sub_overflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
   assert(a == ((b - c) & mask64(n)));
-  return is_pos64(b, n) & is_neg64(c, n) & is_neg64(a, n);
+  return is_pos64(b, n) && is_neg64(c, n) && is_neg64(a, n);
 }
 
 

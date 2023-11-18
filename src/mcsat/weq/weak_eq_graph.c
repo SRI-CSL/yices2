@@ -1456,7 +1456,6 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   bool updates_present = false;
   uint32_t i;
   term_table_t* terms = weq->ctx->terms;
-  composite_term_t* t_desc = NULL;
   for (i = 0; ok && i < array_terms.size; ++i) {
     if (!eq_graph_term_has_value(weq->eq_graph, array_terms.data[i])) {
        ok = false;
