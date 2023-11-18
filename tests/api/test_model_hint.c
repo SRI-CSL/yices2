@@ -46,7 +46,7 @@ static term_t make_simple_eq_constraint(term_t var[2]) {
   var[1] = y;
 
   p = yices_arith_eq_atom(x, y); // p is x = y
-  return p;    // p < 1
+  return p;
 }
 
 /*
