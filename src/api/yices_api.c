@@ -9331,12 +9331,7 @@ EXPORTED smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[]
   }
 
   ivector_t *order = &ctx->mcsat_var_order;
-  ivector_reset(order);
-
-  uint32_t i;
-  for (i = 0; i < n; ++i) {
-    ivector_push(order, t[i]);
-  }
+  ivector_copy(order, t, n);
 
   return STATUS_IDLE;
 }
