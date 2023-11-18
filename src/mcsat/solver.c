@@ -2342,8 +2342,8 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
     // If there is an order that was passed in, try that
     if (var == variable_null) {
-      const ivector_t* order = mcsat->ctx->mcsat_options.var_order;
-      if (order != NULL) {
+      const ivector_t* order = &mcsat->ctx->mcsat_var_order;
+      if (order->size > 0) {
         uint32_t i;
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
