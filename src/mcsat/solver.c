@@ -2520,6 +2520,42 @@ void mcsat_check_model(mcsat_solver_t* mcsat, bool assert) {
 static
 void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess);
 
+void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_filter,
+			  const term_t mdl_filter[]) {
+  if (n_mdl_filter == 0) {
+    return;
+  }
+
+  assert(mdl != NULL);
+  assert(mdl_filter != NULL);
+
+  value_table_t* vtbl = model_get_vtbl(mdl);
+
+  mcsat_push(mcsat);
+
+  uint32_t i;
+  for (i = 0; i < n_mdl_filter; ++i) {
+    term_t x = mdl_filter[i];
+    assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
+    assert(is_pos_term(x));
+
+    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+    if (trail_has_value(mcsat->trail, x_var)) {
+      continue;
+    }
+
+    uint32_t plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, x_var)];
+    value_t x_value = model_get_term_value(mdl, x);
+    mcsat_value_t value;
+    mcsat_value_construct_from_value(&value, vtbl, x_value);
+    assert(x_value >= 0);
+    trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
+    mcsat_value_destruct(&value);
+  }
+
+  mcsat_pop(mcsat);
+}
+
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
   uint32_t restart_resource;

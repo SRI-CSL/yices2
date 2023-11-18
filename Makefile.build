@@ -87,7 +87,7 @@ MKVERSION=./utils/make_source_version
 srcdir = src
 srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
     solvers/funs solvers/bv solvers/egraph solvers/cdcl solvers/simplex solvers/quant \
-    parser_utils model scratch api frontend frontend/common \
+    parser_utils model api frontend frontend/common \
     frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
     mcsat mcsat/eq mcsat/weq mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/bv \
     mcsat/bv/explain mcsat/utils
