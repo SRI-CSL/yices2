@@ -484,6 +484,12 @@ static inline type_t real_type(type_table_t *table) {
 extern type_t bv_type(type_table_t *table, uint32_t size);
 
 /*
+ * FiniteFiled types
+ * This requires 0 < size <= YICES_MAX_FFSIZE
+ */
+extern type_t ff_type(type_table_t *table, uint32_t size);
+
+/*
  * Declare a new scalar of cardinality size
  * Require size > 0.
  */

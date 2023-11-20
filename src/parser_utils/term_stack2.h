@@ -400,6 +400,7 @@ enum base_opcodes {
 
   // type constructors
   MK_BV_TYPE,         // [mk-bv-type <rational> ]
+  MK_FF_TYPE,         // [mk-ff-type <rational> ]
   MK_SCALAR_TYPE,     // [mk-scalar-type <symbol> ... <symbol> ]
   MK_TUPLE_TYPE,      // [mk-tuple-type <type> ... <type> ]
   MK_FUN_TYPE,        // [mk-fun-type <type> ... <type> ]
@@ -499,6 +500,10 @@ enum base_opcodes {
   MK_MOD,             // [mk-idiv <arith> <arith> ]
   MK_DIVIDES,         // [mk-divides <arith> <arith> ]
   MK_IS_INT,          // [mk-is-int <arith> ]
+
+  MK_FF_CONST,        // [mk-ff-const <field> <value> ]
+  MK_FF_ADD,          // [mk-ff-add <ff> ... <ff> ]
+  MK_FF_MUL,          // [mk-ff-mul <ff> ... <ff> ]
 
   // collect result
   BUILD_TERM,         // [build-term <term> ]

@@ -1227,6 +1227,23 @@ type_t bv_type(type_table_t *table, uint32_t size) {
 }
 
 /*
+ * FiniteField type
+ */
+type_t ff_type(type_table_t *table, uint32_t size) {
+  // TODO change this for FF type
+  bv_type_hobj_t bv_hobj;
+
+  assert(size > 0);
+
+  bv_hobj.m.hash = (hobj_hash_t) hash_bv_type;
+  bv_hobj.m.eq = (hobj_eq_t) eq_bv_type;
+  bv_hobj.m.build = (hobj_build_t) build_bv_type;
+  bv_hobj.tbl = table;
+  bv_hobj.size = size;
+  return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
+}
+
+/*
  * Tuple type
  */
 type_t tuple_type(type_table_t *table, uint32_t n, const type_t elem[]) {

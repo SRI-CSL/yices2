@@ -255,6 +255,9 @@ static void init_smttoken2string(void) {
  * More logics: added June 10 2014
  *
  *   QF_UFLIRA      Ints Reals
+ *
+ * More logics: added Nov 17 2023
+ *   QF_FF          Finite Fields
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
 

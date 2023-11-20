@@ -541,6 +541,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       state = parser_pop_state(stack);
       goto loop;
 
+    // TODO make me support FiniteField as well?
     case next_goto_s1:  // BitVec
       tstack_push_op(tstack, MK_BV_TYPE, &loc);
       state = s1;

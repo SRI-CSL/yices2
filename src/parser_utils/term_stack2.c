@@ -3136,6 +3136,31 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_type_result(stack, tau);
 }
 
+/*
+ * [mk-ff-type <rational>]
+ */
+static void check_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_TYPE);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t size;
+  type_t tau;
+
+  size = get_integer(stack, f);
+  // TODO check if prime?
+  // TODO create new error-code for nonpositive ff size
+  if (size <= 0) {
+    raise_exception(stack, f, TSTACK_NONPOSITIVE_BVSIZE);
+  }
+  tau = _o_yices_ff_type(size);
+  check_type(stack, tau);
+
+  tstack_pop_frame(stack);
+  set_type_result(stack, tau);
+}
 
 /*
  * [mk-scalar-type <string> ... <string>]
@@ -5378,7 +5403,6 @@ static void eval_mk_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
-
 /*
  * [mk-divides <arith> <arith> ]
  * - the first term must be an arithmetic constant
@@ -5400,9 +5424,48 @@ static void eval_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_term_result(stack, t1);
 }
 
+/*
+ * FINITE FIELD FUNCTIONS
+ */
 
+/*
+ * [mk-ff-const <arith> <arith> ]
+ */
+static void check_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_CONST);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+  check_tag(stack, f+1, TAG_TYPE);
+}
 
+static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  // TODO implement me
+  tstack_pop_frame(stack);
+}
 
+/*
+ * [mk-ff-add <arith> <arith> ]
+ */
+static void check_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_ADD);
+  check_size(stack, n >= 1);
+}
+
+static void eval_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  // TODO implement me
+}
+
+/*
+ * [mk-ff-mul <arith> <arith> ]
+ */
+static void check_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_MUL);
+  check_size(stack, n >= 1);
+}
+
+static void eval_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  // TODO implement me
+}
 
 
 /*
@@ -5519,6 +5582,7 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // DECLARE_TYPE_VAR
   0, // LET
   0, // MK_BV_TYPE
+  0, // MK_FF_TYPE
   0, // MK_SCALAR_TYPE
   0, // MK_TUPLE_TYPE
   0, // MK_FUN_TYPE
@@ -5604,6 +5668,9 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // MK_MOD
   0, // MK_DIVIDES
   0, // MK_IS_INT
+  0, // MK_FF_CONST
+  1, // MK_FF_ADD
+  1, // MK_FF_MUL
   0, // BUILD_TERM
   0, // BUILD_TYPE
 };
@@ -5617,6 +5684,7 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_declare_type_var,
   check_let,
   check_mk_bv_type,
+  check_mk_ff_type,
   check_mk_scalar_type,
   check_mk_tuple_type,
   check_mk_fun_type,
@@ -5702,6 +5770,9 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_mk_mod,
   check_mk_divides,
   check_mk_is_int,
+  check_mk_ff_const,
+  check_mk_ff_add,
+  check_mk_ff_mul,
   check_build_term,
   check_build_type,
 };
@@ -5715,6 +5786,7 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_declare_type_var,
   eval_let,
   eval_mk_bv_type,
+  eval_mk_ff_type,
   eval_mk_scalar_type,
   eval_mk_tuple_type,
   eval_mk_fun_type,
@@ -5800,6 +5872,9 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_mk_mod,
   eval_mk_divides,
   eval_mk_is_int,
+  eval_mk_ff_const,
+  eval_mk_ff_add,
+  eval_mk_ff_mul,
   eval_build_term,
   eval_build_type,
 };

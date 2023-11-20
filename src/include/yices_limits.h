@@ -60,5 +60,10 @@
  */
 #define YICES_MAX_BVSIZE (UINT32_MAX/16)
 
+/*
+ * Maximal finite field size
+ */
+// TODO increase
+#define YICES_MAX_FFSIZE UINT32_MAX
 
 #endif

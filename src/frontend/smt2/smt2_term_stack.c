@@ -1659,6 +1659,7 @@ typedef enum smt2_key {
   // special codes
   SMT2_KEY_IDX_BV,       // for bv<numeral> construct
   SMT2_KEY_ERROR_BV,     // for an invalid bv<xxx> (<xxx> not a numeral)
+  SMT2_KEY_IDX_FF,       // for ff<numeral> construct
   SMT2_KEY_UNKNOWN,      // not a built-in symbol
 } smt2_key_t;
 
@@ -1746,6 +1747,10 @@ static const uint8_t smt2_key[NUM_SMT2_SYMBOLS] = {
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSLE
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGT
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGE
+  SMT2_KEY_IDX_FF,       // SMT2_SYM_FF_CONSTANT
+  SMT2_KEY_IDX_TYPE,     // SMT2_SYM_FINITEFIELD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_FFADD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_FFMUL
   SMT2_KEY_ERROR_BV,     // SMT2_SYM_INVALID_BV_CONSTANT
   SMT2_KEY_UNKNOWN,      // SMT2_SYM_UNKNOWN
 };
@@ -1821,6 +1826,10 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   MK_BV_SLE,             // SMT2_SYM_BVSLE
   MK_BV_SGT,             // SMT2_SYM_BVSGT
   MK_BV_SGE,             // SMT2_SYM_BVSGE
+  MK_FF_CONST,           // SMT2_SYM_FF_CONSTANT
+  MK_FF_TYPE,            // SMT2_SYM_FINITEFIELD
+  MK_FF_ADD,             // SMT2_SYM_FFADD
+  MK_FF_MUL,             // SMT2_SYM_FFMUL
   NO_OP,                 // SMT2_SYM_INVALID_BV_CONSTANT (ignored)
   NO_OP,                 // SMT2_SYM_UNKNOWN (ignored)
 };
@@ -2105,6 +2114,13 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
     break;
 
+  case SMT2_KEY_IDX_FF:
+    // s is ff<numeral> and it is to be interpreted as (mk-ff <numeral> ...)
+    assert(n > 2);
+    tstack_push_op(stack, MK_FF_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'ff' prefix
+    break;
+
   case SMT2_KEY_ERROR_BV:
     // s is bv0<xxx>: invalid bv<numeral>
     push_exception(stack, loc, s, SMT2_INVALID_IDX_BV);
@@ -2149,6 +2165,13 @@ void tstack_push_qual_idx_term_name(tstack_t *stack, char *s, uint32_t n, loc_t 
     // s is bv<numeral> and is to be interpreted as (mk-bv <numeral> ...)
     assert(n > 2);
     tstack_push_opcode(stack, MK_BV_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
+    break;
+
+  case SMT2_KEY_IDX_FF:
+    // s is ff<numeral> and is to be interpreted as (mk-ff <numeral> ...)
+    assert(n > 2);
+    tstack_push_opcode(stack, MK_FF_CONST, loc);
     tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
     break;
 

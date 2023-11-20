@@ -100,6 +100,7 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "let",
 
   "bitvector type",
+  "finite field type", // not in SMT2
   "scalar type",   // not in SMT
   "tuple type",    // not in SMT
   "function type",
@@ -218,6 +219,7 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "let",
 
   "bitvector type",
+  "finite field type",
   "scalar type",
   "tuple type",
   "function type",
