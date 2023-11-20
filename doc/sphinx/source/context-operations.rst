@@ -1207,6 +1207,39 @@ as follows::
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
 
+Set Variable Ordering for MCSat
+-------------------------------
+
+It is possible to give a variable ordering for the MCSat search --
+this will make MCSAT to decide the variables in the given order. Note
+that this operation will overwrite any previously set ordering.
+
+.. c:function:: smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[], uint32_t n)
+
+   Set the variable ordering for the MCSat search.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *t* is an array of variables
+
+   - *n* is the size of the *t* array
+
+   If the operation fails, it will return :c:enum:`STATUS_ERROR`,
+   otherwise it returns :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If the context is not configured for MCSat:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the terms in the *t* array are not variables:
+
+     -- error code: :c:enum:`VARIABLE_REQUIRED`
+
+
 .. _params:
 
 Search Parameters
