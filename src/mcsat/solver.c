@@ -46,6 +46,7 @@
 #include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 #include "mcsat/bv/bv_plugin.h"
+#include "mcsat/ff/ff_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
@@ -299,6 +300,7 @@ struct mcsat_solver_s {
   uint32_t ite_plugin_id;
   uint32_t nra_plugin_id;
   uint32_t bv_plugin_id;
+  uint32_t ff_plugin_id;
 };
 
 static
@@ -784,6 +786,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
+  mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
 }
 
 static
