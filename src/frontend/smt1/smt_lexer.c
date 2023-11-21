@@ -438,6 +438,7 @@ static void activate_arith_fragment(arith_fragment_t code) {
     smt_token_active[SMT_TK_REAL] = true;
     break;
 
+  case ARITH_NFFA: /* not defined in smt1 */
   case ARITH_NONE:
     break;
   }
