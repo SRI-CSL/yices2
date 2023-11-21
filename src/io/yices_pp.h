@@ -170,6 +170,7 @@ typedef enum {
   PP_OPEN_VPAR,          // empty label, open parenthesis, V layout
 
   PP_OPEN_BV_TYPE,
+  PP_OPEN_FF_TYPE,
   PP_OPEN_FUN_TYPE,
   PP_OPEN_TUPLE_TYPE,
 
@@ -240,6 +241,8 @@ typedef enum {
   // more for the SMT2 model syntax
   PP_OPEN_SMT2_BV_DEC, // (_ bv... ..)
   PP_OPEN_SMT2_BV_TYPE, // (_ BitVec ...)
+  PP_OPEN_SMT2_FF_DEC, // (_ ff... ..)
+  PP_OPEN_SMT2_FF_TYPE, // (_ FiniteField ...)
   PP_OPEN_SMT2_MODEL,   // (model ...)
   PP_OPEN_SMT2_DEF,     // (define-fun ...)
   PP_OPEN_SMT2_STORE,   // (store <array> <index> <value>)

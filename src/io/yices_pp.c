@@ -161,13 +161,14 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 15
+#define NUM_NONSTANDARD_BLOCKS 18
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
   { PP_OPEN_PAR, "", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_VPAR, "", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_BV_TYPE, "bitvector", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
+  { PP_OPEN_FF_TYPE, "finitefield", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
@@ -177,6 +178,8 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_SMT2_BV_DEC, "_ bv", PP_H_LAYOUT, PP_TOKEN_PAR_MASK, 0, 0 },
   { PP_OPEN_SMT2_BV_TYPE, "_ BitVec", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
+  { PP_OPEN_SMT2_FF_DEC, "_ ff", PP_H_LAYOUT, PP_TOKEN_PAR_MASK, 0, 0 },
+  { PP_OPEN_SMT2_FF_TYPE, "_ FiniteField", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
   { PP_OPEN_SMT2_MODEL, "model", PP_T_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
   { PP_OPEN_SMT2_DEF, "define-fun", PP_HMT_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
 };
