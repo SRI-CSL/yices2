@@ -69,7 +69,6 @@
 #include "utils/int_hash_tables.h"
 #include "utils/indexed_table.h"
 #include "utils/symbol_tables.h"
-#include "utils/tagged_pointers.h"
 #include "utils/tuple_hash_map.h"
 
 #include "yices_types.h"
@@ -201,6 +200,15 @@ typedef struct type_macro_s {
  */
 #define TYPE_MACRO_MAX_ARITY 128
 
+/*
+ * The type of an element in the macro table.
+ */
+typedef struct type_mtbl_elem_s {
+  union {
+    indexed_table_elem_t elem;
+    type_macro_t *data;
+  };
+} type_mtbl_elem_t;
 
 /*
  * Table of macros
@@ -208,22 +216,9 @@ typedef struct type_macro_s {
  * - the table maps the index to a macro descriptor
  * - it also includes a symbol table that maps a macro name
  *   to its id, and a hash table that stores macro instances
- * - deleted descriptors are stored in a free list.
- *
- * For an index id between 0 and table->nelems,
- * table->data[id] is a tagged pointer.
- * - if the lower bit is 0, then id is a live macro index,
- *   and table->data[id] is a pointer to the macro descriptor.
- * - if the lower bit is 1, then id is the index of a deleted
- *   macro and table->data[id] stores a 31bit integer. This
- *   integer is the successor of id in the free list (or -1
- *   if id is last in the free list).
  */
 typedef struct type_mtbl_s {
-  void **data;          // descriptors
-  uint32_t size;        // size of the data array
-  uint32_t nelems;      // number of descriptor/macros stored
-  int32_t free_idx;     // first index in the free list (or -1)
+  indexed_table_t macros;
   stbl_t stbl;          // symbol table
   tuple_hmap_t cache;   // existing macro instances
 } type_mtbl_t;
@@ -706,35 +701,37 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
  */
 extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const type_t *actual);
 
+static inline type_macro_t *type_macro_unchecked(type_mtbl_t *table,
+						     int32_t id) {
+  return indexed_table_elem(type_mtbl_elem_t, table->macros, id)->data;
+}
 
+static inline uint32_t type_macro_nelems(type_mtbl_t *table) {
+  return indexed_table_nelems(&table->macros);
+}
 
 /*
  * Check that id is good
  */
 static inline bool good_type_macro(type_mtbl_t *table, int32_t id) {
-  return 0 <= id && id < table->nelems && !has_int_tag(table->data[id]);
+  return 0 <= id && id < type_macro_nelems(table);
 }
 
+static inline type_macro_t *type_macro_def(type_mtbl_t *table, int32_t id) {
+  assert(good_type_macro(table, id));
+  return type_macro_unchecked(table, id);
+}
 
 /*
  * Arity and name of macro
  */
 static inline char *type_macro_name(type_mtbl_t *table, int32_t id) {
-  assert(good_type_macro(table, id));
-  return ((type_macro_t *) table->data[id])->name;
+  return type_macro_def(table, id)->name;
 }
 
 static inline uint32_t type_macro_arity(type_mtbl_t *table, int32_t id) {
-  assert(good_type_macro(table, id));
-  return ((type_macro_t *) table->data[id])->arity;
+  return type_macro_def(table, id)->arity;
 }
-
-static inline type_macro_t *type_macro_def(type_mtbl_t *table, int32_t id) {
-  assert(good_type_macro(table, id));
-  return table->data[id];
-}
-
-
 
 
 

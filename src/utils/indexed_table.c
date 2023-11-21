@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 
 #include "indexed_table.h"
 #include "memalloc.h"
@@ -78,4 +79,20 @@ void indexed_table_clear(indexed_table_t *t) {
   t->nelems = 0;
   t->free_idx = -1;
   t->live_elems = 0;
+}
+
+void indexed_table_for_each_free_elem(indexed_table_t *t,
+				      indexed_table_elem_fn f,
+				      void *data) {
+  index_t i, next;
+
+  for (i = t->free_idx; i >= 0; i = next) {
+    indexed_table_elem_t *e = elem(t, i);
+
+    /* Obtain the next index before calling F in case F mutates the
+       element. */
+    next = e->next;
+
+    f(e, data);
+  }
 }

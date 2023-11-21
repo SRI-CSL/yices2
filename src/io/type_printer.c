@@ -389,7 +389,7 @@ void print_type_macros(FILE *f, type_table_t *tbl) {
 
   mtbl = tbl->macro_tbl;
   if (mtbl != NULL) {
-    n = mtbl->nelems;
+    n = type_macro_nelems(mtbl);
     for (i=0; i<n; i++) {
       if (good_type_macro(mtbl, i)) {
         print_macro_def(f, tbl, i);

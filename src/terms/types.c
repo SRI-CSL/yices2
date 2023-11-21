@@ -91,6 +91,12 @@ static inline void delete_descriptor(type_macro_t *d) {
 }
 
 
+static void type_mtbl_extend(indexed_table_t *table) {
+  if (table->nelems > TYPE_MACRO_MAX_SIZE)
+    out_of_memory();
+}
+
+
 /*
  * Initialize the macro table
  * - n = initial size
@@ -100,20 +106,16 @@ static inline void delete_descriptor(type_macro_t *d) {
  *   on the first addition.
  */
 static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
-  void **tmp;
-
-  tmp = NULL;
-  if (n > 0) {
-    if (n > TYPE_MACRO_MAX_SIZE) {
-      out_of_memory();
-    }
-    tmp = (void **) safe_malloc(n * sizeof(void*));
+  if (n > TYPE_MACRO_MAX_SIZE) {
+    out_of_memory();
   }
+  
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(type_mtbl_elem_t),
+    .extend = type_mtbl_extend
+  };
 
-  table->data = tmp;
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = -1;
+  indexed_table_init(&table->macros, n, &vtbl);
 
   init_stbl(&table->stbl, 0);
   init_tuple_hmap(&table->cache, 0);
@@ -121,24 +123,32 @@ static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
   stbl_set_finalizer(&table->stbl, macro_name_finalizer);
 }
 
+static void type_mtbl_clear_elem(indexed_table_elem_t *elem,
+				 void *data) {
+  ((type_mtbl_elem_t *) elem)->data = NULL;
+}
+
+static void type_mtbl_delete_macros(type_mtbl_t *table) {
+  /* Clear elements used for the free list. */
+  indexed_table_for_each_free_elem(&table->macros,
+				   type_mtbl_clear_elem,
+				   /*data=*/NULL);
+
+  /* Remove all of the macros. */
+  uint32_t i;
+  for (i=0; i<type_macro_nelems(table); i++) {
+    type_macro_t *m = type_macro_unchecked(table, i);
+    if (m)
+      delete_descriptor(m);
+  }
+}
 
 /*
  * Delete the table and its content
  */
 static void delete_type_mtbl(type_mtbl_t *table) {
-  void *p;
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
-      delete_descriptor(p);
-    }
-  }
-
-  safe_free(table->data);
-  table->data = NULL;
+  type_mtbl_delete_macros(table);
+  indexed_table_destroy(&table->macros);
 
   delete_stbl(&table->stbl);
   delete_tuple_hmap(&table->cache);
@@ -149,19 +159,8 @@ static void delete_type_mtbl(type_mtbl_t *table) {
  * Empty the table: delete all macros and macro instances
  */
 static void reset_type_mtbl(type_mtbl_t *table) {
-  void *p;
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
-      delete_descriptor(p);
-    }
-  }
-
-  table->nelems = 0;
-  table->free_idx = -1;
+  type_mtbl_delete_macros(table);
+  indexed_table_clear(&table->macros);
 
   reset_stbl(&table->stbl);
   reset_tuple_hmap(&table->cache);
@@ -169,51 +168,13 @@ static void reset_type_mtbl(type_mtbl_t *table) {
 
 
 /*
- * Make the table larger
- * - if this is the first allocation: allocate a data array of default size
- * - otherwise, make the data array 50% larger
- */
-static void extend_type_mtbl(type_mtbl_t *table) {
-  void **tmp;
-  uint32_t n;
-
-  n = table->size;
-  if (n == 0) {
-    n = TUPLE_HMAP_DEF_SIZE;
-    assert(n <= TYPE_MACRO_MAX_SIZE);
-    tmp = (void **) safe_malloc(n * sizeof(void*));
-  } else {
-    n ++;
-    n += n>>1;
-    if (n > TYPE_MACRO_MAX_SIZE) {
-      out_of_memory();
-    }
-    tmp = (void **) safe_realloc(table->data, n * sizeof(void*));
-  }
-
-  table->data = tmp;
-  table->size = n;
-}
-
-
-/*
  * Get a macro index
  */
-static int32_t allocate_macro_id(type_mtbl_t *table) {
-  int32_t i;
+static inline int32_t allocate_macro_id(type_mtbl_t *table,
+					type_macro_t *d) {
+  int32_t i = indexed_table_alloc(&table->macros);
 
-  i = table->free_idx;
-  if (i >= 0) {
-    assert(i < table->nelems);
-    table->free_idx = untag_i32(table->data[i]);
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i >= table->size) {
-      extend_type_mtbl(table);
-      assert(i < table->size);
-    }
-  }
+  indexed_table_elem(type_mtbl_elem_t, table->macros, i)->data = d;
 
   return i;
 }
@@ -224,10 +185,8 @@ static int32_t allocate_macro_id(type_mtbl_t *table) {
  * - this must be the index of a live descriptor
  */
 static void free_macro_id(type_mtbl_t *table, int32_t id) {
-  assert(good_type_macro(table, id));
-  delete_descriptor(table->data[id]);
-  table->data[id] = tag_i32(table->free_idx);
-  table->free_idx = id;
+  delete_descriptor(type_macro_def(table, id));
+  indexed_table_free(&table->macros, id);
 }
 
 
@@ -2537,10 +2496,8 @@ int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, const type_t
 
   assert(body != NULL_TYPE);
 
-  i = allocate_macro_id(mtbl);
   d = new_descriptor(name, n, vars, body);
-  assert(! has_int_tag(d));
-  mtbl->data[i] = d;
+  i = allocate_macro_id(mtbl, d);
 
   stbl_add(&mtbl->stbl, name, i);
   string_incref(name);
@@ -2561,10 +2518,8 @@ int32_t add_type_constructor(type_table_t *table, char *name, uint32_t n) {
 
   mtbl = get_macro_table(table);
 
-  i = allocate_macro_id(mtbl);
   d = new_constructor(name, n);
-  assert(! has_int_tag(d));
-  mtbl->data[i] = d;
+  i = allocate_macro_id(mtbl, d);
 
   stbl_add(&mtbl->stbl, name, i);
   string_incref(name);
@@ -2602,7 +2557,7 @@ type_macro_t *type_macro(type_table_t *table, int32_t id) {
   mtbl = table->macro_tbl;
   macro = NULL;
   if (mtbl != NULL && good_type_macro(mtbl, id)) {
-    macro = mtbl->data[id];
+    macro = type_macro_unchecked(mtbl, id);
   }
 
   return macro;
@@ -2651,9 +2606,9 @@ void delete_type_macro(type_table_t *table, int32_t id) {
 
   mtbl = table->macro_tbl;
 
-  assert(mtbl != NULL && good_type_macro(mtbl, id));
+  assert(mtbl != NULL);
 
-  macro = mtbl->data[id];
+  macro = type_macro_def(mtbl, id);
   stbl_remove(&mtbl->stbl, macro->name);
   tuple_hmap_gc(&mtbl->cache, &id, keep_cached_tuple_alive);
   free_macro_id(mtbl, id);
@@ -2689,9 +2644,6 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const
   type_t result;
 
 
-  // id is a good macro with arity n
-  assert(type_macro(table, id)->arity == n);
-
   /*
    * By default, we use a buffer of 10 integers to store id + actuals
    * If more is needed, a larger array is allocated here.
@@ -2708,7 +2660,7 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const
 
   mtbl = table->macro_tbl;
   assert(mtbl != NULL);
-  d = mtbl->data[id];
+  d = type_macro_def(mtbl, id);
   assert(d->arity == n);
   if (d->body == NULL_TYPE) {
     // type constructor: new instance

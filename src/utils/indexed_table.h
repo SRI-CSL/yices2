@@ -43,6 +43,9 @@ typedef struct indexed_table_elem_s {
   index_t next;
 } indexed_table_elem_t;
 
+/* The type of a function called on elements of the table. */
+typedef void (*indexed_table_elem_fn)(indexed_table_elem_t *, void *);
+
 /*
  * An index_table_t is an expandable array, with idices of type
  * index_t.
@@ -113,5 +116,20 @@ static inline uindex_t indexed_table_nelems(const indexed_table_t *t) {
 static inline uindex_t indexed_table_live_elems(const indexed_table_t *t) {
   return t->live_elems;
 }
+
+/*
+ * Return the Ith element in TABLE. TYPE is the true type of the
+ * elements in the table. The return value is a TYPE *.
+ */
+#define indexed_table_elem(type, table, i) \
+  (&(((type *) (table).elems)[i]))
+
+/*
+ * For each element X on the free list, call F(X, DATA). F is
+ * permitted to muate the element.
+ */
+void indexed_table_for_each_free_elem(indexed_table_t *t,
+				      indexed_table_elem_fn f,
+				      void *data);
 
 #endif /* !defined(__INDEXED_TABLE_H) */
