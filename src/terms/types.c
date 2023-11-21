@@ -349,6 +349,7 @@ static void erase_type(type_table_t *table, type_t i) {
     return; // never delete predefined types
 
   case BITVECTOR_TYPE:
+  case FF_TYPE: // TODO move down once ptr is in use
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
     break;
@@ -630,6 +631,30 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
   return i;
 }
 
+/*
+ * Add type (FiniteField k) and return its id
+ * - k must be positive
+ * TODO make k arbitrary big by using rational_t
+ */
+static type_t new_finite_field_type(type_table_t *table, uint32_t k) {
+  type_t i;
+
+  assert(0 < k);
+
+  i = allocate_type_id(table);
+  table->kind[i] = FF_TYPE;
+  table->desc[i].integer = k;
+  table->depth[i] = 0;
+  if (k < 32) {
+    table->card[i] = ((uint32_t) 1) << k;
+    table->flags[i] = SMALL_TYPE_FLAGS;
+  } else {
+    table->card[i] = UINT32_MAX;
+    table->flags[i] = LARGE_TYPE_FLAGS;
+  }
+
+  return i;
+}
 
 /*
  * Add a scalar type and return its id
@@ -888,6 +913,12 @@ typedef struct bv_type_hobj_s {
   uint32_t size;
 } bv_type_hobj_t;
 
+typedef struct ff_type_hobj_s {
+  int_hobj_t m;      // methods
+  type_table_t *tbl;
+  uint32_t size; // TODO change this for bigger int
+} ff_type_hobj_t;
+
 typedef struct tuple_type_hobj_s {
   int_hobj_t m;
   type_table_t *tbl;
@@ -925,6 +956,10 @@ static uint32_t hash_bv_type(bv_type_hobj_t *p) {
   return jenkins_hash_pair(p->size, 0, 0x7838abe2);
 }
 
+static uint32_t hash_ff_type(bv_type_hobj_t *p) {
+  return jenkins_hash_pair(p->size, 0, 0x78210bea);
+}
+
 static uint32_t hash_tuple_type(tuple_type_hobj_t *p) {
   return jenkins_hash_intarray2(p->elem, p->n, 0x8193ea92);
 }
@@ -954,6 +989,10 @@ static uint32_t hash_instance_type(instance_type_hobj_t *p) {
  */
 static uint32_t hash_bvtype(int32_t size) {
   return jenkins_hash_pair(size, 0, 0x7838abe2);
+}
+
+static uint32_t hash_fftype(int32_t size) {
+  return jenkins_hash_pair(size, 0, 0x78210bea);
 }
 
 static uint32_t hash_tupletype(tuple_type_t *p) {
@@ -987,6 +1026,13 @@ static bool eq_bv_type(bv_type_hobj_t *p, type_t i) {
 
   table = p->tbl;
   return table->kind[i] == BITVECTOR_TYPE && table->desc[i].integer == p->size;
+}
+
+static bool eq_ff_type(bv_type_hobj_t *p, type_t i) {
+  type_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == FF_TYPE && table->desc[i].integer == p->size; // TODO change this for big int
 }
 
 static bool eq_tuple_type(tuple_type_hobj_t *p, type_t i) {
@@ -1056,6 +1102,10 @@ static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
  */
 static type_t build_bv_type(bv_type_hobj_t *p) {
   return new_bitvector_type(p->tbl, p->size);
+}
+
+static type_t build_ff_type(ff_type_hobj_t *p) {
+  return new_finite_field_type(p->tbl, p->size);
 }
 
 static type_t build_tuple_type(tuple_type_hobj_t *p) {
@@ -1230,17 +1280,16 @@ type_t bv_type(type_table_t *table, uint32_t size) {
  * FiniteField type
  */
 type_t ff_type(type_table_t *table, uint32_t size) {
-  // TODO change this for FF type
-  bv_type_hobj_t bv_hobj;
+  ff_type_hobj_t ff_hobj;
 
   assert(size > 0);
 
-  bv_hobj.m.hash = (hobj_hash_t) hash_bv_type;
-  bv_hobj.m.eq = (hobj_eq_t) eq_bv_type;
-  bv_hobj.m.build = (hobj_build_t) build_bv_type;
-  bv_hobj.tbl = table;
-  bv_hobj.size = size;
-  return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
+  ff_hobj.m.hash = (hobj_hash_t) hash_ff_type;
+  ff_hobj.m.eq = (hobj_eq_t) eq_ff_type;
+  ff_hobj.m.build = (hobj_build_t) build_ff_type;
+  ff_hobj.tbl = table;
+  ff_hobj.size = size;
+  return int_htbl_get_obj(&table->htbl, &ff_hobj.m);
 }
 
 /*
@@ -1811,6 +1860,7 @@ bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, type_t sig
   case BOOL_TYPE:
   case INT_TYPE:
   case BITVECTOR_TYPE:
+  case FF_TYPE:
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
     // tau is a minimal type to (sigma subtype of tau) is the same as tau == sigma
@@ -2852,6 +2902,10 @@ static void erase_hcons_type(type_table_t *table, type_t i) {
   switch (table->kind[i]) {
   case BITVECTOR_TYPE:
     k = hash_bvtype(table->desc[i].integer);
+    break;
+
+  case FF_TYPE:
+    k = hash_fftype(table->desc[i].integer);
     break;
 
   case VARIABLE_TYPE:

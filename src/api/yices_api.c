@@ -1638,18 +1638,6 @@ static bool check_maxbvsize(uint32_t n) {
   return true;
 }
 
-// Check whether n is less than YICES_MAX_FFSIZE
-static bool check_maxffsize(uint32_t n) {
-  if (n > YICES_MAX_FFSIZE) {
-    error_report_t *error = get_yices_error();
-    // TODO add code
-    error->code = MAX_BVSIZE_EXCEEDED;
-    error->badval = n;
-    return false;
-  }
-  return true;
-}
-
 // Check whether d is no more than YICES_MAX_DEGREE
 static bool check_maxdegree(uint32_t d) {
   if (d > YICES_MAX_DEGREE) {
@@ -2752,6 +2740,7 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case BITVECTOR_TYPE:
     case SCALAR_TYPE:
       break;
@@ -2854,7 +2843,7 @@ type_t _o_yices_bv_type(uint32_t size) {
 
 type_t _o_yices_ff_type(uint32_t size) {
   // TODO check for prime
-  if (! check_positive(size) || ! check_maxffsize(size)) {
+  if (! check_positive(size)) {
     return NULL_TYPE;
   }
   return ff_type(__yices_globals.types, size);

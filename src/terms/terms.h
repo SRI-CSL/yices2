@@ -1269,6 +1269,10 @@ static inline bool is_bitvector_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == BITVECTOR_TYPE;
 }
 
+static inline bool is_finitefield_term(const term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == FF_TYPE;
+}
+
 static inline bool is_scalar_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == SCALAR_TYPE;
 }

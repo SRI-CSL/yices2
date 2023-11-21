@@ -95,6 +95,7 @@ typedef enum {
   BOOL_TYPE,
   INT_TYPE,
   REAL_TYPE,
+  FF_TYPE,
   BITVECTOR_TYPE,
   SCALAR_TYPE,
   UNINTERPRETED_TYPE,
@@ -485,7 +486,7 @@ extern type_t bv_type(type_table_t *table, uint32_t size);
 
 /*
  * FiniteFiled types
- * This requires 0 < size <= YICES_MAX_FFSIZE
+ * This requires 0 < size
  */
 extern type_t ff_type(type_table_t *table, uint32_t size);
 
@@ -821,6 +822,16 @@ static inline bool is_bv_type(type_table_t *tbl, type_t i) {
 static inline uint32_t bv_type_size(type_table_t *tbl, type_t i) {
   assert(is_bv_type(tbl, i));
   return tbl->desc[i].integer;
+}
+
+// finite field types
+static inline bool is_ff_type(type_table_t *tbl, type_t i) {
+  return type_kind(tbl, i) == FF_TYPE;
+}
+
+static inline uint32_t ff_type_size(type_table_t *tbl, type_t i) {
+  assert(is_bv_type(tbl, i));
+  return tbl->desc[i].integer; // TODO use the pointer here
 }
 
 // uninterpreted types
