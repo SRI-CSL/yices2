@@ -27,6 +27,16 @@
 #include "utils/memalloc.h"
 
 
+/*
+ * Extend the table.
+ */
+static void extend_pprod_table(indexed_table_t *t) {
+  uint32_t n = t->size;
+  pprod_table_t *pprods = (pprod_table_t *) t;
+  
+  pprods->mark = extend_bitvector(pprods->mark, n);
+}
+
 
 /*
  * Initialization: create an empty table.
@@ -40,48 +50,51 @@ void init_pprod_table(pprod_table_t *table, uint32_t n) {
     out_of_memory();
   }
 
-  table->data = (pprod_t **) safe_malloc(n * sizeof(pprod_t *));
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(pprod_table_elem_t),
+    .extend = extend_pprod_table
+  };
+  
+  indexed_table_init(&table->pprods, n, &vtbl);
   table->mark = allocate_bitvector(n);
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = -1;
 
   init_int_htbl(&table->htbl, 0); // default size
   init_pp_buffer(&table->buffer, 10);
 }
 
 
-
-/*
- * Extend the table: make it 50% larger
- */
-static void extend_pprod_table(pprod_table_t *table) {
-  uint32_t n;
-
-  n = table->size + 1;
-  n += n >> 1;
-  if (n >= PPROD_TABLE_MAX_SIZE) {
-    out_of_memory();
-  }
-
-  table->data = (pprod_t **) safe_realloc(table->data, n * sizeof(pprod_t *));
-  table->mark = extend_bitvector(table->mark, n);
-  table->size = n;
+static inline uint32_t pprod_table_nelems(pprod_table_t *t) {
+  return indexed_table_nelems(&t->pprods);
 }
 
+static inline pprod_table_elem_t *pprod_table_elem(pprod_table_t *t,
+						   uint32_t i) {
+  return indexed_table_elem(pprod_table_elem_t, &t->pprods, i);
+}
+
+static void clear_pprod(indexed_table_elem_t *elem,
+			index_t i,
+			void *data) {
+  ((pprod_table_elem_t *) elem)->pprod = NULL;
+}
+
+
 /*
- * Remove all products from table->data
+ * Remove all products.
  */
 static void free_pprods(pprod_table_t *table) {
   pprod_t *p;
   uint32_t i, n;
 
-  n = table->nelems;
+  indexed_table_for_each_free_elem(&table->pprods,
+				   clear_pprod,
+				   /*data=*/NULL);
+  
+  n = pprod_table_nelems(table);
   for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
+    p = pprod_table_elem(table, i)->pprod;
+    if (p)
       safe_free(p);
-    }
   }
 }
 
@@ -90,8 +103,7 @@ static void free_pprods(pprod_table_t *table) {
  */
 void reset_pprod_table(pprod_table_t *table) {
   free_pprods(table);
-  table->nelems = 0;
-  table->free_idx = -1;
+  indexed_table_clear(&table->pprods);
   reset_int_htbl(&table->htbl);
   pp_buffer_reset(&table->buffer);
 }
@@ -102,9 +114,8 @@ void reset_pprod_table(pprod_table_t *table) {
  */
 void delete_pprod_table(pprod_table_t *table) {
   free_pprods(table);
-  safe_free(table->data);
+  indexed_table_destroy(&table->pprods);
   delete_bitvector(table->mark);
-  table->data = NULL;
   table->mark = NULL;
 
   delete_int_htbl(&table->htbl);
@@ -114,24 +125,15 @@ void delete_pprod_table(pprod_table_t *table) {
 
 
 /*
- * Allocate an index i such that data[i] is empty
+ * Allocate an index i containing PPROD.
  * - clear mark[i]
  */
-static int32_t allocate_pprod_id(pprod_table_t *table) {
+static int32_t allocate_pprod_id(pprod_table_t *table,
+				 pprod_t *pprod) {
   int32_t i;
 
-  i = table->free_idx;
-  if (i >= 0) {
-    assert(i < table->nelems);
-    table->free_idx = untag_i32(table->data[i]);
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i == table->size) {
-      extend_pprod_table(table);
-    }
-    assert(i < table->size);
-  }
+  i = indexed_table_alloc(&table->pprods);
+  pprod_table_elem(table, i)->pprod = pprod;
 
   clr_bit(table->mark, i);
 
@@ -145,11 +147,10 @@ static int32_t allocate_pprod_id(pprod_table_t *table) {
  * - free prod[i] and add i to the free list
  */
 static void erase_pprod_id(pprod_table_t *table, int32_t i) {
-  assert(0 <= i && i < table->nelems && !has_int_tag(table->data[i]));
+  assert(0 <= i && i < pprod_table_nelems(table));
 
-  safe_free(table->data[i]);
-  table->data[i] = tag_i32(table->free_idx);
-  table->free_idx = i;
+  safe_free(pprod_table_elem(table, i)->pprod);
+  indexed_table_free(&table->pprods, i);
 }
 
 
@@ -191,9 +192,9 @@ static bool eq_pprod(pprod_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(0 <= i && i < table->nelems && !has_int_tag(table->data[i]));
+  assert(0 <= i && i < pprod_table_nelems(table));
 
-  p = table->data[i];
+  p = pprod_table_elem(table, i)->pprod;
   n = o->len;
   return (n == p->len) && varexp_array_equal(o->array, p->prod, n);
 }
@@ -207,8 +208,8 @@ static int32_t build_pprod(pprod_hobj_t *o) {
   int32_t i;
 
   table = o->tbl;
-  i = allocate_pprod_id(table);
-  table->data[i] = make_pprod(o->array, o->len);
+  i = allocate_pprod_id(table,
+			make_pprod(o->array, o->len));
 
   return i;
 }
@@ -234,7 +235,7 @@ static pprod_t *get_pprod(pprod_table_t *table, varexp_t *a, uint32_t n) {
 
   i = int_htbl_get_obj(&table->htbl, &pprod_hobj.m);
 
-  return table->data[i];
+  return pprod_table_elem(table, i)->pprod;
 }
 
 
@@ -337,7 +338,7 @@ void delete_pprod(pprod_table_t *table, pprod_t *p) {
    * we search the hash table again to delete the record (h, i).
    */
   i = find_pprod_id(table, p);
-  assert(i >= 0 && table->data[i] == p);
+  assert(i >= 0 && pprod_table_elem(table, i)->pprod == p);
 
   // keep h = hash code of p
   h = hash_varexp_array(p->prod, p->len);
@@ -360,10 +361,16 @@ void pprod_table_set_gc_mark(pprod_table_t *table, pprod_t *p) {
   int32_t i;
 
   i = find_pprod_id(table, p);
-  assert(i >= 0 && table->data[i] == p);
+  assert(i >= 0 && pprod_table_elem(table, i)->pprod == p);
   set_bit(table->mark, i);
 }
 
+static void pprod_table_mark_free_elem(indexed_table_elem_t *t,
+				       int32_t i,
+				       void *data) {
+  pprod_table_t *table = (pprod_table_t *) data;
+  set_bit(table->mark, i);
+}
 
 /*
  * Garbage collection: delete all unmarked products
@@ -373,20 +380,22 @@ void pprod_table_gc(pprod_table_t *table) {
   pprod_t *p;
   uint32_t i, n, h;
 
-  n = table->nelems;
+  /* Mark all of the elements on the free list. */
+  indexed_table_for_each_free_elem(&table->pprods,
+				   pprod_table_mark_free_elem,
+				   table);
+  
+  n = pprod_table_nelems(table);
   for (i=0; i<n; i++) {
     if (! tst_bit(table->mark, i)) {
       // i is not marked
-      p = table->data[i];
-      if (!has_int_tag(p)) {
-        // not already deleted
-        h = hash_varexp_array(p->prod, p->len);
-        erase_pprod_id(table, i);
-        int_htbl_erase_record(&table->htbl, h, i);
-      }
+      p = pprod_table_elem(table, i)->pprod;
+      h = hash_varexp_array(p->prod, p->len);
+      erase_pprod_id(table, i);
+      int_htbl_erase_record(&table->htbl, h, i);
     }
   }
 
   // clear all the marks
-  clear_bitvector(table->mark, table->size);
+  clear_bitvector(table->mark, table->pprods.size);
 }

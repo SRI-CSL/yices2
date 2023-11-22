@@ -449,7 +449,7 @@ extern void reset_type_table(type_table_t *table);
  */
 static inline type_desc_t *type_desc(const type_table_t *table,
 				     int32_t i) {
-  return &((type_desc_t *) table->types.elems)[i];
+  return indexed_table_elem(type_desc_t, &table->types, i);
 }
 
 static inline bool valid_type(type_table_t *tbl, type_t i) {
@@ -703,7 +703,7 @@ extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n
 
 static inline type_macro_t *type_macro_unchecked(type_mtbl_t *table,
 						     int32_t id) {
-  return indexed_table_elem(type_mtbl_elem_t, table->macros, id)->data;
+  return indexed_table_elem(type_mtbl_elem_t, &table->macros, id)->data;
 }
 
 static inline uint32_t type_macro_nelems(type_mtbl_t *table) {

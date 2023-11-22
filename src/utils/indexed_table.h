@@ -44,7 +44,9 @@ typedef struct indexed_table_elem_s {
 } indexed_table_elem_t;
 
 /* The type of a function called on elements of the table. */
-typedef void (*indexed_table_elem_fn)(indexed_table_elem_t *, void *);
+typedef void (*indexed_table_elem_fn)(indexed_table_elem_t *,
+				      index_t,
+				      void *);
 
 /*
  * An index_table_t is an expandable array, with idices of type
@@ -122,7 +124,7 @@ static inline uindex_t indexed_table_live_elems(const indexed_table_t *t) {
  * elements in the table. The return value is a TYPE *.
  */
 #define indexed_table_elem(type, table, i) \
-  (&(((type *) (table).elems)[i]))
+  (&(((type *) (table)->elems)[i]))
 
 /*
  * For each element X on the free list, call F(X, DATA). F is

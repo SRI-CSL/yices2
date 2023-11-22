@@ -5,15 +5,13 @@
 #include "memalloc.h"
 #include "yices_limits.h"
 
-#define MAX_ELEMS YICES_MAX_TYPES
-
-static inline void check_nelems(uindex_t n) {
-  if (n > MAX_ELEMS)
-    out_of_memory();
+static inline size_t elem_size(const indexed_table_t *t) {
+  return t->vtbl->elem_size;
 }
 
-static inline size_t elem_size(indexed_table_t *t) {
-  return t->vtbl->elem_size;
+static inline void check_nelems(const indexed_table_t *t) {
+  if (t->size > UINT32_MAX / elem_size(t))
+    out_of_memory();
 }
 
 static inline indexed_table_elem_t *elem(indexed_table_t *t, index_t i) {
@@ -25,24 +23,22 @@ static void extend(indexed_table_t *t) {
     
   n = t->size + 1;
   n += n >> 1;
-
-  check_nelems(n);
+  t->size = n;
+  check_nelems(t);
 
   t->elems = safe_realloc(t->elems, n * elem_size(t));
-  t->size = n;
 
   t->vtbl->extend(t);
 }
 
 void indexed_table_init(indexed_table_t *t, uindex_t n,
 			const indexed_table_vtbl_t *vtbl) {
-  check_nelems(n);
-
   *t = (indexed_table_t) {
     .elems = safe_malloc(n * vtbl->elem_size),
     .size = n,
     .vtbl = vtbl
   };
+  check_nelems(t);
 
   indexed_table_clear(t);
 }
@@ -93,6 +89,6 @@ void indexed_table_for_each_free_elem(indexed_table_t *t,
        element. */
     next = e->next;
 
-    f(e, data);
+    f(e, i, data);
   }
 }

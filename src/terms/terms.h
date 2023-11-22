@@ -1140,8 +1140,8 @@ static inline bool valid_term_idx(const term_table_t *table, int32_t i) {
 }
 
 static inline term_desc_t *term_desc(const term_table_t *table,
-					  int32_t i) {
-  return &((term_desc_t *) table->terms.elems)[i];
+				     int32_t i) {
+  return indexed_table_elem(term_desc_t, &table->terms, i);
 }
 
 static inline term_kind_t unchecked_kind_for_idx(const term_table_t *table,

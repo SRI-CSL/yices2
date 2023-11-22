@@ -124,6 +124,7 @@ static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
 }
 
 static void type_mtbl_clear_elem(indexed_table_elem_t *elem,
+				 index_t i,
 				 void *data) {
   ((type_mtbl_elem_t *) elem)->data = NULL;
 }
@@ -174,7 +175,7 @@ static inline int32_t allocate_macro_id(type_mtbl_t *table,
 					type_macro_t *d) {
   int32_t i = indexed_table_alloc(&table->macros);
 
-  indexed_table_elem(type_mtbl_elem_t, table->macros, i)->data = d;
+  indexed_table_elem(type_mtbl_elem_t, &table->macros, i)->data = d;
 
   return i;
 }
