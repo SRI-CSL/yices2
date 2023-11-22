@@ -78,6 +78,9 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "error in bitvector operation",
   "incompatible types in define",
   "strings are not terms",
+  "variable values are not matching",
+  "not a constant",
+  "not a variable",
   "yices error",
 };
 
