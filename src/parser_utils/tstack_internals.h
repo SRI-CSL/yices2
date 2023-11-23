@@ -353,6 +353,7 @@ extern void set_binding_result(tstack_t *stack, term_t t, char *symbol);
 extern void set_type_binding_result(tstack_t *stack, type_t, char *symbol);
 extern void set_bv64_result(tstack_t *stack, uint32_t nbits, uint64_t c);
 extern void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv);
+extern void set_ff_result(tstack_t *stack, rational_t *r, rational_t *m);
 extern void set_arith_result(tstack_t *stack, rba_buffer_t *b);
 extern void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b);
 extern void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b);

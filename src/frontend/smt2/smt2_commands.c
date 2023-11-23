@@ -1249,6 +1249,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "sort-variable declaration", // DECLARE_TYPE_VAR
   "let",                  // LET
   "BitVec",               // MK_BV_TYPE
+  "FiniteField",          // MK_FF_TYPE
   NULL,                   // MK_SCALAR_TYPE
   NULL,                   // MK_TUPLE_TYPE
   "function type",        // MK_FUN_TYPE
@@ -1335,6 +1336,10 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "mod",                  // MK_MOD
   "divides",              // MK_DIVIDES (not in SMT2 --> divisible)
   "is_int",               // MK_IS_INT
+
+  "ff.constant",          // MK_FF_CONST
+  "ff.add",               // MK_FF_ADD
+  "ff.mul",               // MK_FF_MUL
 
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
@@ -1478,6 +1483,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_NON_CONSTANT_DIVISOR:
   case TSTACK_INCOMPATIBLE_BVSIZES:
   case TSTACK_INVALID_BVCONSTANT:
+  case TSTACK_INVALID_FFCONSTANT:
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:

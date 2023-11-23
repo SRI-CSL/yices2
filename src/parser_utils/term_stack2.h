@@ -104,6 +104,7 @@ typedef enum tag_enum {
   TAG_BV64,             // bit-vector constant (1 to 64 bits)
   TAG_BV,               // bit-vector constant (more than 64 bits)
   TAG_RATIONAL,         // rational constant
+  TAG_FINITEFIELD,      // finite field constant (non-negative integer rational)
   TAG_TERM,             // term index + polarity (from the global term table)
   TAG_SPECIAL_TERM,     // a term marked for special processing
   TAG_TYPE,             // type index (from the global type table)
@@ -157,6 +158,10 @@ typedef struct bv_s {
   uint32_t *data;   // value as an array of 32bit words
 } bv_t;
 
+typedef struct ff_s {
+  rational_t val;
+  rational_t mod;
+} ff_t;
 
 // element on the stack
 typedef struct stack_elem_s {
@@ -166,6 +171,7 @@ typedef struct stack_elem_s {
     char *string;
     bv64_t bv64;
     bv_t bv;
+    ff_t ff;
     rational_t rational;
     int32_t op;
     term_t term;
@@ -371,6 +377,7 @@ typedef enum tstack_error_s {
   TSTACK_INVALID_BVCONSTANT,
   TSTACK_BVARITH_ERROR,
   TSTACK_BVLOGIC_ERROR,
+  TSTACK_INVALID_FFCONSTANT,
   TSTACK_TYPE_ERROR_IN_DEFTERM,
   TSTACK_STRINGS_ARE_NOT_TERMS,  // this can be raised only in the SMT2 lib context
   TSTACK_VARIABLES_VALUES_NOT_MATCHING,

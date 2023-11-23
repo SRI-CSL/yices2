@@ -293,6 +293,10 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
  */
 extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
 
+/*
+ * Convert a finite field constant to a term
+ */
+extern term_t yices_ffconst_term(rational_t *q, rational_t *mod);
 
 /*
  * Convert rational q to a term

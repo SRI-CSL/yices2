@@ -956,7 +956,8 @@ static bool eq_rational_hobj(rational_term_hobj_t *o, int32_t i) {
   table = o->tbl;
   assert(good_term_idx(table, i));
 
-  return table->kind[i] == o->tag && q_eq(&table->desc[i].rational, o->a);
+  // TODO if the added check for tau is fine
+  return table->kind[i] == o->tag && table->type[i] == o->tau && q_eq(&table->desc[i].rational, o->a);
 }
 
 
@@ -2498,6 +2499,27 @@ term_t arith_constant(term_table_t *table, rational_t *a) {
   return pos_term(i);
 }
 
+term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod) {
+  type_t tau;
+  int32_t i;
+  rational_term_hobj_t rational_hobj;
+
+  // find (or create) the type (_ FiniteField mod)
+  assert(q_is_integer(mod));
+  tau = ff_type(table->types, q_get_smallint(mod)); // TODO change this once bigint orders are supported
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_hobj;
+  rational_hobj.m.eq = (hobj_eq_t) eq_rational_hobj;
+  rational_hobj.m.build = (hobj_build_t) build_rational_hobj;
+  rational_hobj.tbl = table;
+  rational_hobj.tag = ARITH_CONSTANT;
+  rational_hobj.tau = tau;
+  rational_hobj.a = a;
+
+  i = int_htbl_get_obj(&table->htbl, &rational_hobj.m);
+
+  return pos_term(i);
+}
 
 /*
  * Atom t == 0 for an arithmetic term t

@@ -30,18 +30,17 @@
 #include <assert.h>
 #include <string.h>
 
+#include "parser_utils/term_stack2.h"
+
 #include "api/yices_extensions.h"
 #include "api/yices_api_lock_free.h"
 #include "api/yices_globals.h"
-#include "parser_utils/term_stack2.h"
 #include "parser_utils/tstack_internals.h"
 #include "terms/bv64_constants.h"
-#include "terms/bv_constants.h"
 #include "terms/bvarith64_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/rba_buffer_terms.h"
 #include "utils/hash_functions.h"
-#include "utils/memalloc.h"
 
 #include "yices.h"
 
@@ -880,6 +879,10 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
     k = (e->val.bv.bitsize + 31) >> 5;
     bvconst_free(e->val.bv.data, k);
     break;
+  case TAG_FINITEFIELD:
+    q_clear(&e->val.ff.val);
+    q_clear(&e->val.ff.mod);
+    break;
   case TAG_RATIONAL:
     q_clear(&e->val.rational);
     break;
@@ -1122,6 +1125,17 @@ void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv) {
   e->tag = TAG_BV;
   e->val.bv.bitsize = nbits;
   e->val.bv.data = bv;
+}
+
+void set_ff_result(tstack_t *stack, rational_t *r, rational_t *m) {
+  stack_elem_t *e;
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_FINITEFIELD;
+  q_init(&e->val.ff.val);
+  q_init(&e->val.ff.mod);
+  q_set(&e->val.ff.val, r);
+  q_set(&e->val.ff.mod, m);
 }
 
 void set_type_binding_result(tstack_t *stack, type_t tau, char *symbol) {
@@ -1463,6 +1477,10 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
   case TAG_BV:
     bvconst_normalize(e->val.bv.data, e->val.bv.bitsize);
     t = yices_bvconst_term(e->val.bv.bitsize, e->val.bv.data);
+    break;
+
+  case TAG_FINITEFIELD:
+    t = yices_ffconst_term(&e->val.ff.val, &e->val.ff.mod);
     break;
 
   case TAG_RATIONAL:
@@ -3149,6 +3167,7 @@ static void eval_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   int32_t size;
   type_t tau;
 
+  // TODO make suitable for bigger integers
   size = get_integer(stack, f);
   // TODO check if prime?
   // TODO create new error-code for nonpositive ff size
@@ -5429,18 +5448,43 @@ static void eval_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  */
 
 /*
- * [mk-ff-const <arith> <arith> ]
+ * [mk-ff-const <numeral> [<numeral>]
  */
 static void check_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_FF_CONST);
-  check_size(stack, n == 2);
+  check_size(stack, n == 1 || n == 2);
   check_tag(stack, f, TAG_RATIONAL);
-  check_tag(stack, f+1, TAG_TYPE);
+  if (n == 2)
+    check_tag(stack, f+1, TAG_RATIONAL);
 }
 
 static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  // TODO implement me
+  rational_t val, mod;
+
+  q_init(&val);
+  q_init(&mod);
+
+  q_set(&val, &f->val.rational);
+  if (! q_is_integer(&val) || ! q_is_nonneg(&val)) {
+    raise_exception(stack, f, TSTACK_INVALID_FFCONSTANT);
+  }
+
+  if (n == 2) {
+    q_set(&mod, &(f+1)->val.rational);
+    if (! q_is_integer(&mod) || ! q_is_nonneg(&mod) || ! q_lt(&val, &mod)) {
+      raise_exception(stack, f, TSTACK_INVALID_FFCONSTANT);
+    }
+  } else {
+    // we don't know the field size yet
+    q_set_minus_one(&mod);
+  }
+
   tstack_pop_frame(stack);
+  // the field order (i.e. type) may be yet unknown (requires an `as` to set it)
+  set_ff_result(stack, &val, &mod);
+
+  q_clear(&val);
+  q_clear(&mod);
 }
 
 /*

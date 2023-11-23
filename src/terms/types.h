@@ -830,8 +830,8 @@ static inline bool is_ff_type(type_table_t *tbl, type_t i) {
 }
 
 static inline uint32_t ff_type_size(type_table_t *tbl, type_t i) {
-  assert(is_bv_type(tbl, i));
-  return tbl->desc[i].integer; // TODO use the pointer here
+  assert(is_ff_type(tbl, i));
+  return tbl->desc[i].integer; // TODO use the pointer here for big mods
 }
 
 // uninterpreted types

@@ -1987,6 +1987,13 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_term(stack, smt2_val[symbol], loc);
     break;
 
+  case SMT2_KEY_IDX_FF:
+    // generates (_ ffN -1)
+    tstack_push_opcode(stack, MK_FF_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc);
+    tstack_eval(stack);
+    break;
+
   case SMT2_KEY_TERM_OP:
     push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
     break;
@@ -2172,7 +2179,7 @@ void tstack_push_qual_idx_term_name(tstack_t *stack, char *s, uint32_t n, loc_t 
     // s is ff<numeral> and is to be interpreted as (mk-ff <numeral> ...)
     assert(n > 2);
     tstack_push_opcode(stack, MK_FF_CONST, loc);
-    tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
+    tstack_push_rational(stack, s + 2, loc); // skip the 'ff' prefix
     break;
 
   case SMT2_KEY_ERROR_BV:
@@ -2425,6 +2432,11 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
 
   case TAG_RATIONAL:
     return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
+
+  case TAG_FINITEFIELD:
+      // TODO change this once we have big mods
+    return is_ff_type(__yices_globals.types, tau) && q_is_smallint(&e->val.ff.mod)
+      && q_get_smallint(&e->val.ff.mod) == ff_type_size(__yices_globals.types, tau);
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:

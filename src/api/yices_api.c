@@ -7318,6 +7318,10 @@ term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   return bv64_constant(__yices_globals.terms, n, c);
 }
 
+term_t yices_ffconst_term(rational_t *q, rational_t *mod) {
+  return arith_ff_constant(__yices_globals.terms, q, mod);
+}
+
 term_t yices_rational_term(rational_t *q) {
   return arith_constant(__yices_globals.terms, q);
 }

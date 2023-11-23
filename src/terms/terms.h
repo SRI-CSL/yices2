@@ -728,6 +728,17 @@ extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
 extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
 
 
+/*
+ * FINITE FIELD TERMS
+ */
+extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod);
+
+/*
+ * Check whether b stores an integer polynomial
+ * TODO implement
+ */
+extern bool arith_poly_is_ff(const term_table_t *table, rba_buffer_t *b, type_t tau_ff);
+
 
 /*
  * BITVECTOR TERMS
