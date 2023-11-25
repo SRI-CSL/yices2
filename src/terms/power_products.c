@@ -865,13 +865,13 @@ bool pprod_equal(pprod_t *p1, pprod_t *p2) {
 
   if (p1 == p2) return true;
 
-  if (pp_is_var(p1) | pp_is_var(p2)) {
+  if (pp_is_var(p1) || pp_is_var(p2)) {
     // p1 and p2 are distinct variables
     // or only one of them is a variable
     return false;
   }
 
-  if (pp_is_empty(p1) | pp_is_empty(p2)) {
+  if (pp_is_empty(p1) || pp_is_empty(p2)) {
     // one empty and the other is not
     return false;
   }

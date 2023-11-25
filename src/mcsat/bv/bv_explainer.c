@@ -227,8 +227,6 @@ void bv_explainer_get_conflict(bv_explainer_t* exp, const ivector_t* conflict_in
   }
   
   if (ctx_trace_enabled(exp->ctx, "mcsat::bv::conflict::check")) {
-    static int conflict_count = 0;
-    conflict_count ++;
     bv_explainer_check_conflict(exp, conflict_out);
   }
 

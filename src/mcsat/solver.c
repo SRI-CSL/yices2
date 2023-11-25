@@ -2035,8 +2035,6 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (trace_enabled(trace, "mcsat::conflict::check")) {
     // Don't check bool conflicts: they are implied by the formula (clauses)
     if (plugin_i != mcsat->bool_plugin_id) {
-      static int conflict_count = 0;
-      conflict_count ++;
       conflict_check(&conflict);
     }
   }
@@ -2553,6 +2551,7 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     assert(x_value >= 0);
     trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
     mcsat_value_destruct(&value);
+    mcsat_process_registeration_queue(mcsat);
   }
 
   mcsat_pop(mcsat);
