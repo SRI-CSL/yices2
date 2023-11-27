@@ -1212,7 +1212,11 @@ Set Variable Ordering for MCSat
 
 It is possible to give a variable ordering for the MCSat search --
 this will make MCSAT to decide the variables in the given order. Note
-that this operation will overwrite any previously set ordering.
+that the variables in the given ordering are always decided earlier
+than the ones not in the ordering. Therefore, the ordering variables
+are not affected by the dynamic variable decision heuristic like
+VSIDS. Moreover, a subsequent calls to this operation will overwrite
+previously set ordering.
 
 .. c:function:: smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[], uint32_t n)
 
