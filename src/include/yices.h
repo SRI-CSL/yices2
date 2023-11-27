@@ -3266,7 +3266,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  *
- * Since 2.6.4.
+ * Since 2.7.0
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(context_t *ctx,
 									      const param_t *params,
@@ -3274,6 +3274,26 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(co
 									      uint32_t n,
 									      const term_t t[],
 									      uint32_t m);
+
+/*
+ * Set variable ordering for making mcsat decisions.
+ *
+ * - ctx must be a context initialized with support for MCSAT
+ *   (see yices_new_context, yices_new_config, yices_set_config).
+ * - t is an array of n terms
+ *
+ * NOTE: This will overwrite the previously set ordering.
+ *
+ * Returns STATUS_ERROR if mcsat context is not enabled, otherwise returns STATUS_IDLE
+ *
+ * Error codes:
+ *
+ * If the context does not have the MCSAT solver enabled
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_var_order(context_t *ctx,
+                                                                const term_t t[],
+                                                                uint32_t n);
 
 /*
  * Check satisfiability and compute interpolant.
