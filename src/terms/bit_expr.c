@@ -45,6 +45,17 @@
 
 
 /*
+ * Extend table.
+ */
+static void extend_node_table(indexed_table_t *table) {
+  // abort if the new size is too large
+  if (table->size > MAX_NODE_TABLE_SIZE) {
+    out_of_memory();
+  }
+}
+
+
+/*
  * Initialize a node table (empty)
  * - n = initial size
  */
@@ -57,12 +68,12 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
     out_of_memory();
   }
 
-  table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
-  table->desc = (node_desc_t *) safe_malloc(n * sizeof(node_desc_t));
-  table->map = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = -1;
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(node_desc_t),
+    .extend = extend_node_table
+  };
+
+  indexed_table_init(&table->nodes, n, &vtbl);
 
   table->ref_counter = 0;
 
@@ -72,46 +83,15 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
 
 
 /*
- * Extend table: make it 50% larger
- */
-static void extend_node_table(node_table_t *table) {
-  uint32_t n;
-
-  n = table->size + 1;
-  n += n >> 1;
-
-  // abort if the new size is too large
-  if (n > MAX_NODE_TABLE_SIZE) {
-    out_of_memory();
-  }
-
-  table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
-  table->desc = (node_desc_t *) safe_realloc(table->desc, n * sizeof(node_desc_t));
-  table->map = (int32_t *) safe_realloc(table->map, n * sizeof(int32_t));
-  table->size = n;
-}
-
-
-/*
  * Allocate a node id
  * - set map[i] to the default (i.e., -1)
- * - kind and desc are not initialized
  */
-static node_t allocate_node_id(node_table_t *table) {
-  node_t i;
+static node_t allocate_node_id(node_table_t *table, uint8_t kind) {
+  node_t i = indexed_table_alloc(&table->nodes);
+  node_desc_t *n = node_table_elem(table, i);
 
-  i = table->free_idx;
-  if (i >= 0) {
-    table->free_idx = table->desc[i].var;
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i == table->size) {
-      extend_node_table(table);
-    }
-  }
-  assert(i < table->size);
-  table->map[i] = -1;
+  n->kind = kind;
+  n->map = -1;
 
   return i;
 }
@@ -125,11 +105,11 @@ static node_t allocate_node_id(node_table_t *table) {
 static node_t build_constant_node(node_table_t *table) {
   node_t i;
 
-  i = allocate_node_id(table);
+  i = allocate_node_id(table, CONSTANT_NODE);
   assert(i == constant_node);
-  table->kind[i] = CONSTANT_NODE;
-  table->desc[i].c[0] = null_bit;
-  table->desc[i].c[1] = null_bit;
+
+  bit_t *c = node_table_elem(table, i)->c;
+  c[0] = c[1] = null_bit;
 
   return i;
 }
@@ -141,10 +121,9 @@ static node_t build_constant_node(node_table_t *table) {
 static node_t new_variable_node(node_table_t *table, int32_t x) {
   node_t i;
 
-  i = allocate_node_id(table);
-  table->kind[i] = VARIABLE_NODE;
-  table->desc[i].var = x;
-
+  i = allocate_node_id(table, VARIABLE_NODE);
+  node_table_elem(table, i)->var = x;
+  
   return i;
 }
 
@@ -155,10 +134,11 @@ static node_t new_variable_node(node_table_t *table, int32_t x) {
 static node_t new_select_node(node_table_t *table, uint32_t k, int32_t x) {
   node_t i;
 
-  i = allocate_node_id(table);
-  table->kind[i] = SELECT_NODE;
-  table->desc[i].sel.index = k;
-  table->desc[i].sel.var = x;
+  i = allocate_node_id(table, SELECT_NODE);
+
+  select_node_t *s = &node_table_elem(table, i)->sel;
+  s->index = k;
+  s->var = x;
 
   return i;
 }
@@ -173,10 +153,11 @@ static node_t new_binary_node(node_table_t *table, node_kind_t op, bit_t a, bit_
 
   assert(op == OR_NODE || op == XOR_NODE);
 
-  i = allocate_node_id(table);
-  table->kind[i] = op;
-  table->desc[i].c[0] = a;
-  table->desc[i].c[1] = b;
+  i = allocate_node_id(table, op);
+
+  bit_t *c = node_table_elem(table, i)->c;
+  c[0] = a;
+  c[1] = b;
 
   return i;
 }
@@ -240,10 +221,9 @@ static uint32_t hash_var_node(var_node_hobj_t *p) {
 }
 
 static bool eq_var_node(var_node_hobj_t *p, node_t i) {
-  node_table_t *table;
+  node_desc_t *node = node_table_elem(p->tbl, i);
 
-  table = p->tbl;
-  return table->kind[i] == VARIABLE_NODE && table->desc[i].var == p->var;
+  return node->kind == VARIABLE_NODE && node->var == p->var;
 }
 
 static node_t build_var_node(var_node_hobj_t *p) {
@@ -271,12 +251,11 @@ static uint32_t hash_select_node(select_node_hobj_t *p) {
 }
 
 static bool eq_select_node(select_node_hobj_t *p, node_t i) {
-  node_table_t *table;
+  node_desc_t *node = node_table_elem(p->tbl, i);
 
-  table = p->tbl;
-  return table->kind[i] == SELECT_NODE &&
-    table->desc[i].sel.index == p->index &&
-    table->desc[i].sel.var == p->var;
+  return node->kind == SELECT_NODE &&
+    node->sel.index == p->index &&
+    node->sel.var == p->var;
 }
 
 static node_t build_select_node(select_node_hobj_t *p) {
@@ -304,12 +283,11 @@ static uint32_t hash_or_node(node_hobj_t *p) {
 }
 
 static bool eq_or_node(node_hobj_t *p, node_t i) {
-  node_table_t *table;
+  node_desc_t *node = node_table_elem(p->tbl, i);
 
-  table = p->tbl;
-  return table->kind[i] == OR_NODE &&
-    table->desc[i].c[0] == p->child[0] &&
-    table->desc[i].c[1] == p->child[1];
+  return node->kind == OR_NODE &&
+    node->c[0] == p->child[0] &&
+    node->c[1] == p->child[1];
 }
 
 static node_t build_or_node(node_hobj_t *p) {
@@ -337,12 +315,11 @@ static uint32_t hash_xor_node(node_hobj_t *p) {
 }
 
 static bool eq_xor_node(node_hobj_t *p, node_t i) {
-  node_table_t *table;
+  node_desc_t *node = node_table_elem(p->tbl, i);
 
-  table = p->tbl;
-  return table->kind[i] == XOR_NODE &&
-    table->desc[i].c[0] == p->child[0] &&
-    table->desc[i].c[1] == p->child[1];
+  return node->kind == XOR_NODE &&
+    node->c[0] == p->child[0] &&
+    node->c[1] == p->child[1];
 }
 
 static node_t build_xor_node(node_hobj_t *p) {
@@ -382,14 +359,9 @@ void init_node_table(node_table_t *table, uint32_t n) {
  * Delete all nodes and the table
  */
 void delete_node_table(node_table_t *table) {
-  safe_free(table->kind);
-  safe_free(table->desc);
-  safe_free(table->map);
-  table->kind = NULL;
-  table->desc = NULL;
-  table->map = NULL;
   delete_ivector(&table->aux_buffer);
   delete_int_htbl(&table->htbl);
+  indexed_table_destroy(&table->nodes);
 }
 
 
@@ -399,9 +371,9 @@ void delete_node_table(node_table_t *table) {
 void reset_node_table(node_table_t *table) {
   assert(table->ref_counter == 0);
 
-  table->free_idx = -1;
-  table->nelems = 1;  // keep the constant node
-  assert(table->kind[0] == CONSTANT_NODE);
+  indexed_table_clear(&table->nodes);
+  table->nodes.nelems = 1; // keep the constant node
+  assert(node_table_elem(table, 0)->kind == CONSTANT_NODE);
 
   ivector_reset(&table->aux_buffer);
   reset_int_htbl(&table->htbl);
