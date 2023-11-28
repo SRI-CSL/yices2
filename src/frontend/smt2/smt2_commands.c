@@ -3070,9 +3070,9 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
        */
       code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
       if (code < 0) {
-	print_yices_error(true);
-	done = true;
-	return;
+        print_yices_error(true);
+        done = true;
+        return;
       }
 
     } else {
@@ -3081,42 +3081,42 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
        */
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
       if (code < 0) {
-	// error during assertion processing
-	print_yices_error(true);
-	done = true;
-	return;
+        // error during assertion processing
+        print_yices_error(true);
+        done = true;
+        return;
       }
 
       if (g->delegate != NULL && g->logic_code == QF_BV) {
-	/*
-	 * Special case: QF_BV with delegate
-	 */
-	if (g->dimacs_file == NULL) {
-	  status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-	} else {
-	  code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
-	  if (code < 0) {
-	    perror(g->dimacs_file);
-	    exit(YICES_EXIT_SYSTEM_ERROR);
-	  }
-	  if (status == STATUS_UNKNOWN) {
-	    // don't print anything
-	    return;
-	  }
-	}
+        /*
+         * Special case: QF_BV with delegate
+         */
+        if (g->dimacs_file == NULL) {
+          status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+        } else {
+          code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
+          if (code < 0) {
+            perror(g->dimacs_file);
+            exit(YICES_EXIT_SYSTEM_ERROR);
+          }
+          if (status == STATUS_UNKNOWN) {
+            // don't print anything
+            return;
+          }
+        }
       } else {
-	/*
-	 * Regular check
-	 */
-	init_search_parameters(g);
-	if (g->random_seed != 0) {
-	  g->parameters.random_seed = g->random_seed;
-	}
-	status = check_sat_with_timeout(g, &g->parameters);
+        /*
+         * Regular check
+         */
+        init_search_parameters(g);
+        if (g->random_seed != 0) {
+          g->parameters.random_seed = g->random_seed;
+        }
+        status = check_sat_with_timeout(g, &g->parameters);
       }
 
       if (report)
-	report_status(g, status);
+        report_status(g, status);
     }
   }
 }
