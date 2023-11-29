@@ -1912,6 +1912,21 @@ static bool check_integer_term(term_manager_t *mngr, term_t t) {
 }
 #endif
 
+// Check whether t is a finitefield term, t must be valid.
+static bool check_arith_ff_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (! is_finitefield_term(tbl, t)) {
+    error_report_t *error = get_yices_error();
+    error->code = ARITHTERM_REQUIRED;
+    error->term1 = t;
+    return false;
+  }
+  return true;
+}
+
 // Check whether t is a real term, t must be valid.
 static bool check_real_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -7364,6 +7379,21 @@ bool yices_check_arith_term(term_t t) {
   return check_good_term(__yices_globals.manager, t) && check_arith_term(__yices_globals.manager, t);
 }
 
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+bool yices_check_arith_ff_term(term_t t) {
+  return check_good_term(__yices_globals.manager, t) && check_arith_ff_term(__yices_globals.manager, t);
+}
 
 /*
  * Check for degree overflow in the product (b * t)
@@ -7382,7 +7412,7 @@ bool yices_check_mul_term(rba_buffer_t *b, term_t t) {
 
   tbl = __yices_globals.terms;
 
-  assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
+  assert(good_term(tbl, t) && (is_arithmetic_term(tbl, t) || is_finitefield_term(tbl, t)));
 
   d1 = rba_buffer_degree(b);
   d2 = term_degree(tbl, t);

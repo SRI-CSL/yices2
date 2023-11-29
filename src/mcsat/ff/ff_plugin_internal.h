@@ -59,13 +59,12 @@ struct ff_plugin_s {
 
   /** Next index of the trail to process */
   uint32_t trail_i;
+#endif
 
   /** The conflict variable (one with empty feasible set) */
   variable_t conflict_variable;
 
-  /** The conflict variable (one with empty int feasible set) */
-  variable_t conflict_variable_int;
-
+#if 0
   /** The conflict variable (assumption not in feasible set) */
   variable_t conflict_variable_assumption;
 
@@ -83,18 +82,18 @@ struct ff_plugin_s {
 
   /** Scope holder for the int variables */
   scope_holder_t scope;
+#endif
 
   struct {
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
-    statistic_int_t* conflicts_int;
     statistic_int_t* conflicts_assumption;
     statistic_int_t* constraints_attached;
     statistic_int_t* evaluations;
-    statistic_int_t* constraint_regular;
-    statistic_int_t* constraint_root;
+    statistic_int_t* constraint;
   } stats;
 
+#if 0
   /** Database of polynomial constraints */
   poly_constraint_db_t* constraint_db;
 

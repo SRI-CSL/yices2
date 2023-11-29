@@ -834,6 +834,11 @@ static inline uint32_t ff_type_size(type_table_t *tbl, type_t i) {
   return tbl->desc[i].integer; // TODO use the pointer here for big mods
 }
 
+static inline bool ff_type_size_any(type_table_t *tbl, type_t i) {
+  assert(is_ff_type(tbl, i));
+  return tbl->desc[i].integer == -1; // TODO use the pointer here for big mods
+}
+
 // uninterpreted types
 static inline bool is_uninterpreted_type(type_table_t *tbl, type_t i) {
   return type_kind(tbl, i) == UNINTERPRETED_TYPE;

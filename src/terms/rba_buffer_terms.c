@@ -36,7 +36,7 @@ void rba_buffer_add_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -110,7 +110,7 @@ void rba_buffer_mul_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -119,6 +119,7 @@ void rba_buffer_mul_term(rba_buffer_t *b, term_table_t *table, term_t t) {
     break;
 
   case ARITH_CONSTANT:
+    // TODO assert if ff const, must be ff element
     rba_buffer_mul_const(b, rational_for_idx(table, i));
     break;
 

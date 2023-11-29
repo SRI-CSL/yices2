@@ -2213,6 +2213,13 @@ static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
     }
     break;
 
+  case FF_TYPE:
+    // a finite field of size any is less than any other finite field type
+    if (ff_type_size_any(table, tau1)) return tau2;
+    if (ff_type_size_any(table, tau2)) return tau1;
+    assert(ff_type_size(table, tau1) != ff_type_size(table, tau2)); // otherwise, it was the same type
+    return NULL_TYPE;
+
   default:
     return NULL_TYPE;
   }

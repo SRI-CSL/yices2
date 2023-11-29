@@ -422,6 +422,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
     case BITVECTOR_TYPE:

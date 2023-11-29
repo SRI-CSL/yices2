@@ -3109,7 +3109,7 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
   int32_t i;
 
   assert(is_pos_term(t) && good_term(table, t));
-  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_finitefield_term(table, t) || is_bitvector_term(table, t));
 
   d = 1;
   i = index_of(t);

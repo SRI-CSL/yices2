@@ -33,19 +33,48 @@
 
 #include "utils/int_array_sort2.h"
 
+static
+void ff_plugin_stats_init(ff_plugin_t* ff) {
+  // Add statistics
+  ff->stats.propagations = statistics_new_int(ff->ctx->stats, "mcsat::ff::propagations");
+  ff->stats.conflicts = statistics_new_int(ff->ctx->stats, "mcsat::ff::conflicts");
+  ff->stats.conflicts_assumption = statistics_new_int(ff->ctx->stats, "mcsat::ff::conflicts_assumption");
+  ff->stats.constraints_attached = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints_attached");
+  ff->stats.evaluations = statistics_new_int(ff->ctx->stats, "mcsat::ff::evaluations");
+}
 
 static
 void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  // TODO implement
+  ff->ctx = ctx;
+  ff->conflict_variable = variable_null;
+
+  watch_list_manager_construct(&ff->wlm, ctx->var_db);
+
+  // Atoms
+  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
+
+  // Terms
+  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
+
+  // Types
+  ctx->request_term_notification_by_type(ctx, FF_TYPE);
+  ctx->request_decision_calls(ctx, FF_TYPE);
+
+  init_rba_buffer(&ff->buffer, ctx->terms->pprods);
+
+  ff_plugin_stats_init(ff);
 }
 
 static
 void ff_plugin_destruct(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  // TODO implement
+  watch_list_manager_destruct(&ff->wlm);
+  delete_rba_buffer(&ff->buffer);
 }
 
 static
@@ -215,10 +244,10 @@ plugin_t* ff_plugin_allocator(void) {
   plugin_construct((plugin_t*) plugin);
   plugin->plugin_interface.construct           = ff_plugin_construct;
   plugin->plugin_interface.destruct            = ff_plugin_destruct;
-//  plugin->plugin_interface.new_term_notify     = ff_plugin_new_term_notify;
+  plugin->plugin_interface.new_term_notify     = ff_plugin_new_term_notify;
 //  plugin->plugin_interface.new_lemma_notify    = ff_plugin_new_lemma_notify;
-//  plugin->plugin_interface.event_notify        = ff_plugin_event_notify;
-//  plugin->plugin_interface.propagate           = ff_plugin_propagate;
+  plugin->plugin_interface.event_notify        = ff_plugin_event_notify;
+  plugin->plugin_interface.propagate           = ff_plugin_propagate;
 //  plugin->plugin_interface.decide              = ff_plugin_decide;
 //  plugin->plugin_interface.decide_assignment   = ff_plugin_decide_assignment;
 //  plugin->plugin_interface.learn               = ff_plugin_learn;

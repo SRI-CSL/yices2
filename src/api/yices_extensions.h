@@ -338,6 +338,20 @@ extern bool yices_check_boolean_term(term_t t);
  */
 extern bool yices_check_arith_term(term_t t);
 
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+extern bool yices_check_arith_ff_term(term_t t);
+
 
 /*
  * Check for degree overflow in the product (b * t)

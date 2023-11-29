@@ -1812,7 +1812,7 @@ void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
-    if (! yices_check_arith_term(e->val.term)) {
+    if (! yices_check_arith_term(e->val.term) && ! yices_check_arith_ff_term(e->val.term)) {
       report_yices_error(stack);
     }
     rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
@@ -1916,9 +1916,14 @@ void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
     rba_buffer_mul_const(b, &e->val.rational);
     break;
 
+  case TAG_FINITEFIELD:
+    // TODO implement me
+    assert(false);
+    break;
+
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
-    if (! yices_check_arith_term(e->val.term) ||
+    if ((! yices_check_arith_term(e->val.term) && ! yices_check_arith_ff_term(e->val.term)) ||
         ! yices_check_mul_term(b, e->val.term)) {
       report_yices_error(stack);
     }
@@ -5496,7 +5501,15 @@ static void check_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  // TODO implement me
+  uint32_t i;
+  rba_buffer_t *b;
+
+  b = tstack_get_abuffer(stack);
+  for (i=0; i<n; i++) {
+    add_elem(stack, b, f+i);
+  }
+  tstack_pop_frame(stack);
+  set_arith_result(stack, b);
 }
 
 /*
@@ -5508,8 +5521,16 @@ static void check_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  // TODO implement me
-}
+  uint32_t i;
+  rba_buffer_t *b;
+
+  b = tstack_get_abuffer(stack);
+  add_elem(stack, b, f);
+  for (i=1; i<n; i++) {
+    mul_elem(stack, b, f+i);
+  }
+  tstack_pop_frame(stack);
+  set_arith_result(stack, b);}
 
 
 /*
