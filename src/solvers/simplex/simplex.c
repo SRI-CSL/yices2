@@ -7172,7 +7172,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   int32_t new_idx, lb, ub;
   literal_t l;
 
-  assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
+  assert(arith_var_is_int(&solver->vtbl, x) && ! arith_var_value_is_int(&solver->vtbl, x));
 
   bound = &solver->bound;
   lb = arith_var_lower_index(&solver->vtbl, x);

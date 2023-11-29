@@ -76,6 +76,14 @@ void mcsat_pop(mcsat_solver_t* mcsat);
 int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f);
 
 /*
+ * Set model hint.
+ *
+ * @param mdl the model to use.
+ * @param mdl_filter part of the model to use.
+ */
+void mcsat_set_model_hint(mcsat_solver_t *mcsat, model_t* mdl, uint32_t n, const term_t mdl_filter[]);
+
+/*
  * Solve asserted constraints module given model.
  *
  * @param params Heuristic parameters. If params is NULL, the default settings

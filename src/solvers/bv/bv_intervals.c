@@ -390,12 +390,12 @@ static void bv_interval_add_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
  */
 static inline bool add_overflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 0, sign bit of b = 0, sign bit of a = 1
-  return !sa & !bvconst_tst_bit(b, n-1) & bvconst_tst_bit(a, n-1);
+  return !sa && !bvconst_tst_bit(b, n-1) && bvconst_tst_bit(a, n-1);
 }
 
 static inline bool add_underflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 1, sign bit of b = 1, sign bit of a = 0
-  return sa & bvconst_tst_bit(b, n-1) & !bvconst_tst_bit(a, n-1);
+  return sa && bvconst_tst_bit(b, n-1) && !bvconst_tst_bit(a, n-1);
 }
 
 
@@ -482,12 +482,12 @@ static void bv_interval_sub_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
  */
 static inline bool sub_overflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 0, sign bit of b = 1, sign bit of a = 1
-  return !sa & bvconst_tst_bit(b, n-1) & bvconst_tst_bit(a, n-1);
+  return !sa && bvconst_tst_bit(b, n-1) && bvconst_tst_bit(a, n-1);
 }
 
 static inline bool sub_underflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 1, sign bit of b = 0, sign bit of a = 0
-  return sa & !bvconst_tst_bit(b, n-1) & !bvconst_tst_bit(a, n-1);
+  return sa && !bvconst_tst_bit(b, n-1) && !bvconst_tst_bit(a, n-1);
 }
 
 

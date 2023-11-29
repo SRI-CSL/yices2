@@ -35,8 +35,6 @@ typedef struct mcsat_options_s {
   int32_t nra_bound_max;
   int32_t bv_var_size;
   bool model_interpolation;
-  // ordering for forcing assignment order
-  ivector_t* var_order;
 } mcsat_options_t;
 
 /** Initialize options with default values. */

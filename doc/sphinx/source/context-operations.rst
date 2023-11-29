@@ -939,10 +939,11 @@ Check Modulo a Model and Model Interpolant
 
 When checking satisfiability, it is possible to provide a partial
 model such that the satisfiability is checked for the assertions in
-conjunction with the provided model. To use this functionality, the
-context must be a context initialized with support for MCSAT (see
-yices_new_context, yices_new_config, yices_set_config).
-Here is an example::
+conjunction with the provided model. Moreover, it is possible to
+provide hints as initial model guesses when mcsat decides a
+variable. To use this functionality, the context must be a context
+initialized with support for MCSAT (see yices_new_context,
+yices_new_config, yices_set_config).  Here is an example::
 
    ctx_config_t* config = yices_new_config();
    yices_set_config(config, "solver-type", "mcsat");
@@ -957,6 +958,23 @@ formula ``f``.  In the call to check, we give an array of five
 uninterpreted terms ``a[0]``, ..., ``a[4]``.  This amounts to checking
 the conjunction of ``f`` and the equalities between the unintpreted
 terms and their value in the ``model``.
+
+Here is an example of checking context with model and hint::
+
+   ctx_config_t* config = yices_new_config();
+   yices_set_config(config, "solver-type", "mcsat");
+   context_t *ctx = yices_new_context(config);
+   yices_assert_formula(ctx, f);
+   status = yices_check_context_with_model_and_hint(ctx, NULL, model, 5, a, 3);
+
+In this fragment, similar to the earlier one, we assert a formula
+``f``.  In the call to check on the last line, we give an array of
+five uninterpreted terms ``a[0]``, ..., ``a[4]``.  However, this time
+we would be checking the conjunction of ``f`` and the equalities
+between the first three (the number is given as the last argument)
+unintpreted terms and their value in the ``model``. The remaining two
+terms and their values will be provided as hints to the internal mcsat
+decide method.
 
 The check modulo a model provides an additional functionality, namely,
 the construction of a model interpolant, if the yices context is
@@ -1031,6 +1049,79 @@ yices_set_config). This model interpolant is constructed by calling
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
+
+.. c:function:: smt_status_t yices_check_context_with_model_and_hint(context_t* ctx, const param_t* params, model_t *mdl, uint32_t n, const term_t t[], uint32_t m)
+
+   Checks whether *n* assumptions are satisfiable in a context *ctx*.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *params* is an optional structure to a search-parameter structure.
+
+   - *mdl* is a model
+
+   - *n* is the number of terms in *t*
+
+   - *t* is an array of *n* uninterpreted terms
+
+   - *m* is the number of terms 
+
+   The *params* structure controls search heuristics. If *params* is NULL, default
+   settings are used. See :ref:`params` and :c:func:`yices_check_context`.
+
+   This function checks statisfiability of the constraints in ctx
+   conjoined with a conjunction of equalities defined by *t[i]* and the
+   model, namely,
+
+   *t[0] == v_0 /\ .... /\ t[n-1] = v_{m-1}*,
+
+   and the remaining n-m terms in t are provided with hints from the model, i.e.
+ 
+   *t[m], ... , t[n-1]* will be given *v_{m}, ... , v_{n-1}* values when deciding
+
+   where *v_i* is the value of *t[i]* in *mdl*.
+
+   NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
+   picked for *v_i*.
+
+   If this function returns STATUS_UNSAT and the context supports
+   model interpolation, then one can construct a model interpolant by
+   calling function :c:func:`yices_get_model_interpolant`.
+
+   More precisely:
+
+   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`STATUS_UNSAT`.
+
+   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
+     or :c:enum:`STATUS_UNKNOWN` then the function checks whether
+     *ctx* conjoined with the *n* equalities given by *mdl* and *t* is
+     satisfiable. This is done even if *n* is zero.  The function will
+     then return a code as in :c:func:`yices_check_context`.
+
+   - If *ctx*'s status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+
+
+   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   configured for one-shot solving and *ctx*'s status is anything
+   other than :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If one of the terms *t[i]* is not an uninterpreted:
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
+
+   - If the context does not have the MCSAT solver enabled:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the resulting status is :c:enum:`STATUS_SAT` and context does not support multichecks:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
 .. c:function:: term_t yices_get_model_interpolant(context_t* ctx)
 
    Construct and return a model interpolant.
@@ -1045,7 +1136,9 @@ yices_set_config). This model interpolant is constructed by calling
    Otherwise, it sets an error code and return NULL_TERM.
 
    This is intended to be used after a call to
-   :c:func:`yices_check_context_with_model` that returned
+   :c:func:`yices_check_context_with_model` or
+   :c:func:`yices_check_context_with_model_and_hint`
+   that returned
    :c:enum:`STATUS_UNSAT`. In this case, the function builds an model
    interpolant. The model interpolant is a clause implied by the
    current context that is false in the model provides to
@@ -1112,6 +1205,43 @@ as follows::
    - If something is wrong:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
+
+
+Set Variable Ordering for MCSat
+-------------------------------
+
+It is possible to give a variable ordering for the MCSat search --
+this will make MCSAT to decide the variables in the given order. Note
+that the variables in the given ordering are always decided earlier
+than the ones not in the ordering. Therefore, the ordering variables
+are not affected by the dynamic variable decision heuristic like
+VSIDS. Moreover, a subsequent calls to this operation will overwrite
+previously set ordering.
+
+.. c:function:: smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[], uint32_t n)
+
+   Set the variable ordering for the MCSat search.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *t* is an array of variables
+
+   - *n* is the size of the *t* array
+
+   If the operation fails, it will return :c:enum:`STATUS_ERROR`,
+   otherwise it returns :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If the context is not configured for MCSat:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the terms in the *t* array are not variables:
+
+     -- error code: :c:enum:`VARIABLE_REQUIRED`
 
 
 .. _params:

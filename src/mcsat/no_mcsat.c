@@ -54,6 +54,9 @@ int32_t mcsat_assert_formulas(mcsat_solver_t *mcsat, uint32_t n, const term_t *f
   return 0;
 }
 
+void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_filter, const term_t mdl_filter[]) {
+}
+
 void mcsat_solve(mcsat_solver_t *mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
 }
 
