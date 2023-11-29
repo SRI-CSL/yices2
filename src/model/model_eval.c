@@ -1621,9 +1621,9 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_ROOT_ATOM:
-	// not supported (but don't crash if we see them)
-	v = vtbl_mk_unknown(eval->vtbl);
-	break;
+        // not supported (but don't crash if we see them)
+        v = vtbl_mk_unknown(eval->vtbl);
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
