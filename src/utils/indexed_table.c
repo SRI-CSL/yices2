@@ -10,7 +10,7 @@ static inline size_t elem_size(const indexed_table_t *t) {
 }
 
 static inline void check_nelems(const indexed_table_t *t) {
-  if (t->size > UINT32_MAX / elem_size(t))
+  if (t->size > t->vtbl->max_elems)
     out_of_memory();
 }
 
@@ -28,7 +28,8 @@ static void extend(indexed_table_t *t) {
 
   t->elems = safe_realloc(t->elems, n * elem_size(t));
 
-  t->vtbl->extend(t);
+  if (t->vtbl->extend)
+    t->vtbl->extend(t);
 }
 
 void indexed_table_init(indexed_table_t *t, uindex_t n,

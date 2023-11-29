@@ -45,17 +45,6 @@
 
 
 /*
- * Extend table.
- */
-static void extend_node_table(indexed_table_t *table) {
-  // abort if the new size is too large
-  if (table->size > MAX_NODE_TABLE_SIZE) {
-    out_of_memory();
-  }
-}
-
-
-/*
  * Initialize a node table (empty)
  * - n = initial size
  */
@@ -64,13 +53,10 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
     n = DEF_NODE_TABLE_SIZE;
   }
 
-  if (n > MAX_NODE_TABLE_SIZE) {
-    out_of_memory();
-  }
-
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(node_desc_t),
-    .extend = extend_node_table
+    .max_elems = MAX_NODE_TABLE_SIZE,
+    .extend = NULL
   };
 
   indexed_table_init(&table->nodes, n, &vtbl);

@@ -31,10 +31,8 @@
  * Extend the table.
  */
 static void extend_pprod_table(indexed_table_t *t) {
-  uint32_t n = t->size;
   pprod_table_t *pprods = (pprod_table_t *) t;
-  
-  pprods->mark = extend_bitvector(pprods->mark, n);
+  pprods->mark = extend_bitvector(pprods->mark, t->size);
 }
 
 
@@ -46,12 +44,10 @@ void init_pprod_table(pprod_table_t *table, uint32_t n) {
   if (n == 0) {
     n = PPROD_TABLE_DEF_SIZE;
   }
-  if (n >= PPROD_TABLE_MAX_SIZE) {
-    out_of_memory();
-  }
 
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(pprod_table_elem_t),
+    .max_elems = PPROD_TABLE_MAX_SIZE,
     .extend = extend_pprod_table
   };
   

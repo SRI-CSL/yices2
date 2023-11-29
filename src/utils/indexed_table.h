@@ -34,6 +34,9 @@ typedef struct indexed_table_vtbl_s {
   /* The size of an individual element. */
   size_t elem_size;
 
+  /* The maximum number of elements permitted in the table. */
+  uindex_t max_elems;
+
   /* Called after extending the table. */
   void (*extend)(indexed_table_t *t);
 } indexed_table_vtbl_t;

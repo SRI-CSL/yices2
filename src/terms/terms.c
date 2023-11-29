@@ -119,16 +119,8 @@ static void default_special_finalizer(special_term_t *s, term_kind_t tag) {
  * Callback for indexed_table::extend.
  */
 static void term_table_extend(indexed_table_t *t) {
-  uint32_t n = t->size;
-
-  // force abort if n is too large
-  if (n > YICES_MAX_TERMS) {
-    out_of_memory();
-  }
-
   term_table_t *terms = (term_table_t *)t;
-
-  terms->mark = extend_bitvector(terms->mark, n);
+  terms->mark = extend_bitvector(terms->mark, t->size);
 }
 
 
@@ -138,16 +130,12 @@ static void term_table_extend(indexed_table_t *t) {
  * - ptbl = attached power-product table.
  */
 static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl, pprod_table_t *ptbl) {
-  // abort if n is too large
-  if (n > YICES_MAX_TERMS) {
-    out_of_memory();
-  }
-
   /* The indexed_table_elem_t must be first. */
   assert(offsetof(term_desc_t, elem) == 0);
   
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(term_desc_t),
+    .max_elems = YICES_MAX_TERMS,
     .extend = term_table_extend
   };
   

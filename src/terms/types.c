@@ -91,12 +91,6 @@ static inline void delete_descriptor(type_macro_t *d) {
 }
 
 
-static void type_mtbl_extend(indexed_table_t *table) {
-  if (table->nelems > TYPE_MACRO_MAX_SIZE)
-    out_of_memory();
-}
-
-
 /*
  * Initialize the macro table
  * - n = initial size
@@ -106,13 +100,9 @@ static void type_mtbl_extend(indexed_table_t *table) {
  *   on the first addition.
  */
 static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
-  if (n > TYPE_MACRO_MAX_SIZE) {
-    out_of_memory();
-  }
-  
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(type_mtbl_elem_t),
-    .extend = type_mtbl_extend
+    .max_elems = TYPE_MACRO_MAX_SIZE,
   };
 
   indexed_table_init(&table->macros, n, &vtbl);
@@ -207,12 +197,6 @@ static void typename_finalizer(stbl_rec_t *r) {
   string_decref(r->string);
 }
 
-static void type_table_exend(indexed_table_t *t) {
-  if (t->nelems > YICES_MAX_TYPES) {
-    out_of_memory();
-  }
-}
-
 /*
  * Initialize table, with initial size = n.
  */
@@ -227,7 +211,7 @@ static void type_table_init(type_table_t *table, uint32_t n) {
 
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(type_desc_t),
-    .extend = type_table_exend
+    .max_elems = YICES_MAX_TYPES,
   };
   
   indexed_table_init(&table->types, n, &vtbl);
