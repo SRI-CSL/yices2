@@ -17,7 +17,7 @@
 (assert (< (+ (- 7) pure_y) 0))
 
 (assert (= pure_xy 7))
-(assert (= pure_xy (* x y)))
+(assert (= (+ pure_xy (* x (- y))) 0))
 
 (check-sat)
 (exit)
