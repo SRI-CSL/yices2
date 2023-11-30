@@ -111,6 +111,7 @@ typedef enum tag_enum {
   TAG_MACRO,            // type macro (index in the type table)
   TAG_ATTRIBUTE,        // attribute value (index in an attribute value table)
   TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
+  TAG_ARITH_FF_BUFFER,  // polynomial buffer (finite field coefficients)
   TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
   TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
   TAG_BVLOGIC_BUFFER,   // array of bits
@@ -163,6 +164,11 @@ typedef struct ff_s {
   rational_t mod;
 } ff_t;
 
+typedef struct mod_rba_buffer_s {
+  rba_buffer_t *b;
+  rational_t mod;
+} mod_rba_buffer_t;
+
 // element on the stack
 typedef struct stack_elem_s {
   tag_t tag;
@@ -179,6 +185,7 @@ typedef struct stack_elem_s {
     int32_t macro;
     aval_t aval;
     rba_buffer_t *arith_buffer;
+    mod_rba_buffer_t mod_arith_buffer;
     bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
     bvlogic_buffer_t *bvlogic_buffer;

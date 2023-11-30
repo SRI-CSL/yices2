@@ -234,6 +234,7 @@
  * The enumeration order is significant. We can cheaply check whether
  * a term is constant, variable or composite.
  */
+// TODO add finite field stuff
 typedef enum {
   /*
    * Special marks
@@ -731,13 +732,32 @@ extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
 /*
  * FINITE FIELD TERMS
  */
+
 extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod);
 
 /*
- * Check whether b stores an integer polynomial
- * TODO implement
+ * Arithmetic polynomial
+ * - all variables of b must be real or integer terms defined in table
+ * - b must be normalized and b->ptbl must be the same as table->ptbl
+ * - if b contains a non-linear polynomial then the power products that
+ *   occur in p are converted to terms (using pprod_term)
+ * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
+ *   where x_i is a term.
+ *
+ * SIDE EFFECT: b is reset to zero
  */
-extern bool arith_poly_is_ff(const term_table_t *table, rba_buffer_t *b, type_t tau_ff);
+extern term_t arith_ff_poly(term_table_t *table, type_t tau, rba_buffer_t *b);
+
+/*
+ * Atom (t == 0)
+ * - t must be an arithmetic term
+ */
+extern term_t arith_ff_eq_atom(term_table_t *table, term_t t);
+
+/*
+ * Simple equality between two arithmetic terms (left == right)
+ */
+extern term_t arith_ff_bineq_atom(term_table_t *table, term_t left, term_t right);
 
 
 /*

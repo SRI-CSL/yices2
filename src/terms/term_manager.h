@@ -460,6 +460,72 @@ extern term_t mk_arith_rdiv(term_manager_t *manager, term_t t1, term_t t2);
 
 
 /*
+ * FINITE FIELD ARITHMETIC
+ */
+
+/*
+ * Finite field arithmetic constant
+ * - r must be normalized wrt. mod
+ */
+extern term_t mk_arith_ff_constant(term_manager_t *manager, rational_t *r, rational_t *mod);
+
+/*
+ * Convert b to a finite field arithmetic term:
+ * - b->ptbl must be equal to manager->pprods
+ * - b may be the same as manager->arith_buffer
+ * - tau must be a type in manager->types
+ * - side effect: b is reset
+ *
+ * - if b is a constant then a constant finite field is created
+ * - if b is of the form 1. t then t is returned
+ * - if b is of the from 1. t_1^d_1 ... t_n^d_n then a power product is returned
+ * - otherwise a polynomial term is created
+ */
+extern term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);
+
+/*
+ * Variant: use the term table
+ */
+extern term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod);
+
+/*
+ * Create a finite field arithmetic atom from the content of buffer b:
+ * - b->ptbl must be equal to manager->pprods
+ * - b may be the same as manager->arith_buffer
+ * - all functions normalize b first
+ * - tau must be a type in manager->types
+ * - side effect: b is reset
+ */
+// TODO implement me
+extern term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);   // b == 0
+extern term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);  // b != 0
+
+/*
+ * Variant: create an arithmetic atom from term t
+ */
+// TODO implement me
+extern term_t mk_arith_ff_term_eq0(term_manager_t *manager, term_t t);   // t == 0
+extern term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t);  // t != 0
+
+/*
+ * Binary atoms
+ * - t1 and t2 must be finite field arithmetic terms in manager->terms
+ * - t1 and t2 must have the same finite field type tau
+ */
+// TODO implement me
+extern term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2);   // t1 == t2
+extern term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2);  // t1 != t2
+
+/*
+ * Variants: direct construction/simplification from a term table
+ * These functions normalize b then create an atom
+ * - side effect: b is reset
+ * If simplify_ite is true, simplifications are enabled
+ */
+extern term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);   // b == 0
+
+
+/*
  * BITVECTOR TERMS AND ATOMS
  */
 

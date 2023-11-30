@@ -2434,9 +2434,7 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
     return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
 
   case TAG_FINITEFIELD:
-      // TODO change this once we have big mods
-    return is_ff_type(__yices_globals.types, tau) && q_is_smallint(&e->val.ff.mod)
-      && q_get_smallint(&e->val.ff.mod) == ff_type_size(__yices_globals.types, tau);
+    return is_ff_type(__yices_globals.types, tau) && q_eq(&e->val.ff.mod, ff_type_size_rat(__yices_globals.types, tau));
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
@@ -2445,6 +2443,9 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
   case TAG_ARITH_BUFFER:
     return is_real_type(tau) ||
       (is_integer_type(tau) && yices_arith_buffer_is_int(e->val.arith_buffer));
+
+  case TAG_ARITH_FF_BUFFER:
+    return is_ff_type(__yices_globals.types, tau) && q_eq(&e->val.mod_arith_buffer.mod, ff_type_size_rat(__yices_globals.types, tau));
 
   case TAG_BVARITH64_BUFFER:
     n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);

@@ -1959,6 +1959,11 @@ static bool check_arith_constant(term_manager_t *mngr, term_t t) {
   return true;
 }
 
+static bool check_arith_ff_constant(term_manager_t *mngr, term_t t) {
+  // TODO implement me
+  return false;
+}
+
 // Check whether t is a bitvector term, t must be valid
 static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -7305,6 +7310,14 @@ term_t arith_buffer_get_gt0_atom(rba_buffer_t *b) {
 
 term_t arith_buffer_get_lt0_atom(rba_buffer_t *b) {
   return mk_arith_lt0(__yices_globals.manager, b);
+}
+
+term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_term(__yices_globals.manager, b, mod);
+}
+
+term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_eq0(__yices_globals.manager, b, mod);
 }
 
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {

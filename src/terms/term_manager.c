@@ -773,6 +773,8 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
  *  ARITHMETIC TERMS  *
  *********************/
 
+// TODO make some rewriting functions finite field compatible
+
 /*
  * Arithmetic constant (rational)
  * - r must be normalized
@@ -827,6 +829,51 @@ static term_t arith_buffer_to_term(term_table_t *tbl, rba_buffer_t *b) {
   return t;
 }
 
+/*
+ * Arithmetic constant (finite field)
+ * - r must be normalized wrt. mod
+ */
+term_t mk_arith_ff_constant(term_manager_t *manager, rational_t *r, rational_t *mod) {
+  return arith_ff_constant(manager->terms, r, mod);
+}
+
+static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod) {
+  mono_t *m;
+  pprod_t *r;
+  uint32_t n;
+  term_t t;
+
+  assert(b->ptbl == tbl->pprods);
+
+  n = b->nterms;
+  if (n == 0) {
+    // TODO generate/get a zero term mod mod
+    t = zero_term;
+  } else if (n == 1) {
+    m = rba_buffer_root_mono(b); // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant polynomial
+      t = arith_ff_constant(tbl, &m->coeff, mod);
+    } else if (q_is_one(&m->coeff)) {
+      // term or power product
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
+    } else {
+      // can't simplify
+      t = arith_poly(tbl, b);
+    }
+  } else {
+    t = arith_poly(tbl, b);
+  }
+
+  reset_rba_buffer(b);
+
+  // TODO assert that mod is type t's ff-size
+
+  return t;
+}
+
+
 
 term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
   return arith_buffer_to_term(manager->terms, b);
@@ -834,6 +881,14 @@ term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
 
 term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b) {
   return arith_buffer_to_term(tbl, b);
+}
+
+term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, rational_t *mod) {
+  return arith_ff_buffer_to_term(manager->terms, b, mod);
+}
+
+term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod) {
+  return arith_ff_buffer_to_term(tbl, b, mod);
 }
 
 

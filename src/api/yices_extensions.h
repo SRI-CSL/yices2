@@ -234,6 +234,15 @@ extern term_t arith_buffer_get_gt0_atom(rba_buffer_t *b);
  */
 extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
 
+/*
+ * similar to arith_buffer_get_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod);
+
+/*
+ * similar to arith_buffer_get_eq0_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod);
 
 /*
  * Convert b to a term then reset b.
