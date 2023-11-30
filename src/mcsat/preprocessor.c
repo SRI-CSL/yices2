@@ -511,7 +511,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       term_t eq_solve_var = NULL_TERM;
       if (is_assertion && is_equality && !is_boolean) {
-        if (current == t) {
+	bool is_lhs_rhs_mixed = desc->arity > 1 &&
+	  term_type_kind(pre->terms, desc->arg[0]) != term_type_kind(pre->terms, desc->arg[1]);
+	// don't rewrite if equality is between mixed terms, e.g. between int and real terms
+	if (!is_lhs_rhs_mixed && current == t) {
           eq_solve_var = preprocessor_get_eq_solved_var(pre, t);
           if (eq_solve_var == NULL_TERM) {
             term_t lhs = desc->arg[0];
