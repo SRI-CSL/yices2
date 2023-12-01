@@ -116,25 +116,32 @@ static void default_special_finalizer(special_term_t *s, term_kind_t tag) {
 
 
 /*
+ * Callback for indexed_table::extend.
+ */
+static void term_table_extend(indexed_table_t *t) {
+  term_table_t *terms = (term_table_t *)t;
+  terms->mark = extend_bitvector(terms->mark, t->size);
+}
+
+
+/*
  * Initialize table, with initial size n.
  * - ttbl = attached type table.
  * - ptbl = attached power-product table.
  */
 static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl, pprod_table_t *ptbl) {
-  // abort if n is too large
-  if (n > YICES_MAX_TERMS) {
-    out_of_memory();
-  }
-
-  table->kind = (unsigned char *) safe_malloc(n * sizeof(unsigned char));
-  table->type = (type_t *) safe_malloc(n * sizeof(type_t));
-  table->desc = (term_desc_t *) safe_malloc(n * sizeof(term_desc_t));
+  /* The indexed_table_elem_t must be first. */
+  assert(offsetof(term_desc_t, elem) == 0);
+  
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(term_desc_t),
+    .max_elems = YICES_MAX_TERMS,
+    .extend = term_table_extend
+  };
+  
+  indexed_table_init(&table->terms, n, &vtbl);
+  
   table->mark = allocate_bitvector(n);
-
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = -1; // empty free list
-  table->live_terms = 0;
 
   table->types = ttbl;
   table->pprods = ptbl;
@@ -157,29 +164,6 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
 
 /*
- * Extend the table: make it 50% larger
- */
-static void term_table_extend(term_table_t *table) {
-  uint32_t n;
-
-  n = table->size + 1;
-  n += n >> 1;
-
-  // force abort if n is too large
-  if (n > YICES_MAX_TERMS) {
-    out_of_memory();
-  }
-
-  table->kind = (unsigned char *) safe_realloc(table->kind, n * sizeof(unsigned char));
-  table->type = (type_t *) safe_realloc(table->type, n * sizeof(type_t));
-  table->desc = (term_desc_t *) safe_realloc(table->desc, n * sizeof(term_desc_t));
-  table->mark = extend_bitvector(table->mark, n);
-  table->size = n;
-}
-
-
-
-/*
  * TERM ALLOCATION
  */
 
@@ -187,26 +171,18 @@ static void term_table_extend(term_table_t *table) {
  * Allocate a new term id
  * - clear its mark. Nothing else is initialized.
  */
-static int32_t allocate_term_id(term_table_t *table) {
-  int32_t i;
-
-  i = table->free_idx;
-  if (i >= 0) {
-    table->free_idx = table->desc[i].integer;
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i == table->size) {
-      term_table_extend(table);
-    }
-    assert(i < table->size);
-  }
+static int32_t allocate_term_id(term_table_t *table,
+				term_kind_t kind,
+				type_t tau) {
+  int32_t i = indexed_table_alloc(&table->terms);
+  *term_desc(table, i) = (term_desc_t) {
+    .kind = kind,
+    .type = tau
+  };
   clr_bit(table->mark, i);
-  table->live_terms ++;
 
   return i;
 }
-
 
 
 /*
@@ -218,10 +194,8 @@ static int32_t allocate_term_id(term_table_t *table) {
 static int32_t new_integer_term(term_table_t *table, term_kind_t tag, type_t tau, int32_t id) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = tau;
-  table->desc[i].integer = id;
+  i = allocate_term_id(table, tag, tau);
+  term_desc(table, i)->integer = id;
 
   return i;
 }
@@ -236,10 +210,8 @@ static int32_t new_integer_term(term_table_t *table, term_kind_t tag, type_t tau
 static int32_t new_ptr_term(term_table_t *table, term_kind_t tag, type_t tau, void *d) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = tau;
-  table->desc[i].ptr = d;
+  i = allocate_term_id(table, tag, tau);
+  term_desc(table, i)->ptr = d;
 
   return i;
 }
@@ -254,11 +226,9 @@ static int32_t new_ptr_term(term_table_t *table, term_kind_t tag, type_t tau, vo
 static int32_t new_rational_term(term_table_t *table, term_kind_t tag, type_t tau, rational_t *a) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = tau;
-  q_init(&table->desc[i].rational);
-  q_set(&table->desc[i].rational, a);
+  i = allocate_term_id(table, tag, tau);
+  q_init(rational_for_idx(table, i));
+  q_set(rational_for_idx(table, i), a);
 
   return i;
 }
@@ -274,11 +244,11 @@ static int32_t new_rational_term(term_table_t *table, term_kind_t tag, type_t ta
 static int32_t new_select_term(term_table_t *table, term_kind_t tag, type_t tau, uint32_t k, term_t t) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = tau;
-  table->desc[i].select.idx = k;
-  table->desc[i].select.arg = t;
+  i = allocate_term_id(table, tag, tau);
+  term_desc(table, i)->select = (select_term_t) {
+    .idx = k,
+    .arg = t
+  };
 
   return i;
 }
@@ -944,19 +914,19 @@ static bool eq_integer_hobj(integer_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  return table->kind[i] == o->tag && table->type[i] == o->tau
-    && table->desc[i].integer == o->id;
+  return kind_for_idx(table, i) == o->tag
+    && type_for_idx(table, i) == o->tau
+    && integer_value_for_idx(table, i) == o->id;
 }
 
 static bool eq_rational_hobj(rational_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  return table->kind[i] == o->tag && q_eq(&table->desc[i].rational, o->a);
+  return kind_for_idx(table, i) == o->tag
+    && q_eq(rational_for_idx(table, i), o->a);
 }
 
 
@@ -976,11 +946,10 @@ static bool eq_composite_hobj(composite_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != o->tag) return false;
+  if (kind_for_idx(table, i) != o->tag) return false;
 
-  d = table->desc[i].ptr;
+  d = ptr_for_idx(table, i);
   n = d->arity;
   return n == o->arity && eq_term_arrays(o->arg, d->arg, n);
 }
@@ -991,11 +960,10 @@ static bool eq_app_hobj(app_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != APP_TERM) return false;
+  if (kind_for_idx(table, i) != APP_TERM) return false;
 
-  d = table->desc[i].ptr;
+  d = composite_for_idx(table, i);
   n = o->n;
   return d->arity == n+1 && d->arg[0] == o->f &&
     eq_term_arrays(o->arg, d->arg + 1, n);
@@ -1007,11 +975,10 @@ static bool eq_update_hobj(update_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != UPDATE_TERM) return false;
+  if (kind_for_idx(table, i) != UPDATE_TERM) return false;
 
-  d = table->desc[i].ptr;
+  d = composite_for_idx(table, i);
   n = o->n;
   return d->arity == n+2 && d->arg[0] == o->f &&
     d->arg[n + 1] == o->v &&
@@ -1024,11 +991,10 @@ static bool eq_forall_hobj(forall_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != FORALL_TERM) return false;
+  if (kind_for_idx(table, i) != FORALL_TERM) return false;
 
-  d = table->desc[i].ptr;
+  d = composite_for_idx(table, i);
   n = o->n;
   return d->arity == n+1 && d->arg[n] == o->p &&
     eq_term_arrays(o->v, d->arg, n);
@@ -1040,11 +1006,10 @@ static bool eq_lambda_hobj(lambda_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != LAMBDA_TERM) return false;
+  if (kind_for_idx(table, i) != LAMBDA_TERM) return false;
 
-  d = table->desc[i].ptr;
+  d = composite_for_idx(table, i);
   n = o->n;
   return d->arity == n+1 && d->arg[n] == o->t && eq_term_arrays(o->v, d->arg, n);
 }
@@ -1054,11 +1019,10 @@ static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
   select_term_t *d;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != o->tag) return false;
+  if (kind_for_idx(table, i) != o->tag) return false;
 
-  d = &table->desc[i].select;
+  d = select_for_idx(table, i);
   return d->idx == o->k && d->arg == o->arg;
 }
 
@@ -1067,11 +1031,10 @@ static bool eq_root_atom_hobj(root_atom_hobj_t *o, int32_t i) {
   root_atom_t *r;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != ARITH_ROOT_ATOM) return false;
+  if (kind_for_idx(table, i) != ARITH_ROOT_ATOM) return false;
 
-  r = table->desc[i].ptr;
+  r = root_atom_for_idx(table, i);
   return r->k == o->k && r->p == o->p && r->r == o->r && r->x == o->x;
 }
 
@@ -1080,52 +1043,48 @@ static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
-  return table->kind[i] == POWER_PRODUCT && table->desc[i].ptr == o->r;
+
+  return kind_for_idx(table, i) == POWER_PRODUCT && pprod_for_idx(table, i);
 }
 
 static bool eq_poly_hobj(poly_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  return table->kind[i] == ARITH_POLY &&
-    rba_buffer_equal_poly(o->b, o->v, table->desc[i].ptr);
+  return kind_for_idx(table, i) == ARITH_POLY &&
+    rba_buffer_equal_poly(o->b, o->v, polynomial_for_idx(table, i));
 }
 
 static bool eq_bvpoly_hobj(bvpoly_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  return table->kind[i] == BV_POLY &&
-    bvarith_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
+  return kind_for_idx(table, i) == BV_POLY &&
+    bvarith_buffer_equal_bvpoly(o->b, o->v, bvpoly_for_idx(table, i));
 }
 
 static bool eq_bvpoly64_hobj(bvpoly64_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  return table->kind[i] == BV64_POLY &&
-    bvarith64_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
+  return kind_for_idx(table, i) == BV64_POLY &&
+    bvarith64_buffer_equal_bvpoly(o->b, o->v, bvpoly64_for_idx(table, i));
 }
 
 static bool eq_bvpoly_buffer_hobj(bvpoly_buffer_hobj_t *o, int32_t i) {
   term_table_t *table;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case BV64_POLY:
-    return bvpoly_buffer_equal_poly64(o->b, table->desc[i].ptr);
+    return bvpoly_buffer_equal_poly64(o->b, bvpoly64_for_idx(table, i));
 
   case BV_POLY:
-    return bvpoly_buffer_equal_poly(o->b, table->desc[i].ptr);
+    return bvpoly_buffer_equal_poly(o->b, bvpoly_for_idx(table, i));
 
   default:
     return false;
@@ -1138,11 +1097,10 @@ static bool eq_bvconst_hobj(bvconst_term_hobj_t *o, int32_t i) {
   uint32_t n;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != BV_CONSTANT) return false;
+  if (kind_for_idx(table, i) != BV_CONSTANT) return false;
 
-  d = table->desc[i].ptr;
+  d = bvconst_for_idx(table, i);
   n = d->bitsize;
   return n == o->bitsize && bvconst_eq(d->data, o->v, (n + 31) >> 5);
 }
@@ -1152,11 +1110,10 @@ static bool eq_bvconst64_hobj(bvconst64_term_hobj_t *o, int32_t i) {
   bvconst64_term_t *d;
 
   table = o->tbl;
-  assert(good_term_idx(table, i));
 
-  if (table->kind[i] != BV64_CONSTANT) return false;
+  if (kind_for_idx(table, i) != BV64_CONSTANT) return false;
 
-  d = table->desc[i].ptr;
+  d = bvconst64_for_idx(table, i);
   return d->bitsize == o->bitsize && d->value == o->v;
 }
 
@@ -1543,7 +1500,7 @@ static void delete_term(term_table_t *table, int32_t i) {
   if (i <= zero_const) return;
 
   // deal with unit types
-  tau = table->type[i];
+  tau = type_for_idx(table, i);
   if (is_unit_type(table->types, tau)) {
     assert(is_unit_type_rep(table, tau, pos_term(i)));
     remove_unit_type_rep(table, tau);
@@ -1559,7 +1516,7 @@ static void delete_term(term_table_t *table, int32_t i) {
   h = 0;   // stops GCC warning
 
   // compute hash and free descriptor
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case UNINTERPRETED_TERM:
     // No descriptor, no hash consing
     goto recycle;
@@ -1573,7 +1530,8 @@ static void delete_term(term_table_t *table, int32_t i) {
   case ARITH_CEIL:
   case ARITH_ABS:
     // The descriptor is an integer nothing to delete.
-    h = hash_integer_term(table->kind[i], table->type[i], table->desc[i].integer);
+    h = hash_integer_term(kind_for_idx(table, i), type_for_idx(table, i),
+			  integer_value_for_idx(table, i));
     break;
 
   case ITE_TERM:
@@ -1600,22 +1558,22 @@ static void delete_term(term_table_t *table, int32_t i) {
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
     // Generic composite
-    d = table->desc[i].ptr;
-    h = hash_composite_term(table->kind[i], d->arity, d->arg);
+    d = composite_for_idx(table, i);
+    h = hash_composite_term(kind_for_idx(table, i), d->arity, d->arg);
     safe_free(d);
     break;
 
   case ITE_SPECIAL:
     // Special composite:
     // call the finalizer before deleting the descriptor
-    d = table->desc[i].ptr;
-    h = hash_composite_term(table->kind[i], d->arity, d->arg);
+    d = composite_for_idx(table, i);
+    h = hash_composite_term(kind_for_idx(table, i), d->arity, d->arg);
     table->finalize(special_desc(d), ITE_SPECIAL);
     safe_free(special_desc(d));
     break;
 
   case APP_TERM:
-    d = table->desc[i].ptr;
+    d = composite_for_idx(table, i);
     n = d->arity;
     assert(n >= 2);
     h = hash_app_term(d->arg[0], n-1, d->arg + 1);
@@ -1623,7 +1581,7 @@ static void delete_term(term_table_t *table, int32_t i) {
     break;
 
   case UPDATE_TERM:
-    d = table->desc[i].ptr;
+    d = composite_for_idx(table, i);
     n = d->arity;
     assert(n >= 3);
     h = hash_update_term(d->arg[0], n-2, d->arg + 1, d->arg[n-1]);
@@ -1631,7 +1589,7 @@ static void delete_term(term_table_t *table, int32_t i) {
     break;
 
   case FORALL_TERM:
-    d = table->desc[i].ptr;
+    d = composite_for_idx(table, i);
     n = d->arity;
     assert(n >= 2);
     h = hash_forall_term(n-1, d->arg, d->arg[n-1]);
@@ -1639,7 +1597,7 @@ static void delete_term(term_table_t *table, int32_t i) {
     break;
 
   case LAMBDA_TERM:
-    d = table->desc[i].ptr;
+    d = composite_for_idx(table, i);
     n = d->arity;
     assert(n >= 2);
     h = hash_lambda_term(n-1, d->arg, d->arg[n-1]);
@@ -1649,57 +1607,56 @@ static void delete_term(term_table_t *table, int32_t i) {
   case SELECT_TERM:
   case BIT_TERM:
     // Select terms: nothing to delete.
-    s = &table->desc[i].select;
-    h = hash_select_term(table->kind[i], s->idx, s->arg);
+    s = select_for_idx(table, i);
+    h = hash_select_term(kind_for_idx(table, i), s->idx, s->arg);
     break;
 
   case ARITH_ROOT_ATOM:
     // Root atoms
-    r = table->desc[i].ptr;
+    r = root_atom_for_idx(table, i);
     h = hash_root_atom(r->k, r->x, r->p, r->r);
     safe_free(r);
     break;
 
   case POWER_PRODUCT:
     // Power products are deleted in garbage collection of pprod.
-    h = hash_power_product(table->desc[i].ptr);
+    h = hash_power_product(pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
     // Free the rational
-    h = hash_rational_term(ARITH_CONSTANT, table->type[i], &table->desc[i].rational);
-    q_clear(&table->desc[i].rational);
+    h = hash_rational_term(ARITH_CONSTANT, type_for_idx(table, i),
+			   rational_for_idx(table, i));
+    q_clear(rational_for_idx(table, i));
     break;
 
   case ARITH_POLY:
-    h = hash_polynomial(table->desc[i].ptr);
-    free_polynomial(table->desc[i].ptr);
+    h = hash_polynomial(polynomial_for_idx(table, i));
+    free_polynomial(polynomial_for_idx(table, i));
     break;
 
   case BV64_CONSTANT:
-    c64 = table->desc[i].ptr;
+    c64 = bvconst64_for_idx(table, i);
     h = hash_bvconst64_term(c64->bitsize, c64->value);
     safe_free(c64);
     break;
 
   case BV_CONSTANT:
-    c = table->desc[i].ptr;
+    c = bvconst_for_idx(table, i);
     h = hash_bvconst_term(c->bitsize, c->data);
     safe_free(c);
     break;
 
   case BV64_POLY:
-    h = hash_bvpoly64(table->desc[i].ptr);
-    free_bvpoly64(table->desc[i].ptr);
+    h = hash_bvpoly64(bvpoly64_for_idx(table, i));
+    free_bvpoly64(bvpoly64_for_idx(table, i));
     break;
 
   case BV_POLY:
-    h = hash_bvpoly(table->desc[i].ptr);
-    free_bvpoly(table->desc[i].ptr);
+    h = hash_bvpoly(bvpoly_for_idx(table, i));
+    free_bvpoly(bvpoly_for_idx(table, i));
     break;
 
-  case UNUSED_TERM:
-  case RESERVED_TERM:
   default:
     assert(false);
     break;
@@ -1710,12 +1667,8 @@ static void delete_term(term_table_t *table, int32_t i) {
 
   // Put i in the free list
  recycle:
-  table->desc[i].integer = table->free_idx;
-  table->free_idx = i;
-  table->kind[i] = UNUSED_TERM;
-
-  assert(table->live_terms > 0);
-  table->live_terms --;
+  term_desc(table, i)->kind = UNUSED_TERM;
+  indexed_table_free(&table->terms, i);
 }
 
 
@@ -1738,11 +1691,9 @@ static void add_primitive_terms(term_table_t *table) {
   rational_t q;
   int32_t i;
 
-  i = allocate_term_id(table);
+  i = allocate_term_id(table, RESERVED_TERM, NULL_TYPE);
   assert(i == const_idx);
-  table->kind[i] = RESERVED_TERM;
-  table->type[i] = NULL_TYPE;
-  table->desc[i].ptr = NULL;
+  term_desc(table, i)->ptr = NULL;
 
   i = constant_term(table, bool_type(table->types), 0);
   assert(i == true_term);
@@ -1794,9 +1745,9 @@ static void delete_name_table(ptr_hmap_t *table) {
 static void delete_term_descriptors(term_table_t *table) {
   uint32_t i, n;
 
-  n = table->nelems;
+  n = nterms(table);
   for (i=0; i<n; i++) {
-    switch (table->kind[i]) {
+    switch (unchecked_kind_for_idx(table, i)) {
     case UNUSED_TERM:
     case RESERVED_TERM:
     case CONSTANT_TERM:
@@ -1843,29 +1794,29 @@ static void delete_term_descriptors(term_table_t *table) {
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
-      safe_free(table->desc[i].ptr);
+      safe_free(composite_for_idx(table, i));
       break;
 
     case ITE_SPECIAL:
-      table->finalize(special_desc(table->desc[i].ptr), ITE_SPECIAL);
-      safe_free(special_desc(table->desc[i].ptr));
+      table->finalize(special_desc(composite_for_idx(table, i)), ITE_SPECIAL);
+      safe_free(special_desc(composite_for_idx(table, i)));
       break;
 
     case ARITH_CONSTANT:
       // Free the rational
-      q_clear(&table->desc[i].rational);
+      q_clear(rational_for_idx(table, i));
       break;
 
     case ARITH_POLY:
-      free_polynomial(table->desc[i].ptr);
+      free_polynomial(polynomial_for_idx(table, i));
       break;
 
     case BV64_POLY:
-      free_bvpoly64(table->desc[i].ptr);
+      free_bvpoly64(bvpoly64_for_idx(table, i));
       break;
 
     case BV_POLY:
-      free_bvpoly(table->desc[i].ptr);
+      free_bvpoly(bvpoly_for_idx(table, i));
       break;
 
     default:
@@ -1890,17 +1841,10 @@ void delete_term_table(term_table_t *table) {
   delete_ivector(&table->ibuffer);
   delete_pvector(&table->pbuffer);
 
-  safe_free(table->kind);
-  safe_free(table->type);
-  safe_free(table->desc);
   delete_bitvector(table->mark);
-
-  table->kind = NULL;
-  table->type = NULL;
-  table->desc = NULL;
   table->mark = NULL;
 
-
+  indexed_table_destroy(&table->terms);
 }
 
 
@@ -1938,9 +1882,7 @@ void reset_term_table(term_table_t *table) {
   ivector_reset(&table->ibuffer);
   pvector_reset(&table->pbuffer);
 
-  table->nelems = 0;
-  table->free_idx = -1;
-  table->live_terms = 0;
+  indexed_table_clear(&table->terms);
 
   add_primitive_terms(table);
 }
@@ -2061,10 +2003,8 @@ term_t constant_term(term_table_t *table, type_t tau, int32_t index) {
 term_t new_uninterpreted_term(term_table_t *table, type_t tau) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = UNINTERPRETED_TERM;
-  table->type[i] = tau;
-  table->desc[i].ptr = NULL;
+  i = allocate_term_id(table, UNINTERPRETED_TERM, tau);
+  term_desc(table, i)->ptr = NULL;
 
   return pos_term(i);
 }
@@ -2077,10 +2017,8 @@ term_t new_uninterpreted_term(term_table_t *table, type_t tau) {
 term_t new_variable(term_table_t *table, type_t tau) {
   int32_t i;
 
-  i = allocate_term_id(table);
-  table->kind[i] = VARIABLE;
-  table->type[i] = tau;
-  table->desc[i].integer = i;
+  i = allocate_term_id(table, VARIABLE, tau);
+  term_desc(table, i)->integer = i;
 
   return pos_term(i);
 }
@@ -3050,8 +2988,8 @@ pprod_t *pprod_for_term(const term_table_t *table, term_t t) {
 
   r = var_pp(t);
   i = index_of(t);
-  if (table->kind[i] == POWER_PRODUCT) {
-    r = table->desc[i].ptr;
+  if (kind_for_idx(table, i) == POWER_PRODUCT) {
+    r = pprod_for_idx(table, i);
   }
   return r;
 }
@@ -3069,8 +3007,8 @@ static uint32_t main_var_degree(const term_table_t *table, int32_t x) {
   } else {
     assert(is_pos_term(x) && good_term(table, x));
     x = index_of(x);
-    if (table->kind[x] == POWER_PRODUCT) {
-      d = pprod_degree(table->desc[x].ptr);
+    if (kind_for_idx(table, x) == POWER_PRODUCT) {
+      d = pprod_degree(pprod_for_idx(table, x));
     }
   }
 
@@ -3091,9 +3029,9 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
 
   d = 1;
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
-    d = pprod_degree(table->desc[i].ptr);
+    d = pprod_degree(pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
@@ -3103,15 +3041,19 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
     break;
 
   case ARITH_POLY:
-    d = main_var_degree(table, polynomial_main_var(table->desc[i].ptr));
+    d = main_var_degree(table,
+			polynomial_main_var(polynomial_for_idx(table, i)));
     break;
-
+    
   case BV64_POLY:
-    d = main_var_degree(table, bvpoly64_main_var(table->desc[i].ptr));
+    d = main_var_degree(table, bvpoly64_main_var(bvpoly64_for_idx(table, i)));
     break;
 
   case BV_POLY:
-    d = main_var_degree(table, bvpoly_main_var(table->desc[i].ptr));
+    d = main_var_degree(table, bvpoly_main_var(bvpoly_for_idx(table, i)));
+    break;
+
+  default:
     break;
   }
 
@@ -3124,7 +3066,7 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
  */
 static bool not_pprod(const term_table_t *table, int32_t x) {
   assert(is_pos_term(x) && good_term(table, x));
-  return table->kind[index_of(x)] != POWER_PRODUCT;
+  return term_kind(table, x) != POWER_PRODUCT;
 }
 
 /*
@@ -3143,17 +3085,20 @@ bool is_linear_poly(const term_table_t *table, term_t t) {
 
   result = false;
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case ARITH_POLY:
-    result = not_pprod(table, polynomial_main_var(table->desc[i].ptr));
+    result = not_pprod(table,
+		       polynomial_main_var(polynomial_for_idx(table, i)));
     break;
 
   case BV64_POLY:
-    result = not_pprod(table, bvpoly64_main_var(table->desc[i].ptr));
+    result = not_pprod(table,
+		       bvpoly64_main_var(bvpoly64_for_idx(table, i)));
     break;
 
   case BV_POLY:
-    result = not_pprod(table, bvpoly_main_var(table->desc[i].ptr));
+    result = not_pprod(table,
+		       bvpoly_main_var(bvpoly_for_idx(table, i)));
     break;
 
   default:
@@ -3530,7 +3475,7 @@ static void mark_power_product(term_table_t *table, int32_t ptr, pprod_t *r) {
 static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   assert(term_idx_is_marked(table, i));
 
-  switch (table->kind[i]) {
+  switch (unchecked_kind_for_idx(table, i)) {
   case UNUSED_TERM:
   case RESERVED_TERM:
   case CONSTANT_TERM:
@@ -3549,12 +3494,12 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case ARITH_CEIL:
   case ARITH_ABS:
     // i has a single subterm stored in desc[i].integer
-    mark_and_explore_term(table, ptr, table->desc[i].integer);
+    mark_and_explore_term(table, ptr, integer_value_for_idx(table, i));
     break;
 
   case ARITH_ROOT_ATOM:
     // i is a root atom
-    mark_root_atom(table, ptr, table->desc[i].ptr);
+    mark_root_atom(table, ptr, root_atom_for_idx(table, i));
     break;
 
   case ITE_TERM:
@@ -3585,34 +3530,34 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
     // i's descriptor is a composite term
-    mark_composite_term(table, ptr, table->desc[i].ptr);
+    mark_composite_term(table, ptr, composite_for_idx(table, i));
     break;
 
   case ITE_SPECIAL:
     // TODO: do we need a callback here for scanning the extra component?
-    mark_composite_term(table, ptr, table->desc[i].ptr);
+    mark_composite_term(table, ptr, composite_for_idx(table, i));
     break;
 
   case SELECT_TERM:
   case BIT_TERM:
     // i's descriptor is a select term
-    mark_select_term(table, ptr, &table->desc[i].select);
+    mark_select_term(table, ptr, select_for_idx(table, i));
     break;
 
   case POWER_PRODUCT:
-    mark_power_product(table, ptr, table->desc[i].ptr);
+    mark_power_product(table, ptr, pprod_for_idx(table, i));
     break;
 
   case ARITH_POLY:
-    mark_polynomial(table, ptr, table->desc[i].ptr);
+    mark_polynomial(table, ptr, polynomial_for_idx(table, i));
     break;
 
   case BV64_POLY:
-    mark_bvpoly64(table, ptr, table->desc[i].ptr);
+    mark_bvpoly64(table, ptr, bvpoly64_for_idx(table, i));
     break;
 
   case BV_POLY:
-    mark_bvpoly(table, ptr, table->desc[i].ptr);
+    mark_bvpoly(table, ptr, bvpoly_for_idx(table, i));
     break;
 
   default:
@@ -3635,7 +3580,7 @@ static void mark_live_terms(term_table_t *table) {
   type_table_t *types;
   uint32_t i, n;
 
-  n = table->nelems;
+  n = nterms(table);
   for (i=0; i<n; i++) {
     if (term_idx_is_marked(table, i)) {
       mark_reachable_terms(table, i, i);
@@ -3647,7 +3592,7 @@ static void mark_live_terms(term_table_t *table) {
   types = table->types;
   for (i=1; i<n; i++) {
     if (term_idx_is_marked(table, i) ) {
-      type_table_set_gc_mark(types, table->type[i]);
+      type_table_set_gc_mark(types, type_for_idx(table, i));
     }
   }
 }
@@ -3704,18 +3649,21 @@ void term_table_gc(term_table_t *table, bool keep_named) {
     stbl_remove_records(&table->stbl, table, dead_term_symbol);
   }
 
-  // force garbage collection in the type and power-product tables
-  type_table_gc(table->types, keep_named);
-  pprod_table_gc(table->pprods);
-
   // delete the unmarked terms
-  n = table->nelems;
+  n = nterms(table);
   for (i=0; i<n; i++) {
-    if (! term_idx_is_marked(table, i) && table->kind[i] != UNUSED_TERM) {
+    if (! term_idx_is_marked(table, i)
+	&& unchecked_kind_for_idx(table, i) != UNUSED_TERM) {
       delete_term(table, i);
     }
   }
 
+  /* Now, garbage collect the types and power products. This
+     collection must be done after the terms have been removed so that
+     any use of types from within delete_term is valid. */
+  type_table_gc(table->types, keep_named);
+  pprod_table_gc(table->pprods);
+
   // clear the marks
-  clear_bitvector(table->mark, table->size);
+  clear_bitvector(table->mark, n);
 }

@@ -23,8 +23,16 @@
 #ifndef __INT_POWERS_H
 #define __INT_POWERS_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
+/*
+ * Return true iff N is a power of two.
+ */
+static inline bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+				   
 /*
  * Return x^d (modulo 2^32 or 2^64)
  */

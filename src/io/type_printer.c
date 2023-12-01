@@ -250,10 +250,10 @@ static uint32_t max_name_length(type_table_t *tbl) {
   uint32_t max, l, n, i;
 
   max = 0;
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
-      name = tbl->name[i];
+      name = type_name(tbl, i);
       if (name != NULL) {
         l = strlen(name);
         if (l > max) {
@@ -311,7 +311,7 @@ void print_type_table(FILE *f, type_table_t *tbl) {
     name_size = 20;
   }
 
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
       // id, flags, card
@@ -389,7 +389,7 @@ void print_type_macros(FILE *f, type_table_t *tbl) {
 
   mtbl = tbl->macro_tbl;
   if (mtbl != NULL) {
-    n = mtbl->nelems;
+    n = type_macro_nelems(mtbl);
     for (i=0; i<n; i++) {
       if (good_type_macro(mtbl, i)) {
         print_macro_def(f, tbl, i);
@@ -535,7 +535,7 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
 
   init_yices_pp(&printer, f, &area, PP_VMODE, 0);
 
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
       fprintf(f, "type[%"PRIu32"]: ", i);

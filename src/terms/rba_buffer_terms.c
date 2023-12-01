@@ -39,7 +39,7 @@ void rba_buffer_add_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_add_pp(b, pprod_for_idx(table, i));
     break;
@@ -76,7 +76,7 @@ void rba_buffer_sub_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_sub_pp(b, pprod_for_idx(table, i));
     break;
@@ -113,7 +113,7 @@ void rba_buffer_mul_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_mul_pp(b, pprod_for_idx(table, i));
     break;
@@ -151,7 +151,7 @@ void rba_buffer_add_const_times_term(rba_buffer_t *b, term_table_t *table, ratio
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_add_mono(b, a, pprod_for_idx(table, i));
     break;
@@ -196,7 +196,7 @@ void rba_buffer_mul_term_power(rba_buffer_t *b, term_table_t *table, term_t t, u
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
     rba_buffer_mul_pp(b, r);

@@ -2612,7 +2612,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   // Remember existing terms
-  mcsat->terms_size_on_solver_entry = mcsat->terms->nelems;
+  mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
   mcsat_heuristics_init(mcsat);
