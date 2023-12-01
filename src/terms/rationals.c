@@ -439,7 +439,7 @@ void q_normalize(rational_t *r) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-	mpqstore_free(&mpq_store, q);
+	      mpqstore_free(&mpq_store, q);
         set_rat32(r, (int32_t) num, (uint32_t) den);
       }
     }

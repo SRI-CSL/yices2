@@ -1645,8 +1645,8 @@ bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
     if (term_kind(terms, t) == ARITH_CONSTANT) {
       d = rational_term_desc(terms, t);
       if (q_is_nonzero(d)) {
-	q_set(result, d);
-	ok =true;
+        q_set(result, d);
+        ok = true;
       }
     }
     break;
@@ -1656,9 +1656,9 @@ bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
     if (rba_buffer_is_constant(c)) {
       m = rba_buffer_get_constant_mono(c);
       if (m != NULL) {
-	assert(q_is_nonzero(&m->coeff));
-	q_set(result, &m->coeff);
-	ok = true;
+        assert(q_is_nonzero(&m->coeff));
+        q_set(result, &m->coeff);
+        ok = true;
       }
     }
     break;

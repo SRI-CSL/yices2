@@ -332,30 +332,30 @@ static void rba_balance_after_delete(rba_buffer_t *b, uint32_t p, uint32_t q) {
       // q is either null if p is the root (then we're done)
       // or q is p's parent and we loop
       if (q != rba_null) {
-	assert(is_parent_node(b, q, p));
-	goto loop;
+        assert(is_parent_node(b, q, p));
+        goto loop;
       }
 
     } else {
       // at least one red child
       if (is_black(b, t)) {
-	// rotate s and r
-	// change r's color to red
-	// change s's color to black
-	b->child[r][i] = b->child[s][1 - i];
-	b->child[s][1 - i] = r;
-	b->child[q][1 - i] = s;
-	mark_red(b, r);
-	mark_black(b, s);
+        // rotate s and r
+        // change r's color to red
+        // change s's color to black
+        b->child[r][i] = b->child[s][1 - i];
+        b->child[s][1 - i] = r;
+        b->child[q][1 - i] = s;
+        mark_red(b, r);
+        mark_black(b, s);
 
-	t = r;
-	r = s;
-	s = b->child[r][i];
+        t = r;
+        r = s;
+        s = b->child[r][i];
       }
 
       assert(is_black(b, p) && is_black(b, r) && is_red(b, t) &&
-	     p == b->child[q][i] && r == b->child[q][1 - i] &&
-	     s == b->child[r][i] && t == b->child[r][1 - i]);
+	      p == b->child[q][i] && r == b->child[q][1 - i] &&
+	      s == b->child[r][i] && t == b->child[r][1 - i]);
 
       // rotate r and q and change colors
       // r takes the same color as q
@@ -1132,7 +1132,7 @@ void rba_buffer_mul_pp(rba_buffer_t *b, pprod_t *r) {
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	p->prod = pprod_mul(tbl, p->prod, r);
+        p->prod = pprod_mul(tbl, p->prod, r);
       }
     }
   }
@@ -1151,7 +1151,6 @@ static void mul_negpp_tree(rba_buffer_t *b, pprod_t *r, uint32_t x) {
     mul_pp_tree(b, r, b->child[x][0]);
     mul_pp_tree(b, r, b->child[x][1]);
   }
-
 }
 
 void rba_buffer_mul_negpp(rba_buffer_t *b, pprod_t *r) {
@@ -1169,8 +1168,8 @@ void rba_buffer_mul_negpp(rba_buffer_t *b, pprod_t *r) {
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	p->prod = pprod_mul(tbl, p->prod, r);
-	q_neg(&p->coeff);
+        p->prod = pprod_mul(tbl, p->prod, r);
+        q_neg(&p->coeff);
       }
     }
   }
@@ -1210,8 +1209,8 @@ void rba_buffer_mul_mono(rba_buffer_t *b, const rational_t *a, pprod_t *r) {
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	p->prod = pprod_mul(tbl, p->prod, r);
-	q_mul(&p->coeff, a);
+        p->prod = pprod_mul(tbl, p->prod, r);
+        q_mul(&p->coeff, a);
       }
     }
   }
@@ -1368,7 +1367,7 @@ void rba_buffer_add_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_add_mono(b, &p->coeff, p->prod);
+        rba_add_mono(b, &p->coeff, p->prod);
       }
     }
   }
@@ -1404,7 +1403,7 @@ void rba_buffer_sub_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_sub_mono(b, &p->coeff, p->prod);
+        rba_sub_mono(b, &p->coeff, p->prod);
       }
     }
   }
@@ -1440,7 +1439,7 @@ void rba_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rationa
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_addmul_mono(b, a, &p->coeff, p->prod);
+        rba_addmul_mono(b, a, &p->coeff, p->prod);
       }
     }
   }
@@ -1476,7 +1475,7 @@ void rba_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const rationa
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_submul_mono(b, a, &p->coeff, p->prod);
+        rba_submul_mono(b, a, &p->coeff, p->prod);
       }
     }
   }
@@ -1519,8 +1518,8 @@ void rba_buffer_add_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	q = pprod_mul(tbl, r, p->prod);
-	rba_add_mono(b, &p->coeff, q);
+        q = pprod_mul(tbl, r, p->prod);
+        rba_add_mono(b, &p->coeff, q);
       }
     }
   }
@@ -1562,8 +1561,8 @@ void rba_buffer_sub_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	q = pprod_mul(tbl, r, p->prod);
-	rba_sub_mono(b, &p->coeff, q);
+        q = pprod_mul(tbl, r, p->prod);
+        rba_sub_mono(b, &p->coeff, q);
       }
     }
   }
@@ -1603,12 +1602,12 @@ void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const r
       p = b1->mono;
       n = b1->num_nodes - 1;
       while (n > 0) {
-	n --;
-	p ++;
-	if (q_is_nonzero(&p->coeff)) {
-	  q = pprod_mul(tbl, r, p->prod);
-	  rba_addmul_mono(b, a, &p->coeff, q);
-	}
+        n--;
+        p++;
+        if (q_is_nonzero(&p->coeff)) {
+          q = pprod_mul(tbl, r, p->prod);
+          rba_addmul_mono(b, a, &p->coeff, q);
+        }
       }
     }
   }
@@ -1648,12 +1647,12 @@ void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, const r
       p = b1->mono;
       n = b1->num_nodes - 1;
       while (n > 0) {
-	n --;
-	p ++;
-	if (q_is_nonzero(&p->coeff)) {
-	  q = pprod_mul(tbl, r, p->prod);
-	  rba_submul_mono(b, a, &p->coeff, q);
-	}
+        n--;
+        p++;
+        if (q_is_nonzero(&p->coeff)) {
+          q = pprod_mul(tbl, r, p->prod);
+          rba_submul_mono(b, a, &p->coeff, q);
+        }
       }
     }
   }
@@ -1690,7 +1689,7 @@ void rba_buffer_add_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rba_b
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_buffer_add_mono_times_buffer(b, b1, &p->coeff, p->prod);
+        rba_buffer_add_mono_times_buffer(b, b1, &p->coeff, p->prod);
       }
     }
   }
@@ -1727,7 +1726,7 @@ void rba_buffer_sub_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rba_b
       n --;
       p ++;
       if (q_is_nonzero(&p->coeff)) {
-	rba_buffer_sub_mono_times_buffer(b, b1, &p->coeff, p->prod);
+        rba_buffer_sub_mono_times_buffer(b, b1, &p->coeff, p->prod);
       }
     }
   }
@@ -1906,7 +1905,7 @@ void rba_buffer_mul_monarray_power(rba_buffer_t *b, monomial_t *poly, pprod_t **
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	rba_buffer_mul_buffer(b, aux); // b := b * aux
+        rba_buffer_mul_buffer(b, aux); // b := b * aux
       }
       d >>= 1;                         // d := d/2
       if (d == 0) break;
@@ -2173,8 +2172,6 @@ static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t v
      tree_is_int(b, b->child[x][1], aux, var_is_int));
 }
 
-
-
 /*
  * Check whether b is an integral polynomial
  */
@@ -2187,7 +2184,7 @@ bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
     n = b->num_nodes;
     for (i=1; i<n; i++) {
       if (!monomial_is_int(&b->mono[i], aux, var_is_int)) {
-	return false;
+        return false;
       }
     }
     return true;

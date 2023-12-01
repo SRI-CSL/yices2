@@ -2476,7 +2476,7 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool 
  * - try to simplify and normalize then build (arith-eq0 t)
  */
 static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
-    term_t aux;
+  term_t aux;
 
   assert(is_arithmetic_term(tbl, t));
 
@@ -3602,14 +3602,14 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
     case ARITH_CONSTANT:
       t = false_term;
       if (q_divides(q, rational_term_desc(tbl, t2))) {
-	t = true_term;
+        t = true_term;
       }
       break;
 
     default:
       // force t1 to be positive
       if (q_is_neg(q)) {
-	t1 = neg_rational(manager, q);
+        t1 = neg_rational(manager, q);
       }
       t = arith_divides(tbl, t1, t2);
       break;
