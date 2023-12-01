@@ -3292,8 +3292,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(co
  *   code = CTX_OPERATION_NOT_SUPPORTED
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_var_order(context_t *ctx,
-                                                                const term_t t[],
-                                                                uint32_t n);
+                                                                uint32_t n,
+								const term_t t[]);
 
 /*
  * Check satisfiability and compute interpolant.
