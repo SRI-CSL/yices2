@@ -484,6 +484,17 @@ extern bool q_divides(const rational_t *r1, const rational_t *r2);
 extern bool q_smt2_divides(const rational_t *r1, const rational_t *r2);
 
 
+/*
+ * Tests on integer rational r mod m
+ */
+static inline bool q_is_zero_mod(const rational_t *r, const rational_t *m) {
+  assert(q_is_integer(r) && q_is_integer(m) && q_is_pos(m));
+  return q_integer_divides((rational_t *)m, r);
+}
+
+static inline bool q_is_nonzero_mod(const rational_t *r, const rational_t *m) {
+  return !q_is_zero_mod(r, m);
+}
 
 
 /*

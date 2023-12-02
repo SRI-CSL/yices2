@@ -1206,6 +1206,8 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "number can't be converted to a bitvector constant", // TSTACK_INVALID_BVCONSTANT
   "error in bitvector arithmetic operation",  //TSTACK_BVARITH_ERROR
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
+  "invlid finite field order",          // TSTACK_INVALID_FFCONSTANT
+  "incompatible finite field sizes",    // TSTACK_INCOMPATIBLE_FFSIZES
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
   "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
   "variables and values not matching",  // TSTACK_VARIABLES_VALUES_NOT_MATCHING
@@ -1482,6 +1484,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
   case TSTACK_INCOMPATIBLE_BVSIZES:
+  case TSTACK_INCOMPATIBLE_FFSIZES:
   case TSTACK_INVALID_BVCONSTANT:
   case TSTACK_INVALID_FFCONSTANT:
   case TSTACK_BVARITH_ERROR:
@@ -2911,6 +2914,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
       break;
 
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
       result = false;
@@ -2929,6 +2933,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
       result = needs_egraph(seen, arith_root_atom_desc(terms, t)->p);
       break;
 
+    case ARITH_FF_EQ_ATOM:
+      result = needs_egraph(seen, arith_ff_eq_arg(terms, t));
+      break;
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case EQ_TERM:
@@ -2940,6 +2948,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -2974,6 +2983,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 
     case ARITH_POLY:
       result = poly_needs_egraph(seen, poly_term_desc(terms, t));
+      break;
+
+    case ARITH_FF_POLY:
+      result = poly_needs_egraph(seen, finitefield_poly_term_desc(terms, t));
       break;
 
     case BV64_POLY:

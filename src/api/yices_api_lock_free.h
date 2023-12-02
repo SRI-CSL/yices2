@@ -503,6 +503,8 @@ extern int32_t _o_yices_scalar_const_value(term_t t, int32_t *val);
 
 extern int32_t _o_yices_rational_const_value(term_t t, mpq_t q);
 
+extern int32_t _o_yices_finitefield_const_value(term_t t, mpq_t q);
+
 extern int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
 
 extern int32_t _o_yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);

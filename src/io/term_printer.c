@@ -570,6 +570,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "reserved",
   "constant",
   "arith-const",
+  "arith-ff-const",
   "bv64-const",
   "bv-const",
   "variable",
@@ -581,6 +582,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "ceil",
   "abs",
   "arith-root-atom",
+  "arith-ff-eq",
   "ite",
   "s-ite",
   "app", // function application
@@ -597,6 +599,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "div",
   "mod",
   "divides",
+  "arith-ff-bineq",
   "bool-to-bv",
   "bvdiv",
   "bvrem",
@@ -613,6 +616,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "bit",
   "pprod",
   "arith-poly",
+  "arith-ff-poly",
   "bv64-poly",
   "bv-poly",
 };
@@ -1813,6 +1817,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
 
   0,                 //  CONSTANT_TERM
   0,                 //  ARITH_CONSTANT
+  0,                 //  ARITH_FF_CONSTANT
   0,                 //  BV64_CONSTANT
   0,                 //  BV_CONSTANT
 
@@ -1826,6 +1831,8 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_CEIL,      //  ARITH_CEIL
   PP_OPEN_ABS,       //  ARITH_ABS
   PP_OPEN_ROOT_ATOM, //  ARITH_ROOT_ATOM
+
+  PP_OPEN_EQ,        // ARITH_FF_EQ_ATOM
 
   PP_OPEN_ITE,       //  ITE_TERM
   PP_OPEN_ITE,       //  ITE_SPECIAL
@@ -1843,6 +1850,9 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_IDIV,      //  ARITH_IDIV
   PP_OPEN_IMOD,      //  ARITH_MOD
   PP_OPEN_DIVIDES,   //  ARITH_DIVIDES_ATOM
+
+  PP_OPEN_EQ,        // ARITH_FF_BINEQ_ATOM
+
   PP_OPEN_BV_ARRAY,  //  BV_ARRAY
   PP_OPEN_BV_DIV,    //  BV_DIV
   PP_OPEN_BV_REM,    //  BV_REM
@@ -1861,6 +1871,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
 
   PP_OPEN_PROD,      //  POWER_PRODUCT
   PP_OPEN_SUM,       //  ARITH_POLY
+  PP_OPEN_SUM,       //  ARITH_FF_POLY
   PP_OPEN_SUM,       //  BV64_POLY
   PP_OPEN_SUM,       //  BV_POLY
 };

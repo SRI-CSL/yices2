@@ -830,7 +830,7 @@ static inline bool is_ff_type(type_table_t *tbl, type_t i) {
   return type_kind(tbl, i) == FF_TYPE;
 }
 
-static inline uint32_t ff_type_size(type_table_t *tbl, type_t i) {
+static inline int32_t ff_type_size(type_table_t *tbl, type_t i) {
   assert(is_ff_type(tbl, i));
   return tbl->desc[i].integer; // TODO use the pointer here for big mods
 }
@@ -839,7 +839,7 @@ static inline rational_t* ff_type_size_rat(type_table_t *tbl, type_t i) {
   // TODO leaking temporary function replace it with ff_type_size once big mods are supported
   rational_t *rat = malloc(sizeof(rational_t));
   q_init(rat);
-  q_set_int64(rat, ff_type_size(tbl, i), 1);
+  q_set_int32(rat, ff_type_size(tbl, i), 1);
   return rat;
 }
 

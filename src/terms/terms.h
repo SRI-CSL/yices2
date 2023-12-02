@@ -234,7 +234,6 @@
  * The enumeration order is significant. We can cheaply check whether
  * a term is constant, variable or composite.
  */
-// TODO add finite field stuff
 typedef enum {
   /*
    * Special marks
@@ -247,6 +246,7 @@ typedef enum {
    */
   CONSTANT_TERM,    // constant of uninterpreted/scalar/boolean types
   ARITH_CONSTANT,   // rational constant
+  ARITH_FF_CONSTANT,  // finite field constant
   BV64_CONSTANT,    // compact bitvector constant (64 bits at most)
   BV_CONSTANT,      // generic bitvector constant (more than 64 bits)
 
@@ -267,6 +267,8 @@ typedef enum {
   ARITH_ABS,          // absolute value
   ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
 
+  ARITH_FF_EQ_ATOM,   // atom t == 0
+
   ITE_TERM,           // if-then-else
   ITE_SPECIAL,        // special if-then-else term (NEW: EXPERIMENTAL)
   APP_TERM,           // application of an uninterpreted function
@@ -284,6 +286,8 @@ typedef enum {
   ARITH_IDIV,         // integer division: (div x y) as defined in SMT-LIB 2
   ARITH_MOD,          // remainder: (mod x y) is y - x * (div x y)
   ARITH_DIVIDES_ATOM, // divisibility test: (divides x y) is true if y = n * x for an integer n
+
+  ARITH_FF_BINEQ_ATOM, // equality: (t1 == t2)  (between two finite field arithmetic terms)
 
   BV_ARRAY,           // array of boolean terms
   BV_DIV,             // unsigned division
@@ -304,6 +308,7 @@ typedef enum {
   // Polynomials
   POWER_PRODUCT,    // power products: (t1^d1 * ... * t_n^d_n)
   ARITH_POLY,       // polynomial with rational coefficients
+  ARITH_FF_POLY,    // polynomial with fintie field coefficients
   BV64_POLY,        // polynomial with 64bit coefficients
   BV_POLY,          // polynomial with generic bitvector coefficients
 } term_kind_t;
@@ -736,8 +741,8 @@ extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
 extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod);
 
 /*
- * Arithmetic polynomial
- * - all variables of b must be real or integer terms defined in table
+ * Finite field arithmetic term
+ * - all variables of b must be finite field terms mod m
  * - b must be normalized and b->ptbl must be the same as table->ptbl
  * - if b contains a non-linear polynomial then the power products that
  *   occur in p are converted to terms (using pprod_term)
@@ -746,7 +751,7 @@ extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *
  *
  * SIDE EFFECT: b is reset to zero
  */
-extern term_t arith_ff_poly(term_table_t *table, type_t tau, rba_buffer_t *b);
+extern term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, rational_t *mod);
 
 /*
  * Atom (t == 0)
@@ -1440,8 +1445,18 @@ static inline rational_t *rational_term_desc(const term_table_t *table, term_t t
   return rational_for_idx(table, index_of(t));
 }
 
+static inline rational_t *finitefield_term_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_CONSTANT);
+  return rational_for_idx(table, index_of(t));
+}
+
 static inline polynomial_t *poly_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_POLY);
+  return polynomial_for_idx(table, index_of(t));
+}
+
+static inline polynomial_t *finitefield_poly_term_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_POLY);
   return polynomial_for_idx(table, index_of(t));
 }
 
@@ -1519,6 +1534,11 @@ static inline term_t arith_eq_arg(const term_table_t *table, term_t t) {
 
 static inline term_t arith_ge_arg(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_GE_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_ff_eq_arg(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_EQ_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 

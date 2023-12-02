@@ -496,14 +496,12 @@ extern term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, ration
  * - tau must be a type in manager->types
  * - side effect: b is reset
  */
-// TODO implement me
 extern term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);   // b == 0
 extern term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);  // b != 0
 
 /*
  * Variant: create an arithmetic atom from term t
  */
-// TODO implement me
 extern term_t mk_arith_ff_term_eq0(term_manager_t *manager, term_t t);   // t == 0
 extern term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t);  // t != 0
 
@@ -512,7 +510,6 @@ extern term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t);  // t !=
  * - t1 and t2 must be finite field arithmetic terms in manager->terms
  * - t1 and t2 must have the same finite field type tau
  */
-// TODO implement me
 extern term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2);   // t1 == t2
 extern term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2);  // t1 != t2
 
@@ -522,7 +519,7 @@ extern term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2);  /
  * - side effect: b is reset
  * If simplify_ite is true, simplifications are enabled
  */
-extern term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite);   // b == 0
+extern term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mod, bool simplify_ite);   // b == 0
 
 
 /*

@@ -7221,6 +7221,19 @@ int32_t _o_yices_rational_const_value(term_t t, mpq_t q) {
   return 0;
 }
 
+EXPORTED int32_t yices_finitefield_const_value(term_t t, mpq_t q) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_finitefield_const_value(t, q));
+}
+
+int32_t _o_yices_finitefield_const_value(term_t t, mpq_t q) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_CONSTANT)) {
+    return -1;
+  }
+  arith_ff_const_value(__yices_globals.terms, t, q);
+  return 0;
+}
+
 
 /*
  * Components of a sum t
@@ -7236,6 +7249,7 @@ EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *t
 int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_SUM) ||
       ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }

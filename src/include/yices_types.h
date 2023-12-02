@@ -135,6 +135,7 @@ typedef enum term_constructor {
   // atomic terms
   YICES_BOOL_CONSTANT,       // boolean constant
   YICES_ARITH_CONSTANT,      // rational constant
+  YICES_ARITH_FF_CONSTANT,   // finite field rational constant
   YICES_BV_CONSTANT,         // bitvector constant
   YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
   YICES_VARIABLE,            // variable in quantifiers
@@ -184,6 +185,7 @@ typedef enum term_constructor {
   // sums
   YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
   YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
+  YICES_ARITH_FF_SUM,        // sum of pairs a * t where a is a rational (and t is an arithmetic term)
 
   // products
   YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)

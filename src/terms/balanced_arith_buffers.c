@@ -1103,6 +1103,57 @@ void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a) {
 
 
 /*
+ * Take all coefficients mode m
+ */
+// m must be postive here
+static void mod_const_tree(rba_buffer_t *b, const rational_t *m, uint32_t x, uint32_t *tbd_s, pprod_t **tbd) {
+  assert(x < b->num_nodes);
+  if (x != rba_null) {
+    q_integer_rem(&b->mono[x].coeff, (rational_t *) m);
+    if (q_is_zero(&b->mono[x].coeff)) {
+      tbd[(*tbd_s)++] = b->mono[x].prod;
+    }
+    mod_const_tree(b, m, b->child[x][0], tbd_s, tbd);
+    mod_const_tree(b, m, b->child[x][1], tbd_s, tbd);
+  }
+}
+
+void rba_buffer_mod_const(rba_buffer_t *b, const rational_t *m) {
+  uint32_t i, j, n, tbd_s;
+  bool new_node;
+
+  assert(q_is_integer(m) && q_is_pos(m));
+
+  // to be deleted
+  pprod_t **tbd = safe_malloc(b->nterms * sizeof(pprod_t*));
+  tbd_s = 0;
+
+  if (rba_tree_is_small(b)) {
+    mod_const_tree(b, m, b->root, &tbd_s, tbd);
+  } else {
+    n = b->num_nodes;
+    for (i = 1; i < n; i++) {
+      if (!q_is_zero(&b->mono[i].coeff)) {
+        assert(q_is_integer(&b->mono[i].coeff));
+        q_integer_rem(&b->mono[i].coeff, (rational_t *) m);
+        if (q_is_zero(&b->mono[i].coeff)) {
+          tbd[tbd_s++] = b->mono[i].prod;
+        }
+      }
+    }
+  }
+  assert(tbd_s <= b->nterms);
+  while(tbd_s) {
+    // "find" the node to set b->stack and delete it
+    j = rba_get_node(b, tbd[--tbd_s], &new_node);
+    assert(!new_node);
+    rba_delete_node(b, j);
+  }
+  safe_free(tbd);
+}
+
+
+/*
  * Multiply by a power product r
  * - the monomial ordering is compatible with product:
  *   p1 < p2 => r * p1 < r * p2

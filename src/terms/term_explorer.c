@@ -30,6 +30,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // RESERVED_TERM
   true,  // CONSTANT_TERM
   true,  // ARITH_CONSTANT
+  true,  // ARITH_FF_CONSTANT
   true,  // BV64_CONSTANT
   true,  // BV_CONSTANT
   true,  // VARIABLE
@@ -41,6 +42,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // ARITH_CEIL
   false, // ARITH_ABS
   false, // ARITH_ROOT_ATOM
+  false, // ARITH_FF_EQ_ATOM
   false, // ITE_TERM
   false, // ITE_SPECIAL
   false, // APP_TERM
@@ -57,6 +59,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // ARITH_IDIV
   false, // ARITH_MOD
   false, // ARITH_DIVIDES
+  false, // ARITH_FF_BINEQ_ATOM
   false, // BV_ARRAY
   false, // BV_DIV
   false, // BV_REM
@@ -73,6 +76,7 @@ static const uint8_t atomic_term_flag[NUM_TERM_KINDS] = {
   false, // BIT_TERM
   false, // POWER_PRODUCT
   false, // ARITH_POLY
+  false, // ARITH_FF_POLY
   false, // BV64_POLY
   false, // BV_POLY
 };
@@ -82,6 +86,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   false, // RESERVED_TERM
   false, // CONSTANT_TERM
   false, // ARITH_CONSTANT
+  false, // ARITH_FF_CONSTANT
   false, // BV64_CONSTANT
   false, // BV_CONSTANT
   false, // VARIABLE
@@ -93,6 +98,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // ARITH_CEIL
   true,  // ARITH_ABS
   true,  // ARITH_ROOT_ATOM
+  true,  // ARITH_FF_EQ_ATOM
   true,  // ITE_TERM
   true,  // ITE_SPECIAL
   true,  // APP_TERM
@@ -109,6 +115,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   true,  // ARITH_IDIV
   true,  // ARITH_MOD
   true,  // ARITH_DIVIDES
+  true,  // ARITH_FF_BINEQ_ATOM
   true,  // BV_ARRAY
   true,  // BV_DIV
   true,  // BV_REM
@@ -125,6 +132,7 @@ static const uint8_t composite_term_flag[NUM_TERM_KINDS] = {
   false, // BIT_TERM
   false, // POWER_PRODUCT
   false, // ARITH_POLY
+  false, // ARITH_FF_POLY
   false, // BV64_POLY
   false, // BV_POLY
 };
@@ -135,6 +143,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_CONSTRUCTOR_ERROR,  // RESERVED_TERM
   YICES_SCALAR_CONSTANT,    // CONSTANT_TERM
   YICES_ARITH_CONSTANT,     // ARITH_CONSTANT
+  YICES_ARITH_FF_CONSTANT,  // ARITH_FF_CONSTANT
   YICES_BV_CONSTANT,        // BV64_CONSTANT
   YICES_BV_CONSTANT,        // BV_CONSTANT
   YICES_VARIABLE,           // VARIABLE
@@ -146,6 +155,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_CEIL,               // ARITH_CEIL
   YICES_ABS,                // ARITH_ABS
   YICES_ARITH_ROOT_ATOM,    // ARITH_ROOT_ATOM
+  YICES_EQ_TERM,            // ARITH_FF_EQ_ATOM
   YICES_ITE_TERM,           // ITE_TERM
   YICES_ITE_TERM,           // ITE_SPECIAL
   YICES_APP_TERM,           // APP_TERM
@@ -162,6 +172,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_IDIV,               // ARITH_IDIV
   YICES_IMOD,               // ARITH_MOD
   YICES_DIVIDES_ATOM,       // ARITH_DIVIDES_ATOM
+  YICES_EQ_TERM,            // ARITH_FF_BINEQ_ATOM
   YICES_BV_ARRAY,           // BV_ARRAY
   YICES_BV_DIV,             // BV_DIV
   YICES_BV_REM,             // BV_REM
@@ -178,6 +189,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_BIT_TERM,           // BIT_TERM
   YICES_POWER_PRODUCT,      // POWER_PRODUCT
   YICES_ARITH_SUM,          // ARITH_POLY
+  YICES_ARITH_FF_SUM,       // ARITH_FF_POLY
   YICES_BV_SUM,             // BV64_POLY
   YICES_BV_SUM,             // BV_POLY
 };
@@ -304,6 +316,7 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
       assert(false);    // fall through to prevent compile-time warning
     case CONSTANT_TERM:
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
     case VARIABLE:
@@ -312,6 +325,7 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
       break;
 
     case ARITH_EQ_ATOM:
+    case ARITH_FF_EQ_ATOM:
     case ARITH_GE_ATOM:
       // internally, these are terms of the form t==0 or t >= 0
       // to be uniform, we report them as binary operators
@@ -347,6 +361,7 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -374,6 +389,10 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
     case ARITH_POLY:
       result = poly_term_desc(table, t)->nterms;
       break;      
+
+    case ARITH_FF_POLY:
+      result = finitefield_poly_term_desc(table, t)->nterms;
+      break;
 
     case BV64_POLY:
       result = bvpoly64_term_desc(table, t)->nterms;
@@ -632,6 +651,11 @@ bool bool_const_value(term_table_t *table, term_t t) {
 void arith_const_value(term_table_t *table, term_t t, mpq_t q) {
   assert(is_pos_term(t));
   q_get_mpq(rational_term_desc(table, t), q);
+}
+
+void arith_ff_const_value(term_table_t *table, term_t t, mpq_t q) {
+  assert(is_pos_term(t));
+  q_get_mpq(finitefield_term_desc(table, t), q);
 }
 
 void bv_const_value(term_table_t *table, term_t t, int32_t a[]) {

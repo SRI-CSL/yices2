@@ -46,6 +46,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
 
   "uninterpreted or Boolean constant",  // CONSTANT_TERM
   "rational constant",                  // ARITH_CONSTANT
+  "finite field constant",              // ARITH_FF_CONSTANT
   "bitvector constant",                 // BV64_CONSTANT
   "bitvector constant",                 // BV_CONSTANT
   "variable",                           // VARIABLE
@@ -57,6 +58,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "ceil",                               // ARITH_CEIL
   "absolute value",                     // ARITH_ABS
   "algebraic root",                     // ARITH_ROOT_ATOM
+  "finite field arithmetic equality",   // ARITH_FF_EQ_ATOM
   "if-then-else",                       // ITE_TERM
   "if-then-else",                       // ITE_SPECIAL
   "uninterpreted function or predicate", // APP_TERM
@@ -73,6 +75,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "integer division",                    // ARITH_IDIV
   "mod",                                 // ARITH_MOD
   "divides",                             // ARITH_DIVIDES_ATOM
+  "finite field arithmetic equality",    // ARITH_FF_BINEQ_ATOM
   "bit-vector",                          // BV_ARRAY
   "bv-div",                              // BV_DIV
   "bv-rem",                              // BV_REM
@@ -89,6 +92,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "bit extrction",                       // BIT_TERM
   "product",                             // POWER_PRODUCT
   "polynomial",                          // ARITH_POLY
+  "finite field polynomial",             // ARITH_FF_POLY
   "bit-vector polynomial",               // BV64_POLY
   "bit-vector polynomial",               // BV_POLY
 };

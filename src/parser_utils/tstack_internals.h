@@ -282,9 +282,9 @@ extern void sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 extern void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 
 // finite field arithmetic
-extern void ff_add_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e);
-extern void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e);
-extern void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e);
+extern void ff_add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 
 // bitvector arithmetic for size <= 64
 extern void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e);

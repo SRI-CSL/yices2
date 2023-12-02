@@ -343,6 +343,14 @@ extern void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
+ * Take all coefficients mod m
+ * - b must have integer coefficients only
+ * - m must be a positive integer
+ */
+extern void rba_buffer_mod_const(rba_buffer_t *b, const rational_t *m);
+
+
+/*
  * Multiply b by power product r
  */
 extern void rba_buffer_mul_pp(rba_buffer_t *b, pprod_t *r);

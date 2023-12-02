@@ -1257,6 +1257,7 @@ static void check_constant_term(tstack_t *stack, stack_elem_t *e) {
   switch (kind) {
   case YICES_BOOL_CONSTANT:
   case YICES_ARITH_CONSTANT:
+  case YICES_ARITH_FF_CONSTANT:
   case YICES_BV_CONSTANT:
     break;
   default:
@@ -2474,19 +2475,36 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
 }
 
 /*
- * Check whether the element on top of stack has a type compatible with tau
+ * Check whether the element has a type compatible with tau
  * - if not, raise exception TYPE_ERROR_IN_QUAL
  */
-static void check_topelem_type(tstack_t *stack, type_t tau) {
-  stack_elem_t *e;
-
-  assert(stack->top > 0);
-  e = stack->elem + (stack->top - 1);
+static void check_elem_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
   if (!stack_elem_has_type(stack, e, tau)) {
     raise_exception(stack, e, SMT2_TYPE_ERROR_IN_QUAL);
   }
 }
 
+static inline void check_topelem_type(tstack_t *stack, type_t tau) {
+  assert(stack->top > 0);
+  check_elem_type(stack, stack->elem + (stack->top - 1), tau);
+}
+
+/*
+ * Finalizes a stack element once the type is known.
+ * Used for (as <elem> <type>) expressions.
+ */
+static void stack_elem_finalize_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    if (q_is_minus_one(&e->val.ff.mod) && is_ff_type(__yices_globals.types, tau)) {
+      q_set(&e->val.ff.mod, ff_type_size_rat(__yices_globals.types, tau));
+    }
+    break;
+
+  default:
+    break;
+  }
+}
 
 
 /*
@@ -2537,8 +2555,12 @@ static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) 
   term_t t;
   type_t tau;
 
-  t = get_term(stack, f);
   tau = f[1].val.type;
+
+  // finalize the type before making it a term
+  stack_elem_finalize_type(stack, f, tau);
+
+  t = get_term(stack, f);
 
   tstack_pop_frame(stack);
   set_term_result(stack, t);

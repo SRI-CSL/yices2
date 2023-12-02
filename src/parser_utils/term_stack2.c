@@ -1080,6 +1080,7 @@ void set_arith_ff_result(tstack_t *stack, rba_buffer_t *b, rational_t *mod) {
   e = stack->elem + (stack->top - 1);
   e->tag = TAG_ARITH_FF_BUFFER;
   e->val.mod_arith_buffer.b = b;
+  q_init(&e->val.mod_arith_buffer.mod);
   q_set(&e->val.mod_arith_buffer.mod, mod);
 }
 
@@ -1965,13 +1966,11 @@ void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
  * FINITE FIELD ARITHMETIC
  */
 
-void ff_add_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e) {
-  rational_t *act_mod;
+void ff_add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   switch (e->tag) {
   case TAG_FINITEFIELD:
     rba_buffer_add_const(b, &e->val.ff.val);
-    act_mod = &e->val.ff.mod;
     break;
 
   case TAG_TERM:
@@ -1980,33 +1979,23 @@ void ff_add_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t
       report_yices_error(stack);
     }
     rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
-    // TODO get type and set act_mod
     break;
 
   case TAG_ARITH_FF_BUFFER:
     rba_buffer_add_buffer(b, e->val.mod_arith_buffer.b);
-    act_mod = &e->val.mod_arith_buffer.mod;
     break;
 
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
     break;
   }
-
-  if (q_is_minus_one(mod)) {
-    q_set(mod, act_mod);
-  } else if (! q_eq(mod, act_mod)) {
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-  }
 }
 
-void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e) {
-  rational_t *act_mod;
+void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   switch (e->tag) {
   case TAG_FINITEFIELD:
     rba_buffer_sub_const(b, &e->val.ff.val);
-    act_mod = &e->val.ff.mod;
     break;
 
   case TAG_TERM:
@@ -2015,33 +2004,23 @@ void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t
       report_yices_error(stack);
     }
     rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
-    // TODO get type and set act_mod
     break;
 
   case TAG_ARITH_FF_BUFFER:
     rba_buffer_sub_buffer(b, e->val.mod_arith_buffer.b);
-    act_mod = &e->val.mod_arith_buffer.mod;
     break;
 
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
     break;
   }
-
-  if (q_is_minus_one(mod)) {
-    q_set(mod, act_mod);
-  } else if (! q_eq(mod, act_mod)) {
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
-  }
 }
 
-void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t *e) {
-  rational_t *act_mod;
+void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   switch (e->tag) {
   case TAG_FINITEFIELD:
     rba_buffer_mul_const(b, &e->val.ff.val);
-    act_mod = &e->val.ff.mod;
     break;
 
   case TAG_TERM:
@@ -2050,7 +2029,6 @@ void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t
       report_yices_error(stack);
     }
     rba_buffer_mul_term(b, __yices_globals.terms, e->val.term);
-    // TODO get type and set act_mod
     break;
 
   case TAG_ARITH_FF_BUFFER:
@@ -2059,18 +2037,11 @@ void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, rational_t *mod, stack_elem_t
       report_yices_error(stack);
     }
     rba_buffer_mul_buffer(b, e->val.mod_arith_buffer.b);
-    act_mod = &e->val.mod_arith_buffer.mod;
     break;
 
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
     break;
-  }
-
-  if (q_is_minus_one(mod)) {
-    q_set(mod, act_mod);
-  } else if (! q_eq(mod, act_mod)) {
-    raise_exception(stack, e, TSTACK_ARITH_ERROR);
   }
 }
 
@@ -5621,6 +5592,45 @@ static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   q_clear(&mod);
 }
 
+static rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
+  term_t t;
+
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    return &e->val.ff.mod;
+
+  case TAG_TERM:
+  case TAG_SPECIAL_TERM:
+    t = e->val.term;
+    if (! yices_check_arith_ff_term(t)) {
+      report_yices_error(stack);
+    }
+    return ff_type_size_rat(__yices_globals.types, term_type(__yices_globals.terms, t));
+
+  case TAG_ARITH_FF_BUFFER:
+    return &e->val.mod_arith_buffer.mod;
+
+  default:
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_FFSIZES);
+    break;
+  }
+}
+
+static void ff_calc_mod(tstack_t *stack, rational_t *mod, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  rational_t *tmp;
+
+  q_set_minus_one(mod);
+  for (i=0; i<n; ++i) {
+    tmp = ff_get_mod(stack, f+i);
+    if (q_is_minus_one(tmp)) { continue; }
+    if (q_is_minus_one(mod)) { q_set(mod, tmp); continue; }
+    if (q_neq(tmp, mod)) {
+      raise_exception(stack, f+i, TSTACK_INCOMPATIBLE_FFSIZES);
+    }
+  }
+}
+
 /*
  * [mk-ff-add <arith> <arith> ]
  */
@@ -5635,10 +5645,10 @@ static void eval_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rational_t mod;
 
   q_init(&mod);
-  q_set_minus_one(&mod);
+  ff_calc_mod(stack, &mod, f, n);
   b = tstack_get_abuffer(stack);
   for (i=0; i<n; i++) {
-    ff_add_elem(stack, b, &mod, f+i);
+    ff_add_elem(stack, b, f+i);
   }
   tstack_pop_frame(stack);
   set_arith_ff_result(stack, b, &mod);
@@ -5661,10 +5671,10 @@ static void eval_mk_ff_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rational_t mod;
 
   q_init(&mod);
-  q_set_minus_one(&mod);
+  ff_calc_mod(stack, &mod, f, n);
   b = tstack_get_abuffer(stack);
   for (i=0; i<n; i++) {
-    ff_sub_elem(stack, b, &mod, f+i);
+    ff_sub_elem(stack, b, f+i);
   }
   tstack_pop_frame(stack);
   set_arith_ff_result(stack, b, &mod);
@@ -5686,11 +5696,11 @@ static void eval_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   rational_t mod;
 
   q_init(&mod);
-  q_set_minus_one(&mod);
+  ff_calc_mod(stack, &mod, f, n);
   b = tstack_get_abuffer(stack);
-  ff_add_elem(stack, b, &mod, f);
+  ff_add_elem(stack, b, f);
   for (i=1; i<n; i++) {
-    ff_mul_elem(stack, b, &mod, f+i);
+    ff_mul_elem(stack, b, f+i);
   }
   tstack_pop_frame(stack);
   set_arith_ff_result(stack, b, &mod);
