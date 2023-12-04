@@ -142,7 +142,7 @@ extern void product_term_component(term_table_t *table, term_t t, uint32_t i, te
  */
 extern bool bool_const_value(term_table_t *table, term_t t);
 extern void arith_const_value(term_table_t *table, term_t t, mpq_t q);
-extern void arith_ff_const_value(term_table_t *table, term_t t, mpq_t q);
+extern void arith_ff_const_value(term_table_t *table, term_t t, mpz_t z);
 extern void bv_const_value(term_table_t *table, term_t t, int32_t a[]);
 extern int32_t generic_const_value(term_table_t *table, term_t t);
 

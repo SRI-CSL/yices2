@@ -1577,6 +1577,17 @@ static inline void type_vector_push(type_vector_t *v, type_t tau) {
  * Otherwise they return false and set the error code and diagnostic data.
  */
 
+// Check whether n (as mpz) is positive
+static bool check_positive_mpz(mpz_t n) {
+  if (mpz_sgn(n) != 1) {
+    error_report_t *error = get_yices_error();
+    error->code = POS_INT_REQUIRED;
+    error->badval = mpz_fits_slong_p(n) ? mpz_get_si(n) : -1;
+    return false;
+  }
+  return true;
+}
+
 // Check whether n is positive
 static bool check_positive(uint32_t n) {
   if (n == 0) {
@@ -2856,12 +2867,14 @@ type_t _o_yices_bv_type(uint32_t size) {
   return bv_type(__yices_globals.types, size);
 }
 
-type_t _o_yices_ff_type(uint32_t size) {
-  // TODO check for prime
-  if (! check_positive(size)) {
+type_t _o_yices_ff_type(mpz_t order) {
+  if (! check_positive_mpz(order)) {
     return NULL_TYPE;
   }
-  return ff_type(__yices_globals.types, size);
+  if (! mpz_probab_prime_p(order, 18)) {
+    return NULL_TYPE;
+  }
+  return ff_type(__yices_globals.types, order);
 }
 
 EXPORTED type_t yices_new_uninterpreted_type(void) {
@@ -7216,16 +7229,16 @@ int32_t _o_yices_rational_const_value(term_t t, mpq_t q) {
   return 0;
 }
 
-EXPORTED int32_t yices_finitefield_const_value(term_t t, mpq_t q) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_finitefield_const_value(t, q));
+EXPORTED int32_t yices_finitefield_const_value(term_t t, mpz_t z) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_finitefield_const_value(t, z));
 }
 
-int32_t _o_yices_finitefield_const_value(term_t t, mpq_t q) {
+int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_CONSTANT)) {
     return -1;
   }
-  arith_ff_const_value(__yices_globals.terms, t, q);
+  arith_ff_const_value(__yices_globals.terms, t, z);
   return 0;
 }
 

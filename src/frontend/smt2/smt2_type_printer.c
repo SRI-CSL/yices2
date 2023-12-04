@@ -89,7 +89,7 @@ static void smt2_pp_type_recur(smt2_pp_t *printer, type_table_t *tbl, type_t tau
       smt2_pp_symbol(printer, name);
     } else {
       pp_open_block(&printer->pp, PP_OPEN_SMT2_FF_TYPE);
-      pp_uint32(&printer->pp, ff_type_size(tbl, tau));
+      pp_rational(&printer->pp, ff_type_size(tbl, tau));
       pp_close_block(&printer->pp, true);
     }
     break;

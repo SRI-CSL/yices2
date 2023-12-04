@@ -487,9 +487,15 @@ extern type_t bv_type(type_table_t *table, uint32_t size);
 
 /*
  * FiniteFiled types
- * This requires 0 < size
+ * This requires order to be a positive prime
  */
-extern type_t ff_type(type_table_t *table, uint32_t size);
+extern type_t ff_type(type_table_t *table, mpz_t order);
+
+/*
+ * FiniteFiled types
+ * The same as above, but accepts a rational_t
+ */
+extern type_t ff_type_r(type_table_t *table, const rational_t *order);
 
 /*
  * Declare a new scalar of cardinality size
@@ -830,22 +836,14 @@ static inline bool is_ff_type(type_table_t *tbl, type_t i) {
   return type_kind(tbl, i) == FF_TYPE;
 }
 
-static inline int32_t ff_type_size(type_table_t *tbl, type_t i) {
+static inline rational_t* ff_type_size(type_table_t *tbl, type_t i) {
   assert(is_ff_type(tbl, i));
-  return tbl->desc[i].integer; // TODO use the pointer here for big mods
-}
-
-static inline rational_t* ff_type_size_rat(type_table_t *tbl, type_t i) {
-  // TODO leaking temporary function replace it with ff_type_size once big mods are supported
-  rational_t *rat = malloc(sizeof(rational_t));
-  q_init(rat);
-  q_set_int32(rat, ff_type_size(tbl, i), 1);
-  return rat;
+  return tbl->desc[i].ptr;
 }
 
 static inline bool ff_type_size_any(type_table_t *tbl, type_t i) {
   assert(is_ff_type(tbl, i));
-  return tbl->desc[i].integer == -1; // TODO use the pointer here for big mods
+  return q_is_minus_one(tbl->desc[i].ptr);
 }
 
 // uninterpreted types

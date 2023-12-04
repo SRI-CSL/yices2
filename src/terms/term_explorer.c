@@ -653,9 +653,9 @@ void arith_const_value(term_table_t *table, term_t t, mpq_t q) {
   q_get_mpq(rational_term_desc(table, t), q);
 }
 
-void arith_ff_const_value(term_table_t *table, term_t t, mpq_t q) {
+void arith_ff_const_value(term_table_t *table, term_t t, mpz_t z) {
   assert(is_pos_term(t));
-  q_get_mpq(finitefield_term_desc(table, t), q);
+  q_get_mpz(finitefield_term_desc(table, t), z);
 }
 
 void bv_const_value(term_table_t *table, term_t t, int32_t a[]) {

@@ -349,9 +349,13 @@ static void erase_type(type_table_t *table, type_t i) {
     return; // never delete predefined types
 
   case BITVECTOR_TYPE:
-  case FF_TYPE: // TODO move down once ptr is in use
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
+    break;
+
+  case FF_TYPE:
+    q_clear((rational_t*)table->desc[i].ptr);
+    safe_free(table->desc[i].ptr);
     break;
 
   case TUPLE_TYPE:
@@ -634,25 +638,33 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
 /*
  * Add type (FiniteField k) and return its id
  * - k must be positive
- * TODO make k arbitrary big by using rational_t
  */
-static type_t new_finite_field_type(type_table_t *table, uint32_t k) {
+static type_t new_finite_field_type(type_table_t *table, const rational_t *order) {
   type_t i;
 
-  assert(0 < k);
+  assert(q_is_integer(order) && q_is_pos(order));
+
+  rational_t *mod = safe_malloc(sizeof(rational_t));
+  q_init(mod);
+  q_set(mod, order);
+
+  mpz_t z;
+  mpz_init(z);
+  q_get_mpz(mod, z);
 
   i = allocate_type_id(table);
   table->kind[i] = FF_TYPE;
-  table->desc[i].integer = k;
+  table->desc[i].ptr = mod;
   table->depth[i] = 0;
-  if (k < 32) {
-    table->card[i] = ((uint32_t) 1) << k;
+  if (mpz_fits_ulong_p(z)) {
+    table->card[i] = mpz_get_ui(z);
     table->flags[i] = SMALL_TYPE_FLAGS;
   } else {
     table->card[i] = UINT32_MAX;
     table->flags[i] = LARGE_TYPE_FLAGS;
   }
 
+  mpz_clear(z);
   return i;
 }
 
@@ -914,9 +926,9 @@ typedef struct bv_type_hobj_s {
 } bv_type_hobj_t;
 
 typedef struct ff_type_hobj_s {
-  int_hobj_t m;      // methods
+  int_hobj_t m;
   type_table_t *tbl;
-  uint32_t size; // TODO change this for bigger int
+  const rational_t *order;
 } ff_type_hobj_t;
 
 typedef struct tuple_type_hobj_s {
@@ -956,8 +968,9 @@ static uint32_t hash_bv_type(bv_type_hobj_t *p) {
   return jenkins_hash_pair(p->size, 0, 0x7838abe2);
 }
 
-static uint32_t hash_ff_type(bv_type_hobj_t *p) {
-  return jenkins_hash_pair(p->size, 0, 0x78210bea);
+static uint32_t hash_ff_type(ff_type_hobj_t *p) {
+  assert(q_is_integer(p->order));
+  return jenkins_hash_pair(q_hash_numerator(p->order), 0, 0x78210bea);
 }
 
 static uint32_t hash_tuple_type(tuple_type_hobj_t *p) {
@@ -1028,11 +1041,11 @@ static bool eq_bv_type(bv_type_hobj_t *p, type_t i) {
   return table->kind[i] == BITVECTOR_TYPE && table->desc[i].integer == p->size;
 }
 
-static bool eq_ff_type(bv_type_hobj_t *p, type_t i) {
+static bool eq_ff_type(ff_type_hobj_t *p, type_t i) {
   type_table_t *table;
 
   table = p->tbl;
-  return table->kind[i] == FF_TYPE && table->desc[i].integer == p->size; // TODO change this for big int
+  return table->kind[i] == FF_TYPE && q_eq(table->desc[i].ptr, p->order);
 }
 
 static bool eq_tuple_type(tuple_type_hobj_t *p, type_t i) {
@@ -1105,7 +1118,7 @@ static type_t build_bv_type(bv_type_hobj_t *p) {
 }
 
 static type_t build_ff_type(ff_type_hobj_t *p) {
-  return new_finite_field_type(p->tbl, p->size);
+  return new_finite_field_type(p->tbl, p->order);
 }
 
 static type_t build_tuple_type(tuple_type_hobj_t *p) {
@@ -1278,17 +1291,31 @@ type_t bv_type(type_table_t *table, uint32_t size) {
 
 /*
  * FiniteField type
+ * - order must be a positive prime
  */
-type_t ff_type(type_table_t *table, uint32_t size) {
+type_t ff_type(type_table_t *table, mpz_t order) {
+  rational_t mod;
+
+  q_init(&mod);
+  q_set_mpz(&mod, order);
+  type_t result = ff_type_r(table, &mod);
+  q_clear(&mod);
+  return result;
+}
+
+/*
+ * The same as above, but accepts a rational_t
+ */
+type_t ff_type_r(type_table_t *table, const rational_t *order) {
   ff_type_hobj_t ff_hobj;
 
-  assert(size > 0);
+  assert(q_is_integer(order) && q_is_pos(order));
 
   ff_hobj.m.hash = (hobj_hash_t) hash_ff_type;
   ff_hobj.m.eq = (hobj_eq_t) eq_ff_type;
   ff_hobj.m.build = (hobj_build_t) build_ff_type;
   ff_hobj.tbl = table;
-  ff_hobj.size = size;
+  ff_hobj.order = order; // build_ff_type copies the mod on creation
   return int_htbl_get_obj(&table->htbl, &ff_hobj.m);
 }
 
@@ -2217,7 +2244,7 @@ static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
     // a finite field of size any is less than any other finite field type
     if (ff_type_size_any(table, tau1)) return tau2;
     if (ff_type_size_any(table, tau2)) return tau1;
-    assert(ff_type_size(table, tau1) != ff_type_size(table, tau2)); // otherwise, it was the same type
+    assert(q_neq(ff_type_size(table, tau1), ff_type_size(table, tau2))); // otherwise, it was the same type
     return NULL_TYPE;
 
   default:

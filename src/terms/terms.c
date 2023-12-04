@@ -2532,7 +2532,7 @@ term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod) {
 
   // find (or create) the type (_ FiniteField mod)
   assert(q_is_integer(mod));
-  tau = ff_type(table->types, q_get_smallint(mod)); // TODO change this once bigint orders are supported
+  tau = ff_type_r(table->types, mod);
   assert (q_is_pos(mod));
   q_integer_rem(a, mod);
 
@@ -3027,7 +3027,7 @@ term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, rational_t *mod) {
   assert(all_int);
   v[j] = max_idx;
 
-  tau = ff_type(table->types, q_get_smallint(mod)); // TODO remove q_get_smallint
+  tau = ff_type_r(table->types, mod);
   assert(check_term_type(table, v, n, tau));
 
   // hash consing

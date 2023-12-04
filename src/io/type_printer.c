@@ -104,7 +104,9 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
         fprintf(f, "(bitvector %"PRIu32")", bv_type_size(tbl, tau));
         break;
       case FF_TYPE:
-        fprintf(f, "(finitefield %"PRIu32")", ff_type_size(tbl, tau));
+        fprintf(f, "(finitefield ");
+        q_print(f, ff_type_size(tbl, tau));
+        fprintf(f, ")");
         break;
       case SCALAR_TYPE:
         fprintf(f, "(enum!%"PRId32" %"PRIu32")", tau, scalar_type_cardinal(tbl, tau));
@@ -337,7 +339,9 @@ void print_type_table(FILE *f, type_table_t *tbl) {
         fprintf(f, "(bitvector %"PRIu32")\n", bv_type_size(tbl, i));
         break;
       case FF_TYPE:
-        fprintf(f, "(finitefield %"PRIu32")\n", ff_type_size(tbl, i));
+        fprintf(f, "(finitefield");
+        q_print(f, ff_type_size(tbl, i));
+        fprintf(f, ")\n");
         break;
       case SCALAR_TYPE:
         fprintf(f, "(enum, card = %"PRIu32")\n", scalar_type_cardinal(tbl, i));
@@ -455,7 +459,7 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 
       case FF_TYPE:
         pp_open_block(printer, PP_OPEN_FF_TYPE);
-        pp_uint32(printer, ff_type_size(tbl, tau));
+        pp_rational(printer, ff_type_size(tbl, tau));
         pp_close_block(printer, true);
         break;
 

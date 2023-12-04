@@ -3656,7 +3656,7 @@ term_t mk_arith_ff_term_eq0(term_manager_t *manager, term_t t) {
   reset_rba_buffer(b);
   rba_buffer_add_term(b, manager->terms, t);
 
-  return mk_arith_ff_eq0(manager, b, ff_type_size_rat(manager->types, term_type(manager->terms, t)));
+  return mk_arith_ff_eq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t)));
 }
 
 term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t) {
@@ -3668,12 +3668,11 @@ term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t) {
   reset_rba_buffer(b);
   rba_buffer_add_term(b, manager->terms, t);
 
-  return mk_arith_ff_neq0(manager, b, ff_type_size_rat(manager->types, term_type(manager->terms, t)));
+  return mk_arith_ff_neq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t)));
 }
 
 term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2) {
   rba_buffer_t *b;
-  lift_result_t tmp;
 
   assert(is_finitefield_term(manager->terms, t1) &&
          is_finitefield_term(manager->terms, t2));
@@ -3681,7 +3680,7 @@ term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2) {
 
   b = term_manager_get_arith_buffer(manager);
   mk_arith_diff(manager, b, t1, t2); // use regular arith diff
-  return mk_arith_ff_eq0(manager, b, ff_type_size_rat(manager->types, term_type(manager->terms, t1)));
+  return mk_arith_ff_eq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t1)));
 }
 
 term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2) {

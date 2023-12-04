@@ -1571,6 +1571,17 @@ int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
   }
 }
 
+/*
+ * Return integer value of e as mpz integer (e must have rational tag)
+ * Raise an exception if e is not an integer.
+ */
+void get_integer_mpz(tstack_t *stack, stack_elem_t *e, mpz_t z) {
+  assert(e->tag == TAG_RATIONAL);
+
+  if (! q_get_mpz(&e->val.rational, z)) {
+    raise_exception(stack, e, TSTACK_NOT_AN_INTEGER);
+  }
+}
 
 /*
  * Support for division: return a rational constant equal to den
@@ -3283,17 +3294,19 @@ static void check_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t size;
   type_t tau;
+  mpz_t order;
 
-  // TODO make suitable for bigger integers
-  size = get_integer(stack, f);
-  // TODO check if prime?
-  // TODO create new error-code for nonpositive ff size
-  if (size <= 0) {
-    raise_exception(stack, f, TSTACK_NONPOSITIVE_BVSIZE);
+  mpz_init(order);
+  get_integer_mpz(stack, f, order);
+
+  tau = _o_yices_ff_type(order);
+  mpz_clear(order);
+
+  if (tau == NULL_TYPE) {
+    raise_exception(stack, f, TSTACK_INVALID_FFSIZE);
   }
-  tau = _o_yices_ff_type(size);
+
   check_type(stack, tau);
 
   tstack_pop_frame(stack);
@@ -5619,7 +5632,7 @@ static rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
     if (! yices_check_arith_ff_term(t)) {
       report_yices_error(stack);
     }
-    return ff_type_size_rat(__yices_globals.types, term_type(__yices_globals.terms, t));
+    return ff_type_size(__yices_globals.types, term_type(__yices_globals.terms, t));
 
   case TAG_ARITH_FF_BUFFER:
     return &e->val.mod_arith_buffer.mod;

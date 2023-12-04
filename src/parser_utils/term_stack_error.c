@@ -77,6 +77,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "error in bitvector arithmetic operation",
   "error in bitvector operation",
   "invalid finite field constant",
+  "invalid finite field order",
   "incompatible finite field sizes",
   "incompatible types in define",
   "strings are not terms",
