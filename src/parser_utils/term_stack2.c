@@ -44,15 +44,12 @@
 
 #include "yices.h"
 
-
 #ifndef NDEBUG
-
 #include <stdio.h>
 #include <inttypes.h>
 
 #include "io/type_printer.h"
 #include "io/term_printer.h"
-
 #endif
 
 
@@ -1183,16 +1180,12 @@ void set_aval_result(tstack_t *stack, aval_t v) {
 }
 
 
-
-
-
-
-#if 0
+#ifndef NDEBUG
 
 /*
  * Print element e (for debugging)
  */
-static void print_elem(tstack_t *stack, stack_elem_t *e) {
+void print_elem(tstack_t *stack, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_NONE:
     printf("<none>");
@@ -1215,6 +1208,10 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf("<not symbol: %s>", e->val.string);
     break;
 
+  case TAG_STRING:
+    printf("<string: %s>", e->val.string);
+    break;
+
   case TAG_BV64:
     printf("<bitvector: ");
     bvconst64_print(stdout, e->val.bv64.value, e->val.bv64.bitsize);
@@ -1230,6 +1227,14 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_RATIONAL:
     printf("<rational: ");
     q_print(stdout, &e->val.rational);
+    printf(">");
+    break;
+
+  case TAG_FINITEFIELD:
+    printf("<finitefield: ");
+    q_print(stdout, &e->val.ff.val);
+    printf(" mod ");
+    q_print(stdout, &e->val.ff.mod);
     printf(">");
     break;
 
@@ -1258,6 +1263,14 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_ARITH_BUFFER:
     printf("<arith-buffer: ");
     print_arith_buffer(stdout, e->val.arith_buffer);
+    printf(">");
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    printf("<arith-ff-buffer: ");
+    print_arith_buffer(stdout, e->val.mod_arith_buffer.b);
+    printf(" mod ");
+    q_print(stdout, &e->val.mod_arith_buffer.mod);
     printf(">");
     break;
 
@@ -1291,6 +1304,8 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf(">");
     break;
 
+  case TAG_ATTRIBUTE:
+    // no attribute printing implemented yet
   default:
     printf("<error>");
     break;
@@ -1298,7 +1313,6 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 }
 
 #endif
-
 
 
 /***************************************

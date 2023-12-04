@@ -742,6 +742,8 @@ static inline term_t tstack_get_type(tstack_t *stack) {
   return stack->result.type;
 }
 
-
+#ifndef NDEBUG
+extern void print_elem(tstack_t *stack, stack_elem_t *e);
+#endif
 
 #endif /* __TERM_STACK2_H */
