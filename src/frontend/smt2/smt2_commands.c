@@ -1458,7 +1458,6 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     }
     break;
 
-
   case TSTACK_RATIONAL_FORMAT:
   case TSTACK_FLOAT_FORMAT:
   case TSTACK_BVBIN_FORMAT:

@@ -388,7 +388,7 @@ uint32_t term_num_children(term_table_t *table, term_t t) {
 
     case ARITH_POLY:
       result = poly_term_desc(table, t)->nterms;
-      break;      
+      break;
 
     case ARITH_FF_POLY:
       result = finitefield_poly_term_desc(table, t)->nterms;

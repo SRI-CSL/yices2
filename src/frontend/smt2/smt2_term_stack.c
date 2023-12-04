@@ -2537,8 +2537,6 @@ static void shift_stack_elems(stack_elem_t *f, uint32_t n) {
 
 
 
-
-
 /*
  * [sorted-term <xxx> <type>]
  *
