@@ -1959,11 +1959,6 @@ static bool check_arith_constant(term_manager_t *mngr, term_t t) {
   return true;
 }
 
-static bool check_arith_ff_constant(term_manager_t *mngr, term_t t) {
-  // TODO implement me
-  return false;
-}
-
 // Check whether t is a bitvector term, t must be valid
 static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;

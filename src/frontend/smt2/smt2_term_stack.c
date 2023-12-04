@@ -2674,7 +2674,6 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_set_avtbl(stack, __smt2_globals.avtbl);
 
   // overwrites the default OPs (from term_stack2.c) for SMT2, in case they are different
-  // TODO move MK_FF_CONST, MK_FF_ADD, MK_FF_MUL to here?
   tstack_add_op(stack, MK_BV_CONST, false, eval_smt2_mk_bv_const, check_smt2_mk_bv_const);
   tstack_add_op(stack, MK_BV_ROTATE_LEFT, false, eval_smt2_mk_bv_rotate_left, check_smt2_mk_bv_rotate_left);
   tstack_add_op(stack, MK_BV_ROTATE_RIGHT, false, eval_smt2_mk_bv_rotate_right, check_smt2_mk_bv_rotate_right);
