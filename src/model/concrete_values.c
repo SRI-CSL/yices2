@@ -2263,6 +2263,7 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
 
   case INT_TYPE:
   case REAL_TYPE:
+  case FF_TYPE:
     v = vtbl_mk_int32(vtbl, 0);
     break;
 

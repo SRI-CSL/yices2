@@ -53,11 +53,12 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   watch_list_manager_construct(&ff->wlm, ctx->var_db);
 
   // Atoms
-  ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FF_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FF_BINEQ_ATOM, false);
 
   // Terms
-  ctx->request_term_notification_by_kind(ctx, ARITH_CONSTANT, false);
-  ctx->request_term_notification_by_kind(ctx, ARITH_POLY, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FF_CONSTANT, false);
+  ctx->request_term_notification_by_kind(ctx, ARITH_FF_POLY, false);
   ctx->request_term_notification_by_kind(ctx, POWER_PRODUCT, false);
 
   // Types
@@ -245,10 +246,10 @@ plugin_t* ff_plugin_allocator(void) {
   plugin->plugin_interface.construct           = ff_plugin_construct;
   plugin->plugin_interface.destruct            = ff_plugin_destruct;
   plugin->plugin_interface.new_term_notify     = ff_plugin_new_term_notify;
-//  plugin->plugin_interface.new_lemma_notify    = ff_plugin_new_lemma_notify;
+  plugin->plugin_interface.new_lemma_notify    = ff_plugin_new_lemma_notify;
   plugin->plugin_interface.event_notify        = ff_plugin_event_notify;
   plugin->plugin_interface.propagate           = ff_plugin_propagate;
-//  plugin->plugin_interface.decide              = ff_plugin_decide;
+  plugin->plugin_interface.decide              = ff_plugin_decide;
 //  plugin->plugin_interface.decide_assignment   = ff_plugin_decide_assignment;
 //  plugin->plugin_interface.learn               = ff_plugin_learn;
 //  plugin->plugin_interface.get_conflict        = ff_plugin_get_conflict;
