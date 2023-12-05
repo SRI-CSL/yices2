@@ -446,6 +446,20 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
   return vtbl_mk_bool(eval->vtbl, result);
 }
 
+static value_t eval_finitefield_bineq(evaluator_t *eval, composite_term_t *eq) {
+  value_t v1, v2;
+
+  assert(eq->arity == 2);
+
+  v1 = eval_term(eval, eq->arg[0]);
+  v2 = eval_term(eval, eq->arg[1]);
+
+  assert(object_is_finitefield(eval->vtbl, v1));
+  assert(object_is_finitefield(eval->vtbl, v2));
+
+  return vtbl_mk_bool(eval->vtbl, v1 == v2);
+}
+
 /*
  * Compute division when one of the arguments is algebraic and return the result.
  */
@@ -695,9 +709,22 @@ static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
 #endif
 
 /*
+ * Finite field atom: t == 0
+ */
+static value_t eval_arith_ff_eq(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_term(eval, t);
+  assert(object_is_finitefield(eval->vtbl, v));
+
+  // TODO use q_is_zero_mod?
+  return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_finitefield(eval->vtbl, v)));
+}
+
+/*
  * Power product: arithmetic
  */
-static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
+static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, rational_t *mod) {
   rational_t prod;
   uint32_t i, n;
   term_t t;
@@ -713,6 +740,8 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
     // prod[i] is v ^ k so q := q * (o ^ k)
     if (object_is_rational(eval->vtbl, o)) {
       q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
+    } else if (object_is_finitefield(eval->vtbl, o)) {
+      q_mulexp(&prod, vtbl_finitefield(eval->vtbl, o), p->prod[i].exp);
     } else {
 #ifdef HAVE_MCSAT
       // We need algebraic number computation
@@ -726,7 +755,13 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
     }
   }
 
-  o = vtbl_mk_rational(eval->vtbl, &prod);
+  if (mod) {
+    assert(q_is_integer(&prod));
+    q_integer_rem(&prod, mod);
+    o = vtbl_mk_finitefield(eval->vtbl, &prod);
+  } else {
+    o = vtbl_mk_rational(eval->vtbl, &prod);
+  }
 
   clear_rational(&prod);
 
@@ -779,7 +814,7 @@ static value_t eval_arith_poly_algebraic(evaluator_t *eval, polynomial_t *p) {
 /*
  * Arithmetic polynomial
  */
-static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
+static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p, rational_t *mod) {
   rational_t sum;
   uint32_t i, n;
   term_t t;
@@ -794,7 +829,9 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
       q_add(&sum, &p->mono[i].coeff);
     } else {
       v = eval_term(eval, t);
-      if (object_is_rational(eval->vtbl, v)) {
+      if (object_is_rational(eval->vtbl, v) || object_is_finitefield(eval->vtbl, v)) {
+        assert((mod == NULL) == (object_is_rational(eval->vtbl, v)));
+        assert((mod != NULL) == (object_is_finitefield(eval->vtbl, v)));
         q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
       } else {
 #ifdef HAVE_MCSAT
@@ -810,7 +847,13 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
   }
 
   // convert sum to an object
-  v = vtbl_mk_rational(eval->vtbl, &sum);
+  if (mod) {
+    assert(q_is_integer(&sum));
+    q_integer_rem(&sum, mod);
+    v = vtbl_mk_finitefield(eval->vtbl, &sum);
+  } else {
+    v = vtbl_mk_rational(eval->vtbl, &sum);
+  }
 
   clear_rational(&sum);
 
@@ -1531,6 +1574,16 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
 }
 
 
+static inline rational_t* arith_get_mod(term_table_t *table, term_t t) {
+  type_t tau = term_type(table, t);
+  return is_finite_type(table->types, tau) ? ff_type_size(table->types, tau) : NULL;
+}
+
+static inline bool arith_is_mod(rational_t *r, rational_t *mod) {
+  if (!mod || q_is_nonpos(mod))
+    return false;
+  return q_lt(r, mod);
+}
 
 /*
  * Compute the value v of term t in the model
@@ -1575,7 +1628,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_FF_CONSTANT:
-        v = vtbl_mk_unknown(eval->vtbl);
+        assert(arith_is_mod(finitefield_term_desc(terms, t), arith_get_mod(terms, t)));
+        v = vtbl_mk_finitefield(eval->vtbl, finitefield_term_desc(terms, t));
         break;
 
       case BV64_CONSTANT:
@@ -1630,7 +1684,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_FF_EQ_ATOM:
-        v = vtbl_mk_unknown(eval->vtbl);
+        v = eval_arith_ff_eq(eval, arith_ff_eq_arg(terms, t));
         break;
 
       case ITE_TERM:
@@ -1698,8 +1752,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_FF_BINEQ_ATOM:
-       v = vtbl_mk_unknown(eval->vtbl);
-       break;
+        v = eval_finitefield_bineq(eval, arith_ff_bineq_atom_desc(terms, t));
+        break;
 
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
@@ -1761,9 +1815,9 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         if (is_bitvector_term(terms, t)) {
           v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
         } else if (is_arithmetic_term(terms, t)) {
-          v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
+          v = eval_arith_pprod(eval, pprod_term_desc(terms, t), NULL);
         } else if (is_finitefield_term(terms, t)) {
-          v = vtbl_mk_unknown(eval->vtbl);
+          v = eval_arith_pprod(eval, pprod_term_desc(terms, t), arith_get_mod(terms, t));
         } else {
           assert(false);
           v = vtbl_mk_unknown(eval->vtbl);
@@ -1771,11 +1825,11 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_POLY:
-        v = eval_arith_poly(eval, poly_term_desc(terms, t));
+        v = eval_arith_poly(eval, poly_term_desc(terms, t), NULL);
         break;
 
       case ARITH_FF_POLY:
-        v = vtbl_mk_unknown(eval->vtbl);
+        v = eval_arith_poly(eval, poly_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 
       case BV64_POLY:

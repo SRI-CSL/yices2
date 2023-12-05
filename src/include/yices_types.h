@@ -241,6 +241,7 @@ typedef enum yval_tag {
   YVAL_BOOL,
   YVAL_RATIONAL,
   YVAL_ALGEBRAIC,
+  YVAL_FINITEFIELD,  // TODO establish me in API
   YVAL_BV,
   YVAL_SCALAR,
   YVAL_TUPLE,

@@ -316,6 +316,8 @@ static const int32_t convert_code[NUM_VALUE_KIND] = {
   CONVERT_UNKNOWN_VALUE,  // UNKNOWN_VALUE
   0,                      // BOOLEAN_VALUE
   0,                      // RATIONAL_VALUE
+  0,                      // ALGEBRAIC_VALUE
+  0,                      // FINITEFIELD_VALUE
   0,                      // BITVECTOR_VALUE
   0,                      // TUPLE_VALUE
   0,                      // UNINTERPRETED_VALUE

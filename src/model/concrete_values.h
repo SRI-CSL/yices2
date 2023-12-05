@@ -110,6 +110,7 @@ typedef enum {
   BOOLEAN_VALUE,
   RATIONAL_VALUE,
   ALGEBRAIC_VALUE,
+  FINITEFIELD_VALUE,
   BITVECTOR_VALUE,
   TUPLE_VALUE,
   UNINTERPRETED_VALUE,
@@ -418,6 +419,10 @@ extern value_t vtbl_mk_not(value_table_t *table, value_t v);
 extern value_t vtbl_mk_rational(value_table_t *table, rational_t *v);
 extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 
+/*
+ * Finite field constants (make a copy).
+ */
+extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v);
 
 /*
  * Algebraic number (make a copy).
@@ -837,6 +842,10 @@ static inline bool object_is_rational(value_table_t *table, value_t v) {
   return object_kind(table, v) == RATIONAL_VALUE;
 }
 
+static inline bool object_is_finitefield(value_table_t *table, value_t v) {
+  return object_kind(table, v) == FINITEFIELD_VALUE;
+}
+
 static inline bool object_is_algebraic(value_table_t *table, value_t v) {
   return object_kind(table, v) == ALGEBRAIC_VALUE;
 }
@@ -904,6 +913,11 @@ static inline bool boolobj_value(value_table_t *table, value_t v) {
 // get descriptor of v
 static inline rational_t *vtbl_rational(value_table_t *table, value_t v) {
   assert(object_is_rational(table, v));
+  return &table->desc[v].rational;
+}
+
+static inline rational_t *vtbl_finitefield(value_table_t *table, value_t v) {
+  assert(object_is_finitefield(table, v));
   return &table->desc[v].rational;
 }
 

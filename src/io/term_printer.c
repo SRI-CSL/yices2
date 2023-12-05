@@ -2514,6 +2514,11 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     pp_rational(printer, &tbl->desc[i].rational);
     break;
 
+  case ARITH_FF_CONSTANT:
+    assert(polarity);
+    pp_finitefield(printer, &tbl->desc[i].rational);
+    break;
+
   case BV64_CONSTANT:
     assert(polarity);
     pp_bvconst64_term(printer, tbl->desc[i].ptr);
@@ -2525,6 +2530,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     break;
 
   case ARITH_EQ_ATOM:
+  case ARITH_FF_EQ_ATOM:
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_open_block(printer, op);
     pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1, true);
@@ -2574,6 +2580,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
 
   case EQ_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
   case BV_EQ_ATOM:
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
@@ -2636,6 +2643,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     assert(polarity);
     pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
