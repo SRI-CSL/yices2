@@ -1235,8 +1235,8 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
     case CONSTANT_TERM:
     case UNINTERPRETED_TERM:
       if (constant_is_in_set(r, c, n, &k)) {
-	assert(0 <= k && k < n && c[k] == r);
-	ivector_push(v, k);
+        assert(0 <= k && k < n && c[k] == r);
+        ivector_push(v, k);
       }
       break;
 

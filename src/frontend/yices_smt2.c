@@ -471,15 +471,15 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case nthreads_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
-	}
-	nthreads = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        nthreads = v;
+        break;
 	
       case incremental_opt:
         incremental = true;
@@ -1113,9 +1113,9 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer);
+        flush_lexer(&lexer);
       } else {
-	break; // exit
+        break; // exit
       }
     }
   }

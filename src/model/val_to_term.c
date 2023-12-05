@@ -451,7 +451,7 @@ uint32_t convert_value_array(term_manager_t *mgr, term_table_t *terms, value_tab
       t = convert_value(&convert, b[i]);
       b[i] = t;
       if (t >= 0) { // no error
-	s ++;
+        s++;
       }
     }
     delete_val_converter(&convert);

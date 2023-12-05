@@ -2619,7 +2619,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite
      * b is a1 * r1 + a2 * r2
      * Simplifications:
      * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
-     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
+     * - rewrite (b == 0) to (r1 == r2) if a1 + a2 = 0
      */
     rba_buffer_monomial_pair(b, m);
     m1 = m[0];
