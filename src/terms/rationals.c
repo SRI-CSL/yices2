@@ -446,6 +446,16 @@ void q_normalize(rational_t *r) {
   }
 }
 
+static void q_denormalize(rational_t *r) {
+  mpq_ptr q;
+
+  if (is_rat32(r)) {
+    q = new_mpq();
+    mpq_set_si(q, get_num(r), get_den(r));
+    set_ratgmp(r, q);
+  }
+  assert(is_ratgmp(r));
+}
 
 /*
  * Prepare to assign an mpq number to r
@@ -1003,6 +1013,31 @@ void q_inv(rational_t *r) {
   } else {
     division_by_zero();
   }
+}
+
+/*
+ * Invert r mod m
+ */
+void q_inv_mod(rational_t *r, rational_t *mod) {
+  assert(q_is_integer(r) && q_is_integer(mod) && q_is_pos(mod));
+
+  rational_t tmp, *mm;
+  if (is_rat32(mod)) {
+    tmp = *mod; mm = &tmp;
+    q_denormalize(mm);
+  } else {
+    mm = mod;
+  }
+
+  q_denormalize(r);
+  assert(is_ratgmp(r) && is_ratgmp(mm));
+  mpz_ptr z = get_gmp_num(r);
+  mpz_ptr m = get_gmp_num(mm);
+  mpz_invert(z, z, m);
+  q_normalize(r);
+
+  if (mm != mod)
+    q_clear(mm);
 }
 
 /*

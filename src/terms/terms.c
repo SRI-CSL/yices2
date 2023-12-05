@@ -2549,6 +2549,14 @@ term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod) {
   return pos_term(i);
 }
 
+term_t arith_ff_zero(term_table_t *table, rational_t *mod) {
+  rational_t z;
+  q_init(&z);
+  term_t rslt = arith_ff_constant(table, &z, mod);
+  q_clear(&z);
+  return rslt;
+}
+
 /*
  * Atom t == 0 for an arithmetic term t
  */

@@ -921,8 +921,44 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite)
   return false;
 }
 
+bool disequal_arith_ff_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite) {
+  term_kind_t kx, ky;
 
+  kx = term_kind(tbl, x);
+  ky = term_kind(tbl, y);
 
+#ifndef NDEBUG
+  type_t tau;
+  tau = term_type(tbl, x);
+  assert(tau == term_type(tbl, y));
+#endif
+
+  if (kx == ARITH_FF_CONSTANT && ky == ARITH_FF_CONSTANT) {
+    return x != y; // because of hash consing.
+  }
+
+  if (check_ite) {
+    // TODO implement simplification
+  }
+
+  if (kx == ARITH_FF_POLY && ky == ARITH_FF_POLY) {
+    assert(polynomial_is_ff_poly(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
+    assert(polynomial_is_ff_poly(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
+    return disequal_polynomials(poly_term_desc(tbl, x), poly_term_desc(tbl, y));
+  }
+
+  if (kx == ARITH_FF_POLY && ky != ARITH_FF_CONSTANT) {
+    assert(polynomial_is_ff_poly(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
+    return polynomial_is_const_plus_var(poly_term_desc(tbl, x), y);
+  }
+
+  if (ky == ARITH_FF_POLY && kx != ARITH_FF_CONSTANT) {
+    assert(polynomial_is_ff_poly(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
+    return polynomial_is_const_plus_var(poly_term_desc(tbl, y), x);
+  }
+
+  return false;
+}
 
 /*
  * Bitvectors: x and y are bitvector terms of 1 to 64 bits
@@ -1282,6 +1318,27 @@ bool arith_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite) {
     return check_ite && term_has_nonzero_finite_domain(tbl, t);
 
   case ARITH_POLY:
+    return polynomial_is_nonzero(poly_term_desc(tbl, t));
+
+  default:
+    return false;
+  }
+}
+
+bool arith_ff_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite) {
+  assert(is_finitefield_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_FF_CONSTANT:
+    return t != ff_zero_term(tbl, term_type(tbl, t));
+
+  case ITE_SPECIAL:
+    // TODO implement me
+    return false;
+    //return check_ite && term_has_nonzero_finite_domain(tbl, t);
+
+  case ARITH_FF_POLY:
+    assert(polynomial_is_ff_poly(poly_term_desc(tbl, t), ff_type_size(tbl->types, term_type(tbl, t))));
     return polynomial_is_nonzero(poly_term_desc(tbl, t));
 
   default:

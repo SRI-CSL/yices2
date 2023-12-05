@@ -738,7 +738,16 @@ extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
  * FINITE FIELD TERMS
  */
 
+extern term_t arith_ff_zero(term_table_t *table, rational_t *mod);
+
 extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod);
+
+/*
+ * for finite field types zero_term depends on the type of finite field
+ */
+static inline term_t ff_zero_term(term_table_t *table, type_t ff) {
+  return arith_ff_zero(table, ff_type_size(table->types, ff));
+}
 
 /*
  * Finite field arithmetic term

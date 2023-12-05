@@ -3688,8 +3688,38 @@ term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2) {
 }
 
 static term_t mk_arith_ff_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
-  // TODO add simplification
+  assert(is_finitefield_term(tbl, t));
+
+  if (arith_ff_term_is_nonzero(tbl, t, simplify_ite)) {
+    return false_term;
+  }
+
+  if (simplify_ite) {
+    // TODO implement simplification
+  }
+
   return arith_ff_eq_atom(tbl, t);
+}
+
+static term_t mk_arith_ff_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool simplify_ite) {
+  term_t aux;
+
+  assert(is_finitefield_term(tbl, t1) && is_finitefield_term(tbl, t2));
+
+  if (disequal_arith_ff_terms(tbl, t1, t2, simplify_ite)) {
+    return false_term;
+  }
+
+  if (simplify_ite) {
+    // TODO implement simplification
+  }
+
+  // normalize: put the smallest term on the left
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  return arith_ff_bineq_atom(tbl, t1, t2);
 }
 
 /*
@@ -3735,14 +3765,12 @@ term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mo
       t = mk_arith_ff_eq0_atom(tbl, t1, simplify_ite); // atom r1 = 0
     }
 
-#if 0
-    // TODO finialize me
   } else if (n == 2) {
     /*
      * b is a1 * r1 + a2 * r2
      * Simplifications:
      * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
-     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
+     * - rewrite (b == 0) to (r1 == r2) if a1 + a2 = 0
      */
     rba_buffer_monomial_pair(b, m);
     m1 = m[0];
@@ -3754,11 +3782,15 @@ term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mo
     q_init(&r0);
 
     if (r1 == empty_pp) {
-      q_set_neg(&r0, &m1->coeff);
-      q_div(&r0, &m2->coeff);  // r0 is -a1/a2
-      t1 = arith_constant(tbl, &r0);
+      q_set(&r0, &m2->coeff);  // r0 = a2
+      q_inv_mod(&r0, mod);         // r0 = a2^-1
+      q_mul(&r0, &m1->coeff);  // r0 = a1*a2^-1
+      q_neg(&r0);                  // r0 = -a1*a2^-1
+      q_integer_rem(&r0, mod);
+
+      t1 = arith_ff_constant(tbl, &r0, mod);
       t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-      t = mk_arith_bineq_atom(tbl, t1, t2, simplify_ite);
+      t = mk_arith_ff_bineq_atom(tbl, t1, t2, simplify_ite);
 
     } else {
       q_set(&r0, &m1->coeff);
@@ -3766,17 +3798,17 @@ term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mo
       if (q_is_zero(&r0)) {
         t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
         t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
-        t = mk_arith_bineq_atom(tbl, t1, t2, simplify_ite);
+        t = mk_arith_ff_bineq_atom(tbl, t1, t2, simplify_ite);
 
       } else {
         // no simplification
-        t = arith_ff_poly(tbl, b);
+        t = arith_ff_poly(tbl, b, mod);
         t = arith_ff_eq_atom(tbl, t);
       }
     }
 
     q_clear(&r0);
-#endif
+
   } else {
     /*
      * more than 2 monomials: don't simplify

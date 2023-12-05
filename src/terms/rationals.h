@@ -110,6 +110,16 @@ static inline mpq_ptr get_gmp(const rational_t *r) {
   return (mpq_ptr) (r->p.gmp ^ IS_RATGMP);
 }
 
+static inline mpz_ptr get_gmp_num(const rational_t *r) {
+  assert(is_ratgmp(r));
+  return mpq_numref(get_gmp(r));
+}
+
+static inline mpz_ptr get_gmp_den(const rational_t *r) {
+  assert(is_ratgmp(r));
+  return mpq_denref(get_gmp(r));
+}
+
 static inline int32_t get_num(const rational_t *r) {
   assert(is_rat32(r));  
   return r->s.num;
@@ -273,6 +283,7 @@ extern void q_gcd(rational_t *r1, const rational_t *r2);
 extern void q_floor(rational_t *r);
 extern void q_ceil(rational_t *r);
 
+extern void q_inv_mod(rational_t *r, rational_t *mod);
 
 
 /*

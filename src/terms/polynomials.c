@@ -846,3 +846,16 @@ bool polynomial_is_var(polynomial_t *p, int32_t x) {
   return p->nterms == 1 && p->mono[0].var == x && q_is_one(&p->mono[0].coeff);
 }
 
+
+/*
+ * Check if all coefficients are integer and less than mod
+ */
+bool polynomial_is_ff_poly(const polynomial_t *p, const rational_t *mod) {
+  uint32_t i;
+  for (i = 0; i < p->nterms; ++i) {
+    const rational_t *c = &p->mono[i].coeff;
+    if (! (q_is_nonneg(c) && q_lt(c, mod)) )
+      return false;
+  }
+  return true;
+}
