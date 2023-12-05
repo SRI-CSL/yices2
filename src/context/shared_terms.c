@@ -247,6 +247,13 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
     sharing_map_visit_bvpoly(map, bvpoly_for_idx(map->terms, i), i);
     break;
 
+  case ARITH_FF_CONSTANT:
+  case ARITH_FF_POLY:
+  case ARITH_FF_EQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
+    assert(false);
+    break;
+
   case UNUSED_TERM:
   case RESERVED_TERM:
     assert(false);

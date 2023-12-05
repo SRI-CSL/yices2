@@ -1314,6 +1314,13 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
     case BV_POLY:
       push_bvpoly_vars(queue, cache, bvpoly_term_desc(terms, r));
       break;
+
+    case ARITH_FF_POLY:
+    case ARITH_FF_CONSTANT:
+    case ARITH_FF_EQ_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
+      longjmp(breaker->ctx->env, CONTEXT_UNSUPPORTED_THEORY);
+      break;
     }
   } while (! int_queue_is_empty(queue));
 
