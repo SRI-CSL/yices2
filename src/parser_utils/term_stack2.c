@@ -5632,7 +5632,7 @@ static rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
     if (! yices_check_arith_ff_term(t)) {
       report_yices_error(stack);
     }
-    return ff_type_size(__yices_globals.types, term_type(__yices_globals.terms, t));
+    return finitefield_term_order(__yices_globals.terms, t);
 
   case TAG_ARITH_FF_BUFFER:
     return &e->val.mod_arith_buffer.mod;

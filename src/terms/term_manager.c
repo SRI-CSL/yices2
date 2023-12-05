@@ -3656,7 +3656,7 @@ term_t mk_arith_ff_term_eq0(term_manager_t *manager, term_t t) {
   reset_rba_buffer(b);
   rba_buffer_add_term(b, manager->terms, t);
 
-  return mk_arith_ff_eq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t)));
+  return mk_arith_ff_eq0(manager, b, finitefield_term_order(manager->terms, t));
 }
 
 term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t) {
@@ -3668,7 +3668,7 @@ term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t) {
   reset_rba_buffer(b);
   rba_buffer_add_term(b, manager->terms, t);
 
-  return mk_arith_ff_neq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t)));
+  return mk_arith_ff_neq0(manager, b, finitefield_term_order(manager->terms, t));
 }
 
 term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2) {
@@ -3680,7 +3680,7 @@ term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2) {
 
   b = term_manager_get_arith_buffer(manager);
   mk_arith_diff(manager, b, t1, t2); // use regular arith diff
-  return mk_arith_ff_eq0(manager, b, ff_type_size(manager->types, term_type(manager->terms, t1)));
+  return mk_arith_ff_eq0(manager, b, finitefield_term_order(manager->terms, t1));
 }
 
 term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2) {
@@ -6310,6 +6310,31 @@ term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t
   return mk_arith_term(mngr, b);
 }
 
+/*
+ * Arithmetic product:
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n arithmetic terms
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ */
+term_t mk_arith_ff_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, rational_t *mod) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  assert(n == p->len);
+
+  tbl = term_manager_get_terms(mngr);
+  b = term_manager_get_arith_buffer(mngr);
+
+  rba_buffer_set_one(b); // b := 1
+  for (i=0; i<n; i++) {
+    // b := b * a[i]^e[i]
+    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
+  }
+
+  return mk_arith_ff_term(mngr, b, mod);
+}
+
 
 /*
  * Bitvector product: 1 to 64 bits vector
@@ -6372,15 +6397,17 @@ term_t mk_bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term
  */
 term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a) {
   type_t tau;
-  uint32_t nbits;
 
   assert(n > 0);
 
   tau = term_type(mngr->terms, a[0]);
   if (is_arithmetic_type(tau)) {
     return mk_arith_pprod(mngr, p, n, a);
+  } else if (is_ff_type(mngr->types, tau)) {
+    rational_t *mod = ff_type_size(mngr->types, tau);
+    return mk_arith_ff_pprod(mngr, p, n, a, mod);
   } else {
-    nbits = bv_type_size(mngr->types, tau);
+    uint32_t nbits = bv_type_size(mngr->types, tau);
     if (nbits <= 64) {
       return mk_bvarith64_pprod(mngr, p, n, a, nbits);
     } else {
@@ -6416,6 +6443,31 @@ term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const te
   }
 
   return mk_arith_term(mngr, b);
+}
+
+/*
+ * Same thing for a finite field polynomial (1 to 64bits)
+ */
+term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, rational_t *mod) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  assert(p->nterms == n);
+
+  tbl = term_manager_get_terms(mngr);
+  b = term_manager_get_arith_buffer(mngr);
+  reset_rba_buffer(b);
+
+  for (i=0; i<n; i++) {
+    if (a[i] == const_idx) {
+      rba_buffer_add_const(b, &p->mono[i].coeff);
+    } else {
+      rba_buffer_add_const_times_term(b, tbl, &p->mono[i].coeff, a[i]);
+    }
+  }
+
+  return mk_arith_ff_term(mngr, b, mod);
 }
 
 

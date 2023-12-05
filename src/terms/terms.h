@@ -1579,6 +1579,10 @@ static inline term_t arith_abs_arg(const term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
+static inline rational_t* finitefield_term_order(const term_table_t *table, term_t t) {
+  assert(is_ff_type(table->types, term_type(table, t)));
+  return ff_type_size(table->types, term_type(table, t));
+}
 
 /*
  * All the following functions are equivalent to composite_term_desc, but,
@@ -1656,6 +1660,11 @@ static inline composite_term_t *arith_mod_term_desc(const term_table_t *table, t
 
 static inline composite_term_t *arith_divides_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_DIVIDES_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_ff_bineq_atom_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_BINEQ_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 

@@ -713,6 +713,13 @@ extern term_t mk_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const te
 extern term_t mk_arith_poly(term_manager_t *manager, polynomial_t *p, uint32_t n, const term_t *a);
 
 /*
+ * Finite Field polynomial: same as mk_arith_poly but all elements of a
+ * must be either const_idx of finite field terms of the same order
+ * - the order must be the same as the coefficients of p
+ */
+extern term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, rational_t *mod);
+
+/*
  * Bitvector polynomial: same as mk_arith_poly but all elements of a
  * must be either const_idx of bitvector terms of the equal size
  * - the size must be the same as the coefficients of p
