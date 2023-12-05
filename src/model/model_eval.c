@@ -1574,6 +1574,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
         break;
 
+      case ARITH_FF_CONSTANT:
+        v = vtbl_mk_unknown(eval->vtbl);
+        break;
+
       case BV64_CONSTANT:
         v = eval_bv64_constant(eval, bvconst64_term_desc(terms, t));
         break;
@@ -1622,6 +1626,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       case ARITH_ROOT_ATOM:
         // not supported (but don't crash if we see them)
+        v = vtbl_mk_unknown(eval->vtbl);
+        break;
+
+      case ARITH_FF_EQ_ATOM:
         v = vtbl_mk_unknown(eval->vtbl);
         break;
 
@@ -1689,6 +1697,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
         break;
 
+      case ARITH_FF_BINEQ_ATOM:
+       v = vtbl_mk_unknown(eval->vtbl);
+       break;
+
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
         break;
@@ -1748,14 +1760,22 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       case POWER_PRODUCT:
         if (is_bitvector_term(terms, t)) {
           v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
-        } else {
-          assert(is_arithmetic_term(terms, t));
+        } else if (is_arithmetic_term(terms, t)) {
           v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
+        } else if (is_finitefield_term(terms, t)) {
+          v = vtbl_mk_unknown(eval->vtbl);
+        } else {
+          assert(false);
+          v = vtbl_mk_unknown(eval->vtbl);
         }
         break;
 
       case ARITH_POLY:
         v = eval_arith_poly(eval, poly_term_desc(terms, t));
+        break;
+
+      case ARITH_FF_POLY:
+        v = vtbl_mk_unknown(eval->vtbl);
         break;
 
       case BV64_POLY:
