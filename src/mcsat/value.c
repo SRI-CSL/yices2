@@ -435,6 +435,18 @@ void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t*
     lp_value_destruct(&value_lp);
     break;
   }
+  case FINITEFIELD_VALUE: {
+    value_ff_t* value_ff = vtbl_finitefield(vtbl, v);
+    mpz_t value_mpz;
+    mpz_init(value_mpz);
+    q_get_mpz(&value_ff->value, value_mpz);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_INTEGER, value_mpz);
+    mcsat_value_construct_lp_value(mcsat_value, &value_lp);
+    lp_value_destruct(&value_lp);
+    mpz_clear(value_mpz);
+    break;
+  }
   case BITVECTOR_VALUE: {
     value_bv_t* v1 = vtbl_bitvector(vtbl, v);
     bvconstant_t v2;

@@ -1027,9 +1027,9 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_finitefield(yices_pp_t *printer, rational_t *q) {
-  // maybe print value and mod
-  pp_rational(printer, q);
+void pp_finitefield(yices_pp_t *printer, value_ff_t *v) {
+  // TODO proper printing of v (with mod) once format is defined
+  pp_rational(printer, &v->value);
 }
 
 void pp_algebraic(yices_pp_t *printer, void *a) {
@@ -1369,14 +1369,14 @@ void pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
   case BOOLEAN_VALUE:
     pp_bool(printer, table->desc[c].integer);
     break;
-  case FINITEFIELD_VALUE:
-    pp_finitefield(printer, &table->desc[c].rational);
-    break;
   case RATIONAL_VALUE:
     pp_rational(printer, &table->desc[c].rational);
     break;
   case ALGEBRAIC_VALUE:
     pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case FINITEFIELD_VALUE:
+    pp_finitefield(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     pp_bitvector(printer, table->desc[c].ptr);

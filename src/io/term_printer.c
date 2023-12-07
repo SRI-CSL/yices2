@@ -2343,6 +2343,16 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
   pp_bv64(printer, d->value, d->bitsize);
 }
 
+static void pp_finitefield_term(yices_pp_t *printer, rational_t *v, rational_t *mod) {
+  value_ff_t val;
+  q_init(&val.mod);
+  q_init(&val.value);
+  q_set(&val.mod, mod);
+  q_set(&val.value, v);
+  pp_finitefield(printer, &val);
+  q_clear(&val.mod);
+  q_clear(&val.value);
+}
 
 
 /*
@@ -2516,7 +2526,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
 
   case ARITH_FF_CONSTANT:
     assert(polarity);
-    pp_finitefield(printer, &tbl->desc[i].rational);
+    pp_finitefield_term(printer, &tbl->desc[i].rational, finitefield_term_order(tbl, i));
     break;
 
   case BV64_CONSTANT:

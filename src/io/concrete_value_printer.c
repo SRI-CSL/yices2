@@ -459,11 +459,11 @@ void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
   case RATIONAL_VALUE:
     pp_rational(printer, &table->desc[c].rational);
     break;
-  case FINITEFIELD_VALUE:
-    pp_finitefield(printer, &table->desc[c].rational);
-    break;
   case ALGEBRAIC_VALUE:
     pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case FINITEFIELD_VALUE:
+    pp_finitefield(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     vtbl_pp_bitvector(printer, table->desc[c].ptr);

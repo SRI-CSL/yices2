@@ -136,6 +136,12 @@ typedef union value_desc_u {
 /*
  * Descriptors: encode the actual value
  */
+// finite field constant
+typedef struct value_ff_s {
+  rational_t value;
+  rational_t mod;
+} value_ff_t;
+
 // bitvector constant
 typedef struct value_bv_s {
   uint32_t nbits;
@@ -422,7 +428,7 @@ extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 /*
  * Finite field constants (make a copy).
  */
-extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v);
+extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, rational_t *mod);
 
 /*
  * Algebraic number (make a copy).
@@ -916,14 +922,18 @@ static inline rational_t *vtbl_rational(value_table_t *table, value_t v) {
   return &table->desc[v].rational;
 }
 
-static inline rational_t *vtbl_finitefield(value_table_t *table, value_t v) {
-  assert(object_is_finitefield(table, v));
-  return &table->desc[v].rational;
-}
-
 static inline void *vtbl_algebraic_number(value_table_t *table, value_t v) {
   assert(object_is_algebraic(table, v));
   return table->desc[v].ptr;
+}
+
+static inline value_ff_t *vtbl_finitefield(value_table_t *table, value_t v) {
+  assert(object_is_finitefield(table, v));
+  value_ff_t *v_ff = (value_ff_t*)table->desc[v].ptr;
+  assert(q_is_integer(&v_ff->value) && q_is_integer(&v_ff->mod)
+         && q_is_pos(&v_ff->mod) && q_is_nonneg(&v_ff->value)
+         && q_lt(&v_ff->value, &v_ff->mod));
+  return v_ff;
 }
 
 static inline value_bv_t *vtbl_bitvector(value_table_t *table, value_t v) {

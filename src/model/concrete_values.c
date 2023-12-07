@@ -742,7 +742,6 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
     case BOOLEAN_VALUE:
       break;
     case RATIONAL_VALUE:
-    case FINITEFIELD_VALUE:
       q_clear(&table->desc[i].rational);
       break;
     case ALGEBRAIC_VALUE:
@@ -759,6 +758,10 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
     case FUNCTION_VALUE:
       delete_value_fun(table->desc[i].ptr);
       break;
+    case FINITEFIELD_VALUE:
+      q_clear(&((value_ff_t*)table->desc[i].ptr)->value);
+      q_clear(&((value_ff_t*)table->desc[i].ptr)->mod);
+      /* fall through */
     case BITVECTOR_VALUE:
     case TUPLE_VALUE:
     case MAP_VALUE:
@@ -1291,6 +1294,13 @@ typedef struct {
 typedef struct {
   int_hobj_t m;
   value_table_t *table;
+  rational_t *v;
+  rational_t *mod;
+} ff_hobj_t;
+
+typedef struct {
+  int_hobj_t m;
+  value_table_t *table;
   type_t tau;
   int32_t id;
 } const_hobj_t;
@@ -1365,9 +1375,9 @@ static uint32_t hash_rational_value(rational_hobj_t *o) {
   return jenkins_hash_mix2(h_num, h_den);
 }
 
-static uint32_t hash_finitefield_value(rational_hobj_t *o) {
+static uint32_t hash_finitefield_value(ff_hobj_t *o) {
   assert(q_is_integer(o->v));
-  return jenkins_hash_mix2(q_hash_numerator(o->v), 0);
+  return jenkins_hash_mix2(q_hash_numerator(o->v), q_hash_numerator(o->mod));
 }
 
 static uint32_t hash_algebraic_value(algebraic_hobj_t *a) {
@@ -1425,11 +1435,16 @@ static bool equal_rational_value(rational_hobj_t *o, value_t i) {
   return table->kind[i] == RATIONAL_VALUE && q_eq(&table->desc[i].rational, o->v);
 }
 
-static bool equal_finitefield_value(rational_hobj_t *o, value_t i) {
+static bool equal_finitefield_value(ff_hobj_t *o, value_t i) {
   value_table_t *table;
+  value_ff_t *v_ff;
 
   table = o->table;
-  return table->kind[i] == FINITEFIELD_VALUE && q_eq(&table->desc[i].rational, o->v);
+  if (table->kind[i] != FINITEFIELD_VALUE) {
+    return false;
+  }
+  v_ff = table->desc[i].ptr;
+  return q_eq(&v_ff->value, o->v) && q_eq(&v_ff->mod, o->mod);
 }
 
 static bool equal_algebraic_value(algebraic_hobj_t *o, value_t i) {
@@ -1571,19 +1586,6 @@ static value_t build_rational_value(rational_hobj_t *o) {
   return i;
 }
 
-static value_t build_finitefield_value(rational_hobj_t *o) {
-  value_table_t *table;
-  value_t i;
-
-  table = o->table;
-  i = allocate_object(table);
-  table->kind[i] = FINITEFIELD_VALUE;
-  q_init(&table->desc[i].rational);
-  q_set(&table->desc[i].rational, o->v);
-  set_bit(table->canonical, i);
-
-  return i;
-}
 
 static value_t build_algebraic_value(algebraic_hobj_t *o) {
 #ifdef HAVE_MCSAT
@@ -1623,6 +1625,28 @@ static value_t build_const_value(const_hobj_t *o) {
 
   return i;
 }
+
+
+static value_t build_finitefield_value(ff_hobj_t *o) {
+  value_table_t *table;
+  value_ff_t *v_ff;
+  value_t i;
+
+  v_ff = (value_ff_t *) safe_malloc(sizeof(value_bv_t));
+  q_init(&v_ff->value);
+  q_init(&v_ff->mod);
+  q_set(&v_ff->value, o->v);
+  q_set(&v_ff->mod, o->mod);
+
+  table = o->table;
+  i = allocate_object(table);
+  table->kind[i] = FINITEFIELD_VALUE;
+  table->desc[i].ptr = v_ff;
+  set_bit(table->canonical, i);
+
+  return i;
+}
+
 
 static value_t build_bv_value(bv_hobj_t *o) {
   value_table_t *table;
@@ -1818,36 +1842,38 @@ value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
 /*
  * Return a finitefield constant = v
  */
-value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v) {
-  rational_hobj_t rational_hobj;
-  rational_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
-  rational_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
-  rational_hobj.m.build = (hobj_build_t) build_finitefield_value;
-  rational_hobj.table = table;
-  rational_hobj.v = v;
+value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, rational_t *mod) {
+  ff_hobj_t ff_hobj;
+  ff_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
+  ff_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
+  ff_hobj.m.build = (hobj_build_t) build_finitefield_value;
+  ff_hobj.table = table;
+  ff_hobj.v = v;
+  ff_hobj.mod = mod;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
 }
 
 /*
  * Return a finitefield constant = v
  * no check for field size is performed
  */
-static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v) {
+static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v, rational_t *mod) {
   rational_t aux;
   value_t k;
 
   q_init(&aux);
   q_set32(&aux, v);
 
-  rational_hobj_t rational_hobj;
-  rational_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
-  rational_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
-  rational_hobj.m.build = (hobj_build_t) build_finitefield_value;
-  rational_hobj.table = table;
-  rational_hobj.v = &aux;
+  ff_hobj_t ff_hobj;
+  ff_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
+  ff_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
+  ff_hobj.m.build = (hobj_build_t) build_finitefield_value;
+  ff_hobj.table = table;
+  ff_hobj.v = &aux;
+  ff_hobj.mod = mod;
 
-  k = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  k = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
   q_clear(&aux);
 
   return k;
@@ -2332,7 +2358,7 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
     break;
 
   case FF_TYPE:
-    v = vtbl_mk_int32_ff(vtbl, 0);
+    v = vtbl_mk_int32_ff(vtbl, 0, ff_type_size(types, tau));
     break;
 
   case BITVECTOR_TYPE:
@@ -2440,8 +2466,8 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
     break;
 
   case FF_TYPE:
-    a[0] = vtbl_mk_int32_ff(vtbl, 0);
-    a[1] = vtbl_mk_int32_ff(vtbl, 1);
+    a[0] = vtbl_mk_int32_ff(vtbl, 0, ff_type_size(types, tau));
+    a[1] = vtbl_mk_int32_ff(vtbl, 1, ff_type_size(types, tau));
     break;
 
   case BITVECTOR_TYPE:

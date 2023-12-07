@@ -717,8 +717,8 @@ static value_t eval_arith_ff_eq(evaluator_t *eval, term_t t) {
   v = eval_term(eval, t);
   assert(object_is_finitefield(eval->vtbl, v));
 
-  // TODO use q_is_zero_mod?
-  return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_finitefield(eval->vtbl, v)));
+  value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, v);
+  return vtbl_mk_bool(eval->vtbl, q_is_zero(&v_ff->value));
 }
 
 /*
@@ -741,7 +741,9 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, rational_t *mod) 
     if (object_is_rational(eval->vtbl, o)) {
       q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
     } else if (object_is_finitefield(eval->vtbl, o)) {
-      q_mulexp(&prod, vtbl_finitefield(eval->vtbl, o), p->prod[i].exp);
+      value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, o);
+      assert(mod && q_eq(&v_ff->mod, mod));
+      q_mulexp(&prod, &v_ff->value, p->prod[i].exp);
     } else {
 #ifdef HAVE_MCSAT
       // We need algebraic number computation
@@ -758,7 +760,7 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, rational_t *mod) 
   if (mod) {
     assert(q_is_integer(&prod));
     q_integer_rem(&prod, mod);
-    o = vtbl_mk_finitefield(eval->vtbl, &prod);
+    o = vtbl_mk_finitefield(eval->vtbl, &prod, mod);
   } else {
     o = vtbl_mk_rational(eval->vtbl, &prod);
   }
@@ -857,6 +859,7 @@ static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, rational_t
   uint32_t i, n;
   term_t t;
   value_t v;
+  value_ff_t *v_ff;
 
   q_init(&sum); // sum = 0
 
@@ -868,7 +871,9 @@ static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, rational_t
     } else {
       v = eval_term(eval, t);
       assert(object_is_finitefield(eval->vtbl, v));
-      q_addmul(&sum, &p->mono[i].coeff, vtbl_finitefield(eval->vtbl, v)); // sum := sum + coeff * aux
+      v_ff = vtbl_finitefield(eval->vtbl, v);
+      assert(q_eq(&v_ff->mod, mod));
+      q_addmul(&sum, &p->mono[i].coeff, &v_ff->value); // sum := sum + coeff * aux
     }
   }
 
@@ -876,7 +881,7 @@ static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, rational_t
   assert(q_is_integer(&sum));
   assert(q_is_integer(mod));
   q_integer_rem(&sum, mod);
-  v = vtbl_mk_finitefield(eval->vtbl, &sum);
+  v = vtbl_mk_finitefield(eval->vtbl, &sum, mod);
 
   clear_rational(&sum);
 
@@ -1652,7 +1657,7 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       case ARITH_FF_CONSTANT:
         assert(arith_is_mod(finitefield_term_desc(terms, t), arith_get_mod(terms, t)));
-        v = vtbl_mk_finitefield(eval->vtbl, finitefield_term_desc(terms, t));
+        v = vtbl_mk_finitefield(eval->vtbl, finitefield_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 
       case BV64_CONSTANT:
