@@ -814,7 +814,7 @@ static value_t eval_arith_poly_algebraic(evaluator_t *eval, polynomial_t *p) {
 /*
  * Arithmetic polynomial
  */
-static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p, rational_t *mod) {
+static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
   rational_t sum;
   uint32_t i, n;
   term_t t;
@@ -829,9 +829,7 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p, rational_t *m
       q_add(&sum, &p->mono[i].coeff);
     } else {
       v = eval_term(eval, t);
-      if (object_is_rational(eval->vtbl, v) || object_is_finitefield(eval->vtbl, v)) {
-        assert((mod == NULL) == (object_is_rational(eval->vtbl, v)));
-        assert((mod != NULL) == (object_is_finitefield(eval->vtbl, v)));
+      if (object_is_rational(eval->vtbl, v)) {
         q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
       } else {
 #ifdef HAVE_MCSAT
@@ -847,13 +845,38 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p, rational_t *m
   }
 
   // convert sum to an object
-  if (mod) {
-    assert(q_is_integer(&sum));
-    q_integer_rem(&sum, mod);
-    v = vtbl_mk_finitefield(eval->vtbl, &sum);
-  } else {
-    v = vtbl_mk_rational(eval->vtbl, &sum);
+  v = vtbl_mk_rational(eval->vtbl, &sum);
+
+  clear_rational(&sum);
+
+  return v;
+}
+
+static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, rational_t *mod) {
+  rational_t sum;
+  uint32_t i, n;
+  term_t t;
+  value_t v;
+
+  q_init(&sum); // sum = 0
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      q_add(&sum, &p->mono[i].coeff);
+    } else {
+      v = eval_term(eval, t);
+      assert(object_is_finitefield(eval->vtbl, v));
+      q_addmul(&sum, &p->mono[i].coeff, vtbl_finitefield(eval->vtbl, v)); // sum := sum + coeff * aux
+    }
   }
+
+  // convert sum to an object
+  assert(q_is_integer(&sum));
+  assert(q_is_integer(mod));
+  q_integer_rem(&sum, mod);
+  v = vtbl_mk_finitefield(eval->vtbl, &sum);
 
   clear_rational(&sum);
 
@@ -1825,11 +1848,11 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_POLY:
-        v = eval_arith_poly(eval, poly_term_desc(terms, t), NULL);
+        v = eval_arith_poly(eval, poly_term_desc(terms, t));
         break;
 
       case ARITH_FF_POLY:
-        v = eval_arith_poly(eval, poly_term_desc(terms, t), arith_get_mod(terms, t));
+        v = eval_arith_ff_poly(eval, finitefield_poly_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 
       case BV64_POLY:
