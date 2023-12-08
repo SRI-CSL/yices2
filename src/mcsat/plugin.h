@@ -150,7 +150,7 @@ struct trail_token_s {
 };
 
 /**
- * Allocator for plugins. An allocator shoudld
+ * Allocator for plugins. An allocator should
  * - Allocate the plugin, basically malloc(sizeof(actual_plugin_size))
  * - Setup all the interface methods
  * - All other construction goes into the construct method
@@ -229,7 +229,7 @@ struct plugin_s {
    */
   void (*decide_assignment) (plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide);
 
-  /*
+  /**
    * Optional: learn using the given trail token. This is called at base level after
    * propagation is done and there is no conflict. This is a chance to perform some
    * more expensive reasoning and propagate consequences.
@@ -334,7 +334,7 @@ void plugin_construct(plugin_t* plugin) {
   plugin->pop                       = NULL;
   plugin->build_model               = NULL;
   plugin->gc_mark                   = NULL;
-  plugin->gc_mark_and_clear          = NULL;
+  plugin->gc_mark_and_clear         = NULL;
   plugin->gc_sweep                  = NULL;
   plugin->set_exception_handler     = NULL;
 }
