@@ -141,4 +141,9 @@ struct ff_plugin_s {
 
 };
 
+void ff_plugin_get_constraint_variables(ff_plugin_t* ff, term_t constraint, int_mset_t* vars_out);
+
+void ff_plugin_get_term_variables(ff_plugin_t* ff, term_t t, int_mset_t* vars_out);
+
+
 #endif /* FF_PLUGIN_INTERNAL_H */
