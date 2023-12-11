@@ -48,6 +48,7 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
   ff->ctx = ctx;
+  ff->trail_i = 0;
   ff->conflict_variable = variable_null;
 
   watch_list_manager_construct(&ff->wlm, ctx->var_db);
@@ -65,6 +66,8 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_type(ctx, FF_TYPE);
   ctx->request_decision_calls(ctx, FF_TYPE);
 
+  lp_data_init(&ff->lp_data);
+
   init_rba_buffer(&ff->buffer, ctx->terms->pprods);
 
   ff_plugin_stats_init(ff);
@@ -74,13 +77,23 @@ static
 void ff_plugin_destruct(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  lp_data_destruct(&ff->lp_data);
+
   watch_list_manager_destruct(&ff->wlm);
   delete_rba_buffer(&ff->buffer);
 }
 
-// TODO move lp stuff to own folder
-// make a plugin_lp_t to store the common stuff between nra and ff solver plugin_t -> plugin_lp_t -> nra/ff_plugin_t
-// move constraint_db to plugin_lp_t
+// TODO extract constraint_db from nra
+
+static inline
+bool ff_plugin_has_assignment(const ff_plugin_t* ff, variable_t x) {
+  return trail_has_value(ff->ctx->trail, x) && trail_get_index(ff->ctx->trail, x) < ff->trail_i;
+}
+
+static inline
+bool ff_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
+  return trail_variable_compare((const mcsat_trail_t *)data, t1, t2);
+}
 
 static
 void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
@@ -125,8 +138,8 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
     // Register all the variables to libpoly (these are mcsat_variables)
     for (uint32_t i = 0; i < t_variables_list->size; ++ i) {
-      if (!ff_plugin_variable_has_lp_variable(ff, t_variables_list->data[i])) {
-        ff_plugin_add_lp_variable(ff, t_variables_list->data[i]);
+      if (!lp_data_variable_has_lp_variable(&ff->lp_data, t_variables_list->data[i])) {
+        lp_data_add_lp_variable(&ff->lp_data, ff->ctx, t_variables_list->data[i]);
       }
     }
 
@@ -138,7 +151,6 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     }
 
     // Sort variables by trail index
-    // TODO move compare function to utils
     int_array_sort2(t_variables_list->data, t_variables_list->size, (void*) ff->ctx->trail, ff_plugin_trail_variable_compare);
 
     if (ctx_trace_enabled(ff->ctx, "mcsat::new_term")) {

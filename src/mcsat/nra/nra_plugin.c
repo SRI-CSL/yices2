@@ -190,44 +190,9 @@ void nra_plugin_destruct(plugin_t* plugin) {
   delete_rba_buffer(&nra->buffer);
 }
 
-static
+static inline
 bool nra_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
-  const mcsat_trail_t* trail;
-  bool t1_has_value, t2_has_value;
-  uint32_t t1_index, t2_index;
-
-  trail = data;
-
-  // We compare variables based on the trail level, unassigned to the front,
-  // then assigned ones by decreasing level
-
-  // Literals with no value
-  t1_has_value = trail_has_value(trail, t1);
-  t2_has_value = trail_has_value(trail, t2);
-  if (!t1_has_value && !t2_has_value) {
-    // Both have no value, just order by variable
-    return t1 < t2;
-  }
-
-  // At least one has a value
-  if (!t1_has_value) {
-    // t1 < t2, goes to front
-    return true;
-  }
-  if (!t2_has_value) {
-    // t2 < t1, goes to front
-    return false;
-  }
-
-  // Both literals have a value, sort by decreasing level
-  t1_index = trail_get_index(trail, t1);
-  t2_index = trail_get_index(trail, t2);
-  if (t1_index != t2_index) {
-    // t1 > t2 goes to front
-    return t1_index > t2_index;
-  } else {
-    return t1 < t2;
-  }
+  return trail_variable_compare((const mcsat_trail_t *)data, t1, t2);
 }
 
 static

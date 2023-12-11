@@ -27,6 +27,7 @@
 #include "mcsat/unit_info.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
+#include "mcsat/utils/lp_data.h"
 #include "mcsat/utils/int_mset.h"
 
 #include "terms/term_manager.h"
@@ -47,6 +48,9 @@ struct ff_plugin_s {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** Data related to libpoly */
+  lp_data_t lp_data;
+
 #if 0
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
@@ -56,10 +60,10 @@ struct ff_plugin_s {
 
   /** Map from constraint variables to the variables they are unit in */
   int_hmap_t constraint_unit_var;
+#endif
 
   /** Next index of the trail to process */
   uint32_t trail_i;
-#endif
 
   /** The conflict variable (one with empty feasible set) */
   variable_t conflict_variable;
@@ -100,27 +104,6 @@ struct ff_plugin_s {
   /** Map from variables to their feasible sets */
   feasible_set_db_t* feasible_set_db;
 
-  /** Data related to libpoly */
-  struct {
-
-    /** Libpoly variable database */
-    lp_variable_db_t* lp_var_db;
-    /** Libpoly Variable order */
-    lp_variable_order_t* lp_var_order;
-    /** Size of the variable order (for backtracking) */
-    uint32_t lp_var_order_size;
-    /** Libpoly polynomioal context */
-    lp_polynomial_context_t* lp_ctx;
-    /** Libpoly model */
-    lp_assignment_t* lp_assignment;
-    /** Interval assignment for bound inference */
-    lp_interval_assignment_t* lp_interval_assignment;
-
-    /** Map from libpoly variables to mcsat variables */
-    int_hmap_t lp_to_mcsat_var_map;
-    /** Map from mcsat variables to libpoly variables */
-    int_hmap_t mcsat_to_lp_var_map;
-  } lp_data;
 
   /** Buffer for evaluation */
   int_hmap_t evaluation_value_cache;
