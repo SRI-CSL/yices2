@@ -25,6 +25,7 @@
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
+#include "mcsat/utils/lp_data.h"
 #include "mcsat/nra/feasible_set_db.h"
 
 #include "terms/term_manager.h"
@@ -97,26 +98,7 @@ struct nra_plugin_s {
   feasible_set_db_t* feasible_set_db;
 
   /** Data related to libpoly */
-  struct {
-
-    /** Libpoly variable database */
-    lp_variable_db_t* lp_var_db;
-    /** Libpoly Variable order */
-    lp_variable_order_t* lp_var_order;
-    /** Size of the variable order (for backtracking) */
-    uint32_t lp_var_order_size;
-    /** Libpoly polynomioal context */
-    lp_polynomial_context_t* lp_ctx;
-    /** Libpoly model */
-    lp_assignment_t* lp_assignment;
-    /** Interval assignment for bound inference */
-    lp_interval_assignment_t* lp_interval_assignment;
-
-    /** Map from libpoly variables to mcsat variables */
-    int_hmap_t lp_to_mcsat_var_map;
-    /** Map from mcsat variables to libpoly variables */
-    int_hmap_t mcsat_to_lp_var_map;
-  } lp_data;
+  lp_data_t lp_data;
 
   /** Buffer for evaluation */
   int_hmap_t evaluation_value_cache;
@@ -151,20 +133,8 @@ void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t
 /** Check if there term has an lp variable */
 int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t);
 
-/** Check if the mcsat variable has an lp variable */
-int nra_plugin_variable_has_lp_variable(nra_plugin_t* nra, variable_t mcsat_var);
-
 /** Add a variable corresponding to the term t to libpoly */
 void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t);
-
-/** Add a variable corresponding to the mcsat variable to libpoly */
-void nra_plugin_add_lp_variable(nra_plugin_t* nra, variable_t mcsat_var);
-
-/** Get the libpoly variable corresponding to term t (should have been added first) */
-lp_variable_t nra_plugin_get_lp_variable(nra_plugin_t* nra, variable_t t);
-
-/** Get the mcsat variable from the libpoly variable */
-variable_t nra_plugin_get_variable_from_lp_variable(nra_plugin_t* nra, lp_variable_t lp_var);
 
 /** Set the unit info for the given constraint */
 void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable_t unit_var, constraint_unit_info_t value);

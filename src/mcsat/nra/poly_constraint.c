@@ -20,6 +20,7 @@
 #include "mcsat/nra/libpoly_utils.h"
 #include "terms/terms.h"
 #include "mcsat/tracing.h"
+#include "mcsat/utils/lp_data.h"
 
 #include <poly/variable_db.h>
 #include <poly/variable_list.h>
@@ -537,7 +538,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     cstr_polynomial = lp_polynomial_from_term_nra(db->nra, r->p, NULL);
     variable_t x = variable_db_get_variable_if_exists(db->nra->ctx->var_db, r->x);
     assert(x != variable_null);
-    cstr_root_variable = nra_plugin_get_lp_variable(db->nra, x);
+    cstr_root_variable = lp_data_get_lp_variable(&db->nra->lp_data, x);
     cstr_root_index = r->k;
     switch (r->r) {
     case ROOT_ATOM_LT:
@@ -571,7 +572,7 @@ void poly_constraint_db_add(poly_constraint_db_t* db, variable_t constraint_var)
     lp_integer_construct_from_int(lp_Z, &t1_c, 1);
     lp_integer_construct(&t2_c);
     lp_polynomial_t* t1_p = lp_polynomial_alloc();
-    lp_variable_t constraint_lp_var = nra_plugin_get_lp_variable(db->nra, constraint_var);
+    lp_variable_t constraint_lp_var = lp_data_get_lp_variable(&db->nra->lp_data, constraint_var);
     lp_polynomial_construct_simple(t1_p, db->nra->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
     lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(db->nra, constraint_var_term, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
@@ -671,7 +672,7 @@ const mcsat_value_t* poly_constraint_db_approximate(poly_constraint_db_t* db, va
   variable_t* vars = watch_list_manager_get_list(&nra->wlm, var_list_ref);
   for (; *vars != variable_null; vars++) {
     variable_t x = *vars;
-    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+    lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);

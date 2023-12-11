@@ -40,6 +40,7 @@
 #include "mcsat/tracing.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
+#include "mcsat/utils/lp_data.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/nra/poly_constraint.h"
 #include "mcsat/nra/nra_plugin_explain.h"
@@ -94,9 +95,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   scope_holder_construct(&nra->scope);
 
-  init_int_hmap(&nra->lp_data.mcsat_to_lp_var_map, 0);
-  init_int_hmap(&nra->lp_data.lp_to_mcsat_var_map, 0);
-
   init_int_hmap(&nra->evaluation_value_cache, 0);
   init_int_hmap(&nra->evaluation_timestamp_cache, 0);
 
@@ -113,25 +111,8 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Feasible sets
   nra->feasible_set_db = feasible_set_db_new(ctx);
 
-  // lipoly init
-  nra->lp_data.lp_var_db = lp_variable_db_new();
-  nra->lp_data.lp_var_order = lp_variable_order_new();
-  nra->lp_data.lp_var_order_size = 0;
-  nra->lp_data.lp_ctx = lp_polynomial_context_new(lp_Z, nra->lp_data.lp_var_db, nra->lp_data.lp_var_order);
-  nra->lp_data.lp_assignment = lp_assignment_new(nra->lp_data.lp_var_db);
-  nra->lp_data.lp_interval_assignment = lp_interval_assignment_new(nra->lp_data.lp_var_db);
-
-  // Tracing in libpoly
-  if (false) {
-//    lp_trace_enable("coefficient");
-//    lp_trace_enable("coefficient::sgn");
-    lp_trace_enable("coefficient::interval");
-  }
-
-  // Trace pscs
-  if (false) {
-    lp_trace_enable("polynomial::expensive");
-  }
+  // libpoly init
+  lp_data_init(&nra->lp_data);
 
   // Atoms
   ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
@@ -180,9 +161,6 @@ void nra_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&nra->processed_variables);
   scope_holder_destruct(&nra->scope);
 
-  delete_int_hmap(&nra->lp_data.mcsat_to_lp_var_map);
-  delete_int_hmap(&nra->lp_data.lp_to_mcsat_var_map);
-
   delete_int_hmap(&nra->evaluation_value_cache);
   delete_int_hmap(&nra->evaluation_timestamp_cache);
 
@@ -207,11 +185,7 @@ void nra_plugin_destruct(plugin_t* plugin) {
 
   feasible_set_db_delete(nra->feasible_set_db);
 
-  lp_polynomial_context_detach(nra->lp_data.lp_ctx);
-  lp_variable_order_detach(nra->lp_data.lp_var_order);
-  lp_variable_db_detach(nra->lp_data.lp_var_db);
-  lp_assignment_delete(nra->lp_data.lp_assignment);
-  lp_interval_assignment_delete(nra->lp_data.lp_interval_assignment);
+  lp_data_destruct(&nra->lp_data);
 
   delete_rba_buffer(&nra->buffer);
 }
@@ -572,8 +546,8 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     // Register all the variables to libpoly (these are mcsat_variables)
     for (i = 0; i < t_variables_list->size; ++ i) {
-      if (!nra_plugin_variable_has_lp_variable(nra, t_variables_list->data[i])) {
-        nra_plugin_add_lp_variable(nra, t_variables_list->data[i]);
+      if (!lp_data_variable_has_lp_variable(&nra->lp_data, t_variables_list->data[i])) {
+        lp_data_add_lp_variable(&nra->lp_data, nra->ctx, t_variables_list->data[i]);
       }
     }
 
@@ -774,7 +748,7 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
       const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
       assert(x_interval != NULL);
       if (!lp_interval_is_full(x_interval)) {
-        variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
+        variable_t x = lp_data_get_variable_from_lp_variable(&nra->lp_data, x_lp);
         lp_feasibility_set_t* x_feasible = lp_feasibility_set_new_from_interval(x_interval);
         bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
         if (!consistent) {
@@ -911,20 +885,17 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
   }
 
   // If it's constant, just skip it
-  if (!nra_plugin_variable_has_lp_variable(nra, var)) {
+  if (!lp_data_variable_has_lp_variable(&nra->lp_data, var)) {
     return;
   }
 
   // Add to the lp model and context
-  lp_variable_t lp_var = nra_plugin_get_lp_variable(nra, var);
   assert(trail_get_value(trail, var)->type == VALUE_LIBPOLY);
-  lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &trail_get_value(trail, var)->lp_value);
-  lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
-  nra->lp_data.lp_var_order_size ++;
+  lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable(&nra->lp_data, var), &trail_get_value(trail, var)->lp_value);
 
   if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: var order :");
-    lp_variable_order_print(nra->lp_data.lp_var_order, nra->lp_data.lp_var_db, ctx_trace_out(nra->ctx));
+    lp_data_variable_order_print(&nra->lp_data, ctx_trace_out(nra->ctx));
     ctx_trace_printf(nra->ctx, "\n");
   }
 
@@ -1023,7 +994,7 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
     }
     const mcsat_value_t* value = trail_get_value(trail, x);
     if (value->type == VALUE_LIBPOLY && nra_plugin_has_assignment(nra, x)) {
-      lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+      lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
       const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
       int cmp = lp_value_cmp(&value->lp_value, value_lp);
       (void)cmp;
@@ -1035,7 +1006,7 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
   const lp_variable_list_t* order = lp_variable_order_get_list(nra->lp_data.lp_var_order);
   for (i = 0; i < order->list_size; ++ i) {
     lp_variable_t x_lp = order->list[i];
-    variable_t x = nra_plugin_get_variable_from_lp_variable(nra, x_lp);
+    variable_t x = lp_data_get_variable_from_lp_variable(&nra->lp_data, x_lp);
     const mcsat_value_t* value = trail_get_value(trail, x);
     const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
     int cmp = lp_value_cmp(&value->lp_value, value_lp);
@@ -1247,7 +1218,7 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
     if (x == nra->last_decided_and_unprocessed) {
       continue;
     }
-    lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+    lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
     // Ignore unassigned too
     if (!trail_has_value(trail, x)) {
       assert(free_var == lp_variable_null);
@@ -1593,11 +1564,10 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     assert(core.size == 0);
     // We don't know the actual lemma terms, just the variables
     // We do know that if we evaluate with the conflict variable the terms should eval to false
-    // 1. Setup the model with the conflict variable
+    // 1. Set up the model with the conflict variable
     variable_t var = nra->conflict_variable_assumption;
-    lp_variable_t lp_var = nra_plugin_get_lp_variable(nra, var);
-    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, &nra->conflict_variable_value);
-    lp_variable_order_push(nra->lp_data.lp_var_order, lp_var);
+    lp_data_variable_order_push(&nra->lp_data);
+    lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable(&nra->lp_data, var), &nra->conflict_variable_value);
     for (i = 0; i < lemma_reasons.size; ++ i) {
       // 2. Evaluate the constraint and figure out how it evaluates to false
       variable_t constraint_var = lemma_reasons.data[i];
@@ -1614,8 +1584,7 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       }
     }
     // 3. Pop the model
-    lp_variable_order_pop(nra->lp_data.lp_var_order);
-    lp_assignment_set_value(nra->lp_data.lp_assignment, lp_var, 0);
+    lp_data_variable_order_pop(&nra->lp_data);
   } else {
     assert(core.size == 1);
 
@@ -1658,7 +1627,7 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     } else {
       // Case 3: single constraint from interval inference
       // Get the reason of the inference
-      lp_variable_t x_lp = nra_plugin_get_lp_variable(nra, x);
+      lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
       lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
       assert(p_reason_lp != NULL);
 
@@ -1801,9 +1770,9 @@ void nra_plugin_push(plugin_t* plugin) {
   scope_holder_push(&nra->scope,
       &nra->trail_i,
       &nra->processed_variables_size,
-      &nra->lp_data.lp_var_order_size,
       NULL);
 
+  lp_data_variable_order_push(&nra->lp_data);
   feasible_set_db_push(nra->feasible_set_db);
 }
 
@@ -1821,7 +1790,6 @@ void nra_plugin_pop(plugin_t* plugin) {
   scope_holder_pop(&nra->scope,
       &nra->trail_i,
       &nra->processed_variables_size,
-      &nra->lp_data.lp_var_order_size,
       NULL);
 
   // Undo the processed variables
@@ -1855,15 +1823,7 @@ void nra_plugin_pop(plugin_t* plugin) {
   }
 
   // Pop the variable order and the lp model
-  lp_variable_order_t* order = nra->lp_data.lp_var_order;
-  lp_assignment_t* assignment = nra->lp_data.lp_assignment;
-  while (lp_variable_order_size(order) > nra->lp_data.lp_var_order_size) {
-    lp_variable_t lp_var = lp_variable_order_top(order);
-    lp_variable_order_pop(order);
-    lp_assignment_set_value(assignment, lp_var, 0);
-    variable_t var = nra_plugin_get_variable_from_lp_variable(nra, lp_var);
-    (void)var;
-  }
+  lp_data_variable_order_pop(&nra->lp_data);
 
   if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
     nra_plugin_check_assignment(nra);
@@ -1903,10 +1863,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   poly_constraint_db_gc_sweep(nra->constraint_db, gc_vars);
 
   // The lp_data mappings:
-  // - lpdata.lp_to_mcsat_var_map (values)
-  // - lpdata.mcsat_to_lp_var_map (keys)
-  gc_info_sweep_int_hmap_values(gc_vars, &nra->lp_data.lp_to_mcsat_var_map);
-  gc_info_sweep_int_hmap_keys(gc_vars, &nra->lp_data.mcsat_to_lp_var_map);
+  lp_data_gc_sweep(&nra->lp_data, gc_vars);
 
   // Evaluation cache
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->evaluation_value_cache);

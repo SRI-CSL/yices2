@@ -204,7 +204,7 @@ term_t lp_projection_map_polynomial_to_term(lp_projection_map_t* map, const lp_p
 static inline
 term_t lp_projection_map_var_to_term(lp_projection_map_t* map, lp_variable_t x_lp) {
   if (map->nra) {
-    variable_t x_var = nra_plugin_get_variable_from_lp_variable(map->nra, x_lp);
+    variable_t x_var = lp_data_get_variable_from_lp_variable(&map->nra->lp_data, x_lp);
     term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
     return x_term;
   } else {
@@ -1147,7 +1147,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
       bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
       variable_t conflict_var = nra->conflict_variable;
       if (conflict_var == variable_null) conflict_var = nra->conflict_variable_int;
-      lp_variable_t x = nra_plugin_get_lp_variable(nra, conflict_var);
+      lp_variable_t x = lp_data_get_lp_variable(&nra->lp_data, conflict_var);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
       if (p_inference_reason != NULL) {
         is_inference = true;

@@ -173,11 +173,6 @@ int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t) {
   return find != NULL;
 }
 
-int nra_plugin_variable_has_lp_variable(nra_plugin_t* nra, variable_t mcsat_var) {
-  int_hmap_pair_t* find = int_hmap_find(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var);
-  return find != NULL;
-}
-
 void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t) {
 
   lp_variable_t lp_var = lp_variable_from_term(t, nra->ctx->terms, nra->lp_data.lp_var_db);
@@ -188,45 +183,6 @@ void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t) {
 
   int_hmap_add(&nra->lp_data.lp_to_mcsat_var_map, lp_var, mcsat_var);
   int_hmap_add(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var, lp_var);
-}
-
-void nra_plugin_add_lp_variable(nra_plugin_t* nra, variable_t mcsat_var) {
-
-  term_t t = variable_db_get_term(nra->ctx->var_db, mcsat_var);
-
-  // Name of the term
-  char buffer[100];
-  char* var_name = term_name(nra->ctx->terms, t);
-  if (var_name == NULL) {
-    var_name = buffer;
-    sprintf(var_name, "#%d", t);
-    if (ctx_trace_enabled(nra->ctx, "nra::vars")) {
-      ctx_trace_printf(nra->ctx, "%s -> ", var_name);
-      variable_db_print_variable(nra->ctx->var_db, mcsat_var, ctx_trace_out(nra->ctx));
-      ctx_trace_printf(nra->ctx, "\n");
-    }
-  }
-
-  // Make the variable
-  lp_variable_t lp_var = lp_variable_db_new_variable(nra->lp_data.lp_var_db, var_name);
-
-  assert(int_hmap_find(&nra->lp_data.lp_to_mcsat_var_map, lp_var) == NULL);
-  assert(int_hmap_find(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var) == NULL);
-
-  int_hmap_add(&nra->lp_data.lp_to_mcsat_var_map, lp_var, mcsat_var);
-  int_hmap_add(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var, lp_var);
-}
-
-lp_variable_t nra_plugin_get_lp_variable(nra_plugin_t* nra, variable_t mcsat_var) {
-  int_hmap_pair_t* find = int_hmap_find(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var);
-  assert(find != NULL);
-  return find->val;
-}
-
-variable_t nra_plugin_get_variable_from_lp_variable(nra_plugin_t* nra, lp_variable_t lp_var) {
-  int_hmap_pair_t* find = int_hmap_find(&nra->lp_data.lp_to_mcsat_var_map, lp_var);
-  assert(find != NULL);
-  return find->val;
 }
 
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
