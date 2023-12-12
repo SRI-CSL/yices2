@@ -71,6 +71,12 @@ void lp_data_variable_order_print(lp_data_t *lp_data, FILE *file);
 
 void lp_data_gc_sweep(lp_data_t *lp_data, const gc_info_t *gc_vars);
 
+/** Creates a new lp_variable with a given name. */
+lp_variable_t lp_data_new_variable(lp_data_t *lp_data, const char* var_name);
+
+/** Crates a new lp_polynomial with the current context */
+lp_polynomial_t* lp_data_new_polynomial(lp_data_t *lp_data);
+
 /** Check if the mcsat variable has an lp variable */
 static inline bool lp_data_variable_has_lp_variable(lp_data_t* lp_data, variable_t mcsat_var) {
   return int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var) != NULL;

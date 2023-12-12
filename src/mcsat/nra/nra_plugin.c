@@ -106,7 +106,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ptr_hmap(&nra->feasible_set_cache[1], 0);
 
   // Constraint db
-  nra->constraint_db = poly_constraint_db_new(nra);
+  nra->constraint_db = poly_constraint_db_new(&nra->lp_data);
 
   // Feasible sets
   nra->feasible_set_db = feasible_set_db_new(ctx);
@@ -319,7 +319,7 @@ const mcsat_value_t* nra_plugin_constraint_evaluate(nra_plugin_t* nra, variable_
   // do not evaluate (see ok below, but we can evaluate them in the cache)
 
   // Compute the evaluation
-  bool ok = poly_constraint_evaluate(cstr, nra, &cstr_value);
+  bool ok = poly_constraint_evaluate(cstr, &nra->lp_data, &cstr_value);
   (void) ok;
   assert(ok);
   (*nra->stats.evaluations) ++;
@@ -564,7 +564,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     nra_plugin_set_unit_info(nra, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
-    poly_constraint_db_add(nra->constraint_db, t_var);
+    nra_poly_constraint_create(nra, t_var);
 
     // Propagate if fully assigned
     if (unit_status == CONSTRAINT_FULLY_ASSIGNED) {
@@ -608,9 +608,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       break;
     }
     default: {
-
-      if (!nra_plugin_term_has_lp_variable(nra, t)) {
-        nra_plugin_add_lp_variable_from_term(nra, t);
+      variable_t mcsat_var = variable_db_get_variable(nra->ctx->var_db, t);
+      if (!lp_data_variable_has_lp_variable(&nra->lp_data, mcsat_var)) {
+        lp_data_add_lp_variable(&nra->lp_data, nra->ctx, mcsat_var);
       }
 
       if (nra->ctx->options->nra_bound) {
@@ -1307,7 +1307,7 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   term_t constraint_atom = unsigned_term(constraint);
   bool negated = constraint != constraint_atom;
   variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
-  poly_constraint_db_add(nra->constraint_db, constraint_var);
+  nra_poly_constraint_create(nra, constraint_var);
 
   // Check if the constraint is in Boolean conflict
   if (trail_has_value(nra->ctx->trail, constraint_var)) {
@@ -1538,7 +1538,7 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
       variable_t constraint_var = lemma_reasons.data[i];
       const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
       bool constraint_value = false;
-      bool ok = poly_constraint_evaluate(constraint, nra, &constraint_value);
+      bool ok = poly_constraint_evaluate(constraint, &nra->lp_data, &constraint_value);
       (void) ok;
       assert(ok);
       term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
@@ -1825,7 +1825,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // the watchlists and the unit information.
 
   // The constraint database
-  poly_constraint_db_gc_sweep(nra->constraint_db, gc_vars);
+  poly_constraint_db_gc_sweep(nra->constraint_db, nra->ctx, gc_vars);
 
   // The lp_data mappings:
   lp_data_gc_sweep(&nra->lp_data, gc_vars);
@@ -2075,7 +2075,7 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     // Approximate the value
     const mcsat_value_t* constraint_value = NULL;
     if (!nra->ctx->options->model_interpolation) {
-      constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
+      constraint_value = nra_poly_constraint_db_approximate(nra, constraint_var);
       if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
         ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
         FILE* out = ctx_trace_out(nra->ctx);

@@ -167,24 +167,6 @@ variable_t nra_plugin_get_unit_var(nra_plugin_t* nra, variable_t constraint) {
   }
 }
 
-int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t) {
-  variable_t mcsat_var = variable_db_get_variable(nra->ctx->var_db, t);
-  int_hmap_pair_t* find = int_hmap_find(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var);
-  return find != NULL;
-}
-
-void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t) {
-
-  lp_variable_t lp_var = lp_variable_from_term(t, nra->ctx->terms, nra->lp_data.lp_var_db);
-  variable_t mcsat_var = variable_db_get_variable(nra->ctx->var_db, t);
-
-  assert(int_hmap_find(&nra->lp_data.lp_to_mcsat_var_map, lp_var) == NULL);
-  assert(int_hmap_find(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var) == NULL);
-
-  int_hmap_add(&nra->lp_data.lp_to_mcsat_var_map, lp_var, mcsat_var);
-  int_hmap_add(&nra->lp_data.mcsat_to_lp_var_map, mcsat_var, lp_var);
-}
-
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
   prop->conflict(prop);
   nra->conflict_variable = variable;

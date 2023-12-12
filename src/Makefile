@@ -355,6 +355,7 @@ mcsat_src_c := \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/lp_data.c \
+	mcsat/utils/lp_constraint_db.c \
 	mcsat/utils/value_hash_map.c \
 	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \

@@ -18,13 +18,14 @@
  
 #include "mcsat/nra/feasible_set_db.h"
 #include "mcsat/utils/scope_holder.h"
+#include "mcsat/utils/lp_constraint_db.h"
 #include "mcsat/tracing.h"
 #include "mcsat/nra/nra_plugin_internal.h"
-#include "mcsat/nra/poly_constraint.h"
 
 #include "utils/int_array_sort2.h"
 
 #include <poly/feasibility_set.h>
+#include <poly/polynomial.h>
 #include <poly/upolynomial.h>
 
 /**

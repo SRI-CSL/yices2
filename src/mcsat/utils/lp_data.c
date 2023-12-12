@@ -66,6 +66,15 @@ void lp_data_destruct(lp_data_t *lp_data) {
   scope_holder_destruct(&lp_data->scope);
 }
 
+static
+void lp_data_variable_link(lp_data_t *lp_data, lp_variable_t lp_var, variable_t mcsat_var) {
+  assert(int_hmap_find(&lp_data->lp_to_mcsat_var_map, lp_var) == NULL);
+  assert(int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var) == NULL);
+
+  int_hmap_add(&lp_data->lp_to_mcsat_var_map, lp_var, mcsat_var);
+  int_hmap_add(&lp_data->mcsat_to_lp_var_map, mcsat_var, lp_var);
+}
+
 void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var) {
   term_t t = variable_db_get_term(ctx->var_db, mcsat_var);
 
@@ -75,7 +84,7 @@ void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable
   if (var_name == NULL) {
     var_name = buffer;
     sprintf(var_name, "#%d", t);
-    if (ctx_trace_enabled(ctx, "nra::vars")) {
+    if (ctx_trace_enabled(ctx, "lp::vars")) {
       ctx_trace_printf(ctx, "%s -> ", var_name);
       variable_db_print_variable(ctx->var_db, mcsat_var, ctx_trace_out(ctx));
       ctx_trace_printf(ctx, "\n");
@@ -83,13 +92,8 @@ void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable
   }
 
   // Make the variable
-  lp_variable_t lp_var = lp_variable_db_new_variable(lp_data->lp_var_db, var_name);
-
-  assert(int_hmap_find(&lp_data->lp_to_mcsat_var_map, lp_var) == NULL);
-  assert(int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var) == NULL);
-
-  int_hmap_add(&lp_data->lp_to_mcsat_var_map, lp_var, mcsat_var);
-  int_hmap_add(&lp_data->mcsat_to_lp_var_map, mcsat_var, lp_var);
+  lp_variable_t lp_var = lp_data_new_variable(lp_data, var_name);
+  lp_data_variable_link(lp_data, lp_var, mcsat_var);
 }
 
 void lp_data_variable_order_push(lp_data_t *lp_data) {
@@ -116,6 +120,14 @@ void lp_data_add_to_model_and_context(lp_data_t *lp_data, lp_variable_t lp_var, 
   lp_assignment_set_value(lp_data->lp_assignment, lp_var, lp_value);
   lp_variable_order_push(lp_data->lp_var_order, lp_var);
   lp_data->lp_var_order_size ++;
+}
+
+lp_variable_t lp_data_new_variable(lp_data_t *lp_data, const char* var_name) {
+  return lp_variable_db_new_variable(lp_data->lp_var_db, var_name);
+}
+
+lp_polynomial_t* lp_data_new_polynomial(lp_data_t *lp_data) {
+  return lp_polynomial_new(lp_data->lp_ctx);
 }
 
 void lp_data_variable_order_print(lp_data_t *lp_data, FILE *file) {

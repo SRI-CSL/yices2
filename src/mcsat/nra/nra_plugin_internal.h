@@ -26,12 +26,10 @@
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/utils/lp_data.h"
+#include "mcsat/utils/lp_constraint_db.h"
 #include "mcsat/nra/feasible_set_db.h"
 
 #include "terms/term_manager.h"
-
-typedef struct poly_constraint_db_struct poly_constraint_db_t;
-typedef struct poly_constraint_struct poly_constraint_t;
 
 struct nra_plugin_s {
 
@@ -129,12 +127,6 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
  * mcsat variable to vars_out. Returns false otherwise.
  */
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
-
-/** Check if there term has an lp variable */
-int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t);
-
-/** Add a variable corresponding to the term t to libpoly */
-void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t);
 
 /** Set the unit info for the given constraint */
 void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable_t unit_var, constraint_unit_info_t value);
