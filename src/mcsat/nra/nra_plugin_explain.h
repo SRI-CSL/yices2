@@ -48,7 +48,7 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  *
  * Given a set of literals L satisfied by the model M, this function returns a new set of literals L' such that
  *
- * - L' is aslo satisfied by M
+ * - L' is also satisfied by M
  * - L' only contains the variables in vars_to_keep;
  * - any satisfying assignment of L' can be extended to an assignment of L
  *

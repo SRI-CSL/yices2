@@ -31,6 +31,13 @@
 
 #include <gmp.h>
 
+static
+void lp_integer_assign_yices_rational(lp_integer_t* lp_p, lp_integer_t* lp_q, const rational_t* q);
+
+/**
+ * Create a libpoly polynomial from a yices power product. Returns lp_p = pp * c.
+ */
+static
 lp_polynomial_t* lp_polynomial_from_power_product_nra(nra_plugin_t* nra, pprod_t* pp, lp_integer_t* c) {
 
   // Context
@@ -66,28 +73,32 @@ lp_polynomial_t* lp_polynomial_from_power_product_nra(nra_plugin_t* nra, pprod_t
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_power_product(pprod_t* pp, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+/**
+ * Create a libpoly polynomial from a yices power product. Returns lp_p = pp * c.
+ *
+ * @param term_to_lp_map a map from variables (terms) to variables (libpoly).
+ */
+static
+lp_polynomial_t* lp_polynomial_from_power_product(lp_data_t *lp_data, pprod_t* pp, lp_integer_t* c) {
 
   // The monomials
   lp_monomial_t lp_monomial;
-  lp_monomial_construct(lp_ctx, &lp_monomial);
+  lp_monomial_construct(lp_data->lp_ctx, &lp_monomial);
 
   // Set monomial coefficient to 1
   lp_integer_t one;
   lp_integer_construct_from_int(lp_Z, &one, 1);
-  lp_monomial_set_coefficient(lp_ctx, &lp_monomial, &one);
+  lp_monomial_set_coefficient(lp_data->lp_ctx, &lp_monomial, &one);
   lp_integer_destruct(&one);
 
   // Get the product terms
   uint32_t i = 0;
   for (i = 0; i < pp->len; ++ i) {
-    int_hmap_pair_t* var_find = int_hmap_find(term_to_lp_map, pp->prod[i].var);
-    assert(var_find != NULL);
-    lp_variable_t lp_var = var_find->val;
+    lp_variable_t lp_var = lp_data_get_lp_variable(lp_data, pp->prod[i].var);
     lp_monomial_push(&lp_monomial, lp_var, pp->prod[i].exp);
   }
 
-  lp_polynomial_t* result = lp_polynomial_new(lp_ctx);
+  lp_polynomial_t* result = lp_polynomial_new(lp_data->lp_ctx);
   lp_polynomial_add_monomial(result, &lp_monomial);
 
   if (c) {
@@ -99,6 +110,12 @@ lp_polynomial_t* lp_polynomial_from_power_product(pprod_t* pp, int_hmap_t* term_
   return result;
 }
 
+/**
+ * Create a libpoly polynomial from a yices polynomial. Returns the polynomial
+ * lp_p and a positive integer constant c, such that lp_p = p * c. If c is NULL
+ * it is ignored.
+ */
+static
 lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial_t* p, lp_integer_t* c) {
 
   uint32_t i, j;
@@ -185,12 +202,13 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* terms, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+static
+lp_polynomial_t* lp_polynomial_from_polynomial(lp_data_t* lp_data, polynomial_t* p, term_table_t* terms, lp_integer_t* c) {
 
   uint32_t i, j;
   lp_variable_t lp_var;
 
-  lp_polynomial_t* result = lp_polynomial_new(lp_ctx);
+  lp_polynomial_t *result = lp_data_new_polynomial(lp_data);
 
   //
   // we have
@@ -221,19 +239,19 @@ lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* te
 
   // The monomials
   lp_monomial_t lp_monomial;
-  lp_monomial_construct(lp_ctx, &lp_monomial);
+  lp_monomial_construct(lp_polynomial_get_context(result), &lp_monomial);
 
   // Add up all the monomials
   for (i = 0; i < p->nterms; ++ i) {
 
     term_t product = p->mono[i].var;
-    lp_monomial_clear(lp_ctx, &lp_monomial);
+    lp_monomial_clear(lp_polynomial_get_context(result), &lp_monomial);
 
     // The constant (a/b)*lcm
     lp_integer_assign_yices_rational(&a, &b, &p->mono[i].coeff);
     lp_integer_div_exact(lp_Z, &b, &lcm, &b);
     lp_integer_mul(lp_Z, &a, &a, &b);
-    lp_monomial_set_coefficient(lp_ctx, &lp_monomial, &a);
+    lp_monomial_set_coefficient(lp_polynomial_get_context(result), &lp_monomial, &a);
 
     if (product == const_idx) {
       // Constant polynomial, nothing to do
@@ -241,16 +259,12 @@ lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* te
       // Add all the variables
       pprod_t* pprod = pprod_for_term(terms, product);
       for (j = 0; j < pprod->len; ++j) {
-        int_hmap_pair_t* var_find = int_hmap_find(term_to_lp_map, pprod->prod[j].var);
-        assert(var_find != NULL);
-        lp_var = var_find->val;
+        lp_var = lp_data_get_lp_variable(lp_data, pprod->prod[j].var);
         lp_monomial_push(&lp_monomial, lp_var, pprod->prod[j].exp);
       }
     } else {
       // Variable, or foreign term
-      int_hmap_pair_t* var_find = int_hmap_find(term_to_lp_map, product);
-      assert(var_find != NULL);
-      lp_var = var_find->val;
+      lp_var = lp_data_get_lp_variable(lp_data, product);
       lp_monomial_push(&lp_monomial, lp_var, 1);
     }
 
@@ -266,6 +280,7 @@ lp_polynomial_t* lp_polynomial_from_polynomial(polynomial_t* p, term_table_t* te
 
   return result;
 }
+
 lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t t, lp_integer_t* c) {
   term_kind_t kind;
   lp_polynomial_t* result = NULL;
@@ -324,14 +339,15 @@ lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t t, lp_int
   return result;
 }
 
-lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap_t* term_to_lp_map, const lp_polynomial_context_t* lp_ctx, lp_integer_t* c) {
+// lp_data: mapping term <-> lp_var
+lp_polynomial_t* lp_polynomial_from_term(lp_data_t* lp_data, term_t t, term_table_t* terms, lp_integer_t* c) {
   term_kind_t kind;
   lp_polynomial_t* result = NULL;
 
   kind = term_kind(terms, t);
   switch (kind) {
   case ARITH_POLY:
-    result = lp_polynomial_from_polynomial(poly_term_desc(terms, t), terms, term_to_lp_map, lp_ctx, c);
+    result = lp_polynomial_from_polynomial(lp_data, poly_term_desc(terms, t), terms, c);
     break;
   case ARITH_CONSTANT: {
     // Get the constant numerator and denominator
@@ -340,25 +356,23 @@ lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap
     lp_integer_assign_yices_rational(&lp_p, c, rational_term_desc(terms, t));
     // polynomial a*x^0
     result = lp_polynomial_alloc();
-    lp_polynomial_construct_simple(result, lp_ctx, &lp_p, 0, 0);
+    lp_polynomial_construct_simple(result, lp_data->lp_ctx, &lp_p, 0, 0);
     // Remove temp
     lp_integer_destruct(&lp_p);
     break;
   }
   case POWER_PRODUCT:
-    result = lp_polynomial_from_power_product(pprod_term_desc(terms, t), term_to_lp_map, lp_ctx, c);
+    result = lp_polynomial_from_power_product(lp_data, pprod_term_desc(terms, t), c);
     break;
   default: {
     // Constant 1
     lp_integer_t one;
     lp_integer_construct_from_int(lp_Z, &one, 1);
     // The variable
-    int_hmap_pair_t* t_find = int_hmap_find(term_to_lp_map, t);
-    assert(t_find != NULL);
-    lp_variable_t lp_var = t_find->val;
+    lp_variable_t lp_var = lp_data_get_lp_variable(lp_data, t);
     // Polynomial 1*x^1
     result = lp_polynomial_alloc();
-    lp_polynomial_construct_simple(result, lp_ctx, &one, lp_var, 1);
+    lp_polynomial_construct_simple(result, lp_data->lp_ctx, &one, lp_var, 1);
     // Put 1 if requested
     if (c != NULL) {
       lp_integer_assign(lp_Z, c, &one);
@@ -371,6 +385,10 @@ lp_polynomial_t* lp_polynomial_from_term(term_t t, term_table_t* terms, int_hmap
   return result;
 }
 
+/**
+ * Construct an p/q from a rational constant. If any of p or q are
+ */
+static
 void lp_integer_construct_from_yices_rational(lp_integer_t* lp_p, lp_integer_t* lp_q, const rational_t* q) {
   if (lp_p != NULL) {
     rational_t q_num;
@@ -396,6 +414,10 @@ void lp_integer_construct_from_yices_rational(lp_integer_t* lp_p, lp_integer_t* 
   }
 }
 
+/**
+ * Assign p/q from a yices rational constant.
+ */
+static
 void lp_integer_assign_yices_rational(lp_integer_t* lp_p, lp_integer_t* lp_q, const rational_t* q) {
   lp_integer_destruct(lp_p);
   lp_integer_destruct(lp_q);
@@ -413,6 +435,7 @@ typedef struct {
   term_table_t* terms;
 } lp_polynomial_to_yices_term_nra_data;
 
+static
 void lp_polynomial_to_yices_traverse_f_nra(const lp_polynomial_context_t* ctx, lp_monomial_t* m, void* void_data) {
 
   lp_polynomial_to_yices_term_nra_data* data = (lp_polynomial_to_yices_term_nra_data*) void_data;
@@ -490,6 +513,7 @@ typedef struct {
   term_table_t* terms;
 } lp_polynomial_to_yices_term_data;
 
+static
 void lp_polynomial_to_yices_traverse_f(const lp_polynomial_context_t* ctx, lp_monomial_t* m, void* void_data) {
 
   lp_polynomial_to_yices_term_data* data = (lp_polynomial_to_yices_term_data*) void_data;
@@ -561,20 +585,3 @@ const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* 
   }
   return NULL;
 }
-
-lp_variable_t lp_variable_from_term(term_t t, term_table_t* terms, lp_variable_db_t* lp_var_db) {
-
-  // Name of the term
-  char buffer[100];
-  char* var_name = term_name(terms, t);
-  if (var_name == NULL) {
-    var_name = buffer;
-    sprintf(var_name, "#%d", t);
-  }
-
-  // Make the variable
-  lp_variable_t lp_var = lp_variable_db_new_variable(lp_var_db, var_name);
-
-  return lp_var;
-}
-

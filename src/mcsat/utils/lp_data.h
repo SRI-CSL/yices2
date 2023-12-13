@@ -30,6 +30,7 @@
 
 /**
  * To be used by plugins that utilize libPoly.
+ * TODO remove interval_assignment from here and add to nra_plugin_t
  */
 typedef struct lp_data_s {
   /** Libpoly variable database */
@@ -58,8 +59,11 @@ void lp_data_init(lp_data_t *lp_data);
 
 void lp_data_destruct(lp_data_t *lp_data);
 
-/** Add a variable corresponding to the mcsat variable to libpoly */
-void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var);
+/** Add a variable corresponding to the mcsat variable or term
+ * Important: use either one or the other for each instance of lp_data, otherwise collisions might occur */
+ // TODO maybe make this for term_id only
+lp_variable_t lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var);
+lp_variable_t lp_data_add_lp_variable_term(lp_data_t *lp_data, term_t t, term_table_t *terms);
 
 void lp_data_variable_order_push(lp_data_t *lp_data);
 

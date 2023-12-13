@@ -66,16 +66,17 @@ void lp_data_destruct(lp_data_t *lp_data) {
   scope_holder_destruct(&lp_data->scope);
 }
 
+// we're mapping terms OR mcsat variable here, each lp_data instance is used for variable_t XOR term_t to avoid collisions
 static
-void lp_data_variable_link(lp_data_t *lp_data, lp_variable_t lp_var, variable_t mcsat_var) {
+void lp_data_variable_link(lp_data_t *lp_data, lp_variable_t lp_var, int32_t var) {
   assert(int_hmap_find(&lp_data->lp_to_mcsat_var_map, lp_var) == NULL);
-  assert(int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var) == NULL);
+  assert(int_hmap_find(&lp_data->mcsat_to_lp_var_map, var) == NULL);
 
-  int_hmap_add(&lp_data->lp_to_mcsat_var_map, lp_var, mcsat_var);
-  int_hmap_add(&lp_data->mcsat_to_lp_var_map, mcsat_var, lp_var);
+  int_hmap_add(&lp_data->lp_to_mcsat_var_map, lp_var, var);
+  int_hmap_add(&lp_data->mcsat_to_lp_var_map, var, lp_var);
 }
 
-void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var) {
+lp_variable_t lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var) {
   term_t t = variable_db_get_term(ctx->var_db, mcsat_var);
 
   // Name of the term
@@ -94,6 +95,24 @@ void lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable
   // Make the variable
   lp_variable_t lp_var = lp_data_new_variable(lp_data, var_name);
   lp_data_variable_link(lp_data, lp_var, mcsat_var);
+
+  return lp_var;
+}
+
+lp_variable_t lp_data_add_lp_variable_term(lp_data_t *lp_data, term_t t, term_table_t *terms) {
+  // Name of the term
+  char buffer[100];
+  char* var_name = term_name(terms, t);
+  if (var_name == NULL) {
+    var_name = buffer;
+    sprintf(var_name, "#%d", t);
+  }
+
+  // Make the variable
+  lp_variable_t lp_var = lp_variable_db_new_variable(lp_data->lp_var_db, var_name);
+  lp_data_variable_link(lp_data, lp_var, t);
+
+  return lp_var;
 }
 
 void lp_data_variable_order_push(lp_data_t *lp_data) {

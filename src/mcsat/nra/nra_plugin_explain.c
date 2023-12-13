@@ -127,7 +127,7 @@ struct lp_projection_map_struct {
   /** Whether to use model-based GCD */
   bool use_mgcd;
 
-  /** WHether to use the default NLSAT projection */
+  /** Whether to use the default NLSAT projection */
   bool use_nlsat;
 
 };
@@ -137,24 +137,24 @@ typedef struct lp_projection_map_struct lp_projection_map_t;
 #define LP_PROJECTION_MAP_DEFAULT_SIZE 10
 
 void lp_projection_map_construct(lp_projection_map_t* map,
-    const lp_polynomial_context_t* lp_ctx,
-    const lp_assignment_t* lp_asignment,
     term_manager_t* tm,
-    nra_plugin_t* nra, /** Can be NULL */
-    int_hmap_t* lp_to_term_map, /** Can be NULL */
+    nra_plugin_t* nra,  /** Can be NULL */
+    lp_data_t* lp_data, /** Can be NULL */
     bool use_mgcd,
     bool use_nlsat
 )
 {
+  assert(lp_data == NULL || nra == NULL);
+
   map->data_size = 0;
   map->data_capacity = LP_PROJECTION_MAP_DEFAULT_SIZE;
   map->data = safe_malloc(sizeof(lp_polynomial_hash_set_t)*map->data_capacity);
-  map->ctx = lp_ctx;
-  map->m = lp_asignment;
+  map->ctx = (nra != NULL ? &nra->lp_data : lp_data)->lp_ctx;
+  map->m = (nra != NULL ? &nra->lp_data : lp_data)->lp_assignment;
   map->use_root_constraints_for_cells = true;
   map->tm = tm;
   map->nra = nra;
-  map->lp_to_term_map = lp_to_term_map;
+  map->lp_to_term_map = (lp_data == NULL ? NULL : &lp_data->lp_to_mcsat_var_map);
   map->plugin_ctx = (nra == NULL ? NULL : nra->ctx);
   map->use_mgcd = use_mgcd;
   map->use_nlsat = use_nlsat;
@@ -171,9 +171,7 @@ void lp_projection_map_construct(lp_projection_map_t* map,
 
 void lp_projection_map_construct_from_nra(lp_projection_map_t* map, nra_plugin_t* nra) {
   lp_projection_map_construct(map,
-      nra->lp_data.lp_ctx, nra->lp_data.lp_assignment,
-      nra->ctx->tm, nra,
-      NULL,
+      nra->ctx->tm, nra,NULL,
       nra->ctx->options->nra_mgcd, nra->ctx->options->nra_nlsat);
 }
 
@@ -1217,7 +1215,9 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  * Add the polynomial from the constraint to the projection map.
  * - We don't care about polarity, we just care about the polynomial.
  */
-void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int_hmap_t* term_to_lp_map) {
+static
+void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, lp_data_t* lp_data) {
+  assert(lp_data->lp_ctx == map->ctx);
 
   term_t t1, t2;
 
@@ -1230,13 +1230,13 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int
   case ARITH_EQ_ATOM: {
     // p == 0
     t1 = arith_atom_arg(terms, cstr);
-    cstr_polynomial = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, NULL);
+    cstr_polynomial = lp_polynomial_from_term(lp_data, t1, terms, NULL);
     break;
   }
   case ARITH_GE_ATOM:
     // p >= 0
     t1 = arith_atom_arg(terms, cstr);
-    cstr_polynomial = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, NULL);
+    cstr_polynomial = lp_polynomial_from_term(lp_data, t1, terms, NULL);
     break;
   case EQ_TERM:
   case ARITH_BINEQ_ATOM: {
@@ -1247,8 +1247,8 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int
     lp_integer_t t1_c, t2_c;
     lp_integer_construct(&t1_c);
     lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, &t1_c);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term(t2, terms, term_to_lp_map, map->ctx, &t2_c);
+    lp_polynomial_t* t1_p = lp_polynomial_from_term(lp_data, t1, terms, &t1_c);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term(lp_data, t2, terms, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
@@ -1281,24 +1281,8 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
 
   uint32_t i;
 
-  // Mapping from terms to libpoly variables and back
-  int_hmap_t lp_var_to_term_map;
-  int_hmap_t term_to_lp_var_map;
-  init_int_hmap(&lp_var_to_term_map, 0);
-  init_int_hmap(&term_to_lp_var_map, 0);
-
-  // Variable database
-  lp_variable_db_t* lp_var_db = lp_variable_db_new();
-
-  // The variable order
-  lp_variable_order_t* lp_var_order = lp_variable_order_new();
-
-  // Libpoly context
-  lp_polynomial_context_t* lp_ctx = lp_polynomial_context_new(lp_Z, lp_var_db, lp_var_order);
-
-  // Assignment
-  lp_assignment_t lp_assignment;
-  lp_assignment_construct(&lp_assignment, lp_var_db);
+  lp_data_t lp_data;
+  lp_data_init(&lp_data);
 
   // Set of variables we're keeping
   int_hset_t vars_to_keep_set;
@@ -1313,7 +1297,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_variable_from_term(x, tm->terms, lp_var_db);
+    lp_variable_t x_lp = lp_data_add_lp_variable_term(&lp_data, x, tm->terms);
 
     // We're keeping this var
     int_hset_add(&vars_to_keep_set, x_lp);
@@ -1322,10 +1306,6 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     fprintf(stderr, "Adding variable to keep: %s\n", lp_variable_db_get_name(lp_var_db, x_lp));
 #endif
 
-    // Add variables to map
-    int_hmap_add(&lp_var_to_term_map, x_lp, x);
-    int_hmap_add(&term_to_lp_var_map, x, x_lp);
-
     // Get the value in the model
     value_t x_value = model_get_term_value(mdl, x);
     assert(x_value >= 0);
@@ -1333,17 +1313,14 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     mcsat_value_construct_from_value(&x_value_mcsat, &mdl->vtbl, x_value);
     const mcsat_value_t *x_value_lp = ensure_lp_value(&x_value_mcsat, &x_value_tmp);
 
-    // Set the model value
-    lp_assignment_set_value(&lp_assignment, x_lp, &x_value_lp->lp_value);
+    // Set the model value and push to order
+    lp_data_add_to_model_and_context(&lp_data, x_lp, &x_value_lp->lp_value);
 
     // Delete the temps
     mcsat_value_destruct(&x_value_mcsat);
     if (x_value_lp == &x_value_tmp) {
       mcsat_value_destruct(&x_value_tmp);
     }
-
-    // Also add to the order
-    lp_variable_order_push(lp_var_order, x_lp);
   }
 
   // Add all the variables we're eliminating
@@ -1355,15 +1332,11 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_variable_from_term(x, tm->terms, lp_var_db);
+    lp_variable_t x_lp = lp_data_add_lp_variable_term(&lp_data, x, tm->terms);
 
 #if TRACE
     fprintf(stderr, "Adding variable to eliminate: %s\n", lp_variable_db_get_name(lp_var_db, x_lp));
 #endif
-
-    // Add variables to map
-    int_hmap_add(&lp_var_to_term_map, x_lp, x);
-    int_hmap_add(&term_to_lp_var_map, x, x_lp);
 
     // Get the value in the model
     value_t x_value = model_get_term_value(mdl, x);
@@ -1372,22 +1345,19 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     mcsat_value_construct_from_value(&x_value_mcsat, &mdl->vtbl, x_value);
     const mcsat_value_t *x_value_lp = ensure_lp_value(&x_value_mcsat, &x_value_tmp);
 
-    // Set the model value
-    lp_assignment_set_value(&lp_assignment, x_lp, &x_value_lp->lp_value);
+    // Set the model value and push to order
+    lp_data_add_to_model_and_context(&lp_data, x_lp, &x_value_lp->lp_value);
 
     // Delete the temps
     mcsat_value_destruct(&x_value_mcsat);
     if (x_value_lp == &x_value_tmp) {
       mcsat_value_destruct(&x_value_tmp);
     }
-
-    // Also add to the order
-    lp_variable_order_push(lp_var_order, x_lp);
   }
 
-  // Setup the projection
+  // Set up the projection
   lp_projection_map_t projector;
-  lp_projection_map_construct(&projector, lp_ctx, &lp_assignment, tm, NULL, &lp_var_to_term_map, false, false);
+  lp_projection_map_construct(&projector, tm, NULL, &lp_data, false, false);
   projector.use_root_constraints_for_cells = false;
 
   // Add all the literals
@@ -1398,7 +1368,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     print_term(stderr, tm->terms, l);
     fprintf(stderr, "\n");
 #endif
-    lp_projection_map_add_constraint(&projector, l, &term_to_lp_var_map);
+    lp_projection_map_add_constraint(&projector, l, &lp_data);
   }
 
   // Project
@@ -1417,14 +1387,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
   // Delete temps
   lp_projection_map_destruct(&projector);
   delete_int_hset(&vars_to_keep_set);
-  lp_variable_db_detach(lp_var_db);
-  lp_variable_order_detach(lp_var_order);
-  lp_polynomial_context_detach(lp_ctx);
-  lp_assignment_destruct(&lp_assignment);
-  delete_int_hmap(&term_to_lp_var_map);
-  delete_int_hmap(&lp_var_to_term_map);
+  lp_data_destruct(&lp_data);
 
   return 0;
 }
-
-

@@ -33,6 +33,8 @@
 
 #include "utils/int_array_sort2.h"
 
+#define printf (void)
+
 static
 void ff_plugin_stats_init(ff_plugin_t* ff) {
   // Add statistics
@@ -130,7 +132,7 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   ff_plugin_get_constraint_variables(ff, t, &t_variables);
 
   bool is_constraint = t_variables.element_list.size != 1 || t_variables.element_list.data[0] != t_var;
-
+#if 0
   if (is_constraint) {
     // Get the list of variables
     ivector_t* t_variables_list = int_mset_get_list(&t_variables);
@@ -215,7 +217,7 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
       }
     }
   }
-
+#endif
   // Remove the variables vector
   int_mset_destruct(&t_variables);
 }
@@ -240,9 +242,6 @@ void ff_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     ctx_trace_printf(ff->ctx, "trail:\n");
     trail_print(trail, ff->ctx->tracer->file);
   }
-
-  ctx_trace_printf(ff->ctx, "trail:\n");
-  trail_print(trail, stdout);
 
   printf("propagate\n");
 
