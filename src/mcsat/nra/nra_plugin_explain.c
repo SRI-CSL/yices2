@@ -116,11 +116,11 @@ struct lp_projection_map_struct {
   /** NRA (if available) */
   nra_plugin_t* nra;
 
+  /** lp_data (if available) */
+  lp_data_t* lp_data;
+
   /** Tmp buffer (if available) */
   rba_buffer_t buffer;
-
-  /** Map from lp variables to terms (if available) */
-  int_hmap_t* lp_to_term_map;
 
   /// Projection options
 
@@ -136,6 +136,8 @@ typedef struct lp_projection_map_struct lp_projection_map_t;
 
 #define LP_PROJECTION_MAP_DEFAULT_SIZE 10
 
+// TODO use lp_data only?
+static
 void lp_projection_map_construct(lp_projection_map_t* map,
     term_manager_t* tm,
     nra_plugin_t* nra,  /** Can be NULL */
@@ -145,7 +147,8 @@ void lp_projection_map_construct(lp_projection_map_t* map,
 )
 {
   assert(lp_data == NULL || nra == NULL);
-  // TODO use lp_data only?
+  assert(lp_data != NULL || nra != NULL);
+
   map->data_size = 0;
   map->data_capacity = LP_PROJECTION_MAP_DEFAULT_SIZE;
   map->data = safe_malloc(sizeof(lp_polynomial_hash_set_t)*map->data_capacity);
@@ -154,8 +157,8 @@ void lp_projection_map_construct(lp_projection_map_t* map,
   map->use_root_constraints_for_cells = true;
   map->tm = tm;
   map->nra = nra;
-  map->lp_to_term_map = (lp_data == NULL ? NULL : &lp_data->lp_var_to_term_map);
-  map->plugin_ctx = (nra == NULL ? NULL : nra->ctx);
+  map->lp_data = lp_data;
+  map->plugin_ctx = (nra != NULL ? nra->ctx : NULL);
   map->use_mgcd = use_mgcd;
   map->use_nlsat = use_nlsat;
 
@@ -193,9 +196,9 @@ void lp_projection_map_destruct(lp_projection_map_t* map) {
 static inline
 term_t lp_projection_map_polynomial_to_term(lp_projection_map_t* map, const lp_polynomial_t* p) {
   if (map->nra) {
-    return lp_polynomial_to_yices_term_nra(p, map->nra);
+    return lp_polynomial_to_yices_term_nra(map->nra, p);
   } else {
-    return lp_polynomial_to_yices_term(p, map->tm->terms, &map->buffer, map->lp_to_term_map);
+    return lp_polynomial_to_yices_term(map->lp_data, p, map->tm->terms, &map->buffer);
   }
 }
 
