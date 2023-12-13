@@ -145,7 +145,7 @@ void lp_projection_map_construct(lp_projection_map_t* map,
 )
 {
   assert(lp_data == NULL || nra == NULL);
-
+  // TODO use lp_data only?
   map->data_size = 0;
   map->data_capacity = LP_PROJECTION_MAP_DEFAULT_SIZE;
   map->data = safe_malloc(sizeof(lp_polynomial_hash_set_t)*map->data_capacity);
@@ -154,7 +154,7 @@ void lp_projection_map_construct(lp_projection_map_t* map,
   map->use_root_constraints_for_cells = true;
   map->tm = tm;
   map->nra = nra;
-  map->lp_to_term_map = (lp_data == NULL ? NULL : &lp_data->lp_to_mcsat_var_map);
+  map->lp_to_term_map = (lp_data == NULL ? NULL : &lp_data->lp_var_to_term_map);
   map->plugin_ctx = (nra == NULL ? NULL : nra->ctx);
   map->use_mgcd = use_mgcd;
   map->use_nlsat = use_nlsat;
@@ -196,18 +196,6 @@ term_t lp_projection_map_polynomial_to_term(lp_projection_map_t* map, const lp_p
     return lp_polynomial_to_yices_term_nra(p, map->nra);
   } else {
     return lp_polynomial_to_yices_term(p, map->tm->terms, &map->buffer, map->lp_to_term_map);
-  }
-}
-
-static inline
-term_t lp_projection_map_var_to_term(lp_projection_map_t* map, lp_variable_t x_lp) {
-  if (map->nra) {
-    variable_t x_var = lp_data_get_variable_from_lp_variable(&map->nra->lp_data, x_lp);
-    term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
-    return x_term;
-  } else {
-    assert(false);
-    return NULL_TERM;
   }
 }
 
@@ -432,7 +420,8 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
   } else {
     // Regular root atom
     if (map->use_root_constraints_for_cells) {
-      term_t x_term = lp_projection_map_var_to_term(map, x);
+      assert(map->nra);
+      term_t x_term = lp_data_get_term_from_lp_variable(&map->nra->lp_data, x);
       term_t p_term = lp_projection_map_polynomial_to_term(map, p);
       root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
     } else {
@@ -1145,7 +1134,8 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
       bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
       variable_t conflict_var = nra->conflict_variable;
       if (conflict_var == variable_null) conflict_var = nra->conflict_variable_int;
-      lp_variable_t x = lp_data_get_lp_variable(&nra->lp_data, conflict_var);
+      term_t t = variable_db_get_term(nra->ctx->var_db, conflict_var);
+      lp_variable_t x = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
       if (p_inference_reason != NULL) {
         is_inference = true;
@@ -1297,7 +1287,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_data_add_lp_variable_term(&lp_data, x, tm->terms);
+    lp_variable_t x_lp = lp_data_add_lp_variable(&lp_data, tm->terms, x);
 
     // We're keeping this var
     int_hset_add(&vars_to_keep_set, x_lp);
@@ -1332,7 +1322,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_data_add_lp_variable_term(&lp_data, x, tm->terms);
+    lp_variable_t x_lp = lp_data_add_lp_variable(&lp_data, tm->terms, x);
 
 #if TRACE
     fprintf(stderr, "Adding variable to eliminate: %s\n", lp_variable_db_get_name(lp_var_db, x_lp));

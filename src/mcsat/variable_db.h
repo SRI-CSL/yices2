@@ -87,8 +87,11 @@ variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_
 /**
  * Returns the term associated with the variable. The variable should exist.
  */
-term_t variable_db_get_term(const variable_db_t* var_db, variable_t term);
-
+static inline
+term_t variable_db_get_term(const variable_db_t* var_db, variable_t x) {
+  assert(x > 0 && x < var_db->variable_to_term_map.size);
+  return var_db->variable_to_term_map.data[x];
+}
 
 typedef struct variable_db_new_variable_notify_s {
   void (*new_variable) (struct variable_db_new_variable_notify_s* self, variable_t x);

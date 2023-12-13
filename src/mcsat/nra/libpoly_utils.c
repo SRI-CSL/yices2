@@ -56,8 +56,7 @@ lp_polynomial_t* lp_polynomial_from_power_product_nra(nra_plugin_t* nra, pprod_t
   // Get the product terms
   uint32_t i = 0;
   for (i = 0; i < pp->len; ++ i) {
-    variable_t var = variable_db_get_variable(nra->ctx->var_db, pp->prod[i].var);
-    lp_variable_t lp_var = lp_data_get_lp_variable(&nra->lp_data, var);
+    lp_variable_t lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, pp->prod[i].var);
     lp_monomial_push(&lp_monomial, lp_var, pp->prod[i].exp);
   }
 
@@ -94,7 +93,7 @@ lp_polynomial_t* lp_polynomial_from_power_product(lp_data_t *lp_data, pprod_t* p
   // Get the product terms
   uint32_t i = 0;
   for (i = 0; i < pp->len; ++ i) {
-    lp_variable_t lp_var = lp_data_get_lp_variable(lp_data, pp->prod[i].var);
+    lp_variable_t lp_var = lp_data_get_lp_variable_from_term(lp_data, pp->prod[i].var);
     lp_monomial_push(&lp_monomial, lp_var, pp->prod[i].exp);
   }
 
@@ -119,7 +118,6 @@ static
 lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial_t* p, lp_integer_t* c) {
 
   uint32_t i, j;
-  variable_t var;
   lp_variable_t lp_var;
 
   lp_polynomial_t* result = lp_polynomial_new(nra->lp_data.lp_ctx);
@@ -153,7 +151,6 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
 
   // Context
   term_table_t* terms = nra->ctx->terms;
-  variable_db_t* var_db = nra->ctx->var_db;
   lp_polynomial_context_t* lp_ctx = nra->lp_data.lp_ctx;
 
   // The monomials
@@ -178,14 +175,12 @@ lp_polynomial_t* lp_polynomial_from_polynomial_nra(nra_plugin_t* nra, polynomial
       // Add all the variables
       pprod_t* pprod = pprod_for_term(terms, product);
       for (j = 0; j < pprod->len; ++j) {
-        var = variable_db_get_variable(var_db, pprod->prod[j].var);
-        lp_var = lp_data_get_lp_variable(&nra->lp_data, var);
+        lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, pprod->prod[j].var);
         lp_monomial_push(&lp_monomial, lp_var, pprod->prod[j].exp);
       }
     } else {
       // Variable, or foreign term
-      var = variable_db_get_variable(var_db, product);
-      lp_var = lp_data_get_lp_variable(&nra->lp_data, var);
+      lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, product);
       lp_monomial_push(&lp_monomial, lp_var, 1);
     }
 
@@ -259,12 +254,12 @@ lp_polynomial_t* lp_polynomial_from_polynomial(lp_data_t* lp_data, polynomial_t*
       // Add all the variables
       pprod_t* pprod = pprod_for_term(terms, product);
       for (j = 0; j < pprod->len; ++j) {
-        lp_var = lp_data_get_lp_variable(lp_data, pprod->prod[j].var);
+        lp_var = lp_data_get_lp_variable_from_term(lp_data, pprod->prod[j].var);
         lp_monomial_push(&lp_monomial, lp_var, pprod->prod[j].exp);
       }
     } else {
       // Variable, or foreign term
-      lp_var = lp_data_get_lp_variable(lp_data, product);
+      lp_var = lp_data_get_lp_variable_from_term(lp_data, product);
       lp_monomial_push(&lp_monomial, lp_var, 1);
     }
 
@@ -316,8 +311,7 @@ lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t t, lp_int
     lp_integer_t one;
     lp_integer_construct_from_int(lp_Z, &one, 1);
     // The variable
-    variable_t t_var = variable_db_get_variable_if_exists(nra->ctx->var_db, t);
-    lp_variable_t lp_var = lp_data_get_lp_variable(&nra->lp_data, t_var);
+    lp_variable_t lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
     // Polynomial 1*x^1
     result = lp_polynomial_alloc();
     lp_polynomial_construct_simple(result, nra->lp_data.lp_ctx, &one, lp_var, 1);
@@ -369,7 +363,7 @@ lp_polynomial_t* lp_polynomial_from_term(lp_data_t* lp_data, term_t t, term_tabl
     lp_integer_t one;
     lp_integer_construct_from_int(lp_Z, &one, 1);
     // The variable
-    lp_variable_t lp_var = lp_data_get_lp_variable(lp_data, t);
+    lp_variable_t lp_var = lp_data_get_lp_variable_from_term(lp_data, t);
     // Polynomial 1*x^1
     result = lp_polynomial_alloc();
     lp_polynomial_construct_simple(result, lp_data->lp_ctx, &one, lp_var, 1);
@@ -461,8 +455,7 @@ void lp_polynomial_to_yices_traverse_f_nra(const lp_polynomial_context_t* ctx, l
     uint32_t i = 0;
     for (i = 0; i < m->n; ++ i) {
       lp_variable_t lp_x = m->p[i].x;
-      variable_t x = lp_data_get_variable_from_lp_variable(&data->nra->lp_data, lp_x);
-      term_t x_term = variable_db_get_term(data->nra->ctx->var_db, x);
+      term_t x_term = lp_data_get_term_from_lp_variable(&data->nra->lp_data, lp_x);
       pp_buffer_mul_varexp(&pp, x_term, m->p[i].d);
     }
     pprod_t* pprod = pprod_from_buffer(data->terms->pprods, &pp);

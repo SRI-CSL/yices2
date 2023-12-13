@@ -22,15 +22,16 @@
 #include <stdbool.h>
 #include <poly/poly.h>
 
+#include "terms/terms.h"
+
 #include "mcsat/mcsat_types.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/gc.h"
 #include "mcsat/utils/scope_holder.h"
 
 #include "utils/int_hash_map.h"
 
 /**
  * To be used by plugins that utilize libPoly.
- * TODO remove interval_assignment from here and add to nra_plugin_t
  */
 typedef struct lp_data_s {
   /** Libpoly variable database */
@@ -49,9 +50,9 @@ typedef struct lp_data_s {
   lp_interval_assignment_t* lp_interval_assignment;
 
   /** Map from libpoly variables to mcsat variables */
-  int_hmap_t lp_to_mcsat_var_map;
+  int_hmap_t lp_var_to_term_map;
   /** Map from mcsat variables to libpoly variables */
-  int_hmap_t mcsat_to_lp_var_map;
+  int_hmap_t term_to_lp_var_map;
 } lp_data_t;
 
 
@@ -59,11 +60,8 @@ void lp_data_init(lp_data_t *lp_data);
 
 void lp_data_destruct(lp_data_t *lp_data);
 
-/** Add a variable corresponding to the mcsat variable or term
- * Important: use either one or the other for each instance of lp_data, otherwise collisions might occur */
- // TODO maybe make this for term_id only
-lp_variable_t lp_data_add_lp_variable(lp_data_t *lp_data, plugin_context_t *ctx, variable_t mcsat_var);
-lp_variable_t lp_data_add_lp_variable_term(lp_data_t *lp_data, term_t t, term_table_t *terms);
+/** Add a variable corresponding to the term */
+lp_variable_t lp_data_add_lp_variable(lp_data_t *lp_data, term_table_t *terms, term_t t);
 
 void lp_data_variable_order_push(lp_data_t *lp_data);
 
@@ -81,21 +79,21 @@ lp_variable_t lp_data_new_variable(lp_data_t *lp_data, const char* var_name);
 /** Crates a new lp_polynomial with the current context */
 lp_polynomial_t* lp_data_new_polynomial(lp_data_t *lp_data);
 
-/** Check if the mcsat variable has an lp variable */
-static inline bool lp_data_variable_has_lp_variable(lp_data_t* lp_data, variable_t mcsat_var) {
-  return int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var) != NULL;
+/** Check if the mcsat variable has a term */
+static inline bool lp_data_variable_has_term(lp_data_t* lp_data, term_t t) {
+  return int_hmap_find(&lp_data->term_to_lp_var_map, t) != NULL;
 }
 
 /** Get the libpoly variable corresponding to term t (should have been added first) */
-static inline lp_variable_t lp_data_get_lp_variable(lp_data_t *lp_data, variable_t mcsat_var) {
-  int_hmap_pair_t* find = int_hmap_find(&lp_data->mcsat_to_lp_var_map, mcsat_var);
+static inline lp_variable_t lp_data_get_lp_variable_from_term(lp_data_t *lp_data, term_t t) {
+  int_hmap_pair_t* find = int_hmap_find(&lp_data->term_to_lp_var_map, t);
   assert(find != NULL);
   return find->val;
 }
 
-/** Get the mcsat variable from the libpoly variable */
-static inline variable_t lp_data_get_variable_from_lp_variable(lp_data_t *lp_data, lp_variable_t lp_var) {
-  int_hmap_pair_t* find = int_hmap_find(&lp_data->lp_to_mcsat_var_map, lp_var);
+/** Get the term from the libpoly variable */
+static inline term_t lp_data_get_term_from_lp_variable(lp_data_t *lp_data, lp_variable_t lp_var) {
+  int_hmap_pair_t* find = int_hmap_find(&lp_data->lp_var_to_term_map, lp_var);
   assert(find != NULL);
   return find->val;
 }

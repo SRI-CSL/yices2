@@ -189,9 +189,8 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
   case ARITH_ROOT_ATOM: {
     root_atom_t* r = arith_root_atom_desc(terms, constraint_var_term);
     cstr_polynomial = lp_polynomial_from_term_nra(nra, r->p, NULL);
-    variable_t x = variable_db_get_variable_if_exists(nra->ctx->var_db, r->x);
-    assert(x != variable_null);
-    cstr_root_variable = lp_data_get_lp_variable(&nra->lp_data, x);
+    assert(variable_db_has_variable(nra->ctx->var_db, r->x));
+    cstr_root_variable = lp_data_get_lp_variable_from_term(&nra->lp_data, r->x);
     cstr_root_index = r->k;
     switch (r->r) {
     case ROOT_ATOM_LT:
@@ -225,7 +224,8 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
     lp_integer_construct_from_int(lp_Z, &t1_c, 1);
     lp_integer_construct(&t2_c);
     lp_polynomial_t* t1_p = lp_polynomial_alloc();
-    lp_variable_t constraint_lp_var = lp_data_get_lp_variable(&nra->lp_data, constraint_var);
+    term_t t = variable_db_get_term(nra->ctx->var_db, constraint_var);
+    lp_variable_t constraint_lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
     lp_polynomial_construct_simple(t1_p, nra->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
     lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(nra, constraint_var_term, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
@@ -287,7 +287,8 @@ const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, varia
   variable_t* vars = watch_list_manager_get_list(&nra->wlm, var_list_ref);
   for (; *vars != variable_null; vars++) {
     variable_t x = *vars;
-    lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
+    term_t t = variable_db_get_term(nra->ctx->var_db, x);
+    lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
     feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);

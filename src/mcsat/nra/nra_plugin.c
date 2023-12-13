@@ -511,9 +511,9 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     // Register all the variables to libpoly (these are mcsat_variables)
     for (i = 0; i < t_variables_list->size; ++ i) {
-      if (!lp_data_variable_has_lp_variable(&nra->lp_data, t_variables_list->data[i])) {
-        // TODO assign term with lp_var instead of mcsat variable
-        lp_data_add_lp_variable(&nra->lp_data, nra->ctx, t_variables_list->data[i]);
+      term_t tt = variable_db_get_term(nra->ctx->var_db, t_variables_list->data[i]);
+      if (!lp_data_variable_has_term(&nra->lp_data, tt)) {
+        lp_data_add_lp_variable(&nra->lp_data, terms, tt);
       }
     }
 
@@ -609,14 +609,15 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
       break;
     }
     default: {
-      variable_t mcsat_var = variable_db_get_variable(nra->ctx->var_db, t);
-      if (!lp_data_variable_has_lp_variable(&nra->lp_data, mcsat_var)) {
-        lp_data_add_lp_variable(&nra->lp_data, nra->ctx, mcsat_var);
+      // create variable for t if not existent
+      variable_db_get_variable(nra->ctx->var_db, t);
+      // register lp_variable for t if not existent
+      if (!lp_data_variable_has_term(&nra->lp_data, t)) {
+        lp_data_add_lp_variable(&nra->lp_data, terms, t);
       }
 
       if (nra->ctx->options->nra_bound) {
         if (nra->global_bound_term == NULL_TERM) {
-          term_table_t *terms = nra->ctx->terms;
           type_t reals = int_type(terms->types);
           nra->global_bound_term = new_uninterpreted_term(terms, reals);
           set_term_name(terms, nra->global_bound_term, clone_string("__mcsat_B"));
@@ -714,7 +715,9 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
       const lp_interval_t* x_interval = lp_interval_assignment_get_interval(m, x_lp);
       assert(x_interval != NULL);
       if (!lp_interval_is_full(x_interval)) {
-        variable_t x = lp_data_get_variable_from_lp_variable(&nra->lp_data, x_lp);
+        term_t x_term = lp_data_get_term_from_lp_variable(&nra->lp_data, x_lp);
+        variable_t x = variable_db_get_variable(nra->ctx->var_db, x_term);
+        assert(x != variable_null);
         lp_feasibility_set_t* x_feasible = lp_feasibility_set_new_from_interval(x_interval);
         bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
         if (!consistent) {
@@ -845,19 +848,20 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
     nra->last_decided_and_unprocessed = variable_null;
   }
 
+  term_t t = variable_db_get_term(nra->ctx->var_db, var);
   if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: processing var assignment of :\n");
-    ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, var));
+    ctx_trace_term(nra->ctx, t);
   }
 
   // If it's constant, just skip it
-  if (!lp_data_variable_has_lp_variable(&nra->lp_data, var)) {
+  if (!lp_data_variable_has_term(&nra->lp_data, t)) {
     return;
   }
 
   // Add to the lp model and context
   assert(trail_get_value(trail, var)->type == VALUE_LIBPOLY);
-  lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable(&nra->lp_data, var), &trail_get_value(trail, var)->lp_value);
+  lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable_from_term(&nra->lp_data, t), &trail_get_value(trail, var)->lp_value);
 
   if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: var order :");
@@ -960,7 +964,8 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
     }
     const mcsat_value_t* value = trail_get_value(trail, x);
     if (value->type == VALUE_LIBPOLY && nra_plugin_has_assignment(nra, x)) {
-      lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
+      term_t t = variable_db_get_term(nra->ctx->var_db, x);
+      lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
       const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
       int cmp = lp_value_cmp(&value->lp_value, value_lp);
       (void)cmp;
@@ -972,7 +977,9 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
   const lp_variable_list_t* order = lp_variable_order_get_list(nra->lp_data.lp_var_order);
   for (i = 0; i < order->list_size; ++ i) {
     lp_variable_t x_lp = order->list[i];
-    variable_t x = lp_data_get_variable_from_lp_variable(&nra->lp_data, x_lp);
+    term_t x_term = lp_data_get_term_from_lp_variable(&nra->lp_data, x_lp);
+    variable_t x = variable_db_get_variable_if_exists(nra->ctx->var_db, x_term);
+    assert(x != variable_null);
     const mcsat_value_t* value = trail_get_value(trail, x);
     const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
     int cmp = lp_value_cmp(&value->lp_value, value_lp);
@@ -1184,7 +1191,8 @@ void nra_plugin_check_conflict(nra_plugin_t* nra, ivector_t* core) {
     if (x == nra->last_decided_and_unprocessed) {
       continue;
     }
-    lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
+    term_t t = variable_db_get_term(nra->ctx->var_db, x);
+    lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
     // Ignore unassigned too
     if (!trail_has_value(trail, x)) {
       assert(free_var == lp_variable_null);
@@ -1533,7 +1541,8 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     // 1. Set up the model with the conflict variable
     variable_t var = nra->conflict_variable_assumption;
     lp_data_variable_order_push(&nra->lp_data);
-    lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable(&nra->lp_data, var), &nra->conflict_variable_value);
+    term_t t = variable_db_get_term(nra->ctx->var_db, var);
+    lp_data_add_to_model_and_context(&nra->lp_data, lp_data_get_lp_variable_from_term(&nra->lp_data, t), &nra->conflict_variable_value);
     for (i = 0; i < lemma_reasons.size; ++ i) {
       // 2. Evaluate the constraint and figure out how it evaluates to false
       variable_t constraint_var = lemma_reasons.data[i];
@@ -1593,7 +1602,8 @@ void nra_plugin_get_assumption_conflict(nra_plugin_t* nra, variable_t x, ivector
     } else {
       // Case 3: single constraint from interval inference
       // Get the reason of the inference
-      lp_variable_t x_lp = lp_data_get_lp_variable(&nra->lp_data, x);
+      term_t t = variable_db_get_term(nra->ctx->var_db, x);
+      lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
       lp_polynomial_t* p_reason_lp = lp_polynomial_constraint_explain_infer_bounds(constraint_p, constraint_sgn_condition, !constraint_value, x_lp);
       assert(p_reason_lp != NULL);
 
