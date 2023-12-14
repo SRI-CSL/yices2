@@ -69,15 +69,15 @@ void lp_data_variable_order_pop(lp_data_t *lp_data);
 
 void lp_data_add_to_model_and_context(lp_data_t *lp_data, lp_variable_t lp_var, const lp_value_t *lp_value);
 
-void lp_data_variable_order_print(lp_data_t *lp_data, FILE *file);
+void lp_data_variable_order_print(const lp_data_t *lp_data, FILE *file);
 
 void lp_data_gc_sweep(lp_data_t *lp_data, const gc_info_t *gc_vars);
 
 /** Creates a new lp_variable with a given name. */
-lp_variable_t lp_data_new_variable(lp_data_t *lp_data, const char* var_name);
+lp_variable_t lp_data_new_variable(const lp_data_t *lp_data, const char* var_name);
 
 /** Crates a new lp_polynomial with the current context */
-lp_polynomial_t* lp_data_new_polynomial(lp_data_t *lp_data);
+lp_polynomial_t* lp_data_new_polynomial(const lp_data_t *lp_data);
 
 /** Check if the mcsat variable has a term */
 static inline bool lp_data_variable_has_term(lp_data_t* lp_data, term_t t) {
@@ -92,7 +92,7 @@ static inline lp_variable_t lp_data_get_lp_variable_from_term(lp_data_t *lp_data
 }
 
 /** Get the term from the libpoly variable */
-static inline term_t lp_data_get_term_from_lp_variable(lp_data_t *lp_data, lp_variable_t lp_var) {
+static inline term_t lp_data_get_term_from_lp_variable(const lp_data_t *lp_data, lp_variable_t lp_var) {
   int_hmap_pair_t* find = int_hmap_find(&lp_data->lp_var_to_term_map, lp_var);
   assert(find != NULL);
   return find->val;

@@ -53,8 +53,7 @@ lp_polynomial_t* lp_polynomial_from_power_product(lp_data_t *lp_data, pprod_t* p
   lp_integer_destruct(&one);
 
   // Get the product terms
-  uint32_t i = 0;
-  for (i = 0; i < pp->len; ++ i) {
+  for (uint32_t i = 0; i < pp->len; ++ i) {
     lp_variable_t lp_var = lp_data_get_lp_variable_from_term(lp_data, pp->prod[i].var);
     lp_monomial_push(&lp_monomial, lp_var, pp->prod[i].exp);
   }
@@ -283,7 +282,7 @@ term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t 
 }
 
 typedef struct {
-  lp_data_t* lp_data;
+  const lp_data_t* lp_data;
   rba_buffer_t* b;
   term_table_t* terms;
 } lp_polynomial_to_yices_term_data;
@@ -305,8 +304,7 @@ void lp_polynomial_to_yices_traverse_f(const lp_polynomial_context_t* ctx, lp_mo
     // Actual monomial
     pp_buffer_t pp;
     init_pp_buffer(&pp, 0);
-    uint32_t i = 0;
-    for (i = 0; i < m->n; ++ i) {
+    for (uint32_t i = 0; i < m->n; ++ i) {
       lp_variable_t lp_x = m->p[i].x;
       term_t x_term = lp_data_get_term_from_lp_variable(data->lp_data, lp_x);
       pp_buffer_mul_varexp(&pp, x_term, m->p[i].d);
@@ -320,13 +318,14 @@ void lp_polynomial_to_yices_traverse_f(const lp_polynomial_context_t* ctx, lp_mo
   q_clear(&a);
 }
 
-term_t lp_polynomial_to_yices_term(lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
+term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
 
   // Buffer for building
   lp_polynomial_to_yices_term_data data;
   data.lp_data = lp_data;
   data.b = b;
   data.terms = terms;
+
   reset_rba_buffer(data.b);
 
   // Traverse and build

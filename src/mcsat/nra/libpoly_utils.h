@@ -52,7 +52,7 @@ term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t 
 /**
  * Get yices term from polynomial (direct version).
  */
-term_t lp_polynomial_to_yices_term(lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
+term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
 
 /**
  * Ensure value is an lp_value. If not the passed alternative will be constructed to an equivalent lp_value.

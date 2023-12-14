@@ -119,15 +119,15 @@ void lp_data_add_to_model_and_context(lp_data_t *lp_data, lp_variable_t lp_var, 
   lp_data->lp_var_order_size ++;
 }
 
-lp_variable_t lp_data_new_variable(lp_data_t *lp_data, const char* var_name) {
+lp_variable_t lp_data_new_variable(const lp_data_t *lp_data, const char* var_name) {
   return lp_variable_db_new_variable(lp_data->lp_var_db, var_name);
 }
 
-lp_polynomial_t* lp_data_new_polynomial(lp_data_t *lp_data) {
+lp_polynomial_t* lp_data_new_polynomial(const lp_data_t *lp_data) {
   return lp_polynomial_new(lp_data->lp_ctx);
 }
 
-void lp_data_variable_order_print(lp_data_t *lp_data, FILE *file) {
+void lp_data_variable_order_print(const lp_data_t *lp_data, FILE *file) {
   lp_variable_order_print(lp_data->lp_var_order, lp_data->lp_var_db, file);
 }
 
