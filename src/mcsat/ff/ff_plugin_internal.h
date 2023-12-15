@@ -28,12 +28,11 @@
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/lp_data.h"
+#include "mcsat/utils/lp_utils.h"
+#include "mcsat/utils/lp_constraint_db.h"
 #include "mcsat/utils/int_mset.h"
 
 #include "terms/term_manager.h"
-
-typedef struct poly_constraint_db_struct poly_constraint_db_t;
-typedef struct poly_constraint_struct poly_constraint_t;
 
 typedef struct ff_plugin_s ff_plugin_t;
 
@@ -48,18 +47,15 @@ struct ff_plugin_s {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** The unit info */
+  constraint_unit_info_t unit_info;
+
   /** Data related to libpoly */
   lp_data_t lp_data;
 
 #if 0
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
-
-  /** Map from constraint variables to the constraint_unit_info_t enum */
-  int_hmap_t constraint_unit_info;
-
-  /** Map from constraint variables to the variables they are unit in */
-  int_hmap_t constraint_unit_var;
 #endif
 
   /** Next index of the trail to process */
@@ -83,10 +79,10 @@ struct ff_plugin_s {
 
   /** Size of processed (for backtracking) */
   uint32_t processed_variables_size;
+#endif
 
   /** Scope holder for the int variables */
   scope_holder_t scope;
-#endif
 
   struct {
     statistic_int_t* propagations;
@@ -97,10 +93,10 @@ struct ff_plugin_s {
     statistic_int_t* constraint;
   } stats;
 
-#if 0
   /** Database of polynomial constraints */
   poly_constraint_db_t* constraint_db;
 
+#if 0
   /** Map from variables to their feasible sets */
   feasible_set_db_t* feasible_set_db;
 

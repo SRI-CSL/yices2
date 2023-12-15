@@ -29,11 +29,10 @@
 #include "mcsat/ff/ff_plugin.h"
 #include "mcsat/ff/ff_plugin_internal.h"
 #include "mcsat/ff/ff_plugin_explain.h"
+#include "mcsat/ff/ff_libpoly.h"
 #include "mcsat/tracing.h"
 
 #include "utils/int_array_sort2.h"
-
-#define printf (void)
 
 static
 void ff_plugin_stats_init(ff_plugin_t* ff) {
@@ -43,6 +42,12 @@ void ff_plugin_stats_init(ff_plugin_t* ff) {
   ff->stats.conflicts_assumption = statistics_new_int(ff->ctx->stats, "mcsat::ff::conflicts_assumption");
   ff->stats.constraints_attached = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints_attached");
   ff->stats.evaluations = statistics_new_int(ff->ctx->stats, "mcsat::ff::evaluations");
+  ff->stats.constraint = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints");
+}
+
+static
+void ff_plugin_heuristics_init(ff_plugin_t* ff) {
+  // Initialize heuristic
 }
 
 static
@@ -54,6 +59,9 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ff->conflict_variable = variable_null;
 
   watch_list_manager_construct(&ff->wlm, ctx->var_db);
+  scope_holder_construct(&ff->scope);
+
+  constraint_unit_info_init(&ff->unit_info);
 
   // Atoms
   ctx->request_term_notification_by_kind(ctx, ARITH_FF_EQ_ATOM, false);
@@ -68,24 +76,30 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_type(ctx, FF_TYPE);
   ctx->request_decision_calls(ctx, FF_TYPE);
 
+  // Constraint db
+  ff->constraint_db = poly_constraint_db_new(&ff->lp_data);
+
+  // libpoly init
   lp_data_init(&ff->lp_data);
 
   init_rba_buffer(&ff->buffer, ctx->terms->pprods);
 
   ff_plugin_stats_init(ff);
+  ff_plugin_heuristics_init(ff);
 }
 
 static
 void ff_plugin_destruct(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  poly_constraint_db_delete(ff->constraint_db);
+  constraint_unit_info_destruct(&ff->unit_info);
   lp_data_destruct(&ff->lp_data);
 
   watch_list_manager_destruct(&ff->wlm);
+  scope_holder_destruct(&ff->scope);
   delete_rba_buffer(&ff->buffer);
 }
-
-// TODO extract constraint_db from nra
 
 static inline
 bool ff_plugin_has_assignment(const ff_plugin_t* ff, variable_t x) {
@@ -98,10 +112,115 @@ bool ff_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
 }
 
 static
-void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
-  // creates a mcsat variable if there was none, (term type)
-  // variable_db_get_variable()
+const mcsat_value_t* ff_plugin_constraint_evaluate(ff_plugin_t* ff, variable_t cstr_var, uint32_t* cstr_level) {
 
+  assert(!trail_has_value(ff->ctx->trail, cstr_var));
+
+  // Check if it is a valid constraints
+  const poly_constraint_t* cstr = poly_constraint_db_get(ff->constraint_db, cstr_var);
+  if (!poly_constraint_is_valid(cstr)) {
+    return NULL;
+  }
+  assert(!poly_constraint_is_root_constraint(cstr));
+
+  // Constraint var list
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&ff->wlm, cstr_var);
+  const variable_t* var_list = watch_list_manager_get_list(&ff->wlm, var_list_ref);
+
+  // Get the timestamp and level
+  uint32_t cstr_timestamp = 0;
+  *cstr_level = ff->ctx->trail->decision_level_base;
+  const mcsat_trail_t* trail = ff->ctx->trail;
+  const variable_t* var_i = var_list;
+  while (*var_i != variable_null) {
+    if (ff_plugin_has_assignment(ff, *var_i)) {
+      uint32_t timestamp_i = trail_get_value_timestamp(trail, *var_i);
+      assert(timestamp_i > 0);
+      if (cstr_timestamp < timestamp_i) {
+        cstr_timestamp = timestamp_i;
+      }
+      uint32_t level_i = trail_get_level(trail, *var_i);
+      if (level_i > *cstr_level) {
+        *cstr_level = level_i;
+      }
+    } else {
+      // Doesn't evaluate
+      return NULL;
+    }
+    var_i ++;
+  }
+
+  bool cstr_value = false;
+
+#if 0
+  // Check the cache
+  int_hmap_pair_t* find_value = int_hmap_find(&ff->evaluation_value_cache, cstr_var);
+  int_hmap_pair_t* find_timestamp = NULL;
+  if (find_value != NULL) {
+    find_timestamp = int_hmap_find(&ff->evaluation_timestamp_cache, cstr_var);
+    assert(find_timestamp != NULL);
+    if (find_timestamp->val == cstr_timestamp) {
+      // Can use the cached value;
+      cstr_value = find_value->val;
+      return cstr_value ? &mcsat_value_true : &mcsat_value_false;
+    }
+  }
+#endif
+
+  // NOTE: with/without caching can change search. Some poly constraints
+  // do not evaluate (see ok below, but we can evaluate them in the cache)
+
+  // Compute the evaluation
+  bool ok = poly_constraint_evaluate(cstr, &ff->lp_data, &cstr_value);
+  (void) ok;
+  assert(ok);
+  (*ff->stats.evaluations) ++;
+
+#if 0
+  // Set the cache
+  if (find_value != NULL) {
+    find_value->val = cstr_value;
+    find_timestamp->val = cstr_timestamp;
+  } else {
+    int_hmap_add(&ff->evaluation_value_cache, cstr_var, cstr_value);
+    int_hmap_add(&ff->evaluation_timestamp_cache, cstr_var, cstr_timestamp);
+  }
+#endif
+
+  return cstr_value ? &mcsat_value_true : &mcsat_value_false;
+}
+
+static
+void ff_plugin_process_fully_assigned_constraint(ff_plugin_t* ff, trail_token_t* prop, variable_t cstr_var) {
+
+  uint32_t cstr_level = 0;
+  const mcsat_value_t* cstr_value = NULL;
+
+  assert(!trail_has_value(ff->ctx->trail, cstr_var));
+
+  if (ctx_trace_enabled(ff->ctx, "ff::evaluate")) {
+    trail_print(ff->ctx->trail, ctx_trace_out(ff->ctx));
+    ctx_trace_term(ff->ctx, variable_db_get_term(ff->ctx->var_db, cstr_var));
+  }
+
+  // Compute the evaluation timestamp
+  cstr_value = ff_plugin_constraint_evaluate(ff, cstr_var, &cstr_level);
+
+  // Propagate
+  if (cstr_value) {
+    bool ok = prop->add_at_level(prop, cstr_var, cstr_value, cstr_level);
+    (void)ok;
+    assert(ok);
+    assert(cstr_level < ff->ctx->trail->decision_level);
+  }
+
+  if (ctx_trace_enabled(ff->ctx, "ff::evaluate")) {
+    trail_print(ff->ctx->trail, ctx_trace_out(ff->ctx));
+  }
+}
+
+static
+void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
   term_table_t* terms = ff->ctx->terms;
 
@@ -132,16 +251,19 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   ff_plugin_get_constraint_variables(ff, t, &t_variables);
 
   bool is_constraint = t_variables.element_list.size != 1 || t_variables.element_list.data[0] != t_var;
-#if 0
+
   if (is_constraint) {
+
     // Get the list of variables
     ivector_t* t_variables_list = int_mset_get_list(&t_variables);
+
     assert(t_variables_list->size > 0);
 
     // Register all the variables to libpoly (these are mcsat_variables)
     for (uint32_t i = 0; i < t_variables_list->size; ++ i) {
-      if (!lp_data_variable_has_lp_variable(&ff->lp_data, t_variables_list->data[i])) {
-        lp_data_add_lp_variable(&ff->lp_data, ff->ctx, t_variables_list->data[i]);
+      term_t tt = variable_db_get_term(ff->ctx->var_db, t_variables_list->data[i]);
+      if (!lp_data_variable_has_term(&ff->lp_data, tt)) {
+        lp_data_add_lp_variable(&ff->lp_data, terms, tt);
       }
     }
 
@@ -156,22 +278,25 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     int_array_sort2(t_variables_list->data, t_variables_list->size, (void*) ff->ctx->trail, ff_plugin_trail_variable_compare);
 
     if (ctx_trace_enabled(ff->ctx, "mcsat::new_term")) {
-      ctx_trace_printf(ff->ctx, "nra_plugin_new_term_notify: vars: \n");
+      ctx_trace_printf(ff->ctx, "ff_plugin_new_term_notify: vars: \n");
       for (uint32_t i = 0; i < t_variables_list->size; ++ i) {
         ctx_trace_term(ff->ctx, variable_db_get_term(ff->ctx->var_db, t_variables_list->data[i]));
       }
     }
 
     variable_list_ref_t var_list = watch_list_manager_new_list(&ff->wlm, t_variables_list->data, t_variables_list->size, t_var);
+
+    // Add first variable to watch list
     watch_list_manager_add_to_watch(&ff->wlm, var_list, t_variables_list->data[0]);
 
+    // Add second variable to watch list
     if (t_variables_list->size > 1) {
       watch_list_manager_add_to_watch(&ff->wlm, var_list, t_variables_list->data[1]);
     }
 
     // Check the current status of the constraint
     variable_t top_var = t_variables_list->data[0];
-    constraint_unit_info_t unit_status = CONSTRAINT_UNKNOWN;
+    constraint_unit_state_t unit_status = CONSTRAINT_UNKNOWN;
     if (ff_plugin_has_assignment(ff, top_var)) {
       // All variables assigned,
       unit_status = CONSTRAINT_FULLY_ASSIGNED;
@@ -186,14 +311,14 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     }
 
     // Set the status of the constraint
-    ff_plugin_set_unit_info(ff, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
+    constraint_unit_info_set(&ff->unit_info, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
-    poly_constraint_db_add(ff->constraint_db, t_var);
+    ff_poly_constraint_create(ff, t_var);
 
     // Propagate if fully assigned
     if (unit_status == CONSTRAINT_FULLY_ASSIGNED) {
-      nra_plugin_process_fully_assigned_constraint(ff, prop, t_var);
+      ff_plugin_process_fully_assigned_constraint(ff, prop, t_var);
     }
 
     // Stats
@@ -212,12 +337,15 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
       lp_value_destruct(&lp_value);
       lp_integer_destruct(&int_value);
     } else {
-      if (!ff_plugin_term_has_lp_variable(ff, t)) {
-        ff_plugin_add_lp_variable_from_term(ff, t);
+      // create variable for t if not existent
+      variable_db_get_variable(ff->ctx->var_db, t);
+      // register lp_variable for t if not existent
+      if (!lp_data_variable_has_term(&ff->lp_data, t)) {
+        lp_data_add_lp_variable(&ff->lp_data, terms, t);
       }
     }
   }
-#endif
+
   // Remove the variables vector
   int_mset_destruct(&t_variables);
 }
@@ -242,8 +370,6 @@ void ff_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     ctx_trace_printf(ff->ctx, "trail:\n");
     trail_print(trail, ff->ctx->tracer->file);
   }
-
-  printf("propagate\n");
 
   /* two jobs:
    *  - propagate information, like x = y, propagate f(x) = f(y).
@@ -274,7 +400,7 @@ void ff_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_toke
 
   assert(variable_db_is_real(ff->ctx->var_db, x) || variable_db_is_int(ff->ctx->var_db, x));
 
-  printf("decide\n");
+  (void)ff;
   // TODO implement
 }
 
@@ -286,7 +412,6 @@ void ff_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     ctx_trace_printf(ff->ctx, "ff_plugin_get_conflict(): START\n");
   }
 
-  printf("get_conflict\n");
   // TODO implement
 }
 
@@ -294,7 +419,7 @@ static
 term_t ff_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  printf("explain_propagation\n");
+  (void)ff;
   // TODO implement
 }
 
@@ -305,9 +430,7 @@ bool ff_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
   bool result = true;
 
   // TODO implement
-  printf("explain_evaluation\n");
-
-  // copy from nra plugin
+  (void)ff;
 
   // All variables assigned
   return result;
@@ -324,16 +447,15 @@ static
 void ff_plugin_push(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  printf("push\n");
+  (void)ff;
   // TODO implement
 }
 
 static
 void ff_plugin_pop(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
-  const mcsat_trail_t* trail = ff->ctx->trail;
 
-  printf("pop\n");
+  (void)ff;
   // TODO implement
 }
 
@@ -341,6 +463,7 @@ static
 void ff_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  (void)ff;
   // TODO implement
 }
 
@@ -348,7 +471,10 @@ static
 void ff_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  // TODO implement
+  constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
+  lp_data_gc_sweep(&ff->lp_data, gc_vars);
+
+  // TODO add further
 }
 
 static
@@ -378,7 +504,7 @@ static
 void ff_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  printf("new lemma\n");
+  (void)ff;
   // TODO implement
 }
 
@@ -392,7 +518,7 @@ static
 void ff_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  printf("decide assignment\n");
+  (void)ff;
   // TODO implement
 }
 
@@ -412,17 +538,14 @@ void ff_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
    * Should be called at every restart. Currently, it's only called once at the beginning of the search.
    */
 
-  printf("learn\n");
   // TODO implement
 }
 
 bool ff_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  uint32_t start = output->size;
-
   // TODO implement
-  printf("simplify_conflict_literal\n");
+  (void)ff;
   return false;
 }
 
@@ -444,8 +567,8 @@ plugin_t* ff_plugin_allocator(void) {
 //  plugin->plugin_interface.simplify_conflict_literal = ff_plugin_simplify_conflict_literal;
   plugin->plugin_interface.push                = ff_plugin_push;
   plugin->plugin_interface.pop                 = ff_plugin_pop;
-//  plugin->plugin_interface.gc_mark             = ff_plugin_gc_mark;
-//  plugin->plugin_interface.gc_sweep            = ff_plugin_gc_sweep;
+  plugin->plugin_interface.gc_mark             = ff_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep            = ff_plugin_gc_sweep;
 //  plugin->plugin_interface.set_exception_handler = ff_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;

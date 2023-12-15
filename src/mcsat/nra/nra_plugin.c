@@ -355,9 +355,6 @@ void nra_plugin_process_fully_assigned_constraint(nra_plugin_t* nra, trail_token
   if (cstr_value) {
     bool ok = prop->add_at_level(prop, cstr_var, cstr_value, cstr_level);
     (void)ok;
-//    if (cstr_level < nra->ctx->trail->decision_level) {
-//      fprintf(stderr, "HERE");
-//    }
     assert(ok);
   }
 
