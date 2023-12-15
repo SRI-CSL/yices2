@@ -87,8 +87,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->conflict_variable = variable_null;
 
   watch_list_manager_construct(&nra->wlm, ctx->var_db);
-  init_int_hmap(&nra->constraint_unit_info, 0);
-  init_int_hmap(&nra->constraint_unit_var, 0);
+  constraint_unit_info_init(&nra->unit_info);
 
   init_ivector(&nra->processed_variables, 0);
   nra->processed_variables_size = 0;
@@ -156,8 +155,8 @@ void nra_plugin_destruct(plugin_t* plugin) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
   watch_list_manager_destruct(&nra->wlm);
-  delete_int_hmap(&nra->constraint_unit_info);
-  delete_int_hmap(&nra->constraint_unit_var);
+  constraint_unit_info_destruct(&nra->unit_info);
+
   delete_ivector(&nra->processed_variables);
   scope_holder_destruct(&nra->scope);
 
@@ -547,7 +546,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
     // Check the current status of the constraint
     variable_t top_var = t_variables_list->data[0];
-    constraint_unit_info_t unit_status = CONSTRAINT_UNKNOWN;
+    constraint_unit_state_t unit_status = CONSTRAINT_UNKNOWN;
     if (nra_plugin_has_assignment(nra, top_var)) {
       // All variables assigned,
       unit_status = CONSTRAINT_FULLY_ASSIGNED;
@@ -562,7 +561,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     }
 
     // Set the status of the constraint
-    nra_plugin_set_unit_info(nra, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
+    constraint_unit_info_set(&nra->unit_info, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
     nra_poly_constraint_create(nra, t_var);
@@ -764,8 +763,8 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     }
 
     // Variable of the constraint
-    int_hmap_pair_t* x_find = int_hmap_find(&nra->constraint_unit_var, constraint_var);
-    variable_t x = x_find->val;
+    variable_t x = constraint_unit_info_get_unit_var(&nra->unit_info, constraint_var);
+    assert(x != variable_null);
 
     lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, x, !constraint_value);
 
@@ -927,14 +926,14 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
       }
       if (!nra_plugin_has_assignment(nra, *var_list)) {
         // We're unit
-        nra_plugin_set_unit_info(nra, constraint_var, *var_list, CONSTRAINT_UNIT);
+        constraint_unit_info_set(&nra->unit_info, constraint_var, *var_list, CONSTRAINT_UNIT);
         // Process the constraint
         if (trail_is_consistent(trail)) {
           nra_plugin_process_unit_constraint(nra, prop, constraint_var);
         }
       } else {
         // Fully assigned
-        nra_plugin_set_unit_info(nra, constraint_var, variable_null, CONSTRAINT_FULLY_ASSIGNED);
+        constraint_unit_info_set(&nra->unit_info, constraint_var, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         // Evaluate the constraint and propagate (if not assigned already)
         if (trail_is_consistent(trail) && !trail_has_value(trail, constraint_var)) {
           nra_plugin_process_fully_assigned_constraint(nra, prop, constraint_var);
@@ -1021,8 +1020,8 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // Real variables, detect if the constraint is unit
       nra_plugin_process_variable_assignment(nra, prop, var);
     }
-    if (nra_plugin_has_unit_info(nra, var)) {
-      constraint_unit_info_t info = nra_plugin_get_unit_info(nra, var);
+    if (constraint_unit_info_has(&nra->unit_info, var)) {
+      constraint_unit_state_t info = constraint_unit_info_get(&nra->unit_info, var);
       switch (info) {
       case CONSTRAINT_UNIT:
         // Process any unit constraints
@@ -1477,7 +1476,7 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
   feasible_set_db_pop(nra->feasible_set_db);
 
   // Remove resolved literals
-  uint32_t i = 0, to_keep;
+  uint32_t i, to_keep;
   for (i = 0, to_keep = 0; i < conflict->size; ++ i) {
     if (!int_mset_contains(&to_resolve, conflict->data[i])) {
       conflict->data[to_keep ++] = conflict->data[i];
@@ -1487,10 +1486,9 @@ void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t*
 
   if (ctx_trace_enabled(nra->ctx, "nia")) {
     ctx_trace_printf(nra->ctx, "int_conflict: final conflict:\n");
-    uint32_t i;
-    for (i = 0; i < conflict->size; ++ i) {
+    for (uint32_t j = 0; j < conflict->size; ++ j) {
       ctx_trace_printf(nra->ctx, "  ");
-      ctx_trace_term(nra->ctx, conflict->data[i]);
+      ctx_trace_term(nra->ctx, conflict->data[j]);
     }
   }
 
@@ -1779,18 +1777,18 @@ void nra_plugin_pop(plugin_t* plugin) {
     remove_iterator_construct(&it, &nra->wlm, x);
     while (!remove_iterator_done(&it)) {
       variable_t constraint_var = remove_iterator_get_constraint(&it);
-      constraint_unit_info_t unit_info = nra_plugin_get_unit_info(nra, constraint_var);
+      constraint_unit_state_t unit_info = constraint_unit_info_get(&nra->unit_info, constraint_var);
       switch (unit_info) {
       case CONSTRAINT_UNKNOWN:
         // Nothing to do
         break;
       case CONSTRAINT_UNIT:
         // If it was unit it becomes not unit
-        nra_plugin_set_unit_info(nra, constraint_var, variable_null, CONSTRAINT_UNKNOWN);
+        constraint_unit_info_set(&nra->unit_info, constraint_var, variable_null, CONSTRAINT_UNKNOWN);
         break;
       case CONSTRAINT_FULLY_ASSIGNED:
         // It is unit now
-        nra_plugin_set_unit_info(nra, constraint_var, x, CONSTRAINT_UNIT);
+        constraint_unit_info_set(&nra->unit_info, constraint_var, x, CONSTRAINT_UNIT);
         break;
       }
       remove_iterator_next_and_keep(&it);
@@ -1856,8 +1854,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[0], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
 
   // Unit information (constraint_unit_info, constraint_unit_var)
-  gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_info);
-  gc_info_sweep_int_hmap_keys(gc_vars, &nra->constraint_unit_var);
+  constraint_unit_info_gc_sweep(&nra->unit_info, gc_vars);
 
   // Watch list manager
   watch_list_manager_gc_sweep_lists(&nra->wlm, gc_vars);
@@ -1905,12 +1902,12 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
     term_t atom = unsigned_term(literal);
     variable_t atom_var = variable_db_get_variable_if_exists(nra->ctx->var_db, atom);
     assert(atom_var != variable_null);
-    if (nra_plugin_get_unit_info(nra, atom_var) != CONSTRAINT_UNIT) {
+    if (constraint_unit_info_get(&nra->unit_info, atom_var) != CONSTRAINT_UNIT) {
       // Not unit
       unit = false;
     } else {
       // Unit, check if same variable
-      variable_t atom_unit_var = nra_plugin_get_unit_var(nra, atom_var);
+      variable_t atom_unit_var = constraint_unit_info_get_unit_var(&nra->unit_info, atom_var);
       if (unit_var == variable_null) {
         unit_var = atom_unit_var;
       } else if (unit_var != atom_unit_var) {
@@ -2118,7 +2115,7 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
 bool nra_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
 
-  uint32_t start = output->size;;
+  uint32_t start = output->size;
 
   // We only simplify root constraints
   term_t lit_pos = unsigned_term(lit);

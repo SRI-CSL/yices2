@@ -42,14 +42,11 @@ struct nra_plugin_s {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** The unit info */
+  constraint_unit_info_t unit_info;
+
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
-
-  /** Map from constraint variables to the constraint_unit_info_t enum */
-  int_hmap_t constraint_unit_info;
-
-  /** Map from constraint variables to the variables they are unit in */
-  int_hmap_t constraint_unit_var;
 
   /** Next index of the trail to process */
   uint32_t trail_i;
@@ -127,18 +124,6 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
  * mcsat variable to vars_out. Returns false otherwise.
  */
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
-
-/** Set the unit info for the given constraint */
-void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable_t unit_var, constraint_unit_info_t value);
-
-/** Are we tracking this constraint */
-bool nra_plugin_has_unit_info(const nra_plugin_t* nra, variable_t constraint);
-
-/** Get the unit info for the given constraint */
-constraint_unit_info_t nra_plugin_get_unit_info(nra_plugin_t* nra, variable_t constraint);
-
-/** Get the unit variable for the given constraint */
-variable_t nra_plugin_get_unit_var(nra_plugin_t* nra, variable_t constraint);
 
 /** Report a conflict (variable is the one with an empty feasible set) */
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
