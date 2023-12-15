@@ -374,9 +374,9 @@ mcsat_src_c := \
 	mcsat/nra/nra_libpoly.c \
 	mcsat/nra/feasible_set_db.c \
 	mcsat/ff/ff_plugin.c \
-    mcsat/ff/ff_plugin_internal.c \
-    mcsat/ff/ff_plugin_explain.c \
-    mcsat/ff/ff_libpoly.c \
+	mcsat/ff/ff_plugin_internal.c \
+	mcsat/ff/ff_plugin_explain.c \
+	mcsat/ff/ff_libpoly.c \
 	mcsat/ite/ite_plugin.c \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd_manager.c \
