@@ -18,8 +18,8 @@
  
 #include "nra_plugin_explain.h"
 #include "nra_plugin_internal.h"
-#include "poly_constraint.h"
-#include "libpoly_utils.h"
+#include "nra_libpoly.h"
+#include "mcsat/utils/lp_utils.h"
 
 #include "utils/int_hash_map.h"
 #include "utils/pointer_vectors.h"
@@ -38,7 +38,6 @@
 #include <poly/polynomial_vector.h>
 #include <poly/variable_db.h>
 #include <poly/variable_list.h>
-#include <poly/variable_order.h>
 #include <poly/polynomial.h>
 #include <poly/interval.h>
 
@@ -1046,6 +1045,98 @@ bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
   return false;
 }
 
+/** Try to resolve the two constraints with Fourier-Motzkin resolution */
+static
+bool
+poly_constraint_resolve_fm(nra_plugin_t *nra,
+                           const poly_constraint_t *c0, bool c0_negated,
+                           const poly_constraint_t *c1, bool c1_negated,
+                           ivector_t *out) {
+
+  lp_polynomial_context_t* ctx = nra->lp_data.lp_ctx;
+  lp_assignment_t* m = nra->lp_data.lp_assignment;
+
+  if (poly_constraint_is_root_constraint(c0) || poly_constraint_is_root_constraint(c1)) {
+    return false;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+    ctx_trace_printf(nra->ctx, "c0 %s: ", c0_negated ? "(negated)" : "");
+    poly_constraint_print(c0, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+    ctx_trace_printf(nra->ctx, "c1 %s: ", c1_negated ? "(negated)" : "");
+    poly_constraint_print(c1, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+  }
+
+  lp_polynomial_vector_t* assumptions = lp_polynomial_vector_new(ctx);
+
+  lp_sign_condition_t R_sgn_condition;
+  lp_polynomial_t* R = lp_polynomial_new(ctx);
+  lp_sign_condition_t c0_sgn_condition = c0_negated ? lp_sign_condition_negate(c0->sgn_condition) : c0->sgn_condition;
+  lp_sign_condition_t c1_sgn_condition = c1_negated ? lp_sign_condition_negate(c1->sgn_condition) : c1->sgn_condition;
+  bool ok = lp_polynomial_constraint_resolve_fm(c0->polynomial, c0_sgn_condition, c1->polynomial, c1_sgn_condition, m, R, &R_sgn_condition, assumptions);
+  if (ok) {
+    // (C1 && C2 && assumptions && !(p R2 0)) => false
+    term_manager_t* tm = nra->ctx->tm;
+    size_t n = lp_polynomial_vector_size(assumptions);
+    size_t i;
+    for (i = 0; i < n; ++ i) {
+      lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
+      term_t assumption_i_p_term = lp_polynomial_to_yices_term_nra(nra, assumption_p_i);
+      int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
+      //      term_t assumption_i = NULL_TERM; // infer dead store
+      term_t assumption_i;
+      if (assumption_i_p_sgn < 0) {
+        assumption_i = mk_arith_term_lt0(tm, assumption_i_p_term);
+      } else if (assumption_i_p_sgn > 0) {
+        assumption_i = mk_arith_term_gt0(tm, assumption_i_p_term);
+      } else {
+        assumption_i = mk_arith_term_eq0(tm, assumption_i_p_term);
+      }
+      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+        ctx_trace_printf(nra->ctx, "adding FM assumption: ");
+        ctx_trace_term(nra->ctx, assumption_i);
+      }
+      ivector_push(out, assumption_i);
+      lp_polynomial_delete(assumption_p_i);
+    }
+    term_t R_p_term = lp_polynomial_to_yices_term_nra(nra, R);
+    term_t R_term = NULL_TERM;
+    switch (R_sgn_condition) {
+    case LP_SGN_LT_0:
+      R_term = mk_arith_term_lt0(tm, R_p_term);
+      break;
+    case LP_SGN_LE_0:
+      R_term = mk_arith_term_leq0(tm, R_p_term);
+      break;
+    case LP_SGN_EQ_0:
+      R_term = mk_arith_term_eq0(tm, R_p_term);
+      break;
+    case LP_SGN_NE_0:
+      R_term = mk_arith_term_neq0(tm, R_p_term);
+      break;
+    case LP_SGN_GT_0:
+      R_term = mk_arith_term_gt0(tm, R_p_term);
+      break;
+    case LP_SGN_GE_0:
+      R_term = mk_arith_term_geq0(tm, R_p_term);
+      break;
+    }
+    R_term = opposite_term(R_term);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+      ctx_trace_printf(nra->ctx, "adding resolvent: ");
+      ctx_trace_term(nra->ctx, R_term);
+    }
+    ivector_push(out, R_term);
+  }
+
+  lp_polynomial_delete(R);
+  lp_polynomial_vector_delete(assumptions);
+
+  return ok;
+}
+
 void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
 
@@ -1083,7 +1174,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     bool c1_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c1_var);
     const poly_constraint_t* c0 = poly_constraint_db_get(nra->constraint_db, c0_var);
     const poly_constraint_t* c1 = poly_constraint_db_get(nra->constraint_db, c1_var);
-    bool resolved = poly_constraint_resolve_fm(c0, c0_negated, c1, c1_negated, nra, conflict);
+    bool resolved = poly_constraint_resolve_fm(nra, c0, c0_negated, c1, c1_negated, conflict);
     if (resolved) {
       term_t c0_term = variable_db_get_term(nra->ctx->var_db, c0_var);
       if (c0_negated) c0_term = opposite_term(c0_term);

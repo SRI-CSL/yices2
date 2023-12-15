@@ -36,18 +36,18 @@
 
 #include "mcsat/nra/nra_plugin.h"
 #include "mcsat/nra/nra_plugin_internal.h"
-#include "mcsat/nra/libpoly_utils.h"
 #include "mcsat/tracing.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/utils/lp_data.h"
+#include "mcsat/utils/lp_utils.h"
 #include "mcsat/watch_list_manager.h"
-#include "mcsat/nra/poly_constraint.h"
+#include "mcsat/nra/nra_libpoly.h"
 #include "mcsat/nra/nra_plugin_explain.h"
 
 #include "terms/terms.h"
-#include "utils/int_array_sort2.h"
 #include "terms/term_explorer.h"
+#include "utils/int_array_sort2.h"
 #include "utils/refcount_strings.h"
 
 #include "api/yices_api_lock_free.h"

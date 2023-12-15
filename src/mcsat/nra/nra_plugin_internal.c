@@ -18,11 +18,8 @@
  
 #include <poly/variable_db.h>
 
-#include "mcsat/nra/nra_plugin_internal.h"
 #include "mcsat/tracing.h"
-
-#include "utils/int_hash_map.h"
-#include "libpoly_utils.h"
+#include "mcsat/nra/nra_plugin_internal.h"
 
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, int_mset_t* vars_out) {
 
