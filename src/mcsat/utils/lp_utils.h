@@ -36,11 +36,6 @@ lp_polynomial_t* lp_polynomial_from_term(lp_data_t* lp_data, term_t t, term_tabl
 term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
 
 /**
- * Construct a yices rational from lp_integer.
- */
-void rational_construct_from_lp_integer(rational_t* q, const lp_integer_t* lp_z);
-
-/**
  * Ensure value is an lp_value. If not the passed alternative will be constructed to an equivalent lp_value.
  */
 const mcsat_value_t* ensure_lp_value(const mcsat_value_t* value, mcsat_value_t* alternative);

@@ -72,8 +72,6 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
     return;
   }
 
-  term_t t1, t2;
-  term_kind_t kind;
   term_t constraint_var_term;
 
   // Constraint components
@@ -93,26 +91,26 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
   constraint_var_term = variable_db_get_term(var_db, constraint_var);
 
   // Depending on the kind, make the constraints
-  kind = term_kind(terms, constraint_var_term);
-  switch (kind) {
+  switch (term_kind(terms, constraint_var_term)) {
   case ARITH_EQ_ATOM: {
     // p == 0
-    t1 = arith_atom_arg(terms, constraint_var_term);
+    term_t t1 = arith_atom_arg(terms, constraint_var_term);
     cstr_polynomial = lp_polynomial_from_term_nra(nra, t1, NULL);
     sgn_condition = LP_SGN_EQ_0;
     break;
   }
-  case ARITH_GE_ATOM:
+  case ARITH_GE_ATOM: {
     // p >= 0
-    t1 = arith_atom_arg(terms, constraint_var_term);
+    term_t t1 = arith_atom_arg(terms, constraint_var_term);
     cstr_polynomial = lp_polynomial_from_term_nra(nra, t1, NULL);
     sgn_condition = LP_SGN_GE_0;
     break;
+  }
   case EQ_TERM:
   case ARITH_BINEQ_ATOM: {
     // LHS = RHS
-    t1 = composite_term_arg(terms, constraint_var_term, 0);
-    t2 = composite_term_arg(terms, constraint_var_term, 1);
+    term_t t1 = composite_term_arg(terms, constraint_var_term, 0);
+    term_t t2 = composite_term_arg(terms, constraint_var_term, 1);
     // Get the polynomials
     lp_integer_t t1_c, t2_c;
     lp_integer_construct(&t1_c);
@@ -125,12 +123,11 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
     lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
     lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
     // Add them
-    cstr_polynomial = lp_data_new_polynomial(&nra->lp_data);
-    lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
+    lp_polynomial_add(t1_p, t1_p, t2_p);
     // p1 = p2
     sgn_condition = LP_SGN_EQ_0;
+    cstr_polynomial = t1_p;
     // Remove temps
-    lp_polynomial_delete(t1_p);
     lp_polynomial_delete(t2_p);
     lp_integer_destruct(&t1_c);
     lp_integer_destruct(&t2_c);
@@ -184,12 +181,11 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
     lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
     lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
     // Add them
-    cstr_polynomial = lp_data_new_polynomial(&nra->lp_data);
-    lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
+    lp_polynomial_add(t1_p, t1_p, t2_p);
     // p1 = p2
     sgn_condition = LP_SGN_EQ_0;
+    cstr_polynomial = t1_p;
     // Remove temps
-    lp_polynomial_delete(t1_p);
     lp_polynomial_delete(t2_p);
     lp_integer_destruct(&t1_c);
     lp_integer_destruct(&t2_c);

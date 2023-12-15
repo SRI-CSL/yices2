@@ -1364,6 +1364,15 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   return feasible;
 }
 
+/**
+ * Construct a yices rational from lp_integer.
+ */
+static inline
+void rational_construct_from_lp_integer(rational_t* q, const lp_integer_t* lp_z) {
+  q_init(q);
+  q_set_mpz(q, lp_z);
+}
+
 static
 void nra_plugin_get_int_conflict(nra_plugin_t* nra, int_mset_t* pos, int_mset_t* neg,
     variable_t x, ivector_t* conflict) {

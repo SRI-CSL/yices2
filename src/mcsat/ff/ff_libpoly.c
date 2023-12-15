@@ -71,8 +71,6 @@ void ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
     return;
   }
 
-  term_t t1, t2;
-  term_kind_t kind;
   term_t constraint_var_term;
 
   // Constraint components
@@ -90,71 +88,32 @@ void ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
   constraint_var_term = variable_db_get_term(var_db, constraint_var);
 
   // Depending on the kind, make the constraints
-  kind = term_kind(terms, constraint_var_term);
-  switch (kind) {
+  switch (term_kind(terms, constraint_var_term)) {
   case ARITH_FF_EQ_ATOM: {
     // p == 0
-    t1 = arith_atom_arg(terms, constraint_var_term);
+    term_t t1 = arith_atom_arg(terms, constraint_var_term);
     cstr_polynomial = lp_polynomial_from_term_ff(ff, t1, NULL);
     sgn_condition = LP_SGN_EQ_0;
     break;
   }
   case EQ_TERM:
-  case ARITH_BINEQ_ATOM: {
+  case ARITH_FF_BINEQ_ATOM: {
     // LHS = RHS
-    t1 = composite_term_arg(terms, constraint_var_term, 0);
-    t2 = composite_term_arg(terms, constraint_var_term, 1);
+    term_t t1 = composite_term_arg(terms, constraint_var_term, 0);
+    term_t t2 = composite_term_arg(terms, constraint_var_term, 1);
     // Get the polynomials
-    lp_integer_t t1_c, t2_c;
-    lp_integer_construct(&t1_c);
-    lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_from_term_ff(ff, t1, &t1_c);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term_ff(ff, t2, &t2_c);
-    //  t1_p/t1_c = t2_p/t2_c
-    //  t1_p*t2_c - t2_p*t1_c
-    lp_integer_neg(lp_Z, &t1_c, &t1_c);
-    lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
-    lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
-    // Add them
-    cstr_polynomial = lp_data_new_polynomial(&ff->lp_data);
-    lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
+    cstr_polynomial = lp_polynomial_from_term_ff(ff, t1, NULL);
+    lp_polynomial_t* tmp = lp_polynomial_from_term_ff(ff, t2, NULL);
+    lp_polynomial_sub(cstr_polynomial, cstr_polynomial, tmp);
     // p1 = p2
     sgn_condition = LP_SGN_EQ_0;
     // Remove temps
-    lp_polynomial_delete(t1_p);
-    lp_polynomial_delete(t2_p);
-    lp_integer_destruct(&t1_c);
-    lp_integer_destruct(&t2_c);
+    lp_polynomial_delete(tmp);
     break;
   }
-  default: {
-    // terms like (x+y), we create regular constraint (x+y) = x + y
-    lp_integer_t t1_c, t2_c;
-    lp_integer_construct_from_int(lp_Z, &t1_c, 1);
-    lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_alloc();
-    term_t t = variable_db_get_term(ff->ctx->var_db, constraint_var);
-    lp_variable_t constraint_lp_var = lp_data_get_lp_variable_from_term(&ff->lp_data, t);
-    lp_polynomial_construct_simple(t1_p, ff->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term_ff(ff, constraint_var_term, &t2_c);
-    //  t1_p/t1_c = t2_p/t2_c
-    //  t1_p*t2_c - t2_p*t1_c
-    lp_integer_neg(lp_Z, &t1_c, &t1_c);
-    lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
-    lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
-    // Add them
-    cstr_polynomial = lp_data_new_polynomial(&ff->lp_data);
-    lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
-    // p1 = p2
-    sgn_condition = LP_SGN_EQ_0;
-    // Remove temps
-    lp_polynomial_delete(t1_p);
-    lp_polynomial_delete(t2_p);
-    lp_integer_destruct(&t1_c);
-    lp_integer_destruct(&t2_c);
-
-    break;
-  }
+  default:
+    assert(0);
+    return;
   }
 
   cstr = poly_constraint_new_regular(cstr_polynomial, sgn_condition);

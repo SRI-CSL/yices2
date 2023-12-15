@@ -1456,7 +1456,9 @@ static inline rational_t *rational_term_desc(const term_table_t *table, term_t t
 
 static inline rational_t *finitefield_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_FF_CONSTANT);
-  return rational_for_idx(table, index_of(t));
+  rational_t *q = rational_for_idx(table, index_of(t));
+  assert(q_is_integer(q));
+  return q;
 }
 
 static inline polynomial_t *poly_term_desc(const term_table_t *table, term_t t) {
