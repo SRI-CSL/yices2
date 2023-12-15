@@ -634,7 +634,7 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
 
   ARITH_NONE,   // AX
   ARITH_NONE,   // BV
-  ARITH_NFFA,    // FF
+  ARITH_NFFA,   // FF
   ARITH_IDL,    // IDL
   ARITH_LIA,    // LIA
   ARITH_LRA,    // LRA

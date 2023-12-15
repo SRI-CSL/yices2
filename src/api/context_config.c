@@ -236,6 +236,7 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
   true,   // NIA
   false,  // NRA
   true,   // NIRA
+  false,  // NFFA
   false,  // no arithmetic
 };
 
