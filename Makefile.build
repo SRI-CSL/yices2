@@ -94,6 +94,7 @@ srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
 
 testdir = tests/unit
 regressdir = tests/regress
+regressdirmcsat = mcsat
 apitestdir = tests/api
 
 #
@@ -302,8 +303,9 @@ static-check-api: static_build_subdirs version
 # Regressions
 #
 check: regress
-
+check-mcsat: regress-mcsat
 static-check: static-regress
+static-check-mcsat: static-regress-mcsat
 
 regress: build_subdirs version
 	@ echo "=== Building binaries ==="
@@ -311,6 +313,11 @@ regress: build_subdirs version
 	@ echo "=== Running regressions ==="
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin
 
+regress-mcsat: build_subdirs version
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
+	@ echo "=== Running regressions ==="
+	@ $(regressdir)/check.sh $(regressdir)/$(regressdirmcsat) $(build_dir)/bin
 
 static-regress: static_build_subdirs version
 	@ echo "=== Building binaries ==="
@@ -318,6 +325,11 @@ static-regress: static_build_subdirs version
 	@ echo "=== Running regressions ==="
 	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
 
+static-regress-mcsat: static_build_subdirs version
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
+	@ echo "=== Running regressions ==="
+	@ $(regressdir)/check.sh $(regressdir)/$(regressdirmcsat) $(build_dir)/static_bin
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
     regress static-regress check static-check check-api static-check-api
