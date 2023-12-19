@@ -578,7 +578,7 @@ if test -z "$1"; then
        if test -f $ldir/libgmp.a; then
           AC_MSG_RESULT(found)
           testlib=$ldir/libgmp.a
-	  CSL_CHECK_GMP($testlib,$testincludedir)
+	      CSL_CHECK_GMP($testlib,$testincludedir)
           if test $run_ok = yes; then
             STATIC_GMP=$testlib
             STATIC_GMP_INCLUDE_DIR=$testincludedir
@@ -829,15 +829,18 @@ fi
 #
 # Default GMP
 #
+if test "x$STATIC_LIBGMP" = x ; then
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
-
+fi
 
 #
 # Default libpoly
 #
 if test $use_mcsat = yes ; then
+if test "x$STATIC_LIBPOLY" = x ; then
    AC_CHECK_LIB([poly],[lp_polynomial_new], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
+fi
 fi
 
 #
