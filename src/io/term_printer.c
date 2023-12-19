@@ -2526,7 +2526,8 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
 
   case ARITH_FF_CONSTANT:
     assert(polarity);
-    pp_finitefield_term(printer, &tbl->desc[i].rational, finitefield_term_order(tbl, i));
+    type_t tau = tbl->type[i];
+    pp_finitefield_term(printer, &tbl->desc[i].rational, ff_type_size(tbl->types, tau));
     break;
 
   case BV64_CONSTANT:
