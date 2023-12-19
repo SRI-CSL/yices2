@@ -53,6 +53,8 @@ typedef struct {
     variable_t var;
     /** The score of the variable */
     float score;
+    /** glue value */
+    uint32_t glue;
   };
 
 } mcsat_clause_tag_t;

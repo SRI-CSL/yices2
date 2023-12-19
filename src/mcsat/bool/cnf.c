@@ -381,6 +381,7 @@ void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses) {
 
   or_tag.type = CLAUSE_LEMMA;
   or_tag.score = 0;
+  or_tag.glue = 0;
   or_tag.level = cnf->ctx->trail->decision_level_base;
 
   cnf_add_clause(cnf, or_literals, lemma->size, clauses, or_tag);

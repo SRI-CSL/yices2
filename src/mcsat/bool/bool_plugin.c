@@ -16,6 +16,8 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "mcsat/bool/bool_plugin.h"
 
 #include "mcsat/bool/clause_db.h"
@@ -26,6 +28,8 @@
 
 #include "utils/int_array_sort2.h"
 #include "mcsat/utils/scope_holder.h"
+
+#define USE_CLAUSE_GLUE_CMP 1
 
 typedef struct {
 
@@ -216,12 +220,36 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 }
 
 static
+uint32_t bool_plugin_compute_clause_glue(bool_plugin_t* bp, clause_ref_t* c_ref) {
+  const mcsat_trail_t* trail = bp->ctx->trail;
+  mcsat_clause_t* c = clause_db_get_clause(&bp->clause_db, c_ref);
+  uint32_t glue = 0;
+  
+  int_mset_t levels;
+  uint32_t i;
+  
+  int_mset_construct(&levels, UINT32_MAX);
+  for (i = 0; i < c->size; ++ i) {
+    if (literal_has_value(c->literals[i], trail)) {
+      int_mset_add(&levels, literal_get_level(c->literals[i], trail));
+    } else {
+      glue++;
+    }
+  }
+  glue += int_mset_get_list(&levels)->size;
+  int_mset_destruct(&levels);
+
+  return glue;
+}
+
+static
 void bool_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
 
   uint32_t i;
   clause_ref_t clause_ref;
-
+  mcsat_clause_tag_t* c_tag;
+  
   // Convert to CNF
   i = bp->clauses_to_add.size;
   cnf_convert_lemma(&bp->cnf, lemma, &bp->clauses_to_add);
@@ -229,6 +257,8 @@ void bool_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_toke
   // Remember the lemma clauses
   for (; i < bp->clauses_to_add.size; ++ i) {
     clause_ref = bp->clauses_to_add.data[i];
+    c_tag = clause_db_get_tag(&bp->clause_db, clause_ref);
+    c_tag->glue = bool_plugin_compute_clause_glue(bp, clause_ref);
     assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
     ivector_push(&bp->lemmas, clause_ref);
   }
@@ -859,6 +889,10 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
   assert(c1_tag->type == CLAUSE_LEMMA);
   assert(c2_tag->type == CLAUSE_LEMMA);
 
+  if (c1_tag->glue > c2_tag->glue)
+    return true;
+  if (c1_tag->glue < c2_tag->glue)
+    return false;
   return c1_tag->score > c2_tag->score;
 }
 
@@ -868,36 +902,21 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   clause_db_t* db = &bp->clause_db;
   const mcsat_trail_t* trail = bp->ctx->trail;
 
-  uint32_t i;
+  uint32_t i, j;
   float act_threshold;
   variable_t var;
   clause_ref_t clause_ref;
   mcsat_clause_t* c;
   mcsat_clause_tag_t *c_tag;
-
+  bool clause_satisfied;
+  
+  ivector_t lemmas_irrelevant;
+  init_ivector(&lemmas_irrelevant, bp->lemmas.size);
+  
   if (gc_vars->level == 0) {
 
     // Construct the gc info (destructed in collect())
     gc_info_construct(&bp->gc_clauses, clause_ref_null, false);
-
-    // Sort the lemmas based on scores
-    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
-
-    // avg activity score
-    act_threshold = bp->heuristic_params.clause_score_bump_factor / bp->lemmas.size;
-
-    // Mark all the variables in half of lemmas as used
-    for (i = 0; i < bp->lemmas.size / 2; ++ i) {
-      clause_ref = bp->lemmas.data[i];
-      assert(clause_db_is_clause(db, clause_ref, true));
-      c_tag = clause_db_get_tag(db, clause_ref);
-      if (c_tag->score <= act_threshold) {
-        // consider clauses with score higher than the avg activity score
-        // since the clauses are sorted according to their scores, we break here
-        break;
-      }
-      gc_info_mark(&bp->gc_clauses, clause_ref);
-    }
 
     // We also keep the clauses of any propagated literals
     for (i = 0; i < bp->propagated.size; ++ i) {
@@ -906,17 +925,41 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses
+    // keep Glue clauses
     for (i = 0; i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
-      c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size == 2) {
-        if (!literal_is_true(c->literals[0], trail) &&
-            !literal_is_true(c->literals[1], trail)) {
-          gc_info_mark(&bp->gc_clauses, clause_ref);
-        }
+
+      c_tag = clause_db_get_tag(db, clause_ref);
+      if (c_tag->glue <= 2) {
+	c = clause_db_get_clause(&bp->clause_db, clause_ref);
+	clause_satisfied = false;
+	for (j = 0; i < c->size && !clause_satisfied; ++j) {
+	  if (literal_is_true(c->literals[j], trail)) {
+	    clause_satisfied = true;
+	  }
+	}
+
+	if (!clause_satisfied) {
+	  gc_info_mark(&bp->gc_clauses, clause_ref);
+	  if (ctx_trace_enabled(bp->ctx, "bool::ai")) {
+	    ctx_trace_printf(bp->ctx, "Keeping Glue Clause\n ");
+	  }
+	}
+      } else {
+	// potentially irrelevant
+	ivector_push(&lemmas_irrelevant, clause_ref);
       }
+    }
+    
+    // Sort the lemmas based on scores
+    int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
+
+    // Mark all the variables in half of lemmas as used
+    for (i = 0; i < lemmas_irrelevant.size * 0.75; ++ i) {
+      clause_ref = lemmas_irrelevant.data[i];
+      assert(clause_db_is_clause(db, clause_ref, true));
+      gc_info_mark(&bp->gc_clauses, clause_ref);
     }
   }
 
@@ -925,6 +968,8 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   // Mark all variables through the clause database
   clause_db_gc_mark(db, &bp->gc_clauses, gc_vars);
+
+  delete_ivector(&lemmas_irrelevant);
 }
 
 void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
