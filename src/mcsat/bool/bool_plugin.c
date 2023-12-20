@@ -1052,7 +1052,7 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   switch (kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
-    bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
+    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
