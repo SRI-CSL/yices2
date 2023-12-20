@@ -57,6 +57,9 @@ typedef struct {
   /** Limit on lemma count before we do compaction */
   uint32_t lemmas_limit;
 
+  /** Reduce Clause DB */
+  bool clause_db_reduce;
+
   /** Clauses to re-check for propagations. */
   ivector_t clauses_to_repropagate;
 
@@ -155,6 +158,7 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   bp->trail_i = 0;
   bp->propagated_size = 0;
+  bp->clause_db_reduce = false;
 
   ctx->request_term_notification_by_kind(ctx, OR_TERM, false);
   ctx->request_term_notification_by_kind(ctx, XOR_TERM, false);
@@ -901,7 +905,6 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   clause_db_t* db = &bp->clause_db;
   const mcsat_trail_t* trail = bp->ctx->trail;
-  bool reduce = bp->lemmas.size > bp->lemmas_limit;
 
   uint32_t i, j;
   variable_t var;
@@ -925,7 +928,9 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    if (reduce) {
+    if (bp->clause_db_reduce) {
+      bp->clause_db_reduce = false;
+
       // keep Glue clauses
       for (i = 0; i < bp->lemmas.size; ++ i) {
         clause_ref = bp->lemmas.data[i];
@@ -1065,6 +1070,7 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
     if (bp->lemmas.size > bp->lemmas_limit) {
+      bp->clause_db_reduce = true;
       bp->ctx->request_gc(bp->ctx);
       bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
     }
