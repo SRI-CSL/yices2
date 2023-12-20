@@ -889,9 +889,9 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
   assert(c1_tag->type == CLAUSE_LEMMA);
   assert(c2_tag->type == CLAUSE_LEMMA);
 
-  if (c1_tag->glue > c2_tag->glue)
-    return true;
   if (c1_tag->glue < c2_tag->glue)
+    return true;
+  if (c1_tag->glue > c2_tag->glue)
     return false;
   return c1_tag->score > c2_tag->score;
 }
@@ -901,6 +901,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   clause_db_t* db = &bp->clause_db;
   const mcsat_trail_t* trail = bp->ctx->trail;
+  bool reduce = bp->lemmas.size > bp->lemmas_limit;
 
   uint32_t i, j;
   float act_threshold;
@@ -925,40 +926,48 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep Glue clauses
-    for (i = 0; i < bp->lemmas.size; ++ i) {
-      clause_ref = bp->lemmas.data[i];
-      assert(clause_db_is_clause(db, clause_ref, true));
+    if (reduce) {
+      // keep Glue clauses
+      for (i = 0; i < bp->lemmas.size; ++ i) {
+        clause_ref = bp->lemmas.data[i];
+        assert(clause_db_is_clause(db, clause_ref, true));
 
-      c_tag = clause_db_get_tag(db, clause_ref);
-      if (c_tag->glue <= 2) {
-	c = clause_db_get_clause(&bp->clause_db, clause_ref);
-	clause_satisfied = false;
-	for (j = 0; i < c->size && !clause_satisfied; ++j) {
-	  if (literal_is_true(c->literals[j], trail)) {
-	    clause_satisfied = true;
-	  }
-	}
+        c_tag = clause_db_get_tag(db, clause_ref);
+        if (c_tag->glue <= 2) {
+          c = clause_db_get_clause(&bp->clause_db, clause_ref);
+          clause_satisfied = false;
+          for (j = 0; j < c->size && !clause_satisfied; ++j) {
+            if (literal_is_true(c->literals[j], trail)) {
+              clause_satisfied = true;
+            }
+          }
 
-	if (!clause_satisfied) {
-	  gc_info_mark(&bp->gc_clauses, clause_ref);
-	  if (ctx_trace_enabled(bp->ctx, "bool::ai")) {
-	    ctx_trace_printf(bp->ctx, "Keeping Glue Clause\n ");
-	  }
-	}
-      } else {
-	// potentially irrelevant
-	ivector_push(&lemmas_irrelevant, clause_ref);
+          if (!clause_satisfied) {
+            gc_info_mark(&bp->gc_clauses, clause_ref);
+            if (ctx_trace_enabled(bp->ctx, "bool::ai")) {
+              ctx_trace_printf(bp->ctx, "Keeping Glue Clause\n ");
+            }
+          }
+        } else {
+          // potentially irrelevant
+          ivector_push(&lemmas_irrelevant, clause_ref);
+        }
+      }
+    
+      // Sort the lemmas based on scores
+      int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
+
+      // Mark all the variables in half of lemmas as used
+      for (i = 0; i < lemmas_irrelevant.size * 0.75; ++ i) {
+        clause_ref = lemmas_irrelevant.data[i];
+        assert(clause_db_is_clause(db, clause_ref, true));
+        gc_info_mark(&bp->gc_clauses, clause_ref);
       }
     }
-    
-    // Sort the lemmas based on scores
-    int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
-
-    // Mark all the variables in half of lemmas as used
-    for (i = 0; i < lemmas_irrelevant.size * 0.75; ++ i) {
-      clause_ref = lemmas_irrelevant.data[i];
-      assert(clause_db_is_clause(db, clause_ref, true));
+  } else {
+    // no reduction, so mark all lemmas
+    for (i = 0; i < bp->lemmas.size; ++ i) {
+      clause_ref = bp->lemmas.data[i];
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
   }
