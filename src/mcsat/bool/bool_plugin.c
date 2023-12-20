@@ -220,7 +220,7 @@ void bool_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* p
 }
 
 static
-uint32_t bool_plugin_compute_clause_glue(bool_plugin_t* bp, clause_ref_t* c_ref) {
+uint32_t bool_plugin_compute_clause_glue(bool_plugin_t* bp, clause_ref_t c_ref) {
   const mcsat_trail_t* trail = bp->ctx->trail;
   mcsat_clause_t* c = clause_db_get_clause(&bp->clause_db, c_ref);
   uint32_t glue = 0;
@@ -904,7 +904,6 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   bool reduce = bp->lemmas.size > bp->lemmas_limit;
 
   uint32_t i, j;
-  float act_threshold;
   variable_t var;
   clause_ref_t clause_ref;
   mcsat_clause_t* c;
