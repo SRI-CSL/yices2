@@ -92,19 +92,10 @@ typedef struct {
 
   struct {
 
-    /** Score increase per bump (multiplicative) */
-    float clause_score_bump_factor;
-    /** Decay all scores */
-    float clause_score_decay_factor;
-    /** Limit for when to scale down */
-    float clause_score_limit;
-
     /** Reduce Lemma interval */
     uint32_t lemma_reduce_interval;
     /** Fraction of lemmas to keep */
     float lemma_reduce_fraction;
-    /** Increase of the lemma limit after gc */
-    float lemma_limit_factor;
 
     /** Number of Reduce Clause DB Calls */
     uint32_t num_clause_db_reduce;
@@ -136,15 +127,9 @@ void bool_plugin_stats_init(bool_plugin_t* bp) {
 
 static
 void bool_plugin_heuristics_init(bool_plugin_t* bp) {
-  // Clause scoring
-  bp->heuristic_params.clause_score_bump_factor = 1;
-  bp->heuristic_params.clause_score_decay_factor = 0.999;
-  bp->heuristic_params.clause_score_limit = 1e20;
-
   // Clause database compact
   bp->heuristic_params.lemma_reduce_interval = 300;
   bp->heuristic_params.lemma_reduce_fraction = 0.75;
-  bp->heuristic_params.lemma_limit_factor = 1.1;
   bp->heuristic_params.num_clause_db_reduce = 0;
 
   // Bool var scoring
@@ -428,52 +413,8 @@ int bool_plugin_attach_clause(bool_plugin_t* bp, clause_ref_t c_ref, trail_token
   return propagation_level;
 }
 
-static
-void bool_plugin_decay_clause_scores(bool_plugin_t* bp) {
-  bp->heuristic_params.clause_score_bump_factor *= (1 / bp->heuristic_params.clause_score_decay_factor);
-}
-
-static
-void bool_plugin_rescale_clause_scores(bool_plugin_t* bp) {
-  uint32_t i;
-  clause_ref_t clause;
-  mcsat_clause_tag_t* tag;
-
-  for (i = 0; i < bp->lemmas.size; ++ i) {
-    clause = bp->lemmas.data[i];
-    tag = clause_db_get_tag(&bp->clause_db, clause);
-    assert(tag->type == CLAUSE_LEMMA);
-    tag->score /= bp->heuristic_params.lemma_limit_factor;
-  }
-
-  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.lemma_limit_factor;
-}
-
-static
-void bool_plugin_bump_clause(bool_plugin_t* bp, const mcsat_clause_t* clause) {
-  mcsat_clause_tag_t* tag;
-
-  tag = clause_get_tag(clause);
-  if (tag->type == CLAUSE_LEMMA) {
-    // Bump
-    tag->score += bp->heuristic_params.clause_score_bump_factor;
-    // If over the limit, normalize
-    if (tag->score > bp->heuristic_params.clause_score_limit) {
-      bool_plugin_rescale_clause_scores(bp);
-    }
-  }
-}
-
 static inline
 void bool_plugin_report_conflict(bool_plugin_t* bp, trail_token_t* prop, clause_ref_t c) {
-  mcsat_tagged_clause_t* clause;
-
-  // Bump the conflict clause
-  clause = clause_db_get_tagged_clause(&bp->clause_db, c);
-  if (clause->tag.type == CLAUSE_LEMMA) {
-    bool_plugin_bump_clause(bp, &clause->clause);
-  }
-
   prop->conflict(prop);
   bp->conflict = c;
 
@@ -805,9 +746,6 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
 			     bp->heuristic_params.bool_var_bump_factor);
   }
 
-  // Bump the clause as useful
-  bool_plugin_bump_clause(bp, clause);
-
   return bool2term(var_value);
 }
 
@@ -899,6 +837,7 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
 
   clause_db_t* clause_db = (clause_db_t*) data;
   mcsat_clause_tag_t *c1_tag, *c2_tag;
+  mcsat_clause_t *clause_1, *clause_2;
 
   c1_tag = clause_db_get_tag(clause_db, c1);
   c2_tag = clause_db_get_tag(clause_db, c2);
@@ -910,7 +849,11 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
     return true;
   if (c1_tag->glue > c2_tag->glue)
     return false;
-  return c1_tag->score > c2_tag->score;
+
+  clause_1 = clause_db_get_clause(clause_db, c1);
+  clause_2 = clause_db_get_clause(clause_db, c2);
+
+  return clause_1->size < clause_2->size;
 }
 
 void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
@@ -972,7 +915,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
         }
       }
     
-      // Sort the lemmas based on scores
+      // Sort the lemmas based on glue values
       int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
       // Mark all the variables in half of lemmas as used
@@ -1099,8 +1042,6 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
     }
     break;
   case MCSAT_SOLVER_CONFLICT:
-    // Decay the scores each conflict
-    bool_plugin_decay_clause_scores(bp);
     break;
   case MCSAT_SOLVER_POP:
     // Remove all learnt clauses above base level, regular clauses will be

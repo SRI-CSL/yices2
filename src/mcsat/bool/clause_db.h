@@ -51,8 +51,6 @@ typedef struct {
   union {
     /** The variable that is defined */
     variable_t var;
-    /** The score of the variable */
-    float score;
     /** glue value */
     uint32_t glue;
   };
@@ -62,7 +60,7 @@ typedef struct {
 /**
  * A tagged clause is a clause with additional information. For definitional
  * clauses we keep the variable that is being defined, and for the lemma
- * clauses we keep the score of the clause.
+ * clauses we keep the glue value of the clause.
  */
 typedef struct {
 
