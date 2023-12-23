@@ -100,6 +100,9 @@ typedef struct {
     /** Number of Reduce Clause DB Calls */
     uint32_t num_clause_db_reduce;
 
+    /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
+    uint32_t bool_var_bump_factor;
+
   } heuristic_params;
 
   struct {
@@ -128,6 +131,9 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.lemma_reduce_interval = 300;
   bp->heuristic_params.lemma_reduce_fraction = 0.75;
   bp->heuristic_params.num_clause_db_reduce = 0;
+
+  // Bool var scoring
+  bp->heuristic_params.bool_var_bump_factor = 5;
 }
 
 static
@@ -735,8 +741,9 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
     }
     ivector_push(reasons, opposite_term(t_i));
 
-    // Bump the reason variable
-    bp->ctx->bump_variable(bp->ctx, x_i);
+    // Bump the reason variable -- give more weightage to boolean reasons
+    bp->ctx->bump_variable_n(bp->ctx, x_i,
+			     bp->heuristic_params.bool_var_bump_factor);
   }
 
   return bool2term(var_value);
