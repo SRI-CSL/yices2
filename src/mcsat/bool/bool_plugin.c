@@ -60,6 +60,9 @@ typedef struct {
   /** Reduce Clause DB */
   bool clause_db_reduce;
 
+  /** propagated literal size that have been processed by reduce */
+  uint32_t reduce_assigned;
+
   /** Clauses to re-check for propagations. */
   ivector_t clauses_to_repropagate;
 
@@ -96,10 +99,15 @@ typedef struct {
     /** Limit for when to scale down */
     float clause_score_limit;
 
-    /** Limit on lemma clauses before we ask for gc */
-    uint32_t lemma_limit_init;
+    /** Reduce Lemma interval */
+    uint32_t lemma_reduce_interval;
+    /** Fraction of lemmas to keep */
+    float lemma_reduce_fraction;
     /** Increase of the lemma limit after gc */
     float lemma_limit_factor;
+
+    /** Number of Reduce Clause DB Calls */
+    uint32_t num_clause_db_reduce;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -134,8 +142,10 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.clause_score_limit = 1e20;
 
   // Clause database compact
-  bp->heuristic_params.lemma_limit_init = 1000;
+  bp->heuristic_params.lemma_reduce_interval = 300;
+  bp->heuristic_params.lemma_reduce_fraction = 0.75;
   bp->heuristic_params.lemma_limit_factor = 1.1;
+  bp->heuristic_params.num_clause_db_reduce = 0;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 5;
@@ -159,6 +169,7 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   bp->trail_i = 0;
   bp->propagated_size = 0;
   bp->clause_db_reduce = false;
+  bp->reduce_assigned = 0;
 
   ctx->request_term_notification_by_kind(ctx, OR_TERM, false);
   ctx->request_term_notification_by_kind(ctx, XOR_TERM, false);
@@ -871,6 +882,8 @@ void bool_plugin_pop(plugin_t* plugin) {
       &bp->propagated_size,
       NULL);
 
+  bp->reduce_assigned = bp->propagated_size;
+
   assert(bp->propagated.size >= bp->propagated_size);
   while (bp->propagated.size > bp->propagated_size) {
     propagated_var = ivector_pop2(&bp->propagated);
@@ -911,17 +924,12 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   clause_ref_t clause_ref;
   mcsat_clause_t* c;
   mcsat_clause_tag_t *c_tag;
-  bool clause_satisfied;
-  
-  ivector_t lemmas_irrelevant;
-  init_ivector(&lemmas_irrelevant, bp->lemmas.size);
   
   if (gc_vars->level == 0) {
-
     // Construct the gc info (destructed in collect())
     gc_info_construct(&bp->gc_clauses, clause_ref_null, false);
 
-    // We also keep the clauses of any propagated literals
+    // We keep the clauses of any propagated literals
     for (i = 0; i < bp->propagated.size; ++ i) {
       var = bp->propagated.data[i];
       clause_ref = bool_plugin_get_reason_ref(bp, var);
@@ -929,28 +937,34 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     }
 
     if (bp->clause_db_reduce) {
-      bp->clause_db_reduce = false;
+      bool clause_satisfied;
+      ivector_t lemmas_irrelevant;
+      init_ivector(&lemmas_irrelevant, 0);
 
-      // keep Glue clauses
+      bp->clause_db_reduce = false;
+      bp->heuristic_params.num_clause_db_reduce++;
+
       for (i = 0; i < bp->lemmas.size; ++ i) {
         clause_ref = bp->lemmas.data[i];
         assert(clause_db_is_clause(db, clause_ref, true));
 
         c_tag = clause_db_get_tag(db, clause_ref);
+        // keep Glue clauses
         if (c_tag->glue <= 2) {
           c = clause_db_get_clause(&bp->clause_db, clause_ref);
           clause_satisfied = false;
-          for (j = 0; j < c->size && !clause_satisfied; ++j) {
-            if (literal_is_true(c->literals[j], trail)) {
-              clause_satisfied = true;
+          // check for true clauses only if some new has been propagated at the base level
+          if (bp->reduce_assigned < bp->propagated_size) {
+            for (j = 0; j < c->size && !clause_satisfied; ++j) {
+              if (literal_has_value_at_base(c->literals[j], trail) &&
+                  literal_is_true(c->literals[j], trail)) {
+                clause_satisfied = true;
+              }
             }
           }
 
           if (!clause_satisfied) {
             gc_info_mark(&bp->gc_clauses, clause_ref);
-            if (ctx_trace_enabled(bp->ctx, "bool::ai")) {
-              ctx_trace_printf(bp->ctx, "Keeping Glue Clause\n ");
-            }
           }
         } else {
           // potentially irrelevant
@@ -962,11 +976,22 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
       // Mark all the variables in half of lemmas as used
-      for (i = 0; i < lemmas_irrelevant.size * 0.75; ++ i) {
+      for (i = 0; i < lemmas_irrelevant.size * bp->heuristic_params.lemma_reduce_fraction; ++ i) {
         clause_ref = lemmas_irrelevant.data[i];
         assert(clause_db_is_clause(db, clause_ref, true));
         gc_info_mark(&bp->gc_clauses, clause_ref);
       }
+
+      // update the limit
+      bp->lemmas_limit = (bp->lemmas.size -
+                          (lemmas_irrelevant.size * (1.0 - bp->heuristic_params.lemma_reduce_fraction))) +
+        (bp->heuristic_params.lemma_reduce_interval *
+         (bp->heuristic_params.num_clause_db_reduce/log(bp->heuristic_params.num_clause_db_reduce + 9)));
+
+      // update the reduce assigned
+      bp->reduce_assigned = bp->propagated_size;
+
+      delete_ivector(&lemmas_irrelevant);
     }
   } else {
     // no reduction, so mark all lemmas
@@ -981,8 +1006,6 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   // Mark all variables through the clause database
   clause_db_gc_mark(db, &bp->gc_clauses, gc_vars);
-
-  delete_ivector(&lemmas_irrelevant);
 }
 
 void bool_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
@@ -1065,14 +1088,14 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   switch (kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
-    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
+    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_reduce_interval;
+    bp->heuristic_params.num_clause_db_reduce = 0;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
     if (bp->lemmas.size > bp->lemmas_limit) {
       bp->clause_db_reduce = true;
       bp->ctx->request_gc(bp->ctx);
-      bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
     }
     break;
   case MCSAT_SOLVER_CONFLICT:
