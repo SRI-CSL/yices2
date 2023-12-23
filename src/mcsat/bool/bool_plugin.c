@@ -29,7 +29,6 @@
 #include "utils/int_array_sort2.h"
 #include "mcsat/utils/scope_holder.h"
 
-#define USE_CLAUSE_GLUE_CMP 1
 
 typedef struct {
 
@@ -929,7 +928,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       bp->lemmas_limit = (bp->lemmas.size -
                           (lemmas_irrelevant.size * (1.0 - bp->heuristic_params.lemma_reduce_fraction))) +
         (bp->heuristic_params.lemma_reduce_interval *
-         (bp->heuristic_params.num_clause_db_reduce/log(bp->heuristic_params.num_clause_db_reduce + 9)));
+         (bp->heuristic_params.num_clause_db_reduce/log10(bp->heuristic_params.num_clause_db_reduce + 9)));
 
       // update the reduce assigned
       bp->reduce_assigned = bp->propagated_size;
