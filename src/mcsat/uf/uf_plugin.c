@@ -346,7 +346,7 @@ void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     term_t t;
     uint32_t i;
     for (i = 0; i < uf->conflict.size; ++i) {
-      t = uf->conflict.data[i];
+      t = unsigned_term(uf->conflict.data[i]);
       int_mset_add(&uf->tmp, t);
     }
     uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
@@ -411,7 +411,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // extract terms used in the conflict
       uint32_t i;
       for (i = 0; i < uf->conflict.size; ++i) {
-        t = uf->conflict.data[i];
+        t = unsigned_term(uf->conflict.data[i]);
 	int_mset_add(&uf->tmp, t);
       }
       uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
