@@ -1342,7 +1342,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
   uint32_t i;
 
   lp_data_t lp_data;
-  lp_data_init(&lp_data);
+  lp_data_init(&lp_data, NULL);
 
   // Set of variables we're keeping
   int_hset_t vars_to_keep_set;

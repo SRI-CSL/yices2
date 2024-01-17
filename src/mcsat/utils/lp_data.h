@@ -56,9 +56,16 @@ typedef struct lp_data_s {
 } lp_data_t;
 
 
-void lp_data_init(lp_data_t *lp_data);
+void lp_data_init(lp_data_t *lp_data, mpz_t order);
 
 void lp_data_destruct(lp_data_t *lp_data);
+
+lp_data_t* lp_data_new(mpz_t order);
+
+void lp_data_delete(lp_data_t *lp_data);
+
+/** Returns true when the lp_data is of given order */
+bool lp_data_is_order(lp_data_t *lp_data, mpz_t order);
 
 /** Add a variable corresponding to the term */
 lp_variable_t lp_data_add_lp_variable(lp_data_t *lp_data, term_table_t *terms, term_t t);

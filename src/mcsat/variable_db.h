@@ -93,6 +93,12 @@ term_t variable_db_get_term(const variable_db_t* var_db, variable_t x) {
   return var_db->variable_to_term_map.data[x];
 }
 
+static inline
+type_t variable_db_get_type(const variable_db_t* var_db, variable_t x) {
+  term_t t = variable_db_get_term(var_db, x);
+  return term_type(var_db->terms, t);
+}
+
 typedef struct variable_db_new_variable_notify_s {
   void (*new_variable) (struct variable_db_new_variable_notify_s* self, variable_t x);
 } variable_db_new_variable_notify_t;
@@ -114,6 +120,9 @@ bool variable_db_is_real(const variable_db_t* var_db, variable_t x);
 
 /** Returns true if the type of the variable is bitvector */
 bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x);
+
+/** Returns true if the type of the variable is finite field */
+bool variable_db_is_finitefield(const variable_db_t* var_db, variable_t x);
 
 /** Get the bitsize of a bit-vector variable */
 uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x);

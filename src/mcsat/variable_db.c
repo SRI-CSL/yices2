@@ -193,6 +193,10 @@ bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == BITVECTOR_TYPE;
 }
 
+bool variable_db_is_finitefield(const variable_db_t* var_db, variable_t x) {
+  return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == FF_TYPE;
+}
+
 uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {
   assert(variable_db_is_bitvector(var_db, x));
   return term_bitsize(var_db->terms, variable_db_get_term(var_db, x));

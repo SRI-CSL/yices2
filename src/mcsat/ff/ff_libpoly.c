@@ -25,7 +25,6 @@
 #include <poly/variable_db.h>
 #include <poly/feasibility_set.h>
 #include <poly/interval.h>
-#include <poly/assignment.h>
 
 lp_polynomial_t* lp_polynomial_from_term_ff(ff_plugin_t* ff, term_t t, lp_integer_t* c) {
   if (ctx_trace_enabled(ff->ctx, "ff::terms")) {
@@ -33,7 +32,8 @@ lp_polynomial_t* lp_polynomial_from_term_ff(ff_plugin_t* ff, term_t t, lp_intege
     ctx_trace_term(ff->ctx, t);
   }
 
-  lp_polynomial_t* result = lp_polynomial_from_term(&ff->lp_data, t, ff->ctx->terms, c);
+  assert(ff->lp_data);
+  lp_polynomial_t* result = lp_polynomial_from_term(ff->lp_data, t, ff->ctx->terms, c);
 
   if (ctx_trace_enabled(ff->ctx, "ff::terms")) {
     ctx_trace_printf(ff->ctx, "lp_polynomial_from_term: result = ");
@@ -51,7 +51,8 @@ term_t lp_polynomial_to_yices_term_ff(ff_plugin_t *ff, const lp_polynomial_t *lp
     ctx_trace_printf(ff->ctx, ")\n");
   }
 
-  term_t result = lp_polynomial_to_yices_term(&ff->lp_data, lp_p, ff->ctx->terms, &ff->buffer);
+  assert(ff->lp_data);
+  term_t result = lp_polynomial_to_yices_term(ff->lp_data, lp_p, ff->ctx->terms, &ff->buffer);
 
   if (ctx_trace_enabled(ff->ctx, "ff::terms")) {
     ctx_trace_printf(ff->ctx, "lp_polynomial_to_yices_term(");
@@ -91,7 +92,7 @@ void ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
   switch (term_kind(terms, constraint_var_term)) {
   case ARITH_FF_EQ_ATOM: {
     // p == 0
-    term_t t1 = arith_atom_arg(terms, constraint_var_term);
+    term_t t1 = finitefield_atom_arg(terms, constraint_var_term);
     cstr_polynomial = lp_polynomial_from_term_ff(ff, t1, NULL);
     sgn_condition = LP_SGN_EQ_0;
     break;

@@ -51,7 +51,7 @@ struct ff_plugin_s {
   constraint_unit_info_t unit_info;
 
   /** Data related to libpoly */
-  lp_data_t lp_data;
+  lp_data_t *lp_data;
 
 #if 0
   /** Last variable that was decided, but yet unprocessed */

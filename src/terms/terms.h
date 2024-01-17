@@ -1558,6 +1558,11 @@ static inline root_atom_t *arith_root_atom_desc(const term_table_t *table, term_
   return root_atom_for_idx(table, index_of(t));
 }
 
+static inline term_t finitefield_atom_arg(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_EQ_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
 /*
  * Other unary terms
  */

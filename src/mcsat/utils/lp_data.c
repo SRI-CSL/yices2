@@ -18,7 +18,10 @@
 
 #include "lp_data.h"
 
+#include <stdbool.h>
+
 #include <poly/polynomial.h>
+#include <poly/integer.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_db.h>
 #include <poly/feasibility_set.h>
@@ -31,14 +34,16 @@
 #include "mcsat/gc.h"
 #include "terms/terms.h"
 
-void lp_data_init(lp_data_t *lp_data) {
+void lp_data_init(lp_data_t *lp_data, mpz_t order) {
   init_int_hmap(&lp_data->term_to_lp_var_map, 0);
   init_int_hmap(&lp_data->lp_var_to_term_map, 0);
+
+  lp_int_ring_t *ring = (order == NULL || mpz_sgn(order) <= 0) ? lp_Z : lp_int_ring_create(order, true);
 
   lp_data->lp_var_db = lp_variable_db_new();
   lp_data->lp_var_order = lp_variable_order_new();
   lp_data->lp_var_order_size = 0;
-  lp_data->lp_ctx = lp_polynomial_context_new(lp_Z, lp_data->lp_var_db, lp_data->lp_var_order);
+  lp_data->lp_ctx = lp_polynomial_context_new(ring, lp_data->lp_var_db, lp_data->lp_var_order);
   lp_data->lp_assignment = lp_assignment_new(lp_data->lp_var_db);
   lp_data->lp_interval_assignment = lp_interval_assignment_new(lp_data->lp_var_db);
 
@@ -64,6 +69,28 @@ void lp_data_destruct(lp_data_t *lp_data) {
   lp_interval_assignment_delete(lp_data->lp_interval_assignment);
 
   scope_holder_destruct(&lp_data->scope);
+}
+
+lp_data_t* lp_data_new(mpz_t order) {
+  lp_data_t *lp_data = safe_malloc(sizeof(lp_data_t));
+  lp_data_init(lp_data, order);
+  return lp_data;
+}
+
+void lp_data_delete(lp_data_t* lp_data) {
+  lp_data_destruct(lp_data);
+  safe_free(lp_data);
+}
+
+bool lp_data_is_order(lp_data_t *lp_data, mpz_t order) {
+  assert(order == NULL || mpz_sgn(order) >= 0);
+
+  if (order == NULL || mpz_sgn(order) == 0) {  // expecting Z
+    return lp_data->lp_ctx->K == lp_Z;
+  } else if (lp_data->lp_ctx->K == lp_Z) {  // expecting not Z, but is Z
+    return false;
+  }
+  return mpz_cmp(&lp_data->lp_ctx->K->M, order) == 0;
 }
 
 static

@@ -76,11 +76,9 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_type(ctx, FF_TYPE);
   ctx->request_decision_calls(ctx, FF_TYPE);
 
-  // Constraint db
-  ff->constraint_db = poly_constraint_db_new(&ff->lp_data);
-
-  // libpoly init
-  lp_data_init(&ff->lp_data);
+  // Constraint db and libpoly are set once the field size is known
+  ff->constraint_db = NULL;
+  ff->lp_data = NULL;
 
   init_rba_buffer(&ff->buffer, ctx->terms->pprods);
 
@@ -92,9 +90,13 @@ static
 void ff_plugin_destruct(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  poly_constraint_db_delete(ff->constraint_db);
   constraint_unit_info_destruct(&ff->unit_info);
-  lp_data_destruct(&ff->lp_data);
+
+  if (ff->lp_data) {
+    lp_data_destruct(ff->lp_data);
+    assert(ff->constraint_db);
+    poly_constraint_db_delete(ff->constraint_db);
+  }
 
   watch_list_manager_destruct(&ff->wlm);
   scope_holder_destruct(&ff->scope);
@@ -114,6 +116,7 @@ bool ff_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
 static
 const mcsat_value_t* ff_plugin_constraint_evaluate(ff_plugin_t* ff, variable_t cstr_var, uint32_t* cstr_level) {
 
+  assert(ff->lp_data);
   assert(!trail_has_value(ff->ctx->trail, cstr_var));
 
   // Check if it is a valid constraints
@@ -171,7 +174,7 @@ const mcsat_value_t* ff_plugin_constraint_evaluate(ff_plugin_t* ff, variable_t c
   // do not evaluate (see ok below, but we can evaluate them in the cache)
 
   // Compute the evaluation
-  bool ok = poly_constraint_evaluate(cstr, &ff->lp_data, &cstr_value);
+  bool ok = poly_constraint_evaluate(cstr, ff->lp_data, &cstr_value);
   (void) ok;
   assert(ok);
   (*ff->stats.evaluations) ++;
@@ -220,6 +223,31 @@ void ff_plugin_process_fully_assigned_constraint(ff_plugin_t* ff, trail_token_t*
 }
 
 static
+void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
+  type_t tau = term_type(ff->ctx->terms, t);
+  assert(is_ff_type(ff->ctx->types, tau));
+
+  mpz_t order;
+  mpz_init(order);
+  rational_t *order_q = ff_type_size(ff->ctx->types, tau);
+  q_get_mpz(order_q, order);
+
+  if (ff->lp_data) {
+    assert(ff->constraint_db);
+
+    // TODO error reporting instead of assertion
+    assert(lp_data_is_order(ff->lp_data, order));
+  } else {
+    ff->lp_data = lp_data_new(order);
+    ff->constraint_db = poly_constraint_db_new(ff->lp_data);
+  }
+  mpz_clear(order);
+
+  assert(ff->lp_data);
+  assert(ff->constraint_db);
+}
+
+static
 void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
   term_table_t* terms = ff->ctx->terms;
@@ -262,8 +290,9 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     // Register all the variables to libpoly (these are mcsat_variables)
     for (uint32_t i = 0; i < t_variables_list->size; ++ i) {
       term_t tt = variable_db_get_term(ff->ctx->var_db, t_variables_list->data[i]);
-      if (!lp_data_variable_has_term(&ff->lp_data, tt)) {
-        lp_data_add_lp_variable(&ff->lp_data, terms, tt);
+      ff_plugin_set_lp_data(ff, tt);
+      if (!lp_data_variable_has_term(ff->lp_data, tt)) {
+        lp_data_add_lp_variable(ff->lp_data, terms, tt);
       }
     }
 
@@ -339,9 +368,10 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     } else {
       // create variable for t if not existent
       variable_db_get_variable(ff->ctx->var_db, t);
+      ff_plugin_set_lp_data(ff, t);
       // register lp_variable for t if not existent
-      if (!lp_data_variable_has_term(&ff->lp_data, t)) {
-        lp_data_add_lp_variable(&ff->lp_data, terms, t);
+      if (!lp_data_variable_has_term(ff->lp_data, t)) {
+        lp_data_add_lp_variable(ff->lp_data, terms, t);
       }
     }
   }
@@ -398,10 +428,11 @@ static
 void ff_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_token, bool must) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  assert(variable_db_is_real(ff->ctx->var_db, x) || variable_db_is_int(ff->ctx->var_db, x));
+  assert(variable_db_is_finitefield(ff->ctx->var_db, x));
 
   (void)ff;
   // TODO implement
+  assert(false);
 }
 
 static
@@ -472,7 +503,9 @@ void ff_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
   constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
-  lp_data_gc_sweep(&ff->lp_data, gc_vars);
+  if (ff->lp_data) {
+    lp_data_gc_sweep(ff->lp_data, gc_vars);
+  }
 
   // TODO add further
 }
