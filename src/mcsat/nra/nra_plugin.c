@@ -947,9 +947,14 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
 
 
 static
-void nra_plugin_check_assignment(nra_plugin_t* nra) {
+bool nra_plugin_check_assignment(nra_plugin_t* nra) {
+  if (!ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
+    return true;
+  }
 
   const mcsat_trail_t* trail = nra->ctx->trail;
+  const variable_db_t* var_db = nra->ctx->var_db;
+  const lp_data_t* lp_data = &nra->lp_data;
 
   // Go through the trail and check if all assigned are in lp_assignment
   uint32_t i;
@@ -960,28 +965,32 @@ void nra_plugin_check_assignment(nra_plugin_t* nra) {
     }
     const mcsat_value_t* value = trail_get_value(trail, x);
     if (value->type == VALUE_LIBPOLY && nra_plugin_has_assignment(nra, x)) {
-      term_t t = variable_db_get_term(nra->ctx->var_db, x);
-      lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
-      const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
-      int cmp = lp_value_cmp(&value->lp_value, value_lp);
-      (void)cmp;
-      assert(cmp == 0);
+      term_t t = variable_db_get_term(var_db, x);
+      lp_variable_t x_lp = lp_data_get_lp_variable_from_term(lp_data, t);
+      const lp_value_t* value_lp = lp_assignment_get_value(lp_data->lp_assignment, x_lp);
+      if (lp_value_cmp(&value->lp_value, value_lp) != 0) {
+        assert(false);
+        return false;
+      }
     }
   }
 
   // Go through lp_assignment and check if they are assigned in trail
-  const lp_variable_list_t* order = lp_variable_order_get_list(nra->lp_data.lp_var_order);
+  const lp_variable_list_t* order = lp_variable_order_get_list(lp_data->lp_var_order);
   for (i = 0; i < order->list_size; ++ i) {
     lp_variable_t x_lp = order->list[i];
-    term_t x_term = lp_data_get_term_from_lp_variable(&nra->lp_data, x_lp);
-    variable_t x = variable_db_get_variable_if_exists(nra->ctx->var_db, x_term);
+    term_t x_term = lp_data_get_term_from_lp_variable(lp_data, x_lp);
+    variable_t x = variable_db_get_variable_if_exists(var_db, x_term);
     assert(x != variable_null);
     const mcsat_value_t* value = trail_get_value(trail, x);
-    const lp_value_t* value_lp = lp_assignment_get_value(nra->lp_data.lp_assignment, x_lp);
-    int cmp = lp_value_cmp(&value->lp_value, value_lp);
-    (void)cmp;
-    assert(cmp == 0);
+    const lp_value_t* value_lp = lp_assignment_get_value(lp_data->lp_assignment, x_lp);
+    if (lp_value_cmp(&value->lp_value, value_lp) != 0) {
+      assert(false);
+      return false;
+    }
   }
+
+  return true;
 }
 
 
@@ -995,9 +1004,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   variable_t var;
 
-  if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
-    nra_plugin_check_assignment(nra);
-  }
+  assert(nra_plugin_check_assignment(nra));
 
   // Context
   const mcsat_trail_t* trail = nra->ctx->trail;
@@ -1039,9 +1046,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
   }
 
-  if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
-    nra_plugin_check_assignment(nra);
-  }
+  assert(nra_plugin_check_assignment(nra));
 }
 
 static
@@ -1792,9 +1797,7 @@ void nra_plugin_pop(plugin_t* plugin) {
   // Pop the variable order and the lp model
   lp_data_variable_order_pop(&nra->lp_data);
 
-  if (ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
-    nra_plugin_check_assignment(nra);
-  }
+  assert(nra_plugin_check_assignment(nra));
 
   // Pop the feasibility
   feasible_set_db_pop(nra->feasible_set_db);
