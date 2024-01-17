@@ -26,6 +26,8 @@
 #endif
 #endif
 
+#include "context/context_types.h"
+
 #include "mcsat/ff/ff_plugin.h"
 #include "mcsat/ff/ff_plugin_internal.h"
 #include "mcsat/ff/ff_plugin_explain.h"
@@ -234,9 +236,8 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
 
   if (ff->lp_data) {
     assert(ff->constraint_db);
-
-    // TODO error reporting instead of assertion
-    assert(lp_data_is_order(ff->lp_data, order));
+    if (!lp_data_is_order(ff->lp_data, order))
+      longjmp(*ff->ctx->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
   } else {
     ff->lp_data = lp_data_new(order);
     ff->constraint_db = poly_constraint_db_new(ff->lp_data);
