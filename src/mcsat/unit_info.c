@@ -63,3 +63,20 @@ void constraint_unit_info_set(constraint_unit_info_t *unit_info, variable_t cons
     }
   }
 }
+
+void constraint_unit_info_demote(constraint_unit_info_t *unit_info, variable_t constraint, variable_t x) {
+  constraint_unit_state_t state = constraint_unit_info_get(unit_info, constraint);
+  switch (state) {
+  case CONSTRAINT_UNKNOWN:
+    // Nothing to do
+    break;
+  case CONSTRAINT_UNIT:
+    // If it was unit it becomes not unit
+    constraint_unit_info_set(unit_info, constraint, variable_null, CONSTRAINT_UNKNOWN);
+    break;
+  case CONSTRAINT_FULLY_ASSIGNED:
+    // It is unit now
+    constraint_unit_info_set(unit_info, constraint, x, CONSTRAINT_UNIT);
+    break;
+  }
+}

@@ -54,6 +54,11 @@ void constraint_unit_info_gc_sweep(constraint_unit_info_t *unit_info, const gc_i
  */
 void constraint_unit_info_set(constraint_unit_info_t *unit_info, variable_t constraint, variable_t unit_var, constraint_unit_state_t value);
 
+/**
+ * Updates the unit info when variable x gets unassigned.
+ */
+void constraint_unit_info_demote(constraint_unit_info_t *unit_info, variable_t constraint, variable_t x);
+
 /** Are we tracking this constraint */
 static inline
 bool constraint_unit_info_has(const constraint_unit_info_t* unit_info, variable_t constraint) {

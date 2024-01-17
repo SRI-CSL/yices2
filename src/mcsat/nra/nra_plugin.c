@@ -1783,20 +1783,7 @@ void nra_plugin_pop(plugin_t* plugin) {
     remove_iterator_construct(&it, &nra->wlm, x);
     while (!remove_iterator_done(&it)) {
       variable_t constraint_var = remove_iterator_get_constraint(&it);
-      constraint_unit_state_t unit_info = constraint_unit_info_get(&nra->unit_info, constraint_var);
-      switch (unit_info) {
-      case CONSTRAINT_UNKNOWN:
-        // Nothing to do
-        break;
-      case CONSTRAINT_UNIT:
-        // If it was unit it becomes not unit
-        constraint_unit_info_set(&nra->unit_info, constraint_var, variable_null, CONSTRAINT_UNKNOWN);
-        break;
-      case CONSTRAINT_FULLY_ASSIGNED:
-        // It is unit now
-        constraint_unit_info_set(&nra->unit_info, constraint_var, x, CONSTRAINT_UNIT);
-        break;
-      }
+      constraint_unit_info_demote(&nra->unit_info, constraint_var, x);
       remove_iterator_next_and_keep(&it);
     }
     remove_iterator_destruct(&it);
