@@ -34,12 +34,12 @@ typedef enum {
 } assignment_type_t;
 
 /*
- * Trail of the solver containing all informations that the plugins need to
+ * Trail of the solver containing all information that the plugins need to
  * reason. It contains:
- * - the trail itself, i.e. he sequence of variable assignments,
+ * - the trail itself, i.e. the sequence of variable assignments,
  * - the model, so that plugins can query the values of variables, and
  * - information about the levels of variables (so that plugins can compute
- *   propagation levels.
+ *   propagation levels).
  */
 struct mcsat_trail_s {
 
@@ -64,7 +64,7 @@ struct mcsat_trail_s {
   /** The values per variable */
   mcsat_model_t model;
 
-  /** Type of the assignment per variable (assignment_tyep_t) */
+  /** Type of the assignment per variable (assignment_type_t) */
   ivector_t type;
 
   /** Levels per variable (-1) for unassigned */

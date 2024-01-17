@@ -99,7 +99,7 @@ struct nra_plugin_s {
   int_hmap_t evaluation_value_cache;
   int_hmap_t evaluation_timestamp_cache;
 
-  /** Buffer for feasible set computation (for true/false */
+  /** Buffer for feasible set computation (for true/false) */
   int_hmap_t feasible_set_cache_top_var[2];   // Top var when cached
   int_hmap_t feasible_set_cache_timestamp[2]; // Top timestamp of other variables when cached
   ptr_hmap_t feasible_set_cache[2];           // The cache

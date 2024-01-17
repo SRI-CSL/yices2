@@ -53,6 +53,7 @@ ivector_t* watch_list_manager_get_list_of_lists(watch_list_manager_t* wlm, varia
     return wlm->wlist_memory.data[watcher];
   }
 }
+
 variable_list_ref_t watch_list_manager_new_list(watch_list_manager_t* wlm, const variable_t* list, uint32_t size, variable_t constraint) {
   uint32_t i;
   variable_list_ref_t ref;
