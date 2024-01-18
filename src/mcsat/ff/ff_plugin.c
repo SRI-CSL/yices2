@@ -32,6 +32,7 @@
 #include "mcsat/ff/ff_plugin_internal.h"
 #include "mcsat/ff/ff_plugin_explain.h"
 #include "mcsat/ff/ff_libpoly.h"
+#include "mcsat/ff/feasible_int_set_db.h"
 #include "mcsat/tracing.h"
 
 #include "utils/int_array_sort2.h"
