@@ -223,7 +223,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   // Intersect, if no difference, we're done
   const lp_feasibility_set_t* old_set = feasible_set_db_get(db, x);
 
-  if (old_set != 0) {
+  if (old_set != NULL) {
 
     if (ctx_trace_enabled(db->ctx, "nra::feasible_set_db")) {
       ctx_trace_printf(db->ctx, "feasible_set_db_update()\n");
@@ -270,7 +270,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
     db->memory = safe_realloc(db->memory, db->memory_capacity*sizeof(feasibility_list_element_t));
   }
   db->memory_size ++;
-  // Setup the element
+  // Set up the element
   feasibility_list_element_t* new_element = db->memory + new_index;
   new_element->feasible_set = intersect;
   new_element->reason_feasible_set = new_set;
@@ -339,7 +339,7 @@ void feasible_set_db_pop(feasible_set_db_t* db) {
     db->memory_size --;
     feasibility_list_element_t* element = db->memory + db->memory_size;
     uint32_t prev = element->prev;
-    // Deallocate aloocated data
+    // Deallocate allocated data
     lp_feasibility_set_t* s1 = element->feasible_set;
     lp_feasibility_set_t* s2 = element->reason_feasible_set;
     lp_feasibility_set_delete(s1);
@@ -504,7 +504,7 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   // The set we're trying to make empty
   lp_feasibility_set_t* S = lp_feasibility_set_new_full();
 
-  // Sort variables by degree and trail level descreasing
+  // Sort variables by degree and trail level decreasing
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
  
   if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
@@ -519,7 +519,7 @@ void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra
   ivector_swap(reasons_indices, &out);
   delete_ivector(&out);
 
-  // Sort again for consisency
+  // Sort again for consistency
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) nra, compare_reasons);
 
   if (ctx_trace_enabled(db->ctx, "nra::conflict")) {
