@@ -53,10 +53,8 @@ struct ff_plugin_s {
   /** Data related to libpoly */
   lp_data_t *lp_data;
 
-#if 0
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
-#endif
 
   /** Next index of the trail to process */
   uint32_t trail_i;
@@ -74,12 +72,13 @@ struct ff_plugin_s {
   /** Bound variable term */
   term_t global_bound_term;
 
+#endif
+
   /** Variables processed in propagation */
   ivector_t processed_variables;
 
   /** Size of processed (for backtracking) */
   uint32_t processed_variables_size;
-#endif
 
   /** Scope holder for the int variables */
   scope_holder_t scope;

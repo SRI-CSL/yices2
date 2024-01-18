@@ -92,7 +92,7 @@ static inline bool lp_data_variable_has_term(lp_data_t* lp_data, term_t t) {
 }
 
 /** Get the libpoly variable corresponding to term t (should have been added first) */
-static inline lp_variable_t lp_data_get_lp_variable_from_term(lp_data_t *lp_data, term_t t) {
+static inline lp_variable_t lp_data_get_lp_variable_from_term(const lp_data_t *lp_data, term_t t) {
   int_hmap_pair_t* find = int_hmap_find(&lp_data->term_to_lp_var_map, t);
   assert(find != NULL);
   return find->val;
