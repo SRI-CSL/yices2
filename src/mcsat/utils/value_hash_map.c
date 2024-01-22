@@ -404,7 +404,6 @@ value_hmap_pair_t *value_hmap_next_record(value_hmap_t *hmap, value_hmap_pair_t 
 }
 
 
-
 /*
  * Remove the records that satisfy filter f
  * - calls f(aux, p) on every record p stored in hmap
@@ -436,6 +435,25 @@ void value_hmap_remove_records(value_hmap_t *hmap, void *aux, value_hmap_filter_
   }
 }
 
+
+/*
+ * Updates the value of the records
+ * - calls f(aux, p) on every record p stored in hmap
+ * - p->val is set according to the return value of f(aux, p)
+ */
+void value_hmap_update_records(value_hmap_t *hmap, void *aux, value_hmap_map_t f) {
+  value_hmap_pair_t *d;
+  uint32_t i, n;
+
+  n = hmap->size;
+  d = hmap->data;
+  for (i=0; i<n; i++) {
+    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+      d->val = (int32_t) f(aux, d);
+    }
+    d ++;
+  }
+}
 
 
 /*

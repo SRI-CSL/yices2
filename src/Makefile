@@ -360,6 +360,7 @@ mcsat_src_c := \
 	mcsat/utils/lp_constraint_db.c \
 	mcsat/utils/value_hash_map.c \
 	mcsat/utils/value_vector.c \
+	mcsat/utils/value_version_set.c \
 	mcsat/utils/scope_holder.c \
 	mcsat/utils/statistics.c \
 	mcsat/utils/substitution.c \

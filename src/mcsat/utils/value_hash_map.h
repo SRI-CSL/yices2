@@ -109,7 +109,6 @@ void value_hmap_erase(value_hmap_t *hmap, value_hmap_pair_t *r);
 void value_hmap_reset(value_hmap_t *hmap);
 
 
-
 /*
  * Remove all records that satisfy f
  * - calls f(aux, p) on every record p stored in hmap
@@ -121,6 +120,16 @@ void value_hmap_remove_records(value_hmap_t *hmap, void *aux, value_hmap_filter_
 
 
 /*
+ * Updates the value of the records
+ * - calls f(aux, p) on every record p stored in hmap
+ * - p->val is set according to the return value of f(aux, p)
+ */
+typedef uint32_t (*value_hmap_map_t)(void *aux, const value_hmap_pair_t *p);
+
+void value_hmap_update_records(value_hmap_t *hmap, void *aux, value_hmap_map_t f);
+
+
+/*
  * Iterator: call f(aux, p) on every record p stored in hmap
  * - f must not have any side effect on the hmap
  */
@@ -129,13 +138,11 @@ typedef void (*value_hmap_iterator_t)(void *aux, const value_hmap_pair_t *p);
 void value_hmap_iterate(value_hmap_t *hmap, void *aux, value_hmap_iterator_t f);
 
 
-
-
 /*
  * Support for scanning all records:
  * - first gives the first non-null record in the table or NULL
  * - next(p) gives the next record after p or NULL
- * IMPORTANT: The hmap must not be modified between calls to next
+ * IMPORTANT: The hmap keys must not be modified between calls to next
  */
 value_hmap_pair_t *value_hmap_first_record(value_hmap_t *hmap);
 value_hmap_pair_t *value_hmap_next_record(value_hmap_t *hmap, value_hmap_pair_t *p);
