@@ -29,7 +29,7 @@
 typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K);
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_int_ring_t *K);
 
 /** Delete the database */
 void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);

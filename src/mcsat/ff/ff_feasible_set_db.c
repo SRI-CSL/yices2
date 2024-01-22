@@ -68,7 +68,7 @@ struct ff_feasible_set_db_struct {
   scope_holder_t scope;
 
   /** Lp context */
-  const lp_int_ring_t *K;
+  lp_int_ring_t *K;
 
   /** BV context */
   plugin_context_t* ctx;
@@ -242,7 +242,7 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
 }
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K) {
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_int_ring_t *K) {
   ff_feasible_set_db_t* db = safe_malloc(sizeof(ff_feasible_set_db_t));
 
   init_ptr_hmap(&db->sets, 0);
@@ -258,6 +258,8 @@ ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, const lp_int
 
   db->ctx = ctx;
   db->K = K;
+
+  lp_int_ring_attach(db->K);
 
   return db;
 }
@@ -278,6 +280,8 @@ void ff_feasible_set_db_delete(ff_feasible_set_db_t* db) {
   delete_ivector(&db->updates);
   delete_ivector(&db->fixed_variables);
   scope_holder_destruct(&db->scope);
+
+  lp_int_ring_detach(db->K);
 
   // Free the memory
   safe_free(db);
