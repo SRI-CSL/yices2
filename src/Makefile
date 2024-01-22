@@ -378,7 +378,7 @@ mcsat_src_c := \
 	mcsat/ff/ff_plugin_internal.c \
 	mcsat/ff/ff_plugin_explain.c \
 	mcsat/ff/ff_libpoly.c \
-	mcsat/ff/feasible_int_set_db.c \
+	mcsat/ff/ff_feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd_manager.c \

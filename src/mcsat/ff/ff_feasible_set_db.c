@@ -16,10 +16,9 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "mcsat/ff/feasible_int_set_db.h"
-
 #include <stdbool.h>
 
+#include "mcsat/ff/ff_feasible_set_db.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_hash_map.h"
 #include "mcsat/tracing.h"
@@ -46,7 +45,7 @@ typedef struct {
   ivector_t reasons_sizes;
 } feasibility_int_set_t;
 
-struct feasible_int_set_db_struct {
+struct ff_feasible_set_db_struct {
   /** One set for each variable [variable_t -> feasibility_int_set_t] */
   ptr_hmap_t sets;
 
@@ -189,7 +188,7 @@ bool value_version_set_contains_inverted(void *set, const mcsat_value_t *val) {
 
 // returns false if there was no change to the set and an empty ts was generated
 static
-bool feasibility_int_set_update(feasible_int_set_db_t* db, feasibility_int_set_t *set, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
+bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t *set, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
   bool modified;
 
   // create mcsat_values to be used in the set
@@ -243,8 +242,8 @@ bool feasibility_int_set_update(feasible_int_set_db_t* db, feasibility_int_set_t
 }
 
 /** Create a new database */
-feasible_int_set_db_t* feasible_int_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K) {
-  feasible_int_set_db_t* db = safe_malloc(sizeof(feasible_int_set_db_t));
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K) {
+  ff_feasible_set_db_t* db = safe_malloc(sizeof(ff_feasible_set_db_t));
 
   init_ptr_hmap(&db->sets, 0);
 
@@ -264,7 +263,7 @@ feasible_int_set_db_t* feasible_int_set_db_new(plugin_context_t* ctx, const lp_i
 }
 
 /** Delete the database */
-void feasible_int_set_db_delete(feasible_int_set_db_t* db) {
+void ff_feasible_set_db_delete(ff_feasible_set_db_t* db) {
   // Delete the sets
   ptr_hmap_t *hmap = &db->sets;
   for (ptr_hmap_pair_t *p = ptr_hmap_first_record(hmap);
@@ -285,7 +284,7 @@ void feasible_int_set_db_delete(feasible_int_set_db_t* db) {
 }
 
 /** Print the feasible sets of given variable */
-void feasible_int_set_db_print_var(feasible_int_set_db_t* db, variable_t var, FILE* out) {
+void ff_feasible_set_db_print_var(ff_feasible_set_db_t* db, variable_t var, FILE* out) {
   fprintf(out, "Feasible sets of ");
   variable_db_print_variable(db->ctx->var_db, var, out);
   fprintf(out, " :\n");
@@ -301,7 +300,7 @@ void feasible_int_set_db_print_var(feasible_int_set_db_t* db, variable_t var, FI
 }
 
 /** Print the feasible set database */
-void feasible_int_set_db_print(feasible_int_set_db_t* db, FILE* out) {
+void ff_feasible_set_db_print(ff_feasible_set_db_t* db, FILE* out) {
   for (ptr_hmap_pair_t* it = ptr_hmap_first_record(&db->sets);
   it != NULL;
   it = ptr_hmap_next_record(&db->sets, it)) {
@@ -325,10 +324,10 @@ void feasible_int_set_db_print(feasible_int_set_db_t* db, FILE* out) {
   }
 }
 
-bool feasible_int_set_db_update(feasible_int_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
+bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
   if (ctx_trace_enabled(db->ctx, "ff::feasible_set_db")) {
-    fprintf(ctx_trace_out(db->ctx), "feasible_int_set_db_update\n");
-    feasible_int_set_db_print(db, ctx_trace_out(db->ctx));
+    fprintf(ctx_trace_out(db->ctx), "ff_feasible_set_db_update\n");
+    ff_feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
 
   assert(db->updates_size == db->updates.size);
@@ -368,7 +367,7 @@ bool feasible_int_set_db_update(feasible_int_set_db_t* db, variable_t x, lp_valu
   return true;
 }
 
-void feasible_int_set_db_push(feasible_int_set_db_t *db) {
+void ff_feasible_set_db_push(ff_feasible_set_db_t *db) {
   scope_holder_push(&db->scope,
      &db->updates_size,
      &db->fixed_variable_size,
@@ -377,10 +376,10 @@ void feasible_int_set_db_push(feasible_int_set_db_t *db) {
   );
 }
 
-void feasible_int_set_db_pop(feasible_int_set_db_t* db) {
-  if (ctx_trace_enabled(db->ctx, "ff::feasible_int_set_db")) {
-    fprintf(ctx_trace_out(db->ctx), "feasible_int_set_db_pop");
-    feasible_int_set_db_print(db, ctx_trace_out(db->ctx));
+void ff_feasible_set_db_pop(ff_feasible_set_db_t* db) {
+  if (ctx_trace_enabled(db->ctx, "ff::ff_feasible_set_db")) {
+    fprintf(ctx_trace_out(db->ctx), "ff_feasible_set_db_pop");
+    ff_feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
 
   int_hmap_t pop_cnt;
@@ -415,12 +414,12 @@ void feasible_int_set_db_pop(feasible_int_set_db_t* db) {
   }
   delete_int_hmap(&pop_cnt);
 
-  if (ctx_trace_enabled(db->ctx, "ff::feasible_int_set_db")) {
-    feasible_int_set_db_print(db, ctx_trace_out(db->ctx));
+  if (ctx_trace_enabled(db->ctx, "ff::ff_feasible_set_db")) {
+    ff_feasible_set_db_print(db, ctx_trace_out(db->ctx));
   }
 }
 
-void feasible_int_set_db_gc_mark(feasible_int_set_db_t* db, gc_info_t* gc_vars) {
+void ff_feasible_set_db_gc_mark(ff_feasible_set_db_t* db, gc_info_t* gc_vars) {
   assert(db->ctx->trail->decision_level == db->ctx->trail->decision_level_base);
 
   if (gc_vars->level == 0) {
@@ -438,7 +437,7 @@ void feasible_int_set_db_gc_mark(feasible_int_set_db_t* db, gc_info_t* gc_vars) 
   }
 }
 
-variable_t feasible_int_set_db_get_fixed(feasible_int_set_db_t* db) {
+variable_t ff_feasible_set_db_get_fixed(ff_feasible_set_db_t* db) {
   for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) {
     variable_t var = db->fixed_variables.data[db->fixed_variables_i];
     if (!trail_has_value(db->ctx->trail, var)) {

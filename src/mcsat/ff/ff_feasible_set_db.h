@@ -16,8 +16,8 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef FEASIBLE_INT_SET_DB_H
-#define FEASIBLE_INT_SET_DB_H
+#ifndef FF_FEASIBLE_SET_DB_H
+#define FF_FEASIBLE_SET_DB_H
 
 #include <poly/poly.h>
 #include <poly/integer.h>
@@ -26,13 +26,13 @@
 #include "mcsat/mcsat_types.h"
 
 /** Contains the map from variables to feasible sets that can be backtracked */
-typedef struct feasible_int_set_db_struct feasible_int_set_db_t;
+typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
 /** Create a new database */
-feasible_int_set_db_t* feasible_int_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K);
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, const lp_int_ring_t *K);
 
 /** Delete the database */
-void feasible_int_set_db_delete(feasible_int_set_db_t* db);
+void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);
 
 /**
  * Update the feasible set of the variable with a new set.
@@ -40,24 +40,24 @@ void feasible_int_set_db_delete(feasible_int_set_db_t* db);
  *
  * If more than one reason, it's considered a disjunctive top-level assertion (clause);
  */
-bool feasible_int_set_db_update(feasible_int_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count);
+bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count);
 
 /** Push the context */
-void feasible_int_set_db_push(feasible_int_set_db_t* db);
+void ff_feasible_set_db_push(ff_feasible_set_db_t* db);
 
 /** Pop the context */
-void feasible_int_set_db_pop(feasible_int_set_db_t* db);
+void ff_feasible_set_db_pop(ff_feasible_set_db_t* db);
 
 /** Print the feasible set database */
-void feasible_int_set_db_print(feasible_int_set_db_t* db, FILE* out);
+void ff_feasible_set_db_print(ff_feasible_set_db_t* db, FILE* out);
 
 /** Print the feasible sets of given variable */
-void feasible_int_set_db_print_var(feasible_int_set_db_t* db, variable_t var, FILE* out);
+void ff_feasible_set_db_print_var(ff_feasible_set_db_t* db, variable_t var, FILE* out);
 
 /** Return any fixed variables */
-variable_t feasible_int_set_db_get_fixed(feasible_int_set_db_t* db);
+variable_t ff_feasible_set_db_get_fixed(ff_feasible_set_db_t* db);
 
 /** Marks all the top level reasons */
-void feasible_int_set_db_gc_mark(feasible_int_set_db_t* db, gc_info_t* gc_vars);
+void ff_feasible_set_db_gc_mark(ff_feasible_set_db_t* db, gc_info_t* gc_vars);
 
-#endif /* FEASIBLE_INT_SET_DB_H */
+#endif /* FF_FEASIBLE_SET_DB_H */
