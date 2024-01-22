@@ -24,12 +24,13 @@
 
 #include "mcsat/variable_db.h"
 #include "mcsat/mcsat_types.h"
+#include "mcsat/utils/lp_data.h"
 
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_int_ring_t *K);
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_data_t *lp_data);
 
 /** Delete the database */
 void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);

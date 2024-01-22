@@ -21,7 +21,8 @@
 
 #include <poly/poly.h>
 
-#include "ff_plugin_internal.h"
+#include "mcsat/ff/ff_plugin_internal.h"
+#include "mcsat/ff/ff_feasible_set_db.h"
 
 #include "mcsat/plugin.h"
 #include "mcsat/unit_info.h"
@@ -95,11 +96,10 @@ struct ff_plugin_s {
   /** Database of polynomial constraints */
   poly_constraint_db_t* constraint_db;
 
-#if 0
   /** Map from variables to their feasible sets */
-  feasible_set_db_t* feasible_set_db;
+  ff_feasible_set_db_t* feasible_set_db;
 
-
+#if 0
   /** Buffer for evaluation */
   int_hmap_t evaluation_value_cache;
   int_hmap_t evaluation_timestamp_cache;
@@ -108,7 +108,6 @@ struct ff_plugin_s {
   int_hmap_t feasible_set_cache_top_var[2];   // Top var when cached
   int_hmap_t feasible_set_cache_timestamp[2]; // Top timestamp of other variables when cached
   ptr_hmap_t feasible_set_cache[2];           // The cache
-
 #endif
 
   /** Arithmetic buffer for computation */

@@ -30,9 +30,9 @@
 
 #include "mcsat/ff/ff_plugin.h"
 #include "mcsat/ff/ff_plugin_internal.h"
+#include "mcsat/ff/ff_feasible_set_db.h"
 #include "mcsat/ff/ff_plugin_explain.h"
 #include "mcsat/ff/ff_libpoly.h"
-#include "mcsat/ff/ff_feasible_set_db.h"
 #include "mcsat/tracing.h"
 
 #include "utils/int_array_sort2.h"
@@ -93,6 +93,7 @@ void ff_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   // Constraint db and libpoly are set once the field size is known
   ff->constraint_db = NULL;
   ff->lp_data = NULL;
+  ff->feasible_set_db = NULL;
 
   init_rba_buffer(&ff->buffer, ctx->terms->pprods);
 
@@ -110,6 +111,8 @@ void ff_plugin_destruct(plugin_t* plugin) {
     lp_data_destruct(ff->lp_data);
     assert(ff->constraint_db);
     poly_constraint_db_delete(ff->constraint_db);
+    assert(ff->feasible_set_db);
+    ff_feasible_set_db_delete(ff->feasible_set_db);
   }
 
   delete_ivector(&ff->processed_variables);
@@ -131,7 +134,7 @@ bool ff_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) 
 static
 const mcsat_value_t* ff_plugin_constraint_evaluate(ff_plugin_t* ff, variable_t cstr_var, uint32_t* cstr_level) {
 
-  assert(ff->lp_data);
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
   assert(!trail_has_value(ff->ctx->trail, cstr_var));
 
   // Check if it is a valid constraints
@@ -254,11 +257,13 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
   } else {
     ff->lp_data = lp_data_new(order);
     ff->constraint_db = poly_constraint_db_new(ff->lp_data);
+    ff->feasible_set_db = ff_feasible_set_db_new(ff->ctx, ff->lp_data);
   }
   mpz_clear(order);
 
   assert(ff->lp_data);
   assert(ff->constraint_db);
+  assert(ff->feasible_set_db);
 }
 
 static
@@ -396,6 +401,8 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
 static
 void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, variable_t constraint_var) {
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
+
   if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
     ctx_trace_printf(ff->ctx, "ff: processing unit constraint :\n");
     ctx_trace_term(ff->ctx, variable_db_get_term(ff->ctx->var_db, constraint_var));
@@ -431,7 +438,7 @@ void ff_plugin_process_variable_assignment(ff_plugin_t* ff, trail_token_t* prop,
   // The trail
   const mcsat_trail_t* trail = ff->ctx->trail;
 
-  assert(ff->lp_data);
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
   assert(trail_is_consistent(trail));
 
   // Mark the variable as processed
@@ -552,7 +559,7 @@ bool ff_plugin_check_assignment(ff_plugin_t* ff) {
   }
 #endif
 
-  assert(ff->lp_data);
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
   const mcsat_trail_t* trail = ff->ctx->trail;
   const variable_db_t* var_db = ff->ctx->var_db;
   const lp_data_t* lp_data = ff->lp_data;
@@ -713,6 +720,8 @@ static
 void ff_plugin_push(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
+
   scope_holder_push(&ff->scope,
                     &ff->trail_i,
                     &ff->processed_variables_size,
@@ -724,6 +733,8 @@ void ff_plugin_push(plugin_t* plugin) {
 static
 void ff_plugin_pop(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
+
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
   // Pop the scoped variables
   scope_holder_pop(&ff->scope,
@@ -758,20 +769,31 @@ static
 void ff_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  (void)ff;
-  // TODO implement
+  if (ff->lp_data) {
+    assert(ff->feasible_set_db);
+    ff_feasible_set_db_gc_mark(ff->feasible_set_db, gc_vars);
+  }
+
+  watch_list_manager_gc_mark(&ff->wlm, gc_vars);
 }
 
 static
 void ff_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
+  // for now, don't sweep TODO enable sweeping
+  (void)ff; (void)gc_vars;
+  return;
+
   if (ff->lp_data) {
     lp_data_gc_sweep(ff->lp_data, gc_vars);
+    assert(ff->constraint_db);
+    poly_constraint_db_gc_sweep(ff->constraint_db, ff->ctx, gc_vars);
   }
+  constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
+  watch_list_manager_gc_sweep_lists(&ff->wlm, gc_vars);
 
-  // TODO add further
+  // TODO add further?
 }
 
 static

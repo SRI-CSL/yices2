@@ -18,6 +18,8 @@
 
 #include <stdbool.h>
 
+#include <poly/polynomial_context.h>
+
 #include "mcsat/ff/ff_feasible_set_db.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_hash_map.h"
@@ -242,7 +244,7 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
 }
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_int_ring_t *K) {
+ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_data_t *lp_data) {
   ff_feasible_set_db_t* db = safe_malloc(sizeof(ff_feasible_set_db_t));
 
   init_ptr_hmap(&db->sets, 0);
@@ -256,10 +258,12 @@ ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_int_ring_
 
   scope_holder_construct(&db->scope);
 
-  db->ctx = ctx;
+  lp_int_ring_t *K = lp_data->lp_ctx->K;
+  assert(K != lp_Z);
   db->K = K;
-
   lp_int_ring_attach(db->K);
+
+  db->ctx = ctx;
 
   return db;
 }
