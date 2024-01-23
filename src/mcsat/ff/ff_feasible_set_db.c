@@ -131,7 +131,7 @@ uint32_t feasibility_int_set_get_ts(const feasibility_int_set_t *set) {
 static inline
 bool feasibility_int_set_is_inverted(const feasibility_int_set_t *set) {
   bool rslt = feasibility_int_set_get_ts(set) <= value_version_set_get_timestamp(set->values_inverted);
-  assert(rslt == (value_version_set_count(set->values) == 0));
+  assert(rslt == (value_version_set_count(set->values) == UINT32_MAX));
   return rslt;
 }
 
@@ -206,7 +206,6 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
     } else {
       // the set is switched to non-inverted, add all that are not in values_inverted
       assert(value_version_set_get_timestamp(set->values) == 0);
-      assert(value_version_set_count(set->values) == 0);
       // returns false if the result is empty
       value_version_set_push_filter(set->values, tmp, new_set_size, set->values_inverted, value_version_set_contains_inverted);
       int cmp = lp_integer_cmp_int(lp_Z, &db->K->M, value_version_set_count(set->values) + value_version_set_count(set->values_inverted));
