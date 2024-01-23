@@ -487,11 +487,12 @@ polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polyn
 static
 polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_var, variable_t x, bool is_negated) {
   const poly_constraint_t* constraint = poly_constraint_db_get(ff->constraint_db, cstr_var);
+  lp_assignment_t *m = ff->lp_data->lp_assignment;
+
   assert(!poly_constraint_is_root_constraint(constraint));
   // TODO check if LP_SGN_NE_0 can occur here at all.
   assert(constraint->sgn_condition == LP_SGN_EQ_0);
-  // TODO in general, this is not univariate, but univariate wrt. the current assignment only.
-  assert(lp_polynomial_is_univariate(constraint->polynomial));
+  assert(lp_polynomial_is_univariate_m(constraint->polynomial, m));
   assert(lp_data_get_ring(ff->lp_data) == lp_polynomial_get_context(constraint->polynomial)->K);
 #ifndef NDEBUG
   {
@@ -506,7 +507,6 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
 
   // TODO caching
 
-  lp_assignment_t *m = ff->lp_data->lp_assignment;
   polynomial_zeros_t *zeros = ff_plugin_find_polynomial_zeros(constraint->polynomial, m);
   if (ctx_trace_enabled(ff->ctx, "ff::find_zeros")) {
     ctx_trace_printf(ff->ctx, "ff: solutions of ");
@@ -936,6 +936,7 @@ void ff_plugin_push(plugin_t* plugin) {
                     NULL);
 
   lp_data_variable_order_push(ff->lp_data);
+  ff_feasible_set_db_push(ff->feasible_set_db);
 }
 
 static
@@ -969,6 +970,8 @@ void ff_plugin_pop(plugin_t* plugin) {
     }
     remove_iterator_destruct(&it);
   }
+
+  ff_feasible_set_db_pop(ff->feasible_set_db);
 
   assert(ff_plugin_check_assignment(ff));
 }
