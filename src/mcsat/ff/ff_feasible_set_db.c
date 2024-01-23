@@ -128,11 +128,31 @@ uint32_t feasibility_int_set_get_ts(const feasibility_int_set_t *set) {
   return ts;
 }
 
+/** returns true if the set contains any info */
+static inline
+bool feasibility_int_set_has_info(const feasibility_int_set_t *set) {
+  return feasibility_int_set_get_ts(set) > 0;
+}
+
 static inline
 bool feasibility_int_set_is_inverted(const feasibility_int_set_t *set) {
   bool rslt = feasibility_int_set_get_ts(set) <= value_version_set_get_timestamp(set->values_inverted);
   assert(rslt == (value_version_set_count(set->values) == UINT32_MAX));
   return rslt;
+}
+
+static
+bool feasibility_int_set_is_value_valid(const feasibility_int_set_t *set, const lp_value_t *value) {
+  bool valid = false;
+  mcsat_value_t value_mcsat;
+  mcsat_value_construct_lp_value(&value_mcsat, value);
+  if (feasibility_int_set_is_inverted(set)) {
+    valid = !value_version_set_contains(set->values_inverted, &value_mcsat);
+  } else {
+    valid = value_version_set_contains(set->values, &value_mcsat);
+  }
+  mcsat_value_destruct(&value_mcsat);
+  return valid;
 }
 
 /** returns an estimated count. 0 and 1 are guaranteed to be correct. */
@@ -303,6 +323,8 @@ void ff_feasible_set_db_print_var(ff_feasible_set_db_t* db, variable_t var, FILE
       feasibility_int_set_print_at(set, i, true, out);
       fprintf(out, "\n");
     }
+  } else {
+    fprintf(out, "\tvariable %d not found in db\n", var);
   }
 }
 
@@ -385,7 +407,7 @@ ff_feasible_set_status_t ff_feasible_set_db_update(ff_feasible_set_db_t* db, var
   return cnt_to_status(cnt);
 }
 
-bool ff_feasibility_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value) {
+bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value) {
   ptr_hmap_pair_t *p = ptr_hmap_find(&db->sets, x);
   if (p == NULL) {
     return false;
@@ -425,6 +447,16 @@ bool ff_feasibility_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t
     mcsat_value_destruct(&tmp);
     return found;
   }
+}
+
+bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_t x, const lp_value_t *value) {
+  ptr_hmap_pair_t *found = ptr_hmap_find(&db->sets, x);
+  return found == NULL || feasibility_int_set_is_value_valid(found->val, value);
+}
+
+bool ff_feasible_set_db_has_info(const ff_feasible_set_db_t* db, variable_t x) {
+  ptr_hmap_pair_t *found = ptr_hmap_find(&db->sets, x);
+  return found != NULL && feasibility_int_set_has_info(found->val);
 }
 
 void ff_feasible_set_db_push(ff_feasible_set_db_t *db) {

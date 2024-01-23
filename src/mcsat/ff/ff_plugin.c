@@ -544,7 +544,7 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
 
     if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
       ctx_trace_printf(ff->ctx, "ff: constraint_feasible = ");
-      if (!constraint_value) {
+      if (is_negated) {
         ctx_trace_printf(ff->ctx, "all values but ");
       }
       polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
@@ -558,11 +558,12 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
       ff_plugin_report_conflict(ff, prop, x);
     } else if (status == FF_FEASIBLE_SET_UNIQUE) {
       // If the value is implied at zero level, propagate it
+      // TODO why not always propagate it?
       if (!trail_has_value(ff->ctx->trail, x) && trail_is_at_base_level(ff->ctx->trail)) {
         mcsat_value_t value;
         lp_value_t x_value;
         lp_value_construct_none(&x_value);
-        ff_feasibility_set_db_pick_value(ff->feasible_set_db, x, &x_value);
+        ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
         mcsat_value_construct_lp_value(&value, &x_value);
         prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
         mcsat_value_destruct(&value);
@@ -597,8 +598,9 @@ void ff_plugin_process_variable_assignment(ff_plugin_t* ff, trail_token_t* prop,
 
   term_t t = variable_db_get_term(ff->ctx->var_db, var);
   if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
-    ctx_trace_printf(ff->ctx, "ff: processing var assignment of :\n");
+    ctx_trace_printf(ff->ctx, "ff: processing var assignment of :");
     ctx_trace_term(ff->ctx, t);
+    ctx_trace_printf(ff->ctx, "\n");
   }
 
   // If it's constant, just skip it
@@ -817,10 +819,71 @@ void ff_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_toke
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
   assert(variable_db_is_finitefield(ff->ctx->var_db, x));
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
-  (void)ff;
-  // TODO implement
-  assert(false);
+  bool has_feasible_info = ff_feasible_set_db_has_info(ff->feasible_set_db, x);
+
+  if (ctx_trace_enabled(ff->ctx, "ff::decide")) {
+    ctx_trace_printf(ff->ctx, "decide on ");
+    variable_db_print_variable(ff->ctx->var_db, x, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "[%d] at level %d\n", x, ff->ctx->trail->decision_level);
+    if (has_feasible_info) {
+      ctx_trace_printf(ff->ctx, "feasible :");
+      ff_feasible_set_db_print_var(ff->feasible_set_db, x, ctx_trace_out(ff->ctx));
+      ctx_trace_printf(ff->ctx, "\n");
+    } else {
+      ctx_trace_printf(ff->ctx, "feasible : ALL\n");
+    }
+  }
+
+  // the new value
+  bool using_cached = false;
+  const mcsat_value_t *x_new = NULL;
+  mcsat_value_t x_new_local;
+
+  // see if there is a fitting cached value
+  if (trail_has_cached_value(ff->ctx->trail, x)) {
+    x_new = trail_get_cached_value(ff->ctx->trail, x);
+    assert(x_new->type == VALUE_LIBPOLY);
+    if (!has_feasible_info || ff_feasible_set_db_is_value_valid(ff->feasible_set_db, x, &x_new->lp_value)) {
+      using_cached = true;
+    }
+  }
+
+  if (!using_cached) {
+    // create a 0 value
+    lp_value_t x_new_lp;
+    lp_value_construct_zero(&x_new_lp);
+
+    // perform a db lookup
+    if (has_feasible_info) {
+      bool got_value = ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_new_lp);
+      (void) got_value;
+      assert(got_value);
+    } // otherwise, all values are valid, including 0
+
+    // make an mcsat value
+    mcsat_value_construct_lp_value(&x_new_local, &x_new_lp);
+    x_new = &x_new_local;
+    lp_value_destruct(&x_new_lp);
+  }
+
+  if (ctx_trace_enabled(ff->ctx, "ff::decide")) {
+    ctx_trace_printf(ff->ctx, "decided on ");
+    variable_db_print_variable(ff->ctx->var_db, x, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "[%d]: ", x);
+    mcsat_value_print(x_new, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n");
+  }
+
+  decide_token->add(decide_token, x, x_new);
+
+  // Remember that we've decided this guy
+  ff->last_decided_and_unprocessed = x;
+
+  if (x_new == &x_new_local) {
+    mcsat_value_destruct(&x_new_local);
+  }
 }
 
 static

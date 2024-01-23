@@ -51,7 +51,13 @@ ff_feasible_set_status_t ff_feasible_set_db_update(ff_feasible_set_db_t* db, var
 
 /** tries to find a value for x. Returns true if a value exists and value was set accordingly.
  * In case x is not found in the db, no value is provided. */
-bool ff_feasibility_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value);
+bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value);
+
+/** Returns true if the given value is valid for variable x */
+bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_t x, const lp_value_t *value);
+
+/** Returns true if the database has infos for x */
+bool ff_feasible_set_db_has_info(const ff_feasible_set_db_t* db, variable_t x);
 
 /** Push the context */
 void ff_feasible_set_db_push(ff_feasible_set_db_t* db);
