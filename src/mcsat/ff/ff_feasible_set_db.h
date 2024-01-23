@@ -26,6 +26,12 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/utils/lp_data.h"
 
+typedef enum {
+  FF_FEASIBLE_SET_EMPTY = 0,
+  FF_FEASIBLE_SET_UNIQUE = 1,
+  FF_FEASIBLE_SET_MANY,
+} ff_feasible_set_status_t;
+
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
@@ -41,7 +47,11 @@ void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);
  *
  * If more than one reason, it's considered a disjunctive top-level assertion (clause);
  */
-bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count);
+ff_feasible_set_status_t ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count);
+
+/** tries to find a value for x. Returns true if a value exists and value was set accordingly.
+ * In case x is not found in the db, no value is provided. */
+bool ff_feasibility_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value);
 
 /** Push the context */
 void ff_feasible_set_db_push(ff_feasible_set_db_t* db);

@@ -158,6 +158,10 @@ void lp_data_variable_order_print(const lp_data_t *lp_data, FILE *file) {
   lp_variable_order_print(lp_data->lp_var_order, lp_data->lp_var_db, file);
 }
 
+const lp_int_ring_t* lp_data_get_ring(const lp_data_t *lp_data) {
+  return lp_data->lp_ctx->K;
+}
+
 void lp_data_gc_sweep(lp_data_t *lp_data, const gc_info_t *gc_vars) {
   // - lp_data.lp_var_to_term_map (values)
   // - lp_data.term_to_lp_var_map (keys)

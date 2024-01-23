@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 #include <poly/poly.h>
+#include <poly/integer.h>
 
 #include "terms/terms.h"
 
@@ -104,5 +105,8 @@ static inline term_t lp_data_get_term_from_lp_variable(const lp_data_t *lp_data,
   assert(find != NULL);
   return find->val;
 }
+
+/** Gets the ring of the lp_data */
+const lp_int_ring_t* lp_data_get_ring(const lp_data_t *lp_data);
 
 #endif /* MCSAT_LP_MANAGER_H */

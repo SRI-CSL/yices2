@@ -332,7 +332,18 @@ void ff_feasible_set_db_print(ff_feasible_set_db_t* db, FILE* out) {
   }
 }
 
-bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
+static inline
+ff_feasible_set_status_t cnt_to_status(size_t cnt) {
+  if (cnt == 0) {
+    return FF_FEASIBLE_SET_EMPTY;
+  } else if (cnt == 1) {
+    return FF_FEASIBLE_SET_UNIQUE;
+  } else {
+    return FF_FEASIBLE_SET_MANY;
+  }
+}
+
+ff_feasible_set_status_t ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
   if (ctx_trace_enabled(db->ctx, "ff::feasible_set_db")) {
     fprintf(ctx_trace_out(db->ctx), "ff_feasible_set_db_update\n");
     ff_feasible_set_db_print(db, ctx_trace_out(db->ctx));
@@ -350,7 +361,7 @@ bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_
 
   // it's already empty
   if (feasibility_int_set_count_approx(set, db->K) == 0) {
-    return false;
+    return FF_FEASIBLE_SET_EMPTY;
   }
 
   // add to updates list
@@ -360,19 +371,61 @@ bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_
 
   // modify the set
   bool modified = feasibility_int_set_update(db, set, new_set, new_set_size, inverted, reasons, reasons_count);
+  size_t cnt = feasibility_int_set_count_approx(set, db->K);
   if (!modified) {
-    return true;
+    return cnt_to_status(cnt);
   }
 
-  size_t cnt = feasibility_int_set_count_approx(set, db->K);
   if (cnt == 0) {
-    return false;
+    return FF_FEASIBLE_SET_EMPTY;
   } else if (cnt == 1) {
     // If fixed, put into the fixed array
     ivector_push(&db->fixed_variables, x);
     db->fixed_variable_size ++;
   }
-  return true;
+  return cnt_to_status(cnt);
+}
+
+bool ff_feasibility_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value) {
+  ptr_hmap_pair_t *p = ptr_hmap_find(&db->sets, x);
+  if (p == NULL) {
+    return false;
+  }
+
+  feasibility_int_set_t *set = p->val;
+  if (!feasibility_int_set_is_inverted(set)) {
+    const mcsat_value_t *val = value_version_set_any(set->values);
+    if (val == NULL) {
+      return false;
+    }
+    assert(val->type == VALUE_LIBPOLY);
+    lp_value_t tmp;
+    lp_value_construct_copy(&tmp, &val->lp_value);
+    lp_value_swap(&tmp, value);
+    lp_value_destruct(&tmp);
+    return true;
+  } else {
+    assert(db->K != lp_Z);
+
+    mcsat_value_t tmp;
+    lp_integer_t zero;
+    lp_integer_construct(&zero);
+    mcsat_value_construct_lp_value_direct(&tmp, LP_VALUE_INTEGER, &zero);
+    lp_integer_destruct(&zero);
+    lp_integer_t *tmp_int = &tmp.lp_value.value.z;
+    assert(lp_integer_is_zero(db->K, tmp_int));
+    bool found = false;
+    do {
+      if (!value_version_set_contains(set->values_inverted, &tmp)) {
+        lp_value_swap(&tmp.lp_value, value);
+        found = true;
+        break;
+      }
+      lp_integer_inc(db->K, tmp_int);
+    } while (!lp_integer_is_zero(db->K, tmp_int));
+    mcsat_value_destruct(&tmp);
+    return found;
+  }
 }
 
 void ff_feasible_set_db_push(ff_feasible_set_db_t *db) {

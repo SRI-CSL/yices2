@@ -48,6 +48,8 @@ void value_version_set_pop(value_version_set_t *set, size_t count);
 
 bool value_version_set_contains(const value_version_set_t *set, const mcsat_value_t *k);
 
+const mcsat_value_t* value_version_set_any(const value_version_set_t *set);
+
 uint32_t value_version_set_get_timestamp(const value_version_set_t *set);
 
 void value_version_set_print(const value_version_set_t *set, FILE *out);

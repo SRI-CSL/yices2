@@ -190,6 +190,31 @@ bool value_version_set_contains(const value_version_set_t *set, const mcsat_valu
   }
 }
 
+const mcsat_value_t* value_version_set_any(const value_version_set_t *set) {
+  value_hmap_pair_t *it;
+
+  if (set->count == 0) {
+    return NULL;
+  }
+
+  switch(set->type) {
+  case VALUE_SET_UNION:
+    it = value_hmap_first_record(set->map);
+    return it == NULL ? NULL : it->key;
+  case VALUE_SET_INTERSECTION:
+    for (it = value_hmap_first_record(set->map); it != NULL; it = value_hmap_next_record(set->map, it)) {
+      if (it->val == set->timestamp) {
+        return it->key;
+      }
+    }
+    assert(false);
+    return NULL;
+  default:
+    assert(false);
+    return NULL;
+  }
+}
+
 uint32_t value_version_set_get_timestamp(const value_version_set_t *set) {
   return set->timestamp;
 }

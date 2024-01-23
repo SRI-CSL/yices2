@@ -26,6 +26,10 @@
 #endif
 #endif
 
+#include <poly/integer.h>
+#include <poly/upolynomial.h>
+#include <poly/upolynomial_factors.h>
+
 #include "context/context_types.h"
 
 #include "mcsat/ff/ff_plugin.h"
@@ -129,6 +133,13 @@ bool ff_plugin_has_assignment(const ff_plugin_t* ff, variable_t x) {
 static inline
 bool ff_plugin_trail_variable_compare(void *data, variable_t t1, variable_t t2) {
   return trail_variable_compare((const mcsat_trail_t *)data, t1, t2);
+}
+
+static inline
+void ff_plugin_report_conflict(ff_plugin_t* ff, trail_token_t* prop, variable_t variable) {
+  prop->conflict(prop);
+  ff->conflict_variable = variable;
+  (*ff->stats.conflicts) ++;
 }
 
 static
@@ -400,6 +411,116 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 }
 
 static
+bool upolynomial_evaluate_zero_at_integer(const lp_upolynomial_t *up, const lp_integer_t *x) {
+  lp_integer_t tmp;
+  lp_integer_construct(&tmp);
+  lp_upolynomial_evaluate_at_integer(up, x, &tmp);
+  bool result = (lp_integer_is_zero(lp_upolynomial_ring(up) , &tmp));
+  lp_integer_destruct(&tmp);
+  return result;
+}
+
+// TODO put this and parts of zero finding into libpoly?
+typedef struct {
+  uint32_t size;
+  lp_value_t zeros[];
+} polynomial_zeros_t;
+
+static
+void polynomial_zeros_delete(polynomial_zeros_t *zeros) {
+  for (uint32_t i = 0; i < zeros->size; ++i) {
+    lp_value_destruct(&zeros->zeros[i]);
+  }
+  safe_free(zeros);
+}
+
+static
+void polynomial_zeros_print(const polynomial_zeros_t *zeros, FILE *out) {
+  fprintf(out, "{");
+  for (uint32_t i = 0; i < zeros->size; ++i) {
+    lp_value_print(&zeros->zeros[i], out);
+    if (i < zeros->size - 1) {
+      fprintf(out, ", ");
+    }
+  }
+  fprintf(out, "}");
+}
+
+static
+polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
+  assert(lp_polynomial_is_univariate_m(polynomial, m));
+  // TODO change this to lp_polynomial_to_univariate_m
+  lp_upolynomial_t *upoly = lp_polynomial_to_univariate(polynomial);
+  lp_upolynomial_factors_t *factors = lp_upolynomial_factor_square_free(upoly);
+  const lp_int_ring_t *K = lp_upolynomial_factors_ring(factors);
+
+  uint32_t factors_cnt = lp_upolynomial_factors_size(factors);
+  polynomial_zeros_t *result = safe_malloc(sizeof(polynomial_zeros_t) + factors_cnt * sizeof(lp_value_t));
+  result->size = 0;
+
+  lp_integer_t coefficients[2];
+  lp_integer_t *zero = &coefficients[0];
+  lp_integer_construct(&coefficients[0]);
+  lp_integer_construct(&coefficients[1]);
+  size_t multiplicity; // unused
+  for (uint32_t i = 0; i < factors_cnt; ++i) {
+    lp_upolynomial_t * factor = lp_upolynomial_factors_get_factor(factors, i, &multiplicity);
+    if (lp_upolynomial_degree(factor) > 1) {
+      continue;
+    }
+    lp_integer_assign_int(K, zero, 0);
+    lp_upolynomial_unpack(factor, coefficients);
+    lp_integer_neg(K, zero, zero);
+    assert(upolynomial_evaluate_zero_at_integer(factor, zero));
+    assert(upolynomial_evaluate_zero_at_integer(upoly, zero));
+    lp_value_t *cur_val = &result->zeros[result->size++];
+    lp_value_construct(cur_val, LP_VALUE_INTEGER, zero);
+  }
+  lp_upolynomial_factors_destruct(factors, true);
+  lp_integer_destruct(&coefficients[0]);
+  lp_integer_destruct(&coefficients[1]);
+  lp_upolynomial_delete(upoly);
+
+  return result;
+}
+
+static
+polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_var, variable_t x, bool is_negated) {
+  const poly_constraint_t* constraint = poly_constraint_db_get(ff->constraint_db, cstr_var);
+  assert(!poly_constraint_is_root_constraint(constraint));
+  // TODO check if LP_SGN_NE_0 can occur here at all.
+  assert(constraint->sgn_condition == LP_SGN_EQ_0);
+  // TODO in general, this is not univariate, but univariate wrt. the current assignment only.
+  assert(lp_polynomial_is_univariate(constraint->polynomial));
+  assert(lp_data_get_ring(ff->lp_data) == lp_polynomial_get_context(constraint->polynomial)->K);
+#ifndef NDEBUG
+  {
+      lp_variable_t lp_x = lp_data_get_lp_variable_from_term(ff->lp_data, variable_db_get_term(ff->ctx->var_db, x));
+      lp_variable_list_t list;
+      lp_variable_list_construct(&list);
+      lp_polynomial_get_variables(constraint->polynomial, &list);
+      assert(lp_variable_list_contains(&list, lp_x));
+      lp_variable_list_destruct(&list);
+    }
+#endif
+
+  // TODO caching
+
+  lp_assignment_t *m = ff->lp_data->lp_assignment;
+  polynomial_zeros_t *zeros = ff_plugin_find_polynomial_zeros(constraint->polynomial, m);
+  if (ctx_trace_enabled(ff->ctx, "ff::find_zeros")) {
+    ctx_trace_printf(ff->ctx, "ff: solutions of ");
+    lp_polynomial_print(constraint->polynomial, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n\t wrt ");
+    lp_assignment_print(m, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n\t is");
+    polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n");
+  }
+  return zeros;
+}
+
+static
 void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, variable_t constraint_var) {
   assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
@@ -414,17 +535,41 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
     // Get the constraint value
     bool constraint_value = is_eval_constraint || trail_get_value(ff->ctx->trail, constraint_var)->b;
 
-    // Get the constraint
-    const poly_constraint_t* constraint = poly_constraint_db_get(ff->constraint_db, constraint_var);
-    assert(!poly_constraint_is_root_constraint(constraint));
-
     // Variable of the constraint
     variable_t x = constraint_unit_info_get_unit_var(&ff->unit_info, constraint_var);
     assert(x != variable_null);
 
-    // TODO find feasible values with factorisation
-    // TODO update the feasible solutions for this constraint (propagate assignment if only one value exists?)
-    // TODO report conflict if none exist
+    bool is_negated = !constraint_value;
+    polynomial_zeros_t *zeros = ff_plugin_get_feasible_set(ff, constraint_var, x, is_negated);
+
+    if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
+      ctx_trace_printf(ff->ctx, "ff: constraint_feasible = ");
+      if (!constraint_value) {
+        ctx_trace_printf(ff->ctx, "all values but ");
+      }
+      polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
+      ctx_trace_printf(ff->ctx, "\n");
+    }
+
+    ff_feasible_set_status_t status = ff_feasible_set_db_update(ff->feasible_set_db, x, zeros->zeros, zeros->size, is_negated, &constraint_var, 1);
+
+    if (status == FF_FEASIBLE_SET_EMPTY) {
+      // conflict
+      ff_plugin_report_conflict(ff, prop, x);
+    } else if (status == FF_FEASIBLE_SET_UNIQUE) {
+      // If the value is implied at zero level, propagate it
+      if (!trail_has_value(ff->ctx->trail, x) && trail_is_at_base_level(ff->ctx->trail)) {
+        mcsat_value_t value;
+        lp_value_t x_value;
+        lp_value_construct_none(&x_value);
+        ff_feasibility_set_db_pick_value(ff->feasible_set_db, x, &x_value);
+        mcsat_value_construct_lp_value(&value, &x_value);
+        prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
+        mcsat_value_destruct(&value);
+        lp_value_destruct(&x_value);
+      }
+    }
+    polynomial_zeros_delete(zeros);
   }
 }
 
