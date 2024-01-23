@@ -210,7 +210,7 @@ bool poly_constraint_evaluate(const poly_constraint_t* cstr, lp_data_t *lp_data,
 
 lp_feasibility_set_t* poly_constraint_get_feasible_set(const poly_constraint_t* cstr, const lp_assignment_t* m, bool negated) {
 
-  lp_feasibility_set_t* feasible  = 0;
+  lp_feasibility_set_t* feasible = NULL;
 
   if (poly_constraint_is_root_constraint(cstr)) {
     // Get the root constraint feasible set

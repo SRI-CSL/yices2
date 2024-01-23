@@ -230,7 +230,7 @@ lp_feasibility_set_t* nra_plugin_get_feasible_set(nra_plugin_t* nra, variable_t 
   }
 
   // Cached top variable
-  int_hmap_t* cache_top_var = &nra->feasible_set_cache_top_var[is_negated];\
+  int_hmap_t* cache_top_var = &nra->feasible_set_cache_top_var[is_negated];
   int_hmap_pair_t* find_top_var = int_hmap_get(cache_top_var, cstr_var);
   // Cached timestamp
   int_hmap_t* cache_timestamp = &nra->feasible_set_cache_timestamp[is_negated];
