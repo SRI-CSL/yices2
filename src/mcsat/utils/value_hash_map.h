@@ -144,5 +144,5 @@ void value_hmap_iterate(value_hmap_t *hmap, void *aux, value_hmap_iterator_t f);
  * - next(p) gives the next record after p or NULL
  * IMPORTANT: The hmap keys must not be modified between calls to next
  */
-value_hmap_pair_t *value_hmap_first_record(value_hmap_t *hmap);
-value_hmap_pair_t *value_hmap_next_record(value_hmap_t *hmap, value_hmap_pair_t *p);
+value_hmap_pair_t *value_hmap_first_record(const value_hmap_t *hmap);
+value_hmap_pair_t *value_hmap_next_record(const value_hmap_t *hmap, value_hmap_pair_t *p);
