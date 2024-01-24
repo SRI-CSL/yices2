@@ -1738,8 +1738,7 @@ bool nra_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars,
 
   // Check if the variables are assigned
   ivector_t* var_list = int_mset_get_list(vars);
-  size_t i = 0;
-  for (i = 0; i < var_list->size; ++ i) {
+  for (size_t i = 0; i < var_list->size; ++ i) {
     if (!trail_has_value(nra->ctx->trail, var_list->data[i])) {
       result = false;
     }
@@ -2019,7 +2018,7 @@ void nra_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
 static
 void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
-  // If we get a rational, conver to lp_value_t
+  // If we get a rational, convert to lp_value_t
   mcsat_value_t tmp;
   const mcsat_value_t* lp_value = ensure_lp_value(value, &tmp);
   // Get the feasibility set

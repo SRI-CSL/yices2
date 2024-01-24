@@ -43,7 +43,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
  */
 void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals);
 
-/*
+/**
  * Project a set of literals.
  *
  * Given a set of literals L satisfied by the model M, this function returns a new set of literals L' such that
