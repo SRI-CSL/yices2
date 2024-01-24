@@ -900,8 +900,37 @@ static
 term_t ff_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  (void)ff;
-  // TODO implement
+  // We only propagate evaluations, and we explain them using the literal itself
+  // The only other propagations are at 0-level, and those we explain with the value and no reasons
+  term_t atom = variable_db_get_term(ff->ctx->var_db, var);
+  if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
+    ctx_trace_printf(ff->ctx, "ff_plugin_explain_propagation():\n");
+    ctx_trace_term(ff->ctx, atom);
+  }
+  const mcsat_value_t* value = trail_get_value(ff->ctx->trail, var);
+  if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
+    ctx_trace_printf(ff->ctx, "assigned to:");
+    mcsat_value_print(value, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n");
+  }
+
+  if (value->type == VALUE_BOOLEAN) {
+    if (value->b) {
+      // atom => atom = true
+      ivector_push(reasons, atom);
+      return bool2term(true);
+    } else {
+      // neg atom => atom = false
+      ivector_push(reasons, opposite_term(atom));
+      return bool2term(false);
+    }
+  } else {
+    // we just return true => var = value
+    // this is only allowed at base level when explaining under assumptions
+    // there is currently no was to assert this properly
+    // assert(trail_is_at_base_level(ff->ctx->trail));
+    return mcsat_value_to_term(value, ff->ctx->tm);
+  }
 }
 
 static
@@ -910,8 +939,16 @@ bool ff_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, 
 
   bool result = true;
 
-  // TODO implement
-  (void)ff;
+  // Get all the variables and make sure they are all assigned.
+  ff_plugin_get_constraint_variables(ff, t, vars);
+
+  // Check if the variables are assigned
+  ivector_t* var_list = int_mset_get_list(vars);
+  for (size_t i = 0; i < var_list->size; ++ i) {
+    if (!trail_has_value(ff->ctx->trail, var_list->data[i])) {
+      result = false;
+    }
+  }
 
   // All variables assigned
   return result;
@@ -1035,6 +1072,7 @@ void ff_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
 
   (void)ff;
   // TODO implement
+  assert(false);
 }
 
 static
