@@ -26,9 +26,6 @@
 #endif
 #endif
 
-#include <poly/integer.h>
-#include <poly/upolynomial.h>
-#include <poly/upolynomial_factors.h>
 
 #include "context/context_types.h"
 
@@ -41,11 +38,13 @@
 
 #include "utils/int_array_sort2.h"
 
+#include <poly/integer.h>
 #include <poly/polynomial.h>
 #include <poly/polynomial_context.h>
 #include <poly/variable_order.h>
 #include <poly/variable_list.h>
 #include <poly/upolynomial.h>
+#include <poly/upolynomial_factors.h>
 
 static
 void ff_plugin_stats_init(ff_plugin_t* ff) {
@@ -449,8 +448,7 @@ void polynomial_zeros_print(const polynomial_zeros_t *zeros, FILE *out) {
 static
 polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
   assert(lp_polynomial_is_univariate_m(polynomial, m));
-  // TODO change this to lp_polynomial_to_univariate_m
-  lp_upolynomial_t *upoly = lp_polynomial_to_univariate(polynomial);
+  lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(polynomial, m);
   lp_upolynomial_factors_t *factors = lp_upolynomial_factor_square_free(upoly);
   const lp_int_ring_t *K = lp_upolynomial_factors_ring(factors);
 
