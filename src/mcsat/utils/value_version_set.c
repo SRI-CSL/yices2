@@ -234,7 +234,7 @@ void value_version_set_print_at(const value_version_set_t *set, uint32_t timesta
       continue;
     }
     if (!first) {
-      fprintf(out, ",");
+      fprintf(out, ", ");
     }
     first = false;
     mcsat_value_print(it->key, out);

@@ -447,9 +447,10 @@ void polynomial_zeros_print(const polynomial_zeros_t *zeros, FILE *out) {
 
 static
 polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
+  // TODO implement Rabin root finding large bigger finite fields
   assert(lp_polynomial_is_univariate_m(polynomial, m));
   lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(polynomial, m);
-  lp_upolynomial_factors_t *factors = lp_upolynomial_factor_square_free(upoly);
+  lp_upolynomial_factors_t *factors = lp_upolynomial_factor(upoly);
   const lp_int_ring_t *K = lp_upolynomial_factors_ring(factors);
 
   uint32_t factors_cnt = lp_upolynomial_factors_size(factors);
@@ -511,7 +512,7 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
     lp_polynomial_print(constraint->polynomial, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n\t wrt ");
     lp_assignment_print(m, ctx_trace_out(ff->ctx));
-    ctx_trace_printf(ff->ctx, "\n\t is");
+    ctx_trace_printf(ff->ctx, "\n\t is ");
     polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n");
   }
