@@ -379,10 +379,9 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
     case ROOT_ATOM_LEQ:
       root_atom = mk_arith_term_leq0(tm, p_term);
       break;
-    case ROOT_ATOM_EQ: {
+    case ROOT_ATOM_EQ:
       root_atom = mk_arith_term_eq0(tm, p_term);
       break;
-    }
     case ROOT_ATOM_NEQ:
       root_atom = mk_arith_term_neq0(tm, p_term);
       break;

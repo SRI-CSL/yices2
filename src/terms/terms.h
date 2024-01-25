@@ -369,7 +369,7 @@ typedef struct select_term_s {
 
 
 /*
- * Comparison relations for arithmetic root atoms..
+ * Comparison relations for arithmetic root atoms
  */
 typedef enum {
   ROOT_ATOM_LT,
