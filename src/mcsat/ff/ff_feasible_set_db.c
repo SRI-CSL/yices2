@@ -449,6 +449,10 @@ bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x,
   }
 }
 
+void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
+  // TODO implement me
+}
+
 bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_t x, const lp_value_t *value) {
   ptr_hmap_pair_t *found = ptr_hmap_find(&db->sets, x);
   return found == NULL || feasibility_int_set_is_value_valid(found->val, value);

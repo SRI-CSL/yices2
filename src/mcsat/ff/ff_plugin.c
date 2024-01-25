@@ -30,8 +30,8 @@
 #include "context/context_types.h"
 
 #include "mcsat/ff/ff_plugin.h"
-#include "mcsat/ff/ff_plugin_internal.h"
 #include "mcsat/ff/ff_feasible_set_db.h"
+#include "mcsat/ff/ff_plugin_internal.h"
 #include "mcsat/ff/ff_plugin_explain.h"
 #include "mcsat/ff/ff_libpoly.h"
 #include "mcsat/tracing.h"
@@ -889,11 +889,49 @@ static
 void ff_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  // we don't yet support assumptions, thus no assumption conflicts yet
+  assert(ff->conflict_variable != variable_null);
+  variable_t x = ff->conflict_variable;
+
   if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
-    ctx_trace_printf(ff->ctx, "ff_plugin_get_conflict(): START\n");
+    ctx_trace_printf(ff->ctx, "ff_plugin_get_conflict(): ");
+    ctx_trace_term(ff->ctx, variable_db_get_term(ff->ctx->var_db, x));
   }
 
-  // TODO implement
+  ivector_t core, lemma_reasons;
+  init_ivector(&core, 0);
+  init_ivector(&lemma_reasons, 0);
+  ff_feasible_set_db_get_conflict_reasons(ff->feasible_set_db, x, &core, &lemma_reasons);
+
+  if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
+    ctx_trace_printf(ff->ctx, "ff_plugin_get_conflict(): core:\n");
+    for (size_t i = 0; i < core.size; ++ i) {
+      ctx_trace_printf(ff->ctx, "[%zu] (", i);
+      if (trail_has_value(ff->ctx->trail, core.data[i])) {
+        mcsat_value_print(trail_get_value(ff->ctx->trail, core.data[i]), ctx_trace_out(ff->ctx));
+      }
+      ctx_trace_printf(ff->ctx, "): ");
+      ctx_trace_term(ff->ctx, variable_db_get_term(ff->ctx->var_db, core.data[i]));
+    }
+  }
+
+  if (ctx_trace_enabled(ff->ctx, "ff::check_conflict")) {
+    ff_plugin_check_conflict(ff, &core);
+  }
+
+  ff_plugin_explain_conflict(ff, &core, &lemma_reasons, conflict);
+
+  if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
+    ctx_trace_printf(ff->ctx, "ff_plugin_get_conflict(): conflict:\n");
+    for (size_t i = 0; i < conflict->size; ++ i) {
+      ctx_trace_printf(ff->ctx, "[%zu]: ", i);
+      ctx_trace_term(ff->ctx, conflict->data[i]);
+    }
+  }
+
+  // Remove temps
+  delete_ivector(&core);
+  delete_ivector(&lemma_reasons);
 }
 
 static
@@ -1081,40 +1119,35 @@ void ff_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   ff->exception = handler;
 }
 
+// assumptions are not yet supported in the ff plugin
+#if 0
 static
 void ff_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
-
   (void)ff;
-  // TODO implement
+  assert(false);
 }
 
 static
 void ff_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
-  const mcsat_trail_t* trail = ff->ctx->trail;
-
-  if (ctx_trace_enabled(ff->ctx, "mcsat::ff::learn")) {
-    ctx_trace_printf(ff->ctx, "ff_plugin_learn(): trail = ");
-    trail_print(trail, ctx_trace_out(ff->ctx));
-  }
-
   /*
    * heavy propagation at the base level (when no decisions are made yet).
    * General lemmas that are assignment independent are thus never undone.
    * Should be called at every restart. Currently, it's only called once at the beginning of the search.
    */
-
-  // TODO implement
+  (void)ff;
+  assert(false);
 }
 
+static
 bool ff_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
-
-  // TODO implement
   (void)ff;
+  assert(false);
   return false;
 }
+#endif
 
 plugin_t* ff_plugin_allocator(void) {
   ff_plugin_t* plugin = safe_malloc(sizeof(ff_plugin_t));

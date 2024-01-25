@@ -59,6 +59,9 @@ bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_
 /** Returns true if the database has infos for x */
 bool ff_feasible_set_db_has_info(const ff_feasible_set_db_t* db, variable_t x);
 
+/** Get the reason for a conflict on x. Feasible set of x should be empty. */
+void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons);
+
 /** Push the context */
 void ff_feasible_set_db_push(ff_feasible_set_db_t* db);
 

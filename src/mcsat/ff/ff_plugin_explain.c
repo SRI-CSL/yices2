@@ -16,4 +16,13 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ff_plugin_explain.h"
+#include "mcsat/ff/ff_plugin_explain.h"
+#include "mcsat/ff/ff_plugin_internal.h"
+
+void ff_plugin_check_conflict(ff_plugin_t* ff, ivector_t* core) {
+  // TODO implement me
+}
+
+void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
+  // TODO implement me
+}
