@@ -450,7 +450,38 @@ bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x,
 }
 
 void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
-  // TODO implement me
+  // we don't do any conflict core minimization yet
+
+  if (ctx_trace_enabled(db->ctx, "ff::feasible_set_db")) {
+    ctx_trace_printf(db->ctx, "get_reasons of: ");
+    variable_db_print_variable(db->ctx->var_db, x, ctx_trace_out(db->ctx));
+    ctx_trace_printf(db->ctx, "\n");
+  }
+
+  // get set
+  ptr_hmap_pair_t *found = ptr_hmap_find(&db->sets, x);
+  if (found == NULL) {
+    return;
+  }
+  feasibility_int_set_t *set = found->val;
+
+  // collect indices
+  size_t offset = 0;
+  for (size_t i = 0; i < set->reasons_sizes.size; ++i) {
+    uint32_t reason_size = set->reasons_sizes.data[i];
+    if (reason_size == 0) {
+      // skip empty reasons, i.e. updates that didn't to anything
+      continue;
+    }
+    assert(offset + reason_size <= set->reasons.size);
+    ivector_t *v = (reason_size == 1) ? reasons_out : lemma_reasons;
+    for (uint32_t j = 0; j < reason_size; ++j) {
+      variable_t reason = set->reasons.data[offset + j];
+      assert(variable_db_is_boolean(db->ctx->var_db, reason));
+      ivector_push(v, reason);
+    }
+    offset += reason_size;
+  }
 }
 
 bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_t x, const lp_value_t *value) {
