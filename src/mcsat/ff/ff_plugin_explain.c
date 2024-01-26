@@ -18,7 +18,6 @@
 
 #include <poly/poly.h>
 #include <poly/polynomial.h>
-#include <poly/polynomial_vector.h>
 #include <poly/polynomial_heap.h>
 #include <poly/polynomial_hash_set.h>
 
@@ -28,59 +27,47 @@
 #include "mcsat/tracing.h"
 
 static
-void explain_single(const lp_polynomial_t *A, const lp_assignment_t *m, lp_polynomial_vector_t *e_ne);
+void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polynomial_hash_set_t *e_ne);
 
+/** finalizes and empties eq and ne (to avoid polynomial copying) */
 static
-void explain_multi(const lp_polynomial_vector_t *eq, const lp_polynomial_vector_t *ne, const lp_assignment_t *m,
-                  lp_polynomial_vector_t *e_eq, lp_polynomial_vector_t *e_ne);
-
-static inline
-void move_hash_set_to_vector(lp_polynomial_hash_set_t *h, lp_polynomial_vector_t *v) {
-  lp_polynomial_hash_set_close(h);
-  for (size_t i = 0; i < h->size; ++i) {
-    assert(h->data[i]);
-    lp_polynomial_vector_push_back_move(v, h->data[i]);
-  }
-}
+void explain_multi(const lp_data_t *lp_data,
+                   lp_polynomial_hash_set_t *eq, lp_polynomial_hash_set_t *ne,
+                   lp_polynomial_hash_set_t *e_eq, lp_polynomial_hash_set_t *e_ne);
 
 #ifndef NDEBUG
-static inline
-int check_assignment_poly(const lp_polynomial_t *p, const lp_assignment_t *m) {
+static
+bool check_assignment_poly(const lp_polynomial_t *p, const lp_assignment_t *m) {
   assert(lp_polynomial_is_assigned(p, m));
   lp_integer_t val;
   lp_integer_construct(&val);
   lp_polynomial_evaluate_integer(p, m, &val);
-  int is_zero = lp_integer_is_zero(lp_polynomial_get_context(p)->K, &val);
+  bool is_zero = lp_integer_is_zero(lp_polynomial_get_context(p)->K, &val);
   lp_integer_destruct(&val);
   return is_zero;
 }
 
-static inline
-int check_vector_all(const lp_polynomial_vector_t *v, const lp_assignment_t *m, int negated) {
-  int ret = 1;
-  size_t cnt = lp_polynomial_vector_size(v);
-  for (int i = 0; i < cnt; ++i) {
-    lp_polynomial_t *p = lp_polynomial_vector_at(v, i);
-    int is_zero = check_assignment_poly(p, m);
-    lp_polynomial_delete(p);
+static
+bool check_hash_set_all(const lp_polynomial_hash_set_t *v, const lp_assignment_t *m, bool negated) {
+  assert(v->closed);
+  for (int i = 0; i < v->size; ++i) {
+    bool is_zero = check_assignment_poly(v->data[i], m);
     if (!is_zero == !negated) {
-      ret = 0; break;
+      return false;
     }
   }
-  return ret;
+  return true;
 }
 
 static
-int check_assignment_cube(const lp_polynomial_vector_t *eq, const lp_polynomial_vector_t *ne, const lp_assignment_t *m) {
-  assert(eq || ne);
-  const lp_polynomial_vector_t
-      *e = eq ? eq : lp_polynomial_vector_new(lp_polynomial_vector_get_context(ne)),
-      *n = ne ? ne : lp_polynomial_vector_new(lp_polynomial_vector_get_context(eq));
-  assert(lp_polynomial_context_equal(lp_polynomial_vector_get_context(e), lp_polynomial_vector_get_context(n)));
-  int ret = check_vector_all(e, m, 0) && check_vector_all(n, m, 1);
-  if (!eq) lp_polynomial_vector_delete((lp_polynomial_vector_t*)e);
-  if (!ne) lp_polynomial_vector_delete((lp_polynomial_vector_t*)n);
-  return ret;
+bool check_assignment_cube(const lp_polynomial_hash_set_t *eq, const lp_polynomial_hash_set_t *ne, const lp_assignment_t *m) {
+  if (eq && !check_hash_set_all(eq, m, false)) {
+    return false;
+  }
+  if (ne && !check_hash_set_all(ne, m, true)) {
+    return false;
+  }
+  return true;
 }
 #endif
 
@@ -125,7 +112,9 @@ void exclude_coefficient(const lp_polynomial_t *A, const lp_assignment_t *m, lp_
 }
 
 static
-void explain_single(const lp_polynomial_t *A, const lp_assignment_t *m, lp_polynomial_vector_t *e_ne) {
+void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polynomial_hash_set_t *e_ne) {
+  const lp_assignment_t *m = lp_data->lp_assignment;
+
   assert(lp_polynomial_is_univariate_m(A, m));
 
   // maybe make internal copy to avoid repeated checks for order at get_coefficient
@@ -144,21 +133,14 @@ void explain_single(const lp_polynomial_t *A, const lp_assignment_t *m, lp_polyn
   lp_variable_t top = lp_polynomial_top_variable(A);
   assert(!lp_assignment_is_set(m, top));
   assert(lp_polynomial_is_univariate_m(A, m));
-  lp_polynomial_hash_set_t *G = lp_polynomial_hash_set_new();
-  exclude_coefficient(A, m, top, G);
-  lp_polynomial_hash_set_close(G);
+  exclude_coefficient(A, m, top, e_ne);
+  lp_polynomial_hash_set_close(e_ne);
 
 #ifdef TRACE
   fputs("explain_single () => ", stdout);
-    lp_polynomial_hash_set_print(G, stdout);
+    lp_polynomial_hash_set_print(e_ne, stdout);
     fputc('\n', stdout);
 #endif
-
-  move_hash_set_to_vector(G, e_ne);
-  lp_polynomial_hash_set_delete(G);
-
-  // assert that the current assignment is excluded (all ne must be = 0)
-  assert(check_assignment_cube(e_ne, NULL, m));
 }
 
 static inline
@@ -615,11 +597,23 @@ int compare_polynomial_inverse_degree(const lp_polynomial_t *p1, const lp_polyno
 }
 
 static
-void explain_multi(const lp_polynomial_vector_t *eq, const lp_polynomial_vector_t *ne, const lp_assignment_t *m,
-                  lp_polynomial_vector_t *e_eq, lp_polynomial_vector_t *e_ne) {
+void lp_polynomial_move_push_hash_set(lp_polynomial_heap_t *heap, lp_polynomial_hash_set_t *hset) {
+  lp_polynomial_hash_set_close(hset);
+  for (size_t i = 0; i < hset->size; ++i) {
+    lp_polynomial_heap_push_move(heap, hset->data[i]);
+  }
+}
 
-  assert(lp_polynomial_vector_size(eq) || lp_polynomial_vector_size(ne));
-  assert(lp_polynomial_context_equal(lp_polynomial_vector_get_context(eq), lp_polynomial_vector_get_context(ne)));
+static
+void explain_multi(const lp_data_t *lp_data,
+                   lp_polynomial_hash_set_t *eq, lp_polynomial_hash_set_t *ne,
+                   lp_polynomial_hash_set_t *e_eq, lp_polynomial_hash_set_t *e_ne) {
+
+  const lp_assignment_t *m = lp_data->lp_assignment;
+
+  assert(eq->closed && ne->closed);
+  assert(eq->size > 0 || ne->size > 0);
+  assert(!e_eq->closed && !e_ne->closed);
 
 #ifdef TRACE
   fputs("explain_multi (\n  ", stdout);
@@ -629,27 +623,28 @@ void explain_multi(const lp_polynomial_vector_t *eq, const lp_polynomial_vector_
     fputs("\n)\n", stdout);
 #endif
 
-  const lp_polynomial_context_t *ctx =  lp_polynomial_vector_get_context(eq);
+  const lp_polynomial_context_t *ctx =  lp_data->lp_ctx;
 
   lp_polynomial_heap_t
       *F = lp_polynomial_heap_new(compare_polynomial_inverse_degree),
       *G = lp_polynomial_heap_new(compare_polynomial_inverse_degree);
-  lp_polynomial_hash_set_t
-      *M = lp_polynomial_hash_set_new(),
-      *N = lp_polynomial_hash_set_new();
 
-  lp_polynomial_heap_push_vector(F, eq);
-  lp_polynomial_heap_push_vector(G, ne);
+  // moves all polynomials from the hashset to the heap
+  lp_polynomial_move_push_hash_set(F, eq);
+  lp_polynomial_move_push_hash_set(G, ne);
 
   lp_variable_t var = lp_variable_order_max(ctx->var_order,
-                                            !lp_polynomial_heap_is_empty(F) ? lp_polynomial_top_variable(lp_polynomial_heap_peek(F)) : lp_variable_null,
-                                            !lp_polynomial_heap_is_empty(G) ? lp_polynomial_top_variable(lp_polynomial_heap_peek(G)) : lp_variable_null
+    !lp_polynomial_heap_is_empty(F) ? lp_polynomial_top_variable(lp_polynomial_heap_peek(F)) : lp_variable_null,
+    !lp_polynomial_heap_is_empty(G) ? lp_polynomial_top_variable(lp_polynomial_heap_peek(G)) : lp_variable_null
   );
   assert(!lp_assignment_is_set(m, var));
   assert(heap_contains_check_top_variable(F, var));
   assert(heap_contains_check_top_variable(G, var));
 
-  split_reg_ser(F, G, M, N, m, var);
+  split_reg_ser(F, G, e_ne, e_eq, m, var);
+
+  lp_polynomial_hash_set_close(e_ne);
+  lp_polynomial_hash_set_close(e_eq);
 
 #ifdef TRACE
   fputs("explain_multi () => \n  ", stdout);
@@ -659,23 +654,8 @@ void explain_multi(const lp_polynomial_vector_t *eq, const lp_polynomial_vector_
     fputc('\n', stdout);
 #endif
 
-  move_hash_set_to_vector(N, e_eq);
-  move_hash_set_to_vector(M, e_ne);
-
-  // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
-  assert(check_assignment_cube(e_ne, e_eq, m));
-
-  lp_polynomial_hash_set_delete(N);
-  lp_polynomial_hash_set_delete(M);
   lp_polynomial_heap_delete(F);
   lp_polynomial_heap_delete(G);
-}
-
-static
-void process_polys_single(const lp_polynomial_vector_t *v, lp_polynomial_vector_t *e_ne, const lp_assignment_t *m) {
-  lp_polynomial_t *p = lp_polynomial_vector_at(v, 0);
-  explain_single(p, m, e_ne);
-  lp_polynomial_delete(p);
 }
 
 static inline
@@ -716,8 +696,6 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
     int_mset_destruct(&variables);
   }
 
-  lp_polynomial_context_t *lp_ctx = ff->lp_data->lp_ctx;
-
   lp_polynomial_hash_set_t pos;
   lp_polynomial_hash_set_t neg;
 
@@ -749,46 +727,45 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   // not used yet
   assert(lemma_reasons->size == 0);
 
-  // TODO change explains to handle closed hash_sets directly (no vectors)
-  // TODO change explains to register polys directly (instead of putting them into a vector)
-  lp_polynomial_vector_t *eq = lp_polynomial_vector_new(lp_ctx);
-  lp_polynomial_vector_t *ne = lp_polynomial_vector_new(lp_ctx);
-  lp_polynomial_vector_t *e_eq = lp_polynomial_vector_new(lp_ctx);
-  lp_polynomial_vector_t *e_ne = lp_polynomial_vector_new(lp_ctx);
+  lp_polynomial_hash_set_close(&pos);
+  lp_polynomial_hash_set_close(&neg);
 
-  move_hash_set_to_vector(&pos, eq);
-  move_hash_set_to_vector(&neg, ne);
+  // TODO update TRACE printing here
 
-  lp_polynomial_hash_set_delete(&pos);
-  lp_polynomial_hash_set_delete(&neg);
+  lp_polynomial_hash_set_t e_eq;
+  lp_polynomial_hash_set_t e_ne;
 
-  size_t cnt_eq = lp_polynomial_vector_size(eq);
-  size_t cnt_ne = lp_polynomial_vector_size(ne);
-  assert(cnt_eq + cnt_ne > 0);
+  lp_polynomial_hash_set_construct(&e_eq);
+  lp_polynomial_hash_set_construct(&e_ne);
+
+  size_t cnt_pos = lp_polynomial_hash_set_size(&pos);
+  size_t cnt_neg = lp_polynomial_hash_set_size(&neg);
+  assert(cnt_pos + cnt_neg > 0);
 
   lp_assignment_t *m = ff->lp_data->lp_assignment;
 
-  if (cnt_eq + cnt_ne > 1) {
-    explain_multi(eq, ne, m, e_eq, e_ne);
-  } else if (cnt_eq == 1) {
-    process_polys_single(eq, e_ne, m);
-  } else if (cnt_ne == 1) {
-    process_polys_single(ne, e_ne, m);
+  if (cnt_pos + cnt_neg > 1) {
+    explain_multi(ff->lp_data, &pos, &neg, &e_eq, &e_ne);
+  } else if (cnt_pos == 1) {
+    explain_single(ff->lp_data, pos.data[0], &e_ne);
+  } else if (cnt_neg == 1) {
+    explain_single(ff->lp_data, neg.data[0], &e_ne);
   }
 
-  // Add the explained lemmas to the conflict
-  for (int i = 0; i < lp_polynomial_vector_size(e_eq); ++i) {
-    lp_polynomial_t *p = lp_polynomial_vector_at(e_eq, i);
-    term_t t = lp_polynomial_to_term(ff, p);
+  // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
+  assert(check_assignment_cube(&e_ne, &e_eq, m));
+
+  // Add the explanation to the conflict
+  lp_polynomial_hash_set_close(&e_eq);
+  for (size_t i = 0; i < e_eq.size; ++i) {
+    term_t t = lp_polynomial_to_term(ff, e_eq.data[i]);
     ivector_push(conflict, pos_term(t));
-    lp_polynomial_delete(p);
   }
 
-  for (int i = 0; i < lp_polynomial_vector_size(e_ne); ++i) {
-    lp_polynomial_t *p = lp_polynomial_vector_at(e_eq, i);
-    term_t t = lp_polynomial_to_term(ff, p);
+  lp_polynomial_hash_set_close(&e_ne);
+  for (size_t i = 0; i < e_ne.size; ++i) {
+    term_t t = lp_polynomial_to_term(ff, e_ne.data[i]);
     ivector_push(conflict, neg_term(t));
-    lp_polynomial_delete(p);
   }
 
   // Add the core to the conflict
@@ -804,10 +781,10 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   }
 
   // clean-up
-  lp_polynomial_vector_delete(eq);
-  lp_polynomial_vector_delete(ne);
-  lp_polynomial_vector_delete(e_eq);
-  lp_polynomial_vector_delete(e_ne);
+  lp_polynomial_hash_set_destruct(&pos);
+  lp_polynomial_hash_set_destruct(&neg);
+  lp_polynomial_hash_set_destruct(&e_eq);
+  lp_polynomial_hash_set_destruct(&e_ne);
 }
 
 
