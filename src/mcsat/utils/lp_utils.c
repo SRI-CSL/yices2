@@ -360,7 +360,8 @@ void lp_polynomial_to_yices_traverse_f(const lp_polynomial_context_t* ctx, lp_mo
   q_clear(&a);
 }
 
-term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
+static
+void lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
 
   // Buffer for building
   lp_polynomial_to_yices_term_data data;
@@ -372,9 +373,28 @@ term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial
 
   // Traverse and build
   lp_polynomial_traverse(lp_p, lp_polynomial_to_yices_traverse_f, &data);
+}
+
+term_t lp_polynomial_to_yices_arith_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
+  lp_polynomial_to_yices_term(lp_data, lp_p, terms, b);
 
   // Make the term
-  term_t result = mk_direct_arith_term(terms, data.b);
+  return mk_direct_arith_term(terms, b);
+}
+
+term_t lp_polynomial_to_yices_arith_ff_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b) {
+  lp_polynomial_to_yices_term(lp_data, lp_p, terms, b);
+
+  // assure it's a finite field lp_data
+  assert(lp_data_get_ring(lp_data));
+
+  rational_t mod;
+  q_init(&mod);
+  q_set_mpz(&mod, &lp_data_get_ring(lp_data)->M);
+
+  // Make the term
+  term_t result = mk_direct_arith_ff_term(terms, b, &mod);
+  q_clear(&mod);
 
   return result;
 }

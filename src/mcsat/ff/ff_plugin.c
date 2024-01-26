@@ -1106,7 +1106,6 @@ void ff_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
 
   (void)ff;
   // TODO implement
-  assert(false);
 }
 
 static

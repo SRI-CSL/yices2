@@ -52,7 +52,7 @@ term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t 
     ctx_trace_printf(nra->ctx, ")\n");
   }
 
-  term_t result = lp_polynomial_to_yices_term(&nra->lp_data, lp_p, nra->ctx->terms, &nra->buffer);
+  term_t result = lp_polynomial_to_yices_arith_term(&nra->lp_data, lp_p, nra->ctx->terms, &nra->buffer);
 
   if (ctx_trace_enabled(nra->ctx, "nra::terms")) {
     ctx_trace_printf(nra->ctx, "lp_polynomial_to_yices_term(");

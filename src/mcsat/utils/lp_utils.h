@@ -31,9 +31,14 @@
 lp_polynomial_t* lp_polynomial_from_term(lp_data_t* lp_data, term_t t, term_table_t* terms, lp_integer_t* c);
 
 /**
- * Get yices term from polynomial (direct version).
+ * Get yices arith term from polynomial (direct version).
  */
-term_t lp_polynomial_to_yices_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
+term_t lp_polynomial_to_yices_arith_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
+
+/**
+ * Get yices finite field term from polynomial (direct version).
+ */
+term_t lp_polynomial_to_yices_arith_ff_term(const lp_data_t *lp_data, const lp_polynomial_t* lp_p, term_table_t* terms, rba_buffer_t* b);
 
 /**
  * Ensure value is an lp_value. If not the passed alternative will be constructed to an equivalent lp_value.

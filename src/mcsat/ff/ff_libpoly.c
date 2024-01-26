@@ -52,7 +52,7 @@ term_t lp_polynomial_to_yices_term_ff(ff_plugin_t *ff, const lp_polynomial_t *lp
   }
 
   assert(ff->lp_data);
-  term_t result = lp_polynomial_to_yices_term(ff->lp_data, lp_p, ff->ctx->terms, &ff->buffer);
+  term_t result = lp_polynomial_to_yices_arith_ff_term(ff->lp_data, lp_p, ff->ctx->terms, &ff->buffer);
 
   if (ctx_trace_enabled(ff->ctx, "ff::terms")) {
     ctx_trace_printf(ff->ctx, "lp_polynomial_to_yices_term(");

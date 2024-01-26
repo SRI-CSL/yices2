@@ -871,7 +871,8 @@ static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, ration
 
   reset_rba_buffer(b);
 
-  // TODO assert that mod is type t's ff-size
+  // check that mod is type t's ff-size
+  assert(q_eq(mod, ff_type_size(tbl->types, term_type(tbl, t))));
 
   return t;
 }

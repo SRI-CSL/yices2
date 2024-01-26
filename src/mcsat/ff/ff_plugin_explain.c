@@ -123,11 +123,11 @@ void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polyn
   // or maybe do this in polynomial_coefficient_traverse and use it here
 
   if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
-    ctx_trace_printf(lp_data->plugin_ctx, "explain_single ( ");
+    ctx_trace_printf(lp_data->plugin_ctx, "ff_explain_single: ");
     lp_polynomial_print(A, ctx_trace_out(lp_data->plugin_ctx));
     ctx_trace_printf(lp_data->plugin_ctx, ", ");
     lp_assignment_print(m, ctx_trace_out(lp_data->plugin_ctx));
-    ctx_trace_printf(lp_data->plugin_ctx, ")\n");
+    ctx_trace_printf(lp_data->plugin_ctx, "\n");
   }
 
   lp_variable_t top = lp_polynomial_top_variable(A);
@@ -138,7 +138,7 @@ void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polyn
 
   if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
     ctx_trace_printf(lp_data->plugin_ctx, "explain_single () => ");
-    lp_polynomial_hash_set_print(e_ne, stdout);
+    lp_polynomial_hash_set_print(e_ne, ctx_trace_out(lp_data->plugin_ctx));
     ctx_trace_printf(lp_data->plugin_ctx, "\n");
   }
 }
@@ -575,11 +575,11 @@ void explain_multi(const lp_data_t *lp_data,
   assert(!e_eq->closed && !e_ne->closed);
 
   if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
-    ctx_trace_printf(lp_data->plugin_ctx, "explain_multi (\n  ");
+    ctx_trace_printf(lp_data->plugin_ctx, "ff_explain_multi \n  ");
     lp_polynomial_hash_set_print(eq, ctx_trace_out(lp_data->plugin_ctx));
     ctx_trace_printf(lp_data->plugin_ctx, ", \n  ");
     lp_polynomial_hash_set_print(ne, ctx_trace_out(lp_data->plugin_ctx));
-    ctx_trace_printf(lp_data->plugin_ctx, "\n)\n");
+    ctx_trace_printf(lp_data->plugin_ctx, "\n");
   }
 
   const lp_polynomial_context_t *ctx =  lp_data->lp_ctx;
@@ -619,7 +619,7 @@ void explain_multi(const lp_data_t *lp_data,
 
 static inline
 term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
-  return lp_polynomial_to_yices_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
+  return lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
 }
 
 void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
@@ -689,8 +689,6 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   lp_polynomial_hash_set_close(&pos);
   lp_polynomial_hash_set_close(&neg);
 
-  // TODO update TRACE printing here
-
   lp_polynomial_hash_set_t e_eq;
   lp_polynomial_hash_set_t e_ne;
 
@@ -711,20 +709,27 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
     explain_single(ff->lp_data, neg.data[0], &e_ne);
   }
 
+  lp_polynomial_hash_set_close(&e_eq);
+  lp_polynomial_hash_set_close(&e_ne);
+
   // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
   assert(check_assignment_cube(&e_ne, &e_eq, m));
 
+  term_manager_t *tm = ff->ctx->tm;
+
   // Add the explanation to the conflict
-  lp_polynomial_hash_set_close(&e_eq);
   for (size_t i = 0; i < e_eq.size; ++i) {
     term_t t = lp_polynomial_to_term(ff, e_eq.data[i]);
-    ivector_push(conflict, pos_term(t));
+    term_t atom = mk_arith_ff_term_eq0(tm, t);
+    ivector_push(conflict, pos_term(atom));
+    assert(good_term(tm->terms, atom) && is_pos_term(atom));
   }
 
-  lp_polynomial_hash_set_close(&e_ne);
   for (size_t i = 0; i < e_ne.size; ++i) {
     term_t t = lp_polynomial_to_term(ff, e_ne.data[i]);
-    ivector_push(conflict, neg_term(t));
+    term_t atom = mk_arith_ff_term_neq0(tm, t);
+    ivector_push(conflict, atom);
+    assert(good_term(tm->terms, atom) && is_neg_term(atom));
   }
 
   // Add the core to the conflict

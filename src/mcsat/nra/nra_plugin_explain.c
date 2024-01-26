@@ -183,7 +183,7 @@ void lp_projection_map_destruct(lp_projection_map_t* map) {
 
 static inline
 term_t lp_projection_map_polynomial_to_term(lp_projection_map_t* map, const lp_polynomial_t* p) {
-  return lp_polynomial_to_yices_term(map->lp_data, p, map->tm->terms, map->buffer);
+  return lp_polynomial_to_yices_arith_term(map->lp_data, p, map->tm->terms, map->buffer);
 }
 
 lp_polynomial_hash_set_t* lp_projection_map_get_set_of(lp_projection_map_t* map, lp_variable_t var) {
