@@ -54,14 +54,17 @@ typedef struct lp_data_s {
   int_hmap_t lp_var_to_term_map;
   /** Map from mcsat variables to libpoly variables */
   int_hmap_t term_to_lp_var_map;
+
+  /** The plugin, for printing (can be NULL) */
+  const plugin_context_t* plugin_ctx;
 } lp_data_t;
 
 
-void lp_data_init(lp_data_t *lp_data, mpz_t order);
+void lp_data_init(lp_data_t *lp_data, mpz_t order, const plugin_context_t *plugin_ctx);
 
 void lp_data_destruct(lp_data_t *lp_data);
 
-lp_data_t* lp_data_new(mpz_t order);
+lp_data_t *lp_data_new(mpz_t order, const plugin_context_t *plugin_ctx);
 
 void lp_data_delete(lp_data_t *lp_data);
 

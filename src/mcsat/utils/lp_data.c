@@ -34,7 +34,7 @@
 #include "mcsat/gc.h"
 #include "terms/terms.h"
 
-void lp_data_init(lp_data_t *lp_data, mpz_t order) {
+void lp_data_init(lp_data_t *lp_data, mpz_t order, const plugin_context_t *plugin_ctx) {
   init_int_hmap(&lp_data->term_to_lp_var_map, 0);
   init_int_hmap(&lp_data->lp_var_to_term_map, 0);
 
@@ -48,6 +48,8 @@ void lp_data_init(lp_data_t *lp_data, mpz_t order) {
   lp_data->lp_interval_assignment = lp_interval_assignment_new(lp_data->lp_var_db);
 
   scope_holder_construct(&lp_data->scope);
+
+  lp_data->plugin_ctx = plugin_ctx;
 
   // Tracing in libpoly
   if (false) {
@@ -71,9 +73,9 @@ void lp_data_destruct(lp_data_t *lp_data) {
   scope_holder_destruct(&lp_data->scope);
 }
 
-lp_data_t* lp_data_new(mpz_t order) {
+lp_data_t* lp_data_new(mpz_t order, const plugin_context_t *plugin_ctx) {
   lp_data_t *lp_data = safe_malloc(sizeof(lp_data_t));
-  lp_data_init(lp_data, order);
+  lp_data_init(lp_data, order, plugin_ctx);
   return lp_data;
 }
 

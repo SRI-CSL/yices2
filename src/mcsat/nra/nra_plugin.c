@@ -111,7 +111,7 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->feasible_set_db = feasible_set_db_new(ctx);
 
   // libpoly init
-  lp_data_init(&nra->lp_data, NULL);
+  lp_data_init(&nra->lp_data, NULL, nra->ctx);
 
   // Atoms
   ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);

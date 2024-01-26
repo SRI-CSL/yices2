@@ -265,7 +265,7 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
     if (!lp_data_is_order(ff->lp_data, order))
       longjmp(*ff->ctx->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
   } else {
-    ff->lp_data = lp_data_new(order);
+    ff->lp_data = lp_data_new(order, ff->ctx);
     ff->constraint_db = poly_constraint_db_new(ff->lp_data);
     ff->feasible_set_db = ff_feasible_set_db_new(ff->ctx, ff->lp_data);
   }
