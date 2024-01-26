@@ -915,10 +915,6 @@ void ff_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     }
   }
 
-  if (ctx_trace_enabled(ff->ctx, "ff::check_conflict")) {
-    ff_plugin_check_conflict(ff, &core);
-  }
-
   ff_plugin_explain_conflict(ff, &core, &lemma_reasons, conflict);
 
   if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {

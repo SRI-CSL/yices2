@@ -122,13 +122,13 @@ void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polyn
   // lp_polynomial_ensure_order
   // or maybe do this in polynomial_coefficient_traverse and use it here
 
-#ifdef TRACE
-  fputs("explain_single ( ", stdout);
-    lp_polynomial_print(A, stdout);
-    fputs(", ", stdout);
-    lp_assignment_print(m, stdout);
-    fputs(")\n", stdout);
-#endif
+  if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
+    ctx_trace_printf(lp_data->plugin_ctx, "explain_single ( ");
+    lp_polynomial_print(A, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, ", ");
+    lp_assignment_print(m, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, ")\n");
+  }
 
   lp_variable_t top = lp_polynomial_top_variable(A);
   assert(!lp_assignment_is_set(m, top));
@@ -136,11 +136,11 @@ void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polyn
   exclude_coefficient(A, m, top, e_ne);
   lp_polynomial_hash_set_close(e_ne);
 
-#ifdef TRACE
-  fputs("explain_single () => ", stdout);
+  if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
+    ctx_trace_printf(lp_data->plugin_ctx, "explain_single () => ");
     lp_polynomial_hash_set_print(e_ne, stdout);
-    fputc('\n', stdout);
-#endif
+    ctx_trace_printf(lp_data->plugin_ctx, "\n");
+  }
 }
 
 static inline
@@ -195,19 +195,6 @@ lp_polynomial_t** srs(const lp_polynomial_t *f, const lp_polynomial_t *g, size_t
     }
   }
   free(subres);
-
-#ifdef TRACE
-  fputs("SRS(", stdout);
-    lp_polynomial_print(f, stdout);
-    fputs(", ", stdout);
-    lp_polynomial_print(g, stdout);
-    fputs("):\n", stdout);
-    for (int i = 0; i < *count; ++i) {
-        fputc(' ', stdout);
-        lp_polynomial_print(srs[i], stdout);
-        fputc('\n', stdout);
-    }
-#endif
 
   // return sub-chain
   return srs;
@@ -306,9 +293,6 @@ explain_result_t explain_p(const lp_polynomial_t *p2,
                            lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
                            lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
                            const lp_assignment_t *m, lp_variable_t var) {
-#ifdef TRACE
-  fprintf(stdout, "explain_p()\n");
-#endif
 
   explain_result_t rslt = NOT_APPLICABLE;
   if (track_lc_branch_condition(p2, m, var, 0, M, N)) {
@@ -331,10 +315,6 @@ explain_result_t explain_pP(const lp_polynomial_t *p2,
                             lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
                             lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
                             const lp_assignment_t *m, lp_variable_t var) {
-
-#ifdef TRACE
-  fprintf(stdout, "explain_pP()\n");
-#endif
 
   lp_polynomial_t *p1 = lp_polynomial_heap_pop(F);
 
@@ -387,9 +367,6 @@ explain_result_t explain_pQ(const lp_polynomial_t *p2,
                             lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
                             const lp_assignment_t *m, lp_variable_t var) {
 
-#ifdef TRACE
-  fprintf(stdout, "explain_pQ()\n");
-#endif
   assert(!lp_polynomial_heap_is_empty(G));
 
   const lp_polynomial_t *p1 = lp_polynomial_heap_peek(G);
@@ -447,9 +424,6 @@ static
 explain_result_t explain_Q(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
                            lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
                            const lp_assignment_t *m, lp_variable_t var) {
-#ifdef TRACE
-  fprintf(stdout, "explain_Q()\n");
-#endif
 
   for (int i = 0; i < lp_polynomial_heap_size(G); ++i) {
     const lp_polynomial_t *g = lp_polynomial_heap_at(G, i);
@@ -530,23 +504,8 @@ void split_reg_ser(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
 
   explain_result_t rslt = NOT_APPLICABLE;
   do {
-#ifdef TRACE
-    fprintf(stdout, "new split_reg_ser run:\n  P: ");
-        lp_polynomial_heap_print(F, stdout);
-        fprintf(stdout, "\n  G: ");
-        lp_polynomial_heap_print(G, stdout);
-        fprintf(stdout, "\n  M: ");
-        lp_polynomial_hash_set_print(M, stdout);
-        fprintf(stdout, "\n  N: ");
-        lp_polynomial_hash_set_print(N, stdout);
-        fprintf(stdout, "\n");
-#endif
-
     assert(heap_contains_check_top_variable(F, var));
     assert(heap_contains_check_top_variable(G, var));
-#ifdef CHECKS
-    assert(!check_is_assignment_extensible_heap(F, G, m));
-#endif
 
     if (top_variable(lp_polynomial_heap_peek(F)) == var) {
       lp_polynomial_t *p2 = lp_polynomial_heap_pop(F);
@@ -615,13 +574,13 @@ void explain_multi(const lp_data_t *lp_data,
   assert(eq->size > 0 || ne->size > 0);
   assert(!e_eq->closed && !e_ne->closed);
 
-#ifdef TRACE
-  fputs("explain_multi (\n  ", stdout);
-    lp_polynomial_vector_print(eq, stdout);
-    fputs(", \n  ", stdout);
-    lp_polynomial_vector_print(ne, stdout);
-    fputs("\n)\n", stdout);
-#endif
+  if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
+    ctx_trace_printf(lp_data->plugin_ctx, "explain_multi (\n  ");
+    lp_polynomial_hash_set_print(eq, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, ", \n  ");
+    lp_polynomial_hash_set_print(ne, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, "\n)\n");
+  }
 
   const lp_polynomial_context_t *ctx =  lp_data->lp_ctx;
 
@@ -643,16 +602,16 @@ void explain_multi(const lp_data_t *lp_data,
 
   split_reg_ser(F, G, e_ne, e_eq, m, var);
 
-  lp_polynomial_hash_set_close(e_ne);
   lp_polynomial_hash_set_close(e_eq);
+  lp_polynomial_hash_set_close(e_ne);
 
-#ifdef TRACE
-  fputs("explain_multi () => \n  ", stdout);
-    lp_polynomial_hash_set_print(N, stdout);
-    fputs(", \n  ", stdout);
-    lp_polynomial_hash_set_print(M, stdout);
-    fputc('\n', stdout);
-#endif
+  if (ctx_trace_enabled(lp_data->plugin_ctx, "ff::explain")) {
+    ctx_trace_printf(lp_data->plugin_ctx, "explain_multi () => \n  ");
+    lp_polynomial_hash_set_print(e_eq, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, ", \n  ");
+    lp_polynomial_hash_set_print(e_ne, ctx_trace_out(lp_data->plugin_ctx));
+    ctx_trace_printf(lp_data->plugin_ctx, "\n");
+  }
 
   lp_polynomial_heap_delete(F);
   lp_polynomial_heap_delete(G);
@@ -785,9 +744,4 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   lp_polynomial_hash_set_destruct(&neg);
   lp_polynomial_hash_set_destruct(&e_eq);
   lp_polynomial_hash_set_destruct(&e_ne);
-}
-
-
-void ff_plugin_check_conflict(ff_plugin_t* ff, ivector_t* core) {
-  // TODO implement me
 }
