@@ -150,15 +150,26 @@ bool value_version_set_push_intersect_inverted(value_version_set_t *set, mcsat_v
 }
 
 static
-bool feasibility_int_set_pop_is_future_ts(void *set, const value_hmap_pair_t *p) {
-  uint32_t ts = ((value_version_set_t *) set)->timestamp;
-  return p->val > ts;
+bool feasibility_int_set_pop_is_future_ts(void *aux, const value_hmap_pair_t *p) {
+  value_version_set_t *set = (value_version_set_t *) aux;
+  uint32_t ts = set->timestamp;
+  if (p->val > ts) {
+    set->count--;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 static
-uint32_t feasibility_int_set_pop_map_min(void *set, const value_hmap_pair_t *p) {
-  uint32_t ts = ((value_version_set_t *) set)->timestamp;
-  return p->val > ts ? ts : p->val;
+uint32_t feasibility_int_set_pop_map_min(void *aux, const value_hmap_pair_t *p) {
+  value_version_set_t *set = (value_version_set_t *) aux;
+  uint32_t ts = set->timestamp;
+  uint32_t ret = p->val > ts ? ts : p->val;
+  if (ret >= ts) {
+    set->count++;
+  }
+  return ret;
 }
 
 void value_version_set_pop(value_version_set_t *set, size_t count) {
@@ -171,6 +182,7 @@ void value_version_set_pop(value_version_set_t *set, size_t count) {
       value_hmap_remove_records(&set->map, set, feasibility_int_set_pop_is_future_ts);
       break;
     case VALUE_SET_INTERSECTION:
+      set->count = 0;
       value_hmap_update_records(&set->map, set, feasibility_int_set_pop_map_min);
       break;
     default:

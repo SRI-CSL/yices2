@@ -277,7 +277,7 @@ void watch_list_manager_print(watch_list_manager_t* wlm, FILE* out) {
         variable_list_ref_t list_ref = list_of_lists->data[i];
         variable_t* list = watch_list_manager_get_list(wlm, list_ref);
         while (*list != variable_null) {
-          variable_db_print_variable(wlm->var_db, x, out);
+          variable_db_print_variable(wlm->var_db, *list, out);
           fprintf(out, " ");
           list ++;
         }

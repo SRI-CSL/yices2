@@ -628,6 +628,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
 
   // TODO check if gcd_simplify_zero works
   // TODO check if sorting the vectors helps
+  // TODO reduce exponents wrt field size
 
   if (ctx_trace_enabled(ff->ctx, "ff::explain")) {
     ctx_trace_printf(ff->ctx, "ff_plugin_explain_conflict()\n");
@@ -720,16 +721,16 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   // Add the explanation to the conflict
   for (size_t i = 0; i < e_eq.size; ++i) {
     term_t t = lp_polynomial_to_term(ff, e_eq.data[i]);
-    term_t atom = mk_arith_ff_term_eq0(tm, t);
-    ivector_push(conflict, pos_term(atom));
-    assert(good_term(tm->terms, atom) && is_pos_term(atom));
+    term_t atom = mk_arith_ff_term_neq0(tm, t);
+    ivector_push(conflict, atom);
+    assert(good_term(tm->terms, atom));
   }
 
   for (size_t i = 0; i < e_ne.size; ++i) {
     term_t t = lp_polynomial_to_term(ff, e_ne.data[i]);
-    term_t atom = mk_arith_ff_term_neq0(tm, t);
+    term_t atom = mk_arith_ff_term_eq0(tm, t);
     ivector_push(conflict, atom);
-    assert(good_term(tm->terms, atom) && is_neg_term(atom));
+    assert(good_term(tm->terms, atom));
   }
 
   // Add the core to the conflict

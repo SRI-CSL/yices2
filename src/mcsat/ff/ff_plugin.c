@@ -242,7 +242,6 @@ void ff_plugin_process_fully_assigned_constraint(ff_plugin_t* ff, trail_token_t*
     bool ok = prop->add_at_level(prop, cstr_var, cstr_value, cstr_level);
     (void)ok;
     assert(ok);
-    assert(cstr_level < ff->ctx->trail->decision_level);
   }
 
   if (ctx_trace_enabled(ff->ctx, "ff::evaluate")) {
@@ -445,17 +444,34 @@ void polynomial_zeros_print(const polynomial_zeros_t *zeros, FILE *out) {
   fprintf(out, "}");
 }
 
+static inline
+polynomial_zeros_t* polynomial_zeros_new(uint32_t cnt) {
+  polynomial_zeros_t *z = safe_malloc(sizeof(polynomial_zeros_t) + cnt * sizeof(lp_value_t));
+  z->size = cnt;
+  return z;
+}
+
 static
 polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
   // TODO implement Rabin root finding large bigger finite fields
   assert(lp_polynomial_is_univariate_m(polynomial, m));
   lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(polynomial, m);
+  if (lp_upolynomial_degree(upoly) == 0) {
+    if (lp_upolynomial_is_zero(upoly)) {
+      // any value is a solution
+      return NULL;
+    } else {
+      // no solutions
+      return polynomial_zeros_new(0);
+    }
+  }
+
   lp_upolynomial_factors_t *factors = lp_upolynomial_factor(upoly);
   const lp_int_ring_t *K = lp_upolynomial_factors_ring(factors);
 
   uint32_t factors_cnt = lp_upolynomial_factors_size(factors);
-  polynomial_zeros_t *result = safe_malloc(sizeof(polynomial_zeros_t) + factors_cnt * sizeof(lp_value_t));
-  result->size = 0;
+  polynomial_zeros_t *result = polynomial_zeros_new(factors_cnt);
+  uint32_t pos = 0;
 
   lp_integer_t coefficients[2];
   lp_integer_t *zero = &coefficients[0];
@@ -472,9 +488,10 @@ polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polyn
     lp_integer_neg(K, zero, zero);
     assert(upolynomial_evaluate_zero_at_integer(factor, zero));
     assert(upolynomial_evaluate_zero_at_integer(upoly, zero));
-    lp_value_t *cur_val = &result->zeros[result->size++];
+    lp_value_t *cur_val = &result->zeros[pos++];
     lp_value_construct(cur_val, LP_VALUE_INTEGER, zero);
   }
+  result->size = pos;
   lp_upolynomial_factors_destruct(factors, true);
   lp_integer_destruct(&coefficients[0]);
   lp_integer_destruct(&coefficients[1]);
@@ -506,15 +523,22 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
 
   // TODO caching
 
-  polynomial_zeros_t *zeros = ff_plugin_find_polynomial_zeros(constraint->polynomial, m);
-  if (ctx_trace_enabled(ff->ctx, "ff::find_zeros")) {
+  if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
     ctx_trace_printf(ff->ctx, "ff: solutions of ");
     lp_polynomial_print(constraint->polynomial, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n\t wrt ");
     lp_assignment_print(m, ctx_trace_out(ff->ctx));
-    ctx_trace_printf(ff->ctx, "\n\t is ");
-    polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n");
+  }
+  polynomial_zeros_t *zeros = ff_plugin_find_polynomial_zeros(constraint->polynomial, m);
+  if (ctx_trace_enabled(ff->ctx, "ff::find_zeros")) {
+    if (zeros != NULL) {
+      ctx_trace_printf(ff->ctx, "\t is ");
+      polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
+      ctx_trace_printf(ff->ctx, "\n");
+    } else {
+      ctx_trace_printf(ff->ctx, "\t is F\n");
+    }
   }
   return zeros;
 }
@@ -543,11 +567,24 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
 
     if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
       ctx_trace_printf(ff->ctx, "ff: constraint_feasible = ");
-      if (is_negated) {
-        ctx_trace_printf(ff->ctx, "all values but ");
+      if (zeros != NULL) {
+        if (is_negated) {
+          ctx_trace_printf(ff->ctx, "all values but ");
+        }
+        polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
+        ctx_trace_printf(ff->ctx, "\n");
+      } else {
+        if (is_negated) {
+          ctx_trace_printf(ff->ctx, "no values\n");
+        } else {
+          ctx_trace_printf(ff->ctx, "all values\n");
+        }
       }
-      polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
-      ctx_trace_printf(ff->ctx, "\n");
+    }
+
+    if (zeros == NULL) {
+      zeros = polynomial_zeros_new(0);
+      is_negated = !is_negated;
     }
 
     ff_feasible_set_status_t status = ff_feasible_set_db_update(ff->feasible_set_db, x, zeros->zeros, zeros->size, is_negated, &constraint_var, 1);
@@ -705,10 +742,16 @@ bool ff_plugin_check_assignment(ff_plugin_t* ff) {
   }
 #endif
 
-  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
   const mcsat_trail_t* trail = ff->ctx->trail;
   const variable_db_t* var_db = ff->ctx->var_db;
   const lp_data_t* lp_data = ff->lp_data;
+
+  if (lp_data == NULL) {
+    // there's nothing to check
+    return true;
+  }
+
+  assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
   // Go through the trail and check if all assigned are in lp_assignment
   uint32_t i;
@@ -998,6 +1041,10 @@ static
 void ff_plugin_push(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
+  if (ff->lp_data == NULL) {
+    return;
+  }
+
   assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
   scope_holder_push(&ff->scope,
@@ -1012,6 +1059,10 @@ void ff_plugin_push(plugin_t* plugin) {
 static
 void ff_plugin_pop(plugin_t* plugin) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
+
+  if (ff->lp_data == NULL) {
+    return;
+  }
 
   assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 

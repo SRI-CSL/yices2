@@ -194,15 +194,19 @@ bool poly_constraint_evaluate(const poly_constraint_t* cstr, lp_data_t *lp_data,
   assert(poly_constraint_ok(cstr));
 
   // Evaluate
-  if (poly_constraint_is_root_constraint(cstr)) {
-    if (cstr->x != lp_polynomial_top_variable(cstr->polynomial)) {
-      // if not top, ignore
-      return false;
+  if (lp_data_get_ring(lp_data) == lp_Z) {
+    if (poly_constraint_is_root_constraint(cstr)) {
+      if (cstr->x != lp_polynomial_top_variable(cstr->polynomial)) {
+        // if not top, ignore
+        return false;
+      } else {
+        *value_out = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, lp_data->lp_assignment);
+      }
     } else {
-      *value_out = lp_polynomial_root_constraint_evaluate(cstr->polynomial, cstr->root_index, cstr->sgn_condition, lp_data->lp_assignment);
+      *value_out = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, lp_data->lp_assignment);
     }
   } else {
-    *value_out = lp_polynomial_constraint_evaluate(cstr->polynomial, cstr->sgn_condition, lp_data->lp_assignment);
+    *value_out = lp_polynomial_constraint_evaluate_Zp(cstr->polynomial, cstr->sgn_condition, lp_data->lp_assignment);
   }
 
   return true;
