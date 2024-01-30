@@ -661,8 +661,6 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   const mcsat_trail_t* trail = ff->ctx->trail;
   variable_db_t* var_db = ff->ctx->var_db;
 
-  // TODO check if gcd_simplify_zero works
-
   if (ctx_trace_enabled(ff->ctx, "ff::explain")) {
     ctx_trace_printf(ff->ctx, "ff_plugin_explain_conflict()\n");
     uint32_t i;
