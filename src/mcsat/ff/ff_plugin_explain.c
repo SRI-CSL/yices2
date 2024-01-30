@@ -71,6 +71,75 @@ bool check_assignment_cube(const lp_polynomial_hash_set_t *eq, const lp_polynomi
 }
 #endif
 
+static inline
+size_t polynomial_degree_safe(const lp_polynomial_t *A, lp_variable_t v) {
+  return lp_polynomial_top_variable(A) == v ? lp_polynomial_degree(A) : 0;
+}
+
+/** Gets (a new instance of) the lc(p). Assumes that top(p) <= var. */
+static
+lp_polynomial_t* lc(const lp_polynomial_t *p, lp_variable_t var) {
+  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(p);
+  size_t d = polynomial_degree_safe(p, var);
+  if (d == 0) {
+    return lp_polynomial_new_copy(p);
+  }
+  lp_polynomial_t *lc = lp_polynomial_new(ctx);
+  lp_polynomial_get_coefficient(lc, p, d);
+  return lc;
+}
+
+static inline
+lp_polynomial_t* red(const lp_polynomial_t *p, lp_variable_t var) {
+  assert(lp_polynomial_top_variable(p) == var);
+  (void)var;
+  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(p);
+  lp_polynomial_t *red = lp_polynomial_new(ctx);
+  lp_polynomial_reductum(red, p);
+  return red;
+}
+
+static inline
+lp_polynomial_t* pquo(const lp_polynomial_t *A, const lp_polynomial_t *B, lp_variable_t var) {
+  assert(lp_polynomial_top_variable(A) == var);
+  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(A);
+  lp_polynomial_t *quo = lp_polynomial_new(ctx);
+  lp_polynomial_t *rem = lp_polynomial_new(ctx);
+  lp_polynomial_pdivrem(quo, rem, A, B);
+  lp_polynomial_delete(rem);
+  return quo;
+}
+
+static inline
+int polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
+  assert(lp_polynomial_is_assigned(A, m));
+
+  lp_integer_t val;
+  lp_integer_construct(&val);
+  lp_polynomial_evaluate_integer(A, m, &val);
+  int ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val);
+  lp_integer_destruct(&val);
+  return ret;
+}
+
+static inline
+int polynomial_is_assigned_and_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
+  return lp_polynomial_is_assigned(p, m) && polynomial_is_zero_m(p, m);
+}
+
+static inline
+int polynomial_is_assigned_and_non_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
+  return lp_polynomial_is_assigned(p, m) && !polynomial_is_zero_m(p, m);
+}
+
+static inline
+int polynomial_lc_is_assigned_and_non_zero(const lp_polynomial_t *p, lp_variable_t var, const lp_assignment_t *m) {
+  lp_polynomial_t *p_lc = lc(p, var);
+  int rslt = polynomial_is_assigned_and_non_zero(p_lc, m);
+  lp_polynomial_delete(p_lc);
+  return rslt;
+}
+
 static
 void exclude_coefficient(const lp_polynomial_t *A, const lp_assignment_t *m, lp_variable_t var, lp_polynomial_hash_set_t *result) {
   const lp_polynomial_context_t *ctx = lp_polynomial_get_context(A);
@@ -153,11 +222,6 @@ int heap_contains_check_top_variable(const lp_polynomial_heap_t *heap, lp_variab
   return 1;
 }
 
-static inline
-size_t polynomial_degree_safe(const lp_polynomial_t *A, lp_variable_t v) {
-  return lp_polynomial_top_variable(A) == v ? lp_polynomial_degree(A) : 0;
-}
-
 static
 lp_polynomial_t** srs(const lp_polynomial_t *f, const lp_polynomial_t *g, size_t *count) {
   assert(lp_polynomial_context_equal(lp_polynomial_get_context(f), lp_polynomial_get_context(g)));
@@ -198,70 +262,6 @@ lp_polynomial_t** srs(const lp_polynomial_t *f, const lp_polynomial_t *g, size_t
 
   // return sub-chain
   return srs;
-}
-
-/** Gets (a new instance of) the lc(p). Assumes that top(p) <= var. */
-static
-lp_polynomial_t* lc(const lp_polynomial_t *p, lp_variable_t var) {
-  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(p);
-  size_t d = polynomial_degree_safe(p, var);
-  if (d == 0) {
-    return lp_polynomial_new_copy(p);
-  }
-  lp_polynomial_t *lc = lp_polynomial_new(ctx);
-  lp_polynomial_get_coefficient(lc, p, d);
-  return lc;
-}
-
-static inline
-int polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
-  assert(lp_polynomial_is_assigned(A, m));
-
-  lp_integer_t val;
-  lp_integer_construct(&val);
-  lp_polynomial_evaluate_integer(A, m, &val);
-  int ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val);
-  lp_integer_destruct(&val);
-  return ret;
-}
-
-static inline
-int polynomial_is_assigned_and_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
-  return lp_polynomial_is_assigned(p, m) && polynomial_is_zero_m(p, m);
-}
-
-static inline
-int polynomial_is_assigned_and_non_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
-  return lp_polynomial_is_assigned(p, m) && !polynomial_is_zero_m(p, m);
-}
-
-static inline
-int polynomial_lc_is_assigned_and_non_zero(const lp_polynomial_t *p, lp_variable_t var, const lp_assignment_t *m) {
-  lp_polynomial_t *p_lc = lc(p, var);
-  int rslt = polynomial_is_assigned_and_non_zero(p_lc, m);
-  lp_polynomial_delete(p_lc);
-  return rslt;
-}
-
-static inline
-lp_polynomial_t* red(const lp_polynomial_t *p, lp_variable_t var) {
-  assert(lp_polynomial_top_variable(p) == var);
-  (void)var;
-  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(p);
-  lp_polynomial_t *red = lp_polynomial_new(ctx);
-  lp_polynomial_reductum(red, p);
-  return red;
-}
-
-static inline
-lp_polynomial_t* pquo(const lp_polynomial_t *A, const lp_polynomial_t *B, lp_variable_t var) {
-  assert(lp_polynomial_top_variable(A) == var);
-  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(A);
-  lp_polynomial_t *quo = lp_polynomial_new(ctx);
-  lp_polynomial_t *rem = lp_polynomial_new(ctx);
-  lp_polynomial_pdivrem(quo, rem, A, B);
-  lp_polynomial_delete(rem);
-  return quo;
 }
 
 /** Checks the lc of p wrt. to var, checks if the variable is neq_zero and adds it to the correct side-condition set (M or N) */
@@ -369,10 +369,12 @@ explain_result_t explain_pQ(const lp_polynomial_t *p2,
 
   assert(!lp_polynomial_heap_is_empty(G));
 
-  const lp_polynomial_t *p1 = lp_polynomial_heap_peek(G);
+  const lp_polynomial_t *q = lp_polynomial_heap_peek(G);
+
+  assert(lp_polynomial_degree(q) >= lp_polynomial_degree(p2) || polynomial_lc_is_assigned_and_non_zero(q, var, m));
 
   size_t r;
-  lp_polynomial_t **h = srs(p1, p2, &r);
+  lp_polynomial_t **h = srs(q, p2, &r);
 
   explain_result_t ret = NOT_APPLICABLE;
   for (size_t i = 0; i < r; i++) {
@@ -397,7 +399,7 @@ explain_result_t explain_pQ(const lp_polynomial_t *p2,
   }
 
   // (ret == NOT_APPLICABLE): all lc are zero for m
-  // I don't think this should happen (ret == NOT_APPLICABLE) // TODO check it
+  // TODO it can happen: fix this
 
   cleanup:
   for (int j = 0; j < r; ++j) {
@@ -709,6 +711,8 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   } else if (cnt_neg == 1) {
     explain_single(ff->lp_data, neg.data[0], &e_ne);
   }
+
+  // TODO normalize terms (3*x != 0 --> x != 0), (-6x^2 != 0 --> x != 0), factor terms/
 
   lp_polynomial_hash_set_close(&e_eq);
   lp_polynomial_hash_set_close(&e_ne);
