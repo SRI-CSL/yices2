@@ -624,13 +624,44 @@ term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
   return lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
 }
 
+static
+void clean_poly(lp_polynomial_t *poly) {
+  const lp_polynomial_context_t *ctx = lp_polynomial_get_context(poly);
+
+  // reduce exponents
+  lp_polynomial_reduce_degree_Zp(poly, poly);
+
+  // set constant of lc to 1
+  lp_integer_t lcc;
+  lp_integer_construct(&lcc);
+  lp_polynomial_lc_constant(poly, &lcc);
+  lp_polynomial_t *c = lp_polynomial_alloc();
+  lp_polynomial_construct_simple(c, lp_polynomial_get_context(poly), &lcc, 0, 0);
+  lp_polynomial_div(poly, poly, c);
+  lp_polynomial_delete(c);
+  lp_integer_destruct(&lcc);
+
+  // in case polynomial is only monomial, reduce exponents to 1
+
+  if (lp_polynomial_is_monomial(poly)) {
+    lp_monomial_t m;
+    lp_monomial_construct(ctx, &m);
+    lp_polynomial_to_monomial(poly, &m);
+    for (int i = 0; i < m.n; ++i) {
+      (m.p + i)->d = 1;
+    }
+    lp_polynomial_t *p = lp_polynomial_new(ctx);
+    lp_polynomial_add_monomial(p, &m);
+    lp_polynomial_swap(p, poly);
+    lp_polynomial_delete(p);
+  }
+}
+
 void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
   const mcsat_trail_t* trail = ff->ctx->trail;
   variable_db_t* var_db = ff->ctx->var_db;
 
   // TODO check if gcd_simplify_zero works
-  // TODO check if sorting the vectors helps
-  // TODO reduce exponents wrt field size
 
   if (ctx_trace_enabled(ff->ctx, "ff::explain")) {
     ctx_trace_printf(ff->ctx, "ff_plugin_explain_conflict()\n");
@@ -712,10 +743,18 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
     explain_single(ff->lp_data, neg.data[0], &e_ne);
   }
 
-  // TODO normalize terms (3*x != 0 --> x != 0), (-6x^2 != 0 --> x != 0), factor terms/
-
   lp_polynomial_hash_set_close(&e_eq);
   lp_polynomial_hash_set_close(&e_ne);
+
+  for (size_t i = 0; i < e_ne.size; ++i) {
+    clean_poly(e_ne.data[i]);
+  }
+
+  for (size_t i = 0; i < e_eq.size; ++i) {
+    clean_poly(e_eq.data[i]);
+  }
+
+  // TODO check what happens if we push the same polynomial twice (if not detected, manually remove duplicates)
 
   // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
   assert(check_assignment_cube(&e_ne, &e_eq, m));
