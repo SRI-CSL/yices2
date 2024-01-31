@@ -379,7 +379,7 @@ static value_hmap_pair_t *value_hmap_get_next(const value_hmap_t *hmap, value_hm
 
   end = hmap->data + hmap->size;
   while (p < end) {
-    if (p->key != VALUE_HMAP_EMPTY_KEY) return p;
+    if (value_hmap_valid_key(p->key)) return p;
     p ++;
   }
 
@@ -448,7 +448,7 @@ void value_hmap_update_records(value_hmap_t *hmap, void *aux, value_hmap_map_t f
   n = hmap->size;
   d = hmap->data;
   for (i=0; i<n; i++) {
-    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+    if (value_hmap_valid_key(d->key)) {
       d->val = (int32_t) f(aux, d);
     }
     d ++;
@@ -466,7 +466,7 @@ void value_hmap_iterate(value_hmap_t *hmap, void *aux, value_hmap_iterator_t f) 
   n = hmap->size;
   d = hmap->data;
   for (i=0; i<n; i++) {
-    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+    if (value_hmap_valid_key(d->key)) {
       f(aux, d);
     }
     d ++;

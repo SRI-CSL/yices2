@@ -193,7 +193,7 @@ void feasibility_int_set_print_at(const feasibility_int_set_t *set, uint32_t tim
     value_version_set_print_at(set->values, timestamp - ts_invert, out);
   }
 
-  // TODO
+  // TODO debug printing
   (void)print_reasons;
 //  if (reasons_size > 1) {
 //    fprintf(out, "\t\tDue to lemma\n");
@@ -550,7 +550,6 @@ void ff_feasible_set_db_gc_mark(ff_feasible_set_db_t* db, gc_info_t* gc_vars) {
   assert(db->ctx->trail->decision_level == db->ctx->trail->decision_level_base);
 
   if (gc_vars->level == 0) {
-    // We keep all the reasons (start from 1, 0 is not used)
     ptr_hmap_t *hmap = &db->sets;
     for (ptr_hmap_pair_t *p = ptr_hmap_first_record(hmap);
          p != NULL;

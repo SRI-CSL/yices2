@@ -649,7 +649,7 @@ void ff_plugin_process_variable_assignment(ff_plugin_t* ff, trail_token_t* prop,
   lp_data_add_to_model_and_context(ff->lp_data, lp_data_get_lp_variable_from_term(ff->lp_data, t), &trail_get_value(trail, var)->lp_value);
 
   if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
-    ctx_trace_printf(ff->ctx, "ff: var order :");
+    ctx_trace_printf(ff->ctx, "ff: var order: ");
     lp_data_variable_order_print(ff->lp_data, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n");
   }
@@ -1113,18 +1113,14 @@ static
 void ff_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
 
-  // for now, don't sweep TODO enable sweeping
-  (void)ff; (void)gc_vars;
-  return;
+  constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
+  watch_list_manager_gc_sweep_lists(&ff->wlm, gc_vars);
 
   if (ff->lp_data) {
     lp_data_gc_sweep(ff->lp_data, gc_vars);
     assert(ff->constraint_db);
     poly_constraint_db_gc_sweep(ff->constraint_db, ff->ctx, gc_vars);
   }
-  constraint_unit_info_gc_sweep(&ff->unit_info, gc_vars);
-  watch_list_manager_gc_sweep_lists(&ff->wlm, gc_vars);
-
   // TODO add further?
 }
 
