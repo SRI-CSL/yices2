@@ -45,6 +45,8 @@ typedef struct {
   ivector_t reasons;
   /** Sizes of the reasons. Length is sum of timestamps of both sets. */
   ivector_t reasons_sizes;
+  /** Primitive conflict core minimization, true when the last reason had no zeros */
+  bool last_reason_unsat;
 } feasibility_int_set_t;
 
 struct ff_feasible_set_db_struct {
@@ -84,6 +86,7 @@ feasibility_int_set_t* feasibility_int_set_new(void) {
   set->values = value_version_set_new(VALUE_SET_INTERSECTION);
   init_ivector(&set->reasons, 0);
   init_ivector(&set->reasons_sizes, 0);
+  set->last_reason_unsat = false;
   return set;
 }
 
@@ -119,6 +122,7 @@ void feasibility_int_set_pop(feasibility_int_set_t *set, size_t cnt) {
       ivector_pop(&set->reasons);
     }
   }
+  set->last_reason_unsat = false;
 }
 
 static inline
@@ -213,6 +217,9 @@ static
 bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t *set, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count) {
   bool modified;
 
+  assert(feasibility_int_set_count_approx(set, db->K) > 0);
+  set->last_reason_unsat = false;
+
   // create mcsat_values to be used in the set
   mcsat_value_t *tmp = safe_malloc(new_set_size * sizeof(mcsat_value_t));
   for (int i = 0; i < new_set_size; ++i) {
@@ -231,6 +238,7 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
       int cmp = lp_integer_cmp_int(lp_Z, &db->K->M, value_version_set_count(set->values) + value_version_set_count(set->values_inverted));
       assert(cmp >= 0);
       modified = cmp != 0;
+      set->last_reason_unsat = (new_set_size == 0);
     }
   } else {
     if (inverted) {
@@ -239,6 +247,7 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
     } else {
       // push all of new_set
       modified = value_version_set_push(set->values, tmp, new_set_size);
+      set->last_reason_unsat = (new_set_size == 0);
     }
   }
 
@@ -258,6 +267,9 @@ bool feasibility_int_set_update(ff_feasible_set_db_t* db, feasibility_int_set_t 
     // add empty entry
     ivector_push(&set->reasons_sizes, 0);
   }
+
+  assert(!set->last_reason_unsat || feasibility_int_set_count_approx(set, db->K) == 0);
+  assert(!set->last_reason_unsat || ivector_last(&set->reasons_sizes) == 1);
 
   return modified;
 }
@@ -450,7 +462,7 @@ bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x,
 }
 
 void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
-  // we don't do any conflict core minimization yet
+  // we only do a very trivial conflict core minimization yet
 
   if (ctx_trace_enabled(db->ctx, "ff::feasible_set_db")) {
     ctx_trace_printf(db->ctx, "get_reasons of: ");
@@ -464,6 +476,12 @@ void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, var
     return;
   }
   feasibility_int_set_t *set = found->val;
+
+  if (set->last_reason_unsat) {
+    assert(ivector_last(&set->reasons_sizes) == 1);
+    ivector_push(reasons_out, ivector_last(&set->reasons));
+    return;
+  }
 
   // collect indices
   size_t offset = 0;
