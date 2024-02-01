@@ -18,6 +18,8 @@
 
 #include <poly/poly.h>
 #include <poly/polynomial.h>
+#include <poly/upolynomial.h>
+#include <poly/upolynomial_factors.h>
 #include <poly/polynomial_heap.h>
 #include <poly/polynomial_hash_set.h>
 
@@ -625,6 +627,61 @@ term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
 }
 
 static
+lp_polynomial_t* irreducible_factors(const lp_polynomial_hash_set_t *polys, const lp_assignment_t *m) {
+  assert(polys->closed);
+
+  lp_polynomial_hash_set_t *factors = NULL;
+
+  for (int i = 0; i < polys->size; ++i) {
+    lp_polynomial_hash_set_t *new_factors = lp_polynomial_hash_set_new();
+    lp_polynomial_t *poly = polys->data[i];
+    lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(poly, m);
+    if (lp_upolynomial_degree(upoly) == 0) {
+      lp_upolynomial_delete(upoly);
+      continue;
+    }
+    lp_upolynomial_factors_t *upoly_factors = lp_upolynomial_factor(upoly);
+    lp_upolynomial_delete(upoly);
+    for (int j = 0; j < lp_upolynomial_factors_size(upoly_factors); ++j) {
+      size_t multiplicity;
+      lp_upolynomial_t *f = lp_upolynomial_factors_get_factor(upoly_factors, j, &multiplicity);
+      if (lp_upolynomial_degree(f) == 1) {
+        continue;
+      }
+      lp_polynomial_t *fp = lp_upolynomial_to_polynomial(f, lp_polynomial_get_context(poly), lp_polynomial_top_variable(poly));
+      lp_polynomial_hash_set_insert_move(new_factors, fp);
+      lp_polynomial_delete(fp);
+    }
+    lp_upolynomial_factors_destruct(upoly_factors, true);
+    if (factors == NULL) {
+      factors = new_factors;
+    } else {
+      lp_polynomial_hash_set_intersect(factors, new_factors);
+      lp_polynomial_hash_set_delete(new_factors);
+    }
+  }
+
+  if (!factors) {
+    return NULL;
+  }
+
+  lp_polynomial_t *result;
+  lp_polynomial_hash_set_close(factors);
+  if (factors->size == 0) {
+    result = NULL;
+  } else {
+    result = lp_polynomial_alloc();
+    lp_polynomial_construct_copy(result, factors->data[0]);
+    for (size_t i = 1; i < factors->size; ++i) {
+      lp_polynomial_mul(result, result, factors->data[i]);
+    }
+  }
+
+  lp_polynomial_hash_set_delete(factors);
+  return result;
+}
+
+static
 void clean_poly(lp_polynomial_t *poly) {
   const lp_polynomial_context_t *ctx = lp_polynomial_get_context(poly);
 
@@ -660,6 +717,7 @@ void clean_poly(lp_polynomial_t *poly) {
 void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
   const mcsat_trail_t* trail = ff->ctx->trail;
   variable_db_t* var_db = ff->ctx->var_db;
+  lp_assignment_t *m = ff->lp_data->lp_assignment;
 
   if (ctx_trace_enabled(ff->ctx, "ff::explain")) {
     ctx_trace_printf(ff->ctx, "ff_plugin_explain_conflict()\n");
@@ -719,6 +777,12 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   assert(lemma_reasons->size == 0);
 
   lp_polynomial_hash_set_close(&pos);
+#if 0
+  lp_polynomial_t *irr = irreducible_factors(&pos, m);
+  if (irr) {
+    lp_polynomial_hash_set_insert_move(&neg, irr);
+  }
+#endif
   lp_polynomial_hash_set_close(&neg);
 
   lp_polynomial_hash_set_t e_eq;
@@ -730,8 +794,6 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   size_t cnt_pos = lp_polynomial_hash_set_size(&pos);
   size_t cnt_neg = lp_polynomial_hash_set_size(&neg);
   assert(cnt_pos + cnt_neg > 0);
-
-  lp_assignment_t *m = ff->lp_data->lp_assignment;
 
   if (cnt_pos + cnt_neg > 1) {
     explain_multi(ff->lp_data, &pos, &neg, &e_eq, &e_ne);
@@ -751,8 +813,6 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   for (size_t i = 0; i < e_eq.size; ++i) {
     clean_poly(e_eq.data[i]);
   }
-
-  // TODO check what happens if we push the same polynomial twice (if not detected, manually remove duplicates)
 
   // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
   assert(check_assignment_cube(&e_ne, &e_eq, m));
