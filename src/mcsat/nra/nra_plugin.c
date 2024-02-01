@@ -1831,7 +1831,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // The constraint database
   poly_constraint_db_gc_sweep(nra->constraint_db, nra->ctx, gc_vars);
 
-  // The lp_data mappings:
+  // The lp_data mappings
   lp_data_gc_sweep(&nra->lp_data, gc_vars);
 
   // Evaluation cache

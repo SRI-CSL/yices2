@@ -164,10 +164,61 @@ const lp_int_ring_t* lp_data_get_ring(const lp_data_t *lp_data) {
   return lp_data->lp_ctx->K;
 }
 
+#ifndef NDEBUG
+static
+bool lp_data_check_consistency(lp_data_t *lp_data) {
+  if (lp_data->term_to_lp_var_map.size != lp_data->lp_var_to_term_map.size) {
+    return false;
+  }
+
+  int_hmap_t *objs = &lp_data->term_to_lp_var_map;
+  int_hmap_pair_t* it = int_hmap_first_record(objs);
+  for (; it != NULL; it = int_hmap_next_record(objs, it)) {
+    int_hmap_pair_t *p = int_hmap_get(&lp_data->lp_var_to_term_map, it->val);
+    if (p == NULL || p->val != it->key) {
+      return false;
+    }
+  }
+
+  return true;
+}
+#endif
+
 void lp_data_gc_sweep(lp_data_t *lp_data, const gc_info_t *gc_vars) {
   // - lp_data.lp_var_to_term_map (values)
   // - lp_data.term_to_lp_var_map (keys)
-  // TODO keep terms that are associated with variables that are still in use.
-//  gc_info_sweep_int_hmap_values(gc_vars, &lp_data->lp_var_to_term_map);
-//  gc_info_sweep_int_hmap_keys(gc_vars, &lp_data->term_to_lp_var_map);
+
+  const variable_db_t *var_db = lp_data->plugin_ctx->var_db;
+
+  assert(lp_data_check_consistency(lp_data));
+
+  // New map
+  int_hmap_t new_objs_t2lv, new_objs_lv2t, *objs = &lp_data->term_to_lp_var_map;
+  init_int_hmap(&new_objs_t2lv, 0);
+  init_int_hmap(&new_objs_lv2t, 0);
+
+  // Relocate
+  int_hmap_pair_t* it = int_hmap_first_record(objs);
+  for (; it != NULL; it = int_hmap_next_record(objs, it)) {
+    term_t old_term = it->key;
+    variable_t old_var = variable_db_get_variable_if_exists(var_db, old_term);
+    if (old_var == variable_null) {
+      // the term doesn't have a variable assigned anymore, there is no need to keep it's lp_var
+      continue;
+    }
+    variable_t new_var = gc_info_get_reloc(gc_vars, old_var);
+    if (new_var != gc_vars->null_value) {
+      term_t new_term = variable_db_get_term(var_db, new_var);
+      int_hmap_add(&new_objs_t2lv, new_term, it->val);
+      int_hmap_add(&new_objs_lv2t, it->val, new_term);
+    }
+  }
+
+  // Destroy and swap in
+  delete_int_hmap(&lp_data->term_to_lp_var_map);
+  delete_int_hmap(&lp_data->lp_var_to_term_map);
+  lp_data->term_to_lp_var_map = new_objs_t2lv;
+  lp_data->lp_var_to_term_map = new_objs_lv2t;
+
+  assert(lp_data_check_consistency(lp_data));
 }

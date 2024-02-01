@@ -1121,7 +1121,6 @@ void ff_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
     assert(ff->constraint_db);
     poly_constraint_db_gc_sweep(ff->constraint_db, ff->ctx, gc_vars);
   }
-  // TODO add further?
 }
 
 static
