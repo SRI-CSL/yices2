@@ -37,9 +37,8 @@ void explain_multi(const lp_data_t *lp_data,
                    lp_polynomial_hash_set_t *eq, lp_polynomial_hash_set_t *ne,
                    lp_polynomial_hash_set_t *e_eq, lp_polynomial_hash_set_t *e_ne);
 
-#ifndef NDEBUG
 static
-bool check_assignment_poly(const lp_polynomial_t *p, const lp_assignment_t *m) {
+bool poly_is_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
   assert(lp_polynomial_is_assigned(p, m));
   lp_integer_t val;
   lp_integer_construct(&val);
@@ -49,11 +48,12 @@ bool check_assignment_poly(const lp_polynomial_t *p, const lp_assignment_t *m) {
   return is_zero;
 }
 
+#ifndef NDEBUG
 static
 bool check_hash_set_all(const lp_polynomial_hash_set_t *v, const lp_assignment_t *m, bool negated) {
   assert(v->closed);
   for (int i = 0; i < v->size; ++i) {
-    bool is_zero = check_assignment_poly(v->data[i], m);
+    bool is_zero = poly_is_zero(v->data[i], m);
     if (!is_zero == !negated) {
       return false;
     }
@@ -626,6 +626,7 @@ term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
   return lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
 }
 
+#ifdef EXCLUDE_IRREDUCIBLE_FACTORS
 static
 lp_polynomial_t* irreducible_factors(const lp_polynomial_hash_set_t *polys, const lp_assignment_t *m) {
   assert(polys->closed);
@@ -680,6 +681,7 @@ lp_polynomial_t* irreducible_factors(const lp_polynomial_hash_set_t *polys, cons
   lp_polynomial_hash_set_delete(factors);
   return result;
 }
+#endif
 
 static
 void clean_poly(lp_polynomial_t *poly) {
@@ -701,14 +703,14 @@ void clean_poly(lp_polynomial_t *poly) {
   // in case polynomial is only monomial, reduce exponents to 1
 
   if (lp_polynomial_is_monomial(poly)) {
-    lp_monomial_t m;
-    lp_monomial_construct(ctx, &m);
-    lp_polynomial_to_monomial(poly, &m);
-    for (int i = 0; i < m.n; ++i) {
-      (m.p + i)->d = 1;
+    lp_monomial_t mono;
+    lp_monomial_construct(ctx, &mono);
+    lp_polynomial_to_monomial(poly, &mono);
+    for (int i = 0; i < mono.n; ++i) {
+      (mono.p + i)->d = 1;
     }
     lp_polynomial_t *p = lp_polynomial_new(ctx);
-    lp_polynomial_add_monomial(p, &m);
+    lp_polynomial_add_monomial(p, &mono);
     lp_polynomial_swap(p, poly);
     lp_polynomial_delete(p);
   }
@@ -777,7 +779,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   assert(lemma_reasons->size == 0);
 
   lp_polynomial_hash_set_close(&pos);
-#if 0
+#ifdef EXCLUDE_IRREDUCIBLE_FACTORS
   lp_polynomial_t *irr = irreducible_factors(&pos, m);
   if (irr) {
     lp_polynomial_hash_set_insert_move(&neg, irr);
