@@ -1172,9 +1172,11 @@ static smt2_symbol_t string_to_ff_constant(const char *s, uint32_t n) {
 
   sym = SMT2_SYM_UNKNOWN;
   if (n >= 3 && s[0] == 'f' && s[1] == 'f') {
-    for (i=2; i<n; i++) {
-      if (!isdigit((int) s[i])) {
-        goto done; // not of the form bv<digits>
+    // could be a negative number
+    i = (n >= 4 && s[2] == '-') ? 3 : 2;
+    while (i<n) {
+      if (!isdigit((int) s[i++])) {
+        goto done; // not of the form ff<digits>
       }
     }
     sym = SMT2_SYM_FF_CONSTANT;

@@ -5597,7 +5597,7 @@ static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   q_init(&mod);
 
   q_set(&val, &f->val.rational);
-  if (! q_is_integer(&val) || ! q_is_nonneg(&val)) {
+  if (! q_is_integer(&val)) {
     raise_exception(stack, f, TSTACK_INVALID_FFCONSTANT);
   }
 
