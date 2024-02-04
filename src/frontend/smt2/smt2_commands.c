@@ -3739,9 +3739,9 @@ static model_t *get_model(smt2_globals_t *g) {
       } else if (g->trivially_unsat) {
         print_error("the context is unsatisfiable");
       } else {
-	// g->model should be not be NULL
-	assert(g->trivially_sat);
-	freport_bug(__smt2_globals.err, "get-model");
+        // g->model should be not NULL
+        assert(g->trivially_sat);
+        freport_bug(__smt2_globals.err, "get-model");
       }
 
     } else {

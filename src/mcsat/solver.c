@@ -2826,7 +2826,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
     term_kind_t x_kind = term_kind(mcsat->terms, x_term);
 
     if (x_kind == UNINTERPRETED_TERM &&
-	term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
+        term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "var = ");
@@ -2845,7 +2845,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
 
-      // Setup the yices value
+      // Set up the yices value
       value_t x_value = mcsat_value_to_value(x_value_mcsat, mcsat->types, x_type, vtbl);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
