@@ -32,7 +32,7 @@
 #include <stdint.h>
 
 /*
- * Maximal number of types or terms
+ * Maximal number of types or terms.
  */
 #define YICES_MAX_TYPES (UINT32_MAX/8)
 #define YICES_MAX_TERMS (UINT32_MAX/8)

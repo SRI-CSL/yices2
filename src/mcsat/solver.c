@@ -2038,8 +2038,6 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (trace_enabled(trace, "mcsat::conflict::check")) {
     // Don't check bool conflicts: they are implied by the formula (clauses)
     if (plugin_i != mcsat->bool_plugin_id) {
-      static int conflict_count = 0;
-      conflict_count ++;
       conflict_check(&conflict);
     }
   }
@@ -2345,8 +2343,8 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
     // If there is an order that was passed in, try that
     if (var == variable_null) {
-      const ivector_t* order = mcsat->ctx->mcsat_options.var_order;
-      if (order != NULL) {
+      const ivector_t* order = &mcsat->ctx->mcsat_var_order;
+      if (order->size > 0) {
         uint32_t i;
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
@@ -2556,6 +2554,7 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     assert(x_value >= 0);
     trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
     mcsat_value_destruct(&value);
+    mcsat_process_registeration_queue(mcsat);
   }
 
   mcsat_pop(mcsat);
@@ -2616,7 +2615,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   // Remember existing terms
-  mcsat->terms_size_on_solver_entry = mcsat->terms->nelems;
+  mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
   mcsat_heuristics_init(mcsat);

@@ -866,6 +866,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   clause_db_t* db = &bp->clause_db;
+  const mcsat_trail_t* trail = bp->ctx->trail;
 
   uint32_t i;
   float act_threshold;
@@ -910,8 +911,11 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size <= 2) {
-	gc_info_mark(&bp->gc_clauses, clause_ref);
+      if (c->size == 2) {
+        if (!literal_is_true(c->literals[0], trail) &&
+            !literal_is_true(c->literals[1], trail)) {
+          gc_info_mark(&bp->gc_clauses, clause_ref);
+        }
       }
     }
   }
@@ -1003,7 +1007,7 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   switch (kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
-    bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
+    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed

@@ -42,8 +42,7 @@ runs:
       shell: bash
       run: |
         autoconf
-        #CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
-        ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
+        CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
         # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make MODE=${{ inputs.mode }}

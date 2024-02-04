@@ -281,6 +281,7 @@ core_src_c := \
 	utils/generic_heap.c \
 	utils/hash_functions.c \
 	utils/index_vectors.c \
+	utils/indexed_table.c \
 	utils/int_array_hsets.c \
 	utils/int_array_sort2.c \
 	utils/int_array_sort.c \

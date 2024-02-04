@@ -2663,11 +2663,11 @@ static bool check_all_distinct(term_table_t *terms, uint32_t n, const term_t *va
   result = true;
   if (n > 1) {
 
-    if (n > terms->live_terms) {
+    if (n > live_terms(terms)) {
       /*
        * there must be duplicates
        * we check this first just to be safe
-       * since n <= terms->live_terms <= YICES_MAX_TERMS,
+       * since n <= live_terms <= YICES_MAX_TERMS,
        * we know that n * sizeof(term_t) fits in 32bits
        * (which matters when we call safe_malloc(n * sizeof(term_t)).
        */
@@ -9396,6 +9396,28 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
   return stat;
 }
 
+/*
+ * Set variable ordering for making mcsat decisions.
+ *
+ * NOTE: This will overwrite the previously set ordering.
+ */
+EXPORTED smt_status_t yices_mcsat_set_var_order(context_t *ctx, uint32_t n, const term_t t[]) {
+
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return STATUS_ERROR;
+  }
+
+  if (! good_terms_for_check_with_model(n, t)) {
+    set_error_code(VARIABLE_REQUIRED);
+    return STATUS_ERROR;
+  }
+
+  ivector_t *order = &ctx->mcsat_var_order;
+  ivector_copy(order, t, n);
+
+  return STATUS_IDLE;
+}
 
 
 /*
@@ -12398,7 +12420,7 @@ EXPORTED uint32_t yices_num_terms(void) {
 }
 
 uint32_t _o_yices_num_terms(void) {
-  return __yices_globals.terms->live_terms;
+  return live_terms(__yices_globals.terms);
 }
 
 EXPORTED uint32_t yices_num_types(void) {
@@ -12406,7 +12428,7 @@ EXPORTED uint32_t yices_num_types(void) {
 }
 
 uint32_t _o_yices_num_types(void) {
-  return __yices_globals.types->live_types;
+  return live_types(__yices_globals.types);
 }
 
 

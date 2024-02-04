@@ -2635,6 +2635,7 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   // Set the mcsat options
   g->ctx->mcsat_options = g->mcsat_options;
+  ivector_copy(&g->ctx->mcsat_var_order, g->var_order.data, g->var_order.size);
 
   /*
    * TODO: override the default context options based on
@@ -5369,7 +5370,7 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     break;
 
   case PARAM_MCSAT_VAR_ORDER:
-    print_terms_value(g,g->mcsat_options.var_order);
+    print_terms_value(g, &g->var_order);
     break;
 
   case PARAM_UNKNOWN:
@@ -6155,10 +6156,9 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_MCSAT_VAR_ORDER:
     if (param_val_to_terms(param, val, &terms, &reason)) {
-      g->mcsat_options.var_order = terms;
       context = g->ctx;
       if (context != NULL) {
-        context->mcsat_options.var_order = terms;
+        ivector_copy(&context->mcsat_var_order, terms->data, terms->size);
       }
     }
     break;

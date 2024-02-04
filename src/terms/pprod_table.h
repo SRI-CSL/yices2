@@ -27,33 +27,27 @@
 
 #include "terms/power_products.h"
 #include "utils/bitvectors.h"
+#include "utils/indexed_table.h"
 #include "utils/int_hash_tables.h"
 
+typedef struct pprod_table_elem_s {
+  union {
+    indexed_table_elem_t elem;
+    pprod_t *pprod;
+  };
+} pprod_table_elem_t;
 
 /*
- * For each i between 0 and nelems - 1, data[i] stores the
- * power product of index i.
- * - data[i] is valid if its tag bit is 0.
- *   Then data[i] is a pointer to a valid  pprod_t structure of degree >= 2.
- *   There's a corresponding record (with index i) in the htbl.
- * - data[i] is a deleted product if its tag bit is 1.
- *   In that case, data[i] encodes the next element in a global free list.
+ * - pprods stores the power products.
  * - mark[i] is used during garbage collection.
  *
  * Other components:
- * - size = size of array data and bitvector mark
- * - nelems = number of array elements used
- * - free_idx = start of the free list (-1 means that the free list is empty)
  * - htbl = hash table for hash consing
  * - buffer = buffer for constructing power products
  */
 typedef struct pprod_table_s {
-  pprod_t **data;
+  indexed_table_t pprods;
   byte_t *mark;
-
-  uint32_t size;
-  uint32_t nelems;
-  int32_t free_idx;
 
   int_htbl_t htbl;
   pp_buffer_t buffer;
