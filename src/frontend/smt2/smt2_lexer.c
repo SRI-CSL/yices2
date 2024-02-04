@@ -115,6 +115,7 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
   ":reproducible-resource-limit",  // SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
   ":verbosity",               // SMT2_KW_VERBOSITY
+  ":dump-models",             // SMT2_KW_DUMP_MODELS
 
   ":all-statistics",          // SMT2_KW_ALL_STATISTICS
   ":assertion-stack-levesl",  // SMT2_KM_ASSERTIONS_STACK_LEVELS

@@ -1345,7 +1345,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
 
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
-  //
+
   "exit",                 // SMT2_EXIT
   "end of file",          // SMT2_SILENT_EXIT
   "get-assertions",       // SMT2_GET_ASSERTIONS
@@ -1558,10 +1558,16 @@ static void show_status(smt_status_t status) {
 static void report_status(smt2_globals_t *g, smt_status_t status) {
   switch (status) {
   case STATUS_UNKNOWN:
-  case STATUS_SAT:
   case STATUS_UNSAT:
   case YICES_STATUS_INTERRUPTED:
     show_status(status);
+    break;
+
+  case STATUS_SAT:
+    show_status(status);
+    if (g->dump_models) {
+      smt2_get_model();
+    }
     break;
 
   case STATUS_ERROR:
@@ -4327,11 +4333,11 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
     case STATUS_UNSAT:
       unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
       if (unsat_model_interpolant == NULL_TERM) {
-	print_error("Call (check-sat-assuming-model) first");
+        print_error("Call (check-sat-assuming-model) first");
       } else {
-	init_pretty_printer(&printer, g);
-	pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
-	delete_smt2_pp(&printer, true);
+        init_pretty_printer(&printer, g);
+        pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
+        delete_smt2_pp(&printer, true);
       }
       break;
 
@@ -4598,6 +4604,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->verbosity = 0;
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
+  g->dump_models = false;
   g->nthreads = 0;
   g->timeout = 0;
   g->to = NULL;
@@ -5432,6 +5439,10 @@ void smt2_get_option(const char *name) {
     print_uint32_value(g->verbosity);
     break;
 
+  case SMT2_KW_DUMP_MODELS:
+    print_boolean_value(g->dump_models);
+    break;
+
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     print_boolean_value(g->produce_unsat_assumptions);
     break;
@@ -6237,6 +6248,10 @@ void smt2_set_option(const char *name, aval_t value) {
   case SMT2_KW_VERBOSITY:
     // optional
     set_verbosity(g, name, value);
+    break;
+
+  case SMT2_KW_DUMP_MODELS:
+    set_boolean_option(g, name, value, &g->dump_models);
     break;
 
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
