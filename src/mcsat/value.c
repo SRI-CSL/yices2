@@ -391,12 +391,17 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
         (void) ok; // unused in release build
         assert(ok);
         value = vtbl_mk_const(vtbl, type, id, NULL);
-      } else {
+      } else if (kind == REAL_TYPE || kind == INT_TYPE) {
         value = vtbl_mk_rational(vtbl, &q);
+      } else if (kind == FF_TYPE) {
+        value = vtbl_mk_finitefield(vtbl, &q, ff_type_size(types, type));
+      } else {
+        assert(false);
       }
       q_clear(&q);
       lp_rational_destruct(&lp_q);
     } else {
+      assert(is_real_type(type));
       value = vtbl_mk_algebraic(vtbl, (void*) &mcsat_value->lp_value.value.a);
     }
     break;

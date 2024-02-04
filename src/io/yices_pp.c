@@ -292,6 +292,15 @@ static void build_rational(string_buffer_t *b, rational_t *q) {
   string_buffer_close(b);
 }
 
+static void build_finitefield(string_buffer_t *b, mpz_t value, mpz_t mod) {
+  string_buffer_append_char(b, '#');
+  string_buffer_append_char(b, 'f');
+  string_buffer_append_mpz(b, value);
+  string_buffer_append_char(b, 'm');
+  string_buffer_append_mpz(b, mod);
+  string_buffer_close(b);
+}
+
 // prefix = "0b"
 static void build_bv(string_buffer_t *b, uint32_t *bv, uint32_t n) {
   assert(0 < n);
@@ -466,6 +475,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     build_rational(buffer, &atm->data.rat);
     s = buffer->data;
     break;
+  case PP_FINITEFIELD_ATOM:
+    build_finitefield(buffer, atm->data.ff.value, atm->data.ff.mod);
+    s = buffer->data;
+    break;
   case PP_BV64_ATOM:
     build_bv64(buffer, atm->data.bv64.bv, atm->data.bv64.nbits);
     s = buffer->data;
@@ -549,6 +562,11 @@ static void free_atomic_token(yices_pp_t *printer, pp_atomic_token_t *tk) {
   switch (tk->user_tag) {
   case PP_RATIONAL_ATOM:
     q_clear(&atm->data.rat);
+    break;
+
+  case PP_FINITEFIELD_ATOM:
+    mpz_clear(atm->data.ff.value);
+    mpz_clear(atm->data.ff.mod);
     break;
 
   case PP_STRING_ATOM:
@@ -1028,8 +1046,28 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
 }
 
 void pp_finitefield(yices_pp_t *printer, value_ff_t *v) {
-  // TODO proper printing of v (with mod) once format is defined
-  pp_rational(printer, &v->value);
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_rational(buffer, &v->value);
+  build_rational(buffer, &v->mod);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  // finite field constants are printed as #f...m... so
+  // the length is n+3
+  tk = init_atomic_token(&atom->tk, n+3, PP_FINITEFIELD_ATOM);
+  mpz_init(atom->data.ff.value);
+  mpz_init(atom->data.ff.mod);
+  q_get_mpz(&v->value, atom->data.ff.value);
+  q_get_mpz(&v->mod, atom->data.ff.mod);
+
+  pp_push_token(&printer->pp, tk);
 }
 
 void pp_algebraic(yices_pp_t *printer, void *a) {

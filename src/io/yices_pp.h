@@ -56,6 +56,7 @@ typedef enum pp_atom_type {
   PP_UINT32_ATOM,     // unsigned integer
   PP_DOUBLE_ATOM,     // double number
   PP_RATIONAL_ATOM,   // rational
+  PP_FINITEFIELD_ATOM, // finite field
   PP_BV64_ATOM,       // bitvector constant stored in a 64bit unsigned integer
   PP_BV_ATOM,         // bitvector constant stored in an array of words
   PP_BV_ZERO_ATOM,    // bitvector constant 0b00...00
@@ -89,6 +90,11 @@ typedef struct pp_id_s {
   int32_t index;
   bool cloned;
 } pp_id_t;
+
+typedef struct pp_ff_s {
+  mpz_t value;
+  mpz_t mod;
+} pp_ff_t;
 
 typedef struct pp_bv64_s {
   uint64_t bv;
@@ -139,6 +145,7 @@ typedef struct pp_atom_s {
     uint32_t u32;
     double dbl;
     rational_t rat;
+    pp_ff_t ff;
     pp_bv64_t bv64;
     pp_bv_t bv;
     pp_qstr_t qstr;

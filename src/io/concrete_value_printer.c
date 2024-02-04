@@ -48,8 +48,11 @@ static inline void vtbl_print_rational(FILE *f, rational_t *v) {
   q_print(f, v);
 }
 
-static inline void vtbl_print_finitefield(FILE *f, rational_t *v) {
-  q_print(f, v);
+static inline void vtbl_print_finitefield(FILE *f, value_ff_t *v) {
+  fputs("#f", f);
+  q_print(f, &v->value);
+  fputs("m", f);
+  q_print(f, &v->mod);
 }
 
 static inline void vtbl_print_algebraic(FILE *f, void *v) {
@@ -173,7 +176,7 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     vtbl_print_rational(f, &table->desc[c].rational);
     break;
   case FINITEFIELD_VALUE:
-    vtbl_print_finitefield(f, &table->desc[c].rational);
+    vtbl_print_finitefield(f, table->desc[c].ptr);
     break;
   case ALGEBRAIC_VALUE:
     vtbl_print_algebraic(f, table->desc[c].ptr);
