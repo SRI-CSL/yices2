@@ -18,6 +18,7 @@
 
 #include <math.h>
 
+#include "api/yices_extensions.h"
 #include "mcsat/bool/bool_plugin.h"
 
 #include "mcsat/bool/clause_db.h"
@@ -225,17 +226,34 @@ uint32_t bool_plugin_compute_clause_glue(bool_plugin_t* bp, clause_ref_t c_ref) 
   uint32_t glue = 0;
   
   int_mset_t levels;
-  uint32_t i;
+  uint32_t i, j;
+  harray_t *a;
+  mcsat_literal_t l_i;
+  variable_t var_i, var_j;
+  term_t term_i;
   
   int_mset_construct(&levels, UINT32_MAX);
   for (i = 0; i < c->size; ++ i) {
-    if (literal_has_value(c->literals[i], trail)) {
-      int_mset_add(&levels, literal_get_level(c->literals[i], trail));
-    } else {
-      glue++;
+    l_i = c->literals[i];
+
+    // literal level
+    if (literal_has_value(l_i, trail)) {
+      int_mset_add(&levels, literal_get_level(l_i, trail));
+    }
+
+    // theory vars level
+    var_i = literal_get_variable(l_i);
+    term_i = variable_db_get_term(bp->ctx->var_db, var_i);
+    a = yices_free_vars_of_term(term_i);
+    for (j = 0; j < a->nelems; ++j) {
+      var_j = variable_db_get_variable_if_exists(bp->ctx->var_db, a->data[j]);
+      if (var_j != variable_null && trail_has_value(trail, var_j)) {
+	int_mset_add(&levels, trail_get_level(trail, var_j));
+      }
     }
   }
-  glue += int_mset_get_list(&levels)->size;
+
+  glue = int_mset_get_list(&levels)->size;
   int_mset_destruct(&levels);
 
   return glue;
