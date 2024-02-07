@@ -595,6 +595,10 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
     } else if (status == FF_FEASIBLE_SET_UNIQUE) {
       // If the value is implied at zero level, propagate it
       // TODO why not always propagate it?
+      // because generating an explanation is not doable in case there is a a_2*x^2 +a_1*x + a_0 = 0
+      // you need to find a term s that evaluates to the propagated value under the current assignment, but works in general
+      // and you need to find an explanaiton for this propagation
+      // TODO this can be done in ff -> propagation like single polynomial propagation
       if (!trail_has_value(ff->ctx->trail, x) && trail_is_at_base_level(ff->ctx->trail)) {
         mcsat_value_t value;
         lp_value_t x_value;

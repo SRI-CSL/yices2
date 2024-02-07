@@ -186,6 +186,8 @@ static
 void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polynomial_hash_set_t *e_ne) {
   const lp_assignment_t *m = lp_data->lp_assignment;
 
+  // TODO do special case if polynomial is degree one?!?
+
   assert(lp_polynomial_is_univariate_m(A, m));
 
   // maybe make internal copy to avoid repeated checks for order at get_coefficient
