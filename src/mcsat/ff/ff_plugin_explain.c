@@ -37,6 +37,7 @@ void explain_multi(const lp_data_t *lp_data,
                    lp_polynomial_hash_set_t *eq, lp_polynomial_hash_set_t *ne,
                    lp_polynomial_hash_set_t *e_eq, lp_polynomial_hash_set_t *e_ne);
 
+#ifndef NDEBUG
 static
 bool poly_is_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
   assert(lp_polynomial_is_assigned(p, m));
@@ -48,7 +49,6 @@ bool poly_is_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
   return is_zero;
 }
 
-#ifndef NDEBUG
 static
 bool check_hash_set_all(const lp_polynomial_hash_set_t *v, const lp_assignment_t *m, bool negated) {
   assert(v->closed);
@@ -721,7 +721,6 @@ void clean_poly(lp_polynomial_t *poly) {
 void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
   const mcsat_trail_t* trail = ff->ctx->trail;
   variable_db_t* var_db = ff->ctx->var_db;
-  lp_assignment_t *m = ff->lp_data->lp_assignment;
 
   if (ctx_trace_enabled(ff->ctx, "ff::explain")) {
     ctx_trace_printf(ff->ctx, "ff_plugin_explain_conflict()\n");
@@ -770,6 +769,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
     assert(conflict_var != variable_null);
     term_t t = variable_db_get_term(var_db, conflict_var);
     lp_variable_t x = lp_data_get_lp_variable_from_term(ff->lp_data, t);
+    (void)x;
 
     assert(lp_polynomial_top_variable(p) == x);
     assert(sgn_condition == LP_SGN_EQ_0 || sgn_condition == LP_SGN_NE_0);
@@ -819,7 +819,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   }
 
   // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
-  assert(check_assignment_cube(&e_ne, &e_eq, m));
+  assert(check_assignment_cube(&e_ne, &e_eq, ff->lp_data->lp_assignment));
 
   term_manager_t *tm = ff->ctx->tm;
 

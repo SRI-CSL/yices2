@@ -408,6 +408,7 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   int_mset_destruct(&t_variables);
 }
 
+#ifndef NDEBUG
 static
 bool upolynomial_evaluate_zero_at_integer(const lp_upolynomial_t *up, const lp_integer_t *x) {
   lp_integer_t tmp;
@@ -417,6 +418,7 @@ bool upolynomial_evaluate_zero_at_integer(const lp_upolynomial_t *up, const lp_i
   lp_integer_destruct(&tmp);
   return result;
 }
+#endif
 
 // TODO put this and parts of zero finding into libpoly?
 typedef struct {
@@ -737,14 +739,12 @@ void ff_plugin_process_variable_assignment(ff_plugin_t* ff, trail_token_t* prop,
   remove_iterator_destruct(&it);
 }
 
+#ifndef NDEBUG
 static
 bool ff_plugin_check_assignment(ff_plugin_t* ff) {
-#if 0
-  // For now, always check this. TODO remove the if later
   if (!ctx_trace_enabled(ff->ctx, "ff::check_assignment")) {
     return true;
   }
-#endif
 
   const mcsat_trail_t* trail = ff->ctx->trail;
   const variable_db_t* var_db = ff->ctx->var_db;
@@ -793,6 +793,7 @@ bool ff_plugin_check_assignment(ff_plugin_t* ff) {
 
   return true;
 }
+#endif
 
 /**
  * Propagates the trail with BCP. When done, either the trail is fully
