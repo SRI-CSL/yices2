@@ -420,7 +420,6 @@ bool upolynomial_evaluate_zero_at_integer(const lp_upolynomial_t *up, const lp_i
 }
 #endif
 
-// TODO put this and parts of zero finding into libpoly?
 typedef struct {
   uint32_t size;
   lp_value_t zeros[];
@@ -455,7 +454,6 @@ polynomial_zeros_t* polynomial_zeros_new(uint32_t cnt) {
 
 static
 polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
-  // TODO implement Rabin root finding large bigger finite fields
   assert(lp_polynomial_is_univariate_m(polynomial, m));
   lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(polynomial, m);
   if (lp_upolynomial_degree(upoly) == 0) {
@@ -468,37 +466,16 @@ polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polyn
     }
   }
 
-  lp_upolynomial_factors_t *factors = lp_upolynomial_factor(upoly);
-  const lp_int_ring_t *K = lp_upolynomial_factors_ring(factors);
+  lp_integer_t *zeros;
+  size_t zeros_size;
 
-  uint32_t factors_cnt = lp_upolynomial_factors_size(factors);
-  polynomial_zeros_t *result = polynomial_zeros_new(factors_cnt);
-  uint32_t pos = 0;
+  lp_upolynomial_roots_find_Zp(upoly, &zeros, &zeros_size);
 
-  lp_integer_t coefficients[2];
-  lp_integer_t *zero = &coefficients[0];
-  lp_integer_construct(&coefficients[0]);
-  lp_integer_construct(&coefficients[1]);
-  size_t multiplicity; // unused
-  for (uint32_t i = 0; i < factors_cnt; ++i) {
-    lp_upolynomial_t * factor = lp_upolynomial_factors_get_factor(factors, i, &multiplicity);
-    if (lp_upolynomial_degree(factor) > 1) {
-      continue;
-    }
-    lp_integer_assign_int(K, zero, 0);
-    lp_upolynomial_unpack(factor, coefficients);
-    lp_integer_neg(K, zero, zero);
-    assert(upolynomial_evaluate_zero_at_integer(factor, zero));
-    assert(upolynomial_evaluate_zero_at_integer(upoly, zero));
-    lp_value_t *cur_val = &result->zeros[pos++];
-    lp_value_construct(cur_val, LP_VALUE_INTEGER, zero);
+  polynomial_zeros_t *result = polynomial_zeros_new(zeros_size);
+  for (size_t i = 0; i < zeros_size; ++i) {
+    assert(upolynomial_evaluate_zero_at_integer(upoly, &zeros[i]));
+    lp_value_construct(&result->zeros[i], LP_VALUE_INTEGER, &zeros[i]);
   }
-  result->size = pos;
-  lp_upolynomial_factors_destruct(factors, true);
-  lp_integer_destruct(&coefficients[0]);
-  lp_integer_destruct(&coefficients[1]);
-  lp_upolynomial_delete(upoly);
-
   return result;
 }
 
@@ -508,7 +485,6 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
   lp_assignment_t *m = ff->lp_data->lp_assignment;
 
   assert(!poly_constraint_is_root_constraint(constraint));
-  // TODO check if LP_SGN_NE_0 can occur here at all.
   assert(constraint->sgn_condition == LP_SGN_EQ_0);
   assert(lp_polynomial_is_univariate_m(constraint->polynomial, m));
   assert(lp_data_get_ring(ff->lp_data) == lp_polynomial_get_context(constraint->polynomial)->K);
