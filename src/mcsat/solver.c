@@ -357,9 +357,10 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
   kind = term_kind(mcsat->terms, t);
   bool is_equality = false;
   switch (kind) {
-  case BV_EQ_ATOM:
   case EQ_TERM:
+  case BV_EQ_ATOM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
     is_equality = true;
     break;
   default:
