@@ -340,8 +340,8 @@ explain_result_t explain_pP(const lp_polynomial_t *p2,
     }
   }
 
-  // (ret == NOT_APPLICABLE): all lc are zero for m
-  // I don't think this should happen // TODO check it
+  // all lc are zero for m, should not happen
+  assert(ret == NOT_APPLICABLE);
   lp_polynomial_heap_push(F, p1);
 
   cleanup:
@@ -365,7 +365,9 @@ explain_result_t explain_pQ(const lp_polynomial_t *p2,
 
   const lp_polynomial_t *q = lp_polynomial_heap_peek(G);
 
-  assert(lp_polynomial_degree(q) >= lp_polynomial_degree(p2) || polynomial_lc_is_assigned_and_non_zero(q, var, m));
+  if (!(lp_polynomial_degree(q) >= lp_polynomial_degree(p2) || polynomial_lc_is_assigned_and_non_zero(q, var, m))) {
+    return NOT_APPLICABLE;
+  }
 
   size_t r;
   lp_polynomial_t **h = srs(q, p2, &r);
@@ -392,8 +394,8 @@ explain_result_t explain_pQ(const lp_polynomial_t *p2,
     }
   }
 
-  // (ret == NOT_APPLICABLE): all lc are zero for m
-  // TODO it can happen: fix this
+  // all lc are zero for m
+  assert(ret == NOT_APPLICABLE);
 
   cleanup:
   for (int j = 0; j < r; ++j) {
@@ -443,14 +445,14 @@ explain_result_t explain_Q(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
       lp_polynomial_delete(lc_g);
       return ret;
     }
-    // no need to add lc_g to N here // TODO check it
+    // no need to add lc_g to N here
     lp_polynomial_delete(lc_g);
   }
 
   return NOT_APPLICABLE;
 }
 
-static inline
+static
 explain_result_t exclude_q(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
                            lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
                            const lp_assignment_t *m, lp_variable_t var) {
@@ -467,6 +469,31 @@ explain_result_t exclude_q(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
   // this is a set of negative condition, thus adding to the positive side-conditions to make it end up with the negative literals
   exclude_coefficient(prod, m, var, M);
   lp_polynomial_delete(prod);
+  return FOUND;
+}
+
+static
+explain_result_t exclude_m(const lp_polynomial_context_t *ctx, const lp_assignment_t *m, lp_polynomial_hash_set_t *M) {
+  fprintf(stderr, "excluding ");
+  lp_assignment_print(m, stderr);
+  fprintf(stderr, "\n");
+  assert(lp_assignment_is_integer(m));
+  lp_integer_t one;
+  lp_integer_construct_from_int(ctx->K, &one, 1);
+  for (int i = 0; i < m->size; ++ i) {
+    if (m->values[i].type != LP_VALUE_NONE) {
+      assert(m->values[i].type == LP_VALUE_INTEGER);
+      lp_polynomial_t
+        *x = lp_polynomial_alloc(),
+        *c = lp_polynomial_alloc();
+      lp_polynomial_construct_simple(x, ctx, &one, i, 1);
+      lp_polynomial_construct_simple(c, ctx, &m->values[i].value.z, 0, 0);
+      lp_polynomial_sub(x, x, c);
+      lp_polynomial_hash_set_insert_move(M, x);
+      lp_polynomial_delete(c);
+    }
+  }
+  lp_integer_destruct(&one);
   return FOUND;
 }
 
@@ -487,16 +514,13 @@ lp_variable_t top_variable(const lp_polynomial_t *p) {
  * Remark: side conditions are returned inverted to clausify implication
  */
 static
-void split_reg_ser(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
+void split_reg_ser(const lp_polynomial_context_t *ctx,
+                   lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
                    lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N,
-                   const lp_assignment_t *m,  lp_variable_t var) {
+                   const lp_assignment_t *m, lp_variable_t var) {
 
   assert(var != lp_variable_null);
   assert(!lp_polynomial_heap_is_empty(F) || !lp_polynomial_heap_is_empty(G));
-
-//    assert all(lv(m) < var for m in M) and all(lv(n) < var for n in N), "invalid side condition"
-//    assert not check_ass(F, G, A, var), "assignment is not excluded"
-//    assert check_ass(M, N, A, var), "side condition is excluded"
 
   explain_result_t rslt = NOT_APPLICABLE;
   do {
@@ -518,10 +542,8 @@ void split_reg_ser(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
 
       if (top_variable(lp_polynomial_heap_peek(F)) == var) {
         rslt = explain_pP(p2, F, G, M, N, m, var);
-        assert(rslt != NOT_APPLICABLE);
       } else if (top_variable(lp_polynomial_heap_peek(G)) == var) {
         rslt = explain_pQ(p2, F, G, M, N, m, var);
-        assert(rslt != NOT_APPLICABLE);
       } else {
         // p2 is the only polynomial with var
         assert(top_variable(lp_polynomial_heap_peek(G)) != var);
@@ -537,8 +559,14 @@ void split_reg_ser(lp_polynomial_heap_t *F, lp_polynomial_heap_t *G,
       rslt = exclude_q(F, G, M, N, m, var);
       assert(rslt == FOUND);
     }
-    assert(rslt != NOT_APPLICABLE);
-  } while (rslt != FOUND);
+  } while (rslt == PROCESSED);
+  
+  if (rslt == NOT_APPLICABLE) {
+    // no progress made, exclude current assignment as last resort
+    lp_polynomial_hash_set_clear(M);
+    lp_polynomial_hash_set_clear(N);
+    exclude_m(ctx, m, M);
+  }
 }
 
 static
@@ -596,7 +624,7 @@ void explain_multi(const lp_data_t *lp_data,
   assert(heap_contains_check_top_variable(F, var));
   assert(heap_contains_check_top_variable(G, var));
 
-  split_reg_ser(F, G, e_ne, e_eq, m, var);
+  split_reg_ser(ctx, F, G, e_ne, e_eq, m, var);
 
   lp_polynomial_hash_set_close(e_eq);
   lp_polynomial_hash_set_close(e_ne);
