@@ -37,23 +37,25 @@ void explain_multi(const lp_data_t *lp_data,
                    lp_polynomial_hash_set_t *eq, lp_polynomial_hash_set_t *ne,
                    lp_polynomial_hash_set_t *e_eq, lp_polynomial_hash_set_t *e_ne);
 
-#ifndef NDEBUG
-static
-bool poly_is_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
-  assert(lp_polynomial_is_assigned(p, m));
+
+static inline
+int polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
+  assert(lp_polynomial_is_assigned(A, m));
+
   lp_integer_t val;
   lp_integer_construct(&val);
-  lp_polynomial_evaluate_integer(p, m, &val);
-  bool is_zero = lp_integer_is_zero(lp_polynomial_get_context(p)->K, &val);
+  lp_polynomial_evaluate_integer(A, m, &val);
+  int ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val);
   lp_integer_destruct(&val);
-  return is_zero;
+  return ret;
 }
 
+#ifndef NDEBUG
 static
 bool check_hash_set_all(const lp_polynomial_hash_set_t *v, const lp_assignment_t *m, bool negated) {
   assert(v->closed);
   for (int i = 0; i < v->size; ++i) {
-    bool is_zero = poly_is_zero(v->data[i], m);
+    bool is_zero = polynomial_is_zero_m(v->data[i], m);
     if (!is_zero == !negated) {
       return false;
     }
@@ -110,18 +112,6 @@ lp_polynomial_t* pquo(const lp_polynomial_t *A, const lp_polynomial_t *B, lp_var
   lp_polynomial_pdivrem(quo, rem, A, B);
   lp_polynomial_delete(rem);
   return quo;
-}
-
-static inline
-int polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
-  assert(lp_polynomial_is_assigned(A, m));
-
-  lp_integer_t val;
-  lp_integer_construct(&val);
-  lp_polynomial_evaluate_integer(A, m, &val);
-  int ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val);
-  lp_integer_destruct(&val);
-  return ret;
 }
 
 static inline
