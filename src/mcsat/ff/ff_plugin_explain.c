@@ -693,7 +693,6 @@ void clean_poly(lp_polynomial_t *poly) {
   lp_integer_destruct(&lcc);
 
   // in case polynomial is only monomial, reduce exponents to 1
-
   if (lp_polynomial_is_monomial(poly)) {
     lp_monomial_t mono;
     lp_monomial_construct(ctx, &mono);

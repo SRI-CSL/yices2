@@ -939,6 +939,9 @@ void ff_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
     }
   }
 
+  // not yet used
+  assert(lemma_reasons.size == 0);
+  assert(conflict->size == 0);
   ff_plugin_explain_conflict(ff, &core, &lemma_reasons, conflict);
 
   if (ctx_trace_enabled(ff->ctx, "ff::conflict")) {
