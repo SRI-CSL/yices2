@@ -222,3 +222,13 @@ void lp_data_gc_sweep(lp_data_t *lp_data, const gc_info_t *gc_vars) {
 
   assert(lp_data_check_consistency(lp_data));
 }
+
+void lp_data_print(const lp_data_t *lp_data, FILE *out) {
+  fprintf(out, "Var DB: ");
+  lp_variable_db_print(lp_data->lp_var_db, out);
+  fprintf(out, "\nVar order: ");
+  lp_variable_order_print(lp_data->lp_var_order, lp_data->lp_var_db, out);
+  fprintf(out, "\nVar assignment: ");
+  lp_assignment_print(lp_data->lp_assignment, out);
+  fprintf(out, "\n");
+}

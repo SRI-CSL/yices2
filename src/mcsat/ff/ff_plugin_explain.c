@@ -641,9 +641,15 @@ void explain_multi(const lp_data_t *lp_data,
   lp_polynomial_heap_delete(G);
 }
 
-static inline
+static
 term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
-  return lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
+  term_t term = lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
+#ifndef NDEBUG
+  lp_polynomial_t *check = lp_polynomial_from_term(ff->lp_data, term, ff->ctx->tm->terms, NULL);
+  assert(lp_polynomial_cmp(p, check) == 0);
+  lp_polynomial_delete(check);
+#endif
+  return term;
 }
 
 #ifdef EXCLUDE_IRREDUCIBLE_FACTORS
@@ -827,6 +833,10 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   lp_polynomial_hash_set_close(&e_eq);
   lp_polynomial_hash_set_close(&e_ne);
 
+#ifndef NDEBUG
+  const lp_assignment_t *m = ff->lp_data->lp_assignment;
+#endif
+
   for (size_t i = 0; i < e_ne.size; ++i) {
     clean_poly(e_ne.data[i]);
   }
@@ -836,12 +846,13 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   }
 
   // assert that the current assignment is excluded (all ne must be = 0 and eq must be != 0)
-  assert(check_assignment_cube(&e_ne, &e_eq, ff->lp_data->lp_assignment));
+  assert(check_assignment_cube(&e_ne, &e_eq, m));
 
   term_manager_t *tm = ff->ctx->tm;
 
   // Add the explanation to the conflict
   for (size_t i = 0; i < e_eq.size; ++i) {
+    assert(lp_polynomial_is_assigned(e_eq.data[i], m));
     term_t t = lp_polynomial_to_term(ff, e_eq.data[i]);
     term_t atom = mk_arith_ff_term_neq0(tm, t);
     ivector_push(conflict, atom);
@@ -849,6 +860,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   }
 
   for (size_t i = 0; i < e_ne.size; ++i) {
+    assert(lp_polynomial_is_assigned(e_ne.data[i], m));
     term_t t = lp_polynomial_to_term(ff, e_ne.data[i]);
     term_t atom = mk_arith_ff_term_eq0(tm, t);
     ivector_push(conflict, atom);

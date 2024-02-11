@@ -112,4 +112,6 @@ static inline term_t lp_data_get_term_from_lp_variable(const lp_data_t *lp_data,
 /** Gets the ring of the lp_data */
 const lp_int_ring_t* lp_data_get_ring(const lp_data_t *lp_data);
 
+void lp_data_print(const lp_data_t *lp_data, FILE *out);
+
 #endif /* MCSAT_LP_MANAGER_H */
