@@ -27,7 +27,8 @@ This is a special version with finite field support.
 Until all forks are merged, it must be linked to a special version of libpoly: [Ovascos/libpoly](https://github.com/Ovascos/libpoly).
 For finite field arithmetic support Yices must be built with MCSat enabled (see regular build instructions below).
 
-Benchmarks for finite field arithmetic can be found at [Ovascos/ffsat-benchmarks](https://github.com/Ovascos/ffsat-benchmarks).
+> [!TIP]  
+> Benchmarks for finite field arithmetic can be found at [Ovascos/ffsat-benchmarks](https://github.com/Ovascos/ffsat-benchmarks).
 
 ## Simple Examples
 
