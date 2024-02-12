@@ -73,6 +73,17 @@ bool check_assignment_cube(const lp_polynomial_hash_set_t *eq, const lp_polynomi
   }
   return true;
 }
+
+static
+int heap_contains_check_top_variable(const lp_polynomial_heap_t *heap, lp_variable_t top) {
+  for (size_t i = 0; i < lp_polynomial_heap_size(heap); ++i) {
+    if (lp_polynomial_top_variable(lp_polynomial_heap_at(heap, i)) != top) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
 #endif
 
 static inline
@@ -204,16 +215,6 @@ void explain_single(const lp_data_t *lp_data, const lp_polynomial_t *A, lp_polyn
     lp_polynomial_hash_set_print(e_ne, ctx_trace_out(lp_data->plugin_ctx));
     ctx_trace_printf(lp_data->plugin_ctx, "\n");
   }
-}
-
-static inline
-int heap_contains_check_top_variable(const lp_polynomial_heap_t *heap, lp_variable_t top) {
-  for (size_t i = 0; i < lp_polynomial_heap_size(heap); ++i) {
-    if (lp_polynomial_top_variable(lp_polynomial_heap_at(heap, i)) != top) {
-      return 0;
-    }
-  }
-  return 1;
 }
 
 static
@@ -784,6 +785,14 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
   lp_polynomial_hash_set_construct(&pos);
   lp_polynomial_hash_set_construct(&neg);
 
+#ifndef NDEBUG
+  // get the conflict variable as lp_variable_t
+  variable_t conflict_var = ff->conflict_variable;
+  assert(conflict_var != variable_null);
+  term_t conflict_term = variable_db_get_term(var_db, conflict_var);
+  lp_variable_t conflict_lp_var = lp_data_get_lp_variable_from_term(ff->lp_data, conflict_term);
+#endif
+
   for (uint32_t core_i = 0; core_i < core->size; ++ core_i) {
     variable_t constraint_var = core->data[core_i];
     assert(trail_has_value(trail, constraint_var));
@@ -794,14 +803,7 @@ void ff_plugin_explain_conflict(ff_plugin_t* ff, const ivector_t* core, const iv
     lp_sign_condition_t sgn_condition = poly_constraint_get_sign_condition(constraint);
     bool negated = !trail_get_boolean_value(trail, constraint_var);
 
-    // get the conflict variable as lp_variable_t
-    variable_t conflict_var = ff->conflict_variable;
-    assert(conflict_var != variable_null);
-    term_t t = variable_db_get_term(var_db, conflict_var);
-    lp_variable_t x = lp_data_get_lp_variable_from_term(ff->lp_data, t);
-    (void)x;
-
-    assert(lp_polynomial_top_variable(p) == x);
+    assert(lp_polynomial_top_variable(p) == conflict_lp_var);
     assert(sgn_condition == LP_SGN_EQ_0 || sgn_condition == LP_SGN_NE_0);
     bool is_pos = (!negated && (sgn_condition == LP_SGN_EQ_0)) || (negated && (sgn_condition == LP_SGN_NE_0));
     lp_polynomial_hash_set_insert(is_pos ? &pos : &neg, p);
