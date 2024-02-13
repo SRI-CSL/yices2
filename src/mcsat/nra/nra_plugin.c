@@ -945,7 +945,7 @@ void nra_plugin_process_variable_assignment(nra_plugin_t* nra, trail_token_t* pr
   remove_iterator_destruct(&it);
 }
 
-
+#ifndef NDEBUG
 static
 bool nra_plugin_check_assignment(nra_plugin_t* nra) {
   if (!ctx_trace_enabled(nra->ctx, "nra::check_assignment")) {
@@ -992,6 +992,7 @@ bool nra_plugin_check_assignment(nra_plugin_t* nra) {
 
   return true;
 }
+#endif
 
 
 /**

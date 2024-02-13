@@ -25,6 +25,7 @@
 
 #include "mcsat/tracing.h"
 
+#ifndef NDEBUG
 static
 bool poly_constraint_ok(const poly_constraint_t* cstr) {
   switch (cstr->sgn_condition) {
@@ -51,6 +52,7 @@ bool poly_constraint_db_check(const poly_constraint_db_t* db) {
   }
   return true;
 }
+#endif
 
 void poly_constraint_db_construct(poly_constraint_db_t* db, lp_data_t* lp_data) {
   db->lp_data = lp_data;

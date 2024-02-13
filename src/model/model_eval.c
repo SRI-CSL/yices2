@@ -1601,17 +1601,11 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
   return v;
 }
 
-
 static inline rational_t* arith_get_mod(term_table_t *table, term_t t) {
   type_t tau = term_type(table, t);
   return is_finite_type(table->types, tau) ? ff_type_size(table->types, tau) : NULL;
 }
 
-static inline bool arith_is_mod(rational_t *r, rational_t *mod) {
-  if (!mod || q_is_nonpos(mod))
-    return false;
-  return q_lt(r, mod);
-}
 
 /*
  * Compute the value v of term t in the model
@@ -1656,7 +1650,8 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_FF_CONSTANT:
-        assert(arith_is_mod(finitefield_term_desc(terms, t), arith_get_mod(terms, t)));
+        assert(arith_get_mod(terms, t) && q_is_pos(arith_get_mod(terms, t)));
+        assert(q_lt(finitefield_term_desc(terms, t), arith_get_mod(terms, t)));
         v = vtbl_mk_finitefield(eval->vtbl, finitefield_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 

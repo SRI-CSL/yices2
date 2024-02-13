@@ -2824,6 +2824,7 @@ static bool all_integer_terms(term_table_t *table, const term_t *v, uint32_t n) 
   return true;
 }
 
+#ifndef NDEBUG
 /*
  * Check whether all terms in array v are of type tau
  * - skip const_idx if it's in v (it should be first)
@@ -2845,7 +2846,7 @@ static bool check_term_type(term_table_t *table, const term_t *v, uint32_t n, ty
 
   return true;
 }
-
+#endif
 
 /*
  * Auxiliary function: convert power products of subtree rooted at x
