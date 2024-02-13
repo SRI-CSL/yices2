@@ -40,6 +40,24 @@ usage() {
   exit 4
 }
 
+smt2_options=
+color=
+
+while getopts "cs:" o; do
+    case "$o" in
+    s)
+	    smt2_options=${OPTARG}
+	    ;;
+	  c)
+	    color="on"
+	    ;;
+	  *)
+	    usage
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+
 if [ $# -lt 2 ] ; then
   usage
 fi
@@ -81,7 +99,7 @@ TIMEFORMAT="%U"
 red=
 green=
 black=
-if test -t 1 ; then
+if [ -t 1 ] || [ -n "$color" ]; then
   red=$(tput setaf 1)
   green=$(tput setaf 2)
   black=$(tput sgr0)
@@ -98,8 +116,6 @@ then
   TIME_LIMIT=60
 fi
 
-echo -n "$test_file"
-
 # Get the binary based on the filename
 filename=$(basename "$test_file")
 
@@ -108,7 +124,7 @@ options=
 case $filename in
     *.smt2)
         binary=yices_smt2
-        #options=$smt2_options
+        options=$smt2_options
         ;;
     *.smt)
         binary=yices_smtcomp
@@ -117,7 +133,7 @@ case $filename in
         binary=yices
         ;;
     *)
-        echo FAIL: unknown extension for "$filename"
+        echo "FAIL: unknown extension for $filename"
         exit 2
 esac
 
@@ -125,11 +141,9 @@ esac
 if [ -e "$test_file.options" ]
 then
     options="$options $(cat $test_file.options)"
-    echo " [ $options ]"
     test_string="$test_file [ $options ]"
 else
     test_string="$test_file"
-    echo
 fi
 
 # Get the expected result
@@ -137,10 +151,13 @@ if [ -e "$test_file.gold" ]
 then
     gold=$test_file.gold
 else
-    echo -n $red
-    echo FAIL: missing file: $test_file.gold
-    echo -n $black
+    echo "$red FAIL: missing file: $test_file.gold $black"
     exit 2
+fi
+
+if [ -d "$out_dir" ] ; then
+  # add pid in case there are multiple tests with the same name
+  log_file="$out_dir/$filename.$BASHPID"
 fi
 
 # Run the binary
@@ -155,34 +172,24 @@ runtime=$(cat $timefile)
 # Do the diff
 DIFF=$(diff -w "$outfile" "$gold")
 
-rm "$timefile"
-rm "$outfile"
-
-# find log url
-if [ -d "$out_dir" ] ; then
-  # add pid in case there are multiple tests with the same name
-  log_file="$out_dir/$filename.$BASHPID"
-fi
-
 if [ $? -eq 0 ] && [ $status -eq 0 ]
 then
-    echo -n $green
-    echo PASS [${runtime} s]
-    echo -n $black
+    echo -e "$green PASS [${runtime} s] $black $test_string"
     if [ -n "$log_file" ] ; then
       log_file="$log_file.pass"
       echo "$test_string" > "$log_file"
     fi
-    exit 0
+    code=0
 else
-    echo -n $red
-    echo FAIL
-    echo -n $black
-
+    echo -e "$red FAIL $black $test_string"
     if [ -n "$log_file" ] ; then
       log_file="$log_file.error"
       echo "$test_string" > "$log_file"
       echo "$DIFF" >> "$log_file"
     fi
-    exit 1
+    code=1
 fi
+
+rm "$timefile"
+rm "$outfile"
+exit $code

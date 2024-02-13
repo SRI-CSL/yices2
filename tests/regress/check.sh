@@ -39,19 +39,23 @@ usage() {
    exit
 }
 
-#smt2_options=
+smt2_options=
+use_parallel=
 
-#while getopts "s:" o; do
-#    case "$o" in
-#	s)
-#	    smt2_options=${OPTARG}
-#	    ;;
-#	*)
-#	    usage
-#	    ;;
-#    esac
-#done
-#shift $((OPTIND-1))
+while getopts "js:" o; do
+    case "$o" in
+    s)
+	    smt2_options=${OPTARG}
+	    ;;
+	  j)
+	    use_parallel=yes
+	    ;;
+	  *)
+	    usage
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
 
 if test $# "<" 2 ; then
     usage
@@ -108,9 +112,30 @@ if [ -z "$all_tests" ] ; then
     )
 fi
 
-for file in $all_tests; do
-  bash "${BASH_SOURCE%/*}"/run_test.sh "$file" "$bin_dir" "$logdir"
-done
+run_parallel=
+if [ -n "$use_parallel" ] ; then
+  if command -v parallel &> /dev/null ; then
+    if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
+      echo "GNU parallel is not supported. Use moreutils parallel instead."
+    else
+      run_parallel=yes
+    fi
+  else
+    echo "Install moreutils to run tests in parallel"
+  fi
+fi
+
+if [ -t 1 ] ; then
+  color_flag="-c"
+fi
+
+if [ -n "$run_parallel" ]; then
+  parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
+else
+  for file in $all_tests; do
+    bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
+  done
+fi
 
 pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
 fail=$(find "$logdir" -type f -name "*.error" | wc -l)
