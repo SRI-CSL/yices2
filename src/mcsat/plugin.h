@@ -334,10 +334,9 @@ void plugin_construct(plugin_t* plugin) {
   plugin->pop                       = NULL;
   plugin->build_model               = NULL;
   plugin->gc_mark                   = NULL;
-  plugin->gc_mark_and_clear          = NULL;
+  plugin->gc_mark_and_clear         = NULL;
   plugin->gc_sweep                  = NULL;
   plugin->set_exception_handler     = NULL;
 }
-
 
 #endif /* PLUGIN_H_ */

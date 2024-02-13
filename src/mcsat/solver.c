@@ -563,7 +563,7 @@ void trail_token_definition_lemma(trail_token_t* token, term_t lemma, term_t t) 
   ivector_push(&tk->ctx->mcsat->plugin_definition_vars, t);
 }
 
-/** Concstruct the trail token */
+/** Construct the trail token */
 static inline
 void trail_token_construct(plugin_trail_token_t* token, mcsat_plugin_context_t* ctx, variable_t x) {
   token->token_interface.add = trail_token_add;
@@ -1159,7 +1159,7 @@ void mcsat_get_kind_owners(mcsat_solver_t* mcsat, term_t t, int_mset_t* owners) 
 }
 
 
-static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
+static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
   term_t t;
   uint32_t i, plugin_i;
   plugin_t* plugin;
@@ -1488,7 +1488,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   // Add the terms
   f_pos = unsigned_term(f);
   f_pos_var = variable_db_get_variable(mcsat->var_db, f_pos);
-  mcsat_process_registeration_queue(mcsat);
+  mcsat_process_registration_queue(mcsat);
 
   // Remember the assertion
   ivector_push(&mcsat->assertion_vars, f_pos_var);
@@ -1644,7 +1644,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
     }
 
     // Process any newly registered variables
-    mcsat_process_registeration_queue(mcsat);
+    mcsat_process_registration_queue(mcsat);
 
     // Check if the literal has value (only negative allowed)
     if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
@@ -2551,7 +2551,7 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     assert(x_value >= 0);
     trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
     mcsat_value_destruct(&value);
-    mcsat_process_registeration_queue(mcsat);
+    mcsat_process_registration_queue(mcsat);
   }
 
   mcsat_pop(mcsat);
@@ -2584,7 +2584,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       // Make sure the variable is registered (maybe it doesn't appear in assertions)
       variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
       ivector_push(&mcsat->assumption_vars, x_var);
-      mcsat_process_registeration_queue(mcsat);
+      mcsat_process_registration_queue(mcsat);
     }
   }
 
@@ -2714,7 +2714,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   // Make sure any additional terms are registered
-  mcsat_process_registeration_queue(mcsat);
+  mcsat_process_registration_queue(mcsat);
 
 solve_done:
 
