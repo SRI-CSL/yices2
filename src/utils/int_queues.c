@@ -26,7 +26,7 @@
 #include "utils/memalloc.h"
 
 
-/*
+/**
  * Initialize a queue of capacity n
  */
 void init_int_queue(int_queue_t *q, uint32_t n) {
@@ -43,7 +43,7 @@ void init_int_queue(int_queue_t *q, uint32_t n) {
 }
 
 
-/*
+/**
  * Delete: free data array
  */
 void delete_int_queue(int_queue_t *q) {
@@ -51,12 +51,12 @@ void delete_int_queue(int_queue_t *q) {
   q->data = NULL;
 }
 
-
-/*
+/**
  * Resize the queue. make data array 50% larger.
  * content of data array is unchanged
  */
-static void resize_queue(int_queue_t *q) {
+static
+void resize_queue(int_queue_t *q) {
   uint32_t n;
 
   n = q->capacity + 1;
@@ -70,9 +70,7 @@ static void resize_queue(int_queue_t *q) {
   q->capacity = n;
 }
 
-
-
-/*
+/**
  * Push element x at the end of the queue
  */
 void int_queue_push(int_queue_t *q, int32_t x) {
@@ -111,8 +109,7 @@ void int_queue_push(int_queue_t *q, int32_t x) {
   }
 }
 
-
-/*
+/**
  * Push a[0 ... n-1] in the queue (in this order)
  */
 void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
@@ -123,8 +120,7 @@ void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
   }
 }
 
-
-/*
+/**
  * Return first element and remove it
  */
 int32_t int_queue_pop(int_queue_t *q) {
@@ -142,21 +138,18 @@ int32_t int_queue_pop(int_queue_t *q) {
   return x;
 }
 
-
-
-/*
+/**
  * Get the first element (don't remove it).
  */
-int32_t int_queue_first(int_queue_t *q) {
+int32_t int_queue_first(const int_queue_t *q) {
   assert(q->head != q->tail);
   return q->data[q->head];
 }
 
-
-/*
+/**
  * Get the last element (don't remove it)
  */
-int32_t int_queue_last(int_queue_t *q) {
+int32_t int_queue_last(const int_queue_t *q) {
   uint32_t i;
 
   assert(q->head != q->tail);
@@ -166,4 +159,36 @@ int32_t int_queue_last(int_queue_t *q) {
   }
   assert(i > 0);
   return q->data[i-1];
+}
+
+/**
+ * Get element at position i
+ */
+int32_t int_queue_at(const int_queue_t *q, uint32_t i) {
+  assert(q->head != q->tail);
+
+  if (q->head < q->tail) {
+    assert(q->head + i < q->tail);
+    return q->data[q->head + i];
+  } else if (q->head > q->tail) {
+    uint32_t size_first = q->capacity - q->head;
+    assert(i < size_first || i - size_first < q->tail);
+    return i < size_first
+      ? q->data[q->head + i]
+      : q->data[i - size_first];
+  }
+
+  assert(false);
+  return 0;
+}
+
+/**
+ * Get size of queue
+ */
+uint32_t int_queue_size(const int_queue_t *q) {
+  if (q->head <= q->tail) {
+    return q->tail - q->head;
+  } else {
+    return (q->capacity - q->head) + q->tail;
+  }
 }
