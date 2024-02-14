@@ -27,17 +27,17 @@
 
 
 /*
- * Initialize a queue of size n
+ * Initialize a queue of capacity n
  */
 void init_int_queue(int_queue_t *q, uint32_t n) {
   if (n == 0) {
-    n = DEFAULT_INT_QUEUE_INITIAL_SIZE;
-  } else if (n > MAX_INT_QUEUE_SIZE) {
+    n = DEFAULT_INT_QUEUE_INITIAL_CAPACITY;
+  } else if (n > MAX_INT_QUEUE_CAPACITY) {
     out_of_memory();
   }
 
   q->data = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  q->size = n;
+  q->capacity = n;
   q->head = 0;
   q->tail = 0;
 }
@@ -59,15 +59,15 @@ void delete_int_queue(int_queue_t *q) {
 static void resize_queue(int_queue_t *q) {
   uint32_t n;
 
-  n = q->size + 1;
+  n = q->capacity + 1;
   n += n >> 1;
 
-  if (n > MAX_INT_QUEUE_SIZE) {
+  if (n > MAX_INT_QUEUE_CAPACITY) {
     out_of_memory();
   }
 
   q->data = (int32_t *) safe_realloc(q->data, n * sizeof(int32_t));
-  q->size = n;
+  q->capacity = n;
 }
 
 
@@ -83,7 +83,7 @@ void int_queue_push(int_queue_t *q, int32_t x) {
   i ++;
   q->tail = i;
 
-  if (i == q->size) {
+  if (i == q->capacity) {
     if (q->head == 0) {
       /*
        * full queue, stored in data[0...size-1],
@@ -99,9 +99,9 @@ void int_queue_push(int_queue_t *q, int32_t x) {
      * increase the size and shift data[head .. size - 1] to the end
      * of the new data array.
      */
-    n = q->size;
+    n = q->capacity;
     resize_queue(q);
-    j = q->size;
+    j = q->capacity;
     do {
       n --;
       j --;
@@ -136,7 +136,7 @@ int32_t int_queue_pop(int_queue_t *q) {
   h = q->head;
   x = q->data[h];
   h ++;
-  if (h >= q->size) h = 0;
+  if (h >= q->capacity) h = 0;
   q->head = h;
 
   return x;
@@ -162,7 +162,7 @@ int32_t int_queue_last(int_queue_t *q) {
   assert(q->head != q->tail);
   i = q->tail;
   if (i == 0) {
-    i = q->size;
+    i = q->capacity;
   }
   assert(i > 0);
   return q->data[i-1];

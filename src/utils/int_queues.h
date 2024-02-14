@@ -30,17 +30,17 @@
 /*
  * Components:
  * - data = integer array to store the elements
- * - size = size of that array
+ * - capacity = size of that array
  * - head, tail = indices between 0 and size - 1.
  * The queue is managed as a circular array:
  * - if head = tail, the queue is empty
  * - if head < tail, the queue content is data[head ... tail-1]
  * - if head > tail, the queue content is
- *     data[head...size-1] + data[0 ... tail-1]
+ *     data[head...capacity-1] + data[0 ... tail-1]
  */
 typedef struct int_queue_s {
   int32_t *data;
-  uint32_t size;
+  uint32_t capacity;
   uint32_t head;
   uint32_t tail;
 } int_queue_t;
@@ -49,13 +49,13 @@ typedef struct int_queue_s {
 /*
  * Maximal size: make sure n * sizeof(int32_t) does not overflow
  */
-#define MAX_INT_QUEUE_SIZE (UINT32_MAX/sizeof(int32_t))
+#define MAX_INT_QUEUE_CAPACITY (UINT32_MAX/sizeof(int32_t))
 
 
 /*
  * Default size
  */
-#define DEFAULT_INT_QUEUE_INITIAL_SIZE 16
+#define DEFAULT_INT_QUEUE_INITIAL_CAPACITY 16
 
 
 /*
