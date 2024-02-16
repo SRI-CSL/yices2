@@ -115,9 +115,9 @@ run_parallel=
 if [ -n "$use_parallel" ] ; then
     if command -v parallel &> /dev/null ; then
         if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
-            echo "GNU parallel is not supported. Use moreutils parallel instead."
+            run_parallel=gnu
         else
-            run_parallel=yes
+            run_parallel=more
         fi
     else
         echo "Install moreutils to run tests in parallel"
@@ -128,13 +128,19 @@ if [ -t 1 ] ; then
   color_flag="-c"
 fi
 
-if [ -n "$run_parallel" ]; then
-    parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
-else
-    for file in $all_tests; do
-        bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
-    done
-fi
+case "$run_parallel" in
+    more)
+        parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
+        ;;
+    gnu)
+        parallel bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag {} "$bin_dir" "$logdir" ::: $all_tests
+        ;;
+    *)
+        for file in $all_tests; do
+            bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
+        done
+        ;;
+esac
 
 pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
 fail=$(find "$logdir" -type f -name "*.error" | wc -l)
