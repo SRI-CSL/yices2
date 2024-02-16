@@ -156,8 +156,7 @@ else
 fi
 
 if [ -d "$out_dir" ] ; then
-    # add pid in case there are multiple tests with the same name
-    log_file="$out_dir/$filename.$BASHPID"
+    log_file="$out_dir/$(echo "$test_file" | tr '/' '_')"
 fi
 
 # Run the binary
