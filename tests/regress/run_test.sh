@@ -140,7 +140,7 @@ esac
 # Get the options
 if [ -e "$test_file.options" ]
 then
-    options="$options $(cat $test_file.options)"
+    options="$options $(cat "$test_file.options")"
     test_string="$test_file [ $options ]"
 else
     test_string="$test_file"
@@ -164,7 +164,7 @@ fi
 (
   ulimit -S -t $TIME_LIMIT &> /dev/null
   ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
-  (time ./$bin_dir/$binary $options ./$test_file >& $outfile ) >& $timefile
+  (time "./$bin_dir/$binary" $options "./$test_file" >& "$outfile" ) >& "$timefile"
 )
 status=$?
 runtime=$(cat "$timefile")

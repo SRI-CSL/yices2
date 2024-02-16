@@ -120,7 +120,9 @@ if [ -n "$use_parallel" ] ; then
             run_parallel="more"
         fi
     else
-        echo "Install moreutils to run tests in parallel"
+        echo "****************************************************************"
+        echo "HINT: Install moreutils or GNU parallel to run tests in parallel"
+        echo "****************************************************************"
     fi
 fi
 
@@ -130,10 +132,10 @@ fi
 
 case "$run_parallel" in
     more)
-        parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- "$all_tests"
+        parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
         ;;
     gnu)
-        parallel -q bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" ::: "$all_tests"
+        parallel -q bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" ::: $all_tests
         ;;
     *)
         for file in $all_tests; do
