@@ -1247,7 +1247,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
     gc_info_mark(&gc_vars, var);
     if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
-       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
+      trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
     }
   }
 
@@ -2707,6 +2707,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       break;
     }
 
+    // remove all the hints
+    int_queue_reset(&mcsat->top_decision_var_queue);
+    // update the variable selection heuristic
     var_queue_decay_activities(&mcsat->var_queue);
   }
 
