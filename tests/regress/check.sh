@@ -153,9 +153,10 @@ echo "Fail: $fail"
 if [ "$fail" -eq 0 ] ; then
     code=0
 else
-    for f in "$logdir"/*.error ; do
-        cat "$f"
-        echo
+    find "$logdir" -type f -name "*.error" -printf '%P\0' |
+    while read -rd $'\0' path; do
+      cat "$path"
+      echo
     done
     code=1
 fi
