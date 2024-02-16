@@ -45,14 +45,14 @@ use_parallel=
 while getopts "js:" o; do
     case "$o" in
     s)
-	    smt2_options=${OPTARG}
-	    ;;
-	  j)
-	    use_parallel=yes
-	    ;;
-	  *)
-	    usage
-	    ;;
+      smt2_options=${OPTARG}
+      ;;
+    j)
+      use_parallel=yes
+      ;;
+    *)
+      usage
+      ;;
     esac
 done
 shift $((OPTIND-1))
@@ -68,7 +68,6 @@ all_tests="$@"
 
 #
 # System-dependent configuration
-# TODO why?
 #
 os_name=$(uname 2>/dev/null) || os_name=unknown
 
@@ -90,7 +89,7 @@ logdir=$($mktemp_cmd -d) || { echo "Can't create temp folder" ; exit 1 ; }
 
 if [[ -z "$REGRESS_FILTER" ]];
 then
-	REGRESS_FILTER="."
+    REGRESS_FILTER="."
 fi
 
 #
@@ -106,23 +105,23 @@ fi
 
 if [ -z "$all_tests" ] ; then
     all_tests=$(
-	  find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
-	    grep $REGRESS_FILTER | grep $MCSAT_FILTER |
-	    sort
+    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
+      grep $REGRESS_FILTER | grep $MCSAT_FILTER |
+      sort
     )
 fi
 
 run_parallel=
 if [ -n "$use_parallel" ] ; then
-  if command -v parallel &> /dev/null ; then
-    if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
-      echo "GNU parallel is not supported. Use moreutils parallel instead."
+    if command -v parallel &> /dev/null ; then
+        if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
+            echo "GNU parallel is not supported. Use moreutils parallel instead."
+        else
+            run_parallel=yes
+        fi
     else
-      run_parallel=yes
+        echo "Install moreutils to run tests in parallel"
     fi
-  else
-    echo "Install moreutils to run tests in parallel"
-  fi
 fi
 
 if [ -t 1 ] ; then
@@ -130,11 +129,11 @@ if [ -t 1 ] ; then
 fi
 
 if [ -n "$run_parallel" ]; then
-  parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
+    parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
 else
-  for file in $all_tests; do
-    bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
-  done
+    for file in $all_tests; do
+        bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
+    done
 fi
 
 pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
@@ -147,8 +146,8 @@ if [ "$fail" -eq 0 ] ; then
     code=0
 else
     for f in "$logdir"/*.error ; do
-      cat "$f"
-      echo
+        cat "$f"
+        echo
     done
     code=1
 fi

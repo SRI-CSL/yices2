@@ -46,14 +46,14 @@ color=
 while getopts "cs:" o; do
     case "$o" in
     s)
-	    smt2_options=${OPTARG}
-	    ;;
-	  c)
-	    color="on"
-	    ;;
-	  *)
-	    usage
-	    ;;
+      smt2_options=${OPTARG}
+      ;;
+    c)
+      color="on"
+      ;;
+    *)
+      usage
+      ;;
     esac
 done
 shift $((OPTIND-1))
@@ -100,9 +100,9 @@ red=
 green=
 black=
 if [ -t 1 ] || [ -n "$color" ]; then
-  red=$(tput setaf 1)
-  green=$(tput setaf 2)
-  black=$(tput sgr0)
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    black=$(tput sgr0)
 fi
 
 #
@@ -113,7 +113,7 @@ timefile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
 
 if [[ -z "$TIME_LIMIT" ]];
 then
-  TIME_LIMIT=60
+    TIME_LIMIT=60
 fi
 
 # Get the binary based on the filename
@@ -156,8 +156,8 @@ else
 fi
 
 if [ -d "$out_dir" ] ; then
-  # add pid in case there are multiple tests with the same name
-  log_file="$out_dir/$filename.$BASHPID"
+    # add pid in case there are multiple tests with the same name
+    log_file="$out_dir/$filename.$BASHPID"
 fi
 
 # Run the binary
@@ -176,16 +176,16 @@ if [ $? -eq 0 ] && [ $status -eq 0 ]
 then
     echo -e "$green PASS [${runtime} s] $black $test_string"
     if [ -n "$log_file" ] ; then
-      log_file="$log_file.pass"
-      echo "$test_string" > "$log_file"
+        log_file="$log_file.pass"
+        echo "$test_string" > "$log_file"
     fi
     code=0
 else
     echo -e "$red FAIL $black $test_string"
     if [ -n "$log_file" ] ; then
-      log_file="$log_file.error"
-      echo "$test_string" > "$log_file"
-      echo "$DIFF" >> "$log_file"
+        log_file="$log_file.error"
+        echo "$test_string" > "$log_file"
+        echo "$DIFF" >> "$log_file"
     fi
     code=1
 fi
