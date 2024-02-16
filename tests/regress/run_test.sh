@@ -167,7 +167,7 @@ fi
   (time ./$bin_dir/$binary $options ./$test_file >& $outfile ) >& $timefile
 )
 status=$?
-runtime=$(cat $timefile)
+runtime=$(cat "$timefile")
 
 # Do the diff
 DIFF=$(diff -w "$outfile" "$gold")
