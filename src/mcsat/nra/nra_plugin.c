@@ -692,7 +692,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
 
         // If we are at bound variable, set it as main decision
         if (t == nra->global_bound_term) {
-          nra->ctx->hint_next_decision(nra->ctx, t_var);
+          nra->ctx->request_top_decision(nra->ctx, t_var);
           if (nra->ctx->options->nra_bound_min >= 0) {
             rational_t q;
             q_init(&q);

@@ -230,7 +230,10 @@ struct mcsat_solver_s {
   uint32_t plugins_count;
 
   /** Variable to decide on first */
-  int_queue_t top_decision_var_queue;
+  ivector_t top_decision_vars;
+
+  /** Variables hinted by the plugins to decide next */
+  int_queue_t hinted_decision_vars;
 
   /** The queue for variable decisions */
   var_queue_t var_queue;
@@ -628,8 +631,15 @@ void mcsat_plugin_context_gc(plugin_context_t* self) {
 }
 
 static inline
+void mcsat_add_top_decision(mcsat_solver_t* mcsat, variable_t x) {
+  // TODO check that the hint is coming from the proper solver
+  ivector_push(&mcsat->top_decision_vars, x);
+}
+
+static inline
 void mcsat_add_decision_hint(mcsat_solver_t* mcsat, variable_t x) {
-  int_queue_push(&mcsat->top_decision_var_queue, x);
+  // TODO check that the hint is coming from the proper solver
+  int_queue_push(&mcsat->hinted_decision_vars, x);
 }
 
 static inline
@@ -681,6 +691,13 @@ int mcsat_plugin_context_cmp_variables(plugin_context_t* self, variable_t x, var
 }
 
 static
+void mcsat_plugin_context_request_top_decision(plugin_context_t* self, variable_t x) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  mcsat_add_top_decision(mctx->mcsat, x);
+}
+
+static
 void mcsat_plugin_context_hint_next_decision(plugin_context_t* self, variable_t x) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
@@ -716,6 +733,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.bump_variable = mcsat_plugin_context_bump_variable;
   ctx->ctx.bump_variable_n = mcsat_plugin_context_bump_variable_n;
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
+  ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->ctx.hint_next_decision = mcsat_plugin_context_hint_next_decision;
   ctx->mcsat = mcsat;
   ctx->plugin_name = plugin_name;
@@ -859,7 +877,8 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception, &mcsat->ctx->mcsat_options);
 
   // The variable queue
-  init_int_queue(&mcsat->top_decision_var_queue, 0);
+  init_ivector(&mcsat->top_decision_vars, 0);
+  init_int_queue(&mcsat->hinted_decision_vars, 0);
   var_queue_construct(&mcsat->var_queue);
 
   mcsat->pending_requests_all.restart = false;
@@ -918,7 +937,8 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   variable_db_destruct(mcsat->var_db);
   safe_free(mcsat->var_db);
   preprocessor_destruct(&mcsat->preprocessor);
-  delete_int_queue(&mcsat->top_decision_var_queue);
+  delete_ivector(&mcsat->top_decision_vars);
+  delete_int_queue(&mcsat->hinted_decision_vars);
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
   delete_ivector(&mcsat->plugin_definition_lemmas);
@@ -1252,8 +1272,11 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
   }
 
   // Mark the decision hints if there are any
-  for (i = 0; i < int_queue_size(&mcsat->top_decision_var_queue); ++ i) {
-    gc_info_mark(&gc_vars, int_queue_at(&mcsat->top_decision_var_queue, i));
+  for (i = 0; i < int_queue_size(&mcsat->hinted_decision_vars); ++ i) {
+    gc_info_mark(&gc_vars, int_queue_at(&mcsat->hinted_decision_vars, i));
+  }
+  for (i = 0; i < mcsat->top_decision_vars.size; ++i) {
+    gc_info_mark(&gc_vars, mcsat->top_decision_vars.data[i]);
   }
 
   // Mark the trail variables as needed
@@ -2332,9 +2355,9 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
   bool force_decision = false;
   while (true) {
 
-    // Use the variables a plugin requested
-    while (!int_queue_is_empty(&mcsat->top_decision_var_queue)) {
-      var = int_queue_pop(&mcsat->top_decision_var_queue);
+    // Us the top variables first
+    for (i = 0; i < mcsat->top_decision_vars.size; ++i) {
+      var = mcsat->top_decision_vars.data[i];
       assert(var != variable_null);
       if (!trail_has_value(mcsat->trail, var)) {
         break;
@@ -2342,11 +2365,22 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = variable_null;
     }
 
+    // then try the variables a plugin requested
+    if (var == variable_null) {
+      while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
+        var = int_queue_pop(&mcsat->hinted_decision_vars);
+        assert(var != variable_null);
+        if (!trail_has_value(mcsat->trail, var)) {
+          break;
+        }
+        var = variable_null;
+      }
+    }
+
     // If there is an order that was passed in, try that
     if (var == variable_null) {
       const ivector_t* order = &mcsat->ctx->mcsat_var_order;
       if (order->size > 0) {
-        uint32_t i;
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "mcsat_decide(): var_order is ");
@@ -2708,7 +2742,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // remove all the hints
-    int_queue_reset(&mcsat->top_decision_var_queue);
+    int_queue_reset(&mcsat->hinted_decision_vars);
     // update the variable selection heuristic
     var_queue_decay_activities(&mcsat->var_queue);
   }

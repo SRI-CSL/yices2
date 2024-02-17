@@ -111,6 +111,9 @@ struct plugin_context_s {
   int (*cmp_variables) (plugin_context_t* self, variable_t x, variable_t y);
 
   /** Request a variable to be a top decision variable */
+  void (*request_top_decision) (plugin_context_t* self, variable_t x);
+
+  /** Request a variable to be a next decision variable */
   void (*hint_next_decision) (plugin_context_t* self, variable_t x);
 
 };
