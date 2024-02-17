@@ -632,13 +632,11 @@ void mcsat_plugin_context_gc(plugin_context_t* self) {
 
 static inline
 void mcsat_add_top_decision(mcsat_solver_t* mcsat, variable_t x) {
-  // TODO check that the hint is coming from the proper solver
   ivector_push(&mcsat->top_decision_vars, x);
 }
 
 static inline
 void mcsat_add_decision_hint(mcsat_solver_t* mcsat, variable_t x) {
-  // TODO check that the hint is coming from the proper solver
   int_queue_push(&mcsat->hinted_decision_vars, x);
 }
 
@@ -2268,7 +2266,7 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       break;
     }
 
-    // The variable (should exists already)
+    // The variable (should exist already)
     var_term = assumptions[mcsat->assumption_i];
     var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
     assert(var != variable_null);
@@ -2343,6 +2341,7 @@ static
 bool mcsat_decide(mcsat_solver_t* mcsat) {
 
   uint32_t i;
+  variable_t var;
   plugin_t* plugin;
   plugin_trail_token_t decision_token;
 
@@ -2351,9 +2350,9 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
 
   assert(!mcsat->trail->inconsistent);
 
-  variable_t var = variable_null;
   bool force_decision = false;
   while (true) {
+    var = variable_null;
 
     // Us the top variables first
     for (i = 0; i < mcsat->top_decision_vars.size; ++i) {
