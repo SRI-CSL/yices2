@@ -829,18 +829,15 @@ fi
 #
 # Default GMP
 #
-if test "x$STATIC_LIBGMP" = x ; then
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
-fi
+
 
 #
 # Default libpoly
 #
 if test $use_mcsat = yes ; then
-if test "x$STATIC_LIBPOLY" = x ; then
    AC_CHECK_LIB([poly],[lp_polynomial_new], [], [AC_MSG_ERROR([*** libpoly library not found. Try to set LDFLAGS ***])])
-fi
 fi
 
 #
