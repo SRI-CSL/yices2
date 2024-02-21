@@ -309,14 +309,14 @@ regress: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
 	@ echo "=== Running regressions ==="
-	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin
+	+@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin
 
 
 static-regress: static_build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
-	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
+	@ $(regressdir)/check.sh -j $(regressdir) $(build_dir)/static_bin
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
