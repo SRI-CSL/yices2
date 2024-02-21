@@ -131,11 +131,16 @@ job_count=1
 if [ -n "$parallel_tool" ]; then
     if [[ -n "$j_option" ]]; then
         job_count=0
-    elif [[ "$MAKEFLAGS" == *"jobserver-fds="* ]] || [[ "$MAKEFLAGS" == *"jobserver-auth="* ]]; then
+    elif [[ "$MAKEFLAGS" =~ --jobserver-(fds\|auth)=([0-9]+),([0-9]+) ]]; then
         # greedy get as many tokens as possible
         fdR=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\2|")
         fdW=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\3|")
         while IFS= read -r -d '' -t 1 -n 1 <&"$fdR"; do
+          job_count=$((job_count+1))
+        done
+    elif [[ "$MAKEFLAGS" =~ --jobserver-auth=fifo:([^ ]+) ]]; then
+        fifo=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-auth=fifo:([^ ]+).*|\1|")
+        while IFS= read -r -d '' -t 1 -n 1 <"$fifo"; do
           job_count=$((job_count+1))
         done
     elif [[ "$MAKEFLAGS" =~ (^|[ ])-?j($|[ ]) ]]; then
@@ -162,8 +167,9 @@ esac
 
 # give back tokens
 while [[ $job_count -gt 1 ]]; do
-      echo -n '+' >&"$fdW"
-      job_count=$((job_count-1))
+    [[ -n $fdW ]] && echo -n '+' >&"$fdW"
+    [[ -n $fifo ]] && echo -n '+' >"$fifo"
+    job_count=$((job_count-1))
 done
 
 pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
