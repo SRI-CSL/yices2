@@ -40,7 +40,7 @@ usage() {
 }
 
 smt2_options=
-use_parallel=
+j_option=
 
 while getopts "js:" o; do
     case "$o" in
@@ -48,7 +48,7 @@ while getopts "js:" o; do
       smt2_options=${OPTARG}
       ;;
     j)
-      use_parallel=yes
+      j_option=yes
       ;;
     *)
       usage
@@ -82,6 +82,15 @@ case "$os_name" in
 
 esac
 
+parallel_tool=
+if command -v parallel &> /dev/null ; then
+    if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
+        parallel_tool="gnu"
+    else
+        parallel_tool="more"
+    fi
+fi
+
 #
 # The temp file for output
 #
@@ -111,31 +120,38 @@ if [ -z "$all_tests" ] ; then
     )
 fi
 
-run_parallel="no"
-if [ -n "$use_parallel" ] ; then
-    if command -v parallel &> /dev/null ; then
-        if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
-            run_parallel="gnu"
-        else
-            run_parallel="more"
-        fi
-    else
-        echo "****************************************************************"
-        echo "HINT: Install moreutils or GNU parallel to run tests in parallel"
-        echo "****************************************************************"
-    fi
-fi
-
 if [ -t 1 ] ; then
   color_flag="-c"
 fi
 
-case "$run_parallel" in
+# job_count 1: serial execution, 0: unrestricted parallel, n>1: n processes
+job_count=1
+
+#check if we are in a make run with -j N
+if [ -n "$parallel_tool" ]; then
+    if [[ -n "$j_option" ]]; then
+        job_count=0
+    elif [[ "$MAKEFLAGS" == *"jobserver-fds="* ]] || [[ "$MAKEFLAGS" == *"jobserver-auth="* ]]; then
+        # greedy get as many tokens as possible
+        fdR=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\2|")
+        fdW=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\3|")
+        while IFS= read -r -d '' -t 1 -n 1 <&"$fdR"; do
+          job_count=$((job_count+1))
+        done
+    elif [[ "$MAKEFLAGS" =~ (^|[ ])-?j($|[ ]) ]]; then
+        job_count=0
+    fi
+fi
+
+j_param="-j$job_count"
+if [[ $job_count == 0 ]]; then j_param=""; fi
+
+case "$parallel_tool" in
     more)
-        parallel -i bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
+        parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
         ;;
     gnu)
-        parallel -q bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" ::: $all_tests
+        parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" ::: $all_tests
         ;;
     *)
         for file in $all_tests; do
@@ -143,6 +159,12 @@ case "$run_parallel" in
         done
         ;;
 esac
+
+# give back tokens
+while [[ $job_count -gt 1 ]]; do
+      echo -n '+' >&"$fdW"
+      job_count=$((job_count-1))
+done
 
 pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
 fail=$(find "$logdir" -type f -name "*.error" | wc -l)
