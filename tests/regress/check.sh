@@ -39,6 +39,10 @@ usage() {
    exit
 }
 
+cleanup() {
+    [[ -n "$logdir" ]] && rm -rf "$logdir"
+}
+
 smt2_options=
 j_option=
 
@@ -94,6 +98,7 @@ fi
 #
 # The temp file for output
 #
+trap cleanup EXIT
 logdir=$($mktemp_cmd -d) || { echo "Can't create temp folder" ; exit 1 ; }
 
 if [[ -z "$REGRESS_FILTER" ]];
@@ -128,24 +133,34 @@ fi
 job_count=1
 
 #check if we are in a make run with -j N
-if [ -n "$parallel_tool" ]; then
-    if [[ -n "$j_option" ]]; then
-        job_count=0
-    elif [[ "$MAKEFLAGS" =~ --jobserver-(fds\|auth)=([0-9]+),([0-9]+) ]]; then
-        # greedy get as many tokens as possible
-        fdR=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\2|")
-        fdW=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\3|")
-        while IFS= read -r -d '' -t 1 -n 1 <&"$fdR"; do
-          job_count=$((job_count+1))
-        done
-    elif [[ "$MAKEFLAGS" =~ --jobserver-auth=fifo:([^ ]+) ]]; then
-        fifo=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-auth=fifo:([^ ]+).*|\1|")
-        while IFS= read -r -d '' -t 1 -n 1 <"$fifo"; do
-          job_count=$((job_count+1))
-        done
-    elif [[ "$MAKEFLAGS" =~ (^|[ ])-?j($|[ ]) ]]; then
-        job_count=0
-    fi
+if [[ -n "$j_option" ]]; then
+    job_count=0
+elif [[ "$MAKEFLAGS" =~ --jobserver-(fds|auth)=([0-9]+),([0-9]+) ]]; then
+    # greedy get as many tokens as possible
+    fdR=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\2|")
+    fdW=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-(fds\|auth)=([0-9]+),([0-9]+).*|\3|")
+    while IFS= read -r -d '' -t 1 -n 1 <&"$fdR"; do
+      job_count=$((job_count+1))
+    done
+elif [[ "$MAKEFLAGS" =~ --jobserver-auth=fifo:([^ ]+) ]]; then
+    fifo=$(echo "$MAKEFLAGS" | sed -E "s|.*--jobserver-auth=fifo:([^ ]+).*|\1|")
+    while IFS= read -r -d '' -t 1 -n 1 <"$fifo"; do
+      job_count=$((job_count+1))
+    done
+elif [[ "$MAKEFLAGS" =~ (^|[ ])-?j($|[ ]) ]]; then
+    job_count=0
+fi
+
+if [[ $job_count != 1 ]] && [[ -z "$parallel_tool" ]]; then
+    echo "**********************************************************"
+    echo "Install moreutils or GNU parallel to run tests in parallel"
+    echo "**********************************************************"
+else
+    case $job_count in
+        0) echo "Running in parallel";;
+        1) echo "Running sequentially";;
+        *) echo "Running with $job_count parallel jobs";;
+    esac
 fi
 
 j_param="-j$job_count"
@@ -188,5 +203,4 @@ else
     code=1
 fi
 
-rm -rf "$logdir"
 exit $code
