@@ -2404,7 +2404,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     }
 
     // Random decision:
-    if (var == variable_null) {
+    if (var == variable_null && mcsat->heuristic_params.random_decision_freq > 0.0) {
       double* seed = &mcsat->heuristic_params.random_decision_seed;
       double freq = mcsat->heuristic_params.random_decision_freq;
       if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
@@ -2412,8 +2412,8 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         if (trail_has_value(mcsat->trail, var)) {
           var = variable_null;
         } else {
-          // TODO: what if var gets skipped and is tried to be reintroduced?
           // fprintf(stderr, "random\n");
+          var_queue_remove(&mcsat->var_queue, var);
         }
       }
     }
