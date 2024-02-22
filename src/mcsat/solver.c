@@ -2359,6 +2359,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = mcsat->top_decision_vars.data[i];
       assert(var != variable_null);
       if (!trail_has_value(mcsat->trail, var)) {
+        force_decision = true;
         break;
       }
       var = variable_null;
@@ -2370,6 +2371,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         var = int_queue_pop(&mcsat->hinted_decision_vars);
         assert(var != variable_null);
         if (!trail_has_value(mcsat->trail, var)) {
+          force_decision = true;
           break;
         }
         var = variable_null;
@@ -2416,25 +2418,20 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       }
     }
 
-    if (var != variable_null) {
-      // variable was selected w/o consulting the queue, keep the queue up to date
-      var_queue_remove(&mcsat->var_queue, var);
-    } else {
-      // Use the queue
-      while (!var_queue_is_empty(&mcsat->var_queue) && var == variable_null) {
-        // Get the next variable from the queue
-        var = var_queue_pop(&mcsat->var_queue);
-        // If already assigned go on
-        if (trail_has_value(mcsat->trail, var)) {
-          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-            FILE *out = trace_out(mcsat->ctx->trace);
-            fprintf(out, "mcsat_decide(): skipping ");
-            variable_db_print_variable(mcsat->var_db, var, out);
-            fprintf(out, "\n");
-          }
-          var = variable_null;
-          continue;
+    // Use the queue
+    while (!var_queue_is_empty(&mcsat->var_queue) && var == variable_null) {
+      // Get the next variable from the queue
+      var = var_queue_pop(&mcsat->var_queue);
+      // If already assigned go on
+      if (trail_has_value(mcsat->trail, var)) {
+        if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+          FILE *out = trace_out(mcsat->ctx->trace);
+          fprintf(out, "mcsat_decide(): skipping ");
+          variable_db_print_variable(mcsat->var_db, var, out);
+          fprintf(out, "\n");
         }
+        var = variable_null;
+        continue;
       }
     }
 
