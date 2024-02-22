@@ -2410,25 +2410,31 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         if (trail_has_value(mcsat->trail, var)) {
           var = variable_null;
         } else {
+          // TODO: what if var gets skipped and is tried to be reintroduced?
           // fprintf(stderr, "random\n");
         }
       }
     }
 
-    // Use the queue
-    while (!var_queue_is_empty(&mcsat->var_queue) && var == variable_null) {
-      // Get the next variable from the queue
-      var = var_queue_pop(&mcsat->var_queue);
-      // If already assigned go on
-      if (trail_has_value(mcsat->trail, var)) {
-        if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-          FILE* out = trace_out(mcsat->ctx->trace);
-          fprintf(out, "mcsat_decide(): skipping ");
-          variable_db_print_variable(mcsat->var_db, var, out);
-          fprintf(out, "\n");
+    if (var != variable_null) {
+      // variable was selected w/o consulting the queue, keep the queue up to date
+      var_queue_remove(&mcsat->var_queue, var);
+    } else {
+      // Use the queue
+      while (!var_queue_is_empty(&mcsat->var_queue) && var == variable_null) {
+        // Get the next variable from the queue
+        var = var_queue_pop(&mcsat->var_queue);
+        // If already assigned go on
+        if (trail_has_value(mcsat->trail, var)) {
+          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+            FILE *out = trace_out(mcsat->ctx->trace);
+            fprintf(out, "mcsat_decide(): skipping ");
+            variable_db_print_variable(mcsat->var_db, var, out);
+            fprintf(out, "\n");
+          }
+          var = variable_null;
+          continue;
         }
-        var = variable_null;
-        continue;
       }
     }
 
