@@ -26,24 +26,24 @@
 #include "utils/memalloc.h"
 
 
-/*
- * Initialize a queue of size n
+/**
+ * Initialize a queue of capacity n
  */
 void init_int_queue(int_queue_t *q, uint32_t n) {
   if (n == 0) {
-    n = DEFAULT_INT_QUEUE_INITIAL_SIZE;
-  } else if (n > MAX_INT_QUEUE_SIZE) {
+    n = DEFAULT_INT_QUEUE_INITIAL_CAPACITY;
+  } else if (n > MAX_INT_QUEUE_CAPACITY) {
     out_of_memory();
   }
 
   q->data = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  q->size = n;
+  q->capacity = n;
   q->head = 0;
   q->tail = 0;
 }
 
 
-/*
+/**
  * Delete: free data array
  */
 void delete_int_queue(int_queue_t *q) {
@@ -51,28 +51,26 @@ void delete_int_queue(int_queue_t *q) {
   q->data = NULL;
 }
 
-
-/*
+/**
  * Resize the queue. make data array 50% larger.
  * content of data array is unchanged
  */
-static void resize_queue(int_queue_t *q) {
+static
+void resize_queue(int_queue_t *q) {
   uint32_t n;
 
-  n = q->size + 1;
+  n = q->capacity + 1;
   n += n >> 1;
 
-  if (n > MAX_INT_QUEUE_SIZE) {
+  if (n > MAX_INT_QUEUE_CAPACITY) {
     out_of_memory();
   }
 
   q->data = (int32_t *) safe_realloc(q->data, n * sizeof(int32_t));
-  q->size = n;
+  q->capacity = n;
 }
 
-
-
-/*
+/**
  * Push element x at the end of the queue
  */
 void int_queue_push(int_queue_t *q, int32_t x) {
@@ -83,7 +81,7 @@ void int_queue_push(int_queue_t *q, int32_t x) {
   i ++;
   q->tail = i;
 
-  if (i == q->size) {
+  if (i == q->capacity) {
     if (q->head == 0) {
       /*
        * full queue, stored in data[0...size-1],
@@ -99,9 +97,9 @@ void int_queue_push(int_queue_t *q, int32_t x) {
      * increase the size and shift data[head .. size - 1] to the end
      * of the new data array.
      */
-    n = q->size;
+    n = q->capacity;
     resize_queue(q);
-    j = q->size;
+    j = q->capacity;
     do {
       n --;
       j --;
@@ -111,8 +109,7 @@ void int_queue_push(int_queue_t *q, int32_t x) {
   }
 }
 
-
-/*
+/**
  * Push a[0 ... n-1] in the queue (in this order)
  */
 void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
@@ -123,8 +120,7 @@ void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
   }
 }
 
-
-/*
+/**
  * Return first element and remove it
  */
 int32_t int_queue_pop(int_queue_t *q) {
@@ -136,34 +132,63 @@ int32_t int_queue_pop(int_queue_t *q) {
   h = q->head;
   x = q->data[h];
   h ++;
-  if (h >= q->size) h = 0;
+  if (h >= q->capacity) h = 0;
   q->head = h;
 
   return x;
 }
 
-
-
-/*
+/**
  * Get the first element (don't remove it).
  */
-int32_t int_queue_first(int_queue_t *q) {
+int32_t int_queue_first(const int_queue_t *q) {
   assert(q->head != q->tail);
   return q->data[q->head];
 }
 
-
-/*
+/**
  * Get the last element (don't remove it)
  */
-int32_t int_queue_last(int_queue_t *q) {
+int32_t int_queue_last(const int_queue_t *q) {
   uint32_t i;
 
   assert(q->head != q->tail);
   i = q->tail;
   if (i == 0) {
-    i = q->size;
+    i = q->capacity;
   }
   assert(i > 0);
   return q->data[i-1];
+}
+
+/**
+ * Get element at position i
+ */
+int32_t int_queue_at(const int_queue_t *q, uint32_t i) {
+  assert(q->head != q->tail);
+
+  if (q->head < q->tail) {
+    assert(q->head + i < q->tail);
+    return q->data[q->head + i];
+  } else if (q->head > q->tail) {
+    uint32_t size_first = q->capacity - q->head;
+    assert(i < size_first || i - size_first < q->tail);
+    return i < size_first
+      ? q->data[q->head + i]
+      : q->data[i - size_first];
+  }
+
+  assert(false);
+  return 0;
+}
+
+/**
+ * Get size of queue
+ */
+uint32_t int_queue_size(const int_queue_t *q) {
+  if (q->head <= q->tail) {
+    return q->tail - q->head;
+  } else {
+    return (q->capacity - q->head) + q->tail;
+  }
 }

@@ -799,18 +799,25 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         }
         lp_value_destruct(&v);
       }
-      // If the value is implied at zero level, propagate it
-      if (!nra->ctx->options->model_interpolation && !x_in_conflict && !trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
-        const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
-        if (lp_feasibility_set_is_point(feasible)) {
+      if (!x_in_conflict && !trail_has_value(nra->ctx->trail, x)) {
+        const lp_feasibility_set_t *feasible_set = feasible_set_db_get(nra->feasible_set_db, x);
+        if (lp_feasibility_set_is_point(feasible_set)) {
           lp_value_t x_value;
           lp_value_construct_none(&x_value);
-          lp_feasibility_set_pick_value(feasible, &x_value);
+          lp_feasibility_set_pick_value(feasible_set, &x_value);
           if (lp_value_is_rational(&x_value)) {
-            mcsat_value_t value;
-            mcsat_value_construct_lp_value(&value, &x_value);
-            prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-            mcsat_value_destruct(&value);
+            if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
+              mcsat_value_t value;
+              mcsat_value_construct_lp_value(&value, &x_value);
+              prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
+              mcsat_value_destruct(&value);
+            } else {
+              // TODO add statistics
+              if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+                ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+              }
+              nra->ctx->hint_next_decision(nra->ctx, x);
+            }
           }
           lp_value_destruct(&x_value);
         }
@@ -1017,7 +1024,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   // Propagate
-  while(trail_is_consistent(trail) && nra->trail_i < trail_size(trail)) {
+  while (trail_is_consistent(trail) && nra->trail_i < trail_size(trail)) {
     // Current trail element
     var = trail_at(trail, nra->trail_i);
     nra->trail_i ++;

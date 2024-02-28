@@ -311,7 +311,7 @@ regress: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
 	@ echo "=== Running regressions ==="
-	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin
+	+@ $(regressdir)/check.sh $(regressdir) $(build_dir)/bin
 
 regress-mcsat: build_subdirs version
 	@ echo "=== Building binaries ==="
@@ -323,7 +323,7 @@ static-regress: static_build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
-	@ $(regressdir)/check.sh $(regressdir) $(build_dir)/static_bin
+	@ $(regressdir)/check.sh -j $(regressdir) $(build_dir)/static_bin
 
 static-regress-mcsat: static_build_subdirs version
 	@ echo "=== Building binaries ==="

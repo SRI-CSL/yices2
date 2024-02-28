@@ -113,6 +113,9 @@ struct plugin_context_s {
   /** Request a variable to be a top decision variable */
   void (*request_top_decision) (plugin_context_t* self, variable_t x);
 
+  /** Request a variable to be a next decision variable */
+  void (*hint_next_decision) (plugin_context_t* self, variable_t x);
+
 };
 
 /** Token to add entries to the trail */
@@ -338,6 +341,5 @@ void plugin_construct(plugin_t* plugin) {
   plugin->gc_sweep                  = NULL;
   plugin->set_exception_handler     = NULL;
 }
-
 
 #endif /* PLUGIN_H_ */
