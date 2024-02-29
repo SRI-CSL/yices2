@@ -55,6 +55,7 @@ void ff_plugin_stats_init(ff_plugin_t* ff) {
   ff->stats.constraints_attached = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints_attached");
   ff->stats.evaluations = statistics_new_int(ff->ctx->stats, "mcsat::ff::evaluations");
   ff->stats.constraint = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints");
+  ff->stats.variable_hints = statistics_new_int(ff->ctx->stats, "mcsat::ff::variable_hints");
 }
 
 static
@@ -577,15 +578,20 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
       // you need to find a term s that evaluates to the propagated value under the current assignment, but works in general
       // and you need to find an explanaiton for this propagation
       // TODO this can be done in ff -> propagation like single polynomial propagation
-      if (!trail_has_value(ff->ctx->trail, x) && trail_is_at_base_level(ff->ctx->trail)) {
-        mcsat_value_t value;
-        lp_value_t x_value;
-        lp_value_construct_none(&x_value);
-        ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
-        mcsat_value_construct_lp_value(&value, &x_value);
-        prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
-        mcsat_value_destruct(&value);
-        lp_value_destruct(&x_value);
+      if (!trail_has_value(ff->ctx->trail, x)) {
+        if (trail_is_at_base_level(ff->ctx->trail)) {
+          mcsat_value_t value;
+          lp_value_t x_value;
+          lp_value_construct_none(&x_value);
+          ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
+          mcsat_value_construct_lp_value(&value, &x_value);
+          prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
+          mcsat_value_destruct(&value);
+          lp_value_destruct(&x_value);
+        } else {
+          (*ff->stats.variable_hints) ++;
+          ff->ctx->hint_next_decision(ff->ctx, x);
+        }
       }
     }
     polynomial_zeros_delete(zeros);
