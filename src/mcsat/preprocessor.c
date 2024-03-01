@@ -906,7 +906,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_FF_POLY:    // polynomial with finite field coefficients
     {
       polynomial_t* p = finitefield_poly_term_desc(terms, current);
-      rational_t *mod = finitefield_term_order(terms, current);
+      const rational_t *mod = finitefield_term_order(terms, current);
 
       bool children_done = true;
       bool children_same = true;

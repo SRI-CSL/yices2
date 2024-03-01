@@ -740,9 +740,9 @@ extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
  * FINITE FIELD TERMS
  */
 
-extern term_t arith_ff_zero(term_table_t *table, rational_t *mod);
+extern term_t arith_ff_zero(term_table_t *table, const rational_t *mod);
 
-extern term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod);
+extern term_t arith_ff_constant(term_table_t *table, rational_t *a, const rational_t *mod);
 
 /*
  * for finite field types zero_term depends on the type of finite field
@@ -762,7 +762,7 @@ static inline term_t ff_zero_term(term_table_t *table, type_t ff) {
  *
  * SIDE EFFECT: b is reset to zero
  */
-extern term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, rational_t *mod);
+extern term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, const rational_t *mod);
 
 /*
  * Atom (t == 0)
@@ -1595,7 +1595,7 @@ static inline term_t arith_abs_arg(const term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
-static inline rational_t* finitefield_term_order(const term_table_t *table, term_t t) {
+static inline const rational_t* finitefield_term_order(const term_table_t *table, term_t t) {
   assert(is_ff_type(table->types, term_type(table, t)));
   return ff_type_size(table->types, term_type(table, t));
 }

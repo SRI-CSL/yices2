@@ -724,7 +724,7 @@ static value_t eval_arith_ff_eq(evaluator_t *eval, term_t t) {
 /*
  * Power product: arithmetic
  */
-static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, rational_t *mod) {
+static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, const rational_t *mod) {
   rational_t prod;
   uint32_t i, n;
   term_t t;
@@ -854,7 +854,7 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
   return v;
 }
 
-static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, rational_t *mod) {
+static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, const rational_t *mod) {
   rational_t sum;
   uint32_t i, n;
   term_t t;
@@ -1601,7 +1601,7 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
   return v;
 }
 
-static inline rational_t* arith_get_mod(term_table_t *table, term_t t) {
+static inline const rational_t* arith_get_mod(term_table_t *table, term_t t) {
   type_t tau = term_type(table, t);
   return is_finite_type(table->types, tau) ? ff_type_size(table->types, tau) : NULL;
 }

@@ -283,7 +283,7 @@ extern void q_gcd(rational_t *r1, const rational_t *r2);
 extern void q_floor(rational_t *r);
 extern void q_ceil(rational_t *r);
 
-extern void q_inv_mod(rational_t *r, rational_t *mod);
+extern void q_inv_mod(rational_t *r, const rational_t *mod);
 
 
 /*

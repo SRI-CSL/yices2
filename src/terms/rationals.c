@@ -1018,7 +1018,7 @@ void q_inv(rational_t *r) {
 /*
  * Invert r mod m
  */
-void q_inv_mod(rational_t *r, rational_t *mod) {
+void q_inv_mod(rational_t *r, const rational_t *mod) {
   assert(q_is_integer(r) && q_is_integer(mod) && q_is_pos(mod));
 
   rational_t tmp, *mm;
@@ -1026,7 +1026,7 @@ void q_inv_mod(rational_t *r, rational_t *mod) {
     tmp = *mod; mm = &tmp;
     q_denormalize(mm);
   } else {
-    mm = mod;
+    mm = (rational_t*)mod;
   }
 
   q_denormalize(r);

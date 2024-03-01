@@ -837,7 +837,7 @@ term_t mk_arith_ff_constant(term_manager_t *manager, rational_t *r, rational_t *
   return arith_ff_constant(manager->terms, r, mod);
 }
 
-static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod) {
+static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod) {
   mono_t *m;
   pprod_t *r;
   uint32_t n;
@@ -887,11 +887,11 @@ term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b) {
   return arith_buffer_to_term(tbl, b);
 }
 
-term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, rational_t *mod) {
+term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
   return arith_ff_buffer_to_term(manager->terms, b, mod);
 }
 
-term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod) {
+term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod) {
   return arith_ff_buffer_to_term(tbl, b, mod);
 }
 
@@ -3640,11 +3640,11 @@ term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint3
  * Finite field Arithmetic
  */
 
-term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod) {
+term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
   return mk_direct_arith_ff_eq0(manager->terms, b, mod, manager->simplify_ite);
 }
 
-term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod) {
+term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
   return opposite_term(mk_arith_ff_eq0(manager, b, mod));
 }
 
@@ -3733,7 +3733,7 @@ static term_t mk_arith_ff_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bo
  * - otherwise, create a polynomial term t from b
  *   and return the atom (t == 0).
  */
-term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mod, bool simplify_ite) {
+term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod, bool simplify_ite) {
   mono_t *m[2], *m1, *m2;
   pprod_t *r1, *r2;
   rational_t r0;
@@ -6317,7 +6317,7 @@ term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t
  * - a is an array of n arithmetic terms
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  */
-term_t mk_arith_ff_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, rational_t *mod) {
+term_t mk_arith_ff_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, const rational_t *mod) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
@@ -6405,7 +6405,7 @@ term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a) {
   if (is_arithmetic_type(tau)) {
     return mk_arith_pprod(mngr, p, n, a);
   } else if (is_ff_type(mngr->types, tau)) {
-    rational_t *mod = ff_type_size(mngr->types, tau);
+    const rational_t *mod = ff_type_size(mngr->types, tau);
     return mk_arith_ff_pprod(mngr, p, n, a, mod);
   } else {
     uint32_t nbits = bv_type_size(mngr->types, tau);
@@ -6449,7 +6449,7 @@ term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const te
 /*
  * Same thing for a finite field polynomial (1 to 64bits)
  */
-term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, rational_t *mod) {
+term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, const rational_t *mod) {
   rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;

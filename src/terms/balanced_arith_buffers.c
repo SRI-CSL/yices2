@@ -1109,7 +1109,7 @@ void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a) {
 static void mod_const_tree(rba_buffer_t *b, const rational_t *m, uint32_t x, uint32_t *tbd_s, pprod_t **tbd) {
   assert(x < b->num_nodes);
   if (x != rba_null) {
-    q_integer_rem(&b->mono[x].coeff, (rational_t *) m);
+    q_integer_rem(&b->mono[x].coeff, m);
     if (q_is_zero(&b->mono[x].coeff)) {
       tbd[(*tbd_s)++] = b->mono[x].prod;
     }
@@ -1135,7 +1135,7 @@ void rba_buffer_mod_const(rba_buffer_t *b, const rational_t *m) {
     for (i = 1; i < n; i++) {
       if (!q_is_zero(&b->mono[i].coeff)) {
         assert(q_is_integer(&b->mono[i].coeff));
-        q_integer_rem(&b->mono[i].coeff, (rational_t *) m);
+        q_integer_rem(&b->mono[i].coeff, m);
         if (q_is_zero(&b->mono[i].coeff)) {
           tbd[tbd_s++] = b->mono[i].prod;
         }

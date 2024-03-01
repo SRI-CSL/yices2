@@ -257,7 +257,7 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
 
   mpz_t order;
   mpz_init(order);
-  rational_t *order_q = ff_type_size(ff->ctx->types, tau);
+  const rational_t *order_q = ff_type_size(ff->ctx->types, tau);
   q_get_mpz(order_q, order);
 
   if (ff->lp_data) {

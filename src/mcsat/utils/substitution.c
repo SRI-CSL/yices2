@@ -372,7 +372,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
 
     case ARITH_FF_POLY: {
       polynomial_t* p = finitefield_poly_term_desc(terms, current);
-      rational_t* mod = finitefield_term_order(terms, current);
+      const rational_t* mod = finitefield_term_order(terms, current);
       n = p->nterms;
 
       bool children_done = true;
