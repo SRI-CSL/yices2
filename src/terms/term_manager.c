@@ -845,6 +845,8 @@ static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, const 
 
   assert(b->ptbl == tbl->pprods);
 
+  rba_buffer_mod_const(b, mod);
+
   n = b->nterms;
   if (n == 0) {
     rational_t zero;
@@ -6447,7 +6449,7 @@ term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const te
 }
 
 /*
- * Same thing for a finite field polynomial (1 to 64bits)
+ * Same thing for a finite field polynomial
  */
 term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, const rational_t *mod) {
   rba_buffer_t *b;

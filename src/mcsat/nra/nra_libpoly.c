@@ -64,14 +64,31 @@ term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t 
   return result;
 }
 
-void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
-  // assert(poly_constraint_db_check(db));
-
+void nra_poly_constraint_add(nra_plugin_t *nra, variable_t constraint_var) {
   if (poly_constraint_db_has(nra->constraint_db, constraint_var)) {
     // Already added
     return;
   }
 
+  poly_constraint_t* cstr = nra_poly_constraint_create(nra, constraint_var);
+
+  if (poly_constraint_is_root_constraint(cstr)) {
+    (*nra->stats.constraint_root) ++;
+  } else {
+    (*nra->stats.constraint_regular) ++;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(nra->ctx, "poly_constraint_add: ");
+    poly_constraint_print(cstr, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+  }
+
+  poly_constraint_db_add_constraint(nra->constraint_db, constraint_var, cstr);
+}
+
+poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
+  // assert(poly_constraint_db_check(db));
   term_t constraint_var_term;
 
   // Constraint components
@@ -79,9 +96,6 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
   lp_variable_t cstr_root_variable = lp_variable_null;
   uint32_t cstr_root_index;
   lp_sign_condition_t sgn_condition;
-
-  // Result constraint
-  poly_constraint_t* cstr;
 
   // Context
   variable_db_t* var_db = nra->ctx->var_db;
@@ -194,22 +208,11 @@ void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
   }
   }
 
-  // Create the appropriate constraint
   if (cstr_root_variable == lp_variable_null) {
-    cstr = poly_constraint_new_regular(cstr_polynomial, sgn_condition);
-    (*nra->stats.constraint_regular) ++;
+    return poly_constraint_new_regular(cstr_polynomial, sgn_condition);
   } else {
-    cstr = poly_constraint_new_root(cstr_polynomial, sgn_condition, cstr_root_variable, cstr_root_index);
-    (*nra->stats.constraint_root) ++;
+    return poly_constraint_new_root(cstr_polynomial, sgn_condition, cstr_root_variable, cstr_root_index);
   }
-
-  if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(nra->ctx, "poly_constraint_add: ");
-    poly_constraint_print(cstr, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
-  }
-
-  poly_constraint_db_add_constraint(nra->constraint_db, constraint_var, cstr);
 }
 
 const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, variable_t constraint_var) {

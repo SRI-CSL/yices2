@@ -2956,6 +2956,7 @@ term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, const rational_t *mod
   poly_term_hobj_t poly_hobj;
 
   assert(b->ptbl == table->pprods);
+  assert(rba_buffer_is_mod(b, mod));
 
   n = b->nterms;
 

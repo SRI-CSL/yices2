@@ -1105,8 +1105,8 @@ void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a) {
 /*
  * Take all coefficients mode m
  */
-// m must be postive here
 static void mod_const_tree(rba_buffer_t *b, const rational_t *m, uint32_t x, uint32_t *tbd_s, pprod_t **tbd) {
+  assert(q_is_integer(m) && q_is_pos(m));
   assert(x < b->num_nodes);
   if (x != rba_null) {
     q_integer_rem(&b->mono[x].coeff, m);
@@ -1151,6 +1151,8 @@ void rba_buffer_mod_const(rba_buffer_t *b, const rational_t *m) {
   }
   safe_free(tbd);
 }
+
+
 
 
 /*
@@ -2123,7 +2125,7 @@ uint32_t hash_rba_buffer(rba_buffer_t *b, int32_t *v) {
  */
 // aux function: check where p->mono[*i] is equal to the node x
 // if so increment *i
-static bool rba_equal_node(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
+static bool rba_equal_node(const polynomial_t *p, const rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
   uint32_t j;
 
   assert(0 < x && x < b->num_nodes && q_is_nonzero(&b->mono[x].coeff));
@@ -2139,7 +2141,7 @@ static bool rba_equal_node(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_
   return false;
 }
 
-static bool rba_equal_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
+static bool rba_equal_tree(const polynomial_t *p, const rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
   assert(x < b->num_nodes);
   return (x == rba_null) ||
     (rba_equal_tree(p, b, v, i, b->child[x][0]) &&
@@ -2151,7 +2153,7 @@ static bool rba_equal_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_
 /*
  * Check where P(b, v) is equal to p
  */
-bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p) {
+bool rba_buffer_equal_poly(const rba_buffer_t *b, int32_t *v, const polynomial_t *p) {
   uint32_t n;
   bool result;
 
@@ -2181,7 +2183,7 @@ bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p) {
 /*
  * Check whether monomial m is integral:
  */
-static bool monomial_is_int(mono_t *m, void *aux, var_type_fun_t var_is_int) {
+static bool monomial_is_int(const mono_t *m, void *aux, var_type_fun_t var_is_int) {
   pprod_t *p;
   uint32_t i, n;
 
@@ -2216,7 +2218,7 @@ static bool monomial_is_int(mono_t *m, void *aux, var_type_fun_t var_is_int) {
 /*
  * Check whether all monomials in x's subtree are integral
  */
-static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t var_is_int) {
+static bool tree_is_int(const rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t var_is_int) {
   return x == rba_null ||
     (monomial_is_int(b->mono + x, aux, var_is_int) &&
      tree_is_int(b, b->child[x][0], aux, var_is_int) &&
@@ -2226,15 +2228,43 @@ static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t v
 /*
  * Check whether b is an integral polynomial
  */
-bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
-  uint32_t i, n;
-
+bool rba_buffer_is_int(const rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
   if (rba_tree_is_small(b)) {
     return tree_is_int(b, b->root, aux, var_is_int);
   } else {
-    n = b->num_nodes;
-    for (i=1; i<n; i++) {
+    uint32_t n = b->num_nodes;
+    for (uint32_t i=1; i<n; i++) {
       if (!monomial_is_int(&b->mono[i], aux, var_is_int)) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+static inline bool is_mod(const rational_t *r, const rational_t *mod) {
+  return q_is_integer(r) && q_is_nonneg(r) && q_lt(r, mod);
+}
+
+static bool tree_is_mod(const rba_buffer_t *b, uint32_t x, const rational_t *mod) {
+  return x == rba_null ||
+    (is_mod(&b->mono[x].coeff, mod) &&
+     tree_is_mod(b, b->child[x][0], mod) &&
+     tree_is_mod(b, b->child[x][1], mod));
+}
+
+/*
+ * Check whether the every coefficient c of b is int and 0 <= c < mod
+ */
+bool rba_buffer_is_mod(const rba_buffer_t *b, const rational_t *mod) {
+  assert(q_is_integer(mod) && q_is_pos(mod));
+
+  if (rba_tree_is_small(b)) {
+    return tree_is_mod(b, b->root, mod);
+  } else {
+    uint32_t n = b->num_nodes;
+    for (uint32_t i=1; i<n; i++) {
+      if (!is_mod(&b->mono[i].coeff, mod)) {
         return false;
       }
     }
