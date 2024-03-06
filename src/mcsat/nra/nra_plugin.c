@@ -873,7 +873,6 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
               prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
               mcsat_value_destruct(&value);
             } else {
-              // TODO add statistics
               if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
                 ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
               }
