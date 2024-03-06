@@ -632,6 +632,11 @@ void mcsat_plugin_context_gc(plugin_context_t* self) {
 
 static inline
 void mcsat_add_top_decision(mcsat_solver_t* mcsat, variable_t x) {
+  for (int i = 0; i < mcsat->top_decision_vars.size; ++i) {
+    if (mcsat->top_decision_vars.data[i] == x) {
+      return;
+    }
+  }
   ivector_push(&mcsat->top_decision_vars, x);
 }
 
