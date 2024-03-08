@@ -29,7 +29,7 @@
 #include "yices.h"
 
 term_t
-arbitrary_expr()
+arbitrary_expr(void)
 {
     term_t t_1 = yices_new_uninterpreted_term(yices_int_type());
     yices_set_term_name(t_1, "x_in");
