@@ -241,7 +241,7 @@ lp_polynomial_t** srs(const lp_polynomial_t *f, const lp_polynomial_t *g, size_t
   }
 
   // generate subresultants
-  lp_polynomial_srs(subres, f, g);
+  lp_polynomial_subres(subres, f, g);
 
   // remove defective
   *count = 0;
