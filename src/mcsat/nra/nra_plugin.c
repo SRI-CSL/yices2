@@ -740,8 +740,6 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
 static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
-  bool feasible;
-
   if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
     ctx_trace_printf(nra->ctx, "nra: processing unit constraint :\n");
     ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, constraint_var));
@@ -763,7 +761,8 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     variable_t x = constraint_unit_info_get_unit_var(&nra->unit_info, constraint_var);
     assert(x != variable_null);
 
-    lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, x, !constraint_value);
+    bool is_negated = !constraint_value;
+    lp_feasibility_set_t* constraint_feasible = nra_plugin_get_feasible_set(nra, constraint_var, x, is_negated);
 
     if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: constraint_feasible = ");
@@ -772,7 +771,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     }
 
     // Update the infeasible intervals
-    feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
+    bool still_feasible = feasible_set_db_update(nra->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
 
     if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
       ctx_trace_printf(nra->ctx, "nra: new feasible = ");
@@ -781,7 +780,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     }
 
     // If the intervals are empty, we have a conflict
-    if (!feasible) {
+    if (!still_feasible) {
       nra_plugin_report_conflict(nra, prop, x);
     } else {
       bool x_in_conflict = false;
@@ -1057,7 +1056,7 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
   assert(variable_db_is_real(nra->ctx->var_db, x) || variable_db_is_int(nra->ctx->var_db, x));
 
   // Get the feasibility set
-  lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
+  const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
 
   if (ctx_trace_enabled(nra->ctx, "nra::decide")) {
     ctx_trace_printf(nra->ctx, "decide on ");

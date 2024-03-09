@@ -84,13 +84,25 @@ struct feasible_set_db_struct {
 };
 
 static
-uint32_t feasible_set_db_get_index(feasible_set_db_t* db, variable_t x) {
+uint32_t feasible_set_db_get_index(const feasible_set_db_t* db, variable_t x) {
   int_hmap_pair_t* find = int_hmap_find(&db->var_to_feasible_set_map, x);
   if (find == NULL) {
     return 0;
   } else {
     return find->val;
   }
+}
+
+static
+void feasibility_list_element_delete(feasibility_list_element_t *element) {
+  // Deallocate allocated data
+  lp_feasibility_set_t* s1 = element->feasible_set;
+  lp_feasibility_set_t* s2 = element->reason_feasible_set;
+  lp_feasibility_set_delete(s1);
+  if (s1 != s2) {
+    lp_feasibility_set_delete(s2);
+  }
+  safe_free(element->reasons);
 }
 
 void feasible_set_db_print_var(feasible_set_db_t* db, variable_t var, FILE* out) {
@@ -155,7 +167,7 @@ feasible_set_db_t* feasible_set_db_new(plugin_context_t* ctx) {
 
   db->memory_size = 1; // 0 is special null ref
   db->memory_capacity = INITIAL_DB_SIZE;
-  db->memory = safe_malloc(sizeof(feasibility_list_element_t)*db->memory_capacity);
+  db->memory = safe_malloc(sizeof(feasibility_list_element_t) * db->memory_capacity);
 
   init_int_hmap(&db->var_to_feasible_set_map, 0);
   init_ivector(&db->updates, 0);
@@ -175,16 +187,9 @@ feasible_set_db_t* feasible_set_db_new(plugin_context_t* ctx) {
 
 void feasible_set_db_delete(feasible_set_db_t* db) {
   // Delete the feasible sets
-  uint32_t i;
   // Start from 1, 0 is special.
-  for (i = 1; i < db->memory_size; ++ i) {
-    safe_free(db->memory[i].reasons);
-    lp_feasibility_set_t* s1 = db->memory[i].feasible_set;
-    lp_feasibility_set_t* s2 = db->memory[i].reason_feasible_set;
-    lp_feasibility_set_delete(s1);
-    if (s1 != s2) {
-      lp_feasibility_set_delete(s2);
-    }
+  for (uint32_t i = 1; i < db->memory_size; ++ i) {
+    feasibility_list_element_delete(db->memory + i);
   }
   // Delete the other stuff
   delete_int_hmap(&db->var_to_feasible_set_map);
@@ -205,8 +210,17 @@ lp_feasibility_set_t* feasible_set_db_get(feasible_set_db_t* db, variable_t x) {
   }
 }
 
+static inline
+void ff_feasible_set_db_ensure_memory(feasible_set_db_t* db) {
+  if (db->memory_size >= db->memory_capacity) {
+    db->memory_capacity = db->memory_capacity + db->memory_capacity / 2;
+    db->memory = safe_realloc(db->memory, db->memory_capacity * sizeof(feasibility_list_element_t));
+  }
+  assert(db->memory_size < db->memory_capacity);
+}
+
 /** Update the feasible set of the variable with a new set */
-bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_set_t* new_set, variable_t* cstr_list, uint32_t cstr_count) {
+bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_set_t* new_set, const variable_t* cstr_list, uint32_t cstr_count) {
 
   assert(db->updates_size == db->updates.size);
 
@@ -218,7 +232,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   }
 
   // The one we're adding
-  lp_feasibility_set_t* intersect = 0;
+  lp_feasibility_set_t* intersect = NULL;
 
   // Intersect, if no difference, we're done
   const lp_feasibility_set_t* old_set = feasible_set_db_get(db, x);
@@ -243,7 +257,6 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
       lp_feasibility_set_delete(intersect);
       lp_feasibility_set_delete(new_set);
       return true;
-      break;
     case LP_FEASIBILITY_SET_INTERSECT_S2:
     case LP_FEASIBILITY_SET_NEW:
       // We have a proper new set
@@ -265,11 +278,9 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   // Allocate a new one
   uint32_t new_index = db->memory_size;
   // Allocate new element
-  if (db->memory_size == db->memory_capacity) {
-    db->memory_capacity = db->memory_capacity + db->memory_capacity/2;
-    db->memory = safe_realloc(db->memory, db->memory_capacity*sizeof(feasibility_list_element_t));
-  }
   db->memory_size ++;
+  ff_feasible_set_db_ensure_memory(db);
+
   // Set up the element
   feasibility_list_element_t* new_element = db->memory + new_index;
   new_element->feasible_set = intersect;
@@ -278,8 +289,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
   // Reasons
   new_element->reasons_size = cstr_count;
   new_element->reasons = safe_malloc(sizeof(variable_t)*cstr_count);
-  uint32_t i;
-  for (i = 0; i < cstr_count; ++ i) {
+  for (uint32_t i = 0; i < cstr_count; ++ i) {
     new_element->reasons[i] = cstr_list[i];
   }
   // Add to map
@@ -306,10 +316,10 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
 
 void feasible_set_db_push(feasible_set_db_t* db) {
   scope_holder_push(&db->scope,
-     &db->updates_size,
-     &db->fixed_variable_size,
-     &db->fixed_variables_i,
-     NULL
+    &db->updates_size,
+    &db->fixed_variable_size,
+    &db->fixed_variables_i,
+    NULL
   );
 }
 
@@ -339,14 +349,7 @@ void feasible_set_db_pop(feasible_set_db_t* db) {
     db->memory_size --;
     feasibility_list_element_t* element = db->memory + db->memory_size;
     uint32_t prev = element->prev;
-    // Deallocate allocated data
-    lp_feasibility_set_t* s1 = element->feasible_set;
-    lp_feasibility_set_t* s2 = element->reason_feasible_set;
-    lp_feasibility_set_delete(s1);
-    if (s1 != s2) {
-      lp_feasibility_set_delete(s2);
-    }
-    safe_free(element->reasons);
+    feasibility_list_element_delete(element);
     // Redirect map to the previous one
     int_hmap_pair_t* find = int_hmap_find(&db->var_to_feasible_set_map, x);
     assert(find != NULL);
@@ -360,7 +363,7 @@ void feasible_set_db_pop(feasible_set_db_t* db) {
 }
 
 static
-void feasible_set_get_conflict_reason_indices(feasible_set_db_t* db, variable_t x, ivector_t* reasons_indices) {
+void feasible_set_get_conflict_reason_indices(const feasible_set_db_t* db, variable_t x, ivector_t* reasons_indices) {
   // Go back from the top reason for x and gather the indices
   uint32_t reason_index = feasible_set_db_get_index(db, x);
   assert(reason_index);
@@ -481,7 +484,7 @@ bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
   return r1_level < r2_level;
 }
 
-void print_conflict_reasons(FILE* out, feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reason_indices) {
+void print_conflict_reasons(FILE* out, const feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reason_indices) {
   uint32_t i, j;
   poly_constraint_db_t* poly_db = nra->constraint_db;
   
@@ -500,7 +503,7 @@ void print_conflict_reasons(FILE* out, feasible_set_db_t* db, nra_plugin_t* nra,
 }
 
 static
-void feasible_set_filter_reason_indices(feasible_set_db_t* db, nra_plugin_t* nra, const mcsat_value_t* x_value, ivector_t* reasons_indices) {
+void feasible_set_filter_reason_indices(const feasible_set_db_t* db, nra_plugin_t* nra, const mcsat_value_t* x_value, ivector_t* reasons_indices) {
   // The set we're trying to make empty
   lp_feasibility_set_t* S = lp_feasibility_set_new_full();
 
@@ -568,7 +571,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
   return conflict;
 }
 
-void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons) {
+void feasible_set_db_get_conflict_reasons(const feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
   if (ctx_trace_enabled(db->ctx, "nra::get_conflict")) {
     ctx_trace_printf(db->ctx, "get_reasons of: ");
@@ -586,8 +589,7 @@ void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* n
   feasible_set_filter_reason_indices(db, nra, x_value, &reasons_indices);
 
   // Return the conjunctive reasons
-  uint32_t i;
-  for (i = 0; i < reasons_indices.size; ++ i) {
+  for (uint32_t i = 0; i < reasons_indices.size; ++ i) {
     uint32_t set_index = reasons_indices.data[i];
     feasibility_list_element_t* element = db->memory + set_index;
     if (element->reasons_size == 1) {
@@ -595,8 +597,7 @@ void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* n
       assert(variable_db_is_boolean(db->ctx->var_db, reason));
       ivector_push(reasons_out, reason);
     } else {
-      uint32_t j;
-      for (j = 0; j < element->reasons_size; ++j) {
+      for (uint32_t j = 0; j < element->reasons_size; ++j) {
         variable_t reason = element->reasons[j];
         assert(variable_db_is_boolean(db->ctx->var_db, reason));
         ivector_push(lemma_reasons, reason);
