@@ -23,13 +23,14 @@
 #include <poly/integer.h>
 
 #include "mcsat/variable_db.h"
-#include "mcsat/mcsat_types.h"
+
+typedef struct ff_plugin_s ff_plugin_t;
 
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx);
+ff_feasible_set_db_t* ff_feasible_set_db_new(ff_plugin_t* plugin);
 
 /** Delete the database */
 void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);
