@@ -476,7 +476,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_EQ_ATOM:      // equality (t == 0)
     case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
     case ARITH_GE_ATOM:      // inequality (t >= 0)
-    case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
     case BV_SMOD:
@@ -895,6 +894,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
+    case BV_ARRAY:           // bit array
     case UPDATE_TERM:        // update array
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
