@@ -592,6 +592,50 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case BV_ARRAY:
+    {
+      composite_term_t* desc = get_composite(terms, current_kind, current);
+      bool children_done = true;
+      bool children_same = true;
+
+      n = desc->arity;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t child = desc->arg[i];
+        term_t child_pre = preprocessor_get(pre, child);
+        if (child_pre == NULL_TERM) {
+          children_done = false;
+          ivector_push(pre_stack, child);
+        } else {
+          if (is_arithmetic_literal(terms, child_pre)) {
+            // purify if arithmetic literal, i.e. a = 0 where a is of integer type
+            child_pre = preprocessor_purify(pre, child_pre, out);
+          }
+          if (child_pre != child) {
+            children_same = false;
+          }
+        }
+        if (children_done) {
+          ivector_push(&children, child_pre);
+        }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_composite(pre, current_kind, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
     case ARITH_ABS:
     {
       term_t arg = arith_abs_arg(terms, current);
@@ -894,7 +938,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case ARITH_RDIV:         // regular division (/ x y)
     case ARITH_IDIV:         // division: (div x y) as defined in SMT-LIB 2
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
-    case BV_ARRAY:           // bit array
     case UPDATE_TERM:        // update array
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
