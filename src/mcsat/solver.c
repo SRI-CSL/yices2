@@ -1017,6 +1017,9 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
     var_queue_insert(&mcsat->var_queue, unassigned->data[i]);
   }
   ivector_reset(unassigned);
+
+  // remove all the hints
+  int_queue_reset(&mcsat->hinted_decision_vars);
 }
 
 static
@@ -2339,32 +2342,88 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
 }
 
 /**
+ * Finds the correct plugin for var and asks it to make a decision.
+ * Returns true if a decision was made on var.
+ */
+static
+bool mcsat_decide_var(mcsat_solver_t* mcsat, variable_t var, bool force_decision) {
+  // must be a valid variable that is not yet decided upon
+  assert(var != variable_null);
+  assert(!trail_has_value(mcsat->trail, var));
+
+  uint32_t i;
+  plugin_t* plugin;
+  plugin_trail_token_t decision_token;
+  bool made_decision = false;
+
+  // Get the owner that will decide that value of the variable
+  i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
+  assert(i != MCSAT_MAX_PLUGINS);
+  // Construct the token
+  trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
+  // Decide
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
+    variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
+    mcsat_trace_printf(mcsat->ctx->trace, "\n");
+  }
+  plugin = mcsat->plugins[i].plugin;
+
+  // Ask the owner to decide
+  mcsat_push_internal(mcsat);
+  assert(plugin->decide);
+  plugin->decide(plugin, var, (trail_token_t*) &decision_token, force_decision);
+
+  if (decision_token.used == 0) {
+    // If not decided, remember and go on
+    made_decision = false;
+    mcsat_pop_internal(mcsat);
+  } else {
+    made_decision = true;
+    // Decided, we can continue with the search
+    (*mcsat->solver_stats.decisions)++;
+    // Plugins are not allowed to cheat and decide on another variable
+    assert(trail_has_value(mcsat->trail, var));
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+      FILE* out = trace_out(mcsat->ctx->trace);
+      fprintf(out, "mcsat_decide(): value = ");
+      mcsat_value_print(trail_get_value(mcsat->trail, var), out);
+      fprintf(out, "\n");
+    }
+  }
+
+  // a forced decision implies a made decision
+  assert(!force_decision || made_decision);
+  return made_decision;
+}
+
+/**
  * Decides a variable using one of the plugins. Returns true if a variable
  * has been decided, or a conflict detected.
  */
 static
 bool mcsat_decide(mcsat_solver_t* mcsat) {
 
-  uint32_t i;
-  variable_t var;
-  plugin_t* plugin;
-  plugin_trail_token_t decision_token;
+  assert(!mcsat->trail->inconsistent);
 
   ivector_t skipped_variables; // Variables we took from the queue but plugin didn't decide
   init_ivector(&skipped_variables, 0);
 
-  assert(!mcsat->trail->inconsistent);
-
+  variable_t var;
+  bool aux_choice; // indicates that var was not taken from the queue
   bool force_decision = false;
+  double rand_freq = mcsat->heuristic_params.random_decision_freq;
+
   while (true) {
     var = variable_null;
+    aux_choice = true;
 
     // Us the top variables first
-    for (i = 0; i < mcsat->top_decision_vars.size; ++i) {
+    for (uint32_t i = 0; i < mcsat->top_decision_vars.size; ++i) {
       var = mcsat->top_decision_vars.data[i];
       assert(var != variable_null);
       if (!trail_has_value(mcsat->trail, var)) {
-        force_decision = true;
         break;
       }
       var = variable_null;
@@ -2376,7 +2435,6 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         var = int_queue_pop(&mcsat->hinted_decision_vars);
         assert(var != variable_null);
         if (!trail_has_value(mcsat->trail, var)) {
-          force_decision = true;
           break;
         }
         var = variable_null;
@@ -2390,13 +2448,13 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "mcsat_decide(): var_order is ");
-          for (i = 0; i < order->size; ++ i) {
+          for (uint32_t i = 0; i < order->size; ++ i) {
             term_print_to_file(out, mcsat->ctx->terms, order->data[i]);
             fprintf(out, " ");
           }
           fprintf(out, "\n");
         }
-        for (i = 0; var == variable_null && i < order->size; ++i) {
+        for (uint32_t i = 0; var == variable_null && i < order->size; ++i) {
           term_t ovar_term = order->data[i];
           variable_t ovar = variable_db_get_variable_if_exists(mcsat->var_db, ovar_term);
           if (ovar == variable_null) continue; // Some variables are not used
@@ -2408,19 +2466,20 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       }
     }
 
-    // Random decision:
-    if (var == variable_null && mcsat->heuristic_params.random_decision_freq > 0.0) {
+    // Random decision
+    if (var == variable_null && rand_freq > 0.0) {
       double* seed = &mcsat->heuristic_params.random_decision_seed;
-      double freq = mcsat->heuristic_params.random_decision_freq;
-      if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
+      if (drand(seed) < rand_freq && !var_queue_is_empty(&mcsat->var_queue)) {
         var = var_queue_random(&mcsat->var_queue, seed);
         if (trail_has_value(mcsat->trail, var)) {
           var = variable_null;
-        } else {
-          // fprintf(stderr, "random\n");
-          var_queue_remove(&mcsat->var_queue, var);
         }
       }
+    }
+
+    if (var == variable_null) {
+      // No auxiliary choice performed
+      aux_choice = false;
     }
 
     // Use the queue
@@ -2441,53 +2500,21 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     }
 
     if (var != variable_null) {
-      // Get the owner that will decide that value of the variable
-      i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
-      assert(i != MCSAT_MAX_PLUGINS);
-      // Construct the token
-      trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
-      // Decide
-      if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
-        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
-        mcsat_trace_printf(mcsat->ctx->trace, "\n");
-      }
-      plugin = mcsat->plugins[i].plugin;
-
-      // Ask the owner to decide
-      mcsat_push_internal(mcsat);
-      assert(plugin->decide);
-      plugin->decide(plugin, var, (trail_token_t*) &decision_token, force_decision);
-
-      if (decision_token.used == 0) {
-        // If not decided, remember and go on
-        ivector_push(&skipped_variables, var);
-        mcsat_pop_internal(mcsat);
-      } else {
-        // Decided, we can continue with the search
-        (*mcsat->solver_stats.decisions)++;
-        // If plugin decided to cheat by deciding on another variable, put it back
-        if (!trail_has_value(mcsat->trail, var)) {
-          var_queue_insert(&mcsat->var_queue, var);
-        } else {
-          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-            FILE* out = trace_out(mcsat->ctx->trace);
-            fprintf(out, "mcsat_decide(): value = ");
-            mcsat_value_print(trail_get_value(mcsat->trail, var), out);
-            fprintf(out, "\n");
-          }
-        }
+      bool made_decision = mcsat_decide_var(mcsat, var, force_decision);
+      if (made_decision) {
         break;
+      } else if (!aux_choice) {
+        ivector_push(&skipped_variables, var);
       }
     } else {
+      assert(!aux_choice);
       // No variables left to decide
       if (skipped_variables.size == 0) {
         // Didn't skip any, we're done
         break;
       } else {
         // Put the skipped back in the queue, and continue but force next decision
-        for (i = 0; i < skipped_variables.size; ++ i) {
+        for (uint32_t i = 0; i < skipped_variables.size; ++ i) {
           var_queue_insert(&mcsat->var_queue, skipped_variables.data[i]);
         }
         ivector_reset(&skipped_variables);
@@ -2502,7 +2529,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     // the decided score
     assert(var != variable_null);
     double var_score = var_queue_get_activity(&mcsat->var_queue, var);
-    for (i = 0; i < skipped_variables.size; ++ i) {
+    for (uint32_t i = 0; i < skipped_variables.size; ++ i) {
       variable_t skipped_var = skipped_variables.data[i];
       var_queue_set_activity(&mcsat->var_queue, skipped_var, var_score);
       var_queue_insert(&mcsat->var_queue, skipped_var);
@@ -2748,8 +2775,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       break;
     }
 
-    // remove all the hints
-    int_queue_reset(&mcsat->hinted_decision_vars);
     // update the variable selection heuristic
     var_queue_decay_activities(&mcsat->var_queue);
   }
