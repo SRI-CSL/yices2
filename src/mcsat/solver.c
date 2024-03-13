@@ -2424,6 +2424,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = mcsat->top_decision_vars.data[i];
       assert(var != variable_null);
       if (!trail_has_value(mcsat->trail, var)) {
+        force_decision = true;
         break;
       }
       var = variable_null;
