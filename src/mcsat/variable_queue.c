@@ -114,13 +114,13 @@ void var_queue_update_up(var_queue_t *queue, variable_t x, uint32_t i) {
 }
 
 static
-void var_queue_update_down(var_queue_t *queue) {
+void var_queue_update_down(var_queue_t *queue, uint32_t i) {
   double *act;
   int32_t *index;
   variable_t *h;
   variable_t x, y, z;
   double ax, ay, az;
-  uint32_t i, j, last;
+  uint32_t j, last;
 
   last = queue->heap_last;
   queue->heap_last = last - 1;
@@ -128,6 +128,7 @@ void var_queue_update_down(var_queue_t *queue) {
     assert(queue->heap_last == 0);
     return;
   }
+  assert(i <= last);
 
   h = queue->heap;
   index = queue->heap_index;
@@ -137,8 +138,7 @@ void var_queue_update_down(var_queue_t *queue) {
   h[last] = -2;  // set end marker: act[-2] is negative
   az = act[z];   // activity of the last element
 
-  i = 1;      // root
-  j = 2;      // left child of i
+  j = i << 1;    // left child of i
   while (j < last) {
     /*
      * find child of i with highest activity.
@@ -204,9 +204,18 @@ variable_t var_queue_pop(var_queue_t *queue) {
   queue->heap_index[top] = -1;
 
   // repair the heap
-  var_queue_update_down(queue);
+  var_queue_update_down(queue, 1);
 
   return top;
+}
+
+void var_queue_remove(var_queue_t *queue, variable_t var) {
+  if (queue->heap_index[var] >= 0) {
+    uint32_t idx = queue->heap_index[var];
+    assert(idx <= queue->heap_last);
+    var_queue_update_down(queue, idx);
+    queue->heap_index[var] = -1;
+  }
 }
 
 /** Get random element (the heap must not be empty) */

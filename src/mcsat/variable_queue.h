@@ -84,6 +84,9 @@ bool var_queue_is_empty(var_queue_t *queue);
 /** Get and remove top element (the heap must not be empty) */
 variable_t var_queue_pop(var_queue_t *queue);
 
+/** Removes one variable from the heap (var must be on the heap) */
+void var_queue_remove(var_queue_t *queue, variable_t var);
+
 /** Get and remove random element (the heap must not be empty) */
 variable_t var_queue_random(var_queue_t *queue, double *seed);
 

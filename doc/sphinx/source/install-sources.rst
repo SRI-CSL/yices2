@@ -103,7 +103,7 @@ Optionally, you can check that the build was fine by using
 
 .. code-block:: sh
 
-   make check
+   make -j check
 
 This will run the Yices regression tests.
 
