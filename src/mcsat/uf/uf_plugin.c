@@ -394,10 +394,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
        it != NULL;
        it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
     t = it->key;
-    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t) &&
-        !eq_graph_term_has_value(&uf->eq_graph, t)) {
-      all_assigned = false;
-      break;
+    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t)) {
+      variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+      assert(t_var != variable_null);
+      if (!trail_has_value(uf->ctx->trail, variable_db_get_variable_if_exists(var_db, t))) {
+        all_assigned = false;
+        break;
+      }
     }
   }
   
