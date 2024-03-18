@@ -397,7 +397,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t)) {
       variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
       assert(t_var != variable_null);
-      if (!trail_has_value(uf->ctx->trail, variable_db_get_variable_if_exists(var_db, t))) {
+      if (!trail_has_value(uf->ctx->trail, t_var)) {
         all_assigned = false;
         break;
       }
