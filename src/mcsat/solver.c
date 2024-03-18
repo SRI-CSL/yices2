@@ -2705,6 +2705,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+      learning = true;
     }
 
     // Process any outstanding requests
