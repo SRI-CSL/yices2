@@ -102,7 +102,7 @@ void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump) {
   for (i = 0; i < to_bump->element_list.size; ++ i) {
     term_t t = to_bump->element_list.data[i];
     variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-    if (t != variable_null) {
+    if (t_var != variable_null) {
       int_hmap_pair_t* find = int_hmap_find(&to_bump->count_map, t);
       uf->ctx->bump_variable_n(uf->ctx, t_var, find->val);
     }
