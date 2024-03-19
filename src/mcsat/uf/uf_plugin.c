@@ -344,22 +344,10 @@ void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     (*uf->stats.conflicts) ++;
     // extract terms used in the conflict
     term_t t;
-    term_table_t *terms = uf->ctx->terms;
-    composite_term_t* t_desc = NULL;
     uint32_t i;
     for (i = 0; i < uf->conflict.size; ++i) {
-      t = uf->conflict.data[i];
-      if (term_kind(terms, t) == EQ_TERM) {
-	t_desc = eq_term_desc(terms, t);
-      } else if (term_kind(terms, t) == BV_EQ_ATOM) {
-	t_desc = bveq_atom_desc(terms, t);
-      } else if (term_kind(terms, t) == ARITH_BINEQ_ATOM) {
-	t_desc = arith_bineq_atom_desc(terms, t);
-      } else {
-	assert(false);
-      }
-      int_mset_add(&uf->tmp, t_desc->arg[0]);
-      int_mset_add(&uf->tmp, t_desc->arg[1]);
+      t = unsigned_term(uf->conflict.data[i]);
+      int_mset_add(&uf->tmp, t);
     }
     uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
@@ -406,10 +394,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
        it != NULL;
        it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
     t = it->key;
-    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t) &&
-        !eq_graph_term_has_value(&uf->eq_graph, t)) {
-      all_assigned = false;
-      break;
+    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t)) {
+      variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+      assert(t_var != variable_null);
+      if (!trail_has_value(uf->ctx->trail, t_var)) {
+        all_assigned = false;
+        break;
+      }
     }
   }
   
@@ -421,22 +412,10 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       prop->conflict(prop);
       (*uf->stats.conflicts) ++;
       // extract terms used in the conflict
-      term_table_t *terms = uf->ctx->terms;
-      composite_term_t* t_desc = NULL;
       uint32_t i;
       for (i = 0; i < uf->conflict.size; ++i) {
-        t = uf->conflict.data[i];
-	if (term_kind(terms, t) == EQ_TERM) {
-          t_desc = eq_term_desc(terms, t);
-        } else if (term_kind(terms, t) == BV_EQ_ATOM) {
-	  t_desc = bveq_atom_desc(terms, t);
-	} else if (term_kind(terms, t) == ARITH_BINEQ_ATOM) {
-	  t_desc = arith_bineq_atom_desc(terms, t);
-	} else {
-          assert(false);
-        }
-	int_mset_add(&uf->tmp, t_desc->arg[0]);
-	int_mset_add(&uf->tmp, t_desc->arg[1]);
+        t = unsigned_term(uf->conflict.data[i]);
+	int_mset_add(&uf->tmp, t);
       }
       uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
