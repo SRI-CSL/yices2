@@ -257,11 +257,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = eq_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
     // remember array terms
-    if (is_function_term(terms, t_desc->arg[0]) &&
-	(term_kind(terms, t_desc->arg[0]) == UNINTERPRETED_TERM ||
-	 term_kind(terms, t_desc->arg[0]) == UPDATE_TERM)) {
-      weq_graph_add_array_eq_term(&uf->weq_graph, t);
-    }
     uint32_t i;
     for (i = 0; i < 2; ++ i) {
       if (is_function_term(terms, t_desc->arg[i]) &&
