@@ -45,6 +45,8 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   init_ptr_hmap(&weq->fun_node_map, 0);
 
   init_int_hmap(&weq->val_id_term_map, 0);
+  init_tuple_hmap(&weq->not_weak_eq_i_cache, 0);
+
   init_ivector(&weq->path_cond, 0);
   init_ivector(&weq->path_indices1, 0);
   init_ivector(&weq->path_indices2, 0);
@@ -68,6 +70,7 @@ void weq_graph_destruct(weq_graph_t* weq) {
   weq_graph_clear(weq);
   delete_ptr_hmap(&weq->fun_node_map);
   delete_int_hmap(&weq->val_id_term_map);
+  delete_tuple_hmap(&weq->not_weak_eq_i_cache);
 }
 
 void weq_graph_push(weq_graph_t* weq) {
@@ -168,6 +171,7 @@ void weq_graph_clear(weq_graph_t* weq) {
   }
   ptr_hmap_reset(&weq->fun_node_map);
   int_hmap_reset(&weq->val_id_term_map);
+  reset_tuple_hmap(&weq->not_weak_eq_i_cache);
 }
 
 /* Create a new weq_graph node
@@ -743,6 +747,13 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   bool res = false;
   uint32_t old_indices_size, old_path_cond_size;
 
+  int32_t cache_key[3] = {arr1, arr2, idx};
+  tuple_hmap_rec_t* cache_res = tuple_hmap_find(&weq->not_weak_eq_i_cache, 3, cache_key);
+  if (cache_res != NULL) {
+    assert(cache_res->value == 1);
+    return false;
+  }
+
   const weq_graph_node_t* fn_arr1 =
     weq_graph_get_rep_i(weq, weq_graph_get_node(weq, arr1), idx);
   const weq_graph_node_t* fn_arr2 =
@@ -772,6 +783,7 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   if (!res) {
     ivector_shrink(indices, old_indices_size);
     ivector_shrink(path_cond, old_path_cond_size);
+    tuple_hmap_add(&weq->not_weak_eq_i_cache, 3, cache_key, 1);
   }
 
   return res;

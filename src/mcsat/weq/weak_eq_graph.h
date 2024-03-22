@@ -61,6 +61,9 @@ typedef struct weq_graph_s {
   /** Value eq_node_id to term (one rep term) */
   int_hmap_t val_id_term_map;
 
+  /** not weakly equivalent cache [array, array, index] -> 1 */
+  tuple_hmap_t not_weak_eq_i_cache;
+
   /** Weak path equalities **/
   ivector_t path_cond;
 
