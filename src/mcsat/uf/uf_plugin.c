@@ -226,7 +226,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     // remember array term
     weq_graph_add_array_term(&uf->weq_graph, t);
     weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[0]);
