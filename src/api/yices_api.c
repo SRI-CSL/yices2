@@ -9323,7 +9323,7 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
  *
  * NOTE: This will overwrite the previously set ordering.
  */
-EXPORTED smt_status_t yices_mcsat_set_var_order(context_t *ctx, uint32_t n, const term_t t[]) {
+EXPORTED smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx, uint32_t n, const term_t t[]) {
 
   if (! context_has_mcsat(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
