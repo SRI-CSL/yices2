@@ -226,7 +226,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     // remember array term
     weq_graph_add_array_term(&uf->weq_graph, t);
     weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[0]);
@@ -337,14 +337,6 @@ void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     // Report conflict
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
-    // extract terms used in the conflict
-    term_t t;
-    uint32_t i;
-    for (i = 0; i < uf->conflict.size; ++i) {
-      t = unsigned_term(uf->conflict.data[i]);
-      int_mset_add(&uf->tmp, t);
-    }
-    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
@@ -406,13 +398,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // Report conflict
       prop->conflict(prop);
       (*uf->stats.conflicts) ++;
-      // extract terms used in the conflict
-      uint32_t i;
-      for (i = 0; i < uf->conflict.size; ++i) {
-        t = unsigned_term(uf->conflict.data[i]);
-	int_mset_add(&uf->tmp, t);
-      }
-      uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     }
   }

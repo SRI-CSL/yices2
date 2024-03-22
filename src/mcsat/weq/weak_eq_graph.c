@@ -37,7 +37,6 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   weq->eq_graph = eq;
 
   init_ivector(&weq->array_terms, 0);
-  init_ivector(&weq->array_eq_terms, 0);
   init_ivector(&weq->select_terms, 0);
 
   init_int_hmap(&weq->type_to_diff, 0);
@@ -45,6 +44,8 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   init_ptr_hmap(&weq->fun_node_map, 0);
 
   init_int_hmap(&weq->val_id_term_map, 0);
+  init_tuple_hmap(&weq->not_weak_eq_i_cache, 0);
+
   init_ivector(&weq->path_cond, 0);
   init_ivector(&weq->path_indices1, 0);
   init_ivector(&weq->path_indices2, 0);
@@ -56,7 +57,6 @@ void weq_graph_destruct(weq_graph_t* weq) {
   scope_holder_destruct(&weq->scope);
 
   delete_ivector(&weq->array_terms);
-  delete_ivector(&weq->array_eq_terms);
   delete_ivector(&weq->select_terms);
 
   delete_int_hmap(&weq->type_to_diff);
@@ -68,27 +68,26 @@ void weq_graph_destruct(weq_graph_t* weq) {
   weq_graph_clear(weq);
   delete_ptr_hmap(&weq->fun_node_map);
   delete_int_hmap(&weq->val_id_term_map);
+  delete_tuple_hmap(&weq->not_weak_eq_i_cache);
 }
 
 void weq_graph_push(weq_graph_t* weq) {
   scope_holder_push(&weq->scope,
                     &weq->array_terms.size,
-                    &weq->array_eq_terms.size,
                     &weq->select_terms.size,
                     NULL);
 }
 
 void weq_graph_pop(weq_graph_t* weq) {
-  uint32_t t1, t2, t3;
+  uint32_t t1, t2;
 
   // Pop the int variable values
   scope_holder_pop(&weq->scope,
-                   &t1, &t2, &t3,
+                   &t1, &t2,
                    NULL);
 
   ivector_shrink(&weq->array_terms, t1);
-  ivector_shrink(&weq->array_eq_terms, t2);
-  ivector_shrink(&weq->select_terms, t3);
+  ivector_shrink(&weq->select_terms, t2);
 }
 
 void weq_graph_stats_init(weq_graph_t* weq) {
@@ -109,11 +108,6 @@ void weq_graph_add_array_term(weq_graph_t* weq, term_t arr) {
     weq_graph_add_diff_terms_vars(weq, arr);
   }
   ivector_push(&weq->array_terms, arr);
-}
-
-// save array equality terms -- present in the formula
-void weq_graph_add_array_eq_term(weq_graph_t* weq, term_t arr_eq) {
-  ivector_push(&weq->array_eq_terms, arr_eq);
 }
 
 // save select terms
@@ -168,6 +162,7 @@ void weq_graph_clear(weq_graph_t* weq) {
   }
   ptr_hmap_reset(&weq->fun_node_map);
   int_hmap_reset(&weq->val_id_term_map);
+  reset_tuple_hmap(&weq->not_weak_eq_i_cache);
 }
 
 /* Create a new weq_graph node
@@ -743,6 +738,13 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   bool res = false;
   uint32_t old_indices_size, old_path_cond_size;
 
+  int32_t cache_key[3] = {arr1, arr2, idx};
+  tuple_hmap_rec_t* cache_res = tuple_hmap_find(&weq->not_weak_eq_i_cache, 3, cache_key);
+  if (cache_res != NULL) {
+    assert(cache_res->value == 1);
+    return false;
+  }
+
   const weq_graph_node_t* fn_arr1 =
     weq_graph_get_rep_i(weq, weq_graph_get_node(weq, arr1), idx);
   const weq_graph_node_t* fn_arr2 =
@@ -772,6 +774,7 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   if (!res) {
     ivector_shrink(indices, old_indices_size);
     ivector_shrink(path_cond, old_path_cond_size);
+    tuple_hmap_add(&weq->not_weak_eq_i_cache, 3, cache_key, 1);
   }
 
   return res;
@@ -957,36 +960,21 @@ bool weq_graph_array_ext_lemma(weq_graph_t* weq, ivector_t* conflict,
 }
 
 /* Check array ext conflicts (based on weakly equivalent arrays
- * reasoning) for all the array terms. It first check the lemma
- * between array terms that are present in the input formula. Then, it
- * check for all array pairs. If a conflict is found, the conflicting
- * terms are added to the conflict vector.
+ * reasoning) for all the array terms. It checks the lemma between all
+ * array pairs. If a conflict is found, the conflicting terms are
+ * added to the conflict vector.
  */
 static
 bool weq_graph_array_ext_check(weq_graph_t* weq, ivector_t* conflict,
-                               const ivector_t* array_eq_terms,
                                const ivector_t* array_terms,
                                const ivector_t* select_terms) {
   uint32_t i, j;
   bool res = true;
 
-  term_table_t* terms = weq->ctx->terms;
-  composite_term_t* t_desc = NULL;
   term_t arr1, arr2;
   int_hset_t seen;
 
   init_int_hset(&seen, 0);
-
-  for (i = 0; res && i < array_eq_terms->size; ++i) {
-    if (!int_hset_member(&seen, array_eq_terms->data[i])) {
-      t_desc = eq_term_desc(terms, array_eq_terms->data[i]);
-      arr1 = t_desc->arg[0];
-      arr2 = t_desc->arg[1];
-
-      res = weq_graph_array_ext_lemma(weq, conflict, arr1, arr2, select_terms);
-      int_hset_add(&seen, array_eq_terms->data[i]);
-    }
-  }
 
   for (i = 1; res && i < array_terms->size; ++i) {
     arr1 = array_terms->data[i];
@@ -1079,29 +1067,16 @@ bool weq_graph_array_ext_diff_lemma(weq_graph_t* weq, ivector_t* conflict,
 }
 
 /* Check array ext conflict (based on extensionality axiom over diff
- * terms) for all pairs of array terms. It first check for array pairs
- * that are present in an equality in the input formula. If a conflict
- * is found, the conflict terms are added in the conflict vector.
+ * terms) for all pairs of array terms. It checks for array pairs. If
+ * a conflict is found, the conflict terms are added in the conflict
+ * vector.
  */
 static
 bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
-                                    const ivector_t* array_eq_terms,
                                     const ivector_t* array_terms) {
 
   bool res = true;
-  term_table_t* terms = weq->ctx->terms;
   uint32_t i, j;
-
-  if (array_eq_terms) {
-    composite_term_t* t_desc = NULL;
-    for (i = 0; res && i < array_eq_terms->size; ++i) {
-      t_desc = eq_term_desc(terms, array_eq_terms->data[i]);
-      term_t arr1 = t_desc->arg[0];
-      term_t arr2 = t_desc->arg[1];
-
-      res = weq_graph_array_ext_diff_lemma(weq, conflict, arr1, arr2);
-    }
-  }
 
   if (array_terms) {
     for (i = 1; res && i < array_terms->size; ++i) {
@@ -1323,38 +1298,6 @@ bool weq_is_fully_assigned(const weq_graph_t* weq, term_t t) {
   return true;
 }
 
-/* filter array-eq-terms based on the current model.  We keep the
- * array terms (array variables and update terms) that have been
- * assigned a value in the trail. For array variables, it is
- * just a value assigned to the variable. For update terms, we check
- * if update term, array term in the update, index term, value term
- * have been assigned a value.
- */
-static
-void filter_array_eq_terms(const weq_graph_t* weq,
-                           ivector_t *array_eq_terms) {
-  const term_table_t* terms = weq->ctx->terms;
-
-  uint32_t i, j;
-  term_t t, arr1, arr2;
-  composite_term_t* t_desc;
-  
-  j = 0;
-  for (i = 0; i < array_eq_terms->size; ++i) {
-    t = array_eq_terms->data[i];
-    t_desc = eq_term_desc(terms, t);
-    arr1 = t_desc->arg[0];
-    arr2 = t_desc->arg[1];
-    if (!weq_is_fully_assigned(weq, arr1) ||
-        !weq_is_fully_assigned(weq, arr2)) {
-      continue;
-    }
-
-    array_eq_terms->data[j++] = array_eq_terms->data[i];
-  }
-  ivector_shrink(array_eq_terms, j);
-}
-
 /* filter array-terms based on the current model.  We keep the
  * array terms (array variables and update terms) that have been
  * assigned a value in the trail. For array variables, it is
@@ -1442,11 +1385,7 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   }
 
   bool ok = true;
-  ivector_t array_eq_terms, array_terms, select_terms;
-
-  init_ivector(&array_eq_terms, 0);
-  copy_uniques(&array_eq_terms, &weq->array_eq_terms); 
-  filter_array_eq_terms(weq, &array_eq_terms);
+  ivector_t array_terms, select_terms;
 
   init_ivector(&array_terms, 0);
   copy_uniques(&array_terms, &weq->array_terms);
@@ -1485,27 +1424,20 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
     if (ok) {
       (*weq->stats.array_check_calls) ++;
 
-      if (USE_ARRAY_DIFF) {
-        ok = weq_graph_array_ext_diff_check(weq, conflict, &array_eq_terms, NULL);
-      }
-    }
-
-    if (ok) {
       weq_graph_array_build_weak_eq_graph(weq, &array_terms);
       ok = weq_graph_array_read_over_write_check(weq, conflict, &select_terms); 
     }
 
     if (ok) {
       if (USE_ARRAY_DIFF) {
-        ok = weq_graph_array_ext_diff_check(weq, conflict, NULL, &array_terms);
+        ok = weq_graph_array_ext_diff_check(weq, conflict, &array_terms);
       } else {
-        ok = weq_graph_array_ext_check(weq, conflict, &array_eq_terms, &array_terms, &select_terms);
+        ok = weq_graph_array_ext_check(weq, conflict, &array_terms, &select_terms);
       }
     }
   }
   
   delete_ivector(&select_terms);
   delete_ivector(&array_terms);
-  delete_ivector(&array_eq_terms);
 }
 
