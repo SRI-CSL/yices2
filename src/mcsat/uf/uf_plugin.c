@@ -337,14 +337,6 @@ void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     // Report conflict
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
-    // extract terms used in the conflict
-    term_t t;
-    uint32_t i;
-    for (i = 0; i < uf->conflict.size; ++i) {
-      t = unsigned_term(uf->conflict.data[i]);
-      int_mset_add(&uf->tmp, t);
-    }
-    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
@@ -406,13 +398,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       // Report conflict
       prop->conflict(prop);
       (*uf->stats.conflicts) ++;
-      // extract terms used in the conflict
-      uint32_t i;
-      for (i = 0; i < uf->conflict.size; ++i) {
-        t = unsigned_term(uf->conflict.data[i]);
-	int_mset_add(&uf->tmp, t);
-      }
-      uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     }
   }
