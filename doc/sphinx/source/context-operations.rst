@@ -1218,7 +1218,7 @@ are not affected by the dynamic variable decision heuristic like
 VSIDS. Moreover, a subsequent calls to this operation will overwrite
 previously set ordering.
 
-.. c:function:: smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx, const term_t t[], uint32_t n)
+.. c:function:: smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx, uint32_t n, const term_t t[])
 
    Set a fixed variable ordering for the MCSat search.
 
@@ -1252,7 +1252,7 @@ in the beginning of the MCSAT search -- once that order has been
 decided, MCSAT can choose according to its heuristics from that point
 onward. 
 
-.. c:function:: smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx, const term_t t[], uint32_t n)
+.. c:function:: smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx, uint32_t n, const term_t t[])
 
    Set an initial variable ordering for the MCSat search.
 
