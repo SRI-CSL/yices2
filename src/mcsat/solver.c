@@ -2419,7 +2419,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     var = variable_null;
     aux_choice = true;
 
-    // Us the top variables first
+    // Use the top variables first
     for (uint32_t i = 0; i < mcsat->top_decision_vars.size; ++i) {
       var = mcsat->top_decision_vars.data[i];
       assert(var != variable_null);
@@ -2430,19 +2430,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = variable_null;
     }
 
-    // then try the variables a plugin requested
-    if (var == variable_null) {
-      while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
-        var = int_queue_pop(&mcsat->hinted_decision_vars);
-        assert(var != variable_null);
-        if (!trail_has_value(mcsat->trail, var)) {
-          break;
-        }
-        var = variable_null;
-      }
-    }
-
-    // If there is an order that was passed in, try that
+    // If there is a fixed order that was passed in, try that
     if (var == variable_null) {
       const ivector_t* order = &mcsat->ctx->mcsat_var_order;
       if (order->size > 0) {
@@ -2464,6 +2452,18 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
             force_decision = true;
           }
         }
+      }
+    }
+
+    // try the variables a plugin requested
+    if (var == variable_null) {
+      while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
+        var = int_queue_pop(&mcsat->hinted_decision_vars);
+        assert(var != variable_null);
+        if (!trail_has_value(mcsat->trail, var)) {
+          break;
+        }
+        var = variable_null;
       }
     }
 
@@ -2630,6 +2630,24 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
   mcsat_pop(mcsat);
 }
 
+static
+void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
+  const ivector_t* vars = &mcsat->ctx->mcsat_initial_var_order;
+  uint32_t n = vars->size;
+  if (n == 0) {
+    return;
+  }
+
+  assert(vars != NULL);
+
+  uint32_t i;
+  for (i = 0; i < n; ++n) {
+    term_t x = vars->data[i];
+    variable_t v = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+    int_queue_push(&mcsat->hinted_decision_vars, v);
+  }
+}
+
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
   uint32_t restart_resource;
@@ -2690,6 +2708,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   // Initialize for search
   mcsat_heuristics_init(mcsat);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
+
+  // set initial variable order
+  mcsat_set_initial_var_order(mcsat);
 
   // Initialize the Luby sequence with interval 10
   restart_resource = 0;
