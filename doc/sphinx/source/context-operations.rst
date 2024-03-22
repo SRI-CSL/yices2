@@ -1207,10 +1207,10 @@ as follows::
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
 
-Set Variable Ordering for MCSat
--------------------------------
+Set a Fixed Variable Ordering for MCSat
+---------------------------------------
 
-It is possible to give a variable ordering for the MCSat search --
+It is possible to give a fixed variable ordering for the MCSat search --
 this will make MCSAT to decide the variables in the given order. Note
 that the variables in the given ordering are always decided earlier
 than the ones not in the ordering. Therefore, the ordering variables
@@ -1218,9 +1218,43 @@ are not affected by the dynamic variable decision heuristic like
 VSIDS. Moreover, a subsequent calls to this operation will overwrite
 previously set ordering.
 
-.. c:function:: smt_status_t yices_mcsat_set_var_order(context_t *ctx, const term_t t[], uint32_t n)
+.. c:function:: smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx, uint32_t n, const term_t t[])
 
-   Set the variable ordering for the MCSat search.
+   Set a fixed variable ordering for the MCSat search.
+
+   **Parameters**
+
+   - *ctx* is a context
+
+   - *t* is an array of variables
+
+   - *n* is the size of the *t* array
+
+   If the operation fails, it will return :c:enum:`STATUS_ERROR`,
+   otherwise it returns :c:enum:`STATUS_IDLE`.
+
+   **Error report**
+
+   - If the context is not configured for MCSat:
+
+     -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
+
+   - If the terms in the *t* array are not variables:
+
+     -- error code: :c:enum:`VARIABLE_REQUIRED`
+
+
+Set a Initial Variable Ordering for MCSat
+-----------------------------------------
+
+It is also possible to give a variable ordering that will be used only
+in the beginning of the MCSAT search -- once that order has been
+decided, MCSAT can choose according to its heuristics from that point
+onward. 
+
+.. c:function:: smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx, uint32_t n, const term_t t[])
+
+   Set an initial variable ordering for the MCSat search.
 
    **Parameters**
 

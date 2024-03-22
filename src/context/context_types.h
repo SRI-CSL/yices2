@@ -727,8 +727,10 @@ struct context_s {
 
   // options for the mcsat solver
   mcsat_options_t mcsat_options;
-  // ordering for forcing mcsat assignment order
+  // fixed ordering for forcing mcsat assignment order
   ivector_t mcsat_var_order;
+  // initial ordering for forcing mcsat assignment order
+  ivector_t mcsat_initial_var_order;
 
   // flag for enabling adding quant instances
   bool en_quant;

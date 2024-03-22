@@ -5715,6 +5715,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   // mcsat options default
   init_mcsat_options(&ctx->mcsat_options);
   init_ivector(&ctx->mcsat_var_order, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->mcsat_initial_var_order, CTX_DEFAULT_VECTOR_SIZE);
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
@@ -5774,6 +5775,7 @@ void delete_context(context_t *ctx) {
   delete_gate_manager(&ctx->gate_manager);
   /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
   delete_ivector(&ctx->mcsat_var_order);
+  delete_ivector(&ctx->mcsat_initial_var_order);
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);

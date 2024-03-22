@@ -35,7 +35,7 @@ int main(void)
   term_t order_vars[2];
   order_vars[0] = y;
   order_vars[1] = x;
-  yices_mcsat_set_var_order(ctx, 2, order_vars);
+  yices_mcsat_set_fixed_var_order(ctx, 2, order_vars);
 
   // model hint
   model_t* mdl = yices_new_model();
