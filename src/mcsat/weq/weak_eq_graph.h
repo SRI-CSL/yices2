@@ -43,9 +43,6 @@ typedef struct weq_graph_s {
   /** Array terms */
   ivector_t array_terms;
 
-  /** Array eq terms */
-  ivector_t array_eq_terms;
-
   /** Select terms */
   ivector_t select_terms;
 
@@ -98,9 +95,6 @@ void weq_graph_pop(weq_graph_t* weq);
 
 /** add array term */
 void weq_graph_add_array_term(weq_graph_t* weq, term_t arr);
-
-/** add array equality term */
-void weq_graph_add_array_eq_term(weq_graph_t* weq, term_t arr_eq);
 
 /** add array select term */
 void weq_graph_add_select_term(weq_graph_t* weq, term_t sel);
