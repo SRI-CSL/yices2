@@ -373,25 +373,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // optimization: skip array checks if some terms, that are present
   // in the eq_graph, don't have an assigned value.
-  variable_db_t* var_db = uf->ctx->var_db;
-  term_t t = NULL_TERM;
-  bool all_assigned = true;
-  int_hmap_pair_t* it;
-  for (it = int_hmap_first_record(&var_db->term_to_variable_map);
-       it != NULL;
-       it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
-    t = it->key;
-    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t)) {
-      variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
-      assert(t_var != variable_null);
-      if (!trail_has_value(uf->ctx->trail, t_var)) {
-        all_assigned = false;
-        break;
-      }
-    }
-  }
-  
-  if (all_assigned) {
+  if (weq_graph_is_all_assigned(&uf->weq_graph)) {
     assert(uf->conflict.size == 0);
     weq_graph_check_array_conflict(&uf->weq_graph, &uf->conflict);
     if (uf->conflict.size > 0) {

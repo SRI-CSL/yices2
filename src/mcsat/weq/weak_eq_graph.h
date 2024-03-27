@@ -111,6 +111,9 @@ void weq_graph_clear(weq_graph_t* weq);
 /** Return array update index lemma term */
 term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term);
 
+/** Check if all select and arrays terms are fully assigned */
+bool weq_graph_is_all_assigned(weq_graph_t* weq);
+
 /** Check for array conflicts */
 void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict);
 

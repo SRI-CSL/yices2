@@ -1373,6 +1373,26 @@ void filter_select_terms(const weq_graph_t* weq,
   delete_int_hset(&array_terms_set);
 }
 
+/* Returns true if all the select terms and arrays terms are fully
+ * assigned, otherwise returns false.
+ */
+bool weq_graph_is_all_assigned(weq_graph_t* weq) {
+  uint32_t i;
+  for (i = 0; i < weq->array_terms.size; ++i) {
+    if (!weq_is_fully_assigned(weq, weq->array_terms.data[i])) {
+      return false;
+    }
+  }
+
+  for (i = 0; i < weq->select_terms.size; ++i) {
+    if (!weq_is_fully_assigned(weq, weq->select_terms.data[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /* The main method to check array conflicts. The conflict vector will
  * contain conflicting terms if an array conflict is found. It assumes
  * that all terms (assignable) present in the array_terms and
