@@ -44,9 +44,10 @@ main(void)
   ctx = make_yices_context();
 
   type_t p = yices_new_uninterpreted_type();
-  type_t s = yices_new_uninterpreted_term(p);
+  term_t s = yices_new_uninterpreted_term(p);
 
-  type_t pp = yices_function_type1(p, p);
+  type_t fun_p_to_p = yices_function_type1(p, p);
+  term_t pp = yices_new_uninterpreted_term(fun_p_to_p);
 
   term_t c1 = yices_constant(p, 1);
   term_t c2 = yices_constant(p, 2);
