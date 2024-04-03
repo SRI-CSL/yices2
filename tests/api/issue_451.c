@@ -67,6 +67,11 @@ main(void)
   if (status != STATUS_SAT) {
     assert(false);
   }
-  
+
+  model_t *model = yices_get_model(ctx, 1);
+  if (!model) {
+    assert(false);
+  }
+
   return 0;
 }
