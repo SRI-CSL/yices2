@@ -52,10 +52,10 @@ main(void)
   term_t c2 = yices_constant(p, 2);
   term_t c3 = yices_constant(p, 0);
 
-  term_t t1 = yices_application1(p, s);
+  term_t t1 = yices_application1(pp, s);
   term_t t2 = yices_eq(t1, c1);
 
-  term_t t3 = yices_application1(p, c3);
+  term_t t3 = yices_application1(pp, c3);
   term_t t4 = yices_eq(c2, t3);
 
   term_t t5 = yices_and2(t2, t4);
