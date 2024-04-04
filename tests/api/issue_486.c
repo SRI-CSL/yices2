@@ -32,34 +32,40 @@ main(void)
   context_t *ctx;
 
   yices_init();
-  ctx = make_mcsat_context();
+  if (yices_has_mcsat()) {
+    printf("MCSAT supported\n");
+    ctx = make_mcsat_context();
 
-  type_t p = yices_new_uninterpreted_type();
-  type_t r = yices_real_type();
+    type_t p = yices_new_uninterpreted_type();
+    type_t r = yices_real_type();
 
-  //type_t a = yices_function_type1(p, r);
-  //type_t f = yices_function_type1(p, a);
-  type_t f = yices_function_type1(p, r);
-  //type_t g = yices_function_type2(p, a, r);
+    //type_t a = yices_function_type1(p, r);
+    //type_t f = yices_function_type1(p, a);
+    type_t f = yices_function_type1(p, r);
+    //type_t g = yices_function_type2(p, a, r);
 
-  term_t f1 = yices_new_uninterpreted_term(f);
-  //term_t g1 = yices_new_uninterpreted_term(g);
+    term_t f1 = yices_new_uninterpreted_term(f);
+    //term_t g1 = yices_new_uninterpreted_term(g);
 
-  term_t c1 = yices_constant(p, 1);
+    term_t c1 = yices_constant(p, 1);
 
-  term_t t1 = yices_application1(f1, c1);
-  //term_t t2 = yices_application2(g1, c1, t1);
-  term_t zero = yices_zero();
+    term_t t1 = yices_application1(f1, c1);
+    //term_t t2 = yices_application2(g1, c1, t1);
+    term_t zero = yices_zero();
 
-  yices_assert_formula(ctx, yices_eq(zero, t1));
+    yices_assert_formula(ctx, yices_eq(zero, t1));
 
-  smt_status_t status;
-  status = yices_check_context(ctx, NULL);
-  if (status != STATUS_SAT) {
-    assert(false);
-  }
+    smt_status_t status;
+    status = yices_check_context(ctx, NULL);
+    if (status != STATUS_SAT) {
+      assert(false);
+    }
   
-  //model_t *model = yices_get_model(ctx, 1);
+    //model_t *model = yices_get_model(ctx, 1);
+  } else {
+    printf("MCSAT not supported\n");   
+  }
+  yices_exit();
 
   return 0;
 }
