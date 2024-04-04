@@ -267,7 +267,7 @@ void check_simple(void) {
 }
 
 int main(void) {  
-  if (yices_has_mcsat()) {
+  if (!yices_has_mcsat()) {
     return 1; // skipped
   }
   
