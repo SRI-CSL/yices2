@@ -7845,9 +7845,30 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
   n = v->size;
   for (i=0; i<n; i++) {
     c = v->data[i];
-    assert(egraph->mdl.value[c] == null_value &&
-           egraph_class_is_root_class(egraph, c));
-    egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
+    assert(egraph_class_is_root_class(egraph, c));
+    // first build values for classes with constants
+    /* we do this because we choose the body-id as its value id if it
+     * is of scalar type
+     *
+     * however, if we let classes without constant run first, it may
+     * happen that they take the value id which we need for classes
+     * with constants
+     */
+    if ((egraph->classes.dmask[c] & 0x1) != 0) {
+      // class contains a constant
+      assert(egraph->mdl.value[c] == null_value);
+      egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
+    }
+  }
+  for (i=0; i<n; i++) {
+    c = v->data[i];
+    assert(egraph_class_is_root_class(egraph, c));
+    // now build values for classes without constants
+    if ((egraph->classes.dmask[c] & 0x1) == 0) {
+      // class doesn't contain a constant
+      assert(egraph->mdl.value[c] == null_value);
+      egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
+    }
   }
 }
 
