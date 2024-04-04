@@ -29,7 +29,7 @@ static context_t *make_mcsat_context(void) {
 int
 main(void)
 {
-  if (yices_has_mcsat()) {
+  if (!yices_has_mcsat()) {
     return 1; //skipped
   }
   
