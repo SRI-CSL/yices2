@@ -74,5 +74,7 @@ main(void)
     assert(false);
   }
 
+  yices_exit();
+
   return 0;
 }
