@@ -29,9 +29,13 @@ static context_t *make_mcsat_context(void) {
 int
 main(void)
 {
+  if (!yices_has_mcsat()) {
+    return 1; //skipped
+  }
+  
   context_t *ctx;
-
   yices_init();
+  printf("MCSAT supported\n");
   ctx = make_mcsat_context();
 
   type_t p = yices_new_uninterpreted_type();
@@ -46,13 +50,12 @@ main(void)
   //term_t g1 = yices_new_uninterpreted_term(g);
 
   term_t c1 = yices_constant(p, 1);
-
   term_t t1 = yices_application1(f1, c1);
   //term_t t2 = yices_application2(g1, c1, t1);
   term_t zero = yices_zero();
-
+  
   yices_assert_formula(ctx, yices_eq(zero, t1));
-
+  
   smt_status_t status;
   status = yices_check_context(ctx, NULL);
   if (status != STATUS_SAT) {
@@ -60,6 +63,8 @@ main(void)
   }
   
   //model_t *model = yices_get_model(ctx, 1);
+
+  yices_exit();
 
   return 0;
 }
