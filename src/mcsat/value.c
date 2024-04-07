@@ -23,6 +23,8 @@
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
 
+#include "api/yices_api_lock_free.h"
+
 const mcsat_value_t mcsat_value_none = { VALUE_NONE, { true } };
 const mcsat_value_t mcsat_value_true = { VALUE_BOOLEAN, { true } };
 const mcsat_value_t mcsat_value_false = { VALUE_BOOLEAN, { false } };
@@ -118,8 +120,19 @@ void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table
     break;
   }
   case CONSTANT_TERM: {
-    assert(t == true_term || t == false_term);
-    mcsat_value_construct_bool(t_value, t == true_term);
+    // Boolean terms case
+    if (t == true_term || t == false_term) {
+      mcsat_value_construct_bool(t_value, t == true_term);
+    } else {
+      // scalar case
+      int32_t int_value;
+      _o_yices_scalar_const_value(t, &int_value);
+      rational_t q;
+      q_init(&q);
+      q_set32(&q, int_value);
+      mcsat_value_construct_rational(t_value, &q);
+      q_clear(&q);
+    }
     break;
   }
   case ARITH_CONSTANT: {

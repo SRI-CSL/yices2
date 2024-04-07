@@ -267,21 +267,22 @@ void check_simple(void) {
 }
 
 int main(void) {  
-  yices_init();
-  if (yices_has_mcsat()) {
-    printf("MCSAT supported\n");
-    check_simple();
-    check_with_sat_model(false);
-    check_with_sat_model(true);
-    check_with_unsat_model(false);
-    check_with_unsat_model(true);
-    check_sat_with_empty_model();
-    check_unsat_with_empty_model();
-    check_unsat_with_model(false);
-    check_unsat_with_model(true);
-  } else {
-    printf("MCSAT not supported\n");   
+  if (!yices_has_mcsat()) {
+    return 1; // skipped
   }
+  
+  yices_init();
+  
+  check_simple();
+  check_with_sat_model(false);
+  check_with_sat_model(true);
+  check_with_unsat_model(false);
+  check_with_unsat_model(true);
+  check_sat_with_empty_model();
+  check_unsat_with_empty_model();
+  check_unsat_with_model(false);
+  check_unsat_with_model(true);
+
   yices_exit();
 
   return 0;
