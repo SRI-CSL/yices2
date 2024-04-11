@@ -2643,8 +2643,10 @@ void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
   uint32_t i;
   for (i = 0; i < n; ++n) {
     term_t x = vars->data[i];
+    assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     variable_t v = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
     int_queue_push(&mcsat->hinted_decision_vars, v);
+    mcsat_process_registration_queue(mcsat);
   }
 }
 
