@@ -2632,7 +2632,7 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 
 static
 void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
-  const ivector_t* vars = &mcsat->ctx->mcsat_initial_var_order;
+  ivector_t* vars = &mcsat->ctx->mcsat_initial_var_order;
   uint32_t n = vars->size;
   if (n == 0) {
     return;
@@ -2643,9 +2643,13 @@ void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
   uint32_t i;
   for (i = 0; i < n; ++n) {
     term_t x = vars->data[i];
+    assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     variable_t v = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
     int_queue_push(&mcsat->hinted_decision_vars, v);
+    mcsat_process_registration_queue(mcsat);
   }
+
+  ivector_reset(vars);
 }
 
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
