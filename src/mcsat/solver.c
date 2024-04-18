@@ -708,6 +708,15 @@ void mcsat_plugin_context_hint_next_decision(plugin_context_t* self, variable_t 
 }
 
 static
+void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const mcsat_value_t* val) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  if (!trail_has_value(mctx->mcsat->trail, x)) {
+    mcsat_model_set_value(&mctx->mcsat->trail->model, x, val);
+  }
+}
+
+static
 void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t type) {
   mcsat_plugin_context_t* mctx;
 
@@ -738,6 +747,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
   ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->ctx.hint_next_decision = mcsat_plugin_context_hint_next_decision;
+  ctx->ctx.hint_value = mcsat_plugin_context_hint_value;
   ctx->mcsat = mcsat;
   ctx->plugin_name = plugin_name;
 }
