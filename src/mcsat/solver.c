@@ -330,8 +330,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.random_decision_freq = 0;
-  mcsat->heuristic_params.random_decision_seed = 0;
+  mcsat->heuristic_params.random_decision_freq = 0.02;
+  mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
 }
 
 static
@@ -2641,10 +2641,12 @@ void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
   assert(vars != NULL);
 
   uint32_t i;
-  for (i = 0; i < n; ++n) {
+  for (i = 0; i < n; ++i) {
     term_t x = vars->data[i];
+    assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     variable_t v = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
     int_queue_push(&mcsat->hinted_decision_vars, v);
+    mcsat_process_registration_queue(mcsat);
   }
 }
 

@@ -5830,6 +5830,9 @@ void reset_context(context_t *ctx) {
 
   reset_gate_manager(&ctx->gate_manager);
 
+  ivector_reset(&ctx->mcsat_var_order);
+  ivector_reset(&ctx->mcsat_initial_var_order);
+
   reset_intern_tbl(&ctx->intern);
   ivector_reset(&ctx->top_eqs);
   ivector_reset(&ctx->top_atoms);
@@ -6691,3 +6694,4 @@ void context_gc_mark(context_t *ctx) {
     mcsat_gc_mark(ctx->mcsat);
   }
 }
+
