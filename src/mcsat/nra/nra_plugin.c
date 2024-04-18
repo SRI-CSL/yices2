@@ -2158,17 +2158,13 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
 
     // Approximate the value
     const mcsat_value_t* constraint_value = NULL;
-    if (!nra->ctx->options->model_interpolation) {
-      constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
-      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
-        ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
-        FILE* out = ctx_trace_out(nra->ctx);
-        if (constraint_value != NULL) {
-          mcsat_value_print(constraint_value, out);
-        } else {
-          fprintf(out, "no value");
-        }
-        fprintf(out, "\n");
+    constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
+      if (constraint_value != NULL) {
+        mcsat_value_print(constraint_value, ctx_trace_out(nra->ctx));
+      } else {
+        ctx_trace_printf(nra->ctx, "no value");
       }
     }
     if (constraint_value != NULL) {
@@ -2181,7 +2177,16 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
           break;
         }
       } else {
-        prop->add(prop, constraint_var, constraint_value);
+        if (!nra->ctx->options->model_interpolation) {
+          prop->add(prop, constraint_var, constraint_value);
+        } else {
+          if (ctx_trace_enabled(nra->ctx, "nra::learn")) {
+            ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", constraint_var);
+          }
+          nra->ctx->hint_next_decision(nra->ctx, constraint_var);
+          // update the trail value cache
+          nra->ctx->hint_value(nra->ctx, constraint_var, constraint_value);
+        }
       }
     }
   }
