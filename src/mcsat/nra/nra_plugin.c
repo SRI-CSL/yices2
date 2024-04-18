@@ -2161,13 +2161,11 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     constraint_value = poly_constraint_db_approximate(nra->constraint_db, constraint_var, nra);
     if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
       ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
-      FILE* out = ctx_trace_out(nra->ctx);
       if (constraint_value != NULL) {
-        mcsat_value_print(constraint_value, out);
+        mcsat_value_print(constraint_value, ctx_trace_out(nra->ctx));
       } else {
-        fprintf(out, "no value");
+        ctx_trace_printf(nra->ctx, "no value");
       }
-      fprintf(out, "\n");
     }
     if (constraint_value != NULL) {
       if (has_value) {
