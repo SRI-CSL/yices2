@@ -2796,6 +2796,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
     // Analysis might have discovered base level conflict
     if (mcsat->status == STATUS_UNSAT) {
+      if (n_assumptions == 0) {
+        mcsat->interpolant = false_term;
+      }
       break;
     }
 
