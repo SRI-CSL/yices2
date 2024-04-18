@@ -707,11 +707,18 @@ void mcsat_plugin_context_hint_next_decision(plugin_context_t* self, variable_t 
   mcsat_add_decision_hint(mctx->mcsat, x);
 }
 
+/*
+ * Provide hint to the trail cache.
+ */
 static
 void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const mcsat_value_t* val) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
+  // update only if the x value is not set in the trail
   if (!trail_has_value(mctx->mcsat->trail, x)) {
+    // we set the value in the model of the trail.
+    // Remark: This is not making a decision in the trail. The model
+    // in the trail is used as a cache for unassigned variables.
     mcsat_model_set_value(&mctx->mcsat->trail->model, x, val);
   }
 }

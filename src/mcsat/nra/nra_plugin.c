@@ -2184,6 +2184,7 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
             ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", constraint_var);
           }
           nra->ctx->hint_next_decision(nra->ctx, constraint_var);
+	  // update the trail value cache
           nra->ctx->hint_value(nra->ctx, constraint_var, constraint_value);
         }
       }
