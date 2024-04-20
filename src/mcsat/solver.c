@@ -57,6 +57,7 @@
 
 #include "yices.h"
 #include <inttypes.h>
+#include <math.h>
 
 /**
  * Notification of new variables for the main solver.
@@ -291,6 +292,8 @@ struct mcsat_solver_s {
     double random_decision_freq;
     // Random decision seed
     double random_decision_seed;
+    // learning interval (grows in multiple of nlog(n), where n is the number of learning rounds)
+    uint32_t learning_interval;
   } heuristic_params;
 
   /** Scope holder for backtracking int variables */
@@ -332,6 +335,7 @@ void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.random_decision_freq = 0.02;
   mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
+  mcsat->heuristic_params.learning_interval = 1000;
 }
 
 static
@@ -2720,6 +2724,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Whether to run learning
   bool learning = true;
+  uint32_t learning_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.learning_interval;
+  uint32_t learning_round = 1;
 
   while (!mcsat->stop_search) {
 
@@ -2728,7 +2734,12 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
-      learning = true;
+      if (learning_limit <= (*mcsat->solver_stats.conflicts)) {
+        ++learning_round;
+        learning = true;
+        learning_limit = (*mcsat->solver_stats.conflicts) +
+          mcsat->heuristic_params.learning_interval*learning_round*log10(learning_round + 9);
+      }
     }
 
     // Process any outstanding requests
