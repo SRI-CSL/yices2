@@ -57,6 +57,7 @@
 
 #include "yices.h"
 #include <inttypes.h>
+#include <math.h>
 
 /**
  * Notification of new variables for the main solver.
@@ -242,6 +243,7 @@ struct mcsat_solver_s {
   struct {
     bool restart;
     bool gc_calls;
+    bool recache;
   } pending_requests_all;
 
   /** Any pending requests */
@@ -280,6 +282,8 @@ struct mcsat_solver_s {
     statistic_avg_t* avg_conflict_size;
     // GC calls
     statistic_int_t* gc_calls;
+    // Recache calls
+    statistic_int_t* recaches;
   } solver_stats;
 
   struct {
@@ -287,6 +291,8 @@ struct mcsat_solver_s {
     uint32_t restart_interval;
     // Type of weight to use for restart counter
     lemma_weight_type_t lemma_restart_weight_type;
+    // recache interval
+    uint32_t recache_interval;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -324,12 +330,14 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
 }
 
 static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
+  mcsat->heuristic_params.recache_interval = 1000;
   mcsat->heuristic_params.random_decision_freq = 0.02;
   mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
 }
@@ -615,6 +623,12 @@ void mcsat_request_gc(mcsat_solver_t* mcsat) {
 }
 
 static
+void mcsat_request_recache(mcsat_solver_t* mcsat) {
+  mcsat->pending_requests = true;
+  mcsat->pending_requests_all.recache = true;
+}
+
+static
 void mcsat_plugin_context_restart(plugin_context_t* self) {
   mcsat_plugin_context_t* mctx;
 
@@ -886,6 +900,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   mcsat->pending_requests_all.restart = false;
   mcsat->pending_requests_all.gc_calls = false;
+  mcsat->pending_requests_all.recache = false;
   mcsat->pending_requests = false;
 
   mcsat->variable_in_conflict = variable_null;
@@ -1429,6 +1444,13 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat_gc(mcsat, false);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
+    }
+
+    // recache
+    if (mcsat->pending_requests_all.recache) {
+      trail_model_cache_clear(mcsat->trail);
+      mcsat->pending_requests_all.recache = false;
+      (*mcsat->solver_stats.recaches) ++;
     }
 
     // All services
@@ -2718,6 +2740,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // recache
+  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
+  uint32_t recache_round = 0;
+
   // Whether to run learning
   bool learning = true;
 
@@ -2728,6 +2754,16 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+
+    }
+
+    // recache
+    if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests

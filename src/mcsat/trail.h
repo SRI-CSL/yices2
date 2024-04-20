@@ -260,4 +260,7 @@ void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars);
 /** Sweep any data associated with the unmarked variables  */
 void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 
+/** Clear model cache */
+void trail_model_cache_clear(mcsat_trail_t* trail);
+
 #endif /* MCSAT_TRAIL_H_ */

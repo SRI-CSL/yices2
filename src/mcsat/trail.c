@@ -297,3 +297,12 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
     }
   }
 }
+
+void trail_model_cache_clear(mcsat_trail_t* trail) {
+  variable_t var;
+  for (var = 0; var < trail->model.size; ++var) {
+    if (!trail_has_value(trail, var)) {
+      mcsat_model_unset_value(&trail->model, var);
+    }
+  }
+}
