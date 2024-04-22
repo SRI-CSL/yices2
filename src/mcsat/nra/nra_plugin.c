@@ -888,11 +888,14 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           lp_interval_construct_full(&x_interval);
           feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
           int interval_dist = lp_interval_size_approx(&x_interval);
-          if (0 < interval_dist && interval_dist <= 1) {
-            // interval distance 1 means that the absolute distance
+          if (interval_dist <= 1) {
+            // interval distance 1 means that the absolute log2 distance
             // between the upper and lower bound is 1.
-            // interval distance 0 means that the interval is a point.
-            // So, we are hinting to the main mcsat solver to decide on this variable
+            // Consider the the interval [3,4], the interval distance is 1, and has
+            // two integer value: 3 and 4.
+            // Now consider the interval [5.5, 6.1], the interval distance is also 1 and
+            // has one integer value: 6.
+            // Here, we are hinting to the main mcsat solver to decide on this variable
             // as the possible integer values for the variable is highly likely one.
             if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
               ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
