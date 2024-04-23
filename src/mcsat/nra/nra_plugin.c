@@ -885,16 +885,20 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         } else if (variable_db_is_int(nra->ctx->var_db, x) &&
                    !lp_feasibility_set_is_full(feasible_set)) {
           lp_interval_t x_interval;
-          lp_interval_construct_full(&x_interval);
+          lp_interval_construct_full(&x_interval); // [-inf, +inf]
+          // now we over-approx the feasible set using an interval and
+          // the result is stored in x_interval, e.g., [1.6, 2.5]
+          // union [4.2, 4.6] is approximated by [1.6, 2.5].
           feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
           int interval_dist = lp_interval_size_approx(&x_interval);
           if (interval_dist <= 1) {
+            // interval distance of an interval [a, b] is defined as log2(|b - a|) + 1.
             // interval distance 1 means that the absolute log2 distance
             // between the upper and lower bound is 1.
             // Consider the the interval [3,4], the interval distance is 1, and has
             // two integer value: 3 and 4.
-            // Now consider the interval [5.5, 6.1], the interval distance is also 1 and
-            // has one integer value: 6.
+            // Now consider the interval [5.5, 6.1], the interval distance is also 0 and
+            // has one integer value: 6. log2(.6) = log2(6) - log2(10).
             // Here, we are hinting to the main mcsat solver to decide on this variable
             // as the possible integer values for the variable is highly likely one.
             if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
