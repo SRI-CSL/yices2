@@ -234,8 +234,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
     variable_db_get_variable(uf->ctx->var_db, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
-    // if the domain is finite then we add this extra read term
-    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[1]))) {
+    // if the element domain is finite then we add this extra read term
+    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[2]))) {
       term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
       variable_db_get_variable(uf->ctx->var_db, r2);
       weq_graph_add_select_term(&uf->weq_graph, r2);
