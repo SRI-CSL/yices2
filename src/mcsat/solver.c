@@ -337,7 +337,7 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 10000;
+  mcsat->heuristic_params.recache_interval = 1000;
   mcsat->heuristic_params.random_decision_freq = 0.02;
   mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
 }
@@ -2755,15 +2755,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       luby_next(&luby);
       mcsat_request_restart(mcsat);
 
-    }
-
-    // recache
-    if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-      ++recache_round;
-      mcsat_request_recache(mcsat);
-      double l = log10(recache_round + 9);
-      recache_limit = (*mcsat->solver_stats.conflicts) +
-	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
+      // recache
+      if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+        ++recache_round;
+        mcsat_request_recache(mcsat);
+        double l = log10(recache_round + 9);
+        recache_limit = (*mcsat->solver_stats.conflicts) +
+	  (recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
+      }
     }
 
     // Process any outstanding requests
