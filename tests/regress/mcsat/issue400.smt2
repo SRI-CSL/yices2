@@ -1,0 +1,5 @@
+(set-logic ALL)
+(declare-fun v () (_ BitVec 1))
+(declare-fun a () Int)
+(assert (distinct (= 0 a) (= v (_ bv1 1))))
+(check-sat)

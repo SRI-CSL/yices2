@@ -102,7 +102,7 @@ void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump) {
   for (i = 0; i < to_bump->element_list.size; ++ i) {
     term_t t = to_bump->element_list.data[i];
     variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-    if (t != variable_null) {
+    if (t_var != variable_null) {
       int_hmap_pair_t* find = int_hmap_find(&to_bump->count_map, t);
       uf->ctx->bump_variable_n(uf->ctx, t_var, find->val);
     }
@@ -226,7 +226,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    eq_graph_add_ifun_term(&uf->eq_graph, t, UPDATE_TERM, t_desc->arity, t_desc->arg);
+    eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     // remember array term
     weq_graph_add_array_term(&uf->weq_graph, t);
     weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[0]);
@@ -234,8 +234,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
     variable_db_get_variable(uf->ctx->var_db, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
-    // if the domain is finite then we add this extra read term
-    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[1]))) {
+    // if the element domain is finite then we add this extra read term
+    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[2]))) {
       term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
       variable_db_get_variable(uf->ctx->var_db, r2);
       weq_graph_add_select_term(&uf->weq_graph, r2);
@@ -257,11 +257,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = eq_term_desc(terms, t);
     eq_graph_add_ifun_term(&uf->eq_graph, t, EQ_TERM, 2, t_desc->arg);
     // remember array terms
-    if (is_function_term(terms, t_desc->arg[0]) &&
-	(term_kind(terms, t_desc->arg[0]) == UNINTERPRETED_TERM ||
-	 term_kind(terms, t_desc->arg[0]) == UPDATE_TERM)) {
-      weq_graph_add_array_eq_term(&uf->weq_graph, t);
-    }
     uint32_t i;
     for (i = 0; i < 2; ++ i) {
       if (is_function_term(terms, t_desc->arg[i]) &&
@@ -342,26 +337,6 @@ void uf_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
     // Report conflict
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
-    // extract terms used in the conflict
-    term_t t;
-    term_table_t *terms = uf->ctx->terms;
-    composite_term_t* t_desc = NULL;
-    uint32_t i;
-    for (i = 0; i < uf->conflict.size; ++i) {
-      t = uf->conflict.data[i];
-      if (term_kind(terms, t) == EQ_TERM) {
-	t_desc = eq_term_desc(terms, t);
-      } else if (term_kind(terms, t) == BV_EQ_ATOM) {
-	t_desc = bveq_atom_desc(terms, t);
-      } else if (term_kind(terms, t) == ARITH_BINEQ_ATOM) {
-	t_desc = arith_bineq_atom_desc(terms, t);
-      } else {
-	assert(false);
-      }
-      int_mset_add(&uf->tmp, t_desc->arg[0]);
-      int_mset_add(&uf->tmp, t_desc->arg[1]);
-    }
-    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
   }
 }
@@ -398,47 +373,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // optimization: skip array checks if some terms, that are present
   // in the eq_graph, don't have an assigned value.
-  variable_db_t* var_db = uf->ctx->var_db;
-  term_t t = NULL_TERM;
-  bool all_assigned = true;
-  int_hmap_pair_t* it;
-  for (it = int_hmap_first_record(&var_db->term_to_variable_map);
-       it != NULL;
-       it = int_hmap_next_record(&var_db->term_to_variable_map, it)) {
-    t = it->key;
-    if (t >= 0 && eq_graph_has_term(&uf->eq_graph, t) &&
-        !eq_graph_term_has_value(&uf->eq_graph, t)) {
-      all_assigned = false;
-      break;
-    }
-  }
-  
-  if (all_assigned) {
+  if (weq_graph_is_all_assigned(&uf->weq_graph)) {
     assert(uf->conflict.size == 0);
     weq_graph_check_array_conflict(&uf->weq_graph, &uf->conflict);
     if (uf->conflict.size > 0) {
       // Report conflict
       prop->conflict(prop);
       (*uf->stats.conflicts) ++;
-      // extract terms used in the conflict
-      term_table_t *terms = uf->ctx->terms;
-      composite_term_t* t_desc = NULL;
-      uint32_t i;
-      for (i = 0; i < uf->conflict.size; ++i) {
-        t = uf->conflict.data[i];
-	if (term_kind(terms, t) == EQ_TERM) {
-          t_desc = eq_term_desc(terms, t);
-        } else if (term_kind(terms, t) == BV_EQ_ATOM) {
-	  t_desc = bveq_atom_desc(terms, t);
-	} else if (term_kind(terms, t) == ARITH_BINEQ_ATOM) {
-	  t_desc = arith_bineq_atom_desc(terms, t);
-	} else {
-          assert(false);
-        }
-	int_mset_add(&uf->tmp, t_desc->arg[0]);
-	int_mset_add(&uf->tmp, t_desc->arg[1]);
-      }
-      uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     }
   }

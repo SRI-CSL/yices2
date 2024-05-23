@@ -557,7 +557,7 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
       }
     }
   }
-  m = queue.size;
+  m = queue.capacity;
   j = 0;
   while(!int_queue_is_empty(&queue)) {
     tvalue = int_queue_pop(&queue);

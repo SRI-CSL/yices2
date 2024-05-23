@@ -799,20 +799,53 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         }
         lp_value_destruct(&v);
       }
-      // If the value is implied at zero level, propagate it
-      if (!nra->ctx->options->model_interpolation && !x_in_conflict && !trail_has_value(nra->ctx->trail, x) && trail_is_at_base_level(nra->ctx->trail)) {
-        const lp_feasibility_set_t* feasible = feasible_set_db_get(nra->feasible_set_db, x);
-        if (lp_feasibility_set_is_point(feasible)) {
+
+      if (!x_in_conflict && !trail_has_value(nra->ctx->trail, x)) {
+        const lp_feasibility_set_t *feasible_set = feasible_set_db_get(nra->feasible_set_db, x);
+        if (lp_feasibility_set_is_point(feasible_set)) {
           lp_value_t x_value;
           lp_value_construct_none(&x_value);
-          lp_feasibility_set_pick_value(feasible, &x_value);
+          lp_feasibility_set_pick_value(feasible_set, &x_value);
           if (lp_value_is_rational(&x_value)) {
-            mcsat_value_t value;
-            mcsat_value_construct_lp_value(&value, &x_value);
-            prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-            mcsat_value_destruct(&value);
+            if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
+              mcsat_value_t value;
+              mcsat_value_construct_lp_value(&value, &x_value);
+              prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
+              mcsat_value_destruct(&value);
+            } else {
+              if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+                ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+              }
+              nra->ctx->hint_next_decision(nra->ctx, x);
+            }
           }
           lp_value_destruct(&x_value);
+
+        } else if (variable_db_is_int(nra->ctx->var_db, x) &&
+                   !lp_feasibility_set_is_full(feasible_set)) {
+          lp_interval_t x_interval;
+          lp_interval_construct_full(&x_interval); // [-inf, +inf]
+          // now we over-approx the feasible set using an interval and
+          // the result is stored in x_interval, e.g., [1.6, 2.5]
+          // union [4.2, 4.6] is approximated by [1.6, 4.6].
+          feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
+          int interval_dist = lp_interval_size_approx(&x_interval);
+          if (interval_dist <= 1) {
+            // interval distance of an interval [a, b] is defined as log2(|b - a|) + 1.
+            // interval distance 1 means that the absolute log2 distance
+            // between the upper and lower bound is 1.
+            // Consider the the interval [3,4], the interval distance is 1, and has
+            // two integer value: 3 and 4.
+            // Now consider the interval [5.5, 6.1], the interval distance is 0 and
+            // has one integer value: 6. log2(.6) = log2(6) - log2(10).
+            // Here, we are hinting to the main mcsat solver to decide on this variable
+            // as the possible integer values for the variable is highly likely one.
+            if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+              ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+            }
+            nra->ctx->hint_next_decision(nra->ctx, x);
+          }
+          lp_interval_destruct(&x_interval);
         }
       }
     }
@@ -1017,7 +1050,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   // Propagate
-  while(trail_is_consistent(trail) && nra->trail_i < trail_size(trail)) {
+  while (trail_is_consistent(trail) && nra->trail_i < trail_size(trail)) {
     // Current trail element
     var = trail_at(trail, nra->trail_i);
     nra->trail_i ++;
@@ -2078,17 +2111,13 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
 
     // Approximate the value
     const mcsat_value_t* constraint_value = NULL;
-    if (!nra->ctx->options->model_interpolation) {
-      constraint_value = nra_poly_constraint_db_approximate(nra, constraint_var);
-      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
-        ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
-        FILE* out = ctx_trace_out(nra->ctx);
-        if (constraint_value != NULL) {
-          mcsat_value_print(constraint_value, out);
-        } else {
-          fprintf(out, "no value");
-        }
-        fprintf(out, "\n");
+    constraint_value = nra_poly_constraint_db_approximate(nra, constraint_var);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
+      ctx_trace_printf(nra->ctx, "nra_plugin_learn(): value = ");
+      if (constraint_value != NULL) {
+        mcsat_value_print(constraint_value, ctx_trace_out(nra->ctx));
+      } else {
+        ctx_trace_printf(nra->ctx, "no value");
       }
     }
     if (constraint_value != NULL) {
@@ -2101,7 +2130,16 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
           break;
         }
       } else {
-        prop->add(prop, constraint_var, constraint_value);
+        if (!nra->ctx->options->model_interpolation) {
+          prop->add(prop, constraint_var, constraint_value);
+        } else {
+          if (ctx_trace_enabled(nra->ctx, "nra::learn")) {
+            ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", constraint_var);
+          }
+          nra->ctx->hint_next_decision(nra->ctx, constraint_var);
+          // update the trail value cache
+          nra->ctx->hint_value(nra->ctx, constraint_var, constraint_value);
+        }
       }
     }
   }
