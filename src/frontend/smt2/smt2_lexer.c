@@ -437,7 +437,7 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
     smt2_activate_mixed_arith();
     break;
 
-  case ARITH_NFFA:
+  case ARITH_FFA:
     smt2_activate_ff();
     break;
 
