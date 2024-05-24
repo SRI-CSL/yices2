@@ -192,12 +192,6 @@ fail=$(find "$logdir" -type f -name "*.error" | wc -l)
 
 echo "Pass: $pass"
 echo "Fail: $fail"
-if [[ $pass -gt 0 ]]; then
-    echo "Runtime:          $(find "$logdir" -type f -exec sed -n '2p' {} \; | paste -sd+ - | bc) s"
-    if [[ $fail -gt 0 ]]; then
-        echo "Runtime (passed): $(find "$logdir" -type f -name "*.pass" -exec sed -n '2p' {} \; | paste -sd+ - | bc) s"
-    fi
-fi
 
 if [ "$fail" -eq 0 ] ; then
     code=0
