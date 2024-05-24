@@ -746,7 +746,6 @@ bool ff_plugin_check_assignment(ff_plugin_t* ff) {
       lp_variable_t x_lp = lp_data_get_lp_variable_from_term(lp_data, t);
       const lp_value_t* value_lp = lp_assignment_get_value(lp_data->lp_assignment, x_lp);
       if (lp_value_cmp(&value->lp_value, value_lp) != 0) {
-        assert(false);
         return false;
       }
     }
@@ -762,7 +761,6 @@ bool ff_plugin_check_assignment(ff_plugin_t* ff) {
     const mcsat_value_t* value = trail_get_value(trail, x);
     const lp_value_t* value_lp = lp_assignment_get_value(lp_data->lp_assignment, x_lp);
     if (lp_value_cmp(&value->lp_value, value_lp) != 0) {
-      assert(false);
       return false;
     }
   }
@@ -1198,9 +1196,3 @@ plugin_t* ff_plugin_allocator(void) {
 
   return (plugin_t*) plugin;
 }
-
-/*
- * Difference between explain prop and evaluation:
- *  evaluation of a term to true/false. (explain_evaluation: which variables did contribute to the evaluation. see nra method, can I produce a full explanation)
- *  propagation creates new terms. (explain_propagate: explains the propagation)
- */
