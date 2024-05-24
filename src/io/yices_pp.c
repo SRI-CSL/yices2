@@ -287,7 +287,7 @@ static void build_mpq(string_buffer_t *b, mpq_t q) {
   string_buffer_close(b);
 }
 
-static void build_rational(string_buffer_t *b, rational_t *q) {
+static void build_rational(string_buffer_t *b, const rational_t *q) {
   string_buffer_append_rational(b, q);
   string_buffer_close(b);
 }
@@ -1025,7 +1025,7 @@ void pp_mpq(yices_pp_t *printer, mpq_t q) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_rational(yices_pp_t *printer, rational_t *q) {
+void pp_rational(yices_pp_t *printer, const rational_t *q) {
   pp_atom_t *atom;
   void *tk;
   string_buffer_t *buffer;
@@ -1045,7 +1045,7 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_finitefield(yices_pp_t *printer, value_ff_t *v) {
+void pp_finitefield(yices_pp_t *printer, const value_ff_t *v) {
   pp_atom_t *atom;
   void *tk;
   string_buffer_t *buffer;
@@ -1070,7 +1070,7 @@ void pp_finitefield(yices_pp_t *printer, value_ff_t *v) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_algebraic(yices_pp_t *printer, void *a) {
+void pp_algebraic(yices_pp_t *printer, const void *a) {
 #ifdef HAVE_MCSAT
   pp_atom_t *atom;
   void *tk;

@@ -2344,7 +2344,7 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
   pp_bv64(printer, d->value, d->bitsize);
 }
 
-static void pp_finitefield_term(yices_pp_t *printer, rational_t *v, rational_t *mod) {
+static void pp_finitefield_term(yices_pp_t *printer, const rational_t *v, const rational_t *mod) {
   value_ff_t val;
   q_init(&val.mod);
   q_init(&val.value);

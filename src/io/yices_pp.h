@@ -400,10 +400,10 @@ extern void pp_int32(yices_pp_t *printer, int32_t x);
 extern void pp_uint32(yices_pp_t *printer, uint32_t x);
 extern void pp_mpz(yices_pp_t *printer, mpz_t z);
 extern void pp_mpq(yices_pp_t *printer, mpq_t q);
-extern void pp_rational(yices_pp_t *printer, rational_t *q);
+extern void pp_rational(yices_pp_t *printer, const rational_t *q);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
-extern void pp_finitefield(yices_pp_t *printer, value_ff_t *v);
-extern void pp_algebraic(yices_pp_t *printer, void *a);
+extern void pp_finitefield(yices_pp_t *printer, const value_ff_t *v);
+extern void pp_algebraic(yices_pp_t *printer, const void *a);
 
 /*
  * String and bv atoms without cloning
