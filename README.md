@@ -1,5 +1,7 @@
-> [!IMPORTANT]  
-> This version needs special build steps.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![CI](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml/badge.svg)](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
+[![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
 
 # Yices 2
 
@@ -16,14 +18,6 @@ Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, Stéphane Graham-Lengra
 at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
 [website](https://yices.csl.sri.com).
-
-## How to Compile this Version
-This is a special version with finite field support.
-Until all forks are merged, it must be linked to a special version of libpoly: [Ovascos/libpoly](https://github.com/Ovascos/libpoly).
-For finite field arithmetic support Yices must be built with MCSat enabled (see regular build instructions below).
-
-> [!TIP]  
-> Benchmarks for finite field arithmetic can be found at [Ovascos/ffsat-benchmarks](https://github.com/Ovascos/ffsat-benchmarks).
 
 ## Simple Examples
 
