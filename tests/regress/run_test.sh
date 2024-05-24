@@ -178,6 +178,7 @@ then
     if [ -n "$log_file" ] ; then
         log_file="$log_file.pass"
         echo "$test_string" > "$log_file"
+        echo "$runtime" >> "$log_file"
     fi
     code=0
 else
@@ -185,6 +186,7 @@ else
     if [ -n "$log_file" ] ; then
         log_file="$log_file.error"
         echo "$test_string" > "$log_file"
+        echo "$runtime" >> "$log_file"
         echo "$DIFF" >> "$log_file"
     fi
     code=1

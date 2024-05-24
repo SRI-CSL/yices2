@@ -2463,7 +2463,7 @@ term_t arith_constant(term_table_t *table, rational_t *a) {
   return pos_term(i);
 }
 
-term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod) {
+term_t arith_ff_constant(term_table_t *table, rational_t *a, const rational_t *mod) {
   type_t tau;
   int32_t i;
   rational_term_hobj_t rational_hobj;
@@ -2487,7 +2487,7 @@ term_t arith_ff_constant(term_table_t *table, rational_t *a, rational_t *mod) {
   return pos_term(i);
 }
 
-term_t arith_ff_zero(term_table_t *table, rational_t *mod) {
+term_t arith_ff_zero(term_table_t *table, const rational_t *mod) {
   rational_t z;
   q_init(&z);
   term_t rslt = arith_ff_constant(table, &z, mod);
@@ -2947,7 +2947,7 @@ term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
  *
  * SIDE EFFECT: b is reset to zero
  */
-term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, rational_t *mod) {
+term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, const rational_t *mod) {
   int32_t *v;
   type_t tau;
   int32_t i;
@@ -2956,6 +2956,7 @@ term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, rational_t *mod) {
   poly_term_hobj_t poly_hobj;
 
   assert(b->ptbl == table->pprods);
+  assert(rba_buffer_is_mod(b, mod));
 
   n = b->nterms;
 

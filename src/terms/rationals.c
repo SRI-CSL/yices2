@@ -1018,7 +1018,7 @@ void q_inv(rational_t *r) {
 /*
  * Invert r mod m
  */
-void q_inv_mod(rational_t *r, rational_t *mod) {
+void q_inv_mod(rational_t *r, const rational_t *mod) {
   assert(q_is_integer(r) && q_is_integer(mod) && q_is_pos(mod));
 
   rational_t tmp, *mm;
@@ -1026,7 +1026,7 @@ void q_inv_mod(rational_t *r, rational_t *mod) {
     tmp = *mod; mm = &tmp;
     q_denormalize(mm);
   } else {
-    mm = mod;
+    mm = (rational_t*)mod;
   }
 
   q_denormalize(r);
@@ -1384,11 +1384,9 @@ void q_gcd(rational_t *r1, const rational_t *r2) {
  * - r1 and r2 must be integer
  * - r2 must be positive
  */
-void q_integer_div(rational_t *r1, rational_t *r2) {
+void q_integer_div(rational_t *r1, const rational_t *r2) {
   int32_t n;
   mpq_ptr q1, q2;
-
-  q_normalize(r2);
 
   if (is_rat32(r2)) {
     assert(r2->s.den == ONE_DEN && r2->s.num > 0);
@@ -1435,11 +1433,9 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
  * - both r1 and r2 must be integer
  * - r2 must be positive
  */
-void q_integer_rem(rational_t *r1, rational_t *r2) {
+void q_integer_rem(rational_t *r1, const rational_t *r2) {
   int32_t n;
   mpq_ptr q1, q2;
-
-  q_normalize(r2);
 
   if (is_rat32(r2)){
     assert(r2->s.den == ONE_DEN && r2->s.num > 0);
@@ -1580,7 +1576,7 @@ bool q_smt2_divides(const rational_t *r1, const rational_t *r2) {
  *    lcm(a1, a2)/gcd(b1, b2).
  * - the result is stored in r1
  */
-void q_generalized_lcm(rational_t *r1, rational_t *r2) {
+void q_generalized_lcm(rational_t *r1, const rational_t *r2) {
   rational_t a1, b1;
   rational_t a2, b2;
 
@@ -1618,7 +1614,7 @@ void q_generalized_lcm(rational_t *r1, rational_t *r2) {
  *    gcd(a1, a2)/lcm(b1, b2).
  * - the result is stored in r1
  */
-void q_generalized_gcd(rational_t *r1, rational_t *r2) {
+void q_generalized_gcd(rational_t *r1, const rational_t *r2) {
   rational_t a1, b1;
   rational_t a2, b2;
 
@@ -1950,7 +1946,7 @@ uint32_t q_size(rational_t *r) {
  * Convert r to a GMP integer
  * - return false if r is not an integer
  */
-bool q_get_mpz(rational_t *r, mpz_t z) {
+bool q_get_mpz(const rational_t *r, mpz_t z) {
   if (r->s.den == ONE_DEN) {
     assert(is_rat32(r));
     mpz_set_si(z, r->s.num);
@@ -1968,7 +1964,7 @@ bool q_get_mpz(rational_t *r, mpz_t z) {
 /*
  * Convert r to a GMP rational
  */
-void q_get_mpq(rational_t *r, mpq_t q) {
+void q_get_mpq(const rational_t *r, mpq_t q) {
   if (is_ratgmp(r)) {
     mpq_set(q, get_gmp(r));
   } else {

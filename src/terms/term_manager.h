@@ -481,12 +481,12 @@ extern term_t mk_arith_ff_constant(term_manager_t *manager, rational_t *r, ratio
  * - if b is of the from 1. t_1^d_1 ... t_n^d_n then a power product is returned
  * - otherwise a polynomial term is created
  */
-extern term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);
+extern term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod);
 
 /*
  * Variant: use the term table
  */
-extern term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, rational_t *mod);
+extern term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod);
 
 /*
  * Create a finite field arithmetic atom from the content of buffer b:
@@ -496,8 +496,8 @@ extern term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, ration
  * - tau must be a type in manager->types
  * - side effect: b is reset
  */
-extern term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);   // b == 0
-extern term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, rational_t *mod);  // b != 0
+extern term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod);   // b == 0
+extern term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod);  // b != 0
 
 /*
  * Variant: create an arithmetic atom from term t
@@ -519,7 +519,7 @@ extern term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2);  /
  * - side effect: b is reset
  * If simplify_ite is true, simplifications are enabled
  */
-extern term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, rational_t *mod, bool simplify_ite);   // b == 0
+extern term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod, bool simplify_ite);   // b == 0
 
 
 /*
@@ -666,6 +666,17 @@ extern term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2);   // t1 <
 extern term_t mk_arith_pprod(term_manager_t *manager, pprod_t *p, uint32_t n, const term_t *a);
 
 /*
+ * Arithmetic product:
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n finite field arithmetic terms
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ *
+ * IMPORTANT: make sure the total degree is no more than YICES_MAX_DEGREE
+ * before calling this function.
+ */
+extern term_t mk_arith_ff_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, const rational_t *mod);
+
+/*
  * Bitvector product: 1 to 64 bits vector
  * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
  * - a is an array of n bitvector terms
@@ -717,7 +728,7 @@ extern term_t mk_arith_poly(term_manager_t *manager, polynomial_t *p, uint32_t n
  * must be either const_idx of finite field terms of the same order
  * - the order must be the same as the coefficients of p
  */
-extern term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, rational_t *mod);
+extern term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, const rational_t *mod);
 
 /*
  * Bitvector polynomial: same as mk_arith_poly but all elements of a

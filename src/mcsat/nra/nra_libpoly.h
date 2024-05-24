@@ -42,6 +42,9 @@ term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t 
 const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, variable_t constraint_var);
 
 /** Add a new constraint */
-void nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var);
+void nra_poly_constraint_add(nra_plugin_t *nra, variable_t constraint_var);
+
+/** Create a new constraint */
+poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var);
 
 #endif /* NRA_LIBPOLY_H_ */

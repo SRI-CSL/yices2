@@ -835,9 +835,9 @@ static inline bool is_ff_type(type_table_t *tbl, type_t i) {
   return type_kind(tbl, i) == FF_TYPE;
 }
 
-static inline rational_t* ff_type_size(type_table_t *tbl, type_t i) {
+static inline const rational_t* ff_type_size(type_table_t *tbl, type_t i) {
   assert(is_ff_type(tbl, i));
-  return (rational_t*)type_desc(tbl, i)->ptr;
+  return (const rational_t*)type_desc(tbl, i)->ptr;
 }
 
 static inline bool ff_type_size_any(type_table_t *tbl, type_t i) {

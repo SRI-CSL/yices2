@@ -2451,6 +2451,19 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       var = variable_null;
     }
 
+    // then try the variables a plugin requested
+    if (var == variable_null) {
+      while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
+        var = int_queue_pop(&mcsat->hinted_decision_vars);
+        assert(var != variable_null);
+        if (!trail_has_value(mcsat->trail, var)) {
+          force_decision = true;
+          break;
+        }
+        var = variable_null;
+      }
+    }
+
     // If there is a fixed order that was passed in, try that
     if (var == variable_null) {
       const ivector_t* order = &mcsat->ctx->mcsat_var_order;

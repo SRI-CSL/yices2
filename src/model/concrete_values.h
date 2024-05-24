@@ -428,7 +428,7 @@ extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 /*
  * Finite field constants (make a copy).
  */
-extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, rational_t *mod);
+extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, const rational_t *mod);
 
 /*
  * Algebraic number (make a copy).

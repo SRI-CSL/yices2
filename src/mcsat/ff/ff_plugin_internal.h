@@ -91,6 +91,7 @@ struct ff_plugin_s {
     statistic_int_t* constraints_attached;
     statistic_int_t* evaluations;
     statistic_int_t* constraint;
+    statistic_int_t* variable_hints;
   } stats;
 
   /** Database of polynomial constraints */

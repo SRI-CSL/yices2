@@ -561,7 +561,7 @@ void nra_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop)
     constraint_unit_info_set(&nra->unit_info, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
-    nra_poly_constraint_create(nra, t_var);
+    nra_poly_constraint_add(nra, t_var);
 
     // Propagate if fully assigned
     if (unit_status == CONSTRAINT_FULLY_ASSIGNED) {
@@ -1351,7 +1351,7 @@ bool nra_plugin_speculate_constraint(nra_plugin_t* nra, int_mset_t* pos, int_mse
   term_t constraint_atom = unsigned_term(constraint);
   bool negated = constraint != constraint_atom;
   variable_t constraint_var = variable_db_get_variable(nra->ctx->var_db, constraint_atom);
-  nra_poly_constraint_create(nra, constraint_var);
+  nra_poly_constraint_add(nra, constraint_var);
 
   // Check if the constraint is in Boolean conflict
   if (trail_has_value(nra->ctx->trail, constraint_var)) {

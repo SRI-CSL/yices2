@@ -180,6 +180,28 @@ uint32_t feasibility_int_set_count_approx(const feasibility_int_set_t *set, cons
   }
 }
 
+/** gets the reasons of a set */
+static
+void feasibility_int_set_get_reasons(const feasibility_int_set_t *set, ivector_t *reasons_out) {
+  // collect indices
+  size_t offset = 0;
+  for (size_t i = 0; i < set->reasons_sizes.size; ++i) {
+    uint32_t reason_size = set->reasons_sizes.data[i];
+    if (reason_size == 0) {
+      // skip empty reasons, i.e. updates that didn't to anything
+      continue;
+    }
+    assert(offset + reason_size <= set->reasons.size);
+    // currently only single reasons are used
+    assert(reason_size == 1);
+    for (uint32_t j = 0; j < reason_size; ++j) {
+      variable_t reason = set->reasons.data[offset + j];
+      ivector_push(reasons_out, reason);
+    }
+    offset += reason_size;
+  }
+}
+
 /** prints the set at the timestamp if the timestamp exists */
 static
 void feasibility_int_set_print_at(const feasibility_int_set_t *set, uint32_t timestamp, bool print_reasons, FILE *out) {
@@ -461,6 +483,15 @@ bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x,
   }
 }
 
+void ff_feasible_set_db_get_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out) {
+  ptr_hmap_pair_t *found = ptr_hmap_find(&db->sets, x);
+  if (found == NULL) {
+    return;
+  }
+  feasibility_int_set_t *set = found->val;
+  feasibility_int_set_get_reasons(set, reasons_out);
+}
+
 void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons) {
   // we only do a very trivial conflict core minimization yet
 
@@ -480,25 +511,8 @@ void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, var
   if (set->last_reason_unsat) {
     assert(ivector_last(&set->reasons_sizes) == 1);
     ivector_push(reasons_out, ivector_last(&set->reasons));
-    return;
-  }
-
-  // collect indices
-  size_t offset = 0;
-  for (size_t i = 0; i < set->reasons_sizes.size; ++i) {
-    uint32_t reason_size = set->reasons_sizes.data[i];
-    if (reason_size == 0) {
-      // skip empty reasons, i.e. updates that didn't to anything
-      continue;
-    }
-    assert(offset + reason_size <= set->reasons.size);
-    ivector_t *v = (reason_size == 1) ? reasons_out : lemma_reasons;
-    for (uint32_t j = 0; j < reason_size; ++j) {
-      variable_t reason = set->reasons.data[offset + j];
-      assert(variable_db_is_boolean(db->ctx->var_db, reason));
-      ivector_push(v, reason);
-    }
-    offset += reason_size;
+  } else {
+    feasibility_int_set_get_reasons(set, reasons_out);
   }
 }
 

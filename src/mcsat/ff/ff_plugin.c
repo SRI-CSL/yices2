@@ -55,6 +55,7 @@ void ff_plugin_stats_init(ff_plugin_t* ff) {
   ff->stats.constraints_attached = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints_attached");
   ff->stats.evaluations = statistics_new_int(ff->ctx->stats, "mcsat::ff::evaluations");
   ff->stats.constraint = statistics_new_int(ff->ctx->stats, "mcsat::ff::constraints");
+  ff->stats.variable_hints = statistics_new_int(ff->ctx->stats, "mcsat::ff::variable_hints");
 }
 
 static
@@ -256,7 +257,7 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
 
   mpz_t order;
   mpz_init(order);
-  rational_t *order_q = ff_type_size(ff->ctx->types, tau);
+  const rational_t *order_q = ff_type_size(ff->ctx->types, tau);
   q_get_mpz(order_q, order);
 
   if (ff->lp_data) {
@@ -374,7 +375,7 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     constraint_unit_info_set(&ff->unit_info, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Add the constraint to the database
-    ff_poly_constraint_create(ff, t_var);
+    ff_poly_constraint_add(ff, t_var);
 
     // Propagate if fully assigned
     if (unit_status == CONSTRAINT_FULLY_ASSIGNED) {
@@ -580,15 +581,20 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
       // you need to find a term s that evaluates to the propagated value under the current assignment, but works in general
       // and you need to find an explanaiton for this propagation
       // TODO this can be done in ff -> propagation like single polynomial propagation
-      if (!trail_has_value(ff->ctx->trail, x) && trail_is_at_base_level(ff->ctx->trail)) {
-        mcsat_value_t value;
-        lp_value_t x_value;
-        lp_value_construct_none(&x_value);
-        ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
-        mcsat_value_construct_lp_value(&value, &x_value);
-        prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
-        mcsat_value_destruct(&value);
-        lp_value_destruct(&x_value);
+      if (!trail_has_value(ff->ctx->trail, x)) {
+        if (trail_is_at_base_level(ff->ctx->trail)) {
+          mcsat_value_t value;
+          lp_value_t x_value;
+          lp_value_construct_none(&x_value);
+          ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
+          mcsat_value_construct_lp_value(&value, &x_value);
+          prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
+          mcsat_value_destruct(&value);
+          lp_value_destruct(&x_value);
+        } else {
+          (*ff->stats.variable_hints) ++;
+          ff->ctx->hint_next_decision(ff->ctx, x);
+        }
       }
     }
     polynomial_zeros_delete(zeros);

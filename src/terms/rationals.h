@@ -283,7 +283,7 @@ extern void q_gcd(rational_t *r1, const rational_t *r2);
 extern void q_floor(rational_t *r);
 extern void q_ceil(rational_t *r);
 
-extern void q_inv_mod(rational_t *r, rational_t *mod);
+extern void q_inv_mod(rational_t *r, const rational_t *mod);
 
 
 /*
@@ -297,7 +297,7 @@ extern void q_mulexp(rational_t *r1, const rational_t *r2, uint32_t n);
  * Integer division and remainder
  * - r1 and r2 must both be integer
  * - r2 must be positive.
- * - side effect: r2 is normalized
+ * - Consider normalizing r2 before
  *
  * q_integer_div(r1, r2) stores the quotient of r1 divided by r2 into r1
  * q_integer_rem(r1, r2) stores the remainder into r1
@@ -306,8 +306,8 @@ extern void q_mulexp(rational_t *r1, const rational_t *r2, uint32_t n);
  * If r = remainder and q = quotient then we have
  *    0 <= r < r2 and  r1 = q * r2 + r
  */
-extern void q_integer_div(rational_t *r1, rational_t *r2);
-extern void q_integer_rem(rational_t *r1, rational_t *r2);
+extern void q_integer_div(rational_t *r1, const rational_t *r2);
+extern void q_integer_rem(rational_t *r1, const rational_t *r2);
 
 
 /*
@@ -316,14 +316,14 @@ extern void q_integer_rem(rational_t *r1, rational_t *r2);
  * - r1 and r2 can be arbitrary rationals.
  * - the result is stored in r1
  */
-extern void q_generalized_lcm(rational_t *r1, rational_t *r2);
+extern void q_generalized_lcm(rational_t *r1, const rational_t *r2);
 
 /*
  * Generalized GCD: compute the largest positive rational q
  * such that r1/q and r2/q are both integer.
- * - the result is stored in r2
+ * - the result is stored in r1
  */
-extern void q_generalized_gcd(rational_t *r1, rational_t *r2);
+extern void q_generalized_gcd(rational_t *r1, const rational_t *r2);
 
 
 
@@ -571,13 +571,13 @@ extern uint32_t q_size(rational_t *r);
  * Store r into the GMP integer z.
  * - return false if r is not a integer, true otherwise
  */
-extern bool q_get_mpz(rational_t *r, mpz_t z);
+extern bool q_get_mpz(const rational_t *r, mpz_t z);
 
 
 /*
  * Store r into q
  */
-extern void q_get_mpq(rational_t *r, mpq_t q);
+extern void q_get_mpq(const rational_t *r, mpq_t q);
 
 
 /*

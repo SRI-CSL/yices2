@@ -5619,7 +5619,7 @@ static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   q_clear(&mod);
 }
 
-static rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
+static const rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
   term_t t;
 
   switch (e->tag) {
@@ -5645,7 +5645,7 @@ static rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
 
 static void ff_calc_mod(tstack_t *stack, rational_t *mod, stack_elem_t *f, uint32_t n) {
   uint32_t i;
-  rational_t *tmp;
+  const rational_t *tmp;
 
   q_set_minus_one(mod);
   for (i=0; i<n; ++i) {

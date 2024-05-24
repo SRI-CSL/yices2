@@ -64,22 +64,31 @@ term_t lp_polynomial_to_yices_term_ff(ff_plugin_t *ff, const lp_polynomial_t *lp
   return result;
 }
 
-void ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
-  // assert(poly_constraint_db_check(db));
-
+void ff_poly_constraint_add(ff_plugin_t *ff, variable_t constraint_var) {
   if (poly_constraint_db_has(ff->constraint_db, constraint_var)) {
     // Already added
     return;
   }
 
+  poly_constraint_t* cstr = ff_poly_constraint_create(ff, constraint_var);
+
+  (*ff->stats.constraint) ++;
+
+  if (ctx_trace_enabled(ff->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(ff->ctx, "poly_constraint_add: ");
+    poly_constraint_print(cstr, ctx_trace_out(ff->ctx));
+    ctx_trace_printf(ff->ctx, "\n");
+  }
+
+  poly_constraint_db_add_constraint(ff->constraint_db, constraint_var, cstr);
+}
+
+poly_constraint_t* ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
   term_t constraint_var_term;
 
   // Constraint components
   lp_polynomial_t* cstr_polynomial;
   lp_sign_condition_t sgn_condition;
-
-  // Result constraint
-  poly_constraint_t* cstr;
 
   // Context
   variable_db_t* var_db = ff->ctx->var_db;
@@ -114,17 +123,9 @@ void ff_poly_constraint_create(ff_plugin_t *ff, variable_t constraint_var) {
   }
   default:
     assert(0);
-    return;
+    return NULL;
   }
 
-  cstr = poly_constraint_new_regular(cstr_polynomial, sgn_condition);
-  (*ff->stats.constraint) ++;
-
-  if (ctx_trace_enabled(ff->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(ff->ctx, "poly_constraint_add: ");
-    poly_constraint_print(cstr, ctx_trace_out(ff->ctx));
-    ctx_trace_printf(ff->ctx, "\n");
-  }
-
-  poly_constraint_db_add_constraint(ff->constraint_db, constraint_var, cstr);
+  // Result constraint
+  return poly_constraint_new_regular(cstr_polynomial, sgn_condition);
 }

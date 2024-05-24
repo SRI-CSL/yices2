@@ -1842,14 +1842,14 @@ value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
 /*
  * Return a finitefield constant = v
  */
-value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, rational_t *mod) {
+value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, const rational_t *mod) {
   ff_hobj_t ff_hobj;
   ff_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
   ff_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
   ff_hobj.m.build = (hobj_build_t) build_finitefield_value;
   ff_hobj.table = table;
   ff_hobj.v = v;
-  ff_hobj.mod = mod;
+  ff_hobj.mod = (rational_t*)mod;
 
   return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
 }
@@ -1858,7 +1858,7 @@ value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, rational_t *mod
  * Return a finitefield constant = v
  * no check for field size is performed
  */
-static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v, rational_t *mod) {
+static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v, const rational_t *mod) {
   rational_t aux;
   value_t k;
 
@@ -1871,7 +1871,7 @@ static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v, rational_t *mod
   ff_hobj.m.build = (hobj_build_t) build_finitefield_value;
   ff_hobj.table = table;
   ff_hobj.v = &aux;
-  ff_hobj.mod = mod;
+  ff_hobj.mod = (rational_t*)mod;
 
   k = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
   q_clear(&aux);
