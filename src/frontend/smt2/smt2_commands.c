@@ -6717,15 +6717,15 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	//	show_delayed_assertions(&__smt2_globals);
+        // show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
         check_delayed_assertions(&__smt2_globals, /*report=*/true);
 #else
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals, /*report=*/true);
         } else {
-	  check_delayed_assertions_mt(&__smt2_globals);
-	}
+          check_delayed_assertions_mt(&__smt2_globals);
+        }
 #endif
       }
     } else {
