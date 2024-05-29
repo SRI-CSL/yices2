@@ -23,44 +23,27 @@
 #include <poly/integer.h>
 
 #include "mcsat/variable_db.h"
-#include "mcsat/mcsat_types.h"
-#include "mcsat/utils/lp_data.h"
 
-typedef enum {
-  FF_FEASIBLE_SET_EMPTY = 0,
-  FF_FEASIBLE_SET_UNIQUE = 1,
-  FF_FEASIBLE_SET_MANY,
-} ff_feasible_set_status_t;
+typedef struct ff_plugin_s ff_plugin_t;
 
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct ff_feasible_set_db_struct ff_feasible_set_db_t;
 
 /** Create a new database */
-ff_feasible_set_db_t* ff_feasible_set_db_new(plugin_context_t* ctx, lp_data_t *lp_data);
+ff_feasible_set_db_t* ff_feasible_set_db_new(ff_plugin_t* plugin);
 
 /** Delete the database */
 void ff_feasible_set_db_delete(ff_feasible_set_db_t* db);
 
+/** Get the feasible set of a variable */
+lp_feasibility_set_int_t* ff_feasible_set_db_get(ff_feasible_set_db_t* db, variable_t x);
+
 /**
  * Update the feasible set of the variable with a new set.
- * new_set must be a set (i.e. free of duplicates)
  *
- * If more than one reason, it's considered a disjunctive top-level assertion (clause);
+ * If more than one reason, it's considered a disjunctive top-level assertion (clause)
  */
-ff_feasible_set_status_t ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_value_t* new_set, size_t new_set_size, bool inverted, variable_t* reasons, size_t reasons_count);
-
-/** tries to find a value for x. Returns true if a value exists and value was set accordingly.
- * In case x is not found in the db, no value is provided. */
-bool ff_feasible_set_db_pick_value(const ff_feasible_set_db_t* db, variable_t x, lp_value_t *value);
-
-/** Returns true if the given value is valid for variable x */
-bool ff_feasible_set_db_is_value_valid(const ff_feasible_set_db_t *db, variable_t x, const lp_value_t *value);
-
-/** Returns true if the database has infos for x */
-bool ff_feasible_set_db_has_info(const ff_feasible_set_db_t* db, variable_t x);
-
-/** Get all reasons (mcsat variables) for the variable x. */
-void ff_feasible_set_db_get_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out);
+bool ff_feasible_set_db_update(ff_feasible_set_db_t* db, variable_t x, lp_feasibility_set_int_t* new_set, const variable_t* reasons, size_t reasons_count);
 
 /** Get the reason for a conflict on x. Feasible set of x should be empty. */
 void ff_feasible_set_db_get_conflict_reasons(const ff_feasible_set_db_t* db, variable_t x, ivector_t* reasons_out, ivector_t* lemma_reasons);

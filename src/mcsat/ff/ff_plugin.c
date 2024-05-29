@@ -43,6 +43,7 @@
 #include <poly/polynomial_context.h>
 #include <poly/variable_order.h>
 #include <poly/variable_list.h>
+#include <poly/feasibility_set_int.h>
 #include <poly/upolynomial.h>
 #include <poly/upolynomial_factors.h>
 
@@ -270,7 +271,7 @@ void ff_plugin_set_lp_data(ff_plugin_t *ff, term_t t) {
   } else {
     ff->lp_data = lp_data_new(order, ff->ctx);
     ff->constraint_db = poly_constraint_db_new(ff->lp_data);
-    ff->feasible_set_db = ff_feasible_set_db_new(ff->ctx, ff->lp_data);
+    ff->feasible_set_db = ff_feasible_set_db_new(ff);
   }
   mpz_clear(order);
 
@@ -412,79 +413,8 @@ void ff_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
   int_mset_destruct(&t_variables);
 }
 
-#ifndef NDEBUG
 static
-bool upolynomial_evaluate_zero_at_integer(const lp_upolynomial_t *up, const lp_integer_t *x) {
-  lp_integer_t tmp;
-  lp_integer_construct(&tmp);
-  lp_upolynomial_evaluate_at_integer(up, x, &tmp);
-  bool result = (lp_integer_is_zero(lp_upolynomial_ring(up) , &tmp));
-  lp_integer_destruct(&tmp);
-  return result;
-}
-#endif
-
-typedef struct {
-  uint32_t size;
-  lp_value_t zeros[];
-} polynomial_zeros_t;
-
-static
-void polynomial_zeros_delete(polynomial_zeros_t *zeros) {
-  for (uint32_t i = 0; i < zeros->size; ++i) {
-    lp_value_destruct(&zeros->zeros[i]);
-  }
-  safe_free(zeros);
-}
-
-static
-void polynomial_zeros_print(const polynomial_zeros_t *zeros, FILE *out) {
-  fprintf(out, "{");
-  for (uint32_t i = 0; i < zeros->size; ++i) {
-    lp_value_print(&zeros->zeros[i], out);
-    if (i < zeros->size - 1) {
-      fprintf(out, ", ");
-    }
-  }
-  fprintf(out, "}");
-}
-
-static inline
-polynomial_zeros_t* polynomial_zeros_new(uint32_t cnt) {
-  polynomial_zeros_t *z = safe_malloc(sizeof(polynomial_zeros_t) + cnt * sizeof(lp_value_t));
-  z->size = cnt;
-  return z;
-}
-
-static
-polynomial_zeros_t* ff_plugin_find_polynomial_zeros(const lp_polynomial_t *polynomial, const lp_assignment_t *m) {
-  assert(lp_polynomial_is_univariate_m(polynomial, m));
-  lp_upolynomial_t *upoly = lp_polynomial_to_univariate_m(polynomial, m);
-  if (lp_upolynomial_degree(upoly) == 0) {
-    if (lp_upolynomial_is_zero(upoly)) {
-      // any value is a solution
-      return NULL;
-    } else {
-      // no solutions
-      return polynomial_zeros_new(0);
-    }
-  }
-
-  lp_integer_t *zeros;
-  size_t zeros_size;
-
-  lp_upolynomial_roots_find_Zp(upoly, &zeros, &zeros_size);
-
-  polynomial_zeros_t *result = polynomial_zeros_new(zeros_size);
-  for (size_t i = 0; i < zeros_size; ++i) {
-    assert(upolynomial_evaluate_zero_at_integer(upoly, &zeros[i]));
-    lp_value_construct(&result->zeros[i], LP_VALUE_INTEGER, &zeros[i]);
-  }
-  return result;
-}
-
-static
-polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_var, variable_t x, bool is_negated) {
+lp_feasibility_set_int_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_var, variable_t x, bool is_negated) {
   const poly_constraint_t* constraint = poly_constraint_db_get(ff->constraint_db, cstr_var);
   lp_assignment_t *m = ff->lp_data->lp_assignment;
 
@@ -494,13 +424,13 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
   assert(lp_data_get_ring(ff->lp_data) == lp_polynomial_get_context(constraint->polynomial)->K);
 #ifndef NDEBUG
   {
-      lp_variable_t lp_x = lp_data_get_lp_variable_from_term(ff->lp_data, variable_db_get_term(ff->ctx->var_db, x));
-      lp_variable_list_t list;
-      lp_variable_list_construct(&list);
-      lp_polynomial_get_variables(constraint->polynomial, &list);
-      assert(lp_variable_list_contains(&list, lp_x));
-      lp_variable_list_destruct(&list);
-    }
+    lp_variable_t lp_x = lp_data_get_lp_variable_from_term(ff->lp_data, variable_db_get_term(ff->ctx->var_db, x));
+    lp_variable_list_t list;
+    lp_variable_list_construct(&list);
+    lp_polynomial_get_variables(constraint->polynomial, &list);
+    assert(lp_variable_list_contains(&list, lp_x));
+    lp_variable_list_destruct(&list);
+  }
 #endif
 
   // TODO caching
@@ -512,17 +442,8 @@ polynomial_zeros_t* ff_plugin_get_feasible_set(ff_plugin_t *ff, variable_t cstr_
     lp_assignment_print(m, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "\n");
   }
-  polynomial_zeros_t *zeros = ff_plugin_find_polynomial_zeros(constraint->polynomial, m);
-  if (ctx_trace_enabled(ff->ctx, "ff::find_zeros")) {
-    if (zeros != NULL) {
-      ctx_trace_printf(ff->ctx, "\t is ");
-      polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
-      ctx_trace_printf(ff->ctx, "\n");
-    } else {
-      ctx_trace_printf(ff->ctx, "\t is F\n");
-    }
-  }
-  return zeros;
+
+  return lp_polynomial_constraint_get_feasible_set_Zp(constraint->polynomial, constraint->sgn_condition, is_negated, m);
 }
 
 static
@@ -545,59 +466,51 @@ void ff_plugin_process_unit_constraint(ff_plugin_t* ff, trail_token_t* prop, var
     assert(x != variable_null);
 
     bool is_negated = !constraint_value;
-    polynomial_zeros_t *zeros = ff_plugin_get_feasible_set(ff, constraint_var, x, is_negated);
+    lp_feasibility_set_int_t *constraint_feasible = ff_plugin_get_feasible_set(ff, constraint_var, x, is_negated);
 
     if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
       ctx_trace_printf(ff->ctx, "ff: constraint_feasible = ");
-      if (zeros != NULL) {
-        if (is_negated) {
-          ctx_trace_printf(ff->ctx, "all values but ");
-        }
-        polynomial_zeros_print(zeros, ctx_trace_out(ff->ctx));
-        ctx_trace_printf(ff->ctx, "\n");
-      } else {
-        if (is_negated) {
-          ctx_trace_printf(ff->ctx, "no values\n");
-        } else {
-          ctx_trace_printf(ff->ctx, "all values\n");
-        }
-      }
+      lp_feasibility_set_int_print(constraint_feasible, ctx_trace_out(ff->ctx));
     }
 
-    if (zeros == NULL) {
-      zeros = polynomial_zeros_new(0);
-      is_negated = !is_negated;
+    bool consistent = ff_feasible_set_db_update(ff->feasible_set_db, x, constraint_feasible, &constraint_var, 1);
+
+    if (ctx_trace_enabled(ff->ctx, "ff::propagate")) {
+      ctx_trace_printf(ff->ctx, "ff: new feasible = ");
+      lp_feasibility_set_int_print(ff_feasible_set_db_get(ff->feasible_set_db, x), ctx_trace_out(ff->ctx));
+      ctx_trace_printf(ff->ctx, "\n");
     }
 
-    ff_feasible_set_status_t status = ff_feasible_set_db_update(ff->feasible_set_db, x, zeros->zeros, zeros->size, is_negated, &constraint_var, 1);
-
-    if (status == FF_FEASIBLE_SET_EMPTY) {
+    if (!consistent) {
       // conflict
       ff_plugin_report_conflict(ff, prop, x);
-    } else if (status == FF_FEASIBLE_SET_UNIQUE) {
-      // If the value is implied at zero level, propagate it
-      // TODO why not always propagate it?
-      // because generating an explanation is not doable in case there is a a_2*x^2 +a_1*x + a_0 = 0
-      // you need to find a term s that evaluates to the propagated value under the current assignment, but works in general
-      // and you need to find an explanaiton for this propagation
-      // TODO this can be done in ff -> propagation like single polynomial propagation
-      if (!trail_has_value(ff->ctx->trail, x)) {
-        if (trail_is_at_base_level(ff->ctx->trail)) {
-          mcsat_value_t value;
-          lp_value_t x_value;
-          lp_value_construct_none(&x_value);
-          ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_value);
-          mcsat_value_construct_lp_value(&value, &x_value);
-          prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
-          mcsat_value_destruct(&value);
-          lp_value_destruct(&x_value);
-        } else {
-          (*ff->stats.variable_hints) ++;
-          ff->ctx->hint_next_decision(ff->ctx, x);
+    } else {
+      const lp_feasibility_set_int_t *feasible = ff_feasible_set_db_get(ff->feasible_set_db, x);
+      if (lp_feasibility_set_int_is_point(feasible)) {
+        // If the value is implied at zero level, propagate it
+        // TODO why not always propagate it?
+        // because generating an explanation is not doable in case there is a a_2*x^2 +a_1*x + a_0 = 0
+        // you need to find a term s that evaluates to the propagated value under the current assignment, but works in general
+        // and you need to find an explanaiton for this propagation
+        // TODO this can be done in ff -> propagation like single polynomial propagation
+        if (!trail_has_value(ff->ctx->trail, x)) {
+          if (trail_is_at_base_level(ff->ctx->trail)) {
+            mcsat_value_t value;
+            lp_value_t x_value;
+            lp_value_construct_zero(&x_value);
+            assert(x_value.type == LP_VALUE_INTEGER);
+            lp_feasibility_set_int_pick_value(feasible, &x_value.value.z);
+            mcsat_value_construct_lp_value(&value, &x_value);
+            prop->add_at_level(prop, x, &value, ff->ctx->trail->decision_level_base);
+            mcsat_value_destruct(&value);
+            lp_value_destruct(&x_value);
+          } else {
+            (*ff->stats.variable_hints) ++;
+            ff->ctx->hint_next_decision(ff->ctx, x);
+          }
         }
       }
     }
-    polynomial_zeros_delete(zeros);
   }
 }
 
@@ -851,13 +764,13 @@ void ff_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_toke
   assert(variable_db_is_finitefield(ff->ctx->var_db, x));
   assert(ff->lp_data && ff->constraint_db && ff->feasible_set_db);
 
-  bool has_feasible_info = ff_feasible_set_db_has_info(ff->feasible_set_db, x);
+  const lp_feasibility_set_int_t* feasible = ff_feasible_set_db_get(ff->feasible_set_db, x);
 
   if (ctx_trace_enabled(ff->ctx, "ff::decide")) {
     ctx_trace_printf(ff->ctx, "decide on ");
     variable_db_print_variable(ff->ctx->var_db, x, ctx_trace_out(ff->ctx));
     ctx_trace_printf(ff->ctx, "[%d] at level %d\n", x, ff->ctx->trail->decision_level);
-    if (has_feasible_info) {
+    if (feasible) {
       ctx_trace_printf(ff->ctx, "feasible :");
       ff_feasible_set_db_print_var(ff->feasible_set_db, x, ctx_trace_out(ff->ctx));
       ctx_trace_printf(ff->ctx, "\n");
@@ -875,21 +788,22 @@ void ff_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_toke
   if (trail_has_cached_value(ff->ctx->trail, x)) {
     x_new = trail_get_cached_value(ff->ctx->trail, x);
     assert(x_new->type == VALUE_LIBPOLY);
-    if (!has_feasible_info || ff_feasible_set_db_is_value_valid(ff->feasible_set_db, x, &x_new->lp_value)) {
+    assert(x_new->lp_value.type == LP_VALUE_INTEGER);
+    if (feasible == NULL || lp_feasibility_set_int_contains(feasible, &x_new->lp_value.value.z)) {
       using_cached = true;
     }
   }
 
   if (!using_cached) {
-    // create a 0 value
+    // create a 0 integer value
     lp_value_t x_new_lp;
     lp_value_construct_zero(&x_new_lp);
 
     // perform a db lookup
-    if (has_feasible_info) {
-      bool got_value = ff_feasible_set_db_pick_value(ff->feasible_set_db, x, &x_new_lp);
-      (void) got_value;
-      assert(got_value);
+    if (feasible) {
+      assert(!lp_feasibility_set_int_is_empty(feasible));
+      assert(x_new_lp.type == LP_VALUE_INTEGER);
+      lp_feasibility_set_int_pick_value(feasible, &x_new_lp.value.z);
     } // otherwise, all values are valid, including 0
 
     // make an mcsat value
