@@ -131,6 +131,9 @@ officially part of SMT-LIB.
    | QF_AUFLIRA | Arrays, Uninterpreted Functions,             |
    |            | Mixed Linear Arithmetic                      |
    +------------+----------------------------------------------+
+   | QF_BVLRA   | Bitvectors, Linear Real Arithmetic           |
+   |            |                                              |
+   +------------+----------------------------------------------+
    | QF_LIRA    | Mixed Linear Arithmetic                      |
    |            |                                              |
    +------------+----------------------------------------------+
