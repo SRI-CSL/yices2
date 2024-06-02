@@ -2839,6 +2839,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *   QF_ALIRA:    arrays + mixed linear arithmetic
  *
  *   QF_AUF:      arrays + uninterpreted functions
+ *   QF_BVLRA:    bitvectors + linear real arithmetic
  *   QF_AUFBV:    arrays, bitvectors, uninterpreted functions
  *   QF_AUFBVLIA: arrays, bitvectors, uninterpreted functions, and linear integer arithmetic
  *   QF_AUFBVNIA: arrays, bitvectors, uninterpreted functions, and nonlinear integer arithmetic
