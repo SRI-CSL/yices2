@@ -13,5 +13,4 @@
 (assert (not (not (= (x3 x6) 0.0))))
 (assert (not (= x2 x1)))
 (check-sat)
-(get-model)
 (exit)
