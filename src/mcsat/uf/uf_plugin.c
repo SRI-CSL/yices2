@@ -792,7 +792,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       break;
     default:
       app_construct = false;
-      continue;
+      break;
     }
 
     composite_term_t* app_comp = composite_term_desc(terms, app_term);
@@ -869,10 +869,10 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
 
   // Since we make functions when we see a new one, we also construct the last function
   if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
-    type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
+    type_t tau = get_function_application_type(terms, app_kind, app_f);
     type_t range_tau = function_type_range(terms->types, tau);
     value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-    switch (prev_app_kind) {
+    switch (app_kind) {
     case ARITH_RDIV:
       vtbl_set_zero_rdiv(vtbl, f_value);
       break;
@@ -883,7 +883,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       vtbl_set_zero_mod(vtbl, f_value);
       break;
     case APP_TERM:
-      model_map_term(model, prev_app_f, f_value);
+      model_map_term(model, app_f, f_value);
       break;
     default:
       assert(false);
