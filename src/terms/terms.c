@@ -1049,7 +1049,7 @@ static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
 
   table = o->tbl;
 
-  return kind_for_idx(table, i) == POWER_PRODUCT && pprod_for_idx(table, i);
+  return kind_for_idx(table, i) == POWER_PRODUCT && pprod_for_idx(table, i) == o->r;
 }
 
 static bool eq_poly_hobj(poly_term_hobj_t *o, int32_t i) {
