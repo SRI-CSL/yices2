@@ -1955,6 +1955,13 @@ static int process_benchmark(char *filename) {
       //      arch = CTX_ARCH_EGBV;
       break;
 
+    case QF_BVLRA:
+      /*
+       * bit-vector + linear real arithmetic
+       */
+      arch = CTX_ARCH_EGSPLXBV;
+      break;
+
     default:
       /*
        * Not supported or unknown logic
