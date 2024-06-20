@@ -642,22 +642,9 @@ void explain_multi(const lp_data_t *lp_data,
   lp_polynomial_heap_delete(G);
 }
 
-static
+static inline
 term_t lp_polynomial_to_term(ff_plugin_t* ff, const lp_polynomial_t* p) {
-  term_t term = lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
-#ifndef NDEBUG
-  lp_polynomial_t *check = lp_polynomial_from_term(ff->lp_data, term, ff->ctx->tm->terms, NULL);
-  assert(lp_polynomial_cmp(p, check) == 0);
-  lp_polynomial_delete(check);
-#else
-  // rb buffer seems to overflow somewhere? -> report out of memory to stay sound
-  lp_polynomial_t *check = lp_polynomial_from_term(ff->lp_data, term, ff->ctx->tm->terms, NULL);
-  if (lp_polynomial_cmp(p, check) != 0) {
-    out_of_memory();
-  }
-  lp_polynomial_delete(check);
-#endif
-  return term;
+  return lp_polynomial_to_yices_arith_ff_term(ff->lp_data, p, ff->ctx->tm->terms, &ff->buffer);
 }
 
 #ifdef EXCLUDE_IRREDUCIBLE_FACTORS
