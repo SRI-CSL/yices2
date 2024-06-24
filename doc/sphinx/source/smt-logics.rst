@@ -125,6 +125,9 @@ officially part of SMT-LIB.
    | QF_AUF     | Arrays and Uninterpreted Functions           |
    |            |                                              |
    +------------+----------------------------------------------+
+   | QF_AUFBVLIA| Arrays, Uninterpreted Functions, Bitvectors  |
+   |            | and Linear Integer Arithmetic                |
+   +------------+----------------------------------------------+
    | QF_AUFLRA  | Arrays, Uninterpreted Functions,             |
    |            | Linear Real Arithmetic                       |
    +------------+----------------------------------------------+
@@ -136,6 +139,9 @@ officially part of SMT-LIB.
    +------------+----------------------------------------------+
    | QF_LIRA    | Mixed Linear Arithmetic                      |
    |            |                                              |
+   +------------+----------------------------------------------+
+   | QF_UFBVLIA | Uninterpreted Functions, Bitvectors          |
+   |            | Linear Integer Arithmetic                    |
    +------------+----------------------------------------------+
    | QF_UFLIRA  | Uninterpreted Functions and                  |
    |            | Mixed Linear Arithmetic                      |
