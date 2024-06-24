@@ -1,1 +1,1 @@
---bvconst-in-decimal
+--smt2-model-format --bvconst-in-decimal
