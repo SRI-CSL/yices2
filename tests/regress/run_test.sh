@@ -157,7 +157,7 @@ fi
 
 if [ -d "$out_dir" ] ; then
     # replace _ with __ and / with _
-    log_file="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')}"
+    log_file="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')"
 fi
 
 # Run the binary
