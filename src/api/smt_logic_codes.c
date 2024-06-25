@@ -237,6 +237,7 @@ smt_logic_t smt_logic_code(const char *logic_name) {
  */
 static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
   "IDL",
+  "FFA",
   "LIA",
   "LIRA",
   "LRA",
@@ -248,6 +249,7 @@ static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
 
 static const arith_fragment_t fragment_code[NUM_ARITH_FRAGMENTS] = {
   ARITH_IDL,
+  ARITH_FFA,
   ARITH_LIA,
   ARITH_LIRA,
   ARITH_LRA,
