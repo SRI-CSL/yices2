@@ -1206,7 +1206,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "number can't be converted to a bitvector constant", // TSTACK_INVALID_BVCONSTANT
   "error in bitvector arithmetic operation",  //TSTACK_BVARITH_ERROR
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
-  "invlid finite field order",          // TSTACK_INVALID_FFCONSTANT
+  "invalid finite field order",         // TSTACK_INVALID_FFCONSTANT
   "incompatible finite field sizes",    // TSTACK_INCOMPATIBLE_FFSIZES
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
   "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
