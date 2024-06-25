@@ -88,6 +88,9 @@ typedef enum smt_logic {
   ANIRA,       // arrays + mixed/non-linear arithmetic
   AUF,         // arrays + uninterpreted functions
 
+  //  BV + another theory
+  BVLRA,
+
   //  Uninterpreted function + another theory
   UFBV,        // uninterpreted functions + bitvectors
   UFBVLIA,     // uninterpreted functions + bitvectors + linear integer arithmetic
@@ -137,6 +140,9 @@ typedef enum smt_logic {
   QF_ANIRA,    // arrays + mixed/non-linear arithmetic
   QF_AUF,      // arrays + uninterpreted functions
 
+  //  BV + another theory
+  QF_BVLRA,
+
   //  Uninterpreted function + another theory
   QF_UFBV,     // uninterpreted functions + bitvectors
   QF_UFBVLIA,  // uninterpreted functions + bitvectors + linear integer arithmetic
@@ -165,7 +171,7 @@ typedef enum smt_logic {
    * as in (set-logic ALL).
    *
    * We interpret this a QF_AUFLIRA + QF_BV unless MCSAT is
-   * enabled in which case it is QF_UFNIRA + QF_BV.
+   * enabled in which case it is QF_AUFNIRA + QF_BV.
    */
   SMT_ALL,
 
