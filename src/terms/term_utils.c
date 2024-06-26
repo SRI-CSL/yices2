@@ -942,18 +942,18 @@ bool disequal_arith_ff_terms(term_table_t *tbl, term_t x, term_t y, bool check_i
   }
 
   if (kx == ARITH_FF_POLY && ky == ARITH_FF_POLY) {
-    assert(polynomial_is_ff_poly(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
-    assert(polynomial_is_ff_poly(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
+    assert(polynomial_is_integer_mod(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
+    assert(polynomial_is_integer_mod(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
     return disequal_polynomials(poly_term_desc(tbl, x), poly_term_desc(tbl, y));
   }
 
   if (kx == ARITH_FF_POLY && ky != ARITH_FF_CONSTANT) {
-    assert(polynomial_is_ff_poly(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
+    assert(polynomial_is_integer_mod(poly_term_desc(tbl, x), ff_type_size(tbl->types, tau)));
     return polynomial_is_const_plus_var(poly_term_desc(tbl, x), y);
   }
 
   if (ky == ARITH_FF_POLY && kx != ARITH_FF_CONSTANT) {
-    assert(polynomial_is_ff_poly(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
+    assert(polynomial_is_integer_mod(poly_term_desc(tbl, y), ff_type_size(tbl->types, tau)));
     return polynomial_is_const_plus_var(poly_term_desc(tbl, y), x);
   }
 
@@ -1338,7 +1338,7 @@ bool arith_ff_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite) {
     //return check_ite && term_has_nonzero_finite_domain(tbl, t);
 
   case ARITH_FF_POLY:
-    assert(polynomial_is_ff_poly(poly_term_desc(tbl, t), ff_type_size(tbl->types, term_type(tbl, t))));
+    assert(polynomial_is_integer_mod(poly_term_desc(tbl, t), ff_type_size(tbl->types, term_type(tbl, t))));
     return polynomial_is_nonzero(poly_term_desc(tbl, t));
 
   default:

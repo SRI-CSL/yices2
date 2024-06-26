@@ -185,7 +185,7 @@ typedef enum term_constructor {
   // sums
   YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
   YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
-  YICES_ARITH_FF_SUM,        // sum of pairs a * t where a is a rational (and t is an arithmetic term)
+  YICES_ARITH_FF_SUM,        // sum of pairs a * t where a is an finite field constant (and t is an finite field arithmetic term)
 
   // products
   YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)

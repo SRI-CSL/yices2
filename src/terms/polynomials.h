@@ -431,6 +431,6 @@ extern bool polynomial_is_var(polynomial_t *p, int32_t x);
 /*
  * Check if all coefficients are integer and less than mod
  */
-extern bool polynomial_is_ff_poly(const polynomial_t *p, const rational_t *mod);
+extern bool polynomial_is_integer_mod(const polynomial_t *p, const rational_t *mod);
 
 #endif /* __POLYNOMIALS_H */

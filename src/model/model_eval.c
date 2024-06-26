@@ -722,28 +722,59 @@ static value_t eval_arith_ff_eq(evaluator_t *eval, term_t t) {
 }
 
 /*
+ * Power product: finite field arithmetic
+ */
+static value_t eval_arith_ff_pprod(evaluator_t *eval, pprod_t *p, const rational_t *mod) {
+  rational_t prod;
+  term_t t;
+  value_t o;
+
+#ifndef HAVE_MCSAT
+  assert(false);
+  return MDL_EVAL_INTERNAL_ERROR;
+#endif
+  assert(mod && q_is_integer(mod));
+
+  q_init(&prod);
+  q_set_one(&prod);
+
+  uint32_t n = p->len;
+  for (uint32_t i=0; i<n; i++) {
+    t = p->prod[i].var;
+    o = eval_term(eval, t);
+    // prod[i] is v ^ k so q := q * (o ^ k)
+    assert(object_is_finitefield(eval->vtbl, o));
+    value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, o);
+    assert(q_eq(&v_ff->mod, mod));
+    q_mulexp(&prod, &v_ff->value, p->prod[i].exp);
+  }
+
+  assert(q_is_integer(&prod));
+  q_integer_rem(&prod, mod);
+  o = vtbl_mk_finitefield(eval->vtbl, &prod, mod);
+  clear_rational(&prod);
+
+  return o;
+}
+
+/*
  * Power product: arithmetic
  */
-static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, const rational_t *mod) {
+static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
   rational_t prod;
-  uint32_t i, n;
   term_t t;
   value_t o;
 
   q_init(&prod);
   q_set_one(&prod);
 
-  n = p->len;
-  for (i=0; i<n; i++) {
+  uint32_t n = p->len;
+  for (uint32_t i=0; i<n; i++) {
     t = p->prod[i].var;
     o = eval_term(eval, t);
     // prod[i] is v ^ k so q := q * (o ^ k)
     if (object_is_rational(eval->vtbl, o)) {
       q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
-    } else if (object_is_finitefield(eval->vtbl, o)) {
-      value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, o);
-      assert(mod && q_eq(&v_ff->mod, mod));
-      q_mulexp(&prod, &v_ff->value, p->prod[i].exp);
     } else {
 #ifdef HAVE_MCSAT
       // We need algebraic number computation
@@ -757,13 +788,7 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p, const rational_t 
     }
   }
 
-  if (mod) {
-    assert(q_is_integer(&prod));
-    q_integer_rem(&prod, mod);
-    o = vtbl_mk_finitefield(eval->vtbl, &prod, mod);
-  } else {
-    o = vtbl_mk_rational(eval->vtbl, &prod);
-  }
+  o = vtbl_mk_rational(eval->vtbl, &prod);
 
   clear_rational(&prod);
 
@@ -1838,9 +1863,9 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         if (is_bitvector_term(terms, t)) {
           v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
         } else if (is_arithmetic_term(terms, t)) {
-          v = eval_arith_pprod(eval, pprod_term_desc(terms, t), NULL);
+          v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
         } else if (is_finitefield_term(terms, t)) {
-          v = eval_arith_pprod(eval, pprod_term_desc(terms, t), arith_get_mod(terms, t));
+          v = eval_arith_ff_pprod(eval, pprod_term_desc(terms, t), arith_get_mod(terms, t));
         } else {
           assert(false);
           v = vtbl_mk_unknown(eval->vtbl);

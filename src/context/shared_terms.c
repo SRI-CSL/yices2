@@ -251,6 +251,7 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case ARITH_FF_POLY:
   case ARITH_FF_EQ_ATOM:
   case ARITH_FF_BINEQ_ATOM:
+    // FF arithmetic is not supported in the non-mcsat solver yet
     assert(false);
     break;
 
