@@ -1052,14 +1052,6 @@ void ff_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
 }
 
 static
-void ff_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
-  ff_plugin_t* ff = (ff_plugin_t*) plugin;
-
-  (void)ff;
-  // TODO implement
-}
-
-static
 void ff_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   ff_plugin_t* ff = (ff_plugin_t*) plugin;
   ff->exception = handler;
@@ -1093,6 +1085,15 @@ bool ff_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t
   assert(false);
   return false;
 }
+
+static
+void ff_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_t* prop) {
+  ff_plugin_t* ff = (ff_plugin_t*) plugin;
+
+  (void)ff;
+  // nothing to be done here
+}
+
 #endif
 
 plugin_t* ff_plugin_allocator(void) {
@@ -1101,7 +1102,7 @@ plugin_t* ff_plugin_allocator(void) {
   plugin->plugin_interface.construct           = ff_plugin_construct;
   plugin->plugin_interface.destruct            = ff_plugin_destruct;
   plugin->plugin_interface.new_term_notify     = ff_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = ff_plugin_new_lemma_notify;
+//  plugin->plugin_interface.new_lemma_notify    = ff_plugin_new_lemma_notify;
   plugin->plugin_interface.event_notify        = ff_plugin_event_notify;
   plugin->plugin_interface.propagate           = ff_plugin_propagate;
   plugin->plugin_interface.decide              = ff_plugin_decide;

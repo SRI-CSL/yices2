@@ -424,54 +424,43 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
   lp_feasibility_set_delete(feasible_B);
 }
 
+static
+void get_max_degree_max_level(const nra_plugin_t *nra, const feasibility_list_element_t* memory, uint32_t *max_deg, uint32_t *max_lvl) {
+  uint32_t deg = 0, lvl = 0;
+
+  for (uint32_t i = 0; i < memory->reasons_size; ++ i) {
+    variable_t i_var = memory->reasons[i];
+    if (trail_has_value(nra->ctx->trail, i_var)) {
+      uint32_t i_lvl = trail_get_level(nra->ctx->trail, i_var);
+      if (i_lvl > lvl) {
+        lvl = i_lvl;
+      }
+    }
+    const poly_constraint_t* i_constraint = poly_constraint_db_get(nra->constraint_db, i_var);
+    const lp_polynomial_t* i_poly = poly_constraint_get_polynomial(i_constraint);
+    uint32_t i_deg =  lp_polynomial_degree(i_poly);
+    if (i_deg > deg) {
+      deg = i_deg;
+    }
+  }
+
+  *max_deg = deg;
+  *max_lvl = lvl;
+}
+
 /** Compare variables first by degree, then by level, prefer non root constraints */
 static
 bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
-
   // TODO actually prefer non root constraints (as hinted by the function description)
 
   const nra_plugin_t* nra = (nra_plugin_t*) nra_plugin;
-  feasible_set_db_t* db = nra->feasible_set_db;
-  poly_constraint_db_t* poly_db = nra->constraint_db;
-  const mcsat_trail_t* trail = nra->ctx->trail;
+  const feasible_set_db_t* db = nra->feasible_set_db;
 
-  // Get max degree and max level of the reasons of first constraint
-  uint32_t r1_degree = 0;
-  uint32_t r1_level = 0;
-  for (uint32_t i = 0; i < db->memory[r1].reasons_size; ++ i) {
-    variable_t r1_i_var = db->memory[r1].reasons[i];
-    if (trail_has_value(trail, r1_i_var)) {
-      uint32_t r1_i_level = trail_get_level(trail, r1_i_var);
-      if (r1_i_level > r1_level) {
-        r1_level = r1_i_level;
-      }
-    }
-    const poly_constraint_t* r1_i_constraint = poly_constraint_db_get(poly_db, r1_i_var);
-    const lp_polynomial_t* r1_i_poly = poly_constraint_get_polynomial(r1_i_constraint);
-    uint32_t r1_i_degree =  lp_polynomial_degree(r1_i_poly);
-    if (r1_i_degree > r1_degree) {
-      r1_degree = r1_i_degree;
-    }
-  }
-
-  // Get max degree and max level of the reasons of second constraint
-  uint32_t r2_degree = 0;
-  uint32_t r2_level = 0;
-  for (uint32_t i = 0; i < db->memory[r2].reasons_size; ++ i) {
-    variable_t r2_i_var = db->memory[r2].reasons[i];
-    if (trail_has_value(trail, r2_i_var)) {
-      uint32_t r2_i_level = trail_get_level(trail, r2_i_var);
-      if (r2_i_level > r2_level) {
-        r2_level = r2_i_level;
-      }
-    }
-    const poly_constraint_t* r2_i_constraint = poly_constraint_db_get(poly_db, r2_i_var);
-    const lp_polynomial_t* r2_i_poly = poly_constraint_get_polynomial(r2_i_constraint);
-    uint32_t r2_i_degree =  lp_polynomial_degree(r2_i_poly);
-    if (r2_i_degree > r2_degree) {
-      r2_degree = r2_i_degree;
-    }
-  }
+  // Get max degree and max level of the reasons of both constraints
+  uint32_t r1_degree = 0, r2_degree = 0;
+  uint32_t r1_level = 0, r2_level = 0;
+  get_max_degree_max_level(nra, db->memory + r1, &r1_degree, &r1_level);
+  get_max_degree_max_level(nra, db->memory + r2, &r2_degree, &r2_level);
 
   // Prefer smaller degrees
   if (r1_degree != r2_degree) {

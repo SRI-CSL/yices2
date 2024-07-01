@@ -1163,7 +1163,7 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
  * Check whether s is of the form 'ff<digits>'
  * - n = length of s
  * - return code:
- *   SMT2_SYM_FF_CONSTANT if s is of the form 'bv<numeral>'
+ *   SMT2_SYM_FF_CONSTANT if s is of the form 'ff<numeral>'
  *   SMT2_SYM_UNKNOWN otherwise (not a ffconstant)
  */
 static smt2_symbol_t string_to_ff_constant(const char *s, uint32_t n) {

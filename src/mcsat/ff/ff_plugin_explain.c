@@ -39,13 +39,13 @@ void explain_multi(const lp_data_t *lp_data,
 
 
 static inline
-int polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
+bool polynomial_is_zero_m(const lp_polynomial_t *A, const lp_assignment_t *m) {
   assert(lp_polynomial_is_assigned(A, m));
 
   lp_integer_t val;
   lp_integer_construct(&val);
   lp_polynomial_evaluate_integer(A, m, &val);
-  int ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val);
+  bool ret = lp_integer_is_zero(lp_polynomial_get_context(A)->K, &val) != 0;
   lp_integer_destruct(&val);
   return ret;
 }
@@ -75,20 +75,20 @@ bool check_assignment_cube(const lp_polynomial_hash_set_t *eq, const lp_polynomi
 }
 
 static
-int heap_contains_check_top_variable(const lp_polynomial_heap_t *heap, lp_variable_t top) {
+bool heap_contains_check_top_variable(const lp_polynomial_heap_t *heap, lp_variable_t top) {
   for (size_t i = 0; i < lp_polynomial_heap_size(heap); ++i) {
     if (lp_polynomial_top_variable(lp_polynomial_heap_at(heap, i)) != top) {
-      return 0;
+      return false;
     }
   }
-  return 1;
+  return true;
 }
-
 #endif
 
+/** Gets the degree of A assuming top variable top */
 static inline
-size_t polynomial_degree_safe(const lp_polynomial_t *A, lp_variable_t v) {
-  return lp_polynomial_top_variable(A) == v ? lp_polynomial_degree(A) : 0;
+size_t polynomial_degree_safe(const lp_polynomial_t *A, lp_variable_t top) {
+  return lp_polynomial_top_variable(A) == top ? lp_polynomial_degree(A) : 0;
 }
 
 /** Gets (a new instance of) the lc(p). Assumes that top(p) <= var. */
@@ -126,19 +126,19 @@ lp_polynomial_t* pquo(const lp_polynomial_t *A, const lp_polynomial_t *B, lp_var
 }
 
 static inline
-int polynomial_is_assigned_and_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
+bool polynomial_is_assigned_and_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
   return lp_polynomial_is_assigned(p, m) && polynomial_is_zero_m(p, m);
 }
 
 static inline
-int polynomial_is_assigned_and_non_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
+bool polynomial_is_assigned_and_non_zero(const lp_polynomial_t *p, const lp_assignment_t *m) {
   return lp_polynomial_is_assigned(p, m) && !polynomial_is_zero_m(p, m);
 }
 
 static inline
-int polynomial_lc_is_assigned_and_non_zero(const lp_polynomial_t *p, lp_variable_t var, const lp_assignment_t *m) {
+bool polynomial_lc_is_assigned_and_non_zero(const lp_polynomial_t *p, lp_variable_t var, const lp_assignment_t *m) {
   lp_polynomial_t *p_lc = lc(p, var);
-  int rslt = polynomial_is_assigned_and_non_zero(p_lc, m);
+  bool rslt = polynomial_is_assigned_and_non_zero(p_lc, m);
   lp_polynomial_delete(p_lc);
   return rslt;
 }
@@ -261,7 +261,7 @@ lp_polynomial_t** srs(const lp_polynomial_t *f, const lp_polynomial_t *g, size_t
 
 /** Checks the lc of p wrt. to var, checks if the variable is neq_zero and adds it to the correct side-condition set (M or N) */
 static inline
-int track_lc_branch_condition(const lp_polynomial_t *p, const lp_assignment_t *m, lp_variable_t var, int neq_zero,
+bool track_lc_branch_condition(const lp_polynomial_t *p, const lp_assignment_t *m, lp_variable_t var, int neq_zero,
                               lp_polynomial_hash_set_t *M, lp_polynomial_hash_set_t *N) {
   lp_polynomial_t *p_lc = lc(p, var);
   assert(lp_polynomial_is_assigned(p_lc, m));
@@ -704,6 +704,11 @@ lp_polynomial_t* irreducible_factors(const lp_polynomial_hash_set_t *polys, cons
 }
 #endif
 
+/** performs basic polynomial clean-up operations:
+ *   - reduced the exponents wrt. the field order
+ *   - normalizes the constant lc to 1
+ *   - in case the polynomial is one monomial, set all exponents to 1
+ */
 static
 void clean_poly(lp_polynomial_t *poly) {
   const lp_polynomial_context_t *ctx = lp_polynomial_get_context(poly);
