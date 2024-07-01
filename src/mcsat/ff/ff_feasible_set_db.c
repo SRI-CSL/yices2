@@ -30,7 +30,6 @@
 #include "mcsat/tracing.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/utils/scope_holder.h"
-#include "mcsat/utils/value_version_set.h"
 #include "ff_plugin_internal.h"
 #include "utils/int_array_sort2.h"
 
