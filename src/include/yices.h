@@ -2483,6 +2483,7 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
+__YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z);
 #endif
 
 

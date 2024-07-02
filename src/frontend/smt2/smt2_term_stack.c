@@ -1257,6 +1257,7 @@ static void check_constant_term(tstack_t *stack, stack_elem_t *e) {
   switch (kind) {
   case YICES_BOOL_CONSTANT:
   case YICES_ARITH_CONSTANT:
+  case YICES_ARITH_FF_CONSTANT:
   case YICES_BV_CONSTANT:
     break;
   default:
@@ -1659,6 +1660,7 @@ typedef enum smt2_key {
   // special codes
   SMT2_KEY_IDX_BV,       // for bv<numeral> construct
   SMT2_KEY_ERROR_BV,     // for an invalid bv<xxx> (<xxx> not a numeral)
+  SMT2_KEY_IDX_FF,       // for ff<numeral> construct
   SMT2_KEY_UNKNOWN,      // not a built-in symbol
 } smt2_key_t;
 
@@ -1746,6 +1748,10 @@ static const uint8_t smt2_key[NUM_SMT2_SYMBOLS] = {
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSLE
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGT
   SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGE
+  SMT2_KEY_IDX_FF,       // SMT2_SYM_FF_CONSTANT
+  SMT2_KEY_IDX_TYPE,     // SMT2_SYM_FINITEFIELD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_FFADD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_FFMUL
   SMT2_KEY_ERROR_BV,     // SMT2_SYM_INVALID_BV_CONSTANT
   SMT2_KEY_UNKNOWN,      // SMT2_SYM_UNKNOWN
 };
@@ -1821,6 +1827,10 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   MK_BV_SLE,             // SMT2_SYM_BVSLE
   MK_BV_SGT,             // SMT2_SYM_BVSGT
   MK_BV_SGE,             // SMT2_SYM_BVSGE
+  MK_FF_CONST,           // SMT2_SYM_FF_CONSTANT
+  MK_FF_TYPE,            // SMT2_SYM_FINITEFIELD
+  MK_FF_ADD,             // SMT2_SYM_FFADD
+  MK_FF_MUL,             // SMT2_SYM_FFMUL
   NO_OP,                 // SMT2_SYM_INVALID_BV_CONSTANT (ignored)
   NO_OP,                 // SMT2_SYM_UNKNOWN (ignored)
 };
@@ -1978,6 +1988,13 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_term(stack, smt2_val[symbol], loc);
     break;
 
+  case SMT2_KEY_IDX_FF:
+    // generates (_ ffN -1)
+    tstack_push_op(stack, MK_FF_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc);
+    tstack_eval(stack);
+    break;
+
   case SMT2_KEY_TERM_OP:
     push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
     break;
@@ -2105,6 +2122,13 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
     break;
 
+  case SMT2_KEY_IDX_FF:
+    // s is ff<numeral> and it is to be interpreted as (mk-ff <numeral> ...)
+    assert(n > 2);
+    tstack_push_op(stack, MK_FF_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'ff' prefix
+    break;
+
   case SMT2_KEY_ERROR_BV:
     // s is bv0<xxx>: invalid bv<numeral>
     push_exception(stack, loc, s, SMT2_INVALID_IDX_BV);
@@ -2150,6 +2174,13 @@ void tstack_push_qual_idx_term_name(tstack_t *stack, char *s, uint32_t n, loc_t 
     assert(n > 2);
     tstack_push_opcode(stack, MK_BV_CONST, loc);
     tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
+    break;
+
+  case SMT2_KEY_IDX_FF:
+    // s is ff<numeral> and is to be interpreted as (mk-ff <numeral> ...)
+    assert(n > 2);
+    tstack_push_opcode(stack, MK_FF_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'ff' prefix
     break;
 
   case SMT2_KEY_ERROR_BV:
@@ -2403,6 +2434,9 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
   case TAG_RATIONAL:
     return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
 
+  case TAG_FINITEFIELD:
+    return is_ff_type(__yices_globals.types, tau) && q_eq(&e->val.ff.mod, ff_type_size(__yices_globals.types, tau));
+
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
     return yices_check_term_type(e->val.term, tau);
@@ -2410,6 +2444,10 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
   case TAG_ARITH_BUFFER:
     return is_real_type(tau) ||
       (is_integer_type(tau) && yices_arith_buffer_is_int(e->val.arith_buffer));
+
+  case TAG_ARITH_FF_BUFFER:
+    return is_ff_type(__yices_globals.types, tau)
+    && q_eq(&e->val.mod_arith_buffer.mod, ff_type_size(__yices_globals.types, tau));
 
   case TAG_BVARITH64_BUFFER:
     n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);
@@ -2438,19 +2476,36 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
 }
 
 /*
- * Check whether the element on top of stack has a type compatible with tau
+ * Check whether the element has a type compatible with tau
  * - if not, raise exception TYPE_ERROR_IN_QUAL
  */
-static void check_topelem_type(tstack_t *stack, type_t tau) {
-  stack_elem_t *e;
-
-  assert(stack->top > 0);
-  e = stack->elem + (stack->top - 1);
+static void check_elem_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
   if (!stack_elem_has_type(stack, e, tau)) {
     raise_exception(stack, e, SMT2_TYPE_ERROR_IN_QUAL);
   }
 }
 
+static inline void check_topelem_type(tstack_t *stack, type_t tau) {
+  assert(stack->top > 0);
+  check_elem_type(stack, stack->elem + (stack->top - 1), tau);
+}
+
+/*
+ * Finalizes a stack element once the type is known.
+ * Used for (as <elem> <type>) expressions.
+ */
+static void stack_elem_finalize_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    if (q_is_minus_one(&e->val.ff.mod) && is_ff_type(__yices_globals.types, tau)) {
+      q_set(&e->val.ff.mod, ff_type_size(__yices_globals.types, tau));
+    }
+    break;
+
+  default:
+    break;
+  }
+}
 
 
 /*
@@ -2483,8 +2538,6 @@ static void shift_stack_elems(stack_elem_t *f, uint32_t n) {
 
 
 
-
-
 /*
  * [sorted-term <xxx> <type>]
  *
@@ -2501,8 +2554,12 @@ static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) 
   term_t t;
   type_t tau;
 
-  t = get_term(stack, f);
   tau = f[1].val.type;
+
+  // finalize the type before making it a term
+  stack_elem_finalize_type(stack, f, tau);
+
+  t = get_term(stack, f);
 
   tstack_pop_frame(stack);
   set_term_result(stack, t);
@@ -2617,6 +2674,7 @@ void init_smt2_tstack(tstack_t *stack) {
   init_tstack(stack, NUM_SMT2_OPCODES);
   tstack_set_avtbl(stack, __smt2_globals.avtbl);
 
+  // overwrites the default OPs (from term_stack2.c) for SMT2, in case they are different
   tstack_add_op(stack, MK_BV_CONST, false, eval_smt2_mk_bv_const, check_smt2_mk_bv_const);
   tstack_add_op(stack, MK_BV_ROTATE_LEFT, false, eval_smt2_mk_bv_rotate_left, check_smt2_mk_bv_rotate_left);
   tstack_add_op(stack, MK_BV_ROTATE_RIGHT, false, eval_smt2_mk_bv_rotate_right, check_smt2_mk_bv_rotate_right);

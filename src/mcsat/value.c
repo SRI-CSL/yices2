@@ -404,12 +404,17 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
         (void) ok; // unused in release build
         assert(ok);
         value = vtbl_mk_const(vtbl, type, id, NULL);
-      } else {
+      } else if (kind == REAL_TYPE || kind == INT_TYPE) {
         value = vtbl_mk_rational(vtbl, &q);
+      } else if (kind == FF_TYPE) {
+        value = vtbl_mk_finitefield(vtbl, &q, ff_type_size(types, type));
+      } else {
+        assert(false);
       }
       q_clear(&q);
       lp_rational_destruct(&lp_q);
     } else {
+      assert(is_real_type(type));
       value = vtbl_mk_algebraic(vtbl, (void*) &mcsat_value->lp_value.value.a);
     }
     break;
@@ -446,6 +451,18 @@ void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t*
     lp_value_construct(&value_lp, LP_VALUE_ALGEBRAIC, a);
     mcsat_value_construct_lp_value(mcsat_value, &value_lp);
     lp_value_destruct(&value_lp);
+    break;
+  }
+  case FINITEFIELD_VALUE: {
+    value_ff_t* value_ff = vtbl_finitefield(vtbl, v);
+    mpz_t value_mpz;
+    mpz_init(value_mpz);
+    q_get_mpz(&value_ff->value, value_mpz);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_INTEGER, value_mpz);
+    mcsat_value_construct_lp_value(mcsat_value, &value_lp);
+    lp_value_destruct(&value_lp);
+    mpz_clear(value_mpz);
     break;
   }
   case BITVECTOR_VALUE: {

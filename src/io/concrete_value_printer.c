@@ -48,6 +48,13 @@ static inline void vtbl_print_rational(FILE *f, rational_t *v) {
   q_print(f, v);
 }
 
+static inline void vtbl_print_finitefield(FILE *f, value_ff_t *v) {
+  fputs("#f", f);
+  q_print(f, &v->value);
+  fputs("m", f);
+  q_print(f, &v->mod);
+}
+
 static inline void vtbl_print_algebraic(FILE *f, void *v) {
 #ifdef HAVE_MCSAT
   lp_algebraic_number_print(v, f);
@@ -167,6 +174,9 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     break;
   case RATIONAL_VALUE:
     vtbl_print_rational(f, &table->desc[c].rational);
+    break;
+  case FINITEFIELD_VALUE:
+    vtbl_print_finitefield(f, table->desc[c].ptr);
     break;
   case ALGEBRAIC_VALUE:
     vtbl_print_algebraic(f, table->desc[c].ptr);
@@ -454,6 +464,9 @@ void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case ALGEBRAIC_VALUE:
     pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case FINITEFIELD_VALUE:
+    pp_finitefield(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     vtbl_pp_bitvector(printer, table->desc[c].ptr);

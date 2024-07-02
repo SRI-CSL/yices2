@@ -273,6 +273,11 @@ static void erase_type(type_table_t *table, type_t i) {
   case UNINTERPRETED_TYPE:
     break;
 
+  case FF_TYPE:
+    q_clear((rational_t*)type_desc(table, i)->ptr);
+    safe_free(type_desc(table, i)->ptr);
+    break;
+
   case TUPLE_TYPE:
   case FUNCTION_TYPE:
   case INSTANCE_TYPE:
@@ -530,6 +535,31 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
   return i;
 }
 
+/*
+ * Add type (FiniteField k) and return its id
+ * - k must be positive
+ */
+static type_t new_finite_field_type(type_table_t *table, const rational_t *order) {
+  assert(q_is_integer(order) && q_is_pos(order));
+
+  rational_t *mod = safe_malloc(sizeof(rational_t));
+  q_init(mod);
+  q_set(mod, order);
+
+  mpz_t z;
+  mpz_init(z);
+  q_get_mpz(mod, z);
+
+  bool small = mpz_fits_ulong_p(z);
+  type_t i = allocate_type_id(table, FF_TYPE,
+      /*card=*/small ? mpz_get_ui(z) : UINT32_MAX,
+      /*depth=*/0,
+      /*flags=*/small ? SMALL_TYPE_FLAGS : LARGE_TYPE_FLAGS);
+  type_desc(table, i)->ptr = mod;
+
+  mpz_clear(z);
+  return i;
+}
 
 /*
  * Add a scalar type and return its id
@@ -761,6 +791,12 @@ typedef struct bv_type_hobj_s {
   uint32_t size;
 } bv_type_hobj_t;
 
+typedef struct ff_type_hobj_s {
+  int_hobj_t m;
+  type_table_t *tbl;
+  const rational_t *order;
+} ff_type_hobj_t;
+
 typedef struct tuple_type_hobj_s {
   int_hobj_t m;
   type_table_t *tbl;
@@ -798,6 +834,11 @@ static uint32_t hash_bv_type(bv_type_hobj_t *p) {
   return jenkins_hash_pair(p->size, 0, 0x7838abe2);
 }
 
+static uint32_t hash_ff_type(ff_type_hobj_t *p) {
+  assert(q_is_integer(p->order));
+  return jenkins_hash_pair(q_hash_numerator(p->order), 0, 0x78210bea);
+}
+
 static uint32_t hash_tuple_type(tuple_type_hobj_t *p) {
   return jenkins_hash_intarray2(p->elem, p->n, 0x8193ea92);
 }
@@ -827,6 +868,11 @@ static uint32_t hash_instance_type(instance_type_hobj_t *p) {
  */
 static uint32_t hash_bvtype(int32_t size) {
   return jenkins_hash_pair(size, 0, 0x7838abe2);
+}
+
+static uint32_t hash_fftype(rational_t *order) {
+  assert(q_is_integer(order));
+  return jenkins_hash_pair(q_hash_numerator(order), 0, 0x78210bea);
 }
 
 static uint32_t hash_tupletype(tuple_type_t *p) {
@@ -860,6 +906,13 @@ static bool eq_bv_type(bv_type_hobj_t *p, type_t i) {
 
   table = p->tbl;
   return type_desc(table, i)->kind == BITVECTOR_TYPE && type_desc(table, i)->integer == p->size;
+}
+
+static bool eq_ff_type(ff_type_hobj_t *p, type_t i) {
+  type_table_t *table;
+
+  table = p->tbl;
+  return type_kind(table, i) == FF_TYPE && q_eq(type_desc(table, i)->ptr, p->order);
 }
 
 static bool eq_tuple_type(tuple_type_hobj_t *p, type_t i) {
@@ -929,6 +982,10 @@ static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
  */
 static type_t build_bv_type(bv_type_hobj_t *p) {
   return new_bitvector_type(p->tbl, p->size);
+}
+
+static type_t build_ff_type(ff_type_hobj_t *p) {
+  return new_finite_field_type(p->tbl, p->order);
 }
 
 static type_t build_tuple_type(tuple_type_hobj_t *p) {
@@ -1083,6 +1140,36 @@ type_t bv_type(type_table_t *table, uint32_t size) {
   bv_hobj.tbl = table;
   bv_hobj.size = size;
   return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
+}
+
+/*
+ * FiniteField type
+ * - order must be a positive prime
+ */
+type_t ff_type(type_table_t *table, mpz_t order) {
+  rational_t mod;
+
+  q_init(&mod);
+  q_set_mpz(&mod, order);
+  type_t result = ff_type_r(table, &mod);
+  q_clear(&mod);
+  return result;
+}
+
+/*
+ * The same as above, but accepts a rational_t
+ */
+type_t ff_type_r(type_table_t *table, const rational_t *order) {
+  ff_type_hobj_t ff_hobj;
+
+  assert(q_is_integer(order) && q_is_pos(order));
+
+  ff_hobj.m.hash = (hobj_hash_t) hash_ff_type;
+  ff_hobj.m.eq = (hobj_eq_t) eq_ff_type;
+  ff_hobj.m.build = (hobj_build_t) build_ff_type;
+  ff_hobj.tbl = table;
+  ff_hobj.order = order; // build_ff_type copies the mod on creation
+  return int_htbl_get_obj(&table->htbl, &ff_hobj.m);
 }
 
 /*
@@ -1653,6 +1740,7 @@ bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, type_t sig
   case BOOL_TYPE:
   case INT_TYPE:
   case BITVECTOR_TYPE:
+  case FF_TYPE:
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
     // tau is a minimal type to (sigma subtype of tau) is the same as tau == sigma
@@ -2004,6 +2092,13 @@ static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
       return NULL_TYPE;
     }
     break;
+
+  case FF_TYPE:
+    // a finite field of size any is less than any other finite field type
+    if (ff_type_size_any(table, tau1)) return tau2;
+    if (ff_type_size_any(table, tau2)) return tau1;
+    assert(q_neq(ff_type_size(table, tau1), ff_type_size(table, tau2))); // otherwise, it was the same type
+    return NULL_TYPE;
 
   default:
     return NULL_TYPE;
@@ -2687,6 +2782,10 @@ static void erase_hcons_type(type_table_t *table, type_t i) {
   switch (type_desc(table, i)->kind) {
   case BITVECTOR_TYPE:
     k = hash_bvtype(type_desc(table, i)->integer);
+    break;
+
+  case FF_TYPE:
+    k = hash_fftype((rational_t *)type_desc(table, i)->ptr);
     break;
 
   case VARIABLE_TYPE:

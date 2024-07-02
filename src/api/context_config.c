@@ -140,6 +140,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
 
   -1,                  // AX
   -1,                  // BV  (supported by EF)
+  -1,                  // FFA
   -1,                  // IDL (supported by EF)
   -1,                  // LIA (supported by EF)
   -1,                  // LRA (supported by EF)
@@ -180,6 +181,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
 
   CTX_ARCH_EGFUN,      // QF_AX
   CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_MCSAT,      // QF_FFA
   CTX_ARCH_SPLX,       // QF_IDL
   CTX_ARCH_SPLX,       // QF_LIA
   CTX_ARCH_SPLX,       // QF_LRA
@@ -236,6 +238,7 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
   true,   // NIA
   false,  // NRA
   true,   // NIRA
+  false,  // FFA
   false,  // no arithmetic
 };
 

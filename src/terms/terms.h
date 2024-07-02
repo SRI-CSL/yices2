@@ -247,6 +247,7 @@ typedef enum {
    */
   CONSTANT_TERM,    // constant of uninterpreted/scalar/boolean types
   ARITH_CONSTANT,   // rational constant
+  ARITH_FF_CONSTANT,  // finite field constant
   BV64_CONSTANT,    // compact bitvector constant (64 bits at most)
   BV_CONSTANT,      // generic bitvector constant (more than 64 bits)
 
@@ -267,6 +268,8 @@ typedef enum {
   ARITH_ABS,          // absolute value
   ARITH_ROOT_ATOM,    // atom (k <= root_count(f) && (x r root_k(f)), for f in Z[x, ...], r in { <, <=, == , !=, >=, > }
 
+  ARITH_FF_EQ_ATOM,   // atom t == 0
+
   ITE_TERM,           // if-then-else
   ITE_SPECIAL,        // special if-then-else term (NEW: EXPERIMENTAL)
   APP_TERM,           // application of an uninterpreted function
@@ -284,6 +287,8 @@ typedef enum {
   ARITH_IDIV,         // integer division: (div x y) as defined in SMT-LIB 2
   ARITH_MOD,          // remainder: (mod x y) is y - x * (div x y)
   ARITH_DIVIDES_ATOM, // divisibility test: (divides x y) is true if y = n * x for an integer n
+
+  ARITH_FF_BINEQ_ATOM, // equality: (t1 == t2)  (between two finite field arithmetic terms)
 
   BV_ARRAY,           // array of boolean terms
   BV_DIV,             // unsigned division
@@ -304,6 +309,7 @@ typedef enum {
   // Polynomials
   POWER_PRODUCT,    // power products: (t1^d1 * ... * t_n^d_n)
   ARITH_POLY,       // polynomial with rational coefficients
+  ARITH_FF_POLY,    // polynomial with fintie field coefficients
   BV64_POLY,        // polynomial with 64bit coefficients
   BV_POLY,          // polynomial with generic bitvector coefficients
 } term_kind_t;
@@ -364,7 +370,7 @@ typedef struct select_term_s {
 
 
 /*
- * Comparison relations for arithmetic root atoms..
+ * Comparison relations for arithmetic root atoms
  */
 typedef enum {
   ROOT_ATOM_LT,
@@ -729,6 +735,45 @@ extern term_t arith_divides(term_table_t *table, term_t x, term_t y);
  */
 extern bool arith_poly_is_integer(const term_table_t *table, rba_buffer_t *b);
 
+
+/*
+ * FINITE FIELD TERMS
+ */
+
+extern term_t arith_ff_zero(term_table_t *table, const rational_t *mod);
+
+extern term_t arith_ff_constant(term_table_t *table, rational_t *a, const rational_t *mod);
+
+/*
+ * for finite field types zero_term depends on the type of finite field
+ */
+static inline term_t ff_zero_term(term_table_t *table, type_t ff) {
+  return arith_ff_zero(table, ff_type_size(table->types, ff));
+}
+
+/*
+ * Finite field arithmetic term
+ * - all variables of b must be finite field terms mod m
+ * - b must be normalized and b->ptbl must be the same as table->ptbl
+ * - if b contains a non-linear polynomial then the power products that
+ *   occur in p are converted to terms (using pprod_term)
+ * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
+ *   where x_i is a term.
+ *
+ * SIDE EFFECT: b is reset to zero
+ */
+extern term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, const rational_t *mod);
+
+/*
+ * Atom (t == 0)
+ * - t must be an arithmetic term
+ */
+extern term_t arith_ff_eq_atom(term_table_t *table, term_t t);
+
+/*
+ * Simple equality between two arithmetic terms (left == right)
+ */
+extern term_t arith_ff_bineq_atom(term_table_t *table, term_t left, term_t right);
 
 
 /*
@@ -1139,8 +1184,7 @@ static inline bool valid_term_idx(const term_table_t *table, int32_t i) {
   return 0 <= i && i < nterms(table);
 }
 
-static inline term_desc_t *term_desc(const term_table_t *table,
-				     int32_t i) {
+static inline term_desc_t *term_desc(const term_table_t *table, int32_t i) {
   return indexed_table_elem(term_desc_t, &table->terms, i);
 }
 
@@ -1279,6 +1323,10 @@ static inline bool is_bitvector_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == BITVECTOR_TYPE;
 }
 
+static inline bool is_finitefield_term(const term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == FF_TYPE;
+}
+
 static inline bool is_scalar_term(const term_table_t *table, term_t t) {
   return term_type_kind(table, t) == SCALAR_TYPE;
 }
@@ -1415,8 +1463,20 @@ static inline rational_t *rational_term_desc(const term_table_t *table, term_t t
   return rational_for_idx(table, index_of(t));
 }
 
+static inline rational_t *finitefield_term_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_CONSTANT);
+  rational_t *q = rational_for_idx(table, index_of(t));
+  assert(q_is_integer(q));
+  return q;
+}
+
 static inline polynomial_t *poly_term_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_POLY);
+  return polynomial_for_idx(table, index_of(t));
+}
+
+static inline polynomial_t *finitefield_poly_term_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_POLY);
   return polynomial_for_idx(table, index_of(t));
 }
 
@@ -1497,9 +1557,19 @@ static inline term_t arith_ge_arg(const term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
+static inline term_t arith_ff_eq_arg(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_EQ_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
 static inline root_atom_t *arith_root_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_ROOT_ATOM);
   return root_atom_for_idx(table, index_of(t));
+}
+
+static inline term_t finitefield_atom_arg(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_EQ_ATOM);
+  return integer_value_for_idx(table, index_of(t));
 }
 
 /*
@@ -1525,6 +1595,10 @@ static inline term_t arith_abs_arg(const term_table_t *table, term_t t) {
   return integer_value_for_idx(table, index_of(t));
 }
 
+static inline const rational_t* finitefield_term_order(const term_table_t *table, term_t t) {
+  assert(is_ff_type(table->types, term_type(table, t)));
+  return ff_type_size(table->types, term_type(table, t));
+}
 
 /*
  * All the following functions are equivalent to composite_term_desc, but,
@@ -1602,6 +1676,11 @@ static inline composite_term_t *arith_mod_term_desc(const term_table_t *table, t
 
 static inline composite_term_t *arith_divides_atom_desc(const term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_DIVIDES_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_ff_bineq_atom_desc(const term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_FF_BINEQ_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 

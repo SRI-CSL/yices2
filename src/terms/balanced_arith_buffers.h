@@ -343,6 +343,14 @@ extern void rba_buffer_div_const(rba_buffer_t *b, const rational_t *a);
 
 
 /*
+ * Take all coefficients mod m
+ * - b must have integer coefficients only
+ * - m must be a positive integer
+ */
+extern void rba_buffer_mod_const(rba_buffer_t *b, const rational_t *m);
+
+
+/*
  * Multiply b by power product r
  */
 extern void rba_buffer_mul_pp(rba_buffer_t *b, pprod_t *r);
@@ -592,7 +600,7 @@ extern uint32_t hash_rba_buffer(rba_buffer_t *b, int32_t *v);
 /*
  * Check where P(b, v) is equal to p
  */
-extern bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p);
+extern bool rba_buffer_equal_poly(const rba_buffer_t *b, int32_t *v, const polynomial_t *p);
 
 
 /*
@@ -611,12 +619,12 @@ extern polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v);
  *   integer, false if x is real.
  */
 typedef bool (*var_type_fun_t)(void *aux, int32_t x);
+extern bool rba_buffer_is_int(const rba_buffer_t *b, void *aux, var_type_fun_t var_is_int);
 
-extern bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int);
-
-
-
-
+/*
+ * Check whether the every coefficient c of b is int and 0 <= c < mod
+ */
+extern bool rba_buffer_is_mod(const rba_buffer_t *b, const rational_t *mod);
 
 
 /****************

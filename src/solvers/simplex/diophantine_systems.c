@@ -350,6 +350,7 @@ static dcolumn_t *column_add_unit(dcolumn_t *c, int32_t i, int32_t k) {
 static void column_reduce_factor(rational_t *a, dcolumn_t *c1, dcolumn_t *c2) {
   assert(active_row(c1) == active_row(c2));
   q_set(a, active_coeff(c1));
+  q_normalize(active_coeff(c2));
   q_integer_div(a, active_coeff(c2));
 
 #if 0
@@ -1975,6 +1976,7 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
     k = find_row(c2, r);
     if (k >= 0) {
       q_set(f, &c2->data[k].coeff);
+      q_normalize(active_coeff(c1));
       q_integer_div(f, active_coeff(c1));
       if (q_is_nonzero(f)) {
         if (q_is_one(f)) {
@@ -2037,6 +2039,7 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
   k = find_row(c2, r);
   if (k >= 0) {
     q_set(f, &c2->data[k].coeff);
+    q_normalize(active_coeff(c1));
     q_integer_div(f, active_coeff(c1));
     if (q_is_nonzero(f)) {
       if (q_is_one(f)) {

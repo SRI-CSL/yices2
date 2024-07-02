@@ -30,7 +30,7 @@
 #include "frontend/smt2/smt2_term_stack.h"
 
 /*
- * Short cuts to save typing
+ * Short-cuts to save typing
  */
 static inline char *tkval(lexer_t *lex) {
   return current_token_value(lex);
@@ -460,9 +460,9 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case not_next_goto_c16c:
       if (! token_is_not(tkval(lex), tklen(lex))) {
-	// syntax error.
-	smt2_syntax_error(lex, -3); // NOT expected
-	goto cleanup;
+        // syntax error.
+        smt2_syntax_error(lex, -3); // NOT expected
+        goto cleanup;
       }
       state = c16c;
       goto loop;

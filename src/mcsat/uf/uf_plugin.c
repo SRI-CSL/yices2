@@ -902,8 +902,8 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.construct             = uf_plugin_construct;
   plugin->plugin_interface.destruct              = uf_plugin_destruct;
   plugin->plugin_interface.new_term_notify       = uf_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify      = 0;
-  plugin->plugin_interface.event_notify          = 0;
+  plugin->plugin_interface.new_lemma_notify      = NULL;
+  plugin->plugin_interface.event_notify          = NULL;
   plugin->plugin_interface.propagate             = uf_plugin_propagate;
   plugin->plugin_interface.decide                = uf_plugin_decide;
   plugin->plugin_interface.decide_assignment     = NULL;

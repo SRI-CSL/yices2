@@ -30,30 +30,26 @@
 #include <assert.h>
 #include <string.h>
 
+#include "parser_utils/term_stack2.h"
+
 #include "api/yices_extensions.h"
 #include "api/yices_api_lock_free.h"
 #include "api/yices_globals.h"
-#include "parser_utils/term_stack2.h"
 #include "parser_utils/tstack_internals.h"
 #include "terms/bv64_constants.h"
-#include "terms/bv_constants.h"
 #include "terms/bvarith64_buffer_terms.h"
 #include "terms/bvarith_buffer_terms.h"
 #include "terms/rba_buffer_terms.h"
 #include "utils/hash_functions.h"
-#include "utils/memalloc.h"
 
 #include "yices.h"
 
-
 #ifndef NDEBUG
-
 #include <stdio.h>
 #include <inttypes.h>
 
 #include "io/type_printer.h"
 #include "io/term_printer.h"
-
 #endif
 
 
@@ -880,6 +876,10 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
     k = (e->val.bv.bitsize + 31) >> 5;
     bvconst_free(e->val.bv.data, k);
     break;
+  case TAG_FINITEFIELD:
+    q_clear(&e->val.ff.val);
+    q_clear(&e->val.ff.mod);
+    break;
   case TAG_RATIONAL:
     q_clear(&e->val.rational);
     break;
@@ -891,6 +891,10 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
     break;
   case TAG_ARITH_BUFFER:
     recycle_abuffer(stack, e->val.arith_buffer);
+    break;
+  case TAG_ARITH_FF_BUFFER:
+    recycle_abuffer(stack, e->val.mod_arith_buffer.b);
+    q_clear(&e->val.mod_arith_buffer.mod);
     break;
   case TAG_BVARITH64_BUFFER:
     recycle_bva64buffer(stack, e->val.bvarith64_buffer);
@@ -1061,6 +1065,22 @@ void set_arith_result(tstack_t *stack, rba_buffer_t *b) {
   e->val.arith_buffer = b;
 }
 
+// b must be equal to stack->abuffer. We reset stack->abuffer to NULL
+void set_arith_ff_result(tstack_t *stack, rba_buffer_t *b, rational_t *mod) {
+  stack_elem_t *e;
+
+  assert(b == stack->abuffer);
+  stack->abuffer = NULL;
+
+  assert(q_is_pos(mod));
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_ARITH_FF_BUFFER;
+  e->val.mod_arith_buffer.b = b;
+  q_init(&e->val.mod_arith_buffer.mod);
+  q_set(&e->val.mod_arith_buffer.mod, mod);
+}
+
 // b must be stack->bva64buffer
 void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b) {
   stack_elem_t *e;
@@ -1124,6 +1144,17 @@ void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv) {
   e->val.bv.data = bv;
 }
 
+void set_ff_result(tstack_t *stack, rational_t *r, rational_t *m) {
+  stack_elem_t *e;
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_FINITEFIELD;
+  q_init(&e->val.ff.val);
+  q_init(&e->val.ff.mod);
+  q_set(&e->val.ff.val, r);
+  q_set(&e->val.ff.mod, m);
+}
+
 void set_type_binding_result(tstack_t *stack, type_t tau, char *symbol) {
   stack_elem_t *e;
 
@@ -1149,16 +1180,12 @@ void set_aval_result(tstack_t *stack, aval_t v) {
 }
 
 
-
-
-
-
-#if 0
+#ifndef NDEBUG
 
 /*
  * Print element e (for debugging)
  */
-static void print_elem(tstack_t *stack, stack_elem_t *e) {
+void print_elem(tstack_t *stack, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_NONE:
     printf("<none>");
@@ -1181,6 +1208,10 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf("<not symbol: %s>", e->val.string);
     break;
 
+  case TAG_STRING:
+    printf("<string: %s>", e->val.string);
+    break;
+
   case TAG_BV64:
     printf("<bitvector: ");
     bvconst64_print(stdout, e->val.bv64.value, e->val.bv64.bitsize);
@@ -1196,6 +1227,14 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_RATIONAL:
     printf("<rational: ");
     q_print(stdout, &e->val.rational);
+    printf(">");
+    break;
+
+  case TAG_FINITEFIELD:
+    printf("<finitefield: ");
+    q_print(stdout, &e->val.ff.val);
+    printf(" mod ");
+    q_print(stdout, &e->val.ff.mod);
     printf(">");
     break;
 
@@ -1224,6 +1263,14 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_ARITH_BUFFER:
     printf("<arith-buffer: ");
     print_arith_buffer(stdout, e->val.arith_buffer);
+    printf(">");
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    printf("<arith-ff-buffer: ");
+    print_arith_buffer(stdout, e->val.mod_arith_buffer.b);
+    printf(" mod ");
+    q_print(stdout, &e->val.mod_arith_buffer.mod);
     printf(">");
     break;
 
@@ -1257,6 +1304,8 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf(">");
     break;
 
+  case TAG_ATTRIBUTE:
+    // no attribute printing implemented yet
   default:
     printf("<error>");
     break;
@@ -1264,7 +1313,6 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 }
 
 #endif
-
 
 
 /***************************************
@@ -1465,12 +1513,20 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     t = yices_bvconst_term(e->val.bv.bitsize, e->val.bv.data);
     break;
 
+  case TAG_FINITEFIELD:
+    t = yices_ffconst_term(&e->val.ff.val, &e->val.ff.mod);
+    break;
+
   case TAG_RATIONAL:
     t = yices_rational_term(&e->val.rational);
     break;
 
   case TAG_ARITH_BUFFER:
     t = arith_buffer_get_term(e->val.arith_buffer);
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    t = arith_ff_buffer_get_term(e->val.mod_arith_buffer.b, &e->val.mod_arith_buffer.mod);
     break;
 
   case TAG_BVARITH64_BUFFER:
@@ -1515,6 +1571,17 @@ int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
   }
 }
 
+/*
+ * Return integer value of e as mpz integer (e must have rational tag)
+ * Raise an exception if e is not an integer.
+ */
+void get_integer_mpz(tstack_t *stack, stack_elem_t *e, mpz_t z) {
+  assert(e->tag == TAG_RATIONAL);
+
+  if (! q_get_mpz(&e->val.rational, z)) {
+    raise_exception(stack, e, TSTACK_NOT_AN_INTEGER);
+  }
+}
 
 /*
  * Support for division: return a rational constant equal to den
@@ -1604,8 +1671,8 @@ bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
     if (term_kind(terms, t) == ARITH_CONSTANT) {
       d = rational_term_desc(terms, t);
       if (q_is_nonzero(d)) {
-	q_set(result, d);
-	ok =true;
+        q_set(result, d);
+        ok = true;
       }
     }
     break;
@@ -1615,9 +1682,9 @@ bool elem_is_nz_constant(stack_elem_t *e, rational_t *result) {
     if (rba_buffer_is_constant(c)) {
       m = rba_buffer_get_constant_mono(c);
       if (m != NULL) {
-	assert(q_is_nonzero(&m->coeff));
-	q_set(result, &m->coeff);
-	ok = true;
+        assert(q_is_nonzero(&m->coeff));
+        q_set(result, &m->coeff);
+        ok = true;
       }
     }
     break;
@@ -1794,7 +1861,7 @@ void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
-    if (! yices_check_arith_term(e->val.term)) {
+    if (! yices_check_arith_term(e->val.term) && ! yices_check_arith_ff_term(e->val.term)) {
       report_yices_error(stack);
     }
     rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
@@ -1900,8 +1967,7 @@ void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
 
   case TAG_TERM:
   case TAG_SPECIAL_TERM:
-    if (! yices_check_arith_term(e->val.term) ||
-        ! yices_check_mul_term(b, e->val.term)) {
+    if (! yices_check_arith_term(e->val.term) || ! yices_check_mul_term(b, e->val.term)) {
       report_yices_error(stack);
     }
     rba_buffer_mul_term(b, __yices_globals.terms, e->val.term);
@@ -1921,6 +1987,88 @@ void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
   }
 }
 
+/*
+ * FINITE FIELD ARITHMETIC
+ */
+
+void ff_add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
+
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    rba_buffer_add_const(b, &e->val.ff.val);
+    break;
+
+  case TAG_TERM:
+  case TAG_SPECIAL_TERM:
+    if (! yices_check_arith_ff_term(e->val.term)) {
+      report_yices_error(stack);
+    }
+    rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    rba_buffer_add_buffer(b, e->val.mod_arith_buffer.b);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
+  }
+}
+
+void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
+
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    rba_buffer_sub_const(b, &e->val.ff.val);
+    break;
+
+  case TAG_TERM:
+  case TAG_SPECIAL_TERM:
+    if (! yices_check_arith_ff_term(e->val.term)) {
+      report_yices_error(stack);
+    }
+    rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    rba_buffer_sub_buffer(b, e->val.mod_arith_buffer.b);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
+  }
+}
+
+void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
+
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    rba_buffer_mul_const(b, &e->val.ff.val);
+    break;
+
+  case TAG_TERM:
+  case TAG_SPECIAL_TERM:
+    if (! yices_check_arith_ff_term(e->val.term) || ! yices_check_mul_term(b, e->val.term)) {
+      report_yices_error(stack);
+    }
+    rba_buffer_mul_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_ARITH_FF_BUFFER:
+    if (! yices_check_mul_buffer(b, e->val.mod_arith_buffer.b)) {
+      // degree overflow
+      report_yices_error(stack);
+    }
+    rba_buffer_mul_buffer(b, e->val.mod_arith_buffer.b);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
+  }
+}
 
 
 /*
@@ -3136,6 +3284,34 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_type_result(stack, tau);
 }
 
+/*
+ * [mk-ff-type <rational>]
+ */
+static void check_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_TYPE);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_mk_ff_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t tau;
+  mpz_t order;
+
+  mpz_init(order);
+  get_integer_mpz(stack, f, order);
+
+  tau = _o_yices_ff_type(order);
+  mpz_clear(order);
+
+  if (tau == NULL_TYPE) {
+    raise_exception(stack, f, TSTACK_INVALID_FFSIZE);
+  }
+
+  check_type(stack, tau);
+
+  tstack_pop_frame(stack);
+  set_type_result(stack, tau);
+}
 
 /*
  * [mk-scalar-type <string> ... <string>]
@@ -5378,7 +5554,6 @@ static void eval_mk_is_int(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
-
 /*
  * [mk-divides <arith> <arith> ]
  * - the first term must be an arithmetic constant
@@ -5400,9 +5575,164 @@ static void eval_mk_divides(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_term_result(stack, t1);
 }
 
+/*
+ * FINITE FIELD FUNCTIONS
+ */
 
+/*
+ * [mk-ff-const <numeral> [<numeral>]
+ */
+static void check_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_CONST);
+  check_size(stack, n == 1 || n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+  if (n == 2)
+    check_tag(stack, f+1, TAG_RATIONAL);
+}
 
+static void eval_mk_ff_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  rational_t val, mod;
 
+  q_init(&val);
+  q_init(&mod);
+
+  q_set(&val, &f->val.rational);
+  if (! q_is_integer(&val)) {
+    raise_exception(stack, f, TSTACK_INVALID_FFCONSTANT);
+  }
+
+  if (n == 2) {
+    q_set(&mod, &(f+1)->val.rational);
+    if (! q_is_integer(&mod) || ! q_is_nonneg(&mod) || ! q_lt(&val, &mod)) {
+      raise_exception(stack, f, TSTACK_INVALID_FFCONSTANT);
+    }
+  } else {
+    // we don't know the field size yet
+    q_set_minus_one(&mod);
+  }
+
+  tstack_pop_frame(stack);
+  // the field order (i.e. type) may be yet unknown (requires an `as` to set it)
+  set_ff_result(stack, &val, &mod);
+
+  q_clear(&val);
+  q_clear(&mod);
+}
+
+static const rational_t* ff_get_mod(tstack_t *stack, stack_elem_t *e) {
+  term_t t;
+
+  switch (e->tag) {
+  case TAG_FINITEFIELD:
+    return &e->val.ff.mod;
+
+  case TAG_TERM:
+  case TAG_SPECIAL_TERM:
+    t = e->val.term;
+    if (! yices_check_arith_ff_term(t)) {
+      report_yices_error(stack);
+    }
+    return finitefield_term_order(__yices_globals.terms, t);
+
+  case TAG_ARITH_FF_BUFFER:
+    return &e->val.mod_arith_buffer.mod;
+
+  default:
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_FFSIZES);
+    break;
+  }
+}
+
+static void ff_calc_mod(tstack_t *stack, rational_t *mod, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  const rational_t *tmp;
+
+  q_set_minus_one(mod);
+  for (i=0; i<n; ++i) {
+    tmp = ff_get_mod(stack, f+i);
+    if (q_is_minus_one(tmp)) { continue; }
+    if (q_is_minus_one(mod)) { q_set(mod, tmp); continue; }
+    if (q_neq(tmp, mod)) {
+      raise_exception(stack, f+i, TSTACK_INCOMPATIBLE_FFSIZES);
+    }
+  }
+}
+
+/*
+ * [mk-ff-add <arith> <arith> ]
+ */
+static void check_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_ADD);
+  check_size(stack, n >= 1);
+}
+
+static void eval_mk_ff_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  rba_buffer_t *b;
+  rational_t mod;
+
+  q_init(&mod);
+  ff_calc_mod(stack, &mod, f, n);
+  b = tstack_get_abuffer(stack);
+  for (i=0; i<n; i++) {
+    ff_add_elem(stack, b, f+i);
+  }
+  tstack_pop_frame(stack);
+  set_arith_ff_result(stack, b, &mod);
+  q_clear(&mod);
+}
+
+// TODO add sub command
+#if 0
+/*
+ * [mk-ff-sub <arith> <arith> ]
+ */
+static void check_mk_ff_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_SUB);
+  check_size(stack, n >= 1);
+}
+
+static void eval_mk_ff_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  rba_buffer_t *b;
+  rational_t mod;
+
+  q_init(&mod);
+  ff_calc_mod(stack, &mod, f, n);
+  b = tstack_get_abuffer(stack);
+  for (i=0; i<n; i++) {
+    ff_sub_elem(stack, b, f+i);
+  }
+  tstack_pop_frame(stack);
+  set_arith_ff_result(stack, b, &mod);
+  q_clear(&mod);
+}
+#endif
+
+/*
+ * [mk-ff-mul <arith> <arith> ]
+ */
+static void check_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_FF_MUL);
+  check_size(stack, n >= 1);
+}
+
+static void eval_mk_ff_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  rba_buffer_t *b;
+  rational_t mod;
+
+  q_init(&mod);
+  ff_calc_mod(stack, &mod, f, n);
+  b = tstack_get_abuffer(stack);
+  ff_add_elem(stack, b, f);
+  for (i=1; i<n; i++) {
+    ff_mul_elem(stack, b, f+i);
+  }
+  tstack_pop_frame(stack);
+  set_arith_ff_result(stack, b, &mod);
+  q_clear(&mod);
+}
 
 
 /*
@@ -5519,6 +5849,7 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // DECLARE_TYPE_VAR
   0, // LET
   0, // MK_BV_TYPE
+  0, // MK_FF_TYPE
   0, // MK_SCALAR_TYPE
   0, // MK_TUPLE_TYPE
   0, // MK_FUN_TYPE
@@ -5604,6 +5935,9 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // MK_MOD
   0, // MK_DIVIDES
   0, // MK_IS_INT
+  0, // MK_FF_CONST
+  1, // MK_FF_ADD
+  1, // MK_FF_MUL
   0, // BUILD_TERM
   0, // BUILD_TYPE
 };
@@ -5617,6 +5951,7 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_declare_type_var,
   check_let,
   check_mk_bv_type,
+  check_mk_ff_type,
   check_mk_scalar_type,
   check_mk_tuple_type,
   check_mk_fun_type,
@@ -5702,6 +6037,9 @@ static const check_fun_t check[NUM_BASE_OPCODES] = {
   check_mk_mod,
   check_mk_divides,
   check_mk_is_int,
+  check_mk_ff_const,
+  check_mk_ff_add,
+  check_mk_ff_mul,
   check_build_term,
   check_build_type,
 };
@@ -5715,6 +6053,7 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_declare_type_var,
   eval_let,
   eval_mk_bv_type,
+  eval_mk_ff_type,
   eval_mk_scalar_type,
   eval_mk_tuple_type,
   eval_mk_fun_type,
@@ -5800,6 +6139,9 @@ static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   eval_mk_mod,
   eval_mk_divides,
   eval_mk_is_int,
+  eval_mk_ff_const,
+  eval_mk_ff_add,
+  eval_mk_ff_mul,
   eval_build_term,
   eval_build_type,
 };

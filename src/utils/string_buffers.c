@@ -204,7 +204,7 @@ void string_buffer_append_mpq(string_buffer_t *s, mpq_t q) {
   s->index += strlen(s0);
 }
 
-void string_buffer_append_rational(string_buffer_t *s, rational_t *r) {
+void string_buffer_append_rational(string_buffer_t *s, const rational_t *r) {
   if (is_ratgmp(r)) {
     string_buffer_append_mpq(s, get_gmp(r));
   } else {

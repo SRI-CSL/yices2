@@ -135,6 +135,7 @@ enum smt2_keyword {
   SMT2_KW_REGULAR_OUTPUT,
   SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT,
   SMT2_KW_VERBOSITY,
+  SMT2_KW_DUMP_MODELS,
 
   // Predefined keywords for (get-info ...)
   SMT2_KW_ALL_STATISTICS,
@@ -253,6 +254,14 @@ enum smt2_symbol {
   SMT2_SYM_BVSLE,
   SMT2_SYM_BVSGT,
   SMT2_SYM_BVSGE,
+
+  // Special symbols used in the FF theory: (as ff<numeral> (_ FiniteField <numeral>))
+  SMT2_SYM_FF_CONSTANT,
+
+  // finite field symbols
+  SMT2_SYM_FINITEFIELD,
+  SMT2_SYM_FFADD,
+  SMT2_SYM_FFMUL,
 
   // Errors
   SMT2_SYM_INVALID_BV_CONSTANT,

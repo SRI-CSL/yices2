@@ -130,12 +130,6 @@ variable_t variable_db_get_variable_if_exists(const variable_db_t* var_db, term_
   }
 }
 
-term_t variable_db_get_term(const variable_db_t* var_db, variable_t x) {
-  assert(x > 0 && x < var_db->variable_to_term_map.size);
-  return var_db->variable_to_term_map.data[x];
-}
-
-
 void variable_db_add_new_variable_listener(variable_db_t* var_db, variable_db_new_variable_notify_t* listener) {
   pvector_push(&var_db->notify_new_variable, listener);
 }
@@ -197,6 +191,10 @@ bool variable_db_is_int(const variable_db_t* var_db, variable_t x) {
 
 bool variable_db_is_bitvector(const variable_db_t* var_db, variable_t x) {
   return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == BITVECTOR_TYPE;
+}
+
+bool variable_db_is_finitefield(const variable_db_t* var_db, variable_t x) {
+  return term_type_kind(var_db->terms, variable_db_get_term(var_db, x)) == FF_TYPE;
 }
 
 uint32_t variable_db_get_bitsize(const variable_db_t* var_db, variable_t x) {

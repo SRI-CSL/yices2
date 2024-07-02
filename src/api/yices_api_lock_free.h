@@ -51,6 +51,8 @@ extern type_t _o_yices_real_type(void);
 
 extern type_t _o_yices_bv_type(uint32_t size);
 
+extern type_t _o_yices_ff_type(mpz_t order);
+
 extern type_t _o_yices_new_uninterpreted_type(void);
 
 extern type_t _o_yices_new_scalar_type(uint32_t card);
@@ -500,6 +502,8 @@ extern int32_t _o_yices_bv_const_value(term_t t, int32_t val[]);
 extern int32_t _o_yices_scalar_const_value(term_t t, int32_t *val);
 
 extern int32_t _o_yices_rational_const_value(term_t t, mpq_t q);
+
+extern int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z);
 
 extern int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
 

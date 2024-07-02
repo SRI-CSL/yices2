@@ -22,6 +22,8 @@
 #include <stdbool.h>
 #include <poly/value.h>
 
+#include "mcsat_types.h"
+
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "terms/rationals.h"
@@ -41,7 +43,7 @@ typedef enum {
   VALUE_BV
 } mcsat_value_type_t;
 
-typedef struct value_s {
+struct mcsat_value_s {
   mcsat_value_type_t type;
   union {
     bool b;
@@ -49,7 +51,7 @@ typedef struct value_s {
     lp_value_t lp_value;
     bvconstant_t bv_value;
   };
-} mcsat_value_t;
+};
 
 /** Predefined none value for convenience */
 extern const mcsat_value_t mcsat_value_none;

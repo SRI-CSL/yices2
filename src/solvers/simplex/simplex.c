@@ -7693,7 +7693,7 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
       assert(xq_is_integer(solver->bstack.bound + k));
       q_set(aux, &solver->bstack.bound[k].main);
       q_sub(aux, constant);
-
+      q_normalize(gcd);
       q_integer_rem(aux, gcd);  // remainder of (l - b) divided by d
       if (q_is_pos(aux)) {
 
@@ -7733,6 +7733,7 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
       assert(xq_is_integer(solver->bstack.bound + k));
       q_set(aux, &solver->bstack.bound[k].main);
       q_sub(aux, constant);
+      q_normalize(gcd);
       q_integer_rem(aux, gcd);   // remainder of (u - b) divided by d
       if (q_is_pos(aux)) {
         // the bound can be strengthened

@@ -53,6 +53,7 @@ ivector_t* watch_list_manager_get_list_of_lists(watch_list_manager_t* wlm, varia
     return wlm->wlist_memory.data[watcher];
   }
 }
+
 variable_list_ref_t watch_list_manager_new_list(watch_list_manager_t* wlm, const variable_t* list, uint32_t size, variable_t constraint) {
   uint32_t i;
   variable_list_ref_t ref;
@@ -276,7 +277,7 @@ void watch_list_manager_print(watch_list_manager_t* wlm, FILE* out) {
         variable_list_ref_t list_ref = list_of_lists->data[i];
         variable_t* list = watch_list_manager_get_list(wlm, list_ref);
         while (*list != variable_null) {
-          variable_db_print_variable(wlm->var_db, x, out);
+          variable_db_print_variable(wlm->var_db, *list, out);
           fprintf(out, " ");
           list ++;
         }

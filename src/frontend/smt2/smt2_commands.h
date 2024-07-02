@@ -390,6 +390,7 @@ typedef struct smt2_globals_s {
   bool produce_unsat_model_interpolants; // default = false
   bool produce_models;            // default = false
   bool produce_assignments;       // default = false
+  bool dump_models;               // default = false
   uint32_t random_seed;           // default = 0
   uint32_t verbosity;             // default = 0
 

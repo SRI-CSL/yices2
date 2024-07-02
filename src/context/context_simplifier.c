@@ -2323,6 +2323,13 @@ void flatten_assertion(context_t *ctx, term_t f) {
         intern_tbl_map_root(intern, r, bool2code(tt));
         flatten_bit_select(ctx, r, tt);
         break;
+
+      case ARITH_FF_POLY:
+      case ARITH_FF_CONSTANT:
+      case ARITH_FF_EQ_ATOM:
+      case ARITH_FF_BINEQ_ATOM:
+        exception = CONTEXT_UNSUPPORTED_THEORY;
+        goto abort;
       }
     }
 

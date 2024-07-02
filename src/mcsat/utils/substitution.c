@@ -104,6 +104,10 @@ term_t mk_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* c)
     assert(n == 2);
     result = mk_arith_eq(tm, c[0], c[1]);
     break;
+  case ARITH_FF_BINEQ_ATOM:
+    assert(n == 2);
+    result = mk_arith_ff_eq(tm, c[0], c[1]);
+    break;
   default:
     assert(false);
   }
@@ -196,6 +200,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
     case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
     case ARITH_CONSTANT:   // arithmetic constants
+    case ARITH_FF_CONSTANT: // finite field arithmetic constants
       current_subst = current;
       break;
 
@@ -223,6 +228,7 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
     case ARITH_BINEQ_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
     {
       composite_term_t* desc = composite_term_desc(terms, current);
       n = desc->arity;
@@ -341,6 +347,60 @@ term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache,
           current_subst = current;
         } else {
           current_subst = mk_arith_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+    case ARITH_FF_EQ_ATOM: {
+      term_t arg = arith_ff_eq_arg(terms, current);
+      find = int_hmap_find(cache, arg);
+      if (find == NULL) {
+        ivector_push(&substitution_stack, arg);
+      } else {
+        if (find->val == arg) {
+          current_subst = current;
+        } else {
+          current_subst = arith_ff_eq_atom(terms, find->val);
+        }
+      }
+      break;
+    }
+
+    case ARITH_FF_POLY: {
+      polynomial_t* p = finitefield_poly_term_desc(terms, current);
+      const rational_t* mod = finitefield_term_order(terms, current);
+      n = p->nterms;
+
+      bool children_done = true;
+      bool children_same = true;
+
+      ivector_t children;
+      init_ivector(&children, n);
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        if (x != const_idx) {
+          find = int_hmap_find(cache, x);
+          if (find == NULL) {
+            children_done = false;
+            ivector_push(&substitution_stack, x);
+          } else if (find->val != x) {
+            children_same = false;
+          }
+          if (children_done) { ivector_push(&children, find->val); }
+        } else {
+          if (children_done) { ivector_push(&children, const_idx); }
+        }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_subst = current;
+        } else {
+          current_subst = mk_arith_ff_poly(tm, p, n, children.data, mod);
         }
       }
 

@@ -608,6 +608,7 @@ static bool trivial_constraint_in_buffer(poly_buffer_t *buffer, presburger_tag_t
   case PRES_NEG_DIVIDES:
     q_init(&aux);
     q_set(&aux, &buffer->mono[0].coeff);
+    q_normalize(divisor);
     q_integer_rem(&aux, divisor);
     r = q_is_zero(&aux);
     if (tag == PRES_NEG_DIVIDES) {
@@ -657,6 +658,7 @@ static bool presburger_good_constraint(presburger_t *pres, presburger_constraint
 
   case PRES_POS_DIVIDES:
   case PRES_NEG_DIVIDES:
+    q_normalize(&c->divisor);
     q_integer_rem(&aux, &c->divisor);
     result = q_is_zero(&aux);
     if (tag == PRES_NEG_DIVIDES) {
@@ -1370,9 +1372,10 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
        * of k = delta if rem(val(y) - val(L), delta) is 0.
        */
       q_sub(&yval, &cooper->glbv);            // yval := val(y) - val(L)
+      q_normalize(&cooper->delta);
       q_integer_rem(&yval, &cooper->delta);   // rem(val(y) - val(L), delta)
       if (q_is_zero(&yval)) {
-	q_set(&yval, &cooper->delta);
+        q_set(&yval, &cooper->delta);
       }
       assert(q_is_pos(&yval));
 
@@ -1394,9 +1397,10 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
       q_init(&tmp);
       q_set(&tmp, &cooper->lubv);           // lubv is val(U)
       q_sub(&tmp, &yval);                   // tmp := val(U) - val(y)
+      q_normalize(&cooper->delta);
       q_integer_rem(&tmp, &cooper->delta);
       if (q_is_zero(&tmp)) {
-	q_set(&tmp, &cooper->delta);
+        q_set(&tmp, &cooper->delta);
       }
       assert(q_is_pos(&tmp));
 
@@ -1413,6 +1417,7 @@ static polynomial_t *presburger_solve(presburger_t *pres, term_t y, cooper_t *co
        * We pick the constant polynomial e such that 0 <= e < delta
        * and (val(y) == e) mod delta.
        */
+      q_normalize(&cooper->delta);
       q_integer_rem(&yval, &cooper->delta);
       poly_buffer_add_const(solution, &yval);
     }

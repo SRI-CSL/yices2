@@ -773,6 +773,8 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
  *  ARITHMETIC TERMS  *
  *********************/
 
+// TODO make some rewriting functions finite field compatible
+
 /*
  * Arithmetic constant (rational)
  * - r must be normalized
@@ -827,6 +829,57 @@ static term_t arith_buffer_to_term(term_table_t *tbl, rba_buffer_t *b) {
   return t;
 }
 
+/*
+ * Arithmetic constant (finite field)
+ * - r must be normalized wrt. mod
+ */
+term_t mk_arith_ff_constant(term_manager_t *manager, rational_t *r, rational_t *mod) {
+  return arith_ff_constant(manager->terms, r, mod);
+}
+
+static term_t arith_ff_buffer_to_term(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod) {
+  mono_t *m;
+  pprod_t *r;
+  uint32_t n;
+  term_t t;
+
+  assert(b->ptbl == tbl->pprods);
+
+  rba_buffer_mod_const(b, mod);
+
+  n = b->nterms;
+  if (n == 0) {
+    rational_t zero;
+    q_init(&zero);
+    // generate/get a zero term mod mod
+    t = arith_ff_constant(tbl, &zero, mod);
+    q_clear(&zero);
+  } else if (n == 1) {
+    m = rba_buffer_root_mono(b); // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant polynomial
+      t = arith_ff_constant(tbl, &m->coeff, mod);
+    } else if (q_is_one(&m->coeff)) {
+      // term or power product
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
+    } else {
+      // can't simplify
+      t = arith_ff_poly(tbl, b, mod);
+    }
+  } else {
+    t = arith_ff_poly(tbl, b, mod);
+  }
+
+  reset_rba_buffer(b);
+
+  // check that mod is type t's ff-size
+  assert(q_eq(mod, ff_type_size(tbl->types, term_type(tbl, t))));
+
+  return t;
+}
+
+
 
 term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
   return arith_buffer_to_term(manager->terms, b);
@@ -834,6 +887,14 @@ term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
 
 term_t mk_direct_arith_term(term_table_t *tbl, rba_buffer_t *b) {
   return arith_buffer_to_term(tbl, b);
+}
+
+term_t mk_arith_ff_term(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
+  return arith_ff_buffer_to_term(manager->terms, b, mod);
+}
+
+term_t mk_direct_arith_ff_term(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod) {
+  return arith_ff_buffer_to_term(tbl, b, mod);
 }
 
 
@@ -2421,7 +2482,7 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool 
  * - try to simplify and normalize then build (arith-eq0 t)
  */
 static term_t mk_arith_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
-    term_t aux;
+  term_t aux;
 
   assert(is_arithmetic_term(tbl, t));
 
@@ -2561,7 +2622,7 @@ term_t mk_direct_arith_eq0(term_table_t *tbl, rba_buffer_t *b, bool simplify_ite
      * b is a1 * r1 + a2 * r2
      * Simplifications:
      * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
-     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
+     * - rewrite (b == 0) to (r1 == r2) if a1 + a2 = 0
      */
     rba_buffer_monomial_pair(b, m);
     m1 = m[0];
@@ -3547,14 +3608,14 @@ term_t mk_arith_divides(term_manager_t *manager, term_t t1, term_t t2) {
     case ARITH_CONSTANT:
       t = false_term;
       if (q_divides(q, rational_term_desc(tbl, t2))) {
-	t = true_term;
+        t = true_term;
       }
       break;
 
     default:
       // force t1 to be positive
       if (q_is_neg(q)) {
-	t1 = neg_rational(manager, q);
+        t1 = neg_rational(manager, q);
       }
       t = arith_divides(tbl, t1, t2);
       break;
@@ -3574,6 +3635,195 @@ term_t mk_direct_arith_root_atom_gt(rba_buffer_t* b, term_table_t* terms, uint32
 
 term_t mk_direct_arith_root_atom_geq(rba_buffer_t* b, term_table_t* terms, uint32_t k, term_t x, term_t p, bool simplify_ite) {
   return mk_direct_arith_root_atom(b, terms, k, x, p, ROOT_ATOM_GEQ, simplify_ite);
+}
+
+
+/*
+ * Finite field Arithmetic
+ */
+
+term_t mk_arith_ff_eq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
+  return mk_direct_arith_ff_eq0(manager->terms, b, mod, manager->simplify_ite);
+}
+
+term_t mk_arith_ff_neq0(term_manager_t *manager, rba_buffer_t *b, const rational_t *mod) {
+  return opposite_term(mk_arith_ff_eq0(manager, b, mod));
+}
+
+term_t mk_arith_ff_term_eq0(term_manager_t *manager, term_t t) {
+  rba_buffer_t *b;
+
+  assert(is_finitefield_term(manager->terms, t));
+
+  b = term_manager_get_arith_buffer(manager);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
+
+  return mk_arith_ff_eq0(manager, b, finitefield_term_order(manager->terms, t));
+}
+
+term_t mk_arith_ff_term_neq0(term_manager_t *manager, term_t t) {
+  rba_buffer_t *b;
+
+  assert(is_finitefield_term(manager->terms, t));
+
+  b = term_manager_get_arith_buffer(manager);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
+
+  return mk_arith_ff_neq0(manager, b, finitefield_term_order(manager->terms, t));
+}
+
+term_t mk_arith_ff_eq(term_manager_t *manager, term_t t1, term_t t2) {
+  rba_buffer_t *b;
+
+  assert(is_finitefield_term(manager->terms, t1) &&
+         is_finitefield_term(manager->terms, t2));
+  assert(compatible_types(manager->types, term_type(manager->terms, t1), term_type(manager->terms, t2)));
+
+  b = term_manager_get_arith_buffer(manager);
+  mk_arith_diff(manager, b, t1, t2); // use regular arith diff
+  return mk_arith_ff_eq0(manager, b, finitefield_term_order(manager->terms, t1));
+}
+
+term_t mk_arith_ff_neq(term_manager_t *manager, term_t t1, term_t t2) {
+  return opposite_term(mk_arith_ff_eq(manager, t1, t2));
+}
+
+static term_t mk_arith_ff_eq0_atom(term_table_t *tbl, term_t t, bool simplify_ite) {
+  assert(is_finitefield_term(tbl, t));
+
+  if (arith_ff_term_is_nonzero(tbl, t, simplify_ite)) {
+    return false_term;
+  }
+
+  if (simplify_ite) {
+    // TODO implement simplification
+  }
+
+  return arith_ff_eq_atom(tbl, t);
+}
+
+static term_t mk_arith_ff_bineq_atom(term_table_t *tbl, term_t t1, term_t t2, bool simplify_ite) {
+  term_t aux;
+
+  assert(is_finitefield_term(tbl, t1) && is_finitefield_term(tbl, t2));
+
+  if (disequal_arith_ff_terms(tbl, t1, t2, simplify_ite)) {
+    return false_term;
+  }
+
+  if (simplify_ite) {
+    // TODO implement simplification
+  }
+
+  // normalize: put the smallest term on the left
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  return arith_ff_bineq_atom(tbl, t1, t2);
+}
+
+/*
+ * Construct the atom (b == 0) then reset b.
+ *
+ * Normalize b first.
+ * - simplify to true if b is the zero polynomial
+ * - simplify to false if b is constant and non-zero
+ * - rewrite to (t1 == t2) if that's possible.
+ * - otherwise, create a polynomial term t from b
+ *   and return the atom (t == 0).
+ */
+term_t mk_direct_arith_ff_eq0(term_table_t *tbl, rba_buffer_t *b, const rational_t *mod, bool simplify_ite) {
+  mono_t *m[2], *m1, *m2;
+  pprod_t *r1, *r2;
+  rational_t r0;
+  term_t t1, t2, t;
+  uint32_t n;
+
+  assert(b->ptbl == tbl->pprods);
+
+  // normalize the tree wrt. to mod
+  rba_buffer_mod_const(b, mod);
+
+  n = b->nterms;
+  if (n == 0) {
+    // b is zero
+    t = true_term;
+
+  } else if (n == 1) {
+    /*
+     * b is a1 * r1 with a_1 != 0
+     * (a1 * r1 == 0) is false if r1 is the empty product
+     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwise
+     */
+    m1 = rba_buffer_root_mono(b);
+    r1 = m1->prod;
+    assert(q_is_nonzero_mod(&m1->coeff, mod));
+    if (r1 == empty_pp) {
+      t = false_term;
+    } else {
+      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
+      t = mk_arith_ff_eq0_atom(tbl, t1, simplify_ite); // atom r1 = 0
+    }
+
+  } else if (n == 2) {
+    /*
+     * b is a1 * r1 + a2 * r2
+     * Simplifications:
+     * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
+     * - rewrite (b == 0) to (r1 == r2) if a1 + a2 = 0
+     */
+    rba_buffer_monomial_pair(b, m);
+    m1 = m[0];
+    m2 = m[1];
+    r1 = m1->prod;
+    r2 = m2->prod;
+    assert(q_is_nonzero_mod(&m1->coeff, mod) && q_is_nonzero_mod(&m2->coeff, mod));
+
+    q_init(&r0);
+
+    if (r1 == empty_pp) {
+      q_set(&r0, &m2->coeff);  // r0 = a2
+      q_inv_mod(&r0, mod);         // r0 = a2^-1
+      q_mul(&r0, &m1->coeff);  // r0 = a1*a2^-1
+      q_neg(&r0);                  // r0 = -a1*a2^-1
+      q_integer_rem(&r0, mod);
+
+      t1 = arith_ff_constant(tbl, &r0, mod);
+      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
+      t = mk_arith_ff_bineq_atom(tbl, t1, t2, simplify_ite);
+
+    } else {
+      q_set(&r0, &m1->coeff);
+      q_add(&r0, &m2->coeff);
+      if (q_is_zero(&r0)) {
+        t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(tbl, r1);
+        t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(tbl, r2);
+        t = mk_arith_ff_bineq_atom(tbl, t1, t2, simplify_ite);
+
+      } else {
+        // no simplification
+        t = arith_ff_poly(tbl, b, mod);
+        t = arith_ff_eq_atom(tbl, t);
+      }
+    }
+
+    q_clear(&r0);
+
+  } else {
+    /*
+     * more than 2 monomials: don't simplify
+     */
+    t = arith_ff_poly(tbl, b, mod);
+    t = arith_ff_eq_atom(tbl, t);
+  }
+
+  reset_rba_buffer(b);
+  assert(good_term(tbl, t) && is_boolean_term(tbl, t));
+
+  return t;
 }
 
 
@@ -3610,6 +3860,11 @@ term_t mk_eq(term_manager_t *manager, term_t t1, term_t t2) {
   if (is_arithmetic_term(tbl, t1)) {
     assert(is_arithmetic_term(tbl, t2));
     return mk_arith_eq(manager, t1, t2);
+  }
+
+  if (is_finitefield_term(tbl, t1)) {
+    assert(is_finitefield_term(tbl, t2));
+    return mk_arith_ff_eq(manager, t1, t2);
   }
 
   if (is_bitvector_term(tbl, t1)) {
@@ -3652,6 +3907,11 @@ term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
   if (is_arithmetic_term(tbl, t1)) {
     assert(is_arithmetic_term(tbl, t2));
     return mk_arith_neq(manager, t1, t2);
+  }
+
+  if (is_finitefield_term(tbl, t1)) {
+    assert(is_finitefield_term(tbl, t2));
+    return mk_arith_ff_neq(manager, t1, t2);
   }
 
   if (is_bitvector_term(tbl, t1)) {
@@ -6053,6 +6313,31 @@ term_t mk_arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t
   return mk_arith_term(mngr, b);
 }
 
+/*
+ * Arithmetic product:
+ * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
+ * - a is an array of n arithmetic terms
+ * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
+ */
+term_t mk_arith_ff_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a, const rational_t *mod) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  assert(n == p->len);
+
+  tbl = term_manager_get_terms(mngr);
+  b = term_manager_get_arith_buffer(mngr);
+
+  rba_buffer_set_one(b); // b := 1
+  for (i=0; i<n; i++) {
+    // b := b * a[i]^e[i]
+    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp);
+  }
+
+  return mk_arith_ff_term(mngr, b, mod);
+}
+
 
 /*
  * Bitvector product: 1 to 64 bits vector
@@ -6115,15 +6400,17 @@ term_t mk_bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term
  */
 term_t mk_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, const term_t *a) {
   type_t tau;
-  uint32_t nbits;
 
   assert(n > 0);
 
   tau = term_type(mngr->terms, a[0]);
   if (is_arithmetic_type(tau)) {
     return mk_arith_pprod(mngr, p, n, a);
+  } else if (is_ff_type(mngr->types, tau)) {
+    const rational_t *mod = ff_type_size(mngr->types, tau);
+    return mk_arith_ff_pprod(mngr, p, n, a, mod);
   } else {
-    nbits = bv_type_size(mngr->types, tau);
+    uint32_t nbits = bv_type_size(mngr->types, tau);
     if (nbits <= 64) {
       return mk_bvarith64_pprod(mngr, p, n, a, nbits);
     } else {
@@ -6159,6 +6446,31 @@ term_t mk_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const te
   }
 
   return mk_arith_term(mngr, b);
+}
+
+/*
+ * Same thing for a finite field polynomial
+ */
+term_t mk_arith_ff_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, const term_t *a, const rational_t *mod) {
+  rba_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  assert(p->nterms == n);
+
+  tbl = term_manager_get_terms(mngr);
+  b = term_manager_get_arith_buffer(mngr);
+  reset_rba_buffer(b);
+
+  for (i=0; i<n; i++) {
+    if (a[i] == const_idx) {
+      rba_buffer_add_const(b, &p->mono[i].coeff);
+    } else {
+      rba_buffer_add_const_times_term(b, tbl, &p->mono[i].coeff, a[i]);
+    }
+  }
+
+  return mk_arith_ff_term(mngr, b, mod);
 }
 
 

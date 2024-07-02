@@ -121,6 +121,13 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     composite_for_noncomposite.arg[0] = arith_ge_arg(terms, t);
     return (composite_term_t*)&composite_for_noncomposite;
   }
+  case ARITH_FF_BINEQ_ATOM:
+    return arith_ff_bineq_atom_desc(terms, t);
+  case ARITH_FF_EQ_ATOM: {
+    composite_for_noncomposite.arity = 1;
+    composite_for_noncomposite.arg[0] = arith_ff_eq_arg(terms, t);
+    return (composite_term_t*)&composite_for_noncomposite;
+  }
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
   case ARITH_RDIV:          // division: (/ x y)
@@ -263,14 +270,14 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
   // Negated terms must be purified
   if (is_pos_term(t)) {
     // We don't purify variables
-    term_kind_t t_kind = term_kind(terms, t);
-    switch (t_kind) {
+    switch (term_kind(terms, t)) {
     case UNINTERPRETED_TERM:
       // Variables are already pure
       return t;
     case CONSTANT_TERM:
       return t;
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
       // Constants are also pure (except for false)
@@ -422,6 +429,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
     case BITVECTOR_TYPE:
@@ -439,8 +447,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
     case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
     case ARITH_CONSTANT:   // rational constant
+    case ARITH_FF_CONSTANT:   // finite field constant
       current_pre = current;
       break;
+
     case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
       current_pre = current;
       // Unless we want special slicing
@@ -474,8 +484,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
     case ARITH_EQ_ATOM:      // equality (t == 0)
-    case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+    case ARITH_BINEQ_ATOM:   // equality (t1 == t2)  (between two arithmetic terms)
     case ARITH_GE_ATOM:      // inequality (t >= 0)
+    case ARITH_FF_EQ_ATOM:   // finite field equality (t == 0)
+    case ARITH_FF_BINEQ_ATOM: // finite field equality (t1 == t2)  (between two arithmetic terms)
     case BV_DIV:
     case BV_REM:
     case BV_SMOD:
@@ -503,8 +515,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       bool is_equality =
           current_kind == EQ_TERM ||
           current_kind == BV_EQ_ATOM ||
+          current_kind == ARITH_EQ_ATOM ||
           current_kind == ARITH_BINEQ_ATOM ||
-          current_kind == ARITH_EQ_ATOM;
+          current_kind == ARITH_FF_EQ_ATOM ||
+          current_kind == ARITH_FF_BINEQ_ATOM;
       // don't rewrite if the equality is between Boolean terms
       bool is_boolean = is_boolean_type(term_type(pre->terms, desc->arg[0]));
 
@@ -924,6 +938,48 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
           current_pre = current;
         } else {
           current_pre = mk_arith_poly(tm, p, n, children.data);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+    case ARITH_FF_POLY:    // polynomial with finite field coefficients
+    {
+      polynomial_t* p = finitefield_poly_term_desc(terms, current);
+      const rational_t *mod = finitefield_term_order(terms, current);
+
+      bool children_done = true;
+      bool children_same = true;
+
+      n = p->nterms;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        term_t x_pre = (x == const_idx ? const_idx : preprocessor_get(pre, x));
+
+        if (x_pre != const_idx) {
+          if (x_pre == NULL_TERM) {
+            children_done = false;
+            ivector_push(pre_stack, x);
+          } else if (x_pre != x) {
+            children_same = false;
+          }
+        }
+
+        if (children_done) { ivector_push(&children, x_pre); }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_arith_ff_poly(tm, p, n, children.data, mod);
         }
       }
 

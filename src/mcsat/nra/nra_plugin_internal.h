@@ -25,12 +25,11 @@
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/int_mset.h"
+#include "mcsat/utils/lp_data.h"
+#include "mcsat/utils/lp_constraint_db.h"
 #include "mcsat/nra/feasible_set_db.h"
 
 #include "terms/term_manager.h"
-
-typedef struct poly_constraint_db_struct poly_constraint_db_t;
-typedef struct poly_constraint_struct poly_constraint_t;
 
 struct nra_plugin_s {
 
@@ -43,14 +42,11 @@ struct nra_plugin_s {
   /** The watch list manager */
   watch_list_manager_t wlm;
 
+  /** The unit info */
+  constraint_unit_info_t unit_info;
+
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
-
-  /** Map from constraint variables to the constraint_unit_info_t enum */
-  int_hmap_t constraint_unit_info;
-
-  /** Map from constraint variables to the variables they are unit in */
-  int_hmap_t constraint_unit_var;
 
   /** Next index of the trail to process */
   uint32_t trail_i;
@@ -97,32 +93,13 @@ struct nra_plugin_s {
   feasible_set_db_t* feasible_set_db;
 
   /** Data related to libpoly */
-  struct {
-
-    /** Libpoly variable database */
-    lp_variable_db_t* lp_var_db;
-    /** Libpoly Variable order */
-    lp_variable_order_t* lp_var_order;
-    /** Size of the variable order (for backtracking) */
-    uint32_t lp_var_order_size;
-    /** Libpoly polynomioal context */
-    lp_polynomial_context_t* lp_ctx;
-    /** Libpoly model */
-    lp_assignment_t* lp_assignment;
-    /** Interval assignment for bound inference */
-    lp_interval_assignment_t* lp_interval_assignment;
-
-    /** Map from libpoly variables to mcsat variables */
-    int_hmap_t lp_to_mcsat_var_map;
-    /** Map from mcsat variables to libpoly variables */
-    int_hmap_t mcsat_to_lp_var_map;
-  } lp_data;
+  lp_data_t lp_data;
 
   /** Buffer for evaluation */
   int_hmap_t evaluation_value_cache;
   int_hmap_t evaluation_timestamp_cache;
 
-  /** Buffer for feasible set computation (for true/false */
+  /** Buffer for feasible set computation (for true/false) */
   int_hmap_t feasible_set_cache_top_var[2];   // Top var when cached
   int_hmap_t feasible_set_cache_timestamp[2]; // Top timestamp of other variables when cached
   ptr_hmap_t feasible_set_cache[2];           // The cache
@@ -147,36 +124,6 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
  * mcsat variable to vars_out. Returns false otherwise.
  */
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
-
-/** Check if there term has an lp variable */
-int nra_plugin_term_has_lp_variable(nra_plugin_t* nra, term_t t);
-
-/** Check if the mcsat variable has an lp variable */
-int nra_plugin_variable_has_lp_variable(nra_plugin_t* nra, variable_t mcsat_var);
-
-/** Add a variable corresponding to the term t to libpoly */
-void nra_plugin_add_lp_variable_from_term(nra_plugin_t* nra, term_t t);
-
-/** Add a variable corresponding to the mcsat variable to libpoly */
-void nra_plugin_add_lp_variable(nra_plugin_t* nra, variable_t mcsat_var);
-
-/** Get the libpoly variable corresponding to term t (should have been added first) */
-lp_variable_t nra_plugin_get_lp_variable(nra_plugin_t* nra, variable_t t);
-
-/** Get the mcsat variable from the libpoly variable */
-variable_t nra_plugin_get_variable_from_lp_variable(nra_plugin_t* nra, lp_variable_t lp_var);
-
-/** Set the unit info for the given constraint */
-void nra_plugin_set_unit_info(nra_plugin_t* nra, variable_t constraint, variable_t unit_var, constraint_unit_info_t value);
-
-/** Are we tracking this constraint */
-bool nra_plugin_has_unit_info(const nra_plugin_t* nra, variable_t constraint);
-
-/** Get the unit info for the given constraint */
-constraint_unit_info_t nra_plugin_get_unit_info(nra_plugin_t* nra, variable_t constraint);
-
-/** Get the unit variable for the given constraint */
-variable_t nra_plugin_get_unit_var(nra_plugin_t* nra, variable_t constraint);
 
 /** Report a conflict (variable is the one with an empty feasible set) */
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);

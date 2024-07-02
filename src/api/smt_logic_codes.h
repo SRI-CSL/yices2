@@ -67,6 +67,7 @@ typedef enum smt_logic {
    */
   AX,          // arrays
   BV,          // bitvectors
+  FFA,         // finite fields
   IDL,         // integer difference logic
   LIA,         // linear integer arithmetic
   LRA,         // linear real arithmetic
@@ -118,6 +119,7 @@ typedef enum smt_logic {
    */
   QF_AX,       // arrays
   QF_BV,       // bitvectors
+  QF_FFA,      // finite fields
   QF_IDL,      // integer difference logic
   QF_LIA,      // linear integer arithmetic
   QF_LRA,      // linear real arithmetic
@@ -195,6 +197,7 @@ typedef enum arith_fragment {
   ARITH_NIA,   // non-linear integer arithmetic
   ARITH_NRA,   // non-linear real arithmetic
   ARITH_NIRA,  // non-linear mixed arithmetic
+  ARITH_FFA,   // finite field arithmetic
   ARITH_NONE,  // no arithmetic
 } arith_fragment_t;
 
