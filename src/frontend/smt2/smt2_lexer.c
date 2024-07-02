@@ -1187,7 +1187,7 @@ static smt2_symbol_t string_to_ff_constant(const char *s, uint32_t n) {
 }
 
 
-/*
+/**
  * Convert a string s to a symbol code
  * - n = length of s
  * - return SMT2_SYM_UNKNOWN if s is not a predefined symbol,
@@ -1199,6 +1199,13 @@ static smt2_symbol_t string_to_ff_constant(const char *s, uint32_t n) {
  *   returned id is SMT2_SYM_BV_CONSTANT
  * - if the string starts with 'bv' but the rest is not <numeral>, then
  *   the returned if is SMT2_SYM_INVALID_BV_CONSTANT
+ *
+ * Special treatment for finite field constants, when the finite field
+ * theory is active:
+ * - if the string is of the form 'ff<numeral>' then the
+ *   returned id is SMT2_SYM_FF_CONSTANT
+ * - if the string starts with 'ff' but the rest is not <numeral>, then
+ *   the returned if is SMT2_SYM_INVALID_FF_CONSTANT
  */
 smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n) {
   const keyword_t *kw;
