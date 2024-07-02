@@ -286,6 +286,14 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "Invalid term-exploration query\n");
     break;
 
+  case INVALID_FFSIZE:
+    code = fprintf(f, "invalid finite field size (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+      break;
+
+  case INCOMPATIBLE_FFSIZES:
+    code = fprintf(f, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
     /*
      * Parser errors
      */
@@ -351,6 +359,10 @@ int32_t print_error(FILE *f) {
 
   case INVALID_BVCONSTANT:
     code = fprintf(f, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
+    break;
+
+  case INVALID_FFCONSTANT:
+    code = fprintf(f, "invalid number in 'mk-ff' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:
@@ -803,6 +815,14 @@ char *error_string(void) {
     nchar = snprintf(buffer, BUFFER_SIZE, "Invalid term-exploration query");
     break;
 
+  case INVALID_FFSIZE:
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid finite field size (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
+  case INCOMPATIBLE_FFSIZES:
+    nchar = snprintf(buffer, BUFFER_SIZE, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
     /*
      * Parser errors
      */
@@ -868,6 +888,10 @@ char *error_string(void) {
 
   case INVALID_BVCONSTANT:
     nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
+  case INVALID_FFCONSTANT:
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-ff' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:

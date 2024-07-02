@@ -347,6 +347,8 @@ typedef enum error_code {
   BAD_TYPE_DECREF,         // added 2013/10/03
   INVALID_TYPE_OP,         // added 2014/12/03
   INVALID_TERM_OP,         // added 2014/12/04
+  INVALID_FFSIZE,          // added 2024/05/20
+  INCOMPATIBLE_FFSIZES,    // added 2024/05/20
 
   /*
    * Parser errors
@@ -370,6 +372,7 @@ typedef enum error_code {
   TYPE_MISMATCH_IN_DEF,
   ARITH_ERROR,
   BVARITH_ERROR,
+  INVALID_FFCONSTANT,
 
 
   /*

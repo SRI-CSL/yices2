@@ -151,14 +151,14 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   INVALID_BVCONSTANT,           //  TSTACK_INVALID_BVCONSTANT
   BVARITH_ERROR,                //  TSTACK_BVARITH_ERROR
   BVARITH_ERROR,                //  TSTACK_BVLOGIC_ERROR
-  INVALID_BVCONSTANT,           //  TSTACK_INVALID_FFCONSTANT // TODO add INVALID_FFCONSTANT
-  INCOMPATIBLE_BVSIZES,         // TSTACK_INVALID_FFSIZE // TODO add INCOMPATIBLE_FFSIZES
-  INCOMPATIBLE_BVSIZES,         // TSTACK_INCOMPATIBLE_FFSIZES // TODO add INCOMPATIBLE_FFSIZES
+  INVALID_FFCONSTANT,           //  TSTACK_INVALID_FFCONSTANT
+  INVALID_FFSIZE,               //  TSTACK_INVALID_FFSIZE
+  INCOMPATIBLE_FFSIZES,         //  TSTACK_INCOMPATIBLE_FFSIZES
   TYPE_MISMATCH_IN_DEF,         //  TSTACK_TYPE_ERROR_IN_DEFTERM
   NO_ERROR,                     //  TSTACK_STRINGS_ARE_NOT_TERMS
-  NO_ERROR,                     // TSTACK_VARIABLES_VALUES_NOT_MATCHING,  // TODO find proper code
-  NO_ERROR,                     // TSTACK_NOT_A_CONSTANT,  // TODO find proper code
-  NO_ERROR,                     // TSTACK_NOT_A_VARIABLE,  // TODO find proper code
+  NO_ERROR,                     //  TSTACK_VARIABLES_VALUES_NOT_MATCHING,  // TODO find proper code
+  NO_ERROR,                     //  TSTACK_NOT_A_CONSTANT,  // TODO find proper code
+  NO_ERROR,                     //  TSTACK_NOT_A_VARIABLE,  // TODO find proper code
   NO_ERROR,                     //  TSTACK_YICES_ERROR
 };
 
