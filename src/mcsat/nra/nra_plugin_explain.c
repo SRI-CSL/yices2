@@ -18,8 +18,8 @@
  
 #include "nra_plugin_explain.h"
 #include "nra_plugin_internal.h"
-#include "poly_constraint.h"
-#include "libpoly_utils.h"
+#include "nra_libpoly.h"
+#include "mcsat/utils/lp_utils.h"
 
 #include "utils/int_hash_map.h"
 #include "utils/pointer_vectors.h"
@@ -38,7 +38,6 @@
 #include <poly/polynomial_vector.h>
 #include <poly/variable_db.h>
 #include <poly/variable_list.h>
-#include <poly/variable_order.h>
 #include <poly/polynomial.h>
 #include <poly/interval.h>
 
@@ -92,17 +91,14 @@ struct lp_projection_map_struct {
   /** Map from indices to the projection sets where it is the top variable */
   int_hmap_t var_to_index_map;
 
+  /** lp_data */
+  const lp_data_t* lp_data;
+
   /** List of all variables added */
   lp_variable_list_t all_vars;
 
   /** List of all yet unprojected variables */
   lp_variable_list_t unprojected_vars;
-
-  /** The polynomial context */
-  const lp_polynomial_context_t* ctx;
-
-  /** The assignment */
-  const lp_assignment_t* m;
 
   /** Whether to use root constraints for cell description */
   bool use_root_constraints_for_cells;
@@ -113,35 +109,29 @@ struct lp_projection_map_struct {
   /** Plugin context (if available) */
   plugin_context_t* plugin_ctx;
 
-  /** NRA (if available) */
-  nra_plugin_t* nra;
-
-  /** Tmp buffer (if available) */
-  rba_buffer_t buffer;
-
-  /** Map from lp variables to terms (if available) */
-  int_hmap_t* lp_to_term_map;
+  /** Tmp buffer */
+  rba_buffer_t* buffer;
+  bool external_buffer;
 
   /// Projection options
 
   /** Whether to use model-based GCD */
   bool use_mgcd;
 
-  /** WHether to use the default NLSAT projection */
+  /** Whether to use the default NLSAT projection */
   bool use_nlsat;
-
 };
 
 typedef struct lp_projection_map_struct lp_projection_map_t;
 
 #define LP_PROJECTION_MAP_DEFAULT_SIZE 10
 
+static
 void lp_projection_map_construct(lp_projection_map_t* map,
-    const lp_polynomial_context_t* lp_ctx,
-    const lp_assignment_t* lp_asignment,
     term_manager_t* tm,
-    nra_plugin_t* nra, /** Can be NULL */
-    int_hmap_t* lp_to_term_map, /** Can be NULL */
+    lp_data_t* lp_data,
+    rba_buffer_t* buffer,   /** Can be NULL */
+    plugin_context_t* ctx,  /** Can be NULL */
     bool use_mgcd,
     bool use_nlsat
 )
@@ -149,20 +139,20 @@ void lp_projection_map_construct(lp_projection_map_t* map,
   map->data_size = 0;
   map->data_capacity = LP_PROJECTION_MAP_DEFAULT_SIZE;
   map->data = safe_malloc(sizeof(lp_polynomial_hash_set_t)*map->data_capacity);
-  map->ctx = lp_ctx;
-  map->m = lp_asignment;
+  map->lp_data = lp_data;
   map->use_root_constraints_for_cells = true;
   map->tm = tm;
-  map->nra = nra;
-  map->lp_to_term_map = lp_to_term_map;
-  map->plugin_ctx = (nra == NULL ? NULL : nra->ctx);
+  map->plugin_ctx = ctx;
   map->use_mgcd = use_mgcd;
   map->use_nlsat = use_nlsat;
 
-  if (nra == NULL) {
-    init_rba_buffer(&map->buffer, tm->pprods);
+  map->external_buffer = (buffer != NULL);
+  if (map->external_buffer) {
+    map->buffer = buffer;
+  } else {
+    map->buffer = safe_malloc(sizeof(rba_buffer_t));
+    init_rba_buffer(map->buffer, tm->pprods);
   }
-
   lp_polynomial_hash_set_construct(&map->all_polynomials);
   init_int_hmap(&map->var_to_index_map, 0);
   lp_variable_list_construct(&map->all_vars);
@@ -171,9 +161,7 @@ void lp_projection_map_construct(lp_projection_map_t* map,
 
 void lp_projection_map_construct_from_nra(lp_projection_map_t* map, nra_plugin_t* nra) {
   lp_projection_map_construct(map,
-      nra->lp_data.lp_ctx, nra->lp_data.lp_assignment,
-      nra->ctx->tm, nra,
-      NULL,
+      nra->ctx->tm, &nra->lp_data, &nra->buffer, nra->ctx,
       nra->ctx->options->nra_mgcd, nra->ctx->options->nra_nlsat);
 }
 
@@ -187,30 +175,15 @@ void lp_projection_map_destruct(lp_projection_map_t* map) {
   delete_int_hmap(&map->var_to_index_map);
   lp_variable_list_destruct(&map->all_vars);
   lp_variable_list_destruct(&map->unprojected_vars);
-  if (map->nra == NULL) {
-    delete_rba_buffer(&map->buffer);
+  if (!map->external_buffer) {
+    delete_rba_buffer(map->buffer);
+    free(map->buffer);
   }
 }
 
 static inline
 term_t lp_projection_map_polynomial_to_term(lp_projection_map_t* map, const lp_polynomial_t* p) {
-  if (map->nra) {
-    return lp_polynomial_to_yices_term_nra(p, map->nra);
-  } else {
-    return lp_polynomial_to_yices_term(p, map->tm->terms, &map->buffer, map->lp_to_term_map);
-  }
-}
-
-static inline
-term_t lp_projection_map_var_to_term(lp_projection_map_t* map, lp_variable_t x_lp) {
-  if (map->nra) {
-    variable_t x_var = nra_plugin_get_variable_from_lp_variable(map->nra, x_lp);
-    term_t x_term = variable_db_get_term(map->nra->ctx->var_db, x_var);
-    return x_term;
-  } else {
-    assert(false);
-    return NULL_TERM;
-  }
+  return lp_polynomial_to_yices_arith_term(map->lp_data, p, map->tm->terms, map->buffer);
 }
 
 lp_polynomial_hash_set_t* lp_projection_map_get_set_of(lp_projection_map_t* map, lp_variable_t var) {
@@ -269,7 +242,7 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
 
   // Reduce the polynomials and add all the vanishing coefficients
   lp_variable_t x = lp_polynomial_top_variable(p);
-  lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* p_r = lp_data_new_polynomial(map->lp_data);
   lp_projection_map_reduce(map, x, p, p_r);
 
   // Don't add constants or things already there
@@ -298,10 +271,10 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
 
   lp_polynomial_t* p_r_zero = NULL;
   // If x is assigned, check if any of the factors evaluates to 0
-  if (lp_assignment_get_value(map->m, x)->type != LP_VALUE_NONE) {
+  if (lp_assignment_get_value(map->lp_data->lp_assignment, x)->type != LP_VALUE_NONE) {
     for (i = 0; i < p_r_factors_size; ++ i) {
       // Get the sign of the polynomials
-      int sgn = lp_polynomial_sgn(p_r_factors[i], map->m);
+      int sgn = lp_polynomial_sgn(p_r_factors[i], map->lp_data->lp_assignment);
       if (sgn == 0) {
         if (p_r_zero == NULL) {
           p_r_zero = p_r_factors[i];
@@ -341,24 +314,15 @@ void lp_projection_map_add(lp_projection_map_t* map, const lp_polynomial_t* p) {
   lp_polynomial_delete(p_r);
 }
 
-static
-const lp_variable_order_t* lp_projection_map_variable_cmp_order = 0;
-
-int lp_projection_map_variable_cmp(const void* x, const void* y) {
-  lp_variable_t x_var = *(lp_variable_t*)x;
-  lp_variable_t y_var = *(lp_variable_t*)y;
-  return lp_variable_order_cmp(lp_projection_map_variable_cmp_order, x_var, y_var);
-}
-
 void lp_projection_map_order_vars(lp_projection_map_t* map) {
-  lp_variable_list_order(&map->all_vars, map->ctx->var_order);
-  lp_variable_list_order(&map->unprojected_vars, map->ctx->var_order);
+  lp_variable_list_order(&map->all_vars, map->lp_data->lp_var_order);
+  lp_variable_list_order(&map->unprojected_vars, map->lp_data->lp_var_order);
 }
 
 lp_variable_t lp_projection_map_pop_top_unprojected_var(lp_projection_map_t* map) {
   if (lp_variable_list_size(&map->unprojected_vars) > 0) {
     // Sort all unprojected variable based on order
-    lp_variable_list_order(&map->unprojected_vars, map->ctx->var_order);
+    lp_variable_list_order(&map->unprojected_vars, map->lp_data->lp_var_order);
     lp_variable_t top = lp_variable_list_top(&map->unprojected_vars);
     lp_variable_list_pop(&map->unprojected_vars);
     return top;
@@ -372,7 +336,7 @@ int lp_projection_map_print(const lp_projection_map_t* map, FILE* out) {
   size_t i = 0;
   for (i = 0; i < map->all_vars.list_size; ++ i) {
     lp_variable_t x = map->all_vars.list[i];
-    ret += fprintf(out, "%s : ", lp_variable_db_get_name(map->ctx->var_db, x));
+    ret += fprintf(out, "%s : ", lp_variable_db_get_name(map->lp_data->lp_var_db, x));
     int_hmap_pair_t* find = int_hmap_find((int_hmap_t*) &map->var_to_index_map, x);
     assert(find != NULL);
     const lp_polynomial_hash_set_t* x_set = map->data + find->val;
@@ -415,10 +379,9 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
     case ROOT_ATOM_LEQ:
       root_atom = mk_arith_term_leq0(tm, p_term);
       break;
-    case ROOT_ATOM_EQ: {
+    case ROOT_ATOM_EQ:
       root_atom = mk_arith_term_eq0(tm, p_term);
       break;
-    }
     case ROOT_ATOM_NEQ:
       root_atom = mk_arith_term_neq0(tm, p_term);
       break;
@@ -434,15 +397,15 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
   } else {
     // Regular root atom
     if (map->use_root_constraints_for_cells) {
-      term_t x_term = lp_projection_map_var_to_term(map, x);
+      term_t x_term = lp_data_get_term_from_lp_variable(map->lp_data, x);
       term_t p_term = lp_projection_map_polynomial_to_term(map, p);
       root_atom = mk_arith_root_atom(tm, root_index, x_term, p_term, r);
     } else {
       // Add all the derivatives according to the sign in the current model, disregard the root type
       lp_polynomial_t* current = lp_polynomial_new_copy(p);
-      lp_polynomial_t* current_d = lp_polynomial_new(map->ctx);
+      lp_polynomial_t* current_d = lp_data_new_polynomial(map->lp_data);
       while (!lp_polynomial_is_constant(current)) {
-        int current_sgn = lp_polynomial_sgn(current, map->m);
+        int current_sgn = lp_polynomial_sgn(current, map->lp_data->lp_assignment);
         term_t current_term = lp_projection_map_polynomial_to_term(map, current);
         term_t current_literal;
         if (current_sgn < 0) {
@@ -497,9 +460,12 @@ int polynomial_cmp(const void* p1_void, const void* p2_void) {
 /**
  * Simplify 0-polynomials with the GCD.
  */
-void gcd_simplify_zero(const lp_polynomial_context_t* ctx, lp_polynomial_t** polys, size_t* size, const lp_assignment_t* m) {
+static
+void gcd_simplify_zero(const lp_data_t *lp_data, lp_polynomial_t** polys, size_t* size) {
+  const lp_assignment_t* m = lp_data->lp_assignment;
+
   // Temp for GCD computation
-  lp_polynomial_t* gcd = lp_polynomial_new(ctx);
+  lp_polynomial_t* gcd = lp_data_new_polynomial(lp_data);
 
   uint32_t i, j, to_keep = 0;
   for (i = 0; i < *size; ++ i) {
@@ -561,7 +527,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   // Simplify the polynomials that evaluate to zero based on gcd:
   //   * If two polynomials evaluate to 0, and their gcd also evaluates to 0,
   //     we can remove both of them and replace them by the gcd.
-  gcd_simplify_zero(map->ctx, x_set->data, &x_set->size, map->m);
+  gcd_simplify_zero(map->lp_data, x_set->data, &x_set->size);
 
   // Sort the polynomials by degree
   qsort(x_set->data, x_set->size, sizeof(lp_polynomial_t*), polynomial_cmp);
@@ -603,7 +569,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     assert(p_deg > 0);
     lp_value_t* p_roots = safe_malloc(sizeof(lp_value_t)*p_deg);
     size_t p_roots_size = 0;
-    lp_polynomial_roots_isolate(p, map->m, p_roots, &p_roots_size);
+    lp_polynomial_roots_isolate(p, map->lp_data->lp_assignment, p_roots, &p_roots_size);
 
     if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "roots = ");
@@ -618,7 +584,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     }
 
     // Binary search for the current value x_v
-    const lp_value_t* x_v = lp_assignment_get_value(map->m, x);
+    const lp_value_t* x_v = lp_assignment_get_value(map->lp_data->lp_assignment, x);
     if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
       ctx_trace_printf(ctx, "x_v = ");
       lp_value_print(x_v, ctx_trace_out(ctx));
@@ -760,7 +726,7 @@ void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** poly
   size_t q_deg = lp_polynomial_degree(q);
 
   uint32_t psc_size = p_deg > q_deg ? q_deg + 1 : p_deg + 1;
-  polynomial_buffer_ensure_size(polynomial_buffer, polynomial_buffer_size, psc_size, map->ctx);
+  polynomial_buffer_ensure_size(polynomial_buffer, polynomial_buffer_size, psc_size, map->lp_data->lp_ctx);
 
   // Get the psc
   lp_polynomial_psc(*polynomial_buffer, p, q);
@@ -770,7 +736,7 @@ void lp_projection_map_add_psc(lp_projection_map_t* map, lp_polynomial_t*** poly
     // Add it
     lp_projection_map_add(map, (*polynomial_buffer)[psc_i]);
     // If it doesn't vanish we're done
-    if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->m)) {
+    if (lp_polynomial_sgn((*polynomial_buffer)[psc_i], map->lp_data->lp_assignment)) {
       break;
     }
   }
@@ -791,14 +757,14 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
     lp_variable_list_construct(&vars);
     lp_polynomial_get_variables(p, &vars);
     lp_polynomial_get_variables(q, &vars);
-    lp_variable_list_order(&vars, map->ctx->var_order);
+    lp_variable_list_order(&vars, map->lp_data->lp_var_order);
 
     uint32_t i;
     for (i = 0; i < vars.list_size; ++ i) {
       lp_variable_t var = vars.list[i];
-      const lp_value_t* v = lp_assignment_get_value(map->m, var);
+      const lp_value_t* v = lp_assignment_get_value(map->lp_data->lp_assignment, var);
       if (v->type != LP_VALUE_NONE) {
-        ctx_trace_printf(map->plugin_ctx, "%s -> ", lp_variable_db_get_name(map->ctx->var_db, var));
+        ctx_trace_printf(map->plugin_ctx, "%s -> ", lp_variable_db_get_name(map->lp_data->lp_var_db, var));
         lp_value_print(v, ctx_trace_out(map->plugin_ctx));
         ctx_trace_printf(map->plugin_ctx, "\n");
       }
@@ -807,7 +773,7 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
     lp_variable_list_destruct(&vars);
   }
 
-  lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->m);
+  lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->lp_data->lp_assignment);
 
   if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::mgcd")) {
     ctx_trace_printf(map->plugin_ctx, "mgcd done: \n");
@@ -831,11 +797,11 @@ void lp_projection_map_reduce(lp_projection_map_t* map, lp_variable_t x, const l
   assert(p != p_r);
   assert(lp_polynomial_top_variable(p) == x);
 
-  lp_polynomial_t* p_coeff = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* p_coeff =  lp_data_new_polynomial(map->lp_data);
 
   uint32_t p_deg = lp_polynomial_degree(p);
 
-  lp_polynomial_reductum_m(p_r, p, map->m);
+  lp_polynomial_reductum_m(p_r, p, map->lp_data->lp_assignment);
   uint32_t p_r_deg = lp_polynomial_top_variable(p_r) == x ? lp_polynomial_degree(p_r) : 0;
 
   // Add the vanishing initial coefficients (this includes the top reduced, hence the content)
@@ -861,9 +827,9 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
   // Temps
   const lp_polynomial_t* p = 0;
   const lp_polynomial_t* q = 0;
-  lp_polynomial_t* p_r = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* q_r = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* p_r_d = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* p_r = lp_data_new_polynomial(map->lp_data);
+  lp_polynomial_t* q_r = lp_data_new_polynomial(map->lp_data);
+  lp_polynomial_t* p_r_d = lp_data_new_polynomial(map->lp_data);
 
   // PSC buffer
   lp_polynomial_t** polynomial_buffer = 0;
@@ -871,8 +837,8 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
 
   const lp_polynomial_t* x_cell_a_p = NULL;
   const lp_polynomial_t* x_cell_b_p = NULL;
-  lp_polynomial_t* x_cell_a_p_r = lp_polynomial_new(map->ctx);
-  lp_polynomial_t* x_cell_b_p_r = lp_polynomial_new(map->ctx);
+  lp_polynomial_t* x_cell_a_p_r = lp_data_new_polynomial(map->lp_data);
+  lp_polynomial_t* x_cell_b_p_r = lp_data_new_polynomial(map->lp_data);
 
   // Order the variables 
   lp_projection_map_order_vars(map);
@@ -893,7 +859,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
     }
 
     if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
-      ctx_trace_printf(map->plugin_ctx, "x = %s\n", lp_variable_db_get_name(map->ctx->var_db, x));
+      ctx_trace_printf(map->plugin_ctx, "x = %s\n", lp_variable_db_get_name(map->lp_data->lp_var_db, x));
     }
 
     // Get the set of polynomials to project
@@ -910,11 +876,11 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
     //   - relationship between p in L, and l
     //   - relationship between p in U, and u
     //   - relationship between l and u
-    bool top = lp_assignment_get_value(map->m, x)->type == LP_VALUE_NONE;
+    bool top = lp_assignment_get_value(map->lp_data->lp_assignment, x)->type == LP_VALUE_NONE;
     bool output_cell = (cell_variables == NULL || int_hset_member(cell_variables, x));
 
 #if TRACE
-    fprintf(stderr, "Projecting variable: %s\n", lp_variable_db_get_name(map->ctx->var_db, x));
+    fprintf(stderr, "Projecting variable: %s\n", lp_variable_db_get_name(map->lp_data->lp_var_db, x));
 #endif
 
     if (!top) {
@@ -1007,7 +973,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
             }
 
             // Reductum
-            lp_polynomial_reductum_m(q_r, q, map->m);
+            lp_polynomial_reductum_m(q_r, q, map->lp_data->lp_assignment);
             uint32_t q_r_deg = lp_polynomial_top_variable(q_r) == x ? lp_polynomial_degree(q_r) : 0;
 
             // No need to work on univariate ones
@@ -1078,6 +1044,98 @@ bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
   return false;
 }
 
+/** Try to resolve the two constraints with Fourier-Motzkin resolution */
+static
+bool
+poly_constraint_resolve_fm(nra_plugin_t *nra,
+                           const poly_constraint_t *c0, bool c0_negated,
+                           const poly_constraint_t *c1, bool c1_negated,
+                           ivector_t *out) {
+
+  lp_polynomial_context_t* ctx = nra->lp_data.lp_ctx;
+  lp_assignment_t* m = nra->lp_data.lp_assignment;
+
+  if (poly_constraint_is_root_constraint(c0) || poly_constraint_is_root_constraint(c1)) {
+    return false;
+  }
+
+  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+    ctx_trace_printf(nra->ctx, "c0 %s: ", c0_negated ? "(negated)" : "");
+    poly_constraint_print(c0, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+    ctx_trace_printf(nra->ctx, "c1 %s: ", c1_negated ? "(negated)" : "");
+    poly_constraint_print(c1, ctx_trace_out(nra->ctx));
+    ctx_trace_printf(nra->ctx, "\n");
+  }
+
+  lp_polynomial_vector_t* assumptions = lp_polynomial_vector_new(ctx);
+
+  lp_sign_condition_t R_sgn_condition;
+  lp_polynomial_t* R = lp_polynomial_new(ctx);
+  lp_sign_condition_t c0_sgn_condition = c0_negated ? lp_sign_condition_negate(c0->sgn_condition) : c0->sgn_condition;
+  lp_sign_condition_t c1_sgn_condition = c1_negated ? lp_sign_condition_negate(c1->sgn_condition) : c1->sgn_condition;
+  bool ok = lp_polynomial_constraint_resolve_fm(c0->polynomial, c0_sgn_condition, c1->polynomial, c1_sgn_condition, m, R, &R_sgn_condition, assumptions);
+  if (ok) {
+    // (C1 && C2 && assumptions && !(p R2 0)) => false
+    term_manager_t* tm = nra->ctx->tm;
+    size_t n = lp_polynomial_vector_size(assumptions);
+    size_t i;
+    for (i = 0; i < n; ++ i) {
+      lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
+      term_t assumption_i_p_term = lp_polynomial_to_yices_term_nra(nra, assumption_p_i);
+      int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
+      //      term_t assumption_i = NULL_TERM; // infer dead store
+      term_t assumption_i;
+      if (assumption_i_p_sgn < 0) {
+        assumption_i = mk_arith_term_lt0(tm, assumption_i_p_term);
+      } else if (assumption_i_p_sgn > 0) {
+        assumption_i = mk_arith_term_gt0(tm, assumption_i_p_term);
+      } else {
+        assumption_i = mk_arith_term_eq0(tm, assumption_i_p_term);
+      }
+      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+        ctx_trace_printf(nra->ctx, "adding FM assumption: ");
+        ctx_trace_term(nra->ctx, assumption_i);
+      }
+      ivector_push(out, assumption_i);
+      lp_polynomial_delete(assumption_p_i);
+    }
+    term_t R_p_term = lp_polynomial_to_yices_term_nra(nra, R);
+    term_t R_term = NULL_TERM;
+    switch (R_sgn_condition) {
+    case LP_SGN_LT_0:
+      R_term = mk_arith_term_lt0(tm, R_p_term);
+      break;
+    case LP_SGN_LE_0:
+      R_term = mk_arith_term_leq0(tm, R_p_term);
+      break;
+    case LP_SGN_EQ_0:
+      R_term = mk_arith_term_eq0(tm, R_p_term);
+      break;
+    case LP_SGN_NE_0:
+      R_term = mk_arith_term_neq0(tm, R_p_term);
+      break;
+    case LP_SGN_GT_0:
+      R_term = mk_arith_term_gt0(tm, R_p_term);
+      break;
+    case LP_SGN_GE_0:
+      R_term = mk_arith_term_geq0(tm, R_p_term);
+      break;
+    }
+    R_term = opposite_term(R_term);
+    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
+      ctx_trace_printf(nra->ctx, "adding resolvent: ");
+      ctx_trace_term(nra->ctx, R_term);
+    }
+    ivector_push(out, R_term);
+  }
+
+  lp_polynomial_delete(R);
+  lp_polynomial_vector_delete(assumptions);
+
+  return ok;
+}
+
 void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
 
@@ -1115,7 +1173,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
     bool c1_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c1_var);
     const poly_constraint_t* c0 = poly_constraint_db_get(nra->constraint_db, c0_var);
     const poly_constraint_t* c1 = poly_constraint_db_get(nra->constraint_db, c1_var);
-    bool resolved = poly_constraint_resolve_fm(c0, c0_negated, c1, c1_negated, nra, conflict);
+    bool resolved = poly_constraint_resolve_fm(nra, c0, c0_negated, c1, c1_negated, conflict);
     if (resolved) {
       term_t c0_term = variable_db_get_term(nra->ctx->var_db, c0_var);
       if (c0_negated) c0_term = opposite_term(c0_term);
@@ -1147,7 +1205,8 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
       bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
       variable_t conflict_var = nra->conflict_variable;
       if (conflict_var == variable_null) conflict_var = nra->conflict_variable_int;
-      lp_variable_t x = nra_plugin_get_lp_variable(nra, conflict_var);
+      term_t t = variable_db_get_term(nra->ctx->var_db, conflict_var);
+      lp_variable_t x = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
       if (p_inference_reason != NULL) {
         is_inference = true;
@@ -1217,8 +1276,8 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  * Add the polynomial from the constraint to the projection map.
  * - We don't care about polarity, we just care about the polynomial.
  */
-void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int_hmap_t* term_to_lp_map) {
-
+static
+void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, lp_data_t* lp_data) {
   term_t t1, t2;
 
   term_table_t* terms = map->tm->terms;
@@ -1230,13 +1289,13 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int
   case ARITH_EQ_ATOM: {
     // p == 0
     t1 = arith_atom_arg(terms, cstr);
-    cstr_polynomial = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, NULL);
+    cstr_polynomial = lp_polynomial_from_term(lp_data, t1, terms, NULL);
     break;
   }
   case ARITH_GE_ATOM:
     // p >= 0
     t1 = arith_atom_arg(terms, cstr);
-    cstr_polynomial = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, NULL);
+    cstr_polynomial = lp_polynomial_from_term(lp_data, t1, terms, NULL);
     break;
   case EQ_TERM:
   case ARITH_BINEQ_ATOM: {
@@ -1247,15 +1306,15 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, int
     lp_integer_t t1_c, t2_c;
     lp_integer_construct(&t1_c);
     lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_from_term(t1, terms, term_to_lp_map, map->ctx, &t1_c);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term(t2, terms, term_to_lp_map, map->ctx, &t2_c);
+    lp_polynomial_t* t1_p = lp_polynomial_from_term(lp_data, t1, terms, &t1_c);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term(lp_data, t2, terms, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
     lp_polynomial_mul_integer(t1_p, t1_p, &t2_c);
     lp_polynomial_mul_integer(t2_p, t2_p, &t1_c);
     // Add them
-    cstr_polynomial = lp_polynomial_new(map->ctx);
+    cstr_polynomial = lp_data_new_polynomial(map->lp_data);
     lp_polynomial_add(cstr_polynomial, t1_p, t2_p);
     // Remove temps
     lp_polynomial_delete(t1_p);
@@ -1281,24 +1340,8 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
 
   uint32_t i;
 
-  // Mapping from terms to libpoly variables and back
-  int_hmap_t lp_var_to_term_map;
-  int_hmap_t term_to_lp_var_map;
-  init_int_hmap(&lp_var_to_term_map, 0);
-  init_int_hmap(&term_to_lp_var_map, 0);
-
-  // Variable database
-  lp_variable_db_t* lp_var_db = lp_variable_db_new();
-
-  // The variable order
-  lp_variable_order_t* lp_var_order = lp_variable_order_new();
-
-  // Libpoly context
-  lp_polynomial_context_t* lp_ctx = lp_polynomial_context_new(lp_Z, lp_var_db, lp_var_order);
-
-  // Assignment
-  lp_assignment_t lp_assignment;
-  lp_assignment_construct(&lp_assignment, lp_var_db);
+  lp_data_t lp_data;
+  lp_data_init(&lp_data, NULL, NULL);
 
   // Set of variables we're keeping
   int_hset_t vars_to_keep_set;
@@ -1313,7 +1356,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_variable_from_term(x, tm->terms, lp_var_db);
+    lp_variable_t x_lp = lp_data_add_lp_variable(&lp_data, tm->terms, x);
 
     // We're keeping this var
     int_hset_add(&vars_to_keep_set, x_lp);
@@ -1322,10 +1365,6 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     fprintf(stderr, "Adding variable to keep: %s\n", lp_variable_db_get_name(lp_var_db, x_lp));
 #endif
 
-    // Add variables to map
-    int_hmap_add(&lp_var_to_term_map, x_lp, x);
-    int_hmap_add(&term_to_lp_var_map, x, x_lp);
-
     // Get the value in the model
     value_t x_value = model_get_term_value(mdl, x);
     assert(x_value >= 0);
@@ -1333,17 +1372,14 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     mcsat_value_construct_from_value(&x_value_mcsat, &mdl->vtbl, x_value);
     const mcsat_value_t *x_value_lp = ensure_lp_value(&x_value_mcsat, &x_value_tmp);
 
-    // Set the model value
-    lp_assignment_set_value(&lp_assignment, x_lp, &x_value_lp->lp_value);
+    // Set the model value and push to order
+    lp_data_add_to_model_and_context(&lp_data, x_lp, &x_value_lp->lp_value);
 
     // Delete the temps
     mcsat_value_destruct(&x_value_mcsat);
     if (x_value_lp == &x_value_tmp) {
       mcsat_value_destruct(&x_value_tmp);
     }
-
-    // Also add to the order
-    lp_variable_order_push(lp_var_order, x_lp);
   }
 
   // Add all the variables we're eliminating
@@ -1355,15 +1391,11 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
       continue;
     }
 
-    lp_variable_t x_lp = lp_variable_from_term(x, tm->terms, lp_var_db);
+    lp_variable_t x_lp = lp_data_add_lp_variable(&lp_data, tm->terms, x);
 
 #if TRACE
     fprintf(stderr, "Adding variable to eliminate: %s\n", lp_variable_db_get_name(lp_var_db, x_lp));
 #endif
-
-    // Add variables to map
-    int_hmap_add(&lp_var_to_term_map, x_lp, x);
-    int_hmap_add(&term_to_lp_var_map, x, x_lp);
 
     // Get the value in the model
     value_t x_value = model_get_term_value(mdl, x);
@@ -1372,22 +1404,19 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     mcsat_value_construct_from_value(&x_value_mcsat, &mdl->vtbl, x_value);
     const mcsat_value_t *x_value_lp = ensure_lp_value(&x_value_mcsat, &x_value_tmp);
 
-    // Set the model value
-    lp_assignment_set_value(&lp_assignment, x_lp, &x_value_lp->lp_value);
+    // Set the model value and push to order
+    lp_data_add_to_model_and_context(&lp_data, x_lp, &x_value_lp->lp_value);
 
     // Delete the temps
     mcsat_value_destruct(&x_value_mcsat);
     if (x_value_lp == &x_value_tmp) {
       mcsat_value_destruct(&x_value_tmp);
     }
-
-    // Also add to the order
-    lp_variable_order_push(lp_var_order, x_lp);
   }
 
-  // Setup the projection
+  // Set up the projection
   lp_projection_map_t projector;
-  lp_projection_map_construct(&projector, lp_ctx, &lp_assignment, tm, NULL, &lp_var_to_term_map, false, false);
+  lp_projection_map_construct(&projector, tm, &lp_data, NULL, NULL, false, false);
   projector.use_root_constraints_for_cells = false;
 
   // Add all the literals
@@ -1398,7 +1427,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
     print_term(stderr, tm->terms, l);
     fprintf(stderr, "\n");
 #endif
-    lp_projection_map_add_constraint(&projector, l, &term_to_lp_var_map);
+    lp_projection_map_add_constraint(&projector, l, &lp_data);
   }
 
   // Project
@@ -1417,14 +1446,7 @@ int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manag
   // Delete temps
   lp_projection_map_destruct(&projector);
   delete_int_hset(&vars_to_keep_set);
-  lp_variable_db_detach(lp_var_db);
-  lp_variable_order_detach(lp_var_order);
-  lp_polynomial_context_detach(lp_ctx);
-  lp_assignment_destruct(&lp_assignment);
-  delete_int_hmap(&term_to_lp_var_map);
-  delete_int_hmap(&lp_var_to_term_map);
+  lp_data_destruct(&lp_data);
 
   return 0;
 }
-
-

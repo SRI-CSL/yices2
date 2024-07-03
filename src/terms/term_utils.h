@@ -150,7 +150,7 @@ extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite
  */
 extern bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y);
 extern bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite);
-
+extern bool disequal_arith_ff_terms(term_table_t *tbl, term_t x, term_t y, bool check_ite);
 
 /*
  * Check whether a[i] can't equal b[i] for all i in 0 .. n-1
@@ -215,6 +215,13 @@ extern bool arith_term_is_negative(term_table_t *tbl, term_t t, bool check_ite);
  */
 extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite);
 
+
+/*
+ * Check whether t is a non-zero finite field term (incomplete)
+ * - return true if the checks succeed and determine that t != 0
+ * - return false otherwise
+ */
+extern bool arith_ff_term_is_nonzero(term_table_t *tbl, term_t t, bool check_ite);
 
 
 /*

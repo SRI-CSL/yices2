@@ -935,7 +935,7 @@ void bv_bdd_manager_compute_bdd(bv_bdd_manager_t* bddm, term_t t) {
 BDD** bv_bdd_manager_get_term_bdds(bv_bdd_manager_t* bddm, term_t t, uint32_t bitsize) {
 
   uint32_t i;
-  term_t t_recompute;
+  term_t t_recompute = NULL_TERM;
 
   assert(bddm->visited.nelems == 0);
   assert(bddm->bdd_recompute.size == 0);

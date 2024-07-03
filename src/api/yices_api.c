@@ -1577,6 +1577,17 @@ static inline void type_vector_push(type_vector_t *v, type_t tau) {
  * Otherwise they return false and set the error code and diagnostic data.
  */
 
+// Check whether n (as mpz) is positive
+static bool check_positive_mpz(mpz_t n) {
+  if (mpz_sgn(n) != 1) {
+    error_report_t *error = get_yices_error();
+    error->code = POS_INT_REQUIRED;
+    error->badval = mpz_fits_slong_p(n) ? mpz_get_si(n) : -1;
+    return false;
+  }
+  return true;
+}
+
 // Check whether n is positive
 static bool check_positive(uint32_t n) {
   if (n == 0) {
@@ -1911,6 +1922,21 @@ static bool check_integer_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 #endif
+
+// Check whether t is a finitefield term, t must be valid.
+static bool check_arith_ff_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (! is_finitefield_term(tbl, t)) {
+    error_report_t *error = get_yices_error();
+    error->code = ARITHTERM_REQUIRED;
+    error->term1 = t;
+    return false;
+  }
+  return true;
+}
 
 // Check whether t is a real term, t must be valid.
 static bool check_real_term(term_manager_t *mngr, term_t t) {
@@ -2740,6 +2766,7 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case BITVECTOR_TYPE:
     case SCALAR_TYPE:
       break;
@@ -2838,6 +2865,16 @@ type_t _o_yices_bv_type(uint32_t size) {
     return NULL_TYPE;
   }
   return bv_type(__yices_globals.types, size);
+}
+
+type_t _o_yices_ff_type(mpz_t order) {
+  if (! check_positive_mpz(order)) {
+    return NULL_TYPE;
+  }
+  if (! mpz_probab_prime_p(order, 18)) {
+    return NULL_TYPE;
+  }
+  return ff_type(__yices_globals.types, order);
 }
 
 EXPORTED type_t yices_new_uninterpreted_type(void) {
@@ -7192,6 +7229,19 @@ int32_t _o_yices_rational_const_value(term_t t, mpq_t q) {
   return 0;
 }
 
+EXPORTED int32_t yices_finitefield_const_value(term_t t, mpz_t z) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_finitefield_const_value(t, z));
+}
+
+int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_CONSTANT)) {
+    return -1;
+  }
+  arith_ff_const_value(__yices_globals.terms, t, z);
+  return 0;
+}
+
 
 /*
  * Components of a sum t
@@ -7207,6 +7257,7 @@ EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *t
 int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_SUM) ||
       ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }
@@ -7283,6 +7334,14 @@ term_t arith_buffer_get_lt0_atom(rba_buffer_t *b) {
   return mk_arith_lt0(__yices_globals.manager, b);
 }
 
+term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_term(__yices_globals.manager, b, mod);
+}
+
+term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_eq0(__yices_globals.manager, b, mod);
+}
+
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
@@ -7307,6 +7366,10 @@ term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
 term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   assert(1 <= n && n <= 64 && c == norm64(c, n));
   return bv64_constant(__yices_globals.terms, n, c);
+}
+
+term_t yices_ffconst_term(rational_t *q, rational_t *mod) {
+  return arith_ff_constant(__yices_globals.terms, q, mod);
 }
 
 term_t yices_rational_term(rational_t *q) {
@@ -7351,6 +7414,21 @@ bool yices_check_arith_term(term_t t) {
   return check_good_term(__yices_globals.manager, t) && check_arith_term(__yices_globals.manager, t);
 }
 
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+bool yices_check_arith_ff_term(term_t t) {
+  return check_good_term(__yices_globals.manager, t) && check_arith_ff_term(__yices_globals.manager, t);
+}
 
 /*
  * Check for degree overflow in the product (b * t)
@@ -7369,7 +7447,7 @@ bool yices_check_mul_term(rba_buffer_t *b, term_t t) {
 
   tbl = __yices_globals.terms;
 
-  assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
+  assert(good_term(tbl, t) && (is_arithmetic_term(tbl, t) || is_finitefield_term(tbl, t)));
 
   d1 = rba_buffer_degree(b);
   d2 = term_degree(tbl, t);

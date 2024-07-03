@@ -234,6 +234,15 @@ extern term_t arith_buffer_get_gt0_atom(rba_buffer_t *b);
  */
 extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
 
+/*
+ * similar to arith_buffer_get_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod);
+
+/*
+ * similar to arith_buffer_get_eq0_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod);
 
 /*
  * Convert b to a term then reset b.
@@ -293,6 +302,10 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
  */
 extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
 
+/*
+ * Convert a finite field constant to a term
+ */
+extern term_t yices_ffconst_term(rational_t *q, rational_t *mod);
 
 /*
  * Convert rational q to a term
@@ -333,6 +346,20 @@ extern bool yices_check_boolean_term(term_t t);
  *   term1 = t
  */
 extern bool yices_check_arith_term(term_t t);
+
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+extern bool yices_check_arith_ff_term(term_t t);
 
 
 /*

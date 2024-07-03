@@ -1206,6 +1206,9 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "number can't be converted to a bitvector constant", // TSTACK_INVALID_BVCONSTANT
   "error in bitvector arithmetic operation",  //TSTACK_BVARITH_ERROR
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
+  "Invalid finite field constant",      // TSTACK_INVALID_FFCONSTANT
+  "invalid finite field order",         // TSTACK_INVALID_FFCONSTANT
+  "incompatible finite field sizes",    // TSTACK_INCOMPATIBLE_FFSIZES
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
   "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
   "variables and values not matching",  // TSTACK_VARIABLES_VALUES_NOT_MATCHING
@@ -1249,6 +1252,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "sort-variable declaration", // DECLARE_TYPE_VAR
   "let",                  // LET
   "BitVec",               // MK_BV_TYPE
+  "FiniteField",          // MK_FF_TYPE
   NULL,                   // MK_SCALAR_TYPE
   NULL,                   // MK_TUPLE_TYPE
   "function type",        // MK_FUN_TYPE
@@ -1336,9 +1340,13 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "divides",              // MK_DIVIDES (not in SMT2 --> divisible)
   "is_int",               // MK_IS_INT
 
+  "ff.constant",          // MK_FF_CONST
+  "ff.add",               // MK_FF_ADD
+  "ff.mul",               // MK_FF_MUL
+
   "build term",           // BUILD_TERM
   "build_type",           // BUILD_TYPE
-  //
+
   "exit",                 // SMT2_EXIT
   "end of file",          // SMT2_SILENT_EXIT
   "get-assertions",       // SMT2_GET_ASSERTIONS
@@ -1358,7 +1366,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "assert",               // SMT2_ASSERT,
   "check-sat",            // SMT2_CHECK_SAT,
   "check-sat-assuming",   // SMT2_CHECK_SAT_ASSUMING,
-  "check-sat-assuming-model" // SMT2_CHECK_SAT_ASSUMING_MODEL
+  "check-sat-assuming-model", // SMT2_CHECK_SAT_ASSUMING_MODEL
   "declare-sort",         // SMT2_DECLARE_SORT
   "define-sort",          // SMT2_DEFINE_SORT
   "declare-fun",          // SMT2_DECLARE_FUN
@@ -1451,7 +1459,6 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     }
     break;
 
-
   case TSTACK_RATIONAL_FORMAT:
   case TSTACK_FLOAT_FORMAT:
   case TSTACK_BVBIN_FORMAT:
@@ -1477,7 +1484,10 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
   case TSTACK_INCOMPATIBLE_BVSIZES:
+  case TSTACK_INCOMPATIBLE_FFSIZES:
+  case TSTACK_INVALID_FFSIZE:
   case TSTACK_INVALID_BVCONSTANT:
+  case TSTACK_INVALID_FFCONSTANT:
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
@@ -1549,10 +1559,16 @@ static void show_status(smt_status_t status) {
 static void report_status(smt2_globals_t *g, smt_status_t status) {
   switch (status) {
   case STATUS_UNKNOWN:
-  case STATUS_SAT:
   case STATUS_UNSAT:
   case YICES_STATUS_INTERRUPTED:
     show_status(status);
+    break;
+
+  case STATUS_SAT:
+    show_status(status);
+    if (g->dump_models) {
+      smt2_get_model();
+    }
     break;
 
   case STATUS_ERROR:
@@ -2906,6 +2922,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
       break;
 
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
       result = false;
@@ -2924,6 +2941,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
       result = needs_egraph(seen, arith_root_atom_desc(terms, t)->p);
       break;
 
+    case ARITH_FF_EQ_ATOM:
+      result = needs_egraph(seen, arith_ff_eq_arg(terms, t));
+      break;
+
     case ITE_TERM:
     case ITE_SPECIAL:
     case EQ_TERM:
@@ -2935,6 +2956,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
     case ARITH_IDIV:
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
     case BV_ARRAY:
     case BV_DIV:
     case BV_REM:
@@ -2969,6 +2991,10 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 
     case ARITH_POLY:
       result = poly_needs_egraph(seen, poly_term_desc(terms, t));
+      break;
+
+    case ARITH_FF_POLY:
+      result = poly_needs_egraph(seen, finitefield_poly_term_desc(terms, t));
       break;
 
     case BV64_POLY:
@@ -3065,9 +3091,9 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
        */
       code = export_delayed_assertions(g->ctx, g->assertions.size, g->assertions.data, g->dimacs_file);
       if (code < 0) {
-	print_yices_error(true);
-	done = true;
-	return;
+        print_yices_error(true);
+        done = true;
+        return;
       }
 
     } else {
@@ -3076,42 +3102,42 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
        */
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
       if (code < 0) {
-	// error during assertion processing
-	print_yices_error(true);
-	done = true;
-	return;
+        // error during assertion processing
+        print_yices_error(true);
+        done = true;
+        return;
       }
 
       if (g->delegate != NULL && g->logic_code == QF_BV) {
-	/*
-	 * Special case: QF_BV with delegate
-	 */
-	if (g->dimacs_file == NULL) {
-	  status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-	} else {
-	  code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
-	  if (code < 0) {
-	    perror(g->dimacs_file);
-	    exit(YICES_EXIT_SYSTEM_ERROR);
-	  }
-	  if (status == STATUS_UNKNOWN) {
-	    // don't print anything
-	    return;
-	  }
-	}
+        /*
+         * Special case: QF_BV with delegate
+         */
+        if (g->dimacs_file == NULL) {
+          status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+        } else {
+          code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
+          if (code < 0) {
+            perror(g->dimacs_file);
+            exit(YICES_EXIT_SYSTEM_ERROR);
+          }
+          if (status == STATUS_UNKNOWN) {
+            // don't print anything
+            return;
+          }
+        }
       } else {
-	/*
-	 * Regular check
-	 */
-	init_search_parameters(g);
-	if (g->random_seed != 0) {
-	  g->parameters.random_seed = g->random_seed;
-	}
-	status = check_sat_with_timeout(g, &g->parameters);
+        /*
+         * Regular check
+         */
+        init_search_parameters(g);
+        if (g->random_seed != 0) {
+          g->parameters.random_seed = g->random_seed;
+        }
+        status = check_sat_with_timeout(g, &g->parameters);
       }
 
       if (report)
-	report_status(g, status);
+        report_status(g, status);
     }
   }
 }
@@ -3715,9 +3741,9 @@ static model_t *get_model(smt2_globals_t *g) {
       } else if (g->trivially_unsat) {
         print_error("the context is unsatisfiable");
       } else {
-	// g->model should be not be NULL
-	assert(g->trivially_sat);
-	freport_bug(__smt2_globals.err, "get-model");
+        // g->model should be not NULL
+        assert(g->trivially_sat);
+        freport_bug(__smt2_globals.err, "get-model");
       }
 
     } else {
@@ -4309,11 +4335,11 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
     case STATUS_UNSAT:
       unsat_model_interpolant = context_get_unsat_model_interpolant(g->ctx);
       if (unsat_model_interpolant == NULL_TERM) {
-	print_error("Call (check-sat-assuming-model) first");
+        print_error("Call (check-sat-assuming-model) first");
       } else {
-	init_pretty_printer(&printer, g);
-	pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
-	delete_smt2_pp(&printer, true);
+        init_pretty_printer(&printer, g);
+        pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
+        delete_smt2_pp(&printer, true);
       }
       break;
 
@@ -4580,6 +4606,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->verbosity = 0;
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
+  g->dump_models = false;
   g->nthreads = 0;
   g->timeout = 0;
   g->to = NULL;
@@ -5414,6 +5441,10 @@ void smt2_get_option(const char *name) {
     print_uint32_value(g->verbosity);
     break;
 
+  case SMT2_KW_DUMP_MODELS:
+    print_boolean_value(g->dump_models);
+    break;
+
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     print_boolean_value(g->produce_unsat_assumptions);
     break;
@@ -6220,6 +6251,10 @@ void smt2_set_option(const char *name, aval_t value) {
     set_verbosity(g, name, value);
     break;
 
+  case SMT2_KW_DUMP_MODELS:
+    set_boolean_option(g, name, value, &g->dump_models);
+    break;
+
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     // optional: if true, get-unsat-assumptions can be used
     if (option_can_be_set(name)) {
@@ -6683,15 +6718,15 @@ void smt2_check_sat(void) {
       } else if (__smt2_globals.produce_unsat_cores) {
         delayed_assertions_unsat_core(&__smt2_globals);
       } else {
-	//	show_delayed_assertions(&__smt2_globals);
+        // show_delayed_assertions(&__smt2_globals);
 #ifndef THREAD_SAFE
         check_delayed_assertions(&__smt2_globals, /*report=*/true);
 #else
         if (__smt2_globals.nthreads == 0) {
           check_delayed_assertions(&__smt2_globals, /*report=*/true);
         } else {
-	  check_delayed_assertions_mt(&__smt2_globals);
-	}
+          check_delayed_assertions_mt(&__smt2_globals);
+        }
 #endif
       }
     } else {

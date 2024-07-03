@@ -570,6 +570,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "reserved",
   "constant",
   "arith-const",
+  "arith-ff-const",
   "bv64-const",
   "bv-const",
   "variable",
@@ -581,6 +582,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "ceil",
   "abs",
   "arith-root-atom",
+  "arith-ff-eq",
   "ite",
   "s-ite",
   "app", // function application
@@ -597,6 +599,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "div",
   "mod",
   "divides",
+  "arith-ff-bineq",
   "bool-to-bv",
   "bvdiv",
   "bvrem",
@@ -613,6 +616,7 @@ static const char * const tag2string[NUM_TERM_KINDS] = {
   "bit",
   "pprod",
   "arith-poly",
+  "arith-ff-poly",
   "bv64-poly",
   "bv-poly",
 };
@@ -1814,6 +1818,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
 
   0,                 //  CONSTANT_TERM
   0,                 //  ARITH_CONSTANT
+  0,                 //  ARITH_FF_CONSTANT
   0,                 //  BV64_CONSTANT
   0,                 //  BV_CONSTANT
 
@@ -1827,6 +1832,8 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_CEIL,      //  ARITH_CEIL
   PP_OPEN_ABS,       //  ARITH_ABS
   PP_OPEN_ROOT_ATOM, //  ARITH_ROOT_ATOM
+
+  PP_OPEN_EQ,        // ARITH_FF_EQ_ATOM
 
   PP_OPEN_ITE,       //  ITE_TERM
   PP_OPEN_ITE,       //  ITE_SPECIAL
@@ -1844,6 +1851,9 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_IDIV,      //  ARITH_IDIV
   PP_OPEN_IMOD,      //  ARITH_MOD
   PP_OPEN_DIVIDES,   //  ARITH_DIVIDES_ATOM
+
+  PP_OPEN_EQ,        // ARITH_FF_BINEQ_ATOM
+
   PP_OPEN_BV_ARRAY,  //  BV_ARRAY
   PP_OPEN_BV_DIV,    //  BV_DIV
   PP_OPEN_BV_REM,    //  BV_REM
@@ -1862,6 +1872,7 @@ static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
 
   PP_OPEN_PROD,      //  POWER_PRODUCT
   PP_OPEN_SUM,       //  ARITH_POLY
+  PP_OPEN_SUM,       //  ARITH_FF_POLY
   PP_OPEN_SUM,       //  BV64_POLY
   PP_OPEN_SUM,       //  BV_POLY
 };
@@ -2333,6 +2344,16 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
   pp_bv64(printer, d->value, d->bitsize);
 }
 
+static void pp_finitefield_term(yices_pp_t *printer, const rational_t *v, const rational_t *mod) {
+  value_ff_t val;
+  q_init(&val.mod);
+  q_init(&val.value);
+  q_set(&val.mod, mod);
+  q_set(&val.value, v);
+  pp_finitefield(printer, &val);
+  q_clear(&val.mod);
+  q_clear(&val.value);
+}
 
 
 /*
@@ -2504,6 +2525,12 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     pp_rational(printer, rational_for_idx(tbl, i));
     break;
 
+  case ARITH_FF_CONSTANT:
+    assert(polarity);
+    type_t tau = type_for_idx(tbl, i);
+    pp_finitefield_term(printer, rational_for_idx(tbl, i), ff_type_size(tbl->types, tau));
+    break;
+
   case BV64_CONSTANT:
     assert(polarity);
     pp_bvconst64_term(printer, bvconst64_for_idx(tbl, i));
@@ -2515,6 +2542,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     break;
 
   case ARITH_EQ_ATOM:
+  case ARITH_FF_EQ_ATOM:
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_open_block(printer, op);
     pp_term_recur(printer, tbl, integer_value_for_idx(tbl, i), level - 1, true);
@@ -2564,6 +2592,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
 
   case EQ_TERM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
   case BV_EQ_ATOM:
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_binary_atom(printer, tbl, op, composite_for_idx(tbl, i), level - 1);
@@ -2626,6 +2655,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     assert(polarity);
     pp_poly(printer, tbl, polynomial_for_idx(tbl, i), level - 1);
     break;

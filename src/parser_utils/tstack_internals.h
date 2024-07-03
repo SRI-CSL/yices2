@@ -281,6 +281,11 @@ extern void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 extern void sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 extern void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 
+// finite field arithmetic
+extern void ff_add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void ff_sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void ff_mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+
 // bitvector arithmetic for size <= 64
 extern void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e);
 extern void bva64_sub_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e);
@@ -353,7 +358,9 @@ extern void set_binding_result(tstack_t *stack, term_t t, char *symbol);
 extern void set_type_binding_result(tstack_t *stack, type_t, char *symbol);
 extern void set_bv64_result(tstack_t *stack, uint32_t nbits, uint64_t c);
 extern void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv);
+extern void set_ff_result(tstack_t *stack, rational_t *r, rational_t *m);
 extern void set_arith_result(tstack_t *stack, rba_buffer_t *b);
+extern void set_arith_ff_result(tstack_t *stack, rba_buffer_t *b, rational_t *mod);
 extern void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b);
 extern void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b);
 extern void set_bvlogic_result(tstack_t *stack, bvlogic_buffer_t *b);

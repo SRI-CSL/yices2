@@ -132,15 +132,15 @@ static void term_table_extend(indexed_table_t *t) {
 static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl, pprod_table_t *ptbl) {
   /* The indexed_table_elem_t must be first. */
   assert(offsetof(term_desc_t, elem) == 0);
-  
+
   static const indexed_table_vtbl_t vtbl = {
     .elem_size = sizeof(term_desc_t),
     .max_elems = YICES_MAX_TERMS,
     .extend = term_table_extend
   };
-  
+
   indexed_table_init(&table->terms, n, &vtbl);
-  
+
   table->mark = allocate_bitvector(n);
 
   table->types = ttbl;
@@ -759,7 +759,7 @@ typedef struct {
  * Polynomial
  * - a polynomial is constructed from a buffer b
  *   and an array of term indices v
- * - tau can be int or real
+ * - tau can be int, real, or a finite field type
  */
 typedef struct {
   int_hobj_t m;
@@ -882,6 +882,10 @@ static uint32_t hash_poly_hobj(poly_term_hobj_t *o) {
   return hash_rba_buffer(o->b, o->v);
 }
 
+static uint32_t hash_ff_poly_hobj(poly_term_hobj_t *o) {
+  return hash_rba_buffer(o->b, o->v);
+}
+
 static uint32_t hash_bvpoly_hobj(bvpoly_term_hobj_t *o) {
   return hash_bvarith_buffer(o->b, o->v);
 }
@@ -926,6 +930,7 @@ static bool eq_rational_hobj(rational_term_hobj_t *o, int32_t i) {
   table = o->tbl;
 
   return kind_for_idx(table, i) == o->tag
+    && type_for_idx(table, i) == o->tau
     && q_eq(rational_for_idx(table, i), o->a);
 }
 
@@ -1053,6 +1058,16 @@ static bool eq_poly_hobj(poly_term_hobj_t *o, int32_t i) {
   table = o->tbl;
 
   return kind_for_idx(table, i) == ARITH_POLY &&
+    rba_buffer_equal_poly(o->b, o->v, polynomial_for_idx(table, i));
+}
+
+static bool eq_ff_poly_hobj(poly_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  return kind_for_idx(table, i) == ARITH_FF_POLY &&
     rba_buffer_equal_poly(o->b, o->v, polynomial_for_idx(table, i));
 }
 
@@ -1191,6 +1206,13 @@ static int32_t build_poly_hobj(poly_term_hobj_t *o) {
 
   p = rba_buffer_get_poly(o->b, o->v);
   return new_ptr_term(o->tbl, ARITH_POLY, o->tau, p);
+}
+
+static int32_t build_ff_poly_hobj(poly_term_hobj_t *o) {
+  polynomial_t *p;
+
+  p = rba_buffer_get_poly(o->b, o->v);
+  return new_ptr_term(o->tbl, ARITH_FF_POLY, o->tau, p);
 }
 
 static int32_t build_bvpoly_hobj(bvpoly_term_hobj_t *o) {
@@ -1755,6 +1777,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case VARIABLE:
     case POWER_PRODUCT:
     case ARITH_EQ_ATOM:
+    case ARITH_FF_EQ_ATOM:
     case ARITH_GE_ATOM:
     case ARITH_IS_INT_ATOM:
     case ARITH_FLOOR:
@@ -1780,6 +1803,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case ARITH_MOD:
     case ARITH_DIVIDES_ATOM:
     case ARITH_ROOT_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
     case BV64_CONSTANT:
     case BV_CONSTANT:
     case BV_ARRAY:
@@ -1803,11 +1827,13 @@ static void delete_term_descriptors(term_table_t *table) {
       break;
 
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
       // Free the rational
       q_clear(rational_for_idx(table, i));
       break;
 
     case ARITH_POLY:
+    case ARITH_FF_POLY:
       free_polynomial(polynomial_for_idx(table, i));
       break;
 
@@ -2391,6 +2417,7 @@ term_t bit_term(term_table_t *table, uint32_t k, term_t bv) {
  * The type of the result is determined from the x_i's types:
  * - if all x_i's are int, the result is int
  * - if some x_i's are int, some are real, the result is real
+ * - if all x_i's have type (finitefield k), the result has type (finitefield k)
  * - if all x_i's have type (bitvector k), the result has type (bitvector k)
  */
 term_t pprod_term(term_table_t *table, pprod_t *r) {
@@ -2436,12 +2463,48 @@ term_t arith_constant(term_table_t *table, rational_t *a) {
   return pos_term(i);
 }
 
+term_t arith_ff_constant(term_table_t *table, rational_t *a, const rational_t *mod) {
+  type_t tau;
+  int32_t i;
+  rational_term_hobj_t rational_hobj;
+
+  // find (or create) the type (_ FiniteField mod)
+  assert(q_is_integer(mod));
+  tau = ff_type_r(table->types, mod);
+  assert (q_is_pos(mod));
+  q_integer_rem(a, mod);
+
+  rational_hobj.m.hash = (hobj_hash_t) hash_rational_hobj;
+  rational_hobj.m.eq = (hobj_eq_t) eq_rational_hobj;
+  rational_hobj.m.build = (hobj_build_t) build_rational_hobj;
+  rational_hobj.tbl = table;
+  rational_hobj.tag = ARITH_FF_CONSTANT;
+  rational_hobj.tau = tau;
+  rational_hobj.a = a;
+
+  i = int_htbl_get_obj(&table->htbl, &rational_hobj.m);
+
+  return pos_term(i);
+}
+
+term_t arith_ff_zero(term_table_t *table, const rational_t *mod) {
+  rational_t z;
+  q_init(&z);
+  term_t rslt = arith_ff_constant(table, &z, mod);
+  q_clear(&z);
+  return rslt;
+}
 
 /*
  * Atom t == 0 for an arithmetic term t
  */
 term_t arith_eq_atom(term_table_t *table, term_t t) {
   return unary_term(table, ARITH_EQ_ATOM, bool_type(table->types), t);
+}
+
+
+term_t arith_ff_eq_atom(term_table_t * table, term_t t) {
+  return unary_term(table, ARITH_FF_EQ_ATOM, bool_type(table->types), t);
 }
 
 
@@ -2458,6 +2521,14 @@ term_t arith_geq_atom(term_table_t *table, term_t t) {
  */
 term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right) {
   return binary_term(table, ARITH_BINEQ_ATOM, bool_type(table->types), left, right);
+}
+
+
+/*
+ * Equality between two finit field arithmetic terms (left == right)
+ */
+term_t arith_ff_bineq_atom(term_table_t *table, term_t left, term_t right) {
+  return binary_term(table, ARITH_FF_BINEQ_ATOM, bool_type(table->types), left, right);
 }
 
 
@@ -2753,6 +2824,29 @@ static bool all_integer_terms(term_table_t *table, const term_t *v, uint32_t n) 
   return true;
 }
 
+#ifndef NDEBUG
+/*
+ * Check whether all terms in array v are of type tau
+ * - skip const_idx if it's in v (it should be first)
+ */
+static bool check_term_type(term_table_t *table, const term_t *v, uint32_t n, type_t tau) {
+  uint32_t i;
+
+  if (n > 0) {
+    if (v[0] == const_idx) {
+      v++;
+      n--;
+    }
+
+    for (i = 0; i < n; i++) {
+      if (!compatible_types(table->types, term_type(table, v[i]), tau))
+        return false;
+    }
+  }
+
+  return true;
+}
+#endif
 
 /*
  * Auxiliary function: convert power products of subtree rooted at x
@@ -2829,6 +2923,65 @@ term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
   poly_hobj.m.hash = (hobj_hash_t) hash_poly_hobj;
   poly_hobj.m.eq = (hobj_eq_t) eq_poly_hobj;
   poly_hobj.m.build = (hobj_build_t) build_poly_hobj;
+  poly_hobj.tbl = table;
+  poly_hobj.tau = tau;
+  poly_hobj.b = b;
+  poly_hobj.v = v;
+
+  i = int_htbl_get_obj(&table->htbl, &poly_hobj.m);
+
+  // cleanup ibuffer
+  ivector_reset(&table->ibuffer);
+
+  return pos_term(i);
+}
+
+/*
+ * Finite field arithmetic term
+ * - all variables of b must be finite field terms mod m
+ * - b must be normalized and b->ptbl must be the same as table->ptbl
+ * - if b contains a non-linear polynomial then the power products that
+ *   occur in p are converted to terms (using pprod_term)
+ * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
+ *   where x_i is a term.
+ *
+ * SIDE EFFECT: b is reset to zero
+ */
+term_t arith_ff_poly(term_table_t *table, rba_buffer_t *b, const rational_t *mod) {
+  int32_t *v;
+  type_t tau;
+  int32_t i;
+  bool all_int;
+  uint32_t j, n;
+  poly_term_hobj_t poly_hobj;
+
+  assert(b->ptbl == table->pprods);
+  assert(rba_buffer_is_mod(b, mod));
+
+  n = b->nterms;
+
+  /*
+   * convert the power products to indices
+   * store the result in ibuffer.
+   * also check whether all coefficients are integer.
+   */
+  assert(table->ibuffer.size == 0);
+
+  resize_ivector(&table->ibuffer, n + 1);
+  v = table->ibuffer.data;
+  all_int = true;
+  j = convert_rba_tree(table, b, v, &all_int, 0, b->root);
+  assert(j == n);
+  assert(all_int);
+  v[j] = max_idx;
+
+  tau = ff_type_r(table->types, mod);
+  assert(check_term_type(table, v, n, tau));
+
+  // hash consing
+  poly_hobj.m.hash = (hobj_hash_t) hash_ff_poly_hobj;
+  poly_hobj.m.eq = (hobj_eq_t) eq_ff_poly_hobj;
+  poly_hobj.m.build = (hobj_build_t) build_ff_poly_hobj;
   poly_hobj.tbl = table;
   poly_hobj.tau = tau;
   poly_hobj.b = b;
@@ -2984,7 +3137,7 @@ pprod_t *pprod_for_term(const term_table_t *table, term_t t) {
   int32_t i;
 
   assert(is_pos_term(t) && good_term(table, t));
-  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_finitefield_term(table, t) || is_bitvector_term(table, t));
 
   r = var_pp(t);
   i = index_of(t);
@@ -3025,7 +3178,7 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
   int32_t i;
 
   assert(is_pos_term(t) && good_term(table, t));
-  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_finitefield_term(table, t) || is_bitvector_term(table, t));
 
   d = 1;
   i = index_of(t);
@@ -3035,16 +3188,17 @@ uint32_t term_degree(const term_table_t *table, term_t t) {
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
     d = 0;
     break;
 
   case ARITH_POLY:
-    d = main_var_degree(table,
-			polynomial_main_var(polynomial_for_idx(table, i)));
+  case ARITH_FF_POLY:
+    d = main_var_degree(table,polynomial_main_var(polynomial_for_idx(table, i)));
     break;
-    
+
   case BV64_POLY:
     d = main_var_degree(table, bvpoly64_main_var(bvpoly64_for_idx(table, i)));
     break;
@@ -3087,8 +3241,8 @@ bool is_linear_poly(const term_table_t *table, term_t t) {
   i = index_of(t);
   switch (kind_for_idx(table, i)) {
   case ARITH_POLY:
-    result = not_pprod(table,
-		       polynomial_main_var(polynomial_for_idx(table, i)));
+  case ARITH_FF_POLY:
+    result = not_pprod(table, polynomial_main_var(polynomial_for_idx(table, i)));
     break;
 
   case BV64_POLY:
@@ -3549,6 +3703,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     mark_polynomial(table, ptr, polynomial_for_idx(table, i));
     break;
 

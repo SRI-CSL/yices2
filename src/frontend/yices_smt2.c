@@ -97,6 +97,7 @@ static tstack_t stack;
 static bool incremental;
 static bool interactive;
 static bool smt2_model_format;
+static bool dump_models;
 static bool bvdecimal;
 static bool show_stats;
 static int32_t verbosity;
@@ -155,6 +156,7 @@ typedef enum optid {
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
   yicesformat_opt,         // use the Yices model format for models
+  dump_model_opt,          // print model on sat result
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
@@ -204,6 +206,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
+  { "dump-models", '\0', FLAG_OPTION, dump_model_opt},
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
@@ -268,6 +271,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --yices-model-format      Display models in the Yices model format (default = false)\n"
+         "    --dump-models             Display models on sat result (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
@@ -375,6 +379,7 @@ static void parse_command_line(int argc, char *argv[]) {
   incremental = false;
   interactive = false;
   smt2_model_format = true;
+  dump_models = false;
   bvdecimal = false;
   show_stats = false;
   verbosity = 0;
@@ -471,15 +476,15 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case nthreads_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
-	}
-	nthreads = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        nthreads = v;
+        break;
 	
       case incremental_opt:
         incremental = true;
@@ -525,6 +530,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case yicesformat_opt:
         smt2_model_format = false;
+        break;
+
+      case dump_model_opt:
+        dump_models = true;
         break;
 
       case bvdecimal_opt:
@@ -721,7 +730,17 @@ static void parse_command_line(int argc, char *argv[]) {
   exit(code);
 }
 
-static void setup_mcsat(void) {
+static void setup_options(void) {
+  aval_t aval_true;
+
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (dump_models) {
+    smt2_set_option(":dump-models", aval_true);
+  }
+}
+
+static void setup_options_mcsat(void) {
   aval_t aval_true;
 
   if (mcsat) {
@@ -773,7 +792,7 @@ static void setup_mcsat(void) {
   }
 }
 
-static void setup_ef(void) {
+static void setup_options_ef(void) {
   aval_t aval_true, aval_false;
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
@@ -1100,8 +1119,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  setup_mcsat();
-  setup_ef();
+  setup_options();
+  setup_options_mcsat();
+  setup_options_ef();
 
   while (smt2_active()) {
     if (prompt) {
@@ -1113,9 +1133,9 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer);
+        flush_lexer(&lexer);
       } else {
-	break; // exit
+        break; // exit
       }
     }
   }

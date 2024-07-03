@@ -124,6 +124,10 @@ static void smt2_pp_rational(smt2_pp_t *printer, rational_t *q) {
   q_clear(&den);
 }
 
+static void smt2_pp_finitefield(smt2_pp_t *printer, value_ff_t *v) {
+  pp_finitefield(&printer->pp, v);
+}
+
 static void smt2_pp_algebraic(smt2_pp_t *printer, void *a) {
   pp_algebraic(&printer->pp, a);
 }
@@ -165,6 +169,9 @@ void smt2_pp_object(smt2_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case ALGEBRAIC_VALUE:
     smt2_pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case FINITEFIELD_VALUE:
+    smt2_pp_finitefield(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     smt2_pp_bitvector(printer, table->desc[c].ptr);
