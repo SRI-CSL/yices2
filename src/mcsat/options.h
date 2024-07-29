@@ -29,7 +29,7 @@
  */
 typedef struct mcsat_options_s {
   double rand_dec_freq;
-  int32_t rand_dec_seed;
+  double rand_dec_seed;
   bool nra_mgcd;
   bool nra_nlsat;
   bool nra_bound;
