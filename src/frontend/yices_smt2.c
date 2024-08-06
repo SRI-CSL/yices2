@@ -108,6 +108,8 @@ static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
+static double mcsat_rand_dec_freq;
+static int32_t mcsat_rand_dec_seed;
 static bool mcsat_nra_mgcd;
 static bool mcsat_nra_nlsat;
 static bool mcsat_nra_bound;
@@ -162,6 +164,8 @@ typedef enum optid {
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
+  mcsat_rand_dec_freq_opt, // random decision frequency when making a decision in mcsat
+  mcsat_rand_dec_seed_opt, // seed for random decisions 
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
   mcsat_nra_bound_opt,     // search by increasing bound
@@ -211,6 +215,8 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_opt },
+  { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
   { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
@@ -289,6 +295,8 @@ static void print_mcsat_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
          "    or %s [option]\n\n", progname, progname);
   printf("MCSat options:\n"
+	 "    --mcsat-rand-dec-freq=<B> Set the random decision frequency [0,1] (default = 0.02)\n"
+	 "    --mcsat-rand-dec-seed=<B> Set the random decision seed (postive value)\n"
          "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
@@ -388,6 +396,8 @@ static void parse_command_line(int argc, char *argv[]) {
   dimacsfile = NULL;
 
   mcsat = false;
+  mcsat_rand_dec_freq = -1;
+  mcsat_rand_dec_seed = -1;
   mcsat_nra_mgcd = false;
   mcsat_nra_nlsat = false;
   mcsat_nra_bound = false;
@@ -543,6 +553,18 @@ static void parse_command_line(int argc, char *argv[]) {
       case mcsat_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         mcsat  = true;
+        break;
+
+      case mcsat_rand_dec_freq_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
+        mcsat_rand_dec_freq = elem.d_value;
+        break;
+
+      case mcsat_rand_dec_seed_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_rand_dec_seed = elem.i_value;
         break;
 
       case mcsat_nra_mgcd_opt:
@@ -748,6 +770,27 @@ static void setup_options_mcsat(void) {
   }
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (mcsat_rand_dec_freq >= 0) {
+    aval_t aval_rand;
+    rational_t q;
+    q_init(&q);
+    // accurate upto 3 decimal places
+    q_set_int32(&q, (int32_t)(mcsat_rand_dec_freq*1000), 1000);
+    aval_rand = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-freq", aval_rand);
+    q_clear(&q);
+  }
+
+  if (mcsat_rand_dec_seed >= 0) {
+    aval_t aval_seed;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_rand_dec_seed);
+    aval_seed = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-seed", aval_seed);
+    q_clear(&q);
+  }
 
   if (mcsat_nra_mgcd) {
     smt2_set_option(":yices-mcsat-nra-mgcd", aval_true);
