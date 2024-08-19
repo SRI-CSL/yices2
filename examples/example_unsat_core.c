@@ -109,7 +109,7 @@ static void check_and_get_core(context_t *ctx, uint32_t n, const term_t *a) {
     yices_delete_term_vector(&core);
     break;
 
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     printf("the check was interrupted\n");
     break;
 
