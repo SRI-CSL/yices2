@@ -14,3 +14,4 @@ runs:
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make MODE=${{ inputs.mode }} check
         make MODE=${{ inputs.mode }} check-api
+        make MODE=${{ inputs.mode }} test
