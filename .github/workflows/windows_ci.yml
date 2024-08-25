@@ -65,4 +65,5 @@ jobs:
         CYGWIN: winsymlinks:native
       run: >-
         export PATH=/tools/dynamic_gmp/bin:/tools/static_gmp/bin:$PATH &&
-        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api
+        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api &&
+        make OPTION=mingw64 MODE=${{ matrix.mode }} test
