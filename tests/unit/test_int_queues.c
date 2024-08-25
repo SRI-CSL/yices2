@@ -27,7 +27,7 @@ static void print_queue(int_queue_t *q) {
   uint32_t i;
 
   printf("queue %p\n", q);
-  printf("  size = %"PRIu32"\n", q->size);
+  printf("  size = %"PRIu32"\n", q->capacity);
   printf("  head = %"PRIu32"\n", q->head);
   printf("  tail = %"PRIu32"\n", q->tail);
   printf("  content:");
@@ -37,7 +37,7 @@ static void print_queue(int_queue_t *q) {
     }
     printf("\n");
   } else if (q->tail < q->head) {
-    for (i=q->head; i<q->size; i++) {
+    for (i=q->head; i<q->capacity; i++) {
       printf(" %"PRId32, q->data[i]);
     }
     for (i=0; i<q->tail; i++) {
@@ -53,7 +53,7 @@ static void print_queue_data(int_queue_t *q) {
   uint32_t i;
   printf("head = %"PRIu32", tail = %"PRIu32"\n", q->head, q->tail);
   printf("data:");
-  for (i=0; i<q->size; i++) printf(" %"PRId32, q->data[i]);
+  for (i=0; i<q->capacity; i++) printf(" %"PRId32, q->data[i]);
   printf("\n");
 }
 

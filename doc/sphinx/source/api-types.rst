@@ -426,7 +426,7 @@ Contexts
        STATUS_UNKNOWN,
        STATUS_SAT,
        STATUS_UNSAT,
-       STATUS_INTERRUPTED,
+       YICES_STATUS_INTERRUPTED,
        STATUS_ERROR
      } smt_status_t;
 
@@ -470,13 +470,13 @@ Contexts
       asserted (if the inconsistency is detected by formula
       simplification), or when the search terminates.
 
-   .. c:enum:: STATUS_INTERRUPTED
+   .. c:enum:: YICES_STATUS_INTERRUPTED
 
       State entered when the search is interrupted.
 
       When a context is in the state :c:enum:`STATUS_SEARCHING` then the search
       can be interrupted through a call to :c:func:`yices_stop_search`. This
-      moves the context's state to :c:enum:`STATUS_INTERRUPTED`.
+      moves the context's state to :c:enum:`YICES_STATUS_INTERRUPTED`.
 
    .. c:enum:: STATUS_ERROR
 

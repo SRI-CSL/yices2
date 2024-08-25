@@ -528,7 +528,7 @@ int main(int argc, char *argv[]) {
   code = parse_smt_benchmark(&parser, &bench);
   if (code == 0) {
     printf("No syntax error found\n");
-    printf("term table: %"PRIu32" elements\n", __yices_globals.terms->nelems);
+    printf("term table: %"PRIu32" elements\n", nterms(__yices_globals.terms));
   } else {
     exit(YICES_EXIT_SYNTAX_ERROR);
   }
