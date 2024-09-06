@@ -6283,6 +6283,10 @@ void smt2_set_option(const char *name, aval_t value) {
     set_boolean_option(g, name, value, &g->dump_models);
     break;
 
+  case SMT2_KW_TIMEOUT:
+    set_uint32_option(g, name, value, &g->timeout);
+    break;
+
   case SMT2_KW_PRODUCE_UNSAT_ASSUMPTIONS:
     // optional: if true, get-unsat-assumptions can be used
     if (option_can_be_set(name)) {

@@ -136,6 +136,7 @@ enum smt2_keyword {
   SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT,
   SMT2_KW_VERBOSITY,
   SMT2_KW_DUMP_MODELS,
+  SMT2_KW_TIMEOUT,
 
   // Predefined keywords for (get-info ...)
   SMT2_KW_ALL_STATISTICS,

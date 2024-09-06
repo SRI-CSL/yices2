@@ -116,6 +116,7 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":reproducible-resource-limit",  // SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
   ":verbosity",               // SMT2_KW_VERBOSITY
   ":dump-models",             // SMT2_KW_DUMP_MODELS
+  ":timeout",                 // SMT2_KW_TIMEOUT
 
   ":all-statistics",          // SMT2_KW_ALL_STATISTICS
   ":assertion-stack-levesl",  // SMT2_KM_ASSERTIONS_STACK_LEVELS
