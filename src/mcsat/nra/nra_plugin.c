@@ -1879,7 +1879,7 @@ void nra_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_timestamp[0]);
   gc_info_sweep_int_hmap_keys(gc_vars, &nra->feasible_set_cache_timestamp[1]);
   gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[0], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
-  gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[0], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
+  gc_info_sweep_ptr_hmap_keys(gc_vars, &nra->feasible_set_cache[1], (ptr_hmap_ptr_delete) &lp_feasibility_set_delete);
 
   // Unit information (constraint_unit_info, constraint_unit_var)
   constraint_unit_info_gc_sweep(&nra->unit_info, gc_vars);
