@@ -7256,8 +7256,8 @@ EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *t
 
 int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
   if (! check_good_term(__yices_globals.manager, t) ||
-      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
-      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_SUM) ||
+      !(check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
+        check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_SUM)) ||
       ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }
