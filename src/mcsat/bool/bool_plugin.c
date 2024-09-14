@@ -398,10 +398,10 @@ void bool_plugin_rescale_clause_scores(bool_plugin_t* bp) {
     clause = bp->lemmas.data[i];
     tag = clause_db_get_tag(&bp->clause_db, clause);
     assert(tag->type == CLAUSE_LEMMA);
-    tag->score /= bp->heuristic_params.lemma_limit_factor;
+    tag->score /= bp->heuristic_params.clause_score_limit;
   }
 
-  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.lemma_limit_factor;
+  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.clause_score_limit;
 }
 
 static
