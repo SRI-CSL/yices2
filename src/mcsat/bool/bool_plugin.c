@@ -50,9 +50,6 @@ typedef struct {
   /** Lemmas, so that we can potentially remove them */
   ivector_t lemmas;
 
-  /** Limit on lemma count before we do compaction */
-  uint32_t lemmas_limit;
-
   /** Clauses to re-check for propagations. */
   ivector_t clauses_to_repropagate;
 
@@ -89,11 +86,6 @@ typedef struct {
     /** Limit for when to scale down */
     float clause_score_limit;
 
-    /** Limit on lemma clauses before we ask for gc */
-    uint32_t lemma_limit_init;
-    /** Increase of the lemma limit after gc */
-    float lemma_limit_factor;
-
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
 
@@ -125,10 +117,6 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.clause_score_bump_factor = 1;
   bp->heuristic_params.clause_score_decay_factor = 0.999;
   bp->heuristic_params.clause_score_limit = 1e20;
-
-  // Clause database compact
-  bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.05;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 5;
@@ -398,10 +386,10 @@ void bool_plugin_rescale_clause_scores(bool_plugin_t* bp) {
     clause = bp->lemmas.data[i];
     tag = clause_db_get_tag(&bp->clause_db, clause);
     assert(tag->type == CLAUSE_LEMMA);
-    tag->score /= bp->heuristic_params.lemma_limit_factor;
+    tag->score /= bp->heuristic_params.clause_score_limit;
   }
 
-  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.lemma_limit_factor;
+  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.clause_score_limit;
 }
 
 static
@@ -887,7 +875,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     act_threshold = bp->heuristic_params.clause_score_bump_factor / bp->lemmas.size;
 
     // Mark all the variables in half of lemmas as used
-    for (i = 0; i < bp->lemmas.size / 2; ++ i) {
+    for (i = 0; i < bp->lemmas.size / 4; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c_tag = clause_db_get_tag(db, clause_ref);
@@ -1006,15 +994,8 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
 
   switch (kind) {
   case MCSAT_SOLVER_START:
-    // Re-initialize the heuristics
-    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
     break;
   case MCSAT_SOLVER_RESTART:
-    // Check if clause compaction needed
-    if (bp->lemmas.size > bp->lemmas_limit) {
-      bp->ctx->request_gc(bp->ctx);
-      bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
-    }
     break;
   case MCSAT_SOLVER_CONFLICT:
     // Decay the scores each conflict

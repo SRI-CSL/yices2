@@ -288,6 +288,8 @@ struct mcsat_solver_s {
     uint32_t restart_interval;
     // Type of weight to use for restart counter
     lemma_weight_type_t lemma_restart_weight_type;
+    // Clause DB reduce interval
+    uint32_t reduce_interval;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -332,6 +334,7 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
+  mcsat->heuristic_params.reduce_interval = 300;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -2674,7 +2677,7 @@ void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
 
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
 
-  uint32_t restart_resource;
+  uint32_t restart_resource, reduce_limit, reduce_round;
   luby_t luby;
 
   // Make sure we have variables for all the assumptions
@@ -2740,6 +2743,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // Initialize Reduction
+  reduce_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.reduce_interval;
+  reduce_round = 0;
+
   // Whether to run learning
   bool learning = true;
 
@@ -2750,6 +2757,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+
+      // do we reduce
+      if ((*mcsat->solver_stats.conflicts) > reduce_limit) {
+        ++reduce_round;
+        reduce_limit = (*mcsat->solver_stats.conflicts) +
+          mcsat->heuristic_params.reduce_interval*reduce_round/log10(reduce_round+9); 
+        mcsat_request_gc(mcsat);
+      }
     }
 
     // Process any outstanding requests
