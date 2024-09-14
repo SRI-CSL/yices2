@@ -46,6 +46,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
 
   "uninterpreted or Boolean constant",  // CONSTANT_TERM
   "rational constant",                  // ARITH_CONSTANT
+  "finite field constant",              // ARITH_FF_CONSTANT
   "bitvector constant",                 // BV64_CONSTANT
   "bitvector constant",                 // BV_CONSTANT
   "variable",                           // VARIABLE
@@ -57,6 +58,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "ceil",                               // ARITH_CEIL
   "absolute value",                     // ARITH_ABS
   "algebraic root",                     // ARITH_ROOT_ATOM
+  "finite field arithmetic equality",   // ARITH_FF_EQ_ATOM
   "if-then-else",                       // ITE_TERM
   "if-then-else",                       // ITE_SPECIAL
   "uninterpreted function or predicate", // APP_TERM
@@ -73,6 +75,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "integer division",                    // ARITH_IDIV
   "mod",                                 // ARITH_MOD
   "divides",                             // ARITH_DIVIDES_ATOM
+  "finite field arithmetic equality",    // ARITH_FF_BINEQ_ATOM
   "bit-vector",                          // BV_ARRAY
   "bv-div",                              // BV_DIV
   "bv-rem",                              // BV_REM
@@ -89,6 +92,7 @@ static const char* const term_kind2string[NUM_TERM_KINDS] = {
   "bit extrction",                       // BIT_TERM
   "product",                             // POWER_PRODUCT
   "polynomial",                          // ARITH_POLY
+  "finite field polynomial",             // ARITH_FF_POLY
   "bit-vector polynomial",               // BV64_POLY
   "bit-vector polynomial",               // BV_POLY
 };
@@ -282,6 +286,14 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "Invalid term-exploration query\n");
     break;
 
+  case INVALID_FFSIZE:
+    code = fprintf(f, "invalid finite field size (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+      break;
+
+  case INCOMPATIBLE_FFSIZES:
+    code = fprintf(f, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
     /*
      * Parser errors
      */
@@ -347,6 +359,10 @@ int32_t print_error(FILE *f) {
 
   case INVALID_BVCONSTANT:
     code = fprintf(f, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
+    break;
+
+  case INVALID_FFCONSTANT:
+    code = fprintf(f, "invalid number in 'mk-ff' (line %"PRIu32", column %"PRIu32")\n", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:
@@ -799,6 +815,14 @@ char *error_string(void) {
     nchar = snprintf(buffer, BUFFER_SIZE, "Invalid term-exploration query");
     break;
 
+  case INVALID_FFSIZE:
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid finite field size (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
+  case INCOMPATIBLE_FFSIZES:
+    nchar = snprintf(buffer, BUFFER_SIZE, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
     /*
      * Parser errors
      */
@@ -864,6 +888,10 @@ char *error_string(void) {
 
   case INVALID_BVCONSTANT:
     nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-bv' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
+  case INVALID_FFCONSTANT:
+    nchar = snprintf(buffer, BUFFER_SIZE, "invalid number in 'mk-ff' (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
   case TYPE_MISMATCH_IN_DEF:

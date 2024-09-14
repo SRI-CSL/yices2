@@ -31,7 +31,7 @@ typedef struct nra_plugin_s nra_plugin_t;
 typedef struct feasible_set_db_struct feasible_set_db_t;
 
 /** Create a new database */
-feasible_set_db_t* feasible_set_db_new(plugin_context_t* ctx);
+feasible_set_db_t* feasible_set_db_new(nra_plugin_t * ctx);
 
 /** Delete the database */
 void feasible_set_db_delete(feasible_set_db_t* db);
@@ -42,7 +42,7 @@ void feasible_set_db_delete(feasible_set_db_t* db);
  *
  * If more than one reason, it's considered a disjunctive top-level assertion (clause);
  */
-bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_set_t* new_set, variable_t* reasons, uint32_t reasons_count);
+bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_set_t* new_set, const variable_t* reasons, uint32_t reasons_count);
 
 /** Get the feasible set of a variable */
 lp_feasibility_set_t* feasible_set_db_get(feasible_set_db_t* db, variable_t x);
@@ -54,7 +54,7 @@ void feasible_set_db_push(feasible_set_db_t* db);
 void feasible_set_db_pop(feasible_set_db_t* db);
 
 /** Get the reason for a conflict on x. Feasible set of x should be empty. */
-void feasible_set_db_get_conflict_reasons(feasible_set_db_t* db, nra_plugin_t* nra, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons_out);
+void feasible_set_db_get_conflict_reasons(const feasible_set_db_t* db, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons_out);
 
 /** Return any fixed variables */
 variable_t feasible_set_db_get_fixed(feasible_set_db_t* db);

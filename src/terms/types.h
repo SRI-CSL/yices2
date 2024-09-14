@@ -71,6 +71,7 @@
 #include "utils/symbol_tables.h"
 #include "utils/tuple_hash_map.h"
 
+#include "rationals.h"
 #include "yices_types.h"
 
 
@@ -95,6 +96,7 @@ typedef enum {
   BOOL_TYPE,
   INT_TYPE,
   REAL_TYPE,
+  FF_TYPE,
   BITVECTOR_TYPE,
   SCALAR_TYPE,
   UNINTERPRETED_TYPE,
@@ -447,8 +449,7 @@ extern void reset_type_table(type_table_t *table);
 /* 
  * Return the ith type descriptor.
  */
-static inline type_desc_t *type_desc(const type_table_t *table,
-				     int32_t i) {
+static inline type_desc_t *type_desc(const type_table_t *table, int32_t i) {
   return indexed_table_elem(type_desc_t, &table->types, i);
 }
 
@@ -488,6 +489,18 @@ static inline type_t real_type(type_table_t *table) {
  * This requires 0 < size <= YICES_MAX_BVSIZE
  */
 extern type_t bv_type(type_table_t *table, uint32_t size);
+
+/*
+ * FiniteFiled types
+ * This requires order to be a positive prime
+ */
+extern type_t ff_type(type_table_t *table, mpz_t order);
+
+/*
+ * FiniteFiled types
+ * The same as above, but accepts a rational_t
+ */
+extern type_t ff_type_r(type_table_t *table, const rational_t *order);
 
 /*
  * Declare a new scalar of cardinality size
@@ -815,6 +828,21 @@ static inline bool is_bv_type(type_table_t *tbl, type_t i) {
 static inline uint32_t bv_type_size(type_table_t *tbl, type_t i) {
   assert(is_bv_type(tbl, i));
   return type_desc(tbl, i)->integer;
+}
+
+// finite field types
+static inline bool is_ff_type(type_table_t *tbl, type_t i) {
+  return type_kind(tbl, i) == FF_TYPE;
+}
+
+static inline const rational_t* ff_type_size(type_table_t *tbl, type_t i) {
+  assert(is_ff_type(tbl, i));
+  return (const rational_t*)type_desc(tbl, i)->ptr;
+}
+
+static inline bool ff_type_size_any(type_table_t *tbl, type_t i) {
+  assert(is_ff_type(tbl, i));
+  return q_is_minus_one(type_desc(tbl, i)->ptr);
 }
 
 // uninterpreted types

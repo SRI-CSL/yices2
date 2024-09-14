@@ -307,3 +307,39 @@ void trail_model_cache_clear(mcsat_trail_t* trail) {
     }
   }
 }
+
+bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {
+  bool t1_has_value, t2_has_value;
+  uint32_t t1_index, t2_index;
+
+  // We compare variables based on the trail level, unassigned to the front,
+  // then assigned ones by decreasing level
+
+  // Literals with no value
+  t1_has_value = trail_has_value(trail, t1);
+  t2_has_value = trail_has_value(trail, t2);
+  if (!t1_has_value && !t2_has_value) {
+    // Both have no value, just order by variable
+    return t1 < t2;
+  }
+
+  // At least one has a value
+  if (!t1_has_value) {
+    // t1 < t2, goes to front
+    return true;
+  }
+  if (!t2_has_value) {
+    // t2 < t1, goes to front
+    return false;
+  }
+
+  // Both literals have a value, sort by decreasing level
+  t1_index = trail_get_index(trail, t1);
+  t2_index = trail_get_index(trail, t2);
+  if (t1_index != t2_index) {
+    // t1 > t2 goes to front
+    return t1_index > t2_index;
+  } else {
+    return t1 < t2;
+  }
+}

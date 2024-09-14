@@ -73,6 +73,11 @@ static term_t convert_rational(term_table_t *terms, value_table_t *vtbl, value_t
   return arith_constant(terms, vtbl_rational(vtbl, v));
 }
 
+static term_t convert_finitefield(term_table_t *terms, value_table_t *vtbl, value_t v) {
+  value_ff_t *v_ff = vtbl_finitefield(vtbl, v);
+  return arith_ff_constant(terms, &v_ff->value, &v_ff->mod);
+}
+
 static term_t convert_bitvector(term_table_t *terms, value_table_t *vtbl, value_t v) {
   value_bv_t *b;
   uint64_t x;
@@ -219,6 +224,10 @@ term_t convert_simple_value(term_table_t *terms, value_table_t *vtbl, value_t v)
     t = convert_rational(terms, vtbl, v);
     break;
 
+  case FINITEFIELD_VALUE:
+    t = convert_finitefield(terms, vtbl, v);
+    break;
+
   case BITVECTOR_VALUE:
     t = convert_bitvector(terms, vtbl, v);
     break;
@@ -316,6 +325,8 @@ static const int32_t convert_code[NUM_VALUE_KIND] = {
   CONVERT_UNKNOWN_VALUE,  // UNKNOWN_VALUE
   0,                      // BOOLEAN_VALUE
   0,                      // RATIONAL_VALUE
+  0,                      // ALGEBRAIC_VALUE
+  0,                      // FINITEFIELD_VALUE
   0,                      // BITVECTOR_VALUE
   0,                      // TUPLE_VALUE
   0,                      // UNINTERPRETED_VALUE
@@ -451,7 +462,7 @@ uint32_t convert_value_array(term_manager_t *mgr, term_table_t *terms, value_tab
       t = convert_value(&convert, b[i]);
       b[i] = t;
       if (t >= 0) { // no error
-	s ++;
+        s++;
       }
     }
     delete_val_converter(&convert);

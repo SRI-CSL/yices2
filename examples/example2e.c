@@ -117,7 +117,7 @@ int main(void) {
 
   case STATUS_IDLE:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   case STATUS_ERROR:
     // these codes should not be returned
     printf("Bug: unexpected status returned\n");

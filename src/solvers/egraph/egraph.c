@@ -2894,6 +2894,7 @@ static const uint8_t type_kind2etype[NUM_TYPE_KINDS] = {
   ETYPE_BOOL,     // BOOL_TYPE
   ETYPE_INT,      // INT_TYPE
   ETYPE_REAL,     // REAL_TYPE
+  ETYPE_NONE,     // FF_TYPE // TODO not implemented
   ETYPE_BV,       // BITVECTOR_TYPE
   ETYPE_NONE,     // SCALAR_TYPE
   ETYPE_NONE,     // UNINTERPRETED_TYPE

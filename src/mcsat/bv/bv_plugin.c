@@ -80,11 +80,8 @@ typedef struct {
   /** Exception handler */
   jmp_buf* exception;
 
-  /** Map from constraint variables to the constraint_unit_info_t enum */
-  int_hmap_t constraint_unit_info;
-
-  /** Map from constraint variables to the variables they are unit in */
-  int_hmap_t constraint_unit_var;
+  /** The unit info */
+  constraint_unit_info_t unit_info;
 
   /** Last variable that was decided, but yet unprocessed */
   variable_t last_decided_and_unprocessed;
@@ -149,8 +146,9 @@ void bv_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Construct the watch-list data structures
   watch_list_manager_construct(&bv->wlm, bv->ctx->var_db);
-  init_int_hmap(&bv->constraint_unit_info, 0);
-  init_int_hmap(&bv->constraint_unit_var, 0);
+
+  // Construct the unit info data structures
+  constraint_unit_info_init(&bv->unit_info);
   
   init_int_hmap(&bv->variable_propagation_type, 0);
 
@@ -209,8 +207,7 @@ void bv_plugin_destruct(plugin_t* plugin) {
   }
 
   watch_list_manager_destruct(&bv->wlm);
-  delete_int_hmap(&bv->constraint_unit_info);
-  delete_int_hmap(&bv->constraint_unit_var);
+  constraint_unit_info_destruct(&bv->unit_info);
   delete_int_hmap(&bv->variable_propagation_type);
   scope_holder_destruct(&bv->scope);
   bv_feasible_set_db_delete(bv->feasible);
@@ -231,68 +228,6 @@ void bv_plugin_destruct(plugin_t* plugin) {
 static inline
 bool bv_plugin_has_assignment(const bv_plugin_t* bv, variable_t x) {
   return trail_has_value(bv->ctx->trail, x) && trail_get_index(bv->ctx->trail, x) < bv->trail_i;
-}
-
-/**
- * Setting status of constraint: if value is CONSTRAINT_UNIT, then unit_var is the variable in which constraint is unit;
- * otherwise unit_var is variable_null
- */
-
-static
-void bv_plugin_set_unit_info(bv_plugin_t* bv, variable_t constraint, variable_t unit_var, constraint_unit_info_t value) {
-  int_hmap_pair_t* find = NULL;
-  int_hmap_pair_t* unit_find = NULL;
-
-  // Add unit tag
-  find = int_hmap_find(&bv->constraint_unit_info, constraint);
-  if (find == NULL) {
-    // First time, just set
-    int_hmap_add(&bv->constraint_unit_info, constraint, value);
-  } else {
-    assert(find->val != value);
-    find->val = value;
-  }
-
-  // Add unit variable
-  unit_find = int_hmap_find(&bv->constraint_unit_var, constraint);
-  if (value == CONSTRAINT_UNIT) {
-    if (unit_find == NULL) {
-      int_hmap_add(&bv->constraint_unit_var, constraint, unit_var);
-    } else {
-      unit_find->val = unit_var;
-    }
-  } else {
-    assert(unit_var == variable_null);
-    if (unit_find != NULL) {
-      unit_find->val = variable_null;
-    }
-  }
-}
-
-/**
- * Getting status of constraint: if return value is CONSTRAINT_UNIT,
- * then bv_plugin_get_unit_var returns the variable in which constraint is unit
- * (otherwise it returns variable_null)
- */
-
-static
-constraint_unit_info_t bv_plugin_get_unit_info(bv_plugin_t* bv, variable_t constraint) {
-  int_hmap_pair_t* find = int_hmap_find(&bv->constraint_unit_info, constraint);
-  if (find == NULL)  {
-    return CONSTRAINT_UNKNOWN;
-  } else {
-    return find->val;
-  }
-}
-
-static
-variable_t bv_plugin_get_unit_var(bv_plugin_t* bv, variable_t constraint) {
-  int_hmap_pair_t* find = int_hmap_find(&bv->constraint_unit_var, constraint);
-  if (find == NULL) {
-    return variable_null;
-  } else {
-    return find->val;
-  }
 }
 
 /**
@@ -411,7 +346,7 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
     // Get the current term
     term_t current = generic_heap_get_min(&bv->visit_heap);
     assert(is_pos_term(current));
-    uint32_t current_bump = int_hmap_find(&bv->visited_cache, current)->val;
+    int32_t current_bump = int_hmap_find(&bv->visited_cache, current)->val;
 
     if (ctx_trace_enabled(bv->ctx, "mcsat::new_term")) {
       ctx_trace_printf(bv->ctx, "bv_plugin_get_variables: ");
@@ -821,7 +756,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
 
     // Check the current status of the constraint
     variable_t top_var = t_var_list->data[0];
-    constraint_unit_info_t unit_status = CONSTRAINT_UNKNOWN;
+    constraint_unit_state_t unit_status = CONSTRAINT_UNKNOWN;
     if (bv_plugin_has_assignment(bv, top_var)) {
       // All variables assigned,
       unit_status = CONSTRAINT_FULLY_ASSIGNED;
@@ -831,7 +766,7 @@ void bv_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* prop) 
     }
 
     // Set the status of the constraint
-    bv_plugin_set_unit_info(bv, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
+    constraint_unit_info_set(&bv->unit_info, t_var, unit_status == CONSTRAINT_UNIT ? top_var : variable_null, unit_status);
 
     // Process the constraint if it needs to be
     switch (unit_status) {
@@ -955,10 +890,10 @@ void bv_plugin_propagate_var(bv_plugin_t* bv, variable_t x, trail_token_t* prop)
       // - if fully assigned, we propagate it based on value (or check that it is correct)
       // - otherwise cstr is unit in vars[0] and we need to update the feasibility
       if (!bv_plugin_has_assignment(bv, cstr_vars[0])) {
-        bv_plugin_set_unit_info(bv, cstr, cstr_vars[0], CONSTRAINT_UNIT);
+        constraint_unit_info_set(&bv->unit_info, cstr, cstr_vars[0], CONSTRAINT_UNIT);
         bv_plugin_process_unit_constraint(bv, prop, cstr, cstr_vars[0]);
       } else {
-        bv_plugin_set_unit_info(bv, cstr, variable_null, CONSTRAINT_FULLY_ASSIGNED);
+        constraint_unit_info_set(&bv->unit_info, cstr, variable_null, CONSTRAINT_FULLY_ASSIGNED);
         bv_plugin_process_fully_assigned_constraint(bv, prop, cstr);
       }
 
@@ -1034,18 +969,18 @@ void bv_plugin_pop(plugin_t* plugin) {
     remove_iterator_construct(&it, &bv->wlm, x);
     while (!remove_iterator_done(&it)) {
       variable_t cstr = remove_iterator_get_constraint(&it);
-      constraint_unit_info_t unit_info = bv_plugin_get_unit_info(bv, cstr);
+      constraint_unit_state_t unit_info = constraint_unit_info_get(&bv->unit_info, cstr);
       switch (unit_info) {
       case CONSTRAINT_UNKNOWN:
         // Nothing to do
         break;
       case CONSTRAINT_UNIT:
         // If it was unit it becomes not unit
-        bv_plugin_set_unit_info(bv, cstr, variable_null, CONSTRAINT_UNKNOWN);
+        constraint_unit_info_set(&bv->unit_info, cstr, variable_null, CONSTRAINT_UNKNOWN);
         break;
       case CONSTRAINT_FULLY_ASSIGNED:
         // It is unit now
-        bv_plugin_set_unit_info(bv, cstr, x, CONSTRAINT_UNIT);
+        constraint_unit_info_set(&bv->unit_info, cstr, x, CONSTRAINT_UNIT);
         break;
       }
       remove_iterator_next_and_keep(&it);
@@ -1070,7 +1005,7 @@ void bv_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
   bv_plugin_t* bv = (bv_plugin_t*) plugin;
 
   assert(!trail_has_value(bv->ctx->trail, x));
-  const mcsat_value_t* v = bv_feasible_set_db_pick_value(bv->feasible, x);;
+  const mcsat_value_t* v = bv_feasible_set_db_pick_value(bv->feasible, x);
 
   if (ctx_trace_enabled(bv->ctx, "mcsat::bv::decide")) {
     ctx_trace_printf(bv->ctx, "bv_plugin_decide: ");
@@ -1301,12 +1236,12 @@ void bv_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
     term_t atom = unsigned_term(literal);
     variable_t atom_var = variable_db_get_variable_if_exists(bv->ctx->var_db, atom);
     assert(atom_var != variable_null);
-    if (bv_plugin_get_unit_info(bv, atom_var) != CONSTRAINT_UNIT) {
+    if (constraint_unit_info_get(&bv->unit_info, atom_var) != CONSTRAINT_UNIT) {
       // Not unit
       is_unit = false;
     } else {
       // Unit, check if same variable
-      variable_t atom_unit_var = bv_plugin_get_unit_var(bv, atom_var);
+      variable_t atom_unit_var = constraint_unit_info_get_unit_var(&bv->unit_info, atom_var);
       if (unit_var == variable_null) {
         unit_var = atom_unit_var;
       } else if (unit_var != atom_unit_var) {
@@ -1362,12 +1297,11 @@ void bv_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   // Feasible sets: everything asserted is in the trail, variables are
   // also marked by the watch manager... nothing to do
 
-  // Unit information (constraint_unit_info, constraint_unit_var)
-  gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_info);
-  gc_info_sweep_int_hmap_keys(gc_vars, &bv->constraint_unit_var);
-
   // Propagation type
   gc_info_sweep_int_hmap_keys(gc_vars, &bv->variable_propagation_type);
+
+  // Unit information
+  constraint_unit_info_gc_sweep(&bv->unit_info, gc_vars);
 
   // Watch list manager
   watch_list_manager_gc_sweep_lists(&bv->wlm, gc_vars);

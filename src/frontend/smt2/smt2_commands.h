@@ -390,6 +390,7 @@ typedef struct smt2_globals_s {
   bool produce_unsat_model_interpolants; // default = false
   bool produce_models;            // default = false
   bool produce_assignments;       // default = false
+  bool dump_models;               // default = false
   uint32_t random_seed;           // default = 0
   uint32_t verbosity;             // default = 0
 
@@ -401,7 +402,7 @@ typedef struct smt2_globals_s {
   uint32_t nthreads;           // default = 0 (single threaded)
 
   // timeout
-  uint32_t timeout;           // default = 0 (no timeout)
+  uint32_t timeout;           // default = 0 (no timeout); global timeout used for every check-sat
   timeout_t *to;              // initially NULL. Non-NULL once init_timeout is called
   bool interrupted;           // true if the most recent call to check_sat timed out
 

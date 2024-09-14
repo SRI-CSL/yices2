@@ -116,6 +116,9 @@ struct plugin_context_s {
   /** Request a variable to be a next decision variable */
   void (*hint_next_decision) (plugin_context_t* self, variable_t x);
 
+  /** Add model value hint in the value cache */
+  void (*hint_value) (plugin_context_t* self, variable_t x, const mcsat_value_t* val);
+
 };
 
 /** Token to add entries to the trail */
@@ -153,7 +156,7 @@ struct trail_token_s {
 };
 
 /**
- * Allocator for plugins. An allocator shoudld
+ * Allocator for plugins. An allocator should
  * - Allocate the plugin, basically malloc(sizeof(actual_plugin_size))
  * - Setup all the interface methods
  * - All other construction goes into the construct method
@@ -232,7 +235,7 @@ struct plugin_s {
    */
   void (*decide_assignment) (plugin_t* plugin, variable_t x, const mcsat_value_t* value, trail_token_t* decide);
 
-  /*
+  /**
    * Optional: learn using the given trail token. This is called at base level after
    * propagation is done and there is no conflict. This is a chance to perform some
    * more expensive reasoning and propagate consequences.

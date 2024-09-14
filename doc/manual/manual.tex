@@ -49,7 +49,7 @@
 \date{\today}
 \author{Bruno Dutertre}
 \title{\textbf{Yices Manual\\[0.6em]
-Version 2.6.4}}
+Version 2.6.5}}
 \end{titlepage}
 
 \maketitle
@@ -810,10 +810,6 @@ threads to manipulate separate contexts and models without causing race
 conditions (see Chapter~\ref{yices-api}). Sharing of contexts or
 models across several threads is not supported (unless you implement
 your own locking mechanism).
-
-\medskip\noindent
-In the current version (Yices~2.6.4), threat-safety and MCSAT are not compatible.
-It is not possible to build Yices to support MCSAT and be re-entrant.
 
 
 \section{Building for Windows}
@@ -4554,7 +4550,7 @@ case STATUS_SAT:
 
  case STATUS_IDLE:
  case STATUS_SEARCHING:
- case STATUS_INTERRUPTED:
+ case YICES_STATUS_INTERRUPTED:
  case STATUS_ERROR:
    fprintf(stderr, "Error in check_context\n");
    yices_print_error(stderr);

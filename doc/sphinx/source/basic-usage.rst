@@ -154,7 +154,7 @@ context, assert ``f`` in this context, then call function :c:func:`yices_check_c
 
   case STATUS_IDLE:
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   case STATUS_ERROR:
     fprintf(stderr, "Error in check_context\n");
     yices_print_error(stderr);

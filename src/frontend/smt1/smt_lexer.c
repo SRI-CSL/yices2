@@ -255,6 +255,9 @@ static void init_smttoken2string(void) {
  * More logics: added June 10 2014
  *
  *   QF_UFLIRA      Ints Reals
+ *
+ * More logics: added Nov 17 2023
+ *   QF_FFA         Finite Fields
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
 
@@ -435,6 +438,7 @@ static void activate_arith_fragment(arith_fragment_t code) {
     smt_token_active[SMT_TK_REAL] = true;
     break;
 
+  case ARITH_FFA: /* not defined in smt1 */
   case ARITH_NONE:
     break;
   }

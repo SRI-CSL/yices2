@@ -234,8 +234,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
     variable_db_get_variable(uf->ctx->var_db, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
-    // if the domain is finite then we add this extra read term
-    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[1]))) {
+    // if the element domain is finite then we add this extra read term
+    if (is_finite_type(terms->types, term_type(terms, t_desc->arg[2]))) {
       term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
       variable_db_get_variable(uf->ctx->var_db, r2);
       weq_graph_add_select_term(&uf->weq_graph, r2);
@@ -792,7 +792,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       break;
     default:
       app_construct = false;
-      continue;
+      break;
     }
 
     composite_term_t* app_comp = composite_term_desc(terms, app_term);
@@ -869,10 +869,10 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
 
   // Since we make functions when we see a new one, we also construct the last function
   if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
-    type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
+    type_t tau = get_function_application_type(terms, app_kind, app_f);
     type_t range_tau = function_type_range(terms->types, tau);
     value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-    switch (prev_app_kind) {
+    switch (app_kind) {
     case ARITH_RDIV:
       vtbl_set_zero_rdiv(vtbl, f_value);
       break;
@@ -883,7 +883,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       vtbl_set_zero_mod(vtbl, f_value);
       break;
     case APP_TERM:
-      model_map_term(model, prev_app_f, f_value);
+      model_map_term(model, app_f, f_value);
       break;
     default:
       assert(false);
@@ -902,8 +902,8 @@ plugin_t* uf_plugin_allocator(void) {
   plugin->plugin_interface.construct             = uf_plugin_construct;
   plugin->plugin_interface.destruct              = uf_plugin_destruct;
   plugin->plugin_interface.new_term_notify       = uf_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify      = 0;
-  plugin->plugin_interface.event_notify          = 0;
+  plugin->plugin_interface.new_lemma_notify      = NULL;
+  plugin->plugin_interface.event_notify          = NULL;
   plugin->plugin_interface.propagate             = uf_plugin_propagate;
   plugin->plugin_interface.decide                = uf_plugin_decide;
   plugin->plugin_interface.decide_assignment     = NULL;

@@ -550,7 +550,7 @@ assert formulas, check satisfiability, and query the context's status.
      These are the states after a search completes. :c:enum:`STATUS_UNKNOWN` means
      that the search was inconclusive, which may happen if the solver is not complete.
 
-   - :c:enum:`STATUS_INTERRUPTED`.
+   - :c:enum:`YICES_STATUS_INTERRUPTED`.
 
      This state is entered if a search is interrupted.
 
@@ -596,7 +596,7 @@ assert formulas, check satisfiability, and query the context's status.
 
      -- type1 := bool
 
-   - if *ctx*'s state is :c:enum:`STATUS_INTERRUPTED`
+   - if *ctx*'s state is :c:enum:`YICES_STATUS_INTERRUPTED`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -667,13 +667,13 @@ assert formulas, check satisfiability, and query the context's status.
      - :c:enum:`STATUS_UNKNOWN`: the solver can't prove whether the context is
        satisfiable or not.
 
-     - :c:enum:`STATUS_INTERRUPTED`: the search was interrupted by a
+     - :c:enum:`YICES_STATUS_INTERRUPTED`: the search was interrupted by a
        call to :c:func:`yices_stop_search`.
 
      This returned value is also stored as the context's status flag, with the following exception:
 
      - If the context is configured for mode *interactive* and the search is interrupted,
-       then the function returns :c:enum:`STATUS_INTERRUPTED` but the context's state is
+       then the function returns :c:enum:`YICES_STATUS_INTERRUPTED` but the context's state is
        restored to what it was before the call to :c:func:`yices_check_context`, and the
        internal status flag is reset to  :c:enum:`STATUS_IDLE`.
 
@@ -698,7 +698,7 @@ assert formulas, check satisfiability, and query the context's status.
 
    .. note:: If the search is interrupted and the context's mode is
              not *interactive* then the context's enters state
-             :c:enum:`STATUS_INTERRUPTED`. The only way to recover is
+             :c:enum:`YICES_STATUS_INTERRUPTED`. The only way to recover is
              then to call :c:func:`yices_reset_context` or
              :c:func:`yices_pop` (assuming the context supports push and pop).
 
@@ -782,7 +782,7 @@ be removed by :c:func:`yices_pop`.
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
    - if *ctx* supports push and pop but its status is :c:enum:`STATUS_UNSAT`,
-     :c:enum:`STATUS_SEARCHING`, or :c:enum:`STATUS_INTERRUPTED`:
+     :c:enum:`STATUS_SEARCHING`, or :c:enum:`YCIES_STATUS_INTERRUPTED`:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 

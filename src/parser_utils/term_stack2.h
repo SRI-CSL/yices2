@@ -104,12 +104,14 @@ typedef enum tag_enum {
   TAG_BV64,             // bit-vector constant (1 to 64 bits)
   TAG_BV,               // bit-vector constant (more than 64 bits)
   TAG_RATIONAL,         // rational constant
+  TAG_FINITEFIELD,      // finite field constant (non-negative integer rational)
   TAG_TERM,             // term index + polarity (from the global term table)
   TAG_SPECIAL_TERM,     // a term marked for special processing
   TAG_TYPE,             // type index (from the global type table)
   TAG_MACRO,            // type macro (index in the type table)
   TAG_ATTRIBUTE,        // attribute value (index in an attribute value table)
   TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
+  TAG_ARITH_FF_BUFFER,  // polynomial buffer (finite field coefficients)
   TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
   TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
   TAG_BVLOGIC_BUFFER,   // array of bits
@@ -157,6 +159,15 @@ typedef struct bv_s {
   uint32_t *data;   // value as an array of 32bit words
 } bv_t;
 
+typedef struct ff_s {
+  rational_t val;
+  rational_t mod;
+} ff_t;
+
+typedef struct mod_rba_buffer_s {
+  rba_buffer_t *b;
+  rational_t mod;
+} mod_rba_buffer_t;
 
 // element on the stack
 typedef struct stack_elem_s {
@@ -166,6 +177,7 @@ typedef struct stack_elem_s {
     char *string;
     bv64_t bv64;
     bv_t bv;
+    ff_t ff;
     rational_t rational;
     int32_t op;
     term_t term;
@@ -173,6 +185,7 @@ typedef struct stack_elem_s {
     int32_t macro;
     aval_t aval;
     rba_buffer_t *arith_buffer;
+    mod_rba_buffer_t mod_arith_buffer;
     bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
     bvlogic_buffer_t *bvlogic_buffer;
@@ -371,6 +384,9 @@ typedef enum tstack_error_s {
   TSTACK_INVALID_BVCONSTANT,
   TSTACK_BVARITH_ERROR,
   TSTACK_BVLOGIC_ERROR,
+  TSTACK_INVALID_FFCONSTANT,
+  TSTACK_INVALID_FFSIZE,
+  TSTACK_INCOMPATIBLE_FFSIZES,
   TSTACK_TYPE_ERROR_IN_DEFTERM,
   TSTACK_STRINGS_ARE_NOT_TERMS,  // this can be raised only in the SMT2 lib context
   TSTACK_VARIABLES_VALUES_NOT_MATCHING,
@@ -400,6 +416,7 @@ enum base_opcodes {
 
   // type constructors
   MK_BV_TYPE,         // [mk-bv-type <rational> ]
+  MK_FF_TYPE,         // [mk-ff-type <rational> ]
   MK_SCALAR_TYPE,     // [mk-scalar-type <symbol> ... <symbol> ]
   MK_TUPLE_TYPE,      // [mk-tuple-type <type> ... <type> ]
   MK_FUN_TYPE,        // [mk-fun-type <type> ... <type> ]
@@ -499,6 +516,10 @@ enum base_opcodes {
   MK_MOD,             // [mk-idiv <arith> <arith> ]
   MK_DIVIDES,         // [mk-divides <arith> <arith> ]
   MK_IS_INT,          // [mk-is-int <arith> ]
+
+  MK_FF_CONST,        // [mk-ff-const <field> <value> ]
+  MK_FF_ADD,          // [mk-ff-add <ff> ... <ff> ]
+  MK_FF_MUL,          // [mk-ff-mul <ff> ... <ff> ]
 
   // collect result
   BUILD_TERM,         // [build-term <term> ]
@@ -722,6 +743,8 @@ static inline term_t tstack_get_type(tstack_t *stack) {
   return stack->result.type;
 }
 
-
+#ifndef NDEBUG
+extern void print_elem(tstack_t *stack, stack_elem_t *e);
+#endif
 
 #endif /* __TERM_STACK2_H */
