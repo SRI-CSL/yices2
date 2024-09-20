@@ -59,6 +59,8 @@
 #include "yices.h"
 #include <inttypes.h>
 
+#include <math.h>
+
 /**
  * Notification of new variables for the main solver.
  */
@@ -334,7 +336,7 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.reduce_interval = 300;
+  mcsat->heuristic_params.reduce_interval = 500;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -2757,14 +2759,17 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+    }
 
-      // do we reduce
-      if ((*mcsat->solver_stats.conflicts) > reduce_limit) {
-        ++reduce_round;
-        reduce_limit = (*mcsat->solver_stats.conflicts) +
-          mcsat->heuristic_params.reduce_interval*reduce_round/log10(reduce_round+9); 
-        mcsat_request_gc(mcsat);
-      }
+    // do we reduce
+    if (mcsat_is_consistent(mcsat) && (*mcsat->solver_stats.conflicts) > reduce_limit) {
+      ++reduce_round;
+      reduce_limit = (*mcsat->solver_stats.conflicts) +
+        mcsat->heuristic_params.reduce_interval*reduce_round/log10(reduce_round+9);
+      mcsat_request_gc(mcsat);
+
+      // request early restart
+      mcsat_request_restart(mcsat);
     }
 
     // Process any outstanding requests

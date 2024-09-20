@@ -85,6 +85,8 @@ typedef struct {
     float clause_score_decay_factor;
     /** Limit for when to scale down */
     float clause_score_limit;
+    /** Fraction of lemmas to keep while reducing*/
+    float lemma_reduce_fraction;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -117,6 +119,9 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.clause_score_bump_factor = 1;
   bp->heuristic_params.clause_score_decay_factor = 0.999;
   bp->heuristic_params.clause_score_limit = 1e20;
+
+  // reduce
+  bp->heuristic_params.lemma_reduce_fraction = 0.75;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 5;
@@ -865,18 +870,37 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   if (gc_vars->level == 0) {
 
+    ivector_t lemmas_irrelevant;
+    init_ivector(&lemmas_irrelevant, 0);
+
     // Construct the gc info (destructed in collect())
     gc_info_construct(&bp->gc_clauses, clause_ref_null, false);
 
+    // keep binary clauses and add other clauses as candidates for removal
+    for (i = 0; i < bp->lemmas.size; ++ i) {
+      clause_ref = bp->lemmas.data[i];
+      assert(clause_db_is_clause(db, clause_ref, true));
+      c = clause_db_get_clause(&bp->clause_db, clause_ref);
+      if (c->size == 2) {
+        if (!literal_is_true(c->literals[0], trail) &&
+            !literal_is_true(c->literals[1], trail)) {
+          gc_info_mark(&bp->gc_clauses, clause_ref);
+        }
+      } else {
+        // potentially irrelevant
+        ivector_push(&lemmas_irrelevant, clause_ref);
+      }
+    }
+
     // Sort the lemmas based on scores
-    int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
+    int_array_sort2(lemmas_irrelevant.data, lemmas_irrelevant.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
     // avg activity score
     act_threshold = bp->heuristic_params.clause_score_bump_factor / bp->lemmas.size;
 
-    // Mark all the variables in half of lemmas as used
-    for (i = 0; i < bp->lemmas.size / 4; ++ i) {
-      clause_ref = bp->lemmas.data[i];
+    // Mark clauses that we are keeping
+    for (i = 0; i < lemmas_irrelevant.size * (1.0 - bp->heuristic_params.lemma_reduce_fraction); ++ i) {
+      clause_ref = lemmas_irrelevant.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c_tag = clause_db_get_tag(db, clause_ref);
       if (c_tag->score <= act_threshold) {
@@ -894,18 +918,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses
-    for (i = 0; i < bp->lemmas.size; ++ i) {
-      clause_ref = bp->lemmas.data[i];
-      assert(clause_db_is_clause(db, clause_ref, true));
-      c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size == 2) {
-        if (!literal_is_true(c->literals[0], trail) &&
-            !literal_is_true(c->literals[1], trail)) {
-          gc_info_mark(&bp->gc_clauses, clause_ref);
-        }
-      }
-    }
+    delete_ivector(&lemmas_irrelevant);
   }
 
   // Mark all the CNF definitions
