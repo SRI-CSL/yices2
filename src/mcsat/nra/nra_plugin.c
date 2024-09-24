@@ -2072,7 +2072,6 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
 
 static
 void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
-  uint32_t i;
   variable_t constraint_var;
 
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
@@ -2087,7 +2086,7 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
   // Get constraints at
   // - constraint_db->constraints
   const ivector_t* all_constraint_vars = poly_constraint_db_get_constraints(nra->constraint_db);
-  for (i = 0; i < all_constraint_vars->size; ++ i)  {
+  for (uint32_t i = 0; i < all_constraint_vars->size; ++ i)  {
     constraint_var = all_constraint_vars->data[i];
 
     // Check if it has a value already
@@ -2138,7 +2137,6 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
       }
     }
   }
-
 }
 
 bool nra_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
