@@ -718,16 +718,10 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
         bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
         if (!consistent) {
           nra_plugin_report_conflict(nra, prop, constraint_var);
-        } else if (variable_db_is_int(nra->ctx->var_db, x)) {
-          // BD: if x is an integer, we must check that there are integers in the interval.
-          lp_value_t v;
-          lp_value_construct_none(&v);
-          lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
-          if (!lp_value_is_integer(&v)) {
-            nra->conflict_variable_int = x;
-            nra_plugin_report_conflict(nra, prop, x);
-          }
-          lp_value_destruct(&v);
+        } else if (variable_db_is_int(nra->ctx->var_db, x) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, x))) {
+          // If x is an integer, we must check that there are integers in the interval.
+          nra->conflict_variable_int = x;
+          nra_plugin_report_conflict(nra, prop, x);
         }
       }
     }
@@ -2031,16 +2025,11 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
       // If infeasible report conflict
       if (!feasible) {
         nra_plugin_report_conflict(nra, prop, unit_var);
-      } else if (variable_db_is_int(nra->ctx->var_db, unit_var)) {
+      } else if (variable_db_is_int(nra->ctx->var_db, unit_var) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, unit_var))) {
         // Check if there is an integer value
-        lp_value_t v;
-        lp_value_construct_none(&v);
-        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, unit_var), &v);
-        if (!lp_value_is_integer(&v)) {
-          nra->conflict_variable_int = unit_var;
-          nra_plugin_report_conflict(nra, prop, unit_var);
-        }
-        lp_value_destruct(&v);
+        nra->conflict_variable_int = unit_var;
+        // TODO why not conflict int?
+        nra_plugin_report_conflict(nra, prop, unit_var);
       }
 
       delete_ivector(&lemma_reasons);
