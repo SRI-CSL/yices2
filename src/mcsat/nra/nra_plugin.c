@@ -719,8 +719,7 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
           nra_plugin_report_conflict(nra, prop, constraint_var);
         } else if (variable_db_is_int(nra->ctx->var_db, x) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, x))) {
           // If x is an integer, we must check that there are integers in the interval.
-          nra->conflict_variable_int = x;
-          nra_plugin_report_conflict(nra, prop, x);
+          nra_plugin_report_int_conflict(nra, prop, x);
         }
       }
     }
@@ -2021,14 +2020,12 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
         ctx_trace_printf(nra->ctx, "\n");
       }
 
-      // If infeasible report conflict
       if (!feasible) {
+        // If infeasible report conflict
         nra_plugin_report_conflict(nra, prop, unit_var);
       } else if (variable_db_is_int(nra->ctx->var_db, unit_var) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, unit_var))) {
-        // Check if there is an integer value
-        nra->conflict_variable_int = unit_var;
-        // TODO why not conflict int?
-        nra_plugin_report_conflict(nra, prop, unit_var);
+        // If not integer value for integer variable, report int conflict
+        nra_plugin_report_int_conflict(nra, prop, unit_var);
       }
 
       delete_ivector(&lemma_reasons);
