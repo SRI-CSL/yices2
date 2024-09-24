@@ -84,7 +84,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->ctx = ctx;
   nra->last_decided_and_unprocessed = variable_null;
   nra->trail_i = 0;
-  nra->conflict_variable = variable_null;
 
   watch_list_manager_construct(&nra->wlm, ctx->var_db);
   constraint_unit_info_init(&nra->unit_info);
