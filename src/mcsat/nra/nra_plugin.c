@@ -816,7 +816,6 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
         }
 
       // turning this on for reals as well
-      // TODO check if this still helps
       } else if (!lp_feasibility_set_is_full(feasible_set) && lp_value_is_integer(&x_value)) {
         lp_interval_t x_interval;
         lp_interval_construct_full(&x_interval); // [-inf, +inf]
@@ -839,6 +838,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
             ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
           }
+          nra->ctx->hint_next_decision(nra->ctx, x);
         }
         lp_interval_destruct(&x_interval);
       }
