@@ -85,6 +85,11 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->last_decided_and_unprocessed = variable_null;
   nra->trail_i = 0;
 
+  nra->conflict_variable = variable_null;
+  nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
+  lp_value_construct_none(&nra->conflict_variable_value);
+
   watch_list_manager_construct(&nra->wlm, ctx->var_db);
   constraint_unit_info_init(&nra->unit_info);
 
@@ -137,11 +142,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, SCALAR_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
-
-  nra->conflict_variable = variable_null;
-  nra->conflict_variable_int = variable_null;
-  nra->conflict_variable_assumption = variable_null;
-  lp_value_construct_none(&nra->conflict_variable_value);
 
   nra->global_bound_term = NULL_TERM;
 
@@ -1324,7 +1324,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   }
 
   // Project
-  nra_plugin_explain_conflict(nra, pos, neg, &core, &lemma_reasons, conflict);
+  nra_plugin_explain_conflict(nra, pos, neg, x, &core, &lemma_reasons, conflict);
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): conflict:\n");
