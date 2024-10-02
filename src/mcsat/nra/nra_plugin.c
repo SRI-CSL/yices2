@@ -1130,10 +1130,14 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
   // Decide if not too complex of a rational number
   bool decide = true;
   if (!must) {
-    if (!lp_value_is_rational(&x_new_lpvalue)) {
-      if (lp_upolynomial_degree(x_new_lpvalue.value.a.f) > 2) {
+    if (using_cached) {
+      if (!lp_value_is_rational(&x_cached_value->lp_value) &&
+          lp_upolynomial_degree(x_cached_value->lp_value.value.a.f) > 2) {
         decide = false;
       }
+    } else if (!lp_value_is_rational(&x_new_lpvalue) &&
+               lp_upolynomial_degree(x_new_lpvalue.value.a.f) > 2) {
+      decide = false;
     }
   }
 
