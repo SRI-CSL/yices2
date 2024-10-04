@@ -1431,6 +1431,9 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // Restarts
     if (mcsat->pending_requests_all.restart) {
+      // save target cache
+      trail_update_target_cache(mcsat->trail);
+
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }

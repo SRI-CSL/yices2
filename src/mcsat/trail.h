@@ -64,6 +64,10 @@ struct mcsat_trail_s {
   /** The values per variable */
   mcsat_model_t model;
 
+  /** Target model cache */
+  mcsat_model_t target_cache;
+  uint32_t target_depth;
+
   /** Type of the assignment per variable (assignment_type_t) */
   ivector_t type;
 
@@ -166,7 +170,7 @@ bool trail_has_value(const mcsat_trail_t* trail, variable_t var) {
 static inline
 bool trail_has_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(var < trail->model.size);
-  return mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE;
+  return mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE;
 }
 
 /** Returns true if the value of var is other than NONE at base level */
@@ -200,7 +204,7 @@ const mcsat_value_t* trail_get_value(const mcsat_trail_t* trail, variable_t var)
 static inline
 const mcsat_value_t* trail_get_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(!trail_has_value(trail, var));
-  return mcsat_model_get_value(&trail->model, var);
+  return mcsat_model_get_value(&trail->target_cache, var);
 }
 
 /** Get the value timestamp of the variable */
@@ -262,5 +266,8 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 
 /** compare variables based on the trail level, unassigned to the front, then assigned ones by decreasing level */
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2);
+
+/** save target cache */
+void trail_update_target_cache(mcsat_trail_t *trail);
 
 #endif /* MCSAT_TRAIL_H_ */

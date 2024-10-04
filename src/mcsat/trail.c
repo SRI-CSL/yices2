@@ -28,6 +28,8 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db) {
   trail->decision_level = 0;
   trail->decision_level_base = 0;
   mcsat_model_construct(&trail->model);
+  mcsat_model_construct(&trail->target_cache);
+  trail->target_depth = 0;
   init_ivector(&trail->type, 0);
   init_ivector(&trail->level, 0);
   init_ivector(&trail->index, 0);
@@ -50,6 +52,7 @@ void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from) {
   trail->decision_level = from->decision_level;
   trail->decision_level_base = from->decision_level_base;
   mcsat_model_construct_copy(&trail->model, &from->model);
+  mcsat_model_construct_copy(&trail->target_cache, &from->target_cache);
   init_ivector_copy(&trail->type, &from->type);
   init_ivector_copy(&trail->level, &from->level);
   init_ivector_copy(&trail->index, &from->index);
@@ -65,6 +68,7 @@ void trail_destruct(mcsat_trail_t* trail) {
   delete_ivector(&trail->level_sizes);
   trail->decision_level = 0;
   mcsat_model_destruct(&trail->model);
+  mcsat_model_destruct(&trail->target_cache);
   delete_ivector(&trail->type);
   delete_ivector(&trail->level);
   delete_ivector(&trail->index);
@@ -75,6 +79,7 @@ void trail_destruct(mcsat_trail_t* trail) {
 void trail_new_variable_notify(mcsat_trail_t* trail, variable_t x) {
   // Notify the model
   mcsat_model_new_variable_notify(&trail->model, x);
+  mcsat_model_new_variable_notify(&trail->target_cache, x);
   // Resize variable info
   while (trail->type.size <= x) {
     ivector_push(&trail->type, UNASSIGNED);
@@ -145,6 +150,10 @@ void trail_new_base_level(mcsat_trail_t* trail) {
 uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
   assert(trail->decision_level == trail->decision_level_base);
   assert(trail->decision_level_base > 0);
+
+  trail->target_depth = 0;
+  trail_update_target_cache(trail);
+
   trail->decision_level_base --;
   return trail->decision_level_base;
 }
@@ -296,6 +305,13 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
       assert(!trail_has_value(trail, var));
     }
   }
+  for (var = 0; var < trail->target_cache.size; ++ var) {
+    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null) {
+      if (mcsat_model_has_value(&trail->target_cache, var)) {
+        mcsat_model_unset_value(&trail->target_cache, var);
+      }
+    }
+  }
 }
 
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {
@@ -331,5 +347,12 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
     return t1_index > t2_index;
   } else {
     return t1 < t2;
+  }
+}
+
+void trail_update_target_cache(mcsat_trail_t *trail) {
+  if (trail->elements.size >= trail->target_depth) {
+    mcsat_model_copy(&trail->target_cache, &trail->model);
+    trail->target_depth = trail->elements.size;
   }
 }
