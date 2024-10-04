@@ -314,6 +314,16 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
   }
 }
 
+void trail_model_cache_clear(mcsat_trail_t* trail) {
+  variable_t var;
+  for (var = 0; var < trail->model.size; ++var) {
+    if (!trail_has_value(trail, var) &&
+	mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE) {
+      mcsat_model_unset_value(&trail->model, var);
+    }
+  }
+}
+
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {
   bool t1_has_value, t2_has_value;
   uint32_t t1_index, t2_index;
