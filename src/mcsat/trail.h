@@ -66,6 +66,8 @@ struct mcsat_trail_s {
 
   /** Target model cache */
   mcsat_model_t target_cache;
+
+  /** Target trail depth seen so far */
   uint32_t target_depth;
 
   /** Type of the assignment per variable (assignment_type_t) */
@@ -170,7 +172,9 @@ bool trail_has_value(const mcsat_trail_t* trail, variable_t var) {
 static inline
 bool trail_has_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(var < trail->model.size);
-  return mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE;
+  // present in target cache or model cache
+  return (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE ||
+	  mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE);
 }
 
 /** Returns true if the value of var is other than NONE at base level */
@@ -204,7 +208,12 @@ const mcsat_value_t* trail_get_value(const mcsat_trail_t* trail, variable_t var)
 static inline
 const mcsat_value_t* trail_get_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(!trail_has_value(trail, var));
-  return mcsat_model_get_value(&trail->target_cache, var);
+  // prefer target cache over model cache
+  if (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE) {
+    return mcsat_model_get_value(&trail->target_cache, var);
+  } else {
+    return mcsat_model_get_value(&trail->model, var);
+  }
 }
 
 /** Get the value timestamp of the variable */
@@ -264,11 +273,11 @@ void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars);
 /** Sweep any data associated with the unmarked variables  */
 void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 
-/** Clear model cache */
-void trail_model_cache_clear(mcsat_trail_t* trail);
-
 /** compare variables based on the trail level, unassigned to the front, then assigned ones by decreasing level */
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2);
+
+/** Clear target cache */
+void trail_target_cache_clear(mcsat_trail_t* trail);
 
 /** save target cache */
 void trail_update_target_cache(mcsat_trail_t *trail);

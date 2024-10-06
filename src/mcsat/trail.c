@@ -151,6 +151,7 @@ uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
   assert(trail->decision_level == trail->decision_level_base);
   assert(trail->decision_level_base > 0);
 
+  // repopulate target cache, setting target depth to zero and then call update
   trail->target_depth = 0;
   trail_update_target_cache(trail);
 
@@ -314,14 +315,15 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
   }
 }
 
-void trail_model_cache_clear(mcsat_trail_t* trail) {
+void trail_target_cache_clear(mcsat_trail_t* trail) {
   variable_t var;
-  for (var = 0; var < trail->model.size; ++var) {
-    if (!trail_has_value(trail, var) &&
-	mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE) {
-      mcsat_model_unset_value(&trail->model, var);
+  for (var = 0; var < trail->target_cache.size; ++var) {
+    if (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE) {
+      mcsat_model_unset_value(&trail->target_cache, var);
     }
   }
+
+  trail->target_depth = 0;
 }
 
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {

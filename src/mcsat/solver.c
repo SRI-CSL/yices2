@@ -1437,6 +1437,9 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
     // Pop the plugins
     mcsat_pop_internal(mcsat);
   }
+
+  // save target cache (when backtracking)
+  trail_update_target_cache(mcsat->trail);
 }
 
 static
@@ -1446,7 +1449,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // Restarts
     if (mcsat->pending_requests_all.restart) {
-      // save target cache
+      // save target cache before restart
       trail_update_target_cache(mcsat->trail);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
@@ -1470,9 +1473,9 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       (*mcsat->solver_stats.gc_calls) ++;
     }
 
-    // recache
+    // recache target cache
     if (mcsat->pending_requests_all.recache) {
-      trail_model_cache_clear(mcsat->trail);
+      trail_target_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
       (*mcsat->solver_stats.recaches) ++;
     }
@@ -2765,7 +2768,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
-  // recache
+  // recache parameters
   uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
   uint32_t recache_round = 0;
 
@@ -2780,14 +2783,13 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       luby_next(&luby);
       mcsat_request_restart(mcsat);
 
+    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
       // recache
-      if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-        ++recache_round;
-        mcsat_request_recache(mcsat);
-        double l = log10(recache_round + 9);
-        recache_limit = (*mcsat->solver_stats.conflicts) +
-	  (recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
-      }
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
