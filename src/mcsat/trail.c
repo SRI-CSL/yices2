@@ -28,6 +28,8 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db) {
   trail->decision_level = 0;
   trail->decision_level_base = 0;
   mcsat_model_construct(&trail->model);
+  mcsat_model_construct(&trail->best_cache);
+  trail->best_depth = 0;
   mcsat_model_construct(&trail->target_cache);
   trail->target_depth = 0;
   init_ivector(&trail->type, 0);
@@ -52,7 +54,10 @@ void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from) {
   trail->decision_level = from->decision_level;
   trail->decision_level_base = from->decision_level_base;
   mcsat_model_construct_copy(&trail->model, &from->model);
+  mcsat_model_construct_copy(&trail->best_cache, &from->best_cache);
+  trail->best_depth = from->best_depth;
   mcsat_model_construct_copy(&trail->target_cache, &from->target_cache);
+  trail->target_depth = from->target_depth;
   init_ivector_copy(&trail->type, &from->type);
   init_ivector_copy(&trail->level, &from->level);
   init_ivector_copy(&trail->index, &from->index);
@@ -68,6 +73,7 @@ void trail_destruct(mcsat_trail_t* trail) {
   delete_ivector(&trail->level_sizes);
   trail->decision_level = 0;
   mcsat_model_destruct(&trail->model);
+  mcsat_model_destruct(&trail->best_cache);
   mcsat_model_destruct(&trail->target_cache);
   delete_ivector(&trail->type);
   delete_ivector(&trail->level);
@@ -80,6 +86,7 @@ void trail_new_variable_notify(mcsat_trail_t* trail, variable_t x) {
   // Notify the model
   mcsat_model_new_variable_notify(&trail->model, x);
   mcsat_model_new_variable_notify(&trail->target_cache, x);
+  mcsat_model_new_variable_notify(&trail->best_cache, x);
   // Resize variable info
   while (trail->type.size <= x) {
     ivector_push(&trail->type, UNASSIGNED);
@@ -152,8 +159,9 @@ uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
   assert(trail->decision_level_base > 0);
 
   // repopulate target cache, setting target depth to zero and then call update
+  trail->best_depth = 0;
   trail->target_depth = 0;
-  trail_update_target_cache(trail);
+  trail_update_extra_cache(trail);
 
   trail->decision_level_base --;
   return trail->decision_level_base;
@@ -313,17 +321,13 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
       }
     }
   }
-}
-
-void trail_target_cache_clear(mcsat_trail_t* trail) {
-  variable_t var;
-  for (var = 0; var < trail->target_cache.size; ++var) {
-    if (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE) {
-      mcsat_model_unset_value(&trail->target_cache, var);
+  for (var = 0; var < trail->best_cache.size; ++ var) {
+    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null) {
+      if (mcsat_model_has_value(&trail->best_cache, var)) {
+        mcsat_model_unset_value(&trail->best_cache, var);
+      }
     }
   }
-
-  trail->target_depth = 0;
 }
 
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {
@@ -362,7 +366,37 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
   }
 }
 
-void trail_update_target_cache(mcsat_trail_t *trail) {
+inline static
+void clear_cache(mcsat_model_t* cache) {
+  for (variable_t var = 0; var < cache->size; ++var) {
+    if (mcsat_model_get_value(cache, var)->type != VALUE_NONE) {
+      mcsat_model_unset_value(cache, var);
+    }
+  }
+}
+
+void trail_target_recache(mcsat_trail_t* trail, uint32_t round) {
+  switch (round % 2) {
+  case 0:
+    clear_cache(&trail->target_cache);
+    trail->target_depth = 0;
+    break;
+  case 1:
+    mcsat_model_copy(&trail->target_cache, &trail->best_cache);
+    trail->target_depth = trail->best_depth;
+    clear_cache(&trail->best_cache);
+    trail->best_depth = 0;
+    break;
+  default:
+    break;
+  }
+}
+
+void trail_update_extra_cache(mcsat_trail_t *trail) {
+  if (trail->elements.size >= trail->best_depth) {
+    mcsat_model_copy(&trail->best_cache, &trail->model);
+    trail->best_depth = trail->elements.size;
+  }
   if (trail->elements.size >= trail->target_depth) {
     mcsat_model_copy(&trail->target_cache, &trail->model);
     trail->target_depth = trail->elements.size;

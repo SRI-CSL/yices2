@@ -1439,7 +1439,7 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
   }
 
   // save target cache (when backtracking)
-  trail_update_target_cache(mcsat->trail);
+  trail_update_extra_cache(mcsat->trail);
 }
 
 static
@@ -1450,7 +1450,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
     // Restarts
     if (mcsat->pending_requests_all.restart) {
       // save target cache before restart
-      trail_update_target_cache(mcsat->trail);
+      trail_update_extra_cache(mcsat->trail);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
@@ -1475,8 +1475,8 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache target cache
     if (mcsat->pending_requests_all.recache) {
-      trail_target_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
+      trail_target_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
       (*mcsat->solver_stats.recaches) ++;
     }
 

@@ -64,6 +64,12 @@ struct mcsat_trail_s {
   /** The values per variable */
   mcsat_model_t model;
 
+  /** Best model cache */
+  mcsat_model_t best_cache;
+
+  /** Best trail depth seen so far */
+  uint32_t best_depth;
+
   /** Target model cache */
   mcsat_model_t target_cache;
 
@@ -276,10 +282,10 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 /** compare variables based on the trail level, unassigned to the front, then assigned ones by decreasing level */
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2);
 
-/** Clear target cache */
-void trail_target_cache_clear(mcsat_trail_t* trail);
+/** Recache target cache */
+void trail_target_recache(mcsat_trail_t* trail, uint32_t round);
 
 /** save target cache */
-void trail_update_target_cache(mcsat_trail_t *trail);
+void trail_update_extra_cache(mcsat_trail_t *trail);
 
 #endif /* MCSAT_TRAIL_H_ */
