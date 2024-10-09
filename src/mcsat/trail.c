@@ -315,17 +315,15 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
     }
   }
   for (var = 0; var < trail->target_cache.size; ++ var) {
-    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null) {
-      if (mcsat_model_has_value(&trail->target_cache, var)) {
-        mcsat_model_unset_value(&trail->target_cache, var);
-      }
+    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null &&
+	mcsat_model_has_value(&trail->target_cache, var)) {
+      mcsat_model_unset_value(&trail->target_cache, var);
     }
   }
   for (var = 0; var < trail->best_cache.size; ++ var) {
-    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null) {
-      if (mcsat_model_has_value(&trail->best_cache, var)) {
-        mcsat_model_unset_value(&trail->best_cache, var);
-      }
+    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null &&
+	mcsat_model_has_value(&trail->best_cache, var)) {
+      mcsat_model_unset_value(&trail->best_cache, var);
     }
   }
 }
@@ -367,6 +365,16 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
 }
 
 inline static
+void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, const mcsat_model_t* from_cache) {
+  for (variable_t var = 0; var < from_cache->size; ++var) {
+    const mcsat_value_t* val = mcsat_model_get_value(from_cache, var); 
+    if (!trail_has_value(trail, var) && val->type != VALUE_NONE) {
+      mcsat_model_set_value(to_cache, var, val);
+    }
+  }
+}
+
+inline static
 void clear_cache(mcsat_model_t* cache) {
   for (variable_t var = 0; var < cache->size; ++var) {
     if (mcsat_model_get_value(cache, var)->type != VALUE_NONE) {
@@ -375,30 +383,51 @@ void clear_cache(mcsat_model_t* cache) {
   }
 }
 
-void trail_target_recache(mcsat_trail_t* trail, uint32_t round) {
+void trail_recache(mcsat_trail_t* trail, uint32_t round) {
+  // clear target or copy best into target at each recache iteration
   switch (round % 2) {
   case 0:
+    // unlike modern SAT solvers, we don't clear model cache (called phase saving in SAT solvers)
+    // the reason being we are dealing with possibly (infinite) large domains
     clear_cache(&trail->target_cache);
-    trail->target_depth = 0;
     break;
   case 1:
+    // set model cache to best cache so far; only set unassigned variables
+    trail_copy_unassigned_cache(trail, &trail->model, &trail->best_cache);
     mcsat_model_copy(&trail->target_cache, &trail->best_cache);
-    trail->target_depth = trail->best_depth;
+    // reset best cache
     clear_cache(&trail->best_cache);
     trail->best_depth = 0;
     break;
   default:
     break;
   }
+
+  // reset target depth, so that new targets can be found
+  trail->target_depth = 0;
 }
 
-void trail_update_extra_cache(mcsat_trail_t *trail) {
-  if (trail->elements.size >= trail->best_depth) {
-    mcsat_model_copy(&trail->best_cache, &trail->model);
+void trail_update_extra_cache(mcsat_trail_t* trail) {
+  // update target and best cache w.r.t. current trail if the trail size is bigger
+  variable_t var;
+  if (trail->elements.size > trail->best_depth) {
+    for (var = 0; var < trail->best_cache.size; ++var) {
+      if (!trail_has_value(trail, var)) {
+        mcsat_model_unset_value(&trail->best_cache, var);
+      } else {
+        mcsat_model_set_value(&trail->best_cache, var, trail_get_value(trail, var));
+      }
+    }
     trail->best_depth = trail->elements.size;
   }
-  if (trail->elements.size >= trail->target_depth) {
-    mcsat_model_copy(&trail->target_cache, &trail->model);
+  if (trail->elements.size > trail->target_depth) {
+    for (var = 0; var < trail->target_cache.size; ++var) {
+      if (!trail_has_value(trail, var)) {
+        mcsat_model_unset_value(&trail->target_cache, var);
+      } else {
+        mcsat_model_set_value(&trail->target_cache, var, trail_get_value(trail, var));
+      }
+    }
     trail->target_depth = trail->elements.size;
   }
 }

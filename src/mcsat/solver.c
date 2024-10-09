@@ -1476,7 +1476,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
     // recache target cache
     if (mcsat->pending_requests_all.recache) {
       mcsat->pending_requests_all.recache = false;
-      trail_target_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
+      trail_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
       (*mcsat->solver_stats.recaches) ++;
     }
 
