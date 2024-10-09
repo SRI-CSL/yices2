@@ -728,7 +728,9 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
   }
 }
 
-
+/**
+ * May report real conflict or note int conflict. Handle pending conflicts afterward.
+ */
 static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
@@ -782,10 +784,8 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
 
     // If the variable is integer, check that is has an integer solution
     if (x_is_int_var && !lp_feasibility_set_contains_int(feasible_set)) {
-      // TODO why not report_integer_conflict here directly
-      if (nra->conflict_variable_int == variable_null) {
-        nra->conflict_variable_int = x;
-      }
+      // we don't report an integer conflict immediately as we want to give precedence to real conflicts
+      nra_plugin_note_int_conflict(nra, x);
       return;
     }
 
@@ -1034,6 +1034,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   variable_t var;
 
   assert(nra_plugin_check_assignment(nra));
+  assert(!nra_plugin_is_conflict_pending(nra));
 
   // Context
   const mcsat_trail_t* trail = nra->ctx->trail;
@@ -1071,9 +1072,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     }
   }
 
-  if (trail_is_consistent(trail) && nra->conflict_variable_int != variable_null) {
-    nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
-  }
+  nra_plugin_report_pending_conflict(nra, prop);
 
   assert(nra_plugin_check_assignment(nra));
 }
