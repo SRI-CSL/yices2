@@ -802,7 +802,7 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
 
     // We don't do any hinting for complicated algebraic values
     if (lp_value_is_rational(&x_value)) {
-      if (lp_feasibility_set_is_point(feasible_set) || (x_is_int_var && lp_feasibility_set_is_point_int(feasible_set))) {
+      if (lp_feasibility_set_is_point(feasible_set)) {
         if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
           mcsat_value_t value;
           mcsat_value_construct_lp_value(&value, &x_value);
@@ -814,6 +814,13 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
           }
           nra->ctx->hint_next_decision(nra->ctx, x);
         }
+      } else if (lp_feasibility_set_is_point_int(feasible_set)) {
+        // hint integer (also real) variable; 
+        // a good candidate for next decision as the feasibility set contains a single integer solution
+        if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+          ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+        }
+        nra->ctx->hint_next_decision(nra->ctx, x);
       }
     }
     lp_value_destruct(&x_value);
