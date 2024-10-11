@@ -2654,6 +2654,8 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 
   value_table_t* vtbl = model_get_vtbl(mdl);
 
+  trail_update_extra_cache(mcsat->trail);
+
   for (uint32_t i = 0; i < n_mdl_filter; ++i) {
     term_t x = mdl_filter[i];
     assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
