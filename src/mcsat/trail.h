@@ -238,6 +238,16 @@ bool trail_get_boolean_value(const mcsat_trail_t* trail, variable_t var) {
   return value->b;
 }
 
+/** Set the cached value of the variable */
+static inline
+void trail_set_cached_value(mcsat_trail_t* trail, variable_t var, const mcsat_value_t* value) {
+  if (!trail_has_value(trail, var)) {
+    mcsat_model_set_value(&trail->model, var, value);
+  }
+  mcsat_model_set_value(&trail->target_cache, var, value);
+  trail->target_depth++;
+}
+
 /** Add a new decision x -> value */
 void trail_add_decision(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* value, uint32_t id);
 
