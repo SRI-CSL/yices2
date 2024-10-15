@@ -290,12 +290,15 @@ void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars);
 void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 
 /** compare variables based on the trail level, unassigned to the front, then assigned ones by decreasing level */
-bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2);
+bool trail_variable_compare(const mcsat_trail_t* trail, variable_t t1, variable_t t2);
 
 /** Recache */
 void trail_recache(mcsat_trail_t* trail, uint32_t round);
 
-/** save target cache */
-void trail_update_extra_cache(mcsat_trail_t *trail);
+/** save target/best cache */
+void trail_update_extra_cache(mcsat_trail_t* trail);
+
+/** clear target/best cache */
+void trail_clear_extra_cache(mcsat_trail_t* trail);
 
 #endif /* MCSAT_TRAIL_H_ */

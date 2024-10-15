@@ -168,10 +168,7 @@ uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
   assert(trail->decision_level_base > 0);
 
   // clear target and best cache, setting their depths to zero
-  clear_cache(&trail->target_cache);
-  clear_cache(&trail->best_cache);
-  trail->best_depth = 0;
-  trail->target_depth = 0;
+  trail_clear_extra_cache(trail);
 
   trail->decision_level_base --;
   return trail->decision_level_base;
@@ -433,4 +430,11 @@ void trail_update_extra_cache(mcsat_trail_t* trail) {
     }
     trail->target_depth = trail->elements.size;
   }
+}
+
+void trail_clear_extra_cache(mcsat_trail_t* trail) {
+  clear_cache(&trail->target_cache);
+  clear_cache(&trail->best_cache);
+  trail->target_depth = 0;
+  trail->best_depth = 0;
 }
