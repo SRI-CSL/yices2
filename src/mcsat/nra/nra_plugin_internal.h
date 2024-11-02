@@ -125,6 +125,18 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
  */
 void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
 
+/** Notes a conflict without reporting it yet */
+void nra_plugin_note_conflict(nra_plugin_t* nra, variable_t variable);
+
+/** Notes an int conflict without reporting it yet */
+void nra_plugin_note_int_conflict(nra_plugin_t* nra, variable_t variable);
+
+/** Returns true if a conflict is noted but not reported */
+int nra_plugin_is_conflict_pending(nra_plugin_t* nra);
+
+/** Report any noted real or int conflict */
+void nra_plugin_report_pending_conflict(nra_plugin_t* nra, trail_token_t* prop);
+
 /** Report a conflict (variable is the one with an empty feasible set) */
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
 

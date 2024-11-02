@@ -84,7 +84,11 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   nra->ctx = ctx;
   nra->last_decided_and_unprocessed = variable_null;
   nra->trail_i = 0;
+
   nra->conflict_variable = variable_null;
+  nra->conflict_variable_int = variable_null;
+  nra->conflict_variable_assumption = variable_null;
+  lp_value_construct_none(&nra->conflict_variable_value);
 
   watch_list_manager_construct(&nra->wlm, ctx->var_db);
   constraint_unit_info_init(&nra->unit_info);
@@ -138,11 +142,6 @@ void nra_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_decision_calls(ctx, SCALAR_TYPE);
 
   init_rba_buffer(&nra->buffer, ctx->terms->pprods);
-
-  nra->conflict_variable = variable_null;
-  nra->conflict_variable_int = variable_null;
-  nra->conflict_variable_assumption = variable_null;
-  lp_value_construct_none(&nra->conflict_variable_value);
 
   nra->global_bound_term = NULL_TERM;
 
@@ -718,16 +717,9 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
         bool consistent = feasible_set_db_update(nra->feasible_set_db, x, x_feasible, &constraint_var, 1);
         if (!consistent) {
           nra_plugin_report_conflict(nra, prop, constraint_var);
-        } else if (variable_db_is_int(nra->ctx->var_db, x)) {
-          // BD: if x is an integer, we must check that there are integers in the interval.
-          lp_value_t v;
-          lp_value_construct_none(&v);
-          lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, x), &v);
-          if (!lp_value_is_integer(&v)) {
-            nra->conflict_variable_int = x;
-            nra_plugin_report_conflict(nra, prop, x);
-          }
-          lp_value_destruct(&v);
+        } else if (variable_db_is_int(nra->ctx->var_db, x) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, x))) {
+          // If x is an integer, we must check that there are integers in the interval.
+          nra_plugin_report_int_conflict(nra, prop, x);
         }
       }
     }
@@ -736,7 +728,9 @@ void nra_plugin_infer_bounds_from_constraint(nra_plugin_t* nra, trail_token_t* p
   }
 }
 
-
+/**
+ * May report real conflict or note int conflict. Handle pending conflicts afterward.
+ */
 static
 void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, variable_t constraint_var) {
 
@@ -782,72 +776,54 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     // If the intervals are empty, we have a conflict
     if (!still_feasible) {
       nra_plugin_report_conflict(nra, prop, x);
-    } else {
-      const lp_feasibility_set_t *feasible_set = feasible_set_db_get(nra->feasible_set_db, x);
-      bool x_in_conflict = false;
-      lp_value_t x_value;
-      lp_value_construct_none(&x_value);
-      lp_feasibility_set_pick_value(feasible_set, &x_value);
-
-      // If the variable is integer, check that is has an integer solution
-      if (variable_db_is_int(nra->ctx->var_db, x)) {
-        // Check if there is an integer value
-        if (!lp_value_is_integer(&x_value)) {
-          if (nra->conflict_variable_int == variable_null) {
-            nra->conflict_variable_int = x;
-          }
-          x_in_conflict = true;
-        }
-      }
-
-      if (!x_in_conflict && !trail_has_value(nra->ctx->trail, x)) {
-        if (lp_feasibility_set_is_point(feasible_set)) {
-          if (lp_value_is_rational(&x_value)) {
-            if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
-              mcsat_value_t value;
-              mcsat_value_construct_lp_value(&value, &x_value);
-              prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-              mcsat_value_destruct(&value);
-            } else {
-              if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
-                ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
-              }
-              nra->ctx->hint_next_decision(nra->ctx, x);
-            }
-          }          
-
-        } else if (//variable_db_is_int(nra->ctx->var_db, x) && // turning on for reals as well
-                   !lp_feasibility_set_is_full(feasible_set)) {
-          lp_interval_t x_interval;
-          lp_interval_construct_full(&x_interval); // [-inf, +inf]
-          // now we over-approx the feasible set using an interval and
-          // the result is stored in x_interval, e.g., [1.6, 2.5]
-          // union [4.2, 4.6] is approximated by [1.6, 4.6].
-          feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
-          int interval_dist = lp_interval_size_approx(&x_interval);
-          if (interval_dist <= 1) {
-            // interval distance of an interval [a, b] is defined as log2(|b - a|) + 1.
-            // interval distance 1 means that the absolute log2 distance
-            // between the upper and lower bound is 1.
-            // Consider the the interval [3,4], the interval distance is 1, and has
-            // two integer value: 3 and 4.
-            // Now consider the interval [5.5, 6.1], the interval distance is 0 and
-            // has one integer value: 6. log2(.6) = log2(6) - log2(10).
-            // Here, we are hinting to the main mcsat solver to decide on this variable
-            // as the possible integer values for the variable is highly likely one.
-            if (lp_value_is_integer(&x_value)) {
-              // it is good idea to decide on this variable (integers or reals)
-              if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
-                ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
-              }
-              nra->ctx->hint_next_decision(nra->ctx, x);
-            }
-          }
-          lp_interval_destruct(&x_interval);
-        }
-      }
-      lp_value_destruct(&x_value);
+      return;
     }
+
+    const lp_feasibility_set_t *feasible_set = feasible_set_db_get(nra->feasible_set_db, x);
+    bool x_is_int_var = variable_db_is_int(nra->ctx->var_db, x);
+
+    // If the variable is integer, check that is has an integer solution
+    if (x_is_int_var && !lp_feasibility_set_contains_int(feasible_set)) {
+      // we don't report an integer conflict immediately as we want to give precedence to real conflicts
+      nra_plugin_note_int_conflict(nra, x);
+      return;
+    }
+
+    // If the variable is already assigned, there is no need for hinting a value
+    if (trail_has_value(nra->ctx->trail, x)) {
+      return;
+    }
+
+    // Get a new value
+    lp_value_t x_value;
+    lp_value_construct_none(&x_value);
+    lp_feasibility_set_pick_value(feasible_set, &x_value);
+    assert(!x_is_int_var || lp_value_is_integer(&x_value));
+
+    // We don't do any hinting for complicated algebraic values
+    if (lp_value_is_rational(&x_value)) {
+      if (lp_feasibility_set_is_point(feasible_set)) {
+        if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
+          mcsat_value_t value;
+          mcsat_value_construct_lp_value(&value, &x_value);
+          prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
+          mcsat_value_destruct(&value);
+        } else {
+          if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+            ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+          }
+          nra->ctx->hint_next_decision(nra->ctx, x);
+        }
+      } else if (lp_feasibility_set_is_point_int(feasible_set)) {
+        // hint integer (also real) variable; 
+        // a good candidate for next decision as the feasibility set contains a single integer solution
+        if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
+          ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
+        }
+        nra->ctx->hint_next_decision(nra->ctx, x);
+      }
+    }
+    lp_value_destruct(&x_value);
   }
 }
 
@@ -1038,6 +1014,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   variable_t var;
 
   assert(nra_plugin_check_assignment(nra));
+  assert(!nra_plugin_is_conflict_pending(nra));
 
   // Context
   const mcsat_trail_t* trail = nra->ctx->trail;
@@ -1075,9 +1052,7 @@ void nra_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     }
   }
 
-  if (trail_is_consistent(trail) && nra->conflict_variable_int != variable_null) {
-    nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
-  }
+  nra_plugin_report_pending_conflict(nra, prop);
 
   assert(nra_plugin_check_assignment(nra));
 }
@@ -1328,7 +1303,7 @@ void nra_plugin_get_real_conflict(nra_plugin_t* nra, const int_mset_t* pos, cons
   }
 
   // Project
-  nra_plugin_explain_conflict(nra, pos, neg, &core, &lemma_reasons, conflict);
+  nra_plugin_explain_conflict(nra, pos, neg, x, &core, &lemma_reasons, conflict);
 
   if (ctx_trace_enabled(nra->ctx, "nra::conflict")) {
     ctx_trace_printf(nra->ctx, "nra_plugin_get_conflict(): conflict:\n");
@@ -2024,19 +1999,12 @@ void nra_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token
         ctx_trace_printf(nra->ctx, "\n");
       }
 
-      // If infeasible report conflict
       if (!feasible) {
+        // If infeasible report conflict
         nra_plugin_report_conflict(nra, prop, unit_var);
-      } else if (variable_db_is_int(nra->ctx->var_db, unit_var)) {
-        // Check if there is an integer value
-        lp_value_t v;
-        lp_value_construct_none(&v);
-        lp_feasibility_set_pick_value(feasible_set_db_get(nra->feasible_set_db, unit_var), &v);
-        if (!lp_value_is_integer(&v)) {
-          nra->conflict_variable_int = unit_var;
-          nra_plugin_report_conflict(nra, prop, unit_var);
-        }
-        lp_value_destruct(&v);
+      } else if (variable_db_is_int(nra->ctx->var_db, unit_var) && !lp_feasibility_set_contains_int(feasible_set_db_get(nra->feasible_set_db, unit_var))) {
+        // If not integer value for integer variable, report int conflict
+        nra_plugin_report_int_conflict(nra, prop, unit_var);
       }
 
       delete_ivector(&lemma_reasons);
@@ -2080,7 +2048,6 @@ void nra_plugin_decide_assignment(plugin_t* plugin, variable_t x, const mcsat_va
 
 static
 void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
-  uint32_t i;
   variable_t constraint_var;
 
   nra_plugin_t* nra = (nra_plugin_t*) plugin;
@@ -2095,7 +2062,7 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
   // Get constraints at
   // - constraint_db->constraints
   const ivector_t* all_constraint_vars = poly_constraint_db_get_constraints(nra->constraint_db);
-  for (i = 0; i < all_constraint_vars->size; ++ i)  {
+  for (uint32_t i = 0; i < all_constraint_vars->size; ++ i)  {
     constraint_var = all_constraint_vars->data[i];
 
     // Check if it has a value already
@@ -2146,7 +2113,6 @@ void nra_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
       }
     }
   }
-
 }
 
 bool nra_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
