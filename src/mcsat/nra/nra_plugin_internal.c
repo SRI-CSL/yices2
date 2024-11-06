@@ -109,6 +109,37 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
   }
 }
 
+void nra_plugin_note_conflict(nra_plugin_t* nra, variable_t variable) {
+  if (nra->conflict_variable == variable_null) {
+    nra->conflict_variable = variable;
+  }
+}
+
+void nra_plugin_note_int_conflict(nra_plugin_t* nra, variable_t variable) {
+  if (nra->conflict_variable_int == variable_null) {
+    nra->conflict_variable_int = variable;
+  }
+}
+
+int nra_plugin_is_conflict_pending(nra_plugin_t* nra) {
+  bool conflict_var_set = nra->conflict_variable != variable_null || nra->conflict_variable_int != variable_null;
+  return conflict_var_set && trail_is_consistent(nra->ctx->trail);
+}
+
+void nra_plugin_report_pending_conflict(nra_plugin_t* nra, trail_token_t* prop) {
+  if (!nra_plugin_is_conflict_pending(nra)) {
+    return;
+  }
+
+  if (nra->conflict_variable != variable_null) {
+    nra_plugin_report_conflict(nra, prop, nra->conflict_variable);
+  } else if (nra->conflict_variable_int != variable_null) {
+    nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
+  } else {
+    assert(0);
+  }
+}
+
 void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
   prop->conflict(prop);
   nra->conflict_variable = variable;
