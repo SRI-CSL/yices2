@@ -382,6 +382,15 @@ void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, 
 }
 
 inline static
+void trail_clear_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
+  for (variable_t var = 0; var < cache->size; ++var) {
+    if (!trail_has_value(trail, var) && mcsat_model_get_value(cache, var)->type != VALUE_NONE) {
+      mcsat_model_unset_value(cache, var);
+    }
+  }
+}
+
+inline static
 void trail_clear_unassigned_bool_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
   for (variable_t var = 0; var < cache->size; ++var) {
     if (!trail_has_value(trail, var) && mcsat_model_get_value(cache, var)->type == VALUE_BOOLEAN) {
@@ -448,4 +457,9 @@ void trail_clear_extra_cache(mcsat_trail_t* trail) {
   clear_cache(&trail->best_cache);
   trail->target_depth = 0;
   trail->best_depth = 0;
+}
+
+void trail_clear_cache(mcsat_trail_t* trail) {
+  trail_clear_unassigned_cache(trail, &trail->model);
+  trail_clear_extra_cache(trail);
 }

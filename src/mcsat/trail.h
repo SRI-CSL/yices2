@@ -301,4 +301,7 @@ void trail_update_extra_cache(mcsat_trail_t* trail);
 /** clear target/best cache */
 void trail_clear_extra_cache(mcsat_trail_t* trail);
 
+/** clear all caches */
+void trail_clear_cache(mcsat_trail_t* trail);
+
 #endif /* MCSAT_TRAIL_H_ */
