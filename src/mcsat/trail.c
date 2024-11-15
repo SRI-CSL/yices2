@@ -381,13 +381,24 @@ void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, 
   }
 }
 
+inline static
+void trail_clear_unassigned_bool_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
+  for (variable_t var = 0; var < cache->size; ++var) {
+    if (!trail_has_value(trail, var) && mcsat_model_get_value(cache, var)->type == VALUE_BOOLEAN) {
+      mcsat_model_unset_value(cache, var);
+    }
+  }
+}
+
 void trail_recache(mcsat_trail_t* trail, uint32_t round) {
   // clear target or copy best into target at each recache iteration
   switch (round % 2) {
   case 0:
-    // unlike modern SAT solvers, we don't clear model cache (called phase saving in SAT solvers)
-    // the reason being we are dealing with possibly (infinite) large domains
     clear_cache(&trail->target_cache);
+    // unlike modern SAT solvers, we don't fully clear model cache (called phase saving in SAT solvers)
+    // the reason being we are dealing with possibly (infinite) large domains
+    // only clear boolean values
+    trail_clear_unassigned_bool_cache(trail, &trail->model);
     break;
   case 1:
     // set model cache to best cache so far; only set unassigned variables
