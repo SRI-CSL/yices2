@@ -390,6 +390,7 @@ void trail_clear_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
   }
 }
 
+#if 0
 inline static
 void trail_clear_unassigned_bool_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
   for (variable_t var = 0; var < cache->size; ++var) {
@@ -398,6 +399,7 @@ void trail_clear_unassigned_bool_cache(mcsat_trail_t* trail, mcsat_model_t* cach
     }
   }
 }
+#endif
 
 void trail_recache(mcsat_trail_t* trail, uint32_t round) {
   // clear target or copy best into target at each recache iteration
