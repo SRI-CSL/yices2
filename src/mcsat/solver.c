@@ -731,13 +731,7 @@ static
 void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const mcsat_value_t* val) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
-  // update only if the x value is not set in the trail
-  if (!trail_has_value(mctx->mcsat->trail, x)) {
-    // we set the value in the model of the trail.
-    // Remark: This is not making a decision in the trail. The model
-    // in the trail is used as a cache for unassigned variables.
-    mcsat_model_set_value(&mctx->mcsat->trail->model, x, val);
-  }
+  trail_set_cached_value(mctx->mcsat->trail, x, val);
 }
 
 static
@@ -1059,7 +1053,7 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache);
 
 static
 void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
@@ -1122,7 +1116,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   uint32_t new_base_level = trail_pop_base_level(mcsat->trail);
 
   // Backtrack solver
-  mcsat_backtrack_to(mcsat, new_base_level);
+  mcsat_backtrack_to(mcsat, new_base_level, false);
 
   // Internal stuff pop
   uint32_t assertion_vars_size = 0;
@@ -1179,7 +1173,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   // - Pop internal to base level
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
-  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
   mcsat->status = STATUS_IDLE;
   mcsat->interpolant = NULL_TERM; // BD
 }
@@ -1419,7 +1413,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache) {
   assert((int32_t) level >= mcsat->assumptions_decided_level);
   while (mcsat->trail->decision_level > level) {
 
@@ -1439,7 +1433,7 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
   }
 
   // save target cache (when backtracking)
-  trail_update_extra_cache(mcsat->trail);
+  if (update_cache) trail_update_extra_cache(mcsat->trail);
 }
 
 static
@@ -1457,7 +1451,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       }
       mcsat->assumptions_decided_level = -1;
       mcsat->assumption_i = 0;
-      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
       mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
@@ -1744,7 +1738,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   if (unassigned.size == 1) {
     // UIP, just make sure we're not going below assumptions
     if ((int32_t) top_level >= mcsat->assumptions_decided_level) {
-      mcsat_backtrack_to(mcsat, top_level);
+      mcsat_backtrack_to(mcsat, top_level, false);
     }
   } else {
     // Non-UIP, we're already below, and we'll split on a new term, that's enough
@@ -2127,7 +2121,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   conflict_level = conflict_get_level(&conflict);
   // Backtrack max(base, assumptions, conflict)
   backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-  mcsat_backtrack_to(mcsat, backtrack_level);
+  mcsat_backtrack_to(mcsat, backtrack_level, false);
 
   // Analyze while at least one variable at conflict level
   while (true) {
@@ -2243,7 +2237,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       conflict_recompute_level_info(&conflict);
       conflict_level = conflict_get_level(&conflict);
       backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-      mcsat_backtrack_to(mcsat, backtrack_level);
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
     }
   }
 
@@ -2258,14 +2252,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     }
     mcsat->assumptions_decided_level = -1;
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
     mcsat->status = STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1, true);
 
     // Get the literals
     conflict_disjuncts = conflict_get_literals(&conflict);

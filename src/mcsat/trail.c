@@ -406,8 +406,6 @@ void trail_recache(mcsat_trail_t* trail, uint32_t round) {
     clear_cache(&trail->target_cache);
     // unlike modern SAT solvers, we don't fully clear model cache (called phase saving in SAT solvers)
     // the reason being we are dealing with possibly (infinite) large domains
-    // only clear boolean values
-    trail_clear_unassigned_bool_cache(trail, &trail->model);
     break;
   case 1:
     // set model cache to best cache so far; only set unassigned variables
@@ -444,7 +442,11 @@ void trail_update_extra_cache(mcsat_trail_t* trail) {
   if (trail->elements.size > trail->target_depth) {
     // save the assigned values as target assignment
     for (var = 0; var < trail->target_cache.size; ++var) {
-      if (trail_has_value(trail, var)) {
+      if (!trail_has_value(trail, var)) {
+        if (mcsat_model_has_value(&trail->target_cache, var)) {
+          mcsat_model_unset_value(&trail->target_cache, var);
+        }
+      } else {
         mcsat_model_set_value(&trail->target_cache, var, trail_get_value(trail, var));
       }
     }

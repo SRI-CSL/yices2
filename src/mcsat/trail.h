@@ -245,7 +245,7 @@ void trail_set_cached_value(mcsat_trail_t* trail, variable_t var, const mcsat_va
     mcsat_model_set_value(&trail->model, var, value);
   }
   mcsat_model_set_value(&trail->target_cache, var, value);
-  trail->target_depth++;
+  if (!mcsat_model_has_value(&trail->target_cache, var)) trail->target_depth++;
 }
 
 /** Add a new decision x -> value */
