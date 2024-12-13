@@ -395,6 +395,12 @@ mcsat_src_c := \
 	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
+	mcsat/l2o/l2o.c \
+	mcsat/l2o/evaluator.c \
+	mcsat/l2o/hill_climbing.c \
+	mcsat/l2o/eval_vectors.c \
+	mcsat/l2o/eval_hash_map.c \
+	mcsat/l2o/varset_table.c \
 	mcsat/options.c
 
 
