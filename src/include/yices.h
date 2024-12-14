@@ -3268,7 +3268,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  *
- * Since 2.7.0
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(context_t *ctx,
 									      const param_t *params,
@@ -3293,6 +3293,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(co
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx,
                                                                       uint32_t n,
@@ -3313,6 +3315,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_fixed_var_order(context_t 
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx,
                                                                         uint32_t n,
