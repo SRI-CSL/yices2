@@ -47,6 +47,8 @@ Gets as input:
 */
 
 double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, bool *v_fixed){
+  assert(n_var >= 1);
+  
   uint32_t i = 0;
   term_table_t* terms = l2o->terms;
   double acceptance_treshold = 0;

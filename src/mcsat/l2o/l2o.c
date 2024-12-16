@@ -1360,7 +1360,8 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
   }
 
   bool use_hill_climbing = true;
-  if(use_hill_climbing){
+  if(use_hill_climbing && n_var >= 1){
+
     // Improve first_x using hill_climbing  
     double* x_hc = hill_climbing(l2o, t, n_var, v, first_x, v_fixed);
 
