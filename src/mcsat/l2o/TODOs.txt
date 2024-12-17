@@ -1,0 +1,19 @@
+
+* When setting the model for the trail, round doubles to gmp integers.
+** For NRA, convert to rationals (with a cap on num/dem)
+
+* l2o.c:1004 and 1057: memory leak; use (const) pointers
+
+* no int_hset_reset after init necessary
+
+* don't use static fields (e.g. l2o.c: 191)
+
+* all functions not explicitly part of the external interface of your component should be made static
+
+* Some cast overflows (*not* evaluator.c:166)
+
+* Use a list of terms for clauses, instead of one big sum term.
+
+* l2o.c: get_composite: better to extract the code from the preprocessor towards term.c and avoid duplicating it
+
+* .h file for evaluator and hill_climbing
