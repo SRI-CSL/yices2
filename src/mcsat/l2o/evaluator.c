@@ -45,8 +45,6 @@
 
 #include <math.h>
 
-#include <unistd.h> // TODO remove it 
-
 #define EVAL_MAXFLOAT __DBL_MAX__;
 
 void evaluator_cache_construct(eval_cache_t* cache) {
@@ -78,29 +76,29 @@ void evaluator_destruct(evaluator_t* evaluator) {
   evaluator_cache_destruct(&evaluator->cache);
 }
 
-
+/** Check whether t has been already evaluated */
+static inline
 bool already_evaluated(evaluator_t* evaluator, term_t t) {
   eval_hmap_pair_t* find = eval_hmap_find(&evaluator->eval_map, t);
-  if (find == NULL) {
-    return false;
-  } else {
-    return true;
-  }
+  return find != NULL;
 }
 
-
+/** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
+static inline
 double evaluator_get(evaluator_t* evaluator, term_t t) {
   eval_hmap_pair_t* find = eval_hmap_find(&evaluator->eval_map, t);
   assert(find != NULL);
   return find->val;
 }
 
-
+/** Set t_eval as the evaluated value of t */
+static inline
 void evaluator_set(evaluator_t* evaluator, term_t t, double t_eval) {
   assert(! already_evaluated(evaluator, t));
   eval_hmap_add(&evaluator->eval_map, t, t_eval);
 }
 
+static inline
 bool evaluator_has_cache(evaluator_t* evaluator){
   return evaluator->cache.n_var != 0;
 }
@@ -133,7 +131,8 @@ void get_set_of_vars_with_new_value(l2o_t* l2o,  uint32_t n_var, term_t *vars, d
   }
 }
 
-bool is_var_member_of_varset(l2o_t* l2o, term_t var, int_hset_t* varset, int32_t varset_index){
+static
+bool is_var_member_of_varset(l2o_t* l2o, term_t var, const int_hset_t* varset, int32_t varset_index){
   //TODO change name &l2o->varset_members_cache
   pmap2_rec_t* rec = pmap2_get(&l2o->varset_members_cache, var, varset_index);
   if(rec->val == -1){    // not cached yet
@@ -154,10 +153,11 @@ bool is_var_member_of_varset(l2o_t* l2o, term_t var, int_hset_t* varset, int32_t
 
 
 // Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1)
+static
 bool varset_intersects_free_vars_of_term(l2o_t* l2o, int_hset_t* set_of_vars, term_t t){
   int32_t index_vars_in_t = get_freevars_index(l2o, t);
   assert(index_vars_in_t != -1);
-  int_hset_t* vars_in_t = get_freevars_from_index(l2o, index_vars_in_t);
+  const int_hset_t* vars_in_t = get_freevars_from_index(l2o, index_vars_in_t);
 
   bool intersection_is_empty = true;
 
@@ -179,12 +179,7 @@ bool can_use_cached_value(l2o_t* l2o, int_hset_t* vars_with_new_val, term_t t){
   if(eval_hmap_find(&l2o->evaluator.cache.eval_map, t) == NULL){
     return false;
   }
-
-  if(varset_intersects_free_vars_of_term(l2o, vars_with_new_val, t)){
-    return false;
-  }else{
-    return true;
-  }
+  return !varset_intersects_free_vars_of_term(l2o, vars_with_new_val, t);
 }
 
 void evaluator_forget_cache_cost(evaluator_t* evaluator){
@@ -222,7 +217,7 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
   }
 
   
-  while (eval_stack->size) {
+  while (eval_stack->size > 0) {
     // Current term
     term_t current = ivector_last(eval_stack);
     type_kind_t current_type = term_type_kind(terms, current);
@@ -374,7 +369,7 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
             }
           }
 
-        }else{
+        } else {
           if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
             printf("\ncurrent kind is AND_TERM (i.e. OR with negative polarity)\n");
           }
@@ -523,7 +518,6 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
           }
         }
       }
-    
 
       case ARITH_EQ_ATOM:      // equality (t == 0)
       {
@@ -555,7 +549,6 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
           continue;
         }
       }
-
 
       case EQ_TERM:      // eq_term
       {
@@ -644,8 +637,6 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
           break;
         }
       }
-
-
 
       case ARITH_GE_ATOM:      // atom t >= 0
       {
@@ -958,16 +949,15 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
 
       default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
         if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
-          assert(false);
           printf("\ncurrent_kind: %d\n",current_kind);
           printf("\ncurrent kind is UNSUPPORTED\n");
         }
+
         // UNSUPPORTED TERM/THEORY
         longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         break;
       }
     }
-
 
     ivector_pop(eval_stack);
     if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
@@ -977,7 +967,6 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
     }
     evaluator_set(&l2o->evaluator, current, current_eval);
   }
-
 
   // Get cost of t
   assert(already_evaluated(&l2o->evaluator, term));
@@ -989,7 +978,6 @@ double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x
 
   // Update the cache only if current cost is smaller than cached cost
   if(t_eval < l2o->evaluator.cache.cost){
-    // TODO why safe_malloc?
     l2o->evaluator.cache.v = (term_t *) safe_malloc(n_var * sizeof(term_t));
     l2o->evaluator.cache.x = (double *) safe_malloc(n_var * sizeof(double));
 

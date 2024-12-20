@@ -39,7 +39,6 @@
 #include "api/yices_extensions.h"
 #include <math.h>
 
-#include <unistd.h> // TODO remove it 
 //#define EPSILON yices_rational32(1, 1000000)
 #define EPSILON "0.0000001"
 
@@ -57,7 +56,6 @@ void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler) {
   init_int_hmap(&l2o->freevars_map, 0);
   init_pmap2(&l2o->varset_members_cache);
 
-  init_ivector(&l2o->l2o_stack, 0);
   evaluator_construct(&l2o->evaluator);
   l2o->tracer = NULL;
   l2o->exception = handler;
@@ -78,7 +76,6 @@ void l2o_destruct(l2o_t* l2o) {
   delete_int_hmap(&l2o->freevars_map);
   delete_pmap2(&l2o->varset_members_cache);
 
-  delete_ivector(&l2o->l2o_stack);
   evaluator_destruct(&l2o->evaluator);
   scope_holder_destruct(&l2o->scope);
 }
@@ -96,14 +93,15 @@ term_t l2o_get(l2o_t* l2o, term_t t) {
   }
 }
 
+/** Set t_l2o as the L2O value of t */
+static inline
 void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   assert(l2o_get(l2o, t) == NULL_TERM);
   int_hmap_add(&l2o->l2o_map, t, t_l2o);
   l2o->n_terms++;
 }
 
-
-int32_t get_freevars_index(l2o_t* l2o, term_t t) {
+int32_t get_freevars_index(const l2o_t* l2o, term_t t) {
   term_t t_unsigned = unsigned_term(t);
   int_hmap_pair_t* find = int_hmap_find(&l2o->freevars_map, t_unsigned);
   if (find == NULL) {
@@ -113,23 +111,22 @@ int32_t get_freevars_index(l2o_t* l2o, term_t t) {
   }
 }
 
-int_hset_t* get_freevars(l2o_t* l2o, term_t t){
+const int_hset_t* get_freevars(const l2o_t* l2o, term_t t){
   term_t t_unsigned = unsigned_term(t);
   int32_t index = get_freevars_index(l2o,  t_unsigned);
   if(index == -1){
     return NULL;
   }
-  int_hset_t* var_set = get_varset(&l2o->varset_table, index);
-  return var_set;
+  return get_varset(&l2o->varset_table, index);
 }
 
-int_hset_t* get_freevars_from_index(l2o_t* l2o, int32_t index){
+const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index){
   assert(index != -1);
-  int_hset_t* var_set = get_varset(&l2o->varset_table, index);
-  return var_set;
+  return get_varset(&l2o->varset_table, index);
 }
 
 // Set the set of free variables for t
+static
 void set_freevars_new(l2o_t* l2o, term_t t, int_hset_t* vars_set) {
   term_t t_unsigned = unsigned_term(t);
   assert(get_freevars_index(l2o, t_unsigned) == -1);
@@ -137,7 +134,8 @@ void set_freevars_new(l2o_t* l2o, term_t t, int_hset_t* vars_set) {
   int_hmap_add(&l2o->freevars_map, t_unsigned, index);
 }
 
-// Set the set of free variables of t to be equal to the set of free variables of t2 
+// Set the set of free variables of t to be equal to the set of free variables of t2
+static
 void set_freevars_dependent(l2o_t* l2o, term_t t, term_t t2) {
   term_t t_unsigned = unsigned_term(t);
   term_t t2_unsigned = unsigned_term(t2);
@@ -147,26 +145,23 @@ void set_freevars_dependent(l2o_t* l2o, term_t t, term_t t2) {
   int_hmap_add(&l2o->freevars_map, t_unsigned, index);
 }
 
-// Get as input an array of varset_table indices of length n. Return the union of the corresponding var sets 
-int_hset_t* construct_union_set_from_indices(l2o_t* l2o, int32_t* indices, int32_t n){
-  int_hset_t* union_set_p = (int_hset_t*) safe_malloc(sizeof(int_hset_t));
-  init_int_hset(union_set_p, 0);
-  int_hset_reset(union_set_p);
+/** Get as input an array of varset_table indices of length n. Fills the variables in out. */
+static
+void construct_union_set_from_indices(const l2o_t* l2o, const int32_t* indices, uint32_t n, int_hset_t *out) {
   for (uint32_t i = 0; i < n; ++ i) {
     int32_t index = indices[i];
     assert(index != -1);
-    int_hset_t* var_set_i = get_freevars_from_index(l2o, index);
+    const int_hset_t* var_set_i = get_freevars_from_index(l2o, index);
     uint32_t nelems = var_set_i->nelems;
     for (uint32_t j = 0; j < nelems; ++ j) {
       term_t var = var_set_i->data[j];
-      int_hset_add(union_set_p, var);
+      int_hset_add(out, var);
     }
   }
-  return union_set_p;  
-  // union_set_p get closed at the end of get_free_vars
 }
 
-
+/** Get L2O variable translation of t */
+static
 term_t l2o_var_get(l2o_t* l2o, term_t t) {
   int_hmap_pair_t* find = int_hmap_find(&l2o->l2o_var_map, t);
   if (find == NULL) {
@@ -176,7 +171,7 @@ term_t l2o_var_get(l2o_t* l2o, term_t t) {
   }
 }
 
-static
+static inline
 void l2o_var_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   assert(l2o_var_get(l2o, t) == NULL_TERM);
   int_hmap_add(&l2o->l2o_var_map, t, t_l2o);
@@ -298,17 +293,17 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
   }
 
   // Initialize the stack
-  ivector_t* l2o_stack = &l2o->l2o_stack;
-  ivector_reset(l2o_stack);
-  ivector_push(l2o_stack, t);
+  ivector_t l2o_stack;
+  init_ivector(&l2o_stack, 0);
+  ivector_push(&l2o_stack, t);
 
-  
   // L2O main loop
-  while (l2o_stack->size) {
+  while (l2o_stack.size > 0) {
     // Current term
-    term_t current = ivector_last(l2o_stack);
+    term_t current = ivector_last(&l2o_stack);
     type_kind_t current_type = term_type_kind(terms, current);
     term_kind_t current_kind = term_kind(terms, current);
+
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
       mcsat_trace_printf(l2o->tracer, "\n\n* current = ");
       trace_term_ln(l2o->tracer, terms, current);
@@ -320,44 +315,32 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
     // If we already have L2O(current), continue
     term_t current_l2o = l2o_get(l2o, current);
     if (current_l2o != NULL_TERM) {
-      ivector_pop(l2o_stack);
+      ivector_pop(&l2o_stack);
       continue;
     }
 
-
-    switch (current_type) {
-    case BOOL_TYPE:
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+      switch (current_type) {
+      case BOOL_TYPE:
         printf("\nType is BOOL\n");
-      }
-      break;
-    case INT_TYPE:
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+        break;
+      case INT_TYPE:
         printf("\nType is INT\n");
-      }
-      break;
-    case REAL_TYPE:
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+        break;
+      case REAL_TYPE:
         printf("\nType is REAL\n");
-      }
-      break;
-    case UNINTERPRETED_TYPE:     
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+        break;
+      case UNINTERPRETED_TYPE:
         printf("\nType is UNINTERPRETED\n");
-      }
-      break; 
-    case SCALAR_TYPE:             // TODO What is SCALAR_TYPE?
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+        break;
+      case SCALAR_TYPE:             // TODO What is SCALAR_TYPE?
         printf("\nType is SCALAR");
-      }
-      break;
-    default:
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+        break;
+      default:
         printf("\nType is other");
+        break;
       }
-      //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
-
 
     switch(current_kind) {
     case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
@@ -506,7 +489,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t arg_i = args[i];
           term_t arg_i_l2o = l2o_get(l2o, arg_i);      
           if (arg_i_l2o == NULL_TERM) {
-            ivector_push(l2o_stack, arg_i);
+            ivector_push(&l2o_stack, arg_i);
             args_already_visited = false;
           } 
           else if( arg_i_l2o == zero_term){
@@ -540,7 +523,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t arg_i_neg = yices_not(arg_i);
           term_t arg_i_neg_l2o = l2o_get(l2o, arg_i_neg);      
           if (arg_i_neg_l2o == NULL_TERM) {
-            ivector_push(l2o_stack, arg_i_neg);
+            ivector_push(&l2o_stack, arg_i_neg);
             args_already_visited = false;
           } 
           else if( arg_i_neg_l2o == zero_term){
@@ -577,7 +560,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t arg_i = args[i];
           term_t arg_i_l2o = l2o_get(l2o, arg_i);      
           if (arg_i_l2o == NULL_TERM) {
-            ivector_push(l2o_stack, arg_i);
+            ivector_push(&l2o_stack, arg_i);
             args_already_visited = false;
           } else{
             args_l2o[i] = arg_i_l2o;
@@ -604,14 +587,14 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
         bool args_already_visited = true;
         term_t t1neg_l2o = l2o_get(l2o, t1neg);      
         if (t1neg_l2o == NULL_TERM) {
-          ivector_push(l2o_stack, t1neg);
+          ivector_push(&l2o_stack, t1neg);
           args_already_visited = false;
         } else{
           args_l2o[1] = t1neg_l2o;
         }
         term_t t2neg_l2o = l2o_get(l2o, t2neg);      
         if (t2neg_l2o == NULL_TERM) {
-          ivector_push(l2o_stack, t2neg);
+          ivector_push(&l2o_stack, t2neg);
           args_already_visited = false;
         } else{
           args_l2o[2] = t2neg_l2o;
@@ -761,7 +744,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t arg_i = args[i];
           term_t arg_i_l2o = l2o_get(l2o, arg_i);      
           if (arg_i_l2o == NULL_TERM) {
-            ivector_push(l2o_stack, arg_i);
+            ivector_push(&l2o_stack, arg_i);
             args_already_visited = false;
           } 
           else{
@@ -802,7 +785,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 
     if (current_l2o != NULL_TERM) {
       l2o_set(l2o, current, current_l2o);
-      ivector_pop(l2o_stack);
+      ivector_pop(&l2o_stack);
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent_l2o != NULL_TERM\n");
         mcsat_trace_printf(l2o->tracer, "\ncurrent_l2o = ");
@@ -812,21 +795,22 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 
   }
 
+  delete_ivector(&l2o_stack);
+
   // Return the result
   t_l2o = l2o_get(l2o, t);
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     mcsat_trace_printf(l2o->tracer, "t_l2o = ");
     trace_term_ln(l2o->tracer, terms, t_l2o);
   }
-  ivector_reset(l2o_stack);
-
   assert(t_l2o != NULL_TERM);
   return t_l2o;
 }
 
 
 // Find all the free variables in t and in each subterm of t, and store them in l2o freevars_map
-int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
+static
+void collect_freevars(l2o_t* l2o, term_t t) {
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\nget_free_arith_vars\n");
   }
@@ -837,36 +821,33 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
   ivector_t stack;
   init_ivector(&stack, 0);
   ivector_reset(&stack);
-  ivector_push(&stack, t);  
+  ivector_push(&stack, t);
 
-  while (stack.size) {
+  int_hset_t current_vars_set;
+  init_int_hset(&current_vars_set, 0);
+
+  while (stack.size > 0) {
+    int_hset_reset(&current_vars_set);
+
     // Current term (unsigned)
     term_t current = unsigned_term(ivector_last(&stack));
 
     // If already visited, continue
-    if(get_freevars(l2o, current) != NULL){
+    if(get_freevars(l2o, current) != NULL) {
       ivector_pop(&stack);
       continue;
     }
 
     if(current == RESERVED_TERM || current == UNUSED_TERM){
       // Create empty set
-      int_hset_t current_vars_set;
-      init_int_hset(&current_vars_set, 0);
-      int_hset_reset(&current_vars_set);
+      assert(int_hset_is_empty(&current_vars_set));
       set_freevars_new(l2o, current, &current_vars_set);
-      int_hset_close_and_sort(&current_vars_set);
-      delete_int_hset(&current_vars_set);
-      ivector_pop(&stack);
       continue;
     }
 
     type_kind_t current_type = term_type_kind(terms, current);
     term_kind_t current_kind = term_kind(terms, current);
 
-    int_hset_t current_vars_set;
-    init_int_hset(&current_vars_set, 0);
-    int_hset_reset(&current_vars_set);
     bool finished = false;
     bool dependent = false; // true if the current term has exactly one subterm
 
@@ -894,7 +875,6 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
       int_hset_add(&current_vars_set, current_unsigned);
 
       term_t current_unsigned_l2o = l2o_var_get(l2o, current_unsigned);
-
       if (current_unsigned_l2o == NULL_TERM) {
         l2o_var_set(l2o, current_unsigned, current_unsigned);
       }
@@ -1001,7 +981,7 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
         }
       }
       if(args_already_visited){
-        current_vars_set = *construct_union_set_from_indices(l2o, args_varset_index, n_args);
+        construct_union_set_from_indices(l2o, args_varset_index, n_args, &current_vars_set);
         finished = true;
       }
       break;
@@ -1054,7 +1034,7 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
         }
       }
       if(args_already_visited){
-        current_vars_set = *construct_union_set_from_indices(l2o, args_varset_index, n_terms_with_vars);
+        construct_union_set_from_indices(l2o, args_varset_index, n_terms_with_vars, &current_vars_set);
         finished = true;
       }
       break;
@@ -1075,7 +1055,7 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
         }
       }
       if(args_already_visited){
-        current_vars_set = *construct_union_set_from_indices(l2o, args_varset_index, n_poly);
+        construct_union_set_from_indices(l2o, args_varset_index, n_poly, &current_vars_set);
         finished = true;
       }
       break;
@@ -1096,7 +1076,7 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
         }
       }
       if(args_already_visited){
-        current_vars_set = *construct_union_set_from_indices(l2o, args_varset_index, n_poly);
+        construct_union_set_from_indices(l2o, args_varset_index, n_poly, &current_vars_set);
         finished = true;
       }
       break;
@@ -1117,7 +1097,7 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
         }
       }
       if(args_already_visited){
-        current_vars_set = *construct_union_set_from_indices(l2o, args_varset_index, n_poly);
+        construct_union_set_from_indices(l2o, args_varset_index, n_poly, &current_vars_set);
         finished = true;
       }
       break;
@@ -1126,7 +1106,8 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
       assert(false);
       break;
     }
-    if(finished){
+
+    if(finished) {
       if(!dependent){
         int_hset_close_and_sort(&current_vars_set);
         set_freevars_new(l2o, current, &current_vars_set);
@@ -1148,18 +1129,16 @@ int_hset_t* get_free_vars(l2o_t* l2o, term_t t){
       }
       ivector_pop(&stack);
     }
-    delete_int_hset(&current_vars_set);
   }
 
-  int_hset_t* vars_set = get_freevars(l2o, t);
-  return vars_set;
+  delete_int_hset(&current_vars_set);
 }
-
 
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler) {
   l2o->exception = handler;
 }
 
+static
 void set_l2o_vars(l2o_t* l2o, int_hset_t* var_set){
 
   uint32_t n = var_set->nelems;
@@ -1286,9 +1265,12 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
 
   // On the first call, use default values. After the first call, use cached values.
   bool use_cached_values = l2o->n_runs > 0;
-  int_hset_t var_set = *get_free_vars(l2o, t);
-  //set_l2o_vars(l2o, &var_set);
-  uint32_t n_var = var_set.nelems;
+
+  collect_freevars(l2o, t);
+  const int_hset_t* var_set = get_freevars(l2o, t);
+  assert(var_set != NULL);
+
+  uint32_t n_var = var_set->nelems;
   
   term_t v[n_var];
   term_t v_l2o[n_var];
@@ -1299,7 +1281,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
 
   // Check if there are non-arith and non-bool vars; if yes, return without doing anything
   for (i = 0; i < n_var; ++ i) {
-      v[i] = var_set.data[i];
+      v[i] = var_set->data[i];
       type_kind_t type_vi = term_type_kind(l2o->terms, v[i]);
       //printf("\nv[%d] = %d", i , v[i]);
       if(type_vi != INT_TYPE && type_vi != REAL_TYPE && type_vi != BOOL_TYPE){
@@ -1308,9 +1290,8 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
       //printf("\ntype_vi %d", type_vi);
   }
 
-
   for (i = 0; i < n_var; ++ i) {
-    v[i] = var_set.data[i];
+    v[i] = var_set->data[i];
     v_l2o[i] = l2o_var_get(l2o, v[i]);
 
     variable_t var_i = variable_db_get_variable_if_exists(trail->var_db, v[i]);
@@ -1373,8 +1354,6 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     l2o_set_hint(l2o, n_var, v, x_hc, t, trail);
   }
 }
-
-
 
 
 term_t l2o_make_cost_fx(l2o_t* l2o) {

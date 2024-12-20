@@ -25,7 +25,6 @@
 
 #include "mcsat/l2o/varset_table.h"
 #include "utils/hash_functions.h"
-#include "utils/memalloc.h"
 
 
 /*
@@ -63,12 +62,12 @@ static inline uint32_t varset_table_nelems(varset_table_t *t) {
   return indexed_table_nelems(&t->varsets);
 }
 
-static inline varset_table_elem_t *varset_table_elem(varset_table_t *t,
-						   uint32_t i) {
+static inline
+varset_table_elem_t *varset_table_elem(const varset_table_t *t, uint32_t i) {
   return indexed_table_elem(varset_table_elem_t, &t->varsets, i);
 }
 
-int_hset_t* get_varset(varset_table_t *table, uint32_t i){
+const int_hset_t* get_varset(const varset_table_t *table, uint32_t i) {
   return varset_table_elem(table, i)->vars_set;
 }
 

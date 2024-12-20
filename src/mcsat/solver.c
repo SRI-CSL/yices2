@@ -195,9 +195,6 @@ struct mcsat_solver_s {
   /** L2O operator */
   l2o_t l2o;
 
-  /** L2O cost function */
-  term_t l2o_cost_fx;
-
   /**
    * Array of owners for each term kind. If there are more than one, they
    * continue at indices mod NUM_TERM_KINDS.

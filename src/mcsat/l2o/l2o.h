@@ -118,9 +118,6 @@ typedef struct {
   /** Map from a variable and an index of varset_table to a boolean which is true iff the variable is member of the varset */
   pmap2_t varset_members_cache;
 
-  /** L2O stack */
-  ivector_t l2o_stack;
-
   /** Approximate Evaluator */
   evaluator_t evaluator;
 
@@ -153,13 +150,13 @@ term_t l2o_apply(l2o_t* l2o, term_t t);
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail);
 
 /** Get the varset_table index of the set of free variables in t */
-int32_t get_freevars_index(l2o_t* l2o, term_t t);
+int32_t get_freevars_index(const l2o_t* l2o, term_t t);
 
 /** Get the set of free variables in t */
-int_hset_t* get_freevars(l2o_t* l2o, term_t t);
+const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
 
 /** Get the set of free variables from a term given its varset_table index  */
-int_hset_t* get_freevars_from_index(l2o_t* l2o, int32_t index);
+const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
 
 /** Minimize L2O cost function and set hint to trail */
 void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail);
@@ -179,26 +176,9 @@ void l2o_pop(l2o_t* l2o);
 /** Get L2O translation of t */
 term_t l2o_get(l2o_t* l2o, term_t t);
 
-/** Get L2O variable translation of t */
-term_t l2o_var_get(l2o_t* l2o, term_t t);
-
-/** Set t_l2o as the L2O value of t */
-void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o);
-
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 
 
-
-
-
-
-static inline void printf_term_eval(l2o_t* l2o,  term_eval_t t) {
-    if(t.is_double){
-      mcsat_trace_printf(l2o->tracer, "%f", t.cost);
-    }else{
-    mcsat_trace_printf(l2o->tracer, "%d", t.term); // TODO this just prints the id of the term
-    }
-};
 
 /** Construct the evaluator operator */
 void evaluator_construct(evaluator_t* evaluator);
@@ -209,20 +189,11 @@ void evaluator_destruct(evaluator_t* evaluator);
 /** Set tracer */
 void evaluator_set_tracer(evaluator_t* evaluator, tracer_t* tracer);
 
-
-/** Check whether t has been already evaluated */
-bool already_evaluated(evaluator_t* evaluator, term_t t);
-
-/** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
-double evaluator_get(evaluator_t* evaluator, term_t t);
-
-/** Set t_eval as the evaluated value of t */
-void evaluator_set(evaluator_t* evaluator, term_t t, double t_eval);
-
 // Delete cache cost to force updating the cache after the next evaluation
 void evaluator_forget_cache_cost(evaluator_t* evaluator);
 
-// Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total. // TODO: accept partial assignments returning a term
+// Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
+// TODO: accept partial assignments returning a term
 double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x, term_t t);
 
 // Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x

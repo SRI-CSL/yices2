@@ -90,7 +90,7 @@ extern void reset_varset_table(varset_table_t *table);
 extern int32_t add_varset(varset_table_t *table, int_hset_t *a);
 
 
-extern int_hset_t* get_varset(varset_table_t *table, uint32_t i);
+extern const int_hset_t* get_varset(const varset_table_t *table, uint32_t i);
 
 
 /*
