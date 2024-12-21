@@ -97,6 +97,7 @@ static tstack_t stack;
 static bool incremental;
 static bool interactive;
 static bool smt2_model_format;
+static bool dump_models;
 static bool bvdecimal;
 static bool show_stats;
 static int32_t verbosity;
@@ -107,6 +108,8 @@ static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
+static double mcsat_rand_dec_freq;
+static int32_t mcsat_rand_dec_seed;
 static bool mcsat_nra_mgcd;
 static bool mcsat_nra_nlsat;
 static bool mcsat_nra_bound;
@@ -155,11 +158,14 @@ typedef enum optid {
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
   yicesformat_opt,         // use the Yices model format for models
+  dump_model_opt,          // print model on sat result
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
+  mcsat_rand_dec_freq_opt, // random decision frequency when making a decision in mcsat
+  mcsat_rand_dec_seed_opt, // seed for random decisions 
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
   mcsat_nra_bound_opt,     // search by increasing bound
@@ -204,10 +210,13 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
+  { "dump-models", '\0', FLAG_OPTION, dump_model_opt},
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_opt },
+  { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_opt },
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
   { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
@@ -268,6 +277,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --yices-model-format      Display models in the Yices model format (default = false)\n"
+         "    --dump-models             Display models on sat result (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
@@ -285,6 +295,8 @@ static void print_mcsat_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
          "    or %s [option]\n\n", progname, progname);
   printf("MCSat options:\n"
+	 "    --mcsat-rand-dec-freq=<B> Set the random decision frequency [0,1] (default = 0.02)\n"
+	 "    --mcsat-rand-dec-seed=<B> Set the random decision seed (postive value)\n"
          "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
@@ -375,6 +387,7 @@ static void parse_command_line(int argc, char *argv[]) {
   incremental = false;
   interactive = false;
   smt2_model_format = true;
+  dump_models = false;
   bvdecimal = false;
   show_stats = false;
   verbosity = 0;
@@ -383,6 +396,8 @@ static void parse_command_line(int argc, char *argv[]) {
   dimacsfile = NULL;
 
   mcsat = false;
+  mcsat_rand_dec_freq = -1;
+  mcsat_rand_dec_seed = -1;
   mcsat_nra_mgcd = false;
   mcsat_nra_nlsat = false;
   mcsat_nra_bound = false;
@@ -471,15 +486,15 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case nthreads_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
-	}
-	nthreads = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        nthreads = v;
+        break;
 	
       case incremental_opt:
         incremental = true;
@@ -527,6 +542,10 @@ static void parse_command_line(int argc, char *argv[]) {
         smt2_model_format = false;
         break;
 
+      case dump_model_opt:
+        dump_models = true;
+        break;
+
       case bvdecimal_opt:
         bvdecimal = true;
         break;
@@ -534,6 +553,18 @@ static void parse_command_line(int argc, char *argv[]) {
       case mcsat_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         mcsat  = true;
+        break;
+
+      case mcsat_rand_dec_freq_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
+        mcsat_rand_dec_freq = elem.d_value;
+        break;
+
+      case mcsat_rand_dec_seed_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_rand_dec_seed = elem.i_value;
         break;
 
       case mcsat_nra_mgcd_opt:
@@ -721,7 +752,17 @@ static void parse_command_line(int argc, char *argv[]) {
   exit(code);
 }
 
-static void setup_mcsat(void) {
+static void setup_options(void) {
+  aval_t aval_true;
+
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (dump_models) {
+    smt2_set_option(":dump-models", aval_true);
+  }
+}
+
+static void setup_options_mcsat(void) {
   aval_t aval_true;
 
   if (mcsat) {
@@ -729,6 +770,27 @@ static void setup_mcsat(void) {
   }
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (mcsat_rand_dec_freq >= 0) {
+    aval_t aval_rand;
+    rational_t q;
+    q_init(&q);
+    // accurate upto 3 decimal places
+    q_set_int32(&q, (int32_t)(mcsat_rand_dec_freq*1000), 1000);
+    aval_rand = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-freq", aval_rand);
+    q_clear(&q);
+  }
+
+  if (mcsat_rand_dec_seed >= 0) {
+    aval_t aval_seed;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_rand_dec_seed);
+    aval_seed = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-seed", aval_seed);
+    q_clear(&q);
+  }
 
   if (mcsat_nra_mgcd) {
     smt2_set_option(":yices-mcsat-nra-mgcd", aval_true);
@@ -773,7 +835,7 @@ static void setup_mcsat(void) {
   }
 }
 
-static void setup_ef(void) {
+static void setup_options_ef(void) {
   aval_t aval_true, aval_false;
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
@@ -1100,8 +1162,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  setup_mcsat();
-  setup_ef();
+  setup_options();
+  setup_options_mcsat();
+  setup_options_ef();
 
   while (smt2_active()) {
     if (prompt) {
@@ -1113,9 +1176,9 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer);
+        flush_lexer(&lexer);
       } else {
-	break; // exit
+        break; // exit
       }
     }
   }

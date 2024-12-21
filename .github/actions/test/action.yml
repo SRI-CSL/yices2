@@ -13,4 +13,12 @@ runs:
         # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make MODE=${{ inputs.mode }} check
+        make MODE=${{ inputs.mode }} test
+
+    - name: Test Yices API
+      shell: bash
+      if: inputs.mode != 'gcov'
+      run: |
+        # This is needed for yices2 to find libpoly.so.0. /usr/local/lib not searched by default?
+        export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make MODE=${{ inputs.mode }} check-api

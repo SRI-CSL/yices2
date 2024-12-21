@@ -140,6 +140,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
 
   -1,                  // AX
   -1,                  // BV  (supported by EF)
+  -1,                  // FFA
   -1,                  // IDL (supported by EF)
   -1,                  // LIA (supported by EF)
   -1,                  // LRA (supported by EF)
@@ -157,6 +158,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   -1,                  // ANRA
   -1,                  // ANIRA
   -1,                  // AUF
+  -1,                  // BVLRA
   -1,                  // UFBV
   -1,                  // UFBVLIA
   -1,                  // UFIDL
@@ -179,6 +181,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
 
   CTX_ARCH_EGFUN,      // QF_AX
   CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_MCSAT,      // QF_FFA
   CTX_ARCH_SPLX,       // QF_IDL
   CTX_ARCH_SPLX,       // QF_LIA
   CTX_ARCH_SPLX,       // QF_LRA
@@ -196,6 +199,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
   CTX_ARCH_MCSAT,      // QF_ANRA
   CTX_ARCH_MCSAT,      // QF_ANIRA
   CTX_ARCH_EGFUN,      // QF_AUF
+  CTX_ARCH_EGSPLXBV,   // QF_BVLRA
   CTX_ARCH_EGBV,       // QF_UFBV
   CTX_ARCH_EGSPLXBV,   // QF_UFBVLIA
 
@@ -234,6 +238,7 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
   true,   // NIA
   false,  // NRA
   true,   // NIRA
+  false,  // FFA
   false,  // no arithmetic
 };
 
@@ -469,6 +474,10 @@ static int32_t arch_add_bv(int32_t a) {
     a = CTX_ARCH_EGFUNBV;
     break;
 
+  case CTX_ARCH_SPLX:
+    a = CTX_ARCH_EGSPLXBV;
+    break;
+
   default:
     a = -1;
     break;
@@ -482,6 +491,10 @@ static int32_t arch_add_simplex(int32_t a) {
   switch (a) {
   case CTX_ARCH_NOSOLVERS:
     a = CTX_ARCH_SPLX;
+    break;
+
+  case CTX_ARCH_BV:
+    a = CTX_ARCH_EGSPLXBV;
     break;
 
   case CTX_ARCH_EG:

@@ -21,6 +21,7 @@
 #include "model/models.h"
 #include "utils/int_vectors.h"
 #include "utils/int_hash_sets.h"
+#include "mcsat/variable_db.h"
 #include "mcsat/utils/int_mset.h"
 #include "terms/term_manager.h"
 
@@ -34,7 +35,7 @@ typedef struct nra_plugin_s nra_plugin_t;
  * neg: set of negative assumptions (to extend the trail)
  *
  * */
-void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg,
+void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg, variable_t conflict_var,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict);
 
 /**
@@ -43,12 +44,12 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
  */
 void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals);
 
-/*
+/**
  * Project a set of literals.
  *
  * Given a set of literals L satisfied by the model M, this function returns a new set of literals L' such that
  *
- * - L' is aslo satisfied by M
+ * - L' is also satisfied by M
  * - L' only contains the variables in vars_to_keep;
  * - any satisfying assignment of L' can be extended to an assignment of L
  *

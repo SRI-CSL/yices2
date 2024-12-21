@@ -62,6 +62,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "ANRA",
   "ANIRA",
   "AUF",
+  "BVLRA",
 
   "UFBV",
   "UFBVLIA",
@@ -104,6 +105,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_ANRA",
   "QF_ANIRA",
   "QF_AUF",
+  "QF_BVLRA",
 
   "QF_UFBV",
   "QF_UFBVLIA",
@@ -167,6 +169,7 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // ANRA
   false,   // ANIRA
   false,   // AUF
+  false,   // BVLRA
   false,   // UFBV
   false,   // UFBVLIA
   false,   // UFIDL
@@ -206,6 +209,7 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_ANRA
   true,    // QF_ANIRA
   true,    // QF_AUF
+  true,    // QF_BVLRA
   true,    // QF_UFBV
   true,    // QF_UFBVLIA
   true,    // QF_UFIDL

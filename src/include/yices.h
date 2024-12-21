@@ -93,7 +93,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      6
-#define __YICES_VERSION_PATCHLEVEL 4
+#define __YICES_VERSION_PATCHLEVEL 5
 
 
 /*
@@ -2483,6 +2483,7 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
+__YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z);
 #endif
 
 
@@ -2839,6 +2840,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *   QF_ALIRA:    arrays + mixed linear arithmetic
  *
  *   QF_AUF:      arrays + uninterpreted functions
+ *   QF_BVLRA:    bitvectors + linear real arithmetic
  *   QF_AUFBV:    arrays, bitvectors, uninterpreted functions
  *   QF_AUFBVLIA: arrays, bitvectors, uninterpreted functions, and linear integer arithmetic
  *   QF_AUFBVNIA: arrays, bitvectors, uninterpreted functions, and nonlinear integer arithmetic
@@ -3266,7 +3268,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  *
- * Since 2.7.0
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(context_t *ctx,
 									      const param_t *params,
@@ -3291,6 +3293,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(co
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx,
                                                                       uint32_t n,
@@ -3311,6 +3315,8 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_fixed_var_order(context_t 
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
+ *
+ * Since 2.6.5
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx,
                                                                         uint32_t n,

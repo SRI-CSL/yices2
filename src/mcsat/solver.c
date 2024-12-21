@@ -46,6 +46,7 @@
 #include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 #include "mcsat/bv/bv_plugin.h"
+#include "mcsat/ff/ff_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
@@ -302,6 +303,7 @@ struct mcsat_solver_s {
   uint32_t ite_plugin_id;
   uint32_t nra_plugin_id;
   uint32_t bv_plugin_id;
+  uint32_t ff_plugin_id;
 };
 
 static
@@ -330,8 +332,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.random_decision_freq = 0.02;
-  mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
+  mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
+  mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
 
 static
@@ -358,9 +360,10 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
   kind = term_kind(mcsat->terms, t);
   bool is_equality = false;
   switch (kind) {
-  case BV_EQ_ATOM:
   case EQ_TERM:
+  case BV_EQ_ATOM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
     is_equality = true;
     break;
   default:
@@ -821,6 +824,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
+  mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
 }
 
 static
@@ -2472,12 +2476,13 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       }
     }
 
-    // try the variables a plugin requested
+    // then try the variables a plugin requested
     if (var == variable_null) {
       while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
         var = int_queue_pop(&mcsat->hinted_decision_vars);
         assert(var != variable_null);
         if (!trail_has_value(mcsat->trail, var)) {
+          force_decision = true;
           break;
         }
         var = variable_null;
@@ -2939,7 +2944,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
     term_kind_t x_kind = term_kind(mcsat->terms, x_term);
 
     if (x_kind == UNINTERPRETED_TERM &&
-	term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
+        term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "var = ");
@@ -2958,7 +2963,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
 
-      // Setup the yices value
+      // Set up the yices value
       value_t x_value = mcsat_value_to_value(x_value_mcsat, mcsat->types, x_type, vtbl);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {

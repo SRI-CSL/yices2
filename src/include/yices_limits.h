@@ -60,5 +60,4 @@
  */
 #define YICES_MAX_BVSIZE (UINT32_MAX/16)
 
-
 #endif

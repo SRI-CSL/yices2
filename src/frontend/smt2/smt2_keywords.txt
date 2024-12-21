@@ -37,3 +37,5 @@ struct keyword_s;
 :category,                    SMT2_KW_CATEGORY
 :difficulty,                  SMT2_KW_DIFFICULTY
 :notes,                       SMT2_KW_NOTES
+:dump-models,                 SMT2_KW_DUMP_MODELS
+:timeout,                     SMT2_KW_TIMEOUT

@@ -28,6 +28,8 @@
  * Options for the mcsat solver.
  */
 typedef struct mcsat_options_s {
+  double rand_dec_freq;
+  double rand_dec_seed;
   bool nra_mgcd;
   bool nra_nlsat;
   bool nra_bound;

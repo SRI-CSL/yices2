@@ -349,12 +349,16 @@ mcsat_src_c := \
 	mcsat/model.c \
 	mcsat/trail.c \
 	mcsat/conflict.c \
+	mcsat/unit_info.c \
 	mcsat/gc.c \
 	mcsat/eq/equality_graph.c \
 	mcsat/eq/merge_queue.c \
 	mcsat/weq/weak_eq_graph.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
+	mcsat/utils/lp_data.c \
+	mcsat/utils/lp_utils.c \
+	mcsat/utils/lp_constraint_db.c \
 	mcsat/utils/value_hash_map.c \
 	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \
@@ -368,9 +372,13 @@ mcsat_src_c := \
 	mcsat/nra/nra_plugin.c \
 	mcsat/nra/nra_plugin_internal.c \
 	mcsat/nra/nra_plugin_explain.c \
-	mcsat/nra/libpoly_utils.c \
-	mcsat/nra/poly_constraint.c \
+	mcsat/nra/nra_libpoly.c \
 	mcsat/nra/feasible_set_db.c \
+	mcsat/ff/ff_plugin.c \
+	mcsat/ff/ff_plugin_internal.c \
+	mcsat/ff/ff_plugin_explain.c \
+	mcsat/ff/ff_libpoly.c \
+	mcsat/ff/ff_feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd_manager.c \

@@ -67,6 +67,7 @@ typedef enum smt_logic {
    */
   AX,          // arrays
   BV,          // bitvectors
+  FFA,         // finite fields
   IDL,         // integer difference logic
   LIA,         // linear integer arithmetic
   LRA,         // linear real arithmetic
@@ -86,6 +87,9 @@ typedef enum smt_logic {
   ANRA,        // arrays + non-linear real arithmetic
   ANIRA,       // arrays + mixed/non-linear arithmetic
   AUF,         // arrays + uninterpreted functions
+
+  //  BV + another theory
+  BVLRA,
 
   //  Uninterpreted function + another theory
   UFBV,        // uninterpreted functions + bitvectors
@@ -115,6 +119,7 @@ typedef enum smt_logic {
    */
   QF_AX,       // arrays
   QF_BV,       // bitvectors
+  QF_FFA,      // finite fields
   QF_IDL,      // integer difference logic
   QF_LIA,      // linear integer arithmetic
   QF_LRA,      // linear real arithmetic
@@ -134,6 +139,9 @@ typedef enum smt_logic {
   QF_ANRA,     // arrays + non-linear real arithmetic
   QF_ANIRA,    // arrays + mixed/non-linear arithmetic
   QF_AUF,      // arrays + uninterpreted functions
+
+  //  BV + another theory
+  QF_BVLRA,
 
   //  Uninterpreted function + another theory
   QF_UFBV,     // uninterpreted functions + bitvectors
@@ -163,7 +171,7 @@ typedef enum smt_logic {
    * as in (set-logic ALL).
    *
    * We interpret this a QF_AUFLIRA + QF_BV unless MCSAT is
-   * enabled in which case it is QF_UFNIRA + QF_BV.
+   * enabled in which case it is QF_AUFNIRA + QF_BV.
    */
   SMT_ALL,
 
@@ -189,6 +197,7 @@ typedef enum arith_fragment {
   ARITH_NIA,   // non-linear integer arithmetic
   ARITH_NRA,   // non-linear real arithmetic
   ARITH_NIRA,  // non-linear mixed arithmetic
+  ARITH_FFA,   // finite field arithmetic
   ARITH_NONE,  // no arithmetic
 } arith_fragment_t;
 
