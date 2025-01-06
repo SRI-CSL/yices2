@@ -441,7 +441,97 @@ __YICES_DLLSPEC__ extern type_t yices_function_type1(type_t tau1, type_t range);
 __YICES_DLLSPEC__ extern type_t yices_function_type2(type_t tau1, type_t tau2, type_t range);
 __YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range);
 
+/*************************
+ *   TYPE MACROS         *
+ ************************/
 
+/*
+ * Create a type variable of the given id
+ */
+extern type_t yices_type_variable(uint32_t id);
+
+/*
+ * Create a type constructor:
+ * - name = its name
+ * - n = arity
+ * return -1 if there's an error or the macro id otherwise
+ *
+ * Error codes:
+ * if n == 0
+ *   code = POS_INT_REQUIRED
+ *   badval = n
+, * if n > TYPE_MACRO_MAX_ARITY
+ *   code = TOO_MANY_MACRO_PARAMS
+ *   badval = n
+ */
+extern int32_t yices_type_constructor(const char *name, uint32_t n);
+
+/*
+ * Create a type macro:
+ * - name = its name
+ * - n = arity
+ * - vars = array of n distinct type variables
+ * - body = type
+ *
+ * return -1 if there's an error or the macro id otherwise
+ *
+ * Error codes:
+ * if n == 0
+ *   code = POS_INT_REQUIRED
+ *   badval = n
+ * if n > TYPE_MACRO_MAX_ARITY
+ *   code = TOO_MANY_MACRO_PARAMS
+ *   badval = n
+ * if body or one of vars[i] is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = body or vars[i]
+ * if vars[i] is not a type variable
+ *   code = TYPE_VAR_REQUIRED
+ *   type1 = vars[i]
+ * if the same variable occurs twice or more in vars
+ *   code = DUPLICATE_TYPE_VAR
+ *   type1 = the duplicate variable
+ */
+extern int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body);
+
+/*
+ * Instance of a macro or constructor
+ * - cid = constructor or macro id
+ * - n = number of arguments
+ * - tau[0 ... n-1] = argument types
+ *
+ * return NULL_TYPE if there's an error
+ *
+ * Error reports:
+ * if cid is not a valid macro or constructor id
+ *   code = INVALID_MACRO
+ *   badval = cid
+ * if n is not the same as the macro/constructor arity
+ *   code = WRONG_NUMBER_OF_ARGUMENTS
+ *   badval = n
+ * if one of tau[i] is not a valid type
+ *   code = INVALID_TYPE
+ *   type1 = tau[i]
+ */
+extern type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]);
+
+/*
+ * Get the macro id for a given name
+ * - return -1 if there's no macro or constructor with that name
+ */
+extern int32_t yices_get_macro_by_name(const char *name);
+
+/*
+ * Remove the mapping of name --> macro id
+ * - no change if no such mapping exists
+ */
+extern void yices_remove_type_macro_name(const char *name);
+
+/*
+ * Remove a macro with the given id
+ * - id must be a valid macro index (non-negative)
+ */
+extern void yices_delete_type_macro(int32_t id);
 
 
 /*************************
