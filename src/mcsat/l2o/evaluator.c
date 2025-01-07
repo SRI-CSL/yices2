@@ -103,7 +103,8 @@ bool evaluator_has_cache(evaluator_t *evaluator) {
   return evaluator->cache.n_var != 0;
 }
 
-void get_set_of_vars_with_new_value(l2o_t *l2o, uint32_t n_var, term_t *vars, double *values, int_hset_t *vars_with_new_value) {
+static
+void get_set_of_vars_with_new_value(l2o_t *l2o, uint32_t n_var, const term_t *vars, const double *values, int_hset_t *vars_with_new_value) {
   term_t *cached_vars = l2o->evaluator.cache.v;
   double *cached_values = l2o->evaluator.cache.x;
   uint32_t n_cached_vars = l2o->evaluator.cache.n_var;
@@ -184,7 +185,7 @@ void evaluator_forget_cache_cost(evaluator_t *evaluator) {
   evaluator->cache.cost = EVAL_MAXFLOAT;
 }
 
-double l2o_evaluate_term_approx(l2o_t *l2o, uint32_t n_var, term_t *v, double *x, term_t term) {
+double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x) {
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nl2o_evaluate_term_approx\n");
   }

@@ -1184,8 +1184,9 @@ void hint_value_to_trail(mcsat_trail_t* trail, variable_t v, const mcsat_value_t
 
 //trail_set_cached_value
 
-// Given variables v and values s_mpq, set hint to the trail 
-void l2o_set_hint(l2o_t* l2o, uint32_t n, term_t *v, double *x, term_t t, mcsat_trail_t* trail) {
+// Given variables v and values s_mpq, set hint to the trail
+static
+void l2o_set_hint(l2o_t *l2o, uint32_t n, const term_t *v, const double *x, mcsat_trail_t *trail) {
   term_table_t* terms = l2o->terms;
   mcsat_value_t* val = (mcsat_value_t *) safe_malloc(n * sizeof(mcsat_value_t));
 
@@ -1343,15 +1344,11 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
   bool use_hill_climbing = true;
   if(use_hill_climbing && n_var >= 1){
 
-    // Improve first_x using hill_climbing  
-    double* x_hc = hill_climbing(l2o, t, n_var, v, first_x, v_fixed);
+    // Improve first_x using hill_climbing
+    hill_climbing(l2o, t, n_var, v, v_fixed, first_x);
 
-    for (i = 0; i < n_var; ++ i) {
-      first_x[i] = x_hc[i];
-    }
-  
     // Set hints
-    l2o_set_hint(l2o, n_var, v, x_hc, t, trail);
+    l2o_set_hint(l2o, n_var, v, first_x, trail);
   }
 }
 

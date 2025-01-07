@@ -194,9 +194,9 @@ void evaluator_forget_cache_cost(evaluator_t* evaluator);
 
 // Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
 // TODO: accept partial assignments returning a term
-double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x, term_t t);
+double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x);
 
 // Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
-double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, const bool *v_fixed);
+void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, const term_t *v, const bool *v_fixed, double *x);
 
 #endif
