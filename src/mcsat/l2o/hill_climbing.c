@@ -29,14 +29,6 @@
 #include <unistd.h> // TODO remove it 
 #define IMPROVEMENT_THRESHOLD 0
 
-
-double* copy_array(double* from_array, double* to_array, uint32_t n){
-  for (uint32_t i = 0; i < n; ++ i) {
-    to_array[i] = from_array[i];
-  }
-  return to_array;
-}
-
 /*
 Gets as input:
 - Term t representing a cost function to be minimized
@@ -46,12 +38,12 @@ Gets as input:
 - Array of booleans v_fixed such that, if v_fixed[i] == true, then the value of v[i] must not be changed
 */
 
-double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, bool *v_fixed){
+double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, const bool *v_fixed){
   assert(n_var >= 1);
   
   uint32_t i = 0;
   term_table_t* terms = l2o->terms;
-  double acceptance_treshold = 0;
+  double acceptance_threshold = 0;
   //bool stop = false;
   uint32_t n_iter = 0;
   uint32_t n_calls = 0; // Counter for calls to evaluator
@@ -80,17 +72,18 @@ double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x
   }
 
   // List of variables indices, ordered by success recency
+  // TODO why using a linked list in the first place
   static dl_int_list_t var_list;  // TODO this should not be static
   clear_list(&var_list);
 
-  // Elements of  var_list
+  // Elements of var_list
   dl_int_list_t v_elems[n_var]; 
 
   for (i = 0; i < n_var; ++ i) {
     // Copy x into best_x
     best_x[i] = x[i];
 
-    // Inizialize var_list elements for non-fixed variables
+    // Initialize var_list elements for non-fixed variables
     if(!v_fixed[i]){
       v_elems[i].elem = i;
       list_insert_pre(&var_list, &v_elems[i]);  // TODO it counts the first element two times
@@ -113,7 +106,7 @@ double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x
   uint32_t current_dir_index = current_dir->elem; 
 
   // Enter main loop
-  while(!(best_cost <= acceptance_treshold) && (n_var_visited <= n_var) && (n_iter < max_iter) && (n_calls < max_calls)){
+  while(!(best_cost <= acceptance_threshold) && (n_var_visited <= n_var) && (n_iter < max_iter) && (n_calls < max_calls)){
     n_iter = n_iter+1;
     if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
       printf("\n\n*n_iter: %d",n_iter);

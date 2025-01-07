@@ -197,6 +197,6 @@ void evaluator_forget_cache_cost(evaluator_t* evaluator);
 double l2o_evaluate_term_approx(l2o_t* l2o, uint32_t n_var, term_t *v, double *x, term_t t);
 
 // Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
-double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, bool *v_fixed);
+double* hill_climbing(l2o_t* l2o, term_t t, uint32_t n_var, term_t *v, double *x, const bool *v_fixed);
 
 #endif
