@@ -38,6 +38,13 @@ static bool is_power_of_two(uint32_t n) {
 }
 #endif
 
+/*
+ * Markers for empty/deleted pairs
+ */
+enum {
+  DELETED_KEY = -2,
+  EMPTY_KEY = -1,
+};
 
 /*
  * Initialization:

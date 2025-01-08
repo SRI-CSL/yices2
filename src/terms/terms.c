@@ -1297,7 +1297,7 @@ void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
          term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
-  assert(p->val == EMPTY_KEY); // i.e., -1
+  assert(p->val == -1); // i.e., EMPTY_KEY
   p->val = t;
 }
 
@@ -1316,7 +1316,7 @@ void store_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
          term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
-  if (p->val == EMPTY_KEY) {
+  if (p->val == -1) { // i.e., EMPTY_KEY
     p->val = t;
   }
   assert(p->val == t);
