@@ -1618,6 +1618,8 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
 
   double first_x[n_var];
 
+  // TODO assert that var_set is closed
+  assert(var_set->nelems == n_var);
   // Check if there are non-arith and non-bool vars; if yes, return without doing anything
   for (i = 0; i < n_var; ++ i) {
       v[i] = var_set->data[i];
