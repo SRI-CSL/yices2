@@ -398,7 +398,6 @@ mcsat_src_c := \
 	mcsat/l2o/l2o.c \
 	mcsat/l2o/evaluator.c \
 	mcsat/l2o/hill_climbing.c \
-	mcsat/l2o/eval_vectors.c \
 	mcsat/l2o/eval_hash_map.c \
 	mcsat/l2o/varset_table.c \
 	mcsat/options.c

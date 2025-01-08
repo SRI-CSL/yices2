@@ -31,8 +31,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "mcsat/l2o/term_eval.h"
-
 /*
  * Records stored in the hash table are pairs of integers
  * - key is >= 0

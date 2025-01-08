@@ -30,8 +30,6 @@
 
 
 #include "mcsat/tracing.h"
-#include "mcsat/l2o/term_eval.h"
-#include "mcsat/l2o/eval_vectors.h"
 #include "mcsat/l2o/eval_hash_map.h"
 #include "mcsat/l2o/varset_table.h"
 
