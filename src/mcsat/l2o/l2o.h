@@ -30,7 +30,7 @@
 
 
 #include "mcsat/tracing.h"
-#include "mcsat/l2o/eval_hash_map.h"
+#include "utils/double_hash_map.h"
 #include "mcsat/l2o/varset_table.h"
 
 #ifndef MCSAT_L2O_H_
@@ -57,14 +57,14 @@ typedef struct {
   double *x;
 
   /** Cached map from terms to their evaluation under the assignment v -> x */
-  eval_hmap_t eval_map;
+  double_hmap_t eval_map;
 
 } eval_cache_t;
 
 typedef struct {
 
   /** Map from terms to their evaluation */
-  eval_hmap_t eval_map;
+  double_hmap_t eval_map;
 
   /** eval stack */
   ivector_t eval_stack;

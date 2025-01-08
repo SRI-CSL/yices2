@@ -35,34 +35,34 @@
  * Records stored in the hash table are pairs of integers
  * - key is >= 0
  */
-typedef struct eval_hmap_pair_s {
+typedef struct double_hmap_pair_s {
   int32_t key;
   double val;
-} eval_hmap_pair_t;
+} double_hmap_pair_t;
 
 
-typedef struct eval_hmap_s {
-  eval_hmap_pair_t *data;
+typedef struct double_hmap_s {
+  double_hmap_pair_t *data;
   uint32_t size; // must be a power of 2
   uint32_t nelems;
   uint32_t ndeleted;
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;
-} eval_hmap_t;
+} double_hmap_t;
 
 
 /*
  * Default initial size
  */
-#define EVAL_HMAP_DEFAULT_SIZE 32
-#define EVAL_HMAP_MAX_SIZE (UINT32_MAX/8)
+#define DOUBLE_HMAP_DEFAULT_SIZE 32
+#define DOUBLE_HMAP_MAX_SIZE (UINT32_MAX/8)
 
 /*
  * Ratios: resize_threshold = size * RESIZE_RATIO
  *         cleanup_threshold = size * CLEANUP_RATIO
  */
-#define EVAL_HMAP_RESIZE_RATIO 0.6
-#define EVAL_HMAP_CLEANUP_RATIO 0.2
+#define DOUBLE_HMAP_RESIZE_RATIO 0.6
+#define DOUBLE_HMAP_CLEANUP_RATIO 0.2
 
 
 /*
@@ -70,66 +70,77 @@ typedef struct eval_hmap_s {
  * - n = initial size, must be 0 or a power of 2
  * - if n = 0, the default size is used
  */
-extern void init_eval_hmap(eval_hmap_t *hmap, uint32_t n);
+extern void init_double_hmap(double_hmap_t *hmap, uint32_t n);
 
 
 /*
  * Delete: free memory
  */
-extern void delete_eval_hmap(eval_hmap_t *hmap);
+extern void delete_double_hmap(double_hmap_t *hmap);
 
 
 /*
  * Find record with key k. Return NULL if there's none
  */
-extern eval_hmap_pair_t *eval_hmap_find(const eval_hmap_t *hmap, int32_t k);
+extern double_hmap_pair_t *double_hmap_find(const double_hmap_t *hmap, int32_t k);
 
 
 /*
  * Get record with key k. If one is in the table return it.
  * Otherwise, add a fresh record with key k and value -1 and return it.
  */
-extern eval_hmap_pair_t *eval_hmap_get(eval_hmap_t *hmap, int32_t k);
+extern double_hmap_pair_t *double_hmap_get(double_hmap_t *hmap, int32_t k);
 
 
 /*
  * Add record [k -> v]
  * - there must not be a record with the same key
  */
-extern void eval_hmap_add(eval_hmap_t *hmap, int32_t k, double v);
+extern void double_hmap_add(double_hmap_t *hmap, int32_t k, double v);
 
 /*
  * Add record [k -> v ] to hmap
  * - if there is a record with the same key, it is replaced by the new record
  */
-void eval_hmap_add_replace(eval_hmap_t *hmap, int32_t k, double v);
+void double_hmap_add_replace(double_hmap_t *hmap, int32_t k, double v);
 
 /*
  * Add record [k -> v ] to hmap
  * - if there is a record with the same key, it does not replace it (but does not throw an error)
  */
-void eval_hmap_add_not_replace(eval_hmap_t *hmap, int32_t k, double v);
+void double_hmap_add_not_replace(double_hmap_t *hmap, int32_t k, double v);
 
 /*
  * Erase record r
  */
-extern void eval_hmap_erase(eval_hmap_t *hmap, eval_hmap_pair_t *r);
+extern void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r);
 
 
 /*
  * Deep copy one map to another
  */
-extern void eval_hmap_copy(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to);
+extern void double_hmap_copy(double_hmap_t *hmap_from, double_hmap_t *hmap_to);
 
 
 /*
  * Merge one map to another (do not overwrite duplicates)
  */
-extern void eval_hmap_merge(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to);
+extern void double_hmap_merge(double_hmap_t *hmap_from, double_hmap_t *hmap_to);
+
+
+/*
+ * Support for scanning all records:
+ * - first gives the first non-null record in the table or NULL
+ * - next(p) gives the next record after p or NULL
+ * IMPORTANT: The hmap must not be modified between calls to next
+ */
+extern double_hmap_pair_t *double_hmap_first_record(const double_hmap_t *hmap);
+extern double_hmap_pair_t *double_hmap_next_record(const double_hmap_t *hmap, const double_hmap_pair_t *p);
+
 
 /*
  * Remove all records
  */
-extern void eval_hmap_reset(eval_hmap_t *hmap);
+extern void double_hmap_reset(double_hmap_t *hmap);
 
 #endif /* __EVAL_HASH_MAP_H */

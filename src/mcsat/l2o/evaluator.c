@@ -39,7 +39,7 @@
 #include "api/yices_globals.h"
 
 #include "mcsat/l2o/l2o.h"
-#include "mcsat/l2o/eval_hash_map.h"
+#include "utils/double_hash_map.h"
 #include "mcsat/l2o/varset_table.h"
 
 #include <math.h>
@@ -51,15 +51,15 @@ void evaluator_cache_construct(eval_cache_t *cache) {
   cache->n_var = 0;
   cache->v = NULL;
   cache->x = NULL;
-  init_eval_hmap(&cache->eval_map, 0);
+  init_double_hmap(&cache->eval_map, 0);
 }
 
 void evaluator_cache_destruct(eval_cache_t *cache) {
-  delete_eval_hmap(&cache->eval_map);
+  delete_double_hmap(&cache->eval_map);
 }
 
 void evaluator_construct(evaluator_t *evaluator) {
-  init_eval_hmap(&evaluator->eval_map, 0);
+  init_double_hmap(&evaluator->eval_map, 0);
   init_ivector(&evaluator->eval_stack, 0);
   evaluator_cache_construct(&evaluator->cache);
   evaluator->tracer = NULL;
@@ -70,7 +70,7 @@ void evaluator_set_tracer(evaluator_t *evaluator, tracer_t *tracer) {
 }
 
 void evaluator_destruct(evaluator_t *evaluator) {
-  delete_eval_hmap(&evaluator->eval_map);
+  delete_double_hmap(&evaluator->eval_map);
   delete_ivector(&evaluator->eval_stack);
   evaluator_cache_destruct(&evaluator->cache);
 }
@@ -78,14 +78,14 @@ void evaluator_destruct(evaluator_t *evaluator) {
 /** Check whether t has been already evaluated */
 static inline
 bool already_evaluated(evaluator_t *evaluator, term_t t) {
-  eval_hmap_pair_t *find = eval_hmap_find(&evaluator->eval_map, t);
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   return find != NULL;
 }
 
 /** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
 static inline
 double evaluator_get(evaluator_t *evaluator, term_t t) {
-  eval_hmap_pair_t *find = eval_hmap_find(&evaluator->eval_map, t);
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   assert(find != NULL);
   return find->val;
 }
@@ -94,7 +94,7 @@ double evaluator_get(evaluator_t *evaluator, term_t t) {
 static inline
 void evaluator_set(evaluator_t *evaluator, term_t t, double t_eval) {
   assert(!already_evaluated(evaluator, t));
-  eval_hmap_add(&evaluator->eval_map, t, t_eval);
+  double_hmap_add(&evaluator->eval_map, t, t_eval);
 }
 
 static inline
@@ -174,7 +174,7 @@ bool can_use_cached_value(l2o_t *l2o, int_hset_t *vars_with_new_val, term_t t) {
   if (!evaluator_has_cache(&l2o->evaluator)) {
     return false;
   }
-  if (eval_hmap_find(&l2o->evaluator.cache.eval_map, t) == NULL) {
+  if (double_hmap_find(&l2o->evaluator.cache.eval_map, t) == NULL) {
     return false;
   }
   return !varset_intersects_free_vars_of_term(l2o, vars_with_new_val, t);
@@ -243,7 +243,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
     }
 
     if (use_cached_value) {
-      current_eval = eval_hmap_find(&l2o->evaluator.cache.eval_map, current)->val;
+      current_eval = double_hmap_find(&l2o->evaluator.cache.eval_map, current)->val;
       if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
         printf("\nusing cached value: %f", current_eval);
       }
@@ -953,15 +953,15 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
 
     // Hard copy evaluator.eval_map into evaluator.cache.eval_map
     // this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
-    eval_hmap_copy(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);
+    double_hmap_copy(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);
 
     // Merge evaluator.eval_map into evaluator.cache.eval_map 
     // this way we update the cache eval_map with all the terms (the merging can be expensive if we have lots of terms)
-    //eval_hmap_merge(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);    
+    //double_hmap_merge(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);
   }
 
   ivector_reset(eval_stack);
-  eval_hmap_reset(&l2o->evaluator.eval_map);
+  double_hmap_reset(&l2o->evaluator.eval_map);
   int_hset_reset(&vars_with_new_val);
 
   // Return the result

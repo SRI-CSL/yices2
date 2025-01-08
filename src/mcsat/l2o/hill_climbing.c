@@ -23,7 +23,6 @@
 
 #include "mcsat/tracing.h"
 #include "mcsat/l2o/l2o.h"
-#include "mcsat/l2o/eval_hash_map.h"
 
 #define IMPROVEMENT_THRESHOLD 0.0
 

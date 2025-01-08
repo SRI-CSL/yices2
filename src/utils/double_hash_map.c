@@ -16,10 +16,8 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-// TODO rename double_hash_map
 /*
- * MAPS 32BIT INTEGERS TO DOUBLES (adapted rfrom int_hash_map)
+ * MAPS 32BIT INTEGERS TO DOUBLES (adapted from int_hash_map)
  * Assumes that keys are non-negative
  */
 
@@ -27,7 +25,7 @@
 
 #include "utils/memalloc.h"
 
-#include "mcsat/l2o/eval_hash_map.h"
+#include "double_hash_map.h"
 
 /*
  * For debugging: check whether n is 0 or a power of 2
@@ -51,21 +49,21 @@ enum {
  * - n = initial size, must be a power of 2
  * - if n = 0, the default size is used
  */
-void init_eval_hmap(eval_hmap_t *hmap, uint32_t n) {
+void init_double_hmap(double_hmap_t *hmap, uint32_t n) {
   uint32_t i;
-  eval_hmap_pair_t *tmp;
+  double_hmap_pair_t *tmp;
 
   if (n == 0) {
-    n = EVAL_HMAP_DEFAULT_SIZE;
+    n = DOUBLE_HMAP_DEFAULT_SIZE;
   }
 
-  if (n >= EVAL_HMAP_MAX_SIZE) {
+  if (n >= DOUBLE_HMAP_MAX_SIZE) {
     out_of_memory();
   }
 
   assert(is_power_of_two(n));
 
-  tmp = (eval_hmap_pair_t *) safe_malloc(n * sizeof(eval_hmap_pair_t));
+  tmp = (double_hmap_pair_t *) safe_malloc(n * sizeof(double_hmap_pair_t));
   for (i=0; i<n; i++) {
     tmp[i].key = EMPTY_KEY;
   }
@@ -75,15 +73,15 @@ void init_eval_hmap(eval_hmap_t *hmap, uint32_t n) {
   hmap->nelems = 0;
   hmap->ndeleted = 0;
 
-  hmap->resize_threshold = (uint32_t)(n * EVAL_HMAP_RESIZE_RATIO);
-  hmap->cleanup_threshold = (uint32_t) (n * EVAL_HMAP_CLEANUP_RATIO);
+  hmap->resize_threshold = (uint32_t)(n * DOUBLE_HMAP_RESIZE_RATIO);
+  hmap->cleanup_threshold = (uint32_t) (n * DOUBLE_HMAP_CLEANUP_RATIO);
 }
 
 
 /*
  * Free memory
  */
-void delete_eval_hmap(eval_hmap_t *hmap) {
+void delete_double_hmap(double_hmap_t *hmap) {
   safe_free(hmap->data);
   hmap->data = NULL;
 }
@@ -110,7 +108,7 @@ static uint32_t hash_key(int32_t k) {
  * Make a copy of record d in a clean array data
  * - mask = size of data - 1 (size must be a power of 2)
  */
-static void eval_hmap_clean_copy(eval_hmap_pair_t *data, eval_hmap_pair_t *d, uint32_t mask) {
+static void double_hmap_clean_copy(double_hmap_pair_t *data, double_hmap_pair_t *d, uint32_t mask) {
   uint32_t j;
 
   j = hash_key(d->key) & mask;
@@ -127,12 +125,12 @@ static void eval_hmap_clean_copy(eval_hmap_pair_t *data, eval_hmap_pair_t *d, ui
 /*
  * Remove deleted records
  */
-static void eval_hmap_cleanup(eval_hmap_t *hmap) {
-  eval_hmap_pair_t *tmp, *d;
+static void double_hmap_cleanup(double_hmap_t *hmap) {
+  double_hmap_pair_t *tmp, *d;
   uint32_t j, n, mask;
 
   n = hmap->size;
-  tmp = (eval_hmap_pair_t *) safe_malloc(n * sizeof(eval_hmap_pair_t));
+  tmp = (double_hmap_pair_t *) safe_malloc(n * sizeof(double_hmap_pair_t));
   for (j=0; j<n; j++) {
     tmp[j].key = EMPTY_KEY;
   }
@@ -141,7 +139,7 @@ static void eval_hmap_cleanup(eval_hmap_t *hmap) {
   d = hmap->data;
   for (j=0; j<n; j++) {
     if (d->key >= 0) {
-      eval_hmap_clean_copy(tmp, d, mask);
+      double_hmap_clean_copy(tmp, d, mask);
     }
     d++;
   }
@@ -155,17 +153,17 @@ static void eval_hmap_cleanup(eval_hmap_t *hmap) {
 /*
  * Remove deleted records and make the table twice as large
  */
-static void eval_hmap_extend(eval_hmap_t *hmap) {
-  eval_hmap_pair_t *tmp, *d;
+static void double_hmap_extend(double_hmap_t *hmap) {
+  double_hmap_pair_t *tmp, *d;
   uint32_t j, n, n2, mask;
 
   n = hmap->size;
   n2 = n << 1;
-  if (n2 >= EVAL_HMAP_MAX_SIZE) {
+  if (n2 >= DOUBLE_HMAP_MAX_SIZE) {
     out_of_memory();
   }
 
-  tmp = (eval_hmap_pair_t *) safe_malloc(n2 * sizeof(eval_hmap_pair_t));
+  tmp = (double_hmap_pair_t *) safe_malloc(n2 * sizeof(double_hmap_pair_t));
   for (j=0; j<n2; j++) {
     tmp[j].key = EMPTY_KEY;
   }
@@ -174,7 +172,7 @@ static void eval_hmap_extend(eval_hmap_t *hmap) {
   d = hmap->data;
   for (j=0; j<n; j++) {
     if (d->key >= 0) {
-      eval_hmap_clean_copy(tmp, d, mask);
+      double_hmap_clean_copy(tmp, d, mask);
     }
     d ++;
   }
@@ -184,8 +182,8 @@ static void eval_hmap_extend(eval_hmap_t *hmap) {
   hmap->size = n2;
   hmap->ndeleted = 0;
 
-  hmap->resize_threshold = (uint32_t)(n2 * EVAL_HMAP_RESIZE_RATIO);
-  hmap->cleanup_threshold = (uint32_t)(n2 * EVAL_HMAP_CLEANUP_RATIO);
+  hmap->resize_threshold = (uint32_t)(n2 * DOUBLE_HMAP_RESIZE_RATIO);
+  hmap->cleanup_threshold = (uint32_t)(n2 * DOUBLE_HMAP_CLEANUP_RATIO);
 }
 
 
@@ -193,9 +191,9 @@ static void eval_hmap_extend(eval_hmap_t *hmap) {
  * Find record with key k
  * - return NULL if k is not in the table
  */
-eval_hmap_pair_t *eval_hmap_find(const eval_hmap_t *hmap, int32_t k) {
+double_hmap_pair_t *double_hmap_find(const double_hmap_t *hmap, int32_t k) {
   uint32_t mask, j;
-  eval_hmap_pair_t *d;
+  double_hmap_pair_t *d;
 
   assert(k >= 0);
 
@@ -216,9 +214,9 @@ eval_hmap_pair_t *eval_hmap_find(const eval_hmap_t *hmap, int32_t k) {
  * - initialize val to -1
  * - we know that no record with key k is present
  */
-static eval_hmap_pair_t *eval_hmap_get_clean(eval_hmap_t *hmap, int32_t k) {
+static double_hmap_pair_t *double_hmap_get_clean(double_hmap_t *hmap, int32_t k) {
   uint32_t mask, j;
-  eval_hmap_pair_t *d;
+  double_hmap_pair_t *d;
 
   mask = hmap->size - 1;
   j = hash_key(k) & mask;
@@ -239,9 +237,9 @@ static eval_hmap_pair_t *eval_hmap_get_clean(eval_hmap_t *hmap, int32_t k) {
 /*
  * Find or add record with key k
  */
-eval_hmap_pair_t *eval_hmap_get(eval_hmap_t *hmap, int32_t k) {
+double_hmap_pair_t *double_hmap_get(double_hmap_t *hmap, int32_t k) {
   uint32_t mask, j;
-  eval_hmap_pair_t *d, *aux;
+  double_hmap_pair_t *d, *aux;
 
   assert(k >= 0);
   assert(hmap->size > hmap->ndeleted + hmap->nelems);
@@ -271,8 +269,8 @@ eval_hmap_pair_t *eval_hmap_get(eval_hmap_t *hmap, int32_t k) {
   }
 
   if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
-    eval_hmap_extend(hmap);
-    aux = eval_hmap_get_clean(hmap, k);
+    double_hmap_extend(hmap);
+    aux = double_hmap_get_clean(hmap, k);
   } else {
     hmap->nelems ++;
     aux->key = k;
@@ -287,7 +285,7 @@ eval_hmap_pair_t *eval_hmap_get(eval_hmap_t *hmap, int32_t k) {
  * Add record [k -> v ] to hmap
  * - there must not be a record with the same key
  */
-void eval_hmap_add(eval_hmap_t *hmap, int32_t k, double v) {
+void double_hmap_add(double_hmap_t *hmap, int32_t k, double v) {
   uint32_t i, mask;
 
   assert(k >= 0 && hmap->nelems + hmap->ndeleted < hmap->size);
@@ -310,7 +308,7 @@ void eval_hmap_add(eval_hmap_t *hmap, int32_t k, double v) {
   hmap->nelems ++;
 
   if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
-    eval_hmap_extend(hmap);
+    double_hmap_extend(hmap);
   }
 }
 
@@ -319,22 +317,22 @@ void eval_hmap_add(eval_hmap_t *hmap, int32_t k, double v) {
  * Add record [k -> v ] to hmap
  * - if there is a record with the same key, it is replaced by the new record
  */
-void eval_hmap_add_replace(eval_hmap_t *hmap, int32_t k, double v) {
-  eval_hmap_pair_t* record = eval_hmap_find(hmap, k);
+void double_hmap_add_replace(double_hmap_t *hmap, int32_t k, double v) {
+  double_hmap_pair_t* record = double_hmap_find(hmap, k);
   if (record != NULL){
-    eval_hmap_erase(hmap, record);
+    double_hmap_erase(hmap, record);
   }
-  eval_hmap_add(hmap, k, v);
+  double_hmap_add(hmap, k, v);
 }
 
 /*
  * Add record [k -> v ] to hmap
  * - if there is a record with the same key, it does not replace it (but does not throw an error)
  */
-void eval_hmap_add_not_replace(eval_hmap_t *hmap, int32_t k, double v) {
-  eval_hmap_pair_t* record = eval_hmap_find(hmap, k);
+void double_hmap_add_not_replace(double_hmap_t *hmap, int32_t k, double v) {
+  double_hmap_pair_t* record = double_hmap_find(hmap, k);
   if (record == NULL){
-    eval_hmap_add(hmap, k, v);
+    double_hmap_add(hmap, k, v);
   }
 }
 
@@ -342,22 +340,22 @@ void eval_hmap_add_not_replace(eval_hmap_t *hmap, int32_t k, double v) {
 /*
  * Erase record r
  */
-void eval_hmap_erase(eval_hmap_t *hmap, eval_hmap_pair_t *r) {
-  assert(eval_hmap_find(hmap, r->key) == r);
+void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r) {
+  assert(double_hmap_find(hmap, r->key) == r);
 
   r->key = DELETED_KEY;
   hmap->nelems --;
   hmap->ndeleted ++;
   if (hmap->ndeleted >= hmap->cleanup_threshold) {
-    eval_hmap_cleanup(hmap);
+    double_hmap_cleanup(hmap);
   }
 }
 
 /*
  * Deep copy one map to another
  */
-extern void eval_hmap_copy(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to){
-  init_eval_hmap(hmap_to, hmap_from->size);
+extern void double_hmap_copy(double_hmap_t *hmap_from, double_hmap_t *hmap_to){
+  init_double_hmap(hmap_to, hmap_from->size);
   hmap_to->size = hmap_from->size;
   hmap_to->nelems = hmap_from->nelems;
   hmap_to->ndeleted = hmap_from->ndeleted;
@@ -372,13 +370,13 @@ extern void eval_hmap_copy(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to){
 /*
  * Merge one map to another (overwriting records)
  */
-extern void eval_hmap_merge(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to){
+extern void double_hmap_merge(double_hmap_t *hmap_from, double_hmap_t *hmap_to){
   for(uint32_t i=0 ; i < hmap_from->size ; i++){
-    eval_hmap_pair_t record = hmap_from->data[i];
+    double_hmap_pair_t record = hmap_from->data[i];
     if(record.key == -1){
       continue;
     }
-    eval_hmap_add_replace(hmap_to, record.key, record.val);
+    double_hmap_add_replace(hmap_to, record.key, record.val);
   }
 }
 
@@ -386,9 +384,9 @@ extern void eval_hmap_merge(eval_hmap_t *hmap_from, eval_hmap_t *hmap_to){
 /*
  * Empty the map
  */
-void eval_hmap_reset(eval_hmap_t *hmap) {
+void double_hmap_reset(double_hmap_t *hmap) {
   uint32_t i, n;
-  eval_hmap_pair_t *d;
+  double_hmap_pair_t *d;
 
   n = hmap->size;
   d = hmap->data;
@@ -406,8 +404,8 @@ void eval_hmap_reset(eval_hmap_t *hmap) {
 /*
  * First non-empty record in the table, starting from p
  */
-static const eval_hmap_pair_t *eval_hmap_get_next(const eval_hmap_t *hmap, const eval_hmap_pair_t *p) {
-  eval_hmap_pair_t *end;
+static const double_hmap_pair_t *double_hmap_get_next(const double_hmap_t *hmap, const double_hmap_pair_t *p) {
+  double_hmap_pair_t *end;
 
   end = hmap->data + hmap->size;
   while (p < end) {
@@ -422,18 +420,16 @@ static const eval_hmap_pair_t *eval_hmap_get_next(const eval_hmap_t *hmap, const
 /*
  * Get the first non-empty record or NULL if the table is empty
  */
-eval_hmap_pair_t *eval_hmap_first_record(const eval_hmap_t *hmap) {
-  return (eval_hmap_pair_t *) eval_hmap_get_next(hmap, hmap->data);
+extern double_hmap_pair_t *double_hmap_first_record(const double_hmap_t *hmap) {
+  return (double_hmap_pair_t *) double_hmap_get_next(hmap, hmap->data);
 }
 
 
 /*
  * Next record after p or NULL
  */
-eval_hmap_pair_t *eval_hmap_next_record(const eval_hmap_t *hmap, const eval_hmap_pair_t *p) {
+extern double_hmap_pair_t *double_hmap_next_record(const double_hmap_t *hmap, const double_hmap_pair_t *p) {
   assert(p != NULL && p<hmap->data + hmap->size && p->key != EMPTY_KEY);
-  return (eval_hmap_pair_t *) eval_hmap_get_next(hmap, p+1);
+  return (double_hmap_pair_t *) double_hmap_get_next(hmap, p + 1);
 }
-
-
 
