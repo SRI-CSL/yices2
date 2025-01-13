@@ -144,6 +144,9 @@ void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 /** Apply the L2O operator to term t */
 term_t l2o_apply(l2o_t* l2o, term_t t);
 
+/** Apply the L2O operator to term t, using classical local search cost function (i.e. cost = n. of unsatisfied clauses) */
+term_t l2o_apply_ls(l2o_t* l2o, term_t t);
+
 /** Create the L2O cost function to the conjunction of the stored assertions */
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail);
 
