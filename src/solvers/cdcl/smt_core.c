@@ -4898,7 +4898,7 @@ static inline bval_t unsafe_literal_value(smt_core_t *s, literal_t l) {
 /*
  * Variant of literal_is_unassigned (same reason)
  */
-static inline bval_t unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
+static inline bool unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
   assert(end_learned <= l && l <= (int32_t) s->nlits);
   return bval_is_undef(s->value[var_of(l)]);
 }
