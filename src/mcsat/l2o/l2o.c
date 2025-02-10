@@ -1143,6 +1143,7 @@ void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler) {
   l2o->exception = handler;
 }
 
+#if 0
 static
 void set_l2o_vars(l2o_t* l2o, int_hset_t* var_set){
 
@@ -1169,7 +1170,7 @@ void set_l2o_vars(l2o_t* l2o, int_hset_t* var_set){
     }
   }
 }
-
+#endif
 
 /*
  * Provide hint to the trail cache 
@@ -1187,72 +1188,82 @@ void hint_value_to_trail(mcsat_trail_t* trail, variable_t v, const mcsat_value_t
   }
 }
 
+static
+double mcsat_value_to_double(const mcsat_value_t* val){
+  mcsat_value_type_t type = val->type;
+  switch (type) {
+  case VALUE_BOOLEAN:
+    return val->b;
+
+  case VALUE_RATIONAL: {
+    rational_t r = val->q;
+    return q_get_double(&r);
+  }
+
+  case VALUE_LIBPOLY: {
+    const lp_value_t lp_v = val->lp_value;
+    return lp_value_to_double(&lp_v);
+  }
+
+  default:
+    assert(false);
+    return 0.0;
+  }
+}
+
+static
+void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d) {
+  switch (type) {
+    case VALUE_BOOLEAN:
+      mcsat_value_construct_bool(val, d != 0.0);
+      break;
+    case VALUE_RATIONAL: {
+      rational_t r;
+      q_init(&r);
+      q_set_double(&r, d);
+      mcsat_value_construct_rational(val, &r);
+      q_clear(&r);
+      break;
+    }
+    case VALUE_LIBPOLY: {
+      lp_rational_t lp_r;
+      lp_rational_construct_from_double(&lp_r, d);
+      mcsat_value_construct_lp_value_direct(val, LP_VALUE_RATIONAL, &lp_r);
+      lp_rational_destruct(&lp_r);
+      break;
+    }
+    default:
+      // not implemented
+      assert(false);
+      break;
+  }
+}
+
 //trail_set_cached_value
 
 // Given variables v and values s_mpq, set hint to the trail
 static
 void l2o_set_hint(l2o_t *l2o, uint32_t n, const term_t *v, const double *x, mcsat_trail_t *trail) {
   term_table_t* terms = l2o->terms;
-  mcsat_value_t* val = (mcsat_value_t *) safe_malloc(n * sizeof(mcsat_value_t));
+  double val_d;
+  mcsat_value_t val_mcsat;
+  //mcsat_value_t* val = (mcsat_value_t *) safe_malloc(n * sizeof(mcsat_value_t));
 
   for (uint32_t i = 0; i < n; ++ i) {
     type_kind_t vi_type = term_type_kind(terms, v[i]);
-    if (vi_type == BOOL_TYPE){
-      assert(x[i] == 0 || x[i] == 1);
+    val_d = x[i];
 
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\n set model %d -> %d",v[i], (int)x[i]);
-      }
-      
-      if ( x[i] == 0){
-        mcsat_value_construct_bool(&val[i], true);
-      }
-      else{
-        mcsat_value_construct_bool(&val[i], false);
-      }
+    if (vi_type == INT_TYPE) {
+      // round the value to the nearest integer
+      val_d = round(val_d);
     }
-    else{    
-      // Convert model from double to nearest int
-      int64_t x_int = (int) round(x[i]);    // TODO NRA: no reason to cast to int for NRA
-      term_t x_term = yices_int64(x_int);
 
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\n set model %d -> %ld",v[i], x_int);
-      }
+    assert(vi_type != BOOL_TYPE || val_d == 1.0 || val_d == 0.0);
 
-      mcsat_value_construct_from_constant_term(&val[i], terms, x_term);
-    }
-    hint_value_to_trail(trail, v[i], &val[i]);
-  }
-}
+    double_to_mcsat_value(&val_mcsat, vi_type == BOOL_TYPE ? VALUE_BOOLEAN : VALUE_LIBPOLY, val_d);
+    hint_value_to_trail(trail, v[i], &val_mcsat);
 
-// Converts an array of mpf_t of length n into an array of doubles
-void mpf_array_to_double(uint32_t n, mpf_t *x_mpf, double *x){
-  for (uint32_t i = 0; i < n; ++ i) {
-    x[i] = mpf_get_d(x_mpf[i]);
-  }
-}
-
-double mcsat_value_to_double(const mcsat_value_t* val){
-  mcsat_value_type_t type = val->type;
-  switch (type) {
-  case VALUE_BOOLEAN:
-    return val->b;
-  case VALUE_RATIONAL:{
-    rational_t r = val->q;
-    double v =  q_get_double(&r);
-    return v;
-  }
-  case VALUE_LIBPOLY:
-  {
-    const lp_value_t lp_v = val->lp_value;
-    double v = lp_value_to_double(&lp_v);
-    return v;
-  }
-  default:
-    assert(false);
-    return 0;
-    //assert(type != VALUE_NONE && type != VALUE_BV);
+    assert(vi_type != INT_TYPE || (val_mcsat.type == VALUE_LIBPOLY && lp_value_is_integer(&val_mcsat.lp_value)));
   }
 }
 
@@ -1261,7 +1272,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     printf("\n\n  init l2o_minimize_and_set_hint\n");
   }
 
-  if( t == -1){   // TODO why does this happens? E.g. /QF_NIA/non-incremental/QF_NIA/leipzig/term-AvoWGH.smt2
+  if(t == -1){   // TODO why does this happens? E.g. /QF_NIA/non-incremental/QF_NIA/leipzig/term-AvoWGH.smt2
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
       mcsat_trace_printf(l2o->tracer, "\nt is RESERVED_TERM\n");
     }
@@ -1320,12 +1331,10 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     else{
       v_fixed[i] = false; 
       if(type_vi == BOOL_TYPE){ 
-        first_x[i] = 1;
-        //first_x[i] = (double) 1;
+        first_x[i] = 1.0;
       }
       else{
-        first_x[i] = 0;
-        //first_x[i] = (double) 0;
+        first_x[i] = 0.0;
       }
     }
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -1369,11 +1378,13 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
     term_t f_i = assertions->data[i];
     f_l2o[i] = l2o_apply(l2o, f_i, L2O_LOCAL_SEARCH_CLASSIC);
   }
+  // TODO change to list to enable incremental solving
   l2o->cost_fx = yices_sum(n_assertions, f_l2o);
   return l2o->cost_fx;
 }
 
 
+// TODO add trail to l2o data structure
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail) {
   term_t cost_fx = l2o_make_cost_fx(l2o);
 
