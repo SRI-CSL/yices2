@@ -142,7 +142,7 @@ void l2o_destruct(l2o_t* l2o);
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
 /** Apply the L2O operator to term t */
-term_t l2o_apply(l2o_t* l2o, term_t t);
+term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls);
 
 /** Apply the L2O operator to term t, using classical local search cost function (i.e. cost = n. of unsatisfied clauses) */
 term_t l2o_apply_ls(l2o_t* l2o, term_t t);
