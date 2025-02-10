@@ -347,9 +347,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent kind is CONSTANT_TERM");
         printf("\ncurrent kind is UNSUPPORTED\n");
-        // UNSUPPORTED TERM/THEORY
-        current_l2o = zero_term;
-      }    
+      }
+      // UNSUPPORTED TERM/THEORY
+      current_l2o = zero_term;
+      break;
     case ARITH_CONSTANT:   // rational constant
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent kind is ARITH_CONSTANT");
@@ -472,7 +473,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
       }
       break;
     case OR_TERM:        
-    {      
+    {
       if(is_pos_term(current)){    
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is OR_TERM (positive polarity)\n");
@@ -498,10 +499,9 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
           else{
             args_l2o[i] = arg_i_l2o;
           }
-        };
+        }
         if (args_already_visited){
           current_l2o = mk_product(l2o, n, args_l2o);
-          break;
         }else{
           continue;
         }
@@ -532,16 +532,16 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
           else{
             args_l2o[i] = arg_i_neg_l2o;
           }
-        };
+        }
         if (args_already_visited){
           current_l2o = mk_sum(l2o, n, args_l2o);
           //current_l2o = yices_sum(n, args_l2o); // Slower (e.g. QF_NIA/20210219-Dartagnan/ReachSafety-Loops/matrix-1-O0.smt2)
-          break;
         }else{
           continue;
         }
       }
     }
+    break;
 
     case ITE_TERM:        
     case ITE_SPECIAL:        
@@ -568,12 +568,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
         };
         if (args_already_visited){
           current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
-          break;
         }else{
           continue;
         }
-      }
-      else{
+      } else {
         term_t current_unsigned = unsigned_term(current);
         composite_term_t* desc = get_composite(terms, current_kind, current_unsigned);
         assert( desc->arity == 3);
@@ -601,12 +599,13 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
         }
         if (args_already_visited){
           current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
-          break;
         }else{
           continue;
         }
       }
     }
+    break;
+
     case ARITH_EQ_ATOM:      // equality (t == 0)
     {
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -757,11 +756,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
           else{
             args_l2o[i] = arg_i_l2o;
           }
-        };
+        }
         if (args_already_visited){
           term_t t = yices_sub(args_l2o[0], args_l2o[1]);
           current_l2o = yices_abs(t);
-          break;
         }else{
           continue;
         }
@@ -776,9 +774,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
         term_t then_term = yices_zero();
         term_t else_term = yices_int32(1);
         current_l2o = _o_yices_ite(cond, then_term, else_term);
-        break;
       }
     }
+    break;
+
     default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent_kind: %d\n",current_kind);
@@ -799,7 +798,6 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
         trace_term_ln(l2o->tracer, terms, current_l2o);
       }
     }
-
   }
 
   delete_ivector(&l2o_stack);
