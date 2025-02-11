@@ -415,7 +415,6 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                 continue;
               }
             }
-
           }
         }
 

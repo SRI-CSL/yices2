@@ -280,6 +280,7 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
   return paulinomial;
 }
 
+static
 term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("l2o_apply start\n");
@@ -944,7 +945,12 @@ void collect_freevars(l2o_t* l2o, term_t t) {
       break;
     }
     case ARITH_ROOT_ATOM:
-      break; // TODO check this and also others below
+      // not supported, as it does not occur in a root level constraint
+      assert(false);
+      break;
+
+    // TODO check the term kinds below
+    // assuming that the boolean terms are CNF'd at when calling l2o TODO check this assumption
     case ITE_TERM:
     case ITE_SPECIAL:
     case APP_TERM:
@@ -1383,8 +1389,6 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
   return l2o->cost_fx;
 }
 
-
-// TODO add trail to l2o data structure
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail) {
   term_t cost_fx = l2o_make_cost_fx(l2o);
 
