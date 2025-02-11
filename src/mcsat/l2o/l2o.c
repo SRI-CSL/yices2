@@ -1291,6 +1291,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
   uint32_t i;
 
   // On the first call, use default values. After the first call, use cached values.
+  // TODO alternate this
   bool use_cached_values = l2o->n_runs > 0;
 
   collect_freevars(l2o, t);

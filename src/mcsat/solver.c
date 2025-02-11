@@ -345,9 +345,9 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 1000;
-  mcsat->heuristic_params.random_decision_freq = 0.02;
-  mcsat->heuristic_params.random_decision_seed = 0xabcdef98;
+  mcsat->heuristic_params.recache_interval = 500;
+  mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
+  mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
 
 static
@@ -631,13 +631,11 @@ void mcsat_request_gc(mcsat_solver_t* mcsat) {
   mcsat->pending_requests_all.gc_calls = true;
 }
 
-/*
 static
 void mcsat_request_recache(mcsat_solver_t* mcsat) {
   mcsat->pending_requests = true;
   mcsat->pending_requests_all.recache = true;
 }
-*/
 
 static
 void mcsat_plugin_context_restart(plugin_context_t* self) {
@@ -1451,6 +1449,23 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
 }
 
 static
+void trail_recache(mcsat_solver_t *mcsat, uint32_t round) {
+  switch (round % 2) {
+  case 0:
+    // just clear the cache, no l2o
+    trail_model_cache_clear(mcsat->trail);
+    break;
+  case 1:
+    // run l2o
+    l2o_run(&mcsat->l2o, mcsat->trail);
+    break;
+    // TODO add other l2o options here as well
+  default:
+    break;
+  }
+}
+
+static
 void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
   if (mcsat->pending_requests) {
@@ -1480,7 +1495,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache
     if (mcsat->pending_requests_all.recache) {
-      trail_model_cache_clear(mcsat->trail);
+      trail_recache(mcsat, (*mcsat->solver_stats.recaches));
       mcsat->pending_requests_all.recache = false;
       (*mcsat->solver_stats.recaches) ++;
     }
@@ -2710,13 +2725,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   uint32_t restart_resource;
   luby_t luby;
 
-  // CTX_MODE_PUSHPOP
-  bool run_l2o = true;
-  if(run_l2o){
-    l2o_run(&mcsat->l2o, mcsat->trail);
-    run_l2o = false;
-  }
-
   // Make sure we have variables for all the assumptions
   if (n_assumptions > 0) {
     if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
@@ -2784,6 +2792,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
   uint32_t recache_round = 0;
 
+  // TODO decide whether to do a l2o at the beginning?
+  //l2o_run(&mcsat->l2o, mcsat->trail);
+
   // Whether to run learning
   bool learning = true;
 
@@ -2796,16 +2807,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       mcsat_request_restart(mcsat);
 
       // recache
-      if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-        //printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
-        ++recache_round;
-        //mcsat_request_recache(mcsat);
-        double l = log10(recache_round + 9);
-        recache_limit = (*mcsat->solver_stats.conflicts) +
-	  (recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
-
-        run_l2o = true; 
-      }
+    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+      // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+                      (recache_round * l * l * l *
+                       mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
@@ -2834,11 +2843,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If inconsistent, analyze the conflict
     if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
-    }
-
-    if(run_l2o){
-      l2o_run(&mcsat->l2o, mcsat->trail);
-      run_l2o = false;
     }
 
     // Time to make a decision
