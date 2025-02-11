@@ -43,7 +43,8 @@
 #define EPSILON "0.0000001"
 
 
-void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler) {
+void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler) {
+  l2o->mode = mode;
   l2o->terms = terms;
   l2o->n_runs = 0;
   l2o->n_terms = 0;
@@ -186,7 +187,7 @@ typedef struct composite_term1_s {
 static
 composite_term1_t composite_for_noncomposite;
 
-
+// TODO use the function of preprocessor (extract it to term.h?)
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t) {
   if(!term_is_composite(terms, t)){
     assert(false);
@@ -281,7 +282,8 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
 }
 
 static
-term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
+term_t l2o_apply(l2o_t* l2o, term_t t) {
+  bool use_classic = l2o->mode == L2O_CLASSIC;
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("l2o_apply start\n");
   }
@@ -368,7 +370,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
 
         // If translate_bool2real is False then, given a boolean proposition b
         // L2O(b) is ITE(b, 0 ,1)
-        if(use_ls || !translate_bool2real){
+        if(use_classic || !translate_bool2real){
           current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
         }
 
@@ -612,7 +614,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent kind is ARITH_EQ_ATOM\n");
       }
-      if (use_ls) {
+      if (use_classic) {
         current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
       } else {
         if (is_pos_term(current)) {     // t == 0
@@ -645,7 +647,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
       }
-      if (use_ls) {
+      if (use_classic) {
         current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
       } else {
         if (is_pos_term(current)) {   // t1 == t2
@@ -684,7 +686,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t, bool use_ls) {
       if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
         printf("\ncurrent kind is ARITH_GE_ATOM\n");
       }
-      if (use_ls) {
+      if (use_classic) {
         current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
       } else {
         if (is_pos_term(current)) {   // t >= 0
@@ -1273,6 +1275,8 @@ void l2o_set_hint(l2o_t *l2o, uint32_t n, const term_t *v, const double *x, mcsa
   }
 }
 
+/** Minimize L2O cost function and set hint to trail */
+static
 void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\n\n  init l2o_minimize_and_set_hint\n");
@@ -1355,6 +1359,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     printf("\nn_var_fixed = %d", n_var_fixed);
   }
 
+#if 0
   // Test
   bool free_var_threshold = false;
   if (free_var_threshold){
@@ -1362,6 +1367,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
       return;
     }
   }
+#endif
 
   bool use_hill_climbing = true;
   if(use_hill_climbing && n_var >= 1){
@@ -1376,13 +1382,12 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
 
 
 term_t l2o_make_cost_fx(l2o_t* l2o) {
-  bool L2O_LOCAL_SEARCH_CLASSIC = false;
   ivector_t* assertions = &l2o->assertions;
   int32_t n_assertions = assertions->size;
   term_t f_l2o[n_assertions];
   for (uint32_t i = 0; i < n_assertions; ++ i) {
     term_t f_i = assertions->data[i];
-    f_l2o[i] = l2o_apply(l2o, f_i, L2O_LOCAL_SEARCH_CLASSIC);
+    f_l2o[i] = l2o_apply(l2o, f_i);
   }
   // TODO change to list to enable incremental solving
   l2o->cost_fx = yices_sum(n_assertions, f_l2o);

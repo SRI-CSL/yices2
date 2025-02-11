@@ -922,7 +922,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception, &mcsat->ctx->mcsat_options);
 
   // Construct L2O
-  l2o_construct(&mcsat->l2o, mcsat->terms, mcsat->exception);
+  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception);
 
   // The variable queue
   init_ivector(&mcsat->top_decision_vars, 0);

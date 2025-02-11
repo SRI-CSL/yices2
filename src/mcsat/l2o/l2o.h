@@ -17,7 +17,6 @@
  */
 
 
-
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "utils/int_vectors.h"
@@ -36,12 +35,9 @@
 #ifndef MCSAT_L2O_H_
 #define MCSAT_L2O_H_
 
-
-//#include "mcsat/l2o/evaluator.h"
 #include "utils/index_vectors.h"
 
-
-
+// TODO move data structures and internal functions to l2o_internal.h and only keep public functions here. (similar to nra_plugin.h)
 
 typedef struct {
   /** Cached cost */
@@ -79,9 +75,15 @@ typedef struct {
 
 } evaluator_t;
 
-
+typedef enum {
+  L2O,
+  L2O_CLASSIC,
+  /* L2O_CELL_JUMP, */
+} l2o_mode_t;
 
 typedef struct {
+  /** The l2o mode */
+  l2o_mode_t mode;
 
   /** Term table */
   term_table_t* terms;
@@ -133,34 +135,19 @@ typedef struct {
 } l2o_t;
 
 /** Construct the L2O operator */
-void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler);
+void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler);
 
 /** Destruct the L2O operator */
 void l2o_destruct(l2o_t* l2o);
+
+/** resets the internal solution of the L2O but keeps performance caches (variable, term caches). */
+void l2o_reset(l2o_t *l2o);
 
 /** Store an assertion to l2o.assertions */
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
 /** Create the L2O cost function to the conjunction of the stored assertions */
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail);
-
-/** Get the varset_table index of the set of free variables in t */
-int32_t get_freevars_index(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables in t */
-const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables from a term given its varset_table index  */
-const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
-
-/** Minimize L2O cost function and set hint to trail */
-void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail);
-
-/** Set tracer */
-void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
-
-/** Set the exception handler */
-void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
 
 /** Push L2O */
 void l2o_push(l2o_t* l2o);
@@ -171,8 +158,26 @@ void l2o_pop(l2o_t* l2o);
 /** Get L2O translation of t */
 term_t l2o_get(l2o_t* l2o, term_t t);
 
-composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 
+
+// start internal functions
+
+/** Get the varset_table index of the set of free variables in t */
+int32_t get_freevars_index(const l2o_t* l2o, term_t t);
+
+/** Get the set of free variables in t */
+const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
+
+/** Get the set of free variables from a term given its varset_table index  */
+const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
+
+/** Set tracer */
+void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
+
+/** Set the exception handler */
+void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
+
+composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 
 
 /** Construct the evaluator operator */
