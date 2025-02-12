@@ -301,6 +301,8 @@ struct mcsat_solver_s {
     lemma_weight_type_t lemma_restart_weight_type;
     // recache interval
     uint32_t recache_interval;
+    // wait some time until the first l2o operation
+    uint32_t recache_initial_delay;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -346,6 +348,7 @@ void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.recache_interval = 300;
+  mcsat->heuristic_params.recache_initial_delay = 10000;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -2774,7 +2777,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
   // recache
-  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
+  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_initial_delay;
   uint32_t recache_round = 0;
 
   // TODO decide whether to do a l2o at the beginning?
