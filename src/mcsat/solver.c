@@ -348,7 +348,7 @@ void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.recache_interval = 300;
-  mcsat->heuristic_params.recache_initial_delay = 10000;
+  mcsat->heuristic_params.recache_initial_delay = 300;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -2781,7 +2781,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   uint32_t recache_round = 0;
 
   // TODO decide whether to do a l2o at the beginning?
-  //l2o_run(&mcsat->l2o, mcsat->trail);
+  l2o_run(&mcsat->l2o, mcsat->trail, false);
 
   // Whether to run learning
   bool learning = true;
