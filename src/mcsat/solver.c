@@ -1483,7 +1483,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
     if (mcsat->pending_requests_all.recache) {
       (*mcsat->solver_stats.recaches) ++;
       // we start with use_cached_values = true
-      l2o_run(&mcsat->l2o, mcsat->trail, true);
+      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 13);
       //trail_model_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
     }
@@ -2781,7 +2781,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   uint32_t recache_round = 0;
 
   // TODO decide whether to do a l2o at the beginning?
-  l2o_run(&mcsat->l2o, mcsat->trail, false);
+  //l2o_run(&mcsat->l2o, mcsat->trail, false);
 
   // Whether to run learning
   bool learning = true;
