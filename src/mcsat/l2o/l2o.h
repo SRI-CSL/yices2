@@ -147,7 +147,7 @@ void l2o_reset(l2o_t *l2o);
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
 /** Create the L2O cost function to the conjunction of the stored assertions */
-void l2o_run(l2o_t* l2o, mcsat_trail_t* trail);
+void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values);
 
 /** Push L2O */
 void l2o_push(l2o_t* l2o);

@@ -1277,8 +1277,8 @@ void l2o_set_hint(l2o_t *l2o, uint32_t n, const term_t *v, const double *x, mcsa
 
 /** Minimize L2O cost function and set hint to trail */
 static
-void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
-    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool use_cached_values) {
+  if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\n\n  init l2o_minimize_and_set_hint\n");
   }
 
@@ -1288,17 +1288,18 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
     }
     return;
   }
-  uint32_t i;
 
-  // On the first call, use default values. After the first call, use cached values.
-  // TODO alternate this
-  bool use_cached_values = l2o->n_runs > 0;
+  uint32_t i;
 
   collect_freevars(l2o, t);
   const int_hset_t* var_set = get_freevars(l2o, t);
   assert(var_set != NULL);
 
   uint32_t n_var = var_set->nelems;
+
+  if (n_var == 0) {
+    return;
+  }
   
   term_t v[n_var];
   term_t v_l2o[n_var];
@@ -1340,14 +1341,10 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
       first_x[i] = mcsat_value_to_double(val);
     }
     else{
-      v_fixed[i] = false; 
-      if(type_vi == BOOL_TYPE){ 
-        first_x[i] = 1.0;
-      }
-      else{
-        first_x[i] = 0.0;
-      }
+      v_fixed[i] = false;
+      first_x[i] = type_vi == BOOL_TYPE ? 1.0 : 0.0;
     }
+
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
       printf("\nv[%d] = %d", i , v[i]);
       printf("\nv_l2o[%d] = %d", i , v_l2o[i]);
@@ -1355,30 +1352,17 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail) {
       printf("\nfirst_x[%d] = %f\n", i , first_x[i]);
     }
   }
+
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\nn_var = %d", n_var);
     printf("\nn_var_fixed = %d", n_var_fixed);
   }
 
-#if 0
-  // Test
-  bool free_var_threshold = false;
-  if (free_var_threshold){
-    if(n_var > 100 &&  n_var > n_var_fixed * 2){
-      return;
-    }
-  }
-#endif
+  // Improve first_x using hill_climbing
+  hill_climbing(l2o, t, n_var, v, v_fixed, first_x);
 
-  bool use_hill_climbing = true;
-  if(use_hill_climbing && n_var >= 1){
-
-    // Improve first_x using hill_climbing
-    hill_climbing(l2o, t, n_var, v, v_fixed, first_x);
-
-    // Set hints
-    l2o_set_hint(l2o, n_var, v, first_x, trail);
-  }
+  // Set hints
+  l2o_set_hint(l2o, n_var, v, first_x, trail);
 }
 
 
@@ -1395,7 +1379,7 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
   return l2o->cost_fx;
 }
 
-void l2o_run(l2o_t* l2o, mcsat_trail_t* trail) {
+void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values) {
   term_t cost_fx = l2o_make_cost_fx(l2o);
 
   if (trace_enabled(l2o->tracer, "mcsat::l2o")){
@@ -1406,6 +1390,6 @@ void l2o_run(l2o_t* l2o, mcsat_trail_t* trail) {
   }
 
   // TODO: Check if cost is zero
-  l2o_minimize_and_set_hint(l2o, cost_fx, trail);
+  l2o_minimize_and_set_hint(l2o, cost_fx, trail, use_cached_values);
   l2o->n_runs++;
 }

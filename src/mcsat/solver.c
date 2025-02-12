@@ -345,7 +345,7 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 500;
+  mcsat->heuristic_params.recache_interval = 300;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -1449,23 +1449,6 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
 }
 
 static
-void trail_recache(mcsat_solver_t *mcsat, uint32_t round) {
-  switch (round % 2) {
-  case 0:
-    // just clear the cache, no l2o
-    trail_model_cache_clear(mcsat->trail);
-    break;
-  case 1:
-    // run l2o
-    l2o_run(&mcsat->l2o, mcsat->trail);
-    break;
-    // TODO add other l2o options here as well
-  default:
-    break;
-  }
-}
-
-static
 void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
   if (mcsat->pending_requests) {
@@ -1495,9 +1478,11 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache
     if (mcsat->pending_requests_all.recache) {
-      trail_recache(mcsat, (*mcsat->solver_stats.recaches));
-      mcsat->pending_requests_all.recache = false;
       (*mcsat->solver_stats.recaches) ++;
+      // we start with use_cached_values = true
+      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 2);
+      //trail_model_cache_clear(mcsat->trail);
+      mcsat->pending_requests_all.recache = false;
     }
 
     // All services
