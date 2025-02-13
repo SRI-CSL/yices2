@@ -1481,11 +1481,10 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache
     if (mcsat->pending_requests_all.recache) {
-      (*mcsat->solver_stats.recaches) ++;
-      // we start with use_cached_values = true
-      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 13);
+      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) > 0);
       //trail_model_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
+      (*mcsat->solver_stats.recaches) ++;
     }
 
     // All services
@@ -2795,14 +2794,17 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       mcsat_request_restart(mcsat);
 
       // recache
-    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-      // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
-      ++recache_round;
-      mcsat_request_recache(mcsat);
-      double l = log10(recache_round + 9);
-      recache_limit = (*mcsat->solver_stats.conflicts) +
-                      (recache_round * l * l * l *
-                       mcsat->heuristic_params.recache_interval);
+      if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+        // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
+        ++recache_round;
+        mcsat_request_recache(mcsat);
+        double l = log10(recache_round + 9);
+        recache_limit = (*mcsat->solver_stats.conflicts) +
+                        (recache_round * l * l * l *
+                         mcsat->heuristic_params.recache_interval);
+      } else {
+        // does this actually happen?
+      }
     }
 
     // Process any outstanding requests
