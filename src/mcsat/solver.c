@@ -348,7 +348,7 @@ void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.recache_interval = 300;
-  mcsat->heuristic_params.recache_initial_delay = 20000;
+  mcsat->heuristic_params.recache_initial_delay = 300;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -1481,7 +1481,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache
     if (mcsat->pending_requests_all.recache) {
-      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) > 0);
+      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 2);
       //trail_model_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
       (*mcsat->solver_stats.recaches) ++;
