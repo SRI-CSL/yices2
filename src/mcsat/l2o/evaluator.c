@@ -46,6 +46,7 @@
 
 #define EVAL_MAXFLOAT __DBL_MAX__;
 
+
 void evaluator_cache_construct(eval_cache_t *cache) {
   cache->cost = EVAL_MAXFLOAT;
   cache->n_var = 0;
@@ -182,6 +183,26 @@ bool can_use_cached_value(l2o_t *l2o, int_hset_t *vars_with_new_val, term_t t) {
 
 void evaluator_forget_cache_cost(evaluator_t *evaluator) {
   evaluator->cache.cost = EVAL_MAXFLOAT;
+}
+
+static
+void update_cache(evaluator_t *evaluator, uint32_t n_var, const term_t *v, const double *x, double t_eval) {
+  eval_cache_t *ec = &evaluator->cache;
+  if (t_eval < ec->cost) {
+    ec->v = (term_t *) safe_realloc(ec->v, n_var * sizeof(term_t));
+    ec->x = (double *) safe_realloc(ec->x, n_var * sizeof(double));
+
+    ec->cost = t_eval;
+    ec->n_var = n_var;
+    for (uint32_t i = 0; i < n_var; ++i) {
+      ec->v[i] = v[i];
+      ec->x[i] = x[i];
+    }
+
+    // Hard copy evaluator.eval_map into evaluator.cache.eval_map
+    // N.B. this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
+    double_hmap_copy(&ec->eval_map, &evaluator->eval_map);
+  }
 }
 
 double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x) {
@@ -937,27 +958,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
   }
 
   // Update the cache only if current cost is smaller than cached cost
-  if (t_eval < l2o->evaluator.cache.cost) {
-    l2o->evaluator.cache.v = (term_t *) safe_malloc(n_var * sizeof(term_t));
-    l2o->evaluator.cache.x = (double *) safe_malloc(n_var * sizeof(double));
-
-    l2o->evaluator.cache.cost = t_eval;
-    l2o->evaluator.cache.n_var = n_var;
-    for (i = 0; i < n_var; ++i) {
-      l2o->evaluator.cache.v[i] = v[i];
-      l2o->evaluator.cache.x[i] = x[i];
-    }
-
-    // TODO Q: Two ways to update the cache. Which one of the following to choose?
-
-    // Hard copy evaluator.eval_map into evaluator.cache.eval_map
-    // this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
-    double_hmap_copy(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);
-
-    // Merge evaluator.eval_map into evaluator.cache.eval_map 
-    // this way we update the cache eval_map with all the terms (the merging can be expensive if we have lots of terms)
-    //double_hmap_merge(&l2o->evaluator.eval_map, &l2o->evaluator.cache.eval_map);
-  }
+  update_cache(&l2o->evaluator, n_var, v, x, t_eval);
 
   ivector_reset(eval_stack);
   double_hmap_reset(&l2o->evaluator.eval_map);

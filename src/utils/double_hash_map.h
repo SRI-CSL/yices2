@@ -119,13 +119,7 @@ extern void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r);
 /*
  * Deep copy one map to another
  */
-extern void double_hmap_copy(double_hmap_t *hmap_from, double_hmap_t *hmap_to);
-
-
-/*
- * Merge one map to another (do not overwrite duplicates)
- */
-extern void double_hmap_merge(double_hmap_t *hmap_from, double_hmap_t *hmap_to);
+extern void double_hmap_copy(double_hmap_t *hmap_to, const double_hmap_t *hmap_from);
 
 
 /*

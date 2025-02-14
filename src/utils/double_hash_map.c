@@ -22,6 +22,7 @@
  */
 
 #include <assert.h>
+#include <string.h>
 
 #include "utils/memalloc.h"
 
@@ -354,30 +355,14 @@ void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r) {
 /*
  * Deep copy one map to another
  */
-extern void double_hmap_copy(double_hmap_t *hmap_from, double_hmap_t *hmap_to){
-  init_double_hmap(hmap_to, hmap_from->size);
+extern void double_hmap_copy(double_hmap_t *hmap_to, const double_hmap_t *hmap_from) {
   hmap_to->size = hmap_from->size;
   hmap_to->nelems = hmap_from->nelems;
   hmap_to->ndeleted = hmap_from->ndeleted;
   hmap_to->resize_threshold = hmap_from->resize_threshold;
   hmap_to->cleanup_threshold = hmap_from->cleanup_threshold;
-  for(uint32_t i=0 ; i < hmap_from->size ; i++){
-    hmap_to->data[i] = hmap_from->data[i];
-  }
-}
-
-
-/*
- * Merge one map to another (overwriting records)
- */
-extern void double_hmap_merge(double_hmap_t *hmap_from, double_hmap_t *hmap_to){
-  for(uint32_t i=0 ; i < hmap_from->size ; i++){
-    double_hmap_pair_t record = hmap_from->data[i];
-    if(record.key == -1){
-      continue;
-    }
-    double_hmap_add_replace(hmap_to, record.key, record.val);
-  }
+  hmap_to->data = safe_realloc(hmap_to->data, hmap_from->size * sizeof(double_hmap_pair_t));
+  memcpy(hmap_to->data, hmap_from->data, hmap_from->size * sizeof(double_hmap_pair_t));
 }
 
 
