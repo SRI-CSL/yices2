@@ -47,9 +47,11 @@ typedef struct {
   uint32_t n_var;
 
   /** Cached variables */
+  // TODO leaking memory
   term_t *v;
 
   /** Cached values */
+  // TODO leaking memory
   double *x;
 
   /** Cached map from terms to their evaluation under the assignment v -> x */
@@ -131,6 +133,13 @@ typedef struct {
 
 } l2o_t;
 
+typedef struct {
+  uint32_t n_var;
+  uint32_t n_var_fixed;
+  term_t *var;
+  double *val;
+} l2o_search_state_t;
+
 /** Construct the L2O operator */
 void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler);
 
@@ -197,6 +206,6 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
 /**
  * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
  */
-void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, uint32_t n_var_fixed, const term_t *v, double *x);
+void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state);
 
 #endif

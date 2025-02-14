@@ -74,11 +74,11 @@ uint32_t next_var(var_order_t *o) {
  * Array of booleans v_fixed such that, if v_fixed[i] == true, then the value of v[i] must not be changed.
  * Array of doubles x are the current best and is updated to the new best.
  */
-void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, uint32_t n_var_fixed, const term_t *v, double *x) {
-  assert(n_var >= 1);
-  assert(n_var_fixed <= n_var);
+void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
+  assert(state->n_var >= 1);
+  assert(state->n_var_fixed <= state->n_var);
 
-  if (n_var_fixed == n_var) {
+  if (state->n_var_fixed == state->n_var) {
     if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
       printf("\n\n all variables are fixed");
     }

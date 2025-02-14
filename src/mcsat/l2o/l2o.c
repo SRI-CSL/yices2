@@ -1247,85 +1247,52 @@ void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d
   }
 }
 
-typedef struct {
-  uint32_t n_var;
-  uint32_t n_var_fixed;
-  term_t *var;
-  double *val;
-} l2o_search_state_t;
+static
+bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
+  if (t == -1) {
+    return false;
+  }
+
+  const int_hset_t* var_set = get_freevars(l2o, t);
+  assert(var_set != NULL);
+  assert(var_set->is_closed);
+
+  // Check if there are non-arith and non-bool vars; if yes, return without doing anything
+  uint32_t n_var = var_set->nelems;
+  for (uint32_t i = 0; i < n_var; ++ i) {
+    term_t t_i = var_set->data[i];
+    type_kind_t type_vi = term_type_kind(l2o->terms, t_i);
+    if(type_vi != INT_TYPE && type_vi != REAL_TYPE && type_vi != BOOL_TYPE){
+      return false;
+    }
+  }
+
+  return true;
+}
 
 static
 void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool use_cached_values, l2o_search_state_t *state) {
-
-}
-
-static
-void l2o_search_state_destruct(l2o_search_state_t *state) {
-  free(state->var);
-  free(state->val);
-}
-
-// Given variables v and values s_mpq, set hint to the trail
-static
-void l2o_set_hint(l2o_t *l2o, uint32_t n, const term_t *v, const double *x, mcsat_trail_t *trail) {
-  term_table_t* terms = l2o->terms;
-  double val_d;
-  mcsat_value_t val_mcsat;
-  //mcsat_value_t* val = (mcsat_value_t *) safe_malloc(n * sizeof(mcsat_value_t));
-
-  for (uint32_t i = 0; i < n; ++ i) {
-    type_kind_t vi_type = term_type_kind(terms, v[i]);
-    val_d = x[i];
-
-    if (vi_type == INT_TYPE) {
-      // round the value to the nearest integer
-      val_d = round(val_d);
-    }
-
-    assert(vi_type != BOOL_TYPE || val_d == 1.0 || val_d == 0.0);
-
-    double_to_mcsat_value(&val_mcsat, vi_type == BOOL_TYPE ? VALUE_BOOLEAN : VALUE_LIBPOLY, val_d);
-    hint_value_to_trail(trail, v[i], &val_mcsat);
-
-    assert(vi_type != INT_TYPE || (val_mcsat.type == VALUE_LIBPOLY && lp_value_is_integer(&val_mcsat.lp_value)));
-  }
-}
-
-/** Minimize L2O cost function and set hint to trail */
-static
-void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool use_cached_values) {
-  if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-    printf("\n\n  init l2o_minimize_and_set_hint\n");
-  }
-
-  if(t == -1){   // TODO why does this happens? E.g. /QF_NIA/non-incremental/QF_NIA/leipzig/term-AvoWGH.smt2
-    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-      mcsat_trace_printf(l2o->tracer, "\nt is RESERVED_TERM\n");
-    }
-    return;
-  }
-
-  collect_freevars(l2o, t);
   const int_hset_t* var_set = get_freevars(l2o, t);
   assert(var_set != NULL);
   assert(var_set->is_closed);
   uint32_t n_var = var_set->nelems;
 
+  state->n_var = state->n_var_fixed = 0;
+  state->var = NULL;
+  state->val = NULL;
+
   if (n_var == 0) {
     return;
   }
 
-  // Check if there are non-arith and non-bool vars; if yes, return without doing anything
-  for (uint32_t i = 0; i < n_var; ++ i) {
-      term_t t_i = var_set->data[i];
-      type_kind_t type_vi = term_type_kind(l2o->terms, t_i);
-      if(type_vi != INT_TYPE && type_vi != REAL_TYPE && type_vi != BOOL_TYPE){
-        return;
-      }
-  }
+  state->n_var = n_var;
+  state->val = safe_malloc(sizeof(double) * n_var);
+  state->var = safe_malloc(sizeof(term_t) * n_var);
+
+  double *val = state->val;
+  term_t *v = state->var;
 
   ivector_t vars, vars_fixed;
-
   init_ivector(&vars, 0);
   init_ivector(&vars_fixed, 0);
 
@@ -1335,14 +1302,12 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool 
     assert (var_i != variable_null);
     ivector_push(trail_has_value(trail, var_i) ? &vars_fixed : &vars, var_i);
   }
+  state->n_var_fixed = vars_fixed.size;
 
   // TODO sort non-fixed here by VSIDS
 
   // join vectors
   assert(vars_fixed.size + vars.size == n_var);
-  double val[n_var];
-  term_t v[n_var];
-
   uint32_t pos = 0;
   for (uint32_t i = 0; i < vars_fixed.size; ++ i) {
     variable_t var = vars_fixed.data[i];
@@ -1362,45 +1327,78 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool 
   }
   assert(pos == n_var);
 
-#if 0
-  for (uint32_t i = 0; i < n_var; ++ i) {
-    type_kind_t kind_i = term_type_kind(l2o->terms, t_i);
-    if(trail_has_value(trail, var_i) ){
-      const mcsat_value_t* val = trail_get_value(trail, var_i);
-      val[i] = mcsat_value_to_double(val);
-    }
-    else if(use_cached_values && trail_has_cached_value(trail, var_i) ){
-      const mcsat_value_t* val = trail_get_cached_value(trail, var_i);
-      val[i] = mcsat_value_to_double(val);
-    }
-    else{
-      val[i] = kind_i == BOOL_TYPE ? 1.0 : 0.0;
-    }
-
-    //if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-    //  term_t v_l2o = l2o_var_get(l2o, vars[i]);
-    //  printf("\nvars[%d] = %d", i , vars[i]);
-    //  printf("\nv_l2o[%d] = %d", i , v_l2o);
-    //  printf("\nkind_i %d", kind_i);
-    //  printf("\nval[%d] = %f\n", i , val[i]);
-    //}
-  }
-#endif
-  uint32_t n_var_fixed = vars_fixed.size;
-
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\nn_var = %d", n_var);
     printf("\nn_var_fixed = %d", vars_fixed.size);
   }
 
+  delete_ivector(&vars);
+  delete_ivector(&vars_fixed);
+}
+
+static
+void l2o_search_state_destruct(l2o_search_state_t *state) {
+  free(state->var);
+  free(state->val);
+}
+
+// Given variables v and values s_mpq, set hint to the trail
+static
+void l2o_set_hint(l2o_t *l2o, const l2o_search_state_t *state, mcsat_trail_t *trail) {
+  term_table_t* terms = l2o->terms;
+
+  double val_d;
+  mcsat_value_t val_mcsat;
+
+  for (uint32_t i = state->n_var_fixed; i < state->n_var; ++ i) {
+    type_kind_t vi_type = term_type_kind(terms, state->var[i]);
+    val_d = state->val[i];
+
+    if (vi_type == INT_TYPE) {
+      // round the value to the nearest integer
+      val_d = round(val_d);
+    }
+
+    assert(vi_type != BOOL_TYPE || val_d == 1.0 || val_d == 0.0);
+
+    double_to_mcsat_value(&val_mcsat, vi_type == BOOL_TYPE ? VALUE_BOOLEAN : VALUE_LIBPOLY, val_d);
+    hint_value_to_trail(trail, state->var[i], &val_mcsat);
+
+    assert(vi_type != INT_TYPE || (val_mcsat.type == VALUE_LIBPOLY && lp_value_is_integer(&val_mcsat.lp_value)));
+  }
+}
+
+/** Minimize L2O cost function and set hint to trail */
+static
+void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool use_cached_values) {
+  if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+    printf("\n\n  init l2o_minimize_and_set_hint\n");
+  }
+
+  if(t == -1){   // TODO why does this happens? E.g. /QF_NIA/non-incremental/QF_NIA/leipzig/term-AvoWGH.smt2
+    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+      mcsat_trace_printf(l2o->tracer, "\nt is RESERVED_TERM\n");
+    }
+    return;
+  }
+
+  // ensure that the term has freevares are collected
+  collect_freevars(l2o, t);
+  if(!l2o_is_valid_term(l2o, t)) {
+    return;
+  }
+
+  l2o_search_state_t state;
+
+  // create search state
+  l2o_search_state_create(l2o, t, trail, use_cached_values, &state);
+
   // Improve val using hill_climbing
   hill_climbing(l2o, t, n_var, n_var_fixed, v, val);
 
   // Set hints
-  l2o_set_hint(l2o, n_var, v, val, trail);
+  l2o_set_hint(l2o, &state, trail);
 
-  delete_ivector(&vars);
-  delete_ivector(&vars_fixed);
 }
 
 
