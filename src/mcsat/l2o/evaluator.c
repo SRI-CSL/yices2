@@ -203,6 +203,7 @@ void update_cache(evaluator_t *evaluator, uint32_t n_var, const term_t *v, const
   }
 }
 
+// TODO: accept partial assignments returning a term
 double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x) {
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nl2o_evaluate_term_approx\n");

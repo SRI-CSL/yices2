@@ -189,11 +189,14 @@ void evaluator_set_tracer(evaluator_t* evaluator, tracer_t* tracer);
 // Delete cache cost to force updating the cache after the next evaluation
 void evaluator_forget_cache_cost(evaluator_t* evaluator);
 
-// Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
-// TODO: accept partial assignments returning a term
+/**
+ * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
+ */
 double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x);
 
-// Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
-void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, const term_t *v, const bool *v_fixed, double *x);
+/**
+ * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
+ */
+void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, uint32_t n_var_fixed, const term_t *v, double *x);
 
 #endif

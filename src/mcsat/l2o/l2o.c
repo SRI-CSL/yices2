@@ -127,7 +127,7 @@ const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index){
 }
 
 // Set the set of free variables for t
-static
+static inline
 void set_freevars_new(l2o_t* l2o, term_t t, int_hset_t* vars_set) {
   term_t t_unsigned = unsigned_term(t);
   assert(get_freevars_index(l2o, t_unsigned) == -1);
@@ -1247,7 +1247,23 @@ void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d
   }
 }
 
-//trail_set_cached_value
+typedef struct {
+  uint32_t n_var;
+  uint32_t n_var_fixed;
+  term_t *var;
+  double *val;
+} l2o_search_state_t;
+
+static
+void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool use_cached_values, l2o_search_state_t *state) {
+
+}
+
+static
+void l2o_search_state_destruct(l2o_search_state_t *state) {
+  free(state->var);
+  free(state->val);
+}
 
 // Given variables v and values s_mpq, set hint to the trail
 static
@@ -1289,80 +1305,102 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool 
     return;
   }
 
-  uint32_t i;
-
   collect_freevars(l2o, t);
   const int_hset_t* var_set = get_freevars(l2o, t);
   assert(var_set != NULL);
-
+  assert(var_set->is_closed);
   uint32_t n_var = var_set->nelems;
 
   if (n_var == 0) {
     return;
   }
-  
-  term_t v[n_var];
-  term_t v_l2o[n_var];
-  bool v_fixed[n_var];
-  uint32_t n_var_fixed = 0;
 
-  double first_x[n_var];
-
-  // TODO assert that var_set is closed
-  assert(var_set->nelems == n_var);
   // Check if there are non-arith and non-bool vars; if yes, return without doing anything
-  for (i = 0; i < n_var; ++ i) {
-      v[i] = var_set->data[i];
-      type_kind_t type_vi = term_type_kind(l2o->terms, v[i]);
-      //printf("\nv[%d] = %d", i , v[i]);
+  for (uint32_t i = 0; i < n_var; ++ i) {
+      term_t t_i = var_set->data[i];
+      type_kind_t type_vi = term_type_kind(l2o->terms, t_i);
       if(type_vi != INT_TYPE && type_vi != REAL_TYPE && type_vi != BOOL_TYPE){
         return;
       }
-      //printf("\ntype_vi %d", type_vi);
   }
 
-  for (i = 0; i < n_var; ++ i) {
-    v[i] = var_set->data[i];
-    v_l2o[i] = l2o_var_get(l2o, v[i]);
+  ivector_t vars, vars_fixed;
 
-    variable_t var_i = variable_db_get_variable_if_exists(trail->var_db, v[i]);
+  init_ivector(&vars, 0);
+  init_ivector(&vars_fixed, 0);
+
+  for (uint32_t i = 0; i < n_var; ++ i) {
+    term_t t_i = var_set->data[i];
+    variable_t var_i = variable_db_get_variable_if_exists(trail->var_db, t_i);
     assert (var_i != variable_null);
+    ivector_push(trail_has_value(trail, var_i) ? &vars_fixed : &vars, var_i);
+  }
 
-    type_kind_t type_vi = term_type_kind(l2o->terms, v[i]);
-    if( trail_has_value(trail, var_i) ){
-      v_fixed[i] = true; 
-      n_var_fixed++;
+  // TODO sort non-fixed here by VSIDS
+
+  // join vectors
+  assert(vars_fixed.size + vars.size == n_var);
+  double val[n_var];
+  term_t v[n_var];
+
+  uint32_t pos = 0;
+  for (uint32_t i = 0; i < vars_fixed.size; ++ i) {
+    variable_t var = vars_fixed.data[i];
+    v[pos] = variable_db_get_term(trail->var_db, var);
+    val[pos] = mcsat_value_to_double(trail_get_value(trail, var));
+    pos++;
+  }
+  for (uint32_t i = 0; i < vars.size; ++ i) {
+    variable_t var = vars.data[i];
+    v[pos] = variable_db_get_term(trail->var_db, var);
+    if (use_cached_values && trail_has_cached_value(trail, var)) {
+      val[pos] = mcsat_value_to_double(trail_get_value(trail, var));
+    } else {
+      val[pos] = variable_db_get_term(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
+    }
+    pos++;
+  }
+  assert(pos == n_var);
+
+#if 0
+  for (uint32_t i = 0; i < n_var; ++ i) {
+    type_kind_t kind_i = term_type_kind(l2o->terms, t_i);
+    if(trail_has_value(trail, var_i) ){
       const mcsat_value_t* val = trail_get_value(trail, var_i);
-      first_x[i] = mcsat_value_to_double(val);
+      val[i] = mcsat_value_to_double(val);
     }
     else if(use_cached_values && trail_has_cached_value(trail, var_i) ){
-      v_fixed[i] = false; 
       const mcsat_value_t* val = trail_get_cached_value(trail, var_i);
-      first_x[i] = mcsat_value_to_double(val);
+      val[i] = mcsat_value_to_double(val);
     }
     else{
-      v_fixed[i] = false;
-      first_x[i] = type_vi == BOOL_TYPE ? 1.0 : 0.0;
+      val[i] = kind_i == BOOL_TYPE ? 1.0 : 0.0;
     }
 
-    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-      printf("\nv[%d] = %d", i , v[i]);
-      printf("\nv_l2o[%d] = %d", i , v_l2o[i]);
-      printf("\ntype_vi %d", type_vi);
-      printf("\nfirst_x[%d] = %f\n", i , first_x[i]);
-    }
+    //if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+    //  term_t v_l2o = l2o_var_get(l2o, vars[i]);
+    //  printf("\nvars[%d] = %d", i , vars[i]);
+    //  printf("\nv_l2o[%d] = %d", i , v_l2o);
+    //  printf("\nkind_i %d", kind_i);
+    //  printf("\nval[%d] = %f\n", i , val[i]);
+    //}
   }
+#endif
+  uint32_t n_var_fixed = vars_fixed.size;
 
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\nn_var = %d", n_var);
-    printf("\nn_var_fixed = %d", n_var_fixed);
+    printf("\nn_var_fixed = %d", vars_fixed.size);
   }
 
-  // Improve first_x using hill_climbing
-  hill_climbing(l2o, t, n_var, v, v_fixed, first_x);
+  // Improve val using hill_climbing
+  hill_climbing(l2o, t, n_var, n_var_fixed, v, val);
 
   // Set hints
-  l2o_set_hint(l2o, n_var, v, first_x, trail);
+  l2o_set_hint(l2o, n_var, v, val, trail);
+
+  delete_ivector(&vars);
+  delete_ivector(&vars_fixed);
 }
 
 

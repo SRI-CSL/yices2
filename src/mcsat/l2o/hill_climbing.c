@@ -26,18 +26,68 @@
 
 #define IMPROVEMENT_THRESHOLD 0.0
 
+typedef struct {
+  uint32_t pos;
+  uint32_t count;
+  int_queue_t prio, prio_next;
+  // TODO try skipping variables when they've been in prio in one run
+} var_order_t;
+
+static
+void init_var_order(var_order_t *o, uint32_t count) {
+  init_int_queue(&o->prio, 0);
+  init_int_queue(&o->prio_next, 0);
+  o->pos = 0;
+  o->count = count;
+}
+
+static inline
+void delete_var_order(var_order_t *o) {
+  delete_int_queue(&o->prio);
+  delete_int_queue(&o->prio_next);
+}
+
+static inline
+void var_prio(var_order_t *o, uint32_t x) {
+  int_queue_push(&o->prio_next, x);
+}
+
+static
+uint32_t next_var(var_order_t *o) {
+  assert(o->pos < o->count);
+
+  if (!int_queue_is_empty(&o->prio)) {
+    assert(o->pos == 0);
+    return int_queue_pop(&o->prio);
+  }
+
+  o->pos ++;
+  if (o->pos == o->count) {
+    int_queue_swap(&o->prio, &o->prio_next);
+    o->pos = 0;
+  }
+  return o->pos;
+}
+
 /**
  * Performs hill climbing to minimize term t with variables v (where v_fixed are fixed variables) and starting value x.
  * Array of booleans v_fixed such that, if v_fixed[i] == true, then the value of v[i] must not be changed.
  * Array of doubles x are the current best and is updated to the new best.
  */
-void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, const term_t *v, const bool *v_fixed, double *x) {
+void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, uint32_t n_var_fixed, const term_t *v, double *x) {
   assert(n_var >= 1);
+  assert(n_var_fixed <= n_var);
+
+  if (n_var_fixed == n_var) {
+    if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
+      printf("\n\n all variables are fixed");
+    }
+    return;
+  }
 
   uint32_t i = 0;
   const term_table_t *terms = l2o->terms;
   double acceptance_threshold = 0;
-  //bool stop = false;
   uint32_t n_iter = 0;
   uint32_t n_calls = 0; // Counter for calls to evaluator
   uint32_t max_iter = 1000;
@@ -65,20 +115,11 @@ void hill_climbing(l2o_t *l2o, term_t t, uint32_t n_var, const term_t *v, const 
   int_queue_t v_q;
   init_int_queue(&v_q, 0);
 
-  for (i = 0; i < n_var; ++i) {
+  for (i = n_var_fixed; i < n_var; ++i) {
     // Initialize v_q with all non-fixed variables
-    if (!v_fixed[i]) {
-      int_queue_push(&v_q, i);
-    }
+    int_queue_push(&v_q, i);
   }
-
-  if (int_queue_is_empty(&v_q)) {
-    if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-      printf("\n\n all variables are fixed");
-    }
-    delete_int_queue(&v_q);
-    return;
-  }
+  assert(!int_queue_is_empty(&v_q));
 
   double current_x[n_var];  // Current assignment to use in the main loop
   double step_size[n_var];  // Starting step sizes
