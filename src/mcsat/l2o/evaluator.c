@@ -215,10 +215,9 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
 
 
   // Start
-  ivector_t es;
-  ivector_t *eval_stack = &es;
-  ivector_reset(eval_stack);
-  ivector_push(eval_stack, term);
+  ivector_t eval_stack;
+  init_ivector(&eval_stack, 0);
+  ivector_push(&eval_stack, term);
 
   bool cached = evaluator_has_cache(&l2o->evaluator);
 
@@ -235,9 +234,9 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
   }
 
 
-  while (eval_stack->size > 0) {
+  while (eval_stack.size > 0) {
     // Current term
-    term_t current = ivector_last(eval_stack);
+    term_t current = ivector_last(&eval_stack);
     type_kind_t current_type = term_type_kind(terms, current);
     term_kind_t current_kind = term_kind(terms, current);
     double current_eval = EVAL_MAXFLOAT;
@@ -252,7 +251,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
     // If evaluation already done, continue
     bool current_already_evaluated = already_evaluated(&l2o->evaluator, current);
     if (current_already_evaluated) {
-      ivector_pop(eval_stack);
+      ivector_pop(&eval_stack);
       continue;
     }
 
@@ -376,7 +375,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                   term_t arg_i = args[i];
                   bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
                   if (!arg_i_already_evaluated) {
-                    ivector_push(eval_stack, arg_i);
+                    ivector_push(&eval_stack, arg_i);
                   }
                 };
                 continue;
@@ -429,7 +428,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                   term_t arg_i_neg = yices_not(arg_i);
                   bool arg_i_neg_already_evaluated = already_evaluated(&l2o->evaluator, arg_i_neg);
                   if (!arg_i_neg_already_evaluated) {
-                    ivector_push(eval_stack, arg_i_neg);
+                    ivector_push(&eval_stack, arg_i_neg);
                   }
                 };
                 continue;
@@ -463,7 +462,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                 if (t1_already_evaluated) {
                   current_eval = evaluator_get(&l2o->evaluator, t1);
                 } else {
-                  ivector_push(eval_stack, t1);
+                  ivector_push(&eval_stack, t1);
                   continue;
                 }
               } else {   // cond is FALSE
@@ -471,13 +470,13 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                 if (t2_already_evaluated) {
                   current_eval = evaluator_get(&l2o->evaluator, t2);
                 } else {
-                  ivector_push(eval_stack, t2);
+                  ivector_push(&eval_stack, t2);
                   continue;
                 }
               }
               break;
             } else {
-              ivector_push(eval_stack, cond);
+              ivector_push(&eval_stack, cond);
               continue;
             }
           } else {
@@ -501,7 +500,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                 if (t1neg_already_evaluated) {
                   current_eval = evaluator_get(&l2o->evaluator, t1neg);
                 } else {
-                  ivector_push(eval_stack, t1neg);
+                  ivector_push(&eval_stack, t1neg);
                   continue;
                 }
               } else {   // cond is FALSE
@@ -509,13 +508,13 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
                 if (t2neg_already_evaluated) {
                   current_eval = evaluator_get(&l2o->evaluator, t2neg);
                 } else {
-                  ivector_push(eval_stack, t2neg);
+                  ivector_push(&eval_stack, t2neg);
                   continue;
                 }
               }
               break;
             } else {
-              ivector_push(eval_stack, cond);
+              ivector_push(&eval_stack, cond);
               continue;
             }
           }
@@ -546,7 +545,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             }
             break;
           } else {
-            ivector_push(eval_stack, t);
+            ivector_push(&eval_stack, t);
             continue;
           }
         }
@@ -568,7 +567,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t arg_i = args[i];
             bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
             if (!arg_i_already_evaluated) {
-              ivector_push(eval_stack, arg_i);
+              ivector_push(&eval_stack, arg_i);
               args_already_evaluated = false;
             } else {
               args_eval[i] = evaluator_get(&l2o->evaluator, arg_i);
@@ -610,7 +609,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t arg_i = args[i];
             bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
             if (!arg_i_already_evaluated) {
-              ivector_push(eval_stack, arg_i);
+              ivector_push(&eval_stack, arg_i);
               args_already_evaluated = false;
             } else {
               args_eval[i] = evaluator_get(&l2o->evaluator, arg_i);
@@ -663,7 +662,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             }
             break;
           } else {
-            ivector_push(eval_stack, t);
+            ivector_push(&eval_stack, t);
             continue;
           }
         }
@@ -684,7 +683,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             current_eval = floor(subt_eval);
             break;
           } else {
-            ivector_push(eval_stack, subt);
+            ivector_push(&eval_stack, subt);
             continue;
           }
         }
@@ -704,7 +703,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             current_eval = ceil(subt_eval);
             break;
           } else {
-            ivector_push(eval_stack, subt);
+            ivector_push(&eval_stack, subt);
             continue;
           }
         }
@@ -724,7 +723,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             current_eval = fabs(subt_eval);
             break;
           } else {
-            ivector_push(eval_stack, subt);
+            ivector_push(&eval_stack, subt);
             continue;
           }
         }
@@ -742,7 +741,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t var = pow_i.var;
             bool var_already_evaluated = already_evaluated(&l2o->evaluator, var);
             if (!var_already_evaluated) {
-              ivector_push(eval_stack, var);
+              ivector_push(&eval_stack, var);
               vars_already_evaluated = false;
             } else {
               double var_eval = evaluator_get(&l2o->evaluator, var);
@@ -781,7 +780,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             }
             bool var_already_evaluated = already_evaluated(&l2o->evaluator, var);
             if (!var_already_evaluated) {
-              ivector_push(eval_stack, var);
+              ivector_push(&eval_stack, var);
               vars_already_evaluated = false;
             } else {
               double var_eval = evaluator_get(&l2o->evaluator, var);
@@ -819,7 +818,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t arg_i = args[i];
             bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
             if (!arg_i_already_evaluated) {
-              ivector_push(eval_stack, arg_i);
+              ivector_push(&eval_stack, arg_i);
               args_already_evaluated = false;
             } else {
               args_eval[i] = evaluator_get(&l2o->evaluator, arg_i);
@@ -858,7 +857,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t arg_i = args[i];
             bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
             if (!arg_i_already_evaluated) {
-              ivector_push(eval_stack, arg_i);
+              ivector_push(&eval_stack, arg_i);
               args_already_evaluated = false;
             } else {
               args_eval[i] = evaluator_get(&l2o->evaluator, arg_i);
@@ -900,7 +899,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
             term_t arg_i = args[i];
             bool arg_i_already_evaluated = already_evaluated(&l2o->evaluator, arg_i);
             if (!arg_i_already_evaluated) {
-              ivector_push(eval_stack, arg_i);
+              ivector_push(&eval_stack, arg_i);
               args_already_evaluated = false;
             } else {
               args_eval[i] = evaluator_get(&l2o->evaluator, arg_i);
@@ -939,7 +938,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
       }
     }
 
-    ivector_pop(eval_stack);
+    ivector_pop(&eval_stack);
     if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
       printf("\nsetting...");
       mcsat_trace_printf(l2o->tracer, "\n  current_eval = %f ", current_eval);
@@ -959,9 +958,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
   // Update the cache only if current cost is smaller than cached cost
   update_cache(&l2o->evaluator, n_var, v, x, t_eval);
 
-  ivector_reset(eval_stack);
   double_hmap_reset(&l2o->evaluator.eval_map);
-  delete_ivector(eval_stack);
+  delete_ivector(&eval_stack);
   delete_int_hset(&vars_with_new_val);
 
   // Return the result
