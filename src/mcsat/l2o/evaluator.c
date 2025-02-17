@@ -61,7 +61,6 @@ void evaluator_cache_destruct(eval_cache_t *cache) {
 
 void evaluator_construct(evaluator_t *evaluator) {
   init_double_hmap(&evaluator->eval_map, 0);
-  init_ivector(&evaluator->eval_stack, 0);
   evaluator_cache_construct(&evaluator->cache);
   evaluator->tracer = NULL;
 }
@@ -72,7 +71,6 @@ void evaluator_set_tracer(evaluator_t *evaluator, tracer_t *tracer) {
 
 void evaluator_destruct(evaluator_t *evaluator) {
   delete_double_hmap(&evaluator->eval_map);
-  delete_ivector(&evaluator->eval_stack);
   evaluator_cache_destruct(&evaluator->cache);
 }
 
@@ -217,7 +215,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
 
 
   // Start
-  ivector_t *eval_stack = &l2o->evaluator.eval_stack;
+  ivector_t es;
+  ivector_t *eval_stack = &es;
   ivector_reset(eval_stack);
   ivector_push(eval_stack, term);
 
@@ -962,7 +961,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
 
   ivector_reset(eval_stack);
   double_hmap_reset(&l2o->evaluator.eval_map);
-  int_hset_reset(&vars_with_new_val);
+  delete_ivector(eval_stack);
+  delete_int_hset(&vars_with_new_val);
 
   // Return the result
   return t_eval;

@@ -62,9 +62,6 @@ typedef struct {
   /** Map from terms to their evaluation */
   double_hmap_t eval_map;
 
-  /** eval stack */
-  ivector_t eval_stack;
-
   /** Eval cache */
   eval_cache_t cache;
 
