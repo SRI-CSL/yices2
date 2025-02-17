@@ -47,17 +47,11 @@ typedef struct {
 
 typedef struct {
 
-  /** Map from terms to their evaluation */
-  double_hmap_t eval_map;
-
   /** Eval cache */
   struct {
     l2o_search_state_t state;
     double_hmap_t eval_map;
   } cache;
-
-  /** Tracer */
-  tracer_t* tracer;
 
 } evaluator_t;
 
@@ -190,9 +184,6 @@ void evaluator_construct(evaluator_t* evaluator);
 
 /** Destruct the evaluator operator */
 void evaluator_destruct(evaluator_t* evaluator);
-
-/** Set tracer */
-void evaluator_set_tracer(evaluator_t* evaluator, tracer_t* tracer);
 
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
