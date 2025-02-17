@@ -1247,6 +1247,48 @@ void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d
   }
 }
 
+void l2o_search_state_construct_empty(l2o_search_state_t *state) {
+  state->var = NULL;
+  state->val = NULL;
+  state->n_var = 0;
+  state->n_var_fixed = 0;
+}
+
+void l2o_search_state_destruct(l2o_search_state_t *state) {
+  free(state->var);
+  free(state->val);
+}
+
+bool l2o_search_state_diff(const l2o_search_state_t *a, const l2o_search_state_t *b, ivector_t *vars) {
+  if (a->n_var != b->n_var || a->n_var_fixed != b->n_var_fixed) {
+    return false;
+  }
+
+  uint32_t i;
+  for (i = 0; i < a->n_var; ++i) {
+    if (a->var[i] != b->var[i]) {
+      return false;
+    }
+  }
+  for (i = 0; i < a->n_var; ++i) {
+    if (a->val[i] != b->val[i]) {
+      ivector_push(vars, a->var[i]);
+    }
+  }
+  return true;
+}
+
+void l2o_search_state_copy(l2o_search_state_t *dst, const l2o_search_state_t *src) {
+  dst->n_var = src->n_var;
+  dst->n_var_fixed = src->n_var_fixed;
+  size_t size_var = src->n_var * sizeof(term_t); // in byte
+  size_t size_val = src->n_var * sizeof(double); // in byte
+  dst->var = (term_t *) safe_realloc(dst->var, size_var);
+  dst->val = (double *) safe_realloc(dst->val, size_val);
+  memcpy(dst->var, src->var, size_var);
+  memcpy(dst->val, src->val, size_val);
+}
+
 static
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
   if (t == -1) {
@@ -1277,9 +1319,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool us
   assert(var_set->is_closed);
   uint32_t n_var = var_set->nelems;
 
-  state->n_var = state->n_var_fixed = 0;
-  state->var = NULL;
-  state->val = NULL;
+  l2o_search_state_construct_empty(state);
 
   if (n_var == 0) {
     return;
@@ -1319,7 +1359,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool us
     variable_t var = vars.data[i];
     v[pos] = variable_db_get_term(trail->var_db, var);
     if (use_cached_values && trail_has_cached_value(trail, var)) {
-      val[pos] = mcsat_value_to_double(trail_get_value(trail, var));
+      val[pos] = mcsat_value_to_double(trail_get_cached_value(trail, var));
     } else {
       val[pos] = variable_db_get_term(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
     }
@@ -1336,20 +1376,15 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool us
   delete_ivector(&vars_fixed);
 }
 
-static
-void l2o_search_state_destruct(l2o_search_state_t *state) {
-  free(state->var);
-  free(state->val);
-}
-
 // Given variables v and values s_mpq, set hint to the trail
 static
-void l2o_set_hint(l2o_t *l2o, const l2o_search_state_t *state, mcsat_trail_t *trail) {
+void l2o_set_hint(l2o_t *l2o, mcsat_trail_t *trail, const l2o_search_state_t *state) {
   term_table_t* terms = l2o->terms;
 
   double val_d;
   mcsat_value_t val_mcsat;
 
+  assert(state->n_var_fixed <= state->n_var);
   for (uint32_t i = state->n_var_fixed; i < state->n_var; ++ i) {
     type_kind_t vi_type = term_type_kind(terms, state->var[i]);
     val_d = state->val[i];
@@ -1393,14 +1428,17 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool 
   // create search state
   l2o_search_state_create(l2o, t, trail, use_cached_values, &state);
 
-  // Improve val using hill_climbing
-  hill_climbing(l2o, t, n_var, n_var_fixed, v, val);
+  if (!l2o_search_state_is_empty(&state)) {
+    // Improve val using hill_climbing
+    hill_climbing(l2o, t, &state);
 
-  // Set hints
-  l2o_set_hint(l2o, &state, trail);
+    // Set hints
+    l2o_set_hint(l2o, trail, &state);
+  }
 
+  // destroy state
+  l2o_search_state_destruct(&state);
 }
-
 
 term_t l2o_make_cost_fx(l2o_t* l2o) {
   ivector_t* assertions = &l2o->assertions;

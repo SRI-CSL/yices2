@@ -103,29 +103,33 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
   // TODO cast to int 
 
   // Reset evaluator cache cost (this forces the update of the cache at the next call)
-  evaluator_forget_cache_cost(&l2o->evaluator);
-  double best_cost = l2o_evaluate_term_approx(l2o, t, n_var, v, x);
+  double best_cost = l2o_evaluate_term_approx(l2o, t, state, true);
 
   if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
     printf("\n\n start_cost: %.50f", best_cost);
   }
+
+  uint32_t n_var = state->n_var;
 
   // List of variables indices
   // TODO use priority heap for indexes (or push to front)
   int_queue_t v_q;
   init_int_queue(&v_q, 0);
 
-  for (i = n_var_fixed; i < n_var; ++i) {
+  for (i = state->n_var_fixed; i < state->n_var; ++i) {
     // Initialize v_q with all non-fixed variables
     int_queue_push(&v_q, i);
   }
   assert(!int_queue_is_empty(&v_q));
 
-  double current_x[n_var];  // Current assignment to use in the main loop
-  double step_size[n_var];  // Starting step sizes
+  const term_t *var       = state->var;
+  double *val_cur   = state->val;                               // the current value of the state
+  double *val_old   = safe_malloc(sizeof(double) * n_var), // the old value of the state, used to reset if no progress was made
+         *step_size = safe_malloc(sizeof(double) * n_var); // the step size
+
   for (i = 0; i < n_var; ++i) {
-    current_x[i] = x[i];
-    step_size[i] = 1;
+    val_old[i] = val_cur[i];
+    step_size[i] = 1.0;
   }
 
   int32_t current_dir_index = int_queue_pop(&v_q);
@@ -150,56 +154,56 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     double current_cost = best_cost;
 
     if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-      printf("\nvar: %d", v[current_dir_index]);
+      printf("\nvar: %d", var[current_dir_index]);
     }
 
     // Check if variable is Boolean
-    if (is_boolean_term(terms, v[current_dir_index])) {
-      assert(x[current_dir_index] == 0 || x[current_dir_index] == 1);
+    if (is_boolean_term(terms, var[current_dir_index])) {
+      assert(val_old[current_dir_index] == 0.0 || val_old[current_dir_index] == 1.0);
       if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
         printf("\n is bool");
       }
-      current_x[current_dir_index] = x[current_dir_index] == 0 ? 1.0 : 0.0;  // try opposite polarity
-      current_cost = l2o_evaluate_term_approx(l2o, t, n_var, v, current_x);
+      val_cur[current_dir_index] = val_old[current_dir_index] == 0 ? 1.0 : 0.0;  // try opposite polarity
+      current_cost = l2o_evaluate_term_approx(l2o, t, state, false);
       n_calls++;
       if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
         printf("\n current_cost: %.20f", current_cost);
       }
       if (best_cost - current_cost > IMPROVEMENT_THRESHOLD) {
         has_improved = true;
-        x[current_dir_index] = current_x[current_dir_index];
+        val_old[current_dir_index] = val_cur[current_dir_index];
         best_cost = current_cost;
         //direction_var = current_dir_index;
         continue;
       } else {
-        current_x[current_dir_index] = x[current_dir_index];  // restore previous value
+        val_cur[current_dir_index] = val_old[current_dir_index];  // restore previous value
       }
     } else {
-      // Else variable is Arith
+      // else variable is arith
       double best_step = 0;
-      double best_x_i = x[current_dir_index];
       assert(has_improved == false);
+      assert(val_old[current_dir_index] == val_cur[current_dir_index]);
+      double best_x_i = val_old[current_dir_index];
       for (int candidate_index = 0; candidate_index < 4; ++candidate_index) {
         // Try to increment x[current_dir_index] by step_size  
         double step = step_size[current_dir_index] * candidate[candidate_index];
-        current_x[current_dir_index] = x[current_dir_index] + step;
+        val_cur[current_dir_index] = val_old[current_dir_index] + step;
 
         // If integer type, round to int
-        if (is_integer_term(terms, v[current_dir_index])) {
-          current_x[current_dir_index] = round(current_x[current_dir_index]);
+        if (is_integer_term(terms, var[current_dir_index])) {
+          val_cur[current_dir_index] = round(val_cur[current_dir_index]);
         }
 
-        // If current_x equal to 
-        if (current_x[current_dir_index] == x[current_dir_index]) {
+        if (val_cur[current_dir_index] == val_old[current_dir_index]) {
           continue;
         }
 
         if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
           printf("\n increase by %f", step);
-          printf("\n current_x[%d] <- %d", current_dir_index, (int) current_x[current_dir_index]);
+          printf("\n current_x[%d] <- %f", current_dir_index, val_cur[current_dir_index]);
         }
 
-        current_cost = l2o_evaluate_term_approx(l2o, t, n_var, v, current_x);
+        current_cost = l2o_evaluate_term_approx(l2o, t, state, false);
         n_calls++;
         if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
           printf("\n current_cost: %.20f", current_cost);
@@ -207,20 +211,20 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
         if (current_cost < best_cost - IMPROVEMENT_THRESHOLD) {
           has_improved = true;
           best_step = step;
-          best_x_i = current_x[current_dir_index];
+          best_x_i = val_cur[current_dir_index];
           best_cost = current_cost;
           //direction_var = current_dir_index;
         }
       }
       if (!has_improved) {
-        current_x[current_dir_index] = x[current_dir_index];  // restore previous value
+        val_cur[current_dir_index] = val_old[current_dir_index];  // restore previous value
         step_size[current_dir_index] = step_size[current_dir_index] / acceleration;     // decelerate
       } else {
         if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
           printf("\n best_step: %.20f", best_step);
         }
-        current_x[current_dir_index] = best_x_i;   // keep best x found
-        x[current_dir_index] = current_x[current_dir_index];   // update x
+        val_cur[current_dir_index] = best_x_i;   // keep best x found
+        val_old[current_dir_index] = best_x_i;   // update x
         step_size[current_dir_index] = best_step;   // keep successful acceleration   
       }
     }
@@ -240,5 +244,13 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     printf("\n\n final_cost: %.50f", best_cost);
   }
 
+#ifndef NDEBUG
+  for (uint32_t j = 0; j < n_var; ++j) {
+    assert(val_cur[j] == val_old[j]);
+  }
+#endif
+
+  free(val_old);
+  free(step_size);
   delete_int_queue(&v_q);
 }

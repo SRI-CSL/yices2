@@ -17,47 +17,33 @@
  */
 
 
+#ifndef MCSAT_L2O_H_
+#define MCSAT_L2O_H_
+
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
 #include "utils/pair_hash_map2.h"
+#include "utils/double_hash_map.h"
 #include "io/tracer.h"
-#include "mcsat/utils/scope_holder.h"
 
 #include <setjmp.h>
 
-
 #include "mcsat/tracing.h"
-#include "utils/double_hash_map.h"
 #include "mcsat/l2o/varset_table.h"
-
-#ifndef MCSAT_L2O_H_
-#define MCSAT_L2O_H_
+#include "mcsat/utils/scope_holder.h"
 
 #include "utils/index_vectors.h"
 
 // TODO move data structures and internal functions to l2o_internal.h and only keep public functions here. (similar to nra_plugin.h)
 
 typedef struct {
-  /** Cached cost */
-  double cost;
-
-  /** Number of cached variables and values */
   uint32_t n_var;
-
-  /** Cached variables */
-  // TODO leaking memory
-  term_t *v;
-
-  /** Cached values */
-  // TODO leaking memory
-  double *x;
-
-  /** Cached map from terms to their evaluation under the assignment v -> x */
-  double_hmap_t eval_map;
-
-} eval_cache_t;
+  uint32_t n_var_fixed;
+  term_t *var;
+  double *val;
+} l2o_search_state_t;
 
 typedef struct {
 
@@ -65,12 +51,13 @@ typedef struct {
   double_hmap_t eval_map;
 
   /** Eval cache */
-  eval_cache_t cache;
+  struct {
+    l2o_search_state_t state;
+    double_hmap_t eval_map;
+  } cache;
 
   /** Tracer */
   tracer_t* tracer;
-
-  pp_buffer_t pp_buffer;
 
 } evaluator_t;
 
@@ -133,13 +120,6 @@ typedef struct {
 
 } l2o_t;
 
-typedef struct {
-  uint32_t n_var;
-  uint32_t n_var_fixed;
-  term_t *var;
-  double *val;
-} l2o_search_state_t;
-
 /** Construct the L2O operator */
 void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler);
 
@@ -168,6 +148,25 @@ term_t l2o_get(l2o_t* l2o, term_t t);
 
 // start internal functions
 
+// TODO make static
+void l2o_search_state_construct_empty(l2o_search_state_t *state);
+
+// TODO make static
+void l2o_search_state_destruct(l2o_search_state_t *state);
+
+// TODO make static
+
+/** Assuming that both search states have the same variables, adds the variables with different value in vars.
+ *  Returns true if the states are comparable, i.e. have the same variables, otherwise vars is left untouched. */
+bool l2o_search_state_diff(const l2o_search_state_t *a, const l2o_search_state_t *b, ivector_t *vars);
+
+void l2o_search_state_copy(l2o_search_state_t *dst, const l2o_search_state_t *src);
+
+static inline
+bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
+  return state->n_var == 0;
+}
+
 /** Get the varset_table index of the set of free variables in t */
 int32_t get_freevars_index(const l2o_t* l2o, term_t t);
 
@@ -195,13 +194,10 @@ void evaluator_destruct(evaluator_t* evaluator);
 /** Set tracer */
 void evaluator_set_tracer(evaluator_t* evaluator, tracer_t* tracer);
 
-// Delete cache cost to force updating the cache after the next evaluation
-void evaluator_forget_cache_cost(evaluator_t* evaluator);
-
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
  */
-double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x);
+double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state, bool force_cache_update);
 
 /**
  * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x

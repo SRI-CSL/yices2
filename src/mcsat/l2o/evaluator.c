@@ -39,29 +39,18 @@
 #include "api/yices_globals.h"
 
 #include "mcsat/l2o/l2o.h"
-#include "utils/double_hash_map.h"
 #include "mcsat/l2o/varset_table.h"
+
+#include "utils/double_hash_map.h"
+#include "utils/int_array_sort.h"
 
 #include <math.h>
 
-#define EVAL_MAXFLOAT __DBL_MAX__;
-
-
-void evaluator_cache_construct(eval_cache_t *cache) {
-  cache->cost = EVAL_MAXFLOAT;
-  cache->n_var = 0;
-  cache->v = NULL;
-  cache->x = NULL;
-  init_double_hmap(&cache->eval_map, 0);
-}
-
-void evaluator_cache_destruct(eval_cache_t *cache) {
-  delete_double_hmap(&cache->eval_map);
-}
 
 void evaluator_construct(evaluator_t *evaluator) {
   init_double_hmap(&evaluator->eval_map, 0);
-  evaluator_cache_construct(&evaluator->cache);
+  init_double_hmap(&evaluator->cache.eval_map, 0);
+  l2o_search_state_construct_empty(&evaluator->cache.state);
   evaluator->tracer = NULL;
 }
 
@@ -71,7 +60,8 @@ void evaluator_set_tracer(evaluator_t *evaluator, tracer_t *tracer) {
 
 void evaluator_destruct(evaluator_t *evaluator) {
   delete_double_hmap(&evaluator->eval_map);
-  evaluator_cache_destruct(&evaluator->cache);
+  delete_double_hmap(&evaluator->cache.eval_map);
+  l2o_search_state_destruct(&evaluator->cache.state);
 }
 
 /** Check whether t has been already evaluated */
@@ -89,6 +79,12 @@ double evaluator_get(evaluator_t *evaluator, term_t t) {
   return find->val;
 }
 
+static inline
+double evaluator_get_cache(evaluator_t *evaluator, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->cache.eval_map, t);
+  return (find == NULL) ? (INFINITY) : find->val;
+}
+
 /** Set t_eval as the evaluated value of t */
 static inline
 void evaluator_set(evaluator_t *evaluator, term_t t, double t_eval) {
@@ -98,35 +94,9 @@ void evaluator_set(evaluator_t *evaluator, term_t t, double t_eval) {
 
 static inline
 bool evaluator_has_cache(evaluator_t *evaluator) {
-  return evaluator->cache.n_var != 0;
-}
-
-static
-void get_set_of_vars_with_new_value(l2o_t *l2o, uint32_t n_var, const term_t *vars, const double *values, int_hset_t *vars_with_new_value) {
-  term_t *cached_vars = l2o->evaluator.cache.v;
-  double *cached_values = l2o->evaluator.cache.x;
-  uint32_t n_cached_vars = l2o->evaluator.cache.n_var;
-  if (n_cached_vars == 0) {
-    return;
-  } else {
-    assert(n_cached_vars == n_var);
-    for (uint32_t i = 0; i < n_var; ++i) {
-      if (cached_vars[i] != vars[i]) {
-        assert(false);
-      }
-      if (cached_values[i] != values[i]) {
-        int_hset_add(vars_with_new_value, vars[i]);
-      }
-    }
-    int_hset_close_and_sort(vars_with_new_value);
-    add_varset(&l2o->varset_table, vars_with_new_value);
-    if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
-      printf("\nvars_with_new_value:");
-      for (uint32_t i = 0; i < vars_with_new_value->nelems; ++i) {
-        printf("\n\t %d", vars_with_new_value->data[i]);
-      }
-    }
-  }
+  bool state_empty = l2o_search_state_is_empty(&evaluator->cache.state);
+  assert(!state_empty || evaluator->cache.eval_map.nelems == 0);
+  return state_empty;
 }
 
 static
@@ -149,62 +119,42 @@ bool is_var_member_of_varset(l2o_t *l2o, term_t var, const int_hset_t *varset, i
 }
 
 
-// Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1)
+/** Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1) */
 static
-bool varset_intersects_free_vars_of_term(l2o_t *l2o, int_hset_t *set_of_vars, term_t t) {
+bool varset_intersects_free_vars_of_term(l2o_t *l2o, term_t t, const ivector_t *set_of_vars) {
   int32_t index_vars_in_t = get_freevars_index(l2o, t);
   assert(index_vars_in_t != -1);
   const int_hset_t *vars_in_t = get_freevars_from_index(l2o, index_vars_in_t);
 
-  bool intersection_is_empty = true;
-
-  uint32_t n_vars = set_of_vars->nelems;
-  for (uint32_t i = 0; i < n_vars; ++i) {
+  for (uint32_t i = 0; i < set_of_vars->size; ++i) {
     bool var_is_member = is_var_member_of_varset(l2o, set_of_vars->data[i], vars_in_t, index_vars_in_t);
     if (var_is_member) {
-      intersection_is_empty = false;
-      break;
+      return true;
     }
   }
-  return !intersection_is_empty;
+  return false;
 }
 
-bool can_use_cached_value(l2o_t *l2o, int_hset_t *vars_with_new_val, term_t t) {
-  if (!evaluator_has_cache(&l2o->evaluator)) {
-    return false;
-  }
+static inline
+bool can_use_cached_value(l2o_t *l2o, term_t t, const ivector_t *vars_with_new_val) {
   if (double_hmap_find(&l2o->evaluator.cache.eval_map, t) == NULL) {
     return false;
   }
-  return !varset_intersects_free_vars_of_term(l2o, vars_with_new_val, t);
+  return !varset_intersects_free_vars_of_term(l2o, t, vars_with_new_val);
 }
 
-void evaluator_forget_cache_cost(evaluator_t *evaluator) {
-  evaluator->cache.cost = EVAL_MAXFLOAT;
-}
-
-static
-void update_cache(evaluator_t *evaluator, uint32_t n_var, const term_t *v, const double *x, double t_eval) {
-  eval_cache_t *ec = &evaluator->cache;
-  if (t_eval < ec->cost) {
-    ec->v = (term_t *) safe_realloc(ec->v, n_var * sizeof(term_t));
-    ec->x = (double *) safe_realloc(ec->x, n_var * sizeof(double));
-
-    ec->cost = t_eval;
-    ec->n_var = n_var;
-    for (uint32_t i = 0; i < n_var; ++i) {
-      ec->v[i] = v[i];
-      ec->x[i] = x[i];
-    }
-
-    // Hard copy evaluator.eval_map into evaluator.cache.eval_map
-    // N.B. this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
-    double_hmap_copy(&ec->eval_map, &evaluator->eval_map);
-  }
+static inline
+void update_cache(evaluator_t *evaluator, const l2o_search_state_t *state, const double_hmap_t *eval_map) {
+  assert(!l2o_search_state_is_empty(state));
+  l2o_search_state_copy(&evaluator->cache.state, state);
+  assert(evaluator->cache.state.var != NULL && evaluator->cache.state.val != NULL);
+  // Hard copy evaluator.eval_map into evaluator.cache.eval_map
+  // N.B. this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
+  double_hmap_copy(&evaluator->cache.eval_map, eval_map);
 }
 
 // TODO: accept partial assignments returning a term
-double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const term_t *v, const double *x) {
+double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state, bool force_cache_update) {
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nl2o_evaluate_term_approx\n");
   }
@@ -214,33 +164,32 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
   uint32_t i, n;
   term_t *args;
 
-
   // Start
   ivector_t eval_stack;
   init_ivector(&eval_stack, 0);
   ivector_push(&eval_stack, term);
 
-  bool cached = evaluator_has_cache(&l2o->evaluator);
+  bool use_cache = evaluator_has_cache(&l2o->evaluator);
 
-  // Set of variables whose values have changed w.r.t. cache assignment. 
-  int_hset_t vars_with_new_val;
-  init_int_hset(&vars_with_new_val, 0);
-  if (cached) {
-    get_set_of_vars_with_new_value(l2o, n_var, v, x, &vars_with_new_val);
+  // Set of variables whose values have changed w.r.t. cache assignment.
+  ivector_t vars_with_new_val;
+  init_ivector(&vars_with_new_val, 0);
+  if (use_cache) {
+    l2o_search_state_diff(state, &l2o->evaluator.cache.state, &vars_with_new_val);
+    int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
   }
 
   // Each var v[i] is evaluated to its assigned value x[i]
-  for (i = 0; i < n_var; ++i) {
-    evaluator_set(&l2o->evaluator, v[i], x[i]);
+  for (i = 0; i < state->n_var; ++i) {
+    evaluator_set(&l2o->evaluator, state->var[i], state->val[i]);
   }
-
 
   while (eval_stack.size > 0) {
     // Current term
     term_t current = ivector_last(&eval_stack);
     type_kind_t current_type = term_type_kind(terms, current);
     term_kind_t current_kind = term_kind(terms, current);
-    double current_eval = EVAL_MAXFLOAT;
+    double current_eval = INFINITY;
     if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
       mcsat_trace_printf(l2o->tracer, "\n\n *  current = ");
       trace_term_ln(l2o->tracer, terms, current);
@@ -257,7 +206,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
     }
 
     // Check whether we can use cached value, i.e. if the values of the variables in current have not changed
-    bool use_cached_value = can_use_cached_value(l2o, &vars_with_new_val, current);
+    bool use_cached_value = use_cache && can_use_cached_value(l2o, current, &vars_with_new_val);
     if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
       printf("\nuse_cached_value: %d", use_cached_value);
     }
@@ -951,17 +900,22 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, uint32_t n_var, const t
   // Get cost of t
   assert(already_evaluated(&l2o->evaluator, term));
   double t_eval = evaluator_get(&l2o->evaluator, term);
+  double t_cache = evaluator_get_cache(&l2o->evaluator, term);
 
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nt_eval = %f", t_eval);
   }
 
   // Update the cache only if current cost is smaller than cached cost
-  update_cache(&l2o->evaluator, n_var, v, x, t_eval);
+  // TODO this comparision does not use IMPROVEMENT_THRESHOLD, but hill_climb does
+  // TODO maybe move cache handling to hill_climbing?
+  if (force_cache_update || !use_cache || t_eval < t_cache) {
+    update_cache(&l2o->evaluator, state, &l2o->evaluator.eval_map);
+  }
 
   double_hmap_reset(&l2o->evaluator.eval_map);
   delete_ivector(&eval_stack);
-  delete_int_hset(&vars_with_new_val);
+  delete_ivector(&vars_with_new_val);
 
   // Return the result
   return t_eval;
