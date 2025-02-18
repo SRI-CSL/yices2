@@ -79,7 +79,7 @@ static inline
 bool evaluator_has_cache(evaluator_t *evaluator) {
   bool state_empty = l2o_search_state_is_empty(&evaluator->cache.state);
   assert(!state_empty || evaluator->cache.eval_map.nelems == 0);
-  return state_empty;
+  return !state_empty;
 }
 
 static
@@ -161,7 +161,9 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   ivector_t vars_with_new_val;
   init_ivector(&vars_with_new_val, 0);
   if (use_cache) {
-    l2o_search_state_diff(state, &l2o->evaluator.cache.state, &vars_with_new_val);
+    bool diffed = l2o_search_state_diff(state, &l2o->evaluator.cache.state, &vars_with_new_val);
+    (void)diffed;
+    assert(diffed);
     int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
   }
 
