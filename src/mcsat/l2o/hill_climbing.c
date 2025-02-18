@@ -18,11 +18,10 @@
 
 #include <math.h>
 
-#include "model/models.h"
-#include "context/context_types.h"
-
-#include "mcsat/tracing.h"
 #include "mcsat/l2o/l2o.h"
+#include "mcsat/l2o/l2o_internal.h"
+#include "mcsat/tracing.h"
+#include "utils/int_queues.h"
 
 #define IMPROVEMENT_THRESHOLD 0.0
 

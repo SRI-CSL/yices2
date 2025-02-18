@@ -22,28 +22,16 @@
 
 #include "terms/terms.h"
 #include "terms/term_manager.h"
-#include "utils/int_vectors.h"
-#include "utils/int_hash_map.h"
 #include "utils/pair_hash_map2.h"
 #include "utils/double_hash_map.h"
 #include "io/tracer.h"
-
-#include <setjmp.h>
 
 #include "mcsat/tracing.h"
 #include "mcsat/l2o/varset_table.h"
 #include "mcsat/utils/scope_holder.h"
 
-#include "utils/index_vectors.h"
 
 // TODO move data structures and internal functions to l2o_internal.h and only keep public functions here. (similar to nra_plugin.h)
-
-typedef struct {
-  uint32_t n_var;
-  uint32_t n_var_fixed;
-  term_t *var;
-  double *val;
-} l2o_search_state_t;
 
 typedef enum {
   L2O,
@@ -113,6 +101,9 @@ void l2o_destruct(l2o_t* l2o);
 /** Set tracer */
 void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
 
+/** Set the exception handler */
+void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
+
 /** Store an assertion to l2o.assertions */
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
@@ -127,42 +118,5 @@ void l2o_pop(l2o_t* l2o);
 
 /** Get L2O translation of t */
 term_t l2o_get(l2o_t* l2o, term_t t);
-
-
-
-// start internal functions
-
-void l2o_search_state_construct_empty(l2o_search_state_t *state);
-
-void l2o_search_state_destruct(l2o_search_state_t *state);
-
-static inline
-bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
-  return state->n_var == 0;
-}
-
-/** Get the varset_table index of the set of free variables in t */
-int32_t get_freevars_index(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables in t */
-const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables from a term given its varset_table index  */
-const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
-
-/** Set the exception handler */
-void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
-
-composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
-
-/**
- * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
- */
-double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state, bool force_cache_update);
-
-/**
- * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
- */
-void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state);
 
 #endif

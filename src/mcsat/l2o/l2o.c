@@ -16,27 +16,12 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
 #include "mcsat/l2o/l2o.h"
+#include "mcsat/l2o/l2o_internal.h"
 #include "mcsat/tracing.h"
-
 #include "terms/term_explorer.h"
-#include "terms/bvarith64_buffer_terms.h"
-#include "terms/bvarith_buffer_terms.h"
-#include "terms/free_var_collector.h"
-
-#include "model/models.h"
-
-#include "context/context_types.h"
-
-#include "yices.h"
 #include "api/yices_api_lock_free.h"
-#include "api/yices_extensions.h"
+
 #include <math.h>
 
 //#define EPSILON yices_rational32(1, 1000000)

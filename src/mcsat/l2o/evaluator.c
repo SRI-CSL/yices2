@@ -16,21 +16,8 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#ifndef __YICES_DLLSPEC__
-#define __YICES_DLLSPEC__ __declspec(dllexport)
-#endif
-#endif
-
-#include "terms/free_var_collector.h"
-#include "model/models.h"
-#include "context/context_types.h"
-
-#include "yices.h"
-#include "api/yices_globals.h"
-
-#include "mcsat/tracing.h"
 #include "mcsat/l2o/l2o.h"
+#include "mcsat/l2o/l2o_internal.h"
 #include "utils/double_hash_map.h"
 #include "utils/int_array_sort.h"
 
@@ -238,7 +225,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
           }
           break;
         default:
-          longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+          longjmp(*l2o->exception, INTERNAL_EXCEPTION);
       }
 
       switch (current_kind) {
@@ -875,8 +862,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
             printf("\ncurrent kind is UNSUPPORTED\n");
           }
 
-          // UNSUPPORTED TERM/THEORY
-          longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+          longjmp(*l2o->exception, INTERNAL_EXCEPTION);
           break;
       }
     }
