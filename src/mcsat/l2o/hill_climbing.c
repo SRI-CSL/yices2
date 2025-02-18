@@ -21,7 +21,6 @@
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
 #include "mcsat/tracing.h"
-#include "utils/int_queues.h"
 
 #define IMPROVEMENT_THRESHOLD 0.0
 
@@ -29,13 +28,14 @@ typedef struct {
   uint32_t pos;
   uint32_t count;
   int_queue_t prio, prio_next;
-  // TODO try skipping variables when they've been in prio in one run
+  int_hset_t skip;
 } var_order_t;
 
 static
 void init_var_order(var_order_t *o, uint32_t count) {
   init_int_queue(&o->prio, 0);
   init_int_queue(&o->prio_next, 0);
+  init_int_hset(&o->skip, 0);
   o->pos = 0;
   o->count = count;
 }
@@ -44,11 +44,14 @@ static inline
 void delete_var_order(var_order_t *o) {
   delete_int_queue(&o->prio);
   delete_int_queue(&o->prio_next);
+  delete_int_hset(&o->skip);
 }
 
 static inline
 void var_prio(var_order_t *o, uint32_t x) {
-  int_queue_push(&o->prio_next, x);
+  if (int_hset_add(&o->skip, x)) {
+    int_queue_push(&o->prio_next, x);
+  }
 }
 
 static
@@ -60,10 +63,17 @@ uint32_t next_var(var_order_t *o) {
     return int_queue_pop(&o->prio);
   }
 
-  o->pos ++;
-  if (o->pos == o->count) {
-    int_queue_swap(&o->prio, &o->prio_next);
-    o->pos = 0;
+  while (true) {
+    o->pos++;
+    if (o->pos == o->count) {
+      int_queue_swap(&o->prio, &o->prio_next);
+      int_hset_reset(&o->skip);
+      o->pos = 0;
+      break;
+    }
+    if (!int_hset_member(&o->skip, o->pos)) {
+      break;
+    }
   }
   return o->pos;
 }
@@ -110,18 +120,10 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
 
   uint32_t n_var = state->n_var;
 
-  // List of variables indices
-  // TODO use priority heap for indexes (or push to front)
-  int_queue_t v_q;
-  init_int_queue(&v_q, 0);
+  var_order_t order;
+  init_var_order(&order, state->n_var - state->n_var_fixed);
 
-  for (i = state->n_var_fixed; i < state->n_var; ++i) {
-    // Initialize v_q with all non-fixed variables
-    int_queue_push(&v_q, i);
-  }
-  assert(!int_queue_is_empty(&v_q));
-
-  const term_t *var       = state->var;
+  const term_t *var  = state->var;
   double *val_cur   = state->val;                               // the current value of the state
   double *val_old   = safe_malloc(sizeof(double) * n_var), // the old value of the state, used to reset if no progress was made
          *step_size = safe_malloc(sizeof(double) * n_var); // the step size
@@ -131,7 +133,7 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     step_size[i] = 1.0;
   }
 
-  int32_t current_dir_index = int_queue_pop(&v_q);
+  uint32_t current_dir_index = next_var(&order);
 
   // main loop
   while (best_cost > acceptance_threshold
@@ -231,10 +233,10 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
       printf("\n\n has_improved: %d", has_improved);
     }
     if (!has_improved) {    // Go to next var
-      int_queue_push(&v_q, current_dir_index);
-      current_dir_index = int_queue_pop(&v_q);
+      current_dir_index= next_var(&order);
       n_var_visited += 1;
     } else {
+      var_prio(&order, current_dir_index);
       n_var_visited = 0;
     }
   }
@@ -251,5 +253,5 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
 
   free(val_old);
   free(step_size);
-  delete_int_queue(&v_q);
+  delete_var_order(&order);
 }
