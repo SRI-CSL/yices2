@@ -1259,6 +1259,7 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
   free(state->val);
 }
 
+#if 0
 bool l2o_search_state_diff(const l2o_search_state_t *a, const l2o_search_state_t *b, ivector_t *vars) {
   if (a->n_var != b->n_var || a->n_var_fixed != b->n_var_fixed) {
     return false;
@@ -1288,6 +1289,7 @@ void l2o_search_state_copy(l2o_search_state_t *dst, const l2o_search_state_t *sr
   memcpy(dst->var, src->var, size_var);
   memcpy(dst->val, src->val, size_val);
 }
+#endif
 
 static
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {

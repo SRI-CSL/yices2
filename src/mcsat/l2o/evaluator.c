@@ -39,12 +39,10 @@
 
 void evaluator_construct(evaluator_t *evaluator) {
   init_double_hmap(&evaluator->cache.eval_map, 0);
-  l2o_search_state_construct_empty(&evaluator->cache.state);
 }
 
 void evaluator_destruct(evaluator_t *evaluator) {
   delete_double_hmap(&evaluator->cache.eval_map);
-  l2o_search_state_destruct(&evaluator->cache.state);
 }
 
 /** Check whether t has been already evaluated */
@@ -77,9 +75,7 @@ void evaluator_set(double_hmap_t *eval_map, term_t t, double t_eval) {
 
 static inline
 bool evaluator_has_cache(evaluator_t *evaluator) {
-  bool state_empty = l2o_search_state_is_empty(&evaluator->cache.state);
-  assert(!state_empty || evaluator->cache.eval_map.nelems == 0);
-  return !state_empty;
+  return evaluator->cache.eval_map.nelems != 0;
 }
 
 static
@@ -126,15 +122,32 @@ bool can_use_cached_value(l2o_t *l2o, term_t t, const ivector_t *vars_with_new_v
   return !varset_intersects_free_vars_of_term(l2o, t, vars_with_new_val);
 }
 
-static inline
-void update_cache(evaluator_t *evaluator, const l2o_search_state_t *state, const double_hmap_t *eval_map) {
-  assert(!l2o_search_state_is_empty(state));
-  l2o_search_state_copy(&evaluator->cache.state, state);
-  assert(evaluator->cache.state.var != NULL && evaluator->cache.state.val != NULL);
-  // Hard copy evaluator.eval_map into evaluator.cache.eval_map
-  // N.B. this way we are losing the cached values of sub-terms of terms for which the cached value have been used (the sub-terms have not been visited)
-  double_hmap_copy(&evaluator->cache.eval_map, eval_map);
+/** Results are kept in the order of state. */
+static
+bool cache_find_changed_variables(evaluator_t *evaluator, const l2o_search_state_t *state, ivector_t *diff) {
+  for (int i = 0; i < state->n_var; ++i) {
+    term_t t = state->var[i];
+    double_hmap_pair_t *p = double_hmap_find(&evaluator->cache.eval_map, t);
+    if (p == NULL) {
+      return false;
+    } else if (p->val != state->val[i]) {
+      ivector_push(diff, t);
+    }
+  }
+  return true;
 }
+
+#ifndef NDEBUG
+static
+bool ensure_cache_values(const l2o_search_state_t *state, const double_hmap_t *eval_map) {
+  assert(!l2o_search_state_is_empty(state));
+  for (int i = 0; i < state->n_var; ++i) {
+    double_hmap_pair_t *p = double_hmap_find(eval_map, state->var[i]);
+    if (!p || p->val != state->val[i]) return false;
+  }
+  return true;
+}
+#endif
 
 // TODO: accept partial assignments returning a term
 double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state, bool force_cache_update) {
@@ -161,7 +174,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   ivector_t vars_with_new_val;
   init_ivector(&vars_with_new_val, 0);
   if (use_cache) {
-    bool diffed = l2o_search_state_diff(state, &l2o->evaluator.cache.state, &vars_with_new_val);
+    bool diffed = cache_find_changed_variables(&l2o->evaluator, state, &vars_with_new_val);
     (void)diffed;
     assert(diffed);
     int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
@@ -895,10 +908,11 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   }
 
   // Update the cache only if current cost is smaller than cached cost
-  // TODO this comparision does not use IMPROVEMENT_THRESHOLD, but hill_climb does
+  // TODO this comparison does not use IMPROVEMENT_THRESHOLD, but hill_climb does
   // TODO maybe move cache handling to hill_climbing?
   if (force_cache_update || !use_cache || t_eval < t_cache) {
-    update_cache(&l2o->evaluator, state, &eval_map);
+    assert(ensure_cache_values(state, &eval_map));
+    double_hmap_swap(&eval_map, &l2o->evaluator.cache.eval_map);
   }
 
   delete_ivector(&eval_stack);

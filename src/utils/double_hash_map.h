@@ -121,6 +121,10 @@ extern void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r);
  */
 extern void double_hmap_copy(double_hmap_t *hmap_to, const double_hmap_t *hmap_from);
 
+/*
+ * Swap m1 and m2
+ */
+extern void double_hmap_swap(double_hmap_t *m1, double_hmap_t *m2);
 
 /*
  * Support for scanning all records:

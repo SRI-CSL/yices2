@@ -49,7 +49,6 @@ typedef struct {
 
   /** Eval cache */
   struct {
-    l2o_search_state_t state;
     double_hmap_t eval_map;
   } cache;
 

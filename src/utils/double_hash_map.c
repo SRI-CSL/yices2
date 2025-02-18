@@ -87,6 +87,16 @@ void delete_double_hmap(double_hmap_t *hmap) {
   hmap->data = NULL;
 }
 
+/*
+ * Swap m1 and m2
+ */
+void double_hmap_swap(double_hmap_t *m1, double_hmap_t *m2) {
+  double_hmap_t aux;
+
+  aux = *m1;
+  *m1 = *m2;
+  *m2 = aux;
+}
 
 /*
  * Hash of a key (Jenkins hash)
