@@ -36,15 +36,6 @@
 
 #include <math.h>
 
-
-void evaluator_construct(evaluator_t *evaluator) {
-  init_double_hmap(&evaluator->cache.eval_map, 0);
-}
-
-void evaluator_destruct(evaluator_t *evaluator) {
-  delete_double_hmap(&evaluator->cache.eval_map);
-}
-
 /** Check whether t has been already evaluated */
 static inline
 bool already_evaluated(const double_hmap_t *eval_map, term_t t) {
@@ -61,8 +52,8 @@ double evaluator_get(const double_hmap_t *eval_map, term_t t) {
 }
 
 static inline
-double evaluator_get_cache(evaluator_t *evaluator, term_t t) {
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->cache.eval_map, t);
+double evaluator_get_cache(const l2o_t *l2o, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&l2o->eval_cache, t);
   return (find == NULL) ? (INFINITY) : find->val;
 }
 
@@ -74,8 +65,8 @@ void evaluator_set(double_hmap_t *eval_map, term_t t, double t_eval) {
 }
 
 static inline
-bool evaluator_has_cache(evaluator_t *evaluator) {
-  return evaluator->cache.eval_map.nelems != 0;
+bool evaluator_has_cache(const l2o_t *l2o) {
+  return l2o->eval_cache.nelems != 0;
 }
 
 static
@@ -116,7 +107,7 @@ bool varset_intersects_free_vars_of_term(l2o_t *l2o, term_t t, const ivector_t *
 
 static inline
 bool can_use_cached_value(l2o_t *l2o, term_t t, const ivector_t *vars_with_new_val) {
-  if (double_hmap_find(&l2o->evaluator.cache.eval_map, t) == NULL) {
+  if (double_hmap_find(&l2o->eval_cache, t) == NULL) {
     return false;
   }
   return !varset_intersects_free_vars_of_term(l2o, t, vars_with_new_val);
@@ -124,10 +115,10 @@ bool can_use_cached_value(l2o_t *l2o, term_t t, const ivector_t *vars_with_new_v
 
 /** Results are kept in the order of state. */
 static
-bool cache_find_changed_variables(evaluator_t *evaluator, const l2o_search_state_t *state, ivector_t *diff) {
+bool cache_find_changed_variables(const l2o_t *l2o, const l2o_search_state_t *state, ivector_t *diff) {
   for (int i = 0; i < state->n_var; ++i) {
     term_t t = state->var[i];
-    double_hmap_pair_t *p = double_hmap_find(&evaluator->cache.eval_map, t);
+    double_hmap_pair_t *p = double_hmap_find(&l2o->eval_cache, t);
     if (p == NULL) {
       return false;
     } else if (p->val != state->val[i]) {
@@ -168,13 +159,13 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   init_ivector(&eval_stack, 0);
   ivector_push(&eval_stack, term);
 
-  bool use_cache = evaluator_has_cache(&l2o->evaluator);
+  bool use_cache = evaluator_has_cache(l2o);
 
   // Set of variables whose values have changed w.r.t. cache assignment.
   ivector_t vars_with_new_val;
   init_ivector(&vars_with_new_val, 0);
   if (use_cache) {
-    bool diffed = cache_find_changed_variables(&l2o->evaluator, state, &vars_with_new_val);
+    bool diffed = cache_find_changed_variables(l2o, state, &vars_with_new_val);
     (void)diffed;
     assert(diffed);
     int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
@@ -213,7 +204,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
     }
 
     if (use_cached_value) {
-      current_eval = double_hmap_find(&l2o->evaluator.cache.eval_map, current)->val;
+      current_eval = evaluator_get_cache(l2o, current);
+      assert(current_eval < INFINITY);
       if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
         printf("\nusing cached value: %f", current_eval);
       }
@@ -901,7 +893,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   // Get cost of t
   assert(already_evaluated(&eval_map, term));
   double t_eval = evaluator_get(&eval_map, term);
-  double t_cache = evaluator_get_cache(&l2o->evaluator, term);
+  double t_cache = evaluator_get_cache(l2o, term);
 
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nt_eval = %f", t_eval);
@@ -912,7 +904,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
   // TODO maybe move cache handling to hill_climbing?
   if (force_cache_update || !use_cache || t_eval < t_cache) {
     assert(ensure_cache_values(state, &eval_map));
-    double_hmap_swap(&eval_map, &l2o->evaluator.cache.eval_map);
+    double_hmap_swap(&eval_map, &l2o->eval_cache);
   }
 
   delete_ivector(&eval_stack);

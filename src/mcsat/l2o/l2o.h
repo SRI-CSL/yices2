@@ -45,15 +45,6 @@ typedef struct {
   double *val;
 } l2o_search_state_t;
 
-typedef struct {
-
-  /** Eval cache */
-  struct {
-    double_hmap_t eval_map;
-  } cache;
-
-} evaluator_t;
-
 typedef enum {
   L2O,
   L2O_CLASSIC,
@@ -97,8 +88,8 @@ typedef struct {
   /** Map from a variable and an index of varset_table to a boolean which is true iff the variable is member of the varset */
   pmap2_t varset_members_cache;
 
-  /** Approximate Evaluator */
-  evaluator_t evaluator;
+  /** Evaluator cache */
+  double_hmap_t eval_cache;
 
   /** Tracer */
   tracer_t* tracer;
@@ -176,13 +167,6 @@ void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
 
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
-
-
-/** Construct the evaluator operator */
-void evaluator_construct(evaluator_t* evaluator);
-
-/** Destruct the evaluator operator */
-void evaluator_destruct(evaluator_t* evaluator);
 
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
