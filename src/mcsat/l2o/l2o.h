@@ -110,8 +110,8 @@ void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* ha
 /** Destruct the L2O operator */
 void l2o_destruct(l2o_t* l2o);
 
-/** resets the internal solution of the L2O but keeps performance caches (variable, term caches). */
-void l2o_reset(l2o_t *l2o);
+/** Set tracer */
+void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
 
 /** Store an assertion to l2o.assertions */
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
@@ -132,19 +132,9 @@ term_t l2o_get(l2o_t* l2o, term_t t);
 
 // start internal functions
 
-// TODO make static
 void l2o_search_state_construct_empty(l2o_search_state_t *state);
 
-// TODO make static
 void l2o_search_state_destruct(l2o_search_state_t *state);
-
-// TODO make static
-
-/** Assuming that both search states have the same variables, adds the variables with different value in vars.
- *  Returns true if the states are comparable, i.e. have the same variables, otherwise vars is left untouched. */
-bool l2o_search_state_diff(const l2o_search_state_t *a, const l2o_search_state_t *b, ivector_t *vars);
-
-void l2o_search_state_copy(l2o_search_state_t *dst, const l2o_search_state_t *src);
 
 static inline
 bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
@@ -159,9 +149,6 @@ const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
 
 /** Get the set of free variables from a term given its varset_table index  */
 const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
-
-/** Set tracer */
-void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
 
 /** Set the exception handler */
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);

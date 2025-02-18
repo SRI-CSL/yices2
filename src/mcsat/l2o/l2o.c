@@ -1259,38 +1259,6 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
   free(state->val);
 }
 
-#if 0
-bool l2o_search_state_diff(const l2o_search_state_t *a, const l2o_search_state_t *b, ivector_t *vars) {
-  if (a->n_var != b->n_var || a->n_var_fixed != b->n_var_fixed) {
-    return false;
-  }
-
-  uint32_t i;
-  for (i = 0; i < a->n_var; ++i) {
-    if (a->var[i] != b->var[i]) {
-      return false;
-    }
-  }
-  for (i = 0; i < a->n_var; ++i) {
-    if (a->val[i] != b->val[i]) {
-      ivector_push(vars, a->var[i]);
-    }
-  }
-  return true;
-}
-
-void l2o_search_state_copy(l2o_search_state_t *dst, const l2o_search_state_t *src) {
-  dst->n_var = src->n_var;
-  dst->n_var_fixed = src->n_var_fixed;
-  size_t size_var = src->n_var * sizeof(term_t); // in byte
-  size_t size_val = src->n_var * sizeof(double); // in byte
-  dst->var = (term_t *) safe_realloc(dst->var, size_var);
-  dst->val = (double *) safe_realloc(dst->val, size_val);
-  memcpy(dst->var, src->var, size_var);
-  memcpy(dst->val, src->val, size_val);
-}
-#endif
-
 static
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
   if (t == -1) {
