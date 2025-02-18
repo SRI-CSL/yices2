@@ -29,9 +29,8 @@
 #include "mcsat/tracing.h"
 #include "mcsat/l2o/varset_table.h"
 #include "mcsat/utils/scope_holder.h"
+#include "mcsat/variable_queue.h"
 
-
-// TODO move data structures and internal functions to l2o_internal.h and only keep public functions here. (similar to nra_plugin.h)
 
 typedef enum {
   L2O,
@@ -47,6 +46,7 @@ typedef struct {
   term_table_t* terms;
 
   /** Term manager */
+  // TODO why own term_manager
   term_manager_t tm;
 
   /** Assertions */
@@ -108,7 +108,7 @@ void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
 /** Create the L2O cost function to the conjunction of the stored assertions */
-void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values);
+void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue);
 
 /** Push L2O */
 void l2o_push(l2o_t* l2o);

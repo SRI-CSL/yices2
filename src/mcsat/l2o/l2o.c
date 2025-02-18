@@ -21,6 +21,7 @@
 #include "mcsat/tracing.h"
 #include "terms/term_explorer.h"
 #include "api/yices_api_lock_free.h"
+#include "utils/int_array_sort2.h"
 
 #include <math.h>
 
@@ -1268,7 +1269,12 @@ bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
 }
 
 static
-void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool use_cached_values, l2o_search_state_t *state) {
+bool l2o_compare_vars(void *data, int32_t a, int32_t b) {
+  return var_queue_cmp_variables((const var_queue_t *)data, a, b) > 0;
+}
+
+static
+void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue, l2o_search_state_t *state) {
   const int_hset_t* var_set = get_freevars(l2o, t);
   assert(var_set != NULL);
   assert(var_set->is_closed);
@@ -1299,7 +1305,11 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool us
   }
   state->n_var_fixed = vars_fixed.size;
 
-  // TODO sort non-fixed here by VSIDS
+  // sort non-fixed here by VSIDS
+  if (queue) {
+    int_array_sort2(vars.data, vars.size, (void*)queue, l2o_compare_vars);
+    assert(vars.size < 2 || queue->activity[vars.data[0]] > queue->activity[vars.data[1]]);
+  }
 
   // join vectors
   assert(vars_fixed.size + vars.size == n_var);
@@ -1360,7 +1370,7 @@ void l2o_set_hint(l2o_t *l2o, mcsat_trail_t *trail, const l2o_search_state_t *st
 
 /** Minimize L2O cost function and set hint to trail */
 static
-void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool use_cached_values) {
+void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue) {
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\n\n  init l2o_minimize_and_set_hint\n");
   }
@@ -1381,7 +1391,7 @@ void l2o_minimize_and_set_hint(l2o_t* l2o, term_t t, mcsat_trail_t* trail, bool 
   l2o_search_state_t state;
 
   // create search state
-  l2o_search_state_create(l2o, t, trail, use_cached_values, &state);
+  l2o_search_state_create(l2o, t, trail, use_cached_values, queue, &state);
 
   if (!l2o_search_state_is_empty(&state)) {
     // Improve val using hill_climbing
@@ -1408,7 +1418,7 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
   return l2o->cost_fx;
 }
 
-void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values) {
+void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
   term_t cost_fx = l2o_make_cost_fx(l2o);
 
   if (trace_enabled(l2o->tracer, "mcsat::l2o")){
@@ -1419,6 +1429,6 @@ void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values) {
   }
 
   // TODO: Check if cost is zero
-  l2o_minimize_and_set_hint(l2o, cost_fx, trail, use_cached_values);
+  l2o_minimize_and_set_hint(l2o, cost_fx, trail, use_cached_values, queue);
   l2o->n_runs++;
 }
