@@ -133,7 +133,7 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     step_size[i] = 1.0;
   }
 
-  uint32_t current_dir_index = next_var(&order);
+  uint32_t current_dir_index = state->n_var_fixed + next_var(&order);
 
   // main loop
   while (best_cost > acceptance_threshold
@@ -141,7 +141,7 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
          && n_iter < max_iter
          && n_calls < max_calls
   ) {
-    assert(current_dir_index >= 0);
+    assert(current_dir_index >= state->n_var_fixed);
 
     n_iter = n_iter + 1;
     if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
@@ -233,7 +233,7 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
       printf("\n\n has_improved: %d", has_improved);
     }
     if (!has_improved) {    // Go to next var
-      current_dir_index= next_var(&order);
+      current_dir_index = state->n_var_fixed + next_var(&order);
       n_var_visited += 1;
     } else {
       var_prio(&order, current_dir_index);
@@ -248,6 +248,9 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
 #ifndef NDEBUG
   for (uint32_t j = 0; j < n_var; ++j) {
     assert(val_cur[j] == val_old[j]);
+  }
+  for (int j = 0; j < state->n_var_fixed; ++j) {
+    assert(step_size[j] == 1.0);
   }
 #endif
 
