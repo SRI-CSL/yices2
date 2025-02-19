@@ -236,7 +236,7 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
       current_dir_index = state->n_var_fixed + next_var(&order);
       n_var_visited += 1;
     } else {
-      var_prio(&order, current_dir_index);
+      var_prio(&order, current_dir_index - state->n_var_fixed);
       n_var_visited = 0;
     }
   }
