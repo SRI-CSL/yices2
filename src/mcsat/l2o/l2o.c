@@ -1326,7 +1326,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     if (use_cached_values && trail_has_cached_value(trail, var)) {
       val[pos] = mcsat_value_to_double(trail_get_cached_value(trail, var));
     } else {
-      val[pos] = variable_db_get_term(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
+      val[pos] = variable_db_get_type(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
     }
     pos++;
   }
