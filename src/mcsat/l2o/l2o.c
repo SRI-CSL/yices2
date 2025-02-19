@@ -1286,6 +1286,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     return;
   }
 
+  assert(state->val == NULL && state->var == NULL);
   state->n_var = n_var;
   state->val = safe_malloc(sizeof(double) * n_var);
   state->var = safe_malloc(sizeof(term_t) * n_var);
@@ -1326,7 +1327,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     if (use_cached_values && trail_has_cached_value(trail, var)) {
       val[pos] = mcsat_value_to_double(trail_get_cached_value(trail, var));
     } else {
-      val[pos] = variable_db_get_type(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
+      val[pos] = variable_db_get_type_kind(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
     }
     pos++;
   }

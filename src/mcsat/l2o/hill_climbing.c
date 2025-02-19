@@ -33,10 +33,11 @@ typedef struct {
 
 static
 void init_var_order(var_order_t *o, uint32_t count) {
+  assert(count > 0);
   init_int_queue(&o->prio, 0);
   init_int_queue(&o->prio_next, 0);
   init_int_hset(&o->skip, 0);
-  o->pos = 0;
+  o->pos = count - 1;
   o->count = count;
 }
 
@@ -67,10 +68,12 @@ uint32_t next_var(var_order_t *o) {
     o->pos++;
     if (o->pos == o->count) {
       int_queue_swap(&o->prio, &o->prio_next);
+      assert(int_queue_is_empty(&o->prio_next));
       int_hset_reset(&o->skip);
       o->pos = 0;
       break;
     }
+    assert(o->pos < o->count);
     if (!int_hset_member(&o->skip, o->pos)) {
       break;
     }
@@ -164,19 +167,20 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
       if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
         printf("\n is bool");
       }
-      val_cur[current_dir_index] = val_old[current_dir_index] == 0 ? 1.0 : 0.0;  // try opposite polarity
+      val_cur[current_dir_index] = val_old[current_dir_index] == 0.0 ? 1.0 : 0.0;  // try opposite polarity
       current_cost = l2o_evaluate_term_approx(l2o, t, state, false);
       n_calls++;
       if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
         printf("\n current_cost: %.20f", current_cost);
       }
       if (best_cost - current_cost > IMPROVEMENT_THRESHOLD) {
+        // improvement
         has_improved = true;
         val_old[current_dir_index] = val_cur[current_dir_index];
         best_cost = current_cost;
         //direction_var = current_dir_index;
-        continue;
       } else {
+        // no improvement
         val_cur[current_dir_index] = val_old[current_dir_index];  // restore previous value
       }
     } else {
@@ -229,13 +233,13 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
         step_size[current_dir_index] = best_step;   // keep successful acceleration   
       }
     }
-    if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-      printf("\n\n has_improved: %d", has_improved);
-    }
     if (!has_improved) {    // Go to next var
       current_dir_index = state->n_var_fixed + next_var(&order);
       n_var_visited += 1;
     } else {
+      if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
+        printf("\n\n has_improved: %d", has_improved);
+      }
       var_prio(&order, current_dir_index - state->n_var_fixed);
       n_var_visited = 0;
     }
