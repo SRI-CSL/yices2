@@ -68,6 +68,8 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
   nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
   nra->stats.constraint_root = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_root");
+  nra->stats.value_cache_usage = statistics_new_avg(nra->ctx->stats, "mcsat::nra::value_cache_usage");
+  nra->stats.value_cache_feasibility = statistics_new_avg(nra->ctx->stats, "mcsat::nra::value_cache_feasibility");
 }
 
 static
@@ -1114,6 +1116,9 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
       using_cached = true;
     }
   }
+  // measure the number of cache uses
+  statistic_avg_add(nra->stats.value_cache_feasibility, using_cached ? 1 : 0);
+  statistic_avg_add(nra->stats.value_cache_usage, x_cached_value != NULL ? 1 : 0);
 
   // If the set is 0, we can pick any value, including 0
   if (!using_cached && feasible != NULL) {
