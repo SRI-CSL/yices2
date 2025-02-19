@@ -1307,7 +1307,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
   state->n_var_fixed = vars_fixed.size;
 
   // sort non-fixed here by VSIDS
-  if (queue) {
+  if (false && queue) {
     int_array_sort2(vars.data, vars.size, (void*)queue, l2o_compare_vars);
     assert(vars.size < 2 || queue->activity[vars.data[0]] > queue->activity[vars.data[1]]);
   }
