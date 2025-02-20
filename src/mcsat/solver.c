@@ -2791,19 +2791,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
-
-      // recache
-      if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-        // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
-        ++recache_round;
-        mcsat_request_recache(mcsat);
-        double l = log10(recache_round + 9);
-        recache_limit = (*mcsat->solver_stats.conflicts) +
-                        (recache_round * l * l * l *
-                         mcsat->heuristic_params.recache_interval);
-      } else {
-        // does this actually happen?
-      }
     }
 
     // Process any outstanding requests
@@ -2816,6 +2803,16 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If inconsistent, analyze the conflict
     if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
+    }
+
+    if (trail_is_at_base_level(mcsat->trail) && (*mcsat->solver_stats.conflicts) > recache_limit) {
+      // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+                      (recache_round * l * l * l *
+                       mcsat->heuristic_params.recache_interval);
     }
 
     // If any requests, process them and go again
