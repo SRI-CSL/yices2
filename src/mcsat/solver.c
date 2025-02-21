@@ -346,8 +346,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 300;
-  mcsat->heuristic_params.recache_initial_delay = 300;
+  mcsat->heuristic_params.recache_interval = 50;
+  mcsat->heuristic_params.recache_initial_delay = 50;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
