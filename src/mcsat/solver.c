@@ -921,9 +921,6 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   // Construct the preprocessor
   preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception, &mcsat->ctx->mcsat_options);
 
-  // Construct L2O
-  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception);
-
   // The variable queue
   init_ivector(&mcsat->top_decision_vars, 0);
   init_int_queue(&mcsat->hinted_decision_vars, 0);
@@ -957,6 +954,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   // Construct the plugins
   mcsat_add_plugins(mcsat);
+
+  // Construct L2O
+  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception, mcsat->plugins[mcsat->nra_plugin_id].plugin);
 }
 
 void mcsat_destruct(mcsat_solver_t* mcsat) {

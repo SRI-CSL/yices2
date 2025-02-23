@@ -21,7 +21,12 @@
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
 
+#include <poly/feasibility_set.h>
+#include <poly/interval.h>
+
 #define IMPROVEMENT_THRESHOLD 0.0
+
+extern const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v);
 
 typedef struct {
   uint32_t pos;
@@ -123,12 +128,12 @@ bool optimize_bool(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, 
 
 static
 bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, double *step_size, double *best, uint32_t *eval_runs) {
-  term_t term = state->var[v];
+  term_t t_var = state->var[v];
   double *const val = &state->val[v];
   const double old_val = state->val[v];
   const double old_step = *step_size;
 
-  assert(is_integer_term(l2o->terms, term) || is_real_term(l2o->terms, term));
+  assert(is_integer_term(l2o->terms, t_var) || is_real_term(l2o->terms, t_var));
 
   const double candidate[CANDIDATES] = {
       -ACCELERATION,
@@ -146,7 +151,7 @@ bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v
     *val = old_val + step;
 
     // If integer type, round to int
-    if (is_integer_term(l2o->terms, term)) {
+    if (is_integer_term(l2o->terms, t_var)) {
       *val = round(*val);
     }
 
@@ -167,6 +172,51 @@ bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v
 
   *val = success ? best_val : old_val;
   *step_size = success ? best_step : old_step / ACCELERATION;
+  return success;
+}
+
+static
+bool optimize_fs(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, double *best, uint32_t *eval_runs) {
+  term_t t_var = state->var[v];
+  double *const val = &state->val[v];
+  const double old_val = state->val[v];
+
+  if (l2o->nra == NULL) {
+    return false;
+  }
+
+  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, t_var);
+  // no feasible sets known or any number is feasible
+  if (fs == NULL) {
+    return false;
+  }
+
+  bool success = false;
+  double best_val = old_val;
+
+  lp_value_t lp_val;
+  lp_value_construct_zero(&lp_val);
+  for (int i = 0; i < fs->size; ++i) {
+    const lp_interval_t *interval = &fs->intervals[i];
+    lp_interval_pick_value(interval, &lp_val);
+    *val = lp_value_to_double(&lp_val);
+
+    if (*val == old_val) {
+      continue;
+    }
+
+    double new_cost = l2o_evaluate_term_approx(l2o, t, state);
+    (*eval_runs) ++;
+
+    if (did_improve(best, new_cost)) {
+      update_cache(l2o);
+      success = true;
+      best_val = *val;
+    }
+  }
+  lp_value_destruct(&lp_val);
+
+  *val = success ? best_val : old_val;
   return success;
 }
 
@@ -220,7 +270,13 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     if (is_boolean_term(terms, var[var_idx])) {
       has_improved = optimize_bool(l2o, t, state, var_idx, &best_cost, &n_calls);
     } else {
-      has_improved = optimize_number(l2o, t, state, var_idx, &step_size[var_idx], &best_cost, &n_calls);
+      has_improved = optimize_fs(l2o, t, state, var_idx, &best_cost, &n_calls);
+      // TODO get feasible cell boundary and use it for optimize_number
+      bool has_improved_hc;
+      do {
+        has_improved_hc = optimize_number(l2o, t, state, var_idx, &step_size[var_idx], &best_cost, &n_calls);
+        has_improved = has_improved || has_improved_hc;
+      } while(has_improved_hc && n_calls < MAX_CALLS);
     }
 
     if (!has_improved) {    // Go to next var

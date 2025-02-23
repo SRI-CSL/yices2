@@ -2199,3 +2199,13 @@ plugin_t* nra_plugin_allocator(void) {
 
   return (plugin_t*) plugin;
 }
+
+const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v) {
+  nra_plugin_t *nra = (nra_plugin_t*)plugin;
+  if (!variable_db_has_variable(nra->ctx->var_db, v)) {
+    return NULL;
+  }
+  variable_t var = variable_db_get_variable(nra->ctx->var_db, v);
+  assert(var != variable_null);
+  return feasible_set_db_get(nra->feasible_set_db, var);
+}

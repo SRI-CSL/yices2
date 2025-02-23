@@ -24,14 +24,16 @@
 #include "utils/int_array_sort2.h"
 
 #include <math.h>
+#include <poly/feasibility_set.h>
 
 //#define EPSILON yices_rational32(1, 1000000)
 #define EPSILON "0.0000001"
 
 
-void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler) {
+void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra) {
   l2o->mode = mode;
   l2o->terms = terms;
+  l2o->nra = nra;
   l2o->n_runs = 0;
   l2o->n_terms = 0;
   init_term_manager(&l2o->tm, terms);
@@ -1270,6 +1272,28 @@ bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
   return true;
 }
 
+extern const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v);
+
+static
+double l2o_pick_fs_value(l2o_t *l2o, term_t var) {
+  if (l2o->nra == NULL) {
+    return 0.0;
+  }
+
+  double result;
+  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, var);
+  if (fs != NULL) {
+    lp_value_t lp_val;
+    lp_value_construct_zero(&lp_val);
+    lp_feasibility_set_pick_value(fs, &lp_val);
+    result = lp_value_to_double(&lp_val);
+    lp_value_destruct(&lp_val);
+  } else {
+    result = 0.0;
+  }
+  return result;
+}
+
 static
 bool l2o_compare_vars(void *data, int32_t a, int32_t b) {
   return var_queue_cmp_variables((const var_queue_t *)data, a, b) > 0;
@@ -1328,8 +1352,10 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     v[pos] = variable_db_get_term(trail->var_db, var);
     if (use_cached_values && trail_has_cached_value(trail, var)) {
       val[pos] = mcsat_value_to_double(trail_get_cached_value(trail, var));
+    } else if (variable_db_get_type_kind(trail->var_db, var) == BOOL_TYPE) {
+      val[pos] = 1.0;
     } else {
-      val[pos] = variable_db_get_type_kind(trail->var_db, var) == BOOL_TYPE ? 1.0 : 0.0;
+      val[pos] = l2o_pick_fs_value(l2o, v[pos]);
     }
     pos++;
   }

@@ -35,7 +35,7 @@
 typedef enum {
   L2O,
   L2O_CLASSIC,
-  /* L2O_CELL_JUMP, */
+  L2O_FS_JUMP,
 } l2o_mode_t;
 
 typedef struct {
@@ -44,6 +44,9 @@ typedef struct {
 
   /** Term table */
   term_table_t* terms;
+
+  // TODO ugly hack
+  plugin_t *nra;
 
   /** Term manager */
   // TODO why own term_manager
@@ -96,7 +99,7 @@ typedef struct {
 } l2o_t;
 
 /** Construct the L2O operator */
-void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler);
+void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra);
 
 /** Destruct the L2O operator */
 void l2o_destruct(l2o_t* l2o);
