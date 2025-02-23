@@ -20,7 +20,6 @@
 
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
-#include "mcsat/tracing.h"
 
 #define IMPROVEMENT_THRESHOLD 0.0
 
@@ -166,10 +165,8 @@ bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v
     }
   }
 
-  *val = best_val;
-  *step_size = best_step;
-  assert(success || *val == old_val);
-  assert(success || *step_size == old_step);
+  *val = success ? best_val : old_val;
+  *step_size = success ? best_step : old_step / ACCELERATION;
   return success;
 }
 
@@ -204,12 +201,9 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
 
   // Reset evaluator cache cost (this forces the update of the cache at the next call)
   double best_cost = l2o_evaluate_term_approx(l2o, t, state);
+  assert(double_hmap_find(&l2o->eval_map, t) != NULL);
   // force cache update
   update_cache(l2o);
-
-  if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-    printf("\n\n start_cost: %.50f", best_cost);
-  }
 
   uint32_t var_idx = state->n_var_fixed + next_var(&order);
 
@@ -222,10 +216,6 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     assert(var_idx >= state->n_var_fixed);
     n_iter++;
 
-    if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-      printf("\nvar: %d", var[var_idx]);
-    }
-
     bool has_improved;
     if (is_boolean_term(terms, var[var_idx])) {
       has_improved = optimize_bool(l2o, t, state, var_idx, &best_cost, &n_calls);
@@ -237,20 +227,12 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
       var_idx = state->n_var_fixed + next_var(&order);
       n_var_visited ++;
     } else {
-      if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-        printf("\n\n has_improved: %d", has_improved);
-      }
       var_prio(&order, var_idx - state->n_var_fixed);
       n_var_visited = 0;
     }
   }
 
-  if (trace_enabled(l2o->tracer, "mcsat::hill_climbing")) {
-    printf("\n\n final_cost: %.50f", best_cost);
-  }
-
 #ifndef NDEBUG
-  assert(double_hmap_find(&l2o->eval_map, t) != NULL);
   for (int j = 0; j < state->n_var_fixed; ++j) {
     assert(step_size[j] == 1.0);
   }
