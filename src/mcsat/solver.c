@@ -1480,7 +1480,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // recache
     if (mcsat->pending_requests_all.recache) {
-      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 2, NULL);
+      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 3, NULL);
       (*mcsat->solver_stats.recaches) ++;
       // trail_model_cache_clear(mcsat->trail);
       mcsat->pending_requests_all.recache = false;
