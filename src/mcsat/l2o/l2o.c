@@ -43,6 +43,7 @@ void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* ha
   init_int_hmap(&l2o->freevars_map, 0);
   init_pmap2(&l2o->varset_members_cache);
 
+  init_double_hmap(&l2o->eval_map, 0);
   init_double_hmap(&l2o->eval_cache, 0);
   l2o->tracer = NULL;
   l2o->exception = handler;
@@ -63,6 +64,7 @@ void l2o_destruct(l2o_t* l2o) {
   delete_int_hmap(&l2o->freevars_map);
   delete_pmap2(&l2o->varset_members_cache);
 
+  delete_double_hmap(&l2o->eval_map);
   delete_double_hmap(&l2o->eval_cache);
   scope_holder_destruct(&l2o->scope);
 }

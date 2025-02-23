@@ -54,7 +54,7 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
  */
-double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state, bool force_cache_update);
+double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state);
 
 /**
  * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
