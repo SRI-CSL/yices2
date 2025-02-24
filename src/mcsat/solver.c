@@ -2984,10 +2984,12 @@ void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out) {
   int fd = fileno(out);
   assert(fd >= 0);
   statistics_print(&mcsat->stats, fd);
+  statistics_print(&mcsat->l2o.stats, fd);
 }
 
 void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out) {
   statistics_print(&mcsat->stats, out);
+  statistics_print(&mcsat->l2o.stats, out);
 }
 
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {

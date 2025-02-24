@@ -29,13 +29,16 @@
 //#define EPSILON yices_rational32(1, 1000000)
 #define EPSILON "0.0000001"
 
+static
+void l2o_stats_init(l2o_t* l2o) {
+  l2o->l2o_stats.n_runs = statistics_new_int(&l2o->stats, "l2o::runs");
+  l2o->l2o_stats.n_terms = statistics_new_int(&l2o->stats, "l2o::terms");
+}
 
 void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra) {
   l2o->mode = mode;
   l2o->terms = terms;
   l2o->nra = nra;
-  l2o->n_runs = 0;
-  l2o->n_terms = 0;
   init_term_manager(&l2o->tm, terms);
   init_ivector(&l2o->assertions, 0);
   init_int_hmap(&l2o->l2o_map, 0);
@@ -50,6 +53,9 @@ void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* ha
   l2o->tracer = NULL;
   l2o->exception = handler;
   scope_holder_construct(&l2o->scope);
+
+  statistics_construct(&l2o->stats);
+  l2o_stats_init(l2o);
 }
 
 void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer) {
@@ -69,6 +75,7 @@ void l2o_destruct(l2o_t* l2o) {
   delete_double_hmap(&l2o->eval_map);
   delete_double_hmap(&l2o->eval_cache);
   scope_holder_destruct(&l2o->scope);
+  statistics_destruct(&l2o->stats);
 }
 
 void l2o_store_assertion(l2o_t* l2o, term_t assertion) {
@@ -89,7 +96,7 @@ static inline
 void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   assert(l2o_get(l2o, t) == NULL_TERM);
   int_hmap_add(&l2o->l2o_map, t, t_l2o);
-  l2o->n_terms++;
+  (*l2o->l2o_stats.n_terms)++;
 }
 
 int32_t get_freevars_index(const l2o_t* l2o, term_t t) {
@@ -1491,5 +1498,5 @@ void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var
 
   // TODO: Check if cost is zero
   l2o_minimize_and_set_hint(l2o, cost_fx, trail, use_cached_values, queue);
-  l2o->n_runs++;
+  (*l2o->l2o_stats.n_runs)++;
 }

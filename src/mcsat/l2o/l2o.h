@@ -58,12 +58,6 @@ typedef struct {
   /** The cost function */
   term_t cost_fx;
 
-  /** Number of L2O terms */
-  uint32_t n_terms;
-
-  /** Number of minimization calls */
-  uint32_t n_runs;
-
   /** Map from terms to their L2O version */
   int_hmap_t l2o_map;
 
@@ -85,6 +79,16 @@ typedef struct {
   /** Evaluator cache */
   double_hmap_t eval_cache;
 
+  /** Statistics */
+  statistics_t stats;
+
+  struct {
+    // Number of L2O terms
+    statistic_int_t* n_terms;
+    // Number of minimization calls
+    statistic_int_t* n_runs;
+  } l2o_stats;
+
   /** Tracer */
   tracer_t* tracer;
 
@@ -93,8 +97,6 @@ typedef struct {
 
   /** Scope for backtracking */
   scope_holder_t scope;
-
-  pp_buffer_t pp_buffer;
 
 } l2o_t;
 
