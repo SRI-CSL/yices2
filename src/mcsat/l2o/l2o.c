@@ -1294,6 +1294,38 @@ double l2o_pick_fs_value(l2o_t *l2o, term_t var) {
   return result;
 }
 
+/** checks if there is a cached value and if it is compatible with the feasible set if it exists. */
+static
+double l2o_pick_cache_value(l2o_t *l2o, term_t var, const mcsat_value_t *val_mcsat) {
+  switch (val_mcsat->type) {
+    case VALUE_BOOLEAN:
+      return val_mcsat->b;
+    case VALUE_RATIONAL:
+      return mcsat_value_to_double(val_mcsat);
+    case VALUE_NONE:
+    case VALUE_BV:
+    default:
+      // not supported yet
+      assert(false);
+      return 0.0;
+    case VALUE_LIBPOLY: {
+      // check if we can find a feasible set
+      double result;
+      const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, var);
+      if (fs == NULL || lp_feasibility_set_contains(fs, &val_mcsat->lp_value)) {
+        result = mcsat_value_to_double(val_mcsat);
+      } else {
+        lp_value_t lp_val;
+        lp_value_construct_zero(&lp_val);
+        lp_feasibility_set_pick_value(fs, &lp_val);
+        result = lp_value_to_double(&lp_val);
+        lp_value_destruct(&lp_val);
+      }
+      return result;
+    }
+  }
+}
+
 static
 bool l2o_compare_vars(void *data, int32_t a, int32_t b) {
   return var_queue_cmp_variables((const var_queue_t *)data, a, b) > 0;
@@ -1351,7 +1383,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     variable_t var = vars.data[i];
     v[pos] = variable_db_get_term(trail->var_db, var);
     if (use_cached_values && trail_has_cached_value(trail, var)) {
-      val[pos] = mcsat_value_to_double(trail_get_cached_value(trail, var));
+      val[pos] = l2o_pick_cache_value(l2o, v[pos], trail_get_cached_value(trail, var));
     } else if (variable_db_get_type_kind(trail->var_db, var) == BOOL_TYPE) {
       val[pos] = 1.0;
     } else {
