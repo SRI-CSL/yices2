@@ -195,35 +195,26 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
         printf("\nusing cached value: %f", current_eval);
       }
     } else {
-      switch (current_type) {
-        case BOOL_TYPE:
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+      if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        switch (current_type) {
+          case BOOL_TYPE:
             printf("\nType is BOOL\n");
-          }
-          break;
-        case INT_TYPE:
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            break;
+          case INT_TYPE:
             printf("\nType is INT\n");
-          }
-          break;
-        case REAL_TYPE:
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            break;
+          case REAL_TYPE:
             printf("\nType is REAL\n");
-          }
-          break;
-        case UNINTERPRETED_TYPE:
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            break;
+          case UNINTERPRETED_TYPE:
             printf("\nType is UNINTERPRETED\n");
-          }
-          //l2o_var_set(l2o, current, current);
-          break;
-        case SCALAR_TYPE:
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            break;
+          case SCALAR_TYPE:
             printf("\nType is SCALAR");
-          }
-          break;
-        default:
-          longjmp(*l2o->exception, INTERNAL_EXCEPTION);
+            break;
+          default:
+            break;
+        }
       }
 
       switch (current_kind) {
@@ -234,7 +225,6 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
           }
           current_eval = 0;
           break;
-          //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
         case ARITH_CONSTANT:   // rational constant
         {
@@ -365,6 +355,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
           }
         }
 
+        case XOR_TERM:
+        {
+          // TODO implement
+          break;
+        }
+
         case ITE_SPECIAL:
         case ITE_TERM:
         {
@@ -486,7 +482,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
           term_t current_unsigned = unsigned_term(current);
           composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
           args = desc->arg;
-          assert(desc->arity == 2); // TODO what if arity > 2?
+          assert(desc->arity == 2);
 
           double args_eval[2];
           bool args_already_evaluated = true;

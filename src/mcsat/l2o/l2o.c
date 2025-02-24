@@ -949,8 +949,6 @@ void collect_freevars(l2o_t* l2o, term_t t) {
       assert(false);
       break;
 
-    // TODO check the term kinds below
-    // assuming that the boolean terms are CNF'd at when calling l2o TODO check this assumption
     case ITE_TERM:
     case ITE_SPECIAL:
     case APP_TERM:
@@ -1482,9 +1480,8 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
     term_t f_i = assertions->data[i];
     f_l2o[i] = l2o_apply(l2o, f_i);
   }
-  // TODO change to list to enable incremental solving
-  l2o->cost_fx = yices_sum(n_assertions, f_l2o);
-  return l2o->cost_fx;
+  // TODO change to list to enable incremental solving and use push/pop to restore old cost functions on restarts
+  return yices_sum(n_assertions, f_l2o);
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {

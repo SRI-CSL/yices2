@@ -55,9 +55,6 @@ typedef struct {
   /** Assertions */
   ivector_t assertions;
 
-  /** The cost function */
-  term_t cost_fx;
-
   /** Map from terms to their L2O version */
   int_hmap_t l2o_map;
 
