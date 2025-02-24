@@ -87,6 +87,8 @@ typedef struct {
     statistic_int_t* n_terms;
     // Number of minimization calls
     statistic_int_t* n_runs;
+    // Eval runs
+    statistic_int_t* n_eval_runs;
   } l2o_stats;
 
   /** Tracer */

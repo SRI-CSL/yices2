@@ -288,6 +288,8 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
     }
   }
 
+  (*l2o->l2o_stats.n_eval_runs) += n_calls;
+
 #ifndef NDEBUG
   for (int j = 0; j < state->n_var_fixed; ++j) {
     assert(step_size[j] == 1.0);

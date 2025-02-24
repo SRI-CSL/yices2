@@ -33,6 +33,7 @@ static
 void l2o_stats_init(l2o_t* l2o) {
   l2o->l2o_stats.n_runs = statistics_new_int(&l2o->stats, "l2o::runs");
   l2o->l2o_stats.n_terms = statistics_new_int(&l2o->stats, "l2o::terms");
+  l2o->l2o_stats.n_eval_runs = statistics_new_int(&l2o->stats, "l2o::eval_runs");
 }
 
 void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra) {
