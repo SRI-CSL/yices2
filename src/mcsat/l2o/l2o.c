@@ -43,7 +43,10 @@ void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* ha
   init_term_manager(&l2o->tm, terms);
   init_ivector(&l2o->assertions, 0);
   init_int_hmap(&l2o->l2o_map, 0);
+
+#ifdef L2O_BOOL2REAL
   init_int_hmap(&l2o->l2o_var_map, 0);
+#endif
 
   init_varset_table(&l2o->varset_table, 0 );
   init_int_hmap(&l2o->freevars_map, 0);
@@ -65,9 +68,12 @@ void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer) {
 
 void l2o_destruct(l2o_t* l2o) {
   delete_int_hmap(&l2o->l2o_map);
-  delete_int_hmap(&l2o->l2o_var_map);
   delete_ivector(&l2o->assertions);
   delete_term_manager(&l2o->tm);
+
+#ifdef L2O_BOOL2REAL
+  delete_int_hmap(&l2o->l2o_var_map);
+#endif
 
   delete_varset_table(&l2o->varset_table);
   delete_int_hmap(&l2o->freevars_map);
@@ -149,8 +155,9 @@ void construct_union_set_from_indices(const l2o_t* l2o, const int32_t* indices, 
   }
 }
 
+#ifdef L2O_BOOL2REAL
 /** Get L2O variable translation of t */
-static
+static inline
 term_t l2o_var_get(l2o_t* l2o, term_t t) {
   int_hmap_pair_t* find = int_hmap_find(&l2o->l2o_var_map, t);
   if (find == NULL) {
@@ -165,7 +172,7 @@ void l2o_var_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   assert(l2o_var_get(l2o, t) == NULL_TERM);
   int_hmap_add(&l2o->l2o_var_map, t, t_l2o);
 }
-
+#endif
 
 typedef struct composite_term1_s {
   uint32_t arity;  // number of subterms
@@ -354,101 +361,97 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is UNINTERPRETED_TERM");
         }
         if (current_type == BOOL_TYPE) {
-          bool translate_bool2real = false;
-
-          // If translate_bool2real is False then, given a boolean proposition b
+#ifndef L2O_BOOL2REAL
+          // If L2O_BOOL2REAL is not defined then, given a boolean proposition b
           // L2O(b) is ITE(b, 0 ,1)
-          if (use_classic || !translate_bool2real) {
-            current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+#else
+          // If L2O_BOOL2REAL is defined then, given a boolean variable b:
+          // - a real variable b_r is created
+          // - the atoms b and (not b) are translated in terms of b_r (two possible translations, see below)
+          // Translation a:
+          //    b -> b_r >= 1
+          //    not b -> b_r <= -1
+          // Translation b:
+          //    b -> ITE(b_r >= 0, 0, 1)
+          //    not b -> ITE(b_r < 0, 0, 1)
+          bool translation_a = false;   // if translation_a = false, then it is Translation b
+
+          term_t cond = NULL_TERM;
+          term_t then_term = NULL_TERM;
+          term_t else_term = NULL_TERM;
+          term_t b2r_lit = NULL_TERM;
+          term_t b2r_term = NULL_TERM;
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\ncurrent type is BOOL_TYPE");
           }
-
-            // If translate_bool2real is True then, given a boolean variable b:
-            // - a real variable b_r is created
-            // - the atoms b and (not b) are translated in terms of b_r (two possible translations, see below)
-          else {
-            // Translation a:
-            //    b -> b_r >= 1
-            //    not b -> b_r <= -1
-            // Translation b:
-            //    b -> ITE(b_r >= 0, 0, 1)
-            //    not b -> ITE(b_r < 0, 0, 1)
-            bool translation_a = false;   // if translation_a = false, then it is Translation b
-
-            term_t cond = NULL_TERM;
-            term_t then_term = NULL_TERM;
-            term_t else_term = NULL_TERM;
-            term_t b2r_lit = NULL_TERM;
-            term_t b2r_term = NULL_TERM;
+          // Check if b2r variable already exists
+          term_t bool_var_unsigned = unsigned_term(current);
+          term_t b2r_var = l2o_var_get(l2o, bool_var_unsigned);
+          if (b2r_var == NULL_TERM) {
+            // Create b2r variable
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              printf("\ncurrent type is BOOL_TYPE");
+              printf("\nCreting b2r variable\n");
             }
-            // Check if b2r variable already exists
-            term_t bool_var_unsigned = unsigned_term(current);
-            term_t b2r_var = l2o_var_get(l2o, bool_var_unsigned);
-            if (b2r_var == NULL_TERM) {
-              // Create b2r variable
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                printf("\nCreting b2r variable\n");
-              }
-              b2r_var = yices_new_uninterpreted_term(yices_real_type());
-              l2o_var_set(l2o, bool_var_unsigned, b2r_var);
-            }
+            b2r_var = yices_new_uninterpreted_term(yices_real_type());
+            l2o_var_set(l2o, bool_var_unsigned, b2r_var);
+          }
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            mcsat_trace_printf(l2o->tracer, "b2r_var = ");
+            trace_term_ln(l2o->tracer, terms, b2r_var);
+          }
+          term_t one = yices_int32(1);
+
+          if (is_pos_term(current)) {
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              mcsat_trace_printf(l2o->tracer, "b2r_var = ");
-              trace_term_ln(l2o->tracer, terms, b2r_var);
+              printf("\nhas positive polarity\n");
             }
-            term_t one = yices_int32(1);
-
-            if (is_pos_term(current)) {
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                printf("\nhas positive polarity\n");
-              }
-              if (translation_a) {
-                b2r_term = yices_sub(b2r_var, one);
-              } else {
-                b2r_term = b2r_var;
-              }
-
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                mcsat_trace_printf(l2o->tracer, "b2r_term = ");
-                trace_term_ln(l2o->tracer, terms, b2r_term);
-              }
-              b2r_lit = yices_arith_geq0_atom(b2r_term);
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                mcsat_trace_printf(l2o->tracer, "b2r_lit = ");
-                trace_term_ln(l2o->tracer, terms, b2r_lit);
-              }
-              cond = b2r_lit;
-              then_term = yices_zero();
-              if (translation_a) {
-                else_term = yices_abs(b2r_term);
-              } else {
-                else_term = one;
-              }
-              current_l2o = yices_ite(cond, then_term, else_term);
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                mcsat_trace_printf(l2o->tracer, "current_l2o = ");
-                trace_term_ln(l2o->tracer, terms, current_l2o);
-              }
+            if (translation_a) {
+              b2r_term = yices_sub(b2r_var, one);
             } else {
-              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-                printf("\nhas negative polarity\n");
-              }
-              term_t minusone = yices_int32(-1);
-
-              if (translation_a) {
-                b2r_term = yices_sub(b2r_var, minusone);
-                b2r_lit = yices_arith_leq0_atom(b2r_term);
-                else_term = yices_abs(b2r_term); // Translation a
-              } else {
-                b2r_lit = yices_arith_lt0_atom(b2r_var);
-                else_term = one;                   // Translation b
-              }
-              cond = b2r_lit;
-              then_term = yices_zero();
-              current_l2o = yices_ite(cond, then_term, else_term);
+              b2r_term = b2r_var;
             }
+
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              mcsat_trace_printf(l2o->tracer, "b2r_term = ");
+              trace_term_ln(l2o->tracer, terms, b2r_term);
+            }
+            b2r_lit = yices_arith_geq0_atom(b2r_term);
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              mcsat_trace_printf(l2o->tracer, "b2r_lit = ");
+              trace_term_ln(l2o->tracer, terms, b2r_lit);
+            }
+            cond = b2r_lit;
+            then_term = yices_zero();
+            if (translation_a) {
+              else_term = yices_abs(b2r_term);
+            } else {
+              else_term = one;
+            }
+            current_l2o = yices_ite(cond, then_term, else_term);
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              mcsat_trace_printf(l2o->tracer, "current_l2o = ");
+              trace_term_ln(l2o->tracer, terms, current_l2o);
+            }
+          } else {
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\nhas negative polarity\n");
+            }
+            term_t minusone = yices_int32(-1);
+
+            if (translation_a) {
+              b2r_term = yices_sub(b2r_var, minusone);
+              b2r_lit = yices_arith_leq0_atom(b2r_term);
+              else_term = yices_abs(b2r_term); // Translation a
+            } else {
+              b2r_lit = yices_arith_lt0_atom(b2r_var);
+              else_term = one;                   // Translation b
+            }
+            cond = b2r_lit;
+            then_term = yices_zero();
+            current_l2o = yices_ite(cond, then_term, else_term);
           }
+#endif
         } else if (current_type == INT_TYPE || current_type == REAL_TYPE) {
           current_l2o = current;
         } else {
@@ -860,10 +863,12 @@ void collect_freevars(l2o_t* l2o, term_t t) {
       term_t current_unsigned = unsigned_term(current);
       int_hset_add(&current_vars_set, current_unsigned);
 
+#ifdef L2O_BOOL2REAL
       term_t current_unsigned_l2o = l2o_var_get(l2o, current_unsigned);
       if (current_unsigned_l2o == NULL_TERM) {
         l2o_var_set(l2o, current_unsigned, current_unsigned);
       }
+#endif
       finished = true;
       break;
     }
@@ -1466,6 +1471,7 @@ void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool 
   l2o_search_state_destruct(&state);
 }
 
+static
 term_t l2o_make_cost_fx(l2o_t* l2o) {
   ivector_t* assertions = &l2o->assertions;
   int32_t n_assertions = assertions->size;
