@@ -2805,7 +2805,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       goto conflict;
     }
 
-    if (/* trail_is_at_base_level(mcsat->trail) && */ (*mcsat->solver_stats.conflicts) > recache_limit) {
+    if (trail_is_at_base_level(mcsat->trail) && (*mcsat->solver_stats.conflicts) > recache_limit) {
       // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
       ++recache_round;
       mcsat_request_recache(mcsat);
