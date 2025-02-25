@@ -123,7 +123,4 @@ void l2o_push(l2o_t* l2o);
 /** Pop L2O */
 void l2o_pop(l2o_t* l2o);
 
-/** Get L2O translation of t */
-term_t l2o_get(l2o_t* l2o, term_t t);
-
 #endif

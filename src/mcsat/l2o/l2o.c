@@ -83,13 +83,10 @@ void l2o_store_assertion(l2o_t* l2o, term_t assertion) {
   ivector_push(&l2o->assertions, assertion);
 }
 
+static inline
 term_t l2o_get(l2o_t* l2o, term_t t) {
   int_hmap_pair_t* find = int_hmap_find(&l2o->l2o_map, t);
-  if (find == NULL) {
-    return NULL_TERM;
-  } else {
-    return find->val;
-  }
+  return find == NULL ? NULL_TERM : find->val;
 }
 
 /** Set t_l2o as the L2O value of t */
@@ -103,20 +100,13 @@ void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
 int32_t get_freevars_index(const l2o_t* l2o, term_t t) {
   term_t t_unsigned = unsigned_term(t);
   int_hmap_pair_t* find = int_hmap_find(&l2o->freevars_map, t_unsigned);
-  if (find == NULL) {
-    return -1;
-  } else {
-    return find->val;
-  }
+  return find == NULL ? -1 : find->val;
 }
 
 const int_hset_t* get_freevars(const l2o_t* l2o, term_t t){
   term_t t_unsigned = unsigned_term(t);
   int32_t index = get_freevars_index(l2o,  t_unsigned);
-  if(index == -1){
-    return NULL;
-  }
-  return get_varset(&l2o->varset_table, index);
+  return index == -1 ? NULL : get_varset(&l2o->varset_table, index);
 }
 
 const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index){
@@ -267,7 +257,6 @@ term_t mk_product(l2o_t* l2o, uint32_t n, term_t* args){
   return prod;
 }
 
-
 static
 term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
   rba_buffer_t b;
@@ -344,7 +333,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
     }
 
     switch (current_kind) {
-      case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
+      case CONSTANT_TERM: {   // constant of uninterpreted/scalar/boolean types
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is CONSTANT_TERM");
           printf("\ncurrent kind is UNSUPPORTED\n");
@@ -352,13 +341,15 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
         // UNSUPPORTED TERM/THEORY
         current_l2o = zero_term;
         break;
-      case ARITH_CONSTANT:   // rational constant
+      }
+      case ARITH_CONSTANT: {  // rational constant
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is ARITH_CONSTANT");
         }
         current_l2o = current;
         break;
-      case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
+      }
+      case UNINTERPRETED_TERM: {  // (i.e., global variables, can't be bound).
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is UNINTERPRETED_TERM");
         }
@@ -470,6 +461,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
         break;
+      }
       case OR_TERM: {
         if (is_pos_term(current)) {
           if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -533,8 +525,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             continue;
           }
         }
-      }
         break;
+      }
 
       case ITE_TERM:
       case ITE_SPECIAL: {
@@ -595,8 +587,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             continue;
           }
         }
-      }
         break;
+      }
 
       case ARITH_EQ_ATOM:      // equality (t == 0)
       {
@@ -628,8 +620,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
-      }
         break;
+      }
 
       case ARITH_BINEQ_ATOM:      // equality: (t1 == t2)  (between two arithmetic terms)
       {
@@ -667,8 +659,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
-      }
         break;
+      }
 
       case ARITH_GE_ATOM:      // atom t >= 0
       {
@@ -707,8 +699,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             current_l2o = yices_ite(cond, then_term, else_term);
           }
         }
-      }
         break;
+      }
 
       case ARITH_FLOOR:
       case ARITH_CEIL:
@@ -721,8 +713,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
         current_l2o = current;
         break;
       }
-      case EQ_TERM:     // equality
-      {
+      case EQ_TERM: {    // equality
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is EQ_TERM\n");
         }
@@ -764,10 +755,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t else_term = yices_int32(1);
           current_l2o = _o_yices_ite(cond, then_term, else_term);
         }
-      }
         break;
+      }
 
-      default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
+      default: {
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent_kind: %d\n", current_kind);
           printf("\ncurrent kind is UNSUPPORTED\n");
@@ -776,6 +767,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
         current_l2o = zero_term;
         //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         break;
+      }
     }
 
     if (current_l2o != NULL_TERM) {
@@ -1392,7 +1384,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     v[pos] = variable_db_get_term(trail->var_db, var);
     if (use_cached_values && trail_has_cached_value(trail, var)) {
       val[pos] = l2o_pick_cache_value(l2o, v[pos], trail_get_cached_value(trail, var));
-    } else if (variable_db_get_type_kind(trail->var_db, var) == BOOL_TYPE) {
+    } else if (variable_db_is_boolean(trail->var_db, var)) {
       val[pos] = 1.0;
     } else {
       val[pos] = l2o_pick_fs_value(l2o, v[pos]);
