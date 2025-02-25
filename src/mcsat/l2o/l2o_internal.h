@@ -40,9 +40,6 @@ bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
   return state->n_var == 0;
 }
 
-// TODO move to term.c
-composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
-
 /** checks if l2o term t has any of free variables of set_of_vars */
 bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
 
