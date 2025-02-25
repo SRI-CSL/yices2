@@ -344,8 +344,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_
 
             if (cond_already_evaluated) {
               double cond_eval = evaluator_get(eval_map, cond);
-              assert(cond_eval == 0 || cond_eval == 1); // cond_eval is either FALSE or TRUE
-              if (cond_eval == 1) {  // cond is TRUE
+              assert(cond_eval == 0.0 || cond_eval == 1.0); // cond_eval is either FALSE or TRUE
+              if (cond_eval == 1.0) {  // cond is TRUE
                 bool t1_already_evaluated = already_evaluated(eval_map, t1);
                 if (t1_already_evaluated) {
                   current_eval = evaluator_get(eval_map, t1);

@@ -218,8 +218,7 @@ term_t mk_product(l2o_t* l2o, uint32_t n, term_t* args){
   b = (pp_buffer_t *) safe_malloc(sizeof(pp_buffer_t));
   init_pp_buffer(b, n);
   pp_buffer_set_vars(b, n, args);
-  term_t prod = pprod_term_from_buffer(l2o->terms, b);
-  return prod;
+  return pprod_term_from_buffer(l2o->terms, b);
 }
 
 static
@@ -229,8 +228,7 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
   for (uint32_t i = 0; i < n; ++ i) {
     rba_buffer_add_var(&b, args[i]);
   }
-  term_t paulinomial = mk_arith_term(&l2o->tm, &b);
-  return paulinomial;
+  return mk_arith_term(&l2o->tm, &b);
 }
 
 static
