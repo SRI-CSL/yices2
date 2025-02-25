@@ -308,9 +308,9 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
       mcsat_trace_printf(l2o->tracer, "\n\n* current = ");
       trace_term_ln(l2o->tracer, terms, current);
-      mcsat_trace_printf(l2o->tracer, "\tid = %d", current);    
-      mcsat_trace_printf(l2o->tracer, "\tcurrent type: \t %d",current_type);
-      mcsat_trace_printf(l2o->tracer, "\tcurrent kind: \t %d",current_kind);
+      mcsat_trace_printf(l2o->tracer, "\tid = %d", current);
+      mcsat_trace_printf(l2o->tracer, "\tcurrent type: \t %d", current_type);
+      mcsat_trace_printf(l2o->tracer, "\tcurrent kind: \t %d", current_kind);
     }
 
     // If we already have L2O(current), continue
@@ -322,472 +322,460 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 
     if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
       switch (current_type) {
-      case BOOL_TYPE:
-        printf("\nType is BOOL\n");
-        break;
-      case INT_TYPE:
-        printf("\nType is INT\n");
-        break;
-      case REAL_TYPE:
-        printf("\nType is REAL\n");
-        break;
-      case UNINTERPRETED_TYPE:
-        printf("\nType is UNINTERPRETED\n");
-        break;
-      case SCALAR_TYPE:             // TODO What is SCALAR_TYPE?
-        printf("\nType is SCALAR");
-        break;
-      default:
-        printf("\nType is other");
-        break;
+        case BOOL_TYPE:
+          printf("\nType is BOOL\n");
+          break;
+        case INT_TYPE:
+          printf("\nType is INT\n");
+          break;
+        case REAL_TYPE:
+          printf("\nType is REAL\n");
+          break;
+        case UNINTERPRETED_TYPE:
+          printf("\nType is UNINTERPRETED\n");
+          break;
+        case SCALAR_TYPE:
+          printf("\nType is SCALAR");
+          break;
+        default:
+          printf("\nType is other");
+          break;
       }
     }
 
-    switch(current_kind) {
-    case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is CONSTANT_TERM");
-        printf("\ncurrent kind is UNSUPPORTED\n");
-      }
-      // UNSUPPORTED TERM/THEORY
-      current_l2o = zero_term;
-      break;
-    case ARITH_CONSTANT:   // rational constant
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is ARITH_CONSTANT");
-      }
-      current_l2o = current;
-      break;
-    case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is UNINTERPRETED_TERM");
-      }
-      if (current_type == BOOL_TYPE) 
-      {
-        bool translate_bool2real = false;
-
-        // If translate_bool2real is False then, given a boolean proposition b
-        // L2O(b) is ITE(b, 0 ,1)
-        if(use_classic || !translate_bool2real){
-          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
-        }
-
-        // If translate_bool2real is True then, given a boolean variable b:
-        // - a real variable b_r is created
-        // - the atoms b and (not b) are translated in terms of b_r (two possible translations, see below)
-        else{
-          // Translation a: 
-          //    b -> b_r >= 1
-          //    not b -> b_r <= -1
-          // Translation b: 
-          //    b -> ITE(b_r >= 0, 0, 1)
-          //    not b -> ITE(b_r < 0, 0, 1)
-          bool translation_a = false;   // if translation_a = false, then it is Translation b
-
-          term_t cond = NULL_TERM;
-          term_t then_term = NULL_TERM;
-          term_t else_term = NULL_TERM;
-          term_t b2r_lit = NULL_TERM;
-          term_t b2r_term = NULL_TERM;
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\ncurrent type is BOOL_TYPE");
-          }
-          // Check if b2r variable already exists
-          term_t bool_var_unsigned = unsigned_term(current);
-          term_t b2r_var = l2o_var_get(l2o, bool_var_unsigned);       
-          if (b2r_var == NULL_TERM) {
-            // Create b2r variable
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              printf("\nCreting b2r variable\n");
-            }
-            b2r_var = yices_new_uninterpreted_term(yices_real_type());
-            l2o_var_set(l2o, bool_var_unsigned, b2r_var);
-          }
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            mcsat_trace_printf(l2o->tracer, "b2r_var = ");
-            trace_term_ln(l2o->tracer, terms, b2r_var);
-          }
-          term_t one = yices_int32(1);
-
-          if(is_pos_term(current)){      
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              printf("\nhas positive polarity\n");  
-            }
-            if(translation_a){
-              b2r_term = yices_sub(b2r_var, one);    
-            }else{
-              b2r_term = b2r_var;                  
-            }
-            
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              mcsat_trace_printf(l2o->tracer, "b2r_term = ");
-              trace_term_ln(l2o->tracer, terms, b2r_term);
-            }
-            b2r_lit = yices_arith_geq0_atom(b2r_term);
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              mcsat_trace_printf(l2o->tracer, "b2r_lit = ");
-              trace_term_ln(l2o->tracer, terms, b2r_lit);
-            }
-            cond = b2r_lit;
-            then_term = yices_zero();
-            if(translation_a){
-              else_term = yices_abs(b2r_term); 
-            }else{
-              else_term = one;
-            }
-            current_l2o = yices_ite(cond, then_term, else_term);
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              mcsat_trace_printf(l2o->tracer, "current_l2o = ");
-              trace_term_ln(l2o->tracer, terms, current_l2o);
-            }
-          }else{
-            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-              printf("\nhas negative polarity\n");  
-            }
-            term_t minusone = yices_int32(-1);
-
-            if(translation_a){
-              b2r_term = yices_sub(b2r_var, minusone);
-              b2r_lit = yices_arith_leq0_atom(b2r_term);
-              else_term = yices_abs(b2r_term); // Translation a
-            }else{
-              b2r_lit = yices_arith_lt0_atom(b2r_var);
-              else_term = one;                   // Translation b
-            }
-            cond = b2r_lit;
-            then_term = yices_zero();    
-            current_l2o = yices_ite(cond, then_term, else_term);
-          }
-        }
-      }
-      else if (current_type == INT_TYPE || current_type == REAL_TYPE){
-        current_l2o = current;
-      } 
-      else{
+    switch (current_kind) {
+      case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\ncurrent_kind: %d\n",current_kind);
+          printf("\ncurrent kind is CONSTANT_TERM");
           printf("\ncurrent kind is UNSUPPORTED\n");
         }
         // UNSUPPORTED TERM/THEORY
-        current_l2o = zero_term;  // zero_term default for terms for which we do not have a translation
-        //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
-      }
-      break;
-    case OR_TERM:        
-    {
-      if(is_pos_term(current)){    
+        current_l2o = zero_term;
+        break;
+      case ARITH_CONSTANT:   // rational constant
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\ncurrent kind is OR_TERM (positive polarity)\n");
+          printf("\ncurrent kind is ARITH_CONSTANT");
         }
-        composite_term_t* desc = get_composite(terms, current_kind, current);
-        uint32_t n = desc->arity;
+        current_l2o = current;
+        break;
+      case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\n n: %d\n",n);
+          printf("\ncurrent kind is UNINTERPRETED_TERM");
         }
-        term_t* args = desc->arg;
-        term_t args_l2o[n];
-        bool args_already_visited = true;
-        for (uint32_t i = 0; i < n; ++ i) {
-          term_t arg_i = args[i];
-          term_t arg_i_l2o = l2o_get(l2o, arg_i);      
-          if (arg_i_l2o == NULL_TERM) {
-            ivector_push(&l2o_stack, arg_i);
-            args_already_visited = false;
-          } 
-          else if( arg_i_l2o == zero_term){
-            args_l2o[i] = yices_int32(1);   // neutral element for product
-          } 
-          else{
-            args_l2o[i] = arg_i_l2o;
-          }
-        }
-        if (args_already_visited){
-          current_l2o = mk_product(l2o, n, args_l2o);
-        }else{
-          continue;
-        }
-      }else{
-        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\ncurrent kind is AND_TERM (i.e. OR with negative polarity)\n");
-        }
-        term_t current_unsigned = unsigned_term(current);
-        composite_term_t* desc = get_composite(terms, current_kind, current_unsigned);
-        uint32_t n = desc->arity;
-        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\n n: %d\n",n);
-        }
-        term_t* args = desc->arg;
-        term_t args_l2o[n];
-        bool args_already_visited = true;
-        for (uint32_t i = 0; i < n; ++ i) {
-          term_t arg_i = args[i];
-          term_t arg_i_neg = yices_not(arg_i);
-          term_t arg_i_neg_l2o = l2o_get(l2o, arg_i_neg);      
-          if (arg_i_neg_l2o == NULL_TERM) {
-            ivector_push(&l2o_stack, arg_i_neg);
-            args_already_visited = false;
-          } 
-          else if( arg_i_neg_l2o == zero_term){
-            args_l2o[i] = yices_zero();   // neutral element for sum
-          } 
-          else{
-            args_l2o[i] = arg_i_neg_l2o;
-          }
-        }
-        if (args_already_visited){
-          current_l2o = mk_sum(l2o, n, args_l2o);
-          //current_l2o = yices_sum(n, args_l2o); // Slower (e.g. QF_NIA/20210219-Dartagnan/ReachSafety-Loops/matrix-1-O0.smt2)
-        }else{
-          continue;
-        }
-      }
-    }
-    break;
+        if (current_type == BOOL_TYPE) {
+          bool translate_bool2real = false;
 
-    case ITE_TERM:        
-    case ITE_SPECIAL:        
-    {      
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is ITE_TERM or ITE_SPECIAL\n");
-      }
-      if(is_pos_term(current)){
-        composite_term_t* desc = get_composite(terms, current_kind, current);
-        assert( desc->arity == 3);
-        term_t* args = desc->arg;
-        term_t cond = args[0];
-        term_t args_l2o[3];
-        bool args_already_visited = true;
-        for (uint32_t i = 1; i < 3; ++ i) {
-          term_t arg_i = args[i];
-          term_t arg_i_l2o = l2o_get(l2o, arg_i);      
-          if (arg_i_l2o == NULL_TERM) {
-            ivector_push(&l2o_stack, arg_i);
-            args_already_visited = false;
-          } else{
-            args_l2o[i] = arg_i_l2o;
+          // If translate_bool2real is False then, given a boolean proposition b
+          // L2O(b) is ITE(b, 0 ,1)
+          if (use_classic || !translate_bool2real) {
+            current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
           }
-        };
-        if (args_already_visited){
-          current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
-        }else{
-          continue;
-        }
-      } else {
-        term_t current_unsigned = unsigned_term(current);
-        composite_term_t* desc = get_composite(terms, current_kind, current_unsigned);
-        assert( desc->arity == 3);
-        term_t* args = desc->arg;
-        term_t cond = args[0];
-        term_t t1 = args[1];
-        term_t t2 = args[2];
-        term_t t1neg = yices_not(t1);
-        term_t t2neg = yices_not(t2);
-        term_t args_l2o[3];
-        bool args_already_visited = true;
-        term_t t1neg_l2o = l2o_get(l2o, t1neg);      
-        if (t1neg_l2o == NULL_TERM) {
-          ivector_push(&l2o_stack, t1neg);
-          args_already_visited = false;
-        } else{
-          args_l2o[1] = t1neg_l2o;
-        }
-        term_t t2neg_l2o = l2o_get(l2o, t2neg);      
-        if (t2neg_l2o == NULL_TERM) {
-          ivector_push(&l2o_stack, t2neg);
-          args_already_visited = false;
-        } else{
-          args_l2o[2] = t2neg_l2o;
-        }
-        if (args_already_visited){
-          current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
-        }else{
-          continue;
-        }
-      }
-    }
-    break;
 
-    case ARITH_EQ_ATOM:      // equality (t == 0)
-    {
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is ARITH_EQ_ATOM\n");
-      }
-      if (use_classic) {
-        current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
-      } else {
-        if (is_pos_term(current)) {     // t == 0
+            // If translate_bool2real is True then, given a boolean variable b:
+            // - a real variable b_r is created
+            // - the atoms b and (not b) are translated in terms of b_r (two possible translations, see below)
+          else {
+            // Translation a:
+            //    b -> b_r >= 1
+            //    not b -> b_r <= -1
+            // Translation b:
+            //    b -> ITE(b_r >= 0, 0, 1)
+            //    not b -> ITE(b_r < 0, 0, 1)
+            bool translation_a = false;   // if translation_a = false, then it is Translation b
+
+            term_t cond = NULL_TERM;
+            term_t then_term = NULL_TERM;
+            term_t else_term = NULL_TERM;
+            term_t b2r_lit = NULL_TERM;
+            term_t b2r_term = NULL_TERM;
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\ncurrent type is BOOL_TYPE");
+            }
+            // Check if b2r variable already exists
+            term_t bool_var_unsigned = unsigned_term(current);
+            term_t b2r_var = l2o_var_get(l2o, bool_var_unsigned);
+            if (b2r_var == NULL_TERM) {
+              // Create b2r variable
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                printf("\nCreting b2r variable\n");
+              }
+              b2r_var = yices_new_uninterpreted_term(yices_real_type());
+              l2o_var_set(l2o, bool_var_unsigned, b2r_var);
+            }
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              mcsat_trace_printf(l2o->tracer, "b2r_var = ");
+              trace_term_ln(l2o->tracer, terms, b2r_var);
+            }
+            term_t one = yices_int32(1);
+
+            if (is_pos_term(current)) {
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                printf("\nhas positive polarity\n");
+              }
+              if (translation_a) {
+                b2r_term = yices_sub(b2r_var, one);
+              } else {
+                b2r_term = b2r_var;
+              }
+
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                mcsat_trace_printf(l2o->tracer, "b2r_term = ");
+                trace_term_ln(l2o->tracer, terms, b2r_term);
+              }
+              b2r_lit = yices_arith_geq0_atom(b2r_term);
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                mcsat_trace_printf(l2o->tracer, "b2r_lit = ");
+                trace_term_ln(l2o->tracer, terms, b2r_lit);
+              }
+              cond = b2r_lit;
+              then_term = yices_zero();
+              if (translation_a) {
+                else_term = yices_abs(b2r_term);
+              } else {
+                else_term = one;
+              }
+              current_l2o = yices_ite(cond, then_term, else_term);
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                mcsat_trace_printf(l2o->tracer, "current_l2o = ");
+                trace_term_ln(l2o->tracer, terms, current_l2o);
+              }
+            } else {
+              if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+                printf("\nhas negative polarity\n");
+              }
+              term_t minusone = yices_int32(-1);
+
+              if (translation_a) {
+                b2r_term = yices_sub(b2r_var, minusone);
+                b2r_lit = yices_arith_leq0_atom(b2r_term);
+                else_term = yices_abs(b2r_term); // Translation a
+              } else {
+                b2r_lit = yices_arith_lt0_atom(b2r_var);
+                else_term = one;                   // Translation b
+              }
+              cond = b2r_lit;
+              then_term = yices_zero();
+              current_l2o = yices_ite(cond, then_term, else_term);
+            }
+          }
+        } else if (current_type == INT_TYPE || current_type == REAL_TYPE) {
+          current_l2o = current;
+        } else {
           if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\n is positive (t == 0)\n");
+            printf("\ncurrent_kind: %d\n", current_kind);
+            printf("\ncurrent kind is UNSUPPORTED\n");
+          }
+          // UNSUPPORTED TERM/THEORY
+          current_l2o = zero_term;  // zero_term default for terms for which we do not have a translation
+          //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+        break;
+      case OR_TERM: {
+        if (is_pos_term(current)) {
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\ncurrent kind is OR_TERM (positive polarity)\n");
           }
           composite_term_t *desc = get_composite(terms, current_kind, current);
-          assert(desc->arity == 1);
+          uint32_t n = desc->arity;
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\n n: %d\n", n);
+          }
           term_t *args = desc->arg;
-          term_t t = args[0];
-          current_l2o = yices_abs(t);
+          term_t args_l2o[n];
+          bool args_already_visited = true;
+          for (uint32_t i = 0; i < n; ++i) {
+            term_t arg_i = args[i];
+            term_t arg_i_l2o = l2o_get(l2o, arg_i);
+            if (arg_i_l2o == NULL_TERM) {
+              ivector_push(&l2o_stack, arg_i);
+              args_already_visited = false;
+            } else if (arg_i_l2o == zero_term) {
+              args_l2o[i] = yices_int32(1);   // neutral element for product
+            } else {
+              args_l2o[i] = arg_i_l2o;
+            }
+          }
+          if (args_already_visited) {
+            current_l2o = mk_product(l2o, n, args_l2o);
+          } else {
+            continue;
+          }
+        } else {
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\ncurrent kind is AND_TERM (i.e. OR with negative polarity)\n");
+          }
+          term_t current_unsigned = unsigned_term(current);
+          composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
+          uint32_t n = desc->arity;
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\n n: %d\n", n);
+          }
+          term_t *args = desc->arg;
+          term_t args_l2o[n];
+          bool args_already_visited = true;
+          for (uint32_t i = 0; i < n; ++i) {
+            term_t arg_i = args[i];
+            term_t arg_i_neg = yices_not(arg_i);
+            term_t arg_i_neg_l2o = l2o_get(l2o, arg_i_neg);
+            if (arg_i_neg_l2o == NULL_TERM) {
+              ivector_push(&l2o_stack, arg_i_neg);
+              args_already_visited = false;
+            } else if (arg_i_neg_l2o == zero_term) {
+              args_l2o[i] = yices_zero();   // neutral element for sum
+            } else {
+              args_l2o[i] = arg_i_neg_l2o;
+            }
+          }
+          if (args_already_visited) {
+            current_l2o = mk_sum(l2o, n, args_l2o);
+            //current_l2o = yices_sum(n, args_l2o); // Slower (e.g. QF_NIA/20210219-Dartagnan/ReachSafety-Loops/matrix-1-O0.smt2)
+          } else {
+            continue;
+          }
+        }
+      }
+        break;
+
+      case ITE_TERM:
+      case ITE_SPECIAL: {
+        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+          printf("\ncurrent kind is ITE_TERM or ITE_SPECIAL\n");
+        }
+        if (is_pos_term(current)) {
+          composite_term_t *desc = get_composite(terms, current_kind, current);
+          assert(desc->arity == 3);
+          term_t *args = desc->arg;
+          term_t cond = args[0];
+          term_t args_l2o[3];
+          bool args_already_visited = true;
+          for (uint32_t i = 1; i < 3; ++i) {
+            term_t arg_i = args[i];
+            term_t arg_i_l2o = l2o_get(l2o, arg_i);
+            if (arg_i_l2o == NULL_TERM) {
+              ivector_push(&l2o_stack, arg_i);
+              args_already_visited = false;
+            } else {
+              args_l2o[i] = arg_i_l2o;
+            }
+          };
+          if (args_already_visited) {
+            current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
+          } else {
+            continue;
+          }
+        } else {
+          term_t current_unsigned = unsigned_term(current);
+          composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
+          assert(desc->arity == 3);
+          term_t *args = desc->arg;
+          term_t cond = args[0];
+          term_t t1 = args[1];
+          term_t t2 = args[2];
+          term_t t1neg = yices_not(t1);
+          term_t t2neg = yices_not(t2);
+          term_t args_l2o[3];
+          bool args_already_visited = true;
+          term_t t1neg_l2o = l2o_get(l2o, t1neg);
+          if (t1neg_l2o == NULL_TERM) {
+            ivector_push(&l2o_stack, t1neg);
+            args_already_visited = false;
+          } else {
+            args_l2o[1] = t1neg_l2o;
+          }
+          term_t t2neg_l2o = l2o_get(l2o, t2neg);
+          if (t2neg_l2o == NULL_TERM) {
+            ivector_push(&l2o_stack, t2neg);
+            args_already_visited = false;
+          } else {
+            args_l2o[2] = t2neg_l2o;
+          }
+          if (args_already_visited) {
+            current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
+          } else {
+            continue;
+          }
+        }
+      }
+        break;
+
+      case ARITH_EQ_ATOM:      // equality (t == 0)
+      {
+        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+          printf("\ncurrent kind is ARITH_EQ_ATOM\n");
+        }
+        if (use_classic) {
+          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+        } else {
+          if (is_pos_term(current)) {     // t == 0
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is positive (t == 0)\n");
+            }
+            composite_term_t *desc = get_composite(terms, current_kind, current);
+            assert(desc->arity == 1);
+            term_t *args = desc->arg;
+            term_t t = args[0];
+            current_l2o = yices_abs(t);
+          } else {                          // t != 0
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is negative (t != 0)\n");
+            }
+            term_t current_unsigned = unsigned_term(current);
+            composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
+            if (desc->arity != 1) assert(false);
+            term_t cond = current;
+            term_t then_term = yices_zero();
+            term_t else_term = yices_int32(1);
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
+          }
+        }
+      }
+        break;
+
+      case ARITH_BINEQ_ATOM:      // equality: (t1 == t2)  (between two arithmetic terms)
+      {
+        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+          printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
+        }
+        if (use_classic) {
+          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+        } else {
+          if (is_pos_term(current)) {   // t1 == t2
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is positive (t1==t2)\n");
+            }
+            composite_term_t *desc = get_composite(terms, current_kind, current);
+            assert(desc->arity == 2);
+            term_t *args = desc->arg;
+            term_t t1 = args[0];
+            term_t t2 = args[1];
+            term_t t = _o_yices_sub(t1, t2);
+            current_l2o = yices_abs(t);
+          } else {                        // t1 != t2
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is negative (t!=t2)\n");
+            }
+            term_t current_unsigned = unsigned_term(current);
+            composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
+            assert(desc->arity == 2);
+            term_t *args = desc->arg;
+            term_t t1 = args[0];
+            term_t t2 = args[1];
+            term_t t = _o_yices_sub(t1, t2);
+            term_t cond = _o_yices_arith_neq0_atom(t);  // t1 - t2 != 0
+            term_t then_term = yices_zero();
+            term_t else_term = yices_int32(1);
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
+          }
+        }
+      }
+        break;
+
+      case ARITH_GE_ATOM:      // atom t >= 0
+      {
+        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+          printf("\ncurrent kind is ARITH_GE_ATOM\n");
+        }
+        if (use_classic) {
+          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+        } else {
+          if (is_pos_term(current)) {   // t >= 0
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is positive (t>=0)\n");
+            }
+            composite_term_t *desc = get_composite(terms, current_kind, current);
+            assert(desc->arity == 1);
+            term_t *args = desc->arg;
+            term_t t = args[0];
+            term_t cond = current;
+            term_t then_term = yices_zero();
+            term_t else_term = yices_abs(t);
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
+          } else {                         // t < 0
+            if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+              printf("\n is negative  (t<0)\n");
+            }
+            term_t current_unsigned = unsigned_term(current);
+            composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
+            assert(desc->arity == 1);
+            term_t *args = desc->arg;
+            term_t t = args[0];
+            term_t cond = current;
+            term_t then_term = yices_zero();
+            term_t epsilon = yices_parse_float(EPSILON);
+            term_t args_sum[] = {yices_abs(t), epsilon};
+            term_t else_term = yices_sum(2, args_sum); // |t|+EPSILON
+            current_l2o = yices_ite(cond, then_term, else_term);
+          }
+        }
+      }
+        break;
+
+      case ARITH_FLOOR:
+      case ARITH_CEIL:
+      case ARITH_ABS:
+      case POWER_PRODUCT:
+      case ARITH_POLY:
+      case ARITH_RDIV:
+      case ARITH_IDIV:
+      case ARITH_MOD: {
+        current_l2o = current;
+        break;
+      }
+      case EQ_TERM:     // equality
+      {
+        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+          printf("\ncurrent kind is EQ_TERM\n");
+        }
+
+        if (is_pos_term(current)) {     // t1 == t2
+          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
+            printf("\n is positive (t1 == t2)\n");
+          }
+          composite_term_t *desc = get_composite(terms, current_kind, current);
+          uint32_t n = desc->arity;
+          assert(n == 2);
+          term_t *args = desc->arg;
+          term_t args_l2o[n];
+          bool args_already_visited = true;
+          for (uint32_t i = 0; i < n; ++i) {
+            term_t arg_i = args[i];
+            term_t arg_i_l2o = l2o_get(l2o, arg_i);
+            if (arg_i_l2o == NULL_TERM) {
+              ivector_push(&l2o_stack, arg_i);
+              args_already_visited = false;
+            } else {
+              args_l2o[i] = arg_i_l2o;
+            }
+          }
+          if (args_already_visited) {
+            term_t t = yices_sub(args_l2o[0], args_l2o[1]);
+            current_l2o = yices_abs(t);
+          } else {
+            continue;
+          }
         } else {                          // t != 0
           if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
             printf("\n is negative (t != 0)\n");
           }
+
           term_t current_unsigned = unsigned_term(current);
-          composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
-          if (desc->arity != 1) assert(false);
-          term_t cond = current;
+          term_t cond = current_unsigned;
           term_t then_term = yices_zero();
           term_t else_term = yices_int32(1);
           current_l2o = _o_yices_ite(cond, then_term, else_term);
         }
       }
-    }
-    break;
+        break;
 
-    case ARITH_BINEQ_ATOM:      // equality: (t1 == t2)  (between two arithmetic terms)
-    {
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
-      }
-      if (use_classic) {
-        current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
-      } else {
-        if (is_pos_term(current)) {   // t1 == t2
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\n is positive (t1==t2)\n");
-          }
-          composite_term_t *desc = get_composite(terms, current_kind, current);
-          assert(desc->arity == 2);
-          term_t *args = desc->arg;
-          term_t t1 = args[0];
-          term_t t2 = args[1];
-          term_t t = _o_yices_sub(t1, t2);
-          current_l2o = yices_abs(t);
-        } else {                        // t1 != t2
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\n is negative (t!=t2)\n");
-          }
-          term_t current_unsigned = unsigned_term(current);
-          composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
-          assert(desc->arity == 2);
-          term_t *args = desc->arg;
-          term_t t1 = args[0];
-          term_t t2 = args[1];
-          term_t t = _o_yices_sub(t1, t2);
-          term_t cond = _o_yices_arith_neq0_atom(t);  // t1 - t2 != 0
-          term_t then_term = yices_zero();
-          term_t else_term = yices_int32(1);
-          current_l2o = _o_yices_ite(cond, then_term, else_term);
-        }
-      }
-    }
-    break;
-
-    case ARITH_GE_ATOM:      // atom t >= 0
-    {     
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is ARITH_GE_ATOM\n");
-      }
-      if (use_classic) {
-        current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
-      } else {
-        if (is_pos_term(current)) {   // t >= 0
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\n is positive (t>=0)\n");
-          }
-          composite_term_t *desc = get_composite(terms, current_kind, current);
-          assert(desc->arity == 1);
-          term_t *args = desc->arg;
-          term_t t = args[0];
-          term_t cond = current;
-          term_t then_term = yices_zero();
-          term_t else_term = yices_abs(t);
-          current_l2o = _o_yices_ite(cond, then_term, else_term);
-        } else {                         // t < 0
-          if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-            printf("\n is negative  (t<0)\n");
-          }
-          term_t current_unsigned = unsigned_term(current);
-          composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
-          assert(desc->arity == 1);
-          term_t *args = desc->arg;
-          term_t t = args[0];
-          term_t cond = current;
-          term_t then_term = yices_zero();
-          term_t epsilon = yices_parse_float(EPSILON);
-          term_t args_sum[] = {yices_abs(t), epsilon};
-          term_t else_term = yices_sum(2, args_sum); // |t|+EPSILON
-          current_l2o = yices_ite(cond, then_term, else_term);
-        }
-      }
-    }
-    break;
-
-    case ARITH_FLOOR:
-    case ARITH_CEIL:
-    case ARITH_ABS:
-    case POWER_PRODUCT:
-    case ARITH_POLY:
-    case ARITH_RDIV:
-    case ARITH_IDIV:
-    case ARITH_MOD:
-    {
-      current_l2o = current;
-      break;
-    }
-    case EQ_TERM:     // equality
-    { 
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent kind is EQ_TERM\n");
-      }
-
-      if (is_pos_term(current)) {     // t1 == t2
+      default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\n is positive (t1 == t2)\n");
+          printf("\ncurrent_kind: %d\n", current_kind);
+          printf("\ncurrent kind is UNSUPPORTED\n");
         }
-        composite_term_t* desc = get_composite(terms, current_kind, current);
-        uint32_t n = desc->arity;
-        assert(n == 2);
-        term_t* args = desc->arg;
-        term_t args_l2o[n];
-        bool args_already_visited = true;
-        for (uint32_t i  = 0; i < n; ++ i) {
-          term_t arg_i = args[i];
-          term_t arg_i_l2o = l2o_get(l2o, arg_i);      
-          if (arg_i_l2o == NULL_TERM) {
-            ivector_push(&l2o_stack, arg_i);
-            args_already_visited = false;
-          } 
-          else{
-            args_l2o[i] = arg_i_l2o;
-          }
-        }
-        if (args_already_visited){
-          term_t t = yices_sub(args_l2o[0], args_l2o[1]);
-          current_l2o = yices_abs(t);
-        }else{
-          continue;
-        }
-      }
-      else {                          // t != 0
-        if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-          printf("\n is negative (t != 0)\n");
-        }
-        
-        term_t current_unsigned = unsigned_term(current);
-        term_t cond = current_unsigned;
-        term_t then_term = yices_zero();
-        term_t else_term = yices_int32(1);
-        current_l2o = _o_yices_ite(cond, then_term, else_term);
-      }
-    }
-    break;
-
-    default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
-      if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-        printf("\ncurrent_kind: %d\n",current_kind);
-        printf("\ncurrent kind is UNSUPPORTED\n");
-      }
-      // UNSUPPORTED TERM/THEORY
-      current_l2o = zero_term;    
-      //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
-      break;
+        // UNSUPPORTED TERM/THEORY
+        current_l2o = zero_term;
+        //longjmp(*l2o->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        break;
     }
 
     if (current_l2o != NULL_TERM) {
