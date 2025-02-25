@@ -1320,6 +1320,7 @@ double l2o_pick_cache_value(l2o_t *l2o, term_t var, const mcsat_value_t *val_mcs
   }
 }
 
+#ifdef L2O_VAR_PRIO_SORTING
 static
 bool l2o_compare_vars_vsids(void *data, int32_t a, int32_t b) {
   return var_queue_cmp_variables((const var_queue_t *)data, a, b) > 0;
@@ -1331,6 +1332,7 @@ bool l2o_compare_vars_bool(void *data, int32_t a, int32_t b) {
   // return true iff a < b
   return variable_db_is_boolean(var_db, a) && !variable_db_is_boolean(var_db, b);
 }
+#endif
 
 static
 void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue, l2o_search_state_t *state) {
@@ -1365,6 +1367,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
   }
   state->n_var_fixed = vars_fixed.size;
 
+#ifdef L2O_VAR_PRIO_SORTING
   if (queue) {
     // sort non-fixed here by VSIDS
     int_array_sort2(vars.data, vars.size, (void *) queue, l2o_compare_vars_vsids);
@@ -1373,6 +1376,7 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     // prefer boolean variables
     int_array_sort2(vars.data, vars.size, (void *) trail->var_db, l2o_compare_vars_bool);
   }
+#endif
 
   // join vectors
   assert(vars_fixed.size + vars.size == n_var);
