@@ -214,11 +214,12 @@ void l2o_var_set(l2o_t* l2o, term_t t, term_t t_l2o) {
 
 static
 term_t mk_product(l2o_t* l2o, uint32_t n, term_t* args){
-  pp_buffer_t* b = NULL;
-  b = (pp_buffer_t *) safe_malloc(sizeof(pp_buffer_t));
-  init_pp_buffer(b, n);
-  pp_buffer_set_vars(b, n, args);
-  return pprod_term_from_buffer(l2o->terms, b);
+  pp_buffer_t b;
+  init_pp_buffer(&b, n);
+  pp_buffer_set_vars(&b, n, args);
+  term_t t = pprod_term_from_buffer(l2o->terms, &b);
+  delete_pp_buffer(&b);
+  return t;
 }
 
 static
@@ -228,7 +229,9 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
   for (uint32_t i = 0; i < n; ++ i) {
     rba_buffer_add_var(&b, args[i]);
   }
-  return mk_arith_term(&l2o->tm, &b);
+  term_t t = mk_arith_term(&l2o->tm, &b);
+  delete_rba_buffer(&b);
+  return t;
 }
 
 static
@@ -320,7 +323,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 #ifndef L2O_BOOL2REAL
           // If L2O_BOOL2REAL is not defined then, given a boolean proposition b
           // L2O(b) is ITE(b, 0 ,1)
-          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
 #else
           // If L2O_BOOL2REAL is defined then, given a boolean variable b:
           // - a real variable b_r is created
@@ -356,14 +359,14 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             mcsat_trace_printf(l2o->tracer, "b2r_var = ");
             trace_term_ln(l2o->tracer, terms, b2r_var);
           }
-          term_t one = yices_int32(1);
+          term_t one = _o_yices_int32(1);
 
           if (is_pos_term(current)) {
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
               printf("\nhas positive polarity\n");
             }
             if (translation_a) {
-              b2r_term = yices_sub(b2r_var, one);
+              b2r_term = _o_yices_sub(b2r_var, one);
             } else {
               b2r_term = b2r_var;
             }
@@ -378,13 +381,13 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
               trace_term_ln(l2o->tracer, terms, b2r_lit);
             }
             cond = b2r_lit;
-            then_term = yices_zero();
+            then_term = zero_term;
             if (translation_a) {
-              else_term = yices_abs(b2r_term);
+              else_term = _o_yices_abs(b2r_term);
             } else {
               else_term = one;
             }
-            current_l2o = yices_ite(cond, then_term, else_term);
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
               mcsat_trace_printf(l2o->tracer, "current_l2o = ");
               trace_term_ln(l2o->tracer, terms, current_l2o);
@@ -393,19 +396,19 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
               printf("\nhas negative polarity\n");
             }
-            term_t minusone = yices_int32(-1);
+            term_t minusone = _o_yices_int32(-1);
 
             if (translation_a) {
-              b2r_term = yices_sub(b2r_var, minusone);
-              b2r_lit = yices_arith_leq0_atom(b2r_term);
-              else_term = yices_abs(b2r_term); // Translation a
+              b2r_term = _o_yices_sub(b2r_var, minusone);
+              b2r_lit = _o_yices_arith_leq0_atom(b2r_term);
+              else_term = _o_yices_abs(b2r_term); // Translation a
             } else {
-              b2r_lit = yices_arith_lt0_atom(b2r_var);
+              b2r_lit = _o_yices_arith_lt0_atom(b2r_var);
               else_term = one;                   // Translation b
             }
             cond = b2r_lit;
-            then_term = yices_zero();
-            current_l2o = yices_ite(cond, then_term, else_term);
+            then_term = zero_term;
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
 #endif
         } else if (current_type == INT_TYPE || current_type == REAL_TYPE) {
@@ -441,7 +444,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
               ivector_push(&l2o_stack, arg_i);
               args_already_visited = false;
             } else if (arg_i_l2o == zero_term) {
-              args_l2o[i] = yices_int32(1);   // neutral element for product
+              args_l2o[i] = _o_yices_int32(1);   // neutral element for product
             } else {
               args_l2o[i] = arg_i_l2o;
             }
@@ -466,13 +469,13 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           bool args_already_visited = true;
           for (uint32_t i = 0; i < n; ++i) {
             term_t arg_i = args[i];
-            term_t arg_i_neg = yices_not(arg_i);
+            term_t arg_i_neg = opposite_term(arg_i);
             term_t arg_i_neg_l2o = l2o_get(l2o, arg_i_neg);
             if (arg_i_neg_l2o == NULL_TERM) {
               ivector_push(&l2o_stack, arg_i_neg);
               args_already_visited = false;
             } else if (arg_i_neg_l2o == zero_term) {
-              args_l2o[i] = yices_zero();   // neutral element for sum
+              args_l2o[i] = zero_term;   // neutral element for sum
             } else {
               args_l2o[i] = arg_i_neg_l2o;
             }
@@ -510,7 +513,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             }
           };
           if (args_already_visited) {
-            current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
+            current_l2o = _o_yices_ite(cond, args_l2o[1], args_l2o[2]);
           } else {
             continue;
           }
@@ -522,8 +525,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t cond = args[0];
           term_t t1 = args[1];
           term_t t2 = args[2];
-          term_t t1neg = yices_not(t1);
-          term_t t2neg = yices_not(t2);
+          term_t t1neg = opposite_term(t1);
+          term_t t2neg = opposite_term(t2);
           term_t args_l2o[3];
           bool args_already_visited = true;
           term_t t1neg_l2o = l2o_get(l2o, t1neg);
@@ -541,7 +544,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             args_l2o[2] = t2neg_l2o;
           }
           if (args_already_visited) {
-            current_l2o = yices_ite(cond, args_l2o[1], args_l2o[2]);
+            current_l2o = _o_yices_ite(cond, args_l2o[1], args_l2o[2]);
           } else {
             continue;
           }
@@ -555,7 +558,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_EQ_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
         } else {
           if (is_pos_term(current)) {     // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -565,7 +568,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             assert(desc->arity == 1);
             term_t *args = desc->arg;
             term_t t = args[0];
-            current_l2o = yices_abs(t);
+            current_l2o = _o_yices_abs(t);
           } else {                          // t != 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
               printf("\n is negative (t != 0)\n");
@@ -574,8 +577,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
             if (desc->arity != 1) assert(false);
             term_t cond = current;
-            term_t then_term = yices_zero();
-            term_t else_term = yices_int32(1);
+            term_t then_term = zero_term;
+            term_t else_term = _o_yices_int32(1);
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
@@ -588,7 +591,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
         } else {
           if (is_pos_term(current)) {   // t1 == t2
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -600,7 +603,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             term_t t1 = args[0];
             term_t t2 = args[1];
             term_t t = _o_yices_sub(t1, t2);
-            current_l2o = yices_abs(t);
+            current_l2o = _o_yices_abs(t);
           } else {                        // t1 != t2
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
               printf("\n is negative (t!=t2)\n");
@@ -613,8 +616,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             term_t t2 = args[1];
             term_t t = _o_yices_sub(t1, t2);
             term_t cond = _o_yices_arith_neq0_atom(t);  // t1 - t2 != 0
-            term_t then_term = yices_zero();
-            term_t else_term = yices_int32(1);
+            term_t then_term = zero_term;
+            term_t else_term = _o_yices_int32(1);
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
@@ -627,7 +630,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_GE_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = yices_ite(current, yices_zero(), yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
         } else {
           if (is_pos_term(current)) {   // t >= 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -638,8 +641,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             term_t *args = desc->arg;
             term_t t = args[0];
             term_t cond = current;
-            term_t then_term = yices_zero();
-            term_t else_term = yices_abs(t);
+            term_t then_term = zero_term;
+            term_t else_term = _o_yices_abs(t);
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           } else {                         // t < 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -651,11 +654,10 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             term_t *args = desc->arg;
             term_t t = args[0];
             term_t cond = current;
-            term_t then_term = yices_zero();
-            term_t epsilon = yices_parse_float(EPSILON);
-            term_t args_sum[] = {yices_abs(t), epsilon};
-            term_t else_term = yices_sum(2, args_sum); // |t|+EPSILON
-            current_l2o = yices_ite(cond, then_term, else_term);
+            term_t then_term = zero_term;
+            term_t epsilon = _o_yices_parse_float(EPSILON);
+            term_t else_term = _o_yices_add(_o_yices_abs(t), epsilon); // |t|+EPSILON
+            current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
         break;
@@ -698,8 +700,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             }
           }
           if (args_already_visited) {
-            term_t t = yices_sub(args_l2o[0], args_l2o[1]);
-            current_l2o = yices_abs(t);
+            term_t t = _o_yices_sub(args_l2o[0], args_l2o[1]);
+            current_l2o = _o_yices_abs(t);
           } else {
             continue;
           }
@@ -710,8 +712,8 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 
           term_t current_unsigned = unsigned_term(current);
           term_t cond = current_unsigned;
-          term_t then_term = yices_zero();
-          term_t else_term = yices_int32(1);
+          term_t then_term = zero_term;
+          term_t else_term = _o_yices_int32(1);
           current_l2o = _o_yices_ite(cond, then_term, else_term);
         }
         break;
@@ -1436,8 +1438,8 @@ term_t l2o_make_cost_fx(l2o_t* l2o) {
     term_t f_i = assertions->data[i];
     f_l2o[i] = l2o_apply(l2o, f_i);
   }
-  // TODO change to list to enable incremental solving and use push/pop to restore old cost functions on restarts
-  return yices_sum(n_assertions, f_l2o);
+  return mk_sum(l2o, n_assertions, f_l2o);
+  // return yices_sum(n_assertions, f_l2o); this is slower
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
