@@ -1429,8 +1429,17 @@ void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool 
   l2o_search_state_destruct(&state);
 }
 
+// TODO mark all l2o_terms for GC or clear term tables
+static
+void l2o_reset(l2o_t *l2o) {
+  // TODO reset varset_table, varset_members_cache, and freevars_map
+  int_hmap_reset(&l2o->l2o_map);
+}
+
 static
 term_t l2o_make_cost_fx(l2o_t* l2o) {
+  l2o_reset(l2o);
+
   ivector_t* assertions = &l2o->assertions;
   int32_t n_assertions = assertions->size;
   term_t f_l2o[n_assertions];
