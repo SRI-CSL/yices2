@@ -40,16 +40,11 @@ bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
   return state->n_var == 0;
 }
 
-/** Get the varset_table index of the set of free variables in t */
-int32_t get_freevars_index(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables in t */
-const int_hset_t* get_freevars(const l2o_t* l2o, term_t t);
-
-/** Get the set of free variables from a term given its varset_table index  */
-const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index);
-
+// TODO move to term.c
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
+
+/** checks if l2o term t has any of free variables of set_of_vars */
+bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
 
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.

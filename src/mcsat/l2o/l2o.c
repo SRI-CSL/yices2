@@ -103,18 +103,21 @@ void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   (*l2o->l2o_stats.n_terms)++;
 }
 
+static
 int32_t get_freevars_index(const l2o_t* l2o, term_t t) {
   term_t t_unsigned = unsigned_term(t);
   int_hmap_pair_t* find = int_hmap_find(&l2o->freevars_map, t_unsigned);
   return find == NULL ? -1 : find->val;
 }
 
+static
 const int_hset_t* get_freevars(const l2o_t* l2o, term_t t){
   term_t t_unsigned = unsigned_term(t);
   int32_t index = get_freevars_index(l2o,  t_unsigned);
   return index == -1 ? NULL : get_varset(&l2o->varset_table, index);
 }
 
+static
 const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index){
   assert(index != -1);
   return get_varset(&l2o->varset_table, index);
@@ -153,6 +156,40 @@ void construct_union_set_from_indices(const l2o_t* l2o, const int32_t* indices, 
       int_hset_add(out, var);
     }
   }
+}
+
+static
+bool is_var_member_of_varset(l2o_t *l2o, term_t var, const int_hset_t *varset, int32_t varset_index) {
+  //TODO change name &l2o->varset_members_cache
+  pmap2_rec_t *rec = pmap2_get(&l2o->varset_members_cache, var, varset_index);
+  if (rec->val == -1) {    // not cached yet
+    bool var_is_member = false;
+    for (uint32_t j = 0; j < varset->nelems; ++j) {
+      if (var == varset->data[j]) {
+        var_is_member = true;
+        break;
+      }
+    }
+    rec->val = var_is_member;
+  } else {
+    assert(rec->val == true || rec->val == false);
+  }
+  return rec->val;
+}
+
+/** Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1) */
+bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars) {
+  int32_t index_vars_in_t = get_freevars_index(l2o, t);
+  assert(index_vars_in_t != -1);
+  const int_hset_t *vars_in_t = get_freevars_from_index(l2o, index_vars_in_t);
+
+  for (uint32_t i = 0; i < set_of_vars->size; ++i) {
+    bool var_is_member = is_var_member_of_varset(l2o, set_of_vars->data[i], vars_in_t, index_vars_in_t);
+    if (var_is_member) {
+      return true;
+    }
+  }
+  return false;
 }
 
 #ifdef L2O_BOOL2REAL
