@@ -43,6 +43,7 @@ void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* ha
   init_term_manager(&l2o->tm, terms);
   init_ivector(&l2o->assertions, 0);
   init_int_hmap(&l2o->l2o_map, 0);
+  init_int_hmap(&l2o->simplify_map, 0);
 
 #ifdef L2O_BOOL2REAL
   init_int_hmap(&l2o->l2o_var_map, 0);
@@ -75,6 +76,7 @@ void l2o_destruct(l2o_t* l2o) {
   delete_int_hmap(&l2o->l2o_var_map);
 #endif
 
+  delete_int_hmap(&l2o->simplify_map);
   delete_varset_table(&l2o->varset_table);
   delete_int_hmap(&l2o->freevars_map);
   delete_pmap2(&l2o->varset_members_cache);
@@ -232,6 +234,57 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
   term_t t = mk_arith_term(&l2o->tm, &b);
   delete_rba_buffer(&b);
   return t;
+}
+
+static inline
+bool trail_get_bool_value_term(const mcsat_trail_t *trail, term_t t, bool *b) {
+  variable_t t_var = variable_db_get_variable_if_exists(trail->var_db, unsigned_term(t));
+  if (t_var != variable_null
+      && variable_db_is_boolean(trail->var_db, t_var)
+      && trail_has_value(trail, t_var)
+  ) {
+    *b = trail_get_boolean_value(trail, t_var);
+    return true;
+  }
+  return false;
+}
+
+static
+term_t l2o_simplify(l2o_t* l2o, term_t t, const mcsat_trail_t *trail, int_hset_t *used_terms) {
+  term_table_t *table = l2o->terms;
+  term_manager_t *tm = &l2o->tm;
+  int_hmap_t *cache = &l2o->simplify_map;
+
+  term_kind_t t_kind = term_kind(table, t);
+
+  // cache lookup
+  int_hmap_pair_t *p = int_hmap_find(cache, t);
+  if (p) return p->val;
+
+  term_t result;
+  // check if the current term is boolean and has a trail value
+  // TODO maybe to this just for the boolean atoms (i.e. arith >= 0, ==, etc.)
+  bool value;
+  if (is_neg_term(t)) {
+    result = opposite_term(l2o_simplify(l2o, opposite_term(t), trail, used_terms));
+  } else if (is_boolean_term(table, t) && trail_get_bool_value_term(trail, t, &value)) {
+    int_hset_add(used_terms, unsigned_term(t));
+    result = value ? true_term : false_term;
+  } else if (term_is_composite(table, t)) {
+    composite_term_t *desc = get_composite(table, t_kind, t);
+    uint32_t n = desc->arity;
+    term_t *a = desc->arg;
+    term_t c[n];
+    for (uint32_t i = 0; i < n; ++i) {
+      c[i] = l2o_simplify(l2o, a[i], trail, used_terms);
+    }
+    result = mk_composite(tm, t_kind, n, c);
+  } else {
+    result = t;
+  }
+
+  int_hmap_add(cache, t, result);
+  return result;
 }
 
 static
@@ -1434,25 +1487,40 @@ static
 void l2o_reset(l2o_t *l2o) {
   // TODO reset varset_table, varset_members_cache, and freevars_map
   int_hmap_reset(&l2o->l2o_map);
+  int_hmap_reset(&l2o->simplify_map);
 }
 
 static
-term_t l2o_make_cost_fx(l2o_t* l2o) {
+term_t l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_reset(l2o);
 
-  ivector_t* assertions = &l2o->assertions;
-  int32_t n_assertions = assertions->size;
-  term_t f_l2o[n_assertions];
-  for (uint32_t i = 0; i < n_assertions; ++ i) {
-    term_t f_i = assertions->data[i];
-    f_l2o[i] = l2o_apply(l2o, f_i);
+  ivector_t l2o_terms;
+  init_ivector(&l2o_terms, 0);
+  int_hset_t used_trail_terms;
+  init_int_hset(&used_trail_terms, 0);
+
+  const ivector_t* assertions = &l2o->assertions;
+  for (uint32_t i = 0; i < assertions->size; ++ i) {
+    term_t f = assertions->data[i];
+    term_t f1 = l2o_simplify(l2o, f, trail, &used_trail_terms);
+    term_t f2 = l2o_apply(l2o, f1);
+    ivector_push(&l2o_terms, f2);
   }
-  return mk_sum(l2o, n_assertions, f_l2o);
-  // return yices_sum(n_assertions, f_l2o); this is slower
+  // add used terms to the cost function
+  int_hset_close(&used_trail_terms);
+  for (uint32_t i = 0; i < used_trail_terms.nelems; ++ i) {
+    term_t t = l2o_apply(l2o, used_trail_terms.data[i]);
+    ivector_push(&l2o_terms, t);
+  }
+  term_t result = mk_sum(l2o, l2o_terms.size, l2o_terms.data);
+
+  delete_ivector(&l2o_terms);
+  delete_int_hset(&used_trail_terms);
+  return result;
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
-  term_t cost_fx = l2o_make_cost_fx(l2o);
+  term_t cost_fx = l2o_make_cost_fx(l2o, trail);
 
   if (trace_enabled(l2o->tracer, "mcsat::l2o")){
     mcsat_trace_printf(l2o->tracer, "\tfinal cost_fx id = %d", cost_fx);   

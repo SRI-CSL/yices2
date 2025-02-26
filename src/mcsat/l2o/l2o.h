@@ -58,6 +58,9 @@ typedef struct {
   /** Map from terms to their L2O version */
   int_hmap_t l2o_map;
 
+  /** Map for term simplification when a trail is present */
+  int_hmap_t simplify_map;
+
 #ifdef L2O_BOOL2REAL
   /** Map from vars to L2O vars, handling also Bool-to-Real and Int-to-Real */
   int_hmap_t l2o_var_map;
