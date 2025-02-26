@@ -1518,7 +1518,7 @@ term_t l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   int_hset_close(&used_trail_terms);
   for (uint32_t i = 0; i < used_trail_terms.nelems; ++ i) {
     term_t t = used_trail_terms.data[i];
-    bool b_trail;
+    bool b_trail = true;
     bool tmp = trail_get_bool_value_term(trail, t, &b_trail);
     (void)tmp;
     assert(tmp);
