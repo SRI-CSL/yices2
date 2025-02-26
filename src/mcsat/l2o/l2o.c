@@ -238,7 +238,8 @@ term_t mk_sum(l2o_t* l2o, uint32_t n, term_t* args){
 
 static inline
 bool trail_get_bool_value_term(const mcsat_trail_t *trail, term_t t, bool *b) {
-  variable_t t_var = variable_db_get_variable_if_exists(trail->var_db, unsigned_term(t));
+  assert(is_pos_term(t));
+  variable_t t_var = variable_db_get_variable_if_exists(trail->var_db, t);
   if (t_var != variable_null
       && variable_db_is_boolean(trail->var_db, t_var)
       && trail_has_value(trail, t_var)
@@ -351,14 +352,21 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
       }
     }
 
+    term_t one_term = _o_yices_int32(1);
+
     switch (current_kind) {
       case CONSTANT_TERM: {   // constant of uninterpreted/scalar/boolean types
         if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
           printf("\ncurrent kind is CONSTANT_TERM");
           printf("\ncurrent kind is UNSUPPORTED\n");
         }
-        // UNSUPPORTED TERM/THEORY
-        current_l2o = zero_term;
+        if (t == true_term) { current_l2o = zero_term; }
+        else if (t == false_term) { current_l2o = one_term; }
+        else {
+          // UNSUPPORTED TERM/THEORY
+          current_l2o = zero_term;
+          assert(false);
+        }
         break;
       }
       case ARITH_CONSTANT: {  // rational constant
@@ -376,7 +384,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
 #ifndef L2O_BOOL2REAL
           // If L2O_BOOL2REAL is not defined then, given a boolean proposition b
           // L2O(b) is ITE(b, 0 ,1)
-          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, one_term);
 #else
           // If L2O_BOOL2REAL is defined then, given a boolean variable b:
           // - a real variable b_r is created
@@ -412,7 +420,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             mcsat_trace_printf(l2o->tracer, "b2r_var = ");
             trace_term_ln(l2o->tracer, terms, b2r_var);
           }
-          term_t one = _o_yices_int32(1);
+          term_t one = one_term;
 
           if (is_pos_term(current)) {
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -497,7 +505,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
               ivector_push(&l2o_stack, arg_i);
               args_already_visited = false;
             } else if (arg_i_l2o == zero_term) {
-              args_l2o[i] = _o_yices_int32(1);   // neutral element for product
+              args_l2o[i] = one_term;   // neutral element for product
             } else {
               args_l2o[i] = arg_i_l2o;
             }
@@ -611,7 +619,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_EQ_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, one_term);
         } else {
           if (is_pos_term(current)) {     // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -631,7 +639,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             if (desc->arity != 1) assert(false);
             term_t cond = current;
             term_t then_term = zero_term;
-            term_t else_term = _o_yices_int32(1);
+            term_t else_term = one_term;
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
@@ -644,7 +652,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, one_term);
         } else {
           if (is_pos_term(current)) {   // t1 == t2
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -670,7 +678,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
             term_t t = _o_yices_sub(t1, t2);
             term_t cond = _o_yices_arith_neq0_atom(t);  // t1 - t2 != 0
             term_t then_term = zero_term;
-            term_t else_term = _o_yices_int32(1);
+            term_t else_term = one_term;
             current_l2o = _o_yices_ite(cond, then_term, else_term);
           }
         }
@@ -683,7 +691,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           printf("\ncurrent kind is ARITH_GE_ATOM\n");
         }
         if (use_classic) {
-          current_l2o = _o_yices_ite(current, zero_term, _o_yices_int32(1));
+          current_l2o = _o_yices_ite(current, zero_term, one_term);
         } else {
           if (is_pos_term(current)) {   // t >= 0
             if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
@@ -766,7 +774,7 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
           term_t current_unsigned = unsigned_term(current);
           term_t cond = current_unsigned;
           term_t then_term = zero_term;
-          term_t else_term = _o_yices_int32(1);
+          term_t else_term = one_term;
           current_l2o = _o_yices_ite(cond, then_term, else_term);
         }
         break;
@@ -1509,8 +1517,13 @@ term_t l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   // add used terms to the cost function
   int_hset_close(&used_trail_terms);
   for (uint32_t i = 0; i < used_trail_terms.nelems; ++ i) {
-    term_t t = l2o_apply(l2o, used_trail_terms.data[i]);
-    ivector_push(&l2o_terms, t);
+    term_t t = used_trail_terms.data[i];
+    bool b_trail;
+    bool tmp = trail_get_bool_value_term(trail, t, &b_trail);
+    (void)tmp;
+    assert(tmp);
+    term_t t_l2o = l2o_apply(l2o, signed_term(t, b_trail));
+    ivector_push(&l2o_terms, t_l2o);
   }
   term_t result = mk_sum(l2o, l2o_terms.size, l2o_terms.data);
 
