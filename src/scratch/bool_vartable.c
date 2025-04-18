@@ -747,10 +747,10 @@ void  bool_vartable_push_eq(bool_vartable_t *table, literal_t l1, literal_t l2) 
   if (opposite(l1, l2)) {
     bool_vartable_add_empty_clause(table);
   } else if (l1 != l2) {
-    if (l1 == true_literal)  return bool_vartable_add_unit_clause(table, l2);
-    if (l1 == false_literal) return bool_vartable_add_unit_clause(table, not(l2));
-    if (l2 == true_literal)  return bool_vartable_add_unit_clause(table, l1);
-    if (l2 == false_literal) return bool_vartable_add_unit_clause(table, not(l1));
+    if (l1 == true_literal)  { bool_vartable_add_unit_clause(table, l2); return; }
+    if (l1 == false_literal) { bool_vartable_add_unit_clause(table, not(l2)); return; }
+    if (l2 == true_literal)  { bool_vartable_add_unit_clause(table, l1); return; }
+    if (l2 == false_literal) { bool_vartable_add_unit_clause(table, not(l1)); return; }
 
     push_equiv(&table->queue, l1, l2);
     if (root_boolvar_map(table, var_of(l1)) == null_literal ||
