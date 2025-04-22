@@ -431,11 +431,7 @@ void trail_update_extra_cache(mcsat_trail_t* trail) {
   if (trail->elements.size > trail->best_depth) {
     // keep only the values for assigned variables as best promising assignment
     for (var = 0; var < trail->best_cache.size; ++var) {
-      if (!trail_has_value(trail, var)) {
-        if (mcsat_model_has_value(&trail->best_cache, var)) {
-          mcsat_model_unset_value(&trail->best_cache, var);
-        }
-      } else {
+      if (trail_has_value(trail, var)) {
         mcsat_model_set_value(&trail->best_cache, var, trail_get_value(trail, var));
       }
     }
@@ -444,11 +440,7 @@ void trail_update_extra_cache(mcsat_trail_t* trail) {
   if (trail->elements.size > trail->target_depth) {
     // save the assigned values as target assignment
     for (var = 0; var < trail->target_cache.size; ++var) {
-      if (!trail_has_value(trail, var)) {
-        if (mcsat_model_has_value(&trail->target_cache, var)) {
-          mcsat_model_unset_value(&trail->target_cache, var);
-        }
-      } else {
+      if (trail_has_value(trail, var)) {
         mcsat_model_set_value(&trail->target_cache, var, trail_get_value(trail, var));
       }
     }
