@@ -1,1 +1,1 @@
---mcsat --trace mcsat::bv::conflict::check --trace mcsat::bv::rewrite::check
+--mcsat --mcsat-bv-var-size=8 --trace mcsat::bv::conflict::check --trace mcsat::bv::rewrite::check

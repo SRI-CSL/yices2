@@ -79,6 +79,14 @@ void mcsat_model_destruct(mcsat_model_t* m) {
   safe_free(m->timestamps);
 }
 
+void mcsat_model_copy(mcsat_model_t* m, const mcsat_model_t* from) {
+  mcsat_model_ensure_capacity(m, from->capacity);
+  m->size = from->size;
+  mcsat_value_construct_copy_n(m->values, from->values, m->size);
+  memcpy(m->timestamps, from->timestamps, m->capacity * sizeof(uint32_t));
+  m->timestamp = from->timestamp;
+}
+
 void mcsat_model_new_variable_notify(mcsat_model_t* m, variable_t x) {
   if (x >= m->size) {
     mcsat_model_resize(m, x + 1);
