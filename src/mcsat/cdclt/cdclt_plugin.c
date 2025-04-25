@@ -220,7 +220,7 @@ void cdclt_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     variable_t x = trail_at(trail, cdclt->trail_i);
     
     if (variable_db_is_boolean(var_db, x)) {
-      term_t x_term = x_term = variable_db_get_term(var_db, x);
+      term_t x_term = variable_db_get_term(var_db, x);
       const mcsat_value_t* v = trail_get_value(trail, x);
       if (mcsat_value_is_false(v)) x_term = _o_yices_not(x_term);
       int_hmap_pair_t *x_term_assump = int_hmap_find(&cdclt->term2assump_map, x_term);
