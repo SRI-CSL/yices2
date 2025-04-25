@@ -393,6 +393,7 @@ mcsat_src_c := \
 	mcsat/bv/explain/eq_ext_con.c \
 	mcsat/bv/explain/full_bv_sat.c \
 	mcsat/bv/explain/full_bv_trivial.c \
+	mcsat/cdclt/cdclt_plugin.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
