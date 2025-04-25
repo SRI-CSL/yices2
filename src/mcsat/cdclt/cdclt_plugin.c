@@ -240,8 +240,6 @@ void cdclt_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     (*cdclt->stats.checks) ++;
 
     if (result == STATUS_UNSAT) {
-      term_vector_t core;
-
       context_build_unsat_core(cdclt->cdclt_ctx, &cdclt->conflict);
 
       for (uint32_t i = 0; i < cdclt->conflict.size; ++i) {
