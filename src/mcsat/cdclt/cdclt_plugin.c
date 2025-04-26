@@ -117,6 +117,7 @@ void cdclt_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   //ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM, false);
   //ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM, false);
 
+  //ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
   //ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM, false);
   //ctx->request_term_notification_by_kind(ctx, ARITH_IS_INT_ATOM, false);
   //ctx->request_term_notification_by_kind(ctx, ARITH_BINEQ_ATOM, false);
@@ -184,6 +185,7 @@ void cdclt_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* pro
       _o_yices_assert_formula(cdclt->cdclt_ctx, _o_yices_implies(b, _o_yices_not(t)));
       cdclt->check_limit++;
       break;
+    case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
     case ARITH_IS_INT_ATOM:
     case ARITH_BINEQ_ATOM:
