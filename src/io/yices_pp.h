@@ -175,6 +175,7 @@ typedef enum {
   PP_OPEN,               // empty label, no parenthesis, HMT layout
   PP_OPEN_PAR,           // empty label, open parenthesis, HMT layout
   PP_OPEN_VPAR,          // empty label, open parenthesis, V layout
+  PP_OPEN_TPAR,          // empty label, open parenthesis, T layout
 
   PP_OPEN_BV_TYPE,
   PP_OPEN_FF_TYPE,
@@ -250,7 +251,6 @@ typedef enum {
   PP_OPEN_SMT2_BV_TYPE, // (_ BitVec ...)
   PP_OPEN_SMT2_FF_DEC, // (_ ff... ..)
   PP_OPEN_SMT2_FF_TYPE, // (_ FiniteField ...)
-  PP_OPEN_SMT2_MODEL,   // (model ...)
   PP_OPEN_SMT2_DEF,     // (define-fun ...)
   PP_OPEN_SMT2_STORE,   // (store <array> <index> <value>)
   PP_OPEN_SMT2_AS_CONST,  // (as const <type> <value>)  (for constant arrays. type is the array type).
