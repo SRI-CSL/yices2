@@ -4547,7 +4547,11 @@ static void explain_unknown_status(smt2_globals_t *g) {
         break;
 
       case STATUS_IDLE:
-        print_error("can't tell until you call (check-sat)");
+        if (g->timeout > 0 && g->interrupted) {
+          print_kw_symbol_pair(":reason-unknown", "timeout");
+        } else {
+          print_error("can't tell until you call (check-sat)");
+        }
         break;
 
       case STATUS_SEARCHING:
