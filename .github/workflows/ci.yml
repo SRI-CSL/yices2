@@ -31,8 +31,10 @@ jobs:
     - name: Cache apt packages
       uses: actions/cache@v3
       with:
-        path: /var/cache/apt
-        key: ${{ runner.os }}-apt-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}
+        path: |
+          /var/cache/apt
+          /var/lib/apt/lists
+        key: ${{ runner.os }}-apt-${{ hashFiles('**/configure.ac', '**/Makefile.am', '**/configure') }}
         restore-keys: |
           ${{ runner.os }}-apt-
 
