@@ -137,6 +137,25 @@ static void process_assumption(smt_core_t *core, literal_t l) {
  */
 
 /*
+ * Handle the reduce heuristic:
+ * - If number of learned clauses exceeds threshold, reduce the clause database
+ * - Update the threshold using the reduction factor
+ * - Return the number of clauses deleted
+ */
+static uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, double r_factor) {
+  uint64_t deletions = 0;
+
+  if (num_learned_clauses(core) >= *r_threshold) {
+    deletions = core->stats.learned_clauses_deleted;
+    reduce_clause_database(core);
+    *r_threshold = (uint32_t) (*r_threshold * r_factor);
+    trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
+  }
+
+  return deletions;
+}
+
+/*
  * Bounded search with the default branching heuristic (picosat-like)
  * - search until the conflict bound is reached or until the problem is solved.
  * - reduce_threshold: number of learned clauses above which reduce_clause_database is called
@@ -145,31 +164,23 @@ static void process_assumption(smt_core_t *core, literal_t l) {
  */
 static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
   uint64_t max_conflicts;
-  uint64_t deletions;
-  uint32_t r_threshold;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_threshold = *reduce_threshold;
 
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    if (num_learned_clauses(core) >= r_threshold) {
-      deletions = core->stats.learned_clauses_deleted;
-      reduce_clause_database(core);
-      r_threshold = (uint32_t) (r_threshold * r_factor);
-      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
-    }
+    try_reduce_heuristic(core, reduce_threshold, r_factor);
 
     // assumption
     if (core->has_assumptions) {
       l = get_next_assumption(core);
       if (l != null_literal) {
-	process_assumption(core, l);
-	continue;
+        process_assumption(core, l);
+        continue;
       }
     }
 
@@ -183,8 +194,6 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
       smt_process(core);
     }
   }
-
-  *reduce_threshold = r_threshold;
 }
 
 
@@ -199,31 +208,23 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
  */
 static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
   uint64_t max_conflicts;
-  uint64_t deletions;
-  uint32_t r_threshold;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_threshold = *reduce_threshold;
 
   smt_bounded_process(core, max_conflicts);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
-    if (num_learned_clauses(core) >= r_threshold) {
-      deletions = core->stats.learned_clauses_deleted;
-      reduce_clause_database(core);
-      r_threshold = (uint32_t) (r_threshold * r_factor);
-      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
-    }
+    try_reduce_heuristic(core, reduce_threshold, r_factor);
 
     // assumption
     if (core->has_assumptions) {
       l = get_next_assumption(core);
       if (l != null_literal) {
-	process_assumption(core, l);
-	continue;
+        process_assumption(core, l);
+        continue;
       }
     }
 
@@ -237,8 +238,6 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
       smt_bounded_process(core, max_conflicts);
     }
   }
-
-  *reduce_threshold = r_threshold;
 }
 
 /*
@@ -258,31 +257,23 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
 static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold,
                            double r_factor, branching_fun_t branch) {
   uint64_t max_conflicts;
-  uint64_t deletions;
-  uint32_t r_threshold;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_threshold = *reduce_threshold;
 
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    if (num_learned_clauses(core) >= r_threshold) {
-      deletions = core->stats.learned_clauses_deleted;
-      reduce_clause_database(core);
-      r_threshold = (uint32_t) (r_threshold * r_factor);
-      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
-    }
+    try_reduce_heuristic(core, reduce_threshold, r_factor);
 
     // assumption
     if (core->has_assumptions) {
       l = get_next_assumption(core);
       if (l != null_literal) {
-	process_assumption(core, l);
-	continue;
+        process_assumption(core, l);
+        continue;
       }
     }
 
@@ -299,8 +290,6 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
       smt_process(core);
     }
   }
-
-  *reduce_threshold = r_threshold;
 }
 
 
