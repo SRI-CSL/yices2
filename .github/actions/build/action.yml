@@ -13,8 +13,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Build and install libpoly
+    - name: Cache libpoly
+      id: cache-libpoly
       if: contains(inputs.config-opt, '--enable-mcsat')
+      uses: actions/cache@v3
+      with:
+        path: libpoly
+        key: ${{ runner.os }}-${{ matrix.os }}-libpoly-${{ hashFiles('**/configure.ac', '**/configure') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.os }}-libpoly-
+
+    - name: Build and install libpoly
+      if: contains(inputs.config-opt, '--enable-mcsat') && steps.cache-libpoly.outputs.cache-hit != 'true'
       shell: bash
       run: |
         pushd .
@@ -25,8 +35,19 @@ runs:
         make
         sudo make install
         popd
-    - name: Build and install CUDD
+
+    - name: Cache CUDD
+      id: cache-cudd
       if: contains(inputs.config-opt, '--enable-mcsat')
+      uses: actions/cache@v3
+      with:
+        path: cudd
+        key: ${{ runner.os }}-${{ matrix.os }}-cudd-3.0.0-${{ hashFiles('**/configure.ac', '**/configure') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.os }}-cudd-3.0.0-
+
+    - name: Build and install CUDD
+      if: contains(inputs.config-opt, '--enable-mcsat') && steps.cache-cudd.outputs.cache-hit != 'true'
       shell: bash
       run: |
         pushd .
@@ -38,7 +59,8 @@ runs:
         make
         sudo make install
         popd
-    - name: Build and test Yices
+
+    - name: Build Yices2
       shell: bash
       run: |
         autoconf

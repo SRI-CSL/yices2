@@ -28,19 +28,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cache installed dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          /usr/local
-          /usr/lib
-          /usr/include
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/configure.ac', '**/configure') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
-
     - name: Install Dependencies
-      if: steps.cache-deps.outputs.cache-hit != 'true'
       uses: ./.github/actions/install-dependencies
 
     - name: Build
