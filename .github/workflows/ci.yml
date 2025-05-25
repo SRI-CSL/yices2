@@ -28,13 +28,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cache apt packages
+    - name: Cache installed dependencies
       uses: actions/cache@v3
       with:
-        path: ~/.cache/apt
-        key: ${{ runner.os }}-apt-${{ hashFiles('**/configure.ac', '**/configure') }}
+        path: |
+          /usr/local
+          /usr/lib
+          /usr/include
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/configure.ac', '**/configure') }}
         restore-keys: |
-          ${{ runner.os }}-apt-
+          ${{ runner.os }}-deps-
 
     - name: Cache build artifacts
       uses: actions/cache@v3
@@ -42,14 +45,20 @@ jobs:
         path: |
           build/
           .cache/
+          **/*.o
+          **/*.a
+          **/*.so
+          **/*.dylib
         key: ${{ runner.os }}-build-${{ matrix.mode }}-${{ matrix.config-opt }}-${{ hashFiles('**/*.c', '**/*.h', '**/*.cpp', '**/*.hpp', '**/Makefile*', '**/configure*') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ matrix.mode }}-${{ matrix.config-opt }}-
 
     - name: Install Dependencies
+      if: steps.cache-deps.outputs.cache-hit != 'true'
       uses: ./.github/actions/install-dependencies
 
     - name: Build
+      if: steps.cache-build.outputs.cache-hit != 'true'
       uses: ./.github/actions/build
       with:
         mode: ${{ matrix.mode }}
