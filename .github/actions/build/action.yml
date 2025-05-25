@@ -19,9 +19,9 @@ runs:
       uses: actions/cache@v3
       with:
         path: libpoly
-        key: ${{ runner.os }}-${{ matrix.os }}-libpoly-${{ hashFiles('**/configure.ac', '**/configure') }}
+        key: ${{ runner.os }}-libpoly-${{ hashFiles('**/configure.ac', '**/configure') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.os }}-libpoly-
+          ${{ runner.os }}-libpoly-
 
     - name: Build and install libpoly
       if: contains(inputs.config-opt, '--enable-mcsat') && steps.cache-libpoly.outputs.cache-hit != 'true'
@@ -42,9 +42,9 @@ runs:
       uses: actions/cache@v3
       with:
         path: cudd
-        key: ${{ runner.os }}-${{ matrix.os }}-cudd-3.0.0-${{ hashFiles('**/configure.ac', '**/configure') }}
+        key: ${{ runner.os }}-cudd-3.0.0-${{ hashFiles('**/configure.ac', '**/configure') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.os }}-cudd-3.0.0-
+          ${{ runner.os }}-cudd-3.0.0-
 
     - name: Build and install CUDD
       if: contains(inputs.config-opt, '--enable-mcsat') && steps.cache-cudd.outputs.cache-hit != 'true'
