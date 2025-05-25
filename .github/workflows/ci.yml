@@ -40,18 +40,19 @@ jobs:
           ${{ runner.os }}-deps-
 
     - name: Cache build artifacts
+      id: cache-build
       uses: actions/cache@v3
       with:
         path: |
-          build/
-          .cache/
+          .build/
+          **/.libs/
           **/*.o
           **/*.a
           **/*.so
           **/*.dylib
-        key: ${{ runner.os }}-build-${{ matrix.mode }}-${{ matrix.config-opt }}-${{ hashFiles('**/*.c', '**/*.h', '**/*.cpp', '**/*.hpp', '**/Makefile*', '**/configure*') }}
+        key: ${{ runner.os }}-${{ matrix.mode }}-${{ matrix.config-opt }}-${{ hashFiles('**/configure.ac', '**/configure', '**/Makefile.am') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ matrix.mode }}-${{ matrix.config-opt }}-
+          ${{ runner.os }}-${{ matrix.mode }}-${{ matrix.config-opt }}-
 
     - name: Install Dependencies
       if: steps.cache-deps.outputs.cache-hit != 'true'
