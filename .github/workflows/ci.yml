@@ -39,27 +39,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-deps-
 
-    - name: Cache build artifacts
-      id: cache-build
-      uses: actions/cache@v3
-      with:
-        path: |
-          .build/
-          **/.libs/
-          **/*.o
-          **/*.a
-          **/*.so
-          **/*.dylib
-        key: ${{ runner.os }}-${{ matrix.mode }}-${{ matrix.config-opt }}-${{ hashFiles('**/configure.ac', '**/configure', '**/Makefile.am') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ matrix.mode }}-${{ matrix.config-opt }}-
-
     - name: Install Dependencies
       if: steps.cache-deps.outputs.cache-hit != 'true'
       uses: ./.github/actions/install-dependencies
 
     - name: Build
-      if: steps.cache-build.outputs.cache-hit != 'true'
       uses: ./.github/actions/build
       with:
         mode: ${{ matrix.mode }}
