@@ -32,7 +32,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/.cache/apt
-        key: ${{ runner.os }}-apt-${{ hashFiles('**/configure.ac', '**/Makefile.am', '**/configure') }}
+        key: ${{ runner.os }}-apt-${{ hashFiles('**/configure.ac', '**/configure') }}
         restore-keys: |
           ${{ runner.os }}-apt-
 
