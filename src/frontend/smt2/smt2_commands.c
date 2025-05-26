@@ -3972,7 +3972,7 @@ static void print_smt2_model(smt2_pp_t *printer, smt2_model_t *sm) {
   terms = __yices_globals.terms;
   vtbl = model_get_vtbl(sm->model);
 
-  pp_open_block(&printer->pp, PP_OPEN_SMT2_MODEL);
+  pp_open_block(&printer->pp, PP_OPEN_TPAR);
 
   n = sm->names.size;
   for (i=0; i<n; i++) {
@@ -4547,7 +4547,11 @@ static void explain_unknown_status(smt2_globals_t *g) {
         break;
 
       case STATUS_IDLE:
-        print_error("can't tell until you call (check-sat)");
+        if (g->timeout > 0 && g->interrupted) {
+          print_kw_symbol_pair(":reason-unknown", "timeout");
+        } else {
+          print_error("can't tell until you call (check-sat)");
+        }
         break;
 
       case STATUS_SEARCHING:
