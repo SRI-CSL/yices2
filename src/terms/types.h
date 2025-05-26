@@ -195,14 +195,6 @@ typedef struct type_macro_s {
 
 
 /*
- * Maximal arity: it must satisfy two constraints
- * - max_arity <= TUPLE_HMAP_MAX_ARITY
- * - sizeof(type_macro_t) + sizeof(type_t) * max_arity <= UINT32_MAX
- * - a limit of 128 should be more than enough
- */
-#define TYPE_MACRO_MAX_ARITY 128
-
-/*
  * The type of an element in the macro table.
  */
 typedef struct type_mtbl_elem_s {
@@ -225,7 +217,13 @@ typedef struct type_mtbl_s {
   tuple_hmap_t cache;   // existing macro instances
 } type_mtbl_t;
 
-
+/*
+ * For TYPE_MACRO_MAX_ARITY:
+ * Maximal arity: it must satisfy two constraints
+ * - max_arity <= TUPLE_HMAP_MAX_ARITY
+ * - sizeof(type_macro_t) + sizeof(type_t) * max_arity <= UINT32_MAX
+ * - a limit of 128 should be more than enough
+ */
 
 /*
  * Default and maximal size
