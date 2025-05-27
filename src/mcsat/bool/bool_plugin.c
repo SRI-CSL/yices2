@@ -1065,3 +1065,10 @@ plugin_t* bool_plugin_allocator(void) {
 
   return (plugin_t*) plugin;
 }
+
+
+// TODO find proper place
+bool bool_plugin_get_clauses_of_variable(plugin_t *plugin, variable_t var, ivector_t *clauses) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  return cnf_get_clauses(&bp->cnf, var, clauses);
+}

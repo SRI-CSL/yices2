@@ -24,4 +24,7 @@
 /** Allocate a new bool plugin and setup the plugin-interface method */
 plugin_t* bool_plugin_allocator(void);
 
+// TEMP
+bool bool_plugin_get_clauses_of_variable(plugin_t *bp, variable_t var, ivector_t *clauses);
+
 #endif /* BOOL_PLUGIN_H_ */
