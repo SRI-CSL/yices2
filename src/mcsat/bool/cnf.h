@@ -19,6 +19,8 @@
 #ifndef CNF_H_
 #define CNF_H_
 
+#include <stdbool.h>
+
 #include "mcsat/plugin.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/bool/clause_db.h"
@@ -67,6 +69,12 @@ mcsat_literal_t cnf_convert(cnf_t* cnf, term_t t, ivector_t* t_clauses);
  * be added to the given vector.
  */
 void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses);
+
+/**
+ * Gets all converted clauses of a given variable if the variable was converted.
+ * If the variable was converted, clauses contains all clause_refs and true is returned.
+ */
+bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses);
 
 /**
  * Mark all the clauses that are definitions for the variables in gc_vars.
