@@ -956,7 +956,8 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat_add_plugins(mcsat);
 
   // Construct L2O
-  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception, mcsat->plugins[mcsat->nra_plugin_id].plugin);
+  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception, mcsat->plugins[mcsat->nra_plugin_id].plugin,
+                mcsat->plugins[mcsat->bool_plugin_id].plugin);
 }
 
 void mcsat_destruct(mcsat_solver_t* mcsat) {

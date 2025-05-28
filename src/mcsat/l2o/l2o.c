@@ -36,10 +36,12 @@ void l2o_stats_init(l2o_t* l2o) {
   l2o->l2o_stats.n_eval_runs = statistics_new_int(&l2o->stats, "l2o::eval_runs");
 }
 
-void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra) {
+void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra, plugin_t*
+bool_plugin) {
   l2o->mode = mode;
   l2o->terms = terms;
   l2o->nra = nra;
+  l2o->bool_plugin = bool_plugin;
   init_term_manager(&l2o->tm, terms);
   init_ivector(&l2o->assertions, 0);
   init_int_hmap(&l2o->l2o_map, 0);

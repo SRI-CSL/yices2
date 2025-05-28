@@ -1072,3 +1072,22 @@ bool bool_plugin_get_clauses_of_variable(plugin_t *plugin, variable_t var, ivect
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   return cnf_get_clauses(&bp->cnf, var, clauses);
 }
+
+void bool_plugin_query_unit_clause(plugin_t *plugin, variable_t var, ivector_t *terms) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  assert(!cnf_get_clauses(&bp->cnf, var, NULL));
+  ivector_push(terms, variable_db_get_term(bp->ctx->var_db, var));
+}
+
+void bool_plugin_query_clause(plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
+  mcsat_clause_t *C = clause_db_get_clause(&bp->clause_db, clause_ref);
+  for (uint32_t i = 0; i < C->size; ++i) {
+    assert(C->literals[i] != 0);
+    mcsat_literal_t l = C->literals[i];
+    term_t t = variable_db_get_term(bp->ctx->var_db, literal_get_variable(l));
+    if (literal_is_negated(l)) t = opposite_term(t);
+    ivector_push(terms, t);
+  }
+}

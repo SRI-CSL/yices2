@@ -397,6 +397,7 @@ mcsat_src_c := \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/l2o/l2o.c \
+	mcsat/l2o/l2o_cost_fx.c \
 	mcsat/l2o/evaluator.c \
 	mcsat/l2o/hill_climbing.c \
 	mcsat/l2o/varset_table.c \

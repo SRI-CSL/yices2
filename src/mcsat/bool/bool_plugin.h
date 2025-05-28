@@ -25,6 +25,9 @@
 plugin_t* bool_plugin_allocator(void);
 
 // TEMP
+#include "bool_plugin_types.h"
 bool bool_plugin_get_clauses_of_variable(plugin_t *bp, variable_t var, ivector_t *clauses);
+void bool_plugin_query_clause(plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms);
+void bool_plugin_query_unit_clause(plugin_t *plugin, variable_t var, ivector_t *terms);
 
 #endif /* BOOL_PLUGIN_H_ */

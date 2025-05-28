@@ -396,6 +396,7 @@ bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses) {
     return false;
   }
 
+  assert(clauses);
   int_lset_iterator_construct(&it, &cnf->converted, var);
   while (!int_lset_iterator_done(&it)) {
     clause_ref = *int_lset_iterator_get(&it);
