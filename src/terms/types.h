@@ -218,7 +218,7 @@ typedef struct type_mtbl_s {
 } type_mtbl_t;
 
 /*
- * For TYPE_MACRO_MAX_ARITY:
+ * For TYPE_MACRO_MAX_ARITY (defined in include/yices_limits.h):
  * Maximal arity: it must satisfy two constraints
  * - max_arity <= TUPLE_HMAP_MAX_ARITY
  * - sizeof(type_macro_t) + sizeof(type_t) * max_arity <= UINT32_MAX
