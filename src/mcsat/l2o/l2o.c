@@ -18,7 +18,6 @@
 
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
-#include "mcsat/tracing.h"
 #include "terms/term_explorer.h"
 #include "api/yices_api_lock_free.h"
 #include "utils/int_array_sort2.h"
@@ -55,8 +54,6 @@ bool_plugin) {
   init_int_hmap(&l2o->freevars_map, 0);
   init_pmap2(&l2o->varset_members_cache);
 
-  init_double_hmap(&l2o->eval_map, 0);
-  init_double_hmap(&l2o->eval_cache, 0);
   l2o->tracer = NULL;
   l2o->exception = handler;
   scope_holder_construct(&l2o->scope);
@@ -83,8 +80,6 @@ void l2o_destruct(l2o_t* l2o) {
   delete_int_hmap(&l2o->freevars_map);
   delete_pmap2(&l2o->varset_members_cache);
 
-  delete_double_hmap(&l2o->eval_map);
-  delete_double_hmap(&l2o->eval_cache);
   scope_holder_destruct(&l2o->scope);
   statistics_destruct(&l2o->stats);
 }
@@ -1475,14 +1470,16 @@ void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool 
     return;
   }
 
+  l2o_cost_fx_term_t fx;
   l2o_search_state_t state;
 
-  // create search state
+  // create search state and cost fx
+  l2o_cost_fx_term_construct(l2o, &fx, t);
   l2o_search_state_create(l2o, t, trail, use_cached_values, queue, &state);
 
   if (!l2o_search_state_is_empty(&state)) {
     // Improve val using hill_climbing
-    hill_climbing(l2o, t, &state);
+    hill_climbing(l2o, (l2o_cost_fx_t*)&fx, &state);
 
     // Set hints
     l2o_set_hint(l2o, trail, &state);
@@ -1490,6 +1487,7 @@ void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool 
 
   // destroy state
   l2o_search_state_destruct(&state);
+  l2o_cost_fx_term_destruct(&fx);
 }
 
 // TODO mark all l2o_terms for GC or clear term tables
@@ -1498,7 +1496,6 @@ void l2o_reset(l2o_t *l2o) {
   // TODO reset varset_table, varset_members_cache, and freevars_map
   int_hmap_reset(&l2o->l2o_map);
   int_hmap_reset(&l2o->simplify_map);
-  double_hmap_reset(&l2o->eval_cache);
 }
 
 static

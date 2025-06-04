@@ -76,12 +76,6 @@ typedef struct {
   /** Map from a variable and an index of varset_table to a boolean which is true iff the variable is member of the varset */
   pmap2_t varset_members_cache;
 
-  /** Temporary evaluation map */
-  double_hmap_t eval_map;
-
-  /** Evaluator cache */
-  double_hmap_t eval_cache;
-
   /** Statistics */
   statistics_t stats;
 

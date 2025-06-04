@@ -31,6 +31,19 @@ typedef struct {
   double *val;
 } l2o_search_state_t;
 
+typedef double_hmap_t l2o_evaluator_t;
+
+typedef struct l2o_cost_fx {
+  /** Function to approximate the cost of the function under state
+   *  May update internal state and caches. */
+  double (*eval)(struct l2o_cost_fx *fx, const l2o_search_state_t *state);
+
+  /** Updates the cache with the last evaluation result. */
+  void (*update_cache)(struct l2o_cost_fx *fx);
+
+  /** the l2o the cost fx is associated to */
+  l2o_t *l2o;
+} l2o_cost_fx_t;
 
 void l2o_search_state_construct_empty(l2o_search_state_t *state);
 
@@ -47,15 +60,40 @@ bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
  */
-double l2o_evaluate_term_approx(l2o_t *l2o, term_t term, const l2o_search_state_t *state);
+double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t term);
+
+void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state);
+
+void l2o_evaluator_construct_cache(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state,
+                                   const double_hmap_t *cache);
+
 
 /**
  * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
  */
-void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state);
+void hill_climbing(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state);
 
 
 typedef struct {
+  l2o_cost_fx_t fx;
+
+  /** The term to evaluate. */
+  term_t term;
+
+  /** Map of subterms of term to their value. */
+  double_hmap_t eval_map;
+
+  /** Cache of eval_map. */
+  double_hmap_t eval_cache;
+} l2o_cost_fx_term_t;
+
+void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t);
+void l2o_cost_fx_term_destruct(l2o_cost_fx_term_t *fx);
+
+
+typedef struct {
+  l2o_cost_fx_t fx;
+
   /** zero-terminated list of clauses with its terms */
   term_t *lit;
 
@@ -68,20 +106,20 @@ typedef struct {
   /** map of var -> [clause_id] */
   int_lset_t var2clause;
 
-  /** the bool plugin to query */
-  l2o_t *l2o;
-} l2o_cost_fx_t;
+  /** Map of subterms of term to their value. */
+  double_hmap_t eval_map;
 
-void l2o_cost_fx_construct(l2o_t *l2o, l2o_cost_fx_t *fx);
+  /** Cache of eval_map. */
+  double_hmap_t eval_cache;
+} l2o_cost_fx_cnf_t;
 
-void l2o_cost_fx_destruct(l2o_cost_fx_t *fx);
+void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
 
-/** counts the number of unsatisfied clauses in the given state. */
-uint32_t l2o_cost_fx_eval(const l2o_cost_fx_t *fx, const l2o_search_state_t *state);
+void l2o_cost_fx_cnf_destruct(l2o_cost_fx_cnf_t *fx);
 
 /** adds an assertion to the cost function. Returns the number of added clauses. */
-uint32_t l2o_cost_fx_add(l2o_cost_fx_t *fx, variable_t v);
+uint32_t l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, variable_t v);
 
-void l2o_cost_fx_print(const l2o_cost_fx_t *fx, FILE *out);
+void l2o_cost_fx_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
 
 #endif /* MCSAT_L2O_INTERNAL_H_ */

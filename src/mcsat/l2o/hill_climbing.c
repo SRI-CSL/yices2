@@ -95,13 +95,8 @@ bool did_improve(double *best, double new) {
   }
 }
 
-static inline
-void update_cache(l2o_t *l2o) {
-  double_hmap_swap(&l2o->eval_cache, &l2o->eval_map);
-}
-
 static
-bool optimize_bool(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, double *best, uint32_t *eval_runs) {
+bool optimize_bool(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state, uint32_t v, double *best, uint32_t *eval_runs) {
   const double old_val = state->val[v];
 
   assert(is_boolean_term(l2o->terms, state->var[v]));
@@ -109,12 +104,12 @@ bool optimize_bool(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, 
 
   // try opposite value
   state->val[v] = old_val == 0.0 ? 1.0 : 0.0;   // try opposite value
-  double new_cost = l2o_evaluate_term_approx(l2o, t, state);
+  double new_cost = fx->eval(fx, state);
   (*eval_runs) ++;
 
   bool success = did_improve(best, new_cost);
   if (success) {
-    update_cache(l2o);
+    fx->update_cache(fx);
   } else {
     // restore old value
     state->val[v] = old_val;
@@ -127,7 +122,7 @@ bool optimize_bool(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, 
 #define CANDIDATES 4
 
 static
-bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, double *step_size, double *best, uint32_t *eval_runs) {
+bool optimize_number(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state, uint32_t v, double *step_size, double *best, uint32_t *eval_runs) {
   term_t t_var = state->var[v];
   double *const val = &state->val[v];
   const double old_val = state->val[v];
@@ -159,11 +154,11 @@ bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v
       continue;
     }
 
-    double new_cost = l2o_evaluate_term_approx(l2o, t, state);
+    double new_cost = fx->eval(fx, state);
     (*eval_runs) ++;
 
     if (did_improve(best, new_cost)) {
-      update_cache(l2o);
+      fx->update_cache(fx);
       success = true;
       best_step = step;
       best_val = *val;
@@ -176,7 +171,8 @@ bool optimize_number(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v
 }
 
 static
-bool optimize_fs(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, double *best, uint32_t *eval_runs) {
+bool optimize_fs(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state, uint32_t v, double *best, uint32_t
+*eval_runs) {
   term_t t_var = state->var[v];
   double *const val = &state->val[v];
   const double old_val = state->val[v];
@@ -205,11 +201,11 @@ bool optimize_fs(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, do
       continue;
     }
 
-    double new_cost = l2o_evaluate_term_approx(l2o, t, state);
+    double new_cost = fx->eval(fx, state);
     (*eval_runs) ++;
 
     if (did_improve(best, new_cost)) {
-      update_cache(l2o);
+      fx->update_cache(fx);
       success = true;
       best_val = *val;
     }
@@ -224,7 +220,7 @@ bool optimize_fs(l2o_t *l2o, term_t t, l2o_search_state_t *state, uint32_t v, do
 #define MAX_ITER  1000
 #define MAX_CALLS (MAX_ITER * 4)
 
-void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
+void hill_climbing(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state) {
   assert(state->n_var >= 1);
   assert(state->n_var_fixed <= state->n_var);
 
@@ -250,10 +246,8 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
   }
 
   // Reset evaluator cache cost (this forces the update of the cache at the next call)
-  double best_cost = l2o_evaluate_term_approx(l2o, t, state);
-  assert(double_hmap_find(&l2o->eval_map, t) != NULL);
-  // force cache update
-  update_cache(l2o);
+  double best_cost = fx->eval(fx, state);
+  fx->update_cache(fx);
 
   uint32_t var_idx = state->n_var_fixed + next_var(&order);
 
@@ -268,13 +262,13 @@ void hill_climbing(l2o_t *l2o, term_t t, l2o_search_state_t *state) {
 
     bool has_improved;
     if (is_boolean_term(terms, var[var_idx])) {
-      has_improved = optimize_bool(l2o, t, state, var_idx, &best_cost, &n_calls);
+      has_improved = optimize_bool(l2o, fx, state, var_idx, &best_cost, &n_calls);
     } else {
-      has_improved = optimize_fs(l2o, t, state, var_idx, &best_cost, &n_calls);
+      has_improved = optimize_fs(l2o, fx, state, var_idx, &best_cost, &n_calls);
       // TODO get feasible cell boundary and use it for optimize_number
       bool has_improved_hc;
       do {
-        has_improved_hc = optimize_number(l2o, t, state, var_idx, &step_size[var_idx], &best_cost, &n_calls);
+        has_improved_hc = optimize_number(l2o, fx, state, var_idx, &step_size[var_idx], &best_cost, &n_calls);
         has_improved = has_improved || has_improved_hc;
       } while(has_improved_hc && n_calls < MAX_CALLS);
     }
