@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "context/context.h"
 #include "context/internalization_codes.h"
@@ -142,13 +143,14 @@ static void process_assumption(smt_core_t *core, literal_t l) {
  * - Update the threshold using the reduction factor
  * - Return the number of clauses deleted
  */
-static uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, double r_factor) {
+inline static uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, uint64_t *r_count, uint64_t r_interval) {
   uint64_t deletions = 0;
 
   if (num_learned_clauses(core) >= *r_threshold) {
     deletions = core->stats.learned_clauses_deleted;
     reduce_clause_database(core);
-    *r_threshold = (uint32_t) (*r_threshold * r_factor);
+    *r_count = *r_count + 1;
+    *r_threshold += (uint32_t) (*r_count * r_interval * pow(log10(*r_count + 9), 4));
     trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
   }
 
@@ -162,18 +164,19 @@ static uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, do
  * - r_factor = increment factor for reduce_threshold
  * - use the default branching heuristic implemented by the core
  */
-static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
-  uint64_t max_conflicts;
+static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, uint32_t r_interval) {
+  uint64_t max_conflicts, r_count;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
+  r_count = 0;
 
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, r_factor);
+    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -206,18 +209,18 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
  *
  * This uses smt_bounded_process to force more frequent restarts.
  */
-static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
-  uint64_t max_conflicts;
+static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, uint32_t r_interval) {
+  uint64_t max_conflicts, r_count;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-
+  r_count = 0;
   smt_bounded_process(core, max_conflicts);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, r_factor);
+    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -255,18 +258,18 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
  * - use the branching heuristic implemented by branch
  */
 static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold,
-                           double r_factor, branching_fun_t branch) {
-  uint64_t max_conflicts;
+                           uint32_t r_interval, branching_fun_t branch) {
+  uint64_t max_conflicts, r_count;
   literal_t l;
 
   assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-
+  r_count = 0;
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, r_factor);
+    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -375,10 +378,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
     luby = params->c_factor == 0.0;
   }
 
-  reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
-  if (reduce_threshold < params->r_threshold) {
-    reduce_threshold = params->r_threshold;
-  }
+  reduce_threshold = params->r_initial_threshold;
 
   // initialize then do a propagation + simplification step.
   start_search(core, n, a);
@@ -388,26 +388,26 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
     for (;;) {
       switch (params->branching) {
       case BRANCHING_DEFAULT:
-	if (luby) {
-	  luby_search(core, c_threshold, &reduce_threshold, params->r_factor);
-	} else {
-	  search(core, c_threshold, &reduce_threshold, params->r_factor);
-	}
+        if (luby) {
+          luby_search(core, c_threshold, &reduce_threshold, params->r_interval);
+        } else {
+          search(core, c_threshold, &reduce_threshold, params->r_interval);
+        }
         break;
       case BRANCHING_NEGATIVE:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, negative_branch);
+        special_search(core, c_threshold, &reduce_threshold, params->r_interval, negative_branch);
         break;
       case BRANCHING_POSITIVE:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, positive_branch);
+        special_search(core, c_threshold, &reduce_threshold, params->r_interval, positive_branch);
         break;
       case BRANCHING_THEORY:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_branch);
+        special_search(core, c_threshold, &reduce_threshold, params->r_interval, theory_branch);
         break;
       case BRANCHING_TH_NEG:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_neg_branch);
+        special_search(core, c_threshold, &reduce_threshold, params->r_interval, theory_or_neg_branch);
         break;
       case BRANCHING_TH_POS:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_pos_branch);
+        special_search(core, c_threshold, &reduce_threshold, params->r_interval, theory_or_pos_branch);
         break;
       }
 

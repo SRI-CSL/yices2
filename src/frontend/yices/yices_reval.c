@@ -1280,16 +1280,12 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_float_param(param2string[p], parameters.c_factor, n);
     break;
 
-  case PARAM_R_THRESHOLD:
-    show_pos32_param(param2string[p], parameters.r_threshold, n);
+  case PARAM_R_INITIAL_THRESHOLD:
+    show_pos32_param(param2string[p], parameters.r_initial_threshold, n);
     break;
 
-  case PARAM_R_FRACTION:
-    show_float_param(param2string[p], parameters.r_fraction, n);
-    break;
-
-  case PARAM_R_FACTOR:
-    show_float_param(param2string[p], parameters.r_factor, n);
+  case PARAM_R_INTERVAL:
+    show_pos32_param(param2string[p], parameters.r_interval, n);
     break;
 
   case PARAM_VAR_DECAY:
@@ -1670,23 +1666,16 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     }
     break;
 
-  case PARAM_R_THRESHOLD:
+  case PARAM_R_INITIAL_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      parameters.r_threshold = n;
+      parameters.r_initial_threshold = n;
       print_ok();
     }
     break;
 
-  case PARAM_R_FRACTION:
-    if (param_val_to_ratio(param, val, &x, &reason)) {
-      parameters.r_fraction = x;
-      print_ok();
-    }
-    break;
-
-  case PARAM_R_FACTOR:
-    if (param_val_to_factor(param, val, &x, &reason)) {
-      parameters.r_factor = x;
+  case PARAM_R_INTERVAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      parameters.r_interval = n;
       print_ok();
     }
     break;

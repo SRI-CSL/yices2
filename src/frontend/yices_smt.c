@@ -232,9 +232,8 @@ typedef enum optid {
   d_factor_opt,               // restart parameter (only relevant if fast_restart is true)
 
   // Clause database reduction
-  r_threshold_opt,            // lower limit on conflict-reduction threshold
-  r_fraction_opt,
-  r_factor_opt,
+  r_initial_threshold_opt,    // initial conflict-reduction threshold
+  r_interval_opt,             // interval for conflict-reduction threshold
 
   // Branching heuristics
   var_decay_opt,              // decay factor for variable activities
@@ -307,9 +306,8 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "d-threshold", '\0', MANDATORY_INT, d_threshold_opt },
   { "d-factor", '\0', MANDATORY_FLOAT, d_factor_opt },
 
-  { "r-threshold", '\0', MANDATORY_INT, r_threshold_opt },
-  { "r-fraction", '\0', MANDATORY_FLOAT, r_fraction_opt },
-  { "r-factor", '\0', MANDATORY_FLOAT, r_factor_opt },
+  { "r-initial-threshold", '\0', MANDATORY_INT, r_initial_threshold_opt },
+  { "r-interval", '\0', MANDATORY_INT, r_interval_opt },
 
   { "var-decay", '\0', MANDATORY_FLOAT, var_decay_opt },
   { "randomness", '\0', MANDATORY_FLOAT, randomness_opt },
@@ -406,9 +404,8 @@ static void yices_help(char *progname) {
          "    --d-threshold=<int>\n"
          "    --d-factor=<float>\n"
          "  Learned-clause deletion:\n"
-         "    --r-threshold=<int>\n"
-         "    --r-fraction=<float>\n"
-         "    --r-factor=<float>\n"
+         "    --r-initial-threshold=<int>\n"
+         "    --r-interval=<int>\n"
          "  Branching heuristic:\n"
          "    --var-decay=<float>\n"
          "    --randomness=<float>\n"
@@ -674,33 +671,23 @@ static void check_parameters(char *progname) {
     }
   }
 
-  if (opt_set[r_threshold_opt]) {
-    v = opt_val[r_threshold_opt].i_value;
+  if (opt_set[r_initial_threshold_opt]) {
+    v = opt_val[r_initial_threshold_opt].i_value;
     if (v <= 0) {
-      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(r_threshold_opt));
+      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(r_initial_threshold_opt));
       goto error;
     }
-    params.r_threshold = v;
+    params.r_initial_threshold = v;
     use_default_params = false;
   }
 
-  if (opt_set[r_fraction_opt]) {
-    x = opt_val[r_fraction_opt].d_value;
-    if (x < 0) {
-      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(r_fraction_opt));
+  if (opt_set[r_interval_opt]) {
+    v = opt_val[r_interval_opt].i_value;
+    if (v <= 0) {
+      fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(r_interval_opt));
       goto error;
     }
-    params.r_fraction = x;
-    use_default_params = false;
-  }
-
-  if (opt_set[r_factor_opt]) {
-    x = opt_val[r_factor_opt].d_value;
-    if (x < 1.0) {
-      fprintf(stderr, "%s: %s must be at least 1\n", progname, opt_name(r_factor_opt));
-      goto error;
-    }
-    params.r_factor = x;
+    params.r_interval = v;
     use_default_params = false;
   }
 
@@ -998,7 +985,8 @@ static void parse_command_line(int argc, char *argv[]) {
         // integer parameters
       case c_threshold_opt:
       case d_threshold_opt:
-      case r_threshold_opt:
+      case r_initial_threshold_opt:
+      case r_interval_opt:
       case randomseed_opt:
       case tclause_size_opt:
       case max_ackermann_opt:
@@ -1017,8 +1005,6 @@ static void parse_command_line(int argc, char *argv[]) {
         // real-valued parameters
       case c_factor_opt:
       case d_factor_opt:
-      case r_fraction_opt:
-      case r_factor_opt:
       case var_decay_opt:
       case randomness_opt:
       case clause_decay_opt:

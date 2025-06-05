@@ -72,12 +72,11 @@ struct param_s {
 
   /*
    * Clause-deletion heuristic
-   * - initial reduce_threshold is max(r_threshold, num_prob_clauses * r_fraction)
-   * - increase by r_factor on every outer restart provided reduce was called in that loop
+   * - initial reduce_threshold is r_initial_threshold
+   * - increase by a factor of r_interval on every reduce call
    */
-  uint32_t r_threshold;
-  double   r_fraction;
-  double   r_factor;
+  uint32_t r_initial_threshold;
+  uint32_t r_interval;
 
   /*
    * SMT Core parameters:

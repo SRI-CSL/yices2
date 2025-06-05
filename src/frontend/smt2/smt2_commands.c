@@ -5150,16 +5150,12 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_float_value(g->parameters.c_factor);
     break;
 
-  case PARAM_R_THRESHOLD:
-    print_uint32_value(g->parameters.r_threshold);
+  case PARAM_R_INITIAL_THRESHOLD:
+    print_uint32_value(g->parameters.r_initial_threshold);
     break;
 
-  case PARAM_R_FRACTION:
-    print_float_value(g->parameters.r_fraction);
-    break;
-
-  case PARAM_R_FACTOR:
-    print_float_value(g->parameters.r_factor);
+  case PARAM_R_INTERVAL:
+    print_uint32_value(g->parameters.r_interval);
     break;
 
   case PARAM_VAR_DECAY:
@@ -5785,21 +5781,15 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
-  case PARAM_R_THRESHOLD:
+  case PARAM_R_INITIAL_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.r_threshold = n;
+      g->parameters.r_initial_threshold = n;
     }
     break;
 
-  case PARAM_R_FRACTION:
-    if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->parameters.r_fraction = x;
-    }
-    break;
-
-  case PARAM_R_FACTOR:
-    if (param_val_to_factor(param, val, &x, &reason)) {
-      g->parameters.r_factor = x;
+  case PARAM_R_INTERVAL:
+    if (param_val_to_pos32(param, val, &n, &reason)) {
+      g->parameters.r_interval = n;
     }
     break;
 

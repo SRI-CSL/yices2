@@ -56,9 +56,8 @@
 /*
  * Default clause deletion parameters
  */
-#define DEFAULT_R_THRESHOLD   1000
-#define DEFAULT_R_FRACTION    0.25
-#define DEFAULT_R_FACTOR      1.05
+#define DEFAULT_R_INITIAL_THRESHOLD   1000
+#define DEFAULT_R_INTERVAL    1000
 
 
 /*
@@ -133,9 +132,8 @@ static const param_t default_settings = {
   DEFAULT_C_FACTOR,
   DEFAULT_D_FACTOR,
 
-  DEFAULT_R_THRESHOLD,
-  DEFAULT_R_FRACTION,
-  DEFAULT_R_FACTOR,
+  DEFAULT_R_INITIAL_THRESHOLD,
+  DEFAULT_R_INTERVAL,
 
   DEFAULT_VAR_DECAY,
   DEFAULT_RANDOMNESS,
@@ -188,9 +186,8 @@ typedef enum param_key {
   PARAM_C_FACTOR,
   PARAM_D_FACTOR,
   // clause deletion heuristic
-  PARAM_R_THRESHOLD,
-  PARAM_R_FRACTION,
-  PARAM_R_FACTOR,
+  PARAM_R_INITIAL_THRESHOLD,
+  PARAM_R_INTERVAL,
   // branching heuristic
   PARAM_VAR_DECAY,
   PARAM_RANDOMNESS,
@@ -251,9 +248,8 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "max-update-conflicts",
   "optimistic-final-check",
   "prop-threshold",
-  "r-factor",
-  "r-fraction",
-  "r-threshold",
+  "r-initial-threshold",
+  "r-interval",
   "random-seed",
   "randomness",
   "simplex-adjust",
@@ -288,9 +284,8 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
-  PARAM_R_FACTOR,
-  PARAM_R_FRACTION,
-  PARAM_R_THRESHOLD,
+  PARAM_R_INITIAL_THRESHOLD,
+  PARAM_R_INTERVAL,
   PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
   PARAM_SIMPLEX_ADJUST,
@@ -523,19 +518,18 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_double_param(value, &parameters->d_factor, 1.0, DBL_MAX);
     break;
 
-  case PARAM_R_THRESHOLD:
+  case PARAM_R_INITIAL_THRESHOLD:
     r = set_int32_param(value, &z, 1, INT32_MAX);
     if (r == 0) {
-      parameters->r_threshold = z;
+      parameters->r_initial_threshold = z;
     }
     break;
 
-  case PARAM_R_FRACTION:
-    r = set_double_param(value, &parameters->r_fraction, 0.0, 1.0);
-    break;
-
-  case PARAM_R_FACTOR:
-    r = set_double_param(value, &parameters->r_factor, 1.0, DBL_MAX);
+  case PARAM_R_INTERVAL:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->r_interval = z;
+    }
     break;
 
   case PARAM_VAR_DECAY:
