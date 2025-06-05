@@ -73,22 +73,6 @@ bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t 
 }
 #endif
 
-/** Clears all term to value assignments based on a list of free variables based on l2o's free variable collection */
-static
-void l2o_clear_eval_map(l2o_t *l2o, l2o_evaluator_t* eval_map, const ivector_t *changed_vars) {
-  double_hmap_t new;
-  init_double_hmap(&new, 0);
-  for (double_hmap_pair_t *p = double_hmap_first_record(eval_map); p; p = double_hmap_next_record(eval_map, p)) {
-    // check if the term has a variable in changed_vars
-    if (!l2o_term_has_variables(l2o, p->key, changed_vars)) {
-      double_hmap_add(&new, p->key, p->val);
-    }
-  }
-  double_hmap_swap(&new, eval_map);
-  delete_double_hmap(&new);
-}
-
-
 void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state) {
   init_double_hmap(evaluator, 0);
 
@@ -104,7 +88,6 @@ void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_s
 void l2o_evaluator_construct_cache(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state,
                                    const double_hmap_t *cache) {
   init_double_hmap(evaluator, 0);
-  double_hmap_copy(evaluator, cache);
 
   // Set of variables whose values have changed w.r.t. cache assignment.
   ivector_t vars_with_new_val;
@@ -112,9 +95,13 @@ void l2o_evaluator_construct_cache(l2o_t *l2o, l2o_evaluator_t *evaluator, const
 
   bool diffed = cache_find_changed_variables(cache, state, &vars_with_new_val);
   (void)diffed; assert(diffed);
-  // TODO why sort?
-  int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
-  l2o_clear_eval_map(l2o, evaluator, &vars_with_new_val);
+  //int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
+  for (double_hmap_pair_t *p = double_hmap_first_record(cache); p; p = double_hmap_next_record(cache, p)) {
+    // check if the term has a variable in changed_vars
+    if (!l2o_term_has_variables(l2o, p->key, &vars_with_new_val)) {
+      double_hmap_add(evaluator, p->key, p->val);
+    }
+  }
   delete_ivector(&vars_with_new_val);
 
   // Each var v[i] is evaluated to its assigned value x[i]
