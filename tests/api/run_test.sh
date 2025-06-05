@@ -127,3 +127,6 @@ case $exitcode in
 	;;
 
 esac
+
+# Propagate the test's exit code
+exit $exitcode
