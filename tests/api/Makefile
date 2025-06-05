@@ -363,7 +363,7 @@ $(static_objdir)/%.o: %.c
 all: $(tests)
 	@ echo === Running tests ===
 	@ rm -f *.log
-	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ for test in $^ ; do ./run_test.sh $$test || exit 1 ; done
 	@ echo
 	@ ./print_summary.sh tests.log
 
@@ -375,7 +375,7 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 all-static: $(static_tests)
 	@ echo === Running tests ===
 	@ rm -f *.log
-	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ for test in $^ ; do ./run_test.sh $$test || exit 1 ; done
 	@ echo
 	@ ./print_summary.sh tests.log
 
