@@ -58,6 +58,7 @@
 
 #include "yices.h"
 #include <inttypes.h>
+#include <math.h>
 
 /**
  * Notification of new variables for the main solver.
@@ -243,6 +244,7 @@ struct mcsat_solver_s {
   struct {
     bool restart;
     bool gc_calls;
+    bool recache;
   } pending_requests_all;
 
   /** Any pending requests */
@@ -281,6 +283,8 @@ struct mcsat_solver_s {
     statistic_avg_t* avg_conflict_size;
     // GC calls
     statistic_int_t* gc_calls;
+    // Recache calls
+    statistic_int_t* recaches;
   } solver_stats;
 
   struct {
@@ -288,6 +292,8 @@ struct mcsat_solver_s {
     uint32_t restart_interval;
     // Type of weight to use for restart counter
     lemma_weight_type_t lemma_restart_weight_type;
+    // recache interval
+    uint32_t recache_interval;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -326,12 +332,14 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
 }
 
 static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
+  mcsat->heuristic_params.recache_interval = 300;
   mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
   mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
 }
@@ -618,6 +626,12 @@ void mcsat_request_gc(mcsat_solver_t* mcsat) {
 }
 
 static
+void mcsat_request_recache(mcsat_solver_t* mcsat) {
+  mcsat->pending_requests = true;
+  mcsat->pending_requests_all.recache = true;
+}
+
+static
 void mcsat_plugin_context_restart(plugin_context_t* self) {
   mcsat_plugin_context_t* mctx;
 
@@ -717,13 +731,7 @@ static
 void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const mcsat_value_t* val) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
-  // update only if the x value is not set in the trail
-  if (!trail_has_value(mctx->mcsat->trail, x)) {
-    // we set the value in the model of the trail.
-    // Remark: This is not making a decision in the trail. The model
-    // in the trail is used as a cache for unassigned variables.
-    mcsat_model_set_value(&mctx->mcsat->trail->model, x, val);
-  }
+  trail_set_cached_value(mctx->mcsat->trail, x, val);
 }
 
 static
@@ -907,6 +915,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   mcsat->pending_requests_all.restart = false;
   mcsat->pending_requests_all.gc_calls = false;
+  mcsat->pending_requests_all.recache = false;
   mcsat->pending_requests = false;
 
   mcsat->variable_in_conflict = variable_null;
@@ -1044,7 +1053,7 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache);
 
 static
 void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
@@ -1107,7 +1116,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   uint32_t new_base_level = trail_pop_base_level(mcsat->trail);
 
   // Backtrack solver
-  mcsat_backtrack_to(mcsat, new_base_level);
+  mcsat_backtrack_to(mcsat, new_base_level, false);
 
   // Internal stuff pop
   uint32_t assertion_vars_size = 0;
@@ -1164,7 +1173,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   // - Pop internal to base level
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
-  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
   mcsat->status = STATUS_IDLE;
   mcsat->interpolant = NULL_TERM; // BD
 }
@@ -1404,7 +1413,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache) {
   assert((int32_t) level >= mcsat->assumptions_decided_level);
   while (mcsat->trail->decision_level > level) {
 
@@ -1422,6 +1431,9 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
     // Pop the plugins
     mcsat_pop_internal(mcsat);
   }
+
+  // save target cache (when backtracking)
+  if (update_cache) trail_update_extra_cache(mcsat->trail);
 }
 
 static
@@ -1431,12 +1443,15 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // Restarts
     if (mcsat->pending_requests_all.restart) {
+      // save target cache before restart
+      trail_update_extra_cache(mcsat->trail);
+
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
       mcsat->assumptions_decided_level = -1;
       mcsat->assumption_i = 0;
-      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
       mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
@@ -1450,6 +1465,13 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat_gc(mcsat, false);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
+    }
+
+    // recache target cache
+    if (mcsat->pending_requests_all.recache) {
+      mcsat->pending_requests_all.recache = false;
+      trail_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
+      (*mcsat->solver_stats.recaches) ++;
     }
 
     // All services
@@ -1716,7 +1738,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   if (unassigned.size == 1) {
     // UIP, just make sure we're not going below assumptions
     if ((int32_t) top_level >= mcsat->assumptions_decided_level) {
-      mcsat_backtrack_to(mcsat, top_level);
+      mcsat_backtrack_to(mcsat, top_level, false);
     }
   } else {
     // Non-UIP, we're already below, and we'll split on a new term, that's enough
@@ -2099,7 +2121,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   conflict_level = conflict_get_level(&conflict);
   // Backtrack max(base, assumptions, conflict)
   backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-  mcsat_backtrack_to(mcsat, backtrack_level);
+  mcsat_backtrack_to(mcsat, backtrack_level, false);
 
   // Analyze while at least one variable at conflict level
   while (true) {
@@ -2215,7 +2237,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       conflict_recompute_level_info(&conflict);
       conflict_level = conflict_get_level(&conflict);
       backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-      mcsat_backtrack_to(mcsat, backtrack_level);
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
     }
   }
 
@@ -2230,14 +2252,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     }
     mcsat->assumptions_decided_level = -1;
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
     mcsat->status = STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1, true);
 
     // Get the literals
     conflict_disjuncts = conflict_get_literals(&conflict);
@@ -2626,30 +2648,25 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 
   value_table_t* vtbl = model_get_vtbl(mdl);
 
-  mcsat_push(mcsat);
+  trail_clear_cache(mcsat->trail);
+  trail_update_extra_cache(mcsat->trail);
 
-  uint32_t i;
-  for (i = 0; i < n_mdl_filter; ++i) {
+  for (uint32_t i = 0; i < n_mdl_filter; ++i) {
     term_t x = mdl_filter[i];
     assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     assert(is_pos_term(x));
 
-    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
-    if (trail_has_value(mcsat->trail, x_var)) {
-      continue;
-    }
-
-    uint32_t plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, x_var)];
+    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));    
     value_t x_value = model_get_term_value(mdl, x);
     mcsat_value_t value;
+
     mcsat_value_construct_from_value(&value, vtbl, x_value);
     assert(x_value >= 0);
-    trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
-    mcsat_value_destruct(&value);
-    mcsat_process_registration_queue(mcsat);
+
+    trail_set_cached_value(mcsat->trail, x_var, &value);
   }
 
-  mcsat_pop(mcsat);
+  mcsat_process_registration_queue(mcsat);
 }
 
 static
@@ -2740,6 +2757,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
+  // recache parameters
+  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
+  uint32_t recache_round = 0;
+
   // Whether to run learning
   bool learning = true;
 
@@ -2750,6 +2771,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+
+    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+      // recache
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
