@@ -63,9 +63,8 @@ static void show_params(param_t *params) {
   printf("  c-factor     = %.4f\n", params->c_factor);
   printf("  d-factor     = %.4f\n", params->d_factor);
   printf("--- clause deletion ---\n");
-  printf("  r-threshold  = %"PRIu32"\n", params->r_threshold);
-  printf("  r-fraction   = %.4f\n", params->r_fraction);
-  printf("  r-factor     = %.4f\n", params->r_factor);
+  printf("  r-initial-threshold  = %"PRIu32"\n", params->r_initial_threshold);
+  printf("  r-interval           = %"PRIu32"\n", params->r_interval);
   printf("--- core ---\n");
   printf("  var-decay     = %.4f\n", params->var_decay);
   printf("  randomness    = %.4f\n", (double) params->randomness);
@@ -273,7 +272,8 @@ static void test_set_params(param_t *params) {
   test_set_posint_param(params, "max-extensionality");
   test_set_posint_param(params, "max-interface-eqs");
   test_set_posint_param(params, "max-update-conflicts");
-  test_set_posint_param(params, "r-threshold");
+  test_set_posint_param(params, "r-initial-threshold");
+  test_set_posint_param(params, "r-interval");
 
   test_set_posint2_param(params, "tclause-size");
 
