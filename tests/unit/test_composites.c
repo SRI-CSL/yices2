@@ -33,11 +33,12 @@
 
 
 /*
- * Test partition: 11 terms, 4 classes
+ * Test partition: 12 terms, 5 classes
  * class[0] = { true, a-, b+ }
  * class[1] = { c+, d- }
  * class[2] = { e+, f+, g+ }
  * class[3] = { h+, i+, j+ }
+ * class[4] = { k+ }
  *
  * with classes 2 and 3 distinct
  */
