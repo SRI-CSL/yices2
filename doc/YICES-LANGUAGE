@@ -713,44 +713,37 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
 6.2.2) Clause deletion
 
+    Parameter	    Type
+    Name
 
-   Parameter	    Type
-   Name
-
-   r-threshold      Integer	Clause-reduction initial threshold
-
-   r-fraction       Float       Clause-reduction fraction (must be between 0.0 and 1.0)
-
-   r-factor         Float       Increase factor for clause reduction (must be >= 1.0)
-
-   clause-decay     Float	Clause activity decay (must be between 0.0 and 1.0)
+    r-initial-threshold  Integer	Initial threshold for clause deletion
+    r-interval          Integer	Interval for increasing the deletion threshold
+    clause-decay        Float	Clause activity decay (must be between 0.0 and 1.0)
 
 
+    To control clause deletion, Yices uses a similar strategy as Kissat.
 
-   To control clause deletion, Yices uses the following strategy (same as Minisat
-   and other SAT solvers).
+    Clause activity:
 
-   Clause activity:
+    Each learned clause has an activity score that decays
+    geometrically.  After each conflict, the activity of all clauses
+    not involved in this conflict is reduced by a factor equal to
+    clause-decay (by default it's 0.999).  A smaller clause-decay
+    causes clauses activity do go down faster.
 
-   Each learned clause has an activity score that decays
-   geometrically.  After each conflict, the activity of all clauses
-   not involved in this conflict is reduced by a factor equal to
-   clause-decay (by default it's 0.999).  A smaller clause-decay
-   causes clauses activity do go down faster.
+    To trigger clause deletion: the solver uses a threshold = reduction-bound
 
-   To trigger clause deletion: the solver uses a threshold = reduction-bound
+    Initially:
 
-   Initially:
+      reduction-bound = r-initial-threshold
 
-     reduction-bound = max(r-threshold, r-fraction * number of clauses in initial problem)
+    During the search:
 
-   During the search:
+       when the number of learned clauses >= reduction bound
+       delete low-activity clauses
+       reduction-bound := reduction-bound + (r-interval * reduction-count * log10(reduction-count + 9)^4)
 
-      when the number of learned clauses >= reduction bound
-      delete low-activity clauses
-      reduction-bound  := r-factor * reduction-bound
-
-
+       where reduction-count is the number of times clause deletion has been performed
 
 6.2.3) Decision heuristic
 
