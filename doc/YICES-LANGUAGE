@@ -739,9 +739,9 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
     During the search:
 
-       when the number of learned clauses >= reduction bound
+       when the number of conflicts >= reduction bound
        delete low-activity clauses
-       reduction-bound := reduction-bound + (r-interval * reduction-count * log10(reduction-count + 9)^4)
+       reduction-bound := reduction-bound + (r-interval * sqrt(reduction-count))
 
        where reduction-count is the number of times clause deletion has been performed
 

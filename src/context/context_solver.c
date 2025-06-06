@@ -139,18 +139,18 @@ static void process_assumption(smt_core_t *core, literal_t l) {
 
 /*
  * Handle the reduce heuristic:
- * - If number of learned clauses exceeds threshold, reduce the clause database
- * - Update the threshold using the reduction factor
+ * - If number of conflicts exceeds threshold, reduce the clause database
+ * - Update the threshold 
  * - Return the number of clauses deleted
  */
-inline static uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, uint64_t *r_count, uint64_t r_interval) {
+static inline uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, uint64_t *r_count, uint64_t r_interval) {
   uint64_t deletions = 0;
 
   if (num_learned_clauses(core) >= *r_threshold) {
     deletions = core->stats.learned_clauses_deleted;
     reduce_clause_database(core);
     *r_count = *r_count + 1;
-    *r_threshold += (uint32_t) (*r_count * r_interval * pow(log10(*r_count + 9), 4));
+    *r_threshold += (uint32_t) (r_interval * sqrt(*r_count));
     trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
   }
 
